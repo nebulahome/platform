@@ -1,8 +1,9 @@
 /**
  * Public entry point of the `@nebula-home/config` package.
  *
- * Placeholder: the package has no implementation yet. Re-exports go here.
+ * The single place in the platform that reads the process environment. Services import a schema
+ * fragment, compose it with their own variables, and load it once at startup.
  */
 
-/** Identifier of this package, used by log records and bus envelopes. */
-export const PACKAGE_NAME = '@nebula-home/config';
+export * from './env-schemas.js';
+export * from './load.js';
