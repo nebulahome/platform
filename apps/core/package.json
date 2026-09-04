@@ -4,13 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
-    "test:integration": "vitest run --dir tests/integration"
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@nebula-home/bus": "workspace:*",
@@ -19,8 +19,11 @@
     "@nebula-home/db": "workspace:*",
     "@nebula-home/logging": "workspace:*",
     "croner": "^10.0.1",
+    "drizzle-orm": "^0.45.2",
     "jsonata": "^2.2.2",
-    "suncalc": "^2.0.2"
+    "nats": "^2.29.3",
+    "suncalc": "^2.0.2",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@nebula-home/eslint-config": "workspace:*",

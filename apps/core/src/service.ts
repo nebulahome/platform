@@ -1,0 +1,224 @@
+/**
+ * Assembling `core` out of its parts, and taking it apart again.
+ *
+ * Startup order matters and is not arbitrary:
+ *
+ * 1. load the registry, so there is something to answer with;
+ * 2. start serving, so a request arriving during startup is answered rather than timed out;
+ * 3. ask the adapters to resynchronise, which produces reports the ingest pipeline is by then
+ *    already listening for.
+ *
+ * Doing (3) before (2) would drop every report the adapters sent in reply.
+ */
+import {
+  ensureTelemetryStream,
+  newTraceId,
+  BusClient,
+  type BusConnection,
+  type BusSubscription,
+} from '@nebula-home/bus';
+import type { Database } from '@nebula-home/db';
+import { withTraceId, type PlatformLogger } from '@nebula-home/logging';
+
+import type { CoreConfig } from './config.js';
+import { SERVICE_NAME } from './config.js';
+import { EntityDirectory } from './domain/entity-directory.js';
+import { EntityRegistry } from './domain/entity-registry.js';
+import type { BatchWriter } from './persistence/batch-writer.js';
+import {
+  createHistoryWriter,
+  createStateCacheWriter,
+  type EntityStateRow,
+  type StateHistoryRow,
+} from './persistence/history-writer.js';
+import { loadRegistry } from './persistence/registry-loader.js';
+import { startCommandRouter } from './services/command-router.js';
+import { requestResync } from './services/resync.js';
+import { startStateIngest } from './services/state-ingest.js';
+import { startEntityReadService, startSnapshotService } from './services/state-queries.js';
+import { runTelemetryIngest } from './services/telemetry-ingest.js';
+
+/** What the service is built from. */
+export type CoreServiceOptions = {
+  /** The validated environment. */
+  readonly config: CoreConfig;
+
+  /** A connected, schema-checked database handle. */
+  readonly db: Database;
+
+  /** A connected bus. */
+  readonly bus: BusConnection;
+
+  /** The service logger. */
+  readonly logger: PlatformLogger;
+};
+
+/** `core`, assembled. */
+export class CoreService {
+  readonly #options: CoreServiceOptions;
+  readonly #registry = new EntityRegistry();
+  readonly #shutdown = new AbortController();
+
+  #directory = new EntityDirectory();
+  #client: BusClient | undefined;
+  #subscriptions: BusSubscription[] = [];
+  #history: BatchWriter<StateHistoryRow> | undefined;
+  #stateCache: BatchWriter<EntityStateRow> | undefined;
+  #telemetry: Promise<void> | undefined;
+
+  /**
+   * Builds the service without starting anything.
+   *
+   * @param options - Configuration, database, bus and logger.
+   */
+  public constructor(options: CoreServiceOptions) {
+    this.#options = options;
+  }
+
+  /**
+   * The in-memory registry, exposed so an integration test can assert on what was ingested.
+   *
+   * @returns The registry this service is the single writer of.
+   */
+  public get registry(): EntityRegistry {
+    return this.#registry;
+  }
+
+  /**
+   * The configured entities, exposed for the same reason.
+   *
+   * @returns The directory loaded at startup.
+   */
+  public get directory(): EntityDirectory {
+    return this.#directory;
+  }
+
+  /**
+   * Loads the registry, starts serving, and asks the adapters to resynchronise.
+   *
+   * @returns A promise that settles once the service is serving. The resynchronisation it
+   * triggers is still in flight: waiting for it would mean a service that cannot start while one
+   * adapter is down, and the whole point of marking those entities unavailable is that it can.
+   */
+  public async start(): Promise<void> {
+    const { config, db, bus, logger } = this.#options;
+    const startupLogger = withTraceId(logger, newTraceId());
+
+    const client = new BusClient({
+      transport: bus.transport,
+      source: SERVICE_NAME,
+      logger,
+      requestTimeoutMs: config.CORE_COMMAND_TIMEOUT_MS,
+    });
+
+    this.#client = client;
+
+    const loaded = await loadRegistry(db, startupLogger);
+
+    this.#directory = loaded.directory;
+
+    for (const state of loaded.states) {
+      this.#registry.seed(state);
+    }
+
+    startupLogger.info(
+      {
+        entities: loaded.directory.size,
+        recoveredStates: loaded.states.length,
+        discardedStates: loaded.discardedStates,
+      },
+      'Registry rebuilt from the database',
+    );
+
+    const history = createHistoryWriter({
+      db,
+      logger,
+      batchSize: config.CORE_HISTORY_BATCH_SIZE,
+      flushIntervalMs: config.CORE_HISTORY_FLUSH_INTERVAL_MS,
+    });
+
+    const stateCache = createStateCacheWriter({
+      db,
+      logger,
+      batchSize: config.CORE_HISTORY_BATCH_SIZE,
+      flushIntervalMs: config.CORE_HISTORY_FLUSH_INTERVAL_MS,
+    });
+
+    history.start();
+    stateCache.start();
+
+    this.#history = history;
+    this.#stateCache = stateCache;
+
+    this.#subscriptions = [
+      startStateIngest({
+        client,
+        registry: this.#registry,
+        directory: this.#directory,
+        history,
+        stateCache,
+        logger,
+      }),
+      startSnapshotService({ client, registry: this.#registry }),
+      startEntityReadService({ client, registry: this.#registry }),
+      startCommandRouter({
+        client,
+        directory: this.#directory,
+        commandTimeoutMs: config.CORE_COMMAND_TIMEOUT_MS,
+      }),
+    ];
+
+    await ensureTelemetryStream({ connection: bus.connection, logger });
+
+    this.#telemetry = runTelemetryIngest({
+      connection: bus.connection,
+      db,
+      directory: this.#directory,
+      logger,
+      signal: this.#shutdown.signal,
+      batchSize: config.CORE_TELEMETRY_BATCH_SIZE,
+    });
+
+    // Deliberately not awaited: a resynchronisation waits out the command timeout for every
+    // adapter that is not running, and the service is already serving by this point.
+    void requestResync({
+      client,
+      directory: this.#directory,
+      registry: this.#registry,
+      logger: startupLogger,
+      timeoutMs: config.CORE_COMMAND_TIMEOUT_MS,
+      reason: 'startup',
+    }).catch((error: unknown) => {
+      startupLogger.error({ err: error }, 'Startup resynchronisation failed');
+    });
+
+    logger.info({ service: SERVICE_NAME }, 'Core is serving');
+  }
+
+  /**
+   * Stops serving, drains what is buffered and closes every connection.
+   *
+   * Order matters here too: stop accepting new work, then write what is already buffered, then
+   * close the connections the writing needed (RULES.md 9).
+   *
+   * @returns A promise that settles once everything is closed.
+   */
+  public async stop(): Promise<void> {
+    for (const subscription of this.#subscriptions) {
+      subscription.unsubscribe();
+    }
+
+    this.#subscriptions = [];
+    this.#shutdown.abort();
+
+    await Promise.allSettled([
+      this.#history?.stop() ?? Promise.resolve(),
+      this.#stateCache?.stop() ?? Promise.resolve(),
+      this.#telemetry ?? Promise.resolve(),
+    ]);
+
+    await this.#client?.drain();
+
+    this.#options.logger.info({ service: SERVICE_NAME }, 'Core has stopped');
+  }
+}
