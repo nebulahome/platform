@@ -17,7 +17,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
-    "migrate": "tsx src/bin/migrate.ts"
+    "migrate": "tsx --env-file-if-exists=../../.env src/bin/migrate.ts"
   },
   "dependencies": {
     "@nebula-home/config": "workspace:*",
