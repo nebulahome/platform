@@ -389,9 +389,15 @@ importers:
 
   packages/db:
     dependencies:
+      '@nebula-home/config':
+        specifier: workspace:*
+        version: link:../config
       '@nebula-home/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@nebula-home/logging':
+        specifier: workspace:*
+        version: link:../logging
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(postgres@3.4.9)
@@ -405,12 +411,21 @@ importers:
       '@nebula-home/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
+      tsx:
+        specifier: ^4.23.13
+        version: 4.23.13
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@22.20.1)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
 
   packages/eslint-config:
     dependencies:
