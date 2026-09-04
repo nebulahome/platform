@@ -1,0 +1,15 @@
+# Development happens on Windows, CI runs on Linux. Normalising to LF here is what
+# stops every file from showing up as fully rewritten in a diff.
+* text=auto eol=lf
+
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.ico  binary
+*.glb  binary
+*.gltf binary
+*.woff binary
+*.woff2 binary
+
+pnpm-lock.yaml -diff linguist-generated=true

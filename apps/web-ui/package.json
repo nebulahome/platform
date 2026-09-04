@@ -1,0 +1,39 @@
+{
+  "name": "@nebula-home/web-ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "dev": "vite",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nebula-home/contracts": "workspace:*",
+    "@nebula-home/ui": "workspace:*",
+    "@tanstack/react-query": "^5.102.8",
+    "i18next": "^26.4.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-i18next": "^17.0.13",
+    "react-router": "^8.3.1",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@nebula-home/eslint-config": "workspace:*",
+    "@nebula-home/tsconfig": "workspace:*",
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^30.0.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.2.2"
+  }
+}

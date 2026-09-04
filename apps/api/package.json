@@ -1,0 +1,35 @@
+{
+  "name": "@nebula-home/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:integration": "vitest run --dir tests/integration"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.3.0",
+    "@fastify/helmet": "^13.1.1",
+    "@fastify/rate-limit": "^11.2.0",
+    "@fastify/websocket": "^11.3.0",
+    "@nebula-home/bus": "workspace:*",
+    "@nebula-home/config": "workspace:*",
+    "@nebula-home/contracts": "workspace:*",
+    "@nebula-home/db": "workspace:*",
+    "@nebula-home/logging": "workspace:*",
+    "@node-rs/argon2": "^2.2.0",
+    "fastify": "^5.12.1",
+    "jose": "^6.2.10",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@nebula-home/eslint-config": "workspace:*",
+    "@nebula-home/tsconfig": "workspace:*",
+    "typescript": "^6.0.3"
+  }
+}

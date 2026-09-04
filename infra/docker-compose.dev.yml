@@ -1,0 +1,41 @@
+# Development infrastructure only: PostgreSQL and NATS.
+#
+# The application services are NOT here on purpose - in development they run natively via
+# `pnpm dev`, so a reload takes a second and a debugger can attach. The production compose
+# file, which does run every service, is a separate file added later.
+name: nebula-home-dev
+
+services:
+  postgres:
+    # TimescaleDB rather than plain postgres: the history schema is built on hypertables and
+    # continuous aggregates, so plain postgres cannot run the migrations at all.
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: nebula
+      POSTGRES_PASSWORD: nebula
+      POSTGRES_DB: nebula
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nebula -d nebula']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  nats:
+    image: nats:2-alpine
+    # -js enables JetStream, which the telemetry stream needs to survive a core restart.
+    command: ['-js', '-m', '8222']
+    ports:
+      - '4222:4222'
+      - '8222:8222'
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:8222/healthz']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:

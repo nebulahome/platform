@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens. Every colour in the application resolves through one of these, so that a theme
+ * change is a change here and nowhere else. Hard-coded colours in components are a review
+ * failure (RULES.md 15.3).
+ */
+@theme {
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.15 0 0);
+  --color-muted: oklch(0.96 0 0);
+  --color-muted-foreground: oklch(0.5 0 0);
+  --color-border: oklch(0.9 0 0);
+  --color-primary: oklch(0.55 0.18 255);
+  --color-primary-foreground: oklch(0.99 0 0);
+  --color-destructive: oklch(0.58 0.22 27);
+}

@@ -1,0 +1,13 @@
+-- Development seed data.
+--
+-- This file is NOT the schema seed. Permissions, built-in roles and default settings are
+-- inserted by migration 0001, because the application cannot start without them.
+--
+-- What belongs here instead is fake data that makes the UI worth looking at before any real
+-- hardware exists: a simulated device, a handful of entities across different capabilities,
+-- and enough synthetic history for the charts to render a curve rather than an empty axis.
+--
+-- Never applied outside development. The runner refuses to execute this against a database
+-- that already contains real users.
+
+-- Placeholder: nothing to seed until the registry tables exist.

@@ -1,0 +1,13 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+allowBuilds:
+  esbuild: true
+  unrs-resolver: true
+
+# esbuild ships a platform binary from its postinstall; vitest, tsx and vite are unusable
+# without it. Every other build script stays blocked by default.
+onlyBuiltDependencies:
+  - esbuild
+  - unrs-resolver
