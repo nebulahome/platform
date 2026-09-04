@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@nebula-home/contracts": "workspace:*",
+    "@nebula-home/logging": "workspace:*",
     "zod": "^4.5.4"
   },
   "devDependencies": {

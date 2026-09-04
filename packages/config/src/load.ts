@@ -7,6 +7,7 @@
  * rather than returning a partial object.
  */
 import { ConfigurationError, EXIT_CODES } from '@nebula-home/contracts';
+import { formatLogLine } from '@nebula-home/logging';
 import type { z, ZodType } from 'zod';
 
 /** A source of environment variables. `process.env` in production, a literal in tests. */
@@ -57,8 +58,15 @@ export function loadConfig<TSchema extends ZodType>(
  * Loads configuration, or ends the process with a readable explanation.
  *
  * Intended for a service's `main.ts`, where there is no caller left to handle the failure.
- * The report goes to stderr rather than through `@nebula-home/logging`, because the logger is
- * itself configured from these variables and does not exist yet at this point.
+ * The report goes to stderr rather than through a logger, because the logger is itself
+ * configured from these variables and does not exist yet at this point - but it borrows that
+ * package's renderer, so the first line carries the same `[time][name][LEVEL]` prefix as every
+ * other line the platform prints (RULES.md 10.3). The name is `config` rather than the service:
+ * there is no configured service identity yet, and inventing one here would put a guess in the
+ * bracket that is meant to be reliable.
+ *
+ * The offending variables follow as an indented list rather than as context JSON, because this
+ * is the one moment where somebody has to read and act on each of them individually.
  *
  * Only variable names and validation messages are printed. **Values are never echoed**, since
  * the environment holds secrets and a startup failure is exactly when someone screenshots the
@@ -85,9 +93,13 @@ export function loadConfigOrExit<TSchema extends ZodType>(
     const issues = (error.details['issues'] ?? []) as readonly ConfigurationIssue[];
     const lines = issues.map((issue) => `  - ${issue.variable}: ${issue.message}`);
 
-    process.stderr.write(
-      ['Cannot start: the environment configuration is not valid.', ...lines, ''].join('\n'),
-    );
+    const heading = formatLogLine({
+      level: 'fatal',
+      service: 'config',
+      msg: 'Cannot start: the environment configuration is not valid',
+    });
+
+    process.stderr.write([heading, ...lines, ''].join('\n'));
 
     return process.exit(EXIT_CODES.INVALID_CONFIGURATION);
   }
