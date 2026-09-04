@@ -9,18 +9,25 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/fake-transport.d.ts",
+      "default": "./dist/fake-transport.js"
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json --watch",
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@nebula-home/contracts": "workspace:*",
-    "nats": "^2.29.3"
+    "@nebula-home/logging": "workspace:*",
+    "nats": "^2.29.3",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@nebula-home/eslint-config": "workspace:*",
