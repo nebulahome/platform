@@ -129,12 +129,21 @@ importers:
       croner:
         specifier: ^10.0.1
         version: 10.0.1
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(postgres@3.4.9)
       jsonata:
         specifier: ^2.2.2
         version: 2.2.2
+      nats:
+        specifier: ^2.29.3
+        version: 2.29.3
       suncalc:
         specifier: ^2.0.2
         version: 2.0.2
+      zod:
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       '@nebula-home/eslint-config':
         specifier: workspace:*
@@ -332,9 +341,15 @@ importers:
       '@nebula-home/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@nebula-home/logging':
+        specifier: workspace:*
+        version: link:../logging
       nats:
         specifier: ^2.29.3
         version: 2.29.3
+      zod:
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       '@nebula-home/eslint-config':
         specifier: workspace:*
