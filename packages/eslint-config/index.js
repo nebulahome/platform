@@ -199,9 +199,11 @@ export default tseslint.config(
     },
   },
 
-  // The config package is the one place that may read the environment.
+  // Each service reads the environment in exactly one file. The `@nebula-home/config` package
+  // itself is exempted by its own flat config: ESLint runs with the package as its base path,
+  // so a pattern naming `packages/config/` here would never match anything.
   {
-    files: ['**/src/config.ts', 'packages/config/**/*.ts'],
+    files: ['**/src/config.ts'],
     rules: { 'no-restricted-properties': 'off' },
   },
 
