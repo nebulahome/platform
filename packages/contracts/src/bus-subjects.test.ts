@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { BUS_PATTERNS, busSubjects, entityCommandPattern } from './bus-subjects.js';
+import {
+  BUS_PATTERNS,
+  busSubjects,
+  entityCommandPattern,
+  parseCommandSubject,
+} from './bus-subjects.js';
 import { parseEntityId } from './entity-id.js';
 
 const entityId = parseEntityId('light.kitchen_ceiling');
@@ -47,5 +52,33 @@ describe('subscription patterns', () => {
 
   it('narrows to one entity across all of its capabilities', () => {
     expect(entityCommandPattern(entityId)).toBe('nebula.v1.cmd.light.kitchen_ceiling.*');
+  });
+});
+
+describe('parseCommandSubject', () => {
+  it('reads back what the builder wrote', () => {
+    expect(parseCommandSubject(busSubjects.command(entityId, 'level'))).toStrictEqual({
+      entityId,
+      capability: 'level',
+    });
+  });
+
+  it('rejects a subject that is not a command', () => {
+    // `core` subscribes with one wildcard and routes on the subject alone, so anything it
+    // cannot read has to be refused rather than guessed at.
+    expect(parseCommandSubject(busSubjects.stateReport(entityId))).toBeNull();
+    expect(parseCommandSubject('nebula.v1.cmd.light.kitchen_ceiling')).toBeNull();
+  });
+
+  it('rejects a capability that does not exist', () => {
+    expect(parseCommandSubject('nebula.v1.cmd.light.kitchen_ceiling.self_destruct')).toBeNull();
+  });
+
+  it('rejects an entity id that does not match the pattern', () => {
+    expect(parseCommandSubject('nebula.v1.cmd.Light.Kitchen.on_off')).toBeNull();
+  });
+
+  it('rejects another bus contract version', () => {
+    expect(parseCommandSubject('nebula.v2.cmd.light.kitchen_ceiling.on_off')).toBeNull();
   });
 });

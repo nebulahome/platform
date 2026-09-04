@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { capabilityStateSchema } from './capabilities.js';
 import { entityIdSchema } from './entity-id.js';
 import { jsonObjectSchema } from './json.js';
+import { timestampSchema } from './timestamp.js';
 
 /**
  * What caused a state to change.
@@ -74,10 +75,10 @@ export const entityStateSchema = z.object({
    * thirty seconds updates but does not change, and an automation triggering on change must not
    * fire on every report.
    */
-  lastChanged: z.date(),
+  lastChanged: timestampSchema,
 
   /** When a report last arrived, whether or not it changed anything. */
-  lastUpdated: z.date(),
+  lastUpdated: timestampSchema,
 
   /** Which adapter or engine produced this state. */
   source: sourceRefSchema,
@@ -104,7 +105,7 @@ export const stateReportSchema = z.object({
   isAvailable: z.boolean().optional(),
 
   /** When the device reported, if the adapter knows. `core` uses its own clock otherwise. */
-  observedAt: z.date().optional(),
+  observedAt: timestampSchema.optional(),
 });
 
 /** What an adapter publishes when a device reports. */
@@ -121,3 +122,60 @@ export const stateChangedEventSchema = z.object({
 
 /** What `core` fans out after a report changed something. */
 export type StateChangedEvent = z.output<typeof stateChangedEventSchema>;
+
+/**
+ * What a service sends to ask for the whole registry.
+ *
+ * Deliberately empty rather than absent: a subject that takes no arguments today may take a
+ * filter tomorrow, and an empty object can grow a field while `undefined` cannot.
+ */
+export const stateSnapshotRequestSchema = z.object({});
+
+/** What a service sends to ask for the whole registry. */
+export type StateSnapshotRequest = z.output<typeof stateSnapshotRequestSchema>;
+
+/**
+ * The whole registry, as `core` holds it.
+ *
+ * Requested once at startup by anything that then keeps itself in sync from `state_changed`
+ * events. That pair - one snapshot plus an event stream - is why no event on the bus needs to be
+ * durable (ARCHITECTURE.md 7.4).
+ */
+export const stateSnapshotReplySchema = z.object({
+  entities: z.array(entityStateSchema),
+
+  /** When the snapshot was taken, so a consumer can tell how stale its copy is. */
+  takenAt: timestampSchema,
+});
+
+/** The whole registry, as `core` holds it. */
+export type StateSnapshotReply = z.output<typeof stateSnapshotReplySchema>;
+
+/** What a service sends to read one entity. The entity is named by the subject. */
+export const stateGetRequestSchema = z.object({});
+
+/** What a service sends to read one entity. */
+export type StateGetRequest = z.output<typeof stateGetRequestSchema>;
+
+/**
+ * What `core` sends an adapter to ask it to republish everything it owns.
+ *
+ * Sent at startup, after `core` has rebuilt its registry from the database: the database holds
+ * the last state `core` managed to persist, and the adapter holds the truth.
+ */
+export const resyncRequestSchema = z.object({
+  /** Why the resynchronisation was asked for, for the adapter's own logs. */
+  reason: z.enum(['startup', 'reconnect', 'manual']),
+});
+
+/** What `core` sends an adapter to ask it to republish everything it owns. */
+export type ResyncRequest = z.output<typeof resyncRequestSchema>;
+
+/** What an adapter replies when it has accepted a resynchronisation request. */
+export const resyncReplySchema = z.object({
+  /** How many entities the adapter is about to report. Zero is a valid answer. */
+  entityCount: z.int().min(0),
+});
+
+/** What an adapter replies when it has accepted a resynchronisation request. */
+export type ResyncReply = z.output<typeof resyncReplySchema>;

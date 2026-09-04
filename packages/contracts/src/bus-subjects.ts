@@ -14,8 +14,8 @@
  *
  * Defined in ARCHITECTURE.md 7.2.
  */
-import { type CapabilityName } from './capabilities.js';
-import { type EntityId } from './entity-id.js';
+import { capabilityNameSchema, type CapabilityName } from './capabilities.js';
+import { isEntityId, type EntityId } from './entity-id.js';
 import { type LogLevel } from './log-level.js';
 
 /**
@@ -188,4 +188,50 @@ export function serviceMethodPattern(service: string): string {
  */
 export function entityCommandPattern(entityId: EntityId): string {
   return `${BUS_SUBJECT_PREFIX}.cmd.${entityId}.*`;
+}
+
+/** What a command subject addresses. */
+export type ParsedCommandSubject = {
+  /** The entity being commanded. */
+  readonly entityId: EntityId;
+
+  /** Which of its capabilities the command targets. */
+  readonly capability: CapabilityName;
+};
+
+/**
+ * Reads back what {@link busSubjects.command} built.
+ *
+ * `core` subscribes to every command with one wildcard subscription, so the only thing that says
+ * which entity and capability a message is for is the subject it arrived on.
+ *
+ * @param subject - The subject a command arrived on.
+ * @returns What it addresses, or null when it is not a command subject or names an entity or
+ * capability that does not exist. Null rather than a throw: a malformed subject is a message to
+ * reject with an explanation, not an exceptional condition inside `core`.
+ */
+export function parseCommandSubject(subject: string): ParsedCommandSubject | null {
+  const tokens = subject.split('.');
+
+  // nebula . v1 . cmd . <domain> . <object_id> . <capability>
+  const COMMAND_SUBJECT_TOKENS = 6;
+
+  if (tokens.length !== COMMAND_SUBJECT_TOKENS) {
+    return null;
+  }
+
+  const [namespace, version, kind, domain, objectId, capability] = tokens;
+
+  if (`${String(namespace)}.${String(version)}` !== BUS_SUBJECT_PREFIX || kind !== 'cmd') {
+    return null;
+  }
+
+  const entityId = `${String(domain)}.${String(objectId)}`;
+  const parsedCapability = capabilityNameSchema.safeParse(capability);
+
+  if (!isEntityId(entityId) || !parsedCapability.success) {
+    return null;
+  }
+
+  return { entityId, capability: parsedCapability.data };
 }

@@ -10,6 +10,7 @@
 export * from './bus-envelope.js';
 export * from './bus-subjects.js';
 export * from './capabilities.js';
+export * from './commands.js';
 export * from './entity-id.js';
 export * from './entity-state.js';
 export * from './errors.js';
@@ -19,3 +20,5 @@ export * from './log-level.js';
 export * from './package-manifest.js';
 export * from './permissions.js';
 export * from './settings.js';
+export * from './telemetry.js';
+export * from './timestamp.js';
