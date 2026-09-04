@@ -26,6 +26,44 @@ function ignoreNotice(): void {
   // Intentionally empty: see above.
 }
 
+/**
+ * What a `postgres` driver error carries.
+ *
+ * These fields are not serialised from an `Error` by default, and they are the whole diagnosis:
+ * without them a failed migration reports a numeric SQLSTATE and a byte offset into a
+ * thousand-line file.
+ */
+type DriverError = Partial<
+  Record<'message' | 'detail' | 'hint' | 'position' | 'where' | 'code' | 'name', string>
+> & { readonly errors?: readonly { readonly message?: string }[] };
+
+/**
+ * Produces a message worth printing for a driver error.
+ *
+ * A failure to connect arrives as an `AggregateError` whose own `message` is the **empty
+ * string**, with the real reason inside `errors`. Reporting `message` directly therefore prints
+ * a line with a level, a timestamp and nothing else - which is what this function exists to
+ * prevent, and why it treats an empty message as an absent one rather than only a missing one.
+ *
+ * @param error - The error the driver threw.
+ * @returns The most specific description available, never an empty string.
+ */
+function describeDriverError(error: DriverError): string {
+  const aggregated = (error.errors ?? [])
+    .map((inner) => inner.message)
+    .filter((message): message is string => message !== undefined && message.length > 0);
+
+  if (aggregated.length > 0) {
+    return `${error.name ?? 'Error'}: ${aggregated.join('; ')}`;
+  }
+
+  if (error.message !== undefined && error.message.length > 0) {
+    return error.message;
+  }
+
+  return error.name ?? 'Migration failed';
+}
+
 const migrationsDirectory = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   '..',
@@ -40,7 +78,14 @@ const migrationsDirectory = path.join(
  */
 async function main(): Promise<number> {
   const config = loadConfigOrExit(databaseEnvSchema);
-  const logger = createLogger({ service: 'db-migrate', version: '0.0.0', level: 'info' });
+  // Rendered rather than JSON: this is a command a person runs and reads, not a service whose
+  // output is ingested by `logger`.
+  const logger = createLogger({
+    service: 'db-migrate',
+    version: '0.0.0',
+    level: 'info',
+    pretty: true,
+  });
 
   // A single connection, not a pool: migrations run one after another by definition, and the
   // non-transactional file must run on the same session throughout.
@@ -63,12 +108,7 @@ async function main(): Promise<number> {
     if (isNebulaError(error)) {
       logger.fatal({ code: error.code, details: error.details }, error.message);
     } else {
-      // A driver error carries what actually went wrong in fields pino does not serialise from
-      // an Error by default: without these, a failed migration reports only a numeric SQLSTATE
-      // and a byte offset into a thousand-line file.
-      const driverError = error as Partial<
-        Record<'message' | 'detail' | 'hint' | 'position' | 'where' | 'code', string>
-      >;
+      const driverError = error as DriverError;
 
       logger.fatal(
         {
@@ -78,7 +118,7 @@ async function main(): Promise<number> {
           position: driverError.position,
           where: driverError.where,
         },
-        driverError.message ?? 'Migration failed',
+        describeDriverError(driverError),
       );
     }
 
