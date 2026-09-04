@@ -267,8 +267,8 @@ CREATE TABLE system.settings (
   CONSTRAINT settings_key_format CHECK (key ~ '^[a-z][a-z0-9_.]{1,63}$')
 );
 
--- Guarded because the migration runner creates this table before applying anything: it
--- cannot record that this file ran into a table this file is in the middle of creating.
+-- Guarded because the runner creates this table before applying anything: it cannot record that
+-- the initial migration ran into a table that migration is in the middle of creating.
 CREATE TABLE IF NOT EXISTS system.schema_migrations (
   id         bigserial   PRIMARY KEY,
   hash       text        NOT NULL,
@@ -627,7 +627,7 @@ CREATE TABLE history.logs (
 
 SELECT create_hypertable('history.logs', by_range('time', INTERVAL '1 day'));
 
--- No explicit index on (time DESC): create_hypertable already builds logs_time_idx.
+-- No explicit index on (time DESC): create_hypertable already builds one, named logs_time_idx.
 CREATE INDEX logs_service_time_idx ON history.logs (service, time DESC);
 CREATE INDEX logs_level_time_idx ON history.logs (level, time DESC) WHERE level >= 40;
 CREATE INDEX logs_trace_id_idx ON history.logs (trace_id, time DESC) WHERE trace_id IS NOT NULL;
