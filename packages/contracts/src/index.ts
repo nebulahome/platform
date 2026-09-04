@@ -1,8 +1,11 @@
 /**
  * Public entry point of the `@nebula-home/contracts` package.
  *
- * Placeholder: the package has no implementation yet. Re-exports go here.
+ * Everything that crosses a boundary between two NebulaHome processes - errors, exit codes,
+ * bus envelopes, entity shapes, API payloads - is declared here and nowhere else, so that both
+ * sides of every boundary read the same definition.
  */
 
-/** Identifier of this package, used by log records and bus envelopes. */
-export const PACKAGE_NAME = '@nebula-home/contracts';
+export * from './errors.js';
+export * from './exit-codes.js';
+export * from './log-level.js';
