@@ -1,8 +1,8 @@
 /**
  * Public entry point of the `@nebula-home/logging` package.
  *
- * Placeholder: the package has no implementation yet. Re-exports go here.
+ * The only sanctioned way to emit a log record anywhere in the platform.
  */
 
-/** Identifier of this package, used by log records and bus envelopes. */
-export const PACKAGE_NAME = '@nebula-home/logging';
+export * from './create-logger.js';
+export * from './redaction.js';
