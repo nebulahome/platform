@@ -3,10 +3,6 @@
   "display": "NebulaHome Node service",
   "extends": "./base.json",
   "compilerOptions": {
-    "types": ["node"],
-    "outDir": "dist",
-    "rootDir": "src"
-  },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+    "types": ["node"]
+  }
 }
