@@ -1,5 +1,7 @@
 {
   "extends": "@nebula-home/tsconfig/node.json",
-  "compilerOptions": { "outDir": "dist", "rootDir": "src" },
-  "include": ["src/**/*.ts"]
+  "compilerOptions": {
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts", "drizzle.config.ts"]
 }

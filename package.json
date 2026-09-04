@@ -18,7 +18,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:generate": "pnpm --filter @nebula-home/db exec drizzle-kit generate",
-    "db:migrate": "pnpm --filter @nebula-home/db exec drizzle-kit migrate",
+    "db:migrate": "pnpm --filter @nebula-home/db run migrate",
     "prepare": "husky"
   },
   "devDependencies": {

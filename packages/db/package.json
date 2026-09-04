@@ -12,21 +12,27 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json --watch",
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "migrate": "tsx src/bin/migrate.ts"
   },
   "dependencies": {
+    "@nebula-home/config": "workspace:*",
     "@nebula-home/contracts": "workspace:*",
+    "@nebula-home/logging": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.9"
   },
   "devDependencies": {
     "@nebula-home/eslint-config": "workspace:*",
     "@nebula-home/tsconfig": "workspace:*",
+    "@types/node": "^22.20.1",
     "drizzle-kit": "^0.31.10",
-    "typescript": "^6.0.3"
+    "tsx": "^4.23.13",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
   }
 }
