@@ -84,6 +84,28 @@ describe('createLogger', () => {
   });
 });
 
+describe('package identity', () => {
+  it('stamps the package id when the records come from one', () => {
+    const capture = createCapture();
+    const logger = createLogger(
+      { service: 'packet-manager', packageId: 'nvr', version: '1.4.0', level: 'trace' },
+      capture.stream,
+    );
+
+    logger.info('Recording started');
+
+    expect(capture.records()[0]).toMatchObject({ service: 'packet-manager', packageId: 'nvr' });
+  });
+
+  it('omits the field entirely for an essential service', () => {
+    const { logger, records } = createTestLogger();
+
+    logger.info('Service started');
+
+    expect(records()[0]).not.toHaveProperty('packageId');
+  });
+});
+
 describe('redaction', () => {
   it('redacts secret fields at the root of a record', () => {
     const { logger, records } = createTestLogger();
