@@ -12,6 +12,7 @@ import {
   ConfigurationError,
   ConflictError,
   DeviceUnavailableError,
+  InternalError,
   ERROR_CODES,
   isNebulaError,
   NotFoundError,
@@ -49,6 +50,7 @@ const ERROR_CONSTRUCTORS = {
   [ERROR_CODES.PACKAGE]: PackageError,
   [ERROR_CODES.CONFIGURATION]: ConfigurationError,
   [ERROR_CODES.SCHEMA_VERSION_MISMATCH]: SchemaVersionMismatchError,
+  [ERROR_CODES.INTERNAL]: InternalError,
 } as const satisfies Record<ErrorCode, NebulaErrorConstructor>;
 
 /**

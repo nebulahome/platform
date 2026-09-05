@@ -36,6 +36,8 @@ export const ERROR_CODES = {
   CONFIGURATION: 'CONFIGURATION',
   /** The database schema is not the version this build was written against. */
   SCHEMA_VERSION_MISMATCH: 'SCHEMA_VERSION_MISMATCH',
+  /** Something the platform did not anticipate. The last resort, never a routine outcome. */
+  INTERNAL: 'INTERNAL',
 } as const;
 
 /** A stable failure code attached to every {@link NebulaError}. */
@@ -195,6 +197,21 @@ export class ConfigurationError extends NebulaError {
 export class SchemaVersionMismatchError extends NebulaError {
   /** @inheritDoc */
   public readonly code = ERROR_CODES.SCHEMA_VERSION_MISMATCH;
+
+  /** @inheritDoc */
+  public readonly httpStatus = 500;
+}
+
+/**
+ * A failure the platform did not anticipate.
+ *
+ * The code an unexpected throw is reported under once it reaches a boundary - an API response,
+ * a bus reply - because both of those have to name a code and neither may invent one. It is
+ * never raised deliberately: code that knows what went wrong has a more specific class to use.
+ */
+export class InternalError extends NebulaError {
+  /** @inheritDoc */
+  public readonly code = ERROR_CODES.INTERNAL;
 
   /** @inheritDoc */
   public readonly httpStatus = 500;

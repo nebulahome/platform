@@ -7,6 +7,14 @@
  * the same definition.
  */
 
+export * from './api-auth.js';
+export * from './api-entities.js';
+export * from './api-history.js';
+export * from './api-http.js';
+export * from './api-registry.js';
+export * from './api-users.js';
+export * from './api-ws.js';
+export * from './auth.js';
 export * from './bus-envelope.js';
 export * from './bus-subjects.js';
 export * from './capabilities.js';
