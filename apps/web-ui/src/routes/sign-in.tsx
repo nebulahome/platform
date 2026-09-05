@@ -15,23 +15,7 @@ import { useState, type SubmitEventHandler } from 'react';
 import { Button, TextField } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
-import { isApiError } from '@/lib/api-error';
-
-/**
- * Turns a caught failure into a line a person can read.
- *
- * @param error - Whatever was thrown.
- * @returns The message to show.
- */
-export function toMessage(error: unknown): string {
-  if (isApiError(error)) {
-    return error.code === 'NETWORK'
-      ? 'Nebula is not responding. Check that the server is running.'
-      : error.message;
-  }
-
-  return 'Something went wrong. Try again.';
-}
+import { toMessage } from '@/lib/error-message';
 
 /**
  * Renders the sign-in form.

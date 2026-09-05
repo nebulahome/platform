@@ -1,0 +1,289 @@
+/**
+ * The second factor.
+ *
+ * Enrolment is three steps and the middle one is the point: the secret is stored the moment you
+ * ask for it, but nothing is enforced until you type a code back. An enrolment that started
+ * enforcing at step one would lock out everyone who mistyped the setup, which is precisely the
+ * population that needs to be able to get back in.
+ *
+ * The recovery codes are shown once and never again. The server keeps hashes, so there is no
+ * second chance to display them and no honest way to pretend otherwise - which is why the dialog
+ * refuses to be a passive thing you can click past without noticing.
+ *
+ * There is no QR code. Rendering one means a dependency, and typing a base32 secret into an
+ * authenticator once is a smaller cost than a library on the page. The `otpauth://` URI is here
+ * too, for anyone whose app takes a link.
+ */
+import { useState } from 'react';
+
+import { Button, TextField } from '@nebula-home/ui';
+
+import { useSession } from '@/auth/session-store';
+import { Badge } from '@/components/badge';
+import { CheckIcon, WarningIcon } from '@/components/icons';
+import { Modal } from '@/components/modal';
+import { Panel, PanelRow } from '@/components/panel';
+import { copyText } from '@/lib/clipboard';
+import { toMessage } from '@/lib/error-message';
+import {
+  beginTwoFactorEnrolment,
+  confirmTwoFactorEnrolment,
+  disableTwoFactor,
+} from '@/settings/api';
+
+/** Where enrolment has got to. */
+type Stage =
+  /** Nothing open. */
+  | { readonly step: 'idle' }
+
+  /** The secret exists and is waiting to be proved. */
+  | { readonly step: 'enrolling'; readonly secret: string; readonly uri: string }
+
+  /** It worked, and these are the codes. */
+  | { readonly step: 'codes'; readonly codes: readonly string[] }
+
+  /** Confirming that it should be turned off. */
+  | { readonly step: 'disabling' };
+
+/**
+ * Renders the two-factor panel.
+ *
+ * @returns The panel.
+ */
+export function TwoFactorPanel() {
+  const isEnabled = useSession((state) => state.user?.isTwoFactorEnabled ?? false);
+  const refreshUser = useSession((state) => state.refreshUser);
+  const [stage, setStage] = useState<Stage>({ step: 'idle' });
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string | undefined>(undefined);
+  const [isBusy, setBusy] = useState(false);
+  const [isCopied, setCopied] = useState(false);
+
+  /**
+   * Closes whatever is open.
+   */
+  const close = (): void => {
+    setStage({ step: 'idle' });
+    setCode('');
+    setError(undefined);
+    setCopied(false);
+  };
+
+  /**
+   * Asks the server for a secret and opens the enrolment dialog.
+   */
+  const begin = (): void => {
+    setError(undefined);
+    setBusy(true);
+
+    void (async (): Promise<void> => {
+      try {
+        const { secret, uri } = await beginTwoFactorEnrolment();
+
+        setStage({ step: 'enrolling', secret, uri });
+      } catch (cause: unknown) {
+        setError(toMessage(cause));
+      } finally {
+        setBusy(false);
+      }
+    })();
+  };
+
+  /**
+   * Proves the authenticator was set up correctly.
+   */
+  const confirm = (): void => {
+    setError(undefined);
+    setBusy(true);
+
+    void (async (): Promise<void> => {
+      try {
+        const { recoveryCodes } = await confirmTwoFactorEnrolment(code);
+
+        await refreshUser();
+        setCode('');
+        setStage({ step: 'codes', codes: recoveryCodes });
+      } catch (cause: unknown) {
+        setError(toMessage(cause));
+      } finally {
+        setBusy(false);
+      }
+    })();
+  };
+
+  /**
+   * Turns the second factor off.
+   */
+  const turnOff = (): void => {
+    setError(undefined);
+    setBusy(true);
+
+    void (async (): Promise<void> => {
+      try {
+        await disableTwoFactor();
+        await refreshUser();
+        close();
+      } catch (cause: unknown) {
+        setError(toMessage(cause));
+      } finally {
+        setBusy(false);
+      }
+    })();
+  };
+
+  return (
+    <>
+      <Panel title="Two-factor authentication">
+        <PanelRow
+          title="Authenticator app"
+          note={
+            isEnabled
+              ? 'A code from your authenticator is required at every sign-in.'
+              : 'A password on its own is one secret. A second factor is the one that survives it leaking.'
+          }
+          control={
+            <div className="flex shrink-0 items-center gap-2.5">
+              {isEnabled ? (
+                <Badge tone="success" icon={<CheckIcon width="12" height="12" />}>
+                  On
+                </Badge>
+              ) : (
+                <Badge tone="warning" icon={<WarningIcon width="12" height="12" />}>
+                  Off
+                </Badge>
+              )}
+
+              {isEnabled ? (
+                <Button
+                  variant="danger"
+                  className="h-8 px-3 text-[13px]"
+                  onClick={() => {
+                    setError(undefined);
+                    setStage({ step: 'disabling' });
+                  }}
+                >
+                  Turn off
+                </Button>
+              ) : (
+                <Button className="h-8 px-3 text-[13px]" isBusy={isBusy} onClick={begin}>
+                  Set up
+                </Button>
+              )}
+            </div>
+          }
+        >
+          {stage.step === 'idle' && error !== undefined ? (
+            <span role="alert" className="text-[13px] text-danger">
+              {error}
+            </span>
+          ) : null}
+        </PanelRow>
+      </Panel>
+
+      <Modal
+        isOpen={stage.step === 'enrolling'}
+        onClose={close}
+        title="Set up your authenticator"
+        description="Add this secret to your authenticator app, then type the code it shows to prove it worked."
+        footer={
+          <>
+            <Button variant="ghost" onClick={close}>
+              Cancel
+            </Button>
+            <Button isBusy={isBusy} disabled={code.length < 6} onClick={confirm}>
+              Confirm
+            </Button>
+          </>
+        }
+      >
+        {stage.step === 'enrolling' ? (
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-medium text-foreground-muted">Secret</span>
+              <div className="flex items-center gap-2">
+                <code className="grow rounded-field border border-border bg-groove px-3 py-2.5 font-mono text-[13px] break-all text-foreground">
+                  {stage.secret}
+                </code>
+                <Button
+                  variant="ghost"
+                  className="h-9 shrink-0 px-3 text-[13px]"
+                  onClick={() => {
+                    void copyText(stage.secret).then(setCopied);
+                  }}
+                >
+                  {isCopied ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+              <span className="text-[11.5px] break-all text-foreground-subtle">{stage.uri}</span>
+            </div>
+
+            <TextField
+              label="Code from the app"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={code}
+              onChange={(event) => {
+                setCode(event.target.value);
+              }}
+              {...(error === undefined ? {} : { error })}
+            />
+          </div>
+        ) : null}
+      </Modal>
+
+      <Modal
+        isOpen={stage.step === 'codes'}
+        onClose={close}
+        title="Your recovery codes"
+        description="Each one signs you in once, if you lose the authenticator. They are shown here and nowhere else — the server keeps only hashes."
+        footer={<Button onClick={close}>I have saved them</Button>}
+      >
+        {stage.step === 'codes' ? (
+          <div className="flex flex-col gap-3">
+            <ul className="grid grid-cols-2 gap-1.5 rounded-field border border-border bg-groove p-3">
+              {stage.codes.map((recovery) => (
+                <li key={recovery} className="font-mono text-[13px] text-foreground">
+                  {recovery}
+                </li>
+              ))}
+            </ul>
+
+            <Button
+              variant="ghost"
+              onClick={() => {
+                void copyText(stage.codes.join('\n')).then(setCopied);
+              }}
+            >
+              {isCopied ? 'Copied' : 'Copy all'}
+            </Button>
+          </div>
+        ) : null}
+      </Modal>
+
+      <Modal
+        isOpen={stage.step === 'disabling'}
+        onClose={close}
+        title="Turn off two-factor authentication?"
+        description="Your account goes back to being protected by its password alone, and the recovery codes stop working."
+        footer={
+          <>
+            <Button variant="ghost" onClick={close}>
+              Keep it on
+            </Button>
+            <Button variant="danger" isBusy={isBusy} onClick={turnOff}>
+              Turn it off
+            </Button>
+          </>
+        }
+      >
+        {error === undefined ? (
+          <span className="sr-only">Nothing has gone wrong.</span>
+        ) : (
+          <span role="alert" className="text-[13px] text-danger">
+            {error}
+          </span>
+        )}
+      </Modal>
+    </>
+  );
+}

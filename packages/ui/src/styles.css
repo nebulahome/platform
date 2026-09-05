@@ -266,21 +266,37 @@
   }
 
   /*
-   * Someone who has asked their system for less motion has asked for it everywhere.
+   * Someone who has asked for less motion has asked for it everywhere.
    *
    * The drifting lights simply stop - they are decoration, and decoration is exactly what this
    * setting is for. The orbit does not, because it is not decoration: it is the only thing on
    * screen saying that something is happening. It becomes a pulse instead, which carries the
    * same fact without anything travelling across the view.
+   *
+   * Asked for in two ways, and the arrangement is the theme's: `data-motion` is a choice the
+   * person made in the interface and the media query is the default for someone who has not made
+   * one, so a choice beats a preference in both directions. Someone whose operating system asks
+   * for less motion everywhere can still turn it back on here, which a media query alone cannot
+   * express.
    */
+  [data-motion='reduced'] .animate-drift-one,
+  [data-motion='reduced'] .animate-drift-two,
+  [data-motion='reduced'] .animate-drift-three {
+    animation: none;
+  }
+
+  [data-motion='reduced'] .animate-orbit {
+    animation: reduced-pulse 1.8s ease-in-out infinite;
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .animate-drift-one,
-    .animate-drift-two,
-    .animate-drift-three {
+    :root:not([data-motion='full']) .animate-drift-one,
+    :root:not([data-motion='full']) .animate-drift-two,
+    :root:not([data-motion='full']) .animate-drift-three {
       animation: none;
     }
 
-    .animate-orbit {
+    :root:not([data-motion='full']) .animate-orbit {
       animation: reduced-pulse 1.8s ease-in-out infinite;
     }
   }

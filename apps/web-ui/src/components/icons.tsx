@@ -1,10 +1,11 @@
 /**
- * The handful of glyphs the rail needs.
+ * The glyphs the rail and the settings pages need.
  *
- * Drawn here rather than pulled from an icon set, for the same reason the logo is: they are
- * four shapes on one screen, they inherit `currentColor`, and they cost nothing. The moment a
- * page needs a general icon vocabulary, `lucide-react` is already a dependency and should be
- * used instead of growing this file.
+ * Drawn here rather than pulled from an icon set, for the same reason the logo is: they are a
+ * dozen shapes, they inherit `currentColor`, and they cost nothing at all. That is the whole
+ * argument, and it stops holding somewhere around here - a page that needs a general icon
+ * vocabulary should take a dependency on `lucide-react` rather than grow this file, and the
+ * design system already has one to copy the dependency from.
  */
 import type { SVGProps } from 'react';
 
@@ -134,6 +135,80 @@ export function ExpandIcon(props: IconProps) {
   return (
     <Glyph width="16" height="16" strokeWidth="2" {...props}>
       <path d="M8 9.5l4-4 4 4M8 14.5l4 4 4-4" />
+    </Glyph>
+  );
+}
+
+/**
+ * A closed padlock: something behind a permission.
+ *
+ * @param props - SVG attributes.
+ * @returns The glyph.
+ */
+export function LockIcon(props: IconProps) {
+  return (
+    <Glyph strokeWidth="2.4" {...props}>
+      <rect x="5" y="11" width="14" height="9" rx="2" />
+      <path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3" />
+    </Glyph>
+  );
+}
+
+/**
+ * A tick: a protection that is on, or a thing that worked.
+ *
+ * @param props - SVG attributes.
+ * @returns The glyph.
+ */
+export function CheckIcon(props: IconProps) {
+  return (
+    <Glyph strokeWidth="2.6" {...props}>
+      <path d="M5 12.5l4.5 4.5L19 7" />
+    </Glyph>
+  );
+}
+
+/**
+ * A triangle: a protection that is off. Not an error - nothing has gone wrong yet.
+ *
+ * @param props - SVG attributes.
+ * @returns The glyph.
+ */
+export function WarningIcon(props: IconProps) {
+  return (
+    <Glyph strokeWidth="2.1" {...props}>
+      <path d="M12 3.8L21 19.5H3z" />
+      <path d="M12 10v3M12 16.3v.2" />
+    </Glyph>
+  );
+}
+
+/**
+ * An `i` in a circle: something worth knowing before changing a setting.
+ *
+ * @param props - SVG attributes.
+ * @returns The glyph.
+ */
+export function InfoIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 11v5.5M12 7.8v.2" />
+    </Glyph>
+  );
+}
+
+/**
+ * Two overlapping sheets: copy this to the clipboard.
+ *
+ * @param props - SVG attributes.
+ * @returns The glyph.
+ */
+export function CopyIcon(props: IconProps) {
+  return (
+    <Glyph width="15" height="15" {...props}>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5.5 15H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v.5" />
     </Glyph>
   );
 }

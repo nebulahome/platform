@@ -25,6 +25,7 @@ import {
   PackagesIcon,
   SettingsIcon,
 } from '@/components/icons';
+import { toInitials } from '@/lib/initials';
 
 /** One entry inside the library group. */
 type LibraryEntry = {
@@ -45,20 +46,6 @@ const LIBRARY: readonly LibraryEntry[] = [
 
 /** The classes a row shares whether or not it is the current one. */
 const ROW = 'flex h-10 items-center gap-3 rounded-[10px] px-2.5 text-sm transition-colors';
-
-/**
- * Builds the initials shown in the avatar.
- *
- * @param displayName - The name the person chose.
- * @returns One or two letters.
- */
-export function toInitials(displayName: string): string {
-  const words = displayName.trim().split(/\s+/).filter(Boolean);
-  const first = words[0]?.[0] ?? '?';
-  const last = words.length > 1 ? (words[words.length - 1]?.[0] ?? '') : '';
-
-  return (first + last).toUpperCase();
-}
 
 /** What one top-level row needs. */
 type NavRowProps = {

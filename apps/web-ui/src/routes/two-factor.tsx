@@ -18,7 +18,7 @@ import { useRef, useState, type SubmitEventHandler } from 'react';
 import { Button } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
-import { toMessage } from '@/routes/sign-in';
+import { toMessage } from '@/lib/error-message';
 
 /** How many digits a one-time code has. */
 const CODE_LENGTH = 6;

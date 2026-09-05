@@ -28,11 +28,18 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { useSession, type SessionStatus } from '@/auth/session-store';
 import { AuthLayout } from '@/routes/auth-layout';
 import { FirstRunForm } from '@/routes/first-run';
-import { DEFAULT_DESTINATION, RETURN_TO_PARAM, safeReturnTo } from '@/routes/return-to';
+import { RETURN_TO_PARAM, safeReturnTo } from '@/routes/return-to';
+import { AccountSettings } from '@/routes/settings/account-settings';
+import { DataAndRetention } from '@/routes/settings/data-and-retention';
+import { InterfaceSettings } from '@/routes/settings/interface-settings';
+import { RequiresPermission } from '@/routes/settings/requires-permission';
+import { DEFAULT_SETTINGS_SECTION, SettingsLayout } from '@/routes/settings/settings-layout';
+import { UsersAndRoles } from '@/routes/settings/users-and-roles';
 import { PagePlaceholder, Shell } from '@/routes/shell';
 import { SignInForm } from '@/routes/sign-in';
 import { TwoFactorFooter, TwoFactorForm } from '@/routes/two-factor';
 import { useIntroHold } from '@/routes/use-intro-hold';
+import { usePreferences } from '@/settings/preferences';
 
 /** A status that means nobody is signed in yet. */
 type UnauthenticatedStatus = Exclude<SessionStatus, 'starting' | 'signed-in'>;
@@ -104,8 +111,11 @@ function screenFor(status: SessionStatus): Screen | undefined {
  * `/devices` should end up at `/sign-in` whether or not anything re-renders in between.
  *
  * @param status - Where the session is.
+ * @param startPage - Where somebody with no particular destination ends up. A preference rather
+ * than a constant: "open on Devices" is a thing this browser was told, and being sent to the
+ * sign-in form should not quietly forget it.
  */
-function useAddressFollowsSession(status: SessionStatus): void {
+function useAddressFollowsSession(status: SessionStatus, startPage: string): void {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -120,9 +130,12 @@ function useAddressFollowsSession(status: SessionStatus): void {
       // Signed in, and standing on a sign-in screen. Go where they were headed before they were
       // asked to sign in, or to the dashboard when they came here of their own accord.
       if (AUTH_PATHS.has(location.pathname)) {
-        const destination = safeReturnTo(new URLSearchParams(location.search).get(RETURN_TO_PARAM));
+        const requested = new URLSearchParams(location.search).get(RETURN_TO_PARAM);
 
-        void navigate(destination, { replace: true });
+        // No destination at all is not the same as a destination that turned out to be no good.
+        // The first goes wherever this browser was told to open; the second is caller input that
+        // failed, and it lands on the dashboard rather than on anything a link could choose.
+        void navigate(requested === null ? startPage : safeReturnTo(requested), { replace: true });
       }
 
       return;
@@ -140,14 +153,12 @@ function useAddressFollowsSession(status: SessionStatus): void {
       : `${location.pathname}${location.search}`;
     const destination = safeReturnTo(intended);
     const query =
-      destination === DEFAULT_DESTINATION
-        ? ''
-        : `?${RETURN_TO_PARAM}=${encodeURIComponent(destination)}`;
+      destination === startPage ? '' : `?${RETURN_TO_PARAM}=${encodeURIComponent(destination)}`;
 
     // Replace, not push: being sent to the sign-in screen is a correction, and a correction
     // that lands in the history means the back button walks into the page you cannot see.
     void navigate(`${screen.path}${query}`, { replace: true });
-  }, [status, location.pathname, location.search, navigate]);
+  }, [status, startPage, location.pathname, location.search, navigate]);
 }
 
 /**
@@ -159,8 +170,9 @@ export function SessionRoutes() {
   const status = useSession((state) => state.status);
   const initialise = useSession((state) => state.initialise);
   const isHeld = useIntroHold(status !== 'starting');
+  const startPage = usePreferences((state) => state.startPage);
 
-  useAddressFollowsSession(status);
+  useAddressFollowsSession(status, startPage);
 
   useEffect(() => {
     void initialise();
@@ -185,14 +197,37 @@ export function SessionRoutes() {
   return (
     <Routes>
       <Route element={<Shell />}>
-        <Route index element={<Navigate to={DEFAULT_DESTINATION} replace />} />
+        <Route index element={<Navigate to={startPage} replace />} />
         <Route path="/dashboards" element={<PagePlaceholder />} />
         <Route path="/automations" element={<PagePlaceholder />} />
         <Route path="/scenes" element={<PagePlaceholder />} />
         <Route path="/devices" element={<PagePlaceholder />} />
         <Route path="/aliases" element={<PagePlaceholder />} />
         <Route path="/packages" element={<PagePlaceholder />} />
-        <Route path="/settings" element={<PagePlaceholder />} />
+
+        <Route path="/settings" element={<SettingsLayout />}>
+          <Route index element={<Navigate to={DEFAULT_SETTINGS_SECTION} replace />} />
+          <Route path="account" element={<AccountSettings />} />
+          <Route path="interface" element={<InterfaceSettings />} />
+
+          <Route
+            path="users"
+            element={
+              <RequiresPermission permission="user:read" section="Users and roles">
+                <UsersAndRoles />
+              </RequiresPermission>
+            }
+          />
+
+          <Route
+            path="data"
+            element={
+              <RequiresPermission permission="settings:read" section="Data and retention">
+                <DataAndRetention />
+              </RequiresPermission>
+            }
+          />
+        </Route>
         <Route path="*" element={<PagePlaceholder />} />
       </Route>
     </Routes>

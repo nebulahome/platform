@@ -19,7 +19,7 @@ import { useState, type SubmitEventHandler } from 'react';
 import { Button, TextField } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
-import { toMessage } from '@/routes/sign-in';
+import { toMessage } from '@/lib/error-message';
 
 /** The shortest password the API will take. */
 const MINIMUM_PASSWORD_LENGTH = 12;

@@ -73,6 +73,9 @@ export type SessionState = {
   /** Creates the first owner and signs them in. */
   readonly createFirstOwner: (request: Parameters<typeof completeSetup>[0]) => Promise<void>;
 
+  /** Re-reads the signed-in account, after something about it has changed. */
+  readonly refreshUser: () => Promise<void>;
+
   /** Signs out. */
   readonly signOut: (allSessions?: boolean) => Promise<void>;
 
@@ -246,6 +249,26 @@ export const useSession = create<SessionState>((set, get) => ({
       accessToken: answer.tokens.accessToken,
       challengeId: null,
     });
+  },
+
+  /**
+   * Re-reads the signed-in account.
+   *
+   * Called after something changes the account itself rather than a resource beside it: a
+   * renamed profile, a second factor turned on, a role changed by an administrator. The rail
+   * shows the display name and half the interface asks `can`, and both read from here - so a
+   * change that is not read back leaves the person looking at their old name and, worse, at
+   * controls they no longer have.
+   *
+   * A failure is swallowed. Nothing the caller did has gone wrong; the copy on screen is merely
+   * a little out of date, and it will be right after the next reload.
+   */
+  refreshUser: async (): Promise<void> => {
+    try {
+      set({ user: await fetchSession() });
+    } catch {
+      // Deliberately quiet: see above.
+    }
   },
 
   /**

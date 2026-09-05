@@ -10,7 +10,7 @@ import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
 import { isPermitted, useSession } from '@/auth/session-store';
-import { Sidebar, toInitials } from '@/components/sidebar';
+import { Sidebar } from '@/components/sidebar';
 import { toUsername } from '@/routes/first-run';
 
 /**
@@ -89,22 +89,6 @@ describe('Sidebar', () => {
     expect(chip.getAttribute('aria-expanded')).toBe('false');
     expect(within(chip).getByText('owner')).toBeTruthy();
     expect(within(chip).getByText('MC')).toBeTruthy();
-  });
-});
-
-describe('toInitials', () => {
-  it.each([
-    ['Mattia Carli', 'MC'],
-    ['Mattia', 'M'],
-    ['  ada   lovelace  ', 'AL'],
-    ['Jean-Luc Picard', 'JP'],
-    ['', '?'],
-  ])('turns %j into %j', (input, expected) => {
-    expect(toInitials(input)).toBe(expected);
-  });
-
-  it('uses the first and last word, not the first two', () => {
-    expect(toInitials('Ada King Lovelace')).toBe('AL');
   });
 });
 
