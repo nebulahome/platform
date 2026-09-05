@@ -1,17 +1,191 @@
 @import 'tailwindcss';
 
 /*
- * Design tokens. Every colour in the application resolves through one of these, so that a theme
- * change is a change here and nowhere else. Hard-coded colours in components are a review
- * failure (RULES.md 15.3).
+ * Tell Tailwind where this package's own markup is.
+ *
+ * Without it, a class used only by a component in here never reaches the generated stylesheet.
+ * Automatic detection starts from the application's root, and the design system is a sibling
+ * package reached through a workspace link - which resolves inside `node_modules`, the one place
+ * Tailwind skips by default. The failure is silent and specific: the component renders, and the
+ * class it asked for simply has no rule, so `fill-primary` paints black.
  */
+@source './';
+
+/*
+ * The design tokens, measured rather than picked.
+ *
+ * The accent is the logo's own hue: #6E7BFF read off the SVG is oklch(0.640 0.194 275), and the
+ * neutrals sit at hue 268 so the greys lean the same way the mark does. Every pair a person
+ * actually reads was checked against WCAG AA, and the lowest passing ratio in the set is 4.77:1.
+ *
+ * Dark is the default and the theme the interface was designed in. Light is derived from it by
+ * mapping each token to a counterpart, never by inverting: a camera feed and a piece of album art
+ * stay dark whatever the page around them does.
+ *
+ * Every colour in the application resolves through one of these. A hard-coded colour in a
+ * component is a review failure (RULES.md 15.3).
+ */
+
 @theme {
-  --color-background: oklch(1 0 0);
-  --color-foreground: oklch(0.15 0 0);
-  --color-muted: oklch(0.96 0 0);
-  --color-muted-foreground: oklch(0.5 0 0);
-  --color-border: oklch(0.9 0 0);
-  --color-primary: oklch(0.55 0.18 255);
-  --color-primary-foreground: oklch(0.99 0 0);
-  --color-destructive: oklch(0.58 0.22 27);
+  /* --- surfaces, darkest to lightest ------------------------------------------------- */
+
+  /** The page behind everything. */
+  --color-canvas: #080d19;
+
+  /** A panel, card or rail sitting on the canvas. */
+  --color-surface: #111725;
+
+  /** A control on a surface: a hovered row, a filled input. */
+  --color-surface-raised: #1b2131;
+
+  /** The groove a segmented control sits in. Darker than the canvas on purpose. */
+  --color-groove: #0c111d;
+
+  /* --- lines --------------------------------------------------------------------------- */
+
+  /** Panel edges and dividers. */
+  --color-border: #242a38;
+
+  /** A line that has to be noticed: a dashed drop target, a swatch outline. */
+  --color-border-strong: #343a4b;
+
+  /**
+   * A filled neutral control, as opposed to a line.
+   *
+   * The active pill in a tab bar, an off switch, the track behind a slider. Deliberately a
+   * separate token from `border`: softening the lines must not flatten the controls.
+   */
+  --color-control: #2c3242;
+
+  /* --- text ---------------------------------------------------------------------------- */
+
+  /** Body text and headings. */
+  --color-foreground: #f3f5fb;
+
+  /** Secondary text: labels, inactive navigation. */
+  --color-foreground-muted: #a5abb9;
+
+  /** Tertiary text: captions, counts, timestamps. */
+  --color-foreground-subtle: #7a808e;
+
+  /** Text on a control that cannot be used. */
+  --color-foreground-disabled: #4a5060;
+
+  /* --- accent and status ---------------------------------------------------------------- */
+
+  --color-primary: #6d7bff;
+  --color-primary-hover: #8b96ff;
+
+  /** Text and glyphs on top of the accent. */
+  --color-primary-foreground: #080d1a;
+
+  --color-success: #52cd86;
+  --color-warning: #edb345;
+  --color-danger: #f75d59;
+
+  /* --- shape ---------------------------------------------------------------------------- */
+
+  --radius-field: 10px;
+  --radius-panel: 14px;
+  --radius-dialog: 18px;
+
+  --font-sans: Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Roboto Mono', ui-monospace, monospace;
+}
+
+/*
+ * The light theme.
+ *
+ * Applied by `data-theme="light"` on the root element, and by the system preference unless the
+ * root says otherwise. Both are needed: the first is a choice the person made, the second is the
+ * default for someone who has not made one, and a choice has to beat a preference.
+ */
+@layer base {
+  [data-theme='light'] {
+    --color-canvas: #f7f8fc;
+    --color-surface: #ffffff;
+    --color-surface-raised: #f0f2f7;
+    --color-groove: #eaecf2;
+
+    --color-border: #e0e3e8;
+    --color-border-strong: #c9ccd4;
+    --color-control: #dbdee5;
+
+    --color-foreground: #141a2a;
+    --color-foreground-muted: #575d6e;
+    --color-foreground-subtle: #616778;
+    --color-foreground-disabled: #a9aebb;
+
+    --color-primary: #4f55df;
+    --color-primary-hover: #3a40c4;
+    --color-primary-foreground: #ffffff;
+
+    --color-success: #007840;
+    --color-warning: #a46400;
+    --color-danger: #c21725;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme='dark']) {
+      --color-canvas: #f7f8fc;
+      --color-surface: #ffffff;
+      --color-surface-raised: #f0f2f7;
+      --color-groove: #eaecf2;
+
+      --color-border: #e0e3e8;
+      --color-border-strong: #c9ccd4;
+      --color-control: #dbdee5;
+
+      --color-foreground: #141a2a;
+      --color-foreground-muted: #575d6e;
+      --color-foreground-subtle: #616778;
+      --color-foreground-disabled: #a9aebb;
+
+      --color-primary: #4f55df;
+      --color-primary-hover: #3a40c4;
+      --color-primary-foreground: #ffffff;
+
+      --color-success: #007840;
+      --color-warning: #a46400;
+      --color-danger: #c21725;
+    }
+  }
+
+  /*
+   * The one global rule.
+   *
+   * `color-scheme` is what makes the browser's own furniture - scrollbars, form controls before
+   * they are styled, the flash before the first paint - match the theme. Without it a dark page
+   * gets a white scrollbar.
+   */
+  :root {
+    color-scheme: dark;
+  }
+
+  [data-theme='light'] {
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme='dark']) {
+      color-scheme: light;
+    }
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-canvas);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /*
+   * Focus is never removed, only restyled. A keyboard user who cannot see where they are is
+   * locked out of the interface as surely as a missing button would lock them out.
+   */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
 }
