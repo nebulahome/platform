@@ -16,7 +16,6 @@ import { Button, TextField } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
 import { isApiError } from '@/lib/api-error';
-import { AuthLayout } from '@/routes/auth-layout';
 
 /**
  * Turns a caught failure into a line a person can read.
@@ -37,9 +36,13 @@ export function toMessage(error: unknown): string {
 /**
  * Renders the sign-in form.
  *
- * @returns The page.
+ * The frame around it - the mark, the card, the heading - belongs to `AuthLayout`, which is
+ * rendered once for the whole unauthenticated phase. A screen that brought its own frame would
+ * be a new frame every time the screen changed, and a frame that is replaced cannot animate.
+ *
+ * @returns The form.
  */
-export function SignIn() {
+export function SignInForm() {
   const signInWithPassword = useSession((state) => state.signInWithPassword);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -70,37 +73,35 @@ export function SignIn() {
   };
 
   return (
-    <AuthLayout title="Sign in" subtitle="Welcome back to your home.">
-      <form className="flex flex-col gap-5" onSubmit={onSubmit} noValidate>
-        <TextField
-          label="Username"
-          name="username"
-          autoComplete="username"
-          autoFocus
-          required
-          value={username}
-          onChange={(event) => {
-            setUsername(event.target.value);
-          }}
-        />
+    <form className="flex flex-col gap-5" onSubmit={onSubmit} noValidate>
+      <TextField
+        label="Username"
+        name="username"
+        autoComplete="username"
+        autoFocus
+        required
+        value={username}
+        onChange={(event) => {
+          setUsername(event.target.value);
+        }}
+      />
 
-        <TextField
-          label="Password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(event) => {
-            setPassword(event.target.value);
-          }}
-          error={error}
-        />
+      <TextField
+        label="Password"
+        name="password"
+        type="password"
+        autoComplete="current-password"
+        required
+        value={password}
+        onChange={(event) => {
+          setPassword(event.target.value);
+        }}
+        error={error}
+      />
 
-        <Button type="submit" size="large" isBusy={isBusy}>
-          Sign in
-        </Button>
-      </form>
-    </AuthLayout>
+      <Button type="submit" size="large" isBusy={isBusy}>
+        Sign in
+      </Button>
+    </form>
   );
 }

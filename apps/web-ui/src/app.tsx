@@ -1,22 +1,13 @@
 /**
- * The root: providers, and the one decision about which half of the application to show.
+ * The root: the providers, and nothing else.
  *
- * The session status picks the tree, and the router only exists inside the signed-in half. That
- * ordering is deliberate. A guard implemented as a redirect - render the page, notice there is
- * no session, navigate away - means the protected page mounts and fires its requests before it
- * is taken down again. Choosing the tree from the status means it never mounts at all.
+ * The router wraps everything rather than only the signed-in half. Which screen is on and what
+ * the address says about it is one question, answered in one place - see `session-routes.tsx`.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { BrowserRouter } from 'react-router';
 
-import { useSession } from '@/auth/session-store';
-import { AuthLayout } from '@/routes/auth-layout';
-import { FirstRun } from '@/routes/first-run';
-import { PagePlaceholder, Shell } from '@/routes/shell';
-import { SignIn } from '@/routes/sign-in';
-import { TwoFactor } from '@/routes/two-factor';
-import { useIntroHold } from '@/routes/use-intro-hold';
+import { SessionRoutes } from '@/routes/session-routes';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,57 +41,6 @@ const queryClient = new QueryClient({
 });
 
 /**
- * Renders whichever half of the application the session calls for.
- *
- * @returns The tree.
- */
-function Router() {
-  const status = useSession((state) => state.status);
-  const initialise = useSession((state) => state.initialise);
-  const isHeld = useIntroHold(status !== 'starting');
-
-  useEffect(() => {
-    void initialise();
-  }, [initialise]);
-
-  if (status === 'starting' || isHeld) {
-    // The same frame the sign-in screen uses, with its card collapsed. The mark is the one
-    // element that survives the transition, which is what lets it move rather than swap.
-    return <AuthLayout isLoading />;
-  }
-
-  if (status === 'setup-required') {
-    return <FirstRun />;
-  }
-
-  if (status === 'awaiting-second-factor') {
-    return <TwoFactor />;
-  }
-
-  if (status === 'signed-out') {
-    return <SignIn />;
-  }
-
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Shell />}>
-          <Route index element={<Navigate to="/dashboards" replace />} />
-          <Route path="/dashboards" element={<PagePlaceholder />} />
-          <Route path="/automations" element={<PagePlaceholder />} />
-          <Route path="/scenes" element={<PagePlaceholder />} />
-          <Route path="/devices" element={<PagePlaceholder />} />
-          <Route path="/aliases" element={<PagePlaceholder />} />
-          <Route path="/packages" element={<PagePlaceholder />} />
-          <Route path="/settings" element={<PagePlaceholder />} />
-          <Route path="*" element={<PagePlaceholder />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
-  );
-}
-
-/**
  * Renders the application.
  *
  * @returns The root element tree.
@@ -108,7 +48,9 @@ function Router() {
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router />
+      <BrowserRouter>
+        <SessionRoutes />
+      </BrowserRouter>
     </QueryClientProvider>
   );
 }

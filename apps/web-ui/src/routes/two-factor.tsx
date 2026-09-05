@@ -18,7 +18,6 @@ import { useRef, useState, type SubmitEventHandler } from 'react';
 import { Button } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
-import { AuthLayout } from '@/routes/auth-layout';
 import { toMessage } from '@/routes/sign-in';
 
 /** How many digits a one-time code has. */
@@ -29,9 +28,8 @@ const CODE_LENGTH = 6;
  *
  * @returns The page.
  */
-export function TwoFactor() {
+export function TwoFactorForm() {
   const submitCode = useSession((state) => state.submitCode);
-  const signOutOfFlow = useSession((state) => state.signOut);
   const inputRef = useRef<HTMLInputElement>(null);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | undefined>(undefined);
@@ -62,98 +60,107 @@ export function TwoFactor() {
   };
 
   return (
-    <AuthLayout
-      title="One more step"
-      subtitle="Enter the code from your authenticator, or one of your recovery codes."
-      footer={
-        <button
-          type="button"
-          className="underline underline-offset-2 hover:text-foreground-muted"
-          onClick={() => {
-            void signOutOfFlow();
-          }}
-        >
-          Sign in as someone else
-        </button>
-      }
-    >
-      <form className="flex flex-col gap-5" onSubmit={onSubmit} noValidate>
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-medium text-foreground-muted">Code</span>
+    <form className="flex flex-col gap-5" onSubmit={onSubmit} noValidate>
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-medium text-foreground-muted">Code</span>
 
-          {/*
-           * The boxes are decoration over one input, wrapped in a label so that clicking them
-           * focuses it natively. A div with a click handler would need a keyboard handler, a
-           * role and a tab stop to be equivalent, and would still be worse: the label is what a
-           * screen reader already understands.
-           */}
-          <label htmlFor="code" className="relative block">
-            <input
-              id="code"
-              ref={inputRef}
-              name="one-time-code"
-              inputMode={isRecoveryCode ? 'text' : 'numeric'}
-              autoComplete="one-time-code"
-              autoFocus
-              maxLength={32}
-              value={code}
-              aria-invalid={error !== undefined}
-              aria-describedby={error === undefined ? undefined : 'code-error'}
-              onChange={(event) => {
-                setCode(event.target.value.trim());
-              }}
-              className={
-                isRecoveryCode
-                  ? 'h-12 w-full rounded-[10px] border border-border bg-canvas px-3.5 text-center font-mono text-base tracking-[0.2em] text-foreground focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none'
-                  : 'absolute inset-0 h-full w-full cursor-default opacity-0'
-              }
-            />
+        {/*
+         * The boxes are decoration over one input, wrapped in a label so that clicking them
+         * focuses it natively. A div with a click handler would need a keyboard handler, a
+         * role and a tab stop to be equivalent, and would still be worse: the label is what a
+         * screen reader already understands.
+         */}
+        <label htmlFor="code" className="relative block">
+          <input
+            id="code"
+            ref={inputRef}
+            name="one-time-code"
+            inputMode={isRecoveryCode ? 'text' : 'numeric'}
+            autoComplete="one-time-code"
+            autoFocus
+            maxLength={32}
+            value={code}
+            aria-invalid={error !== undefined}
+            aria-describedby={error === undefined ? undefined : 'code-error'}
+            onChange={(event) => {
+              setCode(event.target.value.trim());
+            }}
+            className={
+              isRecoveryCode
+                ? 'h-12 w-full rounded-[10px] border border-border bg-canvas px-3.5 text-center font-mono text-base tracking-[0.2em] text-foreground focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none'
+                : 'absolute inset-0 h-full w-full cursor-default opacity-0'
+            }
+          />
 
-            {isRecoveryCode ? null : (
-              <div aria-hidden="true" className="flex gap-2">
-                {[...Array.from({ length: CODE_LENGTH }).keys()].map((index) => {
-                  const character = code[index] ?? '';
-                  const isNext = index === code.length;
+          {isRecoveryCode ? null : (
+            <div aria-hidden="true" className="flex gap-2">
+              {[...Array.from({ length: CODE_LENGTH }).keys()].map((index) => {
+                const character = code[index] ?? '';
+                const isNext = index === code.length;
 
-                  return (
-                    <span
-                      key={index}
-                      className={`flex h-12 flex-1 items-center justify-center rounded-[10px] border bg-canvas font-mono text-lg ${
-                        error !== undefined
-                          ? 'border-danger'
-                          : isNext
-                            ? 'border-primary ring-3 ring-primary/25'
-                            : 'border-border'
-                      }`}
-                    >
-                      {character === '' && isNext ? (
-                        <span className="h-5 w-px animate-pulse bg-primary" />
-                      ) : (
-                        character
-                      )}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </label>
-
-          {error === undefined ? null : (
-            <span id="code-error" role="alert" className="text-[11.5px] text-danger">
-              {error}
-            </span>
+                return (
+                  <span
+                    key={index}
+                    className={`flex h-12 flex-1 items-center justify-center rounded-[10px] border bg-canvas font-mono text-lg ${
+                      error !== undefined
+                        ? 'border-danger'
+                        : isNext
+                          ? 'border-primary ring-3 ring-primary/25'
+                          : 'border-border'
+                    }`}
+                  >
+                    {character === '' && isNext ? (
+                      <span className="h-5 w-px animate-pulse bg-primary" />
+                    ) : (
+                      character
+                    )}
+                  </span>
+                );
+              })}
+            </div>
           )}
-        </div>
+        </label>
 
-        <Button
-          type="submit"
-          size="large"
-          isBusy={isBusy}
-          disabled={!isRecoveryCode && code.length < CODE_LENGTH}
-        >
-          Verify
-        </Button>
-      </form>
-    </AuthLayout>
+        {error === undefined ? null : (
+          <span id="code-error" role="alert" className="text-[11.5px] text-danger">
+            {error}
+          </span>
+        )}
+      </div>
+
+      <Button
+        type="submit"
+        size="large"
+        isBusy={isBusy}
+        disabled={!isRecoveryCode && code.length < CODE_LENGTH}
+      >
+        Verify
+      </Button>
+    </form>
+  );
+}
+
+/**
+ * The way out of the code screen.
+ *
+ * Rendered under the card rather than inside it, because it is not part of finishing this
+ * sign-in - it is the way to abandon it. Signing out clears the challenge, which is what takes
+ * the interface back to the password screen.
+ *
+ * @returns The escape hatch.
+ */
+export function TwoFactorFooter() {
+  const signOutOfFlow = useSession((state) => state.signOut);
+
+  return (
+    <button
+      type="button"
+      className="underline underline-offset-2 hover:text-foreground-muted"
+      onClick={() => {
+        void signOutOfFlow();
+      }}
+    >
+      Sign in as someone else
+    </button>
   );
 }

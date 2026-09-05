@@ -19,7 +19,6 @@ import { useState, type SubmitEventHandler } from 'react';
 import { Button, TextField } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
-import { AuthLayout } from '@/routes/auth-layout';
 import { toMessage } from '@/routes/sign-in';
 
 /** The shortest password the API will take. */
@@ -49,7 +48,7 @@ export function toUsername(displayName: string): string {
  *
  * @returns The page.
  */
-export function FirstRun() {
+export function FirstRunForm() {
   const createFirstOwner = useSession((state) => state.createFirstOwner);
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
@@ -91,65 +90,60 @@ export function FirstRun() {
   };
 
   return (
-    <AuthLayout
-      title="Set up Nebula"
-      subtitle="This home has no accounts yet. The first one is yours, and it owns everything."
-    >
-      <form className="flex flex-col gap-5" onSubmit={onSubmit} noValidate>
-        <TextField
-          label="Your name"
-          name="name"
-          autoComplete="name"
-          autoFocus
-          required
-          value={displayName}
-          onChange={(event) => {
-            setDisplayName(event.target.value);
+    <form className="flex flex-col gap-5" onSubmit={onSubmit} noValidate>
+      <TextField
+        label="Your name"
+        name="name"
+        autoComplete="name"
+        autoFocus
+        required
+        value={displayName}
+        onChange={(event) => {
+          setDisplayName(event.target.value);
 
-            if (!isUsernameEdited) {
-              setUsername(toUsername(event.target.value));
-            }
-          }}
-        />
-
-        <TextField
-          label="Username"
-          name="username"
-          autoComplete="username"
-          required
-          value={username}
-          onChange={(event) => {
-            setUsernameEdited(true);
-            setUsername(event.target.value);
-          }}
-          hint="Lower case letters, digits, dot, dash and underscore."
-        />
-
-        <TextField
-          label="Password"
-          name="password"
-          type="password"
-          autoComplete="new-password"
-          required
-          value={password}
-          onChange={(event) => {
-            setPassword(event.target.value);
-          }}
-          hint={`At least ${String(MINIMUM_PASSWORD_LENGTH)} characters. Length beats punctuation.`}
-          error={isTooShort ? 'A little longer.' : error}
-        />
-
-        <Button
-          type="submit"
-          size="large"
-          isBusy={isBusy}
-          disabled={
-            displayName === '' || username === '' || password.length < MINIMUM_PASSWORD_LENGTH
+          if (!isUsernameEdited) {
+            setUsername(toUsername(event.target.value));
           }
-        >
-          Create my account
-        </Button>
-      </form>
-    </AuthLayout>
+        }}
+      />
+
+      <TextField
+        label="Username"
+        name="username"
+        autoComplete="username"
+        required
+        value={username}
+        onChange={(event) => {
+          setUsernameEdited(true);
+          setUsername(event.target.value);
+        }}
+        hint="Lower case letters, digits, dot, dash and underscore."
+      />
+
+      <TextField
+        label="Password"
+        name="password"
+        type="password"
+        autoComplete="new-password"
+        required
+        value={password}
+        onChange={(event) => {
+          setPassword(event.target.value);
+        }}
+        hint={`At least ${String(MINIMUM_PASSWORD_LENGTH)} characters. Length beats punctuation.`}
+        error={isTooShort ? 'A little longer.' : error}
+      />
+
+      <Button
+        type="submit"
+        size="large"
+        isBusy={isBusy}
+        disabled={
+          displayName === '' || username === '' || password.length < MINIMUM_PASSWORD_LENGTH
+        }
+      >
+        Create my account
+      </Button>
+    </form>
   );
 }
