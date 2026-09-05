@@ -89,12 +89,18 @@ importers:
       '@node-rs/argon2':
         specifier: ^2.2.0
         version: 2.2.0
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(postgres@3.4.9)
       fastify:
         specifier: ^5.12.1
         version: 5.12.1
       jose:
         specifier: ^6.2.10
         version: 6.2.10
+      nats:
+        specifier: ^2.29.3
+        version: 2.29.3
       zod:
         specifier: ^4.5.4
         version: 4.5.4
@@ -105,6 +111,9 @@ importers:
       '@nebula-home/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2647,6 +2656,9 @@ packages:
 
   '@types/suncalc@1.9.2':
     resolution: {integrity: sha512-ATAGBHHfA1TlE2tjfidLyTcysjoT2JHHEAmWRULh73SU9UTn++j5fqHEW16X6Y/2Li87jEQXzgu4R/OOdlDqzw==}
+
+  '@types/ws@8.18.1':
+    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
   '@typescript-eslint/eslint-plugin@8.69.0':
     resolution: {integrity: sha512-t5jQTKPIgVW1PE6dR6H6Qz5gm8zjMlX5/2gRaOGd9eO6V7J+tQc6iWKukEe7dY8u9HyYasQ0yfF0/FSSTEO2gA==}
@@ -7479,6 +7491,10 @@ snapshots:
       csstype: 3.2.3
 
   '@types/suncalc@1.9.2': {}
+
+  '@types/ws@8.18.1':
+    dependencies:
+      '@types/node': 22.20.1
 
   '@typescript-eslint/eslint-plugin@8.69.0(@typescript-eslint/parser@8.69.0(eslint@10.9.1(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(eslint@10.9.1(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)':
     dependencies:
