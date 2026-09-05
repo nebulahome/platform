@@ -8,8 +8,9 @@
  */
 import { Writable } from 'node:stream';
 
-import type { LogLevel } from '@nebula-home/contracts';
 import { pino, type DestinationStream, type Logger, type LoggerOptions } from 'pino';
+
+import type { LogLevel } from '@nebula-home/contracts';
 
 import { formatLogContext, formatLogLine, type RenderableLogRecord } from './format.js';
 import { REDACTED_PATHS, REDACTION_PLACEHOLDER } from './redaction.js';

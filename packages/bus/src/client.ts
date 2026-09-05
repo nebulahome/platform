@@ -9,6 +9,8 @@
  * explicit timeout, events are fire-and-forget fan-out, and a subscriber that missed events
  * while it was restarting recovers with a snapshot rather than by replaying a durable log.
  */
+import { z } from 'zod';
+
 import {
   busErrorSchema,
   DeviceUnavailableError,
@@ -17,7 +19,6 @@ import {
   type BusEnvelopeHeader,
 } from '@nebula-home/contracts';
 import { withTraceId, type PlatformLogger } from '@nebula-home/logging';
-import { z } from 'zod';
 
 import { createEnvelope, decodeEnvelope, encodeEnvelope, peekEnvelopeHeader } from './codec.js';
 import { fromBusError, toBusError } from './error-mapping.js';

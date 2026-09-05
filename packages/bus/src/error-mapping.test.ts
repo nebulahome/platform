@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import {
   AdapterError,
   DeviceUnavailableError,
@@ -5,7 +7,6 @@ import {
   NotFoundError,
   PermissionError,
 } from '@nebula-home/contracts';
-import { describe, expect, it } from 'vitest';
 
 import { fromBusError, toBusError } from './error-mapping.js';
 

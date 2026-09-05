@@ -7,8 +7,9 @@
  * SIGTERM arriving while a service is waiting for a broker that will never come back has to be
  * able to end it.
  */
-import { withTraceId, type PlatformLogger } from '@nebula-home/logging';
 import { connect, Events, type NatsConnection } from 'nats';
+
+import { withTraceId, type PlatformLogger } from '@nebula-home/logging';
 
 import { backoffDelayMs, delay, type BackoffOptions } from './backoff.js';
 import { newTraceId } from './client.js';

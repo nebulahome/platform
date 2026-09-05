@@ -6,8 +6,9 @@
  * none is configured issues tokens that stop verifying the moment it restarts, and does it
  * silently.
  */
-import { busEnvSchema, databaseEnvSchema, portSchema, runtimeEnvSchema } from '@nebula-home/config';
 import { z } from 'zod';
+
+import { busEnvSchema, databaseEnvSchema, portSchema, runtimeEnvSchema } from '@nebula-home/config';
 
 /** Name this service reports in log records and bus envelopes. */
 export const SERVICE_NAME = 'api';

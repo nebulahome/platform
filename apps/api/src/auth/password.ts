@@ -6,8 +6,9 @@
  * caller that could tell "no such user" from "wrong password" apart could enumerate accounts,
  * so both answers are the same `false` and the timing is levelled by hashing a decoy.
  */
-import { ARGON2ID_PARAMS } from '@nebula-home/contracts';
 import { hash, verify } from '@node-rs/argon2';
+
+import { ARGON2ID_PARAMS } from '@nebula-home/contracts';
 
 /**
  * argon2id, as the library numbers its algorithms.

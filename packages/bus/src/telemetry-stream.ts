@@ -12,13 +12,6 @@
  * to prevent, one crash later.
  */
 import {
-  BUS_PATTERNS,
-  telemetryReadingSchema,
-  type BusEnvelopeHeader,
-  type TelemetryReading,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
-import {
   AckPolicy,
   DeliverPolicy,
   DiscardPolicy,
@@ -28,6 +21,14 @@ import {
   type JsMsg,
   type NatsConnection,
 } from 'nats';
+
+import {
+  BUS_PATTERNS,
+  telemetryReadingSchema,
+  type BusEnvelopeHeader,
+  type TelemetryReading,
+} from '@nebula-home/contracts';
+import type { PlatformLogger } from '@nebula-home/logging';
 
 import { decodeEnvelope } from './codec.js';
 import { toBusError } from './error-mapping.js';

@@ -19,8 +19,9 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { ConflictError, ValidationError } from '@nebula-home/contracts';
 import type { Sql } from 'postgres';
+
+import { ConflictError, ValidationError } from '@nebula-home/contracts';
 
 /**
  * Marker a migration file carries when it must not run inside a transaction.

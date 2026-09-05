@@ -6,6 +6,8 @@
  * collections that do grow without bound - history and telemetry - page, and they are in their
  * own file for that reason.
  */
+import { z } from 'zod';
+
 import {
   aliasViewSchema,
   areaViewSchema,
@@ -22,7 +24,6 @@ import {
   type PackageView,
   type SceneView,
 } from '@nebula-home/contracts';
-import { z } from 'zod';
 
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';

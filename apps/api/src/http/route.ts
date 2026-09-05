@@ -12,9 +12,10 @@
  * instead of the raw body, and there is exactly one definition rather than one for validating
  * and another for documenting.
  */
-import type { Identity } from '@nebula-home/contracts';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { z } from 'zod';
+
+import type { Identity } from '@nebula-home/contracts';
 
 import { requireIdentity } from './guard.js';
 

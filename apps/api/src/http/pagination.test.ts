@@ -4,8 +4,9 @@
  * The case that matters most is the corrupted cursor: returning the first page for one turns a
  * client bug into an endless loop over page one, so it has to be a rejection.
  */
-import { ValidationError } from '@nebula-home/contracts';
 import { describe, expect, it } from 'vitest';
+
+import { ValidationError } from '@nebula-home/contracts';
 
 import { decodeCursor, encodeCursor, toPage } from './pagination.js';
 

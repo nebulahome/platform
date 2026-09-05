@@ -7,9 +7,10 @@
  * seconds of the cache costs nothing, because adapters resynchronise anyway, while losing a
  * history row loses it for good.
  */
+import { sql } from 'drizzle-orm';
+
 import { schema, type Database } from '@nebula-home/db';
 import type { PlatformLogger } from '@nebula-home/logging';
-import { sql } from 'drizzle-orm';
 
 import { BatchWriter } from './batch-writer.js';
 

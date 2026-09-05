@@ -132,11 +132,21 @@ export default tseslint.config(
       // --- RULES.md 7: imports ---------------------------------------------------------
       'import-x/no-cycle': ['error', { maxDepth: 8 }],
       'import-x/no-self-import': 'error',
+      // `@/**` is listed explicitly, and that is not tidiness. Without it the rule classifies
+      // the alias by whether the resolver can follow it, which depends on where eslint was
+      // started from: per-package it resolves and lands in `internal`, from the repository root
+      // it does not and lands elsewhere. The pre-commit hook runs from the root and the lint
+      // gate runs per package, so the two disagreed - `eslint --fix` moved an import and
+      // `eslint` then flagged the result, silently reverting the same file on every commit.
       'import-x/order': [
         'error',
         {
           groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
-          pathGroups: [{ pattern: '@nebula-home/**', group: 'internal', position: 'before' }],
+          pathGroups: [
+            { pattern: '@nebula-home/**', group: 'internal', position: 'before' },
+            { pattern: '@/**', group: 'internal', position: 'after' },
+          ],
+          pathGroupsExcludedImportTypes: ['builtin'],
           'newlines-between': 'always',
           alphabetize: { order: 'asc', caseInsensitive: true },
         },

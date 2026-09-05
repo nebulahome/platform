@@ -11,6 +11,10 @@
  */
 import { Writable } from 'node:stream';
 
+import { and, eq } from 'drizzle-orm';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
+
 import { BusClient, connectBus, ulid, type BusConnection } from '@nebula-home/bus';
 import {
   busSubjects,
@@ -21,15 +25,12 @@ import {
 } from '@nebula-home/contracts';
 import { createDatabase, schema, type DatabaseHandle } from '@nebula-home/db';
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
-import { and, eq } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { z } from 'zod';
-
-import { FakeAdapter } from './support/fake-adapter.js';
-import { insertFixture, removeFixture, type Fixture } from './support/fixtures.js';
 
 import type { CoreConfig } from '@/config.js';
 import { CoreService } from '@/service.js';
+
+import { FakeAdapter } from './support/fake-adapter.js';
+import { insertFixture, removeFixture, type Fixture } from './support/fixtures.js';
 
 /** The development infrastructure from `infra/docker-compose.dev.yml`. */
 const NATS_URL = 'nats://localhost:4222';

@@ -5,10 +5,11 @@
  * nothing escapes it: a Zod failure, a platform error, a Fastify 404 and an unexpected crash all
  * leave through this file, so a client never has to parse two different failure shapes.
  */
-import { ERROR_CODES, isNebulaError, type ApiError, type ErrorCode } from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+
+import { ERROR_CODES, isNebulaError, type ApiError, type ErrorCode } from '@nebula-home/contracts';
+import type { PlatformLogger } from '@nebula-home/logging';
 
 /** The status returned when nothing more specific applies. */
 const INTERNAL_STATUS = 500;

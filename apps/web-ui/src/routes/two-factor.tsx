@@ -13,8 +13,9 @@
  * The same field takes a recovery code. The API decides which one it was by matching, and a
  * person who has lost their phone should not have to find a different screen to say so.
  */
-import { Button } from '@nebula-home/ui';
 import { useRef, useState, type SubmitEventHandler } from 'react';
+
+import { Button } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
 import { AuthLayout } from '@/routes/auth-layout';

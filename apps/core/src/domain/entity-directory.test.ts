@@ -1,10 +1,11 @@
+import { describe, expect, it } from 'vitest';
+
 import {
   NotFoundError,
   parseEntityId,
   type CapabilityName,
   type JsonObject,
 } from '@nebula-home/contracts';
-import { describe, expect, it } from 'vitest';
 
 import { EntityDirectory, type EntityRecord } from './entity-directory.js';
 

@@ -1,11 +1,12 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+
 import {
   busSubjects,
   entityStateSchema,
   parseEntityId,
   type EntityState,
 } from '@nebula-home/contracts';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { z } from 'zod';
 
 import { entityRecord, createCoreHarness, type CoreHarness } from '../testing/harness.js';
 

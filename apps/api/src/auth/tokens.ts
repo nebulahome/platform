@@ -11,6 +11,8 @@
  */
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
+
 import {
   ACCESS_TOKEN_ALGORITHM,
   ACCESS_TOKEN_AUDIENCE,
@@ -23,7 +25,6 @@ import {
   type AccessTokenClaims,
   type GrantedPermission,
 } from '@nebula-home/contracts';
-import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 
 /** What goes into a freshly issued access token. */
 export type AccessTokenSubject = {

@@ -7,8 +7,9 @@
  *
  * Every variable defined here has a matching entry in `.env.example`, per RULES.md 11.
  */
-import { LOG_LEVELS } from '@nebula-home/contracts';
 import { z } from 'zod';
+
+import { LOG_LEVELS } from '@nebula-home/contracts';
 
 /** The environments a service can run in. */
 export const NODE_ENVIRONMENTS = ['development', 'test', 'production'] as const;

@@ -11,10 +11,11 @@
  * No database is needed: the paths asserted here are answered before anything reads one, and the
  * readiness check is given a stub that fails, so its degraded branch is exercised too.
  */
-import { CURRENT_API_VERSION, TRACE_ID_HEADER } from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { CURRENT_API_VERSION, TRACE_ID_HEADER } from '@nebula-home/contracts';
+import { createLogger } from '@nebula-home/logging';
 
 import { Authenticator } from './auth/authenticator.js';
 import { ChallengeStore } from './auth/challenges.js';

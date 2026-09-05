@@ -6,8 +6,9 @@
  * else. Every vector below is from the appendix of the RFC, for the SHA-1 variant every
  * authenticator app implements.
  */
-import { TOTP_PARAMS } from '@nebula-home/contracts';
 import { describe, expect, it } from 'vitest';
+
+import { TOTP_PARAMS } from '@nebula-home/contracts';
 
 import {
   decryptSecret,

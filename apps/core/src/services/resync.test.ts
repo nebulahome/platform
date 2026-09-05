@@ -1,3 +1,6 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+
 import {
   busSubjects,
   entityStateSchema,
@@ -6,8 +9,6 @@ import {
   type ResyncReply,
   type ResyncRequest,
 } from '@nebula-home/contracts';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { z } from 'zod';
 
 import { entityRecord, createCoreHarness, type CoreHarness } from '../testing/harness.js';
 

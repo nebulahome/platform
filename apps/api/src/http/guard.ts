@@ -6,8 +6,9 @@
  * authentication hook fails at the first line rather than silently treating an anonymous caller
  * as authorised.
  */
-import { AuthenticationError, type Identity } from '@nebula-home/contracts';
 import type { FastifyRequest } from 'fastify';
+
+import { AuthenticationError, type Identity } from '@nebula-home/contracts';
 
 /**
  * Reads the identity the authentication hook attached.

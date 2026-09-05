@@ -4,9 +4,10 @@
  * The property itself is declared in `fastify.d.ts`, for the reason given there. This file is
  * the hook that fills it in.
  */
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+
 import { newTraceId } from '@nebula-home/bus';
 import { TRACE_ID_HEADER } from '@nebula-home/contracts';
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 /** The longest trace id accepted from a caller. */
 const MAX_TRACE_ID_LENGTH = 64;

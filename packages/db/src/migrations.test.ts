@@ -1,8 +1,9 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { PERMISSIONS, SETTINGS } from '@nebula-home/contracts';
 import { describe, expect, it } from 'vitest';
+
+import { PERMISSIONS, SETTINGS } from '@nebula-home/contracts';
 
 import { readMigrations } from './migrate.js';
 import { EXPECTED_SCHEMA_VERSION } from './schema-version.js';

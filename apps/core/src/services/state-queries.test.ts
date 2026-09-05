@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+
 import {
   busSubjects,
   entityStateSchema,
@@ -5,7 +7,6 @@ import {
   parseEntityId,
   stateSnapshotReplySchema,
 } from '@nebula-home/contracts';
-import { beforeEach, describe, expect, it } from 'vitest';
 
 import { createCoreHarness, type CoreHarness } from '../testing/harness.js';
 

@@ -10,8 +10,9 @@
  * `isAuthenticated && needsSecondFactor` are both states a pair of booleans can express and
  * neither means anything; a union cannot be put into them.
  */
-import type { GrantedPermission, SessionUser } from '@nebula-home/contracts';
 import { create } from 'zustand';
+
+import type { GrantedPermission, SessionUser } from '@nebula-home/contracts';
 
 import {
   completeSetup,

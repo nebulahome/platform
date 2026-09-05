@@ -8,8 +8,9 @@
  *
  * Defined in ARCHITECTURE.md 11.2.
  */
-import { SchemaVersionMismatchError } from '@nebula-home/contracts';
 import { sql } from 'drizzle-orm';
+
+import { SchemaVersionMismatchError } from '@nebula-home/contracts';
 
 import type { Database } from './client.js';
 

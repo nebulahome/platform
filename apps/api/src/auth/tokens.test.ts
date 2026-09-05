@@ -5,14 +5,15 @@
  * an audience check that accepts a token minted for something else, fails silently and stays
  * failing, so each of those has its own case here.
  */
+import { SignJWT, decodeJwt } from 'jose';
+import { describe, expect, it } from 'vitest';
+
 import {
   ACCESS_TOKEN_TTL_SECONDS,
   AuthenticationError,
   PERSONAL_ACCESS_TOKEN_PREFIX,
   type GrantedPermission,
 } from '@nebula-home/contracts';
-import { SignJWT, decodeJwt } from 'jose';
-import { describe, expect, it } from 'vitest';
 
 import {
   digestsMatch,

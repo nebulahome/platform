@@ -5,6 +5,8 @@
  * versions exist, so putting it inside one of them would mean having to know a version in order
  * to ask which versions there are.
  */
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+
 import {
   API_VERSIONS,
   CURRENT_API_VERSION,
@@ -13,7 +15,6 @@ import {
   type ApiVersionsResponse,
   type HealthResponse,
 } from '@nebula-home/contracts';
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import type { ApiContext } from '../context.js';
 import { buildOpenApiDocument } from '../http/openapi.js';

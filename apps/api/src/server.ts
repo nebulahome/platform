@@ -13,8 +13,9 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
-import { CURRENT_API_VERSION } from '@nebula-home/contracts';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
+
+import { CURRENT_API_VERSION } from '@nebula-home/contracts';
 
 import { readBearer } from './auth/authenticator.js';
 import type { ApiContext } from './context.js';

@@ -6,6 +6,8 @@
  * in this file, and there should never be one: a type written here could agree with the server
  * today and quietly stop agreeing tomorrow.
  */
+import { z } from 'zod';
+
 import {
   authenticatedResponseSchema,
   loginResponseSchema,
@@ -18,7 +20,6 @@ import {
   type SetupRequest,
   type SetupStatus,
 } from '@nebula-home/contracts';
-import { z } from 'zod';
 
 import { apiRequest } from '@/lib/api-client';
 

@@ -8,6 +8,8 @@
  * create. Checking first and inserting afterwards would leave a window in which an installation
  * exposed on a network gets a second owner nobody asked for.
  */
+import { eq, sql } from 'drizzle-orm';
+
 import {
   ACCESS_TOKEN_TTL_SECONDS,
   ConflictError,
@@ -20,7 +22,6 @@ import {
   type SetupStatus,
 } from '@nebula-home/contracts';
 import { schema, type Database } from '@nebula-home/db';
-import { eq, sql } from 'drizzle-orm';
 
 import { hashPassword } from '../auth/password.js';
 import { resolveGrants } from '../auth/permissions.js';

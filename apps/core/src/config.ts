@@ -6,8 +6,9 @@
  * `system.settings` instead; the environment is for what is fixed for the life of a process
  * (RULES.md 11).
  */
-import { busEnvSchema, databaseEnvSchema, runtimeEnvSchema } from '@nebula-home/config';
 import { z } from 'zod';
+
+import { busEnvSchema, databaseEnvSchema, runtimeEnvSchema } from '@nebula-home/config';
 
 /** Name this service reports in log records and bus envelopes. */
 export const SERVICE_NAME = 'core';

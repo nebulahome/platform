@@ -1,10 +1,11 @@
+import { describe, expect, it } from 'vitest';
+
 import {
   parseEntityId,
   ValidationError,
   type CapabilityName,
   type JsonObject,
 } from '@nebula-home/contracts';
-import { describe, expect, it } from 'vitest';
 
 import { validateCommand } from './command-validation.js';
 import type { EntityRecord } from './entity-directory.js';

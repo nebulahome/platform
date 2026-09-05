@@ -7,6 +7,8 @@
  */
 import { createHash } from 'node:crypto';
 
+import { z } from 'zod';
+
 import {
   DeviceUnavailableError,
   IDEMPOTENCY_KEY_HEADER,
@@ -25,7 +27,6 @@ import {
   type EntityView,
   type Page,
 } from '@nebula-home/contracts';
-import { z } from 'zod';
 
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';

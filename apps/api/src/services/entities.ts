@@ -11,6 +11,8 @@
  * over the WebSocket, which is the channel meant for watching. This is stated in API.md rather
  * than left to be discovered.
  */
+import { and, asc, eq, gt, ilike, inArray, or, sql, type SQL } from 'drizzle-orm';
+
 import {
   entityViewSchema,
   parseEntityId,
@@ -21,7 +23,6 @@ import {
   type JsonObject,
 } from '@nebula-home/contracts';
 import { schema, type Database } from '@nebula-home/db';
-import { and, asc, eq, gt, ilike, inArray, or, sql, type SQL } from 'drizzle-orm';
 
 import { entityScopes, isPermitted } from '../auth/permissions.js';
 import { decodeCursor, encodeCursor, toPage, type PageResult } from '../http/pagination.js';

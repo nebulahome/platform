@@ -11,9 +11,10 @@
  * "let me look at something else", and a group that only ever did the first would fight anyone
  * trying to navigate.
  */
-import { Logo } from '@nebula-home/ui';
 import { useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router';
+
+import { Logo } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
 import {

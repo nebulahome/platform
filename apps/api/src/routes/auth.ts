@@ -12,6 +12,8 @@
  *    challenge id and nothing else. There is no token to intercept, and no branch that issues one
  *    before the code is checked.
  */
+import { and, eq, isNull } from 'drizzle-orm';
+
 import {
   ACCOUNT_LOCK_SECONDS,
   ACCESS_TOKEN_TTL_SECONDS,
@@ -30,7 +32,6 @@ import {
   type SessionUser,
 } from '@nebula-home/contracts';
 import { schema } from '@nebula-home/db';
-import { and, eq, isNull } from 'drizzle-orm';
 
 import { hashPassword, needsRehash, verifyAgainstDecoy, verifyPassword } from '../auth/password.js';
 import { resolveGrants } from '../auth/permissions.js';

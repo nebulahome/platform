@@ -1,6 +1,7 @@
-import { ConfigurationError } from '@nebula-home/contracts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+
+import { ConfigurationError } from '@nebula-home/contracts';
 
 import { busEnvSchema, databaseEnvSchema, runtimeEnvSchema } from './env-schemas.js';
 import { loadConfig, type ConfigurationIssue } from './load.js';

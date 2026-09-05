@@ -7,8 +7,9 @@
  * Every fixture is scoped to a package id unique to the run and removed afterwards, so two runs
  * against the same development database do not see each other's entities.
  */
-import { schema, type Database } from '@nebula-home/db';
 import { eq } from 'drizzle-orm';
+
+import { schema, type Database } from '@nebula-home/db';
 
 /** What was inserted, and how to name it afterwards. */
 export type Fixture = {

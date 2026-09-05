@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+
 import {
   adapterCommandSchema,
   ADAPTER_COMMAND_METHOD,
@@ -9,7 +11,6 @@ import {
   type AdapterAck,
   type AdapterCommand,
 } from '@nebula-home/contracts';
-import { beforeEach, describe, expect, it } from 'vitest';
 
 import { entityRecord, createCoreHarness, type CoreHarness } from '../testing/harness.js';
 

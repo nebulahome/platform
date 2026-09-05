@@ -1,6 +1,7 @@
-import { BUS_VERSION, ValidationError } from '@nebula-home/contracts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+
+import { BUS_VERSION, ValidationError } from '@nebula-home/contracts';
 
 import { createEnvelope, decodeEnvelope, encodeEnvelope, peekEnvelopeHeader } from './codec.js';
 

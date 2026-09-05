@@ -11,8 +11,9 @@
  * optional going in and guaranteed coming out, and a document that says otherwise in either
  * direction is wrong for every client that generates code from it.
  */
-import { API_VERSIONS, apiErrorSchema, type ApiVersion } from '@nebula-home/contracts';
 import { z } from 'zod';
+
+import { API_VERSIONS, apiErrorSchema, type ApiVersion } from '@nebula-home/contracts';
 
 import type { RouteDefinition, RouteRegistry } from './route.js';
 

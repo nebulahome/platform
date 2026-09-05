@@ -10,6 +10,9 @@
  */
 import { Writable } from 'node:stream';
 
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
+
 import {
   BUS_PATTERNS,
   busSubjects,
@@ -18,8 +21,6 @@ import {
   type EntityId,
 } from '@nebula-home/contracts';
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { z } from 'zod';
 
 import {
   BusClient,

@@ -5,8 +5,9 @@
  * repeat of a *different* request under the same key is refused rather than answered wrongly,
  * and nothing is remembered forever.
  */
-import { ConflictError, IDEMPOTENCY_TTL_SECONDS } from '@nebula-home/contracts';
 import { describe, expect, it } from 'vitest';
+
+import { ConflictError, IDEMPOTENCY_TTL_SECONDS } from '@nebula-home/contracts';
 
 import { IdempotencyStore } from './idempotency.js';
 

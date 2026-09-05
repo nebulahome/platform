@@ -6,9 +6,10 @@
  * cannot be configured correctly must not start at all, so both entry points here fail loudly
  * rather than returning a partial object.
  */
+import type { z, ZodType } from 'zod';
+
 import { ConfigurationError, EXIT_CODES } from '@nebula-home/contracts';
 import { formatLogLine } from '@nebula-home/logging';
-import type { z, ZodType } from 'zod';
 
 /** A source of environment variables. `process.env` in production, a literal in tests. */
 export type EnvironmentSource = Readonly<Record<string, string | undefined>>;

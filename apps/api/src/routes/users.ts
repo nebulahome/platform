@@ -7,6 +7,9 @@
  * with a role, or changing someone's role, requires `user:manage`, and nothing here lets a
  * caller grant a permission they do not hold.
  */
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { z } from 'zod';
+
 import {
   ConflictError,
   NotFoundError,
@@ -34,8 +37,6 @@ import {
   type UserView,
 } from '@nebula-home/contracts';
 import { schema } from '@nebula-home/db';
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
-import { z } from 'zod';
 
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { isPermitted, requirePermission } from '../auth/permissions.js';

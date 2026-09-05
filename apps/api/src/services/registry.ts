@@ -7,6 +7,8 @@
  * automation, scene and alias engines in `core` - do not exist yet, and an endpoint that writes
  * a row nothing acts on is worse than no endpoint at all.
  */
+import { asc, eq, inArray, sql } from 'drizzle-orm';
+
 import {
   aliasViewSchema,
   areaViewSchema,
@@ -24,7 +26,6 @@ import {
   type SceneView,
 } from '@nebula-home/contracts';
 import { schema, type Database } from '@nebula-home/db';
-import { asc, eq, inArray, sql } from 'drizzle-orm';
 
 /**
  * Lists every area, with how many entities are in each.

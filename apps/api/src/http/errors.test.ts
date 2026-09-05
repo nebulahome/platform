@@ -5,6 +5,9 @@
  * in the response. Those messages are written for developers and routinely name a table, a
  * column or a path, none of which an unauthenticated caller should learn from a 500.
  */
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+
 import {
   ConflictError,
   DeviceUnavailableError,
@@ -13,8 +16,6 @@ import {
   PermissionError,
   ValidationError,
 } from '@nebula-home/contracts';
-import { describe, expect, it } from 'vitest';
-import { z } from 'zod';
 
 import { toErrorBody, toErrorShape, toValidationIssues } from './errors.js';
 

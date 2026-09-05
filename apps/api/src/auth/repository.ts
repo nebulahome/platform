@@ -4,6 +4,8 @@
  * Kept apart from the rules in `permissions.ts` so that those stay pure and exhaustively
  * testable. Everything here is a query; everything there is a decision.
  */
+import { and, eq, isNull, sql } from 'drizzle-orm';
+
 import {
   REFRESH_TOKEN_TTL_SECONDS,
   SESSION_TTL_SECONDS,
@@ -11,7 +13,6 @@ import {
   type ScopedPermission,
 } from '@nebula-home/contracts';
 import { schema, type Database } from '@nebula-home/db';
-import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import type { StoredGrant } from './permissions.js';
 

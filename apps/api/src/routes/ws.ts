@@ -10,6 +10,9 @@
  * credential; a connection that outlives it would be a way to hold a revoked session open
  * indefinitely by never making another HTTP request.
  */
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { WebSocket } from 'ws';
+
 import {
   WS_AUTH_TIMEOUT_MS,
   WS_CLOSE_TOKEN_EXPIRED,
@@ -20,8 +23,6 @@ import {
   type WsServerMessage,
   type WsTopic,
 } from '@nebula-home/contracts';
-import type { FastifyInstance, FastifyRequest } from 'fastify';
-import type { WebSocket } from 'ws';
 
 import { verifyAccessToken } from '../auth/tokens.js';
 import type { ApiContext } from '../context.js';

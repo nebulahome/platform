@@ -6,10 +6,11 @@
  * lose exactly the readings the stream exists to protect, one crash later
  * (ARCHITECTURE.md 7.4).
  */
+import type { NatsConnection } from 'nats';
+
 import { createTelemetryConsumer, type TelemetryConsumer } from '@nebula-home/bus';
 import { schema, type Database } from '@nebula-home/db';
 import type { PlatformLogger } from '@nebula-home/logging';
-import type { NatsConnection } from 'nats';
 
 import type { EntityDirectory } from '../domain/entity-directory.js';
 

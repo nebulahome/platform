@@ -5,8 +5,9 @@
  * where a person has exactly one thing to do, and anything else competing for attention is in
  * the way.
  */
-import { Logo } from '@nebula-home/ui';
 import type { ReactNode } from 'react';
+
+import { Logo } from '@nebula-home/ui';
 
 /** What the frame needs. */
 export type AuthLayoutProps = {

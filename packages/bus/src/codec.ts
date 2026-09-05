@@ -6,6 +6,8 @@
  * that makes "every boundary is validated" (ARCHITECTURE.md 1) true of the bus rather than
  * aspirational.
  */
+import type { z } from 'zod';
+
 import {
   busEnvelopeHeaderSchema,
   busEnvelopeSchema,
@@ -14,7 +16,6 @@ import {
   type BusEnvelope,
   type BusEnvelopeHeader,
 } from '@nebula-home/contracts';
-import type { z } from 'zod';
 
 import { ulid } from './ulid.js';
 

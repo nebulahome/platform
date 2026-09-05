@@ -5,8 +5,9 @@
  * every function in it is pure. Each case below is a sentence from ARCHITECTURE.md 12.2 turned
  * into an assertion: deny beats allow, narrower beats wider, expired grants are ignored.
  */
-import { PermissionError, type GrantedPermission } from '@nebula-home/contracts';
 import { describe, expect, it } from 'vitest';
+
+import { PermissionError, type GrantedPermission } from '@nebula-home/contracts';
 
 import {
   entityScopes,
