@@ -65,17 +65,40 @@ describe('AuthLayout', () => {
     expect(settled.container.querySelector('svg[role="img"]')).not.toBeNull();
   });
 
-  it('collapses the wordmark to nothing while the mark is at its largest', () => {
-    // Collapsed rather than merely transparent: a transparent word still takes its width, and
-    // the row is centred, so the mark would sit left of the middle of an empty screen.
+  it('keeps the word beside the mark from the first frame', () => {
+    // The two are one lockup and they travel together. A mark that spins alone and is then
+    // joined by its own name is a logo assembling itself, which draws the eye to the assembly.
     const { container } = render(<AuthLayout isLoading />);
     const wordmark = [...container.querySelectorAll('span')].find(
       (node) => node.textContent === 'Nebula',
     );
-    const column = wordmark?.closest('.grid');
 
-    expect(column?.className).toContain('grid-cols-[0fr]');
-    expect(column?.className).toContain('opacity-0');
+    expect(wordmark).toBeDefined();
+    expect(wordmark?.className).not.toContain('opacity-0');
+  });
+
+  it('holds the form back until the lockup has started moving', () => {
+    // The height opens immediately - that is what pushes the lockup up - but the form itself
+    // waits, so it appears into a space that already exists rather than making its own.
+    const { container } = render(
+      <AuthLayout title="Sign in" subtitle="Welcome back.">
+        <button type="button">Sign in</button>
+      </AuthLayout>,
+    );
+    const form = container.querySelector('.delay-300');
+
+    expect(form?.className).toContain('scale-x-100');
+    expect(form?.className).toContain('opacity-100');
+  });
+
+  it('has the form widen rather than simply appear', () => {
+    const { container } = render(
+      <AuthLayout isLoading title="Sign in" subtitle="Welcome back.">
+        <button type="button">Sign in</button>
+      </AuthLayout>,
+    );
+
+    expect(container.querySelector('[class*="scale-x-[0.86]"]')).not.toBeNull();
   });
 
   it('puts the drifting lights behind everything, and hides them from a reader', () => {
