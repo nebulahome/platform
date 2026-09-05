@@ -1,9 +1,14 @@
 /**
  * The Nebula mark.
  *
- * A ring with a bite taken out of it and two bodies on the orbit. Drawn rather than imported as
- * an asset so that it inherits the accent token: the mark and the interface change colour
- * together, and a themed page never shows a logo from the other theme.
+ * The geometry is the supplied artwork, unchanged: a ring of radius 52 at stroke 7, a bite taken
+ * out of it at (96.8, 23.2), a body of radius 26 at the centre and one of radius 11.5 sitting in
+ * the bite. The bite is cut with a mask rather than drawn as a gapped arc, which is what keeps
+ * the stroke an even width all the way round.
+ *
+ * The two colours are the only departure, and they are tokens rather than the artwork's `#FFF`
+ * and `#6E7BFF`. In the dark theme they resolve to almost exactly those values; in the light one
+ * a white ring on a white card would be an invisible logo.
  */
 import { cn } from '../lib/cn.js';
 
@@ -11,6 +16,14 @@ import { cn } from '../lib/cn.js';
 export type LogoProps = {
   /** Edge length in pixels. */
   readonly size?: number;
+
+  /**
+   * Turns the mark, once every 1.6 seconds.
+   *
+   * The whole mark turns, not the outer body on its own: the ring's notch has to travel with the
+   * body that sits in it, or the logo comes apart instead of spinning.
+   */
+  readonly isSpinning?: boolean;
 
   /** Extra classes for the wrapper. */
   readonly className?: string;
@@ -23,7 +36,7 @@ export type LogoProps = {
  * @returns The logo.
  */
 export function Logo(props: LogoProps) {
-  const { size = 28, className } = props;
+  const { size = 28, isSpinning = false, className } = props;
 
   return (
     <svg
@@ -32,28 +45,27 @@ export function Logo(props: LogoProps) {
       viewBox="0 0 120 120"
       role="img"
       aria-label="Nebula Home"
-      className={cn('shrink-0', className)}
+      className={cn('shrink-0 overflow-visible', className)}
     >
       <defs>
-        {/*
-         * The bite. Masking a filled rectangle rather than drawing an arc keeps the stroke width
-         * even all the way round, which a path with a gap does not.
-         */}
         <mask id="nebula-orbit">
           <rect width="120" height="120" fill="#000" />
           <circle cx="60" cy="60" r="52" fill="none" stroke="#fff" strokeWidth="7" />
           <circle cx="96.8" cy="23.2" r="18" fill="#000" />
         </mask>
       </defs>
-      <rect
-        width="120"
-        height="120"
-        fill="currentColor"
-        mask="url(#nebula-orbit)"
-        className="text-foreground"
-      />
+
+      {/*
+       * The centre body is outside the turning group. It is concentric with the rotation, so
+       * turning it would be work with nothing to show for it - and leaving it still is what
+       * makes the orbit read as one thing going round another.
+       */}
       <circle cx="60" cy="60" r="26" className="fill-primary" />
-      <circle cx="96.8" cy="23.2" r="11.5" className="fill-primary" />
+
+      <g className={cn('origin-view-box', isSpinning && 'animate-orbit')}>
+        <rect width="120" height="120" mask="url(#nebula-orbit)" className="fill-foreground" />
+        <circle cx="96.8" cy="23.2" r="11.5" className="fill-primary" />
+      </g>
     </svg>
   );
 }

@@ -91,6 +91,75 @@
 
   --font-sans: Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'Roboto Mono', ui-monospace, monospace;
+
+  /* --- the aurora ------------------------------------------------------------------------ */
+  /*
+   * Three lights behind the sign-in screen, blurred past recognition. All three sit in the
+   * accent's own family - one at its hue, one violet, one closer to cyan - because the palette
+   * has three other colours and every one of them means something. An amber blob behind a login
+   * form is a warning nobody raised.
+   */
+
+  --color-aurora-one: #6d7bff;
+  --color-aurora-two: #8f5cff;
+  --color-aurora-three: #3ba7d6;
+
+  /* --- motion ---------------------------------------------------------------------------- */
+
+  /** The orbit, while something is loading. One turn every 1.6 seconds. */
+  --animate-orbit: orbit 1.6s linear infinite;
+
+  /** The three lights, each on its own slow loop so they never come back into phase. */
+  --animate-drift-one: drift-one 46s ease-in-out infinite;
+  --animate-drift-two: drift-two 61s ease-in-out infinite;
+  --animate-drift-three: drift-three 73s ease-in-out infinite;
+}
+
+/*
+ * One turn about the mark's centre.
+ *
+ * The whole mark turns, not the outer body alone. The ring has a notch cut where that body sits,
+ * and spinning the body out of its notch would take the logo apart rather than animate it.
+ */
+@keyframes orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/*
+ * The lights drift. Slowly - a full loop is between three quarters of a minute and a minute and
+ * a quarter, which is slow enough that you notice the screen is alive without noticing motion.
+ * The three periods are coprime so the arrangement does not repeat.
+ */
+@keyframes drift-one {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(16vw, 10vh, 0) scale(1.18);
+  }
+}
+
+@keyframes drift-two {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.1);
+  }
+  50% {
+    transform: translate3d(-13vw, -12vh, 0) scale(0.92);
+  }
+}
+
+@keyframes drift-three {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(0.95);
+  }
+  50% {
+    transform: translate3d(9vw, -14vh, 0) scale(1.2);
+  }
 }
 
 /*
@@ -187,5 +256,48 @@
   :focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
+  }
+
+  /*
+   * Someone who has asked their system for less motion has asked for it everywhere.
+   *
+   * The drifting lights simply stop - they are decoration, and decoration is exactly what this
+   * setting is for. The orbit does not, because it is not decoration: it is the only thing on
+   * screen saying that something is happening. It becomes a pulse instead, which carries the
+   * same fact without anything travelling across the view.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-drift-one,
+    .animate-drift-two,
+    .animate-drift-three {
+      animation: none;
+    }
+
+    .animate-orbit {
+      animation: reduced-pulse 1.8s ease-in-out infinite;
+    }
+  }
+}
+
+/*
+ * Turning an SVG group about the middle of its own view box.
+ *
+ * A utility rather than an inline style, which RULES.md 15 does not allow, and Tailwind has no
+ * `transform-box` of its own. Without it the browser may measure the origin from the element's
+ * bounding box - and the group's bounding box is not the mark's centre, so the logo would orbit
+ * around a point slightly off itself.
+ */
+@utility origin-view-box {
+  transform-box: view-box;
+  transform-origin: center;
+}
+
+@keyframes reduced-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
   }
 }

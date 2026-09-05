@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 
 import { useSession } from '@/auth/session-store';
+import { AuthLayout } from '@/routes/auth-layout';
 import { FirstRun } from '@/routes/first-run';
 import { PagePlaceholder, Shell } from '@/routes/shell';
 import { SignIn } from '@/routes/sign-in';
@@ -61,9 +62,9 @@ function Router() {
   }, [initialise]);
 
   if (status === 'starting') {
-    // Deliberately blank rather than a spinner. This resolves in the time one request takes, and
-    // a spinner that flashes for eighty milliseconds reads as a fault rather than as progress.
-    return <div className="min-h-screen bg-canvas" />;
+    // The same frame the sign-in screen uses, with its card collapsed. The mark is the one
+    // element that survives the transition, which is what lets it move rather than swap.
+    return <AuthLayout isLoading />;
   }
 
   if (status === 'setup-required') {
