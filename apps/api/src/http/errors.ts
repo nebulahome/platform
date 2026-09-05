@@ -6,6 +6,7 @@
  * leave through this file, so a client never has to parse two different failure shapes.
  */
 import { ERROR_CODES, isNebulaError, type ApiError, type ErrorCode } from '@nebula-home/contracts';
+import type { PlatformLogger } from '@nebula-home/logging';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
@@ -130,24 +131,38 @@ export function toErrorBody(shape: ErrorShape, traceId: string): ApiError {
 }
 
 /**
- * The handler every unhandled failure in a route reaches.
+ * Builds the handler every unhandled failure in a route reaches.
  *
- * @param error - What was thrown.
- * @param request - The request it was thrown while handling.
- * @param reply - The reply to write the envelope to.
+ * It takes the platform logger rather than using `request.log`, and that is not a preference.
+ * The server is built with Fastify's own logging switched off, so `request.log` is a stub whose
+ * calls go nowhere - a 500 would answer the caller correctly and leave no trace of why, which is
+ * precisely what happened the first time a route in this service threw.
+ *
+ * @param logger - Where failures are reported.
+ * @returns The error handler to install.
  */
-export function handleError(error: unknown, request: FastifyRequest, reply: FastifyReply): void {
-  const shape = toErrorShape(error);
+export function createErrorHandler(
+  logger: PlatformLogger,
+): (error: unknown, request: FastifyRequest, reply: FastifyReply) => void {
+  return (error: unknown, request: FastifyRequest, reply: FastifyReply): void => {
+    const shape = toErrorShape(error);
 
-  // A 5xx is a bug or an outage and needs the stack; a 4xx is a caller doing something the API
-  // already told them not to do, and logging a stack for each one buries the real failures.
-  if (shape.status >= INTERNAL_STATUS) {
-    request.log.error({ err: error, status: shape.status }, 'Request failed');
-  } else {
-    request.log.debug({ code: shape.code, status: shape.status }, 'Request rejected');
-  }
+    // A 5xx is a bug or an outage and needs the stack; a 4xx is a caller doing something the API
+    // already told them not to do, and logging a stack for each one buries the real failures.
+    if (shape.status >= INTERNAL_STATUS) {
+      logger.error(
+        { err: error, status: shape.status, traceId: request.traceId, path: request.url },
+        'Request failed',
+      );
+    } else {
+      logger.debug(
+        { code: shape.code, status: shape.status, traceId: request.traceId },
+        'Request rejected',
+      );
+    }
 
-  void reply.status(shape.status).send(toErrorBody(shape, request.traceId));
+    void reply.status(shape.status).send(toErrorBody(shape, request.traceId));
+  };
 }
 
 /**

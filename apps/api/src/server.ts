@@ -19,13 +19,14 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import { readBearer } from './auth/authenticator.js';
 import type { ApiContext } from './context.js';
 import { registerTracing } from './http/context.js';
-import { handleError, handleNotFound } from './http/errors.js';
+import { createErrorHandler, handleNotFound } from './http/errors.js';
 import { RouteRegistry, type RouteEnvironment } from './http/route.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerEntityRoutes } from './routes/entities.js';
 import { registerHistoryRoutes } from './routes/history.js';
 import { registerMetaRoutes } from './routes/meta.js';
 import { registerRegistryRoutes } from './routes/registry.js';
+import { registerSetupRoutes } from './routes/setup.js';
 import { registerUserRoutes } from './routes/users.js';
 import { registerWebSocket } from './routes/ws.js';
 
@@ -38,6 +39,11 @@ const PUBLIC_PATHS = new Set([
   '/api/v1/auth/login',
   '/api/v1/auth/two-factor',
   '/api/v1/auth/refresh',
+
+  // Both halves of the first-boot flow. They refuse themselves once an account exists, which
+  // is a check they have to make anyway - a credential requirement here would mean needing an
+  // account in order to create the first one.
+  '/api/v1/setup',
 ]);
 
 /**
@@ -76,7 +82,7 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   const registry = new RouteRegistry();
 
   registerTracing(server);
-  server.setErrorHandler(handleError);
+  server.setErrorHandler(createErrorHandler(context.logger));
   server.setNotFoundHandler(handleNotFound);
 
   await server.register(helmet, {
@@ -162,6 +168,7 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
     basePath: `/api/${CURRENT_API_VERSION}`,
   };
 
+  registerSetupRoutes(environment, context);
   registerAuthRoutes(environment, context);
   registerEntityRoutes(environment, context);
   registerRegistryRoutes(environment, context);

@@ -12,6 +12,7 @@ export * from './api-entities.js';
 export * from './api-history.js';
 export * from './api-http.js';
 export * from './api-registry.js';
+export * from './api-setup.js';
 export * from './api-users.js';
 export * from './api-ws.js';
 export * from './auth.js';

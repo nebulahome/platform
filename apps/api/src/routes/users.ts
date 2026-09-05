@@ -34,7 +34,7 @@ import {
   type UserView,
 } from '@nebula-home/contracts';
 import { schema } from '@nebula-home/db';
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { hashPassword, verifyPassword } from '../auth/password.js';
@@ -756,7 +756,7 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
         const permissionRows = await tx
           .select({ id: schema.auth.permissions.id, key: schema.auth.permissions.key })
           .from(schema.auth.permissions)
-          .where(sql`${schema.auth.permissions.key} = ANY(${keys})`);
+          .where(inArray(schema.auth.permissions.key, keys));
 
         const idByKey = new Map(permissionRows.map((entry) => [entry.key, entry.id]));
 
@@ -863,6 +863,10 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
       tag: 'People',
       permission: null,
       response: twoFactorSetupResponseSchema,
+
+      // 200, not the 201 a POST defaults to: this starts an enrolment, it does not create a
+      // resource with a location. Nothing is enforced until the next call confirms it.
+      successStatus: 200,
     },
 
     /**
@@ -913,6 +917,7 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
       permission: null,
       body: twoFactorConfirmRequestSchema,
       response: twoFactorConfirmResponseSchema,
+      successStatus: 200,
     },
 
     /**

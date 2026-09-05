@@ -427,11 +427,18 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
         // A spent token being presented again means two parties hold it, and only one of them
         // is supposed to. There is no way to tell which, so the session ends for both.
         await revokeSession(context.db, record.sessionId, 'token_reuse', now);
+
+        // The username is looked up for the trail rather than left as "unknown". This is the
+        // one entry an owner will go looking for after a security scare, and an audit record
+        // that cannot say whose session was stolen is most of the way to useless.
+        const owner = await findUserById(context.db, record.userId);
+
         await context.audit.record({
           action: 'auth.token_reuse',
           resourceType: 'session',
           resourceId: record.sessionId,
           result: 'failure',
+          actorLabel: owner?.username ?? 'unknown',
           ipAddress: route.request.ip,
           userAgent: route.request.headers['user-agent'] ?? null,
           traceId: route.request.traceId,

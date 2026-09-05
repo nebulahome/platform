@@ -138,12 +138,23 @@ export function registerMetaRoutes(
      * version serves, so that a client learns it is on borrowed time from traffic it is already
      * making rather than from an endpoint it has to remember to poll.
      *
+     * The callback form, and not a three-argument function that returns the payload. Fastify
+     * hands `onSend` a fourth argument and continues the send when it is called or when the
+     * hook returns a promise; a synchronous return is neither, so the response is built, the
+     * headers are set, and nothing is ever written. Every request on the server hangs, with no
+     * error anywhere - which is exactly how this was found.
+     *
      * @param request - The request being answered.
      * @param reply - The reply to mark.
      * @param payload - Passed through untouched.
-     * @returns The payload, unchanged.
+     * @param done - Continues the send.
      */
-    (request: FastifyRequest, reply: FastifyReply, payload: unknown) => {
+    (
+      request: FastifyRequest,
+      reply: FastifyReply,
+      payload: unknown,
+      done: (error: Error | null, payload?: unknown) => void,
+    ): void => {
       const version = API_VERSIONS.find((entry) => request.url.startsWith(`${entry.basePath}/`));
 
       if (version?.status === 'deprecated' && version.sunsetAt !== null) {
@@ -151,7 +162,7 @@ export function registerMetaRoutes(
         void reply.header(SUNSET_HEADER, new Date(version.sunsetAt).toUTCString());
       }
 
-      return payload;
+      done(null, payload);
     },
   );
 }

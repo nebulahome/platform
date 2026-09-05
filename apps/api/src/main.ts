@@ -33,6 +33,30 @@ const SHUTDOWN_TIMEOUT_MS = 10_000;
 const SHUTDOWN_SIGNALS = ['SIGTERM', 'SIGINT'] as const;
 
 /**
+ * Strips the password out of a connection string before it is logged.
+ *
+ * The url is the most useful thing to name when a connection fails - it says which host was
+ * tried - and it is also the one configuration value that carries a credential. RULES.md 10.1
+ * forbids the second, so the host survives and the password does not.
+ *
+ * @param url - The connection string.
+ * @returns The same url with any password replaced, or a placeholder if it will not parse.
+ */
+function redactCredentials(url: string): string {
+  try {
+    const parsed = new URL(url);
+
+    if (parsed.password !== '') {
+      parsed.password = '[redacted]';
+    }
+
+    return parsed.toString();
+  } catch {
+    return '[unparseable]';
+  }
+}
+
+/**
  * Ends the process after a bounded wait, whatever the shutdown is doing.
  *
  * @param logger - Where the timeout is reported.
@@ -78,7 +102,18 @@ async function start(): Promise<void> {
       process.exit(EXIT_CODES.SCHEMA_VERSION_MISMATCH);
     }
 
-    throw error;
+    // Anything else at this point is the database not being there at all. Left to escape, it
+    // arrives as a driver stack trace about a query nobody wrote, which says nothing about the
+    // thing that is actually wrong: Postgres is not running, or `DATABASE_URL` points somewhere
+    // it is not. Unlike the bus, this one is fatal - `api` can neither authenticate anybody nor
+    // read anything without it.
+    logger.fatal(
+      { err: error, url: redactCredentials(config.DATABASE_URL) },
+      'Refusing to start: the database is not reachable',
+    );
+
+    await database.close();
+    process.exit(EXIT_CODES.UNHANDLED_ERROR);
   }
 
   const startupAbort = new AbortController();

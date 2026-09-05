@@ -13,11 +13,29 @@ import type { Identity } from '@nebula-home/contracts';
 import { schema, type Database } from '@nebula-home/db';
 import type { PlatformLogger } from '@nebula-home/logging';
 
-/** What kind of actor performed an action. */
-export const ACTOR_TYPES = ['user', 'token', 'system', 'anonymous'] as const;
+/**
+ * What kind of actor performed an action.
+ *
+ * Exactly the three the `audit_log_actor_type` constraint allows. There is deliberately no
+ * `anonymous`: an unauthenticated sign-in attempt is still a person trying to be a user, and it
+ * is recorded as one with a null `actor_user_id` and whatever username they typed in
+ * `actor_label`. That is the shape DATABASE.md designed for - a record that survives not knowing
+ * who - rather than a fourth kind that would need a migration to express.
+ */
+export const ACTOR_TYPES = ['user', 'token', 'system'] as const;
 
 /** What kind of actor performed an action. */
 export type ActorType = (typeof ACTOR_TYPES)[number];
+
+/**
+ * How an action ended.
+ *
+ * Exactly the three the `audit_log_result` constraint allows.
+ */
+export const AUDIT_RESULTS = ['success', 'failure', 'denied'] as const;
+
+/** How an action ended. */
+export type AuditResult = (typeof AUDIT_RESULTS)[number];
 
 /** One thing worth remembering that somebody did. */
 export type AuditEntry = {
@@ -31,7 +49,7 @@ export type AuditEntry = {
   readonly resourceId?: string | null;
 
   /** Whether it worked. */
-  readonly result: 'success' | 'failure';
+  readonly result: AuditResult;
 
   /** Who did it, when the request was authenticated. */
   readonly identity?: Identity | undefined;
@@ -82,12 +100,7 @@ export class AuditLog {
    * @param entry - What happened.
    */
   public async record(entry: AuditEntry): Promise<void> {
-    const actorType: ActorType =
-      entry.identity === undefined
-        ? 'anonymous'
-        : entry.identity.credential === 'access_token'
-          ? 'token'
-          : 'user';
+    const actorType: ActorType = entry.identity?.credential === 'access_token' ? 'token' : 'user';
 
     try {
       await this.#db.insert(schema.system.auditLog).values({
