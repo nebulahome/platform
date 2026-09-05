@@ -349,22 +349,3 @@ export async function listPackages(db: Database): Promise<PackageView[]> {
     }),
   );
 }
-
-/**
- * Reads every runtime setting.
- *
- * @param db - The database.
- * @returns Each setting's key and current value.
- */
-export async function listSettings(
-  db: Database,
-): Promise<{ key: string; value: unknown; updatedAt: Date }[]> {
-  return db
-    .select({
-      key: schema.system.settings.key,
-      value: schema.system.settings.value,
-      updatedAt: schema.system.settings.updatedAt,
-    })
-    .from(schema.system.settings)
-    .orderBy(asc(schema.system.settings.key));
-}

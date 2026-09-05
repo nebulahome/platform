@@ -36,7 +36,6 @@ import {
   listLabels,
   listPackages,
   listScenes,
-  listSettings,
 } from '../services/registry.js';
 
 /**
@@ -48,18 +47,6 @@ import {
 const collectionSchema = <TItem extends z.ZodType>(
   item: TItem,
 ): z.ZodObject<{ items: z.ZodArray<TItem> }> => z.object({ items: z.array(item) });
-
-/** One runtime setting, as read. */
-const settingViewSchema = z.object({
-  /** The key in `system.settings`. */
-  key: z.string(),
-
-  /** Its current value, of whatever shape the setting's schema defines. */
-  value: z.unknown(),
-
-  /** When it last changed. */
-  updatedAt: z.date(),
-});
 
 /**
  * Registers the configuration read endpoints.
@@ -233,30 +220,6 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
       requirePermission(route.identity, 'package:read');
 
       return { items: await listPackages(context.db) };
-    },
-  );
-
-  defineRoute(
-    environment,
-    {
-      method: 'GET',
-      url: '/settings',
-      summary: 'Read runtime settings',
-      tag: 'System',
-      permission: 'settings:read',
-      response: collectionSchema(settingViewSchema),
-    },
-
-    /**
-     * Reads every runtime setting.
-     *
-     * @param route - Who is asking.
-     * @returns Each setting and its current value.
-     */
-    async (route): Promise<{ items: { key: string; value: unknown; updatedAt: Date }[] }> => {
-      requirePermission(route.identity, 'settings:read');
-
-      return { items: await listSettings(context.db) };
     },
   );
 }

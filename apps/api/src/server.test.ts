@@ -149,6 +149,7 @@ describe('the server', () => {
     expect(paths).toContain('/api/v1/entities/{entityId}');
     expect(paths).toContain('/api/v1/auth/login');
     expect(paths).toContain('/api/v1/users/me/tokens');
+    expect(paths).toContain('/api/v1/settings');
   });
 
   it('refuses a protected route with no credential', async () => {
@@ -201,6 +202,31 @@ describe('the server', () => {
     // It gets past authentication and fails at the read, which is the stub refusing to answer.
     expect(response.statusCode).toBe(500);
     expect(response.json<{ error: { code: string } }>().error.code).toBe('INTERNAL');
+  });
+
+  it('refuses a caller who is signed in but not allowed', async () => {
+    // 403 rather than 401: the credential is fine, the permission is not, and answering 401
+    // would send a client into a refresh loop trying to fix a token that is already valid.
+    const response = await server.inject({
+      method: 'GET',
+      url: '/api/v1/settings',
+      headers: { authorization: `Bearer ${await validToken('entity:read')}` },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json<{ error: { code: string } }>().error.code).toBe('PERMISSION');
+  });
+
+  it('refuses a settings change that names nothing to change', async () => {
+    const response = await server.inject({
+      method: 'PATCH',
+      url: '/api/v1/settings',
+      headers: { authorization: `Bearer ${await validToken('settings:write')}` },
+      payload: { changes: {} },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json<{ error: { code: string } }>().error.code).toBe('VALIDATION');
   });
 
   it('rejects a body that does not satisfy its schema', async () => {

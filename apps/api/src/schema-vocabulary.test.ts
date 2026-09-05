@@ -16,6 +16,8 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { SETTINGS } from '@nebula-home/contracts';
+
 import { SESSION_REVOKED_REASONS } from './auth/repository.js';
 import { ACTOR_TYPES, AUDIT_RESULTS } from './services/audit.js';
 
@@ -58,5 +60,43 @@ describe('the vocabularies the database constrains', () => {
     ]) {
       expect(allowedValues(constraint).length).toBeGreaterThan(0);
     }
+  });
+});
+
+/**
+ * Reads the rows the migration seeds into `system.settings`.
+ *
+ * @returns Each seeded key with the value it is seeded with.
+ */
+function seededSettings(): { key: string; value: unknown }[] {
+  const block = /INSERT INTO system\.settings \(key, value, schema_ref\) VALUES([\s\S]*?);/.exec(
+    MIGRATION,
+  );
+
+  return [...(block?.[1] ?? '').matchAll(/\('([a-z0-9_.]+)',\s*'(.*?)'::jsonb/g)].map((match) => ({
+    key: match[1] ?? '',
+    value: JSON.parse(match[2] ?? 'null') as unknown,
+  }));
+}
+
+describe('the settings catalogue and the migration that seeds it', () => {
+  it('seeds exactly the keys the code knows about', () => {
+    expect(
+      seededSettings()
+        .map((row) => row.key)
+        .sort(),
+    ).toEqual(SETTINGS.map((definition) => definition.key).sort());
+  });
+
+  it('seeds each one with the default the code declares', () => {
+    const seeded = new Map(seededSettings().map((row) => [row.key, row.value]));
+
+    for (const definition of SETTINGS) {
+      expect(seeded.get(definition.key), definition.key).toEqual(definition.defaultValue);
+    }
+  });
+
+  it('reads real rows, so an empty match cannot pass silently', () => {
+    expect(seededSettings().length).toBeGreaterThan(0);
   });
 });

@@ -85,6 +85,21 @@ export const retentionLadderSchema = z
 /** The four telemetry retention settings. */
 export type RetentionLadder = z.output<typeof retentionLadderSchema>;
 
+/**
+ * The four retention keys, and the field each one occupies in the ladder.
+ *
+ * Declared here because both sides need it and it is a mapping between two things this file
+ * already owns. A map rather than a naming convention: the ladder's field names are chosen for
+ * reading in TypeScript and the keys are chosen for reading in SQL, and deriving either from the
+ * other would be a rule that holds right up until somebody adds a fifth tier.
+ */
+export const RETENTION_LADDER_FIELDS = {
+  'history.telemetry.raw_retention_days': 'rawRetentionDays',
+  'history.telemetry.tier_1m_retention_days': 'tier1mRetentionDays',
+  'history.telemetry.tier_1h_retention_days': 'tier1hRetentionDays',
+  'history.telemetry.tier_1d_retention_days': 'tier1dRetentionDays',
+} as const satisfies Readonly<Record<string, keyof RetentionLadder>>;
+
 /** One entry in the settings catalogue. */
 export type SettingDefinition = {
   /** The primary key in `system.settings`. */
