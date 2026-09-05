@@ -54,6 +54,7 @@ import { generateOpaqueToken, hashOpaqueToken, signAccessToken } from '../auth/t
 import { decryptSecret, verifyTotp } from '../auth/totp.js';
 import type { ApiContext } from '../context.js';
 import { definePublicRoute, defineRoute, type RouteEnvironment } from '../http/route.js';
+import { readAvatarUrl } from '../services/avatars.js';
 
 /** One message for every way a sign-in can fail, so none of them is an oracle. */
 const REJECTED = 'Username or password is not correct';
@@ -64,12 +65,14 @@ const REJECTED = 'Username or password is not correct';
  * @param user - The row.
  * @param permissions - Their resolved grants.
  * @param isTwoFactorEnabled - Whether they have confirmed a second factor.
+ * @param avatarUrl - Their picture, or null when they have not set one.
  * @returns The session user.
  */
 function toSessionUser(
   user: UserRecord,
   permissions: readonly GrantedPermission[],
   isTwoFactorEnabled: boolean,
+  avatarUrl: string | null,
 ): SessionUser {
   return sessionUserSchema.parse({
     id: user.id,
@@ -77,6 +80,7 @@ function toSessionUser(
     displayName: user.displayName,
     role: user.roleKey,
     permissions,
+    avatarUrl,
     locale: user.locale,
     timezone: user.timezone,
     isTwoFactorEnabled,
@@ -102,11 +106,12 @@ async function issueSession(
   const now = context.now();
   const refresh = generateOpaqueToken();
 
-  const [permissions, isTwoFactorEnabled, session] = await Promise.all([
+  const [permissions, isTwoFactorEnabled, avatarUrl, session] = await Promise.all([
     readIdentityGrants(context.db, user, (roleGrants, userGrants) =>
       resolveGrants(roleGrants, userGrants, now),
     ),
     hasConfirmedTotp(context.db, user.id),
+    readAvatarUrl(context.db, user.id),
     openSession(context.db, {
       userId: user.id,
       ipAddress: request.ipAddress,
@@ -137,7 +142,7 @@ async function issueSession(
       expiresIn: ACCESS_TOKEN_TTL_SECONDS,
       refreshToken: refresh.secret,
     },
-    user: toSessionUser(user, permissions, isTwoFactorEnabled),
+    user: toSessionUser(user, permissions, isTwoFactorEnabled, avatarUrl),
   });
 }
 
@@ -486,6 +491,7 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
         ),
         hasConfirmedTotp(context.db, user.id),
       ]);
+      const avatarUrl = await readAvatarUrl(context.db, user.id);
 
       const accessToken = await signAccessToken(
         {
@@ -506,7 +512,7 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
           expiresIn: ACCESS_TOKEN_TTL_SECONDS,
           refreshToken: next.secret,
         },
-        user: toSessionUser(user, permissions, isTwoFactorEnabled),
+        user: toSessionUser(user, permissions, isTwoFactorEnabled, avatarUrl),
       });
     },
   );
@@ -591,6 +597,7 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
         user,
         route.identity.permissions,
         await hasConfirmedTotp(context.db, user.id),
+        await readAvatarUrl(context.db, user.id),
       );
     },
   );

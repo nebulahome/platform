@@ -229,6 +229,32 @@ describe('the server', () => {
     expect(response.json<{ error: { code: string } }>().error.code).toBe('VALIDATION');
   });
 
+  it('refuses a picture for somebody else without the permission to manage them', async () => {
+    const response = await server.inject({
+      method: 'PUT',
+      url: '/api/v1/users/00000000-0000-4000-8000-000000000099/avatar',
+      headers: { authorization: `Bearer ${await validToken('entity:read')}` },
+      payload: { mime: 'image/webp', data: 'AAAA' },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json<{ error: { code: string } }>().error.code).toBe('PERMISSION');
+  });
+
+  it('refuses a picture in a format it will not store', async () => {
+    // Refused before anything is decoded, and SVG is the one that matters: it is a document
+    // that can carry script, and it would be served back to everybody else in the house.
+    const response = await server.inject({
+      method: 'PUT',
+      url: '/api/v1/users/00000000-0000-4000-8000-000000000001/avatar',
+      headers: { authorization: `Bearer ${await validToken()}` },
+      payload: { mime: 'image/svg+xml', data: 'AAAA' },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json<{ error: { code: string } }>().error.code).toBe('VALIDATION');
+  });
+
   it('rejects a body that does not satisfy its schema', async () => {
     const response = await server.inject({
       method: 'POST',

@@ -35,6 +35,15 @@ export const userViewSchema = z.object({
   /** Whether they must set a new password before doing anything else. */
   mustChangePassword: z.boolean(),
 
+  /**
+   * Their picture, as a `data:` URL, or null when they have not set one.
+   *
+   * Inlined rather than served from a URL of its own, because an `<img>` cannot send an
+   * `Authorization` header and this installation has no anonymous route to an avatar. The size
+   * cap is what makes that affordable: 64 KiB at the very most, and a few kilobytes in practice.
+   */
+  avatarUrl: z.string().nullable(),
+
   /** When they last signed in. Null means never. */
   lastLoginAt: timestampSchema.nullable(),
 
@@ -267,3 +276,50 @@ export const twoFactorConfirmResponseSchema = z.object({
 
 /** What confirming two-factor enrolment answers. */
 export type TwoFactorConfirmResponse = z.output<typeof twoFactorConfirmResponseSchema>;
+
+/** The image formats an avatar may be stored in. */
+export const AVATAR_MIME_TYPES = ['image/webp', 'image/png', 'image/jpeg'] as const;
+
+/**
+ * The image formats an avatar may be stored in.
+ *
+ * SVG is deliberately absent. It is a document rather than a picture: it can carry script, and
+ * this file would be served back to every other person in the installation.
+ */
+export type AvatarMimeType = (typeof AVATAR_MIME_TYPES)[number];
+
+/** The largest avatar the database will hold, in bytes. Mirrors `user_avatars_size`. */
+export const AVATAR_MAXIMUM_BYTES = 65_536;
+
+/**
+ * The square an avatar is resized to before it is sent.
+ *
+ * Done in the browser, so what crosses the wire is already small. 128 is twice the largest place
+ * one is drawn, which covers a high-density screen and nothing more.
+ */
+export const AVATAR_PIXELS = 128;
+
+/**
+ * What `PUT /api/v1/users/:userId/avatar` accepts.
+ *
+ * Base64 in a JSON body rather than multipart, for one reason worth stating: multipart means a
+ * parser, a parser means a dependency, and a dependency that handles untrusted uploads is a
+ * larger thing to trust than `Buffer.from(text, 'base64')`. The size that makes this reasonable
+ * is the point - a 128-pixel square is kilobytes, and an endpoint that took whole photographs
+ * would deserve the other answer.
+ */
+export const setAvatarRequestSchema = z.object({
+  /** The format the bytes are in. */
+  mime: z.enum(AVATAR_MIME_TYPES),
+
+  /**
+   * The image, base64 encoded.
+   *
+   * Bounded here so an oversized body is refused before it is decoded; the decoded length is
+   * checked again after, because base64 length is an upper bound on the bytes and not the bytes.
+   */
+  data: z.base64().max(Math.ceil(AVATAR_MAXIMUM_BYTES / 3) * 4),
+});
+
+/** What `PUT /api/v1/users/:userId/avatar` accepts. */
+export type SetAvatarRequest = z.output<typeof setAvatarRequestSchema>;

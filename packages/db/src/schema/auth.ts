@@ -272,6 +272,28 @@ export const totpSecrets = authSchema.table('totp_secrets', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * A picture for each person.
+ *
+ * Its own table rather than columns on {@link users}, for the same reason {@link totpSecrets} is:
+ * the users row is read on every authenticated request, and a `bytea` in it would be dragged
+ * along by any query that ever forgets to name its columns.
+ */
+export const userAvatars = authSchema.table('user_avatars', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+
+  /** The image itself. Capped at 64 KiB by a CHECK, not only by the application. */
+  image: bytea('image').notNull(),
+
+  /** One of `image/webp`, `image/png` or `image/jpeg`. Never SVG: it is a document. */
+  mime: text('mime').notNull(),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** Single-use recovery codes for when the second factor is unavailable. */
 export const totpRecoveryCodes = authSchema.table(
   'totp_recovery_codes',

@@ -23,6 +23,7 @@ import {
   createUserRequestSchema,
   roleViewSchema,
   sessionViewSchema,
+  setAvatarRequestSchema,
   twoFactorConfirmRequestSchema,
   twoFactorConfirmResponseSchema,
   twoFactorSetupResponseSchema,
@@ -52,6 +53,7 @@ import {
 } from '../auth/totp.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { deleteAvatar, readAvatarUrl, readAvatarUrls, writeAvatar } from '../services/avatars.js';
 
 /** The path parameters of the per-user routes. */
 const userParamsSchema = z.object({ userId: z.uuid() });
@@ -87,11 +89,14 @@ async function readUserView(context: ApiContext, userId: string): Promise<UserVi
     throw new NotFoundError('No such user', { details: { userId } });
   }
 
-  const totp = await context.db
-    .select({ confirmedAt: schema.auth.totpSecrets.confirmedAt })
-    .from(schema.auth.totpSecrets)
-    .where(eq(schema.auth.totpSecrets.userId, userId))
-    .limit(1);
+  const [totp, avatarUrl] = await Promise.all([
+    context.db
+      .select({ confirmedAt: schema.auth.totpSecrets.confirmedAt })
+      .from(schema.auth.totpSecrets)
+      .where(eq(schema.auth.totpSecrets.userId, userId))
+      .limit(1),
+    readAvatarUrl(context.db, userId),
+  ]);
 
   return userViewSchema.parse({
     id: user.id,
@@ -103,6 +108,7 @@ async function readUserView(context: ApiContext, userId: string): Promise<UserVi
     timezone: user.timezone,
     isActive: user.isActive,
     isTwoFactorEnabled: totp[0]?.confirmedAt != null,
+    avatarUrl,
     mustChangePassword: user.mustChangePassword,
     lastLoginAt: user.lastLoginAt,
     lockedUntil: user.lockedUntil,
@@ -183,9 +189,20 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
         .where(isNull(schema.auth.users.deletedAt))
         .orderBy(asc(schema.auth.users.username));
 
+      // One query for every avatar rather than one per row: a household of twenty people is a
+      // page, and a page must not be twenty round trips.
+      const avatars = await readAvatarUrls(
+        context.db,
+        rows.map((row) => row.id),
+      );
+
       return {
         items: rows.map((row) =>
-          userViewSchema.parse({ ...row, isTwoFactorEnabled: row.confirmedAt != null }),
+          userViewSchema.parse({
+            ...row,
+            isTwoFactorEnabled: row.confirmedAt != null,
+            avatarUrl: avatars.get(row.id) ?? null,
+          }),
         ),
       };
     },
@@ -1018,6 +1035,96 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
         ipAddress: route.request.ip,
         traceId: route.request.traceId,
       });
+
+      void route.reply.status(204);
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'PUT',
+      url: '/users/:userId/avatar',
+      summary: 'Set a picture for an account',
+      tag: 'People',
+      permission: 'user:manage',
+      params: userParamsSchema,
+      body: setAvatarRequestSchema,
+      response: userViewSchema,
+      successStatus: 200,
+    },
+
+    /**
+     * Stores a picture.
+     *
+     * A person may set their own without `user:manage`, on the same rule as the rest of their
+     * profile: a picture says who you are, and who you are is yours to say.
+     *
+     * @param route - The path parameters, the body and who is asking.
+     * @returns The account as it now stands.
+     * @throws {NotFoundError} When no living user has that id.
+     */
+    async (route): Promise<UserView> => {
+      const isSelf = route.params.userId === route.identity.userId;
+
+      if (!isSelf) {
+        requirePermission(route.identity, 'user:manage');
+      }
+
+      // Read first, so an id that names nobody is a 404 rather than a foreign key violation
+      // reported as a 500.
+      const target = await findUserById(context.db, route.params.userId);
+
+      if (target === undefined) {
+        throw new NotFoundError('No such user', { details: { userId: route.params.userId } });
+      }
+
+      await writeAvatar(context.db, route.params.userId, route.body.mime, route.body.data);
+
+      if (!isSelf) {
+        // Only when it is somebody else's account. Changing your own picture is not an event
+        // anybody needs to be able to look up later.
+        await context.audit.record({
+          action: 'user.avatar_set',
+          resourceType: 'user',
+          resourceId: route.params.userId,
+          result: 'success',
+          identity: route.identity,
+          ipAddress: route.request.ip,
+          traceId: route.request.traceId,
+        });
+      }
+
+      return readUserView(context, route.params.userId);
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'DELETE',
+      url: '/users/:userId/avatar',
+      summary: 'Remove the picture from an account',
+      tag: 'People',
+      permission: 'user:manage',
+      params: userParamsSchema,
+      successStatus: 204,
+    },
+
+    /**
+     * Removes a picture.
+     *
+     * Silent when there was none. The caller asked for an account with no picture and that is
+     * what they have.
+     *
+     * @param route - The path parameters and who is asking.
+     */
+    async (route): Promise<void> => {
+      if (route.params.userId !== route.identity.userId) {
+        requirePermission(route.identity, 'user:manage');
+      }
+
+      await deleteAvatar(context.db, route.params.userId);
 
       void route.reply.status(204);
     },

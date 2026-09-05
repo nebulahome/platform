@@ -216,6 +216,8 @@ export function registerSetupRoutes(environment: RouteEnvironment, context: ApiC
           refreshToken: refresh.secret,
         },
         user: sessionUserSchema.parse({
+          // Nobody has a picture four seconds after their account was created.
+          avatarUrl: null,
           id: user.id,
           username: user.username,
           displayName: user.displayName,

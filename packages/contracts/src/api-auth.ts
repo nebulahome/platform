@@ -69,6 +69,9 @@ export const sessionUserSchema = z.object({
    */
   permissions: z.array(grantedPermissionSchema),
 
+  /** Their picture as a `data:` URL, or null when they have not set one. */
+  avatarUrl: z.string().nullable(),
+
   /** Their language tag. */
   locale: z.string(),
 
