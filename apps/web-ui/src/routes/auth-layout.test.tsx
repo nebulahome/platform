@@ -65,13 +65,17 @@ describe('AuthLayout', () => {
     expect(settled.container.querySelector('svg[role="img"]')).not.toBeNull();
   });
 
-  it('hides the wordmark while the mark is at its largest', () => {
+  it('collapses the wordmark to nothing while the mark is at its largest', () => {
+    // Collapsed rather than merely transparent: a transparent word still takes its width, and
+    // the row is centred, so the mark would sit left of the middle of an empty screen.
     const { container } = render(<AuthLayout isLoading />);
     const wordmark = [...container.querySelectorAll('span')].find(
       (node) => node.textContent === 'Nebula',
     );
+    const column = wordmark?.closest('.grid');
 
-    expect(wordmark?.className).toContain('opacity-0');
+    expect(column?.className).toContain('grid-cols-[0fr]');
+    expect(column?.className).toContain('opacity-0');
   });
 
   it('puts the drifting lights behind everything, and hides them from a reader', () => {

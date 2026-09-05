@@ -106,8 +106,15 @@
 
   /* --- motion ---------------------------------------------------------------------------- */
 
-  /** The orbit, while something is loading. One turn every 1.6 seconds. */
-  --animate-orbit: orbit 1.6s linear infinite;
+  /**
+   * The orbit, while something is loading. One turn every 1.2 seconds.
+   *
+   * The interface holds the opening frame for a whole number of these, so that the mark comes to
+   * rest with its notch where it started rather than snapping there from wherever the animation
+   * had got to. `ORBIT_PERIOD_MS` in the web interface is this number, and a test keeps them
+   * together.
+   */
+  --animate-orbit: orbit 1.2s linear infinite;
 
   /** The three lights, each on its own slow loop so they never come back into phase. */
   --animate-drift-one: drift-one 46s ease-in-out infinite;

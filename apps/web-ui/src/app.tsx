@@ -16,6 +16,7 @@ import { FirstRun } from '@/routes/first-run';
 import { PagePlaceholder, Shell } from '@/routes/shell';
 import { SignIn } from '@/routes/sign-in';
 import { TwoFactor } from '@/routes/two-factor';
+import { useIntroHold } from '@/routes/use-intro-hold';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,12 +57,13 @@ const queryClient = new QueryClient({
 function Router() {
   const status = useSession((state) => state.status);
   const initialise = useSession((state) => state.initialise);
+  const isHeld = useIntroHold(status !== 'starting');
 
   useEffect(() => {
     void initialise();
   }, [initialise]);
 
-  if (status === 'starting') {
+  if (status === 'starting' || isHeld) {
     // The same frame the sign-in screen uses, with its card collapsed. The mark is the one
     // element that survives the transition, which is what lets it move rather than swap.
     return <AuthLayout isLoading />;
