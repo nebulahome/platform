@@ -1,0 +1,196 @@
+/**
+ * The live channel's plumbing: one set of bus subscriptions, fanned out to every open socket.
+ *
+ * Subscribed once per process rather than once per socket. A hundred browsers watching a house
+ * is a hundred sockets, not a hundred NATS subscriptions - and with a subscription each, one
+ * state change would be decoded a hundred times before anybody could decide who is allowed to
+ * see it.
+ *
+ * Which sockets get which event is decided here too. `core` fans out every change to everyone
+ * on the bus; deciding who may see one is `api`'s job and nobody else's.
+ */
+import type { BusClient, BusSubscription } from '@nebula-home/bus';
+import {
+  BUS_PATTERNS,
+  jsonObjectSchema,
+  stateChangedEventSchema,
+  type JsonObject,
+  type WsServerMessage,
+} from '@nebula-home/contracts';
+import type { PlatformLogger } from '@nebula-home/logging';
+
+/** One open socket, as the fan-out sees it. */
+export type Subscriber = {
+  /** Which entity identifiers this socket may be told about. */
+  readonly canRead: (entityId: string) => boolean;
+
+  /** Which topics it asked for. */
+  readonly topics: Set<string>;
+
+  /** Sends one message. */
+  readonly send: (message: WsServerMessage) => void;
+};
+
+/** Fans bus events out to the sockets that are allowed to see them. */
+export class EventFanout {
+  /** Every open socket. */
+  readonly #subscribers = new Set<Subscriber>();
+
+  /** The bus subscriptions, kept so they can be closed on shutdown. */
+  readonly #subscriptions: BusSubscription[] = [];
+
+  /** Where a failed dispatch is reported. */
+  readonly #logger: PlatformLogger;
+
+  /**
+   * Creates the fan-out.
+   *
+   * @param logger - Where failures are reported.
+   */
+  public constructor(logger: PlatformLogger) {
+    this.#logger = logger;
+  }
+
+  /**
+   * Starts listening to the bus.
+   *
+   * @param client - The bus client to subscribe on.
+   */
+  public start(client: BusClient): void {
+    this.#subscriptions.push(
+      client.subscribe(
+        BUS_PATTERNS.allStateChanges,
+        stateChangedEventSchema,
+
+        /**
+         * Forwards one state change to whoever may see it.
+         *
+         * @param event - The change `core` published.
+         */
+        (event): void => {
+          this.#dispatch('state', event.entityId, {
+            type: 'state_changed',
+            entityId: event.entityId,
+
+            // Capability state is JSON by construction - it has just been decoded from the
+            // bus - but its type has optional keys, which an index signature cannot accept.
+            state: event.current.state as JsonObject,
+            attributes: event.current.attributes,
+            isAvailable: event.current.isAvailable,
+            changedAt: event.current.lastChanged,
+            ...(event.current.context === undefined ? {} : { context: event.current.context }),
+          });
+        },
+      ),
+    );
+
+    this.#subscriptions.push(
+      client.subscribe(
+        BUS_PATTERNS.allDeviceEvents,
+        jsonObjectSchema,
+
+        /**
+         * Forwards one device lifecycle event.
+         *
+         * @param payload - What was published.
+         * @param context - The subject, whose last token names the event.
+         */
+        (payload, context): void => {
+          const event = context.subject.split('.').pop() ?? '';
+
+          if (event === 'added' || event === 'removed' || event === 'offline') {
+            this.#dispatch('devices', null, { type: 'device_event', event, payload });
+          }
+        },
+      ),
+    );
+
+    this.#subscriptions.push(
+      client.subscribe(
+        BUS_PATTERNS.allPackageEvents,
+        jsonObjectSchema,
+
+        /**
+         * Forwards one package lifecycle event.
+         *
+         * @param payload - What was published.
+         * @param context - The subject, whose last token names the event.
+         */
+        (payload, context): void => {
+          const event = context.subject.split('.').pop() ?? '';
+
+          // `routes` also arrives on this pattern and is for `proxy`, not for a browser. It is
+          // dropped rather than forwarded as an unknown event.
+          if (
+            event === 'installed' ||
+            event === 'removed' ||
+            event === 'started' ||
+            event === 'stopped'
+          ) {
+            this.#dispatch('packages', null, { type: 'package_event', event, payload });
+          }
+        },
+      ),
+    );
+  }
+
+  /**
+   * Registers an open socket.
+   *
+   * @param subscriber - The socket.
+   * @returns A function that unregisters it.
+   */
+  public add(subscriber: Subscriber): () => void {
+    this.#subscribers.add(subscriber);
+
+    return (): void => {
+      this.#subscribers.delete(subscriber);
+    };
+  }
+
+  /**
+   * How many sockets are open.
+   *
+   * @returns The count.
+   */
+  public get size(): number {
+    return this.#subscribers.size;
+  }
+
+  /** Stops listening to the bus. */
+  public stop(): void {
+    for (const subscription of this.#subscriptions) {
+      subscription.unsubscribe();
+    }
+
+    this.#subscriptions.length = 0;
+    this.#subscribers.clear();
+  }
+
+  /**
+   * Sends one message to every socket subscribed to a topic and allowed to see it.
+   *
+   * @param topic - Which subscription the message belongs to.
+   * @param entityId - The entity it concerns, or null when it concerns none.
+   * @param message - What to send.
+   */
+  #dispatch(topic: string, entityId: string | null, message: WsServerMessage): void {
+    for (const subscriber of this.#subscribers) {
+      if (!subscriber.topics.has(topic)) {
+        continue;
+      }
+
+      if (entityId !== null && !subscriber.canRead(entityId)) {
+        continue;
+      }
+
+      try {
+        subscriber.send(message);
+      } catch (error: unknown) {
+        // One socket failing to accept a message must not stop the others receiving it. The
+        // socket itself is cleaned up by its own close handler.
+        this.#logger.debug({ err: error }, 'Could not deliver to a socket');
+      }
+    }
+  }
+}
