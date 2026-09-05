@@ -461,7 +461,7 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
         throw new NotFoundError('No such user', { details: { userId: route.params.userId } });
       }
 
-      await revokeAllSessions(context.db, row.id, 'user_deleted', now);
+      await revokeAllSessions(context.db, row.id, 'admin', now);
       await context.db
         .update(schema.auth.accessTokens)
         .set({ revokedAt: now })
@@ -529,7 +529,7 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
 
       // Every session but this one: changing a password is what someone does after suspecting
       // it was learned, and leaving the other sessions alive would leave the suspicion standing.
-      await revokeAllSessions(context.db, user.id, 'password_changed', now);
+      await revokeAllSessions(context.db, user.id, 'password_change', now);
 
       await context.audit.record({
         action: 'user.password_change',
@@ -624,7 +624,7 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
         throw new NotFoundError('No such session');
       }
 
-      await revokeSession(context.db, route.params.id, 'user_revoked', context.now());
+      await revokeSession(context.db, route.params.id, 'logout', context.now());
       void route.reply.status(204);
     },
   );

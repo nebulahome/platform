@@ -139,22 +139,33 @@ export const useSession = create<SessionState>((set, get) => ({
    * show setup; otherwise show the sign-in form.
    */
   initialise: async (): Promise<void> => {
-    if (readRefreshToken() !== null) {
-      const accessToken = await refreshAccessToken();
+    // Every branch below is inside a `try`, and it has to be. This runs once, before anything
+    // has rendered, and the status it sets is what picks the screen - so a throw here does not
+    // show an error, it leaves the status at `starting` and the person looks at a blank page
+    // for as long as they are willing to. There is no state in which failing to decide is
+    // better than deciding to show the sign-in form.
+    try {
+      if (readRefreshToken() !== null) {
+        const accessToken = await refreshAccessToken();
 
-      if (accessToken !== null) {
-        try {
-          set({ accessToken });
-          set({ status: 'signed-in', user: await fetchSession(), challengeId: null });
+        if (accessToken !== null) {
+          try {
+            set({ accessToken });
+            set({ status: 'signed-in', user: await fetchSession(), challengeId: null });
 
-          return;
-        } catch {
-          // The token verified but the session could not be read: the account was deleted or
-          // deactivated between the two calls. Falling through signs them out cleanly.
-          writeRefreshToken(null);
-          set({ accessToken: null });
+            return;
+          } catch {
+            // The token verified but the session could not be read: the account was deleted or
+            // deactivated between the two calls. Falling through signs them out cleanly.
+            writeRefreshToken(null);
+            set({ accessToken: null });
+          }
         }
       }
+    } catch {
+      // The refresh itself could not be made - the API is down, or the network is. Fall through
+      // to the same decision an unauthenticated visitor gets.
+      set({ accessToken: null });
     }
 
     try {

@@ -466,7 +466,7 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
       const user = await findUserById(context.db, record.userId);
 
       if (!user?.isActive) {
-        await revokeSession(context.db, record.sessionId, 'user_inactive', now);
+        await revokeSession(context.db, record.sessionId, 'admin', now);
 
         throw new AuthenticationError('That refresh token is not valid');
       }
@@ -532,12 +532,7 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
       const now = context.now();
 
       if (route.body.allSessions) {
-        const count = await revokeAllSessions(
-          context.db,
-          route.identity.userId,
-          'user_logout_all',
-          now,
-        );
+        const count = await revokeAllSessions(context.db, route.identity.userId, 'logout', now);
 
         await context.audit.record({
           action: 'auth.logout_all',
@@ -550,7 +545,7 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
           details: { sessions: count },
         });
       } else if (route.identity.sessionId !== undefined) {
-        await revokeSession(context.db, route.identity.sessionId, 'user_logout', now);
+        await revokeSession(context.db, route.identity.sessionId, 'logout', now);
 
         await context.audit.record({
           action: 'auth.logout',

@@ -16,6 +16,24 @@ import { schema, type Database } from '@nebula-home/db';
 
 import type { StoredGrant } from './permissions.js';
 
+/**
+ * Why a session was ended.
+ *
+ * Exactly the five the `sessions_revoked_reason` constraint allows. The column is not free text,
+ * and a value it does not know fails the write - which, because a revocation is usually a side
+ * effect of something else succeeding, surfaces as a 500 on an action that otherwise worked.
+ */
+export const SESSION_REVOKED_REASONS = [
+  'logout',
+  'expired',
+  'token_reuse',
+  'admin',
+  'password_change',
+] as const;
+
+/** Why a session was ended. */
+export type SessionRevokedReason = (typeof SESSION_REVOKED_REASONS)[number];
+
 /** A user as the sign-in path needs them. */
 export type UserRecord = {
   id: string;
@@ -402,7 +420,7 @@ export async function rotateRefreshToken(
 export async function revokeSession(
   db: Database,
   sessionId: string,
-  reason: string,
+  reason: SessionRevokedReason,
   now: Date,
 ): Promise<void> {
   await db.transaction(async (tx) => {
@@ -435,7 +453,7 @@ export async function revokeSession(
 export async function revokeAllSessions(
   db: Database,
   userId: string,
-  reason: string,
+  reason: SessionRevokedReason,
   now: Date,
 ): Promise<number> {
   const revoked = await db

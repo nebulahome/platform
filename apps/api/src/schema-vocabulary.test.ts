@@ -1,0 +1,62 @@
+/**
+ * Every fixed vocabulary this service writes into a constrained column.
+ *
+ * Written after two of them turned out to be wrong in production and in different ways. An
+ * `actor_type` the audit table does not allow was swallowed, because a failed audit write is
+ * logged rather than thrown - it emitted one error line per sign-in and broke nothing visible. A
+ * `revoked_reason` the sessions table does not allow was not swallowed, and surfaced as a 500 on
+ * signing out, which had otherwise worked.
+ *
+ * Both are the same mistake: a set of strings invented in TypeScript that the database has its
+ * own opinion about. The cases below read the migration and compare, so the next one fails here
+ * instead of at three in the afternoon.
+ */
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+import { describe, expect, it } from 'vitest';
+
+import { SESSION_REVOKED_REASONS } from './auth/repository.js';
+import { ACTOR_TYPES, AUDIT_RESULTS } from './services/audit.js';
+
+/** The initial migration, which is the authority on what every column accepts. */
+const MIGRATION = readFileSync(
+  fileURLToPath(
+    new URL('../../../packages/db/migrations/0001_initial_schema.sql', import.meta.url),
+  ),
+  'utf8',
+);
+
+/**
+ * Reads the values one CHECK constraint allows.
+ *
+ * @param constraint - The constraint's name.
+ * @returns The literals it lists.
+ */
+function allowedValues(constraint: string): string[] {
+  const clause = new RegExp(
+    `CONSTRAINT ${constraint}\\s*\\n?\\s*CHECK \\([^)]*IN \\(([^)]*)\\)`,
+  ).exec(MIGRATION);
+
+  return [...(clause?.[1] ?? '').matchAll(/'([a-z_]+)'/g)].map((match) => match[1] ?? '');
+}
+
+describe('the vocabularies the database constrains', () => {
+  it.each([
+    ['audit_log_actor_type', ACTOR_TYPES],
+    ['audit_log_result', AUDIT_RESULTS],
+    ['sessions_revoked_reason', SESSION_REVOKED_REASONS],
+  ])('matches %s exactly', (constraint, values) => {
+    expect([...values].sort()).toEqual(allowedValues(constraint).sort());
+  });
+
+  it('reads real constraints, so an empty match cannot pass silently', () => {
+    for (const constraint of [
+      'audit_log_actor_type',
+      'audit_log_result',
+      'sessions_revoked_reason',
+    ]) {
+      expect(allowedValues(constraint).length).toBeGreaterThan(0);
+    }
+  });
+});
