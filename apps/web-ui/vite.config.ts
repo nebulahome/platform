@@ -16,7 +16,7 @@ export default defineConfig({
     proxy: {
       // In development the browser talks to Vite, which forwards to api directly.
       // In production this hop is the proxy service instead.
-      '/api': { target: 'http://localhost:3001', changeOrigin: true, ws: true },
+      '/api': { target: 'http://127.0.0.1:4000', changeOrigin: true, ws: true },
     },
   },
 });
