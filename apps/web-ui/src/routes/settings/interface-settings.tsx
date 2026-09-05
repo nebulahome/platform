@@ -111,8 +111,8 @@ export function InterfaceSettings() {
                 value: page,
                 label: START_PAGE_LABELS[page],
               }))}
-              onChange={(event) => {
-                const chosen = START_PAGES.find((page) => page === event.target.value);
+              onChange={(next) => {
+                const chosen = START_PAGES.find((page) => page === next);
 
                 if (chosen !== undefined) {
                   change({ startPage: chosen });

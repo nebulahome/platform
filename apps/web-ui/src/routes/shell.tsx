@@ -90,11 +90,17 @@ export function PagePlaceholder() {
 /**
  * Renders the signed-in frame.
  *
+ * `relative overflow-hidden` is the general form of a bug the settings section found: an
+ * absolutely positioned descendant with no positioned ancestor is laid out against the document
+ * and clipped by nothing, so one stray hidden label anywhere inside can give the window a
+ * scrollbar the page does not want. The frame is exactly one viewport tall by design, and this
+ * says so in a way that holds for whatever gets built inside it.
+ *
  * @returns The shell.
  */
 export function Shell() {
   return (
-    <div className="flex h-screen bg-canvas text-foreground">
+    <div className="relative flex h-screen overflow-hidden bg-canvas text-foreground">
       <Sidebar />
       <Outlet />
     </div>

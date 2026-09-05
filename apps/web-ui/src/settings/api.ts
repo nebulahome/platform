@@ -27,6 +27,7 @@ import {
   type JsonValue,
   type RoleView,
   type SessionView,
+  type SetAvatarRequest,
   type SettingsResponse,
   type TwoFactorConfirmResponse,
   type TwoFactorSetupResponse,
@@ -88,6 +89,26 @@ export async function updateUser(userId: string, request: UpdateUserRequest): Pr
  */
 export async function deleteUser(userId: string): Promise<void> {
   await apiRequest(`/users/${userId}`, z.undefined(), { method: 'DELETE' });
+}
+
+/**
+ * Stores a picture for an account.
+ *
+ * @param userId - Whose.
+ * @param upload - The resized image and its format.
+ * @returns The account as it now stands.
+ */
+export async function setAvatar(userId: string, upload: SetAvatarRequest): Promise<UserView> {
+  return apiRequest(`/users/${userId}/avatar`, userViewSchema, { method: 'PUT', body: upload });
+}
+
+/**
+ * Removes the picture from an account.
+ *
+ * @param userId - Whose.
+ */
+export async function removeAvatar(userId: string): Promise<void> {
+  await apiRequest(`/users/${userId}/avatar`, z.undefined(), { method: 'DELETE' });
 }
 
 /**

@@ -39,6 +39,7 @@ function signedInWith(...keys: string[]): void {
       displayName: 'Mattia Carli',
       role: 'member',
       permissions,
+      avatarUrl: null,
       locale: 'en',
       timezone: 'UTC',
       isTwoFactorEnabled: false,

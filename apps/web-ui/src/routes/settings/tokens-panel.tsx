@@ -283,9 +283,7 @@ export function TokensPanel() {
               label="Expires"
               value={lifetime}
               options={LIFETIMES}
-              onChange={(event) => {
-                setLifetime(event.target.value);
-              }}
+              onChange={setLifetime}
             />
 
             <fieldset className="flex flex-col gap-2">

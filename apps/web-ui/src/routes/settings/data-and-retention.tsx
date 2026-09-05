@@ -199,8 +199,8 @@ export function DataAndRetention() {
           disabled={!canWrite}
           value={encodeChoice(effective.get(key) ?? null)}
           options={choices}
-          onChange={(event) => {
-            edit(key, decode(event.target.value));
+          onChange={(next) => {
+            edit(key, decode(next));
           }}
           className="w-[150px]"
         />
@@ -253,8 +253,8 @@ export function DataAndRetention() {
                 disabled={!canWrite}
                 value={encodeChoice(effective.get(rung.key) ?? null)}
                 options={retentionChoices(rung.minimumDays)}
-                onChange={(event) => {
-                  edit(rung.key, decodeNumberChoice(event.target.value));
+                onChange={(next) => {
+                  edit(rung.key, decodeNumberChoice(next));
                 }}
                 className="w-[150px]"
               />

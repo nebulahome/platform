@@ -1,6 +1,9 @@
 /**
  * The second factor.
  *
+ * A row rather than a panel of its own: it sits with the name and the password under one Account
+ * heading, because a person's authenticator is a fact about the same thing their password is.
+ *
  * Enrolment is three steps and the middle one is the point: the secret is stored the moment you
  * ask for it, but nothing is enforced until you type a code back. An enrolment that started
  * enforcing at step one would lock out everyone who mistyped the setup, which is precisely the
@@ -22,7 +25,7 @@ import { useSession } from '@/auth/session-store';
 import { Badge } from '@/components/badge';
 import { CheckIcon, WarningIcon } from '@/components/icons';
 import { Modal } from '@/components/modal';
-import { Panel, PanelRow } from '@/components/panel';
+import { PanelRow } from '@/components/panel';
 import { copyText } from '@/lib/clipboard';
 import { toMessage } from '@/lib/error-message';
 import {
@@ -46,11 +49,11 @@ type Stage =
   | { readonly step: 'disabling' };
 
 /**
- * Renders the two-factor panel.
+ * Renders the second-factor row and the dialogs behind it.
  *
- * @returns The panel.
+ * @returns The row.
  */
-export function TwoFactorPanel() {
+export function TwoFactorRow() {
   const isEnabled = useSession((state) => state.user?.isTwoFactorEnabled ?? false);
   const refreshUser = useSession((state) => state.refreshUser);
   const [stage, setStage] = useState<Stage>({ step: 'idle' });
@@ -133,52 +136,50 @@ export function TwoFactorPanel() {
 
   return (
     <>
-      <Panel title="Two-factor authentication">
-        <PanelRow
-          title="Authenticator app"
-          note={
-            isEnabled
-              ? 'A code from your authenticator is required at every sign-in.'
-              : 'A password on its own is one secret. A second factor is the one that survives it leaking.'
-          }
-          control={
-            <div className="flex shrink-0 items-center gap-2.5">
-              {isEnabled ? (
-                <Badge tone="success" icon={<CheckIcon width="12" height="12" />}>
-                  On
-                </Badge>
-              ) : (
-                <Badge tone="warning" icon={<WarningIcon width="12" height="12" />}>
-                  Off
-                </Badge>
-              )}
+      <PanelRow
+        title="Authenticator app"
+        note={
+          isEnabled
+            ? 'A code from your authenticator is required at every sign-in.'
+            : 'A password on its own is one secret. A second factor is the one that survives it leaking.'
+        }
+        control={
+          <div className="flex shrink-0 items-center gap-2.5">
+            {isEnabled ? (
+              <Badge tone="success" icon={<CheckIcon width="12" height="12" />}>
+                On
+              </Badge>
+            ) : (
+              <Badge tone="warning" icon={<WarningIcon width="12" height="12" />}>
+                Off
+              </Badge>
+            )}
 
-              {isEnabled ? (
-                <Button
-                  variant="danger"
-                  className="h-8 px-3 text-[13px]"
-                  onClick={() => {
-                    setError(undefined);
-                    setStage({ step: 'disabling' });
-                  }}
-                >
-                  Turn off
-                </Button>
-              ) : (
-                <Button className="h-8 px-3 text-[13px]" isBusy={isBusy} onClick={begin}>
-                  Set up
-                </Button>
-              )}
-            </div>
-          }
-        >
-          {stage.step === 'idle' && error !== undefined ? (
-            <span role="alert" className="text-[13px] text-danger">
-              {error}
-            </span>
-          ) : null}
-        </PanelRow>
-      </Panel>
+            {isEnabled ? (
+              <Button
+                variant="danger"
+                className="h-8 px-3 text-[13px]"
+                onClick={() => {
+                  setError(undefined);
+                  setStage({ step: 'disabling' });
+                }}
+              >
+                Turn off
+              </Button>
+            ) : (
+              <Button className="h-8 px-3 text-[13px]" isBusy={isBusy} onClick={begin}>
+                Set up
+              </Button>
+            )}
+          </div>
+        }
+      >
+        {stage.step === 'idle' && error !== undefined ? (
+          <span role="alert" className="text-[13px] text-danger">
+            {error}
+          </span>
+        ) : null}
+      </PanelRow>
 
       <Modal
         isOpen={stage.step === 'enrolling'}

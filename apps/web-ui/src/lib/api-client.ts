@@ -27,7 +27,7 @@ const BASE_PATH = '/api/v1';
 /** What one call needs. */
 export type RequestOptions = {
   /** The HTTP method. Defaults to `GET`. */
-  readonly method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  readonly method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
   /** The body, serialised as JSON. */
   readonly body?: unknown;

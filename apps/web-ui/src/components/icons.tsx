@@ -212,3 +212,24 @@ export function CopyIcon(props: IconProps) {
     </Glyph>
   );
 }
+
+/**
+ * A caret: down when a list is closed, up when it is open.
+ *
+ * Distinct from {@link ChevronIcon}, which points right when shut because it marks a group that
+ * expands downward in place. A dropdown is the other convention - down means "there is a list
+ * under this" - and using the same glyph for both would make one of them read as the wrong
+ * gesture.
+ *
+ * @param props - Whether the list is open, plus SVG attributes.
+ * @returns The glyph.
+ */
+export function CaretIcon(props: IconProps & { readonly isOpen: boolean }) {
+  const { isOpen, ...rest } = props;
+
+  return (
+    <Glyph width="16" height="16" strokeWidth="2" {...rest}>
+      <path d={isOpen ? 'M8 13.5l4-4 4 4' : 'M8 10.5l4 4 4-4'} />
+    </Glyph>
+  );
+}

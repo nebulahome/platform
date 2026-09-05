@@ -9,6 +9,15 @@
  * A section nobody may open is not shown. That is a courtesy rather than a control - the rail is
  * built from the same table the routes are, and each route checks the permission itself, because
  * a hidden link is not a closed door.
+ *
+ * The scrolling column below is `relative`, and that is load-bearing rather than decorative. A
+ * visually hidden label - Tailwind's `sr-only` - is `position: absolute`, and an absolutely
+ * positioned element is only clipped by an ancestor's `overflow` when that ancestor is also its
+ * containing block. Without a positioned one, its containing block is the whole document: it
+ * escapes this column, lands wherever its static position would have been, and stretches the
+ * page. Fifteen hidden labels on the settings screen gave the window a second scrollbar that
+ * nothing appeared to own, and scrolling with a wheel moved whichever of the two the pointer
+ * happened to be over.
  */
 import type { ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router';
@@ -145,7 +154,7 @@ export function SettingsLayout() {
           />
         </nav>
 
-        <div className="flex min-w-0 grow flex-col gap-4 overflow-y-auto pr-1 pb-2">
+        <div className="relative flex min-w-0 grow flex-col gap-4 overflow-y-auto pr-1 pb-2">
           <Outlet />
         </div>
       </div>

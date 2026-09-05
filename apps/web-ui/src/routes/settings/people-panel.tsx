@@ -17,14 +17,17 @@ import type { UserView } from '@nebula-home/contracts';
 import { Button, TextField } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
+import { Avatar } from '@/components/avatar';
 import { Badge } from '@/components/badge';
 import { CheckIcon, WarningIcon } from '@/components/icons';
 import { Modal } from '@/components/modal';
 import { Panel } from '@/components/panel';
+import { PasswordField } from '@/components/password-field';
 import { SelectField } from '@/components/select-field';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
-import { toInitials } from '@/lib/initials';
+import { isPasswordAcceptable } from '@/lib/password-rules';
+import { AvatarPicker } from '@/routes/settings/avatar-picker';
 import {
   SETTINGS_QUERY_KEYS,
   createUser,
@@ -227,9 +230,7 @@ export function PeoplePanel() {
             className={`${COLUMNS} border-b border-surface-raised py-2.5 last:border-b-0`}
           >
             <div className="flex min-w-0 items-center gap-3">
-              <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-surface-raised text-[11.5px] font-medium text-foreground-muted">
-                {toInitials(person.displayName)}
-              </span>
+              <Avatar displayName={person.displayName} avatarUrl={person.avatarUrl} />
               <div className="flex min-w-0 flex-col">
                 <span className="truncate text-[13.5px] text-foreground">
                   {person.displayName}
@@ -308,7 +309,12 @@ export function PeoplePanel() {
             <Button variant="ghost" onClick={close}>
               Cancel
             </Button>
-            <Button type="submit" form="invite-form" isBusy={changes.isPending}>
+            <Button
+              type="submit"
+              form="invite-form"
+              isBusy={changes.isPending}
+              disabled={!isPasswordAcceptable(password)}
+            >
               Create account
             </Button>
           </>
@@ -334,15 +340,11 @@ export function PeoplePanel() {
             required
           />
 
-          <TextField
+          <PasswordField
             label="First password"
-            type="password"
             autoComplete="new-password"
             value={password}
-            hint="At least twelve characters."
-            onChange={(event) => {
-              setPassword(event.target.value);
-            }}
+            onChange={setPassword}
             required
           />
 
@@ -353,9 +355,7 @@ export function PeoplePanel() {
               value: entry.key,
               label: entry.name,
             }))}
-            onChange={(event) => {
-              setRole(event.target.value);
-            }}
+            onChange={setRole}
           />
 
           {error === undefined ? null : (
@@ -386,48 +386,59 @@ export function PeoplePanel() {
           </>
         }
       >
-        <form id="edit-form" className="flex flex-col gap-4" onSubmit={onEdit} noValidate>
-          <TextField
-            label="Display name"
-            value={displayName}
-            onChange={(event) => {
-              setDisplayName(event.target.value);
-            }}
-            required
-          />
+        <div className="flex flex-col gap-5">
+          {dialog.kind === 'edit' ? (
+            <AvatarPicker
+              userId={dialog.user.id}
+              displayName={dialog.user.displayName}
+              avatarUrl={dialog.user.avatarUrl}
+              onChanged={async () =>
+                queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEYS.users })
+              }
+            />
+          ) : null}
 
-          <SelectField
-            label="Role"
-            value={role}
-            disabled={dialog.kind === 'edit' && dialog.user.id === selfId}
-            options={(roles.data ?? []).map((entry) => ({
-              value: entry.key,
-              label: entry.name,
-            }))}
-            onChange={(event) => {
-              setRole(event.target.value);
-            }}
-          />
+          <form id="edit-form" className="flex flex-col gap-4" onSubmit={onEdit} noValidate>
+            <TextField
+              label="Display name"
+              value={displayName}
+              onChange={(event) => {
+                setDisplayName(event.target.value);
+              }}
+              required
+            />
 
-          <SelectField
-            label="Sign-in"
-            value={isActive ? 'active' : 'disabled'}
-            disabled={dialog.kind === 'edit' && dialog.user.id === selfId}
-            options={[
-              { value: 'active', label: 'Allowed' },
-              { value: 'disabled', label: 'Refused' },
-            ]}
-            onChange={(event) => {
-              setActive(event.target.value === 'active');
-            }}
-          />
+            <SelectField
+              label="Role"
+              value={role}
+              disabled={dialog.kind === 'edit' && dialog.user.id === selfId}
+              options={(roles.data ?? []).map((entry) => ({
+                value: entry.key,
+                label: entry.name,
+              }))}
+              onChange={setRole}
+            />
 
-          {error === undefined ? null : (
-            <span role="alert" className="text-[13px] text-danger">
-              {error}
-            </span>
-          )}
-        </form>
+            <SelectField
+              label="Sign-in"
+              value={isActive ? 'active' : 'disabled'}
+              disabled={dialog.kind === 'edit' && dialog.user.id === selfId}
+              options={[
+                { value: 'active', label: 'Allowed' },
+                { value: 'disabled', label: 'Refused' },
+              ]}
+              onChange={(next) => {
+                setActive(next === 'active');
+              }}
+            />
+
+            {error === undefined ? null : (
+              <span role="alert" className="text-[13px] text-danger">
+                {error}
+              </span>
+            )}
+          </form>
+        </div>
       </Modal>
 
       <Modal

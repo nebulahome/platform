@@ -6,13 +6,12 @@
  * only asks for `user:manage` when the change is to a role or to whether the account is active,
  * which are the two fields that would let somebody promote themselves.
  *
- * The order is by consequence, descending: who you are, then what protects it, then what is
+ * The order is by consequence, descending: who you are and what protects it, then what is
  * currently signed in as you, then what is signed in as you without being you.
  */
-import { ProfilePanel } from '@/routes/settings/profile-panel';
+import { AccountPanel } from '@/routes/settings/account-panel';
 import { SessionsPanel } from '@/routes/settings/sessions-panel';
 import { TokensPanel } from '@/routes/settings/tokens-panel';
-import { TwoFactorPanel } from '@/routes/settings/two-factor-panel';
 
 /**
  * Renders the account page.
@@ -22,8 +21,7 @@ import { TwoFactorPanel } from '@/routes/settings/two-factor-panel';
 export function AccountSettings() {
   return (
     <>
-      <ProfilePanel />
-      <TwoFactorPanel />
+      <AccountPanel />
       <SessionsPanel />
       <TokensPanel />
     </>

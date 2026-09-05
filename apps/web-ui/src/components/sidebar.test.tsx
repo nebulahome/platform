@@ -27,6 +27,7 @@ function renderAt(pathname: string): void {
       displayName: 'Mattia Carli',
       role: 'owner',
       permissions: [],
+      avatarUrl: null,
       locale: 'it',
       timezone: 'Europe/Rome',
       isTwoFactorEnabled: false,

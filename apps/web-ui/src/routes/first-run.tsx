@@ -19,10 +19,9 @@ import { useState, type SubmitEventHandler } from 'react';
 import { Button, TextField } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
+import { PasswordField } from '@/components/password-field';
 import { toMessage } from '@/lib/error-message';
-
-/** The shortest password the API will take. */
-const MINIMUM_PASSWORD_LENGTH = 12;
+import { isPasswordAcceptable } from '@/lib/password-rules';
 
 /**
  * Suggests a username from the name someone typed.
@@ -56,8 +55,6 @@ export function FirstRunForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | undefined>(undefined);
   const [isBusy, setBusy] = useState(false);
-
-  const isTooShort = password !== '' && password.length < MINIMUM_PASSWORD_LENGTH;
 
   /**
    * Creates the account.
@@ -120,27 +117,20 @@ export function FirstRunForm() {
         hint="Lower case letters, digits, dot, dash and underscore."
       />
 
-      <TextField
+      <PasswordField
         label="Password"
-        name="password"
-        type="password"
         autoComplete="new-password"
         required
         value={password}
-        onChange={(event) => {
-          setPassword(event.target.value);
-        }}
-        hint={`At least ${String(MINIMUM_PASSWORD_LENGTH)} characters. Length beats punctuation.`}
-        error={isTooShort ? 'A little longer.' : error}
+        onChange={setPassword}
+        {...(error === undefined ? {} : { error })}
       />
 
       <Button
         type="submit"
         size="large"
         isBusy={isBusy}
-        disabled={
-          displayName === '' || username === '' || password.length < MINIMUM_PASSWORD_LENGTH
-        }
+        disabled={displayName === '' || username === '' || !isPasswordAcceptable(password)}
       >
         Create my account
       </Button>

@@ -17,6 +17,7 @@ import { NavLink, useLocation } from 'react-router';
 import { Logo } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
+import { Avatar } from '@/components/avatar';
 import {
   ChevronIcon,
   DashboardsIcon,
@@ -25,7 +26,6 @@ import {
   PackagesIcon,
   SettingsIcon,
 } from '@/components/icons';
-import { toInitials } from '@/lib/initials';
 
 /** One entry inside the library group. */
 type LibraryEntry = {
@@ -208,9 +208,7 @@ function UserChip() {
         }}
         className="flex h-[52px] w-full items-center gap-3 rounded-[10px] px-2.5 text-left transition-colors hover:bg-surface-raised/60"
       >
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-medium text-primary-foreground">
-          {toInitials(user?.displayName ?? '')}
-        </span>
+        <Avatar displayName={user?.displayName ?? ''} avatarUrl={user?.avatarUrl} isAccented />
         <span className="flex min-w-0 grow flex-col">
           <span className="truncate text-[13.5px] font-medium text-foreground">
             {user?.displayName ?? 'Not signed in'}

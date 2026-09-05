@@ -1,12 +1,16 @@
 /**
  * The dialog.
  *
- * The Escape case is here because it was broken in a way nothing would have caught. A modal
- * `<dialog>` is meant to dismiss itself on a close request, so the component simply listened for
- * the `close` event - and in the browser this was checked in, the keydown reached the dialog and
- * no `cancel` or `close` ever followed. The dialog stayed open, and because the component
- * believed it was already closed it could not be reopened either. Nothing in the console, and
- * every unit test still green: the bug lived in the space between a component and a browser.
+ * The Escape cases are here because that key was broken twice, in two different ways, and
+ * neither showed up as anything. First the component listened for the `close` event and trusted
+ * the browser to fire it: in the one this was checked in, the keydown reached the dialog and
+ * neither `cancel` nor `close` followed, so the dialog stayed open - and because the component
+ * believed it had closed, it could not be reopened either. Then it listened on the dialog
+ * element, which works right up until focus is not inside it, and focus leaves the moment the
+ * button somebody had focused is the one that just disappeared.
+ *
+ * So the last case fires the key at the body. That is the state a person is actually in after
+ * removing a picture, and it is the one both earlier versions got wrong.
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
@@ -53,6 +57,34 @@ describe('Modal', () => {
     fireEvent.keyDown(screen.getByRole('dialog', { hidden: true }), { key: 'Escape' });
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes even when focus has fallen back to the body', () => {
+    const onClose = vi.fn();
+
+    render(
+      <Modal isOpen onClose={onClose} title="Create a token">
+        <p>the form</p>
+      </Modal>,
+    );
+
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops listening once it is closed', () => {
+    const onClose = vi.fn();
+
+    render(
+      <Modal isOpen={false} onClose={onClose} title="Create a token">
+        <p>the form</p>
+      </Modal>,
+    );
+
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('ignores every other key', () => {
