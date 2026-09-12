@@ -1,0 +1,101 @@
+{
+  "discovery": {
+    "probe": { "op": "get", "args": { "path": "/rpc/Shelly.GetDeviceInfo" } },
+    "claim": [
+      { "path": "app", "equals": "Mini1PMG3" },
+      { "path": "id", "exists": true }
+    ],
+    "identity": {
+      "externalId": "id",
+      "name": "name",
+      "model": "model",
+      "swVersion": "ver"
+    }
+  },
+
+  "subscriptions": [{ "op": "poll", "args": { "everyMs": 5000, "path": "/rpc/Shelly.GetStatus" } }],
+
+  "entities": [
+    {
+      "domain": "switch",
+      "objectId": "switch",
+      "name": "Switch",
+      "capabilities": { "on_off": {} },
+      "state": { "on_off": { "isOn": "'switch:0'.output" } },
+      "commands": {
+        "on_off.turn_on": {
+          "op": "get",
+          "args": { "path": "/rpc/Switch.Set", "query": { "id": 0, "on": true } }
+        },
+        "on_off.turn_off": {
+          "op": "get",
+          "args": { "path": "/rpc/Switch.Set", "query": { "id": 0, "on": false } }
+        },
+        "on_off.toggle": {
+          "op": "get",
+          "args": { "path": "/rpc/Switch.Toggle", "query": { "id": 0 } }
+        }
+      }
+    },
+
+    {
+      "domain": "sensor",
+      "objectId": "power",
+      "name": "Power",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "'switch:0'.apower" } },
+      "unitOfMeasurement": "W",
+      "deviceClass": "power",
+      "stateClass": "measurement",
+      "displayPrecision": 1
+    },
+
+    {
+      "domain": "sensor",
+      "objectId": "energy",
+      "name": "Energy",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "'switch:0'.aenergy.total" } },
+      "unitOfMeasurement": "Wh",
+      "deviceClass": "energy",
+      "stateClass": "total_increasing",
+      "displayPrecision": 2
+    },
+
+    {
+      "domain": "sensor",
+      "objectId": "voltage",
+      "name": "Voltage",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "'switch:0'.voltage" } },
+      "unitOfMeasurement": "V",
+      "deviceClass": "voltage",
+      "stateClass": "measurement",
+      "displayPrecision": 1
+    },
+
+    {
+      "domain": "sensor",
+      "objectId": "current",
+      "name": "Current",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "'switch:0'.current" } },
+      "unitOfMeasurement": "A",
+      "deviceClass": "current",
+      "stateClass": "measurement",
+      "displayPrecision": 3
+    },
+
+    {
+      "domain": "sensor",
+      "objectId": "temperature",
+      "name": "Device temperature",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "'switch:0'.temperature.tC" } },
+      "unitOfMeasurement": "°C",
+      "deviceClass": "temperature",
+      "stateClass": "measurement",
+      "displayPrecision": 1
+    }
+  ]
+}

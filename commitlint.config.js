@@ -29,6 +29,7 @@ export default {
       'always',
       [
         'core',
+        'hub',
         'api',
         'proxy',
         'packet-manager',

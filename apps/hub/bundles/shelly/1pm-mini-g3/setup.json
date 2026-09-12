@@ -1,0 +1,30 @@
+{
+  "transport": {
+    "fields": [
+      {
+        "key": "hosts",
+        "type": "list",
+        "label": "Addresses",
+        "help": "The IP or host name of each relay on the network, with :port when it is not 80.",
+        "placeholder": "192.168.1.40, 192.168.1.41",
+        "isRequired": true,
+        "minItems": 1,
+        "pattern": "^[A-Za-z0-9.-]+(:[0-9]{1,5})?$",
+        "patternMessage": "An IP or host name, with :port when it is not 80 - no http:// and no path."
+      },
+      {
+        "key": "username",
+        "type": "text",
+        "label": "Username",
+        "help": "Only when authentication is switched on in the relay's web page. Shelly always uses admin.",
+        "maxLength": 128
+      },
+      {
+        "key": "password",
+        "type": "secret",
+        "label": "Password",
+        "help": "The password set in the relay's web page, when authentication is on."
+      }
+    ]
+  }
+}

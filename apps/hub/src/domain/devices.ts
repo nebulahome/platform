@@ -1,0 +1,181 @@
+/**
+ * What one integration instance owns: its devices, their entities, and their last known state.
+ *
+ * Pure by construction - nothing here opens a connection or publishes anything. That matters
+ * because this is where the routing decisions are made, and routing decisions are what you want
+ * to be able to test by handing them a captured payload rather than by standing up a broker.
+ *
+ * The last known state is kept for one reason: it is what lets {@link Integration.toCommand} stay
+ * pure. A relative dim or a toggle needs the current value, and `hub` already has it - it is what
+ * published it - so the mapper reads it here instead of asking the device.
+ */
+import type { CapabilityState, EntityId, JsonObject, StateReport } from '@nebula-home/contracts';
+import type {
+  Claim,
+  Integration,
+  MappingContext,
+  TransportInbound,
+} from '@nebula-home/package-runtime';
+
+/** One adopted device and the identifiers `core` gave its entities. */
+export type DeviceBinding = {
+  readonly claim: Claim;
+
+  /** Keyed by the descriptor's `objectId`, or the empty string for a device with one entity. */
+  readonly entities: ReadonlyMap<string, EntityId>;
+};
+
+/** What one integration instance owns. */
+export class DeviceBook {
+  readonly #byDeviceKey = new Map<string, DeviceBinding>();
+  readonly #byEntityId = new Map<EntityId, DeviceBinding>();
+  readonly #lastState = new Map<EntityId, CapabilityState>();
+
+  /**
+   * How many devices are bound.
+   *
+   * @returns The number of adopted devices.
+   */
+  public get size(): number {
+    return this.#byDeviceKey.size;
+  }
+
+  /**
+   * Records a device this instance owns.
+   *
+   * @param binding - The device and its entity identifiers.
+   */
+  public bind(binding: DeviceBinding): void {
+    this.#byDeviceKey.set(binding.claim.deviceKey, binding);
+
+    for (const entityId of binding.entities.values()) {
+      this.#byEntityId.set(entityId, binding);
+    }
+  }
+
+  /**
+   * Forgets a device and everything it reported.
+   *
+   * @param deviceKey - How the transport addressed it.
+   * @returns True when it was there to forget.
+   */
+  public unbind(deviceKey: string): boolean {
+    const binding = this.#byDeviceKey.get(deviceKey);
+
+    if (binding === undefined) {
+      return false;
+    }
+
+    for (const entityId of binding.entities.values()) {
+      this.#byEntityId.delete(entityId);
+      this.#lastState.delete(entityId);
+    }
+
+    return this.#byDeviceKey.delete(deviceKey);
+  }
+
+  /**
+   * Finds the device an entity belongs to.
+   *
+   * @param entityId - The entity being addressed.
+   * @returns Its device, or undefined when this instance does not own it.
+   */
+  public byEntityId(entityId: EntityId): DeviceBinding | undefined {
+    return this.#byEntityId.get(entityId);
+  }
+
+  /**
+   * Lists every device, which is what the subscription plan is built from.
+   *
+   * @returns The claims, in the order they were bound.
+   */
+  public claims(): Claim[] {
+    return [...this.#byDeviceKey.values()].map((binding) => binding.claim);
+  }
+
+  /**
+   * Lists every entity that has reported at least once.
+   *
+   * @returns Those entity identifiers. Deliberately not every entity this instance owns: a
+   * resynchronisation must not invent a state for a device that has not answered since startup,
+   * and `core` marks those unavailable itself when nobody speaks for them.
+   */
+  public known(): EntityId[] {
+    return [...this.#lastState.keys()];
+  }
+
+  /**
+   * Reads what an entity last reported.
+   *
+   * @param entityId - The entity to look up.
+   * @returns Its last state, or undefined before it has ever reported.
+   */
+  public lastState(entityId: EntityId): CapabilityState | undefined {
+    return this.#lastState.get(entityId);
+  }
+
+  /**
+   * Rebuilds the report for an entity from what it last said.
+   *
+   * @param entityId - The entity to describe.
+   * @returns The report, or undefined when it has never reported.
+   */
+  public replay(entityId: EntityId): StateReport | undefined {
+    const state = this.#lastState.get(entityId);
+
+    return state === undefined ? undefined : { entityId, state, attributes: {}, isAvailable: true };
+  }
+
+  /**
+   * Turns something a connection delivered into canonical reports.
+   *
+   * @param integration - The integration that owns these devices.
+   * @param options - The instance's settings.
+   * @param message - What arrived.
+   * @returns One report per entity the message spoke about. Empty when the message belongs to
+   * some other instance sharing the same connection, which is most of what arrives on a shared
+   * one and is not worth a line in the log each time.
+   */
+  public ingest(
+    integration: Integration,
+    options: JsonObject,
+    message: TransportInbound,
+  ): StateReport[] {
+    const binding = this.#byDeviceKey.get(message.deviceKey);
+
+    if (binding === undefined) {
+      return [];
+    }
+
+    const reports = integration.toState(message, this.contextFor(binding, options));
+
+    for (const report of reports) {
+      this.#lastState.set(report.entityId, report.state);
+    }
+
+    return reports;
+  }
+
+  /**
+   * Builds what a mapper is allowed to look at besides its own arguments.
+   *
+   * @param binding - The device being mapped.
+   * @param options - The instance's settings.
+   * @returns The context.
+   */
+  public contextFor(binding: DeviceBinding, options: JsonObject): MappingContext {
+    return {
+      options,
+      claim: binding.claim,
+      entities: binding.entities,
+
+      /**
+       * Reads what an entity last reported.
+       *
+       * @param entityId - The entity to look up.
+       * @returns Its last state, or undefined before it has ever reported.
+       */
+      lastState: (entityId: EntityId): CapabilityState | undefined => this.#lastState.get(entityId),
+    };
+  }
+}
