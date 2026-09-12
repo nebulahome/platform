@@ -17,6 +17,7 @@
 import { capabilityNameSchema, type CapabilityName } from './capabilities.js';
 import { isEntityId, type EntityId } from './entity-id.js';
 import { type LogLevel } from './log-level.js';
+import { type DeviceEvent } from './registration.js';
 
 /**
  * The prefix on every subject, carrying the bus contract version.
@@ -78,8 +79,7 @@ export const busSubjects = {
    * @param event - What happened to the device.
    * @returns The fan-out subject to publish the event on.
    */
-  deviceEvent: (event: 'added' | 'removed' | 'offline'): string =>
-    `${BUS_SUBJECT_PREFIX}.event.device.${event}`,
+  deviceEvent: (event: DeviceEvent): string => `${BUS_SUBJECT_PREFIX}.event.device.${event}`,
 
   /**
    * Announcing something about one automation.

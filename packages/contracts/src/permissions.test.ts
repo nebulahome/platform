@@ -71,3 +71,15 @@ describe('scopes', () => {
     },
   );
 });
+
+describe('integration permissions', () => {
+  it('lets a member see integrations and only an admin configure them', () => {
+    const keys = PERMISSIONS.map((permission) => permission.key);
+
+    expect(keys).toContain('integration:read');
+    expect(keys).toContain('integration:configure');
+    expect(DEFAULT_ROLE_PERMISSIONS.member).toContain('integration:read');
+    expect(DEFAULT_ROLE_PERMISSIONS.member).not.toContain('integration:configure');
+    expect(DEFAULT_ROLE_PERMISSIONS.admin).toContain('integration:configure');
+  });
+});

@@ -1,0 +1,130 @@
+import { describe, expect, it } from 'vitest';
+
+import { wsServerMessageSchema } from './api-ws.js';
+import { deviceEventSchema, registerDeviceRequestSchema } from './registration.js';
+
+/**
+ * A registration with every required field present, for tests that vary one of them.
+ *
+ * @returns The request, as `hub` would send it.
+ */
+function request(): Record<string, unknown> {
+  return {
+    integrationId: 'shelly-lab',
+    externalId: 'shellyplus1-aabbcc',
+    name: 'Lab relay',
+    entities: [{ entityId: 'switch.lab_relay', name: 'Lab relay', capabilities: { on_off: {} } }],
+  };
+}
+
+describe('registerDeviceRequestSchema', () => {
+  it('accepts a device with one entity that declares one capability', () => {
+    const parsed = registerDeviceRequestSchema.parse(request());
+
+    expect(parsed.entities[0]?.capabilities).toEqual({ on_off: {} });
+  });
+
+  it('refuses a device that registers no entity', () => {
+    // `core` would write a device row nothing points at, and the interface would show a device
+    // that does nothing and cannot be explained.
+    expect(registerDeviceRequestSchema.safeParse({ ...request(), entities: [] }).success).toBe(
+      false,
+    );
+  });
+
+  it('refuses an entity that declares no capability', () => {
+    // Capabilities are what `core` validates a command against and what the interface renders.
+    // An entity with none can neither be commanded nor shown.
+    const entities = [{ entityId: 'switch.lab_relay', name: 'Lab relay', capabilities: {} }];
+
+    expect(registerDeviceRequestSchema.safeParse({ ...request(), entities }).success).toBe(false);
+  });
+
+  it('refuses an unknown capability rather than storing it', () => {
+    // `registry.entity_capabilities` has a CHECK listing the known capabilities, so an unknown
+    // one fails the insert. Failing here names the capability instead of the constraint.
+    const entities = [
+      { entityId: 'switch.lab_relay', name: 'Lab relay', capabilities: { teleport: {} } },
+    ];
+
+    expect(registerDeviceRequestSchema.safeParse({ ...request(), entities }).success).toBe(false);
+  });
+
+  it('carries the topology of a device reached through another', () => {
+    // A BLE thermometer reaches the platform through an ESPHome proxy. `via_device_id` is what
+    // lets the interface explain why a group of devices went offline together.
+    const parsed = registerDeviceRequestSchema.parse({ ...request(), viaExternalId: 'esp-hall' });
+
+    expect(parsed.viaExternalId).toBe('esp-hall');
+  });
+});
+
+describe('capability parameters', () => {
+  it('refuses parameters a capability cannot accept', () => {
+    // `color_temp` requires the bulb's mired range: `core` validates a set_color_temp against
+    // it before dispatching. Params accepted here but incomplete would surface much later, as
+    // a command rejected for a reason the owner cannot act on.
+    const entities = [
+      { entityId: 'light.lab', name: 'Lab light', capabilities: { color_temp: {} } },
+    ];
+
+    expect(registerDeviceRequestSchema.safeParse({ ...request(), entities }).success).toBe(false);
+  });
+
+  it('accepts parameters that match the capability', () => {
+    const entities = [
+      {
+        entityId: 'light.lab',
+        name: 'Lab light',
+        capabilities: { color_temp: { minMireds: 153, maxMireds: 500 } },
+      },
+    ];
+
+    expect(registerDeviceRequestSchema.safeParse({ ...request(), entities }).success).toBe(true);
+  });
+});
+
+describe('deviceEventSchema', () => {
+  it('is what the WebSocket message carries, without a second definition of it', () => {
+    // `api` forwards these straight to a browser. Two independent shapes for one payload drift
+    // the first time a field is added to whichever half the author had open.
+    const payload = {
+      deviceId: '3f2504e0-4f89-11d3-9a0c-0305e82c3301',
+      source: 'shelly-lab',
+      name: 'Lab relay',
+      entityIds: ['switch.lab_relay'],
+    };
+
+    const onTheBus = deviceEventSchema.parse(payload);
+    const overTheSocket = wsServerMessageSchema.parse({
+      type: 'device_event',
+      event: 'added',
+      payload,
+    });
+
+    expect(overTheSocket).toMatchObject({ payload: onTheBus });
+  });
+
+  it('refuses to send a browser something that is not a device event', () => {
+    const result = wsServerMessageSchema.safeParse({
+      type: 'device_event',
+      event: 'added',
+      payload: { anything: true },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('names the owner in a form core can route to', () => {
+    // `source` is the subject token a command goes out on. An event naming an owner that could
+    // not be addressed would describe a device nobody can control.
+    const result = deviceEventSchema.safeParse({
+      deviceId: '3f2504e0-4f89-11d3-9a0c-0305e82c3301',
+      source: 'Not A Source',
+      name: 'Lab relay',
+      entityIds: [],
+    });
+
+    expect(result.success).toBe(false);
+  });
+});

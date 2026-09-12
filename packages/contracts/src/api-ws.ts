@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { entityIdSchema } from './entity-id.js';
 import { changeContextSchema } from './entity-state.js';
 import { jsonObjectSchema } from './json.js';
+import { DEVICE_EVENTS, deviceEventSchema } from './registration.js';
 import { timestampSchema } from './timestamp.js';
 
 /** How long the server waits for the first message before closing the socket, in milliseconds. */
@@ -119,8 +120,8 @@ export const wsServerMessageSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('device_event'),
-    event: z.enum(['added', 'removed', 'offline']),
-    payload: jsonObjectSchema,
+    event: z.enum(DEVICE_EVENTS),
+    payload: deviceEventSchema,
   }),
   z.object({
     type: z.literal('package_event'),

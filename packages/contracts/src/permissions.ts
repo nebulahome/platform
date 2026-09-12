@@ -234,6 +234,20 @@ export const PERMISSIONS = [
     description: 'Change a package configuration and start or stop it',
   },
   {
+    key: 'integration:read',
+    resource: 'integration',
+    action: 'read',
+    isScopable: false,
+    description: 'See configured integrations and the bundles available',
+  },
+  {
+    key: 'integration:configure',
+    resource: 'integration',
+    action: 'configure',
+    isScopable: false,
+    description: 'Add integrations, change their configuration and start or stop them',
+  },
+  {
     key: 'user:read',
     resource: 'user',
     action: 'read',
@@ -320,6 +334,7 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'alias:read',
     'history:read',
     'package:read',
+    'integration:read',
   ],
   guest: ['entity:read', 'entity:control', 'area:read', 'scene:read', 'scene:apply'],
   service: [],
