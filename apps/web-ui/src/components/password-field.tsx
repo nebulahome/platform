@@ -12,14 +12,19 @@
  * carries its verdict as text as well as colour, because a green tick and a grey dot are the
  * same shape to anyone who cannot tell them apart.
  *
+ * It stays in the application rather than moving into the design system with the other fields,
+ * because it knows the password rules. Those are a product decision about what a safe password
+ * is, not a shape, and a design system that carries them starts having opinions about the
+ * product.
+ *
  * Nothing here is a security boundary. The API checks the password again, and it is the only one
  * whose answer counts.
  */
-import { useId, useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
-import { cn } from '@nebula-home/ui';
+import { cn, controlFace, FieldShell, IconButton } from '@nebula-home/ui';
 
-import { CheckIcon } from '@/components/icons';
+import { CheckIcon, EyeIcon, EyeOffIcon } from '@/components/icons';
 import { passwordRules } from '@/lib/password-rules';
 
 /** What the field needs. */
@@ -44,6 +49,15 @@ export type PasswordFieldProps = {
 
   /** Whether it must be filled in. */
   readonly required?: boolean;
+
+  /** Shown in the empty field, for a password that is kept and need not be typed again. */
+  readonly placeholder?: string | undefined;
+
+  /** A line under the control when there are no rules to list. */
+  readonly hint?: ReactNode | undefined;
+
+  /** How tall the control is. Large by default, which is what a sign-in form wants. */
+  readonly size?: 'compact' | 'medium' | 'large';
 };
 
 /**
@@ -61,98 +75,85 @@ export function PasswordField(props: PasswordFieldProps) {
     hasRules = true,
     error,
     required = false,
+    placeholder,
+    hint,
+    size = 'large',
   } = props;
 
-  const id = useId();
-  const rulesId = `${id}-rules`;
-  const errorId = `${id}-error`;
   const [isRevealed, setRevealed] = useState(false);
-
   const rules = passwordRules(value).filter((rule) => rule.isShownWhenMet || !rule.isMet);
-  const describedBy = [hasRules ? rulesId : null, error === undefined ? null : errorId]
-    .filter((entry): entry is string => entry !== null)
-    .join(' ');
 
   return (
-    // `relative` because the reveal button is positioned against it - and because a hidden label
-    // or an `sr-only` verdict below is `position: absolute`, and without a positioned ancestor
-    // its containing block is the whole document.
-    <div className="relative flex flex-col gap-2">
-      <label htmlFor={id} className="text-xs font-medium text-foreground-muted">
-        {label}
-      </label>
+    <FieldShell
+      label={label}
+      error={error}
+      hint={
+        hasRules ? (
+          <ul className="flex flex-col gap-1">
+            {rules.map((rule) => (
+              <li
+                key={rule.label}
+                className={cn(
+                  'flex items-center gap-1.5',
+                  rule.isMet ? 'text-success' : 'text-foreground-subtle',
+                )}
+              >
+                {rule.isMet ? (
+                  <CheckIcon width="12" height="12" />
+                ) : (
+                  <span aria-hidden="true" className="flex size-3 items-center justify-center">
+                    <span className="size-1 rounded-full bg-current" />
+                  </span>
+                )}
 
-      <div className="relative">
-        <input
-          id={id}
-          type={isRevealed ? 'text' : 'password'}
-          value={value}
-          autoComplete={autoComplete}
-          required={required}
-          aria-invalid={error !== undefined}
-          aria-describedby={describedBy === '' ? undefined : describedBy}
-          onChange={(event) => {
-            onChange(event.target.value);
-          }}
-          className={cn(
-            'h-11 w-full rounded-field border bg-canvas pr-16 pl-3.5 text-sm text-foreground',
-            'placeholder:text-foreground-disabled',
-            'focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none',
-            error === undefined
-              ? 'border-border focus-visible:border-primary'
-              : 'border-danger focus-visible:ring-danger/25',
-          )}
-        />
+                <span>{rule.label}</span>
+                <span className="sr-only">{rule.isMet ? ' — met' : ' — not met yet'}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          hint
+        )
+      }
+    >
+      {(ids) => (
+        <div className="relative">
+          <input
+            id={ids.id}
+            type={isRevealed ? 'text' : 'password'}
+            value={value}
+            autoComplete={autoComplete}
+            required={required}
+            placeholder={placeholder}
+            aria-invalid={ids.isInvalid}
+            aria-describedby={ids.describedBy}
+            onChange={(event) => {
+              onChange(event.target.value);
+            }}
+            className={cn(controlFace({ size, isInvalid: ids.isInvalid }), 'pr-11')}
+          />
 
-        <button
-          type="button"
-          // Named by what pressing it does, not by the current state: "Hide" on a hidden
-          // password is the kind of label that makes people press it to find out.
-          aria-label={isRevealed ? 'Hide the password' : 'Show the password'}
-          onClick={() => {
-            setRevealed(!isRevealed);
-          }}
-          className="absolute inset-y-0 right-0 px-3.5 text-[11.5px] font-medium text-foreground-subtle transition-colors hover:text-foreground-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        >
-          {isRevealed ? 'Hide' : 'Show'}
-        </button>
-      </div>
-
-      {hasRules ? (
-        <ul id={rulesId} className="flex flex-col gap-1">
-          {rules.map((rule) => (
-            <li
-              key={rule.label}
-              className={cn(
-                'flex items-center gap-1.5 text-[11.5px]',
-                rule.isMet ? 'text-success' : 'text-foreground-subtle',
-              )}
-            >
-              {rule.isMet ? (
-                <CheckIcon width="12" height="12" />
-              ) : (
-                <span aria-hidden="true" className="flex size-3 items-center justify-center">
-                  <span className="size-1 rounded-full bg-current" />
-                </span>
-              )}
-
-              <span>{rule.label}</span>
-              <span className="sr-only">{rule.isMet ? ' — met' : ' — not met yet'}</span>
-            </li>
-          ))}
-
-          <li className="text-[11.5px] text-foreground-subtle">
-            No other rules: no upper case, no digit, no symbol. Length is the only thing that costs
-            an attacker anything.
-          </li>
-        </ul>
-      ) : null}
-
-      {error === undefined ? null : (
-        <span id={errorId} role="alert" className="text-[11.5px] text-danger">
-          {error}
-        </span>
+          {/* A glyph rather than the words Show and Hide. The words changed width as they
+              swapped, which nudged the right edge of the field on every press, and they had to be
+              kept clear of a password long enough to reach them. The label is still there for
+              anyone who cannot see the glyph - it is what an icon button is named by. */}
+          <IconButton
+            label={isRevealed ? 'Hide the password' : 'Show the password'}
+            aria-pressed={isRevealed}
+            size="small"
+            onClick={() => {
+              setRevealed(!isRevealed);
+            }}
+            className="absolute top-1/2 right-2 -translate-y-1/2"
+          >
+            {isRevealed ? (
+              <EyeOffIcon width="16" height="16" />
+            ) : (
+              <EyeIcon width="16" height="16" />
+            )}
+          </IconButton>
+        </div>
       )}
-    </div>
+    </FieldShell>
   );
 }

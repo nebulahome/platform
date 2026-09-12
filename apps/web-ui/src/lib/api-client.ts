@@ -19,7 +19,7 @@
 import type { z } from 'zod';
 
 import { readRefreshToken, writeRefreshToken } from '@/auth/token-storage';
-import { ApiError, toApiError } from '@/lib/api-error';
+import { ApiError, isApiUnreachable, toApiError } from '@/lib/api-error';
 
 /** Where the API lives. Same origin in development, where Vite proxies `/api` across. */
 const BASE_PATH = '/api/v1';
@@ -140,6 +140,8 @@ async function readBody(response: Response): Promise<unknown> {
  * @returns The new access token, or null when there is nothing to refresh with or the refresh
  * was refused. A refusal is terminal: the token was spent, revoked or belongs to a session the
  * API has ended, and none of those get better by trying again.
+ * @throws {ApiError} When the API could not be reached, which is not a refusal and leaves the
+ * stored token exactly where it was.
  */
 async function refreshOnce(): Promise<string | null> {
   const refreshToken = readRefreshToken();
@@ -155,6 +157,17 @@ async function refreshOnce(): Promise<string | null> {
   );
 
   if (!response.ok) {
+    const failure = toApiError(response, await readBody(response));
+
+    // Not every failed answer is the API refusing the token. A `502` is the proxy in front
+    // saying the API is not there - which it is not, for the first seconds after `pnpm dev`
+    // and for the length of every restart. Throwing the token away on that would sign a person
+    // out of a wall tablet every time the service was redeployed, for no reason the token could
+    // have known about. Only an answer from the API itself is final.
+    if (isApiUnreachable(failure)) {
+      throw failure;
+    }
+
     writeRefreshToken(null);
     session?.onSignedOut();
 

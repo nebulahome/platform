@@ -22,8 +22,9 @@
 import type { ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router';
 
+import { Badge } from '@nebula-home/ui';
+
 import { useSession } from '@/auth/session-store';
-import { Badge } from '@/components/badge';
 import { LockIcon } from '@/components/icons';
 
 /** One entry in the settings rail. */
@@ -90,9 +91,7 @@ function SectionGroup(props: SectionGroupProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex h-5 items-center justify-between gap-2 px-3">
-        <span className="text-[11px] font-medium tracking-[0.09em] text-foreground-subtle uppercase">
-          {title}
-        </span>
+        <span className="text-label text-foreground-subtle uppercase">{title}</span>
         {badge}
       </div>
 
@@ -101,7 +100,7 @@ function SectionGroup(props: SectionGroupProps) {
           key={section.path}
           to={section.path}
           className={({ isActive }) =>
-            `flex h-9 items-center rounded-field px-3 text-[13.5px] transition-colors ${
+            `flex h-9 items-center rounded-field px-3 text-ui transition-colors ${
               isActive
                 ? 'bg-surface-raised font-medium text-foreground'
                 : 'text-foreground-muted hover:text-foreground'
@@ -130,12 +129,12 @@ export function SettingsLayout() {
 
   return (
     <div className="flex min-w-0 grow flex-col">
-      <header className="flex h-[68px] shrink-0 items-center border-b border-border px-6">
-        <h1 className="text-lg font-medium tracking-tight">Settings</h1>
+      <header className="flex h-17 shrink-0 items-center border-b border-border px-6">
+        <h1 className="text-head font-medium tracking-tight">Settings</h1>
       </header>
 
       <div className="flex min-h-0 grow gap-6 overflow-hidden p-6">
-        <nav aria-label="Settings" className="flex w-[224px] shrink-0 flex-col gap-5">
+        <nav aria-label="Settings" className="flex w-56 shrink-0 flex-col gap-5">
           <SectionGroup
             title="You"
             sections={reachable.filter((section) => section.group === 'you')}

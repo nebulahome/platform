@@ -23,13 +23,13 @@ export type AvatarSize = 'small' | 'medium' | 'large';
 /** The classes for each size: the circle, then the initials inside it. */
 const SIZES: Readonly<Record<AvatarSize, string>> = {
   /** In a table row or the rail. */
-  small: 'size-8 text-[13px]',
+  small: 'size-8 text-ui',
 
   /** On the profile card. */
-  medium: 'size-[52px] text-lg',
+  medium: 'size-13 text-head',
 
   /** In the dialog where a picture is chosen, where it is the subject rather than a label. */
-  large: 'size-[88px] text-2xl',
+  large: 'size-22 text-2xl',
 };
 
 /** What an avatar needs. */

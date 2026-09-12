@@ -36,17 +36,17 @@ type Light = {
 const LIGHTS: readonly Light[] = [
   {
     colour: 'bg-aurora-one/25',
-    position: '-top-[18vh] -left-[10vw] size-[62vw] min-size-[380px]',
+    position: '-top-[18vh] -left-[10vw] size-[62vw] min-size-95',
     drift: 'animate-drift-one',
   },
   {
     colour: 'bg-aurora-two/20',
-    position: 'top-[38vh] -right-[14vw] size-[54vw] min-size-[340px]',
+    position: 'top-[38vh] -right-[14vw] size-[54vw] min-size-85',
     drift: 'animate-drift-two',
   },
   {
     colour: 'bg-aurora-three/15',
-    position: '-bottom-[22vh] left-[22vw] size-[48vw] min-size-[300px]',
+    position: '-bottom-[22vh] left-[22vw] size-[48vw] min-size-75',
     drift: 'animate-drift-three',
   },
 ];

@@ -15,12 +15,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { PERMISSIONS, type ScopedPermission } from '@nebula-home/contracts';
-import { Button, TextField } from '@nebula-home/ui';
+import { Button, Modal, Panel, PanelRow, SelectField, TextField } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
-import { Modal } from '@/components/modal';
-import { Panel, PanelRow } from '@/components/panel';
-import { SelectField } from '@/components/select-field';
 import { copyText } from '@/lib/clipboard';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
@@ -170,7 +167,7 @@ export function TokensPanel() {
         title="Personal access tokens"
         action={
           <Button
-            className="h-8 px-3 text-[13px]"
+            className="h-8 px-3 text-ui"
             onClick={() => {
               setError(undefined);
               setCreating(true);
@@ -181,17 +178,17 @@ export function TokensPanel() {
         }
       >
         {tokens.isPending ? (
-          <p className="px-4 py-4 text-[13px] text-foreground-subtle">Reading your tokens…</p>
+          <p className="px-4 py-4 text-ui text-foreground-subtle">Reading your tokens…</p>
         ) : null}
 
         {tokens.isError ? (
-          <p role="alert" className="px-4 py-4 text-[13px] text-danger">
+          <p role="alert" className="px-4 py-4 text-ui text-danger">
             {toMessage(tokens.error)}
           </p>
         ) : null}
 
         {tokens.isSuccess && tokens.data.length === 0 ? (
-          <p className="px-4 py-4 text-[13px] text-foreground-subtle">
+          <p className="px-4 py-4 text-ui text-foreground-subtle">
             None yet. A token is how a script signs in without your password.
           </p>
         ) : null}
@@ -219,7 +216,7 @@ export function TokensPanel() {
             control={
               <Button
                 variant="danger"
-                className="h-8 px-3 text-[13px]"
+                className="h-8 px-3 text-ui"
                 onClick={() => {
                   revoke(token.id);
                 }}
@@ -231,10 +228,7 @@ export function TokensPanel() {
         ))}
 
         {error === undefined || isCreating ? null : (
-          <p
-            role="alert"
-            className="border-t border-surface-raised px-4 py-3 text-[13px] text-danger"
-          >
+          <p role="alert" className="border-t border-border-soft px-4 py-3 text-ui text-danger">
             {error}
           </p>
         )}
@@ -244,6 +238,9 @@ export function TokensPanel() {
         isOpen={isCreating}
         onClose={close}
         title={secret === undefined ? 'Create a token' : 'Your new token'}
+        // The secret is shown once and never again. A stray click that dismissed it
+        // would cost a token that has to be created afresh.
+        closesOnBackdrop={secret === undefined}
         description={
           secret === undefined
             ? 'A token can never do more than you can. Give it the least it needs.'
@@ -287,7 +284,7 @@ export function TokensPanel() {
             />
 
             <fieldset className="flex flex-col gap-2">
-              <legend className="mb-2 text-xs font-medium text-foreground-muted">
+              <legend className="mb-2 text-caption font-medium text-foreground-muted">
                 What it may do
               </legend>
 
@@ -296,7 +293,7 @@ export function TokensPanel() {
                   <label
                     key={key}
                     htmlFor={`token-permission-${key}`}
-                    className="grid cursor-pointer grid-cols-[auto_1fr] items-start gap-x-2.5 rounded-lg px-2 py-1.5 hover:bg-surface-raised"
+                    className="grid cursor-pointer grid-cols-[auto_1fr] items-start gap-x-2.5 rounded-chip px-2 py-1.5 hover:bg-surface-raised"
                   >
                     <input
                       id={`token-permission-${key}`}
@@ -307,8 +304,8 @@ export function TokensPanel() {
                       }}
                       className="row-span-2 mt-0.5 accent-primary"
                     />
-                    <span className="min-w-0 font-mono text-[12.5px] text-foreground">{key}</span>
-                    <span className="col-start-2 min-w-0 text-[11.5px] text-foreground-subtle">
+                    <span className="min-w-0 font-mono text-caption text-foreground">{key}</span>
+                    <span className="col-start-2 min-w-0 text-caption text-foreground-subtle">
                       {DESCRIPTIONS.get(key) ?? ''}
                     </span>
                   </label>
@@ -317,14 +314,14 @@ export function TokensPanel() {
             </fieldset>
 
             {error === undefined ? null : (
-              <span role="alert" className="text-[13px] text-danger">
+              <span role="alert" className="text-ui text-danger">
                 {error}
               </span>
             )}
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            <code className="rounded-field border border-border bg-groove px-3 py-2.5 font-mono text-[13px] break-all text-foreground">
+            <code className="rounded-field border border-border bg-groove px-3 py-2.5 font-mono text-ui break-all text-foreground">
               {secret}
             </code>
 

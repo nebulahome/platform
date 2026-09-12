@@ -45,7 +45,7 @@ const LIBRARY: readonly LibraryEntry[] = [
 ];
 
 /** The classes a row shares whether or not it is the current one. */
-const ROW = 'flex h-10 items-center gap-3 rounded-[10px] px-2.5 text-sm transition-colors';
+const ROW = 'press flex h-10 items-center gap-3 rounded-field px-2.5 text-title';
 
 /** What one top-level row needs. */
 type NavRowProps = {
@@ -85,7 +85,7 @@ function NavRow(props: NavRowProps) {
       {icon}
       <span className="grow">{label}</span>
       {count === undefined ? null : (
-        <span className="font-mono text-xs text-foreground-subtle">{count}</span>
+        <span className="font-mono text-caption text-foreground-subtle">{count}</span>
       )}
     </NavLink>
   );
@@ -126,7 +126,7 @@ function LibraryGroup() {
               key={entry.to}
               to={entry.to}
               className={({ isActive }) =>
-                `flex h-[34px] items-center rounded-lg px-2.5 text-[13.5px] transition-colors ${
+                `press flex h-8.5 items-center rounded-chip px-2.5 text-ui ${
                   isActive
                     ? 'bg-surface-raised font-medium text-foreground'
                     : 'text-foreground-muted hover:text-foreground'
@@ -173,7 +173,7 @@ function UserChip() {
       {isOpen ? (
         <div
           role="menu"
-          className="absolute bottom-full left-0 mb-1 w-full overflow-hidden rounded-[10px] border border-border bg-surface-raised p-1 shadow-lg shadow-black/40"
+          className="absolute bottom-full left-0 mb-1 w-full overflow-hidden rounded-field border border-border bg-surface-raised p-1 shadow-lg shadow-black/40"
         >
           <button
             type="button"
@@ -187,7 +187,7 @@ function UserChip() {
               setOpen(false);
               void endSession();
             }}
-            className="flex h-9 w-full items-center rounded-lg px-2.5 text-[13px] text-foreground-muted transition-colors hover:bg-surface hover:text-danger"
+            className="press flex h-9 w-full items-center rounded-chip px-2.5 text-ui text-foreground-muted hover:bg-surface hover:text-danger"
           >
             Sign out
           </button>
@@ -206,16 +206,14 @@ function UserChip() {
         onClick={() => {
           setOpen(!isOpen);
         }}
-        className="flex h-[52px] w-full items-center gap-3 rounded-[10px] px-2.5 text-left transition-colors hover:bg-surface-raised/60"
+        className="press flex h-13 w-full items-center gap-3 rounded-field px-2.5 text-left hover:bg-surface-raised/60"
       >
         <Avatar displayName={user?.displayName ?? ''} avatarUrl={user?.avatarUrl} isAccented />
         <span className="flex min-w-0 grow flex-col">
-          <span className="truncate text-[13.5px] font-medium text-foreground">
+          <span className="truncate text-ui font-medium text-foreground">
             {user?.displayName ?? 'Not signed in'}
           </span>
-          <span className="text-[11.5px] text-foreground-subtle capitalize">
-            {user?.role ?? ''}
-          </span>
+          <span className="text-caption text-foreground-subtle capitalize">{user?.role ?? ''}</span>
         </span>
         <ExpandIcon className="text-foreground-subtle" />
       </button>
@@ -232,11 +230,11 @@ export function Sidebar() {
   return (
     <nav
       aria-label="Main"
-      className="flex w-[264px] shrink-0 flex-col gap-4 border-r border-border bg-surface p-4"
+      className="flex w-66 shrink-0 flex-col gap-4 border-r border-border bg-rail p-4"
     >
       <div className="flex h-11 items-center gap-3 px-2">
         <Logo size={27} />
-        <span className="text-base font-medium tracking-tight">Nebula</span>
+        <span className="text-subhead font-semibold tracking-tight">Nebula Home</span>
       </div>
 
       <div className="h-px bg-border" />
@@ -246,6 +244,8 @@ export function Sidebar() {
       <div className="h-px bg-border" />
 
       <LibraryGroup />
+
+      <NavRow to="/integrations" icon={<LibraryIcon />} label="Integrations" />
 
       <NavRow to="/packages" icon={<PackagesIcon />} label="Packages" />
 

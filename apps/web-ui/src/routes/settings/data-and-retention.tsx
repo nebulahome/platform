@@ -25,13 +25,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 
 import type { JsonValue, SettingsResponse } from '@nebula-home/contracts';
-import { Button } from '@nebula-home/ui';
+import { Button, Panel, PanelNote, PanelRow, Segmented, SelectField } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
 import { WarningIcon } from '@/components/icons';
-import { Panel, PanelNote, PanelRow } from '@/components/panel';
-import { Segmented } from '@/components/segmented';
-import { SelectField } from '@/components/select-field';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
 import { SETTINGS_QUERY_KEYS, fetchServerSettings, updateServerSettings } from '@/settings/api';
@@ -202,19 +199,19 @@ export function DataAndRetention() {
           onChange={(next) => {
             edit(key, decode(next));
           }}
-          className="w-[150px]"
+          className="w-37.5"
         />
       }
     />
   );
 
   if (settings.isPending) {
-    return <p className="text-[13px] text-foreground-subtle">Reading the settings…</p>;
+    return <p className="text-ui text-foreground-subtle">Reading the settings…</p>;
   }
 
   if (settings.isError) {
     return (
-      <p role="alert" className="text-[13px] text-danger">
+      <p role="alert" className="text-ui text-danger">
         {toMessage(settings.error)}
       </p>
     );
@@ -224,7 +221,7 @@ export function DataAndRetention() {
     <>
       <div className="flex items-start gap-3 rounded-panel border border-warning/30 bg-warning/8 px-4 py-3.5">
         <WarningIcon width="17" height="17" className="mt-px shrink-0 text-warning" />
-        <p className="text-[12.5px] leading-relaxed text-foreground-muted">
+        <p className="text-caption leading-relaxed text-foreground-muted">
           <span className="font-medium text-foreground">
             These are recorded, and not yet acted on.
           </span>{' '}
@@ -256,7 +253,7 @@ export function DataAndRetention() {
                 onChange={(next) => {
                   edit(rung.key, decodeNumberChoice(next));
                 }}
-                className="w-[150px]"
+                className="w-37.5"
               />
             }
           />
@@ -271,7 +268,7 @@ export function DataAndRetention() {
         ) : (
           <p
             role="alert"
-            className="border-t border-surface-raised px-4 py-3 text-[12.5px] text-danger"
+            className="border-t border-border-soft px-4 py-3 text-caption text-danger"
           >
             {problem}
           </p>
@@ -354,21 +351,21 @@ export function DataAndRetention() {
 
       {canWrite && isDirty ? (
         <div className="sticky bottom-0 flex items-center gap-4 rounded-panel border border-border bg-surface-raised px-4 py-3">
-          <span className="grow text-[13px] text-foreground-muted">
+          <span className="grow text-ui text-foreground-muted">
             {Object.keys(draft).length === 1
               ? '1 unsaved change'
               : `${String(Object.keys(draft).length)} unsaved changes`}
           </span>
 
           {error === undefined ? null : (
-            <span role="alert" className="text-[13px] text-danger">
+            <span role="alert" className="text-ui text-danger">
               {error}
             </span>
           )}
 
           <Button
             variant="ghost"
-            className="h-8 px-3 text-[13px]"
+            className="h-8 px-3 text-ui"
             onClick={() => {
               setDraft({});
               setError(undefined);
@@ -378,7 +375,7 @@ export function DataAndRetention() {
           </Button>
 
           <Button
-            className="h-8 px-3 text-[13px]"
+            className="h-8 px-3 text-ui"
             isBusy={isBusy}
             disabled={problem !== null}
             onClick={save}

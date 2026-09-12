@@ -46,9 +46,9 @@ export function RequiresPermission(props: RequiresPermissionProps) {
       <div className="flex max-w-sm flex-col items-center gap-3 rounded-panel border border-dashed border-border-strong p-8 text-center">
         <LockIcon className="text-foreground-subtle" />
 
-        <p className="text-sm text-foreground-muted">{section} is not yours to open.</p>
+        <p className="text-title text-foreground-muted">{section} is not yours to open.</p>
 
-        <p className="text-xs text-foreground-subtle">
+        <p className="text-caption text-foreground-subtle">
           It needs <span className="font-mono">{permission}</span>, which your role does not grant.
           An owner or an administrator can change that.
         </p>

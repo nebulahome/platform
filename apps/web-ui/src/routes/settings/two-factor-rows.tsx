@@ -19,13 +19,10 @@
  */
 import { useState } from 'react';
 
-import { Button, TextField } from '@nebula-home/ui';
+import { Badge, Button, Modal, PanelRow, TextField } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
-import { Badge } from '@/components/badge';
 import { CheckIcon, WarningIcon } from '@/components/icons';
-import { Modal } from '@/components/modal';
-import { PanelRow } from '@/components/panel';
 import { copyText } from '@/lib/clipboard';
 import { toMessage } from '@/lib/error-message';
 import {
@@ -158,7 +155,7 @@ export function TwoFactorRow() {
             {isEnabled ? (
               <Button
                 variant="danger"
-                className="h-8 px-3 text-[13px]"
+                className="h-8 px-3 text-ui"
                 onClick={() => {
                   setError(undefined);
                   setStage({ step: 'disabling' });
@@ -167,7 +164,7 @@ export function TwoFactorRow() {
                 Turn off
               </Button>
             ) : (
-              <Button className="h-8 px-3 text-[13px]" isBusy={isBusy} onClick={begin}>
+              <Button className="h-8 px-3 text-ui" isBusy={isBusy} onClick={begin}>
                 Set up
               </Button>
             )}
@@ -175,7 +172,7 @@ export function TwoFactorRow() {
         }
       >
         {stage.step === 'idle' && error !== undefined ? (
-          <span role="alert" className="text-[13px] text-danger">
+          <span role="alert" className="text-ui text-danger">
             {error}
           </span>
         ) : null}
@@ -185,6 +182,8 @@ export function TwoFactorRow() {
         isOpen={stage.step === 'enrolling'}
         onClose={close}
         title="Set up your authenticator"
+        // The shared secret is on screen and is not shown again.
+        closesOnBackdrop={false}
         description="Add this secret to your authenticator app, then type the code it shows to prove it worked."
         footer={
           <>
@@ -200,14 +199,14 @@ export function TwoFactorRow() {
         {stage.step === 'enrolling' ? (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <span className="text-xs font-medium text-foreground-muted">Secret</span>
+              <span className="text-caption font-medium text-foreground-muted">Secret</span>
               <div className="flex items-center gap-2">
-                <code className="grow rounded-field border border-border bg-groove px-3 py-2.5 font-mono text-[13px] break-all text-foreground">
+                <code className="grow rounded-field border border-border bg-groove px-3 py-2.5 font-mono text-ui break-all text-foreground">
                   {stage.secret}
                 </code>
                 <Button
                   variant="ghost"
-                  className="h-9 shrink-0 px-3 text-[13px]"
+                  className="h-9 shrink-0 px-3 text-ui"
                   onClick={() => {
                     void copyText(stage.secret).then(setCopied);
                   }}
@@ -215,7 +214,7 @@ export function TwoFactorRow() {
                   {isCopied ? 'Copied' : 'Copy'}
                 </Button>
               </div>
-              <span className="text-[11.5px] break-all text-foreground-subtle">{stage.uri}</span>
+              <span className="text-caption break-all text-foreground-subtle">{stage.uri}</span>
             </div>
 
             <TextField
@@ -236,6 +235,8 @@ export function TwoFactorRow() {
         isOpen={stage.step === 'codes'}
         onClose={close}
         title="Your recovery codes"
+        // Shown once, and the only way back into an account whose phone is gone.
+        closesOnBackdrop={false}
         description="Each one signs you in once, if you lose the authenticator. They are shown here and nowhere else — the server keeps only hashes."
         footer={<Button onClick={close}>I have saved them</Button>}
       >
@@ -243,7 +244,7 @@ export function TwoFactorRow() {
           <div className="flex flex-col gap-3">
             <ul className="grid grid-cols-2 gap-1.5 rounded-field border border-border bg-groove p-3">
               {stage.codes.map((recovery) => (
-                <li key={recovery} className="font-mono text-[13px] text-foreground">
+                <li key={recovery} className="font-mono text-ui text-foreground">
                   {recovery}
                 </li>
               ))}
@@ -280,7 +281,7 @@ export function TwoFactorRow() {
         {error === undefined ? (
           <span className="sr-only">Nothing has gone wrong.</span>
         ) : (
-          <span role="alert" className="text-[13px] text-danger">
+          <span role="alert" className="text-ui text-danger">
             {error}
           </span>
         )}

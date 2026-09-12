@@ -28,6 +28,14 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { useSession, type SessionStatus } from '@/auth/session-store';
 import { AuthLayout } from '@/routes/auth-layout';
 import { FirstRunForm } from '@/routes/first-run';
+import { AliasesPage } from '@/routes/library/aliases-page';
+import { AutomationEditor } from '@/routes/library/automation-editor';
+import { AutomationsPage } from '@/routes/library/automations-page';
+import { DevicesPage } from '@/routes/library/devices-page';
+import { IntegrationsPage } from '@/routes/library/integrations-page';
+import { PackagesPage } from '@/routes/library/packages-page';
+import { ScenesPage } from '@/routes/library/scenes-page';
+import { VendorPage } from '@/routes/library/vendor-page';
 import { RETURN_TO_PARAM, safeReturnTo } from '@/routes/return-to';
 import { AccountSettings } from '@/routes/settings/account-settings';
 import { DataAndRetention } from '@/routes/settings/data-and-retention';
@@ -71,7 +79,7 @@ type Screen = {
 const SCREENS: Readonly<Record<UnauthenticatedStatus, Screen>> = {
   'setup-required': {
     path: '/setup',
-    title: 'Set up Nebula',
+    title: 'Set up Nebula Home',
     subtitle: 'This home has no accounts yet. The first one is yours, and it owns everything.',
     form: <FirstRunForm />,
   },
@@ -169,6 +177,7 @@ function useAddressFollowsSession(status: SessionStatus, startPage: string): voi
 export function SessionRoutes() {
   const status = useSession((state) => state.status);
   const initialise = useSession((state) => state.initialise);
+  const isWaitingForApi = useSession((state) => state.isWaitingForApi);
   const isHeld = useIntroHold(status !== 'starting');
   const startPage = usePreferences((state) => state.startPage);
 
@@ -185,6 +194,7 @@ export function SessionRoutes() {
     return (
       <AuthLayout
         isLoading={isIntro}
+        loadingNote={isWaitingForApi ? 'Waiting for Nebula to answer…' : undefined}
         title={screen?.title ?? ''}
         subtitle={screen?.subtitle ?? ''}
         {...(screen?.footer === undefined ? {} : { footer: screen.footer })}
@@ -199,11 +209,29 @@ export function SessionRoutes() {
       <Route element={<Shell />}>
         <Route index element={<Navigate to={startPage} replace />} />
         <Route path="/dashboards" element={<PagePlaceholder />} />
-        <Route path="/automations" element={<PagePlaceholder />} />
-        <Route path="/scenes" element={<PagePlaceholder />} />
-        <Route path="/devices" element={<PagePlaceholder />} />
-        <Route path="/aliases" element={<PagePlaceholder />} />
-        <Route path="/packages" element={<PagePlaceholder />} />
+        <Route path="/automations" element={<AutomationsPage />} />
+        <Route path="/automations/new" element={<AutomationEditor />} />
+        <Route path="/automations/:automationId" element={<AutomationEditor />} />
+        <Route path="/scenes" element={<ScenesPage />} />
+        <Route path="/devices" element={<DevicesPage />} />
+        <Route path="/aliases" element={<AliasesPage />} />
+        <Route
+          path="/integrations"
+          element={
+            <RequiresPermission permission="integration:read" section="Integrations">
+              <IntegrationsPage />
+            </RequiresPermission>
+          }
+        />
+        <Route
+          path="/integrations/:vendorId"
+          element={
+            <RequiresPermission permission="integration:read" section="Integrations">
+              <VendorPage />
+            </RequiresPermission>
+          }
+        />
+        <Route path="/packages" element={<PackagesPage />} />
 
         <Route path="/settings" element={<SettingsLayout />}>
           <Route index element={<Navigate to={DEFAULT_SETTINGS_SECTION} replace />} />

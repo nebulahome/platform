@@ -12,11 +12,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { Button } from '@nebula-home/ui';
+import { Badge, Button, Panel } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
-import { Badge } from '@/components/badge';
-import { Panel } from '@/components/panel';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
 import { SETTINGS_QUERY_KEYS, fetchSessions, revokeSession } from '@/settings/api';
@@ -71,7 +69,7 @@ export function SessionsPanel() {
       action={
         <Button
           variant="danger"
-          className="h-8 px-3 text-[13px]"
+          className="h-8 px-3 text-ui"
           onClick={() => {
             void endSession(true);
           }}
@@ -80,19 +78,19 @@ export function SessionsPanel() {
         </Button>
       }
     >
-      <div className={`${COLUMNS} border-b border-surface-raised py-2.5`}>
-        <span className="text-[11px] text-foreground-subtle">Browser</span>
-        <span className="text-[11px] text-foreground-subtle">Address</span>
-        <span className="text-[11px] text-foreground-subtle">Last active</span>
+      <div className={`${COLUMNS} border-b border-border-soft py-2.5`}>
+        <span className="text-label text-foreground-subtle uppercase">Browser</span>
+        <span className="text-label text-foreground-subtle uppercase">Address</span>
+        <span className="text-label text-foreground-subtle uppercase">Last active</span>
         <span />
       </div>
 
       {sessions.isPending ? (
-        <p className="px-4 py-4 text-[13px] text-foreground-subtle">Reading your sessions…</p>
+        <p className="px-4 py-4 text-ui text-foreground-subtle">Reading your sessions…</p>
       ) : null}
 
       {sessions.isError ? (
-        <p role="alert" className="px-4 py-4 text-[13px] text-danger">
+        <p role="alert" className="px-4 py-4 text-ui text-danger">
           {toMessage(sessions.error)}
         </p>
       ) : null}
@@ -100,18 +98,18 @@ export function SessionsPanel() {
       {(sessions.data ?? []).map((entry) => (
         <div
           key={entry.id}
-          className={`${COLUMNS} border-b border-surface-raised py-3 last:border-b-0`}
+          className={`${COLUMNS} border-b border-border-soft py-3 last:border-b-0`}
         >
-          <span className="truncate text-[13.5px] text-foreground">
+          <span className="truncate text-ui text-foreground">
             {describeUserAgent(entry.userAgent)}
           </span>
 
-          <span className="truncate font-mono text-[12.5px] text-foreground-muted">
+          <span className="truncate font-mono text-caption text-foreground-muted">
             {entry.ipAddress ?? '—'}
           </span>
 
           <span
-            className="text-[12.5px] text-foreground-subtle"
+            className="text-caption text-foreground-subtle"
             title={absoluteTime(entry.lastSeenAt)}
           >
             {relativeTime(entry.lastSeenAt)}
@@ -123,7 +121,7 @@ export function SessionsPanel() {
             ) : (
               <Button
                 variant="danger"
-                className="h-8 px-3 text-[13px]"
+                className="h-8 px-3 text-ui"
                 onClick={() => {
                   revoke(entry.id);
                 }}
@@ -136,10 +134,7 @@ export function SessionsPanel() {
       ))}
 
       {error === undefined ? null : (
-        <p
-          role="alert"
-          className="border-t border-surface-raised px-4 py-3 text-[13px] text-danger"
-        >
+        <p role="alert" className="border-t border-border-soft px-4 py-3 text-ui text-danger">
           {error}
         </p>
       )}

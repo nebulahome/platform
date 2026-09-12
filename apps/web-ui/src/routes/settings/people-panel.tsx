@@ -14,16 +14,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type SubmitEventHandler } from 'react';
 
 import type { UserView } from '@nebula-home/contracts';
-import { Button, TextField } from '@nebula-home/ui';
+import { Badge, Button, Modal, Panel, SelectField, TextField } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
 import { Avatar } from '@/components/avatar';
-import { Badge } from '@/components/badge';
 import { CheckIcon, WarningIcon } from '@/components/icons';
-import { Modal } from '@/components/modal';
-import { Panel } from '@/components/panel';
 import { PasswordField } from '@/components/password-field';
-import { SelectField } from '@/components/select-field';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
 import { isPasswordAcceptable } from '@/lib/password-rules';
@@ -194,7 +190,7 @@ export function PeoplePanel() {
         action={
           canManage ? (
             <Button
-              className="h-8 px-3 text-[13px]"
+              className="h-8 px-3 text-ui"
               onClick={() => {
                 setError(undefined);
                 setRole('member');
@@ -206,20 +202,20 @@ export function PeoplePanel() {
           ) : undefined
         }
       >
-        <div className={`${COLUMNS} border-b border-surface-raised py-2.5`}>
-          <span className="text-[11px] text-foreground-subtle">Person</span>
-          <span className="text-[11px] text-foreground-subtle">Role</span>
-          <span className="text-[11px] text-foreground-subtle">2FA</span>
-          <span className="text-[11px] text-foreground-subtle">Last seen</span>
+        <div className={`${COLUMNS} border-b border-border-soft py-2.5`}>
+          <span className="text-label text-foreground-subtle uppercase">Person</span>
+          <span className="text-label text-foreground-subtle uppercase">Role</span>
+          <span className="text-label text-foreground-subtle uppercase">2FA</span>
+          <span className="text-label text-foreground-subtle uppercase">Last seen</span>
           <span />
         </div>
 
         {users.isPending ? (
-          <p className="px-4 py-4 text-[13px] text-foreground-subtle">Reading the accounts…</p>
+          <p className="px-4 py-4 text-ui text-foreground-subtle">Reading the accounts…</p>
         ) : null}
 
         {users.isError ? (
-          <p role="alert" className="px-4 py-4 text-[13px] text-danger">
+          <p role="alert" className="px-4 py-4 text-ui text-danger">
             {toMessage(users.error)}
           </p>
         ) : null}
@@ -227,16 +223,16 @@ export function PeoplePanel() {
         {(users.data ?? []).map((person) => (
           <div
             key={person.id}
-            className={`${COLUMNS} border-b border-surface-raised py-2.5 last:border-b-0`}
+            className={`${COLUMNS} border-b border-border-soft py-2.5 last:border-b-0`}
           >
             <div className="flex min-w-0 items-center gap-3">
               <Avatar displayName={person.displayName} avatarUrl={person.avatarUrl} />
               <div className="flex min-w-0 flex-col">
-                <span className="truncate text-[13.5px] text-foreground">
+                <span className="truncate text-ui text-foreground">
                   {person.displayName}
                   {person.isActive ? '' : ' · disabled'}
                 </span>
-                <span className="truncate font-mono text-[11.5px] text-foreground-subtle">
+                <span className="truncate font-mono text-caption text-foreground-subtle">
                   {person.email ?? person.username}
                 </span>
               </div>
@@ -247,19 +243,19 @@ export function PeoplePanel() {
             </Badge>
 
             {person.isTwoFactorEnabled ? (
-              <span className="flex items-center gap-1.5 text-xs text-success">
+              <span className="flex items-center gap-1.5 text-caption text-success">
                 <CheckIcon width="13" height="13" />
                 On
               </span>
             ) : (
-              <span className="flex items-center gap-1.5 text-xs text-warning">
+              <span className="flex items-center gap-1.5 text-caption text-warning">
                 <WarningIcon width="13" height="13" />
                 Off
               </span>
             )}
 
             <span
-              className="text-[12.5px] text-foreground-subtle"
+              className="text-caption text-foreground-subtle"
               title={person.lastLoginAt === null ? undefined : absoluteTime(person.lastLoginAt)}
             >
               {person.lastLoginAt === null ? 'never' : relativeTime(person.lastLoginAt)}
@@ -269,7 +265,7 @@ export function PeoplePanel() {
               {canManage ? (
                 <Button
                   variant="ghost"
-                  className="h-8 px-3 text-[13px]"
+                  className="h-8 px-3 text-ui"
                   onClick={() => {
                     setError(undefined);
                     setDisplayName(person.displayName);
@@ -285,7 +281,7 @@ export function PeoplePanel() {
               {canManage && person.id !== selfId ? (
                 <Button
                   variant="danger"
-                  className="h-8 px-3 text-[13px]"
+                  className="h-8 px-3 text-ui"
                   onClick={() => {
                     setError(undefined);
                     setDialog({ kind: 'delete', user: person });
@@ -359,7 +355,7 @@ export function PeoplePanel() {
           />
 
           {error === undefined ? null : (
-            <span role="alert" className="text-[13px] text-danger">
+            <span role="alert" className="text-ui text-danger">
               {error}
             </span>
           )}
@@ -433,7 +429,7 @@ export function PeoplePanel() {
             />
 
             {error === undefined ? null : (
-              <span role="alert" className="text-[13px] text-danger">
+              <span role="alert" className="text-ui text-danger">
                 {error}
               </span>
             )}
@@ -468,11 +464,11 @@ export function PeoplePanel() {
         }
       >
         {error === undefined ? (
-          <p className="text-[13px] text-foreground-muted">
+          <p className="text-ui text-foreground-muted">
             {dialog.kind === 'delete' ? dialog.user.username : ''}
           </p>
         ) : (
-          <span role="alert" className="text-[13px] text-danger">
+          <span role="alert" className="text-ui text-danger">
             {error}
           </span>
         )}

@@ -233,3 +233,118 @@ export function CaretIcon(props: IconProps & { readonly isOpen: boolean }) {
     </Glyph>
   );
 }
+
+/**
+ * An open eye: the password is hidden, and pressing this shows it.
+ *
+ * Named for what the control does rather than for what it currently is, which is the same rule
+ * the button's label follows.
+ *
+ * @param props - SVG attributes.
+ * @returns The glyph.
+ */
+export function EyeIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M2.5 12s3.6-6 9.5-6 9.5 6 9.5 6-3.6 6-9.5 6-9.5-6-9.5-6z" />
+      <circle cx="12" cy="12" r="2.6" />
+    </Glyph>
+  );
+}
+
+/**
+ * The same eye, struck through: the password is showing, and pressing this hides it again.
+ *
+ * The stroke is a real second path rather than a rotated rule, so it keeps the round cap every
+ * other glyph in the set has.
+ *
+ * @param props - SVG attributes.
+ * @returns The glyph.
+ */
+export function EyeOffIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <path d="M10.6 6.2A9.6 9.6 0 0 1 12 6c5.9 0 9.5 6 9.5 6a17 17 0 0 1-2.9 3.5" />
+      <path d="M6.4 8.2A16.7 16.7 0 0 0 2.5 12s3.6 6 9.5 6a9.4 9.4 0 0 0 3.6-.7" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+      <path d="M4 4l16 16" />
+    </Glyph>
+  );
+}
+
+/**
+ * A globe: the devices behind this mark need the internet to work.
+ *
+ * @param props - SVG attributes.
+ * @returns The glyph.
+ */
+export function GlobeIcon(props: IconProps) {
+  return (
+    <Glyph strokeWidth="2" {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.5 12h17" />
+      <path d="M12 3.5c2.6 2.6 3.9 5.4 3.9 8.5S14.6 17.9 12 20.5c-2.6-2.6-3.9-5.4-3.9-8.5S9.4 6.1 12 3.5z" />
+    </Glyph>
+  );
+}
+
+/**
+ * Broadcast arcs: the vendor is listened to on the MQTT broker.
+ *
+ * @param props - SVG attributes.
+ * @returns The glyph.
+ */
+export function MqttIcon(props: IconProps) {
+  return (
+    <Glyph strokeWidth="2" {...props}>
+      <path d="M4 5.5a14.5 14.5 0 0 1 14.5 14.5" />
+      <path d="M4 11.5a8.5 8.5 0 0 1 8.5 8.5" />
+      <circle cx="5.5" cy="18.5" r="1.6" />
+    </Glyph>
+  );
+}
+
+/**
+ * Two arrows, request and reply: the vendor's devices are spoken to over HTTP.
+ *
+ * @param props - SVG attributes.
+ * @returns The glyph.
+ */
+export function HttpIcon(props: IconProps) {
+  return (
+    <Glyph strokeWidth="2" {...props}>
+      <path d="M4 8.5h14l-3.5-3.5" />
+      <path d="M20 15.5H6l3.5 3.5" />
+    </Glyph>
+  );
+}
+
+/**
+ * A funnel: narrow what is listed.
+ *
+ * @param props - SVG attributes.
+ * @returns The glyph.
+ */
+export function FilterIcon(props: IconProps) {
+  return (
+    <Glyph strokeWidth="2" {...props}>
+      <path d="M3.5 5h17l-6.5 8v5.5l-4 2v-7.5z" />
+    </Glyph>
+  );
+}
+
+/**
+ * An arrow leaving a box: the link opens somewhere else.
+ *
+ * @param props - SVG attributes.
+ * @returns The glyph.
+ */
+export function ExternalLinkIcon(props: IconProps) {
+  return (
+    <Glyph strokeWidth="2" {...props}>
+      <path d="M14 4.5h5.5V10" />
+      <path d="M19.5 4.5L11 13" />
+      <path d="M17 13.5v5a1 1 0 0 1-1 1H5.5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h5" />
+    </Glyph>
+  );
+}

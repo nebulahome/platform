@@ -70,7 +70,7 @@ describe('AuthLayout', () => {
     // joined by its own name is a logo assembling itself, which draws the eye to the assembly.
     const { container } = render(<AuthLayout isLoading />);
     const wordmark = [...container.querySelectorAll('span')].find(
-      (node) => node.textContent === 'Nebula',
+      (node) => node.textContent === 'Nebula Home',
     );
 
     expect(wordmark).toBeDefined();

@@ -1,3 +1,5 @@
+import { Panel, PanelNote, PanelRow, Segmented, SelectField } from '@nebula-home/ui';
+
 /**
  * The preferences that belong to this browser.
  *
@@ -10,9 +12,6 @@
  * and a time format, and neither has anything reading it yet: a control that changes nothing is
  * worse than a missing one, because it costs the person the trouble of deciding.
  */
-import { PanelNote, PanelRow, Panel } from '@/components/panel';
-import { Segmented } from '@/components/segmented';
-import { SelectField } from '@/components/select-field';
 import {
   MOTION_CHOICES,
   START_PAGES,
@@ -118,7 +117,7 @@ export function InterfaceSettings() {
                   change({ startPage: chosen });
                 }
               }}
-              className="w-[170px]"
+              className="w-42.5"
             />
           }
         />

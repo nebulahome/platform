@@ -102,7 +102,7 @@ export function AvatarPicker(props: AvatarPickerProps) {
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
-            className="h-8 px-3 text-[13px]"
+            className="h-8 px-3 text-ui"
             isBusy={isBusy}
             onClick={() => {
               input.current?.click();
@@ -112,12 +112,7 @@ export function AvatarPicker(props: AvatarPickerProps) {
           </Button>
 
           {avatarUrl === null ? null : (
-            <Button
-              variant="danger"
-              className="h-8 px-3 text-[13px]"
-              disabled={isBusy}
-              onClick={clear}
-            >
+            <Button variant="danger" className="h-8 px-3 text-ui" disabled={isBusy} onClick={clear}>
               Remove
             </Button>
           )}
@@ -126,11 +121,11 @@ export function AvatarPicker(props: AvatarPickerProps) {
         </div>
 
         {error === undefined ? (
-          <span className="text-[11.5px] text-foreground-subtle">
+          <span className="text-caption text-foreground-subtle">
             Cropped to a square and shrunk before it is sent.
           </span>
         ) : (
-          <span role="alert" className="text-[11.5px] text-danger">
+          <span role="alert" className="text-caption text-danger">
             {error}
           </span>
         )}

@@ -16,13 +16,10 @@
  */
 import { useState, type SubmitEventHandler } from 'react';
 
-import { Button, TextField } from '@nebula-home/ui';
+import { Badge, Button, Modal, PanelRow, TextField } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
 import { Avatar } from '@/components/avatar';
-import { Badge } from '@/components/badge';
-import { Modal } from '@/components/modal';
-import { PanelRow } from '@/components/panel';
 import { PasswordField } from '@/components/password-field';
 import { toMessage } from '@/lib/error-message';
 import { isPasswordAcceptable } from '@/lib/password-rules';
@@ -31,6 +28,21 @@ import { changePassword, updateUser } from '@/settings/api';
 
 /** Which dialog is open, if any. */
 type OpenDialog = 'profile' | 'password' | null;
+
+/**
+ * A confirmation, and which row earned it.
+ *
+ * The row is part of the value rather than a second piece of state beside it. Two separate
+ * `useState` calls can disagree - and they did: one note and two rows meant the profile's
+ * confirmation was drawn under the password, because that is where the only note lived.
+ */
+type Note = {
+  /** Where it belongs. */
+  readonly row: 'profile' | 'password';
+
+  /** What happened. */
+  readonly text: string;
+};
 
 /**
  * Renders the identity and password rows, and the dialogs behind them.
@@ -47,7 +59,7 @@ export function ProfileRows() {
   const [newPassword, setNewPassword] = useState('');
   const [error, setError] = useState<string | undefined>(undefined);
   const [isBusy, setBusy] = useState(false);
-  const [note, setNote] = useState<string | undefined>(undefined);
+  const [note, setNote] = useState<Note | undefined>(undefined);
 
   if (user === undefined) {
     return null;
@@ -81,7 +93,7 @@ export function ProfileRows() {
         await updateUser(user.id, { displayName, ...(email === '' ? {} : { email }) });
         await refreshUser();
         close();
-        setNote('Profile updated.');
+        setNote({ row: 'profile', text: 'Profile updated.' });
       } catch (cause: unknown) {
         setError(toMessage(cause));
       } finally {
@@ -104,7 +116,10 @@ export function ProfileRows() {
       try {
         await changePassword(currentPassword, newPassword);
         close();
-        setNote('Password changed. Your other sessions are still signed in.');
+        setNote({
+          row: 'password',
+          text: 'Password changed. Your other sessions are still signed in.',
+        });
       } catch (cause: unknown) {
         setError(toMessage(cause));
       } finally {
@@ -126,12 +141,12 @@ export function ProfileRows() {
             />
             <span className="flex flex-col gap-1">
               <span className="flex items-center gap-2.5">
-                <span className="text-base font-medium">{user.displayName}</span>
+                <span className="text-subhead font-semibold">{user.displayName}</span>
                 <Badge tone="accent">
                   <span className="capitalize">{user.role}</span>
                 </Badge>
               </span>
-              <span className="font-mono text-[13px] font-normal text-foreground-muted">
+              <span className="font-mono text-ui font-normal text-foreground-muted">
                 {user.username}
               </span>
             </span>
@@ -140,7 +155,7 @@ export function ProfileRows() {
         control={
           <Button
             variant="ghost"
-            className="h-8 px-3 text-[13px]"
+            size="compact"
             onClick={() => {
               setDisplayName(user.displayName);
               setEmail('');
@@ -152,15 +167,20 @@ export function ProfileRows() {
             Edit profile
           </Button>
         }
-      />
+      >
+        {note?.row === 'profile' ? <Confirmation>{note.text}</Confirmation> : null}
+      </PanelRow>
 
       <PanelRow
         title="Password"
-        note={note === undefined ? 'At least twelve characters, and no other rules.' : undefined}
+        // The row's own note stays whatever else has happened: it says what a password has to be,
+        // which is still true after one was changed. A confirmation is an extra line, not a
+        // replacement for the explanation the row exists to give.
+        note="At least twelve characters, and no other rules."
         control={
           <Button
             variant="ghost"
-            className="h-8 px-3 text-[13px]"
+            size="compact"
             onClick={() => {
               setError(undefined);
               setNote(undefined);
@@ -171,11 +191,7 @@ export function ProfileRows() {
           </Button>
         }
       >
-        {note === undefined ? null : (
-          <p role="status" className="text-[13px] text-success">
-            {note}
-          </p>
-        )}
+        {note?.row === 'password' ? <Confirmation>{note.text}</Confirmation> : null}
       </PanelRow>
 
       <Modal
@@ -228,7 +244,7 @@ export function ProfileRows() {
             />
 
             {error === undefined ? null : (
-              <span role="alert" className="text-[13px] text-danger">
+              <span role="alert" className="text-ui text-danger">
                 {error}
               </span>
             )}
@@ -281,12 +297,38 @@ export function ProfileRows() {
           />
 
           {error === undefined ? null : (
-            <span role="alert" className="text-[13px] text-danger">
+            <span role="alert" className="text-ui text-danger">
               {error}
             </span>
           )}
         </form>
       </Modal>
     </>
+  );
+}
+
+/** What a confirmation needs. */
+type ConfirmationProps = {
+  /** What happened. */
+  readonly children: string;
+};
+
+/**
+ * The line a row shows after its own action succeeded.
+ *
+ * `role="status"` rather than `role="alert"`: nothing has gone wrong, and an assertive
+ * announcement would interrupt whatever a screen reader was in the middle of saying to report
+ * good news.
+ *
+ * @param props - See {@link ConfirmationProps}.
+ * @returns The line.
+ */
+function Confirmation(props: ConfirmationProps) {
+  const { children } = props;
+
+  return (
+    <p role="status" className="text-ui text-success">
+      {children}
+    </p>
   );
 }

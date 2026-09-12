@@ -223,6 +223,31 @@ describe('apiRequest', () => {
     expect(globalThis.localStorage.getItem('nebula.refresh-token')).toBeNull();
   });
 
+  it('keeps the session when the refresh never reached the API', async () => {
+    // A 502 is the proxy in front - Vite in development, the proxy service in production -
+    // saying the API is not there. The token was not refused; nobody looked at it. Throwing it
+    // away here would sign a wall tablet out on every restart of the service.
+    globalThis.localStorage.setItem('nebula.refresh-token', 'still-good');
+
+    const onSignedOut = vi.fn();
+
+    stubFetch([
+      () =>
+        json(401, { error: { code: 'AUTHENTICATION', message: 'no', details: {}, traceId: 't' } }),
+      () => new Response('', { status: 502 }),
+    ]);
+
+    connectSession({
+      readAccessToken: () => 'stale',
+      onRefreshed: () => undefined,
+      onSignedOut,
+    });
+
+    await expect(apiRequest('/entities', z.unknown())).rejects.toMatchObject({ status: 502 });
+    expect(onSignedOut).not.toHaveBeenCalled();
+    expect(globalThis.localStorage.getItem('nebula.refresh-token')).toBe('still-good');
+  });
+
   it('does not try to refresh a call that never had a credential', async () => {
     globalThis.localStorage.setItem('nebula.refresh-token', 'refresh-1');
     stubFetch([

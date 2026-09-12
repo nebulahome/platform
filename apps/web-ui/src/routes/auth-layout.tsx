@@ -54,6 +54,14 @@ export type AuthLayoutProps = {
 
   /** Anything below the card, such as a way back. */
   readonly footer?: ReactNode;
+
+  /**
+   * A line under the lockup while it is still loading.
+   *
+   * For the one thing a spinning mark cannot say on its own: why it is still spinning. Nothing
+   * is shown for the ordinary second or two; this is for a wait that has an explanation.
+   */
+  readonly loadingNote?: string | undefined;
 };
 
 /**
@@ -63,13 +71,13 @@ export type AuthLayoutProps = {
  * @returns The page.
  */
 export function AuthLayout(props: AuthLayoutProps) {
-  const { isLoading = false, title, subtitle, children, footer } = props;
+  const { isLoading = false, title, subtitle, children, footer, loadingNote } = props;
 
   return (
     <main className="relative grid min-h-screen place-items-center overflow-hidden bg-canvas px-4 py-10">
       <Aurora />
 
-      <div className="relative flex w-full max-w-[400px] flex-col items-center">
+      <div className="relative flex w-full max-w-100 flex-col items-center">
         {/*
          * The word travels with the mark rather than arriving after it. The two are one lockup,
          * and a brand mark that assembles itself on screen draws attention to the assembling
@@ -81,8 +89,21 @@ export function AuthLayout(props: AuthLayoutProps) {
           }`}
         >
           <Logo size={34} isSpinning={isLoading} />
-          <span className="text-xl font-medium tracking-tight">Nebula</span>
+          <span className="text-headline font-semibold tracking-tight">Nebula Home</span>
         </div>
+
+        {/*
+         * Kept out of the lockup so it does not scale with it, and given `aria-live` so a screen
+         * reader hears the wait explained rather than sitting in silence with a spinner.
+         */}
+        <p
+          aria-live="polite"
+          className={`mt-10 text-center text-caption text-foreground-subtle transition-opacity duration-500 ${
+            isLoading && loadingNote !== undefined ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          {isLoading ? loadingNote : undefined}
+        </p>
 
         <div
           className={`grid w-full transition-[grid-template-rows] duration-[900ms] ${SETTLE} ${
@@ -95,17 +116,17 @@ export function AuthLayout(props: AuthLayoutProps) {
                 isLoading ? 'scale-x-[0.86] opacity-0' : 'scale-x-100 opacity-100 delay-300'
               }`}
             >
-              <div className="flex flex-col gap-6 rounded-[18px] border border-border bg-surface/80 p-7 backdrop-blur-xl">
+              <div className="flex flex-col gap-6 rounded-dialog border border-border bg-surface/80 p-7 backdrop-blur-xl">
                 <div className="flex flex-col gap-1.5">
-                  <h1 className="text-xl font-medium tracking-tight">{title}</h1>
-                  <p className="text-[13px] text-foreground-subtle">{subtitle}</p>
+                  <h1 className="text-headline font-medium tracking-tight">{title}</h1>
+                  <p className="text-ui text-foreground-subtle">{subtitle}</p>
                 </div>
 
                 {children}
               </div>
 
               {footer === undefined ? null : (
-                <div className="mt-6 text-center text-xs text-foreground-subtle">{footer}</div>
+                <div className="mt-6 text-center text-caption text-foreground-subtle">{footer}</div>
               )}
             </div>
           </div>

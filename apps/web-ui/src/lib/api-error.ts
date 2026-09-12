@@ -77,6 +77,38 @@ export function isApiError(value: unknown): value is ApiError {
 }
 
 /**
+ * The statuses a proxy answers with when the service behind it is not there.
+ *
+ * In development that proxy is Vite, which answers `502` with an empty body the moment `api`
+ * refuses the connection; in production it is the `proxy` service, and the same three codes
+ * mean the same thing. None of them is the API saying anything - the API was not reached.
+ */
+const UPSTREAM_GONE_STATUSES: ReadonlySet<number> = new Set([502, 503, 504]);
+
+/**
+ * Says whether a failure means the API could not be reached at all.
+ *
+ * Two shapes, one meaning. `NETWORK` is `fetch` throwing: nothing answered. A `502`, `503` or
+ * `504` is something answering *on the API's behalf* to say it is gone - which is what every
+ * request gets for the first seconds after `pnpm dev`, when Vite is up and `api` is still
+ * starting, and for the length of any restart after that.
+ *
+ * The distinction matters because the two kinds of failure deserve opposite reactions. An
+ * answer from the API - a 401, a 404, a 400 - is final and is acted on. Not reaching the API is
+ * a fact about the moment rather than about the request, and the right reaction is usually to
+ * try again in a little while, without having concluded anything in between.
+ *
+ * @param error - Whatever was thrown.
+ * @returns True when the API itself never answered.
+ */
+export function isApiUnreachable(error: unknown): boolean {
+  return (
+    isApiError(error) &&
+    (error.code === NETWORK_ERROR_CODE || UPSTREAM_GONE_STATUSES.has(error.status))
+  );
+}
+
+/**
  * Reads a failed response body into an error.
  *
  * A response that is not the envelope - a proxy's own 502 page, a truncated body - still has to

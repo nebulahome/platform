@@ -18,10 +18,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { PERMISSIONS } from '@nebula-home/contracts';
+import { Badge, Panel, PanelNote } from '@nebula-home/ui';
 
-import { Badge } from '@/components/badge';
 import { ChevronIcon } from '@/components/icons';
-import { Panel, PanelNote } from '@/components/panel';
 import { toMessage } from '@/lib/error-message';
 import { SETTINGS_QUERY_KEYS, fetchRoles } from '@/settings/api';
 
@@ -58,11 +57,11 @@ export function RolesPanel() {
   return (
     <Panel title="What each role grants">
       {roles.isPending ? (
-        <p className="px-4 py-4 text-[13px] text-foreground-subtle">Reading the roles…</p>
+        <p className="px-4 py-4 text-ui text-foreground-subtle">Reading the roles…</p>
       ) : null}
 
       {roles.isError ? (
-        <p role="alert" className="px-4 py-4 text-[13px] text-danger">
+        <p role="alert" className="px-4 py-4 text-ui text-danger">
           {toMessage(roles.error)}
         </p>
       ) : null}
@@ -72,7 +71,7 @@ export function RolesPanel() {
         const held = new Set(role.permissions.map((grant) => grant.key));
 
         return (
-          <div key={role.id} className="border-b border-surface-raised last:border-b-0">
+          <div key={role.id} className="border-b border-border-soft last:border-b-0">
             <button
               type="button"
               aria-expanded={isOpen}
@@ -82,8 +81,8 @@ export function RolesPanel() {
               className="flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-surface-raised/50"
             >
               <div className="flex min-w-0 grow flex-col gap-0.5">
-                <span className="text-[13.5px] font-medium text-foreground">{role.name}</span>
-                <span className="text-xs leading-snug text-foreground-subtle">
+                <span className="text-ui font-medium text-foreground">{role.name}</span>
+                <span className="text-caption leading-snug text-foreground-subtle">
                   {role.description}
                 </span>
               </div>
@@ -110,7 +109,7 @@ export function RolesPanel() {
 
                   return (
                     <div key={resource} className="flex flex-col gap-1.5">
-                      <span className="font-mono text-[11px] tracking-wide text-foreground-subtle uppercase">
+                      <span className="font-mono text-label text-foreground-subtle uppercase">
                         {resource}
                       </span>
 
@@ -121,11 +120,11 @@ export function RolesPanel() {
                           return (
                             <li
                               key={permission.key}
-                              className={`flex items-baseline gap-2.5 text-[12.5px] ${
+                              className={`flex items-baseline gap-2.5 text-caption ${
                                 isHeld ? 'text-foreground' : 'text-foreground-disabled'
                               }`}
                             >
-                              <span className="w-[150px] shrink-0 font-mono">{permission.key}</span>
+                              <span className="w-37.5 shrink-0 font-mono">{permission.key}</span>
                               <span className={isHeld ? 'text-foreground-subtle' : ''}>
                                 {isHeld ? (DESCRIPTIONS.get(permission.key) ?? '') : 'not granted'}
                               </span>

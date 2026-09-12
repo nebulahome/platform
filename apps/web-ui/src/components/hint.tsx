@@ -122,8 +122,8 @@ export function Hint(props: HintProps) {
           // the button has already announced.
           aria-hidden="true"
           className={cn(
-            'pointer-events-none absolute left-1/2 z-30 w-56 -translate-x-1/2 rounded-lg',
-            'border border-border bg-surface-raised px-3 py-2 text-[11.5px] leading-relaxed',
+            'pointer-events-none absolute left-1/2 z-30 w-56 -translate-x-1/2 rounded-chip',
+            'border border-border bg-surface-raised px-3 py-2 text-caption leading-relaxed',
             'text-foreground-muted shadow-lg shadow-black/40',
             side === 'top' ? 'bottom-full mb-2' : 'top-full mt-2',
           )}

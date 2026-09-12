@@ -62,7 +62,7 @@ export function TwoFactorForm() {
   return (
     <form className="flex flex-col gap-5" onSubmit={onSubmit} noValidate>
       <div className="flex flex-col gap-2">
-        <span className="text-xs font-medium text-foreground-muted">Code</span>
+        <span className="text-caption font-medium text-foreground-muted">Code</span>
 
         {/*
          * The boxes are decoration over one input, wrapped in a label so that clicking them
@@ -87,7 +87,7 @@ export function TwoFactorForm() {
             }}
             className={
               isRecoveryCode
-                ? 'h-12 w-full rounded-[10px] border border-border bg-canvas px-3.5 text-center font-mono text-base tracking-[0.2em] text-foreground focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none'
+                ? 'h-12 w-full rounded-field border border-border bg-canvas px-3.5 text-center font-mono text-subhead tracking-code text-foreground focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none'
                 : 'absolute inset-0 h-full w-full cursor-default opacity-0'
             }
           />
@@ -101,7 +101,7 @@ export function TwoFactorForm() {
                 return (
                   <span
                     key={index}
-                    className={`flex h-12 flex-1 items-center justify-center rounded-[10px] border bg-canvas font-mono text-lg ${
+                    className={`flex h-12 flex-1 items-center justify-center rounded-field border bg-canvas font-mono text-head ${
                       error !== undefined
                         ? 'border-danger'
                         : isNext
@@ -122,7 +122,7 @@ export function TwoFactorForm() {
         </label>
 
         {error === undefined ? null : (
-          <span id="code-error" role="alert" className="text-[11.5px] text-danger">
+          <span id="code-error" role="alert" className="text-caption text-danger">
             {error}
           </span>
         )}

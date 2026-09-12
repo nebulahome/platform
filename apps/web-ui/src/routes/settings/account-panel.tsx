@@ -1,3 +1,5 @@
+import { Panel } from '@nebula-home/ui';
+
 /**
  * One heading over everything that is you.
  *
@@ -10,7 +12,6 @@
  * Sessions and tokens stay separate below, and deliberately: those are not facts about you, they
  * are a list of things currently acting as you, which is a different question and a longer list.
  */
-import { Panel } from '@/components/panel';
 import { ProfileRows } from '@/routes/settings/profile-rows';
 import { TwoFactorRow } from '@/routes/settings/two-factor-rows';
 

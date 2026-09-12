@@ -24,6 +24,7 @@ import {
 } from '@/auth/api';
 import { readRefreshToken, writeRefreshToken } from '@/auth/token-storage';
 import { connectSession, refreshAccessToken } from '@/lib/api-client';
+import { isApiUnreachable } from '@/lib/api-error';
 
 /** Where a person is in the sign-in flow. */
 export type SessionStatus =
@@ -60,6 +61,15 @@ export type SessionState = {
 
   /** The outstanding two-factor challenge, when there is one. */
   readonly challengeId: string | null;
+
+  /**
+   * Whether the opening decision is being held up by an API that has not answered yet.
+   *
+   * True while `initialise` is retrying, so the intro screen can say why it is still spinning:
+   * a mark that turns for forty seconds with no explanation reads as a hang, where the same
+   * forty seconds with "waiting for Nebula" under it reads as what it is.
+   */
+  readonly isWaitingForApi: boolean;
 
   /** Works out which screen the application should open on. */
   readonly initialise: () => Promise<void>;
@@ -122,6 +132,119 @@ export function isPermitted(
   return relevant.some((grant) => grant.effect === 'allow' && matches(grant));
 }
 
+/** The shortest wait between two attempts to reach the API, and the longest it grows to. */
+const RETRY_DELAY_MS = { first: 1000, longest: 10_000 } as const;
+
+/**
+ * How long to wait before asking the API again.
+ *
+ * Doubles from a second to ten, and stays there. Fast enough that the page comes alive within a
+ * moment of the service, slow enough that a hundred wall tablets waiting on a restart are not
+ * a hundred requests a second against something that is trying to come up.
+ *
+ * @param attempt - How many attempts have failed, counting from one.
+ * @returns The wait, in milliseconds.
+ */
+export function retryDelayMs(attempt: number): number {
+  return Math.min(RETRY_DELAY_MS.first * 2 ** (attempt - 1), RETRY_DELAY_MS.longest);
+}
+
+/**
+ * Waits.
+ *
+ * @param ms - For how long.
+ * @returns A promise that settles afterwards.
+ */
+async function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+/** What one attempt at the opening decision concluded. */
+type DecisionOutcome =
+  /** The status has been set; nothing more to do. */
+  | 'decided'
+
+  /** Nothing could be asked, because the API was not there to ask. Try again later. */
+  | 'unreachable';
+
+/** The part of the store one attempt is allowed to write. */
+type DecisionSetter = (
+  partial: Partial<Pick<SessionState, 'status' | 'user' | 'accessToken' | 'challengeId'>>,
+) => void;
+
+/**
+ * Makes the opening decision once.
+ *
+ * Three outcomes, in the order they are cheapest to establish: there is a refresh token and it
+ * still works, so the session is restored; there is not, and the installation has no accounts,
+ * so setup is shown; otherwise the sign-in form is. A fourth - the API never answered - is not a
+ * decision and is handed back as such rather than turned into one.
+ *
+ * Every branch is inside a `try`, and it has to be. The status this sets is what picks the
+ * screen, so a throw that escaped would not show an error: it would leave the status at
+ * `starting` with nobody to move it on.
+ *
+ * @param set - The store's setter.
+ * @returns Whether a status was set, or whether the API has to be asked again later.
+ */
+async function decideOnce(set: DecisionSetter): Promise<DecisionOutcome> {
+  try {
+    if (readRefreshToken() !== null) {
+      const accessToken = await refreshAccessToken();
+
+      if (accessToken !== null) {
+        try {
+          set({ accessToken });
+          set({ status: 'signed-in', user: await fetchSession(), challengeId: null });
+
+          return 'decided';
+        } catch (cause: unknown) {
+          if (isApiUnreachable(cause)) {
+            return 'unreachable';
+          }
+
+          // The token verified but the session could not be read: the account was deleted or
+          // deactivated between the two calls. Falling through signs them out cleanly.
+          writeRefreshToken(null);
+          set({ accessToken: null });
+        }
+      }
+    }
+  } catch (cause: unknown) {
+    if (isApiUnreachable(cause)) {
+      // The refresh could not even be attempted. The token is untouched - it may be perfectly
+      // good - and the whole decision is made again once there is somebody to make it with.
+      return 'unreachable';
+    }
+
+    // The refresh was made and something else went wrong with it. Fall through to the decision
+    // an unauthenticated visitor gets.
+    set({ accessToken: null });
+  }
+
+  try {
+    const { isRequired } = await fetchSetupStatus();
+
+    set({ status: isRequired ? 'setup-required' : 'signed-out' });
+
+    return 'decided';
+  } catch (cause: unknown) {
+    if (isApiUnreachable(cause)) {
+      return 'unreachable';
+    }
+
+    // The API answered and the answer was a failure - a 500, a body of the wrong shape. That
+    // is not going to change by asking again in a second. Showing the sign-in form is the
+    // honest default: it is what the person will need once it is fixed, and the form itself
+    // will report the failure.
+    set({ status: 'signed-out' });
+
+    return 'decided';
+  }
+}
+
 /**
  * The session store.
  *
@@ -133,6 +256,7 @@ export const useSession = create<SessionState>((set, get) => ({
   user: undefined,
   accessToken: null,
   challengeId: null,
+  isWaitingForApi: false,
 
   /**
    * Works out which screen to open on.
@@ -142,43 +266,28 @@ export const useSession = create<SessionState>((set, get) => ({
    * show setup; otherwise show the sign-in form.
    */
   initialise: async (): Promise<void> => {
-    // Every branch below is inside a `try`, and it has to be. This runs once, before anything
-    // has rendered, and the status it sets is what picks the screen - so a throw here does not
-    // show an error, it leaves the status at `starting` and the person looks at a blank page
-    // for as long as they are willing to. There is no state in which failing to decide is
-    // better than deciding to show the sign-in form.
-    try {
-      if (readRefreshToken() !== null) {
-        const accessToken = await refreshAccessToken();
+    // The decision is retried, not made once. Two things can stop it being made at all, and
+    // both are temporary: `api` is still starting - it comes up well after Vite does, so the
+    // first page load of `pnpm dev` reliably finds nobody on the port - or it is restarting.
+    // Deciding "signed out" in that moment is wrong twice over: a fresh installation would be
+    // shown the sign-in form instead of setup, and a valid session would be shown the sign-in
+    // form instead of its dashboard. And it is a decision that never gets revisited, so the
+    // page stays wrong after the API arrives until somebody reloads it. Waiting is the honest
+    // answer, and the intro screen already knows how to wait.
+    for (let attempt = 1; ; attempt += 1) {
+      // eslint-disable-next-line no-await-in-loop -- each attempt exists because the one before it found nobody to ask
+      const outcome = await decideOnce(set);
 
-        if (accessToken !== null) {
-          try {
-            set({ accessToken });
-            set({ status: 'signed-in', user: await fetchSession(), challengeId: null });
+      if (outcome === 'decided') {
+        set({ isWaitingForApi: false });
 
-            return;
-          } catch {
-            // The token verified but the session could not be read: the account was deleted or
-            // deactivated between the two calls. Falling through signs them out cleanly.
-            writeRefreshToken(null);
-            set({ accessToken: null });
-          }
-        }
+        return;
       }
-    } catch {
-      // The refresh itself could not be made - the API is down, or the network is. Fall through
-      // to the same decision an unauthenticated visitor gets.
-      set({ accessToken: null });
-    }
 
-    try {
-      const { isRequired } = await fetchSetupStatus();
+      set({ isWaitingForApi: true });
 
-      set({ status: isRequired ? 'setup-required' : 'signed-out' });
-    } catch {
-      // The API is unreachable. Showing the sign-in form is the honest default: it is what the
-      // person will need once it comes back, and the form itself will report the failure.
-      set({ status: 'signed-out' });
+      // eslint-disable-next-line no-await-in-loop -- the wait is the retry schedule
+      await delay(retryDelayMs(attempt));
     }
   },
 

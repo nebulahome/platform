@@ -15,7 +15,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { Modal } from '@/components/modal';
+import { Modal } from '@nebula-home/ui';
 
 beforeAll(() => {
   // jsdom implements `<dialog>` but not the modal behaviour behind it, so `showModal` has to be
@@ -112,7 +112,78 @@ describe('Modal', () => {
 
     const dialog = screen.getByRole('dialog', { hidden: true });
 
-    expect(dialog.getAttribute('aria-labelledby')).toBe('modal-title');
-    expect(screen.getByText('Create a token').id).toBe('modal-title');
+    // The relationship rather than the string. The id used to be the literal `modal-title`, which
+    // is a duplicate id the moment two dialogs are mounted at once - and mounting two is normal,
+    // because a closed one stays in the tree. What has to hold is that the dialog is named by its
+    // own heading, whatever that heading's id turns out to be.
+    expect(screen.getByText('Create a token').id).toBe(dialog.getAttribute('aria-labelledby'));
+  });
+
+  it('gives two dialogs different heading ids', () => {
+    render(
+      <>
+        <Modal isOpen onClose={vi.fn()} title="First">
+          <p>one</p>
+        </Modal>
+        <Modal isOpen onClose={vi.fn()} title="Second">
+          <p>two</p>
+        </Modal>
+      </>,
+    );
+
+    expect(screen.getByText('First').id).not.toBe(screen.getByText('Second').id);
+  });
+
+  it('closes when a click starts and ends on the backdrop', () => {
+    const onClose = vi.fn();
+
+    render(
+      <Modal isOpen onClose={onClose} title="Invite somebody">
+        <p>the form</p>
+      </Modal>,
+    );
+
+    const dialog = screen.getByRole('dialog', { hidden: true });
+
+    fireEvent.mouseDown(dialog);
+    fireEvent.click(dialog);
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not close when a drag starts inside and ends on the backdrop', () => {
+    const onClose = vi.fn();
+
+    render(
+      <Modal isOpen onClose={onClose} title="Show the token">
+        <p>a secret worth selecting</p>
+      </Modal>,
+    );
+
+    const dialog = screen.getByRole('dialog', { hidden: true });
+
+    // Selecting text and releasing past the edge of the card is how somebody would otherwise lose
+    // the secret they were in the middle of copying.
+    fireEvent.mouseDown(screen.getByText('a secret worth selecting'));
+    fireEvent.click(dialog);
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('ignores the backdrop when the dialog opts out', () => {
+    const onClose = vi.fn();
+
+    render(
+      <Modal isOpen onClose={onClose} title="Recovery codes" closesOnBackdrop={false}>
+        <p>shown once</p>
+      </Modal>,
+    );
+
+    const dialog = screen.getByRole('dialog', { hidden: true });
+
+    fireEvent.mouseDown(dialog);
+    fireEvent.click(dialog);
+
+    expect(onClose).not.toHaveBeenCalled();
   });
 });
