@@ -12,6 +12,67 @@
 @source './';
 
 /*
+ * The typeface, carried in the repository.
+ *
+ * Geist rather than a system stack: the interface lives at 11-14px, which is where a face is
+ * either drawn for the job or merely present, and the numerals have a tabular set that keeps a
+ * reading from twitching as it changes.
+ *
+ * The files are here rather than on a font CDN for the same reason the sign-in screen can say
+ * that nothing leaves the network. A stylesheet that fetches from a third party makes that
+ * false, and it makes the interface depend on the internet for a box whose whole point is to
+ * keep working when the internet is down. Latin and Latin Extended only - between them they
+ * cover every language the interface is translated into.
+ *
+ * One variable file per subset carries every weight, so asking for 600 costs no extra request.
+ */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('./fonts/geist-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('./fonts/geist-latin-ext.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url('./fonts/geist-mono-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url('./fonts/geist-mono-latin-ext.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+/*
  * The design tokens, measured rather than picked.
  *
  * The accent is the logo's own hue: #6E7BFF read off the SVG is oklch(0.640 0.194 275), and the
@@ -23,7 +84,8 @@
  * stay dark whatever the page around them does.
  *
  * Every colour in the application resolves through one of these. A hard-coded colour in a
- * component is a review failure (RULES.md 15.3).
+ * component is a review failure (RULES.md 15.3), and so is a pixel value: the sizes, the radii
+ * and the type steps are tokens for the same reason the colours are.
  */
 
 @theme {
@@ -32,22 +94,57 @@
   /** The page behind everything. */
   --color-canvas: #080d19;
 
-  /** A panel, card or rail sitting on the canvas. */
-  --color-surface: #111725;
+  /**
+   * The navigation rail.
+   *
+   * A hair above the canvas and below every card, so the cards read as lifted off it rather
+   * than as holes cut into it.
+   */
+  --color-rail: #0b1120;
+
+  /** A panel or card sitting on the canvas. */
+  --color-surface: #121826;
+
+  /**
+   * The lit top edge of a card.
+   *
+   * A surface catches light along its top; a rectangle does not. This is the other end of the
+   * gradient in `face-card`, and it is a token because the light theme has to be able to say
+   * that a white card has no such edge.
+   */
+  --color-surface-lit: #161c2b;
 
   /** A control on a surface: a hovered row, a filled input. */
   --color-surface-raised: #1b2131;
 
-  /** The groove a segmented control sits in. Darker than the canvas on purpose. */
-  --color-groove: #0c111d;
+  /**
+   * A recess: a field you type into, the groove behind a slider or a segmented control.
+   *
+   * Below the canvas rather than above it. A control that takes input reads as cut into the
+   * page; a control that performs an action reads as sitting on it, and the direction of that
+   * one step is the whole difference.
+   */
+  --color-sunk: #0a0f1c;
+
+  /** Kept for the segmented control's own groove, which is the same idea by an older name. */
+  --color-groove: #0a0f1c;
 
   /* --- lines --------------------------------------------------------------------------- */
 
-  /** Panel edges and dividers. */
+  /** Panel edges. */
   --color-border: #242a38;
 
-  /** A line that has to be noticed: a dashed drop target, a swatch outline. */
-  --color-border-strong: #343a4b;
+  /**
+   * A divider inside a panel, where a full edge would shout.
+   *
+   * Rows used to be separated by `surface-raised`, which is a fill doing a line's job: the same
+   * value read as a divider in one place and as a button face in another, so softening one
+   * changed the other.
+   */
+  --color-border-soft: #1c2231;
+
+  /** An edge that has to survive sitting on top of a card: a button, a dashed drop target. */
+  --color-border-strong: #2f3648;
 
   /**
    * A filled neutral control, as opposed to a line.
@@ -65,8 +162,14 @@
   /** Secondary text: labels, inactive navigation. */
   --color-foreground-muted: #a5abb9;
 
-  /** Tertiary text: captions, counts, timestamps. */
-  --color-foreground-subtle: #7a808e;
+  /**
+   * Tertiary text: captions, counts, timestamps.
+   *
+   * Set against the lit top edge of a card rather than against the card's body, because that is
+   * the lightest thing it ever sits on and the one that decides whether it passes: 4.91:1 there,
+   * 5.43:1 on the rail, 5.60:1 on the canvas.
+   */
+  --color-foreground-subtle: #838a99;
 
   /** Text on a control that cannot be used. */
   --color-foreground-disabled: #4a5060;
@@ -76,6 +179,10 @@
   --color-primary: #6d7bff;
   --color-primary-hover: #8b96ff;
 
+  /** The two ends of the accent's lit face. */
+  --color-primary-lit: #7b87ff;
+  --color-primary-deep: #626ff5;
+
   /** Text and glyphs on top of the accent. */
   --color-primary-foreground: #080d1a;
 
@@ -84,13 +191,153 @@
   --color-danger: #f75d59;
 
   /* --- shape ---------------------------------------------------------------------------- */
+  /*
+   * Five steps, and a control inside a card takes the step below the card so the curves stay
+   * concentric. Before this the radii ran 6, 8, 9, 10, 12, 14 and 18 with no rule behind which
+   * was which, which is how two buttons on one row end up differently round.
+   */
 
+  --radius-chip: 8px;
   --radius-field: 10px;
-  --radius-panel: 14px;
-  --radius-dialog: 18px;
+  --radius-tile: 12px;
+  --radius-panel: 16px;
+  --radius-dialog: 20px;
 
-  --font-sans: Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'Roboto Mono', ui-monospace, monospace;
+  /* --- type ------------------------------------------------------------------------------ */
+  /*
+   * Named for the job, not the size. A step called `ui` survives someone deciding that controls
+   * should be a pixel larger; a class called `text-[13.5px]` has to be found in forty files.
+   *
+   * Each step carries its own line height and tracking, because those are not free choices: type
+   * needs tracking pulled in as it grows and left alone as it shrinks, and getting that wrong is
+   * most of what makes an interface look untended.
+   */
+
+  /** Small capitals over a group of rows. Pair with `uppercase`. */
+  --text-label: 11px;
+  --text-label--line-height: 1.3;
+  --text-label--letter-spacing: 0.085em;
+  --text-label--font-weight: 500;
+
+  /** Captions, counts, timestamps, the line under a field. */
+  --text-caption: 12px;
+  --text-caption--line-height: 1.45;
+
+  /** Body text and the label on every control. The interface mostly lives here. */
+  --text-ui: 13px;
+  --text-ui--line-height: 1.45;
+  --text-ui--letter-spacing: -0.006em;
+
+  /** A row's title, a card's name. */
+  --text-title: 14px;
+  --text-title--line-height: 1.4;
+  --text-title--letter-spacing: -0.012em;
+
+  /** A dialog's heading. */
+  --text-subhead: 16px;
+  --text-subhead--line-height: 1.3;
+  --text-subhead--letter-spacing: -0.018em;
+
+  /** A page's heading. */
+  --text-head: 18px;
+  --text-head--line-height: 1.25;
+  --text-head--letter-spacing: -0.022em;
+
+  /** The largest thing that is still a heading: a page title, or a state word. */
+  --text-headline: 20px;
+  --text-headline--line-height: 1.2;
+  --text-headline--letter-spacing: -0.024em;
+
+  /** A reading on a card. */
+  --text-reading: 30px;
+  --text-reading--line-height: 1;
+  --text-reading--letter-spacing: -0.032em;
+
+  /** The one reading a card is about. */
+  --text-reading-lg: 44px;
+  --text-reading-lg--line-height: 0.95;
+  --text-reading-lg--letter-spacing: -0.03em;
+
+  /**
+   * A code read one character at a time.
+   *
+   * The six digits of a second factor, and nothing else. Opened right out, because a person is
+   * copying them across from a phone and the only thing that matters is telling one from the
+   * next.
+   */
+  --tracking-code: 0.2em;
+
+  --font-sans: Geist, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
+
+  /* --- control heights -------------------------------------------------------------------- */
+  /*
+   * Three, so that a button and the field next to it line up without anybody measuring.
+   *
+   * Deliberately *not* `--spacing-control`, even though that is the namespace they belong to by
+   * meaning. Naming a value inside `--spacing-*` replaces the whole spacing namespace, which
+   * takes the numeric scale down with it: `p-2`, `gap-4` and `h-16` stop being generated
+   * everywhere in the application, and nothing reports it - the classes are simply absent and
+   * every margin collapses to zero. They are plain variables read by the `h-control` utilities
+   * below instead, which leaves Tailwind's own scale alone.
+   */
+
+  --control-height-sm: 30px;
+  --control-height: 36px;
+  --control-height-lg: 44px;
+
+  /* --- depth -------------------------------------------------------------------------------- */
+  /*
+   * Shadows carry an offset and a blur, because that is what a shadow is. A colourless halo at
+   * zero offset is decoration, and a coloured one is decoration that also lies about where the
+   * light is.
+   *
+   * The inset white line at the top of each is the other half: on a dark page a raised thing is
+   * lit along its top edge, and that edge does more of the work than the shadow underneath.
+   */
+
+  --shadow-raised: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 1px 2px rgb(3 6 14 / 0.45);
+  --shadow-card:
+    inset 0 1px 0 rgb(255 255 255 / 0.045), 0 1px 2px rgb(3 6 14 / 0.5),
+    0 6px 16px -10px rgb(3 6 14 / 0.85);
+  --shadow-dialog:
+    inset 0 1px 0 rgb(255 255 255 / 0.06), 0 2px 8px rgb(3 6 14 / 0.4),
+    0 24px 56px -20px rgb(3 6 14 / 0.8);
+  --shadow-sunk: inset 0 1px 2px rgb(3 6 14 / 0.45);
+
+  /* --- faces ---------------------------------------------------------------------------------- */
+  /*
+   * The gradient half of a surface, applied through the `face-*` utilities below.
+   *
+   * These are tokens rather than classes so the light theme can replace them: a white card has no
+   * lit top edge to speak of, and a light page gets its depth from the shadow instead.
+   */
+
+  --face-card: linear-gradient(180deg, var(--color-surface-lit) 0%, var(--color-surface) 58%);
+  --face-raised: linear-gradient(180deg, #1e2434 0%, #191f2d 100%);
+  --face-primary: linear-gradient(
+    180deg,
+    var(--color-primary-lit) 0%,
+    var(--color-primary) 55%,
+    var(--color-primary-deep) 100%
+  );
+  --face-pill: linear-gradient(180deg, #333a4c 0%, #2a3040 100%);
+
+  /*
+   * The same faces, lit.
+   *
+   * A face is a gradient, and a gradient is a `background-image` - which paints over the
+   * `background-color` underneath it. So `hover:bg-primary-hover` on a control wearing a face
+   * changed a value nothing could see, and every button in the interface had a hover state that
+   * did precisely nothing. The lit face is what hover actually swaps.
+   */
+  --face-primary-hover: linear-gradient(
+    180deg,
+    var(--color-primary-hover) 0%,
+    var(--color-primary-lit) 55%,
+    var(--color-primary) 100%
+  );
+  --face-raised-hover: linear-gradient(180deg, #262d40 0%, #212739 100%);
 
   /* --- the aurora ------------------------------------------------------------------------ */
   /*
@@ -120,6 +367,15 @@
   --animate-drift-one: drift-one 46s ease-in-out infinite;
   --animate-drift-two: drift-two 61s ease-in-out infinite;
   --animate-drift-three: drift-three 73s ease-in-out infinite;
+
+  /**
+   * A thing that has just arrived.
+   *
+   * Ease-out from an already-visible default, so a dropped frame leaves the element in place
+   * rather than invisible. Short enough that nobody waits for it.
+   */
+  --animate-rise: rise 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-fade-in: fade-in 120ms ease-out;
 }
 
 /*
@@ -169,22 +425,45 @@
   }
 }
 
+/* A dropdown or a dialog arriving: it starts almost where it ends. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
 /*
  * The light theme.
  *
  * Applied by `data-theme="light"` on the root element, and by the system preference unless the
  * root says otherwise. Both are needed: the first is a choice the person made, the second is the
  * default for someone who has not made one, and a choice has to beat a preference.
+ *
+ * The surfaces invert their direction rather than their values. Dark stacks upward from
+ * near-black - canvas, rail, card, control - and light stacks the other way, with the card as the
+ * whitest thing on the page and the rail underneath it. What is preserved is the order, not the
+ * numbers.
  */
 @layer base {
   [data-theme='light'] {
     --color-canvas: #f7f8fc;
+    --color-rail: #f0f2f7;
     --color-surface: #ffffff;
+    --color-surface-lit: #ffffff;
     --color-surface-raised: #f0f2f7;
+    --color-sunk: #f4f5fa;
     --color-groove: #eaecf2;
 
     --color-border: #e0e3e8;
-    --color-border-strong: #c9ccd4;
+    --color-border-soft: #edeff4;
+    --color-border-strong: #d2d5de;
     --color-control: #dbdee5;
 
     --color-foreground: #141a2a;
@@ -194,22 +473,46 @@
 
     --color-primary: #4f55df;
     --color-primary-hover: #3a40c4;
+    --color-primary-lit: #5e64e4;
+    --color-primary-deep: #4348ce;
     --color-primary-foreground: #ffffff;
 
     --color-success: #007840;
     --color-warning: #a46400;
     --color-danger: #c21725;
+
+    /*
+     * A white card has no lit top edge, and a white highlight on white is nothing at all. The
+     * depth comes from the shadow, which loses most of its weight: a light page carries far less
+     * shadow before it starts to look dirty.
+     */
+    --face-card: none;
+    --face-raised: linear-gradient(180deg, #ffffff 0%, #f4f5f9 100%);
+    --face-pill: linear-gradient(180deg, #ffffff 0%, #f5f6fa 100%);
+
+    /* A light control darkens under the pointer rather than lightening: the page is already the
+       brightest thing on screen, so there is nowhere up for it to go. */
+    --face-raised-hover: linear-gradient(180deg, #f4f5f9 0%, #e9ebf2 100%);
+
+    --shadow-raised: 0 1px 2px rgb(20 26 42 / 0.1);
+    --shadow-card: 0 1px 2px rgb(20 26 42 / 0.1), 0 6px 16px -10px rgb(20 26 42 / 0.16);
+    --shadow-dialog: 0 2px 8px rgb(20 26 42 / 0.1), 0 24px 56px -20px rgb(20 26 42 / 0.18);
+    --shadow-sunk: inset 0 1px 2px rgb(20 26 42 / 0.08);
   }
 
   @media (prefers-color-scheme: light) {
     :root:not([data-theme='dark']) {
       --color-canvas: #f7f8fc;
+      --color-rail: #f0f2f7;
       --color-surface: #ffffff;
+      --color-surface-lit: #ffffff;
       --color-surface-raised: #f0f2f7;
+      --color-sunk: #f4f5fa;
       --color-groove: #eaecf2;
 
       --color-border: #e0e3e8;
-      --color-border-strong: #c9ccd4;
+      --color-border-soft: #edeff4;
+      --color-border-strong: #d2d5de;
       --color-control: #dbdee5;
 
       --color-foreground: #141a2a;
@@ -219,11 +522,23 @@
 
       --color-primary: #4f55df;
       --color-primary-hover: #3a40c4;
+      --color-primary-lit: #5e64e4;
+      --color-primary-deep: #4348ce;
       --color-primary-foreground: #ffffff;
 
       --color-success: #007840;
       --color-warning: #a46400;
       --color-danger: #c21725;
+
+      --face-card: none;
+      --face-raised: linear-gradient(180deg, #ffffff 0%, #f4f5f9 100%);
+      --face-pill: linear-gradient(180deg, #ffffff 0%, #f5f6fa 100%);
+      --face-raised-hover: linear-gradient(180deg, #f4f5f9 0%, #e9ebf2 100%);
+
+      --shadow-raised: 0 1px 2px rgb(20 26 42 / 0.1);
+      --shadow-card: 0 1px 2px rgb(20 26 42 / 0.1), 0 6px 16px -10px rgb(20 26 42 / 0.16);
+      --shadow-dialog: 0 2px 8px rgb(20 26 42 / 0.1), 0 24px 56px -20px rgb(20 26 42 / 0.18);
+      --shadow-sunk: inset 0 1px 2px rgb(20 26 42 / 0.08);
     }
   }
 
@@ -253,7 +568,55 @@
     background-color: var(--color-canvas);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    font-size: var(--text-ui);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /*
+   * The parts nobody draws still carry the design.
+   *
+   * A dark page with a default selection colour and a platform scrollbar is a dark page with two
+   * light holes in it. `color-scheme` above gets the browser most of the way; these finish it.
+   *
+   * The bar is thin and has no track of its own - the thumb floats in the padding, drawn with a
+   * transparent border and `background-clip`, which is the only way to inset a webkit thumb. It
+   * is the one piece of furniture that appears on every screen, so it is worth the six lines.
+   */
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-primary) 32%, transparent);
+    color: var(--color-foreground);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-strong) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-border-strong);
+    background-clip: content-box;
+    border: 3px solid transparent;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-control);
+    background-clip: content-box;
+    border: 3px solid transparent;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
   }
 
   /*
@@ -273,6 +636,10 @@
    * screen saying that something is happening. It becomes a pulse instead, which carries the
    * same fact without anything travelling across the view.
    *
+   * The arrival animations stop too, and stopping them is safe because every one of them eases
+   * out from a state the element is already in: with the animation gone the dropdown is simply
+   * there, which is what someone who asked for less motion wanted.
+   *
    * Asked for in two ways, and the arrangement is the theme's: `data-motion` is a choice the
    * person made in the interface and the media query is the default for someone who has not made
    * one, so a choice beats a preference in both directions. Someone whose operating system asks
@@ -281,7 +648,9 @@
    */
   [data-motion='reduced'] .animate-drift-one,
   [data-motion='reduced'] .animate-drift-two,
-  [data-motion='reduced'] .animate-drift-three {
+  [data-motion='reduced'] .animate-drift-three,
+  [data-motion='reduced'] .animate-rise,
+  [data-motion='reduced'] .animate-fade-in {
     animation: none;
   }
 
@@ -292,7 +661,9 @@
   @media (prefers-reduced-motion: reduce) {
     :root:not([data-motion='full']) .animate-drift-one,
     :root:not([data-motion='full']) .animate-drift-two,
-    :root:not([data-motion='full']) .animate-drift-three {
+    :root:not([data-motion='full']) .animate-drift-three,
+    :root:not([data-motion='full']) .animate-rise,
+    :root:not([data-motion='full']) .animate-fade-in {
       animation: none;
     }
 
@@ -313,6 +684,184 @@
 @utility origin-view-box {
   transform-box: view-box;
   transform-origin: center;
+}
+
+/*
+ * The four surfaces, as one class each.
+ *
+ * A raised thing is a fill, a gradient and a shadow that have to change together; written out at
+ * every call site they drift within a week. Naming them by what they are - a card, a raised
+ * control, a recess - is also what lets the light theme replace all three at once.
+ */
+@utility face-card {
+  background-color: var(--color-surface);
+  background-image: var(--face-card);
+  box-shadow: var(--shadow-card);
+}
+
+@utility face-raised {
+  background-color: var(--color-surface-raised);
+  background-image: var(--face-raised);
+  box-shadow: var(--shadow-raised);
+}
+
+@utility face-primary {
+  background-color: var(--color-primary);
+  background-image: var(--face-primary);
+  box-shadow: var(--shadow-raised);
+}
+
+@utility face-pill {
+  background-color: var(--color-control);
+  background-image: var(--face-pill);
+  box-shadow: var(--shadow-raised);
+}
+
+@utility face-sunk {
+  background-color: var(--color-sunk);
+  box-shadow: var(--shadow-sunk);
+}
+
+/*
+ * The three control heights, as utilities rather than as spacing tokens.
+ *
+ * See the note beside `--control-height` for why they cannot live in `--spacing-*`.
+ */
+@utility h-control-sm {
+  height: var(--control-height-sm);
+}
+
+@utility h-control {
+  height: var(--control-height);
+}
+
+@utility h-control-lg {
+  height: var(--control-height-lg);
+}
+
+@utility size-control-sm {
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+}
+
+@utility size-control {
+  width: var(--control-height);
+  height: var(--control-height);
+}
+
+/**
+ * Figures that hold their column.
+ *
+ * A reading that changes in place must not move the layout, and a column of numbers must line
+ * up. Both are the same font feature.
+ */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * A control lights up under the pointer.
+ *
+ * `background-image` rather than `background-color`, because that is the half of a face that is
+ * actually visible: the gradient covers the colour completely, so a hover written against the
+ * colour is a rule that exists and changes nothing. Unlayered for the same reason the press is -
+ * it has to outrank the utilities layer.
+ *
+ * Guarded by `:not(:disabled)`, so a button that is waiting or refused does not answer the
+ * pointer as though it were live.
+ */
+.face-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+  background-image: var(--face-primary-hover);
+}
+
+.face-raised:hover:not(:disabled) {
+  background-image: var(--face-raised-hover);
+}
+
+/*
+ * A control acknowledges being pressed.
+ *
+ * Every control in this interface changed colour on hover and then did nothing at all under the
+ * finger: a button being pressed and a button merely being pointed at looked the same, so the
+ * only thing that ever confirmed a press was the result arriving. On a home server that result
+ * is a round trip to a box in a cupboard, and the gap between the two reads as a control that
+ * did not register.
+ *
+ * A raised control sinks, because that is what a raised thing does. A bare one contracts, because
+ * it has no height to lose. Both are 120ms, which is under the threshold where feedback starts
+ * being read as latency.
+ *
+ * Written as plain rules rather than as `@utility`, for two reasons that both had to be found by
+ * looking at the generated stylesheet. A nested `&:active` inside `@utility` is dropped, so the
+ * transition shipped and the transform it was meant to carry never did. And these have to beat
+ * Tailwind's own `active:` utilities, which sit in the utilities layer: unlayered rules outrank
+ * every layer, which is exactly the priority the reduced-motion override below needs.
+ */
+.press {
+  transition-property: transform, box-shadow, background-color, border-color, color, opacity;
+  transition-duration: 120ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.press:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: var(--shadow-sunk);
+}
+
+.press-scale {
+  transition-property: transform, background-color, border-color, color, opacity;
+  transition-duration: 120ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.press-scale:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+/*
+ * The chosen option in a segmented control, which travels rather than reappearing.
+ *
+ * One pill exists and moves between the options. Tinting the chosen label instead says that
+ * every option has a pill and all but one are switched off, which is a different claim about
+ * what the control is.
+ *
+ * Only the travel is animated. The width lands at once, because the pill is as wide as whatever
+ * word it is under and those words are close in length - the theme control's two options measure
+ * 56 and 58 pixels, so animating the difference buys two pixels of easing at the cost of laying
+ * the element out on every frame. Transform and opacity are composited; width is not.
+ */
+.segment-pill {
+  transition-property: transform, opacity;
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/*
+ * Reduced motion takes the movement, not the feedback.
+ *
+ * The colour and the shadow still change under the finger, so a press is still confirmed - what
+ * goes is the travel. Someone who asked for less motion did not ask to stop being told that
+ * their button worked.
+ */
+[data-motion='reduced'] .press:active:not(:disabled),
+[data-motion='reduced'] .press-scale:active:not(:disabled) {
+  transform: none;
+}
+
+[data-motion='reduced'] .segment-pill {
+  transition-property: opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .press:active:not(:disabled),
+  :root:not([data-motion='full']) .press-scale:active:not(:disabled) {
+    transform: none;
+  }
+
+  :root:not([data-motion='full']) .segment-pill {
+    transition-property: opacity;
+  }
 }
 
 @keyframes reduced-pulse {

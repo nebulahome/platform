@@ -1,11 +1,16 @@
 /**
  * The one button.
  *
- * Three intents and two sizes, which is every button the authentication screens and the rail
- * need. A fourth variant should be added when a screen needs one, not in advance.
+ * Three intents and three sizes. The intent says what pressing it means and the size says where
+ * it sits - `compact` in a table row, `default` in a panel, `large` as the one thing a form is
+ * for. A fourth intent should be added when a screen needs one, not in advance.
  *
  * `busy` rather than a separate spinner the caller places: a button that is waiting must also
  * stop being clickable, and keeping those two facts in one prop is what stops them diverging.
+ *
+ * The faces come from the theme rather than from a fill and a border written out here. A raised
+ * control is a gradient, a lit top edge and a shadow that have to change together, and the light
+ * theme replaces all three at once - which is only possible while they have one name.
  */
 import { cva, type VariantProps } from 'class-variance-authority';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
@@ -13,20 +18,35 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { cn } from '../lib/cn.js';
 
 const button = cva(
-  'inline-flex items-center justify-center gap-2 rounded-[10px] font-medium transition-colors ' +
-    'disabled:cursor-not-allowed disabled:opacity-60',
+  'press inline-flex items-center justify-center gap-2 rounded-field font-medium ' +
+    'disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none',
   {
     variants: {
       variant: {
-        primary: 'bg-primary text-primary-foreground hover:bg-primary-hover',
-        ghost:
-          'border border-border bg-surface text-foreground-muted hover:bg-surface-raised ' +
-          'hover:text-foreground',
-        danger: 'border border-danger/40 bg-transparent text-danger hover:bg-danger/10',
+        /** The one thing the screen is for. */
+        primary: 'face-primary text-primary-foreground',
+
+        /**
+         * Everything else.
+         *
+         * It used to be `bg-surface`, the same colour as the panel it sits on, so its only edge
+         * was a border the same weight as every divider. A control sits one step above what it
+         * sits on, or it is not a control.
+         */
+        ghost: 'face-raised border border-border-strong text-foreground',
+
+        /** Destroys something. Outlined rather than filled: it should not attract the eye. */
+        danger: 'rounded-field border border-danger/40 bg-danger/8 text-danger hover:bg-danger/15',
       },
       size: {
-        medium: 'h-10 px-4 text-[13.5px]',
-        large: 'h-11 w-full px-4 text-sm',
+        /** In a table row or a panel header, beside other row controls. */
+        compact: 'h-control-sm px-3 text-ui',
+
+        /** In a form or a dialog footer. */
+        medium: 'h-control px-4 text-ui',
+
+        /** The single action a sign-in screen exists for. */
+        large: 'h-control-lg w-full px-4 text-title',
       },
     },
     defaultVariants: { variant: 'primary', size: 'medium' },
