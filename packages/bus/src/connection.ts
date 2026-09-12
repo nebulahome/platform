@@ -157,6 +157,18 @@ export async function connectBus(options: ConnectBusOptions): Promise<BusConnect
         name: options.name,
         timeout: connectTimeoutMs,
 
+        // The operating system resolves the hostname, not the client. Left to itself the node
+        // transport expands the name with `dns.resolve4` and `dns.resolve6` - real queries to
+        // the configured DNS server, which bypass the hosts file - and only falls back to the
+        // name once both have failed. `localhost` is in every hosts file and in no DNS, so on a
+        // network whose resolver is slow to say NXDOMAIN that fallback arrives after fifty
+        // seconds, during which the service is up, the port is not, and everything in front of
+        // it reports the platform as down. Measured at 52 s on Windows against a broker that
+        // answers in 3 ms. What the expansion buys - trying every address a name has - is for a
+        // DNS name fronting a cluster, which a self-hosted installation does not have; the
+        // cluster's other addresses still arrive from the server itself once connected.
+        resolve: false,
+
         // The client's own reconnection is left on and unbounded, because a reconnect is far
         // cheaper than tearing this down and rebuilding every subscription on top of it.
         reconnect: true,
