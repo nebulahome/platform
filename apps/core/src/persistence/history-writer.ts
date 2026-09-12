@@ -115,11 +115,36 @@ export type EntityStateRow = {
 };
 
 /**
+ * Keeps the newest row for each entity.
+ *
+ * The cache holds one row per entity, and Postgres refuses an upsert that names the same key
+ * twice in one statement (`ON CONFLICT DO UPDATE command cannot affect row a second time`). A
+ * sensor that reported twice inside one flush window would make the whole batch fail, and since
+ * a failed batch goes back into the buffer ahead of what arrived since, it would then fail on
+ * every retry - a chatty entity turning a one-second hiccup into a cache that never writes again.
+ * Rows are buffered in arrival order, so the last row for an entity is the current one, and
+ * writing only that is exactly what writing all of them in turn would have left behind.
+ *
+ * @param rows - A batch, oldest first.
+ * @returns One row per entity, in the order the entities were first seen.
+ */
+export function latestRowPerEntity(rows: readonly EntityStateRow[]): EntityStateRow[] {
+  const latest = new Map<string, EntityStateRow>();
+
+  for (const row of rows) {
+    latest.set(row.entityId, row);
+  }
+
+  return [...latest.values()];
+}
+
+/**
  * Builds the batched writer for the `registry.entity_states` cache.
  *
- * Every row is an upsert keyed on the entity, so a chatty sensor that produced fifty rows in one
- * batch writes fifty times rather than once - but only within the batch, and the alternative is
- * de-duplicating on the hot path to save writes to a table with one row per entity.
+ * Every row is an upsert keyed on the entity. A batch is collapsed to the newest row per entity
+ * before it is written - see {@link latestRowPerEntity} for why that is a requirement rather than
+ * an optimisation - and the collapse happens here, at flush time, rather than on the state
+ * ingest path.
  *
  * @param options - Database, logger and pacing.
  * @returns A writer rows are added to and which flushes on its own.
@@ -140,7 +165,7 @@ export function createStateCacheWriter(options: HistoryWriterOptions): BatchWrit
     write: async (rows: readonly EntityStateRow[]): Promise<void> => {
       await options.db
         .insert(schema.registry.entityStates)
-        .values([...rows])
+        .values(latestRowPerEntity(rows))
         .onConflictDoUpdate({
           target: schema.registry.entityStates.entityId,
           set: {

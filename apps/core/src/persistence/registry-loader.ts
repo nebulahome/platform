@@ -13,18 +13,16 @@
 import {
   entityStateSchema,
   parseEntityId,
-  sourceRefSchema,
-  ValidationError,
   type CapabilityName,
   type EntityId,
   type EntityState,
   type JsonObject,
-  type SourceRef,
 } from '@nebula-home/contracts';
 import { schema, type Database } from '@nebula-home/db';
 import type { PlatformLogger } from '@nebula-home/logging';
 
 import { EntityDirectory, type EntityRecord } from '../domain/entity-directory.js';
+import { resolveOwner } from '../domain/entity-owner.js';
 
 /** What a startup load produced. */
 export type LoadedRegistry = {
@@ -37,35 +35,6 @@ export type LoadedRegistry = {
   /** How many stored states were discarded because they no longer validate. */
   readonly discardedStates: number;
 };
-
-/**
- * Resolves who owns an entity from the two columns that say it.
- *
- * `registry.entities.source` records the **kind** of entity - `adapter`, `derived` or `system` -
- * while the owning package is in `package_id`, and the `entities_source_consistency` constraint
- * guarantees an adapter entity has one. Everywhere above the database an owner is a single value,
- * so the two columns are folded back into one here rather than in every caller.
- *
- * @param kind - What `registry.entities.source` holds.
- * @param packageId - What `registry.entities.package_id` holds.
- * @param entityId - The entity, for the failure message.
- * @returns The owner, as the rest of the platform understands it.
- * @throws {ValidationError} When an adapter entity has no package, which the database constraint
- * makes impossible and which would otherwise become an entity nobody can command.
- */
-function toSourceRef(kind: string, packageId: string | null, entityId: EntityId): SourceRef {
-  if (kind !== 'adapter') {
-    return sourceRefSchema.parse(kind);
-  }
-
-  if (packageId === null) {
-    throw new ValidationError(`Entity ${entityId} is an adapter entity with no package`, {
-      details: { entityId },
-    });
-  }
-
-  return sourceRefSchema.parse(packageId);
-}
 
 /**
  * Loads the configured entities and their last known states.
@@ -87,6 +56,7 @@ export async function loadRegistry(db: Database, logger: PlatformLogger): Promis
         entityId: schema.registry.entities.entityId,
         kind: schema.registry.entities.source,
         packageId: schema.registry.entities.packageId,
+        integrationId: schema.registry.entities.integrationId,
         isEnabled: schema.registry.entities.isEnabled,
       })
       .from(schema.registry.entities),
@@ -125,7 +95,10 @@ export async function loadRegistry(db: Database, logger: PlatformLogger): Promis
     const record: EntityRecord = {
       entityId,
       rowId: row.rowId,
-      source: toSourceRef(row.kind, row.packageId, entityId),
+      source: resolveOwner(
+        { kind: row.kind, packageId: row.packageId, integrationId: row.integrationId },
+        entityId,
+      ),
       isEnabled: row.isEnabled,
       capabilities: capabilitiesByRow.get(row.rowId) ?? new Map<CapabilityName, JsonObject>(),
     };

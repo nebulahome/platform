@@ -33,6 +33,7 @@ import {
 } from './persistence/history-writer.js';
 import { loadRegistry } from './persistence/registry-loader.js';
 import { startCommandRouter } from './services/command-router.js';
+import { startRegistrationService } from './services/registration.js';
 import { requestResync } from './services/resync.js';
 import { startStateIngest } from './services/state-ingest.js';
 import { startEntityReadService, startSnapshotService } from './services/state-queries.js';
@@ -166,6 +167,7 @@ export class CoreService {
         directory: this.#directory,
         commandTimeoutMs: config.CORE_COMMAND_TIMEOUT_MS,
       }),
+      startRegistrationService({ client, db, directory: this.#directory, logger }),
     ];
 
     await ensureTelemetryStream({ connection: bus.connection, logger });
