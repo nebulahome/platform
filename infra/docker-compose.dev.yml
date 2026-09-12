@@ -37,5 +37,20 @@ services:
       timeout: 5s
       retries: 10
 
+  # An MQTT broker, because that is how Zigbee reaches the platform: zigbee2mqtt publishes a
+  # rich device model here and the mqtt transport consumes it. Also what the mqtt transport is
+  # tested against - a real broker rather than a fake, since reconnection and topic matching are
+  # exactly the parts a fake would get wrong.
+  mosquitto:
+    image: eclipse-mosquitto:2
+    command: ['mosquitto', '-c', '/mosquitto-no-auth.conf']
+    ports:
+      - '1883:1883'
+    healthcheck:
+      test: ['CMD', 'mosquitto_pub', '-h', 'localhost', '-t', 'healthcheck', '-m', 'ok']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres-data:
