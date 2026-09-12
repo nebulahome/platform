@@ -1,16 +1,21 @@
 /**
- * Reading the configured shape of a home.
+ * The configured shape of a home.
  *
- * Seven flat collections. None of them paginates: a home has tens of areas and hundreds of
+ * Six flat collections. None of them paginates: a home has tens of areas and hundreds of
  * entities, not millions, and a cursor on a list that fits in one response is ceremony. The two
  * collections that do grow without bound - history and telemetry - page, and they are in their
  * own file for that reason.
+ *
+ * Automations can also be written. What that covers and what it deliberately does not - a
+ * definition is saved, a run is not started - is set out on the service beside it.
  */
 import { z } from 'zod';
 
 import {
   aliasViewSchema,
   areaViewSchema,
+  automationCreateSchema,
+  automationUpdateSchema,
   automationViewSchema,
   deviceViewSchema,
   labelViewSchema,
@@ -29,6 +34,8 @@ import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import {
+  createAutomation,
+  deleteAutomation,
   listAliases,
   listAreas,
   listAutomations,
@@ -36,7 +43,11 @@ import {
   listLabels,
   listPackages,
   listScenes,
+  updateAutomation,
 } from '../services/registry.js';
+
+/** Which automation a request is about. */
+const automationParamsSchema = z.object({ automationId: z.uuid() });
 
 /**
  * A collection response. Not the paged envelope: these lists are bounded by the house.
@@ -172,6 +183,133 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
       requirePermission(route.identity, 'automation:read');
 
       return { items: await listAutomations(context.db) };
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/automations',
+      summary: 'Create an automation',
+      tag: 'Library',
+      permission: 'automation:write',
+      body: automationCreateSchema,
+      response: automationViewSchema,
+    },
+
+    /**
+     * Creates an automation.
+     *
+     * It is saved disabled or enabled as asked, and either way nothing runs it yet: the engine
+     * that will is ARCHITECTURE.md 6.1. What this endpoint promises is that the definition is
+     * valid and stored, which is the whole of what it does.
+     *
+     * @param route - The body and who is asking.
+     * @returns The automation as it now stands.
+     */
+    async (route): Promise<AutomationView> => {
+      requirePermission(route.identity, 'automation:write');
+
+      const automation = await createAutomation(context.db, route.body, route.identity.userId);
+
+      await context.audit.record({
+        action: 'automation.create',
+        resourceType: 'automation',
+        resourceId: automation.id,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { key: automation.key, name: automation.name },
+      });
+
+      return automation;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'PATCH',
+      url: '/automations/:automationId',
+      summary: 'Change an automation',
+      tag: 'Library',
+      permission: 'automation:write',
+      params: automationParamsSchema,
+      body: automationUpdateSchema,
+      response: automationViewSchema,
+    },
+
+    /**
+     * Changes an automation.
+     *
+     * Turning one on and rewriting its actions are the same request, because both are the same
+     * row and a person doing the second usually wants the first in the same breath.
+     *
+     * @param route - The body, the id and who is asking.
+     * @returns The automation as it now stands.
+     */
+    async (route): Promise<AutomationView> => {
+      requirePermission(route.identity, 'automation:write');
+
+      const automation = await updateAutomation(context.db, route.params.automationId, route.body);
+
+      // The field names rather than the values. A definition is a whole document and the audit
+      // log is not a version history; what it has to answer is who touched this, and when.
+      await context.audit.record({
+        action: 'automation.update',
+        resourceType: 'automation',
+        resourceId: automation.id,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { key: automation.key, changed: Object.keys(route.body) },
+      });
+
+      return automation;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'DELETE',
+      url: '/automations/:automationId',
+      summary: 'Delete an automation',
+      tag: 'Library',
+      permission: 'automation:write',
+      params: automationParamsSchema,
+      response: automationViewSchema,
+    },
+
+    /**
+     * Deletes an automation.
+     *
+     * Answers with what was deleted rather than with nothing, so the caller can say what it was
+     * and offer to put it back.
+     *
+     * @param route - The id and who is asking.
+     * @returns The automation as it was.
+     */
+    async (route): Promise<AutomationView> => {
+      requirePermission(route.identity, 'automation:write');
+
+      const automation = await deleteAutomation(context.db, route.params.automationId);
+
+      await context.audit.record({
+        action: 'automation.delete',
+        resourceType: 'automation',
+        resourceId: automation.id,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { key: automation.key, name: automation.name },
+      });
+
+      return automation;
     },
   );
 

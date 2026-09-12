@@ -8,7 +8,13 @@
  */
 import { z } from 'zod';
 
-import { busEnvSchema, databaseEnvSchema, portSchema, runtimeEnvSchema } from '@nebula-home/config';
+import {
+  busEnvSchema,
+  databaseEnvSchema,
+  portSchema,
+  runtimeEnvSchema,
+  secretsEnvSchema,
+} from '@nebula-home/config';
 
 /** Name this service reports in log records and bus envelopes. */
 export const SERVICE_NAME = 'api';
@@ -24,6 +30,7 @@ export const SERVICE_VERSION = '0.0.0';
 export const apiEnvSchema = runtimeEnvSchema
   .extend(databaseEnvSchema.shape)
   .extend(busEnvSchema.shape)
+  .extend(secretsEnvSchema.shape)
   .extend({
     /** The port the HTTP server listens on. */
     API_PORT: portSchema(4000),

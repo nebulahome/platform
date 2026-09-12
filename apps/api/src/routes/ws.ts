@@ -36,6 +36,9 @@ type SocketState = {
   /** Which entity identifiers it may be told about. */
   readable: Set<string>;
 
+  /** The entities it asked to be narrowed to, when it asked. */
+  requested: Set<string> | undefined;
+
   /** Which topics it asked for. */
   readonly topics: Set<WsTopic>;
 
@@ -69,6 +72,7 @@ export function registerWebSocket(
       const state: SocketState = {
         identity: undefined,
         readable: new Set<string>(),
+        requested: undefined,
         topics: new Set<WsTopic>(),
         detach: undefined,
       };
@@ -80,6 +84,31 @@ export function registerWebSocket(
        */
       const send = (message: WsServerMessage): void => {
         socket.send(JSON.stringify(message));
+      };
+
+      /**
+       * Decides again which entities this socket may hear about.
+       *
+       * The set is computed once when the socket authenticates, which is the right economy for
+       * a state change of every entity for every client - but the registry moves under a socket
+       * that stays open. A device adopted after the handshake has entities the set has never
+       * heard of, and its readings would be dropped here for as long as the socket lived. So
+       * every device event, which is exactly the moment the registry changed, is also the moment
+       * this is done over. A filter the client asked for keeps narrowing what the permissions
+       * allow, as it did the first time.
+       */
+      const refreshReadable = async (): Promise<void> => {
+        if (state.identity === undefined) {
+          return;
+        }
+
+        const permitted = await readableEntityIds(context.db, state.identity);
+        const { requested } = state;
+
+        state.readable =
+          requested === undefined
+            ? permitted
+            : new Set([...permitted].filter((entityId) => requested.has(entityId)));
       };
 
       const authTimer = setTimeout(() => {
@@ -168,7 +197,25 @@ export function registerWebSocket(
                  */
                 canRead: (entityId: string): boolean => state.readable.has(entityId),
                 topics: state.topics,
-                send,
+
+                /**
+                 * Sends one message, and takes a device event as the cue to look at the
+                 * registry again.
+                 *
+                 * @param message - What to send.
+                 */
+                send: (message: WsServerMessage): void => {
+                  send(message);
+
+                  if (message.type === 'device_event') {
+                    refreshReadable().catch((error: unknown) => {
+                      context.logger.warn(
+                        { err: error, traceId: request.traceId },
+                        'Could not re-read which entities a socket may hear about',
+                      );
+                    });
+                  }
+                },
               });
 
               send({
@@ -197,6 +244,7 @@ export function registerWebSocket(
             if (message.data.topic === 'state' && message.data.filter?.entityIds !== undefined) {
               const requested = new Set<string>(message.data.filter.entityIds);
 
+              state.requested = requested;
               state.readable = new Set(
                 [...state.readable].filter((entityId) => requested.has(entityId)),
               );

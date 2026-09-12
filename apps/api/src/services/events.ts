@@ -12,6 +12,8 @@
 import type { BusClient, BusSubscription } from '@nebula-home/bus';
 import {
   BUS_PATTERNS,
+  deviceEventSchema,
+  isDeviceEvent,
   jsonObjectSchema,
   stateChangedEventSchema,
   type JsonObject,
@@ -87,7 +89,7 @@ export class EventFanout {
     this.#subscriptions.push(
       client.subscribe(
         BUS_PATTERNS.allDeviceEvents,
-        jsonObjectSchema,
+        deviceEventSchema,
 
         /**
          * Forwards one device lifecycle event.
@@ -98,7 +100,7 @@ export class EventFanout {
         (payload, context): void => {
           const event = context.subject.split('.').pop() ?? '';
 
-          if (event === 'added' || event === 'removed' || event === 'offline') {
+          if (isDeviceEvent(event)) {
             this.#dispatch('devices', null, { type: 'device_event', event, payload });
           }
         },

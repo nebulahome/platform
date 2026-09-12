@@ -14,7 +14,7 @@
 import { BusClient, connectBus, type BusConnection } from '@nebula-home/bus';
 import { loadConfigOrExit } from '@nebula-home/config';
 import { ERROR_CODES, EXIT_CODES, isNebulaError } from '@nebula-home/contracts';
-import { assertSchemaVersion, createDatabase } from '@nebula-home/db';
+import { assertSchemaVersion, createDatabase, secretsKeyFrom } from '@nebula-home/db';
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
 
 import { Authenticator } from './auth/authenticator.js';
@@ -172,6 +172,7 @@ async function start(): Promise<void> {
     events,
     jwtSecret: new TextEncoder().encode(config.API_JWT_SECRET),
     totpKey: Buffer.from(config.API_TOTP_ENCRYPTION_KEY, 'hex'),
+    secretsKey: secretsKeyFrom(config.NEBULA_SECRETS_KEY),
 
     /**
      * Reads the wall clock.

@@ -57,6 +57,9 @@ export type ApiContext = {
   /** The key TOTP secrets are encrypted with. */
   readonly totpKey: Buffer;
 
+  /** The key integration secrets are sealed with before they reach the registry. */
+  readonly secretsKey: Buffer;
+
   /** The clock, injectable so tests can control expiry. */
   readonly now: () => Date;
 };

@@ -15,6 +15,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { CURRENT_API_VERSION, TRACE_ID_HEADER } from '@nebula-home/contracts';
+import { secretsKeyFrom } from '@nebula-home/db';
 import { createLogger } from '@nebula-home/logging';
 
 import { Authenticator } from './auth/authenticator.js';
@@ -35,6 +36,7 @@ const ENVIRONMENT = {
   NATS_URL: 'nats://localhost:4222',
   API_JWT_SECRET: 'a-test-signing-key-of-at-least-32-chars',
   API_TOTP_ENCRYPTION_KEY: '00'.repeat(32),
+  NEBULA_SECRETS_KEY: '11'.repeat(32),
 };
 
 /**
@@ -71,6 +73,7 @@ async function buildTestServer(): Promise<FastifyInstance> {
     events: new EventFanout(logger),
     jwtSecret: secret,
     totpKey: Buffer.from(config.API_TOTP_ENCRYPTION_KEY, 'hex'),
+    secretsKey: secretsKeyFrom(config.NEBULA_SECRETS_KEY),
 
     /**
      * The wall clock.

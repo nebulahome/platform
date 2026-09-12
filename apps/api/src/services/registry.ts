@@ -1,11 +1,22 @@
 /**
- * Reading the configured shape of a home: areas, labels, devices, scenes, automations, aliases
- * and installed packages.
+ * The configured shape of a home: areas, labels, devices, scenes, automations, aliases and
+ * installed packages.
  *
- * All reads. `api` does not write configuration in this release, and API.md says which endpoints
- * are therefore absent and why: the engines that would have to be told about a change - the
- * automation, scene and alias engines in `core` - do not exist yet, and an endpoint that writes
- * a row nothing acts on is worse than no endpoint at all.
+ * Mostly reads. The one thing written here is an automation's **definition** - its name, its
+ * document, whether it is enabled - and the line between that and the rest is worth stating,
+ * because API.md 10 is right that an endpoint writing a row nothing acts on is worse than no
+ * endpoint at all.
+ *
+ * A definition is a row, and the row is what the engine will read when it exists. Saving one is
+ * complete in itself: it is durable, it is audited, and nothing about it is waiting on a service
+ * to make it true. **Running** one is the opposite - `POST /automations/:id/trigger` can only
+ * mean something once something is listening - and that is why triggering is still absent while
+ * these are not.
+ *
+ * The same holds for scenes and aliases, whose writes are the next of these to be built. Package
+ * lifecycle is different again and cannot be done here at all: `nebula_api` holds `SELECT` on
+ * `system.packages` and nothing more, because those rows belong to `packet-manager`
+ * ([DATABASE.md 12](../../../../DATABASE.md)).
  */
 import { asc, eq, inArray, sql } from 'drizzle-orm';
 
@@ -13,13 +24,18 @@ import {
   aliasViewSchema,
   areaViewSchema,
   automationViewSchema,
+  ConflictError,
   deviceViewSchema,
   labelViewSchema,
+  NotFoundError,
   packageViewSchema,
   sceneViewSchema,
   type AliasView,
   type AreaView,
+  type AutomationCreate,
+  type AutomationUpdate,
   type AutomationView,
+  type DeviceOwner,
   type DeviceView,
   type LabelView,
   type PackageView,
@@ -81,6 +97,54 @@ export async function listLabels(db: Database): Promise<LabelView[]> {
   return rows.map((row) => labelViewSchema.parse(row));
 }
 
+/** One row of the devices query, before its entities are attached. */
+export type DeviceRow = {
+  id: string;
+  packageId: string | null;
+  integrationId: string | null;
+  externalId: string;
+  name: string;
+  manufacturer: string | null;
+  model: string | null;
+  swVersion: string | null;
+  hwVersion: string | null;
+  areaKey: string | null;
+  areaName: string | null;
+  viaDeviceId: string | null;
+  isEnabled: boolean;
+  lastSeenAt: Date | null;
+};
+
+/**
+ * Reads the two owner columns as the one owner the contract names.
+ *
+ * The table's `devices_owner_exclusive` constraint has exactly one of them set. A row with
+ * neither cannot exist, so no case is made for it here: the view's own schema refuses it, and
+ * loudly is right for a row that breaks a constraint.
+ *
+ * @param row - The device row.
+ * @returns Who owns it, or null for a row that says nobody does.
+ */
+function ownerOf(row: DeviceRow): DeviceOwner | null {
+  if (row.integrationId !== null) {
+    return { kind: 'integration', id: row.integrationId };
+  }
+
+  return row.packageId === null ? null : { kind: 'package', id: row.packageId };
+}
+
+/**
+ * Assembles one device view from its row and the entities it exposes.
+ *
+ * @param row - The device row.
+ * @param entityIds - The addresses of its entities.
+ * @returns The device as the API presents it.
+ */
+export function toDeviceView(row: DeviceRow, entityIds: readonly string[]): DeviceView {
+  // The view schema keeps only what it declares, so the two owner columns fall away here.
+  return deviceViewSchema.parse({ ...row, owner: ownerOf(row), entityIds });
+}
+
 /**
  * Lists devices, each with the entities it exposes.
  *
@@ -88,10 +152,11 @@ export async function listLabels(db: Database): Promise<LabelView[]> {
  * @returns The devices, alphabetically.
  */
 export async function listDevices(db: Database): Promise<DeviceView[]> {
-  const rows = await db
+  const rows: DeviceRow[] = await db
     .select({
       id: schema.registry.devices.id,
       packageId: schema.registry.devices.packageId,
+      integrationId: schema.registry.devices.integrationId,
       externalId: schema.registry.devices.externalId,
       name: schema.registry.devices.name,
       manufacturer: schema.registry.devices.manufacturer,
@@ -132,9 +197,7 @@ export async function listDevices(db: Database): Promise<DeviceView[]> {
     }
   }
 
-  return rows.map((row) =>
-    deviceViewSchema.parse({ ...row, entityIds: byDevice.get(row.id) ?? [] }),
-  );
+  return rows.map((row) => toDeviceView(row, byDevice.get(row.id) ?? []));
 }
 
 /**
@@ -348,4 +411,140 @@ export async function listPackages(db: Database): Promise<PackageView[]> {
       deviceCount: devicesBy.get(row.id) ?? 0,
     }),
   );
+}
+
+/**
+ * Reads one automation, or says it is not there.
+ *
+ * Separate from {@link listAutomations} because every write needs it: a change has to answer with
+ * what now stands, and a missing row has to be a `404` rather than an update that quietly
+ * affected nothing.
+ *
+ * @param db - The database.
+ * @param id - Which one.
+ * @returns The automation.
+ * @throws {NotFoundError} When no automation has that id.
+ */
+export async function readAutomation(db: Database, id: string): Promise<AutomationView> {
+  const [row] = await db
+    .select({
+      id: schema.registry.automations.id,
+      key: schema.registry.automations.key,
+      name: schema.registry.automations.name,
+      description: schema.registry.automations.description,
+      definition: schema.registry.automations.definition,
+      definitionVersion: schema.registry.automations.definitionVersion,
+      mode: schema.registry.automations.mode,
+      maxRuntimeMs: schema.registry.automations.maxRuntimeMs,
+      isEnabled: schema.registry.automations.isEnabled,
+      lastTriggeredAt: schema.registry.automations.lastTriggeredAt,
+    })
+    .from(schema.registry.automations)
+    .where(eq(schema.registry.automations.id, id))
+    .limit(1);
+
+  if (row === undefined) {
+    throw new NotFoundError('No automation has that id', { details: { id } });
+  }
+
+  return automationViewSchema.parse({ ...row, definition: row.definition ?? {} });
+}
+
+/**
+ * Creates an automation.
+ *
+ * The key is checked before the insert as well as being unique in the database. Both are needed:
+ * the check is what turns a duplicate into a sentence somebody can act on, and the constraint is
+ * what makes it true when two people press save at the same moment.
+ *
+ * @param db - The database.
+ * @param body - What to create.
+ * @param userId - Who is creating it, recorded on the row.
+ * @returns The automation as it now stands.
+ * @throws {ConflictError} When that key is already taken.
+ */
+export async function createAutomation(
+  db: Database,
+  body: AutomationCreate,
+  userId: string,
+): Promise<AutomationView> {
+  const [existing] = await db
+    .select({ id: schema.registry.automations.id })
+    .from(schema.registry.automations)
+    .where(eq(schema.registry.automations.key, body.key))
+    .limit(1);
+
+  if (existing !== undefined) {
+    throw new ConflictError('An automation already has that key', { details: { key: body.key } });
+  }
+
+  const [row] = await db
+    .insert(schema.registry.automations)
+    .values({
+      key: body.key,
+      name: body.name,
+      description: body.description,
+      definition: body.definition,
+      mode: body.mode,
+      maxRuntimeMs: body.maxRuntimeMs,
+      isEnabled: body.isEnabled,
+      createdBy: userId,
+    })
+    .returning({ id: schema.registry.automations.id });
+
+  if (row === undefined) {
+    throw new ConflictError('An automation already has that key', { details: { key: body.key } });
+  }
+
+  return readAutomation(db, row.id);
+}
+
+/**
+ * Changes an automation.
+ *
+ * A partial map, applied as one statement. `updatedAt` is set here rather than left to a trigger
+ * so that a row changed by this service and a row changed by a future engine cannot disagree
+ * about what "changed" means.
+ *
+ * @param db - The database.
+ * @param id - Which one.
+ * @param body - The fields to change.
+ * @returns The automation as it now stands.
+ * @throws {NotFoundError} When no automation has that id.
+ */
+export async function updateAutomation(
+  db: Database,
+  id: string,
+  body: AutomationUpdate,
+): Promise<AutomationView> {
+  const [row] = await db
+    .update(schema.registry.automations)
+    .set({ ...body, updatedAt: new Date() })
+    .where(eq(schema.registry.automations.id, id))
+    .returning({ id: schema.registry.automations.id });
+
+  if (row === undefined) {
+    throw new NotFoundError('No automation has that id', { details: { id } });
+  }
+
+  return readAutomation(db, id);
+}
+
+/**
+ * Deletes an automation.
+ *
+ * Answers with what was deleted, because the caller has just lost its only copy and the audit
+ * entry is written from it.
+ *
+ * @param db - The database.
+ * @param id - Which one.
+ * @returns The automation as it was.
+ * @throws {NotFoundError} When no automation has that id.
+ */
+export async function deleteAutomation(db: Database, id: string): Promise<AutomationView> {
+  const automation = await readAutomation(db, id);
+
+  await db.delete(schema.registry.automations).where(eq(schema.registry.automations.id, id));
+
+  return automation;
 }

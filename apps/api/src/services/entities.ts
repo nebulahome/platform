@@ -36,6 +36,7 @@ type EntityRow = {
   icon: string | null;
   deviceId: string | null;
   packageId: string | null;
+  integrationId: string | null;
   source: string;
   areaKey: string | null;
   areaName: string | null;
@@ -60,6 +61,7 @@ const ENTITY_COLUMNS = {
   icon: schema.registry.entities.icon,
   deviceId: schema.registry.entities.deviceId,
   packageId: schema.registry.entities.packageId,
+  integrationId: schema.registry.entities.integrationId,
   source: schema.registry.entities.source,
   areaKey: schema.registry.areas.key,
   areaName: schema.registry.areas.name,
@@ -76,18 +78,28 @@ const ENTITY_COLUMNS = {
 } as const;
 
 /**
- * Turns `registry.entities.source` and `package_id` back into one owner.
+ * Turns `registry.entities.source` and the two owner columns back into one owner.
  *
- * The column holds the *kind* of source - `adapter`, `derived` or `system` - and the owning
- * package is a separate column. Reading `source` alone would say "adapter" where the contract
- * wants the package id.
+ * The column holds the *kind* of source - `adapter`, `derived` or `system` - and the owner is a
+ * separate column: `package_id` for an entity an adapter registered, `integration_id` for one
+ * the hub registered on an instance's behalf. Reading `source` alone would say "adapter" where
+ * the contract wants the owner's id - the same id the bus carries as the source of its states.
  *
  * @param kind - The `source` column.
  * @param packageId - The `package_id` column.
+ * @param integrationId - The `integration_id` column.
  * @returns The owner as the contract defines it.
  */
-function toSourceRef(kind: string, packageId: string | null): string {
-  return kind === 'adapter' && packageId !== null ? packageId : kind;
+export function toSourceRef(
+  kind: string,
+  packageId: string | null,
+  integrationId: string | null,
+): string {
+  if (kind !== 'adapter') {
+    return kind;
+  }
+
+  return packageId ?? integrationId ?? kind;
 }
 
 /**
@@ -112,7 +124,7 @@ function toView(
     areaKey: row.areaKey,
     areaName: row.areaName,
     deviceId: row.deviceId,
-    source: toSourceRef(row.source, row.packageId),
+    source: toSourceRef(row.source, row.packageId, row.integrationId),
     unitOfMeasurement: row.unitOfMeasurement,
     deviceClass: row.deviceClass,
     isEnabled: row.isEnabled,
