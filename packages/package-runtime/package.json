@@ -12,18 +12,21 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json --watch",
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@nebula-home/contracts": "workspace:*"
+    "@nebula-home/contracts": "workspace:*",
+    "@nebula-home/logging": "workspace:*",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@nebula-home/eslint-config": "workspace:*",
     "@nebula-home/tsconfig": "workspace:*",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
   }
 }

@@ -1,0 +1,296 @@
+/**
+ * The two manifests a bundle is written as, and the one the runtime reads.
+ *
+ * A bundle is how an integration is distributed: a **vendor** directory - the company that
+ * makes the devices, with a logo, a version, and whatever settings every device of theirs
+ * shares - holding one **driver** directory per profile or entry point, each listing the
+ * models it drives. Two files, because the two levels answer different questions: `manifest.json`
+ * is what a catalogue lists and an owner recognises, `driver.json` is what the runtime loads
+ * and an instance references. The split is also what ends the duplication the old flat layout
+ * had, where every driver of one vendor repeated the vendor's name and description and the
+ * three copies drifted.
+ *
+ * What the rest of the runtime reads is neither file but their composition, the
+ * {@link BundleManifest}: the vendor's identity and version beside the driver's transport and
+ * entry point, keyed by the vendor-qualified kind. {@link resolveManifest} is the only place the
+ * two are joined, so a field that moves between the files moves in one function.
+ *
+ * `kind` is a trust boundary as much as a format. A declarative driver is data - it cannot do
+ * anything a path cannot express - so a catalogue can publish one directly. A code driver is
+ * JavaScript, and reaches a catalogue only after the manual approval ARCHITECTURE.md 10 already
+ * requires of executable content.
+ */
+import { z } from 'zod';
+
+import { INTEGRATION_KIND_PATTERN, SEMVER_PATTERN } from '@nebula-home/contracts';
+
+/** Bundle kind, which is both how it is written and how far it is trusted. */
+export const BUNDLE_KINDS = ['declarative', 'code'] as const;
+
+/** Bundle kind, which is both how it is written and how far it is trusted. */
+export type BundleKind = (typeof BUNDLE_KINDS)[number];
+
+/** Identifies a vendor, and names its directory: `shelly`, `bambu-lab`. */
+export const VENDOR_ID_PATTERN = /^[a-z][a-z0-9-]{1,63}$/;
+
+/** Validates a vendor id. */
+export const vendorIdSchema = z.string().regex(VENDOR_ID_PATTERN, 'Must be a vendor id');
+
+/** Identifies a driver within its vendor, and names its directory: `gen2`, `1pm-mini-g3`. */
+export const DRIVER_ID_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/;
+
+/** Validates a driver id. */
+export const driverIdSchema = z.string().regex(DRIVER_ID_PATTERN, 'Must be a driver id');
+
+/**
+ * Validates an integration kind: `shelly/gen2`, `bambu-lab/printer`.
+ *
+ * Vendor-qualified, so two vendors may each have a `gen2` and an instance row names one of
+ * them without ambiguity. Not an instance of one: an instance gets its own id. The pattern is
+ * the contracts package's, because the API checks the same string at its boundary.
+ */
+export const integrationKindSchema = z
+  .string()
+  .regex(INTEGRATION_KIND_PATTERN, 'Must be an integration kind, as vendor/driver');
+
+/** Identifies a transport: `http`, `mqtt`, `esphome`. */
+export const TRANSPORT_ID_PATTERN = /^[a-z][a-z0-9-]{1,31}$/;
+
+/** Validates a transport identifier. */
+export const transportIdSchema = z.string().regex(TRANSPORT_ID_PATTERN, 'Must be a transport id');
+
+/** A path inside the bundle, as a manifest names its files. */
+const bundlePathSchema = z.string().min(1).max(256);
+
+/** How many models one driver may list. A longer list is a catalogue, not a dropdown. */
+const MAXIMUM_MODELS = 64;
+
+/**
+ * The contents of `manifest.json`: what a vendor says about itself.
+ *
+ * Nothing here is about how a device is reached. Which transports the vendor speaks is
+ * derived from its drivers when the bundle is loaded rather than declared, because a declared
+ * `hasMqtt` is a second statement of a fact the drivers already make, and one that can be wrong.
+ */
+export const vendorManifestSchema = z.strictObject({
+  /** How a catalogue groups bundles by company. Also the directory's name. */
+  id: vendorIdSchema,
+
+  /** The bundle's version. The vendor directory is what a catalogue publishes and versions. */
+  version: z.string().regex(SEMVER_PATTERN, 'Must be a semantic version'),
+
+  /**
+   * The runtime versions this bundle works with, as a semver range.
+   *
+   * A bundle outlives the runtime it was written for. Without a declared range, a profile
+   * written against an older schema is loaded against a newer one and fails somewhere further
+   * in, with a message about a field rather than about a version.
+   */
+  sdk: z.string().min(1).max(64),
+
+  name: z.string().min(1).max(128),
+  description: z.string().max(512).optional(),
+  url: z.url().optional(),
+
+  /** A hex colour the interface tints the vendor's mark with, and its monogram when there is no logo. */
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'Must be a hex colour like #3B9DFF')
+    .optional(),
+
+  /** Path to the logo, relative to the bundle: an SVG or a PNG. */
+  logo: bundlePathSchema.optional(),
+
+  /** Whether the devices stop working when the internet does. Shown as a warning on the card. */
+  internetRequired: z.boolean().default(false),
+
+  /**
+   * Path to a `setup.json` of settings every device of this vendor shares - a cloud API key,
+   * an account - relative to the bundle. Absent for the vendors whose devices are reached
+   * directly, which is most of them.
+   */
+  setup: bundlePathSchema.optional(),
+
+  /**
+   * Digest of the bundle's contents, stamped by the catalogue at publication.
+   *
+   * Not written by the author, and absent on a bundle nobody has published. It is the local
+   * half of the approval: what lets `hub` tell that the code it is about to load is the code
+   * that was reviewed.
+   */
+  integrity: z
+    .string()
+    .regex(/^sha256-[A-Za-z0-9+/]+=*$/, 'Must be a sha256 subresource integrity digest')
+    .optional(),
+
+  /** Signature over {@link vendorManifestSchema.integrity}, stamped by the catalogue. */
+  signature: z.string().min(1).max(2048).optional(),
+});
+
+/** The contents of `manifest.json`. */
+export type VendorManifest = z.output<typeof vendorManifestSchema>;
+
+/** What a driver manifest and a resolved manifest say alike: how a driver is written and loaded. */
+const driverShape = {
+  /** Which transport carries it, and how a catalogue groups it by connection. */
+  transport: transportIdSchema,
+
+  /**
+   * The models this driver drives, as the labels on their boxes, in the order the owner is
+   * offered them. An owner adding a device picks one, and the pick is kept on the instance so
+   * the interface can say `X1C` rather than the driver's name. Empty means the driver's own
+   * name is the one model.
+   */
+  models: z
+    .array(z.string().min(1).max(64))
+    .max(MAXIMUM_MODELS)
+    .default([])
+    .refine((models) => new Set(models).size === models.length, {
+      message: 'A model may be listed once',
+    }),
+
+  kind: z.enum(BUNDLE_KINDS),
+
+  /** Path to the profile, relative to the driver. Declarative drivers only. */
+  profile: bundlePathSchema.optional(),
+
+  /** Path to the entry point, relative to the driver. Code drivers only. */
+  entry: bundlePathSchema.optional(),
+
+  /**
+   * Path to `setup.json`, relative to the driver: what setting up an instance asks.
+   *
+   * Required of every driver, declarative or code. Without it the interface has no form to
+   * show and an instance could only be created by writing a registry row by hand.
+   */
+  setup: bundlePathSchema,
+};
+
+/** The part of either manifest that says how a driver is written and which file holds it. */
+type KindFiles = {
+  readonly kind: BundleKind;
+  readonly profile?: string | undefined;
+  readonly entry?: string | undefined;
+};
+
+/**
+ * Refuses a driver that names the file of the other kind, or not the file of its own.
+ *
+ * @param manifest - Either manifest, once its shape has been checked.
+ * @param ctx - Where to record what is wrong.
+ */
+function checkKindFiles(manifest: KindFiles, ctx: z.RefinementCtx): void {
+  const expected = manifest.kind === 'declarative' ? 'profile' : 'entry';
+  const forbidden = manifest.kind === 'declarative' ? 'entry' : 'profile';
+
+  if (manifest[expected] === undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: [expected],
+      message: `A ${manifest.kind} driver must name its ${expected}`,
+    });
+  }
+
+  if (manifest[forbidden] !== undefined) {
+    // The two are different trust levels. A driver claiming both would have to be treated as
+    // the stricter one, which is a decision better refused than guessed at load time.
+    ctx.addIssue({
+      code: 'custom',
+      path: [forbidden],
+      message: `A ${manifest.kind} driver must not name an ${forbidden}`,
+    });
+  }
+}
+
+/**
+ * The contents of `driver.json`: one profile or entry point, and the models it drives.
+ *
+ * Strict, and without the vendor's fields on purpose: a driver that repeated the vendor's name
+ * or description would be a second copy to keep in step, which is what the layout was made to
+ * end.
+ */
+export const driverManifestSchema = z
+  .strictObject({
+    /** Identifies the driver within its vendor. Also the directory's name. */
+    id: driverIdSchema,
+
+    /** What the driver is called after the vendor: `Gen2`, `Printer`, `1PM Mini Gen3`. */
+    name: z.string().min(1).max(128),
+
+    ...driverShape,
+  })
+  .superRefine(checkKindFiles);
+
+/** The contents of `driver.json`. */
+export type DriverManifest = z.output<typeof driverManifestSchema>;
+
+/** Who made the devices this bundle drives, as the resolved manifest carries it. */
+export const vendorSchema = z.strictObject({
+  /** How a catalogue groups bundles by company. */
+  id: vendorIdSchema,
+
+  name: z.string().min(1).max(128),
+  url: z.url().optional(),
+});
+
+/** Who made the devices this bundle drives. */
+export type Vendor = z.output<typeof vendorSchema>;
+
+/**
+ * A driver as the runtime reads it: its own manifest joined with its vendor's.
+ *
+ * This is what every other part of the runtime and `hub` is written against, and what a test
+ * builds by hand when it wants an integration without a directory. It is never read from a
+ * file; {@link resolveManifest} composes it.
+ */
+export const bundleManifestSchema = z
+  .strictObject({
+    /** The driver this bundle provides, vendor-qualified. An instance of it gets its own id. */
+    id: integrationKindSchema,
+
+    version: z.string().regex(SEMVER_PATTERN, 'Must be a semantic version'),
+    sdk: z.string().min(1).max(64),
+
+    /** The vendor's name and the driver's, together: `Shelly Gen2`. */
+    name: z.string().min(1).max(256),
+    description: z.string().max(512).optional(),
+    vendor: vendorSchema,
+
+    ...driverShape,
+  })
+  .superRefine(checkKindFiles);
+
+/** A driver as the runtime reads it. */
+export type BundleManifest = z.output<typeof bundleManifestSchema>;
+
+/**
+ * Joins a driver's manifest with its vendor's into what the runtime reads.
+ *
+ * The one place the two files meet. The kind is `vendor/driver`, the name is both names, and
+ * everything about distribution - version, runtime range, description, the vendor's identity -
+ * comes from the vendor while everything about loading comes from the driver.
+ *
+ * @param vendor - The vendor's manifest.
+ * @param driver - One of its drivers' manifests.
+ * @returns The resolved manifest, as {@link bundleManifestSchema} accepts it.
+ */
+export function resolveManifest(vendor: VendorManifest, driver: DriverManifest): BundleManifest {
+  return {
+    id: `${vendor.id}/${driver.id}`,
+    version: vendor.version,
+    sdk: vendor.sdk,
+    name: `${vendor.name} ${driver.name}`,
+    ...(vendor.description === undefined ? {} : { description: vendor.description }),
+    vendor: {
+      id: vendor.id,
+      name: vendor.name,
+      ...(vendor.url === undefined ? {} : { url: vendor.url }),
+    },
+    transport: driver.transport,
+    models: driver.models,
+    kind: driver.kind,
+    ...(driver.profile === undefined ? {} : { profile: driver.profile }),
+    ...(driver.entry === undefined ? {} : { entry: driver.entry }),
+    setup: driver.setup,
+  };
+}
