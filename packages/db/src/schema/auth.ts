@@ -19,6 +19,7 @@ import {
   uniqueIndex,
   uuid,
   inet,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 
 import { bytea, citext } from './columns.js';
@@ -202,7 +203,15 @@ export const refreshTokens = authSchema.table(
     issuedAt: timestamp('issued_at', { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     usedAt: timestamp('used_at', { withTimezone: true }),
-    replacedBy: uuid('replaced_by'),
+    /**
+     * The token issued in this one's place on rotation.
+     *
+     * Typed through {@link AnyPgColumn} because it points back at this table, and Drizzle
+     * cannot infer the type of a reference to the table being defined.
+     */
+    replacedBy: uuid('replaced_by').references((): AnyPgColumn => refreshTokens.id, {
+      onDelete: 'set null',
+    }),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
   },
   (table) => [

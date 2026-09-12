@@ -1,6 +1,6 @@
 -- 0001_initial_schema.sql
 --
--- The initial NebulaHome schema: four schemas, 32 tables, four views and the TimescaleDB
+-- The initial NebulaHome schema: four schemas, 35 tables, four views and the TimescaleDB
 -- hypertables, plus the roles, grants and seed data an installation needs to boot.
 --
 -- Object order follows DATABASE.md 13 rather than the reading order of that document, because
@@ -228,6 +228,38 @@ CREATE TABLE auth.totp_recovery_codes (
 
 CREATE INDEX totp_recovery_codes_user_id_idx ON auth.totp_recovery_codes (user_id);
 
+-- A picture for each person, so a list of accounts is scannable by face rather than by reading
+-- four names that all begin with M.
+--
+-- A table of its own rather than columns on `auth.users`, following `auth.totp_secrets`: the
+-- users row is read on every authenticated request and on every sign-in, and a `bytea` sitting
+-- in it would be dragged along by any query that ever forgets to name its columns. Here it is
+-- read only by the code that means to.
+--
+-- Stored in the database rather than on disk. A self-hosted installation has one backup story -
+-- `pg_dump` - and an avatar directory beside it is a thing that silently is not in the backup,
+-- then silently is not restored, and shows up months later as a wall of grey circles. The size
+-- cap is what makes that affordable, and it is a CHECK rather than an application rule because
+-- the cost of getting it wrong is a database nobody can dump.
+
+CREATE TABLE auth.user_avatars (
+  user_id    uuid        PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
+  image      bytea       NOT NULL,
+  mime       text        NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+
+  -- Exactly the three formats every browser this interface supports can both encode from a
+  -- canvas and decode. An SVG is deliberately not among them: it is a document, it can carry
+  -- script, and it would be served back to every other user of the installation.
+  CONSTRAINT user_avatars_mime CHECK (mime IN ('image/webp', 'image/png', 'image/jpeg')),
+
+  -- 64 KiB. A 128-pixel square is a few kilobytes as WebP, so this is several times what the
+  -- interface produces and still small enough that a household's worth of them is nothing next
+  -- to the history tables.
+  CONSTRAINT user_avatars_size CHECK (octet_length(image) BETWEEN 1 AND 65536)
+);
+
 -- --------------------------------------------------------------------------------------
 
 -- system: packages, settings and migration bookkeeping
@@ -299,14 +331,97 @@ CREATE INDEX areas_parent_id_idx ON registry.areas (parent_id);
 
 -- --------------------------------------------------------------------------------------
 
+-- registry: integrations
+
+-- --------------------------------------------------------------------------------------
+--
+-- One configured integration instance: a driver bundle bound to a transport, with the settings
+-- the owner supplied. Created before devices because a device points at the instance that owns
+-- it.
+--
+-- The row id is what `entities.source` carries and what `core` uses as the subject token when
+-- it routes a command, so it shares one namespace with `system.packages.id` and has the same
+-- format. A collision would make two owners answer `svc.<id>.command`, which is an ambiguity
+-- rather than an error. A CHECK cannot see another table and RULES.md 13 permits no trigger
+-- beyond the `updated_at` touch, so the collision is refused by whoever writes the row: `api`
+-- when the owner adds an instance, and `hub` when it loads one.
+--
+-- `kind` and `transport` deliberately carry no CHECK. They are resolved against the registries
+-- `hub` builds from the bundles it loaded, and an unknown value leaves the instance in `failed`
+-- with `last_error` set, which the interface can show. A CHECK here would instead mean a
+-- migration for every transport ever added, and a failure at write time for a bundle that is
+-- merely not installed yet.
+--
+-- Configuration is written by `api`, runtime status by `hub`. That split is why the grants
+-- further down are column-level rather than a blanket UPDATE.
+
+CREATE TABLE registry.integrations (
+  id               text        PRIMARY KEY,
+  kind             text        NOT NULL,   -- the driver, vendor-qualified: 'shelly/1pm-mini-g3'
+  kind_version     text        NOT NULL,
+  model            text,                   -- the model the owner picked: 'X1C'; null when never picked
+  transport        text        NOT NULL,   -- 'http', 'mqtt', ...
+  transport_config jsonb       NOT NULL DEFAULT '{}'::jsonb,
+  options          jsonb       NOT NULL DEFAULT '{}'::jsonb,
+  is_enabled       boolean     NOT NULL DEFAULT true,
+  state            text        NOT NULL DEFAULT 'stopped',
+  last_error       text,
+  last_started_at  timestamptz,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT integrations_id_format CHECK (id ~ '^[a-z][a-z0-9-]{1,63}$'),
+  CONSTRAINT integrations_state CHECK (state IN (
+    'stopped', 'starting', 'running', 'failed', 'disabled'
+  ))
+);
+
+CREATE INDEX integrations_state_idx ON registry.integrations (state);
+
+-- --------------------------------------------------------------------------------------
+
+-- registry: integration_vendors
+
+-- --------------------------------------------------------------------------------------
+--
+-- What every device of one vendor shares: the settings a vendor bundle's own `setup.json`
+-- asks for - a cloud API key, an account - as the owner supplied them. One row per vendor,
+-- and only for the vendors whose settings the owner has saved; the bundles themselves live on
+-- `hub`'s disk and are listed from there, so a vendor without a row is still a vendor.
+--
+-- The id is the vendor bundle's directory name, held to the same shape as an instance id
+-- because both are read as identifiers by things that never see the row. No runtime state: a
+-- vendor does not run, its instances do, and `hub` reads this row to layer under each of them
+-- when it starts one.
+--
+-- Written by `api` and by nothing else, which is why the grant below gives `hub` SELECT only.
+
+CREATE TABLE registry.integration_vendors (
+  id               text        PRIMARY KEY,
+  version          text        NOT NULL,   -- the bundle version the settings were saved against
+  transport_config jsonb       NOT NULL DEFAULT '{}'::jsonb,
+  options          jsonb       NOT NULL DEFAULT '{}'::jsonb,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT integration_vendors_id_format CHECK (id ~ '^[a-z][a-z0-9-]{1,63}$')
+);
+
+-- --------------------------------------------------------------------------------------
+
 -- registry: devices
 
 -- --------------------------------------------------------------------------------------
 
 CREATE TABLE registry.devices (
   id             uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  package_id     text        NOT NULL REFERENCES system.packages (id) ON DELETE RESTRICT,
-  external_id    text        NOT NULL,          -- the adapter's own identifier for the device
+  -- Exactly one owner, enforced by devices_owner_exclusive below. A package installs devices
+  -- through `packet-manager`; an integration adopts them through `hub`. Whichever it is becomes
+  -- the entity's `source`, so a device with neither has no route for a command and one with
+  -- both has two.
+  package_id     text        REFERENCES system.packages (id) ON DELETE RESTRICT,
+  integration_id text        REFERENCES registry.integrations (id) ON DELETE RESTRICT,
+  external_id    text        NOT NULL,          -- the owner's own identifier for the device
   name           text        NOT NULL,
   manufacturer   text,
   model          text,
@@ -321,12 +436,16 @@ CREATE TABLE registry.devices (
   updated_at     timestamptz NOT NULL DEFAULT now(),
 
   UNIQUE (package_id, external_id),
-  CONSTRAINT devices_not_own_parent CHECK (via_device_id IS DISTINCT FROM id)
+  UNIQUE (integration_id, external_id),
+  CONSTRAINT devices_not_own_parent CHECK (via_device_id IS DISTINCT FROM id),
+  CONSTRAINT devices_owner_exclusive
+    CHECK ((package_id IS NOT NULL) <> (integration_id IS NOT NULL))
 );
 
 CREATE INDEX devices_area_id_idx ON registry.devices (area_id);
 CREATE INDEX devices_via_device_id_idx ON registry.devices (via_device_id);
 CREATE INDEX devices_package_id_idx ON registry.devices (package_id);
+CREATE INDEX devices_integration_id_idx ON registry.devices (integration_id);
 
 -- --------------------------------------------------------------------------------------
 
@@ -341,6 +460,7 @@ CREATE TABLE registry.entities (
   object_id           text        GENERATED ALWAYS AS (split_part(entity_id, '.', 2)) STORED,
   device_id           uuid        REFERENCES registry.devices (id) ON DELETE CASCADE,
   package_id          text        REFERENCES system.packages (id) ON DELETE RESTRICT,
+  integration_id      text        REFERENCES registry.integrations (id) ON DELETE RESTRICT,
   source              text        NOT NULL,
   name                text        NOT NULL,
   icon                text,
@@ -364,10 +484,14 @@ CREATE TABLE registry.entities (
            OR state_class IN ('measurement', 'total', 'total_increasing')),
   CONSTRAINT entities_display_precision_range
     CHECK (display_precision IS NULL OR display_precision BETWEEN 0 AND 6),
-  -- An adapter entity belongs to a device and a package; a derived entity belongs to neither.
+  -- An adapter entity belongs to a device and to exactly one owner, a package or an
+  -- integration; a derived entity belongs to none of the three. `source` records the kind of
+  -- entity rather than which owner it has: an entity a `hub` integration adopted is still an
+  -- adapter entity, and `core` treats it identically.
   CONSTRAINT entities_source_consistency CHECK (
-    (source = 'adapter' AND device_id IS NOT NULL AND package_id IS NOT NULL)
-    OR (source = 'derived' AND device_id IS NULL AND package_id IS NULL)
+    (source = 'adapter' AND device_id IS NOT NULL
+       AND (package_id IS NOT NULL) <> (integration_id IS NOT NULL))
+    OR (source = 'derived' AND device_id IS NULL AND package_id IS NULL AND integration_id IS NULL)
     OR (source = 'system')
   )
 );
@@ -375,6 +499,7 @@ CREATE TABLE registry.entities (
 CREATE INDEX entities_device_id_idx ON registry.entities (device_id);
 CREATE INDEX entities_area_id_idx ON registry.entities (area_id);
 CREATE INDEX entities_package_id_idx ON registry.entities (package_id);
+CREATE INDEX entities_integration_id_idx ON registry.entities (integration_id);
 CREATE INDEX entities_domain_idx ON registry.entities (domain);
 CREATE INDEX entities_search_aliases_idx ON registry.entities USING gin (search_aliases);
 CREATE INDEX entities_name_trgm_idx ON registry.entities USING gin (name gin_trgm_ops);
@@ -839,6 +964,18 @@ CREATE TRIGGER settings_touch_updated_at
   BEFORE UPDATE ON system.settings
   FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
 
+CREATE TRIGGER user_avatars_touch_updated_at
+  BEFORE UPDATE ON auth.user_avatars
+  FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
+
+CREATE TRIGGER integrations_touch_updated_at
+  BEFORE UPDATE ON registry.integrations
+  FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
+
+CREATE TRIGGER integration_vendors_touch_updated_at
+  BEFORE UPDATE ON registry.integration_vendors
+  FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
+
 -- ------------------------------------------------------------------------------------------
 -- Roles
 -- ------------------------------------------------------------------------------------------
@@ -855,7 +992,8 @@ DECLARE
   role_name text;
 BEGIN
   FOREACH role_name IN ARRAY ARRAY[
-    'nebula_migrator', 'nebula_core', 'nebula_api', 'nebula_logger', 'nebula_packet_manager'
+    'nebula_migrator', 'nebula_core', 'nebula_api', 'nebula_logger', 'nebula_packet_manager',
+    'nebula_hub'
   ] LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
       EXECUTE format('CREATE ROLE %I LOGIN', role_name);
@@ -909,6 +1047,18 @@ GRANT INSERT, SELECT ON system.audit_log TO nebula_packet_manager;
 GRANT SELECT ON registry.devices, registry.entities TO nebula_packet_manager;
 GRANT SELECT ON system.settings, system.v_schema_version TO nebula_packet_manager;
 
+-- hub: the integration instances it runs, and their runtime status.
+-- No grant on devices or entities. `hub` asks `core` to register what it adopts instead of
+-- writing the registry itself, which is what keeps `core` the single writer of both.
+-- The UPDATE is column-level on purpose: the rest of the row is configuration the owner set
+-- through `api`, and a blanket UPDATE would let a restart quietly overwrite it.
+GRANT USAGE ON SCHEMA registry, system TO nebula_hub;
+GRANT SELECT ON registry.integrations TO nebula_hub;
+GRANT UPDATE (state, last_error, last_started_at) ON registry.integrations TO nebula_hub;
+-- The vendor's shared settings, read to layer under each instance it starts; never written.
+GRANT SELECT ON registry.integration_vendors TO nebula_hub;
+GRANT SELECT ON system.settings, system.v_schema_version TO nebula_hub;
+
 ALTER DEFAULT PRIVILEGES FOR ROLE nebula_migrator IN SCHEMA registry
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO nebula_core, nebula_api;
 ALTER DEFAULT PRIVILEGES FOR ROLE nebula_migrator IN SCHEMA history
@@ -956,6 +1106,8 @@ INSERT INTO auth.permissions (key, resource, action, description, is_scopable) V
   ('package:read', 'package', 'read', 'See installed packages and the package store', false),
   ('package:install', 'package', 'install', 'Install, update and remove packages', false),
   ('package:configure', 'package', 'configure', 'Change a package configuration and start or stop it', false),
+  ('integration:read', 'integration', 'read', 'See configured integrations and the bundles available', false),
+  ('integration:configure', 'integration', 'configure', 'Add integrations, change their configuration and start or stop them', false),
   ('user:read', 'user', 'read', 'See the list of users', false),
   ('user:manage', 'user', 'manage', 'Create, edit, disable and delete users', false),
   ('role:manage', 'role', 'manage', 'Create roles and change what they grant', false),
@@ -984,10 +1136,10 @@ INSERT INTO system.settings (key, value, schema_ref) VALUES
 -- Role grants: generated from DEFAULT_ROLE_PERMISSIONS in @nebula-home/contracts.
 INSERT INTO auth.role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM auth.roles r, auth.permissions p
-WHERE r.key = 'admin' AND p.key IN ('entity:read', 'entity:control', 'entity:write', 'entity:delete', 'device:read', 'device:write', 'device:delete', 'area:read', 'area:write', 'label:read', 'label:write', 'automation:read', 'automation:write', 'automation:trigger', 'scene:read', 'scene:apply', 'scene:write', 'alias:read', 'alias:write', 'history:read', 'package:read', 'package:install', 'package:configure', 'user:read', 'user:manage', 'logs:read', 'settings:read', 'settings:write', 'audit:read');
+WHERE r.key = 'admin' AND p.key IN ('entity:read', 'entity:control', 'entity:write', 'entity:delete', 'device:read', 'device:write', 'device:delete', 'area:read', 'area:write', 'label:read', 'label:write', 'automation:read', 'automation:write', 'automation:trigger', 'scene:read', 'scene:apply', 'scene:write', 'alias:read', 'alias:write', 'history:read', 'package:read', 'package:install', 'package:configure', 'integration:read', 'integration:configure', 'user:read', 'user:manage', 'logs:read', 'settings:read', 'settings:write', 'audit:read');
 INSERT INTO auth.role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM auth.roles r, auth.permissions p
-WHERE r.key = 'member' AND p.key IN ('entity:read', 'entity:control', 'device:read', 'area:read', 'label:read', 'automation:read', 'automation:trigger', 'scene:read', 'scene:apply', 'alias:read', 'history:read', 'package:read');
+WHERE r.key = 'member' AND p.key IN ('entity:read', 'entity:control', 'device:read', 'area:read', 'label:read', 'automation:read', 'automation:trigger', 'scene:read', 'scene:apply', 'alias:read', 'history:read', 'package:read', 'integration:read');
 INSERT INTO auth.role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM auth.roles r, auth.permissions p
 WHERE r.key = 'guest' AND p.key IN ('entity:read', 'entity:control', 'area:read', 'scene:read', 'scene:apply');

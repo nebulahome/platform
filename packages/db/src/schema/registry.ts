@@ -18,6 +18,7 @@ import {
   text,
   timestamp,
   uuid,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 
 import { users } from './auth.js';
@@ -39,7 +40,13 @@ export const areas = registrySchema.table(
     id: uuid('id').primaryKey().defaultRandom(),
     key: text('key').notNull().unique(),
     name: text('name').notNull(),
-    parentId: uuid('parent_id'),
+    /**
+     * The area this one sits inside.
+     *
+     * Typed through {@link AnyPgColumn} because it points back at this table, and Drizzle
+     * cannot infer the type of a reference to the table being defined.
+     */
+    parentId: uuid('parent_id').references((): AnyPgColumn => areas.id, { onDelete: 'set null' }),
     icon: text('icon'),
     sortOrder: smallint('sort_order').notNull().default(100),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -47,6 +54,89 @@ export const areas = registrySchema.table(
   },
   (table) => [index('areas_parent_id_idx').on(table.parentId)],
 );
+
+/**
+ * One configured integration instance: a driver bundle bound to a transport.
+ *
+ * The row id is what an entity of this integration carries as its `source`, and what `core`
+ * uses as the subject token when it routes a command there. It therefore shares one namespace
+ * with `system.packages.id`, and the two are kept apart by whoever writes the row rather than
+ * by a constraint, because a CHECK cannot see another table.
+ *
+ * `kind` and `transport` carry no constraint here or in the migration. They are resolved
+ * against the registries `hub` builds from the bundles it loaded, so an unknown value leaves
+ * the instance in `failed` with `lastError` set - which the interface can explain - instead of
+ * failing a write for a bundle that is merely not installed yet.
+ */
+export const integrations = registrySchema.table(
+  'integrations',
+  {
+    id: text('id').primaryKey(),
+
+    /** The driver, vendor-qualified: `shelly/1pm-mini-g3`, `bambu-lab/printer`. */
+    kind: text('kind').notNull(),
+    kindVersion: text('kind_version').notNull(),
+
+    /**
+     * The model the owner picked when adding the device: `X1C`, `1PM Mini Gen3`.
+     *
+     * Display, not behaviour: the driver is the same whichever of its models this is. Null for
+     * a row from before there was a pick to make, and the interface shows the driver's name.
+     */
+    model: text('model'),
+
+    /** Which transport carries it: `http`, `mqtt`. */
+    transport: text('transport').notNull(),
+
+    transportConfig: jsonb('transport_config')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    options: jsonb('options')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    isEnabled: boolean('is_enabled').notNull().default(true),
+
+    /**
+     * Runtime status, written by `hub` and by nothing else.
+     *
+     * The grant for it is column-level: everything above is configuration the owner set through
+     * `api`, and a blanket UPDATE would let a restart quietly overwrite it.
+     */
+    state: text('state').notNull().default('stopped'),
+    lastError: text('last_error'),
+    lastStartedAt: timestamp('last_started_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('integrations_state_idx').on(table.state)],
+);
+
+/**
+ * What every device of one vendor shares: the settings the vendor bundle's own `setup.json`
+ * asks for - a cloud API key, an account - as the owner supplied them, secrets sealed.
+ *
+ * One row per vendor, and only once the owner has saved something: the bundles themselves are
+ * listed from `hub`'s disk, so a vendor without a row is still a vendor. No runtime state,
+ * because a vendor does not run - its instances do, and `hub` reads this row to layer under
+ * each of them when it starts one. Written by `api` and read by `hub`, which is what the
+ * grants say.
+ */
+export const integrationVendors = registrySchema.table('integration_vendors', {
+  /** The vendor bundle's directory name: `shelly`, `bambu-lab`. */
+  id: text('id').primaryKey(),
+
+  /** The bundle version the settings were saved against. */
+  version: text('version').notNull(),
+
+  transportConfig: jsonb('transport_config')
+    .notNull()
+    .default(sql`'{}'::jsonb`),
+  options: jsonb('options')
+    .notNull()
+    .default(sql`'{}'::jsonb`),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 /**
  * A physical or logical piece of hardware.
@@ -60,12 +150,20 @@ export const devices = registrySchema.table(
   {
     id: uuid('id').primaryKey().defaultRandom(),
 
-    /** Restricted on delete: uninstalling an adapter that still owns devices fails loudly. */
-    packageId: text('package_id')
-      .notNull()
-      .references(() => packages.id, { onDelete: 'restrict' }),
+    /**
+     * The package that owns this device, when one does.
+     *
+     * Exactly one of this and {@link devices.integrationId} is set. Restricted on delete:
+     * uninstalling an owner that still has devices fails loudly.
+     */
+    packageId: text('package_id').references(() => packages.id, { onDelete: 'restrict' }),
 
-    /** The adapter's own identifier for the device. */
+    /** The integration instance that owns this device, when one does. */
+    integrationId: text('integration_id').references(() => integrations.id, {
+      onDelete: 'restrict',
+    }),
+
+    /** The owner's own identifier for the device. */
     externalId: text('external_id').notNull(),
 
     name: text('name').notNull(),
@@ -74,7 +172,15 @@ export const devices = registrySchema.table(
     swVersion: text('sw_version'),
     hwVersion: text('hw_version'),
     areaId: uuid('area_id').references(() => areas.id, { onDelete: 'set null' }),
-    viaDeviceId: uuid('via_device_id'),
+    /**
+     * The device this one is reached through.
+     *
+     * Typed through {@link AnyPgColumn} because it points back at this table, and Drizzle
+     * cannot infer the type of a reference to the table being defined.
+     */
+    viaDeviceId: uuid('via_device_id').references((): AnyPgColumn => devices.id, {
+      onDelete: 'set null',
+    }),
     config: jsonb('config')
       .notNull()
       .default(sql`'{}'::jsonb`),
@@ -87,6 +193,7 @@ export const devices = registrySchema.table(
     index('devices_area_id_idx').on(table.areaId),
     index('devices_via_device_id_idx').on(table.viaDeviceId),
     index('devices_package_id_idx').on(table.packageId),
+    index('devices_integration_id_idx').on(table.integrationId),
   ],
 );
 
@@ -110,6 +217,9 @@ export const entities = registrySchema.table(
 
     deviceId: uuid('device_id').references(() => devices.id, { onDelete: 'cascade' }),
     packageId: text('package_id').references(() => packages.id, { onDelete: 'restrict' }),
+    integrationId: text('integration_id').references(() => integrations.id, {
+      onDelete: 'restrict',
+    }),
     source: text('source').notNull(),
     name: text('name').notNull(),
     icon: text('icon'),
@@ -142,6 +252,7 @@ export const entities = registrySchema.table(
     index('entities_device_id_idx').on(table.deviceId),
     index('entities_area_id_idx').on(table.areaId),
     index('entities_package_id_idx').on(table.packageId),
+    index('entities_integration_id_idx').on(table.integrationId),
     index('entities_domain_idx').on(table.domain),
   ],
 );

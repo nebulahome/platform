@@ -9,4 +9,5 @@
 export * from './client.js';
 export * from './migrate.js';
 export * from './schema-version.js';
+export * from './sealed.js';
 export * as schema from './schema/index.js';

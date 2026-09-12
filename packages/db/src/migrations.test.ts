@@ -17,6 +17,17 @@ const migrationsDirectory = path.join(
 const files = await readMigrations(migrationsDirectory);
 const initialSql = files[0]?.sql ?? '';
 
+/**
+ * The body of the constraint that decides which columns an entity of each source may set.
+ *
+ * @returns The CHECK expression, or an empty string when the constraint is absent.
+ */
+function sourceConsistency(): string {
+  const body = /CONSTRAINT entities_source_consistency CHECK \(([\s\S]*?)\n {2}\)/.exec(initialSql);
+
+  return body?.[1] ?? '';
+}
+
 describe('the migration set', () => {
   it('matches the version every service checks at startup', () => {
     // The constant and the file count are edited in different places, and a service that starts
@@ -25,10 +36,7 @@ describe('the migration set', () => {
   });
 
   it('orders files by a four-digit prefix', () => {
-    expect(files.map((file) => file.name)).toEqual([
-      '0001_initial_schema.sql',
-      '0002_user_avatars.sql',
-    ]);
+    expect(files.map((file) => file.name)).toEqual(['0001_initial_schema.sql']);
   });
 
   it('runs the initial schema in a single transaction', () => {
@@ -47,7 +55,7 @@ describe('the migration set', () => {
 
 describe('the initial schema', () => {
   it('creates every object DATABASE.md defines', () => {
-    expect(initialSql.match(/^CREATE TABLE /gm)).toHaveLength(32);
+    expect(initialSql.match(/^CREATE TABLE /gm)).toHaveLength(35);
     expect(initialSql.match(/^CREATE VIEW /gm)).toHaveLength(4);
     expect(initialSql.match(/create_hypertable\(/g)).toHaveLength(5);
   });
@@ -57,7 +65,9 @@ describe('the initial schema', () => {
       ([, , , body]) => /^\s*updated_at\s/m.test(body ?? ''),
     );
 
-    const triggers = initialSql.match(/^CREATE TRIGGER /gm) ?? [];
+    // Counted by the function they call rather than by `CREATE TRIGGER`, so that a trigger
+    // added for some other purpose could not make this assertion pass for the wrong reason.
+    const triggers = initialSql.match(/EXECUTE FUNCTION system\.touch_updated_at\(\)/g) ?? [];
 
     expect(triggers).toHaveLength(mutable.length);
 
@@ -94,6 +104,93 @@ describe('the initial schema', () => {
 
   it('ships no default administrator password', () => {
     expect(initialSql).not.toMatch(/INSERT INTO auth\.users/);
+  });
+});
+
+describe('integration ownership', () => {
+  it('makes a device belong to exactly one of a package or an integration', () => {
+    expect(initialSql).toMatch(
+      /CONSTRAINT devices_owner_exclusive\s+CHECK \(\(package_id IS NOT NULL\) <> \(integration_id IS NOT NULL\)\)/,
+    );
+  });
+
+  it('applies the same exclusivity to an adapter entity', () => {
+    expect(sourceConsistency()).toContain(
+      '(package_id IS NOT NULL) <> (integration_id IS NOT NULL)',
+    );
+  });
+
+  it('leaves a derived entity owned by neither', () => {
+    expect(sourceConsistency()).toContain(
+      "(source = 'derived' AND device_id IS NULL AND package_id IS NULL AND integration_id IS NULL)",
+    );
+  });
+
+  it('gives a package id and an integration id the same shape', () => {
+    // Both tables feed `source`, the subject token `core` routes a command on, so the two ids
+    // share one namespace and a collision would make two owners answer `svc.<id>.command`.
+    // A CHECK cannot see another table and RULES.md 13 permits no trigger beyond the
+    // `updated_at` touch, so the collision is refused by whoever writes the row. One shared
+    // shape is what lets that check be a plain lookup rather than a normalisation.
+    const shape = "CHECK (id ~ '^[a-z][a-z0-9-]{1,63}" + "$')";
+
+    expect(initialSql).toContain('CONSTRAINT packages_id_format ' + shape);
+    expect(initialSql).toContain('CONSTRAINT integrations_id_format ' + shape);
+  });
+
+  it('gives hub its own configuration to read and no other registry table', () => {
+    expect(initialSql).toContain('GRANT SELECT ON registry.integrations TO nebula_hub');
+    expect(initialSql).not.toMatch(/GRANT[^;]*ALL TABLES IN SCHEMA registry[^;]*nebula_hub/);
+  });
+
+  it("keeps a vendor's shared settings beside its instances, under the same id shape", () => {
+    // A cloud API key belongs to every device of the vendor, not to one connection, so it has
+    // a row of its own; and the vendor id names a bundle directory the way an instance id names
+    // a bus subject, so it is held to the same shape at the same place.
+    const shape = "CHECK (id ~ '^[a-z][a-z0-9-]{1,63}" + "$')";
+
+    expect(initialSql).toContain('CREATE TABLE registry.integration_vendors (');
+    expect(initialSql).toContain('CONSTRAINT integration_vendors_id_format ' + shape);
+  });
+
+  it('gives a vendor row no runtime state, because a vendor does not run', () => {
+    const table = initialSql.slice(
+      initialSql.indexOf('CREATE TABLE registry.integration_vendors ('),
+      initialSql.indexOf('\n);', initialSql.indexOf('CREATE TABLE registry.integration_vendors (')),
+    );
+
+    expect(table).not.toContain('state');
+    expect(table).toContain('transport_config jsonb');
+  });
+
+  it('lets hub read the vendor settings it layers under an instance, and nothing more', () => {
+    expect(initialSql).toContain('GRANT SELECT ON registry.integration_vendors TO nebula_hub');
+    expect(initialSql).not.toMatch(/GRANT UPDATE[^;]*registry\.integration_vendors[^;]*nebula_hub/);
+  });
+
+  it("touches a vendor row's updated_at the way it touches an instance's", () => {
+    expect(initialSql).toContain('BEFORE UPDATE ON registry.integration_vendors');
+  });
+
+  it('keeps the model the owner picked on the instance', () => {
+    // The pick is display: which of the driver's six printers this row is. Nullable, because a
+    // row written by hand or before there was a pick has none, and the interface falls back to
+    // the driver's name rather than refusing to show the row.
+    const table = initialSql.slice(
+      initialSql.indexOf('CREATE TABLE registry.integrations ('),
+      initialSql.indexOf('\n);', initialSql.indexOf('CREATE TABLE registry.integrations (')),
+    );
+
+    expect(table).toMatch(/^ {2}model\s+text,/m);
+  });
+
+  it('lets hub write the status columns it owns and none of the configuration', () => {
+    // Runtime status belongs to the runtime, the way `system.packages.state` belongs to
+    // `packet-manager`. The rest of the row is configuration the owner set through `api`, and
+    // a blanket UPDATE would let a restart quietly overwrite it.
+    expect(initialSql).toContain(
+      'GRANT UPDATE (state, last_error, last_started_at) ON registry.integrations TO nebula_hub',
+    );
   });
 });
 
