@@ -21,7 +21,7 @@ the same organisation.
 | `packages/db`              | Drizzle schema, migrations, repositories             |
 | `packages/config`          | Zod-validated environment loader                     |
 | `packages/logging`         | Shared pino factory                                  |
-| `packages/package-runtime` | Adapter contract and package host runtime            |
+| `packages/package-runtime` | Integration contract: transports, bundles, profiles  |
 | `packages/ui`              | Design system: Tailwind and shadcn/ui components     |
 | `infra/`                   | docker-compose, seeds, development certificates      |
 
