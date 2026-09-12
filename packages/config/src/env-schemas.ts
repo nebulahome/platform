@@ -68,3 +68,17 @@ export const databaseEnvSchema = z.object({
 export const busEnvSchema = z.object({
   NATS_URL: urlWithScheme(['nats:', 'tls:']),
 });
+
+/**
+ * Variables read by the services that seal or open secrets stored in the registry.
+ *
+ * One key for the whole installation, shared by `api` (which seals what an owner types) and
+ * `hub` (which opens it to connect). Generated once with `openssl rand -hex 32` and never
+ * rotated casually: a value sealed under one key cannot be opened under another, and every
+ * stored secret would have to be typed again.
+ */
+export const secretsEnvSchema = z.object({
+  NEBULA_SECRETS_KEY: z
+    .string()
+    .regex(/^[0-9a-fA-F]{64}$/, 'Must be 64 hexadecimal characters (openssl rand -hex 32)'),
+});

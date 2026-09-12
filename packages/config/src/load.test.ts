@@ -3,7 +3,12 @@ import { z } from 'zod';
 
 import { ConfigurationError } from '@nebula-home/contracts';
 
-import { busEnvSchema, databaseEnvSchema, runtimeEnvSchema } from './env-schemas.js';
+import {
+  busEnvSchema,
+  databaseEnvSchema,
+  runtimeEnvSchema,
+  secretsEnvSchema,
+} from './env-schemas.js';
 import { loadConfig, type ConfigurationIssue } from './load.js';
 
 const serviceSchema = runtimeEnvSchema.extend(databaseEnvSchema.shape).extend(busEnvSchema.shape);
@@ -60,5 +65,14 @@ describe('loadConfig', () => {
 
   it('names the offending variables in the error message', () => {
     expect(() => loadConfig(serviceSchema, {})).toThrow(/DATABASE_URL/);
+  });
+});
+
+describe('secretsEnvSchema', () => {
+  it('takes the key as 64 hexadecimal characters and nothing looser', () => {
+    expect(secretsEnvSchema.safeParse({ NEBULA_SECRETS_KEY: 'ab'.repeat(32) }).success).toBe(true);
+    expect(secretsEnvSchema.safeParse({ NEBULA_SECRETS_KEY: 'ab'.repeat(31) }).success).toBe(false);
+    expect(secretsEnvSchema.safeParse({ NEBULA_SECRETS_KEY: 'zz'.repeat(32) }).success).toBe(false);
+    expect(secretsEnvSchema.safeParse({}).success).toBe(false);
   });
 });
