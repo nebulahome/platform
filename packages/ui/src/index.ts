@@ -10,13 +10,19 @@
  * authentication screens had each grown their own copy of the same idea. Moving them out is what
  * makes a change to a badge a change to every badge.
  *
- * Two things are deliberately *not* exported. `PasswordField` stays in the application because it
- * knows the password rules, which are a product decision rather than a shape. The icon set stays
- * there too: a design system that owns the glyphs starts owning the vocabulary of the screens as
- * well, and the one glyph a control here needs is drawn in the file that needs it.
+ * `PasswordField` is deliberately *not* exported: it knows the password rules, which are a
+ * product decision rather than a shape, so it stays in the application.
+ *
+ * Icons are exported, but as ids rather than glyphs. Every icon the interface shows is a
+ * catalogue icon drawn by `CatalogueIcon`; the ones the chrome itself uses are the ids in
+ * `UI_ICON_IDS`, each bundled with its drawing so the sign-in page has a lock before anybody has
+ * signed in, and replaced by the catalogue's answer once somebody has. Nothing here draws a
+ * glyph of its own.
  */
+export { AppIcon, type AppIconProps } from './components/app-icon.js';
 export { Badge, type BadgeProps, type BadgeTone } from './components/badge.js';
 export { Button, type ButtonProps } from './components/button.js';
+export { CatalogueIcon, type CatalogueIconProps } from './components/catalogue-icon.js';
 export { FieldShell, type FieldIds, type FieldShellProps } from './components/field-shell.js';
 export { IconButton, type IconButtonProps } from './components/icon-button.js';
 export { Logo, type LogoProps } from './components/logo.js';
@@ -31,5 +37,13 @@ export {
   type SelectOption,
 } from './components/select-field.js';
 export { TextField, type TextFieldProps } from './components/text-field.js';
+export {
+  IconOverridesProvider,
+  useIconOverride,
+  type IconDrawing,
+  type IconOverrides,
+  type IconOverridesProviderProps,
+} from './icons/icon-overrides.js';
+export { BUILTIN_UI_FRAME, BUILTIN_UI_NODES, UI_ICON_IDS, type UiIconId } from './icons/ui-set.js';
 export { cn } from './lib/cn.js';
 export { controlFace, type ControlFaceVariants } from './lib/control-face.js';

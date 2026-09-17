@@ -1,0 +1,187 @@
+{
+  "$comment": "The platform's own icon ids, drawn from lucide, listed first in the picker. An entry names a lucide icon (`lucide`) or ships its own drawing (`node` + `frame`). Re-pointing an id here changes every device that uses it. Ids follow the icon id pattern; keywords are what the search finds the icon by beside its id and name.",
+  "entries": [
+    {
+      "id": "light",
+      "name": "Light",
+      "keywords": ["lamp", "bulb", "lighting", "ceiling"],
+      "lucide": "lightbulb"
+    },
+    { "id": "lamp", "name": "Lamp", "keywords": ["light", "desk", "floor"], "lucide": "lamp" },
+    {
+      "id": "switch",
+      "name": "Switch",
+      "keywords": ["toggle", "on", "off"],
+      "lucide": "toggle-right"
+    },
+    {
+      "id": "relay",
+      "name": "Relay",
+      "keywords": ["switch", "power", "contact"],
+      "lucide": "plug-zap"
+    },
+    { "id": "plug", "name": "Plug", "keywords": ["socket", "outlet", "power"], "lucide": "plug" },
+    { "id": "power", "name": "Power", "keywords": ["on", "off", "energy"], "lucide": "power" },
+    {
+      "id": "energy",
+      "name": "Energy",
+      "keywords": ["consumption", "watt", "meter"],
+      "lucide": "zap"
+    },
+    {
+      "id": "printer",
+      "name": "Printer",
+      "keywords": ["3d", "print", "bambu"],
+      "lucide": "printer"
+    },
+    {
+      "id": "sensor",
+      "name": "Sensor",
+      "keywords": ["measure", "reading", "probe"],
+      "lucide": "radar"
+    },
+    {
+      "id": "thermometer",
+      "name": "Thermometer",
+      "keywords": ["temperature", "heat", "cold"],
+      "lucide": "thermometer"
+    },
+    {
+      "id": "thermostat",
+      "name": "Thermostat",
+      "keywords": ["heating", "climate", "target"],
+      "lucide": "thermometer-sun"
+    },
+    {
+      "id": "humidity",
+      "name": "Humidity",
+      "keywords": ["moisture", "water", "damp"],
+      "lucide": "droplets"
+    },
+    { "id": "fan", "name": "Fan", "keywords": ["ventilation", "air", "cooling"], "lucide": "fan" },
+    {
+      "id": "heater",
+      "name": "Heater",
+      "keywords": ["radiator", "heating", "warm"],
+      "lucide": "heater"
+    },
+    {
+      "id": "air-conditioner",
+      "name": "Air conditioner",
+      "keywords": ["cooling", "climate", "hvac"],
+      "lucide": "air-vent"
+    },
+    {
+      "id": "camera",
+      "name": "Camera",
+      "keywords": ["video", "security", "surveillance"],
+      "lucide": "camera"
+    },
+    {
+      "id": "speaker",
+      "name": "Speaker",
+      "keywords": ["audio", "music", "sound"],
+      "lucide": "speaker"
+    },
+    { "id": "tv", "name": "TV", "keywords": ["television", "screen", "media"], "lucide": "tv" },
+    { "id": "lock", "name": "Lock", "keywords": ["door", "security", "locked"], "lucide": "lock" },
+    {
+      "id": "door",
+      "name": "Door",
+      "keywords": ["entrance", "open", "closed"],
+      "lucide": "door-open"
+    },
+    {
+      "id": "window",
+      "name": "Window",
+      "keywords": ["open", "closed", "contact"],
+      "lucide": "app-window"
+    },
+    {
+      "id": "blind",
+      "name": "Blind",
+      "keywords": ["cover", "shutter", "curtain"],
+      "lucide": "blinds"
+    },
+    {
+      "id": "garage",
+      "name": "Garage",
+      "keywords": ["car", "gate", "door"],
+      "lucide": "warehouse"
+    },
+    {
+      "id": "router",
+      "name": "Router",
+      "keywords": ["network", "wifi", "hub"],
+      "lucide": "router"
+    },
+    {
+      "id": "motion",
+      "name": "Motion",
+      "keywords": ["presence", "pir", "movement"],
+      "lucide": "person-standing"
+    },
+    {
+      "id": "smoke",
+      "name": "Smoke",
+      "keywords": ["fire", "alarm", "detector"],
+      "lucide": "flame"
+    },
+    {
+      "id": "water",
+      "name": "Water",
+      "keywords": ["leak", "valve", "pump"],
+      "lucide": "waves-horizontal"
+    },
+    {
+      "id": "battery",
+      "name": "Battery",
+      "keywords": ["charge", "level", "power"],
+      "lucide": "battery-medium"
+    },
+    { "id": "solar", "name": "Solar", "keywords": ["sun", "panel", "pv"], "lucide": "sun" },
+    { "id": "car", "name": "Car", "keywords": ["ev", "vehicle", "charger"], "lucide": "car" },
+    {
+      "id": "washing-machine",
+      "name": "Washing machine",
+      "keywords": ["laundry", "appliance"],
+      "lucide": "washing-machine"
+    },
+    {
+      "id": "refrigerator",
+      "name": "Refrigerator",
+      "keywords": ["fridge", "kitchen", "appliance"],
+      "lucide": "refrigerator"
+    },
+    {
+      "id": "oven",
+      "name": "Oven",
+      "keywords": ["kitchen", "cooking", "appliance"],
+      "lucide": "microwave"
+    },
+    {
+      "id": "vacuum",
+      "name": "Vacuum",
+      "keywords": ["robot", "cleaner", "floor"],
+      "lucide": "bot"
+    },
+    {
+      "id": "sprinkler",
+      "name": "Sprinkler",
+      "keywords": ["garden", "irrigation", "lawn"],
+      "lucide": "sprout"
+    },
+    {
+      "id": "remote",
+      "name": "Remote",
+      "keywords": ["button", "control", "scene"],
+      "lucide": "circle-dot"
+    },
+    {
+      "id": "device",
+      "name": "Device",
+      "keywords": ["generic", "thing", "unknown"],
+      "lucide": "cpu"
+    }
+  ]
+}

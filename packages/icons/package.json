@@ -1,0 +1,36 @@
+{
+  "name": "@nebula-home/icons",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./svg": {
+      "types": "./dist/svg.d.ts",
+      "default": "./dist/svg.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nebula-home/contracts": "workspace:*",
+    "lucide-static": "1.39.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@nebula-home/eslint-config": "workspace:*",
+    "@nebula-home/tsconfig": "workspace:*",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  }
+}
