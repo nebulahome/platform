@@ -22,9 +22,10 @@ bundle never needs to be told it, because it reads it off the topic the printer 
 
 ## Setting it up
 
-One instance of this bundle per printer. In the interface, **Integrations → Add integration →
-Bambu Lab printer** asks for the two things only the owner knows - the printer's address and its
-access code - and **Test** opens one session to the printer before anything is saved, so a
+One device of this bundle per printer. In the interface, **Integrations → Bambu Lab → Add
+device** asks which model it is, what to call it, and the two things only the owner knows - the
+printer's address and its access code - and **Test** opens one session to the printer before
+anything is saved, so a
 mistyped code is refused with `Connection refused: Not authorized` rather than discovered later
 in a log. The address must be `mqtts://`: the printer has no plain-text listener, so
 `mqtt://<address>:1883` is refused by the printer with `ECONNREFUSED` - the host answered, nothing
@@ -51,13 +52,22 @@ message about a self-signed certificate. What is given up is the guarantee that 
 address is the printer; what is kept is that the traffic is encrypted. On a home network that is
 the right trade, and the constant records that it was made.
 
-Once saved, the hub starts the instance at once. Then **Devices → Add device → Scan**: the pass
+Once saved, the hub starts the instance at once and the device shows `identifying`: the hub
 listens on `device/+/report` and claims whatever reports a `print` block, by the serial in its
-topic, and **Adopt** writes it. (`pnpm --filter @nebula-home/hub discover --instance <id>
---adopt-all` does the same from a terminal.) Once adopted, the bundle subscribes to that
-printer's report topic and asks it for a full status - see below for why that matters - and the
-readings are on the device's row from then on, changing as the printer reports. Adoption keeps
-what it recognised the printer by, so a restarted hub watches it again on its own.
+topic, then asks `core` to complete the device's row with that serial and the printer's
+entities. From then on the bundle subscribes to that printer's report topic and asks it for a
+full status - see below for why that matters - and the readings are on the device's row,
+changing as the printer reports. The claim stays on the row, so a restarted hub watches the
+printer again on its own without listening for it twice.
+
+**A P1 or an A1 can sit in `identifying` for a while.** Those printers report on change and when
+asked, and the hub cannot ask before it knows the serial, which is the thing it is listening
+for. Touching a setting on the printer's screen, or turning its light on, gives the hub
+something to hear; the hub listens again as soon as a pass ends empty, so nothing has to be
+restarted. An X1 reports on its own every few seconds and is identified within them. The serial
+is on the box and on the printer's screen; the entity ids are composed from the device's id
+(`sensor.bambu_lab_x1c_nozzle_temperature`), not from the serial, so a replaced printer keeps
+its automations.
 
 ## Entities
 
@@ -114,9 +124,9 @@ and answered the connect packet - `Not authorized` to a deliberately wrong code,
 broker speaking, past TLS. A certificate error from an instance would therefore be news, and the
 message will name what the client objected to.
 
-**So is the scan.** The same printer answered the wildcard subscription the pass uses,
-`device/+/report`, within seconds of being asked, was adopted from the interface, and reported
-every entity above except the chamber temperature - which a P1S does not have, as the entities
-table says. If a pass finds nothing while a printer is on and in LAN mode, the printer is idle
-and quiet: a P1 or an A1 reports on change, so touching a setting on its screen, or turning its
-light on, gives the pass something to hear.
+**So is the identification.** The same printer answered the wildcard subscription the hub
+listens on, `device/+/report`, within seconds of being asked, was identified from the interface
+without a hand on it, and reported every entity above except the chamber temperature - which a
+P1S does not have, as the entities table says. If a device stays `identifying` while a printer is
+on and in LAN mode, the printer is idle and quiet: a P1 or an A1 reports on change, so touching a
+setting on its screen, or turning its light on, gives the hub something to hear.

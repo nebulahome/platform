@@ -3,6 +3,9 @@
 `HUB_BUNDLE_DIR` defaults to this directory, so anything here is loaded at startup without
 anybody installing it. That is what "installed by default" means for an integration: the driver
 is present and offering to connect to devices, and nothing is connected until somebody adds one.
+Adding one is the whole of it: a device added from the vendor's page is an instance of its
+driver and a row in the registry under one id, and the hub identifies the hardware behind it
+by itself - there is no scan to start and nothing to adopt.
 
 A bundle is a **vendor directory** holding one **driver directory** per profile or entry point:
 
@@ -20,7 +23,7 @@ shelly/
 The directory names are the ids: `shelly` must say `"id": "shelly"` in its manifest and
 `1pm-mini-g3` must say `"id": "1pm-mini-g3"` in its driver file, or the loader refuses the
 directory and says which two names disagree. Together they make the driver's **kind**,
-`shelly/1pm-mini-g3`, which is what an instance row references.
+`shelly/1pm-mini-g3`, which is what a device row references.
 
 `manifest.json` says who the vendor is and nothing about how a device is reached - which
 transports a vendor speaks is derived from its drivers, so it cannot be declared wrongly:
@@ -35,9 +38,14 @@ transports a vendor speaks is derived from its drivers, so it cannot be declared
   "url": "https://shelly.com",
   "color": "#3B9DFF",
   "logo": "./logo.svg",
+  "logoPadding": 0,
   "internetRequired": false
 }
 ```
+
+`logoPadding` (0 to 16, default 0) is extra room, in pixels, the interface leaves around the
+logo inside its tile. Every logo already gets a small margin; this is on top of it, for a mark
+drawn to the very edge of its file. It cannot ask for less than the margin, only for more.
 
 `driver.json` says how one profile is loaded and **which models it drives**. The list is what the
 owner picks from when adding a device: Bambu Lab's one `printer` driver lists six printers, so the
@@ -50,11 +58,20 @@ fields on purpose - a driver repeating the vendor's name would be a second copy 
   "id": "1pm-mini-g3",
   "name": "1PM Mini Gen3",
   "transport": "http",
+  "defaultIcon": "relay",
   "kind": "declarative",
   "profile": "./profile.json",
   "setup": "./setup.json"
 }
 ```
+
+`defaultIcon` names the icon a device of this driver starts with, by its id in the platform's
+icon catalogue (`packages/icons/catalogue.json` lists the platform's own ids - `light`,
+`relay`, `printer`, `sensor`… - and every lucide icon is there under its own name). The owner
+may pick another per device. The hub does not check the id; the API does when a device is
+added, and falls back to no icon with a warning rather than refusing the device, so a typo in
+somebody's bundle costs a blank tile and not the device. `shipped-bundles.test.ts` does check
+the two here.
 
 The format is `packages/package-runtime` and the ceiling it enforces is deliberate: every object
 is strict and every expression is a path, so a profile cannot become a program one feature at a
@@ -138,9 +155,17 @@ it a `patternMessage` whenever the pattern encodes a fact about the device: the 
 sentence under the field, where the pattern itself would tell a person nothing.
 
 **Test** in the interface opens the bundle's transport once with what was typed and closes it
-again, keeping nothing: for MQTT that is one session, for HTTP one request to each address. The
+again, keeping nothing: for MQTT that is one session, for HTTP one request to the address. The
 verdict is a sentence in the transport's own words, so `Not authorized` and `ECONNREFUSED` send
 an owner to different places.
+
+**Save** creates the device and starts it. The hub has no claim for a device it has never heard
+from, so it reports the instance `identifying` and listens with the driver's `discovery` -
+the MQTT subscription, the HTTP probe of the address - until the driver claims what answers;
+then it asks `core` to complete the device's row with the serial, the claim and the entities,
+and the instance is `running`. The claim stays on the row, so the next start binds the device
+without listening again. A device that stays `identifying` is one the hub cannot hear: wrong
+address, printer asleep, relay of another generation - each bundle below says what to look at.
 
 ## shelly
 
@@ -148,9 +173,10 @@ One driver, `1pm-mini-g3`: a Shelly 1PM Mini Gen3, over its HTTP RPC. One relay 
 current, and the device's own temperature — polled from `/rpc/Shelly.GetStatus` every five
 seconds.
 
-The transport reaches devices by address: `HTTP_HOSTS` (or whatever the owner configures on the
-instance) lists them, discovery probes each one with `/rpc/Shelly.GetDeviceInfo`, and this bundle
-claims the answers whose `app` is `Mini1PMG3`.
+The transport reaches a device by its address: the one `host` the owner typed when adding it.
+Identification probes it with `/rpc/Shelly.GetDeviceInfo`, and this bundle claims the answer
+when its `app` is `Mini1PMG3`. One device, one address, one instance - a second relay is a
+second device added from the vendor's page.
 
 **That claim is the one thing here that has not been checked against hardware.** `app` is how a
 Shelly identifies its firmware application, and Gen3 Minis suffix it with `G3` — a Gen2 Mini 1PM
