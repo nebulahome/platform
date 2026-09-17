@@ -5,7 +5,7 @@
  * narrow on purpose: it answers `pushall` with a full report and `ledctrl` with a delta naming
  * only the light, which is what a P1 or an A1 does. Everything between the two ends is real -
  * the transport, the broker, the bundle read off disk and the mapper built from it - so what
- * this proves is the wiring: that a scan finds the printer by its topic, that adopting it asks
+ * this proves is the wiring: that a scan finds the printer by its topic, that identifying it asks
  * it for everything on its own request topic, that the answer lands on the right entities, and
  * that a command goes back the way the firmware expects and its effect comes back as state.
  *
@@ -86,7 +86,7 @@ let claim: Claim | null = null;
  * @returns The claim.
  * @throws {Error} When the scan never claimed it, in which case the later cases are moot.
  */
-function adopted(): Claim {
+function claimedPrinter(): Claim {
   if (claim === null) {
     throw new Error('the printer was never claimed');
   }
@@ -290,14 +290,14 @@ describe('a Bambu Lab printer on the broker', () => {
     expect(claim?.externalId).toBe(SERIAL);
   });
 
-  it('is asked for everything once adopted, and answers with its temperatures', async () => {
+  it('is asked for everything once identified, and answers with its temperatures', async () => {
     expect(claim).not.toBeNull();
 
     delivered = [];
-    await connection.apply(integration.subscriptions([adopted()], {}));
+    await connection.apply(integration.subscriptions([claimedPrinter()], {}));
     await until(1);
 
-    const states = statesOf(first(), adopted());
+    const states = statesOf(first(), claimedPrinter());
 
     expect(states.get('nozzle_temperature')).toEqual({ sensor_numeric: { value: 25.4 } });
     expect(states.get('bed_temperature')).toEqual({ sensor_numeric: { value: 24.1 } });
@@ -312,7 +312,12 @@ describe('a Bambu Lab printer on the broker', () => {
 
     const request = integration.toCommand(
       { entityId: LIGHT, capability: 'on_off', command: { command: 'turn_on' } },
-      { options: {}, claim: adopted(), entities: ENTITIES, lastState: (): undefined => undefined },
+      {
+        options: {},
+        claim: claimedPrinter(),
+        entities: ENTITIES,
+        lastState: (): undefined => undefined,
+      },
     );
 
     await connection.send(request, AbortSignal.timeout(2000));
@@ -320,7 +325,7 @@ describe('a Bambu Lab printer on the broker', () => {
 
     // The printer answered with a delta naming the light and nothing else, which is what a P1
     // does. Only the light must change.
-    const states = statesOf(first(), adopted());
+    const states = statesOf(first(), claimedPrinter());
 
     expect(printer.isLightOn).toBe(true);
     expect([...states.keys()]).toEqual(['chamber_light']);

@@ -52,8 +52,14 @@ export const hubEnvSchema = runtimeEnvSchema
      */
     HUB_COMMAND_TIMEOUT_MS: z.coerce.number().int().min(100).max(120_000).default(4000),
 
-    /** How long a discovery pass runs when the caller does not say. */
-    HUB_DISCOVERY_TIMEOUT_MS: z.coerce.number().int().min(1000).max(300_000).default(30_000),
+    /** How long one pass of listening for a device lasts before it counts as having heard nothing. */
+    HUB_IDENTIFY_TIMEOUT_MS: z.coerce.number().int().min(1000).max(300_000).default(30_000),
+
+    /**
+     * How long to wait after a pass that failed - the transport threw, `core` did not answer -
+     * before listening again. A pass that merely heard nothing is followed almost at once.
+     */
+    HUB_IDENTIFY_RETRY_MS: z.coerce.number().int().min(1000).max(3_600_000).default(60_000),
   });
 
 /** Everything `hub` needs from the environment. */

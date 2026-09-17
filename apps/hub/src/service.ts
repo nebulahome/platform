@@ -10,8 +10,14 @@
  * recorded, and the rest of the house carries on. The alternative, refusing to start, means one
  * bad row in a configuration table takes every light offline.
  *
- * **Each instance speaks on the bus as itself.** `core` resolves the owner of an adopted entity
- * to the instance that adopted it - that is the token a command to it is addressed on - and
+ * **An instance is a device.** It starts, binds the device it identified last time from what
+ * the registry kept about it, and runs; or, the first time, it listens for the device it was
+ * added for and asks `core` to complete the row before it runs. That listening is detached from
+ * the start: the API is waiting on the other end of a reload, and a printer that is switched
+ * off must not hold it.
+ *
+ * **Each instance speaks on the bus as itself.** `core` resolves the owner of an entity to the
+ * instance that identified it - that is the token a command to it is addressed on - and
  * accepts a state report only from its owner. A report signed `hub` is a report from nobody
  * `core` knows, and is dropped with a warning, every three seconds, forever. So every instance
  * gets a client of its own whose `source` is the instance id; the transport underneath is the
@@ -34,7 +40,7 @@ import { RUNTIME_VERSION, SERVICE_NAME, type HubConfig } from './config.js';
 import { DeviceBook } from './domain/devices.js';
 import { planSubscriptions } from './domain/subscriptions.js';
 import { withVendorSettings } from './domain/vendors.js';
-import { loadBindings } from './persistence/devices.js';
+import { loadBinding } from './persistence/devices.js';
 import {
   loadInstance,
   loadInstances,
@@ -46,7 +52,7 @@ import {
 import { loadVendorSettings } from './persistence/vendors.js';
 import { loadBundles, type LoadedVendor } from './services/bundles.js';
 import { ConnectionPool } from './services/connections.js';
-import { DiscoveryService, type DiscoverableInstance } from './services/discovery.js';
+import { IdentificationService, type Identified } from './services/identification.js';
 import { publishReports, startInstanceServices } from './services/instance.js';
 import { ManagementService } from './services/management.js';
 
@@ -79,6 +85,12 @@ type RunningInstance = {
   readonly subscriptions: { unsubscribe: () => void }[];
 };
 
+/** One search for an instance's device, and how to end it. */
+type Listening = {
+  readonly abort: AbortController;
+  readonly done: Promise<void>;
+};
+
 /** Everything `hub` runs. */
 export class HubService {
   readonly #options: HubServiceOptions;
@@ -88,7 +100,8 @@ export class HubService {
   readonly #running = new Map<string, RunningInstance>();
   readonly #client: BusClient;
   readonly #pool: ConnectionPool;
-  readonly #discovery: DiscoveryService;
+  readonly #identification: IdentificationService;
+  readonly #listening = new Map<string, Listening>();
   readonly #managementService: ManagementService;
   readonly #secretsKey: Buffer;
   #management: { unsubscribe: () => void }[] = [];
@@ -131,37 +144,12 @@ export class HubService {
       },
     });
 
-    this.#discovery = new DiscoveryService({
+    this.#identification = new IdentificationService({
       client: this.#client,
       transports: this.#transports,
       logger: options.logger,
-      defaultTimeoutMs: options.config.HUB_DISCOVERY_TIMEOUT_MS,
-
-      /**
-       * Lists the instances a scan may use.
-       *
-       * Read when a scan starts rather than captured once, so that an instance started or
-       * stopped since the last scan is included or left out without discovery tracking it.
-       *
-       * @returns The running instances.
-       */
-      instances: (): DiscoverableInstance[] =>
-        [...this.#running.values()].map((running) => ({
-          instanceId: running.instance.id,
-          integration: running.integration,
-          options: running.instance.options,
-          transportId: running.instance.transport,
-          transportConfig: running.instance.transportConfig,
-          book: running.book,
-        })),
-
-      /**
-       * Tells a connection what a newly adopted device needs carried.
-       *
-       * @param instanceId - The instance that gained a device.
-       * @returns A promise that settles once the transport has been told.
-       */
-      onAdopted: async (instanceId: string): Promise<void> => this.#applySubscriptions(instanceId),
+      attemptTimeoutMs: options.config.HUB_IDENTIFY_TIMEOUT_MS,
+      retryMs: options.config.HUB_IDENTIFY_RETRY_MS,
     });
 
     this.#managementService = new ManagementService({
@@ -232,7 +220,7 @@ export class HubService {
       'Loaded integration bundles',
     );
 
-    this.#management = [...this.#discovery.serve(), ...this.#managementService.serve()];
+    this.#management = [...this.#managementService.serve()];
 
     const instances = await loadInstances(db);
 
@@ -248,6 +236,8 @@ export class HubService {
    * closed.
    */
   public async stop(): Promise<void> {
+    await this.#stopListening([...this.#listening.keys()]);
+
     for (const running of this.#running.values()) {
       for (const subscription of running.subscriptions) {
         subscription.unsubscribe();
@@ -304,6 +294,8 @@ export class HubService {
    * @returns A promise that settles once the instance is gone and the row says `stopped`.
    */
   async #stopInstance(id: string): Promise<void> {
+    await this.#stopListening([id]);
+
     const running = this.#running.get(id);
 
     if (running === undefined) {
@@ -383,29 +375,38 @@ export class HubService {
         subscriptions,
       });
 
-      // The devices it adopted last time, bound again from the claims adoption kept for them.
+      // The device it identified last time, bound again from the claim that was kept for it.
       // After the instance is in `#running`, because applying the subscriptions reads it there.
-      const restored = await loadBindings(db, instance.id, integration, instance.options);
+      const restored = await loadBinding(db, instance.id, integration, instance.options);
 
-      for (const binding of restored.bindings) {
-        book.bind(binding);
+      if (restored.status === 'bound') {
+        book.bind(restored.binding);
+        await this.#applySubscriptions(instance.id);
+        await recordStatus(db, instance.id, 'running');
+        logger.info(
+          { instanceId: instance.id, kind: instance.kind, externalId: restored.externalId },
+          'Integration instance started',
+        );
+
+        return;
       }
 
-      for (const device of restored.skipped) {
+      if (restored.status === 'unrestorable') {
         logger.warn(
-          { instanceId: instance.id, externalId: device.externalId, reason: device.reason },
-          'An adopted device could not be restored and will not be watched until adopted again',
+          { instanceId: instance.id, externalId: restored.externalId, reason: restored.reason },
+          'The device could not be bound from its row and will be identified again',
+        );
+      } else if (restored.status === 'missing') {
+        logger.warn(
+          { instanceId: instance.id },
+          'No device row for this instance: it was not created through the API',
         );
       }
 
-      if (restored.bindings.length > 0) {
-        await this.#applySubscriptions(instance.id);
-      }
-
-      await recordStatus(db, instance.id, 'running');
-      logger.info(
-        { instanceId: instance.id, kind: instance.kind, devices: restored.bindings.length },
-        'Integration instance started',
+      await recordStatus(db, instance.id, 'identifying');
+      this.#listen(
+        this.#running.get(instance.id),
+        restored.status === 'unrestorable' ? restored.externalId : null,
       );
     } catch (error: unknown) {
       // Recorded rather than thrown. An owner who mistyped a broker address should see that one
@@ -415,6 +416,109 @@ export class HubService {
       await this.#pool.release(stored.id);
       await recordStatus(db, stored.id, 'failed', message);
       logger.error({ instanceId: stored.id, kind: stored.kind }, message);
+    }
+  }
+
+  /**
+   * Starts listening for an instance's device, detached from whoever started the instance.
+   *
+   * @param running - The instance, as it is running.
+   * @param expectedExternalId - What the row says the device is, when it was identified before.
+   */
+  #listen(running: RunningInstance | undefined, expectedExternalId: string | null): void {
+    if (running === undefined) {
+      return;
+    }
+
+    const id = running.instance.id;
+    const abort = new AbortController();
+    const done = this.#identify(running, expectedExternalId, abort.signal).finally(() => {
+      if (this.#listening.get(id)?.abort === abort) {
+        this.#listening.delete(id);
+      }
+    });
+
+    this.#listening.set(id, { abort, done });
+  }
+
+  /**
+   * Ends the search for some instances' devices, and waits until each has ended.
+   *
+   * Waited for, not just signalled: a reply from `core` landing after the instance was stopped
+   * would bind a device to an instance that is gone, and a reload must not overlap the search
+   * it replaces.
+   *
+   * @param ids - Which instances.
+   * @returns A promise that settles once none of them is listening.
+   */
+  async #stopListening(ids: readonly string[]): Promise<void> {
+    await Promise.all(
+      ids.map(async (id): Promise<void> => {
+        const listening = this.#listening.get(id);
+
+        if (listening !== undefined) {
+          listening.abort.abort();
+          await listening.done;
+        }
+      }),
+    );
+  }
+
+  /**
+   * Listens until the device is identified, then binds it and reports the instance running.
+   *
+   * Never rejects: the search logs its own failures, and whatever else goes wrong is recorded
+   * against the instance the way a failed start is.
+   *
+   * @param running - The instance, as it is running.
+   * @param expectedExternalId - What the row says the device is, when it was identified before.
+   * @param signal - Ends the search.
+   * @returns A promise that settles once the search has ended, one way or the other.
+   */
+  async #identify(
+    running: RunningInstance,
+    expectedExternalId: string | null,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const { db, logger } = this.#options;
+    const id = running.instance.id;
+
+    try {
+      const found: Identified | undefined = await this.#identification.identify(
+        {
+          instanceId: id,
+          integration: running.integration,
+          options: running.instance.options,
+          transportId: running.instance.transport,
+          transportConfig: running.instance.transportConfig,
+          expectedExternalId,
+        },
+        signal,
+      );
+
+      // Stopped, or replaced by a reload while the search was out: whatever was found belongs
+      // to an instance that is no longer this one.
+      if (found === undefined || signal.aborted || this.#running.get(id) !== running) {
+        return;
+      }
+
+      running.book.bind(found.binding);
+      await this.#applySubscriptions(id);
+      await recordStatus(db, id, 'running');
+      logger.info(
+        {
+          instanceId: id,
+          kind: running.instance.kind,
+          externalId: found.externalId,
+          entities: found.entityIds.length,
+        },
+        'Integration instance started',
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      await recordStatus(db, id, 'failed', message);
+      logger.error({ instanceId: id, kind: running.instance.kind }, message);
     }
   }
 

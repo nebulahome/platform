@@ -1,5 +1,5 @@
 /**
- * What one integration instance owns: its devices, their entities, and their last known state.
+ * What one integration instance owns: its device, its entities, and their last known state.
  *
  * Pure by construction - nothing here opens a connection or publishes anything. That matters
  * because this is where the routing decisions are made, and routing decisions are what you want
@@ -9,21 +9,90 @@
  * pure. A relative dim or a toggle needs the current value, and `hub` already has it - it is what
  * published it - so the mapper reads it here instead of asking the device.
  */
-import type { CapabilityState, EntityId, JsonObject, StateReport } from '@nebula-home/contracts';
+import type {
+  CapabilityState,
+  EntityId,
+  EntityRegistration,
+  JsonObject,
+  StateReport,
+} from '@nebula-home/contracts';
 import type {
   Claim,
+  DeviceDescriptor,
   Integration,
   MappingContext,
   TransportInbound,
 } from '@nebula-home/package-runtime';
 
-/** One adopted device and the identifiers `core` gave its entities. */
+import { composeEntityId } from './entity-ids.js';
+
+/** One identified device and the identifiers its entities carry. */
 export type DeviceBinding = {
   readonly claim: Claim;
 
   /** Keyed by the descriptor's `objectId`, or the empty string for a device with one entity. */
   readonly entities: ReadonlyMap<string, EntityId>;
 };
+
+/** A claimed device, described: what to bind, and what to ask `core` to write. */
+export type DescribedDevice = {
+  readonly claim: Claim;
+  readonly descriptor: DeviceDescriptor;
+  readonly binding: DeviceBinding;
+
+  /** The entities as `core` registers them, in the descriptor's order. */
+  readonly registrations: readonly EntityRegistration[];
+};
+
+/**
+ * Describes a claimed device the one way, whether it was just identified or is being bound
+ * again from its row.
+ *
+ * The entity identifiers are composed from the device id - the instance id - rather than from
+ * the serial the hardware reports: `switch.relay_lab` reads as the device the owner named, and
+ * a replaced relay keeps the automations that name it. Composed here, once, so that the
+ * identifiers registered and the identifiers bound after a restart are the same by construction.
+ *
+ * @param deviceId - The device's id, which is the instance id.
+ * @param integration - The integration that claimed it.
+ * @param claim - The claim.
+ * @param options - The instance's options, handed to `describe`.
+ * @returns The device, described.
+ */
+export function describeDevice(
+  deviceId: string,
+  integration: Integration,
+  claim: Claim,
+  options: JsonObject,
+): DescribedDevice {
+  const descriptor = integration.describe(claim, options);
+  const entities = descriptor.entities.map((entity) => ({
+    entity,
+    entityId: composeEntityId(entity.domain, deviceId, entity.objectId),
+  }));
+
+  return {
+    claim,
+    descriptor,
+    binding: {
+      claim,
+      entities: new Map(entities.map(({ entity, entityId }) => [entity.objectId ?? '', entityId])),
+    },
+    registrations: entities.map(({ entity, entityId }) => ({
+      entityId,
+      name: entity.name,
+      capabilities: entity.capabilities,
+      ...(entity.unitOfMeasurement === undefined
+        ? {}
+        : { unitOfMeasurement: entity.unitOfMeasurement }),
+      ...(entity.deviceClass === undefined ? {} : { deviceClass: entity.deviceClass }),
+      ...(entity.stateClass === undefined ? {} : { stateClass: entity.stateClass }),
+      ...(entity.displayPrecision === undefined
+        ? {}
+        : { displayPrecision: entity.displayPrecision }),
+    })),
+  };
+}
 
 /** What one integration instance owns. */
 export class DeviceBook {

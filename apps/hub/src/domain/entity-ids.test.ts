@@ -5,6 +5,22 @@ import { ENTITY_ID_PATTERN } from '@nebula-home/contracts';
 import { composeEntityId } from './entity-ids.js';
 
 describe('composeEntityId', () => {
+  it('names an entity after the device id, in the alphabet an identifier allows', () => {
+    // `bambu-lab-x1c` is what the owner sees the device listed as; its nozzle sensor reads as
+    // belonging to it, and a replaced printer keeps the automations that name it.
+    expect(composeEntityId('sensor', 'bambu-lab-x1c', 'nozzle_temperature')).toBe(
+      'sensor.bambu_lab_x1c_nozzle_temperature',
+    );
+  });
+
+  it('keeps the longest device id inside the object id limit', () => {
+    const longest = `a${'b'.repeat(63)}`;
+    const id = composeEntityId('switch', longest, 'ch0');
+
+    expect(ENTITY_ID_PATTERN.test(id)).toBe(true);
+    expect(id.endsWith('_ch0')).toBe(true);
+  });
+
   it('produces the same identifier for the same device every time', () => {
     // The property everything else rests on. If a rescan produced a different identifier, every
     // re-adoption would create a second copy of the device and every automation naming the old

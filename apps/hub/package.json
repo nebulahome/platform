@@ -10,8 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
-    "test:integration": "vitest run --config vitest.integration.config.ts",
-    "discover": "tsx --env-file-if-exists=../../.env src/bin/discover.ts"
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@nebula-home/bus": "workspace:*",

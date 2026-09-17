@@ -19,5 +19,9 @@ export default defineConfig({
     // A real broker and a real database, not a unit test's ten milliseconds.
     testTimeout: 60_000,
     hookTimeout: 60_000,
+
+    // One file at a time. The development broker is shared, and an instance listening for its
+    // printer on `device/+/report` would claim the simulator another file is running.
+    fileParallelism: false,
   },
 });

@@ -1,13 +1,15 @@
 /**
- * Turning what a device calls itself into an identifier the rest of the platform can use.
+ * Turning a device's id into the identifiers its entities carry.
  *
- * An integration knows a device as `192.168.1.40`, `0x00124b0022a1b2` or `shellyplus1-aabbcc`.
- * None of those is an entity identifier, which is `<domain>.<object_id>` in the narrow lower-case
- * alphabet that automations name and the interface shows.
+ * A device is known by its id - `bambu-lab-x1c`, the instance id the owner's name suggested -
+ * and its entities are named after it: `sensor.bambu_lab_x1c_nozzle_temperature`. Not after the
+ * serial the hardware reports, which nobody chose and which changes when the hardware is
+ * replaced; an entity identifier is `<domain>.<object_id>` in the narrow lower-case alphabet
+ * that automations name and the interface shows, and it should read as the thing it belongs to.
  *
- * The mapping is **deterministic**: the same device produces the same identifier on every scan
- * and after every restart. That is what makes re-adopting a device a no-op rather than a second
- * copy of it, and it is why nothing here consults a counter or the clock.
+ * The mapping is **deterministic**: the same device produces the same identifiers on every start
+ * and after every restart. That is what makes binding a device again a no-op rather than a
+ * second copy of it, and it is why nothing here consults a counter or the clock.
  *
  * Two devices whose identifiers reduce to the same text collide, and that is left to fail. The
  * `UNIQUE` constraint on `registry.entities.entity_id` rejects the second one and names it,
@@ -43,13 +45,13 @@ function slugify(value: string): string {
  * Composes the identifier for one entity of one device.
  *
  * @param domain - The entity's domain.
- * @param externalId - What the integration calls the device.
+ * @param deviceId - The device's id, which is the instance id.
  * @param objectId - What tells this entity from the device's others, when it has any.
  * @returns The entity identifier.
  */
 export function composeEntityId(
   domain: EntityDomain,
-  externalId: string,
+  deviceId: string,
   objectId?: string,
 ): EntityId {
   const suffix = objectId === undefined ? '' : `_${slugify(objectId)}`;
@@ -59,5 +61,5 @@ export function composeEntityId(
   // channels of a four-channel relay with the same name.
   const room = Math.max(MAX_OBJECT_ID - suffix.length, 1);
 
-  return formatEntityId(domain, `${slugify(externalId).slice(0, room)}${suffix}`);
+  return formatEntityId(domain, `${slugify(deviceId).slice(0, room)}${suffix}`);
 }

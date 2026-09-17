@@ -22,12 +22,16 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { BusClient, connectBus, ulid, type BusConnection } from '@nebula-home/bus';
 import {
   busSubjects,
+  CORE_REGISTER_METHOD,
+  CORE_SERVICE,
   HUB_PROBE_METHOD,
   HUB_RELOAD_METHOD,
   HUB_SERVICE,
   NotFoundError,
   probeReplySchema,
+  registerDeviceRequestSchema,
   reloadReplySchema,
+  type RegisterDeviceRequest,
 } from '@nebula-home/contracts';
 import {
   createDatabase,
@@ -59,8 +63,33 @@ const printer = `int-mqtt-${suffix}`;
 /** The key `api` would have sealed the printer's access code with. */
 const SECRETS_KEY = 'ab'.repeat(32);
 
-/** The serial of a printer the instance adopted on an earlier run, unique to this one. */
+/** The serial of the printer the instance was added for, unique to this run. */
 const SERIAL = `01P00A${String(Date.now()).slice(-9)}`;
+
+/**
+ * Waits until an instance's row says the state, or gives up.
+ *
+ * @param id - Which instance.
+ * @param state - The state to wait for.
+ * @param timeoutMs - How long to wait at most.
+ * @returns The row's state and last error once it has changed, or as it stands at the timeout.
+ */
+async function until(
+  id: string,
+  state: string,
+  timeoutMs: number,
+): Promise<{ state: string; lastError: string | null }> {
+  const deadline = Date.now() + timeoutMs;
+  let status = await statusOf(id);
+
+  while (status.state !== state && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    status = await statusOf(id);
+  }
+
+  return status;
+}
 
 /**
  * A logger that keeps its output out of the test report.
@@ -312,13 +341,15 @@ describe('matching an instance to its row on request', () => {
         reloadReplySchema,
       );
 
-      expect(started).toEqual({ state: 'running', lastError: null });
+      // No device row yet: the instance is up and listening for the printer, and says so.
+      expect(started).toEqual({ state: 'identifying', lastError: null });
       expect(service.running.has(printer)).toBe(true);
 
-      // Reloading a running instance restarts it: a changed address takes effect.
+      // Reloading a listening instance restarts it: a changed address takes effect, and the
+      // search it replaces is ended before the new one starts.
       const restarted = await service.reloadInstance(printer);
 
-      expect(restarted.state).toBe('running');
+      expect(restarted.state).toBe('identifying');
       expect(service.running.has(printer)).toBe(true);
 
       await database.db
@@ -339,15 +370,90 @@ describe('matching an instance to its row on request', () => {
     }
   }, 30_000);
 
-  it('binds the devices it adopted last time when an instance starts, and watches them', async () => {
-    // A printer adopted on an earlier run: its row carries the claim adoption kept. Starting the
-    // instance must bind it again without anybody finding it a second time - and prove it by
-    // doing what the bundle does for a bound printer, which is to ask it for everything on its
-    // request topic.
+  it('listens for the printer, has core complete its row, and runs once it has answered', async () => {
+    // The whole first start of a device: the API wrote the two rows, the instance comes up
+    // listening, the printer announces itself on the broker, and `hub` asks `core` for the
+    // serial and the entities to be written against the row - never writing them itself. A
+    // fake `core` answers here; what it is asked is the point.
+    await database.db.insert(schema.registry.devices).values({
+      integrationId: printer,
+      externalId: null,
+      name: 'Studio printer',
+      icon: 'printer',
+      manufacturer: 'Bambu Lab',
+      model: 'X1C',
+    });
+
+    const asked: RegisterDeviceRequest[] = [];
+    const core = new BusClient({ transport: bus.transport, source: 'core', logger });
+    const serving = core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_REGISTER_METHOD),
+      registerDeviceRequestSchema,
+      (request) => {
+        asked.push(request);
+
+        return {
+          deviceId: '3f2504e0-4f89-11d3-9a0c-0305e82c3301',
+          entityIds: request.entities.map((entity) => entity.entityId),
+        };
+      },
+    );
+    const fakePrinter = await connectAsync('mqtt://localhost:1883', { reconnectPeriod: 0 });
+    const { service, stop } = await startHub();
+
+    try {
+      await database.db
+        .update(schema.registry.integrations)
+        .set({ isEnabled: true })
+        .where(eq(schema.registry.integrations.id, printer));
+
+      expect((await service.reloadInstance(printer)).state).toBe('identifying');
+
+      // The printer speaks, the way a real one does every second or so.
+      const report = JSON.stringify({ print: { nozzle_temper: 25, bed_temper: 30 } });
+      const speaking = setInterval(() => {
+        void fakePrinter.publishAsync(`device/${SERIAL}/report`, report);
+      }, 300);
+
+      try {
+        expect(await until(printer, 'running', 15_000)).toEqual({
+          state: 'running',
+          lastError: null,
+        });
+      } finally {
+        clearInterval(speaking);
+      }
+
+      expect(service.running.get(printer)?.book.size).toBe(1);
+      expect(asked).toHaveLength(1);
+      expect(asked[0]).toMatchObject({ integrationId: printer, externalId: SERIAL });
+      expect('name' in (asked[0] ?? {})).toBe(false);
+      expect(asked[0]?.entities.map((entity) => entity.entityId)).toContain(
+        `sensor.${printer.replaceAll('-', '_')}_nozzle_temperature`,
+      );
+    } finally {
+      serving.unsubscribe();
+      await fakePrinter.endAsync();
+      await database.db
+        .update(schema.registry.integrations)
+        .set({ isEnabled: false })
+        .where(eq(schema.registry.integrations.id, printer));
+      await stop();
+      await database.db
+        .delete(schema.registry.devices)
+        .where(eq(schema.registry.devices.integrationId, printer));
+    }
+  }, 40_000);
+
+  it('binds the device it identified last time when an instance starts, and watches it', async () => {
+    // A printer identified on an earlier run: its row carries the serial and the claim that
+    // was kept. Starting the instance must bind it again without listening for it a second
+    // time - and prove it by doing what the bundle does for a bound printer, which is to ask
+    // it for everything on its request topic.
     await database.db.insert(schema.registry.devices).values({
       integrationId: printer,
       externalId: SERIAL,
-      name: SERIAL,
+      name: 'Studio printer',
       manufacturer: 'Bambu Lab',
       config: {
         claim: {
