@@ -11,13 +11,8 @@ import { z } from 'zod';
 import { automationDefinitionSchema } from './automation-definition.js';
 import { capabilityNameSchema } from './capabilities.js';
 import { entityIdSchema } from './entity-id.js';
+import { iconIdSchema } from './icons.js';
 import {
-  adoptReplySchema,
-  adoptRequestSchema,
-  candidatesReplySchema,
-  discoveredCandidateSchema,
-  discoverReplySchema,
-  discoverRequestSchema,
   INTEGRATION_STATES,
   integrationIdSchema,
   integrationKindIdSchema,
@@ -25,7 +20,7 @@ import {
   probeReplySchema,
 } from './integrations.js';
 import { jsonObjectSchema } from './json.js';
-import { PACKAGE_RUNTIMES, PACKAGE_STATES, packageIdSchema } from './package-manifest.js';
+import { PACKAGE_RUNTIMES, PACKAGE_STATES } from './package-manifest.js';
 import { timestampSchema } from './timestamp.js';
 
 /** A room, floor or zone. */
@@ -69,94 +64,195 @@ export const labelViewSchema = z.object({
 export type LabelView = z.output<typeof labelViewSchema>;
 
 /**
- * Who a device belongs to.
+ * One device: the driver bundle that reaches it, and the registry row that names it.
  *
- * A package, for one an adapter registered; an integration instance, for one the hub adopted.
- * The devices table keeps the two in separate columns with a constraint that exactly one is
- * set, and this is that constraint as a value: the kind says which column, the id is what the
- * interface shows and what the packages and integrations pages call the same thing.
+ * Two halves under one id. The **connection half** is the integration instance - a driver
+ * bound to a transport, pointed at something - which `hub` runs and reports on; `state`,
+ * `lastError` and `lastStartedAt` are its and nobody else's, which the database enforces with a
+ * column-level grant. The **identity half** is what the owner called it, its icon, and what the
+ * hardware said about itself once the instance heard from it. The id is the instance id, the
+ * token every entity of the device carries as its `source`.
+ *
+ * Not a package. A **package** is the unit that ships and is supervised; a device is one thing
+ * in the house that a driver talks to.
  */
-export const deviceOwnerSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('package'), id: packageIdSchema }),
-  z.object({ kind: z.literal('integration'), id: integrationIdSchema }),
-]);
-
-/** Who a device belongs to: a package, or an integration instance. */
-export type DeviceOwner = z.output<typeof deviceOwnerSchema>;
-
-/** A physical device and how it is reaching the platform. */
 export const deviceViewSchema = z.object({
-  id: z.uuid(),
+  /** The device id, which is the instance id, which is what an entity carries as its source. */
+  id: integrationIdSchema,
 
-  /** The package or integration instance that owns it. */
-  owner: deviceOwnerSchema,
-
-  /** The identifier the owner knows it by, shown for troubleshooting. */
-  externalId: z.string(),
-
+  /** What the owner calls it. */
   name: z.string(),
-  manufacturer: z.string().nullable(),
+
+  /** The catalogue icon the owner picked, or the driver's default; null for none. */
+  icon: iconIdSchema.nullable(),
+
+  /** The driver, as `vendor/driver`: `shelly/1pm-mini-g3`. */
+  kind: z.string(),
+
+  kindVersion: z.string(),
+
+  /** The two halves of the kind, so a page can group by vendor without splitting a string. */
+  vendorId: z.string(),
+  driverId: z.string(),
+
+  /** The driver's name as the catalogue has it, or its id when the hub is away. */
+  driverName: z.string(),
+
+  /**
+   * The model: what the hardware reported once identified, else the one the owner picked when
+   * adding the device (`X1C`, `1PM Mini Gen3`). Null only for a row written by hand.
+   */
   model: z.string().nullable(),
+
+  /** Which transport carries it: `http`, `mqtt`. */
+  transport: z.string(),
+
+  /**
+   * The transport's configuration, with its secrets withheld.
+   *
+   * A configuration is what an owner has to see to correct it - which address, which broker -
+   * and it is also where a password lives. Serving the whole of it would put that password in
+   * every browser that opens the page and in every cache between here and there, to no purpose:
+   * nobody reads a password back, they replace it.
+   *
+   * A value the bundle declared secret is stored sealed and served as `{ "$sealed": true }`: the
+   * form learns that one is kept, and nothing else. Anything else with a secret-looking key name
+   * is removed outright, a blunt instrument that is meant to be: a row written by hand, or by a
+   * transport this service has never heard of, still gets its `password` withheld.
+   */
+  transportConfig: jsonObjectSchema,
+
+  /** Whatever the bundle itself takes, with its secrets withheld the same way. */
+  options: jsonObjectSchema,
+
+  /** Whether the owner has it switched on. */
+  isEnabled: z.boolean(),
+
+  state: z.enum(INTEGRATION_STATES),
+
+  /** Why it last failed. */
+  lastError: z.string().nullable(),
+
+  /** When it last started. */
+  lastStartedAt: timestampSchema.nullable(),
+
+  /** When one of its entities last reported. Null until one has. */
+  lastUpdatedAt: timestampSchema.nullable(),
+
+  /** The hardware's own identifier, once the instance has heard from it. Null until then. */
+  externalId: z.string().nullable(),
+
+  manufacturer: z.string().nullable(),
   swVersion: z.string().nullable(),
   hwVersion: z.string().nullable(),
   areaKey: z.string().nullable(),
   areaName: z.string().nullable(),
 
-  /** The device this one reaches the platform through, for a sensor behind a hub. */
-  viaDeviceId: z.uuid().nullable(),
-
-  isEnabled: z.boolean(),
-
-  /** When the package last heard from it. Null means never. */
-  lastSeenAt: timestampSchema.nullable(),
-
-  /** The entities it exposes. */
+  /** The entities it exposes; empty until identified. */
   entityIds: z.array(entityIdSchema),
 });
 
-/** A physical device. */
+/** One device. */
 export type DeviceView = z.output<typeof deviceViewSchema>;
 
 /**
- * What `POST /api/v1/devices/discover` accepts: which instance to look with, and for how long.
+ * What adding a device accepts.
  *
- * The hub's own request, because the API adds nothing to it - it is a relay. The pass runs in
- * the background; what it finds is read from `GET /api/v1/devices/candidates` while it runs.
+ * The owner chooses the id: it becomes every entity's `source` and the token `core` addresses
+ * commands to, so it has to be something a person can read in a log - the form suggests one
+ * from the name. `kindVersion` and `transport` are not accepted: they come from the bundle the
+ * kind names, and a client that could set them could pair a profile with a transport it was
+ * never written for.
  */
-export const deviceDiscoverRequestSchema = discoverRequestSchema;
+export const deviceCreateSchema = z.object({
+  id: integrationIdSchema,
 
-/** Which instance to look with, and for how long. */
-export type DeviceDiscoverRequest = z.output<typeof deviceDiscoverRequestSchema>;
+  /** Which driver, as `vendor/driver`, from the drivers `GET /integrations/vendors` lists. */
+  kind: integrationKindIdSchema,
 
-/** What starting a pass answers: its identifier, and which instances are actually looking. */
-export const deviceDiscoverReplySchema = discoverReplySchema;
+  /**
+   * Which model, from the choices the driver offers. Required: the pick is what the row shows,
+   * and a driver serving six printers says nothing on its own.
+   */
+  model: z.string().min(1).max(64),
 
-/** What starting a pass answers. */
-export type DeviceDiscoverReply = z.output<typeof deviceDiscoverReplySchema>;
+  /** What the owner calls it; the form starts it from the model. */
+  name: z.string().trim().min(1).max(128),
 
-/** A device a pass found and an instance claimed, not yet adopted. */
-export const deviceCandidateViewSchema = discoveredCandidateSchema;
+  /** A catalogue icon; the driver's default when omitted. */
+  icon: iconIdSchema.optional(),
 
-/** A device a pass found, not yet adopted. */
-export type DeviceCandidateView = z.output<typeof deviceCandidateViewSchema>;
+  /** The values the kind's `setup.transport` fields collected. */
+  transportConfig: jsonObjectSchema,
 
-/** What the current pass has found so far, and whether it is still looking. */
-export const deviceCandidatesReplySchema = candidatesReplySchema;
+  /** The values its `setup.options` fields collected. */
+  options: jsonObjectSchema.default({}),
 
-/** What the current pass has found so far. */
-export type DeviceCandidatesReply = z.output<typeof deviceCandidatesReplySchema>;
+  isEnabled: z.boolean().default(true),
+});
 
-/** What `POST /api/v1/devices/adopt` accepts: which candidate, and what to call it. */
-export const deviceAdoptRequestSchema = adoptRequestSchema;
+/** What adding a device accepts. */
+export type DeviceCreate = z.output<typeof deviceCreateSchema>;
 
-/** Which candidate to adopt, and what to call it. */
-export type DeviceAdoptRequest = z.output<typeof deviceAdoptRequestSchema>;
+/**
+ * What changing a device accepts.
+ *
+ * Configuration and identity only. `state`, `lastError` and `lastStartedAt` are what the hub
+ * reports about a thing it is running, and letting the API write them would let a form
+ * overwrite the truth with an assumption. `kind` and `transport` are absent for a different
+ * reason: changing either makes it a different device, and the honest way to express that is a
+ * new device beside the old one.
+ *
+ * `transportConfig` and `options` are opaque here. Which host, which broker, which credentials
+ * is the bundle's vocabulary, declared in its `setup.json`, and the API checks a change against
+ * that declaration once it has fetched it from the hub.
+ */
+export const deviceUpdateSchema = z
+  .object({
+    name: z.string().trim().min(1).max(128),
 
-/** What adopting wrote: the device row, and the entities under it. */
-export const deviceAdoptReplySchema = adoptReplySchema;
+    /** A catalogue icon, or null to have none. */
+    icon: iconIdSchema.nullable(),
 
-/** What adopting wrote. */
-export type DeviceAdoptReply = z.output<typeof deviceAdoptReplySchema>;
+    /** Whether the owner wants it running. */
+    isEnabled: z.boolean(),
+
+    /** A corrected pick; checked against the driver's list, as on create. */
+    model: z.string().min(1).max(64),
+
+    /** The transport's own configuration, checked by the transport rather than here. */
+    transportConfig: jsonObjectSchema,
+
+    /** Anything the bundle itself takes. */
+    options: jsonObjectSchema,
+  })
+  .partial()
+  .refine((body) => Object.keys(body).length > 0, { message: 'Nothing to change' });
+
+/** What changing a device accepts. */
+export type DeviceUpdate = z.output<typeof deviceUpdateSchema>;
+
+/**
+ * What trying a configuration accepts.
+ *
+ * `deviceId` names a device being edited: a secret field left blank in the form is filled
+ * from what that device has sealed, so testing after changing the address does not mean
+ * typing the password again.
+ */
+export const deviceProbeRequestSchema = z.object({
+  kind: integrationKindIdSchema,
+  transportConfig: jsonObjectSchema,
+  deviceId: integrationIdSchema.optional(),
+});
+
+/** What trying a configuration accepts. */
+export type DeviceProbeRequest = z.output<typeof deviceProbeRequestSchema>;
+
+/** What trying a configuration found out, exactly as the hub reported it. */
+export const deviceProbeReplySchema = probeReplySchema;
+
+/** What trying a configuration found out. */
+export type DeviceProbeReply = z.output<typeof deviceProbeReplySchema>;
 
 /** One entity's target state inside a scene. */
 export const sceneMemberSchema = z.object({
@@ -345,175 +441,6 @@ export const automationUpdateSchema = z
 export type AutomationUpdate = z.output<typeof automationUpdateSchema>;
 
 /**
- * One configured integration: a driver bundle, bound to a transport, pointed at something.
- *
- * Not a package, though the two were shown as one thing for a release and should not have been.
- * A **package** is the unit that ships and is supervised; an **integration** is a driver bound to
- * a transport, and an *instance* of one is this MQTT broker, that Shelly. A package may
- * contribute an integration, a house may run three instances of the same one, and neither fact
- * is expressible while they share a row on a page.
- *
- * `state`, `lastError` and `lastStartedAt` are written by `hub` and by nothing else; everything
- * above them is configuration the owner set. The database enforces that split with a
- * column-level grant, which is why they are read-only here too.
- */
-export const integrationViewSchema = z.object({
-  /** The instance id, which is also what an entity carries as its source. */
-  id: z.string(),
-
-  /** The driver, as `vendor/driver`: `shelly/1pm-mini-g3`. */
-  kind: z.string(),
-
-  kindVersion: z.string(),
-
-  /** The two halves of the kind, so a page can group by vendor without splitting a string. */
-  vendorId: z.string(),
-  driverId: z.string(),
-
-  /** The driver's name as the catalogue has it, or its id when the hub is away. */
-  driverName: z.string(),
-
-  /**
-   * The model the owner picked when adding the device: `X1C`, `1PM Mini Gen3`.
-   *
-   * Null for a row from before there was a pick to make, or written by hand; the interface
-   * shows the driver's name then.
-   */
-  model: z.string().nullable(),
-
-  /** Which transport carries it: `http`, `mqtt`. */
-  transport: z.string(),
-
-  /**
-   * The transport's configuration, with its secrets withheld.
-   *
-   * A configuration is what an owner has to see to correct it - which addresses, which broker -
-   * and it is also where a password lives. Serving the whole of it would put that password in
-   * every browser that opens the page and in every cache between here and there, to no purpose:
-   * nobody reads a password back, they replace it.
-   *
-   * A value the bundle declared secret is stored sealed and served as `{ "$sealed": true }`: the
-   * form learns that one is kept, and nothing else. Anything else with a secret-looking key name
-   * is removed outright, a blunt instrument that is meant to be: a row written by hand, or by a
-   * transport this service has never heard of, still gets its `password` withheld.
-   */
-  transportConfig: jsonObjectSchema,
-
-  /** Whatever the bundle itself takes, with its secrets withheld the same way. */
-  options: jsonObjectSchema,
-
-  /** Whether the owner has it switched on. */
-  isEnabled: z.boolean(),
-
-  state: z.enum(INTEGRATION_STATES),
-
-  /** Why it last failed. */
-  lastError: z.string().nullable(),
-
-  /** When it last started. */
-  lastStartedAt: timestampSchema.nullable(),
-
-  /** How many devices it has adopted. */
-  deviceCount: z.int().min(0),
-
-  /** How many entities those devices expose. */
-  entityCount: z.int().min(0),
-});
-
-/** One configured integration. */
-export type IntegrationView = z.output<typeof integrationViewSchema>;
-
-/**
- * What changing an integration accepts.
- *
- * Configuration only. `state`, `lastError` and `lastStartedAt` are what the hub reports about a
- * thing it is running, and letting the API write them would let a form overwrite the truth with
- * an assumption — a page that said `running` because somebody ticked a box would be worse than a
- * page that said nothing.
- *
- * `kind` and `transport` are absent for a different reason: changing either makes it a different
- * integration, and the honest way to express that is a new instance beside the old one.
- *
- * `transportConfig` and `options` are opaque here. Which hosts, which broker, which credentials
- * is the bundle's vocabulary, declared in its `setup.json`, and the API checks a change against
- * that declaration once it has fetched it from the hub - a schema here would have to be rewritten
- * every time a bundle is added.
- */
-export const integrationUpdateSchema = z
-  .object({
-    /** Whether the owner wants it running. */
-    isEnabled: z.boolean(),
-
-    /** A corrected pick; checked against the driver's list, as on create. */
-    model: z.string().min(1).max(64),
-
-    /** The transport's own configuration, checked by the transport rather than here. */
-    transportConfig: jsonObjectSchema,
-
-    /** Anything the bundle itself takes. */
-    options: jsonObjectSchema,
-  })
-  .partial()
-  .refine((body) => Object.keys(body).length > 0, { message: 'Nothing to change' });
-
-/** What changing an integration accepts. */
-export type IntegrationUpdate = z.output<typeof integrationUpdateSchema>;
-
-/**
- * What creating an integration accepts.
- *
- * The owner chooses the id: it becomes every entity's `source` and the token `core` addresses
- * commands to, so it has to be something a person can read in a log. `kindVersion` and
- * `transport` are not accepted - they come from the bundle the kind names, and a client that
- * could set them could pair a profile with a transport it was never written for.
- */
-export const integrationCreateSchema = z.object({
-  id: integrationIdSchema,
-
-  /** Which driver, as `vendor/driver`, from the drivers `GET /integrations/vendors` lists. */
-  kind: integrationKindIdSchema,
-
-  /**
-   * Which model, from the choices the driver offers. Required: the pick is what the vendor
-   * page shows for the row, and a driver serving six printers says nothing on its own.
-   */
-  model: z.string().min(1).max(64),
-
-  /** The values the kind's `setup.transport` fields collected. */
-  transportConfig: jsonObjectSchema,
-
-  /** The values its `setup.options` fields collected. */
-  options: jsonObjectSchema.default({}),
-
-  isEnabled: z.boolean().default(true),
-});
-
-/** What creating an integration accepts. */
-export type IntegrationCreate = z.output<typeof integrationCreateSchema>;
-
-/**
- * What trying a configuration accepts.
- *
- * `integrationId` names an instance being edited: a secret field left blank in the form is
- * filled from what that instance has sealed, so testing after changing the address does not
- * mean typing the password again.
- */
-export const integrationProbeRequestSchema = z.object({
-  kind: integrationKindIdSchema,
-  transportConfig: jsonObjectSchema,
-  integrationId: integrationIdSchema.optional(),
-});
-
-/** What trying a configuration accepts. */
-export type IntegrationProbeRequest = z.output<typeof integrationProbeRequestSchema>;
-
-/** What trying a configuration found out, exactly as the hub reported it. */
-export const integrationProbeReplySchema = probeReplySchema;
-
-/** What trying a configuration found out. */
-export type IntegrationProbeReply = z.output<typeof integrationProbeReplySchema>;
-
-/**
  * One vendor the hub has loaded, as `GET /integrations/vendors` lists it: the catalogue entry
  * with what the owner has done about it.
  *
@@ -535,10 +462,7 @@ export const integrationVendorViewSchema = integrationVendorSchema.extend({
   /** When the settings were last saved. Null until they are. */
   configuredAt: timestampSchema.nullable(),
 
-  /** How many instances - devices added by hand - run under it. */
-  instanceCount: z.int().min(0),
-
-  /** How many devices those instances have adopted. */
+  /** How many devices have been added under it. */
   deviceCount: z.int().min(0),
 
   /** How many entities those devices expose. */

@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  adoptRequestSchema,
   catalogueReplySchema,
-  discoverRequestSchema,
-  discoveredCandidateSchema,
+  INTEGRATION_STATES,
   integrationIdSchema,
   integrationKindIdSchema,
+  integrationKindSchema,
   integrationVendorSchema,
   modelChoicesOf,
   probeReplySchema,
@@ -15,21 +14,6 @@ import {
   type IntegrationVendor,
 } from './integrations.js';
 import { packageIdSchema } from './package-manifest.js';
-
-/**
- * A candidate with every required field present, for tests that vary one of them.
- *
- * @returns The candidate, as it would arrive on the bus.
- */
-function candidate(): Record<string, unknown> {
-  return {
-    candidateId: 'scan-1:shellyplus1-aabbcc',
-    integrationId: 'shelly-lab',
-    externalId: 'shellyplus1-aabbcc',
-    name: 'Lab relay',
-    entities: [{ entityId: 'switch.lab_relay', name: 'Lab relay', capabilities: ['on_off'] }],
-  };
-}
 
 /**
  * A vendor as the hub lists it, with one driver that drives several models and one that
@@ -121,46 +105,6 @@ describe('integrationIdSchema', () => {
   });
 });
 
-describe('discoveredCandidateSchema', () => {
-  it('describes the entities adoption would create', () => {
-    const parsed = discoveredCandidateSchema.parse(candidate());
-
-    expect(parsed.entities[0]?.capabilities).toEqual(['on_off']);
-  });
-
-  it('refuses a candidate that would adopt nothing', () => {
-    // A device exposing no entity is a registry row no automation can name and no card can
-    // show, so it is refused at discovery rather than adopted and then wondered about.
-    expect(discoveredCandidateSchema.safeParse({ ...candidate(), entities: [] }).success).toBe(
-      false,
-    );
-  });
-
-  it('keeps what the transport saw, for when a claim looks wrong', () => {
-    const parsed = discoveredCandidateSchema.parse(candidate());
-
-    expect(parsed.evidence).toEqual({});
-  });
-});
-
-describe('discoverRequestSchema', () => {
-  it('scans every enabled instance when none is named', () => {
-    expect(discoverRequestSchema.parse({}).integrationId).toBeUndefined();
-  });
-
-  it('bounds a scan even when the caller says nothing', () => {
-    // A scan holds a radio or a subscription open. Without a default, a caller that forgot the
-    // field would leave one running until the service restarts.
-    expect(discoverRequestSchema.parse({}).timeoutMs).toBe(30_000);
-  });
-});
-
-describe('adoptRequestSchema', () => {
-  it('leaves the name the integration discovered unless the owner replaces it', () => {
-    expect(adoptRequestSchema.parse({ candidateId: 'scan-1:x' }).name).toBeUndefined();
-  });
-});
-
 describe('the management methods', () => {
   it('describes a vendor with its drivers and what each form asks, so the interface never reads a bundle', () => {
     const reply = catalogueReplySchema.parse({
@@ -233,5 +177,35 @@ describe('the management methods', () => {
   it('answers a reload with the state the hub recorded', () => {
     expect(reloadReplySchema.parse({ state: 'running', lastError: null }).state).toBe('running');
     expect(reloadReplySchema.safeParse({ state: 'sleeping', lastError: null }).success).toBe(false);
+  });
+
+  it('lists identifying among the states, between starting and running', () => {
+    // An instance whose transport is open but whose device has not answered yet is neither
+    // starting nor running, and the interface says so rather than showing a running device
+    // with nothing under it.
+    expect(INTEGRATION_STATES).toEqual([
+      'stopped',
+      'starting',
+      'identifying',
+      'running',
+      'failed',
+      'disabled',
+    ]);
+  });
+
+  it('lets a driver name the icon its devices start with', () => {
+    const driver = { ...vendor().drivers[0], defaultIcon: 'printer' };
+
+    expect(integrationKindSchema.parse(driver).defaultIcon).toBe('printer');
+    expect(integrationKindSchema.parse(vendor().drivers[0]).defaultIcon).toBeUndefined();
+    expect(integrationKindSchema.safeParse({ ...driver, defaultIcon: 'Printer!' }).success).toBe(
+      false,
+    );
+  });
+
+  it('carries the padding a vendor asks around its logo, none when it says nothing', () => {
+    expect(integrationVendorSchema.parse(vendor()).logoPadding).toBe(0);
+    expect(integrationVendorSchema.parse({ ...vendor(), logoPadding: 6 }).logoPadding).toBe(6);
+    expect(integrationVendorSchema.safeParse({ ...vendor(), logoPadding: 40 }).success).toBe(false);
   });
 });

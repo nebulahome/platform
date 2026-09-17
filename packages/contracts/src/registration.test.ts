@@ -12,7 +12,6 @@ function request(): Record<string, unknown> {
   return {
     integrationId: 'shelly-lab',
     externalId: 'shellyplus1-aabbcc',
-    name: 'Lab relay',
     entities: [{ entityId: 'switch.lab_relay', name: 'Lab relay', capabilities: { on_off: {} } }],
   };
 }
@@ -50,12 +49,15 @@ describe('registerDeviceRequestSchema', () => {
     expect(registerDeviceRequestSchema.safeParse({ ...request(), entities }).success).toBe(false);
   });
 
-  it('carries the topology of a device reached through another', () => {
-    // A BLE thermometer reaches the platform through an ESPHome proxy. `via_device_id` is what
-    // lets the interface explain why a group of devices went offline together.
-    const parsed = registerDeviceRequestSchema.parse({ ...request(), viaExternalId: 'esp-hall' });
+  it('carries no name: the row the API created already has the one the owner chose', () => {
+    // Identification completes a device, it does not describe one. A name here would be the
+    // hardware's idea of itself overwriting what the owner typed a minute ago.
+    const parsed = registerDeviceRequestSchema.parse(request());
 
-    expect(parsed.viaExternalId).toBe('esp-hall');
+    expect('name' in parsed).toBe(false);
+    expect(
+      registerDeviceRequestSchema.safeParse({ ...request(), name: 'From the firmware' }).success,
+    ).toBe(false);
   });
 });
 
@@ -89,7 +91,7 @@ describe('deviceEventSchema', () => {
     // `api` forwards these straight to a browser. Two independent shapes for one payload drift
     // the first time a field is added to whichever half the author had open.
     const payload = {
-      deviceId: '3f2504e0-4f89-11d3-9a0c-0305e82c3301',
+      deviceId: 'shelly-lab',
       source: 'shelly-lab',
       name: 'Lab relay',
       entityIds: ['switch.lab_relay'],
@@ -119,12 +121,25 @@ describe('deviceEventSchema', () => {
     // `source` is the subject token a command goes out on. An event naming an owner that could
     // not be addressed would describe a device nobody can control.
     const result = deviceEventSchema.safeParse({
-      deviceId: '3f2504e0-4f89-11d3-9a0c-0305e82c3301',
+      deviceId: 'shelly-lab',
       source: 'Not A Source',
       name: 'Lab relay',
       entityIds: [],
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it('names the device by its public id, the one the interface lists it under', () => {
+    // A browser hearing about a device matches it against the devices it already shows, and
+    // those are listed under the instance id - the same shape a source has, not a row uuid.
+    expect(
+      deviceEventSchema.safeParse({
+        deviceId: 'Not An Id',
+        source: 'shelly-lab',
+        name: 'Lab relay',
+        entityIds: [],
+      }).success,
+    ).toBe(false);
   });
 });

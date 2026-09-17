@@ -1,10 +1,12 @@
 /**
  * Registering a device with `core`, which is the only writer of the registry.
  *
- * `hub` discovers and adopts, but it does not write `registry.devices` or `registry.entities`
- * itself. It asks, and `core` writes and updates the in-memory directory it routes commands
- * against. Two writers would mean a directory that is stale for as long as it takes `core` to
- * notice, and a command routed at an entity `core` has not heard of.
+ * The API creates a device - the instance that reaches it and the registry row that names it -
+ * and `hub` identifies it: hears from the hardware, learns its serial and what it exposes, and
+ * asks `core` to complete the row and write the entities. `hub` writes neither table itself.
+ * `core` writes, and updates the in-memory directory it routes commands against; two writers
+ * would mean a directory that is stale for as long as it takes `core` to notice, and a command
+ * routed at an entity `core` has not heard of.
  *
  * Defined in ARCHITECTURE.md 4.1.
  */
@@ -80,38 +82,32 @@ export const entityRegistrationSchema = z.object({
 /** One entity a device exposes. */
 export type EntityRegistration = z.output<typeof entityRegistrationSchema>;
 
-/** Asks `core` to register a device an integration has adopted. */
-export const registerDeviceRequestSchema = z.object({
-  /** The instance that owns it, and that `core` will route its commands to. */
+/**
+ * Asks `core` to complete the device an instance has identified.
+ *
+ * Strict, so that what the hardware says about itself cannot reach the fields the owner set:
+ * the row already has the name and the icon the owner chose, and a request carrying a `name`
+ * is refused rather than quietly dropped.
+ */
+export const registerDeviceRequestSchema = z.strictObject({
+  /** The instance that owns it - which is the device's own id - and that `core` routes to. */
   integrationId: integrationIdSchema,
 
-  /** The integration's own identifier, unique within the instance. */
+  /** The hardware's own identifier: the serial on the broker, the id the relay answers with. */
   externalId: z.string().min(1).max(256),
 
-  name: z.string().min(1).max(128),
   manufacturer: z.string().max(128).optional(),
   model: z.string().max(128).optional(),
   swVersion: z.string().max(64).optional(),
   hwVersion: z.string().max(64).optional(),
 
   /**
-   * The device this one is reached through, named the way the integration names it.
-   *
-   * An external id rather than a row uuid, because an integration knows its own identifiers and
-   * not the registry's. `core` resolves it within the same instance and leaves it null when it
-   * cannot, since a proxy that has not registered yet must not block the device behind it.
-   */
-  viaExternalId: z.string().min(1).max(256).optional(),
-
-  areaId: z.uuid().optional(),
-
-  /**
    * What the owner needs to find the device again after a restart.
    *
    * Kept in `registry.devices.config` and handed back to nobody but the owner: for `hub` it is
    * the claim - how the transport addresses the device and what it was recognised from - which
-   * is what lets an instance watch its devices again when it starts, rather than waiting to be
-   * told about them a second time. Opaque to `core`.
+   * is what lets an instance bind its device again when it starts, rather than listening for
+   * it a second time. Opaque to `core`.
    */
   config: jsonObjectSchema.default({}),
 
@@ -119,7 +115,7 @@ export const registerDeviceRequestSchema = z.object({
   entities: z.array(entityRegistrationSchema).min(1),
 });
 
-/** Asks `core` to register a device an integration has adopted. */
+/** Asks `core` to complete the device an instance has identified. */
 export type RegisterDeviceRequest = z.output<typeof registerDeviceRequestSchema>;
 
 /** What `core` wrote. */
@@ -146,7 +142,8 @@ export type DeviceEvent = (typeof DEVICE_EVENTS)[number];
  * unavailability events say the same thing twenty times without saying why.
  */
 export const deviceEventSchema = z.object({
-  deviceId: z.uuid(),
+  /** The device's public id - the instance id it is listed under, not the registry row. */
+  deviceId: integrationIdSchema,
 
   /** The integration instance or package that owns it. */
   source: sourceRefSchema,

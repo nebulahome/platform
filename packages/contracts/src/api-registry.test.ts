@@ -1,23 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  deviceCreateSchema,
+  deviceProbeRequestSchema,
+  deviceUpdateSchema,
   deviceViewSchema,
-  integrationCreateSchema,
-  integrationProbeRequestSchema,
-  integrationUpdateSchema,
   integrationVendorConfigUpdateSchema,
   integrationVendorViewSchema,
-  integrationViewSchema,
 } from './api-registry.js';
 
 /**
- * A view row as the API serves it, for tests that vary one field.
+ * A device as the API serves it, for tests that vary one field.
  *
  * @returns The row.
  */
-function view(): Record<string, unknown> {
+function device(): Record<string, unknown> {
   return {
-    id: 'bambu-lab-1',
+    id: 'bambu-lab-x1c',
+    name: 'X1C',
+    icon: 'printer',
     kind: 'bambu-lab/printer',
     kindVersion: '1.0.0',
     vendorId: 'bambu-lab',
@@ -31,51 +32,164 @@ function view(): Record<string, unknown> {
     state: 'running',
     lastError: null,
     lastStartedAt: null,
-    deviceCount: 1,
-    entityCount: 12,
-  };
-}
-
-/**
- * A device as the API serves it, for tests that vary its owner.
- *
- * @param owner - Who it belongs to.
- * @returns The row.
- */
-function device(owner: unknown): Record<string, unknown> {
-  return {
-    id: '00000000-0000-4000-8000-000000000010',
-    owner,
+    lastUpdatedAt: '2026-09-17T08:00:00.000Z',
     externalId: '01P00A000000000',
-    name: 'Bambu Lab P1S',
     manufacturer: 'Bambu Lab',
-    model: 'P1S',
     swVersion: null,
     hwVersion: null,
     areaKey: null,
     areaName: null,
-    viaDeviceId: null,
-    isEnabled: true,
-    lastSeenAt: null,
-    entityIds: ['light.p1s_chamber_light'],
+    entityIds: ['light.bambu_lab_x1c_chamber_light'],
   };
 }
 
 describe('deviceViewSchema', () => {
-  it('names the integration instance that owns a device the hub adopted', () => {
-    const parsed = deviceViewSchema.parse(device({ kind: 'integration', id: 'bambu-lab-1' }));
+  it('serves the connection half and the identity half as one device', () => {
+    // The vendor page wants the state and the pick; the devices page wants the name, the icon
+    // and the entities. One row answers both, under the one id an entity carries as its source.
+    const parsed = deviceViewSchema.parse(device());
 
-    expect(parsed.owner).toEqual({ kind: 'integration', id: 'bambu-lab-1' });
+    expect([parsed.id, parsed.name, parsed.icon, parsed.state, parsed.vendorId]).toEqual([
+      'bambu-lab-x1c',
+      'X1C',
+      'printer',
+      'running',
+      'bambu-lab',
+    ]);
   });
 
-  it('names the package that owns a device an adapter registered', () => {
-    const parsed = deviceViewSchema.parse(device({ kind: 'package', id: 'pkg-mqtt' }));
+  it('allows a device not yet identified: no serial, nothing heard, no entities', () => {
+    const parsed = deviceViewSchema.parse({
+      ...device(),
+      state: 'identifying',
+      externalId: null,
+      lastUpdatedAt: null,
+      entityIds: [],
+    });
 
-    expect(parsed.owner).toEqual({ kind: 'package', id: 'pkg-mqtt' });
+    expect(parsed.externalId).toBeNull();
   });
 
-  it('refuses a device nobody owns', () => {
-    expect(deviceViewSchema.safeParse(device(null)).success).toBe(false);
+  it('allows a device with no icon', () => {
+    expect(deviceViewSchema.parse({ ...device(), icon: null }).icon).toBeNull();
+  });
+
+  it('carries a sealed secret as a marker, so the form knows one is kept', () => {
+    expect(deviceViewSchema.parse(device()).transportConfig['password']).toEqual({
+      $sealed: true,
+    });
+  });
+});
+
+describe('deviceCreateSchema', () => {
+  it('needs an id, a kind, a model, a name and a transport configuration, and switches the device on', () => {
+    const parsed = deviceCreateSchema.parse({
+      id: 'bambu-lab-x1c',
+      kind: 'bambu-lab/printer',
+      model: 'X1C',
+      name: 'X1C',
+      transportConfig: { url: 'mqtts://192.168.1.60:8883', password: '12345678' },
+    });
+
+    expect([parsed.isEnabled, parsed.options, parsed.icon]).toEqual([true, {}, undefined]);
+  });
+
+  it('holds the id to the instance id pattern', () => {
+    expect(
+      deviceCreateSchema.safeParse({
+        id: 'Bambu Lab',
+        kind: 'bambu-lab/printer',
+        model: 'X1C',
+        name: 'X1C',
+        transportConfig: {},
+      }).success,
+    ).toBe(false);
+  });
+
+  it('holds the kind to vendor/driver', () => {
+    expect(
+      deviceCreateSchema.safeParse({
+        id: 'bambu-lab-x1c',
+        kind: 'bambu-lab',
+        model: 'X1C',
+        name: 'X1C',
+        transportConfig: {},
+      }).success,
+    ).toBe(false);
+  });
+
+  it('requires a name, trimmed', () => {
+    // The name is what both pages show for the row. A blank one would be a device listed as
+    // nothing, and a padded one would sort apart from its neighbours.
+    expect(
+      deviceCreateSchema.safeParse({
+        id: 'bambu-lab-x1c',
+        kind: 'bambu-lab/printer',
+        model: 'X1C',
+        name: '   ',
+        transportConfig: {},
+      }).success,
+    ).toBe(false);
+    expect(
+      deviceCreateSchema.parse({
+        id: 'bambu-lab-x1c',
+        kind: 'bambu-lab/printer',
+        model: 'X1C',
+        name: '  Studio printer ',
+        transportConfig: {},
+      }).name,
+    ).toBe('Studio printer');
+  });
+
+  it('holds the icon to the catalogue id shape', () => {
+    expect(
+      deviceCreateSchema.safeParse({
+        id: 'bambu-lab-x1c',
+        kind: 'bambu-lab/printer',
+        model: 'X1C',
+        name: 'X1C',
+        icon: 'Printer Icon',
+        transportConfig: {},
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('deviceUpdateSchema', () => {
+  it('refuses an empty change', () => {
+    expect(deviceUpdateSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('takes a rename on its own', () => {
+    expect(deviceUpdateSchema.parse({ name: 'Studio printer' })).toEqual({
+      name: 'Studio printer',
+    });
+  });
+
+  it('lets the owner clear the icon', () => {
+    expect(deviceUpdateSchema.parse({ icon: null }).icon).toBeNull();
+  });
+
+  it('lets the owner correct the model they picked', () => {
+    expect(deviceUpdateSchema.parse({ model: 'P1S' }).model).toBe('P1S');
+  });
+});
+
+describe('deviceProbeRequestSchema', () => {
+  it('names the device being edited, so its kept secrets can stand in for the blanks', () => {
+    const parsed = deviceProbeRequestSchema.parse({
+      kind: 'bambu-lab/printer',
+      transportConfig: { url: 'mqtts://192.168.1.60:8883' },
+      deviceId: 'bambu-lab-x1c',
+    });
+
+    expect(parsed.deviceId).toBe('bambu-lab-x1c');
+  });
+
+  it('works for a device that does not exist yet', () => {
+    expect(
+      deviceProbeRequestSchema.parse({ kind: 'bambu-lab/printer', transportConfig: {} }).deviceId,
+    ).toBeUndefined();
   });
 });
 
@@ -98,88 +212,10 @@ function vendorView(): Record<string, unknown> {
     transportConfig: {},
     options: {},
     configuredAt: null,
-    instanceCount: 1,
     deviceCount: 1,
     entityCount: 12,
   };
 }
-
-describe('integrationViewSchema', () => {
-  it('serves the options alongside the transport configuration', () => {
-    expect(integrationViewSchema.parse(view()).options).toEqual({});
-  });
-
-  it('says which vendor and driver the kind names, and the model the owner picked', () => {
-    // The vendor page groups rows by vendor and shows the pick, and neither should have to
-    // split the kind or look a driver up in the catalogue to do it.
-    const parsed = integrationViewSchema.parse(view());
-
-    expect([parsed.vendorId, parsed.driverId, parsed.driverName, parsed.model]).toEqual([
-      'bambu-lab',
-      'printer',
-      'Printer',
-      'X1C',
-    ]);
-  });
-
-  it('allows a row without a model, from before there was one to pick', () => {
-    expect(integrationViewSchema.parse({ ...view(), model: null }).model).toBeNull();
-  });
-
-  it('carries a sealed secret as a marker, so the form knows one is kept', () => {
-    const parsed = integrationViewSchema.parse(view());
-
-    expect(parsed.transportConfig['password']).toEqual({ $sealed: true });
-  });
-});
-
-describe('integrationCreateSchema', () => {
-  it('needs an id, a kind, a model and a transport configuration, and switches the instance on', () => {
-    const parsed = integrationCreateSchema.parse({
-      id: 'bambu-lab-1',
-      kind: 'bambu-lab/printer',
-      model: 'X1C',
-      transportConfig: { url: 'mqtts://192.168.1.60:8883', password: '12345678' },
-    });
-
-    expect(parsed.isEnabled).toBe(true);
-    expect(parsed.options).toEqual({});
-  });
-
-  it('holds the id to the instance id pattern', () => {
-    expect(
-      integrationCreateSchema.safeParse({
-        id: 'Bambu Lab',
-        kind: 'bambu-lab/printer',
-        model: 'X1C',
-        transportConfig: {},
-      }).success,
-    ).toBe(false);
-  });
-
-  it('holds the kind to vendor/driver', () => {
-    expect(
-      integrationCreateSchema.safeParse({
-        id: 'bambu-lab-1',
-        kind: 'bambu-lab',
-        model: 'X1C',
-        transportConfig: {},
-      }).success,
-    ).toBe(false);
-  });
-
-  it('requires the model the owner picked', () => {
-    // The pick is what the vendor page shows for the row. A create without one would be a
-    // row that says "Printer" among rows that say which printer.
-    expect(
-      integrationCreateSchema.safeParse({
-        id: 'bambu-lab-1',
-        kind: 'bambu-lab/printer',
-        transportConfig: {},
-      }).success,
-    ).toBe(false);
-  });
-});
 
 describe('integrationVendorViewSchema', () => {
   it('says whether the vendor still needs setting up, and what it holds once it is', () => {
@@ -195,10 +231,11 @@ describe('integrationVendorViewSchema', () => {
     ]);
   });
 
-  it('counts what came in through the vendor', () => {
+  it('counts the devices under the vendor and the entities they expose', () => {
     const parsed = integrationVendorViewSchema.parse(vendorView());
 
-    expect([parsed.instanceCount, parsed.deviceCount, parsed.entityCount]).toEqual([1, 1, 12]);
+    expect([parsed.deviceCount, parsed.entityCount]).toEqual([1, 12]);
+    expect('instanceCount' in parsed).toBe(false);
   });
 });
 
@@ -211,34 +248,5 @@ describe('integrationVendorConfigUpdateSchema', () => {
     expect(
       integrationVendorConfigUpdateSchema.parse({ transportConfig: { apiKey: 'k' } }).options,
     ).toBeUndefined();
-  });
-});
-
-describe('integrationProbeRequestSchema', () => {
-  it('names the instance being edited, so its kept secrets can stand in for the blanks', () => {
-    const parsed = integrationProbeRequestSchema.parse({
-      kind: 'bambu-lab/printer',
-      transportConfig: { url: 'mqtts://192.168.1.60:8883' },
-      integrationId: 'bambu-lab-1',
-    });
-
-    expect(parsed.integrationId).toBe('bambu-lab-1');
-  });
-
-  it('works for an instance that does not exist yet', () => {
-    expect(
-      integrationProbeRequestSchema.parse({ kind: 'bambu-lab/printer', transportConfig: {} })
-        .integrationId,
-    ).toBeUndefined();
-  });
-});
-
-describe('integrationUpdateSchema', () => {
-  it('still refuses an empty change', () => {
-    expect(integrationUpdateSchema.safeParse({}).success).toBe(false);
-  });
-
-  it('lets the owner correct the model they picked', () => {
-    expect(integrationUpdateSchema.parse({ model: 'P1S' }).model).toBe('P1S');
   });
 });

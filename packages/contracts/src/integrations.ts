@@ -1,23 +1,21 @@
 /**
- * Integration instances: what an owner configured, what a scan found, and what adopting it does.
+ * Integration instances: the connection half of a device, and what `hub` reports about it.
  *
  * An **integration** is a driver bundle - declarative or code - bound to a transport. An
- * **instance** is one configured copy of it: this MQTT broker, that ESPHome device. The instance
- * id is what an entity carries as its `source`, which is why it shares a namespace with a
+ * **instance** is one configured copy of it, and one instance is one device: adding a device
+ * writes the instance that reaches it and the registry row that describes it, under one id.
+ * That id is what an entity carries as its `source`, which is why it shares a namespace with a
  * package id rather than having one of its own.
  *
- * Discovery deliberately persists nothing. A candidate is something a scan saw a moment ago and
- * is valid only until the scan that produced it is replaced; the registry hears only about the
- * ones an owner adopts. Storing candidates would mean a table whose rows go stale the instant a
- * device is unplugged, and a second definition of "device" competing with `registry.devices`.
+ * Nothing here finds devices for an owner to pick from. An instance identifies its own device
+ * once it is running - the serial on the broker, the id the relay answers with - and asks
+ * `core` to complete the registry row; the states below say how far that has got.
  *
  * Defined in ARCHITECTURE.md 8.
  */
 import { z } from 'zod';
 
-import { ulidSchema } from './bus-envelope.js';
-import { capabilityNameSchema } from './capabilities.js';
-import { entityIdSchema } from './entity-id.js';
+import { iconIdSchema } from './icons.js';
 import { integrationSetupSchema } from './integration-setup.js';
 import { jsonObjectSchema } from './json.js';
 import { PACKAGE_ID_PATTERN } from './package-manifest.js';
@@ -59,8 +57,21 @@ const DRIVER_ID_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/;
 /** What a logo may be served as: an image the interface can put straight into an `img`. */
 const LOGO_DATA_URL_PATTERN = /^data:image\/(?:svg\+xml|png);base64,[A-Za-z0-9+/]+=*$/;
 
-/** The lifecycle states `hub` records for a configured instance. */
-export const INTEGRATION_STATES = ['stopped', 'starting', 'running', 'failed', 'disabled'] as const;
+/**
+ * The lifecycle states `hub` records for a configured instance.
+ *
+ * `identifying` sits between `starting` and `running`: the transport is open, and the instance
+ * is waiting to hear from the one device it was added for. A device that has been identified
+ * before starts straight into `running`, bound from what the registry kept about it.
+ */
+export const INTEGRATION_STATES = [
+  'stopped',
+  'starting',
+  'identifying',
+  'running',
+  'failed',
+  'disabled',
+] as const;
 
 /** The lifecycle state of a configured instance. */
 export type IntegrationState = (typeof INTEGRATION_STATES)[number];
@@ -70,18 +81,6 @@ export const integrationStateSchema = z.enum(INTEGRATION_STATES);
 
 /** The bus service name `hub` answers management calls on. */
 export const HUB_SERVICE = 'hub';
-
-/** Starts a discovery pass. */
-export const HUB_DISCOVER_METHOD = 'discover';
-
-/** Reads what the current pass has found so far. */
-export const HUB_CANDIDATES_METHOD = 'candidates';
-
-/** Turns a candidate into a registered device. */
-export const HUB_ADOPT_METHOD = 'adopt';
-
-/** Releases an adopted device. */
-export const HUB_FORGET_METHOD = 'forget';
 
 /** Lists the vendors `hub` has loaded, with their drivers and what each asks at setup. */
 export const HUB_CATALOGUE_METHOD = 'catalogue';
@@ -94,135 +93,6 @@ export const HUB_RELOAD_METHOD = 'reload';
 
 /** How long a probe may take when the caller does not say. */
 const DEFAULT_PROBE_TIMEOUT_MS = 8000;
-
-/**
- * One entity a candidate would produce if it were adopted.
- *
- * Shown before the owner commits, because "adopt this and find out" is a poor offer for
- * something that writes rows the automations then reference.
- */
-export const entityPreviewSchema = z.object({
-  entityId: entityIdSchema,
-  name: z.string().min(1).max(128),
-  capabilities: z.array(capabilityNameSchema).min(1),
-});
-
-/** One entity a candidate would produce if it were adopted. */
-export type EntityPreview = z.output<typeof entityPreviewSchema>;
-
-/** A device a scan found and an integration claimed, not yet adopted. */
-export const discoveredCandidateSchema = z.object({
-  /**
-   * Identifies the candidate within the scan that produced it.
-   *
-   * Not durable: a new scan issues new ones, and adopting against a stale id fails rather than
-   * adopting whatever now sits at that position.
-   */
-  candidateId: z.string().min(1).max(128),
-
-  /** The instance that claimed it, and that will own the device. */
-  integrationId: integrationIdSchema,
-
-  /** The owner's own identifier for the device, unique within the instance. */
-  externalId: z.string().min(1).max(256),
-
-  name: z.string().min(1).max(128),
-  manufacturer: z.string().max(128).optional(),
-  model: z.string().max(128).optional(),
-
-  /** At least one: a device that would expose nothing is not worth a registry row. */
-  entities: z.array(entityPreviewSchema).min(1),
-
-  /**
-   * What the transport actually saw.
-   *
-   * Kept so that a claim which looks wrong can be argued with. Without it the only answer to
-   * "why does it think my dimmer is a switch" is to run the scan again and read the logs.
-   */
-  evidence: jsonObjectSchema.default({}),
-});
-
-/** A device a scan found and an integration claimed, not yet adopted. */
-export type DiscoveredCandidate = z.output<typeof discoveredCandidateSchema>;
-
-/** Asks `hub` to start a discovery pass. */
-export const discoverRequestSchema = z.object({
-  /** One instance, or every enabled one when omitted. */
-  integrationId: integrationIdSchema.optional(),
-
-  /**
-   * How long the pass runs.
-   *
-   * Defaulted rather than optional: a scan holds a subscription or a radio open, and a caller
-   * that forgot the field would otherwise leave one running until the service restarts.
-   */
-  timeoutMs: z.int().min(1000).max(300_000).default(30_000),
-});
-
-/** Asks `hub` to start a discovery pass. */
-export type DiscoverRequest = z.output<typeof discoverRequestSchema>;
-
-/** What `hub` answers when a pass starts. */
-export const discoverReplySchema = z.object({
-  scanId: ulidSchema,
-
-  /** The instances actually scanning, which is not every instance the owner configured. */
-  integrationIds: z.array(integrationIdSchema),
-});
-
-/** What `hub` answers when a pass starts. */
-export type DiscoverReply = z.output<typeof discoverReplySchema>;
-
-/** Asks `hub` what the current pass has found. */
-export const candidatesRequestSchema = z.object({});
-
-/** Asks `hub` what the current pass has found. */
-export type CandidatesRequest = z.output<typeof candidatesRequestSchema>;
-
-/** What `hub` has found so far. */
-export const candidatesReplySchema = z.object({
-  candidates: z.array(discoveredCandidateSchema),
-
-  /** False once the pass has ended, so the interface can stop saying "searching". */
-  isScanning: z.boolean(),
-});
-
-/** What `hub` has found so far. */
-export type CandidatesReply = z.output<typeof candidatesReplySchema>;
-
-/** Asks `hub` to adopt a candidate. */
-export const adoptRequestSchema = z.object({
-  candidateId: z.string().min(1).max(128),
-
-  /** Replaces the discovered name. Omitted leaves whatever the integration reported. */
-  name: z.string().min(1).max(128).optional(),
-
-  areaId: z.uuid().optional(),
-});
-
-/** Asks `hub` to adopt a candidate. */
-export type AdoptRequest = z.output<typeof adoptRequestSchema>;
-
-/** What adoption produced. */
-export const adoptReplySchema = z.object({
-  deviceId: z.uuid(),
-  entityIds: z.array(entityIdSchema).min(1),
-});
-
-/** What adoption produced. */
-export type AdoptReply = z.output<typeof adoptReplySchema>;
-
-/** Asks `hub` to release an adopted device. */
-export const forgetRequestSchema = z.object({ deviceId: z.uuid() });
-
-/** Asks `hub` to release an adopted device. */
-export type ForgetRequest = z.output<typeof forgetRequestSchema>;
-
-/** What releasing a device removed. */
-export const forgetReplySchema = z.object({ entityIds: z.array(entityIdSchema) });
-
-/** What releasing a device removed. */
-export type ForgetReply = z.output<typeof forgetReplySchema>;
 
 /** Asks `hub` what it has loaded. */
 export const catalogueRequestSchema = z.object({});
@@ -255,6 +125,12 @@ export const integrationKindSchema = z.object({
    */
   models: z.array(z.string().min(1).max(64)).default([]),
 
+  /**
+   * The icon a device of this driver starts with, from the catalogue, when the bundle names
+   * one. The owner picks another per device; this is only what the form starts from.
+   */
+  defaultIcon: iconIdSchema.optional(),
+
   /** What setting up an instance asks. */
   setup: integrationSetupSchema,
 });
@@ -284,6 +160,12 @@ export const integrationVendorSchema = z.object({
 
   /** The logo as an image data URL, when the bundle ships one. */
   logo: z.string().regex(LOGO_DATA_URL_PATTERN).max(100_000).optional(),
+
+  /**
+   * Extra room the interface leaves around the logo, in pixels, on top of the small margin
+   * every logo gets. For a mark drawn to the edge of its file.
+   */
+  logoPadding: z.int().min(0).max(16).default(0),
 
   /** Whether its devices stop working when the internet does. */
   internetRequired: z.boolean(),
