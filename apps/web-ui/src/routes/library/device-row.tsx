@@ -15,10 +15,17 @@ import { relativeTime } from '@/lib/format-time';
 import { type DeviceStanding, type Reading } from '@/library/entity-reading';
 import { DeviceIcon } from '@/routes/library/device-icon';
 
-/** The column widths, shared by the header and every row so they line up. */
+/**
+ * The column widths, shared by the header and every row so they line up.
+ *
+ * The name, the vendor and the area share the room that is left after the fixed columns, the
+ * name taking the most: a fixed width for the two would leave the name a few letters on a
+ * narrow window, and the name is what a row is recognised by.
+ */
 export const DEVICE_COLUMNS =
   'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 ' +
-  'md:grid-cols-[minmax(0,1fr)_150px_84px_116px_96px_30px] lg:grid-cols-[minmax(0,1fr)_150px_140px_84px_116px_96px_30px]';
+  'md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_64px_104px_88px_30px] ' +
+  'lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_64px_104px_88px_30px]';
 
 /** One entity of the device, with its reading resolved. */
 export type EntityLine = {

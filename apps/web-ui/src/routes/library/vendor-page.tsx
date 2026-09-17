@@ -402,7 +402,13 @@ export function VendorPage() {
       <DeviceDialog
         // Keyed on the target, so the dialog is a fresh one each time it opens and its fields
         // start from what the row holds rather than from what the last one held.
-        key={open === null ? 'shut' : open.mode === 'create' ? 'create' : open.device.id}
+        key={
+          open === null
+            ? 'device-shut'
+            : open.mode === 'create'
+              ? 'device-create'
+              : `device-${open.device.id}`
+        }
         target={open}
         onClose={() => {
           setOpen(null);
@@ -413,7 +419,7 @@ export function VendorPage() {
       />
 
       <VendorSetupDialog
-        key={isSettingUp ? 'open' : 'shut'}
+        key={isSettingUp ? 'setup-open' : 'setup-shut'}
         vendor={isSettingUp && found !== undefined ? found : null}
         onClose={() => {
           setSettingUp(false);
