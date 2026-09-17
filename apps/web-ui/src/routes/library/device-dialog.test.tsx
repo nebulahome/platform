@@ -1,29 +1,34 @@
 /**
- * The dialog around the form: which model, what Test sends, what Save sends, and what comes back.
+ * The dialog around the form: which model, what to call it, its icon, what Test sends, what
+ * Save sends, and what comes back.
  *
  * The API module is stood in for, because the interest is in what the dialog asks of it - the
- * values as typed, the kept secret left out, the driver's kind and the model picked - and in how
- * it shows the answer.
+ * values as typed, the kept secret left out, the driver's kind, the model, the name and the icon
+ * - and in how it shows the answer.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-import type {
-  IntegrationSetup,
-  IntegrationVendorView,
-  IntegrationView,
+import {
+  entityIdSchema,
+  type DeviceView,
+  type IconView,
+  type IntegrationSetup,
+  type IntegrationVendorView,
 } from '@nebula-home/contracts';
 
 import { ApiError } from '@/lib/api-error';
-import { createIntegration, probeIntegration, updateIntegration } from '@/library/api';
+import { createDevice, fetchIcons, probeDevice, updateDevice } from '@/library/api';
 
-import { IntegrationDialog } from './integration-dialog';
+import { DeviceDialog } from './device-dialog';
 
 vi.mock('@/library/api', () => ({
-  probeIntegration: vi.fn(),
-  createIntegration: vi.fn(),
-  updateIntegration: vi.fn(),
+  probeDevice: vi.fn(),
+  createDevice: vi.fn(),
+  updateDevice: vi.fn(),
+  fetchIcons: vi.fn(),
+  LIBRARY_QUERY_KEYS: { icons: ['library', 'icons'] },
 }));
 
 /** What the printer driver asks. */
@@ -50,6 +55,7 @@ const BAMBU: IntegrationVendorView = {
   id: 'bambu-lab',
   version: '1.0.0',
   name: 'Bambu Lab',
+  logoPadding: 0,
   internetRequired: false,
   transports: ['mqtt'],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
@@ -61,6 +67,7 @@ const BAMBU: IntegrationVendorView = {
       name: 'Printer',
       transport: 'mqtt',
       models: ['X1C', 'P1S'],
+      defaultIcon: 'printer',
       setup: PRINTER_SETUP,
     },
   ],
@@ -69,7 +76,6 @@ const BAMBU: IntegrationVendorView = {
   transportConfig: {},
   options: {},
   configuredAt: null,
-  instanceCount: 0,
   deviceCount: 0,
   entityCount: 0,
 };
@@ -88,6 +94,7 @@ const SHELLY: IntegrationVendorView = {
       name: '1PM Mini Gen3',
       transport: 'http',
       models: [],
+      defaultIcon: 'relay',
       setup: {
         transport: {
           constants: {},
@@ -101,9 +108,11 @@ const SHELLY: IntegrationVendorView = {
   ],
 };
 
-/** An instance of the printer, as the list serves it. */
-const EXISTING: IntegrationView = {
+/** A device of the printer driver, as the list serves it. */
+const EXISTING: DeviceView = {
   id: 'bambu-lab-x1c',
+  name: 'Studio printer',
+  icon: 'printer',
   kind: 'bambu-lab/printer',
   kindVersion: '1.0.0',
   vendorId: 'bambu-lab',
@@ -121,9 +130,33 @@ const EXISTING: IntegrationView = {
   state: 'running',
   lastError: null,
   lastStartedAt: null,
-  deviceCount: 1,
-  entityCount: 12,
+  lastUpdatedAt: null,
+  externalId: '01P00A000000042',
+  manufacturer: 'Bambu Lab',
+  swVersion: null,
+  hwVersion: null,
+  areaKey: null,
+  areaName: null,
+  entityIds: [entityIdSchema.parse('sensor.bambu_lab_x1c_nozzle_temperature')],
 };
+
+/**
+ * An icon as the catalogue serves it.
+ *
+ * @param id - Its id.
+ * @returns The icon.
+ */
+function iconView(id: string): IconView {
+  return {
+    id,
+    name: id.charAt(0).toUpperCase() + id.slice(1),
+    keywords: [],
+    origin: 'builtin',
+    isOverridden: false,
+    node: [['circle', { cx: '12', cy: '12', r: '4' }]],
+    frame: { x: 0, y: 0, size: 24 },
+  };
+}
 
 beforeAll(() => {
   // jsdom implements `<dialog>` but not the modal behaviour behind it.
@@ -138,6 +171,16 @@ beforeAll(() => {
       this.open = false;
     };
   }
+
+  vi.mocked(fetchIcons).mockImplementation((request) =>
+    Promise.resolve(
+      request.ids !== undefined
+        ? request.ids.map(iconView)
+        : ['printer', 'lightbulb', 'relay']
+            .filter((id) => request.q === undefined || id.includes(request.q))
+            .map(iconView),
+    ),
+  );
 });
 
 /**
@@ -146,13 +189,13 @@ beforeAll(() => {
  * @param target - What it is for.
  * @returns The callbacks it was given.
  */
-function renderDialog(target: Parameters<typeof IntegrationDialog>[0]['target']) {
+function renderDialog(target: Parameters<typeof DeviceDialog>[0]['target']) {
   const onSaved = vi.fn();
   const onClose = vi.fn();
 
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <IntegrationDialog target={target} onClose={onClose} onSaved={onSaved} />
+      <DeviceDialog target={target} onClose={onClose} onSaved={onSaved} />
     </QueryClientProvider>,
   );
 
@@ -170,30 +213,47 @@ function fillPrinter(url = 'mqtts://192.168.1.60:8883'): void {
 }
 
 describe('adding a device', () => {
-  it('offers every model the vendor has, and suggests an id from the one picked', () => {
+  it('offers every model the vendor has, names the device after the one picked, and suggests an id from the name', () => {
     renderDialog({ mode: 'create', vendor: BAMBU, existingIds: [] });
 
-    const model = screen.getByLabelText('Model');
-
-    expect(model.textContent).toContain('X1C');
+    expect(screen.getByLabelText('Model').textContent).toContain('X1C');
+    expect(screen.getByLabelText<HTMLInputElement>('Name').value).toBe('X1C');
     expect(screen.getByLabelText<HTMLInputElement>('Id').value).toBe('bambu-lab-x1c');
   });
 
+  it('follows the name into the id until the id is typed by hand', () => {
+    // The id is what every entity carries as its source, so it should read as the device the
+    // owner named - and stop moving once the owner has decided what it is.
+    renderDialog({ mode: 'create', vendor: BAMBU, existingIds: [] });
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Studio printer' } });
+
+    expect(screen.getByLabelText<HTMLInputElement>('Id').value).toBe('bambu-lab-studio-printer');
+
+    fireEvent.change(screen.getByLabelText('Id'), { target: { value: 'studio' } });
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Office printer' } });
+
+    expect(screen.getByLabelText<HTMLInputElement>('Id').value).toBe('studio');
+  });
+
   it('asks for no model when the vendor offers only one, and takes it silently', async () => {
-    vi.mocked(createIntegration).mockResolvedValue(EXISTING);
+    vi.mocked(createDevice).mockResolvedValue(EXISTING);
     renderDialog({ mode: 'create', vendor: SHELLY, existingIds: [] });
 
     expect(screen.queryByLabelText('Model')).toBeNull();
+    expect(screen.getByLabelText<HTMLInputElement>('Name').value).toBe('1PM Mini Gen3');
     expect(screen.getByLabelText<HTMLInputElement>('Id').value).toBe('shelly-1pm-mini-gen3');
 
     fireEvent.change(screen.getByLabelText('Address'), { target: { value: '192.168.1.40' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
-      expect(createIntegration).toHaveBeenCalledWith({
+      expect(createDevice).toHaveBeenCalledWith({
         id: 'shelly-1pm-mini-gen3',
         kind: 'shelly/1pm-mini-g3',
         model: '1PM Mini Gen3',
+        name: '1PM Mini Gen3',
+        icon: 'relay',
         isEnabled: true,
         transportConfig: { host: '192.168.1.40' },
         options: {},
@@ -202,15 +262,43 @@ describe('adding a device', () => {
   });
 
   it('suggests an id nobody has yet', () => {
-    // The first X1C is `bambu-lab-x1c`; the second is not, because the id is what every entity
-    // of the instance carries as its source and two of them cannot share it.
     renderDialog({ mode: 'create', vendor: BAMBU, existingIds: ['bambu-lab-x1c'] });
 
     expect(screen.getByLabelText<HTMLInputElement>('Id').value).toBe('bambu-lab-x1c-2');
   });
 
+  it("starts from the driver's icon, and lets another be picked from the catalogue", async () => {
+    vi.mocked(createDevice).mockResolvedValue(EXISTING);
+    renderDialog({ mode: 'create', vendor: BAMBU, existingIds: [] });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /change icon/iu }).textContent).toContain(
+        'Printer',
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /change icon/iu }));
+    fireEvent.change(await screen.findByLabelText('Search icons'), {
+      target: { value: 'light' },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Lightbulb' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /change icon/iu }).textContent).toContain(
+        'Lightbulb',
+      );
+    });
+
+    fillPrinter();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(createDevice).toHaveBeenCalledWith(expect.objectContaining({ icon: 'lightbulb' }));
+    });
+  });
+
   it('tries what was typed, with the kind, and shows the verdict', async () => {
-    vi.mocked(probeIntegration).mockResolvedValue({
+    vi.mocked(probeDevice).mockResolvedValue({
       isReachable: true,
       detail: 'Connected to mqtts://192.168.1.60:8883 as bblp',
     });
@@ -222,14 +310,14 @@ describe('adding a device', () => {
     await waitFor(() => {
       expect(screen.getByRole('status').textContent).toContain('Connected to');
     });
-    expect(probeIntegration).toHaveBeenCalledWith({
+    expect(probeDevice).toHaveBeenCalledWith({
       kind: 'bambu-lab/printer',
       transportConfig: { url: 'mqtts://192.168.1.60:8883', password: '12345678' },
     });
   });
 
   it('underlines the field that is wrong instead of asking the server', () => {
-    vi.mocked(probeIntegration).mockClear();
+    vi.mocked(probeDevice).mockClear();
     renderDialog({ mode: 'create', vendor: BAMBU, existingIds: [] });
 
     fireEvent.change(screen.getByLabelText('Printer address'), {
@@ -239,23 +327,25 @@ describe('adding a device', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Test' }));
 
     expect(screen.getByLabelText('Access code').getAttribute('aria-invalid')).toBe('true');
-    expect(probeIntegration).not.toHaveBeenCalled();
+    expect(probeDevice).not.toHaveBeenCalled();
   });
 
-  it('saves the id, the kind, the model and the values, and hands back what came back', async () => {
-    vi.mocked(createIntegration).mockResolvedValue({ ...EXISTING, state: 'starting' });
+  it('saves the id, the kind, the model, the name, the icon and the values, and hands back what came back', async () => {
+    vi.mocked(createDevice).mockResolvedValue({ ...EXISTING, state: 'identifying' });
     const { onSaved } = renderDialog({ mode: 'create', vendor: BAMBU, existingIds: [] });
 
     fillPrinter();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
-      expect(onSaved).toHaveBeenCalledWith({ ...EXISTING, state: 'starting' });
+      expect(onSaved).toHaveBeenCalledWith({ ...EXISTING, state: 'identifying' });
     });
-    expect(createIntegration).toHaveBeenCalledWith({
+    expect(createDevice).toHaveBeenCalledWith({
       id: 'bambu-lab-x1c',
       kind: 'bambu-lab/printer',
       model: 'X1C',
+      name: 'X1C',
+      icon: 'printer',
       isEnabled: true,
       transportConfig: { url: 'mqtts://192.168.1.60:8883', password: '12345678' },
       options: {},
@@ -263,7 +353,7 @@ describe('adding a device', () => {
   });
 
   it('says so when the vendor still needs setting up', async () => {
-    vi.mocked(createIntegration).mockRejectedValue(
+    vi.mocked(createDevice).mockRejectedValue(
       new ApiError({
         status: 409,
         code: 'CONFLICT',
@@ -283,11 +373,14 @@ describe('adding a device', () => {
 });
 
 describe('changing a device', () => {
-  it('leaves a blank secret out, so the one kept stays, and names the instance to the probe', async () => {
-    vi.mocked(probeIntegration).mockResolvedValue({ isReachable: true, detail: 'Connected' });
-    vi.mocked(updateIntegration).mockResolvedValue(EXISTING);
-    const { onSaved } = renderDialog({ mode: 'edit', vendor: BAMBU, integration: EXISTING });
+  it('is titled by the name, leaves a blank secret out so the one kept stays, and names the device to the probe', async () => {
+    vi.mocked(probeDevice).mockResolvedValue({ isReachable: true, detail: 'Connected' });
+    vi.mocked(updateDevice).mockResolvedValue(EXISTING);
+    const { onSaved } = renderDialog({ mode: 'edit', vendor: BAMBU, device: EXISTING });
 
+    expect(screen.getByRole('heading', { name: 'Configure Studio printer' })).toBeTruthy();
+    expect(screen.getByLabelText<HTMLInputElement>('Name').value).toBe('Studio printer');
+    expect(screen.queryByLabelText('Id')).toBeNull();
     expect(screen.getByLabelText('Access code').getAttribute('placeholder')).toMatch(/kept/iu);
 
     fireEvent.change(screen.getByLabelText('Printer address'), {
@@ -296,19 +389,22 @@ describe('changing a device', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Test' }));
 
     await waitFor(() => {
-      expect(probeIntegration).toHaveBeenCalledWith({
+      expect(probeDevice).toHaveBeenCalledWith({
         kind: 'bambu-lab/printer',
         transportConfig: { url: 'mqtts://192.168.1.61:8883' },
-        integrationId: 'bambu-lab-x1c',
+        deviceId: 'bambu-lab-x1c',
       });
     });
 
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Office printer' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
       expect(onSaved).toHaveBeenCalledWith(EXISTING);
     });
-    expect(updateIntegration).toHaveBeenCalledWith('bambu-lab-x1c', {
+    expect(updateDevice).toHaveBeenCalledWith('bambu-lab-x1c', {
+      name: 'Office printer',
+      icon: 'printer',
       isEnabled: true,
       model: 'X1C',
       transportConfig: { url: 'mqtts://192.168.1.61:8883' },

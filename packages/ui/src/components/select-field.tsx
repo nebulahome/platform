@@ -39,6 +39,7 @@ import { createPortal } from 'react-dom';
 import { cn } from '../lib/cn.js';
 import { controlFace, type ControlFaceVariants } from '../lib/control-face.js';
 
+import { AppIcon } from './app-icon.js';
 import { FieldShell } from './field-shell.js';
 
 /** One option. */
@@ -479,10 +480,7 @@ type CaretProps = {
 };
 
 /**
- * The chevron on the right of the button.
- *
- * Drawn here rather than imported from the application's icon set: the design system cannot
- * depend on the application that consumes it, and this is the only glyph it needs.
+ * The chevron on the right of the button: a catalogue icon, like every other.
  *
  * @param props - See {@link CaretProps}.
  * @returns The chevron.
@@ -491,22 +489,14 @@ function Caret(props: CaretProps) {
   const { isOpen } = props;
 
   return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
+    <AppIcon
+      id="chevron-down"
+      size={14}
+      strokeWidth={2}
       className={cn(
         'shrink-0 text-foreground-subtle transition-transform',
         isOpen ? 'rotate-180' : undefined,
       )}
-    >
-      <path d="M7 10l5 5 5-5" />
-    </svg>
+    />
   );
 }

@@ -38,36 +38,49 @@ import {
   X,
 } from 'lucide';
 
-import type { IconFrame, IconNode } from '@nebula-home/contracts';
+import { iconNodeSchema, type IconFrame, type IconNode } from '@nebula-home/contracts';
+
+/**
+ * Reads a lucide drawing into the catalogue's shape.
+ *
+ * Checked rather than cast: the catalogue allows seven elements, and a lucide icon drawn with
+ * an eighth would be refused by the server and must be refused here too.
+ *
+ * @param node - As lucide ships it.
+ * @returns The same drawing, in the catalogue's shape.
+ */
+function drawing(node: unknown): IconNode {
+  return iconNodeSchema.parse(node);
+}
 
 /** The catalogue ids the interface uses for its own chrome, and what each starts drawn as. */
 export const BUILTIN_UI_NODES = {
-  'layout-dashboard': LayoutDashboard,
-  library: Library,
-  package: Package,
-  settings: Settings,
-  'chevron-down': ChevronDown,
-  expand: Expand,
-  lock: Lock,
-  check: Check,
-  'triangle-alert': TriangleAlert,
-  info: Info,
-  copy: Copy,
-  eye: Eye,
-  'eye-off': EyeOff,
-  globe: Globe,
-  rss: Rss,
-  network: Network,
-  'list-filter': ListFilter,
-  'external-link': ExternalLink,
-  wrench: Wrench,
-  x: X,
-  search: Search,
-  plus: Plus,
-  'trash-2': Trash2,
-  upload: Upload,
-  'rotate-ccw': RotateCcw,
-  maximize: Maximize,
+  'layout-dashboard': drawing(LayoutDashboard),
+  library: drawing(Library),
+  package: drawing(Package),
+  settings: drawing(Settings),
+  'chevron-down': drawing(ChevronDown),
+  expand: drawing(Expand),
+  lock: drawing(Lock),
+  check: drawing(Check),
+  'triangle-alert': drawing(TriangleAlert),
+  info: drawing(Info),
+  copy: drawing(Copy),
+  eye: drawing(Eye),
+  'eye-off': drawing(EyeOff),
+  globe: drawing(Globe),
+  rss: drawing(Rss),
+  network: drawing(Network),
+  'list-filter': drawing(ListFilter),
+  'external-link': drawing(ExternalLink),
+  wrench: drawing(Wrench),
+  x: drawing(X),
+  search: drawing(Search),
+  plus: drawing(Plus),
+  'trash-2': drawing(Trash2),
+  upload: drawing(Upload),
+  'rotate-ccw': drawing(RotateCcw),
+  maximize: drawing(Maximize),
 } satisfies Record<string, IconNode>;
 
 /** A catalogue id the interface draws itself with. */

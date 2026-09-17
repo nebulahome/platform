@@ -10,23 +10,29 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-import type { IntegrationVendorView, IntegrationView } from '@nebula-home/contracts';
+import {
+  entityIdSchema,
+  type DeviceView,
+  type IntegrationVendorView,
+} from '@nebula-home/contracts';
 
 import { useSession } from '@/auth/session-store';
-import { fetchIntegrations, fetchVendor } from '@/library/api';
+import { fetchDevices, fetchIcons, fetchVendor } from '@/library/api';
 
 import { VendorPage } from './vendor-page';
 
 vi.mock('@/library/api', () => ({
   fetchVendor: vi.fn(),
-  fetchIntegrations: vi.fn(),
-  createIntegration: vi.fn(),
-  updateIntegration: vi.fn(),
-  probeIntegration: vi.fn(),
+  fetchDevices: vi.fn(),
+  fetchIcons: vi.fn(),
+  createDevice: vi.fn(),
+  updateDevice: vi.fn(),
+  probeDevice: vi.fn(),
   updateVendorConfig: vi.fn(),
   LIBRARY_QUERY_KEYS: {
     vendors: ['library', 'vendors'],
-    integrations: ['library', 'integrations'],
+    devices: ['library', 'devices'],
+    icons: ['library', 'icons'],
   },
 }));
 
@@ -38,6 +44,7 @@ const BAMBU: IntegrationVendorView = {
   description: 'Printers in LAN mode, over the broker each one runs itself.',
   url: 'https://bambulab.com',
   color: '#00AE42',
+  logoPadding: 0,
   internetRequired: false,
   transports: ['mqtt'],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
@@ -71,7 +78,6 @@ const BAMBU: IntegrationVendorView = {
   transportConfig: {},
   options: {},
   configuredAt: null,
-  instanceCount: 2,
   deviceCount: 0,
   entityCount: 12,
 };
@@ -92,19 +98,20 @@ const ACME: IntegrationVendorView = {
     options: { constants: {}, fields: [] },
   },
   needsSetup: true,
-  instanceCount: 0,
   entityCount: 0,
 };
 
 /**
- * An instance of the printer driver.
+ * A device of the printer driver.
  *
  * @param overrides - What differs from a running X1C.
- * @returns The instance.
+ * @returns The device.
  */
-function instance(overrides: Partial<IntegrationView>): IntegrationView {
+function device(overrides: Partial<DeviceView>): DeviceView {
   return {
     id: 'bambu-lab-x1c',
+    name: 'Studio printer',
+    icon: 'printer',
     kind: 'bambu-lab/printer',
     kindVersion: '1.0.0',
     vendorId: 'bambu-lab',
@@ -118,13 +125,21 @@ function instance(overrides: Partial<IntegrationView>): IntegrationView {
     state: 'running',
     lastError: null,
     lastStartedAt: null,
-    deviceCount: 0,
-    entityCount: 6,
+    lastUpdatedAt: new Date(Date.now() - 5 * 60_000),
+    externalId: '01P00A000000042',
+    manufacturer: 'Bambu Lab',
+    swVersion: null,
+    hwVersion: null,
+    areaKey: null,
+    areaName: null,
+    entityIds: [entityIdSchema.parse('sensor.bambu_lab_x1c_nozzle_temperature')],
     ...overrides,
   };
 }
 
 beforeAll(() => {
+  vi.mocked(fetchIcons).mockResolvedValue([]);
+
   // jsdom implements `<dialog>` but not the modal behaviour behind it.
   if (typeof globalThis.HTMLDialogElement.prototype.showModal !== 'function') {
     globalThis.HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
@@ -152,7 +167,10 @@ function renderPage(vendorId: string): void {
       username: 'mattia',
       displayName: 'Mattia Carli',
       role: 'owner',
-      permissions: [{ key: 'integration:configure', scope: '*', effect: 'allow' }],
+      permissions: [
+        { key: 'integration:configure', scope: '*', effect: 'allow' },
+        { key: 'device:write', scope: '*', effect: 'allow' },
+      ],
       avatarUrl: null,
       locale: 'it',
       timezone: 'Europe/Rome',
@@ -173,15 +191,17 @@ function renderPage(vendorId: string): void {
 }
 
 describe('a vendor page', () => {
-  it('says who the vendor is, and lists each device added with the model picked and its state', async () => {
+  it('says who the vendor is, and lists each device by its name, with the model, its state and when it last reported', async () => {
     vi.mocked(fetchVendor).mockResolvedValue(BAMBU);
-    vi.mocked(fetchIntegrations).mockResolvedValue([
-      instance({}),
-      instance({
+    vi.mocked(fetchDevices).mockResolvedValue([
+      device({}),
+      device({
         id: 'bambu-lab-p1s',
+        name: 'Garage printer',
         model: 'P1S',
         state: 'failed',
         lastError: 'mqtts://192.168.1.61:8883 did not answer: ECONNREFUSED',
+        lastUpdatedAt: null,
       }),
     ]);
     renderPage('bambu-lab');
@@ -197,16 +217,56 @@ describe('a vendor page', () => {
     const rows = screen.getAllByRole('listitem');
 
     expect(rows.map((row) => row.textContent)).toEqual([
-      expect.stringContaining('X1C'),
-      expect.stringContaining('P1S'),
+      expect.stringContaining('Studio printer'),
+      expect.stringContaining('Garage printer'),
     ]);
+    expect(rows[0]?.textContent).toContain('X1C');
+    expect(rows[0]?.textContent).toMatch(/5 (?:minutes ago|minuti fa)/u);
     expect(rows[1]?.textContent).toContain('failed');
     expect(rows[1]?.textContent).toContain('ECONNREFUSED');
+    expect(rows[1]?.textContent).toContain('—');
+
+    // The name is the way to the registry: the devices page, narrowed to this one device.
+    expect(screen.getByRole('link', { name: 'Studio printer' }).getAttribute('href')).toBe(
+      '/devices?device=bambu-lab-x1c',
+    );
+  });
+
+  it('shows one word for a device that is switched off, and a spanner to configure it', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue(BAMBU);
+    vi.mocked(fetchDevices).mockResolvedValue([
+      device({ isEnabled: false, state: 'disabled', lastUpdatedAt: null }),
+    ]);
+    renderPage('bambu-lab');
+
+    await waitFor(() => {
+      expect(screen.getByRole('listitem').textContent).toContain('disabled');
+    });
+    expect(screen.getByRole('listitem').textContent).not.toMatch(/\bOff\b/u);
+    expect(screen.queryByText(/Add device connects/u)).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Configure Studio printer' }));
+
+    expect(screen.getByRole('dialog').textContent).toContain('Configure Studio printer');
+  });
+
+  it('separates the id, the version and the site with dots', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue(BAMBU);
+    vi.mocked(fetchDevices).mockResolvedValue([]);
+    renderPage('bambu-lab');
+
+    await waitFor(() => {
+      expect(screen.getByText('bambulab.com')).toBeTruthy();
+    });
+
+    const meta = screen.getByText('bambulab.com').closest('div');
+
+    expect(meta?.textContent).toMatch(/bambu-lab\s*·\s*v1\.0\.0\s*·\s*bambulab\.com/u);
   });
 
   it('opens the add-device dialog with the vendor, offering its models', async () => {
     vi.mocked(fetchVendor).mockResolvedValue(BAMBU);
-    vi.mocked(fetchIntegrations).mockResolvedValue([]);
+    vi.mocked(fetchDevices).mockResolvedValue([]);
     renderPage('bambu-lab');
 
     await waitFor(() => {
@@ -221,7 +281,7 @@ describe('a vendor page', () => {
 
   it('holds back Add device until a vendor that asks for something has been set up', async () => {
     vi.mocked(fetchVendor).mockResolvedValue(ACME);
-    vi.mocked(fetchIntegrations).mockResolvedValue([]);
+    vi.mocked(fetchDevices).mockResolvedValue([]);
     renderPage('acme');
 
     await waitFor(() => {
@@ -236,7 +296,7 @@ describe('a vendor page', () => {
 
   it('opens the vendor form from Configure, with what the vendor asks', async () => {
     vi.mocked(fetchVendor).mockResolvedValue(ACME);
-    vi.mocked(fetchIntegrations).mockResolvedValue([]);
+    vi.mocked(fetchDevices).mockResolvedValue([]);
     renderPage('acme');
 
     await waitFor(() => {
@@ -251,7 +311,7 @@ describe('a vendor page', () => {
 
   it('has no Configure for a vendor that asks for nothing, and keeps Remove for later', async () => {
     vi.mocked(fetchVendor).mockResolvedValue(BAMBU);
-    vi.mocked(fetchIntegrations).mockResolvedValue([]);
+    vi.mocked(fetchDevices).mockResolvedValue([]);
     renderPage('bambu-lab');
 
     await waitFor(() => {

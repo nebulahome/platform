@@ -11,7 +11,7 @@
  */
 import type { ReactNode } from 'react';
 
-import { Badge, IconButton } from '@nebula-home/ui';
+import { AppIcon, Badge, IconButton } from '@nebula-home/ui';
 
 /** What one block needs. */
 export type BlockCardProps = {
@@ -53,18 +53,7 @@ export function BlockCard(props: BlockCardProps) {
           size="small"
           onClick={onRemove}
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.1"
-            strokeLinecap="round"
-            aria-hidden="true"
-          >
-            <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />
-          </svg>
+          <AppIcon id="x" size={14} strokeWidth={2.1} />
         </IconButton>
       </div>
 

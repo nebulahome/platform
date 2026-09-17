@@ -1,61 +1,72 @@
 /**
- * Narrowing the registry: the search box, the two dropdowns and the reporting switch.
+ * Narrowing the registry: the search box and the facets behind the Filter button.
  *
- * Pure, so the toolbar's every combination can be tried without a page. A search matches on
- * anything a person might type from memory - the device's name, its model, its maker, its
- * owner, the identifier the owner knows it by, and the addresses and names of its entities -
+ * Pure, so the header's every combination can be tried without a page. A search matches on
+ * anything a person might type from memory - the device's name, its id, its model, its maker,
+ * its vendor, the serial the hardware reports, and the addresses and names of its entities -
  * because the point of a registry search is to find the row for the thing in your hand, and
  * the one string you remember about it could be any of those.
+ *
+ * `deviceId` is the one facet nobody sets by hand: a link from the vendor page names the device
+ * it was clicked on, and the page opens on that row alone.
  */
 import type { DeviceView, EntityView } from '@nebula-home/contracts';
 
-/** What the toolbar has been set to. */
+/** What the header has been set to. */
 export type DeviceFilter = {
   /** Free text, matched case-insensitively. Blank matches everything. */
   readonly search: string;
 
-  /** Only devices of this owner. Blank means any. */
-  readonly ownerId: string;
+  /** Only devices of this vendor. Blank means any. */
+  readonly vendorId: string;
 
   /** Only devices in this area, by key. Blank means any. */
   readonly areaKey: string;
 
-  /** Only devices that are reporting. */
-  readonly isReportingOnly: boolean;
+  /** Only this one device, from a link. Blank means any. */
+  readonly deviceId: string;
 };
 
-/** The toolbar as a page opens: everything shown. */
+/** The header as a page opens: everything shown. */
 export const OPEN_FILTER: DeviceFilter = {
   search: '',
-  ownerId: '',
+  vendorId: '',
   areaKey: '',
-  isReportingOnly: false,
+  deviceId: '',
 };
+
+/**
+ * Whether any facet is set - the search aside, which has its own box to clear.
+ *
+ * @param filter - What the header has been set to.
+ * @returns True when a facet narrows the list.
+ */
+export function isNarrowing(filter: DeviceFilter): boolean {
+  return filter.vendorId !== '' || filter.areaKey !== '' || filter.deviceId !== '';
+}
 
 /**
  * Whether one device belongs in the list under a filter.
  *
  * @param device - The device.
  * @param entities - The entities it exposes.
- * @param isReporting - Whether it is currently reporting, as its readings say.
- * @param filter - What the toolbar has been set to.
+ * @param filter - What the header has been set to.
  * @returns True when every part of the filter admits it.
  */
 export function matchesFilter(
   device: DeviceView,
   entities: readonly EntityView[],
-  isReporting: boolean,
   filter: DeviceFilter,
 ): boolean {
-  if (filter.ownerId !== '' && device.owner.id !== filter.ownerId) {
+  if (filter.deviceId !== '' && device.id !== filter.deviceId) {
+    return false;
+  }
+
+  if (filter.vendorId !== '' && device.vendorId !== filter.vendorId) {
     return false;
   }
 
   if (filter.areaKey !== '' && device.areaKey !== filter.areaKey) {
-    return false;
-  }
-
-  if (filter.isReportingOnly && !isReporting) {
     return false;
   }
 
@@ -67,10 +78,11 @@ export function matchesFilter(
 
   const haystack = [
     device.name,
+    device.id,
     device.model ?? '',
     device.manufacturer ?? '',
-    device.owner.id,
-    device.externalId,
+    device.vendorId,
+    device.externalId ?? '',
     device.areaName ?? '',
     ...entities.flatMap((entity) => [entity.entityId, entity.name]),
   ]

@@ -7,12 +7,13 @@
  * channel has spoken, so a printer warming up is a number climbing on this page rather than a
  * number frozen at whatever it was when the page loaded.
  */
-import type { DeviceView, EntityView } from '@nebula-home/contracts';
+import type { DeviceView, EntityView, IconView } from '@nebula-home/contracts';
 import { Badge, cn } from '@nebula-home/ui';
 
 import { ChevronIcon } from '@/components/icons';
 import { relativeTime } from '@/lib/format-time';
 import { type DeviceStanding, type Reading } from '@/library/entity-reading';
+import { DeviceIcon } from '@/routes/library/device-icon';
 
 /** The column widths, shared by the header and every row so they line up. */
 export const DEVICE_COLUMNS =
@@ -28,6 +29,12 @@ export type EntityLine = {
 /** What one row needs. */
 export type DeviceRowProps = {
   readonly device: DeviceView;
+
+  /** The vendor's name as the catalogue has it, or its id while the catalogue is away. */
+  readonly vendorName: string;
+
+  /** The device's icon, once the catalogue has answered. */
+  readonly icon: IconView | undefined;
 
   /** Its entities, with what each reads right now. */
   readonly lines: readonly EntityLine[];
@@ -95,7 +102,10 @@ function EntityRow(props: { readonly line: EntityLine }) {
  * @returns The row, and its entities when open.
  */
 export function DeviceRow(props: DeviceRowProps) {
-  const { device, lines, standing, isOpen, onToggle, now } = props;
+  const { device, vendorName, icon, lines, standing, isOpen, onToggle, now } = props;
+  const isDisabled = device.state === 'disabled';
+  const make = [device.manufacturer, device.model].filter(Boolean).join(' ');
+  const subtitle = make === '' ? (device.externalId ?? device.id) : make;
 
   return (
     <li className="border-b border-border-soft last:border-b-0">
@@ -109,23 +119,15 @@ export function DeviceRow(props: DeviceRowProps) {
           isOpen ? 'bg-sunk' : undefined,
         )}
       >
-        <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="flex items-center gap-2 text-title font-medium text-foreground">
-            <span className="truncate">{device.name}</span>
-            {device.isEnabled ? null : (
-              <Badge tone="neutral" size="small">
-                Disabled
-              </Badge>
-            )}
-          </span>
-          <span className="truncate text-caption text-foreground-subtle">
-            {[device.manufacturer, device.model].filter(Boolean).join(' ') || device.externalId}
+        <span className="flex min-w-0 items-center gap-3">
+          <DeviceIcon icon={icon} className="text-foreground-muted" />
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="truncate text-title font-medium text-foreground">{device.name}</span>
+            <span className="truncate text-caption text-foreground-subtle">{subtitle}</span>
           </span>
         </span>
 
-        <span className="hidden truncate font-mono text-ui text-foreground-muted md:block">
-          {device.owner.id}
-        </span>
+        <span className="hidden truncate text-ui text-foreground-muted md:block">{vendorName}</span>
 
         <span className="hidden truncate text-ui text-foreground-muted lg:block">
           {device.areaName ?? '—'}
@@ -136,8 +138,8 @@ export function DeviceRow(props: DeviceRowProps) {
         </span>
 
         <span className="hidden md:block">
-          <Badge tone={standing.isReporting ? 'success' : 'warning'}>
-            {standing.isReporting ? 'Reporting' : 'Silent'}
+          <Badge tone={isDisabled ? 'neutral' : standing.isReporting ? 'success' : 'warning'}>
+            {isDisabled ? 'disabled' : standing.isReporting ? 'Reporting' : 'Silent'}
           </Badge>
         </span>
 
@@ -147,8 +149,11 @@ export function DeviceRow(props: DeviceRowProps) {
 
         <span className="flex items-center justify-end gap-2 text-foreground-subtle">
           <span className="md:hidden">
-            <Badge tone={standing.isReporting ? 'success' : 'warning'} size="small">
-              {standing.isReporting ? 'Reporting' : 'Silent'}
+            <Badge
+              tone={isDisabled ? 'neutral' : standing.isReporting ? 'success' : 'warning'}
+              size="small"
+            >
+              {isDisabled ? 'disabled' : standing.isReporting ? 'Reporting' : 'Silent'}
             </Badge>
           </span>
           <ChevronIcon isOpen={isOpen} />

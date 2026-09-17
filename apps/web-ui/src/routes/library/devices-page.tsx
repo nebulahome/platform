@@ -1,5 +1,5 @@
 /**
- * The registry: every physical thing, the entities it owns, and what each of them reads.
+ * The registry: every device, the entities it owns, and what each of them reads.
  *
  * This is the one page where the address matters. Everywhere else a person picks a thing by its
  * icon, its name and its room; here they are looking at the registry itself, and
@@ -12,28 +12,31 @@
  * reachable and has said something; "last seen" is when the newest of them spoke. Neither is a
  * column, and neither needs to be: the readings are already here.
  *
- * Adding a device is finding one. The dialog behind the header's button runs a discovery pass
- * on an integration instance and adopts what the owner picks from what it found; there is no
- * form for typing a device in by hand, because no integration the hub ships could do anything
- * with one.
+ * Nothing is added here. A device is added from its vendor's page, and appears here the moment
+ * the hub has heard from it; a link from that page - `?device=` - opens this one on that row
+ * alone, expanded, which is the registry's answer to "what did that just create".
  */
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 
 import type { DeviceView, EntityView } from '@nebula-home/contracts';
-import { Badge, Button, Panel, Segmented, SelectField, TextField } from '@nebula-home/ui';
+import { Badge, Button, TextField } from '@nebula-home/ui';
 
-import { useSession } from '@/auth/session-store';
-import { fetchDevices, fetchEntities, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { fetchDevices, fetchEntities, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { matchesFilter, OPEN_FILTER, type DeviceFilter } from '@/library/device-filters';
 import { readingOf, standingOf, type DeviceStanding } from '@/library/entity-reading';
 import { useLive } from '@/live/live-store';
+import { DeviceFilterButton } from '@/routes/library/device-filter';
+import { useDeviceIcons } from '@/routes/library/device-icon';
 import { DEVICE_COLUMNS, DeviceRow, type EntityLine } from '@/routes/library/device-row';
-import { DiscoverDialog } from '@/routes/library/discover-dialog';
 import { LibraryPage } from '@/routes/library/library-page';
 
 /** How often "last seen" is re-read against the clock, so "now" turns into "1 minute ago". */
 const CLOCK_MS = 30_000;
+
+/** The query parameter a link names one device with. */
+const DEVICE_PARAM = 'device';
 
 /** One device with everything the row needs, resolved once per render. */
 type DeviceLine = {
@@ -45,16 +48,17 @@ type DeviceLine = {
 /**
  * The entities, by the device that owns them.
  *
+ * Grouped by the entity's source, which is the device id - the one the page lists the device
+ * under - rather than by the registry's row uuid.
+ *
  * @param entities - Every entity.
  * @returns A map from device id to its entities.
  */
-function byDevice(entities: readonly EntityView[]): Map<string, EntityView[]> {
+function bySource(entities: readonly EntityView[]): Map<string, EntityView[]> {
   const groups = new Map<string, EntityView[]>();
 
   for (const entity of entities) {
-    if (entity.deviceId !== null) {
-      groups.set(entity.deviceId, [...(groups.get(entity.deviceId) ?? []), entity]);
-    }
+    groups.set(entity.source, [...(groups.get(entity.source) ?? []), entity]);
   }
 
   return groups;
@@ -66,13 +70,26 @@ function byDevice(entities: readonly EntityView[]): Map<string, EntityView[]> {
  * @returns The page.
  */
 export function DevicesPage() {
-  const canWrite = useSession((state) => state.can)('device:write');
   const readings = useLive((state) => state.readings);
   const liveStatus = useLive((state) => state.status);
+  const [params, setParams] = useSearchParams();
+  const linkedDeviceId = params.get(DEVICE_PARAM) ?? '';
   const [filter, setFilter] = useState<DeviceFilter>(OPEN_FILTER);
-  const [openIds, setOpenIds] = useState<ReadonlySet<string>>(new Set());
-  const [isDiscovering, setDiscovering] = useState(false);
+  const [openIds, setOpenIds] = useState<ReadonlySet<string>>(
+    () => new Set(linkedDeviceId === '' ? [] : [linkedDeviceId]),
+  );
+  const [linkSeen, setLinkSeen] = useState(linkedDeviceId);
   const [, setTick] = useState(0);
+
+  if (linkSeen !== linkedDeviceId) {
+    // A link to another device while the page is open: that row opens too. Adjusted during the
+    // render rather than in an effect, so the row is open on the first paint after the link.
+    setLinkSeen(linkedDeviceId);
+
+    if (linkedDeviceId !== '') {
+      setOpenIds((current) => new Set([...current, linkedDeviceId]));
+    }
+  }
 
   const devices = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.devices,
@@ -98,6 +115,28 @@ export function DevicesPage() {
     queryFn: async ({ signal }: { signal: AbortSignal }) => fetchEntities(signal),
   });
 
+  const vendors = useQuery({
+    queryKey: LIBRARY_QUERY_KEYS.vendors,
+    /**
+     * Reads the vendors, for their names: a device carries the vendor's id.
+     *
+     * @param context - What TanStack Query provides, including the cancellation signal.
+     * @param context.signal - Cancels the request when the component goes away.
+     * @returns Every vendor the hub has loaded, or none while it is away.
+     */
+    queryFn: async ({ signal }: { signal: AbortSignal }) => {
+      try {
+        return await fetchVendors(signal);
+      } catch {
+        // The names are a nicety. A page that showed nothing because the hub was restarting
+        // would be worse than one showing the vendors' ids.
+        return [];
+      }
+    },
+  });
+
+  const icons = useDeviceIcons(devices.data ?? []);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setTick((count) => count + 1);
@@ -109,7 +148,9 @@ export function DevicesPage() {
   }, []);
 
   const now = new Date();
-  const groups = byDevice(entities.data ?? []);
+  const groups = bySource(entities.data ?? []);
+  const vendorNames = new Map((vendors.data ?? []).map((vendor) => [vendor.id, vendor.name]));
+  const effectiveFilter: DeviceFilter = { ...filter, deviceId: linkedDeviceId };
   const all: DeviceLine[] = (devices.data ?? []).map((device) => {
     const lines = (groups.get(device.id) ?? []).map((entity) => ({
       entity,
@@ -121,7 +162,7 @@ export function DevicesPage() {
       lines,
       standing: standingOf(
         lines.map((line) => line.reading),
-        device.lastSeenAt,
+        device.lastUpdatedAt,
       ),
     };
   });
@@ -129,19 +170,22 @@ export function DevicesPage() {
     matchesFilter(
       line.device,
       line.lines.map((entry) => entry.entity),
-      line.standing.isReporting,
-      filter,
+      effectiveFilter,
     ),
   );
 
-  const owners = [...new Set(all.map((line) => line.device.owner.id))].sort();
-  const areas = [
+  const vendorOptions = [...new Set(all.map((line) => line.device.vendorId))]
+    .sort()
+    .map((id) => ({ value: id, label: vendorNames.get(id) ?? id }));
+  const areaOptions = [
     ...new Map(
       all
         .filter((line) => line.device.areaKey !== null)
         .map((line) => [line.device.areaKey ?? '', line.device.areaName ?? '']),
     ),
-  ].sort((left, right) => left[1].localeCompare(right[1]));
+  ]
+    .sort((left, right) => left[1].localeCompare(right[1]))
+    .map(([value, label]) => ({ value, label }));
   const entityCount = all.reduce((sum, line) => sum + line.lines.length, 0);
 
   /**
@@ -164,149 +208,109 @@ export function DevicesPage() {
   };
 
   return (
-    <>
-      <LibraryPage
-        title="Devices"
-        summary="One device, its entities, and the integration that owns it. This is the registry, so the addresses are the ones automations and the API use."
-        noun="device"
-        count={devices.isPending ? undefined : all.length}
-        action={
-          canWrite ? (
+    <LibraryPage
+      title="Devices"
+      noun="device"
+      count={devices.isPending ? undefined : all.length}
+      tools={
+        <>
+          {linkedDeviceId === '' ? null : (
             <Button
+              variant="ghost"
               size="compact"
               onClick={() => {
-                setDiscovering(true);
+                setParams((current) => {
+                  const next = new URLSearchParams(current);
+
+                  next.delete(DEVICE_PARAM);
+
+                  return next;
+                });
               }}
             >
-              Add device
+              Show all devices
             </Button>
-          ) : undefined
-        }
-        isPending={devices.isPending || entities.isPending}
-        error={devices.error ?? entities.error}
-        isEmpty={all.length === 0}
-        emptyMessage="Nothing adopted yet. Add a device to have an integration look for what it can reach."
-      >
-        <div className="flex flex-wrap items-center gap-2.5">
+          )}
           <TextField
             label="Search"
             isLabelHidden
             size="compact"
             type="search"
             placeholder="Search devices, entities…"
-            className="w-72"
+            className="w-44 lg:w-72"
             value={filter.search}
             onChange={(event) => {
               setFilter({ ...filter, search: event.target.value });
             }}
           />
-          <SelectField
-            label="Integration"
-            isLabelHidden
-            size="compact"
-            className="w-44"
-            options={[
-              { value: '', label: 'All integrations' },
-              ...owners.map((owner) => ({ value: owner, label: owner })),
-            ]}
-            value={filter.ownerId}
-            onChange={(ownerId) => {
-              setFilter({ ...filter, ownerId });
-            }}
+          <DeviceFilterButton
+            filter={filter}
+            vendors={vendorOptions}
+            areas={areaOptions}
+            onChange={setFilter}
           />
-          <SelectField
-            label="Area"
-            isLabelHidden
-            size="compact"
-            className="w-40"
-            options={[
-              { value: '', label: 'All areas' },
-              ...areas.map(([key, name]) => ({ value: key, label: name })),
-            ]}
-            value={filter.areaKey}
-            onChange={(areaKey) => {
-              setFilter({ ...filter, areaKey });
-            }}
-          />
-          <Segmented
-            label="Which devices"
-            size="compact"
-            options={[
-              { value: 'all', label: 'All' },
-              { value: 'reporting', label: 'Reporting only' },
-            ]}
-            value={filter.isReportingOnly ? 'reporting' : 'all'}
-            onChange={(value) => {
-              setFilter({ ...filter, isReportingOnly: value === 'reporting' });
-            }}
-          />
+        </>
+      }
+      isPending={devices.isPending || entities.isPending}
+      error={devices.error ?? entities.error}
+      isEmpty={all.length === 0}
+      emptyMessage="Nothing yet. Add a device from Integrations and it appears here as soon as the hub has heard from it."
+    >
+      <div className="flex flex-wrap items-center justify-end gap-2.5 text-caption text-foreground-subtle tabular">
+        {liveStatus === 'live' ? (
+          <Badge tone="success" size="small">
+            Live
+          </Badge>
+        ) : (
+          <Badge tone="neutral" size="small">
+            {liveStatus === 'connecting' ? 'Connecting' : 'Not live'}
+          </Badge>
+        )}
+        <span>
+          {shown.length === all.length ? '' : `${String(shown.length)} of `}
+          {all.length} device{all.length === 1 ? '' : 's'} · {entityCount} entit
+          {entityCount === 1 ? 'y' : 'ies'}
+        </span>
+      </div>
 
-          <span className="ml-auto flex items-center gap-2.5 text-caption text-foreground-subtle tabular">
-            {liveStatus === 'live' ? (
-              <Badge tone="success" size="small">
-                Live
-              </Badge>
-            ) : (
-              <Badge tone="neutral" size="small">
-                {liveStatus === 'connecting' ? 'Connecting' : 'Not live'}
-              </Badge>
-            )}
-            <span>
-              {shown.length === all.length ? '' : `${String(shown.length)} of `}
-              {all.length} device{all.length === 1 ? '' : 's'} · {entityCount} entit
-              {entityCount === 1 ? 'y' : 'ies'}
-            </span>
-          </span>
+      <div className="rounded-panel border border-border face-card">
+        <div
+          className={`${DEVICE_COLUMNS} border-b border-border-soft px-4 py-2.5 text-label text-foreground-subtle uppercase`}
+          aria-hidden="true"
+        >
+          <span>Device</span>
+          <span className="hidden md:block">Integration</span>
+          <span className="hidden lg:block">Area</span>
+          <span className="hidden md:block">Entities</span>
+          <span className="hidden md:block">Status</span>
+          <span className="hidden md:block">Last seen</span>
+          <span />
         </div>
 
-        <Panel title="Registry">
-          <div
-            className={`${DEVICE_COLUMNS} border-b border-border-soft px-4 py-2.5 text-label text-foreground-subtle uppercase`}
-            aria-hidden="true"
-          >
-            <span>Device</span>
-            <span className="hidden md:block">Integration</span>
-            <span className="hidden lg:block">Area</span>
-            <span className="hidden md:block">Entities</span>
-            <span className="hidden md:block">Status</span>
-            <span className="hidden md:block">Last seen</span>
-            <span />
-          </div>
-
-          {shown.length === 0 ? (
-            <p className="px-4 py-3.5 text-ui text-foreground-muted">
-              Nothing matches. Clear the search or widen the filters.
-            </p>
-          ) : (
-            <ul>
-              {shown.map((line) => (
-                <DeviceRow
-                  key={line.device.id}
-                  device={line.device}
-                  lines={line.lines}
-                  standing={line.standing}
-                  isOpen={openIds.has(line.device.id)}
-                  onToggle={() => {
-                    toggle(line.device.id);
-                  }}
-                  now={now}
-                />
-              ))}
-            </ul>
-          )}
-        </Panel>
-      </LibraryPage>
-
-      {/* Beside the page rather than inside it: the page shows its children only once there is
-          something to list, and the dialog is how the first thing gets listed. */}
-      <DiscoverDialog
-        // Keyed on being open, so each opening is a fresh dialog with no pass from last time.
-        key={isDiscovering ? 'open' : 'shut'}
-        isOpen={isDiscovering}
-        onClose={() => {
-          setDiscovering(false);
-        }}
-      />
-    </>
+        {shown.length === 0 ? (
+          <p className="px-4 py-3.5 text-ui text-foreground-muted">
+            Nothing matches. Clear the search or widen the filters.
+          </p>
+        ) : (
+          <ul>
+            {shown.map((line) => (
+              <DeviceRow
+                key={line.device.id}
+                device={line.device}
+                vendorName={vendorNames.get(line.device.vendorId) ?? line.device.vendorId}
+                icon={icons.get(line.device.icon ?? '')}
+                lines={line.lines}
+                standing={line.standing}
+                isOpen={openIds.has(line.device.id)}
+                onToggle={() => {
+                  toggle(line.device.id);
+                }}
+                now={now}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+    </LibraryPage>
   );
 }

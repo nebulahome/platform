@@ -16,34 +16,29 @@ import { z } from 'zod';
 import {
   aliasViewSchema,
   automationViewSchema,
-  deviceAdoptReplySchema,
-  deviceCandidatesReplySchema,
-  deviceDiscoverReplySchema,
+  deviceProbeReplySchema,
   deviceViewSchema,
   entityViewSchema,
-  integrationProbeReplySchema,
+  iconsResponseSchema,
+  iconViewSchema,
   integrationVendorViewSchema,
-  integrationViewSchema,
   packageViewSchema,
   sceneViewSchema,
   type AliasView,
   type AutomationCreate,
   type AutomationUpdate,
   type AutomationView,
-  type DeviceAdoptReply,
-  type DeviceAdoptRequest,
-  type DeviceCandidatesReply,
-  type DeviceDiscoverReply,
-  type DeviceDiscoverRequest,
+  type DeviceCreate,
+  type DeviceProbeReply,
+  type DeviceProbeRequest,
+  type DeviceUpdate,
   type DeviceView,
   type EntityView,
-  type IntegrationCreate,
-  type IntegrationProbeReply,
-  type IntegrationProbeRequest,
-  type IntegrationUpdate,
+  type IconCreate,
+  type IconUpdate,
+  type IconView,
   type IntegrationVendorConfigUpdate,
   type IntegrationVendorView,
-  type IntegrationView,
   type PackageView,
   type SceneView,
   MAX_PAGE_LIMIT,
@@ -130,7 +125,7 @@ export async function fetchScenes(signal?: AbortSignal): Promise<SceneView[]> {
 }
 
 /**
- * Lists every device, with the entities it owns.
+ * Lists every device: where each stands, what it is called, what it exposes.
  *
  * @param signal - Cancels the request.
  * @returns Every device.
@@ -144,38 +139,109 @@ export async function fetchDevices(signal?: AbortSignal): Promise<DeviceView[]> 
 }
 
 /**
- * Asks the hub to start looking for devices.
+ * Adds a device: the instance that reaches it and the row that names it, under one id.
  *
- * @param request - Which instance to look with, and for how long.
- * @returns The pass identifier and the instances actually looking.
+ * @param request - The id, the kind, the model, the name, the icon and what its form collected.
+ * @returns The device as it now stands, its state as the hub reported it.
  */
-export async function startDiscovery(request: DeviceDiscoverRequest): Promise<DeviceDiscoverReply> {
-  return apiRequest('/devices/discover', deviceDiscoverReplySchema, {
-    method: 'POST',
-    body: request,
-  });
+export async function createDevice(request: DeviceCreate): Promise<DeviceView> {
+  return apiRequest('/devices', deviceViewSchema, { method: 'POST', body: request });
 }
 
 /**
- * Reads what the current pass has found so far.
+ * Tries a configuration without saving it.
  *
- * @param signal - Cancels the request.
- * @returns The candidates, and whether the pass is still running.
+ * @param request - Which kind, what was typed, and which device the blanks come from.
+ * @returns The verdict and the hub's sentence about it. A configuration that does not work is a
+ * reply, not a failure: `isReachable` is false and `detail` says why.
  */
-export async function fetchCandidates(signal?: AbortSignal): Promise<DeviceCandidatesReply> {
-  return apiRequest('/devices/candidates', deviceCandidatesReplySchema, {
+export async function probeDevice(request: DeviceProbeRequest): Promise<DeviceProbeReply> {
+  return apiRequest('/devices/probe', deviceProbeReplySchema, { method: 'POST', body: request });
+}
+
+/**
+ * Changes a device: its name and icon, or its configuration.
+ *
+ * `transportConfig` is merged by the server rather than replacing what is there, which is what
+ * lets a form that was served a configuration without its secrets save without deleting them.
+ *
+ * @param deviceId - Which one.
+ * @param request - The fields to change.
+ * @returns The device as it now stands.
+ */
+export async function updateDevice(deviceId: string, request: DeviceUpdate): Promise<DeviceView> {
+  return apiRequest(`/devices/${deviceId}`, deviceViewSchema, { method: 'PATCH', body: request });
+}
+
+/** What a page of the icon catalogue is asked for. */
+export type IconsRequest = {
+  /** What was typed; blank for the catalogue in its own order. */
+  readonly q?: string;
+
+  /** The ids a page shows, in one request. */
+  readonly ids?: readonly string[];
+
+  /** How many at most. */
+  readonly limit?: number;
+};
+
+/**
+ * Reads a page of the icon catalogue: a search, or the icons some rows show.
+ *
+ * @param request - What to ask for.
+ * @param signal - Cancels the request.
+ * @returns The icons, closest match first, or in the order the ids were asked.
+ */
+export async function fetchIcons(request: IconsRequest, signal?: AbortSignal): Promise<IconView[]> {
+  const query = new URLSearchParams();
+
+  if (request.ids !== undefined && request.ids.length > 0) {
+    query.set('ids', request.ids.join(','));
+  } else if (request.q !== undefined && request.q !== '') {
+    query.set('q', request.q);
+  }
+
+  if (request.limit !== undefined) {
+    query.set('limit', String(request.limit));
+  }
+
+  const suffix = query.size === 0 ? '' : `?${query.toString()}`;
+  const { items } = await apiRequest(`/icons${suffix}`, iconsResponseSchema, {
     ...(signal === undefined ? {} : { signal }),
   });
+
+  return items;
 }
 
 /**
- * Adopts a candidate of the current pass.
+ * Adds a custom icon from an uploaded drawing.
  *
- * @param request - Which candidate, and what to call it.
- * @returns The device row and the entities written under it.
+ * @param request - The id, the name, the keywords, the file and the frame it was fitted in.
+ * @returns The icon as the catalogue now serves it.
  */
-export async function adoptCandidate(request: DeviceAdoptRequest): Promise<DeviceAdoptReply> {
-  return apiRequest('/devices/adopt', deviceAdoptReplySchema, { method: 'POST', body: request });
+export async function createIcon(request: IconCreate): Promise<IconView> {
+  return apiRequest('/icons', iconViewSchema, { method: 'POST', body: request });
+}
+
+/**
+ * Changes an icon: a built-in one's drawing or keywords, a custom one's anything.
+ *
+ * @param iconId - Which icon.
+ * @param request - What to change.
+ * @returns The icon as the catalogue now serves it.
+ */
+export async function updateIcon(iconId: string, request: IconUpdate): Promise<IconView> {
+  return apiRequest(`/icons/${iconId}`, iconViewSchema, { method: 'PATCH', body: request });
+}
+
+/**
+ * Removes a custom icon, or puts a built-in icon's original drawing back.
+ *
+ * @param iconId - Which icon.
+ * @returns A promise that settles once it is gone.
+ */
+export async function deleteIcon(iconId: string): Promise<void> {
+  await apiRequest(`/icons/${iconId}`, z.undefined(), { method: 'DELETE' });
 }
 
 /**
@@ -220,20 +286,6 @@ export async function fetchEntities(signal?: AbortSignal): Promise<EntityView[]>
  */
 export async function fetchAliases(signal?: AbortSignal): Promise<AliasView[]> {
   const { items } = await apiRequest('/aliases', collectionSchema(aliasViewSchema), {
-    ...(signal === undefined ? {} : { signal }),
-  });
-
-  return items;
-}
-
-/**
- * Lists every configured integration.
- *
- * @param signal - Cancels the request.
- * @returns Every integration and what it has adopted.
- */
-export async function fetchIntegrations(signal?: AbortSignal): Promise<IntegrationView[]> {
-  const { items } = await apiRequest('/integrations', collectionSchema(integrationViewSchema), {
     ...(signal === undefined ? {} : { signal }),
   });
 
@@ -294,52 +346,6 @@ export async function updateVendorConfig(
 }
 
 /**
- * Adds an integration instance: a device, by its address.
- *
- * @param request - The id, the kind, the model and what its form collected.
- * @returns The integration as it now stands, its state as the hub reported it.
- */
-export async function createIntegration(request: IntegrationCreate): Promise<IntegrationView> {
-  return apiRequest('/integrations', integrationViewSchema, { method: 'POST', body: request });
-}
-
-/**
- * Tries a configuration without saving it.
- *
- * @param request - Which kind, what was typed, and which instance the blanks come from.
- * @returns The verdict and the hub's sentence about it. A configuration that does not work is a
- * reply, not a failure: `isReachable` is false and `detail` says why.
- */
-export async function probeIntegration(
-  request: IntegrationProbeRequest,
-): Promise<IntegrationProbeReply> {
-  return apiRequest('/integrations/probe', integrationProbeReplySchema, {
-    method: 'POST',
-    body: request,
-  });
-}
-
-/**
- * Changes an integration's configuration.
- *
- * `transportConfig` is merged by the server rather than replacing what is there, which is what
- * lets a form that was served a configuration without its secrets save without deleting them.
- *
- * @param integrationId - Which one.
- * @param request - The fields to change.
- * @returns The integration as it now stands.
- */
-export async function updateIntegration(
-  integrationId: string,
-  request: IntegrationUpdate,
-): Promise<IntegrationView> {
-  return apiRequest(`/integrations/${integrationId}`, integrationViewSchema, {
-    method: 'PATCH',
-    body: request,
-  });
-}
-
-/**
  * Lists every installed package and how it is faring.
  *
  * @param signal - Cancels the request.
@@ -367,14 +373,11 @@ export const LIBRARY_QUERY_KEYS = {
   /** Every entity, with its state as last read. */
   entities: ['library', 'entities'] as const,
 
-  /** What the current discovery pass has found. */
-  candidates: ['library', 'candidates'] as const,
-
   /** Every derived entity. */
   aliases: ['library', 'aliases'] as const,
 
-  /** Every configured integration. */
-  integrations: ['library', 'integrations'] as const,
+  /** Pages of the icon catalogue, keyed further by what was asked. */
+  icons: ['library', 'icons'] as const,
 
   /** Every vendor the hub has loaded. */
   vendors: ['library', 'vendors'] as const,

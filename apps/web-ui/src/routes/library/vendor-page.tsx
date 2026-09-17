@@ -5,11 +5,11 @@
  * are and the way back are the same three words. Under it, the vendor's own panel - logo,
  * marks, what the bundle says about itself - and the devices.
  *
- * A device here is an instance: something the owner added by its address, which the hub then
- * tries to connect to. The row is what that attempt came to - `running`, or `failed` with the
- * transport's own sentence - because a device that does not answer is the one somebody came
- * here to read about. Finding devices on the network, and adopting what answers, is not here
- * yet; the Devices page still does that for what is already running.
+ * A device here is the same device the Devices page lists, seen from the vendor's side: what
+ * the owner added by its address, which the hub then connects to and listens for. The row is
+ * what that came to - `identifying` while the hardware has not answered, `running`, or `failed`
+ * with the transport's own sentence - because a device that does not answer is the one
+ * somebody came here to read about. Its name is the way to the registry, narrowed to it.
  *
  * A vendor whose bundle asks for something - a key, an account - is set up once from Configure,
  * and Add device waits until it has been: the address may be right, but without the key no
@@ -17,47 +17,49 @@
  * the wrong form.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
-import { useParams } from 'react-router';
+import { useState, type ReactNode } from 'react';
+import { Link, useParams } from 'react-router';
 
 import type { IntegrationState } from '@nebula-home/contracts';
-import { Badge, Button, Panel, PanelNote, type BadgeTone } from '@nebula-home/ui';
+import { Badge, Button, IconButton, Panel, type BadgeTone } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
-import { ExternalLinkIcon } from '@/components/icons';
+import { ExternalLinkIcon, WrenchIcon } from '@/components/icons';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
-import { fetchIntegrations, fetchVendor, LIBRARY_QUERY_KEYS } from '@/library/api';
-import {
-  IntegrationDialog,
-  type IntegrationDialogTarget,
-} from '@/routes/library/integration-dialog';
+import { fetchDevices, fetchVendor, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { DeviceDialog, type DeviceDialogTarget } from '@/routes/library/device-dialog';
+import { DeviceIcon, useDeviceIcons } from '@/routes/library/device-icon';
 import { LibraryPage } from '@/routes/library/library-page';
 import { Marks, VendorLogo } from '@/routes/library/vendor-card';
 import { VendorSetupDialog } from '@/routes/library/vendor-setup-dialog';
 
-/** How long after a save the list is read again, for an instance the hub reported `starting`. */
+/** How long after a save the list is read again, for a device the hub was still starting. */
 const SETTLE_MS = 3000;
 
 /** What each runtime state means to somebody reading the page. */
 const TONES: Readonly<Record<IntegrationState, BadgeTone>> = {
   stopped: 'neutral',
   starting: 'accent',
+  identifying: 'accent',
   running: 'success',
   failed: 'danger',
   disabled: 'neutral',
 };
 
 /**
- * The columns of the devices table: what, which model, how much, how it is doing, since when.
+ * The columns of the devices table: which device, its model, how it is doing, when it last
+ * reported, and the spanner.
  *
- * The full table needs the width a wide window has beside the rail; at a tablet's width the
- * model rides under the id and the counts and the clock wait for a wider screen, so the panel
- * never grows past the page and pushes its own button out of reach.
+ * Every track but the first is a fixed width. The header and each row are separate grids, and
+ * a track sized `auto` resolves to a different width in each of them - which is how the cells
+ * once drifted from their headings. The full table needs the width a wide window has beside
+ * the rail; at a tablet's width the model rides under the name and the clock waits for a wider
+ * screen, so the panel never grows past the page.
  */
 const COLUMNS =
-  'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 ' +
-  'md:grid-cols-[minmax(0,1fr)_minmax(96px,auto)_auto] ' +
-  'lg:grid-cols-[minmax(0,1fr)_130px_72px_minmax(100px,auto)_104px_auto]';
+  'grid grid-cols-[minmax(0,1fr)_40px] items-center gap-3 ' +
+  'md:grid-cols-[minmax(0,1fr)_120px_40px] ' +
+  'lg:grid-cols-[minmax(0,1fr)_140px_120px_128px_40px]';
 
 /**
  * The host of a site, for the link that names it.
@@ -95,6 +97,35 @@ function Stat(props: { readonly value: number; readonly noun: string }) {
 }
 
 /**
+ * The line under the vendor's name - id, version, when it was set up, its site - with a dot
+ * between each pair, and nothing after the last.
+ *
+ * @param props - The parts, in order; a part that is not there is left out.
+ * @param props.parts - What to show.
+ * @returns The line.
+ */
+function MetaLine(props: { readonly parts: readonly (ReactNode | null)[] }) {
+  const present = props.parts.filter((part) => part !== null);
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-caption text-foreground-subtle">
+      {present.map((part, index) => (
+        // Position is identity here: the parts are a fixed, ordered handful.
+        // eslint-disable-next-line react/no-array-index-key
+        <span key={index} className="flex items-center gap-x-2.5">
+          {index === 0 ? null : (
+            <span aria-hidden="true" className="text-foreground-subtle">
+              ·
+            </span>
+          )}
+          {part}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
  * Renders one vendor's page.
  *
  * @returns The page.
@@ -102,8 +133,10 @@ function Stat(props: { readonly value: number; readonly noun: string }) {
 export function VendorPage() {
   const { vendorId = '' } = useParams();
   const queryClient = useQueryClient();
-  const canConfigure = useSession((state) => state.can)('integration:configure');
-  const [open, setOpen] = useState<IntegrationDialogTarget | null>(null);
+  const can = useSession((state) => state.can);
+  const canConfigure = can('integration:configure');
+  const canWrite = can('device:write');
+  const [open, setOpen] = useState<DeviceDialogTarget | null>(null);
   const [isSettingUp, setSettingUp] = useState(false);
 
   const vendor = useQuery({
@@ -119,21 +152,22 @@ export function VendorPage() {
     queryFn: async ({ signal }) => fetchVendor(vendorId, signal),
   });
 
-  const integrations = useQuery({
-    queryKey: LIBRARY_QUERY_KEYS.integrations,
+  const all = useQuery({
+    queryKey: LIBRARY_QUERY_KEYS.devices,
 
     /**
-     * Reads every instance; the page keeps this vendor's.
+     * Reads every device; the page keeps this vendor's.
      *
      * @param context - The query's abort signal.
      * @param context.signal - Cancels the request when the page goes away.
-     * @returns The instances.
+     * @returns The devices.
      */
-    queryFn: async ({ signal }) => fetchIntegrations(signal),
+    queryFn: async ({ signal }) => fetchDevices(signal),
   });
 
   const found = vendor.data;
-  const devices = (integrations.data ?? []).filter((each) => each.vendorId === vendorId);
+  const devices = (all.data ?? []).filter((each) => each.vendorId === vendorId);
+  const icons = useDeviceIcons(devices);
   const hasSetupFields =
     found !== undefined &&
     found.setup.transport.fields.length + found.setup.options.fields.length > 0;
@@ -146,12 +180,12 @@ export function VendorPage() {
    */
   const settle = (state: IntegrationState): void => {
     setOpen(null);
-    void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.integrations });
+    void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
     void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
 
-    if (state === 'starting') {
+    if (state === 'starting' || state === 'identifying') {
       setTimeout(() => {
-        void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.integrations });
+        void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
       }, SETTLE_MS);
     }
   };
@@ -183,8 +217,8 @@ export function VendorPage() {
             </>
           ) : undefined
         }
-        isPending={vendor.isPending || integrations.isPending}
-        error={vendor.error ?? integrations.error}
+        isPending={vendor.isPending || all.isPending}
+        error={vendor.error ?? all.error}
         isEmpty={false}
       >
         {found === undefined ? null : (
@@ -206,24 +240,31 @@ export function VendorPage() {
                   </p>
                 )}
 
-                <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-caption text-foreground-subtle">
-                  <span className="font-mono">{found.id}</span>
-                  <span className="tabular">v{found.version}</span>
-                  {found.configuredAt === null ? null : (
-                    <span>Set up {absoluteTime(found.configuredAt)}</span>
-                  )}
-                  {found.url === undefined ? null : (
-                    <a
-                      href={found.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-primary transition-colors hover:text-primary-hover"
-                    >
-                      {hostOf(found.url)}
-                      <ExternalLinkIcon width="12" height="12" />
-                    </a>
-                  )}
-                </div>
+                <MetaLine
+                  parts={[
+                    <span key="id" className="font-mono">
+                      {found.id}
+                    </span>,
+                    <span key="version" className="tabular">
+                      v{found.version}
+                    </span>,
+                    found.configuredAt === null ? null : (
+                      <span key="configured">Set up {absoluteTime(found.configuredAt)}</span>
+                    ),
+                    found.url === undefined ? null : (
+                      <a
+                        key="site"
+                        href={found.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-primary transition-colors hover:text-primary-hover"
+                      >
+                        {hostOf(found.url)}
+                        <ExternalLinkIcon width="12" height="12" />
+                      </a>
+                    ),
+                  ]}
+                />
               </div>
 
               <div className="flex items-start pl-14 md:pl-0">
@@ -259,7 +300,7 @@ export function VendorPage() {
             <Panel
               title={`Devices · ${String(devices.length)}`}
               action={
-                canConfigure ? (
+                canWrite ? (
                   <Button
                     size="compact"
                     disabled={found.needsSetup}
@@ -268,7 +309,7 @@ export function VendorPage() {
                       setOpen({
                         mode: 'create',
                         vendor: found,
-                        existingIds: (integrations.data ?? []).map((each) => each.id),
+                        existingIds: (all.data ?? []).map((each) => each.id),
                       });
                     }}
                   >
@@ -283,15 +324,14 @@ export function VendorPage() {
               >
                 <span>Device</span>
                 <span className="hidden lg:block">Model</span>
-                <span className="hidden lg:block">Entities</span>
                 <span className="hidden md:block">Status</span>
-                <span className="hidden lg:block">Last started</span>
+                <span className="hidden lg:block">Last updated</span>
                 <span />
               </div>
 
               {devices.length === 0 ? (
                 <p className="px-4 py-3.5 text-ui text-foreground-muted">
-                  Nothing added yet. Add a device by its address and the hub connects to it at once.
+                  Nothing added yet. Add a device by its address and the hub listens for it at once.
                 </p>
               ) : (
                 <ul>
@@ -300,73 +340,75 @@ export function VendorPage() {
                       key={device.id}
                       className={`${COLUMNS} border-b border-border-soft px-4 py-3 last:border-b-0`}
                     >
-                      <span className="flex min-w-0 flex-col gap-0.5">
-                        <span className="truncate font-mono text-ui text-foreground">
-                          {device.id}
+                      <span className="flex min-w-0 items-center gap-3">
+                        <DeviceIcon
+                          icon={icons.get(device.icon ?? '')}
+                          className="text-foreground-muted"
+                        />
+                        <span className="flex min-w-0 flex-col gap-0.5">
+                          <Link
+                            to={`/devices?device=${device.id}`}
+                            className="truncate text-ui font-medium text-foreground transition-colors hover:text-primary"
+                          >
+                            {device.name}
+                          </Link>
+                          <span className="text-caption text-foreground-subtle lg:hidden">
+                            {device.model ?? device.driverName}
+                          </span>
+                          {device.state === 'identifying' ? (
+                            <span className="text-caption text-foreground-subtle">
+                              Listening for the device…
+                            </span>
+                          ) : null}
+                          {device.lastError === null ? null : (
+                            <span className="text-caption text-danger">{device.lastError}</span>
+                          )}
                         </span>
-                        <span className="text-caption text-foreground-subtle lg:hidden">
-                          {device.model ?? device.driverName}
-                        </span>
-                        {device.lastError === null ? null : (
-                          <span className="text-caption text-danger">{device.lastError}</span>
-                        )}
                       </span>
                       <span className="hidden truncate text-ui text-foreground-muted lg:block">
                         {device.model ?? device.driverName}
                       </span>
-                      <span className="hidden font-mono text-ui text-foreground-muted tabular lg:block">
-                        {device.entityCount}
-                      </span>
-                      <span className="hidden items-center gap-2 md:flex">
+                      <span className="hidden items-center md:flex">
                         <Badge tone={TONES[device.state]} size="small">
                           {device.state}
                         </Badge>
-                        {device.isEnabled ? null : (
-                          <Badge tone="neutral" size="small">
-                            Off
-                          </Badge>
-                        )}
                       </span>
                       <span className="hidden text-caption text-foreground-subtle tabular lg:block">
-                        {device.lastStartedAt === null ? '—' : relativeTime(device.lastStartedAt)}
+                        {device.lastUpdatedAt === null ? '—' : relativeTime(device.lastUpdatedAt)}
                       </span>
                       <span className="flex justify-end">
-                        {canConfigure ? (
-                          <Button
-                            variant="ghost"
-                            size="compact"
+                        {canWrite ? (
+                          <IconButton
+                            variant="bare"
+                            size="small"
+                            label={`Configure ${device.name}`}
                             onClick={() => {
-                              setOpen({ mode: 'edit', vendor: found, integration: device });
+                              setOpen({ mode: 'edit', vendor: found, device });
                             }}
                           >
-                            Configure
-                          </Button>
+                            <WrenchIcon width="16" height="16" />
+                          </IconButton>
                         ) : null}
                       </span>
                     </li>
                   ))}
                 </ul>
               )}
-
-              <PanelNote>
-                Add device connects to one device by its address and starts talking to it at once;
-                Test tries the address first. Finding devices on the network is coming later.
-              </PanelNote>
             </Panel>
           </>
         )}
       </LibraryPage>
 
-      <IntegrationDialog
+      <DeviceDialog
         // Keyed on the target, so the dialog is a fresh one each time it opens and its fields
         // start from what the row holds rather than from what the last one held.
-        key={open === null ? 'shut' : open.mode === 'create' ? 'create' : open.integration.id}
+        key={open === null ? 'shut' : open.mode === 'create' ? 'create' : open.device.id}
         target={open}
         onClose={() => {
           setOpen(null);
         }}
-        onSaved={(integration) => {
-          settle(integration.state);
+        onSaved={(device) => {
+          settle(device.state);
         }}
       />
 
@@ -379,7 +421,7 @@ export function VendorPage() {
         onSaved={() => {
           setSettingUp(false);
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.integrations });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
         }}
       />
     </>

@@ -59,7 +59,6 @@ export function IntegrationsPage() {
     <LibraryPage
       title="Integrations"
       hasTabs={false}
-      summary="Each one speaks to a company's devices on your behalf and turns what they say into entities the house can address."
       noun="integration"
       count={vendors.isPending ? undefined : all.length}
       tools={

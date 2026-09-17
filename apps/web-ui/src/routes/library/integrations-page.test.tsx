@@ -33,6 +33,7 @@ function vendor(overrides: Partial<IntegrationVendorView>): IntegrationVendorVie
     version: '1.0.0',
     name: 'Shelly',
     color: '#3B9DFF',
+    logoPadding: 0,
     internetRequired: false,
     transports: ['http'],
     setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
@@ -42,7 +43,6 @@ function vendor(overrides: Partial<IntegrationVendorView>): IntegrationVendorVie
     transportConfig: {},
     options: {},
     configuredAt: null,
-    instanceCount: 2,
     deviceCount: 2,
     entityCount: 6,
     ...overrides,
@@ -84,7 +84,6 @@ describe('the integrations grid', () => {
         id: 'bambu-lab',
         name: 'Bambu Lab',
         transports: ['mqtt'],
-        instanceCount: 1,
         entityCount: 12,
       }),
     ]);

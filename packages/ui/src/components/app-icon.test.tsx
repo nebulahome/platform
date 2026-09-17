@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { IconOverridesProvider } from '../icons/icon-overrides.js';
+import { IconOverridesProvider, type IconOverrides } from '../icons/icon-overrides.js';
 import { BUILTIN_UI_NODES } from '../icons/ui-set.js';
 
 import { AppIcon } from './app-icon.js';
@@ -44,12 +44,12 @@ describe('AppIcon', () => {
   });
 
   it('draws the override instead, once the catalogue has provided one', () => {
-    const overrides = new Map([
+    const overrides: IconOverrides = new Map([
       [
         'check',
         { node: [['circle', { cx: '1', cy: '1', r: '1' }]], frame: { x: 0, y: 0, size: 2 } },
       ],
-    ] as const);
+    ]);
     const { container } = render(
       <IconOverridesProvider value={overrides}>
         <AppIcon id="check" />

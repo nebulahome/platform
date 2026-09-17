@@ -101,11 +101,19 @@ export function Marks(props: MarksProps) {
 
 /** What the logo needs. */
 type LogoProps = {
-  readonly vendor: Pick<IntegrationVendorView, 'name' | 'logo' | 'color'>;
+  readonly vendor: Pick<IntegrationVendorView, 'name' | 'logo' | 'color' | 'logoPadding'>;
 
   /** The side of the square, in pixels. */
   readonly size: number;
 };
+
+/**
+ * The margin every logo gets inside its square, in pixels.
+ *
+ * Constant, on purpose: a bundle asks for more through `logoPadding` and never for less, so
+ * that no mark ever touches the edge of its tile. A monogram is text and needs none.
+ */
+const LOGO_BASE_PADDING = 4;
 
 /**
  * The square that identifies a vendor at a glance: their logo, or a monogram in their colour.
@@ -140,7 +148,13 @@ export function VendorLogo(props: LogoProps) {
           {vendor.name.charAt(0).toUpperCase()}
         </span>
       ) : (
-        <img src={vendor.logo} alt="" width={size} height={size} className="block" />
+        <img
+          src={vendor.logo}
+          alt=""
+          width={Math.max(size - 2 * (LOGO_BASE_PADDING + vendor.logoPadding), 1)}
+          height={Math.max(size - 2 * (LOGO_BASE_PADDING + vendor.logoPadding), 1)}
+          className="block"
+        />
       )}
     </span>
   );
@@ -207,11 +221,9 @@ export function VendorCard(props: VendorCardProps) {
 
         <span className="grow" />
 
-        {/* The devices are the instances: each one was added by hand, by its address, and is
-            what the vendor page lists under Devices. */}
         <span className="mt-3 flex items-baseline gap-1 text-ui leading-tight text-foreground-muted tabular">
-          <span className="font-medium text-foreground">{vendor.instanceCount}</span>
-          <span>{noun(vendor.instanceCount, 'device', 'devices')}</span>
+          <span className="font-medium text-foreground">{vendor.deviceCount}</span>
+          <span>{noun(vendor.deviceCount, 'device', 'devices')}</span>
           <span className="mx-1 text-foreground-subtle">·</span>
           <span className="font-medium text-foreground">{vendor.entityCount}</span>
           <span>{noun(vendor.entityCount, 'entity', 'entities')}</span>
