@@ -103,6 +103,7 @@ function kindOf(bundle: LoadedBundle): IntegrationKind {
     name: bundle.driverName,
     transport: manifest.transport,
     models: manifest.models,
+    ...(manifest.defaultIcon === undefined ? {} : { defaultIcon: manifest.defaultIcon }),
     setup: bundle.setup,
   };
 }
@@ -124,6 +125,7 @@ function vendorOf(vendor: LoadedVendor): IntegrationVendor {
     ...(manifest.url === undefined ? {} : { url: manifest.url }),
     ...(manifest.color === undefined ? {} : { color: manifest.color }),
     ...(vendor.logo === undefined ? {} : { logo: vendor.logo }),
+    logoPadding: manifest.logoPadding,
     internetRequired: manifest.internetRequired,
     transports: [...vendor.transports],
     setup: vendor.setup,

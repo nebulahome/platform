@@ -203,6 +203,9 @@ importers:
       '@nebula-home/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
+      '@nebula-home/icons':
+        specifier: workspace:*
+        version: link:../../packages/icons
       '@nebula-home/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig

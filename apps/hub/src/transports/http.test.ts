@@ -43,7 +43,7 @@ function silent(): PlatformLogger {
  */
 async function connect(delivered: TransportInbound[] = []): Promise<TransportConnection> {
   return httpTransport.connect(
-    { hosts: [host], isSecure: false, timeoutMs: 2000 },
+    { host, isSecure: false, timeoutMs: 2000 },
     {
       logger: silent(),
       deliver: (message): void => {
@@ -157,7 +157,7 @@ describe('asking a device something', () => {
     seen.length = 0;
 
     const connection = await httpTransport.connect(
-      { hosts: [host], isSecure: false, timeoutMs: 2000, username: 'admin', password: 'secret' },
+      { host, isSecure: false, timeoutMs: 2000, username: 'admin', password: 'secret' },
       { logger: silent(), deliver: (): void => undefined, report: (): void => undefined },
     );
 
@@ -229,12 +229,12 @@ describe('polling', () => {
   });
 });
 
-describe('probing the hosts an owner configured', () => {
-  it('offers a host that answered the probe', async () => {
+describe('probing the host an owner configured', () => {
+  it('offers the host when it answered the probe', async () => {
     const found = [];
 
     for await (const discovered of httpTransport.scan(
-      { hosts: [host], isSecure: false, timeoutMs: 2000 },
+      { host, isSecure: false, timeoutMs: 2000 },
       { probe: { op: 'get', args: { path: '/status' } } },
       AbortSignal.timeout(3000),
     )) {
@@ -246,20 +246,20 @@ describe('probing the hosts an owner configured', () => {
     ]);
   });
 
-  it('passes over a host with nothing behind it', async () => {
+  it('offers nothing for a host with nothing behind it', async () => {
     // An address with nothing at it is the ordinary outcome of a typo, not an error worth
-    // failing the whole scan for.
+    // failing the scan for: the instance simply keeps listening for the device.
     const found = [];
 
     for await (const discovered of httpTransport.scan(
-      { hosts: ['127.0.0.1:1', host], isSecure: false, timeoutMs: 500 },
+      { host: '127.0.0.1:1', isSecure: false, timeoutMs: 500 },
       { probe: { op: 'get', args: { path: '/status' } } },
       AbortSignal.timeout(3000),
     )) {
       found.push(discovered.deviceKey);
     }
 
-    expect(found).toEqual([host]);
+    expect(found).toEqual([]);
   });
 });
 
@@ -269,36 +269,35 @@ describe('trying a configuration', () => {
     // that address, which is what a probe is for. Whether it is the right device is the
     // discovery scan's question, not this one's.
     const detail = await httpTransport.probe(
-      { hosts: [host], isSecure: false, timeoutMs: 2000 },
+      { host, isSecure: false, timeoutMs: 2000 },
       AbortSignal.timeout(3000),
     );
 
-    expect(detail).toMatch(/1 of 1/u);
     expect(detail).toContain(host);
+    expect(detail).toMatch(/answered/u);
   });
 
   it('names the address that did not answer, and why', async () => {
     await expect(
       httpTransport.probe(
-        { hosts: [host, '127.0.0.1:9'], isSecure: false, timeoutMs: 2000 },
+        { host: '127.0.0.1:9', isSecure: false, timeoutMs: 2000 },
         AbortSignal.timeout(3000),
       ),
     ).rejects.toThrow(/127\.0\.0\.1:9/u);
   });
 
   it('refuses a configuration with nothing to try', async () => {
+    // One device is one address. A configuration without one is refused by the schema, at the
+    // boundary, naming the field.
     await expect(
-      httpTransport.probe(
-        { hosts: [], isSecure: false, timeoutMs: 2000 },
-        AbortSignal.timeout(3000),
-      ),
-    ).rejects.toThrow(/address/iu);
+      httpTransport.probe({ isSecure: false, timeoutMs: 2000 }, AbortSignal.timeout(3000)),
+    ).rejects.toThrow(/host/iu);
   });
 
   it('sends the credentials, since a device with a password answers 401 without them', async () => {
     seen.length = 0;
     await httpTransport.probe(
-      { hosts: [host], isSecure: false, timeoutMs: 2000, username: 'admin', password: 'pw' },
+      { host, isSecure: false, timeoutMs: 2000, username: 'admin', password: 'pw' },
       AbortSignal.timeout(3000),
     );
 

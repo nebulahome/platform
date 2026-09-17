@@ -97,6 +97,14 @@ describe('vendorManifestSchema', () => {
     expect(vendorManifestSchema.safeParse({ ...vendor(), hasMqtt: true }).success).toBe(false);
   });
 
+  it('lets a vendor ask for room around its logo, in pixels, none by default', () => {
+    // A mark drawn to the edge of its file needs more than the small margin every logo gets.
+    expect(vendorManifestSchema.parse(vendor()).logoPadding).toBe(0);
+    expect(vendorManifestSchema.parse({ ...vendor(), logoPadding: 6 }).logoPadding).toBe(6);
+    expect(vendorManifestSchema.safeParse({ ...vendor(), logoPadding: 40 }).success).toBe(false);
+    expect(vendorManifestSchema.safeParse({ ...vendor(), logoPadding: 2.5 }).success).toBe(false);
+  });
+
   it('records the runtime the bundle was written against', () => {
     // A bundle outlives the runtime it was written for. Without a declared range, an old
     // profile is loaded against a schema it predates and fails somewhere further in.
@@ -201,7 +209,29 @@ describe('integrationKindSchema', () => {
   });
 });
 
+describe('driverManifestSchema', () => {
+  it('lets a driver name the catalogue icon its devices start with', () => {
+    const parsed = driverManifestSchema.parse({ ...driver(), defaultIcon: 'relay' });
+
+    expect(parsed.defaultIcon).toBe('relay');
+    expect(driverManifestSchema.parse(driver()).defaultIcon).toBeUndefined();
+    expect(driverManifestSchema.safeParse({ ...driver(), defaultIcon: 'Relay!' }).success).toBe(
+      false,
+    );
+  });
+});
+
 describe('resolveManifest', () => {
+  it('carries the default icon from the driver', () => {
+    const resolved = resolveManifest(
+      vendorManifestSchema.parse(vendor()),
+      driverManifestSchema.parse({ ...driver(), defaultIcon: 'relay' }),
+    );
+
+    expect(resolved.defaultIcon).toBe('relay');
+    expect(bundleManifestSchema.safeParse(resolved).success).toBe(true);
+  });
+
   it('composes the kind from the vendor and the driver', () => {
     const resolved = resolveManifest(
       vendorManifestSchema.parse(vendor()),

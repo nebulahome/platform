@@ -2,6 +2,7 @@
   "id": "1pm-mini-g3",
   "name": "1PM Mini Gen3",
   "transport": "http",
+  "defaultIcon": "relay",
   "kind": "declarative",
   "profile": "./profile.json",
   "setup": "./setup.json"

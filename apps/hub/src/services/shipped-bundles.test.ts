@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { loadBuiltinIcons } from '@nebula-home/icons';
 import { integrationProfileSchema } from '@nebula-home/package-runtime';
 
 import { RUNTIME_VERSION } from '../config.js';
@@ -59,6 +60,20 @@ describe('the bundles that ship', () => {
 
     for (const vendor of vendors) {
       expect(vendor.logo).toMatch(/^data:image\/svg\+xml;base64,/);
+    }
+  });
+
+  it('gives every shipped driver a default icon the catalogue has', async () => {
+    // The API resolves the icon when a device is added and falls back to none with a warning
+    // when it is unknown - which is fine for a bundle somebody else wrote, and a mistake here.
+    const { loaded } = await loadBundles({ directory: DIRECTORY, runtimeVersion: RUNTIME_VERSION });
+    const builtin = new Set(loadBuiltinIcons().map((icon) => icon.id));
+
+    for (const bundle of loaded) {
+      const icon = bundle.manifest.defaultIcon;
+
+      expect(icon, `${bundle.manifest.id} names no default icon`).toBeDefined();
+      expect(builtin.has(icon ?? ''), `${bundle.manifest.id} names ${String(icon)}`).toBe(true);
     }
   });
 

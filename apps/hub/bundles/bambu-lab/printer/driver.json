@@ -3,6 +3,7 @@
   "name": "Printer",
   "transport": "mqtt",
   "models": ["X1C", "X1E", "P1S", "P1P", "A1", "A1 mini"],
+  "defaultIcon": "printer",
   "kind": "declarative",
   "profile": "./profile.json",
   "setup": "./setup.json"

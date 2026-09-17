@@ -8,11 +8,12 @@
  *
  * **A device is a host.** `deviceKey` is the authority - `192.168.1.40`, or `shelly.local:8080` -
  * and a request template supplies the path. That split is what lets one profile describe a kind of
- * device while the instance decides which ones it has.
+ * device while the instance says which one it is.
  *
- * Discovery is a probe of the hosts an owner configured. Finding devices without being told where
- * to look needs mDNS and SSDP, which are their own piece of work; asking an owner for an address
- * is what the interface would fall back to anyway when a device does not announce itself.
+ * Identifying the device is a probe of the one host an owner configured. Finding devices without
+ * being told where to look needs mDNS and SSDP, which are their own piece of work; asking an
+ * owner for an address is what the interface would fall back to anyway when a device does not
+ * announce itself.
  */
 import { z } from 'zod';
 
@@ -29,10 +30,10 @@ import type {
 /** How often a poll may run at most, so a profile cannot melt a device with a one-millisecond loop. */
 const MIN_POLL_MS = 250;
 
-/** What an owner configures to reach a set of devices. */
+/** What an owner configures to reach a device. */
 export const httpConfigSchema = z.object({
-  /** The devices this instance reaches, as `host` or `host:port`. */
-  hosts: z.array(z.string().min(1).max(256)).default([]),
+  /** The device this instance reaches, as `host` or `host:port`. One instance is one device. */
+  host: z.string().min(1).max(256),
 
   /** Whether to speak TLS to them. */
   isSecure: z.boolean().default(false),
@@ -44,7 +45,7 @@ export const httpConfigSchema = z.object({
   password: z.string().max(512).optional(),
 });
 
-/** What an owner configures to reach a set of devices. */
+/** What an owner configures to reach a device. */
 export type HttpConfig = z.output<typeof httpConfigSchema>;
 
 /**
@@ -138,7 +139,7 @@ async function fetchFrom(
  * polling loops when an owner configures the same devices twice.
  */
 function connectionKey(config: HttpConfig): string {
-  return `http:${JSON.stringify([config.hosts, config.isSecure, config.username ?? ''])}`;
+  return `http:${JSON.stringify([config.host, config.isSecure, config.username ?? ''])}`;
 }
 
 /**
@@ -243,12 +244,12 @@ function open(config: HttpConfig, context: TransportContext): Promise<TransportC
 }
 
 /**
- * Probes the hosts an owner configured.
+ * Probes the host an owner configured.
  *
- * @param config - The connection settings, which carry the hosts.
- * @param terms - The integration's search terms, whose `probe` says what to ask each host.
+ * @param config - The connection settings, which carry the host.
+ * @param terms - The integration's search terms, whose `probe` says what to ask it.
  * @param signal - Ends the scan.
- * @yields {Discovered} One candidate per host that answered the probe.
+ * @yields {Discovered} The host, when it answered the probe.
  */
 async function* scan(
   config: HttpConfig,
@@ -261,35 +262,22 @@ async function* scan(
       ? (probe['args'] as JsonObject | undefined)
       : undefined;
 
-  // Probed in parallel: a house has a handful of hosts and one that is off would otherwise make
-  // every host after it wait out the timeout before being tried.
-  const answers = await Promise.all(
-    config.hosts.map(async (host): Promise<Discovered | null> => {
-      if (signal.aborted) {
-        return null;
-      }
+  if (signal.aborted) {
+    return;
+  }
 
-      try {
-        const payload = await fetchFrom(
-          config,
-          host,
-          args ?? { path: '/' },
-          AbortSignal.any([signal, AbortSignal.timeout(config.timeoutMs)]),
-        );
+  try {
+    const payload = await fetchFrom(
+      config,
+      config.host,
+      args ?? { path: '/' },
+      AbortSignal.any([signal, AbortSignal.timeout(config.timeoutMs)]),
+    );
 
-        return { deviceKey: host, payload };
-      } catch {
-        // A host that does not answer is not a candidate. Nothing to report: the owner listed an
-        // address, and an address with nothing behind it is the ordinary outcome of a typo.
-        return null;
-      }
-    }),
-  );
-
-  for (const answer of answers) {
-    if (answer !== null) {
-      yield answer;
-    }
+    yield { deviceKey: config.host, payload };
+  } catch {
+    // A host that does not answer is nothing to report: an address with nothing behind it is
+    // the ordinary outcome of a typo, or of a device that is off, and the instance keeps asking.
   }
 }
 
@@ -319,46 +307,29 @@ function reasonOf(error: unknown): string {
 }
 
 /**
- * Tries every address once.
+ * Tries the address once.
  *
  * Any HTTP answer counts, a 404 or a 401 included: something at that address speaks HTTP, which
- * is what the owner is checking. Whether it is the right device is the discovery scan's
- * question, and whether the password is right is answered by the first poll. What fails here is
- * an address with nothing behind it.
+ * is what the owner is checking. Whether it is the right device is identification's question,
+ * and whether the password is right is answered by the first poll. What fails here is an address
+ * with nothing behind it.
  *
  * @param config - The connection settings.
  * @param signal - Gives up.
- * @returns How many addresses answered.
- * @throws {Error} When there are no addresses, or when one of them did not answer - naming it
- * and why, so that a typo in the second of three is found without trying each alone.
+ * @returns That the address answered.
+ * @throws {Error} When it did not - naming it and why.
  */
 async function probe(config: HttpConfig, signal: AbortSignal): Promise<string> {
-  if (config.hosts.length === 0) {
-    throw new Error('No addresses configured');
+  try {
+    await fetch(urlFor(config, config.host, { path: '/' }), {
+      headers: headersFor(config),
+      signal: AbortSignal.any([signal, AbortSignal.timeout(config.timeoutMs)]),
+    });
+  } catch (error: unknown) {
+    throw new Error(`${config.host} did not answer: ${reasonOf(error)}`, { cause: error });
   }
 
-  const failures: string[] = [];
-
-  await Promise.all(
-    config.hosts.map(async (host): Promise<void> => {
-      try {
-        await fetch(urlFor(config, host, { path: '/' }), {
-          headers: headersFor(config),
-          signal: AbortSignal.any([signal, AbortSignal.timeout(config.timeoutMs)]),
-        });
-      } catch (error: unknown) {
-        failures.push(`${host} did not answer: ${reasonOf(error)}`);
-      }
-    }),
-  );
-
-  if (failures.length > 0) {
-    throw new Error(failures.join('; '));
-  }
-
-  const count = String(config.hosts.length);
-
-  return `${count} of ${count} addresses answered: ${config.hosts.join(', ')}`;
+  return `${config.host} answered`;
 }
 
 /** Devices reached by asking them, on a schedule. */

@@ -75,6 +75,7 @@ function printerBundle(): LoadedBundle {
     vendor: { id: 'acme', name: 'ACME' },
     transport: 'fake',
     models: ['P1'],
+    defaultIcon: 'printer',
     kind: 'declarative',
     profile: './profile.json',
     setup: './setup.json',
@@ -130,6 +131,7 @@ function printerVendor(): LoadedVendor {
       description: 'A printer that is not there',
       url: 'https://acme.example',
       color: '#FF6A2B',
+      logoPadding: 4,
       internetRequired: true,
     },
     setup: integrationSetupSchema.parse({
@@ -214,6 +216,7 @@ describe('the catalogue', () => {
       url: 'https://acme.example',
       color: '#FF6A2B',
       logo: 'data:image/svg+xml;base64,PHN2Zy8+',
+      logoPadding: 4,
       internetRequired: true,
       transports: ['fake'],
     });
@@ -225,6 +228,7 @@ describe('the catalogue', () => {
       name: 'Fake printer',
       transport: 'fake',
       models: ['P1'],
+      defaultIcon: 'printer',
     });
     expect(reply.vendors[0]?.drivers[0]?.setup.transport.constants).toEqual({ username: 'bblp' });
     expect(reply.vendors[0]?.drivers[0]?.setup.transport.fields.map((field) => field.key)).toEqual([

@@ -22,7 +22,7 @@
  */
 import { z } from 'zod';
 
-import { INTEGRATION_KIND_PATTERN, SEMVER_PATTERN } from '@nebula-home/contracts';
+import { iconIdSchema, INTEGRATION_KIND_PATTERN, SEMVER_PATTERN } from '@nebula-home/contracts';
 
 /** Bundle kind, which is both how it is written and how far it is trusted. */
 export const BUNDLE_KINDS = ['declarative', 'code'] as const;
@@ -101,6 +101,12 @@ export const vendorManifestSchema = z.strictObject({
   /** Path to the logo, relative to the bundle: an SVG or a PNG. */
   logo: bundlePathSchema.optional(),
 
+  /**
+   * Room the interface leaves around the logo, in pixels, on top of the small margin every
+   * logo gets. For a mark drawn to the edge of its file.
+   */
+  logoPadding: z.int().min(0).max(16).default(0),
+
   /** Whether the devices stop working when the internet does. Shown as a warning on the card. */
   internetRequired: z.boolean().default(false),
 
@@ -150,6 +156,12 @@ const driverShape = {
     }),
 
   kind: z.enum(BUNDLE_KINDS),
+
+  /**
+   * The catalogue icon a device of this driver starts with. The owner picks another per
+   * device; this is only what the form starts from, and it may be absent.
+   */
+  defaultIcon: iconIdSchema.optional(),
 
   /** Path to the profile, relative to the driver. Declarative drivers only. */
   profile: bundlePathSchema.optional(),
@@ -289,6 +301,7 @@ export function resolveManifest(vendor: VendorManifest, driver: DriverManifest):
     transport: driver.transport,
     models: driver.models,
     kind: driver.kind,
+    ...(driver.defaultIcon === undefined ? {} : { defaultIcon: driver.defaultIcon }),
     ...(driver.profile === undefined ? {} : { profile: driver.profile }),
     ...(driver.entry === undefined ? {} : { entry: driver.entry }),
     setup: driver.setup,
