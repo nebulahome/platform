@@ -18,6 +18,17 @@ const files = await readMigrations(migrationsDirectory);
 const initialSql = files[0]?.sql ?? '';
 
 /**
+ * The `registry.devices` table as the migration creates it.
+ *
+ * @returns The CREATE TABLE statement.
+ */
+function devicesTable(): string {
+  const start = initialSql.indexOf('CREATE TABLE registry.devices (');
+
+  return initialSql.slice(start, initialSql.indexOf('\n);', start));
+}
+
+/**
  * The body of the constraint that decides which columns an entity of each source may set.
  *
  * @returns The CHECK expression, or an empty string when the constraint is absent.
@@ -55,7 +66,7 @@ describe('the migration set', () => {
 
 describe('the initial schema', () => {
   it('creates every object DATABASE.md defines', () => {
-    expect(initialSql.match(/^CREATE TABLE /gm)).toHaveLength(35);
+    expect(initialSql.match(/^CREATE TABLE /gm)).toHaveLength(36);
     expect(initialSql.match(/^CREATE VIEW /gm)).toHaveLength(4);
     expect(initialSql.match(/create_hypertable\(/g)).toHaveLength(5);
   });
@@ -138,9 +149,41 @@ describe('integration ownership', () => {
     expect(initialSql).toContain('CONSTRAINT integrations_id_format ' + shape);
   });
 
-  it('gives hub its own configuration to read and no other registry table', () => {
+  it('gives hub its configuration and the device rows to read, and no other registry table', () => {
+    // The device row carries the claim an instance binds its device from on restart, so hub
+    // reads it; it still writes neither table, which is what keeps core the single writer.
     expect(initialSql).toContain('GRANT SELECT ON registry.integrations TO nebula_hub');
+    expect(initialSql).toContain('GRANT SELECT ON registry.devices TO nebula_hub');
     expect(initialSql).not.toMatch(/GRANT[^;]*ALL TABLES IN SCHEMA registry[^;]*nebula_hub/);
+  });
+
+  it('lets one instance own exactly one device, deleted with it', () => {
+    // One instance is one device: the unique index is the 1:1, and the cascade is what makes
+    // removing a device one delete rather than two in the right order.
+    expect(initialSql).toMatch(
+      /integration_id text\s+UNIQUE REFERENCES registry\.integrations \(id\) ON DELETE CASCADE/,
+    );
+    expect(initialSql).not.toContain('UNIQUE (integration_id, external_id)');
+  });
+
+  it('leaves a device without a serial until the hub has heard from it', () => {
+    expect(devicesTable()).toMatch(/external_id\s+text,/);
+    expect(devicesTable()).toMatch(/icon\s+text,/);
+  });
+
+  it('records identifying as a state, between starting and running', () => {
+    expect(initialSql).toMatch(
+      /integrations_state CHECK \(state IN \(\s*'stopped', 'starting', 'identifying', 'running', 'failed', 'disabled'\s*\)\)/,
+    );
+  });
+
+  it('keeps the icons an owner added or replaced, each saying which it is', () => {
+    expect(initialSql).toContain('CREATE TABLE registry.icons (');
+    expect(initialSql).toContain("CONSTRAINT icons_kind CHECK (kind IN ('custom', 'override'))");
+    expect(initialSql).toContain(
+      "CONSTRAINT icons_id_format CHECK (id ~ '^[a-z0-9][a-z0-9-]{0,63}" + "$')",
+    );
+    expect(initialSql).toContain('CREATE TRIGGER icons_touch_updated_at');
   });
 
   it("keeps a vendor's shared settings beside its instances, under the same id shape", () => {

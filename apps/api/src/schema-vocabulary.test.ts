@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { SETTINGS } from '@nebula-home/contracts';
+import { INTEGRATION_STATES, SETTINGS } from '@nebula-home/contracts';
 
 import { SESSION_REVOKED_REASONS } from './auth/repository.js';
 import { ACTOR_TYPES, AUDIT_RESULTS } from './services/audit.js';
@@ -48,6 +48,7 @@ describe('the vocabularies the database constrains', () => {
     ['audit_log_actor_type', ACTOR_TYPES],
     ['audit_log_result', AUDIT_RESULTS],
     ['sessions_revoked_reason', SESSION_REVOKED_REASONS],
+    ['integrations_state', INTEGRATION_STATES],
   ])('matches %s exactly', (constraint, values) => {
     expect([...values].sort()).toEqual(allowedValues(constraint).sort());
   });
@@ -57,6 +58,7 @@ describe('the vocabularies the database constrains', () => {
       'audit_log_actor_type',
       'audit_log_result',
       'sessions_revoked_reason',
+      'integrations_state',
     ]) {
       expect(allowedValues(constraint).length).toBeGreaterThan(0);
     }

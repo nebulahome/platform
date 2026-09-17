@@ -352,6 +352,11 @@ CREATE INDEX areas_parent_id_idx ON registry.areas (parent_id);
 -- migration for every transport ever added, and a failure at write time for a bundle that is
 -- merely not installed yet.
 --
+-- One instance is one device. `api` writes this row and the `registry.devices` row that names
+-- the device in one transaction; `hub` runs the instance, identifies the device - the serial on
+-- the broker, the id the relay answers with - and asks `core` to complete the registry row.
+-- `identifying` is the state in between: the transport is open, and nothing has answered yet.
+--
 -- Configuration is written by `api`, runtime status by `hub`. That split is why the grants
 -- further down are column-level rather than a blanket UPDATE.
 
@@ -372,7 +377,7 @@ CREATE TABLE registry.integrations (
 
   CONSTRAINT integrations_id_format CHECK (id ~ '^[a-z][a-z0-9-]{1,63}$'),
   CONSTRAINT integrations_state CHECK (state IN (
-    'stopped', 'starting', 'running', 'failed', 'disabled'
+    'stopped', 'starting', 'identifying', 'running', 'failed', 'disabled'
   ))
 );
 
@@ -409,6 +414,38 @@ CREATE TABLE registry.integration_vendors (
 
 -- --------------------------------------------------------------------------------------
 
+-- registry: icons
+
+-- --------------------------------------------------------------------------------------
+--
+-- The icons an owner added to the catalogue, or drew afresh over a built-in one. The built-in
+-- set ships with the platform and has no rows; a `custom` row is a new id, an `override` row
+-- carries the id of a built-in icon and replaces its drawing everywhere that id is used.
+--
+-- The drawing is kept as the node the interface renders - the flat list of SVG elements the
+-- upload was reduced to by `api` - never as the file, so what is stored is exactly what every
+-- browser will draw. The frame is the square of the drawing's own coordinates to show, which
+-- is how an upload with an odd viewBox is centred to the padding the other icons use.
+--
+-- Written by `api` and by nothing else. The id shape is the built-in set's own, digit first
+-- allowed, because a built-in id has to fit it to be overridden.
+
+CREATE TABLE registry.icons (
+  id         text        PRIMARY KEY,
+  kind       text        NOT NULL,
+  name       text        NOT NULL,
+  keywords   text[]      NOT NULL DEFAULT '{}'::text[],
+  node       jsonb       NOT NULL,   -- iconNodeSchema
+  frame      jsonb       NOT NULL,   -- iconFrameSchema
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT icons_id_format CHECK (id ~ '^[a-z0-9][a-z0-9-]{0,63}$'),
+  CONSTRAINT icons_kind CHECK (kind IN ('custom', 'override'))
+);
+
+-- --------------------------------------------------------------------------------------
+
 -- registry: devices
 
 -- --------------------------------------------------------------------------------------
@@ -416,13 +453,16 @@ CREATE TABLE registry.integration_vendors (
 CREATE TABLE registry.devices (
   id             uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   -- Exactly one owner, enforced by devices_owner_exclusive below. A package installs devices
-  -- through `packet-manager`; an integration adopts them through `hub`. Whichever it is becomes
-  -- the entity's `source`, so a device with neither has no route for a command and one with
-  -- both has two.
+  -- through `packet-manager`; an integration instance is one, written by `api` beside it and
+  -- gone with it. Whichever it is becomes the entity's `source`, so a device with neither has
+  -- no route for a command and one with both has two.
   package_id     text        REFERENCES system.packages (id) ON DELETE RESTRICT,
-  integration_id text        REFERENCES registry.integrations (id) ON DELETE RESTRICT,
-  external_id    text        NOT NULL,          -- the owner's own identifier for the device
+  integration_id text        UNIQUE REFERENCES registry.integrations (id) ON DELETE CASCADE,
+  -- The owner's own identifier for the device: the serial, the id the relay answers with.
+  -- Null until `hub` has heard from it; a package always knows it.
+  external_id    text,
   name           text        NOT NULL,
+  icon           text,                          -- a catalogue icon id, when one is set
   manufacturer   text,
   model          text,
   sw_version     text,
@@ -436,7 +476,6 @@ CREATE TABLE registry.devices (
   updated_at     timestamptz NOT NULL DEFAULT now(),
 
   UNIQUE (package_id, external_id),
-  UNIQUE (integration_id, external_id),
   CONSTRAINT devices_not_own_parent CHECK (via_device_id IS DISTINCT FROM id),
   CONSTRAINT devices_owner_exclusive
     CHECK ((package_id IS NOT NULL) <> (integration_id IS NOT NULL))
@@ -445,7 +484,6 @@ CREATE TABLE registry.devices (
 CREATE INDEX devices_area_id_idx ON registry.devices (area_id);
 CREATE INDEX devices_via_device_id_idx ON registry.devices (via_device_id);
 CREATE INDEX devices_package_id_idx ON registry.devices (package_id);
-CREATE INDEX devices_integration_id_idx ON registry.devices (integration_id);
 
 -- --------------------------------------------------------------------------------------
 
@@ -976,6 +1014,10 @@ CREATE TRIGGER integration_vendors_touch_updated_at
   BEFORE UPDATE ON registry.integration_vendors
   FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
 
+CREATE TRIGGER icons_touch_updated_at
+  BEFORE UPDATE ON registry.icons
+  FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
+
 -- ------------------------------------------------------------------------------------------
 -- Roles
 -- ------------------------------------------------------------------------------------------
@@ -1048,13 +1090,15 @@ GRANT SELECT ON registry.devices, registry.entities TO nebula_packet_manager;
 GRANT SELECT ON system.settings, system.v_schema_version TO nebula_packet_manager;
 
 -- hub: the integration instances it runs, and their runtime status.
--- No grant on devices or entities. `hub` asks `core` to register what it adopts instead of
+-- The device row is read, never written: it carries the claim an instance binds its device
+-- from when it starts again. `hub` asks `core` to complete what it identifies instead of
 -- writing the registry itself, which is what keeps `core` the single writer of both.
 -- The UPDATE is column-level on purpose: the rest of the row is configuration the owner set
 -- through `api`, and a blanket UPDATE would let a restart quietly overwrite it.
 GRANT USAGE ON SCHEMA registry, system TO nebula_hub;
 GRANT SELECT ON registry.integrations TO nebula_hub;
 GRANT UPDATE (state, last_error, last_started_at) ON registry.integrations TO nebula_hub;
+GRANT SELECT ON registry.devices TO nebula_hub;
 -- The vendor's shared settings, read to layer under each instance it starts; never written.
 GRANT SELECT ON registry.integration_vendors TO nebula_hub;
 GRANT SELECT ON system.settings, system.v_schema_version TO nebula_hub;

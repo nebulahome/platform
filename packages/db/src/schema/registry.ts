@@ -139,6 +139,34 @@ export const integrationVendors = registrySchema.table('integration_vendors', {
 });
 
 /**
+ * The icons an owner added to the catalogue, or drew afresh over a built-in one.
+ *
+ * The built-in set ships with the platform and has no rows. A `custom` row is a new id; an
+ * `override` row carries a built-in id and replaces its drawing everywhere the id is used.
+ * The drawing is the node the interface renders, never the uploaded file; the frame is the
+ * square of its own coordinates to show. Written by `api` and by nothing else.
+ */
+export const icons = registrySchema.table('icons', {
+  id: text('id').primaryKey(),
+
+  /** `custom` or `override`. */
+  kind: text('kind').notNull(),
+  name: text('name').notNull(),
+  keywords: text('keywords')
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
+
+  /** The elements, as `iconNodeSchema` has them. */
+  node: jsonb('node').notNull(),
+
+  /** The square to draw in, as `iconFrameSchema` has it. */
+  frame: jsonb('frame').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
  * A physical or logical piece of hardware.
  *
  * `viaDeviceId` records that a device is reached **through** another: a Zigbee bulb through its
@@ -158,15 +186,26 @@ export const devices = registrySchema.table(
      */
     packageId: text('package_id').references(() => packages.id, { onDelete: 'restrict' }),
 
-    /** The integration instance that owns this device, when one does. */
-    integrationId: text('integration_id').references(() => integrations.id, {
-      onDelete: 'restrict',
-    }),
+    /**
+     * The integration instance that is this device, when it is one.
+     *
+     * Unique, because one instance is one device, and cascading, because the row was written
+     * beside the instance and goes with it.
+     */
+    integrationId: text('integration_id')
+      .unique()
+      .references(() => integrations.id, { onDelete: 'cascade' }),
 
-    /** The owner's own identifier for the device. */
-    externalId: text('external_id').notNull(),
+    /**
+     * The owner's own identifier for the device: the serial, the id the relay answers with.
+     * Null until `hub` has heard from it; a package always knows it.
+     */
+    externalId: text('external_id'),
 
     name: text('name').notNull(),
+
+    /** A catalogue icon id, when one is set. */
+    icon: text('icon'),
     manufacturer: text('manufacturer'),
     model: text('model'),
     swVersion: text('sw_version'),
@@ -193,7 +232,6 @@ export const devices = registrySchema.table(
     index('devices_area_id_idx').on(table.areaId),
     index('devices_via_device_id_idx').on(table.viaDeviceId),
     index('devices_package_id_idx').on(table.packageId),
-    index('devices_integration_id_idx').on(table.integrationId),
   ],
 );
 
