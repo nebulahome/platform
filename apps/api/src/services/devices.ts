@@ -19,6 +19,8 @@
  * not answer does not fail the write: the row is saved and the instance will start with the
  * hub, and the view says so by carrying the state the row has.
  */
+import { isDeepStrictEqual } from 'node:util';
+
 import { asc, eq, inArray, sql } from 'drizzle-orm';
 
 import {
@@ -195,7 +197,11 @@ async function deviceRows(context: DevicesContext): Promise<DeviceRow[]> {
   const updated = await context.db
     .select({
       integrationId: entities.integrationId,
-      lastUpdatedAt: sql<Date | null>`max(${entityStates.lastUpdated})`,
+      // An aggregate is not a column: without the column's mapping the driver hands back
+      // Postgres' own text for the timestamp, which is not a Date and not ISO 8601 either.
+      lastUpdatedAt: sql<Date | null>`max(${entityStates.lastUpdated})`.mapWith(
+        entityStates.lastUpdated,
+      ),
     })
     .from(entities)
     .innerJoin(entityStates, eq(entityStates.entityId, entities.id))
@@ -465,6 +471,8 @@ export async function updateDevice(
   const [current] = await context.db
     .select({
       kind: schema.registry.integrations.kind,
+      model: schema.registry.integrations.model,
+      isEnabled: schema.registry.integrations.isEnabled,
       transportConfig: schema.registry.integrations.transportConfig,
       options: schema.registry.integrations.options,
     })
@@ -480,19 +488,29 @@ export async function updateDevice(
     checkIcon(context, body.icon);
   }
 
-  const isChangingConfig = body.transportConfig !== undefined || body.options !== undefined;
-  const isChangingConnection =
-    isChangingConfig || body.model !== undefined || body.isEnabled !== undefined;
-  const needsBundle = isChangingConfig || body.model !== undefined;
+  const isSendingConfig = body.transportConfig !== undefined || body.options !== undefined;
+  const needsBundle = isSendingConfig || body.model !== undefined;
   const found = needsBundle ? await kindOf(context, current.kind) : undefined;
   const model =
     body.model === undefined || found === undefined
       ? undefined
       : checkModel(found.vendor, found.driver.id, body.model);
   const stored =
-    isChangingConfig && found !== undefined
+    isSendingConfig && found !== undefined
       ? mergedForStorage(context, found.driver, current, body)
       : undefined;
+
+  // The form sends the whole connection half back with every save, a rename included. What
+  // decides whether the hub is asked to start the instance again is whether any of it differs
+  // from the row - a kept secret merges back to the same sealed value, so it does not.
+  const isChangingConnection =
+    (body.isEnabled !== undefined && body.isEnabled !== current.isEnabled) ||
+    (model !== undefined && model !== current.model) ||
+    (stored !== undefined &&
+      !(
+        isDeepStrictEqual(stored.transportConfig, current.transportConfig) &&
+        isDeepStrictEqual(stored.options, current.options)
+      ));
 
   await context.db.transaction(async (tx) => {
     if (body.name !== undefined || body.icon !== undefined) {
