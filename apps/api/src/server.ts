@@ -26,6 +26,7 @@ import { registerAuthRoutes } from './routes/auth.js';
 import { registerDeviceRoutes } from './routes/devices.js';
 import { registerEntityRoutes } from './routes/entities.js';
 import { registerHistoryRoutes } from './routes/history.js';
+import { registerIconRoutes } from './routes/icons.js';
 import { registerIntegrationRoutes } from './routes/integrations.js';
 import { registerMetaRoutes } from './routes/meta.js';
 import { registerRegistryRoutes } from './routes/registry.js';
@@ -178,6 +179,7 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   registerRegistryRoutes(environment, context);
   registerDeviceRoutes(environment, context);
   registerIntegrationRoutes(environment, context);
+  registerIconRoutes(environment, context);
   registerHistoryRoutes(environment, context);
   registerUserRoutes(environment, context);
   registerSettingsRoutes(environment, context);

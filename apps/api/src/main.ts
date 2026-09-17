@@ -15,6 +15,7 @@ import { BusClient, connectBus, type BusConnection } from '@nebula-home/bus';
 import { loadConfigOrExit } from '@nebula-home/config';
 import { ERROR_CODES, EXIT_CODES, isNebulaError } from '@nebula-home/contracts';
 import { assertSchemaVersion, createDatabase, secretsKeyFrom } from '@nebula-home/db';
+import { loadBuiltinIcons } from '@nebula-home/icons';
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
 
 import { Authenticator } from './auth/authenticator.js';
@@ -25,6 +26,7 @@ import { IdempotencyStore } from './http/idempotency.js';
 import { buildServer } from './server.js';
 import { AuditLog } from './services/audit.js';
 import { EventFanout } from './services/events.js';
+import { createIconStore, IconService } from './services/icons.js';
 
 /** How long a graceful shutdown is given before the process ends regardless. */
 const SHUTDOWN_TIMEOUT_MS = 10_000;
@@ -157,6 +159,12 @@ async function start(): Promise<void> {
 
   idempotency.start();
 
+  const icons = await IconService.load({
+    store: createIconStore(database.db),
+    builtin: loadBuiltinIcons(),
+    logger,
+  });
+
   const context: ApiContext = {
     config,
     db: database.db,
@@ -170,6 +178,7 @@ async function start(): Promise<void> {
     idempotency,
     audit: new AuditLog(database.db, logger),
     events,
+    icons,
     jwtSecret: new TextEncoder().encode(config.API_JWT_SECRET),
     totpKey: Buffer.from(config.API_TOTP_ENCRYPTION_KEY, 'hex'),
     secretsKey: secretsKeyFrom(config.NEBULA_SECRETS_KEY),

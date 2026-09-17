@@ -90,7 +90,7 @@ function vendor(
 
 describe('vendorViewOf', () => {
   it('says a vendor that asks for a key nobody has given still needs setting up', () => {
-    const view = vendorViewOf(vendor(), undefined, { instances: 0, devices: 0, entities: 0 });
+    const view = vendorViewOf(vendor(), undefined, { devices: 0, entities: 0 });
 
     expect([view.needsSetup, view.isConfigured, view.configuredAt]).toEqual([true, false, null]);
   });
@@ -104,20 +104,20 @@ describe('vendorViewOf', () => {
     const view = vendorViewOf(
       vendor(),
       { ...saved, updatedAt: new Date('2026-09-12T10:00:00Z') },
-      { instances: 2, devices: 3, entities: 9 },
+      { devices: 3, entities: 9 },
     );
 
     expect([view.needsSetup, view.isConfigured]).toEqual([false, true]);
     expect(view.transportConfig).toEqual({ apiKey: { $sealed: true } });
     expect(view.configuredAt).toEqual(new Date('2026-09-12T10:00:00Z'));
-    expect([view.instanceCount, view.deviceCount, view.entityCount]).toEqual([2, 3, 9]);
+    expect([view.deviceCount, view.entityCount]).toEqual([3, 9]);
   });
 
   it('never says a vendor that asks for nothing required needs setting up', () => {
     const view = vendorViewOf(
       vendor({ transport: { fields: [{ key: 'region', type: 'text', label: 'Region' }] } }),
       undefined,
-      { instances: 0, devices: 0, entities: 0 },
+      { devices: 0, entities: 0 },
     );
 
     expect(view.needsSetup).toBe(false);

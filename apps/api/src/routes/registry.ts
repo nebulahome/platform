@@ -1,10 +1,10 @@
 /**
  * The configured shape of a home.
  *
- * Six flat collections. None of them paginates: a home has tens of areas and hundreds of
+ * Five flat collections. None of them paginates: a home has tens of areas and hundreds of
  * entities, not millions, and a cursor on a list that fits in one response is ceremony. The two
  * collections that do grow without bound - history and telemetry - page, and they are in their
- * own file for that reason.
+ * own file for that reason; devices, being written as well as read, have a file of their own.
  *
  * Automations can also be written. What that covers and what it deliberately does not - a
  * definition is saved, a run is not started - is set out on the service beside it.
@@ -17,14 +17,12 @@ import {
   automationCreateSchema,
   automationUpdateSchema,
   automationViewSchema,
-  deviceViewSchema,
   labelViewSchema,
   packageViewSchema,
   sceneViewSchema,
   type AliasView,
   type AreaView,
   type AutomationView,
-  type DeviceView,
   type LabelView,
   type PackageView,
   type SceneView,
@@ -39,7 +37,6 @@ import {
   listAliases,
   listAreas,
   listAutomations,
-  listDevices,
   listLabels,
   listPackages,
   listScenes,
@@ -111,30 +108,6 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
       requirePermission(route.identity, 'label:read');
 
       return { items: await listLabels(context.db) };
-    },
-  );
-
-  defineRoute(
-    environment,
-    {
-      method: 'GET',
-      url: '/devices',
-      summary: 'List devices',
-      tag: 'Registry',
-      permission: 'device:read',
-      response: collectionSchema(deviceViewSchema),
-    },
-
-    /**
-     * Lists devices.
-     *
-     * @param route - Who is asking.
-     * @returns Every device, each with the entities it exposes.
-     */
-    async (route): Promise<{ items: DeviceView[] }> => {
-      requirePermission(route.identity, 'device:read');
-
-      return { items: await listDevices(context.db) };
     },
   );
 

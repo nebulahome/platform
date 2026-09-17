@@ -1,37 +1,44 @@
 /**
- * Finding devices and adopting them.
+ * Devices: one resource for the thing an owner adds, names, configures and lists.
  *
- * Three routes around one dialog. A pass is started on an instance, what it finds is read while
- * it runs, and a candidate is adopted - at which point `core` writes the row, publishes the
- * device event, and the registry the list shows has one more thing in it. All three go through
- * the hub over the bus, so all three answer 503 while the bus is away rather than pretending.
- *
- * `GET /devices` itself stays with the registry reads: it is a read of a table, and these are
- * not.
+ * Five routes around one form. The list shows every device with where it stands and what it
+ * exposes; create writes the instance that reaches the device and the row that names it, and
+ * asks the hub to start listening for it; change touches whichever half the change belongs to;
+ * the probe says whether what was typed works, before anything is written. Everything that
+ * touches a configuration needs the hub, because the hub holds the bundles and the bundles hold
+ * the shape of what is being written - and while the bus is away those routes say so rather
+ * than storing what nothing could check.
  */
+import { z } from 'zod';
+
 import {
-  deviceAdoptReplySchema,
-  deviceAdoptRequestSchema,
-  deviceCandidatesReplySchema,
-  deviceDiscoverReplySchema,
-  deviceDiscoverRequestSchema,
-  type DeviceAdoptReply,
-  type DeviceCandidatesReply,
-  type DeviceDiscoverReply,
+  deviceCreateSchema,
+  deviceProbeReplySchema,
+  deviceProbeRequestSchema,
+  deviceUpdateSchema,
+  deviceViewSchema,
+  integrationIdSchema,
+  type DeviceProbeReply,
+  type DeviceView,
 } from '@nebula-home/contracts';
 
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import {
-  adoptCandidate,
-  readCandidates,
-  startDiscovery,
+  createDevice,
+  listDevices,
+  probeDevice,
+  readDevice,
+  updateDevice,
   type DevicesContext,
 } from '../services/devices.js';
 
+/** Which device a request is about. */
+const deviceParamsSchema = z.object({ deviceId: integrationIdSchema });
+
 /**
- * What the relays need, for one request.
+ * What the device paths need, for one request.
  *
  * @param context - The service's collaborators.
  * @param traceId - The request's trace id.
@@ -39,14 +46,18 @@ import {
  */
 function forRequest(context: ApiContext, traceId: string): DevicesContext {
   return {
+    db: context.db,
     bus: context.bus,
+    secretsKey: context.secretsKey,
+    logger: context.logger,
     timeoutMs: context.config.API_BUS_TIMEOUT_MS,
     traceId,
+    icons: context.icons,
   };
 }
 
 /**
- * Registers the device discovery routes.
+ * Registers the device routes.
  *
  * @param environment - Where routes are defined.
  * @param context - The service's collaborators.
@@ -55,39 +66,24 @@ export function registerDeviceRoutes(environment: RouteEnvironment, context: Api
   defineRoute(
     environment,
     {
-      method: 'POST',
-      url: '/devices/discover',
-      summary: 'Start looking for devices',
-      tag: 'Registry',
-      permission: 'device:write',
-      body: deviceDiscoverRequestSchema,
-      response: deviceDiscoverReplySchema,
-      successStatus: 202,
+      method: 'GET',
+      url: '/devices',
+      summary: 'List devices',
+      tag: 'Devices',
+      permission: 'device:read',
+      response: z.object({ items: z.array(deviceViewSchema) }),
     },
 
     /**
-     * Starts a discovery pass and answers at once; the pass runs on.
+     * Lists every device, with where it stands and what it exposes.
      *
-     * @param route - Which instance, for how long, and who is asking.
-     * @returns The pass identifier and the instances looking.
+     * @param route - Who is asking.
+     * @returns The devices.
      */
-    async (route): Promise<DeviceDiscoverReply> => {
-      requirePermission(route.identity, 'device:write');
+    async (route): Promise<{ items: DeviceView[] }> => {
+      requirePermission(route.identity, 'device:read');
 
-      const reply = await startDiscovery(forRequest(context, route.request.traceId), route.body);
-
-      await context.audit.record({
-        action: 'device.discover',
-        resourceType: 'integration',
-        resourceId: route.body.integrationId ?? '*',
-        result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
-        details: { scanId: reply.scanId, integrationIds: reply.integrationIds },
-      });
-
-      return reply;
+      return { items: await listDevices(forRequest(context, route.request.traceId)) };
     },
   );
 
@@ -95,23 +91,24 @@ export function registerDeviceRoutes(environment: RouteEnvironment, context: Api
     environment,
     {
       method: 'GET',
-      url: '/devices/candidates',
-      summary: 'What the current pass has found',
-      tag: 'Registry',
-      permission: 'device:write',
-      response: deviceCandidatesReplySchema,
+      url: '/devices/:deviceId',
+      summary: 'Read one device',
+      tag: 'Devices',
+      permission: 'device:read',
+      params: deviceParamsSchema,
+      response: deviceViewSchema,
     },
 
     /**
-     * Reads what the pass has found so far.
+     * Reads one device.
      *
-     * @param route - Who is asking.
-     * @returns The candidates, and whether the pass is still running.
+     * @param route - The id and who is asking.
+     * @returns The device.
      */
-    async (route): Promise<DeviceCandidatesReply> => {
-      requirePermission(route.identity, 'device:write');
+    async (route): Promise<DeviceView> => {
+      requirePermission(route.identity, 'device:read');
 
-      return readCandidates(forRequest(context, route.request.traceId));
+      return readDevice(forRequest(context, route.request.traceId), route.params.deviceId);
     },
   );
 
@@ -119,37 +116,116 @@ export function registerDeviceRoutes(environment: RouteEnvironment, context: Api
     environment,
     {
       method: 'POST',
-      url: '/devices/adopt',
-      summary: 'Adopt a device the pass found',
-      tag: 'Registry',
+      url: '/devices',
+      summary: 'Add a device',
+      tag: 'Devices',
       permission: 'device:write',
-      body: deviceAdoptRequestSchema,
-      response: deviceAdoptReplySchema,
+      body: deviceCreateSchema,
+      response: deviceViewSchema,
     },
 
     /**
-     * Adopts one candidate: the hub describes it, `core` writes it.
+     * Adds a device and asks the hub to start listening for it.
      *
-     * @param route - Which candidate, what to call it, and who is asking.
-     * @returns The device row and its entities.
+     * @param route - The body and who is asking.
+     * @returns The device as it now stands.
      */
-    async (route): Promise<DeviceAdoptReply> => {
+    async (route): Promise<DeviceView> => {
       requirePermission(route.identity, 'device:write');
 
-      const reply = await adoptCandidate(forRequest(context, route.request.traceId), route.body);
+      const device = await createDevice(forRequest(context, route.request.traceId), route.body);
 
+      // The field names, not the values: a transport configuration carries credentials, and an
+      // audit detail reaches the log stream as well as the table.
       await context.audit.record({
-        action: 'device.adopt',
+        action: 'device.create',
         resourceType: 'device',
-        resourceId: reply.deviceId,
+        resourceId: device.id,
         result: 'success',
         identity: route.identity,
         ipAddress: route.request.ip,
         traceId: route.request.traceId,
-        details: { candidateId: route.body.candidateId, entityIds: reply.entityIds },
+        details: {
+          kind: device.kind,
+          model: device.model,
+          fields: Object.keys(route.body.transportConfig),
+          options: Object.keys(route.body.options),
+        },
       });
 
-      return reply;
+      return device;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/devices/probe',
+      summary: 'Try a device configuration without saving it',
+      tag: 'Devices',
+      permission: 'device:write',
+      body: deviceProbeRequestSchema,
+      response: deviceProbeReplySchema,
+      successStatus: 200,
+    },
+
+    /**
+     * Tries a configuration and reports the verdict.
+     *
+     * A configuration that does not work is a `200` with `isReachable: false`: the owner pressed
+     * the button to learn exactly that, and it is not an error in the request.
+     *
+     * @param route - The body and who is asking.
+     * @returns The verdict and the hub's sentence about it.
+     */
+    async (route): Promise<DeviceProbeReply> => {
+      requirePermission(route.identity, 'device:write');
+
+      return probeDevice(forRequest(context, route.request.traceId), route.body);
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'PATCH',
+      url: '/devices/:deviceId',
+      summary: 'Change a device',
+      tag: 'Devices',
+      permission: 'device:write',
+      params: deviceParamsSchema,
+      body: deviceUpdateSchema,
+      response: deviceViewSchema,
+    },
+
+    /**
+     * Changes a device's name, icon or configuration, and asks the hub to match the last.
+     *
+     * @param route - The body, the id and who is asking.
+     * @returns The device as it now stands.
+     */
+    async (route): Promise<DeviceView> => {
+      requirePermission(route.identity, 'device:write');
+
+      const device = await updateDevice(
+        forRequest(context, route.request.traceId),
+        route.params.deviceId,
+        route.body,
+      );
+
+      await context.audit.record({
+        action: 'device.update',
+        resourceType: 'device',
+        resourceId: device.id,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { changed: Object.keys(route.body) },
+      });
+
+      return device;
     },
   );
 }

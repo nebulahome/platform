@@ -83,6 +83,9 @@ importers:
       '@nebula-home/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@nebula-home/icons':
+        specifier: workspace:*
+        version: link:../../packages/icons
       '@nebula-home/logging':
         specifier: workspace:*
         version: link:../../packages/logging

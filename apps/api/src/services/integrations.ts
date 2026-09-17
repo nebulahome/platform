@@ -1,24 +1,25 @@
 /**
- * Integrations: the vendors the hub offers, what an owner gave each, and the instances - devices
- * added by hand - that run under them.
+ * Integrations: the vendors the hub offers and what an owner gave each - and the pieces the
+ * device paths are built from.
  *
  * The shape of a configuration is the bundle's to declare and this service's to enforce. It is
  * fetched from the hub - the catalogue, one bus request - and applied twice: to what a client
  * sends, before anything is written, and to what is stored, before anything is served. In
  * between, the bundle's constants are added and the values it declared secret are sealed, so
- * that the row is complete and readable except for the one field nobody should read.
+ * that the row is complete and readable except for the one field nobody should read. Devices
+ * are written by `services/devices.ts` with exactly these pieces.
  *
  * A vendor's own settings - the API key a cloud vendor asks for once - are kept the same way in
- * a row of their own, and layered under each instance twice: here, when a configuration is
- * tried, and by the hub, when an instance starts. Neither copies them into the instance row, so
- * a changed key changes every device at its next start.
+ * a row of their own, and layered under each device twice: when a configuration is tried, and
+ * by the hub, when an instance starts. Neither copies them into the device's row, so a changed
+ * key changes every device at its next start.
  *
- * The hub is told after every write. It re-reads the row and matches it, and its answer - where
- * the instance ended up - is what the interface shows. A hub that does not answer does not fail
- * the write: the row is saved and the instance will start with the hub, and the view says so by
- * carrying the state the row has.
+ * The hub is told after every write to a connection. It re-reads the row and matches it, and
+ * its answer - where the instance ended up - is what the interface shows. A hub that does not
+ * answer does not fail the write: the row is saved and the instance will start with the hub,
+ * and the view says so by carrying the state the row has.
  */
-import { asc, eq, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import type { BusClient } from '@nebula-home/bus';
 import {
@@ -28,32 +29,24 @@ import {
   ConflictError,
   DeviceUnavailableError,
   HUB_CATALOGUE_METHOD,
-  HUB_PROBE_METHOD,
   HUB_RELOAD_METHOD,
   HUB_SERVICE,
   integrationVendorViewSchema,
-  integrationViewSchema,
   modelChoicesOf,
   NotFoundError,
-  probeReplySchema,
   reloadReplySchema,
   secretKeysOf,
   setupValueSchema,
   ValidationError,
-  type IntegrationCreate,
   type IntegrationKind,
-  type IntegrationProbeReply,
-  type IntegrationProbeRequest,
   type IntegrationSetup,
-  type IntegrationUpdate,
   type IntegrationVendor,
   type IntegrationVendorConfigUpdate,
   type IntegrationVendorView,
-  type IntegrationView,
   type JsonObject,
   type SetupValueMode,
 } from '@nebula-home/contracts';
-import { isSealed, maskSealed, schema, sealSecrets, type Database } from '@nebula-home/db';
+import { maskSealed, schema, sealSecrets, type Database } from '@nebula-home/db';
 import type { PlatformLogger } from '@nebula-home/logging';
 
 /** The two documents a configuration is made of. */
@@ -83,12 +76,6 @@ export type IntegrationsContext = {
 
 /** How long the hub has to restart an instance and say where it ended up. */
 const RELOAD_TIMEOUT_MS = 15_000;
-
-/** How long a probe may take, end to end, on the hub's side. */
-const PROBE_TIMEOUT_MS = 8000;
-
-/** The margin the bus request waits beyond the probe itself. */
-const PROBE_MARGIN_MS = 2000;
 
 /**
  * The keys a configuration must not be served with in the clear.
@@ -136,7 +123,7 @@ function looksSecret(key: string): boolean {
  * @param value - What the column held.
  * @returns Its fields, or none.
  */
-function asObject(value: unknown): JsonObject {
+export function asObject(value: unknown): JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as JsonObject)
     : {};
@@ -275,7 +262,6 @@ export type VendorRow = {
 
 /** What has come in through one vendor. */
 export type VendorCounts = {
-  readonly instances: number;
   readonly devices: number;
   readonly entities: number;
 };
@@ -300,7 +286,6 @@ export function vendorViewOf(
     transportConfig: servedConfig(saved?.transportConfig),
     options: servedConfig(saved?.options),
     configuredAt: saved?.updatedAt ?? null,
-    instanceCount: counts.instances,
     deviceCount: counts.devices,
     entityCount: counts.entities,
   });
@@ -341,7 +326,7 @@ export function checkModel(vendor: IntegrationVendor, kind: string, model: strin
  * @param kind - As `vendor/driver`.
  * @returns The vendor id.
  */
-function vendorIdOf(kind: string): string {
+export function vendorIdOf(kind: string): string {
   return kind.split('/')[0] ?? kind;
 }
 
@@ -351,7 +336,7 @@ function vendorIdOf(kind: string): string {
  * @param kind - As `vendor/driver`.
  * @returns The driver id.
  */
-function driverIdOf(kind: string): string {
+export function driverIdOf(kind: string): string {
   return kind.split('/')[1] ?? kind;
 }
 
@@ -363,7 +348,7 @@ function driverIdOf(kind: string): string {
  * @throws {DeviceUnavailableError} While the broker is unreachable. Nothing below can be done
  * without the hub: it holds the bundles, and the bundles hold the shape of what is being written.
  */
-function busOf(context: IntegrationsContext): BusClient {
+export function busOf(context: IntegrationsContext): BusClient {
   if (context.bus === undefined) {
     throw new DeviceUnavailableError('The message bus is not reachable', {
       details: { dependency: 'bus' },
@@ -401,7 +386,7 @@ export async function listCatalogue(context: IntegrationsContext): Promise<Integ
  * @param context - The request's collaborators.
  * @returns Every vendor, or none.
  */
-async function catalogueIfUp(context: IntegrationsContext): Promise<IntegrationVendor[]> {
+export async function catalogueIfUp(context: IntegrationsContext): Promise<IntegrationVendor[]> {
   if (context.bus === undefined) {
     return [];
   }
@@ -444,7 +429,7 @@ async function vendorOf(
  * @returns Both.
  * @throws {NotFoundError} When the hub has no such driver loaded.
  */
-async function kindOf(
+export async function kindOf(
   context: IntegrationsContext,
   kind: string,
 ): Promise<{ readonly vendor: IntegrationVendor; readonly driver: IntegrationKind }> {
@@ -466,7 +451,7 @@ async function kindOf(
  * @param vendorId - Which vendor.
  * @returns The row, or undefined when the owner has saved nothing for it.
  */
-async function vendorRowOf(db: Database, vendorId: string): Promise<VendorRow | undefined> {
+export async function vendorRowOf(db: Database, vendorId: string): Promise<VendorRow | undefined> {
   const [row] = await db
     .select({
       transportConfig: schema.registry.integrationVendors.transportConfig,
@@ -491,7 +476,7 @@ async function vendorRowOf(db: Database, vendorId: string): Promise<VendorRow | 
  * @returns A promise that settles when the vendor is ready for a device.
  * @throws {ConflictError} When the vendor still needs setting up.
  */
-async function requireVendorSetup(
+export async function requireVendorSetup(
   context: IntegrationsContext,
   vendor: IntegrationVendor,
 ): Promise<void> {
@@ -506,130 +491,42 @@ async function requireVendorSetup(
   }
 }
 
-/** One instance row with what it owns, before the catalogue names its driver. */
-type InstanceRow = {
-  readonly id: string;
-  readonly kind: string;
-  readonly kindVersion: string;
-  readonly model: string | null;
-  readonly transport: string;
-  readonly transportConfig: unknown;
-  readonly options: unknown;
-  readonly isEnabled: boolean;
-  readonly state: string;
-  readonly lastError: string | null;
-  readonly lastStartedAt: Date | null;
-  readonly deviceCount: number;
-  readonly entityCount: number;
-};
-
 /**
- * Every instance row, with what each has adopted.
+ * What each vendor accounts for: its devices, and the entities they expose.
  *
  * Counted the same way packages are, and for the same reason: "what is this thing doing in my
  * house" is answered by how much of the house it accounts for, not by its version string.
  *
  * @param db - The database.
- * @returns The rows, by id.
+ * @returns The counts, by vendor id.
  */
-async function instanceRows(db: Database): Promise<InstanceRow[]> {
-  const rows = await db
-    .select({
-      id: schema.registry.integrations.id,
-      kind: schema.registry.integrations.kind,
-      kindVersion: schema.registry.integrations.kindVersion,
-      model: schema.registry.integrations.model,
-      transport: schema.registry.integrations.transport,
-      transportConfig: schema.registry.integrations.transportConfig,
-      options: schema.registry.integrations.options,
-      isEnabled: schema.registry.integrations.isEnabled,
-      state: schema.registry.integrations.state,
-      lastError: schema.registry.integrations.lastError,
-      lastStartedAt: schema.registry.integrations.lastStartedAt,
-    })
-    .from(schema.registry.integrations)
-    .orderBy(asc(schema.registry.integrations.id));
-
-  const devices = await db
-    .select({
-      integrationId: schema.registry.devices.integrationId,
-      total: sql<number>`count(*)::int`,
-    })
-    .from(schema.registry.devices)
-    .groupBy(schema.registry.devices.integrationId);
-
-  const entities = await db
-    .select({
-      integrationId: schema.registry.entities.integrationId,
-      total: sql<number>`count(*)::int`,
-    })
-    .from(schema.registry.entities)
-    .groupBy(schema.registry.entities.integrationId);
-
-  const devicesBy = new Map(devices.map((row) => [row.integrationId, row.total]));
+async function vendorCounts(db: Database): Promise<Map<string, VendorCounts>> {
+  const [instances, entities] = await Promise.all([
+    db
+      .select({ id: schema.registry.integrations.id, kind: schema.registry.integrations.kind })
+      .from(schema.registry.integrations),
+    db
+      .select({
+        integrationId: schema.registry.entities.integrationId,
+        total: sql<number>`count(*)::int`,
+      })
+      .from(schema.registry.entities)
+      .groupBy(schema.registry.entities.integrationId),
+  ]);
   const entitiesBy = new Map(entities.map((row) => [row.integrationId, row.total]));
+  const counts = new Map<string, VendorCounts>();
 
-  return rows.map((row) => ({
-    ...row,
-    deviceCount: devicesBy.get(row.id) ?? 0,
-    entityCount: entitiesBy.get(row.id) ?? 0,
-  }));
-}
+  for (const instance of instances) {
+    const vendorId = vendorIdOf(instance.kind);
+    const current = counts.get(vendorId) ?? { devices: 0, entities: 0 };
 
-/**
- * One instance as the interface sees it.
- *
- * @param row - The row, with its counts.
- * @param catalogue - What the hub has loaded, for the driver's name; may be empty.
- * @returns The view.
- */
-function integrationViewOf(
-  row: InstanceRow,
-  catalogue: readonly IntegrationVendor[],
-): IntegrationView {
-  const driver = catalogue.flatMap((vendor) => vendor.drivers).find((each) => each.id === row.kind);
-
-  return integrationViewSchema.parse({
-    ...row,
-    vendorId: vendorIdOf(row.kind),
-    driverId: driverIdOf(row.kind),
-    driverName: driver?.name ?? driverIdOf(row.kind),
-    transportConfig: servedConfig(row.transportConfig),
-    options: servedConfig(row.options),
-  });
-}
-
-/**
- * Lists every configured instance, with what each one has adopted.
- *
- * @param context - The request's collaborators.
- * @returns The instances, by id.
- */
-export async function listIntegrations(context: IntegrationsContext): Promise<IntegrationView[]> {
-  const [rows, catalogue] = await Promise.all([instanceRows(context.db), catalogueIfUp(context)]);
-
-  return rows.map((row) => integrationViewOf(row, catalogue));
-}
-
-/**
- * Reads one instance, or says it is not there.
- *
- * @param context - The request's collaborators.
- * @param id - Which one.
- * @returns The instance.
- * @throws {NotFoundError} When no instance has that id.
- */
-export async function readIntegration(
-  context: IntegrationsContext,
-  id: string,
-): Promise<IntegrationView> {
-  const found = (await listIntegrations(context)).find((one) => one.id === id);
-
-  if (found === undefined) {
-    throw new NotFoundError('No integration has that id', { details: { id } });
+    counts.set(vendorId, {
+      devices: current.devices + 1,
+      entities: current.entities + (entitiesBy.get(instance.id) ?? 0),
+    });
   }
 
-  return found;
+  return counts;
 }
 
 /**
@@ -641,7 +538,7 @@ export async function readIntegration(
  */
 export async function listVendors(context: IntegrationsContext): Promise<IntegrationVendorView[]> {
   const catalogue = await listCatalogue(context);
-  const [saved, instances] = await Promise.all([
+  const [saved, counts] = await Promise.all([
     context.db
       .select({
         id: schema.registry.integrationVendors.id,
@@ -650,19 +547,17 @@ export async function listVendors(context: IntegrationsContext): Promise<Integra
         updatedAt: schema.registry.integrationVendors.updatedAt,
       })
       .from(schema.registry.integrationVendors),
-    instanceRows(context.db),
+    vendorCounts(context.db),
   ]);
   const savedBy = new Map(saved.map((row) => [row.id, row]));
 
-  return catalogue.map((vendor) => {
-    const own = instances.filter((row) => vendorIdOf(row.kind) === vendor.id);
-
-    return vendorViewOf(vendor, savedBy.get(vendor.id), {
-      instances: own.length,
-      devices: own.reduce((sum, row) => sum + row.deviceCount, 0),
-      entities: own.reduce((sum, row) => sum + row.entityCount, 0),
-    });
-  });
+  return catalogue.map((vendor) =>
+    vendorViewOf(
+      vendor,
+      savedBy.get(vendor.id),
+      counts.get(vendor.id) ?? { devices: 0, entities: 0 },
+    ),
+  );
 }
 
 /**
@@ -697,7 +592,7 @@ export async function readVendor(
  * @param id - Which instance.
  * @returns A promise that settles once the hub has answered or been given up on.
  */
-async function reloadOnHub(context: IntegrationsContext, id: string): Promise<void> {
+export async function reloadOnHub(context: IntegrationsContext, id: string): Promise<void> {
   if (context.bus === undefined) {
     return;
   }
@@ -783,237 +678,4 @@ export async function updateVendorConfig(
   );
 
   return readVendor(context, vendorId);
-}
-
-/**
- * Creates an instance - a device added by hand - and asks the hub to start it.
- *
- * @param context - The request's collaborators.
- * @param body - What the form collected.
- * @returns The instance as it now stands, its state as the hub reported it.
- * @throws {NotFoundError} When the kind is not loaded.
- * @throws {ConflictError} When the vendor still needs setting up, or an instance already has
- * that id.
- * @throws {ValidationError} When the model is not one the driver offers, or the configuration
- * is not what the driver asks.
- */
-export async function createIntegration(
-  context: IntegrationsContext,
-  body: IntegrationCreate,
-): Promise<IntegrationView> {
-  const { vendor, driver } = await kindOf(context, body.kind);
-  const model = checkModel(vendor, driver.id, body.model);
-  const values = validateSetup(driver.setup, body, 'complete');
-  const stored = forStorage(driver.setup, values, context.secretsKey);
-
-  await requireVendorSetup(context, vendor);
-
-  const [existing] = await context.db
-    .select({ id: schema.registry.integrations.id })
-    .from(schema.registry.integrations)
-    .where(eq(schema.registry.integrations.id, body.id))
-    .limit(1);
-
-  if (existing !== undefined) {
-    throw new ConflictError('An integration already has that id', { details: { id: body.id } });
-  }
-
-  await context.db.insert(schema.registry.integrations).values({
-    id: body.id,
-    kind: driver.id,
-    kindVersion: vendor.version,
-    model,
-    transport: driver.transport,
-    transportConfig: stored.transportConfig,
-    options: stored.options,
-    isEnabled: body.isEnabled,
-  });
-
-  await reloadOnHub(context, body.id);
-
-  return readIntegration(context, body.id);
-}
-
-/**
- * Changes an instance's configuration and asks the hub to match it.
- *
- * Merged rather than replaced. The caller was served a configuration with its secrets withheld,
- * so a whole-document write would send back what it was given and delete the password on the
- * way through - the one failure this endpoint could cause that nobody would notice until the
- * next restart. A secret field sent again is sealed afresh; one left out keeps its marker.
- *
- * Configuration only, and deliberately: `state`, `lastError` and `lastStartedAt` belong to the
- * hub. The database would in fact allow this role to write them - the column-level grant
- * DATABASE.md describes is not what the migration actually applied - so the restriction is kept
- * here, where it is at least visible.
- *
- * @param context - The request's collaborators.
- * @param id - Which one.
- * @param body - The fields to change.
- * @returns The instance as it now stands.
- * @throws {NotFoundError} When no instance has that id, or its kind is no longer loaded.
- * @throws {ValidationError} When the change is not what the driver asks, or the model is not
- * one it offers.
- */
-export async function updateIntegration(
-  context: IntegrationsContext,
-  id: string,
-  body: IntegrationUpdate,
-): Promise<IntegrationView> {
-  const [current] = await context.db
-    .select({
-      kind: schema.registry.integrations.kind,
-      transportConfig: schema.registry.integrations.transportConfig,
-      options: schema.registry.integrations.options,
-    })
-    .from(schema.registry.integrations)
-    .where(eq(schema.registry.integrations.id, id))
-    .limit(1);
-
-  if (current === undefined) {
-    throw new NotFoundError('No integration has that id', { details: { id } });
-  }
-
-  const isChangingConfig = body.transportConfig !== undefined || body.options !== undefined;
-  const needsBundle = isChangingConfig || body.model !== undefined;
-  const found = needsBundle ? await kindOf(context, current.kind) : undefined;
-  const model =
-    body.model === undefined || found === undefined
-      ? undefined
-      : checkModel(found.vendor, found.driver.id, body.model);
-  const stored =
-    isChangingConfig && found !== undefined
-      ? mergedForStorage(context, found.driver, current, body)
-      : { transportConfig: asObject(current.transportConfig), options: asObject(current.options) };
-
-  await context.db
-    .update(schema.registry.integrations)
-    .set({
-      ...(body.isEnabled === undefined ? {} : { isEnabled: body.isEnabled }),
-      ...(model === undefined ? {} : { model }),
-      transportConfig: stored.transportConfig,
-      options: stored.options,
-      updatedAt: new Date(),
-    })
-    .where(eq(schema.registry.integrations.id, id));
-
-  await reloadOnHub(context, id);
-
-  return readIntegration(context, id);
-}
-
-/** What a row holds that a change is merged over. */
-type StoredRow = {
-  readonly kind: string;
-  readonly transportConfig: unknown;
-  readonly options: unknown;
-};
-
-/**
- * A change checked against the driver and merged over what the row holds.
- *
- * @param context - The request's collaborators.
- * @param driver - The driver the row's kind names.
- * @param current - The row's documents.
- * @param body - The change.
- * @returns The two documents to store.
- */
-function mergedForStorage(
-  context: IntegrationsContext,
-  driver: IntegrationKind,
-  current: StoredRow,
-  body: IntegrationUpdate,
-): SetupValues {
-  const change = validateSetup(
-    driver.setup,
-    { transportConfig: body.transportConfig ?? {}, options: body.options ?? {} },
-    'partial',
-  );
-
-  return forStorage(
-    driver.setup,
-    {
-      transportConfig: { ...asObject(current.transportConfig), ...change.transportConfig },
-      options: { ...asObject(current.options), ...change.options },
-    },
-    context.secretsKey,
-  );
-}
-
-/**
- * Tries a configuration against the world, keeping nothing.
- *
- * For an instance being edited, a secret left blank in the form is filled from what the row has
- * sealed - the hub opens it - so testing a changed address does not mean typing the password
- * again. The driver's constants and the vendor's saved settings are added the way they would
- * be when the instance starts, so what is tried is what would run.
- *
- * @param context - The request's collaborators.
- * @param body - Which driver, what to try, and which instance the blanks come from.
- * @returns The hub's verdict and its sentence.
- * @throws {NotFoundError} When the kind is not loaded, or the named instance does not exist.
- * @throws {ValidationError} When the configuration is not what the driver asks.
- */
-export async function probeIntegration(
-  context: IntegrationsContext,
-  body: IntegrationProbeRequest,
-): Promise<IntegrationProbeReply> {
-  const { vendor, driver } = await kindOf(context, body.kind);
-  const typed = validateSetup(
-    driver.setup,
-    { transportConfig: body.transportConfig, options: {} },
-    body.integrationId === undefined ? 'complete' : 'partial',
-  );
-  const kept =
-    body.integrationId === undefined ? {} : await storedSecrets(context, body.integrationId);
-
-  // Read only when the vendor has anything to layer: for the rest there is no row to read and
-  // nothing it could hold.
-  const saved =
-    vendor.setup.transport.fields.length === 0
-      ? undefined
-      : await vendorRowOf(context.db, vendor.id);
-
-  return busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_PROBE_METHOD),
-    {
-      kind: driver.id,
-      transportConfig: layeredTransportConfig(
-        driver.setup.transport.constants,
-        asObject(saved?.transportConfig),
-        kept,
-        typed.transportConfig,
-      ),
-      timeoutMs: PROBE_TIMEOUT_MS,
-    },
-    probeReplySchema,
-    { traceId: context.traceId, timeoutMs: PROBE_TIMEOUT_MS + PROBE_MARGIN_MS },
-  );
-}
-
-/**
- * The sealed values one instance's row holds, to stand in for the blanks of a probe.
- *
- * Only the sealed ones: everything else the form has and sends, and a plain value from the row
- * would override what was just typed.
- *
- * @param context - The request's collaborators.
- * @param id - Which instance.
- * @returns Its sealed transport values, by key.
- * @throws {NotFoundError} When no integration has that id.
- */
-async function storedSecrets(context: IntegrationsContext, id: string): Promise<JsonObject> {
-  const [row] = await context.db
-    .select({ transportConfig: schema.registry.integrations.transportConfig })
-    .from(schema.registry.integrations)
-    .where(eq(schema.registry.integrations.id, id))
-    .limit(1);
-
-  if (row === undefined) {
-    throw new NotFoundError('No integration has that id', { details: { id } });
-  }
-
-  return Object.fromEntries(
-    Object.entries(asObject(row.transportConfig)).filter(([, value]) => isSealed(value)),
-  );
 }

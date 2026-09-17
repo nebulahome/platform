@@ -1,6 +1,6 @@
 /**
- * The configured shape of a home: areas, labels, devices, scenes, automations, aliases and
- * installed packages.
+ * The configured shape of a home: areas, labels, scenes, automations, aliases and installed
+ * packages. Devices have a service of their own, being two halves under one id.
  *
  * Mostly reads. The one thing written here is an automation's **definition** - its name, its
  * document, whether it is enabled - and the line between that and the rest is worth stating,
@@ -25,7 +25,6 @@ import {
   areaViewSchema,
   automationViewSchema,
   ConflictError,
-  deviceViewSchema,
   labelViewSchema,
   NotFoundError,
   packageViewSchema,
@@ -35,8 +34,6 @@ import {
   type AutomationCreate,
   type AutomationUpdate,
   type AutomationView,
-  type DeviceOwner,
-  type DeviceView,
   type LabelView,
   type PackageView,
   type SceneView,
@@ -95,109 +92,6 @@ export async function listLabels(db: Database): Promise<LabelView[]> {
     .orderBy(asc(schema.registry.labels.name));
 
   return rows.map((row) => labelViewSchema.parse(row));
-}
-
-/** One row of the devices query, before its entities are attached. */
-export type DeviceRow = {
-  id: string;
-  packageId: string | null;
-  integrationId: string | null;
-  externalId: string;
-  name: string;
-  manufacturer: string | null;
-  model: string | null;
-  swVersion: string | null;
-  hwVersion: string | null;
-  areaKey: string | null;
-  areaName: string | null;
-  viaDeviceId: string | null;
-  isEnabled: boolean;
-  lastSeenAt: Date | null;
-};
-
-/**
- * Reads the two owner columns as the one owner the contract names.
- *
- * The table's `devices_owner_exclusive` constraint has exactly one of them set. A row with
- * neither cannot exist, so no case is made for it here: the view's own schema refuses it, and
- * loudly is right for a row that breaks a constraint.
- *
- * @param row - The device row.
- * @returns Who owns it, or null for a row that says nobody does.
- */
-function ownerOf(row: DeviceRow): DeviceOwner | null {
-  if (row.integrationId !== null) {
-    return { kind: 'integration', id: row.integrationId };
-  }
-
-  return row.packageId === null ? null : { kind: 'package', id: row.packageId };
-}
-
-/**
- * Assembles one device view from its row and the entities it exposes.
- *
- * @param row - The device row.
- * @param entityIds - The addresses of its entities.
- * @returns The device as the API presents it.
- */
-export function toDeviceView(row: DeviceRow, entityIds: readonly string[]): DeviceView {
-  // The view schema keeps only what it declares, so the two owner columns fall away here.
-  return deviceViewSchema.parse({ ...row, owner: ownerOf(row), entityIds });
-}
-
-/**
- * Lists devices, each with the entities it exposes.
- *
- * @param db - The database.
- * @returns The devices, alphabetically.
- */
-export async function listDevices(db: Database): Promise<DeviceView[]> {
-  const rows: DeviceRow[] = await db
-    .select({
-      id: schema.registry.devices.id,
-      packageId: schema.registry.devices.packageId,
-      integrationId: schema.registry.devices.integrationId,
-      externalId: schema.registry.devices.externalId,
-      name: schema.registry.devices.name,
-      manufacturer: schema.registry.devices.manufacturer,
-      model: schema.registry.devices.model,
-      swVersion: schema.registry.devices.swVersion,
-      hwVersion: schema.registry.devices.hwVersion,
-      areaKey: schema.registry.areas.key,
-      areaName: schema.registry.areas.name,
-      viaDeviceId: schema.registry.devices.viaDeviceId,
-      isEnabled: schema.registry.devices.isEnabled,
-      lastSeenAt: schema.registry.devices.lastSeenAt,
-    })
-    .from(schema.registry.devices)
-    .leftJoin(schema.registry.areas, eq(schema.registry.areas.id, schema.registry.devices.areaId))
-    .orderBy(asc(schema.registry.devices.name));
-
-  const entityRows =
-    rows.length === 0
-      ? []
-      : await db
-          .select({
-            deviceId: schema.registry.entities.deviceId,
-            entityId: schema.registry.entities.entityId,
-          })
-          .from(schema.registry.entities)
-          .where(
-            inArray(
-              schema.registry.entities.deviceId,
-              rows.map((row) => row.id),
-            ),
-          );
-
-  const byDevice = new Map<string, string[]>();
-
-  for (const row of entityRows) {
-    if (row.deviceId !== null) {
-      byDevice.set(row.deviceId, [...(byDevice.get(row.deviceId) ?? []), row.entityId]);
-    }
-  }
-
-  return rows.map((row) => toDeviceView(row, byDevice.get(row.id) ?? []));
 }
 
 /**

@@ -15,6 +15,7 @@ import type { ApiConfig } from './config.js';
 import type { IdempotencyStore } from './http/idempotency.js';
 import type { AuditLog } from './services/audit.js';
 import type { EventFanout } from './services/events.js';
+import type { IconService } from './services/icons.js';
 
 /** Everything a route can reach. */
 export type ApiContext = {
@@ -50,6 +51,9 @@ export type ApiContext = {
 
   /** The live channel's fan-out. */
   readonly events: EventFanout;
+
+  /** The icon catalogue: the built-in set with the owner's rows laid over it. */
+  readonly icons: IconService;
 
   /** The signing key for access tokens. */
   readonly jwtSecret: Uint8Array;
