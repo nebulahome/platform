@@ -41,6 +41,7 @@ export default {
         'config',
         'logging',
         'package-runtime',
+        'icons',
         'ui',
         'infra',
         'deps',

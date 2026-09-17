@@ -191,7 +191,7 @@ function frameOf(attributes: Map<string, string>): IconFrame | null {
       .trim()
       .split(/[\s,]+/)
       .map((part) => Number.parseFloat(part));
-    const [x, y, width, height] = parts;
+    const [x = 0, y = 0, width = 0, height = 0] = parts;
 
     if (parts.length === 4 && parts.every(Number.isFinite) && width > 0 && height > 0) {
       const size = Math.max(width, height);
@@ -301,7 +301,7 @@ export function parseIconSvg(markup: string): ParsedIconSvg {
   const tags = [...text.matchAll(TAG)];
   const first = tags[0];
 
-  if (first === undefined || first[1] === '/' || first[2].toLowerCase() !== 'svg') {
+  if (first === undefined || first[1] === '/' || (first[2] ?? '').toLowerCase() !== 'svg') {
     throw new IconSvgError('Not an SVG file: it does not start with an svg element');
   }
 
