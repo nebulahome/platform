@@ -21,6 +21,26 @@ const STROKE_WIDTH = 1.75;
 /** The box the line weight is defined against. */
 const REFERENCE_SIZE = 24;
 
+/**
+ * Turns an element's attributes into React's names for them.
+ *
+ * A node carries SVG's own attribute names - `stroke-width`, `fill-rule` - as an uploaded file
+ * spells them. React spells the same attributes in camel case and warns about every other
+ * spelling, so the hyphenated ones are turned before they are handed over.
+ *
+ * @param attrs - As the catalogue serves them.
+ * @returns The same, spelt for React.
+ */
+function propsOf(attrs: Readonly<Record<string, string>>): Record<string, string> {
+  const props: Record<string, string> = {};
+
+  for (const [name, value] of Object.entries(attrs)) {
+    props[name.replaceAll(/-([a-z])/gu, (match: string) => match.slice(1).toUpperCase())] = value;
+  }
+
+  return props;
+}
+
 /** What drawing an icon needs. */
 export type CatalogueIconProps = Omit<SVGProps<SVGSVGElement>, 'viewBox' | 'width' | 'height'> & {
   /** The elements, as the catalogue serves them. */
@@ -60,7 +80,7 @@ export function CatalogueIcon(props: CatalogueIconProps) {
         // The elements are a drawing: never reordered, and identified by nothing but where
         // they fall in it.
         // eslint-disable-next-line react/no-array-index-key
-        createElement(tag, { ...attrs, key: index }),
+        createElement(tag, { ...propsOf(attrs), key: index }),
       )}
     </svg>
   );

@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { IconOverridesProvider, type IconOverrides } from '../icons/icon-overrides.js';
 import { BUILTIN_UI_NODES } from '../icons/ui-set.js';
@@ -33,6 +33,26 @@ describe('CatalogueIcon', () => {
     expect(container.querySelector('svg')?.getAttribute('stroke-width')).toBe(
       String((1.75 * 512) / 24),
     );
+  });
+
+  it("keeps an uploaded drawing's own attributes without React objecting to their names", () => {
+    // An upload arrives with SVG's names for its attributes; React wants its own, and warns
+    // about every other spelling on every render. What reaches the DOM is the SVG name again.
+    const complaints = vi.spyOn(console, 'error').mockImplementation(() => {
+      // Kept quiet: the point is whether it is called at all.
+    });
+    const { container } = render(
+      <CatalogueIcon
+        node={[['path', { d: 'M0 0h10', 'stroke-width': '3', 'stroke-linecap': 'square' }]]}
+        frame={{ x: 0, y: 0, size: 24 }}
+      />,
+    );
+    const path = container.querySelector('path');
+
+    expect(path?.getAttribute('stroke-width')).toBe('3');
+    expect(path?.getAttribute('stroke-linecap')).toBe('square');
+    expect(complaints).not.toHaveBeenCalled();
+    complaints.mockRestore();
   });
 });
 

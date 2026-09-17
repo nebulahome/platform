@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import { iconViewSchema } from '@nebula-home/contracts';
+
 import { loadBuiltinIcons } from './builtin.js';
+import { IconCatalogue } from './catalogue.js';
 
 const icons = loadBuiltinIcons();
 const byId = new Map(icons.map((icon) => [icon.id, icon]));
@@ -12,6 +15,21 @@ describe('loadBuiltinIcons', () => {
     expect(icons.length).toBeGreaterThan(1000);
     expect(lightbulb?.node.length).toBeGreaterThan(0);
     expect(lightbulb?.frame).toEqual({ x: 0, y: 0, size: 24 });
+  });
+
+  it('serves every built-in icon in the shape the contract promises a client', () => {
+    // Lucide tags some icons with dozens of words, more than an owner may write for one of
+    // their own. What is served must still parse on the other side, or the picker shows an
+    // error in place of the catalogue.
+    const catalogue = new IconCatalogue(icons, []);
+    const refused = catalogue
+      .search('', icons.length)
+      .filter((view) => !iconViewSchema.safeParse(view).success)
+      .map((view) => view.id);
+
+    expect(catalogue.size).toBe(icons.length);
+    expect(refused).toEqual([]);
+    expect(byId.get('activity')?.keywords.length).toBeGreaterThan(20);
   });
 
   it('names an icon from its id, the way a person would read it', () => {

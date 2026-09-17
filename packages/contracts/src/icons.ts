@@ -91,8 +91,13 @@ export type IconOrigin = (typeof ICON_ORIGINS)[number];
 /** A name as the owner reads it: `Lightbulb`, `3D printer`. */
 const iconNameSchema = z.string().trim().min(1).max(64);
 
-/** The words a search finds an icon by, beside its id and name. */
-const iconKeywordsSchema = z.array(z.string().trim().min(1).max(32)).max(20);
+/**
+ * The words a search finds an icon by, beside its id and name, as an owner may write them.
+ *
+ * Wide enough to hold what a built-in icon already carries: lucide tags one icon with up to
+ * sixty-odd words, and an owner redrawing it keeps them.
+ */
+const iconKeywordsSchema = z.array(z.string().trim().min(1).max(64)).max(64);
 
 /**
  * One icon as the catalogue serves it.
@@ -104,7 +109,9 @@ const iconKeywordsSchema = z.array(z.string().trim().min(1).max(32)).max(20);
 export const iconViewSchema = z.object({
   id: iconIdSchema,
   name: iconNameSchema,
-  keywords: iconKeywordsSchema,
+
+  /** As the catalogue holds them: what is served is not bounded the way what is written is. */
+  keywords: z.array(z.string()),
   origin: z.enum(ICON_ORIGINS),
   isOverridden: z.boolean(),
   node: iconNodeSchema,
