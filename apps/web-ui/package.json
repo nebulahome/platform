@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@nebula-home/contracts": "workspace:*",
+    "@nebula-home/icons": "workspace:*",
     "@nebula-home/ui": "workspace:*",
     "@tanstack/react-query": "^5.102.8",
     "i18next": "^26.4.1",

@@ -335,6 +335,9 @@ importers:
       '@nebula-home/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@nebula-home/icons':
+        specifier: workspace:*
+        version: link:../../packages/icons
       '@nebula-home/ui':
         specifier: workspace:*
         version: link:../../packages/ui

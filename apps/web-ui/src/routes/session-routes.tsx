@@ -39,6 +39,7 @@ import { VendorPage } from '@/routes/library/vendor-page';
 import { RETURN_TO_PARAM, safeReturnTo } from '@/routes/return-to';
 import { AccountSettings } from '@/routes/settings/account-settings';
 import { DataAndRetention } from '@/routes/settings/data-and-retention';
+import { IconsPanel } from '@/routes/settings/icons-panel';
 import { InterfaceSettings } from '@/routes/settings/interface-settings';
 import { RequiresPermission } from '@/routes/settings/requires-permission';
 import { DEFAULT_SETTINGS_SECTION, SettingsLayout } from '@/routes/settings/settings-layout';
@@ -252,6 +253,15 @@ export function SessionRoutes() {
             element={
               <RequiresPermission permission="settings:read" section="Data and retention">
                 <DataAndRetention />
+              </RequiresPermission>
+            }
+          />
+
+          <Route
+            path="icons"
+            element={
+              <RequiresPermission permission="settings:read" section="Icons">
+                <IconsPanel />
               </RequiresPermission>
             }
           />

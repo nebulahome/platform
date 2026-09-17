@@ -58,6 +58,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     group: 'server',
     permission: 'settings:read',
   },
+  { path: '/settings/icons', label: 'Icons', group: 'server', permission: 'settings:read' },
 ];
 
 /** Where somebody who opens `/settings` with nothing more specific in mind ends up. */

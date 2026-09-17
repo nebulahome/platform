@@ -11,15 +11,13 @@
  * document, where the form's dialog listens for it too, so one press closes the picker alone.
  */
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState, type KeyboardEvent } from 'react';
+import { useState, type KeyboardEvent } from 'react';
 
 import type { IconView } from '@nebula-home/contracts';
 import { Button, CatalogueIcon, cn, Modal, TextField } from '@nebula-home/ui';
 
+import { useDebounced } from '@/lib/use-debounced';
 import { fetchIcons, LIBRARY_QUERY_KEYS } from '@/library/api';
-
-/** How long typing pauses before the catalogue is asked. */
-const DEBOUNCE_MS = 250;
 
 /** How many icons one search shows at most. */
 const PAGE = 120;
@@ -35,28 +33,6 @@ export type IconPickerModalProps = {
   /** Called with the id picked. */
   readonly onPick: (icon: IconView) => void;
 };
-
-/**
- * A value that follows another, a moment behind.
- *
- * @param value - What is typed.
- * @returns What was typed a moment ago.
- */
-function useDebounced(value: string): string {
-  const [settled, setSettled] = useState(value);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSettled(value);
-    }, DEBOUNCE_MS);
-
-    return (): void => {
-      clearTimeout(timer);
-    };
-  }, [value]);
-
-  return settled;
-}
 
 /**
  * Renders the picker.
