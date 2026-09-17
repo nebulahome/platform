@@ -70,39 +70,40 @@ function silent(): PlatformLogger {
 }
 
 /**
- * One registration request, as `hub` would send it.
+ * One registration request, as `hub` would send it once it has heard from the device.
  *
- * @param name - What to call the device.
+ * @param fields - What to add or change: the model the hardware reports, a serial.
  * @returns The request.
  */
-function request(name: string): Record<string, unknown> {
+function request(fields: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     integrationId: instanceId,
     externalId: 'relay-one',
-    name,
     manufacturer: 'Generic',
-    model: 'R1',
     config: { claim: { deviceKey: '192.168.1.40', externalId: 'relay-one', descriptor: {} } },
     entities: [
       {
         entityId: relay,
-        name,
+        name: 'Relay',
         capabilities: { on_off: {}, level: { hasTransition: true } },
       },
     ],
+    ...fields,
   };
 }
 
 /**
- * Asks `core` to register a device.
+ * Asks `core` to complete a device.
  *
- * @param name - What to call it.
+ * @param fields - What to add or change in the request.
  * @returns What `core` wrote.
  */
-async function register(name: string): Promise<{ deviceId: string; entityIds: string[] }> {
+async function register(
+  fields: Record<string, unknown> = {},
+): Promise<{ deviceId: string; entityIds: string[] }> {
   return caller.request(
     busSubjects.service(CORE_SERVICE, CORE_REGISTER_METHOD),
-    request(name),
+    request(fields),
     registerDeviceReplySchema,
   );
 }
@@ -125,6 +126,17 @@ beforeAll(async () => {
     transportConfig: {},
     options: {},
     isEnabled: true,
+  });
+
+  // The identity half, as `api` writes it when the owner adds the device: named, with the model
+  // the owner picked, and nothing heard from the hardware yet.
+  await database.db.insert(schema.registry.devices).values({
+    integrationId: instanceId,
+    externalId: null,
+    name: 'Lab relay',
+    icon: 'relay',
+    manufacturer: 'Generic',
+    model: 'R1',
   });
 
   directory = new EntityDirectory();
@@ -160,12 +172,45 @@ afterAll(async () => {
   await database.close();
 });
 
-describe('registering an adopted device', () => {
-  it('writes the device and its entities, and answers with what it wrote', async () => {
-    const reply = await register('Lab relay');
+describe('completing a device the API created', () => {
+  it('writes the serial and the entities against the row, and answers with what it wrote', async () => {
+    const reply = await register();
 
     expect(reply.entityIds).toEqual([relay]);
     expect(reply.deviceId).toMatch(/^[0-9a-f-]{36}$/);
+
+    const [row] = await database.db
+      .select({
+        externalId: schema.registry.devices.externalId,
+        name: schema.registry.devices.name,
+        icon: schema.registry.devices.icon,
+      })
+      .from(schema.registry.devices)
+      .where(eq(schema.registry.devices.integrationId, instanceId));
+
+    expect(row).toEqual({ externalId: 'relay-one', name: 'Lab relay', icon: 'relay' });
+  });
+
+  it('keeps the model the owner picked when the hardware does not report one', async () => {
+    // Bambu printers say nothing about their model over the broker. `X1C` is what the owner
+    // picked, and it must not become null because the descriptor had no better idea.
+    const [row] = await database.db
+      .select({ model: schema.registry.devices.model })
+      .from(schema.registry.devices)
+      .where(eq(schema.registry.devices.integrationId, instanceId));
+
+    expect(row?.model).toBe('R1');
+  });
+
+  it('takes the model the hardware reports, when it does', async () => {
+    await register({ model: 'R1-PRO' });
+
+    const [row] = await database.db
+      .select({ model: schema.registry.devices.model })
+      .from(schema.registry.devices)
+      .where(eq(schema.registry.devices.integrationId, instanceId));
+
+    expect(row?.model).toBe('R1-PRO');
   });
 
   it('makes the entity routable straight away, without a restart', () => {
@@ -206,17 +251,29 @@ describe('registering an adopted device', () => {
     });
   });
 
-  it('updates rather than duplicating when the same device is registered again', async () => {
-    // Re-adoption has to be safe: a rescan after a firmware update sends the same device with a
-    // new name, and a second row would be a second copy of the same relay in the interface.
-    const again = await register('Lab relay renamed');
+  it('updates rather than duplicating when the same device is completed again', async () => {
+    // Identifying again has to be safe: a restart that could not bind from the row hears the
+    // device a second time, and a second row would be a second copy of the same relay.
+    const again = await register({ swVersion: '2.0' });
 
     const rows = await database.db
-      .select({ id: schema.registry.devices.id, name: schema.registry.devices.name })
+      .select({
+        id: schema.registry.devices.id,
+        name: schema.registry.devices.name,
+        swVersion: schema.registry.devices.swVersion,
+      })
       .from(schema.registry.devices)
       .where(eq(schema.registry.devices.integrationId, instanceId));
 
-    expect(rows).toEqual([{ id: again.deviceId, name: 'Lab relay renamed' }]);
+    expect(rows).toEqual([{ id: again.deviceId, name: 'Lab relay', swVersion: '2.0' }]);
+  });
+
+  it('refuses to complete a device the API never created', async () => {
+    // Nothing `hub` can do makes the row appear, so the refusal is a not-found it can stop on,
+    // rather than an insert that would make `hub` a second writer of the registry.
+    await expect(register({ integrationId: `${instanceId}-nobody` })).rejects.toThrow(
+      /no device/iu,
+    );
   });
 
   it('tells everyone else a device arrived', async () => {
@@ -230,7 +287,7 @@ describe('registering an adopted device', () => {
       },
     );
 
-    await register('Lab relay');
+    await register();
 
     for (let attempt = 0; attempt < 50 && seen.length === 0; attempt += 1) {
       await new Promise((resolve) => setImmediate(resolve));
@@ -238,6 +295,12 @@ describe('registering an adopted device', () => {
 
     watching.unsubscribe();
 
-    expect(seen[0]).toMatchObject({ source: instanceId, entityIds: [relay] });
+    // Named by the public id and the owner's name: what a browser lists the device under.
+    expect(seen[0]).toMatchObject({
+      deviceId: instanceId,
+      source: instanceId,
+      name: 'Lab relay',
+      entityIds: [relay],
+    });
   });
 });

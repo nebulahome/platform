@@ -23,7 +23,7 @@ export type OwnerColumns = {
   /** The package that installed it, when a package did. */
   readonly packageId: string | null;
 
-  /** The integration instance that adopted it, when one did. */
+  /** The integration instance that is the device, when one is. */
   readonly integrationId: string | null;
 };
 

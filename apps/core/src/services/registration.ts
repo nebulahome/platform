@@ -1,26 +1,31 @@
 /**
- * Registering a device an integration adopted.
+ * Completing a device an instance has identified.
  *
- * `hub` finds devices; `core` writes them down. That split exists because `core` is the single
- * writer of the registry **and** holds the directory it routes commands against, loaded once at
- * startup. A row written behind its back would be invisible until the next restart, so a command
- * for a device adopted a minute ago would come back as "not registered" - which looks like a
- * broken device rather than a stale cache.
+ * The API creates a device - the instance that reaches it and the registry row that names it;
+ * `hub` hears from the hardware; `core` writes what it heard down. That split exists because
+ * `core` is the single writer of the registry **and** holds the directory it routes commands
+ * against, loaded once at startup. A row written behind its back would be invisible until the
+ * next restart, so a command for a device identified a minute ago would come back as "not
+ * registered" - which looks like a broken device rather than a stale cache.
  *
  * Writing the rows and updating the directory therefore happen in the same call, in that order:
  * the database first, because a directory entry for a row that failed to write would route
  * commands at nothing.
  *
- * **Registration is idempotent.** Adopting the same device again - after a firmware update, or a
- * rescan - updates what is there rather than adding a second copy of the same relay.
+ * **Completion is idempotent, and it completes.** The name and the icon are the owner's, set
+ * when the device was added, and are not touched; the serial, the claim and the entities are
+ * written, and what the hardware reports about itself fills in only what the owner left blank.
+ * Hearing the same device again - after a restart that could not bind it from its row - updates
+ * what is there rather than adding a second copy of the same relay.
  */
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 
 import type { BusClient, BusSubscription } from '@nebula-home/bus';
 import {
   busSubjects,
   CORE_REGISTER_METHOD,
   CORE_SERVICE,
+  NotFoundError,
   parseEntityId,
   registerDeviceRequestSchema,
   type CapabilityName,
@@ -67,39 +72,7 @@ function toCapabilityMap(declared: Record<string, JsonObject>): Map<CapabilityNa
 }
 
 /**
- * Finds the row of the device this one is reached through.
- *
- * @param db - A connected database handle.
- * @param integrationId - The instance both devices belong to.
- * @param externalId - What the integration calls the device in front, or undefined.
- * @returns Its row identifier, or null when there is none or it has not registered yet. Null
- * rather than an error: a BLE thermometer must not be unregisterable because the proxy relaying
- * it happens to come up second.
- */
-async function resolveVia(
-  db: Database,
-  integrationId: string,
-  externalId: string | undefined,
-): Promise<string | null> {
-  if (externalId === undefined) {
-    return null;
-  }
-
-  const [row] = await db
-    .select({ id: schema.registry.devices.id })
-    .from(schema.registry.devices)
-    .where(
-      and(
-        eq(schema.registry.devices.integrationId, integrationId),
-        eq(schema.registry.devices.externalId, externalId),
-      ),
-    );
-
-  return row?.id ?? null;
-}
-
-/**
- * Writes one device and its entities.
+ * Completes one device and writes its entities.
  *
  * Four statements regardless of how many entities the device has, rather than three per entity.
  * That is not only faster: a transaction holds one connection, so per-entity statements have to
@@ -107,48 +80,42 @@ async function resolveVia(
  * for sixty round trips.
  *
  * @param db - A connected database handle.
- * @param request - What `hub` adopted.
- * @returns The device row and its entities.
+ * @param request - What `hub` heard.
+ * @returns The device row, its name, and its entities.
+ * @throws {NotFoundError} When no device row belongs to the instance. The API writes that row;
+ * `hub` cannot, and must not, make it appear.
  */
 async function write(
   db: Database,
   request: RegisterDeviceRequest,
-): Promise<{ deviceId: string; entities: WrittenEntity[] }> {
-  const viaDeviceId = await resolveVia(db, request.integrationId, request.viaExternalId);
-
+): Promise<{ deviceId: string; name: string; entities: WrittenEntity[] }> {
   return db.transaction(async (tx) => {
-    const [device] = await tx
-      .insert(schema.registry.devices)
-      .values({
-        integrationId: request.integrationId,
-        externalId: request.externalId,
-        name: request.name,
-        manufacturer: request.manufacturer ?? null,
-        model: request.model ?? null,
-        swVersion: request.swVersion ?? null,
-        hwVersion: request.hwVersion ?? null,
-        areaId: request.areaId ?? null,
-        viaDeviceId,
-        config: request.config,
-      })
-      .onConflictDoUpdate({
-        // The device is the same device when the integration calls it the same thing, which is
-        // what `UNIQUE (integration_id, external_id)` says. Everything else may have changed:
-        // firmware reports a new version, the owner renamed it, the owner recognised it afresh.
-        target: [schema.registry.devices.integrationId, schema.registry.devices.externalId],
-        set: {
-          name: request.name,
-          manufacturer: request.manufacturer ?? null,
-          model: request.model ?? null,
-          swVersion: request.swVersion ?? null,
-          hwVersion: request.hwVersion ?? null,
-          config: request.config,
-          updatedAt: new Date(),
-        },
-      })
-      .returning({ id: schema.registry.devices.id });
+    const { devices } = schema.registry;
 
-    const deviceId = device?.id ?? '';
+    // What the hardware reports fills in only what the owner left blank. A printer that says
+    // nothing about its model must not null the `X1C` the owner picked; a relay that reports
+    // one refines it.
+    const [device] = await tx
+      .update(devices)
+      .set({
+        externalId: request.externalId,
+        manufacturer: sql`coalesce(${request.manufacturer ?? null}, ${devices.manufacturer})`,
+        model: sql`coalesce(${request.model ?? null}, ${devices.model})`,
+        swVersion: sql`coalesce(${request.swVersion ?? null}, ${devices.swVersion})`,
+        hwVersion: sql`coalesce(${request.hwVersion ?? null}, ${devices.hwVersion})`,
+        config: request.config,
+        updatedAt: new Date(),
+      })
+      .where(eq(devices.integrationId, request.integrationId))
+      .returning({ id: devices.id, name: devices.name });
+
+    if (device === undefined) {
+      throw new NotFoundError('No device row belongs to that instance', {
+        details: { integrationId: request.integrationId },
+      });
+    }
+
+    const deviceId = device.id;
 
     const rows = await tx
       .insert(schema.registry.entities)
@@ -159,7 +126,6 @@ async function write(
           integrationId: request.integrationId,
           source: 'adapter',
           name: entity.name,
-          areaId: request.areaId ?? null,
           unitOfMeasurement: entity.unitOfMeasurement ?? null,
           deviceClass: entity.deviceClass ?? null,
           stateClass: entity.stateClass ?? null,
@@ -205,6 +171,7 @@ async function write(
 
     return {
       deviceId,
+      name: device.name,
       entities: rows.map((row): WrittenEntity => ({
         rowId: row.id,
         entityId: parseEntityId(row.entityId),
@@ -215,7 +182,7 @@ async function write(
 }
 
 /**
- * Serves the subject `hub` registers adopted devices on.
+ * Serves the subject `hub` completes identified devices on.
  *
  * @param options - The bus client, the database, the directory and the logger.
  * @returns The subscription, to unsubscribe on shutdown.
@@ -226,13 +193,13 @@ export function startRegistrationService(options: RegistrationOptions): BusSubsc
     registerDeviceRequestSchema,
 
     /**
-     * Registers one device and everything it exposes.
+     * Completes one device and registers everything it exposes.
      *
-     * @param request - What was adopted.
+     * @param request - What was heard.
      * @returns What was written.
      */
     async (request: RegisterDeviceRequest): Promise<RegisterDeviceReply> => {
-      const { deviceId, entities } = await write(options.db, request);
+      const { deviceId, name, entities } = await write(options.db, request);
 
       for (const entity of entities) {
         options.directory.set({
@@ -246,16 +213,18 @@ export function startRegistrationService(options: RegistrationOptions): BusSubsc
 
       const entityIds = entities.map((entity) => entity.entityId);
 
+      // Named by its public id - the instance id every page lists it under - and by the name
+      // the owner gave it, which is the row's.
       options.client.publish(busSubjects.deviceEvent('added'), {
-        deviceId,
+        deviceId: request.integrationId,
         source: request.integrationId,
-        name: request.name,
+        name,
         entityIds,
       });
 
       options.logger.info(
         { deviceId, integrationId: request.integrationId, entities: entityIds.length },
-        'Registered a device',
+        'Completed a device',
       );
 
       return { deviceId, entityIds };
