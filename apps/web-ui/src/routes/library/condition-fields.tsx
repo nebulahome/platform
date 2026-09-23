@@ -13,6 +13,8 @@ import {
 } from '@nebula-home/contracts';
 import { SelectField, Segmented, TextField } from '@nebula-home/ui';
 
+import { hasNumber } from '@/library/entity-control';
+import { AreaKeyField } from '@/routes/library/area-key-field';
 import { EntityField } from '@/routes/library/entity-field';
 
 /** What the fields need. */
@@ -83,6 +85,7 @@ export function ConditionFields(props: ConditionFieldsProps) {
       <>
         <EntityField
           label="Entity"
+          accept={hasNumber}
           value={condition.entityId}
           onChange={(entityId) => {
             onChange({ ...condition, entityId });
@@ -176,13 +179,11 @@ export function ConditionFields(props: ConditionFieldsProps) {
   if (condition.type === 'area_occupancy') {
     return (
       <>
-        <TextField
+        <AreaKeyField
           label="Area"
-          size="compact"
-          placeholder="living_room"
           value={condition.areaKey}
-          onChange={(event) => {
-            onChange({ ...condition, areaKey: event.target.value });
+          onChange={(areaKey) => {
+            onChange({ ...condition, areaKey });
           }}
         />
         <Segmented

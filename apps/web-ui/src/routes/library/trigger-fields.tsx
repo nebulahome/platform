@@ -18,6 +18,7 @@ import {
 import { SelectField, TextField } from '@nebula-home/ui';
 
 import { partialEntityId } from '@/library/automation-draft';
+import { hasNumber } from '@/library/entity-control';
 import { EntityField } from '@/routes/library/entity-field';
 
 /** What the fields need. */
@@ -88,6 +89,7 @@ export function TriggerFields(props: TriggerFieldsProps) {
       <>
         <EntityField
           label="Entity"
+          accept={hasNumber}
           value={trigger.entityId}
           onChange={(entityId) => {
             onChange({ ...trigger, entityId: partialEntityId(entityId) });
@@ -130,7 +132,9 @@ export function TriggerFields(props: TriggerFieldsProps) {
           }}
         />
         <EntityField
-          label="From (optional)"
+          label="From"
+          isOptional
+          hint="Any entity, when none is chosen."
           value={trigger.entityId ?? ''}
           onChange={(entityId) => {
             onChange({ ...trigger, entityId: entityId === '' ? null : partialEntityId(entityId) });

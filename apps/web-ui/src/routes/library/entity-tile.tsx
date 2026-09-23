@@ -21,6 +21,7 @@ const LIT: Readonly<Record<EntityTone, string>> = {
   light: 'border-tag-amber/30 bg-tag-amber/13 text-tag-amber',
   power: 'border-tag-teal/30 bg-tag-teal/13 text-tag-teal',
   sensor: 'border-primary/30 bg-primary/13 text-primary',
+  cover: 'border-primary/30 bg-primary/13 text-primary',
   climate: 'border-tag-orange/30 bg-tag-orange/13 text-tag-orange',
   secure: 'border-tag-green/30 bg-tag-green/13 text-tag-green',
   media: 'border-tag-violet/30 bg-tag-violet/13 text-tag-violet',
@@ -30,6 +31,7 @@ const LIT: Readonly<Record<EntityTone, string>> = {
 
 /** How large a tile is drawn, and the glyph inside it. */
 const SIZES = {
+  tiny: { box: 'size-5 rounded-chip', glyph: 12 },
   small: { box: 'size-7 rounded-chip', glyph: 15 },
   medium: { box: 'size-8 rounded-chip', glyph: 17 },
   large: { box: 'size-12 rounded-tile', glyph: 24 },

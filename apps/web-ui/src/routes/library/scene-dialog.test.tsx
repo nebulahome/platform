@@ -16,10 +16,12 @@ vi.mock('@/library/api', () => ({
   updateScene: vi.fn(),
   deleteScene: vi.fn(),
   fetchEntities: vi.fn(),
+  fetchDevices: vi.fn().mockResolvedValue([]),
   fetchAreas: vi.fn(),
   fetchIcons: vi.fn(),
   LIBRARY_QUERY_KEYS: {
     scenes: ['library', 'scenes'],
+    devices: ['library', 'devices'],
     entities: ['library', 'entities'],
     areas: ['library', 'areas'],
     icons: ['library', 'icons'],
@@ -117,14 +119,13 @@ describe('SceneDialog', () => {
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Evening' } });
 
-    // Entities load asynchronously; the add control appears once the registry answers.
     expect(await screen.findByText('Members')).toBeTruthy();
 
-    const add = await screen.findByRole('combobox', { name: /Add entity/u });
-
-    fireEvent.click(add);
-    fireEvent.click(await screen.findByRole('option', { name: /Ceiling/u }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    // The picker lists the house by floor and room; a lamp in a room with no floor is under
+    // "Not in a room", and several may be added at once.
+    fireEvent.click(screen.getByRole('button', { name: 'Add entities' }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Ceiling/u }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add 1' }));
 
     await screen.findByText('Ceiling');
 

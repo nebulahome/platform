@@ -51,6 +51,15 @@ export type SelectOption = {
    * carries the meaning on its own, and typeahead searches the name alone.
    */
   readonly leading?: ReactNode;
+
+  /**
+   * The heading it is listed under, such as the floor a room is on.
+   *
+   * Options sharing a group are listed together under it, in the order given; the closed field
+   * names the group with the choice - "Ground floor › Kitchen" - since two floors can each have
+   * a room called Bathroom.
+   */
+  readonly group?: string;
 };
 
 /** What the field needs. */
@@ -351,7 +360,11 @@ export function SelectField(props: SelectFieldProps) {
             >
               <span id={`${ids.id}-value`} className="flex min-w-0 items-center gap-2">
                 {chosen?.leading}
-                <span className="truncate">{chosen?.label ?? ''}</span>
+                <span className="truncate">
+                  {chosen?.group === undefined
+                    ? (chosen?.label ?? '')
+                    : `${chosen.group} › ${chosen.label}`}
+                </span>
               </span>
               <Caret isOpen={isOpen} />
             </button>
@@ -382,7 +395,16 @@ export function SelectField(props: SelectFieldProps) {
                       'animate-rise face-card p-1 shadow-dialog',
                     )}
                   >
-                    {options.map((option, index) => (
+                    {options.map((option, index) => [
+                      option.group !== undefined && option.group !== options[index - 1]?.group ? (
+                        <li
+                          key={`group-${option.group}`}
+                          role="presentation"
+                          className="px-2.5 pt-2.5 pb-1 text-label text-foreground-subtle uppercase first:pt-1"
+                        >
+                          {option.group}
+                        </li>
+                      ) : null,
                       /* eslint-disable-next-line jsx-a11y/click-events-have-key-events -- an
                          option in an `aria-activedescendant` listbox is not a focus target and
                          takes no keys of its own. Every key is handled on the combobox above,
@@ -414,8 +436,8 @@ export function SelectField(props: SelectFieldProps) {
                       >
                         {option.leading}
                         <span className="truncate">{option.label}</span>
-                      </li>
-                    ))}
+                      </li>,
+                    ])}
                   </ul>,
                   host,
                 )}

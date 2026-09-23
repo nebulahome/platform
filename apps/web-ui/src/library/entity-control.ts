@@ -254,3 +254,26 @@ export function hueGradient(): string {
 export function saturationGradient(hue: number): string {
   return `linear-gradient(90deg, ${hsColor(hue, 0)}, ${hsColor(hue, 100)})`;
 }
+
+/**
+ * Whether an entity carries a number a threshold can be compared against.
+ *
+ * A numeric trigger or condition on a switch would never fire: the reading is on or off. The
+ * numbers are a sensor's reading, and the figures a device's state carries - a level, a
+ * position, a temperature.
+ *
+ * @param entity - Its capabilities.
+ * @returns True for a numeric sensor, and for an entity whose state holds a number.
+ */
+export function hasNumber(entity: Pick<EntityView, 'capabilities'>): boolean {
+  const numeric: readonly CapabilityName[] = [
+    'sensor_numeric',
+    'level',
+    'color_temp',
+    'cover',
+    'thermostat',
+    'media_player',
+  ];
+
+  return entity.capabilities.some((entry) => numeric.includes(entry.capability));
+}

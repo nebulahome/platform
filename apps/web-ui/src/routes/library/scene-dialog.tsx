@@ -11,12 +11,14 @@ import { useState } from 'react';
 import type {
   CapabilityState,
   EntityId,
+  EntityView,
   SceneCreate,
   SceneUpdate,
   SceneView,
 } from '@nebula-home/contracts';
 import { Button, Modal, Segmented, SelectField, TextField } from '@nebula-home/ui';
 
+import { areaChoices } from '@/lib/area-tree';
 import { toMessage } from '@/lib/error-message';
 import {
   createScene,
@@ -28,6 +30,7 @@ import {
 import { toKey } from '@/library/automation-draft';
 import { isSceneEntity, narrowTargetState, seedTargetState } from '@/library/scene-target-state';
 import { ConfirmRemoval } from '@/routes/library/confirm-removal';
+import { EntityPicker } from '@/routes/library/entity-picker/entity-picker';
 import { NameIconField } from '@/routes/library/name-icon-field';
 import { SceneMemberFields } from '@/routes/library/scene-member-fields';
 import { useAreas } from '@/routes/library/use-areas';
@@ -106,7 +109,7 @@ export function SceneDialog(props: SceneDialogProps) {
   const { target, onClose, onSaved, onDeleted } = props;
   const queryClient = useQueryClient();
   const existing = target?.mode === 'edit' ? target.scene : undefined;
-  const { areas } = useAreas();
+  const { areas, tree } = useAreas();
 
   const entities = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.entities,
@@ -140,7 +143,7 @@ export function SceneDialog(props: SceneDialogProps) {
   const [members, setMembers] = useState<SceneMemberDraft[]>(() =>
     existing === undefined ? [] : draftsFromScene(existing),
   );
-  const [addEntityId, setAddEntityId] = useState('');
+  const [isAdding, setAdding] = useState(false);
   const [isConfirming, setConfirming] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -247,9 +250,6 @@ export function SceneDialog(props: SceneDialogProps) {
   const isBusy = save.isPending || removing.isPending;
 
   const taken = new Set(members.map((member) => member.entityId));
-  const addable = (entities.data ?? []).filter(
-    (entity) => isSceneEntity(entity) && !taken.has(entity.entityId),
-  );
 
   /** Saves, unless the name or key is wrong. */
   const submit = (): void => {
@@ -272,24 +272,19 @@ export function SceneDialog(props: SceneDialogProps) {
   };
 
   /**
-   * Adds the chosen entity, seeded from its current state.
+   * Adds the chosen entities, each seeded from its current state.
+   *
+   * @param chosen - The entities picked.
    */
-  const addMember = (): void => {
-    const entity = (entities.data ?? []).find((one) => one.entityId === addEntityId);
-
-    if (entity === undefined) {
-      return;
-    }
-
+  const addMembers = (chosen: readonly EntityView[]): void => {
     setMembers([
       ...members,
-      {
+      ...chosen.map((entity) => ({
         entityId: entity.entityId,
         targetState: seedTargetState(entity),
         transitionSeconds: null,
-      },
+      })),
     ]);
-    setAddEntityId('');
   };
 
   return (
@@ -378,10 +373,7 @@ export function SceneDialog(props: SceneDialogProps) {
         <SelectField
           label="Area"
           size="medium"
-          options={[
-            { value: '', label: 'None' },
-            ...areas.map((area) => ({ value: area.id, label: area.name })),
-          ]}
+          options={areaChoices(tree)}
           value={areaId}
           onChange={setAreaId}
         />
@@ -503,38 +495,30 @@ export function SceneDialog(props: SceneDialogProps) {
             </ul>
           )}
 
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="min-w-0 grow">
-              <SelectField
-                label="Add entity"
-                size="compact"
-                options={
-                  addable.length === 0
-                    ? [{ value: '', label: 'Nothing left to add' }]
-                    : [
-                        { value: '', label: 'Choose one…' },
-                        ...addable.map((entity) => ({
-                          value: entity.entityId,
-                          label:
-                            entity.areaName === null
-                              ? entity.name
-                              : `${entity.name} · ${entity.areaName}`,
-                        })),
-                      ]
-                }
-                value={addEntityId}
-                onChange={setAddEntityId}
-              />
-            </div>
-            <Button
-              variant="ghost"
-              size="compact"
-              disabled={addEntityId === '' || isBusy}
-              onClick={addMember}
-            >
-              Add
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="compact"
+            className="self-start"
+            disabled={isBusy}
+            onClick={() => {
+              setAdding(true);
+            }}
+          >
+            Add entities
+          </Button>
+          <EntityPicker
+            isOpen={isAdding}
+            title="Add to the scene"
+            isMultiple
+            accept={(entity) => isSceneEntity(entity) && !taken.has(entity.entityId)}
+            onClose={() => {
+              setAdding(false);
+            }}
+            onChoose={(chosen) => {
+              addMembers(chosen);
+              setAdding(false);
+            }}
+          />
         </div>
 
         {problem === null ? null : (

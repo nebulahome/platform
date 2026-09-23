@@ -581,7 +581,7 @@ describe('changing a device', () => {
     renderDialog({ mode: 'edit', vendor: BAMBU, device: EXISTING });
 
     fireEvent.click(await screen.findByRole('combobox', { name: /^Room/u }));
-    fireEvent.click(await screen.findByRole('option', { name: 'Ground floor › Kitchen' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Kitchen' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {

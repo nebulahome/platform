@@ -20,7 +20,7 @@ import type { UiIconId } from '@nebula-home/ui';
  * the theme draws warm as.
  */
 export type EntityTone =
-  'light' | 'power' | 'sensor' | 'climate' | 'secure' | 'media' | 'camera' | 'derived';
+  'light' | 'power' | 'sensor' | 'cover' | 'climate' | 'secure' | 'media' | 'camera' | 'derived';
 
 /** What an entity is, for a person. */
 export type EntityKind = {
@@ -95,7 +95,7 @@ export function entityKindOf(
   }
 
   if (has.has('cover')) {
-    return { label: 'Cover', icon: 'blinds', tone: 'sensor' };
+    return { label: 'Cover', icon: 'blinds', tone: 'cover' };
   }
 
   if (has.has('color_hs')) {
@@ -169,5 +169,65 @@ export function capabilityLabel(capability: CapabilityName, domain = ''): string
       return 'Playback';
     case 'camera':
       return 'Camera';
+  }
+}
+
+/** The families the entity picker narrows by, in the order its pills read. */
+export const ENTITY_FAMILIES = [
+  'lights',
+  'switches',
+  'sensors',
+  'covers',
+  'climate',
+  'locks',
+  'media',
+  'cameras',
+  'aliases',
+] as const;
+
+/** A family of entities, as the picker narrows by it. */
+export type EntityFamily = (typeof ENTITY_FAMILIES)[number];
+
+/** What each family is called on its pill. */
+export const FAMILY_LABELS: Readonly<Record<EntityFamily, string>> = {
+  lights: 'Lights',
+  switches: 'Switches',
+  sensors: 'Sensors',
+  covers: 'Covers',
+  climate: 'Climate',
+  locks: 'Locks',
+  media: 'Media',
+  cameras: 'Cameras',
+  aliases: 'Aliases',
+};
+
+/**
+ * Which family an entity is picked from.
+ *
+ * @param entity - Its domain, source, class and capabilities.
+ * @returns The family, decided by the same strongest-capability rule as its kind.
+ */
+export function entityFamilyOf(
+  entity: Pick<EntityView, 'domain' | 'source' | 'deviceClass' | 'capabilities'>,
+): EntityFamily {
+  switch (entityKindOf(entity).tone) {
+    case 'derived':
+      return 'aliases';
+    case 'camera':
+      return 'cameras';
+    case 'media':
+      return 'media';
+    case 'climate':
+      return 'climate';
+    case 'secure':
+      return 'locks';
+    case 'light':
+      return 'lights';
+    case 'power':
+      return 'switches';
+    case 'cover':
+      return 'covers';
+    case 'sensor':
+      return 'sensors';
   }
 }

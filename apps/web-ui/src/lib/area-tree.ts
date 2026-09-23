@@ -36,6 +36,9 @@ export type RemovalImpact = {
 export type RoomChoice = {
   readonly value: string;
   readonly label: string;
+
+  /** The floor it is listed under; none for "No room" and for the house itself. */
+  readonly group?: string;
 };
 
 /**
@@ -126,7 +129,7 @@ export function describeRemoval(impact: RemovalImpact): string {
 }
 
 /**
- * The rooms as a dropdown offers them: none first, then each by its floor.
+ * The rooms as a dropdown offers them: none first, then each listed under its floor.
  *
  * @param tree - The tree, or null while there is no house.
  * @returns The options.
@@ -135,10 +138,29 @@ export function roomChoices(tree: HouseTree | null): RoomChoice[] {
   return [
     { value: '', label: 'No room' },
     ...(tree?.floors ?? []).flatMap((floor) =>
-      floor.rooms.map((room) => ({
-        value: room.id,
-        label: `${floor.floor.name} › ${room.name}`,
-      })),
+      floor.rooms.map((room) => ({ value: room.id, label: room.name, group: floor.floor.name })),
     ),
+  ];
+}
+
+/**
+ * Every area as a dropdown offers it, for what may be placed on a whole floor or the whole house:
+ * none, the house, then each floor followed by its rooms, listed under the floor.
+ *
+ * @param tree - The tree, or null while there is no house.
+ * @returns The options.
+ */
+export function areaChoices(tree: HouseTree | null): RoomChoice[] {
+  if (tree === null) {
+    return [{ value: '', label: 'None' }];
+  }
+
+  return [
+    { value: '', label: 'None' },
+    { value: tree.house.id, label: 'Whole house' },
+    ...tree.floors.flatMap((floor) => [
+      { value: floor.floor.id, label: 'Whole floor', group: floor.floor.name },
+      ...floor.rooms.map((room) => ({ value: room.id, label: room.name, group: floor.floor.name })),
+    ]),
   ];
 }

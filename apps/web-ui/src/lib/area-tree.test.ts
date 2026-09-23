@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import type { AreaView } from '@nebula-home/contracts';
 
-import { buildAreaTree, describeRemoval, removalImpact, roomChoices } from '@/lib/area-tree';
+import {
+  areaChoices,
+  buildAreaTree,
+  describeRemoval,
+  removalImpact,
+  roomChoices,
+} from '@/lib/area-tree';
 
 /**
  * An area as the API serves it.
@@ -101,13 +107,29 @@ describe('roomChoices', () => {
 
     expect(roomChoices(tree)).toEqual([
       { value: '', label: 'No room' },
-      { value: 'kitchen', label: 'Ground floor › Kitchen' },
-      { value: 'hall', label: 'Ground floor › Hall' },
-      { value: 'study', label: 'First floor › Study' },
+      { value: 'kitchen', label: 'Kitchen', group: 'Ground floor' },
+      { value: 'hall', label: 'Hall', group: 'Ground floor' },
+      { value: 'study', label: 'Study', group: 'First floor' },
     ]);
   });
 
   it('offers only no room when there is no house yet', () => {
     expect(roomChoices(null)).toEqual([{ value: '', label: 'No room' }]);
+  });
+});
+
+describe('areaChoices', () => {
+  it('offers the house, then each floor as a whole and its rooms, under the floor', () => {
+    const tree = buildAreaTree([HOUSE, GROUND, FIRST, KITCHEN, HALL, STUDY]);
+
+    expect(areaChoices(tree).map((choice) => [choice.label, choice.group ?? null])).toEqual([
+      ['None', null],
+      ['Whole house', null],
+      ['Whole floor', 'Ground floor'],
+      ['Kitchen', 'Ground floor'],
+      ['Hall', 'Ground floor'],
+      ['Whole floor', 'First floor'],
+      ['Study', 'First floor'],
+    ]);
   });
 });

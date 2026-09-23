@@ -7,10 +7,12 @@
  *
  * Durations are asked for in seconds and stored in milliseconds. Nobody types 300000.
  */
-import { CAPABILITIES, type AutomationAction } from '@nebula-home/contracts';
+import { CAPABILITIES, commandSchemaFor, type AutomationAction } from '@nebula-home/contracts';
 import { SelectField, TextField } from '@nebula-home/ui';
 
 import { isEditableAction } from '@/library/automation-draft';
+import { isCommandable } from '@/library/entity-control';
+import { capabilityLabel } from '@/library/entity-kind';
 import { ConditionTreeEditor } from '@/routes/library/condition-tree-editor';
 import { EntityField } from '@/routes/library/entity-field';
 import { TriggerFields } from '@/routes/library/trigger-fields';
@@ -42,15 +44,33 @@ export function ActionFields(props: ActionFieldsProps) {
       <>
         <EntityField
           label="Entity"
+          accept={isCommandable}
           value={action.entityId}
-          onChange={(entityId) => {
-            onChange({ ...action, entityId });
+          onChange={(entityId, entity) => {
+            const declared = entity?.capabilities
+              .map((entry) => entry.capability)
+              .filter((capability) => commandSchemaFor(capability) !== null);
+
+            // A capability the new entity does not declare would be refused by core; the first
+            // one it can be told to do is the likelier meaning.
+            onChange({
+              ...action,
+              entityId,
+              capability:
+                declared === undefined ||
+                declared.length === 0 ||
+                declared.some((capability) => capability === action.capability)
+                  ? action.capability
+                  : (declared[0] ?? action.capability),
+            });
           }}
         />
         <SelectField
           label="Capability"
           size="compact"
-          options={CAPABILITIES.map((value) => ({ value, label: value.replaceAll('_', ' ') }))}
+          options={CAPABILITIES.filter((value) => commandSchemaFor(value) !== null).map(
+            (value) => ({ value, label: capabilityLabel(value) }),
+          )}
           value={action.capability}
           onChange={(capability) => {
             onChange({ ...action, capability });
