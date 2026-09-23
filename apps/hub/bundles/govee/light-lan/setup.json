@@ -1,0 +1,16 @@
+{
+  "transport": {
+    "fields": [
+      {
+        "key": "host",
+        "type": "text",
+        "label": "Address",
+        "help": "The IP of the light on the network. LAN Control must be switched on for it in the Govee app.",
+        "placeholder": "192.168.1.70",
+        "isRequired": true,
+        "pattern": "^[A-Za-z0-9.-]+$",
+        "patternMessage": "An IP or host name - no port, no http:// and no path."
+      }
+    ]
+  }
+}

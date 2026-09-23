@@ -1,0 +1,8 @@
+{
+  "listen": [{ "module": "./lan/discovery.js" }],
+  "match": [
+    { "path": "device", "exists": true },
+    { "path": "sku", "exists": true }
+  ],
+  "identity": { "externalId": "device", "model": "sku", "swVersion": "wifiVersionSoft" }
+}
