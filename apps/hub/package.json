@@ -29,6 +29,8 @@
     "@nebula-home/icons": "workspace:*",
     "@nebula-home/tsconfig": "workspace:*",
     "@types/semver": "^7.7.1",
-    "typescript": "^6.0.3"
+    "@types/ws": "^8.18.1",
+    "typescript": "^6.0.3",
+    "ws": "^8.21.3"
   }
 }
