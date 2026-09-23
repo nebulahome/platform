@@ -40,6 +40,14 @@ export type RequestOptions = {
 
   /** What the caller can take back. JSON unless said otherwise. */
   readonly accept?: string;
+
+  /**
+   * Headers a particular endpoint asks for, such as `Idempotency-Key` on a command.
+   *
+   * Never the credential or the content type: those are this module's, set after these, so a
+   * caller cannot present a token of its own or send a body the server reads as something else.
+   */
+  readonly headers?: Readonly<Record<string, string>>;
 };
 
 /** What the client needs from the session to do its work. */
@@ -87,7 +95,9 @@ async function send(
   options: RequestOptions,
   accessToken: string | null,
 ): Promise<Response> {
-  const headers = new Headers({ accept: options.accept ?? 'application/json' });
+  const headers = new Headers(options.headers);
+
+  headers.set('accept', options.accept ?? 'application/json');
 
   if (options.body !== undefined) {
     headers.set('content-type', 'application/json');

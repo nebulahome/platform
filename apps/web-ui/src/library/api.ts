@@ -15,6 +15,7 @@ import {
   deviceProbeReplySchema,
   deviceViewSchema,
   discoveredReplySchema,
+  entityCommandResponseSchema,
   entityViewSchema,
   iconsResponseSchema,
   iconViewSchema,
@@ -22,7 +23,9 @@ import {
   packageViewSchema,
   sceneApplyResultSchema,
   sceneViewSchema,
+  stateHistoryPointSchema,
   tagViewSchema,
+  telemetryPointSchema,
   tileCacheStatusSchema,
   tilePrefetchResultSchema,
   type AliasCreate,
@@ -36,6 +39,7 @@ import {
   type AutomationCreate,
   type AutomationUpdate,
   type AutomationView,
+  type CapabilityName,
   type DeviceCreate,
   type DeviceProbeReply,
   type DeviceProbeRequest,
@@ -43,6 +47,7 @@ import {
   type DeviceView,
   type DiscoveredDevice,
   type DiscoveryAdopt,
+  type EntityCommandResponse,
   type EntityUpdate,
   type EntityView,
   type IconCreate,
@@ -50,16 +55,21 @@ import {
   type IconView,
   type IntegrationVendorConfigUpdate,
   type IntegrationVendorView,
+  type JsonObject,
   type PackageView,
   type SceneApplyResult,
   type SceneCreate,
   type SceneUpdate,
   type SceneView,
+  type StateHistoryPoint,
   type TagCreate,
   type TagUpdate,
   type TagView,
+  type TelemetryPoint,
+  type TelemetryResolution,
   type TileCacheStatus,
   type TilePrefetchResult,
+  IDEMPOTENCY_KEY_HEADER,
   MAX_PAGE_LIMIT,
   pageSchema,
 } from '@nebula-home/contracts';
@@ -366,6 +376,162 @@ export async function updateEntity(entityId: string, request: EntityUpdate): Pro
 }
 
 /**
+ * Reads one entity, with its state as last recorded.
+ *
+ * @param entityId - Which one, by its address.
+ * @param signal - Cancels the request.
+ * @returns The entity.
+ */
+export async function fetchEntity(entityId: string, signal?: AbortSignal): Promise<EntityView> {
+  return apiRequest(`/entities/${encodeURIComponent(entityId)}`, entityViewSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
+}
+
+/**
+ * Makes a key no other command will carry.
+ *
+ * From `getRandomValues` rather than `randomUUID`: the second exists only in a secure context,
+ * and a house reached at `http://192.168.1.20` is not one - the button would fail exactly where
+ * the interface is used most.
+ *
+ * @returns 32 hexadecimal characters.
+ */
+function newIdempotencyKey(): string {
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Commands one capability of one entity.
+ *
+ * Every call carries an idempotency key of its own, so a retry of this request - a proxy that
+ * resends, a reply that was lost - is recognised by the server as the same press rather than a
+ * second one. Two presses of the same button are two calls, and two commands.
+ *
+ * @param entityId - Which entity, by its address.
+ * @param capability - Which of its capabilities.
+ * @param command - The command and its arguments, e.g. `{ command: 'set_level', level: 40 }`.
+ * @returns The acknowledgement: the adapter took it, not that the device has done it.
+ */
+export async function commandEntity(
+  entityId: string,
+  capability: CapabilityName,
+  command: JsonObject,
+): Promise<EntityCommandResponse> {
+  return apiRequest(
+    `/entities/${encodeURIComponent(entityId)}/capabilities/${capability}/commands`,
+    entityCommandResponseSchema,
+    {
+      method: 'POST',
+      body: { command },
+      headers: { [IDEMPOTENCY_KEY_HEADER]: newIdempotencyKey() },
+    },
+  );
+}
+
+/** A window of history to read. */
+export type HistoryWindow = {
+  /** The entity to read. */
+  readonly entityId: string;
+
+  /** The inclusive start. */
+  readonly from: Date;
+
+  /** The exclusive end. */
+  readonly to: Date;
+};
+
+/** How many pages of history one read follows at most: a chart has no use for more. */
+const HISTORY_PAGE_CAP = 4;
+
+/**
+ * Follows a paginated history endpoint, newest first, up to {@link HISTORY_PAGE_CAP} pages.
+ *
+ * @param path - The endpoint below `/api/v1`.
+ * @param query - Its query, without the cursor.
+ * @param item - What one entry looks like.
+ * @param signal - Cancels the reads.
+ * @returns What the pages held, oldest first.
+ */
+async function readHistoryPages<TItem extends z.ZodType>(
+  path: string,
+  query: URLSearchParams,
+  item: TItem,
+  signal: AbortSignal | undefined,
+): Promise<z.output<TItem>[]> {
+  const items: z.output<TItem>[] = [];
+  let cursor: string | undefined;
+  let pages = 0;
+
+  do {
+    const page = new URLSearchParams(query);
+
+    page.set('limit', String(MAX_PAGE_LIMIT));
+
+    if (cursor !== undefined) {
+      page.set('cursor', cursor);
+    }
+
+    // Sequential by nature: each page's cursor is only known once the page before it has come.
+    // eslint-disable-next-line no-await-in-loop -- see above
+    const answer = await apiRequest(`${path}?${page.toString()}`, pageSchema(item), {
+      ...(signal === undefined ? {} : { signal }),
+    });
+
+    items.push(...answer.items);
+    cursor = answer.nextCursor;
+    pages += 1;
+  } while (cursor !== undefined && pages < HISTORY_PAGE_CAP);
+
+  return items.reverse();
+}
+
+/**
+ * Reads the recorded changes of an entity's state over a window.
+ *
+ * @param window - Which entity, and when.
+ * @param signal - Cancels the reads.
+ * @returns The changes, oldest first.
+ */
+export async function fetchStateHistory(
+  window: HistoryWindow,
+  signal?: AbortSignal,
+): Promise<StateHistoryPoint[]> {
+  const query = new URLSearchParams({
+    entityId: window.entityId,
+    from: window.from.toISOString(),
+    to: window.to.toISOString(),
+  });
+
+  return readHistoryPages('/history/state', query, stateHistoryPointSchema, signal);
+}
+
+/**
+ * Reads an entity's numeric readings over a window, at a resolution.
+ *
+ * @param window - Which entity, and when.
+ * @param resolution - Every reading, or buckets of a minute, an hour or a day.
+ * @param signal - Cancels the reads.
+ * @returns The readings or buckets, oldest first.
+ */
+export async function fetchTelemetry(
+  window: HistoryWindow,
+  resolution: TelemetryResolution,
+  signal?: AbortSignal,
+): Promise<TelemetryPoint[]> {
+  const query = new URLSearchParams({
+    entityId: window.entityId,
+    from: window.from.toISOString(),
+    to: window.to.toISOString(),
+    resolution,
+  });
+
+  return readHistoryPages('/history/telemetry', query, telemetryPointSchema, signal);
+}
+
+/**
  * Lists every area: the house, its floors, their rooms.
  *
  * @param signal - Cancels the request.
@@ -656,8 +822,11 @@ export const LIBRARY_QUERY_KEYS = {
   /** Every device. */
   devices: ['library', 'devices'] as const,
 
-  /** Every entity, with its state as last read. */
+  /** Every entity, with its state as last read; one entity is keyed further by its address. */
   entities: ['library', 'entities'] as const,
+
+  /** An entity's recorded history, keyed further by the entity, the kind and the window. */
+  history: ['library', 'history'] as const,
 
   /** Every derived entity. */
   aliases: ['library', 'aliases'] as const,
