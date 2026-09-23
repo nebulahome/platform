@@ -13,9 +13,6 @@
  * The system device and its entities are written before (1), so the registry loads them like
  * any other, and the system monitor starts once the ingest pipeline its states go through exists.
  */
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import {
   ensureTelemetryStream,
   newTraceId,
@@ -23,6 +20,7 @@ import {
   type BusConnection,
   type BusSubscription,
 } from '@nebula-home/bus';
+import { resolveDataLayout } from '@nebula-home/config';
 import type { EntityId } from '@nebula-home/contracts';
 import type { Database } from '@nebula-home/db';
 import { withTraceId, type PlatformLogger } from '@nebula-home/logging';
@@ -52,14 +50,6 @@ import { startSystemMonitorService } from './services/system-monitor-service.js'
 import { SystemMonitor } from './services/system-monitor.js';
 import { createSystemProbes } from './services/system-probes.js';
 import { runTelemetryIngest } from './services/telemetry-ingest.js';
-
-/**
- * The repository's own `infra/data`, for when `CORE_DATA_DIR` is not set.
- *
- * Found from where this file sits, which is the same depth under `src` and `dist`, rather than
- * from the working directory - which in development is the package, not the repository.
- */
-const DEFAULT_DATA_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../../infra/data');
 
 /** What the service is built from. */
 export type CoreServiceOptions = {
@@ -226,7 +216,7 @@ export class CoreService {
     const systemMonitor = new SystemMonitor({
       probes,
       db,
-      dataDir: config.CORE_DATA_DIR ?? DEFAULT_DATA_DIR,
+      dataDir: resolveDataLayout(config).root,
       ingest,
       logger,
       newTraceId,

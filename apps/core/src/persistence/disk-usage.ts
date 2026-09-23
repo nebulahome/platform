@@ -2,9 +2,11 @@
  * Counting what the platform keeps on disk.
  *
  * Two places hold it: the database, which is the bulk of it and grows with history, and the
- * data directory, which holds the map tiles today and package artefacts and backups later. Each
- * installed package is a directory under `packages/`, and the backups are `backups/`, so both
- * become categories of their own the day they appear, with nothing added here.
+ * data directory, laid out in `@nebula-home/config`. Each installed package is a directory under
+ * `packages/`, and the backups are `backups/`, so both become categories of their own the day
+ * they appear, with nothing added here. Every other folder is the platform's, and is counted by
+ * what is in it - `cache/maps`, `hub/integrations` - because "cache" alone would not tell anybody
+ * what is taking the room.
  *
  * Walking a directory is slow on a large disk, so this runs every few minutes rather than with
  * every sample, one directory at a time, and never follows a link: a link out of the data
@@ -17,14 +19,9 @@ import { join } from 'node:path';
 
 import { sql } from 'drizzle-orm';
 
+import { BACKUPS_DIRECTORY, PACKAGES_DIRECTORY } from '@nebula-home/config';
 import type { DiskCategory, DiskPart } from '@nebula-home/contracts';
 import type { Database } from '@nebula-home/db';
-
-/** The directory, under the data directory, each installed package keeps its files in. */
-export const PACKAGES_DIRECTORY = 'packages';
-
-/** The directory, under the data directory, the backups are kept in. */
-export const BACKUPS_DIRECTORY = 'backups';
 
 /** The part of the core category the database is. */
 export const DATABASE_PART = 'database';
@@ -129,6 +126,40 @@ function largestFirst(parts: readonly DiskPart[]): DiskPart[] {
 }
 
 /**
+ * Counts one of the platform's own folders, by what is in it.
+ *
+ * @param folder - The folder's name, directly under the data directory.
+ * @param path - Where it is.
+ * @returns A part per folder inside it, `<folder>/<name>`, and one named after the folder for
+ * the files lying loose in it.
+ */
+async function countPlatformFolder(folder: string, path: string): Promise<DiskPart[]> {
+  const parts: DiskPart[] = [];
+  let looseBytes = 0;
+
+  for (const entry of await entriesOf(path)) {
+    const child = join(path, entry.name);
+
+    if (entry.isDirectory()) {
+      parts.push({
+        id: `${folder}/${entry.name}`.slice(0, PART_ID_LENGTH),
+        // eslint-disable-next-line no-await-in-loop -- one tree at a time, see directorySize
+        bytes: await directorySize(child),
+      });
+    } else if (entry.isFile()) {
+      // eslint-disable-next-line no-await-in-loop -- one stat at a time, see directorySize
+      looseBytes += (await lstat(child)).size;
+    }
+  }
+
+  if (looseBytes > 0) {
+    parts.push({ id: folder.slice(0, PART_ID_LENGTH), bytes: looseBytes });
+  }
+
+  return parts;
+}
+
+/**
  * Counts what the platform keeps: itself, each package, the backups.
  *
  * @param options - Where to look, and how large the database is.
@@ -174,7 +205,7 @@ export async function countDiskCategories(options: {
       });
     } else if (entry.isDirectory()) {
       // eslint-disable-next-line no-await-in-loop -- one tree at a time, see directorySize
-      coreParts.push({ id: entry.name.slice(0, PART_ID_LENGTH), bytes: await directorySize(path) });
+      coreParts.push(...(await countPlatformFolder(entry.name, path)));
     } else if (entry.isFile()) {
       // eslint-disable-next-line no-await-in-loop -- one stat at a time, see directorySize
       looseBytes += (await lstat(path)).size;

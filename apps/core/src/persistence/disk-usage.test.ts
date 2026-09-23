@@ -17,9 +17,16 @@ describe('countDiskCategories', () => {
     await rm(dataDir, { recursive: true, force: true });
   });
 
-  it('counts the database and each directory as parts of the platform, largest first', async () => {
-    await mkdir(join(dataDir, 'map-tiles', '15', '17000'), { recursive: true });
-    await writeFile(join(dataDir, 'map-tiles', '15', '17000', '11000.png'), Buffer.alloc(300));
+  it('counts the database and what is in each folder as parts of the platform, largest first', async () => {
+    await mkdir(join(dataDir, 'cache', 'maps', '15', '17000'), { recursive: true });
+    await writeFile(join(dataDir, 'cache', 'maps', '15', '17000', '11000.png'), Buffer.alloc(300));
+    await mkdir(join(dataDir, 'hub', 'integrations', 'shelly'), { recursive: true });
+    await writeFile(
+      join(dataDir, 'hub', 'integrations', 'shelly', 'manifest.json'),
+      Buffer.alloc(40),
+    );
+    await mkdir(join(dataDir, 'secrets'));
+    await writeFile(join(dataDir, 'secrets', 'nebula-secrets-key'), Buffer.alloc(64));
     await writeFile(join(dataDir, 'notes.txt'), Buffer.alloc(20));
 
     const categories = await countDiskCategories({ dataDir, databaseBytes: 1000 });
@@ -28,10 +35,12 @@ describe('countDiskCategories', () => {
       {
         id: 'core',
         kind: 'core',
-        bytes: 1320,
+        bytes: 1424,
         parts: [
           { id: 'database', bytes: 1000 },
-          { id: 'map-tiles', bytes: 300 },
+          { id: 'cache/maps', bytes: 300 },
+          { id: 'secrets', bytes: 64 },
+          { id: 'hub/integrations', bytes: 40 },
           { id: 'files', bytes: 20 },
         ],
       },
