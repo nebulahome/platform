@@ -22,15 +22,20 @@ import {
   busSubjects,
   CORE_REGISTER_METHOD,
   CORE_SERVICE,
+  CORE_UNREGISTER_METHOD,
   deviceEventSchema,
   parseEntityId,
   registerDeviceReplySchema,
+  unregisterDeviceReplySchema,
   type DeviceEventPayload,
 } from '@nebula-home/contracts';
 import { createDatabase, schema, type Database } from '@nebula-home/db';
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
 
 import { EntityDirectory } from '@/domain/entity-directory.js';
+import { EntityRegistry } from '@/domain/entity-registry.js';
+import type { BatchWriter } from '@/persistence/batch-writer.js';
+import { createStateCacheWriter, type EntityStateRow } from '@/persistence/history-writer.js';
 import { startRegistrationService } from '@/services/registration.js';
 
 const DATABASE_URL = 'postgres://nebula:nebula@localhost:5432/nebula';
@@ -44,7 +49,9 @@ let database: { db: Database; close: () => Promise<void> };
 let bus: BusConnection;
 let caller: BusClient;
 let directory: EntityDirectory;
-let serving: { unsubscribe: () => void };
+let registry: EntityRegistry;
+let stateCache: BatchWriter<EntityStateRow>;
+let serving: { unsubscribe: () => void }[];
 
 /**
  * A logger that writes nowhere.
@@ -140,6 +147,10 @@ beforeAll(async () => {
   });
 
   directory = new EntityDirectory();
+  registry = new EntityRegistry();
+
+  // Never started: what matters here is what is buffered, and a flush would write it.
+  stateCache = createStateCacheWriter({ db: database.db, logger, batchSize: 1000 });
   caller = new BusClient({
     transport: bus.transport,
     source: 'hub',
@@ -151,12 +162,16 @@ beforeAll(async () => {
     client: new BusClient({ transport: bus.transport, source: 'core', logger }),
     db: database.db,
     directory,
+    registry,
+    stateCache,
     logger,
   });
 });
 
 afterAll(async () => {
-  serving.unsubscribe();
+  for (const subscription of serving) {
+    subscription.unsubscribe();
+  }
 
   await database.db
     .delete(schema.registry.entities)
@@ -268,6 +283,42 @@ describe('completing a device the API created', () => {
     expect(rows).toEqual([{ id: again.deviceId, name: 'Lab relay', swVersion: '2.0' }]);
   });
 
+  it('fills in the icon a bundle gives an entity when the row has none', async () => {
+    // The first completion above named no icon, so the row has none. A bundle that has since
+    // learned to name one gets to fill the blank: an owner who never chose is not overruled.
+    await register({
+      entities: [{ entityId: relay, name: 'Relay', icon: 'relay', capabilities: { on_off: {} } }],
+    });
+
+    const [row] = await database.db
+      .select({ icon: schema.registry.entities.icon })
+      .from(schema.registry.entities)
+      .where(eq(schema.registry.entities.entityId, relay));
+
+    expect(row).toEqual({ icon: 'relay' });
+  });
+
+  it('keeps the name and the icon the owner gave an entity when the device is completed again', async () => {
+    // Renaming an entity in the interface changes `name`; picking an icon changes `icon`. Both
+    // are the owner's from then on, as they are for the device, and identifying the hardware a
+    // second time must not put the bundle's words back.
+    await database.db
+      .update(schema.registry.entities)
+      .set({ name: 'Bench relay', icon: 'plug' })
+      .where(eq(schema.registry.entities.entityId, relay));
+
+    await register({
+      entities: [{ entityId: relay, name: 'Relay', icon: 'relay', capabilities: { on_off: {} } }],
+    });
+
+    const [row] = await database.db
+      .select({ name: schema.registry.entities.name, icon: schema.registry.entities.icon })
+      .from(schema.registry.entities)
+      .where(eq(schema.registry.entities.entityId, relay));
+
+    expect(row).toEqual({ name: 'Bench relay', icon: 'plug' });
+  });
+
   it('refuses to complete a device the API never created', async () => {
     // Nothing `hub` can do makes the row appear, so the refusal is a not-found it can stop on,
     // rather than an insert that would make `hub` a second writer of the registry.
@@ -302,5 +353,152 @@ describe('completing a device the API created', () => {
       name: 'Lab relay',
       entityIds: [relay],
     });
+  });
+});
+
+/**
+ * Asks `core` to release the device.
+ *
+ * @param integrationId - Which instance; the one this file made unless said otherwise.
+ * @returns What `core` released.
+ */
+async function unregister(
+  integrationId: string = instanceId,
+): Promise<{ deviceId: string | null; entityIds: string[] }> {
+  return caller.request(
+    busSubjects.service(CORE_SERVICE, CORE_UNREGISTER_METHOD),
+    { integrationId },
+    unregisterDeviceReplySchema,
+  );
+}
+
+describe('releasing a device the owner is removing', () => {
+  it('refuses while a derived entity reads one of its entities', async () => {
+    // `alias_sources` restricts the delete on purpose: an alias that quietly lost a source
+    // would evaluate to nonsense. The owner is told which entities, and edits the alias first.
+    const [relayRow] = await database.db
+      .select({ id: schema.registry.entities.id })
+      .from(schema.registry.entities)
+      .where(eq(schema.registry.entities.entityId, relay));
+    const [derivedRow] = await database.db
+      .insert(schema.registry.entities)
+      .values({ entityId: `alias.reg_${suffix}`, source: 'derived', name: 'Relay mirror' })
+      .returning({ id: schema.registry.entities.id });
+    const [aliasRow] = await database.db
+      .insert(schema.registry.aliases)
+      .values({ entityId: derivedRow?.id ?? '', capability: 'on_off', expression: 'relay' })
+      .returning({ id: schema.registry.aliases.id });
+
+    await database.db.insert(schema.registry.aliasSources).values({
+      aliasId: aliasRow?.id ?? '',
+      variableName: 'relay',
+      entityId: relayRow?.id ?? '',
+    });
+
+    try {
+      await expect(unregister()).rejects.toThrow(/derived/iu);
+
+      const kept = await database.db
+        .select({ id: schema.registry.integrations.id })
+        .from(schema.registry.integrations)
+        .where(eq(schema.registry.integrations.id, instanceId));
+
+      expect(kept).toHaveLength(1);
+    } finally {
+      await database.db
+        .delete(schema.registry.entities)
+        .where(eq(schema.registry.entities.id, derivedRow?.id ?? ''));
+    }
+  });
+
+  it('releases the rows, the directory, the registry and the buffered states, and tells everyone', async () => {
+    const [relayRow] = await database.db
+      .select({ id: schema.registry.entities.id })
+      .from(schema.registry.entities)
+      .where(eq(schema.registry.entities.entityId, relay));
+    const rowId = relayRow?.id ?? '';
+
+    await database.db
+      .insert(schema.registry.entityStates)
+      .values({
+        entityId: rowId,
+        state: {},
+        attributes: {},
+        isAvailable: true,
+        lastChanged: new Date(),
+        lastUpdated: new Date(),
+        source: instanceId,
+      })
+      .onConflictDoNothing();
+    registry.seed({
+      entityId: relay,
+      state: {},
+      attributes: {},
+      isAvailable: true,
+      lastChanged: new Date(),
+      lastUpdated: new Date(),
+      source: instanceId,
+    });
+    stateCache.add({
+      entityId: rowId,
+      state: {},
+      attributes: {},
+      isAvailable: true,
+      lastChanged: new Date(),
+      lastUpdated: new Date(),
+      source: instanceId,
+      contextId: null,
+      contextType: null,
+    });
+
+    const seen: DeviceEventPayload[] = [];
+    const watching = caller.subscribe(
+      busSubjects.deviceEvent('removed'),
+      deviceEventSchema,
+      (payload): void => {
+        seen.push(payload);
+      },
+    );
+
+    const reply = await unregister();
+
+    for (let attempt = 0; attempt < 50 && seen.length === 0; attempt += 1) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+
+    watching.unsubscribe();
+
+    expect(reply.entityIds).toEqual([relay]);
+    expect(reply.deviceId).toMatch(/^[0-9a-f-]{36}$/);
+
+    const [instances, devices, entities] = await Promise.all([
+      database.db
+        .select({ id: schema.registry.integrations.id })
+        .from(schema.registry.integrations)
+        .where(eq(schema.registry.integrations.id, instanceId)),
+      database.db
+        .select({ id: schema.registry.devices.id })
+        .from(schema.registry.devices)
+        .where(eq(schema.registry.devices.integrationId, instanceId)),
+      database.db
+        .select({ id: schema.registry.entities.id })
+        .from(schema.registry.entities)
+        .where(eq(schema.registry.entities.entityId, relay)),
+    ]);
+
+    expect([instances, devices, entities]).toEqual([[], [], []]);
+    expect(directory.get(relay)).toBeUndefined();
+    expect(registry.get(relay)).toBeUndefined();
+    expect(stateCache.pending).toBe(0);
+    expect(seen[0]).toMatchObject({
+      deviceId: instanceId,
+      source: instanceId,
+      name: 'Lab relay',
+      entityIds: [relay],
+    });
+  });
+
+  it('says when there is nothing to release', async () => {
+    await expect(unregister()).rejects.toThrow(/no integration/iu);
   });
 });

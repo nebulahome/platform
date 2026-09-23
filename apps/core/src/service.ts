@@ -17,11 +17,13 @@ import {
   type BusConnection,
   type BusSubscription,
 } from '@nebula-home/bus';
+import type { EntityId } from '@nebula-home/contracts';
 import type { Database } from '@nebula-home/db';
 import { withTraceId, type PlatformLogger } from '@nebula-home/logging';
 
 import type { CoreConfig } from './config.js';
 import { SERVICE_NAME } from './config.js';
+import { AliasCatalog } from './domain/alias-catalog.js';
 import { EntityDirectory } from './domain/entity-directory.js';
 import { EntityRegistry } from './domain/entity-registry.js';
 import type { BatchWriter } from './persistence/batch-writer.js';
@@ -32,6 +34,8 @@ import {
   type StateHistoryRow,
 } from './persistence/history-writer.js';
 import { loadRegistry } from './persistence/registry-loader.js';
+import { AliasEngine } from './services/alias-engine.js';
+import { startAliasService } from './services/alias-service.js';
 import { startCommandRouter } from './services/command-router.js';
 import { startRegistrationService } from './services/registration.js';
 import { requestResync } from './services/resync.js';
@@ -61,6 +65,8 @@ export class CoreService {
   readonly #shutdown = new AbortController();
 
   #directory = new EntityDirectory();
+  #aliases = new AliasCatalog();
+  #aliasEngine: AliasEngine | undefined;
   #client: BusClient | undefined;
   #subscriptions: BusSubscription[] = [];
   #history: BatchWriter<StateHistoryRow> | undefined;
@@ -151,23 +157,58 @@ export class CoreService {
     this.#history = history;
     this.#stateCache = stateCache;
 
+    const ingest = {
+      client,
+      registry: this.#registry,
+      directory: this.#directory,
+      history,
+      stateCache,
+      logger,
+      /**
+       * Wakes aliases that read the entity that just changed.
+       *
+       * @param entityId - The entity whose state changed.
+       */
+      onNotableChange: (entityId: EntityId): void => {
+        this.#aliasEngine?.onSourceChanged(entityId);
+      },
+    };
+
+    const aliasEngine = new AliasEngine({
+      db,
+      directory: this.#directory,
+      registry: this.#registry,
+      catalog: this.#aliases,
+      ingest,
+      logger,
+      newTraceId,
+    });
+
+    this.#aliasEngine = aliasEngine;
+    const aliasCount = await aliasEngine.load();
+
+    startupLogger.info({ aliases: aliasCount }, 'Alias catalogue loaded');
+
     this.#subscriptions = [
-      startStateIngest({
-        client,
-        registry: this.#registry,
-        directory: this.#directory,
-        history,
-        stateCache,
-        logger,
-      }),
+      startStateIngest(ingest),
       startSnapshotService({ client, registry: this.#registry }),
       startEntityReadService({ client, registry: this.#registry }),
       startCommandRouter({
         client,
         directory: this.#directory,
+        aliases: this.#aliases,
+        aliasEngine,
         commandTimeoutMs: config.CORE_COMMAND_TIMEOUT_MS,
       }),
-      startRegistrationService({ client, db, directory: this.#directory, logger }),
+      ...startRegistrationService({
+        client,
+        db,
+        directory: this.#directory,
+        registry: this.#registry,
+        stateCache,
+        logger,
+      }),
+      ...startAliasService({ client, engine: aliasEngine, logger }),
     ];
 
     await ensureTelemetryStream({ connection: bus.connection, logger });

@@ -119,6 +119,25 @@ export class BatchWriter<TRow> {
   }
 
   /**
+   * Drops the buffered rows a predicate names.
+   *
+   * For rows whose target no longer exists: a row for a deleted entity would fail every flush,
+   * and a failed batch is kept and tried again, so what was buffered for the entity has to go
+   * in the same step as the entity's rows. Not counted as dropped - nothing was lost.
+   *
+   * @param predicate - Whether a row is one to drop.
+   * @returns How many were dropped.
+   */
+  public discard(predicate: (row: TRow) => boolean): number {
+    const kept = this.#buffer.filter((row) => !predicate(row));
+    const dropped = this.#buffer.length - kept.length;
+
+    this.#buffer = kept;
+
+    return dropped;
+  }
+
+  /**
    * Writes whatever is buffered.
    *
    * Rows are returned to the front of the buffer if the write fails, so a database that was

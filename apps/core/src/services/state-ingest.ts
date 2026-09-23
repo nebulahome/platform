@@ -11,6 +11,7 @@ import {
   BUS_PATTERNS,
   busSubjects,
   stateReportSchema,
+  type EntityId,
   type StateReport,
 } from '@nebula-home/contracts';
 import type { PlatformLogger } from '@nebula-home/logging';
@@ -39,6 +40,13 @@ export type StateIngestOptions = {
 
   /** Where rejected reports are recorded. */
   readonly logger: PlatformLogger;
+
+  /**
+   * Called after a notable change, so the alias engine can recompute descendants.
+   *
+   * Optional: unit tests that only exercise ingest do not need an engine.
+   */
+  readonly onNotableChange?: (entityId: EntityId) => void;
 };
 
 /**
@@ -117,6 +125,7 @@ export function ingestReport(
 
   options.history.add(toHistoryRow(record, result));
   options.stateCache.add(toCacheRow(record, result));
+  options.onNotableChange?.(result.entityId);
 
   return result;
 }

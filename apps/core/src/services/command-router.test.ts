@@ -11,9 +11,12 @@ import {
   type AdapterAck,
   type AdapterCommand,
 } from '@nebula-home/contracts';
+import type { Database } from '@nebula-home/db';
 
+import { AliasCatalog } from '../domain/alias-catalog.js';
 import { entityRecord, createCoreHarness, type CoreHarness } from '../testing/harness.js';
 
+import { AliasEngine } from './alias-engine.js';
 import { startCommandRouter } from './command-router.js';
 
 const bulb = parseEntityId('light.kitchen_ceiling');
@@ -24,10 +27,12 @@ const orphan = parseEntityId('light.never_registered');
 describe('startCommandRouter', () => {
   let harness: CoreHarness;
   let received: AdapterCommand[];
+  let aliases: AliasCatalog;
 
   beforeEach(() => {
     harness = createCoreHarness();
     received = [];
+    aliases = new AliasCatalog();
 
     harness.directory.set(
       entityRecord(bulb, { capabilities: { on_off: {}, level: { hasTransition: true } } }),
@@ -37,9 +42,44 @@ describe('startCommandRouter', () => {
       entityRecord(average, { source: 'derived', capabilities: { sensor_numeric: {} } }),
     );
 
+    aliases.upsert({
+      id: 'alias-row-1',
+      entityId: average,
+      capability: 'sensor_numeric',
+      expression: '(t1) / 1',
+      debounceMs: 0,
+      fallbackPolicy: 'unavailable',
+      isEnabled: true,
+      sources: [{ variableName: 't1', entityId: thermometer }],
+      config: {},
+      min: null,
+      max: null,
+      step: null,
+    });
+
+    const aliasEngine = new AliasEngine({
+      // Never reached: nothing here persists an evaluation.
+      db: undefined as unknown as Database,
+      directory: harness.directory,
+      registry: harness.registry,
+      catalog: aliases,
+      ingest: {
+        client: harness.client,
+        registry: harness.registry,
+        directory: harness.directory,
+        history: harness.history,
+        stateCache: harness.stateCache,
+        logger: harness.logger,
+      },
+      logger: harness.logger,
+      newTraceId: () => '00000000-0000-4000-8000-000000000001',
+    });
+
     startCommandRouter({
       client: harness.client,
       directory: harness.directory,
+      aliases,
+      aliasEngine,
       commandTimeoutMs: 200,
     });
   });
@@ -123,7 +163,7 @@ describe('startCommandRouter', () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  it('refuses a command for a derived entity', async () => {
+  it('refuses a command for a calculated alias', async () => {
     // Commanding one would write a value the next recomputation immediately overwrites; the
     // command belongs on whichever source entity actually drives it.
     await expect(
@@ -134,7 +174,7 @@ describe('startCommandRouter', () => {
           { command: { command: 'set' } },
           commandAckSchema,
         ),
-    ).rejects.toThrow(/has no adapter to command/);
+    ).rejects.toThrow(/rejects every command/);
   });
 
   it('refuses a capability the entity does not declare', async () => {

@@ -101,6 +101,27 @@ describe('BatchWriter', () => {
     expect(writer.dropped).toBe(2);
   });
 
+  it('drops the rows a caller names, for a target that no longer exists', () => {
+    // A row for a deleted entity would fail every flush - the writer keeps a failed batch and
+    // tries again - so what is buffered for it has to go with the rows it was for.
+    const writer = new BatchWriter<number>({
+      name: 'test',
+      logger: silentLogger(),
+      batchSize: 1000,
+      write: async () => {
+        await Promise.resolve();
+      },
+    });
+
+    for (const row of [1, 2, 3, 4]) {
+      writer.add(row);
+    }
+
+    expect(writer.discard((row) => row % 2 === 0)).toBe(2);
+    expect(writer.pending).toBe(2);
+    expect(writer.dropped).toBe(0);
+  });
+
   it('writes what is left on shutdown', async () => {
     const written: number[][] = [];
     const writer = new BatchWriter<number>({

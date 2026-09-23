@@ -10,6 +10,8 @@
  * Loading it anyway matters because the resynchronisation is not instantaneous: without it, the
  * interface shows an empty house for as long as the slowest adapter takes to answer.
  */
+import { eq } from 'drizzle-orm';
+
 import {
   entityStateSchema,
   parseEntityId,
@@ -150,4 +152,60 @@ export async function loadRegistry(db: Database, logger: PlatformLogger): Promis
   }
 
   return { directory, states, discardedStates };
+}
+
+/**
+ * Loads one configured entity, the way {@link loadRegistry} loads each of them.
+ *
+ * For a row written after startup by something other than a device's completion - an alias
+ * the API has just made - so the directory can take it in without a restart.
+ *
+ * @param db - A connected database handle.
+ * @param entityId - Which entity.
+ * @returns Its configuration, or undefined when there is no such row.
+ */
+export async function loadEntityRecord(
+  db: Database,
+  entityId: EntityId,
+): Promise<EntityRecord | undefined> {
+  const [row] = await db
+    .select({
+      rowId: schema.registry.entities.id,
+      kind: schema.registry.entities.source,
+      packageId: schema.registry.entities.packageId,
+      integrationId: schema.registry.entities.integrationId,
+      isEnabled: schema.registry.entities.isEnabled,
+    })
+    .from(schema.registry.entities)
+    .where(eq(schema.registry.entities.entityId, entityId));
+
+  if (row === undefined) {
+    return undefined;
+  }
+
+  const capabilityRows = await db
+    .select({
+      capability: schema.registry.entityCapabilities.capability,
+      params: schema.registry.entityCapabilities.params,
+    })
+    .from(schema.registry.entityCapabilities)
+    .where(eq(schema.registry.entityCapabilities.entityId, row.rowId));
+
+  return {
+    entityId,
+    rowId: row.rowId,
+    source: resolveOwner(
+      { kind: row.kind, packageId: row.packageId, integrationId: row.integrationId },
+      entityId,
+    ),
+    isEnabled: row.isEnabled,
+
+    // Restricted to the contract's names by `entity_capabilities_known`, as in the full load.
+    capabilities: new Map(
+      capabilityRows.map((entry) => [
+        entry.capability as CapabilityName,
+        (entry.params ?? {}) as JsonObject,
+      ]),
+    ),
+  };
 }
