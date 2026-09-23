@@ -45,7 +45,7 @@ const deviceParamsSchema = z.object({ deviceId: integrationIdSchema });
  * @param traceId - The request's trace id.
  * @returns The request-scoped view of them.
  */
-function forRequest(context: ApiContext, traceId: string): DevicesContext {
+export function forRequest(context: ApiContext, traceId: string): DevicesContext {
   return {
     db: context.db,
     bus: context.bus,

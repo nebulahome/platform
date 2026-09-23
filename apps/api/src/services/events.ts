@@ -13,6 +13,7 @@ import type { BusClient, BusSubscription } from '@nebula-home/bus';
 import {
   BUS_PATTERNS,
   deviceEventSchema,
+  discoveryEventSchema,
   isDeviceEvent,
   jsonObjectSchema,
   stateChangedEventSchema,
@@ -102,6 +103,32 @@ export class EventFanout {
 
           if (isDeviceEvent(event)) {
             this.#dispatch('devices', null, { type: 'device_event', event, payload });
+          }
+        },
+      ),
+    );
+
+    this.#subscriptions.push(
+      client.subscribe(
+        BUS_PATTERNS.allDiscoveryEvents,
+        discoveryEventSchema,
+
+        /**
+         * Tells the sockets watching discovery that the proposals changed.
+         *
+         * Only the count travels: whoever wants the list reads it with the permission it takes,
+         * and a socket that shows a badge needs nothing more.
+         *
+         * @param payload - How many devices the hub proposes now.
+         * @param context - The subject, whose last token names the event.
+         */
+        (payload, context): void => {
+          if (context.subject.split('.').pop() === 'changed') {
+            this.#dispatch('discovery', null, {
+              type: 'discovery_event',
+              event: 'changed',
+              count: payload.count,
+            });
           }
         },
       ),

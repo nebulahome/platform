@@ -25,6 +25,7 @@ import { RouteRegistry, type RouteEnvironment } from './http/route.js';
 import { registerAreaRoutes } from './routes/areas.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerDeviceRoutes } from './routes/devices.js';
+import { registerDiscoveryRoutes } from './routes/discovery.js';
 import { registerEntityRoutes } from './routes/entities.js';
 import { registerHistoryRoutes } from './routes/history.js';
 import { registerIconRoutes } from './routes/icons.js';
@@ -184,6 +185,7 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   registerAreaRoutes(environment, context);
   registerTagRoutes(environment, context);
   registerDeviceRoutes(environment, context);
+  registerDiscoveryRoutes(environment, context);
   registerIntegrationRoutes(environment, context);
   registerIconRoutes(environment, context);
   registerHistoryRoutes(environment, context);

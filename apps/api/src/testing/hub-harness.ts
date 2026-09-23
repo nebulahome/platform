@@ -20,11 +20,14 @@ import {
   CORE_SYNC_ALIAS_METHOD,
   CORE_SYSTEM_MONITOR_METHOD,
   CORE_UNREGISTER_METHOD,
+  discoveredDeviceSchema,
+  discoveredRequestSchema,
   forgetRequestSchema,
   parseCommandSubject,
   removeAliasRequestSchema,
   syncAliasRequestSchema,
   HUB_CATALOGUE_METHOD,
+  HUB_DISCOVERED_METHOD,
   HUB_FORGET_METHOD,
   HUB_PROBE_METHOD,
   HUB_RELOAD_METHOD,
@@ -36,6 +39,8 @@ import {
   type CapabilityCommandRequest,
   type CatalogueReply,
   type CommandAck,
+  type DiscoveredDevice,
+  type DiscoveredReply,
   type ForgetReply,
   type ForgetRequest,
   type IntegrationSetup,
@@ -237,6 +242,35 @@ export const SYSTEM_SNAPSHOT: SystemMonitorSnapshot = {
   },
 };
 
+/** A printer the fake hub heard announce itself, identified and matched to its driver. */
+export const DISCOVERED_PRINTER: DiscoveredDevice = discoveredDeviceSchema.parse({
+  id: '0123456789abcdef',
+  vendorId: 'bambu-lab',
+  driverId: 'printer',
+  kind: 'bambu-lab/printer',
+  source: 'mdns',
+  address: '192.168.1.70',
+  externalId: '01P00A000000001',
+  name: 'Workshop',
+  model: 'X1C',
+  modelChoices: ['X1C'],
+  modelCode: 'BL-P001',
+  swVersion: '01.08.00.00',
+  transportConfig: { url: 'mqtts://192.168.1.70:8883' },
+  firstSeenAt: '2026-09-23T10:00:00.000Z',
+  lastSeenAt: '2026-09-23T10:05:00.000Z',
+});
+
+/** A device of the vendor that still needs setting up, heard all the same. */
+export const DISCOVERED_ACME: DiscoveredDevice = discoveredDeviceSchema.parse({
+  ...DISCOVERED_PRINTER,
+  id: 'fedcba9876543210',
+  vendorId: 'acme',
+  kind: 'acme/printer',
+  model: 'Printer',
+  modelChoices: ['Printer'],
+});
+
 /** What the fake hub was asked to try, in order; cleared by whoever asserts on it. */
 export const probed: ProbeRequest[] = [];
 
@@ -386,12 +420,25 @@ export async function buildTestServer(
       (): CatalogueReply => CATALOGUE,
     ),
     hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_DISCOVERED_METHOD),
+      discoveredRequestSchema,
+      (): DiscoveredReply => ({ items: [DISCOVERED_PRINTER, DISCOVERED_ACME] }),
+    ),
+    hub.serve(
       busSubjects.service(HUB_SERVICE, HUB_PROBE_METHOD),
       probeRequestSchema,
       (request: ProbeRequest): ProbeReply => {
         probed.push(request);
 
         const url = request.transportConfig['url'];
+
+        if (url === 'mqtt://detected:1883') {
+          return {
+            isReachable: true,
+            detail: 'Connected to mqtt://detected:1883',
+            detected: { kind: 'bambu-lab/printer', model: 'P1S', modelChoices: ['P1S'] },
+          };
+        }
 
         return url === 'mqtt://nowhere:1'
           ? { isReachable: false, detail: 'mqtt://nowhere:1 did not answer: ECONNREFUSED' }

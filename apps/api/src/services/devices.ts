@@ -439,6 +439,9 @@ function iconFor(
  *
  * @param context - The request's collaborators.
  * @param body - What the form collected.
+ * @param adopted - When the device was adopted from discovery: the id it reported, which
+ * identification must then find, or null when it keeps its id until it is set up.
+ * @param adopted.expectedExternalId - That id.
  * @returns The device as it now stands, its state as the hub reported it.
  * @throws {NotFoundError} When the kind is not loaded.
  * @throws {ConflictError} When the vendor still needs setting up, or a device already has
@@ -449,6 +452,7 @@ function iconFor(
 export async function createDevice(
   context: DevicesContext,
   body: DeviceCreate,
+  adopted: { readonly expectedExternalId: string | null } = { expectedExternalId: null },
 ): Promise<DeviceView> {
   const { vendor, driver } = await kindOf(context, body.kind);
   const model = checkModel(vendor, driver.id, body.model);
@@ -491,7 +495,9 @@ export async function createDevice(
       .insert(schema.registry.devices)
       .values({
         integrationId: body.id,
-        externalId: null,
+        // Null for a device typed in by hand; for one adopted, the id it reported, which the hub
+        // then insists on hearing from rather than taking whatever answers at the address.
+        externalId: adopted.expectedExternalId,
         name: body.name,
         icon,
         areaId: body.areaId ?? null,
