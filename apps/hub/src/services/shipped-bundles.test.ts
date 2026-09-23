@@ -1,7 +1,8 @@
 /**
- * The bundles that ship with the hub.
+ * The bundles under development in this repository.
  *
- * They are loaded at startup from `HUB_BUNDLE_DIR`, which means a typo in one of them is not a
+ * Outside production they are loaded at startup from `apps/hub/bundles`, in the place of the
+ * integrations catalogue that will one day serve them, which means a typo in one of them is not a
  * failing test but a service that comes up with one fewer integration than it should — and says
  * so in a log line nobody is reading. `loadBundles` skips a directory it cannot parse rather
  * than refusing to start, which is right for a bundle somebody installed and wrong for one this
@@ -27,7 +28,7 @@ import { RUNTIME_VERSION } from '../config.js';
 
 import { loadBundles } from './bundles.js';
 
-/** The `bundles/` directory beside the application, as the service reads it. */
+/** The `bundles/` directory beside the application, as the service reads it outside production. */
 const DIRECTORY = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../bundles');
 
 /** The families the Shelly bundle ships, one driver per layout of components. */

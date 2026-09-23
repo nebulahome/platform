@@ -1,10 +1,13 @@
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { Writable } from 'node:stream';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { loadBundles } from './bundles.js';
+import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+
+import { loadBundles, mergeBundleResults, type LoadBundlesResult } from './bundles.js';
 
 let root = '';
 
@@ -464,5 +467,135 @@ describe('loadBundles', () => {
 
     expect(asked).toEqual(['generic']);
     expect(vendors).toEqual([]);
+  });
+
+  it('says a vendor is installed unless told it is under development', async () => {
+    await writeRelay();
+
+    const installed = await loadBundles({ directory: root, runtimeVersion: '1.0.0' });
+    const development = await loadBundles({
+      directory: root,
+      origin: 'development',
+      runtimeVersion: '1.0.0',
+    });
+
+    expect([installed.vendors[0]?.origin, development.vendors[0]?.origin]).toEqual([
+      'installed',
+      'development',
+    ]);
+  });
+});
+
+/**
+ * Writes a vendor with the relay driver under one of the two places.
+ *
+ * @param place - `development` or `installed`, a directory under the temporary root.
+ * @param vendor - The vendor's manifest.
+ * @returns A promise that settles once it is on disk.
+ */
+async function writeRelayAt(place: string, vendor: typeof VENDOR): Promise<void> {
+  await write(`${place}/${vendor.id}`, { 'manifest.json': vendor });
+  await write(`${place}/${vendor.id}/relay`, {
+    'driver.json': DRIVER,
+    'profile.json': PROFILE,
+    'setup.json': SETUP,
+  });
+}
+
+/**
+ * A logger that keeps what it was told, for the warnings a merge gives.
+ *
+ * @returns The logger, and the records it wrote.
+ */
+function capturingLogger(): { logger: PlatformLogger; records: () => Record<string, unknown>[] } {
+  const lines: string[] = [];
+  const stream = new Writable({
+    /**
+     * Keeps one batch of records.
+     *
+     * @param chunk - Newline-delimited JSON.
+     * @param encoding - Ignored.
+     * @param callback - Signals the write is done.
+     */
+    write(chunk: Buffer, encoding, callback): void {
+      lines.push(...chunk.toString().split('\n').filter(Boolean));
+      callback();
+    },
+  });
+
+  return {
+    logger: createLogger({ service: 'hub', version: '0.0.0', level: 'warn' }, stream),
+    records: () => lines.map((line) => JSON.parse(line) as Record<string, unknown>),
+  };
+}
+
+/**
+ * Loads both places and puts them together.
+ *
+ * @param logger - Where the merge reports.
+ * @returns The merged result.
+ */
+async function loadBoth(logger: PlatformLogger): Promise<LoadBundlesResult> {
+  return mergeBundleResults(
+    await loadBundles({
+      directory: path.join(root, 'development'),
+      origin: 'development',
+      runtimeVersion: '1.0.0',
+    }),
+    await loadBundles({ directory: path.join(root, 'installed'), runtimeVersion: '1.0.0' }),
+    logger,
+  );
+}
+
+describe('mergeBundleResults', () => {
+  it('keeps both places when they hold different vendors', async () => {
+    await writeRelayAt('development', VENDOR);
+    await writeRelayAt('installed', { ...VENDOR, id: 'acme', name: 'ACME' });
+    const { logger, records } = capturingLogger();
+
+    const { vendors, loaded, failures } = await loadBoth(logger);
+
+    expect(vendors.map((vendor) => [vendor.manifest.id, vendor.origin]).sort()).toEqual([
+      ['acme', 'installed'],
+      ['generic', 'development'],
+    ]);
+    expect([loaded.length, failures.length, records().length]).toEqual([2, 0, 0]);
+  });
+
+  it('lets an installed vendor replace the one under development, whole, and says so', async () => {
+    // What was put in the data directory was put there on purpose. The two are not mixed
+    // driver by driver: a driver of one copy may name a transport only the other ships.
+    await writeRelayAt('development', VENDOR);
+    await writeRelayAt('installed', { ...VENDOR, version: '2.0.0' });
+    const { logger, records } = capturingLogger();
+
+    const { vendors, loaded } = await loadBoth(logger);
+
+    expect(vendors.map((vendor) => [vendor.manifest.version, vendor.origin])).toEqual([
+      ['2.0.0', 'installed'],
+    ]);
+    expect(loaded.map((driver) => driver.directory)).toEqual([
+      path.join(root, 'installed', 'generic', 'relay'),
+    ]);
+    expect(records()).toEqual([
+      expect.objectContaining({
+        vendor: 'generic',
+        installed: path.join(root, 'installed', 'generic'),
+        development: path.join(root, 'development', 'generic'),
+      }),
+    ]);
+  });
+
+  it('keeps the vendor under development when its installed copy does not load', async () => {
+    await writeRelayAt('development', VENDOR);
+    await write('installed/generic', { 'manifest.json': { id: 'generic' } });
+    const { logger } = capturingLogger();
+
+    const { vendors, failures } = await loadBoth(logger);
+
+    expect(vendors.map((vendor) => vendor.origin)).toEqual(['development']);
+    expect(failures.map((failure) => failure.directory)).toEqual([
+      path.join(root, 'installed', 'generic'),
+    ]);
   });
 });

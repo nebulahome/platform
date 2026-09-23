@@ -138,6 +138,7 @@ function printerVendor(): LoadedVendor {
       internetRequired: true,
       transports: {},
     },
+    origin: 'installed',
     setup: integrationSetupSchema.parse({
       transport: {
         fields: [{ key: 'apiKey', type: 'secret', label: 'API key', isRequired: true }],

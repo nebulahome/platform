@@ -13,7 +13,10 @@
  * pnpm db:migrate
  * ```
  */
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { Writable } from 'node:stream';
+import { fileURLToPath } from 'node:url';
 
 import { eq } from 'drizzle-orm';
 import { connectAsync } from 'mqtt';
@@ -51,6 +54,19 @@ import { mqttTransport } from '@/transports/mqtt.js';
 
 const DATABASE_URL = 'postgres://nebula:nebula@localhost:5432/nebula';
 const NATS_URL = 'nats://localhost:4222';
+
+/** The repository's bundles under development, which the tests run against. */
+const REPOSITORY_BUNDLE_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../bundles',
+);
+
+/**
+ * A data directory with nothing installed in it, so that what a developer happens to have in
+ * `infra/data` cannot change what these tests load. Never created: a missing one is a fresh
+ * installation.
+ */
+const EMPTY_DATA_DIR = path.join(tmpdir(), 'nebula-hub-test-data-that-is-not-there');
 
 let database: { db: Database; close: () => Promise<void> };
 let bus: BusConnection;
@@ -250,7 +266,8 @@ describe('starting with nothing installed', () => {
     const config = hubEnvSchema.parse({
       DATABASE_URL,
       NATS_URL,
-      HUB_BUNDLE_DIR: './does-not-exist',
+      HUB_DEV_BUNDLE_DIR: path.join(EMPTY_DATA_DIR, 'no-bundles'),
+      NEBULA_DATA_DIR: EMPTY_DATA_DIR,
       NEBULA_SECRETS_KEY: SECRETS_KEY,
     });
 
@@ -294,7 +311,8 @@ async function startHub(): Promise<{ service: HubService; stop: () => Promise<vo
   const config = hubEnvSchema.parse({
     DATABASE_URL,
     NATS_URL,
-    HUB_BUNDLE_DIR: './bundles',
+    HUB_DEV_BUNDLE_DIR: REPOSITORY_BUNDLE_DIR,
+    NEBULA_DATA_DIR: EMPTY_DATA_DIR,
     NEBULA_SECRETS_KEY: SECRETS_KEY,
   });
   const service = new HubService({

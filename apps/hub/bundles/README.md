@@ -1,9 +1,15 @@
-# Bundles that ship with the hub
+# Bundles under development
 
-`HUB_BUNDLE_DIR` defaults to this directory, so anything here is loaded at startup without
-anybody installing it. That is what "installed by default" means for an integration: the driver
-is present and offering to connect to devices, and nothing is connected until somebody adds one.
-Adding one is the whole of it: a device added from the vendor's page is an instance of its
+The product ships with no integration: a production hub reads only the data directory's
+`hub/integrations`, where a download from the integrations catalogue will land. Until that
+catalogue exists, the bundles written in this repository live here, and outside production the
+hub reads this directory beside the data directory - `HUB_DEV_BUNDLE_DIR` defaults to it - so
+anything here is loaded at startup without anybody installing it. A bundle with the same id in
+`hub/integrations` replaces the one here, and the log says so. A production image does not
+contain this directory.
+
+Loaded means present and offering to connect to devices; nothing is connected until somebody
+adds one. Adding one is the whole of it: a device added from the vendor's page is an instance of its
 driver and a row in the registry under one id, and the hub identifies the hardware behind it
 by itself - there is no scan to start and nothing to adopt.
 

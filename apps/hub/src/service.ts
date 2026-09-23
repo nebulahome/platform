@@ -25,6 +25,7 @@
  */
 import type { BusConnection } from '@nebula-home/bus';
 import { BusClient } from '@nebula-home/bus';
+import { resolveDataLayout } from '@nebula-home/config';
 import { NotFoundError, type ForgetReply, type ReloadReply } from '@nebula-home/contracts';
 import { secretsKeyFrom, type Database } from '@nebula-home/db';
 import type { PlatformLogger } from '@nebula-home/logging';
@@ -36,7 +37,12 @@ import {
   type TransportInbound,
 } from '@nebula-home/package-runtime';
 
-import { RUNTIME_VERSION, SERVICE_NAME, type HubConfig } from './config.js';
+import {
+  developmentBundleDirectory,
+  RUNTIME_VERSION,
+  SERVICE_NAME,
+  type HubConfig,
+} from './config.js';
 import { DeviceBook } from './domain/devices.js';
 import { planSubscriptions } from './domain/subscriptions.js';
 import { withVendorSettings } from './domain/vendors.js';
@@ -50,7 +56,7 @@ import {
   type IntegrationInstance,
 } from './persistence/instances.js';
 import { loadVendorSettings } from './persistence/vendors.js';
-import { loadBundles, type LoadedVendor } from './services/bundles.js';
+import { loadBundles, mergeBundleResults, type LoadedVendor } from './services/bundles.js';
 import { ConnectionPool } from './services/connections.js';
 import { IdentificationService, type Identified } from './services/identification.js';
 import { publishReports, startInstanceServices } from './services/instance.js';
@@ -203,11 +209,28 @@ export class HubService {
   public async start(): Promise<void> {
     const { config, db, logger } = this.#options;
 
-    const bundles = await loadBundles({
-      directory: config.HUB_BUNDLE_DIR,
+    // The data directory always; the repository's bundles under development only outside
+    // production, where they stand in for the integrations catalogue.
+    const installed = await loadBundles({
+      directory: resolveDataLayout(config).integrations,
+      origin: 'installed',
       runtimeVersion: RUNTIME_VERSION,
       logger,
     });
+    const developmentDirectory = developmentBundleDirectory(config);
+    const bundles =
+      developmentDirectory === undefined
+        ? installed
+        : mergeBundleResults(
+            await loadBundles({
+              directory: developmentDirectory,
+              origin: 'development',
+              runtimeVersion: RUNTIME_VERSION,
+              logger,
+            }),
+            installed,
+            logger,
+          );
 
     for (const failure of bundles.failures) {
       logger.error({ directory: failure.directory }, failure.message);
@@ -230,6 +253,8 @@ export class HubService {
     logger.info(
       {
         vendors: this.#vendors.size,
+        installed: bundles.vendors.filter((vendor) => vendor.origin === 'installed').length,
+        development: bundles.vendors.filter((vendor) => vendor.origin === 'development').length,
         drivers: this.#integrations.size,
         transports: this.#transports.size,
       },

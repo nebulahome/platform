@@ -6,6 +6,8 @@
  * each with `driver.json`, its own `setup.json` and the profile or code. This is where the two
  * become the {@link LoadedVendor} the catalogue lists and the {@link LoadedBundle} the rest of
  * `hub` runs, and it is deliberately the only place that touches the filesystem for that purpose.
+ * Bundles are read from two places - the data directory, and outside production the repository's
+ * bundles under development - and {@link mergeBundleResults} puts the two together.
  *
  * **It is also the seam the catalogue will arrive through.** {@link LoadBundlesOptions.verify} is
  * called before a driver is built, and nothing passes one today because the only way a bundle
@@ -86,9 +88,22 @@ export type LoadedBundle = {
   readonly directory: string;
 };
 
+/**
+ * Which of the two places a vendor was read from.
+ *
+ * `installed` is the data directory's `hub/integrations`: where a download from the integrations
+ * catalogue lands, and the only place a production hub reads, since the product ships with no
+ * integration. `development` is the repository's `apps/hub/bundles`, read outside production in
+ * the catalogue's place until it exists.
+ */
+export type BundleOrigin = 'development' | 'installed';
+
 /** A vendor that loaded, with the drivers of it that did. */
 export type LoadedVendor = {
   readonly manifest: VendorManifest;
+
+  /** Which of the two places it was read from. */
+  readonly origin: BundleOrigin;
 
   /** What setting the vendor up asks; empty groups when it asks for nothing. */
   readonly setup: IntegrationSetup;
@@ -128,6 +143,9 @@ export type LoadBundlesResult = {
 export type LoadBundlesOptions = {
   /** Where bundles are installed. Missing is not an error: a fresh installation has none. */
   readonly directory: string;
+
+  /** Which of the two places the directory is; `installed` when not said. */
+  readonly origin?: BundleOrigin;
 
   /** The contract version this build implements, checked against each bundle's range. */
   readonly runtimeVersion: string;
@@ -418,6 +436,7 @@ async function loadVendor(
   return {
     vendor: {
       manifest,
+      origin: options.origin ?? 'installed',
       setup,
       ...(logo === undefined ? {} : { logo }),
       transports: [...new Set(drivers.map((driver) => driver.manifest.transport))],
@@ -478,5 +497,57 @@ export async function loadBundles(options: LoadBundlesOptions): Promise<LoadBund
     vendors,
     loaded: vendors.flatMap((vendor) => vendor.drivers),
     failures: found.flatMap((result) => result.failures),
+  };
+}
+
+/**
+ * Puts together what the two places held.
+ *
+ * An installed vendor replaces a development one with the same id, whole - drivers, transports
+ * and all - because it is what somebody put in the data directory on purpose, and mixing the
+ * drivers of two copies of one vendor would run a driver against a transport it was not written
+ * for. The replacement is logged naming both directories, so that an edit in the repository that
+ * seems to have no effect explains itself. An installed copy that failed to load replaces
+ * nothing: its failure is reported, and the development one keeps working.
+ *
+ * @param development - What the development directory held.
+ * @param installed - What the data directory held.
+ * @param logger - Where a replacement is reported.
+ * @returns One result, as if read from one directory.
+ */
+export function mergeBundleResults(
+  development: LoadBundlesResult,
+  installed: LoadBundlesResult,
+  logger: PlatformLogger,
+): LoadBundlesResult {
+  const byId = new Map<string, LoadedVendor>();
+
+  for (const vendor of development.vendors) {
+    byId.set(vendor.manifest.id, vendor);
+  }
+
+  for (const vendor of installed.vendors) {
+    const replaced = byId.get(vendor.manifest.id);
+
+    if (replaced !== undefined) {
+      logger.warn(
+        {
+          vendor: vendor.manifest.id,
+          installed: vendor.directory,
+          development: replaced.directory,
+        },
+        'An installed integration replaces the one under development',
+      );
+    }
+
+    byId.set(vendor.manifest.id, vendor);
+  }
+
+  const vendors = [...byId.values()];
+
+  return {
+    vendors,
+    loaded: vendors.flatMap((vendor) => vendor.drivers),
+    failures: [...development.failures, ...installed.failures],
   };
 }
