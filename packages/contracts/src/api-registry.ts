@@ -27,8 +27,15 @@ import {
 } from './integrations.js';
 import { jsonObjectSchema, type JsonObject } from './json.js';
 import { PACKAGE_RUNTIMES, PACKAGE_STATES } from './package-manifest.js';
+import { RESERVED_DEVICE_IDS } from './system-monitor.js';
 import { TAGS_PER_ROW_MAXIMUM } from './tags.js';
 import { timestampSchema } from './timestamp.js';
+
+/** Where a device comes from: an integration instance, or the platform itself. */
+export const DEVICE_ORIGINS = ['integration', 'system'] as const;
+
+/** Where a device comes from. */
+export type DeviceOrigin = (typeof DEVICE_ORIGINS)[number];
 
 /**
  * One device: the driver bundle that reaches it, and the registry row that names it.
@@ -46,6 +53,16 @@ import { timestampSchema } from './timestamp.js';
 export const deviceViewSchema = z.object({
   /** The device id, which is the instance id, which is what an entity carries as its source. */
   id: integrationIdSchema,
+
+  /**
+   * Whether an integration instance reaches it, or it is the machine the platform runs on.
+   *
+   * The system device has no instance: its connection half is filled with fixed values -
+   * `nebula/system`, the `system` transport, always running - so a page that lists devices
+   * reads it like any other, and one that edits a connection checks this first. Only its name,
+   * icon, room and tags can change, and it cannot be removed.
+   */
+  origin: z.enum(DEVICE_ORIGINS).default('integration'),
 
   /** What the owner calls it. */
   name: z.string(),
@@ -138,7 +155,9 @@ export type DeviceView = z.output<typeof deviceViewSchema>;
  * never written for.
  */
 export const deviceCreateSchema = z.object({
-  id: integrationIdSchema,
+  id: integrationIdSchema.refine((id) => !RESERVED_DEVICE_IDS.includes(id), {
+    message: 'Reserved for the platform',
+  }),
 
   /** Which driver, as `vendor/driver`, from the drivers `GET /integrations/vendors` lists. */
   kind: integrationKindIdSchema,

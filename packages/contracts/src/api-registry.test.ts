@@ -117,6 +117,20 @@ describe('deviceCreateSchema', () => {
     ).toBe(false);
   });
 
+  it.each(['system', 'derived'])('refuses the id %s, which the platform keeps for itself', (id) => {
+    // The id becomes every entity's source, and these two are the sources of the entities the
+    // platform produces: a device called `system` would answer for the machine's own readings.
+    expect(
+      deviceCreateSchema.safeParse({
+        id,
+        kind: 'bambu-lab/printer',
+        model: 'X1C',
+        name: 'X1C',
+        transportConfig: {},
+      }).success,
+    ).toBe(false);
+  });
+
   it('holds the kind to vendor/driver', () => {
     expect(
       deviceCreateSchema.safeParse({

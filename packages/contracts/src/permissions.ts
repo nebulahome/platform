@@ -298,6 +298,13 @@ export const PERMISSIONS = [
     isScopable: false,
     description: 'Read the audit log',
   },
+  {
+    key: 'system:read',
+    resource: 'system',
+    action: 'read',
+    isScopable: false,
+    description: 'See the system monitor: processor, memory, disk and network',
+  },
 ] as const satisfies readonly PermissionDefinition[];
 
 /** Every permission key the platform checks. */

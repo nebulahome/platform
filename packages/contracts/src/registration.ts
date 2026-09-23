@@ -35,6 +35,9 @@ export const CORE_SYNC_ALIAS_METHOD = 'sync_alias';
 /** Deletes an alias and forgets it, in one step. */
 export const CORE_REMOVE_ALIAS_METHOD = 'remove_alias';
 
+/** Reads the system monitor: the host, the recent samples, the disk (system-monitor.ts). */
+export const CORE_SYSTEM_MONITOR_METHOD = 'system_monitor';
+
 /**
  * How history should aggregate a numeric entity.
  *
