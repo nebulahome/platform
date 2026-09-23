@@ -1,0 +1,57 @@
+{
+  "discovery": {
+    "probe": { "op": "call", "args": { "method": "Shelly.GetDeviceInfo" } },
+    "claim": [
+      {
+        "path": "model",
+        "oneOf": [
+          "S3SW-001X16EU",
+          "S3SW-0A1X1EUL",
+          "S3SW-001X8EU",
+          "S4SW-001X16EU",
+          "S4SW-0A1X1EUL",
+          "S4SW-001X8EU"
+        ]
+      },
+      { "path": "id", "exists": true }
+    ],
+    "identity": { "externalId": "id", "name": "name", "model": "model", "swVersion": "ver" }
+  },
+  "subscriptions": [{ "op": "status", "args": { "everyMs": 60000 } }],
+  "entities": [
+    {
+      "domain": "switch",
+      "objectId": "switch",
+      "name": "Switch",
+      "icon": "switch",
+      "capabilities": { "on_off": {} },
+      "state": { "on_off": { "isOn": "'switch:0'.output" } },
+      "commands": {
+        "on_off.turn_on": {
+          "op": "call",
+          "args": { "method": "Switch.Set", "params": { "id": 0, "on": true } }
+        },
+        "on_off.turn_off": {
+          "op": "call",
+          "args": { "method": "Switch.Set", "params": { "id": 0, "on": false } }
+        },
+        "on_off.toggle": {
+          "op": "call",
+          "args": { "method": "Switch.Toggle", "params": { "id": 0 } }
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "temperature",
+      "name": "Device temperature",
+      "icon": "thermometer",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "'switch:0'.temperature.tC" } },
+      "unitOfMeasurement": "°C",
+      "deviceClass": "temperature",
+      "stateClass": "measurement",
+      "displayPrecision": 1
+    }
+  ]
+}

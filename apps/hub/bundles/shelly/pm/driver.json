@@ -1,0 +1,10 @@
+{
+  "id": "pm",
+  "name": "Power meter",
+  "transport": "shelly/rpc",
+  "models": ["PM Mini Gen3", "Plug PM Gen3"],
+  "defaultIcon": "gauge",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

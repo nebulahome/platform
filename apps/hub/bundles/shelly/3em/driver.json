@@ -1,0 +1,10 @@
+{
+  "id": "3em",
+  "name": "Three-phase energy meter",
+  "transport": "shelly/rpc",
+  "models": ["3EM-63 Gen3"],
+  "defaultIcon": "gauge",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "dimmer",
+  "name": "Dimmer",
+  "transport": "shelly/rpc",
+  "models": ["DALI Dimmer Gen3"],
+  "defaultIcon": "light",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

@@ -1,0 +1,16 @@
+{
+  "id": "dimmer-pm",
+  "name": "Dimmer with power metering",
+  "transport": "shelly/rpc",
+  "models": [
+    "Dimmer 0/1-10V PM Gen3",
+    "Dimmer 0/1-10V PM Gen4",
+    "Dimmer Gen3",
+    "Dimmer Gen4",
+    "Dimmer Gen4 US"
+  ],
+  "defaultIcon": "light",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

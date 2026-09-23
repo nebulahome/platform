@@ -1,0 +1,10 @@
+{
+  "id": "switch-2pm",
+  "name": "Two relays with power metering",
+  "transport": "shelly/rpc",
+  "models": ["2PM Gen3 (relays)", "2PM Gen4 (relays)"],
+  "defaultIcon": "relay",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

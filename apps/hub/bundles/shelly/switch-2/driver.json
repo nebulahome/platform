@@ -1,7 +1,8 @@
 {
-  "id": "1pm-mini-g3",
-  "name": "1PM Mini Gen3",
-  "transport": "http",
+  "id": "switch-2",
+  "name": "Two relays",
+  "transport": "shelly/rpc",
+  "models": ["2L Gen3", "2L Gen4"],
   "defaultIcon": "relay",
   "kind": "declarative",
   "profile": "./profile.json",

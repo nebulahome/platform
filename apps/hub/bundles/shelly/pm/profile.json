@@ -1,0 +1,85 @@
+{
+  "discovery": {
+    "probe": { "op": "call", "args": { "method": "Shelly.GetDeviceInfo" } },
+    "claim": [
+      { "path": "model", "oneOf": ["S3PM-001PCEU16", "S3PL-30116EU"] },
+      { "path": "id", "exists": true }
+    ],
+    "identity": { "externalId": "id", "name": "name", "model": "model", "swVersion": "ver" }
+  },
+  "subscriptions": [{ "op": "status", "args": { "everyMs": 60000 } }],
+  "entities": [
+    {
+      "domain": "sensor",
+      "objectId": "power",
+      "name": "Power",
+      "icon": "zap",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "'pm1:0'.apower" } },
+      "unitOfMeasurement": "W",
+      "deviceClass": "power",
+      "stateClass": "measurement",
+      "displayPrecision": 1
+    },
+    {
+      "domain": "sensor",
+      "objectId": "voltage",
+      "name": "Voltage",
+      "icon": "gauge",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "'pm1:0'.voltage" } },
+      "unitOfMeasurement": "V",
+      "deviceClass": "voltage",
+      "stateClass": "measurement",
+      "displayPrecision": 1
+    },
+    {
+      "domain": "sensor",
+      "objectId": "current",
+      "name": "Current",
+      "icon": "activity",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "'pm1:0'.current" } },
+      "unitOfMeasurement": "A",
+      "deviceClass": "current",
+      "stateClass": "measurement",
+      "displayPrecision": 3
+    },
+    {
+      "domain": "sensor",
+      "objectId": "frequency",
+      "name": "Frequency",
+      "icon": "activity",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "'pm1:0'.freq" } },
+      "unitOfMeasurement": "Hz",
+      "deviceClass": "frequency",
+      "stateClass": "measurement",
+      "displayPrecision": 1
+    },
+    {
+      "domain": "sensor",
+      "objectId": "energy",
+      "name": "Energy",
+      "icon": "energy",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "'pm1:0'.aenergy.total" } },
+      "unitOfMeasurement": "Wh",
+      "deviceClass": "energy",
+      "stateClass": "total_increasing",
+      "displayPrecision": 2
+    },
+    {
+      "domain": "sensor",
+      "objectId": "energy_returned",
+      "name": "Energy returned",
+      "icon": "energy",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "'pm1:0'.ret_aenergy.total" } },
+      "unitOfMeasurement": "Wh",
+      "deviceClass": "energy",
+      "stateClass": "total_increasing",
+      "displayPrecision": 2
+    }
+  ]
+}

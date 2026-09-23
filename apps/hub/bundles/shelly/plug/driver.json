@@ -1,0 +1,10 @@
+{
+  "id": "plug",
+  "name": "Plug",
+  "transport": "shelly/rpc",
+  "models": ["Plug S Gen3", "Outdoor Plug S Gen3", "AZ Plug", "Plug M Gen3", "Plug US Gen4"],
+  "defaultIcon": "plug",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

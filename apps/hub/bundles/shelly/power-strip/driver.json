@@ -1,0 +1,10 @@
+{
+  "id": "power-strip",
+  "name": "Power strip",
+  "transport": "shelly/rpc",
+  "models": ["PowerStrip Gen4", "PowerStrip Gen4 v2", "PowerStrip US Gen4"],
+  "defaultIcon": "plug",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

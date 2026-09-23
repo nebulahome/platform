@@ -1,0 +1,10 @@
+{
+  "id": "em-2",
+  "name": "Energy meter, two channels",
+  "transport": "shelly/rpc",
+  "models": ["EM Gen3", "EM Gen4"],
+  "defaultIcon": "gauge",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

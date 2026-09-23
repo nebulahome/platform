@@ -6,6 +6,6 @@
   "description": "Bambu Lab printers in LAN mode: the chamber light, the temperatures and the print in progress, over the MQTT broker each printer runs itself. Nothing leaves the house.",
   "url": "https://bambulab.com",
   "color": "#00AE42",
-  "logo": "./logo.svg",
+  "logo": { "path": "./logo.svg", "padding": 4 },
   "internetRequired": false
 }

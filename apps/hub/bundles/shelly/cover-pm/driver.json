@@ -1,0 +1,10 @@
+{
+  "id": "cover-pm",
+  "name": "Cover with power metering",
+  "transport": "shelly/rpc",
+  "models": ["2PM Gen3 (cover)", "2PM Gen4 (cover)"],
+  "defaultIcon": "blinds",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

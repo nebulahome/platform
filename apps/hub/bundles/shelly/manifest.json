@@ -1,11 +1,12 @@
 {
   "id": "shelly",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "sdk": "^1.0.0",
   "name": "Shelly",
-  "description": "Shelly relays on your own network, each spoken to directly over its RPC interface. Nothing leaves the house and nothing stops working when the internet does.",
+  "description": "Shelly Gen3 and Gen4 devices on your own network, each spoken to directly over its RPC interface. Nothing leaves the house and nothing stops working when the internet does.",
   "url": "https://shelly.com",
   "color": "#3B9DFF",
-  "logo": "./logo.svg",
-  "internetRequired": false
+  "logo": { "path": "./logo.svg", "padding": 4 },
+  "internetRequired": false,
+  "transports": { "rpc": "./rpc/transport.js" }
 }

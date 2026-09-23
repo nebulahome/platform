@@ -14,38 +14,42 @@ shelly/
 ├── manifest.json       who the vendor is                            ← always
 ├── logo.svg            the mark the interface shows (.svg or .png)  ← optional
 ├── setup.json          what every device of the vendor shares       ← optional
-└── 1pm-mini-g3/
+├── README.md           what the devices are, what is unverified     ← always
+├── rpc/transport.js    a transport of the vendor's own              ← optional
+└── dimmer-pm/
     ├── driver.json     transport, models, which file holds it       ← always
     ├── setup.json      what adding one device asks                  ← always
     └── profile.json    the declarative mapping (or index.js, code)  ← one of the two
 ```
 
 The directory names are the ids: `shelly` must say `"id": "shelly"` in its manifest and
-`1pm-mini-g3` must say `"id": "1pm-mini-g3"` in its driver file, or the loader refuses the
-directory and says which two names disagree. Together they make the driver's **kind**,
-`shelly/1pm-mini-g3`, which is what a device row references.
+`dimmer-pm` must say `"id": "dimmer-pm"` in its driver file, or the loader refuses the directory
+and says which two names disagree. Together they make the driver's **kind**, `shelly/dimmer-pm`,
+which is what a device row references.
 
-`manifest.json` says who the vendor is and nothing about how a device is reached - which
-transports a vendor speaks is derived from its drivers, so it cannot be declared wrongly:
+`manifest.json` says who the vendor is. Which transports a vendor speaks is derived from its
+drivers, so it cannot be declared wrongly; what the manifest may add is a transport the vendor
+**ships** - see below:
 
 ```json
 {
   "id": "shelly",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "sdk": "^1.0.0",
   "name": "Shelly",
-  "description": "Shelly relays on your own network, each spoken to directly over its RPC interface.",
+  "description": "Shelly Gen3 and Gen4 devices on your own network, each spoken to directly over its RPC interface.",
   "url": "https://shelly.com",
   "color": "#3B9DFF",
-  "logo": "./logo.svg",
-  "logoPadding": 0,
-  "internetRequired": false
+  "logo": { "path": "./logo.svg", "padding": 4 },
+  "internetRequired": false,
+  "transports": { "rpc": "./rpc/transport.js" }
 }
 ```
 
-`logoPadding` (0 to 16, default 0) is extra room, in pixels, the interface leaves around the
-logo inside its tile. Every logo already gets a small margin; this is on top of it, for a mark
-drawn to the very edge of its file. It cannot ask for less than the margin, only for more.
+`logo` is a path relative to the bundle, either bare - `"logo": "./logo.svg"` - or, as above,
+with `padding` (0 to 16, default 0): extra room, in pixels, the interface leaves around the logo
+inside its tile. Every logo already gets a small margin; this is on top of it, for a mark drawn
+to the very edge of its file. It cannot ask for less than the margin, only for more.
 
 `driver.json` says how one profile is loaded and **which models it drives**. The list is what the
 owner picks from when adding a device: Bambu Lab's one `printer` driver lists six printers, so the
@@ -55,15 +59,20 @@ fields on purpose - a driver repeating the vendor's name would be a second copy 
 
 ```json
 {
-  "id": "1pm-mini-g3",
-  "name": "1PM Mini Gen3",
-  "transport": "http",
-  "defaultIcon": "relay",
+  "id": "dimmer-pm",
+  "name": "Dimmer with power metering",
+  "transport": "shelly/rpc",
+  "models": ["Dimmer 0/1-10V PM Gen3", "Dimmer 0/1-10V PM Gen4", "Dimmer Gen3", "Dimmer Gen4"],
+  "defaultIcon": "light",
   "kind": "declarative",
   "profile": "./profile.json",
   "setup": "./setup.json"
 }
 ```
+
+`transport` is a platform transport - `http`, `mqtt` - or one the driver's own vendor ships,
+named after the vendor: `shelly/rpc`. Never another vendor's: vendors load in no particular
+order, and a driver leaning on another's transport would load or not by luck.
 
 `defaultIcon` names the icon a device of this driver starts with, by its id in the platform's
 icon catalogue (`packages/icons/catalogue.json` lists the platform's own ids - `light`,
@@ -73,9 +82,21 @@ added, and falls back to no icon with a warning rather than refusing the device,
 somebody's bundle costs a blank tile and not the device. `shipped-bundles.test.ts` does check
 the two here.
 
+Each entity in `profile.json` may name its own `icon` the same way - `"icon": "thermometer"` on
+a temperature sensor - and it is the bundle's first word only: the owner may rename an entity
+or pick another icon from the devices page, and identifying the hardware again does not put the
+bundle's back. An entity that names none shows a blank tile until the owner picks one.
+`shipped-bundles.test.ts` checks every entity icon the two bundles here name.
+
 The format is `packages/package-runtime` and the ceiling it enforces is deliberate: every object
 is strict and every expression is a path, so a profile cannot become a program one feature at a
-time. A device whose entities are not known in advance needs a code driver instead.
+time. A device whose entities are not known in advance needs a code driver instead. Two forms go
+as far as the ceiling allows, and no further: a claim may ask that a path be **one of** a list of
+values - `{ "path": "model", "oneOf": ["S3DM-0010WW", "S4DM-0010WW"] }`, which is how one driver
+serves a family of models - and a state may be **looked up in a table** -
+`{ "path": "'cover:0'.state", "map": { "opening": "opening" }, "default": "stopped" }`, which
+renames what a device says into what a capability accepts. A list is membership, not an `or`
+between paths; a table renames and cannot compute.
 
 The logo rides inside the catalogue the hub serves, as a data URL, so it must be an `.svg` or a
 `.png` and at most 64 KiB; anything else fails the vendor at startup. The two that ship are
@@ -161,38 +182,52 @@ an owner to different places.
 
 **Save** creates the device and starts it. The hub has no claim for a device it has never heard
 from, so it reports the instance `identifying` and listens with the driver's `discovery` -
-the MQTT subscription, the HTTP probe of the address - until the driver claims what answers;
-then it asks `core` to complete the device's row with the serial, the claim and the entities,
-and the instance is `running`. The claim stays on the row, so the next start binds the device
-without listening again. A device that stays `identifying` is one the hub cannot hear: wrong
-address, printer asleep, relay of another generation - each bundle below says what to look at.
+the MQTT subscription, the probe of the address - until the driver claims what answers; then it
+asks `core` to complete the device's row with the serial, the claim and the entities, and the
+instance is `running`. The claim stays on the row, so the next start binds the device without
+listening again. A device that stays `identifying` is one the hub cannot hear, or one no driver
+claims: the hub logs what answered and what it said of itself, and each bundle below says what
+to look at.
+
+## A transport of the vendor's own
+
+A vendor whose devices speak a protocol the hub does not may ship the transport itself. The
+manifest names it - `"transports": { "rpc": "./rpc/transport.js" }` - and the hub loads the
+module when it loads the vendor, before the drivers, and registers what it builds as
+`<vendor>/<name>`: `shelly/rpc`. Its drivers then say `"transport": "shelly/rpc"`, and nothing
+else about them changes: they stay declarative, and the profile's requests are in the new
+transport's own words.
+
+The module is plain JavaScript - an installed bundle is loaded as it is, with no build step - and
+its default export is a function the hub calls with the **SDK**, the runtime's pieces a transport
+needs, since the bundle cannot import them:
+
+| `sdk.`            | What                                                                       |
+| ----------------- | -------------------------------------------------------------------------- |
+| `version`         | the runtime version, the one `manifest.sdk` was matched against            |
+| `z`               | the runtime's zod, so the transport's settings validate as the hub's do    |
+| `defineTransport` | the contract the platform's own transports are written against             |
+| `openWebSocket`   | a WebSocket the hub keeps open: reconnection with a doubling pause, resets |
+| `logger`          | the hub's logger, for what happens outside a connection                    |
+
+The transport it returns is the one the platform's `http` and `mqtt` are:
+`connectionKey`, `connect`, `scan`, `probe`, and a `configSchema` for what the driver's
+`setup.json` asks. Its `id` must be `<vendor>/<name>`, or the loader refuses the vendor naming
+both. It is **code**, so the vendor sits at the tier a code driver does - reviewed before a
+catalogue carries it; `verifyVendor` is where the hub asks. The hub type-checks the ones that
+ship here (`checkJs`), so write the types in JSDoc and start the file with `// @ts-check`.
 
 ## shelly
 
-One driver, `1pm-mini-g3`: a Shelly 1PM Mini Gen3, over its HTTP RPC. One relay and five readings — power, energy, voltage,
-current, and the device's own temperature — polled from `/rpc/Shelly.GetStatus` every five
-seconds.
+Fifteen drivers, one per layout of components, for the Shelly **Gen3 and Gen4** range: relays,
+plugs, dimmers, covers, energy meters and input boxes, each driver listing the models it drives.
+All of them run on the bundle's own transport, `shelly/rpc`: Shelly's JSON-RPC over the WebSocket
+every device serves, with the status pushed as it changes and the digest authentication the
+devices ask for. A driver claims a device by its hardware `model` code, one of a list.
 
-The transport reaches a device by its address: the one `host` the owner typed when adding it.
-Identification probes it with `/rpc/Shelly.GetDeviceInfo`, and this bundle claims the answer
-when its `app` is `Mini1PMG3`. One device, one address, one instance - a second relay is a
-second device added from the vendor's page.
-
-**That claim is the one thing here that has not been checked against hardware.** `app` is how a
-Shelly identifies its firmware application, and Gen3 Minis suffix it with `G3` — a Gen2 Mini 1PM
-answers `Mini1PM` and a Plus 1PM answers `Plus1PM`. If a device on the network is not claimed,
-the value it actually reports is the first thing to look at:
-
-```
-curl http://<address>/rpc/Shelly.GetDeviceInfo
-```
-
-Changing the `equals` in `profile.json` to whatever it answers is the whole fix, and a second
-generation is a second driver directory under `shelly/` rather than an edit to this one: a claim
-list is all-of, with no `or`, so one driver claims one kind of device.
-
-The paths are quoted because Shelly names its status keys `switch:0`, and a colon is not a bare
-identifier in the path grammar.
+Its own README says what the devices are, how the transport treats them, which models each
+family takes, and what has not been checked against hardware - above all the model codes, and
+the one-line fix when a device on the network is not claimed.
 
 ## bambu-lab
 

@@ -1,0 +1,10 @@
+{
+  "id": "inputs",
+  "name": "Inputs",
+  "transport": "shelly/rpc",
+  "models": ["I4 Gen3", "I4 Gen4"],
+  "defaultIcon": "toggle-left",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

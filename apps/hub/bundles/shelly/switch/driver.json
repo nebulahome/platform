@@ -1,0 +1,10 @@
+{
+  "id": "switch",
+  "name": "Relay",
+  "transport": "shelly/rpc",
+  "models": ["1 Gen3", "1L Gen3", "1 Mini Gen3", "1 Gen4", "1L Gen4", "1 Mini Gen4"],
+  "defaultIcon": "relay",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

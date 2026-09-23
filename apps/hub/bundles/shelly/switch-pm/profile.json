@@ -1,47 +1,44 @@
 {
   "discovery": {
-    "probe": { "op": "get", "args": { "path": "/rpc/Shelly.GetDeviceInfo" } },
+    "probe": { "op": "call", "args": { "method": "Shelly.GetDeviceInfo" } },
     "claim": [
-      { "path": "app", "equals": "Mini1PMG3" },
+      {
+        "path": "model",
+        "oneOf": ["S3SW-001P16EU", "S3SW-001P8EU", "S4SW-001P16EU", "S4SW-001P8EU"]
+      },
       { "path": "id", "exists": true }
     ],
-    "identity": {
-      "externalId": "id",
-      "name": "name",
-      "model": "model",
-      "swVersion": "ver"
-    }
+    "identity": { "externalId": "id", "name": "name", "model": "model", "swVersion": "ver" }
   },
-
-  "subscriptions": [{ "op": "poll", "args": { "everyMs": 5000, "path": "/rpc/Shelly.GetStatus" } }],
-
+  "subscriptions": [{ "op": "status", "args": { "everyMs": 60000 } }],
   "entities": [
     {
       "domain": "switch",
       "objectId": "switch",
       "name": "Switch",
+      "icon": "switch",
       "capabilities": { "on_off": {} },
       "state": { "on_off": { "isOn": "'switch:0'.output" } },
       "commands": {
         "on_off.turn_on": {
-          "op": "get",
-          "args": { "path": "/rpc/Switch.Set", "query": { "id": 0, "on": true } }
+          "op": "call",
+          "args": { "method": "Switch.Set", "params": { "id": 0, "on": true } }
         },
         "on_off.turn_off": {
-          "op": "get",
-          "args": { "path": "/rpc/Switch.Set", "query": { "id": 0, "on": false } }
+          "op": "call",
+          "args": { "method": "Switch.Set", "params": { "id": 0, "on": false } }
         },
         "on_off.toggle": {
-          "op": "get",
-          "args": { "path": "/rpc/Switch.Toggle", "query": { "id": 0 } }
+          "op": "call",
+          "args": { "method": "Switch.Toggle", "params": { "id": 0 } }
         }
       }
     },
-
     {
       "domain": "sensor",
       "objectId": "power",
       "name": "Power",
+      "icon": "zap",
       "capabilities": { "sensor_numeric": {} },
       "state": { "sensor_numeric": { "value": "'switch:0'.apower" } },
       "unitOfMeasurement": "W",
@@ -49,11 +46,11 @@
       "stateClass": "measurement",
       "displayPrecision": 1
     },
-
     {
       "domain": "sensor",
       "objectId": "energy",
       "name": "Energy",
+      "icon": "energy",
       "capabilities": { "sensor_numeric": {} },
       "state": { "sensor_numeric": { "value": "'switch:0'.aenergy.total" } },
       "unitOfMeasurement": "Wh",
@@ -61,11 +58,11 @@
       "stateClass": "total_increasing",
       "displayPrecision": 2
     },
-
     {
       "domain": "sensor",
       "objectId": "voltage",
       "name": "Voltage",
+      "icon": "gauge",
       "capabilities": { "sensor_numeric": {} },
       "state": { "sensor_numeric": { "value": "'switch:0'.voltage" } },
       "unitOfMeasurement": "V",
@@ -73,11 +70,11 @@
       "stateClass": "measurement",
       "displayPrecision": 1
     },
-
     {
       "domain": "sensor",
       "objectId": "current",
       "name": "Current",
+      "icon": "activity",
       "capabilities": { "sensor_numeric": {} },
       "state": { "sensor_numeric": { "value": "'switch:0'.current" } },
       "unitOfMeasurement": "A",
@@ -85,11 +82,11 @@
       "stateClass": "measurement",
       "displayPrecision": 3
     },
-
     {
       "domain": "sensor",
       "objectId": "temperature",
       "name": "Device temperature",
+      "icon": "thermometer",
       "capabilities": { "sensor_numeric": {} },
       "state": { "sensor_numeric": { "value": "'switch:0'.temperature.tC" } },
       "unitOfMeasurement": "°C",

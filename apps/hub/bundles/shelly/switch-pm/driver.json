@@ -1,0 +1,10 @@
+{
+  "id": "switch-pm",
+  "name": "Relay with power metering",
+  "transport": "shelly/rpc",
+  "models": ["1PM Gen3", "1PM Mini Gen3", "1PM Gen4", "1PM Mini Gen4"],
+  "defaultIcon": "relay",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

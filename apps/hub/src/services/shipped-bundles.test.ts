@@ -19,8 +19,9 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { getSensorClass, sensorRegistrationIssue, toCanonical } from '@nebula-home/contracts';
 import { loadBuiltinIcons } from '@nebula-home/icons';
-import { integrationProfileSchema } from '@nebula-home/package-runtime';
+import { integrationProfileSchema, type IntegrationProfile } from '@nebula-home/package-runtime';
 
 import { RUNTIME_VERSION } from '../config.js';
 
@@ -29,15 +30,52 @@ import { loadBundles } from './bundles.js';
 /** The `bundles/` directory beside the application, as the service reads it. */
 const DIRECTORY = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../bundles');
 
-/**
- * The Shelly's profile, parsed the way the loader parses it.
- *
- * @returns The profile, having passed the same schema the hub applies at startup.
- */
-async function shellyProfile() {
-  const text = await readFile(path.join(DIRECTORY, 'shelly/1pm-mini-g3/profile.json'), 'utf8');
+/** The families the Shelly bundle ships, one driver per layout of components. */
+const SHELLY_DRIVERS = [
+  '3em',
+  'cover-pm',
+  'dimmer',
+  'dimmer-pm',
+  'em-1',
+  'em-2',
+  'inputs',
+  'plug',
+  'pm',
+  'power-strip',
+  'shutter',
+  'switch',
+  'switch-2',
+  'switch-2pm',
+  'switch-pm',
+];
 
-  return integrationProfileSchema.parse(JSON.parse(text));
+/**
+ * Every Shelly profile, parsed the way the loader parses it, keyed by driver.
+ *
+ * @returns The profiles, each having passed the schema the hub applies at startup.
+ */
+async function shellyProfiles(): Promise<Map<string, IntegrationProfile>> {
+  const profiles = new Map<string, IntegrationProfile>();
+
+  for (const driver of SHELLY_DRIVERS) {
+    const text = await readFile(path.join(DIRECTORY, `shelly/${driver}/profile.json`), 'utf8');
+
+    profiles.set(driver, integrationProfileSchema.parse(JSON.parse(text)));
+  }
+
+  return profiles;
+}
+
+/**
+ * The model codes one profile claims.
+ *
+ * @param profile - The profile.
+ * @returns The codes in its `model` condition, in order.
+ */
+function codesOf(profile: IntegrationProfile): string[] {
+  const condition = profile.discovery.claim.find((each) => each.path === 'model');
+
+  return condition !== undefined && 'oneOf' in condition ? condition.oneOf.map(String) : [];
 }
 
 describe('the bundles that ship', () => {
@@ -77,6 +115,80 @@ describe('the bundles that ship', () => {
     }
   });
 
+  it('gives every shipped entity an icon the catalogue has', async () => {
+    // An entity's icon is the bundle's first word on it and the owner's afterwards. Nothing
+    // checks the id at registration - `core` has no catalogue - so a wrong one would only show
+    // as a blank tile on the devices page. For a shipped bundle, it is caught here instead.
+    const { loaded } = await loadBundles({ directory: DIRECTORY, runtimeVersion: RUNTIME_VERSION });
+    const builtin = new Set(loadBuiltinIcons().map((icon) => icon.id));
+
+    for (const bundle of loaded) {
+      const profilePath = bundle.manifest.profile;
+
+      if (profilePath === undefined) {
+        continue;
+      }
+
+      const text = await readFile(path.join(bundle.directory, profilePath), 'utf8');
+      const profile = integrationProfileSchema.parse(JSON.parse(text));
+
+      for (const entity of profile.entities) {
+        const label = `${bundle.manifest.id} ${entity.objectId ?? entity.domain}`;
+
+        expect(entity.icon, `${label} names no icon`).toBeDefined();
+        expect(builtin.has(entity.icon ?? ''), `${label} names ${String(entity.icon)}`).toBe(true);
+      }
+    }
+  });
+
+  it('registers every shipped reading in a unit its sensor class accepts', async () => {
+    // `core` refuses a registration whose unit does not belong to its class, so a wrong unit
+    // here is a device that is identified and then never completed - found on hardware, late.
+    const { loaded } = await loadBundles({ directory: DIRECTORY, runtimeVersion: RUNTIME_VERSION });
+
+    for (const bundle of loaded) {
+      const { entities } = bundle.integration.describe(
+        { deviceKey: 'x', externalId: 'x', descriptor: {} },
+        {},
+      );
+
+      for (const entity of entities) {
+        const label = `${bundle.manifest.id} ${entity.objectId ?? entity.domain}`;
+
+        expect(sensorRegistrationIssue(entity), label).toBeUndefined();
+      }
+    }
+  });
+
+  it('converts every shipped reading from the unit the device speaks', async () => {
+    // A native unit the catalogue cannot convert publishes nothing at all: the reading is
+    // dropped rather than stored in the wrong unit.
+    const { loaded } = await loadBundles({ directory: DIRECTORY, runtimeVersion: RUNTIME_VERSION });
+
+    for (const bundle of loaded) {
+      const profilePath = bundle.manifest.profile;
+
+      if (profilePath === undefined) {
+        continue;
+      }
+
+      const text = await readFile(path.join(bundle.directory, profilePath), 'utf8');
+      const profile = integrationProfileSchema.parse(JSON.parse(text));
+
+      for (const entity of profile.entities) {
+        const { deviceClass, unitOfMeasurement } = entity;
+
+        if (deviceClass === undefined || getSensorClass(deviceClass)?.valueKind !== 'number') {
+          continue;
+        }
+
+        const label = `${bundle.manifest.id} ${entity.objectId ?? entity.domain}`;
+
+        expect(toCanonical(deviceClass, 1, unitOfMeasurement ?? ''), label).toBeDefined();
+      }
+    }
+  });
+
   it('offers every Bambu Lab printer the one driver serves as its own choice', async () => {
     // One profile drives them all, but the owner adding one is asked which, and the answer is
     // what the vendor page shows for the row. Six names here is six entries in that dropdown.
@@ -91,22 +203,6 @@ describe('the bundles that ship', () => {
     ]);
   });
 
-  it('includes the Shelly 1PM Mini, over HTTP and declarative', async () => {
-    const { loaded } = await loadBundles({
-      directory: DIRECTORY,
-      runtimeVersion: RUNTIME_VERSION,
-    });
-
-    const shelly = loaded.find((one) => one.manifest.id === 'shelly/1pm-mini-g3');
-
-    expect(shelly).toBeDefined();
-    expect(shelly?.manifest.transport).toBe('http');
-
-    // Declarative is a trust boundary as much as a format: this bundle is data, and data cannot
-    // run anything.
-    expect(shelly?.manifest.kind).toBe('declarative');
-  });
-
   it('includes the Bambu Lab printer, over MQTT and declarative', async () => {
     const { loaded } = await loadBundles({
       directory: DIRECTORY,
@@ -119,55 +215,143 @@ describe('the bundles that ship', () => {
     expect(bambu?.manifest.transport).toBe('mqtt');
     expect(bambu?.manifest.kind).toBe('declarative');
   });
+});
 
-  it('describes the relay and the five readings a 1PM reports', async () => {
-    const profile = await shellyProfile();
+describe('the Shelly bundle', () => {
+  it('ships its own transport and one declarative driver per family', async () => {
+    const { vendors } = await loadBundles({
+      directory: DIRECTORY,
+      runtimeVersion: RUNTIME_VERSION,
+    });
+    const shelly = vendors.find((vendor) => vendor.manifest.id === 'shelly');
 
-    expect(profile.entities.map((entity) => entity.objectId)).toEqual([
-      'switch',
-      'power',
-      'energy',
-      'voltage',
-      'current',
-      'temperature',
-    ]);
+    expect(shelly?.ownTransports.map((transport) => transport.id)).toEqual(['shelly/rpc']);
+    expect(shelly?.transports).toEqual(['shelly/rpc']);
+    expect(shelly?.drivers.map((driver) => driver.driverId).sort()).toEqual(SHELLY_DRIVERS);
+
+    for (const driver of shelly?.drivers ?? []) {
+      expect(driver.manifest.transport, driver.driverId).toBe('shelly/rpc');
+
+      // Declarative is a trust boundary as much as a format: the drivers are data. The code the
+      // vendor ships is the transport, and it is reviewed as code.
+      expect(driver.manifest.kind, driver.driverId).toBe('declarative');
+    }
   });
 
-  it('reads Shelly status keys, which are not bare identifiers', async () => {
-    const profile = await shellyProfile();
-    const relay = profile.entities.find((entity) => entity.objectId === 'switch');
+  it('claims every model by its hardware code, each in exactly one family', async () => {
+    // `app` is the firmware's word and has changed between releases; the model code is the
+    // hardware's. A code claimed by two families would leave the hub picking one by the order
+    // the directories were read in - unless the two differ on the profile the device is in.
+    const profiles = await shellyProfiles();
+    const families = new Map<string, string[]>();
 
-    // Shelly names the key `switch:0`, and a colon is not an identifier in the path grammar. The
-    // quotes are load-bearing; without them the profile does not parse at all.
+    for (const [driver, profile] of profiles) {
+      const codes = codesOf(profile);
+
+      expect(codes.length, `${driver} claims no model`).toBeGreaterThan(0);
+
+      for (const code of codes) {
+        families.set(code, [...(families.get(code) ?? []), driver]);
+      }
+    }
+
+    for (const [code, drivers] of families) {
+      if (drivers.length === 1) {
+        continue;
+      }
+
+      const conditions = drivers.map((driver) =>
+        JSON.stringify(
+          profiles.get(driver)?.discovery.claim.find((each) => each.path === 'profile'),
+        ),
+      );
+
+      expect(conditions, `${code} is claimed by ${drivers.join(' and ')}`).not.toContain(undefined);
+      expect(new Set(conditions).size, `${code} is claimed twice for one profile`).toBe(
+        drivers.length,
+      );
+    }
+  });
+
+  it('names one model for every code it claims, in the same order', async () => {
+    const { vendors } = await loadBundles({
+      directory: DIRECTORY,
+      runtimeVersion: RUNTIME_VERSION,
+    });
+    const shelly = vendors.find((vendor) => vendor.manifest.id === 'shelly');
+    const profiles = await shellyProfiles();
+
+    for (const driver of shelly?.drivers ?? []) {
+      const profile = profiles.get(driver.driverId);
+
+      expect(profile, driver.driverId).toBeDefined();
+      expect(driver.manifest.models.length, driver.driverId).toBe(
+        profile === undefined ? -1 : codesOf(profile).length,
+      );
+    }
+  });
+
+  it('identifies every device by asking who it is, over its own transport', async () => {
+    for (const [driver, profile] of await shellyProfiles()) {
+      expect(profile.discovery.probe, driver).toEqual({
+        op: 'call',
+        args: { method: 'Shelly.GetDeviceInfo' },
+      });
+      expect(profile.discovery.identity.externalId, driver).toBe('id');
+    }
+  });
+
+  it('asks every device for its whole status now and then, and never too often', async () => {
+    // The status comes on its own as notifications; the timer is what catches a device that
+    // came back, and what keeps the socket busy enough to notice one that went.
+    for (const [driver, profile] of await shellyProfiles()) {
+      expect(
+        profile.subscriptions.map((subscription) => subscription.op),
+        driver,
+      ).toEqual(['status']);
+      expect(Number(profile.subscriptions[0]?.args['everyMs']), driver).toBeGreaterThanOrEqual(
+        5000,
+      );
+    }
+  });
+
+  it('turns every relay and light both ways and toggles it', async () => {
+    // A switch that can only be turned on is half a switch, and the omission is invisible until
+    // somebody tries the other direction.
+    for (const [driver, profile] of await shellyProfiles()) {
+      for (const entity of profile.entities) {
+        if (entity.domain !== 'switch' && entity.domain !== 'light') {
+          continue;
+        }
+
+        expect(Object.keys(entity.commands), `${driver} ${entity.objectId ?? ''}`).toEqual(
+          expect.arrayContaining(['on_off.turn_on', 'on_off.turn_off', 'on_off.toggle']),
+        );
+      }
+    }
+  });
+
+  it('reads status keys quoted, since `switch:0` is not a bare identifier', async () => {
+    // The quotes are load-bearing: without them the profile does not parse at all.
+    const relay = (await shellyProfiles())
+      .get('switch-pm')
+      ?.entities.find((entity) => entity.objectId === 'switch');
+
     expect(relay?.state.on_off?.['isOn']).toBe("'switch:0'.output");
   });
 
-  it('can turn the relay both ways and toggle it', async () => {
-    const profile = await shellyProfile();
-    const relay = profile.entities.find((entity) => entity.objectId === 'switch');
+  it('asks the same two things of every owner adding a device', async () => {
+    const { vendors } = await loadBundles({
+      directory: DIRECTORY,
+      runtimeVersion: RUNTIME_VERSION,
+    });
+    const shelly = vendors.find((vendor) => vendor.manifest.id === 'shelly');
 
-    // A switch that can only be turned on is half a switch, and the omission is invisible until
-    // somebody tries the other direction.
-    expect(Object.keys(relay?.commands ?? {}).sort()).toEqual([
-      'on_off.toggle',
-      'on_off.turn_off',
-      'on_off.turn_on',
-    ]);
-  });
-
-  it('polls slowly enough not to sit on the device', async () => {
-    const profile = await shellyProfile();
-    const [poll] = profile.subscriptions;
-
-    expect(poll?.op).toBe('poll');
-    expect(Number(poll?.args['everyMs'])).toBeGreaterThanOrEqual(1000);
-  });
-
-  it('claims a device by what its firmware calls itself', async () => {
-    const profile = await shellyProfile();
-
-    // The one fact here not checked against hardware. If a real 1PM Mini is not adopted, this is
-    // the line to compare against `/rpc/Shelly.GetDeviceInfo`.
-    expect(profile.discovery.claim).toContainEqual({ path: 'app', equals: 'Mini1PMG3' });
+    for (const driver of shelly?.drivers ?? []) {
+      expect(
+        driver.setup.transport.fields.map((field) => field.key),
+        driver.driverId,
+      ).toEqual(['host', 'password']);
+    }
   });
 });

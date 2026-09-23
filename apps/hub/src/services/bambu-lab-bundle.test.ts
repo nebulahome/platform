@@ -189,6 +189,19 @@ describe('finding the printer', () => {
   it('names the maker, since the printer never says', async () => {
     expect((await bambu()).describe(claim(), {}).manufacturer).toBe('Bambu Lab');
   });
+
+  it('registers duration in the catalogue canonical unit', async () => {
+    // The printer speaks minutes; the entity column must say seconds, matching the published number.
+    const remaining = (await bambu())
+      .describe(claim(), {})
+      .entities.find((entity) => entity.objectId === 'remaining_time');
+
+    expect(remaining).toMatchObject({
+      deviceClass: 'duration',
+      unitOfMeasurement: 's',
+      stateClass: 'measurement',
+    });
+  });
 });
 
 describe('reading a full report', () => {
@@ -207,7 +220,7 @@ describe('reading a full report', () => {
 
     expect(states.get('printing')).toEqual({ sensor_binary: { isOn: true } });
     expect(states.get('print_progress')).toEqual({ sensor_numeric: { value: 42 } });
-    expect(states.get('remaining_time')).toEqual({ sensor_numeric: { value: 87 } });
+    expect(states.get('remaining_time')).toEqual({ sensor_numeric: { value: 5220 } });
     expect(states.get('layer')).toEqual({ sensor_numeric: { value: 118 } });
     expect(states.get('total_layers')).toEqual({ sensor_numeric: { value: 280 } });
     expect(states.get('speed_level')).toEqual({ sensor_numeric: { value: 2 } });

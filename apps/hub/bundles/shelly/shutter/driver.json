@@ -1,0 +1,10 @@
+{
+  "id": "shutter",
+  "name": "Shutter",
+  "transport": "shelly/rpc",
+  "models": ["Shutter"],
+  "defaultIcon": "blinds",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}
