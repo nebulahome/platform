@@ -189,18 +189,6 @@ export const SETTINGS = [
     description: 'Unit temperatures are displayed in',
   },
   {
-    key: 'location.latitude',
-    schema: z.union([z.number().min(-90).max(90), z.null()]),
-    defaultValue: null,
-    description: 'Latitude of the installation, required by solar automation triggers',
-  },
-  {
-    key: 'location.longitude',
-    schema: z.union([z.number().min(-180).max(180), z.null()]),
-    defaultValue: null,
-    description: 'Longitude of the installation, required by solar automation triggers',
-  },
-  {
     key: 'security.session_lifetime_hours',
     schema: z.int().min(1).max(8760),
     defaultValue: 720,

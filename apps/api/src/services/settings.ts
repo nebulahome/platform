@@ -38,15 +38,6 @@ const DEFINITIONS: ReadonlyMap<string, SettingDefinition> = new Map(
   SETTINGS.map((definition) => [definition.key, definition]),
 );
 
-/**
- * The keys whose values are kept out of the audit record.
- *
- * Where the house is is personal data, and an audit detail reaches the log stream as well as the
- * table (RULES.md 10.1). That the coordinates were changed is worth recording; what they were
- * changed to is not worth writing into a log line.
- */
-const UNRECORDED_VALUES: ReadonlySet<string> = new Set(['location.latitude', 'location.longitude']);
-
 /** One rejected change, as reported back to the caller. */
 export type SettingIssue = {
   /** Which setting. */
@@ -61,8 +52,11 @@ export type AuditableChange = {
   /** Which setting was changed. */
   readonly key: string;
 
-  /** What it was changed to, where that is not personal data. */
-  readonly value?: JsonValue;
+  /**
+   * What it was changed to. No setting holds personal data - where the house is lives on the
+   * house area, not here - so every value is recorded.
+   */
+  readonly value: JsonValue;
 };
 
 /**
@@ -219,7 +213,7 @@ export async function readSettingValues(db: Database): Promise<Map<string, unkno
 /**
  * Writes validated values.
  *
- * One statement per key rather than one for all of them: there are fourteen settings in total,
+ * One statement per key rather than one for all of them: there are twelve settings in total,
  * their values have four different shapes, and hand-building a `CASE` over a `jsonb` column to
  * save a dozen round trips on a screen nobody opens twice a day would be the wrong trade.
  *
@@ -262,10 +256,8 @@ export async function writeSettings(
  * Shapes a set of changes for the audit trail.
  *
  * @param values - What was written.
- * @returns One entry per key, carrying the new value except where it is personal data.
+ * @returns One entry per key, carrying the new value.
  */
 export function auditableChanges(values: ReadonlyMap<string, JsonValue>): AuditableChange[] {
-  return [...values.entries()].map((entry) =>
-    UNRECORDED_VALUES.has(entry[0]) ? { key: entry[0] } : { key: entry[0], value: entry[1] },
-  );
+  return [...values.entries()].map(([key, value]) => ({ key, value }));
 }

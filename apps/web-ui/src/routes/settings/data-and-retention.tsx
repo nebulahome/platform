@@ -343,9 +343,8 @@ export function DataAndRetention() {
         )}
 
         <PanelNote>
-          Where the house is has no field here yet. Solar triggers need it and nothing sets one, so
-          a pair of coordinate boxes would be the only control on this page that changes nothing —
-          it belongs with the automation editor, beside the trigger that reads it.
+          Where the house stands is set on the house itself, under Library → Areas. The map around
+          it is drawn from that position, and solar triggers will read it from there too.
         </PanelNote>
       </Panel>
 

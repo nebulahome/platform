@@ -144,11 +144,15 @@ describe('auditableChanges', () => {
     expect(auditableChanges(values)).toEqual([{ key: 'history.logs.retention_days', value: 7 }]);
   });
 
-  it('records that the location changed without recording where it is', () => {
-    // An audit detail reaches the log stream as well as the table, and where somebody lives is
-    // personal data (RULES.md 10.1).
-    const values = new Map<string, JsonValue>([['location.latitude', 45.4642]]);
+  it('records every key of a change, each with its value', () => {
+    const values = new Map<string, JsonValue>([
+      ['units.temperature', 'fahrenheit'],
+      ['system.audit_log.retention_days', null],
+    ]);
 
-    expect(auditableChanges(values)).toEqual([{ key: 'location.latitude' }]);
+    expect(auditableChanges(values)).toEqual([
+      { key: 'units.temperature', value: 'fahrenheit' },
+      { key: 'system.audit_log.retention_days', value: null },
+    ]);
   });
 });

@@ -1209,8 +1209,6 @@ INSERT INTO system.settings (key, value, schema_ref) VALUES
   ('system.audit_log.retention_days', 'null'::jsonb, 'settings:system.audit_log.retention_days'),
   ('ui.default_theme', '"system"'::jsonb, 'settings:ui.default_theme'),
   ('units.temperature', '"celsius"'::jsonb, 'settings:units.temperature'),
-  ('location.latitude', 'null'::jsonb, 'settings:location.latitude'),
-  ('location.longitude', 'null'::jsonb, 'settings:location.longitude'),
   ('security.session_lifetime_hours', '720'::jsonb, 'settings:security.session_lifetime_hours');
 
 -- Role grants: generated from DEFAULT_ROLE_PERMISSIONS in @nebula-home/contracts.
