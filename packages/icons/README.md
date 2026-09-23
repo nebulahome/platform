@@ -58,9 +58,10 @@ a lucide icon by name, or ships a drawing of its own:
   exist fails the load, and so the service, at startup: a hole in the catalogue is a mistake in
   the repository, not something to serve.
 
-Bundles name an entry as the icon their devices start with (`driver.json` → `defaultIcon`), and
-the interface's own icons are lucide ids listed in `packages/ui/src/icons/ui-set.ts`, checked
-against this catalogue by test. **A new icon is an id here or a row in `registry.icons`, never a
+Bundles name an entry as the icon their devices start with (`driver.json` → `defaultIcon`) and
+as the icon each entity starts with (`profile.json` → an entity's `icon`); the interface's own
+icons are lucide ids listed in `packages/ui/src/icons/ui-set.ts`, checked against this
+catalogue by test. **A new icon is an id here or a row in `registry.icons`, never a
 component** ([RULES.md §15.4](../../../RULES.md#154-icons)).
 
 ## `parseIconSvg`
