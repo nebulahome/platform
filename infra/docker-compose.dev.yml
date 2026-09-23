@@ -10,6 +10,7 @@ services:
     # TimescaleDB rather than plain postgres: the history schema is built on hypertables and
     # continuous aggregates, so plain postgres cannot run the migrations at all.
     image: timescale/timescaledb:latest-pg16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: nebula
       POSTGRES_PASSWORD: nebula
@@ -26,6 +27,7 @@ services:
 
   nats:
     image: nats:2-alpine
+    restart: unless-stopped
     # -js enables JetStream, which the telemetry stream needs to survive a core restart.
     command: ['-js', '-m', '8222']
     ports:
@@ -43,6 +45,7 @@ services:
   # exactly the parts a fake would get wrong.
   mosquitto:
     image: eclipse-mosquitto:2
+    restart: unless-stopped
     command: ['mosquitto', '-c', '/mosquitto-no-auth.conf']
     ports:
       - '1883:1883'
