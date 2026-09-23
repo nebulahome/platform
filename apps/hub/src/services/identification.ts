@@ -104,6 +104,43 @@ async function delay(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+/** How many of a payload's top-level scalars a log line shows. */
+const SUMMARY_FIELDS = 12;
+
+/** How long a summarised string may be. */
+const SUMMARY_LENGTH = 64;
+
+/**
+ * The top-level scalars of what a device answered, for a log line.
+ *
+ * Not the payload: a status is kilobytes, and a log line is read by a person looking for the
+ * model string a claim compares against.
+ *
+ * @param payload - What the scan saw.
+ * @returns Up to a dozen top-level strings, numbers and booleans, strings cut short.
+ */
+function summarise(payload: unknown): Record<string, string | number | boolean> {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    return {};
+  }
+
+  const summary: Record<string, string | number | boolean> = {};
+
+  for (const [key, value] of Object.entries(payload)) {
+    if (Object.keys(summary).length >= SUMMARY_FIELDS) {
+      break;
+    }
+
+    if (typeof value === 'string') {
+      summary[key] = value.slice(0, SUMMARY_LENGTH);
+    } else if (typeof value === 'number' || typeof value === 'boolean') {
+      summary[key] = value;
+    }
+  }
+
+  return summary;
+}
+
 /**
  * Reads whether a search has been told to stop.
  *
@@ -159,6 +196,15 @@ export class IdentificationService {
       const claim = instance.integration.claim(found, instance.options);
 
       if (claim === null) {
+        logger.info(
+          {
+            instanceId: instance.instanceId,
+            deviceKey: found.deviceKey,
+            answered: summarise(found.payload),
+          },
+          'Heard from a device the driver did not claim',
+        );
+
         continue;
       }
 

@@ -25,7 +25,7 @@
  */
 import type { BusConnection } from '@nebula-home/bus';
 import { BusClient } from '@nebula-home/bus';
-import { NotFoundError, type ReloadReply } from '@nebula-home/contracts';
+import { NotFoundError, type ForgetReply, type ReloadReply } from '@nebula-home/contracts';
 import { secretsKeyFrom, type Database } from '@nebula-home/db';
 import type { PlatformLogger } from '@nebula-home/logging';
 import {
@@ -173,6 +173,15 @@ export class HubService {
        */
       reload: async (integrationId: string): Promise<ReloadReply> =>
         this.reloadInstance(integrationId),
+
+      /**
+       * Stops one instance and drops it.
+       *
+       * @param integrationId - Which instance.
+       * @returns Whether it was running.
+       */
+      forget: async (integrationId: string): Promise<ForgetReply> =>
+        this.forgetInstance(integrationId),
     });
   }
 
@@ -197,6 +206,7 @@ export class HubService {
     const bundles = await loadBundles({
       directory: config.HUB_BUNDLE_DIR,
       runtimeVersion: RUNTIME_VERSION,
+      logger,
     });
 
     for (const failure of bundles.failures) {
@@ -205,6 +215,12 @@ export class HubService {
 
     for (const vendor of bundles.vendors) {
       this.#vendors.set(vendor.manifest.id, vendor);
+
+      // A vendor's own transports first: its drivers name them, and a driver is only as
+      // loadable as the transport it opens.
+      for (const transport of vendor.ownTransports) {
+        this.#transports.register(transport);
+      }
 
       for (const driver of vendor.drivers) {
         this.#integrations.register(driver.integration);
@@ -279,6 +295,27 @@ export class HubService {
     await this.#startInstance(instance);
 
     return readStatus(this.#options.db, id);
+  }
+
+  /**
+   * Stops one instance and drops it, without reading the registry.
+   *
+   * What the API asks for just before `core` deletes the instance's rows: nothing is re-read,
+   * because there will be nothing to read, and nothing is started. The row is still there at
+   * this point, so the stop records `stopped` on it as usual; if the owner's delete then fails
+   * halfway, the row says exactly what is true, and a second delete asks this again to no
+   * effect. Asked for an instance that is not running - or was never loaded - it says so and
+   * does nothing, so the API's retry costs nothing.
+   *
+   * @param id - Which instance.
+   * @returns Whether there was anything running to stop.
+   */
+  public async forgetInstance(id: string): Promise<ForgetReply> {
+    const wasRunning = this.#running.has(id) || this.#listening.has(id);
+
+    await this.#stopInstance(id);
+
+    return { wasRunning };
   }
 
   /**

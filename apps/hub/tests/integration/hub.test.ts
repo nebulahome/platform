@@ -24,6 +24,8 @@ import {
   busSubjects,
   CORE_REGISTER_METHOD,
   CORE_SERVICE,
+  forgetReplySchema,
+  HUB_FORGET_METHOD,
   HUB_PROBE_METHOD,
   HUB_RELOAD_METHOD,
   HUB_SERVICE,
@@ -370,6 +372,47 @@ describe('matching an instance to its row on request', () => {
     }
   }, 30_000);
 
+  it('forgets a listening instance on request, and says so only the first time', async () => {
+    // What the API asks just before `core` deletes the rows. Unlike a reload nothing is read
+    // back and nothing is restarted: the instance goes quiet, the row records it, and asking
+    // again - a retried delete - finds nothing to stop and says so without complaint.
+    const { service, stop } = await startHub();
+    const caller = new BusClient({
+      transport: bus.transport,
+      source: 'api',
+      logger,
+      requestTimeoutMs: 15_000,
+    });
+
+    try {
+      await database.db
+        .update(schema.registry.integrations)
+        .set({ isEnabled: true })
+        .where(eq(schema.registry.integrations.id, printer));
+      await service.reloadInstance(printer);
+      expect(service.running.has(printer)).toBe(true);
+
+      const forgotten = await caller.request(
+        busSubjects.service(HUB_SERVICE, HUB_FORGET_METHOD),
+        { integrationId: printer },
+        forgetReplySchema,
+      );
+
+      expect(forgotten).toEqual({ wasRunning: true });
+      expect(service.running.has(printer)).toBe(false);
+      expect(await statusOf(printer)).toEqual({ state: 'stopped', lastError: null });
+
+      expect(await service.forgetInstance(printer)).toEqual({ wasRunning: false });
+      expect(await service.forgetInstance(`int-gone-${suffix}`)).toEqual({ wasRunning: false });
+    } finally {
+      await database.db
+        .update(schema.registry.integrations)
+        .set({ isEnabled: false })
+        .where(eq(schema.registry.integrations.id, printer));
+      await stop();
+    }
+  }, 30_000);
+
   it('listens for the printer, has core complete its row, and runs once it has answered', async () => {
     // The whole first start of a device: the API wrote the two rows, the instance comes up
     // listening, the printer announces itself on the broker, and `hub` asks `core` for the
@@ -390,7 +433,11 @@ describe('matching an instance to its row on request', () => {
       busSubjects.service(CORE_SERVICE, CORE_REGISTER_METHOD),
       registerDeviceRequestSchema,
       (request) => {
-        asked.push(request);
+        // Only this test's instance: a development `hub` running beside the suite completes its
+        // own devices on the same bus, and its requests reach this fake `core` too.
+        if (request.integrationId === printer) {
+          asked.push(request);
+        }
 
         return {
           deviceId: '3f2504e0-4f89-11d3-9a0c-0305e82c3301',

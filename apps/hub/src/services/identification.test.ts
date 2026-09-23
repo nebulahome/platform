@@ -1,3 +1,5 @@
+import { Writable } from 'node:stream';
+
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
@@ -26,7 +28,7 @@ import { IdentificationService, type IdentifiableInstance } from './identificati
 
 /** Two devices answering on the network: a printer that is not a relay, then the relay. */
 const FOUND: Discovered[] = [
-  { deviceKey: '192.168.1.41', payload: { device: { id: 'printer' } } },
+  { deviceKey: '192.168.1.41', payload: { model: 'printer-3000', device: { id: 'printer' } } },
   { deviceKey: '192.168.1.40', payload: { device: { id: 'relay-one' }, relay: {} } },
 ];
 
@@ -164,14 +166,34 @@ type Harness = {
  * @param options - Which knobs to turn.
  * @param options.expectedExternalId - What the row already says the device is.
  * @param options.coreIsAway - Whether `core` starts out not answering.
+ * @param options.lines - Where to keep what was logged at `info` and above, when a test reads it.
  * @returns The harness.
  */
 function harness(
   passes: readonly Pass[],
-  options: { expectedExternalId?: string; coreIsAway?: boolean } = {},
+  options: { expectedExternalId?: string; coreIsAway?: boolean; lines?: string[] } = {},
 ): Harness {
   const transport = new FakeTransport();
-  const logger = createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' });
+  const lines = options.lines;
+  const logger =
+    lines === undefined
+      ? createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' })
+      : createLogger(
+          { service: 'hub', version: '0.0.0', level: 'info' },
+          new Writable({
+            /**
+             * Keeps a record.
+             *
+             * @param chunk - The rendered record.
+             * @param encoding - Ignored.
+             * @param done - Called to accept the write.
+             */
+            write(chunk: Buffer, encoding, done): void {
+              lines.push(chunk.toString());
+              done();
+            },
+          }),
+        );
   const client = new BusClient({ transport, source: 'hub', logger, requestTimeoutMs: 100 });
   const core = new BusClient({ transport, source: 'core', logger, requestTimeoutMs: 100 });
 
@@ -274,6 +296,22 @@ describe('IdentificationService', () => {
     expect(registered[0]?.entities.map((entity) => entity.entityId)).toEqual(['switch.relay_lab']);
     expect([...(found?.binding.entities.values() ?? [])]).toEqual(['switch.relay_lab']);
     expect(found?.entityIds).toEqual(['switch.relay_lab']);
+    stop();
+  });
+
+  it('says what answered when the driver claims none of it', async () => {
+    // An instance that stays `identifying` gives an owner nothing to act on. The log names
+    // the address and what the device said of itself, which is where the profile's claim is
+    // compared against.
+    const lines: string[] = [];
+    const { identification, instance, stop } = harness([findsBoth()], { lines });
+
+    await identification.attempt(instance, new AbortController().signal);
+
+    const line = lines.find((each) => each.includes('did not claim'));
+
+    expect(line).toContain('192.168.1.41');
+    expect(line).toContain('printer-3000');
     stop();
   });
 

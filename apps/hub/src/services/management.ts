@@ -1,16 +1,17 @@
 /**
- * What the interface needs from `hub` to configure an instance: the catalogue, a probe and a
- * reload.
+ * What the interface needs from `hub` to configure an instance: the catalogue, a probe, a
+ * reload and a forget.
  *
- * Three questions, one bus subject each. *What can I install?* is answered from the bundles on
+ * Four questions, one bus subject each. *What can I install?* is answered from the bundles on
  * disk, with what each asks at setup, so the form is built from the bundle's own words and the
  * interface never reads a file. *Does this configuration work?* opens the transport once and
  * lets go, keeping nothing - the answer is a verdict and a sentence, because a configuration
  * that does not work is the expected outcome of trying one. *I saved it; match it* re-reads one
- * row of the registry and starts, restarts or stops the instance to fit.
+ * row of the registry and starts, restarts or stops the instance to fit. *I am deleting it;
+ * let go* stops the instance without reading anything, because the row is about to be gone.
  *
  * Nothing here touches the registry directly. The API owns writes, the service that runs
- * instances owns the reload, and this class only routes between the bus and the two.
+ * instances owns the reload and the forget, and this class only routes between the bus and it.
  */
 import { z } from 'zod';
 
@@ -18,7 +19,9 @@ import type { BusClient, BusSubscription } from '@nebula-home/bus';
 import {
   busSubjects,
   catalogueRequestSchema,
+  forgetRequestSchema,
   HUB_CATALOGUE_METHOD,
+  HUB_FORGET_METHOD,
   HUB_PROBE_METHOD,
   HUB_RELOAD_METHOD,
   HUB_SERVICE,
@@ -26,6 +29,8 @@ import {
   probeRequestSchema,
   reloadRequestSchema,
   type CatalogueReply,
+  type ForgetReply,
+  type ForgetRequest,
   type IntegrationKind,
   type IntegrationVendor,
   type ProbeReply,
@@ -67,6 +72,14 @@ export type ManagementServiceOptions = {
    * @returns Where it ended up.
    */
   readonly reload: (integrationId: string) => Promise<ReloadReply>;
+
+  /**
+   * Stops one instance and drops it, without reading the registry.
+   *
+   * @param integrationId - Which instance.
+   * @returns Whether it was running.
+   */
+  readonly forget: (integrationId: string) => Promise<ForgetReply>;
 };
 
 /**
@@ -125,7 +138,7 @@ function vendorOf(vendor: LoadedVendor): IntegrationVendor {
     ...(manifest.url === undefined ? {} : { url: manifest.url }),
     ...(manifest.color === undefined ? {} : { color: manifest.color }),
     ...(vendor.logo === undefined ? {} : { logo: vendor.logo }),
-    logoPadding: manifest.logoPadding,
+    logoPadding: manifest.logo?.padding ?? 0,
     internetRequired: manifest.internetRequired,
     transports: [...vendor.transports],
     setup: vendor.setup,
@@ -237,6 +250,20 @@ export class ManagementService {
          */
         async (request: ReloadRequest): Promise<ReloadReply> =>
           this.#options.reload(request.integrationId),
+      ),
+
+      client.serve(
+        busSubjects.service(HUB_SERVICE, HUB_FORGET_METHOD),
+        forgetRequestSchema,
+
+        /**
+         * Stops one instance and drops it.
+         *
+         * @param request - Which instance.
+         * @returns Whether it was running.
+         */
+        async (request: ForgetRequest): Promise<ForgetReply> =>
+          this.#options.forget(request.integrationId),
       ),
     ];
   }

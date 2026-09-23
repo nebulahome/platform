@@ -9,7 +9,7 @@ import {
   type Integration,
 } from '@nebula-home/package-runtime';
 
-import { DeviceBook } from './devices.js';
+import { DeviceBook, describeDevice } from './devices.js';
 
 const RELAY = parseEntityId('switch.relay_one');
 const OTHER = parseEntityId('switch.relay_two');
@@ -20,9 +20,10 @@ const OTHER = parseEntityId('switch.relay_two');
  * A profile rather than a hand-written double, so that these tests exercise the path a bundle
  * actually takes instead of a stand-in that agrees with them by construction.
  *
+ * @param icon - The catalogue icon the entity starts with, when a test wants one.
  * @returns The integration.
  */
-function relay(): Integration {
+function relay(icon?: string): Integration {
   return createDeclarativeIntegration(
     bundleManifestSchema.parse({
       id: 'generic/rest-relay',
@@ -43,6 +44,7 @@ function relay(): Integration {
       entities: [
         {
           domain: 'switch',
+          ...(icon === undefined ? {} : { icon }),
           capabilities: { on_off: {} },
           state: { on_off: { isOn: 'relay.on' } },
           commands: { 'on_off.turn_on': { op: 'get', args: { path: '/relay/on' } } },
@@ -85,6 +87,23 @@ function book(second = false): DeviceBook {
 
   return bound;
 }
+
+describe('describeDevice', () => {
+  it('registers an entity with the icon its profile starts it with', () => {
+    // The icon rides the registration to `core` like the name does; a profile that names
+    // none leaves the key out, so `core` writes nothing rather than an empty string.
+    const iconed = describeDevice(
+      'relay_one',
+      relay('relay'),
+      claim('192.168.1.40', 'relay-one'),
+      {},
+    );
+    const bare = describeDevice('relay_one', relay(), claim('192.168.1.40', 'relay-one'), {});
+
+    expect(iconed.registrations[0]?.icon).toBe('relay');
+    expect(bare.registrations[0] !== undefined && 'icon' in bare.registrations[0]).toBe(false);
+  });
+});
 
 describe('DeviceBook', () => {
   it('maps a message onto the entity of the device it came from', () => {

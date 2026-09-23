@@ -25,6 +25,7 @@ import { pathToFileURL } from 'node:url';
 import { satisfies } from 'semver';
 
 import { integrationSetupSchema, type IntegrationSetup } from '@nebula-home/contracts';
+import { createLogger, type PlatformLogger } from '@nebula-home/logging';
 import {
   createDeclarativeIntegration,
   driverManifestSchema,
@@ -33,8 +34,12 @@ import {
   vendorManifestSchema,
   type BundleManifest,
   type Integration,
+  type Transport,
+  type TransportFactory,
   type VendorManifest,
 } from '@nebula-home/package-runtime';
+
+import { createBundleSdk } from './bundle-sdk.js';
 
 /** The file every vendor is recognised by. */
 const MANIFEST_FILE = 'manifest.json';
@@ -94,6 +99,9 @@ export type LoadedVendor = {
   /** Every transport one of its drivers speaks, each once, in the drivers' order. */
   readonly transports: readonly string[];
 
+  /** The transports the vendor ships itself, ready to register: `shelly/rpc`. */
+  readonly ownTransports: readonly Transport[];
+
   readonly drivers: readonly LoadedBundle[];
 
   /** Where it was read from, for a message that has to name it. */
@@ -134,6 +142,19 @@ export type LoadBundlesOptions = {
    * @returns Nothing, or a promise that settles, when it may be loaded.
    */
   readonly verify?: (manifest: BundleManifest, directory: string) => void | Promise<void>;
+
+  /**
+   * Decides whether a vendor's own transports may be loaded at all: they are code, and sit
+   * at the tier a code driver does. Absent means anything found locally is loaded.
+   *
+   * @param vendor - What the vendor says about itself.
+   * @param directory - Where it was read from.
+   * @returns Nothing, or a promise that settles, when they may be loaded.
+   */
+  readonly verifyVendor?: (vendor: VendorManifest, directory: string) => void | Promise<void>;
+
+  /** Where bundle code may log. A silent logger when the caller has none, as in tests. */
+  readonly logger?: PlatformLogger;
 };
 
 /**
@@ -213,6 +234,13 @@ async function loadDriver(
   }
 
   const manifest = resolveManifest(vendor, driver);
+  const ownName = manifest.transport.startsWith(`${vendor.id}/`)
+    ? manifest.transport.slice(vendor.id.length + 1)
+    : null;
+
+  if (ownName !== null && !(ownName in vendor.transports)) {
+    throw new Error(`${manifest.id} names ${manifest.transport}, which the vendor does not ship`);
+  }
 
   await options.verify?.(manifest, directory);
 
@@ -274,13 +302,66 @@ async function loadIfDriver(
 }
 
 /**
+ * Loads the transports a vendor ships, each from its module, each checked to call itself
+ * what the vendor's manifest calls it.
+ *
+ * @param vendor - The vendor's manifest.
+ * @param directory - The vendor's directory.
+ * @param options - The runtime version, the logger and how to verify.
+ * @returns The transports, registered under `<vendor>/<name>`.
+ * @throws {Error} When a module is missing, exports no factory, or names itself otherwise.
+ */
+async function loadVendorTransports(
+  vendor: VendorManifest,
+  directory: string,
+  options: LoadBundlesOptions,
+): Promise<Transport[]> {
+  const entries = Object.entries(vendor.transports);
+
+  if (entries.length === 0) {
+    return [];
+  }
+
+  await options.verifyVendor?.(vendor, directory);
+
+  const sdk = createBundleSdk({
+    version: options.runtimeVersion,
+    logger:
+      options.logger ??
+      createLogger({ service: 'hub', version: options.runtimeVersion, level: 'fatal' }),
+  });
+
+  return Promise.all(
+    entries.map(async ([name, file]) => {
+      const module: unknown = await import(pathToFileURL(path.join(directory, file)).href);
+      const factory = (module as { readonly default?: unknown }).default;
+
+      if (typeof factory !== 'function') {
+        throw new Error(`${vendor.id} transport ${name} does not default-export a factory`);
+      }
+
+      const transport = (factory as TransportFactory)(sdk);
+      const expected = `${vendor.id}/${name}`;
+
+      if (transport.id !== expected) {
+        throw new Error(
+          `The transport ${vendor.id} ships as ${name} calls itself ${transport.id}; it must be ${expected}`,
+        );
+      }
+
+      return transport;
+    }),
+  );
+}
+
+/**
  * Turns one vendor directory into a vendor with its drivers.
  *
  * @param directory - The vendor.
  * @param options - The runtime version to check against, and how to verify.
  * @returns The vendor, when at least one driver loaded, and every driver failure.
  * @throws {Error} When the vendor itself is malformed: its manifest, its logo, its setup, its
- * runtime range, or a directory with no driver in it.
+ * runtime range, its own transports, or a directory with no driver in it.
  */
 async function loadVendor(
   directory: string,
@@ -302,11 +383,15 @@ async function loadVendor(
     );
   }
 
+  // Before the drivers: a driver is only as loadable as the transport it opens, and a vendor
+  // whose transport is broken has nothing to offer.
+  const ownTransports = await loadVendorTransports(manifest, directory, options);
   const setup =
     manifest.setup === undefined
       ? NO_SETUP
       : integrationSetupSchema.parse(await readJson(directory, manifest.setup));
-  const logo = manifest.logo === undefined ? undefined : await readLogo(directory, manifest.logo);
+  const logo =
+    manifest.logo === undefined ? undefined : await readLogo(directory, manifest.logo.path);
 
   const results = await Promise.all(
     (await subdirectories(directory)).map(async (name) =>
@@ -336,6 +421,7 @@ async function loadVendor(
       setup,
       ...(logo === undefined ? {} : { logo }),
       transports: [...new Set(drivers.map((driver) => driver.manifest.transport))],
+      ownTransports,
       drivers,
       directory,
     },

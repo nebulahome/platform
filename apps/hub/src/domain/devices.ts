@@ -81,6 +81,7 @@ export function describeDevice(
     registrations: entities.map(({ entity, entityId }) => ({
       entityId,
       name: entity.name,
+      ...(entity.icon === undefined ? {} : { icon: entity.icon }),
       capabilities: entity.capabilities,
       ...(entity.unitOfMeasurement === undefined
         ? {}

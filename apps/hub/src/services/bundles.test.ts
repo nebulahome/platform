@@ -53,6 +53,20 @@ const SETUP = {
 /** A one-pixel SVG, as a logo. */
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>';
 
+/** A transport module of the vendor's own: the smallest factory the contract allows. */
+const TRANSPORT_MODULE = `
+export default function wire(sdk) {
+  return sdk.defineTransport({
+    id: 'generic/wire',
+    configSchema: sdk.z.object({ host: sdk.z.string() }),
+    connectionKey: (config) => config.host,
+    connect: () => Promise.reject(new Error('unused')),
+    scan: async function* scan() {},
+    probe: () => Promise.resolve(sdk.version),
+  });
+}
+`;
+
 /**
  * Writes files into one directory under the temporary root.
  *
@@ -210,6 +224,20 @@ describe('loadBundles', () => {
     );
   });
 
+  it('reads a logo named with the room to leave around it', async () => {
+    await writeRelay({
+      'manifest.json': { ...VENDOR, logo: { path: './logo.svg', padding: 6 } },
+      'logo.svg': SVG,
+    });
+
+    const { vendors } = await loadBundles({ directory: root, runtimeVersion: '1.0.0' });
+
+    expect(vendors[0]?.logo).toBe(
+      `data:image/svg+xml;base64,${Buffer.from(SVG, 'utf8').toString('base64')}`,
+    );
+    expect(vendors[0]?.manifest.logo?.padding).toBe(6);
+  });
+
   it('refuses a logo the catalogue could not carry', async () => {
     // The logo rides inside every catalogue reply. One that is too large would slow every
     // page that lists vendors, and a bundle finds that out at startup rather than an owner
@@ -363,5 +391,78 @@ describe('loadBundles', () => {
     });
 
     expect([vendors.length, loaded.length, failures.length]).toEqual([1, 1, 0]);
+  });
+
+  it('loads a transport the vendor ships and names it after the vendor', async () => {
+    await writeRelay(
+      {
+        'manifest.json': { ...VENDOR, transports: { wire: './wire.js' } },
+        'wire.js': TRANSPORT_MODULE,
+      },
+      { 'driver.json': { ...DRIVER, transport: 'generic/wire' } },
+    );
+
+    const { vendors, failures } = await loadBundles({ directory: root, runtimeVersion: '1.0.0' });
+
+    expect(failures).toEqual([]);
+    expect(vendors[0]?.ownTransports.map((transport) => transport.id)).toEqual(['generic/wire']);
+    // The factory was handed the runtime version, which is what the probe answers with.
+    await expect(
+      vendors[0]?.ownTransports[0]?.probe({ host: 'x' }, new AbortController().signal),
+    ).resolves.toBe('1.0.0');
+    expect(vendors[0]?.transports).toEqual(['generic/wire']);
+  });
+
+  it('fails the whole vendor when a transport of its own calls itself something else', async () => {
+    // Its drivers would name a transport that was never registered, so none of them could
+    // run; better one failure naming the two ids than a vendor with drivers that cannot start.
+    await writeRelay({
+      'manifest.json': { ...VENDOR, transports: { rpc: './wire.js' } },
+      'wire.js': TRANSPORT_MODULE,
+    });
+
+    const { vendors, failures } = await loadBundles({ directory: root, runtimeVersion: '1.0.0' });
+
+    expect(vendors).toEqual([]);
+    expect(failures[0]?.message).toMatch(/calls itself generic\/wire; it must be generic\/rpc/);
+  });
+
+  it('fails the vendor when a transport module does not export a factory', async () => {
+    await writeRelay({
+      'manifest.json': { ...VENDOR, transports: { wire: './wire.js' } },
+      'wire.js': 'export const nothing = 1;',
+    });
+
+    const { failures } = await loadBundles({ directory: root, runtimeVersion: '1.0.0' });
+
+    expect(failures[0]?.message).toMatch(/does not default-export a factory/);
+  });
+
+  it('refuses a driver that names a transport its vendor does not ship', async () => {
+    await writeRelay({}, { 'driver.json': { ...DRIVER, transport: 'generic/wire' } });
+
+    const { failures } = await loadBundles({ directory: root, runtimeVersion: '1.0.0' });
+
+    expect(failures[0]?.message).toMatch(/names generic\/wire, which the vendor does not ship/);
+  });
+
+  it('asks before loading code, when told to ask', async () => {
+    await writeRelay({
+      'manifest.json': { ...VENDOR, transports: { wire: './wire.js' } },
+      'wire.js': TRANSPORT_MODULE,
+    });
+    const asked: string[] = [];
+
+    const { vendors } = await loadBundles({
+      directory: root,
+      runtimeVersion: '1.0.0',
+      verifyVendor: (vendor) => {
+        asked.push(vendor.id);
+        throw new Error('not reviewed');
+      },
+    });
+
+    expect(asked).toEqual(['generic']);
+    expect(vendors).toEqual([]);
   });
 });

@@ -6,7 +6,9 @@ import { FakeTransport } from '@nebula-home/bus/testing';
 import {
   busSubjects,
   catalogueReplySchema,
+  forgetReplySchema,
   HUB_CATALOGUE_METHOD,
+  HUB_FORGET_METHOD,
   HUB_PROBE_METHOD,
   HUB_RELOAD_METHOD,
   HUB_SERVICE,
@@ -14,6 +16,7 @@ import {
   NotFoundError,
   probeReplySchema,
   reloadReplySchema,
+  type ForgetReply,
   type ReloadReply,
 } from '@nebula-home/contracts';
 import { sealSecrets, secretsKeyFrom } from '@nebula-home/db';
@@ -131,8 +134,9 @@ function printerVendor(): LoadedVendor {
       description: 'A printer that is not there',
       url: 'https://acme.example',
       color: '#FF6A2B',
-      logoPadding: 4,
+      logo: { path: './logo.svg', padding: 4 },
       internetRequired: true,
+      transports: {},
     },
     setup: integrationSetupSchema.parse({
       transport: {
@@ -141,6 +145,7 @@ function printerVendor(): LoadedVendor {
     }),
     logo: 'data:image/svg+xml;base64,PHN2Zy8+',
     transports: ['fake'],
+    ownTransports: [],
     drivers: [driver],
     directory: '/bundles/acme',
   };
@@ -151,6 +156,7 @@ type Harness = {
   readonly caller: BusClient;
   readonly probed: unknown[];
   readonly reloaded: string[];
+  readonly forgotten: string[];
   readonly stop: () => void;
 };
 
@@ -171,6 +177,7 @@ function harness(outcome: () => Promise<string> = () => Promise.resolve('fake an
   transports.register(fakeTransport(probed, outcome));
 
   const reloaded: string[] = [];
+  const forgotten: string[] = [];
   const service = new ManagementService({
     client,
     transports,
@@ -182,6 +189,11 @@ function harness(outcome: () => Promise<string> = () => Promise.resolve('fake an
 
       return Promise.resolve({ state: 'running', lastError: null });
     },
+    forget: (integrationId): Promise<ForgetReply> => {
+      forgotten.push(integrationId);
+
+      return Promise.resolve({ wasRunning: true });
+    },
   });
   const subscriptions = service.serve();
 
@@ -189,6 +201,7 @@ function harness(outcome: () => Promise<string> = () => Promise.resolve('fake an
     caller,
     probed,
     reloaded,
+    forgotten,
     stop: (): void => {
       for (const subscription of subscriptions) {
         subscription.unsubscribe();
@@ -324,6 +337,35 @@ describe('reloading an instance', () => {
 
     expect(reply).toEqual({ state: 'running', lastError: null });
     expect(reloaded).toEqual(['printer-lab']);
+    stop();
+  });
+});
+
+describe('forgetting an instance', () => {
+  it('asks the service to stop it and drop it, and says whether it was running', async () => {
+    // The API asks this just before `core` deletes the rows, so the request names the instance
+    // and nothing else: there is no row to re-read, and there will not be one.
+    const { caller, forgotten, reloaded, stop } = harness();
+
+    const reply = await caller.request(
+      busSubjects.service(HUB_SERVICE, HUB_FORGET_METHOD),
+      { integrationId: 'printer-lab' },
+      forgetReplySchema,
+    );
+
+    expect(reply).toEqual({ wasRunning: true });
+    expect(forgotten).toEqual(['printer-lab']);
+    expect(reloaded).toEqual([]);
+    stop();
+  });
+
+  it('refuses a request that does not name an instance', async () => {
+    const { caller, forgotten, stop } = harness();
+
+    await expect(
+      caller.request(busSubjects.service(HUB_SERVICE, HUB_FORGET_METHOD), {}, forgetReplySchema),
+    ).rejects.toThrow(/does not match its schema/u);
+    expect(forgotten).toEqual([]);
     stop();
   });
 });
