@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { absoluteTime, durationInDays, relativeTime } from '@/lib/format-time';
+import { absoluteTime, durationInDays, durationText, relativeTime } from '@/lib/format-time';
 
 /** A fixed moment to measure everything against. */
 const NOW = new Date('2026-09-05T12:00:00.000Z');
@@ -72,5 +72,15 @@ describe('durationInDays', () => {
     [1825, '5 years'],
   ])('calls %j %j', (days, expected) => {
     expect(durationInDays(days)).toBe(expected);
+  });
+});
+
+describe('durationText', () => {
+  it('names the two largest units that matter', () => {
+    expect(durationText(30_000)).toBe('under a minute');
+    expect(durationText(45 * 60_000)).toBe('45 min');
+    expect(durationText(200 * 60_000)).toBe('3 h 20 min');
+    expect(durationText(3 * 3_600_000)).toBe('3 h');
+    expect(durationText(52 * 3_600_000)).toBe('2 d 4 h');
   });
 });

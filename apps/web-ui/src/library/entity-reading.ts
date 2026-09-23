@@ -21,6 +21,7 @@ import {
   type JsonObject,
 } from '@nebula-home/contracts';
 
+import { miredsToKelvin } from '@/library/entity-control';
 import type { LiveReading } from '@/live/live-store';
 
 /** A catalogue numeric reading, split so a row can draw the figure and the unit apart. */
@@ -216,7 +217,7 @@ export function describeState(
   }
 
   if (value.color_temp !== undefined) {
-    parts.push(`${numbers.format(value.color_temp.mireds)} mired`);
+    parts.push(`${String(miredsToKelvin(value.color_temp.mireds))} K`);
   }
 
   if (value.color_hs !== undefined) {

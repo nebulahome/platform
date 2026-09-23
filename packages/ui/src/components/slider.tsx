@@ -50,9 +50,12 @@ export type SliderProps = {
   /**
    * A whole scale for the groove, as a CSS gradient running left to right.
    *
-   * Absent, the groove fills in the accent up to the knob.
+   * Absent, the groove fills up to the knob.
    */
   readonly gradient?: string | undefined;
+
+  /** What the filled part of the groove is drawn in: the accent, or warm for a light's level. */
+  readonly fill?: 'accent' | 'warm';
 
   /** Whether it can be moved at all. */
   readonly disabled?: boolean;
@@ -95,6 +98,7 @@ export function Slider(props: SliderProps) {
     onChange,
     onCommit,
     gradient,
+    fill = 'accent',
     disabled = false,
     className,
   } = props;
@@ -128,6 +132,7 @@ export function Slider(props: SliderProps) {
   // a computed gradient for a colour picker, as the exception to inline styles.
   const groove: CSSProperties & Record<`--${string}`, string> = {
     '--slider-at': `${String(sliderPercent(value, min, max))}%`,
+    ...(fill === 'warm' ? { '--slider-fill': 'var(--color-tag-amber)' } : {}),
     ...(gradient === undefined ? {} : { '--slider-track': gradient }),
   };
 

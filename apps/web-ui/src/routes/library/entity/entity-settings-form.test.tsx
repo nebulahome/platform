@@ -1,8 +1,8 @@
 /**
- * The entity dialog: what it shows of the entity, and what it sends when saved.
+ * An entity's settings: what they show of the entity, and what they send when saved.
  *
- * The API is stood in for; the interest is in the diff the dialog sends - only what changed,
- * and nothing at all when nothing did - and in the address being shown but never edited.
+ * The API is stood in for; the interest is in the diff the form sends - only what changed, and
+ * nothing at all when nothing did - and in the address never being offered for editing.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -12,7 +12,7 @@ import { entityIdSchema, type EntityView, type TagView } from '@nebula-home/cont
 
 import { fetchIcons, fetchTags, updateEntity } from '@/library/api';
 
-import { EntityDialog } from './entity-dialog';
+import { EntitySettingsForm } from './entity-settings-form';
 
 vi.mock('@/library/api', () => ({
   fetchIcons: vi.fn(),
@@ -61,21 +61,16 @@ const RELAY: EntityView = {
 };
 
 /**
- * Renders the dialog for the relay.
+ * Renders the settings of the relay.
  *
- * @returns The callbacks it was given.
+ * @param canEdit - Whether the person may change them.
  */
-function renderDialog() {
-  const onSaved = vi.fn();
-  const onClose = vi.fn();
-
+function renderForm(canEdit = true): void {
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <EntityDialog entity={RELAY} canCreateTags onClose={onClose} onSaved={onSaved} />
+      <EntitySettingsForm entity={RELAY} canCreateTags canEdit={canEdit} />
     </QueryClientProvider>,
   );
-
-  return { onSaved, onClose };
 }
 
 beforeAll(() => {
@@ -87,34 +82,33 @@ beforeEach(() => {
   vi.mocked(updateEntity).mockClear();
 });
 
-describe('EntityDialog', () => {
-  it('shows the address as a fact, and the name as the thing to change', () => {
-    renderDialog();
+describe('EntitySettingsForm', () => {
+  it('offers the name to change, and never the address', () => {
+    renderForm();
 
-    expect(screen.getByText('switch.shelly_bench_switch')).toBeTruthy();
     expect(screen.getByLabelText<HTMLInputElement>('Name').value).toBe('Switch');
     expect(screen.queryByLabelText('Id')).toBeNull();
-    // The address on its own says what it is; a sentence explaining that it does not change
-    // was read every time and needed once.
-    expect(screen.queryByText(/The address never changes/u)).toBeNull();
+    expect(screen.queryByDisplayValue('switch.shelly_bench_switch')).toBeNull();
   });
 
-  it('closes without asking the server when nothing changed', () => {
-    const { onClose, onSaved } = renderDialog();
+  it('asks the server for nothing while nothing has changed', () => {
+    renderForm();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    const save = screen.getByRole('button', { name: 'Save' });
 
+    expect(save).toHaveProperty('disabled', true);
+    fireEvent.click(save);
     expect(updateEntity).not.toHaveBeenCalled();
-    expect(onClose).toHaveBeenCalledOnce();
-    expect(onSaved).not.toHaveBeenCalled();
   });
 
-  it('sends only what changed, and hands back what came back', async () => {
-    const saved = { ...RELAY, name: 'Bench relay', tagIds: [EXTERIOR.id] };
+  it('sends only what changed', async () => {
+    vi.mocked(updateEntity).mockResolvedValue({
+      ...RELAY,
+      name: 'Bench relay',
+      tagIds: [EXTERIOR.id],
+    });
 
-    vi.mocked(updateEntity).mockResolvedValue(saved);
-
-    const { onSaved } = renderDialog();
+    renderForm();
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Bench relay' } });
 
@@ -129,17 +123,23 @@ describe('EntityDialog', () => {
         name: 'Bench relay',
         tagIds: [EXTERIOR.id],
       });
-      expect(onSaved).toHaveBeenCalledWith(saved);
     });
   });
 
   it('refuses to save a blank name', () => {
-    renderDialog();
+    renderForm();
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: '   ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(updateEntity).not.toHaveBeenCalled();
     expect(screen.getByRole('alert').textContent).toMatch(/name/iu);
+  });
+
+  it('shows the settings without a way to save them to someone who may not change them', () => {
+    renderForm(false);
+
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(screen.getByLabelText('Name').matches(':disabled')).toBe(true);
   });
 });

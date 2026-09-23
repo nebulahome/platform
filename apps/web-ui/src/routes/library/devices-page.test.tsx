@@ -238,17 +238,20 @@ describe('DevicesPage', () => {
     expect(row.textContent).not.toContain('Silent');
   });
 
-  it('opens to the entities, each by name, with its tags, its capability and its reading', async () => {
+  it('opens to the entities, each by name, with what it is in words, its tags and its reading', async () => {
     renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: /Workshop printer/u }));
 
     // The address is what automations name an entity by, not what a person recognises it by:
-    // it is kept for the search and the dialog, and no longer printed on the row.
+    // it is kept for the search and the entity's page, and no longer printed on the row.
     expect(screen.queryByText(NOZZLE_ID)).toBeNull();
     expect(screen.getByText('Nozzle temperature').getAttribute('title')).toBe(NOZZLE_ID);
-    expect(screen.getByText('Temperature')).toBeTruthy();
+    // What it is, in words - never the capabilities it declares.
+    expect(screen.getByText('Temperature sensor')).toBeTruthy();
+    expect(screen.getByText('Light')).toBeTruthy();
     expect(screen.queryByText('sensor_numeric')).toBeNull();
+    expect(screen.queryByText('on_off')).toBeNull();
     expect(screen.getAllByTitle('Never reported')).toHaveLength(2);
 
     await waitFor(() => {
@@ -256,7 +259,7 @@ describe('DevicesPage', () => {
     });
   });
 
-  it('draws a tag on an entity by the icon the tag was given', async () => {
+  it('names a tag on an entity under its name, drawn by the icon the tag was given', async () => {
     vi.mocked(fetchTags).mockResolvedValue([{ ...EXTERIOR, icon: 'sun' }]);
     vi.mocked(fetchIcons).mockImplementation((request) =>
       Promise.resolve(
@@ -283,27 +286,40 @@ describe('DevicesPage', () => {
       expect(screen.getByTitle('Exterior').querySelector('svg rect')).toBeTruthy();
     });
 
-    // Beside the name, on the left, as part of what the entity is called - not off to the
-    // right with what it can do. And glyph-only there: a row has room for several glyphs.
+    // Under the name, beside what the entity is, with its name showing: a chip that opened under
+    // the pointer moved the reading beside it every time a hand crossed the list.
     const chip = screen.getByTitle('Exterior');
-    const name = screen.getByText('Nozzle temperature');
 
-    expect(chip.parentElement).toBe(name.parentElement);
-    expect(chip.className).toContain('group');
-    expect(chip.querySelector('[class*="group-hover"]')).toBeTruthy();
+    expect(chip.parentElement).toBe(screen.getByText('Temperature sensor').parentElement);
+    expect(chip.textContent).toContain('Exterior');
+    expect(chip.querySelector('[class*="group-hover"]')).toBeNull();
   });
 
-  it('opens an entity for configuring from the spanner on its row', async () => {
+  it('leads from each entity to its own page, and from the spanner to its settings', async () => {
     renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: /Workshop printer/u }));
-    fireEvent.click(screen.getByRole('button', { name: 'Configure Nozzle temperature' }));
 
-    const dialog = screen.getByRole('dialog');
+    expect(screen.getByRole('link', { name: 'Nozzle temperature' }).getAttribute('href')).toBe(
+      `/devices/entities/${encodeURIComponent(NOZZLE_ID)}`,
+    );
+    expect(
+      screen.getByRole('link', { name: 'Configure Nozzle temperature' }).getAttribute('href'),
+    ).toBe(`/devices/entities/${encodeURIComponent(NOZZLE_ID)}?tab=settings`);
+  });
 
-    expect(dialog.textContent).toContain('Configure Nozzle temperature');
-    expect(dialog.textContent).toContain(NOZZLE_ID);
-    expect(screen.getByLabelText<HTMLInputElement>('Name').value).toBe('Nozzle temperature');
+  it('offers a switch on what can be switched, and holds it to the role', async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Workshop printer/u }));
+
+    // The owner here holds entity:write but not entity:control: the switch is there and says
+    // what the light is doing, and it cannot be pressed.
+    const power = screen.getByRole('switch', { name: 'Chamber light' });
+
+    expect(power.getAttribute('aria-checked')).toBe('false');
+    expect(power).toHaveProperty('disabled', true);
+    expect(screen.queryByRole('switch', { name: 'Nozzle temperature' })).toBeNull();
   });
 
   it('shows what the channel delivers, and turns the device to reporting', async () => {

@@ -26,12 +26,13 @@ import { Badge, Button, TextField } from '@nebula-home/ui';
 import { useSession } from '@/auth/session-store';
 import { fetchDevices, fetchEntities, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { matchesFilter, OPEN_FILTER, type DeviceFilter } from '@/library/device-filters';
+import { capabilityStateOf, entityScopesOf, isCommandable } from '@/library/entity-control';
 import { readingOf, standingOf, type DeviceStanding } from '@/library/entity-reading';
 import { useLive } from '@/live/live-store';
 import { DeviceFilterButton } from '@/routes/library/device-filter';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
-import { DEVICE_COLUMNS, DeviceRow, type EntityLine } from '@/routes/library/device-row';
-import { EntityDialog } from '@/routes/library/entity-dialog';
+import { DEVICE_COLUMNS, DeviceRow } from '@/routes/library/device-row';
+import type { EntityLine } from '@/routes/library/entity-row';
 import { LibraryPage } from '@/routes/library/library-page';
 import { useTags } from '@/routes/library/use-tags';
 
@@ -77,9 +78,7 @@ export function DevicesPage() {
   const liveStatus = useLive((state) => state.status);
   const can = useSession((state) => state.can);
   const canEditEntities = can('entity:write');
-  const canCreateTags = can('tag:write');
   const { tags } = useTags();
-  const [editing, setEditing] = useState<EntityView | null>(null);
   const [params, setParams] = useSearchParams();
   const linkedDeviceId = params.get(DEVICE_PARAM) ?? '';
   const [filter, setFilter] = useState<DeviceFilter>(OPEN_FILTER);
@@ -169,16 +168,25 @@ export function DevicesPage() {
   ]);
   const effectiveFilter: DeviceFilter = { ...filter, deviceId: linkedDeviceId };
   const all: DeviceLine[] = (devices.data ?? []).map((device) => {
-    const lines: EntityLine[] = (groups.get(device.id) ?? []).map((entity) => ({
-      entity,
-      reading: readingOf(entity, readings[entity.entityId]),
-      icon: entity.icon === null ? undefined : icons.get(entity.icon),
-      tags: entity.tagIds.flatMap((id) => {
-        const tag = tagsById.get(id);
+    const lines: EntityLine[] = (groups.get(device.id) ?? []).map((entity) => {
+      const live = readings[entity.entityId];
 
-        return tag === undefined ? [] : [{ tag, icon: icons.get(tag.icon ?? '') }];
-      }),
-    }));
+      return {
+        entity,
+        reading: readingOf(entity, live),
+        state: capabilityStateOf(entity, live),
+        reportedAt: live?.receivedAt ?? entity.lastUpdated?.getTime() ?? null,
+        icon: entity.icon === null ? undefined : icons.get(entity.icon),
+        tags: entity.tagIds.flatMap((id) => {
+          const tag = tagsById.get(id);
+
+          return tag === undefined ? [] : [{ tag, icon: icons.get(tag.icon ?? '') }];
+        }),
+        canControl:
+          isCommandable(entity) &&
+          can('entity:control', entityScopesOf(entity, tags, device.tagIds)),
+      };
+    });
 
     return {
       device,
@@ -338,26 +346,11 @@ export function DevicesPage() {
                 }}
                 now={now}
                 canEditEntities={canEditEntities}
-                onEditEntity={setEditing}
               />
             ))}
           </ul>
         )}
       </div>
-
-      <EntityDialog
-        // Keyed on the entity, so the dialog is a fresh one each time it opens and its fields
-        // start from what the row holds rather than from what the last one held.
-        key={editing?.entityId ?? 'entity-shut'}
-        entity={editing}
-        canCreateTags={canCreateTags}
-        onClose={() => {
-          setEditing(null);
-        }}
-        onSaved={() => {
-          setEditing(null);
-        }}
-      />
     </LibraryPage>
   );
 }

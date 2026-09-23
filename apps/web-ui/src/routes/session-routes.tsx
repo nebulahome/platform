@@ -34,6 +34,7 @@ import { AreasPage } from '@/routes/library/areas-page';
 import { AutomationEditor } from '@/routes/library/automation-editor';
 import { AutomationsPage } from '@/routes/library/automations-page';
 import { DevicesPage } from '@/routes/library/devices-page';
+import { EntityPage } from '@/routes/library/entity/entity-page';
 import { IntegrationsPage } from '@/routes/library/integrations-page';
 import { PackagesPage } from '@/routes/library/packages-page';
 import { ScenesPage } from '@/routes/library/scenes-page';
@@ -219,6 +220,7 @@ export function SessionRoutes() {
         <Route path="/automations/:automationId" element={<AutomationEditor />} />
         <Route path="/scenes" element={<ScenesPage />} />
         <Route path="/devices" element={<DevicesPage />} />
+        <Route path="/devices/entities/:entityId" element={<EntityPage />} />
         <Route path="/aliases" element={<AliasesPage />} />
         <Route path="/aliases/new" element={<AliasEditor />} />
         <Route path="/aliases/:aliasId" element={<AliasEditor />} />

@@ -78,3 +78,31 @@ export function durationInDays(days: number | null): string {
 
   return days === 1 ? '1 day' : `${String(days)} days`;
 }
+
+/**
+ * Says how long a stretch of time lasted, to the two largest units that matter.
+ *
+ * @param ms - The length, in milliseconds.
+ * @returns A phrase such as `3 h 20 min`, `2 d 4 h`, `45 min`, or `under a minute`.
+ */
+export function durationText(ms: number): string {
+  const minutes = Math.floor(ms / 60_000);
+
+  if (minutes < 1) {
+    return 'under a minute';
+  }
+
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  const rest = minutes % 60;
+
+  if (days > 0) {
+    return hours > 0 ? `${String(days)} d ${String(hours)} h` : `${String(days)} d`;
+  }
+
+  if (hours > 0) {
+    return rest > 0 ? `${String(hours)} h ${String(rest)} min` : `${String(hours)} h`;
+  }
+
+  return `${String(rest)} min`;
+}
