@@ -1,0 +1,44 @@
+{
+  "discovery": {
+    "probe": { "op": "get", "args": { "path": "/" } },
+    "claim": [
+      { "path": "manufacturer", "equals": "Nanoleaf" },
+      { "path": "serialNo", "exists": true }
+    ],
+    "identity": {
+      "externalId": "serialNo",
+      "name": "name",
+      "model": "model",
+      "swVersion": "firmwareVersion"
+    }
+  },
+  "subscriptions": [{ "op": "poll", "args": { "path": "/state", "everyMs": 5000 } }],
+  "entities": [
+    {
+      "domain": "light",
+      "icon": "light",
+      "capabilities": { "on_off": {}, "level": {} },
+      "state": {
+        "on_off": { "isOn": "on.value" },
+        "level": { "level": "brightness.value" }
+      },
+      "commands": {
+        "on_off.turn_on": {
+          "op": "put",
+          "args": { "path": "/state", "body": { "on": { "value": true } } }
+        },
+        "on_off.turn_off": {
+          "op": "put",
+          "args": { "path": "/state", "body": { "on": { "value": false } } }
+        },
+        "level.set_level": {
+          "op": "put",
+          "args": {
+            "path": "/state",
+            "body": { "brightness": { "value": { "$": "command.level" } } }
+          }
+        }
+      }
+    }
+  ]
+}

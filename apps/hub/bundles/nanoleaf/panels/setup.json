@@ -1,0 +1,24 @@
+{
+  "transport": {
+    "constants": { "pathPrefix": "/api/v1/{token}" },
+    "fields": [
+      {
+        "key": "host",
+        "type": "text",
+        "label": "Address",
+        "help": "The controller on the network, with the OpenAPI's port - 16021.",
+        "placeholder": "192.168.1.60:16021",
+        "isRequired": true,
+        "pattern": "^[A-Za-z0-9.-]+(:[0-9]{1,5})?$",
+        "patternMessage": "An IP or host name, with :port - no http:// and no path."
+      },
+      {
+        "key": "token",
+        "type": "secret",
+        "label": "Token",
+        "help": "Hold the controller's power button for 5 to 7 seconds until its lights flash, then within 30 seconds send POST http://<address>:16021/api/v1/new - the answer's auth_token goes here.",
+        "isRequired": true
+      }
+    ]
+  }
+}
