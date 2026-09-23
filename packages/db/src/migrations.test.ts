@@ -119,9 +119,20 @@ describe('the initial schema', () => {
 });
 
 describe('integration ownership', () => {
-  it('makes a device belong to exactly one of a package or an integration', () => {
-    expect(initialSql).toMatch(
-      /CONSTRAINT devices_owner_exclusive\s+CHECK \(\(package_id IS NOT NULL\) <> \(integration_id IS NOT NULL\)\)/,
+  it('makes an adapter device belong to exactly one of a package or an integration', () => {
+    expect(devicesTable()).toContain(
+      "(source = 'adapter' AND (package_id IS NOT NULL) <> (integration_id IS NOT NULL))",
+    );
+  });
+
+  it('leaves the system device owned by neither, and allows one of it', () => {
+    // The machine the platform runs on is a device `core` writes for itself: no instance
+    // reaches it and no package installed it, and a second one would split its entities.
+    expect(devicesTable()).toContain(
+      "(source = 'system' AND package_id IS NULL AND integration_id IS NULL)",
+    );
+    expect(initialSql).toContain(
+      "CREATE UNIQUE INDEX devices_one_system_idx ON registry.devices ((source)) WHERE source = 'system';",
     );
   });
 

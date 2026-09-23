@@ -186,9 +186,17 @@ export const devices = registrySchema.table(
     id: uuid('id').primaryKey().defaultRandom(),
 
     /**
+     * `adapter` for a device a package or an integration instance owns; `system` for the one
+     * device that is the machine the platform runs on, which `core` writes for itself and which
+     * has neither owner. The same words `entities.source` uses.
+     */
+    source: text('source').notNull().default('adapter'),
+
+    /**
      * The package that owns this device, when one does.
      *
-     * Exactly one of this and {@link devices.integrationId} is set. Restricted on delete:
+     * For an adapter device, exactly one of this and {@link devices.integrationId} is set; the
+     * system device has neither. Restricted on delete:
      * uninstalling an owner that still has devices fails loudly.
      */
     packageId: text('package_id').references(() => packages.id, { onDelete: 'restrict' }),

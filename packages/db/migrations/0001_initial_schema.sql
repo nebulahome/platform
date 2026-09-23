@@ -468,10 +468,13 @@ CREATE TABLE registry.icons (
 
 CREATE TABLE registry.devices (
   id             uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  -- Exactly one owner, enforced by devices_owner_exclusive below. A package installs devices
-  -- through `packet-manager`; an integration instance is one, written by `api` beside it and
-  -- gone with it. Whichever it is becomes the entity's `source`, so a device with neither has
-  -- no route for a command and one with both has two.
+  -- The kind of device, with the words `entities.source` uses. An adapter device has exactly
+  -- one owner, enforced by devices_owner_exclusive below: a package installs devices through
+  -- `packet-manager`; an integration instance is one, written by `api` beside it and gone with
+  -- it. Whichever it is becomes the entity's `source`, so a device with neither has no route for
+  -- a command and one with both has two. The system device is the machine the platform runs
+  -- on: `core` writes it and its entities at startup, it has no owner, and there is one of it.
+  source         text        NOT NULL DEFAULT 'adapter',
   package_id     text        REFERENCES system.packages (id) ON DELETE RESTRICT,
   integration_id text        UNIQUE REFERENCES registry.integrations (id) ON DELETE CASCADE,
   -- The owner's own identifier for the device: the serial, the id the relay answers with.
@@ -492,11 +495,15 @@ CREATE TABLE registry.devices (
   updated_at     timestamptz NOT NULL DEFAULT now(),
 
   UNIQUE (package_id, external_id),
+  CONSTRAINT devices_source CHECK (source IN ('adapter', 'system')),
   CONSTRAINT devices_not_own_parent CHECK (via_device_id IS DISTINCT FROM id),
-  CONSTRAINT devices_owner_exclusive
-    CHECK ((package_id IS NOT NULL) <> (integration_id IS NOT NULL))
+  CONSTRAINT devices_owner_exclusive CHECK (
+    (source = 'adapter' AND (package_id IS NOT NULL) <> (integration_id IS NOT NULL))
+    OR (source = 'system' AND package_id IS NULL AND integration_id IS NULL)
+  )
 );
 
+CREATE UNIQUE INDEX devices_one_system_idx ON registry.devices ((source)) WHERE source = 'system';
 CREATE INDEX devices_area_id_idx ON registry.devices (area_id);
 CREATE INDEX devices_via_device_id_idx ON registry.devices (via_device_id);
 CREATE INDEX devices_package_id_idx ON registry.devices (package_id);
@@ -1194,7 +1201,8 @@ INSERT INTO auth.permissions (key, resource, action, description, is_scopable) V
   ('logs:read', 'logs', 'read', 'Read logs and use the live tail', false),
   ('settings:read', 'settings', 'read', 'See system settings', false),
   ('settings:write', 'settings', 'write', 'Change system settings, including history retention', false),
-  ('audit:read', 'audit', 'read', 'Read the audit log', false);
+  ('audit:read', 'audit', 'read', 'Read the audit log', false),
+  ('system:read', 'system', 'read', 'See the system monitor: processor, memory, disk and network', false);
 
 -- Settings: generated from SETTINGS in @nebula-home/contracts.
 INSERT INTO system.settings (key, value, schema_ref) VALUES
@@ -1214,7 +1222,7 @@ INSERT INTO system.settings (key, value, schema_ref) VALUES
 -- Role grants: generated from DEFAULT_ROLE_PERMISSIONS in @nebula-home/contracts.
 INSERT INTO auth.role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM auth.roles r, auth.permissions p
-WHERE r.key = 'admin' AND p.key IN ('entity:read', 'entity:control', 'entity:write', 'entity:delete', 'device:read', 'device:write', 'device:delete', 'area:read', 'area:write', 'tag:read', 'tag:write', 'automation:read', 'automation:write', 'automation:trigger', 'scene:read', 'scene:apply', 'scene:write', 'alias:read', 'alias:write', 'history:read', 'package:read', 'package:install', 'package:configure', 'integration:read', 'integration:configure', 'user:read', 'user:manage', 'logs:read', 'settings:read', 'settings:write', 'audit:read');
+WHERE r.key = 'admin' AND p.key IN ('entity:read', 'entity:control', 'entity:write', 'entity:delete', 'device:read', 'device:write', 'device:delete', 'area:read', 'area:write', 'tag:read', 'tag:write', 'automation:read', 'automation:write', 'automation:trigger', 'scene:read', 'scene:apply', 'scene:write', 'alias:read', 'alias:write', 'history:read', 'package:read', 'package:install', 'package:configure', 'integration:read', 'integration:configure', 'user:read', 'user:manage', 'logs:read', 'settings:read', 'settings:write', 'audit:read', 'system:read');
 INSERT INTO auth.role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM auth.roles r, auth.permissions p
 WHERE r.key = 'member' AND p.key IN ('entity:read', 'entity:control', 'device:read', 'area:read', 'tag:read', 'automation:read', 'automation:trigger', 'scene:read', 'scene:apply', 'alias:read', 'history:read', 'package:read', 'integration:read');
