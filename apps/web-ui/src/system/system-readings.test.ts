@@ -78,11 +78,12 @@ describe('the names on the page', () => {
   });
 
   it('names the parts it knows, and leaves a directory it does not under its own name', () => {
-    expect([partLabel('database'), partLabel('map-tiles'), partLabel('exports')]).toEqual([
-      'Database',
-      'Map tiles',
-      'exports',
-    ]);
+    expect([
+      partLabel('database'),
+      partLabel('cache/maps'),
+      partLabel('hub/integrations'),
+      partLabel('exports/daily'),
+    ]).toEqual(['Database', 'Map tiles', 'Integrations', 'exports/daily']);
   });
 });
 

@@ -129,14 +129,16 @@ export function categoryLabel(category: Pick<DiskCategory, 'id' | 'kind'>): stri
 /** What each part of the platform is called on the page. */
 const PART_LABELS: Readonly<Record<string, string>> = {
   database: 'Database',
-  'map-tiles': 'Map tiles',
+  'cache/maps': 'Map tiles',
+  'hub/integrations': 'Integrations',
   files: 'Other files',
 };
 
 /**
  * Names a part of a category.
  *
- * @param id - The part, as `core` counted it: a directory name, or `database`.
+ * @param id - The part, as `core` counted it: a folder of the data directory as
+ * `<folder>/<name>`, a folder's loose files by its name, or `database`.
  * @returns What the page calls it; a directory nobody named here keeps its own name.
  */
 export function partLabel(id: string): string {

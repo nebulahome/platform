@@ -68,7 +68,7 @@ const SNAPSHOT: SystemMonitorSnapshot = {
         bytes: 2_000_000_000,
         parts: [
           { id: 'database', bytes: 1_900_000_000 },
-          { id: 'map-tiles', bytes: 100_000_000 },
+          { id: 'cache/maps', bytes: 100_000_000 },
         ],
       },
     ],
