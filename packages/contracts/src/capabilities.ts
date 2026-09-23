@@ -32,6 +32,7 @@ export const CAPABILITIES = [
   'thermostat',
   'sensor_numeric',
   'sensor_binary',
+  'sensor_text',
   'media_player',
   'camera',
 ] as const;
@@ -246,6 +247,19 @@ export const sensorBinaryStateSchema = z.object({ isOn: z.boolean() });
 /** `sensor_binary` has no commandable limits; its device class lives on the entity row. */
 export const sensorBinaryParamsSchema = z.object({});
 
+// --- sensor_text -------------------------------------------------------------------------
+
+/**
+ * A single text reading.
+ *
+ * Bounded at 512 characters so a calculated alias formula cannot fill history with an unbounded
+ * string. Physical adapters that need longer text belong in attributes, not here.
+ */
+export const sensorTextStateSchema = z.object({ value: z.string().max(512) });
+
+/** `sensor_text` has no commandable limits; its metadata lives on the entity row. */
+export const sensorTextParamsSchema = z.object({});
+
 // --- media_player ------------------------------------------------------------------------
 
 /** What a player is doing right now. */
@@ -360,6 +374,11 @@ export const CAPABILITY_DEFINITIONS = {
     params: sensorBinaryParamsSchema,
     commands: NO_COMMANDS,
   },
+  sensor_text: {
+    state: sensorTextStateSchema,
+    params: sensorTextParamsSchema,
+    commands: NO_COMMANDS,
+  },
   media_player: {
     state: mediaPlayerStateSchema,
     params: mediaPlayerParamsSchema,
@@ -385,6 +404,7 @@ export const capabilityStateSchema = z.object({
   thermostat: thermostatStateSchema.optional(),
   sensor_numeric: sensorNumericStateSchema.optional(),
   sensor_binary: sensorBinaryStateSchema.optional(),
+  sensor_text: sensorTextStateSchema.optional(),
   media_player: mediaPlayerStateSchema.optional(),
   camera: cameraStateSchema.optional(),
 });

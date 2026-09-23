@@ -7,6 +7,7 @@ import {
   isNebulaError,
   NotFoundError,
   PermissionError,
+  UpstreamError,
   ValidationError,
 } from './errors.js';
 
@@ -28,6 +29,13 @@ describe('NebulaError', () => {
 
     expect(error.code).toBe(ERROR_CODES.PERMISSION);
     expect(error.httpStatus).toBe(403);
+  });
+
+  it('answers 503 for a service outside the installation that could not be reached', () => {
+    const error = new UpstreamError('The map server did not answer');
+
+    expect(error.code).toBe(ERROR_CODES.UPSTREAM);
+    expect(error.httpStatus).toBe(503);
   });
 
   it('attaches structured details when given them', () => {

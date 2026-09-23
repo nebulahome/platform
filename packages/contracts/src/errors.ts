@@ -32,6 +32,8 @@ export const ERROR_CODES = {
   ADAPTER: 'ADAPTER',
   /** Installing, starting or configuring a package failed. */
   PACKAGE: 'PACKAGE',
+  /** A service outside the installation - a map tile server - could not be reached, or refused. */
+  UPSTREAM: 'UPSTREAM',
   /** Environment configuration was missing or invalid at startup. */
   CONFIGURATION: 'CONFIGURATION',
   /** The database schema is not the version this build was written against. */
@@ -163,6 +165,20 @@ export class AdapterError extends NebulaError {
 
   /** @inheritDoc */
   public readonly httpStatus = 502;
+}
+
+/**
+ * A service outside the installation could not be reached, or refused.
+ *
+ * The map tile server, today. Not an adapter: an adapter is a package this installation runs
+ * and is answerable for, and what this names is the internet being away, which nobody here is.
+ */
+export class UpstreamError extends NebulaError {
+  /** @inheritDoc */
+  public readonly code = ERROR_CODES.UPSTREAM;
+
+  /** @inheritDoc */
+  public readonly httpStatus = 503;
 }
 
 /** Installing, starting, configuring or removing a package failed. */

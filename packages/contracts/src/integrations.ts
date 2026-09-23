@@ -51,8 +51,18 @@ export const integrationKindIdSchema = z
 /** Identifies a vendor on its own: `shelly`, `bambu-lab`. A directory people type, so letter first. */
 const VENDOR_ID_PATTERN = /^[a-z][a-z0-9-]{1,63}$/;
 
-/** Identifies a driver within its vendor: `gen2`, `1pm-mini-g3`. Named after the product, so digits allowed first. */
+/** Identifies a driver within its vendor: `dimmer-pm`, `3em`. Named after the product, so digits allowed first. */
 const DRIVER_ID_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/;
+
+/**
+ * A transport id: a platform transport by name - `http`, `mqtt` - or a vendor's own, shipped
+ * in its bundle and qualified by the vendor - `shelly/rpc`. The vendor half is a vendor id;
+ * the name half is short, because it is typed into every driver of the vendor.
+ */
+export const TRANSPORT_ID_PATTERN = /^(?:[a-z][a-z0-9-]{1,63}\/)?[a-z][a-z0-9-]{1,31}$/;
+
+/** Validates a transport id. */
+export const transportIdSchema = z.string().regex(TRANSPORT_ID_PATTERN, 'Must be a transport id');
 
 /** What a logo may be served as: an image the interface can put straight into an `img`. */
 const LOGO_DATA_URL_PATTERN = /^data:image\/(?:svg\+xml|png);base64,[A-Za-z0-9+/]+=*$/;
@@ -91,6 +101,12 @@ export const HUB_PROBE_METHOD = 'probe';
 /** Re-reads one instance from the registry and starts, restarts or stops it to match. */
 export const HUB_RELOAD_METHOD = 'reload';
 
+/**
+ * Stops one instance and drops it, without reading the registry: what the API asks just before
+ * `core` deletes the rows, so that nothing is still reporting into a device that is gone.
+ */
+export const HUB_FORGET_METHOD = 'forget';
+
 /** How long a probe may take when the caller does not say. */
 const DEFAULT_PROBE_TIMEOUT_MS = 8000;
 
@@ -116,8 +132,8 @@ export const integrationKindSchema = z.object({
   /** The driver's own name, after the vendor's: `Gen2`, `Printer`. */
   name: z.string().min(1).max(128),
 
-  /** Which transport an instance of it opens: `http`, `mqtt`. */
-  transport: z.string().min(1).max(32),
+  /** Which transport an instance of it opens: `http`, `mqtt`, or a vendor's own, `shelly/rpc`. */
+  transport: transportIdSchema,
 
   /**
    * The models it drives, for the owner to pick from. Empty means the driver's name is the
@@ -171,7 +187,7 @@ export const integrationVendorSchema = z.object({
   internetRequired: z.boolean(),
 
   /** Every transport one of its drivers speaks, each once, in the drivers' order. */
-  transports: z.array(z.string().min(1).max(32)),
+  transports: z.array(transportIdSchema),
 
   /** What setting the vendor up asks; empty groups for a vendor that needs nothing. */
   setup: integrationSetupSchema,
@@ -271,3 +287,15 @@ export const reloadReplySchema = z.object({
 
 /** Where the instance ended up. */
 export type ReloadReply = z.output<typeof reloadReplySchema>;
+
+/** Asks `hub` to stop one instance and forget it. */
+export const forgetRequestSchema = z.object({ integrationId: integrationIdSchema });
+
+/** Asks `hub` to stop one instance and forget it. */
+export type ForgetRequest = z.output<typeof forgetRequestSchema>;
+
+/** Whether there was anything running to stop. Informational: either way, it is gone. */
+export const forgetReplySchema = z.object({ wasRunning: z.boolean() });
+
+/** Whether there was anything running to stop. */
+export type ForgetReply = z.output<typeof forgetReplySchema>;

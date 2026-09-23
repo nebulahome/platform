@@ -11,7 +11,9 @@ import { z } from 'zod';
 import { capabilityNameSchema } from './capabilities.js';
 import { entityIdSchema } from './entity-id.js';
 import { changeContextSchema, sourceRefSchema } from './entity-state.js';
+import { iconIdSchema } from './icons.js';
 import { jsonObjectSchema } from './json.js';
+import { TAGS_PER_ROW_MAXIMUM, tagKeySchema } from './tags.js';
 import { timestampSchema } from './timestamp.js';
 
 /** One capability an entity declares, with the parameters that describe its range. */
@@ -89,10 +91,34 @@ export const entityViewSchema = z.object({
 
   /** When a report last arrived, changed or not. */
   lastUpdated: timestampSchema.nullable(),
+
+  /** The tags on it, by id; the tags themselves come from `GET /tags`. */
+  tagIds: z.array(z.uuid()).default([]),
 });
 
 /** One entity, as the interface reads it. */
 export type EntityView = z.output<typeof entityViewSchema>;
+
+/**
+ * What changing an entity accepts: what a person calls it, what it is drawn as, and the tags on
+ * it. The identifier is not here - it is what automations and history name the entity by, and
+ * renaming in the interface changes `name`, never that.
+ */
+export const entityUpdateSchema = z
+  .object({
+    name: z.string().trim().min(1).max(128),
+
+    /** A catalogue icon, or null to have none. */
+    icon: iconIdSchema.nullable(),
+
+    /** Every tag the entity should carry - the whole set, replacing what it had. */
+    tagIds: z.array(z.uuid()).max(TAGS_PER_ROW_MAXIMUM),
+  })
+  .partial()
+  .refine((body) => Object.keys(body).length > 0, { message: 'Nothing to change' });
+
+/** What changing an entity accepts. */
+export type EntityUpdate = z.output<typeof entityUpdateSchema>;
 
 /** How a collection of entities may be narrowed. */
 export const entityQuerySchema = z.object({
@@ -105,8 +131,8 @@ export const entityQuerySchema = z.object({
   /** Only entities declaring this capability. */
   capability: capabilityNameSchema.optional(),
 
-  /** Only entities carrying this label. */
-  label: z.string().max(64).optional(),
+  /** Only entities carrying this tag, by its key. */
+  tag: tagKeySchema.optional(),
 
   /** Matches the name, the identifier and the search aliases. */
   search: z.string().max(128).optional(),

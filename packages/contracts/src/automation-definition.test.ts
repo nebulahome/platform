@@ -13,23 +13,78 @@ import {
   automationConditionSchema,
   automationDefinitionSchema,
   automationTriggerSchema,
+  booleanTreeSchema,
 } from './automation-definition.js';
 
-/** The smallest document that means anything: one trigger, one action. */
-const MINIMAL = {
+/** The smallest legacy document that means anything: one trigger, one action. */
+const MINIMAL_LEGACY = {
   triggers: [{ type: 'state', entityId: 'binary_sensor.hallway_motion', to: 'on' }],
   actions: [
     { type: 'command', entityId: 'light.hallway_ceiling', capability: 'on_off', params: {} },
   ],
 };
 
+/** The same rule in the saved shape. */
+const MINIMAL = {
+  triggers: { type: 'state', entityId: 'binary_sensor.hallway_motion', to: 'on' },
+  then: [{ type: 'command', entityId: 'light.hallway_ceiling', capability: 'on_off', params: {} }],
+};
+
 describe('automationDefinitionSchema', () => {
-  it('accepts a trigger and an action, with no conditions', () => {
+  it('accepts a trigger and an action, with no if', () => {
     const parsed = automationDefinitionSchema.parse(MINIMAL);
 
-    // Conditions default to none rather than being required: "when this happens, do that" is a
-    // complete thought and most automations in a house are exactly that.
-    expect(parsed.conditions).toEqual([]);
+    // `if` is omitted rather than required: "when this happens, do that" is a complete thought.
+    expect(parsed.if).toBeUndefined();
+    expect(parsed.then).toHaveLength(1);
+  });
+
+  it('reads a legacy { triggers, conditions, actions } document', () => {
+    const parsed = automationDefinitionSchema.parse({
+      ...MINIMAL_LEGACY,
+      conditions: [{ type: 'state', entityId: 'person.mattia', state: 'home' }],
+    });
+
+    // Flat triggers become a single leaf (OR of one); conditions become AND under `if`.
+    expect(parsed.triggers).toEqual(MINIMAL.triggers);
+    expect(parsed.if).toEqual({ type: 'state', entityId: 'person.mattia', state: 'home' });
+    expect(parsed.then).toEqual(MINIMAL.then);
+  });
+
+  it('reads a flat legacy trigger list as OR', () => {
+    const parsed = automationDefinitionSchema.parse({
+      triggers: [
+        { type: 'state', entityId: 'binary_sensor.hallway_motion', to: 'on' },
+        { type: 'manual' },
+      ],
+      actions: MINIMAL_LEGACY.actions,
+    });
+
+    expect(parsed.triggers).toEqual({
+      op: 'or',
+      items: [
+        { type: 'state', entityId: 'binary_sensor.hallway_motion', to: 'on' },
+        { type: 'manual' },
+      ],
+    });
+  });
+
+  it('reads a flat legacy conditions list as AND under if', () => {
+    const parsed = automationDefinitionSchema.parse({
+      ...MINIMAL_LEGACY,
+      conditions: [
+        { type: 'time_window', from: '22:00', to: '06:30' },
+        { type: 'state', entityId: 'person.mattia', state: 'home' },
+      ],
+    });
+
+    expect(parsed.if).toEqual({
+      op: 'and',
+      items: [
+        { type: 'time_window', from: '22:00', to: '06:30' },
+        { type: 'state', entityId: 'person.mattia', state: 'home' },
+      ],
+    });
   });
 
   it('refuses a document that can never fire', () => {
@@ -37,41 +92,83 @@ describe('automationDefinitionSchema', () => {
   });
 
   it('refuses a document that would do nothing', () => {
-    expect(() => automationDefinitionSchema.parse({ ...MINIMAL, actions: [] })).toThrow();
+    expect(() => automationDefinitionSchema.parse({ ...MINIMAL, then: [] })).toThrow();
   });
 
-  it('carries conditions that nest', () => {
+  it('carries an if tree that nests, including legacy type-style not', () => {
     const parsed = automationDefinitionSchema.parse({
       ...MINIMAL,
-      conditions: [
-        {
-          type: 'and',
-          conditions: [
-            { type: 'time_window', from: '22:00', to: '06:30' },
-            { type: 'not', condition: { type: 'state', entityId: 'person.mattia', state: 'home' } },
-          ],
-        },
-      ],
+      if: {
+        op: 'and',
+        items: [
+          { type: 'time_window', from: '22:00', to: '06:30' },
+          { type: 'not', condition: { type: 'state', entityId: 'person.mattia', state: 'home' } },
+        ],
+      },
     });
 
-    expect(parsed.conditions).toHaveLength(1);
+    expect(parsed.if).toEqual({
+      op: 'and',
+      items: [
+        { type: 'time_window', from: '22:00', to: '06:30' },
+        { op: 'not', item: { type: 'state', entityId: 'person.mattia', state: 'home' } },
+      ],
+    });
   });
 
-  it('carries actions that nest', () => {
+  it('carries then actions that nest, including the new block kinds', () => {
     const parsed = automationDefinitionSchema.parse({
       ...MINIMAL,
-      actions: [
+      then: [
         {
-          type: 'parallel',
+          type: 'sequence',
           actions: [
             { type: 'scene', sceneKey: 'good_night' },
-            { type: 'wait_duration', durationMs: 5_000 },
+            {
+              type: 'if',
+              condition: { type: 'state', entityId: 'person.mattia', state: 'home' },
+              then: [{ type: 'notify', channel: 'push', message: 'home' }],
+              else: [{ type: 'stop' }],
+            },
+            {
+              type: 'for',
+              over: { kind: 'count', count: 3 },
+              actions: [{ type: 'wait_duration', durationMs: 1_000 }],
+            },
+            {
+              type: 'switch',
+              entityId: 'sensor.mode',
+              cases: [{ value: 'away', actions: [{ type: 'scene', sceneKey: 'away' }] }],
+              default: [{ type: 'stop' }],
+            },
+            {
+              type: 'while',
+              condition: { type: 'state', entityId: 'binary_sensor.busy', state: 'on' },
+              actions: [{ type: 'wait_duration', durationMs: 500 }],
+            },
+            {
+              type: 'do_while',
+              condition: { type: 'state', entityId: 'binary_sensor.busy', state: 'on' },
+              actions: [{ type: 'wait_duration', durationMs: 500 }],
+            },
+            {
+              type: 'wait_for_trigger',
+              trigger: { type: 'manual' },
+              timeoutMs: 60_000,
+            },
+            {
+              type: 'parallel',
+              actions: [
+                { type: 'scene', sceneKey: 'good_night' },
+                { type: 'wait_duration', durationMs: 5_000 },
+              ],
+            },
           ],
         },
       ],
     });
 
-    expect(parsed.actions[0]?.type).toBe('parallel');
+    expect(parsed.then[0]?.type).toBe('sequence');
   });
 });
 
@@ -128,12 +225,34 @@ describe('automationConditionSchema', () => {
   });
 });
 
+describe('booleanTreeSchema', () => {
+  it('rewrites a legacy type-style not into op form', () => {
+    expect(
+      booleanTreeSchema.parse({
+        type: 'not',
+        condition: { type: 'state', entityId: 'person.mattia', state: 'home' },
+      }),
+    ).toEqual({
+      op: 'not',
+      item: { type: 'state', entityId: 'person.mattia', state: 'home' },
+    });
+  });
+
+  it('keeps a non-state leaf rather than dropping it', () => {
+    expect(booleanTreeSchema.parse({ type: 'time_window', from: '22:00', to: '06:00' })).toEqual({
+      type: 'time_window',
+      from: '22:00',
+      to: '06:00',
+    });
+  });
+});
+
 describe('waiting', () => {
   it('requires a timeout, so a run cannot wait forever', () => {
     expect(() =>
       automationDefinitionSchema.parse({
         ...MINIMAL,
-        actions: [
+        then: [
           {
             type: 'wait_for',
             condition: { type: 'state', entityId: 'person.mattia', state: 'home' },
@@ -147,7 +266,7 @@ describe('waiting', () => {
     expect(() =>
       automationDefinitionSchema.parse({
         ...MINIMAL,
-        actions: [{ type: 'wait_duration', durationMs: 604_800_001 }],
+        then: [{ type: 'wait_duration', durationMs: 604_800_001 }],
       }),
     ).toThrow();
   });

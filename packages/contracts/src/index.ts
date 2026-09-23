@@ -7,11 +7,13 @@
  * the same definition.
  */
 
+export * from './alias-expression.js';
 export * from './api-auth.js';
 export * from './api-entities.js';
 export * from './api-history.js';
 export * from './api-http.js';
 export * from './api-registry.js';
+export * from './areas.js';
 export * from './api-settings.js';
 export * from './api-setup.js';
 export * from './api-users.js';
@@ -34,6 +36,8 @@ export * from './log-level.js';
 export * from './package-manifest.js';
 export * from './permissions.js';
 export * from './registration.js';
+export * from './sensor-classes.js';
 export * from './settings.js';
+export * from './tags.js';
 export * from './telemetry.js';
 export * from './timestamp.js';

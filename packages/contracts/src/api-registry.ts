@@ -9,7 +9,13 @@
 import { z } from 'zod';
 
 import { automationDefinitionSchema } from './automation-definition.js';
-import { capabilityNameSchema } from './capabilities.js';
+import {
+  CAPABILITY_DEFINITIONS,
+  capabilityNameSchema,
+  capabilityStateSchema,
+  THERMOSTAT_MODES,
+  type CapabilityName,
+} from './capabilities.js';
 import { entityIdSchema } from './entity-id.js';
 import { iconIdSchema } from './icons.js';
 import {
@@ -19,49 +25,10 @@ import {
   integrationVendorSchema,
   probeReplySchema,
 } from './integrations.js';
-import { jsonObjectSchema } from './json.js';
+import { jsonObjectSchema, type JsonObject } from './json.js';
 import { PACKAGE_RUNTIMES, PACKAGE_STATES } from './package-manifest.js';
+import { TAGS_PER_ROW_MAXIMUM } from './tags.js';
 import { timestampSchema } from './timestamp.js';
-
-/** A room, floor or zone. */
-export const areaViewSchema = z.object({
-  id: z.uuid(),
-
-  /** The stable key used in permission scopes, e.g. `living_room` in `area.living_room`. */
-  key: z.string(),
-
-  /** What it is called. */
-  name: z.string(),
-
-  /** The area this one sits inside, for a floor containing rooms. */
-  parentId: z.uuid().nullable(),
-
-  /** An icon name, when one has been chosen. */
-  icon: z.string().nullable(),
-
-  /** Where it sorts in a list the owner has arranged by hand. */
-  sortOrder: z.int(),
-
-  /** How many entities are in it. */
-  entityCount: z.int().min(0),
-});
-
-/** A room, floor or zone. */
-export type AreaView = z.output<typeof areaViewSchema>;
-
-/** A free-form tag on entities. */
-export const labelViewSchema = z.object({
-  id: z.uuid(),
-  key: z.string(),
-  name: z.string(),
-  color: z.string().nullable(),
-
-  /** How many entities carry it. */
-  entityCount: z.int().min(0),
-});
-
-/** A free-form tag on entities. */
-export type LabelView = z.output<typeof labelViewSchema>;
 
 /**
  * One device: the driver bundle that reaches it, and the registry row that names it.
@@ -86,7 +53,7 @@ export const deviceViewSchema = z.object({
   /** The catalogue icon the owner picked, or the driver's default; null for none. */
   icon: iconIdSchema.nullable(),
 
-  /** The driver, as `vendor/driver`: `shelly/1pm-mini-g3`. */
+  /** The driver, as `vendor/driver`: `shelly/dimmer-pm`. */
   kind: z.string(),
 
   kindVersion: z.string(),
@@ -145,11 +112,17 @@ export const deviceViewSchema = z.object({
   manufacturer: z.string().nullable(),
   swVersion: z.string().nullable(),
   hwVersion: z.string().nullable(),
+
+  /** The room it is in, by id and by key and name; nulls for a device in no room. */
+  areaId: z.uuid().nullable(),
   areaKey: z.string().nullable(),
   areaName: z.string().nullable(),
 
   /** The entities it exposes; empty until identified. */
   entityIds: z.array(entityIdSchema),
+
+  /** The tags on it, by id; the tags themselves come from `GET /tags`. */
+  tagIds: z.array(z.uuid()).default([]),
 });
 
 /** One device. */
@@ -189,6 +162,12 @@ export const deviceCreateSchema = z.object({
   options: jsonObjectSchema.default({}),
 
   isEnabled: z.boolean().default(true),
+
+  /** The room to put it in as it is added; none by default. */
+  areaId: z.uuid().optional(),
+
+  /** The tags to put on it as it is added; none by default. */
+  tagIds: z.array(z.uuid()).max(TAGS_PER_ROW_MAXIMUM).default([]),
 });
 
 /** What adding a device accepts. */
@@ -225,6 +204,12 @@ export const deviceUpdateSchema = z
 
     /** Anything the bundle itself takes. */
     options: jsonObjectSchema,
+
+    /** The room to put it in, or null to take it out of the one it is in. */
+    areaId: z.uuid().nullable(),
+
+    /** Every tag the device should carry - the whole set, replacing what it had. */
+    tagIds: z.array(z.uuid()).max(TAGS_PER_ROW_MAXIMUM),
   })
   .partial()
   .refine((body) => Object.keys(body).length > 0, { message: 'Nothing to change' });
@@ -292,6 +277,21 @@ export const sceneViewSchema = z.object({
 /** A saved set of entity states. */
 export type SceneView = z.output<typeof sceneViewSchema>;
 
+/**
+ * One entity to set when a scene is created or rewritten.
+ *
+ * `entityId` is the address (`light.kitchen`); the row stores the registry uuid behind it.
+ * `transitionMs` null or absent means the scene's own transition applies.
+ */
+export const sceneMemberInputSchema = z.object({
+  entityId: entityIdSchema,
+  targetState: capabilityStateSchema,
+  transitionMs: z.int().min(0).max(600_000).nullable().optional(),
+});
+
+/** One entity to set when a scene is created or rewritten. */
+export type SceneMemberInput = z.output<typeof sceneMemberInputSchema>;
+
 /** How an automation handles a second trigger while it is still running. */
 export const AUTOMATION_MODES = ['single', 'restart', 'queued', 'parallel'] as const;
 
@@ -309,6 +309,76 @@ export const libraryKeySchema = z
   .string()
   .regex(/^[a-z][a-z0-9_]{1,62}$/, 'Must be lower case letters, digits and underscores');
 
+/**
+ * What creating a scene needs.
+ *
+ * Members are validated as writable target states here; resolving them to rows and checking
+ * each entity actually declares those capabilities is the service's job, because that needs
+ * the registry.
+ */
+export const sceneCreateSchema = z.object({
+  key: libraryKeySchema,
+  name: z.string().trim().min(1).max(120),
+  icon: z.string().trim().min(1).max(64).nullable().optional(),
+  areaId: z.uuid().nullable().optional(),
+  transitionMs: z.int().min(0).max(600_000).default(0),
+  rollbackOnPartialFailure: z.boolean().default(false),
+  members: z.array(sceneMemberInputSchema).max(200).default([]),
+});
+
+/** What creating a scene needs. */
+export type SceneCreate = z.output<typeof sceneCreateSchema>;
+
+/**
+ * What changing a scene accepts.
+ *
+ * A partial map without the key: the identifier other things refer to cannot move. When
+ * `members` is present it replaces the whole set, rather than merging, so a save from the
+ * editor is exactly what ends up stored.
+ */
+export const sceneUpdateSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+    icon: z.string().trim().min(1).max(64).nullable(),
+    areaId: z.uuid().nullable(),
+    transitionMs: z.int().min(0).max(600_000),
+    rollbackOnPartialFailure: z.boolean(),
+    members: z.array(sceneMemberInputSchema).max(200),
+  })
+  .partial()
+  .refine((body) => Object.keys(body).length > 0, {
+    message: 'Nothing to change',
+  });
+
+/** What changing a scene accepts. */
+export type SceneUpdate = z.output<typeof sceneUpdateSchema>;
+
+/** How one member of a scene fared when it was applied. */
+export const sceneApplyMemberResultSchema = z.object({
+  entityId: entityIdSchema,
+  ok: z.boolean(),
+  error: z.string().nullable(),
+});
+
+/** How one member of a scene fared when it was applied. */
+export type SceneApplyMemberResult = z.output<typeof sceneApplyMemberResultSchema>;
+
+/**
+ * What applying a scene produced.
+ *
+ * Per-entity outcomes rather than a single success: one lamp that did not answer must not
+ * hide that the others did, and a rollback is recorded on the members it touched.
+ */
+export const sceneApplyResultSchema = z.object({
+  sceneId: z.uuid(),
+  applied: z.int().min(0),
+  failed: z.int().min(0),
+  members: z.array(sceneApplyMemberResultSchema),
+});
+
+/** What applying a scene produced. */
+export type SceneApplyResult = z.output<typeof sceneApplyResultSchema>;
+
 /** A rule: when this happens, if these hold, do this. */
 export const automationViewSchema = z.object({
   id: z.uuid(),
@@ -316,7 +386,7 @@ export const automationViewSchema = z.object({
   name: z.string(),
   description: z.string(),
 
-  /** The trigger, conditions and actions, as the engine stores them. */
+  /** The trigger, if, and then, as the engine stores them. */
   definition: jsonObjectSchema,
 
   /** Which revision of the definition format this one is written in. */
@@ -359,7 +429,7 @@ export const ALIAS_FALLBACK_POLICIES = ['unavailable', 'ignore_missing', 'last_k
 /** What an alias does when one of its sources stops reporting. */
 export type AliasFallbackPolicy = (typeof ALIAS_FALLBACK_POLICIES)[number];
 
-/** A derived entity: a formula over other entities. */
+/** A derived entity: a formula over other entities, or a stored helper that holds state. */
 export const aliasViewSchema = z.object({
   id: z.uuid(),
 
@@ -369,11 +439,29 @@ export const aliasViewSchema = z.object({
   /** What the owner calls it, from the entity it produces. */
   name: z.string(),
 
-  /** Which capability the computed value satisfies. */
+  /**
+   * Calculated sensor vs stored helper.
+   *
+   * Distinguished by the expression: non-blank is calculated, empty string is stored.
+   */
+  kind: z.enum(['calculated', 'stored']),
+
+  /**
+   * The behavioural domain the table and filters use.
+   *
+   * Always `alias` in the entity id; this is the kind of thing it behaves as (sensor, light,
+   * switch, …), persisted on the entity's config when created.
+   */
+  domain: z.string(),
+
+  /** Which capability the computed or primary value satisfies. */
   capability: capabilityNameSchema,
 
-  /** The expression, evaluated in the sandbox (RULES.md 16). */
-  expression: z.string(),
+  /** Every capability the entity declares, including optional light extras. */
+  capabilities: z.array(capabilityNameSchema),
+
+  /** The expression, empty for a stored helper. Evaluated in the sandbox (RULES.md 16). */
+  expression: z.string().max(2_000),
 
   /** How long a burst of source changes is collapsed for before recomputing. */
   debounceMs: z.int().min(0),
@@ -388,12 +476,313 @@ export const aliasViewSchema = z.object({
   /** When it was last recomputed. */
   lastEvaluatedAt: timestampSchema.nullable(),
 
-  /** What goes into the formula. */
+  /** Unit for a numeric sensor or stored number, from the entity row. */
+  unitOfMeasurement: z.string().nullable(),
+
+  /** Device class for a calculated sensor, from the entity row. */
+  deviceClass: z.string().nullable(),
+
+  /** Lower bound for a stored number, when set. */
+  min: z.number().nullable(),
+
+  /** Upper bound for a stored number, when set. */
+  max: z.number().nullable(),
+
+  /** Step for a stored number, when set. */
+  step: z.number().nullable(),
+
+  /** What goes into the formula. Empty for a stored helper. */
   sources: z.array(aliasSourceSchema),
 });
 
 /** A derived entity. */
 export type AliasView = z.output<typeof aliasViewSchema>;
+
+/** One source named in a create or update body. */
+export const aliasSourceInputSchema = z.object({
+  /** The name used in the expression, e.g. `t1`. */
+  variableName: z.string().regex(/^[a-z][a-z0-9_]{0,31}$/, 'Must be a lower-case variable name'),
+
+  entityId: entityIdSchema,
+});
+
+/** One source named in a create or update body. */
+export type AliasSourceInput = z.output<typeof aliasSourceInputSchema>;
+
+/** The object id half of `alias.<object_id>`. */
+export const aliasObjectIdSchema = z
+  .string()
+  .regex(/^[a-z][a-z0-9_]{0,63}$/, 'Must be a lower-case object id');
+
+/** Domains a stored helper may behave as. Camera is not a helper. */
+export const ALIAS_STORED_DOMAINS = [
+  'switch',
+  'light',
+  'cover',
+  'lock',
+  'climate',
+  'media_player',
+  'sensor',
+] as const;
+
+/** Domains a stored helper may behave as. */
+export type AliasStoredDomain = (typeof ALIAS_STORED_DOMAINS)[number];
+
+/** Capabilities a calculated alias may produce. */
+export const ALIAS_CALCULATED_CAPABILITIES = [
+  'sensor_numeric',
+  'sensor_binary',
+  'sensor_text',
+] as const;
+
+/**
+ * The limits a stored helper takes when the owner gives none.
+ *
+ * A helper is not hardware, so nothing reports its range; but `core` checks every command
+ * against the declared limits, and a colour temperature or a thermostat without them could
+ * never be commanded at all. These are ranges wide enough for what a helper stands in for.
+ */
+const HELPER_DEFAULT_PARAMS: Partial<Record<CapabilityName, JsonObject>> = {
+  color_temp: { minMireds: 153, maxMireds: 500 },
+  thermostat: { supportedModes: [...THERMOSTAT_MODES], minTemperature: 5, maxTemperature: 35 },
+};
+
+/**
+ * One capability a stored helper declares, with its limits.
+ *
+ * The limits are checked against the capability's own params schema - the one `core` checks
+ * commands against - and completed from {@link HELPER_DEFAULT_PARAMS} where the owner gave none,
+ * so what is stored is always a set of limits a command can be validated against.
+ */
+export const aliasCapabilityInputSchema = z
+  .object({
+    capability: capabilityNameSchema,
+    params: jsonObjectSchema.default({}),
+  })
+  .transform((entry, context) => {
+    const limits: z.ZodType = CAPABILITY_DEFINITIONS[entry.capability].params;
+    const parsed = limits.safeParse({
+      ...HELPER_DEFAULT_PARAMS[entry.capability],
+      ...entry.params,
+    });
+    const params = parsed.success ? jsonObjectSchema.safeParse(parsed.data) : undefined;
+
+    if (params?.success !== true) {
+      context.addIssue({
+        code: 'custom',
+        path: ['params'],
+        message: `Not the limits ${entry.capability} takes`,
+      });
+
+      return z.NEVER;
+    }
+
+    return { capability: entry.capability, params: params.data };
+  });
+
+/** One capability a stored helper declares. */
+export type AliasCapabilityInput = z.output<typeof aliasCapabilityInputSchema>;
+
+/**
+ * What creating a calculated alias needs.
+ *
+ * Sources are checked for `entity:read` at the route: the formula must not be a way to read an
+ * entity the caller cannot see, and a refusal must not include the source value.
+ */
+export const aliasCalculatedCreateSchema = z.object({
+  kind: z.literal('calculated'),
+  objectId: aliasObjectIdSchema,
+  name: z.string().trim().min(1).max(120),
+  capability: z.enum(ALIAS_CALCULATED_CAPABILITIES),
+  expression: z.string().trim().min(1).max(2_000),
+  sources: z.array(aliasSourceInputSchema).min(1).max(32),
+  debounceMs: z.int().min(0).max(3_600_000).default(0),
+  fallbackPolicy: z.enum(ALIAS_FALLBACK_POLICIES).default('unavailable'),
+  unitOfMeasurement: z.string().trim().min(1).max(32).nullable().optional(),
+  deviceClass: z.string().trim().min(1).max(64).nullable().optional(),
+  isEnabled: z.boolean().default(true),
+});
+
+/**
+ * What creating a stored helper needs.
+ *
+ * `set_value` for a stored number is applied by core against the alias row, not against the
+ * shared `sensor_numeric` command schema, so a physical sensor never sees it.
+ */
+export const aliasStoredCreateSchema = z
+  .object({
+    kind: z.literal('stored'),
+    objectId: aliasObjectIdSchema,
+    name: z.string().trim().min(1).max(120),
+    domain: z.enum(ALIAS_STORED_DOMAINS),
+    capabilities: z.array(aliasCapabilityInputSchema).min(1).max(8),
+    unitOfMeasurement: z.string().trim().min(1).max(32).nullable().optional(),
+    min: z.number().optional(),
+    max: z.number().optional(),
+    step: z.number().gt(0).optional(),
+    isEnabled: z.boolean().default(true),
+  })
+  .superRefine((body, context) => {
+    const names = body.capabilities.map((entry) => entry.capability);
+
+    for (const message of storedHelperCapabilityIssues(body.domain, names)) {
+      context.addIssue({ code: 'custom', message, path: ['capabilities'] });
+    }
+
+    if (body.min !== undefined && body.max !== undefined && body.min > body.max) {
+      context.addIssue({
+        code: 'custom',
+        message: 'min must not exceed max',
+        path: ['min'],
+      });
+    }
+  });
+
+/**
+ * Capabilities a stored helper domain may declare.
+ *
+ * @param domain - The behavioural domain.
+ * @returns The allowed capability names.
+ */
+export function storedCapabilitiesForDomain(
+  domain: AliasStoredDomain,
+): ReadonlySet<CapabilityName> {
+  switch (domain) {
+    case 'switch':
+      return new Set(['on_off']);
+    case 'light':
+      return new Set(['on_off', 'level', 'color_hs', 'color_temp']);
+    case 'cover':
+      return new Set(['cover']);
+    case 'lock':
+      return new Set(['lock']);
+    case 'climate':
+      return new Set(['thermostat']);
+    case 'media_player':
+      return new Set(['media_player']);
+    case 'sensor':
+      return new Set(['sensor_numeric']);
+  }
+}
+
+/**
+ * What is wrong with a stored helper's capabilities for its domain.
+ *
+ * One check for creating a helper and for changing its capabilities later: the domain is fixed
+ * at creation, and a change must not turn a switch into something no switch is.
+ *
+ * @param domain - The behavioural domain.
+ * @param names - The capabilities declared, in order.
+ * @returns A sentence per problem; empty when there is none.
+ */
+export function storedHelperCapabilityIssues(
+  domain: AliasStoredDomain,
+  names: readonly CapabilityName[],
+): string[] {
+  const issues: string[] = [];
+  const allowed = storedCapabilitiesForDomain(domain);
+
+  if (new Set(names).size !== names.length) {
+    issues.push('Each capability may be declared only once');
+  }
+
+  for (const name of names) {
+    if (!allowed.has(name)) {
+      issues.push(`Domain ${domain} cannot carry ${name}`);
+    }
+  }
+
+  if ((domain === 'switch' || domain === 'light') && !names.includes('on_off')) {
+    issues.push(`A ${domain} helper needs on_off`);
+  }
+
+  if (domain === 'sensor' && names.join() !== 'sensor_numeric') {
+    issues.push('A stored number helper must declare only sensor_numeric');
+  }
+
+  return issues;
+}
+
+/** What creating an alias needs. */
+export const aliasCreateSchema = z.discriminatedUnion('kind', [
+  aliasCalculatedCreateSchema,
+  aliasStoredCreateSchema,
+]);
+
+/** What creating an alias needs. */
+export type AliasCreate = z.output<typeof aliasCreateSchema>;
+
+/**
+ * What changing an alias accepts.
+ *
+ * The entity id is not in the map: `alias.*` is immutable after create. Expression and sources
+ * stay calculated-only; a stored helper cannot grow a formula through a patch.
+ */
+export const aliasUpdateSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+    expression: z.string().trim().min(1).max(2_000),
+    sources: z.array(aliasSourceInputSchema).min(1).max(32),
+    debounceMs: z.int().min(0).max(3_600_000),
+    fallbackPolicy: z.enum(ALIAS_FALLBACK_POLICIES),
+    capabilities: z.array(aliasCapabilityInputSchema).min(1).max(8),
+    unitOfMeasurement: z.string().trim().min(1).max(32).nullable(),
+    deviceClass: z.string().trim().min(1).max(64).nullable(),
+    min: z.number().nullable(),
+    max: z.number().nullable(),
+    step: z.number().gt(0).nullable(),
+    isEnabled: z.boolean(),
+  })
+  .partial()
+  .refine((body) => Object.keys(body).length > 0, {
+    message: 'Nothing to change',
+  });
+
+/** What changing an alias accepts. */
+export type AliasUpdate = z.output<typeof aliasUpdateSchema>;
+
+/**
+ * What previewing a calculated formula needs.
+ *
+ * Same evaluator and source permission checks as create; nothing is saved.
+ */
+export const aliasPreviewRequestSchema = z.object({
+  expression: z.string().trim().min(1).max(2_000),
+  sources: z.array(aliasSourceInputSchema).min(1).max(32),
+  capability: z.enum(ALIAS_CALCULATED_CAPABILITIES),
+  fallbackPolicy: z.enum(ALIAS_FALLBACK_POLICIES).default('unavailable'),
+});
+
+/** What previewing a calculated formula needs. */
+export type AliasPreviewRequest = z.output<typeof aliasPreviewRequestSchema>;
+
+/** The result of evaluating a formula without saving it. */
+export const aliasPreviewResponseSchema = z.object({
+  /** The scalar result, when evaluation succeeded. */
+  value: z.union([z.number(), z.boolean(), z.string()]).nullable(),
+
+  /** Whether the derived entity would be available. */
+  isAvailable: z.boolean(),
+
+  /** Why evaluation failed, when it did. */
+  error: z.string().nullable(),
+});
+
+/** The result of evaluating a formula without saving it. */
+export type AliasPreviewResponse = z.output<typeof aliasPreviewResponseSchema>;
+
+/**
+ * Aliases that still read an entity, which is why deleting it (or this alias) is blocked.
+ *
+ * Returned only to callers with `alias:read`.
+ */
+export const aliasDependentSchema = z.object({
+  entityId: entityIdSchema,
+  name: z.string(),
+});
+
+/** One alias that depends on another entity. */
+export type AliasDependent = z.output<typeof aliasDependentSchema>;
 
 /**
  * What creating an automation needs.

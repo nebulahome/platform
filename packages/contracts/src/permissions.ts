@@ -23,10 +23,10 @@ export const PERMISSION_KEY_PATTERN = /^[a-z_]+:[a-z_]+$/;
 /**
  * The shape of a scope.
  *
- * `*` means unscoped. Anything else narrows the grant to one area, one entity or one label.
+ * `*` means unscoped. Anything else narrows the grant to one area, one entity or one tag.
  * Mirrors the scope CHECK on `auth.role_permissions` and `auth.user_permissions`.
  */
-export const PERMISSION_SCOPE_PATTERN = /^(area|entity|label)\.[a-z0-9_.]+$/;
+export const PERMISSION_SCOPE_PATTERN = /^(area|entity|tag)\.[a-z0-9_.]+$/;
 
 /** Validates a permission key. */
 export const permissionKeySchema = z
@@ -37,7 +37,7 @@ export const permissionKeySchema = z
 export const permissionScopeSchema = z
   .string()
   .refine((scope) => scope === '*' || PERMISSION_SCOPE_PATTERN.test(scope), {
-    message: 'Must be * or <area|entity|label>.<key>',
+    message: 'Must be * or <area|entity|tag>.<key>',
   });
 
 /** Whether a grant allows or denies. Denials exist so one entity can be withheld from a role. */
@@ -57,7 +57,7 @@ export type PermissionDefinition = {
   /** What is being done to it. */
   readonly action: string;
 
-  /** Whether this permission may be narrowed to an area, entity or label. */
+  /** Whether this permission may be narrowed to an area, entity or tag. */
   readonly isScopable: boolean;
 
   /** What holding it allows, in English, shown in the role editor. */
@@ -136,18 +136,20 @@ export const PERMISSIONS = [
     description: 'Create, rename and rearrange areas',
   },
   {
-    key: 'label:read',
-    resource: 'label',
+    key: 'tag:read',
+    resource: 'tag',
     action: 'read',
     isScopable: false,
-    description: 'See labels',
+    description: 'See tags',
   },
   {
-    key: 'label:write',
-    resource: 'label',
+    // Putting a tag on a device or an entity is `device:write` or `entity:write`: it is a change
+    // to that row. This is about the tags themselves.
+    key: 'tag:write',
+    resource: 'tag',
     action: 'write',
     isScopable: false,
-    description: 'Create and assign labels',
+    description: 'Create, rename, recolour and delete tags',
   },
   {
     key: 'automation:read',
@@ -326,7 +328,7 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'entity:control',
     'device:read',
     'area:read',
-    'label:read',
+    'tag:read',
     'automation:read',
     'automation:trigger',
     'scene:read',

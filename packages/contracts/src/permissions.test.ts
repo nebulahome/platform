@@ -57,7 +57,7 @@ describe('scopes', () => {
     expect(permissionScopeSchema.safeParse('*').success).toBe(true);
   });
 
-  it.each(['area.living_room', 'entity.light_kitchen_ceiling', 'label.exterior'])(
+  it.each(['area.living_room', 'entity.light_kitchen_ceiling', 'tag.exterior'])(
     'accepts %s',
     (scope) => {
       expect(permissionScopeSchema.safeParse(scope).success).toBe(true);

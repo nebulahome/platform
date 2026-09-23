@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   catalogueReplySchema,
+  forgetReplySchema,
+  forgetRequestSchema,
   INTEGRATION_STATES,
   integrationIdSchema,
   integrationKindIdSchema,
@@ -172,6 +174,16 @@ describe('the management methods', () => {
       isReachable: false,
       detail: 'ECONNREFUSED',
     });
+  });
+
+  it('asks the hub to forget an instance by id, and hears whether it was running', () => {
+    // The last thing the API asks before `core` drops the rows: an instance still running
+    // against rows that are gone would report into nothing, and be told so, forever.
+    expect(forgetRequestSchema.parse({ integrationId: 'shelly-bench' })).toEqual({
+      integrationId: 'shelly-bench',
+    });
+    expect(forgetRequestSchema.safeParse({ integrationId: 'Not An Id' }).success).toBe(false);
+    expect(forgetReplySchema.parse({ wasRunning: true }).wasRunning).toBe(true);
   });
 
   it('answers a reload with the state the hub recorded', () => {

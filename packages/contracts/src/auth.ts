@@ -123,7 +123,7 @@ export const scopedPermissionSchema = z.object({
   /** `<resource>:<action>`. */
   key: permissionKeySchema,
 
-  /** `*` for everything, or `area.x` / `entity.x` / `label.x`. */
+  /** `*` for everything, or `area.x` / `entity.x` / `tag.x`. */
   scope: z.union([z.literal('*'), permissionScopeSchema]),
 });
 

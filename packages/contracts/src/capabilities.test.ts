@@ -20,10 +20,11 @@ describe('the capability table', () => {
   it('gives the read-only sensor capabilities no commands at all', () => {
     expect(commandSchemaFor('sensor_numeric')).toBeNull();
     expect(commandSchemaFor('sensor_binary')).toBeNull();
+    expect(commandSchemaFor('sensor_text')).toBeNull();
   });
 
   it('gives every other capability a command schema', () => {
-    const readOnly = new Set(['sensor_numeric', 'sensor_binary']);
+    const readOnly = new Set(['sensor_numeric', 'sensor_binary', 'sensor_text']);
 
     for (const capability of CAPABILITIES) {
       if (!readOnly.has(capability)) {

@@ -37,6 +37,7 @@ function device(): Record<string, unknown> {
     manufacturer: 'Bambu Lab',
     swVersion: null,
     hwVersion: null,
+    areaId: null,
     areaKey: null,
     areaName: null,
     entityIds: ['light.bambu_lab_x1c_chamber_light'],
@@ -72,6 +73,16 @@ describe('deviceViewSchema', () => {
 
   it('allows a device with no icon', () => {
     expect(deviceViewSchema.parse({ ...device(), icon: null }).icon).toBeNull();
+  });
+
+  it('lists the tags on a device by id, none until some are put on it', () => {
+    // Ids rather than names and colours: the tags page and the devices page already read the
+    // tags once, and a row that repeated each tag would say the same thing twice per device.
+    expect(deviceViewSchema.parse(device()).tagIds).toEqual([]);
+    expect(
+      deviceViewSchema.parse({ ...device(), tagIds: ['018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e6f'] })
+        .tagIds,
+    ).toEqual(['018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e6f']);
   });
 
   it('carries a sealed secret as a marker, so the form knows one is kept', () => {
@@ -155,6 +166,41 @@ describe('deviceCreateSchema', () => {
   });
 });
 
+describe('deviceCreateSchema room', () => {
+  it('lets a device be added straight into a room', () => {
+    const areaId = '018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e6f';
+
+    expect(
+      deviceCreateSchema.parse({
+        id: 'bambu-lab-x1c',
+        kind: 'bambu-lab/printer',
+        model: 'X1C',
+        name: 'X1C',
+        transportConfig: {},
+        areaId,
+      }).areaId,
+    ).toBe(areaId);
+  });
+});
+
+describe('deviceCreateSchema tags', () => {
+  it('lets a device be tagged as it is added, and starts it untagged otherwise', () => {
+    const request = {
+      id: 'shelly-bench',
+      kind: 'shelly/1pm-mini-g3',
+      model: '1PM Mini Gen3',
+      name: 'Bench relay',
+      transportConfig: { host: '192.168.1.40' },
+    };
+
+    expect(deviceCreateSchema.parse(request).tagIds).toEqual([]);
+    expect(
+      deviceCreateSchema.parse({ ...request, tagIds: ['018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e6f'] })
+        .tagIds,
+    ).toEqual(['018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e6f']);
+  });
+});
+
 describe('deviceUpdateSchema', () => {
   it('refuses an empty change', () => {
     expect(deviceUpdateSchema.safeParse({}).success).toBe(false);
@@ -172,6 +218,22 @@ describe('deviceUpdateSchema', () => {
 
   it('lets the owner correct the model they picked', () => {
     expect(deviceUpdateSchema.parse({ model: 'P1S' }).model).toBe('P1S');
+  });
+
+  it('puts the device in a room by its id, or takes it out of one', () => {
+    const areaId = '018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e6f';
+
+    expect(deviceUpdateSchema.parse({ areaId }).areaId).toBe(areaId);
+    expect(deviceUpdateSchema.parse({ areaId: null }).areaId).toBeNull();
+    expect(deviceUpdateSchema.safeParse({ areaId: 'kitchen' }).success).toBe(false);
+  });
+
+  it('takes the whole set of tags the device should carry, by id', () => {
+    const tagIds = ['018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e6f'];
+
+    expect(deviceUpdateSchema.parse({ tagIds }).tagIds).toEqual(tagIds);
+    expect(deviceUpdateSchema.parse({ tagIds: [] }).tagIds).toEqual([]);
+    expect(deviceUpdateSchema.safeParse({ tagIds: ['exterior'] }).success).toBe(false);
   });
 });
 

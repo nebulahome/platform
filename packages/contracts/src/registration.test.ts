@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { wsServerMessageSchema } from './api-ws.js';
-import { deviceEventSchema, registerDeviceRequestSchema } from './registration.js';
+import {
+  deviceEventSchema,
+  registerDeviceRequestSchema,
+  unregisterDeviceReplySchema,
+  unregisterDeviceRequestSchema,
+} from './registration.js';
 
 /**
  * A registration with every required field present, for tests that vary one of them.
@@ -49,6 +54,21 @@ describe('registerDeviceRequestSchema', () => {
     expect(registerDeviceRequestSchema.safeParse({ ...request(), entities }).success).toBe(false);
   });
 
+  it('takes an icon only as a catalogue id, the same alphabet a device icon uses', () => {
+    const [entity] = request()['entities'] as Record<string, unknown>[];
+
+    expect(
+      registerDeviceRequestSchema.parse({ ...request(), entities: [{ ...entity, icon: 'relay' }] })
+        .entities[0]?.icon,
+    ).toBe('relay');
+    expect(
+      registerDeviceRequestSchema.safeParse({
+        ...request(),
+        entities: [{ ...entity, icon: 'Not An Id' }],
+      }).success,
+    ).toBe(false);
+  });
+
   it('carries no name: the row the API created already has the one the owner chose', () => {
     // Identification completes a device, it does not describe one. A name here would be the
     // hardware's idea of itself overwriting what the owner typed a minute ago.
@@ -83,6 +103,111 @@ describe('capability parameters', () => {
     ];
 
     expect(registerDeviceRequestSchema.safeParse({ ...request(), entities }).success).toBe(true);
+  });
+});
+
+describe('sensor class registration', () => {
+  it('refuses a unit that does not belong to the catalogue class', () => {
+    const entities = [
+      {
+        entityId: 'sensor.lab_current',
+        name: 'Current',
+        capabilities: { sensor_numeric: {} },
+        deviceClass: 'current',
+        unitOfMeasurement: 'lx',
+      },
+    ];
+
+    expect(registerDeviceRequestSchema.safeParse({ ...request(), entities }).success).toBe(false);
+  });
+
+  it('refuses a native unit when the entity must carry the canonical', () => {
+    // `describe` converts and registers amperes; a hub that still sent milliamps would disagree
+    // with the number it publishes.
+    const entities = [
+      {
+        entityId: 'sensor.lab_current',
+        name: 'Current',
+        capabilities: { sensor_numeric: {} },
+        deviceClass: 'current',
+        unitOfMeasurement: 'mA',
+      },
+    ];
+
+    expect(registerDeviceRequestSchema.safeParse({ ...request(), entities }).success).toBe(false);
+  });
+
+  it('fills stateClass from the catalogue default when the profile omits it', () => {
+    const entities = [
+      {
+        entityId: 'sensor.lab_energy',
+        name: 'Energy',
+        capabilities: { sensor_numeric: {} },
+        deviceClass: 'energy',
+        unitOfMeasurement: 'Wh',
+      },
+    ];
+
+    expect(
+      registerDeviceRequestSchema.parse({ ...request(), entities }).entities[0]?.stateClass,
+    ).toBe('total_increasing');
+  });
+
+  it('lets binary and classless sensors through without a catalogue unit', () => {
+    expect(
+      registerDeviceRequestSchema.safeParse({
+        ...request(),
+        entities: [
+          {
+            entityId: 'binary_sensor.lab_printing',
+            name: 'Printing',
+            capabilities: { sensor_binary: {} },
+            deviceClass: 'running',
+          },
+        ],
+      }).success,
+    ).toBe(true);
+
+    expect(
+      registerDeviceRequestSchema.safeParse({
+        ...request(),
+        entities: [
+          {
+            entityId: 'sensor.lab_progress',
+            name: 'Progress',
+            capabilities: { sensor_numeric: {} },
+            unitOfMeasurement: '%',
+            stateClass: 'measurement',
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+});
+
+describe('unregisterDeviceRequestSchema', () => {
+  it('names the instance to release, and nothing else', () => {
+    // Strict, like registering: what to delete is the id and only the id. A request that also
+    // carried, say, a list of entities would invite the caller to think it chooses which go.
+    expect(unregisterDeviceRequestSchema.parse({ integrationId: 'shelly-lab' })).toEqual({
+      integrationId: 'shelly-lab',
+    });
+    expect(
+      unregisterDeviceRequestSchema.safeParse({ integrationId: 'shelly-lab', entityIds: [] })
+        .success,
+    ).toBe(false);
+  });
+
+  it('answers with what went: the device row, if any, and every entity', () => {
+    const reply = unregisterDeviceReplySchema.parse({
+      deviceId: '018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e6f',
+      entityIds: ['switch.lab_relay'],
+    });
+
+    expect(reply.entityIds).toEqual(['switch.lab_relay']);
+    expect(
+      unregisterDeviceReplySchema.parse({ deviceId: null, entityIds: [] }).deviceId,
+    ).toBeNull();
   });
 });
 

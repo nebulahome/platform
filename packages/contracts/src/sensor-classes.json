@@ -1,0 +1,1834 @@
+{
+  "classes": [
+    {
+      "id": "absolute_humidity",
+      "label": "Absolute humidity",
+      "valueKind": "number",
+      "canonicalUnit": "g/m³",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "g/m³",
+          "symbol": "g/m³",
+          "scale": 1
+        },
+        {
+          "id": "mg/m³",
+          "symbol": "mg/m³",
+          "scale": 0.001
+        }
+      ]
+    },
+    {
+      "id": "apparent_power",
+      "label": "Apparent power",
+      "valueKind": "number",
+      "canonicalUnit": "VA",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "mVA",
+          "symbol": "mVA",
+          "scale": 0.001
+        },
+        {
+          "id": "VA",
+          "symbol": "VA",
+          "scale": 1
+        },
+        {
+          "id": "kVA",
+          "symbol": "kVA",
+          "scale": 1000
+        }
+      ]
+    },
+    {
+      "id": "aqi",
+      "label": "AQI",
+      "valueKind": "number",
+      "canonicalUnit": null,
+      "stateClassDefault": "measurement",
+      "units": []
+    },
+    {
+      "id": "area",
+      "label": "Area",
+      "valueKind": "number",
+      "canonicalUnit": "m²",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "mm²",
+          "symbol": "mm²",
+          "scale": 0.000001
+        },
+        {
+          "id": "cm²",
+          "symbol": "cm²",
+          "scale": 0.0001
+        },
+        {
+          "id": "m²",
+          "symbol": "m²",
+          "scale": 1
+        },
+        {
+          "id": "km²",
+          "symbol": "km²",
+          "scale": 1000000
+        },
+        {
+          "id": "in²",
+          "symbol": "in²",
+          "scale": 0.00064516
+        },
+        {
+          "id": "ft²",
+          "symbol": "ft²",
+          "scale": 0.09290304
+        },
+        {
+          "id": "yd²",
+          "symbol": "yd²",
+          "scale": 0.83612736
+        },
+        {
+          "id": "mi²",
+          "symbol": "mi²",
+          "scale": 2589988.110336
+        },
+        {
+          "id": "ac",
+          "symbol": "ac",
+          "scale": 4046.8564224
+        },
+        {
+          "id": "ha",
+          "symbol": "ha",
+          "scale": 10000
+        }
+      ]
+    },
+    {
+      "id": "atmospheric_pressure",
+      "label": "Atmospheric pressure",
+      "valueKind": "number",
+      "canonicalUnit": "Pa",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "mPa",
+          "symbol": "mPa",
+          "scale": 0.001
+        },
+        {
+          "id": "Pa",
+          "symbol": "Pa",
+          "scale": 1
+        },
+        {
+          "id": "hPa",
+          "symbol": "hPa",
+          "scale": 100
+        },
+        {
+          "id": "kPa",
+          "symbol": "kPa",
+          "scale": 1000
+        },
+        {
+          "id": "bar",
+          "symbol": "bar",
+          "scale": 100000
+        },
+        {
+          "id": "cbar",
+          "symbol": "cbar",
+          "scale": 1000
+        },
+        {
+          "id": "mbar",
+          "symbol": "mbar",
+          "scale": 100
+        },
+        {
+          "id": "psi",
+          "symbol": "psi",
+          "scale": 6894.757293168
+        },
+        {
+          "id": "mmHg",
+          "symbol": "mmHg",
+          "scale": 133.322387415
+        },
+        {
+          "id": "inHg",
+          "symbol": "inHg",
+          "scale": 3386.389
+        },
+        {
+          "id": "inH₂O",
+          "symbol": "inH₂O",
+          "scale": 249.08891
+        },
+        {
+          "id": "atm",
+          "symbol": "atm",
+          "scale": 101325
+        }
+      ]
+    },
+    {
+      "id": "battery",
+      "label": "Battery",
+      "valueKind": "number",
+      "canonicalUnit": "%",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "%",
+          "symbol": "%",
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "blood_glucose_concentration",
+      "label": "Blood glucose concentration",
+      "valueKind": "number",
+      "canonicalUnit": "mg/dL",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "mg/dL",
+          "symbol": "mg/dL",
+          "scale": 1
+        },
+        {
+          "id": "mmol/L",
+          "symbol": "mmol/L",
+          "convert": "blood-glucose"
+        }
+      ]
+    },
+    {
+      "id": "carbon_dioxide",
+      "label": "Carbon dioxide",
+      "valueKind": "number",
+      "canonicalUnit": "ppm",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "ppm",
+          "symbol": "ppm",
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "carbon_monoxide",
+      "label": "Carbon monoxide",
+      "valueKind": "number",
+      "canonicalUnit": "ppm",
+      "stateClassDefault": "measurement",
+      "molarMass": 28.01,
+      "units": [
+        {
+          "id": "ppb",
+          "symbol": "ppb",
+          "scale": 0.001
+        },
+        {
+          "id": "ppm",
+          "symbol": "ppm",
+          "scale": 1
+        },
+        {
+          "id": "µg/m³",
+          "symbol": "µg/m³",
+          "convert": "gas-ug"
+        },
+        {
+          "id": "mg/m³",
+          "symbol": "mg/m³",
+          "convert": "gas-mg"
+        }
+      ]
+    },
+    {
+      "id": "conductivity",
+      "label": "Conductivity",
+      "valueKind": "number",
+      "canonicalUnit": "S/cm",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "S/cm",
+          "symbol": "S/cm",
+          "scale": 1
+        },
+        {
+          "id": "mS/cm",
+          "symbol": "mS/cm",
+          "scale": 0.001
+        },
+        {
+          "id": "µS/cm",
+          "symbol": "µS/cm",
+          "scale": 0.000001
+        }
+      ]
+    },
+    {
+      "id": "current",
+      "label": "Current",
+      "valueKind": "number",
+      "canonicalUnit": "A",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "A",
+          "symbol": "A",
+          "scale": 1
+        },
+        {
+          "id": "mA",
+          "symbol": "mA",
+          "scale": 0.001
+        },
+        {
+          "id": "µA",
+          "symbol": "µA",
+          "scale": 0.000001
+        }
+      ]
+    },
+    {
+      "id": "data_rate",
+      "label": "Data rate",
+      "valueKind": "number",
+      "canonicalUnit": "B/s",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "bit/s",
+          "symbol": "bit/s",
+          "scale": 0.125
+        },
+        {
+          "id": "kbit/s",
+          "symbol": "kbit/s",
+          "scale": 125
+        },
+        {
+          "id": "Mbit/s",
+          "symbol": "Mbit/s",
+          "scale": 125000
+        },
+        {
+          "id": "Gbit/s",
+          "symbol": "Gbit/s",
+          "scale": 125000000
+        },
+        {
+          "id": "B/s",
+          "symbol": "B/s",
+          "scale": 1
+        },
+        {
+          "id": "kB/s",
+          "symbol": "kB/s",
+          "scale": 1000
+        },
+        {
+          "id": "MB/s",
+          "symbol": "MB/s",
+          "scale": 1000000
+        },
+        {
+          "id": "GB/s",
+          "symbol": "GB/s",
+          "scale": 1000000000
+        },
+        {
+          "id": "KiB/s",
+          "symbol": "KiB/s",
+          "scale": 1024
+        },
+        {
+          "id": "MiB/s",
+          "symbol": "MiB/s",
+          "scale": 1048576
+        },
+        {
+          "id": "GiB/s",
+          "symbol": "GiB/s",
+          "scale": 1073741824
+        }
+      ]
+    },
+    {
+      "id": "data_size",
+      "label": "Data size",
+      "valueKind": "number",
+      "canonicalUnit": "B",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "bit",
+          "symbol": "bit",
+          "scale": 0.125
+        },
+        {
+          "id": "kbit",
+          "symbol": "kbit",
+          "scale": 125
+        },
+        {
+          "id": "Mbit",
+          "symbol": "Mbit",
+          "scale": 125000
+        },
+        {
+          "id": "Gbit",
+          "symbol": "Gbit",
+          "scale": 125000000
+        },
+        {
+          "id": "B",
+          "symbol": "B",
+          "scale": 1
+        },
+        {
+          "id": "kB",
+          "symbol": "kB",
+          "scale": 1000
+        },
+        {
+          "id": "MB",
+          "symbol": "MB",
+          "scale": 1000000
+        },
+        {
+          "id": "GB",
+          "symbol": "GB",
+          "scale": 1000000000
+        },
+        {
+          "id": "TB",
+          "symbol": "TB",
+          "scale": 1000000000000
+        },
+        {
+          "id": "PB",
+          "symbol": "PB",
+          "scale": 1000000000000000
+        },
+        {
+          "id": "EB",
+          "symbol": "EB",
+          "scale": 1000000000000000000
+        },
+        {
+          "id": "ZB",
+          "symbol": "ZB",
+          "scale": 1e21
+        },
+        {
+          "id": "YB",
+          "symbol": "YB",
+          "scale": 1e24
+        },
+        {
+          "id": "KiB",
+          "symbol": "KiB",
+          "scale": 1024
+        },
+        {
+          "id": "MiB",
+          "symbol": "MiB",
+          "scale": 1048576
+        },
+        {
+          "id": "GiB",
+          "symbol": "GiB",
+          "scale": 1073741824
+        },
+        {
+          "id": "TiB",
+          "symbol": "TiB",
+          "scale": 1099511627776
+        },
+        {
+          "id": "PiB",
+          "symbol": "PiB",
+          "scale": 1125899906842624
+        },
+        {
+          "id": "EiB",
+          "symbol": "EiB",
+          "scale": 1152921504606847000
+        },
+        {
+          "id": "ZiB",
+          "symbol": "ZiB",
+          "scale": 1.1805916207174113e21
+        },
+        {
+          "id": "YiB",
+          "symbol": "YiB",
+          "scale": 1.2089258196146292e24
+        }
+      ]
+    },
+    {
+      "id": "date",
+      "label": "Date",
+      "valueKind": "date",
+      "canonicalUnit": null,
+      "units": []
+    },
+    {
+      "id": "distance",
+      "label": "Distance",
+      "valueKind": "number",
+      "canonicalUnit": "m",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "mm",
+          "symbol": "mm",
+          "scale": 0.001
+        },
+        {
+          "id": "cm",
+          "symbol": "cm",
+          "scale": 0.01
+        },
+        {
+          "id": "m",
+          "symbol": "m",
+          "scale": 1
+        },
+        {
+          "id": "km",
+          "symbol": "km",
+          "scale": 1000
+        },
+        {
+          "id": "in",
+          "symbol": "in",
+          "scale": 0.0254
+        },
+        {
+          "id": "ft",
+          "symbol": "ft",
+          "scale": 0.3048
+        },
+        {
+          "id": "yd",
+          "symbol": "yd",
+          "scale": 0.9144
+        },
+        {
+          "id": "mi",
+          "symbol": "mi",
+          "scale": 1609.344
+        },
+        {
+          "id": "nmi",
+          "symbol": "nmi",
+          "scale": 1852
+        }
+      ]
+    },
+    {
+      "id": "duration",
+      "label": "Duration",
+      "valueKind": "number",
+      "canonicalUnit": "s",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "µs",
+          "symbol": "µs",
+          "scale": 0.000001
+        },
+        {
+          "id": "ms",
+          "symbol": "ms",
+          "scale": 0.001
+        },
+        {
+          "id": "s",
+          "symbol": "s",
+          "scale": 1
+        },
+        {
+          "id": "min",
+          "symbol": "min",
+          "scale": 60
+        },
+        {
+          "id": "h",
+          "symbol": "h",
+          "scale": 3600
+        },
+        {
+          "id": "d",
+          "symbol": "d",
+          "scale": 86400
+        }
+      ]
+    },
+    {
+      "id": "energy",
+      "label": "Energy",
+      "valueKind": "number",
+      "canonicalUnit": "Wh",
+      "stateClassDefault": "total_increasing",
+      "units": [
+        {
+          "id": "J",
+          "symbol": "J",
+          "scale": 0.0002777777777777778
+        },
+        {
+          "id": "kJ",
+          "symbol": "kJ",
+          "scale": 0.2777777777777778
+        },
+        {
+          "id": "MJ",
+          "symbol": "MJ",
+          "scale": 277.77777777777777
+        },
+        {
+          "id": "GJ",
+          "symbol": "GJ",
+          "scale": 277777.77777777775
+        },
+        {
+          "id": "mWh",
+          "symbol": "mWh",
+          "scale": 0.001
+        },
+        {
+          "id": "Wh",
+          "symbol": "Wh",
+          "scale": 1
+        },
+        {
+          "id": "kWh",
+          "symbol": "kWh",
+          "scale": 1000
+        },
+        {
+          "id": "MWh",
+          "symbol": "MWh",
+          "scale": 1000000
+        },
+        {
+          "id": "GWh",
+          "symbol": "GWh",
+          "scale": 1000000000
+        },
+        {
+          "id": "TWh",
+          "symbol": "TWh",
+          "scale": 1000000000000
+        },
+        {
+          "id": "cal",
+          "symbol": "cal",
+          "scale": 0.0011622222222222223
+        },
+        {
+          "id": "kcal",
+          "symbol": "kcal",
+          "scale": 1.1622222222222223
+        },
+        {
+          "id": "Mcal",
+          "symbol": "Mcal",
+          "scale": 1162.2222222222222
+        },
+        {
+          "id": "Gcal",
+          "symbol": "Gcal",
+          "scale": 1162222.2222222222
+        },
+        {
+          "id": "thm",
+          "symbol": "thm",
+          "scale": 29307.142857
+        }
+      ]
+    },
+    {
+      "id": "energy_distance",
+      "label": "Energy distance",
+      "valueKind": "number",
+      "canonicalUnit": "Wh/km",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "Wh/km",
+          "symbol": "Wh/km",
+          "scale": 1
+        },
+        {
+          "id": "kWh/100km",
+          "symbol": "kWh/100km",
+          "convert": "energy-distance-kwh100"
+        },
+        {
+          "id": "km/kWh",
+          "symbol": "km/kWh",
+          "convert": "energy-distance-km-kwh"
+        },
+        {
+          "id": "mi/kWh",
+          "symbol": "mi/kWh",
+          "convert": "energy-distance-mi-kwh"
+        }
+      ]
+    },
+    {
+      "id": "energy_storage",
+      "label": "Energy storage",
+      "valueKind": "number",
+      "canonicalUnit": "Wh",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "J",
+          "symbol": "J",
+          "scale": 0.0002777777777777778
+        },
+        {
+          "id": "kJ",
+          "symbol": "kJ",
+          "scale": 0.2777777777777778
+        },
+        {
+          "id": "MJ",
+          "symbol": "MJ",
+          "scale": 277.77777777777777
+        },
+        {
+          "id": "GJ",
+          "symbol": "GJ",
+          "scale": 277777.77777777775
+        },
+        {
+          "id": "mWh",
+          "symbol": "mWh",
+          "scale": 0.001
+        },
+        {
+          "id": "Wh",
+          "symbol": "Wh",
+          "scale": 1
+        },
+        {
+          "id": "kWh",
+          "symbol": "kWh",
+          "scale": 1000
+        },
+        {
+          "id": "MWh",
+          "symbol": "MWh",
+          "scale": 1000000
+        },
+        {
+          "id": "GWh",
+          "symbol": "GWh",
+          "scale": 1000000000
+        },
+        {
+          "id": "TWh",
+          "symbol": "TWh",
+          "scale": 1000000000000
+        },
+        {
+          "id": "cal",
+          "symbol": "cal",
+          "scale": 0.0011622222222222223
+        },
+        {
+          "id": "kcal",
+          "symbol": "kcal",
+          "scale": 1.1622222222222223
+        },
+        {
+          "id": "Mcal",
+          "symbol": "Mcal",
+          "scale": 1162.2222222222222
+        },
+        {
+          "id": "Gcal",
+          "symbol": "Gcal",
+          "scale": 1162222.2222222222
+        },
+        {
+          "id": "thm",
+          "symbol": "thm",
+          "scale": 29307.142857
+        }
+      ]
+    },
+    {
+      "id": "frequency",
+      "label": "Frequency",
+      "valueKind": "number",
+      "canonicalUnit": "Hz",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "mHz",
+          "symbol": "mHz",
+          "scale": 0.001
+        },
+        {
+          "id": "Hz",
+          "symbol": "Hz",
+          "scale": 1
+        },
+        {
+          "id": "kHz",
+          "symbol": "kHz",
+          "scale": 1000
+        },
+        {
+          "id": "MHz",
+          "symbol": "MHz",
+          "scale": 1000000
+        },
+        {
+          "id": "GHz",
+          "symbol": "GHz",
+          "scale": 1000000000
+        }
+      ]
+    },
+    {
+      "id": "gas",
+      "label": "Gas",
+      "valueKind": "number",
+      "canonicalUnit": "m³",
+      "stateClassDefault": "total_increasing",
+      "units": [
+        {
+          "id": "L",
+          "symbol": "L",
+          "scale": 0.001
+        },
+        {
+          "id": "m³",
+          "symbol": "m³",
+          "scale": 1
+        },
+        {
+          "id": "ft³",
+          "symbol": "ft³",
+          "scale": 0.028316846592
+        },
+        {
+          "id": "CCF",
+          "symbol": "CCF",
+          "scale": 2.8316846592
+        },
+        {
+          "id": "MCF",
+          "symbol": "MCF",
+          "scale": 28.316846592
+        }
+      ]
+    },
+    {
+      "id": "humidity",
+      "label": "Humidity",
+      "valueKind": "number",
+      "canonicalUnit": "%",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "%",
+          "symbol": "%",
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "illuminance",
+      "label": "Illuminance",
+      "valueKind": "number",
+      "canonicalUnit": "lx",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "lx",
+          "symbol": "lx",
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "irradiance",
+      "label": "Irradiance",
+      "valueKind": "number",
+      "canonicalUnit": "W/m²",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "W/m²",
+          "symbol": "W/m²",
+          "scale": 1
+        },
+        {
+          "id": "BTU/(h⋅ft²)",
+          "symbol": "BTU/(h⋅ft²)",
+          "scale": 3.154591
+        }
+      ]
+    },
+    {
+      "id": "monetary",
+      "label": "Monetary",
+      "valueKind": "number",
+      "canonicalUnit": null,
+      "stateClassDefault": "total",
+      "units": []
+    },
+    {
+      "id": "nitrogen_dioxide",
+      "label": "Nitrogen dioxide",
+      "valueKind": "number",
+      "canonicalUnit": "µg/m³",
+      "stateClassDefault": "measurement",
+      "molarMass": 46.0055,
+      "units": [
+        {
+          "id": "ppb",
+          "symbol": "ppb",
+          "convert": "gas-ppb-from-ug"
+        },
+        {
+          "id": "ppm",
+          "symbol": "ppm",
+          "convert": "gas-ppm-from-ug"
+        },
+        {
+          "id": "µg/m³",
+          "symbol": "µg/m³",
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "nitrogen_monoxide",
+      "label": "Nitrogen monoxide",
+      "valueKind": "number",
+      "canonicalUnit": "µg/m³",
+      "stateClassDefault": "measurement",
+      "molarMass": 30.006,
+      "units": [
+        {
+          "id": "ppb",
+          "symbol": "ppb",
+          "convert": "gas-ppb-from-ug"
+        },
+        {
+          "id": "µg/m³",
+          "symbol": "µg/m³",
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "nitrous_oxide",
+      "label": "Nitrous oxide",
+      "valueKind": "number",
+      "canonicalUnit": "µg/m³",
+      "stateClassDefault": "measurement",
+      "molarMass": 44.013,
+      "units": [
+        {
+          "id": "µg/m³",
+          "symbol": "µg/m³",
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "ozone",
+      "label": "Ozone",
+      "valueKind": "number",
+      "canonicalUnit": "µg/m³",
+      "stateClassDefault": "measurement",
+      "molarMass": 48,
+      "units": [
+        {
+          "id": "ppb",
+          "symbol": "ppb",
+          "convert": "gas-ppb-from-ug"
+        },
+        {
+          "id": "ppm",
+          "symbol": "ppm",
+          "convert": "gas-ppm-from-ug"
+        },
+        {
+          "id": "µg/m³",
+          "symbol": "µg/m³",
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "ph",
+      "label": "pH",
+      "valueKind": "number",
+      "canonicalUnit": null,
+      "stateClassDefault": "measurement",
+      "units": []
+    },
+    {
+      "id": "pm1",
+      "label": "PM1",
+      "valueKind": "number",
+      "canonicalUnit": "µg/m³",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "µg/m³",
+          "symbol": "µg/m³",
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "pm25",
+      "label": "PM2.5",
+      "valueKind": "number",
+      "canonicalUnit": "µg/m³",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "µg/m³",
+          "symbol": "µg/m³",
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "pm4",
+      "label": "PM4",
+      "valueKind": "number",
+      "canonicalUnit": "µg/m³",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "µg/m³",
+          "symbol": "µg/m³",
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "pm10",
+      "label": "PM10",
+      "valueKind": "number",
+      "canonicalUnit": "µg/m³",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "µg/m³",
+          "symbol": "µg/m³",
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "power",
+      "label": "Power",
+      "valueKind": "number",
+      "canonicalUnit": "W",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "mW",
+          "symbol": "mW",
+          "scale": 0.001
+        },
+        {
+          "id": "W",
+          "symbol": "W",
+          "scale": 1
+        },
+        {
+          "id": "kW",
+          "symbol": "kW",
+          "scale": 1000
+        },
+        {
+          "id": "MW",
+          "symbol": "MW",
+          "scale": 1000000
+        },
+        {
+          "id": "GW",
+          "symbol": "GW",
+          "scale": 1000000000
+        },
+        {
+          "id": "TW",
+          "symbol": "TW",
+          "scale": 1000000000000
+        }
+      ]
+    },
+    {
+      "id": "power_factor",
+      "label": "Power factor",
+      "valueKind": "number",
+      "canonicalUnit": null,
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "%",
+          "symbol": "%",
+          "scale": 0.01
+        }
+      ]
+    },
+    {
+      "id": "precipitation",
+      "label": "Precipitation",
+      "valueKind": "number",
+      "canonicalUnit": "mm",
+      "stateClassDefault": "total_increasing",
+      "units": [
+        {
+          "id": "mm",
+          "symbol": "mm",
+          "scale": 1
+        },
+        {
+          "id": "cm",
+          "symbol": "cm",
+          "scale": 10
+        },
+        {
+          "id": "in",
+          "symbol": "in",
+          "scale": 25.4
+        }
+      ]
+    },
+    {
+      "id": "precipitation_intensity",
+      "label": "Precipitation intensity",
+      "valueKind": "number",
+      "canonicalUnit": "mm/h",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "mm/h",
+          "symbol": "mm/h",
+          "scale": 1
+        },
+        {
+          "id": "mm/d",
+          "symbol": "mm/d",
+          "scale": 0.041666666666666664
+        },
+        {
+          "id": "in/h",
+          "symbol": "in/h",
+          "scale": 25.4
+        },
+        {
+          "id": "in/d",
+          "symbol": "in/d",
+          "scale": 1.0583333333333333
+        }
+      ]
+    },
+    {
+      "id": "pressure",
+      "label": "Pressure",
+      "valueKind": "number",
+      "canonicalUnit": "Pa",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "mPa",
+          "symbol": "mPa",
+          "scale": 0.001
+        },
+        {
+          "id": "Pa",
+          "symbol": "Pa",
+          "scale": 1
+        },
+        {
+          "id": "hPa",
+          "symbol": "hPa",
+          "scale": 100
+        },
+        {
+          "id": "kPa",
+          "symbol": "kPa",
+          "scale": 1000
+        },
+        {
+          "id": "bar",
+          "symbol": "bar",
+          "scale": 100000
+        },
+        {
+          "id": "cbar",
+          "symbol": "cbar",
+          "scale": 1000
+        },
+        {
+          "id": "mbar",
+          "symbol": "mbar",
+          "scale": 100
+        },
+        {
+          "id": "psi",
+          "symbol": "psi",
+          "scale": 6894.757293168
+        },
+        {
+          "id": "mmHg",
+          "symbol": "mmHg",
+          "scale": 133.322387415
+        },
+        {
+          "id": "inHg",
+          "symbol": "inHg",
+          "scale": 3386.389
+        },
+        {
+          "id": "inH₂O",
+          "symbol": "inH₂O",
+          "scale": 249.08891
+        },
+        {
+          "id": "atm",
+          "symbol": "atm",
+          "scale": 101325
+        }
+      ]
+    },
+    {
+      "id": "radon",
+      "label": "Radon",
+      "valueKind": "number",
+      "canonicalUnit": "Bq/m³",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "Bq/m³",
+          "symbol": "Bq/m³",
+          "scale": 1
+        },
+        {
+          "id": "pCi/L",
+          "symbol": "pCi/L",
+          "scale": 37
+        }
+      ]
+    },
+    {
+      "id": "reactive_energy",
+      "label": "Reactive energy",
+      "valueKind": "number",
+      "canonicalUnit": "varh",
+      "stateClassDefault": "total_increasing",
+      "units": [
+        {
+          "id": "varh",
+          "symbol": "varh",
+          "scale": 1
+        },
+        {
+          "id": "kvarh",
+          "symbol": "kvarh",
+          "scale": 1000
+        }
+      ]
+    },
+    {
+      "id": "reactive_power",
+      "label": "Reactive power",
+      "valueKind": "number",
+      "canonicalUnit": "var",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "mvar",
+          "symbol": "mvar",
+          "scale": 0.001
+        },
+        {
+          "id": "var",
+          "symbol": "var",
+          "scale": 1
+        },
+        {
+          "id": "kvar",
+          "symbol": "kvar",
+          "scale": 1000
+        }
+      ]
+    },
+    {
+      "id": "signal_strength",
+      "label": "Signal strength",
+      "valueKind": "number",
+      "canonicalUnit": "dBm",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "dBm",
+          "symbol": "dBm",
+          "scale": 1
+        },
+        {
+          "id": "dB",
+          "symbol": "dB"
+        }
+      ]
+    },
+    {
+      "id": "sound_pressure",
+      "label": "Sound pressure",
+      "valueKind": "number",
+      "canonicalUnit": "dB",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "dB",
+          "symbol": "dB",
+          "scale": 1
+        },
+        {
+          "id": "dBA",
+          "symbol": "dBA"
+        }
+      ]
+    },
+    {
+      "id": "speed",
+      "label": "Speed",
+      "valueKind": "number",
+      "canonicalUnit": "m/s",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "mm/s",
+          "symbol": "mm/s",
+          "scale": 0.001
+        },
+        {
+          "id": "m/s",
+          "symbol": "m/s",
+          "scale": 1
+        },
+        {
+          "id": "km/h",
+          "symbol": "km/h",
+          "scale": 0.2777777777777778
+        },
+        {
+          "id": "in/s",
+          "symbol": "in/s",
+          "scale": 0.0254
+        },
+        {
+          "id": "in/h",
+          "symbol": "in/h",
+          "scale": 0.000007055555555555555
+        },
+        {
+          "id": "in/d",
+          "symbol": "in/d",
+          "scale": 2.939814814814815e-7
+        },
+        {
+          "id": "ft/s",
+          "symbol": "ft/s",
+          "scale": 0.3048
+        },
+        {
+          "id": "mph",
+          "symbol": "mph",
+          "scale": 0.44704
+        },
+        {
+          "id": "kn",
+          "symbol": "kn",
+          "scale": 0.514444
+        },
+        {
+          "id": "mm/d",
+          "symbol": "mm/d",
+          "scale": 1.1574074074074074e-8
+        }
+      ]
+    },
+    {
+      "id": "sulphur_dioxide",
+      "label": "Sulphur dioxide",
+      "valueKind": "number",
+      "canonicalUnit": "µg/m³",
+      "stateClassDefault": "measurement",
+      "molarMass": 64.066,
+      "units": [
+        {
+          "id": "ppb",
+          "symbol": "ppb",
+          "convert": "gas-ppb-from-ug"
+        },
+        {
+          "id": "µg/m³",
+          "symbol": "µg/m³",
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "temperature",
+      "label": "Temperature",
+      "valueKind": "number",
+      "canonicalUnit": "°C",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "°C",
+          "symbol": "°C",
+          "convert": "celsius"
+        },
+        {
+          "id": "°F",
+          "symbol": "°F",
+          "convert": "celsius"
+        },
+        {
+          "id": "K",
+          "symbol": "K",
+          "convert": "celsius"
+        }
+      ]
+    },
+    {
+      "id": "temperature_delta",
+      "label": "Temperature delta",
+      "valueKind": "number",
+      "canonicalUnit": "°C",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "°C",
+          "symbol": "°C",
+          "convert": "celsius-delta"
+        },
+        {
+          "id": "°F",
+          "symbol": "°F",
+          "convert": "celsius-delta"
+        },
+        {
+          "id": "K",
+          "symbol": "K",
+          "convert": "celsius-delta"
+        }
+      ]
+    },
+    {
+      "id": "timestamp",
+      "label": "Timestamp",
+      "valueKind": "timestamp",
+      "canonicalUnit": null,
+      "units": []
+    },
+    {
+      "id": "uptime",
+      "label": "Uptime",
+      "valueKind": "timestamp",
+      "canonicalUnit": null,
+      "units": []
+    },
+    {
+      "id": "volatile_organic_compounds",
+      "label": "Volatile organic compounds",
+      "valueKind": "number",
+      "canonicalUnit": "µg/m³",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "µg/m³",
+          "symbol": "µg/m³",
+          "scale": 1
+        },
+        {
+          "id": "mg/m³",
+          "symbol": "mg/m³",
+          "scale": 1000
+        }
+      ]
+    },
+    {
+      "id": "volatile_organic_compounds_parts",
+      "label": "Volatile organic compounds parts",
+      "valueKind": "number",
+      "canonicalUnit": "ppm",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "ppm",
+          "symbol": "ppm",
+          "scale": 1
+        },
+        {
+          "id": "ppb",
+          "symbol": "ppb",
+          "scale": 0.001
+        }
+      ]
+    },
+    {
+      "id": "voltage",
+      "label": "Voltage",
+      "valueKind": "number",
+      "canonicalUnit": "V",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "µV",
+          "symbol": "µV",
+          "scale": 0.000001
+        },
+        {
+          "id": "mV",
+          "symbol": "mV",
+          "scale": 0.001
+        },
+        {
+          "id": "V",
+          "symbol": "V",
+          "scale": 1
+        },
+        {
+          "id": "kV",
+          "symbol": "kV",
+          "scale": 1000
+        },
+        {
+          "id": "MV",
+          "symbol": "MV",
+          "scale": 1000000
+        }
+      ]
+    },
+    {
+      "id": "volume",
+      "label": "Volume",
+      "valueKind": "number",
+      "canonicalUnit": "m³",
+      "stateClassDefault": "total_increasing",
+      "units": [
+        {
+          "id": "mL",
+          "symbol": "mL",
+          "scale": 0.000001
+        },
+        {
+          "id": "L",
+          "symbol": "L",
+          "scale": 0.001
+        },
+        {
+          "id": "m³",
+          "symbol": "m³",
+          "scale": 1
+        },
+        {
+          "id": "ft³",
+          "symbol": "ft³",
+          "scale": 0.028316846592
+        },
+        {
+          "id": "gal",
+          "symbol": "gal",
+          "scale": 0.003785411784
+        },
+        {
+          "id": "fl. oz.",
+          "symbol": "fl. oz.",
+          "scale": 0.0000295735295625
+        },
+        {
+          "id": "CCF",
+          "symbol": "CCF",
+          "scale": 2.8316846592
+        },
+        {
+          "id": "MCF",
+          "symbol": "MCF",
+          "scale": 28.316846592
+        }
+      ]
+    },
+    {
+      "id": "volume_flow_rate",
+      "label": "Volume flow rate",
+      "valueKind": "number",
+      "canonicalUnit": "m³/h",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "m³/s",
+          "symbol": "m³/s",
+          "scale": 3600
+        },
+        {
+          "id": "m³/min",
+          "symbol": "m³/min",
+          "scale": 60
+        },
+        {
+          "id": "m³/h",
+          "symbol": "m³/h",
+          "scale": 1
+        },
+        {
+          "id": "L/s",
+          "symbol": "L/s",
+          "scale": 3.6
+        },
+        {
+          "id": "L/min",
+          "symbol": "L/min",
+          "scale": 0.06
+        },
+        {
+          "id": "L/h",
+          "symbol": "L/h",
+          "scale": 0.001
+        },
+        {
+          "id": "mL/s",
+          "symbol": "mL/s",
+          "scale": 0.0036
+        },
+        {
+          "id": "ft³/min",
+          "symbol": "ft³/min",
+          "scale": 1.69901079552
+        },
+        {
+          "id": "gal/min",
+          "symbol": "gal/min",
+          "scale": 0.22712470704
+        },
+        {
+          "id": "gal/h",
+          "symbol": "gal/h",
+          "scale": 0.003785411784
+        },
+        {
+          "id": "gal/d",
+          "symbol": "gal/d",
+          "scale": 0.000157725491
+        }
+      ]
+    },
+    {
+      "id": "volume_storage",
+      "label": "Volume storage",
+      "valueKind": "number",
+      "canonicalUnit": "m³",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "mL",
+          "symbol": "mL",
+          "scale": 0.000001
+        },
+        {
+          "id": "L",
+          "symbol": "L",
+          "scale": 0.001
+        },
+        {
+          "id": "m³",
+          "symbol": "m³",
+          "scale": 1
+        },
+        {
+          "id": "ft³",
+          "symbol": "ft³",
+          "scale": 0.028316846592
+        },
+        {
+          "id": "gal",
+          "symbol": "gal",
+          "scale": 0.003785411784
+        },
+        {
+          "id": "fl. oz.",
+          "symbol": "fl. oz.",
+          "scale": 0.0000295735295625
+        },
+        {
+          "id": "CCF",
+          "symbol": "CCF",
+          "scale": 2.8316846592
+        },
+        {
+          "id": "MCF",
+          "symbol": "MCF",
+          "scale": 28.316846592
+        }
+      ]
+    },
+    {
+      "id": "water",
+      "label": "Water",
+      "valueKind": "number",
+      "canonicalUnit": "m³",
+      "stateClassDefault": "total_increasing",
+      "units": [
+        {
+          "id": "L",
+          "symbol": "L",
+          "scale": 0.001
+        },
+        {
+          "id": "m³",
+          "symbol": "m³",
+          "scale": 1
+        },
+        {
+          "id": "ft³",
+          "symbol": "ft³",
+          "scale": 0.028316846592
+        },
+        {
+          "id": "gal",
+          "symbol": "gal",
+          "scale": 0.003785411784
+        },
+        {
+          "id": "CCF",
+          "symbol": "CCF",
+          "scale": 2.8316846592
+        },
+        {
+          "id": "MCF",
+          "symbol": "MCF",
+          "scale": 28.316846592
+        }
+      ]
+    },
+    {
+      "id": "weight",
+      "label": "Weight",
+      "valueKind": "number",
+      "canonicalUnit": "kg",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "µg",
+          "symbol": "µg",
+          "scale": 1e-9
+        },
+        {
+          "id": "mg",
+          "symbol": "mg",
+          "scale": 0.000001
+        },
+        {
+          "id": "g",
+          "symbol": "g",
+          "scale": 0.001
+        },
+        {
+          "id": "kg",
+          "symbol": "kg",
+          "scale": 1
+        },
+        {
+          "id": "oz",
+          "symbol": "oz",
+          "scale": 0.028349523125
+        },
+        {
+          "id": "lb",
+          "symbol": "lb",
+          "scale": 0.45359237
+        },
+        {
+          "id": "st",
+          "symbol": "st",
+          "scale": 6.35029318
+        }
+      ]
+    },
+    {
+      "id": "wind_direction",
+      "label": "Wind direction",
+      "valueKind": "number",
+      "canonicalUnit": "°",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "°",
+          "symbol": "°",
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "wind_speed",
+      "label": "Wind speed",
+      "valueKind": "number",
+      "canonicalUnit": "m/s",
+      "stateClassDefault": "measurement",
+      "units": [
+        {
+          "id": "m/s",
+          "symbol": "m/s",
+          "scale": 1
+        },
+        {
+          "id": "km/h",
+          "symbol": "km/h",
+          "scale": 0.2777777777777778
+        },
+        {
+          "id": "ft/s",
+          "symbol": "ft/s",
+          "scale": 0.3048
+        },
+        {
+          "id": "mph",
+          "symbol": "mph",
+          "scale": 0.44704
+        },
+        {
+          "id": "kn",
+          "symbol": "kn",
+          "scale": 0.514444
+        }
+      ]
+    }
+  ]
+}

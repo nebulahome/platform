@@ -1,5 +1,5 @@
 {
   "extends": "@nebula-home/tsconfig/node.json",
   "compilerOptions": { "outDir": "dist", "rootDir": "src" },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.json"]
 }
