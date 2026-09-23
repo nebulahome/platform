@@ -7,6 +7,8 @@
  *
  * Every variable defined here has a matching entry in `.env.example`, per RULES.md 11.
  */
+import path from 'node:path';
+
 import { z } from 'zod';
 
 import { LOG_LEVELS } from '@nebula-home/contracts';
@@ -82,3 +84,47 @@ export const secretsEnvSchema = z.object({
     .string()
     .regex(/^[0-9a-fA-F]{64}$/, 'Must be 64 hexadecimal characters (openssl rand -hex 32)'),
 });
+
+/**
+ * Variables read by the services that keep files: where the data directory is.
+ *
+ * Absolute, because a relative path would be resolved against the working directory, which in
+ * development is each service's own package and so a different place for every service. Absent,
+ * `resolveDataLayout` falls back to the repository's `infra/data` - which is only right outside
+ * production, so a service schema that composes this also applies
+ * {@link requireDataDirInProduction}.
+ */
+export const dataEnvSchema = z.object({
+  NEBULA_DATA_DIR: z
+    .string()
+    .min(1)
+    .refine((value) => path.isAbsolute(value), 'Must be an absolute path')
+    .optional(),
+});
+
+/**
+ * Refuses a production service that was not told where its data directory is.
+ *
+ * Without it the fallback would be a directory inside the image, and everything written there
+ * would be lost with the container the next time it is recreated - silently, which is the part
+ * worth a startup failure. Applied last to a service schema, with `superRefine`, because it reads
+ * two fragments at once and zod does not extend an object schema that already carries a
+ * refinement.
+ *
+ * @param config - The parsed environment: the runtime fragment and the data fragment.
+ * @param config.NODE_ENV - The environment the service runs in.
+ * @param config.NEBULA_DATA_DIR - The data directory, when one was given.
+ * @param context - Where the issue is reported.
+ */
+export function requireDataDirInProduction(
+  config: { readonly NODE_ENV: NodeEnvironment; readonly NEBULA_DATA_DIR?: string | undefined },
+  context: z.RefinementCtx,
+): void {
+  if (config.NODE_ENV === 'production' && config.NEBULA_DATA_DIR === undefined) {
+    context.addIssue({
+      code: 'custom',
+      path: ['NEBULA_DATA_DIR'],
+      message: 'Required in production: without it the data would be kept inside the container',
+    });
+  }
+}

@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
@@ -6,6 +8,8 @@ import { ConfigurationError } from '@nebula-home/contracts';
 import {
   busEnvSchema,
   databaseEnvSchema,
+  dataEnvSchema,
+  requireDataDirInProduction,
   runtimeEnvSchema,
   secretsEnvSchema,
 } from './env-schemas.js';
@@ -65,6 +69,36 @@ describe('loadConfig', () => {
 
   it('names the offending variables in the error message', () => {
     expect(() => loadConfig(serviceSchema, {})).toThrow(/DATABASE_URL/);
+  });
+});
+
+describe('dataEnvSchema', () => {
+  const dataServiceSchema = runtimeEnvSchema
+    .extend(dataEnvSchema.shape)
+    .superRefine(requireDataDirInProduction);
+  const absolute = path.resolve('/srv/nebula');
+
+  it('takes an absolute path, and leaves the variable out when it is absent', () => {
+    expect(loadConfig(dataServiceSchema, { NEBULA_DATA_DIR: absolute }).NEBULA_DATA_DIR).toBe(
+      absolute,
+    );
+    expect(loadConfig(dataServiceSchema, {}).NEBULA_DATA_DIR).toBeUndefined();
+  });
+
+  it('refuses a relative path, which each service would resolve somewhere else', () => {
+    expect(() => loadConfig(dataServiceSchema, { NEBULA_DATA_DIR: './infra/data' })).toThrow(
+      /NEBULA_DATA_DIR/,
+    );
+  });
+
+  it('refuses to start in production without one', () => {
+    expect(() => loadConfig(dataServiceSchema, { NODE_ENV: 'production' })).toThrow(
+      /NEBULA_DATA_DIR/,
+    );
+    expect(
+      loadConfig(dataServiceSchema, { NODE_ENV: 'production', NEBULA_DATA_DIR: absolute })
+        .NEBULA_DATA_DIR,
+    ).toBe(absolute);
   });
 });
 
