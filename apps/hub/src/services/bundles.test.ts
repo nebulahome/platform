@@ -1,3 +1,4 @@
+import { createSocket } from 'node:dgram';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -599,3 +600,192 @@ describe('mergeBundleResults', () => {
     ]);
   });
 });
+
+/** How the generic vendor's relays are found: an mDNS service, a probe, and where they say who they are. */
+const DISCOVERY = {
+  listen: [{ mdns: '_relay._tcp' }],
+  probe: { transport: 'http', op: 'get', args: { path: '/status' } },
+  identity: { externalId: 'device.id', model: 'device.model' },
+};
+
+/** The relay driver, listing the models it drives and the codes they report. */
+const CODED_DRIVER = {
+  ...DRIVER,
+  models: ['Relay One', 'Relay Two'],
+  modelCodes: { 'R-1': 'Relay One', 'R-2': 'Relay Two' },
+};
+
+/** A discovery module of the vendor's own, reporting one device and the runtime it was given. */
+const DISCOVERY_MODULE = `
+export default function lan(sdk) {
+  return {
+    listen: async function* listen() {
+      yield { config: { host: '192.168.1.60' }, payload: { device: { id: 'r1', model: 'R-1' }, sdk: sdk.version } };
+    },
+  };
+}
+`;
+
+describe('loadBundles discovery', () => {
+  it('reads how a vendor is found, checked against its drivers', async () => {
+    await writeRelay({ 'discovery.json': DISCOVERY }, { 'driver.json': CODED_DRIVER });
+
+    const { vendors, failures } = await loadBundles({ directory: root, runtimeVersion: '1.0.0' });
+    const discovery = vendors[0]?.discovery;
+
+    expect(failures).toEqual([]);
+    expect(discovery?.sources).toEqual([{ kind: 'mdns', service: '_relay._tcp' }]);
+    expect(discovery?.plan.codes.get('R-2')).toEqual([
+      { driverId: 'relay', models: ['Relay Two'] },
+    ]);
+  });
+
+  it('leaves a vendor without discovery.json undiscoverable, and otherwise as it was', async () => {
+    await writeRelay();
+
+    const { vendors, failures } = await loadBundles({ directory: root, runtimeVersion: '1.0.0' });
+
+    expect(failures).toEqual([]);
+    expect(vendors[0]?.discovery).toBeUndefined();
+  });
+
+  it('keeps the vendor when its discovery is broken, and names the file', async () => {
+    // Discovery is a convenience on top of adding a device by address. A typo in it must not
+    // take away the vendor's devices.
+    await writeRelay({ 'discovery.json': { listen: [{ ssdp: 'urn:x' }], identity: {} } });
+
+    const { vendors, failures } = await loadBundles({ directory: root, runtimeVersion: '1.0.0' });
+
+    expect(vendors).toHaveLength(1);
+    expect(vendors[0]?.discovery).toBeUndefined();
+    expect(failures[0]?.directory).toBe(path.join(root, 'generic', 'discovery.json'));
+  });
+
+  it('refuses one code mapped by two drivers of a vendor that does not probe, naming both', async () => {
+    await writeRelay(
+      {
+        'discovery.json': {
+          listen: [{ mdns: '_relay._tcp' }],
+          identity: { model: 'txt.model' },
+        },
+      },
+      { 'driver.json': CODED_DRIVER },
+    );
+    await write('generic/relay-copy', {
+      'driver.json': { ...CODED_DRIVER, id: 'relay-copy' },
+      'profile.json': PROFILE,
+      'setup.json': SETUP,
+    });
+
+    const { vendors, failures } = await loadBundles({ directory: root, runtimeVersion: '1.0.0' });
+
+    expect(vendors[0]?.discovery).toBeUndefined();
+    expect(failures[0]?.message).toMatch(/relay.*relay-copy|relay-copy.*relay/);
+  });
+
+  it('loads a discovery module the vendor ships, handing it the SDK', async () => {
+    await writeRelay(
+      {
+        'discovery.json': {
+          listen: [{ module: './lan/discovery.js' }],
+          identity: { externalId: 'device.id', model: 'device.model' },
+        },
+      },
+      { 'driver.json': CODED_DRIVER },
+    );
+    await write('generic/lan', { 'discovery.js': DISCOVERY_MODULE });
+
+    const { vendors, failures } = await loadBundles({ directory: root, runtimeVersion: '1.0.0' });
+    const [source] = vendors[0]?.discovery?.sources ?? [];
+    const heard = [];
+
+    if (source?.kind === 'module') {
+      for await (const sighting of source.source.listen(new AbortController().signal)) {
+        heard.push(sighting);
+      }
+    }
+
+    expect(failures).toEqual([]);
+    expect(heard).toEqual([
+      {
+        config: { host: '192.168.1.60' },
+        payload: { device: { id: 'r1', model: 'R-1' }, sdk: '1.0.0' },
+      },
+    ]);
+  });
+
+  it('refuses a discovery module that does not export a factory', async () => {
+    await writeRelay({
+      'discovery.json': {
+        listen: [{ module: './lan/discovery.js' }],
+        identity: { model: 'device.model' },
+      },
+    });
+    await write('generic/lan', { 'discovery.js': 'export default 42;' });
+
+    const { vendors, failures } = await loadBundles({ directory: root, runtimeVersion: '1.0.0' });
+
+    expect(vendors[0]?.discovery).toBeUndefined();
+    expect(failures[0]?.message).toMatch(/lan\/discovery\.js/);
+  });
+
+  it("frees the ports a vendor's code opened when the vendor is released", async () => {
+    // A vendor replaced by an installed copy, or a hub stopping, must not leave a port held by
+    // a bundle that forgot to close it.
+    const port = await freeUdpPort();
+
+    await writeRelay({
+      'discovery.json': {
+        listen: [{ module: './lan/discovery.js' }],
+        identity: { model: 'device.model' },
+      },
+    });
+    await write('generic/lan', {
+      'discovery.js': `
+export default function lan(sdk) {
+  sdk.openUdpSocket({ port: ${String(port)}, onMessage: () => {} });
+  return { listen: async function* listen() {} };
+}
+`,
+    });
+
+    const { vendors } = await loadBundles({ directory: root, runtimeVersion: '1.0.0' });
+
+    await vendors[0]?.release();
+
+    const socket = createSocket('udp4');
+
+    await new Promise<void>((resolve, reject) => {
+      socket.once('error', reject);
+      socket.bind(port, resolve);
+    });
+    await new Promise<void>((resolve) => {
+      socket.close(() => {
+        resolve();
+      });
+    });
+  });
+});
+
+/**
+ * Finds a UDP port nothing is bound to.
+ *
+ * @returns The port.
+ */
+async function freeUdpPort(): Promise<number> {
+  const socket = createSocket('udp4');
+
+  await new Promise<void>((resolve) => {
+    socket.bind(0, resolve);
+  });
+
+  const { port } = socket.address();
+
+  await new Promise<void>((resolve) => {
+    socket.close(() => {
+      resolve();
+    });
+  });
+
+  return port;
+}

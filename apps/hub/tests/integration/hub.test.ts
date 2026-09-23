@@ -510,6 +510,76 @@ describe('matching an instance to its row on request', () => {
     }
   }, 40_000);
 
+  it('takes only the device it was adopted as, however many answer at the address', async () => {
+    // Adopted from discovery: the API wrote the serial the device announced, and no claim yet.
+    // Another printer on the same broker speaks first; the instance must wait for its own.
+    const other = `01P00A${String(Date.now() + 1).slice(-9)}`;
+
+    await database.db.insert(schema.registry.devices).values({
+      integrationId: printer,
+      externalId: SERIAL,
+      name: 'Studio printer',
+      manufacturer: 'Bambu Lab',
+      config: {},
+    });
+
+    const asked: RegisterDeviceRequest[] = [];
+    const core = new BusClient({ transport: bus.transport, source: 'core', logger });
+    const serving = core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_REGISTER_METHOD),
+      registerDeviceRequestSchema,
+      (request) => {
+        if (request.integrationId === printer) {
+          asked.push(request);
+        }
+
+        return {
+          deviceId: '3f2504e0-4f89-11d3-9a0c-0305e82c3301',
+          entityIds: request.entities.map((entity) => entity.entityId),
+        };
+      },
+    );
+    const fakePrinters = await connectAsync('mqtt://localhost:1883', { reconnectPeriod: 0 });
+    const { service, stop } = await startHub();
+
+    try {
+      await database.db
+        .update(schema.registry.integrations)
+        .set({ isEnabled: true })
+        .where(eq(schema.registry.integrations.id, printer));
+
+      expect((await service.reloadInstance(printer)).state).toBe('identifying');
+
+      const report = JSON.stringify({ print: { nozzle_temper: 25, bed_temper: 30 } });
+      const speaking = setInterval(() => {
+        void fakePrinters.publishAsync(`device/${other}/report`, report);
+        void fakePrinters.publishAsync(`device/${SERIAL}/report`, report);
+      }, 300);
+
+      try {
+        expect(await until(printer, 'running', 15_000)).toEqual({
+          state: 'running',
+          lastError: null,
+        });
+      } finally {
+        clearInterval(speaking);
+      }
+
+      expect(asked.map((request) => request.externalId)).toEqual([SERIAL]);
+    } finally {
+      serving.unsubscribe();
+      await fakePrinters.endAsync();
+      await database.db
+        .update(schema.registry.integrations)
+        .set({ isEnabled: false })
+        .where(eq(schema.registry.integrations.id, printer));
+      await stop();
+      await database.db
+        .delete(schema.registry.devices)
+        .where(eq(schema.registry.devices.integrationId, printer));
+    }
+  }, 40_000);
+
   it('binds the device it identified last time when an instance starts, and watches it', async () => {
     // A printer identified on an earlier run: its row carries the serial and the claim that
     // was kept. Starting the instance must bind it again without listening for it a second

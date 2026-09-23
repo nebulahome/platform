@@ -22,11 +22,22 @@
  * `core` knows, and is dropped with a warning, every three seconds, forever. So every instance
  * gets a client of its own whose `source` is the instance id; the transport underneath is the
  * one connection, and a client is a few fields over it.
+ *
+ * **Discovery starts last.** It proposes the devices that announce themselves and nobody has
+ * added, so it needs the bundles to know what to listen for and the instances to know what is
+ * already added; it is told again whenever an instance is added, removed or identified.
  */
 import type { BusConnection } from '@nebula-home/bus';
 import { BusClient } from '@nebula-home/bus';
 import { resolveDataLayout } from '@nebula-home/config';
-import { NotFoundError, type ForgetReply, type ReloadReply } from '@nebula-home/contracts';
+import {
+  busSubjects,
+  NotFoundError,
+  type DiscoveryEventPayload,
+  type ForgetReply,
+  type JsonObject,
+  type ReloadReply,
+} from '@nebula-home/contracts';
 import { secretsKeyFrom, type Database } from '@nebula-home/db';
 import type { PlatformLogger } from '@nebula-home/logging';
 import {
@@ -43,6 +54,7 @@ import {
   SERVICE_NAME,
   type HubConfig,
 } from './config.js';
+import { createMdnsSource, type MdnsSource } from './discovery/mdns-source.js';
 import { DeviceBook } from './domain/devices.js';
 import { planSubscriptions } from './domain/subscriptions.js';
 import { withVendorSettings } from './domain/vendors.js';
@@ -55,9 +67,11 @@ import {
   recordStatus,
   type IntegrationInstance,
 } from './persistence/instances.js';
+import { loadTakenDevices } from './persistence/taken.js';
 import { loadVendorSettings } from './persistence/vendors.js';
 import { loadBundles, mergeBundleResults, type LoadedVendor } from './services/bundles.js';
 import { ConnectionPool } from './services/connections.js';
+import { DiscoveryService, type Detected } from './services/discovery.js';
 import { IdentificationService, type Identified } from './services/identification.js';
 import { publishReports, startInstanceServices } from './services/instance.js';
 import { ManagementService } from './services/management.js';
@@ -76,6 +90,13 @@ export type HubServiceOptions = {
    * the set is a deployment decision rather than an import graph.
    */
   readonly transports?: readonly Transport[];
+
+  /**
+   * The mDNS browser discovery listens with; the platform's own when not given.
+   *
+   * Injected so that a test can announce devices without a multicast network.
+   */
+  readonly mdns?: MdnsSource;
 };
 
 /** One instance that started. */
@@ -111,6 +132,7 @@ export class HubService {
   readonly #managementService: ManagementService;
   readonly #secretsKey: Buffer;
   #management: { unsubscribe: () => void }[] = [];
+  #discovery: DiscoveryService | undefined;
 
   /**
    * Prepares the service without starting anything.
@@ -170,6 +192,23 @@ export class HubService {
        * @returns Every loaded vendor, drivers included.
        */
       vendors: (): readonly LoadedVendor[] => [...this.#vendors.values()],
+
+      /**
+       * Lists what discovery proposes; nothing before it has started.
+       *
+       * @returns Every device heard and not yet added.
+       */
+      discovered: () => this.#discovery?.list() ?? [],
+
+      /**
+       * Says which driver and model a configuration being tried reaches.
+       *
+       * @param kind - The driver the form is on.
+       * @param transportConfig - The configuration, secrets opened.
+       * @returns The driver and model, or undefined when discovery cannot tell.
+       */
+      detect: async (kind: string, transportConfig: JsonObject): Promise<Detected | undefined> =>
+        this.#discovery?.detect(kind, transportConfig),
 
       /**
        * Matches one instance to its registry row.
@@ -268,6 +307,79 @@ export class HubService {
     // Started in parallel: one instance waiting on a broker that is not answering must not hold
     // up the others, and there is no ordering between them to preserve.
     await Promise.all(instances.map(async (instance) => this.#startInstance(instance)));
+
+    this.#discovery = this.#createDiscovery();
+
+    if (config.HUB_DISCOVERY_ENABLED) {
+      await this.#discovery.start();
+    }
+  }
+
+  /**
+   * Builds discovery over what was loaded.
+   *
+   * Built whether or not it listens: the add form's Test asks it which model answered, which
+   * needs no multicast.
+   *
+   * @returns Discovery, not yet listening.
+   */
+  #createDiscovery(): DiscoveryService {
+    const { config, db, logger } = this.#options;
+
+    return new DiscoveryService({
+      vendors: [...this.#vendors.values()].flatMap((vendor) =>
+        vendor.discovery === undefined
+          ? []
+          : [{ id: vendor.manifest.id, discovery: vendor.discovery }],
+      ),
+      mdns: this.#options.mdns ?? createMdnsSource({ logger }),
+      transports: this.#transports,
+      integrations: this.#integrations,
+      logger,
+
+      /**
+       * Reads a vendor's saved settings, secrets opened.
+       *
+       * @param vendorId - The vendor.
+       * @returns What the owner saved for its connections; empty when nothing.
+       */
+      vendorSettings: async (vendorId: string): Promise<JsonObject> =>
+        (await loadVendorSettings(db, vendorId, this.#secretsKey))?.transportConfig ?? {},
+
+      /**
+       * Reads what is already added.
+       *
+       * @returns Every instance's id and address.
+       */
+      taken: async () => loadTakenDevices(db),
+
+      /**
+       * Tells whoever is listening that the proposals changed.
+       *
+       * @param count - How many devices are proposed now.
+       */
+      publishChanged: (count: number): void => {
+        const payload: DiscoveryEventPayload = { count };
+
+        this.#client.publish(busSubjects.discoveryEvent('changed'), payload);
+      },
+      queryIntervalMs: config.HUB_DISCOVERY_QUERY_INTERVAL_MS,
+      ttlMs: config.HUB_DISCOVERY_TTL_MS,
+      probeIntervalMs: config.HUB_DISCOVERY_QUERY_INTERVAL_MS,
+    });
+  }
+
+  /**
+   * Tells discovery that what is added changed, without letting its failure reach the caller.
+   *
+   * @returns A promise that settles once discovery has read it again, or failed to.
+   */
+  async #refreshDiscovery(): Promise<void> {
+    try {
+      await this.#discovery?.refresh();
+    } catch (error: unknown) {
+      this.#options.logger.warn({ err: error }, 'Discovery could not read what is added');
+    }
   }
 
   /**
@@ -277,6 +389,8 @@ export class HubService {
    * closed.
    */
   public async stop(): Promise<void> {
+    await this.#discovery?.stop();
+    this.#discovery = undefined;
     await this.#stopListening([...this.#listening.keys()]);
 
     for (const running of this.#running.values()) {
@@ -292,6 +406,9 @@ export class HubService {
     this.#management = [];
     this.#running.clear();
     await this.#pool.closeAll();
+
+    // Whatever the vendors' own code holds - a UDP port - is let go of with them.
+    await Promise.all([...this.#vendors.values()].map(async (vendor) => vendor.release()));
     await this.#client.drain();
   }
 
@@ -314,10 +431,13 @@ export class HubService {
     await this.#stopInstance(id);
 
     if (instance === undefined) {
+      await this.#refreshDiscovery();
+
       throw new NotFoundError('No integration has that id', { details: { id } });
     }
 
     await this.#startInstance(instance);
+    await this.#refreshDiscovery();
 
     return readStatus(this.#options.db, id);
   }
@@ -340,6 +460,8 @@ export class HubService {
 
     await this.#stopInstance(id);
 
+    // Not refreshed here: the rows are still there until `core` deletes them, and the device
+    // would be offered again only to be taken away. The next change reads them gone.
     return { wasRunning };
   }
 
@@ -458,6 +580,11 @@ export class HubService {
           { instanceId: instance.id, externalId: restored.externalId, reason: restored.reason },
           'The device could not be bound from its row and will be identified again',
         );
+      } else if (restored.status === 'adopted') {
+        logger.info(
+          { instanceId: instance.id, externalId: restored.externalId },
+          'Listening for the device it was adopted as',
+        );
       } else if (restored.status === 'missing') {
         logger.warn(
           { instanceId: instance.id },
@@ -468,7 +595,9 @@ export class HubService {
       await recordStatus(db, instance.id, 'identifying');
       this.#listen(
         this.#running.get(instance.id),
-        restored.status === 'unrestorable' ? restored.externalId : null,
+        restored.status === 'unrestorable' || restored.status === 'adopted'
+          ? restored.externalId
+          : null,
       );
     } catch (error: unknown) {
       // Recorded rather than thrown. An owner who mistyped a broker address should see that one
@@ -567,6 +696,7 @@ export class HubService {
       running.book.bind(found.binding);
       await this.#applySubscriptions(id);
       await recordStatus(db, id, 'running');
+      await this.#refreshDiscovery();
       logger.info(
         {
           instanceId: id,

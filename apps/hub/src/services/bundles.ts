@@ -19,6 +19,8 @@
  * One broken driver never stops its siblings, and one broken vendor never stops the others. A
  * failure is collected and reported so the interface can say which directory and why, because
  * the alternative - refusing to start - means one bad download takes the whole house offline.
+ * The same goes one level down for a vendor's `discovery.json`: discovery is a convenience on top
+ * of adding a device by address, so a broken one is reported and the vendor loads without it.
  */
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -32,14 +34,21 @@ import {
   createDeclarativeIntegration,
   driverManifestSchema,
   integrationProfileSchema,
+  resolveDiscovery,
   resolveManifest,
+  vendorDiscoverySchema,
   vendorManifestSchema,
   type BundleManifest,
+  type BundleSdk,
+  type DiscoveryPlan,
+  type DiscoverySource,
   type Integration,
   type Transport,
   type TransportFactory,
   type VendorManifest,
 } from '@nebula-home/package-runtime';
+
+import { createUdpSockets } from '../transports/managed-udp.js';
 
 import { createBundleSdk } from './bundle-sdk.js';
 
@@ -48,6 +57,9 @@ const MANIFEST_FILE = 'manifest.json';
 
 /** The file every driver is recognised by. */
 const DRIVER_FILE = 'driver.json';
+
+/** The file a discoverable vendor says how its devices are found in. */
+const DISCOVERY_FILE = 'discovery.json';
 
 /**
  * The most a logo may weigh.
@@ -98,6 +110,17 @@ export type LoadedBundle = {
  */
 export type BundleOrigin = 'development' | 'installed';
 
+/** Where a vendor's devices announce themselves, ready to listen to. */
+export type LoadedListenSource =
+  | { readonly kind: 'mdns'; readonly service: string }
+  | { readonly kind: 'module'; readonly file: string; readonly source: DiscoverySource };
+
+/** How a vendor's devices are found: its plan, checked against its drivers, and its sources. */
+export type LoadedDiscovery = {
+  readonly plan: DiscoveryPlan;
+  readonly sources: readonly LoadedListenSource[];
+};
+
 /** A vendor that loaded, with the drivers of it that did. */
 export type LoadedVendor = {
   readonly manifest: VendorManifest;
@@ -119,8 +142,18 @@ export type LoadedVendor = {
 
   readonly drivers: readonly LoadedBundle[];
 
+  /** How its devices are found, when it has a `discovery.json` that loaded. */
+  readonly discovery?: LoadedDiscovery;
+
   /** Where it was read from, for a message that has to name it. */
   readonly directory: string;
+
+  /**
+   * Lets go of what the vendor's code holds: every UDP socket it opened.
+   *
+   * @returns A promise that settles once every port it held is free.
+   */
+  readonly release: () => Promise<void>;
 };
 
 /** A vendor or a driver that did not load, and why. */
@@ -325,7 +358,8 @@ async function loadIfDriver(
  *
  * @param vendor - The vendor's manifest.
  * @param directory - The vendor's directory.
- * @param options - The runtime version, the logger and how to verify.
+ * @param options - How to verify.
+ * @param sdk - What the vendor's code is handed.
  * @returns The transports, registered under `<vendor>/<name>`.
  * @throws {Error} When a module is missing, exports no factory, or names itself otherwise.
  */
@@ -333,6 +367,7 @@ async function loadVendorTransports(
   vendor: VendorManifest,
   directory: string,
   options: LoadBundlesOptions,
+  sdk: BundleSdk,
 ): Promise<Transport[]> {
   const entries = Object.entries(vendor.transports);
 
@@ -341,13 +376,6 @@ async function loadVendorTransports(
   }
 
   await options.verifyVendor?.(vendor, directory);
-
-  const sdk = createBundleSdk({
-    version: options.runtimeVersion,
-    logger:
-      options.logger ??
-      createLogger({ service: 'hub', version: options.runtimeVersion, level: 'fatal' }),
-  });
 
   return Promise.all(
     entries.map(async ([name, file]) => {
@@ -370,6 +398,105 @@ async function loadVendorTransports(
       return transport;
     }),
   );
+}
+
+/**
+ * Whether a file is there to be read.
+ *
+ * @param file - The file.
+ * @returns True when it can be read.
+ */
+async function exists(file: string): Promise<boolean> {
+  try {
+    await readFile(file);
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Reads how a vendor's devices are found, and loads the modules it listens with.
+ *
+ * @param vendor - The vendor's manifest.
+ * @param directory - The vendor's directory.
+ * @param drivers - The drivers that loaded, whose model codes the plan is checked against.
+ * @param options - How to verify.
+ * @param sdk - What a discovery module is handed.
+ * @returns The discovery, ready to listen with.
+ * @throws {Error} When the file is malformed, a code is mapped by two drivers, the probe names a
+ * transport the vendor does not ship, or a module does not export a factory.
+ */
+async function loadDiscovery(
+  vendor: VendorManifest,
+  directory: string,
+  drivers: readonly LoadedBundle[],
+  options: LoadBundlesOptions,
+  sdk: BundleSdk,
+): Promise<LoadedDiscovery> {
+  const discovery = vendorDiscoverySchema.parse(await readJson(directory, DISCOVERY_FILE));
+  const plan = resolveDiscovery(
+    vendor.id,
+    discovery,
+    drivers.map((driver) => ({
+      id: driver.driverId,
+      name: driver.driverName,
+      models: driver.manifest.models,
+      modelCodes: driver.manifest.modelCodes,
+    })),
+  );
+  const probed = discovery.probe?.transport;
+
+  if (probed?.startsWith(`${vendor.id}/`) === true) {
+    const name = probed.slice(vendor.id.length + 1);
+
+    if (!(name in vendor.transports)) {
+      throw new Error(`${vendor.id} probes with ${probed}, which the vendor does not ship`);
+    }
+  }
+
+  const modules = discovery.listen.filter((source) => 'module' in source);
+
+  if (modules.length > 0) {
+    // Code, at the tier a vendor's own transport is.
+    await options.verifyVendor?.(vendor, directory);
+  }
+
+  const sources = await Promise.all(
+    discovery.listen.map(async (listened): Promise<LoadedListenSource> => {
+      if ('mdns' in listened) {
+        return { kind: 'mdns', service: listened.mdns };
+      }
+
+      const module: unknown = await import(
+        pathToFileURL(path.join(directory, listened.module)).href
+      );
+      const factory = (module as { readonly default?: unknown }).default;
+
+      if (typeof factory !== 'function') {
+        throw new Error(
+          `${vendor.id} discovery module ${listened.module} does not default-export a factory`,
+        );
+      }
+
+      const source: unknown = (factory as (given: BundleSdk) => unknown)(sdk);
+
+      if (
+        source === null ||
+        typeof source !== 'object' ||
+        typeof (source as { readonly listen?: unknown }).listen !== 'function'
+      ) {
+        throw new Error(
+          `${vendor.id} discovery module ${listened.module} does not return something to listen with`,
+        );
+      }
+
+      return { kind: 'module', file: listened.module, source: source as DiscoverySource };
+    }),
+  );
+
+  return { plan, sources };
 }
 
 /**
@@ -401,9 +528,47 @@ async function loadVendor(
     );
   }
 
+  const logger =
+    options.logger ??
+    createLogger({ service: 'hub', version: options.runtimeVersion, level: 'fatal' });
+  const udp = createUdpSockets(logger);
+  const sdk = createBundleSdk({
+    version: options.runtimeVersion,
+    logger,
+    openUdpSocket: udp.open,
+  });
+
+  try {
+    return await loadVendorWith(manifest, directory, options, sdk, udp.closeAll);
+  } catch (error: unknown) {
+    await udp.closeAll();
+
+    throw error;
+  }
+}
+
+/**
+ * Loads a vendor whose manifest has been checked, with the SDK its code is handed.
+ *
+ * @param manifest - The vendor's manifest.
+ * @param directory - The vendor.
+ * @param options - How to verify.
+ * @param sdk - What the vendor's code is handed.
+ * @param release - Lets go of what the vendor's code holds.
+ * @returns The vendor, when at least one driver loaded, and every failure below it.
+ * @throws {Error} When the vendor's own transports, setup or logo are malformed, or a directory
+ * has no driver in it.
+ */
+async function loadVendorWith(
+  manifest: VendorManifest,
+  directory: string,
+  options: LoadBundlesOptions,
+  sdk: BundleSdk,
+  release: () => Promise<void>,
+): Promise<{ readonly vendor: LoadedVendor | null; readonly failures: BundleFailure[] }> {
   // Before the drivers: a driver is only as loadable as the transport it opens, and a vendor
   // whose transport is broken has nothing to offer.
-  const ownTransports = await loadVendorTransports(manifest, directory, options);
+  const ownTransports = await loadVendorTransports(manifest, directory, options, sdk);
   const setup =
     manifest.setup === undefined
       ? NO_SETUP
@@ -430,7 +595,22 @@ async function loadVendor(
   if (drivers.length === 0) {
     // The drivers' failures already say what went wrong. A vendor with nothing to add a device
     // with would only be a card that sends the owner to a page that cannot do anything.
+    await release();
+
     return { vendor: null, failures };
+  }
+
+  let discovery: LoadedDiscovery | undefined;
+
+  if (await exists(path.join(directory, DISCOVERY_FILE))) {
+    try {
+      discovery = await loadDiscovery(manifest, directory, drivers, options, sdk);
+    } catch (error: unknown) {
+      failures.push({
+        directory: path.join(directory, DISCOVERY_FILE),
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   return {
@@ -442,7 +622,9 @@ async function loadVendor(
       transports: [...new Set(drivers.map((driver) => driver.manifest.transport))],
       ownTransports,
       drivers,
+      ...(discovery === undefined ? {} : { discovery }),
       directory,
+      release,
     },
     failures,
   };
@@ -538,6 +720,14 @@ export function mergeBundleResults(
         },
         'An installed integration replaces the one under development',
       );
+
+      // Whatever the replaced copy's code opened while it loaded is let go of: it will never run.
+      replaced.release().catch((error: unknown) => {
+        logger.warn(
+          { err: error, vendor: vendor.manifest.id },
+          'Could not release a replaced vendor',
+        );
+      });
     }
 
     byId.set(vendor.manifest.id, vendor);

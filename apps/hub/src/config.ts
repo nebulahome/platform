@@ -37,7 +37,7 @@ export const SERVICE_VERSION = '0.0.0';
  * written against, not the release of the service that happens to be running it, and the two move
  * for entirely different reasons.
  */
-export const RUNTIME_VERSION = '1.0.0';
+export const RUNTIME_VERSION = '1.1.0';
 
 /** Everything `hub` needs from the environment. */
 export const hubEnvSchema = runtimeEnvSchema
@@ -76,6 +76,28 @@ export const hubEnvSchema = runtimeEnvSchema
      * before listening again. A pass that merely heard nothing is followed almost at once.
      */
     HUB_IDENTIFY_RETRY_MS: z.coerce.number().int().min(1000).max(3_600_000).default(60_000),
+
+    /**
+     * Whether to listen for devices announcing themselves, and propose them for adoption.
+     *
+     * On by default. Off for a hub whose network carries no multicast - a container on a bridge
+     * network hears nothing, and would only hold port 5353 for nothing.
+     */
+    HUB_DISCOVERY_ENABLED: z.stringbool().default(true),
+
+    /**
+     * How often to ask mDNS again for the services the vendors declared, and how long an
+     * address's answer to a probe is trusted before it is asked again.
+     */
+    HUB_DISCOVERY_QUERY_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(60_000)
+      .max(86_400_000)
+      .default(600_000),
+
+    /** How long a proposed device stays proposed without being heard again. */
+    HUB_DISCOVERY_TTL_MS: z.coerce.number().int().min(60_000).max(86_400_000).default(1_800_000),
   })
   // The data directory, whose `hub/integrations` holds the bundles installed into this hub.
   .extend(dataEnvSchema.shape)

@@ -6,8 +6,11 @@ import { FakeTransport } from '@nebula-home/bus/testing';
 import {
   busSubjects,
   catalogueReplySchema,
+  discoveredDeviceSchema,
+  discoveredReplySchema,
   forgetReplySchema,
   HUB_CATALOGUE_METHOD,
+  HUB_DISCOVERED_METHOD,
   HUB_FORGET_METHOD,
   HUB_PROBE_METHOD,
   HUB_RELOAD_METHOD,
@@ -16,6 +19,7 @@ import {
   NotFoundError,
   probeReplySchema,
   reloadReplySchema,
+  type DiscoveredDevice,
   type ForgetReply,
   type ReloadReply,
 } from '@nebula-home/contracts';
@@ -32,6 +36,7 @@ import {
 } from '@nebula-home/package-runtime';
 
 import type { LoadedBundle, LoadedVendor } from './bundles.js';
+import type { Detected } from './discovery.js';
 import { ManagementService } from './management.js';
 
 /** The sealing key the API and the hub would share. */
@@ -149,6 +154,7 @@ function printerVendor(): LoadedVendor {
     ownTransports: [],
     drivers: [driver],
     directory: '/bundles/acme',
+    release: () => Promise.resolve(),
   };
 }
 
@@ -156,18 +162,48 @@ function printerVendor(): LoadedVendor {
 type Harness = {
   readonly caller: BusClient;
   readonly probed: unknown[];
+  readonly detected: { kind: string; transportConfig: unknown }[];
   readonly reloaded: string[];
   readonly forgotten: string[];
   readonly stop: () => void;
 };
 
+/** What discovery answers, as a test varies it. */
+type DiscoveryAnswers = {
+  readonly detect?: () => Promise<Detected | undefined>;
+  readonly discovered?: readonly DiscoveredDevice[];
+};
+
+/** A printer discovery proposed. */
+const PROPOSED: DiscoveredDevice = discoveredDeviceSchema.parse({
+  id: '0123456789abcdef',
+  vendorId: 'acme',
+  driverId: 'fake-printer',
+  kind: 'acme/fake-printer',
+  source: 'mdns',
+  address: '192.168.1.70',
+  externalId: 'SN-1',
+  name: 'Workshop',
+  model: 'P1',
+  modelChoices: ['P1'],
+  modelCode: 'P1-EU',
+  swVersion: null,
+  transportConfig: { host: '192.168.1.70' },
+  firstSeenAt: '2026-09-23T10:00:00.000Z',
+  lastSeenAt: '2026-09-23T10:00:00.000Z',
+});
+
 /**
  * Serves management over a fake bus, with a fake transport and one bundle.
  *
  * @param outcome - What the transport's probe does.
+ * @param answers - What discovery answers.
  * @returns The harness.
  */
-function harness(outcome: () => Promise<string> = () => Promise.resolve('fake answered')): Harness {
+function harness(
+  outcome: () => Promise<string> = () => Promise.resolve('fake answered'),
+  answers: DiscoveryAnswers = {},
+): Harness {
   const transport = new FakeTransport();
   const logger = createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' });
   const client = new BusClient({ transport, source: 'hub', logger, requestTimeoutMs: 500 });
@@ -179,12 +215,19 @@ function harness(outcome: () => Promise<string> = () => Promise.resolve('fake an
 
   const reloaded: string[] = [];
   const forgotten: string[] = [];
+  const detected: { kind: string; transportConfig: unknown }[] = [];
   const service = new ManagementService({
     client,
     transports,
     logger,
     secretsKey: KEY,
     vendors: (): readonly LoadedVendor[] => [printerVendor()],
+    discovered: (): readonly DiscoveredDevice[] => answers.discovered ?? [],
+    detect: (kind, transportConfig): Promise<Detected | undefined> => {
+      detected.push({ kind, transportConfig });
+
+      return answers.detect?.() ?? Promise.resolve(undefined);
+    },
     reload: (integrationId): Promise<ReloadReply> => {
       reloaded.push(integrationId);
 
@@ -201,6 +244,7 @@ function harness(outcome: () => Promise<string> = () => Promise.resolve('fake an
   return {
     caller,
     probed,
+    detected,
     reloaded,
     forgotten,
     stop: (): void => {
@@ -322,6 +366,77 @@ describe('trying a configuration', () => {
         probeReplySchema,
       ),
     ).rejects.toBeInstanceOf(NotFoundError);
+    stop();
+  });
+});
+
+describe('what the device says it is', () => {
+  it('says which driver and model the device is, when discovery can tell', async () => {
+    // The add form's Test preselects what the device reported, so the owner does not have to
+    // know that the box says P1 and the firmware says P1-EU.
+    const { caller, detected, stop } = harness(undefined, {
+      detect: () =>
+        Promise.resolve({ kind: 'acme/fake-printer', model: 'P1', modelChoices: ['P1'] }),
+    });
+    const stored = sealSecrets({ url: 'fake://1', password: 'pw' }, ['password'], KEY);
+
+    const reply = await caller.request(
+      busSubjects.service(HUB_SERVICE, HUB_PROBE_METHOD),
+      { kind: 'acme/fake-printer', transportConfig: stored },
+      probeReplySchema,
+    );
+
+    expect(reply.detected).toEqual({
+      kind: 'acme/fake-printer',
+      model: 'P1',
+      modelChoices: ['P1'],
+    });
+    expect(detected).toEqual([
+      { kind: 'acme/fake-printer', transportConfig: { url: 'fake://1', password: 'pw' } },
+    ]);
+    stop();
+  });
+
+  it('still gives the verdict when discovery cannot tell, or fails', async () => {
+    const { caller, stop } = harness(undefined, {
+      detect: () => Promise.reject(new Error('the probe timed out')),
+    });
+
+    const reply = await caller.request(
+      busSubjects.service(HUB_SERVICE, HUB_PROBE_METHOD),
+      { kind: 'acme/fake-printer', transportConfig: { url: 'fake://1' } },
+      probeReplySchema,
+    );
+
+    expect(reply).toEqual({ isReachable: true, detail: 'fake answered' });
+    stop();
+  });
+
+  it('does not ask what a device is at an address that did not answer', async () => {
+    const { caller, detected, stop } = harness(() => Promise.reject(new Error('ECONNREFUSED')));
+
+    await caller.request(
+      busSubjects.service(HUB_SERVICE, HUB_PROBE_METHOD),
+      { kind: 'acme/fake-printer', transportConfig: { url: 'fake://1' } },
+      probeReplySchema,
+    );
+
+    expect(detected).toEqual([]);
+    stop();
+  });
+});
+
+describe('the devices discovery proposes', () => {
+  it('lists them, as discovery holds them', async () => {
+    const { caller, stop } = harness(undefined, { discovered: [PROPOSED] });
+
+    const reply = await caller.request(
+      busSubjects.service(HUB_SERVICE, HUB_DISCOVERED_METHOD),
+      {},
+      discoveredReplySchema,
+    );
+
+    expect(reply.items).toEqual([PROPOSED]);
     stop();
   });
 });

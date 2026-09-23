@@ -54,6 +54,12 @@ export type RestoredBinding =
   /** Identified before, but nothing usable was kept: listen for it, and expect this one. */
   | { readonly status: 'unrestorable'; readonly externalId: string; readonly reason: string }
 
+  /**
+   * Adopted from discovery: the row names the device it reported and holds no claim yet. Listen
+   * for it, and expect that one - the ordinary first start of an adopted device.
+   */
+  | { readonly status: 'adopted'; readonly externalId: string }
+
   /** No device row at all: the instance was not created through the API. */
   | { readonly status: 'missing' };
 
@@ -92,7 +98,12 @@ export async function loadBinding(
   const config = configSchema.safeParse(row.config);
 
   if (!config.success) {
-    return { status: 'unrestorable', externalId: row.externalId, reason: 'No claim was kept' };
+    const isEmpty =
+      typeof row.config === 'object' && row.config !== null && Object.keys(row.config).length === 0;
+
+    return isEmpty
+      ? { status: 'adopted', externalId: row.externalId }
+      : { status: 'unrestorable', externalId: row.externalId, reason: 'No claim was kept' };
   }
 
   const { claim } = config.data;

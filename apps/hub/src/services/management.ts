@@ -1,14 +1,16 @@
 /**
  * What the interface needs from `hub` to configure an instance: the catalogue, a probe, a
- * reload and a forget.
+ * reload, a forget, and the devices discovery proposes.
  *
- * Four questions, one bus subject each. *What can I install?* is answered from the bundles on
+ * Five questions, one bus subject each. *What can I install?* is answered from the bundles on
  * disk, with what each asks at setup, so the form is built from the bundle's own words and the
  * interface never reads a file. *Does this configuration work?* opens the transport once and
  * lets go, keeping nothing - the answer is a verdict and a sentence, because a configuration
- * that does not work is the expected outcome of trying one. *I saved it; match it* re-reads one
- * row of the registry and starts, restarts or stops the instance to fit. *I am deleting it;
- * let go* stops the instance without reading anything, because the row is about to be gone.
+ * that does not work is the expected outcome of trying one; when the vendor's discovery can tell
+ * which model answered, the answer says so too. *I saved it; match it* re-reads one row of the
+ * registry and starts, restarts or stops the instance to fit. *I am deleting it; let go* stops the
+ * instance without reading anything, because the row is about to be gone. *What is out there?*
+ * lists the devices discovery heard and nobody has added.
  *
  * Nothing here touches the registry directly. The API owns writes, the service that runs
  * instances owns the reload and the forget, and this class only routes between the bus and it.
@@ -19,8 +21,10 @@ import type { BusClient, BusSubscription } from '@nebula-home/bus';
 import {
   busSubjects,
   catalogueRequestSchema,
+  discoveredRequestSchema,
   forgetRequestSchema,
   HUB_CATALOGUE_METHOD,
+  HUB_DISCOVERED_METHOD,
   HUB_FORGET_METHOD,
   HUB_PROBE_METHOD,
   HUB_RELOAD_METHOD,
@@ -29,6 +33,8 @@ import {
   probeRequestSchema,
   reloadRequestSchema,
   type CatalogueReply,
+  type DiscoveredDevice,
+  type DiscoveredReply,
   type ForgetReply,
   type ForgetRequest,
   type IntegrationKind,
@@ -38,11 +44,13 @@ import {
   type ReloadReply,
   type ReloadRequest,
 } from '@nebula-home/contracts';
+import type { JsonObject } from '@nebula-home/contracts';
 import { openSecrets } from '@nebula-home/db';
 import type { PlatformLogger } from '@nebula-home/logging';
 import type { Registry, Transport } from '@nebula-home/package-runtime';
 
 import type { LoadedBundle, LoadedVendor } from './bundles.js';
+import type { Detected } from './discovery.js';
 
 /** What the service needs. */
 export type ManagementServiceOptions = {
@@ -64,6 +72,22 @@ export type ManagementServiceOptions = {
    * @returns Every loaded vendor, with the drivers of it that loaded.
    */
   readonly vendors: () => readonly LoadedVendor[];
+
+  /**
+   * The devices discovery proposes, read when asked.
+   *
+   * @returns Every device heard and not yet added.
+   */
+  readonly discovered: () => readonly DiscoveredDevice[];
+
+  /**
+   * Says which driver and model a configuration that answered reaches.
+   *
+   * @param kind - The driver the form is on.
+   * @param transportConfig - The configuration, secrets opened.
+   * @returns The driver and model, or undefined when discovery cannot tell.
+   */
+  readonly detect: (kind: string, transportConfig: JsonObject) => Promise<Detected | undefined>;
 
   /**
    * Matches one instance to its registry row.
@@ -193,14 +217,36 @@ export class ManagementService {
       const transport = this.#options.transports.require(bundle.manifest.transport);
       const config = openSecrets(request.transportConfig, this.#options.secretsKey);
       const detail = await transport.probe(config, AbortSignal.timeout(request.timeoutMs));
+      const detected = await this.#detect(request.kind, config);
 
-      return { isReachable: true, detail };
+      return { isReachable: true, detail, ...(detected === undefined ? {} : { detected }) };
     } catch (error: unknown) {
       const detail = detailOf(error);
 
       this.#options.logger.info({ kind: request.kind, detail }, 'A configuration did not probe');
 
       return { isReachable: false, detail };
+    }
+  }
+
+  /**
+   * Asks discovery which model answered, without letting its failure spoil the verdict.
+   *
+   * @param kind - The driver the form is on.
+   * @param config - The configuration, secrets opened.
+   * @returns The driver and model, or undefined when discovery cannot tell or failed.
+   */
+  async #detect(kind: string, config: JsonObject): Promise<ProbeReply['detected']> {
+    try {
+      const detected = await this.#options.detect(kind, config);
+
+      return detected === undefined
+        ? undefined
+        : { ...detected, modelChoices: [...detected.modelChoices] };
+    } catch (error: unknown) {
+      this.#options.logger.debug({ err: error, kind }, 'Could not tell which model answered');
+
+      return undefined;
     }
   }
 
@@ -236,6 +282,18 @@ export class ManagementService {
          * @returns The verdict.
          */
         async (request: ProbeRequest): Promise<ProbeReply> => this.probe(request),
+      ),
+
+      client.serve(
+        busSubjects.service(HUB_SERVICE, HUB_DISCOVERED_METHOD),
+        discoveredRequestSchema,
+
+        /**
+         * Lists what discovery proposes.
+         *
+         * @returns Every device heard and not yet added.
+         */
+        (): DiscoveredReply => ({ items: [...this.#options.discovered()] }),
       ),
 
       client.serve(

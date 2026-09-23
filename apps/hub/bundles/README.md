@@ -11,7 +11,10 @@ contain this directory.
 Loaded means present and offering to connect to devices; nothing is connected until somebody
 adds one. Adding one is the whole of it: a device added from the vendor's page is an instance of its
 driver and a row in the registry under one id, and the hub identifies the hardware behind it
-by itself - there is no scan to start and nothing to adopt.
+by itself. A vendor with a `discovery.json` is also **found**: the hub listens for its devices
+announcing themselves and the integrations page offers each one it hears to adopt - which is
+adding it, with the driver, the model and the address already filled in. Nothing is added
+until the owner says so.
 
 A bundle is a **vendor directory** holding one **driver directory** per profile or entry point:
 
@@ -20,6 +23,7 @@ shelly/
 ├── manifest.json       who the vendor is                            ← always
 ├── logo.svg            the mark the interface shows (.svg or .png)  ← optional
 ├── setup.json          what every device of the vendor shares       ← optional
+├── discovery.json      how its devices are found unasked            ← optional
 ├── README.md           what the devices are, what is unverified     ← always
 ├── rpc/transport.js    a transport of the vendor's own              ← optional
 └── dimmer-pm/
@@ -40,7 +44,7 @@ drivers, so it cannot be declared wrongly; what the manifest may add is a transp
 ```json
 {
   "id": "shelly",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "sdk": "^1.0.0",
   "name": "Shelly",
   "description": "Shelly Gen3 and Gen4 devices on your own network, each spoken to directly over its RPC interface.",
@@ -69,12 +73,24 @@ fields on purpose - a driver repeating the vendor's name would be a second copy 
   "name": "Dimmer with power metering",
   "transport": "shelly/rpc",
   "models": ["Dimmer 0/1-10V PM Gen3", "Dimmer 0/1-10V PM Gen4", "Dimmer Gen3", "Dimmer Gen4"],
+  "modelCodes": {
+    "S3DM-0010WW": "Dimmer 0/1-10V PM Gen3",
+    "S4DM-0010WW": "Dimmer 0/1-10V PM Gen4",
+    "S3DM-0A101WWL": "Dimmer Gen3",
+    "S4DM-0A101WWL": "Dimmer Gen4"
+  },
   "defaultIcon": "light",
   "kind": "declarative",
   "profile": "./profile.json",
   "setup": "./setup.json"
 }
 ```
+
+`modelCodes` maps what the hardware calls itself onto the model on the box, and it is how
+discovery knows which driver a device it heard belongs to and which model to adopt it as. A code
+may name a list when the hardware says its family but not which of it it is - a Sonoff in DIY mode
+announces `diy_plug` whether it is a BASICR3 or a MINI - and the owner then picks among those.
+Every model named must be in `models`, and a driver that lists none maps no codes.
 
 `transport` is a platform transport - `http`, `mqtt` - or one the driver's own vendor ships,
 named after the vendor: `shelly/rpc`. Never another vendor's: vendors load in no particular
@@ -108,6 +124,55 @@ The logo rides inside the catalogue the hub serves, as a data URL, so it must be
 `.png` and at most 64 KiB; anything else fails the vendor at startup. The two that ship are
 monograms in the vendor's colour - nobody's trademark - and the interface draws the same
 monogram itself for a vendor that ships no logo at all.
+
+## `discovery.json` - how the devices are found
+
+A vendor whose devices announce themselves says how in `discovery.json`, and the hub does the same
+six steps for every vendor that has one: **listen**, **match**, **probe**, **identify**, then the
+two that are the hub's - **associate** the model with a driver through its `modelCodes`, and
+**propose** the device on the integrations page. No address is swept and no port scanned: the
+hub hears announcements, asks the question the protocol exists for, and probes an address only
+because a device announced it there.
+
+```json
+{
+  "listen": [{ "mdns": "_shelly._tcp" }],
+  "probe": {
+    "transport": "shelly/rpc",
+    "op": "call",
+    "args": { "method": "Shelly.GetDeviceInfo" }
+  },
+  "identity": { "externalId": "id", "name": "name", "model": "model", "swVersion": "ver" }
+}
+```
+
+- `listen` - up to four sources: `{ "mdns": "_name._tcp" }`, a service the platform browses for,
+  or `{ "module": "./lan/discovery.js" }`, a listener of the vendor's own (below). An mDNS
+  announcement is read as `{ service, instance, host, address, port, txt: { … } }`, and the device
+  is reached at `address`, with `:port` when it is not 80.
+- `match` - conditions in the claim's grammar, all of which must hold of the announcement: for a
+  service other vendors announce too.
+- `probe` - optional: a request, in a transport's words - the vendor's own or a platform one -
+  asked of the announced address with the vendor's saved settings beneath it. Its answer is what
+  `identity` reads, and it should be the same question the drivers' `discovery.probe` asks, so the
+  id discovery finds is the id identification then insists on. Without one, `identity` reads the
+  announcement, and must then say where the model is: without a probe the drivers' own claims have
+  nothing to read.
+- `identity` - paths to the model code, the id, the name and the firmware version. Only the model
+  is ever required.
+
+The model code is looked up in every driver's `modelCodes`; when no driver maps it, the drivers'
+own claims decide, in load order, on what the probe returned. Two drivers may map one code only
+when the vendor probes - a Shelly 2PM reports one code as relays or as a cover, and each driver's
+claim reads its profile. A device no driver takes is not proposed, and the hub logs its model at
+debug. A `discovery.json` that does not load leaves the vendor loaded without discovery, and the
+failure names the file.
+
+**A listener of the vendor's own** is a module - plain JavaScript, like a transport, handed the
+same SDK - whose default export returns `{ listen(signal) }`: an async iterable of sightings,
+`{ config: { host }, payload }`, reported as they happen until the signal ends it. It listens and
+reports; which driver a device belongs to stays the business of `discovery.json`. A sighting at a
+public address is not followed.
 
 ## `setup.json` - what adding a device asks
 
@@ -184,7 +249,17 @@ sentence under the field, where the pattern itself would tell a person nothing.
 **Test** in the interface opens the bundle's transport once with what was typed and closes it
 again, keeping nothing: for MQTT that is one session, for HTTP one request to the address. The
 verdict is a sentence in the transport's own words, so `Not authorized` and `ECONNREFUSED` send
-an owner to different places.
+an owner to different places. When the vendor's `discovery.json` probes, the Test asks the device
+that question too, and the form preselects the model it says it is.
+
+**What the `http` transport takes.** A request template's `op` is the verb - `get`, `post`,
+`put`, `patch`, `delete` - with `path`, `query` and a `body` sent as JSON; a `poll` names its verb
+in `method`. Beyond `host`, `isSecure`, `timeoutMs` and basic auth (`username`, `password`), the
+transport configuration takes what a setup fills and the profile never sees: a `token` (a secret
+field), sent in the header `tokenHeader` names (with `tokenPrefix` in front, `Bearer ` for one) or
+put into the path by `pathPrefix`, where `{token}` stands for it - `/api/v1/{token}` - and
+`shouldVerifyCertificate: false` for a device that signs its own certificate. The bundle fixes
+the header, the prefix and the certificate check as constants; the owner types the token.
 
 **Save** creates the device and starts it. The hub has no claim for a device it has never heard
 from, so it reports the instance `identifying` and listens with the driver's `discovery` -
@@ -208,13 +283,14 @@ The module is plain JavaScript - an installed bundle is loaded as it is, with no
 its default export is a function the hub calls with the **SDK**, the runtime's pieces a transport
 needs, since the bundle cannot import them:
 
-| `sdk.`            | What                                                                       |
-| ----------------- | -------------------------------------------------------------------------- |
-| `version`         | the runtime version, the one `manifest.sdk` was matched against            |
-| `z`               | the runtime's zod, so the transport's settings validate as the hub's do    |
-| `defineTransport` | the contract the platform's own transports are written against             |
-| `openWebSocket`   | a WebSocket the hub keeps open: reconnection with a doubling pause, resets |
-| `logger`          | the hub's logger, for what happens outside a connection                    |
+| `sdk.`            | What                                                                               |
+| ----------------- | ---------------------------------------------------------------------------------- |
+| `version`         | the runtime version, the one `manifest.sdk` was matched against                    |
+| `z`               | the runtime's zod, so the transport's settings validate as the hub's do            |
+| `defineTransport` | the contract the platform's own transports are written against                     |
+| `openWebSocket`   | a WebSocket the hub keeps open: reconnection with a doubling pause, resets         |
+| `openUdpSocket`   | a UDP socket the hub binds, joins to a multicast group, and closes with the vendor |
+| `logger`          | the hub's logger, for what happens outside a connection                            |
 
 The transport it returns is the one the platform's `http` and `mqtt` are:
 `connectionKey`, `connect`, `scan`, `probe`, and a `configSchema` for what the driver's
@@ -234,6 +310,34 @@ devices ask for. A driver claims a device by its hardware `model` code, one of a
 Its own README says what the devices are, how the transport treats them, which models each
 family takes, and what has not been checked against hardware - above all the model codes, and
 the one-line fix when a device on the network is not claimed.
+
+## sonoff
+
+One driver, `diy-plug`, for Sonoff relays in **DIY mode** - BASICR3, RFR3, MINI, MINIR2 - over
+the HTTP API the firmware serves on port 8081: every request a POST with a JSON body. Found over
+mDNS (`_ewelink._tcp`), from the TXT record alone: it says the device's id and that it is a
+`diy_plug`, which names the driver but not which of the four it is, so the owner picks.
+
+## plex
+
+One driver, `server`: a Plex Media Server and how many streams it is playing, polled from the
+server with the owner's `X-Plex-Token`, which the transport sends in that header. Not discoverable:
+Plex announces itself with a protocol of its own (GDM), not over mDNS; it is added by address.
+
+## nanoleaf
+
+One driver, `panels`, for the controllers of the OpenAPI - Light Panels, Canvas, Shapes, Elements,
+Lines - on port 16021, with the token in the path (`/api/v1/<token>/…`) and the state written as
+a PUT. Found over mDNS (`_nanoleafapi._tcp`), the model read from the TXT record: the controller
+tells nothing to a caller without its token, so adopting one asks for it.
+
+## govee
+
+One driver, `light-lan`, for Govee lights with **LAN Control** switched on in the Govee app, over
+the vendor's own `govee/lan` transport: JSON datagrams over UDP, a status asked and answered, and
+the commands for on, off, brightness and colour temperature. Found by its own listener, which asks
+the LAN API's multicast scan; the transport and the listener share the one socket every answer
+comes back to. The first bundle on the SDK's UDP sockets.
 
 ## bambu-lab
 

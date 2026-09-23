@@ -89,13 +89,20 @@ describe('the bundles that ship', () => {
     expect(result.loaded.length).toBeGreaterThan(0);
   });
 
-  it('ships Shelly and Bambu Lab as vendors, each with a logo the interface can show', async () => {
+  it('ships every vendor under development, each with a logo the interface can show', async () => {
     const { vendors } = await loadBundles({
       directory: DIRECTORY,
       runtimeVersion: RUNTIME_VERSION,
     });
 
-    expect(vendors.map((vendor) => vendor.manifest.id).sort()).toEqual(['bambu-lab', 'shelly']);
+    expect(vendors.map((vendor) => vendor.manifest.id).sort()).toEqual([
+      'bambu-lab',
+      'govee',
+      'nanoleaf',
+      'plex',
+      'shelly',
+      'sonoff',
+    ]);
 
     for (const vendor of vendors) {
       expect(vendor.logo).toMatch(/^data:image\/svg\+xml;base64,/);

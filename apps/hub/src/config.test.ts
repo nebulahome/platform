@@ -46,3 +46,27 @@ describe('developmentBundleDirectory', () => {
     );
   });
 });
+
+describe('discovery settings', () => {
+  it('listens by default, asking every ten minutes and forgetting after half an hour', () => {
+    const config = hubEnvSchema.parse(REQUIRED);
+
+    expect([
+      config.HUB_DISCOVERY_ENABLED,
+      config.HUB_DISCOVERY_QUERY_INTERVAL_MS,
+      config.HUB_DISCOVERY_TTL_MS,
+    ]).toEqual([true, 600_000, 1_800_000]);
+  });
+
+  it('can be switched off, for a hub whose network carries no multicast', () => {
+    expect(
+      hubEnvSchema.parse({ ...REQUIRED, HUB_DISCOVERY_ENABLED: 'false' }).HUB_DISCOVERY_ENABLED,
+    ).toBe(false);
+  });
+
+  it('refuses to ask more often than once a minute', () => {
+    expect(
+      hubEnvSchema.safeParse({ ...REQUIRED, HUB_DISCOVERY_QUERY_INTERVAL_MS: '1000' }).success,
+    ).toBe(false);
+  });
+});

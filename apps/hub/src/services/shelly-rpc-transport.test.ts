@@ -154,6 +154,9 @@ function build(): { transport: Transport; sockets: FakeSocket[] } {
         },
       };
     },
+    openUdpSocket: () => {
+      throw new Error('Shelly speaks no UDP');
+    },
   };
 
   return { transport: createShellyRpc(sdk), sockets };
