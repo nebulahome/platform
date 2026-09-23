@@ -2,30 +2,49 @@
  * One block in the chain, whatever kind it is.
  *
  * A trigger, a condition and an action are three different things with three different sets of
- * fields, and exactly the same frame: what kind it is, what number it is in the list, its fields,
- * and the button that takes it away. Written three times the remove button ends up in three
- * places.
- *
- * The kind is a word rather than an icon. There are twenty-two of them across the three lists,
- * which is more than an icon set can distinguish without becoming a puzzle.
+ * fields, and exactly the same frame: what kind it is, optional controls (NOT, collapse), its
+ * fields, and the button that takes it away.
  */
 import type { ReactNode } from 'react';
 
-import { AppIcon, Badge, IconButton } from '@nebula-home/ui';
+import { AppIcon, Badge, IconButton, Segmented, cn } from '@nebula-home/ui';
+
+import { labelForKind } from '@/routes/library/editor-choices';
 
 /** What one block needs. */
 export type BlockCardProps = {
   /** What kind of block this is, as the format names it. */
   readonly kind: string;
 
-  /** Where it sits in its list, counting from one. */
-  readonly position: number;
+  /** Optional override for the badge text (e.g. "else", "case"). */
+  readonly kindLabel?: string;
+
+  /** Where it sits in its list, counting from one. Absent for branch headers like else. */
+  readonly position?: number;
 
   /** Its fields. */
-  readonly children: ReactNode;
+  readonly children?: ReactNode;
 
-  /** Called to take it out of the list. */
-  readonly onRemove: () => void;
+  /** Called to take it out of the list. Absent when the card cannot be removed (e.g. else). */
+  readonly onRemove?: () => void;
+
+  /** Whether NOT is available on this card. */
+  readonly notValue?: boolean;
+
+  /** Called when NOT is flipped. */
+  readonly onNotChange?: (negated: boolean) => void;
+
+  /** Whether this card has a collapsible body below it. */
+  readonly isCollapsible?: boolean;
+
+  /** Whether the body is currently expanded. */
+  readonly isExpanded?: boolean;
+
+  /** Called to toggle the body. */
+  readonly onToggleExpanded?: () => void;
+
+  /** Extra controls in the header (Add case, Add else-if, …). */
+  readonly headerActions?: ReactNode;
 };
 
 /**
@@ -35,29 +54,84 @@ export type BlockCardProps = {
  * @returns The block.
  */
 export function BlockCard(props: BlockCardProps) {
-  const { kind, position, children, onRemove } = props;
+  const {
+    kind,
+    kindLabel,
+    position,
+    children,
+    onRemove,
+    notValue,
+    onNotChange,
+    isCollapsible = false,
+    isExpanded = true,
+    onToggleExpanded,
+    headerActions,
+  } = props;
+
+  const label = kindLabel ?? labelForKind(kind);
 
   return (
     <div className="flex flex-col gap-3 rounded-panel border border-border face-card p-3.5">
       <div className="flex items-center justify-between gap-3">
-        <span className="flex items-center gap-2.5">
-          <span className="text-caption text-foreground-subtle tabular">{position}</span>
+        <span className="flex min-w-0 items-center gap-2.5">
+          {isCollapsible ? (
+            <IconButton
+              label={isExpanded ? `Collapse ${label}` : `Expand ${label}`}
+              variant="bare"
+              size="small"
+              onClick={onToggleExpanded}
+            >
+              <AppIcon
+                id="chevron-down"
+                size={14}
+                strokeWidth={2.1}
+                className={cn('transition-transform', isExpanded ? '' : '-rotate-90')}
+              />
+            </IconButton>
+          ) : null}
+
+          {position === undefined ? null : (
+            <span className="text-caption text-foreground-subtle tabular">{position}</span>
+          )}
+
           <Badge tone="neutral" size="small">
-            {kind.replaceAll('_', ' ')}
+            {label}
           </Badge>
+
+          {onNotChange === undefined ? null : (
+            <Segmented
+              label="Negate"
+              size="compact"
+              options={[
+                { value: 'off', label: 'IS' },
+                { value: 'on', label: 'NOT' },
+              ]}
+              value={notValue === true ? 'on' : 'off'}
+              onChange={(value) => {
+                onNotChange(value === 'on');
+              }}
+            />
+          )}
         </span>
 
-        <IconButton
-          label={`Remove this ${kind.replaceAll('_', ' ')}`}
-          variant="danger"
-          size="small"
-          onClick={onRemove}
-        >
-          <AppIcon id="x" size={14} strokeWidth={2.1} />
-        </IconButton>
+        <span className="flex shrink-0 items-center gap-1.5">
+          {headerActions}
+          {onRemove === undefined ? null : (
+            <IconButton
+              label={`Remove this ${label}`}
+              variant="danger"
+              size="small"
+              onClick={onRemove}
+            >
+              <AppIcon id="x" size={14} strokeWidth={2.1} />
+            </IconButton>
+          )}
+        </span>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">{children}</div>
+      {children === undefined || children === null ? null : (
+        <div className="grid gap-3 sm:grid-cols-2">{children}</div>
+      )}
     </div>
   );
 }

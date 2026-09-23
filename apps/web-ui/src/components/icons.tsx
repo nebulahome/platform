@@ -99,16 +99,6 @@ export function ChevronIcon(props: IconProps & { readonly isOpen: boolean }) {
 }
 
 /**
- * Two arrows apart: expand.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function ExpandIcon(props: IconProps) {
-  return icon('expand', props);
-}
-
-/**
  * A padlock.
  *
  * @param props - SVG attributes.
@@ -224,6 +214,16 @@ export function HttpIcon(props: IconProps) {
 }
 
 /**
+ * A cable: a vendor speaking a protocol of its own, over a transport its bundle ships.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function CableIcon(props: IconProps) {
+  return icon('cable', props);
+}
+
+/**
  * Lines that narrow: a filter.
  *
  * @param props - SVG attributes.
@@ -251,4 +251,24 @@ export function ExternalLinkIcon(props: IconProps) {
  */
 export function WrenchIcon(props: IconProps) {
   return icon('wrench', props);
+}
+
+/**
+ * A bolt: what the house does on its own.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function ZapIcon(props: IconProps) {
+  return icon('zap', props);
+}
+
+/**
+ * A tag: the words an owner groups devices and entities by.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function TagIcon(props: IconProps) {
+  return icon('tag', props);
 }

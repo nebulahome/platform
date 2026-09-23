@@ -1,36 +1,43 @@
 /**
- * One of the editor's three groups: When, If, or Then.
+ * A flat section of blocks: Trigger or If.
  *
- * All three are a titled panel holding a list of blocks and a way to add another, and the only
- * things that differ are what the blocks are and what the menu offers. Written three times, the
- * empty state gets forgotten in one of them — and the empty state is what the editor opens in.
- *
- * Adding is a dropdown rather than a row of buttons: there are five to seven kinds in each group,
- * and seven buttons above a list is a palette competing with the thing it fills.
+ * Cards one under another, an AND/OR pill between them, and a dashed Add block at the bottom that
+ * opens the picker modal. If also carries a NOT toggle on each card. Nested Then templates are
+ * drawn elsewhere — this component stays flat on purpose.
  */
 import { useState, type ReactNode } from 'react';
 
-import { Panel, SelectField } from '@nebula-home/ui';
+import { Panel } from '@nebula-home/ui';
 
+import type { BooleanJoin } from '@/library/automation-draft';
+import { AddBlockPlaceholder } from '@/routes/library/add-block-placeholder';
 import { BlockCard } from '@/routes/library/block-card';
-import type { EditorChoice } from '@/routes/library/editor-choices';
+import { BlockPickerModal } from '@/routes/library/block-picker-modal';
+import { BooleanJoinPill } from '@/routes/library/boolean-join-pill';
+import type { EditorChoiceGroup } from '@/routes/library/editor-choices';
 
-/** What one group needs. */
+/** What one flat group needs. */
 export type BlockListProps<TBlock extends { readonly type: string }> = {
-  /** When, If or Then. */
+  /** When or If. */
   readonly title: string;
 
   /** A line under it saying what this group is for. */
   readonly note: string;
 
-  /** What the Add control is called. */
-  readonly addLabel: string;
+  /** Heading for the picker. */
+  readonly pickerTitle: string;
 
-  /** What can be added. */
-  readonly choices: readonly EditorChoice[];
+  /** Line under the picker heading. */
+  readonly pickerDescription?: string;
+
+  /** What the picker offers. */
+  readonly groups: readonly EditorChoiceGroup[];
 
   /** What is in the group. */
   readonly items: readonly TBlock[];
+
+  /** Joins between consecutive items. */
+  readonly joins: readonly BooleanJoin[];
 
   /** Called with the kind to add. */
   readonly onAdd: (type: string) => void;
@@ -38,62 +45,113 @@ export type BlockListProps<TBlock extends { readonly type: string }> = {
   /** Called with the position to take out. */
   readonly onRemove: (index: number) => void;
 
+  /** Called when a join between two cards changes. */
+  readonly onJoinChange: (index: number, join: BooleanJoin) => void;
+
   /** Draws the fields for one block. */
   readonly renderFields: (block: TBlock, index: number) => ReactNode;
+
+  /** Optional NOT toggle per card (If section). */
+  readonly getNot?: (block: TBlock) => boolean;
+
+  /** Optional NOT change handler. */
+  readonly onNotChange?: (index: number, negated: boolean) => void;
+
+  /** Optional kind label override (e.g. when the card wraps `not`). */
+  readonly kindOf?: (block: TBlock) => string;
 };
 
 /**
- * Renders one group of blocks.
+ * Renders one flat group of blocks.
  *
  * @param props - See {@link BlockListProps}.
  * @returns The group.
  */
 export function BlockList<TBlock extends { readonly type: string }>(props: BlockListProps<TBlock>) {
-  const { title, note, addLabel, choices, items, onAdd, onRemove, renderFields } = props;
+  const {
+    title,
+    note,
+    pickerTitle,
+    pickerDescription,
+    groups,
+    items,
+    joins,
+    onAdd,
+    onRemove,
+    onJoinChange,
+    renderFields,
+    getNot,
+    onNotChange,
+    kindOf,
+  } = props;
 
-  // Reset to the placeholder after each add, so the menu reads as an action rather than as a
-  // setting that remembers the last thing chosen.
-  const [chosen, setChosen] = useState('');
+  const [isPickerOpen, setPickerOpen] = useState(false);
 
   return (
     <Panel title={title}>
       <div className="flex flex-col gap-3 p-4">
         <p className="text-caption text-foreground-subtle">{note}</p>
 
-        {items.length === 0 ? (
-          <p className="text-ui text-foreground-muted">Nothing here yet.</p>
-        ) : (
-          items.map((block, index) => (
+        {items.map((block, index) => (
+          <div
+            key={`${kindOf?.(block) ?? block.type}-${String(index)}`}
+            className="flex flex-col gap-3"
+          >
+            {index > 0 ? (
+              <BooleanJoinPill
+                value={joins[index - 1] ?? 'or'}
+                onChange={(join) => {
+                  onJoinChange(index - 1, join);
+                }}
+              />
+            ) : null}
+
             <BlockCard
-              // The position is the identity: these have no ids, and two blocks of the same kind
-              // are genuinely interchangeable until somebody fills them in.
-              key={`${block.type}-${String(index)}`}
-              kind={block.type}
+              kind={kindOf?.(block) ?? block.type}
               position={index + 1}
+              {...(getNot === undefined || onNotChange === undefined
+                ? {}
+                : {
+                    notValue: getNot(block),
+
+                    /**
+                     * Negates this block, or stops negating it.
+                     *
+                     * @param negated - Whether it should now be negated.
+                     */
+                    onNotChange: (negated: boolean) => {
+                      onNotChange(index, negated);
+                    },
+                  })}
               onRemove={() => {
                 onRemove(index);
               }}
             >
               {renderFields(block, index)}
             </BlockCard>
-          ))
-        )}
+          </div>
+        ))}
 
-        <div className="max-w-xs">
-          <SelectField
-            label={addLabel}
-            size="compact"
-            options={[{ value: '', label: addLabel }, ...choices]}
-            value={chosen}
-            onChange={(value) => {
-              if (value !== '') {
-                onAdd(value);
-                setChosen('');
-              }
-            }}
-          />
-        </div>
+        <AddBlockPlaceholder
+          onClick={() => {
+            setPickerOpen(true);
+          }}
+        />
       </div>
+
+      <BlockPickerModal
+        isOpen={isPickerOpen}
+        onClose={() => {
+          setPickerOpen(false);
+        }}
+        title={pickerTitle}
+        {...(pickerDescription === undefined ? {} : { description: pickerDescription })}
+        groups={groups}
+        onPick={(type) => {
+          onAdd(type);
+          setPickerOpen(false);
+        }}
+      />
     </Panel>
   );
 }

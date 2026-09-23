@@ -30,9 +30,11 @@ const PRINTER: DeviceView = {
   manufacturer: 'Bambu Lab',
   swVersion: null,
   hwVersion: null,
+  areaId: null,
   areaKey: 'workshop',
   areaName: 'Workshop',
   entityIds: [entityIdSchema.parse('sensor.bambu_lab_p1s_nozzle_temperature')],
+  tagIds: [],
 };
 
 /** One of its entities. */
@@ -56,6 +58,7 @@ const NOZZLE: EntityView = {
   isAvailable: true,
   lastChanged: null,
   lastUpdated: null,
+  tagIds: [],
 };
 
 describe('matchesFilter', () => {
@@ -77,6 +80,14 @@ describe('matchesFilter', () => {
     }
 
     expect(matchesFilter(PRINTER, [NOZZLE], { ...OPEN_FILTER, search: 'shelly' })).toBe(false);
+  });
+
+  it('searches the tags on the device and on its entities, by name', () => {
+    const tagged = { ...OPEN_FILTER, search: 'exterior' };
+
+    expect(matchesFilter(PRINTER, [NOZZLE], tagged, ['Exterior'])).toBe(true);
+    expect(matchesFilter(PRINTER, [NOZZLE], tagged, [])).toBe(false);
+    expect(matchesFilter(PRINTER, [NOZZLE], tagged)).toBe(false);
   });
 
   it('narrows by vendor and by area', () => {

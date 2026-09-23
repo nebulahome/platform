@@ -184,6 +184,33 @@ describe('SelectField', () => {
     expect(screen.queryByRole('listbox')).toBeNull();
   });
 
+  it('draws what an option carries before its name, in the list and on the button', () => {
+    const onChange = vi.fn();
+
+    render(
+      <SelectField
+        label="Colour"
+        options={[
+          { value: 'red', label: 'Red', leading: <i data-testid="dot-red" /> },
+          { value: 'blue', label: 'Blue', leading: <i data-testid="dot-blue" /> },
+        ]}
+        value="blue"
+        onChange={onChange}
+      />,
+    );
+
+    const combobox = screen.getByRole('combobox');
+
+    // The tag filter names colours; a colour needs to be seen, not read.
+    expect(screen.getByTestId('dot-blue')).toBeTruthy();
+    expect(screen.queryByTestId('dot-red')).toBeNull();
+
+    fireEvent.click(combobox);
+
+    expect(screen.getAllByTestId('dot-red')).toHaveLength(1);
+    expect(screen.getByRole('option', { name: 'Red' })).toBeTruthy();
+  });
+
   it('does nothing at all when disabled', () => {
     const onChange = vi.fn();
 

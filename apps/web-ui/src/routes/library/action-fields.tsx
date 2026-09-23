@@ -1,16 +1,19 @@
 /**
  * The fields one action needs.
  *
- * Seven kinds that do something and one that holds others. `parallel` is not edited here — the
- * mockup that designed this screen left nesting out too — and an automation that already has one
- * keeps it exactly as it was.
+ * Leaf kinds that do something, and nested blocks that hold others. Nested blocks are not edited
+ * here — the mockup that designed this screen left nesting out too — and an automation that
+ * already has one keeps it exactly as it was.
  *
  * Durations are asked for in seconds and stored in milliseconds. Nobody types 300000.
  */
 import { CAPABILITIES, type AutomationAction } from '@nebula-home/contracts';
 import { SelectField, TextField } from '@nebula-home/ui';
 
+import { isEditableAction } from '@/library/automation-draft';
+import { ConditionTreeEditor } from '@/routes/library/condition-tree-editor';
 import { EntityField } from '@/routes/library/entity-field';
+import { TriggerFields } from '@/routes/library/trigger-fields';
 
 /** What the fields need. */
 export type ActionFieldsProps = {
@@ -30,13 +33,8 @@ export type ActionFieldsProps = {
 export function ActionFields(props: ActionFieldsProps) {
   const { action, onChange } = props;
 
-  if (action.type === 'parallel') {
-    return (
-      <p className="text-ui text-foreground-subtle sm:col-span-2">
-        {action.actions.length} actions in parallel. This editor does not take the block apart, and
-        saving will leave it exactly as it is.
-      </p>
-    );
+  if (!isEditableAction(action)) {
+    return null;
   }
 
   if (action.type === 'command') {
@@ -108,43 +106,45 @@ export function ActionFields(props: ActionFieldsProps) {
   if (action.type === 'wait_for') {
     return (
       <>
-        <EntityField
-          label="Until entity"
-          value={action.condition.type === 'state' ? action.condition.entityId : ''}
-          onChange={(entityId) => {
-            onChange({
-              ...action,
-              condition: { type: 'state', entityId, state: stateOf(action) },
-            });
+        <ConditionTreeEditor
+          value={action.condition}
+          onChange={(condition) => {
+            onChange({ ...action, condition });
           }}
         />
-        <div className="grid grid-cols-2 gap-3">
-          <TextField
-            label="Is"
-            size="compact"
-            placeholder="home"
-            value={stateOf(action)}
-            onChange={(event) => {
-              onChange({
-                ...action,
-                condition: {
-                  type: 'state',
-                  entityId: action.condition.type === 'state' ? action.condition.entityId : '',
-                  state: event.target.value,
-                },
-              });
-            }}
-          />
-          <TextField
-            label="Give up after (s)"
-            size="compact"
-            type="number"
-            value={String(Math.round(action.timeoutMs / 1000))}
-            onChange={(event) => {
-              onChange({ ...action, timeoutMs: Number(event.target.value) * 1000 });
+        <TextField
+          label="Give up after (s)"
+          size="compact"
+          type="number"
+          value={String(Math.round(action.timeoutMs / 1000))}
+          onChange={(event) => {
+            onChange({ ...action, timeoutMs: Number(event.target.value) * 1000 });
+          }}
+        />
+      </>
+    );
+  }
+
+  if (action.type === 'wait_for_trigger') {
+    return (
+      <>
+        <div className="sm:col-span-2">
+          <TriggerFields
+            trigger={action.trigger}
+            onChange={(trigger) => {
+              onChange({ ...action, trigger });
             }}
           />
         </div>
+        <TextField
+          label="Give up after (s)"
+          size="compact"
+          type="number"
+          value={String(Math.round(action.timeoutMs / 1000))}
+          onChange={(event) => {
+            onChange({ ...action, timeoutMs: Number(event.target.value) * 1000 });
+          }}
+        />
       </>
     );
   }
@@ -173,6 +173,10 @@ export function ActionFields(props: ActionFieldsProps) {
     );
   }
 
+  if (action.type !== 'package_service') {
+    return null;
+  }
+
   return (
     <>
       <TextField
@@ -194,17 +198,4 @@ export function ActionFields(props: ActionFieldsProps) {
       />
     </>
   );
-}
-
-/**
- * The state a `wait_for` is waiting for.
- *
- * The format allows any condition there; this editor only writes a state one, so anything else
- * reads as empty rather than as a string that is not there.
- *
- * @param action - The action.
- * @returns The state, or an empty string.
- */
-function stateOf(action: Extract<AutomationAction, { type: 'wait_for' }>): string {
-  return action.condition.type === 'state' ? action.condition.state : '';
 }

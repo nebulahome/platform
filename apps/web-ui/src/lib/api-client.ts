@@ -37,6 +37,9 @@ export type RequestOptions = {
 
   /** Cancels the request. */
   readonly signal?: AbortSignal;
+
+  /** What the caller can take back. JSON unless said otherwise. */
+  readonly accept?: string;
 };
 
 /** What the client needs from the session to do its work. */
@@ -84,7 +87,7 @@ async function send(
   options: RequestOptions,
   accessToken: string | null,
 ): Promise<Response> {
-  const headers = new Headers({ accept: 'application/json' });
+  const headers = new Headers({ accept: options.accept ?? 'application/json' });
 
   if (options.body !== undefined) {
     headers.set('content-type', 'application/json');
@@ -206,6 +209,59 @@ export async function refreshAccessToken(): Promise<string | null> {
 }
 
 /**
+ * Sends one request with the session's credential, refreshing it once on a 401.
+ *
+ * @param path - The path below `/api/v1`.
+ * @param options - Method, body, credentials and cancellation.
+ * @returns The response, which may still be a refusal.
+ * @throws {ApiError} When the server cannot be reached, or the credential is gone for good.
+ */
+async function sendWithCredential(path: string, options: RequestOptions): Promise<Response> {
+  const isAuthenticated = options.isAuthenticated ?? true;
+  const response = await send(
+    path,
+    options,
+    isAuthenticated ? (session?.readAccessToken() ?? null) : null,
+  );
+
+  if (response.status !== 401 || !isAuthenticated) {
+    return response;
+  }
+
+  const accessToken = await refreshAccessToken();
+
+  if (accessToken === null) {
+    throw toApiError(response, await readBody(response));
+  }
+
+  return send(path, options, accessToken);
+}
+
+/**
+ * Reads a picture from the API: a map tile, for the map to draw.
+ *
+ * A plain `<img>` cannot carry the credential, so the map fetches each tile through here and
+ * shows the bytes it gets back.
+ *
+ * @param path - The path below `/api/v1`.
+ * @param options - Credentials and cancellation.
+ * @returns The picture.
+ * @throws {ApiError} When the server refuses, or cannot be reached.
+ */
+export async function apiBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+  const response = await sendWithCredential(path, {
+    ...options,
+    accept: options.accept ?? 'image/png,image/*',
+  });
+
+  if (!response.ok) {
+    throw toApiError(response, await readBody(response));
+  }
+
+  return response.blob();
+}
+
+/**
  * Calls the API and validates what comes back.
  *
  * @param path - The path below `/api/v1`.
@@ -220,23 +276,7 @@ export async function apiRequest<TSchema extends z.ZodType>(
   schema: TSchema,
   options: RequestOptions = {},
 ): Promise<z.output<TSchema>> {
-  const isAuthenticated = options.isAuthenticated ?? true;
-  let response = await send(
-    path,
-    options,
-    isAuthenticated ? (session?.readAccessToken() ?? null) : null,
-  );
-
-  if (response.status === 401 && isAuthenticated) {
-    const accessToken = await refreshAccessToken();
-
-    if (accessToken === null) {
-      throw toApiError(response, await readBody(response));
-    }
-
-    response = await send(path, options, accessToken);
-  }
-
+  const response = await sendWithCredential(path, options);
   const body = await readBody(response);
 
   if (!response.ok) {

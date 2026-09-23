@@ -19,7 +19,15 @@ import {
 } from '@nebula-home/contracts';
 
 import { ApiError } from '@/lib/api-error';
-import { createDevice, fetchIcons, probeDevice, updateDevice } from '@/library/api';
+import {
+  createDevice,
+  deleteDevice,
+  fetchAreas,
+  fetchIcons,
+  fetchTags,
+  probeDevice,
+  updateDevice,
+} from '@/library/api';
 
 import { DeviceDialog } from './device-dialog';
 
@@ -27,9 +35,59 @@ vi.mock('@/library/api', () => ({
   probeDevice: vi.fn(),
   createDevice: vi.fn(),
   updateDevice: vi.fn(),
+  deleteDevice: vi.fn(),
   fetchIcons: vi.fn(),
-  LIBRARY_QUERY_KEYS: { icons: ['library', 'icons'] },
+  fetchTags: vi.fn(),
+  createTag: vi.fn(),
+  fetchAreas: vi.fn(),
+  LIBRARY_QUERY_KEYS: {
+    icons: ['library', 'icons'],
+    tags: ['library', 'tags'],
+    areas: ['library', 'areas'],
+    devices: ['library', 'devices'],
+    entities: ['library', 'entities'],
+  },
 }));
+
+const HOUSE_ID = '018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e80';
+const FLOOR_ID = '018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e81';
+const ROOM_ID = '018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e82';
+
+/**
+ * An area as the API serves it.
+ *
+ * @param id - Its id.
+ * @param kind - House, floor or room.
+ * @param name - What it is called.
+ * @param parentId - What it is in.
+ * @returns The area.
+ */
+function area(id: string, kind: 'house' | 'floor' | 'room', name: string, parentId: string | null) {
+  return {
+    id,
+    key: name.toLowerCase().replaceAll(' ', '_'),
+    name,
+    kind,
+    parentId,
+    icon: null,
+    sortOrder: 100,
+    latitude: null,
+    longitude: null,
+    deviceCount: 0,
+    entityCount: 0,
+  };
+}
+
+/** A tag the owner made earlier. */
+const EXTERIOR = {
+  id: '018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e6f',
+  key: 'exterior',
+  name: 'Exterior',
+  color: 'green',
+  icon: null,
+  deviceCount: 0,
+  entityCount: 0,
+} as const;
 
 /** What the printer driver asks. */
 const PRINTER_SETUP = {
@@ -135,9 +193,11 @@ const EXISTING: DeviceView = {
   manufacturer: 'Bambu Lab',
   swVersion: null,
   hwVersion: null,
+  areaId: null,
   areaKey: null,
   areaName: null,
   entityIds: [entityIdSchema.parse('sensor.bambu_lab_x1c_nozzle_temperature')],
+  tagIds: [],
 };
 
 /**
@@ -159,19 +219,12 @@ function iconView(id: string): IconView {
 }
 
 beforeAll(() => {
-  // jsdom implements `<dialog>` but not the modal behaviour behind it.
-  if (typeof globalThis.HTMLDialogElement.prototype.showModal !== 'function') {
-    globalThis.HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
-      this.open = true;
-    };
-  }
-
-  if (typeof globalThis.HTMLDialogElement.prototype.close !== 'function') {
-    globalThis.HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
-      this.open = false;
-    };
-  }
-
+  vi.mocked(fetchTags).mockResolvedValue([EXTERIOR]);
+  vi.mocked(fetchAreas).mockResolvedValue([
+    area(HOUSE_ID, 'house', 'Home', null),
+    area(FLOOR_ID, 'floor', 'Ground floor', HOUSE_ID),
+    area(ROOM_ID, 'room', 'Kitchen', FLOOR_ID),
+  ]);
   vi.mocked(fetchIcons).mockImplementation((request) =>
     Promise.resolve(
       request.ids !== undefined
@@ -187,19 +240,27 @@ beforeAll(() => {
  * Renders the dialog inside what it needs.
  *
  * @param target - What it is for.
+ * @param canRemove - Whether the person may remove the device.
  * @returns The callbacks it was given.
  */
-function renderDialog(target: Parameters<typeof DeviceDialog>[0]['target']) {
+function renderDialog(target: Parameters<typeof DeviceDialog>[0]['target'], canRemove = true) {
   const onSaved = vi.fn();
   const onClose = vi.fn();
+  const onRemoved = vi.fn();
 
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <DeviceDialog target={target} onClose={onClose} onSaved={onSaved} />
+      <DeviceDialog
+        target={target}
+        canRemove={canRemove}
+        onClose={onClose}
+        onSaved={onSaved}
+        onRemoved={onRemoved}
+      />
     </QueryClientProvider>,
   );
 
-  return { onSaved, onClose };
+  return { onSaved, onClose, onRemoved };
 }
 
 /**
@@ -255,6 +316,7 @@ describe('adding a device', () => {
         name: '1PM Mini Gen3',
         icon: 'relay',
         isEnabled: true,
+        tagIds: [],
         transportConfig: { host: '192.168.1.40' },
         options: {},
       });
@@ -347,8 +409,36 @@ describe('adding a device', () => {
       name: 'X1C',
       icon: 'printer',
       isEnabled: true,
+      tagIds: [],
       transportConfig: { url: 'mqtts://192.168.1.60:8883', password: '12345678' },
       options: {},
+    });
+  });
+
+  it('puts the name and its icon first, the tags under them, and only then the model', () => {
+    renderDialog({ mode: 'create', vendor: BAMBU, existingIds: [] });
+
+    const name = screen.getByLabelText('Name');
+    const tags = screen.getByRole('combobox', { name: 'Tags' });
+    const model = screen.getByRole('combobox', { name: /model/iu });
+
+    // What a row is recognised by comes first; which of six printers it is comes after.
+    expect(name.compareDocumentPosition(tags) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(tags.compareDocumentPosition(model) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
+  });
+
+  it('puts a tag on the device as it is added', async () => {
+    vi.mocked(createDevice).mockResolvedValue({ ...EXISTING, state: 'identifying' });
+    renderDialog({ mode: 'create', vendor: BAMBU, existingIds: [] });
+
+    fillPrinter();
+    fireEvent.focus(screen.getByRole('combobox', { name: 'Tags' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Exterior' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(createDevice).toHaveBeenCalledWith(expect.objectContaining({ tagIds: [EXTERIOR.id] }));
     });
   });
 
@@ -406,9 +496,72 @@ describe('changing a device', () => {
       name: 'Office printer',
       icon: 'printer',
       isEnabled: true,
+      tagIds: [],
+      areaId: null,
       model: 'X1C',
       transportConfig: { url: 'mqtts://192.168.1.61:8883' },
       options: {},
     });
+  });
+
+  it('offers the rooms by floor, and puts the device in the one picked', async () => {
+    vi.mocked(updateDevice).mockResolvedValue(EXISTING);
+    renderDialog({ mode: 'edit', vendor: BAMBU, device: EXISTING });
+
+    fireEvent.click(await screen.findByRole('combobox', { name: /^Room/u }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Ground floor › Kitchen' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(updateDevice).toHaveBeenCalledWith(
+        'bambu-lab-x1c',
+        expect.objectContaining({ areaId: ROOM_ID }),
+      );
+    });
+  });
+
+  it('removes the device after a second press, saying what goes with it, and tells the page', async () => {
+    vi.mocked(deleteDevice).mockResolvedValue(undefined);
+    const { onRemoved } = renderDialog({ mode: 'edit', vendor: BAMBU, device: EXISTING });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+    expect(deleteDevice).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert').textContent).toMatch(/Studio printer.*1 entity/u);
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+    await waitFor(() => {
+      expect(deleteDevice).toHaveBeenCalledWith('bambu-lab-x1c');
+      expect(onRemoved).toHaveBeenCalledWith('bambu-lab-x1c');
+    });
+  });
+
+  it('shows why a removal was refused, and keeps the dialog', async () => {
+    vi.mocked(deleteDevice).mockRejectedValue(
+      new ApiError({
+        status: 409,
+        code: 'CONFLICT',
+        message: 'Derived entities still read this device',
+        details: {},
+      }),
+    );
+    const { onRemoved } = renderDialog({ mode: 'edit', vendor: BAMBU, device: EXISTING });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert').textContent).toContain('Derived entities');
+    });
+    expect(onRemoved).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
+  });
+
+  it('offers no removal to somebody who may not remove', () => {
+    renderDialog({ mode: 'edit', vendor: BAMBU, device: EXISTING }, false);
+
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
   });
 });

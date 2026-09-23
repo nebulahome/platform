@@ -136,6 +136,8 @@ export function VendorPage() {
   const can = useSession((state) => state.can);
   const canConfigure = can('integration:configure');
   const canWrite = can('device:write');
+  const canRemove = can('device:delete');
+  const canCreateTags = can('tag:write');
   const [open, setOpen] = useState<DeviceDialogTarget | null>(null);
   const [isSettingUp, setSettingUp] = useState(false);
 
@@ -223,7 +225,7 @@ export function VendorPage() {
       >
         {found === undefined ? null : (
           <>
-            <section className="flex flex-wrap items-start gap-x-[18px] gap-y-4 rounded-panel border border-border face-card p-5 md:flex-nowrap">
+            <section className="flex flex-wrap items-start gap-x-4.5 gap-y-4 rounded-panel border border-border face-card p-5 md:flex-nowrap">
               <VendorLogo vendor={found} size={56} />
 
               <div className="flex min-w-0 grow flex-col gap-2">
@@ -410,11 +412,22 @@ export function VendorPage() {
               : `device-${open.device.id}`
         }
         target={open}
+        canRemove={canRemove}
+        canCreateTags={canCreateTags}
         onClose={() => {
           setOpen(null);
         }}
         onSaved={(device) => {
           settle(device.state);
+        }}
+        onRemoved={() => {
+          // The device, its entities and the tags on them are gone: every list that showed
+          // them reads again.
+          setOpen(null);
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.entities });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.tags });
         }}
       />
 

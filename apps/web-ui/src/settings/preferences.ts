@@ -35,6 +35,7 @@ export const START_PAGES = [
   '/scenes',
   '/devices',
   '/aliases',
+  '/tags',
   '/packages',
 ] as const;
 

@@ -46,8 +46,8 @@ const PLACEHOLDERS: Readonly<Record<string, Placeholder>> = {
   },
   '/aliases': {
     title: 'Aliases',
-    summary: 'Derived entities: a formula over other entities.',
-    blockedOn: 'The alias engine in core.',
+    summary: 'Derived entities and stored helpers.',
+    blockedOn: 'Nothing. The API and alias engine serve this.',
   },
   '/packages': {
     title: 'Packages',
@@ -73,7 +73,7 @@ export function PagePlaceholder() {
   return (
     <div className="flex grow flex-col">
       <header className="flex h-17 shrink-0 items-center border-b border-border px-6">
-        <h1 className="text-head font-medium tracking-tight">{page?.title ?? 'Nebula Home'}</h1>
+        <h1 className="text-head font-semibold tracking-tight">{page?.title ?? 'Nebula Home'}</h1>
       </header>
 
       <div className="flex grow items-center justify-center p-6">

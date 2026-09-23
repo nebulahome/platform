@@ -15,6 +15,9 @@ import {
   blankTrigger,
   draftFrom,
   emptyDraft,
+  isCardExpressible,
+  isKeepingTriggers,
+  partialEntityId,
   replaceAt,
   toCreate,
   toKey,
@@ -103,6 +106,23 @@ describe('toCreate', () => {
       expect(result.body.maxRuntimeMs).toBe(90_000);
     }
   });
+
+  it('writes the new { triggers, if, then } document', () => {
+    const result = toCreate({
+      ...usable(),
+      conditions: [{ type: 'state', entityId: 'person.mattia', state: 'home' }],
+    });
+
+    expect(result.ok).toBe(true);
+
+    if (result.ok) {
+      expect(result.body.definition).toEqual({
+        triggers: { type: 'time', at: { kind: 'clock', time: '18:00' } },
+        if: { type: 'state', entityId: 'person.mattia', state: 'home' },
+        then: [{ type: 'scene', sceneKey: 'good_night' }],
+      });
+    }
+  });
 });
 
 describe('draftFrom', () => {
@@ -113,17 +133,15 @@ describe('draftFrom', () => {
     name: 'Complicated',
     description: '',
     definition: {
-      triggers: [{ type: 'manual' }],
-      conditions: [
-        {
-          type: 'and',
-          conditions: [
-            { type: 'time_window', from: '22:00', to: '06:00' },
-            { type: 'expression', expression: 'away' },
-          ],
-        },
-      ],
-      actions: [
+      triggers: { type: 'manual' },
+      if: {
+        op: 'and',
+        items: [
+          { type: 'time_window', from: '22:00', to: '06:00' },
+          { type: 'expression', expression: 'away' },
+        ],
+      },
+      then: [
         {
           type: 'parallel',
           actions: [
@@ -151,6 +169,41 @@ describe('draftFrom', () => {
     }
   });
 
+  it('opens a legacy { triggers, conditions, actions } document', () => {
+    const draft = draftFrom({
+      ...COMPOSED,
+      definition: {
+        triggers: [{ type: 'manual' }],
+        conditions: [
+          {
+            type: 'and',
+            conditions: [
+              { type: 'time_window', from: '22:00', to: '06:00' },
+              { type: 'expression', expression: 'away' },
+            ],
+          },
+        ],
+        actions: [
+          {
+            type: 'parallel',
+            actions: [
+              { type: 'scene', sceneKey: 'good_night' },
+              { type: 'notify', channel: 'push', message: 'done' },
+            ],
+          },
+        ],
+      },
+    });
+
+    const result = toCreate(draft);
+
+    expect(result.ok).toBe(true);
+
+    if (result.ok) {
+      expect(result.body.definition).toEqual(COMPOSED.definition);
+    }
+  });
+
   it('opens rather than throwing on a definition written before the schema existed', () => {
     const draft = draftFrom({ ...COMPOSED, definition: { nonsense: true } });
 
@@ -160,6 +213,92 @@ describe('draftFrom', () => {
 
   it('reads the runtime back into seconds', () => {
     expect(draftFrom(COMPOSED).maxRuntimeSeconds).toBe(300);
+  });
+});
+
+describe('nested then blocks', () => {
+  it('round-trips if/else, switch, while, and for through the draft', () => {
+    const stateLeaf = {
+      type: 'state' as const,
+      entityId: partialEntityId('light.kitchen'),
+      state: 'on',
+    };
+
+    const definition = {
+      triggers: { type: 'manual' as const },
+      then: [
+        {
+          type: 'if' as const,
+          condition: stateLeaf,
+          then: [{ type: 'scene' as const, sceneKey: 'bright' }],
+          else: [{ type: 'stop' as const }],
+        },
+        {
+          type: 'switch' as const,
+          entityId: partialEntityId('input_select.mode'),
+          cases: [
+            {
+              value: 'away',
+              actions: [{ type: 'wait_duration' as const, durationMs: 1_000 }],
+            },
+          ],
+          default: [{ type: 'notify' as const, channel: 'push', message: 'home' }],
+        },
+        {
+          type: 'while' as const,
+          condition: stateLeaf,
+          actions: [{ type: 'wait_duration' as const, durationMs: 500 }],
+        },
+        {
+          type: 'for' as const,
+          over: { kind: 'count' as const, count: 2 },
+          actions: [{ type: 'stop' as const }],
+        },
+        {
+          type: 'do_while' as const,
+          condition: stateLeaf,
+          actions: [{ type: 'wait_duration' as const, durationMs: 100 }],
+        },
+        {
+          type: 'parallel' as const,
+          actions: [
+            {
+              type: 'sequence' as const,
+              actions: [{ type: 'scene' as const, sceneKey: 'a' }],
+            },
+            { type: 'scene' as const, sceneKey: 'b' },
+          ],
+        },
+      ],
+    };
+
+    const view: AutomationView = {
+      id: '00000000-0000-4000-8000-000000000099',
+      key: 'nested',
+      name: 'Nested',
+      description: '',
+      definition: definition,
+      definitionVersion: 1,
+      mode: 'single',
+      maxRuntimeMs: 60_000,
+      isEnabled: true,
+      lastTriggeredAt: null,
+    };
+
+    const result = toCreate(draftFrom(view));
+
+    expect(result.ok).toBe(true);
+
+    if (result.ok) {
+      expect(result.body.definition).toEqual(definition);
+    }
+  });
+
+  it('creates blanks for every nested template kind', () => {
+    expect(blankAction('if').type).toBe('if');
+    expect(blankAction('switch').type).toBe('switch');
+    expect(blankAction('sequence').type).toBe('sequence');
+    expect(blankAction('wait_for_trigger').type).toBe('wait_for_trigger');
   });
 });
 
@@ -188,7 +327,7 @@ describe('what a problem reads like', () => {
     expect(result.ok).toBe(false);
 
     if (!result.ok) {
-      // Not `actions › 0 › sceneKey`: the screen says Then, and its first block is block 1.
+      // Not `then › 0 › sceneKey`: the screen says Then, and its first block is block 1.
       expect(result.problems[0]).toBe('Then › action 1 › sceneKey: needs a value');
     }
   });
@@ -201,5 +340,72 @@ describe('what a problem reads like', () => {
     if (!result.ok) {
       expect(result.problems[0]).toContain('needs at least one');
     }
+  });
+});
+
+describe('a trigger tree the cards cannot say', () => {
+  /** Manual, or a state change, and in either case also a time: an OR inside an AND. */
+  const GROUPED: AutomationView = {
+    id: '00000000-0000-4000-8000-000000000003',
+    key: 'grouped',
+    name: 'Grouped',
+    description: '',
+    definition: {
+      triggers: {
+        op: 'and',
+        items: [
+          { op: 'or', items: [{ type: 'manual' }, { type: 'state', entityId: 'switch.porch' }] },
+          { type: 'time', at: { kind: 'clock', time: '18:00' } },
+        ],
+      },
+      then: [{ type: 'scene', sceneKey: 'good_night' }],
+    },
+    definitionVersion: 1,
+    mode: 'single',
+    maxRuntimeMs: 300_000,
+    isEnabled: true,
+    lastTriggeredAt: null,
+  };
+
+  it('is saved back as it was when the triggers are not touched', () => {
+    const draft = draftFrom(GROUPED);
+    const result = toCreate(draft);
+
+    expect(isKeepingTriggers(draft)).toBe(true);
+    expect(result.ok && result.body.definition.triggers).toEqual(GROUPED.definition['triggers']);
+  });
+
+  it('gives way to the cards once a trigger is changed', () => {
+    const draft = draftFrom(GROUPED);
+    const changed = {
+      ...draft,
+      triggers: without(draft.triggers, 0),
+      triggerJoins: ['or' as const],
+    };
+    const result = toCreate(changed);
+
+    expect(isKeepingTriggers(changed)).toBe(false);
+    expect(result.ok && result.body.definition.triggers).toEqual({
+      op: 'or',
+      items: [
+        { type: 'state', entityId: 'switch.porch' },
+        { type: 'time', at: { kind: 'clock', time: '18:00' } },
+      ],
+    });
+  });
+
+  it('is not kept when the cards say it exactly', () => {
+    expect(
+      isCardExpressible({
+        op: 'or',
+        items: [{ type: 'manual' }, { op: 'and', items: [{ type: 'manual' }, { type: 'manual' }] }],
+      }),
+    ).toBe(true);
+    expect(
+      isCardExpressible({
+        op: 'and',
+        items: [{ op: 'or', items: [{ type: 'manual' }, { type: 'manual' }] }, { type: 'manual' }],
+      }),
+    ).toBe(false);
   });
 });

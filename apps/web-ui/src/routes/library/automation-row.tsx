@@ -1,24 +1,36 @@
 /**
- * One automation in the list.
+ * One automation in the list table.
  *
  * The whole chain on one line — what wakes it, what it checks, what it does — because the
  * question somebody scanning this page is asking is "which one is the porch light", and reading
- * the rule is how they answer it. The alternative is a column of names, which tells them nothing
- * they did not already know from the sidebar.
+ * the rule is how they answer it.
  *
  * **Enabled is a switch, and it writes.** It is the one thing about an automation that can be
- * changed without opening anything, and it is the thing people most often want to change: an
- * automation misbehaving at two in the morning is turned off, not edited.
+ * changed without opening anything. Edit opens the editor; Delete removes the row.
  *
  * There is no Run button. `POST /automations/:id/trigger` does not exist, because nothing is
  * listening yet (API.md §10), and a button that posted to it would fail at the one moment it
  * mattered.
  */
-import type { AutomationDefinition, AutomationView } from '@nebula-home/contracts';
-import { Badge, Button, cn, PanelRow } from '@nebula-home/ui';
+import {
+  migrateDefinition,
+  type AutomationDefinition,
+  type AutomationView,
+} from '@nebula-home/contracts';
+import { Badge, Button, cn } from '@nebula-home/ui';
 
 import { describeAutomation } from '@/lib/describe-automation';
 import { relativeTime } from '@/lib/format-time';
+
+/**
+ * The column widths, shared by the header and every row so they line up.
+ *
+ * Name and chain take the flexible room; mode, last run, status and the actions stay fixed so a
+ * long summary never shoves Edit off the edge of a narrow window.
+ */
+export const AUTOMATION_COLUMNS =
+  'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 ' +
+  'md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_88px_104px_72px_auto]';
 
 /** What one row needs. */
 export type AutomationRowProps = {
@@ -28,6 +40,9 @@ export type AutomationRowProps = {
   /** Whether a write for this row is in flight. */
   readonly isBusy: boolean;
 
+  /** Called to open the editor. */
+  readonly onEdit: () => void;
+
   /** Called to turn it on or off. */
   readonly onToggle: (isEnabled: boolean) => void;
 
@@ -36,7 +51,7 @@ export type AutomationRowProps = {
 };
 
 /**
- * Renders one automation.
+ * Renders one automation as a table row.
  *
  * The definition is parsed defensively. It comes from a `jsonb` column that predates the schema
  * validating it, so a row written before this release can be anything at all — and a list that
@@ -46,49 +61,38 @@ export type AutomationRowProps = {
  * @returns The row.
  */
 export function AutomationRow(props: AutomationRowProps) {
-  const { automation, isBusy, onToggle, onDelete } = props;
+  const { automation, isBusy, onEdit, onToggle, onDelete } = props;
   const summary = readSummary(automation.definition);
+  const lastRun =
+    automation.lastTriggeredAt === null ? 'never run' : relativeTime(automation.lastTriggeredAt);
 
   return (
-    <PanelRow
-      title={
-        <span className="flex items-center gap-2.5">
-          <span>{automation.name}</span>
-          {automation.isEnabled ? null : <Badge tone="neutral">Off</Badge>}
-          {automation.mode === 'single' ? null : (
-            <Badge tone="neutral" size="small">
-              {automation.mode}
-            </Badge>
-          )}
+    <li className="border-b border-border-soft last:border-b-0">
+      <div className={`${AUTOMATION_COLUMNS} px-4 py-3`}>
+        <span className="min-w-0 truncate text-ui font-medium text-foreground">
+          {automation.name}
         </span>
-      }
-      note={
-        summary === null ? (
-          <span className="text-warning">
-            Its definition is not in a shape this build understands.
-          </span>
-        ) : (
-          <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-            <Step>{summary.trigger}</Step>
-            {summary.conditions === null ? null : (
-              <>
-                <Arrow />
-                <Step>{summary.conditions}</Step>
-              </>
-            )}
-            <Arrow />
-            <Step>{summary.actions}</Step>
-          </span>
-        )
-      }
-      control={
-        <span className="flex items-center gap-2">
-          <span className="hidden text-caption text-foreground-subtle tabular sm:inline">
-            {automation.lastTriggeredAt === null
-              ? 'never run'
-              : `ran ${relativeTime(automation.lastTriggeredAt)}`}
-          </span>
 
+        <span className="hidden min-w-0 md:block">
+          <Chain summary={summary} />
+        </span>
+
+        <span className="hidden text-ui text-foreground-muted md:block">{automation.mode}</span>
+
+        <span className="hidden text-caption text-foreground-subtle tabular md:block">
+          {lastRun}
+        </span>
+
+        <span className="hidden md:block">
+          <Badge tone={automation.isEnabled ? 'success' : 'neutral'} size="small">
+            {automation.isEnabled ? 'Enabled' : 'Off'}
+          </Badge>
+        </span>
+
+        <span className="flex flex-wrap items-center justify-end gap-2">
+          <Button variant="ghost" size="compact" onClick={onEdit}>
+            Edit
+          </Button>
           <Button
             variant="ghost"
             size="compact"
@@ -100,13 +104,62 @@ export function AutomationRow(props: AutomationRowProps) {
           >
             {automation.isEnabled ? 'Turn off' : 'Turn on'}
           </Button>
-
           <Button variant="danger" size="compact" disabled={isBusy} onClick={onDelete}>
             Delete
           </Button>
         </span>
-      }
-    />
+      </div>
+
+      {/* Narrow windows: chain, mode and standing under the name, since the grid collapses. */}
+      <div className="flex flex-col gap-1.5 px-4 pb-3 md:hidden">
+        <Chain summary={summary} />
+        <span className="text-caption text-foreground-muted">
+          {automation.mode} · {lastRun}
+        </span>
+        <span className="flex flex-wrap items-center gap-1.5">
+          <Badge tone={automation.isEnabled ? 'success' : 'neutral'} size="small">
+            {automation.isEnabled ? 'Enabled' : 'Off'}
+          </Badge>
+        </span>
+      </div>
+    </li>
+  );
+}
+
+/** What the chain cell needs. */
+type ChainProps = {
+  readonly summary: ReturnType<typeof describeAutomation> | null;
+};
+
+/**
+ * The trigger → if → then line, or a warning when the document cannot be read.
+ *
+ * @param props - See {@link ChainProps}.
+ * @returns The chain.
+ */
+function Chain(props: ChainProps) {
+  const { summary } = props;
+
+  if (summary === null) {
+    return (
+      <span className="text-caption text-warning">
+        Its definition is not in a shape this build understands.
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-caption">
+      <Step>{summary.trigger}</Step>
+      {summary.conditions === null ? null : (
+        <>
+          <Arrow />
+          <Step>{summary.conditions}</Step>
+        </>
+      )}
+      <Arrow />
+      <Step>{summary.actions}</Step>
+    </span>
   );
 }
 
@@ -117,16 +170,30 @@ export function AutomationRow(props: AutomationRowProps) {
  * @returns The summary, or null when the document is not one this build can read.
  */
 function readSummary(definition: unknown): ReturnType<typeof describeAutomation> | null {
-  const document = definition as AutomationDefinition;
+  // Legacy rows may still hold `{ triggers: [...], conditions, actions }`; the schema's own
+  // migration lifts them, so the list reads them exactly as a save would.
+  const document: unknown = migrateDefinition(definition);
 
-  if (!Array.isArray(document.triggers) || !Array.isArray(document.actions)) {
+  if (document === null || typeof document !== 'object') {
     return null;
   }
 
+  const {
+    triggers,
+    if: ifTree,
+    then,
+  } = document as { readonly triggers?: unknown; readonly if?: unknown; readonly then?: unknown };
+
+  if (triggers === undefined || triggers === null || !Array.isArray(then)) {
+    return null;
+  }
+
+  // Not parsed: a leaf this build does not know still reads as its kind, rather than the whole
+  // row reading as nothing.
   return describeAutomation({
-    triggers: document.triggers,
-    conditions: Array.isArray(document.conditions) ? document.conditions : [],
-    actions: document.actions,
+    triggers: triggers as AutomationDefinition['triggers'],
+    if: ifTree as AutomationDefinition['if'],
+    then: then as AutomationDefinition['then'],
   });
 }
 

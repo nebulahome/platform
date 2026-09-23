@@ -16,7 +16,8 @@ import { Link } from 'react-router';
 import type { IntegrationVendorView } from '@nebula-home/contracts';
 import { Badge, cn } from '@nebula-home/ui';
 
-import { GlobeIcon, HttpIcon, MqttIcon, type IconProps } from '@/components/icons';
+import { CableIcon, GlobeIcon, HttpIcon, MqttIcon, type IconProps } from '@/components/icons';
+import { isOwnTransport } from '@/library/vendor-filters';
 
 /** The colour a vendor without one of its own is tinted with. */
 const FALLBACK_COLOR = '#6d7bff';
@@ -87,9 +88,20 @@ export function Marks(props: MarksProps) {
       {vendor.transports.map((transport) => {
         const wire = WIRES[transport];
 
-        return wire === undefined ? null : (
-          <Mark key={transport} title={wire.title} glyph={wire.glyph} size={size} />
-        );
+        if (wire !== undefined) {
+          return <Mark key={transport} title={wire.title} glyph={wire.glyph} size={size} />;
+        }
+
+        // A transport the vendor ships has a name nobody here could list in advance; it still
+        // gets a mark saying there is a wire, and which, rather than an empty corner.
+        return isOwnTransport(transport) ? (
+          <Mark
+            key={transport}
+            title={`Speaks its own protocol, ${transport}`}
+            glyph={CableIcon}
+            size={size}
+          />
+        ) : null;
       })}
 
       {vendor.internetRequired ? (

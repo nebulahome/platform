@@ -74,6 +74,17 @@ describe('matchesVendorFilter', () => {
     ).toBe(true);
   });
 
+  it("keeps a vendor speaking a protocol of its own under the 'own' wire, and only there", () => {
+    // A vendor may ship its transport in its bundle - `shelly/rpc` - and the hub names it after
+    // the vendor. No list of wires in the interface could know every such name in advance.
+    const shelly = vendor({ transports: ['shelly/rpc'] });
+    const bambu = vendor({ transports: ['mqtt'] });
+
+    expect(matchesVendorFilter(shelly, filter({ transport: 'own' }))).toBe(true);
+    expect(matchesVendorFilter(bambu, filter({ transport: 'own' }))).toBe(false);
+    expect(matchesVendorFilter(shelly, filter({ transport: 'http' }))).toBe(false);
+  });
+
   it('narrows by whether the internet is needed', () => {
     expect(matchesVendorFilter(vendor(), filter({ internet: 'local' }))).toBe(true);
     expect(matchesVendorFilter(vendor(), filter({ internet: 'needed' }))).toBe(false);

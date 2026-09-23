@@ -96,19 +96,6 @@ async function upload(markup: string): Promise<void> {
 }
 
 beforeAll(() => {
-  // jsdom implements `<dialog>` but not the modal behaviour behind it.
-  if (typeof globalThis.HTMLDialogElement.prototype.showModal !== 'function') {
-    globalThis.HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
-      this.open = true;
-    };
-  }
-
-  if (typeof globalThis.HTMLDialogElement.prototype.close !== 'function') {
-    globalThis.HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
-      this.open = false;
-    };
-  }
-
   // jsdom has no layout, so it cannot measure a drawing. The square above is 256 wide at 64.
   Object.defineProperty(globalThis.SVGElement.prototype, 'getBBox', {
     configurable: true,
@@ -146,6 +133,19 @@ describe('IconsPanel', () => {
       expect(screen.queryByRole('button', { name: /Settings/u })).toBeNull();
     });
     expect(await screen.findByRole('button', { name: /Lightbulb/u })).toBeTruthy();
+  });
+
+  it('lays the catalogue out as tiles, the way the picker does', async () => {
+    renderPanel();
+
+    const list = await screen.findByRole('list', { name: 'Icons' });
+    const tile = screen.getByRole('button', { name: /Printer/u });
+
+    // A catalogue is scanned by glyph, not read by name: a grid of tiles shows thirty at a
+    // glance where a list of rows shows eight.
+    expect(list.className).toContain('grid');
+    expect(tile.className).toContain('flex-col');
+    expect(tile.textContent).toContain('printer');
   });
 
   it('locks the name and the id of a built-in icon, and takes a new drawing for it', async () => {

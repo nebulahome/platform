@@ -1,9 +1,10 @@
 /**
  * The rail, and the pure functions around it.
  *
- * The render cases check the two things that are easy to get wrong and invisible when they are:
- * that the library group opens because of where you are rather than because it was clicked, and
- * that the current row is marked in a way something other than a colour can perceive.
+ * The render cases check the things that are easy to get wrong and invisible when they are:
+ * that a group opens because of where you are rather than because it was clicked, that each
+ * entry sits in the group it belongs to, and that the current row is marked in a way something
+ * other than a colour can perceive.
  */
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
@@ -43,31 +44,53 @@ function renderAt(pathname: string): void {
 }
 
 describe('Sidebar', () => {
-  it('shows the three top-level destinations', () => {
+  it('shows the top-level destinations and the two groups', () => {
     renderAt('/dashboards');
 
     expect(screen.getByRole('link', { name: 'Dashboards' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Library/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Automation/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Configuration/ })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Packages' })).toBeTruthy();
   });
 
-  it('keeps the library shut when you are not inside it', () => {
+  it('keeps both groups shut when you are not inside either', () => {
     renderAt('/dashboards');
 
-    expect(screen.getByRole('button', { name: /Library/ }).getAttribute('aria-expanded')).toBe(
+    expect(screen.getByRole('button', { name: /Automation/ }).getAttribute('aria-expanded')).toBe(
       'false',
     );
+    expect(
+      screen.getByRole('button', { name: /Configuration/ }).getAttribute('aria-expanded'),
+    ).toBe('false');
     expect(screen.queryByRole('link', { name: 'Scenes' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Devices' })).toBeNull();
   });
 
-  it('opens the library because of where you are, not because it was clicked', () => {
+  it('opens the group you are in because of where you are, not because it was clicked', () => {
     renderAt('/scenes');
 
-    expect(screen.getByRole('button', { name: /Library/ }).getAttribute('aria-expanded')).toBe(
+    // What runs the house on its own is one group; what describes the house is the other.
+    expect(screen.getByRole('button', { name: /Automation/ }).getAttribute('aria-expanded')).toBe(
       'true',
     );
+    expect(
+      screen.getByRole('button', { name: /Configuration/ }).getAttribute('aria-expanded'),
+    ).toBe('false');
     expect(screen.getByRole('link', { name: 'Automations' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Aliases' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Tags' })).toBeNull();
+  });
+
+  it('puts devices, tags and areas together, as the things that describe the house', () => {
+    renderAt('/tags');
+
+    expect(
+      screen.getByRole('button', { name: /Configuration/ }).getAttribute('aria-expanded'),
+    ).toBe('true');
+    expect(screen.getByRole('link', { name: 'Devices' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Tags' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Areas' }).getAttribute('href')).toBe('/areas');
+    expect(screen.queryByRole('link', { name: 'Automations' })).toBeNull();
   });
 
   it('marks the current row for something that cannot see a colour', () => {
@@ -90,6 +113,16 @@ describe('Sidebar', () => {
     expect(chip.getAttribute('aria-expanded')).toBe('false');
     expect(within(chip).getByText('owner')).toBeTruthy();
     expect(within(chip).getByText('MC')).toBeTruthy();
+  });
+
+  it('draws nothing beside the person but their picture and their name', () => {
+    renderAt('/dashboards');
+
+    const chip = screen.getByRole('button', { name: /Mattia Carli/ });
+
+    // The chip used to end in an "expand" glyph. The whole chip is the menu's trigger, so the
+    // glyph said nothing the chip did not already say - and it read as a control of its own.
+    expect(chip.querySelector('svg')).toBeNull();
   });
 });
 

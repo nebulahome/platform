@@ -57,6 +57,30 @@ describe('SetupForm', () => {
     expect(screen.getByText('Port 8883.')).toBeTruthy();
   });
 
+  it('tells the browser these are not account fields', () => {
+    render(
+      <SetupForm
+        group={SETUP.transport}
+        draft={initialDraft(SETUP.transport)}
+        errors={{}}
+        kept={[]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    // A text field labelled "…address" right before a `new-password` field is what a sign-up form
+    // looks like to a browser, and Brave answered by offering to make an email alias for the
+    // printer's address. Each typed field carries the bundle's own key and asks for no filling.
+    for (const label of ['Printer address', 'Access code', 'Addresses']) {
+      const input = screen.getByLabelText(label);
+
+      expect(input.getAttribute('autocomplete'), label).toBe('off');
+    }
+
+    expect(screen.getByLabelText('Printer address').getAttribute('name')).toBe('url');
+    expect(screen.getByLabelText('Addresses').getAttribute('name')).toBe('hosts');
+  });
+
   it('reports what was typed under the field key', () => {
     const onChange = vi.fn();
 

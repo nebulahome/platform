@@ -7,8 +7,13 @@
  */
 import type { IntegrationVendorView } from '@nebula-home/contracts';
 
-/** Which wire to keep, or any. */
-export type TransportFilter = '' | 'http' | 'mqtt';
+/**
+ * Which wire to keep, or any.
+ *
+ * `own` is every transport a vendor ships in its own bundle - `shelly/rpc` - which the interface
+ * cannot list by name, because a bundle installed tomorrow brings its own.
+ */
+export type TransportFilter = '' | 'http' | 'mqtt' | 'own';
 
 /** Which vendors to keep by their need for the internet, or any. */
 export type InternetFilter = '' | 'needed' | 'local';
@@ -39,6 +44,16 @@ export function isNarrowing(filter: VendorFilter): boolean {
 }
 
 /**
+ * Whether a transport is one a vendor ships rather than one of the platform's.
+ *
+ * @param transport - Its id.
+ * @returns True for an id qualified by its vendor, such as `shelly/rpc`.
+ */
+export function isOwnTransport(transport: string): boolean {
+  return transport.includes('/');
+}
+
+/**
  * Whether a vendor passes the filter.
  *
  * @param vendor - As the list serves it.
@@ -62,7 +77,15 @@ export function matchesVendorFilter(vendor: IntegrationVendorView, filter: Vendo
     }
   }
 
-  if (filter.transport !== '' && !vendor.transports.includes(filter.transport)) {
+  if (filter.transport === 'own' && !vendor.transports.some(isOwnTransport)) {
+    return false;
+  }
+
+  if (
+    filter.transport !== '' &&
+    filter.transport !== 'own' &&
+    !vendor.transports.includes(filter.transport)
+  ) {
     return false;
   }
 

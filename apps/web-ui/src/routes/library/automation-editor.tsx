@@ -16,7 +16,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 
 import { Button, Panel, TextField } from '@nebula-home/ui';
 
@@ -28,21 +28,25 @@ import {
   updateAutomation,
 } from '@/library/api';
 import {
-  blankAction,
   blankCondition,
   blankTrigger,
+  conditionWithoutNot,
   draftFrom,
   emptyDraft,
-  toCreate,
+  isConditionNegated,
+  isKeepingTriggers,
   replaceAt,
+  resizeJoins,
+  toCreate,
   toKey,
+  withConditionNegated,
   without,
   type AutomationDraft,
 } from '@/library/automation-draft';
-import { ActionFields } from '@/routes/library/action-fields';
+import { ActionSequenceEditor } from '@/routes/library/action-sequence-editor';
 import { BlockList } from '@/routes/library/block-list';
 import { ConditionFields } from '@/routes/library/condition-fields';
-import { EDITOR_CHOICES } from '@/routes/library/editor-choices';
+import { CONDITION_CHOICE_GROUPS, TRIGGER_CHOICE_GROUPS } from '@/routes/library/editor-choices';
 import { TriggerFields } from '@/routes/library/trigger-fields';
 
 /**
@@ -226,15 +230,37 @@ export function AutomationEditor() {
 
       <BlockList
         title="When"
-        note="What wakes it. Any one of these is enough."
-        addLabel="Add a trigger"
-        choices={EDITOR_CHOICES.triggers}
+        note={
+          isKeepingTriggers(draft)
+            ? 'These triggers are grouped in a way the cards cannot show, and are saved as they were until you change one.'
+            : 'What wakes it. Combine cards with AND or OR (default OR between new cards).'
+        }
+        pickerTitle="Add a trigger"
+        pickerDescription="State, time, events, or manual."
+        groups={TRIGGER_CHOICE_GROUPS}
         items={draft.triggers}
+        joins={draft.triggerJoins}
         onAdd={(type) => {
-          setDraft({ ...draft, triggers: [...draft.triggers, blankTrigger(type)] });
+          const triggers = [...draft.triggers, blankTrigger(type)];
+          const triggerJoins = resizeJoins(draft.triggerJoins, triggers.length, 'or');
+
+          setDraft({ ...draft, triggers, triggerJoins });
         }}
         onRemove={(index) => {
-          setDraft({ ...draft, triggers: without(draft.triggers, index) });
+          const triggers = without(draft.triggers, index);
+          const triggerJoins = resizeJoins(
+            without(draft.triggerJoins, Math.max(0, index - 1)),
+            triggers.length,
+            'or',
+          );
+
+          setDraft({ ...draft, triggers, triggerJoins });
+        }}
+        onJoinChange={(index, join) => {
+          setDraft({
+            ...draft,
+            triggerJoins: replaceAt(draft.triggerJoins, index, join),
+          });
         }}
         renderFields={(trigger, index) => (
           <TriggerFields
@@ -251,53 +277,81 @@ export function AutomationEditor() {
 
       <BlockList
         title="If"
-        note="What has to hold before it acts. All of these, or none if there are none."
-        addLabel="Add a condition"
-        choices={EDITOR_CHOICES.conditions}
+        note="Entity state checks before it acts. AND between new cards by default. NOT on a card negates that check."
+        pickerTitle="Add a condition"
+        pickerDescription="Entity state checks only."
+        groups={CONDITION_CHOICE_GROUPS}
         items={draft.conditions}
+        joins={draft.conditionJoins}
+        getNot={isConditionNegated}
+        kindOf={(condition) => conditionWithoutNot(condition).type}
+        onNotChange={(index, negated) => {
+          const current = draft.conditions[index];
+
+          if (current !== undefined) {
+            setDraft({
+              ...draft,
+              conditions: replaceAt(
+                draft.conditions,
+                index,
+                withConditionNegated(current, negated),
+              ),
+            });
+          }
+        }}
         onAdd={(type) => {
-          setDraft({ ...draft, conditions: [...draft.conditions, blankCondition(type)] });
+          const conditions = [...draft.conditions, blankCondition(type)];
+          const conditionJoins = resizeJoins(draft.conditionJoins, conditions.length, 'and');
+
+          setDraft({ ...draft, conditions, conditionJoins });
         }}
         onRemove={(index) => {
-          setDraft({ ...draft, conditions: without(draft.conditions, index) });
+          const conditions = without(draft.conditions, index);
+          const conditionJoins = resizeJoins(
+            without(draft.conditionJoins, Math.max(0, index - 1)),
+            conditions.length,
+            'and',
+          );
+
+          setDraft({ ...draft, conditions, conditionJoins });
+        }}
+        onJoinChange={(index, join) => {
+          setDraft({
+            ...draft,
+            conditionJoins: replaceAt(draft.conditionJoins, index, join),
+          });
         }}
         renderFields={(condition, index) => (
           <ConditionFields
-            condition={condition}
+            condition={conditionWithoutNot(condition)}
             onChange={(next) => {
+              const wrapped = isConditionNegated(condition)
+                ? { type: 'not' as const, condition: next }
+                : next;
+
               setDraft({
                 ...draft,
-                conditions: replaceAt(draft.conditions, index, next),
+                conditions: replaceAt(draft.conditions, index, wrapped),
               });
             }}
           />
         )}
       />
 
-      <BlockList
-        title="Then"
-        note="What it does, in order."
-        addLabel="Add an action"
-        choices={EDITOR_CHOICES.actions}
-        items={draft.actions}
-        onAdd={(type) => {
-          setDraft({ ...draft, actions: [...draft.actions, blankAction(type)] });
-        }}
-        onRemove={(index) => {
-          setDraft({ ...draft, actions: without(draft.actions, index) });
-        }}
-        renderFields={(action, index) => (
-          <ActionFields
-            action={action}
-            onChange={(next) => {
-              setDraft({
-                ...draft,
-                actions: replaceAt(draft.actions, index, next),
-              });
+      <Panel title="Then">
+        <div className="flex flex-col gap-3 p-4">
+          <p className="text-caption text-foreground-subtle">
+            What it does, in order — including nested control flow.
+          </p>
+          <ActionSequenceEditor
+            isRoot
+            actions={draft.actions}
+            onChange={(actions) => {
+              setDraft({ ...draft, actions: [...actions] });
             }}
           />
-        )}
-      />
+        </div>
+      </Panel>
     </Shell>
   );
 }
@@ -317,6 +371,11 @@ type ShellProps = {
 /**
  * The editor's frame, which is the library page's frame without the collection states.
  *
+ * The heading reads `Automations / New automation`, the way the vendor page reads
+ * `Integrations / Shelly`: where you are and the way back are the same three words, and the
+ * first of them is a link. Cancel does the same thing, but Cancel is at the far end of the bar
+ * and says "throw this away" - the crumb says "this is one of those", which is a different fact.
+ *
  * @param props - See {@link ShellProps}.
  * @returns The frame.
  */
@@ -326,7 +385,18 @@ function Shell(props: ShellProps) {
   return (
     <div className="flex min-h-0 grow flex-col">
       <header className="flex h-17 shrink-0 items-center justify-between gap-4 border-b border-border px-6">
-        <h1 className="text-head font-semibold tracking-tight">{title}</h1>
+        <h1 className="flex min-w-0 items-center gap-2 text-head tracking-tight">
+          <Link
+            to="/automations"
+            className="shrink-0 text-foreground-muted transition-colors hover:text-foreground"
+          >
+            Automations
+          </Link>
+          <span aria-hidden="true" className="font-light text-foreground-subtle">
+            /
+          </span>
+          <span className="truncate font-semibold">{title}</span>
+        </h1>
         {action}
       </header>
 

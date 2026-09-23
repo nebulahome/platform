@@ -101,12 +101,12 @@ describe('countChecks', () => {
   it('counts the leaves of a composed condition, not the node', () => {
     expect(
       countChecks({
-        type: 'and',
-        conditions: [
+        op: 'and',
+        items: [
           { type: 'time_window', from: '22:00', to: '06:00' },
           {
-            type: 'or',
-            conditions: [
+            op: 'or',
+            items: [
               { type: 'state', entityId: entity('person.mattia'), state: 'home' },
               { type: 'state', entityId: entity('person.giulia'), state: 'home' },
             ],
@@ -119,31 +119,44 @@ describe('countChecks', () => {
   it('sees through a negation', () => {
     expect(
       countChecks({
-        type: 'not',
-        condition: { type: 'state', entityId: entity('person.mattia'), state: 'home' },
+        op: 'not',
+        item: { type: 'state', entityId: entity('person.mattia'), state: 'home' },
       }),
     ).toBe(1);
+  });
+
+  it('still counts a draft-style type:and tree', () => {
+    expect(
+      countChecks({
+        type: 'and',
+        conditions: [
+          { type: 'time_window', from: '22:00', to: '06:00' },
+          { type: 'day_of_week', days: ['saturday'] },
+        ],
+      }),
+    ).toBe(2);
   });
 });
 
 describe('describeAutomation', () => {
   /** A rule with more of everything than one line can hold. */
   const CROWDED: AutomationDefinition = {
-    triggers: [
-      { type: 'state', entityId: entity('binary_sensor.hallway_motion'), to: 'on' },
-      { type: 'manual' },
-      { type: 'time', at: { kind: 'clock', time: '18:00' } },
-    ],
-    conditions: [
-      {
-        type: 'and',
-        conditions: [
-          { type: 'time_window', from: '22:00', to: '06:00' },
-          { type: 'day_of_week', days: ['saturday', 'sunday'] },
-        ],
-      },
-    ],
-    actions: [
+    triggers: {
+      op: 'or',
+      items: [
+        { type: 'state', entityId: entity('binary_sensor.hallway_motion'), to: 'on' },
+        { type: 'manual' },
+        { type: 'time', at: { kind: 'clock', time: '18:00' } },
+      ],
+    },
+    if: {
+      op: 'and',
+      items: [
+        { type: 'time_window', from: '22:00', to: '06:00' },
+        { type: 'day_of_week', days: ['saturday', 'sunday'] },
+      ],
+    },
+    then: [
       {
         type: 'command',
         entityId: entity('light.hallway_ceiling'),
@@ -165,7 +178,7 @@ describe('describeAutomation', () => {
   });
 
   it('says nothing about conditions when there are none', () => {
-    const summary = describeAutomation({ ...CROWDED, conditions: [] });
+    const summary = describeAutomation({ ...CROWDED, if: undefined });
 
     // Null rather than "0 conditions": the row draws an arrow for each phrase it is given, and a
     // rule with no conditions should read as two steps, not three.
@@ -175,14 +188,17 @@ describe('describeAutomation', () => {
   it('does not pluralise a single condition', () => {
     const summary = describeAutomation({
       ...CROWDED,
-      conditions: [{ type: 'state', entityId: entity('person.mattia'), state: 'home' }],
+      if: { type: 'state', entityId: entity('person.mattia'), state: 'home' },
     });
 
     expect(summary.conditions).toBe('1 condition');
   });
 
   it('survives a document with nothing in it', () => {
-    const summary = describeAutomation({ triggers: [], conditions: [], actions: [] });
+    const summary = describeAutomation({
+      triggers: { op: 'or', items: [] },
+      then: [],
+    });
 
     expect(summary).toEqual({ trigger: 'no trigger', conditions: null, actions: 'no actions' });
   });

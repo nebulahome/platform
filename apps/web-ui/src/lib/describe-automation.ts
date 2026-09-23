@@ -19,7 +19,10 @@ import type {
   AutomationCondition,
   AutomationDefinition,
   AutomationTrigger,
+  BooleanTree,
+  TriggerTree,
 } from '@nebula-home/contracts';
+import { flattenTriggers, isTriggerTreeOp } from '@nebula-home/contracts';
 
 /** How one part of the chain reads. */
 export type AutomationSummary = {
@@ -141,6 +144,10 @@ export function describeAction(action: AutomationAction): string {
       return 'wait for a condition';
     }
 
+    case 'wait_for_trigger': {
+      return 'wait for a trigger';
+    }
+
     case 'notify': {
       return `notify ${action.channel}`;
     }
@@ -149,8 +156,40 @@ export function describeAction(action: AutomationAction): string {
       return `${action.packageId} · ${action.service}`;
     }
 
-    default: {
+    case 'parallel': {
       return `${String(action.actions.length)} in parallel`;
+    }
+
+    case 'sequence': {
+      return `${String(action.actions.length)} in sequence`;
+    }
+
+    case 'switch': {
+      return `switch ${readable(action.entityId)}`;
+    }
+
+    case 'while': {
+      return 'while';
+    }
+
+    case 'do_while': {
+      return 'do while';
+    }
+
+    case 'if': {
+      return 'if / else';
+    }
+
+    case 'for': {
+      return action.over.kind === 'count' ? `repeat ${String(action.over.count)}×` : 'for each';
+    }
+
+    case 'stop': {
+      return 'stop';
+    }
+
+    default: {
+      return 'action';
     }
   }
 }
@@ -161,10 +200,21 @@ export function describeAction(action: AutomationAction): string {
  * A composed condition is one node and several checks, and "1 condition" for a three-way `and`
  * understates what somebody is about to open.
  *
+ * Accepts both the document's {@link BooleanTree} (`op`) and the draft's
+ * {@link AutomationCondition} (`type: 'and' | 'or' | 'not'`).
+ *
  * @param condition - The condition.
  * @returns How many leaf checks it makes.
  */
-export function countChecks(condition: AutomationCondition): number {
+export function countChecks(condition: BooleanTree | AutomationCondition): number {
+  if ('op' in condition) {
+    if (condition.op === 'not') {
+      return countChecks(condition.item);
+    }
+
+    return condition.items.reduce((total, inner) => total + countChecks(inner), 0);
+  }
+
   if (condition.type === 'and' || condition.type === 'or') {
     return condition.conditions.reduce((total, inner) => total + countChecks(inner), 0);
   }
@@ -177,26 +227,49 @@ export function countChecks(condition: AutomationCondition): number {
 }
 
 /**
+ * Counts leaf checks in a stored `if` tree.
+ *
+ * @param tree - The `if` tree, or undefined when there is none.
+ * @returns How many leaf checks it makes.
+ */
+function countIfChecks(tree: BooleanTree | undefined): number {
+  return tree === undefined ? 0 : countChecks(tree);
+}
+
+/**
+ * Describes the trigger side of a tree.
+ *
+ * @param tree - The trigger tree.
+ * @returns One phrase, with a "+N" when there are more leaves.
+ */
+function describeTriggerTree(tree: TriggerTree): string {
+  const leaves = isTriggerTreeOp(tree) ? flattenTriggers(tree) : [tree];
+  const [first] = leaves;
+
+  if (first === undefined) {
+    return 'no trigger';
+  }
+
+  const extra = leaves.length - 1;
+
+  return extra > 0 ? `${describeTrigger(first)} +${String(extra)}` : describeTrigger(first);
+}
+
+/**
  * Says what the whole rule does.
  *
- * @param definition - The stored document.
+ * @param definition - The stored document (`{ triggers, if, then }`, or a legacy shape already
+ *   normalised by the caller).
  * @returns The three phrases the list shows.
  */
 export function describeAutomation(definition: AutomationDefinition): AutomationSummary {
-  const [firstTrigger] = definition.triggers;
-  const extraTriggers = definition.triggers.length - 1;
+  const trigger = describeTriggerTree(definition.triggers);
 
-  const trigger =
-    firstTrigger === undefined
-      ? 'no trigger'
-      : extraTriggers > 0
-        ? `${describeTrigger(firstTrigger)} +${String(extraTriggers)}`
-        : describeTrigger(firstTrigger);
+  const checks = countIfChecks(definition.if);
 
-  const checks = definition.conditions.reduce((total, one) => total + countChecks(one), 0);
-
-  const [firstAction] = definition.actions;
-  const extraActions = definition.actions.length - 1;
+  const actionsList = definition.then;
+  const [firstAction] = actionsList;
+  const extraActions = actionsList.length - 1;
 
   const actions =
     firstAction === undefined

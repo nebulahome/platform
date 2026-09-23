@@ -54,6 +54,7 @@ const AUTOMATION: AutomationView = {
  * @returns The two handlers, for asserting against.
  */
 function renderRow(automation: AutomationView) {
+  const onEdit = vi.fn();
   const onToggle = vi.fn();
   const onDelete = vi.fn();
 
@@ -61,21 +62,22 @@ function renderRow(automation: AutomationView) {
     <AutomationRow
       automation={automation}
       isBusy={false}
+      onEdit={onEdit}
       onToggle={onToggle}
       onDelete={onDelete}
     />,
   );
 
-  return { onToggle, onDelete };
+  return { onEdit, onToggle, onDelete };
 }
 
 describe('AutomationRow', () => {
   it('reads the whole chain on one line', () => {
     renderRow(AUTOMATION);
 
-    expect(screen.getByText('15 min before sunset')).toBeTruthy();
-    expect(screen.getByText('1 condition')).toBeTruthy();
-    expect(screen.getByText('on_off hallway ceiling')).toBeTruthy();
+    expect(screen.getAllByText('15 min before sunset').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('1 condition').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('on_off hallway ceiling').length).toBeGreaterThan(0);
   });
 
   it('offers to turn off what is on, and says which it is', () => {
@@ -97,13 +99,21 @@ describe('AutomationRow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Turn on' }));
 
     expect(onToggle).toHaveBeenCalledWith(true);
-    expect(screen.getByText('Off')).toBeTruthy();
+    expect(screen.getAllByText('Off').length).toBeGreaterThan(0);
+  });
+
+  it('offers to edit the rule', () => {
+    const { onEdit } = renderRow(AUTOMATION);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+    expect(onEdit).toHaveBeenCalledOnce();
   });
 
   it('says a rule has never run rather than leaving the column empty', () => {
     renderRow(AUTOMATION);
 
-    expect(screen.getByText('never run')).toBeTruthy();
+    expect(screen.getAllByText('never run').length).toBeGreaterThan(0);
   });
 
   it('does not offer to run one, because nothing would', () => {
@@ -117,7 +127,7 @@ describe('AutomationRow', () => {
     renderRow({ ...AUTOMATION, definition: { nonsense: true } });
 
     expect(screen.getByText('Evening lights')).toBeTruthy();
-    expect(screen.getByText(/not in a shape this build understands/)).toBeTruthy();
+    expect(screen.getAllByText(/not in a shape this build understands/).length).toBeGreaterThan(0);
   });
 
   it('survives a definition that is not even an object', () => {

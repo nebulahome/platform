@@ -2,11 +2,14 @@
  * The left rail.
  *
  * It reads top to bottom by scope: the dashboards you built, the library that describes your
- * house, the packages the platform supervises, then the settings and you. The four library
- * entries are behind one heading rather than sitting at the top level, because a rail with eight
- * flat items is a list to scan and a rail with three is a place you know your way around.
+ * house, the packages the platform supervises, then the settings and you. The library entries
+ * are behind two headings rather than sitting at the top level, because a rail with nine flat
+ * items is a list to scan and a rail with four is a place you know your way around. The two
+ * headings split the library by what a person is there to do: automations, scenes and aliases
+ * are what the house does on its own, and devices, tags and areas are how the house is described
+ * so that it can.
  *
- * The group is open when you are inside it and shut otherwise, and it can be toggled by hand.
+ * A group is open when you are inside it and shut otherwise, and it can be toggled by hand.
  * That is not two behaviours: the automatic part answers "where am I", the manual part answers
  * "let me look at something else", and a group that only ever did the first would fight anyone
  * trying to navigate.
@@ -21,14 +24,15 @@ import { Avatar } from '@/components/avatar';
 import {
   ChevronIcon,
   DashboardsIcon,
-  ExpandIcon,
   LibraryIcon,
   PackagesIcon,
   SettingsIcon,
+  WrenchIcon,
+  ZapIcon,
 } from '@/components/icons';
 
-/** One entry inside the library group. */
-type LibraryEntry = {
+/** One entry inside a group. */
+type GroupEntry = {
   /** Where it goes. */
   readonly to: string;
 
@@ -36,12 +40,18 @@ type LibraryEntry = {
   readonly label: string;
 };
 
-/** What the library holds. The four things that describe a house. */
-const LIBRARY: readonly LibraryEntry[] = [
+/** What the house does on its own. */
+const AUTOMATION: readonly GroupEntry[] = [
   { to: '/automations', label: 'Automations' },
   { to: '/scenes', label: 'Scenes' },
-  { to: '/devices', label: 'Devices' },
   { to: '/aliases', label: 'Aliases' },
+];
+
+/** How the house is described. */
+const CONFIGURATION: readonly GroupEntry[] = [
+  { to: '/devices', label: 'Devices' },
+  { to: '/tags', label: 'Tags' },
+  { to: '/areas', label: 'Areas' },
 ];
 
 /** The classes a row shares whether or not it is the current one. */
@@ -91,14 +101,28 @@ function NavRow(props: NavRowProps) {
   );
 }
 
+/** What a group needs. */
+type NavGroupProps = {
+  /** What it is called. */
+  readonly label: string;
+
+  /** The glyph beside the heading. */
+  readonly icon: ReactNode;
+
+  /** The entries under it, in the order they read. */
+  readonly entries: readonly GroupEntry[];
+};
+
 /**
- * The library heading and its four entries.
+ * A heading and the entries under it.
  *
+ * @param props - See {@link NavGroupProps}.
  * @returns The group.
  */
-function LibraryGroup() {
+function NavGroup(props: NavGroupProps) {
+  const { label, icon, entries } = props;
   const location = useLocation();
-  const isInside = LIBRARY.some((entry) => location.pathname.startsWith(entry.to));
+  const isInside = entries.some((entry) => location.pathname.startsWith(entry.to));
   const [isForcedOpen, setForcedOpen] = useState(false);
   const isOpen = isInside || isForcedOpen;
 
@@ -114,14 +138,14 @@ function LibraryGroup() {
           isOpen ? 'text-foreground [&_svg]:first:text-primary' : 'text-foreground-muted'
         } hover:bg-surface-raised/60 hover:text-foreground`}
       >
-        <LibraryIcon />
-        <span className={`grow text-left ${isOpen ? 'font-medium' : ''}`}>Library</span>
+        {icon}
+        <span className={`grow text-left ${isOpen ? 'font-medium' : ''}`}>{label}</span>
         <ChevronIcon isOpen={isOpen} className="text-foreground-subtle" />
       </button>
 
       {isOpen ? (
         <div className="ml-[19px] flex flex-col gap-0.5 border-l border-border pl-2.5">
-          {LIBRARY.map((entry) => (
+          {entries.map((entry) => (
             <NavLink
               key={entry.to}
               to={entry.to}
@@ -145,10 +169,9 @@ function LibraryGroup() {
 /**
  * The person, and the menu the chip opens.
  *
- * A menu rather than a button that signs out on click. The chip carries an expand affordance,
- * and a control that looks like it opens something and instead ends your session is a small
- * betrayal. Escape and a click elsewhere both close it, because a menu that can only be
- * dismissed by choosing something is a trap.
+ * A menu rather than a button that signs out on click: a control that looks like it opens
+ * something and instead ends your session is a small betrayal. Escape and a click elsewhere
+ * both close it, because a menu that can only be dismissed by choosing something is a trap.
  *
  * @returns The chip.
  */
@@ -173,7 +196,7 @@ function UserChip() {
       {isOpen ? (
         <div
           role="menu"
-          className="absolute bottom-full left-0 mb-1 w-full overflow-hidden rounded-field border border-border bg-surface-raised p-1 shadow-lg shadow-black/40"
+          className="absolute bottom-full left-0 mb-1 w-full overflow-hidden rounded-field border border-border-strong face-card p-1 shadow-dialog"
         >
           <button
             type="button"
@@ -215,7 +238,6 @@ function UserChip() {
           </span>
           <span className="text-caption text-foreground-subtle capitalize">{user?.role ?? ''}</span>
         </span>
-        <ExpandIcon className="text-foreground-subtle" />
       </button>
     </div>
   );
@@ -243,7 +265,9 @@ export function Sidebar() {
 
       <div className="h-px bg-border" />
 
-      <LibraryGroup />
+      <NavGroup label="Automation" icon={<ZapIcon />} entries={AUTOMATION} />
+
+      <NavGroup label="Configuration" icon={<WrenchIcon />} entries={CONFIGURATION} />
 
       <NavRow to="/integrations" icon={<LibraryIcon />} label="Integrations" />
 

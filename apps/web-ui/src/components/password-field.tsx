@@ -38,8 +38,16 @@ export type PasswordFieldProps = {
   /** Called with the new value. */
   readonly onChange: (value: string) => void;
 
-  /** What the browser should offer to fill. */
-  readonly autoComplete?: 'current-password' | 'new-password';
+  /**
+   * What the browser should offer to fill.
+   *
+   * `off` for a secret that is not an account's password - a device's access code, an API key -
+   * so that the browser does not take the field before it for the username of a sign-up form.
+   */
+  readonly autoComplete?: 'current-password' | 'new-password' | 'off';
+
+  /** The name the field is submitted under, and what a browser's heuristics see it as. */
+  readonly name?: string;
 
   /** Whether to list the requirements. Off for a password being *checked* rather than chosen. */
   readonly hasRules?: boolean;
@@ -72,6 +80,7 @@ export function PasswordField(props: PasswordFieldProps) {
     value,
     onChange,
     autoComplete = 'new-password',
+    name,
     hasRules = true,
     error,
     required = false,
@@ -120,6 +129,7 @@ export function PasswordField(props: PasswordFieldProps) {
         <div className="relative">
           <input
             id={ids.id}
+            name={name}
             type={isRevealed ? 'text' : 'password'}
             value={value}
             autoComplete={autoComplete}

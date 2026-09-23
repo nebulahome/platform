@@ -13,25 +13,42 @@
  * removing a picture, and it is the one both earlier versions got wrong.
  */
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
+import { describe, expect, it, vi } from 'vitest';
 
 import { Modal } from '@nebula-home/ui';
 
-beforeAll(() => {
-  // jsdom implements `<dialog>` but not the modal behaviour behind it, so `showModal` has to be
-  // stood in for. What is under test is the component's own handling, not the browser's.
-  if (typeof globalThis.HTMLDialogElement.prototype.showModal !== 'function') {
-    globalThis.HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
-      this.open = true;
-    };
-  }
+/**
+ * An edit dialog with a picker dialog inside it, the way a device's icon is chosen.
+ *
+ * @param props - What closing the outer dialog calls.
+ * @param props.onOuterClose - Called when the outer dialog asks to be closed.
+ * @returns The two dialogs.
+ */
+function Nested(props: { readonly onOuterClose: () => void }) {
+  const [isPicking, setPicking] = useState(true);
 
-  if (typeof globalThis.HTMLDialogElement.prototype.close !== 'function') {
-    globalThis.HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
-      this.open = false;
-    };
-  }
-});
+  return (
+    <Modal isOpen onClose={props.onOuterClose} title="Edit a device">
+      <Modal
+        isOpen={isPicking}
+        onClose={() => {
+          setPicking(false);
+        }}
+        title="Pick an icon"
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setPicking(false);
+          }}
+        >
+          Pick
+        </button>
+      </Modal>
+    </Modal>
+  );
+}
 
 describe('Modal', () => {
   it('shows its title and body when open', () => {
@@ -168,6 +185,33 @@ describe('Modal', () => {
     fireEvent.click(dialog);
 
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('asks to be closed when the browser closes it', () => {
+    const onClose = vi.fn();
+
+    render(
+      <Modal isOpen onClose={onClose} title="Create a token">
+        <p>the form</p>
+      </Modal>,
+    );
+
+    fireEvent(screen.getByRole('dialog', { hidden: true }), new Event('close'));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps an outer dialog open when a dialog inside it closes', () => {
+    const onOuterClose = vi.fn();
+
+    render(<Nested onOuterClose={onOuterClose} />);
+
+    // The picker's `close` event does not bubble in the DOM, but React delivers it to every
+    // `onClose` above the target all the same - which used to shut the edit dialog under it.
+    fireEvent.click(screen.getByRole('button', { name: 'Pick' }));
+
+    expect(onOuterClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Edit a device', hidden: true })).toBeTruthy();
   });
 
   it('ignores the backdrop when the dialog opts out', () => {

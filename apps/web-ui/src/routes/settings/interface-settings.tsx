@@ -43,6 +43,7 @@ const START_PAGE_LABELS: Readonly<Record<StartPage, string>> = {
   '/scenes': 'Scenes',
   '/devices': 'Devices',
   '/aliases': 'Aliases',
+  '/tags': 'Tags',
   '/packages': 'Packages',
 };
 

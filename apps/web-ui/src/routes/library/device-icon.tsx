@@ -1,10 +1,10 @@
 /**
- * A device's icon, drawn from the catalogue.
+ * A device's, or an entity's, icon, drawn from the catalogue.
  *
- * A device carries an icon id and nothing else about it; what the id draws is the catalogue's
- * answer, read once for every icon a page shows - one request for the rows on screen, cached
- * by the set of ids - so that changing what `printer` looks like in Settings changes every
- * printer on the next visit without a device ever being touched.
+ * A device carries an icon id and nothing else about it, and so does an entity; what the id
+ * draws is the catalogue's answer, read once for every icon a page shows - one request for the
+ * rows on screen, cached by the set of ids - so that changing what `printer` looks like in
+ * Settings changes every printer on the next visit without a device ever being touched.
  */
 import { useQuery } from '@tanstack/react-query';
 
@@ -17,15 +17,13 @@ import { fetchIcons, LIBRARY_QUERY_KEYS } from '@/library/api';
 export type DeviceIcons = ReadonlyMap<string, IconView>;
 
 /**
- * Reads the icons a list of devices shows.
+ * Reads the icons a page shows, by id.
  *
- * @param devices - The devices on screen.
- * @returns The icons by id; empty until read, and for a device without one.
+ * @param wanted - The icon ids on screen; nulls stand for rows without one and are skipped.
+ * @returns The icons by id; empty until read.
  */
-export function useDeviceIcons(devices: readonly Pick<DeviceView, 'icon'>[]): DeviceIcons {
-  const ids = [...new Set(devices.flatMap((device) => (device.icon === null ? [] : [device.icon])))]
-    .sort()
-    .slice(0, 200);
+export function useCatalogueIcons(wanted: readonly (string | null)[]): DeviceIcons {
+  const ids = [...new Set(wanted.flatMap((id) => (id === null ? [] : [id])))].sort().slice(0, 200);
 
   const query = useQuery({
     queryKey: [...LIBRARY_QUERY_KEYS.icons, 'ids', ids.join(',')],
@@ -43,6 +41,16 @@ export function useDeviceIcons(devices: readonly Pick<DeviceView, 'icon'>[]): De
   });
 
   return query.data ?? new Map();
+}
+
+/**
+ * Reads the icons a list of devices shows.
+ *
+ * @param devices - The devices on screen.
+ * @returns The icons by id; empty until read, and for a device without one.
+ */
+export function useDeviceIcons(devices: readonly Pick<DeviceView, 'icon'>[]): DeviceIcons {
+  return useCatalogueIcons(devices.map((device) => device.icon));
 }
 
 /** What drawing a device's icon needs. */

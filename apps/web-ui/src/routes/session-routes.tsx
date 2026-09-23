@@ -28,13 +28,16 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { useSession, type SessionStatus } from '@/auth/session-store';
 import { AuthLayout } from '@/routes/auth-layout';
 import { FirstRunForm } from '@/routes/first-run';
+import { AliasEditor } from '@/routes/library/alias-editor';
 import { AliasesPage } from '@/routes/library/aliases-page';
+import { AreasPage } from '@/routes/library/areas-page';
 import { AutomationEditor } from '@/routes/library/automation-editor';
 import { AutomationsPage } from '@/routes/library/automations-page';
 import { DevicesPage } from '@/routes/library/devices-page';
 import { IntegrationsPage } from '@/routes/library/integrations-page';
 import { PackagesPage } from '@/routes/library/packages-page';
 import { ScenesPage } from '@/routes/library/scenes-page';
+import { TagsPage } from '@/routes/library/tags-page';
 import { VendorPage } from '@/routes/library/vendor-page';
 import { RETURN_TO_PARAM, safeReturnTo } from '@/routes/return-to';
 import { AccountSettings } from '@/routes/settings/account-settings';
@@ -216,6 +219,24 @@ export function SessionRoutes() {
         <Route path="/scenes" element={<ScenesPage />} />
         <Route path="/devices" element={<DevicesPage />} />
         <Route path="/aliases" element={<AliasesPage />} />
+        <Route path="/aliases/new" element={<AliasEditor />} />
+        <Route path="/aliases/:aliasId" element={<AliasEditor />} />
+        <Route
+          path="/tags"
+          element={
+            <RequiresPermission permission="tag:read" section="Tags">
+              <TagsPage />
+            </RequiresPermission>
+          }
+        />
+        <Route
+          path="/areas"
+          element={
+            <RequiresPermission permission="area:read" section="Areas">
+              <AreasPage />
+            </RequiresPermission>
+          }
+        />
         <Route
           path="/integrations"
           element={

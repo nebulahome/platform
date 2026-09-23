@@ -9,7 +9,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { apiRequest, connectSession, disconnectSession } from '@/lib/api-client';
+import { apiBlob, apiRequest, connectSession, disconnectSession } from '@/lib/api-client';
 import { ApiError } from '@/lib/api-error';
 
 /** What the fake server answered, and what it was asked. */
@@ -59,6 +59,68 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   disconnectSession();
+});
+
+describe('apiBlob', () => {
+  it('reads a picture with the token, asking for a picture rather than JSON', async () => {
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+
+    stubFetch([() => new Response(png, { status: 200, headers: { 'content-type': 'image/png' } })]);
+    connectSession({
+      readAccessToken: () => 'a-token',
+      onRefreshed: () => undefined,
+      onSignedOut: () => undefined,
+    });
+
+    const blob = await apiBlob('/map/tiles/3/4/2');
+
+    expect(blob.type).toBe('image/png');
+    expect(new Uint8Array(await blob.arrayBuffer())).toEqual(png);
+    expect(new Headers(calls[0]?.init?.headers).get('authorization')).toBe('Bearer a-token');
+    expect(new Headers(calls[0]?.init?.headers).get('accept')).toContain('image/');
+  });
+
+  it('refreshes on a 401 and asks for the picture again', async () => {
+    globalThis.localStorage.setItem('nebula.refresh-token', 'refresh-1');
+
+    const responses = [
+      json(401, { error: { code: 'AUTHENTICATION', message: 'no', details: {}, traceId: 't' } }),
+      json(200, { tokens: { accessToken: 'fresh', refreshToken: 'refresh-2' } }),
+      new Response(new Uint8Array([1]), { status: 200, headers: { 'content-type': 'image/png' } }),
+    ];
+    let index = 0;
+
+    vi.stubGlobal('fetch', (url: string, init: RequestInit | undefined) => {
+      calls.push({ url, init });
+
+      return Promise.resolve(responses[index++] ?? json(500, {}));
+    });
+    connectSession({
+      readAccessToken: () => 'stale',
+      onRefreshed: () => undefined,
+      onSignedOut: () => undefined,
+    });
+
+    const blob = await apiBlob('/map/tiles/3/4/2');
+
+    expect(blob.size).toBe(1);
+    expect(calls.map((call) => call.url)).toEqual([
+      '/api/v1/map/tiles/3/4/2',
+      '/api/v1/auth/refresh',
+      '/api/v1/map/tiles/3/4/2',
+    ]);
+  });
+
+  it('turns a refusal into the same typed failure a JSON call gets', async () => {
+    stubFetch([
+      () => json(503, { error: { code: 'UPSTREAM', message: 'away', details: {}, traceId: 't' } }),
+    ]);
+
+    await expect(apiBlob('/map/tiles/3/4/2', { isAuthenticated: false })).rejects.toMatchObject({
+      code: 'UPSTREAM',
+      status: 503,
+    });
+  });
 });
 
 describe('apiRequest', () => {

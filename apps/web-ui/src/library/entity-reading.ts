@@ -12,9 +12,28 @@
  * seen when the newest of them last spoke. The registry keeps a `lastSeenAt` on the device too,
  * and it is the fallback for a device with nothing to say yet.
  */
-import { capabilityStateSchema, type EntityView, type JsonObject } from '@nebula-home/contracts';
+import {
+  capabilityStateSchema,
+  findSensorUnit,
+  getSensorClass,
+  isNumericSensorClass,
+  type EntityView,
+  type JsonObject,
+} from '@nebula-home/contracts';
 
 import type { LiveReading } from '@/live/live-store';
+
+/** A catalogue numeric reading, split so a row can draw the figure and the unit apart. */
+export type SensorFigure = {
+  /** The number, formatted for this locale. */
+  readonly figure: string;
+
+  /** The unit symbol, or null when the class is unitless. */
+  readonly unit: string | null;
+
+  /** The catalogue label for the class (`Current`, `Temperature`). */
+  readonly classLabel: string;
+};
 
 /** One entity's reading, ready to show. */
 export type Reading = {
@@ -29,6 +48,12 @@ export type Reading = {
 
   /** Whether it came over the live channel rather than with the page. */
   readonly isLive: boolean;
+
+  /**
+   * Catalogue numeric sensors only: figure and unit for the devices row. Absent for binaries,
+   * classless sensors, and non-sensor capabilities.
+   */
+  readonly sensorFigure: SensorFigure | null;
 };
 
 /** A device's standing, as its readings tell it. */
@@ -66,6 +91,36 @@ const BINARY_WORDS: Readonly<Record<string, readonly [on: string, off: string]>>
 };
 
 /**
+ * The unit symbol to show for an entity.
+ *
+ * Catalogue classes use the symbol for the unit stored on the entity (canonical today). A future
+ * display preference would convert the number with `fromCanonical` and pick a different symbol
+ * here; history stays in the canonical unit either way.
+ *
+ * @param entity - The unit and device class.
+ * @returns The symbol, or null when there is none.
+ */
+function unitSymbol(entity: Pick<EntityView, 'unitOfMeasurement' | 'deviceClass'>): string | null {
+  const entry = getSensorClass(entity.deviceClass);
+
+  if (entry?.valueKind === 'number') {
+    if (entry.canonicalUnit === null) {
+      if (entity.unitOfMeasurement !== null && entity.unitOfMeasurement !== '') {
+        return findSensorUnit(entry, entity.unitOfMeasurement)?.symbol ?? entity.unitOfMeasurement;
+      }
+
+      return null;
+    }
+
+    const unitId = entity.unitOfMeasurement ?? entry.canonicalUnit;
+
+    return findSensorUnit(entry, unitId)?.symbol ?? unitId;
+  }
+
+  return entity.unitOfMeasurement;
+}
+
+/**
  * A number with its unit, the way a person writes it.
  *
  * @param value - The number.
@@ -93,6 +148,40 @@ function capitalised(word: string): string {
 }
 
 /**
+ * A catalogue numeric reading split into figure, unit and class label.
+ *
+ * @param state - The state, one entry per capability.
+ * @param entity - The unit and the device class.
+ * @returns The split reading, or null when this is not a catalogue numeric sensor.
+ */
+export function sensorFigureOf(
+  state: JsonObject | null,
+  entity: Pick<EntityView, 'unitOfMeasurement' | 'deviceClass'>,
+): SensorFigure | null {
+  if (state === null || !isNumericSensorClass(entity.deviceClass)) {
+    return null;
+  }
+
+  const entry = getSensorClass(entity.deviceClass);
+
+  if (entry === undefined) {
+    return null;
+  }
+
+  const parsed = capabilityStateSchema.safeParse(state);
+
+  if (!parsed.success || parsed.data.sensor_numeric === undefined) {
+    return null;
+  }
+
+  return {
+    figure: numbers.format(parsed.data.sensor_numeric.value),
+    unit: unitSymbol(entity),
+    classLabel: entry.label,
+  };
+}
+
+/**
  * Turns a state into one short string.
  *
  * @param state - The state, one entry per capability.
@@ -116,6 +205,7 @@ export function describeState(
 
   const value = parsed.data;
   const parts: string[] = [];
+  const unit = unitSymbol(entity);
 
   if (value.on_off !== undefined) {
     parts.push(value.on_off.isOn ? 'On' : 'Off');
@@ -153,19 +243,23 @@ export function describeState(
     const { currentTemperature, targetTemperature, action } = value.thermostat;
 
     parts.push(
-      `${withUnit(currentTemperature, entity.unitOfMeasurement)} → ${withUnit(targetTemperature, entity.unitOfMeasurement)}`,
+      `${withUnit(currentTemperature, unit)} → ${withUnit(targetTemperature, unit)}`,
       capitalised(action),
     );
   }
 
   if (value.sensor_numeric !== undefined) {
-    parts.push(withUnit(value.sensor_numeric.value, entity.unitOfMeasurement));
+    parts.push(withUnit(value.sensor_numeric.value, unit));
   }
 
   if (value.sensor_binary !== undefined) {
     const words = BINARY_WORDS[entity.deviceClass ?? ''] ?? ['On', 'Off'];
 
     parts.push(value.sensor_binary.isOn ? words[0] : words[1]);
+  }
+
+  if (value.sensor_text !== undefined) {
+    parts.push(value.sensor_text.value);
   }
 
   if (value.media_player !== undefined) {
@@ -203,6 +297,7 @@ export function readingOf(entity: EntityView, live: LiveReading | undefined): Re
       isAvailable: live.isAvailable,
       at: new Date(live.receivedAt),
       isLive: true,
+      sensorFigure: sensorFigureOf(live.state, entity),
     };
   }
 
@@ -211,6 +306,7 @@ export function readingOf(entity: EntityView, live: LiveReading | undefined): Re
     isAvailable: entity.isAvailable,
     at: entity.lastUpdated,
     isLive: false,
+    sensorFigure: sensorFigureOf(entity.state, entity),
   };
 }
 

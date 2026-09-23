@@ -4,17 +4,13 @@
  * As in `settings/api.ts`, each names the contract schema its answer must satisfy rather than
  * declaring a response type here. A type written in this file could agree with the server today
  * and stop agreeing after a deployment, and nothing would say so.
- *
- * **What is not here is as deliberate as what is.** There is no `runAutomation`, no `applyScene`
- * and nothing that starts or stops a package, because those endpoints do not exist: the engines
- * that would have to act on them are ARCHITECTURE.md 6.1 to 6.3, and package lifecycle belongs
- * to `packet-manager`. A function here that posted to one of them would compile, ship, and fail
- * at the only moment it mattered.
  */
 import { z } from 'zod';
 
 import {
+  aliasPreviewResponseSchema,
   aliasViewSchema,
+  areaViewSchema,
   automationViewSchema,
   deviceProbeReplySchema,
   deviceViewSchema,
@@ -23,8 +19,19 @@ import {
   iconViewSchema,
   integrationVendorViewSchema,
   packageViewSchema,
+  sceneApplyResultSchema,
   sceneViewSchema,
+  tagViewSchema,
+  tileCacheStatusSchema,
+  tilePrefetchResultSchema,
+  type AliasCreate,
+  type AliasPreviewRequest,
+  type AliasPreviewResponse,
+  type AliasUpdate,
   type AliasView,
+  type AreaCreate,
+  type AreaUpdate,
+  type AreaView,
   type AutomationCreate,
   type AutomationUpdate,
   type AutomationView,
@@ -33,6 +40,7 @@ import {
   type DeviceProbeRequest,
   type DeviceUpdate,
   type DeviceView,
+  type EntityUpdate,
   type EntityView,
   type IconCreate,
   type IconUpdate,
@@ -40,7 +48,15 @@ import {
   type IntegrationVendorConfigUpdate,
   type IntegrationVendorView,
   type PackageView,
+  type SceneApplyResult,
+  type SceneCreate,
+  type SceneUpdate,
   type SceneView,
+  type TagCreate,
+  type TagUpdate,
+  type TagView,
+  type TileCacheStatus,
+  type TilePrefetchResult,
   MAX_PAGE_LIMIT,
   pageSchema,
 } from '@nebula-home/contracts';
@@ -125,6 +141,52 @@ export async function fetchScenes(signal?: AbortSignal): Promise<SceneView[]> {
 }
 
 /**
+ * Creates a scene.
+ *
+ * @param request - What to create.
+ * @returns The scene as it now stands.
+ */
+export async function createScene(request: SceneCreate): Promise<SceneView> {
+  return apiRequest('/scenes', sceneViewSchema, { method: 'POST', body: request });
+}
+
+/**
+ * Changes a scene.
+ *
+ * Sending `members` replaces the whole set: the server does not merge by entity.
+ *
+ * @param sceneId - Which one.
+ * @param request - The fields to change.
+ * @returns The scene as it now stands.
+ */
+export async function updateScene(sceneId: string, request: SceneUpdate): Promise<SceneView> {
+  return apiRequest(`/scenes/${sceneId}`, sceneViewSchema, {
+    method: 'PATCH',
+    body: request,
+  });
+}
+
+/**
+ * Deletes a scene.
+ *
+ * @param sceneId - Which one.
+ * @returns The scene as it was.
+ */
+export async function deleteScene(sceneId: string): Promise<SceneView> {
+  return apiRequest(`/scenes/${sceneId}`, sceneViewSchema, { method: 'DELETE' });
+}
+
+/**
+ * Applies a scene: every member is set to its saved state.
+ *
+ * @param sceneId - Which one.
+ * @returns How many applied, how many failed, and which entities failed.
+ */
+export async function applyScene(sceneId: string): Promise<SceneApplyResult> {
+  return apiRequest(`/scenes/${sceneId}/apply`, sceneApplyResultSchema, { method: 'POST' });
+}
+
+/**
  * Lists every device: where each stands, what it is called, what it exposes.
  *
  * @param signal - Cancels the request.
@@ -171,6 +233,16 @@ export async function probeDevice(request: DeviceProbeRequest): Promise<DevicePr
  */
 export async function updateDevice(deviceId: string, request: DeviceUpdate): Promise<DeviceView> {
   return apiRequest(`/devices/${deviceId}`, deviceViewSchema, { method: 'PATCH', body: request });
+}
+
+/**
+ * Removes a device: the hub stops listening for it and its entities go with it.
+ *
+ * @param deviceId - Which one.
+ * @returns A promise that settles once it is gone.
+ */
+export async function deleteDevice(deviceId: string): Promise<void> {
+  await apiRequest(`/devices/${deviceId}`, z.undefined(), { method: 'DELETE' });
 }
 
 /** What a page of the icon catalogue is asked for. */
@@ -245,6 +317,136 @@ export async function deleteIcon(iconId: string): Promise<void> {
 }
 
 /**
+ * Changes what an entity is called, what it is drawn as, or the tags on it.
+ *
+ * @param entityId - Which one, by its address.
+ * @param request - The fields to change.
+ * @returns The entity as it now stands.
+ */
+export async function updateEntity(entityId: string, request: EntityUpdate): Promise<EntityView> {
+  return apiRequest(`/entities/${encodeURIComponent(entityId)}`, entityViewSchema, {
+    method: 'PATCH',
+    body: request,
+  });
+}
+
+/**
+ * Lists every area: the house, its floors, their rooms.
+ *
+ * @param signal - Cancels the request.
+ * @returns Every area, in the order the owner arranged.
+ */
+export async function fetchAreas(signal?: AbortSignal): Promise<AreaView[]> {
+  const response = await apiRequest('/areas', collectionSchema(areaViewSchema), {
+    ...(signal === undefined ? {} : { signal }),
+  });
+
+  return response.items;
+}
+
+/**
+ * Creates the house, a floor or a room.
+ *
+ * @param request - The kind, the name, the parent for a floor or a room, and the rest.
+ * @returns The area, with nothing in it yet.
+ */
+export async function createArea(request: AreaCreate): Promise<AreaView> {
+  return apiRequest('/areas', areaViewSchema, { method: 'POST', body: request });
+}
+
+/**
+ * Renames, redraws or moves an area.
+ *
+ * @param areaId - Which one.
+ * @param request - What changes.
+ * @returns The area as it now stands.
+ */
+export async function updateArea(areaId: string, request: AreaUpdate): Promise<AreaView> {
+  return apiRequest(`/areas/${areaId}`, areaViewSchema, { method: 'PATCH', body: request });
+}
+
+/**
+ * Removes an area and everything under it.
+ *
+ * @param areaId - Which one.
+ * @returns A promise that settles once it is gone.
+ */
+export async function deleteArea(areaId: string): Promise<void> {
+  await apiRequest(`/areas/${areaId}`, z.undefined(), { method: 'DELETE' });
+}
+
+/**
+ * Says how much of the map around the house is on disk.
+ *
+ * @param houseId - The house.
+ * @param signal - Cancels the request.
+ * @returns How many tiles the buffer has, and how many are on disk.
+ */
+export async function fetchTileStatus(
+  houseId: string,
+  signal?: AbortSignal,
+): Promise<TileCacheStatus> {
+  return apiRequest(`/areas/${houseId}/tiles`, tileCacheStatusSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
+}
+
+/**
+ * Fetches the map around the house onto the server's disk.
+ *
+ * @param houseId - The house.
+ * @returns What the fetch did.
+ */
+export async function prefetchTiles(houseId: string): Promise<TilePrefetchResult> {
+  return apiRequest(`/areas/${houseId}/tiles`, tilePrefetchResultSchema, { method: 'POST' });
+}
+
+/**
+ * Lists every tag, with how many devices and entities carry each.
+ *
+ * @param signal - Cancels the request.
+ * @returns Every tag, alphabetically.
+ */
+export async function fetchTags(signal?: AbortSignal): Promise<TagView[]> {
+  const response = await apiRequest('/tags', collectionSchema(tagViewSchema), {
+    ...(signal === undefined ? {} : { signal }),
+  });
+
+  return response.items;
+}
+
+/**
+ * Creates a tag from a name and a colour.
+ *
+ * @param request - The name and the colour.
+ * @returns The tag, on nothing yet.
+ */
+export async function createTag(request: TagCreate): Promise<TagView> {
+  return apiRequest('/tags', tagViewSchema, { method: 'POST', body: request });
+}
+
+/**
+ * Renames or recolours a tag.
+ *
+ * @param tagId - Which one.
+ * @param request - The new name, the new colour, or both.
+ * @returns The tag as it now stands.
+ */
+export async function updateTag(tagId: string, request: TagUpdate): Promise<TagView> {
+  return apiRequest(`/tags/${tagId}`, tagViewSchema, { method: 'PATCH', body: request });
+}
+
+/**
+ * Removes a tag from everything, and deletes it.
+ *
+ * @param tagId - Which one.
+ * @returns A promise that settles once it is gone.
+ */
+export async function deleteTag(tagId: string): Promise<void> {
+  await apiRequest(`/tags/${tagId}`, z.undefined(), { method: 'DELETE' });
+}
+
+/**
  * Lists every entity the caller may see, with its current state.
  *
  * The endpoint pages; this reads every page, because the callers - the devices table, the
@@ -290,6 +492,55 @@ export async function fetchAliases(signal?: AbortSignal): Promise<AliasView[]> {
   });
 
   return items;
+}
+
+/**
+ * Creates a derived entity or a stored helper.
+ *
+ * @param request - What to create.
+ * @returns The alias as it now stands.
+ */
+export async function createAlias(request: AliasCreate): Promise<AliasView> {
+  return apiRequest('/aliases', aliasViewSchema, { method: 'POST', body: request });
+}
+
+/**
+ * Changes an alias.
+ *
+ * The entity id is immutable after create. Expression and sources stay calculated-only.
+ *
+ * @param aliasId - Which one.
+ * @param request - The fields to change.
+ * @returns The alias as it now stands.
+ */
+export async function updateAlias(aliasId: string, request: AliasUpdate): Promise<AliasView> {
+  return apiRequest(`/aliases/${aliasId}`, aliasViewSchema, {
+    method: 'PATCH',
+    body: request,
+  });
+}
+
+/**
+ * Deletes an alias and the entity it produces.
+ *
+ * @param aliasId - Which one.
+ * @returns The alias as it was.
+ */
+export async function deleteAlias(aliasId: string): Promise<AliasView> {
+  return apiRequest(`/aliases/${aliasId}`, aliasViewSchema, { method: 'DELETE' });
+}
+
+/**
+ * Evaluates a calculated formula without saving it.
+ *
+ * @param request - The expression, sources, capability and fallback.
+ * @returns The scalar result, or why evaluation failed.
+ */
+export async function previewAlias(request: AliasPreviewRequest): Promise<AliasPreviewResponse> {
+  return apiRequest('/aliases/preview', aliasPreviewResponseSchema, {
+    method: 'POST',
+    body: request,
+  });
 }
 
 /**
@@ -375,6 +626,15 @@ export const LIBRARY_QUERY_KEYS = {
 
   /** Every derived entity. */
   aliases: ['library', 'aliases'] as const,
+
+  /** Every tag, with what carries it counted. */
+  tags: ['library', 'tags'] as const,
+
+  /** Every area: the house, its floors, their rooms. */
+  areas: ['library', 'areas'] as const,
+
+  /** How much of the map around the house is on disk, keyed further by the house. */
+  tiles: ['library', 'tiles'] as const,
 
   /** Pages of the icon catalogue, keyed further by what was asked. */
   icons: ['library', 'icons'] as const,

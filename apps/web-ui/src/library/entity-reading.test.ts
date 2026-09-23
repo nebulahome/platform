@@ -5,7 +5,14 @@ import { describe, expect, it } from 'vitest';
 
 import { entityIdSchema, type EntityView } from '@nebula-home/contracts';
 
-import { describeState, NO_READING, readingOf, standingOf, type Reading } from './entity-reading';
+import {
+  describeState,
+  NO_READING,
+  readingOf,
+  sensorFigureOf,
+  standingOf,
+  type Reading,
+} from './entity-reading';
 
 /**
  * A figure as this machine's locale writes it, so the expectations hold wherever the tests run.
@@ -44,6 +51,7 @@ function entity(overrides: Partial<EntityView> = {}): EntityView {
     isAvailable: true,
     lastChanged: new Date('2026-09-12T00:00:00.000Z'),
     lastUpdated: new Date('2026-09-12T00:00:05.000Z'),
+    tagIds: [],
     ...overrides,
   };
 }
@@ -98,6 +106,31 @@ describe('describeState', () => {
     expect(describeState({ sensor_numeric: { value: 'hot' } }, entity())).toBe(NO_READING);
     expect(describeState({}, entity())).toBe(NO_READING);
   });
+
+  it('splits a catalogue numeric reading for the devices row', () => {
+    expect(
+      sensorFigureOf(
+        { sensor_numeric: { value: 0.09 } },
+        entity({
+          deviceClass: 'current',
+          unitOfMeasurement: 'A',
+        }),
+      ),
+    ).toEqual({
+      figure: figure(0.09),
+      unit: 'A',
+      classLabel: 'Current',
+    });
+    expect(
+      sensorFigureOf(
+        { sensor_numeric: { value: 87 } },
+        entity({ deviceClass: null, unitOfMeasurement: '%' }),
+      ),
+    ).toBeNull();
+    expect(
+      sensorFigureOf({ sensor_binary: { isOn: true } }, entity({ deviceClass: 'running' })),
+    ).toBeNull();
+  });
 });
 
 describe('readingOf', () => {
@@ -133,7 +166,7 @@ describe('standingOf', () => {
    * @returns The reading.
    */
   function reading(isAvailable: boolean, at: Date | null): Reading {
-    return { text: '1', isAvailable, at, isLive: false };
+    return { text: '1', isAvailable, at, isLive: false, sensorFigure: null };
   }
 
   it('is reporting when any entity is reachable and has spoken, as of the newest of them', () => {

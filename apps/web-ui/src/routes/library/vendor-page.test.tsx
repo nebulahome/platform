@@ -28,11 +28,16 @@ vi.mock('@/library/api', () => ({
   createDevice: vi.fn(),
   updateDevice: vi.fn(),
   probeDevice: vi.fn(),
+  deleteDevice: vi.fn(),
   updateVendorConfig: vi.fn(),
+  fetchTags: vi.fn(() => Promise.resolve([])),
+  createTag: vi.fn(),
   LIBRARY_QUERY_KEYS: {
     vendors: ['library', 'vendors'],
     devices: ['library', 'devices'],
+    entities: ['library', 'entities'],
     icons: ['library', 'icons'],
+    tags: ['library', 'tags'],
   },
 }));
 
@@ -130,28 +135,17 @@ function device(overrides: Partial<DeviceView>): DeviceView {
     manufacturer: 'Bambu Lab',
     swVersion: null,
     hwVersion: null,
+    areaId: null,
     areaKey: null,
     areaName: null,
     entityIds: [entityIdSchema.parse('sensor.bambu_lab_x1c_nozzle_temperature')],
+    tagIds: [],
     ...overrides,
   };
 }
 
 beforeAll(() => {
   vi.mocked(fetchIcons).mockResolvedValue([]);
-
-  // jsdom implements `<dialog>` but not the modal behaviour behind it.
-  if (typeof globalThis.HTMLDialogElement.prototype.showModal !== 'function') {
-    globalThis.HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
-      this.open = true;
-    };
-  }
-
-  if (typeof globalThis.HTMLDialogElement.prototype.close !== 'function') {
-    globalThis.HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
-      this.open = false;
-    };
-  }
 });
 
 /**

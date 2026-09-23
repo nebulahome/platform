@@ -1,14 +1,16 @@
 /**
- * Adding a device, or changing one: which model, what to call it, its icon, the form its driver
- * asks for, a Test, and a Save.
+ * Adding a device, or changing one: what to call it and its icon, the tags on it, which model,
+ * the form its driver asks for, a Test, a Save, and - for one that exists - a Remove.
  *
  * The vendor's drivers - served by the hub through the vendors list - say what may be picked
  * and which fields each pick brings; nothing here knows what an MQTT broker or a printer wants.
  * A vendor with one model to offer is not asked which: the choice is made silently and the form
  * is the driver's. The name starts as the model and the id follows the name until it is typed
- * by hand; the icon starts as the driver's default and is picked from the catalogue. What is
- * typed is checked against the same schema the API runs, so a wrong value is underlined before
- * a round trip and the message is the one the server would have sent.
+ * by hand; the icon starts as the driver's default and is picked from the catalogue. The name
+ * and the tags come before the model because they are what a row is recognised by, and they are
+ * the same two fields an entity has, drawn by the same two components. What is typed is checked
+ * against the same schema the API runs, so a wrong value is underlined before a round trip and
+ * the message is the one the server would have sent.
  *
  * **Test** opens the transport once with what is typed and reports the verdict in a sentence:
  * "Connected to mqtts://… as bblp", or "did not answer: ECONNREFUSED". It saves nothing. A secret
@@ -17,8 +19,12 @@
  *
  * **Save** writes the row and the hub is asked to match it at once; the row comes back with the
  * state the hub reported, and the page shows it. What takes effect takes effect now.
+ *
+ * **Remove** is a second press away, in the footer where Save was, and says what goes with the
+ * device: its entities, and whatever the hub was listening for. A refusal - a derived entity
+ * still reading one of the entities - is shown where the person is, and the dialog stays.
  */
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import {
@@ -26,31 +32,17 @@ import {
   modelChoicesOf,
   type DeviceProbeReply,
   type DeviceView,
-  type IconView,
   type IntegrationVendorView,
   type JsonObject,
   type ModelChoice,
 } from '@nebula-home/contracts';
-import {
-  Button,
-  CatalogueIcon,
-  FieldShell,
-  Modal,
-  Segmented,
-  SelectField,
-  TextField,
-} from '@nebula-home/ui';
+import { Button, Modal, Segmented, SelectField, TextField } from '@nebula-home/ui';
 
 import { CheckIcon, WarningIcon } from '@/components/icons';
 import { isApiError } from '@/lib/api-error';
+import { roomChoices } from '@/lib/area-tree';
 import { toMessage } from '@/lib/error-message';
-import {
-  createDevice,
-  fetchIcons,
-  LIBRARY_QUERY_KEYS,
-  probeDevice,
-  updateDevice,
-} from '@/library/api';
+import { createDevice, deleteDevice, probeDevice, updateDevice } from '@/library/api';
 import {
   errorsByField,
   initialDraft,
@@ -60,8 +52,13 @@ import {
   type ServerIssue,
   type SetupDraft,
 } from '@/library/setup-values';
-import { IconPickerModal } from '@/routes/library/icon-picker-modal';
+import { ConfirmRemoval } from '@/routes/library/confirm-removal';
+import { useCatalogueIcons } from '@/routes/library/device-icon';
+import { NameIconField } from '@/routes/library/name-icon-field';
 import { SetupForm } from '@/routes/library/setup-form';
+import { TagField } from '@/routes/library/tag-field';
+import { useAreas } from '@/routes/library/use-areas';
+import { useTags } from '@/routes/library/use-tags';
 
 /** What the dialog is for: a new device of a vendor, or one that exists. */
 export type DeviceDialogTarget =
@@ -78,16 +75,36 @@ export type DeviceDialogTarget =
       readonly device: DeviceView;
     };
 
+/**
+ * The value a model option carries: the kind and the model, joined by a character neither can
+ * contain, so that two vendors' models of the same name stay two options.
+ *
+ * @param choice - The kind and the model.
+ * @returns The option value.
+ */
+function modelValueOf(choice: Pick<ModelChoice, 'kind' | 'model'>): string {
+  return `${choice.kind}\u0000${choice.model}`;
+}
+
 /** What the dialog needs. */
 export type DeviceDialogProps = {
   /** What is being set up. Null when the dialog is shut. */
   readonly target: DeviceDialogTarget | null;
+
+  /** Whether the person may remove the device; false hides the button altogether. */
+  readonly canRemove?: boolean;
+
+  /** Whether the person may make a tag from the tag field. */
+  readonly canCreateTags?: boolean;
 
   /** Called to shut it. */
   readonly onClose: () => void;
 
   /** Called once the rows are written, with the device as it now stands. */
   readonly onSaved: (device: DeviceView) => void;
+
+  /** Called once the device is gone, with the id it had. */
+  readonly onRemoved?: ((deviceId: string) => void) | undefined;
 };
 
 /** What the form holds, for both groups. */
@@ -221,52 +238,6 @@ function issuesOf(error: unknown): ServerIssue[] {
 }
 
 /**
- * The icon a device is shown with in the form: the drawing, when the catalogue has been asked.
- *
- * @param props - The id, what the catalogue said about it, and the button that changes it.
- * @param props.icon - The id chosen, or null for none.
- * @param props.view - The catalogue's icon for it, once read.
- * @param props.onChange - Opens the picker.
- * @returns The field.
- */
-function IconField(props: {
-  readonly icon: string | null;
-  readonly view: IconView | undefined;
-  readonly onChange: () => void;
-}) {
-  const { icon, view, onChange } = props;
-
-  return (
-    <FieldShell
-      label="Icon"
-      hint="From the catalogue. Every device of the driver starts with the same one."
-    >
-      {(ids) => (
-        <button
-          type="button"
-          id={ids.id}
-          aria-label="Change icon"
-          aria-describedby={ids.describedBy}
-          className="face-control flex h-10 w-full items-center gap-3 rounded-field border border-border-strong px-3 text-left text-ui text-foreground transition-colors hover:border-primary/40"
-          onClick={onChange}
-        >
-          {view === undefined ? (
-            <span
-              className="size-[22px] shrink-0 rounded-tile bg-surface-raised"
-              aria-hidden="true"
-            />
-          ) : (
-            <CatalogueIcon node={view.node} frame={view.frame} size={22} />
-          )}
-          <span className="grow truncate">{view?.name ?? icon ?? 'None'}</span>
-          <span className="text-caption text-foreground-subtle">Change…</span>
-        </button>
-      )}
-    </FieldShell>
-  );
-}
-
-/**
  * Renders the dialog.
  *
  * Mounted fresh each time it opens - the page gives it a key - so every piece of state below
@@ -276,7 +247,11 @@ function IconField(props: {
  * @returns The dialog.
  */
 export function DeviceDialog(props: DeviceDialogProps) {
-  const { target, onClose, onSaved } = props;
+  const { target, canRemove = false, canCreateTags = false, onClose, onSaved, onRemoved } = props;
+  const { tags, create: createTagNamed } = useTags();
+  const tagIcons = useCatalogueIcons(tags.map((tag) => tag.icon));
+  const { tree } = useAreas();
+  const rooms = roomChoices(tree);
 
   const vendor = target?.vendor;
   const existing = target?.mode === 'edit' ? target.device : undefined;
@@ -301,24 +276,10 @@ export function DeviceDialog(props: DeviceDialogProps) {
   const [icon, setIcon] = useState<string | null>(
     () => existing?.icon ?? driver?.defaultIcon ?? null,
   );
-  const [picked, setPicked] = useState<IconView | undefined>(undefined);
-  const [isPicking, setPicking] = useState(false);
+  const [tagIds, setTagIds] = useState<readonly string[]>(existing?.tagIds ?? []);
+  const [areaId, setAreaId] = useState<string | null>(existing?.areaId ?? null);
   const [isEnabled, setEnabled] = useState(existing?.isEnabled ?? true);
-
-  const iconView = useQuery({
-    queryKey: [...LIBRARY_QUERY_KEYS.icons, 'one', icon ?? ''],
-    /**
-     * Reads the icon the device has, to draw it in the form.
-     *
-     * @param context - What TanStack Query provides, including the cancellation signal.
-     * @param context.signal - Cancels the request when the icon changes.
-     * @returns The icon, or undefined when the catalogue does not have it.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) =>
-      (await fetchIcons({ ids: [icon ?? ''] }, signal))[0],
-    enabled: icon !== null && picked?.id !== icon,
-  });
-  const shownIcon = picked?.id === icon ? picked : iconView.data;
+  const [isRemoving, setRemoving] = useState(false);
   const [drafts, setDrafts] = useState<Drafts>(() =>
     vendor === undefined ? { transport: {}, options: {} } : draftsFor(vendor, choice, existing),
   );
@@ -426,12 +387,16 @@ export function DeviceDialog(props: DeviceDialogProps) {
             name: name.trim(),
             ...(icon === null ? {} : { icon }),
             isEnabled,
+            tagIds: [...tagIds],
+            ...(areaId === null ? {} : { areaId }),
             ...values,
           })
         : updateDevice(existing.id, {
             name: name.trim(),
             icon,
             isEnabled,
+            tagIds: [...tagIds],
+            areaId,
             ...(choice === undefined ? {} : { model: choice.model }),
             ...values,
           }),
@@ -446,7 +411,33 @@ export function DeviceDialog(props: DeviceDialogProps) {
     onError: remember,
   });
 
-  const isBusy = probe.isPending || save.isPending;
+  const removal = useMutation({
+    /** Removes the device: the hub lets go, and its rows and entities go with it. */
+    mutationFn: async (): Promise<void> => {
+      if (existing !== undefined) {
+        await deleteDevice(existing.id);
+      }
+    },
+
+    /** Tells the page the device is gone. */
+    onSuccess: (): void => {
+      if (existing !== undefined) {
+        onRemoved?.(existing.id);
+      }
+    },
+
+    /**
+     * Shows why the removal was refused, back in the ordinary footer.
+     *
+     * @param error - What went wrong.
+     */
+    onError: (error: unknown): void => {
+      setRemoving(false);
+      remember(error);
+    },
+  });
+
+  const isBusy = probe.isPending || save.isPending || removal.isPending;
 
   /**
    * Changes one field of one group, and forgets the last verdict: it was about other values.
@@ -467,7 +458,7 @@ export function DeviceDialog(props: DeviceDialogProps) {
    * @param value - The option chosen: the kind and the model, joined.
    */
   const pick = (value: string): void => {
-    const next = choices.find((each) => `${each.kind} ${each.model}` === value);
+    const next = choices.find((each) => modelValueOf(each) === value);
 
     if (next === undefined || vendor === undefined) {
       return;
@@ -521,14 +512,38 @@ export function DeviceDialog(props: DeviceDialogProps) {
       : `${driver.name}, over ${driver.transport}. Test tries the address before anything is saved.`;
 
   return (
-    <>
-      <Modal
-        isOpen={target !== null}
-        onClose={onClose}
-        title={title}
-        description={description}
-        footer={
+    <Modal
+      isOpen={target !== null}
+      onClose={onClose}
+      title={title}
+      description={description}
+      footer={
+        isRemoving && existing !== undefined ? (
+          <ConfirmRemoval
+            question={`Remove ${existing.name}? ${describeEntities(existing)} and the hub stops listening for it.`}
+            isBusy={removal.isPending}
+            onCancel={() => {
+              setRemoving(false);
+            }}
+            onConfirm={() => {
+              removal.mutate();
+            }}
+          />
+        ) : (
           <>
+            {existing !== undefined && canRemove ? (
+              <Button
+                variant="danger"
+                disabled={isBusy}
+                className="mr-auto"
+                onClick={() => {
+                  setErrors(NO_ERRORS);
+                  setRemoving(true);
+                }}
+              >
+                Remove
+              </Button>
+            ) : null}
             <Button
               variant="ghost"
               isBusy={probe.isPending}
@@ -560,127 +575,151 @@ export function DeviceDialog(props: DeviceDialogProps) {
               Save
             </Button>
           </>
-        }
-      >
-        <div className="flex flex-col gap-4">
-          {choices.length > 1 ? (
-            <SelectField
-              label="Model"
-              options={choices.map((each) => ({
-                value: `${each.kind} ${each.model}`,
-                label: each.model,
-              }))}
-              value={choice === undefined ? '' : `${choice.kind} ${choice.model}`}
-              hint={
-                vendor !== undefined && vendor.drivers.length > 1 && driver !== undefined
-                  ? `Driven as ${driver.name}.`
-                  : undefined
-              }
-              onChange={pick}
-            />
-          ) : null}
+        )
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <NameIconField
+          value={name}
+          onChange={rename}
+          icon={icon}
+          onIconChange={(view) => {
+            setIcon(view.id);
+          }}
+          hint={
+            existing === undefined
+              ? "The icon starts as the driver's; pick another from the catalogue."
+              : undefined
+          }
+          required
+        />
 
+        <TagField
+          value={tagIds}
+          onChange={setTagIds}
+          tags={tags}
+          icons={tagIcons}
+          canCreate={canCreateTags}
+          onCreate={createTagNamed}
+          hint="What automations and scenes will pick this device by."
+        />
+
+        <SelectField
+          label="Room"
+          options={rooms}
+          value={areaId ?? ''}
+          hint={
+            rooms.length === 1
+              ? 'No rooms yet: make the house, its floors and their rooms under Areas.'
+              : 'Its entities are in the same room unless one of them says otherwise.'
+          }
+          onChange={(value) => {
+            setAreaId(value === '' ? null : value);
+          }}
+        />
+
+        {choices.length > 1 ? (
+          <SelectField
+            label="Model"
+            options={choices.map((each) => ({
+              value: modelValueOf(each),
+              label: each.model,
+            }))}
+            value={choice === undefined ? '' : modelValueOf(choice)}
+            hint={
+              vendor !== undefined && vendor.drivers.length > 1 && driver !== undefined
+                ? `Driven as ${driver.name}.`
+                : undefined
+            }
+            onChange={pick}
+          />
+        ) : null}
+
+        {existing === undefined ? (
           <TextField
-            label="Name"
+            label="Id"
             size="medium"
-            value={name}
+            hint="Lowercase letters, digits and dashes. It is what every entity of this device carries as its source."
+            value={id}
             required
             onChange={(event) => {
-              rename(event.target.value);
+              setId(event.target.value);
+              setIdEdited(true);
             }}
           />
+        ) : driver === undefined ? (
+          <p role="alert" className="text-ui text-danger">
+            The hub no longer has the driver {existing.kind}, so its fields cannot be shown.
+          </p>
+        ) : null}
 
-          <IconField
-            icon={icon}
-            view={shownIcon}
-            onChange={() => {
-              setPicking(true);
+        {driver === undefined ? null : (
+          <>
+            <SetupForm
+              group={driver.setup.transport}
+              draft={drafts.transport}
+              errors={errors.transport}
+              kept={kept.transport}
+              onChange={change('transport')}
+            />
+            <SetupForm
+              group={driver.setup.options}
+              draft={drafts.options}
+              errors={errors.options}
+              kept={kept.options}
+              onChange={change('options')}
+            />
+          </>
+        )}
+
+        {existing === undefined ? null : (
+          <Segmented
+            label="Running"
+            options={[
+              { value: 'on', label: 'Enabled' },
+              { value: 'off', label: 'Disabled' },
+            ]}
+            value={isEnabled ? 'on' : 'off'}
+            onChange={(value) => {
+              setEnabled(value === 'on');
             }}
           />
+        )}
 
-          {existing === undefined ? (
-            <TextField
-              label="Id"
-              size="medium"
-              hint="Lowercase letters, digits and dashes. It is what every entity of this device carries as its source."
-              value={id}
-              required
-              onChange={(event) => {
-                setId(event.target.value);
-                setIdEdited(true);
-              }}
-            />
-          ) : driver === undefined ? (
-            <p role="alert" className="text-ui text-danger">
-              The hub no longer has the driver {existing.kind}, so its fields cannot be shown.
-            </p>
-          ) : null}
+        {verdict === null ? null : verdict.isReachable ? (
+          <p role="status" className="flex items-start gap-2 text-ui text-success">
+            <CheckIcon width="16" height="16" className="mt-0.5 shrink-0" />
+            <span>{verdict.detail}</span>
+          </p>
+        ) : (
+          <p role="alert" className="flex items-start gap-2 text-ui text-danger">
+            <WarningIcon width="16" height="16" className="mt-0.5 shrink-0" />
+            <span>{verdict.detail}</span>
+          </p>
+        )}
 
-          {driver === undefined ? null : (
-            <>
-              <SetupForm
-                group={driver.setup.transport}
-                draft={drafts.transport}
-                errors={errors.transport}
-                kept={kept.transport}
-                onChange={change('transport')}
-              />
-              <SetupForm
-                group={driver.setup.options}
-                draft={drafts.options}
-                errors={errors.options}
-                kept={kept.options}
-                onChange={change('options')}
-              />
-            </>
-          )}
-
-          {existing === undefined ? null : (
-            <Segmented
-              label="Running"
-              options={[
-                { value: 'on', label: 'Enabled' },
-                { value: 'off', label: 'Disabled' },
-              ]}
-              value={isEnabled ? 'on' : 'off'}
-              onChange={(value) => {
-                setEnabled(value === 'on');
-              }}
-            />
-          )}
-
-          {verdict === null ? null : verdict.isReachable ? (
-            <p role="status" className="flex items-start gap-2 text-ui text-success">
-              <CheckIcon width="16" height="16" className="mt-0.5 shrink-0" />
-              <span>{verdict.detail}</span>
-            </p>
-          ) : (
-            <p role="alert" className="flex items-start gap-2 text-ui text-danger">
-              <WarningIcon width="16" height="16" className="mt-0.5 shrink-0" />
-              <span>{verdict.detail}</span>
-            </p>
-          )}
-
-          {errors.general === undefined ? null : (
-            <p role="alert" className="text-ui text-danger">
-              {errors.general}
-            </p>
-          )}
-        </div>
-      </Modal>
-
-      <IconPickerModal
-        isOpen={isPicking}
-        current={icon}
-        onClose={() => {
-          setPicking(false);
-        }}
-        onPick={(view) => {
-          setPicked(view);
-          setIcon(view.id);
-          setPicking(false);
-        }}
-      />
-    </>
+        {errors.general === undefined ? null : (
+          <p role="alert" className="text-ui text-danger">
+            {errors.general}
+          </p>
+        )}
+      </div>
+    </Modal>
   );
+}
+
+/**
+ * Says what goes with a device when it is removed.
+ *
+ * @param device - The device.
+ * @returns "Its 6 entities go with it", or a sentence for none.
+ */
+function describeEntities(device: DeviceView): string {
+  const count = device.entityIds.length;
+
+  if (count === 0) {
+    return 'It has no entities yet';
+  }
+
+  return `Its ${String(count)} entit${count === 1 ? 'y goes' : 'ies go'} with it`;
 }

@@ -131,7 +131,7 @@ export function SettingsLayout() {
   return (
     <div className="flex min-w-0 grow flex-col">
       <header className="flex h-17 shrink-0 items-center border-b border-border px-6">
-        <h1 className="text-head font-medium tracking-tight">Settings</h1>
+        <h1 className="text-head font-semibold tracking-tight">Settings</h1>
       </header>
 
       <div className="flex min-h-0 grow gap-6 overflow-hidden p-6">

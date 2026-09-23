@@ -13,9 +13,11 @@ import { StrictMode, useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 
+import { TAG_COLORS, type TagColor } from '@nebula-home/contracts';
 import {
   Badge,
   Button,
+  ColorSwatches,
   IconButton,
   Modal,
   Panel,
@@ -23,6 +25,7 @@ import {
   PanelRow,
   Segmented,
   SelectField,
+  TagChip,
   TextField,
   type BadgeTone,
 } from '@nebula-home/ui';
@@ -78,6 +81,7 @@ function Gallery() {
   const [select, setSelect] = useState('member');
   const [segment, setSegment] = useState('system');
   const [password, setPassword] = useState('');
+  const [swatch, setSwatch] = useState<TagColor | null>('teal');
   const [openModal, setOpenModal] = useState<'plain' | 'protected' | null>(null);
 
   // The whole page is themed by the same attribute the application sets on the root, so what is
@@ -184,6 +188,35 @@ function Gallery() {
           <Badge tone="warning" size="small">
             small
           </Badge>
+        </Section>
+
+        <Section
+          title="Tag chip"
+          note="Twelve hues and one meaning: a tag the owner made. The dot is there so colour is never the only carrier."
+        >
+          {TAG_COLORS.map((color) => (
+            <TagChip key={color} color={color}>
+              {color}
+            </TagChip>
+          ))}
+          <TagChip color="teal" size="small">
+            small
+          </TagChip>
+          <TagChip
+            color="pink"
+            onRemove={() => {
+              // A gallery chip has nowhere to be removed from.
+            }}
+          >
+            removable
+          </TagChip>
+        </Section>
+
+        <Section
+          title="Colour swatches"
+          note="The palette as a radio group: arrow keys, one tab stop."
+        >
+          <ColorSwatches label="Colour" value={swatch} onChange={setSwatch} />
         </Section>
 
         <Section title="Fields" note="One shape, three sizes, and the same recess in each.">

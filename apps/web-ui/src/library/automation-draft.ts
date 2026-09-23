@@ -6,22 +6,28 @@
  * had to stay valid could not be edited at all. So the draft is the loose version, and turning
  * it into a document is a step that can fail and say why.
  *
+ * The saved document is `{ triggers, if, then }` with AND/OR trees. The editor holds flat lists
+ * of cards with a join (AND or OR) between each pair; those flatten into the document with AND
+ * binding tighter than OR. Nested action templates live inside `actions` as the format defines
+ * them, so a parallel or an if/else round-trips without an opaque wrapper.
+ *
  * Here rather than in the component because it is the rules of the thing rather than the drawing
  * of it (RULES.md 15.1), and because a reducer is the part worth testing.
- *
- * **What this editor does not compose.** `and` / `or` / `not` conditions and `parallel` actions
- * nest, and an editor for nesting is a different piece of work — the mockup that designed this
- * screen left them out too. They are not dropped, though: an automation that already has them
- * keeps them, shown as a block this build will not take apart. Losing somebody's work because
- * the editor could not draw it would be the worst thing this file could do.
  */
 import { type z } from 'zod';
 
 import {
   ACTION_TYPES,
   automationDefinitionSchema,
+  booleanTreeFromCondition,
+  conditionFromBooleanTree,
   CONDITION_TYPES,
+  flattenTriggers,
+  isBooleanTreeOp,
+  isTriggerTreeOp,
+  NESTED_ACTION_TYPES,
   TRIGGER_TYPES,
+  triggerTreeSchema,
   type AutomationAction,
   type AutomationCondition,
   type AutomationCreate,
@@ -29,7 +35,10 @@ import {
   type AutomationMode,
   type AutomationTrigger,
   type AutomationView,
+  type BooleanTree,
+  type ConditionLeaf,
   type EntityId,
+  type TriggerTree,
 } from '@nebula-home/contracts';
 
 /**
@@ -47,16 +56,26 @@ export function partialEntityId(value: string): EntityId {
   return value as EntityId;
 }
 
+/** How two neighbouring cards combine when the flat list becomes a tree. */
+export type BooleanJoin = 'and' | 'or';
+
 /** The kinds of trigger this editor can write. All of them. */
 export const EDITABLE_TRIGGERS = TRIGGER_TYPES;
 
-/** The kinds of condition this editor can write: the leaves, not the ones that compose. */
+/**
+ * The kinds of condition the If Add modal offers: entity state only.
+ *
+ * Other leaf kinds already saved still open as cards; they are not offered when adding.
+ */
+export const IF_ADDABLE_CONDITIONS = ['state'] as const;
+
+/** The kinds of condition this editor can draw fields for: the leaves, not the ones that compose. */
 export const EDITABLE_CONDITIONS = CONDITION_TYPES.filter(
   (type) => type !== 'and' && type !== 'or' && type !== 'not',
 );
 
-/** The kinds of action this editor can write: the ones that do not hold other actions. */
-export const EDITABLE_ACTIONS = ACTION_TYPES.filter((type) => type !== 'parallel');
+/** The kinds of action this editor can write, including nested templates and stop. */
+export const EDITABLE_ACTIONS = ACTION_TYPES;
 
 /** An automation as a form holds it. */
 export type AutomationDraft = {
@@ -78,15 +97,81 @@ export type AutomationDraft = {
   /** Whether it is on. */
   readonly isEnabled: boolean;
 
-  /** What wakes it. */
+  /** What wakes it — one card each. */
   readonly triggers: readonly AutomationTrigger[];
 
-  /** What has to hold. */
+  /**
+   * The join between consecutive triggers.
+   *
+   * Length is `triggers.length - 1` when there are two or more. Default for a new gap is OR.
+   */
+  readonly triggerJoins: readonly BooleanJoin[];
+
+  /** What has to hold — one card each. A card may wrap a leaf in `not`. */
   readonly conditions: readonly AutomationCondition[];
 
-  /** What it does. */
+  /**
+   * The join between consecutive conditions.
+   *
+   * Length is `conditions.length - 1` when there are two or more. Default for a new gap is AND.
+   */
+  readonly conditionJoins: readonly BooleanJoin[];
+
+  /** What it does — the Then sequence, including nested templates. */
   readonly actions: readonly AutomationAction[];
+
+  /**
+   * The stored trigger tree, kept whole when the cards cannot say it - an AND of ORs, say.
+   *
+   * Cards with joins can say an OR of AND-groups and nothing denser; a denser tree opens as its
+   * leaves under OR, which is not what it means. It is written back as it was unless the
+   * triggers are edited, so opening and saving an automation never changes what wakes it.
+   */
+  readonly keptTriggers?: KeptTriggers | undefined;
 };
+
+/** A trigger tree the cards cannot say, with the cards and joins it was opened as. */
+export type KeptTriggers = {
+  /** The tree as it was stored. */
+  readonly tree: TriggerTree;
+
+  /** The cards it was opened as; the draft still holding these is the draft unchanged. */
+  readonly triggers: readonly AutomationTrigger[];
+
+  /** The joins it was opened with. */
+  readonly joins: readonly BooleanJoin[];
+};
+
+/**
+ * Whether a trigger tree says no more than cards with AND and OR joins can.
+ *
+ * Joins bind AND tighter than OR, so they say an OR of AND-groups of leaves. An OR nested in an
+ * OR of leaves is the same OR; anything else - an OR inside an AND, a group inside a group -
+ * is not something a row of cards can hold.
+ *
+ * @param tree - The stored tree.
+ * @returns True when the cards say exactly what the tree does.
+ */
+export function isCardExpressible(tree: TriggerTree): boolean {
+  if (!isTriggerTreeOp(tree)) {
+    return true;
+  }
+
+  /**
+   * Whether every item of a node is a leaf.
+   *
+   * @param items - The node's items.
+   * @returns True when none of them is a node.
+   */
+  const allLeaves = (items: readonly TriggerTree[]): boolean =>
+    items.every((item) => !isTriggerTreeOp(item));
+
+  if (tree.op === 'and') {
+    return allLeaves(tree.items);
+  }
+
+  return tree.items.every((child) => !isTriggerTreeOp(child) || allLeaves(child.items));
+}
 
 /**
  * Turns a name into the key it suggests.
@@ -122,7 +207,9 @@ export function emptyDraft(): AutomationDraft {
     maxRuntimeSeconds: 300,
     isEnabled: true,
     triggers: [],
+    triggerJoins: [],
     conditions: [],
+    conditionJoins: [],
     actions: [],
   };
 }
@@ -138,7 +225,16 @@ export function emptyDraft(): AutomationDraft {
  * @returns The draft to edit.
  */
 export function draftFrom(automation: AutomationView): AutomationDraft {
-  const definition = automation.definition as Partial<AutomationDefinition>;
+  const definition = automation.definition as Partial<AutomationDefinition> & {
+    readonly conditions?: unknown;
+    readonly actions?: unknown;
+  };
+
+  const triggers = flatTriggersFromDefinition(definition);
+  const conditions = flatConditionsFromDefinition(definition);
+  const stored: unknown = definition.triggers;
+  const tree = triggerTreeSchema.safeParse(stored);
+  const isKept = !Array.isArray(stored) && tree.success && !isCardExpressible(tree.data);
 
   return {
     key: automation.key,
@@ -147,10 +243,370 @@ export function draftFrom(automation: AutomationView): AutomationDraft {
     mode: automation.mode,
     maxRuntimeSeconds: Math.round(automation.maxRuntimeMs / 1000),
     isEnabled: automation.isEnabled,
-    triggers: Array.isArray(definition.triggers) ? definition.triggers : [],
-    conditions: Array.isArray(definition.conditions) ? definition.conditions : [],
-    actions: Array.isArray(definition.actions) ? definition.actions : [],
+    triggers: triggers.items,
+    triggerJoins: triggers.joins,
+    conditions: conditions.items,
+    conditionJoins: conditions.joins,
+    actions: actionsFromDefinition(definition),
+    ...(isKept
+      ? { keptTriggers: { tree: tree.data, triggers: triggers.items, joins: triggers.joins } }
+      : {}),
   };
+}
+
+/**
+ * The trigger tree a draft saves: the one it was opened with, when the cards could not say it
+ * and have not been touched, and otherwise the one the cards say.
+ *
+ * Compared by identity: a draft is replaced, never changed, so cards still the very list they
+ * were opened as have not been edited.
+ *
+ * @param draft - The draft.
+ * @returns The tree to save.
+ */
+export function triggersToSave(draft: AutomationDraft): TriggerTree {
+  if (draft.keptTriggers !== undefined && isKeepingTriggers(draft)) {
+    return draft.keptTriggers.tree;
+  }
+
+  return triggerTreeFromFlat(draft.triggers, draft.triggerJoins);
+}
+
+/**
+ * Whether a draft still holds a stored trigger tree the cards cannot say, untouched.
+ *
+ * @param draft - The draft.
+ * @returns True when saving now would write the stored tree back as it was.
+ */
+export function isKeepingTriggers(draft: AutomationDraft): boolean {
+  const kept = draft.keptTriggers;
+
+  return kept?.triggers === draft.triggers && kept.joins === draft.triggerJoins;
+}
+
+/**
+ * Reads triggers into the flat list and joins the editor edits.
+ *
+ * @param definition - Whatever the column held.
+ * @param definition.triggers - A tree, a legacy flat list, or anything else.
+ * @returns Leaf triggers and the joins between them.
+ */
+function flatTriggersFromDefinition(definition: { readonly triggers?: unknown }): {
+  readonly items: AutomationTrigger[];
+  readonly joins: BooleanJoin[];
+} {
+  const { triggers } = definition;
+
+  if (Array.isArray(triggers)) {
+    return flatFromTriggerLeaves(triggers as AutomationTrigger[], 'or');
+  }
+
+  if (triggers === undefined || triggers === null || typeof triggers !== 'object') {
+    return { items: [], joins: [] };
+  }
+
+  // Not parsed: a leaf this build does not know still opens as a card, and the save
+  // checks it against the schema and names it, rather than the card vanishing.
+  return flatFromTriggerTree(triggers as TriggerTree);
+}
+
+/**
+ * Turns a stored trigger tree into a flat card list.
+ *
+ * A top-level OR of leaves (or of AND-groups of leaves) becomes that sequence with joins. Anything
+ * denser flattens to leaves under OR so the form still opens.
+ *
+ * @param tree - The stored tree.
+ * @returns Flat triggers and joins.
+ */
+export function flatFromTriggerTree(tree: TriggerTree): {
+  readonly items: AutomationTrigger[];
+  readonly joins: BooleanJoin[];
+} {
+  if (!isTriggerTreeOp(tree)) {
+    return { items: [tree], joins: [] };
+  }
+
+  if (tree.op === 'or') {
+    const items: AutomationTrigger[] = [];
+    const joins: BooleanJoin[] = [];
+
+    for (const child of tree.items) {
+      if (!isTriggerTreeOp(child)) {
+        if (items.length > 0) {
+          joins.push('or');
+        }
+
+        items.push(child);
+        continue;
+      }
+
+      if (child.op === 'and' && child.items.every((item) => !isTriggerTreeOp(item))) {
+        for (const [inner, leaf] of child.items.entries()) {
+          if (items.length > 0) {
+            joins.push(inner === 0 ? 'or' : 'and');
+          }
+
+          items.push(leaf as AutomationTrigger);
+        }
+
+        continue;
+      }
+
+      for (const leaf of flattenTriggers(child)) {
+        if (items.length > 0) {
+          joins.push('or');
+        }
+
+        items.push(leaf);
+      }
+    }
+
+    return { items, joins };
+  }
+
+  if (tree.items.every((item) => !isTriggerTreeOp(item))) {
+    return flatFromTriggerLeaves(tree.items as AutomationTrigger[], 'and');
+  }
+
+  return flatFromTriggerLeaves(flattenTriggers(tree), 'or');
+}
+
+/**
+ * Builds a flat list with a uniform join between every pair.
+ *
+ * @param leaves - Trigger cards.
+ * @param join - The join between each pair.
+ * @returns Flat triggers and joins.
+ */
+function flatFromTriggerLeaves(
+  leaves: readonly AutomationTrigger[],
+  join: BooleanJoin,
+): { readonly items: AutomationTrigger[]; readonly joins: BooleanJoin[] } {
+  if (leaves.length === 0) {
+    return { items: [], joins: [] };
+  }
+
+  return {
+    items: [...leaves],
+    joins: Array.from({ length: leaves.length - 1 }, () => join),
+  };
+}
+
+/**
+ * Builds a trigger tree from flat cards and joins, with AND binding tighter than OR.
+ *
+ * @param triggers - Leaf triggers in card order.
+ * @param joins - Join before each trigger after the first.
+ * @returns A leaf, or an AND/OR tree.
+ */
+export function triggerTreeFromFlat(
+  triggers: readonly AutomationTrigger[],
+  joins: readonly BooleanJoin[],
+): TriggerTree {
+  const [first, ...rest] = triggers;
+
+  if (first === undefined) {
+    return { type: 'manual' };
+  }
+
+  // Every card after the first joins the one before it, OR where a join is missing: a card is
+  // never dropped for want of a join.
+  const groups: AutomationTrigger[][] = [[first]];
+
+  for (const [index, next] of rest.entries()) {
+    const current = groups.at(-1);
+
+    if (joins[index] === 'and' && current !== undefined) {
+      current.push(next);
+    } else {
+      groups.push([next]);
+    }
+  }
+
+  const orItems: TriggerTree[] = groups.map((group) =>
+    group.length === 1 && group[0] !== undefined ? group[0] : { op: 'and', items: group },
+  );
+
+  return orItems.length === 1 && orItems[0] !== undefined
+    ? orItems[0]
+    : { op: 'or', items: orItems };
+}
+
+/**
+ * Reads `if` (or legacy `conditions`) into the flat list the editor edits.
+ *
+ * @param definition - Whatever the column held.
+ * @returns Draft conditions and joins.
+ */
+function flatConditionsFromDefinition(
+  definition: Partial<AutomationDefinition> & { readonly conditions?: unknown },
+): { readonly items: AutomationCondition[]; readonly joins: BooleanJoin[] } {
+  if (definition.if !== undefined) {
+    return flatFromBooleanTree(definition.if);
+  }
+
+  if (Array.isArray(definition.conditions)) {
+    return flatFromConditionList(definition.conditions as AutomationCondition[], 'and');
+  }
+
+  return { items: [], joins: [] };
+}
+
+/**
+ * Turns a stored boolean tree into flat cards with joins and optional NOT wrappers.
+ *
+ * @param tree - The stored `if` (or a nested condition tree).
+ * @returns Draft conditions and joins.
+ */
+export function flatFromBooleanTree(tree: BooleanTree): {
+  readonly items: AutomationCondition[];
+  readonly joins: BooleanJoin[];
+} {
+  if (!isBooleanTreeOp(tree)) {
+    return { items: [tree], joins: [] };
+  }
+
+  if (tree.op === 'not') {
+    return { items: [conditionFromBooleanTree(tree)], joins: [] };
+  }
+
+  if (tree.op === 'or') {
+    const items: AutomationCondition[] = [];
+    const joins: BooleanJoin[] = [];
+
+    for (const child of tree.items) {
+      if (!isBooleanTreeOp(child)) {
+        if (items.length > 0) {
+          joins.push('or');
+        }
+
+        items.push(child);
+        continue;
+      }
+
+      if (child.op === 'not' && !isBooleanTreeOp(child.item)) {
+        if (items.length > 0) {
+          joins.push('or');
+        }
+
+        items.push(conditionFromBooleanTree(child));
+        continue;
+      }
+
+      if (child.op === 'and') {
+        for (const [inner, item] of child.items.entries()) {
+          if (items.length > 0) {
+            joins.push(inner === 0 ? 'or' : 'and');
+          }
+
+          items.push(conditionFromBooleanTree(item));
+        }
+
+        continue;
+      }
+
+      if (items.length > 0) {
+        joins.push('or');
+      }
+
+      items.push(conditionFromBooleanTree(child));
+    }
+
+    return { items, joins };
+  }
+
+  return {
+    items: tree.items.map(conditionFromBooleanTree),
+    joins: Array.from({ length: tree.items.length - 1 }, () => 'and' as const),
+  };
+}
+
+/**
+ * Builds a flat list with a uniform join between every pair of draft conditions.
+ *
+ * @param conditions - Condition cards.
+ * @param join - The join between each pair.
+ * @returns Flat conditions and joins.
+ */
+function flatFromConditionList(
+  conditions: readonly AutomationCondition[],
+  join: BooleanJoin,
+): { readonly items: AutomationCondition[]; readonly joins: BooleanJoin[] } {
+  if (conditions.length === 0) {
+    return { items: [], joins: [] };
+  }
+
+  return {
+    items: [...conditions],
+    joins: Array.from({ length: conditions.length - 1 }, () => join),
+  };
+}
+
+/**
+ * Builds an `if` tree from flat cards and joins, with AND binding tighter than OR.
+ *
+ * @param conditions - Draft conditions in card order.
+ * @param joins - Join before each condition after the first.
+ * @returns A boolean tree, or `undefined` when the list is empty.
+ */
+export function ifTreeFromFlat(
+  conditions: readonly AutomationCondition[],
+  joins: readonly BooleanJoin[],
+): BooleanTree | undefined {
+  const [first, ...rest] = conditions;
+
+  if (first === undefined) {
+    return undefined;
+  }
+
+  // Every card after the first joins the one before it, AND where a join is missing: a card
+  // is never dropped for want of a join.
+  const groups: BooleanTree[][] = [[booleanTreeFromCondition(first)]];
+
+  for (const [index, next] of rest.entries()) {
+    const leaf = booleanTreeFromCondition(next);
+    const current = groups.at(-1);
+
+    if (joins[index] !== 'or' && current !== undefined) {
+      current.push(leaf);
+    } else {
+      groups.push([leaf]);
+    }
+  }
+
+  const orItems: BooleanTree[] = groups.map((group) =>
+    group.length === 1 && group[0] !== undefined ? group[0] : { op: 'and', items: group },
+  );
+
+  return orItems.length === 1 && orItems[0] !== undefined
+    ? orItems[0]
+    : { op: 'or', items: orItems };
+}
+
+/**
+ * Reads `then` (or legacy `actions`) into the draft action list.
+ *
+ * @param definition - Whatever the column held.
+ * @param definition.then - The action sequence, when the document has one.
+ * @param definition.actions - The legacy name for the same list.
+ * @returns Draft actions.
+ */
+function actionsFromDefinition(definition: {
+  readonly then?: unknown;
+  readonly actions?: unknown;
+}): AutomationAction[] {
+  // Not parsed, for the reason the triggers are not: an action this build does not know
+  // opens as a card and is named by the save.
+  if (Array.isArray(definition.then)) {
+    return [...(definition.then as AutomationAction[])];
+  }
+
+  if (Array.isArray(definition.actions)) {
+    return [...(definition.actions as AutomationAction[])];
+  }
+
+  return [];
 }
 
 /**
@@ -222,7 +678,19 @@ export function blankCondition(type: string): AutomationCondition {
 }
 
 /**
+ * An empty entity-state leaf, as nested condition trees start from.
+ *
+ * @returns A blank state leaf in document form.
+ */
+export function blankStateLeaf(): ConditionLeaf {
+  return { type: 'state', entityId: partialEntityId(''), state: '' };
+}
+
+/**
  * An action of the chosen kind, with nothing filled in.
+ *
+ * Nested templates start with empty bodies so the dashed Add block is the only child until
+ * somebody picks one. The schema refuses empty nested lists on save.
  *
  * @param type - Which kind.
  * @returns The blank action.
@@ -244,9 +712,13 @@ export function blankAction(type: string): AutomationAction {
     case 'wait_for': {
       return {
         type: 'wait_for',
-        condition: { type: 'state', entityId: partialEntityId(''), state: '' },
+        condition: blankStateLeaf(),
         timeoutMs: 60_000,
       };
+    }
+
+    case 'wait_for_trigger': {
+      return { type: 'wait_for_trigger', trigger: { type: 'manual' }, timeoutMs: 60_000 };
     }
 
     case 'notify': {
@@ -257,6 +729,43 @@ export function blankAction(type: string): AutomationAction {
       return { type: 'package_service', packageId: '', service: '', params: {} };
     }
 
+    case 'parallel': {
+      return { type: 'parallel', actions: [] };
+    }
+
+    case 'sequence': {
+      return { type: 'sequence', actions: [] };
+    }
+
+    case 'switch': {
+      return {
+        type: 'switch',
+        entityId: partialEntityId(''),
+        cases: [{ value: '', actions: [] }],
+        default: [],
+      };
+    }
+
+    case 'while': {
+      return { type: 'while', condition: blankStateLeaf(), actions: [] };
+    }
+
+    case 'do_while': {
+      return { type: 'do_while', condition: blankStateLeaf(), actions: [] };
+    }
+
+    case 'if': {
+      return { type: 'if', condition: blankStateLeaf(), then: [], else: [] };
+    }
+
+    case 'for': {
+      return { type: 'for', over: { kind: 'count', count: 1 }, actions: [] };
+    }
+
+    case 'stop': {
+      return { type: 'stop' };
+    }
+
     default: {
       return { type: 'command', entityId: '', capability: 'on_off', params: {} };
     }
@@ -264,7 +773,7 @@ export function blankAction(type: string): AutomationAction {
 }
 
 /**
- * Whether a condition is one this editor draws fields for.
+ * Whether a condition is one this editor draws leaf fields for.
  *
  * @param condition - The condition to look at.
  * @returns Whether its fields can be drawn.
@@ -274,13 +783,77 @@ export function isEditableCondition(condition: AutomationCondition): boolean {
 }
 
 /**
- * Whether an action is one this editor draws fields for.
+ * Whether an action is a leaf this editor draws field rows for (not a nested template).
  *
  * @param action - The action to look at.
- * @returns Whether its fields can be drawn.
+ * @returns Whether its leaf fields can be drawn.
  */
 export function isEditableAction(action: AutomationAction): boolean {
-  return action.type !== 'parallel';
+  return !(NESTED_ACTION_TYPES as readonly string[]).includes(action.type);
+}
+
+/**
+ * Whether a condition card is negated.
+ *
+ * @param condition - The draft condition.
+ * @returns Whether NOT is on.
+ */
+export function isConditionNegated(condition: AutomationCondition): boolean {
+  return condition.type === 'not';
+}
+
+/**
+ * Turns NOT on or off for a condition card, wrapping or unwrapping a single leaf.
+ *
+ * @param condition - The card's condition.
+ * @param negated - Whether NOT should be on.
+ * @returns The condition as it should be stored on the card.
+ */
+export function withConditionNegated(
+  condition: AutomationCondition,
+  negated: boolean,
+): AutomationCondition {
+  if (negated) {
+    return condition.type === 'not' ? condition : { type: 'not', condition };
+  }
+
+  return condition.type === 'not' ? condition.condition : condition;
+}
+
+/**
+ * The leaf (or inner condition) a card shows fields for, stripping a single NOT wrapper.
+ *
+ * @param condition - The card's condition.
+ * @returns What the fields edit.
+ */
+export function conditionWithoutNot(condition: AutomationCondition): AutomationCondition {
+  return condition.type === 'not' ? condition.condition : condition;
+}
+
+/**
+ * Pads joins to match a list length after an insert or remove.
+ *
+ * @param joins - Existing joins.
+ * @param itemCount - How many items the list now has.
+ * @param fill - Join to use for any new gaps.
+ * @returns Joins of length `max(0, itemCount - 1)`.
+ */
+export function resizeJoins(
+  joins: readonly BooleanJoin[],
+  itemCount: number,
+  fill: BooleanJoin,
+): readonly BooleanJoin[] {
+  const needed = Math.max(0, itemCount - 1);
+
+  if (joins.length === needed) {
+    return joins;
+  }
+
+  if (joins.length > needed) {
+    return joins.slice(0, needed);
+  }
+
+  return [...joins, ...Array.from({ length: needed - joins.length }, () => fill)];
 }
 
 /** What a draft becomes, or why it cannot. */
@@ -291,35 +864,44 @@ export type DraftResult =
 /**
  * Where a problem is, in the words the form uses.
  *
- * `actions › 0 › sceneKey` becomes `Then › action 1 › scene`, because the person looking at the
- * message is looking at a screen that says Then, and counts its blocks from one.
- *
  * @param path - The path the schema reported.
  * @returns Where to look.
  */
 function describePath(path: readonly PropertyKey[]): string {
-  const GROUPS: Readonly<Record<string, string>> = {
-    triggers: 'When › trigger',
-    conditions: 'If › condition',
-    actions: 'Then › action',
-  };
+  const parts = path.map(String);
+  const [group, ...rest] = parts;
 
-  const [group, index, ...rest] = path;
-  const heading = GROUPS[String(group)];
+  if (group === 'then' || group === 'actions') {
+    const [index, ...field] = rest;
 
-  if (heading === undefined || typeof index !== 'number') {
-    return path.map(String).join(' › ') || 'The rule';
+    if (index !== undefined && /^\d+$/u.test(index)) {
+      return [`Then › action ${String(Number(index) + 1)}`, ...field].join(' › ');
+    }
+
+    return ['Then', ...rest].join(' › ') || 'Then';
   }
 
-  return [`${heading} ${String(index + 1)}`, ...rest.map(String)].join(' › ');
+  if (group === 'triggers') {
+    if (rest[0] === 'items' && rest[1] !== undefined && /^\d+$/u.test(rest[1])) {
+      return [`When › trigger ${String(Number(rest[1]) + 1)}`, ...rest.slice(2)].join(' › ');
+    }
+
+    return [`When › trigger 1`, ...rest].join(' › ');
+  }
+
+  if (group === 'if' || group === 'conditions') {
+    if (rest[0] === 'items' && rest[1] !== undefined && /^\d+$/u.test(rest[1])) {
+      return [`If › condition ${String(Number(rest[1]) + 1)}`, ...rest.slice(2)].join(' › ');
+    }
+
+    return [`If › condition 1`, ...rest].join(' › ');
+  }
+
+  return parts.join(' › ') || 'The rule';
 }
 
 /**
  * What is wrong with a field, said the way a person would say it.
- *
- * Zod's own messages are written for whoever is holding the schema. "Too small: expected string
- * to have >=1 characters" is exactly right and is not a sentence to put in front of somebody who
- * has left a box empty.
  *
  * @param issue - What the schema found.
  * @returns The sentence to show.
@@ -343,10 +925,6 @@ function describeIssue(issue: z.core.$ZodIssue): string {
 /**
  * Turns a draft into something the API will take.
  *
- * The definition goes through the same schema the server uses, so a form that would be refused
- * is refused here — while the person is still looking at it, with the path to the field that is
- * wrong rather than a sentence about the whole document.
- *
  * @param draft - What the form holds.
  * @returns The request, or the problems that stop it being one.
  */
@@ -361,10 +939,19 @@ export function toCreate(draft: AutomationDraft): DraftResult {
     problems.push('The key must be lower case letters, digits and underscores.');
   }
 
+  if (draft.triggers.length === 0) {
+    problems.push('When › trigger 1: needs at least one');
+  }
+
+  if (draft.actions.length === 0) {
+    problems.push('Then › action 1: needs at least one');
+  }
+
+  const ifTree = ifTreeFromFlat(draft.conditions, draft.conditionJoins);
   const definition = automationDefinitionSchema.safeParse({
-    triggers: draft.triggers,
-    conditions: draft.conditions,
-    actions: draft.actions,
+    triggers: triggersToSave(draft),
+    ...(ifTree === undefined ? {} : { if: ifTree }),
+    then: draft.actions,
   });
 
   if (!definition.success) {
@@ -394,10 +981,6 @@ export function toCreate(draft: AutomationDraft): DraftResult {
 /**
  * The same list without the entry at one position.
  *
- * Two slices rather than a filter, so there is no parameter for the item nobody looks at - and
- * so that removing the third of three identical blocks removes the third one rather than
- * whichever one an equality check found first.
- *
  * @param items - The list.
  * @param index - Which entry to drop.
  * @returns A new list.
@@ -420,4 +1003,20 @@ export function replaceAt<TItem>(
   item: TItem,
 ): readonly TItem[] {
   return [...items.slice(0, index), item, ...items.slice(index + 1)];
+}
+
+/**
+ * Inserts an item at a position, shifting the rest right.
+ *
+ * @param items - The list.
+ * @param index - Where the new item lands.
+ * @param item - What to insert.
+ * @returns A new list.
+ */
+export function insertAt<TItem>(
+  items: readonly TItem[],
+  index: number,
+  item: TItem,
+): readonly TItem[] {
+  return [...items.slice(0, index), item, ...items.slice(index)];
 }

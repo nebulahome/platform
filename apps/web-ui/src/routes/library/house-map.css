@@ -1,0 +1,39 @@
+/*
+ * Leaflet's own chrome, in the theme's colours.
+ *
+ * Leaflet ships white boxes and black text for its controls and attribution, which is fine on
+ * its own and wrong on a dark surface. These point the few pieces it draws at the theme's
+ * tokens, so the map's box reads as part of the page in both themes and nothing here names a
+ * colour of its own.
+ */
+.leaflet-container {
+  background: var(--color-sunk);
+  font-family: inherit;
+}
+
+.leaflet-bar {
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+}
+
+.leaflet-bar a,
+.leaflet-bar a:hover,
+.leaflet-bar a:focus {
+  background: var(--color-surface-raised);
+  border-bottom-color: var(--color-border);
+  color: var(--color-foreground);
+}
+
+.leaflet-bar a.leaflet-disabled {
+  background: var(--color-surface);
+  color: var(--color-foreground-disabled);
+}
+
+.leaflet-container .leaflet-control-attribution {
+  background: color-mix(in oklab, var(--color-surface) 80%, transparent);
+  color: var(--color-foreground-subtle);
+}
+
+.leaflet-container .leaflet-control-attribution a {
+  color: var(--color-foreground-muted);
+}

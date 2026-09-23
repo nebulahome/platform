@@ -51,12 +51,14 @@ export function isNarrowing(filter: DeviceFilter): boolean {
  * @param device - The device.
  * @param entities - The entities it exposes.
  * @param filter - What the header has been set to.
+ * @param tagNames - The names of the tags on the device and on its entities, for the search.
  * @returns True when every part of the filter admits it.
  */
 export function matchesFilter(
   device: DeviceView,
   entities: readonly EntityView[],
   filter: DeviceFilter,
+  tagNames: readonly string[] = [],
 ): boolean {
   if (filter.deviceId !== '' && device.id !== filter.deviceId) {
     return false;
@@ -85,6 +87,7 @@ export function matchesFilter(
     device.externalId ?? '',
     device.areaName ?? '',
     ...entities.flatMap((entity) => [entity.entityId, entity.name]),
+    ...tagNames,
   ]
     .join('\n')
     .toLowerCase();

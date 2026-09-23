@@ -28,6 +28,14 @@ export type LibraryPageProps = {
   /** What the collection is called when it is counted, e.g. `automation`. */
   readonly noun: string;
 
+  /**
+   * What several of them are called, when adding an `s` does not say it.
+   *
+   * `alias` is the one so far: without this the header read `0 aliass`, which is the kind of
+   * word that makes a person doubt the number beside it.
+   */
+  readonly plural?: string | undefined;
+
   /** How many there are. Undefined while it is still being read. */
   readonly count?: number | undefined;
 
@@ -51,7 +59,7 @@ export type LibraryPageProps = {
   readonly action?: ReactNode;
 
   /**
-   * Whether the header carries the switch between the library's four views.
+   * Whether the header carries the switch between the library's five views.
    *
    * Off for a page that is not one of them. Integrations is a section of its own and has nowhere
    * to switch to; a tab bar with one tab is a tab bar that has misunderstood itself.
@@ -85,6 +93,7 @@ export function LibraryPage(props: LibraryPageProps) {
     title,
     summary,
     noun,
+    plural = `${noun}s`,
     count,
     parent,
     tools,
@@ -102,7 +111,15 @@ export function LibraryPage(props: LibraryPageProps) {
       <header className="flex min-h-17 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-6 py-2.5">
         <div className="flex min-w-0 items-center gap-4">
           {hasTabs ? (
-            <LibraryTabs />
+            <>
+              {/*
+               * The tabs name the page for anyone looking at it, but a tab bar is not a heading:
+               * a reader landing on the page still needs one to be told where they are, and a
+               * page whose first heading is "Status" says nothing about itself.
+               */}
+              <h1 className="sr-only">{title}</h1>
+              <LibraryTabs />
+            </>
           ) : parent === undefined ? (
             <h1 className="text-head font-semibold tracking-tight">{title}</h1>
           ) : (
@@ -122,8 +139,7 @@ export function LibraryPage(props: LibraryPageProps) {
 
           {count === undefined ? null : (
             <span className="text-caption whitespace-nowrap text-foreground-subtle tabular">
-              {count} {noun}
-              {count === 1 ? '' : 's'}
+              {count} {count === 1 ? noun : plural}
             </span>
           )}
         </div>
@@ -142,13 +158,13 @@ export function LibraryPage(props: LibraryPageProps) {
             <p className="text-caption text-foreground-subtle">{summary}</p>
           )}
 
-          {isPending ? <Notice>Reading…</Notice> : null}
+          {isPending ? <Placeholder>Reading…</Placeholder> : null}
 
-          {error === undefined || error === null ? null : (
-            <Notice tone="danger">{toMessage(error)}</Notice>
-          )}
+          {error === undefined || error === null ? null : <Refusal>{toMessage(error)}</Refusal>}
 
-          {!isPending && error === null && isEmpty ? <Notice>{emptyMessage}</Notice> : null}
+          {!isPending && (error === undefined || error === null) && isEmpty ? (
+            <Placeholder>{emptyMessage}</Placeholder>
+          ) : null}
 
           {isPending || isEmpty ? null : children}
         </div>
@@ -157,32 +173,55 @@ export function LibraryPage(props: LibraryPageProps) {
   );
 }
 
-/** What a notice needs. */
-type NoticeProps = {
-  /** Whether this is a failure or merely a fact. */
-  readonly tone?: 'neutral' | 'danger';
-
+/** What a one-line message needs. */
+type MessageProps = {
   /** What to say. */
   readonly children: ReactNode;
 };
 
 /**
- * The one-line panel a page shows instead of a collection.
+ * What a page shows where the rows would be, while there are none: still reading, or nothing
+ * to read.
  *
- * A panel rather than bare text, so an empty page has the same shape as a full one and the
- * layout does not jump when the first row arrives.
+ * Drawn the way every other "nothing here yet" in the interface is - the dashboard that is not
+ * built, the tile that adds a scene - as a dashed outline standing in for the rows. It used to
+ * be a panel headed STATUS, which is a word for a log line: an empty list is not a status, it is
+ * a room with nothing in it, and the outline says so without a heading that has to be read.
  *
- * @param props - See {@link NoticeProps}.
- * @returns The notice.
+ * The outline is the same height whether it says "Reading…" or "No scenes yet", so a page that
+ * turns out to be empty does not move when the answer arrives.
+ *
+ * @param props - See {@link MessageProps}.
+ * @returns The placeholder.
  */
-function Notice(props: NoticeProps) {
-  const { tone = 'neutral', children } = props;
+function Placeholder(props: MessageProps) {
+  const { children } = props;
 
   return (
-    <Panel title={tone === 'danger' ? 'Could not read' : 'Status'}>
-      <p
-        className={`px-4 py-3.5 text-ui ${tone === 'danger' ? 'text-danger' : 'text-foreground-muted'}`}
-      >
+    <div
+      role="status"
+      className="rounded-panel border border-dashed border-border-strong px-6 py-8 text-center"
+    >
+      <p className="mx-auto max-w-md text-ui text-foreground-muted">{children}</p>
+    </div>
+  );
+}
+
+/**
+ * The panel a page shows when the read failed.
+ *
+ * A failure is a fact with a heading, unlike an empty room: it names what went wrong, and a
+ * person reading it should be able to tell at a glance that it is not the page's normal state.
+ *
+ * @param props - See {@link MessageProps}.
+ * @returns The notice.
+ */
+function Refusal(props: MessageProps) {
+  const { children } = props;
+
+  return (
+    <Panel title="Could not read">
+      <p role="alert" className="px-4 py-3.5 text-ui text-danger">
         {children}
       </p>
     </Panel>

@@ -190,7 +190,7 @@ export function PeoplePanel() {
         action={
           canManage ? (
             <Button
-              className="h-8 px-3 text-ui"
+              size="compact"
               onClick={() => {
                 setError(undefined);
                 setRole('member');
@@ -265,7 +265,7 @@ export function PeoplePanel() {
               {canManage ? (
                 <Button
                   variant="ghost"
-                  className="h-8 px-3 text-ui"
+                  size="compact"
                   onClick={() => {
                     setError(undefined);
                     setDisplayName(person.displayName);
@@ -281,7 +281,7 @@ export function PeoplePanel() {
               {canManage && person.id !== selfId ? (
                 <Button
                   variant="danger"
-                  className="h-8 px-3 text-ui"
+                  size="compact"
                   onClick={() => {
                     setError(undefined);
                     setDialog({ kind: 'delete', user: person });
