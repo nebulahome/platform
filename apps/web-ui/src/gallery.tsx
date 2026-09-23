@@ -35,12 +35,15 @@ import {
 
 import { CheckIcon, CopyIcon, WarningIcon } from '@/components/icons';
 import { PasswordField } from '@/components/password-field';
+import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { capabilityStateOf } from '@/library/entity-control';
 import { readingOf } from '@/library/entity-reading';
+import { AliasFormulaField } from '@/routes/library/alias-formula-field';
 import { AutomationEditor } from '@/routes/library/automation-editor';
 import { ControlPanel } from '@/routes/library/entity/controls/control-panel';
+import { EntityField } from '@/routes/library/entity-field';
 import { LibraryTabs } from '@/routes/library/library-tabs';
-import { anEntity } from '@/testing/fixtures';
+import { aDevice, anArea, anEntity } from '@/testing/fixtures';
 
 import './styles/globals.css';
 
@@ -141,6 +144,71 @@ const CONTROL_SPECIMENS = [
   }),
 ];
 
+/**
+ * A house to pick from, for the picker section: two floors, three rooms, a device with many
+ * entities and one with few, an alias and something in no room. Laid into a query cache that
+ * never goes stale, so the picker reads it without a session.
+ *
+ * @returns The cache, filled.
+ */
+function housePickerCache(): QueryClient {
+  const client = new QueryClient({
+    defaultOptions: { queries: { staleTime: Infinity, retry: false } },
+  });
+  const meter = aDevice({ id: 'shelly-em', name: 'Energy meter' });
+  const lamp = aDevice({ id: 'govee-desk', name: 'Desk lamp' });
+  const entities = [
+    ...['Power', 'Voltage', 'Current', 'Energy', 'Frequency', 'Power factor'].map((name) =>
+      anEntity({
+        entityId: `sensor.em_${name.toLowerCase().replaceAll(' ', '_')}`,
+        name,
+        source: 'shelly-em',
+        areaKey: 'kitchen',
+        areaName: 'Kitchen',
+        deviceClass: name.toLowerCase().replaceAll(' ', '_'),
+        capabilities: [{ capability: 'sensor_numeric', params: {} }],
+        state: { sensor_numeric: { value: 230 } },
+      }),
+    ),
+    anEntity({
+      entityId: 'light.desk',
+      name: 'Desk lamp',
+      source: 'govee-desk',
+      areaKey: 'study',
+      areaName: 'Study',
+      capabilities: [
+        { capability: 'on_off', params: {} },
+        { capability: 'level', params: {} },
+      ],
+      state: { on_off: { isOn: true }, level: { level: 60 } },
+    }),
+    anEntity({
+      entityId: 'alias.average_temperature',
+      name: 'Average temperature',
+      source: 'derived',
+      areaKey: 'hall',
+      areaName: 'Hall',
+      deviceClass: 'temperature',
+      capabilities: [{ capability: 'sensor_numeric', params: {} }],
+      state: { sensor_numeric: { value: 21.4 } },
+    }),
+    anEntity({ entityId: 'switch.garage_relay', name: 'Garage relay' }),
+  ];
+
+  client.setQueryData(LIBRARY_QUERY_KEYS.entities, entities);
+  client.setQueryData(LIBRARY_QUERY_KEYS.devices, [meter, lamp, aDevice()]);
+  client.setQueryData(LIBRARY_QUERY_KEYS.areas, [
+    anArea('home', 'house', null),
+    anArea('ground_floor', 'floor', 'home', { sortOrder: 1 }),
+    anArea('first_floor', 'floor', 'home', { sortOrder: 2 }),
+    anArea('kitchen', 'room', 'ground_floor'),
+    anArea('hall', 'room', 'ground_floor'),
+    anArea('study', 'room', 'first_floor'),
+  ]);
+
+  return client;
+}
+
 /** What a section needs. */
 type SectionProps = {
   /** What it is about. */
@@ -191,6 +259,9 @@ function Gallery() {
   const [level, setLevel] = useState(60);
   const [kelvin, setKelvin] = useState(3200);
   const [target, setTarget] = useState(21.5);
+  const [picked, setPicked] = useState('light.desk');
+  const [formula, setFormula] = useState('(t1 + t2) / 2 >= 21 ? t1 : t3');
+  const [pickerCache] = useState(housePickerCache);
 
   // The whole page is themed by the same attribute the application sets on the root, so what is
   // on screen here is what ships rather than an approximation of it. An effect because the root
@@ -450,6 +521,35 @@ function Gallery() {
               ))}
             </div>
           </QueryClientProvider>
+        </Section>
+
+        <Section
+          title="Entity picker"
+          note="Every field that holds an entity opens this: the house by floor, room and device, with a search and the kinds."
+        >
+          <QueryClientProvider client={pickerCache}>
+            <div className="flex w-full flex-col gap-4">
+              <EntityField label="Entity" value={picked} onChange={setPicked} />
+              <EntityField label="From" isOptional value="" onChange={setPicked} />
+            </div>
+          </QueryClientProvider>
+        </Section>
+
+        <Section
+          title="Alias formula"
+          note="The typed text is transparent; the coloured copy under it must line up letter for letter. t3 is not a source."
+        >
+          <div className="w-full">
+            <AliasFormulaField
+              value={formula}
+              onChange={setFormula}
+              sources={[
+                { variableName: 't1', color: 'red' },
+                { variableName: 't2', color: 'teal' },
+              ]}
+              error="t3 is not one of the sources."
+            />
+          </div>
         </Section>
 
         <Section title="Panel" note="The group of rows a settings page is built from.">

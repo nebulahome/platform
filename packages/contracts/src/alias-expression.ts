@@ -699,3 +699,129 @@ export function aliasScalarFromState(state: CapabilityState | undefined): AliasS
 
   return undefined;
 }
+
+/** What one stretch of a formula is, as an editor colours it. */
+export type AliasSpanKind = 'space' | 'number' | 'string' | 'boolean' | 'ident' | 'op' | 'invalid';
+
+/** One stretch of a formula: where it starts and ends, and what it is. */
+export type AliasExpressionSpan = {
+  /** The index of its first character. */
+  readonly start: number;
+
+  /** The index after its last character. */
+  readonly end: number;
+
+  readonly kind: AliasSpanKind;
+};
+
+/**
+ * Whether a character can start an identifier.
+ *
+ * @param character - One character, or empty past the end.
+ * @returns True for a letter or an underscore.
+ */
+function isIdentStart(character: string): boolean {
+  return (
+    (character >= 'a' && character <= 'z') ||
+    (character >= 'A' && character <= 'Z') ||
+    character === '_'
+  );
+}
+
+/**
+ * Whether a character can continue an identifier.
+ *
+ * @param character - One character, or empty past the end.
+ * @returns True for a letter, a digit or an underscore.
+ */
+function isIdentPart(character: string): boolean {
+  return isIdentStart(character) || (character >= '0' && character <= '9');
+}
+
+/**
+ * Cuts a formula into the stretches an editor colours, the way the tokeniser reads it.
+ *
+ * The same character rules as {@link evaluateAliasExpression}'s tokeniser, but it never throws: a
+ * formula is half-written most of the time it is on screen, and an editor that could colour only
+ * valid formulas would flicker to plain text at every keystroke. What the tokeniser would refuse -
+ * a stray character, a string with no closing quote - comes back as `invalid`, so the editor can
+ * mark the place instead of going blank. The spans cover the text exactly, end to end.
+ *
+ * @param source - The formula as typed.
+ * @returns The spans, in order.
+ */
+export function scanAliasExpression(source: string): AliasExpressionSpan[] {
+  const spans: AliasExpressionSpan[] = [];
+  let index = 0;
+
+  /**
+   * Records a span from `start` to where the cursor now is.
+   *
+   * @param start - Where it began.
+   * @param kind - What it is.
+   */
+  const push = (start: number, kind: AliasSpanKind): void => {
+    spans.push({ start, end: index, kind });
+  };
+
+  while (index < source.length) {
+    const start = index;
+    const character = source[index] ?? '';
+
+    if (character === ' ' || character === '\t' || character === '\n' || character === '\r') {
+      while (index < source.length && ' \t\n\r'.includes(source[index] ?? '')) {
+        index += 1;
+      }
+
+      push(start, 'space');
+      continue;
+    }
+
+    if (character >= '0' && character <= '9') {
+      while (index < source.length && /[0-9.]/u.test(source[index] ?? '')) {
+        index += 1;
+      }
+
+      push(start, Number.isFinite(Number(source.slice(start, index))) ? 'number' : 'invalid');
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      index += 1;
+
+      while (index < source.length && source[index] !== character) {
+        index += source[index] === '\\' ? 2 : 1;
+      }
+
+      const isClosed = index < source.length;
+
+      index = Math.min(source.length, index + 1);
+      push(start, isClosed ? 'string' : 'invalid');
+      continue;
+    }
+
+    if (isIdentStart(character)) {
+      while (index < source.length && isIdentPart(source[index] ?? '')) {
+        index += 1;
+      }
+
+      const word = source.slice(start, index);
+
+      push(start, word === 'true' || word === 'false' ? 'boolean' : 'ident');
+      continue;
+    }
+
+    const two = source.slice(index, index + 2);
+
+    if (['&&', '||', '==', '!=', '<=', '>='].includes(two)) {
+      index += 2;
+      push(start, 'op');
+      continue;
+    }
+
+    index += 1;
+    push(start, '+-*/()<>=!?:'.includes(character) ? 'op' : 'invalid');
+  }
+
+  return spans;
+}

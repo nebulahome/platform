@@ -802,6 +802,22 @@
   height: var(--control-height);
 }
 
+/*
+ * A word marked inside running text - a formula's variable - without moving a letter.
+ *
+ * Padding would shift every glyph after it, and in the formula field that is fatal: the
+ * coloured words are drawn under a transparent input, and the caret belongs to the input. So the
+ * mark is a tint behind the word and the same tint spread two pixels round it as a shadow,
+ * which reads as a padded chip and takes no room at all. Drawn in the word's own colour, so one
+ * utility serves every colour of the palette.
+ */
+@utility token-halo {
+  border-radius: calc(var(--radius-chip) / 2);
+  background-color: color-mix(in srgb, currentColor 15%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 15%, transparent);
+  box-decoration-break: clone;
+}
+
 /**
  * Figures that hold their column.
  *

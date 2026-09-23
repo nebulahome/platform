@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { evaluateAliasExpression } from './alias-expression.js';
+import { evaluateAliasExpression, scanAliasExpression } from './alias-expression.js';
 
 /**
  * Evaluates with the given bindings.
@@ -72,5 +72,45 @@ describe('evaluateAliasExpression', () => {
     // new Function call that would bypass the sandbox.
     expect(evaluate('true').ok).toBe(true);
     expect(String(evaluateAliasExpression)).not.toMatch(/new Function|[^a-z]eval\s*\(/);
+  });
+});
+
+describe('scanAliasExpression', () => {
+  it('cuts a formula into spans that cover it exactly', () => {
+    const source = '(t1 + t2) / 2 >= 20.5 && label == "on"';
+    const spans = scanAliasExpression(source);
+
+    expect(spans.map((span) => source.slice(span.start, span.end)).join('')).toBe(source);
+    expect(
+      spans
+        .filter((span) => span.kind !== 'space')
+        .map((span) => [source.slice(span.start, span.end), span.kind]),
+    ).toEqual([
+      ['(', 'op'],
+      ['t1', 'ident'],
+      ['+', 'op'],
+      ['t2', 'ident'],
+      [')', 'op'],
+      ['/', 'op'],
+      ['2', 'number'],
+      ['>=', 'op'],
+      ['20.5', 'number'],
+      ['&&', 'op'],
+      ['label', 'ident'],
+      ['==', 'op'],
+      ['"on"', 'string'],
+    ]);
+  });
+
+  it('marks what the tokeniser would refuse rather than giving up', () => {
+    expect(scanAliasExpression('t1 # 2').map((span) => span.kind)).toEqual([
+      'ident',
+      'space',
+      'invalid',
+      'space',
+      'number',
+    ]);
+    expect(scanAliasExpression("'open").map((span) => span.kind)).toEqual(['invalid']);
+    expect(scanAliasExpression('true').map((span) => span.kind)).toEqual(['boolean']);
   });
 });

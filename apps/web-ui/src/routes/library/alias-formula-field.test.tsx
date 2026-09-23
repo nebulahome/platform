@@ -1,32 +1,65 @@
 /**
- * Coloured formula tokens: variable words match source names and keep plain text for save.
+ * The formula field's painted copy: what it colours, and what it marks as wrong.
  */
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
-import { formulaSegments } from './alias-formula-field';
+import { AliasFormulaField, formulaSegments } from './alias-formula-field';
 
 describe('formulaSegments', () => {
-  it('paints matching variable words and leaves the rest plain', () => {
-    const colors = new Map([
-      ['t1', 'red' as const],
-      ['t2', 'blue' as const],
-    ]);
+  const colors = new Map([
+    ['t1', 'red'],
+    ['t2', 'teal'],
+  ] as const);
 
-    expect(formulaSegments('(t1 + t2) / 3', colors)).toEqual([
-      { text: '(', color: null },
-      { text: 't1', color: 'red' },
-      { text: ' + ', color: null },
-      { text: 't2', color: 'blue' },
-      { text: ') / 3', color: null },
-    ]);
+  it('covers the formula exactly, so the copy lies under the typed text', () => {
+    const value = '(t1 + t2)\n/ 3';
+
+    expect(
+      formulaSegments(value, colors)
+        .map((segment) => segment.text)
+        .join(''),
+    ).toBe(value);
   });
 
-  it('ignores names that are no longer sources', () => {
-    const colors = new Map([['t1', 'red' as const]]);
+  it('draws each variable as a chip in its source’s colour, and nothing else as one', () => {
+    const segments = formulaSegments('(t1 + t2) / 3', colors);
+    const chips = segments.filter((segment) => segment.className.includes('token-halo'));
 
-    expect(formulaSegments('t1 + t2', colors)).toEqual([
-      { text: 't1', color: 'red' },
-      { text: ' + t2', color: null },
-    ]);
+    expect(chips.map((chip) => chip.text)).toEqual(['t1', 't2']);
+    expect(chips[0]?.className).toContain('text-tag-red');
+    expect(chips[1]?.className).toContain('text-tag-teal');
+  });
+
+  it('marks a name no source has, and a character the formula cannot hold', () => {
+    const segments = formulaSegments('t1 + t3 # 2', colors);
+
+    expect(segments.find((segment) => segment.text === 't3')?.isUnknown).toBe(true);
+    expect(segments.find((segment) => segment.text === '#')?.className).toContain('text-danger');
+    expect(segments.find((segment) => segment.text === 't1')?.isUnknown).toBe(false);
+  });
+});
+
+describe('AliasFormulaField', () => {
+  it('is a text area that takes several lines, and says what is wrong with the formula', () => {
+    const onChange = vi.fn();
+
+    render(
+      <AliasFormulaField
+        value="t1 +"
+        onChange={onChange}
+        sources={[{ variableName: 't1', color: 'red' }]}
+        error="The formula ends too soon."
+      />,
+    );
+
+    const field = screen.getByLabelText('Formula');
+
+    expect(field.tagName).toBe('TEXTAREA');
+    expect(field.getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByText('The formula ends too soon.')).toBeTruthy();
+
+    fireEvent.change(field, { target: { value: 't1 +\n2' } });
+    expect(onChange).toHaveBeenCalledWith('t1 +\n2');
   });
 });

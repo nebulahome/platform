@@ -24,13 +24,19 @@ import { AliasEditor, removalMessage } from './alias-editor';
 vi.mock('@/library/api', () => ({
   fetchAliases: vi.fn(),
   fetchEntities: vi.fn(),
+  fetchDevices: vi.fn().mockResolvedValue([]),
+  fetchAreas: vi.fn().mockResolvedValue([]),
+  fetchIcons: vi.fn().mockResolvedValue([]),
   createAlias: vi.fn(),
   updateAlias: vi.fn(),
   deleteAlias: vi.fn(),
   previewAlias: vi.fn(),
   LIBRARY_QUERY_KEYS: {
     aliases: ['library', 'aliases'],
+    areas: ['library', 'areas'],
+    devices: ['library', 'devices'],
     entities: ['library', 'entities'],
+    icons: ['library', 'icons'],
   },
 }));
 
@@ -155,7 +161,7 @@ describe('AliasEditor', () => {
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Hall average' } });
     expect(screen.getByText('alias.hall_average')).toBeTruthy();
     expect(screen.getByLabelText('Formula')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Add source' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add a source' })).toBeTruthy();
   });
 
   it('loads an existing alias and keeps the saved address under the name', async () => {
@@ -177,8 +183,11 @@ describe('AliasEditor', () => {
     fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Hall average' } });
     fireEvent.change(screen.getByLabelText('Formula'), { target: { value: 't1' } });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Choose entity…' }));
-    fireEvent.click(await screen.findByRole('button', { name: /Kitchen temperature/u }));
+    fireEvent.click(await screen.findByRole('button', { name: /Entity read as t1/u }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: /Kitchen temperature/u, pressed: false }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Use this one' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
@@ -206,16 +215,40 @@ describe('AliasEditor', () => {
     expect(screen.getByRole('combobox', { name: /Unit/u }).textContent).toContain('°C');
   });
 
-  it('opens the entity picker from a source row', async () => {
-    renderEditor('/aliases/new');
-    await screen.findByLabelText('Name');
+  it('opens the entity picker from a source row, and never offers the alias itself', async () => {
+    vi.mocked(fetchEntities).mockResolvedValue([
+      KITCHEN,
+      { ...KITCHEN, entityId: AVERAGE_ID, name: 'Kitchen average', source: 'derived' },
+    ]);
+    renderEditor(`/aliases/${AVERAGE.id}`);
+    await waitFor(() => {
+      expect(screen.getByLabelText<HTMLInputElement>('Name').value).toBe('Kitchen average');
+    });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Choose entity…' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Entity read as t1/u }));
 
-    expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Which one is t1?' })).toBeTruthy();
     expect(screen.getByLabelText('Search')).toBeTruthy();
-    expect(screen.getByRole('combobox', { name: /domain/iu })).toBeTruthy();
-    expect(screen.getByRole('combobox', { name: /area/iu })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Kitchen average/u, pressed: false })).toBeNull();
+  });
+
+  it('says what the formula reads now, and names a variable that is not a source', async () => {
+    vi.mocked(fetchEntities).mockResolvedValue([
+      { ...KITCHEN, state: { sensor_numeric: { value: 21 } } },
+      {
+        ...KITCHEN,
+        entityId: entityIdSchema.parse('sensor.living_room_temperature'),
+        name: 'Living room temperature',
+        state: { sensor_numeric: { value: 23 } },
+      },
+    ]);
+    renderEditor(`/aliases/${AVERAGE.id}`);
+
+    expect(await screen.findByText(/^Reads 22/u)).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText('Formula'), { target: { value: 't1 + t3' } });
+    expect(screen.getByText('t3 is not one of the sources.')).toBeTruthy();
+    expect(screen.getByLabelText('Formula').getAttribute('aria-invalid')).toBe('true');
   });
 });
 
