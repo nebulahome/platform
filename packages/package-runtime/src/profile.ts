@@ -30,16 +30,30 @@ import {
   ENTITY_STATE_CLASSES,
   capabilityNameSchema,
   declaredCapabilitiesSchema,
+  iconIdSchema,
   jsonObjectSchema,
   type CapabilityName,
 } from '@nebula-home/contracts';
 
 import { pathSchema } from './expression.js';
 
-/** One condition a candidate must satisfy for an integration to claim it. */
+/** What a claim compares with, and what a table maps to: a JSON scalar. */
+const scalarSchema = z.union([z.string(), z.number(), z.boolean()]);
+
+/** How many models one claim may list. Beyond this it is a catalogue, not a family. */
+const MAXIMUM_ONE_OF = 64;
+
+/**
+ * One condition a candidate must satisfy for an integration to claim it.
+ *
+ * `oneOf` is membership in a list - a family of devices is one model string among several -
+ * and not an `or` between paths: the list is still all-of, and a claim needing boolean
+ * algebra is still a claim whose integration should be code.
+ */
 export const claimConditionSchema = z.union([
-  z.strictObject({ path: pathSchema, equals: z.union([z.string(), z.number(), z.boolean()]) }),
+  z.strictObject({ path: pathSchema, equals: scalarSchema }),
   z.strictObject({ path: pathSchema, exists: z.literal(true) }),
+  z.strictObject({ path: pathSchema, oneOf: z.array(scalarSchema).min(1).max(MAXIMUM_ONE_OF) }),
 ]);
 
 /** One condition a candidate must satisfy for an integration to claim it. */
@@ -49,13 +63,23 @@ export type ClaimCondition = z.output<typeof claimConditionSchema>;
  * Where a state field's value comes from.
  *
  * A path reads the value as it is. A path with `equals` reads it and compares, producing `true`
- * or `false` - and nothing at all when the path names nothing, so a partial report that omits
- * the field leaves the entity as it was rather than switching it off. That last point is the
- * difference between a comparison and a program: a program would have to be told about absence.
+ * or `false`. A path with `map` reads it and looks it up: a table that renames what a device
+ * says into what the capability accepts - `opening` for `opening`, `stopped` for everything
+ * else through `default`. A table cannot compute, only rename, which is why it is admitted.
+ *
+ * All three yield nothing at all when the path names nothing, so a partial report that omits
+ * the field leaves the entity as it was rather than switching it off. A value the table lacks
+ * yields `default`, and nothing when there is none. That last point is the difference between
+ * a lookup and a program: a program would have to be told about absence.
  */
 export const stateValueSchema = z.union([
   pathSchema,
-  z.strictObject({ path: pathSchema, equals: z.union([z.string(), z.number(), z.boolean()]) }),
+  z.strictObject({ path: pathSchema, equals: scalarSchema }),
+  z.strictObject({
+    path: pathSchema,
+    map: z.record(z.string(), scalarSchema),
+    default: scalarSchema.optional(),
+  }),
 ]);
 
 /** Where a state field's value comes from. */
@@ -165,6 +189,12 @@ export const entityProfileSchema = z
       .optional(),
 
     name: z.string().min(1).max(128).optional(),
+
+    /**
+     * The catalogue icon the entity starts with, by id, like a driver's `defaultIcon` for the
+     * device. The owner may pick another afterwards; the bundle's choice is only the first.
+     */
+    icon: iconIdSchema.optional(),
     capabilities: declaredCapabilitiesSchema,
 
     /** Capability, then state field, then where its value is in the payload. */

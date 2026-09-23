@@ -40,6 +40,23 @@ describe('integrationProfileSchema', () => {
     expect(parsed.entities[0]?.state.on_off).toEqual({ isOn: 'relay.on' });
   });
 
+  it('lets an entity name the catalogue icon it starts with', () => {
+    // The icon is a catalogue id, the same alphabet a driver's `defaultIcon` uses, so a profile
+    // cannot smuggle a drawing in; whether the id exists is the catalogue's question.
+    const profile = relayProfile();
+    const entity = { ...(profile['entities'] as Record<string, unknown>[])[0], icon: 'relay' };
+
+    expect(
+      integrationProfileSchema.parse({ ...profile, entities: [entity] }).entities[0]?.icon,
+    ).toBe('relay');
+    expect(
+      integrationProfileSchema.safeParse({
+        ...profile,
+        entities: [{ ...entity, icon: 'Not An Id' }],
+      }).success,
+    ).toBe(false);
+  });
+
   it('reads a value out of the command into the request', () => {
     // The one thing a request template cannot be literal about: `set_level` carries the level
     // the caller asked for, and it has to reach the device.
@@ -56,6 +73,53 @@ describe('integrationProfileSchema', () => {
     expect(integrationProfileSchema.safeParse({ ...profile, entities: [entity] }).success).toBe(
       true,
     );
+  });
+
+  it('lets a claim name one model string among several', () => {
+    // A family of devices is one profile and a list of the model codes it drives; the list is
+    // membership, not an `or` between paths, so the ceiling stays where it is.
+    const profile = relayProfile();
+    const discovery = profile['discovery'] as Record<string, unknown>;
+    const claim = [{ path: 'model', oneOf: ['S3SW-001P16EU', 'S4SW-001P16EU'] }];
+
+    expect(
+      integrationProfileSchema.parse({ ...profile, discovery: { ...discovery, claim } }).discovery
+        .claim[0],
+    ).toEqual({ path: 'model', oneOf: ['S3SW-001P16EU', 'S4SW-001P16EU'] });
+  });
+
+  it('refuses an empty list, which would claim nothing and say nothing', () => {
+    const profile = relayProfile();
+    const discovery = profile['discovery'] as Record<string, unknown>;
+
+    expect(
+      integrationProfileSchema.safeParse({
+        ...profile,
+        discovery: { ...discovery, claim: [{ path: 'model', oneOf: [] }] },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('lets a state value be looked up in a table', () => {
+    // A device says `opening`, `closing`, `open`, `closed`, `stopped`; the capability wants
+    // three words. A table renames and cannot compute, which is why it is admitted.
+    const profile = relayProfile();
+    const entity = {
+      domain: 'cover',
+      capabilities: { cover: {} },
+      state: {
+        cover: {
+          position: 'current_pos',
+          motion: { path: 'state', map: { opening: 'opening' }, default: 'stopped' },
+        },
+      },
+    };
+
+    expect(
+      integrationProfileSchema.parse({ ...profile, entities: [entity] }).entities[0]?.state.cover?.[
+        'motion'
+      ],
+    ).toEqual({ path: 'state', map: { opening: 'opening' }, default: 'stopped' });
   });
 });
 

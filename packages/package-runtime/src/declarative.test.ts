@@ -28,35 +28,38 @@ function manifest(): ReturnType<typeof bundleManifestSchema.parse> {
   });
 }
 
+/** The profile of that bundle, as `profile.json` holds it: one relay, polled, switchable. */
+const PROFILE_JSON = {
+  discovery: {
+    scan: { mdns: '_http._tcp' },
+    probe: { op: 'get', args: { path: '/status' } },
+    claim: [{ path: 'relay', exists: true }],
+    identity: { externalId: 'device.id', name: 'device.name', model: 'device.model' },
+  },
+  subscriptions: [{ op: 'poll', args: { path: '/status', everyMs: 5000 } }],
+  entities: [
+    {
+      domain: 'switch',
+      capabilities: { on_off: {}, level: {} },
+      state: { on_off: { isOn: 'relay.on' }, level: { level: 'relay.brightness' } },
+      commands: {
+        'on_off.turn_on': { op: 'get', args: { path: '/relay/on' } },
+        'level.set_level': {
+          op: 'get',
+          args: { path: '/relay/dim', query: { v: { $: 'command.level' } } },
+        },
+      },
+    },
+  ],
+};
+
 /**
  * The profile of that bundle: one relay, polled, switchable.
  *
  * @returns The parsed profile.
  */
 function profile(): ReturnType<typeof integrationProfileSchema.parse> {
-  return integrationProfileSchema.parse({
-    discovery: {
-      scan: { mdns: '_http._tcp' },
-      probe: { op: 'get', args: { path: '/status' } },
-      claim: [{ path: 'relay', exists: true }],
-      identity: { externalId: 'device.id', name: 'device.name', model: 'device.model' },
-    },
-    subscriptions: [{ op: 'poll', args: { path: '/status', everyMs: 5000 } }],
-    entities: [
-      {
-        domain: 'switch',
-        capabilities: { on_off: {}, level: {} },
-        state: { on_off: { isOn: 'relay.on' }, level: { level: 'relay.brightness' } },
-        commands: {
-          'on_off.turn_on': { op: 'get', args: { path: '/relay/on' } },
-          'level.set_level': {
-            op: 'get',
-            args: { path: '/relay/dim', query: { v: { $: 'command.level' } } },
-          },
-        },
-      },
-    ],
-  });
+  return integrationProfileSchema.parse(PROFILE_JSON);
 }
 
 /** What a probe returned for a relay that is on. */
@@ -115,6 +118,27 @@ describe('claim', () => {
 
     expect(integration().claim({ deviceKey: '192.168.1.42', payload }, {})).toBeNull();
   });
+
+  it('claims a device whose model is one of several', () => {
+    // A family: one profile, a list of the models it drives. The list is membership, so a
+    // model outside it is left alone the way a failed `equals` leaves it alone.
+    const family = createDeclarativeIntegration(
+      manifest(),
+      integrationProfileSchema.parse({
+        ...PROFILE_JSON,
+        discovery: {
+          ...PROFILE_JSON.discovery,
+          claim: [{ path: 'device.model', oneOf: ['R1', 'R2'] }],
+        },
+      }),
+    );
+    const other = { ...DESCRIPTOR, device: { ...DESCRIPTOR.device, model: 'R3' } };
+
+    expect(family.claim({ deviceKey: 'x', payload: DESCRIPTOR }, {})?.externalId).toBe(
+      'relay-aabbcc',
+    );
+    expect(family.claim({ deviceKey: 'x', payload: other }, {})).toBeNull();
+  });
 });
 
 describe('describe', () => {
@@ -141,6 +165,20 @@ describe('describe', () => {
       'switch',
       ['on_off', 'level'],
     ]);
+  });
+
+  it('carries the icon an entity was given, and no key at all otherwise', () => {
+    const [bare] = integration().describe(claim(), {}).entities;
+    const withIcon = profile();
+    const [declared] = withIcon.entities;
+    const iconed = createDeclarativeIntegration(manifest(), {
+      ...withIcon,
+      entities: declared === undefined ? [] : [{ ...declared, icon: 'relay' }],
+    });
+    const [entity] = iconed.describe(claim(), {}).entities;
+
+    expect(entity?.icon).toBe('relay');
+    expect(bare !== undefined && 'icon' in bare).toBe(false);
   });
 });
 
@@ -213,6 +251,40 @@ describe('toState', () => {
     };
 
     expect(integration().toState(message, context())[0]?.state).toEqual({ level: { level: 40 } });
+  });
+
+  it('looks a value up in a table, falling back to the default and keeping absence', () => {
+    const cover = parseEntityId('cover.lab_cover');
+    const shutter = createDeclarativeIntegration(
+      manifest(),
+      integrationProfileSchema.parse({
+        ...PROFILE_JSON,
+        entities: [
+          {
+            domain: 'cover',
+            capabilities: { cover: {} },
+            state: {
+              cover: {
+                position: 'cover.pos',
+                motion: { path: 'cover.state', map: { opening: 'opening' }, default: 'stopped' },
+              },
+            },
+          },
+        ],
+      }),
+    );
+    const mapping = { ...context(), entities: new Map<string, EntityId>([['', cover]]) };
+    const read = (payload: unknown): CapabilityState | undefined =>
+      shutter.toState({ connectionKey: 'c', deviceKey: 'd', payload }, mapping)[0]?.state;
+
+    expect(read({ cover: { pos: 40, state: 'opening' } })).toEqual({
+      cover: { position: 40, motion: 'opening' },
+    });
+    expect(read({ cover: { pos: 40, state: 'closed' } })).toEqual({
+      cover: { position: 40, motion: 'stopped' },
+    });
+    // No `state` at all: the table says nothing, so the cover says nothing.
+    expect(read({ cover: { pos: 40 } })).toBeUndefined();
   });
 });
 

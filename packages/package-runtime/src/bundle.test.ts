@@ -97,12 +97,43 @@ describe('vendorManifestSchema', () => {
     expect(vendorManifestSchema.safeParse({ ...vendor(), hasMqtt: true }).success).toBe(false);
   });
 
-  it('lets a vendor ask for room around its logo, in pixels, none by default', () => {
-    // A mark drawn to the edge of its file needs more than the small margin every logo gets.
-    expect(vendorManifestSchema.parse(vendor()).logoPadding).toBe(0);
-    expect(vendorManifestSchema.parse({ ...vendor(), logoPadding: 6 }).logoPadding).toBe(6);
-    expect(vendorManifestSchema.safeParse({ ...vendor(), logoPadding: 40 }).success).toBe(false);
-    expect(vendorManifestSchema.safeParse({ ...vendor(), logoPadding: 2.5 }).success).toBe(false);
+  it('reads a logo given as a path, with no room asked around it', () => {
+    expect(vendorManifestSchema.parse({ ...vendor(), logo: './logo.svg' }).logo).toEqual({
+      path: './logo.svg',
+      padding: 0,
+    });
+    expect(vendorManifestSchema.parse(vendor()).logo).toBeUndefined();
+  });
+
+  it('lets a vendor ask for room around its logo, in pixels, where the logo is named', () => {
+    // A mark drawn to the edge of its file needs more than the small margin every logo gets,
+    // and the ask sits beside the file it is about rather than in a field of its own.
+    const parsed = vendorManifestSchema.parse({
+      ...vendor(),
+      logo: { path: './logo.svg', padding: 6 },
+    });
+
+    expect(parsed.logo).toEqual({ path: './logo.svg', padding: 6 });
+    expect(vendorManifestSchema.parse({ ...vendor(), logo: { path: './logo.svg' } }).logo).toEqual({
+      path: './logo.svg',
+      padding: 0,
+    });
+  });
+
+  it('holds the room around a logo to whole pixels, sixteen at most', () => {
+    const logo = { path: './logo.svg' };
+
+    expect(
+      vendorManifestSchema.safeParse({ ...vendor(), logo: { ...logo, padding: 40 } }).success,
+    ).toBe(false);
+    expect(
+      vendorManifestSchema.safeParse({ ...vendor(), logo: { ...logo, padding: 2.5 } }).success,
+    ).toBe(false);
+    expect(
+      vendorManifestSchema.safeParse({ ...vendor(), logo: { ...logo, inset: 4 } }).success,
+    ).toBe(false);
+    // The field the padding used to live in is gone, and a strict manifest says so.
+    expect(vendorManifestSchema.safeParse({ ...vendor(), logoPadding: 4 }).success).toBe(false);
   });
 
   it('records the runtime the bundle was written against', () => {
@@ -121,9 +152,34 @@ describe('vendorManifestSchema', () => {
 
     expect([parsed.integrity, parsed.signature]).toEqual([undefined, undefined]);
   });
+
+  it('lets a vendor ship transports of its own, by name and module', () => {
+    const parsed = vendorManifestSchema.parse({
+      ...vendor(),
+      transports: { rpc: './rpc/transport.js' },
+    });
+
+    expect(parsed.transports).toEqual({ rpc: './rpc/transport.js' });
+  });
+
+  it('ships no transport unless it says so', () => {
+    expect(vendorManifestSchema.parse(vendor()).transports).toEqual({});
+  });
+
+  it('holds a transport name to a bare name; the vendor qualifies it', () => {
+    expect(() =>
+      vendorManifestSchema.parse({ ...vendor(), transports: { 'shelly/rpc': './rpc.js' } }),
+    ).toThrow();
+  });
 });
 
 describe('driverManifestSchema', () => {
+  it('lets a driver name a transport its vendor ships, qualified by the vendor', () => {
+    expect(driverManifestSchema.parse({ ...driver(), transport: 'shelly/rpc' }).transport).toBe(
+      'shelly/rpc',
+    );
+  });
+
   it('requires every driver to say what setting up an instance asks', () => {
     // Without `setup.json` the interface has no form to show, and an instance could only be
     // created by writing a row by hand - which is the situation this file exists to end.
@@ -222,6 +278,26 @@ describe('driverManifestSchema', () => {
 });
 
 describe('resolveManifest', () => {
+  it("refuses a driver that names another vendor's transport", () => {
+    // A qualified transport is registered when its vendor loads, and vendors load in no
+    // particular order: a driver leaning on another vendor's would work or not by luck.
+    expect(() =>
+      resolveManifest(vendorManifestSchema.parse(vendor()), {
+        ...driverManifestSchema.parse(driver()),
+        transport: 'other/rpc',
+      }),
+    ).toThrow(/belongs to another vendor/);
+  });
+
+  it("carries a transport of the driver's own vendor through", () => {
+    expect(
+      resolveManifest(vendorManifestSchema.parse(vendor()), {
+        ...driverManifestSchema.parse(driver()),
+        transport: 'shelly/rpc',
+      }).transport,
+    ).toBe('shelly/rpc');
+  });
+
   it('carries the default icon from the driver', () => {
     const resolved = resolveManifest(
       vendorManifestSchema.parse(vendor()),

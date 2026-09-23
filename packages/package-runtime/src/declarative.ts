@@ -13,6 +13,9 @@
 import {
   capabilityStateSchema,
   jsonObjectSchema,
+  resolveCanonicalUnit,
+  resolveStateClass,
+  toCanonical,
   ValidationError,
   type CapabilityState,
   type EntityId,
@@ -58,7 +61,15 @@ const SOLE_ENTITY = '';
 function holds(condition: ClaimCondition, payload: unknown): boolean {
   const value = resolvePath(payload, condition.path);
 
-  return 'exists' in condition ? value !== undefined && value !== null : value === condition.equals;
+  if ('exists' in condition) {
+    return value !== undefined && value !== null;
+  }
+
+  if ('oneOf' in condition) {
+    return condition.oneOf.some((candidate) => candidate === value);
+  }
+
+  return value === condition.equals;
 }
 
 /**
@@ -123,9 +134,10 @@ function keyOf(entity: EntityProfile): string {
  *
  * @param value - Where the profile says the field comes from.
  * @param payload - What arrived.
- * @returns The value, or the result of the comparison, or undefined when the path names nothing.
- * Absence stays absence either way: a comparison against a field the report did not carry must
- * not become `false`, or every partial report would switch every light off.
+ * @returns The value, the result of the comparison, or the table's entry - and undefined when
+ * the path names nothing, or the table has no entry and no default. Absence stays absence
+ * either way: a comparison against a field the report did not carry must not become `false`,
+ * or every partial report would switch every light off.
  */
 function readStateValue(value: StateValue, payload: unknown): unknown {
   if (typeof value === 'string') {
@@ -134,7 +146,21 @@ function readStateValue(value: StateValue, payload: unknown): unknown {
 
   const found = resolvePath(payload, value.path);
 
-  return found === undefined ? undefined : found === value.equals;
+  if (found === undefined) {
+    return undefined;
+  }
+
+  if ('map' in value) {
+    const key =
+      typeof found === 'string' || typeof found === 'number' || typeof found === 'boolean'
+        ? String(found)
+        : undefined;
+    const mapped = key === undefined ? undefined : value.map[key];
+
+    return mapped ?? value.default;
+  }
+
+  return found === value.equals;
 }
 
 /**
@@ -175,11 +201,57 @@ function stateFrom(entity: EntityProfile, payload: unknown): CapabilityState | u
     }
   }
 
+  // The profile's unitOfMeasurement is the device's native unit. Catalogue classes publish in
+  // the canonical unit so the number matches what `describe` registers on the entity.
+  const numeric = kept['sensor_numeric'];
+
+  if (
+    numeric !== undefined &&
+    typeof numeric === 'object' &&
+    numeric !== null &&
+    entity.deviceClass !== undefined &&
+    entity.unitOfMeasurement !== undefined &&
+    typeof (numeric as { value?: unknown }).value === 'number'
+  ) {
+    const converted = toCanonical(
+      entity.deviceClass,
+      (numeric as { value: number }).value,
+      entity.unitOfMeasurement,
+    );
+
+    if (converted !== undefined) {
+      kept['sensor_numeric'] = { ...(numeric as Record<string, unknown>), value: converted };
+    }
+  }
+
   if (Object.keys(kept).length === 0) {
     return undefined;
   }
 
   return capabilityStateSchema.parse(kept);
+}
+
+/**
+ * Measurement fields as they are registered: canonical unit and default state class when the
+ * profile names a catalogue class. The profile's unit stays the native one for {@link stateFrom}.
+ *
+ * @param entity - The entity profile.
+ * @returns Fields to put on the descriptor.
+ */
+function registeredMeasurement(entity: EntityProfile): {
+  unitOfMeasurement?: string;
+  deviceClass?: string;
+  stateClass?: NonNullable<EntityProfile['stateClass']>;
+} {
+  const canonical = resolveCanonicalUnit(entity.deviceClass);
+  const unitOfMeasurement = canonical ?? entity.unitOfMeasurement;
+  const stateClass = resolveStateClass(entity.deviceClass, entity.stateClass);
+
+  return {
+    ...(unitOfMeasurement === undefined ? {} : { unitOfMeasurement }),
+    ...(entity.deviceClass === undefined ? {} : { deviceClass: entity.deviceClass }),
+    ...(stateClass === undefined ? {} : { stateClass }),
+  };
 }
 
 /**
@@ -307,20 +379,21 @@ export function createDeclarativeIntegration(
       const swVersion = text(identity.swVersion);
       const hwVersion = text(identity.hwVersion);
 
-      const entities = profile.entities.map((entity): EntityDescriptor => ({
-        domain: entity.domain,
-        ...(entity.objectId === undefined ? {} : { objectId: entity.objectId }),
-        name: entity.name ?? name ?? claimed.externalId,
-        capabilities: entity.capabilities,
-        ...(entity.unitOfMeasurement === undefined
-          ? {}
-          : { unitOfMeasurement: entity.unitOfMeasurement }),
-        ...(entity.deviceClass === undefined ? {} : { deviceClass: entity.deviceClass }),
-        ...(entity.stateClass === undefined ? {} : { stateClass: entity.stateClass }),
-        ...(entity.displayPrecision === undefined
-          ? {}
-          : { displayPrecision: entity.displayPrecision }),
-      }));
+      const entities = profile.entities.map((entity): EntityDescriptor => {
+        const measurement = registeredMeasurement(entity);
+
+        return {
+          domain: entity.domain,
+          ...(entity.objectId === undefined ? {} : { objectId: entity.objectId }),
+          name: entity.name ?? name ?? claimed.externalId,
+          ...(entity.icon === undefined ? {} : { icon: entity.icon }),
+          capabilities: entity.capabilities,
+          ...measurement,
+          ...(entity.displayPrecision === undefined
+            ? {}
+            : { displayPrecision: entity.displayPrecision }),
+        };
+      });
 
       return {
         externalId: claimed.externalId,

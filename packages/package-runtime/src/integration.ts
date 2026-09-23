@@ -59,6 +59,9 @@ export type EntityDescriptor = {
   readonly objectId?: string;
 
   readonly name: string;
+
+  /** The catalogue icon it starts with, when the bundle names one. */
+  readonly icon?: string;
   readonly capabilities: DeclaredCapabilities;
   readonly unitOfMeasurement?: string;
   readonly deviceClass?: string;

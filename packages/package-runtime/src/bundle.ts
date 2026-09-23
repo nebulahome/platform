@@ -22,7 +22,12 @@
  */
 import { z } from 'zod';
 
-import { iconIdSchema, INTEGRATION_KIND_PATTERN, SEMVER_PATTERN } from '@nebula-home/contracts';
+import {
+  iconIdSchema,
+  INTEGRATION_KIND_PATTERN,
+  SEMVER_PATTERN,
+  transportIdSchema,
+} from '@nebula-home/contracts';
 
 /** Bundle kind, which is both how it is written and how far it is trusted. */
 export const BUNDLE_KINDS = ['declarative', 'code'] as const;
@@ -36,7 +41,7 @@ export const VENDOR_ID_PATTERN = /^[a-z][a-z0-9-]{1,63}$/;
 /** Validates a vendor id. */
 export const vendorIdSchema = z.string().regex(VENDOR_ID_PATTERN, 'Must be a vendor id');
 
-/** Identifies a driver within its vendor, and names its directory: `gen2`, `1pm-mini-g3`. */
+/** Identifies a driver within its vendor, and names its directory: `dimmer-pm`, `3em`. */
 export const DRIVER_ID_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/;
 
 /** Validates a driver id. */
@@ -53,11 +58,8 @@ export const integrationKindSchema = z
   .string()
   .regex(INTEGRATION_KIND_PATTERN, 'Must be an integration kind, as vendor/driver');
 
-/** Identifies a transport: `http`, `mqtt`, `esphome`. */
-export const TRANSPORT_ID_PATTERN = /^[a-z][a-z0-9-]{1,31}$/;
-
-/** Validates a transport identifier. */
-export const transportIdSchema = z.string().regex(TRANSPORT_ID_PATTERN, 'Must be a transport id');
+/** The name a vendor ships a transport under; the vendor's id in front of it makes the id. */
+const TRANSPORT_NAME_PATTERN = /^[a-z][a-z0-9-]{1,31}$/;
 
 /** A path inside the bundle, as a manifest names its files. */
 const bundlePathSchema = z.string().min(1).max(256);
@@ -98,14 +100,26 @@ export const vendorManifestSchema = z.strictObject({
     .regex(/^#[0-9a-fA-F]{6}$/, 'Must be a hex colour like #3B9DFF')
     .optional(),
 
-  /** Path to the logo, relative to the bundle: an SVG or a PNG. */
-  logo: bundlePathSchema.optional(),
-
   /**
-   * Room the interface leaves around the logo, in pixels, on top of the small margin every
-   * logo gets. For a mark drawn to the edge of its file.
+   * The logo: a path relative to the bundle, an SVG or a PNG, either bare or with the room the
+   * interface should leave around it. Both forms read as the second, so nothing downstream
+   * has to ask which one was written.
    */
-  logoPadding: z.int().min(0).max(16).default(0),
+  logo: z
+    .union([
+      bundlePathSchema,
+      z.strictObject({
+        path: bundlePathSchema,
+
+        /**
+         * Room around the mark, in pixels, on top of the small margin every logo gets. For a
+         * mark drawn to the edge of its file.
+         */
+        padding: z.int().min(0).max(16).default(0),
+      }),
+    ])
+    .transform((logo) => (typeof logo === 'string' ? { path: logo, padding: 0 } : logo))
+    .optional(),
 
   /** Whether the devices stop working when the internet does. Shown as a warning on the card. */
   internetRequired: z.boolean().default(false),
@@ -116,6 +130,17 @@ export const vendorManifestSchema = z.strictObject({
    * directly, which is most of them.
    */
   setup: bundlePathSchema.optional(),
+
+  /**
+   * Transports of the vendor's own, by name: `{ "rpc": "./rpc/transport.js" }`.
+   *
+   * Each module default-exports a factory taking the {@link BundleSdk} and returning a
+   * transport whose id is `<vendor>/<name>`. A vendor that ships one ships code, and is
+   * reviewed as a code driver is.
+   */
+  transports: z
+    .record(z.string().regex(TRANSPORT_NAME_PATTERN, 'Must be a transport name'), bundlePathSchema)
+    .default({}),
 
   /**
    * Digest of the bundle's contents, stamped by the catalogue at publication.
@@ -285,8 +310,19 @@ export type BundleManifest = z.output<typeof bundleManifestSchema>;
  * @param vendor - The vendor's manifest.
  * @param driver - One of its drivers' manifests.
  * @returns The resolved manifest, as {@link bundleManifestSchema} accepts it.
+ * @throws {Error} When the driver names another vendor's transport.
  */
 export function resolveManifest(vendor: VendorManifest, driver: DriverManifest): BundleManifest {
+  const slash = driver.transport.indexOf('/');
+
+  if (slash !== -1 && driver.transport.slice(0, slash) !== vendor.id) {
+    // Vendors load in no particular order, so a driver leaning on another vendor's transport
+    // would bind or not by luck. The platform's transports are unqualified and always there.
+    throw new Error(
+      `${vendor.id}/${driver.id} names ${driver.transport}, which belongs to another vendor; a driver uses the platform's transports or its own vendor's`,
+    );
+  }
+
   return {
     id: `${vendor.id}/${driver.id}`,
     version: vendor.version,
