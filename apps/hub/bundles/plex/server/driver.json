@@ -1,0 +1,9 @@
+{
+  "id": "server",
+  "name": "Media Server",
+  "transport": "http",
+  "defaultIcon": "server",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}
