@@ -186,6 +186,12 @@
   /** Text and glyphs on top of the accent. */
   --color-primary-foreground: #080d1a;
 
+  /**
+   * The handle of a switch or a slider: the lightest thing on a control in both themes, so the
+   * part a finger moves never sinks into the track it moves along.
+   */
+  --color-knob: #f3f5fb;
+
   --color-success: #52cd86;
   --color-warning: #edb345;
   --color-danger: #f75d59;
@@ -495,6 +501,7 @@
     --color-primary-lit: #5e64e4;
     --color-primary-deep: #4348ce;
     --color-primary-foreground: #ffffff;
+    --color-knob: #ffffff;
 
     --color-success: #007840;
     --color-warning: #a46400;
@@ -557,6 +564,7 @@
       --color-primary-lit: #5e64e4;
       --color-primary-deep: #4348ce;
       --color-primary-foreground: #ffffff;
+      --color-knob: #ffffff;
 
       --color-success: #007840;
       --color-warning: #a46400;
@@ -917,4 +925,95 @@
   50% {
     opacity: 0.45;
   }
+}
+
+/*
+ * A range input drawn in the theme: a sunk groove, and a knob that sits on it.
+ *
+ * Plain rules rather than an `@utility`, for the reason the press gives: nested pseudo-element
+ * selectors inside `@utility` do not survive, and a slider is nothing but pseudo-elements. The
+ * WebKit and Firefox parts are separate rules because one unknown selector in a list throws the
+ * whole list away.
+ *
+ * What the groove shows comes from two custom properties the component sets: `--slider-at`, how
+ * far along the value is, for a groove filled up to the knob; or `--slider-track`, a whole
+ * gradient, for a groove that is a scale - colour temperature, hue, saturation - where the knob
+ * points at a place on it rather than filling it.
+ */
+.range-slider {
+  appearance: none;
+  width: 100%;
+  height: 1.25rem;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  --slider-groove: var(
+    --slider-track,
+    linear-gradient(
+      90deg,
+      var(--slider-fill, var(--color-primary)) 0 var(--slider-at, 0%),
+      var(--color-control) var(--slider-at, 0%) 100%
+    )
+  );
+}
+
+.range-slider:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* The ring moves to the knob, which is where the eye already is; the input keeps no outline. */
+.range-slider:focus-visible {
+  outline: none;
+}
+
+.range-slider::-webkit-slider-runnable-track {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--slider-groove);
+  box-shadow: var(--shadow-sunk);
+}
+
+.range-slider::-moz-range-track {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--slider-groove);
+  box-shadow: var(--shadow-sunk);
+}
+
+.range-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: -0.3125rem;
+  border-radius: 999px;
+  background: var(--color-knob);
+  box-shadow:
+    0 0 0 1px var(--color-border-strong),
+    0 1px 3px rgb(3 6 14 / 0.35);
+  transition: box-shadow 120ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.range-slider::-moz-range-thumb {
+  width: 1.125rem;
+  height: 1.125rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-knob);
+  box-shadow:
+    0 0 0 1px var(--color-border-strong),
+    0 1px 3px rgb(3 6 14 / 0.35);
+  transition: box-shadow 120ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.range-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 1px var(--color-primary),
+    0 0 0 4px color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+
+.range-slider:focus-visible::-moz-range-thumb {
+  box-shadow:
+    0 0 0 1px var(--color-primary),
+    0 0 0 4px color-mix(in srgb, var(--color-primary) 30%, transparent);
 }

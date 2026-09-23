@@ -2,13 +2,11 @@
  * The controls for one scene member's target state.
  *
  * Each capability present in `targetState` gets its own control: on/off and lock as a segmented
- * choice, levels and colour as a range with the figure beside it, the rest as ordinary fields.
+ * choice, levels and colour as a slider with the figure beside it, the rest as ordinary fields.
  * There is no shared state editor elsewhere in the library; these fields are the place.
  */
-import { useId } from 'react';
-
 import { THERMOSTAT_MODES, type CapabilityState } from '@nebula-home/contracts';
-import { Segmented, SelectField, TextField } from '@nebula-home/ui';
+import { Segmented, SelectField, Slider, TextField } from '@nebula-home/ui';
 
 /** Playback options the editor offers. */
 const PLAYBACK_OPTIONS = [
@@ -60,54 +58,6 @@ function thermostatMode(value: string): (typeof THERMOSTAT_MODES)[number] {
   return match ?? 'heat';
 }
 
-/** What a ranged field needs. */
-type RangeFieldProps = {
-  readonly label: string;
-  readonly value: number;
-  readonly min: number;
-  readonly max: number;
-  readonly step?: number;
-  readonly display: string;
-  readonly onChange: (value: number) => void;
-};
-
-/**
- * A labelled range with its figure beside the label.
- *
- * @param props - See {@link RangeFieldProps}.
- * @returns The field.
- */
-function RangeField(props: RangeFieldProps) {
-  const { label, value, min, max, step = 1, display, onChange } = props;
-  const id = useId();
-
-  return (
-    <div className="relative flex flex-col gap-2">
-      <div className="flex items-baseline justify-between gap-3">
-        <label htmlFor={id} className="text-caption font-medium text-foreground-muted">
-          {label}
-        </label>
-        <span className="font-mono text-[15px] leading-tight text-foreground tabular">
-          {display}
-        </span>
-      </div>
-      <input
-        id={id}
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        aria-valuetext={display}
-        className="h-2 w-full cursor-pointer appearance-none rounded-full bg-surface-raised accent-primary"
-        onChange={(event) => {
-          onChange(Number(event.target.value));
-        }}
-      />
-    </div>
-  );
-}
-
 /**
  * Renders one control per capability in the member's target state.
  *
@@ -147,7 +97,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
       )}
 
       {level === undefined ? null : (
-        <RangeField
+        <Slider
           label="Level"
           min={0}
           max={100}
@@ -161,7 +111,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
 
       {colour === undefined ? null : (
         <>
-          <RangeField
+          <Slider
             label="Hue"
             min={0}
             max={360}
@@ -173,7 +123,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
               );
             }}
           />
-          <RangeField
+          <Slider
             label="Saturation"
             min={0}
             max={100}
@@ -209,7 +159,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
 
       {cover === undefined ? null : (
         <>
-          <RangeField
+          <Slider
             label="Position"
             min={0}
             max={100}
@@ -220,7 +170,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
             }}
           />
           {cover.tilt === undefined ? null : (
-            <RangeField
+            <Slider
               label="Tilt"
               min={0}
               max={100}
@@ -301,7 +251,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
               );
             }}
           />
-          <RangeField
+          <Slider
             label="Volume"
             min={0}
             max={100}

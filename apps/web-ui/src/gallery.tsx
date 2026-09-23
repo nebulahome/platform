@@ -25,6 +25,9 @@ import {
   PanelRow,
   Segmented,
   SelectField,
+  Slider,
+  Stepper,
+  Switch,
   TagChip,
   TextField,
   type BadgeTone,
@@ -83,6 +86,10 @@ function Gallery() {
   const [password, setPassword] = useState('');
   const [swatch, setSwatch] = useState<TagColor | null>('teal');
   const [openModal, setOpenModal] = useState<'plain' | 'protected' | null>(null);
+  const [isOn, setOn] = useState(true);
+  const [level, setLevel] = useState(60);
+  const [kelvin, setKelvin] = useState(3200);
+  const [target, setTarget] = useState(21.5);
 
   // The whole page is themed by the same attribute the application sets on the root, so what is
   // on screen here is what ships rather than an approximation of it. An effect because the root
@@ -271,6 +278,56 @@ function Gallery() {
             ]}
             value={segment}
             onChange={setSegment}
+          />
+        </Section>
+
+        <Section
+          title="Switch, slider, stepper"
+          note="What commands a device: a switch acts at once, a slider sends when it is let go, a stepper moves a step at a time."
+        >
+          <div className="flex items-center gap-3">
+            <Switch label="Power" isOn={isOn} onChange={setOn} />
+            <Switch label="Power, small" size="small" isOn={isOn} onChange={setOn} />
+            <Switch label="Waiting" isOn={isOn} onChange={setOn} isBusy />
+            <Switch label="Refused" isOn={false} onChange={setOn} disabled />
+          </div>
+          <div className="flex w-72 flex-col gap-5">
+            <Slider
+              label="Brightness"
+              value={level}
+              min={0}
+              max={100}
+              display={`${String(level)}%`}
+              onChange={setLevel}
+            />
+            <Slider
+              label="Colour temperature"
+              value={kelvin}
+              min={2000}
+              max={6500}
+              step={50}
+              display={`${String(kelvin)} K`}
+              gradient="linear-gradient(90deg, hsl(32 100% 62%), hsl(45 60% 92%), hsl(210 80% 88%))"
+              onChange={setKelvin}
+            />
+            <Slider
+              label="Refused"
+              value={30}
+              min={0}
+              max={100}
+              display="30%"
+              onChange={setLevel}
+              disabled
+            />
+          </div>
+          <Stepper
+            label="Target temperature"
+            value={target}
+            min={7}
+            max={30}
+            step={0.5}
+            format={(value) => `${value.toFixed(1)}°`}
+            onChange={setTarget}
           />
         </Section>
 

@@ -32,6 +32,9 @@ export { Panel, type PanelProps } from './components/panel.js';
 export { PanelNote, type PanelNoteProps } from './components/panel-note.js';
 export { PanelRow, type PanelRowProps } from './components/panel-row.js';
 export { Segmented, type SegmentedOption, type SegmentedProps } from './components/segmented.js';
+export { Slider, sliderPercent, type SliderProps } from './components/slider.js';
+export { Stepper, stepValue, type StepperProps } from './components/stepper.js';
+export { Switch, type SwitchProps } from './components/switch.js';
 export {
   SelectField,
   type SelectFieldProps,
