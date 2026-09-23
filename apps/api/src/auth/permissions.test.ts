@@ -198,11 +198,11 @@ describe('intersectGrants', () => {
 });
 
 describe('entityScopes', () => {
-  it('names the entity, its area and its labels', () => {
+  it('names the entity, its area and its tags', () => {
     expect(entityScopes('light.hallway_ceiling', 'hallway', ['exterior'])).toEqual([
       'entity.light.hallway_ceiling',
       'area.hallway',
-      'label.exterior',
+      'tag.exterior',
     ]);
   });
 

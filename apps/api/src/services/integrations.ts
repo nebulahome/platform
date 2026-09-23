@@ -74,8 +74,11 @@ export type IntegrationsContext = {
   readonly traceId: string;
 };
 
-/** How long the hub has to restart an instance and say where it ended up. */
-const RELOAD_TIMEOUT_MS = 15_000;
+/**
+ * How long the hub has to stop an instance and, for a reload, start it again and say where it
+ * ended up. Stopping waits for a running identification to end, which the hub cuts short.
+ */
+export const HUB_CALL_TIMEOUT_MS = 15_000;
 
 /**
  * The keys a configuration must not be served with in the clear.
@@ -602,7 +605,7 @@ export async function reloadOnHub(context: IntegrationsContext, id: string): Pro
       busSubjects.service(HUB_SERVICE, HUB_RELOAD_METHOD),
       { integrationId: id },
       reloadReplySchema,
-      { traceId: context.traceId, timeoutMs: RELOAD_TIMEOUT_MS },
+      { traceId: context.traceId, timeoutMs: HUB_CALL_TIMEOUT_MS },
     );
   } catch (error: unknown) {
     context.logger.warn(

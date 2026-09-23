@@ -22,16 +22,19 @@ import type { ApiContext } from './context.js';
 import { registerTracing } from './http/context.js';
 import { createErrorHandler, handleNotFound } from './http/errors.js';
 import { RouteRegistry, type RouteEnvironment } from './http/route.js';
+import { registerAreaRoutes } from './routes/areas.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerDeviceRoutes } from './routes/devices.js';
 import { registerEntityRoutes } from './routes/entities.js';
 import { registerHistoryRoutes } from './routes/history.js';
 import { registerIconRoutes } from './routes/icons.js';
 import { registerIntegrationRoutes } from './routes/integrations.js';
+import { registerMapRoutes } from './routes/map.js';
 import { registerMetaRoutes } from './routes/meta.js';
 import { registerRegistryRoutes } from './routes/registry.js';
 import { registerSettingsRoutes } from './routes/settings.js';
 import { registerSetupRoutes } from './routes/setup.js';
+import { registerTagRoutes } from './routes/tags.js';
 import { registerUserRoutes } from './routes/users.js';
 import { registerWebSocket } from './routes/ws.js';
 
@@ -177,12 +180,15 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   registerAuthRoutes(environment, context);
   registerEntityRoutes(environment, context);
   registerRegistryRoutes(environment, context);
+  registerAreaRoutes(environment, context);
+  registerTagRoutes(environment, context);
   registerDeviceRoutes(environment, context);
   registerIntegrationRoutes(environment, context);
   registerIconRoutes(environment, context);
   registerHistoryRoutes(environment, context);
   registerUserRoutes(environment, context);
   registerSettingsRoutes(environment, context);
+  registerMapRoutes(server, context, environment.basePath);
   registerWebSocket(server, context, environment.basePath);
   registerMetaRoutes(server, context, registry, startedAt);
 

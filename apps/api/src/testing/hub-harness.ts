@@ -11,20 +11,42 @@ import type { FastifyInstance } from 'fastify';
 import { BusClient } from '@nebula-home/bus';
 import { FakeTransport } from '@nebula-home/bus/testing';
 import {
+  BUS_PATTERNS,
   busSubjects,
+  capabilityCommandRequestSchema,
   catalogueRequestSchema,
+  CORE_REMOVE_ALIAS_METHOD,
+  CORE_SERVICE,
+  CORE_SYNC_ALIAS_METHOD,
+  CORE_UNREGISTER_METHOD,
+  forgetRequestSchema,
+  parseCommandSubject,
+  removeAliasRequestSchema,
+  syncAliasRequestSchema,
   HUB_CATALOGUE_METHOD,
+  HUB_FORGET_METHOD,
   HUB_PROBE_METHOD,
   HUB_RELOAD_METHOD,
   HUB_SERVICE,
   probeRequestSchema,
   reloadRequestSchema,
+  unregisterDeviceRequestSchema,
+  type CapabilityCommandRequest,
   type CatalogueReply,
+  type CommandAck,
+  type ForgetReply,
+  type ForgetRequest,
   type IntegrationSetup,
   type ProbeReply,
   type ProbeRequest,
   type ReloadReply,
   type ReloadRequest,
+  type RemoveAliasReply,
+  type RemoveAliasRequest,
+  type SyncAliasReply,
+  type SyncAliasRequest,
+  type UnregisterDeviceReply,
+  type UnregisterDeviceRequest,
 } from '@nebula-home/contracts';
 import { secretsKeyFrom } from '@nebula-home/db';
 import { createLogger } from '@nebula-home/logging';
@@ -40,6 +62,7 @@ import { AuditLog } from '../services/audit.js';
 import { EventFanout } from '../services/events.js';
 
 import { testIcons } from './icons.js';
+import { testMapTiles } from './map-tiles.js';
 
 /** An environment good enough to build a server from. */
 export const ENVIRONMENT = {
@@ -174,6 +197,33 @@ export const probed: ProbeRequest[] = [];
 /** What the fake hub was asked to reload, in order. */
 export const reloaded: string[] = [];
 
+/** What the fake hub was asked to forget, in order. */
+export const forgotten: string[] = [];
+
+/** What the fake `core` was asked to release, in order. */
+export const unregistered: string[] = [];
+
+/** What the fake `core` was asked to take in, by alias entity id, in order. */
+export const aliasesSynced: string[] = [];
+
+/** What the fake `core` was asked to remove, by alias entity id, in order. */
+export const aliasesRemoved: string[] = [];
+
+/** Every command the fake `core` accepted, in order. */
+export const commanded: { entityId: string; capability: string; command: string }[] = [];
+
+/** What the fake `core` throws instead of releasing, when a test wants it to refuse. */
+export let coreRefuses: Error | null = null;
+
+/**
+ * Makes the fake `core` refuse the next releases and alias removals, or stop refusing.
+ *
+ * @param error - What it should throw, or null to release as usual.
+ */
+export function makeCoreRefuse(error: Error | null): void {
+  coreRefuses = error;
+}
+
 /** What stops the fake hub the last {@link buildTestServer} started. */
 let stopCurrentHub: () => void = (): void => {
   // Nothing served yet.
@@ -201,7 +251,75 @@ export async function buildTestServer(
   const transport = new FakeTransport();
 
   const hub = new BusClient({ transport, source: 'hub', logger, requestTimeoutMs: 500 });
+  const core = new BusClient({ transport, source: 'core', logger, requestTimeoutMs: 500 });
   const subscriptions = [
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_FORGET_METHOD),
+      forgetRequestSchema,
+      (request: ForgetRequest): ForgetReply => {
+        forgotten.push(request.integrationId);
+
+        return { wasRunning: true };
+      },
+    ),
+    core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_UNREGISTER_METHOD),
+      unregisterDeviceRequestSchema,
+      (request: UnregisterDeviceRequest): UnregisterDeviceReply => {
+        if (coreRefuses !== null) {
+          throw coreRefuses;
+        }
+
+        unregistered.push(request.integrationId);
+
+        return { deviceId: null, entityIds: [] };
+      },
+    ),
+    core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_SYNC_ALIAS_METHOD),
+      syncAliasRequestSchema,
+      (request: SyncAliasRequest): SyncAliasReply => {
+        aliasesSynced.push(request.entityId);
+
+        return { isLoaded: true };
+      },
+    ),
+    core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_REMOVE_ALIAS_METHOD),
+      removeAliasRequestSchema,
+      (request: RemoveAliasRequest): RemoveAliasReply => {
+        if (coreRefuses !== null) {
+          throw coreRefuses;
+        }
+
+        aliasesRemoved.push(request.entityId);
+
+        return { entityId: request.entityId };
+      },
+    ),
+    core.serve(
+      BUS_PATTERNS.allCommands,
+      capabilityCommandRequestSchema,
+      (request: CapabilityCommandRequest, message): CommandAck => {
+        const target = parseCommandSubject(message.subject);
+
+        if (target === null) {
+          throw new Error(`Not a command subject: ${message.subject}`);
+        }
+
+        commanded.push({
+          entityId: target.entityId,
+          capability: target.capability,
+          command: typeof request.command['command'] === 'string' ? request.command['command'] : '',
+        });
+
+        return {
+          entityId: target.entityId,
+          capability: target.capability,
+          acceptedAt: new Date(),
+        };
+      },
+    ),
     hub.serve(
       busSubjects.service(HUB_SERVICE, HUB_RELOAD_METHOD),
       reloadRequestSchema,
@@ -262,6 +380,7 @@ export async function buildTestServer(
     audit: new AuditLog(db, logger),
     events: new EventFanout(logger),
     icons: await testIcons(),
+    mapTiles: testMapTiles(),
     jwtSecret: secret,
     totpKey: Buffer.from(config.API_TOTP_ENCRYPTION_KEY, 'hex'),
     secretsKey: secretsKeyFrom(config.NEBULA_SECRETS_KEY),
@@ -280,17 +399,44 @@ export async function buildTestServer(
 /**
  * Mints an access token this server will accept.
  *
- * @param permissions - What it should carry.
+ * @param permissions - What it should carry, each everywhere.
  * @returns The bearer header value.
  */
 export async function bearer(...permissions: string[]): Promise<string> {
+  return scopedBearer(...permissions.map((key) => ({ key, scope: '*' })));
+}
+
+/**
+ * Mints an access token whose grants may be narrowed to an area, an entity or a tag.
+ *
+ * @param grants - What it should carry, each with its scope.
+ * @returns The bearer header value.
+ */
+export async function scopedBearer(
+  ...grants: { readonly key: string; readonly scope: string }[]
+): Promise<string> {
+  return bearerFor('00000000-0000-4000-8000-000000000001', ...grants);
+}
+
+/**
+ * Mints an access token for one particular user, for a test whose writes record who made them
+ * against a real `auth.users` row.
+ *
+ * @param userId - Whose token it is.
+ * @param grants - What it should carry, each with its scope.
+ * @returns The bearer header value.
+ */
+export async function bearerFor(
+  userId: string,
+  ...grants: { readonly key: string; readonly scope: string }[]
+): Promise<string> {
   const token = await signAccessToken(
     {
-      userId: '00000000-0000-4000-8000-000000000001',
+      userId,
       sessionId: '00000000-0000-4000-8000-000000000002',
       username: 'tester',
       role: 'owner',
-      permissions: permissions.map((key) => ({ key, scope: '*', effect: 'allow' })),
+      permissions: grants.map((grant) => ({ ...grant, effect: 'allow' })),
     },
     new TextEncoder().encode(ENVIRONMENT.API_JWT_SECRET),
   );

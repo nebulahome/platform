@@ -16,6 +16,7 @@ import type { IdempotencyStore } from './http/idempotency.js';
 import type { AuditLog } from './services/audit.js';
 import type { EventFanout } from './services/events.js';
 import type { IconService } from './services/icons.js';
+import type { MapTileService } from './services/map-tiles.js';
 
 /** Everything a route can reach. */
 export type ApiContext = {
@@ -54,6 +55,9 @@ export type ApiContext = {
 
   /** The icon catalogue: the built-in set with the owner's rows laid over it. */
   readonly icons: IconService;
+
+  /** The map around the house, on disk, and the tile server behind it. */
+  readonly mapTiles: MapTileService;
 
   /** The signing key for access tokens. */
   readonly jwtSecret: Uint8Array;

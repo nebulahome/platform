@@ -11,6 +11,9 @@
  * everything it can read from the database in the meantime. Commands fail with
  * `DEVICE_UNAVAILABLE` while it is away, which is the truth.
  */
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { BusClient, connectBus, type BusConnection } from '@nebula-home/bus';
 import { loadConfigOrExit } from '@nebula-home/config';
 import { ERROR_CODES, EXIT_CODES, isNebulaError } from '@nebula-home/contracts';
@@ -27,6 +30,7 @@ import { buildServer } from './server.js';
 import { AuditLog } from './services/audit.js';
 import { EventFanout } from './services/events.js';
 import { createIconStore, IconService } from './services/icons.js';
+import { createMapTileService } from './services/map-tiles.js';
 
 /** How long a graceful shutdown is given before the process ends regardless. */
 const SHUTDOWN_TIMEOUT_MS = 10_000;
@@ -179,6 +183,15 @@ async function start(): Promise<void> {
     audit: new AuditLog(database.db, logger),
     events,
     icons,
+    mapTiles: createMapTileService({
+      directory:
+        config.API_MAP_CACHE_DIR ??
+        resolve(dirname(fileURLToPath(import.meta.url)), '../../../infra/data/map-tiles'),
+      template: config.API_MAP_TILE_URL,
+      userAgent: `NebulaHome/${SERVICE_VERSION} (+https://github.com/nebula-home/platform)`,
+      fetch: globalThis.fetch,
+      logger,
+    }),
     jwtSecret: new TextEncoder().encode(config.API_JWT_SECRET),
     totpKey: Buffer.from(config.API_TOTP_ENCRYPTION_KEY, 'hex'),
     secretsKey: secretsKeyFrom(config.NEBULA_SECRETS_KEY),

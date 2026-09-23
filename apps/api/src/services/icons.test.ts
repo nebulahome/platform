@@ -4,7 +4,7 @@ import { ConflictError, NotFoundError, ValidationError } from '@nebula-home/cont
 import { loadBuiltinIcons, type IconRow } from '@nebula-home/icons';
 import { createLogger } from '@nebula-home/logging';
 
-import { IconService, type IconStore } from './icons.js';
+import { IconService, type IconStore, type IconUses } from './icons.js';
 
 const builtin = loadBuiltinIcons();
 const logger = createLogger({ service: 'api', version: '0.0.0', level: 'fatal' });
@@ -17,16 +17,16 @@ const SVG =
 const BIG_SVG = '<svg viewBox="0 0 512 512"><path d="M64 64h384v384H64z"/></svg>';
 
 /**
- * A store that keeps rows in memory and remembers which devices point at which icon.
+ * A store that keeps rows in memory and remembers what points at which icon.
  *
  * @param rows - What it starts with.
- * @param uses - How many devices use each icon id.
+ * @param uses - How many devices and entities use each icon id.
  * @returns The store, and what it holds for the assertions.
  */
 function fakeStore(
   rows: IconRow[] = [],
-  uses = new Map<string, number>(),
-): { store: IconStore; rows: IconRow[]; uses: Map<string, number> } {
+  uses = new Map<string, IconUses>(),
+): { store: IconStore; rows: IconRow[]; uses: Map<string, IconUses> } {
   const store: IconStore = {
     list: () => Promise.resolve([...rows]),
     insert: (row) => {
@@ -40,7 +40,7 @@ function fakeStore(
       rows[index] = row;
 
       if (row.id !== id) {
-        uses.set(row.id, uses.get(id) ?? 0);
+        uses.set(row.id, uses.get(id) ?? { devices: 0, entities: 0, tags: 0 });
         uses.delete(id);
       }
 
@@ -54,7 +54,7 @@ function fakeStore(
 
       return Promise.resolve();
     },
-    countUses: (id) => Promise.resolve(uses.get(id) ?? 0),
+    countUses: (id) => Promise.resolve(uses.get(id) ?? { devices: 0, entities: 0, tags: 0 }),
   };
 
   return { store, rows, uses };
@@ -64,13 +64,13 @@ function fakeStore(
  * A service over a fake store.
  *
  * @param rows - What the store starts with.
- * @param uses - How many devices use each icon id.
+ * @param uses - How many devices and entities use each icon id.
  * @returns The service and the store's contents.
  */
 async function service(
   rows: IconRow[] = [],
-  uses: Record<string, number> = {},
-): Promise<{ icons: IconService; rows: IconRow[]; uses: Map<string, number> }> {
+  uses: Record<string, IconUses> = {},
+): Promise<{ icons: IconService; rows: IconRow[]; uses: Map<string, IconUses> }> {
   const fake = fakeStore(rows, new Map(Object.entries(uses)));
   const icons = await IconService.load({ store: fake.store, builtin, logger });
 
@@ -179,7 +179,7 @@ describe('IconService', () => {
           frame: { x: 0, y: 0, size: 24 },
         },
       ],
-      { boiler: 2 },
+      { boiler: { devices: 2, entities: 1, tags: 0 } },
     );
 
     const updated = await icons.update('boiler', { id: 'combi-boiler', name: 'Combi boiler' });
@@ -187,7 +187,7 @@ describe('IconService', () => {
     expect(updated).toMatchObject({ id: 'combi-boiler', name: 'Combi boiler' });
     expect(icons.has('boiler')).toBe(false);
     expect(rows[0]?.id).toBe('combi-boiler');
-    expect([...uses.entries()]).toEqual([['combi-boiler', 2]]);
+    expect([...uses.entries()]).toEqual([['combi-boiler', { devices: 2, entities: 1, tags: 0 }]]);
   });
 
   it('says when there is no such icon to change', async () => {
@@ -205,7 +205,7 @@ describe('IconService', () => {
       node: [['path', { d: 'M0 0h1' }]],
       frame: { x: 0, y: 0, size: 24 },
     };
-    const { icons } = await service([custom], { boiler: 3 });
+    const { icons } = await service([custom], { boiler: { devices: 3, entities: 0, tags: 0 } });
 
     await expect(icons.remove('boiler')).rejects.toBeInstanceOf(ConflictError);
 
@@ -214,6 +214,46 @@ describe('IconService', () => {
     await free.icons.remove('kettle');
 
     expect(free.icons.has('kettle')).toBe(false);
+  });
+
+  it('refuses to remove a custom icon an entity still points at, saying what uses it', async () => {
+    // An entity's icon is the owner's pick as much as a device's; a removal that left it
+    // pointing at nothing would blank a tile the owner chose.
+    const { icons } = await service(
+      [
+        {
+          id: 'boiler',
+          kind: 'custom',
+          name: 'Boiler',
+          keywords: [],
+          node: [['path', { d: 'M0 0h1' }]],
+          frame: { x: 0, y: 0, size: 24 },
+        },
+      ],
+      { boiler: { devices: 0, entities: 2, tags: 0 } },
+    );
+
+    await expect(icons.remove('boiler')).rejects.toThrow(/2 entities/u);
+  });
+
+  it('refuses to remove a custom icon a tag still points at, saying what uses it', async () => {
+    // A tag is drawn by its icon alone in a chip; a removal that left it pointing at nothing
+    // would turn the chip into the fallback glyph without anyone having chosen that.
+    const { icons } = await service(
+      [
+        {
+          id: 'boiler',
+          kind: 'custom',
+          name: 'Boiler',
+          keywords: [],
+          node: [['path', { d: 'M0 0h1' }]],
+          frame: { x: 0, y: 0, size: 24 },
+        },
+      ],
+      { boiler: { devices: 0, entities: 0, tags: 1 } },
+    );
+
+    await expect(icons.remove('boiler')).rejects.toThrow(/^1 tag still use/u);
   });
 
   it('puts the built-in drawing back when an override is removed', async () => {

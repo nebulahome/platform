@@ -92,6 +92,29 @@ export const apiEnvSchema = runtimeEnvSchema
 
     /** The largest request body accepted, in bytes. */
     API_BODY_LIMIT_BYTES: z.coerce.number().int().min(1024).max(52_428_800).default(1_048_576),
+
+    /**
+     * Where map tiles come from, with `{z}`, `{x}` and `{y}` where the tile goes.
+     *
+     * OpenStreetMap's own servers by default, which are run by volunteers for light use: the
+     * service says who it is, fetches only the buffer around the house, and never in bulk. An
+     * installation that draws many maps, or wants another style, points this elsewhere.
+     */
+    API_MAP_TILE_URL: z
+      .url()
+      .refine((template) => ['{z}', '{x}', '{y}'].every((slot) => template.includes(slot)), {
+        message: 'Must contain {z}, {x} and {y}',
+      })
+      .default('https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
+
+    /**
+     * Where the map around the house is kept, as `<dir>/<z>/<x>/<y>.png`.
+     *
+     * Absent, the repository's own `infra/data/map-tiles` beside the package artefacts, found
+     * from where this package sits rather than from the working directory - which in
+     * development is the package, not the repository.
+     */
+    API_MAP_CACHE_DIR: z.string().min(1).optional(),
   });
 
 /** Everything `api` needs from the environment. */

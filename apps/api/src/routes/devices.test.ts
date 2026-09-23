@@ -9,7 +9,15 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { bearer, buildTestServer, emptyDatabase, probed, stopHub } from '../testing/hub-harness.js';
+import {
+  bearer,
+  buildTestServer,
+  emptyDatabase,
+  forgotten,
+  probed,
+  stopHub,
+  unregistered,
+} from '../testing/hub-harness.js';
 
 let server: FastifyInstance;
 
@@ -192,6 +200,30 @@ describe('with the hub answering', () => {
 
     expect(response.statusCode).toBe(400);
   });
+
+  it('takes tags only by id, naming the field otherwise', async () => {
+    const response = await server.inject({
+      method: 'PATCH',
+      url: '/api/v1/devices/bambu-lab-x1c',
+      headers: { authorization: await bearer('device:write') },
+      payload: { tagIds: ['exterior'] },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.stringify(response.json())).toContain('tagIds');
+  });
+
+  it('takes a room only by id, naming the field otherwise', async () => {
+    const response = await server.inject({
+      method: 'PATCH',
+      url: '/api/v1/devices/bambu-lab-x1c',
+      headers: { authorization: await bearer('device:write') },
+      payload: { areaId: 'kitchen' },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.stringify(response.json())).toContain('areaId');
+  });
 });
 
 describe('with the hub answering and nothing saved', () => {
@@ -213,6 +245,44 @@ describe('with the hub answering and nothing saved', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ items: [] });
+  });
+
+  it('refuses a room that is not an area, naming the field', async () => {
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/devices',
+      headers: { authorization: await bearer('device:write') },
+      payload: { ...NEW_PRINTER, areaId: '018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e6f' },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: { code: 'VALIDATION', details: { issues: [{ path: 'areaId' }] } },
+    });
+  });
+
+  it('keeps removing a device from somebody who may only change one', async () => {
+    const response = await server.inject({
+      method: 'DELETE',
+      url: '/api/v1/devices/bambu-lab-x1c',
+      headers: { authorization: await bearer('device:write') },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('says when there is no such device to remove, without asking the hub or core', async () => {
+    forgotten.length = 0;
+    unregistered.length = 0;
+
+    const response = await server.inject({
+      method: 'DELETE',
+      url: '/api/v1/devices/bambu-lab-x1c',
+      headers: { authorization: await bearer('device:delete') },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect([forgotten, unregistered]).toEqual([[], []]);
   });
 
   it('says when there is no such device', async () => {

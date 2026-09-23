@@ -25,13 +25,17 @@ import { asc, eq, inArray, sql } from 'drizzle-orm';
 
 import {
   busSubjects,
+  CORE_SERVICE,
+  CORE_UNREGISTER_METHOD,
   deviceViewSchema,
   ConflictError,
+  forgetReplySchema,
+  HUB_FORGET_METHOD,
   HUB_PROBE_METHOD,
   HUB_SERVICE,
   NotFoundError,
   probeReplySchema,
-  ValidationError,
+  unregisterDeviceReplySchema,
   type DeviceCreate,
   type DeviceProbeReply,
   type DeviceProbeRequest,
@@ -43,9 +47,12 @@ import {
 } from '@nebula-home/contracts';
 import { isSealed, schema } from '@nebula-home/db';
 
+import { checkRoom } from './areas.js';
+import { checkIcon, type IconLookup } from './icon-lookup.js';
 import {
   asObject,
   busOf,
+  HUB_CALL_TIMEOUT_MS,
   catalogueIfUp,
   checkModel,
   driverIdOf,
@@ -61,11 +68,7 @@ import {
   type IntegrationsContext,
   type SetupValues,
 } from './integrations.js';
-
-/** Whether an icon id names an icon: the catalogue, as far as this service needs it. */
-export type IconLookup = {
-  readonly has: (id: string) => boolean;
-};
+import { assertTagsExist, replaceDeviceTags, tagIdsOfDevices } from './tags.js';
 
 /** What the device paths need. */
 export type DevicesContext = IntegrationsContext & {
@@ -105,6 +108,7 @@ export type DeviceRow = {
   readonly model: string | null;
   readonly swVersion: string | null;
   readonly hwVersion: string | null;
+  readonly areaId: string | null;
   readonly areaKey: string | null;
   readonly areaName: string | null;
   readonly lastUpdatedAt: Date | null;
@@ -116,12 +120,14 @@ export type DeviceRow = {
  * @param row - The two halves, joined.
  * @param catalogue - What the hub has loaded, for the driver's name; may be empty.
  * @param entityIds - The addresses of its entities.
+ * @param tagIds - The tags on it.
  * @returns The view.
  */
 export function toDeviceView(
   row: DeviceRow,
   catalogue: readonly IntegrationVendor[],
   entityIds: readonly string[],
+  tagIds: readonly string[] = [],
 ): DeviceView {
   const driver = catalogue.flatMap((vendor) => vendor.drivers).find((each) => each.id === row.kind);
 
@@ -147,9 +153,11 @@ export function toDeviceView(
     manufacturer: row.manufacturer,
     swVersion: row.swVersion,
     hwVersion: row.hwVersion,
+    areaId: row.areaId,
     areaKey: row.areaKey,
     areaName: row.areaName,
     entityIds,
+    tagIds,
   });
 }
 
@@ -182,6 +190,7 @@ async function deviceRows(context: DevicesContext): Promise<DeviceRow[]> {
       model: devices.model,
       swVersion: devices.swVersion,
       hwVersion: devices.hwVersion,
+      areaId: devices.areaId,
       areaKey: areas.key,
       areaName: areas.name,
     })
@@ -260,12 +269,15 @@ async function entityIdsOf(
  */
 export async function listDevices(context: DevicesContext): Promise<DeviceView[]> {
   const [rows, catalogue] = await Promise.all([deviceRows(context), catalogueIfUp(context)]);
-  const entityIds = await entityIdsOf(
-    context,
-    rows.map((row) => row.id),
-  );
+  const ids = rows.map((row) => row.id);
+  const [entityIds, tagIds] = await Promise.all([
+    entityIdsOf(context, ids),
+    tagIdsOfDevices(context.db, ids),
+  ]);
 
-  return rows.map((row) => toDeviceView(row, catalogue, entityIds.get(row.id) ?? []));
+  return rows.map((row) =>
+    toDeviceView(row, catalogue, entityIds.get(row.id) ?? [], tagIds.get(row.id) ?? []),
+  );
 }
 
 /**
@@ -306,7 +318,7 @@ function iconFor(
   driver: IntegrationKind,
 ): string | null {
   if (picked !== undefined && picked !== null) {
-    checkIcon(context, picked);
+    checkIcon(context.icons, picked);
 
     return picked;
   }
@@ -325,21 +337,6 @@ function iconFor(
   }
 
   return driver.defaultIcon;
-}
-
-/**
- * Refuses an icon the catalogue does not have.
- *
- * @param context - The request's collaborators.
- * @param icon - The id.
- * @throws {ValidationError} Naming the field.
- */
-function checkIcon(context: DevicesContext, icon: string): void {
-  if (!context.icons.has(icon)) {
-    throw new ValidationError('The icon is not in the catalogue', {
-      details: { issues: [{ path: 'icon', message: `No icon has the id ${icon}` }] },
-    });
-  }
 }
 
 /**
@@ -363,6 +360,10 @@ export async function createDevice(
   const values = validateSetup(driver.setup, body, 'complete');
   const stored = forStorage(driver.setup, values, context.secretsKey);
   const icon = iconFor(context, body.icon, driver);
+
+  if (body.areaId !== undefined) {
+    await checkRoom(context.db, body.areaId);
+  }
 
   await requireVendorSetup(context, vendor);
 
@@ -391,15 +392,24 @@ export async function createDevice(
     });
     // The model the owner picked stays on the connection half; the identity half's `model` is
     // what the hardware reports, once it has, and the view shows whichever it has.
-    await tx.insert(schema.registry.devices).values({
-      integrationId: body.id,
-      externalId: null,
-      name: body.name,
-      icon,
-      manufacturer: vendor.name,
-      model: null,
-      config: {},
-    });
+    const [identity] = await tx
+      .insert(schema.registry.devices)
+      .values({
+        integrationId: body.id,
+        externalId: null,
+        name: body.name,
+        icon,
+        areaId: body.areaId ?? null,
+        manufacturer: vendor.name,
+        model: null,
+        config: {},
+      })
+      .returning({ id: schema.registry.devices.id });
+
+    if (identity !== undefined && body.tagIds.length > 0) {
+      await assertTagsExist(tx, body.tagIds);
+      await replaceDeviceTags(tx, identity.id, body.tagIds);
+    }
   });
 
   await reloadOnHub(context, body.id);
@@ -485,7 +495,11 @@ export async function updateDevice(
   }
 
   if (body.icon !== undefined && body.icon !== null) {
-    checkIcon(context, body.icon);
+    checkIcon(context.icons, body.icon);
+  }
+
+  if (body.areaId !== undefined && body.areaId !== null) {
+    await checkRoom(context.db, body.areaId);
   }
 
   const isSendingConfig = body.transportConfig !== undefined || body.options !== undefined;
@@ -513,15 +527,31 @@ export async function updateDevice(
       ));
 
   await context.db.transaction(async (tx) => {
-    if (body.name !== undefined || body.icon !== undefined) {
+    if (body.name !== undefined || body.icon !== undefined || body.areaId !== undefined) {
       await tx
         .update(schema.registry.devices)
         .set({
           ...(body.name === undefined ? {} : { name: body.name }),
           ...(body.icon === undefined ? {} : { icon: body.icon }),
+          ...(body.areaId === undefined ? {} : { areaId: body.areaId }),
           updatedAt: new Date(),
         })
         .where(eq(schema.registry.devices.integrationId, id));
+    }
+
+    if (body.tagIds !== undefined) {
+      const [identity] = await tx
+        .select({ id: schema.registry.devices.id })
+        .from(schema.registry.devices)
+        .where(eq(schema.registry.devices.integrationId, id))
+        .limit(1);
+
+      if (identity === undefined) {
+        throw new NotFoundError('The device has no identity row to tag', { details: { id } });
+      }
+
+      await assertTagsExist(tx, body.tagIds);
+      await replaceDeviceTags(tx, identity.id, body.tagIds);
     }
 
     if (isChangingConnection) {
@@ -546,6 +576,90 @@ export async function updateDevice(
   }
 
   return readDevice(context, id);
+}
+
+/**
+ * Refuses to remove a device while a derived entity reads one of its entities.
+ *
+ * The same refusal, in the same words, that `core` gives when it is asked to release the rows;
+ * `core` remains the authority, and this is only the check made early enough to leave the
+ * device running.
+ *
+ * @param context - The request's collaborators.
+ * @param id - Which device.
+ * @throws {ConflictError} Naming the entities an alias still reads.
+ */
+async function assertNotReadByAliases(context: DevicesContext, id: string): Promise<void> {
+  const read = await context.db
+    .selectDistinct({ entityId: schema.registry.entities.entityId })
+    .from(schema.registry.aliasSources)
+    .innerJoin(
+      schema.registry.entities,
+      eq(schema.registry.entities.id, schema.registry.aliasSources.entityId),
+    )
+    .where(eq(schema.registry.entities.integrationId, id))
+    .orderBy(asc(schema.registry.entities.entityId));
+
+  if (read.length > 0) {
+    throw new ConflictError('Derived entities still read this device', {
+      details: { integrationId: id, entityIds: read.map((row) => row.entityId) },
+    });
+  }
+}
+
+/** What a removal took with it, for the audit trail. */
+export type RemovedDevice = {
+  readonly name: string;
+  readonly kind: string;
+  readonly entityIds: readonly string[];
+};
+
+/**
+ * Removes a device: the hub stops the instance, then `core` releases the rows.
+ *
+ * In that order, and both required. The hub first, so that nothing is still reporting into
+ * rows that are about to go - an instance left running against a deleted device would be
+ * refused by `core` every few seconds, forever. `core` rather than a delete here, because the
+ * entities restrict the instance's deletion and the directory `core` routes by must forget
+ * them in the same step (see `apps/core/src/services/registration.ts`).
+ *
+ * What a failure halfway leaves behind is honest: the hub having stopped the instance is
+ * recorded on the row as `stopped`, the row is still there, and a second removal asks the hub
+ * again at no cost and `core` again for real. A removal after a successful one finds no row
+ * and says so.
+ *
+ * @param context - The request's collaborators.
+ * @param id - Which device.
+ * @returns What went, for the audit trail.
+ * @throws {NotFoundError} When no device has that id.
+ * @throws {DeviceUnavailableError} When the bus is away, or the hub or `core` does not answer;
+ * nothing has been deleted.
+ * @throws {ConflictError} When a derived entity still reads one of the device's entities, as
+ * `core` says; the rows stay.
+ */
+export async function deleteDevice(context: DevicesContext, id: string): Promise<RemovedDevice> {
+  const device = await readDevice(context, id);
+  const bus = busOf(context);
+
+  // Asked here as well as in `core`, and before the hub: `core` refusing after the hub had let
+  // go would leave the device stopped by a removal that did not happen.
+  await assertNotReadByAliases(context, id);
+
+  await bus.request(
+    busSubjects.service(HUB_SERVICE, HUB_FORGET_METHOD),
+    { integrationId: id },
+    forgetReplySchema,
+    { traceId: context.traceId, timeoutMs: HUB_CALL_TIMEOUT_MS },
+  );
+
+  const released = await bus.request(
+    busSubjects.service(CORE_SERVICE, CORE_UNREGISTER_METHOD),
+    { integrationId: id },
+    unregisterDeviceReplySchema,
+    { traceId: context.traceId, timeoutMs: context.timeoutMs },
+  );
+
+  return { name: device.name, kind: device.kind, entityIds: released.entityIds };
 }
 
 /**

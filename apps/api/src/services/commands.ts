@@ -15,6 +15,7 @@ import {
   busSubjects,
   commandAckSchema,
   type CapabilityName,
+  type ChangeContext,
   type CommandAck,
   type EntityId,
   type Identity,
@@ -43,14 +44,21 @@ export type CommandOptions = {
 
   /** How long to wait for the acknowledgement. */
   readonly timeoutMs: number;
+
+  /**
+   * What caused the command. Defaults to the authenticated user. Scene apply passes a scene
+   * context so history attributes the change to the scene rather than to the person who pressed
+   * Apply.
+   */
+  readonly context?: ChangeContext;
 };
 
 /**
  * Asks `core` to command an entity.
  *
- * The context is set here and not taken from the request body. A client may say *what* caused a
- * command, but not *who*: a command that arrived over HTTP was caused by whoever authenticated,
- * and letting the body claim a different actor would make the audit trail a suggestion.
+ * The context defaults to the authenticated user and is not taken from a request body. A client
+ * may say *what* caused a command only through a trusted path such as scene apply; letting the
+ * body claim a different actor would make the audit trail a suggestion.
  *
  * @param options - The client, the target, the command and who is asking.
  * @returns The acknowledgement, once the owning adapter has accepted it.
@@ -63,7 +71,7 @@ export async function sendCommand(options: CommandOptions): Promise<CommandAck> 
     busSubjects.command(options.entityId, options.capability),
     {
       command: options.command,
-      context: { type: 'user', id: options.identity.userId },
+      context: options.context ?? { type: 'user', id: options.identity.userId },
     },
     commandAckSchema,
     { traceId: options.traceId, timeoutMs: options.timeoutMs },

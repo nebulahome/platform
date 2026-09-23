@@ -7,7 +7,7 @@
 import { loadBuiltinIcons, type IconRow } from '@nebula-home/icons';
 import { createLogger } from '@nebula-home/logging';
 
-import { IconService, type IconStore } from '../services/icons.js';
+import { IconService, type IconStore, type IconUses } from '../services/icons.js';
 
 let builtin: ReturnType<typeof loadBuiltinIcons> | undefined;
 
@@ -71,11 +71,11 @@ export function memoryIconStore(rows: IconRow[] = []): IconStore {
     },
 
     /**
-     * Counts the devices pointing at an icon: none, in a test with no registry.
+     * Counts what points at an icon: nothing, in a test with no registry.
      *
-     * @returns Zero.
+     * @returns Zero of each.
      */
-    countUses: (): Promise<number> => Promise.resolve(0),
+    countUses: (): Promise<IconUses> => Promise.resolve({ devices: 0, entities: 0, tags: 0 }),
   };
 }
 

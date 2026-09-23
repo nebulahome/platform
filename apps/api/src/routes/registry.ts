@@ -1,60 +1,71 @@
 /**
  * The configured shape of a home.
  *
- * Five flat collections. None of them paginates: a home has tens of areas and hundreds of
+ * Four flat collections. None of them paginates: a home has tens of scenes and hundreds of
  * entities, not millions, and a cursor on a list that fits in one response is ceremony. The two
  * collections that do grow without bound - history and telemetry - page, and they are in their
- * own file for that reason; devices, being written as well as read, have a file of their own.
+ * own file for that reason; devices and areas, being written as well as read, have files of
+ * their own.
  *
- * Automations can also be written. What that covers and what it deliberately does not - a
- * definition is saved, a run is not started - is set out on the service beside it.
+ * Scenes and automations can also be written. What that covers and what it deliberately does not
+ * - a definition is saved; an automation run is not started - is set out on the service beside
+ * it. Applying a scene fans out entity commands from here.
  */
 import { z } from 'zod';
 
 import {
+  aliasCreateSchema,
+  aliasPreviewRequestSchema,
+  aliasPreviewResponseSchema,
+  aliasUpdateSchema,
   aliasViewSchema,
-  areaViewSchema,
   automationCreateSchema,
   automationUpdateSchema,
   automationViewSchema,
-  labelViewSchema,
+  DeviceUnavailableError,
   packageViewSchema,
+  sceneApplyResultSchema,
+  sceneCreateSchema,
+  sceneUpdateSchema,
   sceneViewSchema,
+  type AliasPreviewResponse,
   type AliasView,
-  type AreaView,
   type AutomationView,
-  type LabelView,
   type PackageView,
+  type SceneApplyResult,
   type SceneView,
 } from '@nebula-home/contracts';
 
-import { requirePermission } from '../auth/permissions.js';
+import { isPermitted, requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
+import { collectionSchema } from '../http/collection.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import {
-  createAutomation,
-  deleteAutomation,
+  createAlias,
+  deleteAlias,
   listAliases,
-  listAreas,
+  previewAlias,
+  updateAlias,
+  type AliasesContext,
+} from '../services/aliases.js';
+import {
+  createAutomation,
+  createScene,
+  deleteAutomation,
+  deleteScene,
   listAutomations,
-  listLabels,
   listPackages,
   listScenes,
   updateAutomation,
+  updateScene,
 } from '../services/registry.js';
+import { applyScene } from '../services/scene-apply.js';
 
 /** Which automation a request is about. */
 const automationParamsSchema = z.object({ automationId: z.uuid() });
 
-/**
- * A collection response. Not the paged envelope: these lists are bounded by the house.
- *
- * @param item - What one entry looks like.
- * @returns The schema of a whole collection of them.
- */
-const collectionSchema = <TItem extends z.ZodType>(
-  item: TItem,
-): z.ZodObject<{ items: z.ZodArray<TItem> }> => z.object({ items: z.array(item) });
+/** Which scene a request is about. */
+const sceneParamsSchema = z.object({ sceneId: z.uuid() });
 
 /**
  * Registers the configuration read endpoints.
@@ -63,53 +74,20 @@ const collectionSchema = <TItem extends z.ZodType>(
  * @param context - The service context.
  */
 export function registerRegistryRoutes(environment: RouteEnvironment, context: ApiContext): void {
-  defineRoute(
-    environment,
-    {
-      method: 'GET',
-      url: '/areas',
-      summary: 'List areas',
-      tag: 'Registry',
-      permission: 'area:read',
-      response: collectionSchema(areaViewSchema),
-    },
-
-    /**
-     * Lists areas.
-     *
-     * @param route - Who is asking.
-     * @returns Every area, with how many entities are in each.
-     */
-    async (route): Promise<{ items: AreaView[] }> => {
-      requirePermission(route.identity, 'area:read');
-
-      return { items: await listAreas(context.db) };
-    },
-  );
-
-  defineRoute(
-    environment,
-    {
-      method: 'GET',
-      url: '/labels',
-      summary: 'List labels',
-      tag: 'Registry',
-      permission: 'label:read',
-      response: collectionSchema(labelViewSchema),
-    },
-
-    /**
-     * Lists labels.
-     *
-     * @param route - Who is asking.
-     * @returns Every label, with how many entities carry it.
-     */
-    async (route): Promise<{ items: LabelView[] }> => {
-      requirePermission(route.identity, 'label:read');
-
-      return { items: await listLabels(context.db) };
-    },
-  );
+  /**
+   * What an alias write needs for one request: the database, and the bus to `core` it syncs
+   * the alias over.
+   *
+   * @param traceId - The request's trace id.
+   * @returns The context the alias service takes.
+   */
+  const aliasesContext = (traceId: string): AliasesContext => ({
+    db: context.db,
+    bus: context.bus,
+    traceId,
+    timeoutMs: context.config.API_BUS_TIMEOUT_MS,
+    logger: context.logger,
+  });
 
   defineRoute(
     environment,
@@ -132,6 +110,207 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
       requirePermission(route.identity, 'scene:read');
 
       return { items: await listScenes(context.db) };
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/scenes',
+      summary: 'Create a scene',
+      tag: 'Library',
+      permission: 'scene:write',
+      body: sceneCreateSchema,
+      response: sceneViewSchema,
+    },
+
+    /**
+     * Creates a scene.
+     *
+     * Members are stored as target states; applying them is a separate request that fans out
+     * ordinary entity commands.
+     *
+     * @param route - The body and who is asking.
+     * @returns The scene as it now stands.
+     */
+    async (route): Promise<SceneView> => {
+      requirePermission(route.identity, 'scene:write');
+
+      const scene = await createScene(context.db, route.body, route.identity.userId);
+
+      await context.audit.record({
+        action: 'scene.create',
+        resourceType: 'scene',
+        resourceId: scene.id,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { key: scene.key, name: scene.name },
+      });
+
+      return scene;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'PATCH',
+      url: '/scenes/:sceneId',
+      summary: 'Change a scene',
+      tag: 'Library',
+      permission: 'scene:write',
+      params: sceneParamsSchema,
+      body: sceneUpdateSchema,
+      response: sceneViewSchema,
+    },
+
+    /**
+     * Changes a scene.
+     *
+     * When `members` is present it replaces the whole set. Clearing `areaId` or `icon` with null
+     * removes them.
+     *
+     * @param route - The body, the id and who is asking.
+     * @returns The scene as it now stands.
+     */
+    async (route): Promise<SceneView> => {
+      requirePermission(route.identity, 'scene:write');
+
+      const scene = await updateScene(context.db, route.params.sceneId, route.body);
+
+      await context.audit.record({
+        action: 'scene.update',
+        resourceType: 'scene',
+        resourceId: scene.id,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { key: scene.key, changed: Object.keys(route.body) },
+      });
+
+      return scene;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'DELETE',
+      url: '/scenes/:sceneId',
+      summary: 'Delete a scene',
+      tag: 'Library',
+      permission: 'scene:write',
+      params: sceneParamsSchema,
+      response: sceneViewSchema,
+    },
+
+    /**
+     * Deletes a scene.
+     *
+     * Answers with what was deleted rather than with nothing, so the caller can say what it was
+     * and offer to put it back.
+     *
+     * @param route - The id and who is asking.
+     * @returns The scene as it was.
+     */
+    async (route): Promise<SceneView> => {
+      requirePermission(route.identity, 'scene:write');
+
+      const scene = await deleteScene(context.db, route.params.sceneId);
+
+      await context.audit.record({
+        action: 'scene.delete',
+        resourceType: 'scene',
+        resourceId: scene.id,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { key: scene.key, name: scene.name },
+      });
+
+      return scene;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/scenes/:sceneId/apply',
+      summary: 'Apply a scene',
+      tag: 'Library',
+      permission: 'scene:apply',
+      params: sceneParamsSchema,
+      response: sceneApplyResultSchema,
+
+      // An action, not a creation: nothing is made that a `Location` could name.
+      successStatus: 200,
+    },
+
+    /**
+     * Applies a scene.
+     *
+     * Fans out the same entity commands a person would send one by one. Acknowledgements mean
+     * the adapter accepted each command; this does not wait for the device to converge.
+     *
+     * @param route - The id and who is asking.
+     * @returns How each member fared.
+     */
+    async (route): Promise<SceneApplyResult> => {
+      requirePermission(route.identity, 'scene:apply');
+
+      if (context.bus === undefined) {
+        throw new DeviceUnavailableError('The message bus is not reachable', {
+          details: { sceneId: route.params.sceneId },
+        });
+      }
+
+      const result = await applyScene(context.db, route.params.sceneId, {
+        client: context.bus,
+        identity: route.identity,
+        traceId: route.request.traceId,
+        timeoutMs: context.config.API_BUS_TIMEOUT_MS,
+
+        /**
+         * Records a lock or an unlock the scene sent, as the command route records one sent
+         * by hand, with the scene it came from.
+         *
+         * @param entityId - Which entity.
+         * @param capability - Which capability.
+         * @param command - Which command.
+         */
+        recordCommand: async (entityId, capability, command): Promise<void> => {
+          await context.audit.record({
+            action: 'entity.command',
+            resourceType: 'entity',
+            resourceId: entityId,
+            result: 'success',
+            identity: route.identity,
+            ipAddress: route.request.ip,
+            userAgent: route.request.headers['user-agent'] ?? null,
+            traceId: route.request.traceId,
+            details: { capability, command, sceneId: route.params.sceneId },
+          });
+        },
+      });
+
+      await context.audit.record({
+        action: 'scene.apply',
+        resourceType: 'scene',
+        resourceId: route.params.sceneId,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { applied: result.applied, failed: result.failed },
+      });
+
+      return result;
     },
   );
 
@@ -313,19 +492,179 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
   defineRoute(
     environment,
     {
+      method: 'POST',
+      url: '/aliases/preview',
+      summary: 'Preview a calculated alias formula',
+      tag: 'Library',
+      permission: 'alias:write',
+      body: aliasPreviewRequestSchema,
+      response: aliasPreviewResponseSchema,
+
+      // Nothing is saved: a `201` would say otherwise.
+      successStatus: 200,
+    },
+
+    /**
+     * Evaluates a formula without saving it.
+     *
+     * @param route - Who is asking, and the formula.
+     * @returns The scalar result, or an error that never includes source values.
+     */
+    async (route): Promise<AliasPreviewResponse> => {
+      requirePermission(route.identity, 'alias:write');
+
+      return previewAlias(context.db, route.body, route.identity);
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/aliases',
+      summary: 'Create a derived entity',
+      tag: 'Library',
+      permission: 'alias:write',
+      body: aliasCreateSchema,
+      response: aliasViewSchema,
+    },
+
+    /**
+     * Creates an alias.
+     *
+     * @param route - Who is creating it, and what to create.
+     * @returns The alias as stored.
+     */
+    async (route): Promise<AliasView> => {
+      requirePermission(route.identity, 'alias:write');
+
+      const alias = await createAlias(
+        aliasesContext(route.request.traceId),
+        route.body,
+        route.identity,
+      );
+
+      await context.audit.record({
+        action: 'alias.create',
+        resourceType: 'alias',
+        resourceId: alias.id,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { entityId: alias.entityId, kind: alias.kind, name: alias.name },
+      });
+
+      return alias;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'PATCH',
+      url: '/aliases/:aliasId',
+      summary: 'Update a derived entity',
+      tag: 'Library',
+      permission: 'alias:write',
+      params: z.object({ aliasId: z.uuid() }),
+      body: aliasUpdateSchema,
+      response: aliasViewSchema,
+    },
+
+    /**
+     * Updates an alias. The entity id is immutable.
+     *
+     * @param route - Who is changing it.
+     * @returns The alias as stored.
+     */
+    async (route): Promise<AliasView> => {
+      requirePermission(route.identity, 'alias:write');
+
+      const alias = await updateAlias(
+        aliasesContext(route.request.traceId),
+        route.params.aliasId,
+        route.body,
+        route.identity,
+      );
+
+      await context.audit.record({
+        action: 'alias.update',
+        resourceType: 'alias',
+        resourceId: alias.id,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { entityId: alias.entityId, name: alias.name },
+      });
+
+      return alias;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'DELETE',
+      url: '/aliases/:aliasId',
+      summary: 'Delete a derived entity',
+      tag: 'Library',
+      permission: 'alias:write',
+      params: z.object({ aliasId: z.uuid() }),
+      response: aliasViewSchema,
+    },
+
+    /**
+     * Deletes an alias, through `core`.
+     *
+     * A deletion another alias blocks is a `CONFLICT`, like every refusal of a write that would
+     * leave something dangling; its details name the aliases that read this one when the
+     * caller may see aliases.
+     *
+     * @param route - Who is deleting it.
+     * @returns The alias as it was.
+     */
+    async (route): Promise<AliasView> => {
+      requirePermission(route.identity, 'alias:write');
+
+      const deleted = await deleteAlias(
+        aliasesContext(route.request.traceId),
+        route.params.aliasId,
+        isPermitted(route.identity.permissions, 'alias:read'),
+      );
+
+      await context.audit.record({
+        action: 'alias.delete',
+        resourceType: 'alias',
+        resourceId: deleted.id,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { entityId: deleted.entityId, name: deleted.name },
+      });
+
+      return deleted;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
       method: 'GET',
       url: '/packages',
       summary: 'List installed packages',
-      tag: 'Packages',
+      tag: 'System',
       permission: 'package:read',
       response: collectionSchema(packageViewSchema),
     },
 
     /**
-     * Lists packages.
+     * Lists installed packages.
      *
      * @param route - Who is asking.
-     * @returns Every installed package and how it is faring.
+     * @returns Every package, with how much of the house it accounts for.
      */
     async (route): Promise<{ items: PackageView[] }> => {
       requirePermission(route.identity, 'package:read');

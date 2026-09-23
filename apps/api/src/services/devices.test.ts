@@ -54,6 +54,7 @@ function row(fields: Partial<DeviceRow> = {}): DeviceRow {
     model: null,
     swVersion: null,
     hwVersion: null,
+    areaId: null,
     areaKey: null,
     areaName: null,
     lastUpdatedAt: null,
@@ -101,5 +102,12 @@ describe('toDeviceView', () => {
     const view = toDeviceView(row({ name: null, icon: null }), [], []);
 
     expect([view.driverName, view.name, view.icon]).toEqual(['printer', 'bambu-lab-x1c', null]);
+  });
+
+  it('lists the tags on the device by id, and none when it has none', () => {
+    const tagId = '018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e6f';
+
+    expect(toDeviceView(row(), CATALOGUE, [], [tagId]).tagIds).toEqual([tagId]);
+    expect(toDeviceView(row(), CATALOGUE, []).tagIds).toEqual([]);
   });
 });

@@ -20,7 +20,7 @@ import {
 /** The scope that means "everywhere". */
 const EVERYWHERE = '*';
 
-/** Every permission that may be narrowed to an area, entity or label. */
+/** Every permission that may be narrowed to an area, entity or tag. */
 const SCOPABLE_KEYS: ReadonlySet<string> = new Set<string>(
   PERMISSIONS.filter((permission) => permission.isScopable).map((permission) => permission.key),
 );
@@ -108,7 +108,7 @@ export function intersectGrants(
  * Says whether a set of grants permits one action.
  *
  * `candidateScopes` is every scope under which the target falls: for a light in the hallway
- * that is its own `entity.light.hallway_ceiling`, its area `area.hallway`, and each label on it.
+ * that is its own `entity.light.hallway_ceiling`, its area `area.hallway`, and each tag on it.
  * A grant matches when it names any of them, or when it is unscoped. Building that list is the
  * caller's job because only the caller knows where the target sits.
  *
@@ -158,13 +158,13 @@ export function isScopable(key: string): boolean {
  *
  * @param entityId - The entity being acted on.
  * @param areaKey - The area it is in, when it is in one.
- * @param labelKeys - The labels on it.
+ * @param tagKeys - The tags on it, by key.
  * @returns Every scope a grant could name to cover this entity.
  */
 export function entityScopes(
   entityId: string,
   areaKey: string | null,
-  labelKeys: readonly string[] = [],
+  tagKeys: readonly string[] = [],
 ): string[] {
   const scopes = [`entity.${entityId}`];
 
@@ -172,8 +172,8 @@ export function entityScopes(
     scopes.push(`area.${areaKey}`);
   }
 
-  for (const label of labelKeys) {
-    scopes.push(`label.${label}`);
+  for (const tag of tagKeys) {
+    scopes.push(`tag.${tag}`);
   }
 
   return scopes;

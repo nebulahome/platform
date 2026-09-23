@@ -14,16 +14,24 @@
 import { randomUUID } from 'node:crypto';
 import { Writable } from 'node:stream';
 
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { deviceViewSchema } from '@nebula-home/contracts';
+import { ConflictError, deviceViewSchema } from '@nebula-home/contracts';
 import { createDatabase, schema, sealSecret, secretsKeyFrom, type Database } from '@nebula-home/db';
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
 
 import { listDevices, type DevicesContext } from '@/services/devices.js';
-import { bearer, buildTestServer, reloaded, stopHub } from '@/testing/hub-harness.js';
+import {
+  bearer,
+  buildTestServer,
+  forgotten,
+  makeCoreRefuse,
+  reloaded,
+  stopHub,
+  unregistered,
+} from '@/testing/hub-harness.js';
 
 const DATABASE_URL = 'postgres://nebula:nebula@localhost:5432/nebula';
 
@@ -237,5 +245,132 @@ describe('changing a device through the route', () => {
     expect(status).toBe(200);
     expect(reloaded).toEqual([instanceId]);
     expect(body).toMatchObject({ isEnabled: false });
+  });
+});
+
+describe('removing a device through the route', () => {
+  /**
+   * Removes the device as somebody who may.
+   *
+   * @returns The status and the body, if any.
+   */
+  async function remove(): Promise<{ status: number; body: unknown }> {
+    const response = await server.inject({
+      method: 'DELETE',
+      url: `/api/v1/devices/${instanceId}`,
+      headers: { authorization: await bearer('device:delete') },
+    });
+
+    return {
+      status: response.statusCode,
+      body: response.statusCode === 204 ? undefined : response.json(),
+    };
+  }
+
+  it('cannot remove anything while the bus is away, and says which dependency is missing', async () => {
+    // Nothing can be stopped and nothing released without the bus, so nothing is touched: a
+    // delete that removed the rows and left the instance running would be worse than one that
+    // waits.
+    const offline = await buildTestServer(false, database.db);
+
+    try {
+      const response = await offline.inject({
+        method: 'DELETE',
+        url: `/api/v1/devices/${instanceId}`,
+        headers: { authorization: await bearer('device:delete') },
+      });
+
+      expect(response.statusCode).toBe(503);
+      expect(JSON.stringify(response.json())).toContain('bus');
+    } finally {
+      await offline.close();
+    }
+  });
+
+  it('refuses before the hub is asked while an alias reads one of its entities', async () => {
+    // Refused by `core` alone, the device would already be stopped by the time the refusal
+    // came back: the hub is asked first. The API asks the same question before either.
+    const aliasEntityId = `alias.${instanceId.replaceAll('-', '_')}_watts`;
+    const [source] = await database.db
+      .select({ id: schema.registry.entities.id })
+      .from(schema.registry.entities)
+      .where(eq(schema.registry.entities.entityId, powerEntityId));
+    const [aliasEntity] = await database.db
+      .insert(schema.registry.entities)
+      .values({ entityId: aliasEntityId, source: 'derived', name: 'Watts' })
+      .returning({ id: schema.registry.entities.id });
+    const [alias] = await database.db
+      .insert(schema.registry.aliases)
+      .values({ entityId: aliasEntity?.id ?? '', capability: 'sensor_numeric', expression: 'w' })
+      .returning({ id: schema.registry.aliases.id });
+
+    await database.db
+      .insert(schema.registry.aliasSources)
+      .values({ aliasId: alias?.id ?? '', variableName: 'w', entityId: source?.id ?? '' });
+
+    forgotten.length = 0;
+    unregistered.length = 0;
+
+    try {
+      const { status, body } = await remove();
+
+      expect(status).toBe(409);
+      expect(JSON.stringify(body)).toContain(powerEntityId);
+      expect([forgotten, unregistered]).toEqual([[], []]);
+    } finally {
+      await database.db
+        .delete(schema.registry.entities)
+        .where(eq(schema.registry.entities.entityId, aliasEntityId));
+    }
+  });
+
+  it('keeps the rows when core refuses, and says why', async () => {
+    // An alias made between the API's check and `core`'s: `core` refuses, the API passes the
+    // refusal on as a conflict, and nothing has changed but the hub having stopped the
+    // instance - which the row records, and a retry after the alias is edited undoes.
+    forgotten.length = 0;
+    unregistered.length = 0;
+    makeCoreRefuse(new ConflictError('Derived entities still read this device'));
+
+    try {
+      const { status, body } = await remove();
+
+      expect(status).toBe(409);
+      expect(JSON.stringify(body)).toContain('Derived entities');
+      expect(forgotten).toEqual([instanceId]);
+      expect(unregistered).toEqual([]);
+
+      const rows = await database.db
+        .select({ id: schema.registry.integrations.id })
+        .from(schema.registry.integrations)
+        .where(eq(schema.registry.integrations.id, instanceId));
+
+      expect(rows).toHaveLength(1);
+    } finally {
+      makeCoreRefuse(null);
+    }
+  });
+
+  it('stops the instance on the hub before core releases the rows, and records who asked', async () => {
+    forgotten.length = 0;
+    unregistered.length = 0;
+
+    const { status } = await remove();
+
+    expect(status).toBe(204);
+    expect([forgotten, unregistered]).toEqual([[instanceId], [instanceId]]);
+
+    const entries = await database.db
+      .select({ details: schema.system.auditLog.details })
+      .from(schema.system.auditLog)
+      .where(
+        and(
+          eq(schema.system.auditLog.resourceId, instanceId),
+          eq(schema.system.auditLog.action, 'device.delete'),
+        ),
+      );
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.details).toMatchObject({ kind: 'bambu-lab/printer' });
   });
 });

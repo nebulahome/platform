@@ -18,6 +18,7 @@ import {
   entityCommandRequestSchema,
   entityCommandResponseSchema,
   entityQuerySchema,
+  entityUpdateSchema,
   entityViewSchema,
   pageQuerySchema,
   pageSchema,
@@ -33,7 +34,7 @@ import type { ApiContext } from '../context.js';
 import { IdempotencyStore } from '../http/idempotency.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import { isAuditedCapability, sendCommand } from '../services/commands.js';
-import { findEntity, listEntities } from '../services/entities.js';
+import { findEntity, listEntities, updateEntity } from '../services/entities.js';
 
 /** The path parameters of the single-entity routes. */
 const entityParamsSchema = z.object({
@@ -145,6 +146,63 @@ export function registerEntityRoutes(environment: RouteEnvironment, context: Api
       }
 
       return found.view;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'PATCH',
+      url: '/entities/:entityId',
+      summary: 'Rename an entity, change its icon, or change the tags on it',
+      tag: 'Entities',
+      permission: 'entity:write',
+      params: entityParamsSchema,
+      body: entityUpdateSchema,
+      response: entityViewSchema,
+    },
+
+    /**
+     * Changes an entity's name, icon or tags.
+     *
+     * @param route - The body, the path parameters and who is asking.
+     * @returns The entity as it now stands.
+     * @throws {NotFoundError} When no entity is registered under that identifier, or the caller
+     * may not see it - for the reason the read route gives.
+     */
+    async (route): Promise<EntityView> => {
+      const found = await findEntity(context.db, route.params.entityId);
+
+      if (found === undefined) {
+        throw new NotFoundError(`No entity ${route.params.entityId}`, {
+          details: { entityId: route.params.entityId },
+        });
+      }
+
+      try {
+        requirePermission(route.identity, 'entity:read', found.scopes);
+      } catch {
+        throw new NotFoundError(`No entity ${route.params.entityId}`, {
+          details: { entityId: route.params.entityId },
+        });
+      }
+
+      requirePermission(route.identity, 'entity:write', found.scopes);
+
+      const view = await updateEntity(context.db, context.icons, found, route.body);
+
+      await context.audit.record({
+        action: 'entity.update',
+        resourceType: 'entity',
+        resourceId: view.entityId,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { changed: Object.keys(route.body) },
+      });
+
+      return view;
     },
   );
 

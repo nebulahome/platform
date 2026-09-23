@@ -1,13 +1,13 @@
 /**
- * Devices: one resource for the thing an owner adds, names, configures and lists.
+ * Devices: one resource for the thing an owner adds, names, configures, lists and removes.
  *
- * Five routes around one form. The list shows every device with where it stands and what it
+ * Six routes around one form. The list shows every device with where it stands and what it
  * exposes; create writes the instance that reaches the device and the row that names it, and
  * asks the hub to start listening for it; change touches whichever half the change belongs to;
- * the probe says whether what was typed works, before anything is written. Everything that
- * touches a configuration needs the hub, because the hub holds the bundles and the bundles hold
- * the shape of what is being written - and while the bus is away those routes say so rather
- * than storing what nothing could check.
+ * the probe says whether what was typed works, before anything is written; remove has the hub
+ * let go and `core` release the rows. Everything that touches a configuration needs the hub,
+ * because the hub holds the bundles and the bundles hold the shape of what is being written -
+ * and while the bus is away those routes say so rather than storing what nothing could check.
  */
 import { z } from 'zod';
 
@@ -27,6 +27,7 @@ import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import {
   createDevice,
+  deleteDevice,
   listDevices,
   probeDevice,
   readDevice,
@@ -226,6 +227,44 @@ export function registerDeviceRoutes(environment: RouteEnvironment, context: Api
       });
 
       return device;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'DELETE',
+      url: '/devices/:deviceId',
+      summary: 'Remove a device, its entities and their history of being configured',
+      tag: 'Devices',
+      permission: 'device:delete',
+      params: deviceParamsSchema,
+      successStatus: 204,
+    },
+
+    /**
+     * Removes a device: the hub stops listening for it and `core` releases its rows.
+     *
+     * @param route - The id and who is asking.
+     */
+    async (route): Promise<void> => {
+      requirePermission(route.identity, 'device:delete');
+
+      const removed = await deleteDevice(
+        forRequest(context, route.request.traceId),
+        route.params.deviceId,
+      );
+
+      await context.audit.record({
+        action: 'device.delete',
+        resourceType: 'device',
+        resourceId: route.params.deviceId,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { name: removed.name, kind: removed.kind, entities: removed.entityIds.length },
+      });
     },
   );
 }

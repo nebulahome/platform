@@ -15,9 +15,11 @@ import { and, asc, eq, gt, ilike, inArray, or, sql, type SQL } from 'drizzle-orm
 
 import {
   entityViewSchema,
+  NotFoundError,
   parseEntityId,
   type CapabilityName,
   type EntityQuery,
+  type EntityUpdate,
   type EntityView,
   type Identity,
   type JsonObject,
@@ -27,7 +29,10 @@ import { schema, type Database } from '@nebula-home/db';
 import { entityScopes, isPermitted } from '../auth/permissions.js';
 import { decodeCursor, encodeCursor, toPage, type PageResult } from '../http/pagination.js';
 
-/** One entity row before its capabilities, labels and state are attached. */
+import { checkIcon, type IconLookup } from './icon-lookup.js';
+import { assertTagsExist, replaceEntityTags } from './tags.js';
+
+/** One entity row before its capabilities, tags and state are attached. */
 type EntityRow = {
   rowId: string;
   entityId: string;
@@ -51,6 +56,16 @@ type EntityRow = {
   lastChanged: Date | null;
   lastUpdated: Date | null;
 };
+
+/**
+ * The area an entity is in: its own, or failing that its device's.
+ *
+ * An entity is wherever its device is unless somebody has said otherwise, which is what
+ * `registry.v_entities_expanded` documents as `effective_area_id`. Every read joins the areas
+ * through this rather than through the entity's own column, so a device put in a room takes
+ * its entities with it - in what the rows say, and in what an area-scoped permission covers.
+ */
+const EFFECTIVE_AREA_ID = sql`coalesce(${schema.registry.entities.areaId}, ${schema.registry.devices.areaId})`;
 
 /** The columns every entity read selects. */
 const ENTITY_COLUMNS = {
@@ -107,11 +122,13 @@ export function toSourceRef(
  *
  * @param row - The joined entity row.
  * @param capabilities - Its declared capabilities.
+ * @param tags - The tags on it.
  * @returns The entity as the API presents it.
  */
 function toView(
   row: EntityRow,
   capabilities: readonly { capability: string; params: unknown }[],
+  tags: readonly EntityTag[] = [],
 ): EntityView {
   return entityViewSchema.parse({
     entityId: row.entityId,
@@ -142,6 +159,7 @@ function toView(
     isAvailable: row.isAvailable ?? false,
     lastChanged: row.lastChanged,
     lastUpdated: row.lastUpdated,
+    tagIds: tags.map((tag) => tag.id),
   });
 }
 
@@ -186,15 +204,24 @@ async function readCapabilities(
   return grouped;
 }
 
+/** One tag on an entity: the id the view lists, and the key a permission scope names. */
+type EntityTag = {
+  readonly id: string;
+  readonly key: string;
+};
+
 /**
- * Reads the label keys on a set of entities.
+ * Reads the tags on a set of entities.
  *
  * @param db - The database.
  * @param rowIds - The entity row identifiers.
- * @returns Label keys grouped by row id.
+ * @returns Tags grouped by row id, in key order.
  */
-async function readLabels(db: Database, rowIds: readonly string[]): Promise<Map<string, string[]>> {
-  const grouped = new Map<string, string[]>();
+export async function readTags(
+  db: Database,
+  rowIds: readonly string[],
+): Promise<Map<string, EntityTag[]>> {
+  const grouped = new Map<string, EntityTag[]>();
 
   if (rowIds.length === 0) {
     return grouped;
@@ -202,21 +229,106 @@ async function readLabels(db: Database, rowIds: readonly string[]): Promise<Map<
 
   const rows = await db
     .select({
-      rowId: schema.registry.entityLabels.entityId,
-      key: schema.registry.labels.key,
+      rowId: schema.registry.entityTags.entityId,
+      id: schema.registry.tags.id,
+      key: schema.registry.tags.key,
     })
-    .from(schema.registry.entityLabels)
-    .innerJoin(
-      schema.registry.labels,
-      eq(schema.registry.labels.id, schema.registry.entityLabels.labelId),
-    )
-    .where(inArray(schema.registry.entityLabels.entityId, [...rowIds]));
+    .from(schema.registry.entityTags)
+    .innerJoin(schema.registry.tags, eq(schema.registry.tags.id, schema.registry.entityTags.tagId))
+    .where(inArray(schema.registry.entityTags.entityId, [...rowIds]))
+    .orderBy(asc(schema.registry.tags.key));
 
   for (const row of rows) {
-    grouped.set(row.rowId, [...(grouped.get(row.rowId) ?? []), row.key]);
+    grouped.set(row.rowId, [...(grouped.get(row.rowId) ?? []), { id: row.id, key: row.key }]);
   }
 
   return grouped;
+}
+
+/**
+ * Reads the keys of the tags on a set of devices.
+ *
+ * @param db - The database.
+ * @param deviceIds - The devices' identity rows; nulls, for entities without one, are skipped.
+ * @returns Tag keys grouped by device row id.
+ */
+async function readDeviceTagKeys(
+  db: Database,
+  deviceIds: readonly (string | null)[],
+): Promise<Map<string, string[]>> {
+  const grouped = new Map<string, string[]>();
+  const wanted = [...new Set(deviceIds.filter((id): id is string => id !== null))];
+
+  if (wanted.length === 0) {
+    return grouped;
+  }
+
+  const rows = await db
+    .select({ deviceId: schema.registry.deviceTags.deviceId, key: schema.registry.tags.key })
+    .from(schema.registry.deviceTags)
+    .innerJoin(schema.registry.tags, eq(schema.registry.tags.id, schema.registry.deviceTags.tagId))
+    .where(inArray(schema.registry.deviceTags.deviceId, wanted));
+
+  for (const row of rows) {
+    grouped.set(row.deviceId, [...(grouped.get(row.deviceId) ?? []), row.key]);
+  }
+
+  return grouped;
+}
+
+/**
+ * The tag keys an entity falls under, which is what a permission scope names.
+ *
+ * Its own tags and its device's. An entity is wherever its device is, and it is tagged however
+ * its device is: tagging a device `exterior` puts every one of its entities under
+ * `tag.exterior`, the way putting a device in a room puts them under `area.<room>`. The entity's
+ * view still lists only its own tags - those are what the owner can take off it.
+ *
+ * @param own - The tags on the entity.
+ * @param device - The keys of the tags on its device.
+ * @returns Every key, once each.
+ */
+function scopeTagKeys(
+  own: readonly EntityTag[] | undefined,
+  device: readonly string[] | undefined,
+): string[] {
+  return [...new Set([...(own ?? []).map((tag) => tag.key), ...(device ?? [])])];
+}
+
+/**
+ * Reads the tag keys each of a set of entities falls under: its own tags and its device's.
+ *
+ * For callers outside this file that decide on an entity's scopes - the alias sources, the
+ * members of a scene - so that every check agrees with what the entity routes enforce.
+ *
+ * @param db - The database.
+ * @param rows - The entities, by row id and by the device row they belong to.
+ * @returns Tag keys grouped by entity row id.
+ */
+export async function readTagKeys(
+  db: Database,
+  rows: readonly { readonly rowId: string; readonly deviceId: string | null }[],
+): Promise<Map<string, string[]>> {
+  const [own, device] = await Promise.all([
+    readTags(
+      db,
+      rows.map((row) => row.rowId),
+    ),
+    readDeviceTagKeys(
+      db,
+      rows.map((row) => row.deviceId),
+    ),
+  ]);
+
+  return new Map(
+    rows.map((row) => [
+      row.rowId,
+      scopeTagKeys(
+        own.get(row.rowId),
+        row.deviceId === null ? undefined : device.get(row.deviceId),
+      ),
+    ]),
+  );
 }
 
 /**
@@ -266,7 +378,7 @@ function buildFilters(query: EntityQuery, cursor: string | undefined): SQL | und
  * Lists entities the caller may see.
  *
  * Permission filtering happens after the database read rather than inside it. A grant can be
- * scoped to an entity, an area or a label, and expressing "any of the caller's scopes covers
+ * scoped to an entity, an area or a tag, and expressing "any of the caller's scopes covers
  * this row" in SQL means rebuilding the resolution rules a second time, in a second language -
  * which DATABASE.md rejects for exactly the reason that they would then diverge.
  *
@@ -287,7 +399,11 @@ export async function listEntities(
   const rows: EntityRow[] = await db
     .select(ENTITY_COLUMNS)
     .from(schema.registry.entities)
-    .leftJoin(schema.registry.areas, eq(schema.registry.areas.id, schema.registry.entities.areaId))
+    .leftJoin(
+      schema.registry.devices,
+      eq(schema.registry.devices.id, schema.registry.entities.deviceId),
+    )
+    .leftJoin(schema.registry.areas, eq(schema.registry.areas.id, EFFECTIVE_AREA_ID))
     .leftJoin(
       schema.registry.entityStates,
       eq(schema.registry.entityStates.entityId, schema.registry.entities.id),
@@ -300,23 +416,41 @@ export async function listEntities(
     .limit(page.limit + 1);
 
   const rowIds = rows.map((row) => row.rowId);
-  const [capabilities, labels] = await Promise.all([
+  const [capabilities, tags, deviceTags] = await Promise.all([
     readCapabilities(db, rowIds),
-    readLabels(db, rowIds),
+    readTags(db, rowIds),
+    readDeviceTagKeys(
+      db,
+      rows.map((row) => row.deviceId),
+    ),
   ]);
+
+  /**
+   * The tag keys one row falls under.
+   *
+   * @param row - The entity row.
+   * @returns Its own tags' keys and its device's.
+   */
+  const keysUnder = (row: EntityRow): string[] =>
+    scopeTagKeys(
+      tags.get(row.rowId),
+      row.deviceId === null ? undefined : deviceTags.get(row.deviceId),
+    );
 
   const visible = rows.filter((row) =>
     isPermitted(
       identity.permissions,
       'entity:read',
-      entityScopes(row.entityId, row.areaKey, labels.get(row.rowId) ?? []),
+      entityScopes(row.entityId, row.areaKey, keysUnder(row)),
     ),
   );
 
+  // By what the entity falls under rather than by its own tags alone, for the reason the scopes
+  // are: "every entity tagged exterior" includes those whose device is.
   const filtered =
-    query.label === undefined
+    query.tag === undefined
       ? visible
-      : visible.filter((row) => (labels.get(row.rowId) ?? []).includes(query.label ?? ''));
+      : visible.filter((row) => keysUnder(row).includes(query.tag ?? ''));
 
   const byCapability =
     query.capability === undefined
@@ -328,7 +462,9 @@ export async function listEntities(
         );
 
   return toPage(
-    byCapability.map((row) => toView(row, capabilities.get(row.rowId) ?? [])),
+    byCapability.map((row) =>
+      toView(row, capabilities.get(row.rowId) ?? [], tags.get(row.rowId) ?? []),
+    ),
     page.limit,
     (view) => ({ key: view.entityId }),
   );
@@ -341,6 +477,9 @@ export type EntityDetail = {
 
   /** Every scope a grant could name to cover it. */
   readonly scopes: string[];
+
+  /** The registry row, which is what a write addresses. */
+  readonly rowId: string;
 };
 
 /**
@@ -357,7 +496,11 @@ export async function findEntity(
   const rows: EntityRow[] = await db
     .select(ENTITY_COLUMNS)
     .from(schema.registry.entities)
-    .leftJoin(schema.registry.areas, eq(schema.registry.areas.id, schema.registry.entities.areaId))
+    .leftJoin(
+      schema.registry.devices,
+      eq(schema.registry.devices.id, schema.registry.entities.deviceId),
+    )
+    .leftJoin(schema.registry.areas, eq(schema.registry.areas.id, EFFECTIVE_AREA_ID))
     .leftJoin(
       schema.registry.entityStates,
       eq(schema.registry.entityStates.entityId, schema.registry.entities.id),
@@ -371,15 +514,77 @@ export async function findEntity(
     return undefined;
   }
 
-  const [capabilities, labels] = await Promise.all([
+  const [capabilities, tags, deviceTags] = await Promise.all([
     readCapabilities(db, [row.rowId]),
-    readLabels(db, [row.rowId]),
+    readTags(db, [row.rowId]),
+    readDeviceTagKeys(db, [row.deviceId]),
   ]);
 
   return {
-    view: toView(row, capabilities.get(row.rowId) ?? []),
-    scopes: entityScopes(row.entityId, row.areaKey, labels.get(row.rowId) ?? []),
+    view: toView(row, capabilities.get(row.rowId) ?? [], tags.get(row.rowId) ?? []),
+    scopes: entityScopes(
+      row.entityId,
+      row.areaKey,
+      scopeTagKeys(
+        tags.get(row.rowId),
+        row.deviceId === null ? undefined : deviceTags.get(row.deviceId),
+      ),
+    ),
+    rowId: row.rowId,
   };
+}
+
+/**
+ * Changes what a person calls an entity, what it is drawn as, and the tags on it.
+ *
+ * The identifier is not among what can change: it is what automations and history name the
+ * entity by. Nothing here reaches `core` - its directory holds an entity's address, owner and
+ * capabilities, none of which this touches - so the change is the registry's alone.
+ *
+ * @param db - The database.
+ * @param icons - The catalogue, to check an icon against.
+ * @param detail - The entity as found, with the row the change addresses.
+ * @param body - What to change.
+ * @returns The entity as it now stands.
+ * @throws {ValidationError} When the icon is not in the catalogue, or a tag id names no tag.
+ */
+export async function updateEntity(
+  db: Database,
+  icons: IconLookup,
+  detail: EntityDetail,
+  body: EntityUpdate,
+): Promise<EntityView> {
+  if (body.icon !== undefined && body.icon !== null) {
+    checkIcon(icons, body.icon);
+  }
+
+  await db.transaction(async (tx) => {
+    if (body.name !== undefined || body.icon !== undefined) {
+      await tx
+        .update(schema.registry.entities)
+        .set({
+          ...(body.name === undefined ? {} : { name: body.name }),
+          ...(body.icon === undefined ? {} : { icon: body.icon }),
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.registry.entities.id, detail.rowId));
+    }
+
+    if (body.tagIds !== undefined) {
+      await assertTagsExist(tx, body.tagIds);
+      await replaceEntityTags(tx, detail.rowId, body.tagIds);
+    }
+  });
+
+  const changed = await findEntity(db, detail.view.entityId);
+
+  if (changed === undefined) {
+    throw new NotFoundError(`No entity ${detail.view.entityId}`, {
+      details: { entityId: detail.view.entityId },
+    });
+  }
+
+  return changed.view;
 }
 
 /**
@@ -398,15 +603,17 @@ export async function readableEntityIds(db: Database, identity: Identity): Promi
     .select({
       rowId: schema.registry.entities.id,
       entityId: schema.registry.entities.entityId,
+      deviceId: schema.registry.entities.deviceId,
       areaKey: schema.registry.areas.key,
     })
     .from(schema.registry.entities)
-    .leftJoin(schema.registry.areas, eq(schema.registry.areas.id, schema.registry.entities.areaId));
+    .leftJoin(
+      schema.registry.devices,
+      eq(schema.registry.devices.id, schema.registry.entities.deviceId),
+    )
+    .leftJoin(schema.registry.areas, eq(schema.registry.areas.id, EFFECTIVE_AREA_ID));
 
-  const labels = await readLabels(
-    db,
-    rows.map((row) => row.rowId),
-  );
+  const tags = await readTagKeys(db, rows);
 
   const allowed = new Set<string>();
 
@@ -415,7 +622,7 @@ export async function readableEntityIds(db: Database, identity: Identity): Promi
       isPermitted(
         identity.permissions,
         'entity:read',
-        entityScopes(row.entityId, row.areaKey, labels.get(row.rowId) ?? []),
+        entityScopes(row.entityId, row.areaKey, tags.get(row.rowId) ?? []),
       )
     ) {
       allowed.add(row.entityId);

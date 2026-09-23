@@ -28,6 +28,7 @@ import { buildServer } from './server.js';
 import { AuditLog } from './services/audit.js';
 import { EventFanout } from './services/events.js';
 import { testIcons } from './testing/icons.js';
+import { testMapTiles } from './testing/map-tiles.js';
 
 /** An environment good enough to build a server from. */
 const ENVIRONMENT = {
@@ -73,6 +74,7 @@ async function buildTestServer(): Promise<FastifyInstance> {
     audit: new AuditLog(db, logger),
     events: new EventFanout(logger),
     icons: await testIcons(),
+    mapTiles: testMapTiles(),
     jwtSecret: secret,
     totpKey: Buffer.from(config.API_TOTP_ENCRYPTION_KEY, 'hex'),
     secretsKey: secretsKeyFrom(config.NEBULA_SECRETS_KEY),

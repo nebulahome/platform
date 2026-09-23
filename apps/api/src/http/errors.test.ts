@@ -14,6 +14,7 @@ import {
   ERROR_CODES,
   NotFoundError,
   PermissionError,
+  UpstreamError,
   ValidationError,
 } from '@nebula-home/contracts';
 
@@ -38,6 +39,7 @@ describe('toErrorShape', () => {
     [new ConflictError('taken'), 409, ERROR_CODES.CONFLICT],
     [new PermissionError('nope'), 403, ERROR_CODES.PERMISSION],
     [new DeviceUnavailableError('silent'), 503, ERROR_CODES.DEVICE_UNAVAILABLE],
+    [new UpstreamError('no map server'), 503, ERROR_CODES.UPSTREAM],
   ])('maps %s to its own status', (error, status, code) => {
     const shape = toErrorShape(error);
 
