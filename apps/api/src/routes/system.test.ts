@@ -35,7 +35,7 @@ describe('with core answering', () => {
     expect(response.json()).toMatchObject({
       host: { cpuCount: 4 },
       samples: [{ at: '2026-09-23T12:00:00.000Z', cpuPercent: 12.5 }],
-      disk: { categories: [{ id: 'core', parts: [{ id: 'database' }, { id: 'map-tiles' }] }] },
+      disk: { categories: [{ id: 'core', parts: [{ id: 'database' }, { id: 'cache/maps' }] }] },
     });
     expect(response.json<SystemMonitorSnapshot>().network?.interface).toBe('eth0');
   });

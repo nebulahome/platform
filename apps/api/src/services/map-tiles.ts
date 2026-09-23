@@ -7,7 +7,8 @@
  * when asked: once the house has been placed, a prefetch walks every tile of the buffer, fetches
  * the ones missing and writes each beside the others. That is the whole cache, and it is files
  * rather than rows because a tile is a picture nobody queries, and a directory of pictures is
- * what a person can look at, back up and delete without a tool.
+ * what a person can look at and delete without a tool. It lives under the data directory's
+ * `cache/`, which a backup leaves out: the tiles are fetched again on the next prefetch.
  *
  * The tile server is somebody else's, and the service behaves as a guest: it says who it is in
  * every request, takes nothing beyond the buffer the geometry bounds, and fetches a few tiles at

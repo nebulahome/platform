@@ -11,11 +11,8 @@
  * everything it can read from the database in the meantime. Commands fail with
  * `DEVICE_UNAVAILABLE` while it is away, which is the truth.
  */
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { BusClient, connectBus, type BusConnection } from '@nebula-home/bus';
-import { loadConfigOrExit } from '@nebula-home/config';
+import { loadConfigOrExit, resolveDataLayout } from '@nebula-home/config';
 import { ERROR_CODES, EXIT_CODES, isNebulaError } from '@nebula-home/contracts';
 import { assertSchemaVersion, createDatabase, secretsKeyFrom } from '@nebula-home/db';
 import { loadBuiltinIcons } from '@nebula-home/icons';
@@ -184,9 +181,7 @@ async function start(): Promise<void> {
     events,
     icons,
     mapTiles: createMapTileService({
-      directory:
-        config.API_MAP_CACHE_DIR ??
-        resolve(dirname(fileURLToPath(import.meta.url)), '../../../infra/data/map-tiles'),
+      directory: resolveDataLayout(config).mapTiles,
       template: config.API_MAP_TILE_URL,
       userAgent: `NebulaHome/${SERVICE_VERSION} (+https://github.com/nebula-home/platform)`,
       fetch: globalThis.fetch,

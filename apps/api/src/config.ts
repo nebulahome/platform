@@ -11,7 +11,9 @@ import { z } from 'zod';
 import {
   busEnvSchema,
   databaseEnvSchema,
+  dataEnvSchema,
   portSchema,
+  requireDataDirInProduction,
   runtimeEnvSchema,
   secretsEnvSchema,
 } from '@nebula-home/config';
@@ -106,16 +108,11 @@ export const apiEnvSchema = runtimeEnvSchema
         message: 'Must contain {z}, {x} and {y}',
       })
       .default('https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
-
-    /**
-     * Where the map around the house is kept, as `<dir>/<z>/<x>/<y>.png`.
-     *
-     * Absent, the repository's own `infra/data/map-tiles` beside the package artefacts, found
-     * from where this package sits rather than from the working directory - which in
-     * development is the package, not the repository.
-     */
-    API_MAP_CACHE_DIR: z.string().min(1).optional(),
-  });
+  })
+  // The data directory, whose `cache/maps` keeps the map around the house for when the internet
+  // is away.
+  .extend(dataEnvSchema.shape)
+  .superRefine(requireDataDirInProduction);
 
 /** Everything `api` needs from the environment. */
 export type ApiConfig = z.output<typeof apiEnvSchema>;
