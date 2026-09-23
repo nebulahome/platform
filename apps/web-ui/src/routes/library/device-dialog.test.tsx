@@ -463,6 +463,77 @@ describe('adding a device', () => {
   });
 });
 
+describe('what the device says it is', () => {
+  it('picks the model the Test found, and the name and id follow it', async () => {
+    vi.mocked(probeDevice).mockResolvedValue({
+      isReachable: true,
+      detail: 'Connected to mqtts://192.168.1.60:8883 as bblp',
+      detected: { kind: 'bambu-lab/printer', model: 'P1S', modelChoices: ['P1S'] },
+    });
+    renderDialog({ mode: 'create', vendor: BAMBU, existingIds: [] });
+
+    fillPrinter();
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText<HTMLInputElement>('Name').value).toBe('P1S');
+    });
+    expect(screen.getByLabelText('Model').textContent).toContain('P1S');
+    expect(screen.getByLabelText<HTMLInputElement>('Id').value).toBe('bambu-lab-p1s');
+    expect(screen.getByRole('status').textContent).toContain('Connected');
+    expect(screen.getByRole('status').textContent).toContain('P1S');
+  });
+
+  it('keeps what was typed when the model it found belongs to another driver', async () => {
+    // A Shelly picked as a relay that turns out to be a plug: a different driver, but the address
+    // it answered at is the same address.
+    const [relay] = SHELLY.drivers;
+
+    if (relay === undefined) {
+      throw new Error('The Shelly fixture has a driver');
+    }
+
+    const shelly: IntegrationVendorView = {
+      ...SHELLY,
+      drivers: [
+        { ...relay, id: 'shelly/switch', driverId: 'switch', models: ['1 Gen3'] },
+        { ...relay, id: 'shelly/plug', driverId: 'plug', models: ['Plug S Gen3'] },
+      ],
+    };
+
+    vi.mocked(probeDevice).mockResolvedValue({
+      isReachable: true,
+      detail: '192.168.1.41 answered',
+      detected: { kind: 'shelly/plug', model: 'Plug S Gen3', modelChoices: ['Plug S Gen3'] },
+    });
+    renderDialog({ mode: 'create', vendor: shelly, existingIds: [] });
+
+    fireEvent.change(screen.getByLabelText('Address'), { target: { value: '192.168.1.41' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Model').textContent).toContain('Plug S Gen3');
+    });
+    expect(screen.getByLabelText<HTMLInputElement>('Address').value).toBe('192.168.1.41');
+  });
+
+  it('leaves the pick alone when the device being changed says something else', async () => {
+    vi.mocked(probeDevice).mockResolvedValue({
+      isReachable: true,
+      detail: 'Connected',
+      detected: { kind: 'bambu-lab/printer', model: 'P1S', modelChoices: ['P1S'] },
+    });
+    renderDialog({ mode: 'edit', vendor: BAMBU, device: EXISTING });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('status').textContent).toContain('Connected');
+    });
+    expect(screen.getByLabelText('Model').textContent).toContain('X1C');
+  });
+});
+
 describe('changing a device', () => {
   it('is titled by the name, leaves a blank secret out so the one kept stays, and names the device to the probe', async () => {
     vi.mocked(probeDevice).mockResolvedValue({ isReachable: true, detail: 'Connected' });

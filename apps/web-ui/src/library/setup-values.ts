@@ -17,6 +17,8 @@ import {
   type SetupValueMode,
 } from '@nebula-home/contracts';
 
+import { isApiError } from '@/lib/api-error';
+
 /** What one control holds: text for everything but a switch. */
 export type DraftValue = string | boolean;
 
@@ -202,4 +204,28 @@ export function errorsByField(
   }
 
   return errors;
+}
+
+/**
+ * The issues a `400` carried, if it carried any.
+ *
+ * @param error - What the request threw.
+ * @returns The issues, or none for any other failure.
+ */
+export function serverIssuesOf(error: unknown): ServerIssue[] {
+  if (!isApiError(error) || error.code !== 'VALIDATION') {
+    return [];
+  }
+
+  const issues = error.details['issues'];
+
+  return Array.isArray(issues)
+    ? issues.filter(
+        (issue): issue is ServerIssue =>
+          typeof issue === 'object' &&
+          issue !== null &&
+          typeof (issue as { path?: unknown }).path === 'string' &&
+          typeof (issue as { message?: unknown }).message === 'string',
+      )
+    : [];
 }

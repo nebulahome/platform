@@ -14,6 +14,7 @@ import {
   automationViewSchema,
   deviceProbeReplySchema,
   deviceViewSchema,
+  discoveredReplySchema,
   entityViewSchema,
   iconsResponseSchema,
   iconViewSchema,
@@ -40,6 +41,8 @@ import {
   type DeviceProbeRequest,
   type DeviceUpdate,
   type DeviceView,
+  type DiscoveredDevice,
+  type DiscoveryAdopt,
   type EntityUpdate,
   type EntityView,
   type IconCreate,
@@ -243,6 +246,38 @@ export async function updateDevice(deviceId: string, request: DeviceUpdate): Pro
  */
 export async function deleteDevice(deviceId: string): Promise<void> {
   await apiRequest(`/devices/${deviceId}`, z.undefined(), { method: 'DELETE' });
+}
+
+/**
+ * Lists the devices the hub found on the network and nobody has added yet.
+ *
+ * @param signal - Cancels the request.
+ * @returns Every device found, oldest first; none when the hub is away.
+ */
+export async function fetchDiscovered(signal?: AbortSignal): Promise<DiscoveredDevice[]> {
+  const { items } = await apiRequest('/discovery', discoveredReplySchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
+
+  return items;
+}
+
+/**
+ * Adds a device the hub found, with what it found filled in.
+ *
+ * @param candidateId - Which device, as the list named it.
+ * @param request - What the owner decided: the id, the name, the icon, the room, the tags, and
+ * whatever the driver asks that discovery could not fill.
+ * @returns The device as it now stands.
+ */
+export async function adoptDiscovered(
+  candidateId: string,
+  request: DiscoveryAdopt,
+): Promise<DeviceView> {
+  return apiRequest(`/discovery/${candidateId}/adopt`, deviceViewSchema, {
+    method: 'POST',
+    body: request,
+  });
 }
 
 /** What a page of the icon catalogue is asked for. */
@@ -641,6 +676,9 @@ export const LIBRARY_QUERY_KEYS = {
 
   /** Every vendor the hub has loaded. */
   vendors: ['library', 'vendors'] as const,
+
+  /** The devices the hub found on the network and nobody has added. */
+  discovered: ['library', 'discovered'] as const,
 
   /** Every installed package. */
   packages: ['library', 'packages'] as const,

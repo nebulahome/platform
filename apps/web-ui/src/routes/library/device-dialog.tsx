@@ -15,7 +15,10 @@
  * **Test** opens the transport once with what is typed and reports the verdict in a sentence:
  * "Connected to mqtts://… as bblp", or "did not answer: ECONNREFUSED". It saves nothing. A secret
  * left blank while editing is filled from the one kept, so testing a changed address does not
- * mean typing the password again.
+ * mean typing the password again. When the vendor's discovery can tell which model answered, a
+ * device being added takes that model - and its driver, keeping what was typed into the fields
+ * the two drivers share - so the owner who picked a relay for what turns out to be a plug does
+ * not have to find that out from a device that never reports.
  *
  * **Save** writes the row and the hub is asked to match it at once; the row comes back with the
  * state the hub reported, and the page shows it. What takes effect takes effect now.
@@ -39,17 +42,17 @@ import {
 import { Button, Modal, Segmented, SelectField, TextField } from '@nebula-home/ui';
 
 import { CheckIcon, WarningIcon } from '@/components/icons';
-import { isApiError } from '@/lib/api-error';
 import { roomChoices } from '@/lib/area-tree';
 import { toMessage } from '@/lib/error-message';
 import { createDevice, deleteDevice, probeDevice, updateDevice } from '@/library/api';
+import { suggestDeviceId } from '@/library/device-id';
 import {
   errorsByField,
   initialDraft,
   keptSecrets,
+  serverIssuesOf,
   toValues,
   type DraftValue,
-  type ServerIssue,
   type SetupDraft,
 } from '@/library/setup-values';
 import { ConfirmRemoval } from '@/routes/library/confirm-removal';
@@ -130,43 +133,6 @@ type Values = {
 };
 
 /**
- * A name as part of an id: lower case, dashes for anything that is not a letter or digit.
- *
- * @param name - What the owner typed: `Studio printer`, `1PM Mini Gen3`.
- * @returns `studio-printer`, `1pm-mini-gen3`.
- */
-function slug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/gu, '-')
-    .replace(/^-+|-+$/gu, '');
-}
-
-/**
- * An id for a new device of this vendor, from its name, that nobody has yet.
- *
- * `bambu-lab-x1c` for the first, `bambu-lab-x1c-2` for the next: the id is what every entity
- * of the device carries as its source, so two cannot share one. The vendor stays in front so
- * that an id reads as what it is in a log, whatever the owner called the device.
- *
- * @param vendorId - The vendor.
- * @param name - The name typed, or the model it started as.
- * @param taken - The ids already in use.
- * @returns A free id.
- */
-function suggestId(vendorId: string, name: string, taken: readonly string[]): string {
-  const part = slug(name);
-  const base = part === '' ? vendorId : `${vendorId}-${part}`;
-  let candidate = base;
-
-  for (let n = 2; taken.includes(candidate); n += 1) {
-    candidate = `${base}-${String(n)}`;
-  }
-
-  return candidate;
-}
-
-/**
  * The choice an existing device was made with, or the first the vendor offers.
  *
  * @param choices - What the vendor offers.
@@ -214,27 +180,24 @@ function draftsFor(
 }
 
 /**
- * The issues a `400` carried, if it carried any.
+ * A draft of another form, with what was typed wherever the two share a field.
  *
- * @param error - What the request threw.
- * @returns The issues, or none for any other failure.
+ * @param from - What was typed.
+ * @param into - The draft the other form starts from.
+ * @returns `into`, with what was typed carried over.
  */
-function issuesOf(error: unknown): ServerIssue[] {
-  if (!isApiError(error) || error.code !== 'VALIDATION') {
-    return [];
+function carriedOver(from: SetupDraft, into: SetupDraft): SetupDraft {
+  const carried: SetupDraft = { ...into };
+
+  for (const key of Object.keys(into)) {
+    const typed = from[key];
+
+    if (typed !== undefined) {
+      carried[key] = typed;
+    }
   }
 
-  const issues = error.details['issues'];
-
-  return Array.isArray(issues)
-    ? issues.filter(
-        (issue): issue is ServerIssue =>
-          typeof issue === 'object' &&
-          issue !== null &&
-          typeof (issue as { path?: unknown }).path === 'string' &&
-          typeof (issue as { message?: unknown }).message === 'string',
-      )
-    : [];
+  return carried;
 }
 
 /**
@@ -270,7 +233,7 @@ export function DeviceDialog(props: DeviceDialogProps) {
       existing?.id ??
       (vendor === undefined || choice === undefined
         ? ''
-        : suggestId(vendor.id, choice.model, taken)),
+        : suggestDeviceId(vendor.id, choice.model, taken)),
   );
   const [isIdEdited, setIdEdited] = useState(false);
   const [icon, setIcon] = useState<string | null>(
@@ -335,7 +298,7 @@ export function DeviceDialog(props: DeviceDialogProps) {
    * @param error - What the request threw.
    */
   const remember = (error: unknown): void => {
-    const issues = issuesOf(error);
+    const issues = serverIssuesOf(error);
 
     setErrors({
       transport: errorsByField(issues, 'transportConfig'),
@@ -367,6 +330,20 @@ export function DeviceDialog(props: DeviceDialogProps) {
      */
     onSuccess: (reply): void => {
       setVerdict(reply);
+
+      const detected = reply.detected;
+
+      if (existing === undefined && detected !== undefined) {
+        const found = choices.find(
+          (each) =>
+            each.kind === detected.kind &&
+            each.model === (detected.model ?? detected.modelChoices[0]),
+        );
+
+        if (found !== undefined) {
+          choose(found, 'detected');
+        }
+      }
     },
     onError: remember,
   });
@@ -453,24 +430,38 @@ export function DeviceDialog(props: DeviceDialogProps) {
     };
 
   /**
-   * Picks another model, and with it perhaps another driver and another form.
+   * Takes another model, and with it perhaps another driver and another form.
    *
-   * @param value - The option chosen: the kind and the model, joined.
+   * @param next - The model and its driver.
+   * @param how - `picked` by the owner, or `detected` by a Test: a pick forgets the verdict, which
+   * was about the model before it, and starts the new driver's form afresh; a detection keeps the
+   * verdict it came with, and what was typed wherever the two forms share a field - it is the
+   * same device at the same address.
    */
-  const pick = (value: string): void => {
-    const next = choices.find((each) => modelValueOf(each) === value);
-
-    if (next === undefined || vendor === undefined) {
+  const choose = (next: ModelChoice, how: 'picked' | 'detected'): void => {
+    if (vendor === undefined || (next.kind === choice?.kind && next.model === choice.model)) {
       return;
     }
 
     setChoice(next);
-    setVerdict(null);
+
+    if (how === 'picked') {
+      setVerdict(null);
+    }
 
     if (next.kind !== choice?.kind) {
       // Another driver is another form: what was typed for the old one names fields the new
-      // one does not have.
-      setDrafts(draftsFor(vendor, next, existing));
+      // one may not have.
+      const fresh = draftsFor(vendor, next, existing);
+
+      setDrafts(
+        how === 'picked'
+          ? fresh
+          : {
+              transport: carriedOver(drafts.transport, fresh.transport),
+              options: carriedOver(drafts.options, fresh.options),
+            },
+      );
       setErrors(NO_ERRORS);
     }
 
@@ -479,7 +470,7 @@ export function DeviceDialog(props: DeviceDialogProps) {
       setName(next.model);
 
       if (!isIdEdited) {
-        setId(suggestId(vendor.id, next.model, taken));
+        setId(suggestDeviceId(vendor.id, next.model, taken));
       }
     }
 
@@ -488,6 +479,19 @@ export function DeviceDialog(props: DeviceDialogProps) {
       const nextDriver = vendor.drivers.find((each) => each.id === next.kind);
 
       setIcon(nextDriver?.defaultIcon ?? null);
+    }
+  };
+
+  /**
+   * Picks another model from the list.
+   *
+   * @param value - The option chosen: the kind and the model, joined.
+   */
+  const pick = (value: string): void => {
+    const next = choices.find((each) => modelValueOf(each) === value);
+
+    if (next !== undefined) {
+      choose(next, 'picked');
     }
   };
 
@@ -501,7 +505,7 @@ export function DeviceDialog(props: DeviceDialogProps) {
     setNameEdited(true);
 
     if (existing === undefined && !isIdEdited && vendor !== undefined) {
-      setId(suggestId(vendor.id, value, taken));
+      setId(suggestDeviceId(vendor.id, value, taken));
     }
   };
 
@@ -689,7 +693,12 @@ export function DeviceDialog(props: DeviceDialogProps) {
         {verdict === null ? null : verdict.isReachable ? (
           <p role="status" className="flex items-start gap-2 text-ui text-success">
             <CheckIcon width="16" height="16" className="mt-0.5 shrink-0" />
-            <span>{verdict.detail}</span>
+            <span>
+              {verdict.detail}
+              {verdict.detected === undefined || existing !== undefined
+                ? null
+                : ` It says it is a ${verdict.detected.model ?? verdict.detected.modelChoices.join(' or ')}.`}
+            </span>
           </p>
         ) : (
           <p role="alert" className="flex items-start gap-2 text-ui text-danger">

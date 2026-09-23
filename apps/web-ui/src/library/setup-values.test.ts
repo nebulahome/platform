@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { integrationSetupSchema } from '@nebula-home/contracts';
 
-import { errorsByField, initialDraft, keptSecrets, toValues } from './setup-values';
+import { ApiError } from '@/lib/api-error';
+
+import { errorsByField, initialDraft, keptSecrets, serverIssuesOf, toValues } from './setup-values';
 
 /** A declaration with one field of every kind. */
 const SETUP = integrationSetupSchema.parse({
@@ -153,5 +155,26 @@ describe('errorsByField', () => {
         'transportConfig',
       ),
     ).toEqual({ url: 'Must start with mqtt' });
+  });
+});
+
+describe('serverIssuesOf', () => {
+  it('reads the issues a 400 carried, and nothing from any other failure', () => {
+    const refused = new ApiError({
+      status: 400,
+      code: 'VALIDATION',
+      message: 'Invalid',
+      details: {
+        issues: [{ path: 'transportConfig.password', message: 'Must be 8 characters' }, 'noise'],
+      },
+    });
+
+    expect(serverIssuesOf(refused)).toEqual([
+      { path: 'transportConfig.password', message: 'Must be 8 characters' },
+    ]);
+    expect(serverIssuesOf(new Error('offline'))).toEqual([]);
+    expect(
+      serverIssuesOf(new ApiError({ status: 409, code: 'CONFLICT', message: 'Taken' })),
+    ).toEqual([]);
   });
 });

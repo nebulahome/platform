@@ -7,19 +7,68 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { IntegrationVendorView } from '@nebula-home/contracts';
+import type { DiscoveredDevice, IntegrationVendorView } from '@nebula-home/contracts';
 
 import { useSession } from '@/auth/session-store';
-import { fetchVendors } from '@/library/api';
+import {
+  fetchAreas,
+  fetchDevices,
+  fetchDiscovered,
+  fetchIcons,
+  fetchTags,
+  fetchVendors,
+} from '@/library/api';
 
 import { IntegrationsPage } from './integrations-page';
 
 vi.mock('@/library/api', () => ({
   fetchVendors: vi.fn(),
-  LIBRARY_QUERY_KEYS: { vendors: ['library', 'vendors'] },
+  fetchDiscovered: vi.fn(),
+  fetchDevices: vi.fn(),
+  adoptDiscovered: vi.fn(),
+  fetchIcons: vi.fn(),
+  fetchTags: vi.fn(),
+  createTag: vi.fn(),
+  fetchAreas: vi.fn(),
+  LIBRARY_QUERY_KEYS: {
+    vendors: ['library', 'vendors'],
+    discovered: ['library', 'discovered'],
+    devices: ['library', 'devices'],
+    icons: ['library', 'icons'],
+    tags: ['library', 'tags'],
+    areas: ['library', 'areas'],
+  },
 }));
+
+beforeEach(() => {
+  vi.mocked(fetchDiscovered).mockClear();
+  vi.mocked(fetchDiscovered).mockResolvedValue([]);
+  vi.mocked(fetchDevices).mockResolvedValue([]);
+  vi.mocked(fetchTags).mockResolvedValue([]);
+  vi.mocked(fetchAreas).mockResolvedValue([]);
+  vi.mocked(fetchIcons).mockResolvedValue([]);
+});
+
+/** A Shelly relay the hub found and nobody has added. */
+const FOUND: DiscoveredDevice = {
+  id: '0123456789abcdef',
+  vendorId: 'shelly',
+  driverId: 'switch-pm',
+  kind: 'shelly/switch-pm',
+  source: 'mdns',
+  address: '192.168.1.40',
+  externalId: 'shelly1pmg3-a8032ab12345',
+  name: 'Kitchen',
+  model: '1PM Gen3',
+  modelChoices: ['1PM Gen3'],
+  modelCode: 'S3SW-001P16EU',
+  swVersion: '1.4.2',
+  transportConfig: { host: '192.168.1.40' },
+  firstSeenAt: new Date('2026-09-23T10:00:00.000Z'),
+  lastSeenAt: new Date('2026-09-23T10:05:00.000Z'),
+};
 
 /**
  * A vendor as the list serves it.
@@ -49,8 +98,12 @@ function vendor(overrides: Partial<IntegrationVendorView>): IntegrationVendorVie
   };
 }
 
-/** Renders the page with an owner signed in. */
-function renderPage(): void {
+/**
+ * Renders the page with an owner signed in.
+ *
+ * @param permissions - What the owner may do; configuring integrations when not said.
+ */
+function renderPage(permissions: readonly string[] = ['integration:configure']): void {
   useSession.setState({
     status: 'signed-in',
     user: {
@@ -58,7 +111,7 @@ function renderPage(): void {
       username: 'mattia',
       displayName: 'Mattia Carli',
       role: 'owner',
-      permissions: [{ key: 'integration:configure', scope: '*', effect: 'allow' }],
+      permissions: permissions.map((key) => ({ key, scope: '*', effect: 'allow' as const })),
       avatarUrl: null,
       locale: 'it',
       timezone: 'Europe/Rome',
@@ -157,5 +210,65 @@ describe('the integrations grid', () => {
     const install = screen.getByRole<HTMLButtonElement>('button', { name: 'Install integration' });
 
     expect(install.disabled).toBe(true);
+  });
+});
+
+describe('the devices found on the network', () => {
+  it('are shown above the vendors, to somebody who may see devices', async () => {
+    vi.mocked(fetchVendors).mockResolvedValue([vendor({})]);
+    vi.mocked(fetchDiscovered).mockResolvedValue([FOUND]);
+    renderPage(['device:read']);
+
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: /Found on your network/u })).toBeTruthy();
+    });
+    expect(screen.getByRole('article', { name: 'Kitchen' }).textContent).toContain('Shelly');
+    expect(screen.queryByRole('button', { name: 'Adopt Kitchen' })).toBeNull();
+  });
+
+  it('open the adoption dialog for somebody who may add devices', async () => {
+    vi.mocked(fetchVendors).mockResolvedValue([
+      vendor({
+        drivers: [
+          {
+            id: 'shelly/switch-pm',
+            vendorId: 'shelly',
+            driverId: 'switch-pm',
+            name: 'Relay with power metering',
+            transport: 'shelly/rpc',
+            models: ['1PM Gen3'],
+            defaultIcon: 'relay',
+            setup: {
+              transport: {
+                constants: {},
+                fields: [
+                  { key: 'host', type: 'text', label: 'Address', isRequired: true, maxLength: 512 },
+                ],
+              },
+              options: { constants: {}, fields: [] },
+            },
+          },
+        ],
+      }),
+    ]);
+    vi.mocked(fetchDiscovered).mockResolvedValue([FOUND]);
+    renderPage(['device:read', 'device:write']);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Adopt Kitchen' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Adopt Kitchen' })).toBeTruthy();
+  });
+
+  it('are not asked for from somebody who may not see devices', async () => {
+    vi.mocked(fetchVendors).mockResolvedValue([vendor({})]);
+    vi.mocked(fetchDiscovered).mockResolvedValue([FOUND]);
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Shelly' })).toBeTruthy();
+    });
+
+    expect(fetchDiscovered).not.toHaveBeenCalled();
+    expect(screen.queryByRole('region', { name: /Found on your network/u })).toBeNull();
   });
 });

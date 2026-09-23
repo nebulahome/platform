@@ -78,8 +78,11 @@ export type LiveClientOptions = {
   readonly delayFor?: (attempt: number) => number;
 };
 
-/** What is asked for when nothing is specified: states, and the device events that add to them. */
-const DEFAULT_TOPICS: readonly WsTopic[] = ['state', 'devices'];
+/**
+ * What is asked for when nothing is specified: states, the device events that add to them, and
+ * the devices found on the network that the integrations page offers to adopt.
+ */
+const DEFAULT_TOPICS: readonly WsTopic[] = ['state', 'devices', 'discovery'];
 
 /**
  * Opens a browser socket.

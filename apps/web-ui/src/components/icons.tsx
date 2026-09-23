@@ -99,6 +99,26 @@ export function ChevronIcon(props: IconProps & { readonly isOpen: boolean }) {
 }
 
 /**
+ * A chevron pointing back: the previous page of a row that scrolls.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function ChevronLeftIcon(props: IconProps) {
+  return icon('chevron-left', props);
+}
+
+/**
+ * A chevron pointing on: the next page of a row that scrolls.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function ChevronRightIcon(props: IconProps) {
+  return icon('chevron-right', props);
+}
+
+/**
  * A padlock.
  *
  * @param props - SVG attributes.

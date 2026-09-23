@@ -62,7 +62,13 @@ export function useLiveChannel(): void {
         if (message.type === 'device_event') {
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.entities });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.discovered });
           client.reconnect();
+        }
+
+        if (message.type === 'discovery_event') {
+          // Only the count travels; the list is read again with the permission it takes.
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.discovered });
         }
       },
 

@@ -158,6 +158,7 @@ describe('LiveClient', () => {
     expect(socket?.sent.slice(1)).toEqual([
       JSON.stringify({ type: 'subscribe', topic: 'state' }),
       JSON.stringify({ type: 'subscribe', topic: 'devices' }),
+      JSON.stringify({ type: 'subscribe', topic: 'discovery' }),
     ]);
     expect(statuses).toEqual(['connecting', 'live']);
 

@@ -12,20 +12,28 @@
  * **Install integration** is here for the catalogue that will fill it, and does nothing yet.
  * Present rather than absent so the header already has the shape it will keep; disabled rather
  * than a no-op so nobody presses it twice wondering.
+ *
+ * Above the grid, the devices the hub found on the network and nobody has added: a row of cards,
+ * each with an Adopt that adds it with what was found filled in. The row is the hub's live list -
+ * a device added, or gone quiet, leaves it on its own - and it is there only when there is
+ * something in it, and only for somebody who may see devices.
  */
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
+import type { DiscoveredDevice } from '@nebula-home/contracts';
 import { Button, TextField } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
-import { fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { fetchDevices, fetchDiscovered, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
   isNarrowing,
   matchesVendorFilter,
   OPEN_VENDOR_FILTER,
   type VendorFilter,
 } from '@/library/vendor-filters';
+import { AdoptDialog } from '@/routes/library/adopt-dialog';
+import { DiscoveredStrip } from '@/routes/library/discovered-strip';
 import { IntegrationFilter } from '@/routes/library/integration-filter';
 import { LibraryPage } from '@/routes/library/library-page';
 import { VendorCard } from '@/routes/library/vendor-card';
@@ -36,8 +44,13 @@ import { VendorCard } from '@/routes/library/vendor-card';
  * @returns The page.
  */
 export function IntegrationsPage() {
-  const canConfigure = useSession((state) => state.can)('integration:configure');
+  const can = useSession((state) => state.can);
+  const canConfigure = can('integration:configure');
+  const canSeeDevices = can('device:read');
+  const canAddDevices = can('device:write');
+  const queryClient = useQueryClient();
   const [filter, setFilter] = useState<VendorFilter>(OPEN_VENDOR_FILTER);
+  const [adopting, setAdopting] = useState<DiscoveredDevice | null>(null);
 
   const vendors = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.vendors,
@@ -52,8 +65,37 @@ export function IntegrationsPage() {
     queryFn: async ({ signal }) => fetchVendors(signal),
   });
 
+  const discovered = useQuery({
+    queryKey: LIBRARY_QUERY_KEYS.discovered,
+    enabled: canSeeDevices,
+
+    /**
+     * Reads what the hub found on the network and nobody has added.
+     *
+     * @param context - The query's abort signal.
+     * @param context.signal - Cancels the request when the page goes away.
+     * @returns The devices found.
+     */
+    queryFn: async ({ signal }) => fetchDiscovered(signal),
+  });
+
+  const devices = useQuery({
+    queryKey: LIBRARY_QUERY_KEYS.devices,
+    enabled: adopting !== null,
+
+    /**
+     * Reads every device, for the ids an adopted one must not take.
+     *
+     * @param context - The query's abort signal.
+     * @param context.signal - Cancels the request when the page goes away.
+     * @returns Every device.
+     */
+    queryFn: async ({ signal }) => fetchDevices(signal),
+  });
+
   const all = vendors.data ?? [];
   const shown = all.filter((vendor) => matchesVendorFilter(vendor, filter));
+  const adoptingVendor = all.find((vendor) => vendor.id === adopting?.vendorId);
 
   return (
     <LibraryPage
@@ -90,6 +132,13 @@ export function IntegrationsPage() {
       isEmpty={all.length === 0}
       emptyMessage="The hub has no integration bundles loaded. The ones that ship with it appear here as soon as it starts."
     >
+      <DiscoveredStrip
+        devices={discovered.data ?? []}
+        vendors={all}
+        canAdopt={canAddDevices}
+        onAdopt={setAdopting}
+      />
+
       {shown.length === 0 && isNarrowing(filter) ? (
         <p className="text-ui text-foreground-muted">
           Nothing matches. Clear the search or widen the filter.
@@ -101,6 +150,29 @@ export function IntegrationsPage() {
           ))}
         </ul>
       )}
+
+      <AdoptDialog
+        key={adopting?.id ?? 'shut'}
+        target={
+          adopting === null || adoptingVendor === undefined
+            ? null
+            : {
+                device: adopting,
+                vendor: adoptingVendor,
+                existingIds: (devices.data ?? []).map((device) => device.id),
+              }
+        }
+        canCreateTags={can('tag:write')}
+        onClose={() => {
+          setAdopting(null);
+        }}
+        onAdopted={() => {
+          setAdopting(null);
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.discovered });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
+        }}
+      />
     </LibraryPage>
   );
 }
