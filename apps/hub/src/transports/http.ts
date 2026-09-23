@@ -10,11 +10,23 @@
  * and a request template supplies the path. That split is what lets one profile describe a kind of
  * device while the instance says which one it is.
  *
- * Identifying the device is a probe of the one host an owner configured. Finding devices without
- * being told where to look needs mDNS and SSDP, which are their own piece of work; asking an
- * owner for an address is what the interface would fall back to anyway when a device does not
- * announce itself.
+ * **The verb is the template's.** `op` is `get`, `post`, `put`, `patch` or `delete`, and a body in
+ * the template goes out as JSON: a Sonoff in DIY mode answers only a POST, a Nanoleaf takes its
+ * state as a PUT. A poll names its verb in `method`.
+ *
+ * **What authenticates a request is the owner's, never the profile's.** A password goes out as
+ * basic auth; a token goes in the header the bundle names (`X-Plex-Token`, `hue-application-key`),
+ * or into the path where the bundle's `pathPrefix` puts `{token}` (`/api/v1/{token}`, as a Nanoleaf
+ * wants). All of it is configuration a `setup.json` fills, so a profile stays shareable and never
+ * sees a secret. A device that signs its own certificate - a Hue bridge, a NAS - is reached with
+ * `shouldVerifyCertificate: false`, which the bundle sets for the devices it knows do.
+ *
+ * Identifying the device is a probe of the one host an owner configured, or of the address a
+ * device announced itself at; the listening is discovery's, not this transport's.
  */
+import { createHash } from 'node:crypto';
+
+import { Agent, fetch } from 'undici';
 import { z } from 'zod';
 
 import type { JsonObject } from '@nebula-home/contracts';
@@ -30,6 +42,15 @@ import type {
 /** How often a poll may run at most, so a profile cannot melt a device with a one-millisecond loop. */
 const MIN_POLL_MS = 250;
 
+/** The verbs a template may name. */
+const METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
+
+/** A verb a template may name. */
+type Method = (typeof METHODS)[number];
+
+/** Where a path prefix puts the token. */
+const TOKEN_PLACEHOLDER = '{token}';
+
 /** What an owner configures to reach a device. */
 export const httpConfigSchema = z.object({
   /** The device this instance reaches, as `host` or `host:port`. One instance is one device. */
@@ -38,11 +59,43 @@ export const httpConfigSchema = z.object({
   /** Whether to speak TLS to them. */
   isSecure: z.boolean().default(false),
 
+  /**
+   * Whether to check the device's certificate against the ones the system trusts.
+   *
+   * False for a device that signs its own - a Hue bridge, a NAS on the LAN - which no authority
+   * will ever vouch for. The bundle sets it for the devices it knows do; the owner never sees it.
+   */
+  shouldVerifyCertificate: z.boolean().default(true),
+
   /** How long a request has before it is treated as unreachable. */
   timeoutMs: z.coerce.number().int().min(100).max(60_000).default(4000),
 
   username: z.string().max(128).optional(),
   password: z.string().max(512).optional(),
+
+  /** A token the device takes instead of a password: an API key, an application key. */
+  token: z.string().min(1).max(4096).optional(),
+
+  /** The header the token goes in: `X-Plex-Token`, `hue-application-key`, `authorization`. */
+  tokenHeader: z
+    .string()
+    .regex(/^[A-Za-z0-9-]{1,64}$/, 'Must be a header name')
+    .optional(),
+
+  /** What goes in front of the token in its header: `Bearer `. */
+  tokenPrefix: z.string().max(32).default(''),
+
+  /**
+   * What goes in front of every path, with `{token}` where the token belongs.
+   *
+   * For the devices that take their token as a path segment: a Nanoleaf answers
+   * `/api/v1/<token>/state` and nothing else.
+   */
+  pathPrefix: z
+    .string()
+    .regex(/^\/[^?#]*$/, 'Must be a path, starting with /')
+    .max(256)
+    .optional(),
 });
 
 /** What an owner configures to reach a device. */
@@ -61,16 +114,57 @@ function asText(value: unknown): string {
 }
 
 /**
+ * Reads the verb a template or a poll names.
+ *
+ * @param op - What the template said, when it said anything.
+ * @returns The verb; `get` when nothing was named.
+ * @throws {Error} When the verb is not one HTTP has here - a profile written for another
+ * transport, which is better refused at the first request than sent as a GET the device ignores.
+ */
+function methodOf(op: unknown): Method {
+  if (op === undefined) {
+    return 'get';
+  }
+
+  const found = METHODS.find((method) => method === op);
+
+  if (found === undefined) {
+    throw new Error(`http does not speak ${JSON.stringify(op)}; it speaks ${METHODS.join(', ')}`);
+  }
+
+  return found;
+}
+
+/**
+ * The path prefix, with the token in its place.
+ *
+ * @param config - The connection settings.
+ * @returns The prefix, without a trailing slash, or nothing when there is none.
+ */
+function prefixOf(config: HttpConfig): string {
+  if (config.pathPrefix === undefined) {
+    return '';
+  }
+
+  return config.pathPrefix
+    .replaceAll(TOKEN_PLACEHOLDER, encodeURIComponent(config.token ?? ''))
+    .replace(/\/$/, '');
+}
+
+/**
  * Builds the URL for one request.
  *
- * @param config - The connection settings, which say http or https.
+ * @param config - The connection settings, which say http or https and what goes in front.
  * @param deviceKey - The host.
  * @param args - The request arguments, which carry the path and any query.
  * @returns The URL to fetch.
  */
 function urlFor(config: HttpConfig, deviceKey: string, args: JsonObject): URL {
   const path = typeof args['path'] === 'string' ? args['path'] : '/';
-  const url = new URL(path, `${config.isSecure ? 'https' : 'http'}://${deviceKey}`);
+  const url = new URL(
+    `${prefixOf(config)}${path}`,
+    `${config.isSecure ? 'https' : 'http'}://${deviceKey}`,
+  );
   const query = args['query'];
 
   if (typeof query === 'object' && query !== null && !Array.isArray(query)) {
@@ -86,40 +180,105 @@ function urlFor(config: HttpConfig, deviceKey: string, args: JsonObject): URL {
  * The headers every request carries.
  *
  * @param config - The connection settings.
- * @returns The headers, including basic auth when the owner supplied credentials. Credentials
- * live here rather than in a profile, which is what keeps a mapper pure and a profile shareable.
+ * @returns The headers, including basic auth and the token when the owner supplied them.
+ * Credentials live here rather than in a profile, which is what keeps a mapper pure and a profile
+ * shareable.
  */
 function headersFor(config: HttpConfig): Record<string, string> {
-  if (config.username === undefined) {
-    return { accept: 'application/json' };
+  const headers: Record<string, string> = { accept: 'application/json' };
+
+  if (config.username !== undefined) {
+    const credentials = Buffer.from(`${config.username}:${config.password ?? ''}`).toString(
+      'base64',
+    );
+
+    headers['authorization'] = `Basic ${credentials}`;
   }
 
-  const credentials = Buffer.from(`${config.username}:${config.password ?? ''}`).toString('base64');
+  if (config.token !== undefined && config.tokenHeader !== undefined) {
+    headers[config.tokenHeader.toLowerCase()] = `${config.tokenPrefix}${config.token}`;
+  }
 
-  return { accept: 'application/json', authorization: `Basic ${credentials}` };
+  return headers;
+}
+
+/** Who carries a connection's requests: the default, or one that accepts any certificate. */
+type Dispatcher = Agent | undefined;
+
+/**
+ * Opens what carries requests to a device that signs its own certificate.
+ *
+ * @param config - The connection settings.
+ * @returns An agent that does not check certificates, when the bundle said so over TLS; none
+ * otherwise, and the default checks as it always does.
+ */
+function dispatcherFor(config: HttpConfig): Dispatcher {
+  return config.isSecure && !config.shouldVerifyCertificate
+    ? new Agent({ connect: { rejectUnauthorized: false } })
+    : undefined;
+}
+
+/**
+ * Performs one request, however it is authenticated and whichever verb it is.
+ *
+ * @param config - The connection settings.
+ * @param dispatcher - What carries it.
+ * @param deviceKey - The host.
+ * @param method - The verb.
+ * @param args - The path, any query, and any body.
+ * @param signal - Cancels the request.
+ * @returns What came back.
+ */
+async function request(
+  config: HttpConfig,
+  dispatcher: Dispatcher,
+  deviceKey: string,
+  method: Method,
+  args: JsonObject,
+  signal: AbortSignal,
+): Promise<Awaited<ReturnType<typeof fetch>>> {
+  const headers = headersFor(config);
+  const body = method === 'get' || args['body'] === undefined ? undefined : args['body'];
+
+  if (body !== undefined) {
+    headers['content-type'] = 'application/json';
+  }
+
+  return fetch(urlFor(config, deviceKey, args), {
+    method: method.toUpperCase(),
+    headers,
+    signal,
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    ...(dispatcher === undefined ? {} : { dispatcher }),
+  });
 }
 
 /**
  * Performs one request and reads whatever came back.
  *
  * @param config - The connection settings.
+ * @param dispatcher - What carries it.
  * @param deviceKey - The host.
- * @param args - The path and any query.
+ * @param method - The verb.
+ * @param args - The path, any query, and any body.
  * @param signal - Cancels the request.
  * @returns The decoded JSON, or the text when it is not JSON.
  * @throws {Error} When the device answered with a status that is not a success.
  */
 async function fetchFrom(
   config: HttpConfig,
+  dispatcher: Dispatcher,
   deviceKey: string,
+  method: Method,
   args: JsonObject,
   signal: AbortSignal,
 ): Promise<unknown> {
-  const url = urlFor(config, deviceKey, args);
-  const response = await fetch(url, { headers: headersFor(config), signal });
+  const response = await request(config, dispatcher, deviceKey, method, args, signal);
 
   if (!response.ok) {
-    throw new Error(`${deviceKey} answered ${String(response.status)} for ${url.pathname}`);
+    const path = typeof args['path'] === 'string' ? args['path'] : '/';
+
+    throw new Error(`${deviceKey} answered ${String(response.status)} for ${path}`);
   }
 
   const text = await response.text();
@@ -132,14 +291,48 @@ async function fetchFrom(
 }
 
 /**
+ * Runs something with a dispatcher that lives only as long as it does.
+ *
+ * @param config - The connection settings.
+ * @param run - What to do with it.
+ * @returns What `run` returned.
+ */
+async function withDispatcher<T>(
+  config: HttpConfig,
+  run: (dispatcher: Dispatcher) => Promise<T>,
+): Promise<T> {
+  const dispatcher = dispatcherFor(config);
+
+  try {
+    return await run(dispatcher);
+  } finally {
+    await dispatcher?.close();
+  }
+}
+
+/**
  * What two configurations must agree on to share one set of timers.
  *
  * @param config - The connection settings.
  * @returns The key. HTTP shares no socket, so this is only about not running two identical
- * polling loops when an owner configures the same devices twice.
+ * polling loops when an owner configures the same devices twice. The token is in it as a digest,
+ * since a key ends up in logs.
  */
 function connectionKey(config: HttpConfig): string {
-  return `http:${JSON.stringify([config.host, config.isSecure, config.username ?? ''])}`;
+  const token =
+    config.token === undefined
+      ? ''
+      : createHash('sha256').update(config.token).digest('hex').slice(0, 16);
+
+  return `http:${JSON.stringify([
+    config.host,
+    config.isSecure,
+    config.shouldVerifyCertificate,
+    config.username ?? '',
+    token,
+    config.tokenHeader ?? '',
+    config.pathPrefix ?? '',
+  ])}`;
 }
 
 /**
@@ -152,6 +345,7 @@ function connectionKey(config: HttpConfig): string {
 function open(config: HttpConfig, context: TransportContext): Promise<TransportConnection> {
   const key = connectionKey(config);
   const timers = new Map<string, NodeJS.Timeout>();
+  const dispatcher = dispatcherFor(config);
 
   context.report('up');
 
@@ -161,12 +355,13 @@ function open(config: HttpConfig, context: TransportContext): Promise<TransportC
     /**
      * Asks one device something.
      *
-     * @param request - The device, the verb and the path.
+     * @param sent - The device, the verb and the path.
      * @param signal - Cancels the request.
      * @returns Whatever the device answered.
+     * @throws {Error} When the verb is not one HTTP has here.
      */
-    send: async (request: TransportRequest, signal: AbortSignal): Promise<unknown> =>
-      fetchFrom(config, request.deviceKey, request.args, signal),
+    send: async (sent: TransportRequest, signal: AbortSignal): Promise<unknown> =>
+      fetchFrom(config, dispatcher, sent.deviceKey, methodOf(sent.op), sent.args, signal),
 
     /**
      * Replaces the set of polling timers.
@@ -202,12 +397,17 @@ function open(config: HttpConfig, context: TransportContext): Promise<TransportC
         const timer = setInterval(() => {
           // Deliberately not awaited: a poll that hangs must not delay the next one for a
           // different device, and the request has its own timeout.
-          void fetchFrom(
-            config,
-            deviceKey,
-            subscription.args,
-            AbortSignal.timeout(config.timeoutMs),
-          )
+          void Promise.resolve()
+            .then(async () =>
+              fetchFrom(
+                config,
+                dispatcher,
+                deviceKey,
+                methodOf(subscription.args['method']),
+                subscription.args,
+                AbortSignal.timeout(config.timeoutMs),
+              ),
+            )
             .then((payload) => {
               context.deliver({ connectionKey: key, deviceKey, payload });
             })
@@ -231,14 +431,13 @@ function open(config: HttpConfig, context: TransportContext): Promise<TransportC
      *
      * @returns A promise that settles once nothing is left running.
      */
-    close: (): Promise<void> => {
+    close: async (): Promise<void> => {
       for (const timer of timers.values()) {
         clearInterval(timer);
       }
 
       timers.clear();
-
-      return Promise.resolve();
+      await dispatcher?.close();
     },
   });
 }
@@ -257,28 +456,34 @@ async function* scan(
   signal: AbortSignal,
 ): AsyncGenerator<Discovered> {
   const probe = terms['probe'];
-  const args =
-    typeof probe === 'object' && probe !== null && !Array.isArray(probe)
-      ? (probe['args'] as JsonObject | undefined)
-      : undefined;
+  const asked =
+    typeof probe === 'object' && probe !== null && !Array.isArray(probe) ? probe : undefined;
+  const args = asked?.['args'];
 
   if (signal.aborted) {
     return;
   }
 
-  try {
-    const payload = await fetchFrom(
-      config,
-      config.host,
-      args ?? { path: '/' },
-      AbortSignal.any([signal, AbortSignal.timeout(config.timeoutMs)]),
-    );
+  let payload: unknown;
 
-    yield { deviceKey: config.host, payload };
+  try {
+    payload = await withDispatcher(config, async (dispatcher) =>
+      fetchFrom(
+        config,
+        dispatcher,
+        config.host,
+        methodOf(asked?.['op']),
+        typeof args === 'object' && args !== null && !Array.isArray(args) ? args : { path: '/' },
+        AbortSignal.any([signal, AbortSignal.timeout(config.timeoutMs)]),
+      ),
+    );
   } catch {
     // A host that does not answer is nothing to report: an address with nothing behind it is
     // the ordinary outcome of a typo, or of a device that is off, and the instance keeps asking.
+    return;
   }
+
+  yield { deviceKey: config.host, payload };
 }
 
 /**
@@ -321,9 +526,17 @@ function reasonOf(error: unknown): string {
  */
 async function probe(config: HttpConfig, signal: AbortSignal): Promise<string> {
   try {
-    await fetch(urlFor(config, config.host, { path: '/' }), {
-      headers: headersFor(config),
-      signal: AbortSignal.any([signal, AbortSignal.timeout(config.timeoutMs)]),
+    await withDispatcher(config, async (dispatcher) => {
+      const response = await request(
+        config,
+        dispatcher,
+        config.host,
+        'get',
+        { path: '/' },
+        AbortSignal.any([signal, AbortSignal.timeout(config.timeoutMs)]),
+      );
+
+      await response.body?.cancel();
     });
   } catch (error: unknown) {
     throw new Error(`${config.host} did not answer: ${reasonOf(error)}`, { cause: error });

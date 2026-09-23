@@ -1,4 +1,6 @@
-import { createServer, type Server } from 'node:http';
+import { readFileSync } from 'node:fs';
+import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
+import { createServer as createSecureServer } from 'node:https';
 import { Writable } from 'node:stream';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -10,7 +12,13 @@ import { httpTransport } from './http.js';
 
 let server: Server;
 let host = '';
-const seen: { method: string; url: string; auth: string | undefined }[] = [];
+const seen: {
+  method: string;
+  url: string;
+  auth: string | undefined;
+  headers: IncomingHttpHeaders;
+  body: string;
+}[] = [];
 
 /**
  * A logger that writes nowhere.
@@ -56,27 +64,39 @@ async function connect(delivered: TransportInbound[] = []): Promise<TransportCon
 
 beforeAll(async () => {
   server = createServer((request, response) => {
-    seen.push({
-      method: request.method ?? '',
-      url: request.url ?? '',
-      auth: request.headers.authorization,
+    let body = '';
+
+    request.setEncoding('utf8');
+    request.on('data', (chunk: string) => {
+      body += chunk;
     });
+    request.on('end', () => {
+      seen.push({
+        method: request.method ?? '',
+        url: request.url ?? '',
+        auth: request.headers.authorization,
+        headers: request.headers,
+        body,
+      });
 
-    if (request.url?.startsWith('/status') === true) {
-      response.writeHead(200, { 'content-type': 'application/json' });
-      response.end(JSON.stringify({ device: { id: 'relay-one' }, relay: { on: true } }));
+      const url = request.url ?? '';
 
-      return;
-    }
+      if (url.startsWith('/status') || url.startsWith('/api/')) {
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ device: { id: 'relay-one' }, relay: { on: true } }));
 
-    if (request.url?.startsWith('/plain') === true) {
-      response.writeHead(200, { 'content-type': 'text/plain' });
-      response.end('ON');
+        return;
+      }
 
-      return;
-    }
+      if (url.startsWith('/plain')) {
+        response.writeHead(200, { 'content-type': 'text/plain' });
+        response.end('ON');
 
-    response.writeHead(404).end();
+        return;
+      }
+
+      response.writeHead(404).end();
+    });
   });
 
   await new Promise<void>((resolve) => {
@@ -302,5 +322,234 @@ describe('trying a configuration', () => {
     );
 
     expect(seen[0]?.auth).toBe(`Basic ${Buffer.from('admin:pw').toString('base64')}`);
+  });
+});
+
+describe('devices that are not asked with a GET', () => {
+  it('sends the verb a template names, with its body as JSON', async () => {
+    // A Sonoff in DIY mode answers only a POST carrying `{"deviceid":"","data":{}}`, and a GET
+    // at the same path hangs it.
+    seen.length = 0;
+    const connection = await connect();
+
+    await connection.send(
+      {
+        deviceKey: host,
+        op: 'post',
+        args: { path: '/status', body: { deviceid: '', data: {} } },
+      },
+      AbortSignal.timeout(2000),
+    );
+    await connection.close();
+
+    expect(seen[0]?.method).toBe('POST');
+    expect(seen[0]?.headers['content-type']).toBe('application/json');
+    expect(JSON.parse(seen[0]?.body ?? '')).toEqual({ deviceid: '', data: {} });
+  });
+
+  it('sends a PUT, the way a Nanoleaf takes its state', async () => {
+    seen.length = 0;
+    const connection = await connect();
+
+    await connection.send(
+      { deviceKey: host, op: 'put', args: { path: '/status', body: { on: { value: true } } } },
+      AbortSignal.timeout(2000),
+    );
+    await connection.close();
+
+    expect([seen[0]?.method, seen[0]?.body]).toEqual(['PUT', '{"on":{"value":true}}']);
+  });
+
+  it('sends no body with a GET', async () => {
+    seen.length = 0;
+    const connection = await connect();
+
+    await connection.send(
+      { deviceKey: host, op: 'get', args: { path: '/status' } },
+      AbortSignal.timeout(2000),
+    );
+    await connection.close();
+
+    expect([seen[0]?.method, seen[0]?.body, seen[0]?.headers['content-type']]).toEqual([
+      'GET',
+      '',
+      undefined,
+    ]);
+  });
+
+  it('refuses a verb it does not speak, naming it', async () => {
+    // A profile written for another transport - `call` is the Shelly RPC's - fails loudly at the
+    // first command instead of quietly sending a GET the device ignores.
+    const connection = await connect();
+
+    await expect(
+      connection.send(
+        { deviceKey: host, op: 'call', args: { path: '/status' } },
+        AbortSignal.timeout(2000),
+      ),
+    ).rejects.toThrow(/call/);
+    await connection.close();
+  });
+
+  it('polls with the verb and body the subscription names', async () => {
+    seen.length = 0;
+    const delivered: TransportInbound[] = [];
+    const connection = await connect(delivered);
+
+    await connection.apply([
+      {
+        op: 'poll',
+        args: {
+          deviceKey: host,
+          path: '/status',
+          method: 'post',
+          body: { data: {} },
+          everyMs: 250,
+        },
+      },
+    ]);
+
+    for (let attempt = 0; attempt < 100 && delivered.length === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+
+    await connection.close();
+
+    expect([seen[0]?.method, seen[0]?.body]).toEqual(['POST', '{"data":{}}']);
+  });
+
+  it('probes with the verb and body the probe names', async () => {
+    seen.length = 0;
+    const found: string[] = [];
+
+    for await (const discovered of httpTransport.scan(
+      { host, isSecure: false, timeoutMs: 2000 },
+      { probe: { op: 'post', args: { path: '/status', body: { data: {} } } } },
+      AbortSignal.timeout(3000),
+    )) {
+      found.push(discovered.deviceKey);
+    }
+
+    expect(found).toEqual([host]);
+    expect([seen[0]?.method, seen[0]?.body]).toEqual(['POST', '{"data":{}}']);
+  });
+});
+
+describe('a token instead of a password', () => {
+  it('carries the token in the header the bundle names, and not in the address', async () => {
+    // Plex takes `X-Plex-Token`, a Hue bridge `hue-application-key`: neither is basic auth.
+    seen.length = 0;
+    const connection = await httpTransport.connect(
+      { host, timeoutMs: 2000, token: 'plex-secret', tokenHeader: 'X-Plex-Token' },
+      { logger: silent(), deliver: (): void => undefined, report: (): void => undefined },
+    );
+
+    await connection.send(
+      { deviceKey: host, op: 'get', args: { path: '/status' } },
+      AbortSignal.timeout(2000),
+    );
+    await connection.close();
+
+    expect(seen[0]?.headers['x-plex-token']).toBe('plex-secret');
+    expect(seen[0]?.url).toBe('/status');
+  });
+
+  it('puts the scheme a header wants in front of the token', async () => {
+    seen.length = 0;
+    await httpTransport.probe(
+      {
+        host,
+        timeoutMs: 2000,
+        token: 'abc',
+        tokenHeader: 'authorization',
+        tokenPrefix: 'Bearer ',
+      },
+      AbortSignal.timeout(3000),
+    );
+
+    expect(seen[0]?.auth).toBe('Bearer abc');
+  });
+
+  it('puts the token where the path prefix says, encoded, in front of every path', async () => {
+    // A Nanoleaf takes its token as a path segment: `/api/v1/<token>/state`.
+    seen.length = 0;
+    const connection = await httpTransport.connect(
+      { host, timeoutMs: 2000, token: 'a/b c', pathPrefix: '/api/v1/{token}' },
+      { logger: silent(), deliver: (): void => undefined, report: (): void => undefined },
+    );
+
+    await connection.send(
+      { deviceKey: host, op: 'put', args: { path: '/state', body: { on: { value: true } } } },
+      AbortSignal.timeout(2000),
+    );
+    await connection.close();
+
+    expect(seen[0]?.url).toBe('/api/v1/a%2Fb%20c/state');
+  });
+
+  it('keeps two configurations with different tokens apart', () => {
+    expect(
+      httpTransport.connectionKey({ host, token: 'one', tokenHeader: 'X-Plex-Token' }),
+    ).not.toBe(httpTransport.connectionKey({ host, token: 'two', tokenHeader: 'X-Plex-Token' }));
+  });
+});
+
+describe('a device with a certificate of its own', () => {
+  let secure: ReturnType<typeof createSecureServer>;
+  let secureHost = '';
+
+  beforeAll(async () => {
+    const fixtures = new URL('./fixtures/', import.meta.url);
+
+    secure = createSecureServer(
+      {
+        key: readFileSync(new URL('self-signed.key.pem', fixtures)),
+        cert: readFileSync(new URL('self-signed.cert.pem', fixtures)),
+      },
+      (request, response) => {
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ bridge: { id: 'hue-one' } }));
+      },
+    );
+
+    await new Promise<void>((resolve) => {
+      secure.listen(0, '127.0.0.1', resolve);
+    });
+
+    const address = secure.address();
+    secureHost =
+      typeof address === 'object' && address !== null ? `127.0.0.1:${String(address.port)}` : '';
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((resolve) => {
+      secure.close(() => {
+        resolve();
+      });
+    });
+  });
+
+  it('refuses a certificate nobody vouches for, by default', async () => {
+    await expect(
+      httpTransport.probe(
+        { host: secureHost, isSecure: true, timeoutMs: 2000 },
+        AbortSignal.timeout(3000),
+      ),
+    ).rejects.toThrow(secureHost);
+  });
+
+  it('reaches it when the bundle says the device signs its own, as a Hue bridge does', async () => {
+    const connection = await httpTransport.connect(
+      { host: secureHost, isSecure: true, timeoutMs: 2000, shouldVerifyCertificate: false },
+      { logger: silent(), deliver: (): void => undefined, report: (): void => undefined },
+    );
+
+    const answer = await connection.send(
+      { deviceKey: secureHost, op: 'get', args: { path: '/' } },
+      AbortSignal.timeout(2000),
+    );
+    await connection.close();
+
+    expect(answer).toEqual({ bridge: { id: 'hue-one' } });
   });
 });
