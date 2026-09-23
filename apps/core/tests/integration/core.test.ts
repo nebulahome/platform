@@ -18,15 +18,20 @@ import { z } from 'zod';
 import { BusClient, connectBus, ulid, type BusConnection } from '@nebula-home/bus';
 import {
   busSubjects,
+  CORE_SERVICE,
+  CORE_SYSTEM_MONITOR_METHOD,
   DeviceUnavailableError,
   entityStateSchema,
   parseEntityId,
   stateSnapshotReplySchema,
+  SYSTEM_ENTITIES,
+  systemMonitorSnapshotSchema,
 } from '@nebula-home/contracts';
 import { createDatabase, schema, type DatabaseHandle } from '@nebula-home/db';
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
 
 import type { CoreConfig } from '@/config.js';
+import { ensureSystemDevice, SYSTEM_DEVICE_NAME } from '@/persistence/system-entities.js';
 import { CoreService } from '@/service.js';
 
 import { FakeAdapter } from './support/fake-adapter.js';
@@ -38,6 +43,7 @@ const DATABASE_URL = 'postgres://nebula:nebula@localhost:5432/nebula';
 
 const bulb = parseEntityId('light.kitchen_ceiling');
 const thermometer = parseEntityId('sensor.kitchen_temperature');
+const systemCpu = parseEntityId('sensor.system_cpu_usage');
 
 /**
  * A logger that writes nowhere.
@@ -164,6 +170,9 @@ describe('core end to end', () => {
       CORE_HISTORY_FLUSH_INTERVAL_MS: 100,
       CORE_HISTORY_BATCH_SIZE: 1,
       CORE_TELEMETRY_BATCH_SIZE: 100,
+      CORE_SYSTEM_SAMPLE_INTERVAL_MS: 1000,
+      CORE_SYSTEM_PUBLISH_INTERVAL_MS: 1000,
+      CORE_NET_DEV_PATH: '/proc/net/dev',
     };
 
     service = new CoreService({ config, db: database.db, bus, logger: silentLogger() });
@@ -388,5 +397,90 @@ describe('core end to end', () => {
     await new Promise((resolve) => setTimeout(resolve, 300));
 
     expect(service.registry.get(bulb)?.state.level?.level).toBe(before);
+  });
+
+  it('writes the system device and its entities, once', async () => {
+    const devices = await database.db
+      .select({ id: schema.registry.devices.id })
+      .from(schema.registry.devices)
+      .where(eq(schema.registry.devices.source, 'system'));
+    const entities = await database.db
+      .select({
+        entityId: schema.registry.entities.entityId,
+        deviceId: schema.registry.entities.deviceId,
+      })
+      .from(schema.registry.entities)
+      .where(eq(schema.registry.entities.source, 'system'));
+
+    expect(devices).toHaveLength(1);
+    expect(entities.map((entity) => entity.entityId).sort()).toEqual(
+      SYSTEM_ENTITIES.map((entity) => entity.entityId).sort(),
+    );
+    expect(new Set(entities.map((entity) => entity.deviceId))).toEqual(new Set([devices[0]?.id]));
+    expect(service.directory.get(systemCpu)?.source).toBe('system');
+  });
+
+  it('keeps the name the owner gave the system device when it starts again', async () => {
+    const { devices } = schema.registry;
+
+    await database.db
+      .update(devices)
+      .set({ name: 'Rack server' })
+      .where(eq(devices.source, 'system'));
+
+    try {
+      await ensureSystemDevice(
+        database.db,
+        {
+          manufacturer: 'NebulaHome',
+          model: 'Test OS · x64',
+          swVersion: '0.0.0',
+          hwVersion: 'Test processor',
+          externalId: 'test-host',
+        },
+        silentLogger(),
+      );
+
+      const rows = await database.db
+        .select({ name: devices.name, model: devices.model })
+        .from(devices)
+        .where(eq(devices.source, 'system'));
+
+      expect(rows).toEqual([{ name: 'Rack server', model: 'Test OS · x64' }]);
+    } finally {
+      await database.db
+        .update(devices)
+        .set({ name: SYSTEM_DEVICE_NAME })
+        .where(eq(devices.source, 'system'));
+    }
+  });
+
+  it('answers the system monitor with the host and the samples taken so far', async () => {
+    const read = async (): Promise<z.output<typeof systemMonitorSnapshotSchema>> =>
+      caller.request(
+        busSubjects.service(CORE_SERVICE, CORE_SYSTEM_MONITOR_METHOD),
+        {},
+        systemMonitorSnapshotSchema,
+      );
+
+    let snapshot = await read();
+
+    for (let attempt = 0; snapshot.samples.length === 0 && attempt < 40; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      snapshot = await read();
+    }
+
+    expect(snapshot.host.cpuCount).toBeGreaterThan(0);
+    expect(snapshot.samples.length).toBeGreaterThan(0);
+    expect(snapshot.disk?.categories[0]?.id).toBe('core');
+  });
+
+  it('gives the system entities a state out of the samples', async () => {
+    await eventually(() => service.registry.get(systemCpu)?.state.sensor_numeric !== undefined);
+
+    const value = service.registry.get(systemCpu)?.state.sensor_numeric?.value ?? -1;
+
+    expect(value).toBeGreaterThanOrEqual(0);
+    expect(value).toBeLessThanOrEqual(100);
   });
 });

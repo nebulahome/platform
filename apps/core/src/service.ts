@@ -9,7 +9,13 @@
  *    already listening for.
  *
  * Doing (3) before (2) would drop every report the adapters sent in reply.
+ *
+ * The system device and its entities are written before (1), so the registry loads them like
+ * any other, and the system monitor starts once the ingest pipeline its states go through exists.
  */
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import {
   ensureTelemetryStream,
   newTraceId,
@@ -22,7 +28,7 @@ import type { Database } from '@nebula-home/db';
 import { withTraceId, type PlatformLogger } from '@nebula-home/logging';
 
 import type { CoreConfig } from './config.js';
-import { SERVICE_NAME } from './config.js';
+import { SERVICE_NAME, SERVICE_VERSION } from './config.js';
 import { AliasCatalog } from './domain/alias-catalog.js';
 import { EntityDirectory } from './domain/entity-directory.js';
 import { EntityRegistry } from './domain/entity-registry.js';
@@ -34,6 +40,7 @@ import {
   type StateHistoryRow,
 } from './persistence/history-writer.js';
 import { loadRegistry } from './persistence/registry-loader.js';
+import { ensureSystemDevice } from './persistence/system-entities.js';
 import { AliasEngine } from './services/alias-engine.js';
 import { startAliasService } from './services/alias-service.js';
 import { startCommandRouter } from './services/command-router.js';
@@ -41,7 +48,18 @@ import { startRegistrationService } from './services/registration.js';
 import { requestResync } from './services/resync.js';
 import { startStateIngest } from './services/state-ingest.js';
 import { startEntityReadService, startSnapshotService } from './services/state-queries.js';
+import { startSystemMonitorService } from './services/system-monitor-service.js';
+import { SystemMonitor } from './services/system-monitor.js';
+import { createSystemProbes } from './services/system-probes.js';
 import { runTelemetryIngest } from './services/telemetry-ingest.js';
+
+/**
+ * The repository's own `infra/data`, for when `CORE_DATA_DIR` is not set.
+ *
+ * Found from where this file sits, which is the same depth under `src` and `dist`, rather than
+ * from the working directory - which in development is the package, not the repository.
+ */
+const DEFAULT_DATA_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../../infra/data');
 
 /** What the service is built from. */
 export type CoreServiceOptions = {
@@ -67,6 +85,7 @@ export class CoreService {
   #directory = new EntityDirectory();
   #aliases = new AliasCatalog();
   #aliasEngine: AliasEngine | undefined;
+  #systemMonitor: SystemMonitor | undefined;
   #client: BusClient | undefined;
   #subscriptions: BusSubscription[] = [];
   #history: BatchWriter<StateHistoryRow> | undefined;
@@ -119,6 +138,21 @@ export class CoreService {
     });
 
     this.#client = client;
+
+    const probes = createSystemProbes({ netDevPath: config.CORE_NET_DEV_PATH, logger });
+    const host = probes.readHost();
+
+    await ensureSystemDevice(
+      db,
+      {
+        manufacturer: 'NebulaHome',
+        model: `${host.osName} · ${host.arch}`,
+        swVersion: SERVICE_VERSION,
+        hwVersion: host.cpuModel,
+        externalId: host.hostname,
+      },
+      startupLogger,
+    );
 
     const loaded = await loadRegistry(db, startupLogger);
 
@@ -189,6 +223,20 @@ export class CoreService {
 
     startupLogger.info({ aliases: aliasCount }, 'Alias catalogue loaded');
 
+    const systemMonitor = new SystemMonitor({
+      probes,
+      db,
+      dataDir: config.CORE_DATA_DIR ?? DEFAULT_DATA_DIR,
+      ingest,
+      logger,
+      newTraceId,
+      sampleIntervalMs: config.CORE_SYSTEM_SAMPLE_INTERVAL_MS,
+      publishIntervalMs: config.CORE_SYSTEM_PUBLISH_INTERVAL_MS,
+    });
+
+    this.#systemMonitor = systemMonitor;
+    await systemMonitor.start();
+
     this.#subscriptions = [
       startStateIngest(ingest),
       startSnapshotService({ client, registry: this.#registry }),
@@ -209,6 +257,7 @@ export class CoreService {
         logger,
       }),
       ...startAliasService({ client, engine: aliasEngine, logger }),
+      startSystemMonitorService({ client, monitor: systemMonitor }),
     ];
 
     await ensureTelemetryStream({ connection: bus.connection, logger });
@@ -252,6 +301,7 @@ export class CoreService {
     }
 
     this.#subscriptions = [];
+    this.#systemMonitor?.stop();
     this.#shutdown.abort();
 
     await Promise.allSettled([

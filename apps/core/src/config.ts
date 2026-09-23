@@ -43,6 +43,38 @@ export const coreEnvSchema = runtimeEnvSchema
 
     /** How many telemetry readings are pulled from the stream at once. */
     CORE_TELEMETRY_BATCH_SIZE: z.coerce.number().int().min(1).max(10_000).default(500),
+
+    /**
+     * Where the platform keeps its files: map tiles, package artefacts, backups. The system
+     * monitor reads the free space of the volume it is on and counts what is in it.
+     *
+     * Absent, the repository's own `infra/data`, found from where this package sits rather than
+     * from the working directory - which in development is the package, not the repository.
+     */
+    CORE_DATA_DIR: z.string().min(1).optional(),
+
+    /** How often the system monitor samples the machine: the pace the settings page moves at. */
+    CORE_SYSTEM_SAMPLE_INTERVAL_MS: z.coerce.number().int().min(1000).max(60_000).default(10_000),
+
+    /**
+     * How often the system entities take a new state, averaged over the samples in between.
+     *
+     * Slower than the sampling on purpose: an automation on "processor above 90%" should not
+     * fire on one busy ten-second stretch, and every state is a row of history.
+     */
+    CORE_SYSTEM_PUBLISH_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(1000)
+      .max(3_600_000)
+      .default(60_000),
+
+    /**
+     * Where Linux keeps the network counters. In a container that is the container's own
+     * traffic; mounting the host's `/proc` and pointing this at `<mount>/1/net/dev` measures the
+     * machine instead. `route` is read from beside it, to pick the interface the internet is on.
+     */
+    CORE_NET_DEV_PATH: z.string().min(1).default('/proc/net/dev'),
   });
 
 /** Everything `core` needs from the environment. */
