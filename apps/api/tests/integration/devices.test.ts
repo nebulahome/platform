@@ -191,6 +191,86 @@ afterAll(async () => {
   await database.close();
 });
 
+describe('the system device', () => {
+  /** The system device's row, and whether this run wrote it (and so must remove it). */
+  let system: { rowId: string; name: string; isOurs: boolean };
+
+  /** A system entity this run writes under it, removed afterwards. */
+  const systemEntityId = `sensor.${instanceId.replaceAll('-', '_')}_system`;
+
+  beforeAll(async () => {
+    const { devices, entities } = schema.registry;
+
+    // `core` writes the device at startup; a database no `core` has run against yet gets one
+    // here, and only that one is removed afterwards.
+    const [existing] = await database.db
+      .select({ id: devices.id, name: devices.name })
+      .from(devices)
+      .where(eq(devices.source, 'system'));
+    const [written] =
+      existing === undefined
+        ? await database.db
+            .insert(devices)
+            .values({ source: 'system', name: 'NebulaHome server', model: 'Test OS · x64' })
+            .returning({ id: devices.id, name: devices.name })
+        : [existing];
+
+    if (written === undefined) {
+      throw new Error('Could not find or write the system device');
+    }
+
+    system = { rowId: written.id, name: written.name, isOurs: existing === undefined };
+
+    await database.db.insert(entities).values({
+      entityId: systemEntityId,
+      deviceId: system.rowId,
+      source: 'system',
+      name: 'Test reading',
+    });
+  });
+
+  afterAll(async () => {
+    const { devices, entities } = schema.registry;
+
+    await database.db.delete(entities).where(eq(entities.entityId, systemEntityId));
+    await database.db
+      .update(devices)
+      .set({ name: system.name })
+      .where(eq(devices.id, system.rowId));
+
+    if (system.isOurs) {
+      await database.db.delete(devices).where(eq(devices.id, system.rowId));
+    }
+  });
+
+  it('is listed first, under the id its entities carry, with a connection nobody runs', async () => {
+    const [first] = await listDevices(context);
+
+    expect(first).toMatchObject({
+      id: 'system',
+      origin: 'system',
+      kind: 'nebula/system',
+      transport: 'system',
+      state: 'running',
+      isEnabled: true,
+    });
+    expect(first?.entityIds).toContain(systemEntityId);
+    expect(deviceViewSchema.safeParse(first).success).toBe(true);
+  });
+
+  it('can be renamed through the route like any device', async () => {
+    const response = await server.inject({
+      method: 'PATCH',
+      url: '/api/v1/devices/system',
+      headers: { authorization: await bearer('device:write') },
+      payload: { name: 'Rack server' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ id: 'system', name: 'Rack server' });
+  });
+});
+
 describe('listing devices from the database', () => {
   it('reads the last report as a date the contract accepts, beside both halves', async () => {
     const device = (await listDevices(context)).find((one) => one.id === instanceId);

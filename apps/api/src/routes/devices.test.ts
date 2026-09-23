@@ -224,6 +224,44 @@ describe('with the hub answering', () => {
     expect(response.statusCode).toBe(400);
     expect(JSON.stringify(response.json())).toContain('areaId');
   });
+
+  it('keeps the id the platform names its own machine by', async () => {
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/devices',
+      headers: { authorization: await bearer('device:write') },
+      payload: { ...NEW_PRINTER, id: 'system' },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.stringify(response.json())).toContain('Reserved for the platform');
+  });
+
+  it('refuses to change a connection the system device does not have, naming the fields', async () => {
+    const response = await server.inject({
+      method: 'PATCH',
+      url: '/api/v1/devices/system',
+      headers: { authorization: await bearer('device:write') },
+      payload: { name: 'Rack', isEnabled: false, transportConfig: {} },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: { details: { fields: ['isEnabled', 'transportConfig'] } },
+    });
+  });
+
+  it('refuses to remove the system device, without asking the hub or core', async () => {
+    const before = [forgotten.length, unregistered.length];
+    const response = await server.inject({
+      method: 'DELETE',
+      url: '/api/v1/devices/system',
+      headers: { authorization: await bearer('device:delete') },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect([forgotten.length, unregistered.length]).toEqual(before);
+  });
 });
 
 describe('with the hub answering and nothing saved', () => {

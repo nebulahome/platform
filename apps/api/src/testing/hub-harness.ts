@@ -18,6 +18,7 @@ import {
   CORE_REMOVE_ALIAS_METHOD,
   CORE_SERVICE,
   CORE_SYNC_ALIAS_METHOD,
+  CORE_SYSTEM_MONITOR_METHOD,
   CORE_UNREGISTER_METHOD,
   forgetRequestSchema,
   parseCommandSubject,
@@ -30,6 +31,7 @@ import {
   HUB_SERVICE,
   probeRequestSchema,
   reloadRequestSchema,
+  systemMonitorRequestSchema,
   unregisterDeviceRequestSchema,
   type CapabilityCommandRequest,
   type CatalogueReply,
@@ -45,6 +47,7 @@ import {
   type RemoveAliasRequest,
   type SyncAliasReply,
   type SyncAliasRequest,
+  type SystemMonitorSnapshot,
   type UnregisterDeviceReply,
   type UnregisterDeviceRequest,
 } from '@nebula-home/contracts';
@@ -191,6 +194,49 @@ export function emptyDatabase(): ApiContext['db'] {
   return chain as ApiContext['db'];
 }
 
+/** What the fake `core` answers the system monitor with. */
+export const SYSTEM_SNAPSHOT: SystemMonitorSnapshot = {
+  host: {
+    hostname: 'nebula',
+    platform: 'linux',
+    osName: 'Linux 6.8.0',
+    arch: 'x64',
+    uptimeSeconds: 3600,
+    cpuModel: 'Intel(R) N100',
+    cpuCount: 4,
+  },
+  sampleIntervalMs: 10_000,
+  samples: [
+    {
+      at: new Date('2026-09-23T12:00:00.000Z'),
+      cpuPercent: 12.5,
+      memoryUsedBytes: 4_000_000_000,
+      memoryTotalBytes: 16_000_000_000,
+      receiveRate: 1200,
+      transmitRate: 300,
+    },
+  ],
+  network: { interface: 'eth0', receivedBytes: 10_000_000, transmittedBytes: 2_000_000 },
+  disk: {
+    totalBytes: 500_000_000_000,
+    freeBytes: 300_000_000_000,
+    usedBytes: 200_000_000_000,
+    otherBytes: 198_000_000_000,
+    categories: [
+      {
+        id: 'core',
+        kind: 'core',
+        bytes: 2_000_000_000,
+        parts: [
+          { id: 'database', bytes: 1_900_000_000 },
+          { id: 'map-tiles', bytes: 100_000_000 },
+        ],
+      },
+    ],
+    measuredAt: new Date('2026-09-23T11:58:00.000Z'),
+  },
+};
+
 /** What the fake hub was asked to try, in order; cleared by whoever asserts on it. */
 export const probed: ProbeRequest[] = [];
 
@@ -296,6 +342,11 @@ export async function buildTestServer(
 
         return { entityId: request.entityId };
       },
+    ),
+    core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_SYSTEM_MONITOR_METHOD),
+      systemMonitorRequestSchema,
+      (): SystemMonitorSnapshot => SYSTEM_SNAPSHOT,
     ),
     core.serve(
       BUS_PATTERNS.allCommands,

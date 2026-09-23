@@ -34,6 +34,7 @@ import { registerMetaRoutes } from './routes/meta.js';
 import { registerRegistryRoutes } from './routes/registry.js';
 import { registerSettingsRoutes } from './routes/settings.js';
 import { registerSetupRoutes } from './routes/setup.js';
+import { registerSystemRoutes } from './routes/system.js';
 import { registerTagRoutes } from './routes/tags.js';
 import { registerUserRoutes } from './routes/users.js';
 import { registerWebSocket } from './routes/ws.js';
@@ -188,6 +189,7 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   registerHistoryRoutes(environment, context);
   registerUserRoutes(environment, context);
   registerSettingsRoutes(environment, context);
+  registerSystemRoutes(environment, context);
   registerMapRoutes(server, context, environment.basePath);
   registerWebSocket(server, context, environment.basePath);
   registerMetaRoutes(server, context, registry, startedAt);

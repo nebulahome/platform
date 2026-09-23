@@ -377,3 +377,22 @@ export async function tagIdsOfDevices(
 
   return byDevice;
 }
+
+/**
+ * Reads the tags on one device by its row, for the one device no instance names: the system
+ * device, which {@link tagIdsOfDevices} cannot find by an integration id it does not have.
+ *
+ * @param db - The database.
+ * @param deviceRowId - The device's row.
+ * @returns Its tag ids, in key order.
+ */
+export async function tagIdsOfDeviceRow(db: Database, deviceRowId: string): Promise<string[]> {
+  const rows = await db
+    .select({ tagId: schema.registry.deviceTags.tagId })
+    .from(schema.registry.deviceTags)
+    .innerJoin(schema.registry.tags, eq(schema.registry.tags.id, schema.registry.deviceTags.tagId))
+    .where(eq(schema.registry.deviceTags.deviceId, deviceRowId))
+    .orderBy(asc(schema.registry.tags.key));
+
+  return rows.map((row) => row.tagId);
+}

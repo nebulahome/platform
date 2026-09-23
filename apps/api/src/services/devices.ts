@@ -18,10 +18,15 @@
  * and its answer - where the instance ended up - is what the interface shows. A hub that does
  * not answer does not fail the write: the row is saved and the instance will start with the
  * hub, and the view says so by carrying the state the row has.
+ *
+ * One device has no connection half: the machine the platform runs on, which `core` writes for
+ * itself at startup (`apps/core/src/persistence/system-entities.ts`). It is listed with the rest
+ * under the id its entities carry as their source, `system`, with a fixed connection half so a
+ * page reads it like any other; only its identity half can change, and it cannot be removed.
  */
 import { isDeepStrictEqual } from 'node:util';
 
-import { asc, eq, inArray, sql } from 'drizzle-orm';
+import { asc, eq, inArray, max, sql } from 'drizzle-orm';
 
 import {
   busSubjects,
@@ -35,7 +40,9 @@ import {
   HUB_SERVICE,
   NotFoundError,
   probeReplySchema,
+  SYSTEM_DEVICE_ID,
   unregisterDeviceReplySchema,
+  ValidationError,
   type DeviceCreate,
   type DeviceProbeReply,
   type DeviceProbeRequest,
@@ -68,7 +75,7 @@ import {
   type IntegrationsContext,
   type SetupValues,
 } from './integrations.js';
-import { assertTagsExist, replaceDeviceTags, tagIdsOfDevices } from './tags.js';
+import { assertTagsExist, replaceDeviceTags, tagIdsOfDeviceRow, tagIdsOfDevices } from './tags.js';
 
 /** What the device paths need. */
 export type DevicesContext = IntegrationsContext & {
@@ -262,22 +269,110 @@ async function entityIdsOf(
 }
 
 /**
+ * The system device, read from its row and given its fixed connection half.
+ *
+ * `running` because the view's state is the instance's, and there is no instance to be
+ * anything else; whether the machine is being heard from is what `lastUpdatedAt` and the
+ * entities' own availability say, the same as for any device.
+ *
+ * @param context - The request's collaborators.
+ * @returns The view, or undefined before `core` has first started and written the row.
+ */
+async function systemDeviceView(context: DevicesContext): Promise<DeviceView | undefined> {
+  const { devices, areas, entities, entityStates } = schema.registry;
+
+  const [row] = await context.db
+    .select({
+      rowId: devices.id,
+      name: devices.name,
+      icon: devices.icon,
+      externalId: devices.externalId,
+      manufacturer: devices.manufacturer,
+      model: devices.model,
+      swVersion: devices.swVersion,
+      hwVersion: devices.hwVersion,
+      areaId: devices.areaId,
+      areaKey: areas.key,
+      areaName: areas.name,
+    })
+    .from(devices)
+    .leftJoin(areas, eq(areas.id, devices.areaId))
+    .where(eq(devices.source, 'system'))
+    .limit(1);
+
+  if (row === undefined) {
+    return undefined;
+  }
+
+  const [entityRows, [updated], tagIds] = await Promise.all([
+    context.db
+      .select({ entityId: entities.entityId })
+      .from(entities)
+      .where(eq(entities.deviceId, row.rowId))
+      .orderBy(asc(entities.entityId)),
+    context.db
+      .select({ lastUpdatedAt: max(entityStates.lastUpdated) })
+      .from(entities)
+      .innerJoin(entityStates, eq(entityStates.entityId, entities.id))
+      .where(eq(entities.deviceId, row.rowId)),
+    tagIdsOfDeviceRow(context.db, row.rowId),
+  ]);
+
+  return deviceViewSchema.parse({
+    id: SYSTEM_DEVICE_ID,
+    origin: 'system',
+    name: row.name,
+    icon: row.icon,
+    kind: 'nebula/system',
+    kindVersion: row.swVersion ?? '0.0.0',
+    vendorId: 'nebula',
+    driverId: 'system',
+    driverName: 'System',
+    model: row.model,
+    transport: 'system',
+    transportConfig: {},
+    options: {},
+    isEnabled: true,
+    state: 'running',
+    lastError: null,
+    lastStartedAt: null,
+    lastUpdatedAt: updated?.lastUpdatedAt ?? null,
+    externalId: row.externalId,
+    manufacturer: row.manufacturer,
+    swVersion: row.swVersion,
+    hwVersion: row.hwVersion,
+    areaId: row.areaId,
+    areaKey: row.areaKey,
+    areaName: row.areaName,
+    entityIds: entityRows.map((entity) => entity.entityId),
+    tagIds,
+  });
+}
+
+/**
  * Lists every device, with where each stands and what it exposes.
  *
  * @param context - The request's collaborators.
- * @returns The devices, by name.
+ * @returns The system device first, then the rest by name.
  */
 export async function listDevices(context: DevicesContext): Promise<DeviceView[]> {
-  const [rows, catalogue] = await Promise.all([deviceRows(context), catalogueIfUp(context)]);
+  const [rows, catalogue, system] = await Promise.all([
+    deviceRows(context),
+    catalogueIfUp(context),
+    systemDeviceView(context),
+  ]);
   const ids = rows.map((row) => row.id);
   const [entityIds, tagIds] = await Promise.all([
     entityIdsOf(context, ids),
     tagIdsOfDevices(context.db, ids),
   ]);
 
-  return rows.map((row) =>
-    toDeviceView(row, catalogue, entityIds.get(row.id) ?? [], tagIds.get(row.id) ?? []),
-  );
+  return [
+    ...(system === undefined ? [] : [system]),
+    ...rows.map((row) =>
+      toDeviceView(row, catalogue, entityIds.get(row.id) ?? [], tagIds.get(row.id) ?? []),
+    ),
+  ];
 }
 
 /**
@@ -478,6 +573,10 @@ export async function updateDevice(
   id: string,
   body: DeviceUpdate,
 ): Promise<DeviceView> {
+  if (id === SYSTEM_DEVICE_ID) {
+    return updateSystemDevice(context, body);
+  }
+
   const [current] = await context.db
     .select({
       kind: schema.registry.integrations.kind,
@@ -578,6 +677,74 @@ export async function updateDevice(
   return readDevice(context, id);
 }
 
+/** The fields of a change that belong to a connection, which the system device does not have. */
+const CONNECTION_FIELDS = ['isEnabled', 'model', 'transportConfig', 'options'] as const;
+
+/**
+ * Changes the system device: its name, its icon, its room, its tags.
+ *
+ * The rest of a change is refused rather than ignored. There is no instance to switch off or
+ * reconfigure, and a form that sent a transport configuration for it and was told "saved" would
+ * be told something untrue.
+ *
+ * @param context - The request's collaborators.
+ * @param body - The fields to change.
+ * @returns The device as it now stands.
+ * @throws {ValidationError} When the change touches a connection field.
+ * @throws {NotFoundError} When `core` has not yet written the device.
+ */
+async function updateSystemDevice(
+  context: DevicesContext,
+  body: DeviceUpdate,
+): Promise<DeviceView> {
+  const refused = CONNECTION_FIELDS.filter((field) => body[field] !== undefined);
+
+  if (refused.length > 0) {
+    throw new ValidationError('The system device has no connection to change', {
+      details: { fields: refused },
+    });
+  }
+
+  if (body.icon !== undefined && body.icon !== null) {
+    checkIcon(context.icons, body.icon);
+  }
+
+  if (body.areaId !== undefined && body.areaId !== null) {
+    await checkRoom(context.db, body.areaId);
+  }
+
+  await context.db.transaction(async (tx) => {
+    const [identity] = await tx
+      .select({ id: schema.registry.devices.id })
+      .from(schema.registry.devices)
+      .where(eq(schema.registry.devices.source, 'system'))
+      .limit(1);
+
+    if (identity === undefined) {
+      throw new NotFoundError('No device has that id', { details: { id: SYSTEM_DEVICE_ID } });
+    }
+
+    if (body.name !== undefined || body.icon !== undefined || body.areaId !== undefined) {
+      await tx
+        .update(schema.registry.devices)
+        .set({
+          ...(body.name === undefined ? {} : { name: body.name }),
+          ...(body.icon === undefined ? {} : { icon: body.icon }),
+          ...(body.areaId === undefined ? {} : { areaId: body.areaId }),
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.registry.devices.id, identity.id));
+    }
+
+    if (body.tagIds !== undefined) {
+      await assertTagsExist(tx, body.tagIds);
+      await replaceDeviceTags(tx, identity.id, body.tagIds);
+    }
+  });
+
+  return readDevice(context, SYSTEM_DEVICE_ID);
+}
+
 /**
  * Refuses to remove a device while a derived entity reads one of its entities.
  *
@@ -635,9 +802,17 @@ export type RemovedDevice = {
  * @throws {DeviceUnavailableError} When the bus is away, or the hub or `core` does not answer;
  * nothing has been deleted.
  * @throws {ConflictError} When a derived entity still reads one of the device's entities, as
- * `core` says; the rows stay.
+ * `core` says, the rows stay; and for the system device, which is the platform's own.
  */
 export async function deleteDevice(context: DevicesContext, id: string): Promise<RemovedDevice> {
+  if (id === SYSTEM_DEVICE_ID) {
+    // Before anything is asked of anyone: `core` would write it back at its next start anyway,
+    // and in between the machine's readings would have nowhere to go.
+    throw new ConflictError('The system device belongs to the platform and cannot be removed', {
+      details: { id },
+    });
+  }
+
   const device = await readDevice(context, id);
   const bus = busOf(context);
 
