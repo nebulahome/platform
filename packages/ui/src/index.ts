@@ -23,6 +23,7 @@ export { AppIcon, type AppIconProps } from './components/app-icon.js';
 export { Badge, type BadgeProps, type BadgeTone } from './components/badge.js';
 export { Button, type ButtonProps } from './components/button.js';
 export { CatalogueIcon, type CatalogueIconProps } from './components/catalogue-icon.js';
+export { ColorSwatches, type ColorSwatchesProps } from './components/color-swatches.js';
 export { FieldShell, type FieldIds, type FieldShellProps } from './components/field-shell.js';
 export { IconButton, type IconButtonProps } from './components/icon-button.js';
 export { Logo, type LogoProps } from './components/logo.js';
@@ -36,7 +37,9 @@ export {
   type SelectFieldProps,
   type SelectOption,
 } from './components/select-field.js';
+export { TagChip, type TagChipProps } from './components/tag-chip.js';
 export { TextField, type TextFieldProps } from './components/text-field.js';
+export { TAG_FILL_CLASSES } from './lib/tag-colors.js';
 export {
   IconOverridesProvider,
   useIconOverride,
@@ -45,5 +48,12 @@ export {
   type IconOverridesProviderProps,
 } from './icons/icon-overrides.js';
 export { BUILTIN_UI_FRAME, BUILTIN_UI_NODES, UI_ICON_IDS, type UiIconId } from './icons/ui-set.js';
+export {
+  hostFor,
+  placeUnder,
+  useAnchoredPlacement,
+  type AnchoredList,
+  type Placement,
+} from './lib/anchored-list.js';
 export { cn } from './lib/cn.js';
 export { controlFace, type ControlFaceVariants } from './lib/control-face.js';

@@ -23,19 +23,13 @@
  * role dropdown in the invite dialog gave the whole dialog a scrollbar, because a 240px list had
  * appeared inside a box that was 300px tall. It is `position: fixed` now, measured against the
  * button and rendered through a portal, so it is laid out against the viewport and no ancestor
- * has to make room for it.
- *
- * The portal goes into the enclosing `<dialog>` when there is one, and only otherwise into the
- * body. A modal dialog makes the rest of the document inert, so a list portalled to the body
- * while a dialog is open would render in the right place and refuse every click.
- *
- * The list opens upward when there is not room below it, and it is re-measured while it is open:
- * these sit in a scrolling panel, and a list pinned to the viewport has to follow the button it
- * belongs to when that panel scrolls.
+ * has to make room for it. Where it sits and where it mounts are worked out by
+ * `lib/anchored-list.ts`, which the tag field shares.
  */
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
+import { hostFor, placeUnder, type Placement } from '../lib/anchored-list.js';
 import { cn } from '../lib/cn.js';
 import { controlFace, type ControlFaceVariants } from '../lib/control-face.js';
 
@@ -49,6 +43,14 @@ export type SelectOption = {
 
   /** What it is called. */
   readonly label: string;
+
+  /**
+   * Something drawn before the name, in the list and on the button once chosen.
+   *
+   * A swatch beside a colour's name, an icon beside a kind's. Decorative: the name still
+   * carries the meaning on its own, and typeahead searches the name alone.
+   */
+  readonly leading?: ReactNode;
 };
 
 /** What the field needs. */
@@ -83,57 +85,6 @@ export type SelectFieldProps = Pick<ControlFaceVariants, 'size'> & {
 
 /** How long two keystrokes can be apart and still count as one typeahead search. */
 const TYPEAHEAD_WINDOW_MS = 500;
-
-/** The gap between the button and the list. */
-const GAP = 4;
-
-/** The tallest the list is allowed to get before it scrolls on its own. */
-const MAX_LIST_HEIGHT = 240;
-
-/** How little room below the button still counts as room, rather than opening upward. */
-const ROOM_NEEDED = 140;
-
-/** Where the list sits, in viewport coordinates. */
-type Placement = {
-  /** The left edge, matching the button's. */
-  readonly left: number;
-
-  /** The width, matching the button's. */
-  readonly width: number;
-
-  /** How tall it may grow before it scrolls. */
-  readonly maxHeight: number;
-
-  /** Distance from the top of the viewport, when the list hangs below the button. */
-  readonly top?: number;
-
-  /** Distance from the bottom of the viewport, when it opens upward instead. */
-  readonly bottom?: number;
-};
-
-/**
- * Works out where the list should sit, given where the button is.
- *
- * @param element - The button the list belongs to.
- * @returns The placement, in viewport coordinates.
- */
-function place(element: HTMLElement): Placement {
-  const rect = element.getBoundingClientRect();
-  const below = globalThis.innerHeight - rect.bottom - GAP;
-  const above = rect.top - GAP;
-  const opensUpward = below < ROOM_NEEDED && above > below;
-
-  const room = opensUpward ? above : below;
-
-  return {
-    left: rect.left,
-    width: rect.width,
-    maxHeight: Math.max(0, Math.min(MAX_LIST_HEIGHT, room)),
-    ...(opensUpward
-      ? { bottom: globalThis.innerHeight - rect.top + GAP }
-      : { top: rect.bottom + GAP }),
-  };
-}
 
 /**
  * Renders a dropdown.
@@ -186,7 +137,7 @@ export function SelectField(props: SelectFieldProps) {
       const element = button.current;
 
       if (element !== null) {
-        setPlacement(place(element));
+        setPlacement(placeUnder(element));
       }
     };
 
@@ -213,8 +164,8 @@ export function SelectField(props: SelectFieldProps) {
       return;
     }
 
-    setHost(element.closest('dialog') ?? globalThis.document.body);
-    setPlacement(place(element));
+    setHost(hostFor(element));
+    setPlacement(placeUnder(element));
     setActiveIndex(from);
   };
 
@@ -398,8 +349,9 @@ export function SelectField(props: SelectFieldProps) {
                 className,
               )}
             >
-              <span id={`${ids.id}-value`} className="truncate">
-                {chosen?.label ?? ''}
+              <span id={`${ids.id}-value`} className="flex min-w-0 items-center gap-2">
+                {chosen?.leading}
+                <span className="truncate">{chosen?.label ?? ''}</span>
               </span>
               <Caret isOpen={isOpen} />
             </button>
@@ -453,14 +405,15 @@ export function SelectField(props: SelectFieldProps) {
                           choose(index);
                         }}
                         className={cn(
-                          'flex h-8 cursor-pointer items-center rounded-chip px-2.5 text-ui',
+                          'flex h-8 cursor-pointer items-center gap-2 rounded-chip px-2.5 text-ui',
                           index === activeIndex
                             ? 'bg-surface-raised text-foreground'
                             : 'text-foreground-muted',
                           option.value === value ? 'font-medium text-foreground' : undefined,
                         )}
                       >
-                        {option.label}
+                        {option.leading}
+                        <span className="truncate">{option.label}</span>
                       </li>
                     ))}
                   </ul>,

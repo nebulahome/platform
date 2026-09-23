@@ -10,10 +10,10 @@
  * the test beside this file enforces; a glyph drawn in a component is what this replaces.
  */
 import {
+  Cable,
   Check,
   ChevronDown,
   Copy,
-  Expand,
   ExternalLink,
   Eye,
   EyeOff,
@@ -31,11 +31,13 @@ import {
   Rss,
   Search,
   Settings,
+  Tag,
   Trash2,
   TriangleAlert,
   Upload,
   Wrench,
   X,
+  Zap,
 } from 'lucide';
 
 import { iconNodeSchema, type IconFrame, type IconNode } from '@nebula-home/contracts';
@@ -60,7 +62,6 @@ export const BUILTIN_UI_NODES = {
   package: drawing(Package),
   settings: drawing(Settings),
   'chevron-down': drawing(ChevronDown),
-  expand: drawing(Expand),
   lock: drawing(Lock),
   check: drawing(Check),
   'triangle-alert': drawing(TriangleAlert),
@@ -71,9 +72,11 @@ export const BUILTIN_UI_NODES = {
   globe: drawing(Globe),
   rss: drawing(Rss),
   network: drawing(Network),
+  cable: drawing(Cable),
   'list-filter': drawing(ListFilter),
   'external-link': drawing(ExternalLink),
   wrench: drawing(Wrench),
+  zap: drawing(Zap),
   x: drawing(X),
   search: drawing(Search),
   plus: drawing(Plus),
@@ -81,6 +84,7 @@ export const BUILTIN_UI_NODES = {
   upload: drawing(Upload),
   'rotate-ccw': drawing(RotateCcw),
   maximize: drawing(Maximize),
+  tag: drawing(Tag),
 } satisfies Record<string, IconNode>;
 
 /** A catalogue id the interface draws itself with. */

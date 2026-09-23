@@ -33,7 +33,14 @@
  * handled it, or one press closes both. The dropdown does.
  */
 import { cva, type VariantProps } from 'class-variance-authority';
-import { useEffect, useId, useRef, type MouseEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  type MouseEvent,
+  type ReactNode,
+  type SyntheticEvent,
+} from 'react';
 
 import { cn } from '../lib/cn.js';
 
@@ -82,7 +89,7 @@ export type ModalProps = VariantProps<typeof dialogBox> & {
   readonly title: string;
 
   /** A line under it saying what this is for. */
-  readonly description?: string;
+  readonly description?: ReactNode;
 
   /**
    * Whether clicking away dismisses it.
@@ -195,6 +202,21 @@ export function Modal(props: ModalProps) {
     pressedBackdrop.current = false;
   };
 
+  /**
+   * Closes when the browser has closed this dialog - and only this one.
+   *
+   * A dialog opened from inside another dialog is a descendant of it, and although the native
+   * `close` event does not bubble, React still hands it to every `onClose` above the target. Left
+   * unchecked, picking an icon inside an edit dialog shut the edit dialog as well.
+   *
+   * @param event - The close.
+   */
+  const onNativeClose = (event: SyntheticEvent<HTMLDialogElement>): void => {
+    if (event.target === event.currentTarget) {
+      onClose();
+    }
+  };
+
   return (
     /* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions,
        jsx-a11y/click-events-have-key-events -- the handlers are here to dismiss the dialog by
@@ -207,7 +229,7 @@ export function Modal(props: ModalProps) {
       ref={dialog}
       aria-labelledby={titleId}
       aria-describedby={description === undefined ? undefined : descriptionId}
-      onClose={onClose}
+      onClose={onNativeClose}
       onMouseDown={onMouseDown}
       onClick={onClick}
       className={cn(dialogBox({ size }))}

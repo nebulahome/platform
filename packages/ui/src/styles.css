@@ -190,6 +190,25 @@
   --color-warning: #edb345;
   --color-danger: #f75d59;
 
+  /*
+   * --- tag palette --------------------------------------------------------------------------
+   * Twelve hues with one meaning between them: a tag the owner made. They are the only colours
+   * here that carry no verdict, which is why a tag is a chip of its own and never a badge. Each
+   * key has a shade per theme, chosen so the name reads at 4.5:1 on a card and on a sunk row.
+   */
+  --color-tag-red: #ff7a70;
+  --color-tag-orange: #ffa057;
+  --color-tag-amber: #ffc247;
+  --color-tag-yellow: #f2d94b;
+  --color-tag-lime: #b8e04a;
+  --color-tag-green: #52cd86;
+  --color-tag-teal: #43d6b8;
+  --color-tag-cyan: #4fd0ee;
+  --color-tag-blue: #62a9ff;
+  --color-tag-indigo: #8b96ff;
+  --color-tag-violet: #b48cff;
+  --color-tag-pink: #ff7ac8;
+
   /* --- shape ---------------------------------------------------------------------------- */
   /*
    * Five steps, and a control inside a card takes the step below the card so the curves stay
@@ -481,6 +500,19 @@
     --color-warning: #a46400;
     --color-danger: #c21725;
 
+    --color-tag-red: #c21725;
+    --color-tag-orange: #b34a00;
+    --color-tag-amber: #8a5a00;
+    --color-tag-yellow: #7a6400;
+    --color-tag-lime: #4f7a00;
+    --color-tag-green: #007840;
+    --color-tag-teal: #00705f;
+    --color-tag-cyan: #006b80;
+    --color-tag-blue: #0b5fcc;
+    --color-tag-indigo: #4f55df;
+    --color-tag-violet: #6f3fd6;
+    --color-tag-pink: #b8237a;
+
     /*
      * A white card has no lit top edge, and a white highlight on white is nothing at all. The
      * depth comes from the shadow, which loses most of its weight: a light page carries far less
@@ -529,6 +561,19 @@
       --color-success: #007840;
       --color-warning: #a46400;
       --color-danger: #c21725;
+
+      --color-tag-red: #c21725;
+      --color-tag-orange: #b34a00;
+      --color-tag-amber: #8a5a00;
+      --color-tag-yellow: #7a6400;
+      --color-tag-lime: #4f7a00;
+      --color-tag-green: #007840;
+      --color-tag-teal: #00705f;
+      --color-tag-cyan: #006b80;
+      --color-tag-blue: #0b5fcc;
+      --color-tag-indigo: #4f55df;
+      --color-tag-violet: #6f3fd6;
+      --color-tag-pink: #b8237a;
 
       --face-card: none;
       --face-raised: linear-gradient(180deg, #ffffff 0%, #f4f5f9 100%);
