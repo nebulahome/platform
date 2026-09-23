@@ -10,6 +10,7 @@
  */
 import { z } from 'zod';
 
+import { DISCOVERY_EVENTS } from './discovery.js';
 import { entityIdSchema } from './entity-id.js';
 import { changeContextSchema } from './entity-state.js';
 import { jsonObjectSchema } from './json.js';
@@ -29,7 +30,7 @@ export const WS_CLOSE_UNAUTHENTICATED = 4001;
 export const WS_CLOSE_TOKEN_EXPIRED = 4002;
 
 /** What a client may subscribe to. */
-export const WS_TOPICS = ['state', 'devices', 'packages', 'automations'] as const;
+export const WS_TOPICS = ['state', 'devices', 'packages', 'automations', 'discovery'] as const;
 
 /** What a client may subscribe to. */
 export type WsTopic = (typeof WS_TOPICS)[number];
@@ -122,6 +123,13 @@ export const wsServerMessageSchema = z.discriminatedUnion('type', [
     type: z.literal('device_event'),
     event: z.enum(DEVICE_EVENTS),
     payload: deviceEventSchema,
+  }),
+  z.object({
+    type: z.literal('discovery_event'),
+    event: z.enum(DISCOVERY_EVENTS),
+
+    /** How many devices the hub has heard and nobody has added, now. */
+    count: z.int().min(0),
   }),
   z.object({
     type: z.literal('package_event'),

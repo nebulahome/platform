@@ -193,6 +193,27 @@ export const deviceCreateSchema = z.object({
 export type DeviceCreate = z.output<typeof deviceCreateSchema>;
 
 /**
+ * What adopting a discovered device accepts: what the owner decides, and nothing the device said.
+ *
+ * The driver and the address come from the candidate, and the API reads them from the hub rather
+ * than from this body, so a client cannot adopt a device as another kind or point it elsewhere.
+ * `model` is needed only when the candidate names a family rather than one model, and
+ * `transportConfig` and `options` only for what discovery could not fill - a token, a password.
+ */
+export const discoveryAdoptSchema = deviceCreateSchema
+  .omit({ kind: true, model: true, transportConfig: true, isEnabled: true })
+  .extend({
+    /** Which of the candidate's model choices, when it offers more than one. */
+    model: z.string().min(1).max(64).optional(),
+
+    /** The fields of the driver's setup discovery left empty; the address is not among them. */
+    transportConfig: jsonObjectSchema.default({}),
+  });
+
+/** What adopting a discovered device accepts. */
+export type DiscoveryAdopt = z.output<typeof discoveryAdoptSchema>;
+
+/**
  * What changing a device accepts.
  *
  * Configuration and identity only. `state`, `lastError` and `lastStartedAt` are what the hub

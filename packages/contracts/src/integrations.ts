@@ -49,7 +49,7 @@ export const integrationKindIdSchema = z
   .regex(INTEGRATION_KIND_PATTERN, 'Must be an integration kind, as vendor/driver');
 
 /** Identifies a vendor on its own: `shelly`, `bambu-lab`. A directory people type, so letter first. */
-const VENDOR_ID_PATTERN = /^[a-z][a-z0-9-]{1,63}$/;
+export const VENDOR_ID_PATTERN = /^[a-z][a-z0-9-]{1,63}$/;
 
 /** Identifies a driver within its vendor: `dimmer-pm`, `3em`. Named after the product, so digits allowed first. */
 const DRIVER_ID_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/;
@@ -268,6 +268,18 @@ export const probeReplySchema = z.object({
 
   /** What happened, in one sentence the owner can act on. */
   detail: z.string().min(1).max(1024),
+
+  /**
+   * Which driver and model the answer says the device is, when the vendor's discovery probes
+   * and a driver took what came back. The form preselects it; the owner may still pick another.
+   */
+  detected: z
+    .object({
+      kind: integrationKindIdSchema,
+      model: z.string().min(1).max(64).nullable(),
+      modelChoices: z.array(z.string().min(1).max(64)).min(1).max(64),
+    })
+    .optional(),
 });
 
 /** What trying a configuration found out. */

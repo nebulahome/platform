@@ -15,6 +15,7 @@
  * Defined in ARCHITECTURE.md 7.2.
  */
 import { capabilityNameSchema, type CapabilityName } from './capabilities.js';
+import { type DiscoveryEvent } from './discovery.js';
 import { isEntityId, type EntityId } from './entity-id.js';
 import { type LogLevel } from './log-level.js';
 import { type DeviceEvent } from './registration.js';
@@ -80,6 +81,15 @@ export const busSubjects = {
    * @returns The fan-out subject to publish the event on.
    */
   deviceEvent: (event: DeviceEvent): string => `${BUS_SUBJECT_PREFIX}.event.device.${event}`,
+
+  /**
+   * Announcing that the devices the hub has heard and nobody has added changed.
+   *
+   * @param event - What happened to the list.
+   * @returns The fan-out subject to publish the event on.
+   */
+  discoveryEvent: (event: DiscoveryEvent): string =>
+    `${BUS_SUBJECT_PREFIX}.event.discovery.${event}`,
 
   /**
    * Announcing something about one automation.
@@ -153,6 +163,9 @@ export const BUS_PATTERNS = {
 
   /** Every device lifecycle event. Single token, so `*` is correct here. */
   allDeviceEvents: `${BUS_SUBJECT_PREFIX}.event.device.*`,
+
+  /** Every discovery event. Single token, so `*` is correct here. */
+  allDiscoveryEvents: `${BUS_SUBJECT_PREFIX}.event.discovery.*`,
 
   /** Every automation event. */
   allAutomationEvents: `${BUS_SUBJECT_PREFIX}.event.automation.*`,

@@ -24,6 +24,7 @@ export * from './bus-envelope.js';
 export * from './bus-subjects.js';
 export * from './capabilities.js';
 export * from './commands.js';
+export * from './discovery.js';
 export * from './entity-id.js';
 export * from './entity-state.js';
 export * from './errors.js';
