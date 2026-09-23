@@ -6,6 +6,7 @@ import {
   ERROR_CODES,
   NotFoundError,
   PermissionError,
+  UpstreamError,
 } from '@nebula-home/contracts';
 
 import { fromBusError, toBusError } from './error-mapping.js';
@@ -46,6 +47,16 @@ describe('fromBusError', () => {
 
     expect(rebuilt).toBeInstanceOf(PermissionError);
     expect(rebuilt.httpStatus).toBe(403);
+  });
+
+  it('rebuilds a failure of a service outside the installation as what it was', () => {
+    const rebuilt = fromBusError(
+      toBusError(new UpstreamError('The map server is away')),
+      'nebula.v1.req.map.tile',
+    );
+
+    expect(rebuilt).toBeInstanceOf(UpstreamError);
+    expect(rebuilt.httpStatus).toBe(503);
   });
 
   it('keeps the details and adds the subject that failed', () => {
