@@ -1,0 +1,11 @@
+{
+  "id": "diy-plug",
+  "name": "DIY relay",
+  "transport": "http",
+  "models": ["BASICR3", "RFR3", "MINI", "MINIR2"],
+  "modelCodes": { "diy_plug": ["BASICR3", "RFR3", "MINI", "MINIR2"] },
+  "defaultIcon": "relay",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

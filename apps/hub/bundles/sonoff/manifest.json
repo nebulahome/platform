@@ -1,0 +1,11 @@
+{
+  "id": "sonoff",
+  "version": "1.0.0",
+  "sdk": "^1.1.0",
+  "name": "Sonoff",
+  "description": "Sonoff relays in DIY mode, spoken to directly over the HTTP API the firmware serves on your own network. Nothing goes through the eWeLink cloud.",
+  "url": "https://sonoff.tech",
+  "color": "#1F9BDE",
+  "logo": "./logo.svg",
+  "internetRequired": false
+}

@@ -1,0 +1,5 @@
+{
+  "listen": [{ "mdns": "_ewelink._tcp" }],
+  "match": [{ "path": "txt.type", "exists": true }],
+  "identity": { "externalId": "txt.id", "model": "txt.type" }
+}

@@ -1,0 +1,49 @@
+{
+  "discovery": {
+    "probe": {
+      "op": "post",
+      "args": { "path": "/zeroconf/info", "body": { "deviceid": "", "data": {} } }
+    },
+    "claim": [
+      { "path": "error", "equals": 0 },
+      { "path": "data.deviceid", "exists": true },
+      { "path": "data.switch", "exists": true }
+    ],
+    "identity": { "externalId": "data.deviceid", "swVersion": "data.fwVersion" }
+  },
+  "subscriptions": [
+    {
+      "op": "poll",
+      "args": {
+        "path": "/zeroconf/info",
+        "method": "post",
+        "body": { "deviceid": "", "data": {} },
+        "everyMs": 5000
+      }
+    }
+  ],
+  "entities": [
+    {
+      "domain": "switch",
+      "icon": "switch",
+      "capabilities": { "on_off": {} },
+      "state": { "on_off": { "isOn": { "path": "data.switch", "equals": "on" } } },
+      "commands": {
+        "on_off.turn_on": {
+          "op": "post",
+          "args": {
+            "path": "/zeroconf/switch",
+            "body": { "deviceid": "", "data": { "switch": "on" } }
+          }
+        },
+        "on_off.turn_off": {
+          "op": "post",
+          "args": {
+            "path": "/zeroconf/switch",
+            "body": { "deviceid": "", "data": { "switch": "off" } }
+          }
+        }
+      }
+    }
+  ]
+}
