@@ -46,6 +46,7 @@ import { IconsPanel } from '@/routes/settings/icons-panel';
 import { InterfaceSettings } from '@/routes/settings/interface-settings';
 import { RequiresPermission } from '@/routes/settings/requires-permission';
 import { DEFAULT_SETTINGS_SECTION, SettingsLayout } from '@/routes/settings/settings-layout';
+import { SystemMonitor } from '@/routes/settings/system-monitor';
 import { UsersAndRoles } from '@/routes/settings/users-and-roles';
 import { PagePlaceholder, Shell } from '@/routes/shell';
 import { SignInForm } from '@/routes/sign-in';
@@ -259,6 +260,15 @@ export function SessionRoutes() {
           <Route index element={<Navigate to={DEFAULT_SETTINGS_SECTION} replace />} />
           <Route path="account" element={<AccountSettings />} />
           <Route path="interface" element={<InterfaceSettings />} />
+
+          <Route
+            path="system"
+            element={
+              <RequiresPermission permission="system:read" section="System monitor">
+                <SystemMonitor />
+              </RequiresPermission>
+            }
+          />
 
           <Route
             path="users"

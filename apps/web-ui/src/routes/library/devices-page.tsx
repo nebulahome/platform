@@ -162,7 +162,11 @@ export function DevicesPage() {
 
   const now = new Date();
   const groups = bySource(entities.data ?? []);
-  const vendorNames = new Map((vendors.data ?? []).map((vendor) => [vendor.id, vendor.name]));
+  // The system device's vendor is the platform itself, which no hub catalogue lists.
+  const vendorNames = new Map([
+    ['nebula', 'NebulaHome'],
+    ...(vendors.data ?? []).map((vendor): [string, string] => [vendor.id, vendor.name]),
+  ]);
   const effectiveFilter: DeviceFilter = { ...filter, deviceId: linkedDeviceId };
   const all: DeviceLine[] = (devices.data ?? []).map((device) => {
     const lines: EntityLine[] = (groups.get(device.id) ?? []).map((entity) => ({

@@ -272,3 +272,63 @@ export function ZapIcon(props: IconProps) {
 export function TagIcon(props: IconProps) {
   return icon('tag', props);
 }
+
+/**
+ * A chip: the processor.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function ProcessorIcon(props: IconProps) {
+  return icon('cpu', props);
+}
+
+/**
+ * A memory stick: the memory.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function MemoryIcon(props: IconProps) {
+  return icon('memory-stick', props);
+}
+
+/**
+ * A drive: the disk.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function DiskIcon(props: IconProps) {
+  return icon('hard-drive', props);
+}
+
+/**
+ * An arrow down into a tray: what the network brings in.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function DownloadIcon(props: IconProps) {
+  return icon('download', props);
+}
+
+/**
+ * An arrow up out of a tray: what the network sends out.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function UploadIcon(props: IconProps) {
+  return icon('upload', props);
+}
+
+/**
+ * A rack unit: the machine the platform runs on.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function ServerIcon(props: IconProps) {
+  return icon('server', props);
+}

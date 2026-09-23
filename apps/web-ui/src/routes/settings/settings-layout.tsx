@@ -51,6 +51,12 @@ export type SettingsSection = {
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { path: '/settings/account', label: 'Account & security', group: 'you', permission: null },
   { path: '/settings/interface', label: 'Interface', group: 'you', permission: null },
+  {
+    path: '/settings/system',
+    label: 'System monitor',
+    group: 'server',
+    permission: 'system:read',
+  },
   { path: '/settings/users', label: 'Users & roles', group: 'server', permission: 'user:read' },
   {
     path: '/settings/data',

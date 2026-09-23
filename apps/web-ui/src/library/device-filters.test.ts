@@ -13,6 +13,7 @@ const PRINTER: DeviceView = {
   name: 'Workshop printer',
   icon: 'printer',
   kind: 'bambu-lab/printer',
+  origin: 'integration',
   kindVersion: '1.0.0',
   vendorId: 'bambu-lab',
   driverId: 'printer',

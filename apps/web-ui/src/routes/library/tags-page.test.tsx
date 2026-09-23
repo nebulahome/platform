@@ -63,6 +63,7 @@ const RELAY: DeviceView = {
   name: 'Bench relay',
   icon: 'relay',
   kind: 'shelly/1pm-mini-g3',
+  origin: 'integration',
   kindVersion: '1.0.0',
   vendorId: 'shelly',
   driverId: '1pm-mini-g3',

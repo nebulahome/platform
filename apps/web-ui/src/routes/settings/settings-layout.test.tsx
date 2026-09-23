@@ -106,6 +106,20 @@ describe('the settings rail', () => {
     expect(screen.queryByRole('link', { name: 'Users & roles' })).toBeNull();
   });
 
+  it('offers the system monitor only to somebody who may read the system', () => {
+    // It sits in the server group beside the settings, and still answers to its own permission:
+    // what the machine is doing is not a setting.
+    signedInWith('settings:read');
+    renderAt('/settings/account');
+
+    expect(screen.queryByRole('link', { name: 'System monitor' })).toBeNull();
+
+    signedInWith('system:read');
+    renderAt('/settings/account');
+
+    expect(screen.getByRole('link', { name: 'System monitor' })).toBeTruthy();
+  });
+
   it('names the role that unlocked the server group', () => {
     signedInWith('settings:read');
     renderAt('/settings/account');

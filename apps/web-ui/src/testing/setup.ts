@@ -61,6 +61,45 @@ globalThis.HTMLDialogElement.prototype.close = function close(this: HTMLDialogEl
   this.dispatchEvent(new Event('close'));
 };
 
+/*
+ * jsdom has no media queries: `matchMedia` is absent, like `scrollIntoView`, and for the same
+ * reason is stood in for rather than guarded against in the components. The stand-in answers
+ * that no query matches, which is a screen that asked for nothing in particular.
+ */
+/**
+ * Listens for nothing: a query that never matches never changes either.
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-function -- see above
+function ignoreListener(): void {}
+
+/**
+ * Dispatches nothing, for the same reason.
+ *
+ * @returns False: no listener was called.
+ */
+function dispatchNothing(): boolean {
+  return false;
+}
+
+/**
+ * Stands in for the browser's media query list.
+ *
+ * @param media - The query.
+ * @returns A list that never matches and never changes.
+ */
+globalThis.matchMedia = function matchMedia(media: string): MediaQueryList {
+  return {
+    media,
+    matches: false,
+    onchange: null,
+    addEventListener: ignoreListener,
+    removeEventListener: ignoreListener,
+    addListener: ignoreListener,
+    removeListener: ignoreListener,
+    dispatchEvent: dispatchNothing,
+  };
+};
+
 afterEach(() => {
   cleanup();
 });
