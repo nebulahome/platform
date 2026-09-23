@@ -8,22 +8,23 @@ the same organisation.
 
 ## Layout
 
-| Path                       | What it is                                           |
-| -------------------------- | ---------------------------------------------------- |
-| `apps/core`                | Entity registry, automation, scene and alias engines |
-| `apps/api`                 | REST and WebSocket gateway                           |
-| `apps/proxy`               | TLS termination, static serving, routing             |
-| `apps/packet-manager`      | npm-based package installer and lifecycle supervisor |
-| `apps/logger`              | Log ingestion, storage and query                     |
-| `apps/web-ui`              | React single-page application                        |
-| `packages/contracts`       | Zod schemas and derived types shared by everything   |
-| `packages/bus`             | Typed NATS client                                    |
-| `packages/db`              | Drizzle schema, migrations, repositories             |
-| `packages/config`          | Zod-validated environment loader                     |
-| `packages/logging`         | Shared pino factory                                  |
-| `packages/package-runtime` | Integration contract: transports, bundles, profiles  |
-| `packages/ui`              | Design system: Tailwind and shadcn/ui components     |
-| `infra/`                   | docker-compose, seeds, development certificates      |
+| Path                       | What it is                                              |
+| -------------------------- | ------------------------------------------------------- |
+| `apps/core`                | Entity registry, automation, scene and alias engines    |
+| `apps/hub`                 | Every protocol: transports, integrations, bundles       |
+| `apps/api`                 | REST and WebSocket gateway                              |
+| `apps/proxy`               | TLS termination, static serving, routing                |
+| `apps/packet-manager`      | npm-based package installer and lifecycle supervisor    |
+| `apps/logger`              | Log ingestion, storage and query                        |
+| `apps/web-ui`              | React single-page application                           |
+| `packages/contracts`       | Zod schemas and derived types shared by everything      |
+| `packages/bus`             | Typed NATS client                                       |
+| `packages/db`              | Drizzle schema, migrations, repositories                |
+| `packages/config`          | Zod-validated environment loader, data directory layout |
+| `packages/logging`         | Shared pino factory                                     |
+| `packages/package-runtime` | Integration contract: transports, bundles, profiles     |
+| `packages/ui`              | Design system: Tailwind and shadcn/ui components        |
+| `infra/`                   | docker-compose, seeds, the development data directory   |
 
 ## Requirements
 

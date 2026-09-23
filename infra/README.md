@@ -2,15 +2,36 @@
 
 Everything needed to run NebulaHome that is not application code.
 
-| Path                     | What it is                                                  | Versioned |
-| ------------------------ | ----------------------------------------------------------- | --------- |
-| `docker-compose.dev.yml` | PostgreSQL and NATS for local development                   | yes       |
-| `seed/dev.sql`           | Fake devices and history so the UI has something to render  | yes       |
-| `certs/`                 | Locally generated TLS material for the proxy                | no        |
-| `data/`                  | Runtime state: package artefacts, map tiles, NVR recordings | no        |
+| Path                     | What it is                                                      | Versioned |
+| ------------------------ | --------------------------------------------------------------- | --------- |
+| `docker-compose.dev.yml` | PostgreSQL, NATS and Mosquitto for local development            | yes       |
+| `seed/dev.sql`           | Fake devices and history so the UI has something to render      | yes       |
+| `data/`                  | The data directory in development: every file the services keep | no        |
 
-`certs/` and `data/` are git-ignored: they are machine-local runtime state, and `certs/`
-would otherwise put private keys in the repository.
+`data/` is git-ignored: it is machine-local runtime state, and it will hold private keys - the
+proxy's certificates, the instance keys - that must never reach the repository.
+
+## The data directory
+
+Every file a service keeps - everything but the database - lives under one directory,
+`NEBULA_DATA_DIR`. Unset, it is this `infra/data`; in a container it is the one volume mounted
+at `/data`. Its layout is defined in `@nebula-home/config` (`data-layout.ts`) and described in
+ARCHITECTURE.md §14:
+
+```
+data/
+├── hub/integrations/<vendor>/   integration bundles installed into the hub
+├── proxy/tls/                   the proxy's certificates and ACME account key   (not yet)
+├── packages/<id>/               one per installed feature package              (not yet)
+├── secrets/                     the instance keys, when not in the environment  (not yet)
+├── cache/                       what can be fetched again; never backed up
+│   └── maps/<z>/<x>/<y>.png     the map around the house
+└── backups/                     what the backups write; never backed up itself (not yet)
+```
+
+Deleting `cache/` is always safe. The bundles in `apps/hub/bundles` are not here: they are the
+integrations under development, which the hub reads beside `hub/integrations` outside
+production until the integrations catalogue exists.
 
 ## Usage
 
