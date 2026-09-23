@@ -101,6 +101,17 @@ added with; it is removed and added again with the other.
 Setting a dimmer's level switches it on at that level: a level is what the lamp shows, and a lamp
 that is off shows none.
 
+## Found on the network
+
+Every Gen2+ Shelly announces itself over mDNS as `_shelly._tcp`, and `discovery.json` says what
+to do with one: ask it `Shelly.GetDeviceInfo` - the question identification asks too, answered
+without the password even when one is set - and read the `model` code off the answer. Each
+driver's `modelCodes` maps the codes it claims onto the models it lists, so a Shelly found on the
+network is proposed as the driver and the model it is, under the name it was given in the Shelly
+app. The 2PM reports one code whether it runs as two relays or as a cover; the two drivers that
+map it tell which from its `profile`. A Shelly of a family this bundle does not drive is not
+proposed.
+
 ## What is not here, and why
 
 **Readings some devices only have when wired for them.** The Dimmer Gen3 and Gen4 measure power

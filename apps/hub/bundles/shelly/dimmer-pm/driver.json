@@ -9,6 +9,13 @@
     "Dimmer Gen4",
     "Dimmer Gen4 US"
   ],
+  "modelCodes": {
+    "S3DM-0010WW": "Dimmer 0/1-10V PM Gen3",
+    "S4DM-0010WW": "Dimmer 0/1-10V PM Gen4",
+    "S3DM-0A101WWL": "Dimmer Gen3",
+    "S4DM-0A101WWL": "Dimmer Gen4",
+    "S4DM-0A102US": "Dimmer Gen4 US"
+  },
   "defaultIcon": "light",
   "kind": "declarative",
   "profile": "./profile.json",

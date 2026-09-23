@@ -1,6 +1,6 @@
 {
   "id": "shelly",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "sdk": "^1.0.0",
   "name": "Shelly",
   "description": "Shelly Gen3 and Gen4 devices on your own network, each spoken to directly over its RPC interface. Nothing leaves the house and nothing stops working when the internet does.",

@@ -3,6 +3,10 @@
   "name": "Two relays with power metering",
   "transport": "shelly/rpc",
   "models": ["2PM Gen3 (relays)", "2PM Gen4 (relays)"],
+  "modelCodes": {
+    "S3SW-002P16EU": "2PM Gen3 (relays)",
+    "S4SW-002P16EU": "2PM Gen4 (relays)"
+  },
   "defaultIcon": "relay",
   "kind": "declarative",
   "profile": "./profile.json",

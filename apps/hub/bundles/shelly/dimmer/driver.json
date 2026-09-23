@@ -3,6 +3,9 @@
   "name": "Dimmer",
   "transport": "shelly/rpc",
   "models": ["DALI Dimmer Gen3"],
+  "modelCodes": {
+    "S3DM-0A1WW": "DALI Dimmer Gen3"
+  },
   "defaultIcon": "light",
   "kind": "declarative",
   "profile": "./profile.json",

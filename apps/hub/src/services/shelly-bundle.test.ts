@@ -15,8 +15,10 @@ import { describe, expect, it } from 'vitest';
 
 import { parseEntityId, type CapabilityState, type EntityId } from '@nebula-home/contracts';
 import {
+  associateModel,
   createDeclarativeIntegration,
   driverManifestSchema,
+  identifySighting,
   integrationProfileSchema,
   resolveManifest,
   vendorManifestSchema,
@@ -24,6 +26,8 @@ import {
   type Integration,
   type MappingContext,
 } from '@nebula-home/package-runtime';
+
+import { loadBundles } from './bundles.js';
 
 /** The bundle, where the service reads it from. */
 const BUNDLE = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../bundles/shelly');
@@ -433,5 +437,126 @@ describe('the meters and the inputs', () => {
 
     expect(states.get('input_1')).toEqual({ sensor_binary: { isOn: true } });
     expect(states.get('input_2')).toBeUndefined();
+  });
+});
+
+describe('discovering a Shelly', () => {
+  /**
+   * Loads the Shelly vendor as the hub does, and answers what discovery would for one device.
+   *
+   * @param info - What `Shelly.GetDeviceInfo` answered.
+   * @returns The driver and the model the device is taken as, or null when none takes it.
+   */
+  async function discovered(info: Record<string, unknown>) {
+    const { vendors, failures } = await loadBundles({
+      directory: path.dirname(BUNDLE),
+      runtimeVersion: '1.1.0',
+    });
+    const shelly = vendors.find((vendor) => vendor.manifest.id === 'shelly');
+    const plan = shelly?.discovery?.plan;
+
+    expect(failures.filter((failure) => failure.directory.includes('shelly'))).toEqual([]);
+
+    if (shelly === undefined || plan === undefined) {
+      throw new Error('The Shelly vendor declares no discovery');
+    }
+
+    const identity = identifySighting(plan, info);
+
+    return {
+      identity,
+      association: associateModel(plan, identity.modelCode, (driverId) =>
+        shelly.drivers
+          .filter((driver) => driver.driverId === driverId)
+          .some(
+            (driver) => driver.integration.claim({ deviceKey: HOST, payload: info }, {}) !== null,
+          ),
+      ),
+    };
+  }
+
+  it('listens for _shelly._tcp and asks the device who it is', async () => {
+    const { vendors } = await loadBundles({
+      directory: path.dirname(BUNDLE),
+      runtimeVersion: '1.1.0',
+    });
+    const shelly = vendors.find((vendor) => vendor.manifest.id === 'shelly');
+
+    expect(shelly?.discovery?.sources).toEqual([{ kind: 'mdns', service: '_shelly._tcp' }]);
+    expect(shelly?.discovery?.plan.discovery.probe).toEqual({
+      transport: 'shelly/rpc',
+      op: 'call',
+      args: { method: 'Shelly.GetDeviceInfo' },
+    });
+  });
+
+  it('takes a 1PM Mini Gen3 as the metered relay, by its model code, and names it', async () => {
+    const { identity, association } = await discovered({
+      id: 'shelly1pmminig3-84fce63bd1a0',
+      name: 'Hall light',
+      model: 'S3SW-001P8EU',
+      gen: 3,
+      ver: '1.4.4',
+    });
+
+    expect(identity).toEqual({
+      externalId: 'shelly1pmminig3-84fce63bd1a0',
+      name: 'Hall light',
+      modelCode: 'S3SW-001P8EU',
+      swVersion: '1.4.4',
+    });
+    expect(association).toEqual({
+      driverId: 'switch-pm',
+      model: '1PM Mini Gen3',
+      modelChoices: ['1PM Mini Gen3'],
+    });
+  });
+
+  it('tells a 2PM running as a cover from one running as two relays, by its profile', async () => {
+    const cover = await discovered({
+      id: 'shelly2pmg3-1',
+      model: 'S3SW-002P16EU',
+      profile: 'cover',
+    });
+    const relays = await discovered({
+      id: 'shelly2pmg3-2',
+      model: 'S4SW-002P16EU',
+      profile: 'switch',
+    });
+
+    expect(cover.association).toMatchObject({ driverId: 'cover-pm', model: '2PM Gen3 (cover)' });
+    expect(relays.association).toMatchObject({
+      driverId: 'switch-2pm',
+      model: '2PM Gen4 (relays)',
+    });
+  });
+
+  it('maps every code a driver claims onto one of its models', async () => {
+    // A code a claim accepts but no model is named for would be adopted with a model the form
+    // then has to ask for: every one the bundle knows should say which it is.
+    const { vendors } = await loadBundles({
+      directory: path.dirname(BUNDLE),
+      runtimeVersion: '1.1.0',
+    });
+    const shelly = vendors.find((vendor) => vendor.manifest.id === 'shelly');
+
+    for (const driver of shelly?.drivers ?? []) {
+      const profile = integrationProfileSchema.parse(
+        JSON.parse(await readFile(path.join(driver.directory, 'profile.json'), 'utf8')),
+      );
+      const codes = profile.discovery.claim.flatMap((condition) =>
+        'oneOf' in condition && condition.path === 'model' ? condition.oneOf : [],
+      );
+
+      expect(Object.keys(driver.manifest.modelCodes ?? {}).sort()).toEqual(
+        codes.map(String).sort(),
+      );
+    }
+  });
+
+  it('proposes nothing for a Shelly of a family the bundle does not drive', async () => {
+    const { association } = await discovered({ id: 'shellyplusht-1', model: 'SNSN-0013A' });
+
+    expect(association).toBeNull();
   });
 });

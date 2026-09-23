@@ -3,6 +3,12 @@
   "name": "Relay with power metering",
   "transport": "shelly/rpc",
   "models": ["1PM Gen3", "1PM Mini Gen3", "1PM Gen4", "1PM Mini Gen4"],
+  "modelCodes": {
+    "S3SW-001P16EU": "1PM Gen3",
+    "S3SW-001P8EU": "1PM Mini Gen3",
+    "S4SW-001P16EU": "1PM Gen4",
+    "S4SW-001P8EU": "1PM Mini Gen4"
+  },
   "defaultIcon": "relay",
   "kind": "declarative",
   "profile": "./profile.json",

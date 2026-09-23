@@ -3,6 +3,9 @@
   "name": "Energy meter, one channel",
   "transport": "shelly/rpc",
   "models": ["EM Mini Gen4"],
+  "modelCodes": {
+    "S4EM-001PXCEU16": "EM Mini Gen4"
+  },
   "defaultIcon": "gauge",
   "kind": "declarative",
   "profile": "./profile.json",

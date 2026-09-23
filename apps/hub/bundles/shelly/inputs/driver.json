@@ -3,6 +3,10 @@
   "name": "Inputs",
   "transport": "shelly/rpc",
   "models": ["I4 Gen3", "I4 Gen4"],
+  "modelCodes": {
+    "S3SN-0024X": "I4 Gen3",
+    "S4SN-0A24X": "I4 Gen4"
+  },
   "defaultIcon": "toggle-left",
   "kind": "declarative",
   "profile": "./profile.json",

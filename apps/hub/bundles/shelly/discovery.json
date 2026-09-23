@@ -1,0 +1,20 @@
+{
+  "listen": [
+    {
+      "mdns": "_shelly._tcp"
+    }
+  ],
+  "probe": {
+    "transport": "shelly/rpc",
+    "op": "call",
+    "args": {
+      "method": "Shelly.GetDeviceInfo"
+    }
+  },
+  "identity": {
+    "externalId": "id",
+    "name": "name",
+    "model": "model",
+    "swVersion": "ver"
+  }
+}

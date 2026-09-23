@@ -3,6 +3,14 @@
   "name": "Relay",
   "transport": "shelly/rpc",
   "models": ["1 Gen3", "1L Gen3", "1 Mini Gen3", "1 Gen4", "1L Gen4", "1 Mini Gen4"],
+  "modelCodes": {
+    "S3SW-001X16EU": "1 Gen3",
+    "S3SW-0A1X1EUL": "1L Gen3",
+    "S3SW-001X8EU": "1 Mini Gen3",
+    "S4SW-001X16EU": "1 Gen4",
+    "S4SW-0A1X1EUL": "1L Gen4",
+    "S4SW-001X8EU": "1 Mini Gen4"
+  },
   "defaultIcon": "relay",
   "kind": "declarative",
   "profile": "./profile.json",

@@ -3,6 +3,10 @@
   "name": "Two relays",
   "transport": "shelly/rpc",
   "models": ["2L Gen3", "2L Gen4"],
+  "modelCodes": {
+    "S3SW-0A2X4EUL": "2L Gen3",
+    "S4SW-0A2X4EUL": "2L Gen4"
+  },
   "defaultIcon": "relay",
   "kind": "declarative",
   "profile": "./profile.json",

@@ -3,6 +3,9 @@
   "name": "Shutter",
   "transport": "shelly/rpc",
   "models": ["Shutter"],
+  "modelCodes": {
+    "S3SH-0A2P4EU": "Shutter"
+  },
   "defaultIcon": "blinds",
   "kind": "declarative",
   "profile": "./profile.json",
