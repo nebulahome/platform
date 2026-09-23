@@ -111,7 +111,7 @@ export const users = authSchema.table(
   ],
 );
 
-/** What a role grants, optionally narrowed to an area, entity or label. */
+/** What a role grants, optionally narrowed to an area, entity or tag. */
 export const rolePermissions = authSchema.table(
   'role_permissions',
   {

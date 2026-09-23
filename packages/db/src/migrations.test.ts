@@ -66,7 +66,7 @@ describe('the migration set', () => {
 
 describe('the initial schema', () => {
   it('creates every object DATABASE.md defines', () => {
-    expect(initialSql.match(/^CREATE TABLE /gm)).toHaveLength(36);
+    expect(initialSql.match(/^CREATE TABLE /gm)).toHaveLength(37);
     expect(initialSql.match(/^CREATE VIEW /gm)).toHaveLength(4);
     expect(initialSql.match(/create_hypertable\(/g)).toHaveLength(5);
   });
@@ -234,6 +234,34 @@ describe('integration ownership', () => {
     expect(initialSql).toContain(
       'GRANT UPDATE (state, last_error, last_started_at) ON registry.integrations TO nebula_hub',
     );
+  });
+});
+
+describe('tags', () => {
+  it('stores a tag colour as a key into a fixed palette, never as a hex', () => {
+    // The interface maps each key onto a token that is a different colour in each theme; a hex
+    // would be one colour, wrong in one of the two.
+    expect(initialSql).toMatch(
+      /CONSTRAINT tags_color CHECK \(color IN \(\s+'red', 'orange', 'amber', 'yellow', 'lime', 'green',\s+'teal', 'cyan', 'blue', 'indigo', 'violet', 'pink'\s+\)\)/,
+    );
+    expect(initialSql).not.toMatch(/tags_color.*#\[0-9a-f\]/);
+  });
+
+  it('lets a tag sit on a device as well as on an entity, and go with either', () => {
+    expect(initialSql).toContain('CREATE TABLE registry.device_tags (');
+    expect(initialSql).toMatch(
+      /device_id uuid NOT NULL REFERENCES registry\.devices \(id\) ON DELETE CASCADE,\s+tag_id\s+uuid NOT NULL REFERENCES registry\.tags \(id\) ON DELETE CASCADE,\s+PRIMARY KEY \(device_id, tag_id\)/,
+    );
+    expect(initialSql).toContain('CREATE TABLE registry.entity_tags (');
+    expect(initialSql).not.toContain('registry.labels');
+    expect(initialSql).not.toContain('registry.entity_labels');
+  });
+
+  it('narrows a scope to an area, an entity or a tag', () => {
+    const scopes = initialSql.match(/scope ~ '\^\(area\|entity\|tag\)\\.\[a-z0-9_\.\]\+\$'/g) ?? [];
+
+    expect(scopes).toHaveLength(2);
+    expect(initialSql).not.toContain('(area|entity|label)');
   });
 });
 

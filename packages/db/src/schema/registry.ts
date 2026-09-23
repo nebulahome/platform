@@ -10,6 +10,7 @@
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -40,15 +41,21 @@ export const areas = registrySchema.table(
     id: uuid('id').primaryKey().defaultRandom(),
     key: text('key').notNull().unique(),
     name: text('name').notNull(),
+    /** `house`, `floor` or `room`: which level of the tree the row is. */
+    kind: text('kind').notNull(),
     /**
-     * The area this one sits inside.
+     * The house a floor is in, or the floor a room is on; a house has none.
      *
      * Typed through {@link AnyPgColumn} because it points back at this table, and Drizzle
-     * cannot infer the type of a reference to the table being defined.
+     * cannot infer the type of a reference to the table being defined. Removing the parent
+     * removes the row: a room off its floor is not a place anybody meant.
      */
-    parentId: uuid('parent_id').references((): AnyPgColumn => areas.id, { onDelete: 'set null' }),
+    parentId: uuid('parent_id').references((): AnyPgColumn => areas.id, { onDelete: 'cascade' }),
     icon: text('icon'),
     sortOrder: smallint('sort_order').notNull().default(100),
+    /** Where a house stands, in degrees; null for a house not yet placed, and for the rest. */
+    latitude: doublePrecision('latitude'),
+    longitude: doublePrecision('longitude'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -73,7 +80,7 @@ export const integrations = registrySchema.table(
   {
     id: text('id').primaryKey(),
 
-    /** The driver, vendor-qualified: `shelly/1pm-mini-g3`, `bambu-lab/printer`. */
+    /** The driver, vendor-qualified: `shelly/dimmer-pm`, `bambu-lab/printer`. */
     kind: text('kind').notNull(),
     kindVersion: text('kind_version').notNull(),
 
@@ -355,28 +362,52 @@ export const entityStates = registrySchema.table(
   ],
 );
 
-/** Free-form tags used for cross-cutting selection, such as "exterior" or "energy monitored". */
-export const labels = registrySchema.table('labels', {
+/**
+ * Free-form tags the owner puts on devices and entities to pick a group of them at once, such
+ * as "exterior" or "energy monitored": what an automation or a scene will select by.
+ *
+ * `key` is a slug of the name at creation and never changes afterwards - permission scopes
+ * name a tag by it - while `name` is whatever the owner last called it. `color` is a key into
+ * the interface's palette (`TAG_COLORS` in contracts), not a hex, so that each theme can draw
+ * it in its own shade.
+ */
+export const tags = registrySchema.table('tags', {
   id: uuid('id').primaryKey().defaultRandom(),
   key: text('key').notNull().unique(),
   name: text('name').notNull(),
-  color: text('color'),
+  color: text('color').notNull(),
+  /** A catalogue icon id, when one is set. */
+  icon: text('icon'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** Which labels are on which entities. */
-export const entityLabels = registrySchema.table(
-  'entity_labels',
+/** Which tags are on which entities. */
+export const entityTags = registrySchema.table(
+  'entity_tags',
   {
     entityId: uuid('entity_id')
       .notNull()
       .references(() => entities.id, { onDelete: 'cascade' }),
-    labelId: uuid('label_id')
+    tagId: uuid('tag_id')
       .notNull()
-      .references(() => labels.id, { onDelete: 'cascade' }),
+      .references(() => tags.id, { onDelete: 'cascade' }),
   },
-  (table) => [index('entity_labels_label_id_idx').on(table.labelId)],
+  (table) => [index('entity_tags_tag_id_idx').on(table.tagId)],
+);
+
+/** Which tags are on which devices. */
+export const deviceTags = registrySchema.table(
+  'device_tags',
+  {
+    deviceId: uuid('device_id')
+      .notNull()
+      .references(() => devices.id, { onDelete: 'cascade' }),
+    tagId: uuid('tag_id')
+      .notNull()
+      .references(() => tags.id, { onDelete: 'cascade' }),
+  },
+  (table) => [index('device_tags_tag_id_idx').on(table.tagId)],
 );
 
 /**

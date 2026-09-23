@@ -1,6 +1,6 @@
 -- 0001_initial_schema.sql
 --
--- The initial NebulaHome schema: four schemas, 35 tables, four views and the TimescaleDB
+-- The initial NebulaHome schema: four schemas, 37 tables, four views and the TimescaleDB
 -- hypertables, plus the roles, grants and seed data an installation needs to boot.
 --
 -- Object order follows DATABASE.md 13 rather than the reading order of that document, because
@@ -126,7 +126,7 @@ CREATE TABLE auth.role_permissions (
 
   PRIMARY KEY (role_id, permission_id, scope),
   CONSTRAINT role_permissions_scope_format
-    CHECK (scope = '*' OR scope ~ '^(area|entity|label)\.[a-z0-9_.]+$')
+    CHECK (scope = '*' OR scope ~ '^(area|entity|tag)\.[a-z0-9_.]+$')
 );
 
 CREATE INDEX role_permissions_permission_id_idx ON auth.role_permissions (permission_id);
@@ -143,7 +143,7 @@ CREATE TABLE auth.user_permissions (
   PRIMARY KEY (user_id, permission_id, scope),
   CONSTRAINT user_permissions_effect CHECK (effect IN ('allow', 'deny')),
   CONSTRAINT user_permissions_scope_format
-    CHECK (scope = '*' OR scope ~ '^(area|entity|label)\.[a-z0-9_.]+$')
+    CHECK (scope = '*' OR scope ~ '^(area|entity|tag)\.[a-z0-9_.]+$')
 );
 
 CREATE INDEX user_permissions_permission_id_idx ON auth.user_permissions (permission_id);
@@ -313,21 +313,37 @@ CREATE TABLE IF NOT EXISTS system.schema_migrations (
 
 -- --------------------------------------------------------------------------------------
 
+-- A tree three deep: the house at the top, floors in it, rooms on each floor. The kind says which
+-- level a row is; that a floor's parent is the house and a room's a floor is checked by `api`,
+-- not here, as is anything deeper than one level of the tree. There is one house - an
+-- installation is one home - and the partial unique index below is what holds that under a
+-- race. The house is the only kind that stands somewhere, so only the house carries a position -
+-- two numbers or none, never one. Removing a floor removes its rooms: a room off its floor is
+-- not a place anybody meant.
 CREATE TABLE registry.areas (
   id         uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   key        text        NOT NULL UNIQUE,
   name       text        NOT NULL,
-  parent_id  uuid        REFERENCES registry.areas (id) ON DELETE SET NULL,
+  kind       text        NOT NULL,
+  parent_id  uuid        REFERENCES registry.areas (id) ON DELETE CASCADE,
   icon       text,
   sort_order smallint    NOT NULL DEFAULT 100,
+  latitude   double precision,
+  longitude  double precision,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
 
   CONSTRAINT areas_key_format CHECK (key ~ '^[a-z][a-z0-9_]{0,63}$'),
-  CONSTRAINT areas_not_own_parent CHECK (parent_id IS DISTINCT FROM id)
+  CONSTRAINT areas_kind CHECK (kind IN ('house', 'floor', 'room')),
+  CONSTRAINT areas_not_own_parent CHECK (parent_id IS DISTINCT FROM id),
+  CONSTRAINT areas_position_whole CHECK ((latitude IS NULL) = (longitude IS NULL)),
+  CONSTRAINT areas_position_on_house CHECK (kind = 'house' OR latitude IS NULL),
+  CONSTRAINT areas_latitude_range CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
+  CONSTRAINT areas_longitude_range CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180)
 );
 
 CREATE INDEX areas_parent_id_idx ON registry.areas (parent_id);
+CREATE UNIQUE INDEX areas_one_house_idx ON registry.areas ((kind)) WHERE kind = 'house';
 
 -- --------------------------------------------------------------------------------------
 
@@ -362,7 +378,7 @@ CREATE INDEX areas_parent_id_idx ON registry.areas (parent_id);
 
 CREATE TABLE registry.integrations (
   id               text        PRIMARY KEY,
-  kind             text        NOT NULL,   -- the driver, vendor-qualified: 'shelly/1pm-mini-g3'
+  kind             text        NOT NULL,   -- the driver, vendor-qualified: 'shelly/dimmer-pm'
   kind_version     text        NOT NULL,
   model            text,                   -- the model the owner picked: 'X1C'; null when never picked
   transport        text        NOT NULL,   -- 'http', 'mqtt', ...
@@ -557,7 +573,8 @@ CREATE TABLE registry.entity_capabilities (
   PRIMARY KEY (entity_id, capability),
   CONSTRAINT entity_capabilities_known CHECK (capability IN (
     'on_off', 'level', 'color_hs', 'color_temp', 'cover', 'lock',
-    'thermostat', 'sensor_numeric', 'sensor_binary', 'media_player', 'camera'
+    'thermostat', 'sensor_numeric', 'sensor_binary', 'sensor_text',
+    'media_player', 'camera'
   ))
 );
 
@@ -582,26 +599,40 @@ CREATE TABLE registry.entity_states (
 CREATE INDEX entity_states_is_available_idx
   ON registry.entity_states (is_available) WHERE is_available = false;
 
-CREATE TABLE registry.labels (
+CREATE TABLE registry.tags (
   id         uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  key        text        NOT NULL UNIQUE,
+  key        text        NOT NULL UNIQUE,   -- a slug of the name at creation; never changes
   name       text        NOT NULL,
-  color      text,
+  color      text        NOT NULL,          -- a palette key, not a hex: the interface maps it to a theme token
+  icon       text,                           -- a catalogue icon id, when one is set
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
 
-  CONSTRAINT labels_key_format CHECK (key ~ '^[a-z][a-z0-9_]{0,63}$'),
-  CONSTRAINT labels_color_format CHECK (color IS NULL OR color ~ '^#[0-9a-f]{6}$')
+  CONSTRAINT tags_key_format CHECK (key ~ '^[a-z][a-z0-9_]{0,63}$'),
+  CONSTRAINT tags_name_not_blank CHECK (length(btrim(name)) > 0),
+  CONSTRAINT tags_color CHECK (color IN (
+    'red', 'orange', 'amber', 'yellow', 'lime', 'green',
+    'teal', 'cyan', 'blue', 'indigo', 'violet', 'pink'
+  ))
 );
 
-CREATE TABLE registry.entity_labels (
+CREATE TABLE registry.entity_tags (
   entity_id uuid NOT NULL REFERENCES registry.entities (id) ON DELETE CASCADE,
-  label_id  uuid NOT NULL REFERENCES registry.labels (id) ON DELETE CASCADE,
+  tag_id    uuid NOT NULL REFERENCES registry.tags (id) ON DELETE CASCADE,
 
-  PRIMARY KEY (entity_id, label_id)
+  PRIMARY KEY (entity_id, tag_id)
 );
 
-CREATE INDEX entity_labels_label_id_idx ON registry.entity_labels (label_id);
+CREATE INDEX entity_tags_tag_id_idx ON registry.entity_tags (tag_id);
+
+CREATE TABLE registry.device_tags (
+  device_id uuid NOT NULL REFERENCES registry.devices (id) ON DELETE CASCADE,
+  tag_id    uuid NOT NULL REFERENCES registry.tags (id) ON DELETE CASCADE,
+
+  PRIMARY KEY (device_id, tag_id)
+);
+
+CREATE INDEX device_tags_tag_id_idx ON registry.device_tags (tag_id);
 
 CREATE TABLE registry.aliases (
   id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -618,7 +649,12 @@ CREATE TABLE registry.aliases (
   created_by      uuid        REFERENCES auth.users (id) ON DELETE SET NULL,
 
   CONSTRAINT aliases_debounce_range CHECK (debounce_ms BETWEEN 0 AND 3600000),
-  CONSTRAINT aliases_expression_not_empty CHECK (length(btrim(expression)) > 0),
+  -- Calculated aliases require a non-blank expression; stored helpers forbid one (empty string).
+  -- Whitespace-only is neither: it is not a formula and it is not the stored marker.
+  CONSTRAINT aliases_expression_kind CHECK (
+    length(expression) <= 2000
+    AND (expression = '' OR length(btrim(expression)) > 0)
+  ),
   CONSTRAINT aliases_fallback_policy
     CHECK (fallback_policy IN ('unavailable', 'ignore_missing', 'last_known'))
 );
@@ -864,7 +900,7 @@ SELECT
   s.last_changed,
   s.last_updated,
   COALESCE(caps.capabilities, '{}'::text[]) AS capabilities,
-  COALESCE(labels.label_keys, '{}'::text[]) AS label_keys
+  COALESCE(tags.tag_keys, '{}'::text[]) AS tag_keys
 FROM registry.entities e
 LEFT JOIN registry.devices d       ON d.id = e.device_id
 LEFT JOIN registry.areas a         ON a.id = COALESCE(e.area_id, d.area_id)
@@ -875,11 +911,11 @@ LEFT JOIN LATERAL (
   WHERE ec.entity_id = e.id
 ) caps ON true
 LEFT JOIN LATERAL (
-  SELECT array_agg(l.key ORDER BY l.key) AS label_keys
-  FROM registry.entity_labels el
-  JOIN registry.labels l ON l.id = el.label_id
-  WHERE el.entity_id = e.id
-) labels ON true;
+  SELECT array_agg(t.key ORDER BY t.key) AS tag_keys
+  FROM registry.entity_tags et
+  JOIN registry.tags t ON t.id = et.tag_id
+  WHERE et.entity_id = e.id
+) tags ON true;
 
 CREATE VIEW registry.v_alias_dependents AS
 WITH RECURSIVE dependents AS (
@@ -974,8 +1010,8 @@ CREATE TRIGGER entities_touch_updated_at
   BEFORE UPDATE ON registry.entities
   FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
 
-CREATE TRIGGER labels_touch_updated_at
-  BEFORE UPDATE ON registry.labels
+CREATE TRIGGER tags_touch_updated_at
+  BEFORE UPDATE ON registry.tags
   FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
 
 CREATE TRIGGER aliases_touch_updated_at
@@ -1136,8 +1172,8 @@ INSERT INTO auth.permissions (key, resource, action, description, is_scopable) V
   ('device:delete', 'device', 'delete', 'Unpair and remove devices', false),
   ('area:read', 'area', 'read', 'See the area hierarchy', false),
   ('area:write', 'area', 'write', 'Create, rename and rearrange areas', false),
-  ('label:read', 'label', 'read', 'See labels', false),
-  ('label:write', 'label', 'write', 'Create and assign labels', false),
+  ('tag:read', 'tag', 'read', 'See tags', false),
+  ('tag:write', 'tag', 'write', 'Create, rename, recolour and delete tags', false),
   ('automation:read', 'automation', 'read', 'See automations and their run history', false),
   ('automation:write', 'automation', 'write', 'Create, edit, enable and delete automations', false),
   ('automation:trigger', 'automation', 'trigger', 'Run an automation manually', true),
@@ -1180,10 +1216,10 @@ INSERT INTO system.settings (key, value, schema_ref) VALUES
 -- Role grants: generated from DEFAULT_ROLE_PERMISSIONS in @nebula-home/contracts.
 INSERT INTO auth.role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM auth.roles r, auth.permissions p
-WHERE r.key = 'admin' AND p.key IN ('entity:read', 'entity:control', 'entity:write', 'entity:delete', 'device:read', 'device:write', 'device:delete', 'area:read', 'area:write', 'label:read', 'label:write', 'automation:read', 'automation:write', 'automation:trigger', 'scene:read', 'scene:apply', 'scene:write', 'alias:read', 'alias:write', 'history:read', 'package:read', 'package:install', 'package:configure', 'integration:read', 'integration:configure', 'user:read', 'user:manage', 'logs:read', 'settings:read', 'settings:write', 'audit:read');
+WHERE r.key = 'admin' AND p.key IN ('entity:read', 'entity:control', 'entity:write', 'entity:delete', 'device:read', 'device:write', 'device:delete', 'area:read', 'area:write', 'tag:read', 'tag:write', 'automation:read', 'automation:write', 'automation:trigger', 'scene:read', 'scene:apply', 'scene:write', 'alias:read', 'alias:write', 'history:read', 'package:read', 'package:install', 'package:configure', 'integration:read', 'integration:configure', 'user:read', 'user:manage', 'logs:read', 'settings:read', 'settings:write', 'audit:read');
 INSERT INTO auth.role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM auth.roles r, auth.permissions p
-WHERE r.key = 'member' AND p.key IN ('entity:read', 'entity:control', 'device:read', 'area:read', 'label:read', 'automation:read', 'automation:trigger', 'scene:read', 'scene:apply', 'alias:read', 'history:read', 'package:read', 'integration:read');
+WHERE r.key = 'member' AND p.key IN ('entity:read', 'entity:control', 'device:read', 'area:read', 'tag:read', 'automation:read', 'automation:trigger', 'scene:read', 'scene:apply', 'alias:read', 'history:read', 'package:read', 'integration:read');
 INSERT INTO auth.role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM auth.roles r, auth.permissions p
 WHERE r.key = 'guest' AND p.key IN ('entity:read', 'entity:control', 'area:read', 'scene:read', 'scene:apply');
