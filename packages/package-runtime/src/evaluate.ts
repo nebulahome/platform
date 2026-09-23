@@ -11,6 +11,7 @@
  * language is exactly as powerful as needed, and the cap is the grammar.
  */
 import { PATH_PATTERN } from './expression.js';
+import type { ClaimCondition } from './profile.js';
 
 /** One step of a path: a key, or an index into an array. */
 type Segment = { readonly key: string } | { readonly index: number };
@@ -73,4 +74,28 @@ export function resolvePath(payload: unknown, path: string): unknown {
   }
 
   return current;
+}
+
+/**
+ * Decides whether one condition holds.
+ *
+ * The same three forms wherever a condition is written - a driver's claim, a vendor's match on
+ * an announcement - so there is one reading of each.
+ *
+ * @param condition - What to check.
+ * @param payload - What the scan, the probe or the announcement said.
+ * @returns True when it holds.
+ */
+export function conditionHolds(condition: ClaimCondition, payload: unknown): boolean {
+  const value = resolvePath(payload, condition.path);
+
+  if ('exists' in condition) {
+    return value !== undefined && value !== null;
+  }
+
+  if ('oneOf' in condition) {
+    return condition.oneOf.some((candidate) => candidate === value);
+  }
+
+  return value === condition.equals;
 }

@@ -277,6 +277,61 @@ describe('driverManifestSchema', () => {
   });
 });
 
+describe('driverManifestSchema model codes', () => {
+  it('maps what the hardware calls itself onto the model on the box', () => {
+    const parsed = driverManifestSchema.parse({
+      ...driver(),
+      models: ['1PM Gen3', '1PM Mini Gen3'],
+      modelCodes: { 'S3SW-001P16EU': '1PM Gen3', 'S3SW-001P8EU': '1PM Mini Gen3' },
+    });
+
+    expect(parsed.modelCodes).toEqual({
+      'S3SW-001P16EU': '1PM Gen3',
+      'S3SW-001P8EU': '1PM Mini Gen3',
+    });
+  });
+
+  it('lets one code stand for a family whose exact model the hardware does not say', () => {
+    // A Sonoff in DIY mode announces `diy_plug` whether it is a BASICR3 or a MINI: the driver
+    // is certain, the model is a short list the owner picks from.
+    const parsed = driverManifestSchema.parse({
+      ...driver(),
+      models: ['BASICR3', 'MINI'],
+      modelCodes: { diy_plug: ['BASICR3', 'MINI'] },
+    });
+
+    expect(parsed.modelCodes).toEqual({ diy_plug: ['BASICR3', 'MINI'] });
+  });
+
+  it('refuses a code that names a model the driver does not list', () => {
+    // Discovery would propose a model the form then refuses, on a device already half-added.
+    expect(
+      driverManifestSchema.safeParse({
+        ...driver(),
+        models: ['1PM Gen3'],
+        modelCodes: { 'S3SW-001P16EU': '2PM Gen3' },
+      }).success,
+    ).toBe(false);
+    expect(
+      driverManifestSchema.safeParse({
+        ...driver(),
+        models: ['BASICR3'],
+        modelCodes: { diy_plug: ['BASICR3', 'MINI'] },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('refuses codes from a driver that lists no model to map them onto', () => {
+    expect(
+      driverManifestSchema.safeParse({ ...driver(), modelCodes: { NL42: 'Shapes' } }).success,
+    ).toBe(false);
+  });
+
+  it('maps no code unless it says so', () => {
+    expect(driverManifestSchema.parse(driver()).modelCodes).toBeUndefined();
+  });
+});
+
 describe('resolveManifest', () => {
   it("refuses a driver that names another vendor's transport", () => {
     // A qualified transport is registered when its vendor loads, and vendors load in no
@@ -360,6 +415,20 @@ describe('resolveManifest', () => {
       'code',
       './index.js',
     ]);
+  });
+
+  it('carries the codes the models are reported by, for discovery to read', () => {
+    const resolved = resolveManifest(
+      vendorManifestSchema.parse(vendor()),
+      driverManifestSchema.parse({
+        ...driver(),
+        models: ['1PM Gen3'],
+        modelCodes: { 'S3SW-001P16EU': '1PM Gen3' },
+      }),
+    );
+
+    expect(resolved.modelCodes).toEqual({ 'S3SW-001P16EU': '1PM Gen3' });
+    expect(bundleManifestSchema.safeParse(resolved).success).toBe(true);
   });
 
   it('produces what the resolved manifest schema accepts', () => {

@@ -10,6 +10,10 @@
  * The managed socket is here for the same reason the transport layer exists: without it every
  * vendor speaking WebSocket would grow its own reconnection, and one of them would have the bug
  * the others do not. The hub owns the socket; the bundle owns what goes through it.
+ *
+ * The UDP socket is here for the protocols that are datagrams - a Govee light answering a
+ * multicast scan, a Broadlink blaster - and for the same reason: the hub binds it, joins the group
+ * and closes it when the vendor is unloaded, so a bundle cannot leave a port held behind it.
  */
 import type { z } from 'zod';
 
@@ -62,6 +66,52 @@ export type ManagedSocket = {
 /** Opens a managed WebSocket. */
 export type OpenWebSocket = (options: ManagedSocketOptions) => ManagedSocket;
 
+/** Where a datagram came from. */
+export type UdpPeer = {
+  readonly address: string;
+  readonly port: number;
+};
+
+/** What opening a managed UDP socket takes. */
+export type ManagedUdpSocketOptions = {
+  /** The port to listen on; absent, whatever port the system picks. */
+  readonly port?: number;
+
+  /** Whether another socket may bind the same port, as a multicast listener must allow. */
+  readonly reuseAddr?: boolean;
+
+  /** A multicast group to join, and whether to hear what this host itself sends to it. */
+  readonly multicast?: { readonly group: string; readonly loopback?: boolean };
+
+  /** Whether the socket may send to a broadcast address. */
+  readonly broadcast?: boolean;
+
+  /** Called with each datagram, as bytes: some protocols are text and some are not. */
+  readonly onMessage: (message: Buffer, from: UdpPeer) => void;
+
+  /** Called when the socket fails after it opened. The hub has logged it already. */
+  readonly onError?: (error: Error) => void;
+};
+
+/** A UDP socket the hub holds on a bundle's behalf. */
+export type ManagedUdpSocket = {
+  /** The port it is bound to, known once it has opened. */
+  readonly port: number;
+
+  /**
+   * Sends one datagram.
+   *
+   * @throws {Error} When the socket is closed or the send fails.
+   */
+  send: (message: Buffer | string, port: number, address: string) => Promise<void>;
+
+  /** Closes for good, leaving the group. */
+  close: () => Promise<void>;
+};
+
+/** Opens a managed UDP socket. */
+export type OpenUdpSocket = (options: ManagedUdpSocketOptions) => ManagedUdpSocket;
+
 /** What the hub hands a bundle's transport factory. */
 export type BundleSdk = {
   /** The runtime version, the same string `manifest.sdk` was matched against. */
@@ -75,6 +125,7 @@ export type BundleSdk = {
 
   readonly defineTransport: typeof defineTransport;
   readonly openWebSocket: OpenWebSocket;
+  readonly openUdpSocket: OpenUdpSocket;
 };
 
 /** What a transport module default-exports. */

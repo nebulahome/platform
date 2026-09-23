@@ -11,6 +11,7 @@
 
 export * from './bundle.js';
 export * from './declarative.js';
+export * from './discovery.js';
 export * from './evaluate.js';
 export * from './expression.js';
 export * from './integration.js';

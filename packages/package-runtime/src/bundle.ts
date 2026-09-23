@@ -62,10 +62,16 @@ export const integrationKindSchema = z
 const TRANSPORT_NAME_PATTERN = /^[a-z][a-z0-9-]{1,31}$/;
 
 /** A path inside the bundle, as a manifest names its files. */
-const bundlePathSchema = z.string().min(1).max(256);
+export const bundlePathSchema = z.string().min(1).max(256);
 
 /** How many models one driver may list. A longer list is a catalogue, not a dropdown. */
 const MAXIMUM_MODELS = 64;
+
+/** A model's label, as a driver lists it. */
+const modelNameSchema = z.string().min(1).max(64);
+
+/** What a device calls its own model: `S3SW-001P16EU`, `diy_plug`, `H6199`. */
+const modelCodeSchema = z.string().min(1).max(64);
 
 /**
  * The contents of `manifest.json`: what a vendor says about itself.
@@ -173,12 +179,27 @@ const driverShape = {
    * name is the one model.
    */
   models: z
-    .array(z.string().min(1).max(64))
+    .array(modelNameSchema)
     .max(MAXIMUM_MODELS)
     .default([])
     .refine((models) => new Set(models).size === models.length, {
       message: 'A model may be listed once',
     }),
+
+  /**
+   * What the hardware calls each model, mapped onto the label the owner picks.
+   *
+   * Discovery reads a code off a device - `S3SW-001P16EU` from a Shelly, `diy_plug` from a
+   * Sonoff - and this is how it knows which driver, and which of its models, that is. A code
+   * mapped onto several models names a family whose exact model the hardware does not say: the
+   * driver is certain, and the owner picks among those. Every model named must be listed.
+   */
+  modelCodes: z
+    .record(
+      modelCodeSchema,
+      z.union([modelNameSchema, z.array(modelNameSchema).min(1).max(MAXIMUM_MODELS)]),
+    )
+    .optional(),
 
   kind: z.enum(BUNDLE_KINDS),
 
@@ -239,6 +260,35 @@ function checkKindFiles(manifest: KindFiles, ctx: z.RefinementCtx): void {
   }
 }
 
+/** The part of either manifest that says which models a driver lists and what they are called. */
+type ModelFiles = {
+  readonly models: readonly string[];
+  readonly modelCodes?: Readonly<Record<string, string | readonly string[]>> | undefined;
+};
+
+/**
+ * Refuses a code that names a model the driver does not list.
+ *
+ * Discovery would otherwise propose a model the form then refuses, on a device already half
+ * added. A driver that lists no model has none to map a code onto, so it may not map any.
+ *
+ * @param manifest - Either manifest, once its shape has been checked.
+ * @param ctx - Where to record what is wrong.
+ */
+function checkModelCodes(manifest: ModelFiles, ctx: z.RefinementCtx): void {
+  for (const [code, named] of Object.entries(manifest.modelCodes ?? {})) {
+    for (const model of typeof named === 'string' ? [named] : named) {
+      if (!manifest.models.includes(model)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['modelCodes', code],
+          message: `${code} names ${model}, which the driver does not list in models`,
+        });
+      }
+    }
+  }
+}
+
 /**
  * The contents of `driver.json`: one profile or entry point, and the models it drives.
  *
@@ -256,7 +306,8 @@ export const driverManifestSchema = z
 
     ...driverShape,
   })
-  .superRefine(checkKindFiles);
+  .superRefine(checkKindFiles)
+  .superRefine(checkModelCodes);
 
 /** The contents of `driver.json`. */
 export type DriverManifest = z.output<typeof driverManifestSchema>;
@@ -295,7 +346,8 @@ export const bundleManifestSchema = z
 
     ...driverShape,
   })
-  .superRefine(checkKindFiles);
+  .superRefine(checkKindFiles)
+  .superRefine(checkModelCodes);
 
 /** A driver as the runtime reads it. */
 export type BundleManifest = z.output<typeof bundleManifestSchema>;
@@ -336,6 +388,7 @@ export function resolveManifest(vendor: VendorManifest, driver: DriverManifest):
     },
     transport: driver.transport,
     models: driver.models,
+    ...(driver.modelCodes === undefined ? {} : { modelCodes: driver.modelCodes }),
     kind: driver.kind,
     ...(driver.defaultIcon === undefined ? {} : { defaultIcon: driver.defaultIcon }),
     ...(driver.profile === undefined ? {} : { profile: driver.profile }),

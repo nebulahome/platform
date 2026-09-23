@@ -24,7 +24,7 @@ import {
 } from '@nebula-home/contracts';
 
 import type { BundleManifest } from './bundle.js';
-import { resolvePath } from './evaluate.js';
+import { conditionHolds, resolvePath } from './evaluate.js';
 import type {
   Claim,
   CommandTarget,
@@ -34,7 +34,6 @@ import type {
   MappingContext,
 } from './integration.js';
 import type {
-  ClaimCondition,
   EntityProfile,
   IntegrationProfile,
   RequestTemplate,
@@ -50,27 +49,6 @@ import type {
 
 /** The key an entity without an `objectId` is held under, since a device may have only one. */
 const SOLE_ENTITY = '';
-
-/**
- * Decides whether one condition holds.
- *
- * @param condition - What to check.
- * @param payload - What the scan or probe returned.
- * @returns True when it holds.
- */
-function holds(condition: ClaimCondition, payload: unknown): boolean {
-  const value = resolvePath(payload, condition.path);
-
-  if ('exists' in condition) {
-    return value !== undefined && value !== null;
-  }
-
-  if ('oneOf' in condition) {
-    return condition.oneOf.some((candidate) => candidate === value);
-  }
-
-  return value === condition.equals;
-}
 
 /**
  * Fills in a request template.
@@ -308,7 +286,9 @@ export function createDeclarativeIntegration(
      * @returns The claim, or null when it is not this integration's device.
      */
     claim: (discovered: Discovered): Claim | null => {
-      if (!profile.discovery.claim.every((condition) => holds(condition, discovered.payload))) {
+      if (
+        !profile.discovery.claim.every((condition) => conditionHolds(condition, discovered.payload))
+      ) {
         return null;
       }
 
