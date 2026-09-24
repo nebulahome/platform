@@ -59,6 +59,7 @@ const HOME: AreaView = {
   parentId: null,
   icon: null,
   sortOrder: 100,
+  level: null,
   latitude: 45.4642,
   longitude: 9.19,
   deviceCount: 0,

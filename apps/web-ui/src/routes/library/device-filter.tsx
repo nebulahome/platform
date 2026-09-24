@@ -18,7 +18,7 @@ export type DeviceFilterButtonProps = {
   /** The vendors the devices belong to, by id, named the way the catalogue names them. */
   readonly vendors: readonly FacetOption[];
 
-  /** The areas the devices are in, by key. */
+  /** The areas the devices are in, by key, in the house's order: each room under its floor. */
   readonly areas: readonly FacetOption[];
 
   /** Called with the filter as it now stands. */
@@ -35,7 +35,7 @@ export function DeviceFilterButton(props: DeviceFilterButtonProps) {
   const { filter, vendors, areas, onChange } = props;
   const count = Number(filter.vendorId !== '') + Number(filter.areaKey !== '');
   const vendorOptions = facetChoices(vendors, filter.vendorId, 'Any integration');
-  const areaOptions = facetChoices(areas, filter.areaKey, 'Any area');
+  const areaOptions = facetChoices(areas, filter.areaKey, 'Any area', true);
 
   return (
     <FilterSheet

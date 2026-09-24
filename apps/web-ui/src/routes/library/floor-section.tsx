@@ -1,5 +1,5 @@
 /**
- * One floor of the house: its name, and the rooms on it with what is in each.
+ * One floor of the house: its name and number, and the rooms on it with what is in each.
  *
  * A panel per floor rather than a tree with twisties: a house has a handful of floors, and
  * seeing every room of every floor at once is what the page is for. A room's row says how many
@@ -7,7 +7,7 @@
  * the row is where you see that it was.
  */
 import type { AreaView } from '@nebula-home/contracts';
-import { Button, IconButton, Panel } from '@nebula-home/ui';
+import { Badge, Button, IconButton, Panel } from '@nebula-home/ui';
 
 import { WrenchIcon } from '@/components/icons';
 import type { DeviceIcons } from '@/routes/library/device-icon';
@@ -61,21 +61,28 @@ export function FloorSection(props: FloorSectionProps) {
     <Panel
       title={floor.name}
       action={
-        canEdit ? (
-          <div className="flex items-center gap-2">
-            <IconButton
-              variant="bare"
-              size="medium"
-              label={`Configure ${floor.name}`}
-              onClick={onEdit}
-            >
-              <WrenchIcon width="15" height="15" />
-            </IconButton>
-            <Button size="compact" variant="ghost" onClick={onAddRoom}>
-              Add room
-            </Button>
-          </div>
-        ) : undefined
+        <div className="flex items-center gap-2">
+          {floor.level === null ? null : (
+            <Badge tone="neutral" size="small">
+              Floor {floor.level}
+            </Badge>
+          )}
+          {canEdit ? (
+            <>
+              <IconButton
+                variant="bare"
+                size="medium"
+                label={`Configure ${floor.name}`}
+                onClick={onEdit}
+              >
+                <WrenchIcon width="15" height="15" />
+              </IconButton>
+              <Button size="compact" variant="ghost" onClick={onAddRoom}>
+                Add room
+              </Button>
+            </>
+          ) : null}
+        </div>
       }
     >
       {rooms.length === 0 ? (

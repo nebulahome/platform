@@ -11,10 +11,12 @@
  * or only in the house, is gathered at the end under "Not in a room". Aliases and the system's
  * readings belong to no device and are listed under the room they are in, on their own.
  *
- * Floors and rooms follow the order the owner arranged on the areas page; devices and entities
- * read alphabetically.
+ * Floors follow their number - the cellar, the ground, the one above - and rooms the order the
+ * owner arranged on the areas page; devices and entities read alphabetically.
  */
 import type { AreaView, DeviceView, EntityView } from '@nebula-home/contracts';
+
+import { byFloorLevel } from '@/lib/area-tree';
 
 /** A device and the entities of it that are in one place; no device for an alias or the like. */
 export type DeviceGroup = {
@@ -62,14 +64,18 @@ export type EntityTreeInput = {
 const NO_DEVICE = '';
 
 /**
- * Orders areas the way the owner arranged them.
+ * Orders areas the way the owner arranged them: floors by their number first.
  *
  * @param left - One area.
  * @param right - The other.
  * @returns The comparison.
  */
 function byArrangement(left: AreaView, right: AreaView): number {
-  return left.sortOrder - right.sortOrder || left.name.localeCompare(right.name);
+  return (
+    byFloorLevel(left, right) ||
+    left.sortOrder - right.sortOrder ||
+    left.name.localeCompare(right.name)
+  );
 }
 
 /** Anything with a name. */

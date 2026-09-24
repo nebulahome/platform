@@ -153,17 +153,23 @@ export type FacetOption = {
  * @param options - The choices the data offers, in order.
  * @param chosen - The value chosen now; blank for any.
  * @param anyLabel - What the "any" choice is called.
- * @returns "Any" first, then the choices by group and name, with the chosen one if it was missing.
+ * @param isOrdered - Whether the options already come in the order to show them - the areas, by
+ * floor number - rather than to be sorted by group and name.
+ * @returns "Any" first, then the choices, with the chosen one if it was missing.
  */
 export function facetChoices(
   options: readonly FacetOption[],
   chosen: string,
   anyLabel: string,
+  isOrdered = false,
 ): FacetOption[] {
-  const sorted = [...options].sort(
-    (left, right) =>
-      (left.group ?? '').localeCompare(right.group ?? '') || left.label.localeCompare(right.label),
-  );
+  const sorted = isOrdered
+    ? [...options]
+    : [...options].sort(
+        (left, right) =>
+          (left.group ?? '').localeCompare(right.group ?? '') ||
+          left.label.localeCompare(right.label),
+      );
   const isMissing = chosen !== '' && !sorted.some((option) => option.value === chosen);
 
   return [

@@ -50,6 +50,7 @@ function area(
     parentId,
     icon: null,
     sortOrder: 100,
+    level: kind === 'floor' ? 0 : null,
     latitude: null,
     longitude: null,
     deviceCount: 0,
@@ -138,6 +139,84 @@ describe('AreaDialog', () => {
     renderDialog({ mode: 'create', kind: 'room', parent: GROUND });
 
     expect(screen.getByRole('button', { name: /change icon/iu })).toBeTruthy();
+  });
+
+  it('makes a floor on the first free number, and sends it', async () => {
+    vi.mocked(createArea).mockResolvedValue({ ...GROUND, id: 'first', level: 1 });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <AreaDialog
+          target={{ mode: 'create', kind: 'floor', parent: area(HOUSE_ID, 'house', 'Home') }}
+          removal={{ floors: 0, rooms: 0, devices: 0 }}
+          floors={[GROUND]}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+          onDeleted={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    // The ground floor is 0, so a new one starts above it.
+    expect(screen.getByLabelText<HTMLInputElement>('Floor number').value).toBe('1');
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'First floor' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => {
+      expect(createArea).toHaveBeenCalledWith({
+        kind: 'floor',
+        name: 'First floor',
+        parentId: HOUSE_ID,
+        level: 1,
+      });
+    });
+  });
+
+  it('refuses a floor number another floor has, naming it, before asking the server', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <AreaDialog
+          target={{ mode: 'create', kind: 'floor', parent: area(HOUSE_ID, 'house', 'Home') }}
+          removal={{ floors: 0, rooms: 0, devices: 0 }}
+          floors={[GROUND]}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+          onDeleted={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Mezzanine' } });
+    fireEvent.change(screen.getByLabelText('Floor number'), { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(screen.getByText('Ground floor is already floor 0.')).toBeTruthy();
+    expect(createArea).not.toHaveBeenCalled();
+  });
+
+  it('lets a floor keep its own number when it is renamed', async () => {
+    vi.mocked(updateArea).mockResolvedValue({ ...GROUND, name: 'Ground' });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <AreaDialog
+          target={{ mode: 'edit', area: GROUND }}
+          removal={{ floors: 0, rooms: 0, devices: 0 }}
+          floors={[GROUND]}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+          onDeleted={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Ground' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(updateArea).toHaveBeenCalledWith(FLOOR_ID, { name: 'Ground' });
+    });
   });
 
   it('refuses a blank name before asking the server', () => {

@@ -18,6 +18,7 @@ import { Badge, Button, cn, IconButton, SelectField } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
 import { WrenchIcon } from '@/components/icons';
+import { areaFacetChoices } from '@/lib/area-tree';
 import { toMessage } from '@/lib/error-message';
 import { useListState } from '@/lib/use-list-state';
 import { applyScene, fetchEntities, fetchScenes, LIBRARY_QUERY_KEYS } from '@/library/api';
@@ -66,7 +67,7 @@ export function ScenesPage() {
   const canApply = can('scene:apply');
   const [target, setTarget] = useState<SceneDialogTarget | null>(null);
   const [filter, setFilter] = useListState(SCENE_FILTER_CODEC);
-  const { areas } = useAreas();
+  const { areas, tree } = useAreas();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [partialById, setPartialById] = useState<ReadonlyMap<string, string>>(new Map());
@@ -110,23 +111,22 @@ export function ScenesPage() {
     }),
   );
   const isNarrowed = filter.search.trim() !== '' || filter.areaKey !== '';
+  // Each area under its floor, the floors by their number, the way the areas page reads.
   const areaOptions = facetChoices(
-    [...new Set(items.flatMap((scene) => (scene.areaKey === null ? [] : [scene.areaKey])))].map(
-      (key) => {
-        const area = areaByKey.get(key);
-        const floor = areas.find(
-          (candidate) => candidate.id === area?.parentId && candidate.kind === 'floor',
-        );
-
-        return {
-          value: key,
-          label: area?.name ?? key,
-          ...(floor === undefined ? {} : { group: floor.name }),
-        };
-      },
+    areaFacetChoices(
+      tree,
+      areas,
+      new Map(
+        items.flatMap((scene) =>
+          scene.areaKey === null
+            ? []
+            : [[scene.areaKey, scene.areaKey.replaceAll('_', ' ')] as const],
+        ),
+      ),
     ),
     filter.areaKey,
     'Any area',
+    true,
   );
 
   const apply = useMutation({
@@ -195,7 +195,6 @@ export function ScenesPage() {
     <>
       <LibraryPage
         title="Scenes"
-        summary="A saved set of states. Applying one sends every member to what is stored on it."
         noun="scene"
         count={scenes.isPending ? undefined : items.length}
         shownCount={shown.length}

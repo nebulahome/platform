@@ -9,8 +9,9 @@ import { buildEntityTree, entityCountOf } from './entity-tree';
 
 const AREAS = [
   anArea('home', 'house', null),
-  anArea('upstairs', 'floor', 'home', { sortOrder: 2 }),
-  anArea('ground', 'floor', 'home', { sortOrder: 1 }),
+  // Arranged the other way round on purpose: a floor's number, not its place in a list, decides.
+  anArea('upstairs', 'floor', 'home', { sortOrder: 1, level: 1 }),
+  anArea('ground', 'floor', 'home', { sortOrder: 2, level: 0 }),
   anArea('kitchen', 'room', 'ground', { sortOrder: 2 }),
   anArea('hall', 'room', 'ground', { sortOrder: 1 }),
   anArea('bedroom', 'room', 'upstairs'),

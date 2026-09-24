@@ -2,8 +2,8 @@
  * The areas page: the house, its floors, their rooms, and the map kept around the house.
  *
  * The API and the map are stood in for. What is checked is what the page shows for a house
- * that is and is not there, who gets which buttons, and that placing the house is what fetches
- * the map around it.
+ * that is and is not there, who gets which buttons, that placing the house is what fetches the
+ * map around it, and that a map left half-fetched is finished without a button.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -80,6 +80,7 @@ function area(
     parentId,
     icon: null,
     sortOrder: 100,
+    level: kind === 'floor' ? 0 : null,
     latitude: kind === 'house' ? 45.4642 : null,
     longitude: kind === 'house' ? 9.19 : null,
     deviceCount,
@@ -169,19 +170,27 @@ describe('AreasPage', () => {
     expect(screen.queryByRole('button', { name: 'Create your house' })).toBeNull();
   });
 
-  it('says how much of the map around the house is on disk, and fetches the rest on request', async () => {
+  it('finishes a half-fetched map in the background, with a tag and no button', async () => {
     vi.mocked(fetchAreas).mockResolvedValue([HOME]);
     vi.mocked(prefetchTiles).mockResolvedValue({ total: 180, cached: 180, failed: 0 });
 
     renderPage();
 
-    expect(await screen.findByText(/12 of 180 tiles/u)).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Prepare offline map' }));
-
     await waitFor(() => {
       expect(prefetchTiles).toHaveBeenCalledWith(HOUSE_ID);
     });
+    expect(prefetchTiles).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: /offline map/iu })).toBeNull();
+  });
+
+  it('tags a map that is all on disk as cached, and fetches nothing', async () => {
+    vi.mocked(fetchAreas).mockResolvedValue([HOME]);
+    vi.mocked(fetchTileStatus).mockResolvedValue({ total: 180, cached: 180 });
+
+    renderPage();
+
+    expect(await screen.findByText('Map cached')).toBeTruthy();
+    expect(prefetchTiles).not.toHaveBeenCalled();
   });
 
   it('fetches the map around the house as soon as the house is placed', async () => {

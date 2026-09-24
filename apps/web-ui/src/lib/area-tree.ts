@@ -42,7 +42,27 @@ export type RoomChoice = {
 };
 
 /**
- * Builds the tree from the flat list, in the order the list reads.
+ * Orders floors by the storey each is - the cellar, the ground, the one above - whatever they are
+ * called. A floor with no number goes after the numbered ones; ties keep the order they came in.
+ *
+ * @param left - One floor.
+ * @param right - The other.
+ * @returns The comparison.
+ */
+export function byFloorLevel(left: AreaView, right: AreaView): number {
+  if (left.level === right.level) {
+    return 0;
+  }
+
+  if (left.level === null || right.level === null) {
+    return left.level === null ? 1 : -1;
+  }
+
+  return left.level - right.level;
+}
+
+/**
+ * Builds the tree from the flat list: floors by their number, rooms in the order the list reads.
  *
  * @param areas - Every area the API lists.
  * @returns The tree, or null while there is no house.
@@ -54,7 +74,9 @@ export function buildAreaTree(areas: readonly AreaView[]): HouseTree | null {
     return null;
   }
 
-  const floors = areas.filter((area) => area.kind === 'floor' && area.parentId === house.id);
+  const floors = areas
+    .filter((area) => area.kind === 'floor' && area.parentId === house.id)
+    .sort(byFloorLevel);
 
   return {
     house,
@@ -162,5 +184,37 @@ export function areaChoices(tree: HouseTree | null): RoomChoice[] {
       { value: floor.floor.id, label: 'Whole floor', group: floor.floor.name },
       ...floor.rooms.map((room) => ({ value: room.id, label: room.name, group: floor.floor.name })),
     ]),
+  ];
+}
+
+/**
+ * The areas some things are in, by key, as a filter offers them: in the house's own order - the
+ * house, then each floor by its number with its rooms under it - so a filter reads like the
+ * areas page rather than like an alphabet. A key the house no longer has is listed last, as it is.
+ *
+ * @param tree - The tree, or null while there is no house.
+ * @param areas - Every area, flat, for the keys.
+ * @param keys - The areas the things are in, by key, each with the name the things carry for
+ * it - what a key the house does not list is called.
+ * @returns The options, keyed by area key, in order.
+ */
+export function areaFacetChoices(
+  tree: HouseTree | null,
+  areas: readonly AreaView[],
+  keys: ReadonlyMap<string, string | null>,
+): RoomChoice[] {
+  const keyById = new Map(areas.map((area) => [area.id, area.key]));
+  const known = areaChoices(tree).flatMap((choice): RoomChoice[] => {
+    const key = keyById.get(choice.value);
+
+    return key === undefined || !keys.has(key) ? [] : [{ ...choice, value: key }];
+  });
+  const listed = new Set(known.map((choice) => choice.value));
+
+  return [
+    ...known,
+    ...[...keys]
+      .filter(([key]) => !listed.has(key))
+      .map(([key, name]) => ({ value: key, label: name ?? key })),
   ];
 }

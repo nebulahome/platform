@@ -33,6 +33,7 @@ function area(
     parentId,
     icon: null,
     sortOrder: 100,
+    level: kind === 'floor' ? 0 : null,
     latitude: null,
     longitude: null,
     deviceCount,
@@ -60,6 +61,33 @@ describe('buildAreaTree', () => {
     expect(tree?.floors.map((floor) => floor.floor.id)).toEqual(['ground-floor', 'first-floor']);
     expect(tree?.floors[0]?.rooms.map((room) => room.id)).toEqual(['kitchen', 'hall']);
     expect(tree?.floors[1]?.rooms.map((room) => room.id)).toEqual(['study']);
+  });
+
+  it('orders the floors by their number, whatever order they come in', () => {
+    const cellar = { ...area('cellar', 'floor', 'home'), level: -1 };
+    const upstairs = { ...area('upstairs', 'floor', 'home'), level: 1 };
+    const ground = { ...GROUND, level: 0 };
+    const unnumbered = { ...area('loft', 'floor', 'home'), level: null };
+    const tree = buildAreaTree([HOUSE, unnumbered, upstairs, ground, cellar]);
+
+    expect(tree?.floors.map((floor) => floor.floor.id)).toEqual([
+      'cellar',
+      'ground-floor',
+      'upstairs',
+      'loft',
+    ]);
+  });
+
+  it('offers the rooms under their floors in the floors’ order', () => {
+    const upstairs = { ...FIRST, level: 1 };
+    const ground = { ...GROUND, level: 0 };
+    const tree = buildAreaTree([HOUSE, upstairs, ground, STUDY, KITCHEN]);
+
+    expect(roomChoices(tree).map((choice) => choice.group ?? null)).toEqual([
+      null,
+      'Ground floor',
+      'First floor',
+    ]);
   });
 
   it('leaves out a room whose floor is not there, rather than inventing a floor', () => {

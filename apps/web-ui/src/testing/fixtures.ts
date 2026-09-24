@@ -110,6 +110,7 @@ export function anArea(
     parentId,
     icon: null,
     sortOrder: 0,
+    level: kind === 'floor' ? 0 : null,
     latitude: null,
     longitude: null,
     deviceCount: 0,

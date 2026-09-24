@@ -71,6 +71,7 @@ function area(id: string, kind: 'house' | 'floor' | 'room', name: string, parent
     parentId,
     icon: null,
     sortOrder: 100,
+    level: kind === 'floor' ? 0 : null,
     latitude: null,
     longitude: null,
     deviceCount: 0,

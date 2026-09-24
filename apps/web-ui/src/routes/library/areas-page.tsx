@@ -8,13 +8,15 @@
  *
  * Placing the house is what fetches the map around it: the house dialog says whether the house
  * moved, and a house that moved gets its map fetched onto the server's disk at once, so that
- * the map is there the first time the internet is not.
+ * the map is there the first time the internet is not. It is a background task with no button:
+ * the house carries a tag saying how far it has got, and a map found half-fetched is finished
+ * without being asked.
  *
  * The search narrows the floors to the rooms whose names it finds - a floor whose own name matches
  * keeps all its rooms - and the house panel stays, since it is the page's subject.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { AreaView } from '@nebula-home/contracts';
 import { Button } from '@nebula-home/ui';
@@ -36,6 +38,9 @@ import { useAreas } from '@/routes/library/use-areas';
 
 /** What is in it when nothing is. */
 const EMPTY_IMPACT = { floors: 0, rooms: 0, devices: 0 };
+
+/** How often the map's state is read again while it is being fetched. */
+const TILE_POLL_MS = 3000;
 
 /** How the page's search lives in the address. */
 const AREA_SEARCH_CODEC: ListCodec<string> = {
@@ -89,20 +94,7 @@ export function AreasPage() {
     tree === null ? 0 : 1,
   );
 
-  const tiles = useQuery({
-    queryKey: [...LIBRARY_QUERY_KEYS.tiles, house?.id ?? ''],
-    /**
-     * Reads how much of the map around the house is on disk.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The state of the buffer.
-     */
-    queryFn: async ({ signal }) => fetchTileStatus(house?.id ?? '', signal),
-    enabled: house !== undefined && isPlaced,
-  });
-
-  const preparing = useMutation({
+  const caching = useMutation({
     /**
      * Fetches the map around the house onto the server's disk.
      *
@@ -116,6 +108,35 @@ export function AreasPage() {
       await queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.tiles });
     },
   });
+
+  const tiles = useQuery({
+    queryKey: [...LIBRARY_QUERY_KEYS.tiles, house?.id ?? ''],
+    /**
+     * Reads how much of the map around the house is on disk.
+     *
+     * @param context - The query's abort signal.
+     * @param context.signal - Cancels the request when the page goes away.
+     * @returns The state of the buffer.
+     */
+    queryFn: async ({ signal }) => fetchTileStatus(house?.id ?? '', signal),
+    enabled: house !== undefined && isPlaced,
+    // Read again while a fetch runs, so the tag counts up as the tiles arrive.
+    refetchInterval: caching.isPending ? TILE_POLL_MS : false,
+  });
+
+  const resumedFor = useRef<string | null>(null);
+  const houseId = house?.id;
+  const isIncomplete = tiles.data !== undefined && tiles.data.cached < tiles.data.total;
+  const { mutate: cache, isPending: isCaching } = caching;
+
+  useEffect(() => {
+    // A map left half-fetched - the server restarted mid-way, the internet dropped - is finished
+    // in the background the first time the page sees it, once per visit rather than on a loop.
+    if (houseId !== undefined && isIncomplete && !isCaching && resumedFor.current !== houseId) {
+      resumedFor.current = houseId;
+      cache(houseId);
+    }
+  }, [houseId, isIncomplete, isCaching, cache]);
 
   return (
     <>
@@ -152,16 +173,13 @@ export function AreasPage() {
               house={tree.house}
               icons={icons}
               tiles={tiles.data}
-              isPreparing={preparing.isPending}
+              isCaching={isCaching}
               canEdit={canWrite}
               onEdit={() => {
                 setHouseTarget({ mode: 'edit', house: tree.house });
               }}
               onAddFloor={() => {
                 setAreaTarget({ mode: 'create', kind: 'floor', parent: tree.house });
-              }}
-              onPrepareMap={() => {
-                preparing.mutate(tree.house.id);
               }}
             />
             {floors.length === 0 && search.trim() !== '' ? (
@@ -210,7 +228,8 @@ export function AreasPage() {
           setHouseTarget(null);
 
           if (isMoved && saved.latitude !== null) {
-            preparing.mutate(saved.id);
+            resumedFor.current = saved.id;
+            cache(saved.id);
           }
         }}
         onDeleted={() => {
@@ -228,6 +247,7 @@ export function AreasPage() {
         }
         target={areaTarget}
         removal={areaTarget?.mode === 'edit' ? removalImpact(tree, areaTarget.area) : EMPTY_IMPACT}
+        floors={(tree?.floors ?? []).map((node) => node.floor)}
         onClose={() => {
           setAreaTarget(null);
         }}

@@ -1,11 +1,10 @@
 /**
- * The house at the top of the areas page: its name and icon, where it stands, and how much of
- * the map around it is on disk.
+ * The house at the top of the areas page: its name and icon, where it stands, and whether the
+ * map around it is on disk.
  *
- * The map's state is a sentence with a number in it - "12 of 180 tiles on disk" - rather than a
- * bar, because what the person wants to know is whether the map will be there when the
- * internet is not, and a number answers that where a bar only suggests it. The button to fetch
- * the rest is there for the day a fetch failed halfway, or the buffer was cleared by hand.
+ * Fetching the map is the server's own business - it starts the moment the house is placed or
+ * moved - so there is nothing here to press. What is shown is a tag: "Map cached" once every
+ * tile is on disk, the count while some are missing, and "Caching map" while a fetch runs.
  */
 import type { AreaView, TileCacheStatus } from '@nebula-home/contracts';
 import { Badge, Button } from '@nebula-home/ui';
@@ -27,7 +26,7 @@ export type HousePanelProps = {
   readonly tiles: TileCacheStatus | undefined;
 
   /** Whether the map around the house is being fetched right now. */
-  readonly isPreparing: boolean;
+  readonly isCaching: boolean;
 
   /** Whether the controls that change things are drawn. */
   readonly canEdit: boolean;
@@ -37,10 +36,34 @@ export type HousePanelProps = {
 
   /** Called when a floor is to be added. */
   readonly onAddFloor: () => void;
-
-  /** Called when the map around the house is to be fetched. */
-  readonly onPrepareMap: () => void;
 };
+
+/** What the map tag says, and in which tone. */
+type MapTag = {
+  readonly label: string;
+  readonly tone: 'success' | 'neutral';
+};
+
+/**
+ * Says how much of the map around the house is on disk.
+ *
+ * @param tiles - What the server reports, or undefined while it has not.
+ * @param isCaching - Whether a fetch is running.
+ * @returns The tag, or null when there is nothing to say yet.
+ */
+function mapTagOf(tiles: TileCacheStatus | undefined, isCaching: boolean): MapTag | null {
+  if (isCaching) {
+    return { label: 'Caching map…', tone: 'neutral' };
+  }
+
+  if (tiles === undefined) {
+    return null;
+  }
+
+  return tiles.cached >= tiles.total
+    ? { label: 'Map cached', tone: 'success' }
+    : { label: `Map ${String(tiles.cached)}/${String(tiles.total)}`, tone: 'neutral' };
+}
 
 /**
  * Says where the house stands.
@@ -61,8 +84,9 @@ function describePosition(house: AreaView): string {
  * @returns The panel.
  */
 export function HousePanel(props: HousePanelProps) {
-  const { house, icons, tiles, isPreparing, canEdit, onEdit, onAddFloor, onPrepareMap } = props;
+  const { house, icons, tiles, isCaching, canEdit, onEdit, onAddFloor } = props;
   const isPlaced = house.latitude !== null && house.longitude !== null;
+  const mapTag = isPlaced ? mapTagOf(tiles, isCaching) : null;
 
   return (
     <section
@@ -81,6 +105,13 @@ export function HousePanel(props: HousePanelProps) {
           <Badge tone={isPlaced ? 'success' : 'neutral'} size="small">
             {isPlaced ? 'Placed' : 'Not placed'}
           </Badge>
+          {mapTag === null ? null : (
+            <span title="The map around the house, kept on the server for the days the internet is away">
+              <Badge tone={mapTag.tone} size="small">
+                {mapTag.label}
+              </Badge>
+            </span>
+          )}
         </div>
         {canEdit ? (
           <div className="flex items-center gap-2">
@@ -93,25 +124,6 @@ export function HousePanel(props: HousePanelProps) {
           </div>
         ) : null}
       </div>
-
-      {isPlaced ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-field border border-border-soft bg-surface px-4 py-3">
-          <p className="text-ui text-foreground-muted">
-            {isPreparing
-              ? 'Preparing the offline map…'
-              : tiles === undefined
-                ? 'Reading the offline map…'
-                : tiles.cached >= tiles.total
-                  ? `Offline map ready: ${String(tiles.total)} tiles on disk.`
-                  : `Offline map: ${String(tiles.cached)} of ${String(tiles.total)} tiles on disk.`}
-          </p>
-          {canEdit ? (
-            <Button size="compact" variant="ghost" isBusy={isPreparing} onClick={onPrepareMap}>
-              Prepare offline map
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
     </section>
   );
 }
