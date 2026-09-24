@@ -9,6 +9,7 @@
 
 export * from './alias-expression.js';
 export * from './api-auth.js';
+export * from './api-dashboards.js';
 export * from './api-entities.js';
 export * from './api-history.js';
 export * from './api-http.js';
