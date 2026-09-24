@@ -21,15 +21,25 @@ import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 
 import type { IntegrationState } from '@nebula-home/contracts';
-import { Badge, Button, IconButton, Panel, type BadgeTone } from '@nebula-home/ui';
+import { Badge, Button, IconButton, Panel, Segmented, type BadgeTone } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
 import { ExternalLinkIcon, WrenchIcon } from '@/components/icons';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
+import { matchesQuery } from '@/lib/search-text';
+import { useListState } from '@/lib/use-list-state';
 import { fetchDevices, fetchVendor, LIBRARY_QUERY_KEYS } from '@/library/api';
+import {
+  OPEN_VENDOR_DEVICE_FILTER,
+  VENDOR_DEVICE_FILTER_CODEC,
+  type DeviceStandingChoice,
+} from '@/library/list-filters';
 import { DeviceDialog, type DeviceDialogTarget } from '@/routes/library/device-dialog';
 import { DeviceIcon, useDeviceIcons } from '@/routes/library/device-icon';
+import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
 import { LibraryPage } from '@/routes/library/library-page';
+import { NoMatches } from '@/routes/library/no-matches';
+import { SearchField } from '@/routes/library/search-field';
 import { Marks, VendorLogo } from '@/routes/library/vendor-card';
 import { VendorSetupDialog } from '@/routes/library/vendor-setup-dialog';
 
@@ -125,6 +135,37 @@ function MetaLine(props: { readonly parts: readonly (ReactNode | null)[] }) {
   );
 }
 
+/** The standings the device table is narrowed by. */
+const STANDING_OPTIONS: readonly {
+  readonly value: DeviceStandingChoice;
+  readonly label: string;
+}[] = [
+  { value: 'any', label: 'Any' },
+  { value: 'running', label: 'Running' },
+  { value: 'failing', label: 'Failed' },
+  { value: 'disabled', label: 'Disabled' },
+];
+
+/**
+ * Whether a device's state is the standing asked for.
+ *
+ * @param state - The device's lifecycle state.
+ * @param standing - What the filter asks for.
+ * @returns True when it matches, or when any standing will do.
+ */
+function standingMatches(state: IntegrationState, standing: DeviceStandingChoice): boolean {
+  switch (standing) {
+    case 'any':
+      return true;
+    case 'running':
+      return state === 'running';
+    case 'failing':
+      return state === 'failed';
+    case 'disabled':
+      return state === 'disabled';
+  }
+}
+
 /**
  * Renders one vendor's page.
  *
@@ -169,6 +210,22 @@ export function VendorPage() {
 
   const found = vendor.data;
   const devices = (all.data ?? []).filter((each) => each.vendorId === vendorId);
+  const [filter, setFilter] = useListState(VENDOR_DEVICE_FILTER_CODEC);
+  const shownDevices = devices.filter(
+    (device) =>
+      standingMatches(device.state, filter.standing) &&
+      matchesQuery(
+        [
+          device.name,
+          device.model,
+          device.driverName,
+          device.areaName,
+          device.externalId,
+          device.id,
+        ],
+        filter.search,
+      ),
+  );
   const icons = useDeviceIcons(devices);
   const hasSetupFields =
     found !== undefined &&
@@ -201,6 +258,39 @@ export function VendorPage() {
         parent={{ to: '/integrations', label: 'Integrations' }}
         hasTabs={false}
         noun="device"
+        tools={
+          devices.length === 0 ? undefined : (
+            <>
+              <SearchField
+                placeholder="Search this vendor's devices…"
+                value={filter.search}
+                onChange={(search) => {
+                  setFilter({ ...filter, search });
+                }}
+              />
+              <FilterSheet
+                label="Narrow the devices"
+                count={Number(filter.standing !== 'any')}
+                onClear={() => {
+                  setFilter({ ...filter, standing: 'any' });
+                }}
+              >
+                <Facet title="Status">
+                  <Segmented
+                    label="Status"
+                    size="compact"
+                    className="self-start"
+                    options={STANDING_OPTIONS}
+                    value={filter.standing}
+                    onChange={(standing) => {
+                      setFilter({ ...filter, standing });
+                    }}
+                  />
+                </Facet>
+              </FilterSheet>
+            </>
+          )
+        }
         action={
           canConfigure && found !== undefined ? (
             <>
@@ -302,7 +392,11 @@ export function VendorPage() {
             ) : null}
 
             <Panel
-              title={`Devices · ${String(devices.length)}`}
+              title={
+                shownDevices.length === devices.length
+                  ? `Devices · ${String(devices.length)}`
+                  : `Devices · ${String(shownDevices.length)} of ${String(devices.length)}`
+              }
               action={
                 canWrite ? (
                   <Button
@@ -337,9 +431,18 @@ export function VendorPage() {
                 <p className="px-4 py-3.5 text-ui text-foreground-muted">
                   Nothing added yet. Add a device by its address and the hub listens for it at once.
                 </p>
+              ) : shownDevices.length === 0 ? (
+                <div className="p-4">
+                  <NoMatches
+                    query={filter.search}
+                    onClear={() => {
+                      setFilter(OPEN_VENDOR_DEVICE_FILTER);
+                    }}
+                  />
+                </div>
               ) : (
                 <ul>
-                  {devices.map((device) => (
+                  {shownDevices.map((device) => (
                     <li
                       key={device.id}
                       className={`${COLUMNS} border-b border-border-soft px-4 py-3 last:border-b-0`}

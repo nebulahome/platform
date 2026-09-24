@@ -14,15 +14,21 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import type { EntityView, SceneApplyResult, SceneView } from '@nebula-home/contracts';
-import { Badge, Button, cn, IconButton } from '@nebula-home/ui';
+import { Badge, Button, cn, IconButton, SelectField } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
 import { WrenchIcon } from '@/components/icons';
 import { toMessage } from '@/lib/error-message';
+import { useListState } from '@/lib/use-list-state';
 import { applyScene, fetchEntities, fetchScenes, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { matchesSceneFilter, OPEN_SCENE_FILTER, SCENE_FILTER_CODEC } from '@/library/list-filters';
 import { DeviceIcon, useCatalogueIcons } from '@/routes/library/device-icon';
+import { Facet, facetChoices, FilterSheet } from '@/routes/library/filter-sheet';
 import { LibraryPage } from '@/routes/library/library-page';
+import { NoMatches } from '@/routes/library/no-matches';
 import { SceneDialog, type SceneDialogTarget } from '@/routes/library/scene-dialog';
+import { SearchField } from '@/routes/library/search-field';
+import { useAreas } from '@/routes/library/use-areas';
 
 /**
  * The area names a scene's members sit in, from the entity registry.
@@ -59,6 +65,8 @@ export function ScenesPage() {
   const canWrite = can('scene:write');
   const canApply = can('scene:apply');
   const [target, setTarget] = useState<SceneDialogTarget | null>(null);
+  const [filter, setFilter] = useListState(SCENE_FILTER_CODEC);
+  const { areas } = useAreas();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [partialById, setPartialById] = useState<ReadonlyMap<string, string>>(new Map());
@@ -90,6 +98,36 @@ export function ScenesPage() {
   const items = scenes.data ?? [];
   const entityById = new Map((entities.data ?? []).map((entity) => [entity.entityId, entity]));
   const icons = useCatalogueIcons(items.map((scene) => scene.icon));
+  const areaByKey = new Map(areas.map((area) => [area.key, area]));
+  const shown = items.filter((scene) =>
+    matchesSceneFilter(scene, filter, {
+      areaName: scene.areaKey === null ? undefined : areaByKey.get(scene.areaKey)?.name,
+      memberNames: scene.members.flatMap((member) => {
+        const entity = entityById.get(member.entityId);
+
+        return entity === undefined ? [] : [entity.name, entity.areaName ?? ''];
+      }),
+    }),
+  );
+  const isNarrowed = filter.search.trim() !== '' || filter.areaKey !== '';
+  const areaOptions = facetChoices(
+    [...new Set(items.flatMap((scene) => (scene.areaKey === null ? [] : [scene.areaKey])))].map(
+      (key) => {
+        const area = areaByKey.get(key);
+        const floor = areas.find(
+          (candidate) => candidate.id === area?.parentId && candidate.kind === 'floor',
+        );
+
+        return {
+          value: key,
+          label: area?.name ?? key,
+          ...(floor === undefined ? {} : { group: floor.name }),
+        };
+      },
+    ),
+    filter.areaKey,
+    'Any area',
+  );
 
   const apply = useMutation({
     /**
@@ -160,6 +198,44 @@ export function ScenesPage() {
         summary="A saved set of states. Applying one sends every member to what is stored on it."
         noun="scene"
         count={scenes.isPending ? undefined : items.length}
+        shownCount={shown.length}
+        tools={
+          <>
+            <SearchField
+              placeholder="Search scenes, members…"
+              value={filter.search}
+              onChange={(search) => {
+                setFilter({ ...filter, search });
+              }}
+            />
+            <FilterSheet
+              label="Narrow the scenes"
+              count={Number(filter.areaKey !== '')}
+              onClear={() => {
+                setFilter({ ...filter, areaKey: '' });
+              }}
+            >
+              <Facet title="Area">
+                {areaOptions.length === 1 ? (
+                  <span className="text-caption text-foreground-subtle">
+                    No scene is placed in an area yet.
+                  </span>
+                ) : (
+                  <SelectField
+                    label="Area"
+                    isLabelHidden
+                    size="compact"
+                    options={areaOptions}
+                    value={filter.areaKey}
+                    onChange={(areaKey) => {
+                      setFilter({ ...filter, areaKey });
+                    }}
+                  />
+                )}
+              </Facet>
+            </FilterSheet>
+          </>
+        }
         action={
           canWrite ? (
             <Button
@@ -177,8 +253,16 @@ export function ScenesPage() {
         isEmpty={items.length === 0}
         emptyMessage="No scenes yet."
       >
+        {shown.length === 0 ? (
+          <NoMatches
+            query={filter.search}
+            onClear={() => {
+              setFilter(OPEN_SCENE_FILTER);
+            }}
+          />
+        ) : null}
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((scene) => {
+          {shown.map((scene) => {
             const memberAreas = areaNamesFor(scene, entityById);
             const partial = partialById.get(scene.id);
             const isBusy = busyId === scene.id;
@@ -237,7 +321,7 @@ export function ScenesPage() {
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {scene.areaKey === null ? null : (
                       <Badge tone="neutral" size="small">
-                        {scene.areaKey.replaceAll('_', ' ')}
+                        {areaByKey.get(scene.areaKey)?.name ?? scene.areaKey.replaceAll('_', ' ')}
                       </Badge>
                     )}
                     {memberAreas.map((area) => (
@@ -279,7 +363,7 @@ export function ScenesPage() {
             );
           })}
 
-          {canWrite ? (
+          {canWrite && !isNarrowed ? (
             <li className="list-none">
               <button
                 type="button"

@@ -9,6 +9,9 @@
  * Placing the house is what fetches the map around it: the house dialog says whether the house
  * moved, and a house that moved gets its map fetched onto the server's disk at once, so that
  * the map is there the first time the internet is not.
+ *
+ * The search narrows the floors to the rooms whose names it finds - a floor whose own name matches
+ * keeps all its rooms - and the house panel stays, since it is the page's subject.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -18,6 +21,8 @@ import { Button } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
 import { removalImpact } from '@/lib/area-tree';
+import { matchesQuery } from '@/lib/search-text';
+import { nonDefault, useListState, type ListCodec } from '@/lib/use-list-state';
 import { fetchTileStatus, LIBRARY_QUERY_KEYS, prefetchTiles } from '@/library/api';
 import { AreaDialog, type AreaDialogTarget } from '@/routes/library/area-dialog';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
@@ -25,10 +30,33 @@ import { FloorSection } from '@/routes/library/floor-section';
 import { HouseDialog, type HouseDialogTarget } from '@/routes/library/house-dialog';
 import { HOUSE_ICON, HousePanel } from '@/routes/library/house-panel';
 import { LibraryPage } from '@/routes/library/library-page';
+import { NoMatches } from '@/routes/library/no-matches';
+import { SearchField } from '@/routes/library/search-field';
 import { useAreas } from '@/routes/library/use-areas';
 
 /** What is in it when nothing is. */
 const EMPTY_IMPACT = { floors: 0, rooms: 0, devices: 0 };
+
+/** How the page's search lives in the address. */
+const AREA_SEARCH_CODEC: ListCodec<string> = {
+  keys: ['q'],
+
+  /**
+   * Reads the search.
+   *
+   * @param params - The query.
+   * @returns What was typed.
+   */
+  read: (params) => params.get('q') ?? '',
+
+  /**
+   * Writes the search, when there is one.
+   *
+   * @param search - What was typed.
+   * @returns The query entries.
+   */
+  write: (search) => nonDefault({ q: [search, ''] }),
+};
 
 /**
  * Renders the page.
@@ -46,6 +74,20 @@ export function AreasPage() {
 
   const [houseTarget, setHouseTarget] = useState<HouseDialogTarget | null>(null);
   const [areaTarget, setAreaTarget] = useState<AreaDialogTarget | null>(null);
+  const [search, setSearch] = useListState(AREA_SEARCH_CODEC);
+  const floors = (tree?.floors ?? []).flatMap((node) => {
+    if (matchesQuery([node.floor.name, node.floor.key], search)) {
+      return [node];
+    }
+
+    const rooms = node.rooms.filter((room) => matchesQuery([room.name, room.key], search));
+
+    return rooms.length === 0 ? [] : [{ floor: node.floor, rooms }];
+  });
+  const shownCount = floors.reduce(
+    (sum, node) => sum + 1 + node.rooms.length,
+    tree === null ? 0 : 1,
+  );
 
   const tiles = useQuery({
     queryKey: [...LIBRARY_QUERY_KEYS.tiles, house?.id ?? ''],
@@ -81,6 +123,12 @@ export function AreasPage() {
         title="Areas"
         noun="area"
         count={isPending ? undefined : areas.length}
+        shownCount={search.trim() === '' ? undefined : shownCount}
+        tools={
+          tree === null ? undefined : (
+            <SearchField placeholder="Search floors, rooms…" value={search} onChange={setSearch} />
+          )
+        }
         action={
           canWrite && !isPending && tree === null ? (
             <Button
@@ -116,7 +164,15 @@ export function AreasPage() {
                 preparing.mutate(tree.house.id);
               }}
             />
-            {tree.floors.map(({ floor, rooms }) => (
+            {floors.length === 0 && search.trim() !== '' ? (
+              <NoMatches
+                query={search}
+                onClear={() => {
+                  setSearch('');
+                }}
+              />
+            ) : null}
+            {floors.map(({ floor, rooms }) => (
               <FloorSection
                 key={floor.id}
                 floor={floor}

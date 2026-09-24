@@ -15,12 +15,18 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { PERMISSIONS, type ScopedPermission } from '@nebula-home/contracts';
-import { Button, Modal, Panel, PanelRow, SelectField, TextField } from '@nebula-home/ui';
+import { Button, Modal, Panel, PanelRow, Segmented, SelectField, TextField } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
 import { copyText } from '@/lib/clipboard';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
+import { matchesQuery } from '@/lib/search-text';
+import { useListState } from '@/lib/use-list-state';
+import { OPEN_SEARCH_AND_FACET, searchAndFacetCodec } from '@/library/list-filters';
+import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
+import { NoMatches } from '@/routes/library/no-matches';
+import { SearchField } from '@/routes/library/search-field';
 import {
   SETTINGS_QUERY_KEYS,
   createAccessToken,
@@ -57,6 +63,9 @@ function toExpiry(lifetime: string, now: Date = new Date()): string | null {
 
   return new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
 }
+
+/** How the list's search and its one facet - whether a token was ever used - live in the address. */
+const TOKEN_FILTER_CODEC = searchAndFacetCodec('used');
 
 /**
  * Renders the personal access token panel.
@@ -161,20 +170,69 @@ export function TokensPanel() {
     })();
   };
 
+  const [filter, setFilter] = useListState(TOKEN_FILTER_CODEC);
+  const all = tokens.data ?? [];
+  const shown = all.filter(
+    (token) =>
+      (filter.facet === '' || (filter.facet === 'yes') === (token.lastUsedAt !== null)) &&
+      matchesQuery(
+        [token.name, token.tokenPrefix, ...token.permissions.map((permission) => permission.key)],
+        filter.search,
+      ),
+  );
+
   return (
     <>
       <Panel
         title="Personal access tokens"
         action={
-          <Button
-            className="h-8 px-3 text-ui"
-            onClick={() => {
-              setError(undefined);
-              setCreating(true);
-            }}
-          >
-            Create token
-          </Button>
+          <span className="flex items-center gap-2">
+            {all.length === 0 ? null : (
+              <>
+                <SearchField
+                  placeholder="Search tokens…"
+                  className="w-40 lg:w-56"
+                  value={filter.search}
+                  onChange={(search) => {
+                    setFilter({ ...filter, search });
+                  }}
+                />
+                <FilterSheet
+                  label="Narrow the tokens"
+                  count={Number(filter.facet !== '')}
+                  onClear={() => {
+                    setFilter({ ...filter, facet: '' });
+                  }}
+                >
+                  <Facet title="Used">
+                    <Segmented
+                      label="Used"
+                      size="compact"
+                      className="self-start"
+                      options={[
+                        { value: '', label: 'Any' },
+                        { value: 'yes', label: 'Used' },
+                        { value: 'no', label: 'Never used' },
+                      ]}
+                      value={filter.facet === 'yes' || filter.facet === 'no' ? filter.facet : ''}
+                      onChange={(facet) => {
+                        setFilter({ ...filter, facet });
+                      }}
+                    />
+                  </Facet>
+                </FilterSheet>
+              </>
+            )}
+            <Button
+              className="h-8 px-3 text-ui"
+              onClick={() => {
+                setError(undefined);
+                setCreating(true);
+              }}
+            >
+              Create token
+            </Button>
+          </span>
         }
       >
         {tokens.isPending ? (
@@ -193,7 +251,18 @@ export function TokensPanel() {
           </p>
         ) : null}
 
-        {(tokens.data ?? []).map((token) => (
+        {all.length > 0 && shown.length === 0 ? (
+          <div className="p-4">
+            <NoMatches
+              query={filter.search}
+              onClear={() => {
+                setFilter(OPEN_SEARCH_AND_FACET);
+              }}
+            />
+          </div>
+        ) : null}
+
+        {shown.map((token) => (
           <PanelRow
             key={token.id}
             title={token.name}

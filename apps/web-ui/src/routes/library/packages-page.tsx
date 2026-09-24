@@ -19,12 +19,18 @@
  */
 import { useQuery } from '@tanstack/react-query';
 
-import type { PackageState } from '@nebula-home/contracts';
-import { Badge, Panel, PanelNote, PanelRow, type BadgeTone } from '@nebula-home/ui';
+import { PACKAGE_STATES, type PackageState } from '@nebula-home/contracts';
+import { Badge, Panel, PanelNote, PanelRow, SelectField, type BadgeTone } from '@nebula-home/ui';
 
 import { relativeTime } from '@/lib/format-time';
+import { matchesQuery } from '@/lib/search-text';
+import { useListState } from '@/lib/use-list-state';
 import { fetchPackages, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { OPEN_PACKAGE_FILTER, packageFilterCodec } from '@/library/list-filters';
+import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
 import { LibraryPage } from '@/routes/library/library-page';
+import { NoMatches } from '@/routes/library/no-matches';
+import { SearchField } from '@/routes/library/search-field';
 
 /** What each lifecycle state means to somebody reading the page. */
 const TONES: Readonly<Record<PackageState, BadgeTone>> = {
@@ -36,8 +42,20 @@ const TONES: Readonly<Record<PackageState, BadgeTone>> = {
   disabled: 'neutral',
 };
 
+/** How the page's filter lives in the address. */
+const PACKAGE_FILTER_CODEC = packageFilterCodec(PACKAGE_STATES);
+
+/** The state choices, with any first. */
+const STATE_OPTIONS = [
+  { value: '', label: 'Any state' },
+  ...PACKAGE_STATES.map((state) => ({
+    value: state,
+    label: state.charAt(0).toUpperCase() + state.slice(1),
+  })),
+];
+
 /**
- * Renders the integrations page.
+ * Renders the packages page.
  *
  * @returns The page.
  */
@@ -55,6 +73,15 @@ export function PackagesPage() {
   });
 
   const items = packages.data ?? [];
+  const [filter, setFilter] = useListState(PACKAGE_FILTER_CODEC);
+  const shown = items.filter(
+    (installed) =>
+      (filter.state === '' || installed.state === filter.state) &&
+      matchesQuery(
+        [installed.id, installed.version, installed.runtime, installed.lastError],
+        filter.search,
+      ),
+  );
 
   return (
     <LibraryPage
@@ -63,13 +90,56 @@ export function PackagesPage() {
       summary="What is installed on this box: what each one is, how it runs, and how much of the house it accounts for."
       noun="package"
       count={packages.isPending ? undefined : items.length}
+      shownCount={shown.length}
+      tools={
+        <>
+          <SearchField
+            placeholder="Search packages…"
+            value={filter.search}
+            onChange={(search) => {
+              setFilter({ ...filter, search });
+            }}
+          />
+          <FilterSheet
+            label="Narrow the packages"
+            count={Number(filter.state !== '')}
+            onClear={() => {
+              setFilter({ ...filter, state: '' });
+            }}
+          >
+            <Facet title="State">
+              <SelectField
+                label="State"
+                isLabelHidden
+                size="compact"
+                options={STATE_OPTIONS}
+                value={filter.state}
+                onChange={(state) => {
+                  setFilter({
+                    ...filter,
+                    state: PACKAGE_STATES.find((candidate) => candidate === state) ?? '',
+                  });
+                }}
+              />
+            </Facet>
+          </FilterSheet>
+        </>
+      }
       isPending={packages.isPending}
       error={packages.error}
       isEmpty={items.length === 0}
       emptyMessage="Nothing installed. Installing is packet-manager's to do, and it is not built yet."
     >
+      {shown.length === 0 ? (
+        <NoMatches
+          query={filter.search}
+          onClear={() => {
+            setFilter(OPEN_PACKAGE_FILTER);
+          }}
+        />
+      ) : null}
       <Panel title="Installed">
-        {items.map((installed) => (
+        {shown.map((installed) => (
           <PanelRow
             key={installed.id}
             title={

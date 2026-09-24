@@ -14,7 +14,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type SubmitEventHandler } from 'react';
 
 import type { UserView } from '@nebula-home/contracts';
-import { Badge, Button, Modal, Panel, SelectField, TextField } from '@nebula-home/ui';
+import { Badge, Button, Modal, Panel, Segmented, SelectField, TextField } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
 import { Avatar } from '@/components/avatar';
@@ -23,6 +23,12 @@ import { PasswordField } from '@/components/password-field';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
 import { isPasswordAcceptable } from '@/lib/password-rules';
+import { matchesQuery } from '@/lib/search-text';
+import { useListState } from '@/lib/use-list-state';
+import { OPEN_PEOPLE_FILTER, PEOPLE_FILTER_CODEC } from '@/library/list-filters';
+import { Facet, facetChoices, FilterSheet } from '@/routes/library/filter-sheet';
+import { NoMatches } from '@/routes/library/no-matches';
+import { SearchField } from '@/routes/library/search-field';
 import { AvatarPicker } from '@/routes/settings/avatar-picker';
 import {
   SETTINGS_QUERY_KEYS,
@@ -73,6 +79,7 @@ export function PeoplePanel() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('member');
   const [isActive, setActive] = useState(true);
+  const [filter, setFilter] = useListState(PEOPLE_FILTER_CODEC);
   const [error, setError] = useState<string | undefined>(undefined);
 
   const users = useQuery({
@@ -183,23 +190,85 @@ export function PeoplePanel() {
     changes.mutate(async () => updateUser(id, { displayName, role, isActive }));
   };
 
+  // By the name people see, which is how the rows read; the API answers by username.
+  const people = [...(users.data ?? [])].sort((left, right) =>
+    left.displayName.localeCompare(right.displayName),
+  );
+  const shown = people.filter(
+    (person) =>
+      (filter.role === '' || person.role === filter.role) &&
+      (filter.status === 'any' || (filter.status === 'active') === person.isActive) &&
+      matchesQuery([person.displayName, person.username, person.email, person.role], filter.search),
+  );
+  const roleOptions = facetChoices(
+    (roles.data ?? []).map((entry) => ({ value: entry.key, label: entry.name })),
+    filter.role,
+    'Any role',
+  );
+
   return (
     <>
       <Panel
         title="Users and roles"
         action={
-          canManage ? (
-            <Button
-              size="compact"
-              onClick={() => {
-                setError(undefined);
-                setRole('member');
-                setDialog({ kind: 'invite' });
+          <span className="flex items-center gap-2">
+            <SearchField
+              placeholder="Search people…"
+              className="w-40 lg:w-56"
+              value={filter.search}
+              onChange={(search) => {
+                setFilter({ ...filter, search });
+              }}
+            />
+            <FilterSheet
+              label="Narrow the people"
+              count={Number(filter.role !== '') + Number(filter.status !== 'any')}
+              onClear={() => {
+                setFilter({ ...filter, role: '', status: 'any' });
               }}
             >
-              Invite person
-            </Button>
-          ) : undefined
+              <Facet title="Role">
+                <SelectField
+                  label="Role"
+                  isLabelHidden
+                  size="compact"
+                  options={roleOptions}
+                  value={filter.role}
+                  onChange={(value) => {
+                    setFilter({ ...filter, role: value });
+                  }}
+                />
+              </Facet>
+              <Facet title="Account">
+                <Segmented
+                  label="Account"
+                  size="compact"
+                  className="self-start"
+                  options={[
+                    { value: 'any', label: 'Any' },
+                    { value: 'active', label: 'Active' },
+                    { value: 'disabled', label: 'Disabled' },
+                  ]}
+                  value={filter.status}
+                  onChange={(status) => {
+                    setFilter({ ...filter, status });
+                  }}
+                />
+              </Facet>
+            </FilterSheet>
+            {canManage ? (
+              <Button
+                size="compact"
+                onClick={() => {
+                  setError(undefined);
+                  setRole('member');
+                  setDialog({ kind: 'invite' });
+                }}
+              >
+                Invite person
+              </Button>
+            ) : null}
+          </span>
         }
       >
         <div className={`${COLUMNS} border-b border-border-soft py-2.5`}>
@@ -220,7 +289,18 @@ export function PeoplePanel() {
           </p>
         ) : null}
 
-        {(users.data ?? []).map((person) => (
+        {!users.isPending && people.length > 0 && shown.length === 0 ? (
+          <div className="p-4">
+            <NoMatches
+              query={filter.search}
+              onClear={() => {
+                setFilter(OPEN_PEOPLE_FILTER);
+              }}
+            />
+          </div>
+        ) : null}
+
+        {shown.map((person) => (
           <div
             key={person.id}
             className={`${COLUMNS} border-b border-border-soft py-2.5 last:border-b-0`}

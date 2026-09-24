@@ -12,15 +12,17 @@
  * sits under the drawing and the id under the name, so that what the picker offers and what
  * this page edits look like the same thing - because they are.
  */
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import type { IconView } from '@nebula-home/contracts';
-import { Badge, Button, CatalogueIcon, Panel, TextField, UI_ICON_IDS } from '@nebula-home/ui';
+import { Badge, Button, CatalogueIcon, Panel, PanelNote, UI_ICON_IDS } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
 import { useDebounced } from '@/lib/use-debounced';
 import { fetchIcons, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { NoMatches } from '@/routes/library/no-matches';
+import { SearchField } from '@/routes/library/search-field';
 import { IconEditorModal, type IconEditorTarget } from '@/routes/settings/icon-editor-modal';
 
 /** How many icons the list shows at most. */
@@ -100,6 +102,9 @@ export function IconsPanel() {
      */
     queryFn: async ({ signal }: { signal: AbortSignal }) =>
       fetchIcons({ q: query, limit: PAGE }, signal),
+    // The grid keeps the last answer on screen while the next query is read, rather than
+    // flashing "Loading" at every pause in the typing.
+    placeholderData: keepPreviousData,
   });
 
   /**
@@ -121,17 +126,12 @@ export function IconsPanel() {
         title="Icons"
         action={
           <div className="flex items-center gap-2.5">
-            <TextField
+            <SearchField
               label="Search icons"
-              isLabelHidden
-              size="compact"
-              type="search"
               placeholder="Search icons…"
               className="w-44 lg:w-64"
               value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-              }}
+              onChange={setSearch}
             />
             {canWrite ? (
               <Button
@@ -153,7 +153,18 @@ export function IconsPanel() {
             The catalogue could not be read.
           </p>
         ) : icons.data.length === 0 ? (
-          <p className="px-4 py-3.5 text-ui text-foreground-muted">Nothing matches.</p>
+          query === '' ? (
+            <p className="px-4 py-3.5 text-ui text-foreground-muted">The catalogue is empty.</p>
+          ) : (
+            <div className="p-4">
+              <NoMatches
+                query={query}
+                onClear={() => {
+                  setSearch('');
+                }}
+              />
+            </div>
+          )
         ) : (
           <ul
             aria-label="Icons"
@@ -172,6 +183,11 @@ export function IconsPanel() {
             ))}
           </ul>
         )}
+        {icons.data !== undefined && icons.data.length >= PAGE ? (
+          <PanelNote>
+            The first {PAGE} are shown. Search to find the rest of the catalogue.
+          </PanelNote>
+        ) : null}
       </Panel>
 
       <IconEditorModal
