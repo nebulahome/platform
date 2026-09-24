@@ -1,14 +1,17 @@
 /**
- * Making a dashboard, or changing one: its name and icon, its file, and removing it.
+ * Making a dashboard, or changing one: its name and icon, who it is shown to, its file, and
+ * removing it.
  *
  * A new dashboard is either named here or read from a file another dashboard was exported to. A
  * file is read in the browser first, so one that is not a dashboard is refused in words before
  * anything is sent, and one that is shows what it brings - its name, its cards, and how many of
  * them name entities or scenes this house does not have, which will say so on their cards.
  *
- * An existing dashboard can be renamed, given an icon, exported as a file, or removed.
+ * A dashboard is shown to the people it is assigned to - none, some, everyone, the person making
+ * it included - and a new one starts assigned to its maker, since that is who wants to see it
+ * first. An existing one can be renamed, given an icon, reassigned, exported, or removed.
  */
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 
 import {
@@ -18,11 +21,13 @@ import {
 } from '@nebula-home/contracts';
 import { AppIcon, Button, Modal } from '@nebula-home/ui';
 
+import { useSession } from '@/auth/session-store';
 import {
   createDashboard,
   DASHBOARD_QUERY_KEYS,
   deleteDashboard,
   exportDashboard,
+  fetchAssignees,
   importDashboard,
   updateDashboard,
 } from '@/dashboard/api';
@@ -33,8 +38,22 @@ import {
 } from '@/dashboard/dashboard-file';
 import { allCards } from '@/dashboard/dashboard-layout';
 import { toMessage } from '@/lib/error-message';
+import { AssigneeField } from '@/routes/dashboard/assignee-field';
 import { ConfirmRemoval } from '@/routes/library/confirm-removal';
 import { NameIconField } from '@/routes/library/name-icon-field';
+
+/**
+ * Whether two assignments name the same people, in whatever order.
+ *
+ * @param left - One.
+ * @param right - The other.
+ * @returns True when they are the same set.
+ */
+function sameAssignment(left: readonly string[], right: readonly string[]): boolean {
+  const set = new Set(left);
+
+  return left.length === right.length && right.every((id) => set.has(id));
+}
 
 /** What the dialog is for: a new dashboard, or one that exists. */
 export type DashboardDialogTarget =
@@ -70,15 +89,32 @@ export type DashboardDialogProps = {
 export function DashboardDialog(props: DashboardDialogProps) {
   const { target, onClose, hasEntity, hasScene, onSaved, onDeleted } = props;
   const queryClient = useQueryClient();
+  const selfId = useSession((state) => state.user?.id);
   const existing = target?.mode === 'edit' ? target.dashboard : undefined;
   const [name, setName] = useState(existing?.name ?? '');
   const [icon, setIcon] = useState<string | null>(existing?.icon ?? null);
+  const [userIds, setUserIds] = useState<readonly string[]>(
+    () => existing?.userIds ?? (selfId === undefined ? [] : [selfId]),
+  );
   const [file, setFile] = useState<DashboardDocument | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [isConfirming, setConfirming] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  /** Reads the list again. */
+  const people = useQuery({
+    queryKey: DASHBOARD_QUERY_KEYS.assignees,
+    /**
+     * Reads who a dashboard can be shown to.
+     *
+     * @param context - What TanStack Query provides, including the cancellation signal.
+     * @param context.signal - Cancels the request when the dialog goes away.
+     * @returns Every active account.
+     */
+    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchAssignees(signal),
+    enabled: target !== null,
+  });
+
+  /** Reads the lists again: every dashboard, and the ones shown to this person. */
   const refresh = async (): Promise<void> => {
     await queryClient.invalidateQueries({ queryKey: DASHBOARD_QUERY_KEYS.dashboards });
   };
@@ -91,18 +127,27 @@ export function DashboardDialog(props: DashboardDialogProps) {
      */
     mutationFn: async (): Promise<DashboardView> => {
       if (file !== null) {
-        return importDashboard({
+        const imported = await importDashboard({
           ...file,
           name: name.trim() === '' ? file.name : name.trim(),
           icon,
         });
+
+        // A file carries no people; who it is shown to is set on the dashboard it made.
+        return userIds.length === 0
+          ? imported
+          : updateDashboard(imported.id, { userIds: [...userIds] });
       }
 
       if (existing === undefined) {
-        return createDashboard({ name: name.trim(), icon });
+        return createDashboard({ name: name.trim(), icon, userIds: [...userIds] });
       }
 
-      return updateDashboard(existing.id, { name: name.trim(), icon });
+      return updateDashboard(existing.id, {
+        name: name.trim(),
+        icon,
+        ...(sameAssignment(userIds, existing.userIds) ? {} : { userIds: [...userIds] }),
+      });
     },
 
     /**
@@ -220,13 +265,13 @@ export function DashboardDialog(props: DashboardDialogProps) {
       title={existing === undefined ? 'New dashboard' : 'Dashboard'}
       description={
         existing === undefined
-          ? 'Your own page of cards. Nobody else sees it.'
-          : 'Its name and icon, its file, and removing it.'
+          ? 'A page of cards, shown on the Dashboards page of everyone it is assigned to.'
+          : 'Its name and icon, who it is shown to, its file, and removing it.'
       }
       footer={
         isConfirming && existing !== undefined ? (
           <ConfirmRemoval
-            question={`Remove ${existing.name} and its ${String(allCards(existing.layout).length)} cards?`}
+            question={`Remove ${existing.name} and its ${String(allCards(existing.layout).length)} cards, for everyone it is shown to?`}
             isBusy={removing.isPending}
             onCancel={() => {
               setConfirming(false);
@@ -269,6 +314,14 @@ export function DashboardDialog(props: DashboardDialogProps) {
           onIconChange={(view) => {
             setIcon(view.id);
           }}
+        />
+
+        <AssigneeField
+          people={people.data ?? []}
+          value={userIds}
+          onChange={setUserIds}
+          selfId={selfId}
+          isPending={people.isPending}
         />
 
         {existing === undefined ? (

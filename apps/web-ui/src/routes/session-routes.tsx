@@ -27,7 +27,9 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router'
 
 import { useSession, type SessionStatus } from '@/auth/session-store';
 import { AuthLayout } from '@/routes/auth-layout';
+import { DashboardEditorPage } from '@/routes/dashboard/dashboard-editor-page';
 import { DashboardPage } from '@/routes/dashboard/dashboard-page';
+import { DashboardsManagePage } from '@/routes/dashboard/dashboards-manage-page';
 import { FirstRunForm } from '@/routes/first-run';
 import { AliasEditor } from '@/routes/library/alias-editor';
 import { AliasesPage } from '@/routes/library/aliases-page';
@@ -218,6 +220,22 @@ export function SessionRoutes() {
         <Route index element={<Navigate to={startPage} replace />} />
         <Route path="/dashboards" element={<DashboardPage />} />
         <Route path="/dashboards/:dashboardId" element={<DashboardPage />} />
+        <Route
+          path="/configuration/dashboards"
+          element={
+            <RequiresPermission permission="dashboard:manage" section="Dashboards">
+              <DashboardsManagePage />
+            </RequiresPermission>
+          }
+        />
+        <Route
+          path="/configuration/dashboards/:dashboardId/edit"
+          element={
+            <RequiresPermission permission="dashboard:manage" section="Dashboards">
+              <DashboardEditorPage />
+            </RequiresPermission>
+          }
+        />
         <Route path="/automations" element={<AutomationsPage />} />
         <Route path="/automations/new" element={<AutomationEditor />} />
         <Route path="/automations/:automationId" element={<AutomationEditor />} />

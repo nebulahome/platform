@@ -1,18 +1,18 @@
 /**
- * The dashboards page: what a person with none is offered, a dashboard's cards drawn from what
- * their entities can do, and editing that works on a copy until Done.
+ * The dashboards page: what a person with none assigned is told, and a dashboard's cards drawn
+ * from what their entities can do - shown, never edited here.
  *
  * The API modules are stood in for; the session, the live store and the draft are the real ones.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { parseEntityId, type DashboardView } from '@nebula-home/contracts';
 
 import { useSession } from '@/auth/session-store';
-import { fetchDashboards, updateDashboard } from '@/dashboard/api';
+import { fetchDashboards } from '@/dashboard/api';
 import {
   fetchAreas,
   fetchDevices,
@@ -78,6 +78,7 @@ const HOME: DashboardView = {
   name: 'Home',
   icon: null,
   layoutVersion: 1,
+  userIds: ['00000000-0000-4000-8000-000000000001'],
   createdAt: new Date('2026-09-24T08:00:00.000Z'),
   updatedAt: new Date('2026-09-24T08:00:00.000Z'),
   layout: {
@@ -111,11 +112,12 @@ const HOME: DashboardView = {
 };
 
 /**
- * Renders the page for a signed-in owner.
+ * Renders the page for a signed-in person.
  *
  * @param address - Where it opens.
+ * @param canManage - Whether they manage the dashboards.
  */
-function renderPage(address = '/dashboards'): void {
+function renderPage(address = '/dashboards', canManage = false): void {
   useSession.setState({
     status: 'signed-in',
     user: {
@@ -123,7 +125,13 @@ function renderPage(address = '/dashboards'): void {
       username: 'mattia',
       displayName: 'Mattia Carli',
       role: 'owner',
-      permissions: ['entity:read', 'entity:control', 'scene:read', 'scene:apply'].map((key) => ({
+      permissions: [
+        'entity:read',
+        'entity:control',
+        'scene:read',
+        'scene:apply',
+        ...(canManage ? ['dashboard:manage'] : []),
+      ].map((key) => ({
         key,
         scope: '*',
         effect: 'allow' as const,
@@ -171,13 +179,21 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('a person with no dashboard', () => {
-  it('is offered to make one', async () => {
+describe('a person with no dashboard assigned', () => {
+  it('is told so, and offered nothing to make', async () => {
     vi.mocked(fetchDashboards).mockResolvedValue([]);
     renderPage();
 
-    expect(await screen.findByText(/No dashboard yet/u)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'New dashboard' })).toBeTruthy();
+    expect(await screen.findByText(/No dashboard is assigned to you yet/u)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'New dashboard' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Manage dashboards' })).toBeNull();
+  });
+
+  it('who manages dashboards is pointed to where they are made', async () => {
+    vi.mocked(fetchDashboards).mockResolvedValue([]);
+    renderPage('/dashboards', true);
+
+    expect(await screen.findByRole('button', { name: 'Manage dashboards' })).toBeTruthy();
   });
 });
 
@@ -193,41 +209,15 @@ describe('a dashboard', () => {
     expect(screen.getByText('switch.removed_plug')).toBeTruthy();
   });
 
-  it('edits a copy, and saves the whole layout on Done', async () => {
-    vi.mocked(fetchDashboards).mockResolvedValue([HOME]);
-    vi.mocked(updateDashboard).mockImplementation(async (id, request) =>
-      Promise.resolve({
-        ...HOME,
-        ...(request.layout === undefined ? {} : { layout: request.layout }),
-      }),
-    );
-    renderPage(`/dashboards/${HOME.id}`);
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit layout' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Remove switch.removed_plug' }));
-
-    // Nothing is sent until Done.
-    expect(updateDashboard).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-
-    await waitFor(() => {
-      expect(updateDashboard).toHaveBeenCalledWith(HOME.id, {
-        layout: { cards: [HOME.layout.cards[0]] },
-      });
-    });
-    expect(await screen.findByRole('button', { name: 'Edit layout' })).toBeTruthy();
-  });
-
-  it('throws the copy away on Cancel', async () => {
+  it('only shows: there is no layout to edit and no card to add here', async () => {
     vi.mocked(fetchDashboards).mockResolvedValue([HOME]);
     renderPage(`/dashboards/${HOME.id}`);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit layout' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Remove switch.removed_plug' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await screen.findByRole('article', { name: 'Kitchen ceiling' });
 
-    expect(await screen.findByText('switch.removed_plug')).toBeTruthy();
-    expect(updateDashboard).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Edit layout' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add card' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /name, file, remove/u })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'New dashboard' })).toBeNull();
   });
 });

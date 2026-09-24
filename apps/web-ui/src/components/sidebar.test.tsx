@@ -18,8 +18,9 @@ import { toUsername } from '@/routes/first-run';
  * Renders the rail at a given address, with somebody signed in.
  *
  * @param pathname - Where the person currently is.
+ * @param permissions - What they hold.
  */
-function renderAt(pathname: string): void {
+function renderAt(pathname: string, permissions: readonly string[] = []): void {
   useSession.setState({
     status: 'signed-in',
     user: {
@@ -27,7 +28,7 @@ function renderAt(pathname: string): void {
       username: 'mattia',
       displayName: 'Mattia Carli',
       role: 'owner',
-      permissions: [],
+      permissions: permissions.map((key) => ({ key, scope: '*', effect: 'allow' as const })),
       avatarUrl: null,
       locale: 'it',
       timezone: 'Europe/Rome',
@@ -91,6 +92,26 @@ describe('Sidebar', () => {
     expect(screen.getByRole('link', { name: 'Tags' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Areas' }).getAttribute('href')).toBe('/areas');
     expect(screen.queryByRole('link', { name: 'Automations' })).toBeNull();
+  });
+
+  it('lists the dashboards under Configuration only for someone who manages them', () => {
+    renderAt('/tags');
+
+    expect(screen.getAllByRole('link', { name: 'Dashboards' })).toHaveLength(1);
+  });
+
+  it('opens Configuration on the dashboards page, beside the dashboards themselves', () => {
+    renderAt('/configuration/dashboards', ['dashboard:manage']);
+
+    const links = screen.getAllByRole('link', { name: 'Dashboards' });
+
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/dashboards',
+      '/configuration/dashboards',
+    ]);
+    expect(
+      screen.getByRole('button', { name: /Configuration/ }).getAttribute('aria-expanded'),
+    ).toBe('true');
   });
 
   it('marks the current row for something that cannot see a colour', () => {

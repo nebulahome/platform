@@ -38,6 +38,12 @@ type GroupEntry = {
 
   /** What it is called. */
   readonly label: string;
+
+  /**
+   * The permission needed to open it, when one is; the entry is not drawn without it. A courtesy
+   * rather than a control - the route checks the permission itself.
+   */
+  readonly permission?: string;
 };
 
 /** What the house does on its own. */
@@ -47,11 +53,12 @@ const AUTOMATION: readonly GroupEntry[] = [
   { to: '/aliases', label: 'Aliases' },
 ];
 
-/** How the house is described. */
+/** How the house is described, and the dashboards it is shown on. */
 const CONFIGURATION: readonly GroupEntry[] = [
   { to: '/devices', label: 'Devices' },
   { to: '/tags', label: 'Tags' },
   { to: '/areas', label: 'Areas' },
+  { to: '/configuration/dashboards', label: 'Dashboards', permission: 'dashboard:manage' },
 ];
 
 /** The classes a row shares whether or not it is the current one. */
@@ -120,8 +127,10 @@ type NavGroupProps = {
  * @returns The group.
  */
 function NavGroup(props: NavGroupProps) {
-  const { label, icon, entries } = props;
+  const { label, icon, entries: listed } = props;
   const location = useLocation();
+  const can = useSession((state) => state.can);
+  const entries = listed.filter((entry) => entry.permission === undefined || can(entry.permission));
   const isInside = entries.some((entry) => location.pathname.startsWith(entry.to));
   const [isForcedOpen, setForcedOpen] = useState(false);
   const isOpen = isInside || isForcedOpen;

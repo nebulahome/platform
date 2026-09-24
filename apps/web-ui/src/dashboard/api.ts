@@ -1,5 +1,7 @@
 /**
- * Every call the dashboard makes, one function per endpoint.
+ * Every call the dashboards make, one function per endpoint: the ones assigned to the person
+ * signed in, and - for whoever manages them - every dashboard, the people to assign them to, and
+ * the writes.
  *
  * As everywhere else in the client, each names the contract schema its answer must satisfy: a
  * dashboard that comes back in a shape this build does not understand is refused here, not drawn
@@ -8,8 +10,10 @@
 import { z } from 'zod';
 
 import {
+  dashboardAssigneeSchema,
   dashboardDocumentSchema,
   dashboardViewSchema,
+  type DashboardAssignee,
   type DashboardCreate,
   type DashboardDocument,
   type DashboardUpdate,
@@ -20,12 +24,18 @@ import { apiRequest } from '@/lib/api-client';
 
 /** The cache keys the dashboard reads under. */
 export const DASHBOARD_QUERY_KEYS = {
-  /** The signed-in person's dashboards. */
+  /** The dashboards assigned to the signed-in person. */
   dashboards: ['dashboards'] as const,
+
+  /** Every dashboard in the house, for whoever manages them. */
+  managed: ['dashboards', 'manage'] as const,
+
+  /** The people a dashboard can be assigned to. */
+  assignees: ['dashboards', 'assignees'] as const,
 } as const;
 
 /**
- * Lists the signed-in person's dashboards, in the order their tabs are drawn.
+ * Lists the dashboards assigned to the signed-in person, in the order their tabs are drawn.
  *
  * @param signal - Cancels the request.
  * @returns Their dashboards.
@@ -38,6 +48,54 @@ export async function fetchDashboards(signal?: AbortSignal): Promise<DashboardVi
   );
 
   return items;
+}
+
+/**
+ * Lists every dashboard in the house, with who each is assigned to.
+ *
+ * @param signal - Cancels the request.
+ * @returns The dashboards, oldest first.
+ */
+export async function fetchManagedDashboards(signal?: AbortSignal): Promise<DashboardView[]> {
+  const { items } = await apiRequest(
+    '/dashboards/manage',
+    z.object({ items: z.array(dashboardViewSchema) }),
+    { ...(signal === undefined ? {} : { signal }) },
+  );
+
+  return items;
+}
+
+/**
+ * Lists the people a dashboard can be assigned to.
+ *
+ * @param signal - Cancels the request.
+ * @returns Every active account, by name.
+ */
+export async function fetchAssignees(signal?: AbortSignal): Promise<DashboardAssignee[]> {
+  const { items } = await apiRequest(
+    '/dashboards/assignees',
+    z.object({ items: z.array(dashboardAssigneeSchema) }),
+    { ...(signal === undefined ? {} : { signal }) },
+  );
+
+  return items;
+}
+
+/**
+ * Reads one dashboard.
+ *
+ * @param dashboardId - Which one.
+ * @param signal - Cancels the request.
+ * @returns The dashboard.
+ */
+export async function fetchDashboard(
+  dashboardId: string,
+  signal?: AbortSignal,
+): Promise<DashboardView> {
+  return apiRequest(`/dashboards/${dashboardId}`, dashboardViewSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
 }
 
 /**
