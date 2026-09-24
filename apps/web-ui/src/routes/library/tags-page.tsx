@@ -158,7 +158,7 @@ export function TagsPage() {
         isEmpty={tags.length === 0}
         emptyMessage="No tags yet. A tag groups devices and entities, so an automation or a scene can pick them all at once."
       >
-        <div className="rounded-panel border border-border face-card">
+        <div className="overflow-hidden rounded-panel border border-border face-card">
           <div
             className={`${TAG_COLUMNS} border-b border-border-soft px-4 py-2.5 text-label text-foreground-subtle uppercase`}
             aria-hidden="true"

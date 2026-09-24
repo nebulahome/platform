@@ -61,8 +61,8 @@ export function SystemEntitiesPanel() {
       ))}
 
       <PanelNote>
-        These belong to the NebulaHome server device. Each takes a new state once a minute, the
-        average of the minute, so a busy few seconds does not set an automation off.
+        These belong to the System device. Each takes a new state once a minute, the average of the
+        minute, so a busy few seconds does not set an automation off.
       </PanelNote>
     </Panel>
   );

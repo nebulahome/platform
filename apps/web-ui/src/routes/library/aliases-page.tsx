@@ -100,7 +100,6 @@ export function AliasesPage() {
   return (
     <LibraryPage
       title="Aliases"
-      summary="An entity computed from others, or a stored helper. The name is how you find it; the address underneath is what automations refer to."
       noun="alias"
       plural="aliases"
       count={aliases.isPending ? undefined : items.length}
@@ -146,7 +145,7 @@ export function AliasesPage() {
         )}
       </div>
 
-      <div className="rounded-panel border border-border face-card">
+      <div className="overflow-hidden rounded-panel border border-border face-card">
         <div
           className={`${ALIAS_COLUMNS} border-b border-border-soft px-4 py-2.5 text-label text-foreground-subtle uppercase`}
           aria-hidden="true"

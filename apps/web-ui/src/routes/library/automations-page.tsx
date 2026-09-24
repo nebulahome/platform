@@ -100,7 +100,6 @@ export function AutomationsPage() {
   return (
     <LibraryPage
       title="Automations"
-      summary="Each one is a rule: when this happens, if these hold, do this. Saved here and audited — the engine that runs them is not built yet, so a rule waits rather than fires."
       noun="automation"
       count={automations.isPending ? undefined : items.length}
       shownCount={shown.length}
@@ -131,7 +130,7 @@ export function AutomationsPage() {
       isEmpty={items.length === 0}
       emptyMessage="No automations yet. Press New automation to write the first one."
     >
-      <div className="rounded-panel border border-border face-card">
+      <div className="overflow-hidden rounded-panel border border-border face-card">
         <div
           className={`${AUTOMATION_COLUMNS} border-b border-border-soft px-4 py-2.5 text-label text-foreground-subtle uppercase`}
           aria-hidden="true"

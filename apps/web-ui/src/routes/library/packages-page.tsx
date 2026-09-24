@@ -87,7 +87,6 @@ export function PackagesPage() {
     <LibraryPage
       title="Packages"
       hasTabs={false}
-      summary="What is installed on this box: what each one is, how it runs, and how much of the house it accounts for."
       noun="package"
       count={packages.isPending ? undefined : items.length}
       shownCount={shown.length}

@@ -22,9 +22,6 @@ export type LibraryPageProps = {
   /** What this page is about. */
   readonly title: string;
 
-  /** A line under it saying what these things are. A page about one thing has none. */
-  readonly summary?: string | undefined;
-
   /** What the collection is called when it is counted, e.g. `automation`. */
   readonly noun: string;
 
@@ -99,7 +96,6 @@ export type LibraryPageProps = {
 export function LibraryPage(props: LibraryPageProps) {
   const {
     title,
-    summary,
     noun,
     plural = `${noun}s`,
     count,
@@ -164,10 +160,6 @@ export function LibraryPage(props: LibraryPageProps) {
 
       <div className="min-h-0 grow overflow-y-auto p-6">
         <div className="mx-auto flex max-w-5xl flex-col gap-4">
-          {summary === undefined ? null : (
-            <p className="text-caption text-foreground-subtle">{summary}</p>
-          )}
-
           {isPending ? <Placeholder>Reading…</Placeholder> : null}
 
           {error === undefined || error === null ? null : <Refusal>{toMessage(error)}</Refusal>}

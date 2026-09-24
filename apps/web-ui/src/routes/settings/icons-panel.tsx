@@ -117,11 +117,6 @@ export function IconsPanel() {
 
   return (
     <div className="flex flex-col gap-5">
-      <p className="text-ui text-foreground-muted">
-        Every icon the house shows is one of these, by id. Redraw one and it changes everywhere it
-        is used; add your own for the things the set has no drawing for.
-      </p>
-
       <Panel
         title="Icons"
         action={

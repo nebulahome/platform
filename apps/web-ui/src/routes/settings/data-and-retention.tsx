@@ -13,13 +13,14 @@
  * Reading needs `settings:read` and writing needs `settings:write`. Somebody with only the first
  * sees every value and no controls, which is the shape the permissions describe.
  *
- * The banner at the top is not decoration and should not be removed until it stops being true.
- * Nothing in the platform re-reads these values at runtime yet: retention is enforced by
- * TimescaleDB policies fixed when the database was built, the log level comes from the
- * environment, and how long a session lasts is a constant in `@nebula-home/contracts`. So a
+ * The note at the foot of the last panel is not decoration and should not be removed until it
+ * stops being true. Nothing in the platform re-reads these values at runtime yet: retention is
+ * enforced by TimescaleDB policies fixed when the database was built, the log level comes from
+ * the environment, and how long a session lasts is a constant in `@nebula-home/contracts`. So a
  * change here is recorded, audited and durable, and it changes no behaviour until the service
  * that owns each one learns to read it. A settings page that quietly did nothing would be worse
- * than no settings page, which is the whole reason the banner is the first thing on it.
+ * than no settings page. It used to be a banner above everything; the pages open on what they
+ * hold now, and the caveat sits where the values end.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
@@ -28,7 +29,6 @@ import type { JsonValue, SettingsResponse } from '@nebula-home/contracts';
 import { Button, Panel, PanelNote, PanelRow, Segmented, SelectField } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
-import { WarningIcon } from '@/components/icons';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
 import { SETTINGS_QUERY_KEYS, fetchServerSettings, updateServerSettings } from '@/settings/api';
@@ -219,19 +219,6 @@ export function DataAndRetention() {
 
   return (
     <>
-      <div className="flex items-start gap-3 rounded-panel border border-warning/30 bg-warning/8 px-4 py-3.5">
-        <WarningIcon width="17" height="17" className="mt-px shrink-0 text-warning" />
-        <p className="text-caption leading-relaxed text-foreground-muted">
-          <span className="font-medium text-foreground">
-            These are recorded, and not yet acted on.
-          </span>{' '}
-          Retention is enforced by policies fixed when the database was built, the log level comes
-          from the environment, and session lifetime is a constant in the shared contracts. Changing
-          a value here stores it and writes an audit entry; it will start taking effect when each
-          service learns to re-read it.
-        </p>
-      </div>
-
       <Panel title="Telemetry retention">
         {RETENTION_RUNGS.map((rung) => (
           <PanelRow
@@ -345,6 +332,11 @@ export function DataAndRetention() {
         <PanelNote>
           Where the house stands is set on the house itself, under Library → Areas. The map around
           it is drawn from that position, and solar triggers will read it from there too.
+        </PanelNote>
+        <PanelNote>
+          A saved value is recorded and audited, and takes effect once the service that owns it
+          learns to re-read it; until then retention, the log level and session lifetime follow what
+          the platform was started with.
         </PanelNote>
       </Panel>
 

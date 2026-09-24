@@ -55,7 +55,7 @@ export function RolesPanel() {
   });
 
   return (
-    <Panel title="What each role grants">
+    <Panel title="What each role grants" className="overflow-hidden">
       {roles.isPending ? (
         <p className="px-4 py-4 text-ui text-foreground-subtle">Reading the roles…</p>
       ) : null}
