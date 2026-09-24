@@ -66,7 +66,7 @@ describe('the migration set', () => {
 
 describe('the initial schema', () => {
   it('creates every object DATABASE.md defines', () => {
-    expect(initialSql.match(/^CREATE TABLE /gm)).toHaveLength(37);
+    expect(initialSql.match(/^CREATE TABLE /gm)).toHaveLength(38);
     expect(initialSql.match(/^CREATE VIEW /gm)).toHaveLength(4);
     expect(initialSql.match(/create_hypertable\(/g)).toHaveLength(5);
   });

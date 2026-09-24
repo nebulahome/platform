@@ -1,6 +1,6 @@
 -- 0001_initial_schema.sql
 --
--- The initial NebulaHome schema: four schemas, 37 tables, four views and the TimescaleDB
+-- The initial NebulaHome schema: four schemas, 38 tables, four views and the TimescaleDB
 -- hypertables, plus the roles, grants and seed data an installation needs to boot.
 --
 -- Object order follows DATABASE.md 13 rather than the reading order of that document, because
@@ -734,6 +734,23 @@ CREATE INDEX automations_is_enabled_idx ON registry.automations (is_enabled) WHE
 CREATE INDEX automations_created_by_idx ON registry.automations (created_by);
 CREATE INDEX automations_definition_idx ON registry.automations USING gin (definition);
 
+-- A person's own pages of cards. The layout is one document, read and written whole by the editor;
+-- cards name entities by their address, not by row, so a removed entity leaves a card saying so.
+CREATE TABLE registry.dashboards (
+  id             uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id        uuid        NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  name           text        NOT NULL,
+  icon           text,
+  layout         jsonb       NOT NULL DEFAULT '{"cards": []}',  -- dashboardLayoutSchema
+  layout_version integer     NOT NULL DEFAULT 1,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT dashboards_name_not_blank CHECK (length(btrim(name)) BETWEEN 1 AND 60)
+);
+
+CREATE INDEX dashboards_user_id_idx ON registry.dashboards (user_id, created_at);
+
 -- --------------------------------------------------------------------------------------
 
 -- system: package routes
@@ -1031,6 +1048,10 @@ CREATE TRIGGER scenes_touch_updated_at
 
 CREATE TRIGGER automations_touch_updated_at
   BEFORE UPDATE ON registry.automations
+  FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
+
+CREATE TRIGGER dashboards_touch_updated_at
+  BEFORE UPDATE ON registry.dashboards
   FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
 
 CREATE TRIGGER packages_touch_updated_at

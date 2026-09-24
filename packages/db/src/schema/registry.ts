@@ -545,3 +545,33 @@ export const automations = registrySchema.table(
     index('automations_created_by_idx').on(table.createdBy),
   ],
 );
+
+/**
+ * A person's own pages of cards.
+ *
+ * `layout` is the whole grid as one validated document, for the reason `definition` is one on an
+ * automation: the editor reads and writes it whole, and a container holds cards of its own. Cards
+ * name entities by their address rather than by row, so removing an entity does not cascade into
+ * someone's page - the card stays and says the entity is gone.
+ */
+export const dashboards = registrySchema.table(
+  'dashboards',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    icon: text('icon'),
+
+    /** Validated against `dashboardLayoutSchema` in `@nebula-home/contracts`. */
+    layout: jsonb('layout').notNull().default({ cards: [] }),
+
+    /** Versions the layout format, so old documents can be migrated on read. */
+    layoutVersion: integer('layout_version').notNull().default(1),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('dashboards_user_id_idx').on(table.userId, table.createdAt)],
+);
