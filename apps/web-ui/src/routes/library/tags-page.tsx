@@ -11,13 +11,21 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import type { DeviceView, EntityView } from '@nebula-home/contracts';
-import { Button, TextField } from '@nebula-home/ui';
+import { Button } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
+import { useListState } from '@/lib/use-list-state';
 import { fetchDevices, fetchEntities, LIBRARY_QUERY_KEYS } from '@/library/api';
-import { matchesTagFilter, OPEN_TAG_FILTER, type TagFilter } from '@/library/tag-filters';
+import {
+  isNarrowingTags,
+  matchesTagFilter,
+  OPEN_TAG_FILTER,
+  TAG_FILTER_CODEC,
+} from '@/library/tag-filters';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { LibraryPage } from '@/routes/library/library-page';
+import { NoMatches } from '@/routes/library/no-matches';
+import { SearchField } from '@/routes/library/search-field';
 import { TagDialog, type TagDialogTarget } from '@/routes/library/tag-dialog';
 import { TagFilterButton } from '@/routes/library/tag-filter';
 import { TAG_COLUMNS, TagRow } from '@/routes/library/tag-row';
@@ -52,7 +60,7 @@ export function TagsPage() {
   const can = useSession((state) => state.can);
   const canWrite = can('tag:write');
   const { tags, isPending } = useTags();
-  const [filter, setFilter] = useState<TagFilter>(OPEN_TAG_FILTER);
+  const [filter, setFilter] = useListState(TAG_FILTER_CODEC);
   const [openIds, setOpenIds] = useState<ReadonlySet<string>>(new Set());
   const [target, setTarget] = useState<TagDialogTarget | null>(null);
 
@@ -89,7 +97,12 @@ export function TagsPage() {
   ]);
   const devicesByTag: Map<string, DeviceView[]> = byTag(devices.data ?? []);
   const entitiesByTag: Map<string, EntityView[]> = byTag(entities.data ?? []);
-  const shown = tags.filter((tag) => matchesTagFilter(tag, filter));
+  const shown = tags.filter((tag) =>
+    matchesTagFilter(tag, filter, {
+      devices: devicesByTag.get(tag.id)?.length ?? 0,
+      entities: entitiesByTag.get(tag.id)?.length ?? 0,
+    }),
+  );
 
   /**
    * Opens a tag that is shut, or shuts one that is open.
@@ -116,18 +129,14 @@ export function TagsPage() {
         title="Tags"
         noun="tag"
         count={isPending ? undefined : tags.length}
+        shownCount={shown.length}
         tools={
           <>
-            <TextField
-              label="Search"
-              isLabelHidden
-              size="compact"
-              type="search"
+            <SearchField
               placeholder="Search tags…"
-              className="w-44 lg:w-72"
               value={filter.search}
-              onChange={(event) => {
-                setFilter({ ...filter, search: event.target.value });
+              onChange={(search) => {
+                setFilter({ ...filter, search });
               }}
             />
             <TagFilterButton filter={filter} onChange={setFilter} />
@@ -163,9 +172,18 @@ export function TagsPage() {
           </div>
 
           {shown.length === 0 ? (
-            <p className="px-4 py-3.5 text-ui text-foreground-muted">
-              Nothing matches. Clear the search or widen the filters.
-            </p>
+            <div className="p-4">
+              <NoMatches
+                query={filter.search}
+                onClear={
+                  filter.search.trim() !== '' || isNarrowingTags(filter)
+                    ? () => {
+                        setFilter(OPEN_TAG_FILTER);
+                      }
+                    : undefined
+                }
+              />
+            </div>
           ) : (
             <ul>
               {shown.map((tag) => (

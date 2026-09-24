@@ -13,8 +13,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { Button, TextField } from '@nebula-home/ui';
+import { Button } from '@nebula-home/ui';
 
+import { useListState } from '@/lib/use-list-state';
 import {
   deleteAutomation,
   fetchAutomations,
@@ -22,13 +23,16 @@ import {
   updateAutomation,
 } from '@/library/api';
 import {
+  AUTOMATION_FILTER_CODEC,
+  isAutomationNarrowing,
   matchesAutomationFilter,
   OPEN_AUTOMATION_FILTER,
-  type AutomationFilter,
 } from '@/library/automation-filters';
 import { AutomationFilterButton } from '@/routes/library/automation-filter';
 import { AUTOMATION_COLUMNS, AutomationRow } from '@/routes/library/automation-row';
 import { LibraryPage } from '@/routes/library/library-page';
+import { NoMatches } from '@/routes/library/no-matches';
+import { SearchField } from '@/routes/library/search-field';
 
 /**
  * Renders the automations page.
@@ -38,7 +42,7 @@ import { LibraryPage } from '@/routes/library/library-page';
 export function AutomationsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [filter, setFilter] = useState<AutomationFilter>(OPEN_AUTOMATION_FILTER);
+  const [filter, setFilter] = useListState(AUTOMATION_FILTER_CODEC);
 
   // Which row is writing, rather than a single flag: two rows toggled quickly must each show
   // their own progress, and a shared boolean would put the spinner on both.
@@ -99,18 +103,14 @@ export function AutomationsPage() {
       summary="Each one is a rule: when this happens, if these hold, do this. Saved here and audited — the engine that runs them is not built yet, so a rule waits rather than fires."
       noun="automation"
       count={automations.isPending ? undefined : items.length}
+      shownCount={shown.length}
       tools={
         <>
-          <TextField
-            label="Search"
-            isLabelHidden
-            size="compact"
-            type="search"
+          <SearchField
             placeholder="Search automations…"
-            className="w-44 lg:w-72"
             value={filter.search}
-            onChange={(event) => {
-              setFilter({ ...filter, search: event.target.value });
+            onChange={(search) => {
+              setFilter({ ...filter, search });
             }}
           />
           <AutomationFilterButton filter={filter} onChange={setFilter} />
@@ -131,13 +131,6 @@ export function AutomationsPage() {
       isEmpty={items.length === 0}
       emptyMessage="No automations yet. Press New automation to write the first one."
     >
-      <div className="flex flex-wrap items-center justify-end gap-2.5 text-caption text-foreground-subtle tabular">
-        <span>
-          {shown.length === items.length ? '' : `${String(shown.length)} of `}
-          {items.length} automation{items.length === 1 ? '' : 's'}
-        </span>
-      </div>
-
       <div className="rounded-panel border border-border face-card">
         <div
           className={`${AUTOMATION_COLUMNS} border-b border-border-soft px-4 py-2.5 text-label text-foreground-subtle uppercase`}
@@ -152,9 +145,18 @@ export function AutomationsPage() {
         </div>
 
         {shown.length === 0 ? (
-          <p className="px-4 py-3.5 text-ui text-foreground-muted">
-            Nothing matches. Clear the search or widen the filters.
-          </p>
+          <div className="p-4">
+            <NoMatches
+              query={filter.search}
+              onClear={
+                isAutomationNarrowing(filter)
+                  ? () => {
+                      setFilter(OPEN_AUTOMATION_FILTER);
+                    }
+                  : undefined
+              }
+            />
+          </div>
         ) : (
           <ul>
             {shown.map((automation) => (

@@ -28,7 +28,7 @@ export type FilterSheetProps = {
   /** Called to unset every facet. */
   readonly onClear: () => void;
 
-  /** How wide the sheet is; `medium` unless said otherwise. */
+  /** How wide the sheet is; `wide` unless said otherwise, so every page's sheet is one shape. */
   readonly width?: 'medium' | 'wide';
 
   /** The facets. */
@@ -42,7 +42,7 @@ export type FilterSheetProps = {
  * @returns The control.
  */
 export function FilterSheet(props: FilterSheetProps) {
-  const { label, count, onClear, width = 'medium', children } = props;
+  const { label, count, onClear, width = 'wide', children } = props;
   const [isOpen, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const sheetId = useId();
@@ -131,6 +131,46 @@ export function FilterSheet(props: FilterSheetProps) {
       ) : null}
     </div>
   );
+}
+
+/** One choice of a facet's dropdown. */
+export type FacetOption = {
+  readonly value: string;
+  readonly label: string;
+
+  /** The heading it is listed under, such as a room's floor. */
+  readonly group?: string;
+};
+
+/**
+ * A facet's choices, with the chosen one kept even when the data no longer offers it.
+ *
+ * A facet built from the loaded data - the vendors present, the rooms devices are in - loses a
+ * value the moment the last row carrying it goes; the dropdown then showed a blank choice while
+ * the badge still counted the filter, and the list stayed narrowed by something nobody could
+ * see. The chosen value stays listed, named as it was, until it is cleared.
+ *
+ * @param options - The choices the data offers, in order.
+ * @param chosen - The value chosen now; blank for any.
+ * @param anyLabel - What the "any" choice is called.
+ * @returns "Any" first, then the choices by group and name, with the chosen one if it was missing.
+ */
+export function facetChoices(
+  options: readonly FacetOption[],
+  chosen: string,
+  anyLabel: string,
+): FacetOption[] {
+  const sorted = [...options].sort(
+    (left, right) =>
+      (left.group ?? '').localeCompare(right.group ?? '') || left.label.localeCompare(right.label),
+  );
+  const isMissing = chosen !== '' && !sorted.some((option) => option.value === chosen);
+
+  return [
+    { value: '', label: anyLabel },
+    ...sorted,
+    ...(isMissing ? [{ value: chosen, label: `${chosen} (gone)` }] : []),
+  ];
 }
 
 /** What one facet's frame needs. */

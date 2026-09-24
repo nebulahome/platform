@@ -10,34 +10,33 @@ import {
   AUTOMATION_MODE_CHOICES,
   AUTOMATION_STATUSES,
   AUTOMATION_TRIGGER_CHOICES,
+  automationFacetCount,
+  MODE_LABELS,
   toAutomationMode,
   toAutomationStatus,
   toAutomationTriggerType,
   type AutomationFilter,
 } from '@/library/automation-filters';
-import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
+import { Facet, FilterSheet, type FacetOption } from '@/routes/library/filter-sheet';
 
-/** One thing a facet may be set to. */
-type FacetOption = {
-  readonly value: string;
-  readonly label: string;
+/** What each standing is called. */
+const STATUS_LABELS: Readonly<Record<(typeof AUTOMATION_STATUSES)[number], string>> = {
+  any: 'Any status',
+  enabled: 'Enabled',
+  off: 'Off',
+  never: 'Never run',
 };
 
 /** Standing choices, with any first. */
 const STATUSES: readonly FacetOption[] = AUTOMATION_STATUSES.map((status) => ({
   value: status,
-  label:
-    status === 'any'
-      ? 'Any status'
-      : status === 'off'
-        ? 'Off'
-        : status.charAt(0).toUpperCase() + status.slice(1),
+  label: STATUS_LABELS[status],
 }));
 
 /** Mode choices, with any first. */
 const MODES: readonly FacetOption[] = AUTOMATION_MODE_CHOICES.map((mode) => ({
   value: mode,
-  label: mode === 'any' ? 'Any mode' : mode.charAt(0).toUpperCase() + mode.slice(1),
+  label: mode === 'any' ? 'Any mode' : MODE_LABELS[mode],
 }));
 
 /** How each trigger kind reads in the sheet. */
@@ -72,16 +71,12 @@ export type AutomationFilterButtonProps = {
  */
 export function AutomationFilterButton(props: AutomationFilterButtonProps) {
   const { filter, onChange } = props;
-  const count =
-    Number(filter.status !== 'any') +
-    Number(filter.mode !== 'any') +
-    Number(filter.triggerType !== 'any');
+  const count = automationFacetCount(filter);
 
   return (
     <FilterSheet
       label="Narrow the automations"
       count={count}
-      width="wide"
       onClear={() => {
         onChange({ ...filter, status: 'any', mode: 'any', triggerType: 'any' });
       }}

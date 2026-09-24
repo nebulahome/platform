@@ -22,7 +22,7 @@ import type {
   BooleanTree,
   TriggerTree,
 } from '@nebula-home/contracts';
-import { flattenTriggers, isTriggerTreeOp } from '@nebula-home/contracts';
+import { flattenTriggers, isTriggerTreeOp, migrateDefinition } from '@nebula-home/contracts';
 
 /** How one part of the chain reads. */
 export type AutomationSummary = {
@@ -283,4 +283,52 @@ export function describeAutomation(definition: AutomationDefinition): Automation
     conditions: checks === 0 ? null : `${String(checks)} condition${checks === 1 ? '' : 's'}`,
     actions,
   };
+}
+
+/**
+ * Reads the stored document, or gives up on it.
+ *
+ * @param definition - Whatever the column held.
+ * @returns The summary, or null when the document is not one this build can read.
+ */
+export function summaryOf(definition: unknown): AutomationSummary | null {
+  // Legacy rows may still hold `{ triggers: [...], conditions, actions }`; the schema's own
+  // migration lifts them, so the list reads them exactly as a save would.
+  const document: unknown = migrateDefinition(definition);
+
+  if (document === null || typeof document !== 'object') {
+    return null;
+  }
+
+  const {
+    triggers,
+    if: ifTree,
+    then,
+  } = document as { readonly triggers?: unknown; readonly if?: unknown; readonly then?: unknown };
+
+  if (triggers === undefined || triggers === null || !Array.isArray(then)) {
+    return null;
+  }
+
+  // Not parsed: a leaf this build does not know still reads as its kind, rather than the whole
+  // row reading as nothing.
+  return describeAutomation({
+    triggers: triggers as AutomationDefinition['triggers'],
+    if: ifTree as AutomationDefinition['if'],
+    then: then as AutomationDefinition['then'],
+  });
+}
+
+/**
+ * The chain a row shows, as one line of words, for the search.
+ *
+ * @param definition - Whatever the column held.
+ * @returns "When the door opens → 2 conditions → Turn on the porch light", or empty.
+ */
+export function chainText(definition: unknown): string {
+  const summary = summaryOf(definition);
+
+  return summary === null
+    ? ''
+    : [summary.trigger, summary.conditions, summary.actions].filter(Boolean).join(' ');
 }

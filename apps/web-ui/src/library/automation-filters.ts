@@ -14,8 +14,12 @@ import {
   type TriggerTree,
 } from '@nebula-home/contracts';
 
+import { chainText } from '@/lib/describe-automation';
+import { matchesQuery } from '@/lib/search-text';
+import { nonDefault, readChoice, type ListCodec } from '@/lib/use-list-state';
+
 /** Standing a filter may insist on. */
-export const AUTOMATION_STATUSES = ['any', 'enabled', 'off'] as const;
+export const AUTOMATION_STATUSES = ['any', 'enabled', 'off', 'never'] as const;
 
 /** Standing a filter may insist on. */
 export type AutomationStatus = (typeof AUTOMATION_STATUSES)[number];
@@ -34,7 +38,7 @@ export type AutomationTriggerChoice = (typeof AUTOMATION_TRIGGER_CHOICES)[number
 
 /** What the header has been set to. */
 export type AutomationFilter = {
-  /** What was typed; matched against the name, the key, and the description. */
+  /** What was typed; every word must be found in the name, the key, the description or the chain. */
   readonly search: string;
 
   /** Standing the automation must have. */
@@ -74,6 +78,10 @@ export function matchesAutomationFilter(
     return false;
   }
 
+  if (filter.status === 'never' && automation.lastTriggeredAt !== null) {
+    return false;
+  }
+
   if (filter.mode !== 'any' && automation.mode !== filter.mode) {
     return false;
   }
@@ -86,15 +94,73 @@ export function matchesAutomationFilter(
     }
   }
 
-  const needle = filter.search.trim().toLowerCase();
+  // The chain is what the row shows and how a rule is remembered - "the one that turns on the
+  // porch light" - so the search reads it too.
+  return matchesQuery(
+    [automation.name, automation.key, automation.description, chainText(automation.definition)],
+    filter.search,
+  );
+}
 
-  if (needle === '') {
-    return true;
-  }
+/** What each mode is called, in the sheet and on the row alike. */
+export const MODE_LABELS: Readonly<Record<AutomationView['mode'], string>> = Object.fromEntries(
+  AUTOMATION_MODES.map((mode) => [mode, mode.charAt(0).toUpperCase() + mode.slice(1)]),
+) as Record<AutomationView['mode'], string>;
 
-  const haystack = [automation.name, automation.key, automation.description];
+/** How the filter lives in the address. */
+export const AUTOMATION_FILTER_CODEC: ListCodec<AutomationFilter> = {
+  keys: ['q', 'status', 'mode', 'trigger'],
 
-  return haystack.some((part) => part.toLowerCase().includes(needle));
+  /**
+   * Reads the filter from the query.
+   *
+   * @param params - The query.
+   * @returns The filter.
+   */
+  read: (params) => ({
+    search: params.get('q') ?? '',
+    status: readChoice(params, 'status', AUTOMATION_STATUSES, 'any'),
+    mode: readChoice(params, 'mode', AUTOMATION_MODE_CHOICES, 'any'),
+    triggerType: readChoice(params, 'trigger', AUTOMATION_TRIGGER_CHOICES, 'any'),
+  }),
+
+  /**
+   * Writes what differs from an open filter.
+   *
+   * @param filter - The filter.
+   * @returns The query entries.
+   */
+  write: (filter) =>
+    nonDefault({
+      q: [filter.search, ''],
+      status: [filter.status, 'any'],
+      mode: [filter.mode, 'any'],
+      trigger: [filter.triggerType, 'any'],
+    }),
+};
+
+/**
+ * How many facets are set, for the Filter button's badge.
+ *
+ * @param filter - The filter.
+ * @returns The count; the search has its own box.
+ */
+export function automationFacetCount(filter: AutomationFilter): number {
+  return (
+    Number(filter.status !== 'any') +
+    Number(filter.mode !== 'any') +
+    Number(filter.triggerType !== 'any')
+  );
+}
+
+/**
+ * Whether anything narrows the list.
+ *
+ * @param filter - The filter.
+ * @returns True when the search or a facet is set.
+ */
+export function isAutomationNarrowing(filter: AutomationFilter): boolean {
+  return filter.search.trim() !== '' || automationFacetCount(filter) > 0;
 }
 
 /**

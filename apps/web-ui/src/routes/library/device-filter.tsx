@@ -9,13 +9,7 @@
 import { SelectField } from '@nebula-home/ui';
 
 import type { DeviceFilter } from '@/library/device-filters';
-import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
-
-/** One thing a facet may be set to. */
-export type FacetOption = {
-  readonly value: string;
-  readonly label: string;
-};
+import { Facet, facetChoices, FilterSheet, type FacetOption } from '@/routes/library/filter-sheet';
 
 /** What the filter needs. */
 export type DeviceFilterButtonProps = {
@@ -40,14 +34,13 @@ export type DeviceFilterButtonProps = {
 export function DeviceFilterButton(props: DeviceFilterButtonProps) {
   const { filter, vendors, areas, onChange } = props;
   const count = Number(filter.vendorId !== '') + Number(filter.areaKey !== '');
-  const vendorOptions = [{ value: '', label: 'Any integration' }, ...vendors];
-  const areaOptions = [{ value: '', label: 'Any area' }, ...areas];
+  const vendorOptions = facetChoices(vendors, filter.vendorId, 'Any integration');
+  const areaOptions = facetChoices(areas, filter.areaKey, 'Any area');
 
   return (
     <FilterSheet
       label="Narrow the devices"
       count={count}
-      width="wide"
       onClear={() => {
         onChange({ ...filter, vendorId: '', areaKey: '' });
       }}
@@ -65,7 +58,7 @@ export function DeviceFilterButton(props: DeviceFilterButtonProps) {
         />
       </Facet>
       <Facet title="Area">
-        {areas.length === 0 ? (
+        {areaOptions.length === 1 ? (
           <span className="text-caption text-foreground-subtle">No device is in a room yet.</span>
         ) : (
           <SelectField

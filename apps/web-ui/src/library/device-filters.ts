@@ -12,9 +12,12 @@
  */
 import type { DeviceView, EntityView } from '@nebula-home/contracts';
 
+import { matchesQuery } from '@/lib/search-text';
+import { nonDefault, type ListCodec } from '@/lib/use-list-state';
+
 /** What the header has been set to. */
 export type DeviceFilter = {
-  /** Free text, matched case-insensitively. Blank matches everything. */
+  /** Free text; every word must be found. Blank matches everything. */
   readonly search: string;
 
   /** Only devices of this vendor. Blank means any. */
@@ -35,30 +38,79 @@ export const OPEN_FILTER: DeviceFilter = {
   deviceId: '',
 };
 
+/** How the filter lives in the address: `?q=`, `?vendor=`, `?area=`, and `?device=` from a link. */
+export const DEVICE_FILTER_CODEC: ListCodec<DeviceFilter> = {
+  keys: ['q', 'vendor', 'area', 'device'],
+
+  /**
+   * Reads the filter from the query.
+   *
+   * @param params - The query.
+   * @returns The filter.
+   */
+  read: (params) => ({
+    search: params.get('q') ?? '',
+    vendorId: params.get('vendor') ?? '',
+    areaKey: params.get('area') ?? '',
+    deviceId: params.get('device') ?? '',
+  }),
+
+  /**
+   * Writes what differs from an open filter.
+   *
+   * @param filter - The filter.
+   * @returns The query entries.
+   */
+  write: (filter) =>
+    nonDefault({
+      q: [filter.search, ''],
+      vendor: [filter.vendorId, ''],
+      area: [filter.areaKey, ''],
+      device: [filter.deviceId, ''],
+    }),
+};
+
 /**
- * Whether any facet is set - the search aside, which has its own box to clear.
+ * Whether anything narrows the list: the search, a facet, or a link to one device.
  *
  * @param filter - What the header has been set to.
- * @returns True when a facet narrows the list.
+ * @returns True when fewer than every device may be shown.
  */
 export function isNarrowing(filter: DeviceFilter): boolean {
-  return filter.vendorId !== '' || filter.areaKey !== '' || filter.deviceId !== '';
+  return (
+    filter.search.trim() !== '' ||
+    filter.vendorId !== '' ||
+    filter.areaKey !== '' ||
+    filter.deviceId !== ''
+  );
 }
+
+/** Words the search finds a device by that the device row does not carry itself. */
+export type DeviceSearchWords = {
+  /** The names of the tags on the device and on its entities. */
+  readonly tagNames?: readonly string[];
+
+  /** The vendor's name as the Integration column shows it. */
+  readonly vendorName?: string | undefined;
+};
 
 /**
  * Whether one device belongs in the list under a filter.
  *
+ * The search follows the rule every search box does ({@link matchesQuery}): case and accents
+ * aside, every word typed must be found in one of the fields.
+ *
  * @param device - The device.
  * @param entities - The entities it exposes.
  * @param filter - What the header has been set to.
- * @param tagNames - The names of the tags on the device and on its entities, for the search.
+ * @param words - Tag names and the vendor's name, for the search.
  * @returns True when every part of the filter admits it.
  */
 export function matchesFilter(
   device: DeviceView,
   entities: readonly EntityView[],
   filter: DeviceFilter,
-  tagNames: readonly string[] = [],
+  words: DeviceSearchWords = {},
 ): boolean {
   if (filter.deviceId !== '' && device.id !== filter.deviceId) {
     return false;
@@ -72,25 +124,20 @@ export function matchesFilter(
     return false;
   }
 
-  const needle = filter.search.trim().toLowerCase();
-
-  if (needle === '') {
-    return true;
-  }
-
-  const haystack = [
-    device.name,
-    device.id,
-    device.model ?? '',
-    device.manufacturer ?? '',
-    device.vendorId,
-    device.externalId ?? '',
-    device.areaName ?? '',
-    ...entities.flatMap((entity) => [entity.entityId, entity.name]),
-    ...tagNames,
-  ]
-    .join('\n')
-    .toLowerCase();
-
-  return haystack.includes(needle);
+  return matchesQuery(
+    [
+      device.name,
+      device.id,
+      device.model,
+      device.manufacturer,
+      device.vendorId,
+      words.vendorName,
+      device.driverName,
+      device.externalId,
+      device.areaName,
+      ...entities.flatMap((entity) => [entity.entityId, entity.name, ...entity.searchAliases]),
+      ...(words.tagNames ?? []),
+    ],
+    filter.search,
+  );
 }

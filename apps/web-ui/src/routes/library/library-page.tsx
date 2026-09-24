@@ -40,6 +40,14 @@ export type LibraryPageProps = {
   readonly count?: number | undefined;
 
   /**
+   * How many of them the search and the filters leave, when they leave fewer.
+   *
+   * The header then reads "3 of 12 devices", on every page the same way, rather than each page
+   * writing its own line under the header.
+   */
+  readonly shownCount?: number | undefined;
+
+  /**
    * The page this one is inside, for a header that reads `Integrations / Shelly`.
    *
    * The way a repository names itself - owner, slash, name - so that where you are and the way
@@ -95,6 +103,7 @@ export function LibraryPage(props: LibraryPageProps) {
     noun,
     plural = `${noun}s`,
     count,
+    shownCount,
     parent,
     tools,
     action,
@@ -139,6 +148,7 @@ export function LibraryPage(props: LibraryPageProps) {
 
           {count === undefined ? null : (
             <span className="text-caption whitespace-nowrap text-foreground-subtle tabular">
+              {shownCount === undefined || shownCount === count ? '' : `${String(shownCount)} of `}
               {count} {count === 1 ? noun : plural}
             </span>
           )}

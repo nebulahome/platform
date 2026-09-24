@@ -5,7 +5,10 @@
  * renders. The search reads more than the vendor's name on purpose: a person looking for their
  * printer types what is on the box, which is a model, not the company that made it.
  */
-import type { IntegrationVendorView } from '@nebula-home/contracts';
+import type { DiscoveredDevice, IntegrationVendorView } from '@nebula-home/contracts';
+
+import { matchesQuery } from '@/lib/search-text';
+import { nonDefault, readChoice, type ListCodec } from '@/lib/use-list-state';
 
 /**
  * Which wire to keep, or any.
@@ -20,7 +23,7 @@ export type InternetFilter = '' | 'needed' | 'local';
 
 /** What the header has been set to. */
 export type VendorFilter = {
-  /** Free text, matched case-insensitively. Blank matches everything. */
+  /** Free text; every word must be found. Blank matches everything. */
   readonly search: string;
 
   /** Only vendors with a driver on this wire. Blank means any. */
@@ -43,6 +46,65 @@ export function isNarrowing(filter: VendorFilter): boolean {
   return filter.search.trim() !== '' || filter.transport !== '' || filter.internet !== '';
 }
 
+/** How the filter lives in the address. */
+export const VENDOR_FILTER_CODEC: ListCodec<VendorFilter> = {
+  keys: ['q', 'wire', 'internet'],
+
+  /**
+   * Reads the filter from the query.
+   *
+   * @param params - The query.
+   * @returns The filter.
+   */
+  read: (params) => ({
+    search: params.get('q') ?? '',
+    transport: readChoice<TransportFilter>(params, 'wire', ['', 'http', 'mqtt', 'own'], ''),
+    internet: readChoice<InternetFilter>(params, 'internet', ['', 'needed', 'local'], ''),
+  }),
+
+  /**
+   * Writes what differs from an open filter.
+   *
+   * @param filter - The filter.
+   * @returns The query entries.
+   */
+  write: (filter) =>
+    nonDefault({
+      q: [filter.search, ''],
+      wire: [filter.transport, ''],
+      internet: [filter.internet, ''],
+    }),
+};
+
+/**
+ * Whether a device found on the network answers the search.
+ *
+ * The strip of found devices sits above the grid and follows the same search, so typing
+ * "plug" does not leave a strip of lamps in view above a grid narrowed to plugs.
+ *
+ * @param device - The device found.
+ * @param vendorName - Its vendor's name.
+ * @param search - What was typed.
+ * @returns True when every word is in its name, model, address, vendor or its model choices.
+ */
+export function matchesDiscovered(
+  device: DiscoveredDevice,
+  vendorName: string | undefined,
+  search: string,
+): boolean {
+  return matchesQuery(
+    [
+      device.name,
+      device.model,
+      device.address,
+      device.externalId,
+      vendorName,
+      ...device.modelChoices,
+    ],
+    search,
+  );
+}
+
 /**
  * Whether a transport is one a vendor ships rather than one of the platform's.
  *
@@ -61,20 +123,17 @@ export function isOwnTransport(transport: string): boolean {
  * @returns True when every facet lets it through.
  */
 export function matchesVendorFilter(vendor: IntegrationVendorView, filter: VendorFilter): boolean {
-  const needle = filter.search.trim().toLowerCase();
-
-  if (needle !== '') {
-    const haystack = [
-      vendor.name,
-      vendor.id,
-      ...vendor.drivers.flatMap((driver) => [driver.name, ...driver.models]),
-    ]
-      .join('\n')
-      .toLowerCase();
-
-    if (!haystack.includes(needle)) {
-      return false;
-    }
+  if (
+    !matchesQuery(
+      [
+        vendor.name,
+        vendor.id,
+        ...vendor.drivers.flatMap((driver) => [driver.name, ...driver.models]),
+      ],
+      filter.search,
+    )
+  ) {
+    return false;
   }
 
   if (filter.transport === 'own' && !vendor.transports.some(isOwnTransport)) {

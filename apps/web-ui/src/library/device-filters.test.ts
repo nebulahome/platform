@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { entityIdSchema, type DeviceView, type EntityView } from '@nebula-home/contracts';
 
-import { isNarrowing, matchesFilter, OPEN_FILTER } from './device-filters';
+import { DEVICE_FILTER_CODEC, isNarrowing, matchesFilter, OPEN_FILTER } from './device-filters';
 
 /** The printer, as the registry lists it. */
 const PRINTER: DeviceView = {
@@ -86,8 +86,8 @@ describe('matchesFilter', () => {
   it('searches the tags on the device and on its entities, by name', () => {
     const tagged = { ...OPEN_FILTER, search: 'exterior' };
 
-    expect(matchesFilter(PRINTER, [NOZZLE], tagged, ['Exterior'])).toBe(true);
-    expect(matchesFilter(PRINTER, [NOZZLE], tagged, [])).toBe(false);
+    expect(matchesFilter(PRINTER, [NOZZLE], tagged, { tagNames: ['Exterior'] })).toBe(true);
+    expect(matchesFilter(PRINTER, [NOZZLE], tagged, { tagNames: [] })).toBe(false);
     expect(matchesFilter(PRINTER, [NOZZLE], tagged)).toBe(false);
   });
 
@@ -105,10 +105,49 @@ describe('matchesFilter', () => {
   });
 });
 
+describe('the search, as every list searches', () => {
+  it('finds a device by the vendor name the page shows, its driver and its entities’ synonyms', () => {
+    const withSynonym = { ...NOZZLE, searchAliases: ['hotend'] };
+
+    expect(
+      matchesFilter(
+        PRINTER,
+        [NOZZLE],
+        { ...OPEN_FILTER, search: 'bambu lab' },
+        { vendorName: 'Bambu Lab' },
+      ),
+    ).toBe(true);
+    expect(matchesFilter(PRINTER, [withSynonym], { ...OPEN_FILTER, search: 'hotend' })).toBe(true);
+    expect(matchesFilter(PRINTER, [NOZZLE], { ...OPEN_FILTER, search: PRINTER.driverName })).toBe(
+      true,
+    );
+  });
+
+  it('wants every word, in any order, and ignores accents', () => {
+    const named = { ...PRINTER, name: 'Stampante officina' };
+
+    expect(matchesFilter(named, [], { ...OPEN_FILTER, search: 'officina stampante' })).toBe(true);
+    expect(matchesFilter(named, [], { ...OPEN_FILTER, search: 'officìna' })).toBe(true);
+    expect(matchesFilter(named, [], { ...OPEN_FILTER, search: 'officina garage' })).toBe(false);
+  });
+});
+
+describe('DEVICE_FILTER_CODEC', () => {
+  it('keeps the filter in the address, and leaves an open one out of it', () => {
+    const filter = { ...OPEN_FILTER, search: 'nozzle', areaKey: 'workshop' };
+    const written = DEVICE_FILTER_CODEC.write(filter);
+
+    expect(written).toEqual({ q: 'nozzle', area: 'workshop' });
+    expect(DEVICE_FILTER_CODEC.read(new URLSearchParams(written))).toEqual(filter);
+    expect(DEVICE_FILTER_CODEC.write(OPEN_FILTER)).toEqual({});
+  });
+});
+
 describe('isNarrowing', () => {
-  it('says whether a facet is set, search aside', () => {
+  it('says whether anything narrows the list, the search included', () => {
     expect(isNarrowing(OPEN_FILTER)).toBe(false);
-    expect(isNarrowing({ ...OPEN_FILTER, search: 'x' })).toBe(false);
+    expect(isNarrowing({ ...OPEN_FILTER, search: '  ' })).toBe(false);
+    expect(isNarrowing({ ...OPEN_FILTER, search: 'x' })).toBe(true);
     expect(isNarrowing({ ...OPEN_FILTER, vendorId: 'shelly' })).toBe(true);
     expect(isNarrowing({ ...OPEN_FILTER, deviceId: 'bambu-lab-p1s' })).toBe(true);
   });

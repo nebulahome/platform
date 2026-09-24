@@ -14,18 +14,25 @@
  *
  * Nothing is added here. A device is added from its vendor's page, and appears here the moment
  * the hub has heard from it; a link from that page - `?device=` - opens this one on that row
- * alone, expanded, which is the registry's answer to "what did that just create".
+ * alone, expanded, which is the registry's answer to "what did that just create". The search and
+ * the filters are in the address too, so the back button from an entity's page returns to the
+ * list as it was left.
  */
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router';
 
 import type { DeviceView, EntityView } from '@nebula-home/contracts';
-import { Badge, Button, TextField } from '@nebula-home/ui';
+import { Badge, Button } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
+import { useListState } from '@/lib/use-list-state';
 import { fetchDevices, fetchEntities, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
-import { matchesFilter, OPEN_FILTER, type DeviceFilter } from '@/library/device-filters';
+import {
+  DEVICE_FILTER_CODEC,
+  isNarrowing,
+  matchesFilter,
+  OPEN_FILTER,
+} from '@/library/device-filters';
 import { capabilityStateOf, entityScopesOf, isCommandable } from '@/library/entity-control';
 import { readingOf, standingOf, type DeviceStanding } from '@/library/entity-reading';
 import { useLive } from '@/live/live-store';
@@ -34,13 +41,13 @@ import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { DEVICE_COLUMNS, DeviceRow } from '@/routes/library/device-row';
 import type { EntityLine } from '@/routes/library/entity-row';
 import { LibraryPage } from '@/routes/library/library-page';
+import { NoMatches } from '@/routes/library/no-matches';
+import { SearchField } from '@/routes/library/search-field';
+import { useAreas } from '@/routes/library/use-areas';
 import { useTags } from '@/routes/library/use-tags';
 
 /** How often "last seen" is re-read against the clock, so "now" turns into "1 minute ago". */
 const CLOCK_MS = 30_000;
-
-/** The query parameter a link names one device with. */
-const DEVICE_PARAM = 'device';
 
 /** One device with everything the row needs, resolved once per render. */
 type DeviceLine = {
@@ -79,9 +86,9 @@ export function DevicesPage() {
   const can = useSession((state) => state.can);
   const canEditEntities = can('entity:write');
   const { tags } = useTags();
-  const [params, setParams] = useSearchParams();
-  const linkedDeviceId = params.get(DEVICE_PARAM) ?? '';
-  const [filter, setFilter] = useState<DeviceFilter>(OPEN_FILTER);
+  const { areas } = useAreas();
+  const [filter, setFilter] = useListState(DEVICE_FILTER_CODEC);
+  const linkedDeviceId = filter.deviceId;
   const [openIds, setOpenIds] = useState<ReadonlySet<string>>(
     () => new Set(linkedDeviceId === '' ? [] : [linkedDeviceId]),
   );
@@ -166,7 +173,6 @@ export function DevicesPage() {
     ['nebula', 'NebulaHome'],
     ...(vendors.data ?? []).map((vendor): [string, string] => [vendor.id, vendor.name]),
   ]);
-  const effectiveFilter: DeviceFilter = { ...filter, deviceId: linkedDeviceId };
   const all: DeviceLine[] = (devices.data ?? []).map((device) => {
     const lines: EntityLine[] = (groups.get(device.id) ?? []).map((entity) => {
       const live = readings[entity.entityId];
@@ -201,31 +207,46 @@ export function DevicesPage() {
     matchesFilter(
       line.device,
       line.lines.map((entry) => entry.entity),
-      effectiveFilter,
-      [
-        ...line.device.tagIds.flatMap((id) => {
-          const tag = tagsById.get(id);
+      filter,
+      {
+        vendorName: vendorNames.get(line.device.vendorId),
+        tagNames: [
+          ...line.device.tagIds.flatMap((id) => {
+            const tag = tagsById.get(id);
 
-          return tag === undefined ? [] : [tag.name];
-        }),
-        ...line.lines.flatMap((entry) => entry.tags.map(({ tag }) => tag.name)),
-      ],
+            return tag === undefined ? [] : [tag.name];
+          }),
+          ...line.lines.flatMap((entry) => entry.tags.map(({ tag }) => tag.name)),
+        ],
+      },
     ),
   );
 
-  const vendorOptions = [...new Set(all.map((line) => line.device.vendorId))]
-    .sort()
-    .map((id) => ({ value: id, label: vendorNames.get(id) ?? id }));
+  const vendorOptions = [...new Set(all.map((line) => line.device.vendorId))].map((id) => ({
+    value: id,
+    label: vendorNames.get(id) ?? id,
+  }));
+  const areasByKey = new Map(areas.map((area) => [area.key, area]));
+  // Each room under its floor, the way the areas page arranges them.
   const areaOptions = [
     ...new Map(
-      all
-        .filter((line) => line.device.areaKey !== null)
-        .map((line) => [line.device.areaKey ?? '', line.device.areaName ?? '']),
-    ),
-  ]
-    .sort((left, right) => left[1].localeCompare(right[1]))
-    .map(([value, label]) => ({ value, label }));
-  const entityCount = all.reduce((sum, line) => sum + line.lines.length, 0);
+      all.flatMap((line) =>
+        line.device.areaKey === null ? [] : [[line.device.areaKey, line] as const],
+      ),
+    ).entries(),
+  ].map(([key, line]) => {
+    const area = areasByKey.get(key);
+    const floor = areas.find(
+      (candidate) => candidate.id === area?.parentId && candidate.kind === 'floor',
+    );
+
+    return {
+      value: key,
+      label: line.device.areaName ?? key,
+      ...(floor === undefined ? {} : { group: floor.name }),
+    };
+  });
+  const shownEntityCount = shown.reduce((sum, line) => sum + line.lines.length, 0);
 
   /**
    * Opens a device that is shut, or shuts one that is open.
@@ -251,6 +272,7 @@ export function DevicesPage() {
       title="Devices"
       noun="device"
       count={devices.isPending ? undefined : all.length}
+      shownCount={shown.length}
       tools={
         <>
           {linkedDeviceId === '' ? null : (
@@ -258,28 +280,17 @@ export function DevicesPage() {
               variant="ghost"
               size="compact"
               onClick={() => {
-                setParams((current) => {
-                  const next = new URLSearchParams(current);
-
-                  next.delete(DEVICE_PARAM);
-
-                  return next;
-                });
+                setFilter({ ...filter, deviceId: '' });
               }}
             >
               Show all devices
             </Button>
           )}
-          <TextField
-            label="Search"
-            isLabelHidden
-            size="compact"
-            type="search"
+          <SearchField
             placeholder="Search devices, entities…"
-            className="w-44 lg:w-72"
             value={filter.search}
-            onChange={(event) => {
-              setFilter({ ...filter, search: event.target.value });
+            onChange={(search) => {
+              setFilter({ ...filter, search });
             }}
           />
           <DeviceFilterButton
@@ -306,9 +317,7 @@ export function DevicesPage() {
           </Badge>
         )}
         <span>
-          {shown.length === all.length ? '' : `${String(shown.length)} of `}
-          {all.length} device{all.length === 1 ? '' : 's'} · {entityCount} entit
-          {entityCount === 1 ? 'y' : 'ies'}
+          {shownEntityCount} entit{shownEntityCount === 1 ? 'y' : 'ies'}
         </span>
       </div>
 
@@ -327,9 +336,18 @@ export function DevicesPage() {
         </div>
 
         {shown.length === 0 ? (
-          <p className="px-4 py-3.5 text-ui text-foreground-muted">
-            Nothing matches. Clear the search or widen the filters.
-          </p>
+          <div className="p-4">
+            <NoMatches
+              query={filter.search}
+              onClear={
+                isNarrowing(filter)
+                  ? () => {
+                      setFilter(OPEN_FILTER);
+                    }
+                  : undefined
+              }
+            />
+          </div>
         ) : (
           <ul>
             {shown.map((line) => (

@@ -22,20 +22,24 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import type { DiscoveredDevice } from '@nebula-home/contracts';
-import { Button, TextField } from '@nebula-home/ui';
+import { Button } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
+import { useListState } from '@/lib/use-list-state';
 import { fetchDevices, fetchDiscovered, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
   isNarrowing,
+  matchesDiscovered,
   matchesVendorFilter,
   OPEN_VENDOR_FILTER,
-  type VendorFilter,
+  VENDOR_FILTER_CODEC,
 } from '@/library/vendor-filters';
 import { AdoptDialog } from '@/routes/library/adopt-dialog';
 import { DiscoveredStrip } from '@/routes/library/discovered-strip';
 import { IntegrationFilter } from '@/routes/library/integration-filter';
 import { LibraryPage } from '@/routes/library/library-page';
+import { NoMatches } from '@/routes/library/no-matches';
+import { SearchField } from '@/routes/library/search-field';
 import { VendorCard } from '@/routes/library/vendor-card';
 
 /**
@@ -49,7 +53,7 @@ export function IntegrationsPage() {
   const canSeeDevices = can('device:read');
   const canAddDevices = can('device:write');
   const queryClient = useQueryClient();
-  const [filter, setFilter] = useState<VendorFilter>(OPEN_VENDOR_FILTER);
+  const [filter, setFilter] = useListState(VENDOR_FILTER_CODEC);
   const [adopting, setAdopting] = useState<DiscoveredDevice | null>(null);
 
   const vendors = useQuery({
@@ -103,18 +107,14 @@ export function IntegrationsPage() {
       hasTabs={false}
       noun="integration"
       count={vendors.isPending ? undefined : all.length}
+      shownCount={shown.length}
       tools={
         <>
-          <TextField
-            label="Search"
-            isLabelHidden
-            size="compact"
-            type="search"
+          <SearchField
             placeholder="Search integrations…"
-            className="w-44 lg:w-72"
             value={filter.search}
-            onChange={(event) => {
-              setFilter({ ...filter, search: event.target.value });
+            onChange={(search) => {
+              setFilter({ ...filter, search });
             }}
           />
           <IntegrationFilter filter={filter} onChange={setFilter} />
@@ -133,16 +133,25 @@ export function IntegrationsPage() {
       emptyMessage="The hub has no integration bundles loaded. The ones that ship with it appear here as soon as it starts."
     >
       <DiscoveredStrip
-        devices={discovered.data ?? []}
+        devices={(discovered.data ?? []).filter((device) =>
+          matchesDiscovered(
+            device,
+            all.find((vendor) => vendor.id === device.vendorId)?.name,
+            filter.search,
+          ),
+        )}
         vendors={all}
         canAdopt={canAddDevices}
         onAdopt={setAdopting}
       />
 
       {shown.length === 0 && isNarrowing(filter) ? (
-        <p className="text-ui text-foreground-muted">
-          Nothing matches. Clear the search or widen the filter.
-        </p>
+        <NoMatches
+          query={filter.search}
+          onClear={() => {
+            setFilter(OPEN_VENDOR_FILTER);
+          }}
+        />
       ) : (
         <ul className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
           {shown.map((vendor) => (
@@ -171,6 +180,7 @@ export function IntegrationsPage() {
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.discovered });
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.tags });
         }}
       />
     </LibraryPage>

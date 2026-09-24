@@ -184,6 +184,8 @@ export function VendorPage() {
     setOpen(null);
     void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
     void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
+    // A save can change the tags on the device, and the tags page counts what carries each.
+    void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.tags });
 
     if (state === 'starting' || state === 'identifying') {
       setTimeout(() => {

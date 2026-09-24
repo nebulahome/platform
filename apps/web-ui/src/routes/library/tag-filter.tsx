@@ -82,7 +82,6 @@ export function TagFilterButton(props: TagFilterButtonProps) {
     <FilterSheet
       label="Narrow the tags"
       count={count}
-      width="wide"
       onClear={() => {
         onChange({ ...filter, color: '', usage: 'any' });
       }}

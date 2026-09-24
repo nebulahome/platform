@@ -12,15 +12,12 @@
  * listening yet (API.md §10), and a button that posted to it would fail at the one moment it
  * mattered.
  */
-import {
-  migrateDefinition,
-  type AutomationDefinition,
-  type AutomationView,
-} from '@nebula-home/contracts';
+import type { AutomationView } from '@nebula-home/contracts';
 import { Badge, Button, cn } from '@nebula-home/ui';
 
-import { describeAutomation } from '@/lib/describe-automation';
+import { summaryOf, type AutomationSummary } from '@/lib/describe-automation';
 import { relativeTime } from '@/lib/format-time';
+import { MODE_LABELS } from '@/library/automation-filters';
 
 /**
  * The column widths, shared by the header and every row so they line up.
@@ -62,7 +59,7 @@ export type AutomationRowProps = {
  */
 export function AutomationRow(props: AutomationRowProps) {
   const { automation, isBusy, onEdit, onToggle, onDelete } = props;
-  const summary = readSummary(automation.definition);
+  const summary = summaryOf(automation.definition);
   const lastRun =
     automation.lastTriggeredAt === null ? 'never run' : relativeTime(automation.lastTriggeredAt);
 
@@ -77,7 +74,9 @@ export function AutomationRow(props: AutomationRowProps) {
           <Chain summary={summary} />
         </span>
 
-        <span className="hidden text-ui text-foreground-muted md:block">{automation.mode}</span>
+        <span className="hidden text-ui text-foreground-muted md:block">
+          {MODE_LABELS[automation.mode]}
+        </span>
 
         <span className="hidden text-caption text-foreground-subtle tabular md:block">
           {lastRun}
@@ -128,7 +127,7 @@ export function AutomationRow(props: AutomationRowProps) {
 
 /** What the chain cell needs. */
 type ChainProps = {
-  readonly summary: ReturnType<typeof describeAutomation> | null;
+  readonly summary: AutomationSummary | null;
 };
 
 /**
@@ -161,40 +160,6 @@ function Chain(props: ChainProps) {
       <Step>{summary.actions}</Step>
     </span>
   );
-}
-
-/**
- * Reads the stored document, or gives up on it.
- *
- * @param definition - Whatever the column held.
- * @returns The summary, or null when the document is not one this build can read.
- */
-function readSummary(definition: unknown): ReturnType<typeof describeAutomation> | null {
-  // Legacy rows may still hold `{ triggers: [...], conditions, actions }`; the schema's own
-  // migration lifts them, so the list reads them exactly as a save would.
-  const document: unknown = migrateDefinition(definition);
-
-  if (document === null || typeof document !== 'object') {
-    return null;
-  }
-
-  const {
-    triggers,
-    if: ifTree,
-    then,
-  } = document as { readonly triggers?: unknown; readonly if?: unknown; readonly then?: unknown };
-
-  if (triggers === undefined || triggers === null || !Array.isArray(then)) {
-    return null;
-  }
-
-  // Not parsed: a leaf this build does not know still reads as its kind, rather than the whole
-  // row reading as nothing.
-  return describeAutomation({
-    triggers: triggers as AutomationDefinition['triggers'],
-    if: ifTree as AutomationDefinition['if'],
-    then: then as AutomationDefinition['then'],
-  });
 }
 
 /** What one step of the chain needs. */

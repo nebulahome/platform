@@ -5,19 +5,27 @@
  * live only in the editor — the table is what you scan, not what you rewrite.
  */
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import type { AliasView } from '@nebula-home/contracts';
-import { Badge, Button, TextField } from '@nebula-home/ui';
+import { Badge, Button } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
-import { matchesAliasFilter, OPEN_ALIAS_FILTER, type AliasFilter } from '@/library/alias-filters';
+import { useListState } from '@/lib/use-list-state';
+import {
+  ALIAS_FILTER_CODEC,
+  byAliasName,
+  isAliasNarrowing,
+  matchesAliasFilter,
+  OPEN_ALIAS_FILTER,
+} from '@/library/alias-filters';
 import { fetchAliases, fetchEntities, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { NO_READING, readingOf } from '@/library/entity-reading';
 import { useLive } from '@/live/live-store';
 import { AliasFilterButton } from '@/routes/library/alias-filter';
 import { LibraryPage } from '@/routes/library/library-page';
+import { NoMatches } from '@/routes/library/no-matches';
+import { SearchField } from '@/routes/library/search-field';
 
 /**
  * The column widths, shared by the header and every row so they line up.
@@ -40,7 +48,7 @@ export function AliasesPage() {
   const can = useSession((state) => state.can);
   const canWrite = can('alias:write');
   const navigate = useNavigate();
-  const [filter, setFilter] = useState<AliasFilter>(OPEN_ALIAS_FILTER);
+  const [filter, setFilter] = useListState(ALIAS_FILTER_CODEC);
 
   const aliases = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.aliases,
@@ -66,14 +74,15 @@ export function AliasesPage() {
     queryFn: async ({ signal }: { signal: AbortSignal }) => fetchEntities(signal),
   });
 
-  const items = aliases.data ?? [];
+  const items = byAliasName(aliases.data ?? []);
   const entityById = new Map((entities.data ?? []).map((entity) => [entity.entityId, entity]));
 
   const lines = items.map((alias) => {
     const entity = entityById.get(alias.entityId);
+    // An alias whose entity is missing reads nothing at all, which is what unavailable means.
     const reading =
       entity === undefined
-        ? { text: NO_READING, isAvailable: true as boolean }
+        ? { text: NO_READING, isAvailable: false }
         : readingOf(entity, readings[alias.entityId]);
 
     return { alias, reading };
@@ -83,9 +92,10 @@ export function AliasesPage() {
     matchesAliasFilter(line.alias, filter, line.reading.isAvailable),
   );
 
-  const domainOptions = [...new Set(items.map((alias) => alias.domain))]
-    .sort((left, right) => left.localeCompare(right))
-    .map((domain) => ({ value: domain, label: domain }));
+  const domainOptions = [...new Set(items.map((alias) => alias.domain))].map((domain) => ({
+    value: domain,
+    label: domain,
+  }));
 
   return (
     <LibraryPage
@@ -94,18 +104,14 @@ export function AliasesPage() {
       noun="alias"
       plural="aliases"
       count={aliases.isPending ? undefined : items.length}
+      shownCount={shown.length}
       tools={
         <>
-          <TextField
-            label="Search"
-            isLabelHidden
-            size="compact"
-            type="search"
+          <SearchField
             placeholder="Search aliases, sources…"
-            className="w-44 lg:w-72"
             value={filter.search}
-            onChange={(event) => {
-              setFilter({ ...filter, search: event.target.value });
+            onChange={(search) => {
+              setFilter({ ...filter, search });
             }}
           />
           <AliasFilterButton filter={filter} domains={domainOptions} onChange={setFilter} />
@@ -138,10 +144,6 @@ export function AliasesPage() {
             {liveStatus === 'connecting' ? 'Connecting' : 'Not live'}
           </Badge>
         )}
-        <span>
-          {shown.length === items.length ? '' : `${String(shown.length)} of `}
-          {items.length} alias{items.length === 1 ? '' : 'es'}
-        </span>
       </div>
 
       <div className="rounded-panel border border-border face-card">
@@ -158,9 +160,18 @@ export function AliasesPage() {
         </div>
 
         {shown.length === 0 ? (
-          <p className="px-4 py-3.5 text-ui text-foreground-muted">
-            Nothing matches. Clear the search or widen the filters.
-          </p>
+          <div className="p-4">
+            <NoMatches
+              query={filter.search}
+              onClear={
+                isAliasNarrowing(filter)
+                  ? () => {
+                      setFilter(OPEN_ALIAS_FILTER);
+                    }
+                  : undefined
+              }
+            />
+          </div>
         ) : (
           <ul>
             {shown.map((line) => (

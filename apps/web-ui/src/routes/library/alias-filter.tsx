@@ -1,36 +1,15 @@
 /**
- * The filter on the aliases page: which behavioural domain, and which standing.
+ * The filter on the aliases page: which behavioural domain, whether it is on, and what is wrong.
  *
- * Both are dropdowns. Domains grow with every helper kind in use, and standing is five words
- * rather than a segmented row that would fight the sheet. The button and the sheet are the
- * library's shared shell.
+ * The domain is a dropdown - they grow with every kind of helper in use. Whether an alias is on,
+ * and whether it is failing or unavailable, are two short choices of their own, because they are
+ * two questions: an alias can be on and failing, and that is the one worth finding. The button
+ * and the sheet are the library's shared shell.
  */
-import { SelectField } from '@nebula-home/ui';
+import { Segmented, SelectField } from '@nebula-home/ui';
 
-import { ALIAS_STATUSES, type AliasFilter, type AliasStatus } from '@/library/alias-filters';
-import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
-
-/** One thing a facet may be set to. */
-export type FacetOption = {
-  readonly value: string;
-  readonly label: string;
-};
-
-/** Standing choices, with any first. */
-const STATUSES: readonly FacetOption[] = ALIAS_STATUSES.map((status) => ({
-  value: status,
-  label: status === 'any' ? 'Any status' : status.charAt(0).toUpperCase() + status.slice(1),
-}));
-
-/**
- * Reads a dropdown value back as a status.
- *
- * @param value - What the dropdown chose.
- * @returns The status it names, or any.
- */
-function toStatus(value: string): AliasStatus {
-  return ALIAS_STATUSES.find((status) => status === value) ?? 'any';
-}
+import { aliasFacetCount, type AliasFilter } from '@/library/alias-filters';
+import { Facet, facetChoices, FilterSheet, type FacetOption } from '@/routes/library/filter-sheet';
 
 /** What the filter needs. */
 export type AliasFilterButtonProps = {
@@ -51,20 +30,18 @@ export type AliasFilterButtonProps = {
  */
 export function AliasFilterButton(props: AliasFilterButtonProps) {
   const { filter, domains, onChange } = props;
-  const count = Number(filter.domain !== '') + Number(filter.status !== 'any');
-  const domainOptions = [{ value: '', label: 'Any domain' }, ...domains];
+  const domainOptions = facetChoices(domains, filter.domain, 'Any domain');
 
   return (
     <FilterSheet
       label="Narrow the aliases"
-      count={count}
-      width="wide"
+      count={aliasFacetCount(filter)}
       onClear={() => {
-        onChange({ ...filter, domain: '', status: 'any' });
+        onChange({ ...filter, domain: '', state: 'any', health: 'any' });
       }}
     >
       <Facet title="Domain">
-        {domains.length === 0 ? (
+        {domainOptions.length === 1 ? (
           <span className="text-caption text-foreground-subtle">No alias has a domain yet.</span>
         ) : (
           <SelectField
@@ -79,15 +56,35 @@ export function AliasFilterButton(props: AliasFilterButtonProps) {
           />
         )}
       </Facet>
-      <Facet title="Status">
-        <SelectField
-          label="Status"
-          isLabelHidden
+      <Facet title="State">
+        <Segmented
+          label="State"
           size="compact"
-          options={STATUSES}
-          value={filter.status}
-          onChange={(value) => {
-            onChange({ ...filter, status: toStatus(value) });
+          className="self-start"
+          options={[
+            { value: 'any', label: 'Any' },
+            { value: 'on', label: 'On' },
+            { value: 'off', label: 'Off' },
+          ]}
+          value={filter.state}
+          onChange={(state) => {
+            onChange({ ...filter, state });
+          }}
+        />
+      </Facet>
+      <Facet title="Problems">
+        <Segmented
+          label="Problems"
+          size="compact"
+          className="self-start"
+          options={[
+            { value: 'any', label: 'Any' },
+            { value: 'failing', label: 'Failing' },
+            { value: 'unavailable', label: 'Unavailable' },
+          ]}
+          value={filter.health}
+          onChange={(health) => {
+            onChange({ ...filter, health });
           }}
         />
       </Facet>

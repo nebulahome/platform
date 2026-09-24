@@ -223,7 +223,7 @@ describe('AliasesPage', () => {
     expect(screen.getByText(/Nothing matches/u)).toBeTruthy();
   });
 
-  it('narrows the list by domain and by status, from the filter in the header', async () => {
+  it('narrows the list by domain and by what is wrong, from the filter in the header', async () => {
     renderPage();
     await screen.findByText('Kitchen average');
 
@@ -236,8 +236,7 @@ describe('AliasesPage', () => {
 
     fireEvent.click(screen.getByRole('combobox', { name: /domain/iu }));
     fireEvent.click(screen.getByRole('option', { name: 'Any domain' }));
-    fireEvent.click(screen.getByRole('combobox', { name: /status/iu }));
-    fireEvent.click(screen.getByRole('option', { name: 'Failing' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Failing' }));
 
     expect(screen.queryByText('Kitchen average')).toBeNull();
     expect(screen.getByText('Porch light')).toBeTruthy();
