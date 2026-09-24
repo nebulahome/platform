@@ -1,0 +1,64 @@
+import { describe, expect, it } from 'vitest';
+
+import type { CapabilityName, EntityDomain } from '@nebula-home/contracts';
+
+import { CARD_SIZES, cardKindOf, sizeName, snapSize } from '@/dashboard/card-sizes';
+
+/**
+ * An entity reduced to what decides its card.
+ *
+ * @param domain - What kind of thing it is.
+ * @param capabilities - What it can do.
+ * @returns The entity.
+ */
+function entity(domain: EntityDomain, ...capabilities: CapabilityName[]) {
+  return { domain, capabilities: capabilities.map((capability) => ({ capability, params: {} })) };
+}
+
+describe('snapSize', () => {
+  const light = CARD_SIZES.light.sizes;
+
+  it('settles a light dragged a little wider on the square', () => {
+    expect(snapSize(light, 2, 2, 4)).toEqual({ w: 2, h: 2 });
+    expect(snapSize(light, 2, 3, 4)).toEqual({ w: 2, h: 2 });
+  });
+
+  it('settles a corner dragged back up on the tile', () => {
+    expect(snapSize(light, 1, 1, 4)).toEqual({ w: 1, h: 1 });
+  });
+
+  it('prefers the smaller size between two as near', () => {
+    // 2x1 is one off both the tile and the square; the tile is smaller.
+    expect(snapSize(light, 2, 1, 4)).toEqual({ w: 1, h: 1 });
+  });
+
+  it('never offers a size wider than the grid it sits on', () => {
+    expect(snapSize(light, 2, 2, 1)).toEqual({ w: 1, h: 2 });
+  });
+});
+
+describe('cardKindOf', () => {
+  it('draws the richest thing an entity can do', () => {
+    expect(cardKindOf(entity('climate', 'on_off', 'thermostat'))).toBe('thermostat');
+    expect(cardKindOf(entity('light', 'on_off', 'level'))).toBe('light');
+    expect(cardKindOf(entity('switch', 'on_off'))).toBe('switch');
+    expect(cardKindOf(entity('sensor', 'sensor_numeric'))).toBe('sensor');
+    expect(cardKindOf(entity('binary_sensor', 'sensor_binary'))).toBe('binary');
+    expect(cardKindOf(entity('media_player', 'media_player', 'on_off'))).toBe('media');
+  });
+
+  it('draws a light that only switches as a light', () => {
+    expect(cardKindOf(entity('light', 'on_off'))).toBe('light');
+  });
+
+  it('falls back on the reading', () => {
+    expect(cardKindOf(entity('alias'))).toBe('text');
+  });
+});
+
+describe('sizeName', () => {
+  it('names the sizes the picker offers', () => {
+    expect(sizeName({ w: 1, h: 2 })).toBe('Card');
+    expect(sizeName({ w: 3, h: 4 })).toBe('3×4');
+  });
+});
