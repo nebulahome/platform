@@ -12,7 +12,7 @@
  * its floor is not a place anybody meant. The devices and the entities in a removed room are
  * left where they are, in no room, through the `SET NULL` on their own columns.
  */
-import { asc, eq, like, sql } from 'drizzle-orm';
+import { and, asc, eq, like, sql } from 'drizzle-orm';
 
 import {
   areaViewSchema,
@@ -49,6 +49,7 @@ const AREA_COLUMNS = {
   parentId: schema.registry.areas.parentId,
   icon: schema.registry.areas.icon,
   sortOrder: schema.registry.areas.sortOrder,
+  level: schema.registry.areas.level,
   latitude: schema.registry.areas.latitude,
   longitude: schema.registry.areas.longitude,
 };
@@ -106,6 +107,84 @@ async function refuseSecondHouse(db: Database): Promise<void> {
   }
 }
 
+/** The index that keeps two floors from sharing a number. */
+const FLOOR_LEVEL_INDEX = 'areas_floor_level_idx';
+
+/**
+ * Says a floor number is taken, naming the floor that has it.
+ *
+ * @param level - The number.
+ * @param holder - The floor that has it, when known.
+ * @param cause - The database's refusal, when that is how it was found.
+ * @returns The error to throw.
+ */
+function levelTaken(level: number, holder?: string, cause?: unknown): ConflictError {
+  return new ConflictError(
+    holder === undefined
+      ? `Floor ${String(level)} already exists`
+      : `${holder} is already floor ${String(level)}`,
+    {
+      ...(cause === undefined ? {} : { cause }),
+      details: { issues: [{ path: 'level', message: `Floor ${String(level)} already exists` }] },
+    },
+  );
+}
+
+/**
+ * Whether a refusal is the database's own on the floor-number index.
+ *
+ * @param candidate - An error, or the cause it wraps.
+ * @returns True when it names the index.
+ */
+function namesLevelIndex(candidate: unknown): boolean {
+  return (
+    typeof candidate === 'object' &&
+    candidate !== null &&
+    'constraint_name' in candidate &&
+    candidate.constraint_name === FLOOR_LEVEL_INDEX
+  );
+}
+
+/**
+ * Whether a write was refused because two floors would have shared a number.
+ *
+ * @param error - What the write threw.
+ * @returns True for that refusal, whether the driver's error or one wrapping it.
+ */
+function isLevelViolation(error: unknown): boolean {
+  return (
+    namesLevelIndex(error) ||
+    (typeof error === 'object' &&
+      error !== null &&
+      'cause' in error &&
+      namesLevelIndex(error.cause))
+  );
+}
+
+/**
+ * Refuses a floor number another floor already has.
+ *
+ * Checked before the write so the refusal can name the floor; the partial unique index still
+ * holds the rule when two requests race.
+ *
+ * @param db - The database.
+ * @param level - The number wanted.
+ * @param exceptId - The floor being changed, which may keep its own number.
+ * @throws {ConflictError} Naming the floor that has it.
+ */
+async function refuseTakenLevel(db: Database, level: number, exceptId?: string): Promise<void> {
+  const { areas } = schema.registry;
+  const [holder] = await db
+    .select({ id: areas.id, name: areas.name })
+    .from(areas)
+    .where(and(eq(areas.kind, 'floor'), eq(areas.level, level)))
+    .limit(1);
+
+  if (holder !== undefined && holder.id !== exceptId) {
+    throw levelTaken(level, holder.name);
+  }
+}
+
 /**
  * Refuses an area id unless it names a room.
  *
@@ -139,7 +218,8 @@ export async function checkRoom(db: Database, areaId: string): Promise<void> {
  * Lists every area, with how many devices and entities are in each directly.
  *
  * @param db - The database.
- * @returns The areas: by the order the owner arranged, then oldest first, then by name.
+ * @returns The areas: floors by their number, then by the order the owner arranged, then
+ * oldest first, then by name.
  */
 export async function listAreas(db: Database): Promise<AreaView[]> {
   const { areas, devices, entities } = schema.registry;
@@ -153,7 +233,8 @@ export async function listAreas(db: Database): Promise<AreaView[]> {
     .leftJoin(devices, eq(devices.areaId, areas.id))
     .leftJoin(entities, eq(entities.areaId, areas.id))
     .groupBy(areas.id)
-    .orderBy(asc(areas.sortOrder), asc(areas.createdAt), asc(areas.name));
+    // Floors by the storey they are; the rest have no number and keep the owner's order.
+    .orderBy(asc(areas.level), asc(areas.sortOrder), asc(areas.createdAt), asc(areas.name));
 
   return rows.map((row) => areaViewSchema.parse(row));
 }
@@ -206,7 +287,8 @@ async function freeKeyFor(db: Database, name: string): Promise<string> {
  * @returns The area, with nothing in it yet.
  * @throws {ValidationError} When the icon is not in the catalogue, or the parent is not the
  * kind above.
- * @throws {ConflictError} When two requests raced for the same key; the second one asks again.
+ * @throws {ConflictError} When another floor has the number, or two requests raced for the same
+ * key; the second one asks again.
  */
 export async function createArea(
   db: Database,
@@ -225,6 +307,10 @@ export async function createArea(
     await refuseSecondHouse(db);
   }
 
+  if (body.level !== undefined) {
+    await refuseTakenLevel(db, body.level);
+  }
+
   const key = await freeKeyFor(db, body.name);
 
   try {
@@ -236,6 +322,7 @@ export async function createArea(
         kind: body.kind,
         parentId: body.parentId ?? null,
         icon: body.icon ?? null,
+        level: body.level ?? null,
         latitude: body.latitude ?? null,
         longitude: body.longitude ?? null,
       })
@@ -243,6 +330,10 @@ export async function createArea(
 
     return areaViewSchema.parse({ ...row, deviceCount: 0, entityCount: 0 });
   } catch (error: unknown) {
+    if (body.level !== undefined && isLevelViolation(error)) {
+      throw levelTaken(body.level, undefined, error);
+    }
+
     if (isUniqueViolation(error)) {
       throw new ConflictError(
         body.kind === 'house'
@@ -257,15 +348,16 @@ export async function createArea(
 }
 
 /**
- * Renames, redraws or moves an area. The kind and the key stay.
+ * Renames, redraws, renumbers or moves an area. The kind and the key stay.
  *
  * @param db - The database.
  * @param icons - The catalogue, to refuse an icon that is not in it.
  * @param id - Which area.
  * @param body - What changes.
  * @returns The area as it now stands.
- * @throws {ValidationError} When the icon is not in the catalogue, or a position is put on
- * something that is not a house.
+ * @throws {ValidationError} When the icon is not in the catalogue, a position is put on
+ * something that is not a house, or a number on something that is not a floor.
+ * @throws {ConflictError} When another floor has the number.
  * @throws {NotFoundError} When no area has that id.
  */
 export async function updateArea(
@@ -278,30 +370,53 @@ export async function updateArea(
     checkIcon(icons, body.icon);
   }
 
-  if (body.latitude !== undefined && body.latitude !== null) {
+  const isPlaced = body.latitude !== undefined && body.latitude !== null;
+
+  if (isPlaced || body.level !== undefined) {
     const [area] = await db
       .select({ kind: schema.registry.areas.kind })
       .from(schema.registry.areas)
       .where(eq(schema.registry.areas.id, id));
 
-    if (area !== undefined && area.kind !== 'house') {
+    if (isPlaced && area !== undefined && area.kind !== 'house') {
       throw new ValidationError('Only a house stands somewhere', {
         details: { issues: [{ path: 'latitude', message: `A ${area.kind} has no position` }] },
       });
     }
+
+    if (body.level !== undefined && area !== undefined && area.kind !== 'floor') {
+      throw new ValidationError('Only a floor has a number', {
+        details: { issues: [{ path: 'level', message: `A ${area.kind} has no floor number` }] },
+      });
+    }
   }
 
-  const changed = await db
-    .update(schema.registry.areas)
-    .set({
-      ...(body.name === undefined ? {} : { name: body.name }),
-      ...(body.icon === undefined ? {} : { icon: body.icon }),
-      ...(body.latitude === undefined ? {} : { latitude: body.latitude }),
-      ...(body.longitude === undefined ? {} : { longitude: body.longitude }),
-      updatedAt: new Date(),
-    })
-    .where(eq(schema.registry.areas.id, id))
-    .returning({ id: schema.registry.areas.id });
+  if (body.level !== undefined) {
+    await refuseTakenLevel(db, body.level, id);
+  }
+
+  let changed: { id: string }[];
+
+  try {
+    changed = await db
+      .update(schema.registry.areas)
+      .set({
+        ...(body.name === undefined ? {} : { name: body.name }),
+        ...(body.icon === undefined ? {} : { icon: body.icon }),
+        ...(body.level === undefined ? {} : { level: body.level }),
+        ...(body.latitude === undefined ? {} : { latitude: body.latitude }),
+        ...(body.longitude === undefined ? {} : { longitude: body.longitude }),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.registry.areas.id, id))
+      .returning({ id: schema.registry.areas.id });
+  } catch (error: unknown) {
+    if (body.level !== undefined && isLevelViolation(error)) {
+      throw levelTaken(body.level, undefined, error);
+    }
+
+    throw error;
+  }
 
   if (changed.length === 0) {
     throw new NotFoundError('No area has that id', { details: { id } });

@@ -74,7 +74,7 @@ describe('creating an area', () => {
       method: 'POST',
       url: '/api/v1/areas',
       headers: { authorization: await bearer('area:write') },
-      payload: { kind: 'floor', name: 'Ground floor', parentId: AREA_ID },
+      payload: { kind: 'floor', name: 'Ground floor', parentId: AREA_ID, level: 0 },
     });
 
     expect(response.statusCode).toBe(400);

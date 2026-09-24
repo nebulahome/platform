@@ -1,9 +1,11 @@
 /**
- * Dashboards against a real database: each person keeps their own, and nobody else's.
+ * Dashboards against a real database: made by whoever manages them, shown to whoever they are
+ * assigned to, and to nobody else.
  *
- * Two accounts. One makes a dashboard and saves a layout on it; the other asks for it by id and is
- * told there is no such dashboard, exactly as if it had never existed - and cannot change or
- * remove it either. Removing the owner's account takes its dashboards with it.
+ * Three accounts. A manager makes a dashboard, lays it out and assigns it to one person; that
+ * person finds it on their own list and can read it but not change it; the third is told there is
+ * no such dashboard, exactly as if it had never existed. Re-assigning moves it from one list to the
+ * other, removing an account takes its assignments with it, and the dashboard stays.
  *
  * Needs the development stack: `docker compose -f infra/docker-compose.dev.yml up -d` and
  * `pnpm db:migrate`. Every row is scoped to ids unique to the run and removed afterwards.
@@ -15,7 +17,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
-  DASHBOARDS_PER_USER_MAXIMUM,
+  dashboardAssigneeSchema,
   dashboardViewSchema,
   type DashboardView,
 } from '@nebula-home/contracts';
@@ -27,18 +29,22 @@ const DATABASE_URL = 'postgres://nebula:nebula@localhost:5432/nebula';
 
 const suffix = randomUUID().slice(0, 8);
 
-/** The one who makes the dashboard, and someone else in the same house. */
-const ownerId = randomUUID();
+/** The one who manages dashboards, the one a dashboard is for, and someone else in the house. */
+const managerId = randomUUID();
+const viewerId = randomUUID();
 const otherId = randomUUID();
 
 let database: ReturnType<typeof createDatabase>;
 let server: FastifyInstance;
 let dashboard: DashboardView;
 
+/** Every dashboard the run made, removed afterwards whatever the tests got to. */
+const made = new Set<string>();
+
 /**
- * Calls the API as one of the two accounts, holding no permission at all.
+ * Calls the API as one of the accounts.
  *
- * @param userId - Who is asking.
+ * @param userId - Who is asking. The manager carries `dashboard:manage`; the others nothing.
  * @param method - The verb.
  * @param url - The path under `/api/v1`.
  * @param payload - The body, if any.
@@ -50,14 +56,30 @@ async function call(
   url: string,
   payload?: Record<string, unknown>,
 ): Promise<{ status: number; body: unknown }> {
+  const grants = userId === managerId ? [{ key: 'dashboard:manage', scope: '*' }] : [];
   const response = await server.inject({
     method,
     url: `/api/v1${url}`,
-    headers: { authorization: await bearerFor(userId) },
+    headers: { authorization: await bearerFor(userId, ...grants) },
     ...(payload === undefined ? {} : { payload }),
   });
 
   return { status: response.statusCode, body: response.json() };
+}
+
+/**
+ * The ids of the dashboards one account is shown.
+ *
+ * @param userId - Whose list.
+ * @returns The ids.
+ */
+async function listedFor(userId: string): Promise<string[]> {
+  const { body } = await call(userId, 'GET', '/dashboards');
+
+  return dashboardViewSchema
+    .array()
+    .parse((body as { items: unknown }).items)
+    .map((each) => each.id);
 }
 
 beforeAll(async () => {
@@ -71,22 +93,19 @@ beforeAll(async () => {
     .from(schema.auth.roles)
     .where(eq(schema.auth.roles.key, 'guest'));
 
-  await database.db.insert(schema.auth.users).values([
-    {
-      id: ownerId,
-      username: `dash-owner-${suffix}`,
-      displayName: 'Dashboard owner',
+  await database.db.insert(schema.auth.users).values(
+    [
+      [managerId, 'manager', 'Dashboard manager'],
+      [viewerId, 'viewer', 'The one it is for'],
+      [otherId, 'other', 'Someone else'],
+    ].map(([id, name, displayName]) => ({
+      id: id ?? '',
+      username: `dash-${name ?? ''}-${suffix}`,
+      displayName: displayName ?? '',
       passwordHash: 'not-a-hash',
       roleId: role?.id ?? '',
-    },
-    {
-      id: otherId,
-      username: `dash-other-${suffix}`,
-      displayName: 'Someone else',
-      passwordHash: 'not-a-hash',
-      roleId: role?.id ?? '',
-    },
-  ]);
+    })),
+  );
 
   server = await buildTestServer(true, database.db);
 });
@@ -95,25 +114,67 @@ afterAll(async () => {
   stopHub();
   await server.close();
 
+  if (made.size > 0) {
+    await database.db
+      .delete(schema.registry.dashboards)
+      .where(inArray(schema.registry.dashboards.id, [...made]));
+  }
+
   await database.db
     .delete(schema.auth.users)
-    .where(inArray(schema.auth.users.id, [ownerId, otherId]));
+    .where(inArray(schema.auth.users.id, [managerId, viewerId, otherId]));
   await database.close();
 });
 
-describe('keeping a dashboard', () => {
-  it('makes one with nothing on it', async () => {
-    const { status, body } = await call(ownerId, 'POST', '/dashboards', {
+describe('making a dashboard', () => {
+  it('is refused to someone who does not manage dashboards', async () => {
+    const { status } = await call(viewerId, 'POST', '/dashboards', { name: 'Mine' });
+
+    expect(status).toBe(403);
+  });
+
+  it('makes one with nothing on it, shown to the one it is for', async () => {
+    const { status, body } = await call(managerId, 'POST', '/dashboards', {
       name: 'Home',
       icon: 'house',
+      userIds: [viewerId],
     });
 
     expect(status).toBe(201);
     dashboard = dashboardViewSchema.parse(body);
-    expect(dashboard).toMatchObject({ name: 'Home', icon: 'house', layout: { cards: [] } });
+    made.add(dashboard.id);
+    expect(dashboard).toMatchObject({
+      name: 'Home',
+      icon: 'house',
+      layout: { cards: [] },
+      userIds: [viewerId],
+    });
   });
 
-  it('saves a layout whole and serves it back', async () => {
+  it('refuses an assignment to someone with no account', async () => {
+    const { status, body } = await call(managerId, 'PATCH', `/dashboards/${dashboard.id}`, {
+      userIds: [randomUUID()],
+    });
+
+    expect(status).toBe(400);
+    expect(JSON.stringify(body)).toContain('userIds');
+  });
+
+  it('lists the people it can be assigned to, and every dashboard', async () => {
+    const people = await call(managerId, 'GET', '/dashboards/assignees');
+    const ids = dashboardAssigneeSchema
+      .array()
+      .parse((people.body as { items: unknown }).items)
+      .map((person) => person.id);
+
+    expect(ids).toEqual(expect.arrayContaining([managerId, viewerId, otherId]));
+
+    const every = await call(managerId, 'GET', '/dashboards/manage');
+
+    expect(JSON.stringify(every.body)).toContain(dashboard.id);
+  });
+
+  it('saves a layout whole, and the one it is for sees it', async () => {
     const layout = {
       cards: [
         {
@@ -153,43 +214,50 @@ describe('keeping a dashboard', () => {
       ],
     };
 
-    const saved = await call(ownerId, 'PATCH', `/dashboards/${dashboard.id}`, { layout });
+    const saved = await call(managerId, 'PATCH', `/dashboards/${dashboard.id}`, { layout });
 
     expect(saved.status).toBe(200);
 
-    const { status, body } = await call(ownerId, 'GET', '/dashboards');
+    const { status, body } = await call(viewerId, 'GET', '/dashboards');
 
     expect(status).toBe(200);
     expect(body).toMatchObject({ items: [{ id: dashboard.id, layout }] });
   });
 });
 
-describe('somebody else', () => {
-  it('does not see it listed', async () => {
-    const { body } = await call(otherId, 'GET', '/dashboards');
+describe('who sees it', () => {
+  it('is read by the one it is for, who cannot change it', async () => {
+    const read = await call(viewerId, 'GET', `/dashboards/${dashboard.id}`);
+    const change = await call(viewerId, 'PATCH', `/dashboards/${dashboard.id}`, { name: 'Mine' });
 
-    expect(body).toEqual({ items: [] });
+    expect([read.status, change.status]).toEqual([200, 403]);
   });
 
-  it('is told it does not exist, and cannot change or remove it', async () => {
-    const read = await call(otherId, 'GET', `/dashboards/${dashboard.id}`);
-    const change = await call(otherId, 'PATCH', `/dashboards/${dashboard.id}`, { name: 'Mine' });
-    const remove = await call(otherId, 'DELETE', `/dashboards/${dashboard.id}`);
+  it('is not there at all for somebody else', async () => {
+    expect(await listedFor(otherId)).not.toContain(dashboard.id);
+    expect((await call(otherId, 'GET', `/dashboards/${dashboard.id}`)).status).toBe(404);
+  });
 
-    expect([read.status, change.status, remove.status]).toEqual([404, 404, 404]);
+  it('moves from one list to the other when it is assigned again', async () => {
+    const { status } = await call(managerId, 'PATCH', `/dashboards/${dashboard.id}`, {
+      userIds: [otherId, managerId],
+    });
 
-    const { body } = await call(ownerId, 'GET', `/dashboards/${dashboard.id}`);
-
-    expect(body).toMatchObject({ name: 'Home' });
+    expect(status).toBe(200);
+    expect(await listedFor(viewerId)).not.toContain(dashboard.id);
+    expect(await listedFor(otherId)).toContain(dashboard.id);
+    expect(await listedFor(managerId)).toContain(dashboard.id);
   });
 });
 
 describe('as a file', () => {
-  it('exports in the standard, and imports as someone else into a new dashboard', async () => {
+  it('exports in the standard, and imports into a new dashboard assigned to nobody', async () => {
     const response = await server.inject({
       method: 'GET',
       url: `/api/v1/dashboards/${dashboard.id}/export`,
-      headers: { authorization: await bearerFor(ownerId) },
+      headers: {
+        authorization: await bearerFor(managerId, { key: 'dashboard:manage', scope: '*' }),
+      },
     });
 
     expect(response.statusCode).toBe(200);
@@ -209,56 +277,37 @@ describe('as a file', () => {
     ]);
 
     const imported = await call(
-      otherId,
+      managerId,
       'POST',
       '/dashboards/import',
       file as Record<string, unknown>,
     );
     const copy = dashboardViewSchema.parse(imported.body);
 
+    made.add(copy.id);
     expect(imported.status).toBe(201);
     expect(copy.id).not.toBe(dashboard.id);
-    expect(copy.layout).toEqual(
-      dashboardViewSchema.parse((await call(ownerId, 'GET', `/dashboards/${dashboard.id}`)).body)
-        .layout,
-    );
+    expect(copy.userIds).toEqual([]);
+    expect(copy.layout).toEqual((file as { layout: unknown }).layout);
 
-    await call(otherId, 'DELETE', `/dashboards/${copy.id}`);
-  });
-});
-
-describe('the limit', () => {
-  it('stops at the most one account may keep', async () => {
-    const made = await Promise.all(
-      Array.from({ length: DASHBOARDS_PER_USER_MAXIMUM - 1 }, () =>
-        call(ownerId, 'POST', '/dashboards', { name: 'Spare' }),
-      ),
-    );
-
-    expect(made.every((response) => response.status === 201)).toBe(true);
-
-    const { status } = await call(ownerId, 'POST', '/dashboards', { name: 'One too many' });
-
-    expect(status).toBe(409);
+    await call(managerId, 'DELETE', `/dashboards/${copy.id}`);
   });
 });
 
 describe('removing', () => {
+  it('takes an account out of the assignment with the account, and keeps the dashboard', async () => {
+    await database.db.delete(schema.auth.users).where(eq(schema.auth.users.id, otherId));
+
+    const { body } = await call(managerId, 'GET', `/dashboards/${dashboard.id}`);
+
+    expect(dashboardViewSchema.parse(body).userIds).toEqual([managerId]);
+  });
+
   it('deletes one and answers with what it was', async () => {
-    const { status, body } = await call(ownerId, 'DELETE', `/dashboards/${dashboard.id}`);
+    const { status, body } = await call(managerId, 'DELETE', `/dashboards/${dashboard.id}`);
 
     expect(status).toBe(200);
     expect(body).toMatchObject({ id: dashboard.id, name: 'Home' });
-  });
-
-  it('takes the rest with the account', async () => {
-    await database.db.delete(schema.auth.users).where(eq(schema.auth.users.id, ownerId));
-
-    const left = await database.db
-      .select({ id: schema.registry.dashboards.id })
-      .from(schema.registry.dashboards)
-      .where(eq(schema.registry.dashboards.userId, ownerId));
-
-    expect(left).toEqual([]);
+    expect(await listedFor(managerId)).not.toContain(dashboard.id);
   });
 });

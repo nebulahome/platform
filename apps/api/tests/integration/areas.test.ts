@@ -42,6 +42,12 @@ const relayEntityId = `switch.${instanceId.replaceAll('-', '_')}_relay`;
 /** The house's name, unique so a stale row from another run cannot match. */
 const houseName = `Home ${instanceId.slice(-8)}`;
 
+/**
+ * The floor's number: high up, where the owner's own floors are not, so the run can build on a
+ * house that already has floors.
+ */
+const floorLevel = 150 + Math.floor(Math.random() * 50);
+
 let database: ReturnType<typeof createDatabase>;
 let server: FastifyInstance;
 let house: AreaView;
@@ -188,11 +194,12 @@ describe('the house, a floor and a room', () => {
       kind: 'floor',
       name: `Ground floor ${instanceId.slice(-8)}`,
       parentId: house.id,
+      level: floorLevel,
     });
 
     expect(floorReply.status).toBe(201);
     floor = areaViewSchema.parse(floorReply.body);
-    expect(floor.parentId).toBe(house.id);
+    expect([floor.parentId, floor.level]).toEqual([house.id, floorLevel]);
 
     const roomReply = await call('POST', '/areas', {
       kind: 'room',
@@ -220,9 +227,31 @@ describe('the house, a floor and a room', () => {
       kind: 'floor',
       name: 'Mezzanine',
       parentId: floor.id,
+      level: floorLevel + 1,
     });
 
     expect(stacked.status).toBe(400);
+  });
+
+  it('refuses a second floor with the same number, and a number on a room', async () => {
+    const twin = await call('POST', '/areas', {
+      kind: 'floor',
+      name: 'Twin',
+      parentId: house.id,
+      level: floorLevel,
+    });
+
+    expect(twin.status).toBe(409);
+    expect(JSON.stringify(twin.body)).toContain('level');
+
+    const numbered = await call('PATCH', `/areas/${room.id}`, { level: 3 });
+
+    expect(numbered.status).toBe(400);
+    expect(JSON.stringify(numbered.body)).toContain('level');
+
+    const kept = await call('PATCH', `/areas/${floor.id}`, { level: floorLevel });
+
+    expect(kept.status).toBe(200);
   });
 
   it('refuses a position on a room, and moves the house', async () => {
