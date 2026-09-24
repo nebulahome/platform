@@ -97,12 +97,6 @@ describe('matchesFilter', () => {
     expect(matchesFilter(PRINTER, [], { ...OPEN_FILTER, areaKey: 'workshop' })).toBe(true);
     expect(matchesFilter(PRINTER, [], { ...OPEN_FILTER, areaKey: 'kitchen' })).toBe(false);
   });
-
-  it('narrows to exactly one device when a link asked for it', () => {
-    // `/devices?device=bambu-lab-p1s` from the vendor page: the registry, opened on that row.
-    expect(matchesFilter(PRINTER, [], { ...OPEN_FILTER, deviceId: 'bambu-lab-p1s' })).toBe(true);
-    expect(matchesFilter(PRINTER, [], { ...OPEN_FILTER, deviceId: 'bambu-lab-x1c' })).toBe(false);
-  });
 });
 
 describe('the search, as every list searches', () => {
@@ -149,6 +143,6 @@ describe('isNarrowing', () => {
     expect(isNarrowing({ ...OPEN_FILTER, search: '  ' })).toBe(false);
     expect(isNarrowing({ ...OPEN_FILTER, search: 'x' })).toBe(true);
     expect(isNarrowing({ ...OPEN_FILTER, vendorId: 'shelly' })).toBe(true);
-    expect(isNarrowing({ ...OPEN_FILTER, deviceId: 'bambu-lab-p1s' })).toBe(true);
+    expect(isNarrowing({ ...OPEN_FILTER, areaKey: 'workshop' })).toBe(true);
   });
 });

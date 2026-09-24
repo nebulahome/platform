@@ -223,7 +223,7 @@ describe('a vendor page', () => {
 
     // The name is the way to the registry: the devices page, narrowed to this one device.
     expect(screen.getByRole('link', { name: 'Studio printer' }).getAttribute('href')).toBe(
-      '/devices?device=bambu-lab-x1c',
+      '/devices/bambu-lab-x1c',
     );
   });
 

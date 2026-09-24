@@ -26,6 +26,9 @@
  * **Remove** is a second press away, in the footer where Save was, and says what goes with the
  * device: its entities, and whatever the hub was listening for. A refusal - a derived entity
  * still reading one of the entities - is shown where the person is, and the dialog stays.
+ *
+ * The System device - the machine the platform runs on - has no vendor, no driver and no
+ * connection to set: its dialog is the name, the icon, the tags and the room, and nothing else.
  */
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -74,7 +77,9 @@ export type DeviceDialogTarget =
     }
   | {
       readonly mode: 'edit';
-      readonly vendor: IntegrationVendorView;
+
+      /** The device's vendor; none for the System device, which no integration reaches. */
+      readonly vendor: IntegrationVendorView | undefined;
       readonly device: DeviceView;
     };
 
@@ -218,6 +223,7 @@ export function DeviceDialog(props: DeviceDialogProps) {
 
   const vendor = target?.vendor;
   const existing = target?.mode === 'edit' ? target.device : undefined;
+  const isSystem = existing?.origin === 'system';
   const taken = target?.mode === 'create' ? target.existingIds : [];
   const choices = vendor === undefined ? [] : modelChoicesOf(vendor);
 
@@ -356,27 +362,29 @@ export function DeviceDialog(props: DeviceDialogProps) {
      * @returns The device as it now stands.
      */
     mutationFn: async (values: Values) =>
-      existing === undefined
-        ? createDevice({
-            id,
-            kind: choice?.kind ?? '',
-            model: choice?.model ?? '',
-            name: name.trim(),
-            ...(icon === null ? {} : { icon }),
-            isEnabled,
-            tagIds: [...tagIds],
-            ...(areaId === null ? {} : { areaId }),
-            ...values,
-          })
-        : updateDevice(existing.id, {
-            name: name.trim(),
-            icon,
-            isEnabled,
-            tagIds: [...tagIds],
-            areaId,
-            ...(choice === undefined ? {} : { model: choice.model }),
-            ...values,
-          }),
+      isSystem
+        ? updateDevice(existing.id, { name: name.trim(), icon, tagIds: [...tagIds], areaId })
+        : existing === undefined
+          ? createDevice({
+              id,
+              kind: choice?.kind ?? '',
+              model: choice?.model ?? '',
+              name: name.trim(),
+              ...(icon === null ? {} : { icon }),
+              isEnabled,
+              tagIds: [...tagIds],
+              ...(areaId === null ? {} : { areaId }),
+              ...values,
+            })
+          : updateDevice(existing.id, {
+              name: name.trim(),
+              icon,
+              isEnabled,
+              tagIds: [...tagIds],
+              areaId,
+              ...(choice === undefined ? {} : { model: choice.model }),
+              ...values,
+            }),
     /**
      * Hands the written device back to the page.
      *
@@ -510,10 +518,23 @@ export function DeviceDialog(props: DeviceDialogProps) {
   };
 
   const title = existing === undefined ? 'Add a device' : `Configure ${existing.name}`;
-  const description =
-    driver === undefined
+  const description = isSystem
+    ? 'The machine NebulaHome runs on: what it is called, its tags and its room.'
+    : driver === undefined
       ? 'Which model, and what it needs to be reached.'
       : `${driver.name}, over ${driver.transport}. Test tries the address before anything is saved.`;
+
+  /** Saves the System device: its name, icon, tags and room, and no connection. */
+  const saveSystem = (): void => {
+    if (name.trim() === '') {
+      setErrors({ ...NO_ERRORS, general: 'The device needs a name.' });
+
+      return;
+    }
+
+    setErrors(NO_ERRORS);
+    save.mutate({ transportConfig: {}, options: {} });
+  };
 
   return (
     <Modal
@@ -535,7 +556,7 @@ export function DeviceDialog(props: DeviceDialogProps) {
           />
         ) : (
           <>
-            {existing !== undefined && canRemove ? (
+            {existing !== undefined && canRemove && !isSystem ? (
               <Button
                 variant="danger"
                 disabled={isBusy}
@@ -548,27 +569,35 @@ export function DeviceDialog(props: DeviceDialogProps) {
                 Remove
               </Button>
             ) : null}
-            <Button
-              variant="ghost"
-              isBusy={probe.isPending}
-              disabled={isBusy || driver === undefined}
-              onClick={() => {
-                const values = read();
+            {isSystem ? null : (
+              <Button
+                variant="ghost"
+                isBusy={probe.isPending}
+                disabled={isBusy || driver === undefined}
+                onClick={() => {
+                  const values = read();
 
-                if (values !== null) {
-                  probe.mutate(values);
-                }
-              }}
-            >
-              Test
-            </Button>
+                  if (values !== null) {
+                    probe.mutate(values);
+                  }
+                }}
+              >
+                Test
+              </Button>
+            )}
             <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
             <Button
               isBusy={save.isPending}
-              disabled={isBusy || driver === undefined}
+              disabled={isBusy || (driver === undefined && !isSystem)}
               onClick={() => {
+                if (isSystem) {
+                  saveSystem();
+
+                  return;
+                }
+
                 const values = read();
 
                 if (values !== null) {
@@ -651,7 +680,7 @@ export function DeviceDialog(props: DeviceDialogProps) {
               setIdEdited(true);
             }}
           />
-        ) : driver === undefined ? (
+        ) : driver === undefined && !isSystem ? (
           <p role="alert" className="text-ui text-danger">
             The hub no longer has the driver {existing.kind}, so its fields cannot be shown.
           </p>
@@ -676,7 +705,7 @@ export function DeviceDialog(props: DeviceDialogProps) {
           </>
         )}
 
-        {existing === undefined ? null : (
+        {existing === undefined || isSystem ? null : (
           <Segmented
             label="Running"
             options={[

@@ -1,20 +1,20 @@
 /**
- * One device in the registry, and - opened - the entities it exposes, each with what it reads.
+ * One device in the registry, and the way into its own page.
  *
- * The row is a button: the whole width toggles, because the chevron alone is a small target for
- * a row whose only action is opening. Inside, every entity is an {@link EntityRow}: what it is,
- * what it reads - the live reading whenever the channel has spoken, so a printer warming up is a
- * number climbing on this page rather than a number frozen at whatever it was when the page
- * loaded - and the way into its own page.
+ * The whole row is the link - the name alone is a small target for the one thing a row leads to -
+ * stretched over the row the way an entity's is. What the device exposes is on its page, with
+ * what each entity reads, rather than folded out under the row: a list that opened in place grew
+ * a second list inside each row, and the page it now leads to has room for both.
  */
-import type { DeviceView, IconView } from '@nebula-home/contracts';
-import { Badge, cn } from '@nebula-home/ui';
+import { Link } from 'react-router';
 
-import { ChevronIcon } from '@/components/icons';
+import type { DeviceView, IconView } from '@nebula-home/contracts';
+import { AppIcon, Badge } from '@nebula-home/ui';
+
 import { relativeTime } from '@/lib/format-time';
 import { type DeviceStanding } from '@/library/entity-reading';
+import { devicePath } from '@/routes/library/device/device-path';
 import { DeviceIcon } from '@/routes/library/device-icon';
-import { EntityRow, type EntityLine } from '@/routes/library/entity-row';
 
 /**
  * The column widths, shared by the header and every row so they line up.
@@ -38,107 +38,80 @@ export type DeviceRowProps = {
   /** The device's icon, once the catalogue has answered. */
   readonly icon: IconView | undefined;
 
-  /** Its entities, with what each reads right now. */
-  readonly lines: readonly EntityLine[];
+  /** How many entities it exposes. */
+  readonly entityCount: number;
 
   /** Whether it is reporting, and when it was last heard from. */
   readonly standing: DeviceStanding;
 
-  /** Whether the entities are shown. */
-  readonly isOpen: boolean;
-
-  /** Called to open or shut it. */
-  readonly onToggle: () => void;
-
   /** The moment "last seen" is measured against. */
   readonly now: Date;
-
-  /** Whether the entities may be configured; false hides the spanner on each. */
-  readonly canEditEntities: boolean;
 };
 
 /**
  * Renders one device.
  *
  * @param props - See {@link DeviceRowProps}.
- * @returns The row, and its entities when open.
+ * @returns The row.
  */
 export function DeviceRow(props: DeviceRowProps) {
-  const { device, vendorName, icon, lines, standing, isOpen, onToggle, now, canEditEntities } =
-    props;
+  const { device, vendorName, icon, entityCount, standing, now } = props;
   const isDisabled = device.state === 'disabled';
   const make = [device.manufacturer, device.model].filter(Boolean).join(' ');
   const subtitle = make === '' ? (device.externalId ?? device.id) : make;
 
   return (
-    <li className="border-b border-border-soft last:border-b-0">
-      <button
-        type="button"
-        aria-expanded={isOpen}
-        onClick={onToggle}
-        className={cn(
-          DEVICE_COLUMNS,
-          'w-full px-4 py-3 text-left transition-colors hover:bg-surface-lit focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none',
-          isOpen ? 'bg-sunk' : undefined,
-        )}
-      >
-        <span className="flex min-w-0 items-center gap-3">
-          <DeviceIcon icon={icon} className="text-foreground-muted" />
-          <span className="flex min-w-0 flex-col gap-0.5">
-            <span className="truncate text-title font-medium text-foreground">{device.name}</span>
-            <span className="truncate text-caption text-foreground-subtle">{subtitle}</span>
-          </span>
+    <li
+      className={`${DEVICE_COLUMNS} relative border-b border-border-soft px-4 py-3 transition-colors last:border-b-0 hover:bg-surface-lit has-[[data-row-link]:focus-visible]:ring-3 has-[[data-row-link]:focus-visible]:ring-primary/25 has-[[data-row-link]:focus-visible]:ring-inset`}
+    >
+      <span className="flex min-w-0 items-center gap-3">
+        <DeviceIcon icon={icon} className="text-foreground-muted" />
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <Link
+            to={devicePath(device.id)}
+            data-row-link
+            title={device.id}
+            className="truncate text-title font-medium text-foreground after:absolute after:inset-0 focus-visible:outline-none"
+          >
+            {device.name}
+          </Link>
+          <span className="truncate text-caption text-foreground-subtle">{subtitle}</span>
         </span>
+      </span>
 
-        <span className="hidden truncate text-ui text-foreground-muted md:block">{vendorName}</span>
+      <span className="hidden truncate text-ui text-foreground-muted md:block">{vendorName}</span>
 
-        <span className="hidden truncate text-ui text-foreground-muted lg:block">
-          {device.areaName ?? '—'}
-        </span>
+      <span className="hidden truncate text-ui text-foreground-muted lg:block">
+        {device.areaName ?? '—'}
+      </span>
 
-        <span className="hidden font-mono text-ui text-foreground-muted tabular md:block">
-          {lines.length}
-        </span>
+      <span className="hidden font-mono text-ui text-foreground-muted tabular md:block">
+        {entityCount}
+      </span>
 
-        <span className="hidden md:block">
-          <Badge tone={isDisabled ? 'neutral' : standing.isReporting ? 'success' : 'warning'}>
+      <span className="hidden md:block">
+        <Badge tone={isDisabled ? 'neutral' : standing.isReporting ? 'success' : 'warning'}>
+          {isDisabled ? 'disabled' : standing.isReporting ? 'Reporting' : 'Silent'}
+        </Badge>
+      </span>
+
+      <span className="hidden text-ui text-foreground-subtle tabular md:block">
+        {standing.lastSeenAt === null ? 'never' : relativeTime(standing.lastSeenAt, now)}
+      </span>
+
+      <span className="flex items-center justify-end gap-2 text-foreground-subtle">
+        <span className="md:hidden">
+          <Badge
+            tone={isDisabled ? 'neutral' : standing.isReporting ? 'success' : 'warning'}
+            size="small"
+          >
             {isDisabled ? 'disabled' : standing.isReporting ? 'Reporting' : 'Silent'}
           </Badge>
         </span>
-
-        <span className="hidden text-ui text-foreground-subtle tabular md:block">
-          {standing.lastSeenAt === null ? 'never' : relativeTime(standing.lastSeenAt, now)}
+        <span aria-hidden="true">
+          <AppIcon id="chevron-right" size={16} />
         </span>
-
-        <span className="flex items-center justify-end gap-2 text-foreground-subtle">
-          <span className="md:hidden">
-            <Badge
-              tone={isDisabled ? 'neutral' : standing.isReporting ? 'success' : 'warning'}
-              size="small"
-            >
-              {isDisabled ? 'disabled' : standing.isReporting ? 'Reporting' : 'Silent'}
-            </Badge>
-          </span>
-          <ChevronIcon isOpen={isOpen} />
-        </span>
-      </button>
-
-      {isOpen ? (
-        <ul className="flex flex-col gap-1.5 bg-sunk px-4 pt-1 pb-3.5 md:pl-12">
-          {lines.length === 0 ? (
-            <li className="text-caption text-foreground-subtle">No entities.</li>
-          ) : (
-            lines.map((line) => (
-              <EntityRow
-                key={line.entity.entityId}
-                line={line}
-                deviceAreaKey={device.areaKey}
-                canEdit={canEditEntities}
-              />
-            ))
-          )}
-        </ul>
-      ) : null}
+      </span>
     </li>
   );
 }

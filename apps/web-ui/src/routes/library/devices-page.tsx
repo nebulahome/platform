@@ -1,45 +1,40 @@
 /**
- * The registry: every device, the entities it owns, and what each of them reads.
+ * The registry: every device, how it is doing, and the way into each.
  *
- * This is the one page where the address matters. Everywhere else a person picks a thing by its
- * icon, its name and its room; here they are looking at the registry itself, and
- * `light.hallway_ceiling` is what an automation or the API will refer to. So the entity
- * addresses are shown, in the mono face, under the device that owns them - and beside each, its
- * reading, which is the live one: the channel the shell keeps open delivers every change, and a
- * row shows the newer of what the page loaded with and what has arrived since.
+ * A row is a device - its name, where it comes from, the room it is in, how many entities it
+ * exposes, whether it is reporting and when it was last heard from - and a press opens the
+ * device's own page, where its entities are, each with what it reads.
  *
- * A device's standing is read off those same readings. "Reporting" means an entity of it is
- * reachable and has said something; "last seen" is when the newest of them spoke. Neither is a
- * column, and neither needs to be: the readings are already here.
+ * A device's standing is read off its entities' readings, the live ones whenever the channel the
+ * shell keeps open has spoken. "Reporting" means an entity of it is reachable and has said
+ * something; "last seen" is when the newest of them spoke. Neither is a column the API serves,
+ * and neither needs to be: the readings are already here.
  *
  * Nothing is added here. A device is added from its vendor's page, and appears here the moment
- * the hub has heard from it; a link from that page - `?device=` - opens this one on that row
- * alone, expanded, which is the registry's answer to "what did that just create". The search and
- * the filters are in the address too, so the back button from an entity's page returns to the
- * list as it was left.
+ * the hub has heard from it. The search and the filters are in the address, so the back button
+ * from a device's page returns to the list as it was left.
  */
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
 import type { DeviceView, EntityView } from '@nebula-home/contracts';
-import { Badge, Button } from '@nebula-home/ui';
+import { Badge } from '@nebula-home/ui';
 
-import { useSession } from '@/auth/session-store';
+import { areaFacetChoices } from '@/lib/area-tree';
 import { useListState } from '@/lib/use-list-state';
 import { fetchDevices, fetchEntities, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { bySource, vendorNamesOf } from '@/library/device-entities';
 import {
   DEVICE_FILTER_CODEC,
   isNarrowing,
   matchesFilter,
   OPEN_FILTER,
 } from '@/library/device-filters';
-import { capabilityStateOf, entityScopesOf, isCommandable } from '@/library/entity-control';
 import { readingOf, standingOf, type DeviceStanding } from '@/library/entity-reading';
 import { useLive } from '@/live/live-store';
 import { DeviceFilterButton } from '@/routes/library/device-filter';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { DEVICE_COLUMNS, DeviceRow } from '@/routes/library/device-row';
-import type { EntityLine } from '@/routes/library/entity-row';
 import { LibraryPage } from '@/routes/library/library-page';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
@@ -52,28 +47,9 @@ const CLOCK_MS = 30_000;
 /** One device with everything the row needs, resolved once per render. */
 type DeviceLine = {
   readonly device: DeviceView;
-  readonly lines: readonly EntityLine[];
+  readonly entities: readonly EntityView[];
   readonly standing: DeviceStanding;
 };
-
-/**
- * The entities, by the device that owns them.
- *
- * Grouped by the entity's source, which is the device id - the one the page lists the device
- * under - rather than by the registry's row uuid.
- *
- * @param entities - Every entity.
- * @returns A map from device id to its entities.
- */
-function bySource(entities: readonly EntityView[]): Map<string, EntityView[]> {
-  const groups = new Map<string, EntityView[]>();
-
-  for (const entity of entities) {
-    groups.set(entity.source, [...(groups.get(entity.source) ?? []), entity]);
-  }
-
-  return groups;
-}
 
 /**
  * Renders the devices page.
@@ -83,27 +59,10 @@ function bySource(entities: readonly EntityView[]): Map<string, EntityView[]> {
 export function DevicesPage() {
   const readings = useLive((state) => state.readings);
   const liveStatus = useLive((state) => state.status);
-  const can = useSession((state) => state.can);
-  const canEditEntities = can('entity:write');
   const { tags } = useTags();
-  const { areas } = useAreas();
+  const { areas, tree } = useAreas();
   const [filter, setFilter] = useListState(DEVICE_FILTER_CODEC);
-  const linkedDeviceId = filter.deviceId;
-  const [openIds, setOpenIds] = useState<ReadonlySet<string>>(
-    () => new Set(linkedDeviceId === '' ? [] : [linkedDeviceId]),
-  );
-  const [linkSeen, setLinkSeen] = useState(linkedDeviceId);
   const [, setTick] = useState(0);
-
-  if (linkSeen !== linkedDeviceId) {
-    // A link to another device while the page is open: that row opens too. Adjusted during the
-    // render rather than in an effect, so the row is open on the first paint after the link.
-    setLinkSeen(linkedDeviceId);
-
-    if (linkedDeviceId !== '') {
-      setOpenIds((current) => new Set([...current, linkedDeviceId]));
-    }
-  }
 
   const devices = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.devices,
@@ -149,11 +108,7 @@ export function DevicesPage() {
     },
   });
 
-  const icons = useCatalogueIcons([
-    ...tags.map((tag) => tag.icon),
-    ...(devices.data ?? []).map((device) => device.icon),
-    ...(entities.data ?? []).map((entity) => entity.icon),
-  ]);
+  const icons = useCatalogueIcons((devices.data ?? []).map((device) => device.icon));
   const tagsById = new Map(tags.map((tag) => [tag.id, tag]));
 
   useEffect(() => {
@@ -168,104 +123,56 @@ export function DevicesPage() {
 
   const now = new Date();
   const groups = bySource(entities.data ?? []);
-  // The system device's vendor is the platform itself, which no hub catalogue lists.
-  const vendorNames = new Map([
-    ['nebula', 'NebulaHome'],
-    ...(vendors.data ?? []).map((vendor): [string, string] => [vendor.id, vendor.name]),
-  ]);
+  const vendorNames = vendorNamesOf(vendors.data ?? []);
   const all: DeviceLine[] = (devices.data ?? []).map((device) => {
-    const lines: EntityLine[] = (groups.get(device.id) ?? []).map((entity) => {
-      const live = readings[entity.entityId];
-
-      return {
-        entity,
-        reading: readingOf(entity, live),
-        state: capabilityStateOf(entity, live),
-        reportedAt: live?.receivedAt ?? entity.lastUpdated?.getTime() ?? null,
-        icon: entity.icon === null ? undefined : icons.get(entity.icon),
-        tags: entity.tagIds.flatMap((id) => {
-          const tag = tagsById.get(id);
-
-          return tag === undefined ? [] : [{ tag, icon: icons.get(tag.icon ?? '') }];
-        }),
-        canControl:
-          isCommandable(entity) &&
-          can('entity:control', entityScopesOf(entity, tags, device.tagIds)),
-      };
-    });
+    const owned = groups.get(device.id) ?? [];
 
     return {
       device,
-      lines,
+      entities: owned,
       standing: standingOf(
-        lines.map((line) => line.reading),
+        owned.map((entity) => readingOf(entity, readings[entity.entityId])),
         device.lastUpdatedAt,
       ),
     };
   });
-  const shown = all.filter((line) =>
-    matchesFilter(
-      line.device,
-      line.lines.map((entry) => entry.entity),
-      filter,
-      {
-        vendorName: vendorNames.get(line.device.vendorId),
-        tagNames: [
-          ...line.device.tagIds.flatMap((id) => {
-            const tag = tagsById.get(id);
+  /**
+   * The names of some tags.
+   *
+   * @param ids - The tags, by id.
+   * @returns Their names, leaving out any no longer there.
+   */
+  const tagNames = (ids: readonly string[]): string[] =>
+    ids.flatMap((id) => {
+      const tag = tagsById.get(id);
 
-            return tag === undefined ? [] : [tag.name];
-          }),
-          ...line.lines.flatMap((entry) => entry.tags.map(({ tag }) => tag.name)),
-        ],
-      },
-    ),
+      return tag === undefined ? [] : [tag.name];
+    });
+  const shown = all.filter((line) =>
+    matchesFilter(line.device, line.entities, filter, {
+      vendorName: vendorNames.get(line.device.vendorId),
+      tagNames: [
+        ...tagNames(line.device.tagIds),
+        ...line.entities.flatMap((entity) => tagNames(entity.tagIds)),
+      ],
+    }),
   );
 
   const vendorOptions = [...new Set(all.map((line) => line.device.vendorId))].map((id) => ({
     value: id,
     label: vendorNames.get(id) ?? id,
   }));
-  const areasByKey = new Map(areas.map((area) => [area.key, area]));
-  // Each room under its floor, the way the areas page arranges them.
-  const areaOptions = [
-    ...new Map(
+  // Each room under its floor, the floors by their number, the way the areas page reads.
+  const areaOptions = areaFacetChoices(
+    tree,
+    areas,
+    new Map(
       all.flatMap((line) =>
-        line.device.areaKey === null ? [] : [[line.device.areaKey, line] as const],
+        line.device.areaKey === null ? [] : [[line.device.areaKey, line.device.areaName] as const],
       ),
-    ).entries(),
-  ].map(([key, line]) => {
-    const area = areasByKey.get(key);
-    const floor = areas.find(
-      (candidate) => candidate.id === area?.parentId && candidate.kind === 'floor',
-    );
-
-    return {
-      value: key,
-      label: line.device.areaName ?? key,
-      ...(floor === undefined ? {} : { group: floor.name }),
-    };
-  });
-  const shownEntityCount = shown.reduce((sum, line) => sum + line.lines.length, 0);
-
-  /**
-   * Opens a device that is shut, or shuts one that is open.
-   *
-   * @param deviceId - Which device.
-   */
-  const toggle = (deviceId: string): void => {
-    setOpenIds((current) => {
-      const next = new Set(current);
-
-      if (next.has(deviceId)) {
-        next.delete(deviceId);
-      } else {
-        next.add(deviceId);
-      }
-
-      return next;
-    });
-  };
+    ),
+  );
+  const shownEntityCount = shown.reduce((sum, line) => sum + line.entities.length, 0);
 
   return (
     <LibraryPage
@@ -275,17 +182,6 @@ export function DevicesPage() {
       shownCount={shown.length}
       tools={
         <>
-          {linkedDeviceId === '' ? null : (
-            <Button
-              variant="ghost"
-              size="compact"
-              onClick={() => {
-                setFilter({ ...filter, deviceId: '' });
-              }}
-            >
-              Show all devices
-            </Button>
-          )}
           <SearchField
             placeholder="Search devices, entities…"
             value={filter.search}
@@ -321,7 +217,7 @@ export function DevicesPage() {
         </span>
       </div>
 
-      <div className="rounded-panel border border-border face-card">
+      <div className="overflow-hidden rounded-panel border border-border face-card">
         <div
           className={`${DEVICE_COLUMNS} border-b border-border-soft px-4 py-2.5 text-label text-foreground-subtle uppercase`}
           aria-hidden="true"
@@ -356,14 +252,9 @@ export function DevicesPage() {
                 device={line.device}
                 vendorName={vendorNames.get(line.device.vendorId) ?? line.device.vendorId}
                 icon={icons.get(line.device.icon ?? '')}
-                lines={line.lines}
+                entityCount={line.entities.length}
                 standing={line.standing}
-                isOpen={openIds.has(line.device.id)}
-                onToggle={() => {
-                  toggle(line.device.id);
-                }}
                 now={now}
-                canEditEntities={canEditEntities}
               />
             ))}
           </ul>

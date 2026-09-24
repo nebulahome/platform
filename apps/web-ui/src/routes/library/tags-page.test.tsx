@@ -198,7 +198,7 @@ describe('TagsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /Bench relay/u }).getAttribute('href')).toBe(
-        '/devices?device=shelly-bench',
+        '/devices/shelly-bench',
       );
     });
     expect(screen.getByText('Switch')).toBeTruthy();

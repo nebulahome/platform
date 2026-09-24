@@ -34,6 +34,7 @@ import {
   VENDOR_DEVICE_FILTER_CODEC,
   type DeviceStandingChoice,
 } from '@/library/list-filters';
+import { devicePath } from '@/routes/library/device/device-path';
 import { DeviceDialog, type DeviceDialogTarget } from '@/routes/library/device-dialog';
 import { DeviceIcon, useDeviceIcons } from '@/routes/library/device-icon';
 import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
@@ -454,7 +455,7 @@ export function VendorPage() {
                         />
                         <span className="flex min-w-0 flex-col gap-0.5">
                           <Link
-                            to={`/devices?device=${device.id}`}
+                            to={devicePath(device.id)}
                             className="truncate text-ui font-medium text-foreground transition-colors hover:text-primary"
                           >
                             {device.name}

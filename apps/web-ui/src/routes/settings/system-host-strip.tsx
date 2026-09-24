@@ -15,6 +15,7 @@ import { ExternalLinkIcon, ServerIcon } from '@/components/icons';
 import { formatUptime } from '@/lib/format-bytes';
 import { relativeTime } from '@/lib/format-time';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
+import { devicePath } from '@/routes/library/device/device-path';
 
 /** What the strip needs. */
 export type SystemHostStripProps = {
@@ -70,7 +71,7 @@ export function SystemHostStrip(props: SystemHostStripProps) {
       </Badge>
 
       <Link
-        to="/devices?device=system"
+        to={devicePath('system')}
         className="flex items-center gap-1.5 text-ui text-foreground-muted transition-colors hover:text-foreground"
       >
         Open in Devices

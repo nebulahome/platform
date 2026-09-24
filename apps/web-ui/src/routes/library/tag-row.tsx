@@ -14,6 +14,7 @@ import type { DeviceView, EntityView, TagView } from '@nebula-home/contracts';
 import { cn, IconButton, TagChip } from '@nebula-home/ui';
 
 import { ChevronIcon, WrenchIcon } from '@/components/icons';
+import { devicePath } from '@/routes/library/device/device-path';
 import { DeviceIcon, type DeviceIcons } from '@/routes/library/device-icon';
 
 /** The column widths, shared by the header and every row so they line up. */
@@ -120,7 +121,7 @@ export function TagRow(props: TagRowProps) {
             {devices.map((device) => (
               <li key={device.id}>
                 <Link
-                  to={`/devices?device=${device.id}`}
+                  to={devicePath(device.id)}
                   className="flex items-center gap-2.5 rounded-field border border-border face-sunk px-3 py-2 text-ui font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary"
                 >
                   <DeviceIcon

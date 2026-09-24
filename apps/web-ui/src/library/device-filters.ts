@@ -6,9 +6,6 @@
  * its vendor, the serial the hardware reports, and the addresses and names of its entities -
  * because the point of a registry search is to find the row for the thing in your hand, and
  * the one string you remember about it could be any of those.
- *
- * `deviceId` is the one facet nobody sets by hand: a link from the vendor page names the device
- * it was clicked on, and the page opens on that row alone.
  */
 import type { DeviceView, EntityView } from '@nebula-home/contracts';
 
@@ -25,9 +22,6 @@ export type DeviceFilter = {
 
   /** Only devices in this area, by key. Blank means any. */
   readonly areaKey: string;
-
-  /** Only this one device, from a link. Blank means any. */
-  readonly deviceId: string;
 };
 
 /** The header as a page opens: everything shown. */
@@ -35,12 +29,11 @@ export const OPEN_FILTER: DeviceFilter = {
   search: '',
   vendorId: '',
   areaKey: '',
-  deviceId: '',
 };
 
-/** How the filter lives in the address: `?q=`, `?vendor=`, `?area=`, and `?device=` from a link. */
+/** How the filter lives in the address: `?q=`, `?vendor=` and `?area=`. */
 export const DEVICE_FILTER_CODEC: ListCodec<DeviceFilter> = {
-  keys: ['q', 'vendor', 'area', 'device'],
+  keys: ['q', 'vendor', 'area'],
 
   /**
    * Reads the filter from the query.
@@ -52,7 +45,6 @@ export const DEVICE_FILTER_CODEC: ListCodec<DeviceFilter> = {
     search: params.get('q') ?? '',
     vendorId: params.get('vendor') ?? '',
     areaKey: params.get('area') ?? '',
-    deviceId: params.get('device') ?? '',
   }),
 
   /**
@@ -66,23 +58,17 @@ export const DEVICE_FILTER_CODEC: ListCodec<DeviceFilter> = {
       q: [filter.search, ''],
       vendor: [filter.vendorId, ''],
       area: [filter.areaKey, ''],
-      device: [filter.deviceId, ''],
     }),
 };
 
 /**
- * Whether anything narrows the list: the search, a facet, or a link to one device.
+ * Whether anything narrows the list: the search or a facet.
  *
  * @param filter - What the header has been set to.
  * @returns True when fewer than every device may be shown.
  */
 export function isNarrowing(filter: DeviceFilter): boolean {
-  return (
-    filter.search.trim() !== '' ||
-    filter.vendorId !== '' ||
-    filter.areaKey !== '' ||
-    filter.deviceId !== ''
-  );
+  return filter.search.trim() !== '' || filter.vendorId !== '' || filter.areaKey !== '';
 }
 
 /** Words the search finds a device by that the device row does not carry itself. */
@@ -112,10 +98,6 @@ export function matchesFilter(
   filter: DeviceFilter,
   words: DeviceSearchWords = {},
 ): boolean {
-  if (filter.deviceId !== '' && device.id !== filter.deviceId) {
-    return false;
-  }
-
   if (filter.vendorId !== '' && device.vendorId !== filter.vendorId) {
     return false;
   }
