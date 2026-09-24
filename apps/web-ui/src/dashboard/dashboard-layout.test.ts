@@ -16,6 +16,7 @@ import {
   containerRows,
   findCard,
   minimumContainerWidth,
+  narrowLayout,
   newCardId,
   placeCard,
   removeCard,
@@ -234,6 +235,29 @@ describe('addCard and removeCard', () => {
     const layout = { cards: [box('box', 0, 0, 4, [light('a', 0, 0), light('b', 0, 2)])] };
 
     expect(where(removeCard(layout, 'b'))).toEqual({ box: '0,0 4x3', 'box/a': '0,0 1x2' });
+  });
+});
+
+describe('narrowLayout', () => {
+  it('lays the page out on two columns, narrowing what is wider', () => {
+    const layout = {
+      cards: [
+        light('a', 0, 0),
+        light('b', 1, 0),
+        light('c', 2, 0),
+        box('box', 0, 2, 4, [light('d', 0, 0), light('e', 1, 0), light('f', 2, 0, 2, 2)]),
+      ],
+    };
+
+    expect(where(narrowLayout(layout, 2, sizesOf))).toEqual({
+      a: '0,0 1x2',
+      b: '1,0 1x2',
+      c: '0,2 1x2',
+      box: '0,4 2x5',
+      'box/d': '0,0 1x2',
+      'box/e': '1,0 1x2',
+      'box/f': '0,2 2x2',
+    });
   });
 });
 

@@ -400,6 +400,44 @@ export function updateCard(
 }
 
 /**
+ * The same page laid out on fewer columns, for a narrow window.
+ *
+ * Only for drawing: the stored layout stays four columns wide, and nothing is edited on this one.
+ * Cards keep the order a page is read in; each takes the nearest size it is drawn for that fits,
+ * and a container narrows and lays its own cards out again.
+ *
+ * @param layout - The layout.
+ * @param columns - How many columns the window has room for.
+ * @param sizesOf - What sizes a card may take.
+ * @returns The layout to draw.
+ */
+export function narrowLayout(
+  layout: DashboardLayout,
+  columns: number,
+  sizesOf: SizesOf,
+): DashboardLayout {
+  const cards = layout.cards.map((card): DashboardCard => {
+    if (card.type !== 'container' || card.w <= columns) {
+      return card;
+    }
+
+    const inner = reflow(
+      card.cards,
+      columns,
+      (child, width) => fitLeaf(child, width, sizesOf) ?? child,
+    );
+
+    return { ...card, w: columns, h: containerRows(inner), cards: inner };
+  });
+
+  return {
+    cards: reflow(cards, columns, (card, width) =>
+      card.type === 'container' ? card : (fitLeaf(card, width, sizesOf) ?? card),
+    ),
+  };
+}
+
+/**
  * Every card, the ones inside containers after their container.
  *
  * @param layout - The layout.

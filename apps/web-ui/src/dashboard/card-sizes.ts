@@ -129,6 +129,32 @@ export function snapSize(
   );
 }
 
+/**
+ * The next size up or down from where a card is, for resizing from the keyboard.
+ *
+ * Sizes are ordered by how many cells they cover, the narrower first between two as large.
+ *
+ * @param allowed - The sizes the card is drawn for.
+ * @param current - Its size now.
+ * @param direction - Larger or smaller.
+ * @param columns - How many columns the grid it sits on has.
+ * @returns The next size, or the same one at either end.
+ */
+export function stepSize(
+  allowed: readonly CardSize[],
+  current: CardSize,
+  direction: 1 | -1,
+  columns: number,
+): CardSize {
+  const ordered = allowed
+    .filter((size) => size.w <= columns)
+    .sort((a, b) => a.w * a.h - b.w * b.h || a.w - b.w);
+  const index = ordered.findIndex((size) => sameSize(size, current));
+  const next = ordered[index === -1 ? 0 : index + direction];
+
+  return next ?? current;
+}
+
 /** What an entity can do that decides its card, richest first. */
 const RICHEST_FIRST: readonly (readonly [CapabilityName, EntityCardKind])[] = [
   ['thermostat', 'thermostat'],

@@ -27,6 +27,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router'
 
 import { useSession, type SessionStatus } from '@/auth/session-store';
 import { AuthLayout } from '@/routes/auth-layout';
+import { DashboardPage } from '@/routes/dashboard/dashboard-page';
 import { FirstRunForm } from '@/routes/first-run';
 import { AliasEditor } from '@/routes/library/alias-editor';
 import { AliasesPage } from '@/routes/library/aliases-page';
@@ -214,7 +215,8 @@ export function SessionRoutes() {
     <Routes>
       <Route element={<Shell />}>
         <Route index element={<Navigate to={startPage} replace />} />
-        <Route path="/dashboards" element={<PagePlaceholder />} />
+        <Route path="/dashboards" element={<DashboardPage />} />
+        <Route path="/dashboards/:dashboardId" element={<DashboardPage />} />
         <Route path="/automations" element={<AutomationsPage />} />
         <Route path="/automations/new" element={<AutomationEditor />} />
         <Route path="/automations/:automationId" element={<AutomationEditor />} />

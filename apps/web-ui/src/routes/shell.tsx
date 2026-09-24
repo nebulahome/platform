@@ -24,11 +24,6 @@ type Placeholder = {
 
 /** One entry per route the rail can reach. */
 const PLACEHOLDERS: Readonly<Record<string, Placeholder>> = {
-  '/dashboards': {
-    title: 'Dashboards',
-    summary: 'The grid of cards, shaped by what each entity can do.',
-    blockedOn: 'Nothing. This is the next screen to build.',
-  },
   '/automations': {
     title: 'Automations',
     summary: 'The rules, and the block editor that builds them.',

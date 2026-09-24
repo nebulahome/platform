@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { CapabilityName, EntityDomain } from '@nebula-home/contracts';
 
-import { CARD_SIZES, cardKindOf, sizeName, snapSize } from '@/dashboard/card-sizes';
+import { CARD_SIZES, cardKindOf, sizeName, snapSize, stepSize } from '@/dashboard/card-sizes';
 
 /**
  * An entity reduced to what decides its card.
@@ -60,5 +60,20 @@ describe('sizeName', () => {
   it('names the sizes the picker offers', () => {
     expect(sizeName({ w: 1, h: 2 })).toBe('Card');
     expect(sizeName({ w: 3, h: 4 })).toBe('3×4');
+  });
+});
+
+describe('stepSize', () => {
+  const sensor = CARD_SIZES.sensor.sizes;
+
+  it('goes up and down the sizes by the cells they cover', () => {
+    expect(stepSize(sensor, { w: 1, h: 1 }, 1, 4)).toEqual({ w: 1, h: 2 });
+    expect(stepSize(sensor, { w: 1, h: 2 }, 1, 4)).toEqual({ w: 2, h: 1 });
+    expect(stepSize(sensor, { w: 2, h: 1 }, -1, 4)).toEqual({ w: 1, h: 2 });
+  });
+
+  it('stays put at either end', () => {
+    expect(stepSize(sensor, { w: 2, h: 2 }, 1, 4)).toEqual({ w: 2, h: 2 });
+    expect(stepSize(sensor, { w: 1, h: 1 }, -1, 4)).toEqual({ w: 1, h: 1 });
   });
 });
