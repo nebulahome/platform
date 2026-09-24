@@ -22,7 +22,12 @@ import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import { findEntity } from '../services/entities.js';
-import { readStateHistory, readTelemetry, resolveWindow } from '../services/history.js';
+import {
+  readStateHistory,
+  readTelemetry,
+  resolveWindow,
+  type HistoryEntity,
+} from '../services/history.js';
 
 /**
  * Checks that the caller may read the named entity's past.
@@ -34,6 +39,7 @@ import { readStateHistory, readTelemetry, resolveWindow } from '../services/hist
  * @param context - The service context.
  * @param identity - Who is asking.
  * @param entityId - Whose past.
+ * @returns The entity's row and address: the hypertables are keyed on the row, not the address.
  * @throws {NotFoundError} When the entity does not exist or the caller may not see it.
  * @throws {PermissionError} When they may see the entity but hold no history permission.
  */
@@ -41,7 +47,7 @@ async function authoriseHistory(
   context: ApiContext,
   identity: Parameters<typeof requirePermission>[0],
   entityId: string,
-): Promise<void> {
+): Promise<HistoryEntity> {
   const found = await findEntity(context.db, entityId);
 
   if (found === undefined) {
@@ -55,6 +61,8 @@ async function authoriseHistory(
   }
 
   requirePermission(identity, 'history:read', found.scopes);
+
+  return { rowId: found.rowId, entityId };
 }
 
 /**
@@ -83,10 +91,10 @@ export function registerHistoryRoutes(environment: RouteEnvironment, context: Ap
      * @returns A page of changes, newest first.
      */
     async (route): Promise<Page<StateHistoryPoint>> => {
-      await authoriseHistory(context, route.identity, route.query.entityId);
+      const entity = await authoriseHistory(context, route.identity, route.query.entityId);
 
       const window = resolveWindow(route.query.from, route.query.to, context.now());
-      const result = await readStateHistory(context.db, route.query.entityId, window, {
+      const result = await readStateHistory(context.db, entity, window, {
         limit: route.query.limit,
         ...(route.query.cursor === undefined ? {} : { cursor: route.query.cursor }),
       });
@@ -116,19 +124,13 @@ export function registerHistoryRoutes(environment: RouteEnvironment, context: Ap
      * @returns A page of readings, newest first.
      */
     async (route): Promise<Page<TelemetryPoint>> => {
-      await authoriseHistory(context, route.identity, route.query.entityId);
+      const entity = await authoriseHistory(context, route.identity, route.query.entityId);
 
       const window = resolveWindow(route.query.from, route.query.to, context.now());
-      const result = await readTelemetry(
-        context.db,
-        route.query.entityId,
-        route.query.resolution,
-        window,
-        {
-          limit: route.query.limit,
-          ...(route.query.cursor === undefined ? {} : { cursor: route.query.cursor }),
-        },
-      );
+      const result = await readTelemetry(context.db, entity, route.query.resolution, window, {
+        limit: route.query.limit,
+        ...(route.query.cursor === undefined ? {} : { cursor: route.query.cursor }),
+      });
 
       return result.nextCursor === undefined
         ? { items: result.items }

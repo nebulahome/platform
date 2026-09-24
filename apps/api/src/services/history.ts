@@ -71,10 +71,22 @@ export function resolveWindow(
 }
 
 /**
+ * The entity a history read is about: the hypertables key on the registry row, and a point names
+ * the entity by its address.
+ */
+export type HistoryEntity = {
+  /** The `registry.entities.id` uuid, which is what the hypertables reference. */
+  readonly rowId: string;
+
+  /** The address, which is what a point is served under. */
+  readonly entityId: string;
+};
+
+/**
  * Reads recorded state changes for one entity.
  *
  * @param db - The database.
- * @param entityId - The address, as stored in the hypertable.
+ * @param entity - Its row, which the hypertable is keyed on, and its address.
  * @param window - The time range.
  * @param page - How many and from where.
  * @param page.limit - The page size.
@@ -83,18 +95,19 @@ export function resolveWindow(
  */
 export async function readStateHistory(
   db: Database,
-  entityId: string,
+  entity: HistoryEntity,
   window: Window,
   page: { limit: number; cursor?: string },
 ): Promise<PageResult<StateHistoryPoint>> {
   const upper = page.cursor === undefined ? window.to : new Date(decodeCursor(page.cursor).key);
+  const { entityId } = entity;
 
   const rows = await db
     .select()
     .from(schema.history.stateHistory)
     .where(
       and(
-        eq(schema.history.stateHistory.entityId, entityId),
+        eq(schema.history.stateHistory.entityId, entity.rowId),
         gte(schema.history.stateHistory.time, window.from),
         lt(schema.history.stateHistory.time, upper),
       ),
@@ -127,10 +140,12 @@ export async function readStateHistory(
  * The aggregate views are addressed by name in raw SQL because they are continuous aggregates
  * rather than tables, and drizzle's schema does not model them. The name comes from a fixed
  * table keyed by the validated `resolution` enum, never from caller input, so there is no string
- * from outside anywhere near this query.
+ * from outside anywhere near this query. The window's ends go in as ISO strings cast to
+ * `timestamptz`: a raw query does not know the column's type, and the driver refuses a `Date`
+ * where it expects the text of a parameter.
  *
  * @param db - The database.
- * @param entityId - The address.
+ * @param entity - Its row, which the hypertable and the views are keyed on, and its address.
  * @param resolution - Which level of the ladder to read.
  * @param window - The time range.
  * @param page - How many and from where.
@@ -140,7 +155,7 @@ export async function readStateHistory(
  */
 export async function readTelemetry(
   db: Database,
-  entityId: string,
+  entity: HistoryEntity,
   resolution: TelemetryResolution,
   window: Window,
   page: { limit: number; cursor?: string },
@@ -153,7 +168,7 @@ export async function readTelemetry(
       .from(schema.history.telemetry)
       .where(
         and(
-          eq(schema.history.telemetry.entityId, entityId),
+          eq(schema.history.telemetry.entityId, entity.rowId),
           gte(schema.history.telemetry.time, window.from),
           lt(schema.history.telemetry.time, upper),
         ),
@@ -170,7 +185,8 @@ export async function readTelemetry(
 
   const view = sql.raw(AGGREGATE_VIEWS[resolution]);
   const result = await db.execute<{
-    bucket: Date;
+    // A raw query leaves the column as Postgres wrote it: `2026-09-24 16:14:00+00`.
+    bucket: string | Date;
     avg_value: string;
     min_value: string;
     max_value: string;
@@ -178,14 +194,16 @@ export async function readTelemetry(
   }>(sql`
     SELECT bucket, avg_value, min_value, max_value, sample_count
     FROM ${view}
-    WHERE entity_id = ${entityId} AND bucket >= ${window.from} AND bucket < ${upper}
+    WHERE entity_id = ${entity.rowId}::uuid
+      AND bucket >= ${window.from.toISOString()}::timestamptz
+      AND bucket < ${upper.toISOString()}::timestamptz
     ORDER BY bucket DESC
     LIMIT ${page.limit + 1}
   `);
 
   const points = [...result].map((row) =>
     telemetryPointSchema.parse({
-      time: row.bucket,
+      time: new Date(row.bucket),
       value: Number(row.avg_value),
       min: Number(row.min_value),
       max: Number(row.max_value),
