@@ -24,6 +24,7 @@ import { createErrorHandler, handleNotFound } from './http/errors.js';
 import { RouteRegistry, type RouteEnvironment } from './http/route.js';
 import { registerAreaRoutes } from './routes/areas.js';
 import { registerAuthRoutes } from './routes/auth.js';
+import { registerDashboardRoutes } from './routes/dashboards.js';
 import { registerDeviceRoutes } from './routes/devices.js';
 import { registerDiscoveryRoutes } from './routes/discovery.js';
 import { registerEntityRoutes } from './routes/entities.js';
@@ -183,6 +184,7 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   registerEntityRoutes(environment, context);
   registerRegistryRoutes(environment, context);
   registerAreaRoutes(environment, context);
+  registerDashboardRoutes(environment, context);
   registerTagRoutes(environment, context);
   registerDeviceRoutes(environment, context);
   registerDiscoveryRoutes(environment, context);
