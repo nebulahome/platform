@@ -1,11 +1,14 @@
 /**
- * An entity's History panel: how it has behaved over the last hour, day, week or month.
+ * An entity's History panel: how it has behaved over whatever stretch of time is asked.
  *
  * A sensor is drawn from its telemetry, as a line of readings. Anything else is drawn from its
  * state changes: the numbers in its state - a lamp's brightness, a cover's position - as a line
  * that holds each value until the next change; whether it was on as a band; and the last few
- * changes with what caused them. The window is chosen in the panel's header and the data is read
- * again every minute, so a page left open keeps drawing to now.
+ * changes with what caused them.
+ *
+ * The window is chosen in the panel's header: a preset ending now - the last hour, day, week,
+ * month - or any stretch by its two ends. A preset is read again every minute, so a page left
+ * open keeps drawing to now; a stretch chosen by its ends is the past, and is read once.
  */
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -14,30 +17,41 @@ import type { EntityView, JsonObject } from '@nebula-home/contracts';
 import { Panel, Segmented } from '@nebula-home/ui';
 
 import { HistoryChart } from '@/components/history-chart';
+import { TimeRangePicker } from '@/components/time-range-picker';
 import { toMessage } from '@/lib/error-message';
 import { fetchStateHistory, fetchTelemetry, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { hasCapability } from '@/library/entity-control';
 import { describeState, type Reading } from '@/library/entity-reading';
 import {
-  HISTORY_RANGES,
   numericFieldsOf,
   numericSeries,
   stateSegments,
   telemetryResolutionFor,
-  windowOf,
-  type HistoryRange,
+  windowOfChoice,
+  type HistoryChoice,
 } from '@/library/history-series';
 import { RecentChanges } from '@/routes/library/entity/recent-changes';
 import { StateBand } from '@/routes/library/entity/state-band';
 
-/** How often an open panel reads the window again. */
+/** How often an open panel reads a window ending now again. */
 const REFRESH_MS = 60_000;
 
 /** How a figure is written on the chart. */
 const numbers = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 
-/** The window choices, as the header offers them. */
-const RANGE_OPTIONS = HISTORY_RANGES.map((range) => ({ value: range, label: range }));
+/** What the panel shows when it opens. */
+const INITIAL_CHOICE: HistoryChoice = { kind: 'preset', range: '24h' };
+
+/**
+ * The part of the cache key that says which window: the preset's name, shared with the cards
+ * that draw the same entity, or the two ends of a stretch.
+ *
+ * @param choice - The choice.
+ * @returns The key parts.
+ */
+function choiceKey(choice: HistoryChoice): readonly (string | number)[] {
+  return choice.kind === 'preset' ? [choice.range] : ['custom', choice.from, choice.to];
+}
 
 /** What the panel needs. */
 export type HistoryPanelProps = {
@@ -82,14 +96,15 @@ function activeWordOf(entity: EntityView): string {
  */
 export function HistoryPanel(props: HistoryPanelProps) {
   const { entity, reading, current } = props;
-  const [range, setRange] = useState<HistoryRange>('24h');
+  const [choice, setChoice] = useState<HistoryChoice>(INITIAL_CHOICE);
   const [fieldIndex, setFieldIndex] = useState(0);
   const isNumeric = hasCapability(entity, 'sensor_numeric');
   const fields = numericFieldsOf(entity);
   const unit = reading.sensorFigure?.unit ?? entity.unitOfMeasurement ?? '';
+  const refetchInterval = choice.kind === 'preset' ? REFRESH_MS : false;
 
   const telemetry = useQuery({
-    queryKey: [...LIBRARY_QUERY_KEYS.history, entity.entityId, 'telemetry', range],
+    queryKey: [...LIBRARY_QUERY_KEYS.history, entity.entityId, 'telemetry', ...choiceKey(choice)],
     /**
      * Reads the window's readings.
      *
@@ -98,21 +113,21 @@ export function HistoryPanel(props: HistoryPanelProps) {
      * @returns The window and its readings.
      */
     queryFn: async ({ signal }: { signal: AbortSignal }) => {
-      const window = windowOf(range, Date.now());
+      const window = windowOfChoice(choice, Date.now());
       const points = await fetchTelemetry(
         { entityId: entity.entityId, from: new Date(window.from), to: new Date(window.to) },
-        telemetryResolutionFor(range),
+        telemetryResolutionFor(window),
         signal,
       );
 
       return { window, points };
     },
     enabled: isNumeric,
-    refetchInterval: REFRESH_MS,
+    refetchInterval,
   });
 
   const changes = useQuery({
-    queryKey: [...LIBRARY_QUERY_KEYS.history, entity.entityId, 'state', range],
+    queryKey: [...LIBRARY_QUERY_KEYS.history, entity.entityId, 'state', ...choiceKey(choice)],
     /**
      * Reads the window's state changes.
      *
@@ -121,7 +136,7 @@ export function HistoryPanel(props: HistoryPanelProps) {
      * @returns The window and its changes.
      */
     queryFn: async ({ signal }: { signal: AbortSignal }) => {
-      const window = windowOf(range, Date.now());
+      const window = windowOfChoice(choice, Date.now());
       const points = await fetchStateHistory(
         { entityId: entity.entityId, from: new Date(window.from), to: new Date(window.to) },
         signal,
@@ -130,7 +145,7 @@ export function HistoryPanel(props: HistoryPanelProps) {
       return { window, points };
     },
     enabled: !isNumeric,
-    refetchInterval: REFRESH_MS,
+    refetchInterval,
   });
 
   const query = isNumeric ? telemetry : changes;
@@ -146,18 +161,7 @@ export function HistoryPanel(props: HistoryPanelProps) {
   const field = fields[Math.min(fieldIndex, fields.length - 1)];
 
   return (
-    <Panel
-      title="History"
-      action={
-        <Segmented
-          label="Window"
-          size="compact"
-          options={RANGE_OPTIONS}
-          value={range}
-          onChange={setRange}
-        />
-      }
-    >
+    <Panel title="History" action={<TimeRangePicker value={choice} onChange={setChoice} />}>
       <div className="flex flex-col gap-4 px-4 py-4">
         {query.isPending ? (
           <p className="text-caption text-foreground-subtle">Reading…</p>

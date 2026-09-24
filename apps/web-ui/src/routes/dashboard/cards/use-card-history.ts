@@ -53,7 +53,7 @@ export function useTelemetry(
       const window = windowOf(range, Date.now());
       const points = await fetchTelemetry(
         { entityId, from: new Date(window.from), to: new Date(window.to) },
-        telemetryResolutionFor(range),
+        telemetryResolutionFor(window),
         signal,
       );
 

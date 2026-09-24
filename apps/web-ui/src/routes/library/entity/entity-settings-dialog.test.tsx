@@ -1,5 +1,5 @@
 /**
- * An entity's settings: what they show of the entity, and what they send when saved.
+ * An entity's settings dialog: what it shows of the entity, and what it sends when saved.
  *
  * The API is stood in for; the interest is in the diff the form sends - only what changed, and
  * nothing at all when nothing did - and in the address never being offered for editing.
@@ -12,7 +12,7 @@ import { entityIdSchema, type EntityView, type TagView } from '@nebula-home/cont
 
 import { fetchIcons, fetchTags, updateEntity } from '@/library/api';
 
-import { EntitySettingsForm } from './entity-settings-form';
+import { EntitySettingsDialog } from './entity-settings-dialog';
 
 vi.mock('@/library/api', () => ({
   fetchIcons: vi.fn(),
@@ -61,16 +61,27 @@ const RELAY: EntityView = {
 };
 
 /**
- * Renders the settings of the relay.
+ * Renders the settings of the relay, open.
  *
  * @param canEdit - Whether the person may change them.
+ * @returns What the dialog calls to shut itself.
  */
-function renderForm(canEdit = true): void {
+function renderForm(canEdit = true): ReturnType<typeof vi.fn> {
+  const onClose = vi.fn();
+
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <EntitySettingsForm entity={RELAY} canCreateTags canEdit={canEdit} />
+      <EntitySettingsDialog
+        entity={RELAY}
+        isOpen
+        onClose={onClose}
+        canCreateTags
+        canEdit={canEdit}
+      />
     </QueryClientProvider>,
   );
+
+  return onClose;
 }
 
 beforeAll(() => {
@@ -82,7 +93,7 @@ beforeEach(() => {
   vi.mocked(updateEntity).mockClear();
 });
 
-describe('EntitySettingsForm', () => {
+describe('EntitySettingsDialog', () => {
   it('offers the name to change, and never the address', () => {
     renderForm();
 
@@ -101,14 +112,14 @@ describe('EntitySettingsForm', () => {
     expect(updateEntity).not.toHaveBeenCalled();
   });
 
-  it('sends only what changed', async () => {
+  it('sends only what changed, and shuts once it is saved', async () => {
     vi.mocked(updateEntity).mockResolvedValue({
       ...RELAY,
       name: 'Bench relay',
       tagIds: [EXTERIOR.id],
     });
 
-    renderForm();
+    const onClose = renderForm();
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Bench relay' } });
 
@@ -123,6 +134,7 @@ describe('EntitySettingsForm', () => {
         name: 'Bench relay',
         tagIds: [EXTERIOR.id],
       });
+      expect(onClose).toHaveBeenCalled();
     });
   });
 

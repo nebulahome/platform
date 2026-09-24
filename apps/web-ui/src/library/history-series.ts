@@ -7,8 +7,10 @@
  * second - its brightness as a line that holds its value until the next change, and whether it
  * was on as a band - because a lamp does not send a reading every second, it changes.
  *
- * The window picks the resolution: an hour of raw readings is a few thousand points at most, a
- * day of them is not, so a day is read in minutes and a week or a month in hours.
+ * The window is a preset ending now - the last hour, day, week - or any stretch chosen by its two
+ * ends, and its length picks the resolution: an hour of raw readings is a few thousand points at
+ * most, a day of them is not, so a day is read in minutes, a week or a month in hours, and
+ * anything longer in days. Each keeps a chart under the two thousand points one read brings back.
  */
 import {
   capabilityStateSchema,
@@ -21,18 +23,33 @@ import {
 
 import { miredsToKelvin } from '@/library/entity-control';
 
-/** How far back the chart looks. */
-export const HISTORY_RANGES = ['1h', '24h', '7d', '30d'] as const;
+/** The windows ending now that the chart offers at a press. */
+export const HISTORY_RANGES = ['1h', '6h', '24h', '7d', '30d'] as const;
 
-/** How far back the chart looks. */
+/** A window ending now. */
 export type HistoryRange = (typeof HISTORY_RANGES)[number];
+
+/** Each preset in words, as the picker's button says it. */
+export const HISTORY_RANGE_LABELS: Readonly<Record<HistoryRange, string>> = {
+  '1h': 'Last hour',
+  '6h': 'Last 6 hours',
+  '24h': 'Last 24 hours',
+  '7d': 'Last 7 days',
+  '30d': 'Last 30 days',
+};
+
+/** A minute, an hour and a day, in milliseconds. */
+const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
 
 /** How long each range is. */
 const RANGE_MS: Readonly<Record<HistoryRange, number>> = {
-  '1h': 3_600_000,
-  '24h': 86_400_000,
-  '7d': 7 * 86_400_000,
-  '30d': 30 * 86_400_000,
+  '1h': HOUR_MS,
+  '6h': 6 * HOUR_MS,
+  '24h': DAY_MS,
+  '7d': 7 * DAY_MS,
+  '30d': 30 * DAY_MS,
 };
 
 /** A window of time, in milliseconds since the epoch. */
@@ -40,6 +57,11 @@ export type TimeWindow = {
   readonly from: number;
   readonly to: number;
 };
+
+/** What the chart is asked to show: a window ending now, or one chosen by its two ends. */
+export type HistoryChoice =
+  | { readonly kind: 'preset'; readonly range: HistoryRange }
+  | { readonly kind: 'custom'; readonly from: number; readonly to: number };
 
 /**
  * The window a range covers, ending now.
@@ -53,21 +75,37 @@ export function windowOf(range: HistoryRange, now: number): TimeWindow {
 }
 
 /**
- * Which rolled-up level of telemetry a range is read at.
+ * The window a choice covers.
  *
- * @param range - How far back.
- * @returns Raw readings for an hour, minutes for a day, hours beyond.
+ * @param choice - A preset, which ends now, or the two ends of a stretch.
+ * @param now - The present, in milliseconds since the epoch.
+ * @returns The window.
  */
-export function telemetryResolutionFor(range: HistoryRange): TelemetryResolution {
-  switch (range) {
-    case '1h':
-      return 'raw';
-    case '24h':
-      return '1m';
-    case '7d':
-    case '30d':
-      return '1h';
+export function windowOfChoice(choice: HistoryChoice, now: number): TimeWindow {
+  return choice.kind === 'preset'
+    ? windowOf(choice.range, now)
+    : { from: choice.from, to: choice.to };
+}
+
+/**
+ * Which rolled-up level of telemetry a window is read at, by how long it is.
+ *
+ * @param window - The window.
+ * @returns Raw readings up to an hour, minutes up to a day and a bit, hours up to a couple of
+ * months, days beyond.
+ */
+export function telemetryResolutionFor(window: TimeWindow): TelemetryResolution {
+  const span = window.to - window.from;
+
+  if (span <= HOUR_MS) {
+    return 'raw';
   }
+
+  if (span <= 30 * HOUR_MS) {
+    return '1m';
+  }
+
+  return span <= 80 * DAY_MS ? '1h' : '1d';
 }
 
 /**

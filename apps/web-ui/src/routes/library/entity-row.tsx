@@ -157,7 +157,7 @@ export function EntityRow(props: EntityRowProps) {
         ) : null}
         {canEdit ? (
           <Link
-            to={entityPath(entity.entityId, 'settings')}
+            to={entityPath(entity.entityId, true)}
             aria-label={`Configure ${entity.name}`}
             title={`Configure ${entity.name}`}
             className="relative z-10 flex size-7 items-center justify-center rounded-chip text-foreground-subtle transition-colors hover:bg-surface-raised hover:text-foreground focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none"

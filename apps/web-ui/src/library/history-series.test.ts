@@ -13,6 +13,7 @@ import {
   stateSegments,
   telemetryResolutionFor,
   windowOf,
+  windowOfChoice,
 } from './history-series';
 
 const LAMP = entityIdSchema.parse('light.desk');
@@ -52,11 +53,23 @@ function words(state: JsonObject | null): string {
 }
 
 describe('the window', () => {
+  const now = 100 * 86_400_000;
+
   it('ends now and reads a day in minutes and a month in hours', () => {
     expect(windowOf('1h', 10_000_000)).toEqual({ from: 6_400_000, to: 10_000_000 });
-    expect(telemetryResolutionFor('1h')).toBe('raw');
-    expect(telemetryResolutionFor('24h')).toBe('1m');
-    expect(telemetryResolutionFor('30d')).toBe('1h');
+    expect(telemetryResolutionFor(windowOf('1h', now))).toBe('raw');
+    expect(telemetryResolutionFor(windowOf('6h', now))).toBe('1m');
+    expect(telemetryResolutionFor(windowOf('24h', now))).toBe('1m');
+    expect(telemetryResolutionFor(windowOf('7d', now))).toBe('1h');
+    expect(telemetryResolutionFor(windowOf('30d', now))).toBe('1h');
+  });
+
+  it('takes a stretch chosen by its ends as it is, and reads a long one in days', () => {
+    const custom = { kind: 'custom', from: 1_000, to: 91 * 86_400_000 } as const;
+
+    expect(windowOfChoice(custom, now)).toEqual({ from: 1_000, to: 91 * 86_400_000 });
+    expect(windowOfChoice({ kind: 'preset', range: '1h' }, now)).toEqual(windowOf('1h', now));
+    expect(telemetryResolutionFor(windowOfChoice(custom, now))).toBe('1d');
   });
 });
 

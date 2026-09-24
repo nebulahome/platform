@@ -1,6 +1,6 @@
 /**
  * An entity's page: the controls it draws for what the entity declares, the commands they send,
- * and the two views of the page.
+ * and the settings dialog behind the button in its header.
  *
  * The API module is stood in for; the session and the live store are the real ones.
  */
@@ -229,13 +229,34 @@ describe('EntityPage', () => {
     expect(screen.queryByRole('switch')).toBeNull();
   });
 
-  it('opens on its settings when the address asks for them', async () => {
-    renderPage(LAMP, undefined, `/devices/entities/${LAMP.entityId}?tab=settings`);
+  it('opens its settings in a dialog from the button in the header, and has no views to switch', async () => {
+    renderPage(LAMP);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Configure Desk lamp' }));
+
+    const dialog = screen.getByRole('dialog');
+
+    expect(dialog.textContent).toContain('Configure Desk lamp');
+    expect(screen.getByLabelText<HTMLInputElement>('Name').value).toBe('Desk lamp');
+    expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Views of this entity' })).toBeNull();
+  });
+
+  it('opens with the settings dialog open when the address asks for it', async () => {
+    renderPage(LAMP, undefined, `/devices/entities/${LAMP.entityId}?settings=1`);
 
     expect((await screen.findByLabelText<HTMLInputElement>('Name')).value).toBe('Desk lamp');
-    expect(screen.queryByRole('switch')).toBeNull();
-    expect(screen.getByRole('link', { name: 'Settings' }).getAttribute('aria-current')).toBe(
-      'page',
-    );
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+
+  it('leads back to the device’s own page from the header', async () => {
+    renderPage(LAMP);
+
+    const links = await screen.findAllByRole('link', { name: 'Desk light' });
+
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/devices/govee-desk',
+      '/devices/govee-desk',
+    ]);
   });
 });

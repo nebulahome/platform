@@ -60,6 +60,62 @@ export function absoluteTime(when: Date): string {
 }
 
 /**
+ * Names a moment briefly: day, month and time, with the year only when it is not this one.
+ *
+ * @param when - The moment.
+ * @param now - What "this year" is measured against.
+ * @returns A phrase such as `3 Sep, 14:00`, in the browser's locale and zone.
+ */
+export function shortTime(when: Date, now: Date = new Date()): string {
+  return new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    month: 'short',
+    ...(when.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' }),
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(when);
+}
+
+/**
+ * Writes a moment the way a `datetime-local` field holds it: local time, to the minute.
+ *
+ * @param when - The moment, in milliseconds since the epoch.
+ * @returns `YYYY-MM-DDTHH:mm`.
+ */
+export function toDateTimeLocal(when: number): string {
+  const date = new Date(when);
+  /**
+   * Writes a part of the date in two digits.
+   *
+   * @param value - The part.
+   * @returns It, with a leading zero when it needs one.
+   */
+  const two = (value: number): string => String(value).padStart(2, '0');
+
+  return (
+    `${String(date.getFullYear())}-${two(date.getMonth() + 1)}-${two(date.getDate())}` +
+    `T${two(date.getHours())}:${two(date.getMinutes())}`
+  );
+}
+
+/**
+ * Reads what a `datetime-local` field holds, as local time.
+ *
+ * @param value - `YYYY-MM-DDTHH:mm`, or whatever the field was left with.
+ * @returns The moment in milliseconds since the epoch, or null when it does not read.
+ */
+export function readDateTimeLocal(value: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/u.test(value)) {
+    return null;
+  }
+
+  // Without a zone, a date-time string is read as local time: what the field shows is what it is.
+  const when = new Date(value).getTime();
+
+  return Number.isNaN(when) ? null : when;
+}
+
+/**
  * Says how long a duration in days is, in words.
  *
  * @param days - The number of days, or null for "kept forever".

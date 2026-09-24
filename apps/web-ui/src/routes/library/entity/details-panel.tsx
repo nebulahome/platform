@@ -17,6 +17,7 @@ import { copyText } from '@/lib/clipboard';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
 import { miredsToKelvin, paramsOf } from '@/library/entity-control';
 import { capabilityLabel, entityKindOf } from '@/library/entity-kind';
+import { devicePath } from '@/routes/library/device/device-path';
 import type { EntityPageView } from '@/routes/library/entity/use-entity-page';
 
 /**
@@ -59,7 +60,7 @@ function limitsOf(entity: EntityView, capability: CapabilityName): string | null
 }
 
 /** What one fact needs. */
-type FactProps = {
+export type FactProps = {
   readonly term: string;
   readonly children: ReactNode;
 };
@@ -70,7 +71,7 @@ type FactProps = {
  * @param props - See {@link FactProps}.
  * @returns The line.
  */
-function Fact(props: FactProps) {
+export function Fact(props: FactProps) {
   const { term, children } = props;
 
   return (
@@ -88,7 +89,7 @@ function Fact(props: FactProps) {
  * @param props.when - When, or null for never.
  * @returns The phrase.
  */
-function When(props: { readonly when: Date | null }) {
+export function When(props: { readonly when: Date | null }) {
   const { when } = props;
 
   return when === null ? (
@@ -143,7 +144,7 @@ export function DetailsPanel(props: DetailsPanelProps) {
             </span>
           ) : (
             <Link
-              to={`/devices?device=${encodeURIComponent(device.id)}`}
+              to={devicePath(device.id)}
               className="text-primary underline-offset-2 hover:underline"
             >
               {device.name}

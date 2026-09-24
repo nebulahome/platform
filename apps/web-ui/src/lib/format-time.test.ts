@@ -7,7 +7,14 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { absoluteTime, durationInDays, durationText, relativeTime } from '@/lib/format-time';
+import {
+  absoluteTime,
+  durationInDays,
+  durationText,
+  readDateTimeLocal,
+  relativeTime,
+  toDateTimeLocal,
+} from '@/lib/format-time';
 
 /** A fixed moment to measure everything against. */
 const NOW = new Date('2026-09-05T12:00:00.000Z');
@@ -82,5 +89,19 @@ describe('durationText', () => {
     expect(durationText(200 * 60_000)).toBe('3 h 20 min');
     expect(durationText(3 * 3_600_000)).toBe('3 h');
     expect(durationText(52 * 3_600_000)).toBe('2 d 4 h');
+  });
+});
+
+describe('the datetime-local field', () => {
+  it('writes a moment to the minute, and reads it back as the same moment', () => {
+    const when = new Date(2026, 8, 3, 14, 5, 0).getTime();
+
+    expect(toDateTimeLocal(when)).toBe('2026-09-03T14:05');
+    expect(readDateTimeLocal('2026-09-03T14:05')).toBe(when);
+  });
+
+  it('reads nothing from a field left empty or half typed', () => {
+    expect(readDateTimeLocal('')).toBeNull();
+    expect(readDateTimeLocal('2026-09-03')).toBeNull();
   });
 });
