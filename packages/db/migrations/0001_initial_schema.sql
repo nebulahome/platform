@@ -328,6 +328,7 @@ CREATE TABLE registry.areas (
   parent_id  uuid        REFERENCES registry.areas (id) ON DELETE CASCADE,
   icon       text,
   sort_order smallint    NOT NULL DEFAULT 100,
+  level      smallint,                          -- which storey a floor is: 0 ground, -1 cellar
   latitude   double precision,
   longitude  double precision,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -335,6 +336,8 @@ CREATE TABLE registry.areas (
 
   CONSTRAINT areas_key_format CHECK (key ~ '^[a-z][a-z0-9_]{0,63}$'),
   CONSTRAINT areas_kind CHECK (kind IN ('house', 'floor', 'room')),
+  CONSTRAINT areas_level_on_floor CHECK ((kind = 'floor') = (level IS NOT NULL)),
+  CONSTRAINT areas_level_range CHECK (level IS NULL OR level BETWEEN -20 AND 200),
   CONSTRAINT areas_not_own_parent CHECK (parent_id IS DISTINCT FROM id),
   CONSTRAINT areas_position_whole CHECK ((latitude IS NULL) = (longitude IS NULL)),
   CONSTRAINT areas_position_on_house CHECK (kind = 'house' OR latitude IS NULL),
@@ -344,6 +347,8 @@ CREATE TABLE registry.areas (
 
 CREATE INDEX areas_parent_id_idx ON registry.areas (parent_id);
 CREATE UNIQUE INDEX areas_one_house_idx ON registry.areas ((kind)) WHERE kind = 'house';
+-- Two floors that are both "1" is a house nobody can draw.
+CREATE UNIQUE INDEX areas_floor_level_idx ON registry.areas (level) WHERE kind = 'floor';
 
 -- --------------------------------------------------------------------------------------
 
@@ -734,22 +739,33 @@ CREATE INDEX automations_is_enabled_idx ON registry.automations (is_enabled) WHE
 CREATE INDEX automations_created_by_idx ON registry.automations (created_by);
 CREATE INDEX automations_definition_idx ON registry.automations USING gin (definition);
 
--- A person's own pages of cards. The layout is one document, read and written whole by the editor;
--- cards name entities by their address, not by row, so a removed entity leaves a card saying so.
+-- The house's pages of cards, made by whoever holds dashboard:manage and shown to the people each
+-- is assigned to. The layout is one document, read and written whole by the editor; cards name
+-- entities by their address, not by row, so a removed entity leaves a card saying so.
 CREATE TABLE registry.dashboards (
   id             uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id        uuid        NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
   name           text        NOT NULL,
   icon           text,
   layout         jsonb       NOT NULL DEFAULT '{"cards": []}',  -- dashboardLayoutSchema
   layout_version integer     NOT NULL DEFAULT 1,
   created_at     timestamptz NOT NULL DEFAULT now(),
   updated_at     timestamptz NOT NULL DEFAULT now(),
+  created_by     uuid        REFERENCES auth.users (id) ON DELETE SET NULL,
 
   CONSTRAINT dashboards_name_not_blank CHECK (length(btrim(name)) BETWEEN 1 AND 60)
 );
 
-CREATE INDEX dashboards_user_id_idx ON registry.dashboards (user_id, created_at);
+CREATE INDEX dashboards_created_at_idx ON registry.dashboards (created_at);
+
+-- Who sees which dashboard. Removing either end removes the assignment.
+CREATE TABLE registry.dashboard_users (
+  dashboard_id uuid NOT NULL REFERENCES registry.dashboards (id) ON DELETE CASCADE,
+  user_id      uuid NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+
+  PRIMARY KEY (dashboard_id, user_id)
+);
+
+CREATE INDEX dashboard_users_user_id_idx ON registry.dashboard_users (user_id);
 
 -- --------------------------------------------------------------------------------------
 
@@ -1210,6 +1226,7 @@ INSERT INTO auth.permissions (key, resource, action, description, is_scopable) V
   ('scene:write', 'scene', 'write', 'Create, edit and delete scenes', false),
   ('alias:read', 'alias', 'read', 'See derived entities and their definitions', false),
   ('alias:write', 'alias', 'write', 'Create, edit and delete derived entities', false),
+  ('dashboard:manage', 'dashboard', 'manage', 'Create, edit, assign and delete dashboards', false),
   ('history:read', 'history', 'read', 'Read state history and telemetry', true),
   ('package:read', 'package', 'read', 'See installed packages and the package store', false),
   ('package:install', 'package', 'install', 'Install, update and remove packages', false),
@@ -1243,7 +1260,7 @@ INSERT INTO system.settings (key, value, schema_ref) VALUES
 -- Role grants: generated from DEFAULT_ROLE_PERMISSIONS in @nebula-home/contracts.
 INSERT INTO auth.role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM auth.roles r, auth.permissions p
-WHERE r.key = 'admin' AND p.key IN ('entity:read', 'entity:control', 'entity:write', 'entity:delete', 'device:read', 'device:write', 'device:delete', 'area:read', 'area:write', 'tag:read', 'tag:write', 'automation:read', 'automation:write', 'automation:trigger', 'scene:read', 'scene:apply', 'scene:write', 'alias:read', 'alias:write', 'history:read', 'package:read', 'package:install', 'package:configure', 'integration:read', 'integration:configure', 'user:read', 'user:manage', 'logs:read', 'settings:read', 'settings:write', 'audit:read', 'system:read');
+WHERE r.key = 'admin' AND p.key IN ('entity:read', 'entity:control', 'entity:write', 'entity:delete', 'device:read', 'device:write', 'device:delete', 'area:read', 'area:write', 'tag:read', 'tag:write', 'automation:read', 'automation:write', 'automation:trigger', 'scene:read', 'scene:apply', 'scene:write', 'alias:read', 'alias:write', 'dashboard:manage', 'history:read', 'package:read', 'package:install', 'package:configure', 'integration:read', 'integration:configure', 'user:read', 'user:manage', 'logs:read', 'settings:read', 'settings:write', 'audit:read', 'system:read');
 INSERT INTO auth.role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM auth.roles r, auth.permissions p
 WHERE r.key = 'member' AND p.key IN ('entity:read', 'entity:control', 'device:read', 'area:read', 'tag:read', 'automation:read', 'automation:trigger', 'scene:read', 'scene:apply', 'alias:read', 'history:read', 'package:read', 'integration:read');

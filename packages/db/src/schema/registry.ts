@@ -18,6 +18,7 @@ import {
   smallint,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
@@ -53,13 +54,24 @@ export const areas = registrySchema.table(
     parentId: uuid('parent_id').references((): AnyPgColumn => areas.id, { onDelete: 'cascade' }),
     icon: text('icon'),
     sortOrder: smallint('sort_order').notNull().default(100),
+    /**
+     * Which storey a floor is - 0 the ground, 1 the one above, -1 the cellar - whatever it is
+     * called. Set on every floor and on nothing else, and unique among floors: two floors that
+     * are both "1" is a house nobody can draw.
+     */
+    level: smallint('level'),
     /** Where a house stands, in degrees; null for a house not yet placed, and for the rest. */
     latitude: doublePrecision('latitude'),
     longitude: doublePrecision('longitude'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('areas_parent_id_idx').on(table.parentId)],
+  (table) => [
+    index('areas_parent_id_idx').on(table.parentId),
+    uniqueIndex('areas_floor_level_idx')
+      .on(table.level)
+      .where(sql`kind = 'floor'`),
+  ],
 );
 
 /**
@@ -547,20 +559,18 @@ export const automations = registrySchema.table(
 );
 
 /**
- * A person's own pages of cards.
+ * The house's pages of cards, made by whoever holds `dashboard:manage` and shown to the people
+ * each is assigned to.
  *
  * `layout` is the whole grid as one validated document, for the reason `definition` is one on an
  * automation: the editor reads and writes it whole, and a container holds cards of its own. Cards
  * name entities by their address rather than by row, so removing an entity does not cascade into
- * someone's page - the card stays and says the entity is gone.
+ * a page - the card stays and says the entity is gone.
  */
 export const dashboards = registrySchema.table(
   'dashboards',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     icon: text('icon'),
 
@@ -572,6 +582,21 @@ export const dashboards = registrySchema.table(
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   },
-  (table) => [index('dashboards_user_id_idx').on(table.userId, table.createdAt)],
+  (table) => [index('dashboards_created_at_idx').on(table.createdAt)],
+);
+
+/** Who sees which dashboard: a dashboard is shown to every person it is assigned to. */
+export const dashboardUsers = registrySchema.table(
+  'dashboard_users',
+  {
+    dashboardId: uuid('dashboard_id')
+      .notNull()
+      .references(() => dashboards.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+  },
+  (table) => [index('dashboard_users_user_id_idx').on(table.userId)],
 );
