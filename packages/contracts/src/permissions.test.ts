@@ -83,3 +83,11 @@ describe('integration permissions', () => {
     expect(DEFAULT_ROLE_PERMISSIONS.admin).toContain('integration:configure');
   });
 });
+
+describe('dashboard permissions', () => {
+  it('lets an admin manage dashboards, and nobody below', () => {
+    expect(DEFAULT_ROLE_PERMISSIONS.admin).toContain('dashboard:manage');
+    expect(DEFAULT_ROLE_PERMISSIONS.member).not.toContain('dashboard:manage');
+    expect(DEFAULT_ROLE_PERMISSIONS.guest).not.toContain('dashboard:manage');
+  });
+});

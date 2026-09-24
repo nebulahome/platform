@@ -155,6 +155,17 @@ describe('dashboardCreateSchema', () => {
   it('refuses a blank name', () => {
     expect(dashboardCreateSchema.safeParse({ name: '   ' }).success).toBe(false);
   });
+
+  it('takes the people to show it to, each once', () => {
+    const person = '018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e70';
+
+    expect(dashboardCreateSchema.parse({ name: 'Home', userIds: [person] }).userIds).toEqual([
+      person,
+    ]);
+    expect(
+      dashboardCreateSchema.safeParse({ name: 'Home', userIds: [person, person] }).success,
+    ).toBe(false);
+  });
 });
 
 describe('dashboardUpdateSchema', () => {
@@ -167,6 +178,10 @@ describe('dashboardUpdateSchema', () => {
 
     expect(body.layout?.cards).toHaveLength(1);
   });
+
+  it('takes an empty assignment, which shows it to nobody', () => {
+    expect(dashboardUpdateSchema.parse({ userIds: [] })).toEqual({ userIds: [] });
+  });
 });
 
 describe('the dashboard file', () => {
@@ -176,6 +191,7 @@ describe('the dashboard file', () => {
     icon: 'house',
     layout: { cards: [] },
     layoutVersion: 1,
+    userIds: ['018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e70'],
     createdAt: new Date('2026-09-24T08:00:00.000Z'),
     updatedAt: new Date('2026-09-24T09:00:00.000Z'),
   };

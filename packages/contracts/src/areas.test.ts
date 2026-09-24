@@ -35,12 +35,37 @@ describe('areaCreateSchema', () => {
   });
 
   it('needs a parent for a floor and for a room', () => {
-    expect(areaCreateSchema.safeParse({ kind: 'floor', name: 'Ground floor' }).success).toBe(false);
+    expect(
+      areaCreateSchema.safeParse({ kind: 'floor', name: 'Ground floor', level: 0 }).success,
+    ).toBe(false);
+    expect(
+      areaCreateSchema.safeParse({
+        kind: 'floor',
+        name: 'Ground floor',
+        parentId: HOUSE_ID,
+        level: 0,
+      }).success,
+    ).toBe(true);
+    expect(areaCreateSchema.safeParse({ kind: 'room', name: 'Kitchen' }).success).toBe(false);
+  });
+
+  it('needs a number for a floor, and takes one for nothing else', () => {
     expect(
       areaCreateSchema.safeParse({ kind: 'floor', name: 'Ground floor', parentId: HOUSE_ID })
         .success,
+    ).toBe(false);
+    expect(
+      areaCreateSchema.safeParse({ kind: 'floor', name: 'Cellar', parentId: HOUSE_ID, level: -1 })
+        .success,
     ).toBe(true);
-    expect(areaCreateSchema.safeParse({ kind: 'room', name: 'Kitchen' }).success).toBe(false);
+    expect(
+      areaCreateSchema.safeParse({ kind: 'room', name: 'Kitchen', parentId: HOUSE_ID, level: 1 })
+        .success,
+    ).toBe(false);
+    expect(
+      areaCreateSchema.safeParse({ kind: 'floor', name: 'Loft', parentId: HOUSE_ID, level: 1.5 })
+        .success,
+    ).toBe(false);
   });
 
   it('refuses a position on anything but a house', () => {
@@ -114,6 +139,7 @@ describe('areaViewSchema', () => {
       parentId: null,
       icon: null,
       sortOrder: 100,
+      level: null,
       latitude: 45.4,
       longitude: 9.19,
       deviceCount: 0,

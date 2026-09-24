@@ -1,8 +1,9 @@
 /**
- * Dashboards: a person's own pages of cards, laid out on a grid.
+ * Dashboards: the house's pages of cards, laid out on a grid and shown to the people they are for.
  *
- * A dashboard belongs to one account. It is a view of the house, not a description of it, so two
- * people living in the same house arrange theirs differently and neither sees the other's.
+ * A dashboard is made and laid out by whoever holds `dashboard:manage`, and assigned to any number
+ * of accounts - none, one, or everyone in the house. Each person's Dashboards page shows the ones
+ * assigned to them, read-only; a change saved in the editor is what every one of them sees next.
  *
  * The layout is one document, read and written whole: the editor saves what the person sees when
  * they press Done, and a container holds cards of its own, which a set of rows would have to
@@ -30,8 +31,8 @@ export const DASHBOARD_ROWS_MAXIMUM = 1000;
 /** How many cards one dashboard may hold, counting the ones inside containers. */
 export const DASHBOARD_CARDS_MAXIMUM = 200;
 
-/** How many dashboards one account may keep. */
-export const DASHBOARDS_PER_USER_MAXIMUM = 20;
+/** How many dashboards the house may keep. */
+export const DASHBOARDS_MAXIMUM = 100;
 
 /** Which revision of the layout format a stored document is written in. */
 export const DASHBOARD_LAYOUT_VERSION = 1;
@@ -265,7 +266,16 @@ export type DashboardLayout = z.output<typeof dashboardLayoutSchema>;
 /** A dashboard with nothing on it yet. */
 export const EMPTY_DASHBOARD_LAYOUT: DashboardLayout = { cards: [] };
 
-/** One of the caller's dashboards. */
+/** How many people one dashboard may be assigned to: far past any household. */
+export const DASHBOARD_ASSIGNEES_MAXIMUM = 200;
+
+/** The accounts a dashboard is shown to, by id, each once. */
+const dashboardUserIdsSchema = z
+  .array(z.uuid())
+  .max(DASHBOARD_ASSIGNEES_MAXIMUM)
+  .refine((ids) => new Set(ids).size === ids.length, { message: 'A person is listed twice' });
+
+/** A dashboard. */
 export const dashboardViewSchema = z.object({
   id: z.uuid(),
   name: z.string(),
@@ -275,21 +285,42 @@ export const dashboardViewSchema = z.object({
   /** Which revision of the layout format it is written in. */
   layoutVersion: z.int().min(1),
 
+  /** The accounts it is shown to. */
+  userIds: z.array(z.uuid()),
+
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
 });
 
-/** One of the caller's dashboards. */
+/** A dashboard. */
 export type DashboardView = z.output<typeof dashboardViewSchema>;
+
+/**
+ * Someone a dashboard can be assigned to: every active account, named the way the interface
+ * names people. Served to whoever manages dashboards, who need not also hold `user:read`.
+ */
+export const dashboardAssigneeSchema = z.object({
+  id: z.uuid(),
+  username: z.string(),
+  displayName: z.string(),
+  avatarUrl: z.string().nullable(),
+});
+
+/** Someone a dashboard can be assigned to. */
+export type DashboardAssignee = z.output<typeof dashboardAssigneeSchema>;
 
 /** What a dashboard's name may be. */
 const dashboardNameSchema = z.string().trim().min(1).max(60);
 
-/** What creating a dashboard needs: a name, and optionally an icon and the cards to start with. */
+/**
+ * What creating a dashboard needs: a name, and optionally an icon, the cards to start with and
+ * the people to show it to.
+ */
 export const dashboardCreateSchema = z.object({
   name: dashboardNameSchema,
   icon: iconIdSchema.nullable().optional(),
   layout: dashboardLayoutSchema.optional(),
+  userIds: dashboardUserIdsSchema.optional(),
 });
 
 /** What creating a dashboard needs. */
@@ -299,13 +330,14 @@ export type DashboardCreate = z.output<typeof dashboardCreateSchema>;
  * What changing a dashboard accepts.
  *
  * When `layout` is present it replaces the whole document: a save from the editor is exactly what
- * ends up stored.
+ * ends up stored. When `userIds` is present it replaces who the dashboard is shown to.
  */
 export const dashboardUpdateSchema = z
   .object({
     name: dashboardNameSchema,
     icon: iconIdSchema.nullable(),
     layout: dashboardLayoutSchema,
+    userIds: dashboardUserIdsSchema,
   })
   .partial()
   .refine((body) => Object.keys(body).length > 0, {

@@ -208,6 +208,15 @@ export const PERMISSIONS = [
     description: 'Create, edit and delete derived entities',
   },
   {
+    // Seeing the dashboards assigned to you needs nothing; this is about making them, laying
+    // them out and deciding who sees each.
+    key: 'dashboard:manage',
+    resource: 'dashboard',
+    action: 'manage',
+    isScopable: false,
+    description: 'Create, edit, assign and delete dashboards',
+  },
+  {
     key: 'history:read',
     resource: 'history',
     action: 'read',

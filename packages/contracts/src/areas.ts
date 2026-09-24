@@ -36,6 +36,18 @@ const latitudeSchema = z.number().min(-90).max(90);
 /** Validates a longitude, in degrees. */
 const longitudeSchema = z.number().min(-180).max(180);
 
+/** The lowest storey a floor may be: a deep cellar, and well past any real one. */
+export const FLOOR_LEVEL_MINIMUM = -20;
+
+/** The highest storey a floor may be. */
+export const FLOOR_LEVEL_MAXIMUM = 200;
+
+/**
+ * Validates a floor's number: which storey it is, whatever it is called. Mirrors
+ * `areas_level_range`.
+ */
+export const floorLevelSchema = z.int().min(FLOOR_LEVEL_MINIMUM).max(FLOOR_LEVEL_MAXIMUM);
+
 /** A house, a floor or a room. */
 export const areaViewSchema = z.object({
   id: z.uuid(),
@@ -55,6 +67,12 @@ export const areaViewSchema = z.object({
 
   /** Where it sorts among its siblings. */
   sortOrder: z.int(),
+
+  /**
+   * Which storey a floor is - 0 the ground, 1 the one above, -1 the cellar - independent of its
+   * name, and what floors are ordered by. Unique among floors; null for a house and a room.
+   */
+  level: z.int().nullable(),
 
   /** Where a house stands; null for a house not yet placed, and always for the rest. */
   latitude: z.number().nullable(),
@@ -82,10 +100,27 @@ export const areaCreateSchema = z
     name: tagNameSchema,
     parentId: z.uuid().optional(),
     icon: iconIdSchema.optional(),
+    level: floorLevelSchema.optional(),
     latitude: latitudeSchema.optional(),
     longitude: longitudeSchema.optional(),
   })
   .superRefine((body, context) => {
+    if (body.kind === 'floor' && body.level === undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['level'],
+        message: 'A floor needs its number: 0 for the ground floor, 1 for the one above',
+      });
+    }
+
+    if (body.kind !== 'floor' && body.level !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['level'],
+        message: 'Only a floor has a number',
+      });
+    }
+
     if (body.kind === 'house' && body.parentId !== undefined) {
       context.addIssue({
         code: 'custom',
@@ -123,13 +158,14 @@ export const areaCreateSchema = z
 export type AreaCreate = z.output<typeof areaCreateSchema>;
 
 /**
- * What changing an area takes: a new name, a new icon (null for none), or - for a house - a new
- * position, where nulls for both take it away. Never a kind, never a key.
+ * What changing an area takes: a new name, a new icon (null for none), for a floor a new number,
+ * or - for a house - a new position, where nulls for both take it away. Never a kind, never a key.
  */
 export const areaUpdateSchema = z
   .object({
     name: tagNameSchema,
     icon: iconIdSchema.nullable(),
+    level: floorLevelSchema,
     latitude: latitudeSchema.nullable(),
     longitude: longitudeSchema.nullable(),
   })
