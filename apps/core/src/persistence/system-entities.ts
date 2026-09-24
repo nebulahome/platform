@@ -18,7 +18,7 @@ import { schema, type Database } from '@nebula-home/db';
 import type { PlatformLogger } from '@nebula-home/logging';
 
 /** What the system device is called until the owner calls it something else. */
-export const SYSTEM_DEVICE_NAME = 'NebulaHome server';
+export const SYSTEM_DEVICE_NAME = 'System';
 
 /** The icon it starts with. */
 export const SYSTEM_DEVICE_ICON = 'server';

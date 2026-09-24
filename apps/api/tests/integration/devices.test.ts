@@ -211,7 +211,7 @@ describe('the system device', () => {
       existing === undefined
         ? await database.db
             .insert(devices)
-            .values({ source: 'system', name: 'NebulaHome server', model: 'Test OS · x64' })
+            .values({ source: 'system', name: 'System', model: 'Test OS · x64' })
             .returning({ id: devices.id, name: devices.name })
         : [existing];
 
