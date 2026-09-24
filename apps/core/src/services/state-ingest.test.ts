@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import {
+  BUS_PATTERNS,
   busSubjects,
   entityStateSchema,
   parseEntityId,
   type EntityState,
 } from '@nebula-home/contracts';
 
+import { TelemetrySampler } from '../domain/telemetry-sampler.js';
 import { entityRecord, createCoreHarness, type CoreHarness } from '../testing/harness.js';
 
 import { startStateIngest } from './state-ingest.js';
@@ -19,10 +21,24 @@ const thermometer = parseEntityId('sensor.kitchen_temperature');
 describe('startStateIngest', () => {
   let harness: CoreHarness;
 
+  /** What reached the telemetry stream. */
+  let readings: { entityId: string; value: number }[];
+
   beforeEach(() => {
     harness = createCoreHarness();
     harness.directory.set(entityRecord(bulb, { capabilities: { on_off: {}, level: {} } }));
     harness.directory.set(entityRecord(thermometer, { capabilities: { sensor_numeric: {} } }));
+    readings = [];
+
+    harness
+      .clientFor('observer')
+      .subscribe(
+        BUS_PATTERNS.allTelemetry,
+        z.object({ entityId: z.string(), value: z.number() }),
+        (payload) => {
+          readings.push(payload);
+        },
+      );
 
     startStateIngest({
       client: harness.client,
@@ -30,8 +46,47 @@ describe('startStateIngest', () => {
       directory: harness.directory,
       history: harness.history,
       stateCache: harness.stateCache,
+      telemetry: new TelemetrySampler(60_000),
       logger: harness.logger,
     });
+  });
+
+  it("sends a numeric sensor's reading to the telemetry stream, and a held value once", async () => {
+    const adapter = harness.clientFor('pkg-mqtt');
+
+    for (const value of [21.5, 21.5, 21.5, 22]) {
+      adapter.publish(busSubjects.stateReport(thermometer), {
+        entityId: thermometer,
+        state: { sensor_numeric: { value } },
+      });
+    }
+
+    await vi.waitFor(() => {
+      expect(readings).toEqual([
+        { entityId: thermometer, value: 21.5 },
+        { entityId: thermometer, value: 22 },
+      ]);
+    });
+  });
+
+  it('sends nothing for an unreachable sensor, nor for anything but a sensor', async () => {
+    const adapter = harness.clientFor('pkg-mqtt');
+
+    adapter.publish(busSubjects.stateReport(thermometer), {
+      entityId: thermometer,
+      state: { sensor_numeric: { value: 19 } },
+      isAvailable: false,
+    });
+    adapter.publish(busSubjects.stateReport(bulb), {
+      entityId: bulb,
+      state: { level: { level: 40 } },
+    });
+
+    await vi.waitFor(() => {
+      expect(harness.historyRows).toHaveLength(2);
+    });
+
+    expect(readings).toEqual([]);
   });
 
   it('applies a report from the owning adapter', async () => {

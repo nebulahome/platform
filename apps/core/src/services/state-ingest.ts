@@ -5,6 +5,11 @@
  * registry, and - only if something actually changed - emit the event and append the history
  * row (ARCHITECTURE.md 4.1). This is the hottest path in the system: a house with a dozen power
  * meters runs it several times a second, all day.
+ *
+ * A numeric sensor's reading also goes to the durable telemetry stream, sampled - see
+ * {@link TelemetrySampler} - so the series a chart is drawn from exists whichever adapter, engine
+ * or monitor the reading came from. Before a change is judged, since a value that held is a point
+ * in the series too.
  */
 import type { BusClient, BusSubscription, MessageContext } from '@nebula-home/bus';
 import {
@@ -18,6 +23,7 @@ import type { PlatformLogger } from '@nebula-home/logging';
 
 import type { EntityDirectory, EntityRecord } from '../domain/entity-directory.js';
 import type { EntityRegistry, IngestResult } from '../domain/entity-registry.js';
+import type { TelemetrySampler } from '../domain/telemetry-sampler.js';
 import type { BatchWriter } from '../persistence/batch-writer.js';
 import type { EntityStateRow, StateHistoryRow } from '../persistence/history-writer.js';
 
@@ -40,6 +46,13 @@ export type StateIngestOptions = {
 
   /** Where rejected reports are recorded. */
   readonly logger: PlatformLogger;
+
+  /**
+   * Decides which numeric readings go to the telemetry stream.
+   *
+   * Optional: unit tests that only exercise state ingest publish no telemetry.
+   */
+  readonly telemetry?: TelemetrySampler;
 
   /**
    * Called after a notable change, so the alias engine can recompute descendants.
@@ -92,6 +105,46 @@ function toCacheRow(record: EntityRecord, result: IngestResult): EntityStateRow 
 }
 
 /**
+ * Sends a numeric sensor's reading to the telemetry stream, when the sampler keeps it.
+ *
+ * Read off the merged state rather than the report, so a report that carried only another
+ * capability still counts as the sensor saying its value again. An unreachable sensor's last
+ * value is not a reading, and is not sent.
+ *
+ * @param options - The pipeline's collaborators.
+ * @param record - The entity's configuration.
+ * @param result - What the report did.
+ * @param traceId - The unit of work the report belongs to.
+ */
+function publishReading(
+  options: StateIngestOptions,
+  record: EntityRecord,
+  result: IngestResult,
+  traceId: string,
+): void {
+  const value = result.current.state.sensor_numeric?.value;
+
+  if (
+    options.telemetry === undefined ||
+    value === undefined ||
+    !result.current.isAvailable ||
+    !record.capabilities.has('sensor_numeric')
+  ) {
+    return;
+  }
+
+  const observedAt = result.current.lastUpdated;
+
+  if (options.telemetry.take(result.entityId, value, observedAt)) {
+    options.client.publish(
+      busSubjects.telemetry(result.entityId),
+      { entityId: result.entityId, value, observedAt },
+      { traceId },
+    );
+  }
+}
+
+/**
  * Applies one report and emits whatever it produced.
  *
  * Exported so that the resynchronisation path and, later, the engines can push a state through
@@ -110,6 +163,8 @@ export function ingestReport(
   traceId: string,
 ): IngestResult | undefined {
   const result = options.registry.apply(report, { source: record.source });
+
+  publishReading(options, record, result, traceId);
 
   if (!result.isNotable) {
     // A sensor reporting the same value for the fortieth time. It updated, it did not change,

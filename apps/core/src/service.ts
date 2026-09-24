@@ -30,6 +30,7 @@ import { SERVICE_NAME, SERVICE_VERSION } from './config.js';
 import { AliasCatalog } from './domain/alias-catalog.js';
 import { EntityDirectory } from './domain/entity-directory.js';
 import { EntityRegistry } from './domain/entity-registry.js';
+import { TelemetrySampler } from './domain/telemetry-sampler.js';
 import type { BatchWriter } from './persistence/batch-writer.js';
 import {
   createHistoryWriter,
@@ -181,12 +182,17 @@ export class CoreService {
     this.#history = history;
     this.#stateCache = stateCache;
 
+    // Before anything can report: the ingest pipeline publishes numeric readings to the stream,
+    // and a reading published before the stream exists is captured by nothing.
+    await ensureTelemetryStream({ connection: bus.connection, logger });
+
     const ingest = {
       client,
       registry: this.#registry,
       directory: this.#directory,
       history,
       stateCache,
+      telemetry: new TelemetrySampler(),
       logger,
       /**
        * Wakes aliases that read the entity that just changed.
@@ -249,8 +255,6 @@ export class CoreService {
       ...startAliasService({ client, engine: aliasEngine, logger }),
       startSystemMonitorService({ client, monitor: systemMonitor }),
     ];
-
-    await ensureTelemetryStream({ connection: bus.connection, logger });
 
     this.#telemetry = runTelemetryIngest({
       connection: bus.connection,
