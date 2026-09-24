@@ -43,6 +43,8 @@ import { AutomationEditor } from '@/routes/library/automation-editor';
 import { ControlPanel } from '@/routes/library/entity/controls/control-panel';
 import { EntityField } from '@/routes/library/entity-field';
 import { LibraryTabs } from '@/routes/library/library-tabs';
+import { NoMatches } from '@/routes/library/no-matches';
+import { SearchField } from '@/routes/library/search-field';
 import { aDevice, anArea, anEntity } from '@/testing/fixtures';
 
 import './styles/globals.css';
@@ -262,6 +264,7 @@ function Gallery() {
   const [picked, setPicked] = useState('light.desk');
   const [formula, setFormula] = useState('(t1 + t2) / 2 >= 21 ? t1 : t3');
   const [pickerCache] = useState(housePickerCache);
+  const [query, setQuery] = useState('citta');
 
   // The whole page is themed by the same attribute the application sets on the root, so what is
   // on screen here is what ships rather than an approximation of it. An effect because the root
@@ -548,6 +551,25 @@ function Gallery() {
                 { variableName: 't2', color: 'teal' },
               ]}
               error="t3 is not one of the sources."
+            />
+          </div>
+        </Section>
+
+        <Section
+          title="Search"
+          note="Every list's search box, and what a list says when it leaves nothing: what was searched for, and one press to clear."
+        >
+          <div className="flex w-full flex-col gap-4">
+            <SearchField
+              placeholder="Search devices, entities…"
+              value={query}
+              onChange={setQuery}
+            />
+            <NoMatches
+              query={query}
+              onClear={() => {
+                setQuery('');
+              }}
             />
           </div>
         </Section>

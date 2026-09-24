@@ -102,7 +102,7 @@ export function EntityStateSummary(props: EntityStateSummaryProps) {
           className="hidden h-1.5 w-10 overflow-hidden rounded-full bg-control sm:block"
         >
           <span
-            className="block h-full rounded-full bg-tag-amber"
+            className="block h-full rounded-full bg-lamp"
             /* eslint-disable-next-line react/forbid-dom-props -- the bar is as long as the level,
                a number no class can carry (RULES.md 15.3). */
             style={{ width: `${String(level)}%` }}

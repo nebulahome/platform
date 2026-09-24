@@ -132,7 +132,7 @@ export function Slider(props: SliderProps) {
   // a computed gradient for a colour picker, as the exception to inline styles.
   const groove: CSSProperties & Record<`--${string}`, string> = {
     '--slider-at': `${String(sliderPercent(value, min, max))}%`,
-    ...(fill === 'warm' ? { '--slider-fill': 'var(--color-tag-amber)' } : {}),
+    ...(fill === 'warm' ? { '--slider-fill': 'var(--color-lamp)' } : {}),
     ...(gradient === undefined ? {} : { '--slider-track': gradient }),
   };
 

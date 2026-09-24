@@ -192,6 +192,12 @@
    */
   --color-knob: #f3f5fb;
 
+  /**
+   * A lamp's light, where a level or a colour stands for it: the brightness a slider fills to.
+   * Warm in both themes; the light theme's tag amber is darkened for text and reads as brown.
+   */
+  --color-lamp: #ffc247;
+
   --color-success: #52cd86;
   --color-warning: #edb345;
   --color-danger: #f75d59;
@@ -502,6 +508,7 @@
     --color-primary-deep: #4348ce;
     --color-primary-foreground: #ffffff;
     --color-knob: #ffffff;
+    --color-lamp: #c98500;
 
     --color-success: #007840;
     --color-warning: #a46400;
@@ -565,6 +572,7 @@
       --color-primary-deep: #4348ce;
       --color-primary-foreground: #ffffff;
       --color-knob: #ffffff;
+      --color-lamp: #c98500;
 
       --color-success: #007840;
       --color-warning: #a46400;

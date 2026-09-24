@@ -221,8 +221,8 @@ export function HistoryPanel(props: HistoryPanelProps) {
                       {
                         key: 'f0',
                         label: field.label,
-                        color: 'var(--color-tag-amber)',
-                        dotClass: 'bg-tag-amber',
+                        color: 'var(--color-lamp)',
+                        dotClass: 'bg-lamp',
                       },
                     ]}
                     window={changes.data.window}
