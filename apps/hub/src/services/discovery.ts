@@ -17,7 +17,12 @@
  */
 import { createHash } from 'node:crypto';
 
-import type { DiscoveredDevice, DiscoverySource, JsonObject } from '@nebula-home/contracts';
+import type {
+  DiscoveredDevice,
+  DiscoverReply,
+  DiscoverySource,
+  JsonObject,
+} from '@nebula-home/contracts';
 import type { PlatformLogger } from '@nebula-home/logging';
 import {
   associateModel,
@@ -93,6 +98,12 @@ export type DiscoveryServiceOptions = {
   /** How long one probe may take. */
   readonly probeTimeoutMs?: number;
 
+  /**
+   * How long an address that did not answer waits before each timed retry; the ladder in
+   * {@link PROBE_RETRY_MS} when not said.
+   */
+  readonly probeRetryMs?: number;
+
   /** How many probes may be in flight at once. */
   readonly probeConcurrency?: number;
 
@@ -118,6 +129,9 @@ type Probed = {
   readonly atMs: number;
   readonly candidateId: string | null;
   readonly isAnswered: boolean;
+
+  /** How many probes in a row found nothing; 0 once one answered. */
+  readonly misses: number;
 };
 
 /** A dotted-quad IPv4 address, which is what the private-address check applies to. */
@@ -138,13 +152,43 @@ const DEFAULT_PROBE_TIMEOUT_MS = 4000;
 const UNANSWERED_PROBE_RETRY_MS = 30_000;
 
 /**
- * When mDNS is asked again after the first question, on start and on a scan the owner asked for.
+ * When an address that did not answer a probe is asked again, on a timer, after each miss.
+ *
+ * The first soon: a device on a weak Wi-Fi link sleeps its radio, and the probe that timed out is
+ * what woke it - a Shelly at -80 dBm was measured taking eight seconds to answer the first request
+ * and ninety milliseconds the next. Then later, for a device that was rebooting. After the last,
+ * it is left to the next time it announces itself rather than asked forever.
+ */
+const PROBE_RETRY_MS: readonly number[] = [5000, 30_000, 60_000];
+
+/**
+ * When mDNS is asked again after the first question on start, in milliseconds from it.
  *
  * One question over multicast can be lost - a device busy, a Wi-Fi access point dropping one
- * frame - and would then wait a whole query interval. RFC 6762 asks a querier to repeat itself
- * at growing intervals, and this is the start of that ladder.
+ * frame, a device that answers only its second querier - and would then wait a whole query
+ * interval. RFC 6762 asks a querier to repeat itself at growing intervals: this ladder covers the
+ * first minute, after which the configured interval takes over.
  */
-const MDNS_REPEAT_MS: readonly number[] = [1000, 3000];
+const START_ASK_MS: readonly number[] = [1000, 3000, 8000, 15_000, 30_000, 60_000];
+
+/**
+ * When mDNS is asked again after the first question of a search the owner asked for.
+ *
+ * Every second or two, for thirty seconds. Shelly advises listening 15 to 30 seconds for every
+ * device to answer, and a device whose radio sleeps between beacons hears multicast late: five
+ * Shelly dimmers at -76 to -80 dBm stayed silent to every question for up to twenty seconds and
+ * then answered every one, all together. A person watching a spinner will not wait much longer.
+ */
+const SCAN_ASK_MS: readonly number[] = [
+  1000, 2000, 3000, 4500, 6000, 8000, 10_000, 12_500, 15_000, 17_500, 20_000, 22_500, 25_000,
+  27_500, 30_000,
+];
+
+/**
+ * How long a search the owner asked for lasts, in milliseconds: the last question, and time for
+ * its answers to be probed.
+ */
+export const SCAN_DURATION_MS = 33_000;
 
 /** How long a vendor's saved settings are reused between probes before being read again. */
 const SETTINGS_TTL_MS = 10_000;
@@ -213,6 +257,7 @@ export class DiscoveryService {
   readonly #timers: NodeJS.Timeout[] = [];
   readonly #modules: Promise<void>[] = [];
   readonly #repeats = new Set<NodeJS.Timeout>();
+  readonly #unclaimed = new Set<string>();
   readonly #settings = new Map<
     string,
     { readonly atMs: number; readonly value: Promise<JsonObject> }
@@ -258,7 +303,7 @@ export class DiscoveryService {
       mdns.start(services, (announcement) => {
         this.#onAnnouncement(announcement);
       });
-      this.#ask();
+      this.#ask(START_ASK_MS);
 
       const querying = setInterval(() => {
         mdns.query();
@@ -322,26 +367,29 @@ export class DiscoveryService {
   }
 
   /**
-   * Looks for devices now, rather than at the next scheduled question.
+   * Looks for one vendor's devices now, rather than at the next scheduled question.
    *
-   * What the owner's "look for devices" asks. Forgets what the vendors' addresses answered to
-   * their last probes, so every device heard is asked again, then asks mDNS - repeating itself,
-   * as on start - and asks every vendor module that can ask. What answers arrives the ordinary
-   * way, over the next seconds.
+   * What a vendor page's "Discover devices" asks. Forgets what the vendor's addresses answered to
+   * their last probes, so every device heard is asked again, then asks mDNS - repeating itself
+   * for {@link SCAN_DURATION_MS} - and asks the vendor's module, when it can ask. What answers
+   * arrives the ordinary way, over those seconds.
    *
-   * @param vendorId - Only this vendor; every vendor that can be found when absent.
-   * @returns The vendors now being looked for: none when the vendor cannot be found on the
-   * network, or discovery is not listening.
+   * @param vendorId - The vendor.
+   * @returns The vendor, when it is being looked for, and for how long: nothing and 0 when it
+   * cannot be found on the network, or discovery is not listening.
    */
-  public rescan(vendorId?: string): string[] {
+  public rescan(vendorId: string): DiscoverReply {
     if (!this.#isListening) {
-      return [];
+      return { vendors: [], lookingForMs: 0 };
     }
 
     const vendors = this.#options.vendors.filter(
-      (vendor) =>
-        (vendorId === undefined || vendor.id === vendorId) && vendor.discovery.sources.length > 0,
+      (vendor) => vendor.id === vendorId && vendor.discovery.sources.length > 0,
     );
+
+    if (vendors.length === 0) {
+      return { vendors: [], lookingForMs: 0 };
+    }
 
     for (const key of [...this.#probed.keys()]) {
       if (vendors.some((vendor) => key.startsWith(`${vendor.id}\n`))) {
@@ -360,7 +408,7 @@ export class DiscoveryService {
     ];
 
     if (services.length > 0) {
-      this.#ask(services);
+      this.#ask(SCAN_ASK_MS, services);
     }
 
     for (const vendor of vendors) {
@@ -378,12 +426,9 @@ export class DiscoveryService {
       }
     }
 
-    this.#options.logger.info(
-      { vendors: vendors.map((vendor) => vendor.id) },
-      'Looking for devices',
-    );
+    this.#options.logger.info({ vendor: vendorId }, 'Looking for devices');
 
-    return vendors.map((vendor) => vendor.id);
+    return { vendors: vendors.map((vendor) => vendor.id), lookingForMs: SCAN_DURATION_MS };
   }
 
   /**
@@ -434,27 +479,40 @@ export class DiscoveryService {
   }
 
   /**
-   * Asks mDNS now, and again along the repeat ladder, unless discovery stops first.
+   * Asks mDNS now, and again along a ladder, unless discovery stops first.
    *
+   * @param ladder - When to ask again, in milliseconds from now.
    * @param services - Only these service types; every one browsed for when absent.
    */
-  #ask(services?: readonly string[]): void {
+  #ask(ladder: readonly number[], services?: readonly string[]): void {
     const { mdns } = this.#options;
 
     mdns.query(services);
 
-    for (const afterMs of MDNS_REPEAT_MS) {
-      const repeat: NodeJS.Timeout = setTimeout(() => {
-        this.#repeats.delete(repeat);
-
-        if (!this.#abort.signal.aborted) {
-          mdns.query(services);
-        }
-      }, afterMs);
-
-      repeat.unref();
-      this.#repeats.add(repeat);
+    for (const afterMs of ladder) {
+      this.#later(afterMs, () => {
+        mdns.query(services);
+      });
     }
+  }
+
+  /**
+   * Runs something once, later, unless discovery stops first.
+   *
+   * @param afterMs - How long from now.
+   * @param run - What to run.
+   */
+  #later(afterMs: number, run: () => void): void {
+    const timer: NodeJS.Timeout = setTimeout(() => {
+      this.#repeats.delete(timer);
+
+      if (!this.#abort.signal.aborted) {
+        run();
+      }
+    }, afterMs);
+
+    timer.unref();
+    this.#repeats.add(timer);
   }
 
   /**
@@ -538,8 +596,15 @@ export class DiscoveryService {
    * @param vendor - Whose sighting it is.
    * @param source - How it was heard.
    * @param sighting - How to reach the device, and what it said.
+   * @param isRetry - Whether this is the timer asking again an address that did not answer, which
+   * the trust given to its last probe does not hold back.
    */
-  #onSighting(vendor: DiscoveryVendor, source: DiscoverySource, sighting: Sighting): void {
+  #onSighting(
+    vendor: DiscoveryVendor,
+    source: DiscoverySource,
+    sighting: Sighting,
+    isRetry = false,
+  ): void {
     const { plan } = vendor.discovery;
 
     if (!matchesAnnouncement(plan, sighting.payload)) {
@@ -569,7 +634,7 @@ export class DiscoveryService {
         ? Math.min(UNANSWERED_PROBE_RETRY_MS, this.#options.probeIntervalMs)
         : this.#options.probeIntervalMs;
 
-    if (last !== undefined && this.#now() - last.atMs < trustMs) {
+    if (!isRetry && last !== undefined && this.#now() - last.atMs < trustMs) {
       if (last.candidateId !== null) {
         this.#touch(last.candidateId);
       }
@@ -589,12 +654,24 @@ export class DiscoveryService {
           found === undefined
             ? null
             : this.#propose(vendor, source, sighting.config, found.payload, found);
+        const misses = found === undefined ? (last?.misses ?? 0) + 1 : 0;
 
         this.#probed.set(key, {
           atMs: this.#now(),
           candidateId,
           isAnswered: found !== undefined,
+          misses,
         });
+
+        const retryMs = PROBE_RETRY_MS[misses - 1];
+
+        if (found === undefined && retryMs !== undefined) {
+          // Asked again on a timer rather than at the next announcement, which for a device that
+          // does not announce on its own is the next query - minutes away.
+          this.#later(this.#options.probeRetryMs ?? retryMs, () => {
+            this.#onSighting(vendor, source, sighting, true);
+          });
+        }
       } finally {
         this.#inFlight.delete(key);
       }
@@ -625,16 +702,17 @@ export class DiscoveryService {
       return undefined;
     }
 
-    const signal = AbortSignal.any([
-      this.#abort.signal,
-      AbortSignal.timeout(this.#options.probeTimeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS),
-    ]);
+    const timeoutMs = probe.timeoutMs ?? this.#options.probeTimeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS;
+    const signal = AbortSignal.any([this.#abort.signal, AbortSignal.timeout(timeoutMs)]);
 
     try {
       const settings = await this.#settingsOf(vendorId);
       const terms: JsonObject = { probe: { op: probe.op, args: probe.args } };
+      // A vendor that says how long its devices take says it to the transport as well, whose own
+      // timeout would otherwise end the request first.
+      const asked = probe.timeoutMs === undefined ? config : { ...config, timeoutMs };
 
-      for await (const found of transport.scan({ ...settings, ...config }, terms, signal)) {
+      for await (const found of transport.scan({ ...settings, ...asked }, terms, signal)) {
         return found;
       }
     } catch (error: unknown) {
@@ -745,10 +823,15 @@ export class DiscoveryService {
     const address = addressOf(config);
 
     if (association === null) {
-      this.#options.logger.debug(
+      const heard = `${vendor.id}\n${identity.modelCode ?? '?'}`;
+
+      // Once per model at info: a device of a supported vendor that nothing takes is the answer
+      // to "why is my device not found", and it would otherwise be told only at debug.
+      this.#options.logger[this.#unclaimed.has(heard) ? 'debug' : 'info'](
         { vendor: vendor.id, address, model: identity.modelCode },
         'Heard a device no driver of its vendor takes',
       );
+      this.#unclaimed.add(heard);
 
       return null;
     }

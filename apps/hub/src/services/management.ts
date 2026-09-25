@@ -11,7 +11,7 @@
  * registry and starts, restarts or stops the instance to fit. *I am deleting it; let go* stops the
  * instance without reading anything, because the row is about to be gone. *What is out there?*
  * lists the devices discovery heard and nobody has added. *Look now* asks discovery to ask the
- * network again, for one vendor or all, instead of waiting for its next scheduled question.
+ * network again for one vendor, instead of waiting for its next scheduled question.
  *
  * Nothing here touches the registry directly. The API owns writes, the service that runs
  * instances owns the reload and the forget, and this class only routes between the bus and it.
@@ -86,12 +86,12 @@ export type ManagementServiceOptions = {
   readonly discovered: () => readonly DiscoveredDevice[];
 
   /**
-   * Asks discovery to look now.
+   * Asks discovery to look now for one vendor's devices.
    *
-   * @param vendorId - Only this vendor; every one that can be found when absent.
-   * @returns The vendors being looked for; none when discovery is off.
+   * @param vendorId - The vendor.
+   * @returns The vendor being looked for and for how long; nothing when discovery is off.
    */
-  readonly rescan: (vendorId?: string) => readonly string[];
+  readonly rescan: (vendorId: string) => DiscoverReply;
 
   /**
    * Says which driver and model a configuration that answered reaches.
@@ -314,12 +314,10 @@ export class ManagementService {
         /**
          * Asks discovery to look now.
          *
-         * @param request - Which vendor, if only one.
-         * @returns The vendors being looked for.
+         * @param request - Which vendor.
+         * @returns The vendor being looked for, and for how long.
          */
-        (request: DiscoverRequest): DiscoverReply => ({
-          vendors: [...this.#options.rescan(request.vendorId)],
-        }),
+        (request: DiscoverRequest): DiscoverReply => this.#options.rescan(request.vendorId),
       ),
 
       client.serve(

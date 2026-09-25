@@ -33,6 +33,7 @@ import { resolveDataLayout } from '@nebula-home/config';
 import {
   busSubjects,
   NotFoundError,
+  type DiscoverReply,
   type DiscoveryEventPayload,
   type ForgetReply,
   type JsonObject,
@@ -203,10 +204,11 @@ export class HubService {
       /**
        * Asks discovery to look now; nothing when it is not listening.
        *
-       * @param vendorId - Only this vendor, when given.
-       * @returns The vendors being looked for.
+       * @param vendorId - The vendor.
+       * @returns The vendor being looked for, and for how long.
        */
-      rescan: (vendorId?: string): readonly string[] => this.#discovery?.rescan(vendorId) ?? [],
+      rescan: (vendorId: string): DiscoverReply =>
+        this.#discovery?.rescan(vendorId) ?? { vendors: [], lookingForMs: 0 },
 
       /**
        * Says which driver and model a configuration being tried reaches.

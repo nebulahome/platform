@@ -33,7 +33,7 @@ import type { MdnsSource } from '../discovery/mdns-source.js';
 import type { TakenDevices } from '../domain/taken.js';
 
 import type { LoadedListenSource } from './bundles.js';
-import { DiscoveryService, type DiscoveryVendor } from './discovery.js';
+import { DiscoveryService, SCAN_DURATION_MS, type DiscoveryVendor } from './discovery.js';
 
 /**
  * A logger that writes nowhere.
@@ -98,7 +98,11 @@ function fakeTransport(): FakeTransport {
   const scans: { config: unknown; terms: JsonObject }[] = [];
   const transport = defineTransport({
     id: 'acme/rpc',
-    configSchema: z.object({ host: z.string(), password: z.string().optional() }),
+    configSchema: z.object({
+      host: z.string(),
+      password: z.string().optional(),
+      timeoutMs: z.int().optional(),
+    }),
     connectionKey: (config) => config.host,
     connect: () => Promise.reject(new Error('unused')),
     scan: async function* scan(config, terms): AsyncGenerator<Discovered> {
@@ -354,6 +358,28 @@ describe('DiscoveryService', () => {
     });
   });
 
+  it('gives a slow device the time its vendor says, and tells the transport so', async () => {
+    // A Shelly on a weak Wi-Fi link takes seconds to answer the first request after its radio
+    // slept; the platform's four seconds would end the probe first.
+    const { service, mdns, transport } = await start({
+      vendor: acme({
+        listen: [{ mdns: '_acme._tcp' }],
+        probe: {
+          transport: 'acme/rpc',
+          op: 'call',
+          args: { method: 'Device.Info' },
+          timeoutMs: 10_000,
+        },
+        identity: { externalId: 'id', name: 'name', model: 'model' },
+      }),
+    });
+
+    mdns.announce(heard('192.168.1.40'));
+    await until(() => service.list().length > 0);
+
+    expect(transport.scans[0]?.config).toEqual({ host: '192.168.1.40', timeoutMs: 10_000 });
+  });
+
   it('writes the port into the address when it is not the usual one', async () => {
     const { service, mdns } = await start();
 
@@ -520,6 +546,49 @@ describe('DiscoveryService', () => {
     await until(() => transport.scans.length === 2);
   });
 
+  it('asks an address that did not answer again on its own, a few times, then waits', async () => {
+    // A device that announced once and was busy when probed need not announce again to be found:
+    // the timer asks it again, and stops after three misses in a row.
+    const mdns = fakeMdns();
+    const transport = fakeTransport();
+    const transports = new Registry<Transport>('transport');
+    const integrations = new Registry<Integration>('integration');
+
+    transports.register(transport.transport);
+    integrations.register(relayIntegration());
+
+    const service = new DiscoveryService({
+      vendors: [acme()],
+      mdns,
+      transports,
+      integrations,
+      logger: silent(),
+      vendorSettings: () => Promise.resolve({}),
+      taken: () => Promise.resolve({ externalIds: new Set(), hosts: new Set() }),
+      publishChanged: () => undefined,
+      queryIntervalMs: 60_000,
+      ttlMs: 600_000,
+      probeIntervalMs: 600_000,
+      probeRetryMs: 20,
+      now: () => 1_000_000,
+    });
+
+    harness = {
+      service,
+      mdns,
+      transport,
+      published: [],
+      taken: { externalIds: new Set(), hosts: new Set() },
+    };
+    await service.start();
+
+    mdns.announce(heard('192.168.1.43'));
+    await until(() => transport.scans.length === 4);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(transport.scans).toHaveLength(4);
+  });
+
   it('looks again at once when asked, repeating the mDNS question', async () => {
     const { service, mdns, transport } = await start();
 
@@ -528,7 +597,7 @@ describe('DiscoveryService', () => {
 
     const asked = mdns.queries;
 
-    expect(service.rescan('acme')).toEqual(['acme']);
+    expect(service.rescan('acme')).toEqual({ vendors: ['acme'], lookingForMs: SCAN_DURATION_MS });
     expect(mdns.queries).toBe(asked + 1);
 
     // What the address answered before is forgotten, so it is asked again when heard.
@@ -540,7 +609,7 @@ describe('DiscoveryService', () => {
   it('looks for nothing when the vendor cannot be found on the network', async () => {
     const { service } = await start();
 
-    expect(service.rescan('other')).toEqual([]);
+    expect(service.rescan('other')).toEqual({ vendors: [], lookingForMs: 0 });
   });
 
   it("asks a vendor's module to scan when asked to look", async () => {
@@ -568,7 +637,7 @@ describe('DiscoveryService', () => {
       ),
     });
 
-    expect(service.rescan()).toEqual(['acme']);
+    expect(service.rescan('acme').vendors).toEqual(['acme']);
     expect(scans).toBe(1);
   });
 

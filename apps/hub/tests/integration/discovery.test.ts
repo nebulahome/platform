@@ -15,8 +15,8 @@ import path from 'node:path';
 import { Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
-import BonjourModule from 'bonjour-service';
 import { eq } from 'drizzle-orm';
+import createMulticastDns, { type MulticastDnsPacket } from 'multicast-dns';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { BusClient, connectBus, ulid, type BusConnection } from '@nebula-home/bus';
@@ -82,6 +82,57 @@ function silent(): PlatformLogger {
       },
     }),
   );
+}
+
+/**
+ * Answers for a device on this host the way a real mDNS responder does: to every question about
+ * its service type, its instance or its host name, and once unasked when it starts.
+ *
+ * @param instance - The instance's own name: `eWeLink_10abcdef`.
+ * @param service - Its service type: `_ewelink._tcp`.
+ * @param devicePort - Where it serves.
+ * @param txt - Its TXT record, as `key=value` strings.
+ * @returns A function that stops answering.
+ */
+function respondAs(
+  instance: string,
+  service: string,
+  devicePort: number,
+  txt: readonly string[],
+): () => Promise<void> {
+  const responder = createMulticastDns();
+  const type = `${service}.local`;
+  const fqdn = `${instance}.${type}`;
+  const target = `${instance}.local`;
+  const answer: MulticastDnsPacket = {
+    answers: [{ name: type, type: 'PTR', ttl: 120, data: fqdn }],
+    additionals: [
+      {
+        name: fqdn,
+        type: 'SRV',
+        ttl: 120,
+        data: { target, port: devicePort, priority: 0, weight: 0 },
+      },
+      { name: fqdn, type: 'TXT', ttl: 120, data: txt },
+      { name: target, type: 'A', ttl: 120, data: '127.0.0.1' },
+    ],
+  };
+
+  responder.on('query', (query) => {
+    const names = new Set([type, fqdn, target]);
+
+    if (query.questions.some((question) => names.has(question.name))) {
+      responder.respond(answer);
+    }
+  });
+  responder.respond(answer);
+
+  return () =>
+    new Promise<void>((resolve) => {
+      responder.destroy(() => {
+        resolve();
+      });
+    });
 }
 
 /**
@@ -236,17 +287,17 @@ describe('discovering and adopting a device', () => {
         };
       },
     );
-    const responder = new BonjourModule();
+    let stopResponding = (): Promise<void> => Promise.resolve();
 
     await service.start();
 
     try {
-      responder.publish({
-        name: `eWeLink_${DEVICE_ID}`,
-        type: 'ewelink',
-        port,
-        txt: { txtvers: '1', id: DEVICE_ID, type: 'diy_plug', apivers: '1' },
-      });
+      stopResponding = respondAs(`eWeLink_${DEVICE_ID}`, '_ewelink._tcp', port, [
+        'txtvers=1',
+        `id=${DEVICE_ID}`,
+        'type=diy_plug',
+        'apivers=1',
+      ]);
 
       const proposed = await proposedUntil(
         asker,
@@ -300,12 +351,7 @@ describe('discovering and adopting a device', () => {
       expect(after.some((item) => item.externalId === DEVICE_ID)).toBe(false);
     } finally {
       serving.unsubscribe();
-      await new Promise<void>((resolve) => {
-        responder.unpublishAll(() => {
-          responder.destroy();
-          resolve();
-        });
-      });
+      await stopResponding();
       await service.stop();
       await own.close();
     }

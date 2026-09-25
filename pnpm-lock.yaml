@@ -190,15 +190,15 @@ importers:
       '@nebula-home/package-runtime':
         specifier: workspace:*
         version: link:../../packages/package-runtime
-      bonjour-service:
-        specifier: ^1.4.4
-        version: 1.4.4
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(postgres@3.4.9)
       mqtt:
         specifier: ^5.14.1
         version: 5.15.2(supports-color@7.2.0)
+      multicast-dns:
+        specifier: ^7.2.5
+        version: 7.2.5
       semver:
         specifier: ^7.8.5
         version: 7.8.5
@@ -3251,9 +3251,6 @@ packages:
 
   bl@6.1.6:
     resolution: {integrity: sha512-jLsPgN/YSvPUg9UX0Kd73CXpm2Psg9FxMeCSXnk3WBO3CMT10JMwijubhGfHCnFu6TPn1ei3b975dxv7K2pWVg==}
-
-  bonjour-service@1.4.4:
-    resolution: {integrity: sha512-jCZcVv7eoc4QesRscwEZtSROBen+6LpKAmBIsQYQrsAeVHLyMXWX/t6eIV5KiRZYNUBl8eVqImEEMQ8L5+c/Kw==}
 
   brace-expansion@1.1.18:
     resolution: {integrity: sha512-Edep/X9fGqVNmzKBVsDYIOtD+z1tuezV70LBjdCst9Tqu76lsnvRiZ6oTic1n+/BIwX6QDGAO94PN4N2SADvtw==}
@@ -8329,11 +8326,6 @@ snapshots:
       buffer: 6.0.3
       inherits: 2.0.4
       readable-stream: 4.7.0
-
-  bonjour-service@1.4.4:
-    dependencies:
-      fast-deep-equal: 3.1.3
-      multicast-dns: 7.2.5
 
   brace-expansion@1.1.18:
     dependencies:

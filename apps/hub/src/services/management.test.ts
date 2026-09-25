@@ -22,6 +22,7 @@ import {
   probeReplySchema,
   reloadReplySchema,
   type DiscoveredDevice,
+  type DiscoverReply,
   type ForgetReply,
   type ReloadReply,
 } from '@nebula-home/contracts';
@@ -167,7 +168,7 @@ type Harness = {
   readonly detected: { kind: string; transportConfig: unknown }[];
   readonly reloaded: string[];
   readonly forgotten: string[];
-  readonly rescanned: (string | undefined)[];
+  readonly rescanned: string[];
   readonly stop: () => void;
 };
 
@@ -218,7 +219,7 @@ function harness(
 
   const reloaded: string[] = [];
   const forgotten: string[] = [];
-  const rescanned: (string | undefined)[] = [];
+  const rescanned: string[] = [];
   const detected: { kind: string; transportConfig: unknown }[] = [];
   const service = new ManagementService({
     client,
@@ -227,10 +228,12 @@ function harness(
     secretsKey: KEY,
     vendors: (): readonly LoadedVendor[] => [printerVendor()],
     discovered: (): readonly DiscoveredDevice[] => answers.discovered ?? [],
-    rescan: (vendorId): readonly string[] => {
+    rescan: (vendorId): DiscoverReply => {
       rescanned.push(vendorId);
 
-      return vendorId === undefined || vendorId === 'acme' ? ['acme'] : [];
+      return vendorId === 'acme'
+        ? { vendors: ['acme'], lookingForMs: 24_000 }
+        : { vendors: [], lookingForMs: 0 };
     },
     detect: (kind, transportConfig): Promise<Detected | undefined> => {
       detected.push({ kind, transportConfig });
@@ -450,7 +453,7 @@ describe('the devices discovery proposes', () => {
     stop();
   });
 
-  it('asks discovery to look now, for one vendor or every one', async () => {
+  it('asks discovery to look now for one vendor, and says for how long', async () => {
     const { caller, rescanned, stop } = harness();
 
     const one = await caller.request(
@@ -458,15 +461,15 @@ describe('the devices discovery proposes', () => {
       { vendorId: 'acme' },
       discoverReplySchema,
     );
-    const every = await caller.request(
+    const other = await caller.request(
       busSubjects.service(HUB_SERVICE, HUB_DISCOVER_METHOD),
-      {},
+      { vendorId: 'other' },
       discoverReplySchema,
     );
 
-    expect(one.vendors).toEqual(['acme']);
-    expect(every.vendors).toEqual(['acme']);
-    expect(rescanned).toEqual(['acme', undefined]);
+    expect(one).toEqual({ vendors: ['acme'], lookingForMs: 24_000 });
+    expect(other).toEqual({ vendors: [], lookingForMs: 0 });
+    expect(rescanned).toEqual(['acme', 'other']);
     stop();
   });
 });
