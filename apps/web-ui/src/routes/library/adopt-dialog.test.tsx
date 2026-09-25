@@ -41,6 +41,7 @@ const BAMBU: IntegrationVendorView = {
   logoPadding: 0,
   internetRequired: false,
   transports: ['mqtt'],
+  discoverySources: [],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
   drivers: [
     {

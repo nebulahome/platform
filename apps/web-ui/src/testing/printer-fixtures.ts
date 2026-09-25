@@ -89,6 +89,7 @@ export const VENDORS: IntegrationVendorView[] = ['bambu-lab', 'shelly'].map((id)
   logoPadding: 0,
   internetRequired: false,
   transports: [],
+  discoverySources: [],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
   drivers: [],
   needsSetup: false,

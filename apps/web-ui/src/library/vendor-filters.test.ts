@@ -19,6 +19,7 @@ function vendor(overrides: Partial<IntegrationVendorView> = {}): IntegrationVend
     logoPadding: 0,
     internetRequired: false,
     transports: ['http'],
+    discoverySources: [],
     setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
     drivers: [
       {

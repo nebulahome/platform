@@ -19,6 +19,7 @@ import {
   fetchIcons,
   fetchTags,
   fetchVendors,
+  scanNetwork,
 } from '@/library/api';
 
 import { IntegrationsPage } from './integrations-page';
@@ -32,6 +33,7 @@ vi.mock('@/library/api', () => ({
   fetchTags: vi.fn(),
   createTag: vi.fn(),
   fetchAreas: vi.fn(),
+  scanNetwork: vi.fn(),
   LIBRARY_QUERY_KEYS: {
     vendors: ['library', 'vendors'],
     discovered: ['library', 'discovered'],
@@ -85,6 +87,7 @@ function vendor(overrides: Partial<IntegrationVendorView>): IntegrationVendorVie
     logoPadding: 0,
     internetRequired: false,
     transports: ['http'],
+    discoverySources: [],
     setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
     drivers: [],
     needsSetup: false,
@@ -137,6 +140,7 @@ describe('the integrations grid', () => {
         id: 'bambu-lab',
         name: 'Bambu Lab',
         transports: ['mqtt'],
+        discoverySources: [],
         entityCount: 12,
       }),
     ]);
@@ -214,49 +218,38 @@ describe('the integrations grid', () => {
 });
 
 describe('the devices found on the network', () => {
-  it('are shown above the vendors, to somebody who may see devices', async () => {
+  it('are counted on their vendor card, and left to the vendor page to adopt', async () => {
     vi.mocked(fetchVendors).mockResolvedValue([vendor({})]);
-    vi.mocked(fetchDiscovered).mockResolvedValue([FOUND]);
-    renderPage(['device:read']);
-
-    await waitFor(() => {
-      expect(screen.getByRole('region', { name: /Found on your network/u })).toBeTruthy();
-    });
-    expect(screen.getByRole('article', { name: 'Kitchen' }).textContent).toContain('Shelly');
-    expect(screen.queryByRole('button', { name: 'Adopt Kitchen' })).toBeNull();
-  });
-
-  it('open the adoption dialog for somebody who may add devices', async () => {
-    vi.mocked(fetchVendors).mockResolvedValue([
-      vendor({
-        drivers: [
-          {
-            id: 'shelly/switch-pm',
-            vendorId: 'shelly',
-            driverId: 'switch-pm',
-            name: 'Relay with power metering',
-            transport: 'shelly/rpc',
-            models: ['1PM Gen3'],
-            defaultIcon: 'relay',
-            setup: {
-              transport: {
-                constants: {},
-                fields: [
-                  { key: 'host', type: 'text', label: 'Address', isRequired: true, maxLength: 512 },
-                ],
-              },
-              options: { constants: {}, fields: [] },
-            },
-          },
-        ],
-      }),
-    ]);
     vi.mocked(fetchDiscovered).mockResolvedValue([FOUND]);
     renderPage(['device:read', 'device:write']);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Adopt Kitchen' }));
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Shelly' }).textContent).toContain('1 found');
+    });
+    expect(screen.queryByRole('region', { name: /Found on your network/u })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Adopt Kitchen' })).toBeNull();
+  });
 
-    expect(await screen.findByRole('dialog', { name: 'Adopt Kitchen' })).toBeTruthy();
+  it('can be looked for now, by somebody who may add devices', async () => {
+    vi.mocked(fetchVendors).mockResolvedValue([vendor({ discoverySources: ['mdns'] })]);
+    vi.mocked(scanNetwork).mockResolvedValue(['shelly']);
+    renderPage(['device:read', 'device:write']);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Scan network' }));
+
+    await waitFor(() => {
+      expect(scanNetwork).toHaveBeenCalledWith(undefined);
+    });
+  });
+
+  it('offer no scan when no vendor can be found on the network', async () => {
+    vi.mocked(fetchVendors).mockResolvedValue([vendor({ discoverySources: [] })]);
+    renderPage(['device:read', 'device:write']);
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Shelly' })).toBeTruthy();
+    });
+    expect(screen.queryByRole('button', { name: 'Scan network' })).toBeNull();
   });
 
   it('are not asked for from somebody who may not see devices', async () => {
@@ -269,6 +262,6 @@ describe('the devices found on the network', () => {
     });
 
     expect(fetchDiscovered).not.toHaveBeenCalled();
-    expect(screen.queryByRole('region', { name: /Found on your network/u })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Shelly' }).textContent).not.toContain('found');
   });
 });

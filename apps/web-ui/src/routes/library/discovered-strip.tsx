@@ -1,16 +1,27 @@
 /**
- * The devices found on the network, as a row above the vendors.
+ * A vendor's devices found on the network, as a row above the devices already added.
  *
- * Above rather than among them: a vendor card is somewhere to go, a found device is something to
- * do, and the owner opening this page with a new plug on the network should see it before the
- * catalogue. One row, however many there are - it scrolls sideways and snaps to a card - so the
- * grid below never moves down more than one card's height. The arrows page through it for a
- * pointer without a wheel; they appear only when there is somewhere to page to.
+ * On the vendor's own page, between the vendor and its devices: a Shelly found on the network is
+ * the Shelly page's business, and the owner reading that page is the one who adds it. Above the
+ * list rather than in it, and set apart - a tinted, dashed box, the shape the interface gives
+ * things that are not there yet - because a found device is something to do and an added one is
+ * something to look at, and the two must not be mistaken for each other. One row, however many
+ * there are - it scrolls sideways and snaps to a card - so the list below never moves down more
+ * than one card's height. The arrows page through it for a pointer without a wheel; they appear
+ * only when there is somewhere to page to.
  *
  * Nothing is drawn when nothing was found: an empty "Found on your network" is a promise the
  * network did not keep, every time the page opens.
  */
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 
 import type { DiscoveredDevice, IntegrationVendorView } from '@nebula-home/contracts';
 import { IconButton } from '@nebula-home/ui';
@@ -33,6 +44,9 @@ export type DiscoveredStripProps = {
 
   /** Called with the device whose Adopt was pressed. */
   readonly onAdopt: (device: DiscoveredDevice) => void;
+
+  /** A control on the heading's line, such as looking again. */
+  readonly action?: ReactNode;
 };
 
 /** Where the row can be paged to from where it is. */
@@ -58,7 +72,7 @@ function reachOf(list: HTMLElement): Reach {
  * @returns The row.
  */
 export function DiscoveredStrip(props: DiscoveredStripProps) {
-  const { devices, vendors, canAdopt, onAdopt } = props;
+  const { devices, vendors, canAdopt, onAdopt, action } = props;
   const headingId = useId();
   const listRef = useRef<HTMLUListElement>(null);
   const [reach, setReach] = useState<Reach>({ canGoBack: false, canGoOn: false });
@@ -109,13 +123,18 @@ export function DiscoveredStrip(props: DiscoveredStripProps) {
   const isPaged = reach.canGoBack || reach.canGoOn;
 
   return (
-    <section aria-labelledby={headingId} className="mb-8 flex flex-col gap-3">
+    <section
+      aria-labelledby={headingId}
+      className="flex flex-col gap-3 rounded-panel border border-dashed border-primary/35 bg-primary/5 p-4"
+    >
       <div className="flex items-center gap-2">
+        <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-primary" />
         <h2 id={headingId} className="text-ui font-medium text-foreground">
           Found on your network
         </h2>
         <span className="text-ui text-foreground-subtle tabular">{devices.length}</span>
         <span className="grow" />
+        {action}
         {isPaged ? (
           <span className="flex items-center gap-1">
             <IconButton

@@ -7,39 +7,35 @@
  * the only things worth a mark are which wire it speaks over and whether it needs the internet.
  *
  * One card per vendor the hub has loaded, in a grid, narrowed from the header. Opening a card
- * gives the vendor its own page: who it is, what it needs, and every device added under it.
+ * gives the vendor its own page: who it is, what it needs, every device added under it, and the
+ * devices of theirs the hub found on the network and nobody has added. A card says how many were
+ * found, so the page worth opening is visible from here.
+ *
+ * **Scan network** asks the hub to look for devices now rather than at its next pass, for every
+ * vendor whose devices can be found on the network; each vendor's page has the same for one.
  *
  * **Install integration** is here for the catalogue that will fill it, and does nothing yet.
  * Present rather than absent so the header already has the shape it will keep; disabled rather
  * than a no-op so nobody presses it twice wondering.
- *
- * Above the grid, the devices the hub found on the network and nobody has added: a row of cards,
- * each with an Adopt that adds it with what was found filled in. The row is the hub's live list -
- * a device added, or gone quiet, leaves it on its own - and it is there only when there is
- * something in it, and only for somebody who may see devices.
  */
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
-import type { DiscoveredDevice } from '@nebula-home/contracts';
 import { Button } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
 import { useListState } from '@/lib/use-list-state';
-import { fetchDevices, fetchDiscovered, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { fetchDiscovered, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
   isNarrowing,
-  matchesDiscovered,
   matchesVendorFilter,
   OPEN_VENDOR_FILTER,
   VENDOR_FILTER_CODEC,
 } from '@/library/vendor-filters';
-import { AdoptDialog } from '@/routes/library/adopt-dialog';
-import { DiscoveredStrip } from '@/routes/library/discovered-strip';
 import { IntegrationFilter } from '@/routes/library/integration-filter';
 import { LibraryPage } from '@/routes/library/library-page';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
+import { useNetworkScan } from '@/routes/library/use-network-scan';
 import { VendorCard } from '@/routes/library/vendor-card';
 
 /**
@@ -52,9 +48,8 @@ export function IntegrationsPage() {
   const canConfigure = can('integration:configure');
   const canSeeDevices = can('device:read');
   const canAddDevices = can('device:write');
-  const queryClient = useQueryClient();
   const [filter, setFilter] = useListState(VENDOR_FILTER_CODEC);
-  const [adopting, setAdopting] = useState<DiscoveredDevice | null>(null);
+  const network = useNetworkScan();
 
   const vendors = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.vendors,
@@ -74,7 +69,7 @@ export function IntegrationsPage() {
     enabled: canSeeDevices,
 
     /**
-     * Reads what the hub found on the network and nobody has added.
+     * Reads what the hub found on the network and nobody has added, for the counts on the cards.
      *
      * @param context - The query's abort signal.
      * @param context.signal - Cancels the request when the page goes away.
@@ -83,31 +78,24 @@ export function IntegrationsPage() {
     queryFn: async ({ signal }) => fetchDiscovered(signal),
   });
 
-  const devices = useQuery({
-    queryKey: LIBRARY_QUERY_KEYS.devices,
-    enabled: adopting !== null,
-
-    /**
-     * Reads every device, for the ids an adopted one must not take.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns Every device.
-     */
-    queryFn: async ({ signal }) => fetchDevices(signal),
-  });
-
   const all = vendors.data ?? [];
   const shown = all.filter((vendor) => matchesVendorFilter(vendor, filter));
-  const adoptingVendor = all.find((vendor) => vendor.id === adopting?.vendorId);
+  const canScan = canAddDevices && all.some((vendor) => vendor.discoverySources.length > 0);
+  const foundBy = new Map<string, number>();
+
+  for (const device of discovered.data ?? []) {
+    foundBy.set(device.vendorId, (foundBy.get(device.vendorId) ?? 0) + 1);
+  }
+
+  const found = discovered.data?.length ?? 0;
 
   return (
     <LibraryPage
       title="Integrations"
-      hasTabs={false}
       noun="integration"
       count={vendors.isPending ? undefined : all.length}
       shownCount={shown.length}
+      summary={[found === 0 ? null : `${String(found)} found on the network`]}
       tools={
         <>
           <SearchField
@@ -121,10 +109,27 @@ export function IntegrationsPage() {
         </>
       }
       action={
-        canConfigure ? (
-          <Button size="compact" disabled title="The catalogue is not here yet">
-            Install integration
-          </Button>
+        canScan || canConfigure ? (
+          <>
+            {canScan ? (
+              <Button
+                variant="ghost"
+                size="compact"
+                isBusy={network.isScanning}
+                title={network.problem ?? 'Ask every device on the network who it is, now'}
+                onClick={() => {
+                  network.scan();
+                }}
+              >
+                {network.isScanning ? 'Scanning…' : 'Scan network'}
+              </Button>
+            ) : null}
+            {canConfigure ? (
+              <Button size="compact" disabled title="The catalogue is not here yet">
+                Install integration
+              </Button>
+            ) : null}
+          </>
         ) : undefined
       }
       isPending={vendors.isPending}
@@ -132,18 +137,11 @@ export function IntegrationsPage() {
       isEmpty={all.length === 0}
       emptyMessage="The hub has no integration bundles loaded. The ones that ship with it appear here as soon as it starts."
     >
-      <DiscoveredStrip
-        devices={(discovered.data ?? []).filter((device) =>
-          matchesDiscovered(
-            device,
-            all.find((vendor) => vendor.id === device.vendorId)?.name,
-            filter.search,
-          ),
-        )}
-        vendors={all}
-        canAdopt={canAddDevices}
-        onAdopt={setAdopting}
-      />
+      {network.problem === null ? null : (
+        <p role="alert" className="text-ui text-danger">
+          {network.problem}
+        </p>
+      )}
 
       {shown.length === 0 && isNarrowing(filter) ? (
         <NoMatches
@@ -155,34 +153,10 @@ export function IntegrationsPage() {
       ) : (
         <ul className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
           {shown.map((vendor) => (
-            <VendorCard key={vendor.id} vendor={vendor} />
+            <VendorCard key={vendor.id} vendor={vendor} foundCount={foundBy.get(vendor.id) ?? 0} />
           ))}
         </ul>
       )}
-
-      <AdoptDialog
-        key={adopting?.id ?? 'shut'}
-        target={
-          adopting === null || adoptingVendor === undefined
-            ? null
-            : {
-                device: adopting,
-                vendor: adoptingVendor,
-                existingIds: (devices.data ?? []).map((device) => device.id),
-              }
-        }
-        canCreateTags={can('tag:write')}
-        onClose={() => {
-          setAdopting(null);
-        }}
-        onAdopted={() => {
-          setAdopting(null);
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.discovered });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.tags });
-        }}
-      />
     </LibraryPage>
   );
 }

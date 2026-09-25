@@ -13,17 +13,22 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   entityIdSchema,
   type DeviceView,
+  type DiscoveredDevice,
   type IntegrationVendorView,
 } from '@nebula-home/contracts';
 
 import { useSession } from '@/auth/session-store';
-import { fetchDevices, fetchIcons, fetchVendor } from '@/library/api';
+import { fetchDevices, fetchDiscovered, fetchIcons, fetchVendor, scanNetwork } from '@/library/api';
 
 import { VendorPage } from './vendor-page';
 
 vi.mock('@/library/api', () => ({
   fetchVendor: vi.fn(),
   fetchDevices: vi.fn(),
+  fetchDiscovered: vi.fn(() => Promise.resolve([])),
+  scanNetwork: vi.fn(),
+  adoptDiscovered: vi.fn(),
+  fetchAreas: vi.fn(() => Promise.resolve([])),
   fetchIcons: vi.fn(),
   createDevice: vi.fn(),
   updateDevice: vi.fn(),
@@ -38,8 +43,29 @@ vi.mock('@/library/api', () => ({
     entities: ['library', 'entities'],
     icons: ['library', 'icons'],
     tags: ['library', 'tags'],
+    discovered: ['library', 'discovered'],
+    areas: ['library', 'areas'],
   },
 }));
+
+/** A printer the hub found on the network and nobody has added. */
+const FOUND: DiscoveredDevice = {
+  id: 'fedcba9876543210',
+  vendorId: 'bambu-lab',
+  driverId: 'printer',
+  kind: 'bambu-lab/printer',
+  source: 'module',
+  address: '192.168.1.62',
+  externalId: '01P00A000000099',
+  name: 'Loft printer',
+  model: 'P1S',
+  modelChoices: ['P1S'],
+  modelCode: 'C12',
+  swVersion: null,
+  transportConfig: { url: 'mqtts://192.168.1.62:8883' },
+  firstSeenAt: new Date('2026-09-23T10:00:00.000Z'),
+  lastSeenAt: new Date('2026-09-23T10:05:00.000Z'),
+};
 
 /** Bambu Lab, as the vendor route serves it. */
 const BAMBU: IntegrationVendorView = {
@@ -52,6 +78,7 @@ const BAMBU: IntegrationVendorView = {
   logoPadding: 0,
   internetRequired: false,
   transports: ['mqtt'],
+  discoverySources: [],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
   drivers: [
     {
@@ -153,8 +180,9 @@ beforeAll(() => {
  * Renders the page for one vendor with an owner signed in.
  *
  * @param vendorId - Which vendor the address names.
+ * @param extra - Permissions held beside configuring and adding devices.
  */
-function renderPage(vendorId: string): void {
+function renderPage(vendorId: string, extra: readonly string[] = []): void {
   useSession.setState({
     status: 'signed-in',
     user: {
@@ -165,6 +193,7 @@ function renderPage(vendorId: string): void {
       permissions: [
         { key: 'integration:configure', scope: '*', effect: 'allow' },
         { key: 'device:write', scope: '*', effect: 'allow' },
+        ...extra.map((key) => ({ key, scope: '*', effect: 'allow' as const })),
       ],
       avatarUrl: null,
       locale: 'it',
@@ -315,5 +344,54 @@ describe('a vendor page', () => {
 
     expect(screen.queryByRole('button', { name: 'Configure' })).toBeNull();
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Remove' }).disabled).toBe(true);
+  });
+});
+
+describe('the devices of a vendor found on the network', () => {
+  it('are shown between the vendor and its devices, set apart, each with an Adopt', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue({ ...BAMBU, discoverySources: ['module'] });
+    vi.mocked(fetchDevices).mockResolvedValue([device({})]);
+    vi.mocked(fetchDiscovered).mockResolvedValue([FOUND]);
+    renderPage('bambu-lab', ['device:read']);
+
+    const found = await screen.findByRole('region', { name: /Found on your network/u });
+
+    expect(found.textContent).toContain('Loft printer');
+    fireEvent.click(screen.getByRole('button', { name: 'Adopt Loft printer' }));
+    expect(await screen.findByRole('dialog', { name: 'Adopt Loft printer' })).toBeTruthy();
+  });
+
+  it('draw nothing when nothing of the vendor was found', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue(BAMBU);
+    vi.mocked(fetchDevices).mockResolvedValue([device({})]);
+    vi.mocked(fetchDiscovered).mockResolvedValue([{ ...FOUND, vendorId: 'shelly' }]);
+    renderPage('bambu-lab', ['device:read']);
+
+    await screen.findByText('Studio printer');
+
+    expect(screen.queryByRole('region', { name: /Found on your network/u })).toBeNull();
+  });
+
+  it('can be looked for now, for a vendor whose devices can be found', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue({ ...BAMBU, discoverySources: ['module'] });
+    vi.mocked(fetchDevices).mockResolvedValue([]);
+    vi.mocked(scanNetwork).mockResolvedValue(['bambu-lab']);
+    renderPage('bambu-lab', ['device:read']);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Discover devices' }));
+
+    await waitFor(() => {
+      expect(scanNetwork).toHaveBeenCalledWith('bambu-lab');
+    });
+  });
+
+  it('offer no Discover for a vendor whose devices are only added by address', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue(BAMBU);
+    vi.mocked(fetchDevices).mockResolvedValue([]);
+    renderPage('bambu-lab', ['device:read']);
+
+    await screen.findByRole('heading', { name: 'Bambu Lab', level: 2 });
+
+    expect(screen.queryByRole('button', { name: 'Discover devices' })).toBeNull();
   });
 });

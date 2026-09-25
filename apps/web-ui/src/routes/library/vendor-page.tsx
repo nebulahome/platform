@@ -15,12 +15,17 @@
  * and Add device waits until it has been: the address may be right, but without the key no
  * device of theirs can connect, and a row that failed for that reason would send the owner to
  * the wrong form.
+ *
+ * Between the vendor and its devices, the devices of theirs the hub found on the network and
+ * nobody has added, each with an Adopt - set apart from the list, and there only when something
+ * was found. A vendor whose devices can be found has **Discover devices** in the header, which
+ * asks the hub to look now rather than at its next pass.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 
-import type { IntegrationState } from '@nebula-home/contracts';
+import type { DiscoveredDevice, IntegrationState } from '@nebula-home/contracts';
 import { Badge, Button, IconButton, Panel, Segmented, type BadgeTone } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
@@ -28,19 +33,22 @@ import { ExternalLinkIcon, WrenchIcon } from '@/components/icons';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
 import { matchesQuery } from '@/lib/search-text';
 import { useListState } from '@/lib/use-list-state';
-import { fetchDevices, fetchVendor, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { fetchDevices, fetchDiscovered, fetchVendor, LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
   OPEN_VENDOR_DEVICE_FILTER,
   VENDOR_DEVICE_FILTER_CODEC,
   type DeviceStandingChoice,
 } from '@/library/list-filters';
+import { AdoptDialog } from '@/routes/library/adopt-dialog';
 import { devicePath } from '@/routes/library/device/device-path';
 import { DeviceDialog, type DeviceDialogTarget } from '@/routes/library/device-dialog';
 import { DeviceIcon, useDeviceIcons } from '@/routes/library/device-icon';
+import { DiscoveredStrip } from '@/routes/library/discovered-strip';
 import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
 import { LibraryPage } from '@/routes/library/library-page';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
+import { useNetworkScan } from '@/routes/library/use-network-scan';
 import { Marks, VendorLogo } from '@/routes/library/vendor-card';
 import { VendorSetupDialog } from '@/routes/library/vendor-setup-dialog';
 
@@ -182,6 +190,8 @@ export function VendorPage() {
   const canCreateTags = can('tag:write');
   const [open, setOpen] = useState<DeviceDialogTarget | null>(null);
   const [isSettingUp, setSettingUp] = useState(false);
+  const [adopting, setAdopting] = useState<DiscoveredDevice | null>(null);
+  const network = useNetworkScan();
 
   const vendor = useQuery({
     queryKey: [...LIBRARY_QUERY_KEYS.vendors, vendorId],
@@ -209,7 +219,23 @@ export function VendorPage() {
     queryFn: async ({ signal }) => fetchDevices(signal),
   });
 
+  const discovered = useQuery({
+    queryKey: LIBRARY_QUERY_KEYS.discovered,
+    enabled: can('device:read'),
+
+    /**
+     * Reads what the hub found on the network and nobody has added; the page keeps this vendor's.
+     *
+     * @param context - The query's abort signal.
+     * @param context.signal - Cancels the request when the page goes away.
+     * @returns The devices found.
+     */
+    queryFn: async ({ signal }) => fetchDiscovered(signal),
+  });
+
   const found = vendor.data;
+  const foundDevices = (discovered.data ?? []).filter((each) => each.vendorId === vendorId);
+  const canDiscover = canWrite && (found?.discoverySources.length ?? 0) > 0;
   const devices = (all.data ?? []).filter((each) => each.vendorId === vendorId);
   const [filter, setFilter] = useListState(VENDOR_DEVICE_FILTER_CODEC);
   const shownDevices = devices.filter(
@@ -257,7 +283,6 @@ export function VendorPage() {
       <LibraryPage
         title={found?.name ?? vendorId}
         parent={{ to: '/integrations', label: 'Integrations' }}
-        hasTabs={false}
         noun="device"
         tools={
           devices.length === 0 ? undefined : (
@@ -293,9 +318,24 @@ export function VendorPage() {
           )
         }
         action={
-          canConfigure && found !== undefined ? (
+          found !== undefined && (canConfigure || canDiscover) ? (
             <>
-              {hasSetupFields ? (
+              {canDiscover ? (
+                <Button
+                  variant="ghost"
+                  size="compact"
+                  isBusy={network.isScanning}
+                  title={
+                    network.problem ?? `Ask every ${found.name} device on the network who it is`
+                  }
+                  onClick={() => {
+                    network.scan(found.id);
+                  }}
+                >
+                  {network.isScanning ? 'Looking…' : 'Discover devices'}
+                </Button>
+              ) : null}
+              {canConfigure && hasSetupFields ? (
                 <Button
                   variant="ghost"
                   size="compact"
@@ -306,9 +346,11 @@ export function VendorPage() {
                   Configure
                 </Button>
               ) : null}
-              <Button variant="ghost" size="compact" disabled title="Not here yet">
-                Remove
-              </Button>
+              {canConfigure ? (
+                <Button variant="ghost" size="compact" disabled title="Not here yet">
+                  Remove
+                </Button>
+              ) : null}
             </>
           ) : undefined
         }
@@ -391,6 +433,19 @@ export function VendorPage() {
                 </div>
               </Panel>
             ) : null}
+
+            {network.problem === null ? null : (
+              <p role="alert" className="text-ui text-danger">
+                {network.problem}
+              </p>
+            )}
+
+            <DiscoveredStrip
+              devices={foundDevices}
+              vendors={[found]}
+              canAdopt={canWrite && !found.needsSetup}
+              onAdopt={setAdopting}
+            />
 
             <Panel
               title={
@@ -532,6 +587,30 @@ export function VendorPage() {
           setOpen(null);
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.entities });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.tags });
+        }}
+      />
+
+      <AdoptDialog
+        key={adopting?.id ?? 'adopt-shut'}
+        target={
+          adopting === null || found === undefined
+            ? null
+            : {
+                device: adopting,
+                vendor: found,
+                existingIds: (all.data ?? []).map((each) => each.id),
+              }
+        }
+        canCreateTags={canCreateTags}
+        onClose={() => {
+          setAdopting(null);
+        }}
+        onAdopted={() => {
+          setAdopting(null);
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.discovered });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.tags });
         }}

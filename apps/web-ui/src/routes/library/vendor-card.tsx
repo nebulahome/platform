@@ -10,6 +10,9 @@
  *
  * A vendor without a logo gets a monogram in its own colour, the same size and in the same
  * place, so the grid stays even whatever the bundles shipped with.
+ *
+ * When the hub has found devices of the vendor that nobody has added, the card says how many, in
+ * the tint the vendor's page draws them in: that page is where they are adopted.
  */
 import { Link } from 'react-router';
 
@@ -175,6 +178,9 @@ export function VendorLogo(props: LogoProps) {
 /** What the card needs. */
 export type VendorCardProps = {
   readonly vendor: IntegrationVendorView;
+
+  /** How many of its devices were found on the network and not added; none when absent. */
+  readonly foundCount?: number;
 };
 
 /**
@@ -196,7 +202,7 @@ function noun(count: number, one: string, many: string): string {
  * @returns The card.
  */
 export function VendorCard(props: VendorCardProps) {
-  const { vendor } = props;
+  const { vendor, foundCount = 0 } = props;
 
   return (
     <li className="list-none">
@@ -223,6 +229,11 @@ export function VendorCard(props: VendorCardProps) {
             {vendor.needsSetup ? (
               <Badge tone="warning" size="small">
                 Needs setup
+              </Badge>
+            ) : null}
+            {foundCount > 0 ? (
+              <Badge tone="accent" size="small">
+                {foundCount} found
               </Badge>
             ) : null}
           </span>
