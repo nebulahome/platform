@@ -1,0 +1,13 @@
+{
+  "id": "ev-charger",
+  "name": "EV charger (dongle API)",
+  "transport": "solax/local",
+  "models": ["X3-EVC"],
+  "modelCodes": {
+    "1": "X3-EVC"
+  },
+  "defaultIcon": "ev-charger",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

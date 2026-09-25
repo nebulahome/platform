@@ -1,0 +1,16 @@
+{
+  "id": "hybrid-three-phase",
+  "name": "Three-phase hybrid inverter (dongle API)",
+  "transport": "solax/local",
+  "models": ["X3-Hybrid G3", "X3-Hybrid G4", "X3-Ultra", "Q.VOLT HYB-G3-3P"],
+  "modelCodes": {
+    "5": "X3-Hybrid G3",
+    "14": ["X3-Hybrid G4", "Q.VOLT HYB-G3-3P"],
+    "25": "X3-Ultra",
+    "X3-Hybiyd-G3": "X3-Hybrid G3"
+  },
+  "defaultIcon": "solar-panel",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

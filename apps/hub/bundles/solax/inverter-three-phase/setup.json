@@ -1,0 +1,28 @@
+{
+  "transport": {
+    "fields": [
+      {
+        "key": "host",
+        "type": "text",
+        "label": "Address",
+        "help": "The IP or host name of the Pocket WiFi or Pocket LAN dongle on the network, with :port when it is not 80.",
+        "placeholder": "192.168.1.80",
+        "isRequired": true,
+        "pattern": "^[A-Za-z0-9.-]+(:[0-9]{1,5})?$",
+        "patternMessage": "An IP or host name, with :port when it is not 80 - no http:// and no path."
+      },
+      {
+        "key": "password",
+        "type": "secret",
+        "label": "Registration number",
+        "help": "The dongle's local password: its registration number, printed on its label and the name of its own Wi-Fi hotspot, unless it was changed in the SolaX app. An X-Hybrid needs none.",
+        "maxLength": 64
+      }
+    ]
+  },
+  "polling": {
+    "default": 30,
+    "min": 5,
+    "warnBelow": 10
+  }
+}

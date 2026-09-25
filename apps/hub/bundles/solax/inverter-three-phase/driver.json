@@ -1,0 +1,14 @@
+{
+  "id": "inverter-three-phase",
+  "name": "Three-phase inverter (dongle API)",
+  "transport": "solax/local",
+  "models": ["X3-MIC", "X3-MIC PRO G2"],
+  "modelCodes": {
+    "16": "X3-MIC PRO G2",
+    "X3-MIC": "X3-MIC"
+  },
+  "defaultIcon": "solar-panel",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

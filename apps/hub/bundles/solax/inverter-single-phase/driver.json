@@ -1,0 +1,17 @@
+{
+  "id": "inverter-single-phase",
+  "name": "Single-phase inverter (dongle API)",
+  "transport": "solax/local",
+  "models": ["X1-Mini", "X1-Air", "X1-Boost", "X1-Smart", "X1-Mini G4", "X1-Boost G4"],
+  "modelCodes": {
+    "4": ["X1-Mini", "X1-Air", "X1-Boost"],
+    "8": "X1-Smart",
+    "18": "X1-Boost G4",
+    "22": "X1-Mini G4",
+    "X1-Boost-Air-Mini": ["X1-Mini", "X1-Air", "X1-Boost"]
+  },
+  "defaultIcon": "solar-panel",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

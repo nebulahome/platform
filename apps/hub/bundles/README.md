@@ -44,15 +44,15 @@ drivers, so it cannot be declared wrongly; what the manifest may add is a transp
 ```json
 {
   "id": "shelly",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "sdk": "^1.0.0",
   "name": "Shelly",
-  "description": "Shelly Gen3 and Gen4 devices on your own network, each spoken to directly over its RPC interface.",
+  "description": "Shelly devices of every generation on your own network: Gen2, Gen3 and Gen4 spoken to over their RPC interface, Gen1 over its HTTP API and the CoIoT packets it sends on every change.",
   "url": "https://shelly.com",
   "color": "#3B9DFF",
   "logo": { "path": "./logo.svg", "padding": 4 },
   "internetRequired": false,
-  "transports": { "rpc": "./rpc/transport.js" }
+  "transports": { "rpc": "./rpc/transport.js", "gen1": "./gen1/transport.js" }
 }
 ```
 
@@ -167,13 +167,15 @@ because a device announced it there.
 
 ```json
 {
-  "listen": [{ "mdns": "_shelly._tcp" }],
-  "probe": {
-    "transport": "shelly/rpc",
-    "op": "call",
-    "args": { "method": "Shelly.GetDeviceInfo" }
-  },
-  "identity": { "externalId": "id", "name": "name", "model": "model", "swVersion": "ver" }
+  "listen": [{ "mdns": "_shelly._tcp" }, { "mdns": "_http._tcp" }],
+  "match": [{ "path": "instance", "startsWith": "shelly" }],
+  "probe": { "transport": "http", "op": "get", "args": { "path": "/shelly" }, "timeoutMs": 10000 },
+  "identity": {
+    "externalId": ["id", "mac"],
+    "name": "name",
+    "model": ["model", "type"],
+    "swVersion": ["ver", "fw"]
+  }
 }
 ```
 
@@ -182,30 +184,40 @@ because a device announced it there.
   announcement is read as `{ service, instance, host, address, port, txt: { … } }`, and the device
   is reached at `address`, with `:port` when it is not 80.
 - `match` - conditions in the claim's grammar, all of which must hold of the announcement: for a
-  service other vendors announce too.
+  service other vendors announce too. `startsWith` is a prefix compared without regard to case -
+  what Shelly needs on `_http._tcp`, which every printer and NAS announces as well.
 - `probe` - optional: a request, in a transport's words - the vendor's own or a platform one -
   asked of the announced address with the vendor's saved settings beneath it. Its answer is what
   `identity` reads, and it should be the same question the drivers' `discovery.probe` asks, so the
   id discovery finds is the id identification then insists on. Without one, `identity` reads the
   announcement, and must then say where the model is: without a probe the drivers' own claims have
-  nothing to read.
+  nothing to read. `timeoutMs` (0.5 to 30 s, four when absent) gives slow devices longer and is
+  handed to the transport as its own `timeoutMs`: a Shelly on a weak Wi-Fi link took eight seconds
+  to answer its first request after a silence.
 - `identity` - paths to the model code, the id, the name and the firmware version. Only the model
-  is ever required.
+  is ever required. A field may be a list of paths, tried in order, for generations that answer
+  in different words: a Shelly Gen1 says `type`, `mac` and `fw` where later ones say `model`,
+  `id` and `ver`.
 
-The hub asks mDNS when it starts - three times over the first seconds, since one question over
-multicast can be lost - and again every `HUB_DISCOVERY_QUERY_INTERVAL_MS`; an address that did not
-answer its probe is asked again after thirty seconds rather than at the next interval, and an
-address already added is not probed at all. An owner can have it look **now**: **Scan network** on
-the integrations page asks every vendor that can be found, and **Discover devices** on a vendor's
-page asks that vendor (`POST /api/v1/discovery/scan`, the hub's `discover` method). A vendor with
-no `discovery.json` offers neither, and its devices are added by address. What is found is shown on
-the vendor's own page, above its devices.
+The hub asks mDNS from every network interface of the machine, one question a packet, when it
+starts - at 0, 1, 3, 8, 15, 30 and 60 seconds, since a question over multicast is easily lost - and
+again every `HUB_DISCOVERY_QUERY_INTERVAL_MS`; an answer that names a device without its SRV, TXT
+or A record is completed by asking for that record by name. An address that did not answer its
+probe is asked again on a timer - after five seconds, then thirty, then sixty - rather than at the
+next announcement, and an address already added is not probed at all. An owner can have it look
+**now**: **Discover devices** on a vendor's page asks that vendor again every second or two for
+thirty seconds (`POST /api/v1/discovery/scan`, the hub's `discover` method, which answers how long
+it looks), and the page then says what it found. A vendor with no `discovery.json` offers no
+button, and its devices are added by address. What is found is shown on the vendor's own page,
+above its devices.
 
-The model code is looked up in every driver's `modelCodes`; when no driver maps it, the drivers'
-own claims decide, in load order, on what the probe returned. Two drivers may map one code only
-when the vendor probes - a Shelly 2PM reports one code as relays or as a cover, and each driver's
-claim reads its profile. A device no driver takes is not proposed, and the hub logs its model at
-debug. A `discovery.json` that does not load leaves the vendor loaded without discovery, and the
+The model code is looked up in every driver's `modelCodes`; with a probe, the driver's own claim
+must also take what the probe returned - a Pro 3EM reports one code in both its profiles and only
+the triphase one is the `3em` driver's - and when no driver maps the code, the drivers' own claims
+decide, in load order. Two drivers may map one code only when the vendor probes - a Shelly 2PM
+reports one code as relays or as a cover, and each driver's claim reads its profile. A device no
+driver takes is not proposed, and the hub logs its model once at info: it is the answer to "why is
+my device not found". A `discovery.json` that does not load leaves the vendor loaded without discovery, and the
 failure names the file.
 
 **A listener of the vendor's own** is a module - plain JavaScript, like a transport, handed the
@@ -275,10 +287,34 @@ be left out). Each group has:
   | --------- | -------------------- | ------------------------------------------------------------------------------------- |
   | `text`    | text field           | `minLength`, `maxLength` (512), `pattern`, `patternMessage`, `default`, `placeholder` |
   | `secret`  | password field       | as `text`; **sealed** before it is stored, never served back                          |
-  | `number`  | number field         | `min`, `max`, `isInteger`, `unit`, `default`                                          |
+  | `number`  | number field         | `min`, `max`, `isInteger`, `unit`, `default`, `warnBelow` + `warning`                 |
   | `boolean` | on/off switch        | `default`                                                                             |
   | `choice`  | select               | `choices: [{ value, label }]`, `default`                                              |
   | `list`    | comma-separated text | `minItems`, `maxItems` (64), `pattern` and `patternMessage` per item                  |
+
+A `number` with `warnBelow` accepts a smaller value but says, under the field, what it costs - the
+bundle's `warning`, or that it is below what is advised.
+
+**How often a polled device is read** is the owner's choice. A driver whose profile reads the
+device on a timer - a subscription with `op: "poll"` and `everyMs` - declares `polling`, in whole
+seconds:
+
+```json
+{
+  "transport": { "fields": [] },
+  "polling": { "default": 30, "min": 5, "warnBelow": 10 }
+}
+```
+
+The hub turns it into the option `pollInterval`, "Update every … s": required, never 0 (`min` is
+at least 1), up to `max` (a day when absent), filled with `default`, and warning below
+`warnBelow`. The API stores and changes it like any option, and a change restarts the instance. At
+runtime the chosen interval replaces `everyMs` in every subscription of the profile that has one; a
+subscription without `everyMs` - a topic, a push - is left alone, and the transport's own floor
+still holds. `default × 1000` must be the profile's `everyMs` (what a device added before the option
+existed is read at), and a driver that does not poll must not declare it - `shipped-bundles.test.ts`
+checks both. Never declare a field called `pollInterval` yourself. A push transport's periodic full
+re-read (Shelly's `status`) is a safety net, not a poll, and has no `polling`.
 
 A `secret` value is encrypted with `NEBULA_SECRETS_KEY` by the API before it reaches the
 database and decrypted by the hub when the instance starts; the interface only ever learns that
@@ -342,16 +378,28 @@ ship here (`checkJs`), so write the types in JSDoc and start the file with `// @
 
 ## shelly
 
-Fifteen drivers, one per layout of components, for the Shelly **Gen3 and Gen4** range: relays,
-plugs, dimmers, covers, energy meters and input boxes, each driver listing the models it drives.
-All of them run on the bundle's own transport, `shelly/rpc`: Shelly's JSON-RPC over the WebSocket
-every device serves, with the status pushed as it changes and the digest authentication the
-devices ask for. A driver claims a device by its hardware `model` code, one of a list.
+Twenty-eight drivers, one per layout of components, across Shelly's generations: relays, plugs,
+dimmers, covers, energy meters and input boxes, each driver listing the models it drives. The
+bundle ships two transports of its own.
+
+- **`shelly/rpc`** - nineteen drivers for **Gen2** (Plus, Pro), **Gen3** and **Gen4**: Shelly's
+  JSON-RPC over the WebSocket every such device serves, with the status pushed as it changes and
+  the digest authentication the devices ask for. A generation with the same components as another
+  is more models on the same driver: a Plus 1PM, a Pro 1PM and a 1PM Gen3 are one family.
+- **`shelly/gen1`** - nine drivers, `gen1-…`, for the **Gen1** relays, plugs, the 2.5, the
+  dimmers, the EM and 3EM and the i3: plain HTTP (`/status`, `/relay/0?turn=on`), with basic
+  authentication when a login is on. The CoAP packet a Gen1 multicasts on every change (CoIoT),
+  heard on the SDK's UDP socket, is taken as the signal to read `/status` at once; a poll every
+  30 s, the owner's to change, is the safety net.
+
+A driver claims a device by its hardware code, one of a list: `model` over RPC, `type` on a Gen1.
+Every Shelly is found the same way - `GET /shelly`, which every generation answers without a
+password - and the codes each driver maps tell which family and model it is.
 
 Every driver links to the device's own web page on port 80, and exposes a **firmware update**
 sensor and an **install** button (see _Firmware updates_ above).
 
-Its own README says what the devices are, how the transport treats them, which models each
+Its own README says what the devices are, how the transports treat them, which models each
 family takes, and what has not been checked against hardware - above all the model codes, and
 the one-line fix when a device on the network is not claimed.
 
@@ -398,3 +446,22 @@ transport, and the four things it needed - a self-signed certificate, the serial
 the topic, topics composed from it, and a request sent on every reconnect - are in the transport
 now for whatever comes next. Its own README says what the printer is and what has not been
 checked against one.
+
+## solax
+
+Ten drivers for SolaX Power inverters - grid-tie, hybrid with a battery, AC-coupled retrofit -
+and the X3-EVC charger, over two transports the vendor ships. `solax/local` asks the Pocket
+WiFi or Pocket LAN dongle's local HTTP API on port 80, the password being the dongle's
+registration number, and tells the family by the `type` it answers with (and how many registers,
+where two families share a code): five drivers named `… (dongle API)`. `solax/modbus` is a
+read-only Modbus TCP client (functions 03 and 04, plain MBAP or RTU frames over TCP) for a Pocket
+WiFi 3.0, the inverter's own Ethernet port or an RS485 adapter, and tells the family by the serial
+number's prefix: five drivers named `… (Modbus TCP)`. Both decode the registers - scales, signs,
+32-bit pairs, codes standing for words - into named values, so the profiles stay tables of
+paths, and both read once per interval: one HTTP request, or one read per block of up to 100
+registers, never one per entity. Power is signed the way SolaX signs it - feed-in and battery
+charge positive - and the README says how to set the energy card's switches for it. Not
+discoverable (neither announces itself), no firmware entities, nothing written. Its own README
+lists every family, where the tables came from (the `solax` library, MIT; the
+`homeassistant-solax-modbus` integration, Apache-2.0) and what has not been checked against a
+real inverter: all of it.

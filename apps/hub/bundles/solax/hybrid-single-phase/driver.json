@@ -1,0 +1,16 @@
+{
+  "id": "hybrid-single-phase",
+  "name": "Single-phase hybrid inverter (dongle API)",
+  "transport": "solax/local",
+  "models": ["X-Hybrid", "X1-Hybrid G3", "X1-Hybrid G4", "X1-Lite LV"],
+  "modelCodes": {
+    "15": "X1-Hybrid G4",
+    "103": "X1-Lite LV",
+    "AL_SE": "X-Hybrid",
+    "X1-Hybiyd-G3": "X1-Hybrid G3"
+  },
+  "defaultIcon": "solar-panel",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

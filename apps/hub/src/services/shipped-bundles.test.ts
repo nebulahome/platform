@@ -31,11 +31,16 @@ import { loadBundles } from './bundles.js';
 /** The `bundles/` directory beside the application, as the service reads it outside production. */
 const DIRECTORY = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../bundles');
 
-/** The families the Shelly bundle ships, one driver per layout of components. */
-const SHELLY_DRIVERS = [
+/**
+ * The Shelly families spoken to over RPC - Gen2, Gen3 and Gen4 - one driver per layout of
+ * components.
+ */
+const SHELLY_RPC_DRIVERS = [
   '3em',
+  'cover-2pm',
   'cover-pm',
   'dimmer',
+  'dimmer-2pm',
   'dimmer-pm',
   'em-1',
   'em-2',
@@ -47,18 +52,36 @@ const SHELLY_DRIVERS = [
   'switch',
   'switch-2',
   'switch-2pm',
+  'switch-3',
+  'switch-4pm',
   'switch-pm',
 ];
 
+/** The Gen1 families, spoken to over HTTP and heard over CoIoT. */
+const SHELLY_GEN1_DRIVERS = [
+  'gen1-3em',
+  'gen1-cover-pm',
+  'gen1-dimmer',
+  'gen1-em',
+  'gen1-inputs',
+  'gen1-plug',
+  'gen1-switch',
+  'gen1-switch-2pm',
+  'gen1-switch-pm',
+];
+
 /**
- * Every Shelly profile, parsed the way the loader parses it, keyed by driver.
+ * Some Shelly profiles, parsed the way the loader parses them, keyed by driver.
  *
+ * @param drivers - Which drivers: the RPC families unless said otherwise.
  * @returns The profiles, each having passed the schema the hub applies at startup.
  */
-async function shellyProfiles(): Promise<Map<string, IntegrationProfile>> {
+async function shellyProfiles(
+  drivers: readonly string[] = SHELLY_RPC_DRIVERS,
+): Promise<Map<string, IntegrationProfile>> {
   const profiles = new Map<string, IntegrationProfile>();
 
-  for (const driver of SHELLY_DRIVERS) {
+  for (const driver of drivers) {
     const text = await readFile(path.join(DIRECTORY, `shelly/${driver}/profile.json`), 'utf8');
 
     profiles.set(driver, integrationProfileSchema.parse(JSON.parse(text)));
@@ -68,13 +91,24 @@ async function shellyProfiles(): Promise<Map<string, IntegrationProfile>> {
 }
 
 /**
+ * Where a Shelly family names the model code it claims: `model` over RPC, `type` on a Gen1.
+ *
+ * @param driver - The driver.
+ * @returns The path of its code condition.
+ */
+function codePathOf(driver: string): string {
+  return SHELLY_GEN1_DRIVERS.includes(driver) ? 'type' : 'model';
+}
+
+/**
  * The model codes one profile claims.
  *
  * @param profile - The profile.
- * @returns The codes in its `model` condition, in order.
+ * @param codePath - Where the codes are: `model`, or `type` on a Gen1.
+ * @returns The codes in its code condition, in order.
  */
-function codesOf(profile: IntegrationProfile): string[] {
-  const condition = profile.discovery.claim.find((each) => each.path === 'model');
+function codesOf(profile: IntegrationProfile, codePath = 'model'): string[] {
+  const condition = profile.discovery.claim.find((each) => each.path === codePath);
 
   return condition !== undefined && 'oneOf' in condition ? condition.oneOf.map(String) : [];
 }
@@ -101,11 +135,43 @@ describe('the bundles that ship', () => {
       'nanoleaf',
       'plex',
       'shelly',
+      'solax',
       'sonoff',
     ]);
 
     for (const vendor of vendors) {
       expect(vendor.logo).toMatch(/^data:image\/svg\+xml;base64,/);
+    }
+  });
+
+  it('lets the owner choose how often every polled device is read, from the profile interval', async () => {
+    // A device that is asked rather than told is read on a timer, and the owner is the one who
+    // knows whether every 5 s is too often for it. `polling` puts that on the form; its default
+    // must be the interval the profile reads at before anyone chose, or a new device and an old
+    // one of the same kind would be read at different rates for no reason.
+    const { loaded } = await loadBundles({ directory: DIRECTORY, runtimeVersion: RUNTIME_VERSION });
+    const claim = { deviceKey: '192.168.1.40', externalId: 'device', descriptor: {} };
+
+    for (const bundle of loaded) {
+      const kind = `${bundle.vendorId}/${bundle.driverId}`;
+      const polls = bundle.integration
+        .subscriptions([claim], {})
+        .filter((subscription) => subscription.op === 'poll');
+      const field = bundle.setup.options.fields.find((each) => each.key === 'pollInterval');
+
+      if (polls.length === 0) {
+        expect(field, `${kind} is not polled and offers no interval`).toBeUndefined();
+        continue;
+      }
+
+      expect(field?.type, `${kind} is polled and offers no interval`).toBe('number');
+
+      for (const poll of polls) {
+        expect(
+          field?.type === 'number' ? (field.default ?? 0) * 1000 : undefined,
+          `${kind} reads every ${JSON.stringify(poll.args['everyMs'])} ms`,
+        ).toBe(poll.args['everyMs']);
+      }
     }
   });
 
@@ -226,22 +292,29 @@ describe('the bundles that ship', () => {
 });
 
 describe('the Shelly bundle', () => {
-  it('ships its own transport and one declarative driver per family', async () => {
+  it('ships its own two transports and one declarative driver per family', async () => {
     const { vendors } = await loadBundles({
       directory: DIRECTORY,
       runtimeVersion: RUNTIME_VERSION,
     });
     const shelly = vendors.find((vendor) => vendor.manifest.id === 'shelly');
 
-    expect(shelly?.ownTransports.map((transport) => transport.id)).toEqual(['shelly/rpc']);
-    expect(shelly?.transports).toEqual(['shelly/rpc']);
-    expect(shelly?.drivers.map((driver) => driver.driverId).sort()).toEqual(SHELLY_DRIVERS);
+    expect(shelly?.ownTransports.map((transport) => transport.id)).toEqual([
+      'shelly/rpc',
+      'shelly/gen1',
+    ]);
+    expect([...(shelly?.transports ?? [])].sort()).toEqual(['shelly/gen1', 'shelly/rpc']);
+    expect(shelly?.drivers.map((driver) => driver.driverId).sort()).toEqual(
+      [...SHELLY_RPC_DRIVERS, ...SHELLY_GEN1_DRIVERS].sort(),
+    );
 
     for (const driver of shelly?.drivers ?? []) {
-      expect(driver.manifest.transport, driver.driverId).toBe('shelly/rpc');
+      expect(driver.manifest.transport, driver.driverId).toBe(
+        SHELLY_GEN1_DRIVERS.includes(driver.driverId) ? 'shelly/gen1' : 'shelly/rpc',
+      );
 
       // Declarative is a trust boundary as much as a format: the drivers are data. The code the
-      // vendor ships is the transport, and it is reviewed as code.
+      // vendor ships is the transports, and they are reviewed as code.
       expect(driver.manifest.kind, driver.driverId).toBe('declarative');
     }
   });
@@ -249,12 +322,13 @@ describe('the Shelly bundle', () => {
   it('claims every model by its hardware code, each in exactly one family', async () => {
     // `app` is the firmware's word and has changed between releases; the model code is the
     // hardware's. A code claimed by two families would leave the hub picking one by the order
-    // the directories were read in - unless the two differ on the profile the device is in.
-    const profiles = await shellyProfiles();
+    // the directories were read in - unless the two differ on the profile the device is in (a
+    // 2PM over RPC) or the mode it runs in (a Gen1 2.5).
+    const profiles = await shellyProfiles([...SHELLY_RPC_DRIVERS, ...SHELLY_GEN1_DRIVERS]);
     const families = new Map<string, string[]>();
 
     for (const [driver, profile] of profiles) {
-      const codes = codesOf(profile);
+      const codes = codesOf(profile, codePathOf(driver));
 
       expect(codes.length, `${driver} claims no model`).toBeGreaterThan(0);
 
@@ -270,7 +344,9 @@ describe('the Shelly bundle', () => {
 
       const conditions = drivers.map((driver) =>
         JSON.stringify(
-          profiles.get(driver)?.discovery.claim.find((each) => each.path === 'profile'),
+          profiles
+            .get(driver)
+            ?.discovery.claim.find((each) => each.path === 'profile' || each.path === 'mode'),
         ),
       );
 
@@ -287,14 +363,15 @@ describe('the Shelly bundle', () => {
       runtimeVersion: RUNTIME_VERSION,
     });
     const shelly = vendors.find((vendor) => vendor.manifest.id === 'shelly');
-    const profiles = await shellyProfiles();
+    const profiles = await shellyProfiles([...SHELLY_RPC_DRIVERS, ...SHELLY_GEN1_DRIVERS]);
 
     for (const driver of shelly?.drivers ?? []) {
       const profile = profiles.get(driver.driverId);
+      const codes = profile === undefined ? [] : codesOf(profile, codePathOf(driver.driverId));
 
       expect(profile, driver.driverId).toBeDefined();
-      expect(driver.manifest.models.length, driver.driverId).toBe(
-        profile === undefined ? -1 : codesOf(profile).length,
+      expect(driver.manifest.models, driver.driverId).toEqual(
+        codes.map((code) => driver.manifest.modelCodes?.[code]),
       );
     }
   });
@@ -309,6 +386,19 @@ describe('the Shelly bundle', () => {
     }
   });
 
+  it('identifies every Gen1 device by GET /shelly, and by its MAC', async () => {
+    // A Gen1 has no id of the kind later generations have: its MAC is what it is known by, and
+    // `/shelly` answers even with a login switched on.
+    for (const [driver, profile] of await shellyProfiles(SHELLY_GEN1_DRIVERS)) {
+      expect(profile.discovery.probe, driver).toEqual({ op: 'get', args: { path: '/shelly' } });
+      expect(profile.discovery.identity, driver).toEqual({
+        externalId: 'mac',
+        model: 'type',
+        swVersion: 'fw',
+      });
+    }
+  });
+
   it('asks every device for its whole status now and then, and never too often', async () => {
     // The status comes on its own as notifications; the timer is what catches a device that
     // came back, and what keeps the socket busy enough to notice one that went.
@@ -320,6 +410,14 @@ describe('the Shelly bundle', () => {
       expect(Number(profile.subscriptions[0]?.args['everyMs']), driver).toBeGreaterThanOrEqual(
         5000,
       );
+    }
+  });
+
+  it('polls every Gen1 device every 30 s, behind the reads CoIoT asks for', async () => {
+    // A Gen1 says it changed over CoIoT, and the transport reads it then; the poll is the safety
+    // net for a packet lost, and the owner's to change.
+    for (const [driver, profile] of await shellyProfiles(SHELLY_GEN1_DRIVERS)) {
+      expect(profile.subscriptions, driver).toEqual([{ op: 'poll', args: { everyMs: 30000 } }]);
     }
   });
 
@@ -339,6 +437,28 @@ describe('the Shelly bundle', () => {
     }
   });
 
+  it('turns every Gen1 relay and light both ways, and toggles all but the meters', async () => {
+    // The EM and the 3EM take only `on` and `off` for their contactor relay; every other Gen1
+    // output takes `toggle` too.
+    const onOffOnly = ['gen1-em', 'gen1-3em'];
+
+    for (const [driver, profile] of await shellyProfiles(SHELLY_GEN1_DRIVERS)) {
+      for (const entity of profile.entities) {
+        if (entity.domain !== 'switch' && entity.domain !== 'light') {
+          continue;
+        }
+
+        const label = `${driver} ${entity.objectId ?? ''}`;
+        const commands = Object.keys(entity.commands);
+
+        expect(commands, label).toEqual(
+          expect.arrayContaining(['on_off.turn_on', 'on_off.turn_off']),
+        );
+        expect(commands.includes('on_off.toggle'), label).toBe(!onOffOnly.includes(driver));
+      }
+    }
+  });
+
   it('reads status keys quoted, since `switch:0` is not a bare identifier', async () => {
     // The quotes are load-bearing: without them the profile does not parse at all.
     const relay = (await shellyProfiles())
@@ -348,7 +468,8 @@ describe('the Shelly bundle', () => {
     expect(relay?.state.on_off?.['isOn']).toBe("'switch:0'.output");
   });
 
-  it('asks the same two things of every owner adding a device', async () => {
+  it('asks the same things of every owner adding a device of one generation', async () => {
+    // Over RPC the user is always admin; a Gen1 login's user can be changed, so it is asked.
     const { vendors } = await loadBundles({
       directory: DIRECTORY,
       runtimeVersion: RUNTIME_VERSION,
@@ -359,7 +480,11 @@ describe('the Shelly bundle', () => {
       expect(
         driver.setup.transport.fields.map((field) => field.key),
         driver.driverId,
-      ).toEqual(['host', 'password']);
+      ).toEqual(
+        SHELLY_GEN1_DRIVERS.includes(driver.driverId)
+          ? ['host', 'username', 'password']
+          : ['host', 'password'],
+      );
     }
   });
 
@@ -390,6 +515,23 @@ describe('the Shelly bundle', () => {
       expect(button?.commands['button.press'], driver).toEqual({
         op: 'call',
         args: { method: 'Shelly.Update', params: { stage: 'stable' } },
+      });
+    }
+  });
+
+  it('says whether firmware is waiting, and installs it when asked, on every Gen1 family', async () => {
+    for (const [driver, profile] of await shellyProfiles(SHELLY_GEN1_DRIVERS)) {
+      const sensor = profile.entities.find((entity) => entity.objectId === 'firmware');
+      const button = profile.entities.find((entity) => entity.objectId === 'firmware_install');
+
+      expect(sensor?.domain, driver).toBe('binary_sensor');
+      expect(sensor?.deviceClass, driver).toBe('update');
+      expect(sensor?.state.sensor_binary?.['isOn'], driver).toBe('update.has_update');
+      expect(button?.domain, driver).toBe('button');
+      expect(button?.deviceClass, driver).toBe('update');
+      expect(button?.commands['button.press'], driver).toEqual({
+        op: 'get',
+        args: { path: '/ota', query: { update: true } },
       });
     }
   });
