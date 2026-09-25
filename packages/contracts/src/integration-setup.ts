@@ -106,6 +106,15 @@ const numberFieldSchema = z.strictObject({
   /** Shown after the control: `ms`, `°C`. */
   unit: z.string().max(16).optional(),
   default: z.number().optional(),
+
+  /**
+   * Below this the form warns, without refusing: a value that works but costs something, like
+   * asking a device for its state every second.
+   */
+  warnBelow: z.number().optional(),
+
+  /** What the warning says. Without one the form says the value is lower than advised. */
+  warning: z.string().min(1).max(160).optional(),
 });
 
 /** On or off. */
@@ -195,17 +204,144 @@ export const setupGroupSchema = z
 /** One group of a declaration. */
 export type SetupGroup = z.output<typeof setupGroupSchema>;
 
-/** Validates a whole `setup.json`. */
-export const integrationSetupSchema = z.strictObject({
-  /** Becomes `registry.integrations.transport_config`. */
-  transport: setupGroupSchema,
+/** The option `polling` becomes: how many seconds pass between two reads of a device. */
+export const POLL_INTERVAL_KEY = 'pollInterval';
 
-  /** Becomes `registry.integrations.options`. Most bundles have nothing to put here. */
-  options: setupGroupSchema.default({ constants: {}, fields: [] }),
-});
+/** The longest a device may go unread, in seconds: a day. */
+const MAXIMUM_POLL_SECONDS = 86_400;
+
+/** A number of seconds between two reads. Whole, and never 0: 0 would mean "as fast as you can". */
+const pollSecondsSchema = z.int().min(1).max(MAXIMUM_POLL_SECONDS);
+
+/**
+ * How often a device that is asked rather than told is read, and what the owner may change it to.
+ *
+ * A bundle states it once, and the platform turns it into an option the owner sees on the
+ * device's form - "Update every … s" - with the bounds and the warning below. The profile's
+ * `everyMs` stays the read the device gets before anyone has chosen; the chosen interval replaces
+ * it in every subscription that has one.
+ */
+export const setupPollingSchema = z
+  .strictObject({
+    /** The interval a new device gets, in seconds. */
+    default: pollSecondsSchema,
+
+    /** The shortest the owner may choose. */
+    min: pollSecondsSchema.default(1),
+
+    /** The longest the owner may choose. */
+    max: pollSecondsSchema.default(MAXIMUM_POLL_SECONDS),
+
+    /** Below this the form warns that the device and the network pay for it. */
+    warnBelow: pollSecondsSchema.optional(),
+  })
+  .refine((polling) => polling.min <= polling.default && polling.default <= polling.max, {
+    message: 'The default must lie between min and max',
+    path: ['default'],
+  });
+
+/** How often a polled device is read, parsed. */
+export type SetupPolling = z.output<typeof setupPollingSchema>;
+
+/** Validates a whole `setup.json`. */
+export const integrationSetupSchema = z
+  .strictObject({
+    /** Becomes `registry.integrations.transport_config`. */
+    transport: setupGroupSchema,
+
+    /** Becomes `registry.integrations.options`. Most bundles have nothing to put here. */
+    options: setupGroupSchema.default({ constants: {}, fields: [] }),
+
+    /** For a device that is polled: how often, and within what the owner may change it. */
+    polling: setupPollingSchema.optional(),
+  })
+  .superRefine((setup, context) => {
+    if (setup.polling === undefined) {
+      return;
+    }
+
+    for (const group of ['transport', 'options'] as const) {
+      const taken =
+        setup[group].fields.some((field) => field.key === POLL_INTERVAL_KEY) ||
+        POLL_INTERVAL_KEY in setup[group].constants;
+
+      if (taken) {
+        context.addIssue({
+          code: 'custom',
+          message: `${POLL_INTERVAL_KEY} is what polling asks for; do not declare it as well`,
+          path: [group],
+        });
+      }
+    }
+  });
 
 /** A whole `setup.json`, parsed. */
 export type IntegrationSetup = z.output<typeof integrationSetupSchema>;
+
+/**
+ * The field `polling` puts on a device's form.
+ *
+ * @param polling - The bundle's statement.
+ * @returns A whole number of seconds, required, within the bundle's bounds.
+ */
+function pollIntervalField(polling: SetupPolling): SetupField {
+  return {
+    key: POLL_INTERVAL_KEY,
+    type: 'number',
+    label: 'Update every',
+    help: 'How often the hub asks the device for its state.',
+    isRequired: true,
+    isInteger: true,
+    unit: 's',
+    min: polling.min,
+    max: polling.max,
+    default: polling.default,
+    ...(polling.warnBelow === undefined
+      ? {}
+      : {
+          warnBelow: polling.warnBelow,
+          warning: `More often than every ${String(polling.warnBelow)} s loads the device and the network.`,
+        }),
+  };
+}
+
+/**
+ * Turns a declaration's `polling` into the option it stands for.
+ *
+ * What the hub serves: the interval is then an ordinary field of `options`, validated, stored and
+ * changed by the path every other option takes, and a client never has to know `polling` exists.
+ *
+ * @param setup - The declaration, as `setup.json` says it.
+ * @returns The same declaration with `pollInterval` last among the options and no `polling`, or
+ * the declaration itself when it has none.
+ */
+export function withPollingField(setup: IntegrationSetup): IntegrationSetup {
+  if (setup.polling === undefined) {
+    return setup;
+  }
+
+  const { polling, ...rest } = setup;
+
+  return {
+    ...rest,
+    options: { ...rest.options, fields: [...rest.options.fields, pollIntervalField(polling)] },
+  };
+}
+
+/**
+ * The interval an instance's options ask for, in milliseconds.
+ *
+ * @param options - The instance's options.
+ * @returns The chosen interval, or undefined when the options hold none - a device added before
+ * its bundle said it could be polled, or one that is not polled at all.
+ */
+export function pollIntervalMsOf(options: JsonObject): number | undefined {
+  const seconds = options[POLL_INTERVAL_KEY];
+
+  return typeof seconds === 'number' && Number.isFinite(seconds) && seconds >= 1
+    ? seconds * 1000
+    : undefined;
+}
 
 /**
  * Whether a value schema describes a whole configuration or a change to one.

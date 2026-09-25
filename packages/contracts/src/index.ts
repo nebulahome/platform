@@ -28,6 +28,7 @@ export * from './capabilities.js';
 export * from './commands.js';
 export * from './discovery.js';
 export * from './entity-id.js';
+export * from './entity-requirement.js';
 export * from './entity-state.js';
 export * from './errors.js';
 export * from './exit-codes.js';

@@ -19,6 +19,7 @@
 import { z } from 'zod';
 
 import { entityIdSchema } from './entity-id.js';
+import type { EntityRequirement } from './entity-requirement.js';
 import { iconIdSchema } from './icons.js';
 import { timestampSchema } from './timestamp.js';
 
@@ -150,6 +151,27 @@ export const dashboardEnergyCardSchema = z.object({
 
 /** A card drawing where the house's power comes from and goes to. */
 export type DashboardEnergyCard = z.output<typeof dashboardEnergyCardSchema>;
+
+/** A power meter: a number in watts, or in a multiple of them. */
+const POWER_METER: EntityRequirement = { capability: 'sensor_numeric', deviceClasses: ['power'] };
+
+/**
+ * What each meter of an energy card must be: a power meter for the flows, a battery level for the
+ * battery's charge. A picker offers only what meets it.
+ */
+export const ENERGY_CARD_REQUIREMENTS = {
+  solarPower: POWER_METER,
+  batteryPower: POWER_METER,
+  batteryLevel: { capability: 'sensor_numeric', deviceClasses: ['battery'] },
+  gridPower: POWER_METER,
+  homePower: POWER_METER,
+} as const satisfies Record<
+  keyof Pick<
+    DashboardEnergyCard,
+    'solarPower' | 'batteryPower' | 'batteryLevel' | 'gridPower' | 'homePower'
+  >,
+  EntityRequirement
+>;
 
 /** A card that can sit inside a container: anything but another container. */
 export const dashboardLeafCardSchema = z.discriminatedUnion('type', [

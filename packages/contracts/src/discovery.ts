@@ -17,8 +17,7 @@ import { timestampSchema } from './timestamp.js';
 export const HUB_DISCOVERED_METHOD = 'discovered';
 
 /**
- * Asks the hub to look for devices now rather than at its next scheduled pass: every vendor that
- * can be found on the network, or the one named.
+ * Asks the hub to look for one vendor's devices now rather than at its next scheduled pass.
  */
 export const HUB_DISCOVER_METHOD = 'discover';
 
@@ -92,9 +91,9 @@ export const discoveryEventSchema = z.object({ count: z.int().min(0) });
 /** That the list changed. */
 export type DiscoveryEventPayload = z.output<typeof discoveryEventSchema>;
 
-/** Asks the hub to look now; every vendor when none is named. */
+/** Asks the hub to look now for one vendor's devices. */
 export const discoverRequestSchema = z.object({
-  vendorId: z.string().regex(VENDOR_ID_PATTERN).optional(),
+  vendorId: z.string().regex(VENDOR_ID_PATTERN),
 });
 
 /** Asks the hub to look now. */
@@ -106,6 +105,12 @@ export type DiscoverRequest = z.output<typeof discoverRequestSchema>;
  */
 export const discoverReplySchema = z.object({
   vendors: z.array(z.string().regex(VENDOR_ID_PATTERN)),
+
+  /**
+   * How long the hub keeps asking, in milliseconds: what a page waits before saying what was
+   * found. 0 when it is not looking.
+   */
+  lookingForMs: z.int().min(0).default(0),
 });
 
 /** Which vendors the hub started looking for. */

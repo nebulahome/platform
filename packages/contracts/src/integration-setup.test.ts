@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   asksAnythingRequired,
   integrationSetupSchema,
+  pollIntervalMsOf,
   secretKeysOf,
   setupValueSchema,
+  withPollingField,
   type IntegrationSetup,
 } from './integration-setup.js';
 
@@ -246,5 +248,78 @@ describe('asksAnythingRequired', () => {
       ),
     ).toBe(false);
     expect(asksAnythingRequired(integrationSetupSchema.parse({ transport: {} }))).toBe(false);
+  });
+});
+
+describe('polling', () => {
+  /**
+   * An inverter read every 30 s by default, never faster than every 5, with a warning below 10.
+   *
+   * @returns The declaration, as read off disk.
+   */
+  function inverter(): Record<string, unknown> {
+    return {
+      transport: { fields: [{ key: 'host', type: 'text', label: 'Address', isRequired: true }] },
+      polling: { default: 30, min: 5, warnBelow: 10 },
+    };
+  }
+
+  it('becomes an option the owner sets, with its bounds and its warning', () => {
+    const setup = withPollingField(integrationSetupSchema.parse(inverter()));
+
+    expect(setup.polling).toBeUndefined();
+    expect(setup.options.fields).toEqual([
+      expect.objectContaining({
+        key: 'pollInterval',
+        type: 'number',
+        isRequired: true,
+        isInteger: true,
+        unit: 's',
+        min: 5,
+        max: 86_400,
+        default: 30,
+        warnBelow: 10,
+      }),
+    ]);
+  });
+
+  it('is filled with its default, and refuses 0 and anything below the minimum', () => {
+    const options = withPollingField(integrationSetupSchema.parse(inverter())).options;
+    const schema = setupValueSchema(options, 'complete');
+
+    expect(schema.parse({})).toEqual({ pollInterval: 30 });
+    expect(schema.safeParse({ pollInterval: 0 }).success).toBe(false);
+    expect(schema.safeParse({ pollInterval: 4 }).success).toBe(false);
+    expect(schema.safeParse({ pollInterval: 7.5 }).success).toBe(false);
+  });
+
+  it('leaves a declaration without polling as it is', () => {
+    const setup = integrationSetupSchema.parse(printer());
+
+    expect(withPollingField(setup)).toBe(setup);
+  });
+
+  it('refuses a minimum of 0, and a default outside the bounds', () => {
+    expect(() =>
+      integrationSetupSchema.parse({ ...inverter(), polling: { default: 30, min: 0 } }),
+    ).toThrow();
+    expect(() =>
+      integrationSetupSchema.parse({ ...inverter(), polling: { default: 3, min: 5 } }),
+    ).toThrow(/default/u);
+  });
+
+  it('refuses a bundle that also declares the interval itself', () => {
+    expect(() =>
+      integrationSetupSchema.parse({
+        ...inverter(),
+        options: { fields: [{ key: 'pollInterval', type: 'number', label: 'Every' }] },
+      }),
+    ).toThrow(/pollInterval/u);
+  });
+
+  it('reads the chosen interval in milliseconds', () => {
+    expect(pollIntervalMsOf({ pollInterval: 30 })).toBe(30_000);
+    expect(pollIntervalMsOf({})).toBeUndefined();
+    expect(pollIntervalMsOf({ pollInterval: 0 })).toBeUndefined();
   });
 });
