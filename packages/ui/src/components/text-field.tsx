@@ -29,6 +29,9 @@ export type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'id' | 
     /** What is wrong with the current value, when something is. */
     readonly error?: string | undefined;
 
+    /** What the current value costs, when it is allowed but not advised. See {@link FieldShell}. */
+    readonly warning?: string | undefined;
+
     /** A line under the field explaining what it is for. */
     readonly hint?: ReactNode;
   };
@@ -40,10 +43,16 @@ export type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'id' | 
  * @returns The field.
  */
 export function TextField(props: TextFieldProps) {
-  const { label, isLabelHidden = false, error, hint, size, className, ...rest } = props;
+  const { label, isLabelHidden = false, error, warning, hint, size, className, ...rest } = props;
 
   return (
-    <FieldShell label={label} isLabelHidden={isLabelHidden} hint={hint} error={error}>
+    <FieldShell
+      label={label}
+      isLabelHidden={isLabelHidden}
+      hint={hint}
+      warning={warning}
+      error={error}
+    >
       {(ids) => (
         <input
           id={ids.id}

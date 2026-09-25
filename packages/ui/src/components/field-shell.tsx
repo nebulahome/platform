@@ -1,5 +1,5 @@
 /**
- * The label, the hint and the error that every field carries.
+ * The label, the hint, the warning and the error that every field carries.
  *
  * Three fields had written this out for themselves - the text input, the password input and the
  * dropdown - which meant three copies of the `aria-describedby` assembly, and three chances for
@@ -47,6 +47,12 @@ export type FieldShellProps = {
   /** A line under the field explaining what it is for, or what it costs. */
   readonly hint?: ReactNode;
 
+  /**
+   * What the current value costs, when it is allowed but not advised - a device read every
+   * second. Shown until the value changes, never blocking the form the way an error does.
+   */
+  readonly warning?: string | undefined;
+
   /** What is wrong with the current value, when something is. */
   readonly error?: string | undefined;
 
@@ -70,16 +76,21 @@ export type FieldShellProps = {
  * @returns The field.
  */
 export function FieldShell(props: FieldShellProps) {
-  const { label, isLabelHidden = false, hint, error, className, children } = props;
+  const { label, isLabelHidden = false, hint, warning, error, className, children } = props;
 
   const id = useId();
   const labelId = `${id}-label`;
   const hintId = `${id}-hint`;
+  const warningId = `${id}-warning`;
   const errorId = `${id}-error`;
 
   // Joined rather than replaced: a field with both a hint and an error has to announce both, and
   // the hint is the half that says what the field wanted.
-  const describedBy = [hint === undefined ? null : hintId, error === undefined ? null : errorId]
+  const describedBy = [
+    hint === undefined ? null : hintId,
+    warning === undefined ? null : warningId,
+    error === undefined ? null : errorId,
+  ]
     .filter((entry): entry is string => entry !== null)
     .join(' ');
 
@@ -106,6 +117,12 @@ export function FieldShell(props: FieldShellProps) {
       {hint === undefined ? null : (
         <span id={hintId} className="text-caption text-foreground-subtle">
           {hint}
+        </span>
+      )}
+
+      {warning === undefined ? null : (
+        <span id={warningId} className="text-caption text-warning">
+          {warning}
         </span>
       )}
 

@@ -305,8 +305,12 @@ export function Modal(props: ModalProps) {
           <section
             aria-label={asideLabel}
             // Sized by the grid, not by its list: a list longer than the dialog scrolls inside the
-            // card instead of stretching the pair.
-            className={cn(CARD, 'flex max-h-80 min-h-0 flex-col md:max-h-none md:[contain:size]')}
+            // card instead of stretching the pair. Clipped to its corners, or the scrollbar of that
+            // list runs past the rounded one at the bottom.
+            className={cn(
+              CARD,
+              'flex max-h-80 min-h-0 flex-col overflow-hidden md:max-h-none md:[contain:size]',
+            )}
           >
             {aside}
           </section>
