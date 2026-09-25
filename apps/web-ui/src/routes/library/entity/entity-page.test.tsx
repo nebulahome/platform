@@ -14,10 +14,13 @@ import type { EntityView } from '@nebula-home/contracts';
 import { useSession } from '@/auth/session-store';
 import {
   commandEntity,
+  fetchAliases,
   fetchAreas,
+  fetchAutomations,
   fetchDevices,
   fetchEntity,
   fetchIcons,
+  fetchScenes,
   fetchStateHistory,
   fetchTags,
   fetchTelemetry,
@@ -30,6 +33,9 @@ import { EntityPage } from './entity-page';
 
 vi.mock('@/library/api', () => ({
   commandEntity: vi.fn(),
+  fetchAliases: vi.fn(),
+  fetchAutomations: vi.fn(),
+  fetchScenes: vi.fn(),
   fetchAreas: vi.fn(),
   fetchDevices: vi.fn(),
   fetchEntity: vi.fn(),
@@ -41,6 +47,9 @@ vi.mock('@/library/api', () => ({
   createTag: vi.fn(),
   updateEntity: vi.fn(),
   LIBRARY_QUERY_KEYS: {
+    aliases: ['library', 'aliases'],
+    automations: ['library', 'automations'],
+    scenes: ['library', 'scenes'],
     areas: ['library', 'areas'],
     devices: ['library', 'devices'],
     entities: ['library', 'entities'],
@@ -258,5 +267,44 @@ describe('EntityPage', () => {
       '/devices/govee-desk',
       '/devices/govee-desk',
     ]);
+  });
+
+  it('lists what names the entity, each the way to it, for someone who may read them', async () => {
+    vi.mocked(fetchAutomations).mockResolvedValue([
+      {
+        id: '00000000-0000-4000-8000-0000000000a1',
+        key: 'desk_at_dusk',
+        name: 'Desk at dusk',
+        description: '',
+        definition: {
+          triggers: { type: 'manual' },
+          then: [
+            { type: 'command', entityId: 'light.desk_lamp', capability: 'on_off', params: {} },
+          ],
+        },
+        definitionVersion: 1,
+        mode: 'single',
+        maxRuntimeMs: 300_000,
+        isEnabled: true,
+        lastTriggeredAt: null,
+      },
+    ]);
+    vi.mocked(fetchScenes).mockResolvedValue([]);
+    vi.mocked(fetchAliases).mockResolvedValue([]);
+    renderPage(LAMP, ['entity:read', 'automation:read', 'scene:read', 'alias:read']);
+
+    const link = await screen.findByRole('link', { name: 'Desk at dusk' });
+
+    expect(link.getAttribute('href')).toBe('/automations/00000000-0000-4000-8000-0000000000a1');
+    expect(screen.getByText('Commanded')).toBeTruthy();
+  });
+
+  it('says so when nothing names the entity', async () => {
+    vi.mocked(fetchAutomations).mockResolvedValue([]);
+    vi.mocked(fetchScenes).mockResolvedValue([]);
+    vi.mocked(fetchAliases).mockResolvedValue([]);
+    renderPage(LAMP, ['entity:read', 'automation:read', 'scene:read', 'alias:read']);
+
+    expect(await screen.findByText('Not used by any automation, scene or alias.')).toBeTruthy();
   });
 });

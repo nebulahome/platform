@@ -89,6 +89,7 @@ const BINARY_WORDS: Readonly<Record<string, readonly [on: string, off: string]>>
   problem: ['Problem', 'OK'],
   plug: ['Plugged in', 'Unplugged'],
   power: ['Powered', 'Unpowered'],
+  update: ['Update available', 'Up to date'],
 };
 
 /**
@@ -279,6 +280,11 @@ export function describeState(
     if (value.camera.isRecording) {
       parts.push('Recording');
     }
+  }
+
+  if (value.button !== undefined && parts.length === 0) {
+    // Nothing to read on a button but that it can be pressed.
+    parts.push('Ready');
   }
 
   return parts.length === 0 ? NO_READING : parts.join(' · ');

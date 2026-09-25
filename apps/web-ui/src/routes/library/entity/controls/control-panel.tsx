@@ -18,6 +18,7 @@ import { Panel, PanelNote } from '@nebula-home/ui';
 
 import { hasCapability, isCommandable } from '@/library/entity-control';
 import type { Reading } from '@/library/entity-reading';
+import { ButtonControl } from '@/routes/library/entity/controls/button-control';
 import { CameraControl } from '@/routes/library/entity/controls/camera-control';
 import { ColorControl } from '@/routes/library/entity/controls/color-control';
 import { ColorTempControl } from '@/routes/library/entity/controls/color-temp-control';
@@ -42,6 +43,7 @@ const CONTROLS: readonly (readonly [CapabilityName, (props: ControlProps) => Rea
   ['thermostat', ThermostatControl],
   ['media_player', MediaControl],
   ['camera', CameraControl],
+  ['button', ButtonControl],
 ];
 
 /** What the panel needs. */

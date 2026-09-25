@@ -133,6 +133,14 @@ export function entityKindOf(
     return { label: 'Text sensor', icon: 'type', tone: 'sensor' };
   }
 
+  if (has.has('button')) {
+    return {
+      label: entity.deviceClass === 'update' ? 'Firmware installer' : 'Button',
+      icon: entity.deviceClass === 'update' ? 'download' : 'circle-dot',
+      tone: 'power',
+    };
+  }
+
   return { label: spoken(entity.domain), icon: 'gauge', tone: 'sensor' };
 }
 
@@ -169,6 +177,8 @@ export function capabilityLabel(capability: CapabilityName, domain = ''): string
       return 'Playback';
     case 'camera':
       return 'Camera';
+    case 'button':
+      return 'Press';
   }
 }
 

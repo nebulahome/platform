@@ -8,7 +8,8 @@
  * which is where the spanner on an entity's row leads.
  *
  * The header names where it is the way the navigation does: Devices, then the device it belongs
- * to, then the entity. The device's name is a link to the device's page.
+ * to, then the entity. The device's name is a link to the device's page. Under the facts, what
+ * else in the house names it - the automations, scenes and aliases it takes part in.
  */
 import { useParams, useSearchParams } from 'react-router';
 
@@ -21,6 +22,7 @@ import { useLive } from '@/live/live-store';
 import { DetailHeader, DetailPlaceholder, type Crumb } from '@/routes/library/detail-page';
 import { devicePath } from '@/routes/library/device/device-path';
 import { ControlPanel } from '@/routes/library/entity/controls/control-panel';
+import { CorrelationsPanel } from '@/routes/library/entity/correlations-panel';
 import { DetailsPanel } from '@/routes/library/entity/details-panel';
 import { ENTITY_SETTINGS_PARAM } from '@/routes/library/entity/entity-path';
 import { EntitySettingsDialog } from '@/routes/library/entity/entity-settings-dialog';
@@ -161,7 +163,10 @@ export function EntityPage() {
                     current={view.live?.state ?? view.entity.state}
                   />
                 </div>
-                <DetailsPanel view={view} />
+                <div className="flex min-w-0 flex-col gap-5">
+                  <DetailsPanel view={view} />
+                  <CorrelationsPanel entityId={view.entity.entityId} />
+                </div>
               </div>
             </>
           )}

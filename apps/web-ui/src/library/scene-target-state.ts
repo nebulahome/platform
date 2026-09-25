@@ -35,6 +35,7 @@ const NON_SCENE_CAPABILITIES: ReadonlySet<CapabilityName> = new Set([
   'sensor_binary',
   'sensor_text',
   'camera',
+  'button',
 ]);
 
 /**
