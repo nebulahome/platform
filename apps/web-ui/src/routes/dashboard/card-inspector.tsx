@@ -38,6 +38,7 @@ import {
   updateCard,
 } from '@/dashboard/dashboard-layout';
 import { cardTitle } from '@/routes/dashboard/card-view';
+import { EnergySettings } from '@/routes/dashboard/energy-settings';
 import type { DashboardData } from '@/routes/dashboard/use-dashboard-data';
 import { EntityField } from '@/routes/library/entity-field';
 import { NameIconField } from '@/routes/library/name-icon-field';
@@ -71,6 +72,7 @@ const TYPE_NAMES = {
   entity: 'Entity card',
   scene: 'Scene card',
   clock: 'Clock',
+  energy: 'Energy card',
   container: 'Group',
 } as const;
 
@@ -229,6 +231,8 @@ export function CardInspector(props: CardInspectorProps) {
         </div>
       ) : null}
 
+      {card.type === 'energy' ? <EnergySettings card={card} onChange={change} /> : null}
+
       {card.type === 'container' ? (
         <NameIconField
           label="Name"
@@ -301,7 +305,7 @@ export function CardInspector(props: CardInspectorProps) {
 
 /** What the title and icon fields need. */
 type TitleAndIconProps = {
-  readonly card: Extract<DashboardCard, { title: string | null }>;
+  readonly card: Extract<DashboardCard, { title: string | null; icon: string | null }>;
 
   /** The name shown when the card has no title of its own. */
   readonly placeholder: string;

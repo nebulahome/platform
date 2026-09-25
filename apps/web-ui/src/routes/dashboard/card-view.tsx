@@ -4,6 +4,7 @@
 import type { DashboardCard, DashboardLeafCard } from '@nebula-home/contracts';
 
 import { ClockCard } from '@/routes/dashboard/cards/clock-card';
+import { EnergyCard } from '@/routes/dashboard/cards/energy/energy-card';
 import { EntityCard } from '@/routes/dashboard/cards/entity-card';
 import { SceneCard } from '@/routes/dashboard/cards/scene-card';
 import type { DashboardData } from '@/routes/dashboard/use-dashboard-data';
@@ -30,6 +31,8 @@ export function CardView(props: CardViewProps) {
       return <SceneCard card={card} data={data} />;
     case 'clock':
       return <ClockCard card={card} />;
+    case 'energy':
+      return <EnergyCard card={card} data={data} />;
   }
 }
 
@@ -48,6 +51,8 @@ export function cardTitle(card: DashboardCard, data: DashboardData): string {
       return card.title ?? data.sceneById.get(card.sceneId)?.name ?? 'Scene';
     case 'clock':
       return 'Clock';
+    case 'energy':
+      return card.title ?? 'Energy';
     case 'container':
       return card.title;
   }

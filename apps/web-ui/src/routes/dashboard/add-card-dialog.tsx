@@ -16,7 +16,13 @@ import { useState } from 'react';
 import type { DashboardCard, SceneView } from '@nebula-home/contracts';
 import { AppIcon, Button, Modal, type UiIconId } from '@nebula-home/ui';
 
-import { clockCard, containerCard, entityCardFor, sceneCardFor } from '@/dashboard/new-cards';
+import {
+  clockCard,
+  containerCard,
+  energyCard,
+  entityCardFor,
+  sceneCardFor,
+} from '@/dashboard/new-cards';
 import { EntityPicker } from '@/routes/library/entity-picker/entity-picker';
 
 /** What the dialog needs. */
@@ -36,7 +42,7 @@ export type AddCardDialogProps = {
 
 /** One kind of card on offer. */
 type Choice = {
-  readonly key: 'entity' | 'scene' | 'clock' | 'group';
+  readonly key: 'entity' | 'scene' | 'clock' | 'energy' | 'group';
   readonly label: string;
   readonly summary: string;
   readonly icon: UiIconId;
@@ -52,6 +58,12 @@ const CHOICES: readonly Choice[] = [
   },
   { key: 'scene', label: 'Scene', summary: 'A button that applies a scene.', icon: 'play' },
   { key: 'clock', label: 'Clock', summary: 'The time and the date.', icon: 'clock' },
+  {
+    key: 'energy',
+    label: 'Energy',
+    summary: 'The house, its panels, battery and grid, and the power between them.',
+    icon: 'zap',
+  },
   {
     key: 'group',
     label: 'Group',
@@ -128,6 +140,8 @@ export function AddCardDialog(props: AddCardDialogProps) {
                         setStep('scene');
                       } else if (choice.key === 'clock') {
                         add([clockCard()]);
+                      } else if (choice.key === 'energy') {
+                        add([energyCard()]);
                       } else {
                         add([containerCard('New group')]);
                       }

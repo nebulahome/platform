@@ -13,7 +13,12 @@ import { StrictMode, useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 
-import { TAG_COLORS, type TagColor } from '@nebula-home/contracts';
+import {
+  TAG_COLORS,
+  type IntegrationKind,
+  type IntegrationVendorView,
+  type TagColor,
+} from '@nebula-home/contracts';
 import {
   Badge,
   Button,
@@ -38,13 +43,15 @@ import { PasswordField } from '@/components/password-field';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { capabilityStateOf } from '@/library/entity-control';
 import { readingOf } from '@/library/entity-reading';
+import { EnergyCard } from '@/routes/dashboard/cards/energy/energy-card';
 import { AliasFormulaField } from '@/routes/library/alias-formula-field';
 import { AutomationEditor } from '@/routes/library/automation-editor';
+import { DeviceDialog } from '@/routes/library/device-dialog';
 import { ControlPanel } from '@/routes/library/entity/controls/control-panel';
 import { EntityField } from '@/routes/library/entity-field';
-import { LibraryTabs } from '@/routes/library/library-tabs';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
+import { energySample, energySampleCache } from '@/testing/energy-samples';
 import { aDevice, anArea, anEntity } from '@/testing/fixtures';
 
 import './styles/globals.css';
@@ -211,6 +218,114 @@ function housePickerCache(): QueryClient {
   return client;
 }
 
+/** What a Shelly driver asks: the address, and a password when the device has one. */
+const SHELLY_SETUP: IntegrationKind['setup'] = {
+  transport: {
+    constants: {},
+    fields: [
+      { key: 'host', type: 'text', label: 'Address', isRequired: true, maxLength: 256 },
+      { key: 'password', type: 'secret', label: 'Password', isRequired: false, maxLength: 512 },
+    ],
+  },
+  options: { constants: {}, fields: [] },
+};
+
+/**
+ * A driver of the sample vendor.
+ *
+ * @param driverId - Its id.
+ * @param name - Its name.
+ * @param models - The models it drives.
+ * @returns The driver, as the catalogue lists it.
+ */
+function shellyDriver(driverId: string, name: string, models: string[]): IntegrationKind {
+  return {
+    id: `shelly/${driverId}`,
+    vendorId: 'shelly',
+    driverId,
+    name,
+    transport: 'shelly/rpc',
+    models,
+    defaultIcon: 'relay',
+    setup: SHELLY_SETUP,
+    webPagePort: 80,
+  };
+}
+
+/** A vendor with enough models, over enough drivers, that the add dialog lists and searches. */
+const SAMPLE_VENDOR: IntegrationVendorView = {
+  id: 'shelly',
+  version: '1.0.0',
+  name: 'Shelly',
+  color: '#3B9DFF',
+  logoPadding: 0,
+  internetRequired: false,
+  transports: ['shelly/rpc'],
+  discoverySources: ['mdns'],
+  setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
+  drivers: [
+    shellyDriver('switch', 'Relay', ['1 Gen3', '1 Mini Gen3', '1 Gen4', '1 Mini Gen4']),
+    shellyDriver('switch-pm', 'Relay with power metering', [
+      '1PM Gen3',
+      '1PM Mini Gen3',
+      '1PM Gen4',
+      '1PM Mini Gen4',
+    ]),
+    shellyDriver('plug', 'Plug', ['Plug S Gen3', 'Outdoor Plug S Gen3', 'Plus Plug S']),
+    shellyDriver('dimmer-pm', 'Dimmer', ['Dimmer Gen3', 'Dimmer 0/1-10V PM Gen3']),
+  ],
+  needsSetup: false,
+  isConfigured: true,
+  transportConfig: {},
+  options: {},
+  configuredAt: null,
+  deviceCount: 3,
+  entityCount: 21,
+};
+
+/** The cache the energy samples' days are read from. */
+const ENERGY_CACHE = energySampleCache();
+
+/** Four houses: the picture the card is drawn after, a night, a sale, and a grid alone. */
+const ENERGY_SAMPLES = [
+  {
+    title: 'Charging from the panels',
+    sample: energySample(
+      'day',
+      { solar: 11_100, battery: -8300, level: 85, grid: 0 },
+      ENERGY_CACHE,
+      'tall',
+    ),
+  },
+  {
+    title: 'Night, on the battery',
+    sample: energySample(
+      'night',
+      { solar: 0, battery: 620, level: 41, grid: 380 },
+      ENERGY_CACHE,
+      'tall',
+    ),
+  },
+  {
+    title: 'Selling, no battery',
+    sample: energySample(
+      'sale',
+      { solar: 5200, battery: null, level: null, grid: -3100 },
+      ENERGY_CACHE,
+      'large',
+    ),
+  },
+  {
+    title: 'Grid only, square',
+    sample: energySample(
+      'grid',
+      { solar: null, battery: null, level: null, grid: 750 },
+      ENERGY_CACHE,
+      'square',
+    ),
+  },
+] as const;
+
 /** What a section needs. */
 type SectionProps = {
   /** What it is about. */
@@ -256,7 +371,7 @@ function Gallery() {
   const [segment, setSegment] = useState('system');
   const [password, setPassword] = useState('');
   const [swatch, setSwatch] = useState<TagColor | null>('teal');
-  const [openModal, setOpenModal] = useState<'plain' | 'protected' | null>(null);
+  const [openModal, setOpenModal] = useState<'plain' | 'protected' | 'device' | null>(null);
   const [isOn, setOn] = useState(true);
   const [level, setLevel] = useState(60);
   const [kelvin, setKelvin] = useState(3200);
@@ -609,15 +724,6 @@ function Gallery() {
         </Section>
 
         <Section
-          title="Library switch"
-          note="Links wearing a pill bar's shape: each view has its own address, so it bookmarks and the back button works."
-        >
-          <MemoryRouter initialEntries={['/scenes']}>
-            <LibraryTabs />
-          </MemoryRouter>
-        </Section>
-
-        <Section
           title="Automation editor"
           note="The real screen, mounted here because the route behind it needs a session. Reading entities fails without one, which is the path where the entity fields fall back to being typed."
         >
@@ -628,6 +734,33 @@ function Gallery() {
               </QueryClientProvider>
             </MemoryRouter>
           </div>
+        </Section>
+
+        <Section
+          title="Energy card"
+          note="Panels green, battery blue, grid yellow; the dots run the way the power goes. The panels and the battery are drawn only when the card has their meters."
+        >
+          <QueryClientProvider client={ENERGY_CACHE}>
+            <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2">
+              {ENERGY_SAMPLES.map(({ title, sample }) => (
+                <div key={title} className="flex flex-col gap-1.5">
+                  <span className="text-caption text-foreground-subtle">{title}</span>
+                  <div
+                    // A dashboard row is 100px with 16px between: this is the card at its size.
+                    className={
+                      sample.card.h === 4
+                        ? 'h-[448px]'
+                        : sample.card.h === 3
+                          ? 'h-[332px]'
+                          : 'h-[216px]'
+                    }
+                  >
+                    <EnergyCard card={sample.card} data={sample.data} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </QueryClientProvider>
         </Section>
 
         <Section title="Modal" note="Clicking away closes it, unless what it holds is shown once.">
@@ -646,8 +779,33 @@ function Gallery() {
           >
             Open one that keeps a secret
           </Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setOpenModal('device');
+            }}
+          >
+            Open one with a side card
+          </Button>
         </Section>
       </div>
+
+      <QueryClientProvider client={pickerCache}>
+        <DeviceDialog
+          key={openModal === 'device' ? 'device-open' : 'device-shut'}
+          target={
+            openModal === 'device'
+              ? { mode: 'create', vendor: SAMPLE_VENDOR, existingIds: [] }
+              : null
+          }
+          onClose={() => {
+            setOpenModal(null);
+          }}
+          onSaved={() => {
+            setOpenModal(null);
+          }}
+        />
+      </QueryClientProvider>
 
       <Modal
         isOpen={openModal === 'plain'}

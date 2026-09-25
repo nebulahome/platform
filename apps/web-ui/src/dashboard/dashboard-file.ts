@@ -83,8 +83,23 @@ export function summariseDashboardFile(
 
   return {
     cards: cards.length,
-    missingEntities: cards.filter((card) => card.type === 'entity' && !hasEntity(card.entityId))
-      .length,
+    missingEntities: cards.reduce((sum, card) => {
+      if (card.type === 'entity') {
+        return sum + (hasEntity(card.entityId) ? 0 : 1);
+      }
+
+      if (card.type === 'energy') {
+        // Every meter an energy card names counts, as a card of its own would.
+        return (
+          sum +
+          [card.solarPower, card.batteryPower, card.batteryLevel, card.gridPower, card.homePower]
+            .filter((entityId): entityId is NonNullable<typeof entityId> => entityId !== null)
+            .filter((entityId) => !hasEntity(entityId)).length
+        );
+      }
+
+      return sum;
+    }, 0),
     missingScenes: cards.filter((card) => card.type === 'scene' && !hasScene(card.sceneId)).length,
   };
 }

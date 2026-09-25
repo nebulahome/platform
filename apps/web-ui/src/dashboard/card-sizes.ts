@@ -32,7 +32,7 @@ export const ENTITY_CARD_KINDS = [
 export type EntityCardKind = (typeof ENTITY_CARD_KINDS)[number];
 
 /** Every kind of card that is not a container, with `missing` for an entity that is not there. */
-export type LeafCardKind = EntityCardKind | 'scene' | 'clock' | 'missing';
+export type LeafCardKind = EntityCardKind | 'scene' | 'clock' | 'energy' | 'missing';
 
 /** The sizes a kind of card is drawn for, and the one it starts at. */
 type SizeRule = { readonly sizes: readonly CardSize[]; readonly preferred: CardSize };
@@ -42,9 +42,10 @@ const STRIP: CardSize = { w: 2, h: 1 };
 const CARD: CardSize = { w: 1, h: 2 };
 const SQUARE: CardSize = { w: 2, h: 2 };
 const LARGE: CardSize = { w: 2, h: 3 };
+const TALL: CardSize = { w: 2, h: 4 };
 
 /** Every size any card is drawn for. */
-export const ALL_CARD_SIZES: readonly CardSize[] = [TILE, STRIP, CARD, SQUARE, LARGE];
+export const ALL_CARD_SIZES: readonly CardSize[] = [TILE, STRIP, CARD, SQUARE, LARGE, TALL];
 
 /** What each kind of card may be. */
 export const CARD_SIZES: Readonly<Record<LeafCardKind, SizeRule>> = {
@@ -60,6 +61,10 @@ export const CARD_SIZES: Readonly<Record<LeafCardKind, SizeRule>> = {
   camera: { sizes: [SQUARE, LARGE], preferred: SQUARE },
   scene: { sizes: [TILE, STRIP], preferred: TILE },
   clock: { sizes: [TILE, STRIP, SQUARE], preferred: STRIP },
+
+  // The house needs a square to be read; the day's figures under it need a large card, and the
+  // two read best together at the tall one.
+  energy: { sizes: [SQUARE, LARGE, TALL], preferred: TALL },
 
   // An entity that is not there may keep whatever size it had, and take any other.
   missing: { sizes: ALL_CARD_SIZES, preferred: TILE },
@@ -82,6 +87,7 @@ export function sizeName(size: CardSize): string {
     '1x2': 'Card',
     '2x2': 'Square',
     '2x3': 'Large',
+    '2x4': 'Tall',
   };
 
   return names[key] ?? key.replace('x', '×');

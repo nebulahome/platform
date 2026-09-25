@@ -8,6 +8,7 @@
 import type {
   DashboardClockCard,
   DashboardContainerCard,
+  DashboardEnergyCard,
   DashboardEntityCard,
   DashboardSceneCard,
   EntityView,
@@ -73,6 +74,30 @@ export function clockCard(): DashboardClockCard {
     ...CARD_SIZES.clock.preferred,
     showSeconds: false,
     showDate: true,
+  };
+}
+
+/**
+ * An energy card with no meters yet: its settings say which entities are the panels, the battery
+ * and the grid.
+ *
+ * @returns The card.
+ */
+export function energyCard(): DashboardEnergyCard {
+  return {
+    id: newCardId(),
+    type: 'energy',
+    x: 0,
+    y: 0,
+    ...CARD_SIZES.energy.preferred,
+    title: null,
+    solarPower: null,
+    batteryPower: null,
+    batteryLevel: null,
+    gridPower: null,
+    homePower: null,
+    isGridImportPositive: true,
+    isBatteryDischargePositive: true,
   };
 }
 
