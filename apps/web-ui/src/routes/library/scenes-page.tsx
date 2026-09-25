@@ -97,6 +97,7 @@ export function ScenesPage() {
   });
 
   const items = scenes.data ?? [];
+  const memberCount = items.reduce((sum, scene) => sum + scene.members.length, 0);
   const entityById = new Map((entities.data ?? []).map((entity) => [entity.entityId, entity]));
   const icons = useCatalogueIcons(items.map((scene) => scene.icon));
   const areaByKey = new Map(areas.map((area) => [area.key, area]));
@@ -198,6 +199,7 @@ export function ScenesPage() {
         noun="scene"
         count={scenes.isPending ? undefined : items.length}
         shownCount={shown.length}
+        summary={[`${String(memberCount)} ${memberCount === 1 ? 'entity' : 'entities'} set`]}
         tools={
           <>
             <SearchField

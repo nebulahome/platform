@@ -180,6 +180,7 @@ export function DevicesPage() {
       noun="device"
       count={devices.isPending ? undefined : all.length}
       shownCount={shown.length}
+      summary={[`${String(shownEntityCount)} ${shownEntityCount === 1 ? 'entity' : 'entities'}`]}
       tools={
         <>
           <SearchField
@@ -212,9 +213,6 @@ export function DevicesPage() {
             {liveStatus === 'connecting' ? 'Connecting' : 'Not live'}
           </Badge>
         )}
-        <span>
-          {shownEntityCount} entit{shownEntityCount === 1 ? 'y' : 'ies'}
-        </span>
       </div>
 
       <div className="overflow-hidden rounded-panel border border-border face-card">

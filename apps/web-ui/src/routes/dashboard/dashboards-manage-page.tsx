@@ -176,7 +176,6 @@ export function DashboardsManagePage() {
     <>
       <LibraryPage
         title="Dashboards"
-        hasTabs={false}
         noun="dashboard"
         count={dashboards.isPending ? undefined : all.length}
         shownCount={shown.length}

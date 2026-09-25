@@ -103,6 +103,7 @@ export function AutomationsPage() {
       noun="automation"
       count={automations.isPending ? undefined : items.length}
       shownCount={shown.length}
+      summary={[`${String(items.filter((automation) => automation.isEnabled).length)} enabled`]}
       tools={
         <>
           <SearchField

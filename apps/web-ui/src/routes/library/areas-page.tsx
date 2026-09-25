@@ -89,6 +89,8 @@ export function AreasPage() {
 
     return rooms.length === 0 ? [] : [{ floor: node.floor, rooms }];
   });
+  const floorCount = tree?.floors.length ?? 0;
+  const roomCount = (tree?.floors ?? []).reduce((sum, node) => sum + node.rooms.length, 0);
   const shownCount = floors.reduce(
     (sum, node) => sum + 1 + node.rooms.length,
     tree === null ? 0 : 1,
@@ -145,6 +147,14 @@ export function AreasPage() {
         noun="area"
         count={isPending ? undefined : areas.length}
         shownCount={search.trim() === '' ? undefined : shownCount}
+        summary={
+          tree === null
+            ? []
+            : [
+                `${String(floorCount)} ${floorCount === 1 ? 'floor' : 'floors'}`,
+                `${String(roomCount)} ${roomCount === 1 ? 'room' : 'rooms'}`,
+              ]
+        }
         tools={
           tree === null ? undefined : (
             <SearchField placeholder="Search floors, rooms…" value={search} onChange={setSearch} />

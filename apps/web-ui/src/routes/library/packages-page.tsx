@@ -86,7 +86,6 @@ export function PackagesPage() {
   return (
     <LibraryPage
       title="Packages"
-      hasTabs={false}
       noun="package"
       count={packages.isPending ? undefined : items.length}
       shownCount={shown.length}

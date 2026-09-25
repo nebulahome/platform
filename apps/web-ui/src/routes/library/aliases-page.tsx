@@ -104,6 +104,10 @@ export function AliasesPage() {
       plural="aliases"
       count={aliases.isPending ? undefined : items.length}
       shownCount={shown.length}
+      summary={[
+        `${String(items.filter((alias) => alias.kind === 'calculated').length)} calculated`,
+        `${String(items.filter((alias) => alias.kind === 'stored').length)} stored`,
+      ]}
       tools={
         <>
           <SearchField

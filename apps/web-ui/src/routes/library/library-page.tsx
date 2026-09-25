@@ -8,6 +8,11 @@
  *
  * The count is in the header rather than at the foot of the list, because it answers a question
  * people have before they start reading rather than after.
+ *
+ * The header names the page with its title, not with a strip of tabs to the pages beside it: the
+ * rail already lists them, one click away, and a second set of links to the same places read as
+ * the page's own sections. What the space holds instead is what the page has - how many, and the
+ * one or two facts about them worth knowing before reading the list.
  */
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
@@ -15,7 +20,6 @@ import { Link } from 'react-router';
 import { Panel } from '@nebula-home/ui';
 
 import { toMessage } from '@/lib/error-message';
-import { LibraryTabs } from '@/routes/library/library-tabs';
 
 /** What the frame needs. */
 export type LibraryPageProps = {
@@ -64,12 +68,11 @@ export type LibraryPageProps = {
   readonly action?: ReactNode;
 
   /**
-   * Whether the header carries the switch between the library's five views.
-   *
-   * Off for a page that is not one of them. Integrations is a section of its own and has nowhere
-   * to switch to; a tab bar with one tab is a tab bar that has misunderstood itself.
+   * Facts about the collection shown after its count, each set off by a dot: `8 enabled`,
+   * `3 floors`. Empty or absent for a page whose count says it all; a fact that is null is left
+   * out, so a page can list what it may know without testing each one first.
    */
-  readonly hasTabs?: boolean;
+  readonly summary?: readonly (string | null | undefined)[] | undefined;
 
   /** Whether the first read is still in flight. */
   readonly isPending: boolean;
@@ -103,7 +106,7 @@ export function LibraryPage(props: LibraryPageProps) {
     parent,
     tools,
     action,
-    hasTabs = true,
+    summary = [],
     isPending,
     error,
     emptyMessage,
@@ -114,18 +117,8 @@ export function LibraryPage(props: LibraryPageProps) {
   return (
     <div className="flex min-h-0 grow flex-col">
       <header className="flex min-h-17 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-6 py-2.5">
-        <div className="flex min-w-0 items-center gap-4">
-          {hasTabs ? (
-            <>
-              {/*
-               * The tabs name the page for anyone looking at it, but a tab bar is not a heading:
-               * a reader landing on the page still needs one to be told where they are, and a
-               * page whose first heading is "Status" says nothing about itself.
-               */}
-              <h1 className="sr-only">{title}</h1>
-              <LibraryTabs />
-            </>
-          ) : parent === undefined ? (
+        <div className="flex min-w-0 items-baseline gap-4">
+          {parent === undefined ? (
             <h1 className="text-head font-semibold tracking-tight">{title}</h1>
           ) : (
             <h1 className="flex min-w-0 items-center gap-2 text-head tracking-tight">
@@ -143,9 +136,13 @@ export function LibraryPage(props: LibraryPageProps) {
           )}
 
           {count === undefined ? null : (
-            <span className="text-caption whitespace-nowrap text-foreground-subtle tabular">
+            <span className="truncate text-caption whitespace-nowrap text-foreground-subtle tabular">
               {shownCount === undefined || shownCount === count ? '' : `${String(shownCount)} of `}
               {count} {count === 1 ? noun : plural}
+              {summary
+                .filter((fact): fact is string => typeof fact === 'string' && fact !== '')
+                .map((fact) => ` · ${fact}`)
+                .join('')}
             </span>
           )}
         </div>
