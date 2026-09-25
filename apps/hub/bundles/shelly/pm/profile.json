@@ -80,6 +80,32 @@
       "deviceClass": "energy",
       "stateClass": "total_increasing",
       "displayPrecision": 2
+    },
+    {
+      "domain": "binary_sensor",
+      "objectId": "firmware",
+      "name": "Firmware update",
+      "icon": "circle-arrow-up",
+      "capabilities": { "sensor_binary": {} },
+      "state": {
+        "sensor_binary": { "isOn": { "path": "sys.available_updates.stable", "present": true } }
+      },
+      "deviceClass": "update"
+    },
+    {
+      "domain": "button",
+      "objectId": "firmware_install",
+      "name": "Install firmware update",
+      "icon": "download",
+      "capabilities": { "button": {} },
+      "state": {},
+      "commands": {
+        "button.press": {
+          "op": "call",
+          "args": { "method": "Shelly.Update", "params": { "stage": "stable" } }
+        }
+      },
+      "deviceClass": "update"
     }
   ]
 }

@@ -7,6 +7,7 @@
     "S3EM-003CXCEU63": "3EM-63 Gen3"
   },
   "defaultIcon": "gauge",
+  "webPagePort": 80,
   "kind": "declarative",
   "profile": "./profile.json",
   "setup": "./setup.json"

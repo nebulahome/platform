@@ -10,6 +10,7 @@
     "S4SW-001P8EU": "1PM Mini Gen4"
   },
   "defaultIcon": "relay",
+  "webPagePort": 80,
   "kind": "declarative",
   "profile": "./profile.json",
   "setup": "./setup.json"

@@ -7,6 +7,7 @@
     "S3SH-0A2P4EU": "Shutter"
   },
   "defaultIcon": "blinds",
+  "webPagePort": 80,
   "kind": "declarative",
   "profile": "./profile.json",
   "setup": "./setup.json"

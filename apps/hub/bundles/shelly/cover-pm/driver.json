@@ -8,6 +8,7 @@
     "S4SW-002P16EU": "2PM Gen4 (cover)"
   },
   "defaultIcon": "blinds",
+  "webPagePort": 80,
   "kind": "declarative",
   "profile": "./profile.json",
   "setup": "./setup.json"

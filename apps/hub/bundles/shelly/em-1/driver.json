@@ -7,6 +7,7 @@
     "S4EM-001PXCEU16": "EM Mini Gen4"
   },
   "defaultIcon": "gauge",
+  "webPagePort": 80,
   "kind": "declarative",
   "profile": "./profile.json",
   "setup": "./setup.json"

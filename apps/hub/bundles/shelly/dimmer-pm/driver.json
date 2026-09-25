@@ -17,6 +17,7 @@
     "S4DM-0A102US": "Dimmer Gen4 US"
   },
   "defaultIcon": "light",
+  "webPagePort": 80,
   "kind": "declarative",
   "profile": "./profile.json",
   "setup": "./setup.json"

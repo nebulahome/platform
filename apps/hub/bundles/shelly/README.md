@@ -63,7 +63,19 @@ What it does, in the order a device meets it:
   before handing the whole object on. A profile never sees a partial report, so a cover told
   only that it is `opening` keeps its position.
 - **Commands** are `call` requests: `Switch.Set`, `Light.Set` with a `brightness`,
-  `Cover.GoToPosition`. A request not answered in five seconds drops the socket, which reconnects.
+  `Cover.GoToPosition`. The device says what a command changed before the answer even arrives;
+  when no notification follows within 400 ms, the transport asks for the status, so a row never
+  waits for the minute's poll. A request not answered in five seconds drops the socket, and
+  it reconnects - but only a socket that said nothing at all in those five seconds: one still
+  delivering notifications is alive, and dropping it would lose them.
+- **Every socket names itself** in the `src` of its frames, and the device addresses its
+  notifications to that name, so each socket has one of its own: `nebula-hub-<suffix>` for the
+  one kept open, `nebula-probe-<suffix>` for one opened to ask a single question. With a name
+  shared, a probe opened beside the kept socket - by discovery, by the Test button - took its
+  notifications, and a switch pressed at the wall showed only at the next poll.
+- **A drop is logged once**, at info, with the close code in words - `connection lost` for a
+  socket that had opened, `connection not accepted` for one that never did - and the retries
+  after it at debug. Node's WebSocket carries nothing else to say: its error event is empty.
 
 **Authentication** is Shelly's digest, SHA-256, with the user always `admin`: a request refused
 with a `401` is sent again with the answer to the challenge, and the nonce is kept for the
@@ -110,7 +122,16 @@ driver's `modelCodes` maps the codes it claims onto the models it lists, so a Sh
 network is proposed as the driver and the model it is, under the name it was given in the Shelly
 app. The 2PM reports one code whether it runs as two relays or as a cover; the two drivers that
 map it tell which from its `profile`. A Shelly of a family this bundle does not drive is not
-proposed.
+proposed, and one already added is not probed again.
+
+## Firmware, and the web page
+
+Every driver exposes two more entities: **Firmware update**, a binary sensor that is on while the
+device offers a stable update (`sys.available_updates.stable` in its status), and **Install
+firmware update**, a button that asks it to install one (`Shelly.Update`, stage `stable`). The
+device checks for updates on its own and needs the internet to do it; once it has installed one it
+restarts, drops off the network for a minute, and its sensor reads up to date again. The device's
+page links to its own web page, on port 80.
 
 ## What is not here, and why
 

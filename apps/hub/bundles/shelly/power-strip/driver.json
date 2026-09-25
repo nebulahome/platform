@@ -9,6 +9,7 @@
     "S4PL-00415US": "PowerStrip US Gen4"
   },
   "defaultIcon": "plug",
+  "webPagePort": 80,
   "kind": "declarative",
   "profile": "./profile.json",
   "setup": "./setup.json"

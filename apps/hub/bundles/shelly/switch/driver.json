@@ -12,6 +12,7 @@
     "S4SW-001X8EU": "1 Mini Gen4"
   },
   "defaultIcon": "relay",
+  "webPagePort": 80,
   "kind": "declarative",
   "profile": "./profile.json",
   "setup": "./setup.json"

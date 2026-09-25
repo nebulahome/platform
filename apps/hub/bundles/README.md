@@ -80,11 +80,19 @@ fields on purpose - a driver repeating the vendor's name would be a second copy 
     "S4DM-0A101WWL": "Dimmer Gen4"
   },
   "defaultIcon": "light",
+  "webPagePort": 80,
   "kind": "declarative",
   "profile": "./profile.json",
   "setup": "./setup.json"
 }
 ```
+
+`webPagePort` says the device serves a web page of its own, and on which port: a device of a
+driver that names one gets a **Web page** link in the header of its page, to
+`http://<host>:<port><webPagePath>`. `webPagePath` is optional and starts with `/` - Plex Web is at
+`/web`. When the address the owner typed carries a port, that port wins: the device answers the
+platform and the browser from the same server. A driver whose devices have no page to look at -
+an API port answering JSON, a UDP protocol - names no port and gets no link.
 
 `modelCodes` maps what the hardware calls itself onto the model on the box, and it is how
 discovery knows which driver a device it heard belongs to and which model to adopt it as. A code
@@ -119,6 +127,29 @@ serves a family of models - and a state may be **looked up in a table** -
 `{ "path": "'cover:0'.state", "map": { "opening": "opening" }, "default": "stopped" }`, which
 renames what a device says into what a capability accepts. A list is membership, not an `or`
 between paths; a table renames and cannot compute.
+
+A third form reads whether something is **there** -
+`{ "path": "sys.available_updates.stable", "present": true }` - true when the path names a value,
+false when the object that would hold it is there without it. It is the one read that turns an
+absence into an answer, and only where the report carries the holder: a report without `sys` at
+all still says nothing. It is how a firmware update is read - Shelly lists the update it offers
+under `available_updates`, and empties it once the update is installed.
+
+An entity with the **`button`** capability (domain `button`) holds no state: it is reported, empty,
+on anything its device says, so it is available exactly when the device is, and its one command is
+`button.press`. A profile gives it `"state": {}` and the request pressing it sends. With
+`"deviceClass": "update"` or `"restart"` the interface asks before pressing, since the device goes
+away for a while.
+
+### Firmware updates
+
+A driver whose devices say when an update is waiting, and install one when asked, exposes two
+entities: a `binary_sensor` with `"deviceClass": "update"` that is on while an update is offered,
+and a `button` with `"deviceClass": "update"` that installs it. The Shelly drivers do: the sensor
+reads `sys.available_updates.stable` with `present`, the button calls `Shelly.Update` with
+`{ "stage": "stable" }`. The device checks for updates itself, over the internet; one that cannot
+reach the internet never offers one. A vendor that can say an update is waiting but not install it
+exposes the sensor alone; one that can do neither exposes nothing.
 
 The logo rides inside the catalogue the hub serves, as a data URL, so it must be an `.svg` or a
 `.png` and at most 64 KiB; anything else fails the vendor at startup. The two that ship are
@@ -161,6 +192,15 @@ because a device announced it there.
 - `identity` - paths to the model code, the id, the name and the firmware version. Only the model
   is ever required.
 
+The hub asks mDNS when it starts - three times over the first seconds, since one question over
+multicast can be lost - and again every `HUB_DISCOVERY_QUERY_INTERVAL_MS`; an address that did not
+answer its probe is asked again after thirty seconds rather than at the next interval, and an
+address already added is not probed at all. An owner can have it look **now**: **Scan network** on
+the integrations page asks every vendor that can be found, and **Discover devices** on a vendor's
+page asks that vendor (`POST /api/v1/discovery/scan`, the hub's `discover` method). A vendor with
+no `discovery.json` offers neither, and its devices are added by address. What is found is shown on
+the vendor's own page, above its devices.
+
 The model code is looked up in every driver's `modelCodes`; when no driver maps it, the drivers'
 own claims decide, in load order, on what the probe returned. Two drivers may map one code only
 when the vendor probes - a Shelly 2PM reports one code as relays or as a cover, and each driver's
@@ -169,10 +209,11 @@ debug. A `discovery.json` that does not load leaves the vendor loaded without di
 failure names the file.
 
 **A listener of the vendor's own** is a module - plain JavaScript, like a transport, handed the
-same SDK - whose default export returns `{ listen(signal) }`: an async iterable of sightings,
-`{ config: { host }, payload }`, reported as they happen until the signal ends it. It listens and
-reports; which driver a device belongs to stays the business of `discovery.json`. A sighting at a
-public address is not followed.
+same SDK - whose default export returns `{ listen(signal), scan?() }`: an async iterable of
+sightings, `{ config: { host }, payload }`, reported as they happen until the signal ends it, and,
+optionally, a way to ask the network again now, which the owner's scan calls - its answers arrive
+through `listen` like every other. It listens and reports; which driver a device belongs to stays
+the business of `discovery.json`. A sighting at a public address is not followed.
 
 ## `setup.json` - what adding a device asks
 
@@ -307,6 +348,9 @@ All of them run on the bundle's own transport, `shelly/rpc`: Shelly's JSON-RPC o
 every device serves, with the status pushed as it changes and the digest authentication the
 devices ask for. A driver claims a device by its hardware `model` code, one of a list.
 
+Every driver links to the device's own web page on port 80, and exposes a **firmware update**
+sensor and an **install** button (see _Firmware updates_ above).
+
 Its own README says what the devices are, how the transport treats them, which models each
 family takes, and what has not been checked against hardware - above all the model codes, and
 the one-line fix when a device on the network is not claimed.
@@ -323,13 +367,17 @@ mDNS (`_ewelink._tcp`), from the TXT record alone: it says the device's id and t
 One driver, `server`: a Plex Media Server and how many streams it is playing, polled from the
 server with the owner's `X-Plex-Token`, which the transport sends in that header. Not discoverable:
 Plex announces itself with a protocol of its own (GDM), not over mDNS; it is added by address.
+Links to Plex Web (`:32400/web`). No firmware entities yet: the server says an update is waiting at
+`/updater/status`, but a declarative profile reads every poll into every entity, and that answer
+carries a `MediaContainer.size` of its own that would overwrite the activity count.
 
 ## nanoleaf
 
 One driver, `panels`, for the controllers of the OpenAPI - Light Panels, Canvas, Shapes, Elements,
 Lines - on port 16021, with the token in the path (`/api/v1/<token>/…`) and the state written as
 a PUT. Found over mDNS (`_nanoleafapi._tcp`), the model read from the TXT record: the controller
-tells nothing to a caller without its token, so adopting one asks for it.
+tells nothing to a caller without its token, so adopting one asks for it. No firmware entities:
+the OpenAPI reports the version and offers no update over the LAN.
 
 ## govee
 
@@ -337,7 +385,8 @@ One driver, `light-lan`, for Govee lights with **LAN Control** switched on in th
 the vendor's own `govee/lan` transport: JSON datagrams over UDP, a status asked and answered, and
 the commands for on, off, brightness and colour temperature. Found by its own listener, which asks
 the LAN API's multicast scan; the transport and the listener share the one socket every answer
-comes back to. The first bundle on the SDK's UDP sockets.
+comes back to. The first bundle on the SDK's UDP sockets. The listener answers the owner's scan by
+sending the multicast scan at once. No firmware entities: the LAN API reports versions only.
 
 ## bambu-lab
 

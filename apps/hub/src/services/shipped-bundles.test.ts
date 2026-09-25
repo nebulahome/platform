@@ -362,4 +362,49 @@ describe('the Shelly bundle', () => {
       ).toEqual(['host', 'password']);
     }
   });
+
+  it('links every device to the web page it serves on port 80', async () => {
+    const { vendors } = await loadBundles({
+      directory: DIRECTORY,
+      runtimeVersion: RUNTIME_VERSION,
+    });
+    const shelly = vendors.find((vendor) => vendor.manifest.id === 'shelly');
+
+    for (const driver of shelly?.drivers ?? []) {
+      expect(driver.manifest.webPagePort, driver.driverId).toBe(80);
+    }
+  });
+
+  it('says whether firmware is waiting, and installs it when asked, on every family', async () => {
+    for (const [driver, profile] of await shellyProfiles()) {
+      const sensor = profile.entities.find((entity) => entity.objectId === 'firmware');
+      const button = profile.entities.find((entity) => entity.objectId === 'firmware_install');
+
+      expect(sensor?.domain, driver).toBe('binary_sensor');
+      expect(sensor?.deviceClass, driver).toBe('update');
+      expect(sensor?.state.sensor_binary?.['isOn'], driver).toEqual({
+        path: 'sys.available_updates.stable',
+        present: true,
+      });
+      expect(button?.domain, driver).toBe('button');
+      expect(button?.commands['button.press'], driver).toEqual({
+        op: 'call',
+        args: { method: 'Shelly.Update', params: { stage: 'stable' } },
+      });
+    }
+  });
+});
+
+describe('the Plex bundle', () => {
+  it('links the server to Plex Web, under /web on its own port', async () => {
+    const { vendors } = await loadBundles({
+      directory: DIRECTORY,
+      runtimeVersion: RUNTIME_VERSION,
+    });
+    const server = vendors
+      .find((vendor) => vendor.manifest.id === 'plex')
+      ?.drivers.find((driver) => driver.driverId === 'server');
+
+    expect(server?.manifest).toMatchObject({ webPagePort: 32400, webPagePath: '/web' });
+  });
 });

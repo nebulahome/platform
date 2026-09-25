@@ -11,6 +11,7 @@
     "S4PL-00116US": "Plug US Gen4"
   },
   "defaultIcon": "plug",
+  "webPagePort": 80,
   "kind": "declarative",
   "profile": "./profile.json",
   "setup": "./setup.json"

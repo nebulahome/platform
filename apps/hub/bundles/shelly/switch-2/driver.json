@@ -8,6 +8,7 @@
     "S4SW-0A2X4EUL": "2L Gen4"
   },
   "defaultIcon": "relay",
+  "webPagePort": 80,
   "kind": "declarative",
   "profile": "./profile.json",
   "setup": "./setup.json"

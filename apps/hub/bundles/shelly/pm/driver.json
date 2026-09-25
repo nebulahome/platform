@@ -8,6 +8,7 @@
     "S3PL-30116EU": "Plug PM Gen3"
   },
   "defaultIcon": "gauge",
+  "webPagePort": 80,
   "kind": "declarative",
   "profile": "./profile.json",
   "setup": "./setup.json"
