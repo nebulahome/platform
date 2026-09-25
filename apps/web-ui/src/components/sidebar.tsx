@@ -13,6 +13,11 @@
  * That is not two behaviours: the automatic part answers "where am I", the manual part answers
  * "let me look at something else", and a group that only ever did the first would fight anyone
  * trying to navigate.
+ *
+ * One group is open at a time, and a toggle by hand holds only on the page it was made on. Held
+ * any longer, it outlived the navigation it was for: a group opened from the dashboards stayed
+ * open on every page after, beside the one the new page opened, and the group you were inside
+ * could not be closed at all.
  */
 import { useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router';
@@ -116,8 +121,14 @@ type NavGroupProps = {
   /** The glyph beside the heading. */
   readonly icon: ReactNode;
 
-  /** The entries under it, in the order they read. */
+  /** The entries under it, in the order they read, already narrowed to what may be opened. */
   readonly entries: readonly GroupEntry[];
+
+  /** Whether it is open, which the rail decides for every group together. */
+  readonly isOpen: boolean;
+
+  /** Called when the heading is pressed. */
+  readonly onToggle: () => void;
 };
 
 /**
@@ -127,22 +138,14 @@ type NavGroupProps = {
  * @returns The group.
  */
 function NavGroup(props: NavGroupProps) {
-  const { label, icon, entries: listed } = props;
-  const location = useLocation();
-  const can = useSession((state) => state.can);
-  const entries = listed.filter((entry) => entry.permission === undefined || can(entry.permission));
-  const isInside = entries.some((entry) => location.pathname.startsWith(entry.to));
-  const [isForcedOpen, setForcedOpen] = useState(false);
-  const isOpen = isInside || isForcedOpen;
+  const { label, icon, entries, isOpen, onToggle } = props;
 
   return (
     <div className="flex flex-col gap-1">
       <button
         type="button"
         aria-expanded={isOpen}
-        onClick={() => {
-          setForcedOpen(!isOpen);
-        }}
+        onClick={onToggle}
         className={`${ROW} w-full ${
           isOpen ? 'text-foreground [&_svg]:first:text-primary' : 'text-foreground-muted'
         } hover:bg-surface-raised/60 hover:text-foreground`}
@@ -252,12 +255,72 @@ function UserChip() {
   );
 }
 
+/** A group of the rail, before the permissions narrow it. */
+type Group = {
+  readonly label: string;
+  readonly icon: ReactNode;
+  readonly entries: readonly GroupEntry[];
+};
+
+/** The two groups, in the order they read. */
+const GROUPS: readonly Group[] = [
+  { label: 'Automation', icon: <ZapIcon />, entries: AUTOMATION },
+  { label: 'Configuration', icon: <WrenchIcon />, entries: CONFIGURATION },
+];
+
+/**
+ * Whether a page is under an entry: the entry itself, or a page beneath it.
+ *
+ * @param pathname - The page.
+ * @param to - The entry.
+ * @returns True when the page belongs to it.
+ */
+function isUnder(pathname: string, to: string): boolean {
+  return pathname === to || pathname.startsWith(`${to}/`);
+}
+
+/**
+ * Which group a page opens: the one holding an entry it is under.
+ *
+ * @param pathname - The page.
+ * @param groups - The groups, narrowed to what may be opened.
+ * @returns The group's label, or null for a page in none.
+ */
+function groupOf(pathname: string, groups: readonly Group[]): string | null {
+  return (
+    groups.find((group) => group.entries.some((entry) => isUnder(pathname, entry.to)))?.label ??
+    null
+  );
+}
+
 /**
  * The rail.
  *
  * @returns The sidebar.
  */
 export function Sidebar() {
+  const { pathname } = useLocation();
+  const can = useSession((state) => state.can);
+  const groups = GROUPS.map((group) => ({
+    ...group,
+    entries: group.entries.filter(
+      (entry) => entry.permission === undefined || can(entry.permission),
+    ),
+  }));
+
+  // What was chosen by hand, and on which page: it stops holding the moment the page changes.
+  const [chosen, setChosen] = useState<{ readonly path: string; readonly open: string | null }>();
+  const open = chosen?.path === pathname ? chosen.open : groupOf(pathname, groups);
+
+  /**
+   * Opens a group, closing the other, or closes it when it is the open one.
+   *
+   * @param label - The group pressed.
+   */
+  const toggle = (label: string): void => {
+    setChosen({ path: pathname, open: open === label ? null : label });
+  };
+
   return (
     <nav
       aria-label="Main"
@@ -274,9 +337,18 @@ export function Sidebar() {
 
       <div className="h-px bg-border" />
 
-      <NavGroup label="Automation" icon={<ZapIcon />} entries={AUTOMATION} />
-
-      <NavGroup label="Configuration" icon={<WrenchIcon />} entries={CONFIGURATION} />
+      {groups.map((group) => (
+        <NavGroup
+          key={group.label}
+          label={group.label}
+          icon={group.icon}
+          entries={group.entries}
+          isOpen={open === group.label}
+          onToggle={() => {
+            toggle(group.label);
+          }}
+        />
+      ))}
 
       <NavRow to="/integrations" icon={<LibraryIcon />} label="Integrations" />
 

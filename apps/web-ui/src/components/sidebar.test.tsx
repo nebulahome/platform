@@ -6,7 +6,7 @@
  * entry sits in the group it belongs to, and that the current row is marked in a way something
  * other than a colour can perceive.
  */
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
@@ -109,6 +109,63 @@ describe('Sidebar', () => {
       '/dashboards',
       '/configuration/dashboards',
     ]);
+    expect(
+      screen.getByRole('button', { name: /Configuration/ }).getAttribute('aria-expanded'),
+    ).toBe('true');
+  });
+
+  it('lets the group you are in be closed by hand', () => {
+    renderAt('/scenes');
+
+    const automation = screen.getByRole('button', { name: /Automation/ });
+
+    fireEvent.click(automation);
+
+    expect(automation.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('link', { name: 'Scenes' })).toBeNull();
+  });
+
+  it('opens one group at a time', () => {
+    renderAt('/scenes');
+
+    fireEvent.click(screen.getByRole('button', { name: /Configuration/ }));
+
+    expect(
+      screen.getByRole('button', { name: /Configuration/ }).getAttribute('aria-expanded'),
+    ).toBe('true');
+    expect(screen.getByRole('button', { name: /Automation/ }).getAttribute('aria-expanded')).toBe(
+      'false',
+    );
+  });
+
+  it('forgets a group opened by hand once you move on, and follows where you are', () => {
+    // The bug this guards: a group opened by hand stayed open on every page after, beside the
+    // one the new page opened, until it happened to be clicked again from outside it.
+    renderAt('/scenes');
+
+    fireEvent.click(screen.getByRole('button', { name: /Configuration/ }));
+    fireEvent.click(screen.getByRole('link', { name: 'Tags' }));
+
+    expect(
+      screen.getByRole('button', { name: /Configuration/ }).getAttribute('aria-expanded'),
+    ).toBe('true');
+    expect(screen.getByRole('button', { name: /Automation/ }).getAttribute('aria-expanded')).toBe(
+      'false',
+    );
+
+    fireEvent.click(screen.getByRole('link', { name: 'Dashboards' }));
+
+    expect(
+      screen.getByRole('button', { name: /Configuration/ }).getAttribute('aria-expanded'),
+    ).toBe('false');
+    expect(screen.getByRole('button', { name: /Automation/ }).getAttribute('aria-expanded')).toBe(
+      'false',
+    );
+  });
+
+  it('opens Configuration on the page of a device and of an entity', () => {
+    renderAt('/devices/entities/light.kitchen');
+
     expect(
       screen.getByRole('button', { name: /Configuration/ }).getAttribute('aria-expanded'),
     ).toBe('true');
