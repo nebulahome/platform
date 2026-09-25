@@ -283,8 +283,8 @@ export const probed: ProbeRequest[] = [];
 /** What the fake hub was asked to reload, in order. */
 export const reloaded: string[] = [];
 
-/** What the hub was asked to look for, in order: a vendor, or undefined for every one. */
-export const scanned: (string | undefined)[] = [];
+/** Which vendors the hub was asked to look for, in order. */
+export const scanned: string[] = [];
 
 /** What the fake hub was asked to forget, in order. */
 export const forgotten: string[] = [];
@@ -439,9 +439,7 @@ export async function buildTestServer(
       (request: DiscoverRequest): DiscoverReply => {
         scanned.push(request.vendorId);
 
-        return {
-          vendors: request.vendorId === undefined ? ['acme', 'bambu-lab'] : [request.vendorId],
-        };
+        return { vendors: [request.vendorId], lookingForMs: 24_000 };
       },
     ),
     hub.serve(

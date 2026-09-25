@@ -46,26 +46,31 @@ describe('with the hub answering', () => {
     });
   });
 
-  it('asks the hub to look now, for one vendor or every one', async () => {
+  it('asks the hub to look now for one vendor, and says for how long', async () => {
     scanned.length = 0;
 
-    const one = await server.inject({
+    const response = await server.inject({
       method: 'POST',
       url: '/api/v1/discovery/scan',
       headers: { authorization: await bearer('device:write') },
       payload: { vendorId: 'acme' },
     });
-    const every = await server.inject({
+
+    expect(response.statusCode).toBe(202);
+    expect(response.json()).toEqual({ vendors: ['acme'], lookingForMs: 24_000 });
+    expect(scanned).toEqual(['acme']);
+  });
+
+  it('refuses to look for every vendor at once', async () => {
+    // Looking is per vendor: a page asks for the vendor it shows.
+    const response = await server.inject({
       method: 'POST',
       url: '/api/v1/discovery/scan',
       headers: { authorization: await bearer('device:write') },
       payload: {},
     });
 
-    expect(one.statusCode).toBe(202);
-    expect(one.json()).toEqual({ vendors: ['acme'] });
-    expect(every.json()).toEqual({ vendors: ['acme', 'bambu-lab'] });
-    expect(scanned).toEqual(['acme', undefined]);
+    expect(response.statusCode).toBe(400);
   });
 
   it('keeps looking from somebody who may only read devices', async () => {
@@ -73,7 +78,7 @@ describe('with the hub answering', () => {
       method: 'POST',
       url: '/api/v1/discovery/scan',
       headers: { authorization: await bearer('device:read') },
-      payload: {},
+      payload: { vendorId: 'acme' },
     });
 
     expect(response.statusCode).toBe(403);

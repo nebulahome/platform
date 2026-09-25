@@ -23,6 +23,7 @@ import {
   type DeviceCreate,
   type DeviceView,
   type DiscoveredDevice,
+  type DiscoverReply,
   type DiscoveryAdopt,
 } from '@nebula-home/contracts';
 
@@ -134,30 +135,28 @@ export async function listDiscovered(context: IntegrationsContext): Promise<Disc
 }
 
 /**
- * Asks the hub to look for devices now.
+ * Asks the hub to look for one vendor's devices now.
  *
  * Answered once the hub has asked the network, not once the network has answered: devices arrive
  * over the next seconds, each one a `discovery` event on the live channel, which is where a page
  * waiting for them hears of them.
  *
  * @param context - The request's collaborators.
- * @param vendorId - Only this vendor; every one that can be found when absent.
- * @returns The vendors being looked for; none when the vendor cannot be found on the network, or
- * the hub's discovery is off.
+ * @param vendorId - The vendor.
+ * @returns The vendor being looked for and for how long; nothing when the vendor cannot be found
+ * on the network, or the hub's discovery is off.
  * @throws {DeviceUnavailableError} When the bus is not reachable or the hub did not answer.
  */
 export async function requestScan(
   context: IntegrationsContext,
-  vendorId: string | undefined,
-): Promise<string[]> {
-  const reply = await busOf(context).request(
+  vendorId: string,
+): Promise<DiscoverReply> {
+  return busOf(context).request(
     busSubjects.service(HUB_SERVICE, HUB_DISCOVER_METHOD),
-    vendorId === undefined ? {} : { vendorId },
+    { vendorId },
     discoverReplySchema,
     { traceId: context.traceId },
   );
-
-  return reply.vendors;
 }
 
 /**

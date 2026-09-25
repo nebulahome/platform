@@ -76,20 +76,18 @@ export function registerDiscoveryRoutes(environment: RouteEnvironment, context: 
     },
 
     /**
-     * Asks the hub to look now, for one vendor or every one that can be found.
+     * Asks the hub to look now for one vendor's devices.
      *
      * Asked of whoever may add devices: looking is what comes before adding, and it makes the
      * hub talk to every device of the vendor on the network.
      *
-     * @param route - Which vendor, if only one, and who is asking.
-     * @returns The vendors being looked for.
+     * @param route - Which vendor, and who is asking.
+     * @returns The vendor being looked for, and for how long.
      */
     async (route): Promise<DiscoverReply> => {
       requirePermission(route.identity, 'device:write');
 
-      return {
-        vendors: await requestScan(forRequest(context, route.request.traceId), route.body.vendorId),
-      };
+      return requestScan(forRequest(context, route.request.traceId), route.body.vendorId);
     },
   );
 
