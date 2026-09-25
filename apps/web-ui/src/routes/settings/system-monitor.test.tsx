@@ -131,14 +131,6 @@ describe('the system monitor page', () => {
     expect(await screen.findByText(/The network cannot be read on this machine/)).toBeTruthy();
   });
 
-  it('lists the entities an automation can use, by id', async () => {
-    vi.mocked(fetchSystemMonitor).mockResolvedValue(SNAPSHOT);
-    renderPage();
-
-    expect(await screen.findByText('sensor.system_cpu_usage')).toBeTruthy();
-    expect(screen.getByText('sensor.system_network_download')).toBeTruthy();
-  });
-
   it('says why when core cannot be reached', async () => {
     vi.mocked(fetchSystemMonitor).mockRejectedValue(
       new ApiError({

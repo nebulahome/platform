@@ -3,13 +3,14 @@
  *
  * The page the devices list leads to, and every link to a device - from an entity's page, a tag,
  * a vendor, the system monitor - lands here. At the top the device at a glance; beside the list
- * of its entities, the facts about it: where it comes from, how it is reached, what it runs. Each
- * entity is the same row the rest of the library draws, with its reading live and its switch at
- * hand, and a press opens the entity's own page.
+ * of its entities, the facts about it: where it comes from, how it is reached, what it runs - and,
+ * for a device whose driver says it serves one, a link to the device's own web page. The entities
+ * are in two groups, what can be operated and what only reports; each is the same row the rest of
+ * the library draws, with its reading live and its switch at hand, and a press opens the entity's
+ * own page.
  *
  * Changing the device is a dialog behind the settings button, the one a vendor's page opens for
  * the same device: its name, icon, tags and room, the model and the connection, and a Remove.
- * Beside it, for a device whose driver says it serves one, the way to the device's own web page.
  *
  * Under the facts, the device's activity: what changed on it, newest first, each change opening
  * into everything known about it.
@@ -28,6 +29,7 @@ import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { useLive } from '@/live/live-store';
 import { DetailHeader, DetailPlaceholder } from '@/routes/library/detail-page';
 import { ActivityPanel } from '@/routes/library/device/activity-panel';
+import { entityGroupsOf } from '@/routes/library/device/entity-groups';
 import { useDevicePage, type DevicePageView } from '@/routes/library/device/use-device-page';
 import { DeviceDialog } from '@/routes/library/device-dialog';
 import { DeviceIcon } from '@/routes/library/device-icon';
@@ -84,14 +86,63 @@ function DeviceSummary(props: DeviceSummaryProps) {
 }
 
 /**
+ * The device's entities, the controls apart from the sensors.
+ *
+ * A heading over each group only when there are two: a device that only measures is a list of
+ * sensors without being told so.
+ *
+ * @param props - The view, and what the spanner on a row opens.
+ * @param props.view - See {@link DevicePageView}.
+ * @param props.onConfigure - Opens an entity's settings; absent for somebody who may not edit.
+ * @returns The groups.
+ */
+function EntityGroups(props: {
+  readonly view: DevicePageView;
+  readonly onConfigure: ((entity: EntityView) => void) | undefined;
+}) {
+  const { view, onConfigure } = props;
+  const groups = entityGroupsOf(view.lines);
+  const isGrouped = groups.length > 1;
+
+  return (
+    <div className="flex flex-col gap-1 p-3">
+      {groups.map((group) => (
+        <section
+          key={group.title}
+          aria-label={isGrouped ? group.title : undefined}
+          className="flex flex-col gap-1.5"
+        >
+          {isGrouped ? (
+            <h3 className="px-1 pt-1.5 text-label text-foreground-subtle uppercase">
+              {group.title}
+            </h3>
+          ) : null}
+          <ul className="flex flex-col gap-1.5">
+            {group.lines.map((line) => (
+              <EntityRow
+                key={line.entity.entityId}
+                line={line}
+                deviceAreaKey={view.device.areaKey}
+                onConfigure={onConfigure}
+              />
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+/**
  * The facts about the device.
  *
- * @param props - The view.
+ * @param props - The view, and where the device's web page is.
  * @param props.view - See {@link DevicePageView}.
+ * @param props.webPage - The device's own web page, when its driver says it serves one.
  * @returns The panel.
  */
-function DeviceDetails(props: { readonly view: DevicePageView }) {
-  const { view } = props;
+function DeviceDetails(props: { readonly view: DevicePageView; readonly webPage: string | null }) {
+  const { view, webPage } = props;
   const { device, vendorName, tags, icons, standing } = view;
 
   return (
@@ -115,6 +166,22 @@ function DeviceDetails(props: { readonly view: DevicePageView }) {
         </Fact>
         {device.model === null ? null : <Fact term="Model">{device.model}</Fact>}
         {device.origin === 'system' ? null : <Fact term="Transport">{device.transport}</Fact>}
+        {webPage === null ? null : (
+          <Fact term="Web page">
+            <a
+              href={webPage}
+              target="_blank"
+              rel="noreferrer"
+              title={`Open ${webPage}`}
+              className="inline-flex max-w-full items-center gap-1 text-primary transition-colors hover:text-primary-hover"
+            >
+              <span className="truncate">
+                {webPage.replace(/^https?:\/\//u, '').replace(/\/$/u, '')}
+              </span>
+              <ExternalLinkIcon width="12" height="12" className="shrink-0" />
+            </a>
+          </Fact>
+        )}
         {device.externalId === null ? null : (
           <Fact term="Serial">
             <span className="font-mono text-caption break-all">{device.externalId}</span>
@@ -196,33 +263,17 @@ export function DevicePage() {
         crumbs={[{ to: '/devices', label: 'Devices' }]}
         title={view?.device.name ?? deviceId}
         actions={
-          webPage === null && !canConfigure ? undefined : (
-            <>
-              {webPage === null ? null : (
-                <a
-                  href={webPage}
-                  target="_blank"
-                  rel="noreferrer"
-                  title={`Open ${webPage}`}
-                  className="press inline-flex h-control-sm items-center gap-2 rounded-field border border-border-strong face-raised px-3 text-ui font-medium text-foreground"
-                >
-                  Web page
-                  <ExternalLinkIcon width="13" height="13" />
-                </a>
-              )}
-              {canConfigure ? (
-                <IconButton
-                  variant="raised"
-                  label={`Configure ${view.device.name}`}
-                  onClick={() => {
-                    setSettingsOpen(true);
-                  }}
-                >
-                  <AppIcon id="settings" size={15} />
-                </IconButton>
-              ) : null}
-            </>
-          )
+          canConfigure ? (
+            <IconButton
+              variant="raised"
+              label={`Configure ${view.device.name}`}
+              onClick={() => {
+                setSettingsOpen(true);
+              }}
+            >
+              <AppIcon id="settings" size={15} />
+            </IconButton>
+          ) : undefined
         }
       />
 
@@ -246,20 +297,14 @@ export function DevicePage() {
                       No entities yet. They appear as soon as the hub hears from the device.
                     </p>
                   ) : (
-                    <ul className="flex flex-col gap-1.5 p-3">
-                      {view.lines.map((line) => (
-                        <EntityRow
-                          key={line.entity.entityId}
-                          line={line}
-                          deviceAreaKey={view.device.areaKey}
-                          onConfigure={view.canEditEntities ? setConfiguring : undefined}
-                        />
-                      ))}
-                    </ul>
+                    <EntityGroups
+                      view={view}
+                      onConfigure={view.canEditEntities ? setConfiguring : undefined}
+                    />
                   )}
                 </Panel>
                 <div className="flex min-w-0 flex-col gap-5">
-                  <DeviceDetails view={view} />
+                  <DeviceDetails view={view} webPage={webPage} />
                   <ActivityPanel
                     deviceId={view.device.id}
                     deviceName={view.device.name}

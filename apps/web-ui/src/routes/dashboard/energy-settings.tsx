@@ -5,15 +5,28 @@
  * draws no panels. The house's own meter is the one most houses lack, and the card works it out
  * from the others when it is not given. Meters disagree about signs, so the battery and the grid
  * each say which way they count.
+ *
+ * Each picker offers only what its meter can be - a power meter for the flows, a battery level for
+ * the charge - as {@link ENERGY_CARD_REQUIREMENTS} says.
  */
-import type { DashboardCard, DashboardEnergyCard, EntityView } from '@nebula-home/contracts';
+import {
+  ENERGY_CARD_REQUIREMENTS,
+  meetsRequirement,
+  type DashboardCard,
+  type DashboardEnergyCard,
+  type EntityView,
+} from '@nebula-home/contracts';
 import { Switch, TextField } from '@nebula-home/ui';
 
 import { EntityField } from '@/routes/library/entity-field';
 
 /** The fields that name a meter, what each is called, and the hint under it. */
 const METER_FIELDS = [
-  { field: 'solarPower', label: 'Solar panels', hint: 'What the panels produce now, in W or kW.' },
+  {
+    field: 'solarPower',
+    label: 'Solar panels',
+    hint: 'What the panels produce now: a power meter, in W or kW.',
+  },
   {
     field: 'batteryPower',
     label: 'Battery power',
@@ -29,13 +42,15 @@ const METER_FIELDS = [
 ] as const;
 
 /**
- * Whether an entity can be a meter: it reads a number.
+ * What a meter's picker accepts.
  *
- * @param entity - The entity.
- * @returns True for a numeric sensor.
+ * @param field - The meter.
+ * @returns Whether an entity can be it.
  */
-function readsANumber(entity: EntityView): boolean {
-  return entity.capabilities.some((entry) => entry.capability === 'sensor_numeric');
+function acceptsFor(
+  field: (typeof METER_FIELDS)[number]['field'],
+): (entity: EntityView) => boolean {
+  return (entity) => meetsRequirement(entity, ENERGY_CARD_REQUIREMENTS[field]);
 }
 
 /** What the settings need. */
@@ -85,7 +100,7 @@ export function EnergySettings(props: EnergySettingsProps) {
             label={meter.label}
             size="compact"
             value={card[meter.field] ?? ''}
-            accept={readsANumber}
+            accept={acceptsFor(meter.field)}
             isOptional
             pickerTitle={`Which entity is the ${meter.label.toLowerCase()} meter?`}
             hint={meter.hint}

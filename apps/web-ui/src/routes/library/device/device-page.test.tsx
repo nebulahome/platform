@@ -154,6 +154,50 @@ describe('DevicePage', () => {
     expect(screen.queryByRole('link', { name: 'Configure Nozzle temperature' })).toBeNull();
   });
 
+  it('lists what can be operated apart from what only reports, each under a heading', async () => {
+    renderPage();
+
+    const controls = await screen.findByRole('region', { name: 'Controls' });
+    const sensors = screen.getByRole('region', { name: 'Sensors' });
+
+    expect(controls.textContent).toContain('Chamber light');
+    expect(controls.textContent).not.toContain('Nozzle temperature');
+    expect(sensors.textContent).toContain('Nozzle temperature');
+    // Controls first.
+    expect(controls.compareDocumentPosition(sensors) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it('links to the device web page from its details, not from the header', async () => {
+    vi.mocked(fetchDevices).mockResolvedValue([
+      { ...PRINTER, transportConfig: { host: '192.168.1.60' } },
+      RELAY,
+    ]);
+    vi.mocked(fetchVendors).mockResolvedValue(
+      VENDORS.map((vendor) =>
+        vendor.id === 'bambu-lab'
+          ? {
+              ...vendor,
+              drivers: [
+                {
+                  id: 'bambu-lab/printer',
+                  webPagePort: 80,
+                } as unknown as (typeof vendor.drivers)[number],
+              ],
+            }
+          : vendor,
+      ),
+    );
+    renderPage();
+
+    const link = await screen.findByRole('link', { name: /192\.168\.1\.60/u });
+
+    expect(link.getAttribute('href')).toBe('http://192.168.1.60/');
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(screen.queryByRole('link', { name: /^Web page/u })).toBeNull();
+  });
+
   it('offers a switch on what can be switched, and holds it to the role', async () => {
     renderPage();
 

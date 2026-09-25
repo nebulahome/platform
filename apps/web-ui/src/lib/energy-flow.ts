@@ -79,7 +79,7 @@ export function toWatts(value: number, unit: string | null): number {
 
 /**
  * Writes a power the way the card shows it: watts below a kilowatt, kilowatts to one decimal
- * above.
+ * above, megawatts to two from a thousand kilowatts.
  *
  * @param watts - The power, in watts; its sign is the caller's to say in words.
  * @returns The figure and its unit.
@@ -87,11 +87,30 @@ export function toWatts(value: number, unit: string | null): number {
 export function formatPower(watts: number): { readonly value: string; readonly unit: string } {
   const magnitude = Math.abs(watts);
 
-  if (magnitude < 1000) {
+  // Rounded first at every step, so 999.6 W reads 1.0 kW and 999,960 W reads 1.00 MW rather
+  // than 1000 W and 1000.0 kW.
+  if (Math.round(magnitude) < 1000) {
     return { value: String(Math.round(magnitude)), unit: 'W' };
   }
 
+  if (Math.round(magnitude / 100) >= 10_000) {
+    return { value: (magnitude / 1_000_000).toFixed(2), unit: 'MW' };
+  }
+
   return { value: (magnitude / 1000).toFixed(1), unit: 'kW' };
+}
+
+/**
+ * Writes an energy the same way: watt-hours below a kilowatt-hour, kilowatt-hours to one decimal
+ * above, megawatt-hours to two from a thousand kilowatt-hours.
+ *
+ * @param kwh - The energy, in kilowatt-hours.
+ * @returns The figure with its unit.
+ */
+export function formatEnergy(kwh: number): string {
+  const { value, unit } = formatPower(kwh * 1000);
+
+  return `${value} ${unit}h`;
 }
 
 /**

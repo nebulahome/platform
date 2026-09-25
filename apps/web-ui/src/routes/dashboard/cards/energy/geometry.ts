@@ -15,8 +15,13 @@ export const VIEW_HEIGHT = 364;
 /** A point in the drawing. */
 export type Point = { readonly x: number; readonly y: number };
 
-/** The front corner of the house, on the ground. */
-const FRONT: Point = { x: 150, y: 302 };
+/**
+ * The front corner of the house, on the ground.
+ *
+ * Left of the middle, so the labels on the right - what the house uses, what the grid gives -
+ * have the room a figure in kilowatts takes before the box ends.
+ */
+const FRONT: Point = { x: 138, y: 302 };
 
 /** One step along the house's short side, and along its long side, on the ground. */
 const ACROSS: Point = { x: 1, y: 0.5 };

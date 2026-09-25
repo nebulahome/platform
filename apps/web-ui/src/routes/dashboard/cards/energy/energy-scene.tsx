@@ -86,11 +86,21 @@ const WIRES = {
 
 /** The points each label's line reaches down or up to. */
 const TARGETS = {
-  solar: onRoof(0.3, 0.5),
-  home: onWall(0.835, 39),
+  solar: onRoof(0.24, 0.5),
+  // Between the two windows, and far enough from the edge for a figure like 11.1 kW.
+  home: onWall(0.76, 39),
   battery: outFromWall(onWall(0.13, PLACES.battery.bottom), 7),
   grid: onGround(GATEWAY.at, PLACES.gridReach),
 } as const;
+
+/** How wide a character of a label's figure is, at most, in drawing units. */
+const FIGURE_CHARACTER_WIDTH = 13.6;
+
+/** How wide a character of a label's caption is, at most, spacing included. */
+const CAPTION_CHARACTER_WIDTH = 9.4;
+
+/** How close to the box's edge a label may come. */
+const EDGE_MARGIN = 4;
 
 /** What a label needs. */
 type LabelProps = {
@@ -115,17 +125,24 @@ type LabelProps = {
  */
 function Label(props: LabelProps) {
   const { target, side, value, caption } = props;
-  const x = target.x + 6;
   const valueY = side === 'top' ? 26 : VIEW_HEIGHT - 24;
   const captionY = side === 'top' ? 42 : VIEW_HEIGHT - 7;
+  // Beside its line when it fits, and pulled back inside the box when it does not - a long figure
+  // on a label near the right edge - with its line then stopping short of the text.
+  const width = Math.max(
+    value.length * FIGURE_CHARACTER_WIDTH,
+    caption.toUpperCase().length * CAPTION_CHARACTER_WIDTH,
+  );
+  const x = Math.min(target.x + 6, VIEW_WIDTH - EDGE_MARGIN - width);
+  const isOverLine = x < target.x;
 
   return (
     <g>
       <line
         x1={target.x}
-        y1={side === 'top' ? 8 : target.y + 4}
+        y1={side === 'top' ? (isOverLine ? captionY + 6 : 8) : target.y + 4}
         x2={target.x}
-        y2={side === 'top' ? target.y - 3 : VIEW_HEIGHT - 4}
+        y2={side === 'top' ? target.y - 3 : isOverLine ? valueY - 22 : VIEW_HEIGHT - 4}
         className="stroke-foreground-subtle"
         strokeWidth={1}
         opacity={0.45}

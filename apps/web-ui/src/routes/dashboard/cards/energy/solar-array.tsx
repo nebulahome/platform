@@ -7,9 +7,12 @@
  */
 import { onRoof, patch, polygon } from '@/routes/dashboard/cards/energy/geometry';
 
-/** How the array is laid out on the slope: its extent, and its cells. */
+/**
+ * How the array is laid out on the slope: its extent, and its cells. Towards the gable end, so the
+ * label above it and the one over the house's far end stay apart.
+ */
 const ARRAY = {
-  along: [0.07, 0.93],
+  along: [0.04, 0.86],
   upSlope: [0.1, 0.86],
   columns: 6,
   rows: 3,

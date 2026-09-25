@@ -199,16 +199,20 @@ export function ModelList(props: ModelListProps) {
             No model matches “{search.trim()}”.
           </p>
         ) : null}
-        {groups.map((group) => (
+        {groups.map((group, groupIndex) => (
           <div
             key={group.kind}
             role="group"
             aria-label={isGrouped ? driverName(group.kind) : undefined}
+            // A rule between two families, so where one ends is seen before its heading is read.
+            className={
+              isGrouped && groupIndex > 0 ? 'mt-1.5 border-t border-border pt-1.5' : undefined
+            }
           >
             {isGrouped ? (
               <div
                 aria-hidden="true"
-                className="px-2.5 pt-2.5 pb-1 text-label text-foreground-subtle uppercase"
+                className="px-2.5 pt-2 pb-1 text-label font-semibold text-foreground-muted uppercase"
               >
                 {driverName(group.kind)}
               </div>

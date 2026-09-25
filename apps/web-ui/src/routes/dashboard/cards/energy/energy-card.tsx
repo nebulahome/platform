@@ -10,7 +10,7 @@
 import type { DashboardEnergyCard } from '@nebula-home/contracts';
 import { AppIcon, cn, type UiIconId } from '@nebula-home/ui';
 
-import { formatPower, mainSource, type EnergyHeadline } from '@/lib/energy-flow';
+import { formatEnergy, formatPower, mainSource, type EnergyHeadline } from '@/lib/energy-flow';
 import { CardFrame } from '@/routes/dashboard/cards/card-parts';
 import { EnergyScene } from '@/routes/dashboard/cards/energy/energy-scene';
 import { SOURCE_COLORS } from '@/routes/dashboard/cards/energy/flow-wire';
@@ -119,13 +119,13 @@ function DayLine(props: DayLineProps) {
 }
 
 /**
- * Writes kilowatt-hours to one decimal.
+ * Writes an energy in the unit that suits it: Wh, kWh or MWh.
  *
- * @param kwh - The energy.
+ * @param kwh - The energy, in kilowatt-hours.
  * @returns The figure with its unit.
  */
 function kwhText(kwh: number): string {
-  return `${kwh.toFixed(1)} kWh`;
+  return formatEnergy(kwh);
 }
 
 /** What the card needs. */

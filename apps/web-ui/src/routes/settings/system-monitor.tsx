@@ -13,7 +13,6 @@ import { Panel, PanelNote } from '@nebula-home/ui';
 import { toMessage } from '@/lib/error-message';
 import { formatBytes } from '@/lib/format-bytes';
 import { SystemDiskCard } from '@/routes/settings/system-disk-card';
-import { SystemEntitiesPanel } from '@/routes/settings/system-entities-panel';
 import { SystemHostStrip } from '@/routes/settings/system-host-strip';
 import { SystemNetworkCard } from '@/routes/settings/system-network-card';
 import { SystemUsageCard } from '@/routes/settings/system-usage-card';
@@ -87,7 +86,6 @@ export function SystemMonitor() {
 
       <SystemNetworkCard samples={samples} network={snapshot.network} />
       <SystemDiskCard disk={snapshot.disk} />
-      <SystemEntitiesPanel />
     </>
   );
 }

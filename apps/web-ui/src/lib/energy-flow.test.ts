@@ -7,6 +7,7 @@ import {
   energyOf,
   energyToday,
   flowsOf,
+  formatEnergy,
   formatPower,
   headlineOf,
   mainSource,
@@ -78,6 +79,15 @@ describe('units', () => {
     expect(toWatts(700, null)).toBe(700);
     expect(formatPower(11_100)).toEqual({ value: '11.1', unit: 'kW' });
     expect(formatPower(-640.4)).toEqual({ value: '640', unit: 'W' });
+    expect(formatPower(999.6)).toEqual({ value: '1.0', unit: 'kW' });
+    expect(formatPower(1_250_000)).toEqual({ value: '1.25', unit: 'MW' });
+    expect(formatPower(999_960)).toEqual({ value: '1.00', unit: 'MW' });
+  });
+
+  it('writes an energy in Wh, kWh or MWh, as it grows', () => {
+    expect(formatEnergy(0.42)).toBe('420 Wh');
+    expect(formatEnergy(18.26)).toBe('18.3 kWh');
+    expect(formatEnergy(2450)).toBe('2.45 MWh');
   });
 });
 

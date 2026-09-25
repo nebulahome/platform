@@ -75,7 +75,8 @@ export function ActivityPanel(props: ActivityPanelProps) {
       : activityLinesOf(activity.entries, byAddress, deviceName);
 
   return (
-    <Panel title="Activity">
+    // Clipped to its corners: the list scrolls inside, and its scrollbar must not cross them.
+    <Panel title="Activity" className="overflow-hidden">
       {activity.error !== null && lines === undefined ? (
         <p role="alert" className="px-4 py-3.5 text-ui text-danger">
           {toMessage(activity.error)}
@@ -88,7 +89,9 @@ export function ActivityPanel(props: ActivityPanelProps) {
           they happen; readings are drawn on each entity&apos;s own page.
         </p>
       ) : (
-        <div className="flex flex-col pb-1.5">
+        // About eight changes tall, then it scrolls: a busy device must not push everything
+        // under it off the page.
+        <div className="flex max-h-[30rem] flex-col overflow-y-auto pb-1.5">
           {byDay(lines).map((group) => (
             <section key={group.day} aria-label={group.day}>
               <h3 className="px-4 pt-3 pb-1 text-label text-foreground-subtle uppercase">
