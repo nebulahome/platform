@@ -71,10 +71,16 @@ export type ClaimCondition = z.output<typeof claimConditionSchema>;
  * the field leaves the entity as it was rather than switching it off. A value the table lacks
  * yields `default`, and nothing when there is none. That last point is the difference between
  * a lookup and a program: a program would have to be told about absence.
+ *
+ * The fourth form, `present`, is the one that is told about absence, and only in one place: it
+ * is true when the path names a value and false when the object that would hold it is there
+ * without it - an update offered, then no longer offered. A report that does not carry that
+ * object at all still yields nothing.
  */
 export const stateValueSchema = z.union([
   pathSchema,
   z.strictObject({ path: pathSchema, equals: scalarSchema }),
+  z.strictObject({ path: pathSchema, present: z.literal(true) }),
   z.strictObject({
     path: pathSchema,
     map: z.record(z.string(), scalarSchema),

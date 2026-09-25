@@ -355,6 +355,13 @@ export type DiscoverySource = {
    * @returns Every sighting, as it happens. The same device may be reported again.
    */
   listen: (signal: AbortSignal) => AsyncIterable<Sighting>;
+
+  /**
+   * Asks the network again now, rather than at the listener's own next pass: what the owner's
+   * "look for devices" reaches. Optional, for a listener that only ever hears announcements and
+   * has nothing to ask. Answers arrive through `listen`, like every other sighting.
+   */
+  scan?: () => void;
 };
 
 /** What a discovery module default-exports. */

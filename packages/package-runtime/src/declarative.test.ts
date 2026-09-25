@@ -288,6 +288,89 @@ describe('toState', () => {
   });
 });
 
+describe('toState for firmware', () => {
+  /**
+   * An integration exposing a firmware sensor and an install button.
+   *
+   * @returns The integration and a reader of what each entity reports for a payload.
+   */
+  function firmware(): {
+    read: (payload: unknown) => Map<string, CapabilityState>;
+  } {
+    const sensor = parseEntityId('binary_sensor.lab_firmware');
+    const button = parseEntityId('button.lab_firmware_install');
+    const built = createDeclarativeIntegration(
+      manifest(),
+      integrationProfileSchema.parse({
+        ...PROFILE_JSON,
+        entities: [
+          {
+            domain: 'binary_sensor',
+            objectId: 'firmware',
+            capabilities: { sensor_binary: {} },
+            state: {
+              sensor_binary: { isOn: { path: 'sys.available_updates.stable', present: true } },
+            },
+            deviceClass: 'update',
+          },
+          {
+            domain: 'button',
+            objectId: 'firmware_install',
+            capabilities: { button: {} },
+            state: {},
+            commands: {
+              'button.press': { op: 'call', args: { method: 'Shelly.Update' } },
+            },
+          },
+        ],
+      }),
+    );
+    const mapping = {
+      ...context(),
+      entities: new Map<string, EntityId>([
+        ['firmware', sensor],
+        ['firmware_install', button],
+      ]),
+    };
+
+    return {
+      read: (payload) =>
+        new Map(
+          built
+            .toState({ connectionKey: 'c', deviceKey: 'd', payload }, mapping)
+            .map((report) => [report.entityId, report.state]),
+        ),
+    };
+  }
+
+  it('says an update is offered, then that it no longer is', () => {
+    const { read } = firmware();
+
+    expect(
+      read({ sys: { available_updates: { stable: { version: '1.5.0' } } } }).get(
+        'binary_sensor.lab_firmware',
+      ),
+    ).toEqual({ sensor_binary: { isOn: true } });
+    expect(read({ sys: { available_updates: {} } }).get('binary_sensor.lab_firmware')).toEqual({
+      sensor_binary: { isOn: false },
+    });
+  });
+
+  it('says nothing about firmware in a report that does not carry it', () => {
+    const { read } = firmware();
+
+    expect(read({ relay: { on: true } }).has('binary_sensor.lab_firmware')).toBe(false);
+  });
+
+  it('reports the button on anything the device says, so it is available with the device', () => {
+    const { read } = firmware();
+
+    expect(read({ relay: { on: true } }).get('button.lab_firmware_install')).toEqual({
+      button: {},
+    });
+  });
+});
+
 describe('toCommand', () => {
   it('turns a command into the request the profile describes', () => {
     const request = integration().toCommand(

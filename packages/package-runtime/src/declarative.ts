@@ -24,7 +24,7 @@ import {
 } from '@nebula-home/contracts';
 
 import type { BundleManifest } from './bundle.js';
-import { conditionHolds, resolvePath } from './evaluate.js';
+import { conditionHolds, resolvePath, resolvePresence } from './evaluate.js';
 import type {
   Claim,
   CommandTarget,
@@ -112,14 +112,19 @@ function keyOf(entity: EntityProfile): string {
  *
  * @param value - Where the profile says the field comes from.
  * @param payload - What arrived.
- * @returns The value, the result of the comparison, or the table's entry - and undefined when
- * the path names nothing, or the table has no entry and no default. Absence stays absence
- * either way: a comparison against a field the report did not carry must not become `false`,
- * or every partial report would switch every light off.
+ * @returns The value, the result of the comparison, whether the value is present, or the
+ * table's entry - and undefined when the path names nothing, or the table has no entry and no
+ * default. Absence stays absence either way: a comparison against a field the report did not
+ * carry must not become `false`, or every partial report would switch every light off. `present`
+ * alone reads a missing value as `false`, and only where its holder was reported.
  */
 function readStateValue(value: StateValue, payload: unknown): unknown {
   if (typeof value === 'string') {
     return resolvePath(payload, value);
+  }
+
+  if ('present' in value) {
+    return resolvePresence(payload, value.path);
   }
 
   const found = resolvePath(payload, value.path);
@@ -167,6 +172,12 @@ function stateFrom(entity: EntityProfile, payload: unknown): CapabilityState | u
     if (Object.keys(values).length > 0) {
       built[capability] = values;
     }
+  }
+
+  // A button has nothing to report but that it is there to be pressed, which anything the
+  // device says proves: it is available exactly when the device is.
+  if ('button' in entity.capabilities) {
+    built['button'] = {};
   }
 
   // Validated one capability at a time, so a relay reporting `on` as the string "yes" loses its

@@ -209,6 +209,20 @@ const driverShape = {
    */
   defaultIcon: iconIdSchema.optional(),
 
+  /**
+   * The port the device serves its own web page on, when it has one: `80` for a Shelly. Only a
+   * driver that names one gets the "open web page" link on its devices, so a device that answers
+   * on an API port with nothing to look at never sends the owner to a blank tab.
+   */
+  webPagePort: z.int().min(1).max(65_535).optional(),
+
+  /** Where the page is on that port, when it is not the root: `/web` for Plex. */
+  webPagePath: z
+    .string()
+    .regex(/^\/[^\s]*$/, 'Must be a path starting with /')
+    .max(256)
+    .optional(),
+
   /** Path to the profile, relative to the driver. Declarative drivers only. */
   profile: bundlePathSchema.optional(),
 
@@ -391,6 +405,8 @@ export function resolveManifest(vendor: VendorManifest, driver: DriverManifest):
     ...(driver.modelCodes === undefined ? {} : { modelCodes: driver.modelCodes }),
     kind: driver.kind,
     ...(driver.defaultIcon === undefined ? {} : { defaultIcon: driver.defaultIcon }),
+    ...(driver.webPagePort === undefined ? {} : { webPagePort: driver.webPagePort }),
+    ...(driver.webPagePath === undefined ? {} : { webPagePath: driver.webPagePath }),
     ...(driver.profile === undefined ? {} : { profile: driver.profile }),
     ...(driver.entry === undefined ? {} : { entry: driver.entry }),
     setup: driver.setup,

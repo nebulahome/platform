@@ -53,24 +53,85 @@ function segmentsOf(path: string): Segment[] {
  * no-op, which is precisely the failure the declarative tier is built to avoid.
  */
 export function resolvePath(payload: unknown, path: string): unknown {
+  return walk(payload, segmentsOf(checked(path)));
+}
+
+/**
+ * Says whether a path names a value, where the report carries the place it would be.
+ *
+ * The one reading where absence is an answer: an update the device no longer offers is simply
+ * gone from `available_updates`, and that disappearance is the news. It is only an answer when the
+ * object that would hold the value is there, though - a report that does not carry
+ * `available_updates` at all says nothing about updates, and yields nothing, like every other read.
+ *
+ * @param payload - What to read from.
+ * @param path - Where to look.
+ * @returns True when a value other than null is there, false when the object that would hold it
+ * is there without it, and undefined when that object is not.
+ * @throws {Error} When the path is not one the grammar admits.
+ */
+export function resolvePresence(payload: unknown, path: string): boolean | undefined {
+  const segments = segmentsOf(checked(path));
+  const last = segments.pop();
+  const holder = walk(payload, segments);
+
+  if (last === undefined || holder === null || typeof holder !== 'object') {
+    return undefined;
+  }
+
+  const value = step(holder, last);
+
+  return value !== undefined && value !== null;
+}
+
+/**
+ * Refuses a path the grammar does not admit.
+ *
+ * @param path - The path.
+ * @returns The same path.
+ * @throws {Error} When it is not a payload path.
+ */
+function checked(path: string): string {
   if (!PATH_PATTERN.test(path)) {
     throw new Error(`Not a payload path: ${path}`);
   }
 
+  return path;
+}
+
+/**
+ * Takes one step into a value.
+ *
+ * @param current - Where the walk is.
+ * @param segment - The step.
+ * @returns What is there, or undefined when nothing is.
+ */
+function step(current: unknown, segment: Segment): unknown {
+  if ('index' in segment) {
+    return Array.isArray(current) ? current[segment.index] : undefined;
+  }
+
+  return typeof current === 'object' && current !== null
+    ? (current as Record<string, unknown>)[segment.key]
+    : undefined;
+}
+
+/**
+ * Walks every step of a path.
+ *
+ * @param payload - Where to start.
+ * @param segments - The steps.
+ * @returns What the steps reach, or undefined when one of them finds nothing.
+ */
+function walk(payload: unknown, segments: readonly Segment[]): unknown {
   let current: unknown = payload;
 
-  for (const segment of segmentsOf(path)) {
+  for (const segment of segments) {
     if (current === null || current === undefined) {
       return undefined;
     }
 
-    if ('index' in segment) {
-      current = Array.isArray(current) ? current[segment.index] : undefined;
-      continue;
-    }
-
-    current =
-      typeof current === 'object' ? (current as Record<string, unknown>)[segment.key] : undefined;
+    current = step(current, segment);
   }
 
   return current;

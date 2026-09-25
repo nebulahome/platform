@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolvePath } from './evaluate.js';
+import { resolvePath, resolvePresence } from './evaluate.js';
 
 describe('resolvePath', () => {
   it('walks a path of names', () => {
@@ -45,5 +45,31 @@ describe('resolvePath', () => {
     // quietly returned undefined for a malformed path would hide a profile bug as a silent
     // no-op, which is the failure mode the whole tier is trying to avoid.
     expect(() => resolvePath({}, '$exists(relay)')).toThrow(/path/i);
+  });
+});
+
+describe('resolvePresence', () => {
+  it('says a value is there', () => {
+    const payload = { sys: { available_updates: { stable: { version: '1.4.4' } } } };
+
+    expect(resolvePresence(payload, 'sys.available_updates.stable')).toBe(true);
+  });
+
+  it('says a value is gone when the object that would hold it is there without it', () => {
+    // Shelly empties available_updates once the update is installed: the absence is the news.
+    expect(
+      resolvePresence({ sys: { available_updates: {} } }, 'sys.available_updates.stable'),
+    ).toBe(false);
+  });
+
+  it('counts null as not there', () => {
+    expect(resolvePresence({ sys: { update: null } }, 'sys.update')).toBe(false);
+  });
+
+  it('says nothing when the report does not carry the holder at all', () => {
+    // A partial report about a relay says nothing about firmware, and must not switch it off.
+    expect(resolvePresence({ 'switch:0': { output: true } }, 'sys.available_updates.stable')).toBe(
+      undefined,
+    );
   });
 });
