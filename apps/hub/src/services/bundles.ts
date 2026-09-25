@@ -28,7 +28,11 @@ import { pathToFileURL } from 'node:url';
 
 import { satisfies } from 'semver';
 
-import { integrationSetupSchema, type IntegrationSetup } from '@nebula-home/contracts';
+import {
+  integrationSetupSchema,
+  withPollingField,
+  type IntegrationSetup,
+} from '@nebula-home/contracts';
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
 import {
   createDeclarativeIntegration,
@@ -295,7 +299,10 @@ async function loadDriver(
 
   await options.verify?.(manifest, directory);
 
-  const setup = integrationSetupSchema.parse(await readJson(directory, manifest.setup));
+  // `polling` is served as the option it stands for, so nothing past the loader has to know it.
+  const setup = withPollingField(
+    integrationSetupSchema.parse(await readJson(directory, manifest.setup)),
+  );
   const identity = {
     manifest,
     vendorId: vendor.id,
@@ -572,7 +579,7 @@ async function loadVendorWith(
   const setup =
     manifest.setup === undefined
       ? NO_SETUP
-      : integrationSetupSchema.parse(await readJson(directory, manifest.setup));
+      : withPollingField(integrationSetupSchema.parse(await readJson(directory, manifest.setup)));
   const logo =
     manifest.logo === undefined ? undefined : await readLogo(directory, manifest.logo.path);
 

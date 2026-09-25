@@ -20,5 +20,6 @@
         "isRequired": true
       }
     ]
-  }
+  },
+  "polling": { "default": 15, "min": 5, "warnBelow": 10 }
 }

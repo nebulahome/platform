@@ -12,5 +12,6 @@
         "patternMessage": "An IP or host name - no port, no http:// and no path."
       }
     ]
-  }
+  },
+  "polling": { "default": 10, "min": 2, "warnBelow": 5 }
 }
