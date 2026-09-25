@@ -1,0 +1,12 @@
+{
+  "id": "gen1-3em",
+  "name": "Three-phase energy meter (Gen1)",
+  "transport": "shelly/gen1",
+  "models": ["3EM Gen1"],
+  "modelCodes": { "SHEM-3": "3EM Gen1" },
+  "defaultIcon": "gauge",
+  "webPagePort": 80,
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

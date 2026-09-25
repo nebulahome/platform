@@ -1,0 +1,12 @@
+{
+  "id": "dimmer-2pm",
+  "name": "Two dimmers with power metering",
+  "transport": "shelly/rpc",
+  "models": ["Pro Dimmer 2PM"],
+  "modelCodes": { "SPDM-002PE01EU": "Pro Dimmer 2PM" },
+  "defaultIcon": "light",
+  "webPagePort": 80,
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

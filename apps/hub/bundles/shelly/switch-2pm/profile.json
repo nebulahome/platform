@@ -2,7 +2,19 @@
   "discovery": {
     "probe": { "op": "call", "args": { "method": "Shelly.GetDeviceInfo" } },
     "claim": [
-      { "path": "model", "oneOf": ["S3SW-002P16EU", "S4SW-002P16EU"] },
+      {
+        "path": "model",
+        "oneOf": [
+          "S3SW-002P16EU",
+          "S4SW-002P16EU",
+          "SNSW-002P16EU",
+          "SNSW-102P16EU",
+          "SNSW-002P15UL",
+          "SPSW-002PE16EU",
+          "SPSW-102PE16EU",
+          "SPSW-202PE16EU"
+        ]
+      },
       { "path": "profile", "equals": "switch" },
       { "path": "id", "exists": true }
     ],

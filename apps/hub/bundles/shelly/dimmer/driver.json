@@ -2,9 +2,11 @@
   "id": "dimmer",
   "name": "Dimmer",
   "transport": "shelly/rpc",
-  "models": ["DALI Dimmer Gen3"],
+  "models": ["DALI Dimmer Gen3", "Plus 0-10V Dimmer", "Plus Wall Dimmer"],
   "modelCodes": {
-    "S3DM-0A1WW": "DALI Dimmer Gen3"
+    "S3DM-0A1WW": "DALI Dimmer Gen3",
+    "SNDM-00100WW": "Plus 0-10V Dimmer",
+    "SNDM-0013US": "Plus Wall Dimmer"
   },
   "defaultIcon": "light",
   "webPagePort": 80,

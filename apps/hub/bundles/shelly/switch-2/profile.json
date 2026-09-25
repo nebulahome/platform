@@ -2,7 +2,17 @@
   "discovery": {
     "probe": { "op": "call", "args": { "method": "Shelly.GetDeviceInfo" } },
     "claim": [
-      { "path": "model", "oneOf": ["S3SW-0A2X4EUL", "S4SW-0A2X4EUL"] },
+      {
+        "path": "model",
+        "oneOf": [
+          "S3SW-0A2X4EUL",
+          "S4SW-0A2X4EUL",
+          "SPSW-002XE16EU",
+          "SPSW-102XE16EU",
+          "SPSW-202XE16EU",
+          "SPSW-202XE12UL"
+        ]
+      },
       { "path": "id", "exists": true }
     ],
     "identity": { "externalId": "id", "name": "name", "model": "model", "swVersion": "ver" }

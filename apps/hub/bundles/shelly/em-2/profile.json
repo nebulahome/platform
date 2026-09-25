@@ -2,7 +2,7 @@
   "discovery": {
     "probe": { "op": "call", "args": { "method": "Shelly.GetDeviceInfo" } },
     "claim": [
-      { "path": "model", "oneOf": ["S3EM-002CXCEU", "S4EM-002CXCEU"] },
+      { "path": "model", "oneOf": ["S3EM-002CXCEU", "S4EM-002CXCEU", "SPEM-002CEBEU50"] },
       { "path": "id", "exists": true }
     ],
     "identity": { "externalId": "id", "name": "name", "model": "model", "swVersion": "ver" }

@@ -2,10 +2,12 @@
   "id": "inputs",
   "name": "Inputs",
   "transport": "shelly/rpc",
-  "models": ["I4 Gen3", "I4 Gen4"],
+  "models": ["I4 Gen3", "I4 Gen4", "Plus I4", "Plus I4DC"],
   "modelCodes": {
     "S3SN-0024X": "I4 Gen3",
-    "S4SN-0A24X": "I4 Gen4"
+    "S4SN-0A24X": "I4 Gen4",
+    "SNSN-0024X": "Plus I4",
+    "SNSN-0D24X": "Plus I4DC"
   },
   "defaultIcon": "toggle-left",
   "webPagePort": 80,

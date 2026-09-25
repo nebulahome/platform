@@ -1,0 +1,117 @@
+{
+  "discovery": {
+    "probe": { "op": "call", "args": { "method": "Shelly.GetDeviceInfo" } },
+    "claim": [
+      { "path": "model", "oneOf": ["SPSW-003XE16EU"] },
+      { "path": "id", "exists": true }
+    ],
+    "identity": { "externalId": "id", "name": "name", "model": "model", "swVersion": "ver" }
+  },
+  "subscriptions": [{ "op": "status", "args": { "everyMs": 60000 } }],
+  "entities": [
+    {
+      "domain": "switch",
+      "objectId": "switch_1",
+      "name": "Switch 1",
+      "icon": "switch",
+      "capabilities": { "on_off": {} },
+      "state": { "on_off": { "isOn": "'switch:0'.output" } },
+      "commands": {
+        "on_off.turn_on": {
+          "op": "call",
+          "args": { "method": "Switch.Set", "params": { "id": 0, "on": true } }
+        },
+        "on_off.turn_off": {
+          "op": "call",
+          "args": { "method": "Switch.Set", "params": { "id": 0, "on": false } }
+        },
+        "on_off.toggle": {
+          "op": "call",
+          "args": { "method": "Switch.Toggle", "params": { "id": 0 } }
+        }
+      }
+    },
+    {
+      "domain": "switch",
+      "objectId": "switch_2",
+      "name": "Switch 2",
+      "icon": "switch",
+      "capabilities": { "on_off": {} },
+      "state": { "on_off": { "isOn": "'switch:1'.output" } },
+      "commands": {
+        "on_off.turn_on": {
+          "op": "call",
+          "args": { "method": "Switch.Set", "params": { "id": 1, "on": true } }
+        },
+        "on_off.turn_off": {
+          "op": "call",
+          "args": { "method": "Switch.Set", "params": { "id": 1, "on": false } }
+        },
+        "on_off.toggle": {
+          "op": "call",
+          "args": { "method": "Switch.Toggle", "params": { "id": 1 } }
+        }
+      }
+    },
+    {
+      "domain": "switch",
+      "objectId": "switch_3",
+      "name": "Switch 3",
+      "icon": "switch",
+      "capabilities": { "on_off": {} },
+      "state": { "on_off": { "isOn": "'switch:2'.output" } },
+      "commands": {
+        "on_off.turn_on": {
+          "op": "call",
+          "args": { "method": "Switch.Set", "params": { "id": 2, "on": true } }
+        },
+        "on_off.turn_off": {
+          "op": "call",
+          "args": { "method": "Switch.Set", "params": { "id": 2, "on": false } }
+        },
+        "on_off.toggle": {
+          "op": "call",
+          "args": { "method": "Switch.Toggle", "params": { "id": 2 } }
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "temperature",
+      "name": "Device temperature",
+      "icon": "thermometer",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "'switch:0'.temperature.tC" } },
+      "unitOfMeasurement": "°C",
+      "deviceClass": "temperature",
+      "stateClass": "measurement",
+      "displayPrecision": 1
+    },
+    {
+      "domain": "binary_sensor",
+      "objectId": "firmware",
+      "name": "Firmware update",
+      "icon": "circle-arrow-up",
+      "capabilities": { "sensor_binary": {} },
+      "state": {
+        "sensor_binary": { "isOn": { "path": "sys.available_updates.stable", "present": true } }
+      },
+      "deviceClass": "update"
+    },
+    {
+      "domain": "button",
+      "objectId": "firmware_install",
+      "name": "Install firmware update",
+      "icon": "download",
+      "capabilities": { "button": {} },
+      "state": {},
+      "commands": {
+        "button.press": {
+          "op": "call",
+          "args": { "method": "Shelly.Update", "params": { "stage": "stable" } }
+        }
+      },
+      "deviceClass": "update"
+    }
+  ]
+}

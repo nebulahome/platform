@@ -2,7 +2,7 @@
   "discovery": {
     "probe": { "op": "call", "args": { "method": "Shelly.GetDeviceInfo" } },
     "claim": [
-      { "path": "model", "oneOf": ["S3PM-001PCEU16", "S3PL-30116EU"] },
+      { "path": "model", "oneOf": ["S3PM-001PCEU16", "S3PL-30116EU", "SNPM-001PCEU16"] },
       { "path": "id", "exists": true }
     ],
     "identity": { "externalId": "id", "name": "name", "model": "model", "swVersion": "ver" }

@@ -2,7 +2,16 @@
   "discovery": {
     "probe": { "op": "call", "args": { "method": "Shelly.GetDeviceInfo" } },
     "claim": [
-      { "path": "model", "oneOf": ["S3EM-003CXCEU63"] },
+      {
+        "path": "model",
+        "oneOf": [
+          "S3EM-003CXCEU63",
+          "SPEM-003CEBEU",
+          "SPEM-003CEBEU120",
+          "SPEM-003CEBEU63",
+          "SPEM-003CEBEU400"
+        ]
+      },
       { "path": "profile", "equals": "triphase" },
       { "path": "id", "exists": true }
     ],

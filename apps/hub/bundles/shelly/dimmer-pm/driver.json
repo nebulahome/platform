@@ -7,14 +7,18 @@
     "Dimmer 0/1-10V PM Gen4",
     "Dimmer Gen3",
     "Dimmer Gen4",
-    "Dimmer Gen4 US"
+    "Dimmer Gen4 US",
+    "Pro Dimmer 1PM",
+    "Pro Dimmer 0/1-10V PM"
   ],
   "modelCodes": {
     "S3DM-0010WW": "Dimmer 0/1-10V PM Gen3",
     "S4DM-0010WW": "Dimmer 0/1-10V PM Gen4",
     "S3DM-0A101WWL": "Dimmer Gen3",
     "S4DM-0A101WWL": "Dimmer Gen4",
-    "S4DM-0A102US": "Dimmer Gen4 US"
+    "S4DM-0A102US": "Dimmer Gen4 US",
+    "SPDM-001PE01EU": "Pro Dimmer 1PM",
+    "SPCC-001PE10EU": "Pro Dimmer 0/1-10V PM"
   },
   "defaultIcon": "light",
   "webPagePort": 80,

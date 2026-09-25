@@ -4,7 +4,15 @@
     "claim": [
       {
         "path": "model",
-        "oneOf": ["S3DM-0010WW", "S4DM-0010WW", "S3DM-0A101WWL", "S4DM-0A101WWL", "S4DM-0A102US"]
+        "oneOf": [
+          "S3DM-0010WW",
+          "S4DM-0010WW",
+          "S3DM-0A101WWL",
+          "S4DM-0A101WWL",
+          "S4DM-0A102US",
+          "SPDM-001PE01EU",
+          "SPCC-001PE10EU"
+        ]
       },
       { "path": "id", "exists": true }
     ],

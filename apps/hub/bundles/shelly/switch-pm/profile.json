@@ -4,7 +4,19 @@
     "claim": [
       {
         "path": "model",
-        "oneOf": ["S3SW-001P16EU", "S3SW-001P8EU", "S4SW-001P16EU", "S4SW-001P8EU"]
+        "oneOf": [
+          "S3SW-001P16EU",
+          "S3SW-001P8EU",
+          "S4SW-001P16EU",
+          "S4SW-001P8EU",
+          "SNSW-001P16EU",
+          "SNSW-001P8EU",
+          "SNSW-001P15UL",
+          "SPSW-001PE16EU",
+          "SPSW-101PE16EU",
+          "SPSW-201PE16EU",
+          "SPSW-201PE15UL"
+        ]
       },
       { "path": "id", "exists": true }
     ],

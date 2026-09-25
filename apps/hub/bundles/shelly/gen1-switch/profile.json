@@ -1,0 +1,56 @@
+{
+  "discovery": {
+    "probe": { "op": "get", "args": { "path": "/shelly" } },
+    "claim": [
+      { "path": "type", "oneOf": ["SHSW-1"] },
+      { "path": "mac", "exists": true }
+    ],
+    "identity": { "externalId": "mac", "model": "type", "swVersion": "fw" }
+  },
+  "subscriptions": [{ "op": "poll", "args": { "everyMs": 30000 } }],
+  "entities": [
+    {
+      "domain": "switch",
+      "objectId": "switch",
+      "name": "Switch",
+      "icon": "switch",
+      "capabilities": { "on_off": {} },
+      "state": { "on_off": { "isOn": "relays[0].ison" } },
+      "commands": {
+        "on_off.turn_on": {
+          "op": "get",
+          "args": { "path": "/relay/0", "query": { "turn": "on" } }
+        },
+        "on_off.turn_off": {
+          "op": "get",
+          "args": { "path": "/relay/0", "query": { "turn": "off" } }
+        },
+        "on_off.toggle": {
+          "op": "get",
+          "args": { "path": "/relay/0", "query": { "turn": "toggle" } }
+        }
+      }
+    },
+    {
+      "domain": "binary_sensor",
+      "objectId": "firmware",
+      "name": "Firmware update",
+      "icon": "circle-arrow-up",
+      "capabilities": { "sensor_binary": {} },
+      "state": { "sensor_binary": { "isOn": "update.has_update" } },
+      "deviceClass": "update"
+    },
+    {
+      "domain": "button",
+      "objectId": "firmware_install",
+      "name": "Install firmware update",
+      "icon": "download",
+      "capabilities": { "button": {} },
+      "state": {},
+      "commands": {
+        "button.press": { "op": "get", "args": { "path": "/ota", "query": { "update": true } } }
+      },
+      "deviceClass": "update"
+    }
+  ]
+}

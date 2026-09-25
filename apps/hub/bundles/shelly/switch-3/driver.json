@@ -1,0 +1,12 @@
+{
+  "id": "switch-3",
+  "name": "Three relays",
+  "transport": "shelly/rpc",
+  "models": ["Pro 3"],
+  "modelCodes": { "SPSW-003XE16EU": "Pro 3" },
+  "defaultIcon": "relay",
+  "webPagePort": 80,
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

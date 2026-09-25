@@ -2,13 +2,29 @@
   "id": "plug",
   "name": "Plug",
   "transport": "shelly/rpc",
-  "models": ["Plug S Gen3", "Outdoor Plug S Gen3", "AZ Plug", "Plug M Gen3", "Plug US Gen4"],
+  "models": [
+    "Plug S Gen3",
+    "Outdoor Plug S Gen3",
+    "AZ Plug",
+    "Plug M Gen3",
+    "Plug US Gen4",
+    "Plus Plug S",
+    "Plus Plug S v2",
+    "Plus Plug IT",
+    "Plus Plug UK",
+    "Plus Plug US"
+  ],
   "modelCodes": {
     "S3PL-00112EU": "Plug S Gen3",
     "S3PL-20112EU": "Outdoor Plug S Gen3",
     "S3PL-10112EU": "AZ Plug",
     "S3PL-30110EU": "Plug M Gen3",
-    "S4PL-00116US": "Plug US Gen4"
+    "S4PL-00116US": "Plug US Gen4",
+    "SNPL-00112EU": "Plus Plug S",
+    "SNPL-10112EU": "Plus Plug S v2",
+    "SNPL-00110IT": "Plus Plug IT",
+    "SNPL-00112UK": "Plus Plug UK",
+    "SNPL-00116US": "Plus Plug US"
   },
   "defaultIcon": "plug",
   "webPagePort": 80,

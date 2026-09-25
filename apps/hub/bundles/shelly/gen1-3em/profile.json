@@ -1,0 +1,277 @@
+{
+  "discovery": {
+    "probe": { "op": "get", "args": { "path": "/shelly" } },
+    "claim": [
+      { "path": "type", "oneOf": ["SHEM-3"] },
+      { "path": "mac", "exists": true }
+    ],
+    "identity": { "externalId": "mac", "model": "type", "swVersion": "fw" }
+  },
+  "subscriptions": [{ "op": "poll", "args": { "everyMs": 30000 } }],
+  "entities": [
+    {
+      "domain": "switch",
+      "objectId": "switch",
+      "name": "Switch",
+      "icon": "switch",
+      "capabilities": { "on_off": {} },
+      "state": { "on_off": { "isOn": "relays[0].ison" } },
+      "commands": {
+        "on_off.turn_on": {
+          "op": "get",
+          "args": { "path": "/relay/0", "query": { "turn": "on" } }
+        },
+        "on_off.turn_off": {
+          "op": "get",
+          "args": { "path": "/relay/0", "query": { "turn": "off" } }
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "power_a",
+      "name": "Power A",
+      "icon": "zap",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[0].power" } },
+      "unitOfMeasurement": "W",
+      "deviceClass": "power",
+      "stateClass": "measurement",
+      "displayPrecision": 1
+    },
+    {
+      "domain": "sensor",
+      "objectId": "voltage_a",
+      "name": "Voltage A",
+      "icon": "gauge",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[0].voltage" } },
+      "unitOfMeasurement": "V",
+      "deviceClass": "voltage",
+      "stateClass": "measurement",
+      "displayPrecision": 1
+    },
+    {
+      "domain": "sensor",
+      "objectId": "current_a",
+      "name": "Current A",
+      "icon": "activity",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[0].current" } },
+      "unitOfMeasurement": "A",
+      "deviceClass": "current",
+      "stateClass": "measurement",
+      "displayPrecision": 3
+    },
+    {
+      "domain": "sensor",
+      "objectId": "power_factor_a",
+      "name": "Power factor A",
+      "icon": "gauge",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[0].pf" } },
+      "deviceClass": "power_factor",
+      "stateClass": "measurement",
+      "displayPrecision": 2
+    },
+    {
+      "domain": "sensor",
+      "objectId": "energy_a",
+      "name": "Energy A",
+      "icon": "energy",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[0].total" } },
+      "unitOfMeasurement": "Wh",
+      "deviceClass": "energy",
+      "stateClass": "total_increasing",
+      "displayPrecision": 2
+    },
+    {
+      "domain": "sensor",
+      "objectId": "energy_returned_a",
+      "name": "Energy returned A",
+      "icon": "energy",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[0].total_returned" } },
+      "unitOfMeasurement": "Wh",
+      "deviceClass": "energy",
+      "stateClass": "total_increasing",
+      "displayPrecision": 2
+    },
+    {
+      "domain": "sensor",
+      "objectId": "power_b",
+      "name": "Power B",
+      "icon": "zap",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[1].power" } },
+      "unitOfMeasurement": "W",
+      "deviceClass": "power",
+      "stateClass": "measurement",
+      "displayPrecision": 1
+    },
+    {
+      "domain": "sensor",
+      "objectId": "voltage_b",
+      "name": "Voltage B",
+      "icon": "gauge",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[1].voltage" } },
+      "unitOfMeasurement": "V",
+      "deviceClass": "voltage",
+      "stateClass": "measurement",
+      "displayPrecision": 1
+    },
+    {
+      "domain": "sensor",
+      "objectId": "current_b",
+      "name": "Current B",
+      "icon": "activity",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[1].current" } },
+      "unitOfMeasurement": "A",
+      "deviceClass": "current",
+      "stateClass": "measurement",
+      "displayPrecision": 3
+    },
+    {
+      "domain": "sensor",
+      "objectId": "power_factor_b",
+      "name": "Power factor B",
+      "icon": "gauge",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[1].pf" } },
+      "deviceClass": "power_factor",
+      "stateClass": "measurement",
+      "displayPrecision": 2
+    },
+    {
+      "domain": "sensor",
+      "objectId": "energy_b",
+      "name": "Energy B",
+      "icon": "energy",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[1].total" } },
+      "unitOfMeasurement": "Wh",
+      "deviceClass": "energy",
+      "stateClass": "total_increasing",
+      "displayPrecision": 2
+    },
+    {
+      "domain": "sensor",
+      "objectId": "energy_returned_b",
+      "name": "Energy returned B",
+      "icon": "energy",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[1].total_returned" } },
+      "unitOfMeasurement": "Wh",
+      "deviceClass": "energy",
+      "stateClass": "total_increasing",
+      "displayPrecision": 2
+    },
+    {
+      "domain": "sensor",
+      "objectId": "power_c",
+      "name": "Power C",
+      "icon": "zap",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[2].power" } },
+      "unitOfMeasurement": "W",
+      "deviceClass": "power",
+      "stateClass": "measurement",
+      "displayPrecision": 1
+    },
+    {
+      "domain": "sensor",
+      "objectId": "voltage_c",
+      "name": "Voltage C",
+      "icon": "gauge",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[2].voltage" } },
+      "unitOfMeasurement": "V",
+      "deviceClass": "voltage",
+      "stateClass": "measurement",
+      "displayPrecision": 1
+    },
+    {
+      "domain": "sensor",
+      "objectId": "current_c",
+      "name": "Current C",
+      "icon": "activity",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[2].current" } },
+      "unitOfMeasurement": "A",
+      "deviceClass": "current",
+      "stateClass": "measurement",
+      "displayPrecision": 3
+    },
+    {
+      "domain": "sensor",
+      "objectId": "power_factor_c",
+      "name": "Power factor C",
+      "icon": "gauge",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[2].pf" } },
+      "deviceClass": "power_factor",
+      "stateClass": "measurement",
+      "displayPrecision": 2
+    },
+    {
+      "domain": "sensor",
+      "objectId": "energy_c",
+      "name": "Energy C",
+      "icon": "energy",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[2].total" } },
+      "unitOfMeasurement": "Wh",
+      "deviceClass": "energy",
+      "stateClass": "total_increasing",
+      "displayPrecision": 2
+    },
+    {
+      "domain": "sensor",
+      "objectId": "energy_returned_c",
+      "name": "Energy returned C",
+      "icon": "energy",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "emeters[2].total_returned" } },
+      "unitOfMeasurement": "Wh",
+      "deviceClass": "energy",
+      "stateClass": "total_increasing",
+      "displayPrecision": 2
+    },
+    {
+      "domain": "sensor",
+      "objectId": "power_total",
+      "name": "Power",
+      "icon": "zap",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "total_power" } },
+      "unitOfMeasurement": "W",
+      "deviceClass": "power",
+      "stateClass": "measurement",
+      "displayPrecision": 1
+    },
+    {
+      "domain": "binary_sensor",
+      "objectId": "firmware",
+      "name": "Firmware update",
+      "icon": "circle-arrow-up",
+      "capabilities": { "sensor_binary": {} },
+      "state": { "sensor_binary": { "isOn": "update.has_update" } },
+      "deviceClass": "update"
+    },
+    {
+      "domain": "button",
+      "objectId": "firmware_install",
+      "name": "Install firmware update",
+      "icon": "download",
+      "capabilities": { "button": {} },
+      "state": {},
+      "commands": {
+        "button.press": { "op": "get", "args": { "path": "/ota", "query": { "update": true } } }
+      },
+      "deviceClass": "update"
+    }
+  ]
+}

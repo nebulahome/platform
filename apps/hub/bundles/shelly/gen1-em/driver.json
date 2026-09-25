@@ -1,0 +1,12 @@
+{
+  "id": "gen1-em",
+  "name": "Energy meter, two channels (Gen1)",
+  "transport": "shelly/gen1",
+  "models": ["EM Gen1"],
+  "modelCodes": { "SHEM": "EM Gen1" },
+  "defaultIcon": "gauge",
+  "webPagePort": 80,
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "gen1-plug",
+  "name": "Plug (Gen1)",
+  "transport": "shelly/gen1",
+  "models": ["Plug Gen1", "Plug S Gen1"],
+  "modelCodes": { "SHPLG-1": "Plug Gen1", "SHPLG-S": "Plug S Gen1" },
+  "defaultIcon": "plug",
+  "webPagePort": 80,
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

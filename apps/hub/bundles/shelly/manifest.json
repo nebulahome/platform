@@ -1,12 +1,12 @@
 {
   "id": "shelly",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "sdk": "^1.0.0",
   "name": "Shelly",
-  "description": "Shelly Gen3 and Gen4 devices on your own network, each spoken to directly over its RPC interface. Nothing leaves the house and nothing stops working when the internet does.",
+  "description": "Shelly devices of every generation on your own network: Gen2, Gen3 and Gen4 spoken to over their RPC interface, Gen1 over its HTTP API and the CoIoT packets it sends on every change. Nothing leaves the house and nothing stops working when the internet does.",
   "url": "https://shelly.com",
   "color": "#3B9DFF",
   "logo": { "path": "./logo.svg", "padding": 4 },
   "internetRequired": false,
-  "transports": { "rpc": "./rpc/transport.js" }
+  "transports": { "rpc": "./rpc/transport.js", "gen1": "./gen1/transport.js" }
 }

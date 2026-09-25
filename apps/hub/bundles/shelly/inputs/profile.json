@@ -2,7 +2,7 @@
   "discovery": {
     "probe": { "op": "call", "args": { "method": "Shelly.GetDeviceInfo" } },
     "claim": [
-      { "path": "model", "oneOf": ["S3SN-0024X", "S4SN-0A24X"] },
+      { "path": "model", "oneOf": ["S3SN-0024X", "S4SN-0A24X", "SNSN-0024X", "SNSN-0D24X"] },
       { "path": "id", "exists": true }
     ],
     "identity": { "externalId": "id", "name": "name", "model": "model", "swVersion": "ver" }

@@ -1,0 +1,12 @@
+{
+  "id": "gen1-switch-2pm",
+  "name": "Two relays with power metering (Gen1)",
+  "transport": "shelly/gen1",
+  "models": ["2.5 (relays)"],
+  "modelCodes": { "SHSW-25": "2.5 (relays)" },
+  "defaultIcon": "relay",
+  "webPagePort": 80,
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

@@ -10,7 +10,14 @@
           "S3SW-001X8EU",
           "S4SW-001X16EU",
           "S4SW-0A1X1EUL",
-          "S4SW-001X8EU"
+          "S4SW-001X8EU",
+          "SNSW-001X16EU",
+          "SNSW-001X8EU",
+          "SNSW-001X15UL",
+          "SPSW-001XE16EU",
+          "SPSW-101XE16EU",
+          "SPSW-201XE16EU",
+          "SPSW-201XE15UL"
         ]
       },
       { "path": "id", "exists": true }

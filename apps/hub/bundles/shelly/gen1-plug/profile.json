@@ -1,0 +1,92 @@
+{
+  "discovery": {
+    "probe": { "op": "get", "args": { "path": "/shelly" } },
+    "claim": [
+      { "path": "type", "oneOf": ["SHPLG-1", "SHPLG-S"] },
+      { "path": "mac", "exists": true }
+    ],
+    "identity": { "externalId": "mac", "model": "type", "swVersion": "fw" }
+  },
+  "subscriptions": [{ "op": "poll", "args": { "everyMs": 30000 } }],
+  "entities": [
+    {
+      "domain": "switch",
+      "objectId": "switch",
+      "name": "Switch",
+      "icon": "switch",
+      "capabilities": { "on_off": {} },
+      "state": { "on_off": { "isOn": "relays[0].ison" } },
+      "commands": {
+        "on_off.turn_on": {
+          "op": "get",
+          "args": { "path": "/relay/0", "query": { "turn": "on" } }
+        },
+        "on_off.turn_off": {
+          "op": "get",
+          "args": { "path": "/relay/0", "query": { "turn": "off" } }
+        },
+        "on_off.toggle": {
+          "op": "get",
+          "args": { "path": "/relay/0", "query": { "turn": "toggle" } }
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "power",
+      "name": "Power",
+      "icon": "zap",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "meters[0].power" } },
+      "unitOfMeasurement": "W",
+      "deviceClass": "power",
+      "stateClass": "measurement",
+      "displayPrecision": 1
+    },
+    {
+      "domain": "sensor",
+      "objectId": "energy",
+      "name": "Energy",
+      "icon": "energy",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "meters[0].total_wh" } },
+      "unitOfMeasurement": "Wh",
+      "deviceClass": "energy",
+      "stateClass": "total_increasing",
+      "displayPrecision": 2
+    },
+    {
+      "domain": "sensor",
+      "objectId": "temperature",
+      "name": "Device temperature",
+      "icon": "thermometer",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "tmp.tC" } },
+      "unitOfMeasurement": "°C",
+      "deviceClass": "temperature",
+      "stateClass": "measurement",
+      "displayPrecision": 1
+    },
+    {
+      "domain": "binary_sensor",
+      "objectId": "firmware",
+      "name": "Firmware update",
+      "icon": "circle-arrow-up",
+      "capabilities": { "sensor_binary": {} },
+      "state": { "sensor_binary": { "isOn": "update.has_update" } },
+      "deviceClass": "update"
+    },
+    {
+      "domain": "button",
+      "objectId": "firmware_install",
+      "name": "Install firmware update",
+      "icon": "download",
+      "capabilities": { "button": {} },
+      "state": {},
+      "commands": {
+        "button.press": { "op": "get", "args": { "path": "/ota", "query": { "update": true } } }
+      },
+      "deviceClass": "update"
+    }
+  ]
+}

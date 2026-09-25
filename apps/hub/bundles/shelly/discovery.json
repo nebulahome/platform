@@ -1,20 +1,16 @@
 {
-  "listen": [
-    {
-      "mdns": "_shelly._tcp"
-    }
-  ],
+  "listen": [{ "mdns": "_shelly._tcp" }, { "mdns": "_http._tcp" }],
+  "match": [{ "path": "instance", "startsWith": "shelly" }],
   "probe": {
-    "transport": "shelly/rpc",
-    "op": "call",
-    "args": {
-      "method": "Shelly.GetDeviceInfo"
-    }
+    "transport": "http",
+    "op": "get",
+    "args": { "path": "/shelly" },
+    "timeoutMs": 10000
   },
   "identity": {
-    "externalId": "id",
+    "externalId": ["id", "mac"],
     "name": "name",
-    "model": "model",
-    "swVersion": "ver"
+    "model": ["model", "type"],
+    "swVersion": ["ver", "fw"]
   }
 }

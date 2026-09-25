@@ -1,0 +1,12 @@
+{
+  "id": "gen1-dimmer",
+  "name": "Dimmer (Gen1)",
+  "transport": "shelly/gen1",
+  "models": ["Dimmer Gen1", "Dimmer 2"],
+  "modelCodes": { "SHDM-1": "Dimmer Gen1", "SHDM-2": "Dimmer 2" },
+  "defaultIcon": "light",
+  "webPagePort": 80,
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

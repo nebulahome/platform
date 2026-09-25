@@ -2,10 +2,11 @@
   "id": "em-2",
   "name": "Energy meter, two channels",
   "transport": "shelly/rpc",
-  "models": ["EM Gen3", "EM Gen4"],
+  "models": ["EM Gen3", "EM Gen4", "Pro EM"],
   "modelCodes": {
     "S3EM-002CXCEU": "EM Gen3",
-    "S4EM-002CXCEU": "EM Gen4"
+    "S4EM-002CXCEU": "EM Gen4",
+    "SPEM-002CEBEU50": "Pro EM"
   },
   "defaultIcon": "gauge",
   "webPagePort": 80,

@@ -2,10 +2,14 @@
   "id": "switch-2",
   "name": "Two relays",
   "transport": "shelly/rpc",
-  "models": ["2L Gen3", "2L Gen4"],
+  "models": ["2L Gen3", "2L Gen4", "Pro 2", "Pro 2 v2", "Pro 2 v3", "Pro 2 UL"],
   "modelCodes": {
     "S3SW-0A2X4EUL": "2L Gen3",
-    "S4SW-0A2X4EUL": "2L Gen4"
+    "S4SW-0A2X4EUL": "2L Gen4",
+    "SPSW-002XE16EU": "Pro 2",
+    "SPSW-102XE16EU": "Pro 2 v2",
+    "SPSW-202XE16EU": "Pro 2 v3",
+    "SPSW-202XE12UL": "Pro 2 UL"
   },
   "defaultIcon": "relay",
   "webPagePort": 80,
