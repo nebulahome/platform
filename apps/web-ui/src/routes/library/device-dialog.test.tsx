@@ -117,6 +117,7 @@ const BAMBU: IntegrationVendorView = {
   logoPadding: 0,
   internetRequired: false,
   transports: ['mqtt'],
+  discoverySources: [],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
   drivers: [
     {
@@ -145,6 +146,7 @@ const SHELLY: IntegrationVendorView = {
   id: 'shelly',
   name: 'Shelly',
   transports: ['http'],
+  discoverySources: [],
   drivers: [
     {
       id: 'shelly/1pm-mini-g3',
@@ -279,9 +281,36 @@ describe('adding a device', () => {
   it('offers every model the vendor has, names the device after the one picked, and suggests an id from the name', () => {
     renderDialog({ mode: 'create', vendor: BAMBU, existingIds: [] });
 
-    expect(screen.getByLabelText('Model').textContent).toContain('X1C');
+    expect(screen.getByRole('option', { selected: true }).textContent).toBe('X1C');
     expect(screen.getByLabelText<HTMLInputElement>('Name').value).toBe('X1C');
     expect(screen.getByLabelText<HTMLInputElement>('Id').value).toBe('bambu-lab-x1c');
+  });
+
+  it('lists the models down the side, and a pick from the list renames the device', () => {
+    renderDialog({ mode: 'create', vendor: BAMBU, existingIds: [] });
+
+    const models = screen.getByRole('listbox', { name: 'Model' });
+
+    expect(
+      [...models.querySelectorAll('[role="option"]')].map((option) => option.textContent),
+    ).toEqual(['X1C', 'P1S']);
+
+    fireEvent.click(screen.getByRole('option', { name: 'P1S' }));
+
+    expect(screen.getByRole('option', { selected: true }).textContent).toBe('P1S');
+    expect(screen.getByLabelText<HTMLInputElement>('Name').value).toBe('P1S');
+  });
+
+  it('moves the pick with the arrow keys, as a listbox does', () => {
+    renderDialog({ mode: 'create', vendor: BAMBU, existingIds: [] });
+
+    fireEvent.keyDown(screen.getByRole('listbox', { name: 'Model' }), { key: 'ArrowDown' });
+
+    expect(screen.getByRole('option', { selected: true }).textContent).toBe('P1S');
+
+    fireEvent.keyDown(screen.getByRole('listbox', { name: 'Model' }), { key: 'Home' });
+
+    expect(screen.getByRole('option', { selected: true }).textContent).toBe('X1C');
   });
 
   it('follows the name into the id until the id is typed by hand', () => {
@@ -417,17 +446,53 @@ describe('adding a device', () => {
     });
   });
 
-  it('puts the name and its icon first, the tags under them, and only then the model', () => {
+  it('puts the name and its icon first, the tags under them, and the models in a card of their own', () => {
     renderDialog({ mode: 'create', vendor: BAMBU, existingIds: [] });
 
     const name = screen.getByLabelText('Name');
     const tags = screen.getByRole('combobox', { name: 'Tags' });
-    const model = screen.getByRole('combobox', { name: /model/iu });
+    const models = screen.getByRole('region', { name: 'Models' });
 
-    // What a row is recognised by comes first; which of six printers it is comes after.
+    // What a row is recognised by comes first; which of six printers it is sits beside the form.
     expect(name.compareDocumentPosition(tags) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(tags.compareDocumentPosition(model) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(models.contains(screen.getByRole('listbox', { name: 'Model' }))).toBe(true);
+    expect(models.contains(name)).toBe(false);
     expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
+  });
+
+  it('narrows a long list of models from its search, and picks from what is left', () => {
+    const [printer] = BAMBU.drivers;
+
+    if (printer === undefined) {
+      throw new Error('The Bambu fixture has a driver');
+    }
+
+    renderDialog({
+      mode: 'create',
+      vendor: {
+        ...BAMBU,
+        drivers: [{ ...printer, models: ['X1C', 'X1E', 'P1S', 'P1P', 'A1', 'A1 mini', 'H2D'] }],
+      },
+      existingIds: [],
+    });
+
+    fireEvent.change(screen.getByLabelText('Search models'), { target: { value: 'a1' } });
+
+    const models = screen.getByRole('listbox', { name: 'Model' });
+
+    expect(
+      [...models.querySelectorAll('[role="option"]')].map((option) => option.textContent),
+    ).toEqual(['A1', 'A1 mini']);
+
+    fireEvent.click(screen.getByRole('option', { name: 'A1 mini' }));
+
+    expect(screen.getByLabelText<HTMLInputElement>('Name').value).toBe('A1 mini');
+  });
+
+  it('offers no search when the models are few enough to read at a glance', () => {
+    renderDialog({ mode: 'create', vendor: BAMBU, existingIds: [] });
+
+    expect(screen.queryByLabelText('Search models')).toBeNull();
   });
 
   it('puts a tag on the device as it is added', async () => {
@@ -479,7 +544,7 @@ describe('what the device says it is', () => {
     await waitFor(() => {
       expect(screen.getByLabelText<HTMLInputElement>('Name').value).toBe('P1S');
     });
-    expect(screen.getByLabelText('Model').textContent).toContain('P1S');
+    expect(screen.getByRole('option', { selected: true }).textContent).toBe('P1S');
     expect(screen.getByLabelText<HTMLInputElement>('Id').value).toBe('bambu-lab-p1s');
     expect(screen.getByRole('status').textContent).toContain('Connected');
     expect(screen.getByRole('status').textContent).toContain('P1S');
@@ -513,7 +578,7 @@ describe('what the device says it is', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Test' }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Model').textContent).toContain('Plug S Gen3');
+      expect(screen.getByRole('option', { selected: true }).textContent).toBe('Plug S Gen3');
     });
     expect(screen.getByLabelText<HTMLInputElement>('Address').value).toBe('192.168.1.41');
   });
@@ -531,7 +596,7 @@ describe('what the device says it is', () => {
     await waitFor(() => {
       expect(screen.getByRole('status').textContent).toContain('Connected');
     });
-    expect(screen.getByLabelText('Model').textContent).toContain('X1C');
+    expect(screen.getByRole('option', { selected: true }).textContent).toBe('X1C');
   });
 });
 

@@ -60,6 +60,7 @@ import {
 } from '@/library/setup-values';
 import { ConfirmRemoval } from '@/routes/library/confirm-removal';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
+import { ModelList } from '@/routes/library/model-list';
 import { NameIconField } from '@/routes/library/name-icon-field';
 import { SetupForm } from '@/routes/library/setup-form';
 import { TagField } from '@/routes/library/tag-field';
@@ -82,17 +83,6 @@ export type DeviceDialogTarget =
       readonly vendor: IntegrationVendorView | undefined;
       readonly device: DeviceView;
     };
-
-/**
- * The value a model option carries: the kind and the model, joined by a character neither can
- * contain, so that two vendors' models of the same name stay two options.
- *
- * @param choice - The kind and the model.
- * @returns The option value.
- */
-function modelValueOf(choice: Pick<ModelChoice, 'kind' | 'model'>): string {
-  return `${choice.kind}\u0000${choice.model}`;
-}
 
 /** What the dialog needs. */
 export type DeviceDialogProps = {
@@ -491,19 +481,6 @@ export function DeviceDialog(props: DeviceDialogProps) {
   };
 
   /**
-   * Picks another model from the list.
-   *
-   * @param value - The option chosen: the kind and the model, joined.
-   */
-  const pick = (value: string): void => {
-    const next = choices.find((each) => modelValueOf(each) === value);
-
-    if (next !== undefined) {
-      choose(next, 'picked');
-    }
-  };
-
-  /**
    * Renames the device, and moves the suggested id with it while nobody has typed one.
    *
    * @param value - What was typed.
@@ -536,12 +513,29 @@ export function DeviceDialog(props: DeviceDialogProps) {
     save.mutate({ transportConfig: {}, options: {} });
   };
 
+  // More than one model to pick from puts the models in a card of their own beside the form.
+  const hasModelList = choices.length > 1;
+
   return (
     <Modal
       isOpen={target !== null}
       onClose={onClose}
       title={title}
       description={description}
+      aside={
+        hasModelList ? (
+          <ModelList
+            choices={choices}
+            value={choice}
+            vendor={vendor}
+            disabled={isBusy}
+            onPick={(next) => {
+              choose(next, 'picked');
+            }}
+          />
+        ) : undefined
+      }
+      asideLabel="Models"
       footer={
         isRemoving && existing !== undefined ? (
           <ConfirmRemoval
@@ -650,23 +644,6 @@ export function DeviceDialog(props: DeviceDialogProps) {
             setAreaId(value === '' ? null : value);
           }}
         />
-
-        {choices.length > 1 ? (
-          <SelectField
-            label="Model"
-            options={choices.map((each) => ({
-              value: modelValueOf(each),
-              label: each.model,
-            }))}
-            value={choice === undefined ? '' : modelValueOf(choice)}
-            hint={
-              vendor !== undefined && vendor.drivers.length > 1 && driver !== undefined
-                ? `Driven as ${driver.name}.`
-                : undefined
-            }
-            onChange={pick}
-          />
-        ) : null}
 
         {existing === undefined ? (
           <TextField
