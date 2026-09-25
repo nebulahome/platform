@@ -36,7 +36,7 @@ import {
 } from '../services/devices.js';
 
 /** Which device a request is about. */
-const deviceParamsSchema = z.object({ deviceId: integrationIdSchema });
+export const deviceParamsSchema = z.object({ deviceId: integrationIdSchema });
 
 /**
  * What the device paths need, for one request.

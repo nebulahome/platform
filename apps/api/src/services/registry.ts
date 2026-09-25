@@ -451,7 +451,7 @@ async function resolveSceneMembers(
 
 /**
  * Checks a member's target state is a scene target: schema-valid, writable, and not a
- * sensor, camera, jammed lock or idle media player.
+ * sensor, camera, button, jammed lock or idle media player.
  *
  * @param entityId - The address, for the error sentence.
  * @param state - What was asked for.
@@ -479,7 +479,8 @@ function assertSceneTargetState(entityId: string, state: CapabilityState): Capab
       capability === 'sensor_numeric' ||
       capability === 'sensor_binary' ||
       capability === 'sensor_text' ||
-      capability === 'camera'
+      capability === 'camera' ||
+      capability === 'button'
     ) {
       throw new ValidationError(`Entity ${entityId} target cannot include ${capability}`, {
         details: { entityId, capability },

@@ -535,6 +535,63 @@ export async function findEntity(
 }
 
 /**
+ * Reads several entities by their identifiers, in one pass: {@link findEntity} for a list.
+ *
+ * What a page about one device needs for each of the device's entities - its view, the scopes a
+ * grant could cover it by, and its row - in four queries however many entities there are.
+ *
+ * @param db - The database.
+ * @param entityIds - The addresses.
+ * @returns The entities found, by address; an address nothing is registered under is left out.
+ */
+export async function findEntities(
+  db: Database,
+  entityIds: readonly string[],
+): Promise<EntityDetail[]> {
+  if (entityIds.length === 0) {
+    return [];
+  }
+
+  const rows: EntityRow[] = await db
+    .select(ENTITY_COLUMNS)
+    .from(schema.registry.entities)
+    .leftJoin(
+      schema.registry.devices,
+      eq(schema.registry.devices.id, schema.registry.entities.deviceId),
+    )
+    .leftJoin(schema.registry.areas, eq(schema.registry.areas.id, EFFECTIVE_AREA_ID))
+    .leftJoin(
+      schema.registry.entityStates,
+      eq(schema.registry.entityStates.entityId, schema.registry.entities.id),
+    )
+    .where(inArray(schema.registry.entities.entityId, [...entityIds]))
+    .orderBy(asc(schema.registry.entities.entityId));
+
+  const rowIds = rows.map((row) => row.rowId);
+  const [capabilities, tags, deviceTags] = await Promise.all([
+    readCapabilities(db, rowIds),
+    readTags(db, rowIds),
+    readDeviceTagKeys(
+      db,
+      rows.map((row) => row.deviceId),
+    ),
+  ]);
+
+  return rows.map((row) => ({
+    view: toView(row, capabilities.get(row.rowId) ?? [], tags.get(row.rowId) ?? []),
+    scopes: entityScopes(
+      row.entityId,
+      row.areaKey,
+      scopeTagKeys(
+        tags.get(row.rowId),
+        row.deviceId === null ? undefined : deviceTags.get(row.deviceId),
+      ),
+    ),
+    rowId: row.rowId,
+  }));
+}
+
+/**
  * Changes what a person calls an entity, what it is drawn as, and the tags on it.
  *
  * The identifier is not among what can change: it is what automations and history name the

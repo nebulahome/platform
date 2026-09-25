@@ -14,6 +14,7 @@ import {
   DISCOVERED_ACME,
   DISCOVERED_PRINTER,
   emptyDatabase,
+  scanned,
   stopHub,
 } from '../testing/hub-harness.js';
 
@@ -43,6 +44,39 @@ describe('with the hub answering', () => {
         { id: DISCOVERED_ACME.id, kind: 'acme/printer' },
       ],
     });
+  });
+
+  it('asks the hub to look now, for one vendor or every one', async () => {
+    scanned.length = 0;
+
+    const one = await server.inject({
+      method: 'POST',
+      url: '/api/v1/discovery/scan',
+      headers: { authorization: await bearer('device:write') },
+      payload: { vendorId: 'acme' },
+    });
+    const every = await server.inject({
+      method: 'POST',
+      url: '/api/v1/discovery/scan',
+      headers: { authorization: await bearer('device:write') },
+      payload: {},
+    });
+
+    expect(one.statusCode).toBe(202);
+    expect(one.json()).toEqual({ vendors: ['acme'] });
+    expect(every.json()).toEqual({ vendors: ['acme', 'bambu-lab'] });
+    expect(scanned).toEqual(['acme', undefined]);
+  });
+
+  it('keeps looking from somebody who may only read devices', async () => {
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/discovery/scan',
+      headers: { authorization: await bearer('device:read') },
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(403);
   });
 
   it('keeps the list from somebody who may not see devices', async () => {

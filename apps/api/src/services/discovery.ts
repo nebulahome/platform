@@ -14,6 +14,8 @@
 import {
   busSubjects,
   discoveredReplySchema,
+  discoverReplySchema,
+  HUB_DISCOVER_METHOD,
   HUB_DISCOVERED_METHOD,
   HUB_SERVICE,
   NotFoundError,
@@ -129,6 +131,33 @@ export async function listDiscovered(context: IntegrationsContext): Promise<Disc
 
     return [];
   }
+}
+
+/**
+ * Asks the hub to look for devices now.
+ *
+ * Answered once the hub has asked the network, not once the network has answered: devices arrive
+ * over the next seconds, each one a `discovery` event on the live channel, which is where a page
+ * waiting for them hears of them.
+ *
+ * @param context - The request's collaborators.
+ * @param vendorId - Only this vendor; every one that can be found when absent.
+ * @returns The vendors being looked for; none when the vendor cannot be found on the network, or
+ * the hub's discovery is off.
+ * @throws {DeviceUnavailableError} When the bus is not reachable or the hub did not answer.
+ */
+export async function requestScan(
+  context: IntegrationsContext,
+  vendorId: string | undefined,
+): Promise<string[]> {
+  const reply = await busOf(context).request(
+    busSubjects.service(HUB_SERVICE, HUB_DISCOVER_METHOD),
+    vendorId === undefined ? {} : { vendorId },
+    discoverReplySchema,
+    { traceId: context.traceId },
+  );
+
+  return reply.vendors;
 }
 
 /**

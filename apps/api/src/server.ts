@@ -22,6 +22,7 @@ import type { ApiContext } from './context.js';
 import { registerTracing } from './http/context.js';
 import { createErrorHandler, handleNotFound } from './http/errors.js';
 import { RouteRegistry, type RouteEnvironment } from './http/route.js';
+import { registerActivityRoutes } from './routes/activity.js';
 import { registerAreaRoutes } from './routes/areas.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerDashboardRoutes } from './routes/dashboards.js';
@@ -191,6 +192,7 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   registerIntegrationRoutes(environment, context);
   registerIconRoutes(environment, context);
   registerHistoryRoutes(environment, context);
+  registerActivityRoutes(environment, context);
   registerUserRoutes(environment, context);
   registerSettingsRoutes(environment, context);
   registerSystemRoutes(environment, context);

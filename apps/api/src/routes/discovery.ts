@@ -1,25 +1,32 @@
 /**
- * `/discovery`: the devices the hub heard announce themselves, and adopting one.
+ * `/discovery`: the devices the hub heard announce themselves, adopting one, and looking now.
  *
  * A list and one action on each entry. The list is the hub's, read through; adopting is adding a
- * device with the answers discovery already has, and it is audited as the addition it is.
+ * device with the answers discovery already has, and it is audited as the addition it is. Looking
+ * now asks the hub to ask the network again instead of at its next scheduled question.
  */
 import { z } from 'zod';
 
 import {
   deviceViewSchema,
   discoveredReplySchema,
+  discoverReplySchema,
+  discoverRequestSchema,
   discoveryAdoptSchema,
   type DeviceView,
   type DiscoveredReply,
+  type DiscoverReply,
 } from '@nebula-home/contracts';
 
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
-import { adoptDiscovered, listDiscovered } from '../services/discovery.js';
+import { adoptDiscovered, listDiscovered, requestScan } from '../services/discovery.js';
 
 import { forRequest } from './devices.js';
+
+/** The status a scan is answered with: asked for, answers still to come. */
+const SCAN_ACCEPTED_STATUS = 202;
 
 /** Which proposed device a request is about, as the hub listed it. */
 const candidateParamsSchema = z.object({ candidateId: z.string().regex(/^[a-f0-9]{16,64}$/) });
@@ -52,6 +59,37 @@ export function registerDiscoveryRoutes(environment: RouteEnvironment, context: 
       requirePermission(route.identity, 'device:read');
 
       return { items: await listDiscovered(forRequest(context, route.request.traceId)) };
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/discovery/scan',
+      summary: 'Look for devices on the network now',
+      tag: 'Devices',
+      permission: 'device:write',
+      body: discoverRequestSchema,
+      response: discoverReplySchema,
+      successStatus: SCAN_ACCEPTED_STATUS,
+    },
+
+    /**
+     * Asks the hub to look now, for one vendor or every one that can be found.
+     *
+     * Asked of whoever may add devices: looking is what comes before adding, and it makes the
+     * hub talk to every device of the vendor on the network.
+     *
+     * @param route - Which vendor, if only one, and who is asking.
+     * @returns The vendors being looked for.
+     */
+    async (route): Promise<DiscoverReply> => {
+      requirePermission(route.identity, 'device:write');
+
+      return {
+        vendors: await requestScan(forRequest(context, route.request.traceId), route.body.vendorId),
+      };
     },
   );
 

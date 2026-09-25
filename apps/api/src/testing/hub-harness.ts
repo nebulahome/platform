@@ -22,11 +22,13 @@ import {
   CORE_UNREGISTER_METHOD,
   discoveredDeviceSchema,
   discoveredRequestSchema,
+  discoverRequestSchema,
   forgetRequestSchema,
   parseCommandSubject,
   removeAliasRequestSchema,
   syncAliasRequestSchema,
   HUB_CATALOGUE_METHOD,
+  HUB_DISCOVER_METHOD,
   HUB_DISCOVERED_METHOD,
   HUB_FORGET_METHOD,
   HUB_PROBE_METHOD,
@@ -41,6 +43,8 @@ import {
   type CommandAck,
   type DiscoveredDevice,
   type DiscoveredReply,
+  type DiscoverReply,
+  type DiscoverRequest,
   type ForgetReply,
   type ForgetRequest,
   type IntegrationSetup,
@@ -118,6 +122,7 @@ export const CATALOGUE: CatalogueReply = {
       logoPadding: 0,
       internetRequired: false,
       transports: ['mqtt'],
+      discoverySources: [],
       setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
       drivers: [
         {
@@ -139,6 +144,7 @@ export const CATALOGUE: CatalogueReply = {
       logoPadding: 0,
       internetRequired: true,
       transports: ['mqtt'],
+      discoverySources: [],
       setup: {
         transport: {
           constants: {},
@@ -276,6 +282,9 @@ export const probed: ProbeRequest[] = [];
 
 /** What the fake hub was asked to reload, in order. */
 export const reloaded: string[] = [];
+
+/** What the hub was asked to look for, in order: a vendor, or undefined for every one. */
+export const scanned: (string | undefined)[] = [];
 
 /** What the fake hub was asked to forget, in order. */
 export const forgotten: string[] = [];
@@ -423,6 +432,17 @@ export async function buildTestServer(
       busSubjects.service(HUB_SERVICE, HUB_DISCOVERED_METHOD),
       discoveredRequestSchema,
       (): DiscoveredReply => ({ items: [DISCOVERED_PRINTER, DISCOVERED_ACME] }),
+    ),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_DISCOVER_METHOD),
+      discoverRequestSchema,
+      (request: DiscoverRequest): DiscoverReply => {
+        scanned.push(request.vendorId);
+
+        return {
+          vendors: request.vendorId === undefined ? ['acme', 'bambu-lab'] : [request.vendorId],
+        };
+      },
     ),
     hub.serve(
       busSubjects.service(HUB_SERVICE, HUB_PROBE_METHOD),
