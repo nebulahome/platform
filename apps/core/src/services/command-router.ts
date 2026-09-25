@@ -51,6 +51,9 @@ export type CommandRouterOptions = {
   readonly commandTimeoutMs: number;
 };
 
+/** How many commands may be waiting on their devices at once. */
+const COMMAND_CONCURRENCY = 32;
+
 /**
  * Serves every entity command and forwards it to the owning adapter, or applies it on a stored
  * alias.
@@ -135,5 +138,10 @@ export function startCommandRouter(options: CommandRouterOptions): BusSubscripti
         acceptedAt: new Date(),
       };
     },
+
+    // Each command waits on the one device it is for, for up to the command timeout. Handled one
+    // at a time, a light that does not answer would hold every other command in the house
+    // behind it; the adapter keeps a device's own commands in order.
+    { concurrency: COMMAND_CONCURRENCY },
   );
 }
