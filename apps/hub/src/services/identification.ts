@@ -276,8 +276,11 @@ export class IdentificationService {
   /**
    * Listens until the device is identified, or until told to stop.
    *
-   * Never rejects. A pass that heard nothing is followed by another almost at once; a pass that
-   * failed waits the longer while and says why. A row that is not there ends the search: nothing
+   * Never rejects. A pass that heard nothing is followed by another almost at once, and the pause
+   * doubles with each further quiet pass up to the retry wait: a device that is off, or unplugged,
+   * is otherwise asked once a second forever, each time over a socket of its own, and a device
+   * that accepts only a few connections at once can refuse its real one for it. A pass that failed
+   * waits the longer while and says why. A row that is not there ends the search: nothing
    * this service can do makes the API's row appear, and the state stays `identifying` for the
    * owner to see.
    *
@@ -291,6 +294,7 @@ export class IdentificationService {
   ): Promise<Identified | undefined> {
     const { logger, retryMs } = this.#options;
     const pauseMs = this.#options.pauseMs ?? DEFAULT_PAUSE_MS;
+    let quietMs = pauseMs;
 
     logger.info(
       {
@@ -326,9 +330,13 @@ export class IdentificationService {
           break;
         }
 
-        logger.debug({ instanceId: instance.instanceId, pass }, 'Nothing heard in this pass');
+        logger.debug(
+          { instanceId: instance.instanceId, pass, nextInMs: quietMs },
+          'Nothing heard in this pass',
+        );
         // eslint-disable-next-line no-await-in-loop -- a pause before listening again, same reason
-        await delay(pauseMs, signal);
+        await delay(quietMs, signal);
+        quietMs = Math.min(quietMs * 2, Math.max(retryMs, pauseMs));
       } catch (error: unknown) {
         if (stopped(signal)) {
           break;

@@ -27,6 +27,37 @@ const CLOSE_GRACE_MS = 2000;
 const NORMAL_CLOSURE = 1000;
 
 /**
+ * The close code for a socket that ended without a close frame: refused, reset, timed out, or
+ * a peer that vanished. Node's WebSocket fires an `error` with nothing in it just before, so this
+ * code - and whether the socket had opened - is all there is to tell those apart.
+ */
+const ABNORMAL_CLOSURE = 1006;
+
+/**
+ * Reads what an error event says went wrong.
+ *
+ * Node's WebSocket dispatches an `ErrorEvent` whose `error` is the underlying failure - a refused
+ * connection, a reset, a handshake the device turned down - and whose `message` repeats it. An
+ * event with neither says nothing, and gets nothing.
+ *
+ * @param event - The error event.
+ * @returns The words, or null.
+ */
+function errorTextOf(event: Event): string | null {
+  const { error, message } = event as Event & { error?: unknown; message?: unknown };
+
+  if (error instanceof Error && error.message !== '') {
+    const code = (error as Error & { code?: unknown }).code;
+
+    return typeof code === 'string' && !error.message.includes(code)
+      ? `${code}: ${error.message}`
+      : error.message;
+  }
+
+  return typeof message === 'string' && message !== '' ? message : null;
+}
+
+/**
  * Opens a managed WebSocket.
  *
  * @param options - Where to connect and what to call.
@@ -46,6 +77,13 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
   let isFinal = false;
   let pauseMs = reconnect?.minMs ?? 0;
   let timer: NodeJS.Timeout | null = null;
+
+  // A kept socket says it went once, at info, and that it is back once; the retries in between
+  // are debug. A socket opened for one question says everything at debug: a device that is off
+  // is the ordinary answer to a probe, not news.
+  const role = reconnect === null ? 'one-shot' : 'kept';
+  let wasOpen = false;
+  let failedAttempts = 0;
 
   /**
    * Arranges the next attempt, unless this socket is finished or one-shot.
@@ -67,9 +105,25 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
    * Lets go of the current socket and reports the drop.
    *
    * @param reason - Why, in a few words.
+   * @param code - The close code, when a close event carried one.
    */
-  const dropped = (reason: string): void => {
+  const dropped = (reason: string, code?: number): void => {
     current = null;
+
+    if (reconnect !== null && wasOpen) {
+      logger.info({ url, reason, code }, 'Socket dropped; reconnecting');
+    } else {
+      logger.debug(
+        { url, role, reason, code, attempt: failedAttempts + 1 },
+        wasOpen ? 'Socket closed' : 'Socket did not open',
+      );
+    }
+
+    if (!wasOpen) {
+      failedAttempts += 1;
+    }
+
+    wasOpen = false;
     onClose(reason);
     schedule();
   };
@@ -101,12 +155,24 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
 
     current = socket;
 
+    /** What the last error event said, to explain the close that follows it. */
+    let failure: string | null = null;
+    let hasOpened = false;
+
     socket.addEventListener('open', () => {
       if (current !== socket) {
         return;
       }
 
+      hasOpened = true;
+
+      if (reconnect !== null && failedAttempts > 0) {
+        logger.info({ url, attempts: failedAttempts }, 'Socket reopened');
+      }
+
       pauseMs = reconnect?.minMs ?? 0;
+      failedAttempts = 0;
+      wasOpen = true;
       onOpen();
     });
 
@@ -118,10 +184,16 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
       onMessage(typeof event.data === 'string' ? event.data : String(event.data));
     });
 
-    socket.addEventListener('error', () => {
-      // The close event that follows carries what can be said; an error event says nothing
-      // a person can read, and logging it would put a line in the log for every retry.
-      logger.debug({ url }, 'Socket error');
+    socket.addEventListener('error', (event) => {
+      // A socket already let go - reset, or closed while still connecting - has nobody left to
+      // tell, and its error is the expected end of a socket nobody wants.
+      if (current !== socket) {
+        return;
+      }
+
+      // Kept for the close that always follows, which is where it is logged, once: an error
+      // event on its own would put a second, vaguer line in the log for every attempt.
+      failure = errorTextOf(event);
     });
 
     socket.addEventListener('close', (event) => {
@@ -129,7 +201,16 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
         return;
       }
 
-      dropped(event.reason === '' ? `closed with code ${String(event.code)}` : event.reason);
+      const said =
+        event.reason !== ''
+          ? event.reason
+          : event.code === ABNORMAL_CLOSURE
+            ? hasOpened
+              ? 'connection lost'
+              : 'connection not accepted'
+            : `closed with code ${String(event.code)}`;
+
+      dropped(failure === null ? said : `${said} (${failure})`, event.code);
     });
   }
 
@@ -172,6 +253,8 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
       }
 
       current = null;
+      logger.debug({ url, reason }, 'Socket reset');
+      wasOpen = false;
       socket.close(NORMAL_CLOSURE, reason);
       onClose(reason);
       schedule();

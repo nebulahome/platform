@@ -241,6 +241,7 @@ describe('openWebSocket', () => {
     await until(() => seen.closes.length >= 2);
 
     expect(seen.opens).toBe(0);
+    expect(seen.closes[0]).toMatch(/^connection not accepted/);
     await socket.close();
     await listen();
   });
