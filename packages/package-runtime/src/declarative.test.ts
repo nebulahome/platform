@@ -201,6 +201,18 @@ describe('subscriptions', () => {
     // Two instances watching one MQTT topic filter must not make the transport subscribe twice.
     expect(integration().subscriptions([claim(), claim()], {})).toHaveLength(1);
   });
+
+  it('reads as often as the owner chose, in place of the profile', () => {
+    const [subscription] = integration().subscriptions([claim()], { pollInterval: 30 });
+
+    expect(subscription?.args).toMatchObject({ path: '/status', everyMs: 30_000 });
+  });
+
+  it('keeps the profile interval when the owner chose none', () => {
+    const [subscription] = integration().subscriptions([claim()], {});
+
+    expect(subscription?.args).toMatchObject({ everyMs: 5000 });
+  });
 });
 
 describe('toState', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolvePath, resolvePresence } from './evaluate.js';
+import { conditionHolds, resolvePath, resolvePresence } from './evaluate.js';
 
 describe('resolvePath', () => {
   it('walks a path of names', () => {
@@ -71,5 +71,22 @@ describe('resolvePresence', () => {
     expect(resolvePresence({ 'switch:0': { output: true } }, 'sys.available_updates.stable')).toBe(
       undefined,
     );
+  });
+});
+
+describe('conditionHolds', () => {
+  it('takes a text that starts with the prefix, whatever its case', () => {
+    const condition = { path: 'instance', startsWith: 'shelly' };
+
+    expect(conditionHolds(condition, { instance: 'shellyplus1-a8032ab1' })).toBe(true);
+    expect(conditionHolds(condition, { instance: 'ShellyDimmerG3-7C2C67' })).toBe(true);
+  });
+
+  it('refuses another prefix, and anything that is not text', () => {
+    const condition = { path: 'instance', startsWith: 'shelly' };
+
+    expect(conditionHolds(condition, { instance: 'Brother HL-L2350DW' })).toBe(false);
+    expect(conditionHolds(condition, { instance: 42 })).toBe(false);
+    expect(conditionHolds(condition, {})).toBe(false);
   });
 });

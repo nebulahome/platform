@@ -49,11 +49,16 @@ const MAXIMUM_ONE_OF = 64;
  * `oneOf` is membership in a list - a family of devices is one model string among several -
  * and not an `or` between paths: the list is still all-of, and a claim needing boolean
  * algebra is still a claim whose integration should be code.
+ *
+ * `startsWith` is a prefix of a text, compared without regard to case: what a name a device
+ * gives itself on the network looks like - `shellyplus1-a8032ab1`, `ShellyDimmerG3-…` - when
+ * the rest of it is the device's own.
  */
 export const claimConditionSchema = z.union([
   z.strictObject({ path: pathSchema, equals: scalarSchema }),
   z.strictObject({ path: pathSchema, exists: z.literal(true) }),
   z.strictObject({ path: pathSchema, oneOf: z.array(scalarSchema).min(1).max(MAXIMUM_ONE_OF) }),
+  z.strictObject({ path: pathSchema, startsWith: z.string().min(1).max(64) }),
 ]);
 
 /** One condition a candidate must satisfy for an integration to claim it. */

@@ -13,6 +13,7 @@
 import {
   capabilityStateSchema,
   jsonObjectSchema,
+  pollIntervalMsOf,
   resolveCanonicalUnit,
   resolveStateClass,
   toCanonical,
@@ -318,19 +319,29 @@ export function createDeclarativeIntegration(
      * States what the transport must carry for these devices.
      *
      * @param claims - The devices this instance owns.
+     * @param options - The instance's settings: `pollInterval`, when the owner chose one.
      * @returns One subscription per device and template, with duplicates collapsed.
      */
-    subscriptions: (claims: readonly Claim[]): TransportSubscription[] => {
+    subscriptions: (claims: readonly Claim[], options: JsonObject): TransportSubscription[] => {
       const rendered = new Map<string, TransportSubscription>();
+      const everyMs = pollIntervalMsOf(options);
 
       for (const each of claims) {
         for (const template of profile.subscriptions) {
           // `deviceKey` is added rather than written in the profile: a profile describes a kind
           // of device, and a polling transport has to know which one it is polling.
-          const subscription = {
-            op: template.op,
-            args: { deviceKey: each.deviceKey, ...fillArgs(template, each.descriptor) },
+          const args: JsonObject = {
+            deviceKey: each.deviceKey,
+            ...fillArgs(template, each.descriptor),
           };
+
+          // The owner's interval replaces the profile's wherever the profile reads on a timer.
+          // A subscription without `everyMs` - a topic, a push - is not a read and keeps its own.
+          if (everyMs !== undefined && 'everyMs' in args) {
+            args['everyMs'] = everyMs;
+          }
+
+          const subscription = { op: template.op, args };
 
           rendered.set(JSON.stringify(subscription), subscription);
         }

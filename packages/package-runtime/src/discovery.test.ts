@@ -252,6 +252,35 @@ describe('identifySighting', () => {
       swVersion: null,
     });
   });
+
+  it('reads the first of several paths that names a value', () => {
+    // Shelly's generations answer GET /shelly in two vocabularies.
+    const plan = resolveDiscovery(
+      'shelly',
+      vendorDiscoverySchema.parse({
+        ...shellyDiscovery(),
+        identity: { externalId: ['id', 'mac'], model: ['model', 'type'], swVersion: ['ver', 'fw'] },
+      }),
+      shellyDrivers(),
+    );
+
+    expect(
+      identifySighting(plan, { type: 'SHSW-25', mac: 'A4CF12F45CC4', fw: '20230913-112003' }),
+    ).toEqual({
+      externalId: 'A4CF12F45CC4',
+      name: null,
+      modelCode: 'SHSW-25',
+      swVersion: '20230913-112003',
+    });
+    expect(
+      identifySighting(plan, { id: 'shellyplus1-a8', mac: 'A8', model: 'SNSW-001X16EU' }),
+    ).toEqual({
+      externalId: 'shellyplus1-a8',
+      name: null,
+      modelCode: 'SNSW-001X16EU',
+      swVersion: null,
+    });
+  });
 });
 
 describe('associateModel', () => {
@@ -263,6 +292,17 @@ describe('associateModel', () => {
 
   it('finds the driver and the model from the code the hardware reports', () => {
     expect(associateModel(plan, 'S3SW-001P8EU')).toEqual({
+      driverId: 'switch-pm',
+      model: '1PM Mini Gen3',
+      modelChoices: ['1PM Mini Gen3'],
+    });
+  });
+
+  it("lets the driver's claim refuse a code only it maps, when there was a probe", () => {
+    // A Pro 3EM reports the same code in its monophase profile, which the triphase driver's claim
+    // refuses: proposing it would only fail at identification.
+    expect(associateModel(plan, 'S3SW-001P8EU', () => false)).toBeNull();
+    expect(associateModel(plan, 'S3SW-001P8EU', (driverId) => driverId === 'switch-pm')).toEqual({
       driverId: 'switch-pm',
       model: '1PM Mini Gen3',
       modelChoices: ['1PM Mini Gen3'],

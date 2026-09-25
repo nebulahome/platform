@@ -140,7 +140,7 @@ function walk(payload: unknown, segments: readonly Segment[]): unknown {
 /**
  * Decides whether one condition holds.
  *
- * The same three forms wherever a condition is written - a driver's claim, a vendor's match on
+ * The same four forms wherever a condition is written - a driver's claim, a vendor's match on
  * an announcement - so there is one reading of each.
  *
  * @param condition - What to check.
@@ -156,6 +156,13 @@ export function conditionHolds(condition: ClaimCondition, payload: unknown): boo
 
   if ('oneOf' in condition) {
     return condition.oneOf.some((candidate) => candidate === value);
+  }
+
+  if ('startsWith' in condition) {
+    return (
+      typeof value === 'string' &&
+      value.toLowerCase().startsWith(condition.startsWith.toLowerCase())
+    );
   }
 
   return value === condition.equals;

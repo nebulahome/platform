@@ -68,6 +68,15 @@ export const listenSourceSchema = z.union([
 export type ListenSource = z.output<typeof listenSourceSchema>;
 
 /**
+ * Where one identity field is: a path, or several tried in order.
+ *
+ * Several when the vendor's generations answer the same question in different words - a Shelly
+ * Gen1 says `type` and `mac` where later ones say `model` and `id` - so the first path that names
+ * a value is the one read.
+ */
+const identityPathSchema = z.union([pathSchema, z.array(pathSchema).min(1).max(4)]);
+
+/**
  * Where a device says who it is, in what the probe returned or, without one, in the announcement.
  *
  * Every field is optional, because devices say different amounts before they are set up: a
@@ -76,13 +85,13 @@ export type ListenSource = z.output<typeof listenSourceSchema>;
  */
 export const discoveryIdentitySchema = z.strictObject({
   /** What the hardware calls its model, looked up in the drivers' `modelCodes`. */
-  model: pathSchema.optional(),
+  model: identityPathSchema.optional(),
 
   /** What makes the device the same device next time: the same value identification reads. */
-  externalId: pathSchema.optional(),
+  externalId: identityPathSchema.optional(),
 
-  name: pathSchema.optional(),
-  swVersion: pathSchema.optional(),
+  name: identityPathSchema.optional(),
+  swVersion: identityPathSchema.optional(),
 });
 
 /** Where a device says who it is. */
@@ -93,11 +102,17 @@ export type DiscoveryIdentity = z.output<typeof discoveryIdentitySchema>;
  *
  * `op` and `args` are the transport's vocabulary, as in a profile's probe. There is no command to
  * take a value from, so the arguments are literal.
+ *
+ * `timeoutMs` is how long the answer may take, for devices slower than the platform's few
+ * seconds: a Shelly on a weak Wi-Fi link sleeps its radio and takes seconds to answer the first
+ * request. It is also handed to the transport as its own `timeoutMs`, so the transport must be one
+ * that reads it - `http` and `shelly/rpc` do.
  */
 export const discoveryProbeSchema = z.strictObject({
   transport: transportIdSchema,
   op: z.string().min(1).max(32),
   args: jsonObjectSchema.default({}),
+  timeoutMs: z.int().min(500).max(30_000).optional(),
 });
 
 /** What to ask an announced address. */
@@ -224,22 +239,28 @@ export type SightingIdentity = {
  * Reads one identity field as text.
  *
  * @param payload - What came back.
- * @param path - Where the vendor says the field is, if anywhere.
- * @returns The text, a number spelled out, or null for anything else. A serial reported as a
- * number is still a serial.
+ * @param path - Where the vendor says the field is, if anywhere: one path, or several in order.
+ * @returns The text of the first path that names one, a number spelled out, or null for anything
+ * else. A serial reported as a number is still a serial.
  */
-function textAt(payload: unknown, path: string | undefined): string | null {
+function textAt(payload: unknown, path: string | readonly string[] | undefined): string | null {
   if (path === undefined) {
     return null;
   }
 
-  const value = resolvePath(payload, path);
+  for (const each of typeof path === 'string' ? [path] : path) {
+    const value = resolvePath(payload, each);
 
-  if (typeof value === 'string') {
-    return value.length === 0 ? null : value;
+    if (typeof value === 'string' && value.length > 0) {
+      return value;
+    }
+
+    if (typeof value === 'number') {
+      return String(value);
+    }
   }
 
-  return typeof value === 'number' ? String(value) : null;
+  return null;
 }
 
 /**
@@ -284,8 +305,9 @@ function choicesOf(driver: DiscoveryDriver): readonly string[] {
 /**
  * Finds the driver a device belongs to, and its model.
  *
- * The code the hardware reports is looked up in the drivers' `modelCodes` first; when two drivers
- * map it, their own claims decide between them. When no driver maps it, the drivers' own claims
+ * The code the hardware reports is looked up in the drivers' `modelCodes` first; with a probe's
+ * answer the drivers' own claims confirm it, and decide between two drivers that map it. When no
+ * driver maps it, the drivers' own claims
  * decide, in the order the drivers were loaded - the claim identification already makes, so a
  * vendor whose drivers claim by model needs no codes at all.
  *
@@ -303,8 +325,15 @@ export function associateModel(
   const coded = modelCode === null ? [] : (plan.codes.get(modelCode) ?? []);
 
   if (coded.length > 0) {
+    // With a probe's answer, the driver's own claim has the last word even when the code names
+    // one driver: a Pro 3EM reports one code in either of its profiles, and only its triphase one
+    // is the driver's. Without one there is nothing for a claim to read, and the code decides.
     const found =
-      coded.length === 1 ? coded[0] : coded.find((entry) => claimedBy?.(entry.driverId) === true);
+      claimedBy === undefined
+        ? coded.length === 1
+          ? coded[0]
+          : undefined
+        : coded.find((entry) => claimedBy(entry.driverId));
 
     return found === undefined
       ? null
