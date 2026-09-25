@@ -46,14 +46,15 @@ describe('EnergyCard', () => {
     expect(screen.queryByText(/^BATTERY/u)).toBeNull();
     expect(screen.getByText('GRID')).toBeTruthy();
     expect(screen.getByText('Energy', { selector: 'span.text-title' })).toBeTruthy();
-    expect(screen.getByText(/kWh used today/u)).toBeTruthy();
+    // Wh early in the day, kWh later: the sample day runs up to now.
+    expect(screen.getByText(/\d Wh used today|kWh used today/u)).toBeTruthy();
     expect(screen.queryByText('Impact')).toBeNull();
   });
 
   it('shows the day with panels as what they made and how much the house ran on itself', () => {
     renderCard({ solar: 5200, battery: null, level: null, grid: -3100 });
 
-    expect(screen.getByText(/kWh generated today/u)).toBeTruthy();
+    expect(screen.getByText(/\d Wh generated today|kWh generated today/u)).toBeTruthy();
     expect(screen.getByText(/% self-powered today/u)).toBeTruthy();
   });
 
