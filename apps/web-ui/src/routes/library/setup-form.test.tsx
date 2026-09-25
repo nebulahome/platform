@@ -8,7 +8,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { integrationSetupSchema } from '@nebula-home/contracts';
+import { integrationSetupSchema, withPollingField } from '@nebula-home/contracts';
 
 import { initialDraft } from '@/library/setup-values';
 
@@ -130,5 +130,42 @@ describe('SetupForm', () => {
     );
 
     expect(screen.getByLabelText('Access code').getAttribute('placeholder')).toMatch(/kept/iu);
+  });
+
+  it('asks how often a polled device is read, in whole seconds, and warns below the advice', () => {
+    const polled = withPollingField(
+      integrationSetupSchema.parse({
+        transport: { fields: [] },
+        polling: { default: 30, min: 5, warnBelow: 10 },
+      }),
+    ).options;
+    const { rerender } = render(
+      <SetupForm
+        group={polled}
+        draft={initialDraft(polled)}
+        errors={{}}
+        kept={[]}
+        onChange={vi.fn()}
+      />,
+    );
+    const input = screen.getByLabelText('Update every');
+
+    expect(input.getAttribute('min')).toBe('5');
+    expect(input.getAttribute('step')).toBe('1');
+    expect(screen.getByText(/In seconds\./u)).toBeTruthy();
+    expect(screen.queryByText(/loads the device/u)).toBeNull();
+
+    rerender(
+      <SetupForm
+        group={polled}
+        draft={{ pollInterval: '6' }}
+        errors={{}}
+        kept={[]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/More often than every 10 s loads the device/u)).toBeTruthy();
+    expect(input.getAttribute('aria-describedby')).toMatch(/warning/u);
   });
 });

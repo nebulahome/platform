@@ -9,10 +9,8 @@
  * One card per vendor the hub has loaded, in a grid, narrowed from the header. Opening a card
  * gives the vendor its own page: who it is, what it needs, every device added under it, and the
  * devices of theirs the hub found on the network and nobody has added. A card says how many were
- * found, so the page worth opening is visible from here.
- *
- * **Scan network** asks the hub to look for devices now rather than at its next pass, for every
- * vendor whose devices can be found on the network; each vendor's page has the same for one.
+ * found, so the page worth opening is visible from here. Looking for a vendor's devices now,
+ * rather than at the hub's next pass, is on that vendor's page.
  *
  * **Install integration** is here for the catalogue that will fill it, and does nothing yet.
  * Present rather than absent so the header already has the shape it will keep; disabled rather
@@ -35,7 +33,6 @@ import { IntegrationFilter } from '@/routes/library/integration-filter';
 import { LibraryPage } from '@/routes/library/library-page';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
-import { useNetworkScan } from '@/routes/library/use-network-scan';
 import { VendorCard } from '@/routes/library/vendor-card';
 
 /**
@@ -47,9 +44,7 @@ export function IntegrationsPage() {
   const can = useSession((state) => state.can);
   const canConfigure = can('integration:configure');
   const canSeeDevices = can('device:read');
-  const canAddDevices = can('device:write');
   const [filter, setFilter] = useListState(VENDOR_FILTER_CODEC);
-  const network = useNetworkScan();
 
   const vendors = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.vendors,
@@ -80,7 +75,6 @@ export function IntegrationsPage() {
 
   const all = vendors.data ?? [];
   const shown = all.filter((vendor) => matchesVendorFilter(vendor, filter));
-  const canScan = canAddDevices && all.some((vendor) => vendor.discoverySources.length > 0);
   const foundBy = new Map<string, number>();
 
   for (const device of discovered.data ?? []) {
@@ -109,27 +103,10 @@ export function IntegrationsPage() {
         </>
       }
       action={
-        canScan || canConfigure ? (
-          <>
-            {canScan ? (
-              <Button
-                variant="ghost"
-                size="compact"
-                isBusy={network.isScanning}
-                title={network.problem ?? 'Ask every device on the network who it is, now'}
-                onClick={() => {
-                  network.scan();
-                }}
-              >
-                {network.isScanning ? 'Scanning…' : 'Scan network'}
-              </Button>
-            ) : null}
-            {canConfigure ? (
-              <Button size="compact" disabled title="The catalogue is not here yet">
-                Install integration
-              </Button>
-            ) : null}
-          </>
+        canConfigure ? (
+          <Button size="compact" disabled title="The catalogue is not here yet">
+            Install integration
+          </Button>
         ) : undefined
       }
       isPending={vendors.isPending}
@@ -137,12 +114,6 @@ export function IntegrationsPage() {
       isEmpty={all.length === 0}
       emptyMessage="The hub has no integration bundles loaded. The ones that ship with it appear here as soon as it starts."
     >
-      {network.problem === null ? null : (
-        <p role="alert" className="text-ui text-danger">
-          {network.problem}
-        </p>
-      )}
-
       {shown.length === 0 && isNarrowing(filter) ? (
         <NoMatches
           query={filter.search}

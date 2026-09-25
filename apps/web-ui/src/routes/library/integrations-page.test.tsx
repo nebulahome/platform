@@ -19,7 +19,6 @@ import {
   fetchIcons,
   fetchTags,
   fetchVendors,
-  scanNetwork,
 } from '@/library/api';
 
 import { IntegrationsPage } from './integrations-page';
@@ -33,7 +32,6 @@ vi.mock('@/library/api', () => ({
   fetchTags: vi.fn(),
   createTag: vi.fn(),
   fetchAreas: vi.fn(),
-  scanNetwork: vi.fn(),
   LIBRARY_QUERY_KEYS: {
     vendors: ['library', 'vendors'],
     discovered: ['library', 'discovered'],
@@ -230,26 +228,15 @@ describe('the devices found on the network', () => {
     expect(screen.queryByRole('button', { name: 'Adopt Kitchen' })).toBeNull();
   });
 
-  it('can be looked for now, by somebody who may add devices', async () => {
+  it('leave looking for them to each vendor page', async () => {
+    // Looking is per vendor: the page for all of them offers no search of its own.
     vi.mocked(fetchVendors).mockResolvedValue([vendor({ discoverySources: ['mdns'] })]);
-    vi.mocked(scanNetwork).mockResolvedValue(['shelly']);
-    renderPage(['device:read', 'device:write']);
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Scan network' }));
-
-    await waitFor(() => {
-      expect(scanNetwork).toHaveBeenCalledWith(undefined);
-    });
-  });
-
-  it('offer no scan when no vendor can be found on the network', async () => {
-    vi.mocked(fetchVendors).mockResolvedValue([vendor({ discoverySources: [] })]);
     renderPage(['device:read', 'device:write']);
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: 'Shelly' })).toBeTruthy();
     });
-    expect(screen.queryByRole('button', { name: 'Scan network' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Scan network|Discover devices/u })).toBeNull();
   });
 
   it('are not asked for from somebody who may not see devices', async () => {

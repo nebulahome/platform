@@ -372,10 +372,11 @@ describe('the devices of a vendor found on the network', () => {
     expect(screen.queryByRole('region', { name: /Found on your network/u })).toBeNull();
   });
 
-  it('can be looked for now, for a vendor whose devices can be found', async () => {
+  it('can be looked for now, and says what the search found', async () => {
     vi.mocked(fetchVendor).mockResolvedValue({ ...BAMBU, discoverySources: ['module'] });
     vi.mocked(fetchDevices).mockResolvedValue([]);
-    vi.mocked(scanNetwork).mockResolvedValue(['bambu-lab']);
+    vi.mocked(fetchDiscovered).mockResolvedValueOnce([]).mockResolvedValue([FOUND]);
+    vi.mocked(scanNetwork).mockResolvedValue({ vendors: ['bambu-lab'], lookingForMs: 20 });
     renderPage('bambu-lab', ['device:read']);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Discover devices' }));
@@ -383,6 +384,20 @@ describe('the devices of a vendor found on the network', () => {
     await waitFor(() => {
       expect(scanNetwork).toHaveBeenCalledWith('bambu-lab');
     });
+    expect(await screen.findByText('Found 1 new Bambu Lab device.')).toBeTruthy();
+  });
+
+  it('says so when the hub is not looking', async () => {
+    // A hub with discovery switched off answers at once with nothing: the button must not look
+    // busy for a while and then say nothing.
+    vi.mocked(fetchVendor).mockResolvedValue({ ...BAMBU, discoverySources: ['module'] });
+    vi.mocked(fetchDevices).mockResolvedValue([]);
+    vi.mocked(scanNetwork).mockResolvedValue({ vendors: [], lookingForMs: 0 });
+    renderPage('bambu-lab', ['device:read']);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Discover devices' }));
+
+    expect(await screen.findByText(/discovery is switched off/u)).toBeTruthy();
   });
 
   it('offer no Discover for a vendor whose devices are only added by address', async () => {

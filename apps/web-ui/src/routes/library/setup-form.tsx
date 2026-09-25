@@ -40,6 +40,42 @@ function textOf(value: DraftValue | undefined): string {
   return typeof value === 'string' ? value : '';
 }
 
+/** Units a person reads better spelled out: "In seconds." rather than "In s.". */
+const UNIT_WORDS: Readonly<Record<string, string>> = {
+  ms: 'milliseconds',
+  s: 'seconds',
+  min: 'minutes',
+  h: 'hours',
+};
+
+/**
+ * What a number field warns about, for what its control holds now.
+ *
+ * @param field - The declaration.
+ * @param value - What the control holds.
+ * @returns The bundle's warning, or a plain one, when the value is a number below `warnBelow`;
+ * undefined otherwise - including while the value is not a number yet, which is the error's job.
+ */
+function warningOf(
+  field: Extract<SetupField, { type: 'number' }>,
+  value: DraftValue | undefined,
+): string | undefined {
+  const text = textOf(value).trim();
+  const number = Number(text);
+
+  if (field.warnBelow === undefined || text === '' || !Number.isFinite(number)) {
+    return undefined;
+  }
+
+  if (number >= field.warnBelow) {
+    return undefined;
+  }
+
+  const unit = field.unit === undefined ? '' : ` ${field.unit}`;
+
+  return field.warning ?? `Below ${String(field.warnBelow)}${unit} is not advised.`;
+}
+
 /**
  * Renders one field.
  *
@@ -107,14 +143,21 @@ function Field(props: {
       return (
         <TextField
           label={field.label}
+          name={field.key}
           type="number"
-          inputMode="decimal"
+          inputMode={field.isInteger ? 'numeric' : 'decimal'}
           size="medium"
           required={field.isRequired}
+          min={field.min}
+          max={field.max}
+          step={field.isInteger ? 1 : 'any'}
           value={textOf(value)}
           hint={
-            field.unit === undefined ? help : [help, `In ${field.unit}.`].filter(Boolean).join(' ')
+            field.unit === undefined
+              ? help
+              : [help, `In ${UNIT_WORDS[field.unit] ?? field.unit}.`].filter(Boolean).join(' ')
           }
+          warning={error === undefined ? warningOf(field, value) : undefined}
           error={error}
           onChange={(event) => {
             onChange(event.target.value);

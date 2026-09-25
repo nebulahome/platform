@@ -19,7 +19,9 @@
  * Between the vendor and its devices, the devices of theirs the hub found on the network and
  * nobody has added, each with an Adopt - set apart from the list, and there only when something
  * was found. A vendor whose devices can be found has **Discover devices** in the header, which
- * asks the hub to look now rather than at its next pass.
+ * asks the hub to look now rather than at its next pass - for as long as the hub says it looks -
+ * and then says what came of it: how many were found, nothing new, or that the hub is not
+ * looking at all.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
@@ -48,9 +50,29 @@ import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
 import { LibraryPage } from '@/routes/library/library-page';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
-import { useNetworkScan } from '@/routes/library/use-network-scan';
+import { useNetworkScan, type ScanOutcome } from '@/routes/library/use-network-scan';
 import { Marks, VendorLogo } from '@/routes/library/vendor-card';
 import { VendorSetupDialog } from '@/routes/library/vendor-setup-dialog';
+
+/**
+ * What a search for a vendor's devices came to, in a sentence.
+ *
+ * @param outcome - What it came to.
+ * @param vendorName - The vendor, as the page names it.
+ * @returns The sentence.
+ */
+function outcomeText(outcome: ScanOutcome, vendorName: string): string {
+  switch (outcome.kind) {
+    case 'off':
+      return 'The hub is not looking for devices: discovery is switched off on it.';
+    case 'found':
+      return outcome.count === 1
+        ? `Found 1 new ${vendorName} device.`
+        : `Found ${String(outcome.count)} new ${vendorName} devices.`;
+    case 'nothing':
+      return `Nothing new found. A ${vendorName} device on another network, or one that does not announce itself, is added by its address.`;
+  }
+}
 
 /** How long after a save the list is read again, for a device the hub was still starting. */
 const SETTLE_MS = 3000;
@@ -437,6 +459,19 @@ export function VendorPage() {
             {network.problem === null ? null : (
               <p role="alert" className="text-ui text-danger">
                 {network.problem}
+              </p>
+            )}
+
+            {network.isScanning ? (
+              <p role="status" className="text-ui text-foreground-muted">
+                Asking every {found.name} device on the network who it is
+                {network.lookingForMs > 0
+                  ? `, for the next ${String(Math.round(network.lookingForMs / 1000))} seconds…`
+                  : '…'}
+              </p>
+            ) : network.outcome === null ? null : (
+              <p role="status" className="text-ui text-foreground-muted">
+                {outcomeText(network.outcome, found.name)}
               </p>
             )}
 

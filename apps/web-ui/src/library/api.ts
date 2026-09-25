@@ -49,6 +49,7 @@ import {
   type DeviceUpdate,
   type DeviceView,
   type DiscoveredDevice,
+  type DiscoverReply,
   type DiscoveryAdopt,
   type EntityCommandResponse,
   type EntityUpdate,
@@ -276,19 +277,17 @@ export async function fetchDiscovered(signal?: AbortSignal): Promise<DiscoveredD
 }
 
 /**
- * Asks the hub to look for devices on the network now, rather than at its next pass.
+ * Asks the hub to look for one vendor's devices on the network now, rather than at its next pass.
  *
- * @param vendorId - Only this vendor's devices; every vendor that can be found when absent.
- * @returns The vendors being looked for. What is found arrives over the next seconds, each
- * device a `discovery` event on the live channel.
+ * @param vendorId - The vendor.
+ * @returns The vendor being looked for, and for how long; nothing when the hub is not looking.
+ * What is found arrives over those seconds, each device a `discovery` event on the live channel.
  */
-export async function scanNetwork(vendorId?: string): Promise<string[]> {
-  const { vendors } = await apiRequest('/discovery/scan', discoverReplySchema, {
+export async function scanNetwork(vendorId: string): Promise<DiscoverReply> {
+  return apiRequest('/discovery/scan', discoverReplySchema, {
     method: 'POST',
-    body: vendorId === undefined ? {} : { vendorId },
+    body: { vendorId },
   });
-
-  return vendors;
 }
 
 /**
