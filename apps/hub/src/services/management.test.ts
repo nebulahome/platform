@@ -8,8 +8,10 @@ import {
   catalogueReplySchema,
   discoveredDeviceSchema,
   discoveredReplySchema,
+  discoverReplySchema,
   forgetReplySchema,
   HUB_CATALOGUE_METHOD,
+  HUB_DISCOVER_METHOD,
   HUB_DISCOVERED_METHOD,
   HUB_FORGET_METHOD,
   HUB_PROBE_METHOD,
@@ -165,6 +167,7 @@ type Harness = {
   readonly detected: { kind: string; transportConfig: unknown }[];
   readonly reloaded: string[];
   readonly forgotten: string[];
+  readonly rescanned: (string | undefined)[];
   readonly stop: () => void;
 };
 
@@ -215,6 +218,7 @@ function harness(
 
   const reloaded: string[] = [];
   const forgotten: string[] = [];
+  const rescanned: (string | undefined)[] = [];
   const detected: { kind: string; transportConfig: unknown }[] = [];
   const service = new ManagementService({
     client,
@@ -223,6 +227,11 @@ function harness(
     secretsKey: KEY,
     vendors: (): readonly LoadedVendor[] => [printerVendor()],
     discovered: (): readonly DiscoveredDevice[] => answers.discovered ?? [],
+    rescan: (vendorId): readonly string[] => {
+      rescanned.push(vendorId);
+
+      return vendorId === undefined || vendorId === 'acme' ? ['acme'] : [];
+    },
     detect: (kind, transportConfig): Promise<Detected | undefined> => {
       detected.push({ kind, transportConfig });
 
@@ -247,6 +256,7 @@ function harness(
     detected,
     reloaded,
     forgotten,
+    rescanned,
     stop: (): void => {
       for (const subscription of subscriptions) {
         subscription.unsubscribe();
@@ -437,6 +447,26 @@ describe('the devices discovery proposes', () => {
     );
 
     expect(reply.items).toEqual([PROPOSED]);
+    stop();
+  });
+
+  it('asks discovery to look now, for one vendor or every one', async () => {
+    const { caller, rescanned, stop } = harness();
+
+    const one = await caller.request(
+      busSubjects.service(HUB_SERVICE, HUB_DISCOVER_METHOD),
+      { vendorId: 'acme' },
+      discoverReplySchema,
+    );
+    const every = await caller.request(
+      busSubjects.service(HUB_SERVICE, HUB_DISCOVER_METHOD),
+      {},
+      discoverReplySchema,
+    );
+
+    expect(one.vendors).toEqual(['acme']);
+    expect(every.vendors).toEqual(['acme']);
+    expect(rescanned).toEqual(['acme', undefined]);
     stop();
   });
 });

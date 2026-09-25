@@ -106,17 +106,48 @@ export type DiscoveryServiceOptions = {
 /** A proposed device, and when it was last heard, as a number to compare. */
 type Candidate = { readonly device: DiscoveredDevice; readonly heardAtMs: number };
 
-/** What a probe of one address last found, and when. */
-type Probed = { readonly atMs: number; readonly candidateId: string | null };
+/**
+ * What a probe of one address last found, and when.
+ *
+ * `isAnswered` tells an address that said who it is - proposed, or taken by no driver - from one
+ * that said nothing. The first is trusted for the probe interval; the second only for a short
+ * while, since a device that was busy or rebooting when it was first asked is the usual reason,
+ * and it should not wait ten minutes to be asked again.
+ */
+type Probed = {
+  readonly atMs: number;
+  readonly candidateId: string | null;
+  readonly isAnswered: boolean;
+};
 
 /** A dotted-quad IPv4 address, which is what the private-address check applies to. */
 const IPV4_PATTERN = /^\d{1,3}(?:\.\d{1,3}){3}$/;
 
 /** How many probes may be in flight at once, when not said. */
-const DEFAULT_PROBE_CONCURRENCY = 4;
+const DEFAULT_PROBE_CONCURRENCY = 8;
 
-/** How long one probe may take, when not said. */
-const DEFAULT_PROBE_TIMEOUT_MS = 8000;
+/**
+ * How long one probe may take, when not said.
+ *
+ * A device on the house network answers in tens of milliseconds; four seconds is a device that is
+ * not going to, and a slot a real one could have had.
+ */
+const DEFAULT_PROBE_TIMEOUT_MS = 4000;
+
+/** How long an address that did not answer a probe waits before it is asked again. */
+const UNANSWERED_PROBE_RETRY_MS = 30_000;
+
+/**
+ * When mDNS is asked again after the first question, on start and on a scan the owner asked for.
+ *
+ * One question over multicast can be lost - a device busy, a Wi-Fi access point dropping one
+ * frame - and would then wait a whole query interval. RFC 6762 asks a querier to repeat itself
+ * at growing intervals, and this is the start of that ladder.
+ */
+const MDNS_REPEAT_MS: readonly number[] = [1000, 3000];
+
+/** How long a vendor's saved settings are reused between probes before being read again. */
+const SETTINGS_TTL_MS = 10_000;
 
 /** How long a vendor's module is left before it is listened with again, when not said. */
 const DEFAULT_MODULE_RESTART_MS = 30_000;
@@ -181,8 +212,14 @@ export class DiscoveryService {
   readonly #queue: (() => Promise<void>)[] = [];
   readonly #timers: NodeJS.Timeout[] = [];
   readonly #modules: Promise<void>[] = [];
+  readonly #repeats = new Set<NodeJS.Timeout>();
+  readonly #settings = new Map<
+    string,
+    { readonly atMs: number; readonly value: Promise<JsonObject> }
+  >();
   #abort = new AbortController();
   #active = 0;
+  #isListening = false;
   #taken: TakenDevices = { externalIds: new Set(), hosts: new Set() };
   #signature = '[]';
 
@@ -204,6 +241,7 @@ export class DiscoveryService {
     const { vendors, mdns, queryIntervalMs, ttlMs } = this.#options;
 
     this.#abort = new AbortController();
+    this.#isListening = true;
     this.#taken = await this.#options.taken();
 
     const services = [
@@ -220,7 +258,7 @@ export class DiscoveryService {
       mdns.start(services, (announcement) => {
         this.#onAnnouncement(announcement);
       });
-      mdns.query();
+      this.#ask();
 
       const querying = setInterval(() => {
         mdns.query();
@@ -256,12 +294,18 @@ export class DiscoveryService {
    */
   public async stop(): Promise<void> {
     this.#abort.abort();
+    this.#isListening = false;
 
     for (const timer of this.#timers) {
       clearInterval(timer);
     }
 
+    for (const repeat of this.#repeats) {
+      clearTimeout(repeat);
+    }
+
     this.#timers.length = 0;
+    this.#repeats.clear();
     this.#queue.length = 0;
     await this.#options.mdns.stop();
     await Promise.all(this.#modules);
@@ -275,6 +319,71 @@ export class DiscoveryService {
    */
   public list(): DiscoveredDevice[] {
     return this.#visible().map((candidate) => candidate.device);
+  }
+
+  /**
+   * Looks for devices now, rather than at the next scheduled question.
+   *
+   * What the owner's "look for devices" asks. Forgets what the vendors' addresses answered to
+   * their last probes, so every device heard is asked again, then asks mDNS - repeating itself,
+   * as on start - and asks every vendor module that can ask. What answers arrives the ordinary
+   * way, over the next seconds.
+   *
+   * @param vendorId - Only this vendor; every vendor that can be found when absent.
+   * @returns The vendors now being looked for: none when the vendor cannot be found on the
+   * network, or discovery is not listening.
+   */
+  public rescan(vendorId?: string): string[] {
+    if (!this.#isListening) {
+      return [];
+    }
+
+    const vendors = this.#options.vendors.filter(
+      (vendor) =>
+        (vendorId === undefined || vendor.id === vendorId) && vendor.discovery.sources.length > 0,
+    );
+
+    for (const key of [...this.#probed.keys()]) {
+      if (vendors.some((vendor) => key.startsWith(`${vendor.id}\n`))) {
+        this.#probed.delete(key);
+      }
+    }
+
+    const services = [
+      ...new Set(
+        vendors.flatMap((vendor) =>
+          vendor.discovery.sources.flatMap((source) =>
+            source.kind === 'mdns' ? [source.service] : [],
+          ),
+        ),
+      ),
+    ];
+
+    if (services.length > 0) {
+      this.#ask(services);
+    }
+
+    for (const vendor of vendors) {
+      for (const source of vendor.discovery.sources) {
+        if (source.kind === 'module') {
+          try {
+            source.source.scan?.();
+          } catch (error: unknown) {
+            this.#options.logger.warn(
+              { err: error, vendor: vendor.id, module: source.file },
+              'A discovery module could not scan',
+            );
+          }
+        }
+      }
+    }
+
+    this.#options.logger.info(
+      { vendors: vendors.map((vendor) => vendor.id) },
+      'Looking for devices',
+    );
+
+    return vendors.map((vendor) => vendor.id);
   }
 
   /**
@@ -322,6 +431,30 @@ export class DiscoveryService {
           model: association.model,
           modelChoices: association.modelChoices,
         };
+  }
+
+  /**
+   * Asks mDNS now, and again along the repeat ladder, unless discovery stops first.
+   *
+   * @param services - Only these service types; every one browsed for when absent.
+   */
+  #ask(services?: readonly string[]): void {
+    const { mdns } = this.#options;
+
+    mdns.query(services);
+
+    for (const afterMs of MDNS_REPEAT_MS) {
+      const repeat: NodeJS.Timeout = setTimeout(() => {
+        this.#repeats.delete(repeat);
+
+        if (!this.#abort.signal.aborted) {
+          mdns.query(services);
+        }
+      }, afterMs);
+
+      repeat.unref();
+      this.#repeats.add(repeat);
+    }
   }
 
   /**
@@ -421,10 +554,22 @@ export class DiscoveryService {
       return;
     }
 
+    const host = sighting.config['host'];
+
+    if (typeof host === 'string' && this.#taken.hosts.has(`${vendor.id}\n${host}`)) {
+      // Already added at this address: it would not be proposed, and asking it opens one more
+      // connection to a device already busy with the hub's own.
+      return;
+    }
+
     const key = `${vendor.id}\n${probe.transport}\n${JSON.stringify(sighting.config)}`;
     const last = this.#probed.get(key);
+    const trustMs =
+      last?.isAnswered === false
+        ? Math.min(UNANSWERED_PROBE_RETRY_MS, this.#options.probeIntervalMs)
+        : this.#options.probeIntervalMs;
 
-    if (last !== undefined && this.#now() - last.atMs < this.#options.probeIntervalMs) {
+    if (last !== undefined && this.#now() - last.atMs < trustMs) {
       if (last.candidateId !== null) {
         this.#touch(last.candidateId);
       }
@@ -445,7 +590,11 @@ export class DiscoveryService {
             ? null
             : this.#propose(vendor, source, sighting.config, found.payload, found);
 
-        this.#probed.set(key, { atMs: this.#now(), candidateId });
+        this.#probed.set(key, {
+          atMs: this.#now(),
+          candidateId,
+          isAnswered: found !== undefined,
+        });
       } finally {
         this.#inFlight.delete(key);
       }
@@ -482,7 +631,7 @@ export class DiscoveryService {
     ]);
 
     try {
-      const settings = await this.#options.vendorSettings(vendorId);
+      const settings = await this.#settingsOf(vendorId);
       const terms: JsonObject = { probe: { op: probe.op, args: probe.args } };
 
       for await (const found of transport.scan({ ...settings, ...config }, terms, signal)) {
@@ -493,6 +642,37 @@ export class DiscoveryService {
     }
 
     return undefined;
+  }
+
+  /**
+   * Reads what the owner saved for a vendor, reusing a recent read.
+   *
+   * A scan probes a dozen devices of one vendor in the same second, and each would otherwise read
+   * the same row; a few seconds' reuse is far shorter than anyone takes to edit the settings.
+   *
+   * @param vendorId - The vendor.
+   * @returns Its saved settings.
+   */
+  #settingsOf(vendorId: string): Promise<JsonObject> {
+    const nowMs = this.#now();
+    const cached = this.#settings.get(vendorId);
+
+    if (cached !== undefined && nowMs - cached.atMs < SETTINGS_TTL_MS) {
+      return cached.value;
+    }
+
+    const value = this.#options.vendorSettings(vendorId);
+
+    this.#settings.set(vendorId, { atMs: nowMs, value });
+
+    // A read that failed is not kept: the next probe reads again.
+    value.catch(() => {
+      if (this.#settings.get(vendorId)?.value === value) {
+        this.#settings.delete(vendorId);
+      }
+    });
+
+    return value;
   }
 
   /**

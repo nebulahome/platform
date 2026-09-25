@@ -44,8 +44,12 @@ export type MdnsSource = {
     onAnnouncement: (announcement: MdnsAnnouncement) => void,
   ) => void;
 
-  /** Asks again, and reports again every device still remembered. */
-  readonly query: () => void;
+  /**
+   * Asks again, and reports again every device still remembered.
+   *
+   * @param services - Only these service types; every one browsed for when absent.
+   */
+  readonly query: (services?: readonly string[]) => void;
 
   /**
    * Stops browsing and lets go of the socket.
@@ -242,9 +246,17 @@ export function createMdnsSource(options: { readonly logger: PlatformLogger }): 
       }
     },
 
-    /** Asks again, and reports again every device still remembered. */
-    query: (): void => {
+    /**
+     * Asks again, and reports again every device still remembered.
+     *
+     * @param services - Only these service types; every one browsed for when absent.
+     */
+    query: (services?: readonly string[]): void => {
       for (const { serviceType, browser } of browsers) {
+        if (services !== undefined && !services.includes(serviceType)) {
+          continue;
+        }
+
         browser.expire();
         browser.update();
 

@@ -464,6 +464,114 @@ describe('DiscoveryService', () => {
     expect(built.published.at(-1)).toBe(1);
   });
 
+  it('does not probe an address already added, which the hub is already connected to', async () => {
+    const built = await start();
+
+    built.taken = { externalIds: new Set(), hosts: new Set(['acme\n192.168.1.40']) };
+    await built.service.refresh();
+    built.mdns.announce(heard('192.168.1.40'));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(built.transport.scans).toEqual([]);
+  });
+
+  it('asks an address that did not answer again sooner than one that did', async () => {
+    // Nothing answers at .43: it is asked again on the next announcement once the short retry
+    // has passed, while the probe interval here is a minute.
+    let nowMs = 1_000_000;
+    const mdns = fakeMdns();
+    const transport = fakeTransport();
+    const transports = new Registry<Transport>('transport');
+    const integrations = new Registry<Integration>('integration');
+
+    transports.register(transport.transport);
+    integrations.register(relayIntegration());
+
+    const service = new DiscoveryService({
+      vendors: [acme()],
+      mdns,
+      transports,
+      integrations,
+      logger: silent(),
+      vendorSettings: () => Promise.resolve({}),
+      taken: () => Promise.resolve({ externalIds: new Set(), hosts: new Set() }),
+      publishChanged: () => undefined,
+      queryIntervalMs: 60_000,
+      ttlMs: 600_000,
+      probeIntervalMs: 600_000,
+      now: () => nowMs,
+    });
+
+    harness = {
+      service,
+      mdns,
+      transport,
+      published: [],
+      taken: { externalIds: new Set(), hosts: new Set() },
+    };
+    await service.start();
+
+    mdns.announce(heard('192.168.1.43'));
+    await until(() => transport.scans.length === 1);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    nowMs += 31_000;
+    mdns.announce(heard('192.168.1.43'));
+    await until(() => transport.scans.length === 2);
+  });
+
+  it('looks again at once when asked, repeating the mDNS question', async () => {
+    const { service, mdns, transport } = await start();
+
+    mdns.announce(heard('192.168.1.40'));
+    await until(() => service.list().length > 0);
+
+    const asked = mdns.queries;
+
+    expect(service.rescan('acme')).toEqual(['acme']);
+    expect(mdns.queries).toBe(asked + 1);
+
+    // What the address answered before is forgotten, so it is asked again when heard.
+    mdns.announce(heard('192.168.1.40'));
+    await until(() => transport.scans.length === 2);
+    await until(() => mdns.queries >= asked + 2, 3000);
+  });
+
+  it('looks for nothing when the vendor cannot be found on the network', async () => {
+    const { service } = await start();
+
+    expect(service.rescan('other')).toEqual([]);
+  });
+
+  it("asks a vendor's module to scan when asked to look", async () => {
+    let scans = 0;
+    const module: DiscoverySource = {
+      listen: async function* listen(signal): AsyncGenerator<Sighting> {
+        await new Promise<void>((resolve) => {
+          signal.addEventListener('abort', () => {
+            resolve();
+          });
+        });
+        yield* [];
+      },
+      scan: () => {
+        scans += 1;
+      },
+    };
+    const { service } = await start({
+      vendor: acme(
+        {
+          listen: [{ module: './lan/discovery.js' }],
+          identity: { externalId: 'device', model: 'sku' },
+        },
+        [{ kind: 'module', file: './lan/discovery.js', source: module }],
+      ),
+    });
+
+    expect(service.rescan()).toEqual(['acme']);
+    expect(scans).toBe(1);
+  });
+
   it('forgets a device it has not heard from in the time a device is given', async () => {
     const { service, mdns, published } = await start({ ttlMs: 60 });
 

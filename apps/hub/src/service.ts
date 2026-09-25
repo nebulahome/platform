@@ -201,6 +201,14 @@ export class HubService {
       discovered: () => this.#discovery?.list() ?? [],
 
       /**
+       * Asks discovery to look now; nothing when it is not listening.
+       *
+       * @param vendorId - Only this vendor, when given.
+       * @returns The vendors being looked for.
+       */
+      rescan: (vendorId?: string): readonly string[] => this.#discovery?.rescan(vendorId) ?? [],
+
+      /**
        * Says which driver and model a configuration being tried reaches.
        *
        * @param kind - The driver the form is on.
@@ -304,15 +312,17 @@ export class HubService {
 
     const instances = await loadInstances(db);
 
-    // Started in parallel: one instance waiting on a broker that is not answering must not hold
-    // up the others, and there is no ordering between them to preserve.
-    await Promise.all(instances.map(async (instance) => this.#startInstance(instance)));
-
     this.#discovery = this.#createDiscovery();
 
-    if (config.HUB_DISCOVERY_ENABLED) {
-      await this.#discovery.start();
-    }
+    // Started in parallel: one instance waiting on a broker that is not answering must not hold
+    // up the others, and there is no ordering between them to preserve. Discovery starts beside
+    // them rather than after: it reads what is added from the registry, not from the instances,
+    // and a house with one unreachable device would otherwise find nothing new until that one
+    // had given up.
+    await Promise.all([
+      ...instances.map(async (instance) => this.#startInstance(instance)),
+      config.HUB_DISCOVERY_ENABLED ? this.#discovery.start() : Promise.resolve(),
+    ]);
   }
 
   /**

@@ -5,8 +5,8 @@
  * Govee lights do not announce themselves over mDNS. They answer a scan: one JSON datagram to the
  * multicast group 239.255.255.250 on port 4001, which every light with LAN Control on answers, on
  * port 4002, with its address, its id and its model. That is the question the protocol exists to
- * be asked - no address is swept - and it is asked when listening starts and every few minutes
- * after, for the lights switched on in the meantime.
+ * be asked - no address is swept - and it is asked when listening starts, every few minutes
+ * after for the lights switched on in the meantime, and whenever the owner asks to look now.
  *
  * What a light answers is reported as it is; which driver takes it, and as which model, is the
  * vendor's `discovery.json` and not this module's to decide.
@@ -28,6 +28,9 @@ const SCAN_INTERVAL_MS = 5 * 60_000;
  * @returns {DiscoverySource} The listener.
  */
 export default function createGoveeDiscovery(sdk) {
+  /** @type {(() => void) | undefined} */
+  let askNow;
+
   return {
     /**
      * Scans, and reports every light that answers, until told to stop.
@@ -60,6 +63,7 @@ export default function createGoveeDiscovery(sdk) {
       const timer = setInterval(scan, SCAN_INTERVAL_MS);
 
       timer.unref();
+      askNow = scan;
       scan();
 
       try {
@@ -84,8 +88,16 @@ export default function createGoveeDiscovery(sdk) {
         }
       } finally {
         clearInterval(timer);
+        askNow = undefined;
         await link.release();
       }
+    },
+
+    /**
+     * Asks every light again now, while listening; answers arrive through `listen`.
+     */
+    scan: () => {
+      askNow?.();
     },
   };
 }

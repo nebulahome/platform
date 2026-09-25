@@ -2,7 +2,7 @@
  * What the interface needs from `hub` to configure an instance: the catalogue, a probe, a
  * reload, a forget, and the devices discovery proposes.
  *
- * Five questions, one bus subject each. *What can I install?* is answered from the bundles on
+ * Six questions, one bus subject each. *What can I install?* is answered from the bundles on
  * disk, with what each asks at setup, so the form is built from the bundle's own words and the
  * interface never reads a file. *Does this configuration work?* opens the transport once and
  * lets go, keeping nothing - the answer is a verdict and a sentence, because a configuration
@@ -10,7 +10,8 @@
  * which model answered, the answer says so too. *I saved it; match it* re-reads one row of the
  * registry and starts, restarts or stops the instance to fit. *I am deleting it; let go* stops the
  * instance without reading anything, because the row is about to be gone. *What is out there?*
- * lists the devices discovery heard and nobody has added.
+ * lists the devices discovery heard and nobody has added. *Look now* asks discovery to ask the
+ * network again, for one vendor or all, instead of waiting for its next scheduled question.
  *
  * Nothing here touches the registry directly. The API owns writes, the service that runs
  * instances owns the reload and the forget, and this class only routes between the bus and it.
@@ -22,8 +23,10 @@ import {
   busSubjects,
   catalogueRequestSchema,
   discoveredRequestSchema,
+  discoverRequestSchema,
   forgetRequestSchema,
   HUB_CATALOGUE_METHOD,
+  HUB_DISCOVER_METHOD,
   HUB_DISCOVERED_METHOD,
   HUB_FORGET_METHOD,
   HUB_PROBE_METHOD,
@@ -35,6 +38,8 @@ import {
   type CatalogueReply,
   type DiscoveredDevice,
   type DiscoveredReply,
+  type DiscoverReply,
+  type DiscoverRequest,
   type ForgetReply,
   type ForgetRequest,
   type IntegrationKind,
@@ -81,6 +86,14 @@ export type ManagementServiceOptions = {
   readonly discovered: () => readonly DiscoveredDevice[];
 
   /**
+   * Asks discovery to look now.
+   *
+   * @param vendorId - Only this vendor; every one that can be found when absent.
+   * @returns The vendors being looked for; none when discovery is off.
+   */
+  readonly rescan: (vendorId?: string) => readonly string[];
+
+  /**
    * Says which driver and model a configuration that answered reaches.
    *
    * @param kind - The driver the form is on.
@@ -105,6 +118,9 @@ export type ManagementServiceOptions = {
    */
   readonly forget: (integrationId: string) => Promise<ForgetReply>;
 };
+
+/** How many Tests may be waiting on their devices at once. */
+const PROBE_CONCURRENCY = 4;
 
 /**
  * Says why a probe failed, in one sentence the owner can act on.
@@ -142,6 +158,8 @@ function kindOf(bundle: LoadedBundle): IntegrationKind {
     models: manifest.models,
     ...(manifest.defaultIcon === undefined ? {} : { defaultIcon: manifest.defaultIcon }),
     setup: bundle.setup,
+    ...(manifest.webPagePort === undefined ? {} : { webPagePort: manifest.webPagePort }),
+    ...(manifest.webPagePath === undefined ? {} : { webPagePath: manifest.webPagePath }),
   };
 }
 
@@ -166,6 +184,7 @@ function vendorOf(vendor: LoadedVendor): IntegrationVendor {
     internetRequired: manifest.internetRequired,
     transports: [...vendor.transports],
     setup: vendor.setup,
+    discoverySources: [...new Set(vendor.discovery?.sources.map((source) => source.kind) ?? [])],
     drivers: vendor.drivers.map(kindOf),
   };
 }
@@ -282,6 +301,25 @@ export class ManagementService {
          * @returns The verdict.
          */
         async (request: ProbeRequest): Promise<ProbeReply> => this.probe(request),
+
+        // A Test waits on a device for up to its timeout; two owners testing two devices, or one
+        // device that does not answer, need not queue behind each other.
+        { concurrency: PROBE_CONCURRENCY },
+      ),
+
+      client.serve(
+        busSubjects.service(HUB_SERVICE, HUB_DISCOVER_METHOD),
+        discoverRequestSchema,
+
+        /**
+         * Asks discovery to look now.
+         *
+         * @param request - Which vendor, if only one.
+         * @returns The vendors being looked for.
+         */
+        (request: DiscoverRequest): DiscoverReply => ({
+          vendors: [...this.#options.rescan(request.vendorId)],
+        }),
       ),
 
       client.serve(
