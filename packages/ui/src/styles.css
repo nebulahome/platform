@@ -221,6 +221,28 @@
   --color-tag-violet: #b48cff;
   --color-tag-pink: #ff7ac8;
 
+  /*
+   * --- energy -----------------------------------------------------------------------------
+   * The three sources of a house's power, each drawn in its own colour wherever its power flows:
+   * the panels green, the battery blue, the grid yellow. Then the house the energy card draws,
+   * which is night in the dark theme - dark walls, lit windows - and day in the light one.
+   */
+  --color-energy-solar: #52cd86;
+  --color-energy-battery: #62a9ff;
+  --color-energy-grid: #f2d94b;
+
+  --color-house-wall: #1b2130;
+  --color-house-wall-shade: #151a27;
+  --color-house-roof: #202736;
+  --color-house-roof-edge: #2c3446;
+  --color-house-panel: #1a2540;
+  --color-house-panel-line: #34436a;
+  --color-house-window: #f1e2bf;
+  --color-house-window-frame: #3a4254;
+  --color-house-wire: #2d3446;
+  --color-house-ground: #0d1220;
+  --color-house-device: #c9ced8;
+
   /* --- shape ---------------------------------------------------------------------------- */
   /*
    * Five steps, and a control inside a card takes the step below the card so the curves stay
@@ -407,6 +429,20 @@
    */
   --animate-rise: rise 160ms cubic-bezier(0.16, 1, 0.3, 1);
   --animate-fade-in: fade-in 120ms ease-out;
+
+  /**
+   * Power moving along a wire of the energy card: its dashes travel one period of their pattern
+   * per turn. How long a turn takes is the card's to say, by the power on the wire, and which way
+   * the dashes go by `animation-direction`.
+   */
+  --animate-energy-flow: energy-flow 1.6s linear infinite;
+}
+
+/* One period of a wire's dash pattern, which is 12 units long: 2 drawn, 10 gap. */
+@keyframes energy-flow {
+  to {
+    stroke-dashoffset: -12;
+  }
 }
 
 /*
@@ -527,6 +563,22 @@
     --color-tag-violet: #6f3fd6;
     --color-tag-pink: #b8237a;
 
+    --color-energy-solar: #16a34a;
+    --color-energy-battery: #2563eb;
+    --color-energy-grid: #c99700;
+
+    --color-house-wall: #e4e8ef;
+    --color-house-wall-shade: #d3d8e1;
+    --color-house-roof: #c3c9d4;
+    --color-house-roof-edge: #aeb5c2;
+    --color-house-panel: #2a3856;
+    --color-house-panel-line: #4b5b80;
+    --color-house-window: #fff6dc;
+    --color-house-window-frame: #9aa2b1;
+    --color-house-wire: #b4bbc8;
+    --color-house-ground: #eceff4;
+    --color-house-device: #ffffff;
+
     /*
      * A white card has no lit top edge, and a white highlight on white is nothing at all. The
      * depth comes from the shadow, which loses most of its weight: a light page carries far less
@@ -590,6 +642,22 @@
       --color-tag-indigo: #4f55df;
       --color-tag-violet: #6f3fd6;
       --color-tag-pink: #b8237a;
+
+      --color-energy-solar: #16a34a;
+      --color-energy-battery: #2563eb;
+      --color-energy-grid: #c99700;
+
+      --color-house-wall: #e4e8ef;
+      --color-house-wall-shade: #d3d8e1;
+      --color-house-roof: #c3c9d4;
+      --color-house-roof-edge: #aeb5c2;
+      --color-house-panel: #2a3856;
+      --color-house-panel-line: #4b5b80;
+      --color-house-window: #fff6dc;
+      --color-house-window-frame: #9aa2b1;
+      --color-house-wire: #b4bbc8;
+      --color-house-ground: #eceff4;
+      --color-house-device: #ffffff;
 
       --face-card: none;
       --face-raised: linear-gradient(180deg, #ffffff 0%, #f4f5f9 100%);

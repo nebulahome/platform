@@ -31,6 +31,13 @@
  *
  * Anything dismissible *inside* a dialog therefore has to stop Escape propagating once it has
  * handled it, or one press closes both. The dropdown does.
+ *
+ * A dialog can carry a second card beside its own - `aside` - for what the form is filled in
+ * from: the models a device can be added as, which is a list of its own to scroll and search and
+ * not a field of the form. The two are separate cards on the one backdrop, the side one as tall as
+ * the dialog's own and scrolling inside itself however long its list is; on a narrow window it
+ * stands above the dialog instead. They are one dialog to the browser: one focus trap, one
+ * Escape, one title.
  */
 import { cva, type VariantProps } from 'class-variance-authority';
 import {
@@ -57,9 +64,11 @@ import { cn } from '../lib/cn.js';
  * So the motion is opacity, which creates a stacking context and nothing else. What rises is the
  * dropdown, which has no fixed descendants of its own.
  */
+/** What a card of a dialog is drawn as: the dialog's own, and the one beside it. */
+const CARD = 'rounded-dialog border border-border-strong bg-surface text-foreground shadow-dialog';
+
 const dialogBox = cva(
-  'm-auto rounded-dialog border border-border-strong bg-surface p-0 text-foreground ' +
-    'shadow-dialog backdrop:bg-canvas/70 backdrop:backdrop-blur-sm open:animate-fade-in',
+  'm-auto p-0 backdrop:bg-canvas/70 backdrop:backdrop-blur-sm open:animate-fade-in',
   {
     variants: {
       size: {
@@ -72,13 +81,27 @@ const dialogBox = cva(
         /** A form with several fields, or something with a list in it. */
         large: 'w-[min(92vw,40rem)]',
       },
+
+      /**
+       * Whether a second card stands beside the dialog's own. The dialog element is then only
+       * the frame the two sit in: it draws no card itself, and is as wide as both.
+       */
+      isPaired: {
+        false: CARD,
+        true: 'overflow-y-auto border-0 bg-transparent text-foreground shadow-none',
+      },
     },
-    defaultVariants: { size: 'medium' },
+    compoundVariants: [
+      { isPaired: true, size: 'small', className: 'w-[min(94vw,45rem)]' },
+      { isPaired: true, size: 'medium', className: 'w-[min(94vw,48rem)]' },
+      { isPaired: true, size: 'large', className: 'w-[min(94vw,59rem)]' },
+    ],
+    defaultVariants: { size: 'medium', isPaired: false },
   },
 );
 
 /** What a dialog needs. */
-export type ModalProps = VariantProps<typeof dialogBox> & {
+export type ModalProps = Pick<VariantProps<typeof dialogBox>, 'size'> & {
   /** Whether it is open. */
   readonly isOpen: boolean;
 
@@ -104,6 +127,12 @@ export type ModalProps = VariantProps<typeof dialogBox> & {
 
   /** The controls at the foot. */
   readonly footer?: ReactNode;
+
+  /** A second card, beside the dialog's own on a wide window and above it on a narrow one. */
+  readonly aside?: ReactNode;
+
+  /** What the second card is called, to a screen reader. */
+  readonly asideLabel?: string;
 };
 
 /**
@@ -122,9 +151,15 @@ export function Modal(props: ModalProps) {
     closesOnBackdrop = true,
     children,
     footer,
+    aside,
+    asideLabel,
   } = props;
 
   const dialog = useRef<HTMLDialogElement>(null);
+
+  // The frame two cards sit in: a press on it, between or around them, is a press on the backdrop.
+  const pair = useRef<HTMLDivElement>(null);
+  const isPaired = aside !== undefined && aside !== null;
 
   // Whether the press that is about to become a click started on the backdrop. A release outside
   // the card only counts when the press was outside it too.
@@ -174,6 +209,15 @@ export function Modal(props: ModalProps) {
   }, [isOpen, onClose]);
 
   /**
+   * Whether a press landed outside every card: on the dialog element, or on the frame of a pair.
+   *
+   * @param target - Where it landed.
+   * @returns True for the backdrop.
+   */
+  const isBackdrop = (target: EventTarget): boolean =>
+    target === dialog.current || (pair.current !== null && target === pair.current);
+
+  /**
    * Records whether a press landed on the backdrop rather than on the card.
    *
    * The backdrop is part of the dialog element, so a press on it has the dialog itself as its
@@ -182,7 +226,7 @@ export function Modal(props: ModalProps) {
    * @param event - The press.
    */
   const onMouseDown = (event: MouseEvent<HTMLDialogElement>): void => {
-    pressedBackdrop.current = event.target === dialog.current;
+    pressedBackdrop.current = isBackdrop(event.target);
   };
 
   /**
@@ -195,7 +239,7 @@ export function Modal(props: ModalProps) {
       return;
     }
 
-    if (pressedBackdrop.current && event.target === dialog.current) {
+    if (pressedBackdrop.current && isBackdrop(event.target)) {
       onClose();
     }
 
@@ -217,6 +261,25 @@ export function Modal(props: ModalProps) {
     }
   };
 
+  const body = (
+    <div className="flex flex-col gap-5 p-6">
+      <div className="flex flex-col gap-1.5">
+        <h2 id={titleId} className="text-subhead font-semibold">
+          {title}
+        </h2>
+        {description === undefined ? null : (
+          <p id={descriptionId} className="text-ui text-foreground-subtle">
+            {description}
+          </p>
+        )}
+      </div>
+
+      {children}
+
+      {footer === undefined ? null : <div className="flex justify-end gap-2.5">{footer}</div>}
+    </div>
+  );
+
   return (
     /* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions,
        jsx-a11y/click-events-have-key-events -- the handlers are here to dismiss the dialog by
@@ -232,24 +295,26 @@ export function Modal(props: ModalProps) {
       onClose={onNativeClose}
       onMouseDown={onMouseDown}
       onClick={onClick}
-      className={cn(dialogBox({ size }))}
+      className={cn(dialogBox({ size, isPaired }))}
     >
-      <div className="flex flex-col gap-5 p-6">
-        <div className="flex flex-col gap-1.5">
-          <h2 id={titleId} className="text-subhead font-semibold">
-            {title}
-          </h2>
-          {description === undefined ? null : (
-            <p id={descriptionId} className="text-ui text-foreground-subtle">
-              {description}
-            </p>
-          )}
+      {isPaired ? (
+        <div
+          ref={pair}
+          className="grid gap-3 md:grid-cols-[17.5rem_minmax(0,1fr)] md:items-stretch"
+        >
+          <section
+            aria-label={asideLabel}
+            // Sized by the grid, not by its list: a list longer than the dialog scrolls inside the
+            // card instead of stretching the pair.
+            className={cn(CARD, 'flex max-h-80 min-h-0 flex-col md:max-h-none md:[contain:size]')}
+          >
+            {aside}
+          </section>
+          <div className={cn(CARD, 'min-w-0')}>{body}</div>
         </div>
-
-        {children}
-
-        {footer === undefined ? null : <div className="flex justify-end gap-2.5">{footer}</div>}
-      </div>
+      ) : (
+        body
+      )}
     </dialog>
   );
 }

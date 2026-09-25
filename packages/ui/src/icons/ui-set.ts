@@ -16,6 +16,7 @@ import {
   Blinds,
   Cable,
   Camera,
+  ChartLine,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -38,6 +39,7 @@ import {
   Layers,
   LayoutDashboard,
   LayoutGrid,
+  Leaf,
   Library,
   Lightbulb,
   ListFilter,
@@ -165,6 +167,8 @@ export const BUILTIN_UI_NODES = {
   type: drawing(Type),
   'volume-2': drawing(Volume2),
   'volume-x': drawing(VolumeX),
+  'chart-line': drawing(ChartLine),
+  leaf: drawing(Leaf),
 } satisfies Record<string, IconNode>;
 
 /** A catalogue id the interface draws itself with. */
