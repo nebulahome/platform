@@ -9,21 +9,30 @@
  *
  * Changing the device is a dialog behind the settings button, the one a vendor's page opens for
  * the same device: its name, icon, tags and room, the model and the connection, and a Remove.
+ * Beside it, for a device whose driver says it serves one, the way to the device's own web page.
+ *
+ * Under the facts, the device's activity: what changed on it, newest first, each change opening
+ * into everything known about it.
  */
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
+import type { EntityView } from '@nebula-home/contracts';
 import { AppIcon, Badge, IconButton, Panel, TagChip } from '@nebula-home/ui';
 
+import { ExternalLinkIcon } from '@/components/icons';
+import { deviceWebPageOf } from '@/lib/device-web-page';
 import { toMessage } from '@/lib/error-message';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { useLive } from '@/live/live-store';
 import { DetailHeader, DetailPlaceholder } from '@/routes/library/detail-page';
+import { ActivityPanel } from '@/routes/library/device/activity-panel';
 import { useDevicePage, type DevicePageView } from '@/routes/library/device/use-device-page';
 import { DeviceDialog } from '@/routes/library/device-dialog';
 import { DeviceIcon } from '@/routes/library/device-icon';
 import { Fact, When } from '@/routes/library/entity/details-panel';
+import { EntitySettingsDialog } from '@/routes/library/entity/entity-settings-dialog';
 import { EntityRow } from '@/routes/library/entity-row';
 
 /** What the summary needs. */
@@ -32,7 +41,8 @@ type DeviceSummaryProps = {
 };
 
 /**
- * The device at a glance: its icon, its name, what it is and where, and whether it is reporting.
+ * The device at a glance: its icon, its name, what it is and where, whether it is reporting, and
+ * whether it has a firmware update waiting.
  *
  * @param props - See {@link DeviceSummaryProps}.
  * @returns The summary.
@@ -44,6 +54,9 @@ function DeviceSummary(props: DeviceSummaryProps) {
   const make = [device.manufacturer, device.model].filter(Boolean).join(' ');
   const place = [floor?.name, room?.name ?? device.areaName].filter(Boolean).join(' › ');
   const isDisabled = device.state === 'disabled';
+  const hasUpdate = view.lines.some(
+    (line) => line.entity.deviceClass === 'update' && line.state.sensor_binary?.isOn === true,
+  );
 
   return (
     <section className="flex flex-wrap items-center gap-4">
@@ -58,6 +71,7 @@ function DeviceSummary(props: DeviceSummaryProps) {
         </p>
       </div>
       <div className="flex items-center gap-2">
+        {hasUpdate ? <Badge tone="accent">Update available</Badge> : null}
         <Badge tone={isDisabled ? 'neutral' : standing.isReporting ? 'success' : 'warning'}>
           {isDisabled ? 'Disabled' : standing.isReporting ? 'Reporting' : 'Silent'}
         </Badge>
@@ -150,6 +164,7 @@ export function DevicePage() {
   const queryClient = useQueryClient();
   const { view, isPending, error, isMissing } = useDevicePage(deviceId);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
+  const [configuring, setConfiguring] = useState<EntityView | null>(null);
 
   /** Reads again everything a change to the device shows up in. */
   const refresh = (): void => {
@@ -167,6 +182,13 @@ export function DevicePage() {
     view !== undefined &&
     view.canWrite &&
     (view.vendor !== undefined || view.device.origin === 'system');
+  const webPage =
+    view === undefined
+      ? null
+      : deviceWebPageOf(
+          view.device,
+          view.vendor?.drivers.find((driver) => driver.id === view.device.kind),
+        );
 
   return (
     <div className="flex min-h-0 grow flex-col">
@@ -174,17 +196,33 @@ export function DevicePage() {
         crumbs={[{ to: '/devices', label: 'Devices' }]}
         title={view?.device.name ?? deviceId}
         actions={
-          canConfigure ? (
-            <IconButton
-              variant="raised"
-              label={`Configure ${view.device.name}`}
-              onClick={() => {
-                setSettingsOpen(true);
-              }}
-            >
-              <AppIcon id="settings" size={15} />
-            </IconButton>
-          ) : undefined
+          webPage === null && !canConfigure ? undefined : (
+            <>
+              {webPage === null ? null : (
+                <a
+                  href={webPage}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={`Open ${webPage}`}
+                  className="press inline-flex h-control-sm items-center gap-2 rounded-field border border-border-strong face-raised px-3 text-ui font-medium text-foreground"
+                >
+                  Web page
+                  <ExternalLinkIcon width="13" height="13" />
+                </a>
+              )}
+              {canConfigure ? (
+                <IconButton
+                  variant="raised"
+                  label={`Configure ${view.device.name}`}
+                  onClick={() => {
+                    setSettingsOpen(true);
+                  }}
+                >
+                  <AppIcon id="settings" size={15} />
+                </IconButton>
+              ) : null}
+            </>
+          )
         }
       />
 
@@ -214,18 +252,39 @@ export function DevicePage() {
                           key={line.entity.entityId}
                           line={line}
                           deviceAreaKey={view.device.areaKey}
-                          canEdit={view.canEditEntities}
+                          onConfigure={view.canEditEntities ? setConfiguring : undefined}
                         />
                       ))}
                     </ul>
                   )}
                 </Panel>
-                <DeviceDetails view={view} />
+                <div className="flex min-w-0 flex-col gap-5">
+                  <DeviceDetails view={view} />
+                  <ActivityPanel
+                    deviceId={view.device.id}
+                    deviceName={view.device.name}
+                    entities={view.lines.map((line) => line.entity)}
+                  />
+                </div>
               </div>
             </>
           )}
         </div>
       </div>
+
+      {view === undefined || configuring === null ? null : (
+        <EntitySettingsDialog
+          // Keyed on the entity, so each opening starts from the entity as it now is.
+          key={configuring.entityId}
+          entity={configuring}
+          isOpen
+          canEdit={view.canEditEntities}
+          canCreateTags={view.canCreateTags}
+          onClose={() => {
+            setConfiguring(null);
+          }}
+        />
+      )}
 
       {view === undefined ? null : (
         <DeviceDialog

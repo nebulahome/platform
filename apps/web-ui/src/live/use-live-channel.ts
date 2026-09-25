@@ -9,6 +9,10 @@
  * because a row was just added or removed; and the socket is opened afresh, because the server
  * decided what this socket may hear when it authenticated and a device adopted since is not in
  * that decision.
+ *
+ * A channel that comes back after a drop forgets what it had said and has the lists read again:
+ * nothing replays the changes made while it was down, and a reading kept from before the drop
+ * would stand over the fresh one until the entity happened to change again.
  */
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
@@ -39,6 +43,9 @@ export function useLiveChannel(): void {
     if (status !== 'signed-in') {
       return undefined;
     }
+
+    // Whether the channel has been live before, which makes the next time it is live a return.
+    let hasBeenLive = false;
 
     const client = new LiveClient({
       url: liveChannelUrl(),
@@ -78,6 +85,17 @@ export function useLiveChannel(): void {
        * @param next - The standing.
        */
       onStatus: (next): void => {
+        if (next === 'live' && hasBeenLive) {
+          useLive.getState().forgetReadings();
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.entities });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.activity });
+        }
+
+        if (next === 'live') {
+          hasBeenLive = true;
+        }
+
         useLive.getState().setStatus(next);
       },
     });

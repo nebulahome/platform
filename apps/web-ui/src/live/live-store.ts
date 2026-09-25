@@ -48,6 +48,12 @@ export type LiveState = {
 
   /** Forgets everything, for when the person it was heard on behalf of signs out. */
   readonly reset: () => void;
+
+  /**
+   * Forgets the readings and keeps the standing, for a channel that has just come back: what it
+   * said before the drop may no longer be so, and nothing replays what changed while it was down.
+   */
+  readonly forgetReadings: () => void;
 };
 
 /** The live channel's store. */
@@ -92,5 +98,10 @@ export const useLive = create<LiveState>((set) => ({
   /** Forgets everything. */
   reset: (): void => {
     set({ status: 'offline', readings: {} });
+  },
+
+  /** Forgets the readings, keeping the standing. */
+  forgetReadings: (): void => {
+    set({ readings: {} });
   },
 }));

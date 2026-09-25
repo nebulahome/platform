@@ -3,8 +3,9 @@
  *
  * The row is a link to the entity's own page, where it is controlled, read back over time and
  * configured - the whole row, because a name alone is a small target for the one thing a row
- * leads to. The switch beside it is the exception, and the reason the link is stretched over the
- * row rather than wrapped around it: on and off is done from the list without opening anything,
+ * leads to. The switch and the spanner beside it are the exceptions, and the reason the link is
+ * stretched over the row rather than wrapped around it: on and off is done from the list without
+ * opening anything, the spanner opens the entity's settings over the list rather than leaving it,
  * and a button inside a link is a control nobody can reach by keyboard reliably.
  *
  * What it is reads as words - "Dimmable light", "Power sensor" - not as the capabilities it
@@ -68,8 +69,12 @@ export type EntityRowProps = {
   /** The room its device is in, so the row names a room only when the entity's differs. */
   readonly deviceAreaKey: string | null;
 
-  /** Whether the spanner, which opens the entity's settings, is drawn. */
-  readonly canEdit: boolean;
+  /**
+   * Opens the entity's settings where the row is; the spanner is drawn only when given. The page
+   * the row sits on holds the dialog, so the settings open over the list the person is reading
+   * instead of taking them to another page to open there.
+   */
+  readonly onConfigure?: ((entity: EntityView) => void) | undefined;
 };
 
 /**
@@ -82,7 +87,7 @@ export type EntityRowProps = {
  * @returns The row.
  */
 export function EntityRow(props: EntityRowProps) {
-  const { line, deviceAreaKey, canEdit } = props;
+  const { line, deviceAreaKey, onConfigure } = props;
   const { entity, reading, state, reportedAt, icon, tags, canControl } = line;
   const kind = entityKindOf(entity);
   const hasPower = entity.capabilities.some((entry) => entry.capability === 'on_off');
@@ -155,16 +160,19 @@ export function EntityRow(props: EntityRowProps) {
             disabled={!canControl || !reading.isAvailable}
           />
         ) : null}
-        {canEdit ? (
-          <Link
-            to={entityPath(entity.entityId, true)}
+        {onConfigure === undefined ? null : (
+          <button
+            type="button"
             aria-label={`Configure ${entity.name}`}
             title={`Configure ${entity.name}`}
+            onClick={() => {
+              onConfigure(entity);
+            }}
             className="relative z-10 flex size-7 items-center justify-center rounded-chip text-foreground-subtle transition-colors hover:bg-surface-raised hover:text-foreground focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none"
           >
             <AppIcon id="wrench" size={15} />
-          </Link>
-        ) : null}
+          </button>
+        )}
         <span aria-hidden="true" className="text-foreground-subtle">
           <AppIcon id="chevron-right" size={16} />
         </span>

@@ -8,6 +8,7 @@
 import { z } from 'zod';
 
 import {
+  activityEntrySchema,
   aliasPreviewResponseSchema,
   aliasViewSchema,
   areaViewSchema,
@@ -15,6 +16,7 @@ import {
   deviceProbeReplySchema,
   deviceViewSchema,
   discoveredReplySchema,
+  discoverReplySchema,
   entityCommandResponseSchema,
   entityViewSchema,
   iconsResponseSchema,
@@ -28,6 +30,7 @@ import {
   telemetryPointSchema,
   tileCacheStatusSchema,
   tilePrefetchResultSchema,
+  type ActivityEntry,
   type AliasCreate,
   type AliasPreviewRequest,
   type AliasPreviewResponse,
@@ -273,6 +276,22 @@ export async function fetchDiscovered(signal?: AbortSignal): Promise<DiscoveredD
 }
 
 /**
+ * Asks the hub to look for devices on the network now, rather than at its next pass.
+ *
+ * @param vendorId - Only this vendor's devices; every vendor that can be found when absent.
+ * @returns The vendors being looked for. What is found arrives over the next seconds, each
+ * device a `discovery` event on the live channel.
+ */
+export async function scanNetwork(vendorId?: string): Promise<string[]> {
+  const { vendors } = await apiRequest('/discovery/scan', discoverReplySchema, {
+    method: 'POST',
+    body: vendorId === undefined ? {} : { vendorId },
+  });
+
+  return vendors;
+}
+
+/**
  * Adds a device the hub found, with what it found filled in.
  *
  * @param candidateId - Which device, as the list named it.
@@ -506,6 +525,45 @@ export async function fetchStateHistory(
   });
 
   return readHistoryPages('/history/state', query, stateHistoryPointSchema, signal);
+}
+
+/** One page of a device's activity, and where the next begins. */
+export type ActivityPage = {
+  readonly items: ActivityEntry[];
+
+  /** Pass back to read the next, older page; absent on the last. */
+  readonly nextCursor: string | undefined;
+};
+
+/** How many changes one page of a device's activity holds. */
+export const ACTIVITY_PAGE_SIZE = 40;
+
+/**
+ * Reads one page of what changed on a device, newest first.
+ *
+ * @param deviceId - The device.
+ * @param cursor - Where the previous page ended; absent for the newest.
+ * @param signal - Cancels the read.
+ * @returns The page.
+ */
+export async function fetchDeviceActivity(
+  deviceId: string,
+  cursor: string | undefined,
+  signal?: AbortSignal,
+): Promise<ActivityPage> {
+  const query = new URLSearchParams({ limit: String(ACTIVITY_PAGE_SIZE) });
+
+  if (cursor !== undefined) {
+    query.set('cursor', cursor);
+  }
+
+  const page = await apiRequest(
+    `/devices/${encodeURIComponent(deviceId)}/activity?${query.toString()}`,
+    pageSchema(activityEntrySchema),
+    { ...(signal === undefined ? {} : { signal }) },
+  );
+
+  return { items: page.items, nextCursor: page.nextCursor };
 }
 
 /**
@@ -848,6 +906,9 @@ export const LIBRARY_QUERY_KEYS = {
 
   /** The devices the hub found on the network and nobody has added. */
   discovered: ['library', 'discovered'] as const,
+
+  /** What changed on a device, keyed further by the device. */
+  activity: ['library', 'activity'] as const,
 
   /** Every installed package. */
   packages: ['library', 'packages'] as const,

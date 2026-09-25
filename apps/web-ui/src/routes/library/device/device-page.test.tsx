@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSession } from '@/auth/session-store';
 import {
   fetchAreas,
+  fetchDeviceActivity,
   fetchDevices,
   fetchEntities,
   fetchIcons,
@@ -33,6 +34,7 @@ import { DevicePage } from './device-page';
 
 vi.mock('@/library/api', () => ({
   fetchAreas: vi.fn(),
+  fetchDeviceActivity: vi.fn(),
   fetchDevices: vi.fn(),
   fetchEntities: vi.fn(),
   fetchVendors: vi.fn(),
@@ -45,6 +47,7 @@ vi.mock('@/library/api', () => ({
   probeDevice: vi.fn(),
   commandEntity: vi.fn(),
   LIBRARY_QUERY_KEYS: {
+    activity: ['library', 'activity'],
     areas: ['library', 'areas'],
     devices: ['library', 'devices'],
     entities: ['library', 'entities'],
@@ -131,15 +134,24 @@ describe('DevicePage', () => {
     });
   });
 
-  it('leads from each entity to its own page, and from the spanner to its settings', async () => {
+  it('leads from each entity to its own page', async () => {
     renderPage();
 
     expect(
       (await screen.findByRole('link', { name: 'Nozzle temperature' })).getAttribute('href'),
     ).toBe(`/devices/entities/${encodeURIComponent(NOZZLE_ID)}`);
-    expect(
-      screen.getByRole('link', { name: 'Configure Nozzle temperature' }).getAttribute('href'),
-    ).toBe(`/devices/entities/${encodeURIComponent(NOZZLE_ID)}?settings=1`);
+  });
+
+  it('opens an entity settings over the list from its spanner, without leaving the page', async () => {
+    // The spanner used to be a link to the entity's page, which opened the settings there: the
+    // dialog appeared and the list it was opened from was gone.
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Configure Nozzle temperature' }));
+
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(screen.getByText('Entities · 2')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Configure Nozzle temperature' })).toBeNull();
   });
 
   it('offers a switch on what can be switched, and holds it to the role', async () => {
@@ -193,5 +205,41 @@ describe('DevicePage', () => {
     renderPage('no-such-device');
 
     expect((await screen.findByRole('alert')).textContent).toContain('no-such-device');
+  });
+
+  it('lists what changed on the device, and opens one change into what is known of it', async () => {
+    vi.mocked(fetchDeviceActivity).mockResolvedValue({
+      items: [
+        {
+          time: new Date(),
+          entityId: NOZZLE_ID,
+          kind: 'availability',
+          from: { sensor_numeric: { value: 210 } },
+          to: { sensor_numeric: { value: 210 } },
+          isAvailable: false,
+          wasAvailable: true,
+          source: 'bambu-lab-p1s',
+        },
+      ],
+      nextCursor: undefined,
+    });
+    renderPage('bambu-lab-p1s', ['device:write', 'entity:write', 'history:read']);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Went offline/u }));
+
+    const dialog = screen.getByRole('dialog');
+
+    expect(dialog.textContent).toContain('Reachable → Unreachable');
+    expect(dialog.textContent).toContain('bambu-lab-p1s');
+  });
+
+  it('shows no activity to someone who may not read the past', async () => {
+    vi.mocked(fetchDeviceActivity).mockClear();
+    renderPage();
+
+    await screen.findByText('Entities · 2');
+
+    expect(screen.queryByText('Activity')).toBeNull();
+    expect(fetchDeviceActivity).not.toHaveBeenCalled();
   });
 });
