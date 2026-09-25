@@ -147,6 +147,30 @@ describe('publish and subscribe', () => {
     });
   });
 
+  it('lets a slow message be overtaken when the handler asks for concurrency', async () => {
+    // A command waiting on a device that does not answer must not hold up the next one.
+    const { client } = createHarness();
+    const order: string[] = [];
+
+    client.subscribe(
+      'nebula.v1.state.report.>',
+      reportSchema,
+      async (payload) => {
+        order.push(`start:${String(payload.level)}`);
+        await new Promise((resolve) => setTimeout(resolve, payload.level === 1 ? 30 : 0));
+        order.push(`end:${String(payload.level)}`);
+      },
+      { concurrency: 4 },
+    );
+
+    client.publish('nebula.v1.state.report.light.a', { entityId: 'light.a', level: 1 });
+    client.publish('nebula.v1.state.report.light.b', { entityId: 'light.b', level: 2 });
+
+    await vi.waitFor(() => {
+      expect(order).toStrictEqual(['start:1', 'start:2', 'end:2', 'end:1']);
+    });
+  });
+
   it('stops delivering once unsubscribed', async () => {
     const { client } = createHarness();
     const received: unknown[] = [];

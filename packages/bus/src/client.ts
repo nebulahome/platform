@@ -77,6 +77,15 @@ export type SubscribeOptions = {
 
   /** Ends the subscription when it aborts. */
   readonly signal?: AbortSignal;
+
+  /**
+   * How many messages may be in the handler at once. One, the default, handles them strictly in
+   * arrival order, which is what state reports need: two reports for one entity applied out of
+   * order leave it wrong. A handler that waits on something slow and independent per message - a
+   * command waiting on the one device it is for - takes more, so one device that does not answer
+   * does not hold up every other command in the house.
+   */
+  readonly concurrency?: number;
 };
 
 /** A live subscription. */
@@ -153,15 +162,16 @@ export class BusClient {
   /**
    * Subscribes to a subject or pattern.
    *
-   * Messages are handled **one at a time, in arrival order**. Concurrency here would mean two
-   * reports for the same entity being applied in an order nobody chose, which is exactly the
-   * race the single-writer design exists to remove (ARCHITECTURE.md 4.1).
+   * Messages are handled **one at a time, in arrival order** unless `options.concurrency` says
+   * otherwise. Concurrency here would mean two reports for the same entity being applied in an
+   * order nobody chose, which is exactly the race the single-writer design exists to remove
+   * (ARCHITECTURE.md 4.1) - so a state subscriber never asks for it.
    *
    * @param subject - The subject or wildcard pattern. Patterns spanning an entity id must end
    * in `>`, which is why `BUS_PATTERNS` exists rather than each caller writing one.
    * @param payloadSchema - What the payload must satisfy to reach the handler.
    * @param handler - Called once per valid message.
-   * @param options - Queue group and cancellation.
+   * @param options - Queue group, cancellation and concurrency.
    * @returns The subscription, to unsubscribe from.
    */
   public subscribe<TSchema extends z.ZodType>(
@@ -240,12 +250,13 @@ export class BusClient {
    *
    * A handler that throws does not kill the subscription and does not leave the requester
    * waiting for a timeout: the failure is converted to a bus error and sent back, so the caller
-   * learns what went wrong five seconds sooner and with a code it can branch on.
+   * learns what went wrong five seconds sooner and with a code it can branch on. Requests are
+   * answered one at a time unless `options.concurrency` allows more.
    *
    * @param subject - The subject or pattern to answer on.
    * @param requestSchema - What the request payload must satisfy.
    * @param handler - Produces the reply value.
-   * @param options - Queue group and cancellation.
+   * @param options - Queue group, cancellation and concurrency.
    * @returns The subscription, to unsubscribe from.
    */
   public serve<TSchema extends z.ZodType, TResponse>(
@@ -350,14 +361,15 @@ export class BusClient {
   }
 
   /**
-   * Subscribes and pumps messages through a handler, sequentially, until it ends.
+   * Subscribes and pumps messages through a handler until it ends: one at a time by default, or
+   * up to `options.concurrency` at once.
    *
    * A message that throws is logged and skipped. Letting it end the subscription would mean one
    * malformed publish from one misbehaving adapter silently stopping every state report in the
    * house, with nothing in the logs to say the subscription was gone.
    *
    * @param subject - The subject or pattern to receive on.
-   * @param options - Queue group and cancellation.
+   * @param options - Queue group, cancellation and how many messages may be handled at once.
    * @param onMessage - What to do with each message.
    * @returns The subscription.
    */
@@ -372,21 +384,47 @@ export class BusClient {
     );
 
     const logger = this.#logger;
+    const limit = Math.max(1, Math.floor(options.concurrency ?? 1));
+    const inFlight = new Set<Promise<void>>();
 
     /**
-     * Reads the subscription to exhaustion.
+     * Handles one message, logging rather than throwing what it rejects.
+     *
+     * @param message - The message.
+     * @returns A promise that settles once the handler has finished with it.
+     */
+    const handle = async (message: TransportMessage): Promise<void> => {
+      try {
+        await onMessage(message);
+      } catch (error: unknown) {
+        logger.warn(
+          { subject: message.subject, error: toBusError(error) },
+          'Rejected a message on the bus',
+        );
+      }
+    };
+
+    /**
+     * Reads the subscription to exhaustion, waiting for a free slot before taking the next
+     * message, so a burst waits in the broker's buffer rather than piling up in this process.
      *
      * @returns A promise that settles when the subscription ends.
      */
     const pump = async (): Promise<void> => {
       for await (const message of subscription) {
-        try {
-          await onMessage(message);
-        } catch (error: unknown) {
-          logger.warn(
-            { subject: message.subject, error: toBusError(error) },
-            'Rejected a message on the bus',
-          );
+        if (limit === 1) {
+          await handle(message);
+          continue;
+        }
+
+        const running: Promise<void> = handle(message).finally(() => {
+          inFlight.delete(running);
+        });
+
+        inFlight.add(running);
+
+        if (inFlight.size >= limit) {
+          await Promise.race(inFlight);
         }
       }
     };
