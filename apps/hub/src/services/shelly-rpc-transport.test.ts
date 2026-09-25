@@ -58,6 +58,9 @@ const HOST = '192.168.1.40';
 /** What the device calls itself in every frame. */
 const DEVICE = 'shellyplus1pm-aabbcc';
 
+/** What the kept socket names itself: the hub's prefix and a suffix of its own. */
+const HUB_SOURCE = expect.stringMatching(/^nebula-hub-[0-9a-f]{6}$/) as unknown;
+
 /** The challenge a device with a password answers with, as firmware 2.x sends it. */
 const CHALLENGE = {
   code: 401,
@@ -329,7 +332,7 @@ describe('a running connection', () => {
     const { connection, socket, delivered, statuses } = await running();
 
     expect(socket.options.url).toBe(`ws://${HOST}/rpc`);
-    expect(lastFrame(socket)).toMatchObject({ src: 'nebula-hub', method: 'Shelly.GetStatus' });
+    expect(lastFrame(socket)).toMatchObject({ src: HUB_SOURCE, method: 'Shelly.GetStatus' });
     expect(delivered).toHaveLength(1);
     expect(delivered[0]).toMatchObject({ deviceKey: HOST, payload: STATUS });
     expect(statuses).toEqual(['up']);
@@ -373,7 +376,7 @@ describe('a running connection', () => {
     await connection.close();
   });
 
-  it('ignores a notification that arrives before any status, and an event', async () => {
+  it('asks once for the status when a change arrives before any, and ignores an event', async () => {
     const { connection, socket, delivered } = await connect();
 
     await connection.apply([{ op: 'status', args: { deviceKey: HOST } }]);
@@ -384,8 +387,63 @@ describe('a running connection', () => {
       events: [{ component: 'input:0', event: 'single_push' }],
     });
 
+    // The status asked for on open is still on its way; the change does not ask a second time.
+    expect(socket.sent.map((frame) => (JSON.parse(frame) as { method: string }).method)).toEqual([
+      'Shelly.GetStatus',
+    ]);
     expect(delivered).toEqual([]);
     await connection.close();
+  });
+
+  it('takes a full status notification as the snapshot when it has none yet', async () => {
+    const { connection, socket, delivered } = await connect();
+
+    await connection.apply([{ op: 'status', args: { deviceKey: HOST } }]);
+    open(socket);
+    notify(socket, 'NotifyFullStatus', { ts: 1, ...STATUS });
+
+    expect(delivered).toHaveLength(1);
+    expect(delivered[0]?.payload).toEqual(STATUS);
+    await connection.close();
+  });
+
+  it('asks for the status shortly after a command no notification followed', async () => {
+    const { connection, socket } = await running();
+
+    const reply = call(connection, 'Switch.Set', { id: 0, on: true });
+    answer(socket, { was_on: false });
+    await reply;
+    await new Promise((resolve) => setTimeout(resolve, 450));
+
+    expect(lastFrame(socket)).toMatchObject({ method: 'Shelly.GetStatus' });
+    await connection.close();
+  });
+
+  it('does not ask again when the device already said what the command changed', async () => {
+    const { connection, socket } = await running();
+
+    const reply = call(connection, 'Switch.Set', { id: 0, on: true });
+    notify(socket, 'NotifyStatus', { ts: 2, 'switch:0': { output: true } });
+    answer(socket, { was_on: false });
+    await reply;
+    await new Promise((resolve) => setTimeout(resolve, 450));
+
+    expect(lastFrame(socket)).toMatchObject({ method: 'Switch.Set' });
+    await connection.close();
+  });
+
+  it('gives every socket a source of its own, so none takes the notifications of another', async () => {
+    const first = await connect();
+    const second = await connect();
+
+    open(first.socket);
+    open(second.socket);
+    void call(first.connection, 'Shelly.GetStatus').catch(() => undefined);
+    void call(second.connection, 'Shelly.GetStatus').catch(() => undefined);
+
+    expect(lastFrame(first.socket)['src']).not.toBe(lastFrame(second.socket)['src']);
+    await first.connection.close();
+    await second.connection.close();
   });
 
   it('turns a call into a request frame and answers with the result', async () => {
@@ -395,7 +453,7 @@ describe('a running connection', () => {
     const reply = call(connection, 'Switch.Set', { id: 0, on: true });
 
     expect(lastFrame(socket)).toMatchObject({
-      src: 'nebula-hub',
+      src: HUB_SOURCE,
       method: 'Switch.Set',
       params: { id: 0, on: true },
     });
@@ -501,7 +559,7 @@ describe('a running connection', () => {
 
     expect(lastFrame(socket)).toEqual({
       id: 99,
-      src: 'nebula-hub',
+      src: HUB_SOURCE,
       dst: DEVICE,
       error: { code: 500, message: 'Not Implemented' },
     });
@@ -542,7 +600,7 @@ describe('a running connection', () => {
     await connection.close();
   });
 
-  it('resets the socket when a request is not answered in time', async () => {
+  it('resets the socket when a request is not answered and the device said nothing', async () => {
     const { connection, socket } = await connect({ host: HOST, timeoutMs: 100 });
 
     open(socket);
@@ -550,6 +608,20 @@ describe('a running connection', () => {
 
     await expect(reply).rejects.toThrow(/did not answer Shelly.GetStatus/);
     expect(socket.resets).toEqual(['request timed out']);
+    await connection.close();
+  });
+
+  it('keeps the socket when the device spoke while a request went unanswered', async () => {
+    // A lost answer on a live socket: resetting it would drop the notifications it carries.
+    const { connection, socket } = await connect({ host: HOST, timeoutMs: 100 });
+
+    open(socket);
+    const reply = call(connection, 'Shelly.GetStatus');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    notify(socket, 'NotifyStatus', { ts: 1, 'switch:0': { output: true } });
+
+    await expect(reply).rejects.toThrow(/did not answer Shelly.GetStatus/);
+    expect(socket.resets).toEqual([]);
     await connection.close();
   });
 

@@ -106,8 +106,26 @@ import { createHash, randomInt } from 'node:crypto';
 /** The id this transport registers under: the vendor's, then the name in `manifest.json`. */
 const ID = 'shelly/rpc';
 
-/** The source every frame names, which is what the device addresses its notifications to. */
-const SOURCE = 'nebula-hub';
+/**
+ * What the source every frame names starts with; a random suffix follows, one per socket.
+ *
+ * The device addresses its notifications to a source, so two sockets naming the same one - the
+ * kept socket and a probe opened beside it by discovery or the Test button - compete for them,
+ * and the kept socket could go quiet until its next status poll. A socket of its own name each,
+ * and the probe's name says it is one, which makes the device's own debug log readable too.
+ */
+const SOURCE_PREFIX = 'nebula-hub';
+
+/** What a socket opened for one question names itself, before its suffix. */
+const PROBE_SOURCE_PREFIX = 'nebula-probe';
+
+/**
+ * How long after a command the device has to say what changed before the status is asked for.
+ *
+ * A switch pushes `NotifyStatus` within a few milliseconds of the change, so this only matters
+ * when the notification went astray; without it the row would wait for the next status poll.
+ */
+const COMMAND_FOLLOW_UP_MS = 400;
 
 /** Shelly's one user. */
 const USERNAME = 'admin';
@@ -308,6 +326,11 @@ function openSession(sdk, config, logger, hooks) {
   /** @type {string | null} */
   let peer = null;
   let nextId = 1;
+  /** When anything last arrived: a request only resets a socket that has gone quiet. */
+  let lastHeardAt = 0;
+  const source = `${hooks.reconnect ? SOURCE_PREFIX : PROBE_SOURCE_PREFIX}-${randomInt(0, 0xffffff)
+    .toString(16)
+    .padStart(6, '0')}`;
 
   /**
    * Stops a request's timer and abort listener, once it is settled either way.
@@ -347,7 +370,7 @@ function openSession(sdk, config, logger, hooks) {
 
     const frame = {
       id,
-      src: SOURCE,
+      src: source,
       method: request.method,
       ...(request.params === undefined ? {} : { params: request.params }),
       ...(auth === null || config.password === undefined
@@ -431,7 +454,7 @@ function openSession(sdk, config, logger, hooks) {
       socket.send(
         JSON.stringify({
           id,
-          src: SOURCE,
+          src: source,
           ...(peer === null ? {} : { dst: peer }),
           error: NOT_IMPLEMENTED,
         }),
@@ -450,6 +473,8 @@ function openSession(sdk, config, logger, hooks) {
      * Lets whoever waited for the socket go ahead.
      */
     onOpen: () => {
+      lastHeardAt = Date.now();
+
       const waiters = waiting;
       waiting = [];
 
@@ -486,6 +511,8 @@ function openSession(sdk, config, logger, hooks) {
      * @param {string} text - One frame.
      */
     onMessage: (text) => {
+      lastHeardAt = Date.now();
+
       /** @type {unknown} */
       let frame;
 
@@ -630,7 +657,15 @@ function openSession(sdk, config, logger, hooks) {
               `${config.host} did not answer ${method} within ${String(config.timeoutMs)} ms`,
             ),
           );
-          socket.reset('request timed out');
+
+          // A device that said anything at all while this waited is there, and dropping its
+          // socket would lose the notifications it is sending for the second or so the next
+          // one takes to open. Only a socket that went quiet the whole time is reset.
+          if (Date.now() - lastHeardAt >= config.timeoutMs) {
+            socket.reset('request timed out');
+          } else {
+            logger.debug({ host: config.host, method }, 'Request not answered; socket kept');
+          }
         }, config.timeoutMs);
         request.timer.unref();
 
@@ -748,6 +783,10 @@ export default function createShellyRpc(sdk) {
       const timers = new Map();
       /** @type {Record<string, unknown> | null} */
       let snapshot = null;
+      /** @type {Promise<void> | null} */
+      let refreshing = null;
+      /** How many notifications have arrived, so a command can tell whether one followed it. */
+      let notified = 0;
 
       /**
        * Hands the status over, as the device knows it now.
@@ -764,17 +803,25 @@ export default function createShellyRpc(sdk) {
        * @returns {Promise<void>} Settled either way: a device that is off is the normal case for
        * a house, and the entities go stale, which `core` reads as unavailable.
        */
-      async function refresh() {
-        try {
-          const status = await session.call(STATUS_METHOD);
+      function refresh() {
+        // One question at a time: a poll, a reopen and a command's follow-up landing together
+        // would otherwise ask the device three times for the same answer.
+        refreshing ??= (async () => {
+          try {
+            const status = await session.call(STATUS_METHOD);
 
-          if (isRecord(status)) {
-            snapshot = status;
-            deliver();
+            if (isRecord(status)) {
+              snapshot = status;
+              deliver();
+            }
+          } catch (error) {
+            context.logger.debug({ err: error, host: config.host }, 'Status not answered');
+          } finally {
+            refreshing = null;
           }
-        } catch (error) {
-          context.logger.debug({ err: error, host: config.host }, 'Status not answered');
-        }
+        })();
+
+        return refreshing;
       }
 
       const session = openSession(sdk, config, context.logger, {
@@ -806,7 +853,18 @@ export default function createShellyRpc(sdk) {
          * @param {Record<string, unknown>} params - What changed.
          */
         onNotification: (method, params) => {
+          notified += 1;
+
           if (snapshot === null) {
+            // Nothing to lay a change over yet. A full status is one, and a delta is a reason to
+            // ask for one now rather than dropping it and waiting for the next poll.
+            if (method === 'NotifyFullStatus') {
+              snapshot = overlay({}, params);
+              deliver();
+            } else if (timers.size > 0) {
+              void refresh();
+            }
+
             return;
           }
 
@@ -838,7 +896,24 @@ export default function createShellyRpc(sdk) {
             return Promise.reject(new Error(`${ID} was asked to call no method`));
           }
 
-          return session.call(method, isRecord(params) ? params : undefined, signal);
+          const before = notified;
+
+          return session
+            .call(method, isRecord(params) ? params : undefined, signal)
+            .then((answer) => {
+              if (method !== STATUS_METHOD && timers.size > 0) {
+                // The device normally says what the command changed before this even resolves;
+                // when it has not shortly after, ask, rather than leave the row showing the old
+                // value until the next poll.
+                setTimeout(() => {
+                  if (notified === before) {
+                    void refresh();
+                  }
+                }, COMMAND_FOLLOW_UP_MS).unref();
+              }
+
+              return answer;
+            });
         },
 
         /**
