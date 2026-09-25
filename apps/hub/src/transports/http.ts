@@ -42,6 +42,12 @@ import type {
 /** How often a poll may run at most, so a profile cannot melt a device with a one-millisecond loop. */
 const MIN_POLL_MS = 250;
 
+/**
+ * How long after a command the device is read again. Long enough for a relay to have switched and
+ * a lamp to have started its fade, short enough that the row follows the tap.
+ */
+const COMMAND_FOLLOW_UP_MS = 300;
+
 /** The verbs a template may name. */
 const METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
 
@@ -345,6 +351,7 @@ function connectionKey(config: HttpConfig): string {
 function open(config: HttpConfig, context: TransportContext): Promise<TransportConnection> {
   const key = connectionKey(config);
   const timers = new Map<string, NodeJS.Timeout>();
+  const polls = new Map<string, { readonly deviceKey: string; readonly poll: () => void }>();
   const dispatcher = dispatcherFor(config);
 
   context.report('up');
@@ -353,15 +360,38 @@ function open(config: HttpConfig, context: TransportContext): Promise<TransportC
     key,
 
     /**
-     * Asks one device something.
+     * Asks one device something, then reads it again shortly after.
+     *
+     * A device over HTTP says nothing on its own: without the second read, what a command changed
+     * would show only at the next poll - five to fifteen seconds later, depending on the vendor.
      *
      * @param sent - The device, the verb and the path.
      * @param signal - Cancels the request.
      * @returns Whatever the device answered.
      * @throws {Error} When the verb is not one HTTP has here.
      */
-    send: async (sent: TransportRequest, signal: AbortSignal): Promise<unknown> =>
-      fetchFrom(config, dispatcher, sent.deviceKey, methodOf(sent.op), sent.args, signal),
+    send: async (sent: TransportRequest, signal: AbortSignal): Promise<unknown> => {
+      const answer = await fetchFrom(
+        config,
+        dispatcher,
+        sent.deviceKey,
+        methodOf(sent.op),
+        sent.args,
+        signal,
+      );
+
+      const followUp = setTimeout(() => {
+        for (const each of polls.values()) {
+          if (each.deviceKey === sent.deviceKey) {
+            each.poll();
+          }
+        }
+      }, COMMAND_FOLLOW_UP_MS);
+
+      followUp.unref();
+
+      return answer;
+    },
 
     /**
      * Replaces the set of polling timers.
@@ -382,6 +412,7 @@ function open(config: HttpConfig, context: TransportContext): Promise<TransportC
         if (!wanted.has(id)) {
           clearInterval(timer);
           timers.delete(id);
+          polls.delete(id);
         }
       }
 
@@ -394,7 +425,8 @@ function open(config: HttpConfig, context: TransportContext): Promise<TransportC
         const deviceKey = typeof wanted === 'string' ? wanted : '';
         const everyMs = Math.max(Number(subscription.args['everyMs'] ?? 5000), MIN_POLL_MS);
 
-        const timer = setInterval(() => {
+        /** Reads the device once and delivers what it said. */
+        const poll = (): void => {
           // Deliberately not awaited: a poll that hangs must not delay the next one for a
           // different device, and the request has its own timeout.
           void Promise.resolve()
@@ -417,10 +449,17 @@ function open(config: HttpConfig, context: TransportContext): Promise<TransportC
               // unavailable.
               context.logger.debug({ err: error, deviceKey }, 'Poll failed');
             });
-        }, everyMs);
+        };
+
+        const timer = setInterval(poll, everyMs);
 
         timer.unref();
         timers.set(id, timer);
+        polls.set(id, { deviceKey, poll });
+
+        // Read at once rather than a whole interval after the hub started or the device was
+        // added: until the first answer the entity has no state to show at all.
+        poll();
       }
 
       return Promise.resolve();
@@ -437,6 +476,7 @@ function open(config: HttpConfig, context: TransportContext): Promise<TransportC
       }
 
       timers.clear();
+      polls.clear();
       await dispatcher?.close();
     },
   });

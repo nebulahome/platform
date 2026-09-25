@@ -210,6 +210,51 @@ describe('polling', () => {
     expect(delivered[0]).toMatchObject({ deviceKey: host, payload: { relay: { on: true } } });
   });
 
+  it('reads at once, not a whole interval after the device was added', async () => {
+    const delivered: TransportInbound[] = [];
+    const connection = await connect(delivered);
+
+    await connection.apply([
+      { op: 'poll', args: { deviceKey: host, path: '/status', everyMs: 60_000 } },
+    ]);
+
+    for (let attempt = 0; attempt < 50 && delivered.length === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    await connection.close();
+
+    expect(delivered).toHaveLength(1);
+  });
+
+  it('reads the device again shortly after a command', async () => {
+    // Nothing reports over HTTP on its own: without this, a switched relay would show its old
+    // state until the next poll.
+    const delivered: TransportInbound[] = [];
+    const connection = await connect(delivered);
+
+    await connection.apply([
+      { op: 'poll', args: { deviceKey: host, path: '/status', everyMs: 60_000 } },
+    ]);
+
+    for (let attempt = 0; attempt < 50 && delivered.length === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    await connection.send(
+      { deviceKey: host, op: 'get', args: { path: '/status' } },
+      AbortSignal.timeout(2000),
+    );
+
+    for (let attempt = 0; attempt < 100 && delivered.length < 2; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    await connection.close();
+
+    expect(delivered).toHaveLength(2);
+  });
+
   it('stops polling what is no longer in the set', async () => {
     // `apply` replaces. Without that, an instance stopping would leave its timers running and the
     // device would keep being asked by a service that no longer owns it.
@@ -221,6 +266,8 @@ describe('polling', () => {
     ]);
     await connection.apply([]);
 
+    // The read made at once is already on its way; what matters is that nothing follows it.
+    await new Promise((resolve) => setTimeout(resolve, 100));
     delivered.length = 0;
     await new Promise((resolve) => setTimeout(resolve, 600));
     await connection.close();
