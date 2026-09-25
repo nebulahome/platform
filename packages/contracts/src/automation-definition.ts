@@ -788,6 +788,120 @@ export function flattenConditionLeaves(tree: BooleanTree): ConditionLeaf[] {
 }
 
 /**
+ * Every entity an automation names, each once, in the order the document first names it.
+ *
+ * Walks the whole document: trigger leaves, the `if` tree, and every action however deeply it is
+ * nested - branches of a switch, both arms of an if, loop bodies, the conditions a wait or a loop
+ * checks and the trigger a wait listens for. A scene or another automation called by key is not
+ * followed: what that one touches is its own business, and listing it here would make a scene's
+ * entities look like this automation's.
+ *
+ * @param definition - The parsed document.
+ * @returns The entity ids.
+ */
+export function entityIdsOfDefinition(definition: AutomationDefinition): string[] {
+  const found = new Set<string>();
+
+  /**
+   * Adds the entities a trigger names.
+   *
+   * @param trigger - One trigger leaf.
+   */
+  const addTrigger = (trigger: AutomationTrigger): void => {
+    if (trigger.type === 'state' || trigger.type === 'numeric_state') {
+      found.add(trigger.entityId);
+    } else if (trigger.type === 'event' && typeof trigger.entityId === 'string') {
+      found.add(trigger.entityId);
+    }
+  };
+
+  /**
+   * Adds the entities a condition tree names.
+   *
+   * @param tree - The tree.
+   */
+  const addConditions = (tree: BooleanTree): void => {
+    for (const leaf of flattenConditionLeaves(tree)) {
+      if (leaf.type === 'state' || leaf.type === 'numeric') {
+        found.add(leaf.entityId);
+      }
+    }
+  };
+
+  /**
+   * Adds the entities a list of actions names, descending into every nested block.
+   *
+   * @param actions - The actions.
+   */
+  const addActions = (actions: readonly AutomationAction[]): void => {
+    for (const action of actions) {
+      switch (action.type) {
+        case 'command': {
+          found.add(action.entityId);
+          break;
+        }
+        case 'switch': {
+          found.add(action.entityId);
+
+          for (const branch of action.cases) {
+            addActions(branch.actions);
+          }
+
+          addActions(action.default ?? []);
+          break;
+        }
+        case 'wait_for': {
+          addConditions(action.condition);
+          break;
+        }
+        case 'wait_for_trigger': {
+          addTrigger(action.trigger);
+          break;
+        }
+        case 'while':
+        case 'do_while': {
+          addConditions(action.condition);
+          addActions(action.actions);
+          break;
+        }
+        case 'if': {
+          addConditions(action.condition);
+          addActions(action.then);
+          addActions(action.else ?? []);
+          break;
+        }
+        case 'parallel':
+        case 'sequence':
+        case 'for': {
+          addActions(action.actions);
+          break;
+        }
+        case 'scene':
+        case 'automation':
+        case 'wait_duration':
+        case 'notify':
+        case 'package_service':
+        case 'stop': {
+          break;
+        }
+      }
+    }
+  };
+
+  for (const trigger of flattenTriggers(definition.triggers)) {
+    addTrigger(trigger);
+  }
+
+  if (definition.if !== undefined) {
+    addConditions(definition.if);
+  }
+
+  addActions(definition.then);
+
+  return [...found];
+}
+
+/**
  * Builds a trigger tree from a flat list (OR), as the legacy list meant.
  *
  * @param triggers - Leaf triggers.

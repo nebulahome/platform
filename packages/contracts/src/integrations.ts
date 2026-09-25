@@ -64,6 +64,16 @@ export const TRANSPORT_ID_PATTERN = /^(?:[a-z][a-z0-9-]{1,63}\/)?[a-z][a-z0-9-]{
 /** Validates a transport id. */
 export const transportIdSchema = z.string().regex(TRANSPORT_ID_PATTERN, 'Must be a transport id');
 
+/**
+ * How a device can be heard announcing itself: the platform's mDNS browser, or a vendor's own
+ * listener. Declared here rather than beside the discovered devices, because a vendor lists the
+ * ways it can be found and the discovery module already reads this file.
+ */
+export const DISCOVERY_SOURCES = ['mdns', 'module'] as const;
+
+/** How a device can be heard. */
+export type DiscoverySource = (typeof DISCOVERY_SOURCES)[number];
+
 /** What a logo may be served as: an image the interface can put straight into an `img`. */
 const LOGO_DATA_URL_PATTERN = /^data:image\/(?:svg\+xml|png);base64,[A-Za-z0-9+/]+=*$/;
 
@@ -149,6 +159,21 @@ export const integrationKindSchema = z.object({
 
   /** What setting up an instance asks. */
   setup: integrationSetupSchema,
+
+  /**
+   * The port the device serves its own web page on, when it has one.
+   *
+   * Only a driver that says so gets a link: a device that answers on an API port with no page
+   * behind it would open a browser tab of JSON, or of nothing.
+   */
+  webPagePort: z.int().min(1).max(65_535).optional(),
+
+  /** Where on that port the page is, for a device whose page is not at the root. */
+  webPagePath: z
+    .string()
+    .regex(/^\/[^\s]*$/, 'Must be a path starting with /')
+    .max(256)
+    .optional(),
 });
 
 /** One driver `hub` loaded. */
@@ -191,6 +216,12 @@ export const integrationVendorSchema = z.object({
 
   /** What setting the vendor up asks; empty groups for a vendor that needs nothing. */
   setup: integrationSetupSchema,
+
+  /**
+   * How its devices can be found on the network, each once. Empty for a vendor whose devices are
+   * only ever added by address, which is also the vendor the interface offers no scan for.
+   */
+  discoverySources: z.array(z.enum(DISCOVERY_SOURCES)).default([]),
 
   drivers: z.array(integrationKindSchema),
 });

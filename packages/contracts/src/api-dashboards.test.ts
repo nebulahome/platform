@@ -92,6 +92,30 @@ describe('dashboardLayoutSchema', () => {
     expect(problems(layout)).toEqual([]);
   });
 
+  it('accepts an energy card with only a grid meter, and fills in the sign switches', () => {
+    const energy = {
+      id: 'energy0001',
+      type: 'energy',
+      x: 0,
+      y: 0,
+      w: 2,
+      h: 3,
+      title: null,
+      solarPower: null,
+      batteryPower: null,
+      batteryLevel: null,
+      gridPower: 'sensor.grid_power',
+      homePower: null,
+    };
+    const parsed = dashboardLayoutSchema.parse({ cards: [energy] });
+
+    expect(parsed.cards[0]).toMatchObject({
+      type: 'energy',
+      isGridImportPositive: true,
+      isBatteryDischargePositive: true,
+    });
+  });
+
   it('refuses a card that runs past the fourth column', () => {
     expect(problems({ cards: [light('lightaaaa', 3, 0, 2, 2)] })).toEqual([
       'Card lightaaaa runs past the 4 columns it sits in',

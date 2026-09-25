@@ -21,6 +21,7 @@ export const ENTITY_DOMAINS = [
   'climate',
   'media_player',
   'camera',
+  'button',
   'alias',
 ] as const;
 

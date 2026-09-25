@@ -14,6 +14,7 @@ import {
   automationDefinitionSchema,
   automationTriggerSchema,
   booleanTreeSchema,
+  entityIdsOfDefinition,
 } from './automation-definition.js';
 
 /** The smallest legacy document that means anything: one trigger, one action. */
@@ -269,5 +270,87 @@ describe('waiting', () => {
         then: [{ type: 'wait_duration', durationMs: 604_800_001 }],
       }),
     ).toThrow();
+  });
+});
+
+describe('entityIdsOfDefinition', () => {
+  it('finds entities in triggers, the if tree and nested actions, each once', () => {
+    const definition = automationDefinitionSchema.parse({
+      triggers: {
+        op: 'or',
+        items: [
+          { type: 'state', entityId: 'binary_sensor.door', to: 'on' },
+          { type: 'numeric_state', entityId: 'sensor.lux', operator: 'lt', value: 10 },
+        ],
+      },
+      if: {
+        op: 'and',
+        items: [
+          { type: 'state', entityId: 'switch.away', state: 'off' },
+          {
+            op: 'not',
+            item: { type: 'numeric', entityId: 'sensor.lux', operator: 'gt', value: 50 },
+          },
+        ],
+      },
+      then: [
+        {
+          type: 'if',
+          condition: { type: 'state', entityId: 'binary_sensor.window', state: 'on' },
+          then: [{ type: 'command', entityId: 'light.hall', capability: 'on_off', params: {} }],
+          else: [
+            {
+              type: 'switch',
+              entityId: 'sensor.mode',
+              cases: [
+                {
+                  value: 'eco',
+                  actions: [
+                    {
+                      type: 'parallel',
+                      actions: [
+                        {
+                          type: 'command',
+                          entityId: 'light.porch',
+                          capability: 'on_off',
+                          params: {},
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'wait_for_trigger',
+          trigger: { type: 'state', entityId: 'binary_sensor.door', to: 'off' },
+          timeoutMs: 1000,
+        },
+      ],
+    });
+
+    expect(entityIdsOfDefinition(definition)).toEqual([
+      'binary_sensor.door',
+      'sensor.lux',
+      'switch.away',
+      'binary_sensor.window',
+      'light.hall',
+      'sensor.mode',
+      'light.porch',
+    ]);
+  });
+
+  it('does not follow a scene or another automation called by key', () => {
+    const definition = automationDefinitionSchema.parse({
+      triggers: { type: 'manual' },
+      then: [
+        { type: 'scene', sceneKey: 'evening' },
+        { type: 'automation', automationKey: 'porch' },
+      ],
+    });
+
+    expect(entityIdsOfDefinition(definition)).toEqual([]);
   });
 });

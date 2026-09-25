@@ -35,6 +35,7 @@ export const CAPABILITIES = [
   'sensor_text',
   'media_player',
   'camera',
+  'button',
 ] as const;
 
 /** The name of a single capability. */
@@ -324,6 +325,26 @@ export const cameraCommandSchema = z.discriminatedUnion('command', [
   z.object({ command: z.literal('record'), durationSeconds: z.int().min(1).max(3600) }),
 ]);
 
+// --- button ------------------------------------------------------------------------------
+
+/**
+ * A button holds no state: pressing it is the whole of what it does.
+ *
+ * An empty object rather than a timestamp of the last press, because only the device knows when
+ * it was pressed and a device that restarts to install firmware does not say. What a press
+ * causes - the firmware sensor going back to up to date, a device going offline and coming back -
+ * is recorded as the state changes it is.
+ */
+export const buttonStateSchema = z.object({});
+
+/** `button` has no device-specific limits. */
+export const buttonParamsSchema = z.object({});
+
+/** Pressing the button. */
+export const buttonCommandSchema = z.discriminatedUnion('command', [
+  z.object({ command: z.literal('press') }),
+]);
+
 // --- the capability table ----------------------------------------------------------------
 
 /** The three schemas that together define one capability. */
@@ -385,6 +406,7 @@ export const CAPABILITY_DEFINITIONS = {
     commands: mediaPlayerCommandSchema,
   },
   camera: { state: cameraStateSchema, params: cameraParamsSchema, commands: cameraCommandSchema },
+  button: { state: buttonStateSchema, params: buttonParamsSchema, commands: buttonCommandSchema },
 } as const satisfies Record<CapabilityName, CapabilityDefinition>;
 
 /**
@@ -407,6 +429,7 @@ export const capabilityStateSchema = z.object({
   sensor_text: sensorTextStateSchema.optional(),
   media_player: mediaPlayerStateSchema.optional(),
   camera: cameraStateSchema.optional(),
+  button: buttonStateSchema.optional(),
 });
 
 /** The composite state of an entity, keyed by capability. */

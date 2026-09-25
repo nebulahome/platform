@@ -8,6 +8,7 @@
  */
 
 export * from './alias-expression.js';
+export * from './api-activity.js';
 export * from './api-auth.js';
 export * from './api-dashboards.js';
 export * from './api-entities.js';

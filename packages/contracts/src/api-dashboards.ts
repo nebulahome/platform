@@ -38,7 +38,7 @@ export const DASHBOARDS_MAXIMUM = 100;
 export const DASHBOARD_LAYOUT_VERSION = 1;
 
 /** The kinds of card a dashboard holds. */
-export const DASHBOARD_CARD_TYPES = ['entity', 'scene', 'clock', 'container'] as const;
+export const DASHBOARD_CARD_TYPES = ['entity', 'scene', 'clock', 'energy', 'container'] as const;
 
 /** The kind of a card. */
 export type DashboardCardType = (typeof DASHBOARD_CARD_TYPES)[number];
@@ -112,11 +112,51 @@ export const dashboardClockCardSchema = z.object({
 /** A card showing the time. */
 export type DashboardClockCard = z.output<typeof dashboardClockCardSchema>;
 
+/**
+ * A card drawing where the house's power comes from and goes to: the solar roof, the battery, the
+ * grid and the house itself, with the flow between them.
+ *
+ * Every entity is optional. A house without panels or without a battery draws no panels and no
+ * battery, and the house's own draw, when no meter reports it, is what the others add up to. The
+ * two sign switches exist because meters disagree: some report import as positive and some as
+ * negative, and a battery may count discharge either way.
+ */
+export const dashboardEnergyCardSchema = z.object({
+  ...placement,
+  type: z.literal('energy'),
+  title: cardTitleSchema,
+
+  /** What the panels produce now, in W or kW. */
+  solarPower: entityIdSchema.nullable(),
+
+  /** What flows in or out of the battery now, in W or kW. */
+  batteryPower: entityIdSchema.nullable(),
+
+  /** How full the battery is, in percent. */
+  batteryLevel: entityIdSchema.nullable(),
+
+  /** What flows between the house and the grid now, in W or kW. */
+  gridPower: entityIdSchema.nullable(),
+
+  /** What the house uses now, in W or kW; computed from the others when null. */
+  homePower: entityIdSchema.nullable(),
+
+  /** Whether the grid meter reports power bought from the grid as positive. */
+  isGridImportPositive: z.boolean().default(true),
+
+  /** Whether the battery reports discharging as positive. */
+  isBatteryDischargePositive: z.boolean().default(true),
+});
+
+/** A card drawing where the house's power comes from and goes to. */
+export type DashboardEnergyCard = z.output<typeof dashboardEnergyCardSchema>;
+
 /** A card that can sit inside a container: anything but another container. */
 export const dashboardLeafCardSchema = z.discriminatedUnion('type', [
   dashboardEntityCardSchema,
   dashboardSceneCardSchema,
   dashboardClockCardSchema,
+  dashboardEnergyCardSchema,
 ]);
 
 /** A card that can sit inside a container. */
@@ -144,6 +184,7 @@ export const dashboardCardSchema = z.discriminatedUnion('type', [
   dashboardEntityCardSchema,
   dashboardSceneCardSchema,
   dashboardClockCardSchema,
+  dashboardEnergyCardSchema,
   dashboardContainerCardSchema,
 ]);
 

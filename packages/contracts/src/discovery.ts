@@ -9,18 +9,18 @@
  */
 import { z } from 'zod';
 
-import { integrationKindIdSchema, VENDOR_ID_PATTERN } from './integrations.js';
+import { DISCOVERY_SOURCES, integrationKindIdSchema, VENDOR_ID_PATTERN } from './integrations.js';
 import { jsonObjectSchema } from './json.js';
 import { timestampSchema } from './timestamp.js';
 
 /** Lists the devices the hub has heard and nobody has added. */
 export const HUB_DISCOVERED_METHOD = 'discovered';
 
-/** How a device was heard: the platform's mDNS browser, or a vendor's own listener. */
-export const DISCOVERY_SOURCES = ['mdns', 'module'] as const;
-
-/** How a device was heard. */
-export type DiscoverySource = (typeof DISCOVERY_SOURCES)[number];
+/**
+ * Asks the hub to look for devices now rather than at its next scheduled pass: every vendor that
+ * can be found on the network, or the one named.
+ */
+export const HUB_DISCOVER_METHOD = 'discover';
 
 /** A model's label, as a driver lists it. */
 const modelSchema = z.string().min(1).max(64);
@@ -91,3 +91,22 @@ export const discoveryEventSchema = z.object({ count: z.int().min(0) });
 
 /** That the list changed. */
 export type DiscoveryEventPayload = z.output<typeof discoveryEventSchema>;
+
+/** Asks the hub to look now; every vendor when none is named. */
+export const discoverRequestSchema = z.object({
+  vendorId: z.string().regex(VENDOR_ID_PATTERN).optional(),
+});
+
+/** Asks the hub to look now. */
+export type DiscoverRequest = z.output<typeof discoverRequestSchema>;
+
+/**
+ * Which vendors the hub started looking for. Answered as soon as the questions are sent, not when
+ * the answers are in: devices arrive over the following seconds, each one a `changed` event.
+ */
+export const discoverReplySchema = z.object({
+  vendors: z.array(z.string().regex(VENDOR_ID_PATTERN)),
+});
+
+/** Which vendors the hub started looking for. */
+export type DiscoverReply = z.output<typeof discoverReplySchema>;

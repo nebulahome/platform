@@ -35,6 +35,13 @@ describe('the capability table', () => {
 });
 
 describe('command schemas', () => {
+  it('lets a button be pressed and nothing else', () => {
+    const schema = commandSchemaFor('button');
+
+    expect(schema?.safeParse({ command: 'press' }).success).toBe(true);
+    expect(schema?.safeParse({ command: 'toggle' }).success).toBe(false);
+  });
+
   it('accepts a known command', () => {
     expect(onOffCommandSchema.parse({ command: 'toggle' })).toEqual({ command: 'toggle' });
   });
