@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   asksAnythingRequired,
   integrationSetupSchema,
+  isFieldShown,
   pollIntervalMsOf,
   secretKeysOf,
   setupValueSchema,
@@ -209,6 +210,120 @@ describe('setupValueSchema', () => {
     expect(schema.parse({ speed: 'slow' })).toEqual({ speed: 'slow' });
     expect(schema.safeParse({ hosts: [] }).success).toBe(false);
     expect(schema.safeParse({ elsewhere: 1 }).success).toBe(false);
+  });
+});
+
+describe('shownWhen', () => {
+  /**
+   * An inverter reached over Modbus or through its dongle's web page: a unit id for one, a
+   * password for the other.
+   *
+   * @returns The declaration, as read off disk.
+   */
+  function inverter(): Record<string, unknown> {
+    return {
+      transport: {
+        fields: [
+          {
+            key: 'connection',
+            type: 'choice',
+            label: 'Connection',
+            choices: [
+              { value: 'modbus', label: 'Modbus TCP' },
+              { value: 'dongle', label: 'Web API' },
+            ],
+            default: 'modbus',
+          },
+          { key: 'host', type: 'text', label: 'Address', isRequired: true },
+          {
+            key: 'unitId',
+            type: 'number',
+            label: 'Unit id',
+            isRequired: true,
+            default: 1,
+            shownWhen: { key: 'connection', equals: ['modbus'] },
+          },
+          {
+            key: 'password',
+            type: 'secret',
+            label: 'Password',
+            isRequired: true,
+            shownWhen: { key: 'connection', equals: ['dongle'] },
+          },
+        ],
+      },
+    };
+  }
+
+  it('asks a field only while the choice before it holds one of its values', () => {
+    const group = integrationSetupSchema.parse(inverter()).transport;
+    const [, , unitId, password] = group.fields;
+
+    expect(unitId && isFieldShown(group, unitId, {})).toBe(true);
+    expect(password && isFieldShown(group, password, {})).toBe(false);
+    expect(password && isFieldShown(group, password, { connection: 'dongle' })).toBe(true);
+    expect(unitId && isFieldShown(group, unitId, { connection: 'dongle' })).toBe(false);
+  });
+
+  it('requires and defaults a field only while it is asked, and drops it otherwise', () => {
+    const schema = setupValueSchema(integrationSetupSchema.parse(inverter()).transport, 'complete');
+
+    expect(schema.parse({ host: '192.168.1.80' })).toEqual({
+      connection: 'modbus',
+      host: '192.168.1.80',
+      unitId: 1,
+    });
+    expect(
+      schema.parse({
+        connection: 'dongle',
+        host: '192.168.1.80',
+        password: 'SXXXXXXXXX',
+        unitId: 4,
+      }),
+    ).toEqual({ connection: 'dongle', host: '192.168.1.80', password: 'SXXXXXXXXX' });
+
+    const missing = schema.safeParse({ connection: 'dongle', host: '192.168.1.80' });
+
+    expect(missing.error?.issues.map((issue) => issue.path)).toEqual([['password']]);
+  });
+
+  it('keeps everything a change sends, since the stored row decides the rest', () => {
+    const schema = setupValueSchema(integrationSetupSchema.parse(inverter()).transport, 'partial');
+
+    expect(schema.parse({ unitId: 3 })).toEqual({ unitId: 3 });
+  });
+
+  it('refuses a condition on a field that is later, missing, not a choice, or cannot hold it', () => {
+    /**
+     * The inverter with its password waiting on something else.
+     *
+     * @param shownWhen - What the password waits for.
+     * @returns The declaration.
+     */
+    const waitingOn = (shownWhen: unknown): Record<string, unknown> => {
+      const declaration = inverter();
+      const transport = declaration['transport'] as { fields: Record<string, unknown>[] };
+      const password = transport.fields[3];
+
+      if (password !== undefined) {
+        password['shownWhen'] = shownWhen;
+      }
+
+      return declaration;
+    };
+
+    expect(() =>
+      integrationSetupSchema.parse(waitingOn({ key: 'region', equals: ['eu'] })),
+    ).toThrow(/region/u);
+    expect(() => integrationSetupSchema.parse(waitingOn({ key: 'host', equals: ['x'] }))).toThrow(
+      /neither a choice nor a switch/u,
+    );
+    expect(() =>
+      integrationSetupSchema.parse(waitingOn({ key: 'connection', equals: ['serial'] })),
+    ).toThrow(/does not offer/u);
+    expect(() => integrationSetupSchema.parse(waitingOn({ key: 'unitId', equals: ['1'] }))).toThrow(
+      /asked only sometimes|neither/u,
+    );
   });
 });
 

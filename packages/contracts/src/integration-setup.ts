@@ -13,6 +13,11 @@
  * the integration itself takes. Each group may also carry `constants`: values the bundle fixes
  * and the owner never sees - a printer that only ever logs in as `bblp` says so here, and the
  * form has one field fewer.
+ *
+ * A field may be asked only after an earlier choice: `shownWhen` names a choice or a switch of the
+ * same group and the values it must hold. An inverter reached either over Modbus or through its
+ * dongle's web page asks for a unit id in one case and a password in the other, never both; the
+ * field the choice hides is neither required nor kept.
  */
 import { z } from 'zod';
 
@@ -48,6 +53,19 @@ const patternSchema = z
     { message: 'Must be a valid regular expression' },
   );
 
+/**
+ * When a field is asked: while an earlier choice or switch of its group holds one of `equals`.
+ * Checked against the group when the declaration is read - the key must name such a field,
+ * declared before this one and itself always asked, and every value must be one it can hold.
+ */
+const shownWhenSchema = z.strictObject({
+  key: keySchema,
+  equals: z
+    .array(z.union([z.string().min(1).max(64), z.boolean()]))
+    .min(1)
+    .max(64),
+});
+
 /** What every field carries, whatever its type. */
 const fieldBase = {
   key: keySchema,
@@ -58,8 +76,11 @@ const fieldBase = {
   /** Shown under it, for the thing the label cannot say. */
   help: z.string().max(256).optional(),
 
-  /** Whether the form may be submitted without it. */
+  /** Whether the form may be submitted without it - while it is asked at all. */
   isRequired: z.boolean().default(false),
+
+  /** Asked only after an earlier choice; see the module comment. */
+  shownWhen: shownWhenSchema.optional(),
 };
 
 /**
@@ -197,9 +218,60 @@ export const setupGroupSchema = z
         });
       }
 
+      const problem = shownWhenProblem(group.fields.slice(0, index), field);
+
+      if (problem !== null) {
+        context.addIssue({
+          code: 'custom',
+          message: problem,
+          path: ['fields', index, 'shownWhen'],
+        });
+      }
+
       seen.add(field.key);
     }
   });
+
+/**
+ * What is wrong with a field's `shownWhen`, given the fields declared before it.
+ *
+ * @param earlier - The group's fields before this one.
+ * @param field - The field.
+ * @returns Why the condition cannot be met, or null when it can - or when there is none.
+ */
+function shownWhenProblem(earlier: readonly SetupField[], field: SetupField): string | null {
+  const condition = field.shownWhen;
+
+  if (condition === undefined) {
+    return null;
+  }
+
+  const controller = earlier.find((each) => each.key === condition.key);
+
+  if (controller === undefined) {
+    return `${field.key} is shown after ${condition.key}, which no earlier field is`;
+  }
+
+  if (controller.shownWhen !== undefined) {
+    return `${field.key} is shown after ${condition.key}, which is itself asked only sometimes`;
+  }
+
+  if (controller.type === 'boolean') {
+    return condition.equals.every((value) => typeof value === 'boolean')
+      ? null
+      : `${condition.key} is a switch: ${field.key} can only wait for true or false`;
+  }
+
+  if (controller.type === 'choice') {
+    return condition.equals.every((value) =>
+      controller.choices.some((choice) => choice.value === value),
+    )
+      ? null
+      : `${field.key} waits for a value ${condition.key} does not offer`;
+  }
+
+  return `${field.key} is shown after ${condition.key}, which is neither a choice nor a switch`;
+}
 
 /** One group of a declaration. */
 export type SetupGroup = z.output<typeof setupGroupSchema>;
@@ -421,11 +493,51 @@ function defaultOf(field: SetupField): JsonValue | undefined {
 }
 
 /**
+ * Whether a field is asked, given what the form holds.
+ *
+ * A field without `shownWhen` always is. One with it is asked while the field it names holds one
+ * of its values - what the form holds for it, else its declared default. When that field is not
+ * in the group at all, whoever built the group has already decided (the adopt dialog leaves out
+ * what discovery filled, and with it the fields that answer ruled out), and the field is asked.
+ *
+ * @param group - The group the field is in.
+ * @param field - The field.
+ * @param values - What the form holds, by key: typed values, or a draft's text and switches.
+ * @returns True when the form should show and check it.
+ */
+export function isFieldShown(
+  group: SetupGroup,
+  field: SetupField,
+  values: Readonly<Record<string, JsonValue | undefined>>,
+): boolean {
+  const condition = field.shownWhen;
+
+  if (condition === undefined) {
+    return true;
+  }
+
+  const controller = group.fields.find((each) => each.key === condition.key);
+
+  if (controller === undefined) {
+    return true;
+  }
+
+  const value = values[condition.key] ?? defaultOf(controller);
+
+  return condition.equals.some((wanted) => wanted === value);
+}
+
+/**
  * Builds the schema the values of one group must satisfy.
  *
  * Strict: a key the bundle did not declare is refused, and that includes its constants. A client
  * that could send a constant could send `shouldVerifyCertificate: true` to a printer that only
  * works without it, and the instance would look configured while never connecting.
+ *
+ * A field asked only after a choice ({@link isFieldShown}) is checked when it is sent, but
+ * required, defaulted and kept only while the choice asks for it: in a whole configuration the
+ * value of a field the choice hides is dropped. A change is merged over a stored row the schema
+ * cannot see, so there nothing is dropped.
  *
  * @param group - The declaration.
  * @param mode - Whole configuration or change.
@@ -438,7 +550,7 @@ export function setupValueSchema(group: SetupGroup, mode: SetupValueMode): z.Zod
     const value = valueOf(field);
     const fallback = defaultOf(field);
 
-    if (mode === 'partial') {
+    if (mode === 'partial' || field.shownWhen !== undefined) {
       shape[field.key] = value.optional();
     } else if (fallback !== undefined) {
       shape[field.key] = value.default(fallback);
@@ -447,17 +559,47 @@ export function setupValueSchema(group: SetupGroup, mode: SetupValueMode): z.Zod
     }
   }
 
-  return z.strictObject(shape).transform((values): JsonObject => {
-    const present: JsonObject = {};
-
-    for (const [key, value] of Object.entries(values)) {
-      if (value !== undefined) {
-        present[key] = value;
+  return z
+    .strictObject(shape)
+    .superRefine((values, context) => {
+      if (mode === 'partial') {
+        return;
       }
-    }
 
-    return present;
-  });
+      for (const field of group.fields) {
+        const isMissing =
+          field.shownWhen !== undefined &&
+          field.isRequired &&
+          values[field.key] === undefined &&
+          defaultOf(field) === undefined &&
+          isFieldShown(group, field, values);
+
+        if (isMissing) {
+          context.addIssue({ code: 'custom', message: 'Required', path: [field.key] });
+        }
+      }
+    })
+    .transform((values): JsonObject => {
+      const present: JsonObject = {};
+
+      for (const field of group.fields) {
+        const value = values[field.key];
+        const fallback = defaultOf(field);
+        const isConditional = mode === 'complete' && field.shownWhen !== undefined;
+
+        if (isConditional && !isFieldShown(group, field, values)) {
+          continue;
+        }
+
+        if (value !== undefined) {
+          present[field.key] = value;
+        } else if (isConditional && fallback !== undefined) {
+          present[field.key] = fallback;
+        }
+      }
+
+      return present;
+    });
 }
 
 /**
