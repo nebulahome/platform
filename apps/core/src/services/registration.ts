@@ -36,14 +36,18 @@ import type { BusClient, BusSubscription } from '@nebula-home/bus';
 import {
   busSubjects,
   ConflictError,
+  CORE_DEVICE_INFO_METHOD,
   CORE_REGISTER_METHOD,
   CORE_SERVICE,
   CORE_UNREGISTER_METHOD,
+  deviceInfoRequestSchema,
   NotFoundError,
   parseEntityId,
   registerDeviceRequestSchema,
   unregisterDeviceRequestSchema,
   type CapabilityName,
+  type DeviceInfoReply,
+  type DeviceInfoRequest,
   type EntityId,
   type JsonObject,
   type RegisterDeviceReply,
@@ -301,7 +305,67 @@ async function erase(
  * @returns The subscriptions, to unsubscribe on shutdown.
  */
 export function startRegistrationService(options: RegistrationOptions): BusSubscription[] {
-  return [serveRegister(options), serveUnregister(options)];
+  return [serveRegister(options), serveUnregister(options), serveDeviceInfo(options)];
+}
+
+/**
+ * Serves the subject `hub` reports a running device's firmware on.
+ *
+ * Written only when it differs, and announced only then: a hub that restarts reports every
+ * device's firmware once, and a house of forty relays must not become forty events saying
+ * nothing changed.
+ *
+ * @param options - See {@link RegistrationOptions}.
+ * @returns The subscription.
+ */
+function serveDeviceInfo(options: RegistrationOptions): BusSubscription {
+  return options.client.serve(
+    busSubjects.service(CORE_SERVICE, CORE_DEVICE_INFO_METHOD),
+    deviceInfoRequestSchema,
+
+    /**
+     * Writes down what changed.
+     *
+     * @param request - The device and what it reports.
+     * @returns Whether the row changed.
+     */
+    async (request: DeviceInfoRequest): Promise<DeviceInfoReply> => {
+      const { devices } = schema.registry;
+      const swVersion = request.swVersion ?? null;
+      const hwVersion = request.hwVersion ?? null;
+      const [changed] = await options.db
+        .update(devices)
+        .set({
+          swVersion: sql`coalesce(${swVersion}, ${devices.swVersion})`,
+          hwVersion: sql`coalesce(${hwVersion}, ${devices.hwVersion})`,
+          updatedAt: new Date(),
+        })
+        .where(
+          sql`${devices.integrationId} = ${request.integrationId} AND (
+            (${swVersion}::text IS NOT NULL AND ${devices.swVersion} IS DISTINCT FROM ${swVersion}::text)
+            OR (${hwVersion}::text IS NOT NULL AND ${devices.hwVersion} IS DISTINCT FROM ${hwVersion}::text)
+          )`,
+        )
+        .returning({ name: devices.name, swVersion: devices.swVersion });
+
+      if (changed === undefined) {
+        return { isChanged: false };
+      }
+
+      options.client.publish(busSubjects.deviceEvent('updated'), {
+        deviceId: request.integrationId,
+        source: request.integrationId,
+        name: changed.name,
+        entityIds: [],
+      });
+      options.logger.info(
+        { integrationId: request.integrationId, swVersion: changed.swVersion },
+        'A device reports new firmware',
+      );
+
+      return { isChanged: true };
+    },
+  );
 }
 
 /**
