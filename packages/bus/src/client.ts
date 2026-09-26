@@ -304,6 +304,36 @@ export class BusClient {
   }
 
   /**
+   * Publishes bytes as they are, with no envelope: a camera's frames.
+   *
+   * The one kind of message that is not JSON. A frame is tens of kilobytes that would grow by a
+   * third as base64 and be parsed for nothing, many times a second, and it has no schema beyond
+   * the few bytes of header its producer and its one consumer agree on. Everything else goes
+   * through {@link publish}.
+   *
+   * @param subject - Where to publish, built with `busSubjects`.
+   * @param data - The bytes.
+   */
+  public publishRaw(subject: string, data: Uint8Array): void {
+    this.#transport.publish(subject, data);
+  }
+
+  /**
+   * Receives bytes as they were published with {@link publishRaw}.
+   *
+   * @param subject - The subject.
+   * @param handler - Called with each message's bytes, one at a time.
+   * @returns The subscription, to unsubscribe from.
+   */
+  public subscribeRaw(subject: string, handler: (data: Uint8Array) => void): BusSubscription {
+    return this.#consume(subject, {}, (message) => {
+      handler(message.data);
+
+      return Promise.resolve();
+    });
+  }
+
+  /**
    * Delivers what is already queued, then closes the connection.
    *
    * Called on graceful shutdown, so that events published in the last moments of a service's
