@@ -243,6 +243,14 @@
   --color-house-ground: #0d1220;
   --color-house-device: #c9ced8;
 
+  /* The details a style adds: tiles, trim, shutters, siding, a garage, a sand-coloured house. */
+  --color-house-trim: #333b4f;
+  --color-house-plinth: #141a27;
+  --color-house-interior: #080b14;
+  --color-house-panel-frame: #58637d;
+  --color-house-panel-cell: #0b1020;
+  --color-house-panel-glare: #8fa6d8;
+
   /* --- shape ---------------------------------------------------------------------------- */
   /*
    * Five steps, and a control inside a card takes the step below the card so the curves stay
@@ -579,6 +587,13 @@
     --color-house-ground: #eceff4;
     --color-house-device: #ffffff;
 
+    --color-house-trim: #f8f9fb;
+    --color-house-plinth: #bfc6d1;
+    --color-house-interior: #8d95a4;
+    --color-house-panel-frame: #c3cad6;
+    --color-house-panel-cell: #0f1729;
+    --color-house-panel-glare: #ffffff;
+
     /*
      * A white card has no lit top edge, and a white highlight on white is nothing at all. The
      * depth comes from the shadow, which loses most of its weight: a light page carries far less
@@ -658,6 +673,13 @@
       --color-house-wire: #b4bbc8;
       --color-house-ground: #eceff4;
       --color-house-device: #ffffff;
+
+      --color-house-trim: #f8f9fb;
+      --color-house-plinth: #bfc6d1;
+      --color-house-interior: #8d95a4;
+      --color-house-panel-frame: #c3cad6;
+      --color-house-panel-cell: #0f1729;
+      --color-house-panel-glare: #ffffff;
 
       --face-card: none;
       --face-raised: linear-gradient(180deg, #ffffff 0%, #f4f5f9 100%);

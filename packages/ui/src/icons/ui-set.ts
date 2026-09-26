@@ -14,6 +14,7 @@ import {
   ArrowDownToLine,
   ArrowUpToLine,
   Blinds,
+  Bluetooth,
   Cable,
   Camera,
   ChartLine,
@@ -21,6 +22,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  CircleArrowUp,
   CircleDot,
   Clock,
   Copy,
@@ -53,9 +55,11 @@ import {
   Palette,
   Pause,
   Pencil,
+  Pipette,
   Play,
   Plus,
   Power,
+  RadioTower,
   RotateCcw,
   RotateCcwClock,
   Rss,
@@ -73,6 +77,8 @@ import {
   TriangleAlert,
   Type,
   Upload,
+  Video,
+  VideoOff,
   Volume2,
   VolumeX,
   Wrench,
@@ -169,6 +175,14 @@ export const BUILTIN_UI_NODES = {
   'volume-x': drawing(VolumeX),
   'chart-line': drawing(ChartLine),
   leaf: drawing(Leaf),
+  'circle-arrow-up': drawing(CircleArrowUp),
+  pipette: drawing(Pipette),
+  video: drawing(Video),
+  'video-off': drawing(VideoOff),
+
+  // The wires a vendor's devices are reached over, on its card.
+  bluetooth: drawing(Bluetooth),
+  'radio-tower': drawing(RadioTower),
 } satisfies Record<string, IconNode>;
 
 /** A catalogue id the interface draws itself with. */

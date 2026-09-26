@@ -21,6 +21,13 @@
  */
 export { AppIcon, type AppIconProps } from './components/app-icon.js';
 export { Badge, type BadgeProps, type BadgeTone } from './components/badge.js';
+export {
+  ColorWheel,
+  colourAt,
+  wheelColour,
+  type ColorWheelProps,
+  type WheelColour,
+} from './components/color-wheel.js';
 export { Button, type ButtonProps } from './components/button.js';
 export { CatalogueIcon, type CatalogueIconProps } from './components/catalogue-icon.js';
 export { ColorSwatches, type ColorSwatchesProps } from './components/color-swatches.js';
