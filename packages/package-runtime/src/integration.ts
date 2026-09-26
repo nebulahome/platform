@@ -188,4 +188,40 @@ export type Integration<TOptions = JsonObject> = {
    * @returns The request. Performing it is the transport's job.
    */
   toCommand: (target: CommandTarget, context: MappingContext) => TransportRequest;
+
+  /**
+   * Reads what a message says about the device itself, beyond its entities: the firmware it runs
+   * now, which changes when it is updated and is otherwise only known from when it was found.
+   *
+   * Optional: an integration whose messages say nothing of the kind leaves it out.
+   *
+   * @param message - What arrived.
+   * @param context - The claim, the settings and the last known state.
+   * @returns What the message says, field by field; undefined, or a field left out, when it says
+   * nothing about it.
+   */
+  deviceInfo?: (message: TransportInbound, context: MappingContext) => DeviceInfo | undefined;
+
+  /**
+   * Says how a camera entity's picture is read, when it is one.
+   *
+   * Optional: an integration with no camera leaves it out.
+   *
+   * @param entityId - The entity.
+   * @param context - The claim, the settings and the last known state.
+   * @returns The stream source and what it is told to read, or undefined for an entity with none.
+   */
+  streamOf?: (entityId: EntityId, context: MappingContext) => StreamRequest | undefined;
+};
+
+/** How one camera's picture is read: which source, told what. */
+export type StreamRequest = {
+  readonly source: string;
+  readonly args: JsonObject;
+};
+
+/** What a message says about the device itself. */
+export type DeviceInfo = {
+  readonly swVersion?: string;
+  readonly hwVersion?: string;
 };

@@ -18,4 +18,5 @@ export * from './integration.js';
 export * from './profile.js';
 export * from './registry.js';
 export * from './sdk.js';
+export * from './stream.js';
 export * from './transport.js';

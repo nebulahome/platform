@@ -30,14 +30,17 @@ import type {
   Claim,
   CommandTarget,
   DeviceDescriptor,
+  DeviceInfo,
   EntityDescriptor,
   Integration,
   MappingContext,
+  StreamRequest,
 } from './integration.js';
 import type {
   EntityProfile,
   IntegrationProfile,
   RequestTemplate,
+  StateSource,
   StateValue,
   TemplateValue,
 } from './profile.js';
@@ -111,7 +114,31 @@ function keyOf(entity: EntityProfile): string {
 /**
  * Reads one state field.
  *
- * @param value - Where the profile says the field comes from.
+ * @param value - Where the profile says the field comes from: one place, or several tried in
+ * order.
+ * @param payload - What arrived.
+ * @returns The first place's value that is not undefined, or undefined when none has one.
+ */
+function readStateValue(value: StateValue, payload: unknown): unknown {
+  if (!Array.isArray(value)) {
+    return readStateSource(value, payload);
+  }
+
+  for (const source of value) {
+    const found = readStateSource(source, payload);
+
+    if (found !== undefined) {
+      return found;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Reads one place a state field comes from.
+ *
+ * @param value - The place.
  * @param payload - What arrived.
  * @returns The value, the result of the comparison, whether the value is present, or the
  * table's entry - and undefined when the path names nothing, or the table has no entry and no
@@ -119,7 +146,7 @@ function keyOf(entity: EntityProfile): string {
  * carry must not become `false`, or every partial report would switch every light off. `present`
  * alone reads a missing value as `false`, and only where its holder was reported.
  */
-function readStateValue(value: StateValue, payload: unknown): unknown {
+function readStateSource(value: StateSource, payload: unknown): unknown {
   if (typeof value === 'string') {
     return resolvePath(payload, value);
   }
@@ -128,7 +155,11 @@ function readStateValue(value: StateValue, payload: unknown): unknown {
     return resolvePresence(payload, value.path);
   }
 
-  const found = resolvePath(payload, value.path);
+  const resolved = resolvePath(payload, value.path);
+  const found =
+    resolved === undefined || (value.bits === undefined && value.base === undefined)
+      ? resolved
+      : numberOf(resolved, value.bits, value.base ?? 10);
 
   if (found === undefined) {
     return undefined;
@@ -144,7 +175,56 @@ function readStateValue(value: StateValue, payload: unknown): unknown {
     return mapped ?? value.default;
   }
 
-  return found === value.equals;
+  if ('equals' in value) {
+    return found === value.equals;
+  }
+
+  return found;
+}
+
+/**
+ * Reads a number, or part of one.
+ *
+ * @param value - The number, or text holding one.
+ * @param bits - `[shift, width]`, the lowest bit first; absent, the whole number.
+ * @param base - How text is read: 10, or 16.
+ * @returns The number, or its bits unsigned; undefined when the value is no number, or no integer
+ * where bits are read.
+ */
+function numberOf(
+  value: unknown,
+  bits: readonly [number, number] | undefined,
+  base: number,
+): number | undefined {
+  const text = typeof value === 'string' ? value.trim() : undefined;
+  const number =
+    typeof value === 'number'
+      ? value
+      : text === undefined || text === ''
+        ? Number.NaN
+        : base === 16
+          ? /^[0-9a-f]+$/iu.test(text)
+            ? Number.parseInt(text, 16)
+            : Number.NaN
+          : Number(text);
+
+  if (!Number.isFinite(number)) {
+    return undefined;
+  }
+
+  if (bits === undefined) {
+    return number;
+  }
+
+  if (!Number.isInteger(number)) {
+    return undefined;
+  }
+
+  const [shift, width] = bits;
+  // Unsigned throughout: a flags word with its top bit set arrives as a negative number.
+  const shifted = number >>> shift;
+
+  return width === 32 ? shifted >>> 0 : (shifted & ((1 << width) - 1)) >>> 0;
 }
 
 /**
@@ -473,5 +553,69 @@ export function createDeclarativeIntegration(
         }),
       };
     },
+
+    /**
+     * Says how a camera entity's picture is read, from its profile.
+     *
+     * @param entityId - The entity.
+     * @param context - The identifiers `hub` assigned to this device.
+     * @returns The stream source and its arguments, or undefined for an entity with none.
+     */
+    streamOf: (entityId: EntityId, context: MappingContext): StreamRequest | undefined => {
+      const entity = profile.entities.find(
+        (candidate) => context.entities.get(keyOf(candidate)) === entityId,
+      );
+
+      return entity?.stream === undefined
+        ? undefined
+        : { source: entity.stream.source, args: entity.stream.args };
+    },
+
+    ...(profile.device === undefined
+      ? {}
+      : {
+          /**
+           * Reads the firmware the device says it runs now, where the profile says it is.
+           *
+           * @param message - What arrived.
+           * @returns The versions the message carries; undefined when it carries neither.
+           */
+          deviceInfo: (message: TransportInbound): DeviceInfo | undefined => {
+            const mapping = profile.device;
+            const swVersion = firstText(message.payload, mapping?.swVersion);
+            const hwVersion = firstText(message.payload, mapping?.hwVersion);
+
+            if (swVersion === undefined && hwVersion === undefined) {
+              return undefined;
+            }
+
+            return {
+              ...(swVersion === undefined ? {} : { swVersion }),
+              ...(hwVersion === undefined ? {} : { hwVersion }),
+            };
+          },
+        }),
   };
+}
+
+/**
+ * Reads the first non-empty string among some paths.
+ *
+ * @param payload - Where to read.
+ * @param paths - A path, a list of them tried in order, or nothing.
+ * @returns The string, or undefined when no path names one.
+ */
+function firstText(
+  payload: unknown,
+  paths: string | readonly string[] | undefined,
+): string | undefined {
+  for (const path of paths === undefined ? [] : typeof paths === 'string' ? [paths] : paths) {
+    const value = resolvePath(payload, path);
+
+    if (typeof value === 'string' && value.length > 0) {
+      return value;
+    }
+  }
+
+  return undefined;
 }

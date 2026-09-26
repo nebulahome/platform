@@ -428,3 +428,125 @@ describe('toCommand', () => {
     ).toThrow(/somewhere_else/);
   });
 });
+
+describe('toState for packed and moved readings', () => {
+  /**
+   * An integration reading a nozzle whose current and target temperatures share one number, a
+   * bed whose firmware moved its reading, and a door that is one bit of a flags word.
+   *
+   * @returns A reader of what each entity reports for a payload.
+   */
+  function printer(): (payload: unknown) => Map<string, CapabilityState> {
+    const numeric = (value: unknown) => ({
+      domain: 'sensor',
+      capabilities: { sensor_numeric: {} },
+      state: { sensor_numeric: { value } },
+    });
+    const built = createDeclarativeIntegration(
+      manifest(),
+      integrationProfileSchema.parse({
+        ...PROFILE_JSON,
+        entities: [
+          { ...numeric({ path: 'extruder[0].temp', bits: [0, 16] }), objectId: 'nozzle' },
+          { ...numeric({ path: 'extruder[0].temp', bits: [16, 16] }), objectId: 'target' },
+          {
+            ...numeric([{ path: 'device.bed.temp', bits: [0, 16] }, 'bed_temper']),
+            objectId: 'bed',
+          },
+          { ...numeric({ path: 'ams.humidity_raw', base: 10 }), objectId: 'humidity' },
+          {
+            domain: 'binary_sensor',
+            objectId: 'door',
+            capabilities: { sensor_binary: {} },
+            state: {
+              sensor_binary: {
+                isOn: [
+                  { path: 'stat', bits: [23, 1], base: 16, equals: 1 },
+                  { path: 'home_flag', bits: [23, 1], equals: 1 },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    );
+    const mapping = {
+      ...context(),
+      entities: new Map<string, EntityId>(
+        ['nozzle', 'target', 'bed', 'humidity', 'door'].map((key) => [
+          key,
+          parseEntityId(`${key === 'door' ? 'binary_sensor' : 'sensor'}.lab_${key}`),
+        ]),
+      ),
+    };
+
+    return (payload) =>
+      new Map(
+        built
+          .toState({ connectionKey: 'c', deviceKey: 'd', payload }, mapping)
+          .map((report) => [report.entityId, report.state]),
+      );
+  }
+
+  it('reads two temperatures out of one number', () => {
+    // 220 << 16 | 218: heading for 220, at 218 now.
+    const read = printer()({ extruder: [{ id: 0, temp: 14_418_138 }] });
+
+    expect(read.get('sensor.lab_nozzle')).toEqual({ sensor_numeric: { value: 218 } });
+    expect(read.get('sensor.lab_target')).toEqual({ sensor_numeric: { value: 220 } });
+  });
+
+  it('reads a reading wherever the firmware put it, the first place first', () => {
+    const read = printer();
+
+    expect(read({ device: { bed: { temp: (65 << 16) | 63 } } }).get('sensor.lab_bed')).toEqual({
+      sensor_numeric: { value: 63 },
+    });
+    expect(read({ bed_temper: 24.5 }).get('sensor.lab_bed')).toEqual({
+      sensor_numeric: { value: 24.5 },
+    });
+    expect(read({ relay: { on: true } }).has('sensor.lab_bed')).toBe(false);
+  });
+
+  it('reads one bit of a flags word, as a number or as hexadecimal text', () => {
+    const read = printer();
+
+    expect(read({ stat: '46A58008' }).get('binary_sensor.lab_door')).toEqual({
+      sensor_binary: { isOn: true },
+    });
+    expect(read({ stat: '46258008' }).get('binary_sensor.lab_door')).toEqual({
+      sensor_binary: { isOn: false },
+    });
+    // Negative: the word's top bit is set, and the reading must not care.
+    expect(read({ home_flag: -1_058_546_177 }).get('binary_sensor.lab_door')).toEqual({
+      sensor_binary: { isOn: true },
+    });
+    expect(read({ home_flag: -1_066_934_785 }).get('binary_sensor.lab_door')).toEqual({
+      sensor_binary: { isOn: false },
+    });
+  });
+
+  it('reads a number written as text, and nothing from text that is none', () => {
+    const read = printer();
+
+    expect(read({ ams: { humidity_raw: '18' } }).get('sensor.lab_humidity')).toEqual({
+      sensor_numeric: { value: 18 },
+    });
+    expect(read({ ams: { humidity_raw: 'n/a' } }).has('sensor.lab_humidity')).toBe(false);
+  });
+
+  it('refuses bits that do not fit in 32', () => {
+    expect(
+      integrationProfileSchema.safeParse({
+        ...PROFILE_JSON,
+        entities: [
+          {
+            domain: 'sensor',
+            capabilities: { sensor_numeric: {} },
+            state: { sensor_numeric: { value: { path: 'temp', bits: [24, 16] } } },
+          },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+});

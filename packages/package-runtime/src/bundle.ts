@@ -149,6 +149,17 @@ export const vendorManifestSchema = z.strictObject({
     .default({}),
 
   /**
+   * Stream sources of the vendor's own, by name: `{ "camera": "./camera/stream.js" }`.
+   *
+   * Each module default-exports a factory taking the {@link BundleSdk} and returning a stream
+   * source whose id is `<vendor>/<name>`, which a profile's camera entity names. Code, as a
+   * transport is.
+   */
+  streams: z
+    .record(z.string().regex(TRANSPORT_NAME_PATTERN, 'Must be a stream name'), bundlePathSchema)
+    .default({}),
+
+  /**
    * Digest of the bundle's contents, stamped by the catalogue at publication.
    *
    * Not written by the author, and absent on a bundle nobody has published. It is the local

@@ -12,6 +12,7 @@ import { createLogger } from '@nebula-home/logging';
 
 import type { DiscoverySourceFactory, Sighting } from './discovery.js';
 import type { BundleSdk, ManagedUdpSocketOptions, TransportFactory } from './sdk.js';
+import { defineStreamSource } from './stream.js';
 import { defineTransport } from './transport.js';
 
 describe('BundleSdk', () => {
@@ -25,6 +26,13 @@ describe('BundleSdk', () => {
         throw new Error('not opened in this test');
       },
       openUdpSocket: () => {
+        throw new Error('not opened in this test');
+      },
+      openMqtt: () => {
+        throw new Error('not opened in this test');
+      },
+      defineStreamSource,
+      openRtsp: () => {
         throw new Error('not opened in this test');
       },
     };
@@ -77,6 +85,13 @@ describe('BundleSdk.openUdpSocket', () => {
           },
           close: () => Promise.resolve(),
         };
+      },
+      openMqtt: () => {
+        throw new Error('not opened in this test');
+      },
+      defineStreamSource,
+      openRtsp: () => {
+        throw new Error('not opened in this test');
       },
     };
     const factory: DiscoverySourceFactory = (given) => ({

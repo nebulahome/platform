@@ -64,6 +64,42 @@ export const claimConditionSchema = z.union([
 /** One condition a candidate must satisfy for an integration to claim it. */
 export type ClaimCondition = z.output<typeof claimConditionSchema>;
 
+/** Part of a number: `[shift, width]`, the lowest bit first. */
+const bitsSchema = z
+  .tuple([z.int().min(0).max(31), z.int().min(1).max(32)])
+  .refine(([shift, width]) => shift + width <= 32, 'The bits must fit in 32');
+
+/** How a number the firmware writes as text is read: decimal, or hexadecimal. */
+const baseSchema = z.union([z.literal(10), z.literal(16)]);
+
+/** One place a state field's value comes from; see {@link stateValueSchema}. */
+const stateSourceSchema = z.union([
+  pathSchema,
+  z.strictObject({
+    path: pathSchema,
+    bits: bitsSchema.optional(),
+    base: baseSchema.optional(),
+    equals: scalarSchema,
+  }),
+  z.strictObject({ path: pathSchema, present: z.literal(true) }),
+  z.strictObject({
+    path: pathSchema,
+    bits: bitsSchema.optional(),
+    base: baseSchema.optional(),
+    map: z.record(z.string(), scalarSchema),
+    default: scalarSchema.optional(),
+  }),
+  z
+    .strictObject({ path: pathSchema, bits: bitsSchema.optional(), base: baseSchema.optional() })
+    .refine(
+      (source) => source.bits !== undefined || source.base !== undefined,
+      'A path alone is written as the string itself',
+    ),
+]);
+
+/** One place a state field's value comes from. */
+export type StateSource = z.output<typeof stateSourceSchema>;
+
 /**
  * Where a state field's value comes from.
  *
@@ -81,16 +117,22 @@ export type ClaimCondition = z.output<typeof claimConditionSchema>;
  * is true when the path names a value and false when the object that would hold it is there
  * without it - an update offered, then no longer offered. A report that does not carry that
  * object at all still yields nothing.
+ *
+ * `bits` reads a field that is part of a number: `[shift, width]`, the lowest bit first. Some
+ * firmware packs two readings into one integer - a Bambu printer's `temp` holds the current
+ * temperature in the low 16 bits and the target in the high 16 - or a set of flags, one of which
+ * is a door. It is indexing into a number, as a path indexes into a list, and nothing more: the
+ * bits are read, then compared or looked up as any value is. `base` reads a number the firmware
+ * writes as text - `"18"` with 10, flags as `"46A58008"` with 16 - and a text that is no
+ * number yields nothing.
+ *
+ * Finally a field may name up to four of these, tried in order, the first that yields a value
+ * being the one read: firmware that moved a reading keeps both places alive for a while, and a
+ * report from either must be understood.
  */
 export const stateValueSchema = z.union([
-  pathSchema,
-  z.strictObject({ path: pathSchema, equals: scalarSchema }),
-  z.strictObject({ path: pathSchema, present: z.literal(true) }),
-  z.strictObject({
-    path: pathSchema,
-    map: z.record(z.string(), scalarSchema),
-    default: scalarSchema.optional(),
-  }),
+  stateSourceSchema,
+  z.array(stateSourceSchema).min(2).max(4),
 ]);
 
 /** Where a state field's value comes from. */
@@ -218,8 +260,27 @@ export const entityProfileSchema = z
     deviceClass: z.string().max(64).optional(),
     stateClass: z.enum(ENTITY_STATE_CLASSES).optional(),
     displayPrecision: z.int().min(0).max(6).optional(),
+
+    /**
+     * For a camera: the stream source that reads its picture, `<vendor>/<name>`, and what it is
+     * told to read. The source is handed the instance's transport settings as well.
+     */
+    stream: z
+      .strictObject({
+        source: z.string().regex(/^[a-z][a-z0-9-]{1,63}\/[a-z][a-z0-9-]{0,63}$/u),
+        args: jsonObjectSchema.default({}),
+      })
+      .optional(),
   })
   .superRefine((entity, ctx) => {
+    if (entity.stream !== undefined && entity.domain !== 'camera') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['stream'],
+        message: 'Only a camera has a stream',
+      });
+    }
+
     for (const [capability, fields] of Object.entries(entity.state)) {
       const name = capability as CapabilityName;
 
@@ -256,12 +317,28 @@ export const entityProfileSchema = z
 /** One entity the device exposes, known before the device is ever contacted. */
 export type EntityProfile = z.output<typeof entityProfileSchema>;
 
+/**
+ * Where what the device reports says what it is, after it was found: its firmware, above all,
+ * which an update changes and which identification read only once. A path or a list of paths
+ * tried in order, as identity's.
+ */
+export const deviceInfoMappingSchema = z.strictObject({
+  swVersion: z.union([pathSchema, z.array(pathSchema).min(1).max(4)]).optional(),
+  hwVersion: z.union([pathSchema, z.array(pathSchema).min(1).max(4)]).optional(),
+});
+
+/** Where what the device reports says what it is. */
+export type DeviceInfoMapping = z.output<typeof deviceInfoMappingSchema>;
+
 /** The whole of a declarative bundle. */
 export const integrationProfileSchema = z.strictObject({
   discovery: discoveryProfileSchema,
 
   /** What the transport should subscribe to or poll on this integration's behalf. */
   subscriptions: z.array(requestTemplateSchema).default([]),
+
+  /** Where the device's own reports say which firmware it runs now. */
+  device: deviceInfoMappingSchema.optional(),
 
   /** At least one: a profile that declares no entity describes nothing. */
   entities: z.array(entityProfileSchema).min(1),
