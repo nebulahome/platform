@@ -22,6 +22,7 @@ export const ENTITY_DOMAINS = [
   'media_player',
   'camera',
   'button',
+  'update',
   'alias',
 ] as const;
 

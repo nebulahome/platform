@@ -9,7 +9,12 @@
  */
 import { z } from 'zod';
 
-import { DISCOVERY_SOURCES, integrationKindIdSchema, VENDOR_ID_PATTERN } from './integrations.js';
+import {
+  DISCOVERY_SOURCES,
+  integrationIdSchema,
+  integrationKindIdSchema,
+  VENDOR_ID_PATTERN,
+} from './integrations.js';
 import { jsonObjectSchema } from './json.js';
 import { timestampSchema } from './timestamp.js';
 
@@ -59,6 +64,18 @@ export const discoveredDeviceSchema = z.object({
 
   /** How to reach it, in its transport's terms. Never a secret: nothing was asked for yet. */
   transportConfig: jsonObjectSchema,
+
+  /**
+   * The device already added that this one says it is, when it answered at another address -
+   * a lease that changed. Proposed rather than followed: an address is moved by the owner,
+   * since a device on the network claiming another's id is not proof that it is that device,
+   * and the added one may carry a password its new address would be sent. Null for a device
+   * nobody has added.
+   */
+  movedFrom: z
+    .object({ deviceId: integrationIdSchema, address: z.string().min(1).max(256) })
+    .nullable()
+    .default(null),
 
   firstSeenAt: timestampSchema,
   lastSeenAt: timestampSchema,

@@ -114,6 +114,16 @@ export const dashboardClockCardSchema = z.object({
 export type DashboardClockCard = z.output<typeof dashboardClockCardSchema>;
 
 /**
+ * The houses the energy card can draw: a European one under a gabled roof, an American one whose
+ * garage wing stands in front of the house, and an Arabic one under a flat roof behind a parapet.
+ * They differ in shape and detail only: every one is drawn in the same colours.
+ */
+export const HOUSE_STYLES = ['european', 'american', 'arabic'] as const;
+
+/** A house the energy card can draw. */
+export type HouseStyle = (typeof HOUSE_STYLES)[number];
+
+/**
  * A card drawing where the house's power comes from and goes to: the solar roof, the battery, the
  * grid and the house itself, with the flow between them.
  *
@@ -147,6 +157,9 @@ export const dashboardEnergyCardSchema = z.object({
 
   /** Whether the battery reports discharging as positive. */
   isBatteryDischargePositive: z.boolean().default(true),
+
+  /** Which house the card draws; the European one unless the owner picks another. */
+  houseStyle: z.enum(HOUSE_STYLES).default('european'),
 });
 
 /** A card drawing where the house's power comes from and goes to. */

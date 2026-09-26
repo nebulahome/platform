@@ -24,6 +24,7 @@ export * from './auth.js';
 export * from './automation-definition.js';
 export * from './bus-envelope.js';
 export * from './bus-subjects.js';
+export * from './camera.js';
 export * from './capabilities.js';
 export * from './commands.js';
 export * from './discovery.js';

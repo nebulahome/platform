@@ -36,6 +36,7 @@ export const CAPABILITIES = [
   'media_player',
   'camera',
   'button',
+  'update',
 ] as const;
 
 /** The name of a single capability. */
@@ -345,6 +346,48 @@ export const buttonCommandSchema = z.discriminatedUnion('command', [
   z.object({ command: z.literal('press') }),
 ]);
 
+// --- update ------------------------------------------------------------------------------
+
+/**
+ * A device's firmware: what it runs, what it could run, and whether it is installing it now.
+ *
+ * One entity for the whole of it, as Home Assistant has, rather than a sensor saying an update
+ * is there and a button installing it: the installing belongs to the same state as the offer,
+ * and an automation that installs whatever is offered must be able to see that an install is
+ * already under way - a device fetching its firmware still offers it until it reboots, and
+ * asked again it may start over.
+ *
+ * `latestVersion` is null when nothing newer is on offer, and a version the device does not run
+ * when something is. `progress` is a percentage, while installing, for a device that says.
+ */
+export const updateStateSchema = z.object({
+  installedVersion: z.string().min(1).max(64).nullable().default(null),
+  latestVersion: z.string().min(1).max(64).nullable().default(null),
+  isInstalling: z.boolean().default(false),
+  progress: z.number().min(0).max(100).nullable().default(null),
+});
+
+/** Whether the firmware can be installed from here, and whether its progress is reported. */
+export const updateParamsSchema = z.object({
+  canInstall: z.boolean().default(true),
+  hasProgress: z.boolean().default(false),
+});
+
+/** Installing what is on offer. */
+export const updateCommandSchema = z.discriminatedUnion('command', [
+  z.object({ command: z.literal('install') }),
+]);
+
+/**
+ * Whether a firmware state offers something the device does not run yet.
+ *
+ * @param state - The state.
+ * @returns True when an update is on offer.
+ */
+export function isUpdateOffered(state: z.output<typeof updateStateSchema>): boolean {
+  return state.latestVersion !== null && state.latestVersion !== state.installedVersion;
+}
+
 // --- the capability table ----------------------------------------------------------------
 
 /** The three schemas that together define one capability. */
@@ -407,6 +450,7 @@ export const CAPABILITY_DEFINITIONS = {
   },
   camera: { state: cameraStateSchema, params: cameraParamsSchema, commands: cameraCommandSchema },
   button: { state: buttonStateSchema, params: buttonParamsSchema, commands: buttonCommandSchema },
+  update: { state: updateStateSchema, params: updateParamsSchema, commands: updateCommandSchema },
 } as const satisfies Record<CapabilityName, CapabilityDefinition>;
 
 /**
@@ -430,6 +474,7 @@ export const capabilityStateSchema = z.object({
   media_player: mediaPlayerStateSchema.optional(),
   camera: cameraStateSchema.optional(),
   button: buttonStateSchema.optional(),
+  update: updateStateSchema.optional(),
 });
 
 /** The composite state of an entity, keyed by capability. */

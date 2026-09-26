@@ -29,6 +29,9 @@ export const CORE_REGISTER_METHOD = 'register';
 /** Releases a device: its entities, its identity row and its instance row, in one transaction. */
 export const CORE_UNREGISTER_METHOD = 'unregister';
 
+/** Writes down what a running device now says about itself: the firmware it runs. */
+export const CORE_DEVICE_INFO_METHOD = 'device_info';
+
 /** Takes in an alias the API has just written or changed. */
 export const CORE_SYNC_ALIAS_METHOD = 'sync_alias';
 
@@ -188,6 +191,28 @@ export const unregisterDeviceReplySchema = z.object({
 export type UnregisterDeviceReply = z.output<typeof unregisterDeviceReplySchema>;
 
 /**
+ * Asks `core` to write down the firmware a running device now reports.
+ *
+ * What identification read is what the device ran then; an update changes it, and the device
+ * says so in what it reports afterwards. Only the two versions, and only when they changed:
+ * everything else on the row is the owner's or identification's.
+ */
+export const deviceInfoRequestSchema = z.strictObject({
+  integrationId: integrationIdSchema,
+  swVersion: z.string().min(1).max(64).optional(),
+  hwVersion: z.string().min(1).max(64).optional(),
+});
+
+/** Asks `core` to write down the firmware a running device now reports. */
+export type DeviceInfoRequest = z.output<typeof deviceInfoRequestSchema>;
+
+/** Whether the row changed; false when it already said so, or there is no row. */
+export const deviceInfoReplySchema = z.object({ isChanged: z.boolean() });
+
+/** Whether the row changed. */
+export type DeviceInfoReply = z.output<typeof deviceInfoReplySchema>;
+
+/**
  * Asks `core` to take in an alias the API has just written or changed.
  *
  * The API writes an alias's rows - the entity, the definition, its sources and capabilities -
@@ -223,8 +248,14 @@ export const removeAliasReplySchema = z.object({ entityId: entityIdSchema });
 /** What `core` deleted. */
 export type RemoveAliasReply = z.output<typeof removeAliasReplySchema>;
 
-/** What can happen to a device that everyone else needs to hear about. */
-export const DEVICE_EVENTS = ['added', 'removed', 'offline'] as const;
+/**
+ * What can happen to a device that everyone else needs to hear about.
+ *
+ * `updated` is everything else a list shows that changed on its own, without anyone editing the
+ * device: its instance found it and is running, its firmware version changed. It carries no
+ * entities - they did not change - and a reader reads the device again.
+ */
+export const DEVICE_EVENTS = ['added', 'removed', 'offline', 'updated'] as const;
 
 /** What can happen to a device that everyone else needs to hear about. */
 export type DeviceEvent = (typeof DEVICE_EVENTS)[number];

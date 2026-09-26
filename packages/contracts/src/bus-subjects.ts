@@ -140,6 +140,14 @@ export const busSubjects = {
     `${BUS_SUBJECT_PREFIX}.pkg.${event}`,
 
   /**
+   * A camera's frames, as bytes: the one subject that carries no envelope (camera.ts).
+   *
+   * @param entityId - The camera.
+   * @returns The subject its frames are published on while it streams.
+   */
+  cameraFrame: (entityId: EntityId): string => `${BUS_SUBJECT_PREFIX}.camera.frame.${entityId}`,
+
+  /**
    * Publishing a numeric reading to the durable telemetry stream.
    *
    * @param entityId - The entity the reading belongs to.
