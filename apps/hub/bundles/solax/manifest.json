@@ -1,14 +1,15 @@
 {
   "id": "solax",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "sdk": "^1.1.0",
   "name": "SolaX Power",
-  "description": "SolaX inverters and the X3-EVC charger on your own network: through the Pocket WiFi or Pocket LAN dongle's local API, or over Modbus TCP. Nothing goes through SolaX Cloud.",
+  "description": "SolaX inverters and the X3-EVC charger on your own network: over Modbus TCP - a Pocket WiFi 3.0, the inverter's LAN port or an RS485 adapter - or through a dongle's web API. Nothing goes through SolaX Cloud.",
   "url": "https://www.solaxpower.com",
   "color": "#F08300",
   "logo": "./logo.svg",
   "internetRequired": false,
   "transports": {
+    "inverter": "./inverter/transport.js",
     "local": "./local/transport.js",
     "modbus": "./modbus/transport.js"
   }

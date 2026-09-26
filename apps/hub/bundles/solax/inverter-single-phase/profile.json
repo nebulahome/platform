@@ -3,15 +3,24 @@
     "claim": [
       {
         "path": "family",
-        "oneOf": ["x1_mini", "x1_mini_v34", "x1_boost", "x1_smart", "x1_g4_series"]
+        "oneOf": [
+          "x1_mini",
+          "x1_mini_v34",
+          "x1_boost",
+          "x1_smart",
+          "x1_g4_series",
+          "mic_g2_x1",
+          "mic_g4_x1",
+          "mic_g4_x1_pv3"
+        ]
       },
       {
-        "path": "sn",
+        "path": "serial",
         "exists": true
       }
     ],
     "identity": {
-      "externalId": "sn",
+      "externalId": "serial",
       "manufacturer": "manufacturer",
       "model": "model",
       "swVersion": "ver"
@@ -21,7 +30,13 @@
     {
       "op": "poll",
       "args": {
-        "everyMs": 30000
+        "everyMs": 15000,
+        "family": {
+          "$": "family"
+        },
+        "protocol": {
+          "$": "protocol"
+        }
       }
     }
   ],
@@ -151,6 +166,24 @@
       "deviceClass": "current",
       "stateClass": "measurement",
       "displayPrecision": 1
+    },
+    {
+      "domain": "sensor",
+      "objectId": "pv3_power",
+      "name": "PV3 power",
+      "icon": "solar",
+      "capabilities": {
+        "sensor_numeric": {}
+      },
+      "state": {
+        "sensor_numeric": {
+          "value": "values.pv3_power"
+        }
+      },
+      "unitOfMeasurement": "W",
+      "deviceClass": "power",
+      "stateClass": "measurement",
+      "displayPrecision": 0
     },
     {
       "domain": "sensor",
@@ -349,6 +382,20 @@
       "deviceClass": "temperature",
       "stateClass": "measurement",
       "displayPrecision": 0
+    },
+    {
+      "domain": "sensor",
+      "objectId": "run_mode",
+      "name": "Run mode",
+      "icon": "info",
+      "capabilities": {
+        "sensor_text": {}
+      },
+      "state": {
+        "sensor_text": {
+          "value": "values.run_mode"
+        }
+      }
     }
   ]
 }

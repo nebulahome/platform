@@ -5,17 +5,17 @@
         "key": "host",
         "type": "text",
         "label": "Address",
-        "help": "The IP or host name of the Modbus TCP server: the Pocket WiFi 3.0 dongle, the inverter's own LAN port, or the RS485-to-Ethernet adapter.",
-        "placeholder": "192.168.1.81",
+        "help": "The IP address of the dongle - or of the inverter's LAN port, or the adapter - as your router lists it. Just the address: no http://, no port.",
+        "placeholder": "192.168.1.80",
         "isRequired": true,
         "pattern": "^[A-Za-z0-9.-]+$",
-        "patternMessage": "An IP or host name - no port (it has its own field), no http:// and no path."
+        "patternMessage": "Just the IP address or host name - no http://, no port, no path."
       },
       {
         "key": "port",
         "type": "number",
-        "label": "Port",
-        "help": "The Modbus TCP port: 502 unless the adapter was set otherwise.",
+        "label": "Modbus port",
+        "help": "502, unless an adapter was set to another.",
         "isRequired": true,
         "isInteger": true,
         "min": 1,
@@ -25,8 +25,8 @@
       {
         "key": "unitId",
         "type": "number",
-        "label": "Modbus address",
-        "help": "The inverter's Modbus address (unit id), in its settings under Modbus: 1 unless it was changed - some inverters come set to 4.",
+        "label": "Modbus unit ID",
+        "help": "1 for a Pocket WiFi 3.0. On the inverter's own LAN port or an adapter, the Modbus address set in the inverter's menu - 1 unless it was changed; some come set to 4.",
         "isRequired": true,
         "isInteger": true,
         "min": 0,
@@ -36,8 +36,8 @@
       {
         "key": "framing",
         "type": "choice",
-        "label": "Framing",
-        "help": "Modbus TCP for a Pocket WiFi, the inverter's own port, or an adapter in \"Modbus TCP to RTU\" mode; RTU over TCP for an adapter in transparent mode.",
+        "label": "Modbus framing",
+        "help": "Leave on Modbus TCP. RTU over TCP is only for an RS485 adapter in transparent mode.",
         "choices": [
           {
             "value": "tcp",
@@ -45,7 +45,7 @@
           },
           {
             "value": "rtu",
-            "label": "RTU over TCP"
+            "label": "RTU over TCP (transparent adapter)"
           }
         ],
         "default": "tcp"

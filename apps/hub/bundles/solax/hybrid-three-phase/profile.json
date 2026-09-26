@@ -3,15 +3,27 @@
     "claim": [
       {
         "path": "family",
-        "oneOf": ["x3", "x3_v34", "qvolt_hyb_g3_3p", "x3_hybrid_g4", "x3_ultra"]
+        "oneOf": [
+          "x3",
+          "x3_v34",
+          "qvolt_hyb_g3_3p",
+          "x3_hybrid_g4",
+          "x3_ultra",
+          "hybrid_g3_x3",
+          "hybrid_g4_x3",
+          "hybrid_g5_x3",
+          "hybrid_g5_x3_pv3",
+          "hybrid_g5_x3_aelio",
+          "hybrid_g6_x3"
+        ]
       },
       {
-        "path": "sn",
+        "path": "serial",
         "exists": true
       }
     ],
     "identity": {
-      "externalId": "sn",
+      "externalId": "serial",
       "manufacturer": "manufacturer",
       "model": "model",
       "swVersion": "ver"
@@ -21,7 +33,13 @@
     {
       "op": "poll",
       "args": {
-        "everyMs": 30000
+        "everyMs": 15000,
+        "family": {
+          "$": "family"
+        },
+        "protocol": {
+          "$": "protocol"
+        }
       }
     }
   ],

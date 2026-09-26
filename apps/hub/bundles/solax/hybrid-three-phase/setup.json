@@ -2,29 +2,105 @@
   "transport": {
     "fields": [
       {
+        "key": "connection",
+        "type": "choice",
+        "label": "Connection",
+        "help": "How the hub reads the inverter. A Pocket WiFi 3.0 on firmware 3.004.03 or later answers Modbus TCP, with no password - the SolaX app shows its version. The web API is for a Pocket WiFi 2.0, a Pocket LAN or older firmware.",
+        "choices": [
+          {
+            "value": "modbus",
+            "label": "Modbus TCP (Pocket WiFi 3.0, LAN port, RS485 adapter)"
+          },
+          {
+            "value": "dongle",
+            "label": "Dongle web API (Pocket WiFi 2.0, Pocket LAN)"
+          }
+        ],
+        "default": "modbus"
+      },
+      {
         "key": "host",
         "type": "text",
         "label": "Address",
-        "help": "The IP or host name of the Pocket WiFi or Pocket LAN dongle on the network, with :port when it is not 80.",
+        "help": "The IP address of the dongle - or of the inverter's LAN port, or the adapter - as your router lists it. Just the address: no http://, no port.",
         "placeholder": "192.168.1.80",
         "isRequired": true,
-        "pattern": "^[A-Za-z0-9.-]+(:[0-9]{1,5})?$",
-        "patternMessage": "An IP or host name, with :port when it is not 80 - no http:// and no path."
+        "pattern": "^[A-Za-z0-9.-]+$",
+        "patternMessage": "Just the IP address or host name - no http://, no port, no path."
+      },
+      {
+        "key": "port",
+        "type": "number",
+        "label": "Modbus port",
+        "help": "502, unless an adapter was set to another.",
+        "isRequired": true,
+        "isInteger": true,
+        "min": 1,
+        "max": 65535,
+        "default": 502,
+        "shownWhen": {
+          "key": "connection",
+          "equals": ["modbus"]
+        }
+      },
+      {
+        "key": "unitId",
+        "type": "number",
+        "label": "Modbus unit ID",
+        "help": "1 for a Pocket WiFi 3.0. On the inverter's own LAN port or an adapter, the Modbus address set in the inverter's menu - 1 unless it was changed; some come set to 4.",
+        "isRequired": true,
+        "isInteger": true,
+        "min": 0,
+        "max": 255,
+        "default": 1,
+        "shownWhen": {
+          "key": "connection",
+          "equals": ["modbus"]
+        }
+      },
+      {
+        "key": "framing",
+        "type": "choice",
+        "label": "Modbus framing",
+        "help": "Leave on Modbus TCP. RTU over TCP is only for an RS485 adapter in transparent mode.",
+        "choices": [
+          {
+            "value": "tcp",
+            "label": "Modbus TCP"
+          },
+          {
+            "value": "rtu",
+            "label": "RTU over TCP (transparent adapter)"
+          }
+        ],
+        "default": "tcp",
+        "shownWhen": {
+          "key": "connection",
+          "equals": ["modbus"]
+        }
       },
       {
         "key": "username",
         "type": "text",
-        "label": "Username",
-        "help": "Only when the dongle's web page asks for a username as well - usually admin. Leave empty otherwise.",
+        "label": "Web page username",
+        "help": "Only if the dongle's own web page asks for a username too - usually admin. Leave empty otherwise.",
         "placeholder": "admin",
-        "maxLength": 64
+        "maxLength": 64,
+        "shownWhen": {
+          "key": "connection",
+          "equals": ["dongle"]
+        }
       },
       {
         "key": "password",
         "type": "secret",
-        "label": "Password",
-        "help": "The password of the dongle's own web page: its registration number - printed on its label, and the name of its Wi-Fi hotspot - unless it was changed. An X-Hybrid needs none.",
-        "maxLength": 64
+        "label": "Web page password",
+        "help": "The dongle's registration number, unless it was changed: the code starting with S on its label, which is also the name of its Wi-Fi hotspot. An X-Hybrid needs none.",
+        "maxLength": 64,
+        "shownWhen": {
+          "key": "connection",
+          "equals": ["dongle"]
+        }
       },
       {
         "key": "family",
@@ -45,12 +121,16 @@
             "label": "Q.VOLT HYB-G3-3P table"
           }
         ],
-        "default": "auto"
+        "default": "auto",
+        "shownWhen": {
+          "key": "connection",
+          "equals": ["dongle"]
+        }
       }
     ]
   },
   "polling": {
-    "default": 30,
+    "default": 15,
     "min": 5,
     "warnBelow": 10
   }

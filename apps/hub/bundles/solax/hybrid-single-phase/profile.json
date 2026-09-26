@@ -3,15 +3,26 @@
     "claim": [
       {
         "path": "family",
-        "oneOf": ["x_hybrid", "x1", "x1_hybrid_gen4", "x1_lite_lv"]
+        "oneOf": [
+          "x_hybrid",
+          "x1",
+          "x1_hybrid_gen4",
+          "x1_lite_lv",
+          "hybrid_g2_x1",
+          "hybrid_g3_x1",
+          "hybrid_g4_x1",
+          "hybrid_g5_x1",
+          "hybrid_g5_x1_pv3",
+          "hybrid_g6_x1"
+        ]
       },
       {
-        "path": "sn",
+        "path": "serial",
         "exists": true
       }
     ],
     "identity": {
-      "externalId": "sn",
+      "externalId": "serial",
       "manufacturer": "manufacturer",
       "model": "model",
       "swVersion": "ver"
@@ -21,7 +32,13 @@
     {
       "op": "poll",
       "args": {
-        "everyMs": 30000
+        "everyMs": 15000,
+        "family": {
+          "$": "family"
+        },
+        "protocol": {
+          "$": "protocol"
+        }
       }
     }
   ],
@@ -370,6 +387,42 @@
     },
     {
       "domain": "sensor",
+      "objectId": "battery_charge_total",
+      "name": "Battery charge energy",
+      "icon": "battery-charging",
+      "capabilities": {
+        "sensor_numeric": {}
+      },
+      "state": {
+        "sensor_numeric": {
+          "value": "values.battery_charge_total"
+        }
+      },
+      "unitOfMeasurement": "kWh",
+      "deviceClass": "energy",
+      "stateClass": "total_increasing",
+      "displayPrecision": 0
+    },
+    {
+      "domain": "sensor",
+      "objectId": "battery_discharge_total",
+      "name": "Battery discharge energy",
+      "icon": "battery",
+      "capabilities": {
+        "sensor_numeric": {}
+      },
+      "state": {
+        "sensor_numeric": {
+          "value": "values.battery_discharge_total"
+        }
+      },
+      "unitOfMeasurement": "kWh",
+      "deviceClass": "energy",
+      "stateClass": "total_increasing",
+      "displayPrecision": 0
+    },
+    {
+      "domain": "sensor",
       "objectId": "yield_today",
       "name": "Yield today",
       "icon": "solar",
@@ -457,6 +510,34 @@
       "deviceClass": "temperature",
       "stateClass": "measurement",
       "displayPrecision": 0
+    },
+    {
+      "domain": "sensor",
+      "objectId": "run_mode",
+      "name": "Run mode",
+      "icon": "info",
+      "capabilities": {
+        "sensor_text": {}
+      },
+      "state": {
+        "sensor_text": {
+          "value": "values.run_mode"
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "battery_mode",
+      "name": "Battery mode",
+      "icon": "info",
+      "capabilities": {
+        "sensor_text": {}
+      },
+      "state": {
+        "sensor_text": {
+          "value": "values.battery_mode"
+        }
+      }
     }
   ]
 }

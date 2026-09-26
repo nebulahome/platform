@@ -1,28 +1,50 @@
 # solax
 
 SolaX Power inverters - grid-tie, hybrid with a battery, AC-coupled retrofit - and the X3-EVC
-charger, read on the house network. Two ways in, each a transport the bundle ships itself, ten
-drivers between them. Nothing goes through SolaX Cloud, and nothing is written to the inverter:
-this release only reads.
+charger, read on the house network. Six drivers: one for each kind of inverter - single- and
+three-phase, hybrid or not - which reads it whichever way it is reached, the owner choosing the
+way in the form; the AC-coupled retrofit, over Modbus only; and the charger, through its dongle
+only. Nothing goes through SolaX Cloud, and nothing is written to the inverter: this release only
+reads.
 
-## Which way in
+## Which way in: _Connection_
 
-| The inverter is reached through                                              | Transport      | Drivers named    | The form asks                                    |
-| ---------------------------------------------------------------------------- | -------------- | ---------------- | ------------------------------------------------ |
-| a **Pocket WiFi** (V2 or V3) or **Pocket LAN** dongle, its local HTTP API    | `solax/local`  | `… (dongle API)` | address, registration number                     |
-| a **Pocket WiFi 3.0** dongle speaking Modbus TCP                             | `solax/modbus` | `… (Modbus TCP)` | address, port (502), Modbus address (1), framing |
-| the inverter's **own Ethernet port** (hybrids of the 2nd and 3rd generation) | `solax/modbus` | `… (Modbus TCP)` | the same                                         |
-| an **RS485-to-Ethernet adapter** on the inverter's COM port (any generation) | `solax/modbus` | `… (Modbus TCP)` | the same                                         |
+The first thing an inverter's form asks is **Connection**, and the rest of the form follows it:
 
-A Pocket WiFi 3.0 can be read either way. A **Pocket LAN has no Modbus** - the Modbus
-integration's documentation says so plainly - so it is read through the dongle API. An adapter
-on the COM port is the way that works for every generation, and the only one for a fourth
-generation inverter without a Pocket WiFi 3.0: the fourth generation has no Ethernet, and **its
-COM port is RS485 even where a manual calls it Ethernet - never plug it into a switch**.
+| The inverter is reached through                                                 | Connection               | The form then asks                                  |
+| ------------------------------------------------------------------------------- | ------------------------ | --------------------------------------------------- |
+| a **Pocket WiFi 3.0** dongle on firmware **3.004.03 or later**                  | **Modbus TCP** (default) | address, Modbus port (502), unit ID (1), framing    |
+| the inverter's **own Ethernet port** (hybrids of the 2nd and 3rd generation)    | Modbus TCP               | the same                                            |
+| an **RS485-to-Ethernet adapter** on the inverter's COM port (any generation)    | Modbus TCP               | the same                                            |
+| a **Pocket WiFi 2.0**, a **Pocket LAN**, or a Pocket WiFi 3.0 on older firmware | Dongle web API           | address, web page username (usually none), password |
 
-Both transports hand the profiles **named values, already scaled**: the drivers of either way
-read `values.battery_power`, `values.grid_power`, `values.pv_power`, and the entities of a
-hybrid read the same whichever way it is reached.
+For a Pocket WiFi 3.0, choose **Modbus TCP**: from firmware 3.004.03 it answers on port 502 with no
+password, and recent firmware closes the web API to the LAN anyway (HTTP 405). The SolaX app
+shows the dongle's firmware. **Test** says which way to try when the chosen one fails for a reason
+that points at the other: nothing taking a Modbus connection on port 502 (older firmware - try the
+web API), or a web API answering 405 (closed - try Modbus TCP). A **Pocket LAN has no Modbus** -
+the Modbus integration's documentation says so plainly - and a Pocket WiFi 2.0's is unreliable,
+so those are read through the web API. An adapter on the COM port is the way that works for every
+generation, and the only one for a fourth-generation inverter without a Pocket WiFi 3.0: the
+fourth generation has no Ethernet, and **its COM port is RS485 even where a manual calls it
+Ethernet - never plug it into a switch**.
+
+The four inverter drivers name the transport `solax/inverter` (`inverter/transport.js`), which
+hands every request to one of the bundle's two others - `solax/modbus` or `solax/local` - as
+Connection says. Both hand the profiles **named values, already scaled**: `values.battery_power`,
+`values.grid_power`, `values.pv_power` mean the same whichever way the inverter is reached, and
+one profile reads it either way. What still differs, `solax/inverter` makes the same on every
+payload:
+
+- `serial` is **the inverter's own serial number**: read from its registers over Modbus, and from
+  the dongle's `Information` through the web API, where the dongle reports it (most do); the
+  dongle's `sn` stands in where it does not, and goes along as `dongleSerial`. So an inverter is
+  the same device whichever way it is read, and a replaced dongle does not make it a new one.
+- `protocol` (SolaX's register document version, which a poll over Modbus is given back) is 0
+  through the web API; `connection` says which way the payload was read.
+
+The retrofit (`modbus-retrofit`, `solax/modbus`) and the charger (`ev-charger`, `solax/local`)
+are reached one way each, and their forms ask no Connection.
 
 ## The dongle API (`solax/local`)
 
@@ -51,8 +73,8 @@ ones of the `solax` library Home Assistant's core `solax` integration requires
 - **One request per interval.** However many entities a device has, a poll is one HTTP request;
   a dongle that did not answer at all (a grid-tie inverter's dongle is off every night) is not
   asked the other ways.
-- **The identity** of a device is the dongle's serial `sn`, what Home Assistant keys it by too; a
-  replaced dongle is a new device.
+- **The identity** of an inverter is its own serial, as above. The X3-EVC's is the dongle's
+  serial `sn`, what Home Assistant keys it by too; a replaced dongle is a new charger.
 
 | Family (`local/families.js`) | `type`               | Registers      | Driver                                                   |
 | ---------------------------- | -------------------- | -------------- | -------------------------------------------------------- |
@@ -86,8 +108,8 @@ address, which such a dongle answers (solax#151) - and, when the owner gives the
 the dongle's web page (usually `admin`), sends it and the password as Basic credentials on every
 request. The password is the one of the dongle's web page: its registration number unless changed.
 A dongle that still answers every way with HTTP 405 has shut its local API to the LAN for good;
-**Test** says so and points at Modbus TCP, which the Pocket WiFi 3.0 answers on port 502 from
-firmware 3.004.03 without a password - add the inverter with its Modbus TCP driver.
+**Test** says so and says to set Connection to _Modbus TCP_, which the Pocket WiFi 3.0 answers on
+port 502 from firmware 3.004.03 without a password.
 
 What **Test** says when nothing comes back is worth reading closely, because the three silences
 mean different things:
@@ -114,9 +136,16 @@ word order are those of the Home Assistant integration `solax_modbus`
 
 - **Read-only.** No mode, limit or remote-control register is written, and the unlock code SolaX
   asks before a setting changes is not sent.
-- **One socket per address**, shared by every unit behind it and by the Test button and
-  identification: many adapters, and the Pocket WiFi, take one client at a time. Requests go one
-  after another; one that times out drops the socket and the next opens it again.
+- **One socket per address, in the whole hub**: the polls of every unit behind it, the Test
+  button, identification and the discovery sweep all ask through the one client, kept by the
+  module rather than by each transport made from it - many adapters, and the Pocket WiFi 3.0, take
+  one client at a time, and a second connection opened beside a poll's would be refused or would
+  push the poll's off. Requests go one after another, 100 ms apart; one that times out drops the
+  socket and the next opens it again.
+- **Patient, and lenient.** A block a poll gets no answer to is asked once more before the poll
+  gives up, as the integration retries once; an answer to the function asked is taken even when a
+  gateway echoes another unit id, or 0 for the transaction, since one request is ever on the
+  wire.
 - **Framing.** _Modbus TCP_ (the MBAP header, a transaction id per request) for a Pocket WiFi 3.0,
   the inverter's own port, or an adapter set to "Modbus TCP to RTU" - what the integration's
   adapter guide recommends. _RTU over TCP_ for an adapter in transparent mode, which passes RTU
@@ -127,7 +156,9 @@ word order are those of the Home Assistant integration `solax_modbus`
   G4, `H3BC25…` an X3-Ultra with a third string, `XB3…` an X1-Boost, `MPT…` an X3-MIC PRO G2. The
   fifth and sixth generation moved some readings at version 1.00 of SolaX's register document;
   the transport reads that version (holding 0x82) once and picks the layout, as the integration
-  does. The serial is the device's identity.
+  does. The next place is tried when one is refused or left unanswered. The serial is the
+  device's identity. **Test** reads only the serial - one request, well inside the time a Test
+  has, even from a slow dongle - and so does the discovery sweep.
 - **Blocks, not entities.** The registers a family needs are grouped into reads: contiguous, at
   most 100 registers (the integration's block size for SolaX), a gap of more than 16 unused
   registers or a register the integration always starts a block at starting a new one. Each
@@ -137,24 +168,33 @@ word order are those of the Home Assistant integration `solax_modbus`
   and the rest delivered, as the integration does; a unit that does not answer fails the poll,
   and the entities go stale until it answers again.
 
-| Family (`modbus/families.js`) | Serial prefixes                                     | Driver                         |
-| ----------------------------- | --------------------------------------------------- | ------------------------------ |
-| `hybrid_g2_x1`                | L30, L37, L50, U30, U37, U50                        | `modbus-hybrid-single-phase`   |
-| `hybrid_g3_x1`                | H1E, H1I, HCC, HUE, XRE                             | `modbus-hybrid-single-phase`   |
-| `hybrid_g4_x1`                | H43, H44, H450, H460, H475, 63150                   | `modbus-hybrid-single-phase`   |
-| `hybrid_g5_x1`, `…_pv3`       | H53; H55, H56, H58                                  | `modbus-hybrid-single-phase`   |
-| `hybrid_g6_x1`                | 10M                                                 | `modbus-hybrid-single-phase`   |
-| `hybrid_g3_x3`                | H3DE, H3E, H3LE, H3PE, H3UE                         | `modbus-hybrid-three-phase`    |
-| `hybrid_g4_x3`                | H34, H31                                            | `modbus-hybrid-three-phase`    |
-| `hybrid_g5_x3`, `…_pv3`       | H35A0/A1, P35A0/A1, H35F0/F1; H3BC/D/F/G (X3-Ultra) | `modbus-hybrid-three-phase`    |
-| `hybrid_g5_x3_aelio`          | 8021                                                | `modbus-hybrid-three-phase`    |
-| `hybrid_g6_x3`                | 10K                                                 | `modbus-hybrid-three-phase`    |
-| `ac_g3_x1`, `ac_g3_x3`        | XAC, PRI; F3D, F3E                                  | `modbus-retrofit`              |
-| `ac_g4_x1`, `ac_g4_x3`        | F43, F450, F460, F475, PRE; F34                     | `modbus-retrofit`              |
-| `mic_g2_x1`                   | XAU, XB3, XBE, XBU, XAT, XM2, XM3, XMA              | `modbus-inverter-single-phase` |
-| `mic_g4_x1`, `…_pv3`          | XB4, XM4, ZA4; XST                                  | `modbus-inverter-single-phase` |
-| `mic_g1_x3`                   | MC103T, MC203T, … MU103T (the first X3-MIC)         | `modbus-inverter-three-phase`  |
-| `mic_g2_x3`                   | MC806T, … MP156T, PU, MPT                           | `modbus-inverter-three-phase`  |
+What **Test** says over Modbus:
+
+- _takes no Modbus TCP connection_ - nothing listens on the port. A Pocket WiFi 3.0 answers on 502
+  from firmware 3.004.03; older firmware, a Pocket WiFi 2.0 and a Pocket LAN have no Modbus - set
+  Connection to _Dongle web API_ for those.
+- _took the connection, but unit N did not answer_ - the unit ID is not the inverter's: 1 for a
+  Pocket WiFi 3.0, the address in the inverter's Modbus menu otherwise.
+- _answers Modbus, but …_ - something answered with no SolaX serial this bundle knows.
+
+| Family (`modbus/families.js`) | Serial prefixes                                     | Driver                  |
+| ----------------------------- | --------------------------------------------------- | ----------------------- |
+| `hybrid_g2_x1`                | L30, L37, L50, U30, U37, U50                        | `hybrid-single-phase`   |
+| `hybrid_g3_x1`                | H1E, H1I, HCC, HUE, XRE                             | `hybrid-single-phase`   |
+| `hybrid_g4_x1`                | H43, H44, H450, H460, H475, 63150                   | `hybrid-single-phase`   |
+| `hybrid_g5_x1`, `…_pv3`       | H53; H55, H56, H58                                  | `hybrid-single-phase`   |
+| `hybrid_g6_x1`                | 10M                                                 | `hybrid-single-phase`   |
+| `hybrid_g3_x3`                | H3DE, H3E, H3LE, H3PE, H3UE                         | `hybrid-three-phase`    |
+| `hybrid_g4_x3`                | H34, H31                                            | `hybrid-three-phase`    |
+| `hybrid_g5_x3`, `…_pv3`       | H35A0/A1, P35A0/A1, H35F0/F1; H3BC/D/F/G (X3-Ultra) | `hybrid-three-phase`    |
+| `hybrid_g5_x3_aelio`          | 8021                                                | `hybrid-three-phase`    |
+| `hybrid_g6_x3`                | 10K                                                 | `hybrid-three-phase`    |
+| `ac_g3_x1`, `ac_g3_x3`        | XAC, PRI; F3D, F3E                                  | `modbus-retrofit`       |
+| `ac_g4_x1`, `ac_g4_x3`        | F43, F450, F460, F475, PRE; F34                     | `modbus-retrofit`       |
+| `mic_g2_x1`                   | XAU, XB3, XBE, XBU, XAT, XM2, XM3, XMA              | `inverter-single-phase` |
+| `mic_g4_x1`, `…_pv3`          | XB4, XM4, ZA4; XST                                  | `inverter-single-phase` |
+| `mic_g1_x3`                   | MC103T, MC203T, … MU103T (the first X3-MIC)         | `inverter-three-phase`  |
+| `mic_g2_x3`                   | MC806T, … MP156T, PU, MPT                           | `inverter-three-phase`  |
 
 **What the inverter needs**, from the integration's documentation:
 
@@ -169,14 +209,14 @@ word order are those of the Home Assistant integration `solax_modbus`
 
 ## Polling
 
-| Way in     | Default | Least | Warns under | Why                                                                                  |
-| ---------- | ------- | ----- | ----------- | ------------------------------------------------------------------------------------ |
-| dongle API | 30 s    | 5 s   | 10 s        | Home Assistant's `solax` polls every 30 s; the dongle is a small Wi-Fi stick         |
-| Modbus TCP | 15 s    | 5 s   | 10 s        | the integration's default is 15 s, and it advises against less than 5 s at 9600 baud |
+| Driver                                  | Default | Least | Warns under | Why                                                                            |
+| --------------------------------------- | ------- | ----- | ----------- | ------------------------------------------------------------------------------ |
+| the four inverter drivers, the retrofit | 15 s    | 5 s   | 10 s        | the Modbus integration's default is 15 s, and it advises against less than 5 s |
+| the X3-EVC                              | 30 s    | 5 s   | 10 s        | Home Assistant's `solax` polls every 30 s; the dongle is a small Wi-Fi stick   |
 
-The owner changes it per device (_Update every_). An X1-Mini G4 has been reported to answer only
-at the integration's 15 s. Either way a poll is one request (dongle API) or one read per block
-(Modbus), never one per entity.
+The owner changes it per device (_Update every_); an inverter read through an old Pocket WiFi 2.0
+is kinder at 30 s. An X1-Mini G4 has been reported to answer only at the integration's 15 s.
+Either way a poll is one request (web API) or one read per block (Modbus), never one per entity.
 
 ## Entities, and the energy card
 
@@ -188,7 +228,9 @@ voltage, current and temperature (and on most, its charge and discharge counters
 ones a run mode and the battery mode as text. The AC-coupled retrofit has no strings and no home
 power: the PV inverter it sits beside is not seen from it, so output less feed-in would not be
 the house. An entity a given family does not report stays empty: the tables above and the
-comments in the `families.js` say which.
+comments in the `families.js` say which. Read through the web API, the readings only the
+registers carry stay empty too: on an X1-Hybrid G4, the run mode, the battery mode and the
+battery's charge and discharge counters.
 
 For the dashboard's energy card:
 
@@ -211,12 +253,15 @@ read as a reset.
 Neither the dongle nor a Modbus server announces itself, so the vendor's own listener
 (`lan/discovery.js`) asks the network: every address of every private IPv4 network the hub is on,
 from the interface's real netmask (a /22 is 1022 addresses; anything wider is asked only in the
-/22 around the hub), on port **502** - Modbus TCP, identified by the serial number no password
-guards, its prefix naming the model and the driver - and on port **80** - the dongle API without a
-password. An address is asked only once its port accepts a connection within 600 ms, 48 at a
-time; the sweep runs when listening starts, every half hour, and on **Discover devices**. A dongle
-with a password answers nothing that says it is a SolaX, so it is not proposed: add it by
-address. No firmware entities: neither API says an update is waiting.
+/22 around the hub), on port **502** first - Modbus TCP, identified by the serial number no
+password guards, its prefix naming the model and the driver - and, only when nothing answered
+there as a SolaX, on port **80** - the web API without a password. So a Pocket WiFi 3.0, which
+answers both, is proposed once, the Modbus way, with Connection already chosen: the form asks
+only what discovery could not fill. A server the hub already polls is asked through the poll's
+own socket, never with a second connection. An address is asked only once its port accepts a
+connection within 600 ms, 48 at a time; the sweep runs when listening starts, every half hour, and
+on **Discover devices**. A dongle with a password answers nothing that says it is a SolaX, so it
+is not proposed: add it by address. No firmware entities: neither API says an update is waiting.
 
 ## What is not here, and why
 

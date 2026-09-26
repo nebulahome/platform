@@ -70,12 +70,12 @@ const QVOLT_RUN_MODES = { ...RUN_MODES, 3: 'Off' };
 
 /** What the X3-MIC PRO G2 reports it is doing. */
 const MIC_RUN_MODES = {
-  0: 'Wait',
-  1: 'Check',
+  0: 'Waiting',
+  1: 'Checking',
   2: 'Normal',
   3: 'Fault',
   4: 'Permanent Fault',
-  5: 'Update',
+  5: 'Updating',
 };
 
 /** How a hybrid is told to use its battery. */

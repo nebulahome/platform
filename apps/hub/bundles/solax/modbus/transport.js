@@ -9,10 +9,13 @@
  * It **only reads**. Writing, and the unlock code SolaX asks for before a setting may change, are
  * not here.
  *
- * - **One socket per address.** Many gateways, and the Pocket WiFi, take one client at a time,
- *   so every read of every unit behind `host:port` - polls, the Test button, identification -
- *   goes through the one socket, one request after another. A request that times out drops the
- *   socket; the next one opens it again.
+ * - **One socket per address, in the whole hub.** Many gateways, and the Pocket WiFi 3.0, take one
+ *   client at a time, so every read of every unit behind `host:port` - polls, the Test button,
+ *   identification, the discovery sweep - goes through the one socket, one request after another
+ *   and a short pause apart. A request that times out drops the socket; the next one opens it
+ *   again, and a poll's block that timed out is asked once more before the poll gives up.
+ * - **Lenient answers.** With one request on the wire, an answer to the function asked is taken
+ *   even when a gateway echoes another unit id, or 0 for the transaction, as some do.
  * - **Two framings.** Modbus TCP (the MBAP header, a transaction id per request) is what the
  *   Pocket WiFi, the inverter's own port and an adapter in "Modbus TCP to RTU" mode speak. An
  *   adapter in transparent mode passes RTU frames through as they are (CRC and all): pick
@@ -26,9 +29,10 @@
  *   `values.battery_power` whichever way the inverter is reached.
  *
  * Identifying an inverter is reading its serial number (holding 0x0, else 0x300, else 0x1A10,
- * seven registers of ASCII) and looking its prefix up. A block the inverter refuses with a Modbus
- * exception - a register its firmware does not have - is left out and the rest still delivered,
- * as the integration does; a unit that does not answer at all fails the poll.
+ * seven registers of ASCII - the next place is tried when one is refused or left unanswered) and
+ * looking its prefix up; the Test button asks no more than that. A block the inverter refuses
+ * with a Modbus exception - a register its firmware does not have - is left out and the rest still
+ * delivered, as the integration does; a unit that does not answer at all fails the poll.
  *
  * This file is what ships in the bundle. It imports nothing from the platform: zod and
  * `defineTransport` arrive as the `sdk` it is called with, and the socket is Node's own.
@@ -98,6 +102,9 @@ const MAX_GAP = 16;
 /** The shortest a poll may be: the integration's own advice for the slowest serial links. */
 const MIN_POLL_MS = 5000;
 
+/** The pause between one request's answer and the next request, for a dongle that needs it. */
+const REQUEST_GAP_MS = 100;
+
 /** Where the serial number may be, in the order the integration tries: seven registers each. */
 const SERIAL_ADDRESSES = [0x0, 0x300, 0x1a10];
 
@@ -120,6 +127,27 @@ const EXCEPTIONS = /** @type {Readonly<Record<number, string>>} */ ({
   10: 'gateway path unavailable',
   11: 'gateway target device failed to respond',
 });
+
+/** A server that took no connection: nothing listens there, or it refused. */
+export class NoConnectionError extends Error {}
+
+/** A unit that took the request and said nothing in time. */
+export class SilenceError extends Error {}
+
+/** A unit that answered, but with no serial number this bundle can place. */
+export class NoSerialError extends Error {}
+
+/**
+ * Waits a moment, without keeping the process alive for it.
+ *
+ * @param {number} ms - How long.
+ * @returns {Promise<void>} Settles once it has passed.
+ */
+function pause(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms).unref();
+  });
+}
 
 /** A Modbus exception: the unit answered, and said no. */
 export class ModbusException extends Error {
@@ -490,7 +518,7 @@ class ModbusClient {
       );
     const result = this.#tail.then(run, run);
 
-    this.#tail = result.catch(() => undefined);
+    this.#tail = result.catch(() => undefined).then(() => pause(REQUEST_GAP_MS));
 
     return result;
   }
@@ -499,8 +527,9 @@ class ModbusClient {
    * Closes the socket; a later request opens it again.
    *
    * @param {string} reason - Why, for the request in flight.
+   * @param {new (message: string) => Error} [Kind] - What the request in flight fails with.
    */
-  reset(reason) {
+  reset(reason, Kind = Error) {
     const pending = this.#pending;
 
     this.#pending = undefined;
@@ -509,7 +538,7 @@ class ModbusClient {
     this.#socket = undefined;
     this.#connecting?.destroy();
     this.#connecting = undefined;
-    pending?.reject(new Error(reason));
+    pending?.reject(new Kind(reason));
   }
 
   /**
@@ -530,7 +559,7 @@ class ModbusClient {
       const timer = setTimeout(() => {
         this.#connecting = undefined;
         socket.destroy();
-        reject(new Error(`no connection to ${this.host}:${String(this.port)} in time`));
+        reject(new NoConnectionError(`no connection to ${this.host}:${String(this.port)} in time`));
       }, timeoutMs);
 
       this.#connecting = socket;
@@ -552,7 +581,9 @@ class ModbusClient {
             'code' in error && typeof error.code === 'string' ? error.code : error.message;
 
           this.#connecting = undefined;
-          reject(new Error(`no connection to ${this.host}:${String(this.port)}: ${code}`));
+          reject(
+            new NoConnectionError(`no connection to ${this.host}:${String(this.port)}: ${code}`),
+          );
         }
       });
       socket.on('close', () => {
@@ -560,7 +591,7 @@ class ModbusClient {
           this.reset(`${this.host}:${String(this.port)} closed the connection`);
         } else {
           clearTimeout(timer);
-          reject(new Error(`no connection to ${this.host}:${String(this.port)}`));
+          reject(new NoConnectionError(`no connection to ${this.host}:${String(this.port)}`));
         }
       });
     });
@@ -588,7 +619,7 @@ class ModbusClient {
     const socket = this.#socket;
 
     if (socket === undefined) {
-      throw new Error(`no connection to ${this.host}:${String(this.port)}`);
+      throw new NoConnectionError(`no connection to ${this.host}:${String(this.port)}`);
     }
 
     this.#transaction = (this.#transaction + 1) & 0xff_ff;
@@ -605,6 +636,7 @@ class ModbusClient {
       const giveUp = () => {
         this.reset(
           `unit ${String(unit)} at ${this.host}:${String(this.port)} did not answer in time`,
+          SilenceError,
         );
       };
       const timer = setTimeout(giveUp, timeoutMs);
@@ -745,8 +777,19 @@ class ModbusClient {
   #settle(unit, pdu, transaction) {
     const pending = this.#pending;
 
-    // An answer to a request that already timed out is dropped: its transaction is not ours.
-    if (pending === undefined || transaction !== pending.transaction || unit !== pending.unit) {
+    if (pending === undefined) {
+      return;
+    }
+
+    // Whose answer it is: over RTU the unit says, over TCP the transaction does - or 0, which some
+    // gateways put there whatever was asked. The unit a TCP gateway echoes is not held against it:
+    // one request is ever on the wire, and a socket whose request timed out is dropped with it.
+    const isOurs =
+      this.framing === 'rtu'
+        ? unit === pending.unit
+        : transaction === pending.transaction || transaction === 0;
+
+    if (!isOurs) {
       return;
     }
 
@@ -777,6 +820,76 @@ class ModbusClient {
 
     pending.resolve(registers);
   }
+}
+
+/**
+ * The open clients, by framing and address.
+ *
+ * Kept by the module rather than by each transport made from it: the hub loads this file once, and
+ * the polls, the Test button, the discovery sweep and the `solax/inverter` transport that reads
+ * through this one all ask through the same client - so a Pocket WiFi 3.0, which takes one client
+ * at a time, is never opened twice.
+ *
+ * @type {Map<string, ModbusClient>}
+ */
+const CLIENTS = new Map();
+
+/**
+ * What a client is kept under.
+ *
+ * @param {{ host: string, port: number, framing: 'tcp' | 'rtu' }} address - The server.
+ * @returns {string} The key.
+ */
+function clientKeyOf(address) {
+  return `${address.framing}:${address.host}:${String(address.port)}`;
+}
+
+/**
+ * Takes hold of the client for an address, opening none yet.
+ *
+ * @param {Config} config - The address.
+ * @returns {ModbusClient} The client.
+ */
+function acquire(config) {
+  const key = clientKeyOf(config);
+  let client = CLIENTS.get(key);
+
+  if (client === undefined) {
+    client = new ModbusClient(config.host, config.port, config.framing);
+    CLIENTS.set(key, client);
+  }
+
+  client.holders += 1;
+
+  return client;
+}
+
+/**
+ * Lets go of a client, closing it when nobody holds it any more.
+ *
+ * @param {Config} config - The address.
+ * @param {ModbusClient} client - The client.
+ */
+function release(config, client) {
+  client.holders -= 1;
+
+  if (client.holders <= 0 && CLIENTS.get(clientKeyOf(config)) === client) {
+    CLIENTS.delete(clientKeyOf(config));
+    client.reset('closed');
+  }
+}
+
+/**
+ * Whether something in the hub holds a client to this server now - a poll, most likely - so a
+ * caller about to knock on the port with a connection of its own should ask through that one.
+ *
+ * @param {string} host - The server.
+ * @param {number} port - Its port.
+ * @param {'tcp' | 'rtu'} [framing] - How it is spoken to.
+ * @returns {boolean} True while it is held.
+ */
+export function isServerHeld(host, port, framing = 'tcp') {
+  return (CLIENTS.get(clientKeyOf({ host, port, framing }))?.holders ?? 0) > 0;
 }
 
 /**
@@ -812,48 +925,6 @@ export default function createSolaxModbus(sdk) {
   const { z } = sdk;
 
   /**
-   * The open clients, by framing and address, shared by everything that asks the same server.
-   *
-   * @type {Map<string, ModbusClient>}
-   */
-  const clients = new Map();
-
-  /**
-   * Takes hold of the client for an address, opening none yet.
-   *
-   * @param {Config} config - The address.
-   * @returns {ModbusClient} The client.
-   */
-  const acquire = (config) => {
-    const key = `${config.framing}:${config.host}:${String(config.port)}`;
-    let client = clients.get(key);
-
-    if (client === undefined) {
-      client = new ModbusClient(config.host, config.port, config.framing);
-      clients.set(key, client);
-    }
-
-    client.holders += 1;
-
-    return client;
-  };
-
-  /**
-   * Lets go of a client, closing it when nobody holds it any more.
-   *
-   * @param {Config} config - The address.
-   * @param {ModbusClient} client - The client.
-   */
-  const release = (config, client) => {
-    client.holders -= 1;
-
-    if (client.holders <= 0) {
-      clients.delete(`${config.framing}:${config.host}:${String(config.port)}`);
-      client.reset('closed');
-    }
-  };
-
-  /**
    * Reads the serial number, trying each place the integration tries.
    *
    * @param {ModbusClient} client - The client.
@@ -867,6 +938,9 @@ export default function createSolaxModbus(sdk) {
     /** @type {string[]} */
     const refusals = [];
 
+    /** Whether every place tried so far went unanswered, rather than refused or empty. */
+    let wasSilent = true;
+
     /**
      * Tries the places from one onwards.
      *
@@ -878,7 +952,13 @@ export default function createSolaxModbus(sdk) {
       const address = SERIAL_ADDRESSES[index];
 
       if (address === undefined) {
-        throw new Error(`unit ${String(unit)} gave no serial number (${refusals.join('; ')})`);
+        throw wasSilent
+          ? new SilenceError(
+              `unit ${String(unit)} at ${config.host}:${String(config.port)} did not answer`,
+            )
+          : new NoSerialError(
+              `unit ${String(unit)} gave no serial number (${refusals.join('; ')})`,
+            );
       }
 
       try {
@@ -891,13 +971,19 @@ export default function createSolaxModbus(sdk) {
           return serial;
         }
 
+        wasSilent = false;
         refusals.push(`nothing at 0x${address.toString(16)}`);
       } catch (error) {
-        if (!(error instanceof ModbusException)) {
+        // Refused, or left unanswered - some units keep quiet about a range they do not have
+        // rather than refuse it - is a reason to try the next place; anything else is not.
+        if (error instanceof ModbusException) {
+          wasSilent = false;
+          refusals.push(`${error.message} at 0x${address.toString(16)}`);
+        } else if (!(error instanceof SilenceError) || signal.aborted) {
           throw error;
+        } else {
+          refusals.push(`no answer at 0x${address.toString(16)}`);
         }
-
-        refusals.push(`${error.message} at 0x${address.toString(16)}`);
       }
 
       return attempt(index + 1);
@@ -952,6 +1038,33 @@ export default function createSolaxModbus(sdk) {
    */
   const readValues = async (client, config, unit, family, protocol, signal) => {
     const blocks = planOf(family, protocol);
+
+    /**
+     * Reads one block, asking once more when the first answer never came - a dongle on a weak
+     * link loses a request now and then, and one lost request should not cost a whole poll.
+     *
+     * @param {Block} block - The block.
+     * @returns {Promise<number[]>} Its registers.
+     * @throws {Error} When the second try fails too, or the first failed otherwise.
+     */
+    const readBlock = async (block) => {
+      try {
+        return await client.read(
+          unit,
+          block.table,
+          block.start,
+          block.count,
+          config.timeoutMs,
+          signal,
+        );
+      } catch (error) {
+        if (!(error instanceof SilenceError) || signal.aborted) {
+          throw error;
+        }
+
+        return client.read(unit, block.table, block.start, block.count, config.timeoutMs, signal);
+      }
+    };
     /** @type {Map<string, number>} */
     const registers = new Map();
     let refused = 0;
@@ -971,14 +1084,7 @@ export default function createSolaxModbus(sdk) {
       }
 
       try {
-        const answer = await client.read(
-          unit,
-          block.table,
-          block.start,
-          block.count,
-          config.timeoutMs,
-          signal,
-        );
+        const answer = await readBlock(block);
 
         answer.forEach((value, offset) => {
           registers.set(`${block.table}:${String(block.start + offset)}`, value);
@@ -1018,14 +1124,18 @@ export default function createSolaxModbus(sdk) {
   };
 
   /**
-   * Identifies the unit and reads it once.
+   * Identifies the unit, and reads it once when asked to.
    *
    * @param {Config} config - The inverter.
    * @param {AbortSignal} signal - Gives up.
-   * @returns {Promise<JsonObject>} The payload: `serial`, `family`, `model`, `protocol`, `values`.
+   * @param {boolean} withValues - Whether to read the readings too: identification and a poll
+   * that lost its claim do, while the Test button and the discovery sweep need only who it is -
+   * a slow dongle is then asked a request or four fewer.
+   * @returns {Promise<JsonObject>} The payload: `serial`, `family`, `model`, `protocol`, and
+   * `values` when asked for.
    * @throws {Error} When nothing answered, or what answered is not a model this bundle reads.
    */
-  const identify = async (config, signal) => {
+  const identify = async (config, signal, withValues) => {
     const client = acquire(config);
 
     try {
@@ -1033,12 +1143,20 @@ export default function createSolaxModbus(sdk) {
       const known = modelOf(serial);
 
       if (known === undefined) {
-        throw new Error(`serial ${serial} is not a SolaX model this bundle reads over Modbus`);
+        throw new NoSerialError(
+          `serial ${serial} is not a SolaX model this bundle reads over Modbus`,
+        );
       }
 
       const protocol = VERSIONED.has(known.family.id)
         ? await readProtocol(client, config, config.unitId, signal)
         : 0;
+      const identity = { serial, family: known.family.id, model: known.model, protocol };
+
+      if (!withValues) {
+        return identity;
+      }
+
       const { values } = await readValues(
         client,
         config,
@@ -1048,10 +1166,48 @@ export default function createSolaxModbus(sdk) {
         signal,
       );
 
-      return { serial, family: known.family.id, model: known.model, protocol, values };
+      return { ...identity, values };
     } finally {
       release(config, client);
     }
+  };
+
+  /**
+   * Says why a Test failed, in the words an owner can act on.
+   *
+   * @param {unknown} error - What reading the serial failed with.
+   * @param {Config} config - What was tried.
+   * @returns {unknown} The error to throw: of the same kind, with a sentence that says what to do.
+   */
+  const explained = (error, config) => {
+    const where = `${config.host}:${String(config.port)}`;
+
+    if (error instanceof NoConnectionError) {
+      const detail =
+        /: (\S+)$/u.exec(error.message)?.[1] ??
+        (error.message.endsWith('in time') ? 'nothing answered in time' : 'refused');
+
+      return new NoConnectionError(
+        `${where} takes no Modbus TCP connection (${detail}). A Pocket WiFi 3.0 answers on port 502 from firmware 3.004.03; older firmware, a Pocket WiFi 2.0 and a Pocket LAN have no Modbus`,
+        { cause: error },
+      );
+    }
+
+    if (error instanceof SilenceError) {
+      return new SilenceError(
+        `${where} took the connection, but unit ${String(config.unitId)} did not answer: check the Modbus unit ID - 1 for a Pocket WiFi 3.0, the address in the inverter's Modbus menu otherwise`,
+        { cause: error },
+      );
+    }
+
+    if (error instanceof NoSerialError) {
+      return new NoSerialError(
+        `${where} answers Modbus, but ${error.message} - is it a SolaX inverter?`,
+        { cause: error },
+      );
+    }
+
+    return error;
   };
 
   return sdk.defineTransport({
@@ -1121,7 +1277,7 @@ export default function createSolaxModbus(sdk) {
           const protocol = typeof args['protocol'] === 'number' ? args['protocol'] : 0;
 
           if (family === undefined) {
-            return identify({ ...config, unitId: unit }, stop.signal);
+            return identify({ ...config, unitId: unit }, stop.signal, true);
           }
 
           const { values } = await readValues(client, config, unit, family, protocol, stop.signal);
@@ -1220,21 +1376,20 @@ export default function createSolaxModbus(sdk) {
     },
 
     /**
-     * Identifies the unit at the address an owner typed and reads it once.
+     * Identifies the unit at the address an owner typed and reads it once - or, asked with
+     * `identityOnly` as the discovery sweep asks, only says who it is.
      *
      * @param {Config} config - The inverter.
-     * @param {JsonObject} terms - Unused: there is one question to ask.
+     * @param {JsonObject} terms - `identityOnly: true` to skip the readings.
      * @param {AbortSignal} signal - Ends the scan.
      * @yields {Discovered} The inverter, when it answered with a serial this bundle knows.
      */
     scan: async function* scan(config, terms, signal) {
-      void terms;
-
       /** @type {JsonObject | undefined} */
       let payload;
 
       try {
-        payload = await identify(config, signal);
+        payload = await identify(config, signal, terms['identityOnly'] !== true);
       } catch (error) {
         sdk.logger.debug(
           { err: error, host: config.host, unit: config.unitId },
@@ -1248,17 +1403,23 @@ export default function createSolaxModbus(sdk) {
     },
 
     /**
-     * Identifies the unit once, the way identification will.
+     * Reads the unit's serial number, the one question a Test needs answered: a slow dongle
+     * answers it well inside the time a Test has.
      *
      * @param {Config} config - The inverter.
      * @param {AbortSignal} signal - Gives up.
      * @returns {Promise<string>} What answered.
-     * @throws {Error} When nothing answered, or what answered is not a model this bundle reads.
+     * @throws {Error} When nothing answered, or what answered is not a model this bundle reads -
+     * a {@link NoConnectionError}, {@link SilenceError} or {@link NoSerialError} saying what to do.
      */
     probe: async (config, signal) => {
-      const payload = await identify(config, signal);
+      try {
+        const payload = await identify(config, signal, false);
 
-      return `${config.host}:${String(config.port)} unit ${String(config.unitId)} answered: ${String(payload['model'])}, serial ${String(payload['serial'])}`;
+        return `${config.host}:${String(config.port)} unit ${String(config.unitId)} answered: ${String(payload['model'])}, serial ${String(payload['serial'])}`;
+      } catch (error) {
+        throw explained(error, config);
+      }
     },
   });
 }

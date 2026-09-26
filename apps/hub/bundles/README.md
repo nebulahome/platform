@@ -320,6 +320,47 @@ be left out). Each group has:
 A `number` with `warnBelow` accepts a smaller value but says, under the field, what it costs - the
 bundle's `warning`, or that it is below what is advised.
 
+**A field asked only after a choice.** `shownWhen: { "key": "connection", "equals": ["dongle"] }`
+shows a field only while an earlier `choice` or `boolean` of the same group holds one of the
+values - the choice's `default` counting when nothing was picked. The field it names must come
+first, must itself be always asked, and must be able to hold every value listed; the bundle fails
+to load otherwise. A field a choice hides is neither shown, required, defaulted nor sent, and the
+API drops its value from a new configuration, so a SolaX inverter read over Modbus is never asked
+for its dongle's password:
+
+```json
+{
+  "fields": [
+    {
+      "key": "connection",
+      "type": "choice",
+      "label": "Connection",
+      "choices": [
+        { "value": "modbus", "label": "Modbus TCP" },
+        { "value": "dongle", "label": "Web API" }
+      ],
+      "default": "modbus"
+    },
+    {
+      "key": "unitId",
+      "type": "number",
+      "label": "Modbus unit ID",
+      "default": 1,
+      "shownWhen": { "key": "connection", "equals": ["modbus"] }
+    },
+    {
+      "key": "password",
+      "type": "secret",
+      "label": "Web page password",
+      "shownWhen": { "key": "connection", "equals": ["dongle"] }
+    }
+  ]
+}
+```
+
+When discovery filled the choice, the adopt dialog does not ask it, nor the fields its answer
+hides.
+
 **How often a polled device is read** is the owner's choice. A driver whose profile reads the
 device on a timer - a subscription with `op: "poll"` and `everyMs` - declares `polling`, in whole
 seconds:
@@ -518,21 +559,24 @@ driver. Its own README says what the printer is and what has not been checked ag
 
 ## solax
 
-Ten drivers for SolaX Power inverters - grid-tie, hybrid with a battery, AC-coupled retrofit -
-and the X3-EVC charger, over two transports the vendor ships. `solax/local` asks the Pocket
-WiFi or Pocket LAN dongle's local HTTP API on port 80, the password being the dongle's
-registration number, and tells the family by the `type` it answers with (and how many registers,
-where two families share a code): five drivers named `… (dongle API)`. `solax/modbus` is a
-read-only Modbus TCP client (functions 03 and 04, plain MBAP or RTU frames over TCP) for a Pocket
-WiFi 3.0, the inverter's own Ethernet port or an RS485 adapter, and tells the family by the serial
-number's prefix: five drivers named `… (Modbus TCP)`. Both decode the registers - scales, signs,
-32-bit pairs, codes standing for words - into named values, so the profiles stay tables of
-paths, and both read once per interval: one HTTP request, or one read per block of up to 100
-registers, never one per entity. Power is signed the way SolaX signs it - feed-in and battery
-charge positive - and the README says how to set the energy card's switches for it. Neither
-announces itself, so discovery sweeps the house's networks - their real netmask, up to a /22 -
-on port 502 and port 80, and offers whatever answers as SolaX. No firmware entities, nothing
-written. Its own README
+Six drivers for SolaX Power inverters - grid-tie, hybrid with a battery, AC-coupled retrofit -
+and the X3-EVC charger, over three transports the vendor ships. `solax/modbus` is a read-only
+Modbus TCP client (functions 03 and 04, plain MBAP or RTU frames over TCP) for a Pocket WiFi 3.0,
+the inverter's own Ethernet port or an RS485 adapter, telling the family by the serial number's
+prefix, one socket per address for the whole hub. `solax/local` asks the Pocket WiFi or Pocket
+LAN dongle's web API on port 80, the password being the dongle's registration number, and tells
+the family by the `type` it answers with (and how many registers, where two families share a
+code). The four inverter drivers name `solax/inverter`, which hands each request to one of those
+two as the form's **Connection** says - Modbus TCP by default, the fields of the other way hidden
+with `shownWhen` - and makes their payloads the same, the inverter known by its own serial either
+way; the retrofit is read over Modbus only and the charger through its dongle only. Both decode
+the registers - scales, signs, 32-bit pairs, codes standing for words - into named values, so one
+profile reads an inverter either way, once per interval: one HTTP request, or one read per block
+of up to 100 registers, never one per entity. Power is signed the way SolaX signs it - feed-in and
+battery charge positive - and the README says how to set the energy card's switches for it.
+Neither announces itself, so discovery sweeps the house's networks - their real netmask, up to a
+/22 - on port 502, then port 80 where 502 gave nothing, and offers whatever answers as SolaX with
+its Connection chosen. No firmware entities, nothing written. Its own README
 lists every family, where the tables came from (the `solax` library, MIT; the
 `homeassistant-solax-modbus` integration, Apache-2.0) and what has not been checked against a
 real inverter: all of it.

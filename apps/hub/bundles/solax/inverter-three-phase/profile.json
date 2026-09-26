@@ -3,19 +3,19 @@
     "claim": [
       {
         "path": "family",
-        "oneOf": ["x3", "x3_mic_pro_g2"]
+        "oneOf": ["x3", "x3_mic_pro_g2", "mic_g1_x3", "mic_g2_x3"]
       },
       {
         "path": "model",
         "startsWith": "X3-MIC"
       },
       {
-        "path": "sn",
+        "path": "serial",
         "exists": true
       }
     ],
     "identity": {
-      "externalId": "sn",
+      "externalId": "serial",
       "manufacturer": "manufacturer",
       "model": "model",
       "swVersion": "ver"
@@ -25,7 +25,13 @@
     {
       "op": "poll",
       "args": {
-        "everyMs": 30000
+        "everyMs": 15000,
+        "family": {
+          "$": "family"
+        },
+        "protocol": {
+          "$": "protocol"
+        }
       }
     }
   ],

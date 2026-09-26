@@ -46,7 +46,7 @@ const BUNDLES = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../b
 /** The dongle's registration number, which is its password. */
 const PASSWORD = 'SRXXXXXXXX';
 
-/** The drivers that read the dongle API. */
+/** The drivers that read the dongle API: the charger, and the four an owner reads either way. */
 const LOCAL_DRIVERS = [
   'ev-charger',
   'hybrid-single-phase',
@@ -54,6 +54,9 @@ const LOCAL_DRIVERS = [
   'inverter-single-phase',
   'inverter-three-phase',
 ];
+
+/** Of those, the ones reached through `solax/inverter`, which also read over Modbus. */
+const EITHER_WAY_DRIVERS = LOCAL_DRIVERS.filter((driver) => driver !== 'ev-charger');
 
 /** One request the fake dongle received. */
 type Asked = {
@@ -435,6 +438,40 @@ function local(): Transport {
   }
 
   return transport;
+}
+
+/**
+ * The transport the inverter drivers name, which reads through the dongle or over Modbus.
+ *
+ * @returns It.
+ * @throws {Error} When the vendor ships none, which is a broken bundle.
+ */
+function inverter(): Transport {
+  const transport = solax.ownTransports.find((each) => each.id === 'solax/inverter');
+
+  if (transport === undefined) {
+    throw new Error('The SolaX vendor ships no solax/inverter');
+  }
+
+  return transport;
+}
+
+/**
+ * Reads the fake dongle once through `solax/inverter`, the way an inverter driver's
+ * identification does.
+ *
+ * @returns What it found, if anything.
+ */
+async function scannedAsInverter(): Promise<Discovered | undefined> {
+  for await (const found of inverter().scan(
+    { connection: 'dongle', host, password: PASSWORD },
+    {},
+    AbortSignal.timeout(10_000),
+  )) {
+    return found;
+  }
+
+  return undefined;
 }
 
 /**
@@ -832,11 +869,11 @@ describe('the drivers', () => {
   it('claim each family by what the transport decided, and nothing else', async () => {
     dongle.answer = X3_HYBRID_G4;
 
-    const x3 = await scanned();
+    const x3 = await scannedAsInverter();
 
     dongle.answer = X1_HYBRID_G4;
 
-    const x1 = await scanned();
+    const x1 = await scannedAsInverter();
 
     if (x3 === undefined || x1 === undefined) {
       throw new Error('Nothing answered');
@@ -845,10 +882,13 @@ describe('the drivers', () => {
     const threePhase = await integrationOf('hybrid-three-phase');
     const singlePhase = await integrationOf('hybrid-single-phase');
 
-    expect(threePhase.claim(x3, {})?.externalId).toBe(PASSWORD);
+    // Known by the inverter's own serial, which the dongle reports in `Information`, so it stays
+    // the same device whichever way it is read.
+    expect(threePhase.claim(x3, {})?.externalId).toBe('H450XXXXXXXXXX');
     expect(threePhase.claim(x1, {})).toBeNull();
-    expect(singlePhase.claim(x1, {})?.externalId).toBe(PASSWORD);
+    expect(singlePhase.claim(x1, {})?.externalId).toBe('H450XXXXXXXXXX');
     expect(singlePhase.claim(x3, {})).toBeNull();
+    expect(x1.payload).toMatchObject({ dongleSerial: PASSWORD, connection: 'dongle', protocol: 0 });
   });
 
   it('take an older X3-MIC as a three-phase inverter, and not an older X3-Hybrid', async () => {
@@ -861,7 +901,15 @@ describe('the drivers', () => {
      */
     const older = (type: string): Discovered => ({
       deviceKey: host,
-      payload: { sn: PASSWORD, ver: '2.033.20', type, family: 'x3', model: type, values: {} },
+      payload: {
+        sn: PASSWORD,
+        serial: PASSWORD,
+        ver: '2.033.20',
+        type,
+        family: 'x3',
+        model: type,
+        values: {},
+      },
     });
 
     expect(inverter.claim(older('X3-MIC'), {})).not.toBeNull();
@@ -871,7 +919,7 @@ describe('the drivers', () => {
   it('turn what the transport delivers into readings the energy card can use', async () => {
     dongle.answer = X3_HYBRID_G4;
 
-    const found = await scanned();
+    const found = await scannedAsInverter();
 
     if (found === undefined) {
       throw new Error('Nothing answered');
@@ -955,6 +1003,33 @@ describe('the drivers', () => {
     // Sixteen families, every one of them decoded from its answer.
     expect(delivered.size).toBe(16);
 
+    // And every Modbus family, which the inverter drivers claim too: what its tables name, and
+    // what the transport derives from them.
+    const modbus = (await import(
+      pathToFileURL(path.join(BUNDLES, 'solax/modbus/transport.js')).href
+    )) as { deriveValues: (values: Record<string, number | string>) => void };
+    const families = (await import(
+      pathToFileURL(path.join(BUNDLES, 'solax/modbus/families.js')).href
+    )) as {
+      MODBUS_FAMILIES: readonly {
+        id: string;
+        values: Record<string, unknown>;
+        legacy?: Record<string, unknown>;
+        current?: Record<string, unknown>;
+      }[];
+    };
+
+    for (const family of families.MODBUS_FAMILIES) {
+      const values: Record<string, number | string> = {};
+
+      for (const name of Object.keys({ ...family.values, ...family.legacy, ...family.current })) {
+        values[name] = 1;
+      }
+
+      modbus.deriveValues(values);
+      delivered.set(family.id, new Set(Object.keys(values)));
+    }
+
     for (const driver of LOCAL_DRIVERS) {
       const profile = integrationProfileSchema.parse(
         JSON.parse(await readFile(path.join(BUNDLES, 'solax', driver, 'profile.json'), 'utf8')),
@@ -977,23 +1052,81 @@ describe('the drivers', () => {
   });
 });
 
+describe('the inverter transport', () => {
+  it('reads through the dongle when Connection says so, and says to switch on a 405', async () => {
+    dongle = { accepts: 'locked', password: PASSWORD, answer: X1_HYBRID_G4 };
+
+    await expect(
+      inverter().probe(
+        { connection: 'dongle', host, password: PASSWORD },
+        AbortSignal.timeout(10_000),
+      ),
+    ).rejects.toThrow(/HTTP 405 every way.*port 502.*set Connection to 'Modbus TCP'/u);
+  });
+
+  it('shares nothing between the two ways, even at one address', () => {
+    const keys = ['modbus', 'dongle'].map((connection) =>
+      inverter().connectionKey({ connection, host, password: PASSWORD }),
+    );
+
+    expect(keys[0]).toMatch(/^solax\/inverter:modbus:solax\/modbus:/u);
+    expect(keys[1]).toMatch(/^solax\/inverter:dongle:solax\/local:/u);
+  });
+
+  it('asks each driver which way first, then only what that way needs', () => {
+    for (const driver of solax.drivers.filter((each) =>
+      EITHER_WAY_DRIVERS.includes(each.driverId),
+    )) {
+      const fields = driver.setup.transport.fields;
+      /**
+       * Which way a field is asked for.
+       *
+       * @param key - The field.
+       * @returns The values of `connection` it is shown for, or nothing when always.
+       */
+      const shownFor = (key: string): readonly (string | boolean)[] | undefined =>
+        fields.find((field) => field.key === key)?.shownWhen?.equals;
+
+      expect(driver.manifest.transport, driver.driverId).toBe('solax/inverter');
+      expect(fields[0], driver.driverId).toMatchObject({
+        key: 'connection',
+        type: 'choice',
+        default: 'modbus',
+      });
+      expect(shownFor('host'), driver.driverId).toBeUndefined();
+      expect(shownFor('unitId'), driver.driverId).toEqual(['modbus']);
+      expect(shownFor('port'), driver.driverId).toEqual(['modbus']);
+      expect(shownFor('password'), driver.driverId).toEqual(['dongle']);
+      expect(shownFor('username'), driver.driverId).toEqual(['dongle']);
+    }
+
+    const charger = solax.drivers.find((each) => each.driverId === 'ev-charger');
+
+    expect(charger?.setup.transport.fields.map((field) => field.key)).toEqual([
+      'host',
+      'username',
+      'password',
+    ]);
+  });
+});
+
 describe('polling the dongle', () => {
-  it('asks every driver for 30 s by default, 5 s at the least, and warns under 10 s', () => {
+  it('asks the charger for 30 s by default and an inverter for 15, 5 s at the least', () => {
     for (const driver of solax.drivers.filter((each) => LOCAL_DRIVERS.includes(each.driverId))) {
       const field = driver.setup.options.fields.find((each) => each.key === 'pollInterval');
 
       expect(field, driver.driverId).toMatchObject({
         type: 'number',
-        default: 30,
+        default: driver.driverId === 'ev-charger' ? 30 : 15,
         min: 5,
         warnBelow: 10,
       });
     }
   });
 
-  it("reads every 30 s until the owner says otherwise, and then at the owner's pace", async () => {
+  it("reads every 15 s until the owner says otherwise, and then at the owner's pace", async () => {
     const integration = await integrationOf('hybrid-single-phase');
-    const found = await scanned();
+    const found = await scannedAsInverter();
 
     if (found === undefined) {
       throw new Error('Nothing answered');
@@ -1005,11 +1138,13 @@ describe('polling the dongle', () => {
       throw new Error('Not claimed');
     }
 
+    const args = { deviceKey: host, family: 'x1_hybrid_gen4', protocol: 0 };
+
     expect(integration.subscriptions([claim], {})).toEqual([
-      { op: 'poll', args: { deviceKey: host, everyMs: 30_000 } },
+      { op: 'poll', args: { ...args, everyMs: 15_000 } },
     ]);
     expect(integration.subscriptions([claim], { pollInterval: 60 })).toEqual([
-      { op: 'poll', args: { deviceKey: host, everyMs: 60_000 } },
+      { op: 'poll', args: { ...args, everyMs: 60_000 } },
     ]);
   });
 

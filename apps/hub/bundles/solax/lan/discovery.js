@@ -18,16 +18,23 @@
  * and whenever the owner asks to look now. Networks wider than a /22 are asked only around the
  * hub's own address - a /16 of a campus is not a house.
  *
- * What answers is reported as it is, through the vendor's own transports' identification, so a
- * device is proposed exactly as it will be identified; which driver takes it is the vendor's
- * `discovery.json`'s to decide.
+ * Port 502 is asked first, and an inverter that answers there is not asked on port 80 as well: a
+ * Pocket WiFi 3.0 answers both, and is proposed once, the Modbus way. A server the hub already
+ * polls is asked through the socket the poll holds - the dongle takes one client at a time - and
+ * not knocked on with a connection of its own.
+ *
+ * What answers is reported through the `solax/inverter` transport's identification, so a device
+ * is proposed exactly as it will be identified, with the `connection` its form asks for; which
+ * driver takes it is the vendor's `discovery.json`'s to decide. The charger and the AC-coupled
+ * battery inverters are read one way only, by drivers that ask no `connection`, and are proposed
+ * without one.
  */
 import { connect } from 'node:net';
 import { networkInterfaces } from 'node:os';
 
-import createSolaxLocal from '../local/transport.js';
+import createSolaxInverter from '../inverter/transport.js';
 import { MODBUS_MODELS } from '../modbus/families.js';
-import createSolaxModbus from '../modbus/transport.js';
+import { isServerHeld } from '../modbus/transport.js';
 
 /** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
 /** @typedef {import('@nebula-home/package-runtime').DiscoverySource} DiscoverySource */
@@ -53,6 +60,20 @@ const VIRTUAL_INTERFACE =
 
 /** The widest network asked whole: a /22, 1022 addresses. */
 const WIDEST_PREFIX = 22;
+
+/**
+ * Whether a family is read one way only - the X3-EVC through its dongle, the AC-coupled battery
+ * inverters over Modbus - by a driver whose form has no `connection` to fill.
+ *
+ * @param {unknown} family - The family the payload names.
+ * @returns {boolean} True for those.
+ */
+function isOneWay(family) {
+  return typeof family === 'string' && (family === 'x3_evc' || family.startsWith('ac_'));
+}
+
+/** What `solax/inverter` adds to a dongle's payload, which a one-way driver never sees. */
+const ADDED_BY_INVERTER = new Set(['serial', 'dongleSerial', 'protocol', 'connection']);
 
 /**
  * An IPv4 address as a number.
@@ -201,7 +222,7 @@ async function firstAnswer(transport, config, signal) {
   const asked = AbortSignal.any([signal, AbortSignal.timeout(ASK_TIMEOUT_MS)]);
 
   try {
-    for await (const found of transport.scan(config, {}, asked)) {
+    for await (const found of transport.scan(config, { identityOnly: true }, asked)) {
       const { payload } = found;
 
       return typeof payload === 'object' && payload !== null && !Array.isArray(payload)
@@ -216,43 +237,50 @@ async function firstAnswer(transport, config, signal) {
 }
 
 /**
- * Asks one address on both ports.
+ * Asks one address: port 502 first, and port 80 only when 502 gave no inverter.
  *
- * @param {Transport} modbus - The vendor's Modbus transport.
- * @param {Transport} local - The vendor's dongle transport.
+ * @param {Transport} inverter - The vendor's `solax/inverter` transport.
  * @param {string} host - The address.
  * @param {AbortSignal} signal - Gives up.
- * @returns {Promise<Sighting[]>} What answered as SolaX.
+ * @returns {Promise<Sighting[]>} What answered as SolaX: one sighting at most.
  */
-async function ask(modbus, local, host, signal) {
-  /** @type {Sighting[]} */
-  const found = [];
-
-  if (await isOpen(host, 502, signal)) {
+async function ask(inverter, host, signal) {
+  if (isServerHeld(host, 502) || (await isOpen(host, 502, signal))) {
     const config = { host, port: 502, unitId: 1, framing: 'tcp' };
-    const payload = await firstAnswer(modbus, config, signal);
+    const payload = await firstAnswer(inverter, { connection: 'modbus', ...config }, signal);
     const serial = payload?.['serial'];
 
     if (payload !== undefined && typeof serial === 'string') {
       const model = MODBUS_MODELS.find((each) => serial.startsWith(each.prefix));
 
-      found.push({
-        config,
-        payload: { ...payload, ...(model === undefined ? {} : { prefix: model.prefix }) },
-      });
+      return [
+        {
+          config: isOneWay(payload['family']) ? config : { connection: 'modbus', ...config },
+          payload: { ...payload, ...(model === undefined ? {} : { prefix: model.prefix }) },
+        },
+      ];
     }
   }
 
   if (await isOpen(host, 80, signal)) {
-    const config = { host };
-    const payload = await firstAnswer(local, config, signal);
+    const payload = await firstAnswer(inverter, { connection: 'dongle', host }, signal);
 
     if (payload !== undefined && typeof payload['sn'] === 'string') {
-      found.push({ config, payload });
+      if (!isOneWay(payload['family'])) {
+        return [{ config: { connection: 'dongle', host }, payload }];
+      }
+
+      // The charger's driver reads it through `solax/local` and knows it by the dongle's serial,
+      // so it is proposed as that transport reports it, without what `solax/inverter` adds.
+      const asReported = Object.fromEntries(
+        Object.entries(payload).filter(([key]) => !ADDED_BY_INVERTER.has(key)),
+      );
+
+      return [{ config: { host }, payload: asReported }];
     }
   }
 
-  return found;
+  return [];
 }
 
 /**
@@ -263,8 +291,7 @@ async function ask(modbus, local, host, signal) {
  */
 export default function createSolaxDiscovery(sdk) {
   const quiet = { ...sdk, logger: sdk.logger.child({ module: 'solax/discovery' }) };
-  const modbus = createSolaxModbus(quiet);
-  const local = createSolaxLocal(quiet);
+  const inverter = createSolaxInverter(quiet);
   /** @type {(() => void) | undefined} */
   let sweepNow;
 
@@ -310,7 +337,7 @@ export default function createSolaxDiscovery(sdk) {
 
             // One address at a time per worker, by design: the workers are the concurrency.
             // eslint-disable-next-line no-await-in-loop -- see above
-            for (const each of await ask(modbus, local, host, signal)) {
+            for (const each of await ask(inverter, host, signal)) {
               heard.push(each);
               wake?.();
             }

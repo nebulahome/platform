@@ -5,25 +5,25 @@
         "key": "host",
         "type": "text",
         "label": "Address",
-        "help": "The IP or host name of the Pocket WiFi or Pocket LAN dongle on the network, with :port when it is not 80.",
+        "help": "The IP address of the charger's Pocket WiFi or Pocket LAN dongle, as your router lists it - with :port only when it is not 80.",
         "placeholder": "192.168.1.80",
         "isRequired": true,
         "pattern": "^[A-Za-z0-9.-]+(:[0-9]{1,5})?$",
-        "patternMessage": "An IP or host name, with :port when it is not 80 - no http:// and no path."
+        "patternMessage": "The IP address or host name, with :port only when it is not 80 - no http://."
       },
       {
         "key": "username",
         "type": "text",
-        "label": "Username",
-        "help": "Only when the dongle's web page asks for a username as well - usually admin. Leave empty otherwise.",
+        "label": "Web page username",
+        "help": "Only if the dongle's own web page asks for a username too - usually admin. Leave empty otherwise.",
         "placeholder": "admin",
         "maxLength": 64
       },
       {
         "key": "password",
         "type": "secret",
-        "label": "Password",
-        "help": "The password of the dongle's own web page: its registration number - printed on its label, and the name of its Wi-Fi hotspot - unless it was changed. An X-Hybrid needs none.",
+        "label": "Web page password",
+        "help": "The dongle's registration number, unless it was changed: the code starting with S on its label, which is also the name of its Wi-Fi hotspot. An X-Hybrid needs none.",
         "maxLength": 64
       }
     ]

@@ -26,23 +26,25 @@ import {
   integrationProfileSchema,
   resolveManifest,
   vendorManifestSchema,
+  type BundleSdk,
   type Discovered,
   type Integration,
   type Transport,
   type TransportInbound,
 } from '@nebula-home/package-runtime';
 
+import { createBundleSdk } from './bundle-sdk.js';
 import { loadBundles, type LoadedVendor } from './bundles.js';
 
 /** The bundles, where the service reads them from. */
 const BUNDLES = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../bundles');
 
-/** The drivers that read over Modbus. */
+/** The drivers that read over Modbus: the four an owner reads either way, and the retrofit. */
 const MODBUS_DRIVERS = [
-  'modbus-hybrid-single-phase',
-  'modbus-hybrid-three-phase',
-  'modbus-inverter-single-phase',
-  'modbus-inverter-three-phase',
+  'hybrid-single-phase',
+  'hybrid-three-phase',
+  'inverter-single-phase',
+  'inverter-three-phase',
   'modbus-retrofit',
 ];
 
@@ -62,8 +64,10 @@ type Block = { table: 'input' | 'holding'; start: number; count: number };
 
 /** What the transport module exports beside its factory, for the tests that read it directly. */
 type TransportModule = {
+  default: (sdk: BundleSdk) => Transport;
   crc16: (bytes: Buffer) => number;
   planOf: (family: { id: string }, protocol: number) => Block[];
+  isServerHeld: (host: string, port: number) => boolean;
 };
 
 /** The families module. */
@@ -81,6 +85,12 @@ type Refusal = (table: 'input' | 'holding', start: number, count: number) => num
  */
 const refuseNothing: Refusal = () => undefined;
 
+/** What a gateway may put in an answer's header in place of the request's own. */
+type Echo = { readonly unit?: number; readonly transaction?: number };
+
+/** A server that echoes the request's own. */
+const NO_ECHO: Echo = {};
+
 /** How the server behaves. */
 const server = {
   framing: 'tcp' as 'tcp' | 'rtu',
@@ -92,6 +102,12 @@ const server = {
 
   /** Whether it swallows requests without answering. */
   isSilent: false,
+
+  /** What it puts in an answer's header instead of the request's own, as some gateways do. */
+  echo: NO_ECHO,
+
+  /** Requests it swallows before it starts answering, as a dongle on a weak link loses some. */
+  toLose: 0,
   requests: [] as Request[],
   connections: 0,
 };
@@ -239,13 +255,18 @@ function serve(socket: Socket): void {
           continue;
         }
 
+        if (server.toLose > 0) {
+          server.toLose -= 1;
+          continue;
+        }
+
         const pdu = answerPdu(request);
         const header = Buffer.alloc(7);
 
-        header.writeUInt16BE(request.transaction, 0);
+        header.writeUInt16BE(server.echo.transaction ?? request.transaction, 0);
         header.writeUInt16BE(0, 2);
         header.writeUInt16BE(pdu.length + 1, 4);
-        header.writeUInt8(request.unit, 6);
+        header.writeUInt8(server.echo.unit ?? request.unit, 6);
         socket.write(Buffer.concat([header, pdu]));
       } else {
         if (buffer.length < 8) {
@@ -344,6 +365,8 @@ beforeEach(() => {
   server.holding.clear();
   server.refuse = refuseNothing;
   server.isSilent = false;
+  server.echo = NO_ECHO;
+  server.toLose = 0;
   server.requests.length = 0;
   x1HybridG4();
 });
@@ -513,7 +536,7 @@ describe('identifying the inverter', () => {
       ac_current: 5.5,
       inverter_temperature: 40,
       ac_power: 1480,
-      run_mode: 'Normal Mode',
+      run_mode: 'Normal',
       pv_power: 1500,
       yield_total: 1234.5,
       yield_today: 8.7,
@@ -555,7 +578,7 @@ describe('reading the registers', () => {
         pv2_current: 1.2,
         grid_frequency: 49.86,
         inverter_temperature: 30,
-        run_mode: 'Normal Mode',
+        run_mode: 'Normal',
         pv1_power: 299,
         pv2_power: 329,
         pv_power: 628,
@@ -572,7 +595,7 @@ describe('reading the registers', () => {
         home_power: 389,
         yield_today: 2.2,
         yield_total: 6554.1,
-        battery_mode: 'Feedin Priority',
+        battery_mode: 'Feed-in Priority',
       }),
     );
   });
@@ -658,12 +681,23 @@ describe('planning the reads', () => {
 });
 
 describe('what fails', () => {
-  it('gives up on a unit that says nothing, in time', async () => {
+  it('gives up on a unit that says nothing, and says to check the unit id', async () => {
     server.isSilent = true;
 
     await expect(
       transport().probe({ host: '127.0.0.1', port, timeoutMs: 500 }, AbortSignal.timeout(5000)),
-    ).rejects.toThrow(/did not answer in time/);
+    ).rejects.toThrow(/took the connection, but unit 1 did not answer: check the Modbus unit ID/);
+    // Every place the serial may be was tried before giving up.
+    expect(server.requests.map((each) => each.start)).toEqual([0x00, 0x300, 0x1a10]);
+  });
+
+  it('says what a unit that gives no serial it knows is not', async () => {
+    server.holding.clear();
+    put(server.holding, 0x00, serialRegisters('ZZZXXXXXXXXXXX'));
+
+    await expect(
+      transport().probe({ host: '127.0.0.1', port, timeoutMs: 500 }, AbortSignal.timeout(5000)),
+    ).rejects.toThrow(/answers Modbus, but serial ZZZ.*is it a SolaX inverter\?/);
   });
 
   it('says so when nothing listens on the port', async () => {
@@ -686,7 +720,106 @@ describe('what fails', () => {
         { host: '127.0.0.1', port: unused, timeoutMs: 1000 },
         AbortSignal.timeout(5000),
       ),
-    ).rejects.toThrow(/no connection to 127\.0\.0\.1/);
+    ).rejects.toThrow(/takes no Modbus TCP connection \(ECONNREFUSED\).*firmware 3\.004\.03/);
+  });
+
+  it('takes an answer a gateway sends under another unit id, or transaction 0', async () => {
+    server.echo = { unit: 0, transaction: 0 };
+
+    const found = await scanned();
+
+    expect(found?.payload).toMatchObject({ serial: 'H450XXXXXXXXXX', family: 'hybrid_g4_x1' });
+    expect(valuesOf(found)).toMatchObject({ battery_soc: 82 });
+  });
+
+  it('asks a lost block once more before a poll gives up', async () => {
+    const delivered: TransportInbound[] = [];
+    const connection = await transport().connect(
+      { host: '127.0.0.1', port, timeoutMs: 500 },
+      {
+        logger: createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' }),
+        deliver: (message): void => {
+          delivered.push(message);
+        },
+        report: (): void => undefined,
+      },
+    );
+
+    server.toLose = 1;
+    await connection.apply([
+      {
+        op: 'poll',
+        args: {
+          deviceKey: `127.0.0.1:${String(port)}#1`,
+          everyMs: 60_000,
+          family: 'hybrid_g4_x1',
+          protocol: 0,
+        },
+      },
+    ]);
+
+    for (let attempt = 0; attempt < 100 && delivered.length === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+
+    await connection.close();
+
+    expect(server.requests.slice(0, 2).map((each) => [each.code, each.start])).toEqual([
+      [0x04, 0x00],
+      [0x04, 0x00],
+    ]);
+    expect(delivered[0]?.payload).toMatchObject({ values: { battery_soc: 82 } });
+  });
+
+  it('asks only for the serial when testing, and for no readings when the sweep asks', async () => {
+    await transport().probe({ host: '127.0.0.1', port }, AbortSignal.timeout(5000));
+
+    expect(server.requests.map((each) => [each.code, each.start])).toEqual([[0x03, 0x00]]);
+
+    server.requests.length = 0;
+
+    for await (const found of transport().scan(
+      { host: '127.0.0.1', port },
+      { identityOnly: true },
+      AbortSignal.timeout(5000),
+    )) {
+      expect(found.payload).toEqual({
+        serial: 'H450XXXXXXXXXX',
+        family: 'hybrid_g4_x1',
+        model: 'X1-Hybrid G4',
+        protocol: 0,
+      });
+    }
+
+    expect(server.requests).toHaveLength(1);
+  });
+
+  it('shares one socket with every transport made from the module', async () => {
+    const other = modbus.default(
+      createBundleSdk({
+        version: '1.2.0',
+        logger: createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' }),
+        openUdpSocket: () => {
+          throw new Error('Not in this test');
+        },
+      }),
+    );
+    const connection = await transport().connect(
+      { host: '127.0.0.1', port },
+      {
+        logger: createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' }),
+        deliver: (): void => undefined,
+        report: (): void => undefined,
+      },
+    );
+    const before = server.connections;
+
+    await transport().probe({ host: '127.0.0.1', port }, AbortSignal.timeout(5000));
+    await other.probe({ host: '127.0.0.1', port }, AbortSignal.timeout(5000));
+    await connection.close();
+
+    expect(server.connections - before).toBe(1);
+    expect(modbus.isServerHeld('127.0.0.1', port)).toBe(false);
   });
 
   it('answers a command with a refusal: this release only reads', async () => {
@@ -706,9 +839,70 @@ describe('what fails', () => {
   });
 });
 
+describe('through solax/inverter', () => {
+  /**
+   * The transport the inverter drivers name.
+   *
+   * @returns It.
+   * @throws {Error} When the vendor does not ship it.
+   */
+  const inverter = (): Transport => {
+    const found = solax.ownTransports.find((each) => each.id === 'solax/inverter');
+
+    if (found === undefined) {
+      throw new Error('The SolaX vendor ships no solax/inverter');
+    }
+
+    return found;
+  };
+
+  it('reads over Modbus by default, and says which way it read', async () => {
+    const found: Discovered[] = [];
+
+    for await (const each of inverter().scan(
+      { host: '127.0.0.1', port },
+      {},
+      AbortSignal.timeout(5000),
+    )) {
+      found.push(each);
+    }
+
+    expect(found[0]?.payload).toMatchObject({
+      serial: 'H450XXXXXXXXXX',
+      family: 'hybrid_g4_x1',
+      protocol: 0,
+      connection: 'modbus',
+    });
+    expect(valuesOf(found[0])).toMatchObject({ battery_soc: 82 });
+  });
+
+  it('says to try the web API when nothing takes the Modbus connection', async () => {
+    const closed = createServer();
+
+    await new Promise<void>((resolve) => {
+      closed.listen(0, '127.0.0.1', resolve);
+    });
+
+    const address = closed.address();
+    const unused = typeof address === 'object' && address !== null ? address.port : 0;
+
+    await new Promise<void>((resolve) => {
+      closed.close(() => {
+        resolve();
+      });
+    });
+    await expect(
+      inverter().probe(
+        { connection: 'modbus', host: '127.0.0.1', port: unused },
+        AbortSignal.timeout(5000),
+      ),
+    ).rejects.toThrow(/firmware 3\.004\.03.*set Connection to 'Dongle web API'/u);
+  });
+});
+
 describe('polling', () => {
   it('reads each block once per interval and delivers one payload, over one socket', async () => {
-    const integration = await integrationOf('modbus-hybrid-single-phase');
+    const integration = await integrationOf('hybrid-single-phase');
     const found = await scanned();
 
     if (found === undefined) {
@@ -808,17 +1002,18 @@ describe('polling', () => {
     expect(stateOf('battery_power')).toEqual({ sensor_numeric: { value: -541 } });
     expect(stateOf('battery_soc')).toEqual({ sensor_numeric: { value: 82 } });
     expect(stateOf('pv_power')).toEqual({ sensor_numeric: { value: 628 } });
-    expect(stateOf('battery_mode')).toEqual({ sensor_text: { value: 'Feedin Priority' } });
+    expect(stateOf('battery_mode')).toEqual({ sensor_text: { value: 'Feed-in Priority' } });
   });
 
   it('asks every driver for 15 s by default, 5 s at the least, and warns under 10 s', () => {
     for (const driver of solax.drivers.filter((each) => MODBUS_DRIVERS.includes(each.driverId))) {
-      expect(driver.manifest.transport, driver.driverId).toBe('solax/modbus');
-      expect(driver.manifest.name, driver.driverId).toMatch(/\(Modbus TCP\)$/);
+      expect(['solax/inverter', 'solax/modbus'], driver.driverId).toContain(
+        driver.manifest.transport,
+      );
       expect(
         driver.setup.transport.fields.map((field) => field.key),
         driver.driverId,
-      ).toEqual(['host', 'port', 'unitId', 'framing']);
+      ).toEqual(expect.arrayContaining(['host', 'port', 'unitId', 'framing']));
       expect(
         driver.setup.options.fields.find((field) => field.key === 'pollInterval'),
         driver.driverId,
@@ -828,14 +1023,16 @@ describe('polling', () => {
 
   it('claims every family in exactly one driver, and names a model for every prefix', async () => {
     const claimed = new Map<string, string>();
+    const ids = new Set(families.MODBUS_FAMILIES.map((each) => each.id));
 
     for (const driver of MODBUS_DRIVERS) {
       const profile = integrationProfileSchema.parse(
         JSON.parse(await readFile(path.join(BUNDLES, 'solax', driver, 'profile.json'), 'utf8')),
       );
       const condition = profile.discovery.claim.find((each) => each.path === 'family');
+      const oneOf = condition !== undefined && 'oneOf' in condition ? condition.oneOf : [];
 
-      for (const id of condition !== undefined && 'oneOf' in condition ? condition.oneOf : []) {
+      for (const id of oneOf.filter((each) => ids.has(String(each)))) {
         expect(claimed.get(String(id)), `${String(id)} claimed twice`).toBeUndefined();
         claimed.set(String(id), driver);
       }

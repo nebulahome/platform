@@ -123,12 +123,12 @@ const PRIORITY = [
 ];
 
 /** What a dongle that closed its local API to the LAN is told to be read with instead. */
-const LOCKED_REASON =
-  "answered HTTP 405 every way it was asked: its firmware closes the local API to the LAN. Read it over Modbus TCP instead - add it with a SolaX 'Modbus TCP' driver: the Pocket WiFi 3.0 answers on port 502 from firmware 3.004.03, with no password";
+export const LOCKED_REASON =
+  'answered HTTP 405 every way it was asked: its firmware closes the web API to the LAN. A Pocket WiFi 3.0 answers Modbus TCP on port 502 instead, from firmware 3.004.03 and with no password';
 
 /** What a dongle that never took the connection is told, for the owner to act on. */
 const NO_CONNECTION_WORDS =
-  "did not take a connection on port 80 in time: check the address, and that the dongle is on this network. A dongle whose firmware closes its local API ignores the LAN altogether - read it over Modbus TCP instead, with a SolaX 'Modbus TCP' driver on port 502";
+  'did not take a connection on port 80 in time: check the address, and that the dongle is on this network. A dongle whose firmware closes its web API ignores the LAN altogether - a Pocket WiFi 3.0 answers Modbus TCP on port 502 instead';
 
 /** What an address that answers something other than HTTP is told. */
 const NOT_HTTP_WORDS =

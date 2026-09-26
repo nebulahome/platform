@@ -60,14 +60,14 @@
 const RUN_MODES_G23 = {
   0: 'Waiting',
   1: 'Checking',
-  2: 'Normal Mode',
-  3: 'Off Mode',
-  4: 'Permanent Fault Mode',
-  5: 'Update Mode',
-  6: 'EPS Check Mode',
+  2: 'Normal',
+  3: 'Off',
+  4: 'Permanent Fault',
+  5: 'Updating',
+  6: 'EPS Check',
   7: 'EPS Mode',
   8: 'Self Test',
-  9: 'Idle Mode',
+  9: 'Idle',
   10: 'Standby',
 };
 
@@ -75,14 +75,14 @@ const RUN_MODES_G23 = {
 const RUN_MODES_G4 = {
   0: 'Waiting',
   1: 'Checking',
-  2: 'Normal Mode',
+  2: 'Normal',
   3: 'Fault',
-  4: 'Permanent Fault Mode',
-  5: 'Update Mode',
+  4: 'Permanent Fault',
+  5: 'Updating',
   6: 'Off-Grid Waiting',
   7: 'Off-Grid',
   8: 'Self Test',
-  9: 'Idle Mode',
+  9: 'Idle',
   10: 'Standby',
   20: 'Normal (R)',
   21: 'TOU Self use',
@@ -90,25 +90,25 @@ const RUN_MODES_G4 = {
   23: 'TOU Discharging',
   24: 'TOU Battery hold',
   25: 'TOU Peak Shaving',
-  26: 'Normal Mode (Gen)',
-  27: 'Waiting Charge Mode',
-  28: 'Normal Mode SS',
+  26: 'Normal (Gen)',
+  27: 'Waiting to Charge',
+  28: 'Normal SS',
 };
 
 /** What a MIC inverter reports it is doing. */
 const RUN_MODES_MIC = {
   0: 'Waiting',
   1: 'Checking',
-  2: 'Normal Mode',
+  2: 'Normal',
   3: 'Fault',
-  4: 'Permanent Fault Mode',
+  4: 'Permanent Fault',
 };
 
 /** What a fourth-generation X1-Boost, X1-Mini or X1-Smart reports it is doing. */
 const RUN_MODES_MIC_G4 = {
   ...RUN_MODES_MIC,
-  5: 'Update Mode',
-  6: 'EPS Checking',
+  5: 'Updating',
+  6: 'EPS Check',
   7: 'EPS Mode',
 };
 
@@ -117,16 +117,16 @@ const BATTERY_MODES_G23 = {
   0: 'Self Use Mode',
   1: 'Force Time Use',
   2: 'Back Up Mode',
-  3: 'Feedin Priority',
+  3: 'Feed-in Priority',
 };
 
 /** How a fourth- to sixth-generation hybrid is told to use its battery. */
 const BATTERY_MODES_G4 = {
   0: 'Self Use Mode',
-  1: 'Feedin Priority',
+  1: 'Feed-in Priority',
   2: 'Back Up Mode',
   3: 'Manual Mode',
-  4: 'PeakShaving',
+  4: 'Peak Shaving',
   5: 'Smart Schedule',
 };
 
