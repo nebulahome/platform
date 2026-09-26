@@ -272,7 +272,12 @@ describe('the Govee vendor', () => {
     }
 
     expect(integration.toState(message, context(claim)).map((report) => report.state)).toEqual([
-      { on_off: { isOn: true }, level: { level: 80 }, color_temp: { mireds: 333 } },
+      {
+        on_off: { isOn: true },
+        level: { level: 80 },
+        color_temp: { mireds: 333 },
+        color_hs: { hue: 0, saturation: 0 },
+      },
     ]);
   });
 
@@ -395,6 +400,40 @@ describe('the Govee vendor', () => {
 
     expect(report.map((each) => each.state)).toEqual([
       { on_off: { isOn: true }, level: { level: 60 }, color_hs: { hue: 30, saturation: 100 } },
+    ]);
+  });
+
+  it('reports a light in white mode as white, so the colour it had before is not kept', async () => {
+    const integration = await lightLan();
+    const claim = integration.claim(
+      { deviceKey: '127.0.0.1', payload: { device: DEVICE, sku: SKU } },
+      {},
+    );
+
+    if (claim === null) {
+      throw new Error('The light was not claimed');
+    }
+    const report = integration.toState(
+      {
+        connectionKey: 'govee/lan:127.0.0.1',
+        deviceKey: '127.0.0.1',
+        payload: colour.statusOf({
+          onOff: 1,
+          brightness: 60,
+          color: { r: 0, g: 0, b: 0 },
+          colorTemInKelvin: 6500,
+        }),
+      },
+      context(claim),
+    );
+
+    expect(report.map((each) => each.state)).toEqual([
+      {
+        on_off: { isOn: true },
+        level: { level: 60 },
+        color_temp: { mireds: 154 },
+        color_hs: { hue: 0, saturation: 0 },
+      },
     ]);
   });
 });

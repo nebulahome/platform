@@ -198,6 +198,10 @@ function messageFor(request) {
  * A status, as the profile reads it: the light's own fields, and the colour it is showing - in
  * mireds when it is in white mode, as a hue and a saturation when it is in colour mode.
  *
+ * In white mode the colour is reported too, as white - no saturation - rather than left out: a
+ * state keeps what a report does not say, so a light turned white would otherwise go on showing
+ * the colour it had before.
+ *
  * @param {Record<string, unknown>} data - What the light answered.
  * @returns {JsonObject} The status.
  */
@@ -209,6 +213,8 @@ export function statusOf(data) {
 
   if (typeof kelvin === 'number' && kelvin > 0) {
     status['mireds'] = reciprocal(kelvin);
+    status['hue'] = 0;
+    status['saturation'] = 0;
   } else if (typeof color === 'object' && color !== null) {
     const { r, g, b } = /** @type {Record<string, unknown>} */ (color);
 
