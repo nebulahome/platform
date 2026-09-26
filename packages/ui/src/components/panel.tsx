@@ -7,7 +7,8 @@
  * already is.
  *
  * The divider between rows is drawn by the row and not by the panel, because the panel does not
- * know how many children it has - `:last-child` does.
+ * know how many children it has - a selector does: the last row that is not followed by anything
+ * but a dialog.
  */
 import { cva, type VariantProps } from 'class-variance-authority';
 import type { ReactNode } from 'react';

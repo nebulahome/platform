@@ -40,8 +40,16 @@ export type PanelRowProps = {
 export function PanelRow(props: PanelRowProps) {
   const { title, note, control, children, className } = props;
 
+  // The last row draws no divider: the panel's own border is there. "Last" ignores the dialogs a
+  // row may render after itself inside the panel - a closed `<dialog>` is still a child, and plain
+  // `:last-child` would leave the divider on top of the panel's edge.
   return (
-    <div className={cn('border-b border-border-soft px-4 py-3.5 last:border-b-0', className)}>
+    <div
+      className={cn(
+        'border-b border-border-soft px-4 py-3.5 [&:not(:has(~:not(dialog)))]:border-b-0',
+        className,
+      )}
+    >
       <div className="flex items-center gap-4">
         <div className="flex min-w-0 grow flex-col gap-0.5">
           <span className="text-title font-medium text-foreground">{title}</span>
