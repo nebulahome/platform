@@ -1,15 +1,17 @@
 /**
- * A camera: whether it is streaming, its last still, a new still, a clip.
+ * A camera: its live picture, and a clip where the camera can record one.
  *
- * The still is shown when the camera has said where it is; the path is relative, because only
- * the page knows which origin it reached the house through. Taking one and recording are there
- * only for a camera that declared it can, and a clip is always of a bounded length - the contract
- * refuses an open-ended recording, and so does the control.
+ * On the camera's own page the picture plays at once - that is what the page was opened for - and
+ * a button stops it and starts it again; the stream stops with the page. The picture is decoded
+ * by the browser from what the camera sends, so what is on the screen is what the camera sees,
+ * a moment late. Recording is there only for a camera that declared it can, and a clip is always
+ * of a bounded length - the contract refuses an open-ended recording, and so does the control.
  */
 import { useState } from 'react';
 
 import { AppIcon, Badge, Button, Segmented } from '@nebula-home/ui';
 
+import { CameraView } from '@/components/camera-view';
 import { paramsOf } from '@/library/entity-control';
 import {
   ControlBlock,
@@ -33,12 +35,14 @@ const LENGTHS = [
 export function CameraControl(props: ControlProps) {
   const { entity, state, commander, disabled } = props;
   const params = paramsOf(entity, 'camera') ?? {
-    hasSnapshot: true,
+    hasSnapshot: false,
     hasStream: true,
     hasRecording: false,
   };
   const camera = state.camera;
+  const isAvailable = camera?.isStreamAvailable === true;
   const [length, setLength] = useState<(typeof LENGTHS)[number]['value']>('30');
+  const [isPlaying, setPlaying] = useState(true);
   const busy = isBusy(props, 'camera');
 
   return (
@@ -51,30 +55,31 @@ export function CameraControl(props: ControlProps) {
               Recording
             </Badge>
           ) : null}
-          <Badge tone={camera?.isStreamAvailable === true ? 'success' : 'neutral'} size="small">
-            {camera?.isStreamAvailable === true ? 'Streaming' : 'No stream'}
+          <Badge tone={isAvailable ? 'success' : 'neutral'} size="small">
+            {isAvailable ? 'Streaming' : 'No stream'}
           </Badge>
         </span>
       }
     >
-      {camera?.snapshotPath === undefined ? null : (
-        <img
-          src={camera.snapshotPath}
-          alt={`The last still from ${entity.name}`}
-          className="aspect-video w-full rounded-field border border-border bg-sunk object-cover"
+      {params.hasStream ? (
+        <CameraView
+          entityId={entity.entityId}
+          name={entity.name}
+          isPlaying={isPlaying}
+          isStreamAvailable={isAvailable}
+          className="aspect-video w-full rounded-field border border-border"
         />
-      )}
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
-        {params.hasSnapshot ? (
+        {params.hasStream && isAvailable ? (
           <Button
             variant="ghost"
-            disabled={disabled || busy}
             onClick={() => {
-              commander.send('camera', { command: 'snapshot' });
+              setPlaying(!isPlaying);
             }}
           >
-            <AppIcon id="camera" size={15} />
-            Take a still
+            <AppIcon id={isPlaying ? 'square' : 'play'} size={15} />
+            {isPlaying ? 'Stop' : 'Watch live'}
           </Button>
         ) : null}
         {params.hasRecording ? (

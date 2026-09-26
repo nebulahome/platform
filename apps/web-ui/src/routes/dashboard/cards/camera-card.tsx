@@ -1,16 +1,20 @@
 /**
- * A camera: its last still, filling the card.
+ * A camera: its picture, filling the card.
  *
- * The frame is the card. The platform keeps a still, not a stream, so the card shows the last one
- * the camera took and offers to take another; a camera that has none yet shows an empty frame that
- * says so, rather than a rectangle that reads as unfinished. Whether it is streaming or recording
- * is said in words on the frame.
+ * The frame is the card. A camera plays live once somebody presses play - a stream runs only
+ * while it is watched - and stops when the card goes away. Before that, a camera that sends
+ * stills shows its latest one, fetched with the session's credentials; one that sends video has
+ * no still to show, since its picture exists only once the browser decodes it, and shows its
+ * name and the play button. Whether it is streaming is said in words on the frame.
  */
+import { useState } from 'react';
+
 import { AppIcon, Badge, Button } from '@nebula-home/ui';
 
+import { CameraView } from '@/components/camera-view';
 import { paramsOf } from '@/library/entity-control';
 import type { EntityCardModel } from '@/routes/dashboard/cards/entity-model';
-import { useEntityCommand } from '@/routes/library/entity/use-entity-command';
+import { useCameraStill } from '@/routes/dashboard/cards/use-camera-still';
 
 /**
  * Renders a camera card.
@@ -22,29 +26,41 @@ import { useEntityCommand } from '@/routes/library/entity/use-entity-command';
 export function CameraCard(props: { readonly model: EntityCardModel }) {
   const { model } = props;
   const { entity, state, title, subtitle } = model;
-  const commander = useEntityCommand(entity.entityId);
   const camera = state.camera;
-  const canSnapshot = paramsOf(entity, 'camera')?.hasSnapshot ?? true;
+  const isAvailable = camera?.isStreamAvailable === true;
+  const hasStill = paramsOf(entity, 'camera')?.hasSnapshot ?? false;
+  const [isPlaying, setPlaying] = useState(false);
+  const still = useCameraStill(entity.entityId, hasStill && isAvailable && !isPlaying);
 
   return (
     <article
       aria-label={title}
       className="relative h-full min-w-0 overflow-hidden rounded-panel border border-border bg-sunk"
     >
-      {camera?.snapshotPath === undefined ? (
+      {isPlaying ? (
+        <CameraView
+          entityId={entity.entityId}
+          name={title}
+          isPlaying
+          isStreamAvailable={isAvailable}
+          className="absolute inset-0"
+        />
+      ) : still === null ? (
         <div className="absolute inset-0 flex -translate-y-3 flex-col items-center justify-center gap-3 text-foreground-subtle">
           <AppIcon id="camera" size={44} />
-          <span className="text-caption">Waiting for a first still</span>
+          <span className="text-caption">
+            {isAvailable ? 'Press play to watch' : 'Not streaming'}
+          </span>
         </div>
       ) : (
         <img
-          src={camera.snapshotPath}
-          alt={`The last still from ${title}`}
+          src={still}
+          alt={`The latest still from ${title}`}
           className="absolute inset-0 size-full object-cover"
         />
       )}
 
-      <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-black/80" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-black/80" />
 
       <div className="absolute top-3.5 right-3.5 flex gap-2">
         {camera?.isRecording === true ? (
@@ -52,8 +68,8 @@ export function CameraCard(props: { readonly model: EntityCardModel }) {
             Recording
           </Badge>
         ) : null}
-        <Badge tone={camera?.isStreamAvailable === true ? 'success' : 'neutral'} size="small">
-          {camera?.isStreamAvailable === true ? 'Streaming' : 'No stream'}
+        <Badge tone={isPlaying ? 'success' : 'neutral'} size="small">
+          {isPlaying ? 'Live' : isAvailable ? 'Streaming' : 'No stream'}
         </Badge>
       </div>
 
@@ -64,17 +80,17 @@ export function CameraCard(props: { readonly model: EntityCardModel }) {
             <span className="truncate text-caption text-white/70">{subtitle}</span>
           )}
         </div>
-        {canSnapshot ? (
+        {isAvailable ? (
           <Button
             variant="ghost"
             size="compact"
-            disabled={!model.canControl || commander.busy.has('camera')}
+            aria-label={isPlaying ? `Stop watching ${title}` : `Watch ${title} live`}
             onClick={() => {
-              commander.send('camera', { command: 'snapshot' });
+              setPlaying(!isPlaying);
             }}
           >
-            <AppIcon id="camera" size={14} />
-            Snapshot
+            <AppIcon id={isPlaying ? 'square' : 'play'} size={14} />
+            {isPlaying ? 'Stop' : 'Live'}
           </Button>
         ) : null}
       </div>
