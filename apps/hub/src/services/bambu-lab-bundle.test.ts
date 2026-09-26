@@ -9,6 +9,7 @@
  * by the people who reverse-engineered it; the one thing a test cannot settle is whether the
  * firmware still speaks that dialect, and the bundle's README says where to look when it does not.
  */
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,8 +31,11 @@ import {
 /** The bundle, where the service reads it from. */
 const BUNDLE = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../bundles/bambu-lab');
 
-/** The one driver the vendor ships, where the profile lives. */
-const DRIVER = path.join(BUNDLE, 'printer');
+/** The drivers, one per family of printers. */
+const DRIVERS = ['printer', 'printer-p2s-h2s', 'printer-dual-nozzle', 'printer-p1-a1'] as const;
+
+/** One of them. */
+type Driver = (typeof DRIVERS)[number];
 
 /** A serial in the shape Bambu prints on the box. */
 const SERIAL = '01P00A123456789';
@@ -42,22 +46,43 @@ const REPORT_TOPIC = `device/${SERIAL}/report`;
 /**
  * Builds the integration the hub would build from the bundle on disk.
  *
+ * @param driver - Which family's driver; the X1's when not said.
  * @returns The integration.
  */
-async function bambu(): Promise<Integration> {
+async function bambu(driver: Driver = 'printer'): Promise<Integration> {
+  const directory = path.join(BUNDLE, driver);
   const manifest = resolveManifest(
     vendorManifestSchema.parse(
       JSON.parse(await readFile(path.join(BUNDLE, 'manifest.json'), 'utf8')),
     ),
     driverManifestSchema.parse(
-      JSON.parse(await readFile(path.join(DRIVER, 'driver.json'), 'utf8')),
+      JSON.parse(await readFile(path.join(directory, 'driver.json'), 'utf8')),
     ),
   );
   const profile = integrationProfileSchema.parse(
-    JSON.parse(await readFile(path.join(DRIVER, 'profile.json'), 'utf8')),
+    JSON.parse(await readFile(path.join(directory, 'profile.json'), 'utf8')),
   );
 
   return createDeclarativeIntegration(manifest, profile);
+}
+
+/**
+ * The entity ids the hub would have assigned a driver's entities, keyed by their object ids.
+ *
+ * @param driver - Which family's driver.
+ * @returns The ids.
+ */
+function entitiesOf(driver: Driver): Map<string, EntityId> {
+  const profile = integrationProfileSchema.parse(
+    JSON.parse(readFileSync(path.join(BUNDLE, driver, 'profile.json'), 'utf8')),
+  );
+
+  return new Map(
+    profile.entities.map((entity): [string, EntityId] => [
+      entity.objectId ?? entity.domain,
+      parseEntityId(`${entity.domain}.printer_${entity.objectId ?? entity.domain}`),
+    ]),
+  );
 }
 
 /**
@@ -93,28 +118,8 @@ const FULL_REPORT = {
   },
 };
 
-/** The entity ids the hub would have assigned, keyed by the profile's object ids. */
-const ENTITIES = new Map<string, EntityId>(
-  [
-    'chamber_light',
-    'nozzle_temperature',
-    'nozzle_target_temperature',
-    'bed_temperature',
-    'bed_target_temperature',
-    'chamber_temperature',
-    'printing',
-    'print_progress',
-    'remaining_time',
-    'layer',
-    'total_layers',
-    'speed_level',
-  ].map((objectId): [string, EntityId] => [
-    objectId,
-    parseEntityId(
-      `${objectId === 'chamber_light' ? 'light' : objectId === 'printing' ? 'binary_sensor' : 'sensor'}.x1c_${objectId}`,
-    ),
-  ]),
-);
+/** The X1's entity ids. */
+const ENTITIES = entitiesOf('printer');
 
 /**
  * The claim the integration makes for the printer.
@@ -128,33 +133,46 @@ function claim(): Claim {
 /**
  * A mapping context for the printer.
  *
- * @param lastState - What the entity asked about last reported.
+ * @param driver - Which family's driver.
  * @returns The context.
  */
-function context(lastState?: CapabilityState): MappingContext {
+function context(driver: Driver = 'printer'): MappingContext {
   return {
     options: {},
     claim: claim(),
-    entities: ENTITIES,
-    lastState: (): CapabilityState | undefined => lastState,
+    entities: entitiesOf(driver),
+    lastState: (): CapabilityState | undefined => undefined,
   };
 }
 
 /**
  * Reads the reports an inbound message produces, by object id.
  *
+ * Buttons are left out: they are reported, empty, on anything the printer says, which is what
+ * makes them available with it, and they say nothing about the message.
+ *
  * @param integration - The bundle.
  * @param message - What the printer published.
+ * @param driver - Which family's driver it is.
  * @returns Each entity's state, keyed by the profile's object id.
  */
-function statesFor(integration: Integration, message: unknown): Map<string, CapabilityState> {
-  const byId = new Map([...ENTITIES].map(([objectId, entityId]) => [entityId, objectId]));
+function statesFor(
+  integration: Integration,
+  message: unknown,
+  driver: Driver = 'printer',
+): Map<string, CapabilityState> {
+  const entities = entitiesOf(driver);
+  const byId = new Map([...entities].map(([objectId, entityId]) => [entityId, objectId]));
   const reports = integration.toState(
     { connectionKey: 'mqtt', deviceKey: REPORT_TOPIC, payload: onReportTopic(message) },
-    context(),
+    context(driver),
   );
 
-  return new Map(reports.map((report) => [byId.get(report.entityId) ?? '?', report.state]));
+  return new Map(
+    reports
+      .filter((report) => !report.entityId.startsWith('button.'))
+      .map((report) => [byId.get(report.entityId) ?? '?', report.state]),
+  );
 }
 
 describe('finding the printer', () => {
@@ -321,5 +339,234 @@ describe('the chamber light', () => {
         context(),
       ),
     ).rejects.toThrow(/toggle/);
+  });
+});
+
+describe('the families', () => {
+  it('reads both nozzles of a dual-nozzle printer out of the numbers they are packed in', async () => {
+    // Current temperature in the low 16 bits, target in the high: 220 << 16 | 218, 0 << 16 | 38.
+    const report = {
+      print: {
+        device: {
+          extruder: {
+            info: [
+              { id: 0, temp: (220 << 16) | 218 },
+              { id: 1, temp: 38 },
+            ],
+          },
+          bed: { info: { temp: (65 << 16) | 64 } },
+          ctc: { info: { temp: (45 << 16) | 41 } },
+        },
+      },
+    };
+    const states = statesFor(await bambu('printer-dual-nozzle'), report, 'printer-dual-nozzle');
+
+    expect(states.get('right_nozzle_temperature')).toEqual({ sensor_numeric: { value: 218 } });
+    expect(states.get('right_nozzle_target_temperature')).toEqual({
+      sensor_numeric: { value: 220 },
+    });
+    expect(states.get('left_nozzle_temperature')).toEqual({ sensor_numeric: { value: 38 } });
+    expect(states.get('left_nozzle_target_temperature')).toEqual({ sensor_numeric: { value: 0 } });
+    expect(states.get('bed_temperature')).toEqual({ sensor_numeric: { value: 64 } });
+    expect(states.get('bed_target_temperature')).toEqual({ sensor_numeric: { value: 65 } });
+    expect(states.get('chamber_temperature')).toEqual({ sensor_numeric: { value: 41 } });
+    expect(states.get('chamber_target_temperature')).toEqual({ sensor_numeric: { value: 45 } });
+  });
+
+  it('reads the door of an H2 from its status word, and of an X1 from its home flags', async () => {
+    const h2 = await bambu('printer-dual-nozzle');
+    const x1 = await bambu();
+    const doorOf = (message: unknown, driver: Driver): CapabilityState | undefined =>
+      statesFor(driver === 'printer' ? x1 : h2, message, driver).get('door');
+
+    expect(doorOf({ print: { stat: '46A58008' } }, 'printer-dual-nozzle')).toEqual({
+      sensor_binary: { isOn: true },
+    });
+    expect(doorOf({ print: { stat: '46258008' } }, 'printer-dual-nozzle')).toEqual({
+      sensor_binary: { isOn: false },
+    });
+    expect(doorOf({ print: { home_flag: -1_058_546_177 } }, 'printer')).toEqual({
+      sensor_binary: { isOn: true },
+    });
+    expect(doorOf({ print: { home_flag: -1_066_934_785 } }, 'printer')).toEqual({
+      sensor_binary: { isOn: false },
+    });
+  });
+
+  it('has no chamber sensor on a P1 or an A1, which report a number there that means nothing', async () => {
+    const states = statesFor(await bambu('printer-p1-a1'), FULL_REPORT, 'printer-p1-a1');
+
+    expect(states.has('chamber_temperature')).toBe(false);
+    expect(states.get('nozzle_temperature')).toEqual({ sensor_numeric: { value: 219.6 } });
+  });
+
+  it('switches both light bars of an H2 or an X2D with one command, one message each', async () => {
+    const request = (await bambu('printer-dual-nozzle')).toCommand(
+      {
+        entityId: parseEntityId('light.printer_chamber_light'),
+        capability: 'on_off',
+        command: { command: 'turn_on' },
+      },
+      context('printer-dual-nozzle'),
+    );
+
+    expect(request.args['payload']).toBeUndefined();
+    expect(request.args['payloads']).toMatchObject([
+      { system: { led_node: 'chamber_light', led_mode: 'on' } },
+      { system: { led_node: 'chamber_light2', led_mode: 'on' } },
+    ]);
+  });
+
+  it('maps every model a driver lists to a code discovery reads', async () => {
+    for (const driver of DRIVERS) {
+      const manifest = driverManifestSchema.parse(
+        JSON.parse(await readFile(path.join(BUNDLE, driver, 'driver.json'), 'utf8')),
+      );
+      const coded = new Set(Object.values(manifest.modelCodes ?? {}).flat());
+
+      expect([...coded].sort(), driver).toEqual([...manifest.models].sort());
+    }
+  });
+});
+
+describe('the print', () => {
+  it('says what the printer is doing, in words', async () => {
+    const states = statesFor(await bambu(), {
+      print: {
+        gcode_state: 'PAUSE',
+        stg_cur: 16,
+        print_type: 'local',
+        subtask_name: 'Benchy',
+        gcode_file: '/data/Metadata/plate_1.gcode',
+        print_error: 0,
+        hms: [],
+      },
+    });
+
+    expect(states.get('print_status')).toEqual({ sensor_text: { value: 'Paused' } });
+    expect(states.get('stage')).toEqual({ sensor_text: { value: 'Paused by the user' } });
+    expect(states.get('print_source')).toEqual({ sensor_text: { value: 'Local' } });
+    expect(states.get('print_name')).toEqual({ sensor_text: { value: 'Benchy' } });
+    expect(states.get('gcode_file')).toEqual({
+      sensor_text: { value: '/data/Metadata/plate_1.gcode' },
+    });
+    expect(states.get('print_error')).toEqual({ sensor_binary: { isOn: false } });
+    expect(states.get('health_alerts')).toEqual({ sensor_binary: { isOn: false } });
+  });
+
+  it('reads an idle printer the way either firmware says it', async () => {
+    const x1 = await bambu();
+
+    expect(statesFor(x1, { print: { stg_cur: -1 } }).get('stage')).toEqual({
+      sensor_text: { value: 'Idle' },
+    });
+    expect(statesFor(x1, { print: { stg_cur: 255 } }).get('stage')).toEqual({
+      sensor_text: { value: 'Idle' },
+    });
+  });
+
+  it('raises an alert while the printer lists one, and an error while it reports one', async () => {
+    const states = statesFor(await bambu(), {
+      print: { print_error: 50_348_044, hms: [{ attr: 50_331_904, code: 131_073 }] },
+    });
+
+    expect(states.get('print_error')).toEqual({ sensor_binary: { isOn: true } });
+    expect(states.get('health_alerts')).toEqual({ sensor_binary: { isOn: true } });
+  });
+
+  it('reads the fans in the tens of per cent the printer shows', async () => {
+    const states = statesFor(await bambu(), {
+      print: {
+        cooling_fan_speed: '15',
+        big_fan1_speed: '0',
+        big_fan2_speed: '7',
+        heatbreak_fan_speed: '10',
+      },
+    });
+
+    expect(states.get('part_cooling_fan')).toEqual({ sensor_numeric: { value: 100 } });
+    expect(states.get('auxiliary_fan')).toEqual({ sensor_numeric: { value: 0 } });
+    expect(states.get('chamber_fan')).toEqual({ sensor_numeric: { value: 50 } });
+    expect(states.get('heatbreak_fan')).toEqual({ sensor_numeric: { value: 70 } });
+  });
+
+  it('says whether the firmware takes commands from the LAN unsigned', async () => {
+    const x1 = await bambu();
+
+    expect(statesFor(x1, { print: { fun: '3EC18FFF9CFF' } }).get('developer_mode')).toEqual({
+      sensor_binary: { isOn: true },
+    });
+    expect(statesFor(x1, { print: { fun: '3EC1AFFF9CFF' } }).get('developer_mode')).toEqual({
+      sensor_binary: { isOn: false },
+    });
+  });
+
+  it('reads the first AMS, whose readings arrive as text', async () => {
+    const states = statesFor(await bambu(), {
+      print: { ams: { ams: [{ id: '0', humidity: '4', humidity_raw: '23', temp: '24.6' }] } },
+    });
+
+    expect(states.get('ams_humidity')).toEqual({ sensor_numeric: { value: 23 } });
+    expect(states.get('ams_temperature')).toEqual({ sensor_numeric: { value: 24.6 } });
+  });
+
+  it('stops a print with the request the firmware expects, and asks first', async () => {
+    const integration = await bambu();
+    const request = integration.toCommand(
+      {
+        entityId: parseEntityId('button.printer_stop'),
+        capability: 'button',
+        command: { command: 'press' },
+      },
+      context(),
+    );
+
+    expect(request.args['topic']).toEqual(['device', SERIAL, 'request']);
+    expect(request.args['payload']).toEqual({
+      print: { sequence_id: '0', command: 'stop', param: '' },
+    });
+    expect(
+      integration.describe(claim(), {}).entities.find((entity) => entity.objectId === 'stop')
+        ?.deviceClass,
+    ).toBe('stop');
+  });
+});
+
+describe('the camera', () => {
+  it('streams over RTSP on an X1, an H2 or an X2D, while LAN Mode Liveview is on', async () => {
+    const x1 = await bambu();
+    const camera = parseEntityId('camera.printer_chamber_camera');
+
+    expect(x1.streamOf?.(camera, context())).toEqual({
+      source: 'bambu-lab/camera',
+      args: { kind: 'rtsp' },
+    });
+    expect(
+      statesFor(x1, {
+        print: { ipcam: { rtsp_url: 'rtsps://192.168.1.60/streaming/live/1' } },
+      }).get('chamber_camera'),
+    ).toMatchObject({ camera: { isStreamAvailable: true } });
+    expect(
+      statesFor(x1, { print: { ipcam: { rtsp_url: 'disable' } } }).get('chamber_camera'),
+    ).toMatchObject({ camera: { isStreamAvailable: false } });
+  });
+
+  it('sends stills on a P1, an A1 or an A2L, from the camera it says it has', async () => {
+    const p1 = await bambu('printer-p1-a1');
+
+    expect(
+      p1.streamOf?.(parseEntityId('camera.printer_chamber_camera'), context('printer-p1-a1')),
+    ).toEqual({ source: 'bambu-lab/camera', args: { kind: 'chamber-image' } });
+    expect(
+      statesFor(p1, { print: { ipcam: { ipcam_dev: '1' } } }, 'printer-p1-a1').get(
+        'chamber_camera',
+      ),
+    ).toMatchObject({ camera: { isStreamAvailable: true } });
+  });
+
+  it('is on every printer', () => {
+    for (const driver of DRIVERS) {
+      expect(entitiesOf(driver).has('chamber_camera'), driver).toBe(true);
+    }
   });
 });

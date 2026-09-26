@@ -1,9 +1,9 @@
 # bambu-lab
 
-A Bambu Lab printer in **LAN mode** - the "developer mode" toggle in the printer's network
-settings - over the MQTT broker the printer runs itself. The chamber light, the nozzle, bed and
-chamber temperatures, and the print in progress. No camera: that is a different protocol on a
-different port, and a different bundle when it comes.
+A Bambu Lab printer in **LAN mode**, over the MQTT broker the printer runs itself: the chamber
+camera, the lights, the nozzle, bed and chamber temperatures, the fans, the AMS and the print in
+progress, with pause, resume and stop. Every printer Bambu sells today - the X1s, the P1s, the
+A1s, the A2L, the P2S, the H2s and the X2D - in four drivers, one per family.
 
 ## What the printer is
 
@@ -69,26 +69,99 @@ is on the box and on the printer's screen; the entity ids are composed from the 
 (`sensor.bambu_lab_x1c_nozzle_temperature`), not from the serial, so a replaced printer keeps
 its automations.
 
+## Finding a printer
+
+A printer in LAN mode announces itself every few seconds over SSDP - to the group
+239.255.255.250 on port 1990, and as a broadcast on port 2021, where Bambu Studio listens - and
+`lan/discovery.js` listens on both. The announcement carries the printer's address, its serial
+(`USN`), the model code Bambu's own software knows it by (`DevModel.bambu.com`), the name its
+owner gave it and its firmware; the candidate that appears on the vendor page is already
+`mqtts://<address>:8883`, and the owner types only the access code. The model codes are the
+drivers' `modelCodes`, taken from Bambu Studio's printer definitions:
+
+| Code                             | Printer                    | Driver                |
+| -------------------------------- | -------------------------- | --------------------- |
+| `3DPrinter-X1`, `BL-P002`        | X1                         | `printer`             |
+| `3DPrinter-X1-Carbon`, `BL-P001` | X1C                        | `printer`             |
+| `C13`                            | X1E                        | `printer`             |
+| `N7`                             | P2S                        | `printer-p2s-h2s`     |
+| `O1S`                            | H2S                        | `printer-p2s-h2s`     |
+| `O1D`, `O1E`, `O1C`/`O1C2`, `N6` | H2D, H2D Pro, H2C, X2D     | `printer-dual-nozzle` |
+| `C11`, `C12`, `N2S`, `N1`, `N9`  | P1P, P1S, A1, A1 mini, A2L | `printer-p1-a1`       |
+
+A printer the router keeps off multicast, or on another subnet, is added by hand as before.
+
+## Drivers
+
+One per family, so that a printer has the entities it can fill and no others:
+
+- **`printer`** - X1, X1C, X1E. RTSP camera, one nozzle, the chamber sensor, the door read
+  from `home_flag`, the SD card.
+- **`printer-p2s-h2s`** - P2S, H2S. RTSP camera, one nozzle, a heated chamber with its target,
+  the door read from `stat`, both light bars.
+- **`printer-dual-nozzle`** - H2D, H2D Pro, H2C, X2D. As above, with two nozzles instead of one.
+- **`printer-p1-a1`** - P1P, P1S, A1, A1 mini, A2L. The still camera, one nozzle, no chamber
+  sensor (a P1 reports a number there that means nothing), the SD card.
+
 ## Entities
 
-| Entity                      | Domain          | From                                                   |
-| --------------------------- | --------------- | ------------------------------------------------------ |
-| Chamber light               | `light`         | `lights_report[0].mode`, on and off                    |
-| Nozzle temperature / target | `sensor` °C     | `nozzle_temper`, `nozzle_target_temper`                |
-| Bed temperature / target    | `sensor` °C     | `bed_temper`, `bed_target_temper`                      |
-| Chamber temperature         | `sensor` °C     | `chamber_temper`                                       |
-| Printing                    | `binary_sensor` | `gcode_state` is `RUNNING`                             |
-| Print progress              | `sensor` %      | `mc_percent`                                           |
-| Remaining time              | `sensor` min    | `mc_remaining_time`                                    |
-| Layer / total layers        | `sensor`        | `layer_num`, `total_layer_num`                         |
-| Speed level                 | `sensor`        | `spd_lvl` - 1 silent, 2 standard, 3 sport, 4 ludicrous |
+| Entity                             | Domain          | From                                                                               |
+| ---------------------------------- | --------------- | ---------------------------------------------------------------------------------- |
+| Chamber light                      | `light`         | `lights_report[0].mode`; on an H2 or X2D both light bars are switched              |
+| Chamber camera                     | `camera`        | the stream below; available while `ipcam.rtsp_url` is not `disable`                |
+| Nozzle temperature / target        | `sensor` °C     | `device.extruder.info[0].temp` packed, or `nozzle_temper` / `nozzle_target_temper` |
+| Right / left nozzle, and targets   | `sensor` °C     | `device.extruder.info[0]` (right) and `[1]` (left), packed                         |
+| Nozzle diameter                    | `sensor` mm     | `nozzle_diameter`                                                                  |
+| Bed temperature / target           | `sensor` °C     | `device.bed.info.temp` packed, or `bed_temper` / `bed_target_temper`               |
+| Chamber temperature / target       | `sensor` °C     | `device.ctc.info.temp` packed, or `chamber_temper`                                 |
+| Printing                           | `binary_sensor` | `gcode_state` is `RUNNING`                                                         |
+| Print status                       | `sensor` text   | `gcode_state`, in words                                                            |
+| Stage                              | `sensor` text   | `stg_cur`, in words - `-1` and `255` are both idle                                 |
+| Print progress / remaining time    | `sensor`        | `mc_percent`, `mc_remaining_time`                                                  |
+| Layer / total layers               | `sensor`        | `layer_num`, `total_layer_num`                                                     |
+| Speed level                        | `sensor`        | `spd_lvl` - 1 silent, 2 standard, 3 sport, 4 ludicrous                             |
+| Print name / G-code file / source  | `sensor` text   | `subtask_name`, `gcode_file`, `print_type`                                         |
+| Print error / health alerts        | `binary_sensor` | `print_error` other than 0; `hms` not empty                                        |
+| Fans                               | `sensor` %      | `cooling_fan_speed`, `big_fan1_speed`, `big_fan2_speed`, `heatbreak_fan_speed`     |
+| Wi-Fi signal                       | `sensor` text   | `wifi_signal`, as the printer writes it (`-47dBm`)                                 |
+| Timelapse                          | `binary_sensor` | `ipcam.timelapse` is `enable`                                                      |
+| LAN developer mode                 | `binary_sensor` | bit 29 of `fun` clear: the firmware takes unsigned commands                        |
+| Door                               | `binary_sensor` | bit 23 of `home_flag` (X1) or of `stat` (P2S, H2, X2D)                             |
+| SD card                            | `binary_sensor` | bit 8 of `home_flag` (X1, P1, A1)                                                  |
+| AMS humidity / temperature         | `sensor`        | `ams.ams[0].humidity_raw`, `ams.ams[0].temp` - the first unit                      |
+| Pause, Resume, Stop print, Refresh | `button`        | `print.pause`, `print.resume`, `print.stop`, `pushing.pushall`                     |
 
-A printer without a chamber sensor - an A1, a P1P - simply never reports one, and the entity
-stays empty rather than wrong.
+**Packed readings.** Newer firmware - the H2s, the X2D, the P2S - reports a temperature as one
+integer, the current value in the low 16 bits and the target in the high 16, and moves the
+bed and chamber readings under `device`. The profile reads them with `bits` and tries the new
+place first and the old one after, so a printer on either firmware fills the same entity. Right
+is extruder 0 and left extruder 1, as Bambu Studio numbers them.
 
-The light can be turned on and off. It cannot be **toggled**: the firmware has no toggle command
-and a profile cannot compute one from the last state. Asking for a toggle is refused with a
-message saying so, which is better than a profile that silently sent "on".
+**Commands need developer mode.** Firmware from the start of 2025 accepts a command over the
+LAN only when it is signed with a key only Bambu's cloud has - unless **LAN only mode** and
+**Developer mode** are both on in the printer's network settings. The _LAN developer mode_
+sensor says which the printer is in; with it off the readings and the camera still work, and the
+light and the buttons are ignored by the printer. _Stop print_ asks before it is sent: a print
+stopped cannot be resumed.
+
+## The camera
+
+Every printer has one, and every driver has the `camera.chamber_camera` entity; how the
+picture arrives depends on the family, and `camera/stream.js` reads both:
+
+- **RTSP over TLS**, port 322, H.264: the X1s, the H2s, the P2S and the X2D. The printer serves
+  it only with **LAN Mode Liveview** on (Settings → Network on the printer's screen); off, it
+  reports `ipcam.rtsp_url` as `disable`, the entity says the camera is not streaming, and a
+  stream asked for anyway fails saying to turn it on.
+- **JPEG stills over TLS**, port 6000, about one a second: the P1s, the A1s and the A2L. An
+  80-byte greeting with the user `bblp` and the access code, then each picture behind a 16-byte
+  header whose first bytes are its length. The card shows the latest still until play is
+  pressed.
+
+Both are reached at the host of the instance's `mqtts://` address with the access code the
+broker already takes, and behind a certificate the printer signed itself, checked against
+nothing for the reason the broker's is not. The hub only relays the frames; the browser decodes
+them, so nothing is transcoded and a stream runs only while somebody watches it.
 
 ## What a profile cannot say, and why
 
@@ -102,15 +175,12 @@ that was not mentioned stays exactly as it was.
 **The light is index zero.** `lights_report` is a list, and the profile grammar can index a list
 but cannot search one. On every model this bundle names, `chamber_light` is the first entry - an
 X1 lists a `work_light` after it. If a printer ever lists them the other way round, the light
-here will be the wrong one, and `[0]` in `profile.json` is the thing to change.
+here will be the wrong one, and `[0]` in `profile.json` is the thing to change. The same holds
+for the extruders and the AMS units, read by position.
 
-**Fans and signal strength are not here.** The printer reports fan speeds as strings (`"15"`),
-its Wi-Fi as `"-47dBm"`, and a numeric sensor wants a number. Converting one into the other is
-computation, which is the line a profile does not cross; a code bundle can, when somebody wants
-them badly enough.
-
-**Nor are pause, resume and stop.** There is no capability for "a print job" in the canonical
-model yet, and a switch pretending to be one would be a lie the interface repeats.
+**Setting things is not here.** Target temperatures, fan speeds, the print speed and the AMS
+need capabilities for a number to set and a list to choose from, which the canonical model does
+not have yet. The firmware update is not here either: Bambu's is installed through its cloud.
 
 ## What is and is not checked against hardware
 

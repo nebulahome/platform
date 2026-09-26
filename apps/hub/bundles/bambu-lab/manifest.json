@@ -1,11 +1,14 @@
 {
   "id": "bambu-lab",
-  "version": "1.0.0",
-  "sdk": "^1.0.0",
+  "version": "1.1.0",
+  "sdk": "^1.2.0",
   "name": "Bambu Lab",
-  "description": "Bambu Lab printers in LAN mode: the chamber light, the temperatures and the print in progress, over the MQTT broker each printer runs itself. Nothing leaves the house.",
+  "description": "Bambu Lab printers in LAN mode: the chamber camera, the lights, the temperatures and the print in progress, over the MQTT broker each printer runs itself. Nothing leaves the house.",
   "url": "https://bambulab.com",
   "color": "#00AE42",
   "logo": { "path": "./logo.svg", "padding": 4 },
-  "internetRequired": false
+  "internetRequired": false,
+  "streams": {
+    "camera": "./camera/stream.js"
+  }
 }

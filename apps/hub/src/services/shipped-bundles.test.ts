@@ -263,18 +263,26 @@ describe('the bundles that ship', () => {
     }
   });
 
-  it('offers every Bambu Lab printer the one driver serves as its own choice', async () => {
-    // One profile drives them all, but the owner adding one is asked which, and the answer is
-    // what the vendor page shows for the row. Six names here is six entries in that dropdown.
+  it('offers every Bambu Lab printer as its own choice, one driver per family', async () => {
+    // One profile per family - the X1s, the P2S and H2S, the dual-nozzle printers, the P1s and
+    // A1s - but the owner adding one is asked which printer, and the answer is what the vendor
+    // page shows for the row.
     const { vendors } = await loadBundles({
       directory: DIRECTORY,
       runtimeVersion: RUNTIME_VERSION,
     });
     const bambu = vendors.find((vendor) => vendor.manifest.id === 'bambu-lab');
 
-    expect(bambu?.drivers.map((driver) => driver.manifest.models)).toEqual([
-      ['X1C', 'X1E', 'P1S', 'P1P', 'A1', 'A1 mini'],
-    ]);
+    expect(
+      Object.fromEntries(
+        bambu?.drivers.map((driver) => [driver.manifest.id, driver.manifest.models]) ?? [],
+      ),
+    ).toEqual({
+      'bambu-lab/printer': ['X1', 'X1C', 'X1E'],
+      'bambu-lab/printer-p2s-h2s': ['P2S', 'H2S'],
+      'bambu-lab/printer-dual-nozzle': ['H2D', 'H2D Pro', 'H2C', 'X2D'],
+      'bambu-lab/printer-p1-a1': ['P1P', 'P1S', 'A1', 'A1 mini', 'A2L'],
+    });
   });
 
   it('includes the Bambu Lab printer, over MQTT and declarative', async () => {
@@ -500,39 +508,41 @@ describe('the Shelly bundle', () => {
     }
   });
 
-  it('says whether firmware is waiting, and installs it when asked, on every family', async () => {
+  it('keeps its firmware in one update entity, installing and progress included, on every family', async () => {
     for (const [driver, profile] of await shellyProfiles()) {
-      const sensor = profile.entities.find((entity) => entity.objectId === 'firmware');
-      const button = profile.entities.find((entity) => entity.objectId === 'firmware_install');
+      const firmware = profile.entities.find((entity) => entity.objectId === 'firmware');
 
-      expect(sensor?.domain, driver).toBe('binary_sensor');
-      expect(sensor?.deviceClass, driver).toBe('update');
-      expect(sensor?.state.sensor_binary?.['isOn'], driver).toEqual({
-        path: 'sys.available_updates.stable',
-        present: true,
+      expect(firmware?.domain, driver).toBe('update');
+      expect(firmware?.state.update, driver).toEqual({
+        installedVersion: 'device_info.ver',
+        latestVersion: 'sys.available_updates.stable.version',
+        isInstalling: 'ota.isInstalling',
+        progress: 'ota.progress',
       });
-      expect(button?.domain, driver).toBe('button');
-      expect(button?.commands['button.press'], driver).toEqual({
+      expect(firmware?.commands['update.install'], driver).toEqual({
         op: 'call',
         args: { method: 'Shelly.Update', params: { stage: 'stable' } },
       });
+      expect(profile.device, driver).toEqual({ swVersion: 'device_info.ver' });
+      expect(
+        profile.entities.some((entity) => entity.objectId === 'firmware_install'),
+        driver,
+      ).toBe(false);
     }
   });
 
-  it('says whether firmware is waiting, and installs it when asked, on every Gen1 family', async () => {
+  it('keeps its firmware in one update entity on every Gen1 family, installing from /ota', async () => {
     for (const [driver, profile] of await shellyProfiles(SHELLY_GEN1_DRIVERS)) {
-      const sensor = profile.entities.find((entity) => entity.objectId === 'firmware');
-      const button = profile.entities.find((entity) => entity.objectId === 'firmware_install');
+      const firmware = profile.entities.find((entity) => entity.objectId === 'firmware');
 
-      expect(sensor?.domain, driver).toBe('binary_sensor');
-      expect(sensor?.deviceClass, driver).toBe('update');
-      expect(sensor?.state.sensor_binary?.['isOn'], driver).toBe('update.has_update');
-      expect(button?.domain, driver).toBe('button');
-      expect(button?.deviceClass, driver).toBe('update');
-      expect(button?.commands['button.press'], driver).toEqual({
+      expect(firmware?.domain, driver).toBe('update');
+      expect(firmware?.state.update?.['installedVersion'], driver).toBe('update.old_version');
+      expect(firmware?.state.update?.['latestVersion'], driver).toBe('update.new_version');
+      expect(firmware?.commands['update.install'], driver).toEqual({
         op: 'get',
         args: { path: '/ota', query: { update: true } },
       });
+      expect(profile.device, driver).toEqual({ swVersion: 'update.old_version' });
     }
   });
 });

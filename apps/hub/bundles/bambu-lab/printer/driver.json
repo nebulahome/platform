@@ -1,8 +1,15 @@
 {
   "id": "printer",
-  "name": "Printer",
+  "name": "X1 series printer",
   "transport": "mqtt",
-  "models": ["X1C", "X1E", "P1S", "P1P", "A1", "A1 mini"],
+  "models": ["X1", "X1C", "X1E"],
+  "modelCodes": {
+    "3DPrinter-X1": "X1",
+    "BL-P002": "X1",
+    "3DPrinter-X1-Carbon": "X1C",
+    "BL-P001": "X1C",
+    "C13": "X1E"
+  },
   "defaultIcon": "printer",
   "kind": "declarative",
   "profile": "./profile.json",

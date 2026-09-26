@@ -47,8 +47,8 @@ import { mqttTransport } from '@/transports/mqtt.js';
 const BROKER = 'mqtt://localhost:1883';
 const BUNDLE = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../bundles/bambu-lab');
 
-/** The one driver the vendor ships, where the profile lives. */
-const DRIVER = path.join(BUNDLE, 'printer');
+/** The driver of the P1 and A1 family, which the simulated printer is one of. */
+const DRIVER = path.join(BUNDLE, 'printer-p1-a1');
 
 /** A serial unique to this run, so two runs on one broker cannot see each other's printer. */
 const SERIAL = `01P00A${String(Date.now()).slice(-9)}`;

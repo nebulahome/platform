@@ -1,0 +1,9 @@
+{
+  "listen": [{ "module": "./lan/discovery.js" }],
+  "identity": {
+    "externalId": "serial",
+    "model": "model",
+    "name": "name",
+    "swVersion": "version"
+  }
+}
