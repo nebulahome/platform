@@ -6,8 +6,8 @@
  * shingle rows, a ridge cap, a gutter along the eave and a downpipe at the far corner. What makes
  * a style is shape and detail, never colour: the European house has its front door in the gable,
  * with a step, a lamp and a window under the ridge; the American one is a garage wing, its wide
- * door open, in front of the house proper - two storeys, a row of windows under its ridge, and
- * panels on its roof too.
+ * door open and the panels on its roof, in front of the house proper - larger, two storeys, its
+ * front door on the stretch of wall past the garage and windows on both floors.
  *
  * Drawn in the house tokens, so it is a house at night in the dark theme - dark walls, windows lit
  * from inside - and a house by day in the light one.
@@ -16,6 +16,7 @@ import type { ReactNode } from 'react';
 
 import { GarageDoor } from '@/routes/dashboard/cards/energy/garage';
 import {
+  AMERICAN_DOOR,
   between,
   outFromWall,
   patch,
@@ -23,9 +24,10 @@ import {
   up,
   type Body,
   type HouseGeometry,
+  type Point,
+  type Surface,
 } from '@/routes/dashboard/cards/energy/geometry';
 import { Window } from '@/routes/dashboard/cards/energy/house-parts';
-import { PanelArray } from '@/routes/dashboard/cards/energy/solar-array';
 
 /** How far the roof reaches past the walls, as a share of the slope and of the eave. */
 const OVERHANG = { down: -0.08, sideways: 0.03 } as const;
@@ -33,15 +35,9 @@ const OVERHANG = { down: -0.08, sideways: 0.03 } as const;
 /** How high the plinth runs along the foot of the walls. */
 const PLINTH = 6;
 
-/** How many modules along and up the American house's own array: as many as on the wing. */
-const ANNEX_PANELS = { columns: 6, rows: 4 } as const;
-
 /** What the house needs. */
 export type GableHouseProps = {
   readonly geometry: HouseGeometry;
-
-  /** The panels on a roof the house draws itself, when the card has panels. */
-  readonly solar: { readonly isProducing: boolean } | null;
 };
 
 /**
@@ -232,13 +228,45 @@ function Shell(props: ShellProps) {
  */
 function FrontDoor(props: { readonly body: Body }) {
   const { onGable, wallHeight } = props.body;
-  const lamp = onGable(0.68, 42);
-  const step = [onGable(0.33, 0), onGable(0.65, 0)] as const;
+
+  return (
+    <g>
+      <Door surface={onGable} from={0.36} to={0.62} out={{ x: -6, y: 3 }} />
+      <Window corners={patch(onGable, [0.42, wallHeight + 9], [0.58, wallHeight + 29])} />
+    </g>
+  );
+}
+
+/** What a front door needs. */
+type DoorProps = {
+  /** The wall it is in. */
+  readonly surface: Surface;
+
+  /** Where it starts and ends along that wall. */
+  readonly from: number;
+  readonly to: number;
+
+  /** Which way is out of that wall, on the ground: where the step lies. */
+  readonly out: Point;
+};
+
+/**
+ * A front door: the door, its knob, the step before it and the lamp beside it.
+ *
+ * @param props - See {@link DoorProps}.
+ * @returns The group.
+ */
+function Door(props: DoorProps) {
+  const { surface, from, to, out } = props;
+  const width = to - from;
+  const lamp = surface(to + width * 0.25, 42);
+  const knob = surface(to - width * 0.15, 25);
+  const step = [surface(from - width * 0.1, 0), surface(to + width * 0.1, 0)] as const;
 
   return (
     <g>
       <polygon
-        points={polygon(patch(onGable, [0.36, 0], [0.62, 50]))}
+        points={polygon(patch(surface, [from, 0], [to, 50]))}
         className="fill-house-roof stroke-house-window-frame"
         strokeWidth={1.2}
       />
@@ -246,26 +274,26 @@ function FrontDoor(props: { readonly body: Body }) {
         points={polygon([
           step[0],
           step[1],
-          { x: step[1].x - 6, y: step[1].y + 3 },
-          { x: step[0].x - 6, y: step[0].y + 3 },
+          { x: step[1].x + out.x, y: step[1].y + out.y },
+          { x: step[0].x + out.x, y: step[0].y + out.y },
         ])}
         className="fill-house-trim"
       />
-      <circle
-        cx={onGable(0.58, 25).x}
-        cy={onGable(0.58, 25).y}
-        r={1.4}
-        className="fill-house-window"
-      />
+      <circle cx={knob.x} cy={knob.y} r={1.4} className="fill-house-window" />
       <circle cx={lamp.x} cy={lamp.y} r={2} className="fill-house-window" />
-      <Window corners={patch(onGable, [0.42, wallHeight + 9], [0.58, wallHeight + 29])} />
     </g>
   );
 }
 
+/** The two floors of the American house proper, as shares of its walls' height. */
+const FLOORS = [
+  { bottom: 0.1, top: 0.36 },
+  { bottom: 0.58, top: 0.84 },
+] as const;
+
 /**
- * The American house proper's gable: two tall windows on the ground floor and a row of three
- * under the ridge, all barred in panes.
+ * The American house proper's gable: two tall windows on each floor and a row of three under
+ * the ridge, all barred in panes.
  *
  * @param props - The building.
  * @param props.body - The building.
@@ -276,16 +304,24 @@ function AnnexGable(props: { readonly body: Body }) {
 
   return (
     <g>
-      {[
-        [0.18, 0.36],
-        [0.64, 0.82],
-      ].map(([from = 0, to = 0]) => (
-        <Window
-          key={from}
-          corners={patch(onGable, [from, 14], [to, wallHeight * 0.55])}
-          hasLattice
-        />
-      ))}
+      {FLOORS.flatMap((floor) =>
+        (
+          [
+            [0.18, 0.34],
+            [0.66, 0.82],
+          ] as const
+        ).map(([from, to]) => (
+          <Window
+            key={`${String(floor.bottom)}-${String(from)}`}
+            corners={patch(
+              onGable,
+              [from, wallHeight * floor.bottom],
+              [to, wallHeight * floor.top],
+            )}
+            hasLattice
+          />
+        )),
+      )}
       {[
         [0.3, 0.4],
         [0.45, 0.55],
@@ -297,6 +333,40 @@ function AnnexGable(props: { readonly body: Body }) {
           hasSill={false}
         />
       ))}
+    </g>
+  );
+}
+
+/**
+ * The American house proper's front: its door, on the stretch of wall past the garage's gable,
+ * and windows on both floors - those behind the garage are hidden by it, as they would be.
+ *
+ * @param props - The building.
+ * @param props.body - The building.
+ * @returns The group.
+ */
+function AnnexFront(props: { readonly body: Body }) {
+  const { onWall, wallHeight } = props.body;
+  const windows = [
+    [0.025, 0.07],
+    [0.22, 0.265],
+    [0.42, 0.465],
+    [0.62, 0.665],
+    [0.82, 0.865],
+  ] as const;
+
+  return (
+    <g>
+      {windows.flatMap(([from, to]) =>
+        FLOORS.map((floor) => (
+          <Window
+            key={`${String(floor.bottom)}-${String(from)}`}
+            corners={patch(onWall, [from, wallHeight * floor.bottom], [to, wallHeight * floor.top])}
+            hasLattice
+          />
+        )),
+      )}
+      <Door surface={onWall} from={AMERICAN_DOOR.from} to={AMERICAN_DOOR.to} out={{ x: 6, y: 3 }} />
     </g>
   );
 }
@@ -334,7 +404,7 @@ function WallWindows(props: { readonly geometry: HouseGeometry }) {
  * @returns The group.
  */
 export function GableHouse(props: GableHouseProps) {
-  const { geometry, solar } = props;
+  const { geometry } = props;
   const { annex } = geometry;
   const isAmerican = geometry.style === 'american';
 
@@ -349,18 +419,7 @@ export function GableHouse(props: GableHouseProps) {
           body={annex}
           hasDownpipe={false}
           gable={<AnnexGable body={annex} />}
-          roof={
-            solar === null ? null : (
-              <PanelArray
-                surface={annex.onRoof}
-                along={annex.panels.along}
-                upward={annex.panels.up}
-                columns={ANNEX_PANELS.columns}
-                rows={ANNEX_PANELS.rows}
-                isProducing={solar.isProducing}
-              />
-            )
-          }
+          wall={<AnnexFront body={annex} />}
         />
       )}
 

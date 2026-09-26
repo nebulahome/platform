@@ -1,5 +1,6 @@
 /**
- * The energy card: the parts it draws for the meters it has, and the day under a large one.
+ * The energy card: the parts it draws for the meters it has, and the day under a large one or
+ * beside a square one.
  */
 import { QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -54,7 +55,7 @@ describe('EnergyCard', () => {
     expect(screen.queryByText('SOLAR')).toBeNull();
     expect(screen.queryByText(/^BATTERY/u)).toBeNull();
     expect(screen.getByText('GRID')).toBeTruthy();
-    expect(screen.getByText('Energy', { selector: 'span.text-title' })).toBeTruthy();
+    expect(screen.getByText('Energy', { selector: 'span.text-ui' })).toBeTruthy();
     // Wh early in the day, kWh later: the sample day runs up to now.
     expect(screen.getByText(/\d Wh used today|kWh used today/u)).toBeTruthy();
     expect(screen.queryByText('Impact')).toBeNull();
@@ -75,10 +76,10 @@ describe('EnergyCard', () => {
         style,
       );
 
-      // One sheet of glass on a pitched roof - and one more on the American house proper,
-      // behind its garage - and one per row on a flat roof.
+      // One sheet of glass on a pitched roof - on the American house, the garage's only - and one
+      // per row on a flat roof.
       expect(container.querySelectorAll('polygon.fill-house-panel').length, style).toBe(
-        { european: 1, american: 2, arabic: 3 }[style],
+        { european: 1, american: 1, arabic: 3 }[style],
       );
       expect(screen.getAllByText('SOLAR').length, style).toBeGreaterThan(0);
       cleanup();
@@ -111,6 +112,25 @@ describe('EnergyCard', () => {
     expect(geometryFor('american').annex).not.toBeNull();
     expect(geometryFor('european').annex).toBeNull();
     expect(geometryFor('arabic').annex).toBeNull();
+  });
+
+  it('makes the American house proper larger than its garage, with its front door in view', () => {
+    const { annex, wallHeight, ridgeHeight, shortSide, focus } = geometryFor('american');
+
+    if (annex === null) {
+      throw new Error('The American house has no house proper');
+    }
+
+    // Two storeys to the garage's one, and deeper.
+    expect(annex.wallHeight).toBeGreaterThan(wallHeight * 1.5);
+    expect(annex.ridgeHeight).toBeGreaterThan(ridgeHeight);
+    expect(annex.shortSide).toBeGreaterThan(shortSide);
+
+    // The door is on the stretch of its wall that reaches past the garage, and the card keeps it.
+    const door = annex.onWall(0.14, 0);
+
+    expect(door.x).toBeGreaterThanOrEqual(focus.x);
+    expect(door.x).toBeLessThan(geometryFor('american').corners.left.x);
   });
 
   it('draws every style in the same colours: shape and detail differ, the palette does not', () => {
@@ -197,10 +217,15 @@ describe('EnergyCard', () => {
     }
   });
 
-  it('leaves the day off a square card', () => {
-    renderCard({ solar: 5200, battery: null, level: null, grid: -3100 }, 'square');
+  it('sets the day beside the house on a square card', () => {
+    const container = renderCard(
+      { solar: 5200, battery: null, level: null, grid: -3100 },
+      'square',
+    );
 
-    expect(screen.queryByText('Energy', { selector: 'span.text-title' })).toBeNull();
-    expect(screen.queryByText('Impact')).toBeNull();
+    expect(screen.getByText('Energy', { selector: 'span.text-ui' })).toBeTruthy();
+    expect(screen.getByText('Impact')).toBeTruthy();
+    // In a column: the lines stacked, not a row under the house.
+    expect(container.querySelector('.grid-cols-2')).toBeNull();
   });
 });

@@ -71,15 +71,18 @@ export type EnergySceneProps = {
 const FALLBACK_SIZE = { width: 440, height: 330 } as const;
 
 /** The labels' figure and caption on a card tall enough, in pixels. */
-const FIGURE_SIZE = 24;
-const CAPTION_SIZE = 11.5;
+const FIGURE_SIZE = 19;
+const CAPTION_SIZE = 10.5;
 
 /** The smallest a caption is written, however short the card: below it, nobody reads it. */
-const MIN_CAPTION_SIZE = 9.5;
+const MIN_CAPTION_SIZE = 9;
 
 /** How tall a card is before its labels are full size, and the least they are scaled to. */
-const FULL_LABEL_HEIGHT = 320;
-const MIN_LABEL_SCALE = 0.66;
+const FULL_LABEL_HEIGHT = 300;
+const MIN_LABEL_SCALE = 0.74;
+
+/** The room under the bottom labels' captions: air between them and what the card has below. */
+const BOTTOM_AIR = 10;
 
 /** How close to the drawing's sides a label comes: the card's own padding. */
 const EDGE_MARGIN = 16;
@@ -131,14 +134,11 @@ function wiringOf(geometry: HouseGeometry): {
       ]),
     },
     targets: {
-      // The top of the panels, towards the gable end: the slope's top row - the higher roof's,
-      // where there are two - or the back row.
+      // The top of the panels, towards the gable end: the slope's top row, or the back row.
       solar:
         roof === 'flat'
           ? up(onRoof(targets.solarAlong, panels.up[1]), 16)
-          : geometry.annex === null
-            ? onRoof(targets.solarAlong, panels.up[1])
-            : geometry.annex.onRoof(targets.solarAlong, geometry.annex.panels.up[1]),
+          : onRoof(targets.solarAlong, panels.up[1]),
       // The lit window at the far end, beside its frame, as the picture has it - the line
       // crosses only the roof's far corner, clear of the panels - or the top of the parapet.
       home:
@@ -176,7 +176,12 @@ function metricsFor(height: number): LabelMetrics {
   const figure = FIGURE_SIZE * scale;
   const caption = Math.max(MIN_CAPTION_SIZE, CAPTION_SIZE * scale);
 
-  return { figure, caption, letterSpacing: 1.2 * scale, band: figure + caption + 6 };
+  return {
+    figure,
+    caption,
+    letterSpacing: 1.1 * scale,
+    band: figure + caption + 6 + BOTTOM_AIR / 2,
+  };
 }
 
 /** Where the house is drawn: moved, then scaled. */
@@ -467,7 +472,10 @@ function baselinesOf(
 ): { readonly valueY: number; readonly captionY: number } {
   return side === 'top'
     ? { valueY: metrics.figure, captionY: metrics.figure + metrics.caption + 4 }
-    : { valueY: height - metrics.caption - 10, captionY: height - 6 };
+    : {
+        valueY: height - BOTTOM_AIR - metrics.caption - 4,
+        captionY: height - BOTTOM_AIR,
+      };
 }
 
 /**
@@ -520,7 +528,13 @@ function Label(props: LabelProps) {
         x1={lineX}
         y1={side === 'top' ? (isOverLine ? captionY + 6 : 4) : target.y + 4}
         x2={lineX}
-        y2={side === 'top' ? target.y - 3 : isOverLine ? valueY - metrics.figure - 2 : height - 2}
+        y2={
+          side === 'top'
+            ? target.y - 3
+            : isOverLine
+              ? valueY - metrics.figure - 2
+              : height - BOTTOM_AIR + 4
+        }
         className="stroke-foreground-subtle"
         strokeWidth={1}
         opacity={0.45}
@@ -653,7 +667,7 @@ export function EnergyScene(props: EnergySceneProps) {
         <g
           transform={`translate(${fit.x.toFixed(2)} ${fit.y.toFixed(2)}) scale(${fit.scale.toFixed(4)})`}
         >
-          <House geometry={geometry} solar={hasSolar ? { isProducing: solarOut > 10 } : null} />
+          <House geometry={geometry} />
           {hasSolar ? <SolarArray geometry={geometry} isProducing={solarOut > 10} /> : null}
           <HouseFront geometry={geometry} />
 

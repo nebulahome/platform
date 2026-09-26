@@ -12,12 +12,6 @@ import type { HouseGeometry } from '@/routes/dashboard/cards/energy/geometry';
 /** What the house needs. */
 export type HouseProps = {
   readonly geometry: HouseGeometry;
-
-  /**
-   * The panels on a roof the house draws itself - the American house proper's, behind its
-   * garage wing - when the card has panels.
-   */
-  readonly solar?: { readonly isProducing: boolean } | null;
 };
 
 /**
@@ -27,12 +21,12 @@ export type HouseProps = {
  * @returns The group.
  */
 export function House(props: HouseProps) {
-  const { geometry, solar = null } = props;
+  const { geometry } = props;
 
   return geometry.roof === 'flat' ? (
     <FlatHouse geometry={geometry} />
   ) : (
-    <GableHouse geometry={geometry} solar={solar} />
+    <GableHouse geometry={geometry} />
   );
 }
 

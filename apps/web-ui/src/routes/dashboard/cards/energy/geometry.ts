@@ -10,13 +10,12 @@
  *
  * Each style also says which part of it must be seen - its `focus` - and the scene scales that to
  * the card, letting the rest reach past the card's edges: the American house proper, behind its
- * garage wing, may lose its far gable to the edge, the way the picture it is drawn after is
- * framed.
+ * garage wing, may lose its far end to the edge, the way the picture it is drawn after is framed.
  *
- * The battery, the gateway and the wires are on the long wall of the building nearest the viewer
- * in every style, so the flows are drawn the same whichever house is chosen. The American house
- * has a second building: the house proper, behind its garage wing, with a roof of panels of its
- * own.
+ * The battery, the gateway, the wires and the panels are on the building nearest the viewer in
+ * every style, so the flows are drawn the same whichever house is chosen. The American house has
+ * a second building: the house proper, two storeys behind its garage wing and larger than it, its
+ * front door on the stretch of wall that reaches past the garage.
  */
 import type { HouseStyle } from '@nebula-home/contracts';
 
@@ -78,15 +77,15 @@ const DIMENSIONS: Readonly<Record<HouseStyle, Dimensions>> = {
     roof: 'gable',
   },
 
-  // The garage wing, in the proportions of the picture: twice as long as it is wide, walls three
-  // quarters of its width high, and a roof steep enough to carry a big array; its gable - the
-  // garage door - faces the lower left.
+  // The garage wing, in the proportions of the picture: twice as long as it is wide, one storey
+  // high, and a roof steep enough to carry the array; its gable - the garage door - faces the
+  // lower left.
   american: {
     front: { x: 196, y: 300 },
-    longSide: 236,
-    shortSide: 118,
-    wallHeight: 86,
-    ridgeHeight: 156,
+    longSide: 206,
+    shortSide: 104,
+    wallHeight: 70,
+    ridgeHeight: 126,
     roof: 'gable',
   },
 
@@ -102,16 +101,19 @@ const DIMENSIONS: Readonly<Record<HouseStyle, Dimensions>> = {
 };
 
 /**
- * The American house proper: two storeys, taller than its garage wing, behind it and reaching
- * well past its gable.
+ * The American house proper: two storeys to the garage's one, deeper and longer than it, standing
+ * behind it and reaching well past its gable - where its front door is.
  */
 const AMERICAN_ANNEX: AnnexDimensions = {
-  along: [-0.1, 0.78],
-  behind: 120,
-  shortSide: 110,
-  wallHeight: 104,
-  ridgeHeight: 176,
+  along: [-0.3, 0.84],
+  behind: 108,
+  shortSide: 120,
+  wallHeight: 116,
+  ridgeHeight: 172,
 };
+
+/** Where the American house's front door is along its own long wall: past the garage's gable. */
+export const AMERICAN_DOOR = { from: 0.1, to: 0.18 } as const;
 
 /** Where the parts that the wires join sit on the long wall: along, and the band they span. */
 export type Places = {
@@ -187,8 +189,8 @@ export type Body = Omit<Dimensions, 'front'> & {
   readonly onGround: Surface;
 };
 
-/** The building behind, with the panels its roof takes. */
-export type Annex = Body & { readonly panels: PanelField };
+/** The building behind. */
+export type Annex = Body;
 
 /** Everything the drawing places by, for one style. */
 export type HouseGeometry = Body & {
@@ -219,9 +221,8 @@ export type HouseGeometry = Body & {
 
   /**
    * Where the label lines end, and which side of its line each label's text is written on:
-   * the panels' top row - on the American house, the house proper's, the higher roof - and, on
-   * a pitched roof, the lit window at the far end, as in the picture, or the top of the parapet
-   * on a flat one. The solar figure is written left of its line, over the sky beside the gable,
+   * the panels' top row and, on a pitched roof, the lit window at the far end, as in the
+   * picture, or the top of the parapet on a flat one. The solar figure is written left of its line, over the sky beside the gable,
    * where it covers no roof.
    */
   readonly targets: {
@@ -374,22 +375,19 @@ function bodyOf(dimensions: Dimensions): Body {
  *
  * @param near - The near building.
  * @param annex - Where the one behind stands, and what it measures.
- * @returns The building, with the panels its roof takes.
+ * @returns The building.
  */
 function annexOf(near: Body, annex: AnnexDimensions): Annex {
   const [from, to] = annex.along;
 
-  return {
-    ...bodyOf({
-      front: backFromWall(near.onWall(from, 0), annex.behind),
-      longSide: near.longSide * (to - from),
-      shortSide: annex.shortSide,
-      wallHeight: annex.wallHeight,
-      ridgeHeight: annex.ridgeHeight,
-      roof: 'gable',
-    }),
-    panels: { along: [0.08, 0.92], up: [0.14, 0.88] },
-  };
+  return bodyOf({
+    front: backFromWall(near.onWall(from, 0), annex.behind),
+    longSide: near.longSide * (to - from),
+    shortSide: annex.shortSide,
+    wallHeight: annex.wallHeight,
+    ridgeHeight: annex.ridgeHeight,
+    roof: 'gable',
+  });
 }
 
 /**
@@ -483,7 +481,8 @@ const STAIR_HOUSE_REACH = 34;
  * The points of a house that must be seen.
  *
  * @param body - The near building.
- * @param annex - The building behind, if any: only its roof counts, so its far gable may be cut.
+ * @param annex - The building behind, if any: its roof and its front door count, so its far end
+ * may be cut.
  * @returns The points.
  */
 function focusPointsOf(body: Body, annex: Annex | null): Point[] {
@@ -500,7 +499,9 @@ function focusPointsOf(body: Body, annex: Annex | null): Point[] {
     up(corners.left, wallHeight),
     onWall(1, wallHeight),
     ...top,
-    ...(annex === null ? [] : [annex.onRoof(0.45, 1), annex.onRoof(1.03, 1)]),
+    ...(annex === null
+      ? []
+      : [annex.onRoof(0.4, 1), annex.onRoof(1.03, 1), annex.onWall(AMERICAN_DOOR.from - 0.04, 0)]),
   ];
 }
 
@@ -517,7 +518,7 @@ export function geometryFor(style: HouseStyle): HouseGeometry {
   // way along, two tall windows at the far end.
   const places: Places = {
     battery: isAmerican
-      ? { from: 0.05, to: 0.13, bottom: 5, top: 60 }
+      ? { from: 0.05, to: 0.14, bottom: 5, top: 56 }
       : { from: 0.07, to: 0.19, bottom: 5, top: 57 },
     gateway: isAmerican
       ? { at: 0.36, halfWidth: 0.018, bottom: 26, top: 48 }
@@ -535,7 +536,7 @@ export function geometryFor(style: HouseStyle): HouseGeometry {
       style === 'arabic'
         ? { bottom: 24, top: 62 }
         : isAmerican
-          ? { bottom: 14, top: 68 }
+          ? { bottom: 14, top: 56 }
           : { bottom: 21, top: 57 },
     wireHeight: isAmerican ? 37 : 31,
     gridReach: isAmerican ? 96 : 70,

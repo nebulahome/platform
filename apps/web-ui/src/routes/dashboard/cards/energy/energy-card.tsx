@@ -4,10 +4,11 @@
  * At the top, what the house is doing in one word, in the colour of the power doing it -
  * charging from the panels is green, running on the grid yellow. Under it the house, with the
  * power moving along its wires and each meter's figure on a line down to what it reads - drawn
- * across the card's whole width, reaching its edges as the picture it is drawn after does. On the
- * large and tall cards, the day, in one row so the house keeps the height: what the panels made -
- * or, without panels, what the house used - and, with panels, how much of the day the house ran
- * on its own power.
+ * across the card's whole width, reaching its edges as the picture it is drawn after does. With
+ * it, the day: what the panels made - or, without panels, what the house used - and, with panels,
+ * how much of the day the house ran on its own power. On the large and tall cards in one row under
+ * the house, so the house keeps the height; on the square card in a column beside it, where the
+ * card is wide enough.
  */
 import type { DashboardEnergyCard } from '@nebula-home/contracts';
 import { AppIcon, cn, type UiIconId } from '@nebula-home/ui';
@@ -99,6 +100,9 @@ type DayLineProps = {
   readonly icon: UiIconId;
   readonly title: string;
   readonly detail: string;
+
+  /** Whether the figure may take a second line, in the narrow column beside the house. */
+  readonly wraps?: boolean;
 };
 
 /**
@@ -108,14 +112,16 @@ type DayLineProps = {
  * @returns The line.
  */
 function DayLine(props: DayLineProps) {
-  const { icon, title, detail } = props;
+  const { icon, title, detail, wraps = false } = props;
 
   return (
-    <div className="flex min-w-0 items-center gap-3 border-t border-border-soft py-2.5 first:border-t-0 [.grid-cols-2>&]:border-t-0">
-      <AppIcon id={icon} size={18} className="shrink-0 text-foreground-subtle" />
+    <div className="flex min-w-0 items-center gap-2.5 border-t border-border-soft py-2.5 first:border-t-0 [.grid-cols-2>&]:border-t-0">
+      <AppIcon id={icon} size={16} className="shrink-0 text-foreground-subtle" />
       <div className="flex min-w-0 flex-col">
-        <span className="text-title leading-tight font-semibold text-foreground">{title}</span>
-        <span className="truncate text-caption text-foreground-muted tabular">{detail}</span>
+        <span className="text-ui leading-tight font-semibold text-foreground">{title}</span>
+        <span className={cn('text-caption text-foreground-muted tabular', !wraps && 'truncate')}>
+          {detail}
+        </span>
       </div>
     </div>
   );
@@ -134,6 +140,9 @@ function kwhText(kwh: number): string {
 /** The narrowest the day's two lines are set side by side at, in pixels; stacked below it. */
 const SIDE_BY_SIDE_WIDTH = 340;
 
+/** The narrowest a square card sets the day in a column beside the house at, in pixels. */
+const DAY_COLUMN_WIDTH = 380;
+
 /** What the card needs. */
 export type EnergyCardProps = {
   readonly card: DashboardEnergyCard;
@@ -149,10 +158,13 @@ export type EnergyCardProps = {
 export function EnergyCard(props: EnergyCardProps) {
   const { card, data } = props;
   const isLarge = card.h >= 3;
-  const model = useEnergy(card, data, isLarge);
-  const title = card.title ?? 'Energy';
   const { ref: dayRef, size: daySize } = useElementSize<HTMLDivElement>();
+  const { ref: bodyRef, size: bodySize } = useElementSize<HTMLDivElement>();
   const isSideBySide = daySize.width === 0 || daySize.width >= SIDE_BY_SIDE_WIDTH;
+  // Before the card is laid out - and in a test - the column is assumed to fit.
+  const hasDayColumn = !isLarge && (bodySize.width === 0 || bodySize.width >= DAY_COLUMN_WIDTH);
+  const model = useEnergy(card, data, isLarge || hasDayColumn);
+  const title = card.title ?? 'Energy';
 
   if (model.isEmpty) {
     return (
@@ -179,6 +191,44 @@ export function EnergyCard(props: EnergyCardProps) {
         ? 'Reading…'
         : 'Needs access to history'
       : words(today);
+  const dayLines = (
+    <>
+      <DayLine
+        icon="chart-line"
+        title="Energy"
+        wraps={!isLarge}
+        detail={dayDetail((day) =>
+          day.generated === null
+            ? `${kwhText(day.used)} used today`
+            : `${kwhText(day.generated)} generated today`,
+        )}
+      />
+      {model.hasSolar ? (
+        <DayLine
+          icon="leaf"
+          title="Impact"
+          wraps={!isLarge}
+          detail={dayDetail((day) => `${String(day.selfPowered ?? 0)}% self-powered today`)}
+        />
+      ) : null}
+    </>
+  );
+  const scene = (
+    <EnergyScene
+      houseStyle={card.houseStyle}
+      meters={{
+        solar: model.readings.solar,
+        battery: model.readings.battery,
+        batteryLevel: model.batteryLevel,
+        grid: model.readings.grid,
+        hasGrid: model.hasGrid,
+      }}
+      hasSolar={model.hasSolar}
+      hasBattery={model.hasBattery}
+      flows={model.flows}
+      label={sceneLabel(model)}
+    />
+  );
 
   return (
     <CardFrame label={title} className="gap-1">
@@ -197,51 +247,34 @@ export function EnergyCard(props: EnergyCardProps) {
         <span className="truncate text-caption text-foreground-subtle">{title}</span>
       </div>
 
-      <div className="relative -mx-4 min-h-0 grow">
-        <EnergyScene
-          houseStyle={card.houseStyle}
-          meters={{
-            solar: model.readings.solar,
-            battery: model.readings.battery,
-            batteryLevel: model.batteryLevel,
-            grid: model.readings.grid,
-            hasGrid: model.hasGrid,
-          }}
-          hasSolar={model.hasSolar}
-          hasBattery={model.hasBattery}
-          flows={model.flows}
-          label={sceneLabel(model)}
-        />
-      </div>
-
       {isLarge ? (
-        // Side by side, on the tall card too: stacked, the two lines would take the height the
-        // house is drawn in. Stacked only where the card is too narrow for two.
-        <div
-          ref={dayRef}
-          className={cn(
-            'grid border-t border-border-soft',
-            isSideBySide ? 'grid-cols-2 gap-x-4' : 'grid-cols-1',
-          )}
-        >
-          <DayLine
-            icon="chart-line"
-            title="Energy"
-            detail={dayDetail((day) =>
-              day.generated === null
-                ? `${kwhText(day.used)} used today`
-                : `${kwhText(day.generated)} generated today`,
+        <>
+          <div className="relative -mx-4 min-h-0 grow">{scene}</div>
+          {/* Side by side, on the tall card too: stacked, the two lines would take the height
+              the house is drawn in. Stacked only where the card is too narrow for two. */}
+          <div
+            ref={dayRef}
+            className={cn(
+              'mt-1.5 grid border-t border-border-soft',
+              isSideBySide ? 'grid-cols-2 gap-x-4' : 'grid-cols-1',
             )}
-          />
-          {model.hasSolar ? (
-            <DayLine
-              icon="leaf"
-              title="Impact"
-              detail={dayDetail((day) => `${String(day.selfPowered ?? 0)}% self-powered today`)}
-            />
+          >
+            {dayLines}
+          </div>
+        </>
+      ) : (
+        // The square card is short and wide: the day goes in a column beside the house.
+        <div ref={bodyRef} className="flex min-h-0 grow">
+          <div className={cn('relative min-h-0 grow', hasDayColumn ? '-ml-4' : '-mx-4')}>
+            {scene}
+          </div>
+          {hasDayColumn ? (
+            <div className="flex w-36 shrink-0 flex-col justify-center border-l border-border-soft pl-3">
+              {dayLines}
+            </div>
           ) : null}
         </div>
-      ) : null}
+      )}
     </CardFrame>
   );
 }
