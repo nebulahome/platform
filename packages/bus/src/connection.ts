@@ -128,6 +128,42 @@ function watchStatus(
   });
 }
 
+/** Where the broker is, and who to say we are to it. */
+export type BrokerAddress = {
+  /** The URL without credentials, as it may be logged. */
+  readonly server: string;
+
+  /** The user and password the URL carried, when it carried them. */
+  readonly user?: string;
+  readonly pass?: string;
+};
+
+/**
+ * Splits a broker URL into where it is and the credentials it carries.
+ *
+ * The client takes the user and password as options, not from the URL, and a URL with its
+ * password in it must never reach a log line: `nats://nebula:secret@127.0.0.1:4223` becomes the
+ * server `nats://127.0.0.1:4223` and the user `nebula` with the password `secret`.
+ *
+ * @param url - The broker's URL, as configured.
+ * @returns The server and the credentials.
+ */
+export function brokerAddressOf(url: string): BrokerAddress {
+  const parsed = new URL(url);
+
+  if (parsed.username === '' && parsed.password === '') {
+    return { server: url };
+  }
+
+  const user = decodeURIComponent(parsed.username);
+  const pass = decodeURIComponent(parsed.password);
+
+  parsed.username = '';
+  parsed.password = '';
+
+  return { server: parsed.toString().replace(/\/$/u, ''), user, pass };
+}
+
 /**
  * Connects to the broker, retrying until it succeeds or the caller gives up.
  *
@@ -142,6 +178,7 @@ export async function connectBus(options: ConnectBusOptions): Promise<BusConnect
   const logger = withTraceId(options.logger, newTraceId());
 
   const reconnectState: ReconnectState = { attempt: 0 };
+  const address = brokerAddressOf(options.url);
 
   let attempt = 0;
 
@@ -153,7 +190,8 @@ export async function connectBus(options: ConnectBusOptions): Promise<BusConnect
       // would defeat the schedule.
       // eslint-disable-next-line no-await-in-loop -- see above
       const connection = await connect({
-        servers: options.url,
+        servers: address.server,
+        ...(address.user === undefined ? {} : { user: address.user, pass: address.pass }),
         name: options.name,
         timeout: connectTimeoutMs,
 
@@ -213,7 +251,7 @@ export async function connectBus(options: ConnectBusOptions): Promise<BusConnect
       const waitMs = backoffDelayMs(attempt, backoff);
 
       logger.warn(
-        { attempt, waitMs, url: options.url, err: error },
+        { attempt, waitMs, url: address.server, err: error },
         'Cannot reach the bus, retrying',
       );
 
