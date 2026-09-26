@@ -43,6 +43,18 @@ function isMissing(error: unknown): boolean {
 }
 
 /**
+ * Whether a file system error means the file may not be read by this process.
+ *
+ * @param error - The error.
+ * @returns True for `EACCES` and `EPERM`.
+ */
+function isForbidden(error: unknown): boolean {
+  return (
+    error instanceof Error && 'code' in error && (error.code === 'EACCES' || error.code === 'EPERM')
+  );
+}
+
+/**
  * How large the database is, tables, indexes and history together.
  *
  * @param db - A connected database handle.
@@ -68,7 +80,9 @@ async function entriesOf(path: string): Promise<Dirent[]> {
   try {
     return await readdir(path, { withFileTypes: true });
   } catch (error: unknown) {
-    if (isMissing(error)) {
+    // A folder that is not there holds nothing; nor, as far as this count can tell, does one it
+    // may not read - `secrets/` in the container, which only the root-owned services open.
+    if (isMissing(error) || isForbidden(error)) {
       return [];
     }
 
