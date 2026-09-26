@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "test:integration": "vitest run --dir tests/integration"
   },
   "dependencies": {
@@ -17,12 +17,12 @@
     "@fastify/helmet": "^13.1.1",
     "@fastify/http-proxy": "^11.6.1",
     "@fastify/static": "^10.1.3",
-    "@nebula-home/bus": "workspace:*",
     "@nebula-home/config": "workspace:*",
     "@nebula-home/contracts": "workspace:*",
     "@nebula-home/logging": "workspace:*",
     "acme-client": "^5.4.0",
-    "fastify": "^5.12.1"
+    "fastify": "^5.12.1",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@nebula-home/eslint-config": "workspace:*",
