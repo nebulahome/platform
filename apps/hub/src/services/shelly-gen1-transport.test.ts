@@ -21,6 +21,7 @@ import { z } from 'zod';
 
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
 import {
+  defineStreamSource,
   defineTransport,
   type BundleSdk,
   type ManagedUdpSocket,
@@ -231,6 +232,13 @@ function build(): { transport: Transport; sockets: FakeUdp[] } {
           return Promise.resolve();
         },
       };
+    },
+    openMqtt: () => {
+      throw new Error('A Gen1 speaks no MQTT here');
+    },
+    defineStreamSource,
+    openRtsp: () => {
+      throw new Error('not opened in this test');
     },
   };
 

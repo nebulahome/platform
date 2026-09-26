@@ -215,13 +215,22 @@ is not probed again.
 
 ## Firmware, and the web page
 
-Every driver exposes two more entities: **Firmware update**, a binary sensor that is on while the
-device offers a stable update, and **Install firmware update**, a button that asks it to install
-one. Over RPC the sensor reads `sys.available_updates.stable` and the button calls `Shelly.Update`
-with stage `stable`; on a Gen1 the sensor reads `update.has_update` from `/status` and the button
-asks `/ota?update=true`. The device checks for updates on its own and needs the internet to do
-it; once it has installed one it restarts, drops off the network for a minute, and its sensor
-reads up to date again. The device's page links to its own web page, on port 80.
+Every driver exposes one more entity, **Firmware** (domain `update`): the version the device runs,
+the stable version it offers when there is a newer one, whether it is installing now, and how far.
+Over RPC the transport asks `Shelly.GetDeviceInfo` on every connection for the version, reads the
+offer from `sys.available_updates.stable`, and follows an install through the device's
+`NotifyEvent`s - `ota_begin`, `ota_progress` with its percentage, `ota_success`, `ota_error` - from
+the moment `Shelly.Update` (stage `stable`) is accepted until the device is back on another
+version. A second `Shelly.Update` while one installs is not sent, and the hub refuses the install
+command meanwhile, so an automation that installs whatever is offered cannot start it twice. An
+install that goes ten minutes without a word is taken as ended. On a Gen1 the entity reads
+`update.old_version`, `update.new_version` and `update.status` (`updating`) from `/status`, and
+installs through `/ota?update=true`.
+
+The device checks for updates on its own and needs the internet to do it; once it has installed
+one it restarts, drops off the network for a minute, and comes back on the new version - which
+the device's page shows at once, since the version it reports is written to its row as it
+changes. The device's page links to its own web page, on port 80.
 
 ## What is not here, and why
 

@@ -831,7 +831,18 @@ describe('the Gen1 families', () => {
     expect(states.get('power')).toEqual({ sensor_numeric: { value: 42.5 } });
     expect(states.get('energy')).toEqual({ sensor_numeric: { value: 10 } });
     expect(states.get('temperature')).toEqual({ sensor_numeric: { value: 41.2 } });
-    expect(states.get('firmware')).toEqual({ sensor_binary: { isOn: true } });
+    expect(states.get('firmware')).toEqual({
+      update: { installedVersion: 'a', latestVersion: 'b', isInstalling: false, progress: null },
+    });
+  });
+
+  it('reads a Gen1 installing its update as installing', async () => {
+    const states = statesFor(await family('gen1-switch-pm'), {
+      ...STATUS,
+      update: { status: 'updating', has_update: true, new_version: 'b', old_version: 'a' },
+    });
+
+    expect(states.get('firmware')).toMatchObject({ update: { isInstalling: true } });
   });
 
   it('switches a relay with the query the Gen1 API documents', async () => {
@@ -972,9 +983,9 @@ describe('the Gen1 families', () => {
     expect(
       built.integration.toCommand(
         {
-          entityId: entityOf(built, 'firmware_install'),
-          capability: 'button',
-          command: { command: 'press' },
+          entityId: entityOf(built, 'firmware'),
+          capability: 'update',
+          command: { command: 'install' },
         },
         context(built.entities, { type: 'SHPLG-S', mac: 'A4CF12F45CC8' }),
       ),

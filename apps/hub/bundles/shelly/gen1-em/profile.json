@@ -8,6 +8,7 @@
     "identity": { "externalId": "mac", "model": "type", "swVersion": "fw" }
   },
   "subscriptions": [{ "op": "poll", "args": { "everyMs": 30000 } }],
+  "device": { "swVersion": "update.old_version" },
   "entities": [
     {
       "domain": "switch",
@@ -148,25 +149,21 @@
       "displayPrecision": 2
     },
     {
-      "domain": "binary_sensor",
+      "domain": "update",
       "objectId": "firmware",
-      "name": "Firmware update",
+      "name": "Firmware",
       "icon": "circle-arrow-up",
-      "capabilities": { "sensor_binary": {} },
-      "state": { "sensor_binary": { "isOn": "update.has_update" } },
-      "deviceClass": "update"
-    },
-    {
-      "domain": "button",
-      "objectId": "firmware_install",
-      "name": "Install firmware update",
-      "icon": "download",
-      "capabilities": { "button": {} },
-      "state": {},
-      "commands": {
-        "button.press": { "op": "get", "args": { "path": "/ota", "query": { "update": true } } }
+      "capabilities": { "update": { "canInstall": true, "hasProgress": false } },
+      "state": {
+        "update": {
+          "installedVersion": "update.old_version",
+          "latestVersion": "update.new_version",
+          "isInstalling": { "path": "update.status", "map": { "updating": true }, "default": false }
+        }
       },
-      "deviceClass": "update"
+      "commands": {
+        "update.install": { "op": "get", "args": { "path": "/ota", "query": { "update": true } } }
+      }
     }
   ]
 }

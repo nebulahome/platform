@@ -21,6 +21,7 @@
     "identity": { "externalId": "id", "name": "name", "model": "model", "swVersion": "ver" }
   },
   "subscriptions": [{ "op": "status", "args": { "everyMs": 60000 } }],
+  "device": { "swVersion": "device_info.ver" },
   "entities": [
     {
       "domain": "cover",
@@ -112,30 +113,25 @@
       "displayPrecision": 1
     },
     {
-      "domain": "binary_sensor",
+      "domain": "update",
       "objectId": "firmware",
-      "name": "Firmware update",
+      "name": "Firmware",
       "icon": "circle-arrow-up",
-      "capabilities": { "sensor_binary": {} },
+      "capabilities": { "update": { "canInstall": true, "hasProgress": true } },
       "state": {
-        "sensor_binary": { "isOn": { "path": "sys.available_updates.stable", "present": true } }
+        "update": {
+          "installedVersion": "device_info.ver",
+          "latestVersion": "sys.available_updates.stable.version",
+          "isInstalling": "ota.isInstalling",
+          "progress": "ota.progress"
+        }
       },
-      "deviceClass": "update"
-    },
-    {
-      "domain": "button",
-      "objectId": "firmware_install",
-      "name": "Install firmware update",
-      "icon": "download",
-      "capabilities": { "button": {} },
-      "state": {},
       "commands": {
-        "button.press": {
+        "update.install": {
           "op": "call",
           "args": { "method": "Shelly.Update", "params": { "stage": "stable" } }
         }
-      },
-      "deviceClass": "update"
+      }
     }
   ]
 }

@@ -90,7 +90,10 @@ import { createHash, randomInt } from 'node:crypto';
  * @property {boolean} reconnect - Whether to come back after a drop.
  * @property {(() => void) | undefined} [onOpen] - Called after each connection.
  * @property {((reason: string) => void) | undefined} [onClose] - Called after each drop.
- * @property {((method: string, params: Record<string, unknown>) => void) | undefined} [onNotification] - Called per status notification.
+ * @property {((method: string, params: Record<string, unknown>) => void) | undefined} [onNotification] -
+ *   Called per status notification.
+ * @property {((params: Record<string, unknown>) => void) | undefined} [onEvent] - Called per
+ *   `NotifyEvent`: a firmware update beginning, going, ending.
  */
 
 /**
@@ -150,6 +153,18 @@ const NOT_IMPLEMENTED = { code: 500, message: 'Not Implemented' };
 
 /** The notifications that carry status. */
 const STATUS_NOTIFICATIONS = new Set(['NotifyStatus', 'NotifyFullStatus']);
+
+/** The notification that carries events: a button pressed, a firmware update going. */
+const EVENT_NOTIFICATION = 'NotifyEvent';
+
+/** The method that installs firmware. */
+const UPDATE_METHOD = 'Shelly.Update';
+
+/**
+ * How long an update may go without a word before it is taken to have ended: a device that lost
+ * power mid-download says nothing more, and must not be shown installing for ever.
+ */
+const OTA_SILENCE_MS = 10 * 60_000;
 
 /**
  * Hashes text the way the digest wants it.
@@ -552,6 +567,8 @@ function openSession(sdk, config, logger, hooks) {
 
       if (STATUS_NOTIFICATIONS.has(method) && isRecord(params)) {
         hooks.onNotification?.(method, params);
+      } else if (method === EVENT_NOTIFICATION && isRecord(params)) {
+        hooks.onEvent?.(params);
       } else {
         logger.debug({ host: config.host, method }, 'A notification that carries no status');
       }
@@ -754,8 +771,12 @@ export default function createShellyRpc(sdk) {
     /** The password set in the device's web page, when authentication is on. */
     password: sdk.z.string().min(1).max(512).optional(),
 
-    /** How long a request has before the socket is reset. */
-    timeoutMs: sdk.z.coerce.number().int().min(100).max(60_000).default(5000),
+    /**
+     * How long a request has before the socket is reset. Ten seconds, as discovery gives the
+     * same device: a Shelly on a weak link sleeps its radio, and was measured taking eight
+     * seconds to answer the first request after a quiet spell.
+     */
+    timeoutMs: sdk.z.coerce.number().int().min(100).max(60_000).default(10_000),
   });
 
   return sdk.defineTransport({
@@ -787,13 +808,91 @@ export default function createShellyRpc(sdk) {
       let refreshing = null;
       /** How many notifications have arrived, so a command can tell whether one followed it. */
       let notified = 0;
+      /**
+       * What the device said about itself when last connected: its firmware version above all,
+       * which no status carries and an update changes.
+       *
+       * @type {Record<string, unknown> | null}
+       */
+      let deviceInfo = null;
+      /**
+       * Whether it is installing firmware now, how far it got, and what it ran before: from the
+       * update's own events, and from the moment the hub asked for one.
+       *
+       * @type {{ isInstalling: boolean, progress: number | null, from: string | null }}
+       */
+      let ota = { isInstalling: false, progress: null, from: null };
+      /** @type {ReturnType<typeof setTimeout> | undefined} */
+      let otaSilence;
 
       /**
-       * Hands the status over, as the device knows it now.
+       * Hands the status over, as the device knows it now, with what it said about itself and
+       * how its firmware update is going laid beside it.
        */
       function deliver() {
         if (snapshot !== null) {
-          context.deliver({ connectionKey: key, deviceKey: config.host, payload: snapshot });
+          context.deliver({
+            connectionKey: key,
+            deviceKey: config.host,
+            payload: {
+              ...snapshot,
+              ...(deviceInfo === null ? {} : { device_info: deviceInfo }),
+              ota: { isInstalling: ota.isInstalling, progress: ota.progress },
+            },
+          });
+        }
+      }
+
+      /**
+       * Records how the update is going, and starts the wait for its next word over.
+       *
+       * @param {boolean} isInstalling - Whether it is.
+       * @param {number | null} progress - How far, when the device said.
+       */
+      function installing(isInstalling, progress) {
+        clearTimeout(otaSilence);
+        ota = {
+          isInstalling,
+          progress,
+          from: isInstalling ? (ota.from ?? textOf(deviceInfo, 'ver') ?? null) : null,
+        };
+
+        if (isInstalling) {
+          otaSilence = setTimeout(() => {
+            context.logger.info(
+              { host: config.host },
+              'A firmware update went quiet; taken as ended',
+            );
+            installing(false, null);
+            deliver();
+          }, OTA_SILENCE_MS);
+          otaSilence.unref();
+        }
+      }
+
+      /**
+       * Asks the device what it is - its firmware version - and delivers it with the status.
+       *
+       * @returns {Promise<void>} Settled either way.
+       */
+      async function readInfo() {
+        try {
+          const info = await session.call(INFO_METHOD);
+
+          if (!isRecord(info)) {
+            return;
+          }
+
+          deviceInfo = { ver: info['ver'] ?? null, fw_id: info['fw_id'] ?? null };
+
+          // Back after an update, running something else: the update is done.
+          if (ota.isInstalling && ota.from !== null && info['ver'] !== ota.from) {
+            installing(false, null);
+          }
+
+          deliver();
+        } catch (error) {
+          context.logger.debug({ err: error, host: config.host }, 'Device info not answered');
         }
       }
 
@@ -833,8 +932,9 @@ export default function createShellyRpc(sdk) {
         onOpen: () => {
           context.report('up');
 
+          // Asked again on every open: a device back from an update runs another version.
           if (timers.size > 0) {
-            void refresh();
+            void refresh().then(readInfo);
           }
         },
         /**
@@ -871,6 +971,43 @@ export default function createShellyRpc(sdk) {
           snapshot = overlay(snapshot, params);
           deliver();
         },
+        /**
+         * Follows a firmware update through the device's own events.
+         *
+         * @param {Record<string, unknown>} params - `{ events: [{ component, event, … }] }`.
+         */
+        onEvent: (params) => {
+          const events = Array.isArray(params['events']) ? params['events'] : [];
+
+          for (const each of events) {
+            if (!isRecord(each)) {
+              continue;
+            }
+
+            const progress = each['progress_percent'];
+
+            switch (each['event']) {
+              case 'ota_begin':
+                installing(true, 0);
+                break;
+              case 'ota_progress':
+                installing(true, typeof progress === 'number' ? progress : ota.progress);
+                break;
+              case 'ota_success':
+                // Downloaded and flashed; it reboots next. Still installing until it is back
+                // running the new version, so nothing offers the update again in between.
+                installing(true, 100);
+                break;
+              case 'ota_error':
+                installing(false, null);
+                break;
+              default:
+                continue;
+            }
+
+            deliver();
+          }
+        },
       });
 
       /** @type {TransportConnection} */
@@ -896,11 +1033,28 @@ export default function createShellyRpc(sdk) {
             return Promise.reject(new Error(`${ID} was asked to call no method`));
           }
 
+          if (method === UPDATE_METHOD && ota.isInstalling) {
+            // Asked again while it installs - an automation seeing the update still offered -
+            // and asked again it may start over. Nothing to do: it is already doing it.
+            context.logger.info(
+              { host: config.host },
+              'Firmware update asked for while one is installing; not asked again',
+            );
+
+            return Promise.resolve(null);
+          }
+
           const before = notified;
 
           return session
             .call(method, isRecord(params) ? params : undefined, signal)
             .then((answer) => {
+              if (method === UPDATE_METHOD) {
+                // Accepted: installing from now, before the device's first event says so.
+                installing(true, ota.progress ?? 0);
+                deliver();
+              }
+
               if (method !== STATUS_METHOD && timers.size > 0) {
                 // The device normally says what the command changed before this even resolves;
                 // when it has not shortly after, ask, rather than leave the row showing the old
@@ -957,7 +1111,7 @@ export default function createShellyRpc(sdk) {
           }
 
           if (wanted.size > 0 && session.isOpen()) {
-            void refresh();
+            void refresh().then(deviceInfo === null ? readInfo : undefined);
           }
 
           return Promise.resolve();
@@ -974,6 +1128,7 @@ export default function createShellyRpc(sdk) {
           }
 
           timers.clear();
+          clearTimeout(otaSilence);
           await session.close();
         },
       };

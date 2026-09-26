@@ -17,6 +17,7 @@ import { z } from 'zod';
 import type { JsonObject } from '@nebula-home/contracts';
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
 import {
+  defineStreamSource,
   defineTransport,
   type BundleSdk,
   type ManagedSocket,
@@ -85,6 +86,12 @@ const STATUS = {
     temperature: { tC: 41.2 },
   },
 };
+
+/** What the device says it is, asked once the status is in: its firmware version above all. */
+const INFO = { id: DEVICE, ver: '1.4.2', fw_id: '20240819-074343/1.4.2-gc2639da' };
+
+/** How a device that is not installing firmware reads, laid beside every status. */
+const IDLE = { isInstalling: false, progress: null };
 
 /**
  * A logger that writes nowhere.
@@ -159,6 +166,13 @@ function build(): { transport: Transport; sockets: FakeSocket[] } {
     },
     openUdpSocket: () => {
       throw new Error('Shelly speaks no UDP');
+    },
+    openMqtt: () => {
+      throw new Error('Shelly speaks no MQTT here');
+    },
+    defineStreamSource,
+    openRtsp: () => {
+      throw new Error('not opened in this test');
     },
   };
 
@@ -285,6 +299,11 @@ async function running(): Promise<Opened> {
   await settle();
   answer(opened.socket, STATUS);
   await settle();
+  answer(opened.socket, INFO);
+  await settle();
+
+  // Only the last: the status as the device knows it, with what it said about itself.
+  opened.delivered.splice(0, opened.delivered.length - 1);
 
   return opened;
 }
@@ -332,9 +351,15 @@ describe('a running connection', () => {
     const { connection, socket, delivered, statuses } = await running();
 
     expect(socket.options.url).toBe(`ws://${HOST}/rpc`);
-    expect(lastFrame(socket)).toMatchObject({ src: HUB_SOURCE, method: 'Shelly.GetStatus' });
+    expect(socket.sent.map((frame) => JSON.parse(frame) as unknown)).toMatchObject([
+      { src: HUB_SOURCE, method: 'Shelly.GetStatus' },
+      { src: HUB_SOURCE, method: 'Shelly.GetDeviceInfo' },
+    ]);
     expect(delivered).toHaveLength(1);
-    expect(delivered[0]).toMatchObject({ deviceKey: HOST, payload: STATUS });
+    expect(delivered[0]).toMatchObject({
+      deviceKey: HOST,
+      payload: { ...STATUS, device_info: { ver: '1.4.2', fw_id: INFO.fw_id }, ota: IDLE },
+    });
     expect(statuses).toEqual(['up']);
     await connection.close();
   });
@@ -360,6 +385,8 @@ describe('a running connection', () => {
         aenergy: { total: 12.5 },
         temperature: { tC: 41.2 },
       },
+      device_info: { ver: '1.4.2', fw_id: INFO.fw_id },
+      ota: IDLE,
     });
     await connection.close();
   });
@@ -403,7 +430,7 @@ describe('a running connection', () => {
     notify(socket, 'NotifyFullStatus', { ts: 1, ...STATUS });
 
     expect(delivered).toHaveLength(1);
-    expect(delivered[0]?.payload).toEqual(STATUS);
+    expect(delivered[0]?.payload).toEqual({ ...STATUS, ota: IDLE });
     await connection.close();
   });
 
@@ -651,6 +678,62 @@ describe('a running connection', () => {
 
     expect(delivered).toHaveLength(2);
     expect(delivered[1]?.payload).toMatchObject({ 'switch:0': { output: true } });
+    await connection.close();
+  });
+
+  it('follows a firmware update from the ask to the device back on its new version', async () => {
+    const { connection, socket, delivered } = await running();
+
+    const reply = call(connection, 'Shelly.Update', { stage: 'stable' });
+    answer(socket, null);
+    await reply;
+
+    expect(delivered.at(-1)?.payload).toMatchObject({ ota: { isInstalling: true, progress: 0 } });
+
+    notify(socket, 'NotifyEvent', {
+      ts: 2,
+      events: [{ component: 'sys', event: 'ota_progress', progress_percent: 42 }],
+    });
+
+    expect(delivered.at(-1)?.payload).toMatchObject({ ota: { isInstalling: true, progress: 42 } });
+
+    // Asked again while it installs: nothing reaches the device.
+    const sent = socket.sent.length;
+
+    await expect(call(connection, 'Shelly.Update', { stage: 'stable' })).resolves.toBeNull();
+    expect(socket.sent).toHaveLength(sent);
+
+    notify(socket, 'NotifyEvent', { ts: 3, events: [{ component: 'sys', event: 'ota_success' }] });
+
+    // Flashed, and rebooting: still installing until it is back on something new.
+    expect(delivered.at(-1)?.payload).toMatchObject({ ota: { isInstalling: true, progress: 100 } });
+
+    socket.isOpen = false;
+    socket.options.onClose('rebooting');
+    open(socket);
+    await settle();
+    answer(socket, STATUS);
+    await settle();
+    answer(socket, { ...INFO, ver: '1.5.0' });
+    await settle();
+
+    expect(delivered.at(-1)?.payload).toMatchObject({
+      device_info: { ver: '1.5.0' },
+      ota: { isInstalling: false, progress: null },
+    });
+    await connection.close();
+  });
+
+  it('stops showing an update as installing when the device says it failed', async () => {
+    const { connection, socket, delivered } = await running();
+
+    notify(socket, 'NotifyEvent', { ts: 2, events: [{ component: 'sys', event: 'ota_begin' }] });
+
+    expect(delivered.at(-1)?.payload).toMatchObject({ ota: { isInstalling: true, progress: 0 } });
+
+    notify(socket, 'NotifyEvent', { ts: 3, events: [{ component: 'sys', event: 'ota_error' }] });
+
+    expect(delivered.at(-1)?.payload).toMatchObject({ ota: { isInstalling: false } });
     await connection.close();
   });
 
