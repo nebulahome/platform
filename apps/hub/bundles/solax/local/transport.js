@@ -11,18 +11,26 @@
  * and it hands the profiles named values already scaled (`families.js`), the way `govee/lan`
  * hands them mireds: a profile reads `values.battery_power` and nothing else.
  *
- * Three ways of asking have been seen, and which one a dongle takes depends on its firmware, so
+ * Four ways of asking have been seen, and which one a dongle takes depends on its firmware, so
  * the transport tries them in turn and keeps the one that worked:
  *
  * - `body`: a POST to `/` with the form `optType=ReadRealTimeData&pwd=…` as its body, what the
  *   V3 dongles and the Hybrid G4 generation take;
- * - `query`: a POST to `/` with the same as a query string, and a trailing `&` when there is a
+ * - `hotspot`: the same, with `Host: 5.8.8.8` - the dongle's own hotspot address - as well as
+ *   `X-Forwarded-For`: newer firmware refuses a request it takes to come from the LAN, with an
+ *   empty reply or an HTTP 405, and answers one that names its hotspot (solax#151);
+ * - `query`: a POST to `/` with the form as a query string, and a trailing `&` when there is a
  *   password - without it the 2.x firmware has been reported to crash;
  * - `legacy`: a GET of `/api/realTimeData.htm`, the X-Hybrid's own page, without a password.
  *
- * The two POSTs carry `X-Forwarded-For: 5.8.8.8`, the dongle's own hotspot address: firmware
- * 2.034 closes the connection on a request it takes to come from the LAN, and the library Home
- * Assistant uses sends it for the same reason.
+ * The POSTs carry `X-Forwarded-For: 5.8.8.8`: firmware 2.034 closes the connection on a request it
+ * takes to come from the LAN, and the library Home Assistant uses sends it for the same reason.
+ * When the owner gives the username of the dongle's web page, every request carries it and the
+ * password as Basic credentials too, for a firmware whose page asks for both.
+ *
+ * A dongle that refuses every way with a 405 has closed its local API to the LAN altogether, as
+ * recent firmware does; the error says so and points at Modbus TCP, which the Pocket WiFi 3.0
+ * answers on port 502 without a password.
  *
  * Which family answered is decided from `type` - an integer code, or a model string on the
  * older firmware - and from how many registers came back, where two families share a code. The
@@ -30,9 +38,10 @@
  *
  * This file is what ships in the bundle. It imports nothing from the platform: zod and
  * `defineTransport` arrive as the `sdk` it is called with, and the requests go through Node's
- * own `fetch`.
+ * own `http`, which - unlike `fetch` - sends the `Host` it is given.
  */
 import { createHash } from 'node:crypto';
+import { request as httpRequest } from 'node:http';
 
 import { FAMILIES } from './families.js';
 
@@ -52,6 +61,8 @@ import { FAMILIES } from './families.js';
  * @typedef {object} Config
  * @property {string} host - `host` or `host:port`.
  * @property {string} password - The dongle's password: its registration number, unless changed.
+ * @property {string} username - The username of the dongle's web page, when it asks for one; empty
+ * otherwise.
  * @property {string} family - `auto`, or the table to read an answer two tables take with.
  * @property {number} timeoutMs - How long one request has.
  */
@@ -59,13 +70,13 @@ import { FAMILIES } from './families.js';
 /**
  * A way of asking; see the head of this file.
  *
- * @typedef {'body' | 'query' | 'legacy'} Variant
+ * @typedef {'body' | 'hotspot' | 'query' | 'legacy'} Variant
  */
 
 /**
  * Why a way of asking gave no data, from the most telling to the least.
  *
- * @typedef {'refused' | 'unknown' | 'empty' | 'unreadable' | 'status' | 'closed' | 'timeout' | 'unreachable'} Failure
+ * @typedef {'refused' | 'locked' | 'unknown' | 'empty' | 'unreadable' | 'status' | 'closed' | 'timeout' | 'unreachable'} Failure
  */
 
 /**
@@ -78,7 +89,7 @@ import { FAMILIES } from './families.js';
 const ID = 'solax/local';
 
 /** The ways of asking, in the order a dongle nobody has asked yet is tried. */
-const VARIANTS = /** @type {const} */ (['body', 'query', 'legacy']);
+const VARIANTS = /** @type {const} */ (['body', 'hotspot', 'query', 'legacy']);
 
 /** What the dongle is asked. */
 const QUESTION = 'optType=ReadRealTimeData';
@@ -101,6 +112,7 @@ const FAMILY_IDS = FAMILIES.map((family) => family.id);
  */
 const PRIORITY = [
   'refused',
+  'locked',
   'unknown',
   'empty',
   'unreadable',
@@ -109,6 +121,18 @@ const PRIORITY = [
   'timeout',
   'unreachable',
 ];
+
+/** What a dongle that closed its local API to the LAN is told to be read with instead. */
+const LOCKED_REASON =
+  "answered HTTP 405 every way it was asked: its firmware closes the local API to the LAN. Read it over Modbus TCP instead - add it with a SolaX 'Modbus TCP' driver: the Pocket WiFi 3.0 answers on port 502 from firmware 3.004.03, with no password";
+
+/** What a dongle that never took the connection is told, for the owner to act on. */
+const NO_CONNECTION_WORDS =
+  "did not take a connection on port 80 in time: check the address, and that the dongle is on this network. A dongle whose firmware closes its local API ignores the LAN altogether - read it over Modbus TCP instead, with a SolaX 'Modbus TCP' driver on port 502";
+
+/** What an address that answers something other than HTTP is told. */
+const NOT_HTTP_WORDS =
+  'answered with something that is not HTTP: whatever listens on port 80 there is not a SolaX dongle';
 
 /** The network errors that mean nothing listens there, so asking another way is pointless. */
 const UNREACHABLE_CODES = new Set([
@@ -380,27 +404,49 @@ export function decodeAnswer(text, variant, chosen) {
 /**
  * Why a request never got an answer, in the words an owner can act on.
  *
- * @param {unknown} error - What `fetch` threw.
+ * @param {unknown} error - What the request failed with.
  * @returns {{ code: string, words: string }} The cause's code, and a sentence part.
  */
 function causeOf(error) {
+  if (error instanceof SilenceError) {
+    return error.isConnected
+      ? { code: 'TIMEOUT', words: 'took the connection and did not answer in time' }
+      : { code: 'NO_CONNECTION', words: NO_CONNECTION_WORDS };
+  }
+
   if (error instanceof Error) {
     if (error.name === 'TimeoutError' || error.name === 'AbortError') {
       return { code: 'TIMEOUT', words: 'did not answer in time' };
     }
 
-    const cause = error.cause;
+    const code = 'code' in error && typeof error.code === 'string' ? error.code : '';
 
-    if (cause instanceof Error) {
-      const code = 'code' in cause && typeof cause.code === 'string' ? cause.code : '';
-
-      return { code, words: code === '' ? cause.message : `did not answer: ${code}` };
+    if (code === 'ECONNRESET' || code === 'EPIPE') {
+      return { code, words: 'closed the connection without answering' };
     }
 
-    return { code: '', words: error.message };
+    if (code.startsWith('HPE_')) {
+      return { code: 'NOT_HTTP', words: NOT_HTTP_WORDS };
+    }
+
+    return { code, words: code === '' ? error.message : `did not answer: ${code}` };
   }
 
   return { code: '', words: String(error) };
+}
+
+/** A request that ran out of time, and whether the dongle had taken the connection by then. */
+class SilenceError extends Error {
+  /**
+   * Records where the silence was.
+   *
+   * @param {boolean} isConnected - Whether the connection was taken.
+   */
+  constructor(isConnected) {
+    super(isConnected ? 'no answer in time' : 'no connection in time');
+    this.name = 'SilenceError';
+    this.isConnected = isConnected;
+  }
 }
 
 /**
@@ -420,39 +466,195 @@ function formOf(password, isQuery) {
 }
 
 /**
+ * One request, as {@link send} makes it.
+ *
+ * @typedef {object} Asked
+ * @property {string} host - `host` or `host:port`.
+ * @property {string} method - `GET` or `POST`.
+ * @property {string} path - The path, with its query.
+ * @property {Record<string, string>} headers - What it carries, `host` included when it must
+ * differ from where it goes.
+ * @property {string} [body] - The body, for a POST.
+ */
+
+/**
+ * Sends one request and reads as much of the answer as is needed.
+ *
+ * A dongle's web server is small and not always polite: some keep the connection open after the
+ * answer, with no length to say where it ends. So the answer is taken as soon as it is whole -
+ * at once for an error status, whose body nobody reads, and for data as soon as the JSON parses -
+ * and the connection is asked to close and never pooled. A POST without a body says so with a
+ * zero length rather than going out chunked, which those servers do not read.
+ *
+ * @param {Asked} asked - Where, how, and what.
+ * @param {AbortSignal} signal - Gives up; a timeout is part of it.
+ * @returns {Promise<{ status: number, text: string }>} The answer.
+ * @throws {Error} When nothing answered, with the network's code; a {@link SilenceError} when the
+ * signal ran out, saying whether the connection had been taken.
+ */
+export function send(asked, signal) {
+  const [hostname = asked.host, portText] = asked.host.split(':');
+  const port = portText === undefined ? 80 : Number(portText);
+  const body = asked.body ?? '';
+
+  return new Promise((resolve, reject) => {
+    let isConnected = false;
+    let isSettled = false;
+    const outgoing = httpRequest(
+      {
+        hostname,
+        port,
+        method: asked.method,
+        path: asked.path,
+        agent: false,
+        headers: {
+          connection: 'close',
+          ...asked.headers,
+          ...(asked.method === 'GET' ? {} : { 'content-length': Buffer.byteLength(body) }),
+        },
+      },
+      (incoming) => {
+        const status = incoming.statusCode ?? 0;
+        let text = '';
+
+        if (status < 200 || status > 299) {
+          settle({ status, text });
+
+          return;
+        }
+
+        incoming.setEncoding('utf8');
+        incoming.on('data', (/** @type {string} */ chunk) => {
+          text += chunk;
+
+          if (text.trimEnd().endsWith('}') && isJson(text)) {
+            settle({ status, text });
+          }
+        });
+        incoming.on('end', () => {
+          settle({ status, text });
+        });
+        incoming.on('error', (error) => {
+          settle(error);
+        });
+      },
+    );
+
+    /**
+     * Settles once, and lets the connection go.
+     *
+     * @param {{ status: number, text: string } | Error} outcome - The answer, or why none.
+     */
+    function settle(outcome) {
+      if (isSettled) {
+        return;
+      }
+
+      isSettled = true;
+      signal.removeEventListener('abort', abandon);
+      outgoing.destroy();
+
+      if (outcome instanceof Error) {
+        reject(outcome);
+      } else {
+        resolve(outcome);
+      }
+    }
+
+    /** Gives up, saying how far the request got. */
+    function abandon() {
+      settle(new SilenceError(isConnected));
+    }
+
+    if (signal.aborted) {
+      abandon();
+
+      return;
+    }
+
+    signal.addEventListener('abort', abandon, { once: true });
+    outgoing.once('socket', (socket) => {
+      socket.once('connect', () => {
+        isConnected = true;
+      });
+    });
+    outgoing.on('error', (error) => {
+      settle(error);
+    });
+    outgoing.end(asked.method === 'GET' ? undefined : body);
+  });
+}
+
+/**
+ * Whether text is whole JSON yet.
+ *
+ * @param {string} text - What arrived so far.
+ * @returns {boolean} True once it parses.
+ */
+function isJson(text) {
+  try {
+    JSON.parse(text);
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Asks the dongle once, one way.
  *
- * @param {Config} config - The dongle, its password and the table picked.
+ * @param {Config} config - The dongle, its credentials and the table picked.
  * @param {string} host - Where to ask.
  * @param {Variant} variant - How.
  * @param {AbortSignal} signal - Gives up.
  * @returns {Promise<Outcome>} What came of it.
  */
 async function askOnce(config, host, variant, signal) {
-  /** @type {Response} */
+  /** @type {Record<string, string>} */
+  const credentials =
+    config.username === ''
+      ? {}
+      : {
+          authorization: `Basic ${Buffer.from(`${config.username}:${config.password}`).toString('base64')}`,
+        };
+  /** @type {{ status: number, text: string }} */
   let response;
 
   try {
     const timed = AbortSignal.any([signal, AbortSignal.timeout(config.timeoutMs)]);
 
     if (variant === 'legacy') {
-      response = await fetch(`http://${host}/api/realTimeData.htm`, { signal: timed });
+      response = await send(
+        { host, method: 'GET', path: '/api/realTimeData.htm', headers: credentials },
+        timed,
+      );
     } else if (variant === 'query') {
-      response = await fetch(`http://${host}/?${formOf(config.password, true)}`, {
-        method: 'POST',
-        headers: { 'x-forwarded-for': FORWARDED_FOR },
-        signal: timed,
-      });
-    } else {
-      response = await fetch(`http://${host}/`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/x-www-form-urlencoded',
-          'x-forwarded-for': FORWARDED_FOR,
+      response = await send(
+        {
+          host,
+          method: 'POST',
+          path: `/?${formOf(config.password, true)}`,
+          headers: { ...credentials, 'x-forwarded-for': FORWARDED_FOR },
         },
-        body: formOf(config.password, false),
-        signal: timed,
-      });
+        timed,
+      );
+    } else {
+      response = await send(
+        {
+          host,
+          method: 'POST',
+          path: '/',
+          headers: {
+            ...credentials,
+            'content-type': 'application/x-www-form-urlencoded',
+            'x-forwarded-for': FORWARDED_FOR,
+            ...(variant === 'hotspot' ? { host: FORWARDED_FOR } : {}),
+          },
+          body: formOf(config.password, false),
+        },
+        timed,
+      );
     }
   } catch (error) {
     const { code, words } = causeOf(error);
@@ -461,23 +663,32 @@ async function askOnce(config, host, variant, signal) {
       return { kind: 'timeout', reason: words };
     }
 
-    return { kind: UNREACHABLE_CODES.has(code) ? 'unreachable' : 'closed', reason: words };
-  }
+    if (code === 'NOT_HTTP') {
+      return { kind: 'unknown', reason: words };
+    }
 
-  const text = await response.text().catch(() => '');
+    return {
+      kind: code === 'NO_CONNECTION' || UNREACHABLE_CODES.has(code) ? 'unreachable' : 'closed',
+      reason: words,
+    };
+  }
 
   if (response.status === 401 || response.status === 403) {
     return {
       kind: 'refused',
-      reason: `refused the password (HTTP ${String(response.status)}): it is the dongle's registration number unless it was changed`,
+      reason: `refused the ${config.username === '' ? 'password' : 'username or password'} (HTTP ${String(response.status)}): the password is the dongle's registration number unless it was changed`,
     };
   }
 
-  if (!response.ok) {
+  if (response.status === 405) {
+    return { kind: 'locked', reason: LOCKED_REASON };
+  }
+
+  if (response.status < 200 || response.status > 299) {
     return { kind: 'status', reason: `answered HTTP ${String(response.status)}` };
   }
 
-  return decodeAnswer(text, variant, config.family);
+  return decodeAnswer(response.text, variant, config.family);
 }
 
 /**
@@ -586,6 +797,7 @@ export default function createSolaxLocal(sdk) {
     configSchema: z.object({
       host: z.string().min(1).max(256),
       password: z.string().max(128).default(''),
+      username: z.string().max(64).default(''),
       family: z.enum(['auto', ...FAMILY_IDS]).default('auto'),
       timeoutMs: z.coerce.number().int().min(500).max(60_000).default(5000),
     }),

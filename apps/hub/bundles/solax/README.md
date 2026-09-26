@@ -80,9 +80,29 @@ lifetime counters over two registers are read unsigned where the library applies
 (X1-Lite LV battery, X3-EVC); the X1-Boost/Mini G4 feed-in power is the low register signed,
 which equals the library wherever the library is right and reads an import besides.
 
-**Known risk.** SolaX has been closing the local API on newer dongle firmware - some answer only
-on their own hotspot, some ask for a username as well. Such a dongle fails **Test** with the
-reason it gave; read that inverter over Modbus TCP instead.
+**Newer firmware.** SolaX has been closing the local API to the LAN on newer dongle firmware. The
+transport asks a fourth way for it - the form POST with `Host: 5.8.8.8`, the dongle's own hotspot
+address, which such a dongle answers (solax#151) - and, when the owner gives the **Username** of
+the dongle's web page (usually `admin`), sends it and the password as Basic credentials on every
+request. The password is the one of the dongle's web page: its registration number unless changed.
+A dongle that still answers every way with HTTP 405 has shut its local API to the LAN for good;
+**Test** says so and points at Modbus TCP, which the Pocket WiFi 3.0 answers on port 502 from
+firmware 3.004.03 without a password - add the inverter with its Modbus TCP driver.
+
+What **Test** says when nothing comes back is worth reading closely, because the three silences
+mean different things:
+
+- _did not take a connection on port 80_ - nothing accepted the connection at all. Either the
+  address is not the dongle's, or its firmware ignores the LAN entirely, which some recent
+  firmware does: the dongle answers only its own hotspot and SolaX's cloud. Modbus TCP is the way
+  in then, when the dongle offers it; the discovery below finds it on port 502 if it does.
+- _took the connection and did not answer in time_ - a dongle, busy or slow, that may answer a
+  second **Test**.
+- _answered with something that is not HTTP_ - something else lives at that address.
+
+The transport reads an answer as soon as it is whole - an error status at once, data as soon as
+the JSON parses - and asks for the connection to be closed, because some dongles keep it open
+after answering, with no length to say where the answer ends.
 
 ## Modbus TCP (`solax/modbus`)
 
@@ -186,11 +206,17 @@ the card's switches do the inverting). Power is in W, energy in kWh (stored as W
 level in %; the energy counters are `total_increasing`, so a daily one resetting at midnight is
 read as a reset.
 
-## Not found on the network
+## Found on the network
 
-Neither the dongle nor a Modbus server announces itself, so there is no `discovery.json`: a
-SolaX device is added by address. No firmware entities either: neither API says an update is
-waiting.
+Neither the dongle nor a Modbus server announces itself, so the vendor's own listener
+(`lan/discovery.js`) asks the network: every address of every private IPv4 network the hub is on,
+from the interface's real netmask (a /22 is 1022 addresses; anything wider is asked only in the
+/22 around the hub), on port **502** - Modbus TCP, identified by the serial number no password
+guards, its prefix naming the model and the driver - and on port **80** - the dongle API without a
+password. An address is asked only once its port accepts a connection within 600 ms, 48 at a
+time; the sweep runs when listening starts, every half hour, and on **Discover devices**. A dongle
+with a password answers nothing that says it is a SolaX, so it is not proposed: add it by
+address. No firmware entities: neither API says an update is waiting.
 
 ## What is not here, and why
 

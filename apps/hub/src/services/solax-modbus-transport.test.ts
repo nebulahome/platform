@@ -312,7 +312,7 @@ beforeAll(async () => {
 
   port = typeof address === 'object' && address !== null ? address.port : 0;
 
-  const { vendors } = await loadBundles({ directory: BUNDLES, runtimeVersion: '1.1.0' });
+  const { vendors } = await loadBundles({ directory: BUNDLES, runtimeVersion: '1.2.0' });
   const found = vendors.find((vendor) => vendor.manifest.id === 'solax');
 
   if (found === undefined) {

@@ -12,6 +12,7 @@
  */
 import { readFile } from 'node:fs/promises';
 import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
+import { createServer as createTcpServer, type Server as TcpServer } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -64,8 +65,12 @@ type Asked = {
 
 /** How the fake dongle behaves. */
 type Dongle = {
-  /** The one way of asking it answers; every other way gets `failed`. */
-  accepts: 'body' | 'query' | 'legacy';
+  /**
+   * The one way of asking it answers; every other way gets `failed`. `hotspot` is a newer
+   * firmware's form POST that names the dongle's hotspot as its host, and `locked` a firmware
+   * that answers every POST from the LAN with a 405.
+   */
+  accepts: 'body' | 'hotspot' | 'query' | 'legacy' | 'locked';
 
   /** Its password; the empty string for none. */
   password: string;
@@ -305,10 +310,21 @@ beforeAll(async () => {
       const isBody = method === 'POST' && url === '/';
       const isQuery = method === 'POST' && url.startsWith('/?optType=ReadRealTimeData');
       const isLegacy = method === 'GET' && url === '/api/realTimeData.htm';
+      const isHotspot = isBody && request.headers.host === '5.8.8.8';
       const taken =
         (dongle.accepts === 'body' && isBody) ||
+        (dongle.accepts === 'hotspot' && isHotspot) ||
         (dongle.accepts === 'query' && isQuery) ||
         (dongle.accepts === 'legacy' && isLegacy);
+
+      if (
+        (dongle.accepts === 'hotspot' && isBody && !isHotspot) ||
+        (dongle.accepts === 'locked' && method === 'POST')
+      ) {
+        response.writeHead(405, { 'content-type': 'text/plain' }).end('Method Not Allowed');
+
+        return;
+      }
 
       if (!taken) {
         response.writeHead(isLegacy ? 404 : 200, { 'content-type': 'text/plain' }).end('failed');
@@ -336,7 +352,7 @@ beforeAll(async () => {
 
   host = typeof address === 'object' && address !== null ? `127.0.0.1:${String(address.port)}` : '';
 
-  const { vendors } = await loadBundles({ directory: BUNDLES, runtimeVersion: '1.1.0' });
+  const { vendors } = await loadBundles({ directory: BUNDLES, runtimeVersion: '1.2.0' });
   const found = vendors.find((vendor) => vendor.manifest.id === 'solax');
 
   if (found === undefined) {
@@ -359,6 +375,51 @@ beforeEach(() => {
   asked.length = 0;
   dongle = { accepts: 'body', password: PASSWORD, answer: X1_HYBRID_G4 };
 });
+
+/**
+ * A server that answers each connection with raw text and closes only when the answer is not
+ * HTTP - as the small web servers on some dongles do.
+ *
+ * @param answerOf - What to answer the connection with, by its index.
+ * @returns Where it listens, and how to stop it.
+ */
+async function rawServer(
+  answerOf: (index: number) => string,
+): Promise<{ readonly host: string; readonly close: () => Promise<void> }> {
+  let connections = 0;
+  const raw: TcpServer = createTcpServer((socket) => {
+    const answer = answerOf(connections);
+
+    connections += 1;
+    socket.on('error', () => undefined);
+    socket.once('data', () => {
+      if (answer.startsWith('HTTP/')) {
+        socket.write(answer);
+      } else {
+        socket.end(answer);
+      }
+    });
+  });
+
+  await new Promise<void>((resolve) => {
+    raw.listen(0, '127.0.0.1', resolve);
+  });
+
+  const address = raw.address();
+  const port = typeof address === 'object' && address !== null ? address.port : 0;
+
+  return {
+    host: `127.0.0.1:${String(port)}`,
+    close: async () =>
+      new Promise<void>((resolve) => {
+        raw.close(() => {
+          resolve();
+        });
+        // A connection the dongle kept open is not the test's to wait for.
+        raw.unref();
+      }),
+  };
+}
 
 /**
  * The dongle transport.
@@ -485,6 +546,7 @@ describe('asking the dongle', () => {
 
     expect(asked.map((each) => `${each.method} ${each.url}`)).toEqual([
       'POST /',
+      'POST /',
       `POST /?optType=ReadRealTimeData&pwd=${PASSWORD}&`,
     ]);
     expect(found?.payload).toMatchObject({ family: 'x1_mini', model: 'X1-Boost-Air-Mini' });
@@ -512,6 +574,74 @@ describe('asking the dongle', () => {
       battery_voltage: 57.37,
       feed_in_total: 0,
     });
+  });
+
+  it('asks a newer dongle that turns the LAN away in the name of its own hotspot', async () => {
+    dongle = { accepts: 'hotspot', password: PASSWORD, answer: X1_HYBRID_G4 };
+
+    const found = await scanned();
+    const answered = asked.find((each) => each.headers.host === '5.8.8.8');
+
+    // Refused when it names the address it was reached at, answered when it names its hotspot.
+    expect(asked.some((each) => each.method === 'POST' && each.headers.host === host)).toBe(true);
+    expect(answered).toMatchObject({ method: 'POST', url: '/' });
+    expect(answered?.headers['x-forwarded-for']).toBe('5.8.8.8');
+    expect(found?.payload).toMatchObject({ family: 'x1_hybrid_gen4' });
+  });
+
+  it('says a dongle whose firmware closed its local API should be read over Modbus TCP', async () => {
+    dongle = { accepts: 'locked', password: PASSWORD, answer: X1_HYBRID_G4 };
+
+    await expect(
+      local().probe({ host, password: PASSWORD }, AbortSignal.timeout(10_000)),
+    ).rejects.toThrow(/HTTP 405 every way.*Modbus TCP.*port 502/u);
+  });
+
+  it('takes the answer as soon as it is whole, from a dongle that keeps the connection open', async () => {
+    // A 405 with no length and the connection left open, then data the same way: nothing waits
+    // for an end that never comes.
+    const answers = [
+      'HTTP/1.1 405 Method Not Allowed\r\nConnection: keep-alive\r\n\r\n',
+      `HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: keep-alive\r\n\r\n${X1_HYBRID_G4}`,
+    ];
+    const rude = await rawServer((index) => answers[Math.min(index, answers.length - 1)] ?? '');
+
+    try {
+      const startedMs = Date.now();
+
+      await expect(
+        local().probe({ host: rude.host, password: PASSWORD }, AbortSignal.timeout(8000)),
+      ).resolves.toContain('X1-Hybrid G4');
+      expect(Date.now() - startedMs).toBeLessThan(2000);
+    } finally {
+      await rude.close();
+    }
+  });
+
+  it('says an address that answers something other than HTTP is not a dongle', async () => {
+    const other = await rawServer(() => 'Path not managed');
+
+    try {
+      await expect(
+        local().probe({ host: other.host, password: PASSWORD }, AbortSignal.timeout(8000)),
+      ).rejects.toThrow(/not HTTP.*not a SolaX dongle/u);
+    } finally {
+      await other.close();
+    }
+  });
+
+  it("sends the web page's username and the password as Basic credentials when given", async () => {
+    dongle = { accepts: 'body', password: PASSWORD, answer: X1_HYBRID_G4 };
+
+    await local().probe(
+      { host, username: 'admin', password: PASSWORD },
+      AbortSignal.timeout(10_000),
+    );
+
+    expect(asked.at(-1)?.headers.authorization).toBe(
+      `Basic ${Buffer.from(`admin:${PASSWORD}`).toString('base64')}`,
+    );
+    expect(asked.at(-1)?.body).toContain(`pwd=${PASSWORD}`);
   });
 
   it('says a refused password in the words an owner can act on', async () => {

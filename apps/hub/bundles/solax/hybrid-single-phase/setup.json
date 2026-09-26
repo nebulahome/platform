@@ -12,10 +12,18 @@
         "patternMessage": "An IP or host name, with :port when it is not 80 - no http:// and no path."
       },
       {
+        "key": "username",
+        "type": "text",
+        "label": "Username",
+        "help": "Only when the dongle's web page asks for a username as well - usually admin. Leave empty otherwise.",
+        "placeholder": "admin",
+        "maxLength": 64
+      },
+      {
         "key": "password",
         "type": "secret",
-        "label": "Registration number",
-        "help": "The dongle's local password: its registration number, printed on its label and the name of its own Wi-Fi hotspot, unless it was changed in the SolaX app. An X-Hybrid needs none.",
+        "label": "Password",
+        "help": "The password of the dongle's own web page: its registration number - printed on its label, and the name of its Wi-Fi hotspot - unless it was changed. An X-Hybrid needs none.",
         "maxLength": 64
       }
     ]
