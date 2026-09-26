@@ -17,6 +17,7 @@ import {
   findSensorUnit,
   getSensorClass,
   isNumericSensorClass,
+  isUpdateOffered,
   type EntityView,
   type JsonObject,
 } from '@nebula-home/contracts';
@@ -279,6 +280,18 @@ export function describeState(
 
     if (value.camera.isRecording) {
       parts.push('Recording');
+    }
+  }
+
+  if (value.update !== undefined) {
+    const { installedVersion, latestVersion, isInstalling, progress } = value.update;
+
+    if (isInstalling) {
+      parts.push(progress === null ? 'Installing' : `Installing ${String(Math.round(progress))}%`);
+    } else if (isUpdateOffered(value.update)) {
+      parts.push(`Update available · ${String(latestVersion)}`);
+    } else {
+      parts.push(installedVersion === null ? 'Up to date' : `Up to date · ${installedVersion}`);
     }
   }
 

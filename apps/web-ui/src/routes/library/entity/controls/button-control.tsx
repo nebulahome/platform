@@ -2,8 +2,10 @@
  * A button: one press, and nothing to read back.
  *
  * A button holds no state, so the block has no value beside its title - only the button. One
- * that installs firmware asks first: the device restarts to install it and is gone for a minute,
- * which is not something a stray tap should do in the middle of an evening.
+ * that restarts the device asks first: the device is gone until it is back, which is not
+ * something a stray tap should do in the middle of an evening. So does one that stops what the
+ * device is doing - a print cancelled halfway cannot be picked up again. Firmware is not a button: it has
+ * its own block, with the versions and the install beside them.
  */
 import { useState } from 'react';
 
@@ -15,8 +17,11 @@ import {
   type ControlProps,
 } from '@/routes/library/entity/controls/control-block';
 
-/** Device classes whose press restarts the device, and so is asked about first. */
-const RESTARTING_CLASSES: ReadonlySet<string> = new Set(['update', 'restart']);
+/** Device classes whose press cannot be taken back, and what the question says about each. */
+const ASKED_FIRST: Readonly<Record<string, string>> = {
+  restart: 'The device restarts, and is offline until it is back.',
+  stop: 'What the device is doing stops, and cannot be picked up again.',
+};
 
 /**
  * Renders the button control.
@@ -27,8 +32,8 @@ const RESTARTING_CLASSES: ReadonlySet<string> = new Set(['update', 'restart']);
 export function ButtonControl(props: ControlProps) {
   const { entity, commander, disabled } = props;
   const [isAsking, setAsking] = useState(false);
-  const asksFirst = RESTARTING_CLASSES.has(entity.deviceClass ?? '');
-  const isUpdate = entity.deviceClass === 'update';
+  const question = ASKED_FIRST[entity.deviceClass ?? ''];
+  const asksFirst = question !== undefined;
 
   /** Sends the press. */
   const press = (): void => {
@@ -38,7 +43,7 @@ export function ButtonControl(props: ControlProps) {
 
   return (
     <ControlBlock
-      title={isUpdate ? 'Firmware' : 'Button'}
+      title="Button"
       action={
         <Button
           size="compact"
@@ -53,7 +58,7 @@ export function ButtonControl(props: ControlProps) {
             }
           }}
         >
-          {isUpdate ? 'Install update' : 'Press'}
+          Press
         </Button>
       }
     >
@@ -64,12 +69,8 @@ export function ButtonControl(props: ControlProps) {
             setAsking(false);
           }}
           size="small"
-          title={isUpdate ? 'Install the firmware update?' : `Press ${entity.name}?`}
-          description={
-            isUpdate
-              ? 'The device downloads the update and restarts to install it. It is offline for a minute or two, and whatever it switches may turn off meanwhile.'
-              : 'The device restarts, and is offline until it is back.'
-          }
+          title={`Press ${entity.name}?`}
+          description={question}
           footer={
             <>
               <Button
@@ -80,7 +81,7 @@ export function ButtonControl(props: ControlProps) {
               >
                 Cancel
               </Button>
-              <Button onClick={press}>{isUpdate ? 'Install' : 'Press'}</Button>
+              <Button onClick={press}>Press</Button>
             </>
           }
         >

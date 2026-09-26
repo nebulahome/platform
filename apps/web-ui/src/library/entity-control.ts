@@ -235,6 +235,38 @@ export function hsColor(hue: number, saturation: number): string {
 }
 
 /**
+ * The hue and saturation of a colour written `#rrggbb` - what a colour picker hands back.
+ *
+ * Its brightness is left out: a light's colour and its brightness are two settings, and a dark
+ * red picked from a photo is a red, not a light turned down.
+ *
+ * @param hex - `#rrggbb` or `#rgb`.
+ * @returns The hue (0 to 360) and saturation (0 to 100), or null for anything else.
+ */
+export function hexToHs(hex: string): { hue: number; saturation: number } | null {
+  const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/iu.exec(hex);
+  const long = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/iu.exec(hex);
+  const parts = long?.slice(1) ?? short?.slice(1).map((digit) => `${digit}${digit}`);
+
+  if (parts === undefined) {
+    return null;
+  }
+
+  const [r = 0, g = 0, b = 0] = parts.map((part) => Number.parseInt(part, 16));
+  const max = Math.max(r, g, b);
+  const delta = max - Math.min(r, g, b);
+
+  if (max === 0 || delta === 0) {
+    return { hue: 0, saturation: 0 };
+  }
+
+  const sector =
+    max === r ? ((g - b) / delta + 6) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+
+  return { hue: Math.round(sector * 60) % 360, saturation: Math.round((delta / max) * 100) };
+}
+
+/**
  * The groove of a hue slider: the whole wheel, unrolled.
  *
  * @returns A CSS gradient.

@@ -10,6 +10,7 @@
 import { Slider } from '@nebula-home/ui';
 
 import {
+  hasCapability,
   hsColor,
   hueGradient,
   kelvinColor,
@@ -26,6 +27,7 @@ import {
   TileRow,
 } from '@/routes/dashboard/cards/card-parts';
 import { cardTime, sizeKey, type EntityCardModel } from '@/routes/dashboard/cards/entity-model';
+import { LightColourButton } from '@/routes/dashboard/cards/light-colour-button';
 import { QuickPowerSwitch } from '@/routes/library/entity/quick-power-switch';
 import { useEntityCommand } from '@/routes/library/entity/use-entity-command';
 import { usePendingValue } from '@/routes/library/entity/use-pending-value';
@@ -160,7 +162,8 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
   }
 
   const whites = paramsOf(entity, 'color_temp');
-  const canColour = state.color_hs !== undefined;
+  // What the light declares, not what it last said: a light in white mode reports no colour.
+  const canColour = hasCapability(entity, 'color_hs');
   const warmest = whites === null ? 0 : miredsToKelvin(whites.maxMireds);
   const coolest = whites === null ? 0 : miredsToKelvin(whites.minMireds);
   const disabled = !model.canControl;
@@ -175,8 +178,19 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
       <div className="flex flex-col gap-3">
         <div className="flex items-end justify-between gap-3">
           {figure}
-          <span className="truncate pb-1 text-caption text-foreground-muted">
-            {lightCaption(model, isOn)}
+          <span className="flex min-w-0 items-center gap-2 pb-1">
+            <span className="truncate text-caption text-foreground-muted">
+              {lightCaption(model, isOn)}
+            </span>
+            {canColour ? (
+              <LightColourButton
+                name={title}
+                state={state}
+                reportedAt={reportedAt}
+                commander={commander}
+                disabled={disabled}
+              />
+            ) : null}
           </span>
         </div>
         {hasLevel ? (

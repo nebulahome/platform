@@ -234,13 +234,23 @@ export function HttpIcon(props: IconProps) {
 }
 
 /**
- * A cable: a vendor speaking a protocol of its own, over a transport its bundle ships.
+ * The Bluetooth rune: devices reached over Bluetooth LE.
  *
  * @param props - SVG attributes.
  * @returns The icon.
  */
-export function CableIcon(props: IconProps) {
-  return icon('cable', props);
+export function BluetoothIcon(props: IconProps) {
+  return icon('bluetooth', props);
+}
+
+/**
+ * A radio mast: devices reached over a Zigbee mesh.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function ZigbeeIcon(props: IconProps) {
+  return icon('radio-tower', props);
 }
 
 /**

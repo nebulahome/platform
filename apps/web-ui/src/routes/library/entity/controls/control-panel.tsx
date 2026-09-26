@@ -30,6 +30,7 @@ import { MediaControl } from '@/routes/library/entity/controls/media-control';
 import { PowerControl } from '@/routes/library/entity/controls/power-control';
 import { ReadingControl } from '@/routes/library/entity/controls/reading-control';
 import { ThermostatControl } from '@/routes/library/entity/controls/thermostat-control';
+import { UpdateControl } from '@/routes/library/entity/controls/update-control';
 import { useEntityCommand } from '@/routes/library/entity/use-entity-command';
 
 /** The controls, in the order they are drawn. */
@@ -44,6 +45,7 @@ const CONTROLS: readonly (readonly [CapabilityName, (props: ControlProps) => Rea
   ['media_player', MediaControl],
   ['camera', CameraControl],
   ['button', ButtonControl],
+  ['update', UpdateControl],
 ];
 
 /** What the panel needs. */

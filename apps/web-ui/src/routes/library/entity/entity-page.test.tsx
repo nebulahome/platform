@@ -159,7 +159,7 @@ describe('EntityPage', () => {
     expect(await screen.findByRole('switch', { name: 'Desk lamp power' })).toBeTruthy();
     expect(screen.getByRole('slider', { name: 'Brightness' })).toBeTruthy();
     expect(screen.getByRole('slider', { name: 'Colour temperature' })).toBeTruthy();
-    expect(screen.queryByRole('slider', { name: 'Hue' })).toBeNull();
+    expect(screen.queryByRole('slider', { name: 'Colour' })).toBeNull();
     expect(screen.queryByText('Cover')).toBeNull();
   });
 

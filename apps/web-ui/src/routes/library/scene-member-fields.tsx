@@ -2,11 +2,14 @@
  * The controls for one scene member's target state.
  *
  * Each capability present in `targetState` gets its own control: on/off and lock as a segmented
- * choice, levels and colour as a slider with the figure beside it, the rest as ordinary fields.
+ * choice, levels as a slider with the figure beside it, colour on the wheel, the rest as ordinary
+ * fields.
  * There is no shared state editor elsewhere in the library; these fields are the place.
  */
 import { THERMOSTAT_MODES, type CapabilityState } from '@nebula-home/contracts';
 import { Segmented, SelectField, Slider, TextField } from '@nebula-home/ui';
+
+import { ColourPicker } from '@/components/colour-picker';
 
 /** Playback options the editor offers. */
 const PLAYBACK_OPTIONS = [
@@ -110,30 +113,21 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
       )}
 
       {colour === undefined ? null : (
-        <>
-          <Slider
-            label="Hue"
-            min={0}
-            max={360}
-            value={colour.hue}
-            display={`${String(Math.round(colour.hue))}°`}
-            onChange={(hue) => {
-              onChange(
-                withCapability(targetState, 'color_hs', { hue, saturation: colour.saturation }),
-              );
+        <div className="flex flex-col gap-2">
+          <span className="text-ui text-foreground-muted">
+            Colour · {String(Math.round(colour.hue))}° · {String(Math.round(colour.saturation))}%
+          </span>
+          <ColourPicker
+            value={colour}
+            size={176}
+            onChange={(next) => {
+              onChange(withCapability(targetState, 'color_hs', next));
+            }}
+            onCommit={(next) => {
+              onChange(withCapability(targetState, 'color_hs', next));
             }}
           />
-          <Slider
-            label="Saturation"
-            min={0}
-            max={100}
-            value={colour.saturation}
-            display={`${String(Math.round(colour.saturation))}%`}
-            onChange={(saturation) => {
-              onChange(withCapability(targetState, 'color_hs', { hue: colour.hue, saturation }));
-            }}
-          />
-        </>
+        </div>
       )}
 
       {colourTemp === undefined ? null : (

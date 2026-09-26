@@ -8,6 +8,7 @@ import { aTag, anEntity } from '@/testing/fixtures';
 import {
   capabilityStateOf,
   entityScopesOf,
+  hexToHs,
   hsColor,
   isCommandable,
   kelvinColor,
@@ -108,5 +109,14 @@ describe('the commands and the colours', () => {
   it('fades a colour to white as its saturation falls', () => {
     expect(hsColor(120, 100)).toBe('hsl(120 100% 50%)');
     expect(hsColor(120, 0)).toBe('hsl(120 0% 100%)');
+  });
+
+  it('reads a picked colour as a hue and a saturation, its brightness left to the light', () => {
+    expect(hexToHs('#ff0000')).toEqual({ hue: 0, saturation: 100 });
+    expect(hexToHs('#800000')).toEqual({ hue: 0, saturation: 100 });
+    expect(hexToHs('#80ff80')).toEqual({ hue: 120, saturation: 50 });
+    expect(hexToHs('#00f')).toEqual({ hue: 240, saturation: 100 });
+    expect(hexToHs('#ffffff')).toEqual({ hue: 0, saturation: 0 });
+    expect(hexToHs('red')).toBeNull();
   });
 });

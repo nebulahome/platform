@@ -133,12 +133,12 @@ export function entityKindOf(
     return { label: 'Text sensor', icon: 'type', tone: 'sensor' };
   }
 
+  if (has.has('update')) {
+    return { label: 'Firmware', icon: 'circle-arrow-up', tone: 'power' };
+  }
+
   if (has.has('button')) {
-    return {
-      label: entity.deviceClass === 'update' ? 'Firmware installer' : 'Button',
-      icon: entity.deviceClass === 'update' ? 'download' : 'circle-dot',
-      tone: 'power',
-    };
+    return { label: 'Button', icon: 'circle-dot', tone: 'power' };
   }
 
   return { label: spoken(entity.domain), icon: 'gauge', tone: 'sensor' };
@@ -179,6 +179,8 @@ export function capabilityLabel(capability: CapabilityName, domain = ''): string
       return 'Camera';
     case 'button':
       return 'Press';
+    case 'update':
+      return 'Firmware';
   }
 }
 
