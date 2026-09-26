@@ -23,6 +23,10 @@
  * reports changes needs to be asked for a full picture, and what a bridge needs to be asked to list
  * its devices.
  *
+ * **A command may be several messages.** `payloads` in place of `payload` publishes each, in
+ * order, on the one topic: a device whose one switch is two nodes to its firmware - a Bambu H2D's
+ * two chamber lights - is switched by one command, and a profile has no way to send two.
+ *
  * Reconnection is the client's own, with a bounded period. A broker restart must not need `hub` to
  * restart, and the subscriptions - and the announcements - are reapplied on every reconnect
  * because a fresh session starts with none.
@@ -285,7 +289,7 @@ async function open(config: MqttConfig, context: TransportContext): Promise<Tran
     /**
      * Publishes what an integration asked to send.
      *
-     * @param request - The topic and the payload.
+     * @param request - The topic and the payload, or the payloads, sent in order.
      * @returns Nothing: MQTT has no reply, and pretending otherwise would invite a mapper to
      * wait for one.
      * @throws {Error} When asked for anything but a publish.
@@ -297,13 +301,18 @@ async function open(config: MqttConfig, context: TransportContext): Promise<Tran
         throw new Error(`The mqtt transport cannot perform ${request.op}`);
       }
 
-      const payload = request.args['payload'];
+      const several = request.args['payloads'];
+      const payloads = Array.isArray(several) ? several : [request.args['payload']];
 
-      await client.publishAsync(
-        topic,
-        typeof payload === 'string' ? payload : JSON.stringify(payload ?? {}),
-        { retain: request.args['retain'] === true },
-      );
+      for (const payload of payloads) {
+        // In order, one after the other: the device reads them in the order they were written.
+        // eslint-disable-next-line no-await-in-loop -- see above
+        await client.publishAsync(
+          topic,
+          typeof payload === 'string' ? payload : JSON.stringify(payload ?? {}),
+          { retain: request.args['retain'] === true },
+        );
+      }
 
       return null;
     },

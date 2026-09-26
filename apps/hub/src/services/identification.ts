@@ -183,6 +183,23 @@ export class IdentificationService {
     instance: IdentifiableInstance,
     signal: AbortSignal,
   ): Promise<Identified | undefined> {
+    return this.#attempt(instance, signal, []);
+  }
+
+  /**
+   * One pass, noting what was heard that could not be taken.
+   *
+   * @param instance - The instance to listen with.
+   * @param signal - Ends the pass early.
+   * @param heard - Filled with why each device heard was not taken, in an owner's words.
+   * @returns What was identified and bound, or undefined when the pass took nothing.
+   * @throws {Error} When the transport failed, or `core` did not answer or refused.
+   */
+  async #attempt(
+    instance: IdentifiableInstance,
+    signal: AbortSignal,
+    heard: string[],
+  ): Promise<Identified | undefined> {
     const { transports, logger, attemptTimeoutMs } = this.#options;
     const transport = transports.require(instance.transportId);
     const pass = AbortSignal.any([signal, AbortSignal.timeout(attemptTimeoutMs)]);
@@ -196,13 +213,16 @@ export class IdentificationService {
       const claim = instance.integration.claim(found, instance.options);
 
       if (claim === null) {
+        const answered = summarise(found.payload);
+
         logger.info(
-          {
-            instanceId: instance.instanceId,
-            deviceKey: found.deviceKey,
-            answered: summarise(found.payload),
-          },
+          { instanceId: instance.instanceId, deviceKey: found.deviceKey, answered },
           'Heard from a device the driver did not claim',
+        );
+        heard.push(
+          `${found.deviceKey} answered, but not as a device this driver takes${
+            typeof answered['model'] === 'string' ? ` (model ${answered['model']})` : ''
+          }`,
         );
 
         continue;
@@ -219,6 +239,10 @@ export class IdentificationService {
             expectedExternalId: instance.expectedExternalId,
           },
           'Heard from a device that is not the one on the row; ignored',
+        );
+        // First: of what was heard, a device that is almost the one added says the most.
+        heard.unshift(
+          `${found.deviceKey} answered as ${claim.externalId}, not as ${instance.expectedExternalId} it was added as`,
         );
 
         continue;
@@ -286,15 +310,37 @@ export class IdentificationService {
    *
    * @param instance - The instance to listen with.
    * @param signal - Ends the search.
+   * @param onQuiet - Told why the device is not identified yet, each time the reason changes.
    * @returns What was identified, or undefined when stopped or given up.
    */
   public async identify(
     instance: IdentifiableInstance,
     signal: AbortSignal,
+    onQuiet?: (reason: string) => void,
   ): Promise<Identified | undefined> {
     const { logger, retryMs } = this.#options;
     const pauseMs = this.#options.pauseMs ?? DEFAULT_PAUSE_MS;
     let quietMs = pauseMs;
+    let lastReason: string | undefined;
+    let askedAtMs = Number.NEGATIVE_INFINITY;
+
+    /**
+     * Says why the device is still not identified, once per reason: at info in the log, since a
+     * search that never ends and says nothing is what an owner cannot act on, and to whoever
+     * shows it next to the device.
+     *
+     * @param reason - Why, in an owner's words.
+     * @param pass - Which pass found it.
+     */
+    const tell = (reason: string, pass: number): void => {
+      if (reason === lastReason) {
+        return;
+      }
+
+      lastReason = reason;
+      logger.info({ instanceId: instance.instanceId, pass, reason }, 'Device not identified yet');
+      onQuiet?.(reason);
+    };
 
     logger.info(
       {
@@ -307,10 +353,11 @@ export class IdentificationService {
 
     for (let pass = 1; !stopped(signal); pass += 1) {
       try {
+        const heard: string[] = [];
         // Each pass exists because the one before it heard nothing, so they are sequential by
         // nature; the wait between them is what the loop is for.
         // eslint-disable-next-line no-await-in-loop -- see above
-        const found = await this.attempt(instance, signal);
+        const found = await this.#attempt(instance, signal, heard);
 
         if (found !== undefined) {
           logger.info(
@@ -328,6 +375,20 @@ export class IdentificationService {
 
         if (stopped(signal)) {
           break;
+        }
+
+        const [first] = heard;
+
+        if (first !== undefined) {
+          tell(first, pass);
+        } else if (Date.now() - askedAtMs >= retryMs) {
+          // A pass that heard nothing says nothing about why: the scans swallow their errors,
+          // since for discovery silence is the ordinary answer. The transport's own test says
+          // why - refused, unreachable, timed out - and is asked at most once a retry wait, so
+          // a device that is off is not asked twice as often as it would be anyway.
+          askedAtMs = Date.now();
+          // eslint-disable-next-line no-await-in-loop -- the one question, same reason
+          tell(await this.#whyQuiet(instance, signal), pass);
         }
 
         logger.debug(
@@ -355,6 +416,7 @@ export class IdentificationService {
           { instanceId: instance.instanceId, pass, retryMs, err: error },
           'Identification pass failed; will try again',
         );
+        tell(error instanceof Error ? error.message : String(error), pass);
         // eslint-disable-next-line no-await-in-loop -- the longer pause after a failure, same reason
         await delay(retryMs, signal);
       }
@@ -363,5 +425,30 @@ export class IdentificationService {
     logger.debug({ instanceId: instance.instanceId }, 'Identification stopped');
 
     return undefined;
+  }
+
+  /**
+   * Asks the transport's own test why a pass heard nothing.
+   *
+   * @param instance - The instance.
+   * @param signal - Ends the question early.
+   * @returns Why, in the transport's words: what refused or did not answer, or - when the test
+   * passed - that the device answers a test but not the question identification asks.
+   */
+  async #whyQuiet(instance: IdentifiableInstance, signal: AbortSignal): Promise<string> {
+    const { transports, attemptTimeoutMs } = this.#options;
+
+    try {
+      const answered = await transports
+        .require(instance.transportId)
+        .probe(
+          instance.transportConfig,
+          AbortSignal.any([signal, AbortSignal.timeout(attemptTimeoutMs)]),
+        );
+
+      return `${answered}, but did not say who it is yet; asking again`;
+    } catch (error: unknown) {
+      return error instanceof Error ? error.message : String(error);
+    }
   }
 }

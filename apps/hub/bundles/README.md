@@ -132,24 +132,49 @@ A third form reads whether something is **there** -
 `{ "path": "sys.available_updates.stable", "present": true }` - true when the path names a value,
 false when the object that would hold it is there without it. It is the one read that turns an
 absence into an answer, and only where the report carries the holder: a report without `sys` at
-all still says nothing. It is how a firmware update is read - Shelly lists the update it offers
-under `available_updates`, and empties it once the update is installed.
+all still says nothing.
+
+A fourth reads **part of a number** - `{ "path": "device.bed.info.temp", "bits": [16, 16] }`, the
+bits from the 16th, 16 of them - for firmware that packs two readings into one integer or a set
+of flags into one word, and may be compared or looked up like any value:
+`{ "path": "stat", "bits": [23, 1], "base": 16, "equals": 1 }` is a door, read out of a flags word
+the printer writes as hexadecimal text. `base` alone reads a number written as text -
+`{ "path": "humidity_raw", "base": 10 }` - and text that is no number yields nothing. It is
+indexing into a number, as a path indexes into a list, and nothing more.
+
+Finally a field may name **up to four places**, tried in order, the first that yields a value
+being the one read - `[{ "path": "device.bed.info.temp", "bits": [0, 16] }, "bed_temper"]` -
+for firmware that moved a reading and still sends it in either place.
 
 An entity with the **`button`** capability (domain `button`) holds no state: it is reported, empty,
 on anything its device says, so it is available exactly when the device is, and its one command is
 `button.press`. A profile gives it `"state": {}` and the request pressing it sends. With
-`"deviceClass": "update"` or `"restart"` the interface asks before pressing, since the device goes
-away for a while.
+`"deviceClass": "restart"` the interface asks before pressing, since the device goes away for a
+while.
 
 ### Firmware updates
 
-A driver whose devices say when an update is waiting, and install one when asked, exposes two
-entities: a `binary_sensor` with `"deviceClass": "update"` that is on while an update is offered,
-and a `button` with `"deviceClass": "update"` that installs it. The Shelly drivers do: the sensor
-reads `sys.available_updates.stable` with `present`, the button calls `Shelly.Update` with
-`{ "stage": "stable" }`. The device checks for updates itself, over the internet; one that cannot
-reach the internet never offers one. A vendor that can say an update is waiting but not install it
-exposes the sensor alone; one that can do neither exposes nothing.
+A driver whose devices say which firmware they run and what is on offer exposes one entity of domain
+`update` with the `update` capability: `installedVersion`, `latestVersion` (absent - null - when
+nothing newer is offered), `isInstalling` and, for a device that says, `progress`; its one command
+is `update.install`. `canInstall: false` in its params says the platform cannot install it, only
+tell. The hub refuses an install while the entity reads `isInstalling`, for every vendor: a device
+fetching its firmware still offers it until it reboots, and an automation installing whatever is
+offered must not start it again.
+
+The Shelly drivers read `device_info.ver` (the transport asks `Shelly.GetDeviceInfo` on every
+connection and lays it beside the status), `sys.available_updates.stable.version`, and
+`ota.isInstalling` / `ota.progress`, which the transport keeps from the device's `NotifyEvent`s
+(`ota_begin`, `ota_progress`, `ota_success`, `ota_error`) and from the moment `Shelly.Update` was
+accepted, until the device is back on another version; a second `Shelly.Update` meanwhile is not
+sent. The Gen1 drivers read `update.old_version`, `update.new_version` and `update.status`
+(`updating`) and install through `/ota?update=true`. The device checks for updates itself, over
+the internet; one that cannot reach the internet never offers one.
+
+A profile may also say where its reports carry the firmware the device runs now -
+`"device": { "swVersion": "device_info.ver" }` - and the hub then writes a changed version on the
+device's row as it hears it, so the device page follows an update without the device being added
+again.
 
 The logo rides inside the catalogue the hub serves, as a data URL, so it must be an `.svg` or a
 `.png` and at most 64 KiB; anything else fails the vendor at startup. The two that ship are
@@ -360,14 +385,17 @@ The module is plain JavaScript - an installed bundle is loaded as it is, with no
 its default export is a function the hub calls with the **SDK**, the runtime's pieces a transport
 needs, since the bundle cannot import them:
 
-| `sdk.`            | What                                                                               |
-| ----------------- | ---------------------------------------------------------------------------------- |
-| `version`         | the runtime version, the one `manifest.sdk` was matched against                    |
-| `z`               | the runtime's zod, so the transport's settings validate as the hub's do            |
-| `defineTransport` | the contract the platform's own transports are written against                     |
-| `openWebSocket`   | a WebSocket the hub keeps open: reconnection with a doubling pause, resets         |
-| `openUdpSocket`   | a UDP socket the hub binds, joins to a multicast group, and closes with the vendor |
-| `logger`          | the hub's logger, for what happens outside a connection                            |
+| `sdk.`               | What                                                                               |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| `version`            | the runtime version, the one `manifest.sdk` was matched against                    |
+| `z`                  | the runtime's zod, so the transport's settings validate as the hub's do            |
+| `defineTransport`    | the contract the platform's own transports are written against                     |
+| `openWebSocket`      | a WebSocket the hub keeps open: reconnection with a doubling pause, resets         |
+| `openUdpSocket`      | a UDP socket the hub binds, joins to a multicast group, and closes with the vendor |
+| `openMqtt`           | since 1.2: an MQTT session with a client certificate, for a vendor's own broker    |
+| `defineStreamSource` | since 1.2: the contract a camera's stream source is written against                |
+| `openRtsp`           | since 1.2: an RTSP(S) session over TCP, yielding a camera's H.264 as it comes      |
+| `logger`             | the hub's logger, for what happens outside a connection                            |
 
 The transport it returns is the one the platform's `http` and `mqtt` are:
 `connectionKey`, `connect`, `scan`, `probe`, and a `configSchema` for what the driver's
@@ -375,6 +403,45 @@ The transport it returns is the one the platform's `http` and `mqtt` are:
 both. It is **code**, so the vendor sits at the tier a code driver does - reviewed before a
 catalogue carries it; `verifyVendor` is where the hub asks. The hub type-checks the ones that
 ship here (`checkJs`), so write the types in JSDoc and start the file with `// @ts-check`.
+
+## A camera's picture
+
+A camera's live picture is not state and goes through no transport: it is frames, for as long
+as somebody watches, over a connection of its own. So a vendor with cameras ships a **stream
+source** beside its transports - `"streams": { "camera": "./camera/stream.js" }` in the
+manifest, registered as `<vendor>/<name>` - and a profile's camera entity names it and says what
+to read:
+
+```json
+{
+  "domain": "camera",
+  "objectId": "chamber_camera",
+  "capabilities": { "camera": { "hasSnapshot": false, "hasStream": true } },
+  "state": {
+    "camera": {
+      "isStreamAvailable": {
+        "path": "ipcam.rtsp_url",
+        "map": { "disable": false },
+        "default": true
+      }
+    }
+  },
+  "stream": { "source": "bambu-lab/camera", "args": { "kind": "rtsp" } }
+}
+```
+
+The module's default export takes the SDK and returns `sdk.defineStreamSource({ id,
+configSchema, open })`. `open(config, args, sink, signal)` is handed the instance's transport
+settings, secrets opened, and the profile's `args`; it says once what the stream carries -
+`sink.describe({ kind: "jpeg" })` or `{ kind: "h264", codec: "avc1.640028" }` - then hands
+over each frame with `sink.frame({ data, isKey, timestampUs })`: a JPEG, or an H.264 access unit
+in Annex B with its parameter sets before a key frame. `sdk.openRtsp` does the RTSP for a camera
+that speaks it. Nothing is decoded or transcoded on the hub: the frames go to the browser, which
+decodes them (WebCodecs for H.264), and a stream runs only while a viewer keeps asking for it.
+
+**A command may be several messages.** On the `mqtt` transport, `"payloads": [ … ]` in place of
+`"payload"` publishes each in order on the one topic - a device whose one switch is two nodes to
+its firmware, like a Bambu H2's two chamber lights, is switched by one command.
 
 ## shelly
 
@@ -431,21 +498,23 @@ the OpenAPI reports the version and offers no update over the LAN.
 
 One driver, `light-lan`, for Govee lights with **LAN Control** switched on in the Govee app, over
 the vendor's own `govee/lan` transport: JSON datagrams over UDP, a status asked and answered, and
-the commands for on, off, brightness and colour temperature. Found by its own listener, which asks
-the LAN API's multicast scan; the transport and the listener share the one socket every answer
-comes back to. The first bundle on the SDK's UDP sockets. The listener answers the owner's scan by
-sending the multicast scan at once. No firmware entities: the LAN API reports versions only.
+the commands for on, off, brightness, colour temperature and colour. Every command is followed by
+a status request, and a light seen changing is asked every second for a while, since the LAN API
+pushes nothing. Given the owner's Govee account (optional, in the vendor's setup), the bundle also
+listens to Govee's cloud, which pushes what a light shows as it changes; commands stay on the LAN.
+Found by its own listener, which asks the LAN API's multicast scan; the transport and the listener
+share the one socket every answer comes back to. No firmware entities: the LAN API reports
+versions only.
 
 ## bambu-lab
 
-One driver, `printer`, listing X1C, X1E, P1S, P1P, A1 and A1 mini: every one of them is a Bambu
-Lab printer in LAN mode, over the MQTT broker the printer runs itself, and the profile is the
-same for all six - the list is there so the owner says which they have. The chamber light,
-the temperatures and the print in progress; no camera. It is the first bundle on the MQTT
-transport, and the four things it needed - a self-signed certificate, the serial that lives in
-the topic, topics composed from it, and a request sent on every reconnect - are in the transport
-now for whatever comes next. Its own README says what the printer is and what has not been
-checked against one.
+Four drivers, one per family of Bambu Lab printers - the X1s; the P2S and H2S; the dual-nozzle
+H2D, H2D Pro, H2C and X2D; the P1s, A1s and A2L - in LAN mode, over the MQTT broker the printer
+runs itself. The chamber camera, the lights, the temperatures (packed ones read with `bits`), the
+fans, the AMS, the print in progress, and pause, resume and stop. The first bundle with a stream
+source: RTSPS on port 322 for the families that have it, the JPEG stills on port 6000 for the P1s
+and A1s. Found by the SSDP announcements the printers make, with the model code mapped to its
+driver. Its own README says what the printer is and what has not been checked against one.
 
 ## solax
 
@@ -460,8 +529,10 @@ number's prefix: five drivers named `… (Modbus TCP)`. Both decode the register
 32-bit pairs, codes standing for words - into named values, so the profiles stay tables of
 paths, and both read once per interval: one HTTP request, or one read per block of up to 100
 registers, never one per entity. Power is signed the way SolaX signs it - feed-in and battery
-charge positive - and the README says how to set the energy card's switches for it. Not
-discoverable (neither announces itself), no firmware entities, nothing written. Its own README
+charge positive - and the README says how to set the energy card's switches for it. Neither
+announces itself, so discovery sweeps the house's networks - their real netmask, up to a /22 -
+on port 502 and port 80, and offers whatever answers as SolaX. No firmware entities, nothing
+written. Its own README
 lists every family, where the tables came from (the `solax` library, MIT; the
 `homeassistant-solax-modbus` integration, Apache-2.0) and what has not been checked against a
 real inverter: all of it.

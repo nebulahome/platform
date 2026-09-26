@@ -15,6 +15,7 @@ import {
   ADAPTER_COMMAND_METHOD,
   adapterCommandSchema,
   busSubjects,
+  ConflictError,
   NotFoundError,
   resyncRequestSchema,
   type AdapterAck,
@@ -83,6 +84,19 @@ export function startInstanceServices(options: InstanceServicesOptions): BusSubs
         if (binding === undefined) {
           throw new NotFoundError(`${options.instanceId} does not own ${command.entityId}`, {
             details: { instanceId: options.instanceId, entityId: command.entityId },
+          });
+        }
+
+        // A device fetching its firmware still offers it until it reboots, and asked again it
+        // may start over - which an automation installing whatever is offered would do every
+        // time the offer is seen. So an install while one is under way is refused here, for
+        // every vendor, rather than left to each device to shrug off.
+        if (
+          command.capability === 'update' &&
+          options.book.replay(command.entityId)?.state.update?.isInstalling === true
+        ) {
+          throw new ConflictError(`${command.entityId} is already installing its firmware`, {
+            details: { entityId: command.entityId },
           });
         }
 

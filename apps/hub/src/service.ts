@@ -32,7 +32,14 @@ import { BusClient } from '@nebula-home/bus';
 import { resolveDataLayout } from '@nebula-home/config';
 import {
   busSubjects,
+  CORE_DEVICE_INFO_METHOD,
+  CORE_SERVICE,
+  deviceEventSchema,
+  deviceInfoReplySchema,
   NotFoundError,
+  type DeviceEventPayload,
+  type DeviceInfoRequest,
+  type EntityId,
   type DiscoverReply,
   type DiscoveryEventPayload,
   type ForgetReply,
@@ -43,7 +50,9 @@ import { secretsKeyFrom, type Database } from '@nebula-home/db';
 import type { PlatformLogger } from '@nebula-home/logging';
 import {
   Registry,
+  type DeviceInfo,
   type Integration,
+  type StreamSource,
   type Transport,
   type TransportConnection,
   type TransportInbound,
@@ -59,18 +68,20 @@ import { createMdnsSource, type MdnsSource } from './discovery/mdns-source.js';
 import { DeviceBook } from './domain/devices.js';
 import { planSubscriptions } from './domain/subscriptions.js';
 import { withVendorSettings } from './domain/vendors.js';
-import { loadBinding } from './persistence/devices.js';
+import { loadBinding, loadDeviceName } from './persistence/devices.js';
 import {
   loadInstance,
   loadInstances,
   openInstance,
   readStatus,
+  recordListening,
   recordStatus,
   type IntegrationInstance,
 } from './persistence/instances.js';
 import { loadTakenDevices } from './persistence/taken.js';
 import { loadVendorSettings } from './persistence/vendors.js';
 import { loadBundles, mergeBundleResults, type LoadedVendor } from './services/bundles.js';
+import { CameraService, type CameraOwner } from './services/cameras.js';
 import { ConnectionPool } from './services/connections.js';
 import { DiscoveryService, type Detected } from './services/discovery.js';
 import { IdentificationService, type Identified } from './services/identification.js';
@@ -132,6 +143,13 @@ export class HubService {
   readonly #listening = new Map<string, Listening>();
   readonly #managementService: ManagementService;
   readonly #secretsKey: Buffer;
+
+  /** The stream sources the vendors ship, by id: `bambu-lab/camera`. */
+  readonly #streams = new Map<string, StreamSource>();
+  readonly #cameras: CameraService;
+
+  /** The vendor of each instance forgotten and not yet removed by `core`, by instance id. */
+  readonly #forgotten = new Map<string, string>();
   #management: { unsubscribe: () => void }[] = [];
   #discovery: DiscoveryService | undefined;
 
@@ -179,6 +197,40 @@ export class HubService {
       logger: options.logger,
       attemptTimeoutMs: options.config.HUB_IDENTIFY_TIMEOUT_MS,
       retryMs: options.config.HUB_IDENTIFY_RETRY_MS,
+    });
+
+    this.#cameras = new CameraService({
+      client: this.#client,
+      logger: options.logger,
+
+      /**
+       * Finds a stream source the vendors ship.
+       *
+       * @param id - `<vendor>/<name>`.
+       * @returns The source, when one is loaded.
+       */
+      sourceOf: (id: string): StreamSource | undefined => this.#streams.get(id),
+
+      /**
+       * Finds the running instance that owns a camera.
+       *
+       * @param entityId - The camera.
+       * @returns Its owner, when an instance running now does.
+       */
+      ownerOf: (entityId: EntityId): CameraOwner | undefined => {
+        for (const running of this.#running.values()) {
+          if (running.book.byEntityId(entityId) !== undefined) {
+            return {
+              integration: running.integration,
+              book: running.book,
+              options: running.instance.options,
+              transportConfig: running.instance.transportConfig,
+            };
+          }
+        }
+
+        return undefined;
+      },
     });
 
     this.#managementService = new ManagementService({
@@ -294,6 +346,10 @@ export class HubService {
         this.#transports.register(transport);
       }
 
+      for (const source of vendor.streams) {
+        this.#streams.set(source.id, source);
+      }
+
       for (const driver of vendor.drivers) {
         this.#integrations.register(driver.integration);
       }
@@ -310,7 +366,29 @@ export class HubService {
       'Loaded integration bundles',
     );
 
-    this.#management = [...this.#managementService.serve()];
+    this.#management = [
+      ...this.#managementService.serve(),
+      ...this.#cameras.serve(),
+      this.#client.subscribe(
+        busSubjects.deviceEvent('removed'),
+        deviceEventSchema,
+
+        /**
+         * Shows a removed device to discovery again.
+         *
+         * `core` publishes this once the rows are gone, which is the first moment the device
+         * is no longer added: asked any earlier, discovery would read it still there.
+         *
+         * @param payload - Which device went.
+         */
+        (payload): void => {
+          const vendorId = this.#forgotten.get(payload.deviceId);
+
+          this.#forgotten.delete(payload.deviceId);
+          void this.#releaseDiscovery(vendorId);
+        },
+      ),
+    ];
 
     const instances = await loadInstances(db);
 
@@ -395,12 +473,27 @@ export class HubService {
   }
 
   /**
+   * Tells discovery that a device was removed, without letting its failure reach the caller.
+   *
+   * @param vendorId - The vendor it was of, when known.
+   * @returns A promise that settles once discovery has read it again and asked the network.
+   */
+  async #releaseDiscovery(vendorId: string | undefined): Promise<void> {
+    try {
+      await this.#discovery?.release(vendorId);
+    } catch (error: unknown) {
+      this.#options.logger.warn({ err: error }, 'Discovery could not read what is added');
+    }
+  }
+
+  /**
    * Stops everything.
    *
    * @returns A promise that settles once every subscription is dropped and every connection is
    * closed.
    */
   public async stop(): Promise<void> {
+    this.#cameras.stop();
     await this.#discovery?.stop();
     this.#discovery = undefined;
     await this.#stopListening([...this.#listening.keys()]);
@@ -469,11 +562,19 @@ export class HubService {
    */
   public async forgetInstance(id: string): Promise<ForgetReply> {
     const wasRunning = this.#running.has(id) || this.#listening.has(id);
+    const kind = this.#running.get(id)?.instance.kind;
+
+    if (kind !== undefined) {
+      const [vendorId = ''] = kind.split('/');
+
+      this.#forgotten.set(id, vendorId);
+    }
 
     await this.#stopInstance(id);
 
     // Not refreshed here: the rows are still there until `core` deletes them, and the device
-    // would be offered again only to be taken away. The next change reads them gone.
+    // would be offered again only to be taken away. `core` says when they are gone, and
+    // discovery is told then.
     return { wasRunning };
   }
 
@@ -697,6 +798,24 @@ export class HubService {
           expectedExternalId,
         },
         signal,
+
+        /**
+         * Writes why the device is not identified yet next to the state, where the interface
+         * shows it, and says so to whoever is showing it.
+         *
+         * @param reason - Why, in an owner's words.
+         */
+        (reason: string): void => {
+          if (signal.aborted) {
+            return;
+          }
+
+          void recordListening(db, id, reason)
+            .then(async () => this.#announceUpdated(id))
+            .catch((error: unknown) => {
+              logger.warn({ err: error, instanceId: id }, 'Could not record why it is listening');
+            });
+        },
       );
 
       // Stopped, or replaced by a reload while the search was out: whatever was found belongs
@@ -708,6 +827,7 @@ export class HubService {
       running.book.bind(found.binding);
       await this.#applySubscriptions(id);
       await recordStatus(db, id, 'running');
+      await this.#announceUpdated(id);
       await this.#refreshDiscovery();
       logger.info(
         {
@@ -722,7 +842,34 @@ export class HubService {
       const message = error instanceof Error ? error.message : String(error);
 
       await recordStatus(db, id, 'failed', message);
+      await this.#announceUpdated(id);
       logger.error({ instanceId: id, kind: running.instance.kind }, message);
+    }
+  }
+
+  /**
+   * Tells whoever shows the device that something on its row changed without anyone editing it:
+   * its state, why it is still listening, its firmware.
+   *
+   * Never rejects: a list that is not told is a list that is read again on the next change, and
+   * the change itself is already written.
+   *
+   * @param instanceId - The instance, which is the device's id.
+   * @returns A promise that settles once the event is published, or could not be.
+   */
+  async #announceUpdated(instanceId: string): Promise<void> {
+    try {
+      const name = (await loadDeviceName(this.#options.db, instanceId)) ?? instanceId;
+      const payload: DeviceEventPayload = {
+        deviceId: instanceId,
+        source: instanceId,
+        name,
+        entityIds: [],
+      };
+
+      this.#client.publish(busSubjects.deviceEvent('updated'), payload);
+    } catch (error: unknown) {
+      this.#options.logger.debug({ err: error, instanceId }, 'Could not announce a device change');
     }
   }
 
@@ -800,6 +947,38 @@ export class HubService {
       if (reports.length > 0) {
         publishReports(running.client, reports);
       }
+
+      const info = running.book.infoOf(running.integration, running.instance.options, message);
+
+      if (info !== undefined) {
+        void this.#reportInfo(running.instance.id, info);
+      }
+    }
+  }
+
+  /**
+   * Tells `core` which firmware a running device reports now, which `core` writes down - and
+   * announces - only when it differs from the row.
+   *
+   * @param instanceId - The instance, which is the device's id.
+   * @param info - What the device says.
+   * @returns A promise that settles once `core` answered, or did not.
+   */
+  async #reportInfo(instanceId: string, info: DeviceInfo): Promise<void> {
+    const request: DeviceInfoRequest = {
+      integrationId: instanceId,
+      ...(info.swVersion === undefined ? {} : { swVersion: info.swVersion.slice(0, 64) }),
+      ...(info.hwVersion === undefined ? {} : { hwVersion: info.hwVersion.slice(0, 64) }),
+    };
+
+    try {
+      await this.#client.request(
+        busSubjects.service(CORE_SERVICE, CORE_DEVICE_INFO_METHOD),
+        request,
+        deviceInfoReplySchema,
+      );
+    } catch (error: unknown) {
+      this.#options.logger.debug({ err: error, instanceId }, 'Could not report a device firmware');
     }
   }
 }

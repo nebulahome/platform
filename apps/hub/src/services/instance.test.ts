@@ -27,6 +27,7 @@ import { startInstanceServices } from './instance.js';
 
 const RELAY = parseEntityId('switch.relay_one');
 const STRANGER = parseEntityId('switch.somewhere_else');
+const FIRMWARE = parseEntityId('update.relay_one_firmware');
 
 /**
  * A real declarative integration for a generic REST relay.
@@ -51,12 +52,26 @@ function relay(): Integration {
         claim: [{ path: 'relay', exists: true }],
         identity: { externalId: 'device.id' },
       },
+      device: { swVersion: 'firmware.ver' },
       entities: [
         {
           domain: 'switch',
           capabilities: { on_off: {} },
           state: { on_off: { isOn: 'relay.on' } },
           commands: { 'on_off.turn_on': { op: 'get', args: { path: '/relay/on' } } },
+        },
+        {
+          domain: 'update',
+          objectId: 'firmware',
+          capabilities: { update: {} },
+          state: {
+            update: {
+              installedVersion: 'firmware.ver',
+              latestVersion: 'firmware.offered',
+              isInstalling: 'firmware.installing',
+            },
+          },
+          commands: { 'update.install': { op: 'get', args: { path: '/ota' } } },
         },
       ],
     }),
@@ -101,7 +116,10 @@ function harness(): Harness {
       externalId: 'relay-one',
       descriptor: { device: { id: 'relay-one' }, relay: {} },
     },
-    entities: new Map<string, EntityId>([['', RELAY]]),
+    entities: new Map<string, EntityId>([
+      ['', RELAY],
+      ['firmware', FIRMWARE],
+    ]),
   });
 
   const subscriptions = startInstanceServices({
@@ -139,6 +157,55 @@ describe('startInstanceServices', () => {
     stop();
 
     expect(sent).toEqual([{ deviceKey: '192.168.1.40', op: 'get', args: { path: '/relay/on' } }]);
+  });
+
+  it('refuses to install firmware while the device is installing it already', async () => {
+    const { caller, book, sent, stop } = harness();
+    const install = async (): Promise<unknown> =>
+      caller.request(
+        busSubjects.service('relay-lab', ADAPTER_COMMAND_METHOD),
+        { entityId: FIRMWARE, capability: 'update', command: { command: 'install' } },
+        adapterAckSchema,
+      );
+    const report = (installing: boolean): void => {
+      book.ingest(
+        relay(),
+        {},
+        {
+          connectionKey: 'http:192.168.1.40',
+          deviceKey: '192.168.1.40',
+          payload: { firmware: { ver: '1.0', offered: '1.1', installing } },
+        },
+      );
+    };
+
+    report(false);
+    await install();
+    report(true);
+    await expect(install()).rejects.toThrow(/already installing/u);
+
+    stop();
+
+    expect(sent).toEqual([{ deviceKey: '192.168.1.40', op: 'get', args: { path: '/ota' } }]);
+  });
+
+  it('says the firmware a device reports once, and again only when it changes', () => {
+    const { book, stop } = harness();
+    const heard = (ver: string): unknown =>
+      book.infoOf(
+        relay(),
+        {},
+        {
+          connectionKey: 'http:192.168.1.40',
+          deviceKey: '192.168.1.40',
+          payload: { relay: { on: true }, firmware: { ver } },
+        },
+      );
+
+    expect(heard('1.0')).toEqual({ swVersion: '1.0' });
+    expect(heard('1.0')).toBeUndefined();
+    expect(heard('1.1')).toEqual({ swVersion: '1.1' });
+    stop();
   });
 
   it('refuses a command for an entity this instance does not own', async () => {

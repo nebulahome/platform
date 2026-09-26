@@ -48,6 +48,8 @@ import {
   type DiscoverySource,
   type Integration,
   type Transport,
+  type StreamFactory,
+  type StreamSource,
   type TransportFactory,
   type VendorManifest,
 } from '@nebula-home/package-runtime';
@@ -143,6 +145,9 @@ export type LoadedVendor = {
 
   /** The transports the vendor ships itself, ready to register: `shelly/rpc`. */
   readonly ownTransports: readonly Transport[];
+
+  /** The stream sources the vendor ships, ready to register: `bambu-lab/camera`. */
+  readonly streams: readonly StreamSource[];
 
   readonly drivers: readonly LoadedBundle[];
 
@@ -408,6 +413,43 @@ async function loadVendorTransports(
 }
 
 /**
+ * Loads the stream sources a vendor ships, each checked to call itself what the manifest calls it.
+ *
+ * @param vendor - The vendor's manifest.
+ * @param directory - The vendor's directory.
+ * @param sdk - What the vendor's code is handed.
+ * @returns The sources, registered under `<vendor>/<name>`.
+ * @throws {Error} When a module is missing, exports no factory, or names itself otherwise.
+ */
+async function loadVendorStreams(
+  vendor: VendorManifest,
+  directory: string,
+  sdk: BundleSdk,
+): Promise<StreamSource[]> {
+  return Promise.all(
+    Object.entries(vendor.streams).map(async ([name, file]) => {
+      const module: unknown = await import(pathToFileURL(path.join(directory, file)).href);
+      const factory = (module as { readonly default?: unknown }).default;
+
+      if (typeof factory !== 'function') {
+        throw new Error(`${vendor.id} stream ${name} does not default-export a factory`);
+      }
+
+      const source = (factory as StreamFactory)(sdk);
+      const expected = `${vendor.id}/${name}`;
+
+      if (source.id !== expected) {
+        throw new Error(
+          `The stream ${vendor.id} ships as ${name} calls itself ${source.id}; it must be ${expected}`,
+        );
+      }
+
+      return source;
+    }),
+  );
+}
+
+/**
  * Whether a file is there to be read.
  *
  * @param file - The file.
@@ -576,6 +618,7 @@ async function loadVendorWith(
   // Before the drivers: a driver is only as loadable as the transport it opens, and a vendor
   // whose transport is broken has nothing to offer.
   const ownTransports = await loadVendorTransports(manifest, directory, options, sdk);
+  const streams = await loadVendorStreams(manifest, directory, sdk);
   const setup =
     manifest.setup === undefined
       ? NO_SETUP
@@ -628,6 +671,7 @@ async function loadVendorWith(
       ...(logo === undefined ? {} : { logo }),
       transports: [...new Set(drivers.map((driver) => driver.manifest.transport))],
       ownTransports,
+      streams,
       drivers,
       ...(discovery === undefined ? {} : { discovery }),
       directory,

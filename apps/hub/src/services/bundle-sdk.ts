@@ -11,9 +11,16 @@
 import { z } from 'zod';
 
 import type { PlatformLogger } from '@nebula-home/logging';
-import { defineTransport, type BundleSdk, type OpenUdpSocket } from '@nebula-home/package-runtime';
+import {
+  defineStreamSource,
+  defineTransport,
+  type BundleSdk,
+  type OpenUdpSocket,
+} from '@nebula-home/package-runtime';
 
+import { openMqtt } from '../transports/managed-mqtt.js';
 import { openWebSocket } from '../transports/managed-socket.js';
+import { openRtsp } from '../transports/rtsp.js';
 
 /**
  * Builds the SDK.
@@ -37,5 +44,8 @@ export function createBundleSdk(options: {
     defineTransport,
     openWebSocket,
     openUdpSocket: options.openUdpSocket,
+    openMqtt,
+    defineStreamSource,
+    openRtsp,
   };
 }

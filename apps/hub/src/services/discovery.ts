@@ -39,7 +39,7 @@ import {
 } from '@nebula-home/package-runtime';
 
 import { isPrivateIpv4, type MdnsSource } from '../discovery/mdns-source.js';
-import type { TakenDevices } from '../domain/taken.js';
+import { addressOf as reachedAt, NOTHING_TAKEN, type TakenDevices } from '../domain/taken.js';
 
 import type { LoadedDiscovery, LoadedListenSource } from './bundles.js';
 
@@ -185,6 +185,12 @@ const SCAN_ASK_MS: readonly number[] = [
 ];
 
 /**
+ * When mDNS is asked again after a device was removed: a few times over ten seconds, enough for
+ * a device whose radio sleeps to hear one of them, and not a search's thirty seconds.
+ */
+const RELEASE_ASK_MS: readonly number[] = [1000, 3000, 6000, 10_000];
+
+/**
  * How long a search the owner asked for lasts, in milliseconds: the last question, and time for
  * its answers to be probed.
  */
@@ -206,9 +212,7 @@ const MAXIMUM_SWEEP_MS = 30_000;
  * @returns The host, or the configuration as text when it has none.
  */
 function addressOf(config: JsonObject): string {
-  const host = config['host'];
-
-  return typeof host === 'string' && host.length > 0 ? host : JSON.stringify(config);
+  return reachedAt(config) ?? JSON.stringify(config);
 }
 
 /**
@@ -265,7 +269,7 @@ export class DiscoveryService {
   #abort = new AbortController();
   #active = 0;
   #isListening = false;
-  #taken: TakenDevices = { externalIds: new Set(), hosts: new Set() };
+  #taken: TakenDevices = NOTHING_TAKEN;
   #signature = '[]';
 
   /**
@@ -439,6 +443,66 @@ export class DiscoveryService {
   public async refresh(): Promise<void> {
     this.#taken = await this.#options.taken();
     this.#publishIfChanged();
+  }
+
+  /**
+   * Reads again what is added after a device was removed, and looks for it again at once.
+   *
+   * A removed device is on the network as it was, and an owner who removed it by mistake - or to
+   * add it again under another driver - expects to find it straight away, not after the next
+   * scheduled question minutes away. So what the vendor's addresses answered is forgotten, and
+   * the vendor is asked for the way a search the owner asked for would, only more briefly.
+   *
+   * @param vendorId - The vendor the device was of; every vendor when it is not known.
+   * @returns A promise that settles once the proposals reflect the removal.
+   */
+  public async release(vendorId?: string): Promise<void> {
+    this.#taken = await this.#options.taken();
+
+    for (const key of [...this.#probed.keys()]) {
+      if (vendorId === undefined || key.startsWith(`${vendorId}\n`)) {
+        this.#probed.delete(key);
+      }
+    }
+
+    this.#publishIfChanged();
+
+    if (!this.#isListening) {
+      return;
+    }
+
+    const vendors = this.#options.vendors.filter(
+      (vendor) =>
+        (vendorId === undefined || vendor.id === vendorId) && vendor.discovery.sources.length > 0,
+    );
+    const services = [
+      ...new Set(
+        vendors.flatMap((vendor) =>
+          vendor.discovery.sources.flatMap((source) =>
+            source.kind === 'mdns' ? [source.service] : [],
+          ),
+        ),
+      ),
+    ];
+
+    if (services.length > 0) {
+      this.#ask(RELEASE_ASK_MS, services);
+    }
+
+    for (const vendor of vendors) {
+      for (const source of vendor.discovery.sources) {
+        if (source.kind === 'module') {
+          try {
+            source.source.scan?.();
+          } catch (error: unknown) {
+            this.#options.logger.debug(
+              { err: error, vendor: vendor.id, module: source.file },
+              'A discovery module could not scan',
+            );
+          }
+        }
+      }
+    }
   }
 
   /**
@@ -619,11 +683,15 @@ export class DiscoveryService {
       return;
     }
 
-    const host = sighting.config['host'];
+    const host = reachedAt(sighting.config);
 
-    if (typeof host === 'string' && this.#taken.hosts.has(`${vendor.id}\n${host}`)) {
+    if (host !== undefined && this.#taken.hosts.has(`${vendor.id}\n${host}`)) {
       // Already added at this address: it would not be proposed, and asking it opens one more
-      // connection to a device already busy with the hub's own.
+      // connection to a device already busy with the hub's own. What it was proposed as is kept
+      // heard, though, so that removing the device shows it again at once rather than after the
+      // next probe of an address nobody is asking.
+      this.#touchAt(vendor.id, host);
+
       return;
     }
 
@@ -858,6 +926,7 @@ export class DiscoveryService {
         modelCode: identity.modelCode,
         swVersion: identity.swVersion,
         transportConfig: config,
+        movedFrom: null,
         firstSeenAt: previous?.device.firstSeenAt ?? new Date(nowMs),
         lastSeenAt: new Date(nowMs),
       },
@@ -887,6 +956,23 @@ export class DiscoveryService {
     }
   }
 
+  /**
+   * Records that the device a vendor proposed at an address was heard again.
+   *
+   * @param vendorId - The vendor.
+   * @param host - The address.
+   */
+  #touchAt(vendorId: string, host: string): void {
+    for (const [id, candidate] of this.#candidates) {
+      if (
+        candidate.device.vendorId === vendorId &&
+        reachedAt(candidate.device.transportConfig) === host
+      ) {
+        this.#touch(id);
+      }
+    }
+  }
+
   /** Forgets the devices gone quiet, and the probe answers too old to trust. */
   #sweep(): void {
     const nowMs = this.#now();
@@ -912,16 +998,39 @@ export class DiscoveryService {
    * @returns The candidates an owner is shown.
    */
   #visible(): Candidate[] {
-    const { externalIds, hosts } = this.#taken;
+    const { externalIds, hosts, locations } = this.#taken;
 
     return [...this.#candidates.values()]
-      .filter(({ device }) => {
-        const host = device.transportConfig['host'];
-        const byId =
-          device.externalId !== null && externalIds.has(`${device.vendorId}\n${device.externalId}`);
-        const byHost = typeof host === 'string' && hosts.has(`${device.vendorId}\n${host}`);
+      .flatMap((candidate): Candidate[] => {
+        const { device } = candidate;
+        const host = reachedAt(device.transportConfig);
+        const key = `${device.vendorId}\n${device.externalId ?? ''}`;
+        const byId = device.externalId !== null && externalIds.has(key);
+        const byHost = host !== undefined && hosts.has(`${device.vendorId}\n${host}`);
 
-        return !byId && !byHost;
+        if (byHost) {
+          return [];
+        }
+
+        if (!byId) {
+          return [candidate];
+        }
+
+        // Added, and heard at an address its instance does not reach: the lease changed. Shown
+        // for the owner to move it, rather than hidden as a device already added.
+        const location = locations.get(key);
+
+        return location === undefined || host === undefined || location.host === host
+          ? []
+          : [
+              {
+                ...candidate,
+                device: {
+                  ...device,
+                  movedFrom: { deviceId: location.instanceId, address: location.host },
+                },
+              },
+            ];
       })
       .sort((a, b) => a.device.firstSeenAt.getTime() - b.device.firstSeenAt.getTime());
   }

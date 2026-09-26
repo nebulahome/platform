@@ -19,6 +19,7 @@ import type {
 import type {
   Claim,
   DeviceDescriptor,
+  DeviceInfo,
   Integration,
   MappingContext,
   TransportInbound,
@@ -101,6 +102,9 @@ export class DeviceBook {
   readonly #byEntityId = new Map<EntityId, DeviceBinding>();
   readonly #lastState = new Map<EntityId, CapabilityState>();
 
+  /** What each device last said about its firmware, as text to compare, by its key. */
+  readonly #info = new Map<string, string>();
+
   /**
    * How many devices are bound.
    *
@@ -140,6 +144,8 @@ export class DeviceBook {
       this.#byEntityId.delete(entityId);
       this.#lastState.delete(entityId);
     }
+
+    this.#info.delete(deviceKey);
 
     return this.#byDeviceKey.delete(deviceKey);
   }
@@ -224,6 +230,47 @@ export class DeviceBook {
     }
 
     return reports;
+  }
+
+  /**
+   * Reads what a message says about its device's firmware, when it says something new.
+   *
+   * New since the last time this book heard it, not new to the registry: the first message
+   * after a start is always new here, and `core` - which holds what the row says - decides
+   * whether it changed anything. After that, a device repeating the same versions in every
+   * status is not asked about again.
+   *
+   * @param integration - The integration that owns these devices.
+   * @param options - The instance's settings.
+   * @param message - What arrived.
+   * @returns What it says, or undefined when it says nothing new or belongs to nobody here.
+   */
+  public infoOf(
+    integration: Integration,
+    options: JsonObject,
+    message: TransportInbound,
+  ): DeviceInfo | undefined {
+    const binding = this.#byDeviceKey.get(message.deviceKey);
+
+    if (binding === undefined || integration.deviceInfo === undefined) {
+      return undefined;
+    }
+
+    const info = integration.deviceInfo(message, this.contextFor(binding, options));
+
+    if (info === undefined) {
+      return undefined;
+    }
+
+    const heard = JSON.stringify(info);
+
+    if (this.#info.get(message.deviceKey) === heard) {
+      return undefined;
+    }
+
+    this.#info.set(message.deviceKey, heard);
+
+    return info;
   }
 
   /**

@@ -255,6 +255,7 @@ let harness: Harness | undefined;
  * @param options.queryIntervalMs - How often mDNS is asked again.
  * @param options.probeIntervalMs - How long an address's answer is trusted.
  * @param options.withTransport - Whether the vendor's transport is registered.
+ * @param options.now - The clock; the wall clock when not said.
  * @returns The harness.
  */
 async function start(
@@ -265,6 +266,7 @@ async function start(
     readonly queryIntervalMs?: number;
     readonly probeIntervalMs?: number;
     readonly withTransport?: boolean;
+    readonly now?: () => number;
   } = {},
 ): Promise<Harness> {
   const mdns = fakeMdns();
@@ -283,7 +285,7 @@ async function start(
     mdns,
     transport,
     published,
-    taken: { externalIds: new Set(), hosts: new Set() },
+    taken: { externalIds: new Set(), hosts: new Set(), locations: new Map() },
     service: new DiscoveryService({
       vendors: [options.vendor ?? acme()],
       mdns,
@@ -298,6 +300,7 @@ async function start(
       queryIntervalMs: options.queryIntervalMs ?? 60_000,
       ttlMs: options.ttlMs ?? 60_000,
       probeIntervalMs: options.probeIntervalMs ?? 60_000,
+      ...(options.now === undefined ? {} : { now: options.now }),
     }),
   };
 
@@ -470,7 +473,7 @@ describe('DiscoveryService', () => {
   it('hides a device already added, whether by its id or its address', async () => {
     const built = await start();
 
-    built.taken = { externalIds: new Set(['acme\nr1']), hosts: new Set() };
+    built.taken = { externalIds: new Set(['acme\nr1']), hosts: new Set(), locations: new Map() };
     await built.service.refresh();
     built.mdns.announce(heard('192.168.1.40'));
     await until(() => built.transport.scans.length > 0);
@@ -478,22 +481,115 @@ describe('DiscoveryService', () => {
 
     expect(built.service.list()).toEqual([]);
 
-    built.taken = { externalIds: new Set(), hosts: new Set(['acme\n192.168.1.40']) };
+    built.taken = {
+      externalIds: new Set(),
+      hosts: new Set(['acme\n192.168.1.40']),
+      locations: new Map(),
+    };
     await built.service.refresh();
 
     expect(built.service.list()).toEqual([]);
 
-    built.taken = { externalIds: new Set(), hosts: new Set() };
+    built.taken = { externalIds: new Set(), hosts: new Set(), locations: new Map() };
     await built.service.refresh();
 
     expect(built.service.list()).toHaveLength(1);
     expect(built.published.at(-1)).toBe(1);
   });
 
+  it('shows a removed device again at once, probing its address again and asking mDNS', async () => {
+    const built = await start();
+
+    // Adopted at .40: heard, proposed, then taken.
+    built.mdns.announce(heard('192.168.1.40'));
+    await until(() => built.service.list().length === 1);
+    built.taken = {
+      externalIds: new Set(['acme\nr1']),
+      hosts: new Set(['acme\n192.168.1.40']),
+      locations: new Map(),
+    };
+    await built.service.refresh();
+
+    expect(built.service.list()).toEqual([]);
+
+    const scansBefore = built.transport.scans.length;
+    const queriesBefore = built.mdns.queries;
+
+    // Removed: the rows are gone, and discovery is told.
+    built.taken = { externalIds: new Set(), hosts: new Set(), locations: new Map() };
+    await built.service.release('acme');
+
+    expect(built.service.list()).toHaveLength(1);
+    expect(built.mdns.queries).toBeGreaterThan(queriesBefore);
+
+    // What the address answered before is not trusted any more: it is asked again.
+    built.mdns.announce(heard('192.168.1.40'));
+    await until(() => built.transport.scans.length > scansBefore);
+  });
+
+  it('proposes moving a device added at one address and heard answering at another', async () => {
+    const built = await start();
+
+    // r1 was added at .39; the lease changed and it now answers at .40.
+    built.taken = {
+      externalIds: new Set(['acme\nr1']),
+      hosts: new Set(['acme\n192.168.1.39']),
+      locations: new Map([['acme\nr1', { instanceId: 'relay-kitchen', host: '192.168.1.39' }]]),
+    };
+    await built.service.refresh();
+    built.mdns.announce(heard('192.168.1.40'));
+    await until(() => built.service.list().length === 1);
+
+    expect(built.service.list()[0]).toMatchObject({
+      externalId: 'r1',
+      address: '192.168.1.40',
+      movedFrom: { deviceId: 'relay-kitchen', address: '192.168.1.39' },
+    });
+
+    // Moved: the instance reaches .40 now, and there is nothing left to propose.
+    built.taken = {
+      externalIds: new Set(['acme\nr1']),
+      hosts: new Set(['acme\n192.168.1.40']),
+      locations: new Map([['acme\nr1', { instanceId: 'relay-kitchen', host: '192.168.1.40' }]]),
+    };
+    await built.service.refresh();
+
+    expect(built.service.list()).toEqual([]);
+  });
+
+  it('keeps a device heard while it is added, so it is not forgotten before it is removed', async () => {
+    let nowMs = 1_000_000;
+    // Swept every 10 ms: the device must outlive the sweeps while it is added and still heard.
+    const built = await start({ ttlMs: 20, now: () => nowMs });
+
+    built.mdns.announce(heard('192.168.1.40'));
+    await until(() => built.service.list().length === 1);
+    built.taken = {
+      externalIds: new Set(),
+      hosts: new Set(['acme\n192.168.1.40']),
+      locations: new Map(),
+    };
+    await built.service.refresh();
+
+    // Heard again at its address, well past the time a device is kept, while it is added.
+    nowMs += 1000;
+    built.mdns.announce(heard('192.168.1.40'));
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    built.taken = { externalIds: new Set(), hosts: new Set(), locations: new Map() };
+    await built.service.release('acme');
+
+    expect(built.service.list()).toHaveLength(1);
+  });
+
   it('does not probe an address already added, which the hub is already connected to', async () => {
     const built = await start();
 
-    built.taken = { externalIds: new Set(), hosts: new Set(['acme\n192.168.1.40']) };
+    built.taken = {
+      externalIds: new Set(),
+      hosts: new Set(['acme\n192.168.1.40']),
+      locations: new Map(),
+    };
     await built.service.refresh();
     built.mdns.announce(heard('192.168.1.40'));
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -520,7 +616,8 @@ describe('DiscoveryService', () => {
       integrations,
       logger: silent(),
       vendorSettings: () => Promise.resolve({}),
-      taken: () => Promise.resolve({ externalIds: new Set(), hosts: new Set() }),
+      taken: () =>
+        Promise.resolve({ externalIds: new Set(), hosts: new Set(), locations: new Map() }),
       publishChanged: () => undefined,
       queryIntervalMs: 60_000,
       ttlMs: 600_000,
@@ -533,7 +630,7 @@ describe('DiscoveryService', () => {
       mdns,
       transport,
       published: [],
-      taken: { externalIds: new Set(), hosts: new Set() },
+      taken: { externalIds: new Set(), hosts: new Set(), locations: new Map() },
     };
     await service.start();
 
@@ -564,7 +661,8 @@ describe('DiscoveryService', () => {
       integrations,
       logger: silent(),
       vendorSettings: () => Promise.resolve({}),
-      taken: () => Promise.resolve({ externalIds: new Set(), hosts: new Set() }),
+      taken: () =>
+        Promise.resolve({ externalIds: new Set(), hosts: new Set(), locations: new Map() }),
       publishChanged: () => undefined,
       queryIntervalMs: 60_000,
       ttlMs: 600_000,
@@ -578,7 +676,7 @@ describe('DiscoveryService', () => {
       mdns,
       transport,
       published: [],
-      taken: { externalIds: new Set(), hosts: new Set() },
+      taken: { externalIds: new Set(), hosts: new Set(), locations: new Map() },
     };
     await service.start();
 

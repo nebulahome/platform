@@ -6,7 +6,7 @@
  * thing - `nebula_hub` may select from this table and update three columns of it - so a mistake
  * in this file fails against the database rather than quietly overwriting an owner's settings.
  */
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import {
   integrationStateSchema,
@@ -145,6 +145,33 @@ export async function readStatus(db: Database, id: string): Promise<ReloadReply>
   return row === undefined
     ? { state: 'stopped', lastError: null }
     : { state: integrationStateSchema.parse(row.state), lastError: row.lastError };
+}
+
+/** How long a reason written next to the state may be: a sentence, not a stack trace. */
+const MAXIMUM_REASON_LENGTH = 512;
+
+/**
+ * Records why an instance still listening has not heard its device, next to the state.
+ *
+ * Only while the row says `identifying`: a reason landing after the device was found, or after
+ * the instance was stopped, would describe something that is no longer happening. The state is
+ * left alone - the search goes on - and the next state written clears the reason.
+ *
+ * @param db - A connected database handle.
+ * @param id - The instance.
+ * @param reason - Why, in an owner's words.
+ * @returns A promise that settles once the row is written, or found not listening.
+ */
+export async function recordListening(db: Database, id: string, reason: string): Promise<void> {
+  await db
+    .update(schema.registry.integrations)
+    .set({ lastError: reason.slice(0, MAXIMUM_REASON_LENGTH) })
+    .where(
+      and(
+        eq(schema.registry.integrations.id, id),
+        eq(schema.registry.integrations.state, 'identifying'),
+      ),
+    );
 }
 
 /**

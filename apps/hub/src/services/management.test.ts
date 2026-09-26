@@ -145,6 +145,7 @@ function printerVendor(): LoadedVendor {
       logo: { path: './logo.svg', padding: 4 },
       internetRequired: true,
       transports: {},
+      streams: {},
     },
     origin: 'installed',
     setup: integrationSetupSchema.parse({
@@ -155,6 +156,7 @@ function printerVendor(): LoadedVendor {
     logo: 'data:image/svg+xml;base64,PHN2Zy8+',
     transports: ['fake'],
     ownTransports: [],
+    streams: [],
     drivers: [driver],
     directory: '/bundles/acme',
     release: () => Promise.resolve(),

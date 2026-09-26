@@ -21,6 +21,7 @@ import { takenFrom, type TakenDevices } from '../domain/taken.js';
 export async function loadTakenDevices(db: Database): Promise<TakenDevices> {
   const rows = await db
     .select({
+      id: schema.registry.integrations.id,
       kind: schema.registry.integrations.kind,
       transportConfig: schema.registry.integrations.transportConfig,
       externalId: schema.registry.devices.externalId,
@@ -33,6 +34,7 @@ export async function loadTakenDevices(db: Database): Promise<TakenDevices> {
 
   return takenFrom(
     rows.map((row) => ({
+      id: row.id,
       kind: row.kind,
       transportConfig: row.transportConfig as JsonObject,
       externalId: row.externalId,

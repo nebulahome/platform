@@ -120,9 +120,10 @@ type Seen = {
  *
  * @param passes - What each call yields; the last one repeats.
  * @param seen - Where to record what it was given and how often a scan was closed.
+ * @param probeFails - What the transport's own test fails with; it passes when not said.
  * @returns The transport.
  */
-function fakeTransport(passes: readonly Pass[], seen: Seen): Transport {
+function fakeTransport(passes: readonly Pass[], seen: Seen, probeFails?: Error): Transport {
   let call = 0;
 
   return defineTransport({
@@ -145,7 +146,8 @@ function fakeTransport(passes: readonly Pass[], seen: Seen): Transport {
       }
     },
 
-    probe: (): Promise<string> => Promise.resolve('not used by identification'),
+    probe: (): Promise<string> =>
+      probeFails === undefined ? Promise.resolve('fake answered') : Promise.reject(probeFails),
   });
 }
 
@@ -167,11 +169,17 @@ type Harness = {
  * @param options.expectedExternalId - What the row already says the device is.
  * @param options.coreIsAway - Whether `core` starts out not answering.
  * @param options.lines - Where to keep what was logged at `info` and above, when a test reads it.
+ * @param options.probeFails - What the transport's own test fails with.
  * @returns The harness.
  */
 function harness(
   passes: readonly Pass[],
-  options: { expectedExternalId?: string; coreIsAway?: boolean; lines?: string[] } = {},
+  options: {
+    expectedExternalId?: string;
+    coreIsAway?: boolean;
+    lines?: string[];
+    probeFails?: Error;
+  } = {},
 ): Harness {
   const transport = new FakeTransport();
   const lines = options.lines;
@@ -221,7 +229,7 @@ function harness(
 
   const seen: Seen = { scans: [], closed: 0 };
   const transports = new Registry<Transport>('transport');
-  transports.register(fakeTransport(passes, seen));
+  transports.register(fakeTransport(passes, seen, options.probeFails));
 
   return {
     identification: new IdentificationService({
@@ -347,6 +355,44 @@ describe('IdentificationService', () => {
 
     expect(found?.externalId).toBe('relay-one');
     expect(seen.scans).toHaveLength(2);
+    stop();
+  });
+
+  it("says why a quiet pass heard nothing, in the transport's own test's words, once", async () => {
+    const { identification, instance, stop } = harness(
+      [findsNothing(), findsNothing(), findsBoth()],
+      {
+        probeFails: new Error('192.168.1.40 did not answer: EHOSTUNREACH'),
+      },
+    );
+    const reasons: string[] = [];
+
+    const found = await identification.identify(
+      instance,
+      new AbortController().signal,
+      (reason) => {
+        reasons.push(reason);
+      },
+    );
+
+    expect(found?.externalId).toBe('relay-one');
+    expect(reasons).toEqual(['192.168.1.40 did not answer: EHOSTUNREACH']);
+    stop();
+  });
+
+  it('says that a device answered as another than the one on the row', async () => {
+    const { identification, instance, stop } = harness([findsBoth()], {
+      expectedExternalId: 'relay-three',
+    });
+    const abort = new AbortController();
+    const reasons: string[] = [];
+
+    await identification.identify(instance, abort.signal, (reason) => {
+      reasons.push(reason);
+      abort.abort();
+    });
+
+    expect(reasons[0]).toMatch(/not as relay-three it was added as/u);
     stop();
   });
 

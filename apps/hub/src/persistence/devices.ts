@@ -114,3 +114,23 @@ export async function loadBinding(
     externalId: row.externalId,
   };
 }
+
+/**
+ * Reads what an instance's device is called, for an event naming it.
+ *
+ * @param db - The database.
+ * @param instanceId - Which instance, which is the device's id.
+ * @returns Its name, or undefined when it has no row.
+ */
+export async function loadDeviceName(
+  db: Database,
+  instanceId: string,
+): Promise<string | undefined> {
+  const [row] = await db
+    .select({ name: schema.registry.devices.name })
+    .from(schema.registry.devices)
+    .where(eq(schema.registry.devices.integrationId, instanceId))
+    .limit(1);
+
+  return row?.name;
+}

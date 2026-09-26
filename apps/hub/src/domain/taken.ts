@@ -8,6 +8,15 @@
  */
 import type { JsonObject } from '@nebula-home/contracts';
 
+/** Where an identified device's instance reaches it. */
+export type TakenLocation = {
+  /** The instance, which is the device's id in the interface. */
+  readonly instanceId: string;
+
+  /** The address its configuration names. */
+  readonly host: string;
+};
+
 /**
  * What is already added.
  *
@@ -16,19 +25,64 @@ import type { JsonObject } from '@nebula-home/contracts';
 export type TakenDevices = {
   readonly externalIds: ReadonlySet<string>;
   readonly hosts: ReadonlySet<string>;
+
+  /**
+   * Where each identified device is reached, by `<vendor>\n<external id>`: what tells a device
+   * heard at another address that it moved, rather than that it is a second one.
+   */
+  readonly locations: ReadonlyMap<string, TakenLocation>;
 };
 
 /** One instance, as far as recognising its device goes. */
 export type TakenRow = {
+  /** The instance. */
+  readonly id: string;
+
   /** The driver, `vendor/driver`, which names the vendor. */
   readonly kind: string;
 
-  /** How the instance reaches its device; only `host` is read, and it is never a secret. */
+  /** How the instance reaches its device; only the address is read, and it is never a secret. */
   readonly transportConfig: JsonObject;
 
   /** What identification found the device to be, once it has. */
   readonly externalId: string | null;
 };
+
+/** Nothing added. */
+export const NOTHING_TAKEN: TakenDevices = {
+  externalIds: new Set(),
+  hosts: new Set(),
+  locations: new Map(),
+};
+
+/**
+ * The address a configuration reaches: its `host`, or the host of its `url` for a transport
+ * reached through one - a broker, a printer's MQTT port.
+ *
+ * @param config - A transport configuration.
+ * @returns The address, with its port when it has one; undefined when it names none.
+ */
+export function addressOf(config: JsonObject): string | undefined {
+  const host = config['host'];
+
+  if (typeof host === 'string' && host.length > 0) {
+    return host;
+  }
+
+  const url = config['url'];
+
+  if (typeof url === 'string') {
+    try {
+      const parsed = new URL(url);
+
+      return parsed.hostname.length > 0 ? parsed.hostname : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
+}
 
 /**
  * Collects what is already added from every instance.
@@ -39,19 +93,24 @@ export type TakenRow = {
 export function takenFrom(rows: readonly TakenRow[]): TakenDevices {
   const externalIds = new Set<string>();
   const hosts = new Set<string>();
+  const locations = new Map<string, TakenLocation>();
 
   for (const row of rows) {
     const [vendorId = ''] = row.kind.split('/');
-    const host = row.transportConfig['host'];
+    const host = addressOf(row.transportConfig);
 
     if (row.externalId !== null) {
       externalIds.add(`${vendorId}\n${row.externalId}`);
+
+      if (host !== undefined) {
+        locations.set(`${vendorId}\n${row.externalId}`, { instanceId: row.id, host });
+      }
     }
 
-    if (typeof host === 'string' && host.length > 0) {
+    if (host !== undefined) {
       hosts.add(`${vendorId}\n${host}`);
     }
   }
 
-  return { externalIds, hosts };
+  return { externalIds, hosts, locations };
 }
