@@ -13,5 +13,5 @@
       }
     ]
   },
-  "polling": { "default": 10, "min": 2, "warnBelow": 5 }
+  "polling": { "default": 5, "min": 2, "warnBelow": 3 }
 }

@@ -1,13 +1,14 @@
 {
   "id": "govee",
   "version": "1.0.0",
-  "sdk": "^1.1.0",
+  "sdk": "^1.2.0",
   "name": "Govee",
-  "description": "Govee lights with LAN Control switched on, spoken to directly over their LAN API. Nothing goes through the Govee cloud once LAN Control is on.",
+  "description": "Govee lights with LAN Control switched on, spoken to directly over their LAN API. Nothing goes through the Govee cloud unless you give the bundle your Govee account, and then only to hear changes sooner.",
   "url": "https://www.govee.com",
   "color": "#2E8BFF",
   "logo": "./logo.svg",
   "internetRequired": false,
+  "setup": "./setup.json",
   "transports": {
     "lan": "./lan/transport.js"
   }

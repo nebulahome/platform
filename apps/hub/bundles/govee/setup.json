@@ -1,0 +1,21 @@
+{
+  "transport": {
+    "fields": [
+      {
+        "key": "cloudEmail",
+        "type": "text",
+        "label": "Govee account email (optional)",
+        "help": "Only to hear changes made from the Govee app or a remote at once. Uses Govee's cloud - not a documented API - and the internet; commands still go over the LAN.",
+        "placeholder": "you@example.com",
+        "maxLength": 256
+      },
+      {
+        "key": "cloudPassword",
+        "type": "secret",
+        "label": "Govee account password (optional)",
+        "help": "The Govee app account's password. Kept sealed; sent only to Govee's sign-in.",
+        "maxLength": 256
+      }
+    ]
+  }
+}

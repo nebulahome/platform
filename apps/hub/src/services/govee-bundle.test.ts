@@ -9,7 +9,7 @@
 import { createSocket, type Socket } from 'node:dgram';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -51,6 +51,13 @@ const light = { onOff: 1, brightness: 80, colorTemInKelvin: 3000 };
 let scanSocket: Socket;
 let commandSocket: Socket;
 let govee: LoadedVendor;
+
+/** The colour helpers the transport module exports, read the way a test reads a bundle's code. */
+let colour: {
+  readonly hsOf: (r: number, g: number, b: number) => { hue: number; saturation: number };
+  readonly rgbOf: (hue: number, saturation: number) => { r: number; g: number; b: number };
+  readonly statusOf: (data: Record<string, unknown>) => Record<string, unknown>;
+};
 
 /**
  * Answers one datagram the way a Govee light does: to the sender's address, on port 4002.
@@ -101,7 +108,7 @@ beforeAll(async () => {
     commandSocket.bind(4003, '127.0.0.1', resolve);
   });
 
-  const { vendors } = await loadBundles({ directory: BUNDLES, runtimeVersion: '1.1.0' });
+  const { vendors } = await loadBundles({ directory: BUNDLES, runtimeVersion: '1.2.0' });
   const found = vendors.find((vendor) => vendor.manifest.id === 'govee');
 
   if (found === undefined) {
@@ -109,6 +116,9 @@ beforeAll(async () => {
   }
 
   govee = found;
+  colour = (await import(
+    pathToFileURL(path.join(BUNDLES, 'govee/lan/transport.js')).href
+  )) as typeof colour;
 });
 
 afterAll(async () => {
@@ -281,10 +291,18 @@ describe('the Govee vendor', () => {
 
     heard.length = 0;
 
+    /**
+     * The commands the light was sent, without the questions asked after them.
+     *
+     * @returns The commands.
+     */
+    const commands = (): typeof heard => heard.filter((each) => each.msg.cmd !== 'devStatus');
+
     for (const command of [
       { capability: 'on_off', command: { command: 'turn_off' } },
       { capability: 'level', command: { command: 'set_level', level: 35 } },
       { capability: 'color_temp', command: { command: 'set_color_temp', mireds: 250 } },
+      { capability: 'color_hs', command: { command: 'set_color', hue: 120, saturation: 50 } },
     ] as const) {
       await connection.send(
         integration.toCommand({ entityId, ...command }, context(claim)),
@@ -292,20 +310,115 @@ describe('the Govee vendor', () => {
       );
     }
 
-    for (let attempt = 0; attempt < 100 && heard.length < 3; attempt += 1) {
+    for (let attempt = 0; attempt < 100 && commands().length < 4; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
 
     await connection.close();
 
-    expect(heard).toEqual([
+    expect(commands()).toEqual([
       { port: 4003, msg: { cmd: 'turn', data: { value: 0 } } },
       { port: 4003, msg: { cmd: 'brightness', data: { value: 35 } } },
       {
         port: 4003,
         msg: { cmd: 'colorwc', data: { color: { r: 0, g: 0, b: 0 }, colorTemInKelvin: 4000 } },
       },
+      {
+        port: 4003,
+        msg: { cmd: 'colorwc', data: { color: { r: 128, g: 255, b: 128 }, colorTemInKelvin: 0 } },
+      },
     ]);
     expect(light.onOff).toBe(0);
+  });
+
+  it('asks the light how it is right after a command, rather than waiting for the next poll', async () => {
+    const integration = await lightLan();
+    const claim = await identified(integration);
+    const connection = await lan().connect(
+      { host: '127.0.0.1' },
+      {
+        logger: createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' }),
+        deliver: (): void => undefined,
+        report: (): void => undefined,
+      },
+    );
+
+    heard.length = 0;
+    await connection.send(
+      integration.toCommand(
+        {
+          entityId: parseEntityId('light.govee_strip'),
+          capability: 'on_off',
+          command: { command: 'turn_on' },
+        },
+        context(claim),
+      ),
+      AbortSignal.timeout(2000),
+    );
+
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      if (heard.filter((each) => each.msg.cmd === 'devStatus').length >= 2) {
+        break;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+
+    await connection.close();
+
+    expect(heard.map((each) => each.msg.cmd)).toEqual(['turn', 'devStatus', 'devStatus']);
+  });
+
+  it('reads the colour a light in colour mode shows as a hue and a saturation', async () => {
+    const integration = await lightLan();
+    const claim = integration.claim(
+      { deviceKey: '127.0.0.1', payload: { device: DEVICE, sku: SKU } },
+      {},
+    );
+
+    if (claim === null) {
+      throw new Error('The light was not claimed');
+    }
+    const report = integration.toState(
+      {
+        connectionKey: 'govee/lan:127.0.0.1',
+        deviceKey: '127.0.0.1',
+        payload: colour.statusOf({
+          onOff: 1,
+          brightness: 60,
+          color: { r: 255, g: 128, b: 0 },
+          colorTemInKelvin: 0,
+        }),
+      },
+      context(claim),
+    );
+
+    expect(report.map((each) => each.state)).toEqual([
+      { on_off: { isOn: true }, level: { level: 60 }, color_hs: { hue: 30, saturation: 100 } },
+    ]);
+  });
+});
+
+describe('the colour conversion', () => {
+  it('turns a hue and a saturation into the red, green and blue a light takes, and back', () => {
+    for (const [hue, saturation] of [
+      [0, 100],
+      [120, 100],
+      [240, 50],
+      [300, 25],
+      [45, 0],
+    ] as const) {
+      const { r, g, b } = colour.rgbOf(hue, saturation);
+      const back = colour.hsOf(r, g, b);
+
+      expect(back.saturation).toBeCloseTo(saturation, -0.5);
+
+      if (saturation > 0) {
+        expect(back.hue).toBeCloseTo(hue, -0.5);
+      }
+    }
+
+    expect(colour.rgbOf(0, 100)).toEqual({ r: 255, g: 0, b: 0 });
+    expect(colour.rgbOf(120, 50)).toEqual({ r: 128, g: 255, b: 128 });
   });
 });
