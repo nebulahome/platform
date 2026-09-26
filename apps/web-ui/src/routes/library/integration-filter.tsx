@@ -1,21 +1,21 @@
 /**
  * The filter on the integrations page: which wire, and whether the internet is needed.
  *
- * Two facets, each a segmented control - three or four choices each, which is what a segmented
- * control is for. The button and the sheet are the library's shared shell.
+ * Two facets, each a segmented control - a handful of choices each, which is what a segmented
+ * control is for. The wires offered are the ones some vendor goes over. The button and the sheet are the library's shared shell.
  */
 import { Segmented, type SegmentedOption } from '@nebula-home/ui';
 
-import type { InternetFilter, TransportFilter, VendorFilter } from '@/library/vendor-filters';
+import type { InternetFilter, TransportFilter, VendorFilter, Wire } from '@/library/vendor-filters';
 import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
 
-/** The wires a vendor may be narrowed to. */
-const WIRES: readonly SegmentedOption<TransportFilter>[] = [
-  { value: '', label: 'Any' },
-  { value: 'http', label: 'HTTP' },
-  { value: 'mqtt', label: 'MQTT' },
-  { value: 'own', label: 'Own' },
-];
+/** What each wire is called on its choice. */
+const WIRE_LABELS: Readonly<Record<Wire, string>> = {
+  http: 'HTTP',
+  mqtt: 'MQTT',
+  ble: 'BLE',
+  zigbee: 'ZigBee',
+};
 
 /** The internet facet's choices. */
 const INTERNET: readonly SegmentedOption<InternetFilter>[] = [
@@ -28,6 +28,9 @@ const INTERNET: readonly SegmentedOption<InternetFilter>[] = [
 export type IntegrationFilterProps = {
   readonly filter: VendorFilter;
 
+  /** The wires some vendor goes over: only those are offered, as a choice nothing would match is none. */
+  readonly wires: readonly Wire[];
+
   /** Called with the filter as it now stands. */
   readonly onChange: (filter: VendorFilter) => void;
 };
@@ -39,8 +42,12 @@ export type IntegrationFilterProps = {
  * @returns The control.
  */
 export function IntegrationFilter(props: IntegrationFilterProps) {
-  const { filter, onChange } = props;
+  const { filter, wires, onChange } = props;
   const count = Number(filter.transport !== '') + Number(filter.internet !== '');
+  const choices: readonly SegmentedOption<TransportFilter>[] = [
+    { value: '', label: 'Any' },
+    ...wires.map((wire) => ({ value: wire, label: WIRE_LABELS[wire] })),
+  ];
 
   return (
     <FilterSheet
@@ -54,7 +61,7 @@ export function IntegrationFilter(props: IntegrationFilterProps) {
         <Segmented
           label="Wire"
           size="compact"
-          options={WIRES}
+          options={choices}
           value={filter.transport}
           onChange={(transport) => {
             onChange({ ...filter, transport });

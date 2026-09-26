@@ -28,6 +28,15 @@ export type DiscoveredCardProps = {
 
   /** Called with the device when Adopt is pressed. */
   readonly onAdopt: (device: DiscoveredDevice) => void;
+
+  /** Whether this device is being moved to where it was found now. */
+  readonly isMoving?: boolean;
+
+  /**
+   * Called with the device when Move here is pressed, for a device already added that was found
+   * at another address.
+   */
+  readonly onMove?: (device: DiscoveredDevice) => void;
 };
 
 /** How a device was heard, in the words on the card. */
@@ -54,7 +63,7 @@ export function discoveredTitle(device: DiscoveredDevice, vendorName: string): s
  * @returns The card, as a list item.
  */
 export function DiscoveredCard(props: DiscoveredCardProps) {
-  const { device, vendor, canAdopt, onAdopt } = props;
+  const { device, vendor, canAdopt, onAdopt, isMoving = false, onMove } = props;
   const vendorName = vendor?.name ?? device.vendorId;
   const title = discoveredTitle(device, vendorName);
   const model = device.model ?? device.modelChoices.join(' · ');
@@ -99,15 +108,23 @@ export function DiscoveredCard(props: DiscoveredCardProps) {
             <dt className="shrink-0 text-foreground-subtle">Address</dt>
             <dd className="truncate text-foreground-muted tabular">{device.address}</dd>
           </div>
+          {device.movedFrom === null ? null : (
+            <div className="flex min-w-0 items-baseline gap-2">
+              <dt className="shrink-0 text-foreground-subtle">Added at</dt>
+              <dd className="truncate text-warning tabular">{device.movedFrom.address}</dd>
+            </div>
+          )}
         </dl>
 
         <span className="grow" />
 
         <div className="mt-4 flex items-center justify-between gap-3">
           <span className="truncate text-caption text-foreground-subtle">
-            {SOURCES[device.source]}
+            {device.movedFrom === null
+              ? SOURCES[device.source]
+              : 'Already added; its address changed'}
           </span>
-          {canAdopt ? (
+          {!canAdopt ? null : device.movedFrom === null ? (
             <Button
               size="compact"
               aria-label={`Adopt ${title}`}
@@ -117,7 +134,18 @@ export function DiscoveredCard(props: DiscoveredCardProps) {
             >
               Adopt
             </Button>
-          ) : null}
+          ) : onMove === undefined ? null : (
+            <Button
+              size="compact"
+              aria-label={`Move ${title} to ${device.address}`}
+              isBusy={isMoving}
+              onClick={() => {
+                onMove(device);
+              }}
+            >
+              Move here
+            </Button>
+          )}
         </div>
       </article>
     </li>

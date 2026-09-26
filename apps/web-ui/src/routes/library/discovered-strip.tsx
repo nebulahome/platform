@@ -28,6 +28,7 @@ import { IconButton } from '@nebula-home/ui';
 
 import { ChevronLeftIcon, ChevronRightIcon } from '@/components/icons';
 import { DiscoveredCard } from '@/routes/library/discovered-card';
+import { useMoveDevice } from '@/routes/library/use-move-device';
 
 /** How much of the row one arrow press moves by: most of a view, so a card stays in sight. */
 const PAGE_FRACTION = 0.8;
@@ -74,6 +75,7 @@ function reachOf(list: HTMLElement): Reach {
 export function DiscoveredStrip(props: DiscoveredStripProps) {
   const { devices, vendors, canAdopt, onAdopt, action } = props;
   const headingId = useId();
+  const mover = useMoveDevice();
   const listRef = useRef<HTMLUListElement>(null);
   const [reach, setReach] = useState<Reach>({ canGoBack: false, canGoOn: false });
 
@@ -175,9 +177,17 @@ export function DiscoveredStrip(props: DiscoveredStripProps) {
             vendor={vendors.find((vendor) => vendor.id === device.vendorId)}
             canAdopt={canAdopt}
             onAdopt={onAdopt}
+            isMoving={mover.movingId === device.id}
+            onMove={mover.move}
           />
         ))}
       </ul>
+
+      {mover.problem === null ? null : (
+        <p role="alert" className="text-ui text-danger">
+          {mover.problem}
+        </p>
+      )}
     </section>
   );
 }

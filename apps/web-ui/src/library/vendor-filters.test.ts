@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import type { IntegrationVendorView } from '@nebula-home/contracts';
 
-import { matchesVendorFilter, OPEN_VENDOR_FILTER, type VendorFilter } from './vendor-filters';
+import {
+  matchesVendorFilter,
+  OPEN_VENDOR_FILTER,
+  wiresOf,
+  type VendorFilter,
+} from './vendor-filters';
 
 /**
  * A vendor as the list serves it, varying what the filters read.
@@ -75,15 +80,14 @@ describe('matchesVendorFilter', () => {
     ).toBe(true);
   });
 
-  it("keeps a vendor speaking a protocol of its own under the 'own' wire, and only there", () => {
-    // A vendor may ship its transport in its bundle - `shelly/rpc` - and the hub names it after
-    // the vendor. No list of wires in the interface could know every such name in advance.
+  it('narrows by the wires a person recognises, and keeps a protocol of its own out of them', () => {
     const shelly = vendor({ transports: ['shelly/rpc'] });
-    const bambu = vendor({ transports: ['mqtt'] });
+    const zigbee = vendor({ transports: ['zigbee'] });
 
-    expect(matchesVendorFilter(shelly, filter({ transport: 'own' }))).toBe(true);
-    expect(matchesVendorFilter(bambu, filter({ transport: 'own' }))).toBe(false);
+    expect(matchesVendorFilter(zigbee, filter({ transport: 'zigbee' }))).toBe(true);
     expect(matchesVendorFilter(shelly, filter({ transport: 'http' }))).toBe(false);
+    expect(wiresOf(shelly)).toEqual([]);
+    expect(wiresOf(vendor({ transports: ['mqtt', 'http', 'acme/lan'] }))).toEqual(['http', 'mqtt']);
   });
 
   it('narrows by whether the internet is needed', () => {

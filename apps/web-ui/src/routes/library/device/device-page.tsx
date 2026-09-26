@@ -19,7 +19,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
-import type { EntityView } from '@nebula-home/contracts';
+import { isUpdateOffered, type EntityView } from '@nebula-home/contracts';
 import { AppIcon, Badge, IconButton, Panel, TagChip } from '@nebula-home/ui';
 
 import { ExternalLinkIcon } from '@/components/icons';
@@ -29,6 +29,7 @@ import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { useLive } from '@/live/live-store';
 import { DetailHeader, DetailPlaceholder } from '@/routes/library/detail-page';
 import { ActivityPanel } from '@/routes/library/device/activity-panel';
+import { DeviceProblem } from '@/routes/library/device/device-problem';
 import { entityGroupsOf } from '@/routes/library/device/entity-groups';
 import { useDevicePage, type DevicePageView } from '@/routes/library/device/use-device-page';
 import { DeviceDialog } from '@/routes/library/device-dialog';
@@ -56,9 +57,9 @@ function DeviceSummary(props: DeviceSummaryProps) {
   const make = [device.manufacturer, device.model].filter(Boolean).join(' ');
   const place = [floor?.name, room?.name ?? device.areaName].filter(Boolean).join(' › ');
   const isDisabled = device.state === 'disabled';
-  const hasUpdate = view.lines.some(
-    (line) => line.entity.deviceClass === 'update' && line.state.sensor_binary?.isOn === true,
-  );
+  const firmware = view.lines.find((line) => line.state.update !== undefined)?.state.update;
+  const isInstalling = firmware?.isInstalling === true;
+  const hasUpdate = firmware !== undefined && !isInstalling && isUpdateOffered(firmware);
 
   return (
     <section className="flex flex-wrap items-center gap-4">
@@ -73,6 +74,7 @@ function DeviceSummary(props: DeviceSummaryProps) {
         </p>
       </div>
       <div className="flex items-center gap-2">
+        {isInstalling ? <Badge tone="accent">Installing firmware</Badge> : null}
         {hasUpdate ? <Badge tone="accent">Update available</Badge> : null}
         <Badge tone={isDisabled ? 'neutral' : standing.isReporting ? 'success' : 'warning'}>
           {isDisabled ? 'Disabled' : standing.isReporting ? 'Reporting' : 'Silent'}
@@ -189,12 +191,7 @@ function DeviceDetails(props: { readonly view: DevicePageView; readonly webPage:
         )}
         {device.swVersion === null ? null : <Fact term="Firmware">{device.swVersion}</Fact>}
         {device.hwVersion === null ? null : <Fact term="Hardware">{device.hwVersion}</Fact>}
-        <Fact term="State">
-          {device.state}
-          {device.lastError === null ? null : (
-            <span className="block text-caption text-danger">{device.lastError}</span>
-          )}
-        </Fact>
+        <Fact term="State">{device.state}</Fact>
         <Fact term="Tags">
           {tags.length === 0 ? (
             <span className="text-foreground-subtle">None</span>
@@ -291,18 +288,25 @@ export function DevicePage() {
             <>
               <DeviceSummary view={view} />
               <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
-                <Panel title={`Entities · ${String(view.lines.length)}`}>
-                  {view.lines.length === 0 ? (
-                    <p className="px-4 py-3.5 text-ui text-foreground-muted">
-                      No entities yet. They appear as soon as the hub hears from the device.
-                    </p>
-                  ) : (
-                    <EntityGroups
-                      view={view}
-                      onConfigure={view.canEditEntities ? setConfiguring : undefined}
-                    />
+                <div className="flex min-w-0 flex-col gap-5">
+                  <DeviceProblem device={view.device} />
+                  {/* A device with nothing to show but its problem shows only that: the problem
+                      is why there are no entities. */}
+                  {view.lines.length === 0 && view.device.lastError !== null ? null : (
+                    <Panel title={`Entities · ${String(view.lines.length)}`}>
+                      {view.lines.length === 0 ? (
+                        <p className="px-4 py-3.5 text-ui text-foreground-muted">
+                          No entities yet. They appear as soon as the hub hears from the device.
+                        </p>
+                      ) : (
+                        <EntityGroups
+                          view={view}
+                          onConfigure={view.canEditEntities ? setConfiguring : undefined}
+                        />
+                      )}
+                    </Panel>
                   )}
-                </Panel>
+                </div>
                 <div className="flex min-w-0 flex-col gap-5">
                   <DeviceDetails view={view} webPage={webPage} />
                   <ActivityPanel

@@ -63,6 +63,7 @@ const FOUND: DiscoveredDevice = {
   modelCode: 'C12',
   swVersion: null,
   transportConfig: { url: 'mqtts://192.168.1.62:8883' },
+  movedFrom: null,
   firstSeenAt: new Date('2026-09-23T10:00:00.000Z'),
   lastSeenAt: new Date('2026-09-23T10:05:00.000Z'),
 };
@@ -247,7 +248,9 @@ describe('a vendor page', () => {
     expect(rows[0]?.textContent).toContain('X1C');
     expect(rows[0]?.textContent).toMatch(/5 (?:minutes ago|minuti fa)/u);
     expect(rows[1]?.textContent).toContain('failed');
-    expect(rows[1]?.textContent).toContain('ECONNREFUSED');
+    // One line in the list; the message itself, however long, is on the device's page.
+    expect(rows[1]?.textContent).toContain('Not working - see why');
+    expect(rows[1]?.textContent).not.toContain('ECONNREFUSED');
     expect(rows[1]?.textContent).toContain('—');
 
     // The name is the way to the registry: the devices page, narrowed to this one device.

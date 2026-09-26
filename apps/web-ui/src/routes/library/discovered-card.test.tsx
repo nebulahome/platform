@@ -29,6 +29,7 @@ function found(overrides: Partial<DiscoveredDevice> = {}): DiscoveredDevice {
     modelCode: 'S3SW-001P16EU',
     swVersion: '1.4.2',
     transportConfig: { host: '192.168.1.40' },
+    movedFrom: null,
     firstSeenAt: new Date('2026-09-23T10:00:00.000Z'),
     lastSeenAt: new Date('2026-09-23T10:05:00.000Z'),
     ...overrides,
@@ -93,6 +94,28 @@ describe('DiscoveredCard', () => {
     render(<DiscoveredCard device={found()} vendor={SHELLY} canAdopt={false} onAdopt={vi.fn()} />);
 
     expect(screen.queryByRole('button', { name: /Adopt/u })).toBeNull();
+  });
+
+  it('offers to move a device already added that answers at a new address, not to adopt it', () => {
+    const onAdopt = vi.fn();
+    const onMove = vi.fn();
+    const device = found({
+      address: '192.168.4.37',
+      transportConfig: { host: '192.168.4.37' },
+      movedFrom: { deviceId: 'kitchen-relay', address: '192.168.1.40' },
+    });
+
+    render(
+      <DiscoveredCard device={device} vendor={SHELLY} canAdopt onAdopt={onAdopt} onMove={onMove} />,
+    );
+
+    expect(screen.getByRole('article', { name: 'Kitchen' }).textContent).toContain('192.168.1.40');
+    expect(screen.queryByRole('button', { name: /Adopt/u })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Kitchen to 192.168.4.37' }));
+
+    expect(onMove).toHaveBeenCalledWith(device);
+    expect(onAdopt).not.toHaveBeenCalled();
   });
 
   it('still shows a device whose vendor the page has not loaded', () => {

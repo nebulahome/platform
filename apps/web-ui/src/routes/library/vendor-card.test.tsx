@@ -14,12 +14,17 @@ describe('Marks', () => {
     expect(screen.getByRole('img', { name: 'Listens on the MQTT broker' })).toBeTruthy();
   });
 
-  it("marks a vendor's own protocol with a cable, named after the transport", () => {
-    // A transport the vendor ships has a name the interface cannot know in advance; it still
-    // says there is a wire, and which, rather than leaving the corner empty.
-    render(<Marks vendor={{ transports: ['shelly/rpc'], internetRequired: false }} />);
+  it('draws Bluetooth LE and Zigbee too, when a vendor goes over them', () => {
+    render(<Marks vendor={{ transports: ['ble', 'zigbee'], internetRequired: false }} />);
 
-    expect(screen.getByRole('img', { name: 'Speaks its own protocol, shelly/rpc' })).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Reaches its devices over Bluetooth LE' })).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Reaches its devices over Zigbee' })).toBeTruthy();
+  });
+
+  it("gives a vendor's own protocol no mark: it is not a wire anybody shops by", () => {
+    render(<Marks vendor={{ transports: ['shelly/rpc', 'govee/lan'], internetRequired: false }} />);
+
+    expect(screen.queryAllByRole('img')).toEqual([]);
   });
 
   it('says so when the internet is needed', () => {

@@ -1,12 +1,30 @@
 /**
  * The row of devices found on the network, and the arrows that page through it.
  */
-import { fireEvent, render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render as renderAlone, screen } from '@testing-library/react';
+import type { ReactElement, ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { DiscoveredDevice } from '@nebula-home/contracts';
 
 import { DiscoveredStrip } from './discovered-strip';
+
+/**
+ * Renders inside a query client, which moving a device found at a new address uses.
+ *
+ * @param ui - What to render.
+ * @returns What testing-library returns.
+ */
+function render(ui: ReactElement): ReturnType<typeof renderAlone> {
+  const client = new QueryClient();
+
+  return renderAlone(ui, {
+    wrapper: ({ children }: { readonly children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
+}
 
 /**
  * A device found over mDNS.
@@ -29,6 +47,7 @@ function found(n: number): DiscoveredDevice {
     modelCode: 'S3PL-00112EU',
     swVersion: null,
     transportConfig: { host: `192.168.1.${String(40 + n)}` },
+    movedFrom: null,
     firstSeenAt: new Date('2026-09-23T10:00:00.000Z'),
     lastSeenAt: new Date('2026-09-23T10:00:00.000Z'),
   };

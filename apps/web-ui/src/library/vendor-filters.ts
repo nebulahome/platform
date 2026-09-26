@@ -11,12 +11,19 @@ import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, readChoice, type ListCodec } from '@/lib/use-list-state';
 
 /**
- * Which wire to keep, or any.
+ * The wires the interface names: the platform's own transports a person recognises on the box -
+ * HTTP, MQTT, Bluetooth LE, Zigbee.
  *
- * `own` is every transport a vendor ships in its own bundle - `shelly/rpc` - which the interface
- * cannot list by name, because a bundle installed tomorrow brings its own.
+ * A transport a vendor ships in its bundle - `shelly/rpc`, `govee/lan` - is that vendor's way of
+ * speaking, not a wire anybody shops by, and is not named.
  */
-export type TransportFilter = '' | 'http' | 'mqtt' | 'own';
+export const WIRES = ['http', 'mqtt', 'ble', 'zigbee'] as const;
+
+/** A wire the interface names. */
+export type Wire = (typeof WIRES)[number];
+
+/** Which wire to keep, or any. */
+export type TransportFilter = '' | Wire;
 
 /** Which vendors to keep by their need for the internet, or any. */
 export type InternetFilter = '' | 'needed' | 'local';
@@ -58,7 +65,7 @@ export const VENDOR_FILTER_CODEC: ListCodec<VendorFilter> = {
    */
   read: (params) => ({
     search: params.get('q') ?? '',
-    transport: readChoice<TransportFilter>(params, 'wire', ['', 'http', 'mqtt', 'own'], ''),
+    transport: readChoice<TransportFilter>(params, 'wire', ['', ...WIRES], ''),
     internet: readChoice<InternetFilter>(params, 'internet', ['', 'needed', 'local'], ''),
   }),
 
@@ -106,13 +113,14 @@ export function matchesDiscovered(
 }
 
 /**
- * Whether a transport is one a vendor ships rather than one of the platform's.
+ * The wires a vendor's drivers go over, of those the interface names.
  *
- * @param transport - Its id.
- * @returns True for an id qualified by its vendor, such as `shelly/rpc`.
+ * @param vendor - As the list serves it.
+ * @returns Its wires, in the order the interface lists them; none for a vendor that speaks only
+ * protocols of its own.
  */
-export function isOwnTransport(transport: string): boolean {
-  return transport.includes('/');
+export function wiresOf(vendor: Pick<IntegrationVendorView, 'transports'>): Wire[] {
+  return WIRES.filter((wire) => vendor.transports.includes(wire));
 }
 
 /**
@@ -136,15 +144,7 @@ export function matchesVendorFilter(vendor: IntegrationVendorView, filter: Vendo
     return false;
   }
 
-  if (filter.transport === 'own' && !vendor.transports.some(isOwnTransport)) {
-    return false;
-  }
-
-  if (
-    filter.transport !== '' &&
-    filter.transport !== 'own' &&
-    !vendor.transports.includes(filter.transport)
-  ) {
+  if (filter.transport !== '' && !vendor.transports.includes(filter.transport)) {
     return false;
   }
 

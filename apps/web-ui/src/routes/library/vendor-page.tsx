@@ -28,7 +28,16 @@ import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 
 import type { DiscoveredDevice, IntegrationState } from '@nebula-home/contracts';
-import { Badge, Button, IconButton, Panel, Segmented, type BadgeTone } from '@nebula-home/ui';
+import {
+  AppIcon,
+  Badge,
+  Button,
+  cn,
+  IconButton,
+  Panel,
+  Segmented,
+  type BadgeTone,
+} from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
 import { ExternalLinkIcon, WrenchIcon } from '@/components/icons';
@@ -553,14 +562,29 @@ export function VendorPage() {
                           <span className="text-caption text-foreground-subtle lg:hidden">
                             {device.model ?? device.driverName}
                           </span>
-                          {device.state === 'identifying' ? (
+                          {/* One line at most: what went wrong is on the device's page, in full. */}
+                          {device.lastError !== null ? (
+                            <Link
+                              to={devicePath(device.id)}
+                              className={cn(
+                                'flex items-center gap-1 text-caption transition-colors hover:text-primary',
+                                device.state === 'identifying'
+                                  ? 'text-foreground-subtle'
+                                  : 'text-danger',
+                              )}
+                            >
+                              <AppIcon id="triangle-alert" size={12} className="shrink-0" />
+                              <span className="truncate">
+                                {device.state === 'identifying'
+                                  ? 'Still listening - see why'
+                                  : 'Not working - see why'}
+                              </span>
+                            </Link>
+                          ) : device.state === 'identifying' ? (
                             <span className="text-caption text-foreground-subtle">
                               Listening for the device…
                             </span>
                           ) : null}
-                          {device.lastError === null ? null : (
-                            <span className="text-caption text-danger">{device.lastError}</span>
-                          )}
                         </span>
                       </span>
                       <span className="hidden truncate text-ui text-foreground-muted lg:block">

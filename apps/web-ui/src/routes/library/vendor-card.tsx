@@ -19,8 +19,15 @@ import { Link } from 'react-router';
 import type { IntegrationVendorView } from '@nebula-home/contracts';
 import { Badge, cn } from '@nebula-home/ui';
 
-import { CableIcon, GlobeIcon, HttpIcon, MqttIcon, type IconProps } from '@/components/icons';
-import { isOwnTransport } from '@/library/vendor-filters';
+import {
+  BluetoothIcon,
+  GlobeIcon,
+  HttpIcon,
+  MqttIcon,
+  ZigbeeIcon,
+  type IconProps,
+} from '@/components/icons';
+import { wiresOf, type Wire } from '@/library/vendor-filters';
 
 /** The colour a vendor without one of its own is tinted with. */
 const FALLBACK_COLOR = '#6d7bff';
@@ -29,9 +36,11 @@ const FALLBACK_COLOR = '#6d7bff';
 type Glyph = (props: IconProps) => React.ReactNode;
 
 /** What each wire is drawn as, and what the tooltip says. */
-const WIRES: Readonly<Record<string, { readonly glyph: Glyph; readonly title: string }>> = {
+const WIRES: Readonly<Record<Wire, { readonly glyph: Glyph; readonly title: string }>> = {
   http: { glyph: HttpIcon, title: 'Speaks HTTP to each device' },
   mqtt: { glyph: MqttIcon, title: 'Listens on the MQTT broker' },
+  ble: { glyph: BluetoothIcon, title: 'Reaches its devices over Bluetooth LE' },
+  zigbee: { glyph: ZigbeeIcon, title: 'Reaches its devices over Zigbee' },
 };
 
 /** What a mark needs. */
@@ -88,24 +97,10 @@ export function Marks(props: MarksProps) {
 
   return (
     <span className="flex items-center gap-1.5">
-      {vendor.transports.map((transport) => {
-        const wire = WIRES[transport];
-
-        if (wire !== undefined) {
-          return <Mark key={transport} title={wire.title} glyph={wire.glyph} size={size} />;
-        }
-
-        // A transport the vendor ships has a name nobody here could list in advance; it still
-        // gets a mark saying there is a wire, and which, rather than an empty corner.
-        return isOwnTransport(transport) ? (
-          <Mark
-            key={transport}
-            title={`Speaks its own protocol, ${transport}`}
-            glyph={CableIcon}
-            size={size}
-          />
-        ) : null;
-      })}
+      {/* Only the wires a person recognises: a protocol a vendor ships of its own gets no mark. */}
+      {wiresOf(vendor).map((wire) => (
+        <Mark key={wire} title={WIRES[wire].title} glyph={WIRES[wire].glyph} size={size} />
+      ))}
 
       {vendor.internetRequired ? (
         <Mark title="Needs the internet" glyph={GlobeIcon} tone="warning" size={size} />

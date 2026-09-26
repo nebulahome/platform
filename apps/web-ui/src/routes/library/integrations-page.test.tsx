@@ -66,6 +66,7 @@ const FOUND: DiscoveredDevice = {
   modelCode: 'S3SW-001P16EU',
   swVersion: '1.4.2',
   transportConfig: { host: '192.168.1.40' },
+  movedFrom: null,
   firstSeenAt: new Date('2026-09-23T10:00:00.000Z'),
   lastSeenAt: new Date('2026-09-23T10:05:00.000Z'),
 };

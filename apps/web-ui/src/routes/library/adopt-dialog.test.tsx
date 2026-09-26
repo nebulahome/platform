@@ -107,6 +107,7 @@ function found(overrides: Partial<DiscoveredDevice> = {}): DiscoveredDevice {
     modelCode: 'BL-P001',
     swVersion: null,
     transportConfig: { url: 'mqtts://192.168.1.70:8883' },
+    movedFrom: null,
     firstSeenAt: new Date('2026-09-23T10:00:00.000Z'),
     lastSeenAt: new Date('2026-09-23T10:00:00.000Z'),
     ...overrides,

@@ -8,7 +8,8 @@
  * A device event does two things here. The lists that show devices and entities are read again,
  * because a row was just added or removed; and the socket is opened afresh, because the server
  * decided what this socket may hear when it authenticated and a device adopted since is not in
- * that decision.
+ * that decision. An `updated` device only has the device list read again: its entities are the
+ * ones it had.
  *
  * A channel that comes back after a drop forgets what it had said and has the lists read again:
  * nothing replays the changes made while it was down, and a reading kept from before the drop
@@ -66,7 +67,11 @@ export function useLiveChannel(): void {
       onMessage: (message): void => {
         useLive.getState().apply(message);
 
-        if (message.type === 'device_event') {
+        if (message.type === 'device_event' && message.event === 'updated') {
+          // The device changed on its own - found, a new firmware - and nothing about which
+          // entities there are, so the socket's decision still stands.
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
+        } else if (message.type === 'device_event') {
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.entities });
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.discovered });

@@ -28,6 +28,8 @@ import {
   matchesVendorFilter,
   OPEN_VENDOR_FILTER,
   VENDOR_FILTER_CODEC,
+  WIRES,
+  wiresOf,
 } from '@/library/vendor-filters';
 import { IntegrationFilter } from '@/routes/library/integration-filter';
 import { LibraryPage } from '@/routes/library/library-page';
@@ -75,6 +77,7 @@ export function IntegrationsPage() {
 
   const all = vendors.data ?? [];
   const shown = all.filter((vendor) => matchesVendorFilter(vendor, filter));
+  const wires = WIRES.filter((wire) => all.some((vendor) => wiresOf(vendor).includes(wire)));
   const foundBy = new Map<string, number>();
 
   for (const device of discovered.data ?? []) {
@@ -99,7 +102,7 @@ export function IntegrationsPage() {
               setFilter({ ...filter, search });
             }}
           />
-          <IntegrationFilter filter={filter} onChange={setFilter} />
+          <IntegrationFilter filter={filter} wires={wires} onChange={setFilter} />
         </>
       }
       action={
