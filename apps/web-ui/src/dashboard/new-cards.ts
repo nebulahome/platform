@@ -98,6 +98,7 @@ export function energyCard(): DashboardEnergyCard {
     homePower: null,
     isGridImportPositive: true,
     isBatteryDischargePositive: true,
+    houseStyle: 'european',
   };
 }
 

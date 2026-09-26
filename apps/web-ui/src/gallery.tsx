@@ -286,7 +286,7 @@ const SAMPLE_VENDOR: IntegrationVendorView = {
 /** The cache the energy samples' days are read from. */
 const ENERGY_CACHE = energySampleCache();
 
-/** Four houses: the picture the card is drawn after, a night, a sale, and a grid alone. */
+/** Five cards, every style among them: the picture the card is drawn after, a night, a sale, a flat roof, and a grid alone. */
 const ENERGY_SAMPLES = [
   {
     title: 'Charging from the panels',
@@ -298,12 +298,13 @@ const ENERGY_SAMPLES = [
     ),
   },
   {
-    title: 'Night, on the battery',
+    title: 'Night, on the battery, the American house',
     sample: energySample(
       'night',
       { solar: 0, battery: 620, level: 41, grid: 380 },
       ENERGY_CACHE,
       'tall',
+      'american',
     ),
   },
   {
@@ -313,6 +314,17 @@ const ENERGY_SAMPLES = [
       { solar: 5200, battery: null, level: null, grid: -3100 },
       ENERGY_CACHE,
       'large',
+      'european',
+    ),
+  },
+  {
+    title: 'A flat roof, exporting',
+    sample: energySample(
+      'flat',
+      { solar: 7400, battery: 0, level: 100, grid: -4200 },
+      ENERGY_CACHE,
+      'tall',
+      'arabic',
     ),
   },
   {

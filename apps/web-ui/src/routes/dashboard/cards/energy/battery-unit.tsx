@@ -6,11 +6,10 @@
  * here too, since it is the other thing mounted on the wall and it is always there.
  */
 import {
-  onWall,
   outFromWall,
   patch,
   polygon,
-  PLACES,
+  type HouseGeometry,
   type Point,
 } from '@/routes/dashboard/cards/energy/geometry';
 
@@ -33,6 +32,9 @@ function outward(corners: readonly Point[], depth: number): Point[] {
 
 /** What the battery needs. */
 export type BatteryUnitProps = {
+  /** Where the house's walls are. */
+  readonly geometry: HouseGeometry;
+
   /** How full it is, from 0 to 100; null when nothing says. */
   readonly level: number | null;
 };
@@ -44,8 +46,9 @@ export type BatteryUnitProps = {
  * @returns The group.
  */
 export function BatteryUnit(props: BatteryUnitProps) {
-  const { level } = props;
-  const { from, to, bottom, top } = PLACES.battery;
+  const { geometry, level } = props;
+  const { onWall } = geometry;
+  const { from, to, bottom, top } = geometry.places.battery;
   const front = outward(patch(onWall, [from, bottom], [to, top]), BATTERY_DEPTH);
   const side = [
     onWall(from, bottom),
@@ -90,12 +93,15 @@ export function BatteryUnit(props: BatteryUnitProps) {
 }
 
 /**
- * Renders the gateway: the small box on the wall every wire meets at.
+ * Renders the gateway: the small box on the wall every wire meets at - the inverter.
  *
+ * @param props - Where the house's walls are.
+ * @param props.geometry - The house.
  * @returns The group.
  */
-export function Gateway() {
-  const { at, halfWidth, bottom, top } = PLACES.gateway;
+export function Gateway(props: { readonly geometry: HouseGeometry }) {
+  const { onWall, places } = props.geometry;
+  const { at, halfWidth, bottom, top } = places.gateway;
   const front = outward(
     patch(onWall, [at - halfWidth, bottom], [at + halfWidth, top]),
     GATEWAY_DEPTH,

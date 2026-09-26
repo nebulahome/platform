@@ -11,12 +11,14 @@
  */
 import {
   ENERGY_CARD_REQUIREMENTS,
+  HOUSE_STYLES,
   meetsRequirement,
+  type HouseStyle,
   type DashboardCard,
   type DashboardEnergyCard,
   type EntityView,
 } from '@nebula-home/contracts';
-import { Switch, TextField } from '@nebula-home/ui';
+import { SelectField, Switch, TextField } from '@nebula-home/ui';
 
 import { EntityField } from '@/routes/library/entity-field';
 
@@ -40,6 +42,23 @@ const METER_FIELDS = [
     hint: 'What the house uses. Left empty, it is worked out from the others.',
   },
 ] as const;
+
+/** What each house the card can draw is called. */
+const HOUSE_STYLE_LABELS: Readonly<Record<HouseStyle, string>> = {
+  european: 'European - a gabled house',
+  american: 'American - a garage wing in front of the house',
+  arabic: 'Arabic - flat roof and terrace',
+};
+
+/**
+ * Narrows a choice to a house style.
+ *
+ * @param value - What the dropdown reported.
+ * @returns The style, or the European one for anything else.
+ */
+function houseStyleOf(value: string): HouseStyle {
+  return HOUSE_STYLES.find((style) => style === value) ?? 'european';
+}
 
 /**
  * What a meter's picker accepts.
@@ -91,6 +110,17 @@ export function EnergySettings(props: EnergySettingsProps) {
           const title = event.target.value;
 
           set({ title: title.trim() === '' ? null : title });
+        }}
+      />
+
+      <SelectField
+        label="House"
+        size="compact"
+        options={HOUSE_STYLES.map((style) => ({ value: style, label: HOUSE_STYLE_LABELS[style] }))}
+        value={card.houseStyle}
+        hint="The house the card draws; the panels, battery and wires sit on it the same way."
+        onChange={(value) => {
+          set({ houseStyle: houseStyleOf(value) });
         }}
       />
 

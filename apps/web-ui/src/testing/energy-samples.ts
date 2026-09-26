@@ -6,7 +6,12 @@
  */
 import { QueryClient } from '@tanstack/react-query';
 
-import type { DashboardEnergyCard, EntityView, TelemetryPoint } from '@nebula-home/contracts';
+import type {
+  DashboardEnergyCard,
+  EntityView,
+  HouseStyle,
+  TelemetryPoint,
+} from '@nebula-home/contracts';
 
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import type { DashboardData } from '@/routes/dashboard/use-dashboard-data';
@@ -75,6 +80,7 @@ function dayOf(kind: 'solar' | 'battery' | 'grid', now: Date): TelemetryPoint[] 
  * @param meters - What its meters read.
  * @param client - The cache its day is laid into.
  * @param size - Tall, large, or square.
+ * @param houseStyle - Which house the card draws.
  * @returns The card and what it reads.
  */
 export function energySample(
@@ -82,6 +88,7 @@ export function energySample(
   meters: SampleMeters,
   client: QueryClient,
   size: 'tall' | 'large' | 'square' = 'large',
+  houseStyle: HouseStyle = 'european',
 ): EnergySample {
   const now = new Date();
   const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -142,6 +149,7 @@ export function energySample(
     homePower: null,
     isGridImportPositive: true,
     isBatteryDischargePositive: true,
+    houseStyle,
   };
 
   return {

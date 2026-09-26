@@ -7,22 +7,22 @@
  * house with just a grid wire. The labels sit on thin lines down to the part they read, the way the
  * picture it is drawn after does, and the whole is one box that scales to the card.
  */
+import type { HouseStyle } from '@nebula-home/contracts';
+
 import { formatPower, mainSource, type PowerFlows } from '@/lib/energy-flow';
 import { BatteryUnit, Gateway } from '@/routes/dashboard/cards/energy/battery-unit';
 import { FlowWire } from '@/routes/dashboard/cards/energy/flow-wire';
 import {
-  onGround,
-  onRoof,
-  onWall,
+  geometryFor,
   outFromWall,
+  PARAPET_HEIGHT,
   path,
-  PLACES,
+  up,
   VIEW_HEIGHT,
-  VIEW_WIDTH,
-  WALL_HEIGHT,
+  type HouseGeometry,
   type Point,
 } from '@/routes/dashboard/cards/energy/geometry';
-import { House } from '@/routes/dashboard/cards/energy/house';
+import { House, HouseFront } from '@/routes/dashboard/cards/energy/house';
 import { SolarArray } from '@/routes/dashboard/cards/energy/solar-array';
 
 /** What a meter says, as the drawing shows it; null for a meter the card does not have. */
@@ -47,6 +47,9 @@ export type SceneMeters = {
 export type EnergySceneProps = {
   readonly meters: SceneMeters;
 
+  /** Which house to draw. */
+  readonly houseStyle: HouseStyle;
+
   /** Whether the card has panels, and a battery. */
   readonly hasSolar: boolean;
   readonly hasBattery: boolean;
@@ -58,40 +61,63 @@ export type EnergySceneProps = {
   readonly label: string;
 };
 
-/** Where a wire joins the gateway, and the height the wall wires run at. */
-const GATEWAY = PLACES.gateway;
-const RUN = PLACES.wireHeight;
+/**
+ * The wires, each drawn from the end its forward direction starts at, and the points each
+ * label's line reaches down or up to, for one house.
+ *
+ * @param geometry - The house.
+ * @returns The wires' paths and the labels' targets.
+ */
+function layoutOf(geometry: HouseGeometry): {
+  readonly wires: Readonly<Record<'solar' | 'battery' | 'home' | 'grid', string>>;
+  readonly targets: Readonly<Record<'solar' | 'home' | 'battery' | 'grid', Point>>;
+} {
+  const { onWall, onRoof, onGround, places, wallHeight, roof, panels, targets } = geometry;
+  const gateway = places.gateway;
+  const run = places.wireHeight;
+  // Down from the panels: off the slope's foot, or over the parapet of a flat roof.
+  const fromPanels =
+    roof === 'flat'
+      ? [onWall(gateway.at, wallHeight + PARAPET_HEIGHT), onWall(gateway.at, wallHeight)]
+      : [onRoof(gateway.at, panels.up[0] - 0.03), onWall(gateway.at, wallHeight)];
 
-/** The wires, each drawn from the end its forward direction starts at. */
-const WIRES = {
-  solar: path([
-    onRoof(GATEWAY.at, 0.07),
-    onWall(GATEWAY.at, WALL_HEIGHT),
-    outFromWall(onWall(GATEWAY.at, GATEWAY.top), 1.5),
-  ]),
-  battery: path([
-    outFromWall(onWall(PLACES.battery.to, RUN), 1.5),
-    outFromWall(onWall(GATEWAY.at - GATEWAY.halfWidth, RUN), 1.5),
-  ]),
-  home: path([
-    outFromWall(onWall(GATEWAY.at + GATEWAY.halfWidth, RUN), 1.5),
-    outFromWall(onWall(PLACES.windows[0].from - 0.008, RUN), 1.5),
-  ]),
-  grid: path([
-    onGround(GATEWAY.at, PLACES.gridReach),
-    onGround(GATEWAY.at, 1.5),
-    outFromWall(onWall(GATEWAY.at, GATEWAY.bottom), 1.5),
-  ]),
-} as const;
-
-/** The points each label's line reaches down or up to. */
-const TARGETS = {
-  solar: onRoof(0.24, 0.5),
-  // Between the two windows, and far enough from the edge for a figure like 11.1 kW.
-  home: onWall(0.76, 39),
-  battery: outFromWall(onWall(0.13, PLACES.battery.bottom), 7),
-  grid: onGround(GATEWAY.at, PLACES.gridReach),
-} as const;
+  return {
+    wires: {
+      solar: path([...fromPanels, outFromWall(onWall(gateway.at, gateway.top), 1.5)]),
+      battery: path([
+        outFromWall(onWall(places.battery.to, run), 1.5),
+        outFromWall(onWall(gateway.at - gateway.halfWidth, run), 1.5),
+      ]),
+      home: path([
+        outFromWall(onWall(gateway.at + gateway.halfWidth, run), 1.5),
+        outFromWall(onWall((places.windows[0]?.from ?? 0.64) - 0.008, run), 1.5),
+      ]),
+      grid: path([
+        onGround(gateway.at, places.gridReach),
+        onGround(gateway.at, 1.5),
+        outFromWall(onWall(gateway.at, gateway.bottom), 1.5),
+      ]),
+    },
+    targets: {
+      // The top of the panels, towards the gable end: the slope's top row, or the back row.
+      solar:
+        roof === 'flat'
+          ? up(onRoof(targets.solarAlong, panels.up[1]), 16)
+          : onRoof(targets.solarAlong, panels.up[1]),
+      // The top of the house at its far end - the ridge, or the parapet - so the line never
+      // crosses the panels on its way down.
+      home:
+        roof === 'flat'
+          ? onWall(targets.homeAlong, wallHeight + PARAPET_HEIGHT + 5)
+          : onRoof(targets.homeAlong, 1),
+      battery: outFromWall(
+        onWall((places.battery.from + places.battery.to) / 2, places.battery.bottom),
+        7,
+      ),
+      grid: onGround(gateway.at, places.gridReach),
+    },
+  };
+}
 
 /** How wide a character of a label's figure is, at most, in drawing units. */
 const FIGURE_CHARACTER_WIDTH = 13.6;
@@ -115,6 +141,9 @@ type LabelProps = {
 
   /** What it is, in small capitals. */
   readonly caption: string;
+
+  /** How wide the drawing's box is, which the label keeps inside. */
+  readonly viewWidth: number;
 };
 
 /**
@@ -124,7 +153,7 @@ type LabelProps = {
  * @returns The group.
  */
 function Label(props: LabelProps) {
-  const { target, side, value, caption } = props;
+  const { target, side, value, caption, viewWidth } = props;
   const valueY = side === 'top' ? 26 : VIEW_HEIGHT - 24;
   const captionY = side === 'top' ? 42 : VIEW_HEIGHT - 7;
   // Beside its line when it fits, and pulled back inside the box when it does not - a long figure
@@ -133,7 +162,7 @@ function Label(props: LabelProps) {
     value.length * FIGURE_CHARACTER_WIDTH,
     caption.toUpperCase().length * CAPTION_CHARACTER_WIDTH,
   );
-  const x = Math.min(target.x + 6, VIEW_WIDTH - EDGE_MARGIN - width);
+  const x = Math.min(target.x + 6, viewWidth - EDGE_MARGIN - width);
   const isOverLine = x < target.x;
 
   return (
@@ -186,7 +215,9 @@ function powerText(watts: number | null): string {
  * @returns The SVG.
  */
 export function EnergyScene(props: EnergySceneProps) {
-  const { meters, hasSolar, hasBattery, flows, label } = props;
+  const { meters, houseStyle, hasSolar, hasBattery, flows, label } = props;
+  const geometry = geometryFor(houseStyle);
+  const { wires, targets } = layoutOf(geometry);
   const toHome = flows.solarToHome + flows.batteryToHome + flows.gridToHome;
   const charging = flows.solarToBattery + flows.gridToBattery;
   const discharging = flows.batteryToHome + flows.batteryToGrid;
@@ -196,18 +227,19 @@ export function EnergyScene(props: EnergySceneProps) {
 
   return (
     <svg
-      viewBox={`0 0 ${String(VIEW_WIDTH)} ${String(VIEW_HEIGHT)}`}
+      viewBox={`0 0 ${String(geometry.viewWidth)} ${String(VIEW_HEIGHT)}`}
       role="img"
       aria-label={label}
       className="block h-full w-full"
       preserveAspectRatio="xMidYMid meet"
     >
-      <House />
-      {hasSolar ? <SolarArray isProducing={solarOut > 10} /> : null}
+      <House geometry={geometry} solar={hasSolar ? { isProducing: solarOut > 10 } : null} />
+      {hasSolar ? <SolarArray geometry={geometry} isProducing={solarOut > 10} /> : null}
+      <HouseFront geometry={geometry} />
 
       {hasSolar ? (
         <FlowWire
-          d={WIRES.solar}
+          d={wires.solar}
           source={solarOut > 10 ? 'solar' : null}
           watts={solarOut}
           direction={1}
@@ -215,7 +247,7 @@ export function EnergyScene(props: EnergySceneProps) {
       ) : null}
       {hasBattery ? (
         <FlowWire
-          d={WIRES.battery}
+          d={wires.battery}
           source={
             charging > discharging
               ? mainSource({ solar: flows.solarToBattery, grid: flows.gridToBattery })
@@ -228,7 +260,7 @@ export function EnergyScene(props: EnergySceneProps) {
         />
       ) : null}
       <FlowWire
-        d={WIRES.home}
+        d={wires.home}
         source={mainSource({
           solar: flows.solarToHome,
           battery: flows.batteryToHome,
@@ -239,7 +271,7 @@ export function EnergyScene(props: EnergySceneProps) {
       />
       {meters.hasGrid ? (
         <FlowWire
-          d={WIRES.grid}
+          d={wires.grid}
           source={
             selling > buying
               ? mainSource({ solar: flows.solarToGrid, battery: flows.batteryToGrid })
@@ -252,17 +284,30 @@ export function EnergyScene(props: EnergySceneProps) {
         />
       ) : null}
 
-      <Gateway />
-      {hasBattery ? <BatteryUnit level={meters.batteryLevel} /> : null}
+      <Gateway geometry={geometry} />
+      {hasBattery ? <BatteryUnit geometry={geometry} level={meters.batteryLevel} /> : null}
 
       {hasSolar ? (
-        <Label target={TARGETS.solar} side="top" value={powerText(meters.solar)} caption="Solar" />
+        <Label
+          target={targets.solar}
+          side="top"
+          value={powerText(meters.solar)}
+          caption="Solar"
+          viewWidth={geometry.viewWidth}
+        />
       ) : null}
-      <Label target={TARGETS.home} side="top" value={powerText(flows.home)} caption="Home" />
+      <Label
+        target={targets.home}
+        side="top"
+        value={powerText(flows.home)}
+        caption="Home"
+        viewWidth={geometry.viewWidth}
+      />
       {hasBattery ? (
         <Label
-          target={TARGETS.battery}
+          target={targets.battery}
           side="bottom"
+          viewWidth={geometry.viewWidth}
           value={powerText(meters.battery)}
           caption={
             meters.batteryLevel === null
@@ -272,7 +317,13 @@ export function EnergyScene(props: EnergySceneProps) {
         />
       ) : null}
       {meters.hasGrid ? (
-        <Label target={TARGETS.grid} side="bottom" value={powerText(meters.grid)} caption="Grid" />
+        <Label
+          target={targets.grid}
+          side="bottom"
+          value={powerText(meters.grid)}
+          caption="Grid"
+          viewWidth={geometry.viewWidth}
+        />
       ) : null}
     </svg>
   );

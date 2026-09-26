@@ -191,6 +191,7 @@ export function EnergyCard(props: EnergyCardProps) {
 
       <div className="relative min-h-0 grow">
         <EnergyScene
+          houseStyle={card.houseStyle}
           meters={{
             solar: model.readings.solar,
             battery: model.readings.battery,
