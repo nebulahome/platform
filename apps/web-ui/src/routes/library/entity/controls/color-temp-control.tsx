@@ -4,11 +4,13 @@
  * In kelvin, which is what a box and a person say, although the device speaks mireds; the slider
  * spans exactly the range this lamp declared and its groove is painted in the whites the lamp can
  * make. Three presets - warm, neutral, daylight - sit under it, each held inside the lamp's range
- * and dropped when two of them land on the same white.
+ * and dropped when two of them land on the same white. On a lamp that also makes colours,
+ * choosing a white leaves the colour: the colour block turns white with it.
  */
 import { Button, Slider } from '@nebula-home/ui';
 
 import {
+  hasCapability,
   kelvinColor,
   kelvinToMireds,
   miredsToKelvin,
@@ -35,7 +37,7 @@ const STEP_KELVIN = 50;
  * @returns The block, or a note when the lamp declared no range.
  */
 export function ColorTempControl(props: ControlProps) {
-  const { entity, state, reportedAt, commander, disabled } = props;
+  const { entity, state, reportedAt, commander, disabled, colour } = props;
   const params = paramsOf(entity, 'color_temp');
   const reportedKelvin =
     state.color_temp === undefined ? null : miredsToKelvin(state.color_temp.mireds);
@@ -75,6 +77,11 @@ export function ColorTempControl(props: ControlProps) {
 
     kelvin.sent(next);
     commander.send('color_temp', { command: 'set_color_temp', mireds });
+
+    // A lamp that also makes colours leaves them for this white: its colour shows white at once.
+    if (colour !== undefined && hasCapability(entity, 'color_hs')) {
+      colour.sent({ hue: colour.shown.hue, saturation: 0 });
+    }
   };
 
   const reads = reportedKelvin === null && kelvin.shown === 0 ? '—' : `${String(shown)} K`;

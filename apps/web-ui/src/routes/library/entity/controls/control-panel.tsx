@@ -22,7 +22,7 @@ import { ButtonControl } from '@/routes/library/entity/controls/button-control';
 import { CameraControl } from '@/routes/library/entity/controls/camera-control';
 import { ColorControl } from '@/routes/library/entity/controls/color-control';
 import { ColorTempControl } from '@/routes/library/entity/controls/color-temp-control';
-import type { ControlProps } from '@/routes/library/entity/controls/control-block';
+import type { ControlProps, LightColour } from '@/routes/library/entity/controls/control-block';
 import { CoverControl } from '@/routes/library/entity/controls/cover-control';
 import { LevelControl } from '@/routes/library/entity/controls/level-control';
 import { LockControl } from '@/routes/library/entity/controls/lock-control';
@@ -32,6 +32,7 @@ import { ReadingControl } from '@/routes/library/entity/controls/reading-control
 import { ThermostatControl } from '@/routes/library/entity/controls/thermostat-control';
 import { UpdateControl } from '@/routes/library/entity/controls/update-control';
 import { useEntityCommand } from '@/routes/library/entity/use-entity-command';
+import { usePendingValue } from '@/routes/library/entity/use-pending-value';
 
 /** The controls, in the order they are drawn. */
 const CONTROLS: readonly (readonly [CapabilityName, (props: ControlProps) => ReactNode])[] = [
@@ -98,6 +99,10 @@ function whyNot(entity: EntityView, reading: Reading, canControl: boolean): stri
 export function ControlPanel(props: ControlPanelProps) {
   const { entity, state, reportedAt, reading, canControl } = props;
   const commander = useEntityCommand(entity.entityId);
+  const colour = usePendingValue<LightColour>(
+    state.color_hs ?? { hue: 0, saturation: 0 },
+    reportedAt,
+  );
   const note = whyNot(entity, reading, canControl);
   const controlProps: ControlProps = {
     entity,
@@ -105,6 +110,7 @@ export function ControlPanel(props: ControlPanelProps) {
     reportedAt,
     commander,
     disabled: note !== null || !canControl,
+    colour,
   };
 
   return (

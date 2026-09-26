@@ -7,7 +7,8 @@
  * as a figure and a groove; the square card makes the brightness and the white or the colour
  * something to set.
  */
-import { Slider } from '@nebula-home/ui';
+import type { CapabilityState } from '@nebula-home/contracts';
+import { Slider, type WheelColour } from '@nebula-home/ui';
 
 import {
   hasCapability,
@@ -38,11 +39,11 @@ const STEP_KELVIN = 50;
 /**
  * The colour a light is making, for its card to be lit in.
  *
- * @param model - The card.
+ * @param state - Its state, as the card shows it.
  * @returns A CSS colour.
  */
-function lightColour(model: EntityCardModel): string {
-  const { color_hs: colour, color_temp: white } = model.state;
+function lightColour(state: CapabilityState): string {
+  const { color_hs: colour, color_temp: white } = state;
 
   if (colour !== undefined && colour.saturation > 0) {
     return hsColor(colour.hue, colour.saturation);
@@ -55,15 +56,16 @@ function lightColour(model: EntityCardModel): string {
  * Says what a light is making, in words.
  *
  * @param model - The card.
+ * @param state - Its state, as the card shows it.
  * @param isOn - Whether it is on.
  * @returns "2700 K", "Colour 280°", or when it went off.
  */
-function lightCaption(model: EntityCardModel, isOn: boolean): string {
+function lightCaption(model: EntityCardModel, state: CapabilityState, isOn: boolean): string {
   if (!isOn) {
     return model.changedAt === null ? 'Off' : `Off since ${cardTime(model.changedAt)}`;
   }
 
-  const { color_hs: colour, color_temp: white } = model.state;
+  const { color_hs: colour, color_temp: white } = state;
 
   if (colour !== undefined && colour.saturation > 0) {
     return `Colour · ${String(Math.round(colour.hue))}°`;
@@ -89,9 +91,22 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
     reportedAt,
   );
   const hue = usePendingValue(state.color_hs?.hue ?? 0, reportedAt);
+  const colour = usePendingValue<WheelColour>(
+    state.color_hs ?? { hue: 0, saturation: 0 },
+    reportedAt,
+  );
+  // The state as the card shows it: what is being set wins over what the lamp last said, so a
+  // white chosen on the slider lights the card in that white - and not the colour it had - at once.
+  const shownState: CapabilityState = {
+    ...state,
+    ...(state.color_hs === undefined ? {} : { color_hs: colour.shown }),
+    ...(state.color_temp === undefined || kelvin.shown === 0
+      ? {}
+      : { color_temp: { mireds: kelvinToMireds(kelvin.shown) } }),
+  };
   const isOn = state.on_off?.isOn ?? (state.level?.level ?? 0) > 0;
   const hasLevel = state.level !== undefined;
-  const glow = isOn ? lightColour(model) : undefined;
+  const glow = isOn ? lightColour(shownState) : undefined;
   const percent = Math.round(level.shown);
   const power =
     state.on_off === undefined ? undefined : (
@@ -154,7 +169,7 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
           {figure}
           {groove}
           <span className="truncate text-caption text-foreground-muted">
-            {lightCaption(model, isOn)}
+            {lightCaption(model, shownState, isOn)}
           </span>
         </div>
       </CardFrame>
@@ -180,13 +195,13 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
           {figure}
           <span className="flex min-w-0 items-center gap-2 pb-1">
             <span className="truncate text-caption text-foreground-muted">
-              {lightCaption(model, isOn)}
+              {lightCaption(model, shownState, isOn)}
             </span>
             {canColour ? (
               <LightColourButton
                 name={title}
                 state={state}
-                reportedAt={reportedAt}
+                colour={colour}
                 commander={commander}
                 disabled={disabled}
               />
@@ -231,6 +246,11 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
                   Math.max(whites.minMireds, kelvinToMireds(next)),
                 ),
               });
+
+              // A white leaves the colour: the swatch turns white with the lamp.
+              if (canColour) {
+                colour.sent({ hue: colour.shown.hue, saturation: 0 });
+              }
             }}
           />
         )}

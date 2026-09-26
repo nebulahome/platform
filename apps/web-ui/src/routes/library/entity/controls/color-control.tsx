@@ -8,11 +8,12 @@
  */
 import { ColourPicker } from '@/components/colour-picker';
 import { hsColor } from '@/library/entity-control';
-import { ControlBlock, type ControlProps } from '@/routes/library/entity/controls/control-block';
+import {
+  ControlBlock,
+  type ControlProps,
+  type LightColour,
+} from '@/routes/library/entity/controls/control-block';
 import { usePendingValue } from '@/routes/library/entity/use-pending-value';
-
-/** A colour as the device takes it. */
-type Colour = { readonly hue: number; readonly saturation: number };
 
 /**
  * Renders the colour control.
@@ -22,7 +23,9 @@ type Colour = { readonly hue: number; readonly saturation: number };
  */
 export function ColorControl(props: ControlProps) {
   const { state, reportedAt, commander, disabled } = props;
-  const colour = usePendingValue<Colour>(state.color_hs ?? { hue: 0, saturation: 0 }, reportedAt);
+  const own = usePendingValue<LightColour>(state.color_hs ?? { hue: 0, saturation: 0 }, reportedAt);
+  // The panel's, when there is one: the white block turns it white.
+  const colour = props.colour ?? own;
   const { hue, saturation } = colour.shown;
 
   /**
@@ -30,7 +33,7 @@ export function ColorControl(props: ControlProps) {
    *
    * @param next - The hue and the saturation.
    */
-  const send = (next: Colour): void => {
+  const send = (next: LightColour): void => {
     colour.sent(next);
     commander.send('color_hs', {
       command: 'set_color',

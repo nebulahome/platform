@@ -208,6 +208,31 @@ describe('EntityPage', () => {
     });
   });
 
+  it('turns a colour lamp white at once when a white is chosen', async () => {
+    renderPage(
+      anEntity({
+        ...LAMP,
+        capabilities: [...LAMP.capabilities, { capability: 'color_hs', params: {} }],
+        state: { ...LAMP.state, color_hs: { hue: 280, saturation: 90 } },
+      }),
+    );
+
+    expect(await screen.findByText('280° · 90%')).toBeTruthy();
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Daylight/u }));
+
+    expect(await screen.findByText('280° · 0%')).toBeTruthy();
+    expect(commandEntity).toHaveBeenCalledWith('light.desk_lamp', 'color_temp', {
+      command: 'set_color_temp',
+      mireds: 154,
+    });
+    expect(commandEntity).not.toHaveBeenCalledWith(
+      'light.desk_lamp',
+      'color_hs',
+      expect.anything(),
+    );
+  });
+
   it('keeps the controls but refuses them to someone who may only look, and says why', async () => {
     renderPage(LAMP, ['entity:read']);
 

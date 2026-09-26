@@ -38,7 +38,12 @@ function lampColour(state: CapabilityState): string | null {
     return null;
   }
 
-  if (state.color_hs !== undefined) {
+  // A lamp in white mode reports its colour as white - no saturation - and its white is the
+  // better dot.
+  if (
+    state.color_hs !== undefined &&
+    (state.color_hs.saturation > 0 || state.color_temp === undefined)
+  ) {
     return hsColor(state.color_hs.hue, state.color_hs.saturation);
   }
 

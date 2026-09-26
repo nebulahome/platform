@@ -13,7 +13,7 @@ import { Modal, type WheelColour } from '@nebula-home/ui';
 import { ColourPicker } from '@/components/colour-picker';
 import { hsColor } from '@/library/entity-control';
 import type { EntityCommander } from '@/routes/library/entity/use-entity-command';
-import { usePendingValue } from '@/routes/library/entity/use-pending-value';
+import type { PendingValue } from '@/routes/library/entity/use-pending-value';
 
 /** What the button needs. */
 export type LightColourButtonProps = {
@@ -23,8 +23,10 @@ export type LightColourButtonProps = {
   /** Its state now. */
   readonly state: CapabilityState;
 
-  /** When that state arrived. */
-  readonly reportedAt: number | null;
+  /**
+   * The colour as the card shows it: held by the card, which turns it white when a white is set.
+   */
+  readonly colour: PendingValue<WheelColour>;
 
   /** Sends its commands. */
   readonly commander: EntityCommander;
@@ -40,12 +42,8 @@ export type LightColourButtonProps = {
  * @returns The button.
  */
 export function LightColourButton(props: LightColourButtonProps) {
-  const { name, state, reportedAt, commander, disabled } = props;
+  const { name, state, colour, commander, disabled } = props;
   const [isOpen, setOpen] = useState(false);
-  const colour = usePendingValue<WheelColour>(
-    state.color_hs ?? { hue: 0, saturation: 0 },
-    reportedAt,
-  );
 
   return (
     <>
