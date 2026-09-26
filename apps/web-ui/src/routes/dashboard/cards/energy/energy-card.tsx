@@ -3,14 +3,17 @@
  *
  * At the top, what the house is doing in one word, in the colour of the power doing it -
  * charging from the panels is green, running on the grid yellow. Under it the house, with the
- * power moving along its wires and each meter's figure on a line down to what it reads. On the
- * large card, the day: what the panels made - or, without panels, what the house used - and, with
- * panels, how much of the day the house ran on its own power.
+ * power moving along its wires and each meter's figure on a line down to what it reads - drawn
+ * across the card's whole width, reaching its edges as the picture it is drawn after does. On the
+ * large and tall cards, the day, in one row so the house keeps the height: what the panels made -
+ * or, without panels, what the house used - and, with panels, how much of the day the house ran
+ * on its own power.
  */
 import type { DashboardEnergyCard } from '@nebula-home/contracts';
 import { AppIcon, cn, type UiIconId } from '@nebula-home/ui';
 
 import { formatEnergy, formatPower, mainSource, type EnergyHeadline } from '@/lib/energy-flow';
+import { useElementSize } from '@/lib/use-element-size';
 import { CardFrame } from '@/routes/dashboard/cards/card-parts';
 import { EnergyScene } from '@/routes/dashboard/cards/energy/energy-scene';
 import { SOURCE_COLORS } from '@/routes/dashboard/cards/energy/flow-wire';
@@ -128,6 +131,9 @@ function kwhText(kwh: number): string {
   return formatEnergy(kwh);
 }
 
+/** The narrowest the day's two lines are set side by side at, in pixels; stacked below it. */
+const SIDE_BY_SIDE_WIDTH = 340;
+
 /** What the card needs. */
 export type EnergyCardProps = {
   readonly card: DashboardEnergyCard;
@@ -145,6 +151,8 @@ export function EnergyCard(props: EnergyCardProps) {
   const isLarge = card.h >= 3;
   const model = useEnergy(card, data, isLarge);
   const title = card.title ?? 'Energy';
+  const { ref: dayRef, size: daySize } = useElementSize<HTMLDivElement>();
+  const isSideBySide = daySize.width === 0 || daySize.width >= SIDE_BY_SIDE_WIDTH;
 
   if (model.isEmpty) {
     return (
@@ -189,7 +197,7 @@ export function EnergyCard(props: EnergyCardProps) {
         <span className="truncate text-caption text-foreground-subtle">{title}</span>
       </div>
 
-      <div className="relative min-h-0 grow">
+      <div className="relative -mx-4 min-h-0 grow">
         <EnergyScene
           houseStyle={card.houseStyle}
           meters={{
@@ -207,12 +215,13 @@ export function EnergyCard(props: EnergyCardProps) {
       </div>
 
       {isLarge ? (
-        // Stacked on the tall card, as the picture has them; side by side on the large one,
-        // where two stacked lines would leave the house no room.
+        // Side by side, on the tall card too: stacked, the two lines would take the height the
+        // house is drawn in. Stacked only where the card is too narrow for two.
         <div
+          ref={dayRef}
           className={cn(
-            'grid',
-            card.h >= 4 ? 'grid-cols-1' : 'grid-cols-2 gap-x-4 border-t border-border-soft',
+            'grid border-t border-border-soft',
+            isSideBySide ? 'grid-cols-2 gap-x-4' : 'grid-cols-1',
           )}
         >
           <DayLine

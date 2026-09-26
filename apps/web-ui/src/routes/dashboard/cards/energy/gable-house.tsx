@@ -5,9 +5,9 @@
  * a roof whose near slope takes the panels - with the details a real house has: a plinth, sills,
  * shingle rows, a ridge cap, a gutter along the eave and a downpipe at the far corner. What makes
  * a style is shape and detail, never colour: the European house has its front door in the gable,
- * with a step, a lamp and a window under the ridge; the American one is a garage wing, its door
- * open on a wall charger, in front of the house proper - two storeys, a row of windows under its
- * ridge, and panels on its roof too.
+ * with a step, a lamp and a window under the ridge; the American one is a garage wing, its wide
+ * door open, in front of the house proper - two storeys, a row of windows under its ridge, and
+ * panels on its roof too.
  *
  * Drawn in the house tokens, so it is a house at night in the dark theme - dark walls, windows lit
  * from inside - and a house by day in the light one.
@@ -33,8 +33,8 @@ const OVERHANG = { down: -0.08, sideways: 0.03 } as const;
 /** How high the plinth runs along the foot of the walls. */
 const PLINTH = 6;
 
-/** How many modules along and up the American house's own array. */
-const ANNEX_PANELS = { columns: 5, rows: 3 } as const;
+/** How many modules along and up the American house's own array: as many as on the wing. */
+const ANNEX_PANELS = { columns: 6, rows: 4 } as const;
 
 /** What the house needs. */
 export type GableHouseProps = {
@@ -280,7 +280,11 @@ function AnnexGable(props: { readonly body: Body }) {
         [0.18, 0.36],
         [0.64, 0.82],
       ].map(([from = 0, to = 0]) => (
-        <Window key={from} corners={patch(onGable, [from, 12], [to, 44])} hasLattice />
+        <Window
+          key={from}
+          corners={patch(onGable, [from, 14], [to, wallHeight * 0.55])}
+          hasLattice
+        />
       ))}
       {[
         [0.3, 0.4],

@@ -85,14 +85,17 @@ describe('EnergyCard', () => {
     }
   });
 
-  it('gives the American house its open garage, and only that house', () => {
+  it('gives the American house its open garage, empty, and only that house', () => {
     const american = renderCard(
       { solar: 5200, battery: null, level: null, grid: 0 },
       'tall',
       'american',
     );
+    const inside = american.querySelector('polygon.fill-house-interior');
 
     expect(american.querySelectorAll('polygon.fill-house-interior')).toHaveLength(1);
+    // The garage as the picture has it, with nothing on its walls: no charger, no cable.
+    expect(inside?.parentElement?.querySelectorAll('.fill-house-device, path')).toHaveLength(0);
     cleanup();
 
     const european = renderCard(
@@ -156,6 +159,41 @@ describe('EnergyCard', () => {
       const { panels } = geometryFor(style);
 
       expect(panels.along[0], style).toBeCloseTo(1 - panels.along[1]);
+    }
+  });
+
+  it('writes every figure inside the drawing, and none over another', () => {
+    for (const style of HOUSE_STYLES) {
+      const container = renderCard(
+        { solar: 11_100, battery: -8300, level: 85, grid: -3100 },
+        'tall',
+        style,
+      );
+      const svg = container.querySelector('svg[role="img"]');
+      const [, , width = 0] = (svg?.getAttribute('viewBox') ?? '').split(' ').map(Number);
+      const figures = [...container.querySelectorAll('svg text.font-semibold')].map((text) => ({
+        x: Number(text.getAttribute('x')),
+        y: Number(text.getAttribute('y')),
+        isEnd: text.getAttribute('text-anchor') === 'end',
+      }));
+
+      expect(figures, style).toHaveLength(4);
+
+      for (const figure of figures) {
+        expect(figure.x, style).toBeGreaterThanOrEqual(0);
+        expect(figure.x, style).toBeLessThanOrEqual(width);
+      }
+
+      // Two figures on one line are apart: starts, or an end and a start, never together.
+      for (const [index, figure] of figures.entries()) {
+        for (const other of figures.slice(index + 1)) {
+          if (figure.y === other.y) {
+            expect(Math.abs(figure.x - other.x), style).toBeGreaterThan(40);
+          }
+        }
+      }
+
+      cleanup();
     }
   });
 

@@ -1,13 +1,17 @@
 /**
  * Where everything on the energy card's drawing is, for each style of house.
  *
- * Houses in a two-to-one projection, drawn in a fixed box of 380 by 364 units that the card
- * scales to whatever size it has: a long wall faces the lower right, a gable the lower left, and
- * the roof over the long wall - a slope facing the viewer, or a flat top behind a parapet - is
- * where the panels go. Every part is placed by where it is on a building - how far along a wall,
- * how high up it, how far up the roof - rather than by screen coordinates, so a battery moved
- * along the wall stays on the wall, and a style that makes the house longer or taller moves
- * everything on it with it.
+ * Houses in a two-to-one projection, in drawing units: a long wall faces the lower right, a gable
+ * the lower left, and the roof over the long wall - a slope facing the viewer, or a flat top
+ * behind a parapet - is where the panels go. Every part is placed by where it is on a building -
+ * how far along a wall, how high up it, how far up the roof - rather than by screen coordinates,
+ * so a battery moved along the wall stays on the wall, and a style that makes the house longer or
+ * taller moves everything on it with it.
+ *
+ * Each style also says which part of it must be seen - its `focus` - and the scene scales that to
+ * the card, letting the rest reach past the card's edges: the American house proper, behind its
+ * garage wing, may lose its far gable to the edge, the way the picture it is drawn after is
+ * framed.
  *
  * The battery, the gateway and the wires are on the long wall of the building nearest the viewer
  * in every style, so the flows are drawn the same whichever house is chosen. The American house
@@ -16,18 +20,16 @@
  */
 import type { HouseStyle } from '@nebula-home/contracts';
 
-/** The drawing's box: its height, and its width for a house alone. */
-export const VIEW_WIDTH = 380;
-export const VIEW_HEIGHT = 364;
-
-/**
- * The box of a house with a second building beside it: wider, so the labels under it keep apart
- * - the house is drawn a little smaller in the card, as the picture it is drawn after is framed.
- */
-const WIDE_VIEW_WIDTH = 440;
-
 /** A point in the drawing. */
 export type Point = { readonly x: number; readonly y: number };
+
+/** A rectangle in the drawing. */
+export type Box = {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+};
 
 /** One step along a building's short side, and along its long side, on the ground. */
 const ACROSS: Point = { x: 1, y: 0.5 };
@@ -76,14 +78,15 @@ const DIMENSIONS: Readonly<Record<HouseStyle, Dimensions>> = {
     roof: 'gable',
   },
 
-  // The garage wing, lower and narrower, its gable - the garage door - facing the lower left;
-  // right of the middle, to leave the house behind it the room it takes on the left.
+  // The garage wing, in the proportions of the picture: twice as long as it is wide, walls three
+  // quarters of its width high, and a roof steep enough to carry a big array; its gable - the
+  // garage door - faces the lower left.
   american: {
     front: { x: 196, y: 300 },
-    longSide: 150,
-    shortSide: 92,
-    wallHeight: 56,
-    ridgeHeight: 96,
+    longSide: 236,
+    shortSide: 118,
+    wallHeight: 86,
+    ridgeHeight: 156,
     roof: 'gable',
   },
 
@@ -98,13 +101,16 @@ const DIMENSIONS: Readonly<Record<HouseStyle, Dimensions>> = {
   },
 };
 
-/** The American house proper, two storeys, behind its garage wing and reaching past its gable. */
+/**
+ * The American house proper: two storeys, taller than its garage wing, behind it and reaching
+ * well past its gable.
+ */
 const AMERICAN_ANNEX: AnnexDimensions = {
-  along: [-0.05, 0.72],
-  behind: 98,
-  shortSide: 80,
-  wallHeight: 70,
-  ridgeHeight: 122,
+  along: [-0.1, 0.78],
+  behind: 120,
+  shortSide: 110,
+  wallHeight: 104,
+  ridgeHeight: 176,
 };
 
 /** Where the parts that the wires join sit on the long wall: along, and the band they span. */
@@ -188,15 +194,41 @@ export type Annex = Body & { readonly panels: PanelField };
 export type HouseGeometry = Body & {
   readonly style: HouseStyle;
 
-  /** How wide the drawing's box is. */
-  readonly viewWidth: number;
+  /**
+   * The part of the drawing that must be seen, and that it is centred on: the near building with
+   * its roof, and of the building behind, its roof. The scene fits this to the card and lets the
+   * rest reach past the edges.
+   */
+  readonly focus: Box;
+
+  /**
+   * The focus with what lies on the ground before it - the shadow, and the grid's wire out to
+   * where its label reads it - kept in the card when there is room to move the house for it.
+   */
+  readonly reach: Box;
+
+  /**
+   * The outline of everything standing - both buildings, walls and roofs, not the ground - as a
+   * convex polygon: what a label's text may not cover.
+   */
+  readonly outline: readonly Point[];
   readonly places: Places;
 
   /** Where the panels go, centred on the roof. */
   readonly panels: PanelField;
 
-  /** Where the label lines end: the top of the panels, the top of the house. */
-  readonly targets: { readonly solarAlong: number; readonly homeAlong: number };
+  /**
+   * Where the label lines end, and which side of its line each label's text is written on:
+   * the panels' top row - on the American house, the house proper's, the higher roof - and, on
+   * a pitched roof, the lit window at the far end, as in the picture, or the top of the parapet
+   * on a flat one. The solar figure is written left of its line, over the sky beside the gable,
+   * where it covers no roof.
+   */
+  readonly targets: {
+    readonly solarAlong: number;
+    readonly homeAlong: number;
+    readonly solarSide: 'left' | 'right';
+  };
 
   /** The building behind the near one, for a style that has one. */
   readonly annex: Annex | null;
@@ -356,8 +388,120 @@ function annexOf(near: Body, annex: AnnexDimensions): Annex {
       ridgeHeight: annex.ridgeHeight,
       roof: 'gable',
     }),
-    panels: { along: [0.1, 0.9], up: [0.2, 0.88] },
+    panels: { along: [0.08, 0.92], up: [0.14, 0.88] },
   };
+}
+
+/**
+ * The smallest rectangle round some points.
+ *
+ * @param points - The points.
+ * @returns The rectangle.
+ */
+function boxAround(points: readonly Point[]): Box {
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+
+  return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
+}
+
+/**
+ * The convex hull of some points, going round.
+ *
+ * @param points - The points.
+ * @returns The hull's corners, in order.
+ */
+function hullOf(points: readonly Point[]): Point[] {
+  const sorted = points.toSorted((a, b) => a.x - b.x || a.y - b.y);
+  /**
+   * Whether three points turn clockwise, or not at all.
+   *
+   * @param o - The first.
+   * @param a - The second.
+   * @param b - The third.
+   * @returns True when they do not turn anticlockwise.
+   */
+  const isClockwise = (o: Point, a: Point, b: Point): boolean =>
+    (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x) <= 0;
+  /**
+   * One half of the hull, along the sorted points.
+   *
+   * @param ordered - The points, in the order to walk them.
+   * @returns The half's corners.
+   */
+  const half = (ordered: readonly Point[]): Point[] => {
+    const chain: Point[] = [];
+
+    for (const point of ordered) {
+      while (
+        chain.length >= 2 &&
+        isClockwise(chain[chain.length - 2] ?? point, chain[chain.length - 1] ?? point, point)
+      ) {
+        chain.pop();
+      }
+
+      chain.push(point);
+    }
+
+    chain.pop();
+
+    return chain;
+  };
+
+  return [...half(sorted), ...half(sorted.toReversed())];
+}
+
+/**
+ * The corners of a building standing: its walls' tops and feet, and its roof.
+ *
+ * @param body - The building.
+ * @returns The points.
+ */
+function standingPointsOf(body: Body): Point[] {
+  const { corners, onRoof, wallHeight } = body;
+
+  return [
+    corners.front,
+    corners.right,
+    corners.left,
+    up(corners.front, wallHeight),
+    up(corners.right, wallHeight),
+    up(corners.left, wallHeight),
+    onRoof(-0.03, 1),
+    onRoof(1.03, 1),
+    onRoof(-0.03, -0.08),
+    onRoof(1.03, -0.08),
+  ];
+}
+
+/** How far over the parapet a flat roof's stair house stands, with its own parapet. */
+const STAIR_HOUSE_REACH = 34;
+
+/**
+ * The points of a house that must be seen.
+ *
+ * @param body - The near building.
+ * @param annex - The building behind, if any: only its roof counts, so its far gable may be cut.
+ * @returns The points.
+ */
+function focusPointsOf(body: Body, annex: Annex | null): Point[] {
+  const { corners, onRoof, onWall, wallHeight, roof } = body;
+  const top =
+    roof === 'flat'
+      ? [up(onRoof(0.03, 1), STAIR_HOUSE_REACH), up(onRoof(1, 0), PARAPET_HEIGHT)]
+      : [onRoof(-0.03, 1), onRoof(1.03, 1), onRoof(-0.03, -0.08), onRoof(1.03, -0.08)];
+
+  return [
+    corners.front,
+    corners.right,
+    corners.left,
+    up(corners.left, wallHeight),
+    onWall(1, wallHeight),
+    ...top,
+    ...(annex === null ? [] : [annex.onRoof(0.45, 1), annex.onRoof(1.03, 1)]),
+  ];
 }
 
 /**
@@ -369,43 +513,62 @@ function annexOf(near: Body, annex: AnnexDimensions): Annex {
 export function geometryFor(style: HouseStyle): HouseGeometry {
   const body = bodyOf(DIMENSIONS[style]);
   const isAmerican = style === 'american';
+  // On the American wing as in the picture: the battery by the corner, the gateway a third of the
+  // way along, two tall windows at the far end.
+  const places: Places = {
+    battery: isAmerican
+      ? { from: 0.05, to: 0.13, bottom: 5, top: 60 }
+      : { from: 0.07, to: 0.19, bottom: 5, top: 57 },
+    gateway: isAmerican
+      ? { at: 0.36, halfWidth: 0.018, bottom: 26, top: 48 }
+      : { at: 0.465, halfWidth: 0.025, bottom: 21, top: 41 },
+    windows: isAmerican
+      ? [
+          { from: 0.74, to: 0.81 },
+          { from: 0.85, to: 0.92 },
+        ]
+      : [
+          { from: 0.64, to: 0.73 },
+          { from: 0.79, to: 0.88 },
+        ],
+    windowBand:
+      style === 'arabic'
+        ? { bottom: 24, top: 62 }
+        : isAmerican
+          ? { bottom: 14, top: 68 }
+          : { bottom: 21, top: 57 },
+    wireHeight: isAmerican ? 37 : 31,
+    gridReach: isAmerican ? 96 : 70,
+  };
+  const annex = isAmerican ? annexOf(body, AMERICAN_ANNEX) : null;
+  const focus = focusPointsOf(body, annex);
 
   return {
     ...body,
     style,
-    viewWidth: isAmerican ? WIDE_VIEW_WIDTH : VIEW_WIDTH,
-    places: {
-      battery: isAmerican
-        ? { from: 0.07, to: 0.22, bottom: 5, top: 49 }
-        : { from: 0.07, to: 0.19, bottom: 5, top: 57 },
-      gateway: isAmerican
-        ? { at: 0.47, halfWidth: 0.032, bottom: 17, top: 35 }
-        : { at: 0.465, halfWidth: 0.025, bottom: 21, top: 41 },
-      windows: isAmerican
-        ? [
-            { from: 0.71, to: 0.79 },
-            { from: 0.84, to: 0.92 },
-          ]
-        : [
-            { from: 0.64, to: 0.73 },
-            { from: 0.79, to: 0.88 },
-          ],
-      windowBand:
-        style === 'arabic'
-          ? { bottom: 24, top: 62 }
-          : isAmerican
-            ? { bottom: 12, top: 46 }
-            : { bottom: 21, top: 57 },
-      wireHeight: isAmerican ? 26 : 31,
-      gridReach: isAmerican ? 90 : 70,
-    },
+    focus: boxAround(focus),
+    reach: boxAround([
+      ...focus,
+      body.onGround(1.06, 26),
+      body.onGround(places.gateway.at, places.gridReach),
+    ]),
+    outline: hullOf([
+      ...focus,
+      ...standingPointsOf(body),
+      ...(annex === null ? [] : standingPointsOf(annex)),
+    ]),
+    places,
     // Centred along the roof, with the same margin at both ends, and up it as the roof allows.
     panels:
       body.roof === 'flat'
         ? { along: [0.1, 0.9], up: [0.1, 0.62] }
         : { along: [0.08, 0.92], up: [0.12, 0.86] },
-    targets: { solarAlong: 0.3, homeAlong: 0.95 },
-    annex: isAmerican ? annexOf(body, AMERICAN_ANNEX) : null,
+    targets: {
+      solarAlong: 0.3,
+      homeAlong: body.roof === 'flat' ? 0.95 : (places.windows.at(-1)?.to ?? 0.88) + 0.012,
+      solarSide: 'left',
+    },
+    annex,
   };
 }
 
