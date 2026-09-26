@@ -36,6 +36,39 @@ const SETUP = integrationSetupSchema.parse({
   },
 });
 
+const INVERTER = integrationSetupSchema.parse({
+  transport: {
+    fields: [
+      {
+        key: 'connection',
+        type: 'choice',
+        label: 'Connection',
+        choices: [
+          { value: 'modbus', label: 'Modbus TCP' },
+          { value: 'dongle', label: 'Web API' },
+        ],
+        default: 'modbus',
+      },
+      { key: 'host', type: 'text', label: 'Address', isRequired: true },
+      {
+        key: 'unitId',
+        type: 'number',
+        label: 'Unit id',
+        isRequired: true,
+        default: 1,
+        shownWhen: { key: 'connection', equals: ['modbus'] },
+      },
+      {
+        key: 'password',
+        type: 'secret',
+        label: 'Password',
+        isRequired: true,
+        shownWhen: { key: 'connection', equals: ['dongle'] },
+      },
+    ],
+  },
+});
+
 describe('SetupForm', () => {
   it('renders one control per field, of the kind the field asks for', () => {
     render(
@@ -167,5 +200,34 @@ describe('SetupForm', () => {
 
     expect(screen.getByText(/More often than every 10 s loads the device/u)).toBeTruthy();
     expect(input.getAttribute('aria-describedby')).toMatch(/warning/u);
+  });
+
+  it('asks a field only while the choice before it asks for it', () => {
+    const group = INVERTER.transport;
+    const { rerender } = render(
+      <SetupForm
+        group={group}
+        draft={initialDraft(group)}
+        errors={{}}
+        kept={[]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Unit id')).toBeTruthy();
+    expect(screen.queryByLabelText('Password')).toBeNull();
+
+    rerender(
+      <SetupForm
+        group={group}
+        draft={{ ...initialDraft(group), connection: 'dongle' }}
+        errors={{}}
+        kept={[]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText('Unit id')).toBeNull();
+    expect(screen.getByLabelText('Password')).toBeTruthy();
   });
 });

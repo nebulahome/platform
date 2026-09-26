@@ -9,6 +9,7 @@
  * Pure. Nothing here renders or fetches, which is what lets it be tested with a table of inputs.
  */
 import {
+  isFieldShown,
   setupValueSchema,
   type JsonObject,
   type JsonValue,
@@ -148,13 +149,18 @@ function typed(field: SetupField, draft: DraftValue): { value?: JsonValue; error
  * @param mode - `complete` for a new instance, `partial` for a change - where a blank secret
  * means "keep the one saved" and is left out rather than sent empty.
  * @returns The values that passed and, per field, the first thing wrong with the ones that did
- * not. When any field has an error the values are not to be sent.
+ * not. When any field has an error the values are not to be sent. A field an earlier choice rules
+ * out is neither read nor sent: what it held stays in the draft, for when the choice changes back.
  */
 export function toValues(group: SetupGroup, draft: SetupDraft, mode: SetupValueMode): DraftReading {
   const candidate: JsonObject = {};
   const errors: Record<string, string> = {};
 
   for (const field of group.fields) {
+    if (!isFieldShown(group, field, draft)) {
+      continue;
+    }
+
     const { value, error } = typed(field, draft[field.key] ?? '');
 
     if (error !== undefined) {

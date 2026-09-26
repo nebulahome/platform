@@ -18,12 +18,13 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import type {
-  DeviceView,
-  DiscoveredDevice,
-  IntegrationVendorView,
-  JsonObject,
-  SetupGroup,
+import {
+  isFieldShown,
+  type DeviceView,
+  type DiscoveredDevice,
+  type IntegrationVendorView,
+  type JsonObject,
+  type SetupGroup,
 } from '@nebula-home/contracts';
 import { Button, Modal, SelectField } from '@nebula-home/ui';
 
@@ -87,14 +88,24 @@ const NO_ERRORS: Errors = { transport: {}, options: {}, general: undefined };
 const EMPTY_GROUP: SetupGroup = { constants: {}, fields: [] };
 
 /**
- * A driver's group, without the fields discovery already filled.
+ * A driver's group, without the fields discovery already filled - nor those its answers rule
+ * out: an inverter discovery found on its Modbus port is not asked for its dongle's password.
  *
  * @param group - What the driver declares.
  * @param filled - What discovery found: the address, in the transport's terms.
  * @returns The group, asking only for the rest.
  */
 function leftToAsk(group: SetupGroup, filled: JsonObject): SetupGroup {
-  return { ...group, fields: group.fields.filter((field) => !(field.key in filled)) };
+  return {
+    ...group,
+    fields: group.fields.filter(
+      (field) =>
+        !(field.key in filled) &&
+        (field.shownWhen === undefined ||
+          !(field.shownWhen.key in filled) ||
+          isFieldShown(group, field, filled)),
+    ),
+  };
 }
 
 /**

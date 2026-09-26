@@ -6,7 +6,7 @@
  * schema the API runs - so this component is only the mapping from a field type to a control,
  * and the place the field's help and error are shown.
  */
-import type { SetupField, SetupGroup } from '@nebula-home/contracts';
+import { isFieldShown, type SetupField, type SetupGroup } from '@nebula-home/contracts';
 import { Segmented, SelectField, TextField } from '@nebula-home/ui';
 
 import { PasswordField } from '@/components/password-field';
@@ -207,14 +207,16 @@ function Field(props: {
  * Renders the controls of one group.
  *
  * @param props - See {@link SetupFormProps}.
- * @returns The controls, in declaration order. Nothing at all for a group with no fields.
+ * @returns The controls, in declaration order - those an earlier choice rules out left out, and
+ * back the moment it asks for them. Nothing at all for a group with no fields.
  */
 export function SetupForm(props: SetupFormProps) {
   const { group, draft, errors, kept, onChange } = props;
+  const asked = group.fields.filter((field) => isFieldShown(group, field, draft));
 
   return (
     <>
-      {group.fields.map((field) => (
+      {asked.map((field) => (
         <Field
           key={field.key}
           field={field}

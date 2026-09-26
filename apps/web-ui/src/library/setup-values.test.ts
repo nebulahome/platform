@@ -81,6 +81,39 @@ describe('keptSecrets', () => {
   });
 });
 
+const INVERTER = integrationSetupSchema.parse({
+  transport: {
+    fields: [
+      {
+        key: 'connection',
+        type: 'choice',
+        label: 'Connection',
+        choices: [
+          { value: 'modbus', label: 'Modbus TCP' },
+          { value: 'dongle', label: 'Web API' },
+        ],
+        default: 'modbus',
+      },
+      { key: 'host', type: 'text', label: 'Address', isRequired: true },
+      {
+        key: 'unitId',
+        type: 'number',
+        label: 'Unit id',
+        isRequired: true,
+        default: 1,
+        shownWhen: { key: 'connection', equals: ['modbus'] },
+      },
+      {
+        key: 'password',
+        type: 'secret',
+        label: 'Password',
+        isRequired: true,
+        shownWhen: { key: 'connection', equals: ['dongle'] },
+      },
+    ],
+  },
+});
+
 describe('toValues', () => {
   it('turns what was typed into what the API takes, leaving blanks out', () => {
     const result = toValues(
@@ -130,6 +163,23 @@ describe('toValues', () => {
     expect(result.errors).toEqual({});
     expect('password' in result.values).toBe(false);
     expect(result.values['url']).toBe('mqtts://b');
+  });
+
+  it('neither reads nor sends a field an earlier choice rules out', () => {
+    const result = toValues(
+      INVERTER.transport,
+      { connection: 'modbus', host: '192.168.1.80', unitId: '2', password: 'x'.repeat(600) },
+      'complete',
+    );
+
+    expect(result).toEqual({
+      values: { connection: 'modbus', host: '192.168.1.80', unitId: 2 },
+      errors: {},
+    });
+    expect(
+      toValues(INVERTER.transport, { connection: 'dongle', host: 'a', unitId: 'soon' }, 'complete')
+        .errors,
+    ).toEqual({ password: 'Required' });
   });
 
   it('insists on a required field for a new instance', () => {
