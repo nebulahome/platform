@@ -82,10 +82,11 @@ export async function sendCommand(options: CommandOptions): Promise<CommandAck> 
  * Capabilities whose commands are recorded in the audit log.
  *
  * ARCHITECTURE.md 12.4 requires manual commands that affect locks or security devices to be
- * audited. Auditing every command instead would fill the table with somebody dimming a lamp,
+ * audited; installing firmware is audited too, since it restarts the device and cannot be taken
+ * back. Auditing every command instead would fill the table with somebody dimming a lamp,
  * and a trail nobody can read is a trail nobody reads.
  */
-const AUDITED_CAPABILITIES = new Set<CapabilityName>(['lock']);
+const AUDITED_CAPABILITIES = new Set<CapabilityName>(['lock', 'update']);
 
 /**
  * Says whether a command has to be recorded.
