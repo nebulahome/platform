@@ -15,6 +15,7 @@ import {
   InternalError,
   ERROR_CODES,
   isNebulaError,
+  MaintenanceError,
   NotFoundError,
   PackageError,
   PermissionError,
@@ -52,6 +53,7 @@ const ERROR_CONSTRUCTORS = {
   [ERROR_CODES.UPSTREAM]: UpstreamError,
   [ERROR_CODES.CONFIGURATION]: ConfigurationError,
   [ERROR_CODES.SCHEMA_VERSION_MISMATCH]: SchemaVersionMismatchError,
+  [ERROR_CODES.MAINTENANCE]: MaintenanceError,
   [ERROR_CODES.INTERNAL]: InternalError,
 } as const satisfies Record<ErrorCode, NebulaErrorConstructor>;
 
