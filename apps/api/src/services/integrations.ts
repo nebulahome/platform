@@ -31,6 +31,7 @@ import {
   HUB_CATALOGUE_METHOD,
   HUB_RELOAD_METHOD,
   HUB_SERVICE,
+  HUB_VENDOR_CHANGED_METHOD,
   integrationVendorViewSchema,
   modelChoicesOf,
   NotFoundError,
@@ -38,16 +39,20 @@ import {
   secretKeysOf,
   setupValueSchema,
   ValidationError,
+  vendorChangedReplySchema,
   type IntegrationKind,
   type IntegrationSetup,
   type IntegrationVendor,
   type IntegrationVendorConfigUpdate,
   type IntegrationVendorView,
   type JsonObject,
+  type ManagedStatus,
   type SetupValueMode,
 } from '@nebula-home/contracts';
 import { maskSealed, schema, sealSecrets, type Database } from '@nebula-home/db';
 import type { PlatformLogger } from '@nebula-home/logging';
+
+import { containerStatusesOf } from './containers.js';
 
 /** The two documents a configuration is made of. */
 export type SetupValues = {
@@ -275,12 +280,15 @@ export type VendorCounts = {
  * @param vendor - As the hub lists it.
  * @param saved - The vendor's row, when the owner has saved its settings.
  * @param counts - What has come in through it.
+ * @param containerStatuses - Where each container it depends on stands, null for one the
+ * supervisor did not answer about.
  * @returns The view.
  */
 export function vendorViewOf(
   vendor: IntegrationVendor,
   saved: VendorRow | undefined,
   counts: VendorCounts,
+  containerStatuses: readonly (ManagedStatus | null)[] = [],
 ): IntegrationVendorView {
   return integrationVendorViewSchema.parse({
     ...vendor,
@@ -291,6 +299,7 @@ export function vendorViewOf(
     configuredAt: saved?.updatedAt ?? null,
     deviceCount: counts.devices,
     entityCount: counts.entities,
+    containerStatuses,
   });
 }
 
@@ -554,11 +563,20 @@ export async function listVendors(context: IntegrationsContext): Promise<Integra
   ]);
   const savedBy = new Map(saved.map((row) => [row.id, row]));
 
-  return catalogue.map((vendor) =>
+  // Only the vendors that run containers are asked about, all at once: a vendor page waits on
+  // the supervisor for a few seconds at most, and a list of plain vendors not at all.
+  const statuses = await Promise.all(
+    catalogue.map(async (vendor) =>
+      containerStatusesOf(context, vendor.id, vendor.containers.length),
+    ),
+  );
+
+  return catalogue.map((vendor, index) =>
     vendorViewOf(
       vendor,
       savedBy.get(vendor.id),
       counts.get(vendor.id) ?? { devices: 0, entities: 0 },
+      statuses[index] ?? [],
     ),
   );
 }
@@ -616,6 +634,33 @@ export async function reloadOnHub(context: IntegrationsContext, id: string): Pro
 }
 
 /**
+ * Asks the hub to take in a vendor's saved settings: to run the containers it declares with them.
+ *
+ * @param context - The request's collaborators.
+ * @param vendorId - Which vendor.
+ * @returns A promise that settles once the hub has answered or been given up on.
+ */
+async function vendorChangedOnHub(context: IntegrationsContext, vendorId: string): Promise<void> {
+  if (context.bus === undefined) {
+    return;
+  }
+
+  try {
+    await context.bus.request(
+      busSubjects.service(HUB_SERVICE, HUB_VENDOR_CHANGED_METHOD),
+      { vendorId },
+      vendorChangedReplySchema,
+      { traceId: context.traceId, timeoutMs: HUB_CALL_TIMEOUT_MS },
+    );
+  } catch (error: unknown) {
+    context.logger.warn(
+      { vendorId, err: error },
+      "The vendor's containers were not handed on; they will be when the hub next starts",
+    );
+  }
+}
+
+/**
  * Saves a vendor's settings and has every instance of it start again with them.
  *
  * Merged over what is stored, as an instance's change is: the form was served the settings
@@ -667,6 +712,11 @@ export async function updateVendorConfig(
         updatedAt: new Date(),
       },
     });
+
+  // The containers the vendor declares are made from its settings - an adapter's path - so the
+  // hub hands them to the supervisor again first. Best effort: a hub or a supervisor that is away
+  // does it when it next starts.
+  await vendorChangedOnHub(context, vendorId);
 
   // Every instance of the vendor runs with the old settings until it starts again, and the
   // owner just changed them because the old ones were wrong.

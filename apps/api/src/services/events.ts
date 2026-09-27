@@ -12,6 +12,8 @@
 import type { BusClient, BusSubscription } from '@nebula-home/bus';
 import {
   BUS_PATTERNS,
+  busSubjects,
+  containerEventSchema,
   deviceEventSchema,
   discoveryEventSchema,
   isDeviceEvent,
@@ -130,6 +132,25 @@ export class EventFanout {
               count: payload.count,
             });
           }
+        },
+      ),
+    );
+
+    this.#subscriptions.push(
+      client.subscribe(
+        busSubjects.containerEvent(),
+        containerEventSchema,
+
+        /**
+         * Tells the sockets watching the containers that one changed or went away.
+         *
+         * Only the name travels: the page reads the container again with the permission that
+         * takes.
+         *
+         * @param payload - Which container, and what happened.
+         */
+        (payload): void => {
+          this.#dispatch('containers', null, { type: 'container_event', payload });
         },
       ),
     );

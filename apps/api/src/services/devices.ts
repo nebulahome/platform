@@ -26,10 +26,12 @@
  */
 import { isDeepStrictEqual } from 'node:util';
 
-import { asc, eq, inArray, max, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, max, sql } from 'drizzle-orm';
 
 import {
   busSubjects,
+  CONTAINER_DEVICE_PREFIX,
+  containerDeviceId,
   CORE_SERVICE,
   CORE_UNREGISTER_METHOD,
   deviceViewSchema,
@@ -269,21 +271,23 @@ async function entityIdsOf(
 }
 
 /**
- * The system device, read from its row and given its fixed connection half.
+ * The devices the platform keeps for itself - the system device and one per container of the
+ * host - read from their rows and given their fixed connection half.
  *
  * `running` because the view's state is the instance's, and there is no instance to be
- * anything else; whether the machine is being heard from is what `lastUpdatedAt` and the
- * entities' own availability say, the same as for any device.
+ * anything else; whether the machine or the container is being heard from is what
+ * `lastUpdatedAt` and the entities' own availability say, the same as for any device.
  *
  * @param context - The request's collaborators.
- * @returns The view, or undefined before `core` has first started and written the row.
+ * @returns The views, the system device first; none of either before `core` has written them.
  */
-async function systemDeviceView(context: DevicesContext): Promise<DeviceView | undefined> {
+async function platformDeviceViews(context: DevicesContext): Promise<DeviceView[]> {
   const { devices, areas, entities, entityStates } = schema.registry;
 
-  const [row] = await context.db
+  const rows = await context.db
     .select({
       rowId: devices.id,
+      source: devices.source,
       name: devices.name,
       icon: devices.icon,
       externalId: devices.externalId,
@@ -297,69 +301,77 @@ async function systemDeviceView(context: DevicesContext): Promise<DeviceView | u
     })
     .from(devices)
     .leftJoin(areas, eq(areas.id, devices.areaId))
-    .where(eq(devices.source, 'system'))
-    .limit(1);
+    .where(inArray(devices.source, ['system', 'container']));
 
-  if (row === undefined) {
-    return undefined;
-  }
+  const views = await Promise.all(
+    rows.map(async (row) => {
+      const [entityRows, [updated], tagIds] = await Promise.all([
+        context.db
+          .select({ entityId: entities.entityId })
+          .from(entities)
+          .where(eq(entities.deviceId, row.rowId))
+          .orderBy(asc(entities.entityId)),
+        context.db
+          .select({ lastUpdatedAt: max(entityStates.lastUpdated) })
+          .from(entities)
+          .innerJoin(entityStates, eq(entityStates.entityId, entities.id))
+          .where(eq(entities.deviceId, row.rowId)),
+        tagIdsOfDeviceRow(context.db, row.rowId),
+      ]);
+      const isSystem = row.source === 'system';
 
-  const [entityRows, [updated], tagIds] = await Promise.all([
-    context.db
-      .select({ entityId: entities.entityId })
-      .from(entities)
-      .where(eq(entities.deviceId, row.rowId))
-      .orderBy(asc(entities.entityId)),
-    context.db
-      .select({ lastUpdatedAt: max(entityStates.lastUpdated) })
-      .from(entities)
-      .innerJoin(entityStates, eq(entityStates.entityId, entities.id))
-      .where(eq(entities.deviceId, row.rowId)),
-    tagIdsOfDeviceRow(context.db, row.rowId),
-  ]);
+      return deviceViewSchema.parse({
+        id: isSystem ? SYSTEM_DEVICE_ID : containerDeviceId(row.externalId ?? row.name),
+        origin: isSystem ? 'system' : 'container',
+        name: row.name,
+        icon: row.icon,
+        kind: isSystem ? 'nebula/system' : 'nebula/container',
+        kindVersion: row.swVersion ?? '0.0.0',
+        vendorId: 'nebula',
+        driverId: isSystem ? 'system' : 'container',
+        driverName: isSystem ? 'System' : 'Container',
+        model: row.model,
+        transport: isSystem ? 'system' : 'docker',
+        transportConfig: {},
+        options: {},
+        isEnabled: true,
+        state: 'running',
+        lastError: null,
+        lastStartedAt: null,
+        lastUpdatedAt: updated?.lastUpdatedAt ?? null,
+        externalId: row.externalId,
+        manufacturer: row.manufacturer,
+        swVersion: row.swVersion,
+        hwVersion: row.hwVersion,
+        areaId: row.areaId,
+        areaKey: row.areaKey,
+        areaName: row.areaName,
+        entityIds: entityRows.map((entity) => entity.entityId),
+        tagIds,
+      });
+    }),
+  );
 
-  return deviceViewSchema.parse({
-    id: SYSTEM_DEVICE_ID,
-    origin: 'system',
-    name: row.name,
-    icon: row.icon,
-    kind: 'nebula/system',
-    kindVersion: row.swVersion ?? '0.0.0',
-    vendorId: 'nebula',
-    driverId: 'system',
-    driverName: 'System',
-    model: row.model,
-    transport: 'system',
-    transportConfig: {},
-    options: {},
-    isEnabled: true,
-    state: 'running',
-    lastError: null,
-    lastStartedAt: null,
-    lastUpdatedAt: updated?.lastUpdatedAt ?? null,
-    externalId: row.externalId,
-    manufacturer: row.manufacturer,
-    swVersion: row.swVersion,
-    hwVersion: row.hwVersion,
-    areaId: row.areaId,
-    areaKey: row.areaKey,
-    areaName: row.areaName,
-    entityIds: entityRows.map((entity) => entity.entityId),
-    tagIds,
-  });
+  return views.sort((left, right) =>
+    left.origin === right.origin
+      ? left.name.localeCompare(right.name)
+      : left.origin === 'system'
+        ? -1
+        : 1,
+  );
 }
 
 /**
  * Lists every device, with where each stands and what it exposes.
  *
  * @param context - The request's collaborators.
- * @returns The system device first, then the rest by name.
+ * @returns The system device first, then the rest by name, then the host's containers.
  */
 export async function listDevices(context: DevicesContext): Promise<DeviceView[]> {
-  const [rows, catalogue, system] = await Promise.all([
+  const [rows, catalogue, platform] = await Promise.all([
     deviceRows(context),
     catalogueIfUp(context),
-    systemDeviceView(context),
+    platformDeviceViews(context),
   ]);
   const ids = rows.map((row) => row.id);
   const [entityIds, tagIds] = await Promise.all([
@@ -368,10 +380,11 @@ export async function listDevices(context: DevicesContext): Promise<DeviceView[]
   ]);
 
   return [
-    ...(system === undefined ? [] : [system]),
+    ...platform.filter((device) => device.origin === 'system'),
     ...rows.map((row) =>
       toDeviceView(row, catalogue, entityIds.get(row.id) ?? [], tagIds.get(row.id) ?? []),
     ),
+    ...platform.filter((device) => device.origin === 'container'),
   ];
 }
 
@@ -579,8 +592,8 @@ export async function updateDevice(
   id: string,
   body: DeviceUpdate,
 ): Promise<DeviceView> {
-  if (id === SYSTEM_DEVICE_ID) {
-    return updateSystemDevice(context, body);
+  if (id === SYSTEM_DEVICE_ID || id.startsWith(CONTAINER_DEVICE_PREFIX)) {
+    return updatePlatformDevice(context, id, body);
   }
 
   const [current] = await context.db
@@ -687,29 +700,37 @@ export async function updateDevice(
 const CONNECTION_FIELDS = ['isEnabled', 'model', 'transportConfig', 'options'] as const;
 
 /**
- * Changes the system device: its name, its icon, its room, its tags.
+ * Changes a device the platform keeps for itself - the system device, a container's - its name,
+ * its icon, its room, its tags.
  *
  * The rest of a change is refused rather than ignored. There is no instance to switch off or
  * reconfigure, and a form that sent a transport configuration for it and was told "saved" would
  * be told something untrue.
  *
  * @param context - The request's collaborators.
+ * @param id - `system`, or a container's device id.
  * @param body - The fields to change.
  * @returns The device as it now stands.
  * @throws {ValidationError} When the change touches a connection field.
- * @throws {NotFoundError} When `core` has not yet written the device.
+ * @throws {NotFoundError} When `core` has not written the device.
  */
-async function updateSystemDevice(
+async function updatePlatformDevice(
   context: DevicesContext,
+  id: string,
   body: DeviceUpdate,
 ): Promise<DeviceView> {
   const refused = CONNECTION_FIELDS.filter((field) => body[field] !== undefined);
 
   if (refused.length > 0) {
-    throw new ValidationError('The system device has no connection to change', {
-      details: { fields: refused },
-    });
+    throw new ValidationError(
+      id === SYSTEM_DEVICE_ID
+        ? 'The system device has no connection to change'
+        : 'A container is reached through Docker; there is no connection to change',
+      { details: { fields: refused } },
+    );
   }
+
+  const device = await readDevice(context, id);
 
   if (body.icon !== undefined && body.icon !== null) {
     checkIcon(context.icons, body.icon);
@@ -723,11 +744,18 @@ async function updateSystemDevice(
     const [identity] = await tx
       .select({ id: schema.registry.devices.id })
       .from(schema.registry.devices)
-      .where(eq(schema.registry.devices.source, 'system'))
+      .where(
+        device.origin === 'system'
+          ? eq(schema.registry.devices.source, 'system')
+          : and(
+              eq(schema.registry.devices.source, 'container'),
+              eq(schema.registry.devices.externalId, device.externalId ?? ''),
+            ),
+      )
       .limit(1);
 
     if (identity === undefined) {
-      throw new NotFoundError('No device has that id', { details: { id: SYSTEM_DEVICE_ID } });
+      throw new NotFoundError('No device has that id', { details: { id } });
     }
 
     if (body.name !== undefined || body.icon !== undefined || body.areaId !== undefined) {
@@ -748,7 +776,7 @@ async function updateSystemDevice(
     }
   });
 
-  return readDevice(context, SYSTEM_DEVICE_ID);
+  return readDevice(context, id);
 }
 
 /**
@@ -815,6 +843,14 @@ export async function deleteDevice(context: DevicesContext, id: string): Promise
     // Before anything is asked of anyone: `core` would write it back at its next start anyway,
     // and in between the machine's readings would have nowhere to go.
     throw new ConflictError('The system device belongs to the platform and cannot be removed', {
+      details: { id },
+    });
+  }
+
+  if (id.startsWith(CONTAINER_DEVICE_PREFIX)) {
+    // The device is the container's for as long as the container exists; the supervisor would
+    // hand it back at once.
+    throw new ConflictError('A container device goes when the container is removed from Docker', {
       details: { id },
     });
   }

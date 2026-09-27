@@ -25,6 +25,8 @@ import {
   CORE_SYNC_ALIAS_METHOD,
   CORE_SYSTEM_MONITOR_METHOD,
   CORE_UNREGISTER_METHOD,
+  ConflictError,
+  containerControlRequestSchema,
   discoveredDeviceSchema,
   discoveredRequestSchema,
   discoverRequestSchema,
@@ -39,13 +41,20 @@ import {
   HUB_PROBE_METHOD,
   HUB_RELOAD_METHOD,
   HUB_SERVICE,
+  managedRequestSchema,
   probeRequestSchema,
+  SUPERVISOR_METHODS,
+  SUPERVISOR_SERVICE,
+  supervisorEmptyRequestSchema,
   reloadRequestSchema,
   systemMonitorRequestSchema,
   unregisterDeviceRequestSchema,
   type CapabilityCommandRequest,
   type CatalogueReply,
   type CommandAck,
+  type ContainerListReply,
+  type ContainerSummary,
+  type ManagedReply,
   type DiscoveredDevice,
   type DiscoveredReply,
   type DiscoverReply,
@@ -130,6 +139,7 @@ export const CATALOGUE: CatalogueReply = {
       internetRequired: false,
       transports: ['mqtt'],
       discoverySources: [],
+      containers: [],
       setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
       drivers: [
         {
@@ -152,6 +162,7 @@ export const CATALOGUE: CatalogueReply = {
       internetRequired: true,
       transports: ['mqtt'],
       discoverySources: [],
+      containers: [],
       setup: {
         transport: {
           constants: {},
@@ -368,6 +379,67 @@ export function stopHub(): void {
 }
 
 /**
+ * One container, as the fake supervisor lists it.
+ *
+ * @param name - Its name.
+ * @param fields - What differs from a plain running container.
+ * @returns The container.
+ */
+function container(name: string, fields: Partial<ContainerSummary> = {}): ContainerSummary {
+  return {
+    id: name.padEnd(64, '0').replaceAll(/[^0-9a-f]/g, 'a'),
+    name,
+    deviceId: `container-${name}`,
+    image: `example/${name}:1.0.0`,
+    version: '1.0.0',
+    state: 'running',
+    status: 'Up 2 hours',
+    health: null,
+    createdAt: new Date('2026-09-20T10:00:00Z'),
+    startedAt: new Date('2026-09-27T08:00:00Z'),
+    isSelf: false,
+    managedBy: null,
+    registryUrl: `https://hub.docker.com/r/example/${name}`,
+    cpuPercent: 1.5,
+    memoryUsedBytes: 64_000_000,
+    memoryLimitBytes: 8_000_000_000,
+    update: {
+      installedVersion: '1.0.0',
+      latestVersion: '1.0.0',
+      isAvailable: false,
+      checkedAt: null,
+      error: null,
+      isInstalling: false,
+      progress: null,
+    },
+    refusal: null,
+    ...fields,
+  };
+}
+
+/** What the fake supervisor lists: the platform's own, one an integration runs, one plain. */
+export const CONTAINERS: ContainerListReply = {
+  docker: {
+    isAvailable: true,
+    version: '28.1.1',
+    apiVersion: '1.47',
+    reason: null,
+    platformNetwork: 'bridge',
+  },
+  containers: [
+    container('nebulahome', { isSelf: true, deviceId: null, refusal: 'self' }),
+    container('nebulahome-zigbee2mqtt', {
+      managedBy: { vendorId: 'zigbee2mqtt', dependencyId: 'zigbee2mqtt', isReleased: false },
+      refusal: 'managed',
+    }),
+    container('adguard'),
+  ],
+};
+
+/** The containers the fake supervisor was asked to control, as `name:action`. */
+export const controlled: string[] = [];
+
+/**
  * Builds the real server around a stub database and a hub on an in-memory bus.
  *
  * @param isBusUp - Whether the server gets a bus at all.
@@ -386,10 +458,47 @@ export async function buildTestServer(
   const hub = new BusClient({ transport, source: 'hub', logger, requestTimeoutMs: 500 });
   const core = new BusClient({ transport, source: 'core', logger, requestTimeoutMs: 500 });
   const backup = new BusClient({ transport, source: 'backup', logger, requestTimeoutMs: 500 });
+  const supervisor = new BusClient({
+    transport,
+    source: 'supervisor',
+    logger,
+    requestTimeoutMs: 500,
+  });
+
+  controlled.length = 0;
 
   backupRequests.length = 0;
 
   const subscriptions = [
+    supervisor.serve(
+      busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.list),
+      supervisorEmptyRequestSchema,
+      (): ContainerListReply => CONTAINERS,
+    ),
+    supervisor.serve(
+      busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.control),
+      containerControlRequestSchema,
+      (request): ContainerSummary => {
+        const found =
+          CONTAINERS.containers.find((each) => each.name === request.name) ??
+          container(request.name);
+
+        if (found.refusal !== null) {
+          throw new ConflictError(`${request.name} is not controlled from here`, {
+            details: { name: request.name, reason: found.refusal },
+          });
+        }
+
+        controlled.push(`${request.name}:${request.action}`);
+
+        return { ...found, state: 'exited' };
+      },
+    ),
+    supervisor.serve(
+      busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.managed),
+      managedRequestSchema,
+      (): ManagedReply => ({ containers: [] }),
+    ),
     backup.serve(
       busSubjects.service(BACKUP_SERVICE, BACKUP_METHODS.status),
       backupEmptyRequestSchema,

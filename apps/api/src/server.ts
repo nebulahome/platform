@@ -27,6 +27,7 @@ import { registerAreaRoutes } from './routes/areas.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerBackupRoutes } from './routes/backup.js';
 import { registerCameraRoutes } from './routes/cameras.js';
+import { registerContainerRoutes } from './routes/containers.js';
 import { registerDashboardRoutes } from './routes/dashboards.js';
 import { registerDeviceRoutes } from './routes/devices.js';
 import { registerDiscoveryRoutes } from './routes/discovery.js';
@@ -237,6 +238,7 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   registerSettingsRoutes(environment, context);
   registerSystemRoutes(environment, context);
   registerBackupRoutes(environment, context);
+  registerContainerRoutes(environment, context);
   registerMapRoutes(server, context, environment.basePath);
   registerCameraRoutes(server, context, environment.basePath);
   registerWebSocket(server, context, environment.basePath);

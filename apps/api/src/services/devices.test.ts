@@ -14,6 +14,7 @@ const CATALOGUE: IntegrationVendor[] = [
     internetRequired: false,
     transports: ['mqtt'],
     discoverySources: [],
+    containers: [],
     setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
     drivers: [
       {
