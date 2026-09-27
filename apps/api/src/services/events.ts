@@ -11,6 +11,7 @@
  */
 import type { BusClient, BusSubscription } from '@nebula-home/bus';
 import {
+  backupEventSchema,
   BUS_PATTERNS,
   busSubjects,
   containerEventSchema,
@@ -151,6 +152,25 @@ export class EventFanout {
          */
         (payload): void => {
           this.#dispatch('containers', null, { type: 'container_event', payload });
+        },
+      ),
+    );
+
+    this.#subscriptions.push(
+      client.subscribe(
+        busSubjects.backupEvent(),
+        backupEventSchema,
+
+        /**
+         * Tells the sockets watching the backups that a run began, moved on or ended.
+         *
+         * What travels is the run's id and phase: the page reads the run itself with the
+         * permission that takes.
+         *
+         * @param payload - Which run, and where it stands.
+         */
+        (payload): void => {
+          this.#dispatch('backups', null, { type: 'backup_event', payload });
         },
       ),
     );

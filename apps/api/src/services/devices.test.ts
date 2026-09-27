@@ -13,6 +13,7 @@ const CATALOGUE: IntegrationVendor[] = [
     logoPadding: 0,
     internetRequired: false,
     transports: ['mqtt'],
+    wires: ['mqtt'],
     discoverySources: [],
     containers: [],
     setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },

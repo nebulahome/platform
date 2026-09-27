@@ -27,6 +27,7 @@ import {
   CORE_UNREGISTER_METHOD,
   ConflictError,
   containerControlRequestSchema,
+  containerRemoveRequestSchema,
   discoveredDeviceSchema,
   discoveredRequestSchema,
   discoverRequestSchema,
@@ -138,6 +139,7 @@ export const CATALOGUE: CatalogueReply = {
       logoPadding: 0,
       internetRequired: false,
       transports: ['mqtt'],
+      wires: ['mqtt'],
       discoverySources: [],
       containers: [],
       setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
@@ -161,6 +163,7 @@ export const CATALOGUE: CatalogueReply = {
       logoPadding: 0,
       internetRequired: true,
       transports: ['mqtt'],
+      wires: ['mqtt'],
       discoverySources: [],
       containers: [],
       setup: {
@@ -389,6 +392,7 @@ function container(name: string, fields: Partial<ContainerSummary> = {}): Contai
   return {
     id: name.padEnd(64, '0').replaceAll(/[^0-9a-f]/g, 'a'),
     name,
+    displayName: name,
     deviceId: `container-${name}`,
     image: `example/${name}:1.0.0`,
     version: '1.0.0',
@@ -398,7 +402,9 @@ function container(name: string, fields: Partial<ContainerSummary> = {}): Contai
     createdAt: new Date('2026-09-20T10:00:00Z'),
     startedAt: new Date('2026-09-27T08:00:00Z'),
     isSelf: false,
+    isSystem: false,
     managedBy: null,
+    compose: null,
     registryUrl: `https://hub.docker.com/r/example/${name}`,
     cpuPercent: 1.5,
     memoryUsedBytes: 64_000_000,
@@ -425,19 +431,25 @@ export const CONTAINERS: ContainerListReply = {
     apiVersion: '1.47',
     reason: null,
     platformNetwork: 'bridge',
+    composeVersion: '2.39.1',
   },
   containers: [
-    container('nebulahome', { isSelf: true, deviceId: null, refusal: 'self' }),
+    container('nebulahome', { isSelf: true, isSystem: true, deviceId: null, refusal: 'self' }),
     container('nebulahome-zigbee2mqtt', {
       managedBy: { vendorId: 'zigbee2mqtt', dependencyId: 'zigbee2mqtt', isReleased: false },
       refusal: 'managed',
     }),
     container('adguard'),
   ],
+  installs: [],
+  composeOperations: [],
 };
 
 /** The containers the fake supervisor was asked to control, as `name:action`. */
 export const controlled: string[] = [];
+
+/** The containers the fake supervisor was asked to remove, as `name:removeVolumes`. */
+export const removed: string[] = [];
 
 /**
  * Builds the real server around a stub database and a hub on an in-memory bus.
@@ -466,6 +478,7 @@ export async function buildTestServer(
   });
 
   controlled.length = 0;
+  removed.length = 0;
 
   backupRequests.length = 0;
 
@@ -492,6 +505,23 @@ export async function buildTestServer(
         controlled.push(`${request.name}:${request.action}`);
 
         return { ...found, state: 'exited' };
+      },
+    ),
+    supervisor.serve(
+      busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.remove),
+      containerRemoveRequestSchema,
+      (request): { ok: true } => {
+        const found = CONTAINERS.containers.find((each) => each.name === request.name);
+
+        if (found !== undefined && found.refusal !== null) {
+          throw new ConflictError(`${request.name} is not removed from here`, {
+            details: { name: request.name, reason: found.refusal },
+          });
+        }
+
+        removed.push(`${request.name}:${String(request.removeVolumes)}`);
+
+        return { ok: true };
       },
     ),
     supervisor.serve(

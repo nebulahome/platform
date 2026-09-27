@@ -15,6 +15,7 @@ import {
   buildTestServer,
   controlled,
   emptyDatabase,
+  removed,
   stopHub,
 } from '../testing/hub-harness.js';
 
@@ -79,6 +80,38 @@ describe('with the supervisor answering', () => {
 
     expect(response.statusCode).toBe(409);
     expect(response.json()).toMatchObject({ error: { details: { reason: 'managed' } } });
+  });
+
+  it('removes a plain container, its own volumes with it, for somebody who may install them', async () => {
+    const response = await server.inject({
+      method: 'DELETE',
+      url: '/api/v1/containers/adguard?volumes=true',
+      headers: { authorization: await bearer('container:install') },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(removed).toEqual(['adguard:true']);
+  });
+
+  it("refuses to remove the platform's own container, saying why", async () => {
+    const response = await server.inject({
+      method: 'DELETE',
+      url: '/api/v1/containers/nebulahome',
+      headers: { authorization: await bearer('container:install') },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({ error: { details: { reason: 'self' } } });
+  });
+
+  it('keeps removing from somebody who may only start and stop', async () => {
+    const response = await server.inject({
+      method: 'DELETE',
+      url: '/api/v1/containers/adguard',
+      headers: { authorization: await bearer('container:control') },
+    });
+
+    expect(response.statusCode).toBe(403);
   });
 
   it('refuses to act for somebody who may only look', async () => {

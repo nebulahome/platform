@@ -10,20 +10,32 @@
 import type { BusClient } from '@nebula-home/bus';
 import {
   busSubjects,
+  composeDocumentSchema,
+  composeValidationSchema,
   containerDetailSchema,
   containerListReplySchema,
   containerLogsReplySchema,
   containerSummarySchema,
   DeviceUnavailableError,
+  imageDescriptionSchema,
+  imageSearchReplySchema,
+  imageTagsReplySchema,
   managedReplySchema,
   SUPERVISOR_METHODS,
   SUPERVISOR_SERVICE,
   supervisorAcknowledgementSchema,
+  type ComposeDefinition,
+  type ComposeDocument,
+  type ComposeValidation,
   type ContainerAction,
   type ContainerDetail,
+  type ContainerInstallRequest,
   type ContainerLogsReply,
   type ContainerSummary,
   type ContainersView,
+  type ImageDescription,
+  type ImageSearchReply,
+  type ImageTagsReply,
   type ManagedStatus,
 } from '@nebula-home/contracts';
 import type { PlatformLogger } from '@nebula-home/logging';
@@ -36,6 +48,12 @@ const CONTROL_TIMEOUT_MS = 45_000;
 
 /** How long a vendor's page waits for its containers' statuses before showing none. */
 const STATUS_TIMEOUT_MS = 3_000;
+
+/** How long asking a registry may take: Docker Hub, then the supervisor's reply. */
+const REGISTRY_TIMEOUT_MS = 25_000;
+
+/** How long checking a compose file may take: `docker compose config` reads it the way `up` will. */
+const COMPOSE_TIMEOUT_MS = 30_000;
 
 /** What asking the supervisor needs. */
 export type ContainersContext = {
@@ -95,7 +113,12 @@ export async function listContainers(context: ContainersContext): Promise<Contai
       containerListReplySchema,
     );
 
-    return { docker: reply.docker, items: reply.containers };
+    return {
+      docker: reply.docker,
+      items: reply.containers,
+      installs: reply.installs,
+      composeOperations: reply.composeOperations,
+    };
   } catch (error: unknown) {
     context.logger.warn({ err: error }, 'The supervisor did not answer for the containers');
 
@@ -106,8 +129,11 @@ export async function listContainers(context: ContainersContext): Promise<Contai
         apiVersion: null,
         reason: 'The supervisor is not running, so Docker cannot be asked',
         platformNetwork: null,
+        composeVersion: null,
       },
       items: [],
+      installs: [],
+      composeOperations: [],
     };
   }
 }
@@ -190,6 +216,219 @@ export async function checkContainerUpdates(context: ContainersContext): Promise
     context,
     SUPERVISOR_METHODS.checkUpdates,
     {},
+    supervisorAcknowledgementSchema,
+  );
+}
+
+/**
+ * Looks for images on Docker Hub.
+ *
+ * @param context - The bus.
+ * @param query - What to look for.
+ * @returns What Docker Hub found.
+ */
+export async function searchImages(
+  context: ContainersContext,
+  query: string,
+): Promise<ImageSearchReply> {
+  return askSupervisor(
+    context,
+    SUPERVISOR_METHODS.searchImages,
+    { query },
+    imageSearchReplySchema,
+    REGISTRY_TIMEOUT_MS,
+  );
+}
+
+/**
+ * The tags of an image worth offering.
+ *
+ * @param context - The bus.
+ * @param image - The image, without a tag.
+ * @returns The tags, the newest first.
+ */
+export async function imageTags(
+  context: ContainersContext,
+  image: string,
+): Promise<ImageTagsReply> {
+  return askSupervisor(
+    context,
+    SUPERVISOR_METHODS.imageTags,
+    { image },
+    imageTagsReplySchema,
+    REGISTRY_TIMEOUT_MS,
+  );
+}
+
+/**
+ * What an image declares: its ports, its environment, its volumes.
+ *
+ * @param context - The bus.
+ * @param image - The image, without a tag.
+ * @param tag - The tag.
+ * @returns What it declares.
+ */
+export async function describeImage(
+  context: ContainersContext,
+  image: string,
+  tag: string,
+): Promise<ImageDescription> {
+  return askSupervisor(
+    context,
+    SUPERVISOR_METHODS.describeImage,
+    { image, tag },
+    imageDescriptionSchema,
+    REGISTRY_TIMEOUT_MS,
+  );
+}
+
+/**
+ * Starts installing a container; the page follows it in the list's installs.
+ *
+ * @param context - The bus.
+ * @param request - What the form said.
+ */
+export async function installContainer(
+  context: ContainersContext,
+  request: ContainerInstallRequest,
+): Promise<void> {
+  await askSupervisor(
+    context,
+    SUPERVISOR_METHODS.install,
+    request,
+    supervisorAcknowledgementSchema,
+  );
+}
+
+/**
+ * Forgets an install that failed.
+ *
+ * @param context - The bus.
+ * @param name - The container's name.
+ */
+export async function dismissInstall(context: ContainersContext, name: string): Promise<void> {
+  await askSupervisor(
+    context,
+    SUPERVISOR_METHODS.dismissInstall,
+    { name },
+    supervisorAcknowledgementSchema,
+  );
+}
+
+/**
+ * Stops and removes a container.
+ *
+ * @param context - The bus.
+ * @param name - Its name.
+ * @param removeVolumes - Also the volumes Docker made for it alone.
+ * @throws {ConflictError} When it is a system container, or an integration runs it.
+ */
+export async function removeContainer(
+  context: ContainersContext,
+  name: string,
+  removeVolumes: boolean,
+): Promise<void> {
+  await askSupervisor(
+    context,
+    SUPERVISOR_METHODS.remove,
+    { name, removeVolumes },
+    supervisorAcknowledgementSchema,
+    CONTROL_TIMEOUT_MS,
+  );
+}
+
+/**
+ * Checks a compose file without running anything.
+ *
+ * @param context - The bus.
+ * @param definition - The project, its file and its `.env`.
+ * @returns What is wrong, and the services it declares.
+ */
+export async function validateCompose(
+  context: ContainersContext,
+  definition: ComposeDefinition,
+): Promise<ComposeValidation> {
+  return askSupervisor(
+    context,
+    SUPERVISOR_METHODS.composeValidate,
+    definition,
+    composeValidationSchema,
+    COMPOSE_TIMEOUT_MS,
+  );
+}
+
+/**
+ * Keeps a compose file and brings its project up with it.
+ *
+ * @param context - The bus.
+ * @param definition - The project, its file and its `.env`.
+ * @throws {ValidationError} When the file cannot run, with the problems in `details.problems`.
+ */
+export async function deployCompose(
+  context: ContainersContext,
+  definition: ComposeDefinition,
+): Promise<void> {
+  await askSupervisor(
+    context,
+    SUPERVISOR_METHODS.composeDeploy,
+    definition,
+    supervisorAcknowledgementSchema,
+    COMPOSE_TIMEOUT_MS,
+  );
+}
+
+/**
+ * The file and `.env` of a project deployed from here.
+ *
+ * @param context - The bus.
+ * @param project - The project.
+ * @returns Them.
+ */
+export async function readCompose(
+  context: ContainersContext,
+  project: string,
+): Promise<ComposeDocument> {
+  return askSupervisor(context, SUPERVISOR_METHODS.composeGet, { project }, composeDocumentSchema);
+}
+
+/**
+ * Starts, stops, or pulls newer images for a project deployed from here.
+ *
+ * @param context - The bus.
+ * @param project - The project.
+ * @param action - What to do.
+ */
+export async function controlCompose(
+  context: ContainersContext,
+  project: string,
+  action: 'start' | 'stop' | 'pull',
+): Promise<void> {
+  await askSupervisor(
+    context,
+    SUPERVISOR_METHODS.composeControl,
+    { project, action },
+    supervisorAcknowledgementSchema,
+  );
+}
+
+/**
+ * Takes a project deployed from here down, and forgets it.
+ *
+ * @param context - The bus.
+ * @param project - The project.
+ * @param removeVolumes - Also its volumes.
+ * @param removeFiles - Also its folder.
+ */
+export async function removeCompose(
+  context: ContainersContext,
+  project: string,
+  removeVolumes: boolean,
+  removeFiles: boolean,
+): Promise<void> {
+  await askSupervisor(
+    context,
+    SUPERVISOR_METHODS.composeRemove,
+    { project, removeVolumes, removeFiles },
     supervisorAcknowledgementSchema,
   );
 }
