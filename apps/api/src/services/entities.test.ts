@@ -19,4 +19,10 @@ describe('toSourceRef', () => {
     expect(toSourceRef('derived', null, null)).toBe('derived');
     expect(toSourceRef('system', null, null)).toBe('system');
   });
+
+  it("names a container entity after its container's device", () => {
+    expect(toSourceRef('container', null, null, 'nebulahome-zigbee2mqtt')).toBe(
+      'container-nebulahome-zigbee2mqtt',
+    );
+  });
 });

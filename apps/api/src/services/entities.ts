@@ -14,6 +14,7 @@
 import { and, asc, eq, gt, ilike, inArray, or, sql, type SQL } from 'drizzle-orm';
 
 import {
+  containerDeviceId,
   entityViewSchema,
   NotFoundError,
   parseEntityId,
@@ -43,6 +44,9 @@ type EntityRow = {
   packageId: string | null;
   integrationId: string | null;
   source: string;
+
+  /** The device's `external_id`: a container's name, for a container entity. */
+  deviceExternalId: string | null;
   areaKey: string | null;
   areaName: string | null;
   unitOfMeasurement: string | null;
@@ -78,6 +82,7 @@ const ENTITY_COLUMNS = {
   packageId: schema.registry.entities.packageId,
   integrationId: schema.registry.entities.integrationId,
   source: schema.registry.entities.source,
+  deviceExternalId: schema.registry.devices.externalId,
   areaKey: schema.registry.areas.key,
   areaName: schema.registry.areas.name,
   unitOfMeasurement: schema.registry.entities.unitOfMeasurement,
@@ -95,21 +100,33 @@ const ENTITY_COLUMNS = {
 /**
  * Turns `registry.entities.source` and the two owner columns back into one owner.
  *
- * The column holds the *kind* of source - `adapter`, `derived` or `system` - and the owner is a
- * separate column: `package_id` for an entity an adapter registered, `integration_id` for one
- * the hub registered on an instance's behalf. Reading `source` alone would say "adapter" where
- * the contract wants the owner's id - the same id the bus carries as the source of its states.
+ * The column holds the *kind* of source - `adapter`, `derived`, `system` or `container` - and the
+ * owner is a separate column: `package_id` for an entity an adapter registered, `integration_id`
+ * for one the hub registered on an instance's behalf. Reading `source` alone would say "adapter"
+ * where the contract wants the owner's id - the same id the bus carries as the source of its
+ * states, and the id of the device the interface lists its entities under.
+ *
+ * A container's entities are the one case where the two differ: the supervisor reports every one
+ * of them, but each belongs to its container's device, `container-<slug>`, and that is what the
+ * interface groups a device's entities by.
  *
  * @param kind - The `source` column.
  * @param packageId - The `package_id` column.
  * @param integrationId - The `integration_id` column.
+ * @param deviceExternalId - The device's `external_id`: the container's name, for a container
+ * entity.
  * @returns The owner as the contract defines it.
  */
 export function toSourceRef(
   kind: string,
   packageId: string | null,
   integrationId: string | null,
+  deviceExternalId: string | null = null,
 ): string {
+  if (kind === 'container' && deviceExternalId !== null) {
+    return containerDeviceId(deviceExternalId);
+  }
+
   if (kind !== 'adapter') {
     return kind;
   }
@@ -141,7 +158,7 @@ function toView(
     areaKey: row.areaKey,
     areaName: row.areaName,
     deviceId: row.deviceId,
-    source: toSourceRef(row.source, row.packageId, row.integrationId),
+    source: toSourceRef(row.source, row.packageId, row.integrationId, row.deviceExternalId),
     unitOfMeasurement: row.unitOfMeasurement,
     deviceClass: row.deviceClass,
     isEnabled: row.isEnabled,
