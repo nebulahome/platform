@@ -780,6 +780,17 @@
   }
 
   /*
+   * The one exception: a chart. Recharts makes its drawing focusable so the arrow keys can walk
+   * the tooltip along the line, and a click on the chart then draws a square around the whole of
+   * it - which says nothing, since the tooltip already shows where the pointer is.
+   */
+  .recharts-wrapper:focus,
+  .recharts-wrapper :focus,
+  .recharts-wrapper :focus-visible {
+    outline: none;
+  }
+
+  /*
    * Someone who has asked for less motion has asked for it everywhere.
    *
    * The drifting lights simply stop - they are decoration, and decoration is exactly what this
