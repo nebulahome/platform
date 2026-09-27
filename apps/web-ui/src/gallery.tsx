@@ -264,6 +264,7 @@ const SAMPLE_VENDOR: IntegrationVendorView = {
   logoPadding: 0,
   internetRequired: false,
   transports: ['shelly/rpc'],
+  wires: ['http'],
   discoverySources: ['mdns'],
   containers: [],
   containerStatuses: [],

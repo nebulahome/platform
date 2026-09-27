@@ -5,22 +5,28 @@
  * renders. The search reads more than the vendor's name on purpose: a person looking for their
  * printer types what is on the box, which is a model, not the company that made it.
  */
-import type { DiscoveredDevice, IntegrationVendorView } from '@nebula-home/contracts';
+import {
+  TRANSPORT_WIRES,
+  type DiscoveredDevice,
+  type IntegrationVendorView,
+  type TransportWire,
+} from '@nebula-home/contracts';
 
 import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, readChoice, type ListCodec } from '@/lib/use-list-state';
 
 /**
- * The wires the interface names: the platform's own transports a person recognises on the box -
- * HTTP, MQTT, Bluetooth LE, Zigbee.
+ * The wires the interface names: what a person recognises on the box - HTTP, MQTT, Bluetooth LE,
+ * Zigbee, a device's own datagrams on the network, Modbus.
  *
  * A transport a vendor ships in its bundle - `shelly/rpc`, `govee/lan` - is that vendor's way of
- * speaking, not a wire anybody shops by, and is not named.
+ * speaking, not a wire anybody shops by, and is not named: its manifest says which wires it goes
+ * over, and the hub serves the vendor's wires with them in.
  */
-export const WIRES = ['http', 'mqtt', 'ble', 'zigbee'] as const;
+export const WIRES = TRANSPORT_WIRES;
 
 /** A wire the interface names. */
-export type Wire = (typeof WIRES)[number];
+export type Wire = TransportWire;
 
 /** Which wire to keep, or any. */
 export type TransportFilter = '' | Wire;
@@ -113,14 +119,14 @@ export function matchesDiscovered(
 }
 
 /**
- * The wires a vendor's drivers go over, of those the interface names.
+ * The wires a vendor's devices are reached over.
  *
  * @param vendor - As the list serves it.
- * @returns Its wires, in the order the interface lists them; none for a vendor that speaks only
- * protocols of its own.
+ * @returns Its wires, in the order the interface lists them; none for a vendor whose own
+ * transports declare none.
  */
-export function wiresOf(vendor: Pick<IntegrationVendorView, 'transports'>): Wire[] {
-  return WIRES.filter((wire) => vendor.transports.includes(wire));
+export function wiresOf(vendor: Pick<IntegrationVendorView, 'wires'>): Wire[] {
+  return WIRES.filter((wire) => vendor.wires.includes(wire));
 }
 
 /**
@@ -144,7 +150,7 @@ export function matchesVendorFilter(vendor: IntegrationVendorView, filter: Vendo
     return false;
   }
 
-  if (filter.transport !== '' && !vendor.transports.includes(filter.transport)) {
+  if (filter.transport !== '' && !vendor.wires.includes(filter.transport)) {
     return false;
   }
 

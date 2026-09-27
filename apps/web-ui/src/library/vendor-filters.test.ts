@@ -24,6 +24,7 @@ function vendor(overrides: Partial<IntegrationVendorView> = {}): IntegrationVend
     logoPadding: 0,
     internetRequired: false,
     transports: ['http'],
+    wires: ['http'],
     discoverySources: [],
     containers: [],
     containerStatuses: [],
@@ -78,18 +79,18 @@ describe('matchesVendorFilter', () => {
     expect(matchesVendorFilter(vendor(), filter({ transport: 'http' }))).toBe(true);
     expect(matchesVendorFilter(vendor(), filter({ transport: 'mqtt' }))).toBe(false);
     expect(
-      matchesVendorFilter(vendor({ transports: ['http', 'mqtt'] }), filter({ transport: 'mqtt' })),
+      matchesVendorFilter(vendor({ wires: ['http', 'mqtt'] }), filter({ transport: 'mqtt' })),
     ).toBe(true);
   });
 
-  it('narrows by the wires a person recognises, and keeps a protocol of its own out of them', () => {
-    const shelly = vendor({ transports: ['shelly/rpc'] });
-    const zigbee = vendor({ transports: ['zigbee'] });
+  it('narrows a vendor of its own protocols by the wires its manifest declares', () => {
+    const shelly = vendor({ transports: ['shelly/rpc'], wires: ['http'] });
+    const quiet = vendor({ transports: ['acme/lan'], wires: [] });
 
-    expect(matchesVendorFilter(zigbee, filter({ transport: 'zigbee' }))).toBe(true);
-    expect(matchesVendorFilter(shelly, filter({ transport: 'http' }))).toBe(false);
-    expect(wiresOf(shelly)).toEqual([]);
-    expect(wiresOf(vendor({ transports: ['mqtt', 'http', 'acme/lan'] }))).toEqual(['http', 'mqtt']);
+    expect(matchesVendorFilter(shelly, filter({ transport: 'http' }))).toBe(true);
+    expect(matchesVendorFilter(quiet, filter({ transport: 'http' }))).toBe(false);
+    expect(wiresOf(quiet)).toEqual([]);
+    expect(wiresOf(vendor({ wires: ['modbus', 'http'] }))).toEqual(['http', 'modbus']);
   });
 
   it('narrows by whether the internet is needed', () => {

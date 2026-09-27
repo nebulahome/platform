@@ -86,6 +86,7 @@ function vendor(overrides: Partial<IntegrationVendorView>): IntegrationVendorVie
     logoPadding: 0,
     internetRequired: false,
     transports: ['http'],
+    wires: ['http'],
     discoverySources: [],
     containers: [],
     containerStatuses: [],
@@ -141,6 +142,7 @@ describe('the integrations grid', () => {
         id: 'bambu-lab',
         name: 'Bambu Lab',
         transports: ['mqtt'],
+        wires: ['mqtt'],
         discoverySources: [],
         containers: [],
         containerStatuses: [],
@@ -174,7 +176,7 @@ describe('the integrations grid', () => {
   it('narrows the grid from the search in the header', async () => {
     vi.mocked(fetchVendors).mockResolvedValue([
       vendor({}),
-      vendor({ id: 'bambu-lab', name: 'Bambu Lab', transports: ['mqtt'] }),
+      vendor({ id: 'bambu-lab', name: 'Bambu Lab', transports: ['mqtt'], wires: ['mqtt'] }),
     ]);
     renderPage();
 
@@ -191,7 +193,7 @@ describe('the integrations grid', () => {
   it('narrows the grid by the wire, from the filter in the header', async () => {
     vi.mocked(fetchVendors).mockResolvedValue([
       vendor({}),
-      vendor({ id: 'bambu-lab', name: 'Bambu Lab', transports: ['mqtt'] }),
+      vendor({ id: 'bambu-lab', name: 'Bambu Lab', transports: ['mqtt'], wires: ['mqtt'] }),
     ]);
     renderPage();
 

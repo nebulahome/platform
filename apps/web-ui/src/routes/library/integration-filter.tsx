@@ -15,6 +15,8 @@ const WIRE_LABELS: Readonly<Record<Wire, string>> = {
   mqtt: 'MQTT',
   ble: 'BLE',
   zigbee: 'ZigBee',
+  udp: 'UDP',
+  modbus: 'Modbus',
 };
 
 /** The internet facet's choices. */

@@ -23,7 +23,9 @@ import {
   BluetoothIcon,
   GlobeIcon,
   HttpIcon,
+  ModbusIcon,
   MqttIcon,
+  UdpIcon,
   ZigbeeIcon,
   type IconProps,
 } from '@/components/icons';
@@ -41,6 +43,8 @@ const WIRES: Readonly<Record<Wire, { readonly glyph: Glyph; readonly title: stri
   mqtt: { glyph: MqttIcon, title: 'Listens on the MQTT broker' },
   ble: { glyph: BluetoothIcon, title: 'Reaches its devices over Bluetooth LE' },
   zigbee: { glyph: ZigbeeIcon, title: 'Reaches its devices over Zigbee' },
+  udp: { glyph: UdpIcon, title: 'Speaks to each device in its own datagrams on the network' },
+  modbus: { glyph: ModbusIcon, title: 'Reads its devices over Modbus TCP' },
 };
 
 /** What a mark needs. */
@@ -82,7 +86,7 @@ export function Mark(props: MarkProps) {
 
 /** What the marks need. */
 type MarksProps = {
-  readonly vendor: Pick<IntegrationVendorView, 'transports' | 'internetRequired'>;
+  readonly vendor: Pick<IntegrationVendorView, 'wires' | 'internetRequired'>;
   readonly size?: 'small' | 'medium';
 };
 
@@ -97,7 +101,7 @@ export function Marks(props: MarksProps) {
 
   return (
     <span className="flex items-center gap-1.5">
-      {/* Only the wires a person recognises: a protocol a vendor ships of its own gets no mark. */}
+      {/* The wires a person recognises: a vendor's own protocol is marked by what it goes over. */}
       {wiresOf(vendor).map((wire) => (
         <Mark key={wire} title={WIRES[wire].title} glyph={WIRES[wire].glyph} size={size} />
       ))}

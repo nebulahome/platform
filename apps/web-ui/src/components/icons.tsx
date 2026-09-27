@@ -264,6 +264,26 @@ export function ZigbeeIcon(props: IconProps) {
 }
 
 /**
+ * A router: a device's own protocol in datagrams on the network, such as Govee's LAN API.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function UdpIcon(props: IconProps) {
+  return icon('router', props);
+}
+
+/**
+ * A cable: Modbus TCP, the wire of inverters and meters.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function ModbusIcon(props: IconProps) {
+  return icon('cable', props);
+}
+
+/**
  * Lines that narrow: a filter.
  *
  * @param props - SVG attributes.
