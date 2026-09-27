@@ -27,12 +27,16 @@ import {
 } from './integrations.js';
 import { jsonObjectSchema, type JsonObject } from './json.js';
 import { PACKAGE_RUNTIMES, PACKAGE_STATES } from './package-manifest.js';
-import { RESERVED_DEVICE_IDS } from './system-monitor.js';
+import { managedStatusSchema } from './supervisor.js';
+import { isReservedDeviceId } from './system-monitor.js';
 import { TAGS_PER_ROW_MAXIMUM } from './tags.js';
 import { timestampSchema } from './timestamp.js';
 
-/** Where a device comes from: an integration instance, or the platform itself. */
-export const DEVICE_ORIGINS = ['integration', 'system'] as const;
+/**
+ * Where a device comes from: an integration instance, the platform itself, or one of the host's
+ * containers, which the supervisor measures and controls.
+ */
+export const DEVICE_ORIGINS = ['integration', 'system', 'container'] as const;
 
 /** Where a device comes from. */
 export type DeviceOrigin = (typeof DEVICE_ORIGINS)[number];
@@ -155,7 +159,7 @@ export type DeviceView = z.output<typeof deviceViewSchema>;
  * never written for.
  */
 export const deviceCreateSchema = z.object({
-  id: integrationIdSchema.refine((id) => !RESERVED_DEVICE_IDS.includes(id), {
+  id: integrationIdSchema.refine((id) => !isReservedDeviceId(id), {
     message: 'Reserved for the platform',
   }),
 
@@ -896,6 +900,12 @@ export const integrationVendorViewSchema = integrationVendorSchema.extend({
 
   /** How many entities those devices expose. */
   entityCount: z.int().min(0),
+
+  /**
+   * Where each container the vendor depends on stands, in the catalogue's order; null for one the
+   * supervisor did not answer about - it is down, or Docker cannot be reached.
+   */
+  containerStatuses: z.array(managedStatusSchema.nullable()).default([]),
 });
 
 /** One vendor the hub has loaded, with what the owner has done about it. */

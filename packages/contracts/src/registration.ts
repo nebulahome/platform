@@ -42,6 +42,12 @@ export const CORE_REMOVE_ALIAS_METHOD = 'remove_alias';
 export const CORE_SYSTEM_MONITOR_METHOD = 'system_monitor';
 
 /**
+ * Takes in every container the supervisor sees, as devices and entities, and removes the
+ * devices of the containers that are gone (supervisor.ts).
+ */
+export const CORE_SYNC_CONTAINERS_METHOD = 'sync_containers';
+
+/**
  * How history should aggregate a numeric entity.
  *
  * `total_increasing` is the one that matters: energy consumed over a day is last minus first,

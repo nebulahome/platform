@@ -15,6 +15,7 @@ import { entityIdSchema } from './entity-id.js';
 import { changeContextSchema } from './entity-state.js';
 import { jsonObjectSchema } from './json.js';
 import { DEVICE_EVENTS, deviceEventSchema } from './registration.js';
+import { containerEventSchema } from './supervisor.js';
 import { timestampSchema } from './timestamp.js';
 
 /** How long the server waits for the first message before closing the socket, in milliseconds. */
@@ -30,7 +31,14 @@ export const WS_CLOSE_UNAUTHENTICATED = 4001;
 export const WS_CLOSE_TOKEN_EXPIRED = 4002;
 
 /** What a client may subscribe to. */
-export const WS_TOPICS = ['state', 'devices', 'packages', 'automations', 'discovery'] as const;
+export const WS_TOPICS = [
+  'state',
+  'devices',
+  'packages',
+  'automations',
+  'discovery',
+  'containers',
+] as const;
 
 /** What a client may subscribe to. */
 export type WsTopic = (typeof WS_TOPICS)[number];
@@ -130,6 +138,10 @@ export const wsServerMessageSchema = z.discriminatedUnion('type', [
 
     /** How many devices the hub has heard and nobody has added, now. */
     count: z.int().min(0),
+  }),
+  z.object({
+    type: z.literal('container_event'),
+    payload: containerEventSchema,
   }),
   z.object({
     type: z.literal('package_event'),

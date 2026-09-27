@@ -44,6 +44,7 @@ export * from './permissions.js';
 export * from './registration.js';
 export * from './sensor-classes.js';
 export * from './settings.js';
+export * from './supervisor.js';
 export * from './system-monitor.js';
 export * from './tags.js';
 export * from './telemetry.js';

@@ -112,6 +112,26 @@ export const HUB_PROBE_METHOD = 'probe';
 export const HUB_RELOAD_METHOD = 'reload';
 
 /**
+ * Takes in a vendor's saved settings: runs the containers the vendor declares with them. What the
+ * API asks after the owner saved them, beside reloading every instance of the vendor.
+ */
+export const HUB_VENDOR_CHANGED_METHOD = 'vendor_changed';
+
+/** Asks `hub` to take in one vendor's settings. */
+export const vendorChangedRequestSchema = z.strictObject({
+  vendorId: z.string().regex(VENDOR_ID_PATTERN),
+});
+
+/** Asks `hub` to take in one vendor's settings. */
+export type VendorChangedRequest = z.output<typeof vendorChangedRequestSchema>;
+
+/** Whether `hub` has the vendor loaded; false sends nothing on. */
+export const vendorChangedReplySchema = z.object({ isLoaded: z.boolean() });
+
+/** Whether `hub` has the vendor loaded. */
+export type VendorChangedReply = z.output<typeof vendorChangedReplySchema>;
+
+/**
  * Stops one instance and drops it, without reading the registry: what the API asks just before
  * `core` deletes the rows, so that nothing is still reporting into a device that is gone.
  */
@@ -179,6 +199,22 @@ export const integrationKindSchema = z.object({
 /** One driver `hub` loaded. */
 export type IntegrationKind = z.output<typeof integrationKindSchema>;
 
+/** One container a vendor's devices depend on, as the catalogue lists it. */
+export const vendorContainerSchema = z.object({
+  /** The bundle's id for it: `zigbee2mqtt`. */
+  id: z.string().min(1).max(32),
+  name: z.string().min(1).max(128),
+
+  /** The image, without a tag: `koenkk/zigbee2mqtt`. */
+  image: z.string().min(1).max(255),
+
+  /** The oldest release the vendor works with. */
+  minVersion: z.string().min(1).max(64),
+});
+
+/** One container a vendor's devices depend on. */
+export type VendorContainer = z.output<typeof vendorContainerSchema>;
+
 /**
  * One vendor `hub` loaded: who they are, what every device of theirs shares, and its drivers.
  *
@@ -224,6 +260,12 @@ export const integrationVendorSchema = z.object({
   discoverySources: z.array(z.enum(DISCOVERY_SOURCES)).default([]),
 
   drivers: z.array(integrationKindSchema),
+
+  /**
+   * The containers the vendor's devices depend on, which the platform downloads and runs for it
+   * once the vendor is set up. Empty for a vendor that runs on the platform alone.
+   */
+  containers: z.array(vendorContainerSchema).default([]),
 });
 
 /** One vendor `hub` loaded. */

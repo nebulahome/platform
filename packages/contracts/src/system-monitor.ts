@@ -28,11 +28,29 @@ export const SYSTEM_DEVICE_ID = 'system';
 /**
  * Device ids the platform keeps for itself.
  *
- * A device id becomes the `source` of every entity it has, and these two are the sources of the
+ * A device id becomes the `source` of every entity it has, and these are the sources of the
  * entities the platform produces: a device called `system` would have its entities mistaken for
- * the platform's own, and the other way round.
+ * the platform's own, and one called `supervisor` would be sent the commands of every container
+ * entity. The containers' own devices are kept apart by a prefix instead
+ * ({@link RESERVED_DEVICE_PREFIXES}).
  */
-export const RESERVED_DEVICE_IDS: readonly string[] = [SYSTEM_DEVICE_ID, 'derived'];
+export const RESERVED_DEVICE_IDS: readonly string[] = [SYSTEM_DEVICE_ID, 'derived', 'supervisor'];
+
+/** What no device the owner adds may start with: the devices of the host's containers. */
+export const RESERVED_DEVICE_PREFIXES: readonly string[] = ['container-'];
+
+/**
+ * Whether a device id is the platform's to give.
+ *
+ * @param id - The id asked for.
+ * @returns True when it is one of the reserved ids or starts with a reserved prefix.
+ */
+export function isReservedDeviceId(id: string): boolean {
+  return (
+    RESERVED_DEVICE_IDS.includes(id) ||
+    RESERVED_DEVICE_PREFIXES.some((prefix) => id.startsWith(prefix))
+  );
+}
 
 /** How many samples `core` keeps: a quarter of an hour at the default ten seconds. */
 export const SYSTEM_SAMPLE_WINDOW = 90;

@@ -315,6 +315,20 @@ export const PERMISSIONS = [
     description: 'See the system monitor: processor, memory, disk and network',
   },
   {
+    key: 'container:read',
+    resource: 'container',
+    action: 'read',
+    isScopable: false,
+    description: 'See the containers the machine runs, their settings and their logs',
+  },
+  {
+    key: 'container:control',
+    resource: 'container',
+    action: 'control',
+    isScopable: false,
+    description: 'Start, stop, restart and update the containers the machine runs',
+  },
+  {
     key: 'backup:restore',
     resource: 'backup',
     action: 'restore',

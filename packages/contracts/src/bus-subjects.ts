@@ -108,6 +108,13 @@ export const busSubjects = {
   maintenanceEvent: (): string => `${BUS_SUBJECT_PREFIX}.event.maintenance`,
 
   /**
+   * Announcing that a container changed or went away.
+   *
+   * @returns The fan-out subject the supervisor publishes on.
+   */
+  containerEvent: (): string => `${BUS_SUBJECT_PREFIX}.event.container.changed`,
+
+  /**
    * Commanding an entity.
    *
    * @param entityId - The entity to command.
