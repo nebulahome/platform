@@ -4,6 +4,7 @@ import { registrationOf, reportsOf, type ContainerFacts } from './entities.js';
 
 const FACTS: ContainerFacts = {
   name: 'my_web.server',
+  displayName: 'My Web Server',
   image: 'nginx:1.27.3',
   version: '1.27.3',
   isRunning: true,

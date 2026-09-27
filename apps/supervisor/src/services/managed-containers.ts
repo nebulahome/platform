@@ -189,6 +189,22 @@ export class ManagedContainers {
   }
 
   /**
+   * What the integration running a container calls it, from its labels.
+   *
+   * @param labels - The container's labels.
+   * @returns The declared name - `Zigbee2MQTT` - or null for a container no declaration names.
+   */
+  public nameOf(labels: Readonly<Record<string, string>>): string | null {
+    const manager = this.managerOf(labels);
+
+    return (
+      (manager === null ? [] : (this.#desired.get(manager.vendorId) ?? [])).find(
+        (spec) => spec.dependencyId === manager?.dependencyId,
+      )?.name ?? null
+    );
+  }
+
+  /**
    * The web page a managed container serves on the machine, when its vendor published one.
    *
    * @param labels - The container's labels.
@@ -345,7 +361,7 @@ export class ManagedContainers {
       });
 
       if (context.network !== 'host') {
-        await this.#ensureNetwork(context);
+        await this.ensureNetwork(context);
       }
 
       await this.#prepareVolumes(spec, context);
@@ -424,11 +440,12 @@ export class ManagedContainers {
   }
 
   /**
-   * Makes the network the managed containers share, and puts the platform on it.
+   * Makes the network the managed containers share, and puts the platform on it. A container the
+   * owner installs on the platform's network joins the same one.
    *
    * @param context - The platform.
    */
-  async #ensureNetwork(context: PlatformContext): Promise<void> {
+  public async ensureNetwork(context: PlatformContext): Promise<void> {
     const { engine } = this.#options;
     const network = await engine.inspectNetwork(context.networkName);
 

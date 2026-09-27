@@ -2,8 +2,8 @@
  * What the supervisor answers on the bus: `nebula.v1.svc.supervisor.<method>`, the command
  * `core` routes to a container entity, and the resynchronisation `core` asks for at its start.
  *
- * Every call that could take long - an update, a declared container being pulled - answers at
- * once and goes on after, so reading the list never waits behind one; the reads are served
+ * Every call that could take long - an update, an install, a compose project brought up, a
+ * declared container being pulled - answers at once and goes on after, so reading the list never waits behind one; the reads are served
  * several at a time for the same reason.
  */
 import type { BusClient, BusSubscription } from '@nebula-home/bus';
@@ -11,10 +11,19 @@ import {
   ADAPTER_COMMAND_METHOD,
   adapterCommandSchema,
   busSubjects,
+  composeControlRequestSchema,
+  composeDefinitionSchema,
+  composeProjectRequestSchema,
+  composeRemoveRequestSchema,
   containerControlRequestSchema,
+  containerInstallRequestSchema,
   containerLogsRequestSchema,
   containerNameRequestSchema,
+  containerRemoveRequestSchema,
   ensureRequestSchema,
+  imageDescribeRequestSchema,
+  imageSearchRequestSchema,
+  imageTagsRequestSchema,
   managedRequestSchema,
   reconcileRequestSchema,
   resyncRequestSchema,
@@ -113,6 +122,86 @@ export function serveSupervisor(client: BusClient, service: SupervisorService): 
       supervisorEmptyRequestSchema,
       async () => {
         await service.resumeManaged();
+
+        return ok;
+      },
+    ),
+    client.serve(
+      subject(SUPERVISOR_METHODS.searchImages),
+      imageSearchRequestSchema,
+      async (request) => service.searchImages(request.query),
+      reads,
+    ),
+    client.serve(
+      subject(SUPERVISOR_METHODS.imageTags),
+      imageTagsRequestSchema,
+      async (request) => service.imageTags(request.image),
+      reads,
+    ),
+    client.serve(
+      subject(SUPERVISOR_METHODS.describeImage),
+      imageDescribeRequestSchema,
+      async (request) => service.describeImage(request.image, request.tag),
+      reads,
+    ),
+    client.serve(subject(SUPERVISOR_METHODS.install), containerInstallRequestSchema, (request) => {
+      service.install(request);
+
+      return ok;
+    }),
+    client.serve(
+      subject(SUPERVISOR_METHODS.dismissInstall),
+      containerNameRequestSchema,
+      (request) => {
+        service.dismissInstall(request.name);
+
+        return ok;
+      },
+    ),
+    client.serve(
+      subject(SUPERVISOR_METHODS.remove),
+      containerRemoveRequestSchema,
+      async (request) => {
+        await service.remove(request.name, request.removeVolumes);
+
+        return ok;
+      },
+    ),
+    client.serve(
+      subject(SUPERVISOR_METHODS.composeValidate),
+      composeDefinitionSchema,
+      async (request) => service.composeValidate(request),
+      reads,
+    ),
+    client.serve(
+      subject(SUPERVISOR_METHODS.composeDeploy),
+      composeDefinitionSchema,
+      async (request) => {
+        await service.composeDeploy(request);
+
+        return ok;
+      },
+    ),
+    client.serve(
+      subject(SUPERVISOR_METHODS.composeGet),
+      composeProjectRequestSchema,
+      async (request) => service.composeGet(request.project),
+      reads,
+    ),
+    client.serve(
+      subject(SUPERVISOR_METHODS.composeControl),
+      composeControlRequestSchema,
+      (request) => {
+        service.composeControl(request.project, request.action);
+
+        return ok;
+      },
+    ),
+    client.serve(
+      subject(SUPERVISOR_METHODS.composeRemove),
+      composeRemoveRequestSchema,
+      (request) => {
+        service.composeRemove(request.project, request.removeVolumes, request.removeFiles);
 
         return ok;
       },

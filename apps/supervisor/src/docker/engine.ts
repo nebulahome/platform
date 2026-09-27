@@ -328,13 +328,14 @@ export class DockerEngine {
   }
 
   /**
-   * Removes a container, running or not. Its volumes stay.
+   * Removes a container, running or not. Its named volumes stay whatever is asked.
    *
    * @param id - Its id.
+   * @param removeVolumes - Whether the volumes Docker made for it alone go with it.
    */
-  public async removeContainer(id: string): Promise<void> {
+  public async removeContainer(id: string, removeVolumes = false): Promise<void> {
     await this.#empty('DELETE', `/containers/${encodeURIComponent(id)}`, 'remove it', {
-      query: { force: true },
+      query: { force: true, v: removeVolumes },
     });
   }
 

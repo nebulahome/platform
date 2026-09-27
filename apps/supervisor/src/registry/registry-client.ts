@@ -1,5 +1,6 @@
 /**
- * A registry, asked what it has: the tags of an image, and what one of them points at.
+ * A registry, asked what it has: the tags of an image, what one of them points at, and what that
+ * image declares. And Docker Hub, asked which images there are, for the install form.
  *
  * The distribution API every registry speaks - Docker Hub, GitHub's, Quay - read anonymously: a
  * request is answered 401 with a `WWW-Authenticate` header naming where a token is handed out,
@@ -10,15 +11,69 @@
  * anonymous limit per address, a hundred every six hours. It is made only for an image that
  * follows a tag, once per check, and a check runs every few hours.
  */
+import semver from 'semver';
 import { z } from 'zod';
 
-import { UpstreamError } from '@nebula-home/contracts';
+import {
+  UpstreamError,
+  type ImageDescription,
+  type ImageSearchResult,
+  type ImageTag,
+} from '@nebula-home/contracts';
 
 import { DOCKER_HUB, type ImageReference } from '../domain/image-ref.js';
 import { VERSION_LABEL } from '../domain/versions.js';
 
 /** Where Docker Hub's registry API is, which is not the name references use. */
 const DOCKER_HUB_API = 'registry-1.docker.io';
+
+/** Where Docker Hub's own API is: the search, and the tags with their dates. */
+const DOCKER_HUB_SITE = 'https://hub.docker.com';
+
+/** How many images a search answers with. */
+const SEARCH_PAGE_SIZE = 25;
+
+/** How many tags are offered. */
+const TAG_PAGE_SIZE = 50;
+
+/** The label an image's description is under. */
+const DESCRIPTION_LABEL = 'org.opencontainers.image.description';
+
+/** `GET /v2/search/repositories/`, the fields read. */
+const hubSearchSchema = z.looseObject({
+  results: z
+    .array(
+      z.looseObject({
+        repo_name: z.string(),
+        short_description: z.string().nullish(),
+        star_count: z.number().nullish(),
+        pull_count: z.number().nullish(),
+        is_official: z.boolean().nullish(),
+      }),
+    )
+    .nullish(),
+});
+
+/** `GET /v2/namespaces/<namespace>/repositories/<name>/tags`, the fields read. */
+const hubTagsSchema = z.looseObject({
+  results: z
+    .array(
+      z.looseObject({
+        name: z.string(),
+        last_updated: z.string().nullish(),
+        images: z
+          .array(
+            z.looseObject({
+              architecture: z.string().nullish(),
+              os: z.string().nullish(),
+              size: z.number().nullish(),
+            }),
+          )
+          .nullish(),
+      }),
+    )
+    .nullish(),
+});
 
 /** The manifests asked for, lists first: a list names one manifest per platform. */
 const MANIFEST_TYPES = [
@@ -53,10 +108,20 @@ const manifestSchema = z.looseObject({
   config: z.looseObject({ digest: z.string() }).optional(),
 });
 
-/** An image's configuration blob, the field read. */
+/** An image's configuration blob, the fields read. */
 const imageConfigSchema = z.looseObject({
-  config: z.looseObject({ Labels: z.record(z.string(), z.string()).nullish() }).nullish(),
+  config: z
+    .looseObject({
+      Labels: z.record(z.string(), z.string()).nullish(),
+      ExposedPorts: z.record(z.string(), z.unknown()).nullish(),
+      Env: z.array(z.string()).nullish(),
+      Volumes: z.record(z.string(), z.unknown()).nullish(),
+    })
+    .nullish(),
 });
+
+/** An image's configuration, as its blob says. */
+type ImageConfig = NonNullable<z.output<typeof imageConfigSchema>['config']>;
 
 /** What a tag points at now. */
 export type RemoteImage = {
@@ -144,12 +209,150 @@ export class RegistryClient {
   }
 
   /**
+   * Looks for images on Docker Hub.
+   *
+   * @param query - What to look for.
+   * @returns What Docker Hub found, the official images first.
+   */
+  public async searchHub(query: string): Promise<ImageSearchResult[]> {
+    const url = new URL('/v2/search/repositories/', DOCKER_HUB_SITE);
+
+    url.searchParams.set('query', query);
+    url.searchParams.set('page_size', String(SEARCH_PAGE_SIZE));
+
+    const body = hubSearchSchema.parse(await this.#hub(url));
+
+    return (body.results ?? [])
+      .map((result) => ({
+        // An official image is `library/nginx` to the registry and `nginx` to everyone else.
+        repository: result.repo_name.replace(/^library\//, '').slice(0, 256),
+        description:
+          result.short_description === null ||
+          result.short_description === undefined ||
+          result.short_description.trim() === ''
+            ? null
+            : result.short_description.slice(0, 1024),
+        stars: Math.max(0, Math.round(result.star_count ?? 0)),
+        pulls: Math.max(0, result.pull_count ?? 0),
+        isOfficial: result.is_official === true,
+      }))
+      .sort((left, right) => Number(right.isOfficial) - Number(left.isOfficial));
+  }
+
+  /**
+   * The tags of an image worth offering, the newest first.
+   *
+   * Docker Hub says when each was pushed and how big it is, so its tags come in the order they
+   * were pushed; another registry lists names only, so its tags are ordered by version.
+   *
+   * @param image - The image.
+   * @returns The tags.
+   */
+  public async offeredTags(image: ImageReference): Promise<ImageTag[]> {
+    if (image.registry === DOCKER_HUB) {
+      const [namespace, ...rest] = image.repository.split('/');
+      const url = new URL(
+        `/v2/namespaces/${namespace ?? 'library'}/repositories/${rest.join('/')}/tags`,
+        DOCKER_HUB_SITE,
+      );
+
+      url.searchParams.set('page_size', String(TAG_PAGE_SIZE));
+      url.searchParams.set('ordering', 'last_updated');
+
+      const body = hubTagsSchema.parse(await this.#hub(url));
+
+      return (body.results ?? []).map((tag) => {
+        const mine = tag.images?.find(
+          (each) => each.os === 'linux' && each.architecture === this.#options.architecture,
+        );
+        const updatedAt =
+          tag.last_updated === null || tag.last_updated === undefined
+            ? null
+            : new Date(tag.last_updated);
+
+        return {
+          name: tag.name.slice(0, 128),
+          updatedAt: updatedAt === null || Number.isNaN(updatedAt.getTime()) ? null : updatedAt,
+          bytes: mine?.size ?? null,
+        };
+      });
+    }
+
+    const names = await this.tags(image);
+
+    return names
+      .toSorted((left, right) => {
+        const a = semver.coerce(left);
+        const b = semver.coerce(right);
+
+        return a === null || b === null
+          ? Number(b !== null) - Number(a !== null)
+          : semver.rcompare(a, b);
+      })
+      .slice(0, TAG_PAGE_SIZE)
+      .map((name) => ({ name: name.slice(0, 128), updatedAt: null, bytes: null }));
+  }
+
+  /**
+   * What an image declares: its version, its ports, its environment, its volumes.
+   *
+   * @param image - The image, with the tag.
+   * @returns What it declares.
+   */
+  public async describe(image: ImageReference): Promise<ImageDescription> {
+    const { config } = await this.#configOf(image);
+    const labels = config?.Labels ?? {};
+
+    return {
+      version: labels[VERSION_LABEL]?.slice(0, 128) ?? null,
+      description: labels[DESCRIPTION_LABEL]?.slice(0, 1024) ?? null,
+      ports: Object.keys(config?.ExposedPorts ?? {}).flatMap((key) => {
+        const [port = '', protocol = 'tcp'] = key.split('/');
+        const number = Number(port);
+
+        return Number.isInteger(number) &&
+          number >= 1 &&
+          number <= 65_535 &&
+          (protocol === 'tcp' || protocol === 'udp')
+          ? [{ container: number, protocol }]
+          : [];
+      }),
+      env: (config?.Env ?? [])
+        .map((entry) => {
+          const equals = entry.indexOf('=');
+
+          return equals === -1
+            ? { name: entry, value: '' }
+            : { name: entry.slice(0, equals), value: entry.slice(equals + 1) };
+        })
+        // What every image sets for itself is not the owner's to change.
+        .filter((entry) => entry.name !== '' && entry.name !== 'PATH')
+        .map((entry) => ({ name: entry.name.slice(0, 256), value: entry.value.slice(0, 8192) })),
+      volumes: Object.keys(config?.Volumes ?? {}).map((volume) => volume.slice(0, 1024)),
+    };
+  }
+
+  /**
    * What a tag points at now, and the version that image says it is.
    *
    * @param image - The image, with the tag.
    * @returns The digest and the version.
    */
   public async remote(image: ImageReference): Promise<RemoteImage> {
+    const { digest, config } = await this.#configOf(image);
+
+    return { digest, version: config?.Labels?.[VERSION_LABEL] ?? null };
+  }
+
+  /**
+   * What a tag points at now, and that image's configuration.
+   *
+   * @param image - The image, with the tag.
+   * @returns The digest, and the configuration when the manifest names one.
+   */
+  async #configOf(
+    image: ImageReference,
+  ): Promise<{ readonly digest: string; readonly config: ImageConfig | null }> {
     const response = await this.#get(
       image,
       `/v2/${image.repository}/manifests/${image.tag}`,
@@ -175,7 +378,7 @@ export class RegistryClient {
         ) ?? manifest.manifests[0];
 
       if (mine === undefined) {
-        return { digest, version: null };
+        return { digest, config: null };
       }
 
       const single = await this.#get(
@@ -188,7 +391,7 @@ export class RegistryClient {
     }
 
     if (manifest.config === undefined) {
-      return { digest, version: null };
+      return { digest, config: null };
     }
 
     const blob = await this.#get(
@@ -196,9 +399,38 @@ export class RegistryClient {
       `/v2/${image.repository}/blobs/${manifest.config.digest}`,
       '*/*',
     );
-    const labels = imageConfigSchema.parse(await blob.json()).config?.Labels ?? {};
 
-    return { digest, version: labels[VERSION_LABEL] ?? null };
+    return { digest, config: imageConfigSchema.parse(await blob.json()).config ?? null };
+  }
+
+  /**
+   * One request to Docker Hub's own API, which needs no token.
+   *
+   * @param url - The address.
+   * @returns The answer's body.
+   * @throws {UpstreamError} When Docker Hub cannot be reached or refuses.
+   */
+  async #hub(url: URL): Promise<unknown> {
+    let response: Response;
+
+    try {
+      response = await this.#fetch(url, {
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(this.#options.timeoutMs),
+      });
+    } catch (error: unknown) {
+      throw new UpstreamError('Docker Hub cannot be reached', {
+        details: { reason: error instanceof Error ? error.message : String(error) },
+      });
+    }
+
+    if (!response.ok) {
+      throw new UpstreamError(`Docker Hub answered ${String(response.status)}`, {
+        details: { status: response.status },
+      });
+    }
+
+    return response.json();
   }
 
   /**

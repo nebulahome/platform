@@ -18,6 +18,9 @@ import {
 /** What the supervisor knows about a container when its entities are written or reported. */
 export type ContainerFacts = {
   readonly name: string;
+
+  /** What the page calls it, which its device is named when it is made. */
+  readonly displayName: string;
   readonly image: string;
   readonly version: string | null;
   readonly isRunning: boolean;
@@ -71,6 +74,7 @@ export function containerEntityId(
 export function registrationOf(facts: ContainerFacts): ContainerDeviceRegistration {
   return containerDeviceRegistrationSchema.parse({
     name: facts.name,
+    displayName: facts.displayName.slice(0, 128),
     image: facts.image.slice(0, 128),
     ...(facts.version === null ? {} : { swVersion: facts.version.slice(0, 64) }),
     entities: CONTAINER_ENTITIES.map((definition) => {

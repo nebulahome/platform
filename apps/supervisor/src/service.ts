@@ -5,12 +5,16 @@
  * current from Docker's event stream, with a full listing every minute behind it in case an event
  * was missed. Four things follow from the picture:
  *
- * - `core` is handed every container but the platform's own whenever the set changes, and writes
- *   a device for each (`svc.core.sync_containers`);
+ * - `core` is handed every container but the system ones - the platform's own and the rest of its
+ *   compose file - whenever the set changes, and writes a device for each
+ *   (`svc.core.sync_containers`);
  * - every running container is measured every sample interval, and its entities take the mean of
  *   the samples once a publish interval, the way the system monitor's do;
  * - the registries are asked every few hours whether a newer image is out;
  * - the containers the integrations declare are run (`managed-containers.ts`).
+ *
+ * Beside them, what the owner adds: a container installed from a registry (`installs.ts`), and a
+ * compose project written or uploaded (`compose-projects.ts`).
  *
  * Docker being unreachable - no socket mounted, the daemon restarting - is a state, not a crash:
  * the service answers that it cannot see Docker, and tries again every half minute.
@@ -22,6 +26,7 @@ import type { BusClient } from '@nebula-home/bus';
 import { resolveDataLayout } from '@nebula-home/config';
 import {
   busSubjects,
+  COMPOSE_LABEL,
   CONTAINER_HEALTH,
   CONTAINER_SAMPLE_WINDOW,
   CONTAINER_STATES,
@@ -35,8 +40,12 @@ import {
   syncContainersReplySchema,
   type AdapterAck,
   type AdapterCommand,
+  type ComposeDefinition,
+  type ComposeDocument,
+  type ComposeValidation,
   type ContainerAction,
   type ContainerDetail,
+  type ContainerInstallRequest,
   type ContainerListReply,
   type ContainerLogsReply,
   type ContainerSample,
@@ -45,6 +54,9 @@ import {
   type ContainerUpdate,
   type DockerStatus,
   type EntityId,
+  type ImageDescription,
+  type ImageSearchReply,
+  type ImageTagsReply,
   type ManagedReply,
   type ReconcileRequest,
   type ResyncReply,
@@ -56,8 +68,11 @@ import type { PlatformLogger } from '@nebula-home/logging';
 import type { SupervisorConfig } from './config.js';
 import type { InspectedContainer, ListedContainer } from './docker/engine-schemas.js';
 import { compareApiVersions, DockerEngine, SUBPATH_API_VERSION } from './docker/engine.js';
+import type { ComposeNeighbours } from './domain/compose-paths.js';
+import { displayNameOf } from './domain/display-name.js';
 import { registrationOf, reportsOf, type ContainerFacts } from './domain/entities.js';
 import { imageName, parseImageReference, registryPageOf } from './domain/image-ref.js';
+import { takenPorts } from './domain/install.js';
 import { parseLogs } from './domain/log-frames.js';
 import type { DataMount, PlatformContext } from './domain/managed.js';
 import { PullProgressTracker } from './domain/pull-progress.js';
@@ -71,8 +86,11 @@ import {
   memoryUsedOf,
   type CpuCounters,
 } from './domain/stats.js';
+import { COMPOSE_LABELS, composeOf, isSystemContainer } from './domain/system.js';
 import { versionOf } from './domain/versions.js';
 import { registryArchitecture, RegistryClient } from './registry/registry-client.js';
+import { commandRunner, ComposeProjects, dockerHostOf } from './services/compose-projects.js';
+import { Installs } from './services/installs.js';
 import { ManagedContainers } from './services/managed-containers.js';
 import { replaceContainer } from './services/replace.js';
 import { checkImage } from './services/update-check.js';
@@ -205,6 +223,8 @@ export class SupervisorService {
   readonly #engine: DockerEngine;
   readonly #registry: RegistryClient;
   readonly #managed: ManagedContainers;
+  readonly #installs: Installs;
+  readonly #compose: ComposeProjects;
   readonly #dataRoot: string;
   readonly #containers = new Map<string, Tracked>();
   readonly #entityOwners = new Map<EntityId, string>();
@@ -218,6 +238,7 @@ export class SupervisorService {
     apiVersion: null,
     reason: 'Not asked yet',
     platformNetwork: null,
+    composeVersion: null,
   };
 
   #selfId: string | null = null;
@@ -277,12 +298,61 @@ export class SupervisorService {
         this.#changed(name, 'changed');
       },
     });
+    this.#installs = new Installs({
+      engine: this.#engine,
+      logger: options.logger,
+      dataRoot: this.#dataRoot,
+
+      /**
+       * Makes the network the platform shares with the containers it makes.
+       *
+       * @param context - The platform.
+       * @returns Once it exists.
+       */
+      ensureNetwork: async (context) => this.#managed.ensureNetwork(context),
+
+      /**
+       * Says an install moved, and reads the list again: a finished one is a container now.
+       *
+       * @param name - The container.
+       */
+      onChange: (name) => {
+        this.#changed(name, 'changed');
+        this.#scheduleRefresh();
+      },
+    });
+    this.#compose = new ComposeProjects({
+      runner: commandRunner(
+        options.config.SUPERVISOR_DOCKER_CLI,
+        dockerHostOf(options.config.SUPERVISOR_DOCKER_SOCKET),
+      ),
+      logger: options.logger,
+      dataRoot: this.#dataRoot,
+
+      /**
+       * The platform as the containers see it.
+       *
+       * @returns The context, or null while Docker cannot be reached.
+       */
+      context: () => this.#context,
+
+      /**
+       * Says a project's operation moved, and reads the list again.
+       *
+       * @param project - The project.
+       */
+      onChange: (project) => {
+        this.#changed(project, 'changed');
+        this.#scheduleRefresh();
+      },
+    });
   }
 
   /**
    * Connects to Docker and starts measuring, publishing and checking.
    */
   public async start(): Promise<void> {
+    await this.#compose.start();
     await this.#connect();
 
     this.#timers.push(
@@ -338,13 +408,27 @@ export class SupervisorService {
    * @returns The status and the containers, the platform's own first, then by name.
    */
   public list(): ContainerListReply {
+    /**
+     * Where a container comes in the list: the platform, the rest of the system, the others.
+     *
+     * @param summary - The container.
+     * @returns Its rank.
+     */
+    const rank = (summary: ContainerSummary): number =>
+      summary.isSelf ? 0 : summary.isSystem ? 1 : 2;
     const containers = [...this.#containers.values()]
       .map((tracked) => this.#summaryOf(tracked))
-      .sort((left, right) =>
-        left.isSelf === right.isSelf ? left.name.localeCompare(right.name) : left.isSelf ? -1 : 1,
+      .sort(
+        (left, right) =>
+          rank(left) - rank(right) || left.displayName.localeCompare(right.displayName),
       );
 
-    return { docker: this.#status, containers };
+    return {
+      docker: this.#status,
+      containers,
+      installs: this.#installs.list(),
+      composeOperations: this.#compose.operations(),
+    };
   }
 
   /**
@@ -427,6 +511,152 @@ export class SupervisorService {
   }
 
   /**
+   * Looks for images on Docker Hub.
+   *
+   * @param query - What to look for.
+   * @returns What Docker Hub found.
+   */
+  public async searchImages(query: string): Promise<ImageSearchReply> {
+    return { results: await this.#registry.searchHub(query) };
+  }
+
+  /**
+   * The tags of an image worth offering.
+   *
+   * @param image - The image, without a tag.
+   * @returns The tags, the newest first.
+   */
+  public async imageTags(image: string): Promise<ImageTagsReply> {
+    return { tags: await this.#registry.offeredTags(parseImageReference(image)) };
+  }
+
+  /**
+   * What an image declares.
+   *
+   * @param image - The image, without a tag.
+   * @param tag - The tag.
+   * @returns Its ports, environment and volumes.
+   */
+  public async describeImage(image: string, tag: string): Promise<ImageDescription> {
+    return this.#registry.describe(parseImageReference(`${image}:${tag}`));
+  }
+
+  /**
+   * Installs a container: answers once the request is checked, and pulls, makes and starts it
+   * after.
+   *
+   * @param request - What the form said.
+   * @throws {ConflictError} When Docker cannot be reached, the name is taken, or a port is.
+   */
+  public install(request: ContainerInstallRequest): void {
+    const context = this.#context;
+
+    if (!this.#status.isAvailable || context === null) {
+      throw new ConflictError('Docker cannot be reached', { details: { reason: 'unreachable' } });
+    }
+
+    if (
+      this.#installs.isInstalling(request.name) ||
+      [...this.#containers.values()].some((tracked) => tracked.name === request.name)
+    ) {
+      throw new ConflictError(`A container is already called ${request.name}`, {
+        details: { name: request.name, reason: 'name-taken' },
+      });
+    }
+
+    const taken = takenPorts(request, this.#neighboursOf(null).ports);
+
+    if (taken.length > 0) {
+      throw new ConflictError(`Another container already publishes ${taken.join(', ')}`, {
+        details: { name: request.name, reason: 'port-taken', ports: taken },
+      });
+    }
+
+    this.#installs.dismiss(request.name);
+    this.#installs.start(request, context);
+    this.#logger.info(
+      { container: request.name, image: `${request.image}:${request.tag}` },
+      'Installing a container',
+    );
+  }
+
+  /**
+   * Forgets an install that failed.
+   *
+   * @param name - The container's name.
+   */
+  public dismissInstall(name: string): void {
+    this.#installs.dismiss(name);
+  }
+
+  /**
+   * Stops and removes a container the owner may control.
+   *
+   * @param name - Its name.
+   * @param removeVolumes - Also the volumes Docker made for it alone.
+   * @throws {ConflictError} For a system container, one an integration runs, or one being updated.
+   */
+  public async remove(name: string, removeVolumes: boolean): Promise<void> {
+    const tracked = this.#requireControllable(name);
+
+    await this.#engine.removeContainer(tracked.id, removeVolumes);
+    this.#logger.info({ container: name, removeVolumes }, 'Removed a container');
+    await this.#refresh();
+    this.#changed(name, 'removed');
+  }
+
+  /**
+   * Checks a compose file without running anything.
+   *
+   * @param definition - The project, its file and its `.env`.
+   * @returns What is wrong, and the services it declares.
+   */
+  public async composeValidate(definition: ComposeDefinition): Promise<ComposeValidation> {
+    return this.#compose.validate(definition, this.#neighboursOf(definition.project));
+  }
+
+  /**
+   * Keeps a compose file and brings its project up with it.
+   *
+   * @param definition - The project, its file and its `.env`.
+   */
+  public async composeDeploy(definition: ComposeDefinition): Promise<void> {
+    await this.#compose.deploy(definition, this.#neighboursOf(definition.project));
+    this.#logger.info({ project: definition.project }, 'Deploying a compose project');
+  }
+
+  /**
+   * The file and `.env` of a project deployed from here.
+   *
+   * @param project - The project.
+   * @returns Them.
+   */
+  public async composeGet(project: string): Promise<ComposeDocument> {
+    return this.#compose.get(project);
+  }
+
+  /**
+   * Starts, stops, or pulls newer images for a project deployed from here.
+   *
+   * @param project - The project.
+   * @param action - What to do.
+   */
+  public composeControl(project: string, action: 'start' | 'stop' | 'pull'): void {
+    this.#compose.control(project, action, this.#neighboursOf(project));
+  }
+
+  /**
+   * Takes a project deployed from here down, and forgets it.
+   *
+   * @param project - The project.
+   * @param removeVolumes - Also its volumes.
+   * @param removeFiles - Also its folder.
+   */
+  public composeRemove(project: string, removeVolumes: boolean, removeFiles: boolean): void {
+    this.#compose.remove(project, removeVolumes, removeFiles);
+  }
+
+  /**
    * Takes in every container every loaded vendor declares.
    *
    * @param request - The whole set.
@@ -465,6 +695,7 @@ export class SupervisorService {
         isRunning: tracked.listed.State === 'running',
       })),
     );
+    await this.#compose.suspend();
   }
 
   /**
@@ -472,6 +703,7 @@ export class SupervisorService {
    */
   public async resumeManaged(): Promise<void> {
     await this.#managed.resume();
+    await this.#compose.resume((project) => this.#neighboursOf(project));
   }
 
   /**
@@ -551,6 +783,7 @@ export class SupervisorService {
         apiVersion: this.#engine.apiVersion,
         reason: null,
         platformNetwork: null,
+        composeVersion: this.#compose.version,
       };
 
       await this.#refresh();
@@ -587,6 +820,7 @@ export class SupervisorService {
       apiVersion: null,
       reason,
       platformNetwork: null,
+      composeVersion: this.#compose.version,
     };
     this.#context = null;
 
@@ -828,15 +1062,15 @@ export class SupervisorService {
   }
 
   /**
-   * Hands `core` every container but the platform's own, when the set changed or the last
-   * handing failed.
+   * Hands `core` every container but the system ones, when the set changed or the last handing
+   * failed.
    */
   async #syncWithCore(): Promise<void> {
     const taken = new Set<string>();
     const registrations = [];
 
     for (const tracked of this.#containers.values()) {
-      if (tracked.id === this.#selfId) {
+      if (this.#isSystem(tracked)) {
         continue;
       }
 
@@ -1150,6 +1384,12 @@ export class SupervisorService {
       });
     }
 
+    if (refusal === 'system') {
+      throw new ConflictError(`${name} is part of the platform, and is not controlled from here`, {
+        details: { name, reason: 'system' },
+      });
+    }
+
     if (refusal === 'managed') {
       throw new ConflictError(
         `${name} is run by an integration, which starts, stops and updates it`,
@@ -1174,14 +1414,76 @@ export class SupervisorService {
    * @param tracked - The container.
    * @returns The reason, or null.
    */
-  #refusalOf(tracked: Tracked): 'self' | 'managed' | null {
+  #refusalOf(tracked: Tracked): 'self' | 'system' | 'managed' | null {
     if (tracked.id === this.#selfId) {
       return 'self';
+    }
+
+    if (this.#isSystem(tracked)) {
+      return 'system';
     }
 
     const manager = this.#managed.managerOf(tracked.listed.Labels);
 
     return manager !== null && !manager.isReleased ? 'managed' : null;
+  }
+
+  /**
+   * Whether a container is one of the platform's: its own, or one of its compose file.
+   *
+   * @param tracked - The container.
+   * @returns True for a system container.
+   */
+  #isSystem(tracked: Tracked): boolean {
+    const self = this.#selfId === null ? undefined : this.#containers.get(this.#selfId);
+
+    return isSystemContainer(
+      { id: tracked.id, labels: tracked.listed.Labels },
+      self === undefined ? null : { id: self.id, labels: self.listed.Labels },
+    );
+  }
+
+  /**
+   * What a container is called on the page.
+   *
+   * @param tracked - The container.
+   * @returns Its name for people.
+   */
+  #displayNameOf(tracked: Tracked): string {
+    return displayNameOf({
+      name: tracked.name,
+      labels: tracked.listed.Labels,
+      isSelf: tracked.id === this.#selfId,
+      managedName: this.#managed.nameOf(tracked.listed.Labels),
+    });
+  }
+
+  /**
+   * What the containers outside a compose project hold, for a new container or a project to
+   * check its names and ports against.
+   *
+   * @param project - The project, whose own containers are left out; null for a lone container.
+   * @returns Their names, and every port they publish on the machine.
+   */
+  #neighboursOf(project: string | null): ComposeNeighbours {
+    const names = new Set<string>();
+    const ports = new Set<string>();
+
+    for (const tracked of this.#containers.values()) {
+      if (project !== null && tracked.listed.Labels[COMPOSE_LABELS.project] === project) {
+        continue;
+      }
+
+      names.add(tracked.name);
+
+      for (const port of tracked.listed.Ports) {
+        if (port.PublicPort !== undefined) {
+          ports.add(`${String(port.PublicPort)}/${port.Type}`);
+        }
+      }
+    }
+
+    return { names, ports };
   }
 
   /**
@@ -1197,6 +1499,7 @@ export class SupervisorService {
 
     return {
       name: tracked.name,
+      displayName: this.#displayNameOf(tracked),
       image: reference,
       version: this.#versionOf(tracked),
       isRunning,
@@ -1239,6 +1542,7 @@ export class SupervisorService {
     return {
       id: tracked.id,
       name: tracked.name,
+      displayName: this.#displayNameOf(tracked),
       deviceId: this.#registeredNames.has(tracked.name) ? containerDeviceId(tracked.name) : null,
       image: reference,
       version: this.#versionOf(tracked),
@@ -1251,7 +1555,13 @@ export class SupervisorService {
       createdAt: new Date(tracked.listed.Created * 1000),
       startedAt: timeOf(tracked.inspected?.State.StartedAt),
       isSelf,
+      isSystem: this.#isSystem(tracked),
       managedBy: this.#managed.managerOf(tracked.listed.Labels),
+      compose: composeOf(
+        tracked.listed.Labels,
+        (project) =>
+          tracked.listed.Labels[COMPOSE_LABEL] === 'true' && this.#compose.isEditable(project),
+      ),
       // An image built on this machine has no page anywhere.
       registryUrl:
         tracked.isUnpublished || (tracked.image?.repoDigests.length ?? 0) === 0

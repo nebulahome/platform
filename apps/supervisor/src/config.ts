@@ -38,6 +38,13 @@ export const supervisorEnvSchema = runtimeEnvSchema
      */
     SUPERVISOR_DOCKER_SOCKET: z.string().min(1).default('/var/run/docker.sock'),
 
+    /**
+     * The Docker command line, whose `compose` plugin runs the compose projects the owner writes.
+     * The image installs it; without it the rest of the page works and compose projects say why
+     * they cannot.
+     */
+    SUPERVISOR_DOCKER_CLI: z.string().min(1).default('docker'),
+
     /** How often every running container is measured. */
     SUPERVISOR_SAMPLE_INTERVAL_MS: z.coerce.number().int().min(2000).max(60_000).default(10_000),
 

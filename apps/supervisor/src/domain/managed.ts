@@ -148,6 +148,52 @@ export function volumeFolder(
 }
 
 /**
+ * How a folder of the data directory is mounted into a container.
+ *
+ * @param folder - The folder, relative to the data directory.
+ * @param target - Where the container sees it.
+ * @param dataMount - How the data directory reaches Docker.
+ * @param separateName - The volume it is instead, where the data directory cannot be mounted in
+ * part.
+ * @param isReadOnly - Whether the container may only read it.
+ * @returns The entry of `HostConfig.Mounts`.
+ */
+export function folderMount(
+  folder: string,
+  target: string,
+  dataMount: DataMount,
+  separateName: string,
+  isReadOnly = false,
+): JsonObject {
+  const readOnly = isReadOnly ? { ReadOnly: true } : {};
+
+  switch (dataMount.kind) {
+    case 'volume': {
+      return {
+        Type: 'volume',
+        Source: dataMount.volume,
+        Target: target,
+        VolumeOptions: { Subpath: folder },
+        ...readOnly,
+      };
+    }
+
+    case 'bind': {
+      return {
+        Type: 'bind',
+        Source: `${dataMount.hostPath.replace(/[/\\]+$/, '')}/${folder}`,
+        Target: target,
+        ...readOnly,
+      };
+    }
+
+    case 'separate': {
+      return { Type: 'volume', Source: separateName, Target: target, ...readOnly };
+    }
+  }
+}
+
+/**
  * How one volume is mounted.
  *
  * @param spec - Its container.
@@ -160,34 +206,12 @@ function mountOf(
   volume: ManagedVolume,
   dataMount: DataMount,
 ): JsonObject {
-  const folder = volumeFolder(spec, volume);
-
-  switch (dataMount.kind) {
-    case 'volume': {
-      return {
-        Type: 'volume',
-        Source: dataMount.volume,
-        Target: volume.path,
-        VolumeOptions: { Subpath: folder },
-      };
-    }
-
-    case 'bind': {
-      return {
-        Type: 'bind',
-        Source: `${dataMount.hostPath.replace(/[/\\]+$/, '')}/${folder}`,
-        Target: volume.path,
-      };
-    }
-
-    case 'separate': {
-      return {
-        Type: 'volume',
-        Source: `${managedName(spec)}-${volume.name}`,
-        Target: volume.path,
-      };
-    }
-  }
+  return folderMount(
+    volumeFolder(spec, volume),
+    volume.path,
+    dataMount,
+    `${managedName(spec)}-${volume.name}`,
+  );
 }
 
 /**
