@@ -7,9 +7,14 @@
  * other service asks it on the bus: `api` for the containers page, `hub` for the containers a
  * vendor's bundle declares, `backup` to stop them around a restore.
  *
- * Each container but the platform's own is also a device in the registry, with a handful of
- * entities `core` writes when the supervisor tells it which containers there are, and whose
- * states the supervisor reports as an adapter would. Their `source` is the supervisor.
+ * Each container but the platform's own - the one it runs in and the others of its compose file,
+ * the system containers - is also a device in the registry, with a handful of entities `core`
+ * writes when the supervisor tells it which containers there are, and whose states the supervisor
+ * reports as an adapter would. Their `source` is the supervisor.
+ *
+ * The owner can also add containers from here: one image from a registry, with its ports, its
+ * environment and its volumes, or a whole compose project, written or uploaded, which the
+ * supervisor keeps in the data directory and runs with `docker compose`.
  *
  * Defined in ARCHITECTURE.md 4.10.
  */
@@ -60,6 +65,39 @@ export const SUPERVISOR_METHODS = {
 
   /** Starts them again afterwards. */
   resumeManaged: 'resume_managed',
+
+  /** Looks for images on Docker Hub. */
+  searchImages: 'search_images',
+
+  /** The tags of one image, newest first. */
+  imageTags: 'image_tags',
+
+  /** What one image declares: its ports, its environment, its volumes. */
+  describeImage: 'describe_image',
+
+  /** Pulls an image and runs a container of it. Answers at once; the pull goes on. */
+  install: 'install',
+
+  /** Forgets an install that failed, once the owner has read why. */
+  dismissInstall: 'dismiss_install',
+
+  /** Stops and removes a container the owner may control. */
+  remove: 'remove',
+
+  /** Checks a compose file without running anything. */
+  composeValidate: 'compose_validate',
+
+  /** Keeps a compose file and brings the project up with it: a new one, or an edit. */
+  composeDeploy: 'compose_deploy',
+
+  /** The file and environment of a project the platform deployed. */
+  composeGet: 'compose_get',
+
+  /** Starts, stops, or pulls newer images for every service of a project. */
+  composeControl: 'compose_control',
+
+  /** Takes a project down, and forgets it. */
+  composeRemove: 'compose_remove',
 } as const;
 
 /** How many samples the supervisor keeps per container: a quarter of an hour at ten seconds. */
@@ -157,15 +195,42 @@ export const CONTAINER_ACTIONS = ['start', 'stop', 'restart'] as const;
 export type ContainerAction = (typeof CONTAINER_ACTIONS)[number];
 
 /**
- * Why a container cannot be started, stopped, restarted or updated from here.
+ * Why a container cannot be started, stopped, restarted, updated or removed from here.
  *
- * `self` is the platform's own container - stopping it would stop the page asking - and
- * `managed` one an integration runs, which starts, stops and updates it itself.
+ * `self` is the platform's own container - stopping it would stop the page asking - `system` one
+ * of the rest of the platform's compose file, which the platform needs as much, and `managed` one
+ * an integration runs, which starts, stops and updates it itself.
  */
-export const CONTAINER_REFUSALS = ['self', 'managed'] as const;
+export const CONTAINER_REFUSALS = ['self', 'system', 'managed'] as const;
 
 /** Why a container cannot be controlled from here. */
 export type ContainerRefusal = (typeof CONTAINER_REFUSALS)[number];
+
+/**
+ * The label every container of the platform's own compose file carries, so the supervisor tells
+ * them apart even when the platform itself does not run in a container (development).
+ */
+export const PLATFORM_LABEL = 'io.nebulahome.platform';
+
+/** The label every service of a compose project the platform deployed carries. */
+export const COMPOSE_LABEL = 'io.nebulahome.compose';
+
+/** The label a container the owner installed from here carries. */
+export const INSTALLED_LABEL = 'io.nebulahome.installed';
+
+/** The compose project the platform itself is run as, which no project written here may take. */
+export const PLATFORM_COMPOSE_PROJECT = 'nebulahome';
+
+/** A compose project's name, as `docker compose` allows it. */
+export const COMPOSE_PROJECT_PATTERN = /^[a-z0-9][a-z0-9_-]{0,62}$/;
+
+/** Validates a compose project's name. */
+export const composeProjectNameSchema = z
+  .string()
+  .regex(
+    COMPOSE_PROJECT_PATTERN,
+    'Must be lower-case letters, digits, dashes and underscores, starting with a letter or digit',
+  );
 
 /**
  * The words a secret is stored under, in an environment variable's name.
@@ -315,13 +380,41 @@ export const containerSampleSchema = z.object({
 /** One measurement of a running container. */
 export type ContainerSample = z.output<typeof containerSampleSchema>;
 
+/** The compose project a container belongs to, from the labels `docker compose` puts on it. */
+export const containerComposeSchema = z.object({
+  project: z.string().min(1).max(128),
+  service: z.string().min(1).max(128),
+
+  /** Which replica of the service it is, from 1. */
+  number: z.int().min(1).nullable(),
+
+  /** Where the project's files were on the machine that ran `docker compose`. */
+  workingDir: z.string().max(1024).nullable(),
+  configFiles: z.array(z.string().max(1024)).max(16),
+
+  /** The version of `docker compose` that made it. */
+  version: z.string().max(64).nullable(),
+
+  /** Whether the platform deployed the project and keeps its file, so it is edited from here. */
+  isEditable: z.boolean(),
+});
+
+/** The compose project a container belongs to. */
+export type ContainerCompose = z.output<typeof containerComposeSchema>;
+
 /** One container, as the list shows it. */
 export const containerSummarySchema = z.object({
   /** Docker's id, the full 64 characters. */
   id: z.string().regex(/^[0-9a-f]{12,64}$/),
   name: containerNameSchema,
 
-  /** Its device's public id; null for the platform's own container, which has none. */
+  /**
+   * What the interface calls it: `Zigbee2MQTT` for `nebulahome-zigbee2mqtt`, `Postgres` for the
+   * `postgres` service of a compose project. The name stays what addresses it.
+   */
+  displayName: z.string().min(1).max(128),
+
+  /** Its device's public id; null for a system container, which has none. */
   deviceId: z.string().nullable(),
 
   /** The image as the container was created from it: `koenkk/zigbee2mqtt:2.14.1`. */
@@ -339,7 +432,13 @@ export const containerSummarySchema = z.object({
 
   /** The platform's own container: listed, measured, never controlled. */
   isSelf: z.boolean(),
+
+  /** One of the platform's compose file, itself among them: listed, measured, never controlled. */
+  isSystem: z.boolean(),
   managedBy: containerManagerSchema.nullable(),
+
+  /** The compose project it belongs to; null for a container started on its own. */
+  compose: containerComposeSchema.nullable(),
 
   /** The image's page on its registry - Docker Hub, GitHub - when it has one people can read. */
   registryUrl: z.url().nullable(),
@@ -413,15 +512,85 @@ export const dockerStatusSchema = z.object({
    * for the network its container is on; null while Docker cannot be reached.
    */
   platformNetwork: z.enum(PLATFORM_NETWORK_MODES).nullable(),
+
+  /**
+   * The version of `docker compose` the supervisor runs compose projects with; null where the
+   * plugin is not installed, and no compose project can be deployed from here.
+   */
+  composeVersion: z.string().max(64).nullable(),
 });
 
 /** Whether Docker can be reached. */
 export type DockerStatus = z.output<typeof dockerStatusSchema>;
 
+/** Where an install the owner asked for stands. */
+export const CONTAINER_INSTALL_PHASES = ['pulling', 'creating', 'starting', 'failed'] as const;
+
+/** One container being installed: pulled, made and started, before Docker lists it running. */
+export const containerInstallSchema = z.object({
+  name: containerNameSchema,
+
+  /** The image with its tag. */
+  image: z.string().min(1).max(512),
+  phase: z.enum(CONTAINER_INSTALL_PHASES),
+
+  /** How far the pull has got, 0 to 100, while pulling. */
+  progress: z.number().min(0).max(100).nullable(),
+
+  /** Why it failed, in English. */
+  error: z.string().max(1024).nullable(),
+  startedAt: timestampSchema,
+});
+
+/** One container being installed. */
+export type ContainerInstall = z.output<typeof containerInstallSchema>;
+
+/** What can be done to a whole compose project the platform deployed. */
+export const COMPOSE_ACTIONS = ['deploy', 'start', 'stop', 'pull', 'remove'] as const;
+
+/** What can be done to a whole compose project. */
+export type ComposeAction = (typeof COMPOSE_ACTIONS)[number];
+
+/** Where an operation on a compose project stands. */
+export const COMPOSE_PHASES = [
+  'pulling',
+  'starting',
+  'stopping',
+  'removing',
+  'done',
+  'failed',
+] as const;
+
+/** Where an operation on a compose project stands. */
+export type ComposePhase = (typeof COMPOSE_PHASES)[number];
+
+/** How many lines of `docker compose` an operation keeps. */
+export const COMPOSE_LOG_LINES = 200;
+
+/** The last operation on a compose project the platform deployed, and what it wrote. */
+export const composeOperationSchema = z.object({
+  project: composeProjectNameSchema,
+  action: z.enum(COMPOSE_ACTIONS),
+  phase: z.enum(COMPOSE_PHASES),
+
+  /** The last lines `docker compose` wrote, oldest first. */
+  log: z.array(z.string().max(2048)).max(COMPOSE_LOG_LINES),
+  error: z.string().max(4096).nullable(),
+  startedAt: timestampSchema,
+  finishedAt: timestampSchema.nullable(),
+});
+
+/** The last operation on a compose project. */
+export type ComposeOperation = z.output<typeof composeOperationSchema>;
+
 /** The reply to `svc.supervisor.list`. */
 export const containerListReplySchema = z.object({
   docker: dockerStatusSchema,
   containers: z.array(containerSummarySchema),
+  installs: z.array(containerInstallSchema),
+
+  /** The last operation on each compose project the platform deployed. */
+  composeOperations: z.array(composeOperationSchema),
 });
 
 /** The reply to `svc.supervisor.list`. */
@@ -431,6 +600,8 @@ export type ContainerListReply = z.output<typeof containerListReplySchema>;
 export const containersViewSchema = z.object({
   docker: dockerStatusSchema,
   items: z.array(containerSummarySchema),
+  installs: z.array(containerInstallSchema),
+  composeOperations: z.array(composeOperationSchema),
 });
 
 /** `GET /containers`. */
@@ -494,14 +665,269 @@ export type ContainerControlRequest = z.output<typeof containerControlRequestSch
 export const supervisorAcknowledgementSchema = z.object({ ok: z.literal(true) });
 
 // ---------------------------------------------------------------------------------------------
+// The containers the owner adds
+// ---------------------------------------------------------------------------------------------
+
+/** An image without its tag: `nginx`, `traefik/whoami`, `ghcr.io/owner/image`. */
+export const imageRepositorySchema = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9._/:-]{0,254}$/, 'Must be an image name');
+
+/** A tag, as Docker allows it. */
+export const imageTagNameSchema = z.string().regex(/^\w[\w.-]{0,127}$/, 'Must be an image tag');
+
+/** A port number. */
+const portNumberSchema = z.int().min(1).max(65_535);
+
+/** A path inside a container. */
+const containerPathSchema = z
+  .string()
+  .max(1024)
+  .regex(/^\/\S*$/, 'Must be an absolute path in the container');
+
+/** `svc.supervisor.search_images`. */
+export const imageSearchRequestSchema = z.strictObject({
+  query: z.string().trim().min(1).max(128),
+});
+
+/** One image Docker Hub found. */
+export const imageSearchResultSchema = z.object({
+  /** What to pull: `nginx` for an official image, `traefik/whoami` for another. */
+  repository: z.string().min(1).max(256),
+  description: z.string().max(1024).nullable(),
+  stars: z.int().min(0),
+  pulls: z.number().min(0),
+  isOfficial: z.boolean(),
+});
+
+/** One image Docker Hub found. */
+export type ImageSearchResult = z.output<typeof imageSearchResultSchema>;
+
+/** The reply to `svc.supervisor.search_images`. */
+export const imageSearchReplySchema = z.object({
+  results: z.array(imageSearchResultSchema).max(50),
+});
+
+/** The reply to `svc.supervisor.search_images`. */
+export type ImageSearchReply = z.output<typeof imageSearchReplySchema>;
+
+/** `svc.supervisor.image_tags`. */
+export const imageTagsRequestSchema = z.strictObject({ image: imageRepositorySchema });
+
+/** One tag of an image. */
+export const imageTagSchema = z.object({
+  name: z.string().min(1).max(128),
+
+  /** When it was last pushed, where the registry says. */
+  updatedAt: timestampSchema.nullable(),
+
+  /** The compressed size of this machine's image, where the registry says. */
+  bytes: z.number().min(0).nullable(),
+});
+
+/** One tag of an image. */
+export type ImageTag = z.output<typeof imageTagSchema>;
+
+/** The reply to `svc.supervisor.image_tags`: the newest first. */
+export const imageTagsReplySchema = z.object({ tags: z.array(imageTagSchema).max(100) });
+
+/** The reply to `svc.supervisor.image_tags`. */
+export type ImageTagsReply = z.output<typeof imageTagsReplySchema>;
+
+/** `svc.supervisor.describe_image`. */
+export const imageDescribeRequestSchema = z.strictObject({
+  image: imageRepositorySchema,
+  tag: imageTagNameSchema,
+});
+
+/** What an image declares, for the install form to start from. */
+export const imageDescriptionSchema = z.object({
+  version: z.string().max(128).nullable(),
+  description: z.string().max(1024).nullable(),
+  ports: z.array(z.object({ container: portNumberSchema, protocol: z.enum(['tcp', 'udp']) })),
+  env: z.array(z.object({ name: z.string().min(1).max(256), value: z.string().max(8192) })),
+
+  /** The paths it declares as volumes. */
+  volumes: z.array(z.string().max(1024)),
+});
+
+/** What an image declares. */
+export type ImageDescription = z.output<typeof imageDescriptionSchema>;
+
+/** The restart policies the install form offers. */
+export const RESTART_POLICIES = ['no', 'always', 'unless-stopped', 'on-failure'] as const;
+
+/** A restart policy. */
+export type RestartPolicy = (typeof RESTART_POLICIES)[number];
+
+/**
+ * The networks an installed container can join: Docker's default bridge, the host's network, or
+ * the one the platform shares with the containers integrations run (and, on a bridge, with itself).
+ */
+export const INSTALL_NETWORKS = ['bridge', 'host', 'platform'] as const;
+
+/** A network an installed container can join. */
+export type InstallNetwork = (typeof INSTALL_NETWORKS)[number];
+
+/** A folder of a container, and where it is kept. */
+export const installVolumeSchema = z.discriminatedUnion('kind', [
+  z.object({
+    /** A folder of the platform's data directory: backed up with the rest. */
+    kind: z.literal('data'),
+    name: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,31}$/, 'Must be a short folder name'),
+    target: containerPathSchema,
+    isReadOnly: z.boolean(),
+  }),
+  z.object({
+    /** A Docker volume, made when missing. */
+    kind: z.literal('volume'),
+    name: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/, 'Must be a volume name'),
+    target: containerPathSchema,
+    isReadOnly: z.boolean(),
+  }),
+  z.object({
+    /** A folder of the machine. */
+    kind: z.literal('bind'),
+    source: z
+      .string()
+      .max(1024)
+      .regex(/^\/\S*$/, 'Must be an absolute path on the machine'),
+    target: containerPathSchema,
+    isReadOnly: z.boolean(),
+  }),
+]);
+
+/** A folder of a container, and where it is kept. */
+export type InstallVolume = z.output<typeof installVolumeSchema>;
+
+/** `svc.supervisor.install`, and `POST /containers`. */
+export const containerInstallRequestSchema = z.strictObject({
+  name: containerNameSchema,
+  image: imageRepositorySchema,
+  tag: imageTagNameSchema,
+  ports: z
+    .array(
+      z.object({
+        host: portNumberSchema,
+        container: portNumberSchema,
+        protocol: z.enum(['tcp', 'udp']),
+      }),
+    )
+    .max(32),
+  env: z
+    .array(
+      z.object({
+        name: z.string().regex(/^[A-Za-z_][\w.-]{0,255}$/, 'Must be a variable name'),
+        value: z.string().max(8192),
+      }),
+    )
+    .max(128),
+  volumes: z.array(installVolumeSchema).max(32),
+  devices: z.array(containerDeviceMappingSchema).max(8),
+  restartPolicy: z.enum(RESTART_POLICIES),
+  network: z.enum(INSTALL_NETWORKS),
+});
+
+/** A container to install. */
+export type ContainerInstallRequest = z.output<typeof containerInstallRequestSchema>;
+
+/** `svc.supervisor.remove`. */
+export const containerRemoveRequestSchema = z.strictObject({
+  name: containerNameSchema,
+
+  /** Also the volumes Docker made for it alone: not a named volume, not a folder. */
+  removeVolumes: z.boolean(),
+});
+
+/** Which container to remove. */
+export type ContainerRemoveRequest = z.output<typeof containerRemoveRequestSchema>;
+
+/** The largest compose file taken. */
+export const COMPOSE_FILE_MAXIMUM_BYTES = 256 * 1024;
+
+/** A compose project, as the owner wrote or uploaded it. */
+export const composeDefinitionSchema = z.strictObject({
+  project: composeProjectNameSchema,
+  file: z.string().min(1).max(COMPOSE_FILE_MAXIMUM_BYTES),
+
+  /** What the project's `.env` holds: the values the file interpolates. */
+  env: z
+    .string()
+    .max(64 * 1024)
+    .default(''),
+});
+
+/** A compose project, as the owner wrote it. */
+export type ComposeDefinition = z.output<typeof composeDefinitionSchema>;
+
+/** One thing wrong with a compose file. */
+export const composeProblemSchema = z.object({
+  /** The line of the file, when `docker compose` said. */
+  line: z.int().min(1).nullable(),
+  message: z.string().max(2048),
+});
+
+/** One thing wrong with a compose file. */
+export type ComposeProblem = z.output<typeof composeProblemSchema>;
+
+/** The reply to `svc.supervisor.compose_validate`. */
+export const composeValidationSchema = z.object({
+  problems: z.array(composeProblemSchema),
+
+  /** The services the file declares, when it is valid. */
+  services: z.array(z.string().max(128)),
+});
+
+/** The reply to `svc.supervisor.compose_validate`. */
+export type ComposeValidation = z.output<typeof composeValidationSchema>;
+
+/** `svc.supervisor.compose_get`: which project. */
+export const composeProjectRequestSchema = z.strictObject({ project: composeProjectNameSchema });
+
+/** A project the platform deployed, as it keeps it. */
+export const composeDocumentSchema = z.object({
+  project: composeProjectNameSchema,
+  file: z.string(),
+  env: z.string(),
+  updatedAt: timestampSchema,
+});
+
+/** A project the platform deployed. */
+export type ComposeDocument = z.output<typeof composeDocumentSchema>;
+
+/** `svc.supervisor.compose_control`. */
+export const composeControlRequestSchema = z.strictObject({
+  project: composeProjectNameSchema,
+  action: z.enum(['start', 'stop', 'pull']),
+});
+
+/** What to do to a whole project. */
+export type ComposeControlRequest = z.output<typeof composeControlRequestSchema>;
+
+/** `svc.supervisor.compose_remove`. */
+export const composeRemoveRequestSchema = z.strictObject({
+  project: composeProjectNameSchema,
+
+  /** Also its volumes, named ones included. */
+  removeVolumes: z.boolean(),
+
+  /** Also its folder of the data directory: the file, and every folder its services kept there. */
+  removeFiles: z.boolean(),
+});
+
+/** Which project to remove, and how much of it. */
+export type ComposeRemoveRequest = z.output<typeof composeRemoveRequestSchema>;
+
+// ---------------------------------------------------------------------------------------------
 // The containers an integration runs
 // ---------------------------------------------------------------------------------------------
 
 /**
  * An id a bundle gives one of its containers: `zigbee2mqtt`, `mosquitto`. It names the
- * container and its folder of the data directory, so it is a directory name people read.
+ * container and its folder of the data directory, so it is a directory name people read - and
+ * never `installed` or `compose`, the folders beside it the owner's own containers keep.
  */
-export const DEPENDENCY_ID_PATTERN = /^[a-z][a-z0-9-]{1,31}$/;
+export const DEPENDENCY_ID_PATTERN = /^(?!(?:installed|compose)$)[a-z][a-z0-9-]{1,31}$/;
 
 /** A volume of a container an integration runs: a name, and where the container sees it. */
 export const managedVolumeSchema = z.object({
@@ -730,6 +1156,9 @@ export const containerDeviceRegistrationSchema = z.strictObject({
   /** The container's name, which is the device's `external_id`. */
   name: containerNameSchema,
 
+  /** What the device is called when it is made. */
+  displayName: z.string().min(1).max(128),
+
   /** The image it runs, which is the device's model. */
   image: z.string().min(1).max(128),
   swVersion: z.string().min(1).max(64).optional(),
@@ -740,7 +1169,7 @@ export const containerDeviceRegistrationSchema = z.strictObject({
 export type ContainerDeviceRegistration = z.output<typeof containerDeviceRegistrationSchema>;
 
 /**
- * `svc.core.sync_containers`: every container but the platform's own, whole. `core` writes a
+ * `svc.core.sync_containers`: every container but the system ones, whole. `core` writes a
  * device for each, and removes the device of a container that is no longer in the list.
  */
 export const syncContainersRequestSchema = z.strictObject({

@@ -594,6 +594,24 @@ export const backupActiveRunSchema = z.object({
   bytesTotal: z.number().nullable(),
 });
 
+/**
+ * What `backup` announces while a run moves - it began, went on to another phase, or ended - so a
+ * page watching the backups follows a run without asking every second.
+ */
+export const backupEventSchema = z.object({
+  runId: z.uuid(),
+  kind: z.enum(BACKUP_RUN_KINDS),
+
+  /** The phase it is in; null once it ended. */
+  phase: z.enum(BACKUP_PHASES).nullable(),
+
+  /** `running` until it ended, then how it ended. */
+  status: z.enum(BACKUP_RUN_STATUSES),
+});
+
+/** What `backup` announces while a run moves. */
+export type BackupEvent = z.output<typeof backupEventSchema>;
+
 /** The backup key, as the interface may know it: never the key itself. */
 export const backupKeyInfoSchema = z.object({
   keyId: z.string(),

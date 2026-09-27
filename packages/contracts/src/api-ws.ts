@@ -10,6 +10,7 @@
  */
 import { z } from 'zod';
 
+import { backupEventSchema } from './backup.js';
 import { DISCOVERY_EVENTS } from './discovery.js';
 import { entityIdSchema } from './entity-id.js';
 import { changeContextSchema } from './entity-state.js';
@@ -38,6 +39,7 @@ export const WS_TOPICS = [
   'automations',
   'discovery',
   'containers',
+  'backups',
 ] as const;
 
 /** What a client may subscribe to. */
@@ -142,6 +144,10 @@ export const wsServerMessageSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('container_event'),
     payload: containerEventSchema,
+  }),
+  z.object({
+    type: z.literal('backup_event'),
+    payload: backupEventSchema,
   }),
   z.object({
     type: z.literal('package_event'),

@@ -329,6 +329,13 @@ export const PERMISSIONS = [
     description: 'Start, stop, restart and update the containers the machine runs',
   },
   {
+    key: 'container:install',
+    resource: 'container',
+    action: 'install',
+    isScopable: false,
+    description: 'Install and remove containers and compose projects',
+  },
+  {
     key: 'backup:restore',
     resource: 'backup',
     action: 'restore',

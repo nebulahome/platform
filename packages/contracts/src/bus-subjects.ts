@@ -108,6 +108,13 @@ export const busSubjects = {
   maintenanceEvent: (): string => `${BUS_SUBJECT_PREFIX}.event.maintenance`,
 
   /**
+   * Announcing that a backup or a restore began, moved to another phase, or ended.
+   *
+   * @returns The fan-out subject `backup` publishes on.
+   */
+  backupEvent: (): string => `${BUS_SUBJECT_PREFIX}.event.backup.progress`,
+
+  /**
    * Announcing that a container changed or went away.
    *
    * @returns The fan-out subject the supervisor publishes on.

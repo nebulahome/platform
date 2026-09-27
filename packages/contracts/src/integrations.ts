@@ -65,6 +65,16 @@ export const TRANSPORT_ID_PATTERN = /^(?:[a-z][a-z0-9-]{1,63}\/)?[a-z][a-z0-9-]{
 export const transportIdSchema = z.string().regex(TRANSPORT_ID_PATTERN, 'Must be a transport id');
 
 /**
+ * The wires the interface names on a vendor's card: what a person recognises on the box, whatever
+ * transport of the platform's or of the vendor's own carries it. `udp` is a device's own protocol
+ * over plain datagrams on the network (Govee's LAN API), `modbus` Modbus TCP.
+ */
+export const TRANSPORT_WIRES = ['http', 'mqtt', 'ble', 'zigbee', 'udp', 'modbus'] as const;
+
+/** A wire the interface names. */
+export type TransportWire = (typeof TRANSPORT_WIRES)[number];
+
+/**
  * How a device can be heard announcing itself: the platform's mDNS browser, or a vendor's own
  * listener. Declared here rather than beside the discovered devices, because a vendor lists the
  * ways it can be found and the discovery module already reads this file.
@@ -249,6 +259,12 @@ export const integrationVendorSchema = z.object({
 
   /** Every transport one of its drivers speaks, each once, in the drivers' order. */
   transports: z.array(transportIdSchema),
+
+  /**
+   * The wires its devices are reached over, in {@link TRANSPORT_WIRES}' order: the platform's
+   * transports the drivers speak that are wires, and what the vendor's own transports declare.
+   */
+  wires: z.array(z.enum(TRANSPORT_WIRES)).default([]),
 
   /** What setting the vendor up asks; empty groups for a vendor that needs nothing. */
   setup: integrationSetupSchema,
