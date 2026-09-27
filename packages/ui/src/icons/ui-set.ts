@@ -63,6 +63,7 @@ import {
   RadioTower,
   RotateCcw,
   RotateCcwClock,
+  Router,
   Rss,
   Search,
   Server,
@@ -185,6 +186,7 @@ export const BUILTIN_UI_NODES = {
   // The wires a vendor's devices are reached over, on its card.
   bluetooth: drawing(Bluetooth),
   'radio-tower': drawing(RadioTower),
+  router: drawing(Router),
 } satisfies Record<string, IconNode>;
 
 /** A catalogue id the interface draws itself with. */
