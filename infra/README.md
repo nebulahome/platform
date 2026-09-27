@@ -45,6 +45,7 @@ creates the owner.
 | Command                | What it does                                                                      |
 | ---------------------- | --------------------------------------------------------------------------------- |
 | `pnpm docker:build`    | Builds the image `nebulahome:local` without starting it                           |
+| `pnpm docker:push`     | Builds it and pushes it to Docker Hub as `nebulahome/platform:latest`             |
 | `pnpm docker:up`       | Builds and starts, and waits for the health check                                 |
 | `pnpm docker:down`     | Stops and removes the container. The data, the database and the keys stay         |
 | `pnpm docker:restart`  | Restarts it                                                                       |
@@ -54,6 +55,9 @@ creates the owner.
 | `pnpm docker:psql`     | `psql` on its database, as the superuser                                          |
 | `pnpm docker:db:reset` | Empties the database and migrates it again, the services stopped around it        |
 | `pnpm docker:wipe`     | **Deletes every volume**: the database, the data directory, the keys, the backups |
+
+`docker:push` needs `docker login` first, as an account that can push to the `nebulahome`
+organisation. It pushes the architecture of the machine that builds it.
 
 `docker:db:reset` deletes the owner account with everything else: create it again from the
 first-run screen. The data directory - the integrations, the keys, the backups - is kept.
