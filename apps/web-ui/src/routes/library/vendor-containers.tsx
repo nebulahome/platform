@@ -3,13 +3,14 @@
  *
  * Zigbee reaches the platform through zigbee2mqtt, which runs in a container of its own: the
  * platform downloads it and runs it once the vendor is set up, and this panel says where it
- * stands - being downloaded, running, or why not - and leads to the container's own page. Until
- * the vendor is set up there is nothing to run, and the panel says that instead.
+ * stands - waiting for the setup, being downloaded, running, or why not - and leads to the
+ * container's own page. Setting the vendor up is what starts it, so the button that does - Set up
+ * the first time, Configure after - sits on the container's row, where the owner is looking.
  */
 import { Link } from 'react-router';
 
 import type { IntegrationVendorView, ManagedStatus } from '@nebula-home/contracts';
-import { Badge, Panel, type BadgeTone } from '@nebula-home/ui';
+import { Badge, Button, Panel, type BadgeTone } from '@nebula-home/ui';
 
 /** How a declared container's state reads, and its colour. */
 const STATE_OF: Readonly<Record<ManagedStatus['state'], { label: string; tone: BadgeTone }>> = {
@@ -24,15 +25,26 @@ const STATE_OF: Readonly<Record<ManagedStatus['state'], { label: string; tone: B
   dead: { label: 'Dead', tone: 'danger' },
 };
 
+/** What the panel needs. */
+export type VendorContainersProps = {
+  /** As the API lists it, with its containers' statuses. */
+  readonly vendor: IntegrationVendorView;
+
+  /** Opens the vendor's settings; absent for somebody who may not change them. */
+  readonly onSetUp?: () => void;
+
+  /** Whether the vendor asks anything once set up: without, there is nothing to configure. */
+  readonly hasSetupFields: boolean;
+};
+
 /**
  * Renders the panel, for a vendor that runs containers.
  *
- * @param props - The vendor.
- * @param props.vendor - As the API lists it, with its containers' statuses.
+ * @param props - See {@link VendorContainersProps}.
  * @returns The panel, or nothing for a vendor that runs none.
  */
-export function VendorContainers(props: { readonly vendor: IntegrationVendorView }) {
-  const { vendor } = props;
+export function VendorContainers(props: VendorContainersProps) {
+  const { vendor, onSetUp, hasSetupFields } = props;
 
   if (vendor.containers.length === 0) {
     return null;
@@ -43,7 +55,11 @@ export function VendorContainers(props: { readonly vendor: IntegrationVendorView
       <ul className="flex flex-col divide-y divide-border">
         {vendor.containers.map((container, index) => {
           const status = vendor.containerStatuses[index] ?? null;
-          const state = status === null ? null : STATE_OF[status.state];
+          const state = vendor.needsSetup
+            ? { label: 'Waiting for setup', tone: 'warning' as const }
+            : status === null
+              ? null
+              : STATE_OF[status.state];
 
           return (
             <li
@@ -75,13 +91,15 @@ export function VendorContainers(props: { readonly vendor: IntegrationVendorView
                   <span className="text-caption text-danger">{status.error}</span>
                 )}
               </span>
-              <span className="text-caption text-foreground-subtle">
-                {vendor.needsSetup
-                  ? 'Downloaded once the vendor is set up'
-                  : status === null
-                    ? 'The supervisor did not say'
-                    : 'Started, stopped and updated by the integration'}
-              </span>
+              {onSetUp === undefined ? null : vendor.needsSetup ? (
+                <Button size="compact" onClick={onSetUp}>
+                  Set up
+                </Button>
+              ) : hasSetupFields ? (
+                <Button variant="ghost" size="compact" onClick={onSetUp}>
+                  Configure
+                </Button>
+              ) : null}
             </li>
           );
         })}

@@ -134,7 +134,7 @@ function hostOf(url: string): string {
  * @param props.noun - What is being counted, pluralised by the caller.
  * @returns The stat.
  */
-function Stat(props: { readonly value: number; readonly noun: string }) {
+export function Stat(props: { readonly value: number; readonly noun: string }) {
   const { value, noun } = props;
 
   return (
@@ -155,7 +155,7 @@ function Stat(props: { readonly value: number; readonly noun: string }) {
  * @param props.parts - What to show.
  * @returns The line.
  */
-function MetaLine(props: { readonly parts: readonly (ReactNode | null)[] }) {
+export function MetaLine(props: { readonly parts: readonly (ReactNode | null)[] }) {
   const present = props.parts.filter((part) => part !== null);
 
   return (
@@ -289,6 +289,7 @@ export function VendorPage() {
   const hasSetupFields =
     found !== undefined &&
     found.setup.transport.fields.length + found.setup.options.fields.length > 0;
+  const runsContainers = found !== undefined && found.containers.length > 0;
 
   /**
    * Reads everything again once a row is written, and once more when the hub was still
@@ -367,7 +368,8 @@ export function VendorPage() {
                   {network.isScanning ? 'Looking…' : 'Discover devices'}
                 </Button>
               ) : null}
-              {canConfigure && hasSetupFields ? (
+              {/* A vendor that runs a container is set up from the container's row. */}
+              {canConfigure && hasSetupFields && !runsContainers ? (
                 <Button
                   variant="ghost"
                   size="compact"
@@ -445,7 +447,7 @@ export function VendorPage() {
               </div>
             </section>
 
-            {found.needsSetup ? (
+            {found.needsSetup && !runsContainers ? (
               <Panel title="Before anything else" elevation="flat">
                 <div className="flex items-center gap-4 px-4 py-3.5">
                   <p role="status" className="grow text-ui text-foreground-muted">
@@ -466,7 +468,18 @@ export function VendorPage() {
               </Panel>
             ) : null}
 
-            <VendorContainers vendor={found} />
+            <VendorContainers
+              vendor={found}
+              hasSetupFields={hasSetupFields}
+              {...(canConfigure
+                ? {
+                    /** Opens the vendor's settings. */
+                    onSetUp: () => {
+                      setSettingUp(true);
+                    },
+                  }
+                : {})}
+            />
 
             {network.problem === null ? null : (
               <p role="alert" className="text-ui text-danger">
