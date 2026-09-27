@@ -1,0 +1,33 @@
+{
+  "name": "@nebula-home/backup",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "@nebula-home/bus": "workspace:*",
+    "@nebula-home/config": "workspace:*",
+    "@nebula-home/contracts": "workspace:*",
+    "@nebula-home/db": "workspace:*",
+    "@nebula-home/logging": "workspace:*",
+    "basic-ftp": "^6.2.1",
+    "croner": "^10.0.1",
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.9",
+    "tar": "^7.5.22",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@nebula-home/eslint-config": "workspace:*",
+    "@nebula-home/tsconfig": "workspace:*",
+    "typescript": "^6.0.3"
+  }
+}
