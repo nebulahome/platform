@@ -18,6 +18,7 @@
  */
 import type { z } from 'zod';
 
+import { useMaintenance } from '@/auth/maintenance-store';
 import { readRefreshToken, writeRefreshToken } from '@/auth/token-storage';
 import { ApiError, isApiUnreachable, toApiError } from '@/lib/api-error';
 
@@ -79,6 +80,24 @@ let refreshInFlight: Promise<string | null> | undefined;
  */
 export function connectSession(bridge: SessionBridge): void {
   session = bridge;
+}
+
+/**
+ * Turns a failed answer into the error it is - and, when it says the installation is being
+ * restored, puts the maintenance screen up: whichever request met it, the whole page is waiting.
+ *
+ * @param response - The answer.
+ * @param body - Its parsed body.
+ * @returns The error.
+ */
+function failureOf(response: Response, body: unknown): ApiError {
+  const failure = toApiError(response, body);
+
+  if (failure.code === 'MAINTENANCE') {
+    useMaintenance.getState().enter();
+  }
+
+  return failure;
 }
 
 /**
@@ -170,14 +189,15 @@ async function refreshOnce(): Promise<string | null> {
   );
 
   if (!response.ok) {
-    const failure = toApiError(response, await readBody(response));
+    const failure = failureOf(response, await readBody(response));
 
     // Not every failed answer is the API refusing the token. A `502` is the proxy in front
     // saying the API is not there - which it is not, for the first seconds after `pnpm dev`
     // and for the length of every restart. Throwing the token away on that would sign a person
     // out of a wall tablet every time the service was redeployed, for no reason the token could
     // have known about. Only an answer from the API itself is final.
-    if (isApiUnreachable(failure)) {
+    // Nor is a restore in progress: the session may well outlive it, if it fails.
+    if (isApiUnreachable(failure) || failure.code === 'MAINTENANCE') {
       throw failure;
     }
 
@@ -241,7 +261,7 @@ async function sendWithCredential(path: string, options: RequestOptions): Promis
   const accessToken = await refreshAccessToken();
 
   if (accessToken === null) {
-    throw toApiError(response, await readBody(response));
+    throw failureOf(response, await readBody(response));
   }
 
   return send(path, options, accessToken);
@@ -265,7 +285,7 @@ export async function apiBlob(path: string, options: RequestOptions = {}): Promi
   });
 
   if (!response.ok) {
-    throw toApiError(response, await readBody(response));
+    throw failureOf(response, await readBody(response));
   }
 
   return response.blob();
@@ -290,7 +310,7 @@ export async function apiRequest<TSchema extends z.ZodType>(
   const body = await readBody(response);
 
   if (!response.ok) {
-    throw toApiError(response, body);
+    throw failureOf(response, body);
   }
 
   const parsed = schema.safeParse(body);

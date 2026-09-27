@@ -8,11 +8,11 @@
 import {
   COMPARISON_OPERATORS,
   type ComparisonOperator,
-  DAYS_OF_WEEK,
   type AutomationCondition,
 } from '@nebula-home/contracts';
 import { SelectField, Segmented, TextField } from '@nebula-home/ui';
 
+import { WeekdayPicker } from '@/components/weekday-picker';
 import { hasNumber } from '@/library/entity-control';
 import { AreaKeyField } from '@/routes/library/area-key-field';
 import { EntityField } from '@/routes/library/entity-field';
@@ -143,36 +143,14 @@ export function ConditionFields(props: ConditionFieldsProps) {
 
   if (condition.type === 'day_of_week') {
     return (
-      <div className="flex flex-wrap gap-1.5 sm:col-span-2">
-        {DAYS_OF_WEEK.map((day) => {
-          const isChosen = condition.days.includes(day);
-
-          return (
-            <label
-              key={day}
-              className={`press flex h-control-sm cursor-pointer items-center rounded-chip border px-3 text-ui capitalize ${
-                isChosen
-                  ? 'border-border-strong face-pill text-foreground'
-                  : 'border-border text-foreground-muted hover:text-foreground'
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={isChosen}
-                className="sr-only"
-                onChange={() => {
-                  const days = isChosen
-                    ? condition.days.filter((one) => one !== day)
-                    : [...condition.days, day];
-
-                  onChange({ ...condition, days });
-                }}
-              />
-              {day.slice(0, 3)}
-            </label>
-          );
-        })}
-      </div>
+      <WeekdayPicker
+        label="Days"
+        value={condition.days}
+        className="sm:col-span-2"
+        onChange={(days) => {
+          onChange({ ...condition, days });
+        }}
+      />
     );
   }
 

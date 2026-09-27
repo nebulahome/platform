@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router';
 
 import { CatalogueIcons } from '@/components/catalogue-icons';
+import { MaintenanceOverlay } from '@/components/maintenance-overlay';
 import { SessionRoutes } from '@/routes/session-routes';
 
 const queryClient = new QueryClient({
@@ -53,6 +54,7 @@ export function App() {
         <BrowserRouter>
           <SessionRoutes />
         </BrowserRouter>
+        <MaintenanceOverlay />
       </CatalogueIcons>
     </QueryClientProvider>
   );

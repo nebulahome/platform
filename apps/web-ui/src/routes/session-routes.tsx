@@ -46,6 +46,7 @@ import { TagsPage } from '@/routes/library/tags-page';
 import { VendorPage } from '@/routes/library/vendor-page';
 import { RETURN_TO_PARAM, safeReturnTo } from '@/routes/return-to';
 import { AccountSettings } from '@/routes/settings/account-settings';
+import { BackupSettings } from '@/routes/settings/backup-settings';
 import { DataAndRetention } from '@/routes/settings/data-and-retention';
 import { IconsPanel } from '@/routes/settings/icons-panel';
 import { InterfaceSettings } from '@/routes/settings/interface-settings';
@@ -308,6 +309,15 @@ export function SessionRoutes() {
             element={
               <RequiresPermission permission="settings:read" section="Data and retention">
                 <DataAndRetention />
+              </RequiresPermission>
+            }
+          />
+
+          <Route
+            path="backup"
+            element={
+              <RequiresPermission permission="settings:read" section="Backup">
+                <BackupSettings />
               </RequiresPermission>
             }
           />

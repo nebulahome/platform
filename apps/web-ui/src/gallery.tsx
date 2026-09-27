@@ -38,6 +38,7 @@ import {
   type BadgeTone,
 } from '@nebula-home/ui';
 
+import { useSession } from '@/auth/session-store';
 import { CheckIcon, CopyIcon, WarningIcon } from '@/components/icons';
 import { PasswordField } from '@/components/password-field';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
@@ -51,6 +52,8 @@ import { ControlPanel } from '@/routes/library/entity/controls/control-panel';
 import { EntityField } from '@/routes/library/entity-field';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
+import { BackupSettings } from '@/routes/settings/backup-settings';
+import { backupSampleCache, SAMPLE_OWNER } from '@/testing/backup-samples';
 import { energySample, energySampleCache } from '@/testing/energy-samples';
 import { aDevice, anArea, anEntity } from '@/testing/fixtures';
 
@@ -282,6 +285,12 @@ const SAMPLE_VENDOR: IntegrationVendorView = {
   deviceCount: 3,
   entityCount: 21,
 };
+
+/** The cache the Backup page reads from. */
+const BACKUP_CACHE = backupSampleCache();
+
+// The Backup page shows its controls to whoever may use them: the gallery's visitor is the owner.
+useSession.setState({ user: SAMPLE_OWNER });
 
 /** The cache the energy samples' days are read from. */
 const ENERGY_CACHE = energySampleCache();
@@ -753,6 +762,17 @@ function Gallery() {
               <PanelNote>A tier cannot keep data for less time than the one above it.</PanelNote>
             </Panel>
           </div>
+        </Section>
+
+        <Section
+          title="Backup settings"
+          note="The real page over a cache already holding its answers, seen by the owner: a schedule learned from the load, three locations - one failing - and the last run."
+        >
+          <QueryClientProvider client={BACKUP_CACHE}>
+            <div className="flex w-full flex-col gap-4">
+              <BackupSettings />
+            </div>
+          </QueryClientProvider>
         </Section>
 
         <Section
