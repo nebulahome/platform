@@ -1,0 +1,14 @@
+{
+  "listen": [
+    {
+      "module": "./mqtt/discovery.js",
+      "lan": false
+    }
+  ],
+  "identity": {
+    "externalId": "ieee",
+    "name": "name",
+    "model": "role",
+    "swVersion": "version"
+  }
+}

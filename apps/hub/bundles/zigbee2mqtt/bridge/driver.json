@@ -1,0 +1,13 @@
+{
+  "id": "bridge",
+  "name": "Bridge",
+  "transport": "zigbee2mqtt/mqtt",
+  "models": ["Bridge"],
+  "modelCodes": {
+    "bridge": "Bridge"
+  },
+  "defaultIcon": "router",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

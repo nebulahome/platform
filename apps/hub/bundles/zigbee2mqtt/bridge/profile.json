@@ -1,0 +1,98 @@
+{
+  "discovery": {
+    "claim": [
+      {
+        "path": "role",
+        "equals": "bridge"
+      }
+    ],
+    "identity": {
+      "externalId": "ieee",
+      "name": "name",
+      "manufacturer": "vendor",
+      "model": "model",
+      "swVersion": "version"
+    }
+  },
+  "device": {
+    "swVersion": "info.version"
+  },
+  "entities": [
+    {
+      "domain": "binary_sensor",
+      "objectId": "connected",
+      "name": "Connected",
+      "icon": "router",
+      "deviceClass": "connectivity",
+      "capabilities": {
+        "sensor_binary": {}
+      },
+      "state": {
+        "sensor_binary": {
+          "isOn": {
+            "path": "state",
+            "equals": "online"
+          }
+        }
+      }
+    },
+    {
+      "domain": "switch",
+      "objectId": "permit_join",
+      "name": "Pairing",
+      "icon": "link",
+      "capabilities": {
+        "on_off": {}
+      },
+      "state": {
+        "on_off": {
+          "isOn": "info.permit_join"
+        }
+      },
+      "commands": {
+        "on_off.turn_on": {
+          "op": "permit_join",
+          "args": {
+            "time": 254
+          }
+        },
+        "on_off.turn_off": {
+          "op": "permit_join",
+          "args": {
+            "time": 0
+          }
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "devices",
+      "name": "Zigbee devices",
+      "icon": "network",
+      "stateClass": "measurement",
+      "displayPrecision": 0,
+      "capabilities": {
+        "sensor_numeric": {}
+      },
+      "state": {
+        "sensor_numeric": {
+          "value": "deviceCount"
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "version",
+      "name": "Zigbee2MQTT version",
+      "icon": "info",
+      "capabilities": {
+        "sensor_text": {}
+      },
+      "state": {
+        "sensor_text": {
+          "value": "info.version"
+        }
+      }
+    }
+  ]
+}

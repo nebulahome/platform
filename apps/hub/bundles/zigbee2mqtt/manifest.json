@@ -1,0 +1,130 @@
+{
+  "id": "zigbee2mqtt",
+  "version": "1.0.0",
+  "sdk": "^1.3.0",
+  "name": "Zigbee2MQTT",
+  "description": "Zigbee devices through Zigbee2MQTT and a coordinator on USB or on the network. NebulaHome runs Zigbee2MQTT in a container of its own, beside its MQTT broker; every device paired with it is proposed here to add. Nothing leaves the house.",
+  "url": "https://www.zigbee2mqtt.io",
+  "color": "#FFC135",
+  "logo": {
+    "path": "./logo.svg",
+    "padding": 2
+  },
+  "internetRequired": false,
+  "setup": "./setup.json",
+  "transports": {
+    "mqtt": "./mqtt/transport.js"
+  },
+  "containers": [
+    {
+      "id": "zigbee2mqtt",
+      "name": "Zigbee2MQTT",
+      "image": "koenkk/zigbee2mqtt",
+      "minVersion": "2.1.0",
+      "volumes": [
+        {
+          "name": "data",
+          "path": "/app/data"
+        }
+      ],
+      "env": [
+        {
+          "name": "TZ",
+          "value": "{platform.timezone}"
+        },
+        {
+          "name": "Z2M_ONBOARD_NO_SERVER",
+          "value": "1"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_MQTT_SERVER",
+          "value": "{platform.mqtt.url}"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_MQTT_USER",
+          "value": "{platform.mqtt.username}"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_MQTT_PASSWORD",
+          "value": "{platform.mqtt.password}"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_MQTT_BASE_TOPIC",
+          "value": "zigbee2mqtt"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_SERIAL_ADAPTER",
+          "value": "{setup.adapter}"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_SERIAL_PORT",
+          "value": "/dev/zigbee",
+          "when": {
+            "key": "connection",
+            "equals": ["usb"]
+          }
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_SERIAL_PORT",
+          "value": "{setup.networkAddress}",
+          "when": {
+            "key": "connection",
+            "equals": ["network"]
+          }
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_AVAILABILITY_ENABLED",
+          "value": "true"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_HOMEASSISTANT_ENABLED",
+          "value": "false"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_FRONTEND_ENABLED",
+          "value": "{setup.webInterface}"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_FRONTEND_PORT",
+          "value": "{setup.webPort}",
+          "when": {
+            "key": "webInterface",
+            "equals": [true]
+          }
+        }
+      ],
+      "devices": [
+        {
+          "host": "{setup.serialPath}",
+          "container": "/dev/zigbee",
+          "when": {
+            "key": "connection",
+            "equals": ["usb"]
+          }
+        }
+      ],
+      "ports": [
+        {
+          "container": "{setup.webPort}",
+          "host": "{setup.webPort}",
+          "when": {
+            "key": "webInterface",
+            "equals": [true]
+          }
+        }
+      ],
+      "seed": [
+        {
+          "volume": "data",
+          "path": "configuration.yaml",
+          "content": "# Written by NebulaHome the first time Zigbee2MQTT started. The broker, the adapter and the web\n# page come from the environment NebulaHome gives the container, and override what is here; what\n# Zigbee2MQTT keeps in this folder - the network's keys, the devices, the coordinator's backup - is\n# its own, and a NebulaHome backup takes it.\nversion: 4\nmqtt:\n  base_topic: zigbee2mqtt\n  server: '{platform.mqtt.url}'\nserial:\n  port: /dev/zigbee\nadvanced:\n  network_key: GENERATE\n  pan_id: GENERATE\n  ext_pan_id: GENERATE\n  log_output:\n    - console\nfrontend:\n  enabled: false\nhomeassistant:\n  enabled: false\navailability:\n  enabled: true\n"
+        }
+      ],
+      "webPort": "{setup.webPort}",
+      "webPortWhen": {
+        "key": "webInterface",
+        "equals": [true]
+      }
+    }
+  ]
+}

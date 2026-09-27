@@ -137,6 +137,7 @@ describe('the bundles that ship', () => {
       'shelly',
       'solax',
       'sonoff',
+      'zigbee2mqtt',
     ]);
 
     for (const vendor of vendors) {

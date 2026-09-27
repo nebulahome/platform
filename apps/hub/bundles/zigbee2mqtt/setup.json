@@ -1,0 +1,102 @@
+{
+  "transport": {
+    "fields": []
+  },
+  "options": {
+    "fields": [
+      {
+        "key": "adapter",
+        "type": "choice",
+        "label": "Coordinator",
+        "help": "The chip the Zigbee coordinator is built on; its maker's page says which.",
+        "isRequired": true,
+        "choices": [
+          {
+            "value": "ember",
+            "label": "Silicon Labs EFR32 (ZBDongle-E, SkyConnect)"
+          },
+          {
+            "value": "zstack",
+            "label": "Texas Instruments CC26xx (ZBDongle-P, SLZB-06)"
+          },
+          {
+            "value": "deconz",
+            "label": "dresden elektronik (ConBee, RaspBee)"
+          },
+          {
+            "value": "zigate",
+            "label": "ZiGate"
+          },
+          {
+            "value": "zboss",
+            "label": "Nordic nRF52840"
+          }
+        ]
+      },
+      {
+        "key": "connection",
+        "type": "choice",
+        "label": "Connected by",
+        "choices": [
+          {
+            "value": "usb",
+            "label": "USB, on this machine"
+          },
+          {
+            "value": "network",
+            "label": "The network (Ethernet or Wi-Fi)"
+          }
+        ],
+        "default": "usb"
+      },
+      {
+        "key": "serialPath",
+        "type": "text",
+        "label": "Serial port",
+        "help": "Its path on this machine; /dev/serial/by-id/ keeps it the same across restarts. Docker Desktop on Windows and macOS cannot pass USB through.",
+        "placeholder": "/dev/serial/by-id/usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle…",
+        "pattern": "^/dev/[A-Za-z0-9._/:+-]+$",
+        "patternMessage": "A device of this machine, under /dev",
+        "isRequired": true,
+        "shownWhen": {
+          "key": "connection",
+          "equals": ["usb"]
+        }
+      },
+      {
+        "key": "networkAddress",
+        "type": "text",
+        "label": "Address",
+        "help": "Where the coordinator listens, as its maker gives it.",
+        "placeholder": "tcp://192.168.1.50:6638",
+        "pattern": "^tcp://[A-Za-z0-9.-]+:[0-9]{1,5}$",
+        "patternMessage": "tcp:// followed by the address and the port",
+        "isRequired": true,
+        "shownWhen": {
+          "key": "connection",
+          "equals": ["network"]
+        }
+      },
+      {
+        "key": "webInterface",
+        "type": "boolean",
+        "label": "Zigbee2MQTT's own web page",
+        "help": "The network map and each device's own settings. It asks for no password: anybody on the network who opens it controls Zigbee.",
+        "default": false
+      },
+      {
+        "key": "webPort",
+        "type": "number",
+        "label": "On port",
+        "isInteger": true,
+        "min": 1024,
+        "max": 65535,
+        "default": 8099,
+        "shownWhen": {
+          "key": "webInterface",
+          "equals": [true]
+        }
+      }
+    ]
+  }
+}

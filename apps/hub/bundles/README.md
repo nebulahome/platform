@@ -436,6 +436,7 @@ needs, since the bundle cannot import them:
 | `openMqtt`           | since 1.2: an MQTT session with a client certificate, for a vendor's own broker    |
 | `defineStreamSource` | since 1.2: the contract a camera's stream source is written against                |
 | `openRtsp`           | since 1.2: an RTSP(S) session over TCP, yielding a camera's H.264 as it comes      |
+| `platform.mqtt`      | since 1.3: the platform's own MQTT broker, or null on an installation without one  |
 | `logger`             | the hub's logger, for what happens outside a connection                            |
 
 The transport it returns is the one the platform's `http` and `mqtt` are:
@@ -556,6 +557,19 @@ fans, the AMS, the print in progress, and pause, resume and stop. The first bund
 source: RTSPS on port 322 for the families that have it, the JPEG stills on port 6000 for the P1s
 and A1s. Found by the SSDP announcements the printers make, with the model code mapped to its
 driver. Its own README says what the printer is and what has not been checked against one.
+
+## zigbee2mqtt
+
+Zigbee through Zigbee2MQTT, which NebulaHome runs itself: the first vendor that declares a
+**container** in its manifest - `koenkk/zigbee2mqtt`, 2.1.0 or newer - which the supervisor pulls
+and runs once the vendor is set up (the coordinator's chip, and its USB path or network address),
+and which the integration then owns. Its own transport, `zigbee2mqtt/mqtt`, one session to the
+platform's broker (`sdk.platform.mqtt`, since 1.3) under the base topic, hands each message to the
+device it is about by IEEE address. Two drivers: `bridge` (declarative: online, pairing, devices,
+version) and `device` (code, a function of the SDK: every model Zigbee2MQTT supports, from its
+`exposes`). Found by its own listener on the broker, which runs where the hub hears no multicast
+too (`"lan": false`); **Discover devices** opens pairing. Its README says what each expose
+becomes.
 
 ## solax
 
