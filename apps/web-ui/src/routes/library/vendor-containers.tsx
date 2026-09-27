@@ -1,0 +1,91 @@
+/**
+ * The containers a vendor's devices depend on, on the vendor's page.
+ *
+ * Zigbee reaches the platform through zigbee2mqtt, which runs in a container of its own: the
+ * platform downloads it and runs it once the vendor is set up, and this panel says where it
+ * stands - being downloaded, running, or why not - and leads to the container's own page. Until
+ * the vendor is set up there is nothing to run, and the panel says that instead.
+ */
+import { Link } from 'react-router';
+
+import type { IntegrationVendorView, ManagedStatus } from '@nebula-home/contracts';
+import { Badge, Panel, type BadgeTone } from '@nebula-home/ui';
+
+/** How a declared container's state reads, and its colour. */
+const STATE_OF: Readonly<Record<ManagedStatus['state'], { label: string; tone: BadgeTone }>> = {
+  missing: { label: 'Not running', tone: 'warning' },
+  pulling: { label: 'Downloading', tone: 'accent' },
+  created: { label: 'Created', tone: 'neutral' },
+  running: { label: 'Running', tone: 'success' },
+  paused: { label: 'Paused', tone: 'warning' },
+  restarting: { label: 'Restarting', tone: 'accent' },
+  removing: { label: 'Removing', tone: 'warning' },
+  exited: { label: 'Stopped', tone: 'neutral' },
+  dead: { label: 'Dead', tone: 'danger' },
+};
+
+/**
+ * Renders the panel, for a vendor that runs containers.
+ *
+ * @param props - The vendor.
+ * @param props.vendor - As the API lists it, with its containers' statuses.
+ * @returns The panel, or nothing for a vendor that runs none.
+ */
+export function VendorContainers(props: { readonly vendor: IntegrationVendorView }) {
+  const { vendor } = props;
+
+  if (vendor.containers.length === 0) {
+    return null;
+  }
+
+  return (
+    <Panel title={vendor.containers.length === 1 ? 'Runs in a container' : 'Runs in containers'}>
+      <ul className="flex flex-col divide-y divide-border">
+        {vendor.containers.map((container, index) => {
+          const status = vendor.containerStatuses[index] ?? null;
+          const state = status === null ? null : STATE_OF[status.state];
+
+          return (
+            <li
+              key={container.id}
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3"
+            >
+              <span className="flex min-w-0 grow flex-col gap-0.5">
+                <span className="flex flex-wrap items-center gap-2 text-ui text-foreground">
+                  {status?.containerName !== null && status?.containerName !== undefined ? (
+                    <Link
+                      to={`/containers/${encodeURIComponent(status.containerName)}`}
+                      className="font-medium text-primary underline-offset-2 hover:underline"
+                    >
+                      {container.name}
+                    </Link>
+                  ) : (
+                    <span className="font-medium">{container.name}</span>
+                  )}
+                  {state === null ? null : (
+                    <Badge tone={state.tone} size="small">
+                      {state.label}
+                    </Badge>
+                  )}
+                </span>
+                <span className="font-mono text-caption text-foreground-subtle">
+                  {container.image} · {status?.version ?? `${container.minVersion} or newer`}
+                </span>
+                {status?.error === null || status?.error === undefined ? null : (
+                  <span className="text-caption text-danger">{status.error}</span>
+                )}
+              </span>
+              <span className="text-caption text-foreground-subtle">
+                {vendor.needsSetup
+                  ? 'Downloaded once the vendor is set up'
+                  : status === null
+                    ? 'The supervisor did not say'
+                    : 'Started, stopped and updated by the integration'}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </Panel>
+  );
+}

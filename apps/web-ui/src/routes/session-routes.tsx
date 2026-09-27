@@ -27,6 +27,8 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router'
 
 import { useSession, type SessionStatus } from '@/auth/session-store';
 import { AuthLayout } from '@/routes/auth-layout';
+import { ContainerPage } from '@/routes/containers/container-page';
+import { ContainersPage } from '@/routes/containers/containers-page';
 import { DashboardEditorPage } from '@/routes/dashboard/dashboard-editor-page';
 import { DashboardPage } from '@/routes/dashboard/dashboard-page';
 import { DashboardsManagePage } from '@/routes/dashboard/dashboards-manage-page';
@@ -280,6 +282,22 @@ export function SessionRoutes() {
           }
         />
         <Route path="/packages" element={<PackagesPage />} />
+        <Route
+          path="/containers"
+          element={
+            <RequiresPermission permission="container:read" section="Containers">
+              <ContainersPage />
+            </RequiresPermission>
+          }
+        />
+        <Route
+          path="/containers/:name"
+          element={
+            <RequiresPermission permission="container:read" section="Containers">
+              <ContainerPage />
+            </RequiresPermission>
+          }
+        />
 
         <Route path="/settings" element={<SettingsLayout />}>
           <Route index element={<Navigate to={DEFAULT_SETTINGS_SECTION} replace />} />

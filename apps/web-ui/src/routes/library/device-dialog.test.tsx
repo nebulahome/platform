@@ -118,6 +118,8 @@ const BAMBU: IntegrationVendorView = {
   internetRequired: false,
   transports: ['mqtt'],
   discoverySources: [],
+  containers: [],
+  containerStatuses: [],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
   drivers: [
     {
@@ -147,6 +149,8 @@ const SHELLY: IntegrationVendorView = {
   name: 'Shelly',
   transports: ['http'],
   discoverySources: [],
+  containers: [],
+  containerStatuses: [],
   drivers: [
     {
       id: 'shelly/1pm-mini-g3',

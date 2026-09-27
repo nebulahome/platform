@@ -265,6 +265,8 @@ const SAMPLE_VENDOR: IntegrationVendorView = {
   internetRequired: false,
   transports: ['shelly/rpc'],
   discoverySources: ['mdns'],
+  containers: [],
+  containerStatuses: [],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
   drivers: [
     shellyDriver('switch', 'Relay', ['1 Gen3', '1 Mini Gen3', '1 Gen4', '1 Mini Gen4']),

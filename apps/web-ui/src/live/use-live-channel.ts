@@ -19,6 +19,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
 import { useSession } from '@/auth/session-store';
+import { CONTAINER_QUERY_KEYS } from '@/containers/api';
 import { refreshAccessToken } from '@/lib/api-client';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { LiveClient } from '@/live/live-client';
@@ -81,6 +82,13 @@ export function useLiveChannel(): void {
         if (message.type === 'discovery_event') {
           // Only the count travels; the list is read again with the permission it takes.
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.discovered });
+        }
+
+        if (message.type === 'container_event') {
+          // Only the name travels: the containers pages read again, and a vendor's page shows
+          // where its containers stand.
+          void queryClient.invalidateQueries({ queryKey: CONTAINER_QUERY_KEYS.all });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
         }
       },
 

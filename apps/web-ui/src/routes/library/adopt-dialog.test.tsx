@@ -42,6 +42,8 @@ const BAMBU: IntegrationVendorView = {
   internetRequired: false,
   transports: ['mqtt'],
   discoverySources: [],
+  containers: [],
+  containerStatuses: [],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
   drivers: [
     {

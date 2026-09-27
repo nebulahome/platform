@@ -28,6 +28,7 @@ import { useSession } from '@/auth/session-store';
 import { Avatar } from '@/components/avatar';
 import {
   ChevronIcon,
+  ContainersIcon,
   DashboardsIcon,
   LibraryIcon,
   PackagesIcon,
@@ -353,6 +354,10 @@ export function Sidebar() {
       <NavRow to="/integrations" icon={<LibraryIcon />} label="Integrations" />
 
       <NavRow to="/packages" icon={<PackagesIcon />} label="Packages" />
+
+      {can('container:read') ? (
+        <NavRow to="/containers" icon={<ContainersIcon />} label="Containers" />
+      ) : null}
 
       <div className="grow" />
 

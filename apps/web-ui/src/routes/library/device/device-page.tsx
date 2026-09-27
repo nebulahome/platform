@@ -153,9 +153,16 @@ function DeviceDetails(props: { readonly view: DevicePageView; readonly webPage:
         <Fact term="Id">
           <span className="font-mono text-caption break-all">{device.id}</span>
         </Fact>
-        <Fact term="Integration">
+        <Fact term={device.origin === 'container' ? 'Container' : 'Integration'}>
           {device.origin === 'system' ? (
             vendorName
+          ) : device.origin === 'container' ? (
+            <Link
+              to={`/containers/${encodeURIComponent(device.externalId ?? device.name)}`}
+              className="text-primary underline-offset-2 hover:underline"
+            >
+              {device.externalId ?? device.name}
+            </Link>
           ) : (
             <Link
               to={`/integrations/${encodeURIComponent(device.vendorId)}`}
@@ -167,7 +174,7 @@ function DeviceDetails(props: { readonly view: DevicePageView; readonly webPage:
           <span className="text-foreground-subtle"> · {device.driverName}</span>
         </Fact>
         {device.model === null ? null : <Fact term="Model">{device.model}</Fact>}
-        {device.origin === 'system' ? null : <Fact term="Transport">{device.transport}</Fact>}
+        {device.origin === 'integration' ? <Fact term="Transport">{device.transport}</Fact> : null}
         {webPage === null ? null : (
           <Fact term="Web page">
             <a
@@ -245,7 +252,7 @@ export function DevicePage() {
   const canConfigure =
     view !== undefined &&
     view.canWrite &&
-    (view.vendor !== undefined || view.device.origin === 'system');
+    (view.vendor !== undefined || view.device.origin !== 'integration');
   const webPage =
     view === undefined
       ? null

@@ -25,6 +25,8 @@ function vendor(overrides: Partial<IntegrationVendorView> = {}): IntegrationVend
     internetRequired: false,
     transports: ['http'],
     discoverySources: [],
+    containers: [],
+    containerStatuses: [],
     setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
     drivers: [
       {

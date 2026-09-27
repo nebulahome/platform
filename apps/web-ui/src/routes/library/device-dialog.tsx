@@ -213,7 +213,9 @@ export function DeviceDialog(props: DeviceDialogProps) {
 
   const vendor = target?.vendor;
   const existing = target?.mode === 'edit' ? target.device : undefined;
-  const isSystem = existing?.origin === 'system';
+  // The platform's own devices - the machine, a container - have no connection to set: only
+  // what they are called, their icon, their tags and their room.
+  const isSystem = existing !== undefined && existing.origin !== 'integration';
   const taken = target?.mode === 'create' ? target.existingIds : [];
   const choices = vendor === undefined ? [] : modelChoicesOf(vendor);
 
@@ -496,7 +498,9 @@ export function DeviceDialog(props: DeviceDialogProps) {
 
   const title = existing === undefined ? 'Add a device' : `Configure ${existing.name}`;
   const description = isSystem
-    ? 'The machine NebulaHome runs on: what it is called, its tags and its room.'
+    ? existing.origin === 'container'
+      ? 'A container of this machine: what it is called, its tags and its room.'
+      : 'The machine NebulaHome runs on: what it is called, its tags and its room.'
     : driver === undefined
       ? 'Which model, and what it needs to be reached.'
       : `${driver.name}, over ${driver.transport}. Test tries the address before anything is saved.`;

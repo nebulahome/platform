@@ -74,6 +74,16 @@ export function PackagesIcon(props: IconProps) {
 }
 
 /**
+ * A shipping container: the containers the machine runs.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function ContainersIcon(props: IconProps) {
+  return icon('container', props);
+}
+
+/**
  * A cog: settings.
  *
  * @param props - SVG attributes.

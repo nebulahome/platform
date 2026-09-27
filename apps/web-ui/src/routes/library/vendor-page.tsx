@@ -61,6 +61,7 @@ import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
 import { useNetworkScan, type ScanOutcome } from '@/routes/library/use-network-scan';
 import { Marks, VendorLogo } from '@/routes/library/vendor-card';
+import { VendorContainers } from '@/routes/library/vendor-containers';
 import { VendorSetupDialog } from '@/routes/library/vendor-setup-dialog';
 
 /**
@@ -464,6 +465,8 @@ export function VendorPage() {
                 </div>
               </Panel>
             ) : null}
+
+            <VendorContainers vendor={found} />
 
             {network.problem === null ? null : (
               <p role="alert" className="text-ui text-danger">

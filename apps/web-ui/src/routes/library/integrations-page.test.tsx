@@ -87,6 +87,8 @@ function vendor(overrides: Partial<IntegrationVendorView>): IntegrationVendorVie
     internetRequired: false,
     transports: ['http'],
     discoverySources: [],
+    containers: [],
+    containerStatuses: [],
     setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
     drivers: [],
     needsSetup: false,
@@ -140,6 +142,8 @@ describe('the integrations grid', () => {
         name: 'Bambu Lab',
         transports: ['mqtt'],
         discoverySources: [],
+        containers: [],
+        containerStatuses: [],
         entityCount: 12,
       }),
     ]);
