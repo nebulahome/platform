@@ -1,5 +1,6 @@
 /**
- * The `system` schema: packages, routing, settings, migration bookkeeping and the audit log.
+ * The `system` schema: packages, routing, settings, migration bookkeeping, the audit log and the
+ * backups' locations and runs.
  *
  * Mirrors DATABASE.md 7.
  */
@@ -10,10 +11,12 @@ import {
   boolean,
   index,
   inet,
+  integer,
   jsonb,
   pgSchema,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -156,5 +159,78 @@ export const auditLog = systemSchema.table(
     index('audit_log_resource_idx')
       .on(table.resourceType, table.resourceId, table.time.desc())
       .where(sql`resource_type IS NOT NULL`),
+  ],
+);
+
+/**
+ * Where backups are written.
+ *
+ * One row of kind `system` - the data directory's `backups/`, seeded by the migration and never
+ * deleted - and the owner's own: a folder, an SMB share, an FTP server, an NFS export. `config`
+ * holds the kind's settings, validated by `backupTargetInputSchema` in `@nebula-home/contracts`,
+ * with the password sealed as `{ "$sealed": "v1:…" }` (sealed.ts).
+ */
+export const backupLocations = systemSchema.table(
+  'backup_locations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    kind: text('kind').notNull(),
+    config: jsonb('config')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    isEnabled: boolean('is_enabled').notNull().default(true),
+    retentionMode: text('retention_mode').notNull().default('count'),
+    retentionValue: integer('retention_value').notNull().default(7),
+    lastResult: text('last_result'),
+    lastError: text('last_error'),
+    lastSuccessAt: timestamp('last_success_at', { withTimezone: true }),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('backup_locations_single_system_idx')
+      .on(table.kind)
+      .where(sql`kind = 'system'`),
+    index('backup_locations_created_by_idx').on(table.createdBy),
+  ],
+);
+
+/**
+ * Every backup and restore: as it runs, and how it ended.
+ *
+ * Written by the `backup` service only; `api` reads it. `sectionBytes` is what each part of the
+ * archive measured, which the next size estimate scales.
+ */
+export const backupRuns = systemSchema.table(
+  'backup_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kind: text('kind').notNull(),
+    trigger: text('trigger').notNull(),
+    status: text('status').notNull().default('running'),
+    sections: text('sections').array().notNull(),
+    archiveName: text('archive_name'),
+    archiveBytes: bigint('archive_bytes', { mode: 'number' }),
+    sectionBytes: jsonb('section_bytes')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    keyId: text('key_id'),
+    destinations: jsonb('destinations')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    source: jsonb('source'),
+    error: text('error'),
+    requestedBy: uuid('requested_by').references(() => users.id, { onDelete: 'set null' }),
+    scheduledFor: timestamp('scheduled_for', { withTimezone: true }),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('backup_runs_started_at_idx').on(table.startedAt.desc(), table.id),
+    index('backup_runs_requested_by_idx').on(table.requestedBy),
   ],
 );

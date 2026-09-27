@@ -1,6 +1,6 @@
 -- 0001_initial_schema.sql
 --
--- The initial NebulaHome schema: four schemas, 38 tables, four views and the TimescaleDB
+-- The initial NebulaHome schema: four schemas, 41 tables, four views and the TimescaleDB
 -- hypertables, plus the roles, grants and seed data an installation needs to boot.
 --
 -- Object order follows DATABASE.md 13 rather than the reading order of that document, because
@@ -10,7 +10,7 @@
 -- Continuous aggregates were verified to work inside a transaction block on TimescaleDB 2.29;
 -- older releases restricted this, so the runner keeps a marker for opting a file out.
 --
--- Rollback: DROP SCHEMA auth, registry, history, system CASCADE, then DROP the four roles.
+-- Rollback: DROP SCHEMA auth, registry, history, system CASCADE, then DROP the roles.
 --           There is nothing to preserve - this migration is what creates the database.
 
 -- --------------------------------------------------------------------------------------
@@ -163,7 +163,8 @@ CREATE TABLE auth.sessions (
 
   CONSTRAINT sessions_revoked_reason
     CHECK (revoked_reason IS NULL
-           OR revoked_reason IN ('logout', 'expired', 'token_reuse', 'admin', 'password_change'))
+           OR revoked_reason IN ('logout', 'expired', 'token_reuse', 'admin', 'password_change',
+                                 'restore'))
 );
 
 CREATE INDEX sessions_user_id_idx ON auth.sessions (user_id);
@@ -793,6 +794,79 @@ CREATE INDEX package_routes_package_id_idx ON system.package_routes (package_id)
 
 -- --------------------------------------------------------------------------------------
 
+-- system: backups (DATABASE.md 7, 15)
+
+-- --------------------------------------------------------------------------------------
+
+-- Where backups are written. The one `system` row is the data directory's `backups/`, seeded
+-- below and never deleted; the others are the owner's: a folder, an SMB share, an FTP server,
+-- an NFS export. `config` is the kind's own settings, its password sealed with the instance's
+-- secrets key as every stored credential is (DATABASE.md 11).
+CREATE TABLE system.backup_locations (
+  id               uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  name             text        NOT NULL,
+  kind             text        NOT NULL,
+  config           jsonb       NOT NULL DEFAULT '{}'::jsonb,
+  is_enabled       boolean     NOT NULL DEFAULT true,
+  retention_mode   text        NOT NULL DEFAULT 'count',
+  retention_value  integer     NOT NULL DEFAULT 7,
+  last_result      text,
+  last_error       text,
+  last_success_at  timestamptz,
+  created_by       uuid        REFERENCES auth.users (id) ON DELETE SET NULL,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT backup_locations_kind CHECK (kind IN ('system', 'local', 'smb', 'ftp', 'nfs')),
+  CONSTRAINT backup_locations_retention_mode CHECK (retention_mode IN ('count', 'days')),
+  CONSTRAINT backup_locations_retention_value CHECK (retention_value BETWEEN 1 AND 3650),
+  CONSTRAINT backup_locations_last_result
+    CHECK (last_result IS NULL OR last_result IN ('success', 'failure')),
+  CONSTRAINT backup_locations_name_length CHECK (char_length(name) BETWEEN 1 AND 80),
+  CONSTRAINT backup_locations_config_object CHECK (jsonb_typeof(config) = 'object')
+);
+
+-- Exactly one system location.
+CREATE UNIQUE INDEX backup_locations_single_system_idx
+  ON system.backup_locations (kind) WHERE kind = 'system';
+CREATE INDEX backup_locations_created_by_idx ON system.backup_locations (created_by);
+
+-- Every backup and every restore, as it runs and as it ended. `section_bytes` is what each part
+-- measured, which the next estimate scales; `destinations` is how each location took the archive.
+CREATE TABLE system.backup_runs (
+  id             uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  kind           text        NOT NULL,
+  trigger        text        NOT NULL,
+  status         text        NOT NULL DEFAULT 'running',
+  sections       text[]      NOT NULL,
+  archive_name   text,
+  archive_bytes  bigint,
+  section_bytes  jsonb       NOT NULL DEFAULT '{}'::jsonb,
+  key_id         text,
+  destinations   jsonb       NOT NULL DEFAULT '[]'::jsonb,
+  source         jsonb,
+  error          text,
+  requested_by   uuid        REFERENCES auth.users (id) ON DELETE SET NULL,
+  scheduled_for  timestamptz,
+  started_at     timestamptz NOT NULL DEFAULT now(),
+  finished_at    timestamptz,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT backup_runs_kind CHECK (kind IN ('backup', 'restore')),
+  CONSTRAINT backup_runs_trigger
+    CHECK (trigger IN ('schedule', 'catch_up', 'manual', 'pre_restore')),
+  CONSTRAINT backup_runs_status
+    CHECK (status IN ('running', 'success', 'partial', 'failure', 'interrupted', 'cancelled')),
+  CONSTRAINT backup_runs_sections
+    CHECK (sections <@ ARRAY['configuration', 'history', 'packages']::text[])
+);
+
+CREATE INDEX backup_runs_started_at_idx ON system.backup_runs (started_at DESC, id);
+CREATE INDEX backup_runs_requested_by_idx ON system.backup_runs (requested_by);
+
+-- --------------------------------------------------------------------------------------
+
 -- history: hypertables
 
 -- --------------------------------------------------------------------------------------
@@ -1090,6 +1164,14 @@ CREATE TRIGGER integrations_touch_updated_at
   BEFORE UPDATE ON registry.integrations
   FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
 
+CREATE TRIGGER backup_locations_touch_updated_at
+  BEFORE UPDATE ON system.backup_locations
+  FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
+
+CREATE TRIGGER backup_runs_touch_updated_at
+  BEFORE UPDATE ON system.backup_runs
+  FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
+
 CREATE TRIGGER integration_vendors_touch_updated_at
   BEFORE UPDATE ON registry.integration_vendors
   FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
@@ -1115,7 +1197,7 @@ DECLARE
 BEGIN
   FOREACH role_name IN ARRAY ARRAY[
     'nebula_migrator', 'nebula_core', 'nebula_api', 'nebula_logger', 'nebula_packet_manager',
-    'nebula_hub'
+    'nebula_hub', 'nebula_backup'
   ] LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
       EXECUTE format('CREATE ROLE %I LOGIN', role_name);
@@ -1154,6 +1236,9 @@ GRANT SELECT, UPDATE ON system.settings TO nebula_api;
 GRANT SELECT ON system.packages, system.package_routes, system.v_schema_version TO nebula_api;
 -- Audit log is append-only: insert and read, never update or delete.
 GRANT INSERT, SELECT ON system.audit_log TO nebula_api;
+-- The backup locations are the owner's to add and change; the runs are the backup service's.
+GRANT SELECT, INSERT, UPDATE, DELETE ON system.backup_locations TO nebula_api;
+GRANT SELECT ON system.backup_runs TO nebula_api;
 
 -- logger: logs and nothing else.
 GRANT USAGE ON SCHEMA history, system TO nebula_logger;
@@ -1182,6 +1267,17 @@ GRANT SELECT ON registry.devices TO nebula_hub;
 -- The vendor's shared settings, read to layer under each instance it starts; never written.
 GRANT SELECT ON registry.integration_vendors TO nebula_hub;
 GRANT SELECT ON system.settings, system.v_schema_version TO nebula_hub;
+
+-- backup: its runs, the locations it writes to and their outcome, the settings, and the
+-- processor's load it learns the quietest time from. The archive itself is dumped and restored
+-- through a separate superuser connection (DATABASE.md 15), not as this role.
+GRANT USAGE ON SCHEMA registry, history, system TO nebula_backup;
+GRANT SELECT, INSERT, UPDATE ON system.backup_runs TO nebula_backup;
+GRANT SELECT ON system.backup_locations, system.settings, system.v_schema_version
+  TO nebula_backup;
+GRANT UPDATE (last_result, last_error, last_success_at) ON system.backup_locations
+  TO nebula_backup;
+GRANT SELECT (id, entity_id) ON registry.entities TO nebula_backup;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE nebula_migrator IN SCHEMA registry
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO nebula_core, nebula_api;
@@ -1240,7 +1336,8 @@ INSERT INTO auth.permissions (key, resource, action, description, is_scopable) V
   ('settings:read', 'settings', 'read', 'See system settings', false),
   ('settings:write', 'settings', 'write', 'Change system settings, including history retention', false),
   ('audit:read', 'audit', 'read', 'Read the audit log', false),
-  ('system:read', 'system', 'read', 'See the system monitor: processor, memory, disk and network', false);
+  ('system:read', 'system', 'read', 'See the system monitor: processor, memory, disk and network', false),
+  ('backup:restore', 'backup', 'restore', 'Restore the installation from a backup and download the backup key', false);
 
 -- Settings: generated from SETTINGS in @nebula-home/contracts.
 INSERT INTO system.settings (key, value, schema_ref) VALUES
@@ -1255,7 +1352,15 @@ INSERT INTO system.settings (key, value, schema_ref) VALUES
   ('system.audit_log.retention_days', 'null'::jsonb, 'settings:system.audit_log.retention_days'),
   ('ui.default_theme', '"system"'::jsonb, 'settings:ui.default_theme'),
   ('units.temperature', '"celsius"'::jsonb, 'settings:units.temperature'),
-  ('security.session_lifetime_hours', '720'::jsonb, 'settings:security.session_lifetime_hours');
+  ('security.session_lifetime_hours', '720'::jsonb, 'settings:security.session_lifetime_hours'),
+  ('backup.enabled', 'false'::jsonb, 'settings:backup.enabled'),
+  ('backup.sections', '{"history": true, "packages": true}'::jsonb, 'settings:backup.sections'),
+  ('backup.schedule', '{"mode": "quietest", "time": "03:00", "timezone": "UTC"}'::jsonb, 'settings:backup.schedule'),
+  ('backup.frequency', '{"mode": "daily"}'::jsonb, 'settings:backup.frequency');
+
+-- The system backup location: the data directory's `backups/`, always there (DATABASE.md 14).
+INSERT INTO system.backup_locations (name, kind, retention_mode, retention_value)
+VALUES ('This machine', 'system', 'count', 3);
 
 -- Role grants: generated from DEFAULT_ROLE_PERMISSIONS in @nebula-home/contracts.
 INSERT INTO auth.role_permissions (role_id, permission_id)
@@ -1389,6 +1494,12 @@ SELECT add_retention_policy('history.state_history',   INTERVAL '365 days');
 SELECT add_retention_policy('history.logs',            INTERVAL '14 days');
 SELECT add_retention_policy('history.automation_runs', INTERVAL '30 days');
 -- system.audit_log: no policy, kept indefinitely
+
+-- The continuous aggregates are created after the grants above, which cover only the tables
+-- that existed then: they are granted here, to what reads the ladder.
+GRANT SELECT ON history.telemetry_1m, history.telemetry_1h, history.telemetry_1d
+  TO nebula_core, nebula_api;
+GRANT SELECT ON history.telemetry_1m TO nebula_backup;
 
 -- The owner is granted every permission that exists, including ones added by later
 -- migrations. Listing its grants explicitly would mean a new permission silently missing from
