@@ -84,6 +84,16 @@ export type RestoreJobContext = {
   readonly open: OpenDependencies;
   readonly supervisor: Supervisor;
 
+  /**
+   * The containers the integrations run, which keep their data in the folders a restore swaps:
+   * stopped before the swap and started after it. Best effort - a machine without Docker has
+   * none, and the restore does not wait on one that does not answer.
+   */
+  readonly managedContainers: {
+    readonly suspend: () => Promise<void>;
+    readonly resume: () => Promise<void>;
+  };
+
   /** Says what the run is doing, for the status and the maintenance screen. */
   readonly progress: (phase: BackupPhase, percent: number | null) => void;
 
@@ -317,6 +327,7 @@ export async function restoreArchive(
     }
 
     await context.supervisor.start([...RESTORED_SERVICES].reverse());
+    await context.managedContainers.resume();
   };
 
   try {
@@ -479,6 +490,7 @@ export async function restoreArchive(
 
     // 6. The switch.
     context.progress('switching', 80);
+    await context.managedContainers.suspend();
     await context.supervisor.stop(RESTORED_SERVICES);
     isSwitched = true;
     switchedAt = context.now();
@@ -527,8 +539,11 @@ export async function restoreArchive(
       swappedFolders.push(section.path);
       // eslint-disable-next-line no-await-in-loop -- as above.
       await rename(incoming, live);
-      // eslint-disable-next-line no-await-in-loop -- as above.
-      await chownTree(live, owner.uid, owner.gid).catch(() => undefined);
+
+      if (!section.keepsOwners) {
+        // eslint-disable-next-line no-await-in-loop -- as above.
+        await chownTree(live, owner.uid, owner.gid).catch(() => undefined);
+      }
     }
 
     // The keys the restored database's secrets are sealed with.
@@ -565,6 +580,7 @@ export async function restoreArchive(
     // 7. Back.
     context.progress('starting_services', 90);
     await context.supervisor.start([...RESTORED_SERVICES].reverse());
+    await context.managedContainers.resume();
 
     if (!(await waitForApi(context.apiUrl, 120_000))) {
       context.logger.error('The services did not come back after the restore: rolling back');

@@ -137,6 +137,7 @@ describe('isRestorableEntry', () => {
     ['files/', true],
     ['files/hub/', true],
     ['files/hub/integrations/shelly/bundle.json', true],
+    ['files/containers/zigbee2mqtt/data/configuration.yaml', true],
     ['files/proxy/tls/self-signed.key', true],
     ['files/packages/cameras/artefact/package.tgz', true],
     ['files/secrets/secrets-key', false],

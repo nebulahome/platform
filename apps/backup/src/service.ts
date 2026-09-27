@@ -16,6 +16,9 @@ import { resolveDataLayout } from '@nebula-home/config';
 import {
   ConflictError,
   NotFoundError,
+  SUPERVISOR_METHODS,
+  SUPERVISOR_SERVICE,
+  supervisorAcknowledgementSchema,
   ValidationError,
   busSubjects,
   localPathProblem,
@@ -79,6 +82,8 @@ import {
   type OpenDependencies,
 } from './transports/open-location.js';
 
+/** How long the supervisor has to stop or start the containers the integrations run. */
+const SUPERVISOR_TIMEOUT_MS = 60_000;
 /** How many days of load the quietest time is learned from. */
 const LEARNING_DAYS = 28;
 
@@ -968,6 +973,30 @@ export class BackupService {
   }
 
   /**
+   * Asks the supervisor to stop or start the containers the integrations run, without letting a
+   * supervisor that is away hold the restore up.
+   *
+   * @param method - Which.
+   */
+  async #askSupervisor(
+    method: typeof SUPERVISOR_METHODS.suspendManaged | typeof SUPERVISOR_METHODS.resumeManaged,
+  ): Promise<void> {
+    try {
+      await this.#client.request(
+        busSubjects.service(SUPERVISOR_SERVICE, method),
+        {},
+        supervisorAcknowledgementSchema,
+        { timeoutMs: SUPERVISOR_TIMEOUT_MS },
+      );
+    } catch (error: unknown) {
+      this.#logger.warn(
+        { err: error, method },
+        'The supervisor did not answer; the containers the integrations run were left as they were',
+      );
+    }
+  }
+
+  /**
    * Runs a restore, announces its end, and records it.
    *
    * @param active - The run.
@@ -997,6 +1026,21 @@ export class BackupService {
         },
         open: this.#openDependencies,
         supervisor: this.#supervisor,
+        managedContainers: {
+          /**
+           * Stops the containers the integrations run.
+           *
+           * @returns Once the supervisor answered, or was given up on.
+           */
+          suspend: async () => this.#askSupervisor(SUPERVISOR_METHODS.suspendManaged),
+
+          /**
+           * Starts them again.
+           *
+           * @returns Once the supervisor answered, or was given up on.
+           */
+          resume: async () => this.#askSupervisor(SUPERVISOR_METHODS.resumeManaged),
+        },
         /**
          * Keeps the restore's progress, and announces maintenance once the database is about to
          * change.

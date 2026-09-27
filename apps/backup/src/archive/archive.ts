@@ -9,6 +9,7 @@
  * database.pgdump               pg_dump's custom format, the whole database
  * files/hub/integrations/…      the installed integration bundles
  * files/proxy/tls/…             the certificate
+ * files/containers/…            the data of the containers the integrations run
  * files/packages/…              the feature packages, when the archive has them
  * ```
  *
@@ -37,16 +38,31 @@ export const DATABASE_ENTRY = 'database.pgdump';
 /** Where the data directory's folders are, in the archive. */
 export const FILES_ENTRY = 'files';
 
+/** One of the data directory's folders an archive may carry. */
+export type FileSection = {
+  readonly section: BackupSection;
+
+  /** Under the data directory. */
+  readonly path: string;
+
+  /**
+   * Whether its files go back to the owners the archive has them with. The containers' folders
+   * are written by whatever user each image runs as; everything else is handed, on a restore,
+   * to the owner of the folder it replaces.
+   */
+  readonly keepsOwners: boolean;
+};
+
 /**
- * The data directory's folders an archive may carry, by section, as paths under the data
- * directory. Nothing else is ever written back from an archive.
+ * The data directory's folders an archive may carry, by section. Nothing else is ever written
+ * back from an archive.
  */
-export const FILE_SECTIONS: readonly { readonly section: BackupSection; readonly path: string }[] =
-  [
-    { section: 'configuration', path: 'hub/integrations' },
-    { section: 'configuration', path: 'proxy/tls' },
-    { section: 'packages', path: 'packages' },
-  ];
+export const FILE_SECTIONS: readonly FileSection[] = [
+  { section: 'configuration', path: 'hub/integrations', keepsOwners: false },
+  { section: 'configuration', path: 'proxy/tls', keepsOwners: false },
+  { section: 'configuration', path: 'containers', keepsOwners: true },
+  { section: 'packages', path: 'packages', keepsOwners: false },
+];
 
 /** What an archive is: written first in it, read first from it. */
 export type ArchiveManifest = {
@@ -171,7 +187,8 @@ export async function writeArchive(options: WriteArchiveOptions): Promise<{ byte
   const packed = create(
     {
       cwd: root,
-      portable: true,
+      // Not `portable`: the entries keep their owners, which the containers' folders need back
+      // (FILE_SECTIONS). A restore, running as root, extracts them as they were.
       /**
        * Moves an entry to where it belongs in the archive.
        *
