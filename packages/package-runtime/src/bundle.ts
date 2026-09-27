@@ -26,7 +26,9 @@ import {
   iconIdSchema,
   INTEGRATION_KIND_PATTERN,
   SEMVER_PATTERN,
+  TRANSPORT_WIRES,
   transportIdSchema,
+  type TransportWire,
 } from '@nebula-home/contracts';
 
 import { containerDependenciesSchema } from './containers.js';
@@ -140,14 +142,25 @@ export const vendorManifestSchema = z.strictObject({
   setup: bundlePathSchema.optional(),
 
   /**
-   * Transports of the vendor's own, by name: `{ "rpc": "./rpc/transport.js" }`.
+   * Transports of the vendor's own, by name: `{ "rpc": "./rpc/transport.js" }`, or with the
+   * wires it goes over, `{ "rpc": { "module": "./rpc/transport.js", "wires": ["http"] } }`.
    *
    * Each module default-exports a factory taking the {@link BundleSdk} and returning a
    * transport whose id is `<vendor>/<name>`. A vendor that ships one ships code, and is
-   * reviewed as a code driver is.
+   * reviewed as a code driver is. The wires are what the vendor's card shows - HTTP, MQTT,
+   * Zigbee - since a transport of the vendor's own is named nowhere a person would recognise.
    */
   transports: z
-    .record(z.string().regex(TRANSPORT_NAME_PATTERN, 'Must be a transport name'), bundlePathSchema)
+    .record(
+      z.string().regex(TRANSPORT_NAME_PATTERN, 'Must be a transport name'),
+      z.union([
+        bundlePathSchema,
+        z.strictObject({
+          module: bundlePathSchema,
+          wires: z.array(z.enum(TRANSPORT_WIRES)).min(1).max(TRANSPORT_WIRES.length),
+        }),
+      ]),
+    )
     .default({}),
 
   /**
@@ -185,6 +198,29 @@ export const vendorManifestSchema = z.strictObject({
 
 /** The contents of `manifest.json`. */
 export type VendorManifest = z.output<typeof vendorManifestSchema>;
+
+/** One transport of a vendor's own, as its manifest declares it. */
+export type VendorTransport = VendorManifest['transports'][string];
+
+/**
+ * The module a vendor's own transport is in.
+ *
+ * @param transport - The manifest's entry.
+ * @returns Its path, relative to the bundle.
+ */
+export function transportModuleOf(transport: VendorTransport): string {
+  return typeof transport === 'string' ? transport : transport.module;
+}
+
+/**
+ * The wires a vendor's own transport goes over.
+ *
+ * @param transport - The manifest's entry.
+ * @returns The wires it declares; none for one that declares none.
+ */
+export function transportWiresOf(transport: VendorTransport): readonly TransportWire[] {
+  return typeof transport === 'string' ? [] : transport.wires;
+}
 
 /** What a driver manifest and a resolved manifest say alike: how a driver is written and loaded. */
 const driverShape = {
