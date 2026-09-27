@@ -125,7 +125,7 @@ async function unread(tx: Reader, rowIds: readonly string[]): Promise<Set<string
  * Makes the container devices match the list, in one transaction.
  *
  * @param db - A connected database handle.
- * @param request - Every container but the platform's own.
+ * @param request - Every container but the system ones.
  * @param logger - Where a taken entity id is reported.
  * @returns What was written, removed and kept.
  */
@@ -157,7 +157,9 @@ export async function syncContainerDevices(
         lastSeenAt: new Date(),
       };
 
-      // The owner's name and icon are never touched once the device exists.
+      // The owner's name and icon are never touched once the device exists. A device still
+      // called by its container's raw name - one made before containers had names for people -
+      // takes the readable one, since nobody chose the raw one.
       const [device] =
         found === undefined
           ? await tx
@@ -165,14 +167,20 @@ export async function syncContainerDevices(
               .values({
                 source: 'container',
                 externalId: container.name,
-                name: container.name,
+                name: container.displayName,
                 icon: CONTAINER_DEVICE_ICON,
                 ...facts,
               })
               .returning({ id: devices.id, name: devices.name })
           : await tx
               .update(devices)
-              .set({ ...facts, updatedAt: new Date() })
+              .set({
+                ...facts,
+                ...(found.name === container.name && container.displayName !== container.name
+                  ? { name: container.displayName }
+                  : {}),
+                updatedAt: new Date(),
+              })
               .where(eq(devices.id, found.id))
               .returning({ id: devices.id, name: devices.name });
 
@@ -368,7 +376,7 @@ export function startContainersService(options: ContainersServiceOptions): BusSu
     /**
      * Makes the container devices match the list.
      *
-     * @param request - Every container but the platform's own.
+     * @param request - Every container but the system ones.
      * @returns What was written, and the gone containers kept for an alias.
      */
     async (request: SyncContainersRequest): Promise<SyncContainersReply> => {

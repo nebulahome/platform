@@ -87,6 +87,7 @@ function container(name: string, version: string): Record<string, unknown> {
 
   return {
     name,
+    displayName: `Container ${name}`,
     image: `example/${name}:${version}`,
     swVersion: version,
     entities: [
@@ -186,6 +187,9 @@ describe('taking in the containers', () => {
       [containerDeviceId(first), containerDeviceId(second)].sort(),
     );
     expect(await devices()).toHaveLength(2);
+    expect((await devices()).find((device) => device.externalId === first)?.name).toBe(
+      `Container ${first}`,
+    );
 
     const image = parseEntityId(`update.${containerObjectPrefix(first)}_image`);
 
