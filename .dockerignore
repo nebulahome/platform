@@ -1,0 +1,14 @@
+# The build context is the repository; the image installs and compiles everything itself.
+**/node_modules
+**/dist
+**/.turbo
+**/.vite
+**/coverage
+**/*.tsbuildinfo
+.git
+.husky/_
+.env
+.env.*
+!.env.example
+infra/data
+infra/certs

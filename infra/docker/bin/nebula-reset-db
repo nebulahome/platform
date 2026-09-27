@@ -1,0 +1,29 @@
+#!/command/with-contenv sh
+# Empties the database: stops the services, drops and recreates it, migrates, starts them again.
+# Everything in it is gone - the owner account too, created again from the first-run screen. The
+# data directory and its keys are kept.
+set -eu
+
+. /etc/s6-overlay/scripts/nebula-env
+
+services="proxy backup api hub core"
+port="${NEBULA_PG_PORT:-5433}"
+
+for service in $services; do
+  if [ -d "/run/service/$service" ]; then
+    s6-svc -wD -d "/run/service/$service"
+  fi
+done
+
+psql -q -v ON_ERROR_STOP=1 -h /var/run/postgresql -p "$port" -U nebula -d postgres \
+  -c "DROP DATABASE IF EXISTS nebula WITH (FORCE)" -c "CREATE DATABASE nebula"
+
+/etc/s6-overlay/scripts/init-db
+
+for service in core hub api backup proxy; do
+  if [ -d "/run/service/$service" ]; then
+    s6-svc -u "/run/service/$service"
+  fi
+done
+
+echo "nebula-reset-db: the database is empty; create the owner from the first-run screen"

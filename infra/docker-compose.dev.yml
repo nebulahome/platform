@@ -1,15 +1,19 @@
 # Development infrastructure only: PostgreSQL and NATS.
 #
 # The application services are NOT here on purpose - in development they run natively via
-# `pnpm dev`, so a reload takes a second and a debugger can attach. The production compose
-# file, which does run every service, is a separate file added later.
+# `pnpm dev`, so a reload takes a second and a debugger can attach. The production layout, every
+# service in one container, is docker-compose.yml.
+#
+#   pnpm infra:up     start        pnpm db:reset    empty the database and migrate it again
 name: nebula-home-dev
 
 services:
   postgres:
     # TimescaleDB rather than plain postgres: the history schema is built on hypertables and
     # continuous aggregates, so plain postgres cannot run the migrations at all.
-    image: timescale/timescaledb:latest-pg16
+    # Pinned: a backup is restored only into the TimescaleDB version that made it, and the
+    # container image (../Dockerfile) is built on this same tag.
+    image: timescale/timescaledb:2.29.2-pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: nebula

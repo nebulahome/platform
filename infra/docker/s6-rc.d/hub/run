@@ -1,0 +1,7 @@
+#!/command/with-contenv sh
+. /etc/s6-overlay/scripts/nebula-env
+
+DATABASE_URL="$(nebula_database_url nebula_hub)"
+export DATABASE_URL
+cd /app/apps/hub
+exec s6-setuidgid nebula node dist/main.js

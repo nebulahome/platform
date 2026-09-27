@@ -1,0 +1,26 @@
+#!/command/with-contenv sh
+# The bus: JetStream for the telemetry stream, stored in its own volume; loopback only, with a
+# password, since on the host network loopback is the host's too. The configuration is written
+# here, readable by the bus alone: the password quoted, as a value that starts with a digit
+# would otherwise be read as a number.
+. /etc/s6-overlay/scripts/nebula-env
+
+mkdir -p /run/nats
+cat > /run/nats/nats.conf <<CONF
+host: 127.0.0.1
+port: ${NEBULA_NATS_PORT:-4223}
+http_port: ${NEBULA_NATS_MONITOR_PORT:-8223}
+
+jetstream {
+  store_dir: "/var/lib/nats"
+}
+
+authorization {
+  user: nebula
+  password: "$NEBULA_NATS_PASSWORD"
+}
+CONF
+chown -R nebula:nebula /run/nats
+chmod 0600 /run/nats/nats.conf
+
+exec s6-setuidgid nebula nats-server -c /run/nats/nats.conf

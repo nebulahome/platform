@@ -1,0 +1,14 @@
+# For Docker Desktop, over docker-compose.yml: a bridge network with the page's ports published,
+# since Docker Desktop's host network is a virtual machine's and reaches no device on the LAN.
+# Discovery is off for the same reason.
+#
+#   pnpm docker:up:local      then http://localhost:8080
+
+services:
+  nebulahome:
+    network_mode: bridge
+    ports:
+      - '8080:8080'
+      - '8443:8443'
+    environment:
+      HUB_DISCOVERY_ENABLED: 'false'

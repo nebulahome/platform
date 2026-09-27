@@ -1,0 +1,6 @@
+#!/command/with-contenv sh
+. /etc/s6-overlay/scripts/nebula-env
+
+export PROXY_UPSTREAM_URL="http://127.0.0.1:${API_PORT:-4100}"
+cd /app/apps/proxy
+exec s6-setuidgid nebula node dist/main.js

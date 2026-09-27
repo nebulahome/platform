@@ -1,0 +1,10 @@
+#!/bin/sh
+# A service that exits with 78 (configuration), 79 (schema) or 80 (bus version) will not do
+# better on a restart (RULES.md 8.4): the container stops with that code instead of looping.
+case "$1" in
+  78 | 79 | 80)
+    echo "core exited with $1: restarting will not help, stopping the container" >&2
+    echo "$1" > /run/s6-linux-init-container-results/exitcode
+    exec /run/s6/basedir/bin/halt
+    ;;
+esac

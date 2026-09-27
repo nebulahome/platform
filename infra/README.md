@@ -2,51 +2,163 @@
 
 Everything needed to run NebulaHome that is not application code.
 
-| Path                     | What it is                                                      | Versioned |
-| ------------------------ | --------------------------------------------------------------- | --------- |
-| `docker-compose.dev.yml` | PostgreSQL, NATS and Mosquitto for local development            | yes       |
-| `seed/dev.sql`           | Fake devices and history so the UI has something to render      | yes       |
-| `data/`                  | The data directory in development: every file the services keep | no        |
+| Path                       | What it is                                                           | Versioned |
+| -------------------------- | -------------------------------------------------------------------- | --------- |
+| `docker-compose.yml`       | NebulaHome in one container: the database, the bus, every service    | yes       |
+| `docker-compose.local.yml` | The same, for Docker Desktop: a bridge network with the ports opened | yes       |
+| `docker.env.example`       | The container's settings, to copy to `docker.env`                    | yes       |
+| `docker/`                  | What the image runs: the s6 services and the scripts they start with | yes       |
+| `docker-compose.dev.yml`   | PostgreSQL, NATS and Mosquitto for local development                 | yes       |
+| `seed/dev.sql`             | Fake devices and history so the UI has something to render           | yes       |
+| `data/`                    | The data directory in development: every file the services keep      | no        |
 
-`data/` is git-ignored: it is machine-local runtime state, and it will hold private keys - the
-proxy's certificates, the instance keys - that must never reach the repository.
+`data/` and `docker.env` are git-ignored: they are machine-local, and they hold private keys -
+the proxy's certificates, the instance keys - that must never reach the repository.
+
+## The container
+
+NebulaHome runs as **one container**: PostgreSQL 16 with TimescaleDB, NATS with JetStream, and
+`core`, `hub`, `api`, `backup` and `proxy`, supervised by s6-overlay (ARCHITECTURE.md §14). It is
+built from `../Dockerfile` and runs on Linux only; there is no Windows build of the runtime.
+
+```bash
+pnpm docker:up          # build the image and start it; waits until it is healthy
+pnpm docker:logs        # follow every service's log
+pnpm docker:ps          # is it running, is it healthy
+pnpm docker:restart     # restart the container
+pnpm docker:down        # stop it; the volumes stay
+```
+
+The page is on the host's port **8080**, and **8443** with a self-signed certificate. On first
+start there is no account: the page opens on the first-run screen that creates the owner.
+
+| Command                | What it does                                                                      |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| `pnpm docker:build`    | Builds the image `nebulahome:local` without starting it                           |
+| `pnpm docker:up`       | Builds and starts, and waits for the health check                                 |
+| `pnpm docker:up:local` | The same with `docker-compose.local.yml`, for Docker Desktop                      |
+| `pnpm docker:down`     | Stops and removes the container. The data, the database and the keys stay         |
+| `pnpm docker:restart`  | Restarts it                                                                       |
+| `pnpm docker:logs`     | Follows the logs                                                                  |
+| `pnpm docker:ps`       | Shows its state and health                                                        |
+| `pnpm docker:shell`    | A shell inside it                                                                 |
+| `pnpm docker:psql`     | `psql` on its database, as the superuser                                          |
+| `pnpm docker:db:reset` | Empties the database and migrates it again, the services stopped around it        |
+| `pnpm docker:wipe`     | **Deletes every volume**: the database, the data directory, the keys, the backups |
+
+`docker:db:reset` deletes the owner account with everything else: create it again from the
+first-run screen. The data directory - the integrations, the keys, the backups - is kept.
+`docker:wipe` keeps nothing: without the backup key, the archives written before it cannot be
+opened, so download the key first (Settings → Backup).
+
+### What it starts
+
+In order, each once the one before is ready:
+
+1. `init-dirs` - the data directory's folders, owned by the `nebula` user the services run as.
+2. `init-secrets` - every secret that is missing, generated once into `/data/secrets/` (0600):
+   the instance keys `NEBULA_SECRETS_KEY` and `API_TOTP_ENCRYPTION_KEY`, `API_JWT_SECRET`, the
+   PostgreSQL and NATS passwords, one password per service role, and the proxy's self-signed
+   certificate. A variable set in `docker.env` wins over its file.
+3. `postgres` - on `127.0.0.1:5433`, passwords required over TCP.
+4. `init-db` - migrates the database and gives each service role its password. An upgrade is
+   "build, start": the new migrations apply here.
+5. `nats` - on `127.0.0.1:4223`, with a password; its monitor on `8223`.
+6. `core`, `hub`, `api` (`127.0.0.1:4100`), `backup`, `proxy` (`8080`, `8443`). Each connects to
+   the database as its own role (DATABASE.md §12); `backup` runs as root, for the mounts.
+
+The ports are not the usual ones on purpose: the container shares the host's network, and must
+not collide with a development stack on the same machine.
+
+A service that exits with code 78 (bad configuration), 79 (schema mismatch) or 80 (bus version)
+is not restarted: the container stops with that code, since starting again would fail the same
+way. `docker:logs` says why.
+
+### Volumes
+
+| Volume            | Mounted at                 | Holds                                                          |
+| ----------------- | -------------------------- | -------------------------------------------------------------- |
+| `nebula-data`     | `/data`                    | The data directory: integrations, keys, backups, cache         |
+| `nebula-postgres` | `/var/lib/postgresql/data` | The database                                                   |
+| `nebula-nats`     | `/var/lib/nats`            | The bus's streams: events waiting for a consumer, nothing else |
+
+### The network
+
+`docker-compose.yml` puts the container on the **host's network**, because `hub` has to hear
+devices announcing themselves - mDNS, UDP broadcasts - which a bridge network does not carry.
+That is the setup for a Linux server.
+
+**Docker Desktop** (Windows, macOS) has no LAN on its host network: the "host" is a virtual
+machine. There, use `pnpm docker:up:local`, which puts the container on a bridge network,
+publishes 8080 and 8443, and turns discovery off: http://localhost:8080. Devices can still be
+added by address.
+
+### Backups to a disk or a share
+
+Backups always land in the container's `/data/backups` (the system location, which can be
+turned off). For more:
+
+- **A disk of the host:** uncomment the bind mount in `docker-compose.yml`
+  (`- /mnt/backups:/mnt/backups`), start again, and add a **local folder** location, choosing
+  the folder with Browse.
+- **An SMB share or an NFS export:** add it as a location; the backup service mounts it for each
+  run. That is why the container has `SYS_ADMIN` and `DAC_READ_SEARCH` and no AppArmor profile.
+  Without them, mount the share on the host and use it as a disk, above.
+- **FTP or FTPS:** add it as a location; nothing to mount.
+
+### Settings
+
+Copy `docker.env.example` to `docker.env` and uncomment what you change: the time zone, the log
+level, the ports, discovery. Everything has a default; `docker.env` is optional.
+
+To bring an existing installation's keys into a new container, set `NEBULA_SECRETS_KEY` and
+`API_TOTP_ENCRYPTION_KEY` there - or restore a backup, which carries them.
 
 ## The data directory
 
 Every file a service keeps - everything but the database - lives under one directory,
-`NEBULA_DATA_DIR`. Unset, it is this `infra/data`; in a container it is the one volume mounted
-at `/data`. Its layout is defined in `@nebula-home/config` (`data-layout.ts`) and described in
+`NEBULA_DATA_DIR`. Unset, it is this `infra/data`; in the container it is the volume mounted at
+`/data`. Its layout is defined in `@nebula-home/config` (`data-layout.ts`) and described in
 ARCHITECTURE.md §14:
 
 ```
 data/
 ├── hub/integrations/<vendor>/   integration bundles installed into the hub
-├── proxy/tls/                   the proxy's certificates and ACME account key   (not yet)
+├── proxy/tls/                   the proxy's certificates
 ├── packages/<id>/               one per installed feature package              (not yet)
-├── secrets/                     the instance keys, when not in the environment  (not yet)
+├── secrets/                     the instance keys and the backup key
 ├── cache/                       what can be fetched again; never backed up
 │   └── maps/<z>/<x>/<y>.png     the map around the house
-└── backups/                     what the backups write; never backed up itself (not yet)
+└── backups/                     the archives of the system location; never backed up itself
+    └── .staging/                a backup or a restore in progress
 ```
 
 Deleting `cache/` is always safe. The bundles in `apps/hub/bundles` are not here: they are the
-integrations under development, which the hub reads beside `hub/integrations` outside
-production until the integrations catalogue exists.
+integrations under development, which the hub reads beside `hub/integrations` until the
+integrations catalogue exists - the image carries them too.
 
-## Usage
+## Development
+
+The services run on the host with `pnpm dev`; only the database and the bus are containers:
 
 ```bash
-docker compose -f infra/docker-compose.dev.yml up -d
-pnpm db:migrate                                          # once, and after every new migration
-docker compose -f infra/docker-compose.dev.yml down      # stop, keep data
-docker compose -f infra/docker-compose.dev.yml down -v   # stop and wipe the database
+pnpm infra:up           # PostgreSQL, NATS and Mosquitto; waits until they are healthy
+pnpm db:migrate         # once, and after every new migration
+pnpm infra:logs         # follow their logs
+pnpm infra:down         # stop them, keep the data
+pnpm db:reset           # wipe the database, start it again and migrate
+pnpm db:psql            # psql on it
 ```
 
 The containers give you an empty PostgreSQL. Nothing in it exists until `pnpm db:migrate` has
 run - not the tables, not the roles, not the view every service reads at startup to check it is
 talking to the schema it was built for. A service started before that refuses with
 ``run `pnpm db:migrate` and start again`` and exits with code 79; that is the check working, not
-the service broken. `down -v` puts you back to this state, so it needs the migrate step again.
+the service broken. `db:reset` does the migrate step itself. It deletes the owner account with
+everything else: create it again from the first-run screen.
+
+The backup service starts with the others, but takes and restores backups only in the
+container: it needs `pg_dump` 16, `mount`, s6 and Linux. Try backups there.
 
 ## Secrets
 
@@ -59,3 +171,5 @@ without it. Generate it once:
 ```bash
 openssl rand -hex 32
 ```
+
+The container generates its own (above), and never needs this.

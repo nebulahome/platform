@@ -1,0 +1,43 @@
+# NebulaHome in one container: PostgreSQL with TimescaleDB, NATS and every service, built from
+# this repository (../Dockerfile). The production layout of ARCHITECTURE.md 14.
+#
+#   pnpm docker:up        build and start      pnpm docker:logs    follow the logs
+#   pnpm docker:down      stop                 pnpm docker:wipe    stop and delete every volume
+#
+# On the host's network, so hub hears devices announcing themselves (mDNS, UDP broadcasts): the
+# page is on port 8080 (and 8443 with a self-signed certificate) of the host. Docker Desktop has
+# no LAN on its host network: use docker-compose.local.yml there (pnpm docker:up:local).
+
+name: nebulahome
+
+services:
+  nebulahome:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: runtime
+    image: nebulahome:local
+    network_mode: host
+    restart: unless-stopped
+    # Longer than the services' own 10 s shutdown timeout, and PostgreSQL's after them.
+    stop_grace_period: 45s
+    env_file:
+      - path: docker.env
+        required: false
+    volumes:
+      - nebula-data:/data
+      - nebula-postgres:/var/lib/postgresql/data
+      - nebula-nats:/var/lib/nats
+      # A disk of the host for the backups: mount it here and add it as a local location.
+      # - /mnt/backups:/mnt/backups
+    # The backups' SMB and NFS locations are mounted from inside the container.
+    cap_add:
+      - SYS_ADMIN
+      - DAC_READ_SEARCH
+    security_opt:
+      - apparmor:unconfined
+
+volumes:
+  nebula-data:
+  nebula-postgres:
+  nebula-nats:

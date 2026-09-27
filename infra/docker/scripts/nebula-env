@@ -1,0 +1,42 @@
+#!/bin/sh
+# Sourced by every service script: the instance's keys and passwords - from the environment
+# when it gives them, from the files `init-secrets` generated in the data directory otherwise
+# (ARCHITECTURE.md 14, "The instance keys") - and the addresses of what runs beside them.
+
+NEBULA_DATA_DIR="${NEBULA_DATA_DIR:-/data}"
+NEBULA_SECRETS_DIR="$NEBULA_DATA_DIR/secrets"
+export NEBULA_DATA_DIR NEBULA_SECRETS_DIR
+
+# Prints one generated secret.
+nebula_secret() {
+  cat "$NEBULA_SECRETS_DIR/$1" 2>/dev/null
+}
+
+: "${NEBULA_SECRETS_KEY:=$(nebula_secret secrets-key)}"
+: "${API_TOTP_ENCRYPTION_KEY:=$(nebula_secret totp-key)}"
+: "${API_JWT_SECRET:=$(nebula_secret jwt-secret)}"
+: "${NEBULA_PG_SUPERUSER_PASSWORD:=$(nebula_secret postgres-password)}"
+: "${NEBULA_NATS_PASSWORD:=$(nebula_secret nats-password)}"
+export NEBULA_SECRETS_KEY API_TOTP_ENCRYPTION_KEY API_JWT_SECRET
+export NEBULA_PG_SUPERUSER_PASSWORD NEBULA_NATS_PASSWORD
+
+NATS_URL="nats://nebula:${NEBULA_NATS_PASSWORD}@127.0.0.1:${NEBULA_NATS_PORT:-4223}"
+export NATS_URL
+
+# The database roles each service connects as (DATABASE.md 12). `superuser` runs every service as
+# the cluster's superuser instead, as development does - for when a grant is missing.
+NEBULA_DB_ROLES="${NEBULA_DB_ROLES:-per-service}"
+
+# Prints the database URL a role connects with.
+nebula_database_url() {
+  role="$1"
+
+  if [ "$NEBULA_DB_ROLES" = superuser ] || [ "$role" = nebula ]; then
+    role=nebula
+    password="$NEBULA_PG_SUPERUSER_PASSWORD"
+  else
+    password="$(nebula_secret "db-password-$role")"
+  fi
+
+  echo "postgres://$role:$password@127.0.0.1:${NEBULA_PG_PORT:-5433}/nebula"
+}

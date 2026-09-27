@@ -1,0 +1,11 @@
+#!/command/with-contenv sh
+# PostgreSQL with TimescaleDB, through the image's own entrypoint: it initialises the cluster on
+# the first start - TimescaleDB installed and tuned - and drops to the `postgres` user. Loopback
+# only; a password over TCP, trust on the socket, which is inside the container.
+. /etc/s6-overlay/scripts/nebula-env
+
+export POSTGRES_USER=nebula POSTGRES_DB=nebula
+export POSTGRES_PASSWORD="$NEBULA_PG_SUPERUSER_PASSWORD"
+export POSTGRES_INITDB_ARGS="--auth-host=scram-sha-256 --auth-local=trust"
+
+exec docker-entrypoint.sh postgres -c listen_addresses=127.0.0.1 -c port="${NEBULA_PG_PORT:-5433}"

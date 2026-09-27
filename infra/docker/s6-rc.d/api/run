@@ -1,0 +1,8 @@
+#!/command/with-contenv sh
+. /etc/s6-overlay/scripts/nebula-env
+
+DATABASE_URL="$(nebula_database_url nebula_api)"
+export DATABASE_URL
+export API_HOST=127.0.0.1
+cd /app/apps/api
+exec s6-setuidgid nebula node dist/main.js

@@ -1,0 +1,13 @@
+#!/command/with-contenv sh
+# The backups: as root, since it mounts SMB and NFS shares and, in a restore, stops and starts the
+# other services and writes every folder of the data directory. Two connections: its own role's,
+# and the superuser's for the dump and the restore (DATABASE.md 15).
+. /etc/s6-overlay/scripts/nebula-env
+
+DATABASE_URL="$(nebula_database_url nebula_backup)"
+NEBULA_BACKUP_DATABASE_URL="$(nebula_database_url nebula)"
+BACKUP_API_URL="http://127.0.0.1:${API_PORT:-4100}"
+export DATABASE_URL NEBULA_BACKUP_DATABASE_URL BACKUP_API_URL
+
+cd /app/apps/backup
+exec node dist/main.js
