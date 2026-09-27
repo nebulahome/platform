@@ -34,6 +34,7 @@ export default {
         'proxy',
         'packet-manager',
         'logger',
+        'backup',
         'web-ui',
         'contracts',
         'bus',
