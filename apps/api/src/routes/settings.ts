@@ -11,6 +11,7 @@
  * applied up to the offending key. Everything is written in one transaction for the same reason.
  */
 import {
+  BACKUP_METHODS,
   settingsResponseSchema,
   updateSettingsRequestSchema,
   type SettingView,
@@ -19,6 +20,7 @@ import {
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { askBackup, BACKUP_REPLIES } from '../services/backup.js';
 import {
   auditableChanges,
   readSettingValues,
@@ -26,6 +28,9 @@ import {
   validateSettingChanges,
   writeSettings,
 } from '../services/settings.js';
+
+/** How long the backup service has to read its settings again. */
+const RELOAD_TIMEOUT_MS = 3000;
 
 /**
  * Registers the settings endpoints.
@@ -101,6 +106,21 @@ export function registerSettingsRoutes(environment: RouteEnvironment, context: A
         traceId: route.request.traceId,
         details: { changes: auditableChanges(accepted) },
       });
+
+      // The backup schedule is the backup service's to run: it reads its settings again now, so
+      // the next backup and the page that shows it agree at once. Best effort - a service that
+      // does not answer reads them when it starts.
+      if (Object.keys(accepted).some((key) => key.startsWith('backup.'))) {
+        await askBackup(
+          { bus: context.bus, traceId: route.request.traceId },
+          BACKUP_METHODS.reload,
+          {},
+          BACKUP_REPLIES.acknowledgement,
+          RELOAD_TIMEOUT_MS,
+        ).catch((error: unknown) => {
+          context.logger.warn({ err: error }, 'The backup service did not reload its settings');
+        });
+      }
 
       return { items: await readSettings(context.db) };
     },

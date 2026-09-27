@@ -70,6 +70,12 @@ export class Authenticator {
   readonly #now: () => Date;
 
   /**
+   * Access tokens issued before this moment are refused: set by a restore, after which the
+   * users and their sessions are the archive's.
+   */
+  #tokensValidFrom: Date | null = null;
+
+  /**
    * Creates the authenticator.
    *
    * @param options - The database, the signing key and the clock.
@@ -78,6 +84,17 @@ export class Authenticator {
     this.#db = options.db;
     this.#secret = options.secret;
     this.#now = options.now ?? ((): Date => new Date());
+  }
+
+  /**
+   * Refuses the access tokens issued before a moment.
+   *
+   * @param moment - The moment; a later one only ever moves it forward.
+   */
+  public rejectTokensIssuedBefore(moment: Date): void {
+    if (this.#tokensValidFrom === null || moment.getTime() > this.#tokensValidFrom.getTime()) {
+      this.#tokensValidFrom = moment;
+    }
   }
 
   /**
@@ -110,6 +127,12 @@ export class Authenticator {
    */
   async #fromSessionToken(token: string): Promise<Identity> {
     const claims = await verifyAccessToken(token, this.#secret);
+
+    // Issued before the installation was restored: its user may not even exist any more.
+    if (this.#tokensValidFrom !== null && claims.iat * 1000 < this.#tokensValidFrom.getTime()) {
+      throw new AuthenticationError('Access token is not valid');
+    }
+
     const permissions: GrantedPermission[] = [];
 
     for (const entry of claims.prm) {

@@ -27,6 +27,7 @@ import { buildServer } from './server.js';
 import { AuditLog } from './services/audit.js';
 import { EventFanout } from './services/events.js';
 import { createIconStore, IconService } from './services/icons.js';
+import { MaintenanceMonitor } from './services/maintenance.js';
 import { createMapTileService } from './services/map-tiles.js';
 
 /** How long a graceful shutdown is given before the process ends regardless. */
@@ -166,15 +167,21 @@ async function start(): Promise<void> {
     logger,
   });
 
+  const authenticator = new Authenticator({
+    db: database.db,
+    secret: new TextEncoder().encode(config.API_JWT_SECRET),
+  });
+  const maintenance = new MaintenanceMonitor({ authenticator, logger });
+
+  await maintenance.start(client, database.db);
+
   const context: ApiContext = {
     config,
     db: database.db,
     bus: client,
     logger,
-    authenticator: new Authenticator({
-      db: database.db,
-      secret: new TextEncoder().encode(config.API_JWT_SECRET),
-    }),
+    authenticator,
+    maintenance,
     challenges: new ChallengeStore(),
     idempotency,
     audit: new AuditLog(database.db, logger),
@@ -233,6 +240,7 @@ async function start(): Promise<void> {
         await server.close();
         idempotency.stop();
         events.stop();
+        maintenance.stop();
         await connection?.close();
         await database.close();
       } catch (error: unknown) {

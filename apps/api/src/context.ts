@@ -16,6 +16,7 @@ import type { IdempotencyStore } from './http/idempotency.js';
 import type { AuditLog } from './services/audit.js';
 import type { EventFanout } from './services/events.js';
 import type { IconService } from './services/icons.js';
+import type { MaintenanceMonitor } from './services/maintenance.js';
 import type { MapTileService } from './services/map-tiles.js';
 
 /** Everything a route can reach. */
@@ -67,6 +68,9 @@ export type ApiContext = {
 
   /** The key integration secrets are sealed with before they reach the registry. */
   readonly secretsKey: Buffer;
+
+  /** Whether the installation is being restored, and what the last restore changed. */
+  readonly maintenance: MaintenanceMonitor;
 
   /** The clock, injectable so tests can control expiry. */
   readonly now: () => Date;

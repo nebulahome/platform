@@ -16,7 +16,17 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { AREA_KINDS, INTEGRATION_STATES, SETTINGS } from '@nebula-home/contracts';
+import {
+  AREA_KINDS,
+  BACKUP_LOCATION_KINDS,
+  BACKUP_LOCATION_RESULTS,
+  BACKUP_RETENTION_MODES,
+  BACKUP_RUN_KINDS,
+  BACKUP_RUN_STATUSES,
+  BACKUP_RUN_TRIGGERS,
+  INTEGRATION_STATES,
+  SETTINGS,
+} from '@nebula-home/contracts';
 
 import { SESSION_REVOKED_REASONS } from './auth/repository.js';
 import { ACTOR_TYPES, AUDIT_RESULTS } from './services/audit.js';
@@ -50,6 +60,12 @@ describe('the vocabularies the database constrains', () => {
     ['sessions_revoked_reason', SESSION_REVOKED_REASONS],
     ['integrations_state', INTEGRATION_STATES],
     ['areas_kind', AREA_KINDS],
+    ['backup_locations_kind', BACKUP_LOCATION_KINDS],
+    ['backup_locations_retention_mode', BACKUP_RETENTION_MODES],
+    ['backup_locations_last_result', BACKUP_LOCATION_RESULTS],
+    ['backup_runs_kind', BACKUP_RUN_KINDS],
+    ['backup_runs_trigger', BACKUP_RUN_TRIGGERS],
+    ['backup_runs_status', BACKUP_RUN_STATUSES],
   ])('matches %s exactly', (constraint, values) => {
     expect([...values].sort()).toEqual(allowedValues(constraint).sort());
   });

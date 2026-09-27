@@ -15,7 +15,7 @@ import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 
-import { CURRENT_API_VERSION } from '@nebula-home/contracts';
+import { CURRENT_API_VERSION, MaintenanceError } from '@nebula-home/contracts';
 
 import { readBearer } from './auth/authenticator.js';
 import type { ApiContext } from './context.js';
@@ -25,6 +25,7 @@ import { RouteRegistry, type RouteEnvironment } from './http/route.js';
 import { registerActivityRoutes } from './routes/activity.js';
 import { registerAreaRoutes } from './routes/areas.js';
 import { registerAuthRoutes } from './routes/auth.js';
+import { registerBackupRoutes } from './routes/backup.js';
 import { registerCameraRoutes } from './routes/cameras.js';
 import { registerDashboardRoutes } from './routes/dashboards.js';
 import { registerDeviceRoutes } from './routes/devices.js';
@@ -57,7 +58,16 @@ const PUBLIC_PATHS = new Set([
   // is a check they have to make anyway - a credential requirement here would mean needing an
   // account in order to create the first one.
   '/api/v1/setup',
+
+  // Whether a restore is running: the screen that waits on one has nobody signed in.
+  '/api/v1/system/maintenance',
 ]);
+
+/**
+ * Paths answered while the installation is being restored: whether it still is, and whether the
+ * process is alive. Everything else would read a database about to be replaced.
+ */
+const MAINTENANCE_PATHS = new Set(['/healthz', '/readyz', '/api/v1/system/maintenance']);
 
 /**
  * Says whether a path may be reached without a credential.
@@ -131,6 +141,35 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
     'onRequest',
 
     /**
+     * Refuses everything while a restore swaps the data, but what says how it goes.
+     *
+     * Before the credential is checked: during a restore the sessions are about to be replaced,
+     * and the answer is the same for everybody.
+     *
+     * @param request - The request being handled.
+     * @returns Once it may go on.
+     * @throws {MaintenanceError} While a restore runs.
+     */
+    async (request: FastifyRequest): Promise<void> => {
+      if (
+        context.maintenance.isRestoring &&
+        !MAINTENANCE_PATHS.has(request.url.split('?')[0] ?? '')
+      ) {
+        const { phase, runId } = context.maintenance.state;
+
+        throw new MaintenanceError('The installation is being restored from a backup', {
+          details: { phase, runId },
+        });
+      }
+
+      return Promise.resolve();
+    },
+  );
+
+  server.addHook(
+    'onRequest',
+
+    /**
      * Verifies the credential on every request that needs one.
      *
      * A hook rather than a per-route check: a route added tomorrow is protected because it is a
@@ -197,6 +236,7 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   registerUserRoutes(environment, context);
   registerSettingsRoutes(environment, context);
   registerSystemRoutes(environment, context);
+  registerBackupRoutes(environment, context);
   registerMapRoutes(server, context, environment.basePath);
   registerCameraRoutes(server, context, environment.basePath);
   registerWebSocket(server, context, environment.basePath);

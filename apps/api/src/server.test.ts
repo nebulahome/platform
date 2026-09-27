@@ -27,6 +27,7 @@ import { IdempotencyStore } from './http/idempotency.js';
 import { buildServer } from './server.js';
 import { AuditLog } from './services/audit.js';
 import { EventFanout } from './services/events.js';
+import { MaintenanceMonitor } from './services/maintenance.js';
 import { testIcons } from './testing/icons.js';
 import { testMapTiles } from './testing/map-tiles.js';
 
@@ -63,12 +64,14 @@ async function buildTestServer(): Promise<FastifyInstance> {
     execute: (): Promise<never> => Promise.reject(new Error('no database in this test')),
   } as unknown as ApiContext['db'];
 
+  const authenticator = new Authenticator({ db, secret });
   const context: ApiContext = {
     config,
     db,
     bus: undefined,
     logger,
-    authenticator: new Authenticator({ db, secret }),
+    authenticator,
+    maintenance: new MaintenanceMonitor({ authenticator, logger }),
     challenges: new ChallengeStore(),
     idempotency: new IdempotencyStore(),
     audit: new AuditLog(db, logger),

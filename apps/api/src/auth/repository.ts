@@ -29,6 +29,8 @@ export const SESSION_REVOKED_REASONS = [
   'token_reuse',
   'admin',
   'password_change',
+  // Every session the installation had before a restore: the users are the archive's now.
+  'restore',
 ] as const;
 
 /** Why a session was ended. */

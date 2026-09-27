@@ -11,6 +11,11 @@ import type { FastifyInstance } from 'fastify';
 import { BusClient } from '@nebula-home/bus';
 import { FakeTransport } from '@nebula-home/bus/testing';
 import {
+  BACKUP_METHODS,
+  BACKUP_SERVICE,
+  backupBrowseRequestSchema,
+  backupEmptyRequestSchema,
+  backupRunRequestSchema,
   BUS_PATTERNS,
   busSubjects,
   capabilityCommandRequestSchema,
@@ -59,6 +64,7 @@ import {
   type SystemMonitorSnapshot,
   type UnregisterDeviceReply,
   type UnregisterDeviceRequest,
+  type BackupStatus,
 } from '@nebula-home/contracts';
 import { secretsKeyFrom } from '@nebula-home/db';
 import { createLogger } from '@nebula-home/logging';
@@ -72,6 +78,7 @@ import { IdempotencyStore } from '../http/idempotency.js';
 import { buildServer } from '../server.js';
 import { AuditLog } from '../services/audit.js';
 import { EventFanout } from '../services/events.js';
+import { MaintenanceMonitor } from '../services/maintenance.js';
 
 import { testIcons } from './icons.js';
 import { testMapTiles } from './map-tiles.js';
@@ -318,6 +325,43 @@ let stopCurrentHub: () => void = (): void => {
   // Nothing served yet.
 };
 
+/** What the fake backup service was asked to start, in order. */
+export const backupRequests: { method: string; payload: unknown }[] = [];
+
+/** The maintenance state of the last server built, to put it into a restore. */
+export let lastMaintenance: MaintenanceMonitor | null = null;
+
+/** What the fake backup service answers for its state. */
+export const BACKUP_STATUS: BackupStatus = {
+  isEnabled: true,
+  schedule: { mode: 'quietest', time: '03:45', timezone: 'Europe/Rome', nextRunAt: null },
+  quietTime: {
+    state: 'ready',
+    time: '03:45',
+    meanLoadPercent: 4.2,
+    daysOfData: 14,
+    daysNeeded: 3,
+    profile: [],
+    reason: null,
+  },
+  estimates: null,
+  lastBackup: null,
+  active: null,
+  key: { keyId: 'ab'.repeat(16), source: 'file', createdAt: new Date('2026-09-27T00:00:00Z') },
+  capabilities: { canMount: true, mountProblem: null },
+  problems: [],
+  maintenance: {
+    state: 'normal',
+    runId: null,
+    phase: null,
+    percent: null,
+    outcome: null,
+    message: null,
+    tokensInvalidBefore: null,
+  },
+  canRestore: true,
+};
+
 /** Stops the fake hub the last server was built around. */
 export function stopHub(): void {
   stopCurrentHub();
@@ -341,7 +385,40 @@ export async function buildTestServer(
 
   const hub = new BusClient({ transport, source: 'hub', logger, requestTimeoutMs: 500 });
   const core = new BusClient({ transport, source: 'core', logger, requestTimeoutMs: 500 });
+  const backup = new BusClient({ transport, source: 'backup', logger, requestTimeoutMs: 500 });
+
+  backupRequests.length = 0;
+
   const subscriptions = [
+    backup.serve(
+      busSubjects.service(BACKUP_SERVICE, BACKUP_METHODS.status),
+      backupEmptyRequestSchema,
+      (): BackupStatus => BACKUP_STATUS,
+    ),
+    backup.serve(
+      busSubjects.service(BACKUP_SERVICE, BACKUP_METHODS.run),
+      backupRunRequestSchema,
+      (request: unknown): { runId: string } => {
+        backupRequests.push({ method: 'run', payload: request });
+
+        return { runId: '11111111-1111-4111-8111-111111111111' };
+      },
+    ),
+    backup.serve(
+      busSubjects.service(BACKUP_SERVICE, BACKUP_METHODS.browse),
+      backupBrowseRequestSchema,
+      (request: { path?: string | undefined }) => {
+        backupRequests.push({ method: 'browse', payload: request });
+
+        return {
+          path: request.path ?? '/',
+          parent: request.path === undefined ? null : '/',
+          directories: ['usb'],
+          isTruncated: false,
+          isWritable: true,
+        };
+      },
+    ),
     hub.serve(
       busSubjects.service(HUB_SERVICE, HUB_FORGET_METHOD),
       forgetRequestSchema,
@@ -483,6 +560,11 @@ export async function buildTestServer(
       execute: (): Promise<never> => Promise.reject(new Error('no database in this test')),
     } as unknown as ApiContext['db']);
 
+  const authenticator = new Authenticator({ db, secret });
+  const maintenance = new MaintenanceMonitor({ authenticator, logger });
+
+  lastMaintenance = maintenance;
+
   const context: ApiContext = {
     config,
     db,
@@ -490,7 +572,8 @@ export async function buildTestServer(
       ? new BusClient({ transport, source: 'api', logger, requestTimeoutMs: 500 })
       : undefined,
     logger,
-    authenticator: new Authenticator({ db, secret }),
+    authenticator,
+    maintenance,
     challenges: new ChallengeStore(),
     idempotency: new IdempotencyStore(),
     audit: new AuditLog(db, logger),
