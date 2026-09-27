@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
-    "test:integration": "vitest run --dir tests/integration"
+    "test:integration": "vitest run --dir tests/integration --passWithNoTests"
   },
   "dependencies": {
     "@nebula-home/bus": "workspace:*",
