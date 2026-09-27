@@ -13,6 +13,8 @@
  * ├── proxy/tls/                   certificates and the ACME account key
  * ├── packages/<id>/               one per installed feature package
  * ├── containers/<id>/<volume>/    the volumes of the containers integrations run
+ * │   ├── installed/<name>/<folder>/ the folders of the containers the owner installed
+ * │   └── compose/<project>/       the compose projects the owner wrote, and their folders
  * ├── secrets/                     the instance keys, when not in the environment
  * ├── cache/                       anything that can be fetched or computed again
  * │   ├── maps/                    map tiles
@@ -45,6 +47,19 @@ export const PACKAGES_DIRECTORY = 'packages';
  * volume that can be made again goes under the cache instead, in a folder of the same name.
  */
 export const CONTAINERS_DIRECTORY = 'containers';
+
+/**
+ * The folders of the containers the owner installed from the containers page, one per container,
+ * under {@link CONTAINERS_DIRECTORY}. No integration's container may take the name.
+ */
+export const INSTALLED_CONTAINERS_DIRECTORY = 'installed';
+
+/**
+ * The compose projects the owner wrote or uploaded, one folder per project holding its file, its
+ * `.env` and every folder its services keep beside it, under {@link CONTAINERS_DIRECTORY}. No
+ * integration's container may take the name.
+ */
+export const COMPOSE_PROJECTS_DIRECTORY = 'compose';
 
 /** The instance keys, for an installation that keeps them in files rather than the environment. */
 export const SECRETS_DIRECTORY = 'secrets';
