@@ -26,7 +26,7 @@
     "db:reset": "docker compose -f infra/docker-compose.yml up -d --wait postgres nats mosquitto && docker compose -f infra/docker-compose.yml exec -T postgres psql -q -U nebula -d postgres -c \"DROP DATABASE IF EXISTS nebula WITH (FORCE)\" -c \"CREATE DATABASE nebula\" && pnpm db:migrate",
     "db:psql": "docker compose -f infra/docker-compose.yml exec postgres psql -U nebula -d nebula",
     "docker:build": "docker compose -f infra/docker-compose.yml build nebulahome",
-    "docker:push": "docker compose -f infra/docker-compose.yml build nebulahome && docker tag nebulahome:local nebulahome/platform:latest && docker push nebulahome/platform:latest",
+    "docker:push": "docker compose -f infra/docker-compose.yml build nebulahome && docker compose -f infra/docker-compose.yml push nebulahome",
     "docker:up": "docker compose -f infra/docker-compose.yml up -d --build --wait nebulahome",
     "docker:down": "docker compose -f infra/docker-compose.yml rm -s -f nebulahome",
     "docker:restart": "docker compose -f infra/docker-compose.yml restart nebulahome",

@@ -84,8 +84,9 @@ COPY --from=nats /usr/local/bin/nats-server /usr/local/bin/nats-server
 
 # libstdc++ for Node; cifs-utils and nfs-utils for the backup's network locations; openssl for
 # the generated keys and certificate; tzdata so a TZ is honoured; mosquitto for the house's MQTT
-# broker, which zigbee2mqtt and the hub's integrations meet on.
-RUN apk add --no-cache libstdc++ libgcc cifs-utils nfs-utils openssl tzdata xz mosquitto
+# broker, which zigbee2mqtt and the hub's integrations meet on; the Docker command line and its
+# compose plugin, which the supervisor runs the owner's compose projects with.
+RUN apk add --no-cache libstdc++ libgcc cifs-utils nfs-utils openssl tzdata xz mosquitto       docker-cli docker-cli-compose
 
 RUN set -eux; \
     case "${TARGETARCH:-amd64}" in \

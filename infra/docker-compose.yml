@@ -21,8 +21,14 @@ services:
       context: ..
       dockerfile: Dockerfile
       target: runtime
-    image: nebulahome:local
+    # Docker Hub's name for the platform, so the containers page names it and asks Docker Hub
+    # whether a newer one is out. `pnpm docker:push` publishes what was built here under it.
+    image: nebulahome/platform:${NEBULA_IMAGE_TAG:-latest}
     network_mode: ${NEBULA_NETWORK:-bridge}
+    # Every service of this file is the platform's: the containers page shows them as the system,
+    # never stops or removes them, and makes no device of them.
+    labels:
+      io.nebulahome.platform: 'true'
     # Ignored on the host's network, where the page is on the host's own ports.
     ports:
       - '${NEBULA_HTTP_PORT:-8080}:8080'
@@ -63,6 +69,8 @@ services:
     # continuous aggregates. Pinned to the tag the image is built on: a backup is restored only
     # into the TimescaleDB version that made it.
     image: timescale/timescaledb:2.29.2-pg16
+    labels:
+      io.nebulahome.platform: 'true'
     restart: unless-stopped
     environment:
       POSTGRES_USER: nebula
@@ -81,6 +89,8 @@ services:
   nats:
     profiles: [dev]
     image: nats:2.14.6-alpine
+    labels:
+      io.nebulahome.platform: 'true'
     restart: unless-stopped
     # -js enables JetStream, which the telemetry stream needs to survive a core restart.
     command: ['-js', '-m', '8222']
@@ -100,6 +110,8 @@ services:
   mosquitto:
     profiles: [dev]
     image: eclipse-mosquitto:2
+    labels:
+      io.nebulahome.platform: 'true'
     restart: unless-stopped
     command: ['mosquitto', '-c', '/mosquitto-no-auth.conf']
     ports:

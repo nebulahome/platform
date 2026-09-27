@@ -44,8 +44,8 @@ creates the owner.
 
 | Command                | What it does                                                                      |
 | ---------------------- | --------------------------------------------------------------------------------- |
-| `pnpm docker:build`    | Builds the image `nebulahome:local` without starting it                           |
-| `pnpm docker:push`     | Builds it and pushes it to Docker Hub as `nebulahome/platform:latest`             |
+| `pnpm docker:build`    | Builds the image `nebulahome/platform:latest` without starting it                 |
+| `pnpm docker:push`     | Builds it and pushes it to Docker Hub, `nebulahome/platform`                      |
 | `pnpm docker:up`       | Builds and starts, and waits for the health check                                 |
 | `pnpm docker:down`     | Stops and removes the container. The data, the database and the keys stay         |
 | `pnpm docker:restart`  | Restarts it                                                                       |
@@ -131,11 +131,25 @@ Docker Desktop's host network heard nothing but themselves.
 ### Docker's socket and the containers integrations run
 
 The compose file gives the container `/var/run/docker.sock`. Only the `supervisor` holds it: the
-**Containers** page lists every container of the machine - the platform's own marked **Core** and
-never controlled from here - with its processor and memory, its image and whether a newer one is
-out, its environment (secrets withheld), networks, ports and mounts, and its logs; each container
-but the platform's own is also a device with entities. The socket is root on the machine: remove
-the line to keep Docker out of reach, and the page says Docker cannot be seen.
+**Containers** page shows every container of the machine as a card - one per compose project,
+opening the project's page, one per container started on its own - with its processor and memory,
+its image and whether a newer one is out, its environment (secrets withheld), networks, ports and
+mounts, and its logs. The platform's own containers - every service of this compose file, which
+carries the label `io.nebulahome.platform`, and anything else of the platform's compose project -
+are the **system**: shown and measured, never stopped, updated or removed from here, and no device.
+Each of the others is also a device with entities. The socket is root on the machine: remove the
+line to keep Docker out of reach, and the page says Docker cannot be seen.
+
+The owner adds containers from the same page: **Install container** looks an image up on Docker
+Hub and runs it with the ports, environment and folders the form says (a folder kept "in
+NebulaHome's data" lives under `/data/containers/installed/<name>/`, so the backups take it), and
+**New compose** takes a compose file, written in the page or uploaded. The image carries the
+Docker command line and its compose plugin for that: the supervisor keeps the file in
+`/data/containers/compose/<project>/`, checks it with `docker compose config`, points the
+project's own folders (`./data`) at the same folder of the data volume the way Docker on the host
+sees it, and brings it up with `docker compose up -d`. A project deployed from here is changed,
+started and stopped whole, updated and removed from its page; `build:` is refused - only images
+from a registry run here.
 
 An integration may declare a container of its own - zigbee2mqtt does. Once the integration is set
 up, the supervisor pulls its image (the newest release of the major the bundle accepts), creates
