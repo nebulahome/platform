@@ -731,7 +731,7 @@ describe('DiscoveryService', () => {
           listen: [{ module: './lan/discovery.js' }],
           identity: { externalId: 'device', model: 'sku' },
         },
-        [{ kind: 'module', file: './lan/discovery.js', source: module }],
+        [{ kind: 'module', file: './lan/discovery.js', source: module, lan: true }],
       ),
     });
 
@@ -784,7 +784,7 @@ describe('DiscoveryService', () => {
           listen: [{ module: './lan/discovery.js' }],
           identity: { externalId: 'device', model: 'sku' },
         },
-        [{ kind: 'module', file: './lan/discovery.js', source: module }],
+        [{ kind: 'module', file: './lan/discovery.js', source: module, lan: true }],
       ),
     });
 
@@ -818,7 +818,7 @@ describe('DiscoveryService', () => {
           listen: [{ module: './lan/discovery.js' }],
           identity: { externalId: 'device', model: 'sku' },
         },
-        [{ kind: 'module', file: './lan/discovery.js', source: module }],
+        [{ kind: 'module', file: './lan/discovery.js', source: module, lan: true }],
       ),
     });
 

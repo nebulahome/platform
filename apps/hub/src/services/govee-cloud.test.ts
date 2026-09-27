@@ -145,6 +145,7 @@ function sdkWith(sessions: FakeMqtt[]): BundleSdk {
     openRtsp: () => {
       throw new Error('not opened in this test');
     },
+    platform: { mqtt: null },
   };
 }
 

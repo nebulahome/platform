@@ -269,6 +269,9 @@ export class DiscoveryService {
   #abort = new AbortController();
   #active = 0;
   #isListening = false;
+
+  /** Whether the house's network can be heard, as opposed to only a broker. */
+  #isLanListening = true;
   #taken: TakenDevices = NOTHING_TAKEN;
   #signature = '[]';
 
@@ -284,13 +287,17 @@ export class DiscoveryService {
   /**
    * Starts listening: the mDNS services the vendors declared, and each vendor's own module.
    *
+   * @param options - Whether the hub can hear the house's network. Where it cannot - a container
+   * on a bridge - only the modules that listen elsewhere (`lan: false`, a broker) run.
+   * @param options.lan - True where the house's network can be heard.
    * @returns A promise that settles once it is listening.
    */
-  public async start(): Promise<void> {
+  public async start(options: { readonly lan: boolean } = { lan: true }): Promise<void> {
     const { vendors, mdns, queryIntervalMs, ttlMs } = this.#options;
 
     this.#abort = new AbortController();
     this.#isListening = true;
+    this.#isLanListening = options.lan;
     this.#taken = await this.#options.taken();
 
     const services = [
@@ -303,7 +310,7 @@ export class DiscoveryService {
       ),
     ];
 
-    if (services.length > 0) {
+    if (services.length > 0 && options.lan) {
       mdns.start(services, (announcement) => {
         this.#onAnnouncement(announcement);
       });
@@ -319,7 +326,7 @@ export class DiscoveryService {
 
     for (const vendor of vendors) {
       for (const source of vendor.discovery.sources) {
-        if (source.kind === 'module') {
+        if (source.kind === 'module' && this.#hears(source)) {
           this.#modules.push(this.#listenWith(vendor, source));
         }
       }
@@ -362,6 +369,17 @@ export class DiscoveryService {
   }
 
   /**
+   * Whether a source listens where the hub can hear now.
+   *
+   * @param source - The source.
+   * @returns True for any source on a hub that hears the network, and for a module that listens
+   * elsewhere on one that does not.
+   */
+  #hears(source: LoadedListenSource): boolean {
+    return this.#isLanListening || (source.kind === 'module' && !source.lan);
+  }
+
+  /**
    * The devices proposed now, oldest first.
    *
    * @returns Every device heard, not yet added and not gone quiet.
@@ -388,7 +406,8 @@ export class DiscoveryService {
     }
 
     const vendors = this.#options.vendors.filter(
-      (vendor) => vendor.id === vendorId && vendor.discovery.sources.length > 0,
+      (vendor) =>
+        vendor.id === vendorId && vendor.discovery.sources.some((source) => this.#hears(source)),
     );
 
     if (vendors.length === 0) {
@@ -411,13 +430,13 @@ export class DiscoveryService {
       ),
     ];
 
-    if (services.length > 0) {
+    if (services.length > 0 && this.#isLanListening) {
       this.#ask(SCAN_ASK_MS, services);
     }
 
     for (const vendor of vendors) {
       for (const source of vendor.discovery.sources) {
-        if (source.kind === 'module') {
+        if (source.kind === 'module' && this.#hears(source)) {
           try {
             source.source.scan?.();
           } catch (error: unknown) {

@@ -35,6 +35,7 @@ import {
 } from '@nebula-home/contracts';
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
 import {
+  containerDependencyProblems,
   createDeclarativeIntegration,
   driverManifestSchema,
   integrationProfileSchema,
@@ -47,6 +48,7 @@ import {
   type DiscoveryPlan,
   type DiscoverySource,
   type Integration,
+  type PlatformServices,
   type Transport,
   type StreamFactory,
   type StreamSource,
@@ -119,7 +121,14 @@ export type BundleOrigin = 'development' | 'installed';
 /** Where a vendor's devices announce themselves, ready to listen to. */
 export type LoadedListenSource =
   | { readonly kind: 'mdns'; readonly service: string }
-  | { readonly kind: 'module'; readonly file: string; readonly source: DiscoverySource };
+  | {
+      readonly kind: 'module';
+      readonly file: string;
+      readonly source: DiscoverySource;
+
+      /** Whether it listens on the house's network, and is off where the hub cannot hear it. */
+      readonly lan: boolean;
+    };
 
 /** How a vendor's devices are found: its plan, checked against its drivers, and its sources. */
 export type LoadedDiscovery = {
@@ -215,6 +224,9 @@ export type LoadBundlesOptions = {
 
   /** Where bundle code may log. A silent logger when the caller has none, as in tests. */
   readonly logger?: PlatformLogger;
+
+  /** What the platform runs that bundle code may use: its broker. None, as in tests, when absent. */
+  readonly platform?: PlatformServices;
 };
 
 /**
@@ -277,6 +289,7 @@ async function readLogo(directory: string, file: string): Promise<string> {
  * @param vendor - The vendor it belongs to, already checked.
  * @param directory - The driver.
  * @param options - How to verify.
+ * @param sdk - What the vendor's code is handed, a code driver's among it.
  * @returns The integration and the manifest it came from.
  * @throws {Error} When the driver is malformed or cannot be read.
  */
@@ -284,6 +297,7 @@ async function loadDriver(
   vendor: VendorManifest,
   directory: string,
   options: LoadBundlesOptions,
+  sdk: BundleSdk,
 ): Promise<LoadedBundle> {
   const driver = driverManifestSchema.parse(await readJson(directory, DRIVER_FILE));
 
@@ -327,7 +341,12 @@ async function loadDriver(
 
   const entry = pathToFileURL(path.join(directory, manifest.entry ?? '')).href;
   const module: unknown = await import(entry);
-  const integration = (module as { readonly default?: unknown }).default;
+  const exported = (module as { readonly default?: unknown }).default;
+
+  // Since 1.3 a code driver may export a function of the SDK, which builds its schemas with the
+  // runtime's zod; an object is still an integration as it stands.
+  const integration: unknown =
+    typeof exported === 'function' ? (exported as (given: BundleSdk) => unknown)(sdk) : exported;
 
   if (integration === null || typeof integration !== 'object') {
     throw new Error(`${manifest.id} does not default-export an integration`);
@@ -342,12 +361,14 @@ async function loadDriver(
  * @param vendor - The vendor it belongs to.
  * @param directory - The directory to look at.
  * @param options - How to verify.
+ * @param sdk - What the vendor's code is handed.
  * @returns What loaded, why it did not, or null when the directory is not a driver.
  */
 async function loadIfDriver(
   vendor: VendorManifest,
   directory: string,
   options: LoadBundlesOptions,
+  sdk: BundleSdk,
 ): Promise<LoadedBundle | BundleFailure | null> {
   try {
     await readFile(path.join(directory, DRIVER_FILE));
@@ -358,7 +379,7 @@ async function loadIfDriver(
   }
 
   try {
-    return await loadDriver(vendor, directory, options);
+    return await loadDriver(vendor, directory, options, sdk);
   } catch (error: unknown) {
     return { directory, message: error instanceof Error ? error.message : String(error) };
   }
@@ -541,7 +562,12 @@ async function loadDiscovery(
         );
       }
 
-      return { kind: 'module', file: listened.module, source: source as DiscoverySource };
+      return {
+        kind: 'module',
+        file: listened.module,
+        source: source as DiscoverySource,
+        lan: listened.lan,
+      };
     }),
   );
 
@@ -585,6 +611,7 @@ async function loadVendor(
     version: options.runtimeVersion,
     logger,
     openUdpSocket: udp.open,
+    platform: options.platform ?? { mqtt: null },
   });
 
   try {
@@ -625,10 +652,15 @@ async function loadVendorWith(
       : withPollingField(integrationSetupSchema.parse(await readJson(directory, manifest.setup)));
   const logo =
     manifest.logo === undefined ? undefined : await readLogo(directory, manifest.logo.path);
+  const containerProblems = containerDependencyProblems(manifest.containers, setup);
+
+  if (containerProblems.length > 0) {
+    throw new Error(containerProblems.join('; '));
+  }
 
   const results = await Promise.all(
     (await subdirectories(directory)).map(async (name) =>
-      loadIfDriver(manifest, path.join(directory, name), options),
+      loadIfDriver(manifest, path.join(directory, name), options, sdk),
     ),
   );
   const drivers = results.filter(

@@ -802,6 +802,7 @@ describe('what fails', () => {
         openUdpSocket: () => {
           throw new Error('Not in this test');
         },
+        platform: { mqtt: null },
       }),
     );
     const connection = await transport().connect(

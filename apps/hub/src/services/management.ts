@@ -32,9 +32,11 @@ import {
   HUB_PROBE_METHOD,
   HUB_RELOAD_METHOD,
   HUB_SERVICE,
+  HUB_VENDOR_CHANGED_METHOD,
   NotFoundError,
   probeRequestSchema,
   reloadRequestSchema,
+  vendorChangedRequestSchema,
   type CatalogueReply,
   type DiscoveredDevice,
   type DiscoveredReply,
@@ -48,6 +50,8 @@ import {
   type ProbeRequest,
   type ReloadReply,
   type ReloadRequest,
+  type VendorChangedReply,
+  type VendorChangedRequest,
 } from '@nebula-home/contracts';
 import type { JsonObject } from '@nebula-home/contracts';
 import { openSecrets } from '@nebula-home/db';
@@ -117,6 +121,14 @@ export type ManagementServiceOptions = {
    * @returns Whether it was running.
    */
   readonly forget: (integrationId: string) => Promise<ForgetReply>;
+
+  /**
+   * Hands the supervisor a vendor's containers again, after its settings were saved.
+   *
+   * @param vendorId - The vendor.
+   * @returns Whether the vendor is loaded.
+   */
+  readonly vendorChanged: (vendorId: string) => Promise<boolean>;
 };
 
 /** How many Tests may be waiting on their devices at once. */
@@ -186,6 +198,12 @@ function vendorOf(vendor: LoadedVendor): IntegrationVendor {
     setup: vendor.setup,
     discoverySources: [...new Set(vendor.discovery?.sources.map((source) => source.kind) ?? [])],
     drivers: vendor.drivers.map(kindOf),
+    containers: manifest.containers.map((container) => ({
+      id: container.id,
+      name: container.name,
+      image: container.image,
+      minVersion: container.minVersion,
+    })),
   };
 }
 
@@ -358,6 +376,21 @@ export class ManagementService {
          */
         async (request: ForgetRequest): Promise<ForgetReply> =>
           this.#options.forget(request.integrationId),
+      ),
+
+      client.serve(
+        busSubjects.service(HUB_SERVICE, HUB_VENDOR_CHANGED_METHOD),
+        vendorChangedRequestSchema,
+
+        /**
+         * Takes in a vendor's saved settings: runs the containers it declares with them.
+         *
+         * @param request - Which vendor.
+         * @returns Whether it is loaded.
+         */
+        async (request: VendorChangedRequest): Promise<VendorChangedReply> => ({
+          isLoaded: await this.#options.vendorChanged(request.vendorId),
+        }),
       ),
     ];
   }

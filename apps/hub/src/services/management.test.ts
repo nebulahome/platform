@@ -146,6 +146,7 @@ function printerVendor(): LoadedVendor {
       internetRequired: true,
       transports: {},
       streams: {},
+      containers: [],
     },
     origin: 'installed',
     setup: integrationSetupSchema.parse({
@@ -252,6 +253,7 @@ function harness(
 
       return Promise.resolve({ wasRunning: true });
     },
+    vendorChanged: (vendorId): Promise<boolean> => Promise.resolve(vendorId === 'acme'),
   });
   const subscriptions = service.serve();
 

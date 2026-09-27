@@ -60,6 +60,7 @@ import {
 
 import {
   developmentBundleDirectory,
+  platformMqttOf,
   RUNTIME_VERSION,
   SERVICE_NAME,
   type HubConfig,
@@ -87,6 +88,7 @@ import { DiscoveryService, type Detected } from './services/discovery.js';
 import { IdentificationService, type Identified } from './services/identification.js';
 import { publishReports, startInstanceServices } from './services/instance.js';
 import { ManagementService } from './services/management.js';
+import { VendorContainersService } from './services/vendor-containers.js';
 
 /** What the service needs. */
 export type HubServiceOptions = {
@@ -142,6 +144,7 @@ export class HubService {
   readonly #identification: IdentificationService;
   readonly #listening = new Map<string, Listening>();
   readonly #managementService: ManagementService;
+  readonly #vendorContainers: VendorContainersService;
   readonly #secretsKey: Buffer;
 
   /** The stream sources the vendors ship, by id: `bambu-lab/camera`. */
@@ -289,6 +292,36 @@ export class HubService {
        */
       forget: async (integrationId: string): Promise<ForgetReply> =>
         this.forgetInstance(integrationId),
+
+      /**
+       * Hands the supervisor a vendor's containers again.
+       *
+       * @param vendorId - The vendor.
+       * @returns Whether it is loaded.
+       */
+      vendorChanged: async (vendorId: string): Promise<boolean> =>
+        this.#vendorContainers.vendorChanged(vendorId),
+    });
+
+    this.#vendorContainers = new VendorContainersService({
+      client: this.#client,
+      logger: options.logger,
+
+      /**
+       * Lists the vendors loaded.
+       *
+       * @returns Every loaded vendor.
+       */
+      vendors: (): readonly LoadedVendor[] => [...this.#vendors.values()],
+
+      /**
+       * Reads a vendor's saved settings, secrets opened.
+       *
+       * @param vendorId - The vendor.
+       * @returns What the owner saved, or undefined.
+       */
+      settings: async (vendorId: string) =>
+        loadVendorSettings(options.db, vendorId, this.#secretsKey),
     });
   }
 
@@ -312,11 +345,13 @@ export class HubService {
 
     // The data directory always; the repository's bundles under development only outside
     // production, where they stand in for the integrations catalogue.
+    const platform = { mqtt: platformMqttOf(config) };
     const installed = await loadBundles({
       directory: resolveDataLayout(config).integrations,
       origin: 'installed',
       runtimeVersion: RUNTIME_VERSION,
       logger,
+      platform,
     });
     const developmentDirectory = developmentBundleDirectory(config);
     const bundles =
@@ -328,6 +363,7 @@ export class HubService {
               origin: 'development',
               runtimeVersion: RUNTIME_VERSION,
               logger,
+              platform,
             }),
             installed,
             logger,
@@ -366,6 +402,11 @@ export class HubService {
       'Loaded integration bundles',
     );
 
+    // Not awaited: a supervisor that is not up yet is asked again every minute, and nothing here
+    // waits on the containers - an instance whose container is still being pulled simply fails
+    // to connect until it runs, as it would against any device that is not up.
+    void this.#vendorContainers.reconcile();
+
     this.#management = [
       ...this.#managementService.serve(),
       ...this.#cameras.serve(),
@@ -401,7 +442,9 @@ export class HubService {
     // had given up.
     await Promise.all([
       ...instances.map(async (instance) => this.#startInstance(instance)),
-      config.HUB_DISCOVERY_ENABLED ? this.#discovery.start() : Promise.resolve(),
+      // Off the house's network - a container on a bridge - only a vendor that listens on a
+      // broker can hear its devices, and it still does.
+      this.#discovery.start({ lan: config.HUB_DISCOVERY_ENABLED }),
     ]);
   }
 
@@ -494,6 +537,7 @@ export class HubService {
    */
   public async stop(): Promise<void> {
     this.#cameras.stop();
+    this.#vendorContainers.stop();
     await this.#discovery?.stop();
     this.#discovery = undefined;
     await this.#stopListening([...this.#listening.keys()]);

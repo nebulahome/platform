@@ -16,6 +16,7 @@ import {
   defineTransport,
   type BundleSdk,
   type OpenUdpSocket,
+  type PlatformServices,
 } from '@nebula-home/package-runtime';
 
 import { openMqtt } from '../transports/managed-mqtt.js';
@@ -30,12 +31,14 @@ import { openRtsp } from '../transports/rtsp.js';
  * @param options.version - The runtime version the bundle's `sdk` range was matched against.
  * @param options.logger - The hub's logger.
  * @param options.openUdpSocket - Opens a UDP socket tracked as the vendor's.
+ * @param options.platform - What the platform runs that bundle code may use: its broker.
  * @returns The SDK.
  */
 export function createBundleSdk(options: {
   readonly version: string;
   readonly logger: PlatformLogger;
   readonly openUdpSocket: OpenUdpSocket;
+  readonly platform: PlatformServices;
 }): BundleSdk {
   return {
     version: options.version,
@@ -47,5 +50,6 @@ export function createBundleSdk(options: {
     openMqtt,
     defineStreamSource,
     openRtsp,
+    platform: options.platform,
   };
 }

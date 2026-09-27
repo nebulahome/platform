@@ -15,7 +15,12 @@ describe('createBundleSdk', () => {
     // against, and a copy of `defineTransport` would be a second contract.
     const logger = createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' });
     const udp = createUdpSockets(logger);
-    const sdk = createBundleSdk({ version: '1.0.0', logger, openUdpSocket: udp.open });
+    const sdk = createBundleSdk({
+      version: '1.0.0',
+      logger,
+      openUdpSocket: udp.open,
+      platform: { mqtt: null },
+    });
 
     expect(sdk.version).toBe('1.0.0');
     expect(sdk.z).toBe(z);

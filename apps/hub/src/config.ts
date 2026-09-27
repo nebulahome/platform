@@ -15,10 +15,12 @@ import {
   busEnvSchema,
   databaseEnvSchema,
   dataEnvSchema,
+  mqttEnvSchema,
   requireDataDirInProduction,
   runtimeEnvSchema,
   secretsEnvSchema,
 } from '@nebula-home/config';
+import type { PlatformMqtt } from '@nebula-home/package-runtime';
 
 /** Name this service reports in log records and bus envelopes. */
 export const SERVICE_NAME = 'hub';
@@ -37,13 +39,15 @@ export const SERVICE_VERSION = '0.0.0';
  * written against, not the release of the service that happens to be running it, and the two move
  * for entirely different reasons.
  */
-export const RUNTIME_VERSION = '1.2.0';
+export const RUNTIME_VERSION = '1.3.0';
 
 /** Everything `hub` needs from the environment. */
 export const hubEnvSchema = runtimeEnvSchema
   .extend(databaseEnvSchema.shape)
   .extend(busEnvSchema.shape)
   .extend(secretsEnvSchema.shape)
+  // The platform's broker, handed to bundle code that reaches its devices through it.
+  .extend(mqttEnvSchema.shape)
   .extend({
     /**
      * Where the integration bundles under development are, read beside the ones installed in the
@@ -130,4 +134,22 @@ export function developmentBundleDirectory(config: HubConfig): string | undefine
   }
 
   return config.NODE_ENV === 'production' ? undefined : REPOSITORY_BUNDLE_DIR;
+}
+
+/**
+ * The platform's broker, as bundle code is handed it.
+ *
+ * @param config - The parsed environment.
+ * @returns Its address and credentials, or null on an installation without one.
+ */
+export function platformMqttOf(config: HubConfig): PlatformMqtt | null {
+  if (config.NEBULA_MQTT_URL === undefined) {
+    return null;
+  }
+
+  return {
+    url: config.NEBULA_MQTT_URL,
+    ...(config.NEBULA_MQTT_USERNAME === undefined ? {} : { username: config.NEBULA_MQTT_USERNAME }),
+    ...(config.NEBULA_MQTT_PASSWORD === undefined ? {} : { password: config.NEBULA_MQTT_PASSWORD }),
+  };
 }

@@ -93,6 +93,7 @@ function sdkWith(openRtsp?: OpenRtsp): BundleSdk {
     version: '1.2.0',
     logger,
     openUdpSocket: createUdpSockets(logger).open,
+    platform: { mqtt: null },
   });
 
   return openRtsp === undefined ? sdk : { ...sdk, openRtsp };

@@ -134,6 +134,64 @@ describe('loadBundles', () => {
     ).toMatchObject({ externalId: 'a' });
   });
 
+  it('hands a code driver that exports a function the SDK, and the platform broker in it', async () => {
+    await writeRelay(
+      {},
+      {
+        'driver.json': { ...DRIVER, kind: 'code', profile: undefined, entry: './index.js' },
+        'index.js': `
+export default function relay(sdk) {
+  return {
+    id: 'generic/relay',
+    transport: 'http',
+    optionsSchema: sdk.z.object({}),
+    discovery: {},
+    claim: () => ({ deviceKey: 'x', externalId: sdk.platform.mqtt.url, descriptor: {} }),
+    subscriptions: () => [],
+    describe: () => ({ externalId: 'x', name: 'x', entities: [] }),
+    toState: () => [],
+    toCommand: () => ({ deviceKey: 'x', op: 'get', args: {} }),
+  };
+}
+`,
+      },
+    );
+
+    const { loaded } = await loadBundles({
+      directory: root,
+      runtimeVersion: '1.0.0',
+      platform: { mqtt: { url: 'mqtt://127.0.0.1:1884' } },
+    });
+
+    expect(loaded[0]?.integration.claim({ deviceKey: 'x', payload: {} }, {})).toMatchObject({
+      externalId: 'mqtt://127.0.0.1:1884',
+    });
+  });
+
+  it('refuses a vendor whose containers read a setting it does not ask', async () => {
+    await writeRelay({
+      'manifest.json': {
+        ...VENDOR,
+        containers: [
+          {
+            id: 'helper',
+            name: 'Helper',
+            image: 'example/helper',
+            minVersion: '1.0.0',
+            env: [{ name: 'PORT', value: '{setup.port}' }],
+          },
+        ],
+      },
+    });
+
+    const { vendors, failures } = await loadBundles({ directory: root, runtimeVersion: '1.0.0' });
+
+    expect(vendors).toEqual([]);
+    expect(failures[0]?.message).toBe(
+      "helper reads the setting port, which the vendor's setup.json does not ask",
+    );
+  });
+
   it('names a driver by its vendor and itself', async () => {
     // The kind is what an instance row references and what the catalogue lists, and it is
     // composed here rather than written in either file so the two ids cannot disagree with it.
