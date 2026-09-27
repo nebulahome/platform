@@ -101,6 +101,13 @@ export const busSubjects = {
     `${BUS_SUBJECT_PREFIX}.event.automation.${automationId}`,
 
   /**
+   * Announcing the installation's maintenance state: a restore started, moved on, or ended.
+   *
+   * @returns The fan-out subject `backup` publishes the state on.
+   */
+  maintenanceEvent: (): string => `${BUS_SUBJECT_PREFIX}.event.maintenance`,
+
+  /**
    * Commanding an entity.
    *
    * @param entityId - The entity to command.

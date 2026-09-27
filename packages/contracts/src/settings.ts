@@ -10,6 +10,7 @@
  */
 import { z } from 'zod';
 
+import { backupFrequencySchema, backupScheduleSchema, backupSectionsSchema } from './backup.js';
 import type { LOG_LEVELS } from './log-level.js';
 
 /** The shape of a setting key. Mirrors `settings_key_format` in DATABASE.md. */
@@ -193,6 +194,30 @@ export const SETTINGS = [
     schema: z.int().min(1).max(8760),
     defaultValue: 720,
     description: 'How long a session stays valid before requiring a new sign-in',
+  },
+  {
+    key: 'backup.enabled',
+    schema: z.boolean(),
+    defaultValue: false,
+    description: 'Whether backups are taken on their schedule',
+  },
+  {
+    key: 'backup.sections',
+    schema: backupSectionsSchema,
+    defaultValue: { history: true, packages: true },
+    description: 'Which of the optional parts a backup takes; the configuration is always taken',
+  },
+  {
+    key: 'backup.schedule',
+    schema: backupScheduleSchema,
+    defaultValue: { mode: 'quietest', time: '03:00', timezone: 'UTC' },
+    description: 'The time of day a backup runs at: a fixed one, or the quietest learned',
+  },
+  {
+    key: 'backup.frequency',
+    schema: backupFrequencySchema,
+    defaultValue: { mode: 'daily' },
+    description: 'The days a backup runs on',
   },
 ] as const satisfies readonly SettingDefinition[];
 

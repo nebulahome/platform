@@ -22,6 +22,7 @@ export * from './api-users.js';
 export * from './api-ws.js';
 export * from './auth.js';
 export * from './automation-definition.js';
+export * from './backup.js';
 export * from './bus-envelope.js';
 export * from './bus-subjects.js';
 export * from './camera.js';

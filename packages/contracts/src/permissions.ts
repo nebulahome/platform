@@ -314,6 +314,13 @@ export const PERMISSIONS = [
     isScopable: false,
     description: 'See the system monitor: processor, memory, disk and network',
   },
+  {
+    key: 'backup:restore',
+    resource: 'backup',
+    action: 'restore',
+    isScopable: false,
+    description: 'Restore the installation from a backup and download the backup key',
+  },
 ] as const satisfies readonly PermissionDefinition[];
 
 /** Every permission key the platform checks. */
@@ -336,9 +343,12 @@ export type BuiltinRole = (typeof BUILTIN_ROLES)[number];
  * a token is far more likely than a person to be copied somewhere it should not be.
  */
 export const DEFAULT_ROLE_PERMISSIONS = {
-  admin: PERMISSIONS.filter((permission) => permission.key !== 'role:manage').map(
-    (permission) => permission.key,
-  ),
+  // Not `role:manage`, which would let an admin make themselves owner, nor `backup:restore`: the
+  // backup key opens every archive - password hashes, sealed credentials - and a restore replaces
+  // the users and roles themselves.
+  admin: PERMISSIONS.filter(
+    (permission) => permission.key !== 'role:manage' && permission.key !== 'backup:restore',
+  ).map((permission) => permission.key),
   member: [
     'entity:read',
     'entity:control',

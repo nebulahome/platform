@@ -38,6 +38,8 @@ export const ERROR_CODES = {
   CONFIGURATION: 'CONFIGURATION',
   /** The database schema is not the version this build was written against. */
   SCHEMA_VERSION_MISMATCH: 'SCHEMA_VERSION_MISMATCH',
+  /** The installation is being restored from a backup and answers nothing else meanwhile. */
+  MAINTENANCE: 'MAINTENANCE',
   /** Something the platform did not anticipate. The last resort, never a routine outcome. */
   INTERNAL: 'INTERNAL',
 } as const;
@@ -216,6 +218,20 @@ export class SchemaVersionMismatchError extends NebulaError {
 
   /** @inheritDoc */
   public readonly httpStatus = 500;
+}
+
+/**
+ * The installation is being restored from a backup.
+ *
+ * `api` answers every request with it while a restore runs, but the few that follow the restore
+ * itself: the database the request would read is about to be replaced.
+ */
+export class MaintenanceError extends NebulaError {
+  /** @inheritDoc */
+  public readonly code = ERROR_CODES.MAINTENANCE;
+
+  /** @inheritDoc */
+  public readonly httpStatus = 503;
 }
 
 /**
