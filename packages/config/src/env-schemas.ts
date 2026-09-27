@@ -86,6 +86,20 @@ export const secretsEnvSchema = z.object({
 });
 
 /**
+ * Variables read by the services that reach the house's MQTT broker: `hub`, whose integrations
+ * speak it, and the supervisor, which hands it to the containers an integration runs.
+ *
+ * The broker is the platform's own - Mosquitto inside the container, the development stack's on
+ * `pnpm dev` - and optional: an installation without one runs every integration that does not
+ * need it. The credentials are generated on the container's first start, like the bus's.
+ */
+export const mqttEnvSchema = z.object({
+  NEBULA_MQTT_URL: urlWithScheme(['mqtt:', 'mqtts:']).optional(),
+  NEBULA_MQTT_USERNAME: z.string().min(1).max(128).optional(),
+  NEBULA_MQTT_PASSWORD: z.string().min(1).max(512).optional(),
+});
+
+/**
  * Variables read by the services that keep files: where the data directory is.
  *
  * Absolute, because a relative path would be resolved against the working directory, which in

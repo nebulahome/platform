@@ -21,6 +21,8 @@ describe('resolveDataLayout', () => {
       integrations: path.join(root, 'hub', 'integrations'),
       proxyTls: path.join(root, 'proxy', 'tls'),
       packages: path.join(root, 'packages'),
+      containers: path.join(root, 'containers'),
+      containerCache: path.join(root, 'cache', 'containers'),
       secrets: path.join(root, 'secrets'),
       cache: path.join(root, 'cache'),
       mapTiles: path.join(root, 'cache', 'maps'),
@@ -38,6 +40,13 @@ describe('resolveDataLayout', () => {
     const layout = resolveDataLayout({});
 
     expect(path.relative(layout.cache, layout.mapTiles).startsWith('..')).toBe(false);
+  });
+
+  it("keeps a container's volumes out of the cache, and the ones that can be made again in it", () => {
+    const layout = resolveDataLayout({});
+
+    expect(path.relative(layout.cache, layout.containers).startsWith('..')).toBe(true);
+    expect(path.relative(layout.cache, layout.containerCache).startsWith('..')).toBe(false);
   });
 });
 

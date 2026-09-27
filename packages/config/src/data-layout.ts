@@ -12,9 +12,11 @@
  * ├── hub/integrations/<vendor>/   installed integration bundles
  * ├── proxy/tls/                   certificates and the ACME account key
  * ├── packages/<id>/               one per installed feature package
+ * ├── containers/<id>/<volume>/    the volumes of the containers integrations run
  * ├── secrets/                     the instance keys, when not in the environment
  * ├── cache/                       anything that can be fetched or computed again
- * │   └── maps/                    map tiles
+ * │   ├── maps/                    map tiles
+ * │   └── containers/<id>/<volume>/ the volumes of those containers that can be made again
  * └── backups/                     what the backups write
  * ```
  */
@@ -35,6 +37,14 @@ export const TLS_DIRECTORY = 'tls';
 
 /** One folder per installed feature package, each named by the package's id. */
 export const PACKAGES_DIRECTORY = 'packages';
+
+/**
+ * The volumes of the containers an integration runs, one folder per container and one below it
+ * per volume, written by the containers themselves and laid out by the supervisor. The owner's:
+ * the Zigbee network's key and every pairing live here, so a backup takes it. A container's
+ * volume that can be made again goes under the cache instead, in a folder of the same name.
+ */
+export const CONTAINERS_DIRECTORY = 'containers';
 
 /** The instance keys, for an installation that keeps them in files rather than the environment. */
 export const SECRETS_DIRECTORY = 'secrets';
@@ -88,6 +98,12 @@ export type DataLayout = {
   /** The installed feature packages, one folder each. */
   readonly packages: string;
 
+  /** The volumes of the containers integrations run, one folder each. */
+  readonly containers: string;
+
+  /** Their volumes that can be made again, under the cache. */
+  readonly containerCache: string;
+
   /** The instance keys kept in files. */
   readonly secrets: string;
 
@@ -119,6 +135,8 @@ export function resolveDataLayout(config: {
     integrations: path.join(root, HUB_DIRECTORY, INTEGRATIONS_DIRECTORY),
     proxyTls: path.join(root, PROXY_DIRECTORY, TLS_DIRECTORY),
     packages: path.join(root, PACKAGES_DIRECTORY),
+    containers: path.join(root, CONTAINERS_DIRECTORY),
+    containerCache: path.join(cache, CONTAINERS_DIRECTORY),
     secrets: path.join(root, SECRETS_DIRECTORY),
     cache,
     mapTiles: path.join(cache, MAPS_DIRECTORY),
