@@ -313,6 +313,8 @@ describe('the Shelly bundle', () => {
       'shelly/gen1',
     ]);
     expect([...(shelly?.transports ?? [])].sort()).toEqual(['shelly/gen1', 'shelly/rpc']);
+    // Its own transports say what they go over, so its card shows HTTP.
+    expect(shelly?.wires).toEqual(['http']);
     expect(shelly?.drivers.map((driver) => driver.driverId).sort()).toEqual(
       [...SHELLY_RPC_DRIVERS, ...SHELLY_GEN1_DRIVERS].sort(),
     );

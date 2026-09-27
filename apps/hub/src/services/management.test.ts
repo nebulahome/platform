@@ -156,6 +156,7 @@ function printerVendor(): LoadedVendor {
     }),
     logo: 'data:image/svg+xml;base64,PHN2Zy8+',
     transports: ['fake'],
+    wires: [],
     ownTransports: [],
     streams: [],
     drivers: [driver],

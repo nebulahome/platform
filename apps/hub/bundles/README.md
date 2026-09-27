@@ -52,7 +52,10 @@ drivers, so it cannot be declared wrongly; what the manifest may add is a transp
   "color": "#3B9DFF",
   "logo": { "path": "./logo.svg", "padding": 4 },
   "internetRequired": false,
-  "transports": { "rpc": "./rpc/transport.js", "gen1": "./gen1/transport.js" }
+  "transports": {
+    "rpc": { "module": "./rpc/transport.js", "wires": ["http"] },
+    "gen1": { "module": "./gen1/transport.js", "wires": ["http"] }
+  }
 }
 ```
 
@@ -421,6 +424,15 @@ module when it loads the vendor, before the drivers, and registers what it build
 `<vendor>/<name>`: `shelly/rpc`. Its drivers then say `"transport": "shelly/rpc"`, and nothing
 else about them changes: they stay declarative, and the profile's requests are in the new
 transport's own words.
+
+A transport of the vendor's own is named nowhere a person would recognise - `shelly/rpc` means
+nothing on the vendor's card - so the manifest may say which **wires** it goes over, in the long
+form of the entry: `{ "module": "./rpc/transport.js", "wires": ["http"] }`. The card shows one mark
+per wire, beside the marks of the platform's own transports the drivers speak (`http`, `mqtt`,
+`ble`, `zigbee`). The wires are `http`, `mqtt`, `ble`, `zigbee`, `udp` (a protocol of the
+device's own in plain datagrams on the network, as Govee's LAN API) and `modbus` (Modbus TCP).
+zigbee2mqtt's transport says `["mqtt", "zigbee"]`: it listens on the broker, and its devices are
+Zigbee. A bare path declares none, and the card shows no mark for that transport.
 
 The module is plain JavaScript - an installed bundle is loaded as it is, with no build step - and
 its default export is a function the hub calls with the **SDK**, the runtime's pieces a transport

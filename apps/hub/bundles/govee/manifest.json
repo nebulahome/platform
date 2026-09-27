@@ -10,6 +10,6 @@
   "internetRequired": false,
   "setup": "./setup.json",
   "transports": {
-    "lan": "./lan/transport.js"
+    "lan": { "module": "./lan/transport.js", "wires": ["udp"] }
   }
 }

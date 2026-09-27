@@ -8,5 +8,8 @@
   "color": "#3B9DFF",
   "logo": { "path": "./logo.svg", "padding": 4 },
   "internetRequired": false,
-  "transports": { "rpc": "./rpc/transport.js", "gen1": "./gen1/transport.js" }
+  "transports": {
+    "rpc": { "module": "./rpc/transport.js", "wires": ["http"] },
+    "gen1": { "module": "./gen1/transport.js", "wires": ["http"] }
+  }
 }

@@ -30,8 +30,10 @@ import { satisfies } from 'semver';
 
 import {
   integrationSetupSchema,
+  TRANSPORT_WIRES,
   withPollingField,
   type IntegrationSetup,
+  type TransportWire,
 } from '@nebula-home/contracts';
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
 import {
@@ -41,6 +43,8 @@ import {
   integrationProfileSchema,
   resolveDiscovery,
   resolveManifest,
+  transportModuleOf,
+  transportWiresOf,
   vendorDiscoverySchema,
   vendorManifestSchema,
   type BundleManifest,
@@ -151,6 +155,9 @@ export type LoadedVendor = {
 
   /** Every transport one of its drivers speaks, each once, in the drivers' order. */
   readonly transports: readonly string[];
+
+  /** The wires its devices are reached over, for its card: see {@link wiresOf}. */
+  readonly wires: readonly TransportWire[];
 
   /** The transports the vendor ships itself, ready to register: `shelly/rpc`. */
   readonly ownTransports: readonly Transport[];
@@ -386,6 +393,35 @@ async function loadIfDriver(
 }
 
 /**
+ * The wires a vendor's devices are reached over: each platform transport a driver speaks that is
+ * a wire itself - `http`, `mqtt` - and what each of the vendor's own transports a driver speaks
+ * declares it goes over, since `shelly/rpc` says nothing to a person and HTTP does.
+ *
+ * @param vendor - The vendor's manifest.
+ * @param transports - The transport of every driver.
+ * @returns The wires, each once, in {@link TRANSPORT_WIRES}' order.
+ */
+export function wiresOf(vendor: VendorManifest, transports: readonly string[]): TransportWire[] {
+  const found = new Set<string>();
+
+  for (const transport of transports) {
+    const own = transport.startsWith(`${vendor.id}/`)
+      ? vendor.transports[transport.slice(vendor.id.length + 1)]
+      : undefined;
+
+    if (own === undefined) {
+      found.add(transport);
+    } else {
+      for (const wire of transportWiresOf(own)) {
+        found.add(wire);
+      }
+    }
+  }
+
+  return TRANSPORT_WIRES.filter((wire) => found.has(wire));
+}
+
+/**
  * Loads the transports a vendor ships, each from its module, each checked to call itself
  * what the vendor's manifest calls it.
  *
@@ -411,8 +447,10 @@ async function loadVendorTransports(
   await options.verifyVendor?.(vendor, directory);
 
   return Promise.all(
-    entries.map(async ([name, file]) => {
-      const module: unknown = await import(pathToFileURL(path.join(directory, file)).href);
+    entries.map(async ([name, entry]) => {
+      const module: unknown = await import(
+        pathToFileURL(path.join(directory, transportModuleOf(entry))).href
+      );
       const factory = (module as { readonly default?: unknown }).default;
 
       if (typeof factory !== 'function') {
@@ -702,6 +740,10 @@ async function loadVendorWith(
       setup,
       ...(logo === undefined ? {} : { logo }),
       transports: [...new Set(drivers.map((driver) => driver.manifest.transport))],
+      wires: wiresOf(
+        manifest,
+        drivers.map((driver) => driver.manifest.transport),
+      ),
       ownTransports,
       streams,
       drivers,

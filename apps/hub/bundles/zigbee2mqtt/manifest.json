@@ -13,7 +13,7 @@
   "internetRequired": false,
   "setup": "./setup.json",
   "transports": {
-    "mqtt": "./mqtt/transport.js"
+    "mqtt": { "module": "./mqtt/transport.js", "wires": ["mqtt", "zigbee"] }
   },
   "containers": [
     {

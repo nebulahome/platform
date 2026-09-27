@@ -195,6 +195,7 @@ function vendorOf(vendor: LoadedVendor): IntegrationVendor {
     logoPadding: manifest.logo?.padding ?? 0,
     internetRequired: manifest.internetRequired,
     transports: [...vendor.transports],
+    wires: [...vendor.wires],
     setup: vendor.setup,
     discoverySources: [...new Set(vendor.discovery?.sources.map((source) => source.kind) ?? [])],
     drivers: vendor.drivers.map(kindOf),

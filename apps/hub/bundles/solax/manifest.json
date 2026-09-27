@@ -9,8 +9,8 @@
   "logo": "./logo.svg",
   "internetRequired": false,
   "transports": {
-    "inverter": "./inverter/transport.js",
-    "local": "./local/transport.js",
-    "modbus": "./modbus/transport.js"
+    "inverter": { "module": "./inverter/transport.js", "wires": ["modbus", "http"] },
+    "local": { "module": "./local/transport.js", "wires": ["http"] },
+    "modbus": { "module": "./modbus/transport.js", "wires": ["modbus"] }
   }
 }

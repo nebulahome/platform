@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
 
-import { loadBundles, mergeBundleResults, type LoadBundlesResult } from './bundles.js';
+import { loadBundles, mergeBundleResults, wiresOf, type LoadBundlesResult } from './bundles.js';
 
 let root = '';
 
@@ -605,6 +605,30 @@ async function loadBoth(logger: PlatformLogger): Promise<LoadBundlesResult> {
     logger,
   );
 }
+
+describe('wiresOf', () => {
+  const vendor = {
+    id: 'acme',
+    transports: {
+      lan: { module: './lan/transport.js', wires: ['udp' as const] },
+      bridge: { module: './bridge/transport.js', wires: ['mqtt' as const, 'zigbee' as const] },
+      quiet: './quiet/transport.js',
+    },
+  } as unknown as Parameters<typeof wiresOf>[0];
+
+  it("names the platform's transports that are wires, and what the vendor's own declare", () => {
+    expect(wiresOf(vendor, ['http', 'acme/bridge', 'acme/lan', 'acme/quiet', 'http'])).toEqual([
+      'http',
+      'mqtt',
+      'zigbee',
+      'udp',
+    ]);
+  });
+
+  it('names nothing for a transport of its own that declares no wire', () => {
+    expect(wiresOf(vendor, ['acme/quiet'])).toEqual([]);
+  });
+});
 
 describe('mergeBundleResults', () => {
   it('keeps both places when they hold different vendors', async () => {

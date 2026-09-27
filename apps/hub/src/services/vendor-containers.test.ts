@@ -65,6 +65,7 @@ function vendorWithContainer(): LoadedVendor {
       },
     }),
     transports: [],
+    wires: [],
     ownTransports: [],
     streams: [],
     drivers: [],
