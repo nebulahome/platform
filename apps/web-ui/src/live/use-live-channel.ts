@@ -19,6 +19,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
 import { useSession } from '@/auth/session-store';
+import { BACKUP_QUERY_KEYS } from '@/backup/api';
 import { CONTAINER_QUERY_KEYS } from '@/containers/api';
 import { refreshAccessToken } from '@/lib/api-client';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
@@ -89,6 +90,13 @@ export function useLiveChannel(): void {
           // where its containers stand.
           void queryClient.invalidateQueries({ queryKey: CONTAINER_QUERY_KEYS.all });
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
+        }
+
+        if (message.type === 'backup_event') {
+          // A backup began, moved on or ended - a scheduled one too: the backups page follows it
+          // at once rather than at its next poll.
+          void queryClient.invalidateQueries({ queryKey: BACKUP_QUERY_KEYS.status });
+          void queryClient.invalidateQueries({ queryKey: BACKUP_QUERY_KEYS.runs });
         }
       },
 

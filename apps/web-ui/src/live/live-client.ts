@@ -82,7 +82,13 @@ export type LiveClientOptions = {
  * What is asked for when nothing is specified: states, the device events that add to them, and
  * the devices found on the network that the integrations page offers to adopt.
  */
-const DEFAULT_TOPICS: readonly WsTopic[] = ['state', 'devices', 'discovery', 'containers'];
+const DEFAULT_TOPICS: readonly WsTopic[] = [
+  'state',
+  'devices',
+  'discovery',
+  'containers',
+  'backups',
+];
 
 /**
  * Opens a browser socket.

@@ -53,12 +53,14 @@ import {
   updateBackupLocation,
 } from '@/backup/api';
 import { expectedArchiveBytes, retentionSummary } from '@/backup/estimates';
+import { useBackupProgress } from '@/backup/use-backup-progress';
 import { PasswordField } from '@/components/password-field';
 import { WeekdayPicker } from '@/components/weekday-picker';
 import { toMessage } from '@/lib/error-message';
 import { formatBytes } from '@/lib/format-bytes';
 import { absoluteTime, durationText, relativeTime } from '@/lib/format-time';
 import { BackupLocationDialog } from '@/routes/settings/backup-location-dialog';
+import { BackupProgressCard } from '@/routes/settings/backup-progress-card';
 import {
   browserTimeZone,
   isSameJson,
@@ -291,6 +293,7 @@ export function BackupSettings() {
      */
     queryFn: async ({ signal }: { signal: AbortSignal }) => fetchBackupRuns(signal),
   });
+  const progress = useBackupProgress(status.data?.active, runs.data);
   const archives = useQuery({
     queryKey: BACKUP_QUERY_KEYS.archives,
     enabled: isArchivesShown,
@@ -435,8 +438,24 @@ export function BackupSettings() {
   const active = data.active;
   const keyInfo = data.key;
 
+  // A run the card shows, or one still running, is not in the list yet: it moves there once the
+  // card is gone.
+  const pastRuns = (runs.data ?? []).filter(
+    (run) => run.status !== 'running' && run.id !== progress.shown?.runId,
+  );
+
   return (
     <>
+      {progress.shown === null ? null : (
+        <BackupProgressCard
+          run={progress.shown}
+          hasHistory={sections.history}
+          hasPackages={sections.packages}
+          locationCount={(locations.data ?? []).filter((location) => location.isEnabled).length}
+          onDismiss={progress.dismiss}
+        />
+      )}
+
       <Panel
         title="Backups"
         action={
@@ -466,15 +485,13 @@ export function BackupSettings() {
           ) : undefined
         }
       >
-        {active === null ? null : (
+        {active?.kind !== 'restore' ? null : (
           <PanelRow
-            title={active.kind === 'restore' ? 'Restoring…' : 'Backing up…'}
+            title="Restoring…"
             note={`${PHASE_NAMES[active.phase]}${
               active.bytesTotal === null || active.bytesTotal === 0
                 ? ''
-                : active.kind === 'restore'
-                  ? ` · ${String(Math.round(active.bytesDone))}%`
-                  : ` · ${formatBytes(active.bytesDone)} of ${formatBytes(active.bytesTotal)}`
+                : ` · ${String(Math.round(active.bytesDone))}%`
             } · started ${relativeTime(active.startedAt)}`}
           />
         )}
@@ -873,10 +890,10 @@ export function BackupSettings() {
       </Panel>
 
       <Panel title="Recent runs">
-        {(runs.data ?? []).length === 0 ? (
+        {pastRuns.length === 0 ? (
           <p className="px-4 py-4 text-ui text-foreground-subtle">Nothing has run yet.</p>
         ) : (
-          (runs.data ?? []).map((run) => {
+          pastRuns.map((run) => {
             const outcome = runOutcome(run);
             const took =
               run.finishedAt === null ? null : run.finishedAt.getTime() - run.startedAt.getTime();
