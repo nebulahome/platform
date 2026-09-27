@@ -43,6 +43,7 @@ import { ensureSystemDevice } from './persistence/system-entities.js';
 import { AliasEngine } from './services/alias-engine.js';
 import { startAliasService } from './services/alias-service.js';
 import { startCommandRouter } from './services/command-router.js';
+import { startContainersService } from './services/containers.js';
 import { startRegistrationService } from './services/registration.js';
 import { requestResync } from './services/resync.js';
 import { startStateIngest } from './services/state-ingest.js';
@@ -245,6 +246,14 @@ export class CoreService {
         commandTimeoutMs: config.CORE_COMMAND_TIMEOUT_MS,
       }),
       ...startRegistrationService({
+        client,
+        db,
+        directory: this.#directory,
+        registry: this.#registry,
+        stateCache,
+        logger,
+      }),
+      startContainersService({
         client,
         db,
         directory: this.#directory,

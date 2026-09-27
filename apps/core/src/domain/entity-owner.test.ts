@@ -35,6 +35,14 @@ describe('resolveOwner', () => {
     );
   });
 
+  it('names the supervisor as the owner of every container entity', () => {
+    // The supervisor reports every container's readings and takes their commands, so the one
+    // owner is what ingest compares the reporter with and where a command is sent.
+    expect(resolveOwner({ kind: 'container', packageId: null, integrationId: null }, BULB)).toBe(
+      'supervisor',
+    );
+  });
+
   it('refuses an adapter entity with no owner at all', () => {
     // The `entities_source_consistency` constraint makes this impossible, so reaching it means
     // the database and this build disagree. Failing loudly beats an entity nobody can command.
