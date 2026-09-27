@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import type { ContainerSummary } from '@nebula-home/contracts';
 
+import { composeOf, containerSummary } from '@/testing/container-fixtures';
+
 import {
   CONTAINER_FILTER_CODEC,
   matchesContainer,
@@ -16,40 +18,13 @@ import {
  * @returns The container.
  */
 function container(fields: Partial<ContainerSummary> = {}): ContainerSummary {
-  return {
-    id: 'a'.repeat(64),
-    name: 'adguard',
-    deviceId: 'container-adguard',
-    image: 'adguard/adguardhome:v0.107.60',
-    version: 'v0.107.60',
-    state: 'running',
-    status: 'Up 2 hours',
-    health: null,
-    createdAt: new Date('2026-09-20T10:00:00Z'),
-    startedAt: new Date('2026-09-27T08:00:00Z'),
-    isSelf: false,
-    managedBy: null,
-    registryUrl: null,
-    cpuPercent: 1,
-    memoryUsedBytes: 1,
-    memoryLimitBytes: 2,
-    update: {
-      installedVersion: null,
-      latestVersion: null,
-      isAvailable: false,
-      checkedAt: null,
-      error: null,
-      isInstalling: false,
-      progress: null,
-    },
-    refusal: null,
-    ...fields,
-  };
+  return containerSummary(fields);
 }
 
 describe('ownerOf', () => {
   it('tells the platform’s own, an integration’s and the owner’s apart', () => {
-    expect(ownerOf(container({ isSelf: true }))).toBe('platform');
+    expect(ownerOf(container({ isSelf: true, isSystem: true }))).toBe('system');
+    expect(ownerOf(container({ isSystem: true }))).toBe('system');
     expect(
       ownerOf(
         container({
@@ -83,6 +58,12 @@ describe('matchesContainer', () => {
     expect(matchesContainer(container(), { ...OPEN_CONTAINER_FILTER, search: 'zigbee' })).toBe(
       false,
     );
+    expect(
+      matchesContainer(container({ compose: composeOf('media', 'plex') }), {
+        ...OPEN_CONTAINER_FILTER,
+        search: 'media',
+      }),
+    ).toBe(true);
   });
 });
 

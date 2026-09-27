@@ -27,6 +27,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router'
 
 import { useSession, type SessionStatus } from '@/auth/session-store';
 import { AuthLayout } from '@/routes/auth-layout';
+import { ComposePage } from '@/routes/containers/compose-page';
 import { ContainerPage } from '@/routes/containers/container-page';
 import { ContainersPage } from '@/routes/containers/containers-page';
 import { DashboardEditorPage } from '@/routes/dashboard/dashboard-editor-page';
@@ -287,6 +288,14 @@ export function SessionRoutes() {
           element={
             <RequiresPermission permission="container:read" section="Containers">
               <ContainersPage />
+            </RequiresPermission>
+          }
+        />
+        <Route
+          path="/containers/compose/:project"
+          element={
+            <RequiresPermission permission="container:read" section="Containers">
+              <ComposePage />
             </RequiresPermission>
           }
         />

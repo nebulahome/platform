@@ -1,6 +1,7 @@
 /**
  * What the containers page is narrowed by: a search, whether a container runs, and who it
- * belongs to - the platform itself, an integration, or the owner.
+ * belongs to - the platform itself (its own container and the rest of its compose file), an
+ * integration, or the owner.
  *
  * Kept in the address like every other list's filter, and pure, so what the list lets through is
  * tested without the page.
@@ -17,7 +18,7 @@ export const CONTAINER_RUN_CHOICES = ['any', 'running', 'stopped'] as const;
 export type ContainerRunChoice = (typeof CONTAINER_RUN_CHOICES)[number];
 
 /** Who a container belongs to. */
-export const CONTAINER_OWNER_CHOICES = ['any', 'platform', 'integration', 'other'] as const;
+export const CONTAINER_OWNER_CHOICES = ['any', 'system', 'integration', 'other'] as const;
 
 /** Who a container belongs to. */
 export type ContainerOwnerChoice = (typeof CONTAINER_OWNER_CHOICES)[number];
@@ -62,11 +63,12 @@ export const CONTAINER_FILTER_CODEC: ListCodec<ContainerFilter> = {
  * Who a container belongs to.
  *
  * @param container - The container.
- * @returns The platform for its own, an integration for one it runs, the owner otherwise.
+ * @returns The system for the platform's own, an integration for one it runs, the owner
+ * otherwise.
  */
 export function ownerOf(container: ContainerSummary): Exclude<ContainerOwnerChoice, 'any'> {
-  if (container.isSelf) {
-    return 'platform';
+  if (container.isSelf || container.isSystem) {
+    return 'system';
   }
 
   return container.managedBy !== null && !container.managedBy.isReleased ? 'integration' : 'other';
@@ -91,7 +93,15 @@ export function matchesContainer(container: ContainerSummary, filter: ContainerF
   }
 
   return matchesQuery(
-    [container.name, container.image, container.version, container.managedBy?.vendorId],
+    [
+      container.displayName,
+      container.name,
+      container.image,
+      container.version,
+      container.managedBy?.vendorId,
+      container.compose?.project,
+      container.compose?.service,
+    ],
     filter.search,
   );
 }
