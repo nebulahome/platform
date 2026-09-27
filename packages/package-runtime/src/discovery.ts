@@ -61,6 +61,14 @@ export const listenSourceSchema = z.union([
   z.strictObject({
     /** A module of the vendor's own, relative to the vendor, that listens and reports. */
     module: bundlePathSchema,
+
+    /**
+     * Since 1.3: whether the module listens on the house's network. Most do - a multicast scan,
+     * an announcement - and are off where the platform cannot hear the network (a container on a
+     * bridge). One that listens somewhere the platform always reaches - zigbee2mqtt's list of
+     * devices on the platform's own broker - says `false`, and runs regardless.
+     */
+    lan: z.boolean().default(true),
   }),
 ]);
 

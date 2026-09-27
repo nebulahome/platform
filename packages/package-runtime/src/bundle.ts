@@ -29,6 +29,8 @@ import {
   transportIdSchema,
 } from '@nebula-home/contracts';
 
+import { containerDependenciesSchema } from './containers.js';
+
 /** Bundle kind, which is both how it is written and how far it is trusted. */
 export const BUNDLE_KINDS = ['declarative', 'code'] as const;
 
@@ -158,6 +160,12 @@ export const vendorManifestSchema = z.strictObject({
   streams: z
     .record(z.string().regex(TRANSPORT_NAME_PATTERN, 'Must be a stream name'), bundlePathSchema)
     .default({}),
+
+  /**
+   * Since 1.3: the containers the vendor's devices depend on - zigbee2mqtt for Zigbee - which the
+   * platform downloads and runs once the vendor is set up (`containers.ts`).
+   */
+  containers: containerDependenciesSchema,
 
   /**
    * Digest of the bundle's contents, stamped by the catalogue at publication.

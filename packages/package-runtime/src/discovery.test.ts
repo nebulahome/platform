@@ -59,7 +59,8 @@ describe('vendorDiscoverySchema', () => {
       identity: { externalId: 'device', model: 'sku' },
     });
 
-    expect(parsed.listen).toEqual([{ module: './lan/discovery.js' }]);
+    // On the house's network unless it says otherwise: most listeners hear multicast.
+    expect(parsed.listen).toEqual([{ module: './lan/discovery.js', lan: true }]);
   });
 
   it('holds an mDNS service to the underscored form the protocol uses', () => {

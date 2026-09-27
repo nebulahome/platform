@@ -10,6 +10,7 @@
  */
 
 export * from './bundle.js';
+export * from './containers.js';
 export * from './declarative.js';
 export * from './discovery.js';
 export * from './evaluate.js';

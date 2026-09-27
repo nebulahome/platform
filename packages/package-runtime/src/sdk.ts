@@ -19,6 +19,7 @@ import type { z } from 'zod';
 
 import type { PlatformLogger } from '@nebula-home/logging';
 
+import type { Integration } from './integration.js';
 import type { defineStreamSource, OpenRtsp, StreamSource } from './stream.js';
 import type { defineTransport, Transport } from './transport.js';
 
@@ -172,6 +173,25 @@ export type ManagedMqtt = {
 /** Opens a managed MQTT session. */
 export type OpenMqtt = (options: ManagedMqttOptions) => ManagedMqtt;
 
+/**
+ * The platform's own MQTT broker, as the hub reaches it: Mosquitto inside the container, the
+ * development stack's on `pnpm dev`.
+ */
+export type PlatformMqtt = {
+  readonly url: string;
+  readonly username?: string;
+  readonly password?: string;
+};
+
+/** What the platform offers a bundle beyond the pieces to build a transport from. */
+export type PlatformServices = {
+  /**
+   * The house's broker, for a vendor whose devices report through it - zigbee2mqtt - and which
+   * runs its own program beside the platform. Null on an installation without one.
+   */
+  readonly mqtt: PlatformMqtt | null;
+};
+
 /** What the hub hands a bundle's transport factory. */
 export type BundleSdk = {
   /** The runtime version, the same string `manifest.sdk` was matched against. */
@@ -195,6 +215,9 @@ export type BundleSdk = {
 
   /** Since 1.2: an RTSP session over TCP, yielding a camera's H.264 as it comes. */
   readonly openRtsp: OpenRtsp;
+
+  /** Since 1.3: what the platform itself runs that a bundle may use - its MQTT broker. */
+  readonly platform: PlatformServices;
 };
 
 /** What a transport module default-exports. */
@@ -202,3 +225,9 @@ export type TransportFactory = (sdk: BundleSdk) => Transport;
 
 /** What a stream module default-exports. */
 export type StreamFactory = (sdk: BundleSdk) => StreamSource;
+
+/**
+ * Since 1.3: what a code driver may default-export instead of an integration - a function of
+ * the SDK, so the driver can build its schemas with the runtime's zod rather than bring its own.
+ */
+export type IntegrationFactory = (sdk: BundleSdk) => Integration;
