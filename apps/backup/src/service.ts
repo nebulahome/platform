@@ -28,6 +28,7 @@ import {
   type BackupLocationTest,
   type BackupLocationTestResult,
   type BackupPhase,
+  type BackupRunStatus,
   type BackupStatus,
   type MaintenanceState,
   type QuietTime,
@@ -585,10 +586,15 @@ export class BackupService {
 
     this.#active = active;
     this.#logger.info({ runId, trigger, sections }, 'Backup started');
+    this.#announceRun(active, 'running');
 
     void this.#runBackup(active, sections)
+      .then((outcome) => {
+        this.#announceRun(active, outcome.status, null);
+      })
       .catch((error: unknown) => {
         this.#logger.error({ err: error, runId }, 'The backup ended badly');
+        this.#announceRun(active, 'failure', null);
       })
       .finally(() => {
         this.#active = null;
@@ -641,9 +647,16 @@ export class BackupService {
          * @param bytesTotal - Out of how much.
          */
         progress: (phase, bytesDone, bytesTotal): void => {
+          const isNewPhase = active.phase !== phase;
+
           active.phase = phase;
           active.bytesDone = bytesDone ?? 0;
           active.bytesTotal = bytesTotal ?? null;
+
+          // Once per phase: the bytes of an upload are read from the status while it runs.
+          if (isNewPhase) {
+            this.#announceRun(active, 'running');
+          }
         },
         signal: active.abort.signal,
       },
@@ -1134,5 +1147,26 @@ export class BackupService {
   #announce(state: MaintenanceState): void {
     this.#maintenance = state;
     this.#client.publish(busSubjects.maintenanceEvent(), state);
+  }
+
+  /**
+   * Announces that a backup began, went on to another phase, or ended, so a page watching the
+   * backups follows it at once - a scheduled one included - rather than at its next poll.
+   *
+   * @param active - The run.
+   * @param status - `running`, or how it ended.
+   * @param phase - The phase it is in; null once it ended.
+   */
+  #announceRun(
+    active: ActiveRun,
+    status: BackupRunStatus,
+    phase: BackupPhase | null = active.phase,
+  ): void {
+    this.#client.publish(busSubjects.backupEvent(), {
+      runId: active.runId,
+      kind: active.kind,
+      phase,
+      status,
+    });
   }
 }
