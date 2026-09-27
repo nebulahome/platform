@@ -1,0 +1,10 @@
+{
+  "extends": "@nebula-home/tsconfig/node.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.integration.config.ts"]
+}

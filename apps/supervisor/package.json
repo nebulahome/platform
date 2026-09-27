@@ -1,0 +1,29 @@
+{
+  "name": "@nebula-home/supervisor",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts --passWithNoTests"
+  },
+  "dependencies": {
+    "@nebula-home/bus": "workspace:*",
+    "@nebula-home/config": "workspace:*",
+    "@nebula-home/contracts": "workspace:*",
+    "@nebula-home/logging": "workspace:*",
+    "semver": "^7.8.5",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@nebula-home/eslint-config": "workspace:*",
+    "@nebula-home/tsconfig": "workspace:*",
+    "@types/semver": "^7.7.1",
+    "typescript": "^6.0.3"
+  }
+}

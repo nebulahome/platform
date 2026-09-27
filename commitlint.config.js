@@ -35,6 +35,7 @@ export default {
         'packet-manager',
         'logger',
         'backup',
+        'supervisor',
         'web-ui',
         'contracts',
         'bus',
