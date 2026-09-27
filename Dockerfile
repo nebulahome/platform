@@ -83,8 +83,9 @@ COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=nats /usr/local/bin/nats-server /usr/local/bin/nats-server
 
 # libstdc++ for Node; cifs-utils and nfs-utils for the backup's network locations; openssl for
-# the generated keys and certificate; tzdata so a TZ is honoured.
-RUN apk add --no-cache libstdc++ libgcc cifs-utils nfs-utils openssl tzdata xz
+# the generated keys and certificate; tzdata so a TZ is honoured; mosquitto for the house's MQTT
+# broker, which zigbee2mqtt and the hub's integrations meet on.
+RUN apk add --no-cache libstdc++ libgcc cifs-utils nfs-utils openssl tzdata xz mosquitto
 
 RUN set -eux; \
     case "${TARGETARCH:-amd64}" in \
@@ -123,6 +124,7 @@ ENV PATH=/command:$PATH \
     PGPORT=5433 \
     NEBULA_NATS_PORT=4223 \
     NEBULA_NATS_MONITOR_PORT=8223 \
+    NEBULA_MQTT_PORT=1884 \
     API_PORT=4100 \
     PROXY_HTTP_PORT=8080 \
     PROXY_HTTPS_PORT=8443 \

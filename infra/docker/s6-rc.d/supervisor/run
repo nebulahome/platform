@@ -1,0 +1,8 @@
+#!/command/with-contenv sh
+# The supervisor: the one process given Docker's socket, which is root on the host, so it runs as
+# root and nothing else here reaches Docker (ARCHITECTURE.md 4.10). Without the socket it runs
+# all the same, and says Docker cannot be seen.
+. /etc/s6-overlay/scripts/nebula-env
+
+cd /app/apps/supervisor
+exec node dist/main.js

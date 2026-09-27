@@ -1,0 +1,31 @@
+#!/command/with-contenv sh
+# The house's MQTT broker, which zigbee2mqtt and the hub's integrations meet on. A password is
+# required: on a bridge it listens on every address of the container, so the containers an
+# integration runs reach it by the platform's name, and on the host network only on loopback,
+# since there every address is the host's. Nothing is kept: every publisher here sends its state
+# again when it reconnects.
+. /etc/s6-overlay/scripts/nebula-env
+
+if [ "${NEBULA_NETWORK:-bridge}" = host ]; then
+  bind=127.0.0.1
+else
+  bind=0.0.0.0
+fi
+
+mkdir -p /run/mosquitto
+cat > /run/mosquitto/mosquitto.conf <<CONF
+listener ${NEBULA_MQTT_PORT:-1884} $bind
+allow_anonymous false
+password_file /run/mosquitto/passwd
+persistence false
+log_dest stdout
+log_type error
+log_type warning
+log_type notice
+CONF
+rm -f /run/mosquitto/passwd
+mosquitto_passwd -c -b /run/mosquitto/passwd "$NEBULA_MQTT_USERNAME" "$NEBULA_MQTT_PASSWORD"
+chown -R mosquitto:mosquitto /run/mosquitto
+chmod 0600 /run/mosquitto/passwd /run/mosquitto/mosquitto.conf
+
+exec mosquitto -c /run/mosquitto/mosquitto.conf

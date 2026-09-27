@@ -35,10 +35,16 @@ services:
         required: false
     environment:
       HUB_DISCOVERY_ENABLED: ${HUB_DISCOVERY_ENABLED:-false}
+      # Which network the container is on, so the broker listens where it should.
+      NEBULA_NETWORK: ${NEBULA_NETWORK:-bridge}
     volumes:
       - nebula-data:/data
       - nebula-postgres:/var/lib/postgresql/data
       - nebula-nats:/var/lib/nats
+      # Docker's socket, for the supervisor: the Containers page, and the containers integrations
+      # need (zigbee2mqtt). It is root on this machine - only the supervisor, running as root,
+      # holds it. Remove the line to keep Docker out of reach; the page then says so.
+      - /var/run/docker.sock:/var/run/docker.sock
       # A disk of the host for the backups: mount it here and add it as a local location.
       # - /mnt/backups:/mnt/backups
     # The backups' SMB and NFS locations are mounted from inside the container.

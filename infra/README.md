@@ -24,9 +24,11 @@ The two do not share anything - each has its own database - and can run side by 
 
 ## The container
 
-NebulaHome runs as **one container**: PostgreSQL 16 with TimescaleDB, NATS with JetStream, and
-`core`, `hub`, `api`, `backup` and `proxy`, supervised by s6-overlay (ARCHITECTURE.md §14). It is
-built from `../Dockerfile` and runs on Linux only; there is no Windows build of the runtime.
+NebulaHome runs as **one container**: PostgreSQL 16 with TimescaleDB, NATS with JetStream,
+Mosquitto, and `core`, `hub`, `api`, `backup`, `supervisor` and `proxy`, supervised by s6-overlay
+(ARCHITECTURE.md §14). It is built from `../Dockerfile` and runs on Linux only; there is no Windows
+build of the runtime. Beside it run the containers an integration needs - zigbee2mqtt for Zigbee -
+which the platform downloads and runs itself through Docker's socket (below).
 
 ```bash
 pnpm docker:up          # build the image and start it; waits until it is healthy
@@ -65,14 +67,18 @@ In order, each once the one before is ready:
 1. `init-dirs` - the data directory's folders, owned by the `nebula` user the services run as.
 2. `init-secrets` - every secret that is missing, generated once into `/data/secrets/` (0600):
    the instance keys `NEBULA_SECRETS_KEY` and `API_TOTP_ENCRYPTION_KEY`, `API_JWT_SECRET`, the
-   PostgreSQL and NATS passwords, one password per service role, and the proxy's self-signed
-   certificate. A variable set in `infra/.env` wins over its file.
+   PostgreSQL, NATS and MQTT passwords, one password per service role, and the proxy's
+   self-signed certificate. A variable set in `infra/.env` wins over its file.
 3. `postgres` - on `127.0.0.1:5433`, passwords required over TCP.
 4. `init-db` - migrates the database and gives each service role its password. An upgrade is
    "build, start": the new migrations apply here.
 5. `nats` - on `127.0.0.1:4223`, with a password; its monitor on `8223`.
-6. `core`, `hub`, `api` (`127.0.0.1:4100`), `backup`, `proxy` (`8080`, `8443`). Each connects to
-   the database as its own role (DATABASE.md §12); `backup` runs as root, for the mounts.
+6. `mosquitto` - the house's MQTT broker, on port `1884` with a password (user `nebula`): on the
+   bridge on every address of the container, so the containers an integration runs reach it as
+   `nebulahome:1884`; on the host network on loopback only.
+7. `core`, `hub`, `api` (`127.0.0.1:4100`), `backup`, `supervisor`, `proxy` (`8080`, `8443`). Each
+   connects to the database as its own role (DATABASE.md §12); `backup` runs as root, for the
+   mounts, and `supervisor` as root, the one process given Docker's socket.
 
 The ports are not the usual ones on purpose: on the host's network the container shares the
 machine's ports, and must not collide with the development stack.
@@ -118,6 +124,24 @@ Keep the bridge there. Checked on 2026-09-27 with the same mDNS question from th
 Windows machine heard the Shelly devices answer, the container on the bridge and the one on
 Docker Desktop's host network heard nothing but themselves.
 
+### Docker's socket and the containers integrations run
+
+The compose file gives the container `/var/run/docker.sock`. Only the `supervisor` holds it: the
+**Containers** page lists every container of the machine - the platform's own marked **Core** and
+never controlled from here - with its processor and memory, its image and whether a newer one is
+out, its environment (secrets withheld), networks, ports and mounts, and its logs; each container
+but the platform's own is also a device with entities. The socket is root on the machine: remove
+the line to keep Docker out of reach, and the page says Docker cannot be seen.
+
+An integration may declare a container of its own - zigbee2mqtt does. Once the integration is set
+up, the supervisor pulls its image (the newest release of the major the bundle accepts), creates
+`nebulahome-<vendor>` with `restart: unless-stopped`, and puts it and the platform on a bridge
+network of their own, `nebulahome`, where the platform answers to `nebulahome` - on the host
+network it runs on the host network too. Its data lives in the platform's own volume, under
+`/data/containers/<id>/`, mounted into it as a volume subpath (Docker 26 or newer), so the backups
+take it; the restore stops it and starts it again. Such a container is the integration's: the
+page shows it, and nobody starts, stops or updates it by hand.
+
 ### Backups to a disk or a share
 
 Backups always land in the container's `/data/backups` (the system location, which can be
@@ -152,9 +176,11 @@ data/
 ├── hub/integrations/<vendor>/   integration bundles installed into the hub
 ├── proxy/tls/                   the proxy's certificates
 ├── packages/<id>/               one per installed feature package              (not yet)
+├── containers/<id>/<volume>/    the data of the containers integrations run: zigbee2mqtt's
 ├── secrets/                     the instance keys and the backup key
 ├── cache/                       what can be fetched again; never backed up
-│   └── maps/<z>/<x>/<y>.png     the map around the house
+│   ├── maps/<z>/<x>/<y>.png     the map around the house
+│   └── containers/<id>/<volume>/ what those containers keep that can be made again
 └── backups/                     the archives of the system location; never backed up itself
     └── .staging/                a backup or a restore in progress
 ```
@@ -191,6 +217,11 @@ everything else: create it again from the first-run screen.
 
 The backup service starts with the others, but takes and restores backups only in the
 container: it needs `pg_dump` 16, `mount`, s6 and Linux. Try backups there.
+
+The supervisor too runs with the others. On Windows, point it at Docker Desktop's named pipe in
+`.env` - `SUPERVISOR_DOCKER_SOCKET=//./pipe/docker_engine` - and the Containers page lists the
+development stack's containers. The broker `pnpm dev` uses is the compose file's Mosquitto on
+`localhost:1883` (`NEBULA_MQTT_URL`), which asks for no password.
 
 ## Secrets
 
