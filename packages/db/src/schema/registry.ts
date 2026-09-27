@@ -200,7 +200,9 @@ export const devices = registrySchema.table(
     /**
      * `adapter` for a device a package or an integration instance owns; `system` for the one
      * device that is the machine the platform runs on, which `core` writes for itself and which
-     * has neither owner. The same words `entities.source` uses.
+     * has neither owner; `container` for one of the host's containers, which `core` writes when
+     * the supervisor names it, with the container's name as `externalId`. The same words
+     * `entities.source` uses.
      */
     source: text('source').notNull().default('adapter'),
 

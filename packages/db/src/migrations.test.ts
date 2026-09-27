@@ -129,10 +129,20 @@ describe('integration ownership', () => {
     // The machine the platform runs on is a device `core` writes for itself: no instance
     // reaches it and no package installed it, and a second one would split its entities.
     expect(devicesTable()).toContain(
-      "(source = 'system' AND package_id IS NULL AND integration_id IS NULL)",
+      "(source IN ('system', 'container') AND package_id IS NULL AND integration_id IS NULL)",
     );
     expect(initialSql).toContain(
       "CREATE UNIQUE INDEX devices_one_system_idx ON registry.devices ((source)) WHERE source = 'system';",
+    );
+  });
+
+  it('leaves a container device owned by neither, one per container name', () => {
+    // The supervisor answers for a container's entities; the device is found by its name.
+    expect(initialSql).toContain(
+      "CREATE UNIQUE INDEX devices_container_name_idx ON registry.devices (external_id)\n  WHERE source = 'container';",
+    );
+    expect(sourceConsistency()).toContain(
+      "(source = 'container' AND device_id IS NOT NULL AND package_id IS NULL",
     );
   });
 

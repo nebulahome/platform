@@ -480,6 +480,9 @@ CREATE TABLE registry.devices (
   -- it. Whichever it is becomes the entity's `source`, so a device with neither has no route for
   -- a command and one with both has two. The system device is the machine the platform runs
   -- on: `core` writes it and its entities at startup, it has no owner, and there is one of it.
+  -- A container device is one of the host's containers: `core` writes it when the supervisor
+  -- says the container exists and removes it when it is gone; its `external_id` is the
+  -- container's name, and the supervisor answers for its entities.
   source         text        NOT NULL DEFAULT 'adapter',
   package_id     text        REFERENCES system.packages (id) ON DELETE RESTRICT,
   integration_id text        UNIQUE REFERENCES registry.integrations (id) ON DELETE CASCADE,
@@ -501,15 +504,18 @@ CREATE TABLE registry.devices (
   updated_at     timestamptz NOT NULL DEFAULT now(),
 
   UNIQUE (package_id, external_id),
-  CONSTRAINT devices_source CHECK (source IN ('adapter', 'system')),
+  CONSTRAINT devices_source CHECK (source IN ('adapter', 'system', 'container')),
   CONSTRAINT devices_not_own_parent CHECK (via_device_id IS DISTINCT FROM id),
   CONSTRAINT devices_owner_exclusive CHECK (
     (source = 'adapter' AND (package_id IS NOT NULL) <> (integration_id IS NOT NULL))
-    OR (source = 'system' AND package_id IS NULL AND integration_id IS NULL)
+    OR (source IN ('system', 'container') AND package_id IS NULL AND integration_id IS NULL)
   )
 );
 
 CREATE UNIQUE INDEX devices_one_system_idx ON registry.devices ((source)) WHERE source = 'system';
+-- A container's device is found by the container's name, and a name is one container at a time.
+CREATE UNIQUE INDEX devices_container_name_idx ON registry.devices (external_id)
+  WHERE source = 'container';
 CREATE INDEX devices_area_id_idx ON registry.devices (area_id);
 CREATE INDEX devices_via_device_id_idx ON registry.devices (via_device_id);
 CREATE INDEX devices_package_id_idx ON registry.devices (package_id);
@@ -545,7 +551,7 @@ CREATE TABLE registry.entities (
 
   CONSTRAINT entities_entity_id_format
     CHECK (entity_id ~ '^[a-z][a-z0-9_]{0,31}\.[a-z][a-z0-9_]{0,63}$'),
-  CONSTRAINT entities_source CHECK (source IN ('adapter', 'derived', 'system')),
+  CONSTRAINT entities_source CHECK (source IN ('adapter', 'derived', 'system', 'container')),
   CONSTRAINT entities_state_class
     CHECK (state_class IS NULL
            OR state_class IN ('measurement', 'total', 'total_increasing')),
@@ -560,6 +566,8 @@ CREATE TABLE registry.entities (
        AND (package_id IS NOT NULL) <> (integration_id IS NOT NULL))
     OR (source = 'derived' AND device_id IS NULL AND package_id IS NULL AND integration_id IS NULL)
     OR (source = 'system')
+    OR (source = 'container' AND device_id IS NOT NULL AND package_id IS NULL
+          AND integration_id IS NULL)
   )
 );
 
@@ -1337,6 +1345,8 @@ INSERT INTO auth.permissions (key, resource, action, description, is_scopable) V
   ('settings:write', 'settings', 'write', 'Change system settings, including history retention', false),
   ('audit:read', 'audit', 'read', 'Read the audit log', false),
   ('system:read', 'system', 'read', 'See the system monitor: processor, memory, disk and network', false),
+  ('container:read', 'container', 'read', 'See the containers the machine runs, their settings and their logs', false),
+  ('container:control', 'container', 'control', 'Start, stop, restart and update the containers the machine runs', false),
   ('backup:restore', 'backup', 'restore', 'Restore the installation from a backup and download the backup key', false);
 
 -- Settings: generated from SETTINGS in @nebula-home/contracts.
@@ -1365,7 +1375,7 @@ VALUES ('This machine', 'system', 'count', 3);
 -- Role grants: generated from DEFAULT_ROLE_PERMISSIONS in @nebula-home/contracts.
 INSERT INTO auth.role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM auth.roles r, auth.permissions p
-WHERE r.key = 'admin' AND p.key IN ('entity:read', 'entity:control', 'entity:write', 'entity:delete', 'device:read', 'device:write', 'device:delete', 'area:read', 'area:write', 'tag:read', 'tag:write', 'automation:read', 'automation:write', 'automation:trigger', 'scene:read', 'scene:apply', 'scene:write', 'alias:read', 'alias:write', 'dashboard:manage', 'history:read', 'package:read', 'package:install', 'package:configure', 'integration:read', 'integration:configure', 'user:read', 'user:manage', 'logs:read', 'settings:read', 'settings:write', 'audit:read', 'system:read');
+WHERE r.key = 'admin' AND p.key IN ('entity:read', 'entity:control', 'entity:write', 'entity:delete', 'device:read', 'device:write', 'device:delete', 'area:read', 'area:write', 'tag:read', 'tag:write', 'automation:read', 'automation:write', 'automation:trigger', 'scene:read', 'scene:apply', 'scene:write', 'alias:read', 'alias:write', 'dashboard:manage', 'history:read', 'package:read', 'package:install', 'package:configure', 'integration:read', 'integration:configure', 'user:read', 'user:manage', 'logs:read', 'settings:read', 'settings:write', 'audit:read', 'system:read', 'container:read', 'container:control');
 INSERT INTO auth.role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM auth.roles r, auth.permissions p
 WHERE r.key = 'member' AND p.key IN ('entity:read', 'entity:control', 'device:read', 'area:read', 'tag:read', 'automation:read', 'automation:trigger', 'scene:read', 'scene:apply', 'alias:read', 'history:read', 'package:read', 'integration:read');
