@@ -6,7 +6,7 @@
  * routes, that a JetStream stream really captures an ordinary publish, and that a durable
  * consumer really remembers where it got to across a reconnect.
  *
- * Requires the development broker: `docker compose -f infra/docker-compose.dev.yml up -d nats`.
+ * Requires the development broker: `pnpm infra:up`.
  */
 import { Writable } from 'node:stream';
 
@@ -32,7 +32,7 @@ import {
   type BusConnection,
 } from '@/index.js';
 
-/** The development broker from `infra/docker-compose.dev.yml`, and nothing else. */
+/** The development broker started by `pnpm infra:up`, and nothing else. */
 const NATS_URL = 'nats://localhost:4222';
 
 const kitchenLight = 'light.kitchen_ceiling' as EntityId;

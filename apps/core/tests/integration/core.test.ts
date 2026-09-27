@@ -7,7 +7,7 @@
  * every one of those hops crosses a boundary that a unit test replaces with a double.
  *
  * Requires the development infrastructure:
- * `docker compose -f infra/docker-compose.dev.yml up -d`, then `pnpm db:migrate`.
+ * `pnpm infra:up`, then `pnpm db:migrate`.
  */
 import { Writable } from 'node:stream';
 
@@ -37,7 +37,7 @@ import { CoreService } from '@/service.js';
 import { FakeAdapter } from './support/fake-adapter.js';
 import { insertFixture, removeFixture, type Fixture } from './support/fixtures.js';
 
-/** The development infrastructure from `infra/docker-compose.dev.yml`. */
+/** The development infrastructure started by `pnpm infra:up`. */
 const NATS_URL = 'nats://localhost:4222';
 const DATABASE_URL = 'postgres://nebula:nebula@localhost:5432/nebula';
 

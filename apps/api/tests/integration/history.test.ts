@@ -7,7 +7,7 @@
  * breaks without a unit test noticing. Rows are written straight into the tables, the one-minute
  * aggregate is refreshed by hand, and the endpoints are asked for them back.
  *
- * Needs the development stack: `docker compose -f infra/docker-compose.dev.yml up -d` and
+ * Needs the development stack: `pnpm infra:up` and
  * `pnpm db:migrate`. Every row is scoped to ids unique to the run and removed afterwards.
  */
 import { randomUUID } from 'node:crypto';

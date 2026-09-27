@@ -6,7 +6,7 @@
  * allows. Here one member sits on a device tagged for the caller and one does not, and the
  * fake `core` in the harness records what actually reached it.
  *
- * Needs the development stack: `docker compose -f infra/docker-compose.dev.yml up -d` and
+ * Needs the development stack: `pnpm infra:up` and
  * `pnpm db:migrate`. Every row is scoped to an id unique to the run and removed afterwards.
  */
 import { randomUUID } from 'node:crypto';

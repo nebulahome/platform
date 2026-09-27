@@ -2,18 +2,25 @@
 
 Everything needed to run NebulaHome that is not application code.
 
-| Path                       | What it is                                                           | Versioned |
-| -------------------------- | -------------------------------------------------------------------- | --------- |
-| `docker-compose.yml`       | NebulaHome in one container: the database, the bus, every service    | yes       |
-| `docker-compose.local.yml` | The same, for Docker Desktop: a bridge network with the ports opened | yes       |
-| `docker.env.example`       | The container's settings, to copy to `docker.env`                    | yes       |
-| `docker/`                  | What the image runs: the s6 services and the scripts they start with | yes       |
-| `docker-compose.dev.yml`   | PostgreSQL, NATS and Mosquitto for local development                 | yes       |
-| `seed/dev.sql`             | Fake devices and history so the UI has something to render           | yes       |
-| `data/`                    | The data directory in development: every file the services keep      | no        |
+| Path                 | What it is                                                                  | Versioned |
+| -------------------- | --------------------------------------------------------------------------- | --------- |
+| `docker-compose.yml` | Everything Docker runs: the platform's container, and the development stack | yes       |
+| `.env.example`       | Its settings - the network, the ports, the keys - to copy to `.env`         | yes       |
+| `docker/`            | What the image runs: the s6 services and the scripts they start with        | yes       |
+| `seed/dev.sql`       | Fake devices and history so the UI has something to render                  | yes       |
+| `data/`              | The data directory in development: every file the services keep             | no        |
 
-`data/` and `docker.env` are git-ignored: they are machine-local, and they hold private keys -
-the proxy's certificates, the instance keys - that must never reach the repository.
+`data/` and `.env` are git-ignored: they are machine-local, and they hold private keys - the
+proxy's certificates, the instance keys - that must never reach the repository.
+
+**One compose file, one project** (`nebulahome`), with two ways to use it:
+
+| Command          | Starts                                          | For                                         |
+| ---------------- | ----------------------------------------------- | ------------------------------------------- |
+| `pnpm docker:up` | `nebulahome`: the whole platform, one container | Running NebulaHome as it is installed       |
+| `pnpm infra:up`  | `postgres`, `nats`, `mosquitto`                 | `pnpm dev`, the services run on the machine |
+
+The two do not share anything - each has its own database - and can run side by side.
 
 ## The container
 
@@ -29,14 +36,14 @@ pnpm docker:restart     # restart the container
 pnpm docker:down        # stop it; the volumes stay
 ```
 
-The page is on the host's port **8080**, and **8443** with a self-signed certificate. On first
-start there is no account: the page opens on the first-run screen that creates the owner.
+The page is on http://localhost:8080, and https://localhost:8443 with a self-signed
+certificate. On first start there is no account: the page opens on the first-run screen that
+creates the owner.
 
 | Command                | What it does                                                                      |
 | ---------------------- | --------------------------------------------------------------------------------- |
 | `pnpm docker:build`    | Builds the image `nebulahome:local` without starting it                           |
 | `pnpm docker:up`       | Builds and starts, and waits for the health check                                 |
-| `pnpm docker:up:local` | The same with `docker-compose.local.yml`, for Docker Desktop                      |
 | `pnpm docker:down`     | Stops and removes the container. The data, the database and the keys stay         |
 | `pnpm docker:restart`  | Restarts it                                                                       |
 | `pnpm docker:logs`     | Follows the logs                                                                  |
@@ -59,7 +66,7 @@ In order, each once the one before is ready:
 2. `init-secrets` - every secret that is missing, generated once into `/data/secrets/` (0600):
    the instance keys `NEBULA_SECRETS_KEY` and `API_TOTP_ENCRYPTION_KEY`, `API_JWT_SECRET`, the
    PostgreSQL and NATS passwords, one password per service role, and the proxy's self-signed
-   certificate. A variable set in `docker.env` wins over its file.
+   certificate. A variable set in `infra/.env` wins over its file.
 3. `postgres` - on `127.0.0.1:5433`, passwords required over TCP.
 4. `init-db` - migrates the database and gives each service role its password. An upgrade is
    "build, start": the new migrations apply here.
@@ -67,8 +74,8 @@ In order, each once the one before is ready:
 6. `core`, `hub`, `api` (`127.0.0.1:4100`), `backup`, `proxy` (`8080`, `8443`). Each connects to
    the database as its own role (DATABASE.md §12); `backup` runs as root, for the mounts.
 
-The ports are not the usual ones on purpose: the container shares the host's network, and must
-not collide with a development stack on the same machine.
+The ports are not the usual ones on purpose: on the host's network the container shares the
+machine's ports, and must not collide with the development stack.
 
 A service that exits with code 78 (bad configuration), 79 (schema mismatch) or 80 (bus version)
 is not restarted: the container stops with that code, since starting again would fail the same
@@ -84,14 +91,32 @@ way. `docker:logs` says why.
 
 ### The network
 
-`docker-compose.yml` puts the container on the **host's network**, because `hub` has to hear
-devices announcing themselves - mDNS, UDP broadcasts - which a bridge network does not carry.
-That is the setup for a Linux server.
+By default the container is on a **bridge network** with the page's ports published. That works
+everywhere, Docker Desktop included, and needs nothing set.
 
-**Docker Desktop** (Windows, macOS) has no LAN on its host network: the "host" is a virtual
-machine. There, use `pnpm docker:up:local`, which puts the container on a bridge network,
-publishes 8080 and 8443, and turns discovery off: http://localhost:8080. Devices can still be
-added by address.
+A bridge does not carry multicast, and multicast is how devices are found: the hub asks the mDNS
+group `224.0.0.251`, Govee lights answer a scan sent to `239.255.255.250`, Bambu Lab printers and
+Shelly Gen1 devices announce themselves to their groups. Publishing a port forwards what is sent
+to one address, never a group. So on the bridge **discovery is off** and devices are added by
+their address, which works: the hub reaches them as any client would. Two things are slower or
+missing there - a Shelly Gen1's pushed changes (it is read on its timer instead) and a Govee
+light's replies, which the light sends to port 4002 of the asker.
+
+On a **Linux server**, put the container on the host's network in `infra/.env`:
+
+```bash
+NEBULA_NETWORK=host
+HUB_DISCOVERY_ENABLED=true
+```
+
+There it is on the machine's own network: discovery works, and nothing needs publishing - the
+page is on the machine's ports 8080 and 8443.
+
+**Docker Desktop** (Windows, macOS) is different: its "host" network is its own virtual
+machine's, which reaches no device on the LAN, and its page is not even reachable from Windows.
+Keep the bridge there. Checked on 2026-09-27 with the same mDNS question from three places: the
+Windows machine heard the Shelly devices answer, the container on the bridge and the one on
+Docker Desktop's host network heard nothing but themselves.
 
 ### Backups to a disk or a share
 
@@ -108,8 +133,9 @@ turned off). For more:
 
 ### Settings
 
-Copy `docker.env.example` to `docker.env` and uncomment what you change: the time zone, the log
-level, the ports, discovery. Everything has a default; `docker.env` is optional.
+Copy `.env.example` to `.env`, here in `infra/`, and uncomment what you change: the network,
+the ports, the time zone, the log level. Everything has a default; the file is optional. Compose
+reads it twice: to fill in `docker-compose.yml`, and as the container's environment.
 
 To bring an existing installation's keys into a new container, set `NEBULA_SECRETS_KEY` and
 `API_TOTP_ENCRYPTION_KEY` there - or restore a backup, which carries them.
@@ -139,16 +165,22 @@ integrations catalogue exists - the image carries them too.
 
 ## Development
 
-The services run on the host with `pnpm dev`; only the database and the bus are containers:
+The services run on the machine with `pnpm dev`; only the database, the bus and the MQTT
+broker are containers - the `postgres`, `nats` and `mosquitto` services of the same compose file,
+started by name:
 
 ```bash
 pnpm infra:up           # PostgreSQL, NATS and Mosquitto; waits until they are healthy
 pnpm db:migrate         # once, and after every new migration
 pnpm infra:logs         # follow their logs
 pnpm infra:down         # stop them, keep the data
-pnpm db:reset           # wipe the database, start it again and migrate
+pnpm db:reset           # empty the database and migrate it again
 pnpm db:psql            # psql on it
 ```
+
+Why not the platform's container: natively, a change reloads in a second instead of an image
+build, a debugger attaches, and the hub is on the LAN - on Windows, the only way it can find
+devices (above).
 
 The containers give you an empty PostgreSQL. Nothing in it exists until `pnpm db:migrate` has
 run - not the tables, not the roles, not the view every service reads at startup to check it is

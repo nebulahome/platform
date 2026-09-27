@@ -45,8 +45,8 @@ pnpm dev
 ```
 
 To run NebulaHome as it is installed - one container with the database, the bus and every
-service - `pnpm docker:up`, then http://localhost:8080 (`pnpm docker:up:local` on Docker
-Desktop). See [infra/README.md](infra/README.md).
+service - `pnpm docker:up`, then http://localhost:8080. Both come from the one compose file,
+`infra/docker-compose.yml`; see [infra/README.md](infra/README.md).
 
 ## Everyday commands
 

@@ -7,8 +7,9 @@
 **/*.tsbuildinfo
 .git
 .husky/_
-.env
-.env.*
-!.env.example
+# Every .env, infra/.env too: it can hold the instance keys, which must not reach an image.
+**/.env
+**/.env.*
+!**/.env.example
 infra/data
 infra/certs

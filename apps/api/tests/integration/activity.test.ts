@@ -6,7 +6,7 @@
  * reads a new value. The activity shows the relay's three changes, newest first, pages through
  * them without losing one, and shows nothing of the meter - its readings are the history chart's.
  *
- * Needs the development stack: `docker compose -f infra/docker-compose.dev.yml up -d` and
+ * Needs the development stack: `pnpm infra:up` and
  * `pnpm db:migrate`. Every row is scoped to ids unique to the run and removed afterwards.
  */
 import { randomUUID } from 'node:crypto';

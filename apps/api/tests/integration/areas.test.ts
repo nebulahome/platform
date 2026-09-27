@@ -11,7 +11,7 @@
  * already made theirs, the run builds under that house, leaves it where it stands, and removes
  * only what it added. What the one-house rule refuses is asserted either way.
  *
- * Needs the development stack: `docker compose -f infra/docker-compose.dev.yml up -d` and
+ * Needs the development stack: `pnpm infra:up` and
  * `pnpm db:migrate`. Every row is scoped to an id unique to the run and removed afterwards.
  */
 import { randomUUID } from 'node:crypto';

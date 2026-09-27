@@ -7,7 +7,7 @@
  * no such dashboard, exactly as if it had never existed. Re-assigning moves it from one list to the
  * other, removing an account takes its assignments with it, and the dashboard stays.
  *
- * Needs the development stack: `docker compose -f infra/docker-compose.dev.yml up -d` and
+ * Needs the development stack: `pnpm infra:up` and
  * `pnpm db:migrate`. Every row is scoped to ids unique to the run and removed afterwards.
  */
 import { randomUUID } from 'node:crypto';

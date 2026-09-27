@@ -8,7 +8,7 @@
  * Requires the development stack:
  *
  * ```
- * docker compose -f infra/docker-compose.dev.yml up -d
+ * pnpm infra:up
  * ```
  */
 import { Writable } from 'node:stream';

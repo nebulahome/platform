@@ -1,12 +1,17 @@
-# NebulaHome in one container: PostgreSQL with TimescaleDB, NATS and every service, built from
-# this repository (../Dockerfile). The production layout of ARCHITECTURE.md 14.
+# NebulaHome's one compose file.
 #
-#   pnpm docker:up        build and start      pnpm docker:logs    follow the logs
-#   pnpm docker:down      stop                 pnpm docker:wipe    stop and delete every volume
+#   pnpm docker:up     the whole platform in one container (../Dockerfile): http://localhost:8080
+#   pnpm infra:up      only PostgreSQL, NATS and Mosquitto, for the services run natively (pnpm dev)
 #
-# On the host's network, so hub hears devices announcing themselves (mDNS, UDP broadcasts): the
-# page is on port 8080 (and 8443 with a self-signed certificate) of the host. Docker Desktop has
-# no LAN on its host network: use docker-compose.local.yml there (pnpm docker:up:local).
+# Settings are in infra/.env, optional (see .env.example beside this file): read both to fill in
+# this file and as the container's environment.
+#
+# The platform's network is a bridge by default, with the page's ports published: that works
+# everywhere, Docker Desktop included. A bridge carries no multicast, so the hub cannot hear devices
+# announce themselves there and discovery is off: devices are added by address. On a Linux server,
+# NEBULA_NETWORK=host puts the container on the host's network instead, where discovery works and
+# no port needs publishing (ARCHITECTURE.md 14). Docker Desktop's "host" is its own virtual
+# machine's network, which reaches no device on the LAN: keep the bridge there.
 
 name: nebulahome
 
@@ -17,13 +22,19 @@ services:
       dockerfile: Dockerfile
       target: runtime
     image: nebulahome:local
-    network_mode: host
+    network_mode: ${NEBULA_NETWORK:-bridge}
+    # Ignored on the host's network, where the page is on the host's own ports.
+    ports:
+      - '${NEBULA_HTTP_PORT:-8080}:8080'
+      - '${NEBULA_HTTPS_PORT:-8443}:8443'
     restart: unless-stopped
     # Longer than the services' own 10 s shutdown timeout, and PostgreSQL's after them.
     stop_grace_period: 45s
     env_file:
-      - path: docker.env
+      - path: .env
         required: false
+    environment:
+      HUB_DISCOVERY_ENABLED: ${HUB_DISCOVERY_ENABLED:-false}
     volumes:
       - nebula-data:/data
       - nebula-postgres:/var/lib/postgresql/data
@@ -37,7 +48,64 @@ services:
     security_opt:
       - apparmor:unconfined
 
+  # What `pnpm dev` runs against: the services themselves run on the machine, so a reload takes a
+  # second, a debugger attaches, and the hub is on the LAN. Started only by name (pnpm infra:up).
+
+  postgres:
+    profiles: [dev]
+    # TimescaleDB rather than plain postgres: the history schema is built on hypertables and
+    # continuous aggregates. Pinned to the tag the image is built on: a backup is restored only
+    # into the TimescaleDB version that made it.
+    image: timescale/timescaledb:2.29.2-pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nebula
+      POSTGRES_PASSWORD: nebula
+      POSTGRES_DB: nebula
+    ports:
+      - '5432:5432'
+    volumes:
+      - dev-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nebula -d nebula']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  nats:
+    profiles: [dev]
+    image: nats:2.14.6-alpine
+    restart: unless-stopped
+    # -js enables JetStream, which the telemetry stream needs to survive a core restart.
+    command: ['-js', '-m', '8222']
+    ports:
+      - '4222:4222'
+      - '8222:8222'
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:8222/healthz']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # An MQTT broker, because that is how Zigbee reaches the platform: zigbee2mqtt publishes a rich
+  # device model here and the mqtt transport consumes it. Also what the mqtt transport is tested
+  # against - a real broker rather than a fake, since reconnection and topic matching are exactly
+  # the parts a fake would get wrong.
+  mosquitto:
+    profiles: [dev]
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    command: ['mosquitto', '-c', '/mosquitto-no-auth.conf']
+    ports:
+      - '1883:1883'
+    healthcheck:
+      test: ['CMD', 'mosquitto_pub', '-h', 'localhost', '-t', 'healthcheck', '-m', 'ok']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   nebula-data:
   nebula-postgres:
   nebula-nats:
+  dev-postgres:

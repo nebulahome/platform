@@ -6,7 +6,7 @@
  * entity's state, which is `core`'s alone. Deleting goes through `core`. The fake `core` in the
  * harness records what it was asked, and can be made to refuse.
  *
- * Needs the development stack: `docker compose -f infra/docker-compose.dev.yml up -d` and
+ * Needs the development stack: `pnpm infra:up` and
  * `pnpm db:migrate`. Every row is scoped to an id unique to the run and removed afterwards.
  */
 import { randomUUID } from 'node:crypto';

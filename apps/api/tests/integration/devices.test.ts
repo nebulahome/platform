@@ -8,7 +8,7 @@
  * the whole connection half back with a rename, and only a difference from the row may cost the
  * hub a restart.
  *
- * Needs the development stack: `docker compose -f infra/docker-compose.dev.yml up -d` and
+ * Needs the development stack: `pnpm infra:up` and
  * `pnpm db:migrate`. Every row is scoped to an id unique to the run and removed afterwards.
  */
 import { randomUUID } from 'node:crypto';

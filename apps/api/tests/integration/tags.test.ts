@@ -6,7 +6,7 @@
  * and a read back: a tag made, put on a device and on an entity, counted, searched by, renamed,
  * and taken off everything when it goes.
  *
- * Needs the development stack: `docker compose -f infra/docker-compose.dev.yml up -d` and
+ * Needs the development stack: `pnpm infra:up` and
  * `pnpm db:migrate`. Every row is scoped to an id unique to the run and removed afterwards.
  */
 import { randomUUID } from 'node:crypto';
