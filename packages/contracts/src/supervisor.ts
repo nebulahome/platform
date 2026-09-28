@@ -607,9 +607,21 @@ export const containersViewSchema = z.object({
 /** `GET /containers`. */
 export type ContainersView = z.output<typeof containersViewSchema>;
 
+/**
+ * Where a container's log was last read up to: the time Docker received the last line, to the
+ * nanosecond, as the seconds since 1970 and their fraction - `1790608123.123456789`, what Docker's
+ * own `since` takes. Opaque to a caller, which hands back the one it was given.
+ */
+export const containerLogCursorSchema = z
+  .string()
+  .regex(/^\d{1,12}(?:\.\d{1,9})?$/, 'Must be a cursor a previous read returned');
+
 /** `GET /containers/:name/logs`. */
 export const containerLogsQuerySchema = z.object({
   tail: z.coerce.number().int().min(1).max(2000).default(200),
+
+  /** Only the lines after this cursor, for a page that follows the log: what the last read gave. */
+  since: containerLogCursorSchema.optional(),
 });
 
 /** `svc.supervisor.status`, `list`, `check_updates`, `suspend_managed`, `resume_managed`. */
@@ -628,7 +640,16 @@ export const CONTAINER_LOG_MAXIMUM_LINES = 2000;
 export const containerLogsRequestSchema = z.strictObject({
   name: containerNameSchema,
   tail: z.int().min(1).max(CONTAINER_LOG_MAXIMUM_LINES).default(200),
+
+  /** Only the lines after this cursor; at most `tail` of them, the newest. */
+  since: containerLogCursorSchema.optional(),
 });
+
+/**
+ * The most a reply of lines may weigh, in characters: under NATS' one megabyte with room for the
+ * envelope, however long the lines. A reply that would be heavier keeps its newest lines.
+ */
+export const CONTAINER_LOG_MAXIMUM_CHARACTERS = 512_000;
 
 /** Which container, and how many lines. */
 export type ContainerLogsRequest = z.output<typeof containerLogsRequestSchema>;
@@ -647,6 +668,15 @@ export type ContainerLogLine = z.output<typeof containerLogLineSchema>;
 /** The reply to `svc.supervisor.logs`: oldest first. */
 export const containerLogsReplySchema = z.object({
   lines: z.array(containerLogLineSchema).max(CONTAINER_LOG_MAXIMUM_LINES),
+
+  /**
+   * Where the next read carries on from, handed back as `since`: the last line's, or the one
+   * asked with when nothing new came. Null when no line carried a time.
+   */
+  cursor: containerLogCursorSchema.nullable().default(null),
+
+  /** Whether older lines were left out to keep the reply under its weight. */
+  isTruncated: z.boolean().default(false),
 });
 
 /** The reply to `svc.supervisor.logs`. */
