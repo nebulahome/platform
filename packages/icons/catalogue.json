@@ -166,6 +166,12 @@
       "lucide": "bot"
     },
     {
+      "id": "lawn-mower",
+      "name": "Lawn mower",
+      "keywords": ["robot", "mower", "grass", "garden", "goat"],
+      "lucide": "tractor"
+    },
+    {
       "id": "sprinkler",
       "name": "Sprinkler",
       "keywords": ["garden", "irrigation", "lawn"],
