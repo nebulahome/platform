@@ -37,6 +37,7 @@ import {
   managedCreateBody,
   managedName,
   NETWORK_LABELS,
+  isAnotherInstallations,
   platformValues,
   volumeFolder,
   type PlatformContext,
@@ -58,6 +59,9 @@ export type ManagedContainersOptions = {
 
   /** The platform as the containers see it; null while Docker cannot be reached. */
   readonly context: () => PlatformContext | null;
+
+  /** Which installation this is: a managed container another one made is left to it. */
+  readonly installationId: string;
 
   /** The platform's own container, to put on the shared network. */
   readonly selfId: () => string | null;
@@ -176,7 +180,8 @@ export class ManagedContainers {
     if (
       labels[MANAGED_LABELS.managed] !== 'true' ||
       vendorId === undefined ||
-      dependencyId === undefined
+      dependencyId === undefined ||
+      isAnotherInstallations(labels, this.#options.installationId)
     ) {
       return null;
     }
@@ -333,6 +338,19 @@ export class ManagedContainers {
       }
 
       const existing = await this.#inspect(name);
+
+      if (
+        existing !== undefined &&
+        isAnotherInstallations(existing.Config.Labels, this.#options.installationId)
+      ) {
+        record({
+          state: 'missing',
+          error: `Another NebulaHome on this Docker runs ${name}, so this one leaves it alone. Stop that one, or remove its container, to run it from here.`,
+        });
+
+        return;
+      }
+
       const installedTag =
         existing === undefined ? null : parseImageReference(existing.Config.Image).tag;
       const labels =

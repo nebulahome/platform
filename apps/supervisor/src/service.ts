@@ -281,6 +281,7 @@ export class SupervisorService {
        * @returns The context, or null while Docker cannot be reached.
        */
       context: () => this.#context,
+      installationId: this.#config.NEBULA_INSTALLATION_ID,
 
       /**
        * The platform's own container.
@@ -1042,6 +1043,7 @@ export class SupervisorService {
     this.#status = { ...this.#status, platformNetwork: network };
     this.#context = {
       network,
+      installationId: this.#config.NEBULA_INSTALLATION_ID,
       networkName: this.#config.SUPERVISOR_NETWORK,
       platformAlias: this.#config.SUPERVISOR_PLATFORM_ALIAS,
       mqtt:

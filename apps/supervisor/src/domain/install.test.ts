@@ -7,6 +7,7 @@ import type { PlatformContext } from './managed.js';
 
 const CONTEXT: PlatformContext = {
   network: 'bridge',
+  installationId: 'test',
   networkName: 'nebulahome',
   platformAlias: 'nebulahome',
   mqtt: null,

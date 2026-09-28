@@ -158,6 +158,7 @@ describe.skipIf(!isReachable)('a container, through the engine', () => {
       logger,
       dataRoot: '.',
       context: () => null,
+      installationId: 'test',
 
       /**
        * The throwaway container stands in for the platform's.
@@ -169,6 +170,7 @@ describe.skipIf(!isReachable)('a container, through the engine', () => {
     });
     const context = {
       network: 'bridge',
+      installationId: 'test',
       networkName: network,
       platformAlias: 'platform-under-test',
       mqtt: null,

@@ -82,6 +82,16 @@ export const supervisorEnvSchema = runtimeEnvSchema
       .regex(/^[a-z][a-z0-9-]{0,62}$/)
       .default('nebulahome'),
 
+    /**
+     * Which installation this is, labelled on every container an integration runs, so that a
+     * development platform and the all-in-one container sharing one Docker leave each other's
+     * alone. The container's is generated once (`secrets/installation-id`).
+     */
+    NEBULA_INSTALLATION_ID: z
+      .string()
+      .regex(/^[A-Za-z0-9._-]{1,64}$/)
+      .default('development'),
+
     /** The time zone handed to the containers an integration runs, as `Europe/Rome`. */
     TZ: z.string().min(1).max(64).default('UTC'),
   })

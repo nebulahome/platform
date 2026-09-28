@@ -4,6 +4,8 @@ import type { ManagedContainerSpec } from '@nebula-home/contracts';
 
 import {
   fillPlaceholders,
+  isAnotherInstallations,
+  MANAGED_LABELS,
   managedCreateBody,
   managedName,
   platformValues,
@@ -31,6 +33,7 @@ const SPEC: ManagedContainerSpec = {
 
 const BRIDGE: PlatformContext = {
   network: 'bridge',
+  installationId: 'test',
   networkName: 'nebulahome',
   platformAlias: 'nebulahome',
   mqtt: { url: 'mqtt://127.0.0.1:1884', username: 'nebula', password: 'secret' },
@@ -61,6 +64,23 @@ describe('platformValues', () => {
   it("points at Docker's name for the machine when the platform is not in a container", () => {
     expect(platformValues({ ...BRIDGE, network: 'native' })['platform.mqtt.url']).toBe(
       'mqtt://host.docker.internal:1884',
+    );
+  });
+});
+
+describe('isAnotherInstallations', () => {
+  it('leaves a container another installation made to it, and takes one made before labels', () => {
+    const made = managedCreateBody(SPEC, '2.14.1', BRIDGE).body['Labels'] as Record<string, string>;
+
+    expect(made[MANAGED_LABELS.installation]).toBe('test');
+    expect(isAnotherInstallations(made, 'test')).toBe(false);
+    expect(isAnotherInstallations(made, 'development')).toBe(true);
+    expect(isAnotherInstallations({ [MANAGED_LABELS.managed]: 'true' }, 'test')).toBe(false);
+  });
+
+  it('makes a container again for another installation, which has another hash', () => {
+    expect(managedCreateBody(SPEC, '2.14.1', BRIDGE).hash).not.toBe(
+      managedCreateBody(SPEC, '2.14.1', { ...BRIDGE, installationId: 'development' }).hash,
     );
   });
 });

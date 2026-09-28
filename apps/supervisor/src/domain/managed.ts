@@ -13,6 +13,11 @@
  * Everything the supervisor needs to find a container again is on it, as labels: which vendor
  * runs it, which of its containers it is, and a hash of what it was made from. A container whose
  * hash differs from its declaration's is made again; one that matches is left running.
+ *
+ * And which installation made it: a development platform and the all-in-one container may share
+ * one Docker, each with a supervisor that would otherwise make the other's `nebulahome-<vendor>`
+ * again - its broker, its network - every time it looked. A container another installation made
+ * is left to it.
  */
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -32,6 +37,7 @@ export const MANAGED_LABELS = {
   dependency: 'io.nebulahome.dependency',
   spec: 'io.nebulahome.spec',
   minVersion: 'io.nebulahome.min-version',
+  installation: 'io.nebulahome.installation',
 } as const;
 
 /** The labels the network the managed containers share carries. */
@@ -50,6 +56,9 @@ export type DataMount =
 export type PlatformContext = {
   readonly network: PlatformNetworkMode;
 
+  /** Which installation this is, labelled on every container it makes. */
+  readonly installationId: string;
+
   /** The network the managed containers share, on a bridge or in development. */
   readonly networkName: string;
 
@@ -65,6 +74,23 @@ export type PlatformContext = {
   readonly timezone: string;
   readonly dataMount: DataMount;
 };
+
+/**
+ * Whether another installation made a managed container, which this one then leaves alone.
+ *
+ * @param labels - The container's labels.
+ * @param installationId - This installation.
+ * @returns True for one labelled with another installation; false for this one's, and for one
+ *   made before containers were labelled with it, which is taken as this one's.
+ */
+export function isAnotherInstallations(
+  labels: Readonly<Record<string, string>>,
+  installationId: string,
+): boolean {
+  const made = labels[MANAGED_LABELS.installation];
+
+  return made !== undefined && made !== installationId;
+}
 
 /**
  * The name of the container that is one of a vendor's declared containers.
@@ -241,6 +267,7 @@ export function managedCreateBody(
       [MANAGED_LABELS.dependency]: spec.dependencyId,
       [MANAGED_LABELS.spec]: hash,
       [MANAGED_LABELS.minVersion]: spec.minVersion,
+      [MANAGED_LABELS.installation]: context.installationId,
     },
     ExposedPorts: Object.fromEntries(
       spec.ports.map((port) => [`${String(port.container)}/${port.protocol}`, {}]),
@@ -308,6 +335,7 @@ function specHash(
         ports: spec.ports,
         network: context.network,
         dataMount: context.dataMount,
+        installation: context.installationId,
       }),
     )
     .digest('hex')
