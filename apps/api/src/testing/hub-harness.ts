@@ -141,6 +141,8 @@ export const CATALOGUE: CatalogueReply = {
       transports: ['mqtt'],
       wires: ['mqtt'],
       discoverySources: [],
+      adoption: 'owner',
+      pairing: null,
       containers: [],
       setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
       drivers: [
@@ -165,6 +167,8 @@ export const CATALOGUE: CatalogueReply = {
       transports: ['mqtt'],
       wires: ['mqtt'],
       discoverySources: [],
+      adoption: 'owner',
+      pairing: null,
       containers: [],
       setup: {
         transport: {

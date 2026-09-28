@@ -54,6 +54,9 @@ export type AuditEntry = {
   /** Who did it, when the request was authenticated. */
   readonly identity?: Identity | undefined;
 
+  /** Whether the platform did it on its own, with nobody asking: a device its vendor adds. */
+  readonly isSystem?: boolean;
+
   /** Who they claimed to be, when it was not. */
   readonly actorLabel?: string;
 
@@ -100,7 +103,12 @@ export class AuditLog {
    * @param entry - What happened.
    */
   public async record(entry: AuditEntry): Promise<void> {
-    const actorType: ActorType = entry.identity?.credential === 'access_token' ? 'token' : 'user';
+    const actorType: ActorType =
+      entry.isSystem === true
+        ? 'system'
+        : entry.identity?.credential === 'access_token'
+          ? 'token'
+          : 'user';
 
     try {
       await this.#db.insert(schema.system.auditLog).values({
@@ -110,7 +118,10 @@ export class AuditLog {
         // Not null: the column is NOT NULL because an entry that cannot say who acted is
         // not worth keeping. An unauthenticated attempt records what was typed as the
         // username, which is the only identity there is at that moment.
-        actorLabel: entry.identity?.username ?? entry.actorLabel ?? 'unknown',
+        actorLabel:
+          entry.identity?.username ??
+          entry.actorLabel ??
+          (entry.isSystem === true ? 'system' : 'unknown'),
 
         action: entry.action,
         resourceType: entry.resourceType,

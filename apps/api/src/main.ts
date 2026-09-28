@@ -23,8 +23,10 @@ import { ChallengeStore } from './auth/challenges.js';
 import { apiEnvSchema, SERVICE_NAME, SERVICE_VERSION } from './config.js';
 import type { ApiContext } from './context.js';
 import { IdempotencyStore } from './http/idempotency.js';
+import { forRequest } from './routes/devices.js';
 import { buildServer } from './server.js';
 import { AuditLog } from './services/audit.js';
+import { AutoAdoption } from './services/auto-adoption.js';
 import { EventFanout } from './services/events.js';
 import { createIconStore, IconService } from './services/icons.js';
 import { MaintenanceMonitor } from './services/maintenance.js';
@@ -207,6 +209,20 @@ async function start(): Promise<void> {
   };
 
   const server = await buildServer(context);
+  const autoAdoption = new AutoAdoption({
+    /**
+     * The collaborators a device is added with, as a request would have them.
+     *
+     * @param traceId - The pass's trace id.
+     * @returns The context.
+     */
+    contextFor: (traceId) => forRequest(context, traceId),
+    audit: context.audit,
+  });
+
+  if (client !== undefined) {
+    autoAdoption.start(client);
+  }
 
   await server.listen({ host: config.API_HOST, port: config.API_PORT });
 
@@ -240,6 +256,7 @@ async function start(): Promise<void> {
         await server.close();
         idempotency.stop();
         events.stop();
+        autoAdoption.stop();
         maintenance.stop();
         await connection?.close();
         await database.close();
