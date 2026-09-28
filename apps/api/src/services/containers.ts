@@ -158,14 +158,21 @@ export async function readContainer(
  * @param context - The bus.
  * @param name - Its name.
  * @param tail - How many lines.
- * @returns The lines, oldest first.
+ * @param since - Only the lines after this cursor, which the last read answered.
+ * @returns The lines, oldest first, and where the next read carries on.
  */
 export async function readContainerLogs(
   context: ContainersContext,
   name: string,
   tail: number,
+  since?: string,
 ): Promise<ContainerLogsReply> {
-  return askSupervisor(context, SUPERVISOR_METHODS.logs, { name, tail }, containerLogsReplySchema);
+  return askSupervisor(
+    context,
+    SUPERVISOR_METHODS.logs,
+    { name, tail, ...(since === undefined ? {} : { since }) },
+    containerLogsReplySchema,
+  );
 }
 
 /**

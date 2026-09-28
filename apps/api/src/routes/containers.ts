@@ -176,8 +176,8 @@ export function registerContainerRoutes(environment: RouteEnvironment, context: 
     /**
      * Reads a container's logs.
      *
-     * @param route - Who is asking, which container and how many lines.
-     * @returns The lines, oldest first.
+     * @param route - Who is asking, which container, how many lines and after which cursor.
+     * @returns The lines, oldest first, and where the next read carries on.
      */
     async (route): Promise<ContainerLogsReply> => {
       requirePermission(route.identity, 'container:read');
@@ -186,6 +186,7 @@ export function registerContainerRoutes(environment: RouteEnvironment, context: 
         supervisorContext(context, route.request.traceId),
         route.params.name,
         route.query.tail,
+        route.query.since,
       );
     },
   );
