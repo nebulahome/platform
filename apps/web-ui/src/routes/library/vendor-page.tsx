@@ -22,6 +22,10 @@
  * asks the hub to look now rather than at its next pass - for as long as the hub says it looks -
  * and then says what came of it: how many were found, nothing new, or that the hub is not
  * looking at all.
+ *
+ * A vendor whose devices are chosen somewhere else - paired with Zigbee2MQTT - adds them on its
+ * own: its page has no Add device and nothing to adopt, only the devices as they come, and in the
+ * header **Pair devices** in place of Discover devices, which is the bridge's own pairing switch.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
@@ -62,6 +66,7 @@ import { SearchField } from '@/routes/library/search-field';
 import { useNetworkScan, type ScanOutcome } from '@/routes/library/use-network-scan';
 import { Marks, VendorLogo } from '@/routes/library/vendor-card';
 import { VendorContainers } from '@/routes/library/vendor-containers';
+import { PairingButton, usePairing } from '@/routes/library/vendor-pairing';
 import { VendorSetupDialog } from '@/routes/library/vendor-setup-dialog';
 
 /**
@@ -266,9 +271,13 @@ export function VendorPage() {
   });
 
   const found = vendor.data;
+  // A vendor that adds its own devices has nothing to propose, and nothing to look for.
+  const isAutomatic = found?.adoption === 'automatic';
   const foundDevices = (discovered.data ?? []).filter((each) => each.vendorId === vendorId);
-  const canDiscover = canWrite && (found?.discoverySources.length ?? 0) > 0;
+  const canDiscover = canWrite && !isAutomatic && (found?.discoverySources.length ?? 0) > 0;
   const devices = (all.data ?? []).filter((each) => each.vendorId === vendorId);
+  const pairing = usePairing(found, devices);
+  const hasPairing = found?.pairing != null;
   const [filter, setFilter] = useListState(VENDOR_DEVICE_FILTER_CODEC);
   const shownDevices = devices.filter(
     (device) =>
@@ -351,8 +360,9 @@ export function VendorPage() {
           )
         }
         action={
-          found !== undefined && (canConfigure || canDiscover) ? (
+          found !== undefined && (canConfigure || canDiscover || hasPairing) ? (
             <>
+              {hasPairing ? <PairingButton pairing={pairing} /> : null}
               {canDiscover ? (
                 <Button
                   variant="ghost"
@@ -481,6 +491,23 @@ export function VendorPage() {
                 : {})}
             />
 
+            {pairing.problem === null ? null : (
+              <p role="alert" className="text-ui text-danger">
+                {pairing.problem}
+              </p>
+            )}
+
+            {pairing.isOpen ? (
+              <p role="status" className="flex items-center gap-2 text-ui text-foreground-muted">
+                <span
+                  aria-hidden="true"
+                  className="size-2 shrink-0 animate-pulse rounded-full bg-primary"
+                />
+                Pairing is open: put the device in pairing mode now, and it is added here once{' '}
+                {found.name} knows it. It closes by itself after about four minutes.
+              </p>
+            ) : null}
+
             {network.problem === null ? null : (
               <p role="alert" className="text-ui text-danger">
                 {network.problem}
@@ -514,7 +541,7 @@ export function VendorPage() {
                   : `Devices · ${String(shownDevices.length)} of ${String(devices.length)}`
               }
               action={
-                canWrite ? (
+                canWrite && !isAutomatic ? (
                   <Button
                     size="compact"
                     disabled={found.needsSetup}
@@ -545,7 +572,9 @@ export function VendorPage() {
 
               {devices.length === 0 ? (
                 <p className="px-4 py-3.5 text-ui text-foreground-muted">
-                  Nothing added yet. Add a device by its address and the hub listens for it at once.
+                  {isAutomatic
+                    ? `Nothing yet. A device paired with ${found.name} is added here on its own.`
+                    : 'Nothing added yet. Add a device by its address and the hub listens for it at once.'}
                 </p>
               ) : shownDevices.length === 0 ? (
                 <div className="p-4">

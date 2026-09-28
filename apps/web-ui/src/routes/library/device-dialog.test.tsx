@@ -119,6 +119,8 @@ const BAMBU: IntegrationVendorView = {
   transports: ['mqtt'],
   wires: ['mqtt'],
   discoverySources: [],
+  adoption: 'owner',
+  pairing: null,
   containers: [],
   containerStatuses: [],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
@@ -151,6 +153,8 @@ const SHELLY: IntegrationVendorView = {
   transports: ['http'],
   wires: ['http'],
   discoverySources: [],
+  adoption: 'owner',
+  pairing: null,
   containers: [],
   containerStatuses: [],
   drivers: [

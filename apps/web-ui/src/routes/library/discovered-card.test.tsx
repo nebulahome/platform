@@ -30,6 +30,7 @@ function found(overrides: Partial<DiscoveredDevice> = {}): DiscoveredDevice {
     swVersion: '1.4.2',
     transportConfig: { host: '192.168.1.40' },
     movedFrom: null,
+    adoption: 'owner',
     firstSeenAt: new Date('2026-09-23T10:00:00.000Z'),
     lastSeenAt: new Date('2026-09-23T10:05:00.000Z'),
     ...overrides,

@@ -36,6 +36,7 @@ import { useState } from 'react';
 import {
   integrationIdSchema,
   modelChoicesOf,
+  suggestDeviceId,
   type DeviceProbeReply,
   type DeviceView,
   type IntegrationVendorView,
@@ -48,7 +49,6 @@ import { CheckIcon, WarningIcon } from '@/components/icons';
 import { roomChoices } from '@/lib/area-tree';
 import { toMessage } from '@/lib/error-message';
 import { createDevice, deleteDevice, probeDevice, updateDevice } from '@/library/api';
-import { suggestDeviceId } from '@/library/device-id';
 import {
   errorsByField,
   initialDraft,

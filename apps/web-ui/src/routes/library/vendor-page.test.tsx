@@ -11,14 +11,25 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
+  entityCommandResponseSchema,
   entityIdSchema,
+  entityViewSchema,
   type DeviceView,
+  type EntityView,
   type DiscoveredDevice,
   type IntegrationVendorView,
 } from '@nebula-home/contracts';
 
 import { useSession } from '@/auth/session-store';
-import { fetchDevices, fetchDiscovered, fetchIcons, fetchVendor, scanNetwork } from '@/library/api';
+import {
+  commandEntity,
+  fetchDevices,
+  fetchDiscovered,
+  fetchEntity,
+  fetchIcons,
+  fetchVendor,
+  scanNetwork,
+} from '@/library/api';
 
 import { VendorPage } from './vendor-page';
 
@@ -37,6 +48,8 @@ vi.mock('@/library/api', () => ({
   updateVendorConfig: vi.fn(),
   fetchTags: vi.fn(() => Promise.resolve([])),
   createTag: vi.fn(),
+  fetchEntity: vi.fn(),
+  commandEntity: vi.fn(),
   LIBRARY_QUERY_KEYS: {
     vendors: ['library', 'vendors'],
     devices: ['library', 'devices'],
@@ -64,6 +77,7 @@ const FOUND: DiscoveredDevice = {
   swVersion: null,
   transportConfig: { url: 'mqtts://192.168.1.62:8883' },
   movedFrom: null,
+  adoption: 'owner',
   firstSeenAt: new Date('2026-09-23T10:00:00.000Z'),
   lastSeenAt: new Date('2026-09-23T10:05:00.000Z'),
 };
@@ -81,6 +95,8 @@ const BAMBU: IntegrationVendorView = {
   transports: ['mqtt'],
   wires: ['mqtt'],
   discoverySources: [],
+  adoption: 'owner',
+  pairing: null,
   containers: [],
   containerStatuses: [],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
@@ -414,5 +430,107 @@ describe('the devices of a vendor found on the network', () => {
     await screen.findByRole('heading', { name: 'Bambu Lab', level: 2 });
 
     expect(screen.queryByRole('button', { name: 'Discover devices' })).toBeNull();
+  });
+});
+
+describe('a vendor that adds its own devices', () => {
+  /** Zigbee2MQTT: devices come by pairing, through the bridge's switch. */
+  const ZIGBEE: IntegrationVendorView = {
+    ...BAMBU,
+    id: 'zigbee2mqtt',
+    name: 'Zigbee2MQTT',
+    discoverySources: ['module'],
+    adoption: 'automatic',
+    pairing: { driverId: 'bridge', objectId: 'permit_join' },
+  };
+
+  /**
+   * The bridge's pairing switch, as last reported.
+   *
+   * @param isOn - Whether pairing is open.
+   * @returns The entity.
+   */
+  function pairingSwitch(isOn: boolean): EntityView {
+    return entityViewSchema.parse({
+      entityId: 'switch.zigbee2mqtt_permit_join',
+      domain: 'switch',
+      name: 'Pairing',
+      icon: 'link',
+      areaKey: null,
+      areaName: null,
+      deviceId: null,
+      source: 'zigbee2mqtt',
+      unitOfMeasurement: null,
+      deviceClass: null,
+      isEnabled: true,
+      isHidden: false,
+      capabilities: [{ capability: 'on_off' }],
+      state: { on_off: { isOn } },
+      isAvailable: true,
+      lastChanged: null,
+      lastUpdated: null,
+    });
+  }
+
+  /** The bridge, added on its own. */
+  const BRIDGE = device({
+    id: 'zigbee2mqtt',
+    name: 'Zigbee2MQTT',
+    kind: 'zigbee2mqtt/bridge',
+    vendorId: 'zigbee2mqtt',
+    driverId: 'bridge',
+    model: 'Bridge',
+  });
+
+  it('offers no Add device and nothing to look for, only pairing', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue(ZIGBEE);
+    vi.mocked(fetchDevices).mockResolvedValue([]);
+    renderPage('zigbee2mqtt', ['device:read', 'entity:control']);
+
+    expect(await screen.findByText(/is added here on its own/u)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add device' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Discover devices' })).toBeNull();
+    // Until the bridge is added there is no switch to press.
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Pair devices' }).disabled).toBe(
+      true,
+    );
+  });
+
+  it("opens pairing through the bridge's switch, and says it is open", async () => {
+    vi.mocked(fetchVendor).mockResolvedValue(ZIGBEE);
+    vi.mocked(fetchDevices).mockResolvedValue([BRIDGE]);
+    vi.mocked(fetchEntity).mockResolvedValue(pairingSwitch(false));
+    vi.mocked(commandEntity).mockResolvedValue(
+      entityCommandResponseSchema.parse({
+        entityId: 'switch.zigbee2mqtt_permit_join',
+        capability: 'on_off',
+        acceptedAt: '2026-09-28T10:00:00.000Z',
+        idempotencyKey: null,
+      }),
+    );
+    renderPage('zigbee2mqtt', ['device:read', 'entity:control']);
+
+    const button = await screen.findByRole<HTMLButtonElement>('button', { name: 'Pair devices' });
+
+    await waitFor(() => {
+      expect(button.disabled).toBe(false);
+    });
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(commandEntity).toHaveBeenCalledWith('switch.zigbee2mqtt_permit_join', 'on_off', {
+        command: 'turn_on',
+      });
+    });
+  });
+
+  it('shows pairing opened elsewhere as open, with the way to stop it', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue(ZIGBEE);
+    vi.mocked(fetchDevices).mockResolvedValue([BRIDGE]);
+    vi.mocked(fetchEntity).mockResolvedValue(pairingSwitch(true));
+    renderPage('zigbee2mqtt', ['device:read', 'entity:control']);
+
+    expect(await screen.findByRole('button', { name: 'Stop pairing' })).toBeTruthy();
+    expect(screen.getByText(/Pairing is open/u)).toBeTruthy();
   });
 });

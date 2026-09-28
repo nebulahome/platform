@@ -20,6 +20,7 @@ import { useState } from 'react';
 
 import {
   isFieldShown,
+  suggestDeviceId,
   type DeviceView,
   type DiscoveredDevice,
   type IntegrationVendorView,
@@ -31,7 +32,6 @@ import { Button, Modal, SelectField } from '@nebula-home/ui';
 import { roomChoices } from '@/lib/area-tree';
 import { toMessage } from '@/lib/error-message';
 import { adoptDiscovered } from '@/library/api';
-import { suggestDeviceId } from '@/library/device-id';
 import {
   errorsByField,
   initialDraft,

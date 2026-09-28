@@ -266,6 +266,8 @@ const SAMPLE_VENDOR: IntegrationVendorView = {
   transports: ['shelly/rpc'],
   wires: ['http'],
   discoverySources: ['mdns'],
+  adoption: 'owner',
+  pairing: null,
   containers: [],
   containerStatuses: [],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },

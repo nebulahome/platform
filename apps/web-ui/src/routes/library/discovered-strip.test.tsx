@@ -48,6 +48,7 @@ function found(n: number): DiscoveredDevice {
     swVersion: null,
     transportConfig: { host: `192.168.1.${String(40 + n)}` },
     movedFrom: null,
+    adoption: 'owner',
     firstSeenAt: new Date('2026-09-23T10:00:00.000Z'),
     lastSeenAt: new Date('2026-09-23T10:00:00.000Z'),
   };

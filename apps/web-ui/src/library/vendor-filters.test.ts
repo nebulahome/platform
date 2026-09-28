@@ -26,6 +26,8 @@ function vendor(overrides: Partial<IntegrationVendorView> = {}): IntegrationVend
     transports: ['http'],
     wires: ['http'],
     discoverySources: [],
+    adoption: 'owner',
+    pairing: null,
     containers: [],
     containerStatuses: [],
     setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },

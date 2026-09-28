@@ -263,17 +263,18 @@ export async function deleteDevice(deviceId: string): Promise<void> {
 }
 
 /**
- * Lists the devices the hub found on the network and nobody has added yet.
+ * Lists the devices the hub found on the network and nobody has added yet: the ones for the owner
+ * to adopt. A device its vendor adds on its own is left out - it is being added, not proposed.
  *
  * @param signal - Cancels the request.
- * @returns Every device found, oldest first; none when the hub is away.
+ * @returns Every device found for the owner to adopt, oldest first; none when the hub is away.
  */
 export async function fetchDiscovered(signal?: AbortSignal): Promise<DiscoveredDevice[]> {
   const { items } = await apiRequest('/discovery', discoveredReplySchema, {
     ...(signal === undefined ? {} : { signal }),
   });
 
-  return items;
+  return items.filter((item) => item.adoption === 'owner');
 }
 
 /**
