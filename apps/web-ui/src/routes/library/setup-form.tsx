@@ -7,7 +7,7 @@
  * and the place the field's help and error are shown.
  */
 import { isFieldShown, type SetupField, type SetupGroup } from '@nebula-home/contracts';
-import { Segmented, SelectField, TextField } from '@nebula-home/ui';
+import { FieldShell, Segmented, SelectField, TextField } from '@nebula-home/ui';
 
 import { PasswordField } from '@/components/password-field';
 import type { DraftValue, SetupDraft } from '@/library/setup-values';
@@ -115,18 +115,24 @@ function Field(props: {
         />
       );
     case 'boolean':
+      // The switch names itself only to a screen reader: the shell draws its name and its help.
       return (
-        <Segmented
-          label={field.label}
-          options={[
-            { value: 'on', label: 'On' },
-            { value: 'off', label: 'Off' },
-          ]}
-          value={value === true ? 'on' : 'off'}
-          onChange={(next) => {
-            onChange(next === 'on');
-          }}
-        />
+        <FieldShell label={field.label} hint={help} error={error}>
+          {() => (
+            <Segmented
+              label={field.label}
+              className="self-start"
+              options={[
+                { value: 'on', label: 'On' },
+                { value: 'off', label: 'Off' },
+              ]}
+              value={value === true ? 'on' : 'off'}
+              onChange={(next) => {
+                onChange(next === 'on');
+              }}
+            />
+          )}
+        </FieldShell>
       );
     case 'choice':
       return (

@@ -20,7 +20,13 @@ const SETUP = integrationSetupSchema.parse({
       { key: 'url', type: 'text', label: 'Printer address', isRequired: true, help: 'Port 8883.' },
       { key: 'password', type: 'secret', label: 'Access code', isRequired: true },
       { key: 'pollMs', type: 'number', label: 'Poll every', unit: 'ms', default: 5000 },
-      { key: 'isSecure', type: 'boolean', label: 'HTTPS', default: false },
+      {
+        key: 'isSecure',
+        type: 'boolean',
+        label: 'HTTPS',
+        help: 'Only when the device serves it.',
+        default: false,
+      },
       {
         key: 'speed',
         type: 'choice',
@@ -88,6 +94,22 @@ describe('SetupForm', () => {
     expect(screen.getByRole('combobox', { name: /^Speed/u })).toBeTruthy();
     expect(screen.getByLabelText('Addresses')).toBeTruthy();
     expect(screen.getByText('Port 8883.')).toBeTruthy();
+  });
+
+  it('draws a switch’s name and help, not only announces them', () => {
+    render(
+      <SetupForm
+        group={SETUP.transport}
+        draft={initialDraft(SETUP.transport)}
+        errors={{}}
+        kept={[]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    // The switch names itself with aria-label; drawn by nothing, it was a switch with no title.
+    expect(screen.getByText('HTTPS', { selector: 'label' })).toBeTruthy();
+    expect(screen.getByText('Only when the device serves it.')).toBeTruthy();
   });
 
   it('tells the browser these are not account fields', () => {
