@@ -18,6 +18,7 @@ import {
 } from '@nebula-home/contracts';
 import { createLogger } from '@nebula-home/logging';
 import {
+  defineAccount,
   defineStreamSource,
   defineTransport,
   type BundleSdk,
@@ -205,6 +206,7 @@ function sdkWith(sessions: FakeMqtt[]): BundleSdk {
       };
     },
     defineStreamSource,
+    defineAccount,
     openRtsp: () => {
       throw new Error('unused');
     },

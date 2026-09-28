@@ -478,6 +478,85 @@ export default function relay(sdk) {
     expect(vendors[0]?.transports).toEqual(['generic/wire']);
   });
 
+  it("loads a vendor's account: what signing in asks, and the module that signs in", async () => {
+    await writeRelay({
+      'manifest.json': { ...VENDOR, account: './account.json' },
+      'account.json': {
+        name: 'Generic account',
+        fields: {
+          fields: [
+            { key: 'email', type: 'text', label: 'Email', isRequired: true },
+            { key: 'password', type: 'secret', label: 'Password', isRequired: true },
+          ],
+        },
+        identity: 'email',
+        module: './sign-in.js',
+      },
+      'sign-in.js': `
+export default function signIn(sdk) {
+  return sdk.defineAccount({
+    signIn: async (values) => ({
+      kind: 'connected',
+      identity: { id: 'uid-1', label: values.email },
+      session: { version: sdk.version },
+    }),
+    answer: async () => ({ kind: 'failed', message: 'unused' }),
+  });
+}
+`,
+    });
+
+    const { vendors, failures } = await loadBundles({ directory: root, runtimeVersion: '1.5.0' });
+
+    expect(failures).toEqual([]);
+    expect(vendors[0]?.account?.declaration).toMatchObject({
+      name: 'Generic account',
+      identity: 'email',
+    });
+    await expect(
+      vendors[0]?.account?.module.signIn(
+        { email: 'owner@example.com' },
+        { signal: new AbortController().signal },
+      ),
+    ).resolves.toEqual({
+      kind: 'connected',
+      identity: { id: 'uid-1', label: 'owner@example.com' },
+      session: { version: '1.5.0' },
+    });
+  });
+
+  it('refuses an account named by a secret, and a module that is not a sign-in', async () => {
+    await writeRelay({
+      'manifest.json': { ...VENDOR, account: './account.json' },
+      'account.json': {
+        name: 'Generic account',
+        fields: { fields: [{ key: 'password', type: 'secret', label: 'Password' }] },
+        identity: 'password',
+        module: './sign-in.js',
+      },
+      'sign-in.js': 'export default () => ({});',
+    });
+
+    const first = await loadBundles({ directory: root, runtimeVersion: '1.5.0' });
+
+    expect(first.failures[0]?.message).toMatch(/a secret/u);
+
+    await writeRelay({
+      'manifest.json': { ...VENDOR, account: './account.json' },
+      'account.json': {
+        name: 'Generic account',
+        fields: { fields: [{ key: 'email', type: 'text', label: 'Email' }] },
+        identity: 'email',
+        module: './sign-in.js',
+      },
+      'sign-in.js': 'export default () => ({});',
+    });
+
+    const second = await loadBundles({ directory: root, runtimeVersion: '1.5.0' });
+
+    expect(second.failures[0]?.message).toMatch(/has no signIn and answer/u);
+  });
+
   it('fails the whole vendor when a transport of its own calls itself something else', async () => {
     // Its drivers would name a transport that was never registered, so none of them could
     // run; better one failure naming the two ids than a vendor with drivers that cannot start.

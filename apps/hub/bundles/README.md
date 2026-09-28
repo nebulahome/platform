@@ -279,6 +279,60 @@ offer, so a listener calls them as `context.status?.(…)`:
   them under **Seen but not added**, with the reason, beside the devices the hub heard that no
   driver takes, which the hub adds on its own.
 
+## `account.json` - the account the devices are reached through
+
+Since 1.5. A vendor whose devices are reached through an account - a cloud's, an app's - names an
+`account.json` in its manifest (`"account": "./account.json"`) instead of asking for an email and
+a password in its `setup.json`:
+
+```json
+{
+  "name": "ECOVACS HOME account",
+  "help": "The account the ECOVACS HOME app signs in with.",
+  "fields": {
+    "fields": [
+      { "key": "email", "type": "text", "label": "Email", "isRequired": true },
+      { "key": "password", "type": "secret", "label": "Password", "isRequired": true }
+    ]
+  },
+  "identity": "email",
+  "module": "./cloud/sign-in.js"
+}
+```
+
+`fields` is a setup group - constants and fields, `shownWhen` and all - and `identity` the field
+the account's card is named by, which may not be a secret. The vendor's page shows an **Account**
+card: each account signed in to, where it stands, **Sign in again** and **Remove**, and **Add
+account** - a vendor holds as many as the house has. There is no Configure for an account.
+
+The module default-exports a function of the SDK returning `sdk.defineAccount({ signIn, answer,
+poll?, signOut? })`. Each is handed a `{ signal }` it must honour - a step has a minute - and
+answers a step:
+
+- `{ kind: 'connected', identity: { id, label }, session }` - signed in: `id` is the account's own
+  at its cloud, the one a device names; `session` what to keep for the next start - tokens, a user
+  id - sealed by the hub;
+- `{ kind: 'ask', message, fields, pending }` - the cloud wants more: a code it emailed, a second
+  factor. `fields` are setup fields; `pending` is anything the module needs to carry on, handed
+  back to `answer(pending, answers)` - kept in the hub's memory only, for fifteen minutes;
+- `{ kind: 'link', message, url, code?, pollMs, pending }` - the owner approves on the cloud's
+  page; `poll(pending)` is called every `pollMs` until it answers something else;
+- `{ kind: 'failed', message, field? }` - it did not work; `field` names the one to correct.
+
+A throw is a `failed` step with the error's message. What the owner typed reaches `signIn` with
+its secrets opened; the hub keeps it sealed with the account, so a transport can sign in again
+when the session expires.
+
+**At run time**, a device of the account names it in its configuration (`transportConfig.account`
+
+- the listener's sighting says so), and its transport is handed `context.account`: `{ id, label,
+status, credentials, session, update(session), needsSignIn(message) }`. Keep a renewed session
+  with `update`; when the cloud wants the owner again - a new code - call `needsSignIn` with a
+  sentence, and the card asks. A listener gets `context.accounts()`, every account signed in to,
+  read at every pass. Signing in or out starts the vendor's instances again and asks its listener
+  to look now (`scan`), so an `automatic` vendor's devices appear the moment the account is
+  connected.
+
 ## `setup.json` - what adding a device asks
 
 `driver.json` says what a driver is and `profile.json` says how it maps a device; the driver's

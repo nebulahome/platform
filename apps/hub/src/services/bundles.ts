@@ -37,6 +37,7 @@ import {
 } from '@nebula-home/contracts';
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
 import {
+  accountDeclarationSchema,
   containerDependencyProblems,
   createDeclarativeIntegration,
   driverManifestSchema,
@@ -47,6 +48,9 @@ import {
   transportWiresOf,
   vendorDiscoverySchema,
   vendorManifestSchema,
+  type AccountDeclaration,
+  type AccountFactory,
+  type AccountModule,
   type BundleManifest,
   type BundleSdk,
   type DiscoveryPlan,
@@ -170,6 +174,12 @@ export type LoadedVendor = {
   /** How its devices are found, when it has a `discovery.json` that loaded. */
   readonly discovery?: LoadedDiscovery;
 
+  /**
+   * Since 1.5: the account its devices are reached through, when it has an `account.json` - what
+   * signing in asks, and the module that signs in.
+   */
+  readonly account?: LoadedAccount;
+
   /** Where it was read from, for a message that has to name it. */
   readonly directory: string;
 
@@ -179,6 +189,12 @@ export type LoadedVendor = {
    * @returns A promise that settles once every port it held is free.
    */
   readonly release: () => Promise<void>;
+};
+
+/** A vendor's account: what signing in asks, and the module that does it. */
+export type LoadedAccount = {
+  readonly declaration: AccountDeclaration;
+  readonly module: AccountModule;
 };
 
 /** A vendor or a driver that did not load, and why. */
@@ -509,6 +525,44 @@ async function loadVendorStreams(
 }
 
 /**
+ * Loads the account a vendor's devices are reached through: its `account.json`, and the module
+ * it names, which must answer each step of a sign-in.
+ *
+ * @param vendor - The vendor's manifest.
+ * @param directory - The vendor's directory.
+ * @param sdk - What the vendor's code is handed.
+ * @returns The account, or undefined for a vendor that declares none.
+ * @throws {Error} When the file is malformed, or the module missing or not a sign-in.
+ */
+async function loadVendorAccount(
+  vendor: VendorManifest,
+  directory: string,
+  sdk: BundleSdk,
+): Promise<LoadedAccount | undefined> {
+  if (vendor.account === undefined) {
+    return undefined;
+  }
+
+  const declaration = accountDeclarationSchema.parse(await readJson(directory, vendor.account));
+  const loaded: unknown = await import(
+    pathToFileURL(path.join(directory, declaration.module)).href
+  );
+  const factory = (loaded as { readonly default?: unknown }).default;
+
+  if (typeof factory !== 'function') {
+    throw new Error(`${vendor.id}'s account module does not default-export a factory`);
+  }
+
+  const module = (factory as AccountFactory)(sdk);
+
+  if (typeof module.signIn !== 'function' || typeof module.answer !== 'function') {
+    throw new Error(`${vendor.id}'s account module has no signIn and answer`);
+  }
+
+  return { declaration, module };
+}
+
+/**
  * Whether a file is there to be read.
  *
  * @param file - The file.
@@ -684,6 +738,7 @@ async function loadVendorWith(
   // whose transport is broken has nothing to offer.
   const ownTransports = await loadVendorTransports(manifest, directory, options, sdk);
   const streams = await loadVendorStreams(manifest, directory, sdk);
+  const account = await loadVendorAccount(manifest, directory, sdk);
   const setup =
     manifest.setup === undefined
       ? NO_SETUP
@@ -748,6 +803,7 @@ async function loadVendorWith(
       streams,
       drivers,
       ...(discovery === undefined ? {} : { discovery }),
+      ...(account === undefined ? {} : { account }),
       directory,
       release,
     },

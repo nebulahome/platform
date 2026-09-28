@@ -144,6 +144,64 @@ describe('ConnectionPool', () => {
     await expect(connections.acquire('fake', { wrong: true }, 'first')).rejects.toThrow();
   });
 
+  it("hands a vendor's transport the account its configuration names", async () => {
+    // What a cloud transport signs in with: the account a device was added from.
+    const seen: unknown[] = [];
+    const transports = new Registry<Transport>('transport');
+
+    transports.register(
+      defineTransport({
+        id: 'acme/cloud',
+        configSchema: z.object({ account: z.string() }),
+        connectionKey: (config): string => `acme:${config.account}`,
+        connect: (config, context): Promise<TransportConnection> => {
+          seen.push(context.account?.label ?? null);
+
+          return Promise.resolve({
+            key: `acme:${config.account}`,
+            send: (): Promise<unknown> => Promise.resolve(null),
+            apply: (): Promise<void> => Promise.resolve(),
+            close: (): Promise<void> => Promise.resolve(),
+          });
+        },
+        scan: async function* scan(): AsyncGenerator<Discovered> {
+          yield* await Promise.resolve([]);
+        },
+        probe: (): Promise<string> => Promise.resolve('unused'),
+      }),
+    );
+
+    const asked: string[] = [];
+    const pool = new ConnectionPool({
+      transports,
+      logger: createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' }),
+      accountOf: async (vendorId, accountId) => {
+        asked.push(`${vendorId}/${accountId}`);
+
+        return Promise.resolve(
+          accountId === 'uid-1'
+            ? {
+                id: 'uid-1',
+                label: 'owner@example.com',
+                status: 'connected' as const,
+                credentials: {},
+                session: {},
+                update: async (): Promise<void> => Promise.resolve(),
+                needsSignIn: async (): Promise<void> => Promise.resolve(),
+              }
+            : undefined,
+        );
+      },
+    });
+
+    await pool.acquire('acme/cloud', { account: 'uid-1' }, 'one');
+    await pool.acquire('acme/cloud', { account: 'uid-9' }, 'two');
+
+    expect(asked).toEqual(['acme/uid-1', 'acme/uid-9']);
+    expect(seen).toEqual(['owner@example.com', null]);
+    await pool.closeAll();
+  });
+
   it('closes everything it holds when the service stops', async () => {
     const { pool: connections, journal } = pool();
 

@@ -14,6 +14,7 @@ import { z } from 'zod';
 
 import { createLogger } from '@nebula-home/logging';
 import {
+  defineAccount,
   defineStreamSource,
   defineTransport,
   type BundleSdk,
@@ -142,6 +143,7 @@ function sdkWith(sessions: FakeMqtt[]): BundleSdk {
       };
     },
     defineStreamSource,
+    defineAccount,
     openRtsp: () => {
       throw new Error('not opened in this test');
     },

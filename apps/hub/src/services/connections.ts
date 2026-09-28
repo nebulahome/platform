@@ -13,6 +13,7 @@
 import type { JsonObject } from '@nebula-home/contracts';
 import type { PlatformLogger } from '@nebula-home/logging';
 import type {
+  AccountHandle,
   Registry,
   Transport,
   TransportConnection,
@@ -33,6 +34,16 @@ export type ConnectionPoolOptions = {
 
   /** Told when a connection comes up or goes down. */
   readonly onStatus?: (key: string, status: TransportStatus) => void;
+
+  /**
+   * Finds the account a connection is for, when its configuration names one (`account`) of the
+   * transport's own vendor - `ecovacs/cloud` for an ECOVACS account.
+   *
+   * @param vendorId - The transport's vendor: what comes before the slash of its id.
+   * @param accountId - What the configuration names.
+   * @returns The account, or undefined when there is none by that id.
+   */
+  readonly accountOf?: (vendorId: string, accountId: string) => Promise<AccountHandle | undefined>;
 };
 
 /** One open connection and who is holding it. */
@@ -82,8 +93,17 @@ export class ConnectionPool {
       return existing.connection;
     }
 
+    const vendorId = transportId.includes('/')
+      ? transportId.slice(0, transportId.indexOf('/'))
+      : null;
+    const accountId = config['account'];
+    const account =
+      vendorId === null || typeof accountId !== 'string'
+        ? undefined
+        : await this.#options.accountOf?.(vendorId, accountId);
     const connection = await transport.connect(config, {
       logger: this.#options.logger,
+      ...(account === undefined ? {} : { account }),
 
       /**
        * Passes on a message the connection delivered.

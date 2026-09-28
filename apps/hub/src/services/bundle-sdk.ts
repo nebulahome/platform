@@ -12,6 +12,7 @@ import { z } from 'zod';
 
 import type { PlatformLogger } from '@nebula-home/logging';
 import {
+  defineAccount,
   defineStreamSource,
   defineTransport,
   type BundleSdk,
@@ -49,6 +50,7 @@ export function createBundleSdk(options: {
     openUdpSocket: options.openUdpSocket,
     openMqtt,
     defineStreamSource,
+    defineAccount,
     openRtsp,
     platform: options.platform,
   };

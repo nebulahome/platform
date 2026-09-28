@@ -34,6 +34,7 @@ import {
   type Discovered,
   type DiscoveryProbe,
   type Integration,
+  type AccountHandle,
   type ListenerStatus,
   type MdnsAnnouncement,
   type PassedOverSighting,
@@ -75,6 +76,14 @@ export type DiscoveryServiceOptions = {
    * @returns Its saved settings, secrets opened; empty when there are none.
    */
   readonly vendorSettings: (vendorId: string) => Promise<JsonObject>;
+
+  /**
+   * Reads the accounts of a vendor signed in to, which its listener asks for its devices.
+   *
+   * @param vendorId - The vendor.
+   * @returns The accounts; none when the vendor has none, or none is signed in.
+   */
+  readonly vendorAccounts?: (vendorId: string) => Promise<readonly AccountHandle[]>;
 
   /**
    * Reads what is already added.
@@ -706,6 +715,14 @@ export class DiscoveryService {
            * @returns The settings, secrets opened.
            */
           settings: async () => this.#settingsOf(vendor.id),
+
+          /**
+           * Reads the vendor's accounts signed in to, for a listener that asks each for its
+           * devices.
+           *
+           * @returns The accounts.
+           */
+          accounts: async () => this.#options.vendorAccounts?.(vendor.id) ?? [],
 
           /**
            * Keeps what the listener says of how it is getting on, for the vendor's page.

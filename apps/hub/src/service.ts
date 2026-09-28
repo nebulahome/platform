@@ -70,6 +70,7 @@ import { createMdnsSource, type MdnsSource } from './discovery/mdns-source.js';
 import { DeviceBook } from './domain/devices.js';
 import { planSubscriptions } from './domain/subscriptions.js';
 import { withVendorSettings } from './domain/vendors.js';
+import { databaseAccountStore } from './persistence/accounts.js';
 import { loadBinding, loadDeviceName } from './persistence/devices.js';
 import {
   loadInstance,
@@ -82,6 +83,7 @@ import {
 } from './persistence/instances.js';
 import { loadTakenDevices } from './persistence/taken.js';
 import { loadVendorSettings } from './persistence/vendors.js';
+import { AccountService } from './services/accounts.js';
 import { loadBundles, mergeBundleResults, type LoadedVendor } from './services/bundles.js';
 import { CameraService, type CameraOwner } from './services/cameras.js';
 import { ConnectionPool } from './services/connections.js';
@@ -145,6 +147,7 @@ export class HubService {
   readonly #identification: IdentificationService;
   readonly #listening = new Map<string, Listening>();
   readonly #managementService: ManagementService;
+  readonly #accounts: AccountService;
   readonly #vendorContainers: VendorContainersService;
   readonly #secretsKey: Buffer;
 
@@ -193,6 +196,16 @@ export class HubService {
       onInbound: (message: TransportInbound): void => {
         this.#ingest(message);
       },
+
+      /**
+       * Finds the account a connection is for.
+       *
+       * @param vendorId - The transport's vendor.
+       * @param accountId - The account its configuration names.
+       * @returns The account, or undefined.
+       */
+      accountOf: async (vendorId: string, accountId: string) =>
+        this.#accounts.handleFor(vendorId, accountId),
 
       /**
        * Marks the entities reached over a connection that dropped as unreachable.
@@ -329,6 +342,29 @@ export class HubService {
         this.#vendorContainers.vendorChanged(vendorId),
     });
 
+    this.#accounts = new AccountService({
+      client: this.#client,
+      store: databaseAccountStore(options.db, this.#secretsKey),
+      logger: options.logger,
+      secretsKey: this.#secretsKey,
+
+      /**
+       * Lists the vendors loaded.
+       *
+       * @returns Every loaded vendor.
+       */
+      vendors: (): readonly LoadedVendor[] => [...this.#vendors.values()],
+
+      /**
+       * Starts a vendor's instances again, and has its listener look now, once an account of it
+       * signed in or out.
+       *
+       * @param vendorId - The vendor.
+       * @returns Once they are started again.
+       */
+      onSignedInOrOut: async (vendorId: string): Promise<void> => this.#accountChanged(vendorId),
+    });
+
     this.#vendorContainers = new VendorContainersService({
       client: this.#client,
       logger: options.logger,
@@ -435,6 +471,7 @@ export class HubService {
 
     this.#management = [
       ...this.#managementService.serve(),
+      ...this.#accounts.serve(),
       ...this.#cameras.serve(),
       this.#client.subscribe(
         busSubjects.deviceEvent('removed'),
@@ -504,6 +541,14 @@ export class HubService {
        */
       vendorSettings: async (vendorId: string): Promise<JsonObject> =>
         (await loadVendorSettings(db, vendorId, this.#secretsKey))?.transportConfig ?? {},
+
+      /**
+       * Reads a vendor's accounts signed in to.
+       *
+       * @param vendorId - The vendor.
+       * @returns The accounts.
+       */
+      vendorAccounts: async (vendorId: string) => this.#accounts.handlesOf(vendorId),
 
       /**
        * Reads what is already added.
@@ -615,6 +660,34 @@ export class HubService {
     await this.#refreshDiscovery();
 
     return readStatus(this.#options.db, id);
+  }
+
+  /**
+   * Starts every instance of a vendor again and has its listener look now: an account of it
+   * signed in or out, so its devices can connect, or cannot any more.
+   *
+   * @param vendorId - The vendor.
+   * @returns Once they are started again; a failure is in each instance's own status.
+   */
+  async #accountChanged(vendorId: string): Promise<void> {
+    const instances = (await loadInstances(this.#options.db)).filter((instance) =>
+      instance.kind.startsWith(`${vendorId}/`),
+    );
+
+    for (const instance of instances) {
+      try {
+        // One after another: they share the account's one connection.
+        // eslint-disable-next-line no-await-in-loop -- see above
+        await this.reloadInstance(instance.id);
+      } catch (error: unknown) {
+        this.#options.logger.warn(
+          { err: error, instanceId: instance.id },
+          'Could not start an instance again after its account changed',
+        );
+      }
+    }
+
+    this.#discovery?.rescan(vendorId);
   }
 
   /**

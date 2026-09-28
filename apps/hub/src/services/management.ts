@@ -208,6 +208,17 @@ function vendorOf(vendor: LoadedVendor, hearing: VendorHearing): IntegrationVend
     transports: [...vendor.transports],
     wires: [...vendor.wires],
     setup: vendor.setup,
+    account:
+      vendor.account === undefined
+        ? null
+        : {
+            name: vendor.account.declaration.name,
+            ...(vendor.account.declaration.help === undefined
+              ? {}
+              : { help: vendor.account.declaration.help }),
+            fields: vendor.account.declaration.fields,
+            identity: vendor.account.declaration.identity,
+          },
     discoverySources: [...new Set(vendor.discovery?.sources.map((source) => source.kind) ?? [])],
     adoption: vendor.discovery?.plan.discovery.adopt ?? 'owner',
     pairing: pairing === undefined ? null : { driverId: pairing.driver, objectId: pairing.entity },
