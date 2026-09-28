@@ -9,12 +9,13 @@
  * pure. A relative dim or a toggle needs the current value, and `hub` already has it - it is what
  * published it - so the mapper reads it here instead of asking the device.
  */
-import type {
-  CapabilityState,
-  EntityId,
-  EntityRegistration,
-  JsonObject,
-  StateReport,
+import {
+  composeEntityId,
+  type CapabilityState,
+  type EntityId,
+  type EntityRegistration,
+  type JsonObject,
+  type StateReport,
 } from '@nebula-home/contracts';
 import type {
   Claim,
@@ -24,8 +25,6 @@ import type {
   MappingContext,
   TransportInbound,
 } from '@nebula-home/package-runtime';
-
-import { composeEntityId } from './entity-ids.js';
 
 /** One identified device and the identifiers its entities carry. */
 export type DeviceBinding = {

@@ -945,6 +945,7 @@ export class DiscoveryService {
         modelCode: identity.modelCode,
         swVersion: identity.swVersion,
         transportConfig: config,
+        adoption: vendor.discovery.plan.discovery.adopt,
         movedFrom: null,
         firstSeenAt: previous?.device.firstSeenAt ?? new Date(nowMs),
         lastSeenAt: new Date(nowMs),

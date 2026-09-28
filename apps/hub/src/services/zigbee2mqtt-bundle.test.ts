@@ -558,7 +558,7 @@ describe('the transport', () => {
 });
 
 describe('the listener', () => {
-  it('proposes the bridge and each device, and opens pairing when asked to look', async () => {
+  it('proposes the bridge and each device, and asks nothing of Zigbee2MQTT', async () => {
     const sessions: FakeMqtt[] = [];
     const listener = createDiscovery(sdkWith(sessions));
     const abort = new AbortController();
@@ -574,7 +574,6 @@ describe('the listener', () => {
     })();
 
     await new Promise((resolve) => setTimeout(resolve, 10));
-    listener.scan?.();
     arrive(sessions[0], 'zigbee2mqtt/bridge/info', INFO);
     arrive(sessions[0], 'zigbee2mqtt/bridge/devices', [COORDINATOR, LAMP, DOOR]);
     await listening;
@@ -584,8 +583,30 @@ describe('the listener', () => {
       ['device', LAMP.ieee_address],
       ['device', DOOR.ieee_address],
     ]);
-    expect(sessions[0]?.published).toEqual([
-      { topic: 'zigbee2mqtt/bridge/request/permit_join', payload: '{"time":254}' },
+    // Pairing is the bridge's switch, not a side effect of looking: a network scan of every
+    // vendor must not open the Zigbee network.
+    expect(listener.scan).toBeUndefined();
+    expect(sessions[0]?.published).toEqual([]);
+  });
+
+  it('names a device just paired for what it is, not by its IEEE address', async () => {
+    const sessions: FakeMqtt[] = [];
+    const listener = createDiscovery(sdkWith(sessions));
+    const abort = new AbortController();
+    const heard: Record<string, unknown>[] = [];
+    const listening = (async () => {
+      for await (const sighting of listener.listen(abort.signal)) {
+        heard.push(sighting.payload);
+        abort.abort();
+      }
+    })();
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    arrive(sessions[0], 'zigbee2mqtt/bridge/devices', [
+      { ...DOOR, friendly_name: DOOR.ieee_address },
     ]);
+    await listening;
+
+    expect(heard[0]?.['name']).toBe(`${DOOR.definition.vendor} ${DOOR.definition.model}`);
   });
 });

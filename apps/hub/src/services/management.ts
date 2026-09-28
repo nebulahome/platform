@@ -183,6 +183,7 @@ function kindOf(bundle: LoadedBundle): IntegrationKind {
  */
 function vendorOf(vendor: LoadedVendor): IntegrationVendor {
   const { manifest } = vendor;
+  const pairing = vendor.discovery?.plan.discovery.pairing;
 
   return {
     id: manifest.id,
@@ -198,6 +199,8 @@ function vendorOf(vendor: LoadedVendor): IntegrationVendor {
     wires: [...vendor.wires],
     setup: vendor.setup,
     discoverySources: [...new Set(vendor.discovery?.sources.map((source) => source.kind) ?? [])],
+    adoption: vendor.discovery?.plan.discovery.adopt ?? 'owner',
+    pairing: pairing === undefined ? null : { driverId: pairing.driver, objectId: pairing.entity },
     drivers: vendor.drivers.map(kindOf),
     containers: manifest.containers.map((container) => ({
       id: container.id,
