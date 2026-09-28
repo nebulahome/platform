@@ -481,7 +481,10 @@ function assertSceneTargetState(entityId: string, state: CapabilityState): Capab
       capability === 'sensor_text' ||
       capability === 'camera' ||
       capability === 'button' ||
-      capability === 'update'
+      capability === 'update' ||
+      capability === 'lawn_mower' ||
+      capability === 'select' ||
+      capability === 'number'
     ) {
       throw new ValidationError(`Entity ${entityId} target cannot include ${capability}`, {
         details: { entityId, capability },

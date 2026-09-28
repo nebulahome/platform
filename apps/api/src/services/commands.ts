@@ -83,10 +83,11 @@ export async function sendCommand(options: CommandOptions): Promise<CommandAck> 
  *
  * ARCHITECTURE.md 12.4 requires manual commands that affect locks or security devices to be
  * audited; installing firmware is audited too, since it restarts the device and cannot be taken
- * back. Auditing every command instead would fill the table with somebody dimming a lamp,
+ * back, and so is sending a robot mower out, a machine with blades moving where nobody may be
+ * looking. Auditing every command instead would fill the table with somebody dimming a lamp,
  * and a trail nobody can read is a trail nobody reads.
  */
-const AUDITED_CAPABILITIES = new Set<CapabilityName>(['lock', 'update']);
+const AUDITED_CAPABILITIES = new Set<CapabilityName>(['lock', 'update', 'lawn_mower']);
 
 /**
  * Says whether a command has to be recorded.
