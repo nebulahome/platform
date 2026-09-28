@@ -333,6 +333,27 @@ describe('with the hub answering and nothing saved', () => {
     expect(response.statusCode).toBe(404);
   });
 
+  it('refuses to add a device of a vendor whose account nobody signed in to', async () => {
+    // The devices of an account come with it; without one there is nothing they could reach.
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/devices',
+      headers: { authorization: await bearer('device:write') },
+      payload: {
+        id: 'cloudy-robot',
+        kind: 'cloudy/robot',
+        model: 'Robot',
+        name: 'Robot',
+        transportConfig: {},
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({
+      error: { code: 'CONFLICT', details: { vendorId: 'cloudy', reason: 'needs-account' } },
+    });
+  });
+
   it('refuses to add a device of a vendor nobody has set up, and says so', async () => {
     // The address may be right; the key is missing. The reply sends the owner to the vendor
     // page rather than back to the device form.

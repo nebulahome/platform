@@ -7,7 +7,13 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { bearer, buildTestServer, emptyDatabase, stopHub } from '../testing/hub-harness.js';
+import {
+  accountRequests,
+  bearer,
+  buildTestServer,
+  emptyDatabase,
+  stopHub,
+} from '../testing/hub-harness.js';
 
 let server: FastifyInstance;
 
@@ -59,7 +65,73 @@ describe('with the hub answering and nothing saved', () => {
           drivers: [{ id: 'bambu-lab/printer', models: ['X1C', 'P1S'] }],
         },
         { id: 'acme', needsSetup: true, isConfigured: false },
+        { id: 'cloudy', needsSetup: false, needsAccount: true, accounts: [] },
       ],
+    });
+  });
+
+  it('checks what signing in is given, and seals the password before it reaches the hub', async () => {
+    const refused = await server.inject({
+      method: 'POST',
+      url: '/api/v1/integrations/vendors/cloudy/accounts',
+      headers: { authorization: await bearer('integration:configure') },
+      payload: { values: { email: 'owner@example.com' } },
+    });
+
+    expect(refused.statusCode).toBe(400);
+    expect(
+      refused
+        .json<{ error: { details: { issues: { path: string }[] } } }>()
+        .error.details.issues.map((issue) => issue.path),
+    ).toEqual(['values.password']);
+
+    const asked = await server.inject({
+      method: 'POST',
+      url: '/api/v1/integrations/vendors/cloudy/accounts',
+      headers: { authorization: await bearer('integration:configure') },
+      payload: { values: { email: 'owner@example.com', password: 'hunter2' } },
+    });
+
+    expect(asked.statusCode).toBe(200);
+    expect(asked.json()).toMatchObject({ kind: 'ask', message: 'Cloudy emailed a code' });
+
+    const sent = accountRequests.at(-1)?.payload as { values: Record<string, unknown> };
+
+    expect(sent.values['email']).toBe('owner@example.com');
+    expect(JSON.stringify(sent.values)).not.toContain('hunter2');
+    expect(sent.values['password']).toMatchObject({ $sealed: expect.any(String) as unknown });
+  });
+
+  it('refuses to sign in to a vendor without an account, or for somebody who may not', async () => {
+    const none = await server.inject({
+      method: 'POST',
+      url: '/api/v1/integrations/vendors/acme/accounts',
+      headers: { authorization: await bearer('integration:configure') },
+      payload: { values: {} },
+    });
+    const forbidden = await server.inject({
+      method: 'POST',
+      url: '/api/v1/integrations/vendors/cloudy/accounts',
+      headers: { authorization: await bearer('integration:read') },
+      payload: { values: {} },
+    });
+
+    expect(none.statusCode).toBe(404);
+    expect(forbidden.statusCode).toBe(403);
+  });
+
+  it('signs out of an account through the hub', async () => {
+    const response = await server.inject({
+      method: 'DELETE',
+      url: '/api/v1/integrations/vendors/cloudy/accounts/uid-42',
+      headers: { authorization: await bearer('integration:configure') },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ wasSignedIn: true });
+    expect(accountRequests.at(-1)).toEqual({
+      method: 'account_sign_out',
+      payload: { vendorId: 'cloudy', accountId: 'uid-42' },
     });
   });
 

@@ -22,6 +22,7 @@ import {
   stateChangedEventSchema,
   type JsonObject,
   type WsServerMessage,
+  integrationEventSchema,
 } from '@nebula-home/contracts';
 import type { PlatformLogger } from '@nebula-home/logging';
 
@@ -133,6 +134,28 @@ export class EventFanout {
               count: payload.count,
             });
           }
+        },
+      ),
+    );
+
+    this.#subscriptions.push(
+      client.subscribe(
+        busSubjects.integrationEvent(),
+        integrationEventSchema,
+
+        /**
+         * Tells the sockets watching discovery that something an integration's page shows
+         * changed: an account signed in, out, or asked to sign in again.
+         *
+         * Only the vendor travels, on the discovery topic its page already watches.
+         *
+         * @param payload - Which vendor.
+         */
+        (payload): void => {
+          this.#dispatch('discovery', null, {
+            type: 'integration_event',
+            vendorId: payload.vendorId,
+          });
         },
       ),
     );

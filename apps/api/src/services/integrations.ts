@@ -42,6 +42,7 @@ import {
   vendorChangedReplySchema,
   type IntegrationKind,
   type IntegrationSetup,
+  type IntegrationAccountView,
   type IntegrationVendor,
   type IntegrationVendorConfigUpdate,
   type IntegrationVendorView,
@@ -52,6 +53,7 @@ import {
 import { maskSealed, schema, sealSecrets, type Database } from '@nebula-home/db';
 import type { PlatformLogger } from '@nebula-home/logging';
 
+import { listAccountViews, requireVendorAccount } from './accounts.js';
 import { containerStatusesOf } from './containers.js';
 
 /** The two documents a configuration is made of. */
@@ -282,6 +284,7 @@ export type VendorCounts = {
  * @param counts - What has come in through it.
  * @param containerStatuses - Where each container it depends on stands, null for one the
  * supervisor did not answer about.
+ * @param accounts - The accounts signed in to, for a vendor that has one.
  * @returns The view.
  */
 export function vendorViewOf(
@@ -289,6 +292,7 @@ export function vendorViewOf(
   saved: VendorRow | undefined,
   counts: VendorCounts,
   containerStatuses: readonly (ManagedStatus | null)[] = [],
+  accounts: readonly IntegrationAccountView[] = [],
 ): IntegrationVendorView {
   return integrationVendorViewSchema.parse({
     ...vendor,
@@ -300,6 +304,9 @@ export function vendorViewOf(
     deviceCount: counts.devices,
     entityCount: counts.entities,
     containerStatuses,
+    accounts,
+    needsAccount:
+      vendor.account !== null && !accounts.some((account) => account.status === 'connected'),
   });
 }
 
@@ -492,6 +499,8 @@ export async function requireVendorSetup(
   context: IntegrationsContext,
   vendor: IntegrationVendor,
 ): Promise<void> {
+  await requireVendorAccount(context, vendor);
+
   if (!asksAnythingRequired(vendor.setup)) {
     return;
   }
@@ -562,6 +571,7 @@ export async function listVendors(context: IntegrationsContext): Promise<Integra
     vendorCounts(context.db),
   ]);
   const savedBy = new Map(saved.map((row) => [row.id, row]));
+  const accounts = await listAccountViews(context.db);
 
   // Only the vendors that run containers are asked about, all at once: a vendor page waits on
   // the supervisor for a few seconds at most, and a list of plain vendors not at all.
@@ -577,6 +587,7 @@ export async function listVendors(context: IntegrationsContext): Promise<Integra
       savedBy.get(vendor.id),
       counts.get(vendor.id) ?? { devices: 0, entities: 0 },
       statuses[index] ?? [],
+      accounts.filter((account) => account.vendorId === vendor.id),
     ),
   );
 }

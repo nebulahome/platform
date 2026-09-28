@@ -11,6 +11,11 @@ import type { FastifyInstance } from 'fastify';
 import { BusClient } from '@nebula-home/bus';
 import { FakeTransport } from '@nebula-home/bus/testing';
 import {
+  accountBeginRequestSchema,
+  accountSignOutRequestSchema,
+  HUB_ACCOUNT_BEGIN_METHOD,
+  HUB_ACCOUNT_SIGN_OUT_METHOD,
+  type AccountStep,
   BACKUP_METHODS,
   BACKUP_SERVICE,
   backupBrowseRequestSchema,
@@ -145,6 +150,7 @@ export const CATALOGUE: CatalogueReply = {
       pairing: null,
       listener: null,
       passedOver: [],
+      account: null,
       containers: [],
       setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
       drivers: [
@@ -173,6 +179,7 @@ export const CATALOGUE: CatalogueReply = {
       pairing: null,
       listener: null,
       passedOver: [],
+      account: null,
       containers: [],
       setup: {
         transport: {
@@ -192,6 +199,53 @@ export const CATALOGUE: CatalogueReply = {
           transport: 'mqtt',
           models: [],
           setup: PRINTER_SETUP,
+        },
+      ],
+    },
+    {
+      id: 'cloudy',
+      version: '1.0.0',
+      name: 'Cloudy',
+      logoPadding: 0,
+      internetRequired: true,
+      transports: ['cloudy/cloud'],
+      wires: ['http'],
+      discoverySources: ['module'],
+      adoption: 'automatic',
+      pairing: null,
+      listener: null,
+      passedOver: [],
+      account: {
+        name: 'Cloudy account',
+        fields: {
+          constants: {},
+          fields: [
+            { key: 'email', type: 'text', label: 'Email', isRequired: true, maxLength: 256 },
+            {
+              key: 'password',
+              type: 'secret',
+              label: 'Password',
+              isRequired: true,
+              maxLength: 256,
+            },
+          ],
+        },
+        identity: 'email',
+      },
+      containers: [],
+      setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
+      drivers: [
+        {
+          id: 'cloudy/robot',
+          vendorId: 'cloudy',
+          driverId: 'robot',
+          name: 'Robot',
+          transport: 'cloudy/cloud',
+          models: [],
+          setup: {
+            transport: { constants: {}, fields: [] },
+            options: { constants: {}, fields: [] },
+          },
         },
       ],
     },
@@ -311,6 +365,9 @@ export const probed: ProbeRequest[] = [];
 
 /** What the fake hub was asked to reload, in order. */
 export const reloaded: string[] = [];
+
+/** What the fake hub was asked to sign in with, in order. */
+export const accountRequests: { method: string; payload: unknown }[] = [];
 
 /** Which vendors the hub was asked to look for, in order. */
 export const scanned: string[] = [];
@@ -636,6 +693,29 @@ export async function buildTestServer(
           capability: target.capability,
           acceptedAt: new Date(),
         };
+      },
+    ),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_ACCOUNT_BEGIN_METHOD),
+      accountBeginRequestSchema,
+      (request): AccountStep => {
+        accountRequests.push({ method: HUB_ACCOUNT_BEGIN_METHOD, payload: request });
+
+        return {
+          kind: 'ask',
+          flowId: '8f0e2c1a-3b4d-4e5f-8a9b-0c1d2e3f4a5b',
+          message: 'Cloudy emailed a code',
+          fields: [{ key: 'code', type: 'text', label: 'Code', isRequired: true, maxLength: 16 }],
+        };
+      },
+    ),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_ACCOUNT_SIGN_OUT_METHOD),
+      accountSignOutRequestSchema,
+      (request): { wasSignedIn: boolean } => {
+        accountRequests.push({ method: HUB_ACCOUNT_SIGN_OUT_METHOD, payload: request });
+
+        return { wasSignedIn: true };
       },
     ),
     hub.serve(

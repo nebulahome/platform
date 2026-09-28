@@ -10,14 +10,25 @@
 import { z } from 'zod';
 
 import {
+  accountSignOutReplySchema,
+  accountStepSchema,
   integrationVendorConfigUpdateSchema,
   integrationVendorViewSchema,
+  type AccountStep,
   type IntegrationVendorView,
 } from '@nebula-home/contracts';
 
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import {
+  accountAnswerBodySchema,
+  accountBeginBodySchema,
+  answerSignIn,
+  beginSignIn,
+  pollSignIn,
+  signOutAccount,
+} from '../services/accounts.js';
 import {
   listVendors,
   readVendor,
@@ -27,6 +38,14 @@ import {
 
 /** Which vendor a request is about. */
 const vendorParamsSchema = z.object({ vendorId: z.string().min(1).max(64) });
+
+/** Which sign-in of which vendor a request is about. */
+const flowParamsSchema = vendorParamsSchema.extend({ flowId: z.uuid() });
+
+/** Which account of which vendor a request is about. */
+const accountParamsSchema = vendorParamsSchema.extend({
+  accountId: z.string().min(1).max(128),
+});
 
 /**
  * What the write paths need, for one request.
@@ -145,6 +164,187 @@ export function registerIntegrationRoutes(
       });
 
       return vendor;
+    },
+  );
+
+  /**
+   * Records a sign-in that ended connected in the audit log.
+   *
+   * @param route - The request.
+   * @param route.identity - Who signed in.
+   * @param route.request - Where from, and its trace.
+   * @param route.request.ip - The address.
+   * @param route.request.traceId - The trace.
+   * @param vendorId - Which vendor.
+   * @param step - What the hub answered.
+   * @returns Once it is recorded, when there was anything to record.
+   */
+  const auditConnected = async (
+    route: {
+      readonly identity: Parameters<typeof requirePermission>[0];
+      readonly request: { readonly ip: string; readonly traceId: string };
+    },
+    vendorId: string,
+    step: AccountStep,
+  ): Promise<void> => {
+    if (step.kind !== 'connected') {
+      return;
+    }
+
+    await context.audit.record({
+      action: 'integration.account.sign_in',
+      resourceType: 'integration',
+      resourceId: vendorId,
+      result: 'success',
+      identity: route.identity,
+      ipAddress: route.request.ip,
+      traceId: route.request.traceId,
+      details: { vendor: vendorId, account: step.account.id },
+    });
+  };
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/integrations/vendors/:vendorId/accounts',
+      summary: "Start signing in to a vendor's account",
+      tag: 'Integrations',
+      permission: 'integration:configure',
+      params: vendorParamsSchema,
+      body: accountBeginBodySchema,
+      response: accountStepSchema,
+      successStatus: 200,
+    },
+
+    /**
+     * Signs in with what the owner typed.
+     *
+     * @param route - The values, the vendor and who is asking.
+     * @returns The first step: connected, a question, a page to approve on, or why it failed.
+     */
+    async (route): Promise<AccountStep> => {
+      requirePermission(route.identity, 'integration:configure');
+
+      const step = await beginSignIn(
+        forRequest(context, route.request.traceId),
+        route.params.vendorId,
+        route.body.values,
+      );
+
+      await auditConnected(route, route.params.vendorId, step);
+
+      return step;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/integrations/vendors/:vendorId/accounts/flows/:flowId',
+      summary: 'Answer what a sign-in asked',
+      tag: 'Integrations',
+      permission: 'integration:configure',
+      params: flowParamsSchema,
+      body: accountAnswerBodySchema,
+      response: accountStepSchema,
+      successStatus: 200,
+    },
+
+    /**
+     * Carries a sign-in on with the answers to its question.
+     *
+     * @param route - The answers, the flow and who is asking.
+     * @returns The next step.
+     */
+    async (route): Promise<AccountStep> => {
+      requirePermission(route.identity, 'integration:configure');
+
+      const step = await answerSignIn(
+        forRequest(context, route.request.traceId),
+        route.params.flowId,
+        route.body.answers,
+      );
+
+      await auditConnected(route, route.params.vendorId, step);
+
+      return step;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/integrations/vendors/:vendorId/accounts/flows/:flowId/poll',
+      summary: 'Ask whether a sign-in was approved',
+      tag: 'Integrations',
+      permission: 'integration:configure',
+      params: flowParamsSchema,
+      response: accountStepSchema,
+      successStatus: 200,
+    },
+
+    /**
+     * Asks whether the page a sign-in sent the owner to was approved.
+     *
+     * @param route - The flow and who is asking.
+     * @returns The next step: the same page again while it was not.
+     */
+    async (route): Promise<AccountStep> => {
+      requirePermission(route.identity, 'integration:configure');
+
+      const step = await pollSignIn(
+        forRequest(context, route.request.traceId),
+        route.params.flowId,
+      );
+
+      await auditConnected(route, route.params.vendorId, step);
+
+      return step;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'DELETE',
+      url: '/integrations/vendors/:vendorId/accounts/:accountId',
+      summary: "Sign out of a vendor's account",
+      tag: 'Integrations',
+      permission: 'integration:configure',
+      params: accountParamsSchema,
+      response: accountSignOutReplySchema,
+    },
+
+    /**
+     * Forgets an account; its devices stay until they are removed.
+     *
+     * @param route - The account and who is asking.
+     * @returns Whether it was there.
+     */
+    async (route): Promise<{ wasSignedIn: boolean }> => {
+      requirePermission(route.identity, 'integration:configure');
+
+      const wasSignedIn = await signOutAccount(
+        forRequest(context, route.request.traceId),
+        route.params.vendorId,
+        route.params.accountId,
+      );
+
+      await context.audit.record({
+        action: 'integration.account.sign_out',
+        resourceType: 'integration',
+        resourceId: route.params.vendorId,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { vendor: route.params.vendorId, account: route.params.accountId },
+      });
+
+      return { wasSignedIn };
     },
   );
 }
