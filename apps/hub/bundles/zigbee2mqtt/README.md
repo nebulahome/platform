@@ -30,13 +30,33 @@ network back with it.
 
 **Integrations → Zigbee2MQTT → Set up** asks:
 
-| Setting       | What                                                                                                                                                                                                                                                         |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Coordinator   | The chip the coordinator is built on: `ember` (Silicon Labs EFR32: Sonoff ZBDongle-E, Home Assistant SkyConnect, SLZB-06M), `zstack` (Texas Instruments CC26xx: Sonoff ZBDongle-P, SLZB-06), `deconz` (ConBee, RaspBee), `zigate`, `zboss` (Nordic nRF52840) |
-| Connected by  | USB on this machine, or the network                                                                                                                                                                                                                          |
-| Serial port   | For USB: its path, best under `/dev/serial/by-id/`, which stays the same across restarts                                                                                                                                                                     |
-| Address       | For the network: `tcp://<address>:<port>`, as the coordinator's maker gives it (6638 for SMLIGHT)                                                                                                                                                            |
-| Web page port | Zigbee2MQTT's own page - the network map, pairing, each device's own settings - always on, on this port of the machine (8099 unless changed). It asks for no password.                                                                                       |
+| Setting               | What                                                                                                                                                                                                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Coordinator           | The chip the coordinator is built on: `ember` (Silicon Labs EFR32: Sonoff ZBDongle-E, Home Assistant SkyConnect, SLZB-06M), `zstack` (Texas Instruments CC26xx: Sonoff ZBDongle-P, SLZB-06), `deconz` (ConBee, RaspBee), `zigate`, `zboss` (Nordic nRF52840) |
+| Connected by          | USB on this machine, or the network                                                                                                                                                                                                                          |
+| Serial port           | For USB: its path, best under `/dev/serial/by-id/`, which stays the same across restarts                                                                                                                                                                     |
+| Address               | For the network: `tcp://<address>:<port>`, as the coordinator's maker gives it (6638 for SMLIGHT)                                                                                                                                                            |
+| Baud rate             | For USB, only when the coordinator's maker says: how fast the machine talks to it. Unset, Zigbee2MQTT's own default (115200)                                                                                                                                 |
+| Hardware flow control | For USB, only when the maker says (some EFR32 sticks at 460800)                                                                                                                                                                                              |
+| Web page port         | Zigbee2MQTT's own page - the network map, pairing, each device's own settings - always on, on this port of the machine (8099 unless changed)                                                                                                                 |
+| Web page password     | What that page asks before it lets anybody in. Empty, it is open to the whole network                                                                                                                                                                        |
+
+**Advanced settings** shows the rest - each left unset keeps Zigbee2MQTT's own default, since a
+variable that is one setting and nothing else is not handed to the container until it is set:
+
+| Setting                    | Variable                                                          | What                                                                               |
+| -------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Zigbee channel             | `ADVANCED_CHANNEL`                                                | 11-26. Used only when the network is formed: changing it later means pairing again |
+| Transmit power             | `ADVANCED_TRANSMIT_POWER`                                         | dBm, for a coordinator that takes it                                               |
+| LED off                    | `SERIAL_DISABLE_LED`                                              | For a coordinator whose firmware lets it                                           |
+| Log detail                 | `ADVANCED_LOG_LEVEL`                                              | Errors, warnings, information, debug - read on the container's page                |
+| Last seen                  | `ADVANCED_LAST_SEEN`                                              | Whether and how each device says when it was last heard                            |
+| Mains / battery gone after | `AVAILABILITY_ACTIVE_TIMEOUT`, `…_PASSIVE_TIMEOUT`                | Minutes before a device counts as unreachable (10 and 1500 unless set)             |
+| Firmware updates           | `OTA_DISABLE_AUTOMATIC_UPDATE_CHECK`, `OTA_UPDATE_CHECK_INTERVAL` | Whether to look on its own, and how often; nothing installs unasked                |
+| Remember states            | `ADVANCED_CACHE_STATE`                                            | States said again after Zigbee2MQTT restarts                                       |
+
+Every variable is `ZIGBEE2MQTT_CONFIG_` and the name above; the environment overrides
+`configuration.yaml`, so what is set here wins over an edit of that file.
 
 Saving is what starts it: the supervisor pulls the image, writes a first `configuration.yaml` (a
 new network, its keys generated), and starts the container on the platform's network. The page of
@@ -61,7 +81,18 @@ The vendor's page therefore has no _Add device_ and no _Discover devices_: in th
 **Pair devices** is the bridge's _Pairing_ switch (`pairing` in `discovery.json`). It opens pairing
 for 254 seconds, the longest Zigbee2MQTT allows - put the device in pairing mode then, and it is
 added once Zigbee2MQTT has interviewed it. The button follows the switch live: pairing opened from
-Zigbee2MQTT's own page shows as open here too, and **Stop pairing** closes it from either side.
+Zigbee2MQTT's own page shows as open here too, and **Stop** closes it from either side. While it
+is open the button counts the time left down, and a **Pairing** panel says what to do and lists
+the devices that joined since, as they are added.
+
+**When nothing comes.** The listener says on the vendor's page when it cannot reach the broker, or
+reaches it and hears nothing of Zigbee2MQTT for a minute - the case where Zigbee2MQTT was pointed
+at another broker - with the broker it listens on and a link to the container's log, which says
+which broker Zigbee2MQTT tried. A device Zigbee2MQTT lists and that is not added - still being
+interviewed, a model it does not support, disabled in it - is listed under **Seen but not added**
+with why. And because Zigbee2MQTT's retained messages reach the hub before a device just added is
+bound to them, the transport keeps what it heard and hands it on again whenever the instances
+change: the bridge's _Pairing_ switch is known at once, not at Zigbee2MQTT's next word.
 
 A device removed here comes back while Zigbee2MQTT still has it: remove it in Zigbee2MQTT to
 remove it for good.

@@ -82,6 +82,42 @@ export function devicesOf(value) {
 }
 
 /**
+ * Why a device is not offered, in a sentence for the vendor's page: still being paired, a model
+ * Zigbee2MQTT does not know, switched off by the owner in Zigbee2MQTT.
+ *
+ * @param {BridgeDevice} device - The device; never the coordinator, which is not a device here.
+ * @returns {string | null} The reason, or null when it is ready to be offered.
+ */
+export function notOfferedBecause(device) {
+  if (device.disabled === true) {
+    return 'It is disabled in Zigbee2MQTT';
+  }
+
+  if (device.interview_state === 'FAILED') {
+    return 'Zigbee2MQTT could not interview it: pair it again';
+  }
+
+  const isInterviewed =
+    device.interview_state === undefined
+      ? device.interview_completed !== false
+      : device.interview_state === 'SUCCESSFUL';
+
+  if (!isInterviewed) {
+    return 'Zigbee2MQTT is still pairing it';
+  }
+
+  if (
+    device.supported === false ||
+    typeof device.definition !== 'object' ||
+    device.definition === null
+  ) {
+    return 'Zigbee2MQTT does not support this model yet';
+  }
+
+  return null;
+}
+
+/**
  * Whether a device is ready to be offered: known, interviewed, not the coordinator, not switched
  * off by the owner in Zigbee2MQTT.
  *
@@ -89,19 +125,7 @@ export function devicesOf(value) {
  * @returns {boolean} True when it is.
  */
 export function isOfferable(device) {
-  const isInterviewed =
-    device.interview_state === undefined
-      ? device.interview_completed !== false
-      : device.interview_state === 'SUCCESSFUL';
-
-  return (
-    device.type !== 'Coordinator' &&
-    device.supported !== false &&
-    device.disabled !== true &&
-    isInterviewed &&
-    typeof device.definition === 'object' &&
-    device.definition !== null
-  );
+  return device.type !== 'Coordinator' && notOfferedBecause(device) === null;
 }
 
 /**

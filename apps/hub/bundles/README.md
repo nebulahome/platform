@@ -267,6 +267,18 @@ it at every pass and a change is heard without the listener being started again.
 reports; which driver a device belongs to stays the business of `discovery.json`. A sighting at a
 public address is not followed.
 
+Since 1.5 the context also takes two things the vendor's page shows, both optional for the hub to
+offer, so a listener calls them as `context.status?.(…)`:
+
+- `status({ level, message })` - how listening goes: `ok`, `warning` (listening, and hearing
+  nothing it should - Zigbee2MQTT silent on the broker), `error` (it cannot listen - the broker
+  refuses). The last one said stands; anything but `ok` is a callout on the vendor's page, with the
+  way to the vendor's container log.
+- `passedOver([{ id, name, model, reason }])` - every device it heard and does not report, the
+  whole list each time: one still being paired, one its program does not support. The page lists
+  them under **Seen but not added**, with the reason, beside the devices the hub heard that no
+  driver takes, which the hub adds on its own.
+
 ## `setup.json` - what adding a device asks
 
 `driver.json` says what a driver is and `profile.json` says how it maps a device; the driver's
@@ -594,8 +606,11 @@ version) and `device` (code, a function of the SDK: every model Zigbee2MQTT supp
 `exposes`). Found by its own listener on the broker, which runs where the hub hears no multicast
 too (`"lan": false`), and added on its own (`"adopt": "automatic"`): a device paired with
 Zigbee2MQTT is one the owner meant to have. **Pair devices** on its page is the bridge's pairing
-switch (`pairing`). Zigbee2MQTT's own web page is always on, on the port the setup asks. Its
-README says what each expose becomes.
+switch (`pairing`), with the time left while it is open and the devices that joined. Its
+listener says when it hears nothing of Zigbee2MQTT on the broker, and which devices Zigbee2MQTT
+lists that are not added yet, and why. Zigbee2MQTT's own web page is always on, on the port the
+setup asks, behind a password when one is set. Its README says what each expose becomes and what
+each setting does.
 
 ## solax
 

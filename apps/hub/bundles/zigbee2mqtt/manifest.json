@@ -90,6 +90,78 @@
         {
           "name": "ZIGBEE2MQTT_CONFIG_FRONTEND_PORT",
           "value": "{setup.webPort}"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_SERIAL_BAUDRATE",
+          "value": "{setup.baudRate}",
+          "when": {
+            "key": "connection",
+            "equals": ["usb"]
+          }
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_SERIAL_RTSCTS",
+          "value": "{setup.rtscts}",
+          "when": {
+            "key": "connection",
+            "equals": ["usb"]
+          }
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_SERIAL_DISABLE_LED",
+          "value": "{setup.disableLed}"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_ADVANCED_CHANNEL",
+          "value": "{setup.channel}"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_ADVANCED_TRANSMIT_POWER",
+          "value": "{setup.transmitPower}"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_ADVANCED_LOG_LEVEL",
+          "value": "{setup.logLevel}"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_ADVANCED_LAST_SEEN",
+          "value": "{setup.lastSeen}"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_ADVANCED_CACHE_STATE",
+          "value": "{setup.cacheState}"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_AVAILABILITY_ACTIVE_TIMEOUT",
+          "value": "{setup.availabilityActiveTimeout}"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_AVAILABILITY_PASSIVE_TIMEOUT",
+          "value": "{setup.availabilityPassiveTimeout}"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_OTA_DISABLE_AUTOMATIC_UPDATE_CHECK",
+          "value": "true",
+          "when": {
+            "key": "otaAutomaticCheck",
+            "equals": [false]
+          }
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_OTA_DISABLE_AUTOMATIC_UPDATE_CHECK",
+          "value": "false",
+          "when": {
+            "key": "otaAutomaticCheck",
+            "equals": [true]
+          }
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_OTA_UPDATE_CHECK_INTERVAL",
+          "value": "{setup.otaInterval}"
+        },
+        {
+          "name": "ZIGBEE2MQTT_CONFIG_FRONTEND_AUTH_TOKEN",
+          "value": "{setup.frontendAuthToken}"
         }
       ],
       "devices": [

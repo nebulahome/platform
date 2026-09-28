@@ -16,6 +16,13 @@
  * Commands go back by IEEE address, which Zigbee2MQTT accepts in place of a friendly name:
  * `set` and `get` to `<base>/<ieee>/set|get`, `permit_join` and `ota_update` to the bridge.
  *
+ * **What was heard is kept, and handed on again whenever the instances change.** Zigbee2MQTT
+ * keeps the bridge's state and info, the device list and each device's availability retained,
+ * so the broker sends them once, the moment the session subscribes - which is before the hub has
+ * bound the device an instance is adding, and a message for a device not bound yet is dropped.
+ * Without the replay the bridge's pairing switch would stay unknown, and so unreachable, until
+ * Zigbee2MQTT next said something about the bridge.
+ *
  * This file imports nothing from the platform: the broker, the session and zod come in the SDK.
  */
 import {
@@ -126,6 +133,18 @@ export default function createZigbee2MqttTransport(sdk) {
     /** @type {BridgeSnapshot} */
     const bridge = { state: null, info: null, deviceCount: 0 };
 
+    /** Whether the bridge has said anything yet, so that an empty snapshot is not handed on. */
+    let isBridgeHeard = false;
+
+    /** @type {Map<string, BridgeDevice>} What the bridge last listed of each device. */
+    const definitions = new Map();
+
+    /** @type {Map<string, boolean>} Whether each device was last said to be online. */
+    const availability = new Map();
+
+    /** @type {Map<string, unknown>} What each device last reported. */
+    const states = new Map();
+
     /** @type {readonly TransportSubscription[]} */
     let standing = [];
 
@@ -165,6 +184,7 @@ export default function createZigbee2MqttTransport(sdk) {
         }
 
         if (about.kind === 'state') {
+          states.set(about.ieee, value);
           deliver(about.ieee, { kind: 'state', state: value });
 
           return;
@@ -174,6 +194,7 @@ export default function createZigbee2MqttTransport(sdk) {
           const online = isOnline(value);
 
           if (online !== null) {
+            availability.set(about.ieee, online);
             deliver(about.ieee, { kind: 'availability', isOnline: online });
           }
 
@@ -188,9 +209,11 @@ export default function createZigbee2MqttTransport(sdk) {
           const devices = devicesOf(value);
 
           ieeeByName.clear();
+          definitions.clear();
 
           for (const device of devices) {
             ieeeByName.set(device.friendly_name, device.ieee_address);
+            definitions.set(device.ieee_address, device);
             deliver(device.ieee_address, { kind: 'definition', device });
           }
 
@@ -199,6 +222,7 @@ export default function createZigbee2MqttTransport(sdk) {
           return;
         }
 
+        isBridgeHeard = true;
         deliver(BRIDGE_KEY, { ...bridge });
       },
 
@@ -210,6 +234,28 @@ export default function createZigbee2MqttTransport(sdk) {
 
     // Everything under the base topic: a friendly name may hold slashes, and `+` would miss it.
     session.subscribe(`${base}/#`);
+
+    /**
+     * Hands on again everything heard so far - the bridge, then each device's definition, its
+     * availability and its last state - for the devices bound since it first arrived.
+     */
+    function replay() {
+      if (isBridgeHeard) {
+        deliver(BRIDGE_KEY, { ...bridge });
+      }
+
+      for (const [ieee, device] of definitions) {
+        deliver(ieee, { kind: 'definition', device });
+      }
+
+      for (const [ieee, isOnlineNow] of availability) {
+        deliver(ieee, { kind: 'availability', isOnline: isOnlineNow });
+      }
+
+      for (const [ieee, state] of states) {
+        deliver(ieee, { kind: 'state', state });
+      }
+    }
 
     /**
      * Asks the devices the instances want read for their state, which Zigbee2MQTT does not keep
@@ -279,12 +325,14 @@ export default function createZigbee2MqttTransport(sdk) {
       },
 
       /**
-       * Takes in what the instances want read; the session already hears everything.
+       * Takes in what the instances want read, and hands on again what was heard before they
+       * were bound; the session already hears everything.
        *
        * @param {readonly TransportSubscription[]} subscriptions - What they want.
        */
       apply: async (subscriptions) => {
         standing = subscriptions;
+        replay();
         await refresh();
       },
 

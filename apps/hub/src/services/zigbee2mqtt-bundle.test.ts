@@ -226,7 +226,7 @@ function arrive(session: FakeMqtt | undefined, topic: string, payload: unknown):
 let exposes: ExposesModule;
 let createDevice: (sdk: BundleSdk) => Integration;
 let createTransport: (sdk: BundleSdk) => Transport;
-let createDiscovery: (sdk: BundleSdk) => DiscoverySource;
+let createDiscovery: (sdk: BundleSdk, options?: { silenceMs?: number }) => DiscoverySource;
 
 beforeAll(async () => {
   exposes = (await import(
@@ -535,6 +535,69 @@ describe('the transport', () => {
     await connection.close();
   });
 
+  it('hands on again what it heard before the devices were bound, when the instances change', async () => {
+    // Zigbee2MQTT's retained messages arrive once, the moment the session subscribes - before
+    // the hub has bound the bridge an instance is adding. Without the replay the pairing switch
+    // would stay unknown until Zigbee2MQTT next said something about the bridge.
+    const sessions: FakeMqtt[] = [];
+    const transport = createTransport(sdkWith(sessions));
+    const delivered: TransportInbound[] = [];
+    const connection = await transport.connect(
+      {},
+      {
+        logger: createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' }),
+        deliver: (message) => delivered.push(message),
+        report: () => undefined,
+      },
+    );
+    const [session] = sessions;
+
+    arrive(session, 'zigbee2mqtt/bridge/info', INFO);
+    arrive(session, 'zigbee2mqtt/bridge/devices', [COORDINATOR, DOOR]);
+    arrive(session, 'zigbee2mqtt/hall/front door/availability', { state: 'online' });
+    arrive(session, 'zigbee2mqtt/hall/front door', { contact: true });
+    delivered.length = 0;
+
+    await connection.apply([]);
+
+    expect(delivered).toContainEqual({
+      connectionKey: connection.key,
+      deviceKey: 'bridge',
+      payload: { state: null, info: INFO, deviceCount: 1 },
+    });
+    expect(delivered).toContainEqual({
+      connectionKey: connection.key,
+      deviceKey: DOOR.ieee_address,
+      payload: { kind: 'availability', isOnline: true },
+    });
+    expect(delivered).toContainEqual({
+      connectionKey: connection.key,
+      deviceKey: DOOR.ieee_address,
+      payload: { kind: 'state', state: { contact: true } },
+    });
+
+    await connection.close();
+  });
+
+  it('hands nothing of the bridge on again before the bridge said anything', async () => {
+    const sessions: FakeMqtt[] = [];
+    const transport = createTransport(sdkWith(sessions));
+    const delivered: TransportInbound[] = [];
+    const connection = await transport.connect(
+      {},
+      {
+        logger: createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' }),
+        deliver: (message) => delivered.push(message),
+        report: () => undefined,
+      },
+    );
+
+    await connection.apply([]);
+
+    expect(delivered).toEqual([]);
+    await connection.close();
+  });
+
   it('finds the bridge and the devices ready to add, never the coordinator', async () => {
     const sessions: FakeMqtt[] = [];
     const transport = createTransport(sdkWith(sessions));
@@ -590,6 +653,125 @@ describe('the listener', () => {
     // vendor must not open the Zigbee network.
     expect(listener.scan).toBeUndefined();
     expect(sessions[0]?.published).toEqual([]);
+  });
+
+  it('says which devices it does not propose, and why', async () => {
+    const sessions: FakeMqtt[] = [];
+    const listener = createDiscovery(sdkWith(sessions));
+    const abort = new AbortController();
+    const passedOver: unknown[] = [];
+    const listening = (async () => {
+      for await (const sighting of listener.listen(abort.signal, {
+        ...NO_SETTINGS,
+        passedOver: (devices) => {
+          passedOver.push(...devices);
+          abort.abort();
+        },
+      })) {
+        // Only what is passed over is looked at here.
+        expect(sighting).toBeDefined();
+      }
+    })();
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    arrive(sessions[0], 'zigbee2mqtt/bridge/devices', [
+      COORDINATOR,
+      { ...DOOR, interview_state: 'IN_PROGRESS' },
+      { ...LAMP, supported: false, definition: null },
+    ]);
+    await listening;
+
+    expect(passedOver).toEqual([
+      expect.objectContaining({ id: DOOR.ieee_address, reason: 'Zigbee2MQTT is still pairing it' }),
+      expect.objectContaining({
+        id: LAMP.ieee_address,
+        name: LAMP.friendly_name,
+        reason: 'Zigbee2MQTT does not support this model yet',
+      }),
+    ]);
+  });
+
+  it('says so when it is connected but hears nothing of Zigbee2MQTT', async () => {
+    // The one way this goes wrong is silently: Zigbee2MQTT on one broker, NebulaHome on another.
+    const sessions: FakeMqtt[] = [];
+    const listener = createDiscovery(sdkWith(sessions), { silenceMs: 20 });
+    const abort = new AbortController();
+    const statuses: { level: string; message: string }[] = [];
+    const listening = (async () => {
+      for await (const sighting of listener.listen(abort.signal, {
+        ...NO_SETTINGS,
+        status: (status) => {
+          statuses.push(status);
+
+          if (status.level === 'warning') {
+            abort.abort();
+          }
+        },
+      })) {
+        // Nothing is heard here.
+        expect(sighting).toBeDefined();
+      }
+    })();
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    sessions[0]?.options.onConnect?.();
+    await listening;
+
+    expect(statuses.map((status) => status.level)).toEqual(['ok', 'warning']);
+    expect(statuses[1]?.message).toContain('mqtt://127.0.0.1:1884');
+  });
+
+  it('says Zigbee2MQTT is online once it hears the bridge, and no warning after', async () => {
+    const sessions: FakeMqtt[] = [];
+    const listener = createDiscovery(sdkWith(sessions), { silenceMs: 20 });
+    const abort = new AbortController();
+    const statuses: string[] = [];
+    const listening = (async () => {
+      for await (const sighting of listener.listen(abort.signal, {
+        ...NO_SETTINGS,
+        status: (status) => {
+          statuses.push(status.level);
+        },
+      })) {
+        // Nothing is heard here.
+        expect(sighting).toBeDefined();
+      }
+    })();
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    sessions[0]?.options.onConnect?.();
+    arrive(sessions[0], 'zigbee2mqtt/bridge/state', { state: 'online' });
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    abort.abort();
+    await listening;
+
+    expect(statuses).toEqual(['ok', 'ok']);
+  });
+
+  it('says it cannot reach the broker when the session fails', async () => {
+    const sessions: FakeMqtt[] = [];
+    const listener = createDiscovery(sdkWith(sessions));
+    const abort = new AbortController();
+    const statuses: { level: string; message: string }[] = [];
+    const listening = (async () => {
+      for await (const sighting of listener.listen(abort.signal, {
+        ...NO_SETTINGS,
+        status: (status) => {
+          statuses.push(status);
+          abort.abort();
+        },
+      })) {
+        // Nothing is heard here.
+        expect(sighting).toBeDefined();
+      }
+    })();
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    sessions[0]?.options.onClose?.('connect ECONNREFUSED 127.0.0.1:1884');
+    await listening;
+
+    expect(statuses[0]?.level).toBe('error');
+    expect(statuses[0]?.message).toContain('ECONNREFUSED');
   });
 
   it('names a device just paired for what it is, not by its IEEE address', async () => {
