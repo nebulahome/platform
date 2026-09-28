@@ -595,7 +595,7 @@ CREATE TABLE registry.entity_capabilities (
   CONSTRAINT entity_capabilities_known CHECK (capability IN (
     'on_off', 'level', 'color_hs', 'color_temp', 'cover', 'lock',
     'thermostat', 'sensor_numeric', 'sensor_binary', 'sensor_text',
-    'media_player', 'camera', 'button', 'update'
+    'media_player', 'camera', 'button', 'update', 'lawn_mower', 'select', 'number'
   ))
 );
 
