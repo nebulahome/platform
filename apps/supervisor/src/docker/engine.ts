@@ -224,11 +224,19 @@ export class DockerEngine {
    *
    * @param id - Its id.
    * @param tail - How many lines.
+   * @param since - Only the lines Docker received from then on, as seconds since 1970 and their
+   *   fraction; the line at that moment itself is sent again.
    * @returns The raw bytes.
    */
-  public async logs(id: string, tail: number): Promise<Buffer> {
+  public async logs(id: string, tail: number, since?: string): Promise<Buffer> {
     const response = await this.#call('GET', `/containers/${encodeURIComponent(id)}/logs`, {
-      query: { stdout: true, stderr: true, timestamps: true, tail },
+      query: {
+        stdout: true,
+        stderr: true,
+        timestamps: true,
+        tail,
+        ...(since === undefined ? {} : { since }),
+      },
     });
 
     return this.#bodyOf(response, 'read its logs');

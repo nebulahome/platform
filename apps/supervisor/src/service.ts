@@ -73,7 +73,7 @@ import { displayNameOf } from './domain/display-name.js';
 import { registrationOf, reportsOf, type ContainerFacts } from './domain/entities.js';
 import { imageName, parseImageReference, registryPageOf } from './domain/image-ref.js';
 import { takenPorts } from './domain/install.js';
-import { parseLogs } from './domain/log-frames.js';
+import { logsReplyOf, parseLogEntries } from './domain/log-frames.js';
 import type { DataMount, PlatformContext } from './domain/managed.js';
 import { PullProgressTracker } from './domain/pull-progress.js';
 import { planRecreate } from './domain/recreate.js';
@@ -453,13 +453,18 @@ export class SupervisorService {
    *
    * @param name - Its name.
    * @param tail - How many lines.
-   * @returns The lines, oldest first.
+   * @param since - Only the lines after this cursor, which the last read answered.
+   * @returns The lines, oldest first, and where the next read carries on.
    */
-  public async logs(name: string, tail: number): Promise<ContainerLogsReply> {
+  public async logs(name: string, tail: number, since?: string): Promise<ContainerLogsReply> {
     const tracked = this.#require(name);
-    const bytes = await this.#engine.logs(tracked.id, tail);
+    // One more line than asked, after a cursor: Docker sends the line at the cursor again.
+    const bytes = await this.#engine.logs(tracked.id, since === undefined ? tail : tail + 1, since);
 
-    return { lines: parseLogs(bytes, tracked.inspected?.Config.Tty === true).slice(-tail) };
+    return logsReplyOf(parseLogEntries(bytes, tracked.inspected?.Config.Tty === true), {
+      tail,
+      since,
+    });
   }
 
   /**

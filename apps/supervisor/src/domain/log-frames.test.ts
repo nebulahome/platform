@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseLogs } from './log-frames.js';
+import {
+  cursorOfNanos,
+  logsReplyOf,
+  nanosOfCursor,
+  parseLogEntries,
+  parseLogs,
+} from './log-frames.js';
 
 /**
  * One multiplexed frame, as Docker writes it.
@@ -65,5 +71,62 @@ describe('parseLogs', () => {
     expect(parseLogs(frame(1, 'unfinished'), false)).toEqual([
       { at: null, stream: 'stdout', text: 'unfinished' },
     ]);
+  });
+});
+
+describe('reading a log again from where the last read ended', () => {
+  const answer = Buffer.concat([
+    frame(1, '2026-09-27T14:02:44.1Z first\n'),
+    frame(1, '2026-09-27T14:02:44.123456789Z second\n'),
+    frame(2, '2026-09-27T14:02:45Z third\n'),
+  ]);
+
+  it('keeps each time to the nanosecond, and turns it into a cursor and back', () => {
+    const entries = parseLogEntries(answer, false);
+    const second = entries[1]?.nanos ?? 0n;
+
+    expect(cursorOfNanos(second)).toBe('1790517764.123456789');
+    expect(nanosOfCursor('1790517764.123456789')).toBe(second);
+    expect(cursorOfNanos(entries[0]?.nanos ?? 0n)).toBe('1790517764.100000000');
+  });
+
+  it('answers the newest lines and the cursor of the last', () => {
+    const reply = logsReplyOf(parseLogEntries(answer, false), { tail: 2 });
+
+    expect(reply.lines.map((line) => line.text)).toEqual(['second', 'third']);
+    expect(reply.cursor).toBe('1790517765.000000000');
+    expect(reply.isTruncated).toBe(false);
+  });
+
+  it('leaves out the line at the cursor, which Docker sends again, and what came before', () => {
+    const reply = logsReplyOf(parseLogEntries(answer, false), {
+      tail: 200,
+      since: '1790517764.123456789',
+    });
+
+    expect(reply.lines.map((line) => line.text)).toEqual(['third']);
+  });
+
+  it('keeps the cursor it was asked with when nothing new came', () => {
+    const reply = logsReplyOf([], { tail: 200, since: '1790517765.000000000' });
+
+    expect(reply).toEqual({ lines: [], cursor: '1790517765.000000000', isTruncated: false });
+  });
+
+  it('keeps the newest lines when the reply would weigh too much', () => {
+    const long = 'x'.repeat(16_000);
+    const many = Buffer.concat(
+      [...Array.from({ length: 40 }).keys()].map((index) =>
+        frame(
+          1,
+          `2026-09-27T14:02:${String(10 + index).padStart(2, '0')}Z ${long}${String(index)}\n`,
+        ),
+      ),
+    );
+    const reply = logsReplyOf(parseLogEntries(many, false), { tail: 200 });
+
+    expect(reply.isTruncated).toBe(true);
+    expect(reply.lines.length).toBeLessThan(40);
+    expect(reply.lines.at(-1)?.text.endsWith('39')).toBe(true);
   });
 });

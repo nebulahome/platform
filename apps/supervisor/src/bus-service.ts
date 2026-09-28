@@ -77,7 +77,7 @@ export function serveSupervisor(client: BusClient, service: SupervisorService): 
     client.serve(
       subject(SUPERVISOR_METHODS.logs),
       containerLogsRequestSchema,
-      async (request) => service.logs(request.name, request.tail),
+      async (request) => service.logs(request.name, request.tail, request.since),
       reads,
     ),
     client.serve(
