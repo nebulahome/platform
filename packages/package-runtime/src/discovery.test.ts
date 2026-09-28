@@ -125,6 +125,27 @@ describe('resolveDiscovery', () => {
     ).toThrow(/tasmota\/raw/);
   });
 
+  it('refuses pairing through a driver the vendor does not have', () => {
+    expect(() =>
+      resolveDiscovery(
+        'shelly',
+        vendorDiscoverySchema.parse({
+          ...shellyDiscovery(),
+          adopt: 'automatic',
+          pairing: { driver: 'bridge', entity: 'permit_join' },
+        }),
+        shellyDrivers(),
+      ),
+    ).toThrow(/bridge/);
+  });
+
+  it('proposes to the owner unless the vendor says its devices are added on their own', () => {
+    expect(vendorDiscoverySchema.parse(shellyDiscovery()).adopt).toBe('owner');
+    expect(vendorDiscoverySchema.parse({ ...shellyDiscovery(), adopt: 'automatic' }).adopt).toBe(
+      'automatic',
+    );
+  });
+
   it('refuses one code mapped by two drivers of a vendor that does not probe, naming both', () => {
     // Without a probe nothing but the code can tell the two apart, and which driver a device
     // belonged to would be a matter of load order.

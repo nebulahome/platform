@@ -16,7 +16,8 @@
  *    models (`modelCodes` in `driver.json`), or failing that the drivers' own claims. Two drivers
  *    may map one code only when the vendor probes: a Shelly 2PM reports the same code whether it
  *    runs as two relays or as a cover, and the drivers' claims read which from the answer.
- * 6. **propose** - the device, its driver and its model, for an owner to adopt.
+ * 6. **propose** - the device, its driver and its model, for an owner to adopt - or, for a vendor
+ *    that says `"adopt": "automatic"`, for the platform to add at once.
  *
  * Steps 1 and 3 may need code; 2, 4 and 5 never do, which is the point: however a vendor hears
  * its devices, the decision about which driver a device belongs to is made by the same rule for
@@ -28,7 +29,12 @@
  */
 import { z } from 'zod';
 
-import { jsonObjectSchema, transportIdSchema, type JsonObject } from '@nebula-home/contracts';
+import {
+  DEVICE_ADOPTIONS,
+  jsonObjectSchema,
+  transportIdSchema,
+  type JsonObject,
+} from '@nebula-home/contracts';
 
 import { bundlePathSchema } from './bundle.js';
 import { conditionHolds, resolvePath } from './evaluate.js';
@@ -136,6 +142,25 @@ export const vendorDiscoverySchema = z
 
     probe: discoveryProbeSchema.optional(),
     identity: discoveryIdentitySchema,
+
+    /**
+     * Since 1.4: who adds a device found. `owner` - the default - proposes it on the vendor's
+     * page; `automatic` adds it as soon as it is heard, for devices the owner already chose
+     * somewhere else: a Zigbee device paired with Zigbee2MQTT.
+     */
+    adopt: z.enum(DEVICE_ADOPTIONS).default('owner'),
+
+    /**
+     * Since 1.4: the switch that opens pairing, for a vendor whose devices are paired through one
+     * of its own - a driver of the vendor and the `objectId` of a switch of its profile, on while
+     * pairing is open. The vendor's page offers it in place of looking for devices.
+     */
+    pairing: z
+      .strictObject({
+        driver: z.string().min(1).max(64),
+        entity: z.string().min(1).max(64),
+      })
+      .optional(),
   })
   .superRefine((discovery, ctx) => {
     if (discovery.probe === undefined && discovery.identity.model === undefined) {
@@ -183,8 +208,9 @@ export type CodedModels = { readonly driverId: string; readonly models: readonly
  * @param discovery - The parsed file.
  * @param drivers - The vendor's drivers, in the order they were loaded.
  * @returns The plan the hub answers announcements with.
- * @throws {Error} When the probe names another vendor's transport, or one code is mapped by two
- * drivers of a vendor that does not probe - nothing but load order could then tell them apart.
+ * @throws {Error} When the probe names another vendor's transport, one code is mapped by two
+ * drivers of a vendor that does not probe - nothing but load order could then tell them apart -
+ * or pairing names a driver the vendor does not have.
  */
 export function resolveDiscovery(
   vendorId: string,
@@ -198,6 +224,12 @@ export function resolveDiscovery(
     throw new Error(
       `${vendorId} probes with ${transport}, which belongs to another vendor; discovery uses the platform's transports or its own vendor's`,
     );
+  }
+
+  const pairing = discovery.pairing?.driver;
+
+  if (pairing !== undefined && !drivers.some((driver) => driver.id === pairing)) {
+    throw new Error(`${vendorId} pairs through ${pairing}, which is not one of its drivers`);
   }
 
   const codes = new Map<string, CodedModels[]>();
