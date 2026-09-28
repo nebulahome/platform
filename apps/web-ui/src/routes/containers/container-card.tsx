@@ -240,9 +240,9 @@ export function ComposeCard(props: { readonly group: ComposeGroup }) {
 
         <span className="grow" />
 
+        {/* How many run is the dot's to say: a third figure did not fit the card's width. */}
         <Foot
           parts={[
-            [String(usage.running), 'running'],
             [usage.cpuPercent === null ? null : formatPercent(usage.cpuPercent), 'CPU'],
             [usage.memoryUsedBytes === null ? null : formatBytes(usage.memoryUsedBytes), 'RAM'],
           ]}
