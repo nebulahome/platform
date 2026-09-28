@@ -17,6 +17,8 @@ const CATALOGUE: IntegrationVendor[] = [
     discoverySources: [],
     adoption: 'owner',
     pairing: null,
+    listener: null,
+    passedOver: [],
     containers: [],
     setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
     drivers: [

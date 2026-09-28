@@ -143,6 +143,8 @@ export const CATALOGUE: CatalogueReply = {
       discoverySources: [],
       adoption: 'owner',
       pairing: null,
+      listener: null,
+      passedOver: [],
       containers: [],
       setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
       drivers: [
@@ -169,6 +171,8 @@ export const CATALOGUE: CatalogueReply = {
       discoverySources: [],
       adoption: 'owner',
       pairing: null,
+      listener: null,
+      passedOver: [],
       containers: [],
       setup: {
         transport: {
