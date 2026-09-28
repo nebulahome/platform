@@ -71,6 +71,16 @@ const PUBLIC_PATHS = new Set([
 const MAINTENANCE_PATHS = new Set(['/healthz', '/readyz', '/api/v1/system/maintenance']);
 
 /**
+ * The sockets that authenticate with their first message: a browser cannot put a header on a
+ * WebSocket, and a token in the URL would end up in logs (RULES.md 16). The live channel, and each
+ * camera's picture. Checked here they would be refused before the socket opened.
+ */
+const SOCKET_PATHS = [
+  new RegExp(`^/api/${CURRENT_API_VERSION}/ws$`, 'u'),
+  new RegExp(`^/api/${CURRENT_API_VERSION}/cameras/[^/]+/live$`, 'u'),
+];
+
+/**
  * Says whether a path may be reached without a credential.
  *
  * A set of exact paths rather than a prefix match. `/api/v1/auth/` as a prefix would have made
@@ -83,7 +93,7 @@ const MAINTENANCE_PATHS = new Set(['/healthz', '/readyz', '/api/v1/system/mainte
 function isPublicPath(url: string): boolean {
   const path = url.split('?')[0] ?? '';
 
-  return PUBLIC_PATHS.has(path) || path === `/api/${CURRENT_API_VERSION}/ws`;
+  return PUBLIC_PATHS.has(path) || SOCKET_PATHS.some((socket) => socket.test(path));
 }
 
 /**

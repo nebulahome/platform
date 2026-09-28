@@ -11,10 +11,16 @@
  * No database is needed: the paths asserted here are answered before anything reads one, and the
  * readiness check is given a stub that fails, so its degraded branch is exercised too.
  */
+import { Socket } from 'node:net';
+
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { CURRENT_API_VERSION, TRACE_ID_HEADER } from '@nebula-home/contracts';
+import {
+  CURRENT_API_VERSION,
+  TRACE_ID_HEADER,
+  WS_CLOSE_UNAUTHENTICATED,
+} from '@nebula-home/contracts';
 import { secretsKeyFrom } from '@nebula-home/db';
 import { createLogger } from '@nebula-home/logging';
 
@@ -177,6 +183,24 @@ describe('the server', () => {
     });
 
     expect(response.statusCode).toBe(401);
+  });
+
+  it('opens a camera socket without a header, for its first message to authenticate', async () => {
+    // A browser cannot put a credential on a WebSocket: refused at the upgrade, the camera never
+    // played, and the proxy in front said only "unexpected response".
+    // A socket stands in for the one a real upgrade arrives on: the rate limit reads its address.
+    const socket = await server.injectWS('/api/v1/cameras/camera.printer_chamber/live', {
+      socket: new Socket(),
+    });
+    const closed = new Promise<number>((resolve) => {
+      socket.once('close', (code: number) => {
+        resolve(code);
+      });
+    });
+
+    socket.send(JSON.stringify({ type: 'auth', token: 'not-a-token' }));
+
+    expect(await closed).toBe(WS_CLOSE_UNAUTHENTICATED);
   });
 
   it('does not let an anonymous caller map which routes exist', async () => {
