@@ -436,6 +436,45 @@ CREATE TABLE registry.integration_vendors (
 
 -- --------------------------------------------------------------------------------------
 
+-- registry: integration_accounts
+--
+-- The accounts a vendor's devices are reached through - an ECOVACS HOME account, a cloud's -
+-- one row per account signed in to, a vendor holding as many as the house has. `id` is the
+-- account's own at its cloud, as the bundle's sign-in module said it, which is what a device's
+-- configuration names (`transport_config.account`).
+--
+-- `credentials` is what the owner typed to sign in, its secrets sealed - kept so a session that
+-- expires is renewed without the owner - and `session` what the cloud gave back, sealed whole:
+-- tokens, a user id. Neither leaves `hub`, which runs the sign-in and is the only writer; `api`
+-- reads the rest for the vendor's page. `status` is where the account stands: `needs-sign-in`
+-- once the cloud wants the owner again - an emailed code - with why in `last_error`.
+--
+-- No foreign key to `integration_vendors`: a vendor with an account and no settings has no row
+-- there. An account of a vendor no longer loaded is kept, like that vendor's settings, and comes
+-- back with it.
+
+CREATE TABLE registry.integration_accounts (
+  vendor_id    text        NOT NULL,
+  id           text        NOT NULL,
+  label        text        NOT NULL,
+  status       text        NOT NULL DEFAULT 'connected',
+  credentials  jsonb       NOT NULL DEFAULT '{}'::jsonb,
+  session      jsonb       NOT NULL DEFAULT '{}'::jsonb,
+  last_error   text,
+  connected_at timestamptz,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+
+  PRIMARY KEY (vendor_id, id),
+  CONSTRAINT integration_accounts_vendor_format CHECK (vendor_id ~ '^[a-z][a-z0-9-]{1,63}$'),
+  CONSTRAINT integration_accounts_id_format CHECK (id ~ '^[A-Za-z0-9._@:+-]{1,128}$'),
+  CONSTRAINT integration_accounts_label_length CHECK (length(label) BETWEEN 1 AND 256),
+  CONSTRAINT integration_accounts_status_known
+    CHECK (status IN ('connected', 'needs-sign-in', 'failed'))
+);
+
+-- --------------------------------------------------------------------------------------
+
 -- registry: icons
 
 -- --------------------------------------------------------------------------------------
@@ -1184,6 +1223,10 @@ CREATE TRIGGER integration_vendors_touch_updated_at
   BEFORE UPDATE ON registry.integration_vendors
   FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
 
+CREATE TRIGGER integration_accounts_touch_updated_at
+  BEFORE UPDATE ON registry.integration_accounts
+  FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
+
 CREATE TRIGGER icons_touch_updated_at
   BEFORE UPDATE ON registry.icons
   FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
@@ -1274,6 +1317,8 @@ GRANT UPDATE (state, last_error, last_started_at) ON registry.integrations TO ne
 GRANT SELECT ON registry.devices TO nebula_hub;
 -- The vendor's shared settings, read to layer under each instance it starts; never written.
 GRANT SELECT ON registry.integration_vendors TO nebula_hub;
+-- The accounts: `hub` runs the sign-in, so it is the one that writes them.
+GRANT SELECT, INSERT, UPDATE, DELETE ON registry.integration_accounts TO nebula_hub;
 GRANT SELECT ON system.settings, system.v_schema_version TO nebula_hub;
 
 -- backup: its runs, the locations it writes to and their outcome, the settings, and the

@@ -15,6 +15,7 @@ import {
   integer,
   jsonb,
   pgSchema,
+  primaryKey,
   smallint,
   text,
   timestamp,
@@ -156,6 +157,38 @@ export const integrationVendors = registrySchema.table('integration_vendors', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * The accounts a vendor's devices are reached through, one row per account signed in to.
+ *
+ * `credentials` holds what the owner typed, its secrets sealed; `session` what the cloud gave
+ * back, sealed whole. Written by `hub`, which runs the sign-in; read by `api` for the vendor's
+ * page, which never serves either document.
+ */
+export const integrationAccounts = registrySchema.table(
+  'integration_accounts',
+  {
+    vendorId: text('vendor_id').notNull(),
+
+    /** The account's id at its cloud, as the sign-in module said it. */
+    id: text('id').notNull(),
+
+    /** What its card calls it: the email it was made with. */
+    label: text('label').notNull(),
+    status: text('status').notNull().default('connected'),
+    credentials: jsonb('credentials')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    session: jsonb('session')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    lastError: text('last_error'),
+    connectedAt: timestamp('connected_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.vendorId, table.id] })],
+);
 
 /**
  * The icons an owner added to the catalogue, or drew afresh over a built-in one.

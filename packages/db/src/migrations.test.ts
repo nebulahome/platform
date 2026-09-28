@@ -66,7 +66,7 @@ describe('the migration set', () => {
 
 describe('the initial schema', () => {
   it('creates every object DATABASE.md defines', () => {
-    expect(initialSql.match(/^CREATE TABLE /gm)).toHaveLength(41);
+    expect(initialSql.match(/^CREATE TABLE /gm)).toHaveLength(42);
     expect(initialSql.match(/^CREATE VIEW /gm)).toHaveLength(4);
     expect(initialSql.match(/create_hypertable\(/g)).toHaveLength(5);
   });
@@ -234,6 +234,25 @@ describe('integration ownership', () => {
 
   it("touches a vendor row's updated_at the way it touches an instance's", () => {
     expect(initialSql).toContain('BEFORE UPDATE ON registry.integration_vendors');
+  });
+
+  it('keeps each account of a vendor, one row each, written by hub', () => {
+    // hub runs the sign-in, so hub writes the row; api reads it for the vendor's page through
+    // its grant on the whole schema.
+    const table = initialSql.slice(
+      initialSql.indexOf('CREATE TABLE registry.integration_accounts ('),
+      initialSql.indexOf(
+        '\n);',
+        initialSql.indexOf('CREATE TABLE registry.integration_accounts ('),
+      ),
+    );
+
+    expect(table).toContain('PRIMARY KEY (vendor_id, id)');
+    expect(table).toContain("CHECK (status IN ('connected', 'needs-sign-in', 'failed'))");
+    expect(initialSql).toContain(
+      'GRANT SELECT, INSERT, UPDATE, DELETE ON registry.integration_accounts TO nebula_hub',
+    );
+    expect(initialSql).toContain('BEFORE UPDATE ON registry.integration_accounts');
   });
 
   it('keeps the model the owner picked on the instance', () => {
