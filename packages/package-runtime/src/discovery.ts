@@ -415,6 +415,29 @@ export type Sighting = {
   readonly payload: JsonObject;
 };
 
+/** How a listener is getting on, as the vendor's page says it. */
+export type ListenerStatus = {
+  /** `ok` hears what it listens to; `warning` listens but hears nothing; `error` cannot listen. */
+  readonly level: 'ok' | 'warning' | 'error';
+
+  /** A sentence for the owner: where it listens, and what to look at when it hears nothing. */
+  readonly message: string;
+};
+
+/**
+ * A device a listener heard and does not report, and why: one its vendor does not support, one
+ * still being paired. The vendor's page lists them, so "why is my device not here" has an answer.
+ */
+export type PassedOverSighting = {
+  /** What tells it from the others: its IEEE address, its id on the account. */
+  readonly id: string;
+  readonly name: string;
+  readonly model?: string | null;
+
+  /** Why it is not added, in a sentence: `Zigbee2MQTT is still pairing it`. */
+  readonly reason: string;
+};
+
 /** Since 1.4: what the hub hands a listener beside the signal. */
 export type DiscoveryListenContext = {
   /**
@@ -425,6 +448,19 @@ export type DiscoveryListenContext = {
    * @returns The vendor's settings; empty while it is not set up.
    */
   readonly settings: () => Promise<JsonObject>;
+
+  /**
+   * Since 1.5: says how listening goes - connected to a broker but hearing nothing, unable to
+   * reach it - which the vendor's page shows. The last one said stands until the next. Optional
+   * for the hub to offer, so a listener calls it as `context.status?.(…)`.
+   */
+  readonly status?: (status: ListenerStatus) => void;
+
+  /**
+   * Since 1.5: every device the listener hears and does not report, the whole list each time -
+   * it replaces the last one. Optional for the hub to offer, like `status`.
+   */
+  readonly passedOver?: (devices: readonly PassedOverSighting[]) => void;
 };
 
 /** A vendor's own listener, for a protocol the platform does not speak. */

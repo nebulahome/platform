@@ -27,6 +27,8 @@ const DECLARED = containerDependenciesSchema.parse([
         value: '{setup.networkAddress}',
         when: { key: 'connection', equals: ['network'] },
       },
+      { name: 'ZIGBEE2MQTT_CONFIG_ADVANCED_CHANNEL', value: '{setup.channel}' },
+      { name: 'ZIGBEE2MQTT_CONFIG_ADVANCED_LOG_LEVEL', value: 'level {setup.logLevel}' },
     ],
     devices: [
       {
@@ -66,6 +68,8 @@ const SETUP = integrationSetupSchema.parse({
       { key: 'networkAddress', type: 'text', label: 'Address' },
       { key: 'webInterface', type: 'boolean', label: 'Web interface' },
       { key: 'webPort', type: 'number', label: 'Port' },
+      { key: 'channel', type: 'number', label: 'Channel' },
+      { key: 'logLevel', type: 'text', label: 'Log level' },
     ],
   },
 });
@@ -121,6 +125,7 @@ describe('renderContainers', () => {
     expect(spec?.env).toEqual([
       { name: 'ZIGBEE2MQTT_CONFIG_MQTT_SERVER', value: '{platform.mqtt.url}' },
       { name: 'ZIGBEE2MQTT_CONFIG_SERIAL_PORT', value: '/dev/zigbee' },
+      { name: 'ZIGBEE2MQTT_CONFIG_ADVANCED_LOG_LEVEL', value: 'level ' },
     ]);
     expect(spec?.ports).toEqual([]);
     expect(spec?.webPort).toBe(null);
@@ -142,6 +147,27 @@ describe('renderContainers', () => {
     });
     expect(spec?.ports).toEqual([{ container: 8099, host: 8099, protocol: 'tcp' }]);
     expect(spec?.webPort).toBe(8099);
+  });
+
+  it('leaves out a variable that is one setting the owner has not set, and keeps it once set', () => {
+    // A channel handed over empty would override the one the Zigbee network was formed on.
+    const unset = renderContainers('zigbee2mqtt', DECLARED, {
+      connection: 'usb',
+      serialPath: '/dev/ttyUSB0',
+    });
+    const set = renderContainers('zigbee2mqtt', DECLARED, {
+      connection: 'usb',
+      serialPath: '/dev/ttyUSB0',
+      channel: 15,
+    });
+
+    expect(unset[0]?.env.map((entry) => entry.name)).not.toContain(
+      'ZIGBEE2MQTT_CONFIG_ADVANCED_CHANNEL',
+    );
+    expect(set[0]?.env).toContainEqual({
+      name: 'ZIGBEE2MQTT_CONFIG_ADVANCED_CHANNEL',
+      value: '15',
+    });
   });
 
   it('refuses a device outside /dev', () => {

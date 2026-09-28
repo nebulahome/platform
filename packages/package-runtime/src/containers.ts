@@ -17,6 +17,10 @@
  * `{platform.…}` where the platform's go (the broker's address, the time zone), which the
  * supervisor fills in. An entry may carry `when`, the grammar of a setup field's `shownWhen`: it
  * applies only while a choice of the vendor's settings holds one of the values.
+ *
+ * A variable whose value is one setting and nothing else - `{setup.channel}` - is left out while
+ * the owner has not set it, rather than handed over empty: the program then keeps its own default,
+ * or what its own configuration file says, where `NAME=` would have overridden it with nothing.
  */
 import { z } from 'zod';
 
@@ -265,6 +269,25 @@ function fillSettings(text: string, values: VendorValues): string {
 }
 
 /**
+ * Whether a value is one setting and nothing else, and that setting has no value.
+ *
+ * @param text - The value as declared.
+ * @param values - The settings.
+ * @returns True for `{setup.channel}` while the channel is not set.
+ */
+function isUnsetSetting(text: string, values: VendorValues): boolean {
+  const whole = WHOLE_SETTING.exec(text);
+
+  if (whole === null) {
+    return false;
+  }
+
+  const value = values[whole[1] ?? ''];
+
+  return value === undefined || value === null || value === '';
+}
+
+/**
  * A port, filled in.
  *
  * @param port - A number, or a setting.
@@ -322,7 +345,7 @@ export function renderContainers(
       image: dep.image,
       minVersion: dep.minVersion,
       env: dep.env
-        .filter((entry) => applies(entry.when, values))
+        .filter((entry) => applies(entry.when, values) && !isUnsetSetting(entry.value, values))
         .map((entry) => ({ name: entry.name, value: fillSettings(entry.value, values) })),
       volumes: dep.volumes.map((volume) => ({
         name: volume.name,
