@@ -2,19 +2,39 @@ import { describe, expect, it } from 'vitest';
 
 import type { BackupRunView } from '@nebula-home/contracts';
 
-import { endingOf, stepStates } from './progress';
+import { endingOf, progressOf } from './progress';
 
-describe('stepStates', () => {
-  it('lights the step of the phase, the ones before it done', () => {
-    expect(stepStates('preparing', null)).toEqual(['current', 'waiting', 'waiting', 'waiting']);
-    expect(stepStates('dumping', null)).toEqual(['done', 'current', 'waiting', 'waiting']);
-    expect(stepStates('packing', null)).toEqual(['done', 'done', 'current', 'waiting']);
-    expect(stepStates('pruning', null)).toEqual(['done', 'done', 'done', 'current']);
+describe('progressOf', () => {
+  const noBytes = { done: 0, total: null };
+
+  it('fills the bar to the start of the phase’s step, and marks where that step ends', () => {
+    expect(progressOf('preparing', null, noBytes)).toEqual({
+      step: 'prepare',
+      index: 0,
+      percent: 0,
+      stepEnd: 25,
+    });
+    expect(progressOf('dumping', null, noBytes)).toMatchObject({ step: 'database', percent: 25 });
+    expect(progressOf('packing', null, noBytes)).toMatchObject({ step: 'files', percent: 50 });
   });
 
-  it('marks every step done once it succeeded, and the one it stopped at once it failed', () => {
-    expect(stepStates(null, 'success')).toEqual(['done', 'done', 'done', 'done']);
-    expect(stepStates('packing', 'failure')).toEqual(['done', 'done', 'failed', 'waiting']);
+  it('moves along the copy as the archive is written', () => {
+    expect(progressOf('uploading', null, { done: 50, total: 100 })).toMatchObject({
+      step: 'copy',
+      percent: 88,
+      stepEnd: 100,
+    });
+    expect(progressOf('uploading', null, noBytes).percent).toBe(75);
+    expect(progressOf('pruning', null, noBytes).percent).toBe(98);
+  });
+
+  it('fills the bar once it succeeded, and stops where it failed', () => {
+    expect(progressOf('pruning', 'success', noBytes)).toMatchObject({ percent: 100 });
+    expect(progressOf('packing', 'failure', noBytes)).toMatchObject({
+      step: 'files',
+      percent: 50,
+      stepEnd: 75,
+    });
   });
 });
 

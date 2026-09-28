@@ -1,16 +1,17 @@
 /**
- * The backup in progress, at the top of the backups page: what it is doing, as four steps -
- * preparing, the database, the files, the copy to the locations - the current one pulsing, so
- * the page says that something is happening and how far along it is, a scheduled backup as much
- * as one started by hand.
+ * The backup in progress, at the top of the backups page: what it is doing, on one bar - four
+ * steps along it, preparing, the database, the files, the copy to the locations - the stretch of
+ * the step at hand pulsing, so the page says that something is happening and how far along it is,
+ * a scheduled backup as much as one started by hand. Under the bar, which step it is and what it
+ * holds.
  *
- * When it ends the card says so - every step lit, "Completed" - and a moment later fades into the
+ * When it ends the card says so - the bar full, "Completed" - and a moment later fades into the
  * list of runs below, where it stays. One that did not succeed stays until it is closed, with
- * why.
+ * why, its bar red from where it stopped.
  */
 import { AppIcon, Button, cn } from '@nebula-home/ui';
 
-import { BACKUP_STEPS, stepStates, type BackupStep, type StepState } from '@/backup/progress';
+import { BACKUP_STEPS, progressOf, type BackupStep } from '@/backup/progress';
 import type { ShownRun } from '@/backup/use-backup-progress';
 import { formatBytes } from '@/lib/format-bytes';
 import { relativeTime } from '@/lib/format-time';
@@ -29,14 +30,6 @@ export type BackupProgressCardProps = {
 
   /** Closes the card. */
   readonly onDismiss: () => void;
-};
-
-/** The colour of a step's bar. */
-const BAR_CLASSES: Readonly<Record<StepState, string>> = {
-  done: 'bg-primary',
-  current: 'bg-primary animate-pulse',
-  waiting: 'bg-surface-raised',
-  failed: 'bg-danger',
 };
 
 /**
@@ -90,9 +83,14 @@ function wordsOf(
 export function BackupProgressCard(props: BackupProgressCardProps) {
   const { run, onDismiss } = props;
   const ending = run.ending;
-  const states = stepStates(run.phase, ending?.status ?? null);
+  const progress = progressOf(run.phase, ending?.status ?? null, {
+    done: run.bytesDone,
+    total: run.bytesTotal,
+  });
+  const words = wordsOf(progress.step, props);
   const isSucceeded = ending?.status === 'success';
   const isEnded = ending !== null;
+  const isFailed = isEnded && !isSucceeded && ending.status !== 'partial';
   const title =
     ending === null
       ? 'Backing up'
@@ -160,44 +158,53 @@ export function BackupProgressCard(props: BackupProgressCardProps) {
         ) : null}
       </div>
 
-      <ol className="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-4">
-        {BACKUP_STEPS.map((step, index) => {
-          const state = states[index] ?? 'waiting';
-          const words = wordsOf(step, props);
-
-          return (
-            <li key={step} className="flex min-w-0 flex-col gap-2">
-              <span
-                aria-hidden="true"
-                className={cn(
-                  'block h-1.5 rounded-full',
-                  isSucceeded ? 'bg-success' : BAR_CLASSES[state],
-                )}
-              />
-              <span className="flex min-w-0 flex-col">
-                <span
-                  className={cn(
-                    'text-ui font-medium',
-                    state === 'waiting' ? 'text-foreground-subtle' : 'text-foreground',
-                  )}
-                >
-                  {words.title}
-                  <span className="sr-only">
-                    {state === 'done'
-                      ? ', done'
-                      : state === 'current'
-                        ? ', in progress'
-                        : state === 'failed'
-                          ? ', failed'
-                          : ', waiting'}
-                  </span>
-                </span>
-                <span className="truncate text-caption text-foreground-subtle">{words.note}</span>
-              </span>
-            </li>
-          );
-        })}
-      </ol>
+      <div className="flex flex-col gap-2">
+        <div
+          role="progressbar"
+          aria-label="How far the backup is"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progress.percent}
+          className="relative h-2 overflow-hidden rounded-full bg-surface-raised"
+        >
+          <span
+            aria-hidden="true"
+            className={cn(
+              'absolute inset-y-0 left-0 rounded-full transition-[width] duration-500',
+              isSucceeded ? 'bg-success' : 'bg-primary',
+            )}
+            /* eslint-disable-next-line react/forbid-dom-props -- the width is the value itself. */
+            style={{ width: `${String(progress.percent)}%` }}
+          />
+          {isEnded && !isFailed ? null : (
+            <span
+              aria-hidden="true"
+              className={cn(
+                'absolute inset-y-0 rounded-full transition-[left,width] duration-500',
+                isFailed ? 'bg-danger' : 'animate-pulse bg-primary/40',
+              )}
+              /* eslint-disable-next-line react/forbid-dom-props -- where the step lies is the value. */
+              style={{
+                left: `${String(progress.percent)}%`,
+                width: `${String(progress.stepEnd - progress.percent)}%`,
+              }}
+            />
+          )}
+        </div>
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="min-w-0 truncate text-caption text-foreground-subtle">
+            <span className="font-medium text-foreground">
+              {isSucceeded
+                ? 'All 4 steps'
+                : `Step ${String(progress.index + 1)} of ${String(BACKUP_STEPS.length)} · ${words.title}`}
+            </span>
+            {isSucceeded ? null : ` · ${words.note}`}
+          </p>
+          <span className="shrink-0 font-mono text-caption text-foreground-muted tabular-nums">
+            {String(progress.percent)}%
+          </span>
+        </div>
+      </div>
     </section>
   );
 }
