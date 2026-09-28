@@ -124,6 +124,52 @@ function checkAgainstParams(
     }
   }
 
+  if (capability === 'lawn_mower') {
+    const { canPause, canStop, canDock } = params as {
+      canPause: boolean;
+      canStop: boolean;
+      canDock: boolean;
+    };
+    const name = command['command'];
+
+    if (name === 'pause' && !canPause) {
+      reject('this mower cannot be paused');
+    }
+
+    if (name === 'stop' && !canStop) {
+      reject('this mower cannot end a job from here');
+    }
+
+    if (name === 'dock' && !canDock) {
+      reject('this mower cannot be sent back to its station');
+    }
+  }
+
+  if (capability === 'select' && command['command'] === 'select_option') {
+    const { options } = params as { options: readonly { value: string }[] };
+    const values = options.map((option) => option.value);
+    const option = command['option'];
+
+    if (typeof option !== 'string' || !values.includes(option)) {
+      reject(`option must be one of ${values.join(', ')}`);
+    }
+  }
+
+  if (capability === 'number' && command['command'] === 'set_value') {
+    const { min, max, step } = params as { min: number; max: number; step: number };
+    const value = Number(command['value']);
+    // Counted in steps from the minimum, with room for the rounding a decimal step brings.
+    const steps = (value - min) / step;
+
+    if (value < min || value > max) {
+      reject(`value must be between ${String(min)} and ${String(max)}`);
+    }
+
+    if (Math.abs(steps - Math.round(steps)) > 1e-9) {
+      reject(`value must be ${String(min)} plus a whole number of steps of ${String(step)}`);
+    }
+  }
+
   if (capability === 'media_player') {
     const { supportedSources, hasSeek, hasVolume } = params as {
       supportedSources: readonly string[];

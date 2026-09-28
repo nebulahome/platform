@@ -161,6 +161,48 @@ describe('validateCommand', () => {
     ).toStrictEqual({ command: 'set_source', source: 'anything' });
   });
 
+  it('refuses an option a select does not offer', () => {
+    const efficiency = record({
+      select: {
+        options: [
+          { value: 'quick', label: 'Quick' },
+          { value: 'delicate', label: 'Delicate' },
+        ],
+      },
+    });
+
+    expect(
+      validateCommand(efficiency, 'select', { command: 'select_option', option: 'delicate' }),
+    ).toStrictEqual({ command: 'select_option', option: 'delicate' });
+    expect(() =>
+      validateCommand(efficiency, 'select', { command: 'select_option', option: 'reckless' }),
+    ).toThrow(/must be one of quick, delicate/);
+  });
+
+  it('keeps a number within its limits and on its steps', () => {
+    const delay = record({ number: { min: 0, max: 1440, step: 30 } });
+
+    expect(validateCommand(delay, 'number', { command: 'set_value', value: 180 })).toStrictEqual({
+      command: 'set_value',
+      value: 180,
+    });
+    expect(() => validateCommand(delay, 'number', { command: 'set_value', value: 1500 })).toThrow(
+      /between 0 and 1440/,
+    );
+    expect(() => validateCommand(delay, 'number', { command: 'set_value', value: 45 })).toThrow(
+      /steps of 30/,
+    );
+  });
+
+  it('refuses to pause a mower that cannot be paused', () => {
+    const mower = record({ lawn_mower: { canPause: false } });
+
+    expect(validateCommand(mower, 'lawn_mower', { command: 'dock' })).toStrictEqual({
+      command: 'dock',
+    });
+    expect(() => validateCommand(mower, 'lawn_mower', { command: 'pause' })).toThrow(/pause/);
+  });
+
   it('reports a stored parameter set that is itself wrong', () => {
     // The registry row is wrong, not the command, and the message has to say so or somebody
     // spends an afternoon debugging the caller.
