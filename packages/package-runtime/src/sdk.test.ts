@@ -123,7 +123,9 @@ describe('BundleSdk.openUdpSocket', () => {
 
     const sightings: Sighting[] = [];
 
-    for await (const sighting of factory(sdk).listen(new AbortController().signal)) {
+    for await (const sighting of factory(sdk).listen(new AbortController().signal, {
+      settings: async () => Promise.resolve({}),
+    })) {
       sightings.push(sighting);
     }
 

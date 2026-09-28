@@ -415,15 +415,28 @@ export type Sighting = {
   readonly payload: JsonObject;
 };
 
+/** Since 1.4: what the hub hands a listener beside the signal. */
+export type DiscoveryListenContext = {
+  /**
+   * Reads what the owner saved for the vendor - an account, a key - secrets opened, for a
+   * listener that asks a cloud which devices the account has. Read it at every pass rather than
+   * once: a change the owner saves is then heard without the listener being started again.
+   *
+   * @returns The vendor's settings; empty while it is not set up.
+   */
+  readonly settings: () => Promise<JsonObject>;
+};
+
 /** A vendor's own listener, for a protocol the platform does not speak. */
 export type DiscoverySource = {
   /**
    * Listens until the signal ends it, reporting every device heard.
    *
    * @param signal - Ends the listening.
+   * @param context - Since 1.4: the vendor's settings, for a listener that needs them.
    * @returns Every sighting, as it happens. The same device may be reported again.
    */
-  listen: (signal: AbortSignal) => AsyncIterable<Sighting>;
+  listen: (signal: AbortSignal, context: DiscoveryListenContext) => AsyncIterable<Sighting>;
 
   /**
    * Asks the network again now, rather than at the listener's own next pass: what the owner's
