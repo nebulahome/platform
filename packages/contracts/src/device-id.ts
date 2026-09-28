@@ -40,11 +40,14 @@ function slug(name: string): string {
  */
 export function suggestDeviceId(vendorId: string, name: string, taken: readonly string[]): string {
   const part = slug(name);
-  // A name that is the vendor's own - the Zigbee2MQTT bridge - would only say it twice.
+  // A name that is the vendor's own - the Zigbee2MQTT bridge, an ECOVACS account - would only
+  // say it twice.
   const base =
     part === '' || part === vendorId
       ? vendorId
-      : `${vendorId}-${part}`.slice(0, MAXIMUM_ID - COUNTER_ROOM).replace(/-+$/u, '');
+      : (part.startsWith(`${vendorId}-`) ? part : `${vendorId}-${part}`)
+          .slice(0, MAXIMUM_ID - COUNTER_ROOM)
+          .replace(/-+$/u, '');
   let candidate = base;
 
   for (let n = 2; taken.includes(candidate); n += 1) {

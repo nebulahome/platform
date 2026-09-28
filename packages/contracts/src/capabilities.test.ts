@@ -7,8 +7,11 @@ import {
   colorTempParamsSchema,
   commandSchemaFor,
   coverStateSchema,
+  lawnMowerCommandSchema,
   levelCommandSchema,
+  numberParamsSchema,
   onOffCommandSchema,
+  selectParamsSchema,
   thermostatParamsSchema,
 } from './capabilities.js';
 
@@ -113,5 +116,42 @@ describe('composite entity state', () => {
   it('requires a cover to say whether it is moving', () => {
     expect(coverStateSchema.safeParse({ position: 50 }).success).toBe(false);
     expect(coverStateSchema.safeParse({ position: 50, motion: 'stopped' }).success).toBe(true);
+  });
+});
+
+describe('a robot mower, a select and a number', () => {
+  it('starts, pauses, stops and docks a mower, and nothing else', () => {
+    for (const command of ['start', 'pause', 'stop', 'dock']) {
+      expect(lawnMowerCommandSchema.safeParse({ command }).success, command).toBe(true);
+    }
+
+    expect(lawnMowerCommandSchema.safeParse({ command: 'mow_faster' }).success).toBe(false);
+  });
+
+  it('reads a mower that says nothing yet as unknown, not as idle', () => {
+    expect(capabilityStateSchema.safeParse({ lawn_mower: {} }).success).toBe(false);
+    expect(capabilityStateSchema.parse({ lawn_mower: { activity: 'returning' } })).toEqual({
+      lawn_mower: { activity: 'returning' },
+    });
+  });
+
+  it('offers each choice of a select once', () => {
+    const quick = { value: 'quick', label: 'Quick' };
+
+    expect(selectParamsSchema.safeParse({ options: [quick] }).success).toBe(true);
+    expect(selectParamsSchema.safeParse({ options: [quick, quick] }).success).toBe(false);
+    expect(selectParamsSchema.safeParse({ options: [] }).success).toBe(false);
+  });
+
+  it('keeps a number between a minimum below its maximum, in steps of one unless said', () => {
+    expect(numberParamsSchema.parse({ min: 0, max: 180 })).toEqual({ min: 0, max: 180, step: 1 });
+    expect(numberParamsSchema.safeParse({ min: 10, max: 10 }).success).toBe(false);
+  });
+
+  it('leaves a select and a number unknown until the device says', () => {
+    expect(capabilityStateSchema.parse({ select: {}, number: {} })).toEqual({
+      select: { option: null },
+      number: { value: null },
+    });
   });
 });

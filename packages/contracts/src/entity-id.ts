@@ -23,6 +23,9 @@ export const ENTITY_DOMAINS = [
   'camera',
   'button',
   'update',
+  'lawn_mower',
+  'select',
+  'number',
   'alias',
 ] as const;
 

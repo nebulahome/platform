@@ -18,6 +18,7 @@ describe('suggestDeviceId', () => {
   it('falls back on the vendor when the name has nothing an id can hold, or is the vendor', () => {
     expect(suggestDeviceId('shelly', '···', [])).toBe('shelly');
     expect(suggestDeviceId('zigbee2mqtt', 'Zigbee2MQTT', [])).toBe('zigbee2mqtt');
+    expect(suggestDeviceId('ecovacs', 'ECOVACS account', [])).toBe('ecovacs-account');
   });
 
   it('cuts a long name to what an id holds, with room left to count on', () => {

@@ -37,6 +37,9 @@ export const CAPABILITIES = [
   'camera',
   'button',
   'update',
+  'lawn_mower',
+  'select',
+  'number',
 ] as const;
 
 /** The name of a single capability. */
@@ -388,6 +391,107 @@ export function isUpdateOffered(state: z.output<typeof updateStateSchema>): bool
   return state.latestVersion !== null && state.latestVersion !== state.installedVersion;
 }
 
+// --- lawn_mower --------------------------------------------------------------------------
+
+/**
+ * What a robot mower is doing: out mowing, paused in the middle of a job, on its way back to
+ * its station, sitting in it, standing idle out of it, or stopped by a fault it cannot clear on
+ * its own. Home Assistant's lawn mower activities, and `idle` beside them, which a mower that
+ * ended a job away from its station reports.
+ */
+export const LAWN_MOWER_ACTIVITIES = [
+  'mowing',
+  'paused',
+  'returning',
+  'docked',
+  'idle',
+  'error',
+] as const;
+
+/** What a robot mower is doing. */
+export type LawnMowerActivity = (typeof LAWN_MOWER_ACTIVITIES)[number];
+
+/** A robot mower's activity. */
+export const lawnMowerStateSchema = z.object({ activity: z.enum(LAWN_MOWER_ACTIVITIES) });
+
+/** Which of the commands this mower takes. */
+export const lawnMowerParamsSchema = z.object({
+  canPause: z.boolean().default(true),
+  canStop: z.boolean().default(true),
+  canDock: z.boolean().default(true),
+});
+
+/**
+ * Starting - or resuming a paused job - pausing, ending the job where it stands, and sending the
+ * mower back to its station.
+ */
+export const lawnMowerCommandSchema = z.discriminatedUnion('command', [
+  z.object({ command: z.literal('start') }),
+  z.object({ command: z.literal('pause') }),
+  z.object({ command: z.literal('stop') }),
+  z.object({ command: z.literal('dock') }),
+]);
+
+// --- select ------------------------------------------------------------------------------
+
+/** One choice of a select: what the device calls it, and what a person reads. */
+export const selectOptionSchema = z.object({
+  value: z.string().min(1).max(64),
+  label: z.string().min(1).max(64),
+});
+
+/** One choice of a select. */
+export type SelectOption = z.output<typeof selectOptionSchema>;
+
+/**
+ * One setting picked from a fixed list: a mower's cutting pattern, a vacuum's suction. The
+ * value is null until the device says, and may be one the list does not have when the device
+ * was set to it elsewhere - it is shown as it is rather than hidden.
+ */
+export const selectStateSchema = z.object({
+  option: z.string().min(1).max(64).nullable().default(null),
+});
+
+/** The choices, in the order they are offered. */
+export const selectParamsSchema = z
+  .object({ options: z.array(selectOptionSchema).min(1).max(64) })
+  .refine(
+    (params) =>
+      new Set(params.options.map((option) => option.value)).size === params.options.length,
+    { message: 'Each option must be offered once', path: ['options'] },
+  );
+
+/** Picking one of the choices. */
+export const selectCommandSchema = z.discriminatedUnion('command', [
+  z.object({ command: z.literal('select_option'), option: z.string().min(1).max(64) }),
+]);
+
+// --- number ------------------------------------------------------------------------------
+
+/**
+ * One setting that is a number within limits: a delay after rain in minutes, the angle a mower
+ * cuts at. Null until the device says. What the number measures is the unit on the entity row,
+ * as a sensor's is.
+ */
+export const numberStateSchema = z.object({ value: z.number().nullable().default(null) });
+
+/** How low and how high the setting goes, and in what steps. */
+export const numberParamsSchema = z
+  .object({
+    min: z.number(),
+    max: z.number(),
+    step: z.number().positive().default(1),
+  })
+  .refine((params) => params.min < params.max, {
+    message: 'min must be below max',
+    path: ['max'],
+  });
+
+/** Setting the number. */
+export const numberCommandSchema = z.discriminatedUnion('command', [
+  z.object({ command: z.literal('set_value'), value: z.number() }),
+]);
+
 // --- the capability table ----------------------------------------------------------------
 
 /** The three schemas that together define one capability. */
@@ -451,6 +555,13 @@ export const CAPABILITY_DEFINITIONS = {
   camera: { state: cameraStateSchema, params: cameraParamsSchema, commands: cameraCommandSchema },
   button: { state: buttonStateSchema, params: buttonParamsSchema, commands: buttonCommandSchema },
   update: { state: updateStateSchema, params: updateParamsSchema, commands: updateCommandSchema },
+  lawn_mower: {
+    state: lawnMowerStateSchema,
+    params: lawnMowerParamsSchema,
+    commands: lawnMowerCommandSchema,
+  },
+  select: { state: selectStateSchema, params: selectParamsSchema, commands: selectCommandSchema },
+  number: { state: numberStateSchema, params: numberParamsSchema, commands: numberCommandSchema },
 } as const satisfies Record<CapabilityName, CapabilityDefinition>;
 
 /**
@@ -475,6 +586,9 @@ export const capabilityStateSchema = z.object({
   camera: cameraStateSchema.optional(),
   button: buttonStateSchema.optional(),
   update: updateStateSchema.optional(),
+  lawn_mower: lawnMowerStateSchema.optional(),
+  select: selectStateSchema.optional(),
+  number: numberStateSchema.optional(),
 });
 
 /** The composite state of an entity, keyed by capability. */
