@@ -38,6 +38,8 @@ import {
   Globe,
   GripHorizontal,
   HardDrive,
+  Hash,
+  House,
   Info,
   Layers,
   LayoutDashboard,
@@ -45,6 +47,7 @@ import {
   Leaf,
   Library,
   Lightbulb,
+  List,
   ListFilter,
   Lock,
   LockOpen,
@@ -75,6 +78,7 @@ import {
   Sun,
   Tag,
   Thermometer,
+  Tractor,
   Trash2,
   TriangleAlert,
   Type,
@@ -182,6 +186,11 @@ export const BUILTIN_UI_NODES = {
   pipette: drawing(Pipette),
   video: drawing(Video),
   'video-off': drawing(VideoOff),
+  // A robot mower, its station, and the settings picked from a list or set as a number.
+  tractor: drawing(Tractor),
+  house: drawing(House),
+  list: drawing(List),
+  hash: drawing(Hash),
 
   // The wires a vendor's devices are reached over, on its card.
   bluetooth: drawing(Bluetooth),
