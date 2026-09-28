@@ -232,6 +232,7 @@ function harness(
     secretsKey: KEY,
     vendors: (): readonly LoadedVendor[] => [printerVendor()],
     discovered: (): readonly DiscoveredDevice[] => answers.discovered ?? [],
+    hearing: () => ({ listener: null, passedOver: [] }),
     rescan: (vendorId): DiscoverReply => {
       rescanned.push(vendorId);
 

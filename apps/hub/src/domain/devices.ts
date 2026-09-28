@@ -202,6 +202,22 @@ export class DeviceBook {
   }
 
   /**
+   * Rebuilds the report of every entity that has reported, as reachable or not: what the hub
+   * says when the connection its devices are reached over drops, and when it comes back.
+   *
+   * @param isAvailable - Whether they can be reached now.
+   * @returns One report per entity that has reported; none for one that never did.
+   */
+  public withAvailability(isAvailable: boolean): StateReport[] {
+    return [...this.#lastState].map(([entityId, state]) => ({
+      entityId,
+      state,
+      attributes: {},
+      isAvailable,
+    }));
+  }
+
+  /**
    * Turns something a connection delivered into canonical reports.
    *
    * @param integration - The integration that owns these devices.

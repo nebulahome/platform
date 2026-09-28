@@ -42,7 +42,13 @@ export function openMqtt(options: ManagedMqttOptions): ManagedMqtt {
   const client: MqttClient = connect(url, clientOptions);
   let isClosed = false;
 
+  // Said at warn once per reason, so a broker that refuses the session is in the log, and one
+  // that keeps refusing it every five seconds is not the whole log.
+  let lastError = '';
+
   client.on('connect', () => {
+    lastError = '';
+
     // Every session starts with nothing subscribed: what the bundle asked for is asked again.
     for (const topic of topics) {
       client.subscribe(topic, { qos: 0 });
@@ -66,7 +72,12 @@ export function openMqtt(options: ManagedMqttOptions): ManagedMqtt {
   });
 
   client.on('error', (error) => {
-    logger.debug({ err: error }, 'MQTT session error');
+    if (error.message === lastError) {
+      logger.debug({ err: error, url }, 'MQTT session error');
+    } else {
+      lastError = error.message;
+      logger.warn({ err: error, url }, 'An MQTT session failed; it is tried again every 5 s');
+    }
 
     if (!isClosed) {
       onClose?.(error.message);

@@ -187,7 +187,7 @@ function harness(
     lines === undefined
       ? createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' })
       : createLogger(
-          { service: 'hub', version: '0.0.0', level: 'info' },
+          { service: 'hub', version: '0.0.0', level: 'debug' },
           new Writable({
             /**
              * Keeps a record.

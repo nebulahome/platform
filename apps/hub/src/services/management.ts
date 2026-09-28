@@ -59,7 +59,7 @@ import type { PlatformLogger } from '@nebula-home/logging';
 import type { Registry, Transport } from '@nebula-home/package-runtime';
 
 import type { LoadedBundle, LoadedVendor } from './bundles.js';
-import type { Detected } from './discovery.js';
+import type { Detected, VendorHearing } from './discovery.js';
 
 /** What the service needs. */
 export type ManagementServiceOptions = {
@@ -88,6 +88,15 @@ export type ManagementServiceOptions = {
    * @returns Every device heard and not yet added.
    */
   readonly discovered: () => readonly DiscoveredDevice[];
+
+  /**
+   * How one vendor's devices are being heard, read when asked: what its own listener says, and
+   * the devices heard and not added.
+   *
+   * @param vendorId - The vendor.
+   * @returns Both; nothing said and nothing passed over before discovery has started.
+   */
+  readonly hearing: (vendorId: string) => VendorHearing;
 
   /**
    * Asks discovery to look now for one vendor's devices.
@@ -179,9 +188,10 @@ function kindOf(bundle: LoadedBundle): IntegrationKind {
  * What the interface lists a vendor by.
  *
  * @param vendor - As the loader produced it.
+ * @param hearing - How its devices are being heard now.
  * @returns The catalogue entry, drivers included.
  */
-function vendorOf(vendor: LoadedVendor): IntegrationVendor {
+function vendorOf(vendor: LoadedVendor, hearing: VendorHearing): IntegrationVendor {
   const { manifest } = vendor;
   const pairing = vendor.discovery?.plan.discovery.pairing;
 
@@ -208,6 +218,8 @@ function vendorOf(vendor: LoadedVendor): IntegrationVendor {
       image: container.image,
       minVersion: container.minVersion,
     })),
+    listener: hearing.listener,
+    passedOver: hearing.passedOver,
   };
 }
 
@@ -230,7 +242,11 @@ export class ManagementService {
    * @returns Every vendor with its drivers, and what setting up each asks.
    */
   public catalogue(): CatalogueReply {
-    return { vendors: this.#options.vendors().map(vendorOf) };
+    return {
+      vendors: this.#options
+        .vendors()
+        .map((vendor) => vendorOf(vendor, this.#options.hearing(vendor.manifest.id))),
+    };
   }
 
   /**

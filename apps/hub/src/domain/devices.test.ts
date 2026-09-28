@@ -185,6 +185,22 @@ describe('DeviceBook', () => {
     expect(book().known()).toEqual([]);
   });
 
+  it('says every entity that spoke is unreachable when its connection drops', () => {
+    // What the hub publishes when a broker session or a socket goes down; an entity that never
+    // spoke is left to `core`, which marks it unavailable itself.
+    const bound = book(true);
+
+    bound.ingest(
+      relay(),
+      {},
+      { connectionKey: 'http:x', deviceKey: '192.168.1.40', payload: { relay: { on: true } } },
+    );
+
+    expect(bound.withAvailability(false)).toEqual([
+      { entityId: RELAY, state: { on_off: { isOn: true } }, attributes: {}, isAvailable: false },
+    ]);
+  });
+
   it('lists the claims, which is what the subscription plan is built from', () => {
     expect(book(true).claims()).toHaveLength(2);
   });

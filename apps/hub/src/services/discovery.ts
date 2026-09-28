@@ -22,6 +22,8 @@ import type {
   DiscoverReply,
   DiscoverySource,
   JsonObject,
+  PassedOverDevice,
+  VendorListener,
 } from '@nebula-home/contracts';
 import type { PlatformLogger } from '@nebula-home/logging';
 import {
@@ -32,7 +34,9 @@ import {
   type Discovered,
   type DiscoveryProbe,
   type Integration,
+  type ListenerStatus,
   type MdnsAnnouncement,
+  type PassedOverSighting,
   type Registry,
   type Sighting,
   type Transport,
@@ -116,6 +120,25 @@ export type DiscoveryServiceOptions = {
 
 /** A proposed device, and when it was last heard, as a number to compare. */
 type Candidate = { readonly device: DiscoveredDevice; readonly heardAtMs: number };
+
+/** A device heard that no driver of its vendor takes, and when it was last heard. */
+type Unclaimed = {
+  readonly vendorId: string;
+  readonly device: PassedOverDevice;
+  readonly heardAtMs: number;
+};
+
+/** What the hub knows of how one vendor's devices are being heard, for the vendor's page. */
+export type VendorHearing = {
+  /** How the vendor's own listener last said it was getting on; null before it said. */
+  readonly listener: VendorListener | null;
+
+  /** The devices heard and not added, latest first, at most {@link MAXIMUM_PASSED_OVER}. */
+  readonly passedOver: PassedOverDevice[];
+};
+
+/** How many devices heard and not added a vendor's page is told of. */
+const MAXIMUM_PASSED_OVER = 100;
 
 /**
  * What a probe of one address last found, and when.
@@ -251,6 +274,16 @@ async function pause(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+/**
+ * What a list of devices passed over says, without when each was first heard.
+ *
+ * @param list - The devices.
+ * @returns Text that differs exactly when the list does.
+ */
+function signatureOf(list: readonly PassedOverDevice[]): string {
+  return JSON.stringify(list.map(({ id, name, model, reason }) => [id, name, model, reason]));
+}
+
 /** Proposes the devices that announce themselves. */
 export class DiscoveryService {
   readonly #options: DiscoveryServiceOptions;
@@ -262,6 +295,9 @@ export class DiscoveryService {
   readonly #modules: Promise<void>[] = [];
   readonly #repeats = new Set<NodeJS.Timeout>();
   readonly #unclaimed = new Set<string>();
+  readonly #noDriver = new Map<string, Unclaimed>();
+  readonly #listeners = new Map<string, VendorListener>();
+  readonly #passedOver = new Map<string, readonly PassedOverDevice[]>();
   readonly #settings = new Map<
     string,
     { readonly atMs: number; readonly value: Promise<JsonObject> }
@@ -386,6 +422,28 @@ export class DiscoveryService {
    */
   public list(): DiscoveredDevice[] {
     return this.#visible().map((candidate) => candidate.device);
+  }
+
+  /**
+   * How one vendor's devices are being heard: what its own listener last said, and the devices
+   * heard and not added - those its listener passed over and those no driver of it takes.
+   *
+   * @param vendorId - The vendor.
+   * @returns What its page says when its devices do not come.
+   */
+  public hearingOf(vendorId: string): VendorHearing {
+    const noDriver = [...this.#noDriver.values()]
+      .filter((each) => each.vendorId === vendorId)
+      .map((each) => each.device);
+    const byListener = this.#passedOver.get(vendorId) ?? [];
+    const seen = new Set(byListener.map((device) => device.id));
+
+    return {
+      listener: this.#listeners.get(vendorId) ?? null,
+      passedOver: [...byListener, ...noDriver.filter((device) => !seen.has(device.id))]
+        .sort((a, b) => b.heardAt.getTime() - a.heardAt.getTime())
+        .slice(0, MAXIMUM_PASSED_OVER),
+    };
   }
 
   /**
@@ -648,6 +706,24 @@ export class DiscoveryService {
            * @returns The settings, secrets opened.
            */
           settings: async () => this.#settingsOf(vendor.id),
+
+          /**
+           * Keeps what the listener says of how it is getting on, for the vendor's page.
+           *
+           * @param status - What it says.
+           */
+          status: (status: ListenerStatus) => {
+            this.#onListenerStatus(vendor.id, status);
+          },
+
+          /**
+           * Keeps the devices the listener heard and does not report, the whole list each time.
+           *
+           * @param devices - Them, and why.
+           */
+          passedOver: (devices: readonly PassedOverSighting[]) => {
+            this.#onPassedOver(vendor.id, devices);
+          },
         })) {
           if (isAborted(signal)) {
             break;
@@ -678,6 +754,54 @@ export class DiscoveryService {
       // eslint-disable-next-line no-await-in-loop -- the pause between two listenings, see above
       await pause(restartMs, signal);
     }
+  }
+
+  /**
+   * Keeps what a vendor's listener says of how it is getting on, announcing a change.
+   *
+   * @param vendorId - The vendor.
+   * @param status - What its listener says.
+   */
+  #onListenerStatus(vendorId: string, status: ListenerStatus): void {
+    const previous = this.#listeners.get(vendorId);
+    const message = status.message.slice(0, 1024);
+
+    if (previous?.level === status.level && previous.message === message) {
+      return;
+    }
+
+    this.#listeners.set(vendorId, { level: status.level, message, at: new Date(this.#now()) });
+
+    if (status.level !== 'ok') {
+      this.#options.logger.info({ vendor: vendorId, level: status.level }, message);
+    }
+
+    this.#options.publishChanged(this.#visible().length);
+  }
+
+  /**
+   * Keeps the devices a vendor's listener heard and does not report, announcing a change.
+   *
+   * @param vendorId - The vendor.
+   * @param devices - Every one of them, which replaces the list it said last.
+   */
+  #onPassedOver(vendorId: string, devices: readonly PassedOverSighting[]): void {
+    const nowMs = this.#now();
+    const previous = new Map((this.#passedOver.get(vendorId) ?? []).map((each) => [each.id, each]));
+    const next = devices.slice(0, MAXIMUM_PASSED_OVER).map((device): PassedOverDevice => ({
+      id: device.id.slice(0, 256),
+      name: device.name === '' ? device.id.slice(0, 256) : device.name.slice(0, 256),
+      model: device.model?.slice(0, 256) ?? null,
+      reason: device.reason.slice(0, 512),
+      heardAt: previous.get(device.id)?.heardAt ?? new Date(nowMs),
+    }));
+
+    if (signatureOf(next) === signatureOf([...previous.values()])) {
+      return;
+    }
+
+    this.#passedOver.set(vendorId, next);
+    this.#options.publishChanged(this.#visible().length);
   }
 
   /**
@@ -926,9 +1050,12 @@ export class DiscoveryService {
         'Heard a device no driver of its vendor takes',
       );
       this.#unclaimed.add(heard);
+      this.#rememberUnclaimed(vendor.id, identity, address);
 
       return null;
     }
+
+    this.#noDriver.delete(`${vendor.id}\n${identity.externalId ?? `@${address}`}`);
 
     const id = createHash('sha256')
       .update(`${vendor.id}\n${identity.externalId ?? `@${address}`}`)
@@ -963,6 +1090,37 @@ export class DiscoveryService {
     this.#publishIfChanged();
 
     return id;
+  }
+
+  /**
+   * Remembers a device no driver of its vendor takes, for the vendor's page to say why.
+   *
+   * @param vendorId - The vendor.
+   * @param identity - Who the device said it is.
+   * @param address - Where it was heard.
+   */
+  #rememberUnclaimed(
+    vendorId: string,
+    identity: ReturnType<typeof identifySighting>,
+    address: string,
+  ): void {
+    const key = `${vendorId}\n${identity.externalId ?? `@${address}`}`;
+    const nowMs = this.#now();
+
+    this.#noDriver.set(key, {
+      vendorId,
+      device: {
+        id: identity.externalId ?? address,
+        name: identity.name ?? identity.modelCode ?? address,
+        model: identity.modelCode,
+        reason:
+          identity.modelCode === null
+            ? 'It does not say which model it is, so no driver can take it'
+            : `No driver of this integration takes the model ${identity.modelCode} yet`,
+        heardAt: this.#noDriver.get(key)?.device.heardAt ?? new Date(nowMs),
+      },
+      heardAtMs: nowMs,
+    });
   }
 
   /**
@@ -1013,6 +1171,12 @@ export class DiscoveryService {
     for (const [key, probed] of this.#probed) {
       if (nowMs - probed.atMs > this.#options.probeIntervalMs) {
         this.#probed.delete(key);
+      }
+    }
+
+    for (const [key, unclaimed] of this.#noDriver) {
+      if (nowMs - unclaimed.heardAtMs > this.#options.ttlMs) {
+        this.#noDriver.delete(key);
       }
     }
 

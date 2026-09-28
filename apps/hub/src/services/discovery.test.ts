@@ -414,6 +414,49 @@ describe('DiscoveryService', () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
 
     expect(service.list()).toEqual([]);
+    expect(service.hearingOf('acme').passedOver).toEqual([
+      expect.objectContaining({ reason: expect.stringContaining('No driver') as unknown }),
+    ]);
+  });
+
+  it("keeps what a vendor's module says of its listening, and what it passed over", async () => {
+    const module: DiscoverySource = {
+      listen: async function* listen(signal, context): AsyncGenerator<Sighting> {
+        context.status?.({ level: 'warning', message: 'Connected, and nothing heard' });
+        context.passedOver?.([
+          { id: '0x01', name: 'Door', model: 'MCCGQ11LM', reason: 'Still pairing it' },
+        ]);
+        yield* [];
+        await new Promise<void>((resolve) => {
+          signal.addEventListener('abort', () => {
+            resolve();
+          });
+        });
+      },
+    };
+    const { service, published } = await start({
+      vendor: acme(
+        {
+          listen: [{ module: './cloud/discovery.js', lan: false }],
+          identity: { externalId: 'device', model: 'sku' },
+        },
+        [{ kind: 'module', file: './cloud/discovery.js', source: module, lan: false }],
+      ),
+    });
+
+    await until(() => service.hearingOf('acme').passedOver.length > 0);
+
+    const hearing = service.hearingOf('acme');
+
+    expect(hearing.listener).toMatchObject({
+      level: 'warning',
+      message: 'Connected, and nothing heard',
+    });
+    expect(hearing.passedOver).toEqual([
+      expect.objectContaining({ id: '0x01', name: 'Door', reason: 'Still pairing it' }),
+    ]);
+    expect(published.length).toBeGreaterThanOrEqual(2);
+    expect(service.hearingOf('other')).toEqual({ listener: null, passedOver: [] });
   });
 
   it("does not probe what the vendor's match refuses", async () => {

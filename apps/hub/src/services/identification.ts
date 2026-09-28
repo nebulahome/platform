@@ -215,7 +215,10 @@ export class IdentificationService {
       if (claim === null) {
         const answered = summarise(found.payload);
 
-        logger.info(
+        // At debug: a scan of a shared bus - Zigbee2MQTT's device list - hears every other
+        // device too, and one line each for every device identified is N squared lines. What
+        // was heard is kept and said once, if identification fails.
+        logger.debug(
           { instanceId: instance.instanceId, deviceKey: found.deviceKey, answered },
           'Heard from a device the driver did not claim',
         );
@@ -232,7 +235,8 @@ export class IdentificationService {
         instance.expectedExternalId !== null &&
         claim.externalId !== instance.expectedExternalId
       ) {
-        logger.warn(
+        // At debug for the reason above: on a shared bus the other devices are the usual case.
+        logger.debug(
           {
             instanceId: instance.instanceId,
             externalId: claim.externalId,

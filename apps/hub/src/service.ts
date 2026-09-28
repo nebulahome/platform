@@ -56,6 +56,7 @@ import {
   type Transport,
   type TransportConnection,
   type TransportInbound,
+  type TransportStatus,
 } from '@nebula-home/package-runtime';
 
 import {
@@ -192,6 +193,22 @@ export class HubService {
       onInbound: (message: TransportInbound): void => {
         this.#ingest(message);
       },
+
+      /**
+       * Marks the entities reached over a connection that dropped as unreachable.
+       *
+       * Only the drop is acted on. When the connection comes back the devices say for themselves
+       * that they are there - the transport reads them again, a broker hands its retained
+       * messages back - and saying it for them would call a device reachable that is not.
+       *
+       * @param key - The connection.
+       * @param status - Whether it is up or down.
+       */
+      onStatus: (key: string, status: TransportStatus): void => {
+        if (status === 'down') {
+          this.#connectionDropped(key);
+        }
+      },
     });
 
     this.#identification = new IdentificationService({
@@ -255,6 +272,15 @@ export class HubService {
        * @returns Every device heard and not yet added.
        */
       discovered: () => this.#discovery?.list() ?? [],
+
+      /**
+       * Says how a vendor's devices are being heard; nothing before discovery has started.
+       *
+       * @param vendorId - The vendor.
+       * @returns What its listener says, and the devices heard and not added.
+       */
+      hearing: (vendorId: string) =>
+        this.#discovery?.hearingOf(vendorId) ?? { listener: null, passedOver: [] },
 
       /**
        * Asks discovery to look now; nothing when it is not listening.
@@ -973,6 +999,25 @@ export class HubService {
         ),
       ),
     );
+  }
+
+  /**
+   * Says every entity reached over a connection that dropped is unreachable until it reports.
+   *
+   * @param key - The connection.
+   */
+  #connectionDropped(key: string): void {
+    for (const running of this.#running.values()) {
+      if (running.connection.key !== key) {
+        continue;
+      }
+
+      const reports = running.book.withAvailability(false);
+
+      if (reports.length > 0) {
+        publishReports(running.client, reports);
+      }
+    }
   }
 
   /**
