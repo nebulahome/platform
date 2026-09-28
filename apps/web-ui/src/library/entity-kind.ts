@@ -20,7 +20,16 @@ import type { UiIconId } from '@nebula-home/ui';
  * the theme draws warm as.
  */
 export type EntityTone =
-  'light' | 'power' | 'sensor' | 'cover' | 'climate' | 'secure' | 'media' | 'camera' | 'derived';
+  | 'light'
+  | 'power'
+  | 'sensor'
+  | 'cover'
+  | 'climate'
+  | 'secure'
+  | 'media'
+  | 'camera'
+  | 'garden'
+  | 'derived';
 
 /** What an entity is, for a person. */
 export type EntityKind = {
@@ -82,6 +91,10 @@ export function entityKindOf(
     return { label: 'Camera', icon: 'camera', tone: 'camera' };
   }
 
+  if (has.has('lawn_mower')) {
+    return { label: 'Lawn mower', icon: 'tractor', tone: 'garden' };
+  }
+
   if (has.has('media_player')) {
     return { label: 'Media player', icon: 'play', tone: 'media' };
   }
@@ -137,6 +150,14 @@ export function entityKindOf(
     return { label: 'Firmware', icon: 'circle-arrow-up', tone: 'power' };
   }
 
+  if (has.has('select')) {
+    return { label: 'Setting', icon: 'list', tone: 'power' };
+  }
+
+  if (has.has('number')) {
+    return { label: 'Number setting', icon: 'hash', tone: 'power' };
+  }
+
   if (has.has('button')) {
     return { label: 'Button', icon: 'circle-dot', tone: 'power' };
   }
@@ -181,6 +202,12 @@ export function capabilityLabel(capability: CapabilityName, domain = ''): string
       return 'Press';
     case 'update':
       return 'Firmware';
+    case 'lawn_mower':
+      return 'Mower';
+    case 'select':
+      return 'Choice';
+    case 'number':
+      return 'Value';
   }
 }
 
@@ -194,6 +221,7 @@ export const ENTITY_FAMILIES = [
   'locks',
   'media',
   'cameras',
+  'garden',
   'aliases',
 ] as const;
 
@@ -210,6 +238,7 @@ export const FAMILY_LABELS: Readonly<Record<EntityFamily, string>> = {
   locks: 'Locks',
   media: 'Media',
   cameras: 'Cameras',
+  garden: 'Garden',
   aliases: 'Aliases',
 };
 
@@ -227,6 +256,8 @@ export function entityFamilyOf(
       return 'aliases';
     case 'camera':
       return 'cameras';
+    case 'garden':
+      return 'garden';
     case 'media':
       return 'media';
     case 'climate':

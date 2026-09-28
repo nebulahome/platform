@@ -20,6 +20,7 @@ import {
   isUpdateOffered,
   type EntityView,
   type JsonObject,
+  type LawnMowerActivity,
 } from '@nebula-home/contracts';
 
 import { miredsToKelvin } from '@/library/entity-control';
@@ -72,6 +73,16 @@ export const NO_READING = '—';
 
 const numbers = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 
+/** What a robot mower is doing, in words. */
+const MOWER_WORDS: Readonly<Record<LawnMowerActivity, string>> = {
+  mowing: 'Mowing',
+  paused: 'Paused',
+  returning: 'Going back to its station',
+  docked: 'In its station',
+  idle: 'Idle',
+  error: 'Stopped by a fault',
+};
+
 /** The words a binary sensor uses, by what kind of thing it senses. */
 const BINARY_WORDS: Readonly<Record<string, readonly [on: string, off: string]>> = {
   motion: ['Detected', 'Clear'],
@@ -84,6 +95,7 @@ const BINARY_WORDS: Readonly<Record<string, readonly [on: string, off: string]>>
   running: ['Running', 'Idle'],
   connectivity: ['Connected', 'Disconnected'],
   battery: ['Low', 'Normal'],
+  battery_charging: ['Charging', 'Not charging'],
   moisture: ['Wet', 'Dry'],
   smoke: ['Detected', 'Clear'],
   gas: ['Detected', 'Clear'],
@@ -293,6 +305,18 @@ export function describeState(
     } else {
       parts.push(installedVersion === null ? 'Up to date' : `Up to date · ${installedVersion}`);
     }
+  }
+
+  if (value.lawn_mower !== undefined) {
+    parts.push(MOWER_WORDS[value.lawn_mower.activity]);
+  }
+
+  if (value.select?.option != null) {
+    parts.push(capitalised(value.select.option));
+  }
+
+  if (value.number?.value != null) {
+    parts.push(withUnit(value.number.value, unit));
   }
 
   if (value.button !== undefined && parts.length === 0) {

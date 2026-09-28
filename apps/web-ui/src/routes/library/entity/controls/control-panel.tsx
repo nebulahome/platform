@@ -24,11 +24,14 @@ import { ColorControl } from '@/routes/library/entity/controls/color-control';
 import { ColorTempControl } from '@/routes/library/entity/controls/color-temp-control';
 import type { ControlProps, LightColour } from '@/routes/library/entity/controls/control-block';
 import { CoverControl } from '@/routes/library/entity/controls/cover-control';
+import { LawnMowerControl } from '@/routes/library/entity/controls/lawn-mower-control';
 import { LevelControl } from '@/routes/library/entity/controls/level-control';
 import { LockControl } from '@/routes/library/entity/controls/lock-control';
 import { MediaControl } from '@/routes/library/entity/controls/media-control';
+import { NumberControl } from '@/routes/library/entity/controls/number-control';
 import { PowerControl } from '@/routes/library/entity/controls/power-control';
 import { ReadingControl } from '@/routes/library/entity/controls/reading-control';
+import { SelectControl } from '@/routes/library/entity/controls/select-control';
 import { ThermostatControl } from '@/routes/library/entity/controls/thermostat-control';
 import { UpdateControl } from '@/routes/library/entity/controls/update-control';
 import { useEntityCommand } from '@/routes/library/entity/use-entity-command';
@@ -36,6 +39,7 @@ import { usePendingValue } from '@/routes/library/entity/use-pending-value';
 
 /** The controls, in the order they are drawn. */
 const CONTROLS: readonly (readonly [CapabilityName, (props: ControlProps) => ReactNode])[] = [
+  ['lawn_mower', LawnMowerControl],
   ['on_off', PowerControl],
   ['level', LevelControl],
   ['color_temp', ColorTempControl],
@@ -45,6 +49,8 @@ const CONTROLS: readonly (readonly [CapabilityName, (props: ControlProps) => Rea
   ['thermostat', ThermostatControl],
   ['media_player', MediaControl],
   ['camera', CameraControl],
+  ['select', SelectControl],
+  ['number', NumberControl],
   ['button', ButtonControl],
   ['update', UpdateControl],
 ];

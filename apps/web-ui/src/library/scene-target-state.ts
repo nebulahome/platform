@@ -37,6 +37,10 @@ const NON_SCENE_CAPABILITIES: ReadonlySet<CapabilityName> = new Set([
   'camera',
   'button',
   'update',
+  // A mower's job is not a state a scene returns to, and a setting is not one it restores.
+  'lawn_mower',
+  'select',
+  'number',
 ]);
 
 /**

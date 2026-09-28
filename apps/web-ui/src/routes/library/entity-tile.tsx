@@ -26,6 +26,7 @@ const LIT: Readonly<Record<EntityTone, string>> = {
   secure: 'border-tag-green/30 bg-tag-green/13 text-tag-green',
   media: 'border-tag-violet/30 bg-tag-violet/13 text-tag-violet',
   camera: 'border-tag-blue/30 bg-tag-blue/13 text-tag-blue',
+  garden: 'border-tag-lime/30 bg-tag-lime/13 text-tag-lime',
   derived: 'border-tag-cyan/30 bg-tag-cyan/13 text-tag-cyan',
 };
 
