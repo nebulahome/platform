@@ -14,6 +14,8 @@ import type { z } from 'zod';
 import type { JsonObject } from '@nebula-home/contracts';
 import type { PlatformLogger } from '@nebula-home/logging';
 
+import type { AccountHandle } from './account.js';
+
 /** What an integration asks a transport to do, expressed as data. */
 export type TransportRequest = {
   /** Which device, in whatever way this transport identifies one. */
@@ -76,6 +78,13 @@ export type TransportContext = {
 
   /** Called when the connection comes up or goes down. */
   report: (status: TransportStatus) => void;
+
+  /**
+   * Since 1.5: the account the connection is for, when its configuration names one
+   * (`config.account`) of the transport's own vendor - the session to use, and how to keep a
+   * renewed one or say the owner must sign in again. Absent otherwise.
+   */
+  readonly account?: AccountHandle;
 };
 
 /** One live connection, shared by every instance whose configuration resolves to it. */

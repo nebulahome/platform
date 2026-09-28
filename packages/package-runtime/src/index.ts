@@ -9,6 +9,7 @@
  * contract and handed the runtime's pieces through the {@link BundleSdk}.
  */
 
+export * from './account.js';
 export * from './bundle.js';
 export * from './containers.js';
 export * from './declarative.js';

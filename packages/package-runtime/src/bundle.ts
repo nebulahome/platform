@@ -142,6 +142,13 @@ export const vendorManifestSchema = z.strictObject({
   setup: bundlePathSchema.optional(),
 
   /**
+   * Since 1.5: path to an `account.json` - what signing in to the account the vendor's devices
+   * are reached through asks, and the module that signs in (`account.ts`). Absent for a vendor
+   * without one.
+   */
+  account: bundlePathSchema.optional(),
+
+  /**
    * Transports of the vendor's own, by name: `{ "rpc": "./rpc/transport.js" }`, or with the
    * wires it goes over, `{ "rpc": { "module": "./rpc/transport.js", "wires": ["http"] } }`.
    *

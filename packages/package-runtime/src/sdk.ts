@@ -19,6 +19,7 @@ import type { z } from 'zod';
 
 import type { PlatformLogger } from '@nebula-home/logging';
 
+import type { defineAccount } from './account.js';
 import type { Integration } from './integration.js';
 import type { defineStreamSource, OpenRtsp, StreamSource } from './stream.js';
 import type { defineTransport, Transport } from './transport.js';
@@ -218,6 +219,9 @@ export type BundleSdk = {
 
   /** Since 1.3: what the platform itself runs that a bundle may use - its MQTT broker. */
   readonly platform: PlatformServices;
+
+  /** Since 1.5: how an account's sign-in module is written, as defineTransport is for a transport. */
+  readonly defineAccount: typeof defineAccount;
 };
 
 /** What a transport module default-exports. */

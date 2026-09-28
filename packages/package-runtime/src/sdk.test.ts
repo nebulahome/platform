@@ -10,6 +10,7 @@ import { z } from 'zod';
 
 import { createLogger } from '@nebula-home/logging';
 
+import { defineAccount } from './account.js';
 import type { DiscoverySourceFactory, Sighting } from './discovery.js';
 import type { BundleSdk, ManagedUdpSocketOptions, TransportFactory } from './sdk.js';
 import { defineStreamSource } from './stream.js';
@@ -32,6 +33,7 @@ describe('BundleSdk', () => {
         throw new Error('not opened in this test');
       },
       defineStreamSource,
+      defineAccount,
       openRtsp: () => {
         throw new Error('not opened in this test');
       },
@@ -91,6 +93,7 @@ describe('BundleSdk.openUdpSocket', () => {
         throw new Error('not opened in this test');
       },
       defineStreamSource,
+      defineAccount,
       openRtsp: () => {
         throw new Error('not opened in this test');
       },

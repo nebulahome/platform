@@ -36,6 +36,7 @@ import {
   type JsonObject,
 } from '@nebula-home/contracts';
 
+import type { AccountHandle } from './account.js';
 import { bundlePathSchema } from './bundle.js';
 import { conditionHolds, resolvePath } from './evaluate.js';
 import { pathSchema } from './expression.js';
@@ -461,6 +462,14 @@ export type DiscoveryListenContext = {
    * it replaces the last one. Optional for the hub to offer, like `status`.
    */
   readonly passedOver?: (devices: readonly PassedOverSighting[]) => void;
+
+  /**
+   * Since 1.5: every account of the vendor signed in to, for a listener that asks each which
+   * devices it has. Read it at every pass, like the settings: an account added is heard then.
+   *
+   * @returns The accounts; none for a vendor without, or before one is signed in to.
+   */
+  readonly accounts?: () => Promise<readonly AccountHandle[]>;
 };
 
 /** A vendor's own listener, for a protocol the platform does not speak. */
