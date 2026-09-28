@@ -84,6 +84,30 @@ export const DISCOVERY_SOURCES = ['mdns', 'module'] as const;
 /** How a device can be heard. */
 export type DiscoverySource = (typeof DISCOVERY_SOURCES)[number];
 
+/**
+ * Who adds a device discovery found: the owner, from its card - the ordinary way - or the
+ * platform, as soon as it is heard. Automatic for a vendor whose devices were already chosen
+ * somewhere the owner set up: a Zigbee device paired with Zigbee2MQTT is one the owner meant to
+ * have, and asking again would only be a second step to forget.
+ */
+export const DEVICE_ADOPTIONS = ['owner', 'automatic'] as const;
+
+/** Who adds a device found. */
+export type DeviceAdoption = (typeof DEVICE_ADOPTIONS)[number];
+
+/**
+ * Where a vendor's devices are paired, when that is done through one of its own devices: the
+ * switch entity of a device of that driver that opens pairing while on - the Zigbee2MQTT bridge's
+ * `permit_join`. The vendor's page offers it in place of looking for devices.
+ */
+export const vendorPairingSchema = z.object({
+  driverId: z.string().min(1).max(64),
+  objectId: z.string().min(1).max(64),
+});
+
+/** Where a vendor's devices are paired. */
+export type VendorPairing = z.output<typeof vendorPairingSchema>;
+
 /** What a logo may be served as: an image the interface can put straight into an `img`. */
 const LOGO_DATA_URL_PATTERN = /^data:image\/(?:svg\+xml|png);base64,[A-Za-z0-9+/]+=*$/;
 
@@ -274,6 +298,12 @@ export const integrationVendorSchema = z.object({
    * only ever added by address, which is also the vendor the interface offers no scan for.
    */
   discoverySources: z.array(z.enum(DISCOVERY_SOURCES)).default([]),
+
+  /** Who adds what discovery finds: the owner, or the platform on its own. */
+  adoption: z.enum(DEVICE_ADOPTIONS).default('owner'),
+
+  /** The switch that opens pairing, for a vendor whose devices are paired through one of its own. */
+  pairing: vendorPairingSchema.nullable().default(null),
 
   drivers: z.array(integrationKindSchema),
 

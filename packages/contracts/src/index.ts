@@ -29,6 +29,7 @@ export * from './camera.js';
 export * from './capabilities.js';
 export * from './commands.js';
 export * from './discovery.js';
+export * from './device-id.js';
 export * from './entity-id.js';
 export * from './entity-requirement.js';
 export * from './entity-state.js';

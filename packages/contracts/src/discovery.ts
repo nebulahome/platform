@@ -10,6 +10,7 @@
 import { z } from 'zod';
 
 import {
+  DEVICE_ADOPTIONS,
   DISCOVERY_SOURCES,
   integrationIdSchema,
   integrationKindIdSchema,
@@ -64,6 +65,9 @@ export const discoveredDeviceSchema = z.object({
 
   /** How to reach it, in its transport's terms. Never a secret: nothing was asked for yet. */
   transportConfig: jsonObjectSchema,
+
+  /** Who adds it: the owner, from its card, or the platform, as soon as it is heard. */
+  adoption: z.enum(DEVICE_ADOPTIONS).default('owner'),
 
   /**
    * The device already added that this one says it is, when it answered at another address -
