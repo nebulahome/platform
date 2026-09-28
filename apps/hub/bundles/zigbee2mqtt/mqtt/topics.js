@@ -127,19 +127,27 @@ export function bridgeStateOf(value) {
 /**
  * What a device says as the listener proposes it, and as the transport's scan finds it.
  *
+ * Its name is the one given it in Zigbee2MQTT. A device just paired has none of its own - its
+ * friendly name is its IEEE address - and is added at once, so it is named for what it is rather
+ * than by sixteen hex digits: the maker and the model, `Aqara WSDCGQ11LM`.
+ *
  * @param {BridgeDevice} device - The device.
  * @returns {Record<string, unknown>} `role`, `ieee`, `name`, `model`, `vendor`, `version`, and the
  *   whole entry as `device`, which the driver describes the device from.
  */
 export function deviceSighting(device) {
   const definition = /** @type {Record<string, unknown>} */ (device.definition ?? {});
+  const model = typeof definition['model'] === 'string' ? definition['model'] : null;
+  const vendor = typeof definition['vendor'] === 'string' ? definition['vendor'] : null;
+  const isNamed = device.friendly_name !== '' && device.friendly_name !== device.ieee_address;
+  const described = [vendor, model].filter((part) => part !== null).join(' ');
 
   return {
     role: 'device',
     ieee: device.ieee_address,
-    name: device.friendly_name,
-    model: typeof definition['model'] === 'string' ? definition['model'] : null,
-    vendor: typeof definition['vendor'] === 'string' ? definition['vendor'] : null,
+    name: isNamed || described === '' ? device.friendly_name : described,
+    model,
+    vendor,
     version: device.software_build_id ?? null,
     device,
   };

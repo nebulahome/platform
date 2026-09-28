@@ -4,32 +4,29 @@
  *
  * Nothing is asked of the network. Zigbee2MQTT keeps `bridge/info` and `bridge/devices` retained
  * on the platform's broker, so listening to them hears the bridge and every device the moment the
- * listener starts, and again whenever a device is paired, renamed or removed. Each is proposed on
- * the vendor's page to add: the bridge by its coordinator's IEEE address, a device by its own, the
- * model code being which of the two it is - `bridge` or `device` - for the drivers' `modelCodes`
- * to name the driver.
+ * listener starts, and again whenever a device is paired, renamed or removed. Each is added on its
+ * own (`"adopt": "automatic"` in `discovery.json`): a device paired with Zigbee2MQTT is one the
+ * owner meant to have. The bridge is known by its coordinator's IEEE address, a device by its own,
+ * the model code being which of the two it is - `bridge` or `device` - for the drivers'
+ * `modelCodes` to name the driver.
  *
  * The broker is the platform's, not the house's network, so this listener runs where the hub
  * hears no multicast too (`"lan": false` in `discovery.json`).
  *
- * "Discover devices" on the vendor's page opens Zigbee pairing for the longest Zigbee2MQTT
- * allows, 254 seconds: that is what looking for new Zigbee devices means. Every device that joins
- * appears here once its interview is done.
+ * There is nothing to look for on demand: new devices come by pairing, which the bridge's
+ * _Pairing_ switch opens - the vendor's page offers it (`pairing` in `discovery.json`), and
+ * Zigbee2MQTT's own page opens the same.
  */
 import { bridgeSighting, deviceSighting, devicesOf, isOfferable, readPayload } from './topics.js';
-import { BRIDGE_KEY, openBroker } from './transport.js';
+import { openBroker } from './transport.js';
 
 /** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
 /** @typedef {import('@nebula-home/package-runtime').DiscoverySource} DiscoverySource */
-/** @typedef {import('@nebula-home/package-runtime').ManagedMqtt} ManagedMqtt */
 /** @typedef {import('@nebula-home/package-runtime').Sighting} Sighting */
 /** @typedef {import('@nebula-home/contracts').JsonObject} JsonObject */
 
 /** Where Zigbee2MQTT speaks unless the owner changed it. */
 const BASE = 'zigbee2mqtt';
-
-/** How long pairing stays open: the most Zigbee2MQTT allows. */
-const PAIRING_SECONDS = 254;
 
 /**
  * Builds the listener.
@@ -38,9 +35,6 @@ const PAIRING_SECONDS = 254;
  * @returns {DiscoverySource} The listener.
  */
 export default function createZigbee2MqttDiscovery(sdk) {
-  /** @type {ManagedMqtt | null} */
-  let session = null;
-
   return {
     /**
      * Listens until the signal ends it.
@@ -65,7 +59,7 @@ export default function createZigbee2MqttDiscovery(sdk) {
       /** @type {(() => void) | null} */
       let wake = null;
 
-      session = openBroker(sdk, 'discovery', {
+      const session = openBroker(sdk, 'discovery', {
         /**
          * Queues what the bridge lists.
          *
@@ -131,23 +125,7 @@ export default function createZigbee2MqttDiscovery(sdk) {
       } finally {
         signal.removeEventListener('abort', stop);
         await session.close();
-        session = null;
       }
-    },
-
-    /**
-     * Opens Zigbee pairing, so a device put in pairing mode now joins and is proposed.
-     */
-    scan() {
-      if (session?.isConnected !== true) {
-        return;
-      }
-
-      void session
-        .publish(`${BASE}/bridge/request/permit_join`, JSON.stringify({ time: PAIRING_SECONDS }))
-        .catch((error) => {
-          sdk.logger.warn({ err: error, bridge: BRIDGE_KEY }, 'Could not open Zigbee pairing');
-        });
     },
   };
 }

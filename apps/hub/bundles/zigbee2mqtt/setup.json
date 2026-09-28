@@ -78,24 +78,14 @@
         }
       },
       {
-        "key": "webInterface",
-        "type": "boolean",
-        "label": "Zigbee2MQTT's own web page",
-        "help": "The network map and each device's own settings. It asks for no password: anybody on the network who opens it controls Zigbee.",
-        "default": false
-      },
-      {
         "key": "webPort",
         "type": "number",
-        "label": "On port",
+        "label": "Web page port",
         "isInteger": true,
         "min": 1024,
         "max": 65535,
         "default": 8099,
-        "shownWhen": {
-          "key": "webInterface",
-          "equals": [true]
-        }
+        "help": "Zigbee2MQTT's own page - the network map, pairing, each device's own settings - on this port of the machine. It asks for no password: anybody on the network who opens it controls Zigbee."
       }
     ]
   }

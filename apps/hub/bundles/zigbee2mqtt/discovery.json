@@ -10,5 +10,10 @@
     "name": "name",
     "model": "role",
     "swVersion": "version"
+  },
+  "adopt": "automatic",
+  "pairing": {
+    "driver": "bridge",
+    "entity": "permit_join"
   }
 }
