@@ -33,6 +33,9 @@ import {
 
 import { loadBundles, type LoadedVendor } from './bundles.js';
 
+/** A vendor with nothing saved: what a listener that needs no settings is handed. */
+const NO_SETTINGS = { settings: async (): Promise<Record<string, never>> => Promise.resolve({}) };
+
 /** The bundles, where the service reads them from. */
 const BUNDLES = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../bundles');
 
@@ -215,7 +218,7 @@ describe('the Govee vendor', () => {
     const stop = new AbortController();
     let sighting: Sighting | undefined;
 
-    for await (const each of source.source.listen(stop.signal)) {
+    for await (const each of source.source.listen(stop.signal, NO_SETTINGS)) {
       sighting = each;
       stop.abort();
     }

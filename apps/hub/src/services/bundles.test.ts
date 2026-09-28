@@ -10,6 +10,9 @@ import { createLogger, type PlatformLogger } from '@nebula-home/logging';
 
 import { loadBundles, mergeBundleResults, wiresOf, type LoadBundlesResult } from './bundles.js';
 
+/** A vendor with nothing saved: what a listener that needs no settings is handed. */
+const NO_SETTINGS = { settings: async (): Promise<Record<string, never>> => Promise.resolve({}) };
+
 let root = '';
 
 /** A profile for a generic REST relay, the smallest thing the declarative tier covers. */
@@ -782,7 +785,10 @@ describe('loadBundles discovery', () => {
     const heard = [];
 
     if (source?.kind === 'module') {
-      for await (const sighting of source.source.listen(new AbortController().signal)) {
+      for await (const sighting of source.source.listen(
+        new AbortController().signal,
+        NO_SETTINGS,
+      )) {
         heard.push(sighting);
       }
     }

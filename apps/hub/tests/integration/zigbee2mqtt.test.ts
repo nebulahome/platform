@@ -23,6 +23,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
 import type { Transport, TransportInbound } from '@nebula-home/package-runtime';
 
+import { RUNTIME_VERSION } from '@/config.js';
 import { loadBundles } from '@/services/bundles.js';
 
 const BROKER = 'mqtt://localhost:1883';
@@ -109,7 +110,7 @@ beforeAll(async () => {
 
   const { vendors, failures } = await loadBundles({
     directory: BUNDLES,
-    runtimeVersion: '1.3.0',
+    runtimeVersion: RUNTIME_VERSION,
     logger,
     platform: { mqtt: { url: BROKER } },
   });

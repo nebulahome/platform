@@ -226,6 +226,15 @@ because a device announced it there.
   is ever required. A field may be a list of paths, tried in order, for generations that answer
   in different words: a Shelly Gen1 says `type`, `mac` and `fw` where later ones say `model`,
   `id` and `ver`.
+- `adopt` - since 1.4, who adds a device found: `owner` (the default) proposes it on the vendor's
+  page to adopt; `automatic` has `api` add it as soon as the hub proposes it, named as it named
+  itself, with the id the add form would have offered - for devices the owner already chose
+  somewhere else: a Zigbee device paired with Zigbee2MQTT, a mower bound to an ECOVACS account.
+  Such a vendor's page has no **Add device**, no **Discover devices** and nothing to adopt, and a
+  device removed there comes back while the vendor still lists it.
+- `pairing` - since 1.4, `{ "driver": "bridge", "entity": "permit_join" }`: the switch of one of
+  the vendor's drivers that opens pairing while it is on. The vendor's page offers it as **Pair
+  devices** / **Stop pairing**, read live, in place of looking for devices.
 
 The hub asks mDNS from every network interface of the machine, one question a packet, when it
 starts - at 0, 1, 3, 8, 15, 30 and 60 seconds, since a question over multicast is easily lost - and
@@ -249,11 +258,14 @@ my device not found". A `discovery.json` that does not load leaves the vendor lo
 failure names the file.
 
 **A listener of the vendor's own** is a module - plain JavaScript, like a transport, handed the
-same SDK - whose default export returns `{ listen(signal), scan?() }`: an async iterable of
-sightings, `{ config: { host }, payload }`, reported as they happen until the signal ends it, and,
-optionally, a way to ask the network again now, which the owner's scan calls - its answers arrive
-through `listen` like every other. It listens and reports; which driver a device belongs to stays
-the business of `discovery.json`. A sighting at a public address is not followed.
+same SDK - whose default export returns `{ listen(signal, context), scan?() }`: an async iterable
+of sightings, `{ config: { host }, payload }`, reported as they happen until the signal ends it,
+and, optionally, a way to ask the network again now, which the owner's scan calls - its answers
+arrive through `listen` like every other. Since 1.4 `context.settings()` reads what the owner saved
+for the vendor, secrets opened, for a listener that asks a cloud which devices an account has; read
+it at every pass and a change is heard without the listener being started again. It listens and
+reports; which driver a device belongs to stays the business of `discovery.json`. A sighting at a
+public address is not followed.
 
 ## `setup.json` - what adding a device asks
 
@@ -580,8 +592,10 @@ platform's broker (`sdk.platform.mqtt`, since 1.3) under the base topic, hands e
 device it is about by IEEE address. Two drivers: `bridge` (declarative: online, pairing, devices,
 version) and `device` (code, a function of the SDK: every model Zigbee2MQTT supports, from its
 `exposes`). Found by its own listener on the broker, which runs where the hub hears no multicast
-too (`"lan": false`); **Discover devices** opens pairing. Its README says what each expose
-becomes.
+too (`"lan": false`), and added on its own (`"adopt": "automatic"`): a device paired with
+Zigbee2MQTT is one the owner meant to have. **Pair devices** on its page is the bridge's pairing
+switch (`pairing`). Zigbee2MQTT's own web page is always on, on the port the setup asks. Its
+README says what each expose becomes.
 
 ## solax
 

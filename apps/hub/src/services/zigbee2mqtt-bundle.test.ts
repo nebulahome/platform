@@ -30,6 +30,9 @@ import {
   type TransportInbound,
 } from '@nebula-home/package-runtime';
 
+/** A vendor with nothing saved: what a listener that needs no settings is handed. */
+const NO_SETTINGS = { settings: async (): Promise<Record<string, never>> => Promise.resolve({}) };
+
 /** The bundle, where it ships. */
 const BUNDLE = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../bundles/zigbee2mqtt');
 
@@ -564,7 +567,7 @@ describe('the listener', () => {
     const abort = new AbortController();
     const heard: Record<string, unknown>[] = [];
     const listening = (async () => {
-      for await (const sighting of listener.listen(abort.signal)) {
+      for await (const sighting of listener.listen(abort.signal, NO_SETTINGS)) {
         heard.push(sighting.payload);
 
         if (heard.length === 3) {
@@ -595,7 +598,7 @@ describe('the listener', () => {
     const abort = new AbortController();
     const heard: Record<string, unknown>[] = [];
     const listening = (async () => {
-      for await (const sighting of listener.listen(abort.signal)) {
+      for await (const sighting of listener.listen(abort.signal, NO_SETTINGS)) {
         heard.push(sighting.payload);
         abort.abort();
       }

@@ -641,7 +641,14 @@ export class DiscoveryService {
         // One listening at a time, by design: the module is listened with again only once it has
         // stopped, and after a pause, so a module that fails at once does not spin.
         // eslint-disable-next-line no-await-in-loop -- see above
-        for await (const sighting of source.source.listen(signal)) {
+        for await (const sighting of source.source.listen(signal, {
+          /**
+           * Reads the vendor's settings, for a listener that signs in to a cloud with them.
+           *
+           * @returns The settings, secrets opened.
+           */
+          settings: async () => this.#settingsOf(vendor.id),
+        })) {
           if (isAborted(signal)) {
             break;
           }

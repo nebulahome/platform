@@ -31,6 +31,9 @@ import { createUdpSockets } from '../transports/managed-udp.js';
 
 import { createBundleSdk } from './bundle-sdk.js';
 
+/** A vendor with nothing saved: what a listener that needs no settings is handed. */
+const NO_SETTINGS = { settings: async (): Promise<Record<string, never>> => Promise.resolve({}) };
+
 /** The bundle, where the service reads it from. */
 const BUNDLE = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../bundles/bambu-lab');
 
@@ -392,7 +395,7 @@ describe('finding printers', () => {
     const source = discovery.default(sdk);
     const sightings: Sighting[] = [];
     const listening = (async () => {
-      for await (const sighting of source.listen(abort.signal)) {
+      for await (const sighting of source.listen(abort.signal, NO_SETTINGS)) {
         sightings.push(sighting);
       }
     })();

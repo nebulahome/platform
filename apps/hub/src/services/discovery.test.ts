@@ -799,6 +799,36 @@ describe('DiscoveryService', () => {
     });
   });
 
+  it("hands a vendor's module the vendor's settings, for a cloud it signs in to", async () => {
+    let heard: unknown;
+    const module: DiscoverySource = {
+      listen: async function* listen(signal, context): AsyncGenerator<Sighting> {
+        heard = await context.settings();
+        yield* [];
+        await new Promise<void>((resolve) => {
+          signal.addEventListener('abort', () => {
+            resolve();
+          });
+        });
+      },
+    };
+
+    await start({
+      settings: { email: 'owner@example.com', password: 'opened' },
+      vendor: acme(
+        {
+          listen: [{ module: './cloud/discovery.js', lan: false }],
+          identity: { externalId: 'device', model: 'sku' },
+        },
+        [{ kind: 'module', file: './cloud/discovery.js', source: module, lan: false }],
+      ),
+    });
+
+    await until(() => heard !== undefined);
+
+    expect(heard).toEqual({ email: 'owner@example.com', password: 'opened' });
+  });
+
   it("does not follow a vendor module's sighting to an address on the internet", async () => {
     // What a module reports came off the network unauthenticated, as an announcement does.
     const module: DiscoverySource = {
