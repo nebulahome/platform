@@ -141,20 +141,28 @@ export async function fetchContainer(name: string, signal?: AbortSignal): Promis
 }
 
 /**
- * Reads the last lines a container wrote.
+ * Reads the last lines a container wrote, or those after the last read.
  *
  * @param name - Its name.
- * @param tail - How many lines.
+ * @param tail - How many lines at most.
+ * @param since - Only those after this cursor, which the last read answered.
  * @param signal - Cancels the request.
- * @returns The lines, oldest first.
+ * @returns The lines, oldest first, and where the next read carries on.
  */
 export async function fetchContainerLogs(
   name: string,
   tail: number,
+  since?: string,
   signal?: AbortSignal,
 ): Promise<ContainerLogsReply> {
+  const query = new URLSearchParams({ tail: String(tail) });
+
+  if (since !== undefined) {
+    query.set('since', since);
+  }
+
   return apiRequest(
-    `${pathOf(name)}/logs?tail=${String(tail)}`,
+    `${pathOf(name)}/logs?${query.toString()}`,
     containerLogsReplySchema,
     withSignal(signal),
   );

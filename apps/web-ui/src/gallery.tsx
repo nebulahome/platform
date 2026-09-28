@@ -14,6 +14,7 @@ import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 
 import {
+  composeEntityId,
   TAG_COLORS,
   type IntegrationKind,
   type IntegrationVendorView,
@@ -40,6 +41,7 @@ import {
 
 import { useSession } from '@/auth/session-store';
 import { CheckIcon, CopyIcon, WarningIcon } from '@/components/icons';
+import { LogViewer } from '@/components/log-viewer';
 import { PasswordField } from '@/components/password-field';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { capabilityStateOf } from '@/library/entity-control';
@@ -52,6 +54,8 @@ import { ControlPanel } from '@/routes/library/entity/controls/control-panel';
 import { EntityField } from '@/routes/library/entity-field';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
+import { ListenerCallout, PassedOverPanel } from '@/routes/library/vendor-hearing';
+import { PairingButton, PairingPanel, type PairingState } from '@/routes/library/vendor-pairing';
 import { BackupSettings } from '@/routes/settings/backup-settings';
 import { backupSampleCache, SAMPLE_OWNER } from '@/testing/backup-samples';
 import { energySample, energySampleCache } from '@/testing/energy-samples';
@@ -292,6 +296,92 @@ const SAMPLE_VENDOR: IntegrationVendorView = {
   deviceCount: 3,
   entityCount: 21,
 };
+
+/** Zigbee2MQTT, running and heard of nothing, with two devices it passed over. */
+const SILENT_ZIGBEE: IntegrationVendorView = {
+  ...SAMPLE_VENDOR,
+  id: 'zigbee2mqtt',
+  name: 'Zigbee2MQTT',
+  adoption: 'automatic',
+  pairing: { driverId: 'bridge', objectId: 'permit_join' },
+  listener: {
+    level: 'warning',
+    message:
+      'NebulaHome is connected to its MQTT broker at mqtt://nebulahome:1884 but has heard nothing from Zigbee2MQTT there. Is its container running, and connected to this broker? Its log says which broker it tried.',
+    at: new Date(),
+  },
+  passedOver: [
+    {
+      id: '0x00158d0001a2b3c4',
+      name: 'Aqara MCCGQ11LM',
+      model: 'MCCGQ11LM',
+      reason: 'Zigbee2MQTT is still pairing it',
+      heardAt: new Date(Date.now() - 40_000),
+    },
+    {
+      id: '0x00124b0021aabbdd',
+      name: 'Kitchen sensor',
+      model: 'TS0601',
+      reason: 'Zigbee2MQTT does not support this model yet',
+      heardAt: new Date(Date.now() - 600_000),
+    },
+  ],
+  containerStatuses: [
+    {
+      vendorId: 'zigbee2mqtt',
+      dependencyId: 'zigbee2mqtt',
+      containerName: 'nebulahome-zigbee2mqtt',
+      state: 'running',
+      version: '2.14.1',
+      error: null,
+    },
+  ],
+};
+
+/**
+ * Pairing, open for another three minutes, or shut.
+ *
+ * @param isOpen - Whether it is open.
+ * @returns Where it stands.
+ */
+function samplePairing(isOpen: boolean): PairingState {
+  const openedAt = Date.now() - 60_000;
+
+  return {
+    entityId: composeEntityId('switch', 'zigbee2mqtt', 'permit_join'),
+    isOpen,
+    openedAt: isOpen ? openedAt : null,
+    closesAt: isOpen ? openedAt + 254_000 : null,
+    canPress: true,
+    reason: null,
+    /**
+     * Does nothing: the gallery shows the button, it does not pair.
+     *
+     * @returns Nothing.
+     */
+    toggle: () => undefined,
+    isBusy: false,
+    problem: null,
+  };
+}
+
+/** Lines of a Zigbee2MQTT that starts, fails to reach its adapter, and tries again. */
+const SAMPLE_LOG = [
+  '\u001b[32m[2026-09-28 13:40:01] info\u001b[39m: \tz2m: Logging to console',
+  '\u001b[32m[2026-09-28 13:40:01] info\u001b[39m: \tz2m: Starting Zigbee2MQTT version 2.14.1',
+  '\u001b[33m[2026-09-28 13:40:02] warning\u001b[39m: \tz2m: Adapter discovery is off',
+  '\u001b[31m[2026-09-28 13:40:07] error\u001b[39m: \tz2m: Error while starting zigbee-herdsman',
+  '{"level":50,"time":1790589607000,"msg":"Failed to connect to the adapter","path":"tcp://192.168.1.50:6638","retryInMs":5000}',
+  '\u001b[32m[2026-09-28 13:40:12] info\u001b[39m: \tz2m: Connected to MQTT server mqtt://nebulahome:1884',
+  '[2026-09-28 13:40:12] debug: \tzh:controller: Received network address response from 0x00158d0001a2b3c4 with a rather long line that has to wrap when the viewer wraps long lines, and scroll when it does not',
+].map((text, index) => ({
+  at: new Date(Date.parse('2026-09-28T11:40:01.000Z') + index * 2345),
+  stream: index === 3 ? ('stderr' as const) : ('stdout' as const),
+  text,
+}));
+
+/** The cache the log viewer's sample is read into. */
+const LOG_CACHE = new QueryClient();
 
 /** The cache the Backup page reads from. */
 const BACKUP_CACHE = backupSampleCache();
@@ -818,6 +908,42 @@ function Gallery() {
                   </div>
                 </div>
               ))}
+            </div>
+          </QueryClientProvider>
+        </Section>
+
+        <Section
+          title="Pairing and hearing"
+          note="Pair devices is the page's primary button; open, it counts down. A listener hearing nothing is a callout with the way to the log."
+        >
+          <div className="flex w-full flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <PairingButton pairing={samplePairing(false)} />
+              <PairingButton pairing={samplePairing(true)} />
+            </div>
+            <MemoryRouter>
+              <ListenerCallout vendor={SILENT_ZIGBEE} />
+              <div className="mt-4 flex flex-col gap-4">
+                <PairingPanel vendor={SILENT_ZIGBEE} pairing={samplePairing(true)} devices={[]} />
+                <PassedOverPanel vendor={SILENT_ZIGBEE} />
+              </div>
+            </MemoryRouter>
+          </div>
+        </Section>
+
+        <Section
+          title="Log viewer"
+          note="Times in the viewer's zone, levels read from the line, colours the program asked for in the theme's tones."
+        >
+          <QueryClientProvider client={LOG_CACHE}>
+            <div className="w-full">
+              <LogViewer
+                queryKey={['gallery', 'log']}
+                fileName="zigbee2mqtt"
+                read={async () =>
+                  Promise.resolve({ lines: SAMPLE_LOG, cursor: null, isTruncated: false })
+                }
+              />
             </div>
           </QueryClientProvider>
         </Section>

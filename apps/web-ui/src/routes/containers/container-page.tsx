@@ -10,7 +10,7 @@
  * server, so it never reaches the page; a long one shows its first lines and the rest in a dialog.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import type { ContainerAction, ContainerDetail, ContainerPort } from '@nebula-home/contracts';
@@ -18,6 +18,7 @@ import { Badge, Button, Modal, Panel, PanelNote, Switch } from '@nebula-home/ui'
 
 import { useSession } from '@/auth/session-store';
 import { ExternalLinkIcon } from '@/components/icons';
+import { LogViewer } from '@/components/log-viewer';
 import {
   CONTAINER_QUERY_KEYS,
   controlContainer,
@@ -36,9 +37,6 @@ import { DetailHeader, DetailPlaceholder } from '@/routes/library/detail-page';
 import { Fact, When } from '@/routes/library/entity/details-panel';
 import { SearchField } from '@/routes/library/search-field';
 import { SystemUsageCard } from '@/routes/settings/system-usage-card';
-
-/** How many lines of the log are read. */
-const LOG_LINES = 200;
 
 /** How many variables the card shows before the rest go to a dialog. */
 const ENV_SHOWN = 8;
@@ -511,52 +509,22 @@ function ContainerEnvironment(props: { readonly container: ContainerDetail }) {
 }
 
 /**
- * The last lines the container wrote.
+ * The last lines the container wrote, followed as it writes them.
  *
  * @param props - The container's name.
  * @param props.name - It.
  * @returns The panel.
  */
 function ContainerLogs(props: { readonly name: string }) {
-  const logs = useQuery({
-    queryKey: CONTAINER_QUERY_KEYS.logs(props.name),
-
-    /**
-     * Reads the lines.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the request.
-     * @returns The lines.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) =>
-      fetchContainerLogs(props.name, LOG_LINES, signal),
-  });
+  const { name } = props;
+  const queryKey = useMemo(() => CONTAINER_QUERY_KEYS.logs(name), [name]);
 
   return (
-    <Panel
-      title="Logs"
-      action={
-        <Button
-          variant="ghost"
-          size="compact"
-          isBusy={logs.isFetching}
-          onClick={() => {
-            void logs.refetch();
-          }}
-        >
-          Read again
-        </Button>
-      }
-    >
-      {logs.error === null ? (
-        <pre className="max-h-96 overflow-auto px-4 py-3 font-mono text-caption whitespace-pre-wrap text-foreground-muted">
-          {(logs.data?.lines ?? []).map((line) => line.text).join('\n') ||
-            (logs.isPending ? 'Reading…' : 'It has written nothing.')}
-        </pre>
-      ) : (
-        <p className="px-4 py-3.5 text-ui text-danger">{toMessage(logs.error)}</p>
-      )}
-    </Panel>
+    <LogViewer
+      queryKey={queryKey}
+      fileName={name}
+      read={async (tail, since, signal) => fetchContainerLogs(name, tail, since, signal)}
+    />
   );
 }
 
