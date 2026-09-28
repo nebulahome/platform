@@ -5,7 +5,12 @@
 # would otherwise be read as a number.
 . /etc/s6-overlay/scripts/nebula-env
 
-mkdir -p /run/nats
+# The folder stays root's and the file is written fresh each start, then handed to the bus: without
+# CAP_DAC_OVERRIDE, which some Docker hosts do not grant, root cannot write into a folder or over a
+# file it does not own, so a restart would fail on what the last start handed over.
+set -eu
+install -d -m 0755 /run/nats
+rm -f /run/nats/nats.conf
 cat > /run/nats/nats.conf <<CONF
 host: 127.0.0.1
 port: ${NEBULA_NATS_PORT:-4223}
@@ -20,7 +25,7 @@ authorization {
   password: "$NEBULA_NATS_PASSWORD"
 }
 CONF
-chown -R nebula:nebula /run/nats
+chown nebula:nebula /run/nats/nats.conf
 chmod 0600 /run/nats/nats.conf
 
 exec s6-setuidgid nebula nats-server -c /run/nats/nats.conf
