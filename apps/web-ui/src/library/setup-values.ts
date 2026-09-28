@@ -191,13 +191,14 @@ export function toValues(group: SetupGroup, draft: SetupDraft, mode: SetupValueM
  * The server's issues for one group, by field.
  *
  * @param issues - What the API put under `details.issues`.
- * @param groupName - `transportConfig` or `options`, the prefix the API gave the group.
+ * @param groupName - The prefix the API gave the group: `transportConfig` or `options` for a
+ * device or a vendor, `values` or `answers` for an account's sign-in.
  * @returns The first message for each field the issues name. An issue on the group itself - an
  * unknown key, say - names no control and is left for the form's general message.
  */
 export function errorsByField(
   issues: readonly ServerIssue[],
-  groupName: 'transportConfig' | 'options',
+  groupName: 'transportConfig' | 'options' | 'values' | 'answers',
 ): Record<string, string> {
   const errors: Record<string, string> = {};
 

@@ -76,6 +76,9 @@ import {
   IDEMPOTENCY_KEY_HEADER,
   MAX_PAGE_LIMIT,
   pageSchema,
+  accountSignOutReplySchema,
+  accountStepSchema,
+  type AccountStep,
 } from '@nebula-home/contracts';
 
 import { apiRequest } from '@/lib/api-client';
@@ -853,6 +856,76 @@ export async function updateVendorConfig(
     method: 'PATCH',
     body: request,
   });
+}
+
+/**
+ * Starts signing in to one of a vendor's accounts.
+ *
+ * @param vendorId - The vendor.
+ * @param values - What the owner typed.
+ * @returns The first step: connected, a question, a page to approve on, or why it failed.
+ */
+export async function beginAccountSignIn(
+  vendorId: string,
+  values: JsonObject,
+): Promise<AccountStep> {
+  return apiRequest(`/integrations/vendors/${vendorId}/accounts`, accountStepSchema, {
+    method: 'POST',
+    body: { values },
+  });
+}
+
+/**
+ * Answers what a sign-in asked.
+ *
+ * @param vendorId - The vendor.
+ * @param flowId - The sign-in.
+ * @param answers - What the owner answered.
+ * @returns The next step.
+ */
+export async function answerAccountSignIn(
+  vendorId: string,
+  flowId: string,
+  answers: JsonObject,
+): Promise<AccountStep> {
+  return apiRequest(
+    `/integrations/vendors/${vendorId}/accounts/flows/${flowId}`,
+    accountStepSchema,
+    { method: 'POST', body: { answers } },
+  );
+}
+
+/**
+ * Asks whether the page a sign-in sent the owner to was approved.
+ *
+ * @param vendorId - The vendor.
+ * @param flowId - The sign-in.
+ * @returns The next step: the same page while it was not.
+ */
+export async function pollAccountSignIn(vendorId: string, flowId: string): Promise<AccountStep> {
+  return apiRequest(
+    `/integrations/vendors/${vendorId}/accounts/flows/${flowId}/poll`,
+    accountStepSchema,
+    { method: 'POST' },
+  );
+}
+
+/**
+ * Signs out of one of a vendor's accounts.
+ *
+ * @param vendorId - The vendor.
+ * @param accountId - The account.
+ * @returns Whether it was signed in.
+ */
+export async function signOutOfAccount(
+  vendorId: string,
+  accountId: string,
+): Promise<{ readonly wasSignedIn: boolean }> {
+  return apiRequest(
+    `/integrations/vendors/${vendorId}/accounts/${encodeURIComponent(accountId)}`,
+    accountSignOutReplySchema,
+    { method: 'DELETE' },
+  );
 }
 
 /**

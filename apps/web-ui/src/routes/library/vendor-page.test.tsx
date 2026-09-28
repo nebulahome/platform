@@ -99,6 +99,9 @@ const BAMBU: IntegrationVendorView = {
   pairing: null,
   listener: null,
   passedOver: [],
+  account: null,
+  accounts: [],
+  needsAccount: false,
   containers: [],
   containerStatuses: [],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
@@ -446,6 +449,9 @@ describe('a vendor that adds its own devices', () => {
     pairing: { driverId: 'bridge', objectId: 'permit_join' },
     listener: null,
     passedOver: [],
+    account: null,
+    accounts: [],
+    needsAccount: false,
   };
 
   /**

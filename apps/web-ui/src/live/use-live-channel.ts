@@ -87,6 +87,13 @@ export function useLiveChannel(): void {
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
         }
 
+        if (message.type === 'integration_event') {
+          // An account of a vendor signed in, out, or needs signing in again: its page reads
+          // the vendor again, and the devices that come with an account.
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
+        }
+
         if (message.type === 'container_event') {
           // Only the name travels: the containers pages read again, and a vendor's page shows
           // where its containers stand.

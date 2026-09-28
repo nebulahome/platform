@@ -64,6 +64,7 @@ import { LibraryPage } from '@/routes/library/library-page';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
 import { useNetworkScan, type ScanOutcome } from '@/routes/library/use-network-scan';
+import { VendorAccounts } from '@/routes/library/vendor-accounts';
 import { Marks, VendorLogo } from '@/routes/library/vendor-card';
 import { VendorContainers } from '@/routes/library/vendor-containers';
 import { ListenerCallout, PassedOverPanel } from '@/routes/library/vendor-hearing';
@@ -458,6 +459,8 @@ export function VendorPage() {
               </div>
             </section>
 
+            <VendorAccounts vendor={found} devices={devices} canConfigure={canConfigure} />
+
             {found.needsSetup && !runsContainers ? (
               <Panel title="Before anything else" elevation="flat">
                 <div className="flex items-center gap-4 px-4 py-3.5">
@@ -545,8 +548,14 @@ export function VendorPage() {
                 canWrite && !isAutomatic ? (
                   <Button
                     size="compact"
-                    disabled={found.needsSetup}
-                    title={found.needsSetup ? `Set up ${found.name} first` : undefined}
+                    disabled={found.needsSetup || found.needsAccount}
+                    title={
+                      found.needsSetup
+                        ? `Set up ${found.name} first`
+                        : found.needsAccount
+                          ? `Sign in to a ${found.account?.name ?? 'account'} first`
+                          : undefined
+                    }
                     onClick={() => {
                       setOpen({
                         mode: 'create',
