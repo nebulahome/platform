@@ -249,6 +249,38 @@ export const vendorContainerSchema = z.object({
 /** One container a vendor's devices depend on. */
 export type VendorContainer = z.output<typeof vendorContainerSchema>;
 
+/** How a vendor's own listener levels what it says: hearing, hearing nothing, unable to listen. */
+export const LISTENER_LEVELS = ['ok', 'warning', 'error'] as const;
+
+/**
+ * How a vendor's own listener is getting on: connected to the platform's broker but hearing
+ * nothing of Zigbee2MQTT, unable to sign in to an account. What its vendor's page says when the
+ * devices do not come.
+ */
+export const vendorListenerSchema = z.object({
+  level: z.enum(LISTENER_LEVELS),
+  message: z.string().min(1).max(1024),
+  at: z.coerce.date(),
+});
+
+/** How a vendor's own listener is getting on. */
+export type VendorListener = z.output<typeof vendorListenerSchema>;
+
+/**
+ * A device the hub heard of a vendor and did not add, and why: one no driver takes, one still
+ * being paired. So "why is my device not here" has an answer on the vendor's page.
+ */
+export const passedOverDeviceSchema = z.object({
+  id: z.string().min(1).max(256),
+  name: z.string().min(1).max(256),
+  model: z.string().max(256).nullable().default(null),
+  reason: z.string().min(1).max(512),
+  heardAt: z.coerce.date(),
+});
+
+/** A device the hub heard of a vendor and did not add. */
+export type PassedOverDevice = z.output<typeof passedOverDeviceSchema>;
+
 /**
  * One vendor `hub` loaded: who they are, what every device of theirs shares, and its drivers.
  *
@@ -312,6 +344,12 @@ export const integrationVendorSchema = z.object({
    * once the vendor is set up. Empty for a vendor that runs on the platform alone.
    */
   containers: z.array(vendorContainerSchema).default([]),
+
+  /** How the vendor's own listener is getting on; null before it said, or for one without. */
+  listener: vendorListenerSchema.nullable().default(null),
+
+  /** The devices heard and not added, and why; at most a hundred, the latest first. */
+  passedOver: z.array(passedOverDeviceSchema).max(100).default([]),
 });
 
 /** One vendor `hub` loaded. */
