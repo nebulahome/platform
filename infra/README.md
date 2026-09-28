@@ -241,6 +241,15 @@ The supervisor too runs with the others. On Windows, point it at Docker Desktop'
 development stack's containers. The broker `pnpm dev` uses is the compose file's Mosquitto on
 `localhost:1883` (`NEBULA_MQTT_URL`), which asks for no password.
 
+**Development and the container on one Docker.** Both have a supervisor, and both would run
+`nebulahome-zigbee2mqtt` - each pointing it at its own broker. So every container an integration
+runs is labelled with the installation that made it (`io.nebulahome.installation`): the container
+generates its id once (`secrets/installation-id`), development keeps `NEBULA_INSTALLATION_ID` of
+`.env` (`development`), and a supervisor leaves a container the other made alone, saying so on
+the vendor's page. Stop one, or remove its container, to run the integration from the other. A
+container edited by hand is made again at the supervisor's next look: its environment is the
+integration's, and the Configure dialog is where it changes.
+
 ## Secrets
 
 `api` and `hub` both read `NEBULA_SECRETS_KEY` from `.env`: what an owner types into an

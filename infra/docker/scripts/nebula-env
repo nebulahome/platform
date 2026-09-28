@@ -18,8 +18,10 @@ nebula_secret() {
 : "${NEBULA_PG_SUPERUSER_PASSWORD:=$(nebula_secret postgres-password)}"
 : "${NEBULA_NATS_PASSWORD:=$(nebula_secret nats-password)}"
 : "${NEBULA_MQTT_PASSWORD:=$(nebula_secret mqtt-password)}"
+: "${NEBULA_INSTALLATION_ID:=$(nebula_secret installation-id)}"
 export NEBULA_SECRETS_KEY API_TOTP_ENCRYPTION_KEY API_JWT_SECRET
 export NEBULA_PG_SUPERUSER_PASSWORD NEBULA_NATS_PASSWORD NEBULA_MQTT_PASSWORD
+export NEBULA_INSTALLATION_ID
 
 # The house's MQTT broker, Mosquitto beside the services (mosquitto/run): the hub's integrations
 # speak it, and the supervisor hands it to the containers an integration runs.
