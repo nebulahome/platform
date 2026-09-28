@@ -97,6 +97,8 @@ const BAMBU: IntegrationVendorView = {
   discoverySources: [],
   adoption: 'owner',
   pairing: null,
+  listener: null,
+  passedOver: [],
   containers: [],
   containerStatuses: [],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
@@ -442,6 +444,8 @@ describe('a vendor that adds its own devices', () => {
     discoverySources: ['module'],
     adoption: 'automatic',
     pairing: { driverId: 'bridge', objectId: 'permit_join' },
+    listener: null,
+    passedOver: [],
   };
 
   /**
@@ -494,6 +498,8 @@ describe('a vendor that adds its own devices', () => {
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Pair devices' }).disabled).toBe(
       true,
     );
+    // And why, in the page rather than only in a tooltip.
+    expect(screen.getByText(/Pairing is not available yet/u)).toBeTruthy();
   });
 
   it("opens pairing through the bridge's switch, and says it is open", async () => {
@@ -530,7 +536,58 @@ describe('a vendor that adds its own devices', () => {
     vi.mocked(fetchEntity).mockResolvedValue(pairingSwitch(true));
     renderPage('zigbee2mqtt', ['device:read', 'entity:control']);
 
-    expect(await screen.findByRole('button', { name: 'Stop pairing' })).toBeTruthy();
-    expect(screen.getByText(/Pairing is open/u)).toBeTruthy();
+    expect(await screen.findByRole('button', { name: /Stop/u })).toBeTruthy();
+    expect(screen.getByText(/Put the device in pairing mode now/u)).toBeTruthy();
+    expect(screen.getByText('No device has joined yet.')).toBeTruthy();
+  });
+
+  it('says so when Zigbee2MQTT is not heard on the broker, with the way to its log', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue({
+      ...ZIGBEE,
+      listener: {
+        level: 'warning',
+        message:
+          'NebulaHome is connected to its MQTT broker at mqtt://nebulahome:1884 but has heard nothing',
+        at: new Date('2026-09-28T10:00:00.000Z'),
+      },
+      containerStatuses: [
+        {
+          vendorId: 'zigbee2mqtt',
+          dependencyId: 'zigbee2mqtt',
+          containerName: 'nebulahome-zigbee2mqtt',
+          state: 'running',
+          version: '2.14.1',
+          error: null,
+        },
+      ],
+    });
+    vi.mocked(fetchDevices).mockResolvedValue([]);
+    renderPage('zigbee2mqtt', ['device:read', 'entity:control']);
+
+    expect(await screen.findByText('Nothing heard from Zigbee2MQTT yet')).toBeTruthy();
+    expect(screen.getByText(/mqtt:\/\/nebulahome:1884/u)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Open its log' }).getAttribute('href')).toBe(
+      '/containers/nebulahome-zigbee2mqtt',
+    );
+  });
+
+  it('lists the devices heard and not added, with why', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue({
+      ...ZIGBEE,
+      passedOver: [
+        {
+          id: '0x00158d0001a2b3c4',
+          name: 'Aqara MCCGQ11LM',
+          model: 'MCCGQ11LM',
+          reason: 'Zigbee2MQTT is still pairing it',
+          heardAt: new Date(),
+        },
+      ],
+    });
+    vi.mocked(fetchDevices).mockResolvedValue([]);
+    renderPage('zigbee2mqtt', ['device:read', 'entity:control']);
+
+    expect(await screen.findByText('Seen but not added · 1')).toBeTruthy();
+    expect(screen.getByText('Zigbee2MQTT is still pairing it')).toBeTruthy();
   });
 });

@@ -93,6 +93,8 @@ export const VENDORS: IntegrationVendorView[] = ['bambu-lab', 'shelly'].map((id)
   discoverySources: [],
   adoption: 'owner',
   pairing: null,
+  listener: null,
+  passedOver: [],
   containers: [],
   containerStatuses: [],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },

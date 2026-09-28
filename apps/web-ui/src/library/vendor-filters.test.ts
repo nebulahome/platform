@@ -28,6 +28,8 @@ function vendor(overrides: Partial<IntegrationVendorView> = {}): IntegrationVend
     discoverySources: [],
     adoption: 'owner',
     pairing: null,
+    listener: null,
+    passedOver: [],
     containers: [],
     containerStatuses: [],
     setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },

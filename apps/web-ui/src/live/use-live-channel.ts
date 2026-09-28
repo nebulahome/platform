@@ -81,8 +81,10 @@ export function useLiveChannel(): void {
         }
 
         if (message.type === 'discovery_event') {
-          // Only the count travels; the list is read again with the permission it takes.
+          // Only the count travels; the list is read again with the permission it takes. So are
+          // the vendors: what a vendor's listener says and the devices it passed over are theirs.
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.discovered });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
         }
 
         if (message.type === 'container_event') {

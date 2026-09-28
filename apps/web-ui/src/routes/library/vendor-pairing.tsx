@@ -5,10 +5,18 @@
  * added on their own - so its page offers **Pair devices** where another has Discover devices. The
  * button is the bridge's own pairing switch (`pairing` in the vendor's `discovery.json`), read
  * live: pairing opened from Zigbee2MQTT's own page shows here as open too, and closes from here.
- * While it is open a line under the header says what to do; Zigbee2MQTT closes it by itself after
- * about four minutes.
+ *
+ * While it is open the button counts down the time left and a panel says what to do and lists the
+ * devices added since - those that were not there when the page saw it open. The time is the
+ * switch's: it opens for {@link PAIRING_SECONDS} seconds, what the bundle asks and what
+ * Zigbee2MQTT's own page asks too, counted from when the switch last turned on; Zigbee2MQTT closes
+ * it by itself then, and the switch says so.
+ *
+ * When it cannot be pressed the reason is said in the page, not only in a tooltip: a disabled
+ * button with no word beside it is a button that looks broken.
  */
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 
 import {
   composeEntityId,
@@ -16,12 +24,15 @@ import {
   type EntityId,
   type IntegrationVendorView,
 } from '@nebula-home/contracts';
-import { Button } from '@nebula-home/ui';
+import { AppIcon, Button, Panel } from '@nebula-home/ui';
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
 import { commandEntity, fetchEntity, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { useLive } from '@/live/live-store';
+
+/** How long pairing stays open once opened, in seconds: what the bridge's switch asks. */
+export const PAIRING_SECONDS = 254;
 
 /** Where pairing stands, as the vendor's page shows it. */
 export type PairingState = {
@@ -30,6 +41,12 @@ export type PairingState = {
 
   /** Whether pairing is open now. */
   readonly isOpen: boolean;
+
+  /** When pairing opened, in milliseconds since the epoch; null while it is shut. */
+  readonly openedAt: number | null;
+
+  /** When it closes by itself, in milliseconds since the epoch; null while it is shut. */
+  readonly closesAt: number | null;
 
   /** Whether the switch can be pressed: its device is added, reachable, and the owner may. */
   readonly canPress: boolean;
@@ -88,6 +105,8 @@ export function usePairing(
   const isOpen =
     typeof onOff === 'object' && onOff !== null && !Array.isArray(onOff) && onOff['isOn'] === true;
   const isAvailable = live?.isAvailable ?? entity.data?.isAvailable ?? false;
+  const changedAt = live?.changedAt ?? entity.data?.lastChanged ?? null;
+  const openedAt = isOpen && changedAt !== null ? new Date(changedAt).getTime() : null;
 
   const press = useMutation({
     /**
@@ -104,7 +123,7 @@ export function usePairing(
     pairing === null
       ? null
       : device === undefined
-        ? `${vendor?.name ?? 'The bridge'} has not been added yet: it is, as soon as it runs`
+        ? `${vendor?.name ?? 'The bridge'} has not been added yet: it is, as soon as NebulaHome hears it`
         : !isAvailable
           ? `${device.name} cannot be reached now`
           : !can('entity:control')
@@ -114,6 +133,8 @@ export function usePairing(
   return {
     entityId,
     isOpen,
+    openedAt,
+    closesAt: openedAt === null ? null : openedAt + PAIRING_SECONDS * 1000,
     canPress: entityId !== null && reason === null,
     reason,
     isBusy: press.isPending,
@@ -127,7 +148,53 @@ export function usePairing(
 }
 
 /**
- * The header's button.
+ * The time now, moved on every second while asked to.
+ *
+ * @param isTicking - Whether to keep it moving; off, it is left where it was.
+ * @returns Milliseconds since the epoch.
+ */
+function useSecondClock(isTicking: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+
+  // A timer is something outside React to synchronise with (RULES.md 15.2).
+  useEffect(() => {
+    if (!isTicking) {
+      return undefined;
+    }
+
+    // The first tick at once, from a timer like the rest: a clock that last moved when the page
+    // opened would count from then.
+    const first = setTimeout(() => {
+      setNow(Date.now());
+    }, 0);
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return (): void => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, [isTicking]);
+
+  return now;
+}
+
+/**
+ * The time left, as a clock reads it.
+ *
+ * @param ms - Milliseconds left.
+ * @returns `3:42`; `0:00` once it is up.
+ */
+export function timeLeft(ms: number): string {
+  const seconds = Math.max(0, Math.ceil(ms / 1000));
+
+  return `${String(Math.floor(seconds / 60))}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+/**
+ * The header's button: **Pair devices**, or while pairing is open the time left and a way to
+ * stop it.
  *
  * @param props - Where pairing stands.
  * @param props.pairing - It.
@@ -135,20 +202,119 @@ export function usePairing(
  */
 export function PairingButton(props: { readonly pairing: PairingState }) {
   const { pairing } = props;
+  const now = useSecondClock(pairing.isOpen);
+  const left = pairing.closesAt === null ? null : pairing.closesAt - now;
+
+  if (pairing.isOpen) {
+    return (
+      <Button
+        variant="primary"
+        size="compact"
+        isBusy={pairing.isBusy}
+        disabled={!pairing.canPress}
+        title={pairing.reason ?? 'Close pairing now'}
+        onClick={pairing.toggle}
+      >
+        <span
+          aria-hidden="true"
+          className="size-2 shrink-0 animate-pulse rounded-full bg-current"
+        />
+        <span className="tabular">Pairing{left === null ? '' : ` · ${timeLeft(left)}`}</span>
+        <span className="opacity-80">Stop</span>
+      </Button>
+    );
+  }
 
   return (
     <Button
-      variant={pairing.isOpen ? 'primary' : 'ghost'}
+      variant="primary"
       size="compact"
       isBusy={pairing.isBusy}
       disabled={!pairing.canPress}
-      title={
-        pairing.reason ??
-        (pairing.isOpen ? 'Close pairing now' : 'Let new devices join for about four minutes')
-      }
+      title={pairing.reason ?? 'Let new devices join for about four minutes'}
       onClick={pairing.toggle}
     >
-      {pairing.isOpen ? 'Stop pairing' : 'Pair devices'}
+      <AppIcon id="plus" size={15} />
+      Pair devices
     </Button>
+  );
+}
+
+/** What the pairing panel shows. */
+export type PairingPanelProps = {
+  readonly vendor: IntegrationVendorView;
+  readonly pairing: PairingState;
+
+  /** The vendor's devices, among which the ones added since pairing opened. */
+  readonly devices: readonly DeviceView[];
+};
+
+/**
+ * The panel under the header while pairing is open: what to do, how long is left, and the
+ * devices added since it opened, as they come.
+ *
+ * @param props - See {@link PairingPanelProps}.
+ * @returns The panel, or nothing while pairing is shut.
+ */
+export function PairingPanel(props: PairingPanelProps) {
+  const { vendor, pairing, devices } = props;
+  const now = useSecondClock(pairing.isOpen);
+
+  // The devices there when the page saw pairing open: the ones after them joined since. Set while
+  // rendering, the way React has state follow a prop, rather than a render late in an effect.
+  const [before, setBefore] = useState<ReadonlySet<string> | null>(null);
+
+  if (pairing.isOpen && before === null) {
+    setBefore(new Set(devices.map((device) => device.id)));
+  } else if (!pairing.isOpen && before !== null) {
+    setBefore(null);
+  }
+
+  if (!pairing.isOpen) {
+    return null;
+  }
+
+  const joined = devices.filter((device) => before !== null && !before.has(device.id));
+  const left = pairing.closesAt === null ? null : pairing.closesAt - now;
+
+  return (
+    <Panel
+      title="Pairing"
+      action={
+        <span className="text-caption text-foreground-muted tabular">
+          {left === null ? 'Open' : `Closes in ${timeLeft(left)}`}
+        </span>
+      }
+    >
+      <div className="flex flex-col gap-3 px-4 py-3.5">
+        <p role="status" className="flex items-start gap-2.5 text-ui text-foreground-muted">
+          <span
+            aria-hidden="true"
+            className="mt-1.5 size-2 shrink-0 animate-pulse rounded-full bg-primary"
+          />
+          <span>
+            Put the device in pairing mode now - usually by holding its button, or switching it off
+            and on a few times; its manual says how. It is added here once {vendor.name} has
+            interviewed it, which can take a minute. Pairing closes by itself.
+          </span>
+        </p>
+
+        {joined.length === 0 ? (
+          <p className="text-caption text-foreground-subtle">No device has joined yet.</p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-border rounded-field border border-border">
+            {joined.map((device) => (
+              <li key={device.id} className="flex items-center gap-2.5 px-3 py-2 text-ui">
+                <AppIcon id="check" size={15} className="text-success" />
+                <span className="font-medium text-foreground">{device.name}</span>
+                {device.model === null ? null : (
+                  <span className="text-caption text-foreground-subtle">{device.model}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Panel>
   );
 }

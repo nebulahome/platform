@@ -66,7 +66,8 @@ import { SearchField } from '@/routes/library/search-field';
 import { useNetworkScan, type ScanOutcome } from '@/routes/library/use-network-scan';
 import { Marks, VendorLogo } from '@/routes/library/vendor-card';
 import { VendorContainers } from '@/routes/library/vendor-containers';
-import { PairingButton, usePairing } from '@/routes/library/vendor-pairing';
+import { ListenerCallout, PassedOverPanel } from '@/routes/library/vendor-hearing';
+import { PairingButton, PairingPanel, usePairing } from '@/routes/library/vendor-pairing';
 import { VendorSetupDialog } from '@/routes/library/vendor-setup-dialog';
 
 /**
@@ -491,22 +492,22 @@ export function VendorPage() {
                 : {})}
             />
 
+            <ListenerCallout vendor={found} />
+
+            {hasPairing && !pairing.canPress && pairing.reason !== null && !found.needsSetup ? (
+              <p role="status" className="flex items-center gap-2 text-ui text-foreground-muted">
+                <AppIcon id="info" size={15} className="shrink-0" />
+                Pairing is not available yet: {pairing.reason}.
+              </p>
+            ) : null}
+
             {pairing.problem === null ? null : (
               <p role="alert" className="text-ui text-danger">
                 {pairing.problem}
               </p>
             )}
 
-            {pairing.isOpen ? (
-              <p role="status" className="flex items-center gap-2 text-ui text-foreground-muted">
-                <span
-                  aria-hidden="true"
-                  className="size-2 shrink-0 animate-pulse rounded-full bg-primary"
-                />
-                Pairing is open: put the device in pairing mode now, and it is added here once{' '}
-                {found.name} knows it. It closes by itself after about four minutes.
-              </p>
-            ) : null}
+            <PairingPanel vendor={found} pairing={pairing} devices={devices} />
 
             {network.problem === null ? null : (
               <p role="alert" className="text-ui text-danger">
@@ -662,6 +663,8 @@ export function VendorPage() {
                 </ul>
               )}
             </Panel>
+
+            <PassedOverPanel vendor={found} />
           </>
         )}
       </LibraryPage>

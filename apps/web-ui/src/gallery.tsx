@@ -268,6 +268,8 @@ const SAMPLE_VENDOR: IntegrationVendorView = {
   discoverySources: ['mdns'],
   adoption: 'owner',
   pairing: null,
+  listener: null,
+  passedOver: [],
   containers: [],
   containerStatuses: [],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
