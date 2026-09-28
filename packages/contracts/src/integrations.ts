@@ -16,6 +16,7 @@
 import { z } from 'zod';
 
 import { iconIdSchema } from './icons.js';
+import { vendorAccountSchema } from './integration-accounts.js';
 import { integrationSetupSchema } from './integration-setup.js';
 import { jsonObjectSchema } from './json.js';
 import { PACKAGE_ID_PATTERN } from './package-manifest.js';
@@ -324,6 +325,12 @@ export const integrationVendorSchema = z.object({
 
   /** What setting the vendor up asks; empty groups for a vendor that needs nothing. */
   setup: integrationSetupSchema,
+
+  /**
+   * What signing in to the vendor's account asks, for a vendor whose devices are reached through
+   * an account - a cloud, an app's - rather than set up once; null for one that has none.
+   */
+  account: vendorAccountSchema.nullable().default(null),
 
   /**
    * How its devices can be found on the network, each once. Empty for a vendor whose devices are

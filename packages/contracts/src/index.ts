@@ -36,6 +36,7 @@ export * from './entity-state.js';
 export * from './errors.js';
 export * from './exit-codes.js';
 export * from './icons.js';
+export * from './integration-accounts.js';
 export * from './integration-setup.js';
 export * from './integrations.js';
 export * from './json.js';

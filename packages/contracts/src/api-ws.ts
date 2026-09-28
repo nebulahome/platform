@@ -146,6 +146,12 @@ export const wsServerMessageSchema = z.discriminatedUnion('type', [
     payload: containerEventSchema,
   }),
   z.object({
+    type: z.literal('integration_event'),
+
+    /** Which vendor: its page reads it again. */
+    vendorId: z.string().min(1).max(64),
+  }),
+  z.object({
     type: z.literal('backup_event'),
     payload: backupEventSchema,
   }),

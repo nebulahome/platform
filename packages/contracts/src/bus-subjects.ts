@@ -122,6 +122,14 @@ export const busSubjects = {
   containerEvent: (): string => `${BUS_SUBJECT_PREFIX}.event.container.changed`,
 
   /**
+   * Announcing that something about one integration changed that its page shows: an account
+   * signed in, out, or asked to sign in again.
+   *
+   * @returns The fan-out subject the hub publishes on.
+   */
+  integrationEvent: (): string => `${BUS_SUBJECT_PREFIX}.event.integration.changed`,
+
+  /**
    * Commanding an entity.
    *
    * @param entityId - The entity to command.

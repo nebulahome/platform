@@ -18,6 +18,7 @@ import {
 } from './capabilities.js';
 import { entityIdSchema } from './entity-id.js';
 import { iconIdSchema } from './icons.js';
+import { integrationAccountViewSchema } from './integration-accounts.js';
 import {
   INTEGRATION_STATES,
   integrationIdSchema,
@@ -906,6 +907,15 @@ export const integrationVendorViewSchema = integrationVendorSchema.extend({
    * supervisor did not answer about - it is down, or Docker cannot be reached.
    */
   containerStatuses: z.array(managedStatusSchema.nullable()).default([]),
+
+  /** The accounts signed in to, for a vendor that has an account; empty otherwise. */
+  accounts: z.array(integrationAccountViewSchema).default([]),
+
+  /**
+   * Whether the vendor has an account to sign in to and none is signed in: its devices cannot be
+   * added until one is. False for a vendor without an account.
+   */
+  needsAccount: z.boolean().default(false),
 });
 
 /** One vendor the hub has loaded, with what the owner has done about it. */
