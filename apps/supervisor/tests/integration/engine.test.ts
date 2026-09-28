@@ -1,12 +1,15 @@
 /**
  * The supervisor against a real Docker: a throwaway container listed, inspected, measured,
- * stopped, started, read, and updated to a newer image by being made again.
+ * stopped, started, read, updated to a newer image by being made again, and put back on the
+ * network the managed containers reach the platform by.
  *
  * Needs Docker and the internet (it pulls two small Alpine images). The socket is
  * `SUPERVISOR_DOCKER_SOCKET`, `/var/run/docker.sock` when unset. Skipped when Docker does not
  * answer.
  */
+import { execFile } from 'node:child_process';
 import { Writable } from 'node:stream';
+import { promisify } from 'node:util';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -20,6 +23,8 @@ import { DockerEngine } from '@/docker/engine.js';
 import { parseLogs } from '@/domain/log-frames.js';
 import { planRecreate } from '@/domain/recreate.js';
 import { cpuCountersOf, memoryUsedOf } from '@/domain/stats.js';
+import { RegistryClient } from '@/registry/registry-client.js';
+import { ManagedContainers } from '@/services/managed-containers.js';
 import { replaceContainer } from '@/services/replace.js';
 
 const engine = new DockerEngine({
@@ -142,5 +147,53 @@ describe.skipIf(!isReachable)('a container, through the engine', () => {
         container.Names.some((each) => each.startsWith(`/${name}`)),
       ),
     ).toHaveLength(1);
+  });
+
+  it('puts the platform back on its network, under the name the others reach it by', async () => {
+    const network = `${name}-net`;
+    const managed = new ManagedContainers({
+      engine,
+      // Never asked: the network is all this test reaches.
+      registry: new RegistryClient({ timeoutMs: 1000, architecture: 'amd64' }),
+      logger,
+      dataRoot: '.',
+      context: () => null,
+
+      /**
+       * The throwaway container stands in for the platform's.
+       *
+       * @returns Its id.
+       */
+      selfId: () => id,
+      onChange: () => undefined,
+    });
+    const context = {
+      network: 'bridge',
+      networkName: network,
+      platformAlias: 'platform-under-test',
+      mqtt: null,
+      timezone: 'UTC',
+      dataMount: { kind: 'separate' },
+    } as const;
+
+    try {
+      // Off the network, as after the platform's container is made again from a new image.
+      await managed.ensureNetwork(context);
+      expect(
+        (await engine.inspectContainer(id)).NetworkSettings.Networks[network]?.Aliases,
+      ).toContain('platform-under-test');
+
+      // On it, but without the name - put there by hand.
+      await engine.disconnectNetwork(network, id);
+      await engine.connectNetwork(network, id, []);
+      await managed.ensureNetwork(context);
+      expect(
+        (await engine.inspectContainer(id)).NetworkSettings.Networks[network]?.Aliases,
+      ).toContain('platform-under-test');
+    } finally {
+      await engine.disconnectNetwork(network, id).catch(() => undefined);
+      // The engine has no call to remove a network: the platform never removes one.
+      await promisify(execFile)('docker', ['network', 'rm', network]).catch(() => undefined);
+    }
   });
 });

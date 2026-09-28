@@ -395,6 +395,21 @@ export class DockerEngine {
   }
 
   /**
+   * Takes a container off a network.
+   *
+   * @param network - The network's name.
+   * @param container - The container's id.
+   */
+  public async disconnectNetwork(network: string, container: string): Promise<void> {
+    await this.#empty(
+      'POST',
+      `/networks/${encodeURIComponent(network)}/disconnect`,
+      `take it off ${network}`,
+      { body: { Container: container, Force: true } },
+    );
+  }
+
+  /**
    * Follows what happens to containers until the signal ends it.
    *
    * @param signal - Ends the stream.

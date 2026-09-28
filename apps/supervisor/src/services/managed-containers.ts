@@ -325,6 +325,13 @@ export class ManagedContainers {
     }
 
     try {
+      // Before anything else, the container up to date too: the platform's own container made
+      // again - a new image - is no longer on the network, and a container already running would
+      // then look for the broker under a name nothing answers to.
+      if (context.network !== 'host') {
+        await this.ensureNetwork(context);
+      }
+
       const existing = await this.#inspect(name);
       const installedTag =
         existing === undefined ? null : parseImageReference(existing.Config.Image).tag;
@@ -359,10 +366,6 @@ export class ManagedContainers {
       await this.#options.engine.pull(spec.image, tag, (progress) => {
         tracker.add(progress);
       });
-
-      if (context.network !== 'host') {
-        await this.ensureNetwork(context);
-      }
 
       await this.#prepareVolumes(spec, context);
 
@@ -440,13 +443,18 @@ export class ManagedContainers {
   }
 
   /**
-   * Makes the network the managed containers share, and puts the platform on it. A container the
-   * owner installs on the platform's network joins the same one.
+   * Makes the network the managed containers share, and puts the platform on it under its name.
+   * A container the owner installs on the platform's network joins the same one.
+   *
+   * Asked every time, not only when a container is made: the platform's container made again - a
+   * new image - starts off the network, and one put on it by hand may lack the name the others
+   * reach it by. Either way the containers already running look for the broker under a name that
+   * answers nothing, or answers wrong.
    *
    * @param context - The platform.
    */
   public async ensureNetwork(context: PlatformContext): Promise<void> {
-    const { engine } = this.#options;
+    const { engine, logger } = this.#options;
     const network = await engine.inspectNetwork(context.networkName);
 
     if (network === undefined) {
@@ -459,13 +467,23 @@ export class ManagedContainers {
       return;
     }
 
-    const members = Object.keys(
-      (await engine.inspectNetwork(context.networkName))?.Containers ?? {},
-    );
+    const self = await this.#inspect(selfId);
+    const endpoint = self?.NetworkSettings.Networks[context.networkName];
 
-    if (!members.includes(selfId)) {
-      await engine.connectNetwork(context.networkName, selfId, [context.platformAlias]);
+    if (endpoint?.Aliases.includes(context.platformAlias) === true) {
+      return;
     }
+
+    // On the network under other names only: off, and on again under the one the others use.
+    if (endpoint !== undefined) {
+      await engine.disconnectNetwork(context.networkName, selfId);
+    }
+
+    await engine.connectNetwork(context.networkName, selfId, [context.platformAlias]);
+    logger.info(
+      { network: context.networkName, alias: context.platformAlias },
+      'Put the platform on the network its containers reach it by',
+    );
   }
 
   /**

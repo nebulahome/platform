@@ -788,6 +788,7 @@ export class SupervisorService {
 
       await this.#refresh();
       void this.#followEvents();
+      await this.#rejoinNetwork();
       this.#managed.retry();
       this.#logger.info(
         {
@@ -799,6 +800,31 @@ export class SupervisorService {
       );
     } catch (error: unknown) {
       this.#unreachable(error);
+    }
+  }
+
+  /**
+   * Puts the platform back on the network its containers reach it by, when it is on a bridge.
+   *
+   * At every start, not only when an integration's container is made: the platform's container
+   * made again from a new image starts off that network, and the containers already running there
+   * - an integration's, one the owner installed beside the platform - would look for it under a
+   * name nothing answers to until something else put it back.
+   */
+  async #rejoinNetwork(): Promise<void> {
+    const context = this.#context;
+
+    if (context?.network !== 'bridge') {
+      return;
+    }
+
+    try {
+      await this.#managed.ensureNetwork(context);
+    } catch (error: unknown) {
+      this.#logger.warn(
+        { err: error, network: context.networkName },
+        'Could not put the platform on the network its containers reach it by',
+      );
     }
   }
 
