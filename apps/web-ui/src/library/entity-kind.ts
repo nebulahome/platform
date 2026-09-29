@@ -95,6 +95,14 @@ export function entityKindOf(
     return { label: 'Lawn mower', icon: 'tractor', tone: 'garden' };
   }
 
+  if (has.has('vacuum')) {
+    return { label: 'Robot vacuum', icon: 'bot', tone: 'power' };
+  }
+
+  if (has.has('image')) {
+    return { label: 'Picture', icon: 'image', tone: 'camera' };
+  }
+
   if (has.has('media_player')) {
     return { label: 'Media player', icon: 'play', tone: 'media' };
   }
@@ -208,6 +216,10 @@ export function capabilityLabel(capability: CapabilityName, domain = ''): string
       return 'Choice';
     case 'number':
       return 'Value';
+    case 'vacuum':
+      return 'Cleaning';
+    case 'image':
+      return 'Picture';
   }
 }
 

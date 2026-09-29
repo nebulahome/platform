@@ -41,6 +41,8 @@ const NON_SCENE_CAPABILITIES: ReadonlySet<CapabilityName> = new Set([
   'lawn_mower',
   'select',
   'number',
+  'vacuum',
+  'image',
 ]);
 
 /**

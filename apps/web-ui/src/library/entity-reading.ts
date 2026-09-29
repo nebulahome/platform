@@ -21,6 +21,7 @@ import {
   type EntityView,
   type JsonObject,
   type LawnMowerActivity,
+  type VacuumActivity,
 } from '@nebula-home/contracts';
 
 import { miredsToKelvin } from '@/library/entity-control';
@@ -76,6 +77,16 @@ const numbers = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 /** What a robot mower is doing, in words. */
 const MOWER_WORDS: Readonly<Record<LawnMowerActivity, string>> = {
   mowing: 'Mowing',
+  paused: 'Paused',
+  returning: 'Going back to its station',
+  docked: 'In its station',
+  idle: 'Idle',
+  error: 'Stopped by a fault',
+};
+
+/** What a robot vacuum is doing, in words. */
+const VACUUM_WORDS: Readonly<Record<VacuumActivity, string>> = {
+  cleaning: 'Cleaning',
   paused: 'Paused',
   returning: 'Going back to its station',
   docked: 'In its station',
@@ -309,6 +320,15 @@ export function describeState(
 
   if (value.lawn_mower !== undefined) {
     parts.push(MOWER_WORDS[value.lawn_mower.activity]);
+  }
+
+  if (value.vacuum !== undefined) {
+    parts.push(VACUUM_WORDS[value.vacuum.activity]);
+  }
+
+  if (value.image !== undefined && parts.length === 0) {
+    // Nothing to read on a picture but that it is there: it is looked at, not read.
+    parts.push('Picture');
   }
 
   if (value.select?.option != null) {
