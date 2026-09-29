@@ -791,6 +791,21 @@ export class PacketManager {
       return;
     }
 
+    const { dataDir, cacheDir } = this.#foldersOf(manifest.id);
+
+    try {
+      await mkdir(dataDir, { recursive: true });
+      await mkdir(cacheDir, { recursive: true });
+    } catch (error: unknown) {
+      await this.#setState(
+        entry,
+        'failed',
+        `${manifest.name}'s folders could not be made: ${error instanceof Error ? error.message : String(error)}`,
+      );
+
+      return;
+    }
+
     entry.process ??= new PackageProcess(
       {
         id: manifest.id,
@@ -827,6 +842,19 @@ export class PacketManager {
   }
 
   /**
+   * Where a package keeps what it keeps, and what it can make again.
+   *
+   * @param packageId - The package.
+   * @returns `packages/<id>/data/` and `cache/packages/<id>/` of the data directory.
+   */
+  #foldersOf(packageId: string): { dataDir: string; cacheDir: string } {
+    return {
+      dataDir: path.join(this.#options.packagesDir, packageId, 'data'),
+      cacheDir: path.join(this.#options.cacheDir, packageId),
+    };
+  }
+
+  /**
    * What a package's process environment is.
    *
    * @param entry - The package.
@@ -835,8 +863,7 @@ export class PacketManager {
   #environmentOf(entry: Entry): Record<string, string> {
     const { manifest } = entry.files;
     const { config } = this.#options;
-    const dataDir = path.join(this.#options.packagesDir, manifest.id, 'data');
-    const cacheDir = path.join(this.#options.cacheDir, manifest.id);
+    const { dataDir, cacheDir } = this.#foldersOf(manifest.id);
 
     return {
       ...(config.PATH === undefined ? {} : { PATH: config.PATH }),

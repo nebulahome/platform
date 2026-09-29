@@ -3,7 +3,7 @@
  * image's packages started in order, one installed from the index with what it needs, a package
  * waiting for another and following it down and up, and removals refused and made.
  */
-import { rm } from 'node:fs/promises';
+import { rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -58,13 +58,14 @@ const TOOLS = manifest({
  * A packet-manager with two packages in the image - the broker, a process, and a page of cards
  * - and an index offering one more.
  *
- * @returns The manager, its store, the bus and what `core` was asked.
+ * @returns The manager, its store, the bus, what `core` was asked and the folder it works in.
  */
 async function setUp(): Promise<{
   manager: PacketManager;
   store: ReturnType<typeof memoryStore>;
   transport: FakeTransport;
   synced: SyncPackageRequest[];
+  work: string;
 }> {
   const work = await scratch();
 
@@ -198,7 +199,7 @@ async function setUp(): Promise<{
 
   managers.push(manager);
 
-  return { manager, store, transport, synced };
+  return { manager, store, transport, synced, work };
 }
 
 /**
@@ -213,11 +214,18 @@ async function states(manager: PacketManager): Promise<Record<string, string>> {
 
 describe('the packet-manager', () => {
   it('installs the image’s packages as the system’s, and runs one once it announces itself', async () => {
-    const { manager, store } = await setUp();
+    const { manager, store, work } = await setUp();
 
     await manager.start();
 
     expect(await states(manager)).toEqual({ cards: 'running', mqtt: 'starting' });
+    // Its folders are there before it runs: what it opens in them - a SQLite file - makes none.
+    expect((await stat(path.join(work, 'data', 'packages', 'mqtt', 'data'))).isDirectory()).toBe(
+      true,
+    );
+    expect((await stat(path.join(work, 'data', 'cache', 'packages', 'mqtt'))).isDirectory()).toBe(
+      true,
+    );
     expect(store.rows.get('mqtt')).toMatchObject({ source: 'builtin', isSystem: true });
 
     await manager.announce({

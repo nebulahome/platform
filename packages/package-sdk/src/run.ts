@@ -8,6 +8,7 @@
  * it and leaves. A `start` that throws ends the process with code 1, which the packet-manager
  * counts towards giving up on the package.
  */
+import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -99,6 +100,11 @@ async function run(): Promise<void> {
     logger.fatal({ entry }, 'The module does not default-export definePackage({ start })');
     process.exit(EXIT_CODES.INVALID_CONFIGURATION);
   }
+
+  // The folders the package is handed exist before it reads them: the packet-manager makes them,
+  // and a package started by hand has them made here.
+  await mkdir(env.NEBULA_PACKAGE_DATA_DIR, { recursive: true });
+  await mkdir(env.NEBULA_PACKAGE_CACHE_DIR, { recursive: true });
 
   const handle = createPackageContext({
     client,
