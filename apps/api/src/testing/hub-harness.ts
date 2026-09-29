@@ -36,6 +36,7 @@ import {
   discoveredDeviceSchema,
   discoveredRequestSchema,
   discoverRequestSchema,
+  entityImageRequestSchema,
   forgetRequestSchema,
   parseCommandSubject,
   removeAliasRequestSchema,
@@ -43,11 +44,13 @@ import {
   HUB_CATALOGUE_METHOD,
   HUB_DISCOVER_METHOD,
   HUB_DISCOVERED_METHOD,
+  HUB_ENTITY_IMAGE_METHOD,
   HUB_FORGET_METHOD,
   HUB_PROBE_METHOD,
   HUB_RELOAD_METHOD,
   HUB_SERVICE,
   managedRequestSchema,
+  NotFoundError,
   probeRequestSchema,
   SUPERVISOR_METHODS,
   SUPERVISOR_SERVICE,
@@ -65,6 +68,7 @@ import {
   type DiscoveredReply,
   type DiscoverReply,
   type DiscoverRequest,
+  type EntityImageReply,
   type ForgetReply,
   type ForgetRequest,
   type IntegrationSetup,
@@ -287,6 +291,47 @@ export function emptyDatabase(): ApiContext['db'] {
 
   return chain as ApiContext['db'];
 }
+
+/**
+ * A database whose queries answer in turn: the first awaited query with the first set of rows,
+ * the second with the second, and every one after with none.
+ *
+ * @param answers - The rows of each query, in order.
+ * @returns Something the service layer can call as a database.
+ */
+export function databaseAnswering(...answers: readonly (readonly unknown[])[]): ApiContext['db'] {
+  let asked = 0;
+  const chain: unknown = new Proxy(() => chain, {
+    /**
+     * Answers every property with the chain, and `then` with the next set of rows.
+     *
+     * @param target - Ignored.
+     * @param key - The property asked for.
+     * @returns The chain, or a `then` that resolves to the rows.
+     */
+    get: (target, key): unknown =>
+      key === 'then'
+        ? (resolve: (rows: readonly unknown[]) => void): void => {
+            const rows = answers[asked] ?? [];
+
+            asked += 1;
+            resolve(rows);
+          }
+        : (): unknown => chain,
+
+    /**
+     * Answers every call with the chain.
+     *
+     * @returns The chain.
+     */
+    apply: (): unknown => chain,
+  });
+
+  return chain as ApiContext['db'];
+}
+
+/** The picture the fake hub holds, for `image.hall_map`. */
+export const HALL_MAP_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"/>';
 
 /** What the fake `core` answers the system monitor with. */
 export const SYSTEM_SNAPSHOT: SystemMonitorSnapshot = {
@@ -620,6 +665,21 @@ export async function buildTestServer(
           directories: ['usb'],
           isTruncated: false,
           isWritable: true,
+        };
+      },
+    ),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_ENTITY_IMAGE_METHOD),
+      entityImageRequestSchema,
+      (request): EntityImageReply => {
+        if (request.entityId !== 'image.hall_map') {
+          throw new NotFoundError('Nothing has been drawn for that entity yet');
+        }
+
+        return {
+          contentType: 'image/svg+xml',
+          revision: 'a1b2c3d4',
+          data: Buffer.from(HALL_MAP_SVG).toString('base64'),
         };
       },
     ),

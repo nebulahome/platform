@@ -34,6 +34,7 @@ import { registerDiscoveryRoutes } from './routes/discovery.js';
 import { registerEntityRoutes } from './routes/entities.js';
 import { registerHistoryRoutes } from './routes/history.js';
 import { registerIconRoutes } from './routes/icons.js';
+import { registerImageRoutes } from './routes/images.js';
 import { registerIntegrationRoutes } from './routes/integrations.js';
 import { registerMapRoutes } from './routes/map.js';
 import { registerMetaRoutes } from './routes/meta.js';
@@ -251,6 +252,7 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   registerContainerRoutes(environment, context);
   registerMapRoutes(server, context, environment.basePath);
   registerCameraRoutes(server, context, environment.basePath);
+  registerImageRoutes(server, context, environment.basePath);
   registerWebSocket(server, context, environment.basePath);
   registerMetaRoutes(server, context, registry, startedAt);
 
