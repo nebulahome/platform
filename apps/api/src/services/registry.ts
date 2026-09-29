@@ -14,7 +14,7 @@
  * ([DATABASE.md 12](../../../../DATABASE.md)); `nebula_api` holds `SELECT` on `system.packages`
  * and nothing more.
  */
-import { asc, eq, inArray, sql } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 
 import {
   CAPABILITIES,
@@ -23,14 +23,12 @@ import {
   NotFoundError,
   ValidationError,
   automationViewSchema,
-  packageViewSchema,
   sceneViewSchema,
   type AutomationCreate,
   type AutomationUpdate,
   type AutomationView,
   type CapabilityName,
   type CapabilityState,
-  type PackageView,
   type SceneCreate,
   type SceneMemberInput,
   type SceneUpdate,
@@ -579,58 +577,6 @@ export async function listAutomations(db: Database): Promise<AutomationView[]> {
 
   return rows.map((row) =>
     automationViewSchema.parse({ ...row, definition: row.definition ?? {} }),
-  );
-}
-
-/**
- * Lists installed packages, with how much of the house each one accounts for.
- *
- * @param db - The database.
- * @returns The packages, by identifier.
- */
-export async function listPackages(db: Database): Promise<PackageView[]> {
-  const rows = await db
-    .select({
-      id: schema.system.packages.id,
-      version: schema.system.packages.version,
-      runtime: schema.system.packages.runtime,
-      state: schema.system.packages.state,
-      manifest: schema.system.packages.manifest,
-      previousVersion: schema.system.packages.previousVersion,
-      lastStartedAt: schema.system.packages.lastStartedAt,
-      lastError: schema.system.packages.lastError,
-      installedAt: schema.system.packages.installedAt,
-    })
-    .from(schema.system.packages)
-    .orderBy(asc(schema.system.packages.id));
-
-  const [entityCounts, deviceCounts] = await Promise.all([
-    db
-      .select({
-        packageId: schema.registry.entities.packageId,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(schema.registry.entities)
-      .groupBy(schema.registry.entities.packageId),
-    db
-      .select({
-        packageId: schema.registry.devices.packageId,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(schema.registry.devices)
-      .groupBy(schema.registry.devices.packageId),
-  ]);
-
-  const entitiesBy = new Map(entityCounts.map((row) => [row.packageId ?? '', row.count]));
-  const devicesBy = new Map(deviceCounts.map((row) => [row.packageId, row.count]));
-
-  return rows.map((row) =>
-    packageViewSchema.parse({
-      ...row,
-      manifest: row.manifest ?? {},
-      entityCount: entitiesBy.get(row.id) ?? 0,
-      deviceCount: devicesBy.get(row.id) ?? 0,
-    }),
   );
 }
 

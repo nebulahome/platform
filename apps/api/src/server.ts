@@ -38,6 +38,7 @@ import { registerImageRoutes } from './routes/images.js';
 import { registerIntegrationRoutes } from './routes/integrations.js';
 import { registerMapRoutes } from './routes/map.js';
 import { registerMetaRoutes } from './routes/meta.js';
+import { registerPackageFileRoutes, registerPackageRoutes } from './routes/packages.js';
 import { registerRegistryRoutes } from './routes/registry.js';
 import { registerSettingsRoutes } from './routes/settings.js';
 import { registerSetupRoutes } from './routes/setup.js';
@@ -82,6 +83,16 @@ const SOCKET_PATHS = [
 ];
 
 /**
+ * The files packages serve the interface: their modules and their logos, public as the
+ * interface's own files are - code rather than the house's data, and imported by the browser with
+ * no way to add a header. Exact shapes, so nothing else under `/packages/` is public by accident.
+ */
+const PACKAGE_FILE_PATHS = [
+  new RegExp(`^/api/${CURRENT_API_VERSION}/packages/[a-z][a-z0-9-]{1,63}/ui/[^/]+/.+$`, 'u'),
+  new RegExp(`^/api/${CURRENT_API_VERSION}/packages/[a-z][a-z0-9-]{1,63}/logo$`, 'u'),
+];
+
+/**
  * Says whether a path may be reached without a credential.
  *
  * A set of exact paths rather than a prefix match. `/api/v1/auth/` as a prefix would have made
@@ -94,7 +105,11 @@ const SOCKET_PATHS = [
 function isPublicPath(url: string): boolean {
   const path = url.split('?')[0] ?? '';
 
-  return PUBLIC_PATHS.has(path) || SOCKET_PATHS.some((socket) => socket.test(path));
+  return (
+    PUBLIC_PATHS.has(path) ||
+    SOCKET_PATHS.some((socket) => socket.test(path)) ||
+    PACKAGE_FILE_PATHS.some((file) => file.test(path))
+  );
 }
 
 /**
@@ -250,6 +265,8 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   registerSystemRoutes(environment, context);
   registerBackupRoutes(environment, context);
   registerContainerRoutes(environment, context);
+  registerPackageRoutes(environment, context);
+  registerPackageFileRoutes(server, context, environment.basePath);
   registerMapRoutes(server, context, environment.basePath);
   registerCameraRoutes(server, context, environment.basePath);
   registerImageRoutes(server, context, environment.basePath);

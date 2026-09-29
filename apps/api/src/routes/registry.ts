@@ -23,7 +23,6 @@ import {
   automationUpdateSchema,
   automationViewSchema,
   DeviceUnavailableError,
-  packageViewSchema,
   sceneApplyResultSchema,
   sceneCreateSchema,
   sceneUpdateSchema,
@@ -31,7 +30,6 @@ import {
   type AliasPreviewResponse,
   type AliasView,
   type AutomationView,
-  type PackageView,
   type SceneApplyResult,
   type SceneView,
 } from '@nebula-home/contracts';
@@ -54,7 +52,6 @@ import {
   deleteAutomation,
   deleteScene,
   listAutomations,
-  listPackages,
   listScenes,
   updateAutomation,
   updateScene,
@@ -646,30 +643,6 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
       });
 
       return deleted;
-    },
-  );
-
-  defineRoute(
-    environment,
-    {
-      method: 'GET',
-      url: '/packages',
-      summary: 'List installed packages',
-      tag: 'System',
-      permission: 'package:read',
-      response: collectionSchema(packageViewSchema),
-    },
-
-    /**
-     * Lists installed packages.
-     *
-     * @param route - Who is asking.
-     * @returns Every package, with how much of the house it accounts for.
-     */
-    async (route): Promise<{ items: PackageView[] }> => {
-      requirePermission(route.identity, 'package:read');
-
-      return { items: await listPackages(context.db) };
     },
   );
 }

@@ -101,6 +101,7 @@ import { MaintenanceMonitor } from '../services/maintenance.js';
 
 import { testIcons } from './icons.js';
 import { testMapTiles } from './map-tiles.js';
+import { servePacketManagerFake } from './packet-manager-fake.js';
 
 /** An environment good enough to build a server from. */
 export const ENVIRONMENT = {
@@ -598,6 +599,10 @@ export async function buildTestServer(
   backupRequests.length = 0;
 
   const subscriptions = [
+    ...servePacketManagerFake(
+      new BusClient({ transport, source: 'packet-manager', logger, requestTimeoutMs: 500 }),
+      new BusClient({ transport, source: 'mqtt', logger, requestTimeoutMs: 500 }),
+    ),
     supervisor.serve(
       busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.list),
       supervisorEmptyRequestSchema,
