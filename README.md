@@ -3,8 +3,10 @@
 Monorepo for the NebulaHome smart home platform: the essential services, the shared packages
 they are built from, and the web interface.
 
-Installable packages (protocol adapters, feature packages) live in their own repositories under
-the same organisation.
+Packages - what an installation adds to itself: the house's MQTT broker, a recorder, a 3D view
+of the house - are released from repositories of their own (`nebula-home/pkg-<id>`) as GitHub
+releases, and installed while the platform runs; the system ones ship in the image. Integrations
+are not packages: they live in `apps/hub`. See PACKAGES.md, beside the architecture.
 
 ## Layout
 
@@ -14,7 +16,7 @@ the same organisation.
 | `apps/hub`                 | Every protocol: transports, integrations, bundles        |
 | `apps/api`                 | REST and WebSocket gateway                               |
 | `apps/proxy`               | TLS termination, static serving, routing                 |
-| `apps/packet-manager`      | npm-based package installer and lifecycle supervisor     |
+| `apps/packet-manager`      | Package installer and supervisor: GitHub releases, index |
 | `apps/logger`              | Log ingestion, storage and query                         |
 | `apps/backup`              | Scheduled encrypted backups, locations, restore          |
 | `apps/web-ui`              | React single-page application                            |
