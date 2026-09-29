@@ -25,7 +25,7 @@ import { Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 import { connectAsync, type MqttClient } from 'mqtt';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
 import { parseEntityId, type CapabilityState, type EntityId } from '@nebula-home/contracts';
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
@@ -44,7 +44,8 @@ import {
 
 import { mqttTransport } from '@/transports/mqtt.js';
 
-const BROKER = 'mqtt://localhost:1883';
+/** The test broker (`tests/support/broker.ts`). */
+const BROKER = inject('mqttUrl');
 const BUNDLE = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../bundles/bambu-lab');
 
 /** The driver of the P1 and A1 family, which the simulated printer is one of. */

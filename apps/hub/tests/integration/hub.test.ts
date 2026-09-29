@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 
 import { eq } from 'drizzle-orm';
 import { connectAsync } from 'mqtt';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
 import { BusClient, connectBus, ulid, type BusConnection } from '@nebula-home/bus';
 import {
@@ -51,6 +51,9 @@ import { hubEnvSchema } from '@/config.js';
 import { loadInstances, recordStatus } from '@/persistence/instances.js';
 import { HubService } from '@/service.js';
 import { mqttTransport } from '@/transports/mqtt.js';
+
+/** The test broker (`tests/support/broker.ts`). */
+const BROKER = inject('mqttUrl');
 
 const DATABASE_URL = 'postgres://nebula:nebula@localhost:5432/nebula';
 const NATS_URL = 'nats://localhost:4222';
@@ -187,7 +190,7 @@ beforeAll(async () => {
       transport: 'mqtt',
       transportConfig: sealSecrets(
         {
-          url: 'mqtt://localhost:1883',
+          url: BROKER,
           username: 'bblp',
           password: '12345678',
           shouldVerifyCertificate: false,
@@ -463,7 +466,7 @@ describe('matching an instance to its row on request', () => {
         };
       },
     );
-    const fakePrinter = await connectAsync('mqtt://localhost:1883', { reconnectPeriod: 0 });
+    const fakePrinter = await connectAsync(BROKER, { reconnectPeriod: 0 });
     const { service, stop } = await startHub();
 
     try {
@@ -539,7 +542,7 @@ describe('matching an instance to its row on request', () => {
         };
       },
     );
-    const fakePrinters = await connectAsync('mqtt://localhost:1883', { reconnectPeriod: 0 });
+    const fakePrinters = await connectAsync(BROKER, { reconnectPeriod: 0 });
     const { service, stop } = await startHub();
 
     try {
@@ -603,7 +606,7 @@ describe('matching an instance to its row on request', () => {
       },
     });
 
-    const listener = await connectAsync('mqtt://localhost:1883', { reconnectPeriod: 0 });
+    const listener = await connectAsync(BROKER, { reconnectPeriod: 0 });
     const asked = new Promise<string>((resolve) => {
       listener.once('message', (topic) => {
         resolve(topic);
@@ -657,7 +660,7 @@ describe('matching an instance to its row on request', () => {
 
       expect(reply).toEqual({
         isReachable: true,
-        detail: 'Connected to mqtt://localhost:1883 as bblp',
+        detail: `Connected to ${BROKER} as bblp`,
       });
     } finally {
       await stop();

@@ -18,7 +18,7 @@ import { Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 import { connectAsync, type MqttClient } from 'mqtt';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
 import type { Transport, TransportInbound } from '@nebula-home/package-runtime';
@@ -26,7 +26,8 @@ import type { Transport, TransportInbound } from '@nebula-home/package-runtime';
 import { RUNTIME_VERSION } from '@/config.js';
 import { loadBundles } from '@/services/bundles.js';
 
-const BROKER = 'mqtt://localhost:1883';
+/** The test broker (`tests/support/broker.ts`). */
+const BROKER = inject('mqttUrl');
 
 /** A base topic of the test's own, so a real Zigbee2MQTT on the broker is left alone. */
 const BASE = `z2mtest${String(Date.now()).slice(-6)}`;

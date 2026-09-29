@@ -14,14 +14,15 @@
 import { Writable } from 'node:stream';
 
 import { connectAsync, type MqttClient } from 'mqtt';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
 import { createLogger, type PlatformLogger } from '@nebula-home/logging';
 import type { TransportConnection, TransportInbound } from '@nebula-home/package-runtime';
 
 import { mqttTransport } from '@/transports/mqtt.js';
 
-const BROKER = 'mqtt://localhost:1883';
+/** The test broker (`tests/support/broker.ts`). */
+const BROKER = inject('mqttUrl');
 
 let publisher: MqttClient;
 let logger: PlatformLogger;

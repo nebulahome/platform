@@ -16,12 +16,15 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/integration/**/*.test.ts'],
 
+    // The MQTT broker the tests talk to, in this process: `inject('mqttUrl')`.
+    globalSetup: ['tests/support/broker.ts'],
+
     // A real broker and a real database, not a unit test's ten milliseconds.
     testTimeout: 60_000,
     hookTimeout: 60_000,
 
-    // One file at a time. The development broker is shared, and an instance listening for its
-    // printer on `device/+/report` would claim the simulator another file is running.
+    // One file at a time. The test broker is shared, and an instance listening for its printer on
+    // `device/+/report` would claim the simulator another file is running.
     fileParallelism: false,
   },
 });
