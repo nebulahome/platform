@@ -40,6 +40,8 @@ export const CAPABILITIES = [
   'lawn_mower',
   'select',
   'number',
+  'vacuum',
+  'image',
 ] as const;
 
 /** The name of a single capability. */
@@ -432,6 +434,89 @@ export const lawnMowerCommandSchema = z.discriminatedUnion('command', [
   z.object({ command: z.literal('dock') }),
 ]);
 
+// --- vacuum ------------------------------------------------------------------------------
+
+/**
+ * What a robot vacuum is doing: cleaning, paused in the middle of a job, on its way back to its
+ * station, sitting in it, standing idle out of it, or stopped by a fault it cannot clear on its
+ * own. Home Assistant's vacuum activities, the mower's words where they mean the same.
+ */
+export const VACUUM_ACTIVITIES = [
+  'cleaning',
+  'paused',
+  'returning',
+  'docked',
+  'idle',
+  'error',
+] as const;
+
+/** What a robot vacuum is doing. */
+export type VacuumActivity = (typeof VACUUM_ACTIVITIES)[number];
+
+/** One room of a robot's map: its id on the map, and what the app calls it. */
+export const vacuumRoomSchema = z.object({
+  id: z.string().min(1).max(32),
+  name: z.string().min(1).max(64),
+});
+
+/** One room of a robot's map. */
+export type VacuumRoom = z.output<typeof vacuumRoomSchema>;
+
+/**
+ * A robot vacuum's activity, and the rooms of its map - which change when the map is edited in
+ * the app, so they are state rather than a fixed parameter. Empty for a robot without a map.
+ */
+export const vacuumStateSchema = z.object({
+  activity: z.enum(VACUUM_ACTIVITIES),
+  rooms: z.array(vacuumRoomSchema).max(64).default([]),
+});
+
+/** Which of the commands this robot takes. */
+export const vacuumParamsSchema = z.object({
+  canPause: z.boolean().default(true),
+  canStop: z.boolean().default(true),
+  canDock: z.boolean().default(true),
+  canLocate: z.boolean().default(false),
+  canCleanRooms: z.boolean().default(false),
+});
+
+/**
+ * Starting - or resuming a paused job - pausing, ending the job where it stands, sending the
+ * robot back to its station, having it say where it is, and cleaning only some rooms of its map.
+ */
+export const vacuumCommandSchema = z.discriminatedUnion('command', [
+  z.object({ command: z.literal('start') }),
+  z.object({ command: z.literal('pause') }),
+  z.object({ command: z.literal('stop') }),
+  z.object({ command: z.literal('dock') }),
+  z.object({ command: z.literal('locate') }),
+  z.object({
+    command: z.literal('clean_rooms'),
+    rooms: z.array(z.string().min(1).max(32)).min(1).max(32),
+  }),
+]);
+
+// --- image -------------------------------------------------------------------------------
+
+/** The pictures an image entity may be, as the browser draws them. */
+export const IMAGE_CONTENT_TYPES = ['image/svg+xml', 'image/png', 'image/jpeg'] as const;
+
+/**
+ * A picture that changes: a robot's map with where it is, a printer's plate, a cover. The state
+ * is where the picture is, not the picture: `revision` changes whenever it does, and the bytes are
+ * read from the entity's image endpoint. A map redrawn every few seconds costs a short string
+ * each time, and is kept out of the state history: which picture it was is not worth a row.
+ */
+export const imageStateSchema = z.object({
+  contentType: z.enum(IMAGE_CONTENT_TYPES),
+  revision: z.string().min(1).max(64),
+  width: z.int().min(1).max(16_384).optional(),
+  height: z.int().min(1).max(16_384).optional(),
+});
+
+/** `image` has no device-specific limits. */
+export const imageParamsSchema = z.object({});
+
 // --- select ------------------------------------------------------------------------------
 
 /** One choice of a select: what the device calls it, and what a person reads. */
@@ -562,6 +647,8 @@ export const CAPABILITY_DEFINITIONS = {
   },
   select: { state: selectStateSchema, params: selectParamsSchema, commands: selectCommandSchema },
   number: { state: numberStateSchema, params: numberParamsSchema, commands: numberCommandSchema },
+  vacuum: { state: vacuumStateSchema, params: vacuumParamsSchema, commands: vacuumCommandSchema },
+  image: { state: imageStateSchema, params: imageParamsSchema, commands: NO_COMMANDS },
 } as const satisfies Record<CapabilityName, CapabilityDefinition>;
 
 /**
@@ -589,6 +676,8 @@ export const capabilityStateSchema = z.object({
   lawn_mower: lawnMowerStateSchema.optional(),
   select: selectStateSchema.optional(),
   number: numberStateSchema.optional(),
+  vacuum: vacuumStateSchema.optional(),
+  image: imageStateSchema.optional(),
 });
 
 /** The composite state of an entity, keyed by capability. */

@@ -20,14 +20,16 @@ describe('the capability table', () => {
     expect(Object.keys(CAPABILITY_DEFINITIONS).sort()).toEqual([...CAPABILITIES].sort());
   });
 
-  it('gives the read-only sensor capabilities no commands at all', () => {
+  it('gives the read-only capabilities no commands at all', () => {
     expect(commandSchemaFor('sensor_numeric')).toBeNull();
     expect(commandSchemaFor('sensor_binary')).toBeNull();
     expect(commandSchemaFor('sensor_text')).toBeNull();
+    // A picture is drawn by what it shows, not told anything.
+    expect(commandSchemaFor('image')).toBeNull();
   });
 
   it('gives every other capability a command schema', () => {
-    const readOnly = new Set(['sensor_numeric', 'sensor_binary', 'sensor_text']);
+    const readOnly = new Set(['sensor_numeric', 'sensor_binary', 'sensor_text', 'image']);
 
     for (const capability of CAPABILITIES) {
       if (!readOnly.has(capability)) {
@@ -153,5 +155,33 @@ describe('a robot mower, a select and a number', () => {
       select: { option: null },
       number: { value: null },
     });
+  });
+});
+
+describe('vacuum', () => {
+  it('takes the rooms of its map as state, and cleans only some of them', () => {
+    expect(capabilityStateSchema.parse({ vacuum: { activity: 'cleaning' } }).vacuum?.rooms).toEqual(
+      [],
+    );
+    expect(
+      commandSchemaFor('vacuum')?.safeParse({ command: 'clean_rooms', rooms: ['1', '4'] }).success,
+    ).toBe(true);
+    expect(
+      commandSchemaFor('vacuum')?.safeParse({ command: 'clean_rooms', rooms: [] }).success,
+    ).toBe(false);
+  });
+});
+
+describe('image', () => {
+  it('is where the picture is, never the picture', () => {
+    expect(
+      capabilityStateSchema.safeParse({
+        image: { contentType: 'image/svg+xml', revision: 'a1b2c3', width: 800, height: 600 },
+      }).success,
+    ).toBe(true);
+    expect(
+      capabilityStateSchema.safeParse({ image: { contentType: 'text/html', revision: 'x' } })
+        .success,
+    ).toBe(false);
   });
 });

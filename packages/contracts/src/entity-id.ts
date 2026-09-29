@@ -26,6 +26,8 @@ export const ENTITY_DOMAINS = [
   'lawn_mower',
   'select',
   'number',
+  'vacuum',
+  'image',
   'alias',
 ] as const;
 
