@@ -1,0 +1,36 @@
+{
+  "name": "@nebula-home/package-ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "default": "./dist/vite.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.vite.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.vite.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@nebula-home/contracts": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.2.8",
+    "vite": "^8.2.2"
+  },
+  "devDependencies": {
+    "@nebula-home/eslint-config": "workspace:*",
+    "@nebula-home/tsconfig": "workspace:*",
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.2.18",
+    "react": "^19.2.8",
+    "typescript": "^6.0.3",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "extends": "@nebula-home/tsconfig/node.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src/vite.ts"]
+}
