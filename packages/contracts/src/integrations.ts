@@ -19,7 +19,7 @@ import { iconIdSchema } from './icons.js';
 import { vendorAccountSchema } from './integration-accounts.js';
 import { integrationSetupSchema } from './integration-setup.js';
 import { jsonObjectSchema } from './json.js';
-import { PACKAGE_ID_PATTERN } from './package-manifest.js';
+import { PACKAGE_ID_PATTERN } from './package-id.js';
 
 /**
  * Integration instance identifier.

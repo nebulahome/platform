@@ -20,9 +20,10 @@
  */
 import { z } from 'zod';
 
+import { DEPENDENCY_ID_PATTERN } from './container-dependencies.js';
 import { entityIdSchema } from './entity-id.js';
-import { SEMVER_PATTERN } from './package-manifest.js';
 import { entityRegistrationSchema } from './registration.js';
+import { SEMVER_PATTERN } from './semver.js';
 import { timestampSchema } from './timestamp.js';
 
 /** The bus service name the supervisor answers on, and the `source` of every container entity. */
@@ -951,13 +952,6 @@ export type ComposeRemoveRequest = z.output<typeof composeRemoveRequestSchema>;
 // ---------------------------------------------------------------------------------------------
 // The containers an integration runs
 // ---------------------------------------------------------------------------------------------
-
-/**
- * An id a bundle gives one of its containers: `zigbee2mqtt`, `mosquitto`. It names the
- * container and its folder of the data directory, so it is a directory name people read - and
- * never `installed` or `compose`, the folders beside it the owner's own containers keep.
- */
-export const DEPENDENCY_ID_PATTERN = /^(?!(?:installed|compose)$)[a-z][a-z0-9-]{1,31}$/;
 
 /** A volume of a container an integration runs: a name, and where the container sees it. */
 export const managedVolumeSchema = z.object({

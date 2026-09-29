@@ -1,37 +1,43 @@
 /**
- * The manifest every installable package ships.
+ * The manifest every package ships: `nebula.package.json`, at the root of its release.
  *
- * Purely operational: how to run the package, what platform it needs, and how to validate the
- * owner's configuration for it. **What a package contributes is not declared here** - entities,
- * bus services and HTTP routes are registered at startup by the code that provides them, so the
- * two cannot drift the moment someone adds a route and forgets the manifest.
+ * A package is what an installation adds to itself - a broker, a recorder, a 3D view of the house
+ * - released from a repository of its own (`nebula-home/pkg-<id>`) on its own schedule. The
+ * manifest says what it is and what it brings, in the parts the platform must know **before** the
+ * package runs: the store lists it, the dashboard editor offers its cards, the supervisor runs its
+ * containers, and a package or an integration that depends on another is refused or held until
+ * that one is there. What it does at run time - its devices, its entities, the methods its pages
+ * call - it registers when it starts, over the bus (ARCHITECTURE.md 9).
  *
- * There is no `permissions` field and no `resources` field. Both exist to constrain code you did
- * not write, and every package is first-party.
+ * - **`runtime`** is how its code runs: `node`, a process the packet-manager starts from `server`;
+ *   `container`, the containers it declares and nothing else; `none`, pages and cards alone.
+ * - **`ui`** is what it adds to the interface: a page of its own, cards for the dashboard, views
+ *   for its own kinds of entity - one ES module, served same-origin and loaded on demand.
+ * - **`requires`** and **`provides`** are its dependencies: packages by id and version range, and
+ *   services by name - `mqtt-broker` - that whichever package provides them satisfies. A vendor's
+ *   `manifest.json` writes `requires` the same way.
+ * - **`entityTypes`** are kinds of entity no capability describes - a recording, a playlist - with
+ *   the fields of their state and the commands they take; an entity of one has the `custom`
+ *   capability, and the package's `entityViews` draw it.
  *
- * Defined in ARCHITECTURE.md 9.2.
+ * Every package is first-party at this stage, so there is no `permissions` field: signing and
+ * permission grants arrive with the Community Hub's vendor channel (ARCHITECTURE.md 10).
  */
 import { z } from 'zod';
 
-import { jsonObjectSchema } from './json.js';
+import { containerDependenciesSchema } from './container-dependencies.js';
+import { iconIdSchema } from './icons.js';
+import { setupFieldSchema } from './integration-setup.js';
+import { packageIdSchema } from './package-id.js';
+import { semverRangeSchema, semverSchema } from './semver.js';
 
-/**
- * Package identifier.
- *
- * Mirrors `packages_id_format` in DATABASE.md. Hyphens rather than underscores because the id is
- * also the npm package name under the `@nebula-home` scope, and npm names cannot contain
- * underscores at the start.
- */
-export const PACKAGE_ID_PATTERN = /^[a-z][a-z0-9-]{1,63}$/;
+export { SEMVER_PATTERN } from './semver.js';
+export { PACKAGE_ID_PATTERN, packageIdSchema } from './package-id.js';
 
-/** A released version: `major.minor.patch`, optionally with a prerelease and build suffix. */
-export const SEMVER_PATTERN =
-  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[\da-z-]+(?:\.[\da-z-]+)*)?(?:\+[\da-z-]+(?:\.[\da-z-]+)*)?$/i;
+/** How a package's code runs. */
+export const PACKAGE_RUNTIMES = ['node', 'container', 'none'] as const;
 
-/** How a package is executed. */
-export const PACKAGE_RUNTIMES = ['node', 'container'] as const;
-
-/** How a package is executed. */
+/** How a package's code runs. */
 export type PackageRuntime = (typeof PACKAGE_RUNTIMES)[number];
 
 /** The lifecycle states `packet-manager` records for an installed package. */
@@ -42,46 +48,326 @@ export const PACKAGE_STATES = [
   'stopped',
   'failed',
   'disabled',
+  'waiting-dependency',
 ] as const;
 
 /** The lifecycle state of an installed package. */
 export type PackageState = (typeof PACKAGE_STATES)[number];
 
-/** Validates a package identifier. */
-export const packageIdSchema = z.string().regex(PACKAGE_ID_PATTERN, 'Must be a package id');
+/**
+ * Where an installed package came from: shipped in the image (`builtin`, the system packages
+ * among them), installed from the package index (`index`), or put in the data directory by hand
+ * (`local`), which is how a package is tried before it is released.
+ */
+export const PACKAGE_SOURCES = ['builtin', 'index', 'local'] as const;
+
+/** Where an installed package came from. */
+export type PackageSource = (typeof PACKAGE_SOURCES)[number];
+
+/** What the store files a package under. */
+export const PACKAGE_CATEGORIES = [
+  'protocol',
+  'media',
+  'security',
+  'energy',
+  'climate',
+  'visualisation',
+  'automation',
+  'other',
+] as const;
+
+/** What the store files a package under. */
+export type PackageCategory = (typeof PACKAGE_CATEGORIES)[number];
+
+/** A service a package provides and others require: `mqtt-broker`, `object-detection`. */
+export const packageServiceNameSchema = z
+  .string()
+  .regex(/^[a-z][a-z0-9-]{1,63}$/, 'Must be a lower-case service name');
+
+/** A file of the package's release, relative to its root: `./ui/index.js`. */
+export const packagePathSchema = z
+  .string()
+  .max(256)
+  .regex(/^\.\/[A-Za-z0-9._/-]+$/, 'Must be a path inside the package, starting with ./')
+  .refine((value) => !value.split('/').includes('..'), 'Must stay inside the package');
+
+/** The sizes a package's card may take on the dashboard's grid. */
+export const PACKAGE_CARD_SIZES = ['small', 'medium', 'large', 'wide'] as const;
+
+/** A size a package's card may take. */
+export type PackageCardSize = (typeof PACKAGE_CARD_SIZES)[number];
+
+/** A short identifier inside a package: a card's, an entity type's, a command's. */
+const localIdSchema = z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/, 'Must be a short lower-case id');
+
+/** A card a package adds to the dashboard editor's list. */
+export const packageCardSchema = z.strictObject({
+  id: localIdSchema,
+  name: z.string().min(1).max(64),
+  description: z.string().max(256).optional(),
+  icon: iconIdSchema,
+
+  /** The sizes it can be drawn at; the first is what it is added at. */
+  sizes: z.array(z.enum(PACKAGE_CARD_SIZES)).min(1).max(4).default(['medium']),
+
+  /** What the card's inspector asks, in the setup grammar: the card's own options. */
+  options: z.array(setupFieldSchema).max(16).default([]),
+});
+
+/** A card a package adds to the dashboard. */
+export type PackageCard = z.output<typeof packageCardSchema>;
+
+/** The kinds of value a field of a package's entity type holds. */
+export const PACKAGE_FIELD_TYPES = ['text', 'number', 'boolean', 'choice', 'timestamp'] as const;
+
+/** One field of a package's entity type: part of its state, or an argument of a command. */
+export const packageEntityFieldSchema = z
+  .strictObject({
+    key: z.string().regex(/^[a-z][a-zA-Z0-9]{0,31}$/, 'Must be a camelCase key'),
+    type: z.enum(PACKAGE_FIELD_TYPES),
+    label: z.string().min(1).max(64),
+
+    /** For a number: what it is counted in. */
+    unit: z.string().min(1).max(16).optional(),
+
+    /** For a choice: the values it may take. */
+    choices: z
+      .array(z.strictObject({ value: z.string().min(1).max(64), label: z.string().min(1).max(64) }))
+      .min(1)
+      .max(64)
+      .optional(),
+
+    /** Whether it may be missing; required when not said. */
+    isOptional: z.boolean().default(false),
+  })
+  .superRefine((field, context) => {
+    if (field.type === 'choice' && field.choices === undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['choices'],
+        message: 'A choice lists its choices',
+      });
+    }
+
+    if (field.type !== 'choice' && field.choices !== undefined) {
+      context.addIssue({ code: 'custom', path: ['choices'], message: 'Only a choice has choices' });
+    }
+
+    if (field.type !== 'number' && field.unit !== undefined) {
+      context.addIssue({ code: 'custom', path: ['unit'], message: 'Only a number has a unit' });
+    }
+  });
+
+/** One field of a package's entity type. */
+export type PackageEntityField = z.output<typeof packageEntityFieldSchema>;
+
+/**
+ * A kind of entity a package defines, which no capability describes: what its state holds and
+ * which commands it takes. An entity of one has the `custom` capability, `{ packageId, type }`.
+ */
+export const packageEntityTypeSchema = z
+  .strictObject({
+    id: localIdSchema,
+    name: z.string().min(1).max(64),
+    icon: iconIdSchema,
+    state: z.array(packageEntityFieldSchema).min(1).max(32),
+    commands: z
+      .array(
+        z.strictObject({
+          id: localIdSchema,
+          name: z.string().min(1).max(64),
+          fields: z.array(packageEntityFieldSchema).max(8).default([]),
+        }),
+      )
+      .max(16)
+      .default([]),
+  })
+  .superRefine((type, context) => {
+    duplicates(type.state.map((field) => field.key)).forEach((key) => {
+      context.addIssue({ code: 'custom', path: ['state'], message: `${key} is there twice` });
+    });
+    duplicates(type.commands.map((command) => command.id)).forEach((id) => {
+      context.addIssue({ code: 'custom', path: ['commands'], message: `${id} is there twice` });
+    });
+  });
+
+/** A kind of entity a package defines. */
+export type PackageEntityType = z.output<typeof packageEntityTypeSchema>;
+
+/**
+ * What a package - or a vendor, in its `manifest.json` - needs besides itself: the platform, by
+ * version range; other packages, by id and range; and services, by name, whoever provides them.
+ */
+export const packageRequiresSchema = z
+  .strictObject({
+    platform: semverRangeSchema.optional(),
+    packages: z.record(packageIdSchema, semverRangeSchema).default({}),
+    services: z.array(packageServiceNameSchema).max(16).default([]),
+  })
+  .default({ packages: {}, services: [] });
+
+/** What a package needs besides itself. */
+export type PackageRequires = z.output<typeof packageRequiresSchema>;
+
+/** What a package adds to the interface. */
+export const packageUiSchema = z.strictObject({
+  /** The ES module the interface loads: its default export is `definePackageUi(...)`. */
+  entry: packagePathSchema,
+
+  /** Its stylesheet, when it has one. */
+  styles: packagePathSchema.optional(),
+
+  /** Whether it has a page of its own, under its entry in the interface's menu. */
+  page: z.boolean().default(false),
+
+  /** The cards it adds to the dashboard editor. */
+  cards: z.array(packageCardSchema).max(16).default([]),
+
+  /** Which of its entity types it draws itself, on an entity's page. */
+  entityViews: z.array(localIdSchema).max(16).default([]),
+});
+
+/** What a package adds to the interface. */
+export type PackageUi = z.output<typeof packageUiSchema>;
+
+/**
+ * The words that appear more than once in a list.
+ *
+ * @param values - The list.
+ * @returns Each repeated word, once.
+ */
+function duplicates(values: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const repeated = new Set<string>();
+
+  for (const value of values) {
+    if (seen.has(value)) {
+      repeated.add(value);
+    }
+
+    seen.add(value);
+  }
+
+  return [...repeated];
+}
 
 /** The contents of `nebula.package.json`. */
-export const packageManifestSchema = z.object({
-  id: packageIdSchema,
+export const packageManifestSchema = z
+  .strictObject({
+    id: packageIdSchema,
+    version: semverSchema,
 
-  version: z.string().regex(SEMVER_PATTERN, 'Must be a semantic version'),
+    /** The platform versions it works with: checked before it is installed or started. */
+    platform: semverRangeSchema,
 
-  /**
-   * Whether the package runs as a child process or an OCI container.
-   *
-   * The split is about shipping native binaries, not about isolation: a container is the least
-   * painful way to deliver ffmpeg and its native libraries without asking the owner to install
-   * and version them on the host by hand.
-   */
-  runtime: z.enum(PACKAGE_RUNTIMES),
+    /** The package SDK versions it was written against: `@nebula-home/package-sdk`. */
+    sdk: semverRangeSchema,
 
-  /**
-   * The platform versions this package works with, as a semver range.
-   *
-   * Checked before installing. An incompatible package is refused with both versions named,
-   * rather than installed and left to fail at startup with something unrelated.
-   */
-  coreApiVersion: z.string().min(1).max(64),
+    name: z.string().min(1).max(64),
+    description: z.string().min(1).max(512),
 
-  /**
-   * JSON Schema for the owner's configuration of this package.
-   *
-   * A JSON Schema document rather than a Zod schema because it has to survive being written to
-   * `system.packages.manifest` and rendered as a form by the web UI, neither of which can
-   * execute TypeScript.
-   */
-  configSchema: jsonObjectSchema.default({}),
-});
+    /** Its repository on GitHub, `owner/name`: where its releases are. */
+    repository: z
+      .string()
+      .regex(/^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/, 'Must be owner/name on GitHub')
+      .optional(),
+
+    /** Its home page. */
+    url: z.url().max(512).optional(),
+
+    /** The colour of its card in the store, `#RRGGBB`. */
+    color: z
+      .string()
+      .regex(/^#[0-9a-fA-F]{6}$/)
+      .optional(),
+
+    logo: z
+      .strictObject({ path: packagePathSchema, padding: z.int().min(0).max(16).optional() })
+      .optional(),
+
+    category: z.enum(PACKAGE_CATEGORIES),
+    runtime: z.enum(PACKAGE_RUNTIMES),
+
+    /** For `node`: the module the packet-manager runs, whose default export is `definePackage`. */
+    server: z.strictObject({ entry: packagePathSchema }).optional(),
+
+    ui: packageUiSchema.optional(),
+
+    /** What configuring it asks, in the setup grammar of a vendor's `setup.json`. */
+    setup: packagePathSchema.optional(),
+
+    /** The containers it runs, in the grammar a vendor declares them in. */
+    containers: containerDependenciesSchema,
+
+    requires: packageRequiresSchema,
+
+    /** The services it provides, which a vendor or another package may require by name. */
+    provides: z.array(packageServiceNameSchema).max(16).default([]),
+
+    entityTypes: z.array(packageEntityTypeSchema).max(16).default([]),
+  })
+  .superRefine((manifest, context) => {
+    /**
+     * Records a problem.
+     *
+     * @param path - Where.
+     * @param message - What.
+     */
+    const problem = (path: (string | number)[], message: string): void => {
+      context.addIssue({ code: 'custom', path, message });
+    };
+
+    if (manifest.runtime === 'node' && manifest.server === undefined) {
+      problem(['server'], 'A node package names the module it runs');
+    }
+
+    if (manifest.runtime !== 'node' && manifest.server !== undefined) {
+      problem(['server'], `A ${manifest.runtime} package runs no module of its own`);
+    }
+
+    if (manifest.runtime === 'container' && manifest.containers.length === 0) {
+      problem(['containers'], 'A container package declares its containers');
+    }
+
+    if (manifest.runtime === 'none' && manifest.containers.length > 0) {
+      problem(['containers'], 'A package that runs nothing declares no containers');
+    }
+
+    if (manifest.runtime === 'none' && manifest.ui === undefined) {
+      problem(['ui'], 'A package that runs nothing adds something to the interface');
+    }
+
+    if (manifest.id in manifest.requires.packages) {
+      problem(['requires', 'packages'], 'A package does not require itself');
+    }
+
+    const provided = new Set(manifest.provides);
+
+    for (const service of manifest.requires.services) {
+      if (provided.has(service)) {
+        problem(['requires', 'services'], `${service} is provided by the package itself`);
+      }
+    }
+
+    duplicates(manifest.provides).forEach((service) => {
+      problem(['provides'], `${service} is there twice`);
+    });
+    duplicates(manifest.entityTypes.map((type) => type.id)).forEach((id) => {
+      problem(['entityTypes'], `${id} is there twice`);
+    });
+
+    const types = new Set(manifest.entityTypes.map((type) => type.id));
+
+    for (const [index, view] of (manifest.ui?.entityViews ?? []).entries()) {
+      if (!types.has(view)) {
+        problem(['ui', 'entityViews', index], `${view} is not one of the package's entity types`);
+      }
+    }
+
+    duplicates((manifest.ui?.cards ?? []).map((card) => card.id)).forEach((id) => {
+      problem(['ui', 'cards'], `${id} is there twice`);
+    });
+  });
 
 /** The contents of `nebula.package.json`. */
 export type PackageManifest = z.output<typeof packageManifestSchema>;
