@@ -22,148 +22,29 @@
  * the owner has not set it, rather than handed over empty: the program then keeps its own default,
  * or what its own configuration file says, where `NAME=` would have overridden it with nothing.
  */
-import { z } from 'zod';
+import { type z } from 'zod';
 
 import {
-  DEPENDENCY_ID_PATTERN,
-  SEMVER_PATTERN,
+  containerDependenciesSchema,
+  containerDependencySchema,
+  type containerWhenSchema,
+  HOST_DEVICE_PATTERN,
+  WHOLE_SETTING_PATTERN,
+  type ContainerDependency,
   type IntegrationSetup,
   type ManagedContainerSpec,
 } from '@nebula-home/contracts';
 
-/** A vendor setting a value is filled from: `{setup.serialPath}`. */
-const SETTING_PLACEHOLDER = /\{setup\.([a-zA-Z][a-zA-Z0-9]*)\}/g;
+export { containerDependenciesSchema, containerDependencySchema, type ContainerDependency };
 
 /** A value that is one setting and nothing else, for a number that comes from the settings. */
-const WHOLE_SETTING = /^\{setup\.([a-zA-Z][a-zA-Z0-9]*)\}$/;
+const WHOLE_SETTING = WHOLE_SETTING_PATTERN;
 
 /** A path of the host a device may be: under `/dev`, nothing that climbs out of it. */
-const DEVICE_PATH = /^\/dev\/[A-Za-z0-9._/:+-]+$/;
+const DEVICE_PATH = HOST_DEVICE_PATTERN;
 
-/** An entry that applies only while one of the vendor's settings holds one of the values. */
-const whenSchema = z.strictObject({
-  key: z.string().min(1).max(64),
-  equals: z
-    .array(z.union([z.string(), z.boolean()]))
-    .min(1)
-    .max(16),
-});
-
-/** A port: a number, or a number the vendor's settings give. */
-const portSchema = z.union([
-  z.int().min(1).max(65_535),
-  z.string().regex(WHOLE_SETTING, 'Must be a port, or {setup.<key>}'),
-]);
-
-/** One container a vendor declares. */
-export const containerDependencySchema = z.strictObject({
-  /** Names the container and its folder of the data directory: `zigbee2mqtt`. */
-  id: z.string().regex(DEPENDENCY_ID_PATTERN, 'Must be a short lower-case id'),
-
-  /** What the interface calls it. */
-  name: z.string().min(1).max(128),
-
-  /**
-   * The image, without a tag: `koenkk/zigbee2mqtt` on Docker Hub, `ghcr.io/owner/app` elsewhere.
-   * The release is the platform's to choose, from `minVersion`.
-   */
-  image: z
-    .string()
-    .regex(/^[a-z0-9][a-z0-9._/:-]{0,254}$/)
-    .refine((image) => !image.slice(image.lastIndexOf('/') + 1).includes(':'), {
-      message: 'Name the image without a tag; minVersion says which releases',
-    }),
-
-  /**
-   * The oldest release the vendor works with. The newest release of the same major is installed,
-   * and the container is only upgraded when it falls below this.
-   */
-  minVersion: z.string().regex(SEMVER_PATTERN, 'Must be a semantic version'),
-
-  /** What the container keeps, by name and where it sees it; `cache` for what can be made again. */
-  volumes: z
-    .array(
-      z.strictObject({
-        name: z.string().regex(/^[a-z][a-z0-9-]{0,31}$/),
-        path: z.string().regex(/^\/[^\s]*$/, 'Must be an absolute path in the container'),
-        cache: z.boolean().default(false),
-      }),
-    )
-    .max(8)
-    .default([]),
-
-  env: z
-    .array(
-      z.strictObject({
-        name: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,127}$/),
-        value: z.string().max(4096),
-        when: whenSchema.optional(),
-      }),
-    )
-    .max(64)
-    .default([]),
-
-  /** Devices of the host the container is given: a serial adapter. */
-  devices: z
-    .array(
-      z.strictObject({
-        host: z.string().min(1).max(256),
-        container: z.string().regex(DEVICE_PATH),
-        when: whenSchema.optional(),
-      }),
-    )
-    .max(8)
-    .default([]),
-
-  /** Ports published on the machine, when the platform is on a bridge. */
-  ports: z
-    .array(
-      z.strictObject({
-        container: portSchema,
-        host: portSchema,
-        protocol: z.enum(['tcp', 'udp']).default('tcp'),
-        when: whenSchema.optional(),
-      }),
-    )
-    .max(8)
-    .default([]),
-
-  /** Files written into a volume once, when missing: a first configuration. */
-  seed: z
-    .array(
-      z.strictObject({
-        volume: z.string().min(1).max(32),
-        path: z
-          .string()
-          .regex(/^[a-zA-Z0-9._-][a-zA-Z0-9._/-]{0,254}$/)
-          .refine((value) => !value.split('/').includes('..'), 'Must stay inside its volume'),
-        content: z.string().max(65_536),
-      }),
-    )
-    .max(8)
-    .default([]),
-
-  /**
-   * The container port its own web page is on, which the interface links to while that port is
-   * published. A number, or a number the vendor's settings give.
-   */
-  webPort: portSchema.optional(),
-
-  /** Whether the web page is published at all: a condition on the settings, like `when`. */
-  webPortWhen: whenSchema.optional(),
-});
-
-/** One container a vendor declares. */
-export type ContainerDependency = z.output<typeof containerDependencySchema>;
-
-/** The containers a vendor declares, as `manifest.json` holds them. */
-export const containerDependenciesSchema = z
-  .array(containerDependencySchema)
-  .max(4)
-  .default([])
-  .refine((deps) => new Set(deps.map((dep) => dep.id)).size === deps.length, {
-    message: 'Each container needs an id of its own',
-  });
+/** A vendor setting a value is filled from: `{setup.serialPath}`. */
+const SETTING_PLACEHOLDER = /\{setup\.([a-zA-Z][a-zA-Z0-9]*)\}/g;
 
 /** The saved settings of a vendor, both groups together, as the declaration reads them. */
 export type VendorValues = Readonly<Record<string, unknown>>;
@@ -241,7 +122,10 @@ export function containerDependencyProblems(
  * @param values - The vendor's settings.
  * @returns True without a condition, or when the setting holds one of the values.
  */
-function applies(when: z.output<typeof whenSchema> | undefined, values: VendorValues): boolean {
+function applies(
+  when: z.output<typeof containerWhenSchema> | undefined,
+  values: VendorValues,
+): boolean {
   if (when === undefined) {
     return true;
   }
