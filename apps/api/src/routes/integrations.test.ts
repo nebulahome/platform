@@ -66,6 +66,11 @@ describe('with the hub answering and nothing saved', () => {
         },
         { id: 'acme', needsSetup: true, isConfigured: false },
         { id: 'cloudy', needsSetup: false, needsAccount: true, accounts: [] },
+        {
+          id: 'relay',
+          needsPackage: true,
+          packageProblems: ['Relay needs the MQTT package, which is not running'],
+        },
       ],
     });
   });

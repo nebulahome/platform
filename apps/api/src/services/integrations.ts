@@ -307,6 +307,7 @@ export function vendorViewOf(
     accounts,
     needsAccount:
       vendor.account !== null && !accounts.some((account) => account.status === 'connected'),
+    needsPackage: vendor.packageProblems.length > 0,
   });
 }
 
@@ -485,20 +486,28 @@ export async function vendorRowOf(db: Database, vendorId: string): Promise<Vendo
 }
 
 /**
- * Refuses to add a device of a vendor nobody has set up.
+ * Refuses to add a device of a vendor that is not ready for one: a package it needs does not
+ * run, no account of it is signed in, or nobody has set it up.
  *
- * Only asked of a vendor that asks for something required: for the rest there is nothing to
- * refuse over, and the row is never read.
+ * The setup is only asked of a vendor that asks for something required: for the rest there is
+ * nothing to refuse over, and the row is never read.
  *
  * @param context - The request's collaborators.
  * @param vendor - The vendor.
  * @returns A promise that settles when the vendor is ready for a device.
- * @throws {ConflictError} When the vendor still needs setting up.
+ * @throws {ConflictError} `needs-package` when a package it needs does not run, naming it;
+ * `needs-account`, `needs-setup` when those are missing.
  */
 export async function requireVendorSetup(
   context: IntegrationsContext,
   vendor: IntegrationVendor,
 ): Promise<void> {
+  if (vendor.packageProblems.length > 0) {
+    throw new ConflictError(vendor.packageProblems.join('; '), {
+      details: { vendorId: vendor.id, reason: 'needs-package', problems: vendor.packageProblems },
+    });
+  }
+
   await requireVendorAccount(context, vendor);
 
   if (!asksAnythingRequired(vendor.setup)) {

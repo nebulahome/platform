@@ -354,6 +354,30 @@ describe('with the hub answering and nothing saved', () => {
     });
   });
 
+  it('refuses to add a device of a vendor while a package it needs does not run, naming it', async () => {
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/devices',
+      headers: { authorization: await bearer('device:write') },
+      payload: {
+        id: 'relay-kitchen',
+        kind: 'relay/switch',
+        model: 'Switch',
+        name: 'Kitchen',
+        transportConfig: {},
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: 'CONFLICT',
+        message: 'Relay needs the MQTT package, which is not running',
+        details: { vendorId: 'relay', reason: 'needs-package' },
+      },
+    });
+  });
+
   it('refuses to add a device of a vendor nobody has set up, and says so', async () => {
     // The address may be right; the key is missing. The reply sends the owner to the vendor
     // page rather than back to the device form.

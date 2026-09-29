@@ -19,6 +19,8 @@ const CATALOGUE: IntegrationVendor[] = [
     pairing: null,
     listener: null,
     passedOver: [],
+    requires: { packages: {}, services: [] },
+    packageProblems: [],
     account: null,
     containers: [],
     setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
