@@ -45,6 +45,7 @@ export * from './log-level.js';
 export * from './container-dependencies.js';
 export * from './package-id.js';
 export * from './package-manifest.js';
+export * from './package-requires.js';
 export * from './semver.js';
 export * from './package-index.js';
 export * from './packet-manager.js';

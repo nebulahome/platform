@@ -29,6 +29,7 @@ import { containerDependenciesSchema } from './container-dependencies.js';
 import { iconIdSchema } from './icons.js';
 import { setupFieldSchema } from './integration-setup.js';
 import { packageIdSchema } from './package-id.js';
+import { packageRequiresSchema, packageServiceNameSchema } from './package-requires.js';
 import { semverRangeSchema, semverSchema } from './semver.js';
 
 export { SEMVER_PATTERN } from './semver.js';
@@ -78,11 +79,6 @@ export const PACKAGE_CATEGORIES = [
 
 /** What the store files a package under. */
 export type PackageCategory = (typeof PACKAGE_CATEGORIES)[number];
-
-/** A service a package provides and others require: `mqtt-broker`, `object-detection`. */
-export const packageServiceNameSchema = z
-  .string()
-  .regex(/^[a-z][a-z0-9-]{1,63}$/, 'Must be a lower-case service name');
 
 /** A file of the package's release, relative to its root: `./ui/index.js`. */
 export const packagePathSchema = z
@@ -193,21 +189,6 @@ export const packageEntityTypeSchema = z
 
 /** A kind of entity a package defines. */
 export type PackageEntityType = z.output<typeof packageEntityTypeSchema>;
-
-/**
- * What a package - or a vendor, in its `manifest.json` - needs besides itself: the platform, by
- * version range; other packages, by id and range; and services, by name, whoever provides them.
- */
-export const packageRequiresSchema = z
-  .strictObject({
-    platform: semverRangeSchema.optional(),
-    packages: z.record(packageIdSchema, semverRangeSchema).default({}),
-    services: z.array(packageServiceNameSchema).max(16).default([]),
-  })
-  .default({ packages: {}, services: [] });
-
-/** What a package needs besides itself. */
-export type PackageRequires = z.output<typeof packageRequiresSchema>;
 
 /** What a package adds to the interface. */
 export const packageUiSchema = z.strictObject({

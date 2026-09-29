@@ -20,6 +20,7 @@ import { vendorAccountSchema } from './integration-accounts.js';
 import { integrationSetupSchema } from './integration-setup.js';
 import { jsonObjectSchema } from './json.js';
 import { PACKAGE_ID_PATTERN } from './package-id.js';
+import { packageRequiresSchema } from './package-requires.js';
 
 /**
  * Integration instance identifier.
@@ -351,6 +352,18 @@ export const integrationVendorSchema = z.object({
    * once the vendor is set up. Empty for a vendor that runs on the platform alone.
    */
   containers: z.array(vendorContainerSchema).default([]),
+
+  /**
+   * The packages and services its devices need - the MQTT broker, for Zigbee2MQTT - as its
+   * manifest's `requires` says. Nothing when it needs none.
+   */
+  requires: packageRequiresSchema,
+
+  /**
+   * What of that is not installed or not running, in sentences naming both - "Zigbee2MQTT needs a
+   * package that provides mqtt-broker, and none is running". Empty when all of it runs.
+   */
+  packageProblems: z.array(z.string().max(512)).max(16).default([]),
 
   /** How the vendor's own listener is getting on; null before it said, or for one without. */
   listener: vendorListenerSchema.nullable().default(null),

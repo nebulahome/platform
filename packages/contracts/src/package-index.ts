@@ -15,12 +15,8 @@
 import { z } from 'zod';
 
 import { iconIdSchema } from './icons.js';
-import {
-  PACKAGE_CATEGORIES,
-  packageIdSchema,
-  packageRequiresSchema,
-  packageServiceNameSchema,
-} from './package-manifest.js';
+import { PACKAGE_CATEGORIES, packageIdSchema } from './package-manifest.js';
+import { packageRequiresSchema, packageServiceNameSchema } from './package-requires.js';
 import { semverRangeSchema, semverSchema } from './semver.js';
 import { timestampSchema } from './timestamp.js';
 

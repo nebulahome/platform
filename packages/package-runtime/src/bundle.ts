@@ -25,6 +25,7 @@ import { z } from 'zod';
 import {
   iconIdSchema,
   INTEGRATION_KIND_PATTERN,
+  packageRequiresSchema,
   SEMVER_PATTERN,
   TRANSPORT_WIRES,
   transportIdSchema,
@@ -186,6 +187,14 @@ export const vendorManifestSchema = z.strictObject({
    * platform downloads and runs once the vendor is set up (`containers.ts`).
    */
   containers: containerDependenciesSchema,
+
+  /**
+   * Since 1.5: the packages and services the vendor's devices need, in the grammar a package's
+   * manifest names its own with (PACKAGES.md 7) - `{ "services": ["mqtt-broker"] }` for a vendor
+   * that talks through the broker. Until what it needs runs, the vendor waits: its devices are
+   * not added and its instances are not started, and its page says which package it waits for.
+   */
+  requires: packageRequiresSchema,
 
   /**
    * Digest of the bundle's contents, stamped by the catalogue at publication.

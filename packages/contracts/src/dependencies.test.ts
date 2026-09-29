@@ -13,7 +13,7 @@ import {
   type DependencyNode,
   type InstalledNode,
 } from './dependencies.js';
-import type { PackageRequires } from './package-manifest.js';
+import type { PackageRequires } from './package-requires.js';
 
 /**
  * What a package needs.

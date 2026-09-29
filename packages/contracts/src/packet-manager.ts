@@ -23,10 +23,9 @@ import {
   PACKAGE_SOURCES,
   PACKAGE_STATES,
   packageEntityTypeSchema,
-  packageRequiresSchema,
-  packageServiceNameSchema,
   packageUiSchema,
 } from './package-manifest.js';
+import { packageRequiresSchema, packageServiceNameSchema } from './package-requires.js';
 import { semverSchema } from './semver.js';
 import { containerLogCursorSchema, containerLogsReplySchema } from './supervisor.js';
 import { timestampSchema } from './timestamp.js';

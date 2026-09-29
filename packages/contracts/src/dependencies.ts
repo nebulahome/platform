@@ -20,7 +20,7 @@
  * parties by name, since "cannot install" helps nobody and "MQTT needs NebulaHome 2.0 or later,
  * this is 1.4.0" tells the owner what to do.
  */
-import type { PackageRequires } from './package-manifest.js';
+import type { PackageRequires } from './package-requires.js';
 import type { SatisfiesRange } from './semver.js';
 
 /** One package, as far as dependencies go: what it is, what it needs, what it offers. */

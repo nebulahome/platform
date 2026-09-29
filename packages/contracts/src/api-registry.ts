@@ -915,6 +915,12 @@ export const integrationVendorViewSchema = integrationVendorSchema.extend({
    * added until one is. False for a vendor without an account.
    */
   needsAccount: z.boolean().default(false),
+
+  /**
+   * Whether a package the vendor needs is missing or stopped - `packageProblems` says which: its
+   * devices cannot be added, nor its instances started, until it runs.
+   */
+  needsPackage: z.boolean().default(false),
 });
 
 /** One vendor the hub has loaded, with what the owner has done about it. */
