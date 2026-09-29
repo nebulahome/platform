@@ -14,6 +14,7 @@ import {
   ArrowDownToLine,
   ArrowUpToLine,
   Blinds,
+  Bot,
   Bluetooth,
   Cable,
   Camera,
@@ -40,6 +41,7 @@ import {
   HardDrive,
   Hash,
   House,
+  Image,
   Info,
   Layers,
   LayoutDashboard,
@@ -188,6 +190,9 @@ export const BUILTIN_UI_NODES = {
   'video-off': drawing(VideoOff),
   // A robot mower, its station, and the settings picked from a list or set as a number.
   tractor: drawing(Tractor),
+  // A robot vacuum, and a picture that changes: a robot's map.
+  bot: drawing(Bot),
+  image: drawing(Image),
   house: drawing(House),
   list: drawing(List),
   hash: drawing(Hash),
