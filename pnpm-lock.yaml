@@ -587,6 +587,12 @@ importers:
       '@nebula-home/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
+      '@types/semver':
+        specifier: ^7.7.1
+        version: 7.8.0
+      semver:
+        specifier: ^7.8.5
+        version: 7.8.5
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
