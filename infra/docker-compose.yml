@@ -1,7 +1,8 @@
 # NebulaHome's one compose file.
 #
 #   pnpm docker:up     the whole platform in one container (../Dockerfile): http://localhost:8080
-#   pnpm infra:up      only PostgreSQL, NATS and Mosquitto, for the services run natively (pnpm dev)
+#   pnpm infra:up      only PostgreSQL and NATS, for the services run natively (pnpm dev) - the
+#                      MQTT broker is the `mqtt` package, which pnpm dev runs with them
 #
 # Settings are in infra/.env, optional (see .env.example beside this file): read both to fill in
 # this file and as the container's environment.
@@ -33,6 +34,8 @@ services:
     ports:
       - '${NEBULA_HTTP_PORT:-8080}:8080'
       - '${NEBULA_HTTPS_PORT:-8443}:8443'
+      # The house's MQTT broker, for the devices on the network.
+      - '${NEBULA_MQTT_PORT:-1883}:1883'
     restart: unless-stopped
     # Longer than the services' own 10 s shutdown timeout, and PostgreSQL's after them.
     stop_grace_period: 45s
@@ -99,25 +102,6 @@ services:
       - '8222:8222'
     healthcheck:
       test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:8222/healthz']
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  # An MQTT broker, because that is how Zigbee reaches the platform: zigbee2mqtt publishes a rich
-  # device model here and the mqtt transport consumes it. Also what the mqtt transport is tested
-  # against - a real broker rather than a fake, since reconnection and topic matching are exactly
-  # the parts a fake would get wrong.
-  mosquitto:
-    profiles: [dev]
-    image: eclipse-mosquitto:2
-    labels:
-      io.nebulahome.platform: 'true'
-    restart: unless-stopped
-    command: ['mosquitto', '-c', '/mosquitto-no-auth.conf']
-    ports:
-      - '1883:1883'
-    healthcheck:
-      test: ['CMD', 'mosquitto_pub', '-h', 'localhost', '-t', 'healthcheck', '-m', 'ok']
       interval: 5s
       timeout: 5s
       retries: 10

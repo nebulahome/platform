@@ -90,10 +90,11 @@ COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=nats /usr/local/bin/nats-server /usr/local/bin/nats-server
 
 # libstdc++ for Node; cifs-utils and nfs-utils for the backup's network locations; openssl for
-# the generated keys and certificate; tzdata so a TZ is honoured; mosquitto for the house's MQTT
-# broker, which zigbee2mqtt and the hub's integrations meet on; the Docker command line and its
-# compose plugin, which the supervisor runs the owner's compose projects with.
-RUN apk add --no-cache libstdc++ libgcc cifs-utils nfs-utils openssl tzdata xz mosquitto       docker-cli docker-cli-compose
+# the generated keys and certificate; tzdata so a TZ is honoured; the Docker command line and its
+# compose plugin, which the supervisor runs the owner's compose projects with. The house's MQTT
+# broker is not here: it is the `mqtt` package, in /app/pkgs.
+RUN apk add --no-cache libstdc++ libgcc cifs-utils nfs-utils openssl tzdata xz \
+    docker-cli docker-cli-compose
 
 RUN set -eux; \
     case "${TARGETARCH:-amd64}" in \
@@ -132,7 +133,6 @@ ENV PATH=/command:$PATH \
     PGPORT=5433 \
     NEBULA_NATS_PORT=4223 \
     NEBULA_NATS_MONITOR_PORT=8223 \
-    NEBULA_MQTT_PORT=1884 \
     API_PORT=4100 \
     PROXY_HTTP_PORT=8080 \
     PROXY_HTTPS_PORT=8443 \
@@ -143,7 +143,8 @@ ENV PATH=/command:$PATH \
     S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0
 
 VOLUME ["/data", "/var/lib/postgresql/data", "/var/lib/nats"]
-EXPOSE 8080 8443
+# The page, and the house's MQTT broker (the `mqtt` package) for the devices on the network.
+EXPOSE 8080 8443 1883
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
   CMD wget -qO- "http://127.0.0.1:${PROXY_HTTP_PORT}/healthz" >/dev/null || exit 1

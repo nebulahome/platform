@@ -10,7 +10,7 @@
 # The network. The platform sits on one user-defined bridge, `nebulahome-net`, declared here and
 # handed to the platform: the containers integrations run (zigbee2mqtt) are put on the same
 # network by the platform itself and reach it by its name, `nebulahome` - the MQTT broker is
-# mqtt://nebulahome:1884 to them, whatever addresses Docker hands out. Nothing depends on an IP
+# mqtt://nebulahome:1883 to them, whatever addresses Docker hands out. Nothing depends on an IP
 # address or a subnet, so two machines, or Docker's own address pools, cannot disagree about one.
 # A bridge carries no multicast, so devices are added by their address there; on a Linux server,
 # docker-compose.host.yml puts the platform on the host's network instead, where the hub hears the
@@ -34,6 +34,8 @@ services:
     ports:
       - '${NEBULA_HTTP_PORT:-8080}:8080'
       - '${NEBULA_HTTPS_PORT:-8443}:8443'
+      # The house's MQTT broker (the `mqtt` package), for the devices on the network.
+      - '${NEBULA_MQTT_PORT:-1883}:1883'
     restart: unless-stopped
     # Longer than the services' own 10 s shutdown timeout, and PostgreSQL's after them.
     stop_grace_period: 45s

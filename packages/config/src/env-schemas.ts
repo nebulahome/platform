@@ -89,9 +89,9 @@ export const secretsEnvSchema = z.object({
  * Variables read by the services that reach the house's MQTT broker: `hub`, whose integrations
  * speak it, and the supervisor, which hands it to the containers an integration runs.
  *
- * The broker is the platform's own - Mosquitto inside the container, the development stack's on
- * `pnpm dev` - and optional: an installation without one runs every integration that does not
- * need it. The credentials are generated on the container's first start, like the bus's.
+ * The house's broker is the `mqtt` package, which `hub` and the supervisor ask over the bus for a
+ * username of their own; these variables name an external broker to use instead, and are unset
+ * otherwise. An installation without a broker runs every integration that does not need one.
  */
 export const mqttEnvSchema = z.object({
   NEBULA_MQTT_URL: urlWithScheme(['mqtt:', 'mqtts:']).optional(),

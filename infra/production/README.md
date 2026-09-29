@@ -57,7 +57,7 @@ platform runs - zigbee2mqtt - keep running while it restarts and are picked up a
 **The bridge (the default).** The platform is on one user-defined bridge, `nebulahome-net`,
 declared by the compose file, under the name `nebulahome`. The containers integrations run are
 put on that same network by the platform and reach it by name: zigbee2mqtt is given
-`mqtt://nebulahome:1884` as its broker. Nothing depends on an address Docker handed out, so the
+`mqtt://nebulahome:1883` as its broker, with a username of its own. Nothing depends on an address Docker handed out, so the
 subnet Docker picks does not matter - unless it is the LAN's own: if a device on your network
 has an address in the subnet Docker gave `nebulahome-net` (`docker network inspect
 nebulahome-net`), the platform cannot reach it, and a subnet of your choosing goes in the
@@ -73,9 +73,9 @@ mDNS, Govee's scan, Shelly's and Bambu Lab's announcements:
 docker compose -f docker-compose.yml -f docker-compose.host.yml up -d --wait
 ```
 
-Nothing is published there: the page is on the host's ports 8080 and 8443, and what else the
-platform listens on - PostgreSQL 5433, NATS 4223, `api` 4100, the MQTT broker 1884 - is on
-loopback only, with passwords. The containers integrations run go on the host's network too.
+Nothing is published there: the page is on the host's ports 8080 and 8443, the house's MQTT
+broker on 1883 for the devices on the network, and what else the platform listens on -
+PostgreSQL 5433, NATS 4223, `api` 4100 - is on loopback only, with passwords. The containers integrations run go on the host's network too.
 Not on Docker Desktop: its host network is its virtual machine's and reaches no device.
 
 Switching between the two keeps everything: the data, the database and the containers.
@@ -115,9 +115,11 @@ leaves `nebulahome-net` in place while zigbee2mqtt is still on it (`Resource is 
 
 - **The page does not open.** `docker compose ps`: `starting` for the first two minutes is the
   first start; `unhealthy` after it, `docker compose logs --tail=200` says which service stopped.
-- **`Unable to open config file /run/mosquitto/mosquitto.conf`** and the hub unable to reach
-  `mqtt://127.0.0.1:1884`: an image from before the fix for hosts that give the container no
-  `CAP_DAC_OVERRIDE`. Build or pull a current one.
+- **`Unable to open config file /run/mosquitto/mosquitto.conf`**: an image from before the
+  house's broker became the `mqtt` package. Build or pull a current one: Mosquitto is gone.
+- **Devices cannot connect to the broker.** Packages → MQTT: the broker's page says the port and
+  lists the clients; each device needs a username added there (or anonymous clients allowed
+  under Configure). On the bridge, the host's port is `NEBULA_MQTT_PORT` (1883).
 - **zigbee2mqtt cannot reach the broker.** `docker network inspect nebulahome-net` should list
   both `nebulahome-nebulahome-1` and `nebulahome-zigbee2mqtt`; the vendor's page says what the
   bridge last heard.

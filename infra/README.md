@@ -19,14 +19,15 @@ proxy's certificates, the instance keys - that must never reach the repository.
 | Command          | Starts                                          | For                                         |
 | ---------------- | ----------------------------------------------- | ------------------------------------------- |
 | `pnpm docker:up` | `nebulahome`: the whole platform, one container | Running NebulaHome as it is installed       |
-| `pnpm infra:up`  | `postgres`, `nats`, `mosquitto`                 | `pnpm dev`, the services run on the machine |
+| `pnpm infra:up`  | `postgres`, `nats`                              | `pnpm dev`, the services run on the machine |
 
 The two do not share anything - each has its own database - and can run side by side.
 
 ## The container
 
-NebulaHome runs as **one container**: PostgreSQL 16 with TimescaleDB, NATS with JetStream,
-Mosquitto, and `core`, `hub`, `api`, `backup`, `supervisor` and `proxy`, supervised by s6-overlay
+NebulaHome runs as **one container**: PostgreSQL 16 with TimescaleDB, NATS with JetStream, and
+`core`, `hub`, `api`, `backup`, `supervisor`, `proxy` and `packet-manager` - which runs the packages
+the image ships, the house's MQTT broker among them - supervised by s6-overlay
 (ARCHITECTURE.md §14). It is built from `../Dockerfile` and runs on Linux only; there is no Windows
 build of the runtime. Beside it run the containers an integration needs - zigbee2mqtt for Zigbee -
 which the platform downloads and runs itself through Docker's socket (below).
@@ -73,21 +74,22 @@ In order, each once the one before is ready:
    directory itself, `secrets/`, `backups/`, `containers/` and `cache/`; the `nebula` user the
    services run as gets the rest, and makes the folders inside its own. So root never writes
    into a folder it does not own, which a host that gives the container no `CAP_DAC_OVERRIDE`
-   forbids it - Mosquitto's and NATS's configurations are written the same way.
+   forbids it - NATS's configuration is written the same way.
 2. `init-secrets` - every secret that is missing, generated once into `/data/secrets/` (0600):
    the instance keys `NEBULA_SECRETS_KEY` and `API_TOTP_ENCRYPTION_KEY`, `API_JWT_SECRET`, the
-   PostgreSQL, NATS and MQTT passwords, one password per service role, and the proxy's
+   PostgreSQL and NATS passwords, one password per service role, and the proxy's
    self-signed certificate. A variable set in `infra/.env` wins over its file.
 3. `postgres` - on `127.0.0.1:5433`, passwords required over TCP.
 4. `init-db` - migrates the database and gives each service role its password. An upgrade is
    "build, start": the new migrations apply here.
 5. `nats` - on `127.0.0.1:4223`, with a password; its monitor on `8223`.
-6. `mosquitto` - the house's MQTT broker, on port `1884` with a password (user `nebula`): on the
-   bridge on every address of the container, so the containers an integration runs reach it as
-   `nebulahome:1884`; on the host network on loopback only.
-7. `core`, `hub`, `api` (`127.0.0.1:4100`), `backup`, `supervisor`, `proxy` (`8080`, `8443`). Each
-   connects to the database as its own role (DATABASE.md §12); `backup` runs as root, for the
-   mounts, and `supervisor` as root, the one process given Docker's socket.
+6. `core`, `hub`, `api` (`127.0.0.1:4100`), `backup`, `supervisor`, `proxy` (`8080`, `8443`),
+   `packet-manager`. Each connects to the database as its own role (DATABASE.md §12); `backup`
+   runs as root, for the mounts, and `supervisor` as root, the one process given Docker's socket.
+7. The packages the image ships, run by `packet-manager`: `mqtt`, the house's MQTT broker, on
+   `1883` of every address of the container - devices on the network connect to it with a
+   username added on its page, the containers an integration runs reach it as `nebulahome:1883`
+   with one of their own, and the hub on loopback with its own.
 
 The ports are not the usual ones on purpose: on the host's network the container shares the
 machine's ports, and must not collide with the development stack.
@@ -219,12 +221,13 @@ integrations catalogue exists - the image carries them too.
 
 ## Development
 
-The services run on the machine with `pnpm dev`; only the database, the bus and the MQTT
-broker are containers - the `postgres`, `nats` and `mosquitto` services of the same compose file,
-started by name:
+The services run on the machine with `pnpm dev`; only the database and the bus are containers -
+the `postgres` and `nats` services of the same compose file, started by name. The MQTT broker is
+the `mqtt` package (`pkgs/mqtt`), which `pnpm dev` builds and `packet-manager` runs on this
+machine's `1883`:
 
 ```bash
-pnpm infra:up           # PostgreSQL, NATS and Mosquitto; waits until they are healthy
+pnpm infra:up           # PostgreSQL and NATS; waits until they are healthy
 pnpm db:migrate         # once, and after every new migration
 pnpm infra:logs         # follow their logs
 pnpm infra:down         # stop them, keep the data
@@ -248,8 +251,10 @@ container: it needs `pg_dump` 16, `mount`, s6 and Linux. Try backups there.
 
 The supervisor too runs with the others. On Windows, point it at Docker Desktop's named pipe in
 `.env` - `SUPERVISOR_DOCKER_SOCKET=//./pipe/docker_engine` - and the Containers page lists the
-development stack's containers. The broker `pnpm dev` uses is the compose file's Mosquitto on
-`localhost:1883` (`NEBULA_MQTT_URL`), which asks for no password.
+development stack's containers. The broker `pnpm dev` uses is the `mqtt` package on
+`localhost:1883`: the hub and the supervisor ask it for their usernames, so `.env` sets no
+`NEBULA_MQTT_URL` - one set there is an external broker used instead. The integration tests run
+a broker of their own in the test process (`apps/hub/tests/support/broker.ts`).
 
 **Development and the container on one Docker.** Both have a supervisor, and both would run
 `nebulahome-zigbee2mqtt` - each pointing it at its own broker. So every container an integration
