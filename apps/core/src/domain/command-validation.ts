@@ -18,6 +18,7 @@ import {
 } from '@nebula-home/contracts';
 
 import type { EntityRecord } from './entity-directory.js';
+import { customCommandProblem, type PackageTypes } from './package-types.js';
 
 /**
  * Validates the device limits stored against a capability.
@@ -234,15 +235,18 @@ function checkAgainstParams(
  * @param record - The entity's configuration, from the directory.
  * @param capability - The capability the command targets, taken from the subject.
  * @param command - The command as it arrived, of unvalidated shape.
+ * @param packageTypes - The packages' entity types, for a command to a `custom` entity.
  * @returns The validated command, ready to forward to the owning adapter.
  * @throws {ValidationError} When the entity is disabled, does not declare the capability, the
- * capability reports only, the command does not match the capability's schema, or it asks for
- * something outside the device's declared limits.
+ * capability reports only, the command does not match the capability's schema, it asks for
+ * something outside the device's declared limits, or - for a `custom` entity - its type does not
+ * take it.
  */
 export function validateCommand(
   record: EntityRecord,
   capability: CapabilityName,
   command: JsonObject,
+  packageTypes?: PackageTypes,
 ): JsonObject {
   if (!record.isEnabled) {
     throw new ValidationError(`Entity ${record.entityId} is disabled`, {
@@ -288,7 +292,28 @@ export function validateCommand(
   // rather than whatever the capability's own schema produced.
   const validated = jsonObjectSchema.parse(parsed.data);
 
-  checkAgainstParams(capability, parseParams(capability, record), validated, record.entityId);
+  const params = parseParams(capability, record);
+
+  checkAgainstParams(capability, params, validated, record.entityId);
+
+  if (capability === 'custom' && packageTypes !== undefined) {
+    const { packageId, type } = params as { packageId: string; type: string };
+    const declared = packageTypes.get(packageId, type);
+    const problem =
+      declared === undefined
+        ? `The ${packageId} package's ${type} is not known: the package is not installed`
+        : customCommandProblem(
+            declared,
+            typeof validated['command'] === 'string' ? validated['command'] : '',
+            (validated['args'] ?? {}) as Readonly<Record<string, unknown>>,
+          );
+
+    if (problem !== undefined) {
+      throw new ValidationError(`Command for ${record.entityId}.custom is not valid: ${problem}`, {
+        details: { entityId: record.entityId, capability, packageId, type },
+      });
+    }
+  }
 
   return validated;
 }

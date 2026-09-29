@@ -23,6 +23,7 @@ import type { PlatformLogger } from '@nebula-home/logging';
 
 import type { EntityDirectory, EntityRecord } from '../domain/entity-directory.js';
 import type { EntityRegistry, IngestResult } from '../domain/entity-registry.js';
+import { customStateProblem, type PackageTypes } from '../domain/package-types.js';
 import type { TelemetrySampler } from '../domain/telemetry-sampler.js';
 import type { BatchWriter } from '../persistence/batch-writer.js';
 import type { EntityStateRow, StateHistoryRow } from '../persistence/history-writer.js';
@@ -60,6 +61,13 @@ export type StateIngestOptions = {
    * Optional: unit tests that only exercise ingest do not need an engine.
    */
   readonly onNotableChange?: (entityId: EntityId) => void;
+
+  /**
+   * The packages' entity types, which a `custom` entity's report is checked against.
+   *
+   * Optional: without them a custom report is held to the capability's own shape alone.
+   */
+  readonly packageTypes?: PackageTypes;
 };
 
 /**
@@ -215,6 +223,39 @@ function isOwner(record: EntityRecord, publisher: string): boolean {
 }
 
 /**
+ * What is wrong with a `custom` entity's report against its package's entity type, if anything.
+ *
+ * @param options - Where the types are.
+ * @param record - The entity's configuration: its `custom` parameters name the type.
+ * @param report - The report.
+ * @returns A sentence, or undefined when it holds - or is not a custom report.
+ */
+function customProblemOf(
+  options: StateIngestOptions,
+  record: EntityRecord,
+  report: StateReport,
+): string | undefined {
+  const values = report.state.custom?.values;
+  const params = record.capabilities.get('custom') as
+    { packageId?: unknown; type?: unknown } | undefined;
+
+  if (
+    values === undefined ||
+    options.packageTypes === undefined ||
+    typeof params?.packageId !== 'string' ||
+    typeof params.type !== 'string'
+  ) {
+    return undefined;
+  }
+
+  const type = options.packageTypes.get(params.packageId, params.type);
+
+  return type === undefined
+    ? `the ${params.packageId} package's ${params.type} is not known`
+    : customStateProblem(type, values);
+}
+
+/**
  * Subscribes to every state report and runs the pipeline on each one.
  *
  * @param options - The pipeline's collaborators.
@@ -261,6 +302,17 @@ export function startStateIngest(options: StateIngestOptions): BusSubscription {
     }
 
     if (!record.isEnabled) {
+      return;
+    }
+
+    const problem = customProblemOf(options, record, report);
+
+    if (problem !== undefined) {
+      context.logger.warn(
+        { entityId: report.entityId, source: context.header.source, problem },
+        'Rejected a report that its entity type does not hold',
+      );
+
       return;
     }
 

@@ -30,6 +30,7 @@ import { SERVICE_NAME, SERVICE_VERSION } from './config.js';
 import { AliasCatalog } from './domain/alias-catalog.js';
 import { EntityDirectory } from './domain/entity-directory.js';
 import { EntityRegistry } from './domain/entity-registry.js';
+import { PackageTypes } from './domain/package-types.js';
 import { TelemetrySampler } from './domain/telemetry-sampler.js';
 import type { BatchWriter } from './persistence/batch-writer.js';
 import {
@@ -44,6 +45,7 @@ import { AliasEngine } from './services/alias-engine.js';
 import { startAliasService } from './services/alias-service.js';
 import { startCommandRouter } from './services/command-router.js';
 import { startContainersService } from './services/containers.js';
+import { loadPackageTypes, startPackagesService } from './services/packages.js';
 import { startRegistrationService } from './services/registration.js';
 import { requestResync } from './services/resync.js';
 import { startStateIngest } from './services/state-ingest.js';
@@ -187,6 +189,11 @@ export class CoreService {
     // and a reading published before the stream exists is captured by nothing.
     await ensureTelemetryStream({ connection: bus.connection, logger });
 
+    const packageTypes = new PackageTypes();
+    const packages = await loadPackageTypes(db, packageTypes);
+
+    startupLogger.info({ packages }, 'Package entity types loaded');
+
     const ingest = {
       client,
       registry: this.#registry,
@@ -194,6 +201,7 @@ export class CoreService {
       history,
       stateCache,
       telemetry: new TelemetrySampler(),
+      packageTypes,
       logger,
       /**
        * Wakes aliases that read the entity that just changed.
@@ -244,6 +252,16 @@ export class CoreService {
         aliases: this.#aliases,
         aliasEngine,
         commandTimeoutMs: config.CORE_COMMAND_TIMEOUT_MS,
+        packageTypes,
+      }),
+      startPackagesService({
+        client,
+        db,
+        directory: this.#directory,
+        registry: this.#registry,
+        stateCache,
+        packageTypes,
+        logger,
       }),
       ...startRegistrationService({
         client,

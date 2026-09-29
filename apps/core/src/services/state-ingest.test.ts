@@ -5,10 +5,12 @@ import {
   BUS_PATTERNS,
   busSubjects,
   entityStateSchema,
+  packageEntityTypeSchema,
   parseEntityId,
   type EntityState,
 } from '@nebula-home/contracts';
 
+import { PackageTypes } from '../domain/package-types.js';
 import { TelemetrySampler } from '../domain/telemetry-sampler.js';
 import { entityRecord, createCoreHarness, type CoreHarness } from '../testing/harness.js';
 
@@ -18,6 +20,19 @@ const bulb = parseEntityId('light.kitchen_ceiling');
 const hallway = parseEntityId('light.hallway');
 const thermometer = parseEntityId('sensor.kitchen_temperature');
 const robotMap = parseEntityId('image.hall_map');
+const recording = parseEntityId('custom.nvr_last_recording');
+
+/** The recorder's entity types. */
+const packageTypes = new PackageTypes();
+
+packageTypes.set('nvr', [
+  packageEntityTypeSchema.parse({
+    id: 'recording',
+    name: 'Recording',
+    icon: 'video',
+    state: [{ key: 'size', type: 'number', label: 'Size' }],
+  }),
+]);
 
 describe('startStateIngest', () => {
   let harness: CoreHarness;
@@ -30,6 +45,12 @@ describe('startStateIngest', () => {
     harness.directory.set(entityRecord(bulb, { capabilities: { on_off: {}, level: {} } }));
     harness.directory.set(entityRecord(thermometer, { capabilities: { sensor_numeric: {} } }));
     harness.directory.set(entityRecord(robotMap, { capabilities: { image: {} } }));
+    harness.directory.set(
+      entityRecord(recording, {
+        source: 'nvr',
+        capabilities: { custom: { packageId: 'nvr', type: 'recording' } },
+      }),
+    );
     readings = [];
 
     harness
@@ -49,6 +70,7 @@ describe('startStateIngest', () => {
       history: harness.history,
       stateCache: harness.stateCache,
       telemetry: new TelemetrySampler(60_000),
+      packageTypes,
       logger: harness.logger,
     });
   });
@@ -117,6 +139,25 @@ describe('startStateIngest', () => {
     // directory carries the row id at all.
     expect(harness.historyRows[0]?.entityId).toBe(`row-${bulb}`);
     expect(harness.historyRows[0]?.previousState).toBeNull();
+  });
+
+  it("takes a package entity's report its type holds, and refuses one it does not", async () => {
+    const recorder = harness.clientFor('nvr');
+
+    recorder.publish(busSubjects.stateReport(recording), {
+      entityId: recording,
+      state: { custom: { values: { size: 'large' } } },
+    });
+    recorder.publish(busSubjects.stateReport(recording), {
+      entityId: recording,
+      state: { custom: { values: { size: 12 } } },
+    });
+
+    await vi.waitFor(() => {
+      expect(harness.registry.get(recording)?.state.custom?.values).toEqual({ size: 12 });
+    });
+
+    expect(harness.historyRows).toHaveLength(1);
   });
 
   it('keeps a new picture in the cache and out of the history', async () => {

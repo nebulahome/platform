@@ -30,6 +30,7 @@ import {
 import { isStoredAlias, type AliasCatalog } from '../domain/alias-catalog.js';
 import { validateCommand } from '../domain/command-validation.js';
 import type { EntityDirectory } from '../domain/entity-directory.js';
+import type { PackageTypes } from '../domain/package-types.js';
 
 import type { AliasEngine } from './alias-engine.js';
 
@@ -49,6 +50,9 @@ export type CommandRouterOptions = {
 
   /** How long an adapter has to accept a command. */
   readonly commandTimeoutMs: number;
+
+  /** The packages' entity types, which a command to a `custom` entity is checked against. */
+  readonly packageTypes?: PackageTypes;
 };
 
 /** How many commands may be waiting on their devices at once. */
@@ -118,7 +122,12 @@ export function startCommandRouter(options: CommandRouterOptions): BusSubscripti
         );
       }
 
-      const command = validateCommand(record, target.capability, request.command);
+      const command = validateCommand(
+        record,
+        target.capability,
+        request.command,
+        options.packageTypes,
+      );
 
       await options.client.request(
         busSubjects.service(record.source, ADAPTER_COMMAND_METHOD),
