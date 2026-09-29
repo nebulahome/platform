@@ -5,6 +5,7 @@ Everything needed to run NebulaHome that is not application code.
 | Path                 | What it is                                                                  | Versioned |
 | -------------------- | --------------------------------------------------------------------------- | --------- |
 | `docker-compose.yml` | Everything Docker runs: the platform's container, and the development stack | yes       |
+| `production/`        | What to copy to a machine of its own: the published image, no build         | yes       |
 | `.env.example`       | Its settings - the network, the ports, the keys - to copy to `.env`         | yes       |
 | `docker/`            | What the image runs: the s6 services and the scripts they start with        | yes       |
 | `seed/dev.sql`       | Fake devices and history so the UI has something to render                  | yes       |
@@ -68,7 +69,11 @@ opened, so download the key first (Settings → Backup).
 
 In order, each once the one before is ready:
 
-1. `init-dirs` - the data directory's folders, owned by the `nebula` user the services run as.
+1. `init-dirs` - the data directory's folders, owned by who writes them: root keeps the
+   directory itself, `secrets/`, `backups/`, `containers/` and `cache/`; the `nebula` user the
+   services run as gets the rest, and makes the folders inside its own. So root never writes
+   into a folder it does not own, which a host that gives the container no `CAP_DAC_OVERRIDE`
+   forbids it - Mosquitto's and NATS's configurations are written the same way.
 2. `init-secrets` - every secret that is missing, generated once into `/data/secrets/` (0600):
    the instance keys `NEBULA_SECRETS_KEY` and `API_TOTP_ENCRYPTION_KEY`, `API_JWT_SECRET`, the
    PostgreSQL, NATS and MQTT passwords, one password per service role, and the proxy's
@@ -121,6 +126,11 @@ HUB_DISCOVERY_ENABLED=true
 
 There it is on the machine's own network: discovery works, and nothing needs publishing - the
 page is on the machine's ports 8080 and 8443.
+
+On a machine of its own, `production/` is the compose file to copy: the published image, the
+platform on a bridge of its own - `nebulahome-net`, declared there and handed to the supervisor,
+so the containers integrations run join it and reach the broker by the platform's name - and an
+override for the host's network ([production/README.md](production/README.md)).
 
 **Docker Desktop** (Windows, macOS) is different: its "host" network is its own virtual
 machine's, which reaches no device on the LAN, and its page is not even reachable from Windows.

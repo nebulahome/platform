@@ -1,18 +1,33 @@
 #!/command/with-contenv sh
 # The data directory's folders, owned by who writes them (ARCHITECTURE.md 14): the Node services
-# run as `nebula`; `secrets/` and `backups/` belong to root, which the backup service runs as.
+# run as `nebula`; the root of the directory, `secrets/`, `backups/`, `containers/` and `cache/`
+# itself belong to root, which the backup service and the supervisor run as.
+#
+# Some Docker hosts give the container no CAP_DAC_OVERRIDE, and root there cannot write into a
+# folder it does not own. So a folder root writes into stays root's, and a folder inside one of
+# `nebula`'s is made by `nebula` itself; handing a folder over (chown) works everywhere. Every
+# start, so a folder a new version adds is made, and one an older version handed to `nebula` is
+# given back.
 set -eu
 
 data="${NEBULA_DATA_DIR:-/data}"
 
-mkdir -p "$data/hub/integrations" "$data/proxy/tls" "$data/packages" "$data/cache/maps" \
-  "$data/backups" "$data/secrets" /var/lib/nats
+# Makes the folders root holds, missing or not, and gives them to root.
+for folder in "$data" "$data/secrets" "$data/backups" "$data/containers" "$data/cache" \
+  "$data/cache/containers"; do
+  mkdir -p "$folder"
+  chown root:root "$folder"
+done
 
-for folder in "$data" "$data/hub" "$data/hub/integrations" "$data/proxy" "$data/proxy/tls" \
-  "$data/packages" "$data/cache" "$data/cache/maps" /var/lib/nats; do
+chmod 0755 "$data" "$data/backups" "$data/containers" "$data/cache" "$data/cache/containers"
+chmod 0700 "$data/secrets"
+
+# The folders `nebula` writes into, each directly in one of root's: made by root, then handed over.
+for folder in "$data/hub" "$data/proxy" "$data/packages" "$data/cache/maps" \
+  "$data/cache/packages" /var/lib/nats; do
+  mkdir -p "$folder"
   chown nebula:nebula "$folder"
 done
 
-chown root:root "$data/secrets" "$data/backups"
-chmod 0700 "$data/secrets"
-chmod 0755 "$data/backups"
+# Inside those, by `nebula`.
+s6-setuidgid nebula mkdir -p "$data/hub/integrations" "$data/proxy/tls"
