@@ -1,0 +1,98 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  packageAnnounceRequestSchema,
+  packageRemoveRequestSchema,
+  packageRpcRequestSchema,
+} from './packet-manager.js';
+import { packageDeviceId, packageObjectPrefix, syncPackageRequestSchema } from './registration.js';
+import { ensureRequestSchema, managedContainerSpecSchema } from './supervisor.js';
+
+describe('a package device’s public id', () => {
+  it('is the package and the device’s own id, slugged', () => {
+    expect(packageDeviceId('mqtt', 'Client: kitchen/sensor')).toBe(
+      'package-mqtt-client-kitchen-sensor',
+    );
+    expect(packageDeviceId('mqtt', '###')).toBe('package-mqtt-device');
+  });
+
+  it('is cut to 64 characters with a digest, so two long ids stay apart', () => {
+    const one = packageDeviceId('music-player', `zone-${'a'.repeat(80)}-one`);
+    const two = packageDeviceId('music-player', `zone-${'a'.repeat(80)}-two`);
+
+    expect(one).toHaveLength(64);
+    expect(one).not.toBe(two);
+    expect(one).toMatch(/^package-music-player-zone-a+-[0-9a-f]{8}$/);
+  });
+
+  it('names a package’s entities after it', () => {
+    expect(packageObjectPrefix('music-player')).toBe('music_player_');
+  });
+});
+
+describe('syncing a package’s devices', () => {
+  it('refuses two devices with one externalId', () => {
+    const device = { externalId: 'broker', name: 'Broker' };
+
+    expect(
+      syncPackageRequestSchema.safeParse({ packageId: 'mqtt', devices: [device, device] }).success,
+    ).toBe(false);
+    expect(
+      syncPackageRequestSchema.parse({ packageId: 'mqtt', devices: [device] }).devices[0]?.entities,
+    ).toEqual([]);
+  });
+});
+
+describe('the packet-manager’s requests', () => {
+  it('keeps a package’s data unless asked, and a call’s input is null when it has none', () => {
+    expect(packageRemoveRequestSchema.parse({ packageId: 'nvr' }).isDataRemoved).toBe(false);
+    expect(packageRpcRequestSchema.parse({ method: 'clients' }).input).toBeNull();
+  });
+
+  it('takes an announcement of the methods a package registered', () => {
+    expect(
+      packageAnnounceRequestSchema.safeParse({
+        packageId: 'mqtt',
+        version: '1.0.0',
+        rpcMethods: [
+          { name: 'topics', access: 'read' },
+          { name: 'addClient', access: 'configure' },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
+      packageAnnounceRequestSchema.safeParse({
+        packageId: 'mqtt',
+        version: '1.0.0',
+        rpcMethods: [{ name: 'Topics!', access: 'read' }],
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('a container a package declares', () => {
+  it('is a vendor’s unless said, and says whose it is', () => {
+    const spec = {
+      vendorId: 'nvr',
+      dependencyId: 'frigate',
+      name: 'Frigate',
+      image: 'ghcr.io/blakeblackshear/frigate',
+      minVersion: '0.14.0',
+      env: [],
+      volumes: [],
+      devices: [],
+      ports: [],
+      seed: [],
+      webPort: null,
+    };
+
+    expect(managedContainerSpecSchema.parse(spec).ownerKind).toBe('vendor');
+    expect(
+      ensureRequestSchema.parse({
+        vendorId: 'nvr',
+        ownerKind: 'package',
+        containers: [{ ...spec, ownerKind: 'package' }],
+      }).containers[0]?.ownerKind,
+    ).toBe('package');
+  });
+});

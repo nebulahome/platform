@@ -349,8 +349,21 @@ export const containerUpdateSchema = z.object({
 /** What the supervisor knows about a container's image and a newer one. */
 export type ContainerUpdate = z.output<typeof containerUpdateSchema>;
 
-/** Which integration runs a container. */
+/**
+ * Who declares a container the platform runs: a vendor, in its `manifest.json` - reconciled by
+ * `hub` - or a package, in its `nebula.package.json` - reconciled by the packet-manager. Each
+ * reconciles its own kind, so neither releases the other's.
+ */
+export const CONTAINER_OWNER_KINDS = ['vendor', 'package'] as const;
+
+/** Who declares a container the platform runs. */
+export type ContainerOwnerKind = (typeof CONTAINER_OWNER_KINDS)[number];
+
+/** Which integration or package runs a container. */
 export const containerManagerSchema = z.object({
+  ownerKind: z.enum(CONTAINER_OWNER_KINDS).default('vendor'),
+
+  /** The vendor, or the package when `ownerKind` says so. */
   vendorId: z.string().min(1).max(64),
 
   /** Which of the vendor's declared containers it is. */
@@ -979,6 +992,9 @@ export type ManagedVolume = z.output<typeof managedVolumeSchema>;
  * choose, never a bundle's.
  */
 export const managedContainerSpecSchema = z.object({
+  ownerKind: z.enum(CONTAINER_OWNER_KINDS).default('vendor'),
+
+  /** The vendor that declares it, or the package when `ownerKind` says so. */
   vendorId: z.string().min(1).max(64),
   dependencyId: z.string().regex(DEPENDENCY_ID_PATTERN),
 
@@ -1039,6 +1055,10 @@ export type VendorContainers = z.output<typeof vendorContainersSchema>;
  * container of a vendor not in it is released.
  */
 export const reconcileRequestSchema = z.strictObject({
+  /** Whose containers these are; a managed container of another owner of this kind is released. */
+  ownerKind: z.enum(CONTAINER_OWNER_KINDS).default('vendor'),
+
+  /** Every owner of the kind, with its containers: vendors, or packages. */
   vendors: z.array(vendorContainersSchema),
 });
 
@@ -1046,13 +1066,17 @@ export const reconcileRequestSchema = z.strictObject({
 export type ReconcileRequest = z.output<typeof reconcileRequestSchema>;
 
 /** `svc.supervisor.ensure`: one vendor's containers, after its settings changed. */
-export const ensureRequestSchema = z.strictObject(vendorContainersSchema.shape);
+export const ensureRequestSchema = z.strictObject({
+  ...vendorContainersSchema.shape,
+  ownerKind: z.enum(CONTAINER_OWNER_KINDS).default('vendor'),
+});
 
 /** One vendor's containers. */
 export type EnsureRequest = z.output<typeof ensureRequestSchema>;
 
 /** Where one declared container stands. */
 export const managedStatusSchema = z.object({
+  ownerKind: z.enum(CONTAINER_OWNER_KINDS).default('vendor'),
   vendorId: z.string().min(1).max(64),
   dependencyId: z.string().regex(DEPENDENCY_ID_PATTERN),
 
@@ -1069,7 +1093,10 @@ export const managedStatusSchema = z.object({
 export type ManagedStatus = z.output<typeof managedStatusSchema>;
 
 /** `svc.supervisor.managed`: which vendor. */
-export const managedRequestSchema = z.strictObject({ vendorId: z.string().min(1).max(64) });
+export const managedRequestSchema = z.strictObject({
+  vendorId: z.string().min(1).max(64),
+  ownerKind: z.enum(CONTAINER_OWNER_KINDS).default('vendor'),
+});
 
 /**
  * The reply to `reconcile`, `ensure` and `managed`. The work - a pull can take minutes - goes on after the

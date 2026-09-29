@@ -37,7 +37,7 @@ import { timestampSchema } from './timestamp.js';
  * Where a device comes from: an integration instance, the platform itself, or one of the host's
  * containers, which the supervisor measures and controls.
  */
-export const DEVICE_ORIGINS = ['integration', 'system', 'container'] as const;
+export const DEVICE_ORIGINS = ['integration', 'system', 'container', 'package'] as const;
 
 /** Where a device comes from. */
 export type DeviceOrigin = (typeof DEVICE_ORIGINS)[number];

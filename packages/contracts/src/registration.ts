@@ -18,6 +18,7 @@ import { sourceRefSchema } from './entity-state.js';
 import { iconIdSchema } from './icons.js';
 import { integrationIdSchema } from './integrations.js';
 import { jsonObjectSchema } from './json.js';
+import { packageIdSchema } from './package-id.js';
 import { resolveStateClass, sensorRegistrationIssue } from './sensor-classes.js';
 
 /** The bus service name `core` answers registration on. */
@@ -46,6 +47,12 @@ export const CORE_SYSTEM_MONITOR_METHOD = 'system_monitor';
  * devices of the containers that are gone (supervisor.ts).
  */
 export const CORE_SYNC_CONTAINERS_METHOD = 'sync_containers';
+
+/**
+ * Takes in every device and entity one package has, whole, and removes those it no longer has.
+ * Asked by the package's own process, through the package SDK (`ctx.devices.sync`).
+ */
+export const CORE_SYNC_PACKAGE_METHOD = 'sync_package';
 
 /**
  * How history should aggregate a numeric entity.
@@ -163,6 +170,120 @@ export const registerDeviceRequestSchema = z.strictObject({
 
 /** Asks `core` to complete the device an instance has identified. */
 export type RegisterDeviceRequest = z.output<typeof registerDeviceRequestSchema>;
+
+/** What every package device's public id starts with, so no device the owner adds can take it. */
+export const PACKAGE_DEVICE_PREFIX = 'package-';
+
+/** The longest a device's public id is: an instance id's length. */
+const MAXIMUM_DEVICE_ID_LENGTH = 64;
+
+/**
+ * A short digest of some text, to tell two ids apart that were cut to the same length. FNV-1a,
+ * so the browser and every service make the same one without a crypto library.
+ *
+ * @param text - The text.
+ * @returns Eight hexadecimal digits.
+ */
+function shortDigest(text: string): string {
+  let hash = 0x81_1c_9d_c5;
+
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01_00_01_93) >>> 0;
+  }
+
+  return hash.toString(16).padStart(8, '0');
+}
+
+/**
+ * The public id of a package's device: what the devices page lists it under.
+ *
+ * @param packageId - The package.
+ * @param externalId - The device's own id at the package.
+ * @returns `package-<package>-<slug>`, cut to 64 characters with a digest when it is longer.
+ */
+export function packageDeviceId(packageId: string, externalId: string): string {
+  const slug =
+    externalId
+      .toLowerCase()
+      .replaceAll(/[^a-z0-9]+/g, '-')
+      .replaceAll(/^-+|-+$/g, '') || 'device';
+  const whole = `${PACKAGE_DEVICE_PREFIX}${packageId}-${slug}`;
+
+  if (whole.length <= MAXIMUM_DEVICE_ID_LENGTH) {
+    return whole;
+  }
+
+  const digest = shortDigest(externalId);
+
+  return `${whole.slice(0, MAXIMUM_DEVICE_ID_LENGTH - digest.length - 1).replace(/-+$/, '')}-${digest}`;
+}
+
+/**
+ * What the entities of a package's devices are called after their domain: the package's id, so
+ * one package cannot take another's entities, or an integration's.
+ *
+ * @param packageId - The package.
+ * @returns `<package>_`, dashes as underscores.
+ */
+export function packageObjectPrefix(packageId: string): string {
+  return `${packageId.replaceAll('-', '_')}_`;
+}
+
+/** One device a package has, with its entities. */
+export const packageDeviceRegistrationSchema = z.object({
+  /** The device's own id at the package: stable, what finds it again. */
+  externalId: z.string().min(1).max(256),
+
+  /** What the device starts as called; the owner's name, once given, outlives it. */
+  name: z.string().min(1).max(128),
+
+  icon: iconIdSchema.optional(),
+  manufacturer: z.string().max(128).optional(),
+  model: z.string().max(128).optional(),
+  swVersion: z.string().max(64).optional(),
+
+  /** Its entities, each named `<domain>.<package>_<object>` (packageObjectPrefix). */
+  entities: z.array(entityRegistrationSchema).max(256).default([]),
+});
+
+/** One device a package has. */
+export type PackageDeviceRegistration = z.output<typeof packageDeviceRegistrationSchema>;
+
+/** Every device a package has, whole: what is not in it is removed. */
+export const syncPackageRequestSchema = z.strictObject({
+  packageId: packageIdSchema,
+  devices: z
+    .array(packageDeviceRegistrationSchema)
+    .max(512)
+    .refine(
+      (devices) => new Set(devices.map((device) => device.externalId)).size === devices.length,
+      { message: 'Each device needs an externalId of its own' },
+    ),
+});
+
+/** Every device a package has. */
+export type SyncPackageRequest = z.output<typeof syncPackageRequestSchema>;
+
+/** What `core` did with a package's devices. */
+export const syncPackageReplySchema = z.object({
+  devices: z.array(
+    z.object({
+      deviceId: z.string().min(1).max(64),
+      externalId: z.string().min(1).max(256),
+      entityIds: z.array(entityIdSchema),
+    }),
+  ),
+
+  /** Entities it did not write, and why: an id another owner has, one outside the package's. */
+  refused: z.array(z.object({ entityId: z.string().max(128), reason: z.string().max(256) })),
+
+  /** Devices gone from the list but kept, because an alias reads one of their entities. */
+  kept: z.array(z.string().max(256)),
+});
+
+/** What `core` did with a package's devices. */
+export type SyncPackageReply = z.output<typeof syncPackageReplySchema>;
 
 /** What `core` wrote. */
 export const registerDeviceReplySchema = z.object({
