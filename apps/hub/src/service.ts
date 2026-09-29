@@ -94,6 +94,7 @@ import { ImageStore } from './services/images.js';
 import { publishReports, startInstanceServices } from './services/instance.js';
 import { ManagementService } from './services/management.js';
 import { PackageWatch } from './services/package-watch.js';
+import { PlatformBroker } from './services/platform-broker.js';
 import { VendorContainersService } from './services/vendor-containers.js';
 
 /** What the service needs. */
@@ -154,6 +155,7 @@ export class HubService {
   readonly #images: ImageStore;
   readonly #vendorContainers: VendorContainersService;
   readonly #packages: PackageWatch;
+  readonly #broker: PlatformBroker;
   readonly #secretsKey: Buffer;
 
   /** The stream sources the vendors ship, by id: `bambu-lab/camera`. */
@@ -381,6 +383,11 @@ export class HubService {
         this.#restartVendor(vendorId, 'an account of it signed in or out'),
     });
 
+    this.#broker = new PlatformBroker({
+      client: this.#client,
+      logger: options.logger,
+      fixed: platformMqttOf(options.config),
+    });
     this.#packages = new PackageWatch({
       client: this.#client,
       logger: options.logger,
@@ -393,9 +400,14 @@ export class HubService {
        * @param vendorIds - The vendors whose standing changed.
        */
       onChange: (vendorIds: readonly string[]): void => {
-        for (const vendorId of vendorIds) {
-          void this.#restartVendor(vendorId, 'a package it needs started or stopped');
-        }
+        // The broker's username first: a vendor that waited for it connects with it.
+        void this.#broker.refresh().then(async () => {
+          for (const vendorId of vendorIds) {
+            // One vendor after another: the order they were told in.
+            // eslint-disable-next-line no-await-in-loop -- see above
+            await this.#restartVendor(vendorId, 'a package it needs started or stopped');
+          }
+        });
       },
     });
     this.#vendorContainers = new VendorContainersService({
@@ -440,7 +452,19 @@ export class HubService {
 
     // The data directory always; the repository's bundles under development only outside
     // production, where they stand in for the integrations catalogue.
-    const platform = { mqtt: platformMqttOf(config) };
+    const broker = this.#broker;
+    const platform = {
+      /**
+       * The house's broker as it stands now: asked of `pkg-mqtt`, which may start after the hub.
+       *
+       * @returns It, or null while there is none.
+       */
+      get mqtt() {
+        return broker.current;
+      },
+    };
+
+    await this.#broker.refresh();
     const installed = await loadBundles({
       directory: resolveDataLayout(config).integrations,
       origin: 'installed',

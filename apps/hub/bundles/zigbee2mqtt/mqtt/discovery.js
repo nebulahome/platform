@@ -46,6 +46,9 @@ const BASE = 'zigbee2mqtt';
 /** How long, connected, before hearing nothing of Zigbee2MQTT is said. */
 export const SILENCE_WARNING_MS = 60_000;
 
+/** How often a listener without a broker looks again. */
+const BROKER_WAIT_MS = 5000;
+
 /**
  * Builds the listener.
  *
@@ -66,20 +69,34 @@ export default function createZigbee2MqttDiscovery(sdk, options = {}) {
      * @yields {Sighting} The bridge and every device ready to add, each time the bridge lists them.
      */
     async *listen(signal, context) {
+      // The broker is a package that may start after the hub: until it is there, the listener
+      // says so and looks again, rather than returning and being started again at once.
+      while (sdk.platform.mqtt === null && !signal.aborted) {
+        context?.status?.({
+          level: 'error',
+          message:
+            'This installation has no MQTT broker running, so Zigbee2MQTT cannot be heard. The MQTT package provides it.',
+        });
+
+        // One wait after another: the next look is after this one.
+        // eslint-disable-next-line no-await-in-loop -- see above
+        await new Promise((resolve) => {
+          const timer = setTimeout(resolve, BROKER_WAIT_MS);
+
+          signal.addEventListener(
+            'abort',
+            () => {
+              clearTimeout(timer);
+              resolve(undefined);
+            },
+            { once: true },
+          );
+        });
+      }
+
       const broker = sdk.platform.mqtt;
 
       if (broker === null) {
-        context?.status?.({
-          level: 'error',
-          message: 'This installation has no MQTT broker, so Zigbee2MQTT cannot be heard.',
-        });
-
-        // No broker: nothing to hear. Waiting rather than returning keeps the hub from
-        // listening again every few seconds.
-        await new Promise((resolve) => {
-          signal.addEventListener('abort', () => resolve(undefined), { once: true });
-        });
-
         return;
       }
 

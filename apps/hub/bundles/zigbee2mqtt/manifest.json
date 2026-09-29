@@ -1,7 +1,7 @@
 {
   "id": "zigbee2mqtt",
   "version": "1.0.0",
-  "sdk": "^1.4.0",
+  "sdk": "^1.5.0",
   "name": "Zigbee2MQTT",
   "description": "Zigbee devices through Zigbee2MQTT and a coordinator on USB or on the network. NebulaHome runs Zigbee2MQTT in a container of its own, beside its MQTT broker; every device paired with it is added here on its own. Nothing leaves the house.",
   "url": "https://www.zigbee2mqtt.io",
@@ -12,6 +12,9 @@
   },
   "internetRequired": false,
   "setup": "./setup.json",
+  "requires": {
+    "services": ["mqtt-broker"]
+  },
   "transports": {
     "mqtt": {
       "module": "./mqtt/transport.js",
@@ -187,7 +190,8 @@
           "content": "# Written by NebulaHome the first time Zigbee2MQTT started. The broker, the adapter and the web\n# page come from the environment NebulaHome gives the container, and override what is here; what\n# Zigbee2MQTT keeps in this folder - the network's keys, the devices, the coordinator's backup - is\n# its own, and a NebulaHome backup takes it.\nversion: 4\nmqtt:\n  base_topic: zigbee2mqtt\n  server: '{platform.mqtt.url}'\nserial:\n  port: /dev/zigbee\nadvanced:\n  network_key: GENERATE\n  pan_id: GENERATE\n  ext_pan_id: GENERATE\n  log_output:\n    - console\nfrontend:\n  enabled: true\nhomeassistant:\n  enabled: false\navailability:\n  enabled: true\n"
         }
       ],
-      "webPort": "{setup.webPort}"
+      "webPort": "{setup.webPort}",
+      "mqttTopics": ["zigbee2mqtt/#"]
     }
   ]
 }

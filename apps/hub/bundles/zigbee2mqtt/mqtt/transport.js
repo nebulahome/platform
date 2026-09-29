@@ -73,7 +73,9 @@ function brokerOf(sdk) {
   const broker = sdk.platform.mqtt;
 
   if (broker === null) {
-    throw new Error('This installation has no MQTT broker for Zigbee2MQTT (NEBULA_MQTT_URL)');
+    throw new Error(
+      'This installation has no MQTT broker running for Zigbee2MQTT: the MQTT package provides it',
+    );
   }
 
   return broker;
