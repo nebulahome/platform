@@ -28,6 +28,7 @@ export const ENTITY_DOMAINS = [
   'number',
   'vacuum',
   'image',
+  'custom',
   'alias',
 ] as const;
 

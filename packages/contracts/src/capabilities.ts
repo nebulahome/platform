@@ -42,6 +42,7 @@ export const CAPABILITIES = [
   'number',
   'vacuum',
   'image',
+  'custom',
 ] as const;
 
 /** The name of a single capability. */
@@ -517,6 +518,46 @@ export const imageStateSchema = z.object({
 /** `image` has no device-specific limits. */
 export const imageParamsSchema = z.object({});
 
+// --- custom ------------------------------------------------------------------------------
+
+/** A field of a package's entity type, by its key. */
+const customKeySchema = z.string().regex(/^[a-z][a-zA-Z0-9]{0,31}$/);
+
+/** What a field of a package's entity type holds: a scalar, or nothing yet. */
+const customValueSchema = z.union([z.string().max(512), z.number(), z.boolean(), z.null()]);
+
+/**
+ * The state of an entity of a kind a package defines - a recording, a playlist - which no other
+ * capability describes: the values of the fields its entity type lists. The shape is the
+ * package's to say (`entityTypes` in its manifest), and `core` checks a report against it.
+ */
+export const customStateSchema = z.object({
+  values: z
+    .record(customKeySchema, customValueSchema)
+    .refine((values) => Object.keys(values).length <= 32, 'At most 32 fields'),
+});
+
+/** Which package's entity type an entity is. */
+export const customParamsSchema = z.object({
+  /** The package, by its id (the pattern of `packageIdSchema`). */
+  packageId: z.string().regex(/^[a-z][a-z0-9-]{1,63}$/),
+
+  /** The entity type, one of the package's `entityTypes`. */
+  type: z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/),
+});
+
+/**
+ * A command of the entity type, by its id, with its fields' values. Which ids an entity takes,
+ * and what their fields are, its package's manifest says; `core` checks the command against it.
+ */
+export const customCommandSchema = z.object({
+  command: z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/),
+  args: z
+    .record(customKeySchema, customValueSchema)
+    .refine((args) => Object.keys(args).length <= 8, 'At most 8 fields')
+    .default({}),
+});
+
 // --- select ------------------------------------------------------------------------------
 
 /** One choice of a select: what the device calls it, and what a person reads. */
@@ -649,6 +690,7 @@ export const CAPABILITY_DEFINITIONS = {
   number: { state: numberStateSchema, params: numberParamsSchema, commands: numberCommandSchema },
   vacuum: { state: vacuumStateSchema, params: vacuumParamsSchema, commands: vacuumCommandSchema },
   image: { state: imageStateSchema, params: imageParamsSchema, commands: NO_COMMANDS },
+  custom: { state: customStateSchema, params: customParamsSchema, commands: customCommandSchema },
 } as const satisfies Record<CapabilityName, CapabilityDefinition>;
 
 /**
@@ -678,6 +720,7 @@ export const capabilityStateSchema = z.object({
   number: numberStateSchema.optional(),
   vacuum: vacuumStateSchema.optional(),
   image: imageStateSchema.optional(),
+  custom: customStateSchema.optional(),
 });
 
 /** The composite state of an entity, keyed by capability. */

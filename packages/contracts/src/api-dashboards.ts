@@ -21,6 +21,8 @@ import { z } from 'zod';
 import { entityIdSchema } from './entity-id.js';
 import type { EntityRequirement } from './entity-requirement.js';
 import { iconIdSchema } from './icons.js';
+import { jsonObjectSchema } from './json.js';
+import { packageIdSchema } from './package-manifest.js';
 import { timestampSchema } from './timestamp.js';
 
 /** How many columns the dashboard grid has. A container's own grid is as wide as it is. */
@@ -39,7 +41,14 @@ export const DASHBOARDS_MAXIMUM = 100;
 export const DASHBOARD_LAYOUT_VERSION = 1;
 
 /** The kinds of card a dashboard holds. */
-export const DASHBOARD_CARD_TYPES = ['entity', 'scene', 'clock', 'energy', 'container'] as const;
+export const DASHBOARD_CARD_TYPES = [
+  'entity',
+  'scene',
+  'clock',
+  'energy',
+  'package',
+  'container',
+] as const;
 
 /** The kind of a card. */
 export type DashboardCardType = (typeof DASHBOARD_CARD_TYPES)[number];
@@ -186,12 +195,32 @@ export const ENERGY_CARD_REQUIREMENTS = {
   EntityRequirement
 >;
 
+/**
+ * A card a package draws: which package, which of the cards its manifest declares
+ * (`ui.cards[].id`), and the options its inspector asked, in the card's own grammar.
+ *
+ * The layout keeps it whether or not the package is installed: a package removed or stopped
+ * leaves a card that says so and offers to put it back, rather than a hole in the grid.
+ */
+export const dashboardPackageCardSchema = z.object({
+  ...placement,
+  type: z.literal('package'),
+  packageId: packageIdSchema,
+  cardId: z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/, 'Must be a card of the package'),
+  title: cardTitleSchema,
+  options: jsonObjectSchema.default({}),
+});
+
+/** A card a package draws. */
+export type DashboardPackageCard = z.output<typeof dashboardPackageCardSchema>;
+
 /** A card that can sit inside a container: anything but another container. */
 export const dashboardLeafCardSchema = z.discriminatedUnion('type', [
   dashboardEntityCardSchema,
   dashboardSceneCardSchema,
   dashboardClockCardSchema,
   dashboardEnergyCardSchema,
+  dashboardPackageCardSchema,
 ]);
 
 /** A card that can sit inside a container. */
@@ -220,6 +249,7 @@ export const dashboardCardSchema = z.discriminatedUnion('type', [
   dashboardSceneCardSchema,
   dashboardClockCardSchema,
   dashboardEnergyCardSchema,
+  dashboardPackageCardSchema,
   dashboardContainerCardSchema,
 ]);
 
