@@ -748,6 +748,37 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@22.20.1)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
 
+  packages/package-sdk:
+    dependencies:
+      '@nebula-home/bus':
+        specifier: workspace:*
+        version: link:../bus
+      '@nebula-home/config':
+        specifier: workspace:*
+        version: link:../config
+      '@nebula-home/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@nebula-home/logging':
+        specifier: workspace:*
+        version: link:../logging
+      zod:
+        specifier: ^4.5.4
+        version: 4.5.4
+    devDependencies:
+      '@nebula-home/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@nebula-home/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@22.20.1)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
+
   packages/prettier-config: {}
 
   packages/tsconfig: {}
