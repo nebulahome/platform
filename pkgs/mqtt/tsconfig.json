@@ -1,0 +1,5 @@
+{
+  "extends": "@nebula-home/tsconfig/react.json",
+  "compilerOptions": { "types": ["node", "vite/client"] },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts"]
+}

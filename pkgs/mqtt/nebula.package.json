@@ -1,0 +1,30 @@
+{
+  "id": "mqtt",
+  "version": "1.0.0",
+  "platform": "^1.0.0",
+  "sdk": "^1.0.0",
+  "name": "MQTT",
+  "description": "The house's MQTT broker: devices on the network connect to it, and Home Assistant discovery turns what they announce into devices of the house.",
+  "repository": "nebula-home/pkg-mqtt",
+  "color": "#660066",
+  "logo": { "path": "./logo.svg" },
+  "category": "protocol",
+  "runtime": "node",
+  "server": { "entry": "./dist/server/index.js" },
+  "ui": {
+    "entry": "./ui/index.js",
+    "styles": "./ui/index.css",
+    "page": true,
+    "cards": [
+      {
+        "id": "broker",
+        "name": "MQTT broker",
+        "description": "Clients online and messages per second.",
+        "icon": "router",
+        "sizes": ["small", "wide"]
+      }
+    ]
+  },
+  "setup": "./setup.json",
+  "provides": ["mqtt-broker"]
+}
