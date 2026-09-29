@@ -17,6 +17,7 @@ import { startStateIngest } from './state-ingest.js';
 const bulb = parseEntityId('light.kitchen_ceiling');
 const hallway = parseEntityId('light.hallway');
 const thermometer = parseEntityId('sensor.kitchen_temperature');
+const robotMap = parseEntityId('image.hall_map');
 
 describe('startStateIngest', () => {
   let harness: CoreHarness;
@@ -28,6 +29,7 @@ describe('startStateIngest', () => {
     harness = createCoreHarness();
     harness.directory.set(entityRecord(bulb, { capabilities: { on_off: {}, level: {} } }));
     harness.directory.set(entityRecord(thermometer, { capabilities: { sensor_numeric: {} } }));
+    harness.directory.set(entityRecord(robotMap, { capabilities: { image: {} } }));
     readings = [];
 
     harness
@@ -115,6 +117,20 @@ describe('startStateIngest', () => {
     // directory carries the row id at all.
     expect(harness.historyRows[0]?.entityId).toBe(`row-${bulb}`);
     expect(harness.historyRows[0]?.previousState).toBeNull();
+  });
+
+  it('keeps a new picture in the cache and out of the history', async () => {
+    harness.clientFor('pkg-mqtt').publish(busSubjects.stateReport(robotMap), {
+      entityId: robotMap,
+      state: { image: { contentType: 'image/svg+xml', revision: 'a1b2c3' } },
+    });
+
+    await vi.waitFor(() => {
+      expect(harness.cacheRows).toHaveLength(1);
+    });
+
+    expect(harness.registry.get(robotMap)?.state.image?.revision).toBe('a1b2c3');
+    expect(harness.historyRows).toEqual([]);
   });
 
   it('writes nothing when a sensor repeats itself', async () => {

@@ -31,6 +31,27 @@ function record(
   };
 }
 
+describe('a robot vacuum', () => {
+  it('cleans some rooms only when it declared it can, and is told where it is only then', () => {
+    const entity = record({
+      vacuum: {
+        canPause: true,
+        canStop: true,
+        canDock: true,
+        canLocate: false,
+        canCleanRooms: true,
+      },
+    });
+
+    expect(() =>
+      validateCommand(entity, 'vacuum', { command: 'clean_rooms', rooms: ['1'] }),
+    ).not.toThrow();
+    expect(() => validateCommand(entity, 'vacuum', { command: 'locate' })).toThrow(
+      'cannot say where it is',
+    );
+  });
+});
+
 describe('validateCommand', () => {
   it('accepts a command the entity can execute', () => {
     const command = validateCommand(record({ on_off: {} }), 'on_off', { command: 'toggle' });

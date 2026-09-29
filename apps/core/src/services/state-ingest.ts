@@ -178,11 +178,26 @@ export function ingestReport(
     { traceId },
   );
 
-  options.history.add(toHistoryRow(record, result));
+  // A picture's state says only which picture it is: a robot's map is drawn again every few
+  // seconds while it cleans, and a row each time would bury what the device's activity says.
+  if (!isPicture(result.entityId)) {
+    options.history.add(toHistoryRow(record, result));
+  }
+
   options.stateCache.add(toCacheRow(record, result));
   options.onNotableChange?.(result.entityId);
 
   return result;
+}
+
+/**
+ * Says whether an entity is a picture, whose changes are not history.
+ *
+ * @param entityId - The entity.
+ * @returns True for an image entity.
+ */
+function isPicture(entityId: string): boolean {
+  return entityId.startsWith('image.');
 }
 
 /**

@@ -145,6 +145,37 @@ function checkAgainstParams(
     }
   }
 
+  if (capability === 'vacuum') {
+    const { canPause, canStop, canDock, canLocate, canCleanRooms } = params as {
+      canPause: boolean;
+      canStop: boolean;
+      canDock: boolean;
+      canLocate: boolean;
+      canCleanRooms: boolean;
+    };
+    const name = command['command'];
+
+    if (name === 'pause' && !canPause) {
+      reject('this robot cannot be paused');
+    }
+
+    if (name === 'stop' && !canStop) {
+      reject('this robot cannot end a job from here');
+    }
+
+    if (name === 'dock' && !canDock) {
+      reject('this robot cannot be sent back to its station');
+    }
+
+    if (name === 'locate' && !canLocate) {
+      reject('this robot cannot say where it is');
+    }
+
+    if (name === 'clean_rooms' && !canCleanRooms) {
+      reject('this robot cannot clean only some rooms');
+    }
+  }
+
   if (capability === 'select' && command['command'] === 'select_option') {
     const { options } = params as { options: readonly { value: string }[] };
     const values = options.map((option) => option.value);
