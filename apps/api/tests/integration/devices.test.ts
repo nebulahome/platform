@@ -271,6 +271,82 @@ describe('the system device', () => {
   });
 });
 
+describe("a package's device", () => {
+  /** The package this run installs, and its device. */
+  const packageId = `test-${randomUUID().slice(0, 8)}`;
+  const externalId = 'broker';
+  const entityId = `sensor.${packageId.replaceAll('-', '_')}_clients`;
+
+  beforeAll(async () => {
+    const { devices, entities } = schema.registry;
+
+    await database.db.insert(schema.system.packages).values({
+      id: packageId,
+      version: '1.0.0',
+      runtime: 'node',
+      state: 'running',
+      source: 'local',
+      manifest: { id: packageId, name: 'Test broker' },
+    });
+
+    const [device] = await database.db
+      .insert(devices)
+      .values({ source: 'adapter', packageId, externalId, name: 'Broker' })
+      .returning({ id: devices.id });
+
+    await database.db.insert(entities).values({
+      entityId,
+      deviceId: device?.id ?? null,
+      source: 'adapter',
+      packageId,
+      name: 'Clients',
+    });
+  });
+
+  afterAll(async () => {
+    const { devices, entities } = schema.registry;
+
+    await database.db.delete(entities).where(eq(entities.packageId, packageId));
+    await database.db.delete(devices).where(eq(devices.packageId, packageId));
+    await database.db
+      .delete(schema.system.packages)
+      .where(eq(schema.system.packages.id, packageId));
+  });
+
+  it('is listed under its package, with a connection nobody runs', async () => {
+    const found = (await listDevices(context)).find((device) => device.vendorId === packageId);
+
+    expect(found).toMatchObject({
+      id: `package-${packageId}-broker`,
+      origin: 'package',
+      kind: `${packageId}/device`,
+      driverName: 'Test broker',
+      transport: 'package',
+      entityIds: [entityId],
+    });
+    expect(deviceViewSchema.safeParse(found).success).toBe(true);
+  });
+
+  it('can be renamed, and is not removed by hand', async () => {
+    const id = `package-${packageId}-broker`;
+    const renamed = await server.inject({
+      method: 'PATCH',
+      url: `/api/v1/devices/${id}`,
+      headers: { authorization: await bearer('device:write') },
+      payload: { name: 'The broker' },
+    });
+    const removed = await server.inject({
+      method: 'DELETE',
+      url: `/api/v1/devices/${id}`,
+      headers: { authorization: await bearer('device:delete') },
+    });
+
+    expect(renamed.statusCode).toBe(200);
+    expect(renamed.json()).toMatchObject({ id, name: 'The broker' });
+    expect(removed.statusCode).toBe(409);
+  });
+});
+
 describe('listing devices from the database', () => {
   it('reads the last report as a date the contract accepts, beside both halves', async () => {
     const device = (await listDevices(context)).find((one) => one.id === instanceId);

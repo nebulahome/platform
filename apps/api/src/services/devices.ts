@@ -26,7 +26,7 @@
  */
 import { isDeepStrictEqual } from 'node:util';
 
-import { and, asc, eq, inArray, max, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull, max, or, sql } from 'drizzle-orm';
 
 import {
   busSubjects,
@@ -41,6 +41,8 @@ import {
   HUB_PROBE_METHOD,
   HUB_SERVICE,
   NotFoundError,
+  PACKAGE_DEVICE_PREFIX,
+  packageDeviceId,
   probeReplySchema,
   SYSTEM_DEVICE_ID,
   unregisterDeviceReplySchema,
@@ -272,22 +274,27 @@ async function entityIdsOf(
 
 /**
  * The devices the platform keeps for itself - the system device and one per container of the
- * host - read from their rows and given their fixed connection half.
+ * host - and those a package keeps (PACKAGES.md 6), read from their rows and given their fixed
+ * connection half.
  *
  * `running` because the view's state is the instance's, and there is no instance to be
- * anything else; whether the machine or the container is being heard from is what
+ * anything else; whether the machine, the container or the package is being heard from is what
  * `lastUpdatedAt` and the entities' own availability say, the same as for any device.
  *
  * @param context - The request's collaborators.
- * @returns The views, the system device first; none of either before `core` has written them.
+ * @returns The views, the system device first, then the packages', then the containers'; none
+ * of any before `core` has written them.
  */
 async function platformDeviceViews(context: DevicesContext): Promise<DeviceView[]> {
   const { devices, areas, entities, entityStates } = schema.registry;
+  const { packages } = schema.system;
 
   const rows = await context.db
     .select({
       rowId: devices.id,
       source: devices.source,
+      packageId: devices.packageId,
+      packageName: sql<string | null>`${packages.manifest} ->> 'name'`,
       name: devices.name,
       icon: devices.icon,
       externalId: devices.externalId,
@@ -301,7 +308,17 @@ async function platformDeviceViews(context: DevicesContext): Promise<DeviceView[
     })
     .from(devices)
     .leftJoin(areas, eq(areas.id, devices.areaId))
-    .where(inArray(devices.source, ['system', 'container']));
+    .leftJoin(packages, eq(packages.id, devices.packageId))
+    .where(
+      or(
+        inArray(devices.source, ['system', 'container']),
+        and(
+          eq(devices.source, 'adapter'),
+          isNotNull(devices.packageId),
+          isNull(devices.integrationId),
+        ),
+      ),
+    );
 
   const views = await Promise.all(
     rows.map(async (row) => {
@@ -318,20 +335,12 @@ async function platformDeviceViews(context: DevicesContext): Promise<DeviceView[
           .where(eq(entities.deviceId, row.rowId)),
         tagIdsOfDeviceRow(context.db, row.rowId),
       ]);
-      const isSystem = row.source === 'system';
 
       return deviceViewSchema.parse({
-        id: isSystem ? SYSTEM_DEVICE_ID : containerDeviceId(row.externalId ?? row.name),
-        origin: isSystem ? 'system' : 'container',
+        ...platformHalfOf(row),
         name: row.name,
         icon: row.icon,
-        kind: isSystem ? 'nebula/system' : 'nebula/container',
-        kindVersion: row.swVersion ?? '0.0.0',
-        vendorId: 'nebula',
-        driverId: isSystem ? 'system' : 'container',
-        driverName: isSystem ? 'System' : 'Container',
         model: row.model,
-        transport: isSystem ? 'system' : 'docker',
         transportConfig: {},
         options: {},
         isEnabled: true,
@@ -351,14 +360,76 @@ async function platformDeviceViews(context: DevicesContext): Promise<DeviceView[
       });
     }),
   );
+  const order: Readonly<Record<string, number>> = { system: 0, package: 1, container: 2 };
 
   return views.sort((left, right) =>
     left.origin === right.origin
       ? left.name.localeCompare(right.name)
-      : left.origin === 'system'
-        ? -1
-        : 1,
+      : (order[left.origin] ?? 3) - (order[right.origin] ?? 3),
   );
+}
+
+/**
+ * The fixed half of a device the platform or a package keeps: who it is, and how it is reached.
+ *
+ * @param row - Its row.
+ * @param row.source - `system`, `container`, or `adapter` for a package's.
+ * @param row.packageId - The package, for a package's.
+ * @param row.packageName - The package's name.
+ * @param row.externalId - The container's name, or the package's own id for it.
+ * @param row.name - Its name, when it has no external id.
+ * @param row.swVersion - The version it reports.
+ * @returns The fields.
+ */
+function platformHalfOf(row: {
+  readonly source: string;
+  readonly packageId: string | null;
+  readonly packageName: string | null;
+  readonly externalId: string | null;
+  readonly name: string;
+  readonly swVersion: string | null;
+}): Pick<
+  DeviceView,
+  'id' | 'origin' | 'kind' | 'kindVersion' | 'vendorId' | 'driverId' | 'driverName' | 'transport'
+> {
+  const kindVersion = row.swVersion ?? '0.0.0';
+
+  if (row.source === 'system') {
+    return {
+      id: SYSTEM_DEVICE_ID,
+      origin: 'system',
+      kind: 'nebula/system',
+      kindVersion,
+      vendorId: 'nebula',
+      driverId: 'system',
+      driverName: 'System',
+      transport: 'system',
+    };
+  }
+
+  if (row.source === 'container' || row.packageId === null) {
+    return {
+      id: containerDeviceId(row.externalId ?? row.name),
+      origin: 'container',
+      kind: 'nebula/container',
+      kindVersion,
+      vendorId: 'nebula',
+      driverId: 'container',
+      driverName: 'Container',
+      transport: 'docker',
+    };
+  }
+
+  return {
+    id: packageDeviceId(row.packageId, row.externalId ?? row.name),
+    origin: 'package',
+    kind: `${row.packageId}/device`,
+    kindVersion,
+    vendorId: row.packageId,
+    driverId: 'device',
+    driverName: row.packageName ?? row.packageId,
+    transport: 'package',
+  };
 }
 
 /**
@@ -592,7 +663,11 @@ export async function updateDevice(
   id: string,
   body: DeviceUpdate,
 ): Promise<DeviceView> {
-  if (id === SYSTEM_DEVICE_ID || id.startsWith(CONTAINER_DEVICE_PREFIX)) {
+  if (
+    id === SYSTEM_DEVICE_ID ||
+    id.startsWith(CONTAINER_DEVICE_PREFIX) ||
+    id.startsWith(PACKAGE_DEVICE_PREFIX)
+  ) {
     return updatePlatformDevice(context, id, body);
   }
 
@@ -725,7 +800,9 @@ async function updatePlatformDevice(
     throw new ValidationError(
       id === SYSTEM_DEVICE_ID
         ? 'The system device has no connection to change'
-        : 'A container is reached through Docker; there is no connection to change',
+        : id.startsWith(PACKAGE_DEVICE_PREFIX)
+          ? 'A package keeps its devices itself; there is no connection to change'
+          : 'A container is reached through Docker; there is no connection to change',
       { details: { fields: refused } },
     );
   }
@@ -747,10 +824,16 @@ async function updatePlatformDevice(
       .where(
         device.origin === 'system'
           ? eq(schema.registry.devices.source, 'system')
-          : and(
-              eq(schema.registry.devices.source, 'container'),
-              eq(schema.registry.devices.externalId, device.externalId ?? ''),
-            ),
+          : device.origin === 'package'
+            ? and(
+                eq(schema.registry.devices.source, 'adapter'),
+                eq(schema.registry.devices.packageId, device.vendorId),
+                eq(schema.registry.devices.externalId, device.externalId ?? ''),
+              )
+            : and(
+                eq(schema.registry.devices.source, 'container'),
+                eq(schema.registry.devices.externalId, device.externalId ?? ''),
+              ),
       )
       .limit(1);
 
@@ -843,6 +926,13 @@ export async function deleteDevice(context: DevicesContext, id: string): Promise
     // Before anything is asked of anyone: `core` would write it back at its next start anyway,
     // and in between the machine's readings would have nowhere to go.
     throw new ConflictError('The system device belongs to the platform and cannot be removed', {
+      details: { id },
+    });
+  }
+
+  if (id.startsWith(PACKAGE_DEVICE_PREFIX)) {
+    // The package lists its devices whenever it starts, and would list this one again.
+    throw new ConflictError('A package keeps its own devices: it removes them itself', {
       details: { id },
     });
   }
