@@ -175,8 +175,9 @@ export type ManagedMqtt = {
 export type OpenMqtt = (options: ManagedMqttOptions) => ManagedMqtt;
 
 /**
- * The platform's own MQTT broker, as the hub reaches it: Mosquitto inside the container, the
- * development stack's on `pnpm dev`.
+ * The house's MQTT broker, as the hub reaches it: `pkg-mqtt`, with the hub's own username - or the
+ * broker `NEBULA_MQTT_URL` names. Read again each time it is needed: the broker may start after
+ * the hub, and a bundle that opens a session later finds it then.
  */
 export type PlatformMqtt = {
   readonly url: string;

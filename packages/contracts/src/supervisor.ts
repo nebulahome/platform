@@ -1036,6 +1036,9 @@ export const managedContainerSpecSchema = z.object({
 
   /** The container port its own web page is on, when it serves one and it is published. */
   webPort: z.int().min(1).max(65_535).nullable(),
+
+  /** The MQTT topics its broker username is held to; every topic when absent. */
+  mqttTopics: z.array(z.string().min(1).max(256)).max(16).optional(),
 });
 
 /** One container an integration runs, as `hub` hands it over. */

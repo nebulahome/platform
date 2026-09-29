@@ -146,6 +146,17 @@ export const containerDependencySchema = z.strictObject({
     .default([]),
 
   /**
+   * The MQTT topics it publishes and subscribes under, when it speaks to the house's broker:
+   * `zigbee2mqtt/#`. The broker gives the container a username of its own, held to them - every
+   * topic when not said.
+   */
+  mqttTopics: z
+    .array(z.string().min(1).max(256).regex(/^[^$]/, "Not the broker's own topics"))
+    .min(1)
+    .max(16)
+    .optional(),
+
+  /**
    * The container port its own web page is on, which the interface links to while that port is
    * published. A number, or a number the vendor's settings give.
    */

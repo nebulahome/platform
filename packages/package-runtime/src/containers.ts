@@ -249,6 +249,7 @@ export function renderContainers(
         })),
       seed: dep.seed.map((seed) => ({ ...seed, content: fillSettings(seed.content, values) })),
       webPort,
+      ...(dep.mqttTopics === undefined ? {} : { mqttTopics: [...dep.mqttTopics] }),
     };
   });
 }
