@@ -50,7 +50,17 @@ export async function insertFixture(
     version: '1.0.0',
     runtime: 'node',
     state: 'running',
-    manifest: { id: packageId, version: '1.0.0', runtime: 'node', coreApiVersion: '^1.0.0' },
+    manifest: {
+      id: packageId,
+      version: '1.0.0',
+      platform: '^1.0.0',
+      sdk: '^1.0.0',
+      name: 'Fixture',
+      description: 'A package the core tests register devices under.',
+      category: 'other',
+      runtime: 'node',
+      server: { entry: './server/index.js' },
+    },
   });
 
   const [device] = await db
