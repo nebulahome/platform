@@ -99,9 +99,12 @@ const BAMBU: IntegrationVendorView = {
   pairing: null,
   listener: null,
   passedOver: [],
+  requires: { packages: {}, services: [] },
+  packageProblems: [],
   account: null,
   accounts: [],
   needsAccount: false,
+  needsPackage: false,
   containers: [],
   containerStatuses: [],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
@@ -345,6 +348,27 @@ describe('a vendor page', () => {
     expect(screen.getByRole('status').textContent).toContain('needs setting up');
   });
 
+  it('holds back Add device while a package the vendor needs does not run, saying which', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue({
+      ...BAMBU,
+      requires: { packages: { mqtt: '^1.0.0' }, services: [] },
+      packageProblems: ['Bambu Lab needs the MQTT package, which is not running'],
+      needsPackage: true,
+    });
+    vi.mocked(fetchDevices).mockResolvedValue([]);
+    renderPage('bambu-lab');
+
+    expect(
+      await screen.findByText('Bambu Lab needs the MQTT package, which is not running.'),
+    ).toBeTruthy();
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Add device' }).disabled).toBe(
+      true,
+    );
+    expect(screen.getByRole('link', { name: 'Go to Packages' }).getAttribute('href')).toBe(
+      '/packages/mqtt',
+    );
+  });
+
   it('opens the vendor form from Configure, with what the vendor asks', async () => {
     vi.mocked(fetchVendor).mockResolvedValue(ACME);
     vi.mocked(fetchDevices).mockResolvedValue([]);
@@ -449,9 +473,12 @@ describe('a vendor that adds its own devices', () => {
     pairing: { driverId: 'bridge', objectId: 'permit_join' },
     listener: null,
     passedOver: [],
+    requires: { packages: {}, services: [] },
+    packageProblems: [],
     account: null,
     accounts: [],
     needsAccount: false,
+    needsPackage: false,
   };
 
   /**

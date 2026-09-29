@@ -459,6 +459,31 @@ export function VendorPage() {
               </div>
             </section>
 
+            {found.needsPackage ? (
+              <Panel title="Before anything else" elevation="flat">
+                <div className="flex flex-wrap items-center gap-4 px-4 py-3.5">
+                  <div
+                    role="status"
+                    className="flex grow flex-col gap-1 text-ui text-foreground-muted"
+                  >
+                    {found.packageProblems.map((problem) => (
+                      <p key={problem}>{problem}.</p>
+                    ))}
+                  </div>
+                  <Link
+                    to={
+                      Object.keys(found.requires.packages).length === 1
+                        ? `/packages/${encodeURIComponent(Object.keys(found.requires.packages)[0] ?? '')}`
+                        : '/packages?view=available'
+                    }
+                    className="shrink-0 text-ui font-medium text-primary underline-offset-2 hover:underline"
+                  >
+                    Go to Packages
+                  </Link>
+                </div>
+              </Panel>
+            ) : null}
+
             <VendorAccounts vendor={found} devices={devices} canConfigure={canConfigure} />
 
             {found.needsSetup && !runsContainers ? (
@@ -548,13 +573,15 @@ export function VendorPage() {
                 canWrite && !isAutomatic ? (
                   <Button
                     size="compact"
-                    disabled={found.needsSetup || found.needsAccount}
+                    disabled={found.needsSetup || found.needsAccount || found.needsPackage}
                     title={
-                      found.needsSetup
-                        ? `Set up ${found.name} first`
-                        : found.needsAccount
-                          ? `Sign in to a ${found.account?.name ?? 'account'} first`
-                          : undefined
+                      found.needsPackage
+                        ? (found.packageProblems[0] ?? 'A package it needs is not running')
+                        : found.needsSetup
+                          ? `Set up ${found.name} first`
+                          : found.needsAccount
+                            ? `Sign in to a ${found.account?.name ?? 'account'} first`
+                            : undefined
                     }
                     onClick={() => {
                       setOpen({
