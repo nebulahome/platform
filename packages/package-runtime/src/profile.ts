@@ -33,6 +33,7 @@ import {
   iconIdSchema,
   jsonObjectSchema,
   type CapabilityName,
+  IMAGE_CONTENT_TYPES,
 } from '@nebula-home/contracts';
 
 import { pathSchema } from './expression.js';
@@ -271,6 +272,21 @@ export const entityProfileSchema = z
         args: jsonObjectSchema.default({}),
       })
       .optional(),
+
+    /**
+     * Since 1.5, for an image: where in the payload the picture is - an SVG's text, a PNG's bytes
+     * in base64 - what it is, and how often at most a new one is announced. The hub keeps the
+     * picture and publishes only which one it is (`revision`), so the state stays small however
+     * large the picture.
+     */
+    image: z
+      .strictObject({
+        path: pathSchema,
+        contentType: z.enum(IMAGE_CONTENT_TYPES),
+        encoding: z.enum(['utf8', 'base64']).default('utf8'),
+        minIntervalMs: z.int().min(0).max(600_000).default(2000),
+      })
+      .optional(),
   })
   .superRefine((entity, ctx) => {
     if (entity.stream !== undefined && entity.domain !== 'camera') {
@@ -278,6 +294,14 @@ export const entityProfileSchema = z
         code: 'custom',
         path: ['stream'],
         message: 'Only a camera has a stream',
+      });
+    }
+
+    if (entity.image !== undefined && entity.domain !== 'image') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['image'],
+        message: 'Only an image has a picture',
       });
     }
 

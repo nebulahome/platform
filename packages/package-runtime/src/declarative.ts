@@ -10,6 +10,8 @@
  * state is field-to-field, whose commands are request templates. Everything else is a code
  * bundle. See `profile.ts` for where that line is drawn and why.
  */
+import { createHash } from 'node:crypto';
+
 import {
   capabilityStateSchema,
   jsonObjectSchema,
@@ -21,7 +23,6 @@ import {
   type CapabilityState,
   type EntityId,
   type JsonObject,
-  type StateReport,
 } from '@nebula-home/contracts';
 
 import type { BundleManifest } from './bundle.js';
@@ -34,6 +35,7 @@ import type {
   EntityDescriptor,
   Integration,
   MappingContext,
+  ReportedState,
   StreamRequest,
 } from './integration.js';
 import type {
@@ -225,6 +227,37 @@ function numberOf(
   const shifted = number >>> shift;
 
   return width === 32 ? shifted >>> 0 : (shifted & ((1 << width) - 1)) >>> 0;
+}
+
+/**
+ * The report of an image entity: which picture it is, and the picture beside it for the hub.
+ *
+ * @param entityId - The entity.
+ * @param image - Where the picture is, and what it is.
+ * @param payload - What arrived.
+ * @returns The report, or undefined when the payload holds no picture.
+ */
+function imageReportOf(
+  entityId: EntityId,
+  image: NonNullable<EntityProfile['image']>,
+  payload: unknown,
+): ReportedState | undefined {
+  const content = resolvePath(payload, image.path);
+
+  if (typeof content !== 'string' || content === '') {
+    return undefined;
+  }
+
+  const data = image.encoding === 'base64' ? Buffer.from(content, 'base64') : content;
+  const revision = createHash('sha256').update(data).digest('hex').slice(0, 16);
+
+  return {
+    entityId,
+    state: { image: { contentType: image.contentType, revision } },
+    attributes: {},
+    isAvailable: true,
+    blob: { contentType: image.contentType, data, minIntervalMs: image.minIntervalMs },
+  };
 }
 
 /**
@@ -495,11 +528,22 @@ export function createDeclarativeIntegration(
      * @param context - The identifiers `hub` assigned to this device.
      * @returns One report per entity the message says something about.
      */
-    toState: (message: TransportInbound, context: MappingContext): StateReport[] => {
-      const reports: StateReport[] = [];
+    toState: (message: TransportInbound, context: MappingContext): ReportedState[] => {
+      const reports: ReportedState[] = [];
 
       for (const entity of profile.entities) {
         const entityId = context.entities.get(keyOf(entity));
+
+        if (entityId !== undefined && entity.image !== undefined) {
+          const report = imageReportOf(entityId, entity.image, message.payload);
+
+          if (report !== undefined) {
+            reports.push(report);
+          }
+
+          continue;
+        }
+
         const state = entityId === undefined ? undefined : stateFrom(entity, message.payload);
 
         if (entityId !== undefined && state !== undefined) {

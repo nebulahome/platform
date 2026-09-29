@@ -121,6 +121,24 @@ export type CommandTarget = {
   readonly command: JsonObject;
 };
 
+/**
+ * Since 1.5: the picture an image entity's report carries beside its state - an SVG, a PNG - which
+ * the hub keeps and never publishes: the state says which picture it is (`revision`), and the
+ * bytes are asked for by whoever shows it.
+ */
+export type ImageBlob = {
+  readonly contentType: 'image/svg+xml' | 'image/png' | 'image/jpeg';
+
+  /** The picture: an SVG's text, or bytes. */
+  readonly data: string | Buffer;
+
+  /** How often at most a new picture of the entity is announced; 2 s unless said. */
+  readonly minIntervalMs?: number;
+};
+
+/** A report as an integration makes it: the state, and the picture of an image entity. */
+export type ReportedState = StateReport & { readonly blob?: ImageBlob };
+
 /** What a kind of device means, in terms of the canonical model. */
 export type Integration<TOptions = JsonObject> = {
   /** The bundle kind: `zigbee2mqtt`, `shelly-gen2`. An instance of it gets its own id. */
@@ -178,7 +196,7 @@ export type Integration<TOptions = JsonObject> = {
    * @param context - The claim, the settings and the last known state.
    * @returns One report per entity the message says something about, which may be none.
    */
-  toState: (message: TransportInbound, context: MappingContext) => StateReport[];
+  toState: (message: TransportInbound, context: MappingContext) => ReportedState[];
 
   /**
    * Turns a canonical command into something the transport can perform.

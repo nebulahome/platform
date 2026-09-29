@@ -87,6 +87,15 @@ export type TransportContext = {
   readonly account?: AccountHandle;
 };
 
+/**
+ * Since 1.5: what a scan or a probe is handed beside its arguments - the account its
+ * configuration names (`config.account`), as a connection is handed it. Absent otherwise, and for
+ * a hub older than 1.5.
+ */
+export type TransportLookContext = {
+  readonly account?: AccountHandle;
+};
+
 /** One live connection, shared by every instance whose configuration resolves to it. */
 export type TransportConnection = {
   /** What this connection is shared under. */
@@ -165,10 +174,16 @@ export type Transport = {
    * @param config - The connection settings.
    * @param scan - The integration's search terms, in this transport's vocabulary.
    * @param signal - Ends the scan.
+   * @param context - Since 1.5: the account the configuration names.
    * @returns Candidates as they are found, rather than a list once the scan is over: a scan of a
    * house takes long enough that the interface should be filling in while it runs.
    */
-  scan: (config: unknown, scan: JsonObject, signal: AbortSignal) => AsyncIterable<Discovered>;
+  scan: (
+    config: unknown,
+    scan: JsonObject,
+    signal: AbortSignal,
+    context?: TransportLookContext,
+  ) => AsyncIterable<Discovered>;
 
   /**
    * Tries the settings against the world and lets go again.
@@ -181,8 +196,9 @@ export type Transport = {
    *
    * @param config - What the owner typed, complete and in the clear.
    * @param signal - Gives up: a host that never answers must not hold the form open.
+   * @param context - Since 1.5: the account the configuration names.
    */
-  probe: (config: unknown, signal: AbortSignal) => Promise<string>;
+  probe: (config: unknown, signal: AbortSignal, context?: TransportLookContext) => Promise<string>;
 };
 
 /** A transport as its author writes it, with its own configuration type. */
@@ -191,8 +207,13 @@ export type TransportSpec<TConfig> = {
   readonly configSchema: z.ZodType<TConfig>;
   connectionKey: (config: TConfig) => string;
   connect: (config: TConfig, context: TransportContext) => Promise<TransportConnection>;
-  scan: (config: TConfig, scan: JsonObject, signal: AbortSignal) => AsyncIterable<Discovered>;
-  probe: (config: TConfig, signal: AbortSignal) => Promise<string>;
+  scan: (
+    config: TConfig,
+    scan: JsonObject,
+    signal: AbortSignal,
+    context?: TransportLookContext,
+  ) => AsyncIterable<Discovered>;
+  probe: (config: TConfig, signal: AbortSignal, context?: TransportLookContext) => Promise<string>;
 };
 
 /**
@@ -234,19 +255,29 @@ export function defineTransport<TConfig>(spec: TransportSpec<TConfig>): Transpor
      * @param config - What the owner configured.
      * @param scan - The integration's search terms.
      * @param signal - Ends the scan.
+     * @param context - The account the configuration names.
      * @returns Candidates as they are found.
      */
-    scan: (config: unknown, scan: JsonObject, signal: AbortSignal): AsyncIterable<Discovered> =>
-      spec.scan(spec.configSchema.parse(config), scan, signal),
+    scan: (
+      config: unknown,
+      scan: JsonObject,
+      signal: AbortSignal,
+      context?: TransportLookContext,
+    ): AsyncIterable<Discovered> =>
+      spec.scan(spec.configSchema.parse(config), scan, signal, context),
 
     /**
      * Validates the settings, then tries them.
      *
      * @param config - What the owner typed.
      * @param signal - Gives up.
+     * @param context - The account the configuration names.
      * @returns What the transport said worked.
      */
-    probe: async (config: unknown, signal: AbortSignal): Promise<string> =>
-      spec.probe(spec.configSchema.parse(config), signal),
+    probe: async (
+      config: unknown,
+      signal: AbortSignal,
+      context?: TransportLookContext,
+    ): Promise<string> => spec.probe(spec.configSchema.parse(config), signal, context),
   };
 }

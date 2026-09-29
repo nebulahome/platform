@@ -193,6 +193,43 @@ export type PlatformServices = {
   readonly mqtt: PlatformMqtt | null;
 };
 
+/** One colour of a palette: red, green, blue and, optionally, how opaque, each 0 to 255. */
+export type PaletteColour =
+  readonly [number, number, number] | readonly [number, number, number, number];
+
+/** A picture of a few colours: a robot's map, one palette index per cell. */
+export type PalettedPicture = {
+  readonly width: number;
+  readonly height: number;
+
+  /** At most 256 colours. */
+  readonly palette: readonly PaletteColour[];
+
+  /** One index into the palette per pixel, row after row from the top left. */
+  readonly pixels: Uint8Array;
+};
+
+/** Since 1.5: what a bundle drawing a picture needs, and could not bring as a dependency. */
+export type BundleCodecs = {
+  /**
+   * Unpacks an LZMA stream in the alone format (`.lzma`): a 13-byte header - the properties and
+   * the size, eight bytes of ones when unknown - then the stream. ECOVACS packs its maps so.
+   *
+   * @throws {Error} When the stream is corrupt.
+   */
+  readonly lzma: (bytes: Uint8Array) => Buffer;
+};
+
+/** Since 1.5: pictures a bundle draws, for an image entity. */
+export type BundleImages = {
+  /**
+   * Encodes a paletted picture as a PNG, a colour with an alpha below 255 transparent.
+   *
+   * @throws {Error} When the size, the palette and the pixels do not fit together.
+   */
+  readonly png: (picture: PalettedPicture) => Buffer;
+};
+
 /** What the hub hands a bundle's transport factory. */
 export type BundleSdk = {
   /** The runtime version, the same string `manifest.sdk` was matched against. */
@@ -222,6 +259,12 @@ export type BundleSdk = {
 
   /** Since 1.5: how an account's sign-in module is written, as defineTransport is for a transport. */
   readonly defineAccount: typeof defineAccount;
+
+  /** Since 1.5: unpacking what a vendor's cloud packs. */
+  readonly codecs: BundleCodecs;
+
+  /** Since 1.5: drawing pictures, for an image entity. */
+  readonly images: BundleImages;
 };
 
 /** What a transport module default-exports. */

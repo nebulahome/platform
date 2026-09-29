@@ -550,3 +550,69 @@ describe('toState for packed and moved readings', () => {
     ).toBe(false);
   });
 });
+
+describe('an image entity', () => {
+  const MAP = parseEntityId('image.lab_robot_map');
+  const imaging = createDeclarativeIntegration(
+    manifest(),
+    integrationProfileSchema.parse({
+      ...PROFILE_JSON,
+      entities: [
+        {
+          domain: 'image',
+          objectId: 'map',
+          capabilities: { image: {} },
+          state: {},
+          image: { path: 'map.svg', contentType: 'image/svg+xml', minIntervalMs: 5000 },
+        },
+      ],
+    }),
+  );
+  const mapping: MappingContext = {
+    ...context(),
+    entities: new Map<string, EntityId>([['map', MAP]]),
+  };
+
+  it('reports which picture it is, and hands the picture over beside the state', () => {
+    const [report] = imaging.toState(
+      { connectionKey: 'k', deviceKey: '192.168.1.40', payload: { map: { svg: '<svg/>' } } },
+      mapping,
+    );
+
+    expect(report?.state.image?.contentType).toBe('image/svg+xml');
+    expect(report?.state.image?.revision).toMatch(/^[0-9a-f]{16}$/u);
+    expect(report?.blob).toEqual({
+      contentType: 'image/svg+xml',
+      data: '<svg/>',
+      minIntervalMs: 5000,
+    });
+  });
+
+  it('changes its revision exactly when the picture changes, and says nothing without one', () => {
+    const revisionOf = (svg: string): unknown =>
+      imaging.toState({ connectionKey: 'k', deviceKey: 'x', payload: { map: { svg } } }, mapping)[0]
+        ?.state.image?.revision;
+
+    expect(revisionOf('<svg/>')).toBe(revisionOf('<svg/>'));
+    expect(revisionOf('<svg/>')).not.toBe(revisionOf('<svg><g/></svg>'));
+    expect(
+      imaging.toState({ connectionKey: 'k', deviceKey: 'x', payload: { other: 1 } }, mapping),
+    ).toEqual([]);
+  });
+
+  it('is refused on an entity that is not an image', () => {
+    expect(() =>
+      integrationProfileSchema.parse({
+        ...PROFILE_JSON,
+        entities: [
+          {
+            domain: 'sensor',
+            capabilities: { sensor_text: {} },
+            state: {},
+            image: { path: 'x', contentType: 'image/png' },
+          },
+        ],
+      }),
+    ).toThrow('Only an image has a picture');
+  });
+});
