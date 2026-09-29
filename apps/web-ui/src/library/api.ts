@@ -22,7 +22,6 @@ import {
   iconsResponseSchema,
   iconViewSchema,
   integrationVendorViewSchema,
-  packageViewSchema,
   sceneApplyResultSchema,
   sceneViewSchema,
   stateHistoryPointSchema,
@@ -60,7 +59,6 @@ import {
   type IntegrationVendorConfigUpdate,
   type IntegrationVendorView,
   type JsonObject,
-  type PackageView,
   type SceneApplyResult,
   type SceneCreate,
   type SceneUpdate,
@@ -928,20 +926,6 @@ export async function signOutOfAccount(
   );
 }
 
-/**
- * Lists every installed package and how it is faring.
- *
- * @param signal - Cancels the request.
- * @returns Every package.
- */
-export async function fetchPackages(signal?: AbortSignal): Promise<PackageView[]> {
-  const { items } = await apiRequest('/packages', collectionSchema(packageViewSchema), {
-    ...(signal === undefined ? {} : { signal }),
-  });
-
-  return items;
-}
-
 /** The cache keys the library reads under. */
 export const LIBRARY_QUERY_KEYS = {
   /** Every automation. */
@@ -982,7 +966,4 @@ export const LIBRARY_QUERY_KEYS = {
 
   /** What changed on a device, keyed further by the device. */
   activity: ['library', 'activity'] as const,
-
-  /** Every installed package. */
-  packages: ['library', 'packages'] as const,
 } as const;

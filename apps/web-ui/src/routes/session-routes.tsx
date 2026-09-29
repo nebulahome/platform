@@ -43,10 +43,11 @@ import { DevicePage } from '@/routes/library/device/device-page';
 import { DevicesPage } from '@/routes/library/devices-page';
 import { EntityPage } from '@/routes/library/entity/entity-page';
 import { IntegrationsPage } from '@/routes/library/integrations-page';
-import { PackagesPage } from '@/routes/library/packages-page';
 import { ScenesPage } from '@/routes/library/scenes-page';
 import { TagsPage } from '@/routes/library/tags-page';
 import { VendorPage } from '@/routes/library/vendor-page';
+import { PackagePage } from '@/routes/packages/package-page';
+import { PackagesPage } from '@/routes/packages/packages-page';
 import { RETURN_TO_PARAM, safeReturnTo } from '@/routes/return-to';
 import { AccountSettings } from '@/routes/settings/account-settings';
 import { BackupSettings } from '@/routes/settings/backup-settings';
@@ -282,7 +283,22 @@ export function SessionRoutes() {
             </RequiresPermission>
           }
         />
-        <Route path="/packages" element={<PackagesPage />} />
+        <Route
+          path="/packages"
+          element={
+            <RequiresPermission permission="package:read" section="Packages">
+              <PackagesPage />
+            </RequiresPermission>
+          }
+        />
+        <Route
+          path="/packages/:packageId"
+          element={
+            <RequiresPermission permission="package:read" section="Packages">
+              <PackagePage />
+            </RequiresPermission>
+          }
+        />
         <Route
           path="/containers"
           element={

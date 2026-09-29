@@ -500,7 +500,9 @@ export function DeviceDialog(props: DeviceDialogProps) {
   const description = isSystem
     ? existing.origin === 'container'
       ? 'A container of this machine: what it is called, its tags and its room.'
-      : 'The machine NebulaHome runs on: what it is called, its tags and its room.'
+      : existing.origin === 'package'
+        ? `A device of the ${existing.driverName} package: what it is called, its tags and its room.`
+        : 'The machine NebulaHome runs on: what it is called, its tags and its room.'
     : driver === undefined
       ? 'Which model, and what it needs to be reached.'
       : `${driver.name}, over ${driver.transport}. Test tries the address before anything is saved.`;

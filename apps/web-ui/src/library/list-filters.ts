@@ -71,16 +71,25 @@ export function matchesSceneFilter(
 
 // --- packages -------------------------------------------------------------------------------
 
+/** The packages page's two lists: what is installed, and what the index offers. */
+export const PACKAGE_LIST_VIEWS = ['installed', 'available'] as const;
+
+/** One of the packages page's lists. */
+export type PackageListView = (typeof PACKAGE_LIST_VIEWS)[number];
+
 /** What the packages page is narrowed by. */
 export type PackageFilter = {
+  /** Which list. */
+  readonly view: PackageListView;
+
   readonly search: string;
 
-  /** Only packages in this state; blank for any. */
+  /** Only packages in this state; blank for any. Installed packages only. */
   readonly state: PackageState | '';
 };
 
-/** Every package. */
-export const OPEN_PACKAGE_FILTER: PackageFilter = { search: '', state: '' };
+/** Every installed package. */
+export const OPEN_PACKAGE_FILTER: PackageFilter = { view: 'installed', search: '', state: '' };
 
 /**
  * The packages filter's codec, for the states the page can name.
@@ -90,7 +99,7 @@ export const OPEN_PACKAGE_FILTER: PackageFilter = { search: '', state: '' };
  */
 export function packageFilterCodec(states: readonly PackageState[]): ListCodec<PackageFilter> {
   return {
-    keys: ['q', 'state'],
+    keys: ['view', 'q', 'state'],
 
     /**
      * Reads the filter.
@@ -99,6 +108,7 @@ export function packageFilterCodec(states: readonly PackageState[]): ListCodec<P
      * @returns The filter.
      */
     read: (params) => ({
+      view: readChoice<PackageListView>(params, 'view', PACKAGE_LIST_VIEWS, 'installed'),
       search: params.get('q') ?? '',
       state: readChoice<PackageState | ''>(params, 'state', ['', ...states], ''),
     }),
@@ -109,7 +119,12 @@ export function packageFilterCodec(states: readonly PackageState[]): ListCodec<P
      * @param filter - The filter.
      * @returns The query entries.
      */
-    write: (filter) => nonDefault({ q: [filter.search, ''], state: [filter.state, ''] }),
+    write: (filter) =>
+      nonDefault({
+        view: [filter.view, 'installed'],
+        q: [filter.search, ''],
+        state: [filter.state, ''],
+      }),
   };
 }
 

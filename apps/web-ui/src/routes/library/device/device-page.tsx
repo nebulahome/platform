@@ -153,9 +153,24 @@ function DeviceDetails(props: { readonly view: DevicePageView; readonly webPage:
         <Fact term="Id">
           <span className="font-mono text-caption break-all">{device.id}</span>
         </Fact>
-        <Fact term={device.origin === 'container' ? 'Container' : 'Integration'}>
+        <Fact
+          term={
+            device.origin === 'container'
+              ? 'Container'
+              : device.origin === 'package'
+                ? 'Package'
+                : 'Integration'
+          }
+        >
           {device.origin === 'system' ? (
             vendorName
+          ) : device.origin === 'package' ? (
+            <Link
+              to={`/packages/${encodeURIComponent(device.vendorId)}`}
+              className="text-primary underline-offset-2 hover:underline"
+            >
+              {device.driverName}
+            </Link>
           ) : device.origin === 'container' ? (
             <Link
               to={`/containers/${encodeURIComponent(device.externalId ?? device.name)}`}
@@ -171,7 +186,9 @@ function DeviceDetails(props: { readonly view: DevicePageView; readonly webPage:
               {vendorName}
             </Link>
           )}
-          <span className="text-foreground-subtle"> · {device.driverName}</span>
+          {device.origin === 'package' ? null : (
+            <span className="text-foreground-subtle"> · {device.driverName}</span>
+          )}
         </Fact>
         {device.model === null ? null : <Fact term="Model">{device.model}</Fact>}
         {device.origin === 'integration' ? <Fact term="Transport">{device.transport}</Fact> : null}

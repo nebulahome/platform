@@ -27,7 +27,6 @@ import {
   probeReplySchema,
 } from './integrations.js';
 import { jsonObjectSchema, type JsonObject } from './json.js';
-import { PACKAGE_RUNTIMES, PACKAGE_STATES } from './package-manifest.js';
 import { managedStatusSchema } from './supervisor.js';
 import { isReservedDeviceId } from './system-monitor.js';
 import { TAGS_PER_ROW_MAXIMUM } from './tags.js';
@@ -941,39 +940,3 @@ export const integrationVendorConfigUpdateSchema = z
 
 /** What changing a vendor's settings accepts. */
 export type IntegrationVendorConfigUpdate = z.output<typeof integrationVendorConfigUpdateSchema>;
-
-/** An installed package and how it is faring. */
-export const packageViewSchema = z.object({
-  /** The package id, e.g. `pkg-mqtt`. */
-  id: z.string(),
-
-  version: z.string(),
-
-  /** Whether it runs as a child process or in a container. */
-  runtime: z.enum(PACKAGE_RUNTIMES),
-
-  state: z.enum(PACKAGE_STATES),
-
-  /** What it says about itself: permissions, contributions, resource limits. */
-  manifest: jsonObjectSchema,
-
-  /** The version it was upgraded from, kept so a rollback knows where to go. */
-  previousVersion: z.string().nullable(),
-
-  /** When it last started. */
-  lastStartedAt: timestampSchema.nullable(),
-
-  /** Why it last failed. */
-  lastError: z.string().nullable(),
-
-  installedAt: timestampSchema,
-
-  /** How many entities it owns. */
-  entityCount: z.int().min(0),
-
-  /** How many devices it owns. */
-  deviceCount: z.int().min(0),
-});
-
-/** An installed package. */
-export type PackageView = z.output<typeof packageViewSchema>;
