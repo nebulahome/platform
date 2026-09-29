@@ -24,6 +24,7 @@ import type {
   Integration,
   MappingContext,
   TransportInbound,
+  ReportedState,
 } from '@nebula-home/package-runtime';
 
 /** One identified device and the identifiers its entities carry. */
@@ -231,7 +232,7 @@ export class DeviceBook {
     integration: Integration,
     options: JsonObject,
     message: TransportInbound,
-  ): StateReport[] {
+  ): ReportedState[] {
     const binding = this.#byDeviceKey.get(message.deviceKey);
 
     if (binding === undefined) {

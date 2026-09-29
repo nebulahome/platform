@@ -144,6 +144,8 @@ function sdkWith(sessions: FakeMqtt[]): BundleSdk {
     },
     defineStreamSource,
     defineAccount,
+    codecs: { lzma: () => Buffer.alloc(0) },
+    images: { png: () => Buffer.alloc(0) },
     openRtsp: () => {
       throw new Error('not opened in this test');
     },

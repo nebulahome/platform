@@ -83,12 +83,14 @@ import {
 } from './persistence/instances.js';
 import { loadTakenDevices } from './persistence/taken.js';
 import { loadVendorSettings } from './persistence/vendors.js';
+import { withAccountLookups } from './services/account-lookups.js';
 import { AccountService } from './services/accounts.js';
 import { loadBundles, mergeBundleResults, type LoadedVendor } from './services/bundles.js';
 import { CameraService, type CameraOwner } from './services/cameras.js';
 import { ConnectionPool } from './services/connections.js';
 import { DiscoveryService, type Detected } from './services/discovery.js';
 import { IdentificationService, type Identified } from './services/identification.js';
+import { ImageStore } from './services/images.js';
 import { publishReports, startInstanceServices } from './services/instance.js';
 import { ManagementService } from './services/management.js';
 import { VendorContainersService } from './services/vendor-containers.js';
@@ -148,6 +150,7 @@ export class HubService {
   readonly #listening = new Map<string, Listening>();
   readonly #managementService: ManagementService;
   readonly #accounts: AccountService;
+  readonly #images: ImageStore;
   readonly #vendorContainers: VendorContainersService;
   readonly #secretsKey: Buffer;
 
@@ -342,6 +345,8 @@ export class HubService {
         this.#vendorContainers.vendorChanged(vendorId),
     });
 
+    this.#images = new ImageStore({ logger: options.logger });
+
     this.#accounts = new AccountService({
       client: this.#client,
       store: databaseAccountStore(options.db, this.#secretsKey),
@@ -441,7 +446,11 @@ export class HubService {
       // A vendor's own transports first: its drivers name them, and a driver is only as
       // loadable as the transport it opens.
       for (const transport of vendor.ownTransports) {
-        this.#transports.register(transport);
+        this.#transports.register(
+          withAccountLookups(transport, async (vendorId, accountId) =>
+            this.#accounts.handleFor(vendorId, accountId),
+          ),
+        );
       }
 
       for (const source of vendor.streams) {
@@ -472,6 +481,7 @@ export class HubService {
     this.#management = [
       ...this.#managementService.serve(),
       ...this.#accounts.serve(),
+      this.#images.serve(this.#client),
       ...this.#cameras.serve(),
       this.#client.subscribe(
         busSubjects.deviceEvent('removed'),
@@ -608,6 +618,7 @@ export class HubService {
    */
   public async stop(): Promise<void> {
     this.#cameras.stop();
+    this.#images.stop();
     this.#vendorContainers.stop();
     await this.#discovery?.stop();
     this.#discovery = undefined;
@@ -1104,7 +1115,12 @@ export class HubService {
         continue;
       }
 
-      const reports = running.book.ingest(running.integration, running.instance.options, message);
+      const reports = this.#images.take(
+        running.book.ingest(running.integration, running.instance.options, message),
+        (report) => {
+          publishReports(running.client, [report]);
+        },
+      );
 
       if (reports.length > 0) {
         publishReports(running.client, reports);

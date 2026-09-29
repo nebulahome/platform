@@ -131,6 +131,7 @@ describe('the bundles that ship', () => {
 
     expect(vendors.map((vendor) => vendor.manifest.id).sort()).toEqual([
       'bambu-lab',
+      'ecovacs',
       'govee',
       'nanoleaf',
       'plex',

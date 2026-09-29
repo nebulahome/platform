@@ -20,6 +20,8 @@ import {
   type PlatformServices,
 } from '@nebula-home/package-runtime';
 
+import { decodeLzma } from '../codecs/lzma.js';
+import { encodePalettedPng } from '../codecs/png.js';
 import { openMqtt } from '../transports/managed-mqtt.js';
 import { openWebSocket } from '../transports/managed-socket.js';
 import { openRtsp } from '../transports/rtsp.js';
@@ -51,6 +53,8 @@ export function createBundleSdk(options: {
     openMqtt,
     defineStreamSource,
     defineAccount,
+    codecs: { lzma: decodeLzma },
+    images: { png: encodePalettedPng },
     openRtsp,
     platform: options.platform,
   };
