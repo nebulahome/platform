@@ -26,7 +26,7 @@ psql -q -v ON_ERROR_STOP=1 -h "$socket" -p "$port" -U nebula -d nebula \
 
 DATABASE_URL="$(nebula_database_url nebula)" node /app/packages/db/dist/bin/migrate.js
 
-for role in nebula_core nebula_api nebula_hub nebula_backup; do
+for role in nebula_core nebula_api nebula_hub nebula_backup nebula_packet_manager; do
   password="$(nebula_secret "db-password-$role")"
   psql -q -v ON_ERROR_STOP=1 -h "$socket" -p "$port" -U nebula -d nebula <<SQL
 DO \$\$

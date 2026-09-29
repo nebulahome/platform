@@ -41,19 +41,26 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 
 # The tree that runs: the same layout, installed afresh with production dependencies only - the
 # web-ui's are left out, it is served as built files - and each package's built output with the
-# files it reads at runtime: the migrations, the icon catalogue, the bundles.
+# files it reads at runtime: the migrations, the icon catalogue, the bundles, and the packages the
+# platform ships (`pkgs/`) with their manifests and built interfaces, which packet-manager runs.
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     mkdir -p /app && \
     cp package.json pnpm-lock.yaml pnpm-workspace.yaml /app/ && \
-    for dir in apps/* packages/*; do \
+    for dir in apps/* packages/* pkgs/*; do \
+      [ -f "$dir/package.json" ] || continue; \
       mkdir -p "/app/$dir" && cp "$dir/package.json" "/app/$dir/"; \
     done && \
     cd /app && \
     pnpm install --frozen-lockfile --offline --prod --ignore-scripts \
       --filter '!@nebula-home/web-ui' --filter '!@nebula-home/ui' && \
     cd /src && \
-    for dir in apps/* packages/*; do \
+    for dir in apps/* packages/* pkgs/*; do \
       if [ -d "$dir/dist" ]; then cp -a "$dir/dist" "/app/$dir/"; fi; \
+    done && \
+    for dir in pkgs/*; do \
+      [ -f "$dir/nebula.package.json" ] || continue; \
+      tar -C "$dir" --exclude=./node_modules --exclude=./src --exclude=./dist -cf - . | \
+        tar -C "/app/$dir" -xf -; \
     done && \
     cp -a packages/db/migrations /app/packages/db/ && \
     cp packages/icons/catalogue.json /app/packages/icons/ && \
