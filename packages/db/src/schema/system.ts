@@ -31,9 +31,9 @@ export const systemSchema = pgSchema('system');
  * The primary key is the package id rather than a generated uuid: it is already unique, stable
  * and human-readable, and it is what appears in bus subjects and log lines.
  *
- * There are deliberately no `granted_permissions`, `signature_key_id` or `artifact_digest`
- * columns. Every package is first-party and distributed through npm, so there is no permission
- * grant to record and no signature to verify.
+ * There are deliberately no `granted_permissions` or `signature_key_id` columns. Every package is
+ * first-party, released on GitHub and checked against the digest the package index gives, so
+ * there is no permission grant to record and no signature to verify.
  */
 export const packages = systemSchema.table(
   'packages',
@@ -42,6 +42,12 @@ export const packages = systemSchema.table(
     version: text('version').notNull(),
     runtime: text('runtime').notNull(),
     state: text('state').notNull().default('installed'),
+
+    /** `builtin`, `index` or `local`: where it came from. */
+    source: text('source').notNull().default('index'),
+
+    /** A package shipped in the image that is never removed, only restarted: the MQTT broker. */
+    isSystem: boolean('is_system').notNull().default(false),
 
     /** Validated against `packageManifestSchema` in `@nebula-home/contracts`. */
     manifest: jsonb('manifest').notNull(),

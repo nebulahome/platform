@@ -267,11 +267,16 @@ CREATE TABLE auth.user_avatars (
 
 -- --------------------------------------------------------------------------------------
 
+-- Where a package came from (`source`): shipped in the image, installed from the package index,
+-- or put in the data directory by hand. A system package (`is_system`) - the MQTT broker - is
+-- shipped in the image and is never removed, only restarted.
 CREATE TABLE system.packages (
   id               text        PRIMARY KEY,
   version          text        NOT NULL,
   runtime          text        NOT NULL,
   state            text        NOT NULL DEFAULT 'installed',
+  source           text        NOT NULL DEFAULT 'index',
+  is_system        boolean     NOT NULL DEFAULT false,
   manifest         jsonb       NOT NULL,   -- packageManifestSchema
   config           jsonb       NOT NULL DEFAULT '{}'::jsonb,
   previous_version text,
@@ -282,10 +287,12 @@ CREATE TABLE system.packages (
   installed_by     uuid        REFERENCES auth.users (id) ON DELETE SET NULL,
 
   CONSTRAINT packages_id_format CHECK (id ~ '^[a-z][a-z0-9-]{1,63}$'),
-  CONSTRAINT packages_runtime CHECK (runtime IN ('node', 'container')),
+  CONSTRAINT packages_runtime CHECK (runtime IN ('node', 'container', 'none')),
   CONSTRAINT packages_state CHECK (state IN (
-    'installed', 'starting', 'running', 'stopped', 'failed', 'disabled'
-  ))
+    'installed', 'starting', 'running', 'stopped', 'failed', 'disabled', 'waiting-dependency'
+  )),
+  CONSTRAINT packages_source CHECK (source IN ('builtin', 'index', 'local')),
+  CONSTRAINT packages_system_is_builtin CHECK (NOT is_system OR source = 'builtin')
 );
 
 CREATE INDEX packages_state_idx ON system.packages (state);
@@ -635,7 +642,7 @@ CREATE TABLE registry.entity_capabilities (
     'on_off', 'level', 'color_hs', 'color_temp', 'cover', 'lock',
     'thermostat', 'sensor_numeric', 'sensor_binary', 'sensor_text',
     'media_player', 'camera', 'button', 'update', 'lawn_mower', 'select', 'number',
-    'vacuum', 'image'
+    'vacuum', 'image', 'custom'
   ))
 );
 
