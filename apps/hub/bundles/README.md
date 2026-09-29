@@ -64,6 +64,15 @@ with `padding` (0 to 16, default 0): extra room, in pixels, the interface leaves
 inside its tile. Every logo already gets a small margin; this is on top of it, for a mark drawn
 to the very edge of its file. It cannot ask for less than the margin, only for more.
 
+`requires` (since 1.5) says what the vendor's devices need besides the hub, in the grammar a
+package's manifest uses ([PACKAGES.md §8](../../../../PACKAGES.md#8-dependencies)):
+`{ "services": ["mqtt-broker"] }` for Zigbee2MQTT, which talks through the house's broker, or a
+package by id and range. Until what it needs runs, the vendor waits: its instances fail with the
+sentence that names the package, `api` refuses its devices with `409 needs-package`, and its page
+says so first. The hub follows the packages at every `pkg.*` event and starts only that vendor's
+instances again when its standing changes. A container that speaks to the broker names its topics
+in `mqttTopics` (since 1.5), and is given a username of its own held to them.
+
 `driver.json` says how one profile is loaded and **which models it drives**. The list is what the
 owner picks from when adding a device: Bambu Lab's one `printer` driver lists six printers, so the
 form offers six choices and the row remembers the one picked, though all six run the same
@@ -689,7 +698,8 @@ Zigbee through Zigbee2MQTT, which NebulaHome runs itself: the first vendor that 
 **container** in its manifest - `koenkk/zigbee2mqtt`, 2.1.0 or newer - which the supervisor pulls
 and runs once the vendor is set up (the coordinator's chip, and its USB path or network address),
 and which the integration then owns. Its own transport, `zigbee2mqtt/mqtt`, one session to the
-platform's broker (`sdk.platform.mqtt`, since 1.3) under the base topic, hands each message to the
+house's broker (`sdk.platform.mqtt`, since 1.3: `pkg-mqtt`, read each time a session opens, since
+the broker may start after the hub) under the base topic, hands each message to the
 device it is about by IEEE address. Two drivers: `bridge` (declarative: online, pairing, devices,
 version) and `device` (code, a function of the SDK: every model Zigbee2MQTT supports, from its
 `exposes`). Found by its own listener on the broker, which runs where the hub hears no multicast
