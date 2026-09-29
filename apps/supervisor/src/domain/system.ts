@@ -1,8 +1,8 @@
 /**
  * Which containers are the platform's, and which compose project a container belongs to.
  *
- * The platform is more than the container it runs in: its compose file starts PostgreSQL, NATS
- * and Mosquitto beside it in development, and a user's own compose file may put more there. Every
+ * The platform is more than the container it runs in: its compose file starts PostgreSQL and NATS
+ * beside it in development, and a user's own compose file may put more there. Every
  * one of them is a **system** container - listed and measured, never stopped, updated or removed
  * from here, and no device - because the page asking would lose what it stands on.
  *

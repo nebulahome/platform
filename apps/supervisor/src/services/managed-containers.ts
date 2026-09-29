@@ -70,6 +70,14 @@ export type ManagedContainersOptions = {
 
   /** Told whenever a container was made, replaced or started, so the lists read again. */
   readonly onChange: (name: string) => void;
+
+  /**
+   * The broker one container reaches, with a username of its own; undefined for the platform's.
+   *
+   * @param spec - The container's declaration.
+   * @returns The broker, or undefined to keep the platform's.
+   */
+  readonly brokerFor?: (spec: ManagedContainerSpec) => Promise<PlatformContext['mqtt'] | undefined>;
 };
 
 /** The key an owner's declarations are kept under. */
@@ -354,7 +362,10 @@ export class ManagedContainers {
   async #ensureOne(spec: ManagedContainerSpec): Promise<void> {
     const key = keyOf(spec.ownerKind, spec.vendorId, spec.dependencyId);
     const name = managedName(spec);
-    const context = this.#options.context();
+    const platform = this.#options.context();
+    const broker = platform === null ? undefined : await this.#options.brokerFor?.(spec);
+    const context =
+      platform === null || broker === undefined ? platform : { ...platform, mqtt: broker };
 
     /**
      * Records where it stands.

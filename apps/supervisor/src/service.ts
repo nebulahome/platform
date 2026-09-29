@@ -90,6 +90,7 @@ import {
 import { COMPOSE_LABELS, composeOf, isSystemContainer } from './domain/system.js';
 import { versionOf } from './domain/versions.js';
 import { registryArchitecture, RegistryClient } from './registry/registry-client.js';
+import { brokerFor } from './services/broker-credentials.js';
 import { commandRunner, ComposeProjects, dockerHostOf } from './services/compose-projects.js';
 import { Installs } from './services/installs.js';
 import { ManagedContainers } from './services/managed-containers.js';
@@ -290,6 +291,14 @@ export class SupervisorService {
        * @returns Its id, or null outside a container.
        */
       selfId: () => this.#selfId,
+
+      /**
+       * The broker a container reaches, from the house's broker.
+       *
+       * @param spec - The container's declaration.
+       * @returns The broker with the container's username, or undefined for the platform's.
+       */
+      brokerFor: async (spec) => brokerFor(this.#client, spec),
 
       /**
        * Announces a managed container that was made, replaced or started.
