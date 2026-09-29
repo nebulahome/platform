@@ -20,16 +20,9 @@
  */
 import type { Plugin, UserConfig } from 'vite';
 
-/** The modules the interface shares with every package. */
-export const SHARED_MODULES = [
-  'react',
-  'react-dom',
-  'react-dom/client',
-  'react/jsx-runtime',
-  'react/jsx-dev-runtime',
-  '@nebula-home/ui',
-  '@nebula-home/package-ui',
-] as const;
+import { SHARED_MODULES } from './shared.js';
+
+export { SHARED_MODULES } from './shared.js';
 
 /** The prefix of a shared module's id inside the build. */
 const SHARED_PREFIX = '\0nebula-shared:';

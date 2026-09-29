@@ -20,6 +20,8 @@ import type {
   PackageCardSize,
 } from '@nebula-home/contracts';
 
+export { SHARED_MODULES, type SharedModule } from './shared.js';
+
 /** What a package's page is drawn with. */
 export type PackagePageProps = {
   readonly packageId: string;

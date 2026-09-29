@@ -4,5 +4,5 @@
     "outDir": "dist",
     "rootDir": "src"
   },
-  "include": ["src/vite.ts"]
+  "include": ["src/vite.ts", "src/shared.ts"]
 }
