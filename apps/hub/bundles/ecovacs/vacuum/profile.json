@@ -1,0 +1,561 @@
+{
+  "discovery": {
+    "scan": {
+      "role": "vacuum"
+    },
+    "claim": [
+      {
+        "path": "role",
+        "equals": "vacuum"
+      },
+      {
+        "path": "did",
+        "exists": true
+      }
+    ],
+    "identity": {
+      "externalId": "did",
+      "name": "name",
+      "model": "product"
+    }
+  },
+  "subscriptions": [
+    {
+      "op": "follow",
+      "args": {}
+    }
+  ],
+  "entities": [
+    {
+      "domain": "vacuum",
+      "objectId": "vacuum",
+      "name": "Vacuum",
+      "icon": "bot",
+      "capabilities": {
+        "vacuum": {
+          "canPause": true,
+          "canStop": true,
+          "canDock": true,
+          "canLocate": true,
+          "canCleanRooms": true
+        }
+      },
+      "state": {
+        "vacuum": {
+          "activity": "activity",
+          "rooms": "rooms"
+        }
+      },
+      "commands": {
+        "vacuum.start": {
+          "op": "clean",
+          "args": {
+            "act": "start"
+          }
+        },
+        "vacuum.pause": {
+          "op": "clean",
+          "args": {
+            "act": "pause"
+          }
+        },
+        "vacuum.stop": {
+          "op": "clean",
+          "args": {
+            "act": "stop"
+          }
+        },
+        "vacuum.dock": {
+          "op": "clean",
+          "args": {
+            "act": "dock"
+          }
+        },
+        "vacuum.locate": {
+          "op": "clean",
+          "args": {
+            "act": "locate"
+          }
+        },
+        "vacuum.clean_rooms": {
+          "op": "clean",
+          "args": {
+            "act": "rooms",
+            "rooms": {
+              "$": "command.rooms"
+            }
+          }
+        }
+      }
+    },
+    {
+      "domain": "image",
+      "objectId": "map",
+      "name": "Map",
+      "icon": "map",
+      "capabilities": {
+        "image": {}
+      },
+      "state": {},
+      "image": {
+        "path": "mapSvg",
+        "contentType": "image/svg+xml",
+        "encoding": "utf8",
+        "minIntervalMs": 5000
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "battery",
+      "name": "Battery",
+      "icon": "battery",
+      "deviceClass": "battery",
+      "unitOfMeasurement": "%",
+      "stateClass": "measurement",
+      "displayPrecision": 0,
+      "capabilities": {
+        "sensor_numeric": {}
+      },
+      "state": {
+        "sensor_numeric": {
+          "value": "battery"
+        }
+      }
+    },
+    {
+      "domain": "binary_sensor",
+      "objectId": "charging",
+      "name": "Charging",
+      "icon": "plug",
+      "deviceClass": "battery_charging",
+      "capabilities": {
+        "sensor_binary": {}
+      },
+      "state": {
+        "sensor_binary": {
+          "isOn": "isCharging"
+        }
+      }
+    },
+    {
+      "domain": "binary_sensor",
+      "objectId": "fault",
+      "name": "Fault",
+      "icon": "triangle-alert",
+      "deviceClass": "problem",
+      "capabilities": {
+        "sensor_binary": {}
+      },
+      "state": {
+        "sensor_binary": {
+          "isOn": "hasError"
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "fault_text",
+      "name": "Fault reported",
+      "icon": "triangle-alert",
+      "capabilities": {
+        "sensor_text": {}
+      },
+      "state": {
+        "sensor_text": {
+          "value": "error"
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "cleaned_area",
+      "name": "Area cleaned",
+      "icon": "land-plot",
+      "deviceClass": "area",
+      "unitOfMeasurement": "m²",
+      "stateClass": "measurement",
+      "displayPrecision": 1,
+      "capabilities": {
+        "sensor_numeric": {}
+      },
+      "state": {
+        "sensor_numeric": {
+          "value": "job.area"
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "cleaning_time",
+      "name": "Cleaning time",
+      "icon": "timer",
+      "deviceClass": "duration",
+      "unitOfMeasurement": "s",
+      "stateClass": "measurement",
+      "displayPrecision": 0,
+      "capabilities": {
+        "sensor_numeric": {}
+      },
+      "state": {
+        "sensor_numeric": {
+          "value": "job.duration"
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "total_area",
+      "name": "Total area cleaned",
+      "icon": "land-plot",
+      "deviceClass": "area",
+      "unitOfMeasurement": "m²",
+      "stateClass": "total_increasing",
+      "displayPrecision": 0,
+      "capabilities": {
+        "sensor_numeric": {}
+      },
+      "state": {
+        "sensor_numeric": {
+          "value": "totals.area"
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "total_time",
+      "name": "Total cleaning time",
+      "icon": "timer",
+      "deviceClass": "duration",
+      "unitOfMeasurement": "s",
+      "stateClass": "total_increasing",
+      "displayPrecision": 0,
+      "capabilities": {
+        "sensor_numeric": {}
+      },
+      "state": {
+        "sensor_numeric": {
+          "value": "totals.duration"
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "total_cleanings",
+      "name": "Total cleanings",
+      "icon": "sigma",
+      "stateClass": "total_increasing",
+      "displayPrecision": 0,
+      "capabilities": {
+        "sensor_numeric": {}
+      },
+      "state": {
+        "sensor_numeric": {
+          "value": "totals.count"
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "main_brush_life",
+      "name": "Main brush life left",
+      "icon": "brush",
+      "unitOfMeasurement": "%",
+      "stateClass": "measurement",
+      "displayPrecision": 0,
+      "capabilities": {
+        "sensor_numeric": {}
+      },
+      "state": {
+        "sensor_numeric": {
+          "value": "lifespans.brush"
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "side_brush_life",
+      "name": "Side brush life left",
+      "icon": "paintbrush",
+      "unitOfMeasurement": "%",
+      "stateClass": "measurement",
+      "displayPrecision": 0,
+      "capabilities": {
+        "sensor_numeric": {}
+      },
+      "state": {
+        "sensor_numeric": {
+          "value": "lifespans.sideBrush"
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "filter_life",
+      "name": "Filter life left",
+      "icon": "air-vent",
+      "unitOfMeasurement": "%",
+      "stateClass": "measurement",
+      "displayPrecision": 0,
+      "capabilities": {
+        "sensor_numeric": {}
+      },
+      "state": {
+        "sensor_numeric": {
+          "value": "lifespans.filter"
+        }
+      }
+    },
+    {
+      "domain": "select",
+      "objectId": "suction",
+      "name": "Suction",
+      "icon": "wind",
+      "capabilities": {
+        "select": {
+          "options": [
+            {
+              "value": "quiet",
+              "label": "Quiet"
+            },
+            {
+              "value": "standard",
+              "label": "Standard"
+            },
+            {
+              "value": "max",
+              "label": "Max"
+            },
+            {
+              "value": "max_plus",
+              "label": "Max+"
+            }
+          ]
+        }
+      },
+      "state": {
+        "select": {
+          "option": "settings.suction"
+        }
+      },
+      "commands": {
+        "select.select_option": {
+          "op": "set",
+          "args": {
+            "setting": "suction",
+            "value": {
+              "$": "command.option"
+            }
+          }
+        }
+      }
+    },
+    {
+      "domain": "select",
+      "objectId": "water",
+      "name": "Water flow",
+      "icon": "droplets",
+      "capabilities": {
+        "select": {
+          "options": [
+            {
+              "value": "low",
+              "label": "Low"
+            },
+            {
+              "value": "medium",
+              "label": "Medium"
+            },
+            {
+              "value": "high",
+              "label": "High"
+            },
+            {
+              "value": "ultrahigh",
+              "label": "Very high"
+            }
+          ]
+        }
+      },
+      "state": {
+        "select": {
+          "option": "settings.water"
+        }
+      },
+      "commands": {
+        "select.select_option": {
+          "op": "set",
+          "args": {
+            "setting": "water",
+            "value": {
+              "$": "command.option"
+            }
+          }
+        }
+      }
+    },
+    {
+      "domain": "number",
+      "objectId": "clean_count",
+      "name": "Passes",
+      "icon": "repeat-2",
+      "capabilities": {
+        "number": {
+          "min": 1,
+          "max": 2,
+          "step": 1
+        }
+      },
+      "state": {
+        "number": {
+          "value": "settings.cleanCount"
+        }
+      },
+      "commands": {
+        "number.set_value": {
+          "op": "set",
+          "args": {
+            "setting": "cleanCount",
+            "value": {
+              "$": "command.value"
+            }
+          }
+        }
+      }
+    },
+    {
+      "domain": "number",
+      "objectId": "volume",
+      "name": "Volume",
+      "icon": "volume-2",
+      "capabilities": {
+        "number": {
+          "min": 0,
+          "max": 10,
+          "step": 1
+        }
+      },
+      "state": {
+        "number": {
+          "value": "settings.volume"
+        }
+      },
+      "commands": {
+        "number.set_value": {
+          "op": "set",
+          "args": {
+            "setting": "volume",
+            "value": {
+              "$": "command.value"
+            }
+          }
+        }
+      }
+    },
+    {
+      "domain": "switch",
+      "objectId": "continuous_cleaning",
+      "name": "Resume after charging",
+      "icon": "repeat",
+      "capabilities": {
+        "on_off": {}
+      },
+      "state": {
+        "on_off": {
+          "isOn": "settings.continuousCleaning"
+        }
+      },
+      "commands": {
+        "on_off.turn_on": {
+          "op": "set",
+          "args": {
+            "setting": "continuousCleaning",
+            "value": true
+          }
+        },
+        "on_off.turn_off": {
+          "op": "set",
+          "args": {
+            "setting": "continuousCleaning",
+            "value": false
+          }
+        }
+      }
+    },
+    {
+      "domain": "switch",
+      "objectId": "carpet_boost",
+      "name": "Carpet boost",
+      "icon": "layers",
+      "capabilities": {
+        "on_off": {}
+      },
+      "state": {
+        "on_off": {
+          "isOn": "settings.carpetBoost"
+        }
+      },
+      "commands": {
+        "on_off.turn_on": {
+          "op": "set",
+          "args": {
+            "setting": "carpetBoost",
+            "value": true
+          }
+        },
+        "on_off.turn_off": {
+          "op": "set",
+          "args": {
+            "setting": "carpetBoost",
+            "value": false
+          }
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "wifi_signal",
+      "name": "Wi-Fi signal",
+      "icon": "wifi",
+      "deviceClass": "signal_strength",
+      "unitOfMeasurement": "dBm",
+      "stateClass": "measurement",
+      "displayPrecision": 0,
+      "capabilities": {
+        "sensor_numeric": {}
+      },
+      "state": {
+        "sensor_numeric": {
+          "value": "wifi.rssi"
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "wifi_network",
+      "name": "Wi-Fi network",
+      "icon": "wifi",
+      "capabilities": {
+        "sensor_text": {}
+      },
+      "state": {
+        "sensor_text": {
+          "value": "wifi.ssid"
+        }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "ip_address",
+      "name": "IP address",
+      "icon": "network",
+      "capabilities": {
+        "sensor_text": {}
+      },
+      "state": {
+        "sensor_text": {
+          "value": "wifi.ip"
+        }
+      }
+    }
+  ]
+}

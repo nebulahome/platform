@@ -1,0 +1,26 @@
+{
+  "transport": {
+    "fields": [
+      {
+        "key": "account",
+        "type": "text",
+        "label": "Account",
+        "help": "The ECOVACS account the robot is on, by its id there: filled in when the robot is found on an account connected under Integrations → Ecovacs.",
+        "isRequired": true,
+        "maxLength": 128,
+        "pattern": "^[A-Za-z0-9_.@:-]+$",
+        "patternMessage": "The account’s id at ECOVACS"
+      },
+      {
+        "key": "did",
+        "type": "text",
+        "label": "Robot",
+        "help": "Its id on the ECOVACS account, filled in when the robot is found there.",
+        "isRequired": true,
+        "maxLength": 128,
+        "pattern": "^[A-Za-z0-9_.:-]+$",
+        "patternMessage": "The robot’s id on the account"
+      }
+    ]
+  }
+}

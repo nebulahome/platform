@@ -1,0 +1,26 @@
+{
+  "transport": {
+    "fields": [
+      {
+        "key": "account",
+        "type": "text",
+        "label": "Account",
+        "help": "The ECOVACS account the mower is on, by its id there: filled in when the mower is found on an account connected under Integrations → Ecovacs.",
+        "isRequired": true,
+        "maxLength": 128,
+        "pattern": "^[A-Za-z0-9_.@:-]+$",
+        "patternMessage": "The account’s id at ECOVACS"
+      },
+      {
+        "key": "did",
+        "type": "text",
+        "label": "Mower",
+        "help": "Its id on the ECOVACS account, filled in when the mower is found there.",
+        "isRequired": true,
+        "maxLength": 128,
+        "pattern": "^[A-Za-z0-9_.:-]+$",
+        "patternMessage": "The mower's id on the account"
+      }
+    ]
+  }
+}

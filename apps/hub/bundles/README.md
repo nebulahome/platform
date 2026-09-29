@@ -527,11 +527,15 @@ needs, since the bundle cannot import them:
 | `defineStreamSource` | since 1.2: the contract a camera's stream source is written against                |
 | `openRtsp`           | since 1.2: an RTSP(S) session over TCP, yielding a camera's H.264 as it comes      |
 | `platform.mqtt`      | since 1.3: the platform's own MQTT broker, or null on an installation without one  |
+| `defineAccount`      | since 1.5: the contract an account's sign-in module is written against             |
+| `codecs.lzma`        | since 1.5: unpacks an LZMA stream in the alone format, as some clouds pack maps    |
+| `images.png`         | since 1.5: encodes a picture of a palette as a PNG, for an image entity            |
 | `logger`             | the hub's logger, for what happens outside a connection                            |
 
 The transport it returns is the one the platform's `http` and `mqtt` are:
 `connectionKey`, `connect`, `scan`, `probe`, and a `configSchema` for what the driver's
-`setup.json` asks. Its `id` must be `<vendor>/<name>`, or the loader refuses the vendor naming
+`setup.json` asks. Since 1.5 `scan` and `probe` take a last argument, `{ account }`: the account
+the configuration names, as `connect` is handed it in `context.account`. Its `id` must be `<vendor>/<name>`, or the loader refuses the vendor naming
 both. It is **code**, so the vendor sits at the tier a code driver does - reviewed before a
 catalogue carries it; `verifyVendor` is where the hub asks. The hub type-checks the ones that
 ship here (`checkJs`), so write the types in JSDoc and start the file with `// @ts-check`.
@@ -570,6 +574,37 @@ over each frame with `sink.frame({ data, isKey, timestampUs })`: a JPEG, or an H
 in Annex B with its parameter sets before a key frame. `sdk.openRtsp` does the RTSP for a camera
 that speaks it. Nothing is decoded or transcoded on the hub: the frames go to the browser, which
 decodes them (WebCodecs for H.264), and a stream runs only while a viewer keeps asking for it.
+
+## A picture that changes
+
+Since 1.5. A robot's map, a printer's plate: a picture the device's state carries, drawn again
+when it changes. A profile's `image` entity says where in the payload it is and what it is:
+
+```json
+{
+  "domain": "image",
+  "objectId": "map",
+  "capabilities": { "image": {} },
+  "state": {},
+  "image": {
+    "path": "mapSvg",
+    "contentType": "image/svg+xml",
+    "encoding": "utf8",
+    "minIntervalMs": 5000
+  }
+}
+```
+
+`contentType` is `image/svg+xml`, `image/png` or `image/jpeg`; `encoding` is `utf8` for an SVG's
+text or `base64` for bytes. The hub keeps the picture in memory - at most 700 KB - and publishes
+only which one it is, `{ contentType, revision }`, the revision a digest of the bytes, at most
+every `minIntervalMs` (2 s when not said) however often the payload changes. The interface reads
+the bytes from `GET /api/v1/entities/:id/image`, and draws them again when the revision moves. A
+picture's changes are not written to the state history.
+
+An SVG is shown in an `<img>`: nothing in it runs, and nothing outside it is fetched - a raster
+goes in as a `data:` URI. `sdk.images.png` makes one out of cells and a palette, and
+`sdk.codecs.lzma` unpacks what a cloud packed; the Ecovacs bundle's `cloud/map.js` does both.
 
 **A command may be several messages.** On the `mqtt` transport, `"payloads": [ … ]` in place of
 `"payload"` publishes each in order on the one topic - a device whose one switch is two nodes to
@@ -665,6 +700,22 @@ listener says when it hears nothing of Zigbee2MQTT on the broker, and which devi
 lists that are not added yet, and why. Zigbee2MQTT's own web page is always on, on the port the
 setup asks, behind a password when one is set. Its README says what each expose becomes and what
 each setting does.
+
+## ecovacs
+
+Two drivers over the vendor's own `ecovacs/cloud` transport: `mower`, for every ECOVACS **GOAT**
+robot mower, and `vacuum`, for every **DEEBOT** robot vacuum - the ECOVACS HOME app's calls to
+ECOVACS's servers (sign-in, device list, the N-GIoT control endpoint) and the account's MQTT
+session on ECOVACS's broker, which the robots push on. The internet is required: neither has a
+local API. The first vendor with an `account.json`: the owner connects an ECOVACS HOME account on
+the vendor's page - email, password, country, and the code ECOVACS emails the first time - and
+every GOAT and DEEBOT bound to it is added on its own (`"adopt": "automatic"`); a robot of another
+kind is listed among those seen and not added. The session is kept, so a restart signs in to
+nothing. The first on the robot entities - a `lawn_mower` and a `vacuum`, with the settings as
+`switch`, `number` and `select` - and the first with an `image` entity: a vacuum's live map, its
+floor plan, rooms, path and position drawn as an SVG. The transport speaks each robot in the
+dialect its product name says, and in the other when the robot refuses. Its README says which
+models are confirmed and what is unverified.
 
 ## solax
 

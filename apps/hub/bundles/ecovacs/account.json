@@ -1,0 +1,266 @@
+{
+  "name": "ECOVACS HOME account",
+  "help": "The account the ECOVACS HOME app signs in with. The first time, ECOVACS emails a code to confirm NebulaHome; from then on the password is enough.",
+  "fields": {
+    "fields": [
+      {
+        "key": "email",
+        "type": "text",
+        "label": "ECOVACS account",
+        "help": "The email you sign in to the ECOVACS HOME app with. The GOATs and DEEBOTs bound to it are added on their own.",
+        "placeholder": "you@example.com",
+        "isRequired": true,
+        "maxLength": 256,
+        "pattern": "^[^@\\s]+@[^@\\s]+$",
+        "patternMessage": "The account's email address"
+      },
+      {
+        "key": "password",
+        "type": "secret",
+        "label": "Password",
+        "help": "The ECOVACS HOME app's password. Kept sealed; only its digest is sent, to ECOVACS's sign-in.",
+        "isRequired": true,
+        "maxLength": 256
+      },
+      {
+        "key": "country",
+        "type": "choice",
+        "label": "Country",
+        "help": "The country the account was made in: it decides which of ECOVACS's servers hold it.",
+        "isRequired": true,
+        "choices": [
+          {
+            "value": "AU",
+            "label": "Australia"
+          },
+          {
+            "value": "AT",
+            "label": "Austria"
+          },
+          {
+            "value": "BE",
+            "label": "Belgium"
+          },
+          {
+            "value": "BR",
+            "label": "Brazil"
+          },
+          {
+            "value": "BG",
+            "label": "Bulgaria"
+          },
+          {
+            "value": "CA",
+            "label": "Canada"
+          },
+          {
+            "value": "CL",
+            "label": "Chile"
+          },
+          {
+            "value": "CN",
+            "label": "China"
+          },
+          {
+            "value": "HR",
+            "label": "Croatia"
+          },
+          {
+            "value": "CY",
+            "label": "Cyprus"
+          },
+          {
+            "value": "CZ",
+            "label": "Czechia"
+          },
+          {
+            "value": "DK",
+            "label": "Denmark"
+          },
+          {
+            "value": "EE",
+            "label": "Estonia"
+          },
+          {
+            "value": "FI",
+            "label": "Finland"
+          },
+          {
+            "value": "FR",
+            "label": "France"
+          },
+          {
+            "value": "DE",
+            "label": "Germany"
+          },
+          {
+            "value": "GR",
+            "label": "Greece"
+          },
+          {
+            "value": "HK",
+            "label": "Hong Kong"
+          },
+          {
+            "value": "HU",
+            "label": "Hungary"
+          },
+          {
+            "value": "IS",
+            "label": "Iceland"
+          },
+          {
+            "value": "IN",
+            "label": "India"
+          },
+          {
+            "value": "IE",
+            "label": "Ireland"
+          },
+          {
+            "value": "IL",
+            "label": "Israel"
+          },
+          {
+            "value": "IT",
+            "label": "Italy"
+          },
+          {
+            "value": "JP",
+            "label": "Japan"
+          },
+          {
+            "value": "LV",
+            "label": "Latvia"
+          },
+          {
+            "value": "LI",
+            "label": "Liechtenstein"
+          },
+          {
+            "value": "LT",
+            "label": "Lithuania"
+          },
+          {
+            "value": "LU",
+            "label": "Luxembourg"
+          },
+          {
+            "value": "MY",
+            "label": "Malaysia"
+          },
+          {
+            "value": "MT",
+            "label": "Malta"
+          },
+          {
+            "value": "MX",
+            "label": "Mexico"
+          },
+          {
+            "value": "MC",
+            "label": "Monaco"
+          },
+          {
+            "value": "NL",
+            "label": "Netherlands"
+          },
+          {
+            "value": "NZ",
+            "label": "New Zealand"
+          },
+          {
+            "value": "NO",
+            "label": "Norway"
+          },
+          {
+            "value": "PL",
+            "label": "Poland"
+          },
+          {
+            "value": "PT",
+            "label": "Portugal"
+          },
+          {
+            "value": "RO",
+            "label": "Romania"
+          },
+          {
+            "value": "SM",
+            "label": "San Marino"
+          },
+          {
+            "value": "SA",
+            "label": "Saudi Arabia"
+          },
+          {
+            "value": "RS",
+            "label": "Serbia"
+          },
+          {
+            "value": "SG",
+            "label": "Singapore"
+          },
+          {
+            "value": "SK",
+            "label": "Slovakia"
+          },
+          {
+            "value": "SI",
+            "label": "Slovenia"
+          },
+          {
+            "value": "ZA",
+            "label": "South Africa"
+          },
+          {
+            "value": "KR",
+            "label": "South Korea"
+          },
+          {
+            "value": "ES",
+            "label": "Spain"
+          },
+          {
+            "value": "SE",
+            "label": "Sweden"
+          },
+          {
+            "value": "CH",
+            "label": "Switzerland"
+          },
+          {
+            "value": "TW",
+            "label": "Taiwan"
+          },
+          {
+            "value": "TH",
+            "label": "Thailand"
+          },
+          {
+            "value": "TR",
+            "label": "Türkiye"
+          },
+          {
+            "value": "UA",
+            "label": "Ukraine"
+          },
+          {
+            "value": "AE",
+            "label": "United Arab Emirates"
+          },
+          {
+            "value": "GB",
+            "label": "United Kingdom"
+          },
+          {
+            "value": "US",
+            "label": "United States"
+          }
+        ]
+      }
+    ]
+  },
+  "identity": "email",
+  "module": "./cloud/sign-in.js"
+}
