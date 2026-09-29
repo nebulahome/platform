@@ -39,7 +39,7 @@ describe('the installed packages', () => {
     ]);
   });
 
-  it("reads one without saying where its files are, and says so for one that isn't there", async () => {
+  it("reads one without its files' place or its secrets, and says so for one that isn't there", async () => {
     const authorization = await bearer('package:read');
     const found = await server.inject({
       method: 'GET',
@@ -54,7 +54,10 @@ describe('the installed packages', () => {
 
     expect(found.statusCode).toBe(200);
     expect(found.json()).not.toHaveProperty('root');
-    expect(found.json()).toMatchObject({ config: { port: 1883 }, setup: { transport: {} } });
+    expect(found.json()).toMatchObject({
+      config: { port: 1883, password: { $sealed: true } },
+      setup: { transport: {} },
+    });
     expect(missing.statusCode).toBe(404);
   });
 });

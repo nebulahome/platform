@@ -90,7 +90,7 @@ export const MQTT_PACKAGE: InstalledPackage = {
   dependsOn: [],
 };
 
-/** Its detail: its setup, and a password already saved. */
+/** Its detail: its setup, and a password already saved - sealed, as the packet-manager keeps it. */
 const MQTT_DETAIL: PackageDetail = {
   ...MQTT_PACKAGE,
   setup: {
@@ -111,7 +111,7 @@ const MQTT_DETAIL: PackageDetail = {
     },
     options: { constants: {}, fields: [] },
   },
-  config: { port: 1883 },
+  config: { port: 1883, password: { $sealed: 'v1.bm90LWEtcmVhbC1jaXBoZXJ0ZXh0' } },
   root: FAKE_PACKAGE_ROOT,
 };
 

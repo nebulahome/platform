@@ -45,7 +45,7 @@ import {
   type PackagePlanReply,
   type PackageRpcAccess,
 } from '@nebula-home/contracts';
-import { schema, sealSecrets, type Database } from '@nebula-home/db';
+import { maskSealed, schema, sealSecrets, type Database } from '@nebula-home/db';
 import type { PlatformLogger } from '@nebula-home/logging';
 
 import { validateSetup } from './integrations.js';
@@ -207,8 +207,12 @@ export async function readPackage(
     detailOf(context, packageId),
     countsByPackage(context.db),
   ]);
-  // Where its files are is the machine's business, not the browser's.
-  return apiPackageDetailSchema.parse(counted(detail, counts));
+  // Where its files are is the machine's business, not the browser's; and a secret it saved is
+  // only said to be there.
+  return apiPackageDetailSchema.parse({
+    ...counted(detail, counts),
+    config: maskSealed(detail.config),
+  });
 }
 
 /**
