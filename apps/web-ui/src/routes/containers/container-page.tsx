@@ -134,10 +134,15 @@ function ContainerDetails(props: { readonly container: ContainerDetail }) {
         {container.managedBy === null || container.managedBy.isReleased ? null : (
           <Fact term="Run by">
             <Link
-              to={`/integrations/${encodeURIComponent(container.managedBy.vendorId)}`}
+              to={
+                container.managedBy.ownerKind === 'package'
+                  ? `/packages/${encodeURIComponent(container.managedBy.vendorId)}`
+                  : `/integrations/${encodeURIComponent(container.managedBy.vendorId)}`
+              }
               className="text-primary underline-offset-2 hover:underline"
             >
-              The {container.managedBy.vendorId} integration
+              The {container.managedBy.vendorId}{' '}
+              {container.managedBy.ownerKind === 'package' ? 'package' : 'integration'}
             </Link>
           </Fact>
         )}

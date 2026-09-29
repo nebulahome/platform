@@ -105,7 +105,7 @@ export function serveSupervisor(client: BusClient, service: SupervisorService): 
     client.serve(
       subject(SUPERVISOR_METHODS.managed),
       managedRequestSchema,
-      (request) => service.managedStatuses(request.vendorId),
+      (request) => service.managedStatuses(request.vendorId, request.ownerKind),
       reads,
     ),
     client.serve(

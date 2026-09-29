@@ -558,6 +558,7 @@ describe('a vendor that adds its own devices', () => {
       },
       containerStatuses: [
         {
+          ownerKind: 'vendor',
           vendorId: 'zigbee2mqtt',
           dependencyId: 'zigbee2mqtt',
           containerName: 'nebulahome-zigbee2mqtt',

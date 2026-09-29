@@ -33,6 +33,11 @@ import type {
 /** The labels a managed container carries. */
 export const MANAGED_LABELS = {
   managed: 'io.nebulahome.managed',
+
+  /** `vendor` or `package`: who declares it. Absent on containers made before packages had any. */
+  ownerKind: 'io.nebulahome.owner-kind',
+
+  /** The vendor that declares it, or the package. */
   vendor: 'io.nebulahome.vendor',
   dependency: 'io.nebulahome.dependency',
   spec: 'io.nebulahome.spec',
@@ -92,16 +97,57 @@ export function isAnotherInstallations(
   return made !== undefined && made !== installationId;
 }
 
+/** What names a managed container: who declares it, and its id among theirs. */
+type ManagedOwner = Pick<ManagedContainerSpec, 'vendorId' | 'dependencyId'> & {
+  readonly ownerKind?: ManagedContainerSpec['ownerKind'];
+};
+
 /**
- * The name of the container that is one of a vendor's declared containers.
+ * What a managed container is called after `nebulahome-`: the vendor's id - a package's with
+ * `pkg-` before it, so a vendor and a package of one name never share a container - and the
+ * container's own id when it is not the owner's.
  *
  * @param spec - The declaration.
- * @returns `nebulahome-<vendor>`, or `nebulahome-<vendor>-<id>` when the id is not the vendor's.
+ * @returns `zigbee2mqtt`, `pkg-nvr-frigate`.
  */
-export function managedName(spec: Pick<ManagedContainerSpec, 'vendorId' | 'dependencyId'>): string {
-  return spec.dependencyId === spec.vendorId
-    ? `nebulahome-${spec.vendorId}`
-    : `nebulahome-${spec.vendorId}-${spec.dependencyId}`;
+function ownedName(spec: ManagedOwner): string {
+  const owner = spec.ownerKind === 'package' ? `pkg-${spec.vendorId}` : spec.vendorId;
+
+  return spec.dependencyId === spec.vendorId ? owner : `${owner}-${spec.dependencyId}`;
+}
+
+/**
+ * The name of the container that is one of a vendor's, or a package's, declared containers.
+ *
+ * @param spec - The declaration.
+ * @returns `nebulahome-<vendor>`, `nebulahome-<vendor>-<id>` when the id is not the vendor's, and
+ *   `nebulahome-pkg-<package>…` for a package's.
+ */
+export function managedName(spec: ManagedOwner): string {
+  return `nebulahome-${ownedName(spec)}`;
+}
+
+/**
+ * The name the other containers on the network reach a managed container by: a vendor's by its
+ * id, as it always was; a package's by its owned name, which no vendor's can be.
+ *
+ * @param spec - The declaration.
+ * @returns The alias.
+ */
+export function managedAlias(spec: ManagedOwner): string {
+  return spec.ownerKind === 'package' ? ownedName(spec) : spec.dependencyId;
+}
+
+/**
+ * Who declares a managed container, from its labels: a vendor unless they say a package.
+ *
+ * @param labels - The container's labels.
+ * @returns The kind.
+ */
+export function ownerKindOf(
+  labels: Readonly<Record<string, string>>,
+): ManagedContainerSpec['ownerKind'] {
+  return labels[MANAGED_LABELS.ownerKind] === 'package' ? 'package' : 'vendor';
 }
 
 /**
@@ -164,11 +210,13 @@ export function fillPlaceholders(value: string, values: Readonly<Record<string, 
  * @param volume - The volume.
  * @returns `containers/<id>/<name>`, or `cache/containers/<id>/<name>`.
  */
-export function volumeFolder(
-  spec: Pick<ManagedContainerSpec, 'dependencyId'>,
-  volume: ManagedVolume,
-): string {
-  const folder = path.posix.join(CONTAINERS_DIRECTORY, spec.dependencyId, volume.name);
+export function volumeFolder(spec: ManagedOwner, volume: ManagedVolume): string {
+  // A vendor's container keeps the folder it always had, named after its own id.
+  const folder = path.posix.join(
+    CONTAINERS_DIRECTORY,
+    spec.ownerKind === 'package' ? ownedName(spec) : spec.dependencyId,
+    volume.name,
+  );
 
   return volume.isCache ? path.posix.join(CACHE_DIRECTORY, folder) : folder;
 }
@@ -263,6 +311,7 @@ export function managedCreateBody(
     Env: env,
     Labels: {
       [MANAGED_LABELS.managed]: 'true',
+      [MANAGED_LABELS.ownerKind]: spec.ownerKind,
       [MANAGED_LABELS.vendor]: spec.vendorId,
       [MANAGED_LABELS.dependency]: spec.dependencyId,
       [MANAGED_LABELS.spec]: hash,
@@ -299,7 +348,7 @@ export function managedCreateBody(
       ? {}
       : {
           NetworkingConfig: {
-            EndpointsConfig: { [context.networkName]: { Aliases: [spec.dependencyId] } },
+            EndpointsConfig: { [context.networkName]: { Aliases: [managedAlias(spec)] } },
           },
         }),
   };

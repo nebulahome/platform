@@ -57,6 +57,7 @@ import {
   type ImageDescription,
   type ImageSearchReply,
   type ImageTagsReply,
+  type ContainerOwnerKind,
   type ManagedReply,
   type ReconcileRequest,
   type ResyncReply,
@@ -753,16 +754,17 @@ export class SupervisorService {
   }
 
   /**
-   * Where each container a vendor declares stands, for its page.
+   * Where each container a vendor, or a package, declares stands, for its page.
    *
-   * @param vendorId - The vendor.
+   * @param vendorId - The vendor, or the package.
+   * @param ownerKind - Which of the two.
    * @returns The statuses.
    */
-  public managedStatuses(vendorId: string): ManagedReply {
+  public managedStatuses(vendorId: string, ownerKind: ContainerOwnerKind = 'vendor'): ManagedReply {
     // What the work last did, with the state Docker gives the container now: one that was made
     // and then keeps restarting says so.
     return {
-      containers: this.#managed.statusesOf(vendorId).map((status) => {
+      containers: this.#managed.statusesOf(vendorId, ownerKind).map((status) => {
         const tracked = [...this.#containers.values()].find(
           (each) => each.name === status.containerName,
         );

@@ -7,13 +7,16 @@ import {
   isAnotherInstallations,
   MANAGED_LABELS,
   managedCreateBody,
+  managedAlias,
   managedName,
+  ownerKindOf,
   platformValues,
   volumeFolder,
   type PlatformContext,
 } from './managed.js';
 
 const SPEC: ManagedContainerSpec = {
+  ownerKind: 'vendor',
   vendorId: 'zigbee2mqtt',
   dependencyId: 'zigbee2mqtt',
   name: 'Zigbee2MQTT',
@@ -47,6 +50,15 @@ describe('managedName', () => {
     expect(managedName({ vendorId: 'tasmota', dependencyId: 'mosquitto' })).toBe(
       'nebulahome-tasmota-mosquitto',
     );
+  });
+
+  it("names a package's apart from any vendor's, and gives it an alias no vendor's can be", () => {
+    const frigate = { ownerKind: 'package' as const, vendorId: 'nvr', dependencyId: 'frigate' };
+
+    expect(managedName(frigate)).toBe('nebulahome-pkg-nvr-frigate');
+    expect(managedName({ ...frigate, dependencyId: 'nvr' })).toBe('nebulahome-pkg-nvr');
+    expect(managedAlias(frigate)).toBe('pkg-nvr-frigate');
+    expect(managedAlias(SPEC)).toBe('zigbee2mqtt');
   });
 });
 
@@ -101,6 +113,26 @@ describe('volumeFolder', () => {
     expect(volumeFolder(SPEC, { name: 'log', path: '/app/log', isCache: true })).toBe(
       'cache/containers/zigbee2mqtt/log',
     );
+  });
+
+  it("keeps a package's under a folder named after the package", () => {
+    expect(
+      volumeFolder(
+        { ownerKind: 'package', vendorId: 'nvr', dependencyId: 'frigate' },
+        { name: 'media', path: '/media', isCache: false },
+      ),
+    ).toBe('containers/pkg-nvr-frigate/media');
+  });
+});
+
+describe('ownerKindOf', () => {
+  it('reads who declares a container, a vendor for one made before packages', () => {
+    const labels = managedCreateBody({ ...SPEC, ownerKind: 'package' }, '2.14.1', BRIDGE).body[
+      'Labels'
+    ] as Record<string, string>;
+
+    expect(ownerKindOf(labels)).toBe('package');
+    expect(ownerKindOf({ [MANAGED_LABELS.managed]: 'true' })).toBe('vendor');
   });
 });
 

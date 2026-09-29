@@ -546,7 +546,12 @@ export const CONTAINERS: ContainerListReply = {
   containers: [
     container('nebulahome', { isSelf: true, isSystem: true, deviceId: null, refusal: 'self' }),
     container('nebulahome-zigbee2mqtt', {
-      managedBy: { vendorId: 'zigbee2mqtt', dependencyId: 'zigbee2mqtt', isReleased: false },
+      managedBy: {
+        ownerKind: 'vendor',
+        vendorId: 'zigbee2mqtt',
+        dependencyId: 'zigbee2mqtt',
+        isReleased: false,
+      },
       refusal: 'managed',
     }),
     container('adguard'),

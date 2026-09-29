@@ -20,6 +20,7 @@ import {
   isNebulaError,
   NotFoundError,
   type ContainerManager,
+  type ContainerOwnerKind,
   type ManagedContainerSpec,
   type ManagedReply,
   type ManagedStatus,
@@ -36,6 +37,7 @@ import {
   MANAGED_LABELS,
   managedCreateBody,
   managedName,
+  ownerKindOf,
   NETWORK_LABELS,
   isAnotherInstallations,
   platformValues,
@@ -70,26 +72,43 @@ export type ManagedContainersOptions = {
   readonly onChange: (name: string) => void;
 };
 
+/** The key an owner's declarations are kept under. */
+type OwnerKey = `${ContainerOwnerKind}:${string}`;
+
 /** The key a declared container is kept under. */
-type Key = `${string}/${string}`;
+type Key = `${OwnerKey}/${string}`;
+
+/**
+ * The key of an owner: a vendor, or a package.
+ *
+ * @param ownerKind - Which kind.
+ * @param vendorId - The vendor's id, or the package's.
+ * @returns `vendor:<id>` or `package:<id>`.
+ */
+function ownerKeyOf(ownerKind: ContainerOwnerKind, vendorId: string): OwnerKey {
+  return `${ownerKind}:${vendorId}`;
+}
 
 /**
  * The key of a declared container.
  *
- * @param vendorId - Its vendor.
- * @param dependencyId - Its id among the vendor's.
- * @returns `vendor/id`.
+ * @param ownerKind - Who declares it.
+ * @param vendorId - Its vendor, or its package.
+ * @param dependencyId - Its id among the owner's.
+ * @returns `vendor:<id>/<dependency>`.
  */
-function keyOf(vendorId: string, dependencyId: string): Key {
-  return `${vendorId}/${dependencyId}`;
+function keyOf(ownerKind: ContainerOwnerKind, vendorId: string, dependencyId: string): Key {
+  return `${ownerKeyOf(ownerKind, vendorId)}/${dependencyId}`;
 }
 
 /** The containers the integrations run. */
 export class ManagedContainers {
   readonly #options: ManagedContainersOptions;
-  readonly #desired = new Map<string, ManagedContainerSpec[]>();
+  readonly #desired = new Map<OwnerKey, ManagedContainerSpec[]>();
   readonly #status = new Map<Key, ManagedStatus>();
-  #hasReconciled = false;
+
+  /** The kinds of owner whose whole set was handed over: `hub`'s vendors, the packages. */
+  readonly #reconciled = new Set<ContainerOwnerKind>();
   #isSuspended = false;
   #suspended: string[] = [];
   #queue: Promise<void> = Promise.resolve();
@@ -104,59 +123,82 @@ export class ManagedContainers {
   }
 
   /**
-   * Takes in every container every loaded vendor declares, and sets to work on them.
+   * Takes in every container every owner of one kind declares - every loaded vendor, from `hub`,
+   * or every installed package, from the packet-manager - and sets to work on them. The other
+   * kind's are left as they are.
    *
-   * @param request - The whole set.
+   * @param request - The whole set of one kind.
    * @returns Where each declared container stands now.
    */
   public reconcile(request: ReconcileRequest): ManagedReply {
-    this.#desired.clear();
+    const { ownerKind } = request;
 
-    for (const vendor of request.vendors) {
-      this.#desired.set(vendor.vendorId, vendor.containers);
+    for (const key of [...this.#desired.keys()]) {
+      if (key.startsWith(`${ownerKind}:`)) {
+        this.#desired.delete(key);
+      }
     }
 
-    this.#hasReconciled = true;
-
     for (const vendor of request.vendors) {
-      this.#schedule(vendor.vendorId);
+      this.#desired.set(
+        ownerKeyOf(ownerKind, vendor.vendorId),
+        vendor.containers.map((spec) => ({ ...spec, ownerKind })),
+      );
     }
 
-    return { containers: request.vendors.flatMap((vendor) => this.statusesOf(vendor.vendorId)) };
+    this.#reconciled.add(ownerKind);
+
+    for (const vendor of request.vendors) {
+      this.#schedule(ownerKeyOf(ownerKind, vendor.vendorId));
+    }
+
+    return {
+      containers: request.vendors.flatMap((vendor) => this.statusesOf(vendor.vendorId, ownerKind)),
+    };
   }
 
   /**
-   * Takes in one vendor's containers, after its settings changed.
+   * Takes in one owner's containers, after its settings changed.
    *
-   * @param request - The vendor's containers.
+   * @param request - The owner's containers.
    * @returns Where they stand now.
    */
-  public ensure(request: VendorContainers): ManagedReply {
-    this.#desired.set(request.vendorId, request.containers);
-    this.#schedule(request.vendorId);
+  public ensure(
+    request: VendorContainers & { readonly ownerKind?: ContainerOwnerKind },
+  ): ManagedReply {
+    const ownerKind = request.ownerKind ?? 'vendor';
+    const key = ownerKeyOf(ownerKind, request.vendorId);
 
-    return { containers: this.statusesOf(request.vendorId) };
+    this.#desired.set(
+      key,
+      request.containers.map((spec) => ({ ...spec, ownerKind })),
+    );
+    this.#schedule(key);
+
+    return { containers: this.statusesOf(request.vendorId, ownerKind) };
   }
 
   /**
    * Starts the work again for every vendor: after Docker came back, or a restore ended.
    */
   public retry(): void {
-    for (const vendorId of this.#desired.keys()) {
-      this.#schedule(vendorId);
+    for (const key of this.#desired.keys()) {
+      this.#schedule(key);
     }
   }
 
   /**
-   * Where each container a vendor declares stands.
+   * Where each container a vendor, or a package, declares stands.
    *
-   * @param vendorId - The vendor.
+   * @param vendorId - The vendor, or the package.
+   * @param ownerKind - Which of the two.
    * @returns One status per declared container, in the declaration's order.
    */
-  public statusesOf(vendorId: string): ManagedStatus[] {
-    return (this.#desired.get(vendorId) ?? []).map(
+  public statusesOf(vendorId: string, ownerKind: ContainerOwnerKind = 'vendor'): ManagedStatus[] {
+    return (this.#desired.get(ownerKeyOf(ownerKind, vendorId)) ?? []).map(
       (spec) =>
-        this.#status.get(keyOf(vendorId, spec.dependencyId)) ?? {
+        this.#status.get(keyOf(ownerKind, vendorId, spec.dependencyId)) ?? {
+          ownerKind,
           vendorId,
           dependencyId: spec.dependencyId,
           containerName: null,
@@ -186,11 +228,17 @@ export class ManagedContainers {
       return null;
     }
 
-    const isDeclared = (this.#desired.get(vendorId) ?? []).some(
+    const ownerKind = ownerKindOf(labels);
+    const isDeclared = (this.#desired.get(ownerKeyOf(ownerKind, vendorId)) ?? []).some(
       (spec) => spec.dependencyId === dependencyId,
     );
 
-    return { vendorId, dependencyId, isReleased: this.#hasReconciled && !isDeclared };
+    return {
+      ownerKind,
+      vendorId,
+      dependencyId,
+      isReleased: this.#reconciled.has(ownerKind) && !isDeclared,
+    };
   }
 
   /**
@@ -203,9 +251,10 @@ export class ManagedContainers {
     const manager = this.managerOf(labels);
 
     return (
-      (manager === null ? [] : (this.#desired.get(manager.vendorId) ?? [])).find(
-        (spec) => spec.dependencyId === manager?.dependencyId,
-      )?.name ?? null
+      (manager === null
+        ? []
+        : (this.#desired.get(ownerKeyOf(manager.ownerKind, manager.vendorId)) ?? [])
+      ).find((spec) => spec.dependencyId === manager?.dependencyId)?.name ?? null
     );
   }
 
@@ -217,9 +266,11 @@ export class ManagedContainers {
    */
   public webPortOf(labels: Readonly<Record<string, string>>): number | null {
     const manager = this.managerOf(labels);
-    const spec = (manager === null ? [] : (this.#desired.get(manager.vendorId) ?? [])).find(
-      (each) => each.dependencyId === manager?.dependencyId,
-    );
+    const spec = (
+      manager === null
+        ? []
+        : (this.#desired.get(ownerKeyOf(manager.ownerKind, manager.vendorId)) ?? [])
+    ).find((each) => each.dependencyId === manager?.dependencyId);
 
     if (spec?.webPort === null || spec?.webPort === undefined) {
       return null;
@@ -277,17 +328,17 @@ export class ManagedContainers {
   }
 
   /**
-   * Queues the work for one vendor behind whatever is already queued.
+   * Queues the work for one owner behind whatever is already queued.
    *
-   * @param vendorId - The vendor.
+   * @param key - The owner.
    */
-  #schedule(vendorId: string): void {
+  #schedule(key: OwnerKey): void {
     this.#queue = this.#queue.then(async () => {
       if (this.#isSuspended) {
         return;
       }
 
-      for (const spec of this.#desired.get(vendorId) ?? []) {
+      for (const spec of this.#desired.get(key) ?? []) {
         // eslint-disable-next-line no-await-in-loop -- one container at a time, one pull at a time
         await this.#ensureOne(spec);
       }
@@ -301,7 +352,7 @@ export class ManagedContainers {
    * @param spec - The declaration.
    */
   async #ensureOne(spec: ManagedContainerSpec): Promise<void> {
-    const key = keyOf(spec.vendorId, spec.dependencyId);
+    const key = keyOf(spec.ownerKind, spec.vendorId, spec.dependencyId);
     const name = managedName(spec);
     const context = this.#options.context();
 
@@ -312,6 +363,7 @@ export class ManagedContainers {
      */
     const record = (fields: Partial<ManagedStatus>): void => {
       this.#status.set(key, {
+        ownerKind: spec.ownerKind,
         vendorId: spec.vendorId,
         dependencyId: spec.dependencyId,
         containerName: name,

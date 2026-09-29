@@ -331,6 +331,7 @@ const SILENT_ZIGBEE: IntegrationVendorView = {
   ],
   containerStatuses: [
     {
+      ownerKind: 'vendor',
       vendorId: 'zigbee2mqtt',
       dependencyId: 'zigbee2mqtt',
       containerName: 'nebulahome-zigbee2mqtt',

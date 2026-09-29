@@ -28,14 +28,24 @@ describe('ownerOf', () => {
     expect(
       ownerOf(
         container({
-          managedBy: { vendorId: 'zigbee2mqtt', dependencyId: 'zigbee2mqtt', isReleased: false },
+          managedBy: {
+            ownerKind: 'vendor',
+            vendorId: 'zigbee2mqtt',
+            dependencyId: 'zigbee2mqtt',
+            isReleased: false,
+          },
         }),
       ),
     ).toBe('integration');
     expect(
       ownerOf(
         container({
-          managedBy: { vendorId: 'gone', dependencyId: 'gone', isReleased: true },
+          managedBy: {
+            ownerKind: 'vendor',
+            vendorId: 'gone',
+            dependencyId: 'gone',
+            isReleased: true,
+          },
         }),
       ),
     ).toBe('other');
