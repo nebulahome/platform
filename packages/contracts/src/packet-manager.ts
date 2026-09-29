@@ -164,6 +164,12 @@ export const packageDetailSchema = installedPackageSchema.extend({
 
   /** What the owner saved, secrets sealed: never handed to the interface opened. */
   config: jsonObjectSchema,
+
+  /**
+   * Where its files are on this machine, for `api` to serve its interface from. Kept between
+   * the services: `api` leaves it out of what it answers the browser.
+   */
+  root: z.string().min(1).max(1024),
 });
 
 /** One installed package, for its page. */
