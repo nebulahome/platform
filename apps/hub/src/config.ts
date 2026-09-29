@@ -102,6 +102,12 @@ export const hubEnvSchema = runtimeEnvSchema
 
     /** How long a proposed device stays proposed without being heard again. */
     HUB_DISCOVERY_TTL_MS: z.coerce.number().int().min(60_000).max(86_400_000).default(1_800_000),
+
+    /** This platform's release, which a vendor's `requires.platform` range is checked against. */
+    NEBULA_PLATFORM_VERSION: z
+      .string()
+      .regex(/^\d+\.\d+\.\d+(?:-[\da-z.-]+)?$/i)
+      .default('1.0.0'),
   })
   // The data directory, whose `hub/integrations` holds the bundles installed into this hub.
   .extend(dataEnvSchema.shape)

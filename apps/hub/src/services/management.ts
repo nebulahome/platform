@@ -99,6 +99,14 @@ export type ManagementServiceOptions = {
   readonly hearing: (vendorId: string) => VendorHearing;
 
   /**
+   * What one vendor needs and is not running, in sentences, read when asked.
+   *
+   * @param vendorId - The vendor.
+   * @returns The sentences; none when all it needs runs, or it needs nothing. None when not said.
+   */
+  readonly packageProblems?: (vendorId: string) => readonly string[];
+
+  /**
    * Asks discovery to look now for one vendor's devices.
    *
    * @param vendorId - The vendor.
@@ -189,9 +197,14 @@ function kindOf(bundle: LoadedBundle): IntegrationKind {
  *
  * @param vendor - As the loader produced it.
  * @param hearing - How its devices are being heard now.
+ * @param packageProblems - What it needs and is not running, in sentences.
  * @returns The catalogue entry, drivers included.
  */
-function vendorOf(vendor: LoadedVendor, hearing: VendorHearing): IntegrationVendor {
+function vendorOf(
+  vendor: LoadedVendor,
+  hearing: VendorHearing,
+  packageProblems: readonly string[],
+): IntegrationVendor {
   const { manifest } = vendor;
   const pairing = vendor.discovery?.plan.discovery.pairing;
 
@@ -229,6 +242,8 @@ function vendorOf(vendor: LoadedVendor, hearing: VendorHearing): IntegrationVend
       image: container.image,
       minVersion: container.minVersion,
     })),
+    requires: manifest.requires,
+    packageProblems: [...packageProblems],
     listener: hearing.listener,
     passedOver: hearing.passedOver,
   };
@@ -256,7 +271,13 @@ export class ManagementService {
     return {
       vendors: this.#options
         .vendors()
-        .map((vendor) => vendorOf(vendor, this.#options.hearing(vendor.manifest.id))),
+        .map((vendor) =>
+          vendorOf(
+            vendor,
+            this.#options.hearing(vendor.manifest.id),
+            this.#options.packageProblems?.(vendor.manifest.id) ?? [],
+          ),
+        ),
     };
   }
 

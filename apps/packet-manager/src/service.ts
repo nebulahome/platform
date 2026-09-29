@@ -48,7 +48,6 @@ import {
   managedReplySchema,
   NotFoundError,
   packageManifestSchema,
-  packageRequiresSchema,
   planInstall,
   startOrder,
   SUPERVISOR_METHODS,
@@ -1302,7 +1301,7 @@ export class PacketManager {
       return reply.vendors.map((vendor) => ({
         kind: 'vendor' as const,
         id: vendor.id,
-        requires: packageRequiresSchema.parse((vendor as { requires?: unknown }).requires ?? {}),
+        requires: vendor.requires,
       }));
     } catch {
       return [];

@@ -147,6 +147,7 @@ function printerVendor(): LoadedVendor {
       transports: {},
       streams: {},
       containers: [],
+      requires: { packages: {}, services: [] },
     },
     origin: 'installed',
     setup: integrationSetupSchema.parse({

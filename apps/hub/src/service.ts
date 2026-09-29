@@ -93,6 +93,7 @@ import { IdentificationService, type Identified } from './services/identificatio
 import { ImageStore } from './services/images.js';
 import { publishReports, startInstanceServices } from './services/instance.js';
 import { ManagementService } from './services/management.js';
+import { PackageWatch } from './services/package-watch.js';
 import { VendorContainersService } from './services/vendor-containers.js';
 
 /** What the service needs. */
@@ -152,6 +153,7 @@ export class HubService {
   readonly #accounts: AccountService;
   readonly #images: ImageStore;
   readonly #vendorContainers: VendorContainersService;
+  readonly #packages: PackageWatch;
   readonly #secretsKey: Buffer;
 
   /** The stream sources the vendors ship, by id: `bambu-lab/camera`. */
@@ -299,6 +301,14 @@ export class HubService {
         this.#discovery?.hearingOf(vendorId) ?? { listener: null, passedOver: [] },
 
       /**
+       * Says what a vendor waits for.
+       *
+       * @param vendorId - The vendor.
+       * @returns The packages it needs that do not run, in sentences.
+       */
+      packageProblems: (vendorId: string) => this.#packages.problemsOf(vendorId),
+
+      /**
        * Asks discovery to look now; nothing when it is not listening.
        *
        * @param vendorId - The vendor.
@@ -367,9 +377,27 @@ export class HubService {
        * @param vendorId - The vendor.
        * @returns Once they are started again.
        */
-      onSignedInOrOut: async (vendorId: string): Promise<void> => this.#accountChanged(vendorId),
+      onSignedInOrOut: async (vendorId: string): Promise<void> =>
+        this.#restartVendor(vendorId, 'an account of it signed in or out'),
     });
 
+    this.#packages = new PackageWatch({
+      client: this.#client,
+      logger: options.logger,
+      platformVersion: options.config.NEBULA_PLATFORM_VERSION,
+
+      /**
+       * Starts the instances of the vendors whose packages started or stopped again: they can
+       * connect now, or say which package they wait for.
+       *
+       * @param vendorIds - The vendors whose standing changed.
+       */
+      onChange: (vendorIds: readonly string[]): void => {
+        for (const vendorId of vendorIds) {
+          void this.#restartVendor(vendorId, 'a package it needs started or stopped');
+        }
+      },
+    });
     this.#vendorContainers = new VendorContainersService({
       client: this.#client,
       logger: options.logger,
@@ -504,6 +532,15 @@ export class HubService {
       ),
     ];
 
+    // Before the instances: a vendor that waits for a package is not started against it.
+    await this.#packages.start(
+      [...this.#vendors.values()].map((vendor) => ({
+        id: vendor.manifest.id,
+        name: vendor.manifest.name,
+        requires: vendor.manifest.requires,
+      })),
+    );
+
     const instances = await loadInstances(db);
 
     this.#discovery = this.#createDiscovery();
@@ -617,6 +654,7 @@ export class HubService {
    * closed.
    */
   public async stop(): Promise<void> {
+    this.#packages.stop();
     this.#cameras.stop();
     this.#images.stop();
     this.#vendorContainers.stop();
@@ -675,25 +713,27 @@ export class HubService {
 
   /**
    * Starts every instance of a vendor again and has its listener look now: an account of it
-   * signed in or out, so its devices can connect, or cannot any more.
+   * signed in or out, or a package it needs started or stopped, so its devices can connect, or
+   * cannot any more.
    *
    * @param vendorId - The vendor.
+   * @param why - What changed, for the log.
    * @returns Once they are started again; a failure is in each instance's own status.
    */
-  async #accountChanged(vendorId: string): Promise<void> {
+  async #restartVendor(vendorId: string, why: string): Promise<void> {
     const instances = (await loadInstances(this.#options.db)).filter((instance) =>
       instance.kind.startsWith(`${vendorId}/`),
     );
 
     for (const instance of instances) {
       try {
-        // One after another: they share the account's one connection.
+        // One after another: they may share one connection.
         // eslint-disable-next-line no-await-in-loop -- see above
         await this.reloadInstance(instance.id);
       } catch (error: unknown) {
         this.#options.logger.warn(
-          { err: error, instanceId: instance.id },
-          'Could not start an instance again after its account changed',
+          { err: error, instanceId: instance.id, why },
+          'Could not start an instance again',
         );
       }
     }
@@ -1047,6 +1087,12 @@ export class HubService {
       throw new Error(
         `No loaded integration bundle is by the vendor ${vendorId}, so ${instance.kind} has no driver`,
       );
+    }
+
+    const waits = this.#packages.problemsOf(vendorId);
+
+    if (waits.length > 0) {
+      throw new Error(waits.join('; '));
     }
 
     const saved = await loadVendorSettings(this.#options.db, vendorId, this.#secretsKey);
