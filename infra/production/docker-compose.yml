@@ -7,14 +7,22 @@
 # The page is then on http://<machine>:8080 and https://<machine>:8443 (a self-signed certificate
 # made on the first start); the first visit creates the owner.
 #
-# The network. The platform sits on one user-defined bridge, `nebulahome-net`, declared here and
-# handed to the platform: the containers integrations run (zigbee2mqtt) are put on the same
-# network by the platform itself and reach it by its name, `nebulahome` - the MQTT broker is
-# mqtt://nebulahome:1883 to them, whatever addresses Docker hands out. Nothing depends on an IP
-# address or a subnet, so two machines, or Docker's own address pools, cannot disagree about one.
-# A bridge carries no multicast, so devices are added by their address there; on a Linux server,
-# docker-compose.host.yml puts the platform on the host's network instead, where the hub hears the
-# LAN and finds devices on its own (see README.md).
+# One container is the whole platform: PostgreSQL with TimescaleDB, NATS and every service run
+# inside it, supervised by s6 (../../Dockerfile), each in a volume of its own below. There is no
+# database or bus container to add. The only containers beside it are the ones integrations need
+# (zigbee2mqtt), which the platform starts itself through Docker's socket.
+#
+# The network: the host's own. The hub hears the LAN there - mDNS, Govee's scan, Shelly's and
+# Bambu Lab's announcements, all multicast - and finds devices on its own. Nothing is published:
+# the page is on the host's ports 8080 and 8443, and the house's MQTT broker (the `mqtt` package)
+# on 1883, for the devices on the network, with a username each. PostgreSQL (5433), NATS (4223,
+# monitor 8223) and api (4100) listen on loopback only, with passwords, on ports that stay out of
+# the way of anything else the host runs. The containers integrations run go on the host's network
+# too, and reach the broker on 127.0.0.1.
+#
+# A Linux server only: Docker Desktop's host network is its virtual machine's, which reaches no
+# device of the LAN. There, and wherever the host's network is not wanted, docker-compose.bridge.yml
+# puts the platform on a bridge of its own instead, with discovery off (see README.md).
 
 name: nebulahome
 
@@ -25,17 +33,7 @@ services:
     # never stops or removes it, and makes no device of it.
     labels:
       io.nebulahome.platform: 'true'
-    hostname: nebulahome
-    networks:
-      nebulahome:
-        # The name the containers integrations run reach the platform by, and the supervisor's
-        # default (SUPERVISOR_PLATFORM_ALIAS): declared here, it is there from the first start.
-        aliases: [nebulahome]
-    ports:
-      - '${NEBULA_HTTP_PORT:-8080}:8080'
-      - '${NEBULA_HTTPS_PORT:-8443}:8443'
-      # The house's MQTT broker (the `mqtt` package), for the devices on the network.
-      - '${NEBULA_MQTT_PORT:-1883}:1883'
+    network_mode: host
     restart: unless-stopped
     # Longer than the services' own 10 s shutdown timeout, and PostgreSQL's after them.
     stop_grace_period: 45s
@@ -43,12 +41,11 @@ services:
       - path: .env
         required: false
     environment:
-      NEBULA_NETWORK: bridge
-      HUB_DISCOVERY_ENABLED: 'false'
-      # The network the platform puts the containers integrations run on, and its own name there:
-      # the ones declared above.
-      SUPERVISOR_NETWORK: nebulahome-net
-      SUPERVISOR_PLATFORM_ALIAS: nebulahome
+      HUB_DISCOVERY_ENABLED: 'true'
+      # The network the platform makes for the containers the owner installs on a bridge. Never
+      # docker-compose.bridge.yml's `nebulahome-net`: Compose refuses to take over a network it
+      # did not create, so switching to the bridge later would fail.
+      SUPERVISOR_NETWORK: nebulahome
       TZ: ${TZ:-UTC}
     volumes:
       # The data directory: the integrations, the keys, the certificates, the backups, and the
@@ -76,18 +73,6 @@ services:
       # The image's own check - proxy's /healthz - with more time on the first start, when the
       # keys are made and the database is created and migrated.
       start_period: 180s
-
-networks:
-  nebulahome:
-    # Not `nebulahome`: a platform started before without this file made a network of that name
-    # itself, and Compose refuses to take over a network it did not create.
-    name: nebulahome-net
-    driver: bridge
-    # Docker picks the subnet from its address pools. Only if one of them is your LAN's - a
-    # device on 172.17.x.x or 192.168.x.x that the platform then cannot reach - pin one that is not:
-    # ipam:
-    #   config:
-    #     - subnet: 10.203.0.0/24
 
 volumes:
   nebula-data:

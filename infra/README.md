@@ -130,9 +130,10 @@ There it is on the machine's own network: discovery works, and nothing needs pub
 page is on the machine's ports 8080 and 8443.
 
 On a machine of its own, `production/` is the compose file to copy: the published image, the
-platform on a bridge of its own - `nebulahome-net`, declared there and handed to the supervisor,
-so the containers integrations run join it and reach the broker by the platform's name - and an
-override for the host's network ([production/README.md](production/README.md)).
+platform on the host's network with discovery on, and an override for a bridge of its own -
+`nebulahome-net`, declared there and handed to the supervisor, so the containers integrations run
+join it and reach the broker by the platform's name - for Docker Desktop
+([production/README.md](production/README.md)).
 
 **Docker Desktop** (Windows, macOS) is different: its "host" network is its own virtual
 machine's, which reaches no device on the LAN, and its page is not even reachable from Windows.

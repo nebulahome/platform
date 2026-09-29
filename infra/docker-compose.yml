@@ -44,8 +44,6 @@ services:
         required: false
     environment:
       HUB_DISCOVERY_ENABLED: ${HUB_DISCOVERY_ENABLED:-false}
-      # Which network the container is on, so the broker listens where it should.
-      NEBULA_NETWORK: ${NEBULA_NETWORK:-bridge}
     volumes:
       - nebula-data:/data
       - nebula-postgres:/var/lib/postgresql/data

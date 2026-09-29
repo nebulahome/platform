@@ -5,11 +5,15 @@ development stack. The platform is one container ([../README.md](../README.md#th
 beside it run the containers an integration needs - zigbee2mqtt for Zigbee - which the platform
 starts itself through Docker's socket.
 
-| File                      | What                                                                    |
-| ------------------------- | ----------------------------------------------------------------------- |
-| `docker-compose.yml`      | The platform on a bridge network of its own, the page's ports published |
-| `docker-compose.host.yml` | On a Linux server: the platform on the host's network, discovery on     |
-| `.env.example`            | The settings - the image, the ports, the data folder - to copy to .env  |
+| File                        | What                                                                     |
+| --------------------------- | ------------------------------------------------------------------------ |
+| `docker-compose.yml`        | The platform on the host's network, discovery on (a Linux server)        |
+| `docker-compose.bridge.yml` | Docker Desktop, or no host network: a bridge of its own, ports published |
+| `.env.example`              | The settings - the image, the ports, the data folder - to copy to .env   |
+
+The platform is one container because it is the whole of it: PostgreSQL with TimescaleDB, NATS
+and every service run inside it, supervised by s6, each with a volume of its own. There is no
+database or bus container to add; neither is reachable from outside it.
 
 Docker with Compose 2.24 or later. Docker Engine 26 or later (Docker Desktop 4.29) keeps the
 data of the containers integrations run inside the data directory; an older engine keeps it in
@@ -54,29 +58,35 @@ platform runs - zigbee2mqtt - keep running while it restarts and are picked up a
 
 ## The network
 
-**The bridge (the default).** The platform is on one user-defined bridge, `nebulahome-net`,
-declared by the compose file, under the name `nebulahome`. The containers integrations run are
-put on that same network by the platform and reach it by name: zigbee2mqtt is given
-`mqtt://nebulahome:1883` as its broker, with a username of its own. Nothing depends on an address Docker handed out, so the
-subnet Docker picks does not matter - unless it is the LAN's own: if a device on your network
-has an address in the subnet Docker gave `nebulahome-net` (`docker network inspect
-nebulahome-net`), the platform cannot reach it, and a subnet of your choosing goes in the
-compose file's `ipam` block.
+**The host's network (the default).** The platform is on the machine's own network, where the hub
+hears the LAN - mDNS, Govee's scan, Shelly's and Bambu Lab's announcements - and finds devices on
+its own. Nothing is published: the page is on the host's ports 8080 and 8443, the house's MQTT
+broker on 1883 for the devices on the network, and what else the platform listens on -
+PostgreSQL 5433, NATS 4223 (monitor 8223), `api` 4100 - is on loopback only, with passwords. Those
+ports must be free on the host; the page's are changed with `PROXY_HTTP_PORT` and
+`PROXY_HTTPS_PORT` in `.env`, the broker's on its own page (Packages → MQTT → Configure). The
+containers integrations run go on the host's network too and reach the broker on `127.0.0.1`.
 
-A bridge carries no multicast, so the hub cannot hear devices announce themselves: on the bridge
-they are added by their address, and cloud integrations (Ecovacs) and Zigbee work as anywhere.
+A Linux server only: Docker Desktop's host network is its virtual machine's and reaches no device.
 
-**The host's network, on a Linux server.** For the hub to find devices on the LAN on its own -
-mDNS, Govee's scan, Shelly's and Bambu Lab's announcements:
+**A bridge, on Docker Desktop or where the host's network is not wanted.**
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.host.yml up -d --wait
+docker compose -f docker-compose.yml -f docker-compose.bridge.yml up -d --wait
 ```
 
-Nothing is published there: the page is on the host's ports 8080 and 8443, the house's MQTT
-broker on 1883 for the devices on the network, and what else the platform listens on -
-PostgreSQL 5433, NATS 4223, `api` 4100 - is on loopback only, with passwords. The containers integrations run go on the host's network too.
-Not on Docker Desktop: its host network is its virtual machine's and reaches no device.
+The platform is then on one user-defined bridge, `nebulahome-net`, declared by the override,
+under the name `nebulahome`, with the page's ports and the broker's published (`NEBULA_HTTP_PORT`,
+`NEBULA_HTTPS_PORT`, `NEBULA_MQTT_PORT`). The containers integrations run are put on that same
+network by the platform and reach it by name: zigbee2mqtt is given `mqtt://nebulahome:1883` as its
+broker, with a username of its own. Nothing depends on an address Docker handed out, so the subnet
+Docker picks does not matter - unless it is the LAN's own: if a device on your network has an
+address in the subnet Docker gave `nebulahome-net` (`docker network inspect nebulahome-net`), the
+platform cannot reach it, and a subnet of your choosing goes in the override's `ipam` block.
+
+A bridge carries no multicast, so the hub cannot hear devices announce themselves: there
+discovery is off and devices are added by their address; cloud integrations (Ecovacs) and Zigbee
+work as anywhere. Every command below then takes both `-f` files.
 
 Switching between the two keeps everything: the data, the database and the containers.
 
@@ -107,8 +117,8 @@ docker compose down
 docker volume rm nebulahome_nebula-data nebulahome_nebula-postgres nebulahome_nebula-nats
 ```
 
-deletes everything, the keys and the backups in the data volume with it. `docker compose down`
-leaves `nebulahome-net` in place while zigbee2mqtt is still on it (`Resource is still in use`):
+deletes everything, the keys and the backups in the data volume with it. On the bridge,
+`docker compose down` leaves `nebulahome-net` in place while zigbee2mqtt is still on it (`Resource is still in use`):
 `docker rm -f nebulahome-zigbee2mqtt` first, or leave the network for the next start.
 
 ## When something is wrong
@@ -119,10 +129,14 @@ leaves `nebulahome-net` in place while zigbee2mqtt is still on it (`Resource is 
   house's broker became the `mqtt` package. Build or pull a current one: Mosquitto is gone.
 - **Devices cannot connect to the broker.** Packages → MQTT: the broker's page says the port and
   lists the clients; each device needs a username added there (or anonymous clients allowed
-  under Configure). On the bridge, the host's port is `NEBULA_MQTT_PORT` (1883).
-- **zigbee2mqtt cannot reach the broker.** `docker network inspect nebulahome-net` should list
-  both `nebulahome-nebulahome-1` and `nebulahome-zigbee2mqtt`; the vendor's page says what the
-  bridge last heard.
+  under Configure). On the bridge, the host's port is `NEBULA_MQTT_PORT` (1883); on the host's network, the
+  broker's own port.
+- **zigbee2mqtt cannot reach the broker.** On the bridge, `docker network inspect nebulahome-net`
+  should list both `nebulahome-nebulahome-1` and `nebulahome-zigbee2mqtt`; on the host's network
+  both are on it and meet on `127.0.0.1`. The vendor's page says what the bridge last heard.
+- **The page does not start on the host's network: `address already in use`.** Something else on
+  the host holds 8080, 8443 or 1883: move the page with `PROXY_HTTP_PORT` / `PROXY_HTTPS_PORT` in
+  `.env`, or stop what holds it.
 - **`network nebulahome-net was found but has incorrect label`**: a network of that name was made
   by hand or by another tool. `docker network rm nebulahome-net` with nothing on it, and start
   again.

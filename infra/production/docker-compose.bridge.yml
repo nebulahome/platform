@@ -1,0 +1,46 @@
+# The platform on a bridge network of its own instead of the host's: for Docker Desktop, whose
+# host network reaches no device of the LAN, or a server where the host's network is not wanted.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.bridge.yml up -d --wait
+#
+# The page's ports and the MQTT broker's are published. The bridge is `nebulahome-net`, declared
+# here and handed to the platform: the containers integrations run (zigbee2mqtt) are put on the
+# same network by the platform itself and reach it by its name, `nebulahome` - the MQTT broker is
+# mqtt://nebulahome:1883 to them, whatever addresses Docker hands out. Nothing depends on an IP
+# address or a subnet, so two machines, or Docker's own address pools, cannot disagree about one.
+#
+# A bridge carries no multicast, so the hub cannot hear devices announce themselves: discovery is
+# off and devices are added by their address. Needs Compose 2.24 or later, for !reset.
+
+services:
+  nebulahome:
+    network_mode: !reset null
+    hostname: nebulahome
+    networks:
+      nebulahome:
+        # The name the containers integrations run reach the platform by, and the supervisor's
+        # default (SUPERVISOR_PLATFORM_ALIAS): declared here, it is there from the first start.
+        aliases: [nebulahome]
+    ports:
+      - '${NEBULA_HTTP_PORT:-8080}:8080'
+      - '${NEBULA_HTTPS_PORT:-8443}:8443'
+      # The house's MQTT broker (the `mqtt` package), for the devices on the network.
+      - '${NEBULA_MQTT_PORT:-1883}:1883'
+    environment:
+      HUB_DISCOVERY_ENABLED: 'false'
+      # The network the platform puts the containers integrations run on, and its own name there:
+      # the ones declared here.
+      SUPERVISOR_NETWORK: nebulahome-net
+      SUPERVISOR_PLATFORM_ALIAS: nebulahome
+
+networks:
+  nebulahome:
+    # Not `nebulahome`: that is the network the platform makes itself on the host's network, and
+    # Compose refuses to take over a network it did not create.
+    name: nebulahome-net
+    driver: bridge
+    # Docker picks the subnet from its address pools. Only if one of them is your LAN's - a
+    # device on 172.17.x.x or 192.168.x.x that the platform then cannot reach - pin one that is not:
+    # ipam:
+    #   config:
+    #     - subnet: 10.203.0.0/24
