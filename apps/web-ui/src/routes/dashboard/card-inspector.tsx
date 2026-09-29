@@ -73,6 +73,7 @@ const TYPE_NAMES = {
   scene: 'Scene card',
   clock: 'Clock',
   energy: 'Energy card',
+  package: 'Package card',
   container: 'Group',
 } as const;
 

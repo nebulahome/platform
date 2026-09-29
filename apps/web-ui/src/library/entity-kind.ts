@@ -170,6 +170,14 @@ export function entityKindOf(
     return { label: 'Button', icon: 'circle-dot', tone: 'power' };
   }
 
+  if (has.has('custom')) {
+    return {
+      label: spoken(entity.domain === 'custom' ? 'item' : entity.domain),
+      icon: 'package',
+      tone: 'sensor',
+    };
+  }
+
   return { label: spoken(entity.domain), icon: 'gauge', tone: 'sensor' };
 }
 
@@ -220,6 +228,8 @@ export function capabilityLabel(capability: CapabilityName, domain = ''): string
       return 'Cleaning';
     case 'image':
       return 'Picture';
+    case 'custom':
+      return 'Details';
   }
 }
 

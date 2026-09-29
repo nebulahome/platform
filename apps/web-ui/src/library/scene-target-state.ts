@@ -43,6 +43,7 @@ const NON_SCENE_CAPABILITIES: ReadonlySet<CapabilityName> = new Set([
   'number',
   'vacuum',
   'image',
+  'custom',
 ]);
 
 /**

@@ -40,6 +40,7 @@ const TONES: Readonly<Record<PackageState, BadgeTone>> = {
   stopped: 'neutral',
   failed: 'danger',
   disabled: 'neutral',
+  'waiting-dependency': 'warning',
 };
 
 /** How the page's filter lives in the address. */
@@ -50,7 +51,7 @@ const STATE_OPTIONS = [
   { value: '', label: 'Any state' },
   ...PACKAGE_STATES.map((state) => ({
     value: state,
-    label: state.charAt(0).toUpperCase() + state.slice(1),
+    label: state.charAt(0).toUpperCase() + state.slice(1).replaceAll('-', ' '),
   })),
 ];
 
