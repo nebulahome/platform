@@ -344,3 +344,42 @@ export const packageRpcReplySchema = z.object({ output: jsonValueSchema });
 
 /** What a package's method answered. */
 export type PackageRpcReply = z.output<typeof packageRpcReplySchema>;
+
+// --- what `api` answers the interface --------------------------------------------------------
+
+/** An installed package, as the interface lists it: with how much of the house it accounts for. */
+export const apiPackageSchema = installedPackageSchema.extend({
+  deviceCount: z.int().min(0),
+  entityCount: z.int().min(0),
+});
+
+/** An installed package, as the interface lists it. */
+export type ApiPackage = z.output<typeof apiPackageSchema>;
+
+/** One package, for its page: without where its files are, which is the machine's business. */
+export const apiPackageDetailSchema = packageDetailSchema.omit({ root: true }).extend({
+  deviceCount: z.int().min(0),
+  entityCount: z.int().min(0),
+});
+
+/** One package, for its page. */
+export type ApiPackageDetail = z.output<typeof apiPackageDetailSchema>;
+
+/** `POST /packages/:id/install` and `/plan`: which release, the newest that fits when not said. */
+export const packageInstallBodySchema = z.strictObject({ version: semverSchema.optional() });
+
+/** `PUT /packages/:id/config`: the setup form's two groups, as a vendor's settings are sent. */
+export const packageConfigBodySchema = z
+  .strictObject({
+    transportConfig: jsonObjectSchema.optional(),
+    options: jsonObjectSchema.optional(),
+  })
+  .refine((body) => body.transportConfig !== undefined || body.options !== undefined, {
+    message: 'Nothing to change',
+  });
+
+/** What configuring a package sends. */
+export type PackageConfigBody = z.output<typeof packageConfigBodySchema>;
+
+/** `POST /packages/:id/rpc/:method`: what the method is handed. */
+export const packageRpcBodySchema = z.strictObject({ input: jsonValueSchema.default(null) });
