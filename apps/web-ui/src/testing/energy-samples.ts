@@ -157,6 +157,7 @@ export function energySample(
     data: {
       entityById: new Map(entities.map((entity) => [entity.entityId, entity])),
       sceneById: new Map(),
+      packageById: new Map(),
       icons: new Map(),
       readings: {},
       /**

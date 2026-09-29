@@ -6,7 +6,7 @@
  * under the pointer and settles on the permitted size nearest to where the corner is let go, so the
  * grid never holds a card at a size it has no drawing for.
  */
-import type { CapabilityName, EntityView } from '@nebula-home/contracts';
+import type { CapabilityName, EntityView, PackageCardSize } from '@nebula-home/contracts';
 
 import type { GridSize } from '@/dashboard/grid-engine';
 import { hasCapability } from '@/library/entity-control';
@@ -72,6 +72,24 @@ export const CARD_SIZES: Readonly<Record<LeafCardKind, SizeRule>> = {
   // An entity that is not there may keep whatever size it had, and take any other.
   missing: { sizes: ALL_CARD_SIZES, preferred: TILE },
 };
+
+/** The cells each size a package's manifest may name covers. */
+const PACKAGE_SIZE_CELLS: Readonly<Record<PackageCardSize, CardSize>> = {
+  small: TILE,
+  wide: STRIP,
+  medium: SQUARE,
+  large: LARGE,
+};
+
+/**
+ * The sizes a package's card is drawn for, as its manifest names them.
+ *
+ * @param sizes - The manifest's sizes, the one it is added at first.
+ * @returns Their cells, in the same order.
+ */
+export function packageCardSizes(sizes: readonly PackageCardSize[]): CardSize[] {
+  return sizes.map((size) => PACKAGE_SIZE_CELLS[size]);
+}
 
 /** How wide a container may be, in columns; its height follows what it holds. */
 export const CONTAINER_WIDTHS: readonly number[] = [1, 2, 3, 4];

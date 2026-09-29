@@ -11,14 +11,21 @@
  */
 import { useQuery } from '@tanstack/react-query';
 
-import type { DashboardLayout, EntityView, IconView, SceneView } from '@nebula-home/contracts';
+import type {
+  ApiPackage,
+  DashboardLayout,
+  EntityView,
+  IconView,
+  SceneView,
+} from '@nebula-home/contracts';
 
 import { useSession } from '@/auth/session-store';
-import { CARD_SIZES, cardKindOf } from '@/dashboard/card-sizes';
+import { CARD_SIZES, cardKindOf, packageCardSizes } from '@/dashboard/card-sizes';
 import { allCards, type SizesOf } from '@/dashboard/dashboard-layout';
 import { fetchScenes, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { entityScopesOf, isCommandable } from '@/library/entity-control';
 import type { LiveReading } from '@/live/live-store';
+import { useInstalledPackages } from '@/packages/use-packages';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { useEntityDirectory } from '@/routes/library/entity-picker/use-entity-directory';
 import { useTags } from '@/routes/library/use-tags';
@@ -30,6 +37,9 @@ export type DashboardData = {
 
   /** Every scene this person may see, by id. */
   readonly sceneById: ReadonlyMap<string, SceneView>;
+
+  /** Every installed package, by id: whose cards the page draws. None for a role without them. */
+  readonly packageById: ReadonlyMap<string, ApiPackage>;
 
   /** The catalogue's drawings for every icon on the page, by id. */
   readonly icons: ReadonlyMap<string, IconView>;
@@ -81,6 +91,8 @@ export function useDashboardData(layout: DashboardLayout | undefined): Dashboard
   const entityById = new Map(directory.entities.map((entity) => [entity.entityId, entity]));
   const deviceById = new Map(directory.devices.map((device) => [device.id, device]));
   const sceneById = new Map((scenes.data ?? []).map((scene) => [scene.id, scene]));
+  const { packages } = useInstalledPackages();
+  const packageById = new Map(packages.map((found) => [found.id, found]));
   const cards = layout === undefined ? [] : allCards(layout);
 
   const chosen = useCatalogueIcons([
@@ -104,6 +116,7 @@ export function useDashboardData(layout: DashboardLayout | undefined): Dashboard
   return {
     entityById,
     sceneById,
+    packageById,
     icons: new Map([...directory.icons, ...chosen]),
     readings: directory.readings,
     /**
@@ -124,12 +137,21 @@ export function useDashboardData(layout: DashboardLayout | undefined): Dashboard
     canApplyScenes: can('scene:apply'),
 
     /**
-     * The sizes a card may take: those of the kind of card its entity is drawn as.
+     * The sizes a card may take: those of the kind of card its entity is drawn as, or those its
+     * package's manifest names.
      *
      * @param card - The card.
      * @returns Its sizes.
      */
     sizesOf: (card) => {
+      if (card.type === 'package') {
+        const declared = packageById
+          .get(card.packageId)
+          ?.ui?.cards.find((each) => each.id === card.cardId);
+
+        return declared === undefined ? CARD_SIZES.package.sizes : packageCardSizes(declared.sizes);
+      }
+
       if (card.type !== 'entity') {
         return CARD_SIZES[card.type].sizes;
       }

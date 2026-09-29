@@ -25,6 +25,7 @@ import { refreshAccessToken } from '@/lib/api-client';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { LiveClient } from '@/live/live-client';
 import { useLive } from '@/live/live-store';
+import { PACKAGE_QUERY_KEYS } from '@/packages/api';
 
 /**
  * Where the channel is, next to wherever the page was served from.
@@ -98,6 +99,16 @@ export function useLiveChannel(): void {
           // Only the name travels: the containers pages read again, and a vendor's page shows
           // where its containers stand.
           void queryClient.invalidateQueries({ queryKey: CONTAINER_QUERY_KEYS.all });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
+        }
+
+        if (message.type === 'package_event') {
+          // A package was installed, updated, started, stopped or removed: the packages pages read
+          // again, and so does whatever draws it - a new release is a new address to import its
+          // interface from, and a stopped one takes its devices with it.
+          void queryClient.invalidateQueries({ queryKey: PACKAGE_QUERY_KEYS.all });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.entities });
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
         }
 

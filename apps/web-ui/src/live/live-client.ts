@@ -88,6 +88,7 @@ const DEFAULT_TOPICS: readonly WsTopic[] = [
   'discovery',
   'containers',
   'backups',
+  'packages',
 ];
 
 /**

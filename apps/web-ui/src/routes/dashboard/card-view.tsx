@@ -57,7 +57,12 @@ export function cardTitle(card: DashboardCard, data: DashboardData): string {
     case 'energy':
       return card.title ?? 'Energy';
     case 'package':
-      return card.title ?? `${card.packageId} · ${card.cardId}`;
+      return (
+        card.title ??
+        data.packageById.get(card.packageId)?.ui?.cards.find((each) => each.id === card.cardId)
+          ?.name ??
+        `${card.packageId} · ${card.cardId}`
+      );
     case 'container':
       return card.title;
   }

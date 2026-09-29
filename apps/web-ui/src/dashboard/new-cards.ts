@@ -10,11 +10,13 @@ import type {
   DashboardContainerCard,
   DashboardEnergyCard,
   DashboardEntityCard,
+  DashboardPackageCard,
   DashboardSceneCard,
   EntityView,
+  PackageCard,
 } from '@nebula-home/contracts';
 
-import { CARD_SIZES, cardKindOf } from '@/dashboard/card-sizes';
+import { CARD_SIZES, cardKindOf, packageCardSizes } from '@/dashboard/card-sizes';
 import { newCardId } from '@/dashboard/dashboard-layout';
 
 /**
@@ -119,5 +121,35 @@ export function containerCard(title: string): DashboardContainerCard {
     title,
     icon: null,
     cards: [],
+  };
+}
+
+/**
+ * A new card of a package's, at the size its manifest adds it at.
+ *
+ * @param packageId - The package.
+ * @param declared - The card, as its manifest declares it.
+ * @returns The card, with the defaults its options declare.
+ */
+export function packageCardFor(packageId: string, declared: PackageCard): DashboardPackageCard {
+  const [size = CARD_SIZES.package.preferred] = packageCardSizes(declared.sizes);
+  const options: DashboardPackageCard['options'] = {};
+
+  for (const field of declared.options) {
+    if ('default' in field && field.default !== undefined) {
+      options[field.key] = field.default;
+    }
+  }
+
+  return {
+    id: newCardId(),
+    type: 'package',
+    x: 0,
+    y: 0,
+    ...size,
+    packageId,
+    cardId: declared.id,
+    title: null,
+    options,
   };
 }

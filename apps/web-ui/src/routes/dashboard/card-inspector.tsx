@@ -5,7 +5,8 @@
  * ones its grid is wide enough for - a place (the page, or a group), and a way off the page. An
  * entity's card can be pointed at another entity, given a title and an icon of its own, and told
  * how far back its chart looks; a scene's at another scene; a clock whether it shows seconds and
- * the date; a group its name, its icon and its width.
+ * the date; a group its name, its icon and its width; a package's card a title and the options
+ * its package declares for it.
  *
  * Everything changes the draft at once, so the grid beside it shows the card as it will be. It
  * floats over the page rather than taking a column beside the grid: a grid that narrowed whenever
@@ -39,6 +40,7 @@ import {
 } from '@/dashboard/dashboard-layout';
 import { cardTitle } from '@/routes/dashboard/card-view';
 import { EnergySettings } from '@/routes/dashboard/energy-settings';
+import { PackageCardSettings } from '@/routes/dashboard/package-card-settings';
 import type { DashboardData } from '@/routes/dashboard/use-dashboard-data';
 import { EntityField } from '@/routes/library/entity-field';
 import { NameIconField } from '@/routes/library/name-icon-field';
@@ -233,6 +235,10 @@ export function CardInspector(props: CardInspectorProps) {
       ) : null}
 
       {card.type === 'energy' ? <EnergySettings card={card} onChange={change} /> : null}
+
+      {card.type === 'package' ? (
+        <PackageCardSettings key={card.id} card={card} data={data} onChange={change} />
+      ) : null}
 
       {card.type === 'container' ? (
         <NameIconField

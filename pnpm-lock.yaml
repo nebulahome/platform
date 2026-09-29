@@ -466,6 +466,9 @@ importers:
       '@nebula-home/icons':
         specifier: workspace:*
         version: link:../../packages/icons
+      '@nebula-home/package-ui':
+        specifier: workspace:*
+        version: link:../../packages/package-ui
       '@nebula-home/ui':
         specifier: workspace:*
         version: link:../../packages/ui

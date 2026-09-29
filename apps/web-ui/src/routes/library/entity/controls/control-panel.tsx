@@ -24,6 +24,7 @@ import { ColorControl } from '@/routes/library/entity/controls/color-control';
 import { ColorTempControl } from '@/routes/library/entity/controls/color-temp-control';
 import type { ControlProps, LightColour } from '@/routes/library/entity/controls/control-block';
 import { CoverControl } from '@/routes/library/entity/controls/cover-control';
+import { CustomControl } from '@/routes/library/entity/controls/custom-control';
 import { ImageControl } from '@/routes/library/entity/controls/image-control';
 import { LawnMowerControl } from '@/routes/library/entity/controls/lawn-mower-control';
 import { LevelControl } from '@/routes/library/entity/controls/level-control';
@@ -57,6 +58,7 @@ const CONTROLS: readonly (readonly [CapabilityName, (props: ControlProps) => Rea
   ['number', NumberControl],
   ['button', ButtonControl],
   ['update', UpdateControl],
+  ['custom', CustomControl],
 ];
 
 /** What the panel needs. */
