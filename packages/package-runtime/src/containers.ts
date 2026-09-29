@@ -190,12 +190,13 @@ function portOf(port: number | string, values: VendorValues): number {
 }
 
 /**
- * What the supervisor is handed for a vendor: each declaration with the vendor's settings put
- * in, the entries whose condition does not hold left out.
+ * What the supervisor is handed for a vendor, or a package: each declaration with the owner's
+ * settings put in, the entries whose condition does not hold left out.
  *
- * @param vendorId - The vendor.
+ * @param vendorId - The vendor, or the package.
  * @param deps - Its declared containers.
  * @param values - Its saved settings, secrets opened.
+ * @param ownerKind - Which of the two declares them.
  * @returns One spec per container.
  * @throws {Error} When a device is not under `/dev` once filled in, or a port is not a port.
  */
@@ -203,6 +204,7 @@ export function renderContainers(
   vendorId: string,
   deps: readonly ContainerDependency[],
   values: VendorValues,
+  ownerKind: ManagedContainerSpec['ownerKind'] = 'vendor',
 ): ManagedContainerSpec[] {
   return deps.map((dep) => {
     const devices = dep.devices
@@ -223,6 +225,7 @@ export function renderContainers(
         : null;
 
     return {
+      ownerKind,
       vendorId,
       dependencyId: dep.id,
       name: dep.name,
