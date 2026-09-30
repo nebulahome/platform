@@ -9,10 +9,14 @@
  * depend on the device, which is why this driver is code (ARCHITECTURE.md 8.3); what each maps to
  * is fixed here, once, for every model Zigbee2MQTT knows.
  *
- * What is mapped: the kinds above, each numeric, binary, enum and text value the device publishes
- * and does not take as a setting, and the firmware update Zigbee2MQTT offers. What is not, yet:
- * the device's settings (`category: config`, and values it takes without publishing), lists and
- * composites other than a light's colour.
+ * What is mapped: the kinds above; each numeric, binary, enum and text value the device publishes,
+ * as a sensor; each value it takes as a setting - `category: config` or not, published or only
+ * written - as the entity that sets it: a binary as a switch (a child lock, an LED), a number as a
+ * number within its limits (a calibration, a timeout), an enum as a select (the power-on
+ * behaviour, an operation mode, an effect); the features of a whole kind of thing it does not use
+ * itself (a light's start-up colour temperature, a thermostat's calibration), and the values of a
+ * composite (a light's colour options), each as a value of its own; and the firmware update
+ * Zigbee2MQTT offers. What is not: text a device takes, which no entity sets, and lists.
  *
  * Pure throughout: a plan is recomputed from the device's entry whenever it is needed, so
  * `describe`, `toState` and `toCommand` always agree on what each entity is.
@@ -28,6 +32,18 @@ const DEFAULT_MIREDS = /** @type {const} */ ([153, 500]);
 
 /** The thermostat modes the platform knows. */
 const THERMOSTAT_MODES = ['off', 'heat', 'cool', 'auto', 'fan_only', 'dry'];
+
+/**
+ * How far a numeric setting that states no limits goes either way: as far as Zigbee2MQTT's own
+ * discovery for Home Assistant lets it.
+ */
+const UNBOUNDED = 65_535;
+
+/** The most choices a select offers. */
+const MAXIMUM_OPTIONS = 64;
+
+/** The whole kinds of thing, whose features are one entity rather than several. */
+const WHOLE_KINDS = new Set(['light', 'switch', 'fan', 'cover', 'lock', 'climate']);
 
 /**
  * One expose, the fields read.
@@ -58,7 +74,7 @@ const THERMOSTAT_MODES = ['off', 'heat', 'cool', 'auto', 'fan_only', 'dry'];
  * What kind of entity a plan is.
  *
  * @typedef {'light' | 'switch' | 'cover' | 'lock' | 'climate' | 'numeric' | 'binary' | 'text'
- *   | 'update' | 'connected'} PlanKind
+ *   | 'toggle' | 'number' | 'select' | 'update' | 'connected'} PlanKind
  */
 
 /**
@@ -70,6 +86,8 @@ const THERMOSTAT_MODES = ['off', 'heat', 'cool', 'auto', 'fan_only', 'dry'];
  * @property {EntityDescriptor} descriptor - What `describe` says of it.
  * @property {Record<string, Expose | undefined>} features - The exposes it reads, by role.
  * @property {number} [factor] - What a numeric reading is multiplied by, into its class's unit.
+ * @property {string} [parent] - The composite a value is part of, by its property: the value is
+ *   `state[parent][property]`, and a setting is sent inside it.
  */
 
 /**
@@ -153,6 +171,28 @@ function slug(value) {
     .slice(0, 40);
 
   return /^[a-z]/u.test(cleaned) ? cleaned : `x${cleaned}`;
+}
+
+/**
+ * A word as a sentence starts it.
+ *
+ * @param {string} text - The word, as Zigbee2MQTT writes it: `previous_state`.
+ * @returns {string} `Previous state`.
+ */
+function wordsOf(text) {
+  const words = text.replaceAll('_', ' ');
+
+  return `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
+}
+
+/**
+ * Whether a limit is a number.
+ *
+ * @param {unknown} value - The limit.
+ * @returns {value is number} True when it is a finite number.
+ */
+function isFiniteNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value);
 }
 
 /**
@@ -356,80 +396,223 @@ function planOne(expose) {
       };
     }
 
+    default: {
+      return null;
+    }
+  }
+}
+
+/**
+ * Plans one value: a reading as a sensor, a setting as the entity that sets it, or - for a
+ * composite - each of its values, set inside it.
+ *
+ * @param {Expose} expose - The value, or the composite.
+ * @param {Expose} [parent] - The composite it is part of.
+ * @returns {Array<Omit<Plan, 'objectId'> & { base: string }>} The plans, their ids not yet made
+ *   unique; none for what is not mapped.
+ */
+function planValue(expose, parent) {
+  if (expose.type === 'composite') {
+    // One level: a composite inside another, or one without a property, is not set by parts.
+    return parent === undefined && typeof expose.property === 'string'
+      ? (expose.features ?? []).flatMap((feature) => planValue(feature, expose))
+      : [];
+  }
+
+  const property = expose.property;
+
+  if (typeof property !== 'string') {
+    return [];
+  }
+
+  const isSetting = can(expose, SETTABLE);
+  const isRead = can(expose, PUBLISHED);
+  const own = nameOf(expose);
+  const name =
+    parent === undefined
+      ? own
+      : `${nameOf(parent)}: ${own.charAt(0).toLowerCase()}${own.slice(1)}`.slice(0, 128);
+  const base = parent === undefined ? property : `${String(parent.property)}_${property}`;
+  const within = parent?.property === undefined ? {} : { parent: parent.property };
+
+  switch (expose.type) {
     case 'numeric': {
-      if (
-        !can(expose, PUBLISHED) ||
-        expose.category === 'config' ||
-        typeof expose.property !== 'string'
-      ) {
-        return null;
+      const min = isFiniteNumber(expose.value_min) ? expose.value_min : -UNBOUNDED;
+      const max = isFiniteNumber(expose.value_max) ? expose.value_max : UNBOUNDED;
+
+      if (isSetting && min < max) {
+        const step =
+          isFiniteNumber(expose.value_step) && expose.value_step > 0 ? expose.value_step : 1;
+
+        return [
+          {
+            base,
+            kind: 'number',
+            ...within,
+            features: { value: expose },
+            descriptor: {
+              domain: 'number',
+              name,
+              ...(expose.unit === undefined || expose.unit === ''
+                ? {}
+                : { unitOfMeasurement: expose.unit.slice(0, 32) }),
+              capabilities: { number: { min, max, step } },
+            },
+          },
+        ];
+      }
+
+      if (!isRead) {
+        return [];
       }
 
       const sensorClass = sensorClassOf(expose);
       const unit = sensorClass?.unit ?? expose.unit;
 
-      return {
-        base: expose.property,
-        kind: 'numeric',
-        features: { value: expose },
-        factor: sensorClass?.from[expose.unit ?? ''] ?? 1,
-        descriptor: {
-          domain: 'sensor',
-          name: nameOf(expose),
-          ...(sensorClass?.icon === undefined ? {} : { icon: sensorClass.icon }),
-          ...(unit === undefined || unit === '' ? {} : { unitOfMeasurement: unit.slice(0, 32) }),
-          ...(sensorClass === undefined ? {} : { deviceClass: sensorClass.deviceClass }),
-          stateClass: sensorClass?.stateClass ?? 'measurement',
-          capabilities: { sensor_numeric: {} },
+      return [
+        {
+          base,
+          kind: 'numeric',
+          ...within,
+          features: { value: expose },
+          factor: sensorClass?.from[expose.unit ?? ''] ?? 1,
+          descriptor: {
+            domain: 'sensor',
+            name,
+            ...(sensorClass?.icon === undefined ? {} : { icon: sensorClass.icon }),
+            ...(unit === undefined || unit === '' ? {} : { unitOfMeasurement: unit.slice(0, 32) }),
+            ...(sensorClass === undefined ? {} : { deviceClass: sensorClass.deviceClass }),
+            stateClass: sensorClass?.stateClass ?? 'measurement',
+            capabilities: { sensor_numeric: {} },
+          },
         },
-      };
+      ];
     }
 
     case 'binary': {
-      // A binary that is also a setting - a child lock, an LED - is the device's configuration.
-      if (!can(expose, PUBLISHED) || can(expose, SETTABLE) || typeof expose.property !== 'string') {
-        return null;
+      // A binary the device takes - a child lock, an LED - is a switch of its settings.
+      if (isSetting) {
+        return [
+          {
+            base,
+            kind: 'toggle',
+            ...within,
+            features: { value: expose },
+            descriptor: { domain: 'switch', name, capabilities: { on_off: {} } },
+          },
+        ];
       }
 
-      const binaryClass = BINARY_CLASSES[expose.property];
+      if (!isRead) {
+        return [];
+      }
 
-      return {
-        base: expose.property,
-        kind: 'binary',
-        features: { value: expose },
-        descriptor: {
-          domain: 'binary_sensor',
-          name: nameOf(expose),
-          ...(binaryClass?.icon === undefined ? {} : { icon: binaryClass.icon }),
-          ...(binaryClass === undefined ? {} : { deviceClass: binaryClass.deviceClass }),
-          capabilities: { sensor_binary: {} },
+      const binaryClass = BINARY_CLASSES[property];
+
+      return [
+        {
+          base,
+          kind: 'binary',
+          ...within,
+          features: { value: expose },
+          descriptor: {
+            domain: 'binary_sensor',
+            name,
+            ...(binaryClass?.icon === undefined ? {} : { icon: binaryClass.icon }),
+            ...(binaryClass === undefined ? {} : { deviceClass: binaryClass.deviceClass }),
+            capabilities: { sensor_binary: {} },
+          },
         },
-      };
+      ];
     }
 
     case 'enum':
     case 'text': {
-      if (!can(expose, PUBLISHED) || can(expose, SETTABLE) || typeof expose.property !== 'string') {
-        return null;
+      const values = [...new Set((expose.values ?? []).map(String))].filter(
+        (value) => value.length > 0 && value.length <= 64,
+      );
+
+      if (
+        expose.type === 'enum' &&
+        isSetting &&
+        values.length > 0 &&
+        values.length <= MAXIMUM_OPTIONS
+      ) {
+        return [
+          {
+            base,
+            kind: 'select',
+            ...within,
+            features: { value: expose },
+            descriptor: {
+              domain: 'select',
+              name,
+              capabilities: {
+                select: {
+                  options: values.map((value) => ({ value, label: wordsOf(value).slice(0, 64) })),
+                },
+              },
+            },
+          },
+        ];
       }
 
-      return {
-        base: expose.property,
-        kind: 'text',
-        features: { value: expose },
-        descriptor: {
-          domain: 'sensor',
-          name: nameOf(expose),
-          ...(expose.property === 'action' ? { icon: 'remote' } : {}),
-          capabilities: { sensor_text: {} },
+      // Text a device takes has no entity to set it: what it says of it is still read.
+      if (!isRead) {
+        return [];
+      }
+
+      return [
+        {
+          base,
+          kind: 'text',
+          ...within,
+          features: { value: expose },
+          descriptor: {
+            domain: 'sensor',
+            name,
+            ...(property === 'action' ? { icon: 'remote' } : {}),
+            capabilities: { sensor_text: {} },
+          },
         },
-      };
+      ];
     }
 
     default: {
-      return null;
+      return [];
     }
   }
+}
+
+/**
+ * Plans one expose: a whole kind of thing, and each of its features it does not use itself as a
+ * value of its own - or one value.
+ *
+ * @param {Expose} expose - The expose.
+ * @returns {Array<Omit<Plan, 'objectId'> & { base: string }>} The plans.
+ */
+function planExpose(expose) {
+  if (!WHOLE_KINDS.has(expose.type)) {
+    return planValue(expose);
+  }
+
+  const whole = planOne(expose);
+  const used = new Set(
+    Object.values(whole?.features ?? {}).flatMap((feature) =>
+      feature?.name === undefined ? [] : [feature.name],
+    ),
+  );
+
+  // A light's colour is one of two composites, whichever it reads: neither is set by parts.
+  if (expose.type === 'light') {
+    used.add('color_xy').add('color_hs');
+  }
+
+  const rest = (expose.features ?? [])
+    .filter((feature) => feature.name === undefined || !used.has(feature.name))
+    .flatMap((feature) => planValue(feature));
+
+  return whole === null ? rest : [whole, ...rest];
 }
 
 /**
@@ -467,15 +650,14 @@ export function planEntities(device) {
       kind: planned.kind,
       features: planned.features,
       ...(planned.factor === undefined ? {} : { factor: planned.factor }),
+      ...(planned.parent === undefined ? {} : { parent: planned.parent }),
       objectId,
       descriptor: { ...planned.descriptor, objectId },
     });
   };
 
   for (const expose of exposes) {
-    const planned = planOne(expose);
-
-    if (planned !== null) {
+    for (const planned of planExpose(expose)) {
       add(planned);
     }
   }
@@ -574,6 +756,26 @@ export function xyToHs(x, y) {
  */
 function valueOf(state, feature) {
   return feature?.property === undefined ? undefined : state[feature.property];
+}
+
+/**
+ * The value of a plan's feature in a state message: at its property, or inside its composite.
+ *
+ * @param {Plan} plan - The entity.
+ * @param {Record<string, unknown>} state - The message.
+ * @param {Expose | undefined} feature - The feature.
+ * @returns {unknown} Its value, or undefined.
+ */
+function valueIn(plan, state, feature) {
+  if (plan.parent === undefined) {
+    return valueOf(state, feature);
+  }
+
+  const holder = state[plan.parent];
+
+  return typeof holder === 'object' && holder !== null && !Array.isArray(holder)
+    ? valueOf(/** @type {Record<string, unknown>} */ (holder), feature)
+    : undefined;
 }
 
 /**
@@ -704,15 +906,36 @@ export function stateOf(plan, state) {
     }
 
     case 'numeric': {
-      const value = valueOf(state, f['value']);
+      const value = valueIn(plan, state, f['value']);
 
       return typeof value === 'number'
         ? { sensor_numeric: { value: value * (plan.factor ?? 1) } }
         : null;
     }
 
+    case 'number': {
+      const value = valueIn(plan, state, f['value']);
+
+      return typeof value === 'number' && Number.isFinite(value) ? { number: { value } } : null;
+    }
+
+    case 'toggle': {
+      const value = valueIn(plan, state, f['value']);
+
+      return value === undefined || value === null
+        ? null
+        : { on_off: { isOn: value === (f['value']?.value_on ?? true) } };
+    }
+
+    case 'select': {
+      const value = valueIn(plan, state, f['value']);
+      const option = value === undefined || value === null ? '' : String(value).slice(0, 64);
+
+      return option === '' ? null : { select: { option } };
+    }
+
     case 'binary': {
-      const value = valueOf(state, f['value']);
+      const value = valueIn(plan, state, f['value']);
 
       if (value === undefined || value === null) {
         return null;
@@ -725,7 +948,7 @@ export function stateOf(plan, state) {
     }
 
     case 'text': {
-      const value = valueOf(state, f['value']);
+      const value = valueIn(plan, state, f['value']);
 
       return value === undefined || value === null
         ? null
@@ -771,10 +994,12 @@ export function stateOf(plan, state) {
  * @param {Plan} plan - The entity.
  * @param {string} capability - Which of its capabilities.
  * @param {Record<string, unknown>} command - What to do, already validated by `core`.
+ * @param {Record<string, unknown>} [current] - What the entity last reported, for a toggle of a
+ *   setting: Zigbee2MQTT toggles only a device's own state.
  * @returns {{ op: string, payload: Record<string, unknown> }} The request's verb and payload.
  * @throws {Error} For a command the entity does not take.
  */
-export function commandOf(plan, capability, command) {
+export function commandOf(plan, capability, command, current) {
   const f = plan.features;
   const verb = command['command'];
 
@@ -786,6 +1011,35 @@ export function commandOf(plan, capability, command) {
    */
   const set = (payload) => ({ op: 'set', payload });
   const stateProperty = f['state']?.property ?? 'state';
+
+  /**
+   * A `set` of the one value a setting is, inside its composite when it is part of one.
+   *
+   * @param {unknown} value - What to set it to.
+   * @returns {{ op: string, payload: Record<string, unknown> }} The request.
+   */
+  const put = (value) => {
+    const property = f['value']?.property ?? plan.objectId;
+
+    return set(
+      plan.parent === undefined ? { [property]: value } : { [plan.parent]: { [property]: value } },
+    );
+  };
+
+  if (plan.kind === 'toggle' && capability === 'on_off') {
+    const was = /** @type {{ isOn?: unknown } | undefined} */ (current?.['on_off'])?.isOn === true;
+    const isOn = verb === 'turn_on' ? true : verb === 'turn_off' ? false : !was;
+
+    return put(isOn ? (f['value']?.value_on ?? true) : (f['value']?.value_off ?? false));
+  }
+
+  if (plan.kind === 'number' && capability === 'number' && typeof command['value'] === 'number') {
+    return put(command['value']);
+  }
+
+  if (plan.kind === 'select' && capability === 'select' && typeof command['option'] === 'string') {
+    return put(command['option']);
+  }
 
   if (capability === 'on_off') {
     return set({
@@ -860,7 +1114,8 @@ export function refreshPayload(plans) {
   for (const plan of plans) {
     for (const feature of Object.values(plan.features)) {
       if (feature?.property !== undefined && can(feature, GETTABLE)) {
-        payload[feature.property] = '';
+        // A composite is read whole.
+        payload[plan.parent ?? feature.property] = '';
       }
     }
   }

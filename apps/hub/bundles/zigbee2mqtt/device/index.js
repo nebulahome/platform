@@ -172,7 +172,12 @@ export default function createZigbeeDevice(sdk) {
         throw new Error(`${target.entityId} is not one of this device's entities`);
       }
 
-      const { op, payload } = commandOf(plan, target.capability, target.command);
+      const { op, payload } = commandOf(
+        plan,
+        target.capability,
+        target.command,
+        /** @type {Record<string, unknown> | undefined} */ (context.lastState(target.entityId)),
+      );
 
       return {
         deviceKey: context.claim.deviceKey,

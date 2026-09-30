@@ -76,19 +76,33 @@ There is nothing to add by hand: everything Zigbee2MQTT knows is **added on its 
 (`"adopt": "automatic"` in `discovery.json`), from its `bridge/info` and `bridge/devices`, which
 it keeps retained on the broker:
 
-- **the bridge** - one device with whether Zigbee2MQTT is online, a _Pairing_ switch, how many
-  devices it knows and its version;
+- **the bridge** - one device with whether Zigbee2MQTT is online, two buttons, **Pair devices**
+  and **Stop pairing**, a _Pairing_ sensor saying `enabled` or `disabled`, how many devices it
+  knows and its version;
 - **each Zigbee device** paired and interviewed, known by its IEEE address - renaming it in
   Zigbee2MQTT changes nothing here. One just paired, whose friendly name is still its address, is
   named by its maker and model (`Aqara MCCGQ11LM`); rename it here as you like.
 
 The vendor's page therefore has no _Add device_ and no _Discover devices_: in their place,
-**Pair devices** is the bridge's _Pairing_ switch (`pairing` in `discovery.json`). It opens pairing
-for 254 seconds, the longest Zigbee2MQTT allows - put the device in pairing mode then, and it is
-added once Zigbee2MQTT has interviewed it. The button follows the switch live: pairing opened from
-Zigbee2MQTT's own page shows as open here too, and **Stop** closes it from either side. While it
-is open the button counts the time left down, and a **Pairing** panel says what to do and lists
-the devices that joined since, as they are added.
+**Pair devices** presses the bridge's button of that name (`pairing` in `discovery.json` names the
+two buttons and the sensor). It opens pairing for 254 seconds, the longest Zigbee2MQTT allows -
+put the device in pairing mode then, and it is added once Zigbee2MQTT has interviewed it.
+**Stop** presses **Stop pairing**. Each button does one thing whatever the page last saw, so a
+press on a page that missed a change never closes what it meant to open.
+
+The page follows the _Pairing_ sensor live: pairing opened from Zigbee2MQTT's own page shows as
+open here too. While it is open the button counts the time left down, and a **Pairing** panel
+says what to do and lists the devices that joined since, as they are added. The time is
+Zigbee2MQTT's own: `bridge/info` says when pairing closes (`permit_join_end`), which the sensor
+carries as its `endsAt` attribute - not an entity of its own, and gone once pairing is shut. A
+pairing reopened elsewhere starts the count again.
+
+**Pairing waits for Zigbee2MQTT.** The request goes to `bridge/request/permit_join` with a
+`transaction`, and the transport waits for `bridge/response/permit_join` with the same one: an
+error Zigbee2MQTT answers - the coordinator refusing, say - is the command's error, said on the
+page; an `ok` shows pairing open (or shut) at once, before the bridge's next `info`. A bridge that
+has not answered within three seconds is not taken for a refusal: its `info` says what came of
+it.
 
 **When nothing comes.** The listener says on the vendor's page when it cannot reach the broker, or
 reaches it and hears nothing of Zigbee2MQTT for a minute - the case where Zigbee2MQTT was pointed
@@ -97,7 +111,7 @@ which broker Zigbee2MQTT tried. A device Zigbee2MQTT lists and that is not added
 interviewed, a model it does not support, disabled in it - is listed under **Seen but not added**
 with why. And because Zigbee2MQTT's retained messages reach the hub before a device just added is
 bound to them, the transport keeps what it heard and hands it on again whenever the instances
-change: the bridge's _Pairing_ switch is known at once, not at Zigbee2MQTT's next word.
+change: the bridge's _Pairing_ sensor is known at once, not at Zigbee2MQTT's next word.
 
 A device removed here comes back while Zigbee2MQTT still has it: remove it in Zigbee2MQTT to
 remove it for good.
@@ -117,14 +131,25 @@ exposes is the device's (`device/exposes.js`):
 | `numeric` it publishes      | a sensor; temperature, humidity, pressure, illuminance, power, energy, voltage, current, battery, CO2, VOC and particles with their class, in the class's own unit (hPa read as Pa, kWh as Wh) |
 | `binary` it publishes       | a binary sensor; a contact reads as _open_ when the door is                                                                                                                                    |
 | `enum`, `text` it publishes | a text sensor: the last `action` of a remote                                                                                                                                                   |
+| `binary` it takes           | a switch: a child lock, an LED indicator - sent as the device's own on and off values                                                                                                          |
+| `numeric` it takes          | a number within the device's limits, in its unit: a calibration, a timeout - from -65535 to 65535 when it states none                                                                          |
+| `enum` it takes             | a select of its values: the power-on behaviour, an operation mode, an effect it is only told (then with no state)                                                                              |
+| `composite`                 | each of its values, as above, named after it (`Window detection: enabled`) and set inside it                                                                                                   |
 | `supports_ota`              | the firmware: installed, offered, installing, and **install**                                                                                                                                  |
 
-Not mapped yet: the device's settings (`category: config`, and what it takes without publishing),
-lists and composites other than a light's colour. A device with nothing mapped still gets one
-entity saying whether Zigbee2MQTT reaches it.
+A setting is mapped whether Zigbee2MQTT files it under `category: config` or not, and whether the
+device publishes it or only takes it. The features of a `light`, a `climate` or a `switch` that
+the entity itself does not use - a light's start-up colour temperature, a thermostat's
+calibration or preset - are values of their own. Not mapped: text a device takes (no entity sets
+text; what it publishes of it is still read) and lists (a weekly schedule). A device with nothing
+mapped still gets one entity saying whether Zigbee2MQTT reaches it.
+
+**A device added before this mapping** keeps the entities it was added with: remove it from the
+vendor's page and it comes back on its own, with its settings. The same goes for the bridge, whose
+_Pairing_ switch became the two buttons and the sensor.
 
 A device's state is not retained on the broker, so the hub asks each device for what it can be
-asked (`/get`) when its link comes up; a battery device that cannot be asked is unknown until it
+asked (`/get`) when its link comes up - its settings among it, a composite whole; a battery device that cannot be asked is unknown until it
 next reports. When Zigbee2MQTT says a device is offline (`/availability`), every entity of it is
 unavailable.
 
@@ -132,4 +157,7 @@ unavailable.
 
 Everything was written against Zigbee2MQTT 2.x's documented topics and payloads, and checked
 against a broker with Zigbee2MQTT played by the tests. It has not yet run against a real
-coordinator: the first real pairing is the check.
+coordinator: the first real pairing is the check. A setting inside a composite is sent as the
+one value inside it (`{"color_options": {"execute_if_off": true}}`), which Zigbee2MQTT's
+converters take for the composites seen; one that wants the whole composite would say so in its
+log.

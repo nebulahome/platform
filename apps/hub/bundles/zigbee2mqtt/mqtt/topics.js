@@ -36,6 +36,16 @@
  * @property {string | null} state - `online` or `offline`.
  * @property {Record<string, unknown> | null} info - What `bridge/info` said.
  * @property {number} deviceCount - How many devices it knows, the coordinator aside.
+ * @property {Pairing | null} pairing - Whether new devices may join; null before `info` said.
+ */
+
+/**
+ * Whether new devices may join the network: `enabled` or `disabled`, and while it is enabled when
+ * Zigbee2MQTT closes it by itself, when it said.
+ *
+ * @typedef {object} Pairing
+ * @property {'enabled' | 'disabled'} state - Whether it is open.
+ * @property {string} [endsAt] - When it closes, ISO 8601.
  */
 
 /** The topic under the base that says a device's reachability. */
@@ -202,6 +212,29 @@ export function bridgeSighting(info) {
     vendor: 'Zigbee2MQTT',
     version: typeof info['version'] === 'string' ? info['version'] : null,
   };
+}
+
+/**
+ * Whether pairing is open, as `bridge/info` says: `permit_join`, and since Zigbee2MQTT 2
+ * `permit_join_end`, when it closes in milliseconds since the epoch - absent while it is shut.
+ *
+ * @param {Record<string, unknown> | null} info - What `bridge/info` said.
+ * @returns {Pairing | null} Whether it is open; null for no info.
+ */
+export function pairingOf(info) {
+  if (info === null) {
+    return null;
+  }
+
+  const end = info['permit_join_end'];
+
+  if (info['permit_join'] !== true) {
+    return { state: 'disabled' };
+  }
+
+  return typeof end === 'number' && Number.isFinite(end)
+    ? { state: 'enabled', endsAt: new Date(end).toISOString() }
+    : { state: 'enabled' };
 }
 
 /**

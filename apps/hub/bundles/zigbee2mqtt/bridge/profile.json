@@ -37,31 +37,56 @@
       }
     },
     {
-      "domain": "switch",
+      "domain": "button",
       "objectId": "permit_join",
-      "name": "Pairing",
+      "name": "Pair devices",
       "icon": "link",
       "capabilities": {
-        "on_off": {}
+        "button": {}
       },
-      "state": {
-        "on_off": {
-          "isOn": "info.permit_join"
-        }
-      },
+      "state": {},
       "commands": {
-        "on_off.turn_on": {
+        "button.press": {
           "op": "permit_join",
           "args": {
             "time": 254
           }
-        },
-        "on_off.turn_off": {
+        }
+      }
+    },
+    {
+      "domain": "button",
+      "objectId": "permit_join_stop",
+      "name": "Stop pairing",
+      "icon": "unlink",
+      "capabilities": {
+        "button": {}
+      },
+      "state": {},
+      "commands": {
+        "button.press": {
           "op": "permit_join",
           "args": {
             "time": 0
           }
         }
+      }
+    },
+    {
+      "domain": "sensor",
+      "objectId": "pairing",
+      "name": "Pairing",
+      "icon": "link",
+      "capabilities": {
+        "sensor_text": {}
+      },
+      "state": {
+        "sensor_text": {
+          "value": "pairing.state"
+        }
+      },
+      "attributes": {
+        "endsAt": "pairing.endsAt"
       }
     },
     {

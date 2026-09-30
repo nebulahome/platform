@@ -3,6 +3,7 @@
  * its transport and its listener read the broker - against payloads as Zigbee2MQTT 2 publishes
  * them, and a fake MQTT session the test drives.
  */
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -14,13 +15,21 @@ import {
   getSensorClass,
   parseEntityId,
   sensorRegistrationIssue,
+  type CapabilityName,
+  type CapabilityState,
   type EntityId,
+  type JsonObject,
 } from '@nebula-home/contracts';
 import { createLogger } from '@nebula-home/logging';
 import {
+  createDeclarativeIntegration,
   defineAccount,
   defineStreamSource,
   defineTransport,
+  driverManifestSchema,
+  integrationProfileSchema,
+  resolveManifest,
+  vendorManifestSchema,
   type BundleSdk,
   type DiscoverySource,
   type EntityDescriptor,
@@ -136,6 +145,130 @@ const DOOR = {
       { type: 'numeric', name: 'pressure', property: 'pressure', access: 1, unit: 'psi-ish' },
       { type: 'binary', name: 'led', property: 'led', access: 7, value_on: true, value_off: false },
       { type: 'enum', name: 'action', property: 'action', access: 1, values: ['single', 'double'] },
+    ],
+  },
+};
+
+/**
+ * A thermostatic radiator valve with its settings, as `bridge/devices` lists it: a child lock, a
+ * calibration within limits, a timeout without any, what it does when power comes back, an effect
+ * it is only told, a composite of options, and a name it takes as text.
+ */
+const VALVE = {
+  ieee_address: '0x0c4314fffe8a1b2c',
+  friendly_name: 'Bedroom radiator',
+  type: 'EndDevice',
+  supported: true,
+  interview_state: 'SUCCESSFUL',
+  definition: {
+    model: 'TS0601_thermostat',
+    vendor: 'Tuya',
+    exposes: [
+      {
+        type: 'climate',
+        features: [
+          {
+            type: 'numeric',
+            name: 'current_heating_setpoint',
+            property: 'current_heating_setpoint',
+            access: 7,
+            value_min: 5,
+            value_max: 35,
+            value_step: 0.5,
+            unit: '°C',
+          },
+          {
+            type: 'numeric',
+            name: 'local_temperature',
+            property: 'local_temperature',
+            access: 5,
+            unit: '°C',
+          },
+          {
+            type: 'numeric',
+            name: 'local_temperature_calibration',
+            label: 'Local temperature calibration',
+            property: 'local_temperature_calibration',
+            access: 7,
+            value_min: -12.8,
+            value_max: 12.8,
+            value_step: 0.1,
+            unit: '°C',
+            category: 'config',
+          },
+        ],
+      },
+      {
+        type: 'binary',
+        name: 'child_lock',
+        label: 'Child lock',
+        property: 'child_lock',
+        access: 3,
+        value_on: 'LOCK',
+        value_off: 'UNLOCK',
+      },
+      {
+        type: 'numeric',
+        name: 'occupancy_timeout',
+        label: 'Occupancy timeout',
+        property: 'occupancy_timeout',
+        access: 7,
+        unit: 's',
+        category: 'config',
+      },
+      {
+        type: 'enum',
+        name: 'power_on_behavior',
+        label: 'Power-on behavior',
+        property: 'power_on_behavior',
+        access: 7,
+        values: ['off', 'on', 'toggle', 'previous'],
+        category: 'config',
+      },
+      {
+        type: 'enum',
+        name: 'effect',
+        label: 'Effect',
+        property: 'effect',
+        access: 2,
+        values: ['blink', 'breathe', 'stop_effect'],
+      },
+      {
+        type: 'composite',
+        name: 'window_detection_params',
+        label: 'Window detection',
+        property: 'window_detection_params',
+        access: 3,
+        features: [
+          {
+            type: 'numeric',
+            name: 'temperature',
+            label: 'Temperature',
+            property: 'temperature',
+            access: 3,
+            value_min: 5,
+            value_max: 25,
+            unit: '°C',
+          },
+          {
+            type: 'binary',
+            name: 'enabled',
+            label: 'Enabled',
+            property: 'enabled',
+            access: 3,
+            value_on: true,
+            value_off: false,
+          },
+        ],
+      },
+      { type: 'text', name: 'label', property: 'label', access: 2 },
+      {
+        type: 'list',
+        name: 'schedule',
+        property: 'schedule',
+        access: 3,
+        item_type: { type: 'numeric', name: 'hour' },
+      },
     ],
   },
 };
@@ -319,11 +452,19 @@ describe('describing a device from its exposes', () => {
     });
   });
 
-  it('reads a sensor, keeps a class only for a unit it takes, and leaves settings out', () => {
+  it('reads a sensor, keeps a class only for a unit it takes, and a setting as a switch', () => {
     const { described } = held(DOOR);
     const byId = new Map(described.entities.map((entity) => [entity.objectId, entity]));
 
-    expect([...byId.keys()]).toEqual(['contact', 'battery', 'temperature', 'pressure', 'action']);
+    expect([...byId.keys()]).toEqual([
+      'contact',
+      'battery',
+      'temperature',
+      'pressure',
+      'led',
+      'action',
+    ]);
+    expect(byId.get('led')).toMatchObject({ domain: 'switch', capabilities: { on_off: {} } });
     expect(byId.get('contact')).toMatchObject({ domain: 'binary_sensor', deviceClass: 'door' });
     expect(byId.get('temperature')).toMatchObject({
       deviceClass: 'temperature',
@@ -336,8 +477,53 @@ describe('describing a device from its exposes', () => {
     });
   });
 
+  it('makes each setting the entity that sets it, within its limits', () => {
+    const { described } = held(VALVE);
+    const byId = new Map(described.entities.map((entity) => [entity.objectId, entity]));
+
+    expect([...byId.keys()]).toEqual([
+      'thermostat',
+      'local_temperature_calibration',
+      'child_lock',
+      'occupancy_timeout',
+      'power_on_behavior',
+      'effect',
+      'window_detection_params_temperature',
+      'window_detection_params_enabled',
+    ]);
+    expect(byId.get('local_temperature_calibration')).toMatchObject({
+      domain: 'number',
+      name: 'Local temperature calibration',
+      unitOfMeasurement: '°C',
+      capabilities: { number: { min: -12.8, max: 12.8, step: 0.1 } },
+    });
+    expect(byId.get('child_lock')).toMatchObject({ domain: 'switch', name: 'Child lock' });
+    // No limits said: as far as Zigbee2MQTT's own discovery goes.
+    expect(byId.get('occupancy_timeout')?.capabilities).toEqual({
+      number: { min: -65_535, max: 65_535, step: 1 },
+    });
+    expect(byId.get('power_on_behavior')).toMatchObject({
+      domain: 'select',
+      capabilities: {
+        select: {
+          options: [
+            { value: 'off', label: 'Off' },
+            { value: 'on', label: 'On' },
+            { value: 'toggle', label: 'Toggle' },
+            { value: 'previous', label: 'Previous' },
+          ],
+        },
+      },
+    });
+    expect(byId.get('effect')).toMatchObject({ domain: 'select' });
+    expect(byId.get('window_detection_params_enabled')).toMatchObject({
+      domain: 'switch',
+      name: 'Window detection: enabled',
+    });
+  });
+
   it('describes only entities the platform will register', () => {
-    for (const device of [LAMP, DOOR]) {
+    for (const device of [LAMP, DOOR, VALVE]) {
       for (const entity of held(device).described.entities as EntityDescriptor[]) {
         expect(declaredCapabilitiesSchema.safeParse(entity.capabilities).success).toBe(true);
         expect(sensorRegistrationIssue(entity)).toBe(undefined);
@@ -430,8 +616,44 @@ describe('reading what a device says', () => {
       context,
     );
 
-    expect(reports).toHaveLength(5);
+    expect(reports).toHaveLength(6);
     expect(reports.every((report) => report.isAvailable === false)).toBe(true);
+  });
+
+  it('reads the settings the device publishes, a composite’s inside it', () => {
+    const { driver, context, entities } = held(VALVE);
+    const reports = driver.toState(
+      inbound(VALVE.ieee_address, {
+        kind: 'state',
+        state: {
+          child_lock: 'LOCK',
+          local_temperature_calibration: -1.5,
+          occupancy_timeout: 90,
+          power_on_behavior: 'previous',
+          window_detection_params: { temperature: 12, enabled: false },
+        },
+      }),
+      context,
+    );
+    const byId = new Map(reports.map((report) => [report.entityId, report.state]));
+
+    expect(byId.get(entities.get('child_lock') ?? parseEntityId('x.x'))).toEqual({
+      on_off: { isOn: true },
+    });
+    expect(byId.get(entities.get('local_temperature_calibration') ?? parseEntityId('x.x'))).toEqual(
+      { number: { value: -1.5 } },
+    );
+    expect(byId.get(entities.get('power_on_behavior') ?? parseEntityId('x.x'))).toEqual({
+      select: { option: 'previous' },
+    });
+    expect(
+      byId.get(entities.get('window_detection_params_temperature') ?? parseEntityId('x.x')),
+    ).toEqual({ number: { value: 12 } });
+    expect(
+      byId.get(entities.get('window_detection_params_enabled') ?? parseEntityId('x.x')),
+    ).toEqual({ on_off: { isOn: false } });
+    // An effect is only told: there is nothing to read of it.
+    expect(byId.has(entities.get('effect') ?? parseEntityId('x.x'))).toBe(false);
   });
 });
 
@@ -458,6 +680,58 @@ describe('telling a device what to do', () => {
     ).toEqual({ deviceKey: LAMP.ieee_address, op: 'set', args: { payload: { state: 'OFF' } } });
   });
 
+  it('sets a setting by its own property, inside its composite, and toggles from what it said', () => {
+    const { driver, claim, entities } = held(VALVE);
+    const locked: CapabilityState = { on_off: { isOn: true } };
+    const context = {
+      options: {},
+      claim,
+      entities,
+      lastState: (): CapabilityState | undefined => locked,
+    };
+    const command = (objectId: string, capability: CapabilityName, verb: JsonObject) =>
+      driver.toCommand(
+        { entityId: entities.get(objectId) ?? parseEntityId('x.x'), capability, command: verb },
+        context,
+      ).args;
+
+    expect(command('child_lock', 'on_off', { command: 'turn_on' })).toEqual({
+      payload: { child_lock: 'LOCK' },
+    });
+    expect(command('child_lock', 'on_off', { command: 'toggle' })).toEqual({
+      payload: { child_lock: 'UNLOCK' },
+    });
+    expect(
+      command('local_temperature_calibration', 'number', { command: 'set_value', value: -2 }),
+    ).toEqual({ payload: { local_temperature_calibration: -2 } });
+    expect(
+      command('power_on_behavior', 'select', { command: 'select_option', option: 'off' }),
+    ).toEqual({ payload: { power_on_behavior: 'off' } });
+    expect(command('window_detection_params_enabled', 'on_off', { command: 'turn_on' })).toEqual({
+      payload: { window_detection_params: { enabled: true } },
+    });
+  });
+
+  it('reads the settings back when the link comes up, a composite whole', () => {
+    const { driver, claim } = held(VALVE);
+
+    expect(driver.subscriptions([claim], {})).toEqual([
+      {
+        op: 'refresh',
+        args: {
+          ieee: VALVE.ieee_address,
+          payload: {
+            current_heating_setpoint: '',
+            local_temperature: '',
+            local_temperature_calibration: '',
+            occupancy_timeout: '',
+            power_on_behavior: '',
+          },
+        },
+      },
+    ]);
+  });
+
   it('asks the bridge to install an offered firmware', () => {
     const { driver, context, entities } = held(LAMP);
     const firmware = entities.get('firmware');
@@ -480,6 +754,83 @@ describe('xyToHs', () => {
     expect(exposes.xyToHs(0.64, 0.33)).toEqual({ hue: 0, saturation: 100 });
     expect(exposes.xyToHs(0.3, 0.6).hue).toBe(120);
     expect(exposes.xyToHs(0.15, 0.06).hue).toBe(240);
+  });
+});
+
+describe("the bridge's profile", () => {
+  /**
+   * The bridge's driver, as the hub loads it from the bundle, and the ids of its entities.
+   *
+   * @returns The integration and a mapping context naming every entity.
+   */
+  async function bridge(): Promise<{
+    integration: Integration;
+    context: {
+      options: Record<string, never>;
+      claim: { deviceKey: string; externalId: string; descriptor: unknown };
+      entities: Map<string, EntityId>;
+      lastState: () => undefined;
+    };
+  }> {
+    const read = async (file: string): Promise<unknown> =>
+      JSON.parse(await readFile(path.join(BUNDLE, file), 'utf8')) as unknown;
+    const manifest = resolveManifest(
+      vendorManifestSchema.parse(await read('manifest.json')),
+      driverManifestSchema.parse(await read('bridge/driver.json')),
+    );
+    const profile = integrationProfileSchema.parse(await read('bridge/profile.json'));
+    const entities = new Map<string, EntityId>(
+      profile.entities.map((entity) => [
+        entity.objectId ?? '',
+        parseEntityId(`${entity.domain}.z2m_${entity.objectId ?? ''}`),
+      ]),
+    );
+
+    return {
+      integration: createDeclarativeIntegration(manifest, profile),
+      context: {
+        options: {},
+        claim: { deviceKey: 'bridge', externalId: '0x00124b0021aabbcc', descriptor: {} },
+        entities,
+        lastState: () => undefined,
+      },
+    };
+  }
+
+  it('says whether pairing is open, and when it closes only as an attribute', async () => {
+    const { integration, context } = await bridge();
+    const reports = integration.toState(
+      inbound('bridge', {
+        state: 'online',
+        info: { ...INFO, permit_join: true, permit_join_end: 1_790_799_854_000 },
+        deviceCount: 2,
+        pairing: { state: 'enabled', endsAt: '2026-09-30T20:04:14.000Z' },
+      }),
+      context,
+    );
+    const pairing = reports.find((report) => report.entityId === context.entities.get('pairing'));
+
+    expect(pairing).toMatchObject({
+      state: { sensor_text: { value: 'enabled' } },
+      attributes: { endsAt: '2026-09-30T20:04:14.000Z' },
+    });
+    expect([...context.entities.keys()]).not.toContain('pairing_ends');
+  });
+
+  it('opens pairing from one button and closes it from the other', async () => {
+    const { integration, context } = await bridge();
+    const press = (objectId: string) =>
+      integration.toCommand(
+        {
+          entityId: context.entities.get(objectId) ?? parseEntityId('x.x'),
+          capability: 'button',
+          command: { command: 'press' },
+        },
+        context,
+      );
+
+    expect(press('permit_join')).toMatchObject({ op: 'permit_join', args: { time: 254 } });
+    expect(press('permit_join_stop')).toMatchObject({ op: 'permit_join', args: { time: 0 } });
   });
 });
 
@@ -519,23 +870,127 @@ describe('the transport', () => {
     expect(delivered).toContainEqual({
       connectionKey: connection.key,
       deviceKey: 'bridge',
-      payload: { state: 'online', info: null, deviceCount: 2 },
+      payload: { state: 'online', info: null, deviceCount: 2, pairing: null },
     });
 
     await connection.send(
       { deviceKey: LAMP.ieee_address, op: 'set', args: { payload: { state: 'ON' } } },
       AbortSignal.timeout(1000),
     );
-    await connection.send(
-      { deviceKey: 'bridge', op: 'permit_join', args: { time: 254 } },
-      AbortSignal.timeout(1000),
-    );
 
     expect(session?.published).toEqual([
       { topic: `zigbee2mqtt/${LAMP.ieee_address}/set`, payload: '{"state":"ON"}' },
-      { topic: 'zigbee2mqtt/bridge/request/permit_join', payload: '{"time":254}' },
     ]);
 
+    await connection.close();
+  });
+
+  it('opens pairing, waits for Zigbee2MQTT to say so, and shows it open at once', async () => {
+    const sessions: FakeMqtt[] = [];
+    const transport = createTransport(sdkWith(sessions));
+    const delivered: TransportInbound[] = [];
+    const connection = await transport.connect(
+      {},
+      {
+        logger: createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' }),
+        deliver: (message) => delivered.push(message),
+        report: () => undefined,
+      },
+    );
+    const [session] = sessions;
+
+    arrive(session, 'zigbee2mqtt/bridge/info', INFO);
+
+    expect(delivered.at(-1)?.payload).toMatchObject({ pairing: { state: 'disabled' } });
+
+    const opening = connection.send(
+      { deviceKey: 'bridge', op: 'permit_join', args: { time: 254 } },
+      AbortSignal.timeout(2000),
+    );
+    const request = session?.published.at(-1);
+    const asked = JSON.parse(request?.payload ?? '{}') as { time: number; transaction: string };
+
+    expect(request?.topic).toBe('zigbee2mqtt/bridge/request/permit_join');
+    expect(asked.time).toBe(254);
+    // The bridge's own echo of the request is not an answer.
+    arrive(session, 'zigbee2mqtt/bridge/request/permit_join', asked);
+    arrive(session, 'zigbee2mqtt/bridge/response/permit_join', {
+      data: { time: 254 },
+      status: 'ok',
+      transaction: asked.transaction,
+    });
+    await opening;
+
+    const shown = delivered.at(-1)?.payload as { pairing: { state: string; endsAt: string } };
+
+    expect(shown.pairing.state).toBe('enabled');
+    expect(Date.parse(shown.pairing.endsAt) - Date.now()).toBeGreaterThan(250_000);
+
+    // Then the bridge says exactly when it closes.
+    arrive(session, 'zigbee2mqtt/bridge/info', {
+      ...INFO,
+      permit_join: true,
+      permit_join_end: Date.parse('2026-09-30T20:04:14.000Z'),
+    });
+
+    expect(delivered.at(-1)?.payload).toMatchObject({
+      pairing: { state: 'enabled', endsAt: '2026-09-30T20:04:14.000Z' },
+    });
+
+    await connection.close();
+  });
+
+  it('says why Zigbee2MQTT refused to open pairing', async () => {
+    const sessions: FakeMqtt[] = [];
+    const connection = await createTransport(sdkWith(sessions)).connect(
+      {},
+      {
+        logger: createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' }),
+        deliver: () => undefined,
+        report: () => undefined,
+      },
+    );
+    const [session] = sessions;
+    const opening = connection.send(
+      { deviceKey: 'bridge', op: 'permit_join', args: { time: 254 } },
+      AbortSignal.timeout(2000),
+    );
+    const asked = JSON.parse(session?.published.at(-1)?.payload ?? '{}') as {
+      transaction: string;
+    };
+
+    arrive(session, 'zigbee2mqtt/bridge/response/permit_join', {
+      data: {},
+      status: 'error',
+      error: 'Coordinator failed to permit join',
+      transaction: asked.transaction,
+    });
+
+    await expect(opening).rejects.toThrow(/Coordinator failed to permit join/u);
+    await connection.close();
+  });
+
+  it('takes a bridge too slow to answer for one that may still have done it', async () => {
+    const sessions: FakeMqtt[] = [];
+    const delivered: TransportInbound[] = [];
+    const connection = await createTransport(sdkWith(sessions)).connect(
+      {},
+      {
+        logger: createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' }),
+        deliver: (message) => delivered.push(message),
+        report: () => undefined,
+      },
+    );
+    const abort = new AbortController();
+    const closing = connection.send(
+      { deviceKey: 'bridge', op: 'permit_join', args: { time: 0 } },
+      abort.signal,
+    );
+
+    abort.abort();
+
+    await expect(closing).resolves.toBeNull();
+    expect(delivered).toEqual([]);
     await connection.close();
   });
 
@@ -567,7 +1022,7 @@ describe('the transport', () => {
     expect(delivered).toContainEqual({
       connectionKey: connection.key,
       deviceKey: 'bridge',
-      payload: { state: null, info: INFO, deviceCount: 1 },
+      payload: { state: null, info: INFO, deviceCount: 1, pairing: { state: 'disabled' } },
     });
     expect(delivered).toContainEqual({
       connectionKey: connection.key,

@@ -9,12 +9,18 @@
  * to the device it is about by IEEE address, the one name a Zigbee device keeps:
  *
  * - `bridge` gets what the bridge says of itself: whether it is online, its `info`, how many
- *   devices it knows;
+ *   devices it knows, and whether pairing is open (`pairing`, read out of `info`);
  * - a device gets `{ kind: 'state', state }`, `{ kind: 'availability', isOnline }`, and
  *   `{ kind: 'definition', device }` whenever the bridge lists the devices again.
  *
  * Commands go back by IEEE address, which Zigbee2MQTT accepts in place of a friendly name:
  * `set` and `get` to `<base>/<ieee>/set|get`, `permit_join` and `ota_update` to the bridge.
+ *
+ * **Pairing waits for Zigbee2MQTT's answer.** `permit_join` is a request of the bridge's: it is
+ * sent with a `transaction` and Zigbee2MQTT answers on `bridge/response/permit_join` with the
+ * same one - `ok`, or an error that is then the command's. An answer shows pairing open or shut at
+ * once, without waiting for the bridge's next `info`; a bridge too slow to answer before the
+ * command's time is up is not taken for a refusal - its `info` says what came of it.
  *
  * **What was heard is kept, and handed on again whenever the instances change.** Zigbee2MQTT
  * keeps the bridge's state and info, the device list and each device's availability retained,
@@ -32,6 +38,7 @@ import {
   devicesOf,
   isOnline,
   isOfferable,
+  pairingOf,
   readPayload,
   topicOf,
 } from './topics.js';
@@ -61,6 +68,15 @@ export const BRIDGE_KEY = 'bridge';
 
 /** How long a probe waits for the bridge to say something. */
 const PROBE_WAIT_MS = 5000;
+
+/**
+ * How long a request of the bridge's waits for its answer: less than the hub gives a command, so
+ * a slow answer ends as one not heard rather than as the command failing.
+ */
+const RESPONSE_WAIT_MS = 3000;
+
+/** The longest Zigbee2MQTT keeps pairing open. */
+const PAIRING_MAXIMUM_S = 254;
 
 /**
  * The platform's broker, or a sentence saying there is none.
@@ -133,7 +149,17 @@ export default function createZigbee2MqttTransport(sdk) {
     const ieeeByName = new Map();
 
     /** @type {BridgeSnapshot} */
-    const bridge = { state: null, info: null, deviceCount: 0 };
+    const bridge = { state: null, info: null, deviceCount: 0, pairing: null };
+
+    /**
+     * The bridge's requests waiting for their answers, by transaction.
+     *
+     * @type {Map<string, (answer: Record<string, unknown> | null) => void>}
+     */
+    const waiting = new Map();
+
+    /** How many requests of the bridge's were sent, for their transactions. */
+    let requests = 0;
 
     /** Whether the bridge has said anything yet, so that an empty snapshot is not handed on. */
     let isBridgeHeard = false;
@@ -203,10 +229,24 @@ export default function createZigbee2MqttTransport(sdk) {
           return;
         }
 
+        if (about.what.startsWith('response/')) {
+          const answer =
+            typeof value === 'object' && value !== null
+              ? /** @type {Record<string, unknown>} */ (value)
+              : {};
+          const transaction = answer['transaction'];
+          const settle = typeof transaction === 'string' ? waiting.get(transaction) : undefined;
+
+          settle?.(answer);
+
+          return;
+        }
+
         if (about.what === 'state') {
           bridge.state = bridgeStateOf(value);
         } else if (about.what === 'info' && typeof value === 'object' && value !== null) {
           bridge.info = /** @type {Record<string, unknown>} */ (value);
+          bridge.pairing = pairingOf(bridge.info);
         } else if (about.what === 'devices') {
           const devices = devicesOf(value);
 
@@ -280,6 +320,72 @@ export default function createZigbee2MqttTransport(sdk) {
       }
     }
 
+    /**
+     * Asks the bridge something, and waits for its answer: until it comes, the time a request
+     * waits is up, or the command is given up on - the last two answered as nothing heard.
+     *
+     * @param {string} name - The request, under `bridge/request/`: `permit_join`.
+     * @param {Record<string, unknown>} payload - What it carries.
+     * @param {AbortSignal} signal - Gives up waiting.
+     * @returns {Promise<Record<string, unknown> | null>} The answer, or null when none came.
+     * @throws {Error} When Zigbee2MQTT refuses, with its reason.
+     */
+    async function askBridge(name, payload, signal) {
+      requests += 1;
+
+      const transaction = `nebulahome-${String(requests)}-${Math.random().toString(36).slice(2, 8)}`;
+
+      /** @type {Promise<Record<string, unknown> | null>} */
+      const answered = new Promise((resolve) => {
+        /** @type {ReturnType<typeof setTimeout> | undefined} */
+        let timer;
+
+        /**
+         * Settles the wait, once.
+         *
+         * @param {Record<string, unknown> | null} answer - What came, or null.
+         */
+        const settle = (answer) => {
+          clearTimeout(timer);
+          waiting.delete(transaction);
+          signal.removeEventListener('abort', onAbort);
+          resolve(answer);
+        };
+
+        /** Stops waiting when the command is given up on. */
+        function onAbort() {
+          settle(null);
+        }
+
+        timer = setTimeout(() => {
+          settle(null);
+        }, RESPONSE_WAIT_MS);
+        timer.unref();
+        waiting.set(transaction, settle);
+        signal.addEventListener('abort', onAbort, { once: true });
+      });
+
+      try {
+        await session.publish(
+          `${base}/bridge/request/${name}`,
+          JSON.stringify({ ...payload, transaction }),
+        );
+      } catch (error) {
+        waiting.get(transaction)?.(null);
+        throw error;
+      }
+
+      const answer = await answered;
+
+      if (answer !== null && answer['status'] === 'error') {
+        const reason = typeof answer['error'] === 'string' ? answer['error'] : 'no reason given';
+
+        throw new Error(`Zigbee2MQTT refused ${name}: ${reason}`);
+      }
+
+      return answer;
+    }
+
     return {
       key,
 
@@ -287,9 +393,10 @@ export default function createZigbee2MqttTransport(sdk) {
        * Sends a command.
        *
        * @param {TransportRequest} request - What to do, to which device.
+       * @param {AbortSignal} signal - Gives up on the command.
        * @returns {Promise<null>} Nothing: Zigbee2MQTT answers by publishing the new state.
        */
-      send: async (request) => {
+      send: async (request, signal) => {
         const payload = request.args['payload'] ?? {};
 
         switch (request.op) {
@@ -303,10 +410,22 @@ export default function createZigbee2MqttTransport(sdk) {
           }
 
           case 'permit_join': {
-            await session.publish(
-              `${base}/bridge/request/permit_join`,
-              JSON.stringify({ time: Number(request.args['time'] ?? 0) }),
-            );
+            const asked = Number(request.args['time'] ?? 0);
+            const time = Number.isFinite(asked)
+              ? Math.min(PAIRING_MAXIMUM_S, Math.max(0, Math.round(asked)))
+              : 0;
+            const answer = await askBridge('permit_join', { time }, signal);
+
+            if (answer !== null) {
+              // Shown at once; the bridge's `info` that follows says when exactly it closes.
+              bridge.pairing =
+                time === 0
+                  ? { state: 'disabled' }
+                  : { state: 'enabled', endsAt: new Date(Date.now() + time * 1000).toISOString() };
+              isBridgeHeard = true;
+              deliver(BRIDGE_KEY, { ...bridge });
+            }
+
             break;
           }
 
@@ -339,11 +458,17 @@ export default function createZigbee2MqttTransport(sdk) {
       },
 
       /**
-       * Closes the session.
+       * Closes the session, answering what still waits as not heard.
        *
        * @returns {Promise<void>} Once it is closed.
        */
-      close: async () => session.close(),
+      close: async () => {
+        for (const settle of [...waiting.values()]) {
+          settle(null);
+        }
+
+        await session.close();
+      },
     };
   }
 
