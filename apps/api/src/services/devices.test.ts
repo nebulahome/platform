@@ -32,6 +32,7 @@ const CATALOGUE: IntegrationVendor[] = [
         name: 'Printer',
         transport: 'mqtt',
         models: ['X1C'],
+        modelSeries: { X1C: 'X series' },
         setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
       },
     ],
@@ -92,6 +93,14 @@ describe('toDeviceView', () => {
   it('shows the picked model until the hardware reports one', () => {
     expect(toDeviceView(row(), CATALOGUE, []).model).toBe('X1C');
     expect(toDeviceView(row({ model: 'S3SW-001P8EU' }), CATALOGUE, []).model).toBe('S3SW-001P8EU');
+  });
+
+  it('says the series of the model picked, and none for a model the driver puts in none', () => {
+    expect(toDeviceView(row(), CATALOGUE, []).series).toBe('X series');
+    // The hardware's code is not a label the driver lists: the pick still says the series.
+    expect(toDeviceView(row({ model: 'BL-P001' }), CATALOGUE, []).series).toBe('X series');
+    expect(toDeviceView(row({ pickedModel: 'X9' }), CATALOGUE, []).series).toBeNull();
+    expect(toDeviceView(row(), [], []).series).toBeNull();
   });
 
   it('says a device is not yet identified', () => {

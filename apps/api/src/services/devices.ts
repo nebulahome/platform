@@ -141,6 +141,12 @@ export function toDeviceView(
   tagIds: readonly string[] = [],
 ): DeviceView {
   const driver = catalogue.flatMap((vendor) => vendor.drivers).find((each) => each.id === row.kind);
+  // The series goes by the label the owner picked, which is the driver's own; what the hardware
+  // reported may be a code the driver does not list.
+  const series =
+    [row.pickedModel, row.model]
+      .flatMap((model) => (model === null ? [] : [driver?.modelSeries?.[model]]))
+      .find((each) => each !== undefined) ?? null;
 
   return deviceViewSchema.parse({
     id: row.id,
@@ -152,6 +158,7 @@ export function toDeviceView(
     driverId: driverIdOf(row.kind),
     driverName: driver?.name ?? driverIdOf(row.kind),
     model: row.model ?? row.pickedModel,
+    series,
     transport: row.transport,
     transportConfig: servedConfig(row.transportConfig),
     options: servedConfig(row.options),
