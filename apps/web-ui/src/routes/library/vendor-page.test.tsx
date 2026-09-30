@@ -179,6 +179,7 @@ function device(overrides: Partial<DeviceView>): DeviceView {
     driverId: 'printer',
     driverName: 'Printer',
     model: 'X1C',
+    series: null,
     transport: 'mqtt',
     transportConfig: { url: 'mqtts://192.168.1.60:8883' },
     options: {},
@@ -463,14 +464,19 @@ describe('the devices of a vendor found on the network', () => {
 });
 
 describe('a vendor that adds its own devices', () => {
-  /** Zigbee2MQTT: devices come by pairing, through the bridge's switch. */
+  /** Zigbee2MQTT: devices come by pairing, through the bridge's buttons and its state. */
   const ZIGBEE: IntegrationVendorView = {
     ...BAMBU,
     id: 'zigbee2mqtt',
     name: 'Zigbee2MQTT',
     discoverySources: ['module'],
     adoption: 'automatic',
-    pairing: { driverId: 'bridge', objectId: 'permit_join' },
+    pairing: {
+      driverId: 'bridge',
+      openObjectId: 'permit_join',
+      closeObjectId: 'permit_join_stop',
+      stateObjectId: 'pairing',
+    },
     listener: null,
     passedOver: [],
     requires: { packages: {}, services: [] },
@@ -482,15 +488,16 @@ describe('a vendor that adds its own devices', () => {
   };
 
   /**
-   * The bridge's pairing switch, as last reported.
+   * The bridge's pairing sensor, as last reported.
    *
-   * @param isOn - Whether pairing is open.
+   * @param isOpen - Whether pairing is open.
+   * @param endsAt - When the bridge said it closes, while it is open.
    * @returns The entity.
    */
-  function pairingSwitch(isOn: boolean): EntityView {
+  function pairingSensor(isOpen: boolean, endsAt?: string): EntityView {
     return entityViewSchema.parse({
-      entityId: 'switch.zigbee2mqtt_permit_join',
-      domain: 'switch',
+      entityId: 'sensor.zigbee2mqtt_pairing',
+      domain: 'sensor',
       name: 'Pairing',
       icon: 'link',
       areaKey: null,
@@ -501,8 +508,9 @@ describe('a vendor that adds its own devices', () => {
       deviceClass: null,
       isEnabled: true,
       isHidden: false,
-      capabilities: [{ capability: 'on_off' }],
-      state: { on_off: { isOn } },
+      capabilities: [{ capability: 'sensor_text' }],
+      state: { sensor_text: { value: isOpen ? 'enabled' : 'disabled' } },
+      attributes: endsAt === undefined ? {} : { endsAt },
       isAvailable: true,
       lastChanged: null,
       lastUpdated: null,
@@ -527,7 +535,7 @@ describe('a vendor that adds its own devices', () => {
     expect(await screen.findByText(/is added here on its own/u)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Add device' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Discover devices' })).toBeNull();
-    // Until the bridge is added there is no switch to press.
+    // Until the bridge is added there is no button to press.
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Pair devices' }).disabled).toBe(
       true,
     );
@@ -535,14 +543,14 @@ describe('a vendor that adds its own devices', () => {
     expect(screen.getByText(/Pairing is not available yet/u)).toBeTruthy();
   });
 
-  it("opens pairing through the bridge's switch, and says it is open", async () => {
+  it("opens pairing with the bridge's button, whatever the page saw last", async () => {
     vi.mocked(fetchVendor).mockResolvedValue(ZIGBEE);
     vi.mocked(fetchDevices).mockResolvedValue([BRIDGE]);
-    vi.mocked(fetchEntity).mockResolvedValue(pairingSwitch(false));
+    vi.mocked(fetchEntity).mockResolvedValue(pairingSensor(false));
     vi.mocked(commandEntity).mockResolvedValue(
       entityCommandResponseSchema.parse({
-        entityId: 'switch.zigbee2mqtt_permit_join',
-        capability: 'on_off',
+        entityId: 'button.zigbee2mqtt_permit_join',
+        capability: 'button',
         acceptedAt: '2026-09-28T10:00:00.000Z',
         idempotencyKey: null,
       }),
@@ -557,21 +565,41 @@ describe('a vendor that adds its own devices', () => {
     fireEvent.click(button);
 
     await waitFor(() => {
-      expect(commandEntity).toHaveBeenCalledWith('switch.zigbee2mqtt_permit_join', 'on_off', {
-        command: 'turn_on',
+      expect(commandEntity).toHaveBeenCalledWith('button.zigbee2mqtt_permit_join', 'button', {
+        command: 'press',
       });
     });
   });
 
-  it('shows pairing opened elsewhere as open, with the way to stop it', async () => {
+  it('shows pairing opened elsewhere as open, counting down to when the bridge closes it', async () => {
     vi.mocked(fetchVendor).mockResolvedValue(ZIGBEE);
     vi.mocked(fetchDevices).mockResolvedValue([BRIDGE]);
-    vi.mocked(fetchEntity).mockResolvedValue(pairingSwitch(true));
+    vi.mocked(fetchEntity).mockResolvedValue(
+      pairingSensor(true, new Date(Date.now() + 125_000).toISOString()),
+    );
+    vi.mocked(commandEntity).mockResolvedValue(
+      entityCommandResponseSchema.parse({
+        entityId: 'button.zigbee2mqtt_permit_join_stop',
+        capability: 'button',
+        acceptedAt: '2026-09-28T10:00:00.000Z',
+        idempotencyKey: null,
+      }),
+    );
     renderPage('zigbee2mqtt', ['device:read', 'entity:control']);
 
-    expect(await screen.findByRole('button', { name: /Stop/u })).toBeTruthy();
+    const stop = await screen.findByRole('button', { name: /Stop/u });
+
     expect(screen.getByText(/Put the device in pairing mode now/u)).toBeTruthy();
     expect(screen.getByText('No device has joined yet.')).toBeTruthy();
+    expect(await screen.findByText(/Closes in 2:0[45]/u)).toBeTruthy();
+
+    fireEvent.click(stop);
+
+    await waitFor(() => {
+      expect(commandEntity).toHaveBeenCalledWith('button.zigbee2mqtt_permit_join_stop', 'button', {
+        command: 'press',
+      });
+    });
   });
 
   it('says so when Zigbee2MQTT is not heard on the broker, with the way to its log', async () => {

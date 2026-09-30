@@ -3,14 +3,17 @@
  *
  * Such a vendor is not looked for - its devices come by being paired, and once paired they are
  * added on their own - so its page offers **Pair devices** where another has Discover devices. The
- * button is the bridge's own pairing switch (`pairing` in the vendor's `discovery.json`), read
- * live: pairing opened from Zigbee2MQTT's own page shows here as open too, and closes from here.
+ * page runs pairing through the bridge's own entities (`pairing` in the vendor's `discovery.json`):
+ * a button that opens it, one that closes it, and a sensor saying whether it is open, read live -
+ * pairing opened from Zigbee2MQTT's own page shows here as open too, and closes from here. Each
+ * button does one thing, whatever the page last saw: a press on a page that missed a change never
+ * closes what it meant to open.
  *
  * While it is open the button counts down the time left and a panel says what to do and lists the
  * devices added since - those that were not there when the page saw it open. The time is the
- * switch's: it opens for {@link PAIRING_SECONDS} seconds, what the bundle asks and what
- * Zigbee2MQTT's own page asks too, counted from when the switch last turned on; Zigbee2MQTT closes
- * it by itself then, and the switch says so.
+ * bridge's own: when Zigbee2MQTT closes pairing by itself, which the sensor carries in its
+ * `endsAt` attribute - a pairing reopened elsewhere starts the count again, and one whose end the
+ * bridge did not say is shown open, without a count.
  *
  * When it cannot be pressed the reason is said in the page, not only in a tooltip: a disabled
  * button with no word beside it is a button that looks broken.
@@ -23,6 +26,7 @@ import {
   type DeviceView,
   type EntityId,
   type IntegrationVendorView,
+  type JsonObject,
 } from '@nebula-home/contracts';
 import { AppIcon, Button, Panel } from '@nebula-home/ui';
 
@@ -31,31 +35,31 @@ import { toMessage } from '@/lib/error-message';
 import { commandEntity, fetchEntity, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { useLive } from '@/live/live-store';
 
-/** How long pairing stays open once opened, in seconds: what the bridge's switch asks. */
-export const PAIRING_SECONDS = 254;
+/** What the pairing sensor says while pairing is open. */
+export const PAIRING_OPEN = 'enabled';
 
 /** Where pairing stands, as the vendor's page shows it. */
 export type PairingState = {
-  /** The switch, once the device that has it is added; null before. */
+  /** The sensor saying whether pairing is open, once the device that has it is added; null before. */
   readonly entityId: EntityId | null;
 
   /** Whether pairing is open now. */
   readonly isOpen: boolean;
 
-  /** When pairing opened, in milliseconds since the epoch; null while it is shut. */
-  readonly openedAt: number | null;
-
-  /** When it closes by itself, in milliseconds since the epoch; null while it is shut. */
+  /** When it closes by itself, in milliseconds since the epoch; null while shut or unsaid. */
   readonly closesAt: number | null;
 
-  /** Whether the switch can be pressed: its device is added, reachable, and the owner may. */
+  /** Whether the buttons can be pressed: their device is added, reachable, and the owner may. */
   readonly canPress: boolean;
 
-  /** Why it cannot, when it cannot. */
+  /** Why they cannot, when they cannot. */
   readonly reason: string | null;
 
-  /** Opens pairing when it is shut, shuts it when it is open. */
-  readonly toggle: () => void;
+  /** Opens pairing. */
+  readonly open: () => void;
+
+  /** Closes pairing. */
+  readonly close: () => void;
 
   /** Whether a press is on its way. */
   readonly isBusy: boolean;
@@ -65,11 +69,34 @@ export type PairingState = {
 };
 
 /**
+ * Whether pairing is open, and until when, out of what the pairing sensor last reported.
+ *
+ * @param state - The sensor's state.
+ * @param attributes - Its attributes, `endsAt` among them while pairing is open.
+ * @returns Whether it is open, and when it closes - null when shut, or when the bridge did not say.
+ */
+export function pairingOf(
+  state: JsonObject | null,
+  attributes: JsonObject | null,
+): { readonly isOpen: boolean; readonly closesAt: number | null } {
+  const text = state?.['sensor_text'];
+  const isOpen =
+    typeof text === 'object' &&
+    text !== null &&
+    !Array.isArray(text) &&
+    text['value'] === PAIRING_OPEN;
+  const endsAt = attributes?.['endsAt'];
+  const closesAt = isOpen && typeof endsAt === 'string' ? Date.parse(endsAt) : Number.NaN;
+
+  return { isOpen, closesAt: Number.isFinite(closesAt) ? closesAt : null };
+}
+
+/**
  * Where a vendor's pairing stands.
  *
  * @param vendor - The vendor; one without `pairing` has none, and is answered as shut.
- * @param devices - The vendor's devices, among which the one with the switch.
- * @returns Where it stands, and how to press it.
+ * @param devices - The vendor's devices, among which the one with the pairing entities.
+ * @returns Where it stands, and how to open and close it.
  */
 export function usePairing(
   vendor: IntegrationVendorView | undefined,
@@ -84,14 +111,14 @@ export function usePairing(
   const entityId =
     pairing === null || device === undefined
       ? null
-      : composeEntityId('switch', device.id, pairing.objectId);
+      : composeEntityId('sensor', device.id, pairing.stateObjectId);
 
   const entity = useQuery({
     queryKey: [...LIBRARY_QUERY_KEYS.entities, entityId],
     enabled: entityId !== null,
 
     /**
-     * Reads the switch as it was last reported, until the live channel says more.
+     * Reads the sensor as it was last reported, until the live channel says more.
      *
      * @param context - The query's abort signal.
      * @param context.signal - Cancels the request when the page goes away.
@@ -100,23 +127,30 @@ export function usePairing(
     queryFn: async ({ signal }) => fetchEntity(entityId ?? '', signal),
   });
   const live = useLive((state) => (entityId === null ? undefined : state.readings[entityId]));
-  const state = live?.state ?? entity.data?.state ?? null;
-  const onOff = state?.['on_off'];
-  const isOpen =
-    typeof onOff === 'object' && onOff !== null && !Array.isArray(onOff) && onOff['isOn'] === true;
+  const { isOpen, closesAt } = pairingOf(
+    live?.state ?? entity.data?.state ?? null,
+    live?.attributes ?? entity.data?.attributes ?? null,
+  );
   const isAvailable = live?.isAvailable ?? entity.data?.isAvailable ?? false;
-  const changedAt = live?.changedAt ?? entity.data?.lastChanged ?? null;
-  const openedAt = isOpen && changedAt !== null ? new Date(changedAt).getTime() : null;
 
   const press = useMutation({
     /**
-     * Turns the switch the other way.
+     * Presses the button that opens pairing, or the one that closes it.
      *
      * @param open - Whether to open pairing.
      * @returns The acknowledgement.
      */
-    mutationFn: async (open: boolean) =>
-      commandEntity(entityId ?? '', 'on_off', { command: open ? 'turn_on' : 'turn_off' }),
+    mutationFn: async (open: boolean) => {
+      if (pairing === null || device === undefined) {
+        throw new Error('Pairing is not available yet');
+      }
+
+      return commandEntity(
+        composeEntityId('button', device.id, open ? pairing.openObjectId : pairing.closeObjectId),
+        'button',
+        { command: 'press' },
+      );
+    },
   });
 
   const reason =
@@ -133,16 +167,20 @@ export function usePairing(
   return {
     entityId,
     isOpen,
-    openedAt,
-    closesAt: openedAt === null ? null : openedAt + PAIRING_SECONDS * 1000,
+    closesAt,
     canPress: entityId !== null && reason === null,
     reason,
     isBusy: press.isPending,
     problem: press.error === null ? null : toMessage(press.error),
 
-    /** Turns the switch the other way. */
-    toggle: () => {
-      press.mutate(!isOpen);
+    /** Presses the button that opens pairing. */
+    open: () => {
+      press.mutate(true);
+    },
+
+    /** Presses the button that closes it. */
+    close: () => {
+      press.mutate(false);
     },
   };
 }
@@ -213,7 +251,7 @@ export function PairingButton(props: { readonly pairing: PairingState }) {
         isBusy={pairing.isBusy}
         disabled={!pairing.canPress}
         title={pairing.reason ?? 'Close pairing now'}
-        onClick={pairing.toggle}
+        onClick={pairing.close}
       >
         <span
           aria-hidden="true"
@@ -232,7 +270,7 @@ export function PairingButton(props: { readonly pairing: PairingState }) {
       isBusy={pairing.isBusy}
       disabled={!pairing.canPress}
       title={pairing.reason ?? 'Let new devices join for about four minutes'}
-      onClick={pairing.toggle}
+      onClick={pairing.open}
     >
       <AppIcon id="plus" size={15} />
       Pair devices

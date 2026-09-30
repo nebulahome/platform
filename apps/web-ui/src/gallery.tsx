@@ -309,7 +309,12 @@ const SILENT_ZIGBEE: IntegrationVendorView = {
   id: 'zigbee2mqtt',
   name: 'Zigbee2MQTT',
   adoption: 'automatic',
-  pairing: { driverId: 'bridge', objectId: 'permit_join' },
+  pairing: {
+    driverId: 'bridge',
+    openObjectId: 'permit_join',
+    closeObjectId: 'permit_join_stop',
+    stateObjectId: 'pairing',
+  },
   listener: {
     level: 'warning',
     message:
@@ -352,13 +357,10 @@ const SILENT_ZIGBEE: IntegrationVendorView = {
  * @returns Where it stands.
  */
 function samplePairing(isOpen: boolean): PairingState {
-  const openedAt = Date.now() - 60_000;
-
   return {
-    entityId: composeEntityId('switch', 'zigbee2mqtt', 'permit_join'),
+    entityId: composeEntityId('sensor', 'zigbee2mqtt', 'pairing'),
     isOpen,
-    openedAt: isOpen ? openedAt : null,
-    closesAt: isOpen ? openedAt + 254_000 : null,
+    closesAt: isOpen ? Date.now() + 194_000 : null,
     canPress: true,
     reason: null,
     /**
@@ -366,7 +368,13 @@ function samplePairing(isOpen: boolean): PairingState {
      *
      * @returns Nothing.
      */
-    toggle: () => undefined,
+    open: () => undefined,
+    /**
+     * Does nothing either.
+     *
+     * @returns Nothing.
+     */
+    close: () => undefined,
     isBusy: false,
     problem: null,
   };
