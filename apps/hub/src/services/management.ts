@@ -185,6 +185,7 @@ function kindOf(bundle: LoadedBundle): IntegrationKind {
     name: bundle.driverName,
     transport: manifest.transport,
     models: manifest.models,
+    ...(manifest.modelSeries === undefined ? {} : { modelSeries: manifest.modelSeries }),
     ...(manifest.defaultIcon === undefined ? {} : { defaultIcon: manifest.defaultIcon }),
     setup: bundle.setup,
     ...(manifest.webPagePort === undefined ? {} : { webPagePort: manifest.webPagePort }),
@@ -234,7 +235,15 @@ function vendorOf(
           },
     discoverySources: [...new Set(vendor.discovery?.sources.map((source) => source.kind) ?? [])],
     adoption: vendor.discovery?.plan.discovery.adopt ?? 'owner',
-    pairing: pairing === undefined ? null : { driverId: pairing.driver, objectId: pairing.entity },
+    pairing:
+      pairing === undefined
+        ? null
+        : {
+            driverId: pairing.driver,
+            openObjectId: pairing.open,
+            closeObjectId: pairing.close,
+            stateObjectId: pairing.state,
+          },
     drivers: vendor.drivers.map(kindOf),
     containers: manifest.containers.map((container) => ({
       id: container.id,

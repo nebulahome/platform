@@ -39,7 +39,7 @@ export const SERVICE_VERSION = '0.0.0';
  * written against, not the release of the service that happens to be running it, and the two move
  * for entirely different reasons.
  */
-export const RUNTIME_VERSION = '1.5.0';
+export const RUNTIME_VERSION = '1.6.0';
 
 /** Everything `hub` needs from the environment. */
 export const hubEnvSchema = runtimeEnvSchema
