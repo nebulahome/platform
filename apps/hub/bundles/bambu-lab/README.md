@@ -2,8 +2,9 @@
 
 A Bambu Lab printer in **LAN mode**, over the MQTT broker the printer runs itself: the chamber
 camera, the lights, the nozzle, bed and chamber temperatures, the fans, the AMS and the print in
-progress, with pause, resume and stop. Every printer Bambu sells today - the X1s, the P1s, the
-A1s, the A2L, the P2S, the H2s and the X2D - in four drivers, one per family.
+progress, with pause, resume and stop. Every printer Bambu sells today - the A series, the H
+series, the P series and the X series - in four drivers, one per set of entities the hardware
+fills. The owner never sees the drivers: adding a printer lists them by series.
 
 ## What the printer is
 
@@ -93,7 +94,12 @@ A printer the router keeps off multicast, or on another subnet, is added by hand
 
 ## Drivers
 
-One per family, so that a printer has the entities it can fill and no others:
+One per set of entities, so that a printer has the entities it can fill and no others. The series
+a printer is sold as does not decide it - an X1C and an X2D differ in almost every entity, a P1S
+and a P2S in the camera, the chamber and the door - so each driver says the series of each of its
+printers (`modelSeries`), and the form adding one lists them by that: **A series** (A1, A1 mini,
+A2L), **H series** (H2C, H2D, H2D Pro, H2S), **P series** (P1P, P1S, P2S), **X series** (X1, X1C,
+X1E, X2D). A printer's page says its series too.
 
 - **`printer`** - X1, X1C, X1E. RTSP camera, one nozzle, the chamber sensor, the door read
   from `home_flag`, the SD card.

@@ -10,6 +10,13 @@
     "N1": "A1 mini",
     "N9": "A2L"
   },
+  "modelSeries": {
+    "P1P": "P series",
+    "P1S": "P series",
+    "A1": "A series",
+    "A1 mini": "A series",
+    "A2L": "A series"
+  },
   "defaultIcon": "printer",
   "kind": "declarative",
   "profile": "./profile.json",

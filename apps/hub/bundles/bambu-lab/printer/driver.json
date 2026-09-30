@@ -10,6 +10,11 @@
     "BL-P001": "X1C",
     "C13": "X1E"
   },
+  "modelSeries": {
+    "X1": "X series",
+    "X1C": "X series",
+    "X1E": "X series"
+  },
   "defaultIcon": "printer",
   "kind": "declarative",
   "profile": "./profile.json",

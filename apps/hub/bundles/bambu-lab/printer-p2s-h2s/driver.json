@@ -7,6 +7,10 @@
     "N7": "P2S",
     "O1S": "H2S"
   },
+  "modelSeries": {
+    "P2S": "P series",
+    "H2S": "H series"
+  },
   "defaultIcon": "printer",
   "kind": "declarative",
   "profile": "./profile.json",

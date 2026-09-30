@@ -287,6 +287,37 @@ describe('the bundles that ship', () => {
     });
   });
 
+  it('puts every Bambu Lab printer in the series it is sold as, whichever driver runs it', async () => {
+    // The drivers follow what the hardware needs - an X1C and an X2D differ in almost every
+    // entity - and the owner knows the printers by series: the form groups them so.
+    const { vendors } = await loadBundles({
+      directory: DIRECTORY,
+      runtimeVersion: RUNTIME_VERSION,
+    });
+    const bambu = vendors.find((vendor) => vendor.manifest.id === 'bambu-lab');
+    const series = Object.assign(
+      {},
+      ...(bambu?.drivers.map((driver) => driver.manifest.modelSeries ?? {}) ?? []),
+    ) as Record<string, string>;
+
+    expect(series).toEqual({
+      X1: 'X series',
+      X1C: 'X series',
+      X1E: 'X series',
+      X2D: 'X series',
+      H2D: 'H series',
+      'H2D Pro': 'H series',
+      H2C: 'H series',
+      H2S: 'H series',
+      P1P: 'P series',
+      P1S: 'P series',
+      P2S: 'P series',
+      A1: 'A series',
+      'A1 mini': 'A series',
+      A2L: 'A series',
+    });
+  });
+
   it('includes the Bambu Lab printer, over MQTT and declarative', async () => {
     const { loaded } = await loadBundles({
       directory: DIRECTORY,

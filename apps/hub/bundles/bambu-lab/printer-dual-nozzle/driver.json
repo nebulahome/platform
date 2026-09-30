@@ -10,6 +10,12 @@
     "O1C2": "H2C",
     "N6": "X2D"
   },
+  "modelSeries": {
+    "H2D": "H series",
+    "H2D Pro": "H series",
+    "H2C": "H series",
+    "X2D": "X series"
+  },
   "defaultIcon": "printer",
   "kind": "declarative",
   "profile": "./profile.json",
