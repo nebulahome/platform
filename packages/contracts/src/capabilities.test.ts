@@ -8,6 +8,7 @@ import {
   commandSchemaFor,
   coverStateSchema,
   lawnMowerCommandSchema,
+  lawnMowerParamsSchema,
   levelCommandSchema,
   numberParamsSchema,
   onOffCommandSchema,
@@ -122,8 +123,8 @@ describe('composite entity state', () => {
 });
 
 describe('a robot mower, a select and a number', () => {
-  it('starts, pauses, stops and docks a mower, and nothing else', () => {
-    for (const command of ['start', 'pause', 'stop', 'dock']) {
+  it('starts, pauses, stops, docks and resumes a mower, and nothing else', () => {
+    for (const command of ['start', 'pause', 'stop', 'dock', 'resume']) {
       expect(lawnMowerCommandSchema.safeParse({ command }).success, command).toBe(true);
     }
 
@@ -133,7 +134,16 @@ describe('a robot mower, a select and a number', () => {
   it('reads a mower that says nothing yet as unknown, not as idle', () => {
     expect(capabilityStateSchema.safeParse({ lawn_mower: {} }).success).toBe(false);
     expect(capabilityStateSchema.parse({ lawn_mower: { activity: 'returning' } })).toEqual({
-      lawn_mower: { activity: 'returning' },
+      lawn_mower: { activity: 'returning', isResumable: false },
+    });
+  });
+
+  it('takes a resume only from a mower that says it has one', () => {
+    expect(lawnMowerParamsSchema.parse({})).toEqual({
+      canPause: true,
+      canStop: true,
+      canDock: true,
+      canResume: false,
     });
   });
 
@@ -169,6 +179,13 @@ describe('vacuum', () => {
     expect(
       commandSchemaFor('vacuum')?.safeParse({ command: 'clean_rooms', rooms: [] }).success,
     ).toBe(false);
+  });
+
+  it('carries on a job a fault stopped, when the robot says there is one', () => {
+    expect(
+      capabilityStateSchema.parse({ vacuum: { activity: 'error', isResumable: true } }).vacuum,
+    ).toEqual({ activity: 'error', rooms: [], isResumable: true });
+    expect(commandSchemaFor('vacuum')?.safeParse({ command: 'resume' }).success).toBe(true);
   });
 });
 

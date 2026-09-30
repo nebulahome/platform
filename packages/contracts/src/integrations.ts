@@ -99,12 +99,16 @@ export type DeviceAdoption = (typeof DEVICE_ADOPTIONS)[number];
 
 /**
  * Where a vendor's devices are paired, when that is done through one of its own devices: the
- * switch entity of a device of that driver that opens pairing while on - the Zigbee2MQTT bridge's
- * `permit_join`. The vendor's page offers it in place of looking for devices.
+ * entities of a device of that driver - the Zigbee2MQTT bridge - that pairing is run by, each by
+ * its object id. A button that opens it, a button that closes it, and a text sensor saying whether
+ * it is open (`enabled`) or not, which carries when it closes by itself in its `endsAt` attribute
+ * while it is open. The vendor's page offers it in place of looking for devices.
  */
 export const vendorPairingSchema = z.object({
   driverId: z.string().min(1).max(64),
-  objectId: z.string().min(1).max(64),
+  openObjectId: z.string().min(1).max(64),
+  closeObjectId: z.string().min(1).max(64),
+  stateObjectId: z.string().min(1).max(64),
 });
 
 /** Where a vendor's devices are paired. */
@@ -206,6 +210,14 @@ export const integrationKindSchema = z.object({
    * one model.
    */
   models: z.array(z.string().min(1).max(64)).default([]),
+
+  /**
+   * The series each model belongs to, for a vendor whose models are known by their series -
+   * Bambu Lab's `A series`, `X series` - rather than by the driver that runs them. The form
+   * groups the models by it; a model it does not name, or a driver without it, is grouped by the
+   * driver.
+   */
+  modelSeries: z.record(z.string().min(1).max(64), z.string().min(1).max(64)).optional(),
 
   /**
    * The icon a device of this driver starts with, from the catalogue, when the bundle names
@@ -342,7 +354,7 @@ export const integrationVendorSchema = z.object({
   /** Who adds what discovery finds: the owner, or the platform on its own. */
   adoption: z.enum(DEVICE_ADOPTIONS).default('owner'),
 
-  /** The switch that opens pairing, for a vendor whose devices are paired through one of its own. */
+  /** The entities pairing is run by, for a vendor whose devices are paired through one of its own. */
   pairing: vendorPairingSchema.nullable().default(null),
 
   drivers: z.array(integrationKindSchema),
@@ -375,11 +387,15 @@ export const integrationVendorSchema = z.object({
 /** One vendor `hub` loaded. */
 export type IntegrationVendor = z.output<typeof integrationVendorSchema>;
 
-/** One thing an owner adding a device may pick: a model, and the driver that pick selects. */
+/**
+ * One thing an owner adding a device may pick: a model, the driver that pick selects, and the
+ * series the driver puts the model in - null for none.
+ */
 export type ModelChoice = {
   readonly kind: string;
   readonly driverId: string;
   readonly model: string;
+  readonly series: string | null;
 };
 
 /**
@@ -398,6 +414,7 @@ export function modelChoicesOf(vendor: IntegrationVendor): ModelChoice[] {
       kind: driver.id,
       driverId: driver.driverId,
       model,
+      series: driver.modelSeries?.[model] ?? null,
     })),
   );
 }

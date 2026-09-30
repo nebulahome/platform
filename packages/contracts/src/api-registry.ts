@@ -92,6 +92,13 @@ export const deviceViewSchema = z.object({
    */
   model: z.string().nullable(),
 
+  /**
+   * The series its model belongs to, as the driver groups its models (`X series` for an X1C);
+   * null for a model the driver puts in none, or no model. What a page says the device is, beside
+   * the model, in place of the driver's name.
+   */
+  series: z.string().nullable().default(null),
+
   /** Which transport carries it: `http`, `mqtt`. */
   transport: z.string(),
 

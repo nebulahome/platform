@@ -39,6 +39,7 @@ function vendor(): IntegrationVendor {
         name: 'Printer',
         transport: 'mqtt',
         models: ['X1C', 'P1S'],
+        modelSeries: { X1C: 'X series' },
         setup: { transport: { fields: [] } },
       },
       {
@@ -82,7 +83,16 @@ describe('modelChoicesOf', () => {
       kind: 'bambu-lab/printer',
       driverId: 'printer',
       model: 'X1C',
+      series: 'X series',
     });
+  });
+
+  it('puts a model in the series its driver names, and in none when it names none', () => {
+    expect(modelChoicesOf(vendor()).map((choice) => choice.series)).toEqual([
+      'X series',
+      null,
+      null,
+    ]);
   });
 
   it('offers a driver that lists no model under its own name', () => {
@@ -90,6 +100,7 @@ describe('modelChoicesOf', () => {
       kind: 'bambu-lab/scanner',
       driverId: 'scanner',
       model: 'Scanner',
+      series: null,
     });
   });
 });

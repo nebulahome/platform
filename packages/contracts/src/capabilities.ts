@@ -414,25 +414,36 @@ export const LAWN_MOWER_ACTIVITIES = [
 /** What a robot mower is doing. */
 export type LawnMowerActivity = (typeof LAWN_MOWER_ACTIVITIES)[number];
 
-/** A robot mower's activity. */
-export const lawnMowerStateSchema = z.object({ activity: z.enum(LAWN_MOWER_ACTIVITIES) });
+/**
+ * A robot mower's activity, and whether a job it stopped part way - paused, or stopped by a
+ * fault - is there to carry on from where it got to, which `resume` does.
+ */
+export const lawnMowerStateSchema = z.object({
+  activity: z.enum(LAWN_MOWER_ACTIVITIES),
+  isResumable: z.boolean().default(false),
+});
 
-/** Which of the commands this mower takes. */
+/**
+ * Which of the commands this mower takes. `canResume` is a resume of its own, told apart from a
+ * start: after a fault, a start begins the lawn again.
+ */
 export const lawnMowerParamsSchema = z.object({
   canPause: z.boolean().default(true),
   canStop: z.boolean().default(true),
   canDock: z.boolean().default(true),
+  canResume: z.boolean().default(false),
 });
 
 /**
- * Starting - or resuming a paused job - pausing, ending the job where it stands, and sending the
- * mower back to its station.
+ * Starting - or resuming a paused job - pausing, ending the job where it stands, sending the
+ * mower back to its station, and carrying on a job it stopped, a fault's included.
  */
 export const lawnMowerCommandSchema = z.discriminatedUnion('command', [
   z.object({ command: z.literal('start') }),
   z.object({ command: z.literal('pause') }),
   z.object({ command: z.literal('stop') }),
   z.object({ command: z.literal('dock') }),
+  z.object({ command: z.literal('resume') }),
 ]);
 
 // --- vacuum ------------------------------------------------------------------------------
@@ -464,26 +475,30 @@ export const vacuumRoomSchema = z.object({
 export type VacuumRoom = z.output<typeof vacuumRoomSchema>;
 
 /**
- * A robot vacuum's activity, and the rooms of its map - which change when the map is edited in
- * the app, so they are state rather than a fixed parameter. Empty for a robot without a map.
+ * A robot vacuum's activity, the rooms of its map - which change when the map is edited in the
+ * app, so they are state rather than a fixed parameter; empty for a robot without a map - and
+ * whether a job it stopped part way is there for `resume` to carry on.
  */
 export const vacuumStateSchema = z.object({
   activity: z.enum(VACUUM_ACTIVITIES),
   rooms: z.array(vacuumRoomSchema).max(64).default([]),
+  isResumable: z.boolean().default(false),
 });
 
-/** Which of the commands this robot takes. */
+/** Which of the commands this robot takes; `canResume` as a mower's. */
 export const vacuumParamsSchema = z.object({
   canPause: z.boolean().default(true),
   canStop: z.boolean().default(true),
   canDock: z.boolean().default(true),
   canLocate: z.boolean().default(false),
   canCleanRooms: z.boolean().default(false),
+  canResume: z.boolean().default(false),
 });
 
 /**
  * Starting - or resuming a paused job - pausing, ending the job where it stands, sending the
- * robot back to its station, having it say where it is, and cleaning only some rooms of its map.
+ * robot back to its station, having it say where it is, cleaning only some rooms of its map, and
+ * carrying on a job it stopped, a fault's included.
  */
 export const vacuumCommandSchema = z.discriminatedUnion('command', [
   z.object({ command: z.literal('start') }),
@@ -491,6 +506,7 @@ export const vacuumCommandSchema = z.discriminatedUnion('command', [
   z.object({ command: z.literal('stop') }),
   z.object({ command: z.literal('dock') }),
   z.object({ command: z.literal('locate') }),
+  z.object({ command: z.literal('resume') }),
   z.object({
     command: z.literal('clean_rooms'),
     rooms: z.array(z.string().min(1).max(32)).min(1).max(32),
