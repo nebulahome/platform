@@ -69,7 +69,7 @@ function DeviceSummary(props: DeviceSummaryProps) {
       <div className="flex min-w-0 grow flex-col gap-1">
         <h2 className="truncate text-headline font-semibold tracking-tight">{device.name}</h2>
         <p className="text-ui text-foreground-muted">
-          {make === '' ? device.driverName : make}
+          {make === '' ? (device.series ?? device.driverName) : make}
           {place === '' ? null : <span className="text-foreground-subtle"> · {place}</span>}
         </p>
       </div>
@@ -187,7 +187,7 @@ function DeviceDetails(props: { readonly view: DevicePageView; readonly webPage:
             </Link>
           )}
           {device.origin === 'package' ? null : (
-            <span className="text-foreground-subtle"> · {device.driverName}</span>
+            <span className="text-foreground-subtle"> · {device.series ?? device.driverName}</span>
           )}
         </Fact>
         {device.model === null ? null : <Fact term="Model">{device.model}</Fact>}

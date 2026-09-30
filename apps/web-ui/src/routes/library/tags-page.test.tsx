@@ -69,6 +69,7 @@ const RELAY: DeviceView = {
   driverId: '1pm-mini-g3',
   driverName: '1PM Mini Gen3',
   model: '1PM Mini Gen3',
+  series: null,
   transport: 'http',
   transportConfig: {},
   options: {},

@@ -505,7 +505,7 @@ export function DeviceDialog(props: DeviceDialogProps) {
         : 'The machine NebulaHome runs on: what it is called, its tags and its room.'
     : driver === undefined
       ? 'Which model, and what it needs to be reached.'
-      : `${driver.name}, over ${driver.transport}. Test tries the address before anything is saved.`;
+      : `${choice?.series ?? driver.name}, over ${driver.transport}. Test tries the address before anything is saved.`;
 
   /** Saves the System device: its name, icon, tags and room, and no connection. */
   const saveSystem = (): void => {

@@ -19,6 +19,7 @@ const PRINTER: DeviceView = {
   driverId: 'printer',
   driverName: 'Printer',
   model: 'P1S',
+  series: null,
   transport: 'mqtt',
   transportConfig: {},
   options: {},

@@ -66,6 +66,7 @@ export function aDevice(overrides: Partial<DeviceView> = {}): DeviceView {
     driverId: 'switch',
     driverName: 'Relay',
     model: '1 Gen3',
+    series: null,
     transport: 'shelly/rpc',
     transportConfig: {},
     options: {},

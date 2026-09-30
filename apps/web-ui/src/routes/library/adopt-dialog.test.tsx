@@ -158,6 +158,7 @@ const ADOPTED: DeviceView = {
   driverId: 'printer',
   driverName: 'Printer',
   model: 'X1C',
+  series: null,
   transport: 'mqtt',
   transportConfig: { url: 'mqtts://192.168.1.70:8883', password: { $sealed: true } },
   options: {},

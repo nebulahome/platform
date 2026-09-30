@@ -288,6 +288,7 @@ export function VendorPage() {
         [
           device.name,
           device.model,
+          device.series,
           device.driverName,
           device.areaName,
           device.externalId,

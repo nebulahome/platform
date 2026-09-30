@@ -207,6 +207,7 @@ const EXISTING: DeviceView = {
   driverId: 'printer',
   driverName: 'Printer',
   model: 'X1C',
+  series: null,
   transport: 'mqtt',
   transportConfig: {
     url: 'mqtts://192.168.1.60:8883',

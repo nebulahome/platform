@@ -6,7 +6,9 @@
  * form beside it is filled in, and a search narrows a long one to the few that match what is
  * printed on the box. When the vendor's models come from more than one driver they are grouped
  * under the driver's name, so a relay and a dimmer of the same family are told apart before either
- * is picked.
+ * is picked - or, for a vendor whose drivers put their models in series, under the series, the
+ * way the vendor sells them: Bambu Lab's A, H, P and X series, whichever driver runs each printer.
+ * Series are listed by name and the models in each as a person counts them, X1 before X2D.
  *
  * One stop in the tab order, like any listbox: the arrows move the pick up and down, Home and End
  * go to either end, and the pick is the option in focus - there is nothing to confirm. From the
@@ -31,7 +33,7 @@ export type ModelListProps = {
   /** The one picked, if any. */
   readonly value: ModelChoice | undefined;
 
-  /** The vendor, for the drivers' names the groups are headed by. */
+  /** The vendor, for the drivers' names the groups not headed by a series are headed by. */
   readonly vendor: Pick<IntegrationVendorView, 'drivers'> | undefined;
 
   /** Called with the model picked. */
@@ -52,26 +54,52 @@ function isSame(a: ModelChoice | undefined, b: ModelChoice): boolean {
   return a?.kind === b.kind && a.model === b.model;
 }
 
+/** One heading of the list, and the choices under it. */
+type Group = {
+  /** A series, `series:X series`, or a driver, `driver:bambu-lab/printer`. */
+  readonly key: string;
+  readonly heading: string;
+  readonly choices: ModelChoice[];
+};
+
+/** How names are put in order: as a person counts, `X1` before `X1C` before `X2D`. */
+const NAME_ORDER = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+
 /**
- * Groups the choices by their driver, keeping the bundle's order within and between the groups.
+ * Groups the choices: by series when the vendor's drivers put their models in any, a model in
+ * none under its driver, the groups by name and the models in each in counting order; else by
+ * driver, keeping the bundle's order within and between the groups.
  *
  * @param choices - The choices.
- * @returns One group per driver, in the order each driver first appears.
+ * @param driverName - The name of a choice's driver.
+ * @returns The groups, in the order they are shown.
  */
-function byDriver(choices: readonly ModelChoice[]): { kind: string; choices: ModelChoice[] }[] {
-  const groups: { kind: string; choices: ModelChoice[] }[] = [];
+function groupsOf(choices: readonly ModelChoice[], driverName: (kind: string) => string): Group[] {
+  const isBySeries = choices.some((choice) => choice.series !== null);
+  const groups: Group[] = [];
 
   for (const choice of choices) {
-    const group = groups.find((each) => each.kind === choice.kind);
+    const series = isBySeries ? choice.series : null;
+    const key = series === null ? `driver:${choice.kind}` : `series:${series}`;
+    const group = groups.find((each) => each.key === key);
 
     if (group === undefined) {
-      groups.push({ kind: choice.kind, choices: [choice] });
+      groups.push({ key, heading: series ?? driverName(choice.kind), choices: [choice] });
     } else {
       group.choices.push(choice);
     }
   }
 
-  return groups;
+  if (!isBySeries) {
+    return groups;
+  }
+
+  return groups
+    .map((group) => ({
+      ...group,
+      choices: group.choices.toSorted((a, b) => NAME_ORDER.compare(a.model, b.model)),
+    }))
+    .toSorted((a, b) => NAME_ORDER.compare(a.heading, b.heading));
 }
 
 /**
@@ -95,11 +123,15 @@ export function ModelList(props: ModelListProps) {
   const driverName = (kind: string): string =>
     vendor?.drivers.find((driver) => driver.id === kind)?.name ?? kind;
 
-  const shown = choices.filter((choice) =>
-    matchesQuery([choice.model, driverName(choice.kind)], search),
+  const groups = groupsOf(
+    choices.filter((choice) =>
+      matchesQuery([choice.model, choice.series ?? '', driverName(choice.kind)], search),
+    ),
+    driverName,
   );
-  const groups = byDriver(shown);
-  const isGrouped = byDriver(choices).length > 1;
+  // In the order they are shown, so the arrow keys go down the list the eye does.
+  const shown = groups.flatMap((group) => group.choices);
+  const isGrouped = groupsOf(choices, driverName).length > 1;
   const pickedIndex = shown.findIndex((choice) => isSame(value, choice));
 
   /**
@@ -201,9 +233,9 @@ export function ModelList(props: ModelListProps) {
         ) : null}
         {groups.map((group, groupIndex) => (
           <div
-            key={group.kind}
+            key={group.key}
             role="group"
-            aria-label={isGrouped ? driverName(group.kind) : undefined}
+            aria-label={isGrouped ? group.heading : undefined}
             // A rule between two families, so where one ends is seen before its heading is read.
             className={
               isGrouped && groupIndex > 0 ? 'mt-1.5 border-t border-border pt-1.5' : undefined
@@ -214,7 +246,7 @@ export function ModelList(props: ModelListProps) {
                 aria-hidden="true"
                 className="px-2.5 pt-2 pb-1 text-label font-semibold text-foreground-muted uppercase"
               >
-                {driverName(group.kind)}
+                {group.heading}
               </div>
             ) : null}
             {group.choices.map((choice) => {
