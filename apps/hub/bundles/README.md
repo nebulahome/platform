@@ -74,8 +74,8 @@ instances again when its standing changes. A container that speaks to the broker
 in `mqttTopics` (since 1.5), and is given a username of its own held to them.
 
 `driver.json` says how one profile is loaded and **which models it drives**. The list is what the
-owner picks from when adding a device: Bambu Lab's one `printer` driver lists six printers, so the
-form offers six choices and the row remembers the one picked, though all six run the same
+owner picks from when adding a device: Bambu Lab's `printer-p1-a1` driver lists five printers, so
+the form offers five choices and the row remembers the one picked, though all five run the same
 profile. A driver that lists no model offers its own name. Strict, and without the vendor's
 fields on purpose - a driver repeating the vendor's name would be a second copy to keep in step:
 
@@ -111,6 +111,13 @@ discovery knows which driver a device it heard belongs to and which model to ado
 may name a list when the hardware says its family but not which of it it is - a Sonoff in DIY mode
 announces `diy_plug` whether it is a BASICR3 or a MINI - and the owner then picks among those.
 Every model named must be in `models`, and a driver that lists none maps no codes.
+
+`modelSeries` (since 1.6) puts each model in the series the vendor sells it as, for a vendor whose
+drivers follow what the hardware needs rather than how the owner knows it: Bambu Lab's X1C and
+X2D are both `"X series"`, run by two drivers because their entities differ. The form then groups
+the vendor's models by series, across its drivers - the series by name, the models in each in
+counting order - and a device's page says its series where it would say the driver's name. A
+model given no series is grouped under its driver. Every model named must be in `models`.
 
 `transport` is a platform transport - `http`, `mqtt` - or one the driver's own vendor ships,
 named after the vendor: `shelly/rpc`. Never another vendor's: vendors load in no particular
@@ -163,6 +170,13 @@ on anything its device says, so it is available exactly when the device is, and 
 `button.press`. A profile gives it `"state": {}` and the request pressing it sends. With
 `"deviceClass": "restart"` the interface asks before pressing, since the device goes away for a
 while.
+
+An entity may report **attributes** beside its state (since 1.6): `"attributes": { "endsAt":
+"pairing.endsAt" }`, each a camelCase key read the way a state field is, into a scalar. They are
+for what a page needs of the entity and the entity itself is not - the Zigbee2MQTT bridge's
+_Pairing_ sensor says `enabled` and carries when pairing closes as `endsAt`, which the vendor's
+page counts down. Every report carries all of them, and one whose source names nothing is left
+out, so an attribute that stopped being said is gone rather than stale.
 
 ### Firmware updates
 
@@ -241,9 +255,12 @@ because a device announced it there.
   somewhere else: a Zigbee device paired with Zigbee2MQTT, a mower bound to an ECOVACS account.
   Such a vendor's page has no **Add device**, no **Discover devices** and nothing to adopt, and a
   device removed there comes back while the vendor still lists it.
-- `pairing` - since 1.4, `{ "driver": "bridge", "entity": "permit_join" }`: the switch of one of
-  the vendor's drivers that opens pairing while it is on. The vendor's page offers it as **Pair
-  devices** / **Stop pairing**, read live, in place of looking for devices.
+- `pairing` - since 1.4, `{ "driver": "bridge", "open": "permit_join", "close":
+"permit_join_stop", "state": "pairing" }` (the shape since 1.6): the entities of one of the
+  vendor's drivers pairing is run by, by object id - the button that opens it, the one that closes
+  it, and the text sensor saying `enabled` while it is open, with when it closes in its `endsAt`
+  attribute. The vendor's page offers them as **Pair devices** / **Stop**, read live, in place of
+  looking for devices.
 
 The hub asks mDNS from every network interface of the machine, one question a packet, when it
 starts - at 0, 1, 3, 8, 15, 30 and 60 seconds, since a question over multicast is easily lost - and
@@ -690,7 +707,9 @@ runs itself. The chamber camera, the lights, the temperatures (packed ones read 
 fans, the AMS, the print in progress, and pause, resume and stop. The first bundle with a stream
 source: RTSPS on port 322 for the families that have it, the JPEG stills on port 6000 for the P1s
 and A1s. Found by the SSDP announcements the printers make, with the model code mapped to its
-driver. Its own README says what the printer is and what has not been checked against one.
+driver. The owner picks a printer by its series - A, H, P or X, the drivers' `modelSeries` - not by
+the driver that runs it. Its own README says what the printer is and what has not been checked
+against one.
 
 ## zigbee2mqtt
 
@@ -704,8 +723,11 @@ device it is about by IEEE address. Two drivers: `bridge` (declarative: online, 
 version) and `device` (code, a function of the SDK: every model Zigbee2MQTT supports, from its
 `exposes`). Found by its own listener on the broker, which runs where the hub hears no multicast
 too (`"lan": false`), and added on its own (`"adopt": "automatic"`): a device paired with
-Zigbee2MQTT is one the owner meant to have. **Pair devices** on its page is the bridge's pairing
-switch (`pairing`), with the time left while it is open and the devices that joined. Its
+Zigbee2MQTT is one the owner meant to have. **Pair devices** on its page presses the bridge's
+button (`pairing`), and waits for Zigbee2MQTT's answer; the bridge's _Pairing_ sensor says
+`enabled` while it is open, with the time left as Zigbee2MQTT says it and the devices that joined.
+A device's settings - a child lock, a calibration, the power-on behaviour - are its switches,
+numbers and selects. Its
 listener says when it hears nothing of Zigbee2MQTT on the broker, and which devices Zigbee2MQTT
 lists that are not added yet, and why. Zigbee2MQTT's own web page is always on, on the port the
 setup asks, behind a password when one is set. Its README says what each expose becomes and what
@@ -723,8 +745,10 @@ every GOAT and DEEBOT bound to it is added on its own (`"adopt": "automatic"`); 
 kind is listed among those seen and not added. The session is kept, so a restart signs in to
 nothing. The first on the robot entities - a `lawn_mower` and a `vacuum`, with the settings as
 `switch`, `number` and `select` - and the first with an `image` entity: a vacuum's live map, its
-floor plan, rooms, path and position drawn as an SVG. The transport speaks each robot in the
-dialect its product name says, and in the other when the robot refuses. Its README says which
+floor plan or the outline of its walls, its rooms, virtual walls and no-mop zones, path and
+position drawn as an SVG. A job a fault stopped is carried on with `resume`, not begun again. The
+transport speaks each robot in the dialect its product name says, and in the other when the robot
+refuses. Its README says which
 models are confirmed and what is unverified.
 
 ## solax
