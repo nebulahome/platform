@@ -50,6 +50,18 @@ describe('a robot vacuum', () => {
       'cannot say where it is',
     );
   });
+
+  it('carries on a job only when it declared a resume of its own', () => {
+    const resuming = record({ vacuum: { canResume: true } });
+    const starting = record({ vacuum: {} });
+
+    expect(validateCommand(resuming, 'vacuum', { command: 'resume' })).toStrictEqual({
+      command: 'resume',
+    });
+    expect(() => validateCommand(starting, 'vacuum', { command: 'resume' })).toThrow(
+      'cannot be told to carry on a job',
+    );
+  });
 });
 
 describe('validateCommand', () => {
@@ -222,6 +234,14 @@ describe('validateCommand', () => {
       command: 'dock',
     });
     expect(() => validateCommand(mower, 'lawn_mower', { command: 'pause' })).toThrow(/pause/);
+    expect(() => validateCommand(mower, 'lawn_mower', { command: 'resume' })).toThrow(
+      /carry on a job/,
+    );
+    expect(
+      validateCommand(record({ lawn_mower: { canResume: true } }), 'lawn_mower', {
+        command: 'resume',
+      }),
+    ).toStrictEqual({ command: 'resume' });
   });
 
   it('reports a stored parameter set that is itself wrong', () => {

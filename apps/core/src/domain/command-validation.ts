@@ -126,10 +126,11 @@ function checkAgainstParams(
   }
 
   if (capability === 'lawn_mower') {
-    const { canPause, canStop, canDock } = params as {
+    const { canPause, canStop, canDock, canResume } = params as {
       canPause: boolean;
       canStop: boolean;
       canDock: boolean;
+      canResume: boolean;
     };
     const name = command['command'];
 
@@ -144,15 +145,20 @@ function checkAgainstParams(
     if (name === 'dock' && !canDock) {
       reject('this mower cannot be sent back to its station');
     }
+
+    if (name === 'resume' && !canResume) {
+      reject('this mower cannot be told to carry on a job: start it again');
+    }
   }
 
   if (capability === 'vacuum') {
-    const { canPause, canStop, canDock, canLocate, canCleanRooms } = params as {
+    const { canPause, canStop, canDock, canLocate, canCleanRooms, canResume } = params as {
       canPause: boolean;
       canStop: boolean;
       canDock: boolean;
       canLocate: boolean;
       canCleanRooms: boolean;
+      canResume: boolean;
     };
     const name = command['command'];
 
@@ -174,6 +180,10 @@ function checkAgainstParams(
 
     if (name === 'clean_rooms' && !canCleanRooms) {
       reject('this robot cannot clean only some rooms');
+    }
+
+    if (name === 'resume' && !canResume) {
+      reject('this robot cannot be told to carry on a job: start it again');
     }
   }
 
