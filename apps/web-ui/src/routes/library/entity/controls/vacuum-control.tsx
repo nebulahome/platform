@@ -6,6 +6,10 @@
  * alone. They are the map's own - named in the app - so they change when the map is edited there,
  * and are read from the robot's state rather than fixed in its bundle. Each command is offered
  * only when the robot declared it takes it, and only when it means something now.
+ *
+ * A robot a fault stopped in the middle of a job still holds it: once the fault is seen to, one
+ * that takes a resume of its own (`canResume`) is offered **Resume** rather than a clean, which
+ * would start the house again.
  */
 import { useState } from 'react';
 
@@ -46,13 +50,18 @@ export function VacuumControl(props: ControlProps) {
     canDock: true,
     canLocate: false,
     canCleanRooms: false,
+    canResume: false,
   };
   const activity = state.vacuum?.activity;
   const rooms = state.vacuum?.rooms ?? [];
   const shown = activity === undefined ? undefined : ACTIVITIES[activity];
   const busy = disabled || isBusy(props, 'vacuum');
   const [picked, setPicked] = useState<readonly string[]>([]);
-  const isOut = activity === 'cleaning' || activity === 'paused' || activity === 'returning';
+  const isHeldByFault =
+    activity === 'error' && params.canResume && state.vacuum?.isResumable === true;
+  const isResuming = activity === 'paused' || isHeldByFault;
+  const isOut =
+    activity === 'cleaning' || activity === 'paused' || activity === 'returning' || isHeldByFault;
 
   /**
    * Picks a room, or lets it go.
@@ -84,11 +93,14 @@ export function VacuumControl(props: ControlProps) {
           variant={activity === 'cleaning' ? 'ghost' : 'primary'}
           disabled={busy || activity === 'cleaning'}
           onClick={() => {
-            commander.send('vacuum', { command: 'start' });
+            // A robot without a resume of its own carries a paused job on when started.
+            commander.send('vacuum', {
+              command: isResuming && params.canResume ? 'resume' : 'start',
+            });
           }}
         >
           <AppIcon id="play" size={15} />
-          {activity === 'paused' ? 'Resume' : 'Clean everywhere'}
+          {isResuming ? 'Resume' : 'Clean everywhere'}
         </Button>
         {params.canPause ? (
           <Button

@@ -1,12 +1,16 @@
 /**
- * A robot mower: what it is doing, and the four things it can be told - start (or carry on with
- * a paused job), pause, end the job, go back to its station.
+ * A robot mower: what it is doing, and the things it can be told - start (or carry on with a
+ * paused job), pause, end the job, go back to its station.
  *
  * What it is doing is the headline: a mower out on the lawn is watched, not operated, and the
  * buttons are there for the moment it has to come in. Each is offered only when it means
  * something - a docked mower has nothing to pause or send home - and only when the mower
  * declared it takes it. Ending a job asks first: the mower forgets where it was, and the next
  * start begins the lawn again.
+ *
+ * A mower a fault stopped in the middle of a job still holds it: once the fault is seen to, a
+ * mower that takes a resume of its own (`canResume`) is offered **Resume** rather than a start,
+ * which would begin the lawn again, and the job can still be ended.
  */
 import { useState } from 'react';
 
@@ -45,19 +49,24 @@ export function LawnMowerControl(props: ControlProps) {
     canPause: true,
     canStop: true,
     canDock: true,
+    canResume: false,
   };
   const activity = state.lawn_mower?.activity;
   const shown = activity === undefined ? undefined : ACTIVITIES[activity];
   const busy = disabled || isBusy(props, 'lawn_mower');
   const [isConfirmingStop, setConfirmingStop] = useState(false);
-  const isOut = activity === 'mowing' || activity === 'paused' || activity === 'returning';
+  const isHeldByFault =
+    activity === 'error' && params.canResume && state.lawn_mower?.isResumable === true;
+  const isResuming = activity === 'paused' || activity === 'returning' || isHeldByFault;
+  const isOut =
+    activity === 'mowing' || activity === 'paused' || activity === 'returning' || isHeldByFault;
 
   /**
    * Tells the mower one thing.
    *
    * @param command - Which.
    */
-  const send = (command: 'start' | 'pause' | 'stop' | 'dock'): void => {
+  const send = (command: 'start' | 'pause' | 'stop' | 'dock' | 'resume'): void => {
     setConfirmingStop(false);
     commander.send('lawn_mower', { command });
   };
@@ -81,11 +90,12 @@ export function LawnMowerControl(props: ControlProps) {
           variant={activity === 'mowing' ? 'ghost' : 'primary'}
           disabled={busy || activity === 'mowing'}
           onClick={() => {
-            send('start');
+            // A mower without a resume of its own carries a paused job on when started.
+            send(isResuming && params.canResume ? 'resume' : 'start');
           }}
         >
           <AppIcon id="play" size={15} />
-          {activity === 'paused' || activity === 'returning' ? 'Resume' : 'Start mowing'}
+          {isResuming ? 'Resume' : 'Start mowing'}
         </Button>
         {params.canPause ? (
           <Button
@@ -131,6 +141,10 @@ export function LawnMowerControl(props: ControlProps) {
       {isConfirmingStop ? (
         <p role="status" className="text-caption text-foreground-subtle">
           The mower forgets where it got to: the next start mows the lawn from the beginning.
+        </p>
+      ) : isHeldByFault ? (
+        <p className="text-caption text-foreground-subtle">
+          Once the fault is seen to, Resume carries on from where it stopped.
         </p>
       ) : null}
     </ControlBlock>

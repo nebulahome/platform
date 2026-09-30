@@ -10,6 +10,7 @@ import type { CapabilityState, EntityView } from '@nebula-home/contracts';
 import { LawnMowerControl } from '@/routes/library/entity/controls/lawn-mower-control';
 import { NumberControl } from '@/routes/library/entity/controls/number-control';
 import { SelectControl } from '@/routes/library/entity/controls/select-control';
+import { VacuumControl } from '@/routes/library/entity/controls/vacuum-control';
 import type { EntityCommander } from '@/routes/library/entity/use-entity-command';
 import { anEntity } from '@/testing/fixtures';
 
@@ -60,7 +61,11 @@ describe('LawnMowerControl', () => {
   it('starts a docked mower, and has nothing to pause or send home', () => {
     const given = commander();
 
-    render(<LawnMowerControl {...propsOf(MOWER, { lawn_mower: { activity: 'docked' } }, given)} />);
+    render(
+      <LawnMowerControl
+        {...propsOf(MOWER, { lawn_mower: { activity: 'docked', isResumable: false } }, given)}
+      />,
+    );
 
     expect(screen.getByText('In its station')).toBeDefined();
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Pause' }).disabled).toBe(true);
@@ -77,7 +82,11 @@ describe('LawnMowerControl', () => {
   it('resumes a paused job, and ends one only once asked twice', () => {
     const given = commander();
 
-    render(<LawnMowerControl {...propsOf(MOWER, { lawn_mower: { activity: 'paused' } }, given)} />);
+    render(
+      <LawnMowerControl
+        {...propsOf(MOWER, { lawn_mower: { activity: 'paused', isResumable: false } }, given)}
+      />,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'End job' }));
 
@@ -88,6 +97,105 @@ describe('LawnMowerControl', () => {
 
     expect(given.send).toHaveBeenCalledWith('lawn_mower', { command: 'stop' });
     expect(screen.getByRole('button', { name: 'Resume' })).toBeDefined();
+  });
+
+  it('carries on a job a fault stopped, rather than mowing the lawn again', () => {
+    const given = commander();
+    const goat = anEntity({
+      ...MOWER,
+      capabilities: [
+        {
+          capability: 'lawn_mower',
+          params: { canPause: true, canStop: true, canDock: true, canResume: true },
+        },
+      ],
+    });
+
+    render(
+      <LawnMowerControl
+        {...propsOf(goat, { lawn_mower: { activity: 'error', isResumable: true } }, given)}
+      />,
+    );
+
+    expect(screen.getByText('Stopped by a fault')).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Start mowing' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'End job' })).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
+
+    expect(given.send).toHaveBeenCalledWith('lawn_mower', { command: 'resume' });
+  });
+
+  it('starts a mower a fault stopped with no job to carry on', () => {
+    const given = commander();
+
+    render(
+      <LawnMowerControl
+        {...propsOf(MOWER, { lawn_mower: { activity: 'error', isResumable: true } }, given)}
+      />,
+    );
+
+    // It declared no resume of its own: there is nothing but a start to offer.
+    expect(screen.queryByRole('button', { name: 'Resume' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'End job' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Start mowing' })).toBeDefined();
+  });
+});
+
+describe('VacuumControl', () => {
+  const DEEBOT = anEntity({
+    entityId: 'vacuum.ecovacs_deebot_x1_omni_vacuum',
+    domain: 'vacuum',
+    name: 'Vacuum',
+    capabilities: [
+      {
+        capability: 'vacuum',
+        params: {
+          canPause: true,
+          canStop: true,
+          canDock: true,
+          canLocate: true,
+          canCleanRooms: true,
+          canResume: true,
+        },
+      },
+    ],
+  });
+
+  it('carries on a job a fault stopped, and still ends it', () => {
+    const given = commander();
+
+    render(
+      <VacuumControl
+        {...propsOf(DEEBOT, { vacuum: { activity: 'error', rooms: [], isResumable: true } }, given)}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Clean everywhere' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
+    fireEvent.click(screen.getByRole('button', { name: 'End job' }));
+
+    expect(given.send).toHaveBeenNthCalledWith(1, 'vacuum', { command: 'resume' });
+    expect(given.send).toHaveBeenNthCalledWith(2, 'vacuum', { command: 'stop' });
+  });
+
+  it('cleans everywhere once the job is over', () => {
+    const given = commander();
+
+    render(
+      <VacuumControl
+        {...propsOf(
+          DEEBOT,
+          { vacuum: { activity: 'error', rooms: [], isResumable: false } },
+          given,
+        )}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clean everywhere' }));
+
+    expect(given.send).toHaveBeenCalledWith('vacuum', { command: 'start' });
   });
 });
 
