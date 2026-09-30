@@ -300,6 +300,79 @@ describe('toState', () => {
   });
 });
 
+describe('toState with attributes', () => {
+  /**
+   * A pairing sensor that reads whether pairing is open, and when it closes as an attribute.
+   *
+   * @returns The integration and the context naming its one entity.
+   */
+  function pairing(): {
+    integration: ReturnType<typeof createDeclarativeIntegration>;
+    mapping: MappingContext;
+  } {
+    const sensor = parseEntityId('sensor.bridge_pairing');
+
+    return {
+      integration: createDeclarativeIntegration(
+        manifest(),
+        integrationProfileSchema.parse({
+          ...PROFILE_JSON,
+          entities: [
+            {
+              domain: 'sensor',
+              capabilities: { sensor_text: {} },
+              state: { sensor_text: { value: 'pairing.state' } },
+              attributes: { endsAt: 'pairing.endsAt' },
+            },
+          ],
+        }),
+      ),
+      mapping: { ...context(), entities: new Map<string, EntityId>([['', sensor]]) },
+    };
+  }
+
+  it('reports what the attributes read beside the state', () => {
+    const { integration: bridge, mapping } = pairing();
+    const [report] = bridge.toState(
+      {
+        connectionKey: 'c',
+        deviceKey: 'd',
+        payload: { pairing: { state: 'enabled', endsAt: '2026-09-30T20:04:14.000Z' } },
+      },
+      mapping,
+    );
+
+    expect(report?.state).toEqual({ sensor_text: { value: 'enabled' } });
+    expect(report?.attributes).toEqual({ endsAt: '2026-09-30T20:04:14.000Z' });
+  });
+
+  it('leaves out an attribute no longer said, so it is gone rather than stale', () => {
+    const { integration: bridge, mapping } = pairing();
+    const [report] = bridge.toState(
+      { connectionKey: 'c', deviceKey: 'd', payload: { pairing: { state: 'disabled' } } },
+      mapping,
+    );
+
+    expect(report?.attributes).toEqual({});
+  });
+
+  it('names an attribute in camelCase, as a state field is named', () => {
+    expect(
+      integrationProfileSchema.safeParse({
+        ...PROFILE_JSON,
+        entities: [
+          {
+            domain: 'sensor',
+            capabilities: { sensor_text: {} },
+            state: { sensor_text: { value: 'pairing.state' } },
+            attributes: { 'ends-at': 'pairing.endsAt' },
+          },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+});
+
 describe('toState for firmware', () => {
   /**
    * An integration exposing a firmware sensor and an install button.

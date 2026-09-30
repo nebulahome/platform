@@ -261,6 +261,33 @@ function imageReportOf(
 }
 
 /**
+ * Reads the attributes an entity declares out of a payload: a scalar each, the ones whose source
+ * names nothing left out.
+ *
+ * @param entity - What the profile says the entity is.
+ * @param payload - What arrived.
+ * @returns The attributes; empty for an entity that declares none.
+ */
+function attributesFrom(entity: EntityProfile, payload: unknown): JsonObject {
+  const built: Record<string, string | number | boolean | null> = {};
+
+  for (const [name, source] of Object.entries(entity.attributes ?? {})) {
+    const value = readStateValue(source, payload);
+
+    if (
+      value === null ||
+      typeof value === 'string' ||
+      typeof value === 'boolean' ||
+      (typeof value === 'number' && Number.isFinite(value))
+    ) {
+      built[name] = value;
+    }
+  }
+
+  return built;
+}
+
+/**
  * Builds one entity's state from a payload.
  *
  * @param entity - What the profile says the entity is.
@@ -547,7 +574,12 @@ export function createDeclarativeIntegration(
         const state = entityId === undefined ? undefined : stateFrom(entity, message.payload);
 
         if (entityId !== undefined && state !== undefined) {
-          reports.push({ entityId, state, attributes: {}, isAvailable: true });
+          reports.push({
+            entityId,
+            state,
+            attributes: attributesFrom(entity, message.payload),
+            isAvailable: true,
+          });
         }
       }
 

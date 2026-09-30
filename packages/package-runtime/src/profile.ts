@@ -257,6 +257,20 @@ export const entityProfileSchema = z
     /** `<capability>.<command>`, then what to ask the transport to do. */
     commands: z.record(z.string().regex(COMMAND_KEY_PATTERN), requestTemplateSchema).default({}),
 
+    /**
+     * Since 1.6: attributes the entity reports beside its state, each read as a state field is:
+     * what a page needs of it and the entity itself is not - when pairing closes by itself, beside
+     * whether it is open. A scalar each; one whose source names nothing is left out, and every
+     * report carries all of them, so one that stopped being said is gone rather than stale.
+     */
+    attributes: z
+      .record(
+        z.string().regex(/^[a-z][a-zA-Z0-9]{0,31}$/, 'Must be a camelCase key'),
+        stateValueSchema,
+      )
+      .refine((attributes) => Object.keys(attributes).length <= 16, 'At most 16 attributes')
+      .optional(),
+
     unitOfMeasurement: z.string().max(32).optional(),
     deviceClass: z.string().max(64).optional(),
     stateClass: z.enum(ENTITY_STATE_CLASSES).optional(),

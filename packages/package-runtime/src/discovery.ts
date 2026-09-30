@@ -152,14 +152,18 @@ export const vendorDiscoverySchema = z
     adopt: z.enum(DEVICE_ADOPTIONS).default('owner'),
 
     /**
-     * Since 1.4: the switch that opens pairing, for a vendor whose devices are paired through one
-     * of its own - a driver of the vendor and the `objectId` of a switch of its profile, on while
-     * pairing is open. The vendor's page offers it in place of looking for devices.
+     * Since 1.4: the entities pairing is run by, for a vendor whose devices are paired through
+     * one of its own - a driver of the vendor and, by `objectId` in its profile, the button that
+     * opens pairing, the one that closes it, and the text sensor saying `enabled` while it is
+     * open, with when it closes by itself in its `endsAt` attribute. The vendor's page offers it
+     * in place of looking for devices.
      */
     pairing: z
       .strictObject({
         driver: z.string().min(1).max(64),
-        entity: z.string().min(1).max(64),
+        open: z.string().min(1).max(64),
+        close: z.string().min(1).max(64),
+        state: z.string().min(1).max(64),
       })
       .optional(),
   })

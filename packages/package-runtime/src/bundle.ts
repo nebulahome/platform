@@ -272,6 +272,14 @@ const driverShape = {
     )
     .optional(),
 
+  /**
+   * Since 1.6: the series each model belongs to, as the vendor sells them - Bambu Lab's
+   * `A series`, `X series` - for a vendor whose drivers follow what the hardware needs rather than
+   * how the owner knows it: an X1C and an X2D are both the X series, and run by two drivers. The
+   * form groups the models by it, across the vendor's drivers. Every model named must be listed.
+   */
+  modelSeries: z.record(modelNameSchema, z.string().min(1).max(64)).optional(),
+
   kind: z.enum(BUNDLE_KINDS),
 
   /**
@@ -349,6 +357,7 @@ function checkKindFiles(manifest: KindFiles, ctx: z.RefinementCtx): void {
 type ModelFiles = {
   readonly models: readonly string[];
   readonly modelCodes?: Readonly<Record<string, string | readonly string[]>> | undefined;
+  readonly modelSeries?: Readonly<Record<string, string>> | undefined;
 };
 
 /**
@@ -375,6 +384,25 @@ function checkModelCodes(manifest: ModelFiles, ctx: z.RefinementCtx): void {
 }
 
 /**
+ * Refuses a series given to a model the driver does not list: the form would group a model it
+ * never offers.
+ *
+ * @param manifest - Either manifest, once its shape has been checked.
+ * @param ctx - Where to record what is wrong.
+ */
+function checkModelSeries(manifest: ModelFiles, ctx: z.RefinementCtx): void {
+  for (const model of Object.keys(manifest.modelSeries ?? {})) {
+    if (!manifest.models.includes(model)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['modelSeries', model],
+        message: `${model} is given a series, but the driver does not list it in models`,
+      });
+    }
+  }
+}
+
+/**
  * The contents of `driver.json`: one profile or entry point, and the models it drives.
  *
  * Strict, and without the vendor's fields on purpose: a driver that repeated the vendor's name
@@ -392,7 +420,8 @@ export const driverManifestSchema = z
     ...driverShape,
   })
   .superRefine(checkKindFiles)
-  .superRefine(checkModelCodes);
+  .superRefine(checkModelCodes)
+  .superRefine(checkModelSeries);
 
 /** The contents of `driver.json`. */
 export type DriverManifest = z.output<typeof driverManifestSchema>;
@@ -432,7 +461,8 @@ export const bundleManifestSchema = z
     ...driverShape,
   })
   .superRefine(checkKindFiles)
-  .superRefine(checkModelCodes);
+  .superRefine(checkModelCodes)
+  .superRefine(checkModelSeries);
 
 /** A driver as the runtime reads it. */
 export type BundleManifest = z.output<typeof bundleManifestSchema>;
@@ -474,6 +504,7 @@ export function resolveManifest(vendor: VendorManifest, driver: DriverManifest):
     transport: driver.transport,
     models: driver.models,
     ...(driver.modelCodes === undefined ? {} : { modelCodes: driver.modelCodes }),
+    ...(driver.modelSeries === undefined ? {} : { modelSeries: driver.modelSeries }),
     kind: driver.kind,
     ...(driver.defaultIcon === undefined ? {} : { defaultIcon: driver.defaultIcon }),
     ...(driver.webPagePort === undefined ? {} : { webPagePort: driver.webPagePort }),

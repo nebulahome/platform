@@ -132,11 +132,27 @@ describe('resolveDiscovery', () => {
         vendorDiscoverySchema.parse({
           ...shellyDiscovery(),
           adopt: 'automatic',
-          pairing: { driver: 'bridge', entity: 'permit_join' },
+          pairing: {
+            driver: 'bridge',
+            open: 'permit_join',
+            close: 'permit_join_stop',
+            state: 'pairing',
+          },
         }),
         shellyDrivers(),
       ),
     ).toThrow(/bridge/);
+  });
+
+  it('pairs through buttons and a state, no longer through a switch', () => {
+    // The one-switch shape toggled from what the page last saw: a press on a stale page closed
+    // pairing it meant to open.
+    expect(
+      vendorDiscoverySchema.safeParse({
+        ...shellyDiscovery(),
+        pairing: { driver: 'bridge', entity: 'permit_join' },
+      }).success,
+    ).toBe(false);
   });
 
   it('proposes to the owner unless the vendor says its devices are added on their own', () => {

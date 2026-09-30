@@ -332,6 +332,30 @@ describe('driverManifestSchema model codes', () => {
   });
 });
 
+describe('driverManifestSchema model series', () => {
+  it('puts the models in the series the vendor sells them as', () => {
+    const parsed = driverManifestSchema.parse({
+      ...driver(),
+      models: ['H2D', 'X2D'],
+      modelSeries: { H2D: 'H series', X2D: 'X series' },
+    });
+
+    expect(parsed.modelSeries).toEqual({ H2D: 'H series', X2D: 'X series' });
+    expect(driverManifestSchema.parse(driver()).modelSeries).toBeUndefined();
+  });
+
+  it('refuses a series for a model the driver does not list', () => {
+    // The form would group a model it never offers.
+    expect(
+      driverManifestSchema.safeParse({
+        ...driver(),
+        models: ['H2D'],
+        modelSeries: { X2D: 'X series' },
+      }).success,
+    ).toBe(false);
+  });
+});
+
 describe('resolveManifest', () => {
   it("refuses a driver that names another vendor's transport", () => {
     // A qualified transport is registered when its vendor loads, and vendors load in no
@@ -428,6 +452,20 @@ describe('resolveManifest', () => {
     );
 
     expect(resolved.modelCodes).toEqual({ 'S3SW-001P16EU': '1PM Gen3' });
+    expect(bundleManifestSchema.safeParse(resolved).success).toBe(true);
+  });
+
+  it('carries the series of the models, for the catalogue to group them by', () => {
+    const resolved = resolveManifest(
+      vendorManifestSchema.parse(vendor()),
+      driverManifestSchema.parse({
+        ...driver(),
+        models: ['X1C'],
+        modelSeries: { X1C: 'X series' },
+      }),
+    );
+
+    expect(resolved.modelSeries).toEqual({ X1C: 'X series' });
     expect(bundleManifestSchema.safeParse(resolved).success).toBe(true);
   });
 
