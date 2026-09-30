@@ -16,8 +16,9 @@
  * - **hands each robot its whole state** (mower.js, vacuum.js) whenever it changes, so the
  *   drivers' profiles are tables of paths - a vacuum's with its map drawn as an SVG (map.js),
  *   which its image entity shows;
- * - **carries the commands**: `mow` or `clean` with an act, `set` with a setting and a value,
- *   `refresh`.
+ * - **carries the commands**: `mow` or `clean` with an act - `resume` among them, which carries
+ *   on a job a fault stopped where `start` would begin it again - `set` with a setting and a
+ *   value, `refresh`.
  *
  * A robot answers a command it does not know with code 20003. Cleaning and mowing are sent in the
  * dialect its model is believed to speak (models.js), and in the other one when refused; the one
@@ -29,7 +30,13 @@
  */
 import { accountFor } from './account.js';
 import { EcovacsError } from './api.js';
-import { createMapDrawer, piecesToAsk, tracePointsOf, unpackedSubset } from './map.js';
+import {
+  barrierSetOf,
+  createMapDrawer,
+  piecesToAsk,
+  tracePointsOf,
+  unpackedSubset,
+} from './map.js';
 import { robotKindOf } from './models.js';
 import * as mower from './mower.js';
 import * as vacuum from './vacuum.js';
@@ -295,6 +302,8 @@ export default function createEcovacsCloud(sdk, options = {}) {
         map.pieceCrcs,
         Object.keys(map.pieces),
         map.rooms,
+        map.barriers,
+        map.outline,
         map.robot,
         map.station,
         map.trace.length,
@@ -482,8 +491,43 @@ export default function createEcovacsCloud(sdk, options = {}) {
     };
 
     /**
-     * Reads a vacuum's map: which one it uses, its rooms and their outlines, the pieces of the
-     * floor plan that changed, where it is, and its path.
+     * Reads a vacuum's virtual walls, or its no-mop zones: the list, then the corners of each the
+     * list does not carry. A robot that refuses the list is asked its newer form, packed.
+     *
+     * @param {Followed} robot - The vacuum.
+     * @param {string} mapId - The map in use.
+     * @param {'vw' | 'mw'} type - Which.
+     * @returns {Promise<void>} Once read, as far as it answered.
+     */
+    const readBarriers = async (robot, mapId, type) => {
+      const listed = await ask(robot, 'getMapSet', { mid: mapId, type });
+
+      if (listed === undefined) {
+        const packed = await ask(robot, 'getMapSet_V2', { mid: mapId, type });
+
+        fold(robot, 'getMapSet', barrierSetOf(packed, type, sdk.codecs.lzma));
+
+        return;
+      }
+
+      fold(robot, 'getMapSet', listed);
+
+      const kind = type === 'vw' ? 'virtual' : 'no_mop';
+
+      for (const barrier of vacuumStateOf(robot.state).map.barriers) {
+        if (barrier.kind === kind && barrier.points.length < 2) {
+          // eslint-disable-next-line no-await-in-loop -- one after another, as the app asks
+          const data = await ask(robot, 'getMapSubSet', { mid: mapId, mssid: barrier.id, type });
+
+          fold(robot, 'getMapSubSet', data);
+        }
+      }
+    };
+
+    /**
+     * Reads a vacuum's map: which one it uses, its rooms and their outlines, its virtual walls
+     * and no-mop zones, the pieces of the floor plan that changed - or the outline of its walls,
+     * from a robot that sends no pieces - where it is, and its path.
      *
      * @param {Followed} robot - The vacuum.
      * @returns {Promise<void>} Once read, as far as it answered.
@@ -516,6 +560,9 @@ export default function createEcovacsCloud(sdk, options = {}) {
               fold(robot, 'getMapSubSet', data);
             }
           }
+
+          await readBarriers(robot, mapId, 'vw');
+          await readBarriers(robot, mapId, 'mw');
         }
 
         fold(
@@ -523,6 +570,21 @@ export default function createEcovacsCloud(sdk, options = {}) {
           'getMajorMap',
           await ask(robot, 'getMajorMap', mapId === null ? {} : { mid: mapId }),
         );
+
+        // A robot without pieces sends the outline of its walls whole instead.
+        if (
+          vacuumStateOf(robot.state).map.pieceCrcs.length === 0 &&
+          (mapId ?? vacuumStateOf(robot.state).map.mapId) !== null
+        ) {
+          fold(
+            robot,
+            'getMapInfo_V2',
+            await ask(robot, 'getMapInfo_V2', {
+              mid: mapId ?? vacuumStateOf(robot.state).map.mapId,
+              type: '0',
+            }),
+          );
+        }
 
         for (const index of piecesToAsk(vacuumStateOf(robot.state).map)) {
           // eslint-disable-next-line no-await-in-loop -- one piece after another, see above
@@ -908,6 +970,7 @@ export default function createEcovacsCloud(sdk, options = {}) {
 
       switch (act) {
         case 'start':
+        case 'resume':
         case 'rooms': {
           return robot.kind.role === 'mower' ? 'mowing' : 'cleaning';
         }
@@ -930,6 +993,21 @@ export default function createEcovacsCloud(sdk, options = {}) {
       }
     };
 
+    /**
+     * Whether a job is open once a robot was told to act, shown at once as its activity is: a
+     * start or a resume opens one, an end closes it, the rest leave it as it was.
+     *
+     * @param {Followed} robot - The robot.
+     * @param {string} act - What it was told.
+     * @returns {boolean} Whether a job is there to carry on.
+     */
+    const isResumableAfter = (robot, act) =>
+      act === 'stop'
+        ? false
+        : act === 'start' || act === 'resume' || act === 'rooms'
+          ? true
+          : robot.state['isResumable'] === true;
+
     return {
       key,
 
@@ -949,7 +1027,11 @@ export default function createEcovacsCloud(sdk, options = {}) {
 
             if (
               robot.kind.role !== 'mower' ||
-              (act !== 'start' && act !== 'pause' && act !== 'stop' && act !== 'dock')
+              (act !== 'start' &&
+                act !== 'pause' &&
+                act !== 'stop' &&
+                act !== 'dock' &&
+                act !== 'resume')
             ) {
               throw new Error(`A ${robot.kind.role} is not told to mow ${String(act)}`);
             }
@@ -962,7 +1044,11 @@ export default function createEcovacsCloud(sdk, options = {}) {
                 robot.dialect === 'rtk' ? 'rtk' : 'g1',
               ),
             );
-            robot.state = { ...robot.state, activity: activityAfter(robot, act) };
+            robot.state = {
+              ...robot.state,
+              activity: activityAfter(robot, act),
+              isResumable: isResumableAfter(robot, act),
+            };
             deliver(robot);
             break;
           }
@@ -978,7 +1064,8 @@ export default function createEcovacsCloud(sdk, options = {}) {
                 act !== 'stop' &&
                 act !== 'dock' &&
                 act !== 'locate' &&
-                act !== 'rooms')
+                act !== 'rooms' &&
+                act !== 'resume')
             ) {
               throw new Error(`A ${robot.kind.role} is not told to clean ${String(act)}`);
             }
@@ -992,6 +1079,8 @@ export default function createEcovacsCloud(sdk, options = {}) {
               throw new Error('Cleaning rooms takes at least one room');
             }
 
+            const before = robot.state.activity;
+
             await perform(
               robot,
               vacuum.cleanCommandOf(
@@ -1001,10 +1090,15 @@ export default function createEcovacsCloud(sdk, options = {}) {
                 ids,
               ),
             );
-            robot.state = { ...robot.state, activity: activityAfter(robot, act) };
+            robot.state = {
+              ...robot.state,
+              activity: activityAfter(robot, act),
+              isResumable: isResumableAfter(robot, act),
+            };
 
-            if (act === 'start' || act === 'rooms') {
-              robot.traceCount = robot.state.activity === 'paused' ? robot.traceCount : 0;
+            // A new job's path starts again; a job carried on keeps the path it had.
+            if ((act === 'start' && before !== 'paused') || act === 'rooms') {
+              robot.traceCount = 0;
             }
 
             deliver(robot);

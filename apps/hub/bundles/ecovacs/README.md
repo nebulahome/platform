@@ -29,6 +29,12 @@ hour besides. A vacuum's map is read when it is first followed, when the robot s
 and every half hour; while the vacuum cleans or goes back, where it is and the path it took are
 asked every thirty seconds, beside what it pushes.
 
+**A job a fault stopped** is held by the robot, as by the app: once the fault is seen to, the
+app's _Continue_ carries it on from where it stopped, where a start would begin again. The mower
+and the vacuum say so (`isResumable`, from `getCleanInfo(_V2)`: a job is open until the robot says
+it is idle) and take a `resume` of their own (`canResume`), so their block offers **Resume** - and
+**End job** - in place of a start while it is held. The path drawn is kept for a job carried on.
+
 | File                 | What                                                                                   |
 | -------------------- | -------------------------------------------------------------------------------------- |
 | `account.json`       | The account: email, password, country; its card is named by the email                  |
@@ -100,20 +106,20 @@ read it refuses is not asked of it again. A wrong guess costs one refused reques
 
 ## What a mower becomes
 
-| Entity                                                                             | Domain         | What                                                                                            |
-| ---------------------------------------------------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------- |
-| Mower                                                                              | `lawn_mower`   | Mowing, paused, going back, in its station, idle, fault; start, pause, end job, back to station |
-| Battery, Charging                                                                  | sensor, binary | Percent; whether it charges                                                                     |
-| Fault, Fault reported                                                              | binary, sensor | Whether it reports a fault, and which (`No fault` for none)                                     |
-| Area mowed, Area of the job, Job progress, Mowing time                             | sensor         | The job in progress: m², m², %, s                                                               |
-| Total area mowed, Total mowing time, Mowings                                       | sensor         | Everything it ever did (`total_increasing`)                                                     |
-| Blade life left, Camera brush life left                                            | sensor         | Percent left of each consumable                                                                 |
-| Wi-Fi signal, Wi-Fi network, IP address                                            | sensor         | dBm, SSID, address                                                                              |
-| Stop for rain, Wait after rain                                                     | switch, number | The rain sensor, and minutes to wait after rain (0 to 1440)                                     |
-| Animal protection, … from, … until                                                 | switch, select | Staying in at night for animals, and the window, by the half hour                               |
-| AI obstacle recognition, Edge mowing, Safer mode, Lift warning, Map border warning | switch         | The app's switches                                                                              |
-| Cutting direction                                                                  | number         | The angle of its lines, 0° to 180° - set only while it is in its station or idle                |
-| Mowing efficiency, Obstacle avoidance                                              | select         | Quick or delicate; short grass, general, or bumpy ground with tall grass                        |
+| Entity                                                                             | Domain         | What                                                                                                    |
+| ---------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------- |
+| Mower                                                                              | `lawn_mower`   | Mowing, paused, going back, in its station, idle, fault; start, pause, end job, back to station, resume |
+| Battery, Charging                                                                  | sensor, binary | Percent; whether it charges                                                                             |
+| Fault, Fault reported                                                              | binary, sensor | Whether it reports a fault, and which (`No fault` for none)                                             |
+| Area mowed, Area of the job, Job progress, Mowing time                             | sensor         | The job in progress: m², m², %, s                                                                       |
+| Total area mowed, Total mowing time, Mowings                                       | sensor         | Everything it ever did (`total_increasing`)                                                             |
+| Blade life left, Camera brush life left                                            | sensor         | Percent left of each consumable                                                                         |
+| Wi-Fi signal, Wi-Fi network, IP address                                            | sensor         | dBm, SSID, address                                                                                      |
+| Stop for rain, Wait after rain                                                     | switch, number | The rain sensor, and minutes to wait after rain (0 to 1440)                                             |
+| Animal protection, … from, … until                                                 | switch, select | Staying in at night for animals, and the window, by the half hour                                       |
+| AI obstacle recognition, Edge mowing, Safer mode, Lift warning, Map border warning | switch         | The app's switches                                                                                      |
+| Cutting direction                                                                  | number         | The angle of its lines, 0° to 180° - set only while it is in its station or idle                        |
+| Mowing efficiency, Obstacle avoidance                                              | select         | Quick or delicate; short grass, general, or bumpy ground with tall grass                                |
 
 A setting that is one of a pair - the rain sensor and its delay, animal protection and its window -
 is sent with the other half as it stands, and every write during a job carries the job's id
@@ -122,19 +128,19 @@ confirms it.
 
 ## What a vacuum becomes
 
-| Entity                                                       | Domain         | What                                                                                                      |
-| ------------------------------------------------------------ | -------------- | --------------------------------------------------------------------------------------------------------- |
-| Vacuum                                                       | `vacuum`       | Cleaning, paused, going back, docked, idle, fault; start or resume, pause, end, dock, locate, clean rooms |
-| Map                                                          | `image`        | The live map, below                                                                                       |
-| Battery, Charging                                            | sensor, binary | Percent; whether it charges                                                                               |
-| Fault, Fault reported                                        | binary, sensor | Whether it reports a fault, and which                                                                     |
-| Area cleaned, Cleaning time                                  | sensor         | The job: m², s                                                                                            |
-| Total area cleaned, Total cleaning time, Total cleanings     | sensor         | Everything it ever did (`total_increasing`)                                                               |
-| Main brush life left, Side brush life left, Filter life left | sensor         | Percent left of each consumable                                                                           |
-| Suction, Water flow                                          | select         | Quiet, standard, max, max+; low, medium, high, very high                                                  |
-| Passes, Volume                                               | number         | Once or twice over each room; the voice, 0 to 10                                                          |
-| Resume after charging, Carpet boost                          | switch         | Carrying on a job after a charge; more suction on carpet                                                  |
-| Wi-Fi signal, Wi-Fi network, IP address                      | sensor         | dBm, SSID, address                                                                                        |
+| Entity                                                       | Domain         | What                                                                                                    |
+| ------------------------------------------------------------ | -------------- | ------------------------------------------------------------------------------------------------------- |
+| Vacuum                                                       | `vacuum`       | Cleaning, paused, going back, docked, idle, fault; start, pause, end, dock, locate, clean rooms, resume |
+| Map                                                          | `image`        | The live map, below                                                                                     |
+| Battery, Charging                                            | sensor, binary | Percent; whether it charges                                                                             |
+| Fault, Fault reported                                        | binary, sensor | Whether it reports a fault, and which                                                                   |
+| Area cleaned, Cleaning time                                  | sensor         | The job: m², s                                                                                          |
+| Total area cleaned, Total cleaning time, Total cleanings     | sensor         | Everything it ever did (`total_increasing`)                                                             |
+| Main brush life left, Side brush life left, Filter life left | sensor         | Percent left of each consumable                                                                         |
+| Suction, Water flow                                          | select         | Quiet, standard, max, max+; low, medium, high, very high                                                |
+| Passes, Volume                                               | number         | Once or twice over each room; the voice, 0 to 10                                                        |
+| Resume after charging, Carpet boost                          | switch         | Carrying on a job after a charge; more suction on carpet                                                |
+| Wi-Fi signal, Wi-Fi network, IP address                      | sensor         | dBm, SSID, address                                                                                      |
 
 **Clean rooms** picks from the rooms of the map in use, by the names the app gave them - or the
 kind of room they are, for one without - and sends them as a spot-area job.
@@ -149,23 +155,37 @@ entity; the hub keeps the picture and announces a new one at most every five sec
   changed is asked for again. The pieces become one PNG of four colours, cropped to what the robot
   saw, set in the SVG;
 - **the rooms** (`getMapSet`, `getMapSubSet`), outlined and named;
+- **the walls**, for a robot that sends no pieces (`getMajorMap` refused, or empty): the outline it
+  sends whole instead (`getMapInfo_V2 { mid, type: "0" }`, pushed as `onMapInfo_V2`, version 1
+  only) - lines of walls, drawn over the outline's own rooms as the floor. With pieces, the walls
+  are the pieces' own cells, drawn darker than the floor;
+- **the virtual walls** in red and **the no-mop zones** in orange, dashed, as set in the app
+  (`getMapSet` of the types `vw` and `mw`, each one's corners from `getMapSubSet`; `getMapSet_V2`,
+  packed, for a robot that refuses the first) - a wall is two corners, a zone more;
 - **the path** of the job (`getMapTrace`, `onMapTrace`), the last 20 000 points;
 - **the robot**, with where it faces, and **its station** (`getPos`, `onPos`).
 
-It is drawn again only when one of those changed, and the floor plan's PNG only when a piece did.
+What is packed is LZMA, or Zstandard from the newest robots (which says so in its first bytes). It
+is drawn again only when one of those changed, and the floor plan's PNG only when a piece did.
 
 ## Not shipped
 
 - **The GOATs' map** - position, trace, the lawn's outline, UWB beacons or the RTK base.
 - **Firmware** (`getOta`): the reply's shape is not known.
-- **Schedules**, **zones**, **no-go lines**, and editing a map.
+- **Schedules**, cleaning a **zone**, and editing a map: virtual walls and no-mop zones are drawn,
+  not set.
 - A DEEBOT's **station** functions - emptying, washing and drying the mop - and its **camera**.
 
 ## What is unverified
 
 Written against the two projects' observations and tested against a fake of ECOVACS's servers
 and broker. It has not run against a real account or a real robot: the first real sign-in - and
-its emailed code - is the check. Of the DEEBOTs, all is unverified here, and the map's orientation
+its emailed code - is the check. So are the outline's format and the virtual walls' corners, read
+as DeebotUniverse describes them.
+
+**A robot added before `resume`** keeps the capability it was added with, without it: remove it
+from the vendor's page and the account's listener adds it again - within ten minutes, when it
+next asks the account - with **Resume**. Of the DEEBOTs, all is unverified here, and the map's orientation
 most of all: cells are laid down the columns, and millimetres grow up the map while cells grow
 down the picture. If a real map comes out mirrored or turned, `cellOf` and the piece layout in
 `cloud/map.js` are where it is put right. The GOATs' A series and the GX-600 dialects are guesses

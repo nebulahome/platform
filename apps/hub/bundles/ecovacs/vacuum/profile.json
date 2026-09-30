@@ -37,13 +37,15 @@
           "canStop": true,
           "canDock": true,
           "canLocate": true,
-          "canCleanRooms": true
+          "canCleanRooms": true,
+          "canResume": true
         }
       },
       "state": {
         "vacuum": {
           "activity": "activity",
-          "rooms": "rooms"
+          "rooms": "rooms",
+          "isResumable": "isResumable"
         }
       },
       "commands": {
@@ -75,6 +77,12 @@
           "op": "clean",
           "args": {
             "act": "locate"
+          }
+        },
+        "vacuum.resume": {
+          "op": "clean",
+          "args": {
+            "act": "resume"
           }
         },
         "vacuum.clean_rooms": {

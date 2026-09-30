@@ -10,10 +10,12 @@
  * changes, so the driver's profile is a table of paths.
  *
  * **The map** is a record of its own inside the state (`map`): the rooms (`getMapSet` and each
- * `getMapSubSet`), where the robot and its station are (`getPos`, pushed as `onPos`), the pieces of
- * the floor plan (`getMajorMap` names them, `getMinorMap` sends each) and the path it took
- * (`getMapTrace`). `map.js` draws it; the rooms are also the vacuum's own state, which is what
- * **Clean these rooms** picks from.
+ * `getMapSubSet`), the virtual walls and the no-mop zones set in the app (the same, of the types
+ * `vw` and `mw`), where the robot and its station are (`getPos`, pushed as `onPos`), the pieces of
+ * the floor plan (`getMajorMap` names them, `getMinorMap` sends each) - or, from a robot that sends
+ * no pieces, the outline of its walls whole (`getMapInfo_V2`, pushed as `onMapInfo_V2`) - and the
+ * path it took (`getMapTrace`). `map.js` draws it; the rooms are also the vacuum's own state, which
+ * is what **Clean these rooms** picks from.
  *
  * The protocol is the ECOVACS HOME app's JSON one, as the DeebotUniverse client library observed
  * it (GPL-3.0): only its facts are used here - command names, fields and their meaning - and the
@@ -34,6 +36,16 @@
  */
 
 /**
+ * A line or an area set in the app that the robot keeps to: a virtual wall it does not cross, a
+ * zone it does not mop.
+ *
+ * @typedef {object} Barrier
+ * @property {string} id - Its id on the map (`mssid`).
+ * @property {'virtual' | 'no_mop'} kind - Which: `vw` or `mw`.
+ * @property {Array<[number, number]>} points - Its corners, in millimetres: two for a wall.
+ */
+
+/**
  * What is known of the robot's map.
  *
  * @typedef {object} VacuumMap
@@ -48,6 +60,9 @@
  *   (base64, packed).
  * @property {Array<[number, number, boolean]>} trace - The path taken this job, in millimetres,
  *   and whether each point joins the one before.
+ * @property {Barrier[]} barriers - Its virtual walls and no-mop zones.
+ * @property {string | null} outline - The outline of its walls and rooms as the robot sent it
+ *   whole (`getMapInfo_V2`: base64, packed), for a robot that sends no pieces; null for the rest.
  */
 
 /**
@@ -55,6 +70,8 @@
  *
  * @typedef {object} VacuumState
  * @property {Activity | null} activity - What it is doing; null until it has said.
+ * @property {boolean} isResumable - Whether a job it stopped part way - paused, or stopped by a
+ *   fault - is there to carry on from where it got to.
  * @property {number | null} battery - Percent.
  * @property {boolean | null} isCharging - Whether it charges.
  * @property {number | null} errorCode - The fault it reports; 0 for none.
@@ -75,6 +92,16 @@
 
 /** The most points of the path kept: a long job's path, drawn, stays a few tens of kilobytes. */
 const TRACE_MAXIMUM_POINTS = 20_000;
+
+/** The most virtual walls and no-mop zones kept, of each kind. */
+const BARRIERS_MAXIMUM = 64;
+
+/**
+ * What each type of map set drawn beside the rooms is.
+ *
+ * @type {Readonly<Record<string, 'virtual' | 'no_mop'>>}
+ */
+const BARRIER_KINDS = { vw: 'virtual', mw: 'no_mop' };
 
 /** The fault codes that are no fault. */
 const NO_FAULT = new Set([0, 100]);
@@ -175,6 +202,7 @@ export function readDataOf(command) {
 export function emptyState() {
   return {
     activity: null,
+    isResumable: false,
     battery: null,
     isCharging: null,
     errorCode: null,
@@ -201,6 +229,8 @@ export function emptyState() {
       pieceCrcs: [],
       pieces: {},
       trace: [],
+      barriers: [],
+      outline: null,
     },
   };
 }
@@ -288,6 +318,63 @@ export function outlineOf(value) {
     .map((pair) => pair.split(',').map((part) => Number(part.trim())))
     .filter((pair) => pair.length === 2 && pair.every((part) => Number.isFinite(part)))
     .map((pair) => /** @type {[number, number]} */ ([pair[0] ?? 0, pair[1] ?? 0]));
+}
+
+/**
+ * The corners of a virtual wall or a no-mop zone, from its `value`: every number in it, taken two
+ * at a time - `[x1,y1,x2,y2]` and `x,y;x,y` alike - in millimetres.
+ *
+ * @param {unknown} value - The value.
+ * @returns {Array<[number, number]>} The corners; none when there is no pair.
+ */
+export function cornersOf(value) {
+  const text = Array.isArray(value) ? value.join(',') : typeof value === 'string' ? value : '';
+  const numbers = (text.match(/-?\d+(?:\.\d+)?/gu) ?? []).map(Number);
+
+  /** @type {Array<[number, number]>} */
+  const corners = [];
+
+  for (let index = 0; index + 1 < numbers.length; index += 2) {
+    corners.push([numbers[index] ?? 0, numbers[index + 1] ?? 0]);
+  }
+
+  return corners;
+}
+
+/**
+ * The state with one kind of barrier listed afresh: the ones listed, their corners kept when the
+ * list does not carry them.
+ *
+ * @param {VacuumState} state - The state before.
+ * @param {'virtual' | 'no_mop'} kind - Which kind the list is of.
+ * @param {Array<Record<string, unknown> | undefined>} subsets - The list, as the map set has it.
+ * @returns {VacuumState} The state.
+ */
+function withBarriersListed(state, kind, subsets) {
+  const known = new Map(
+    state.map.barriers.filter((each) => each.kind === kind).map((each) => [each.id, each]),
+  );
+  const listed = subsets.flatMap((subset) => {
+    const id = subset?.['mssid'];
+
+    if (subset === undefined || (typeof id !== 'string' && typeof id !== 'number')) {
+      return [];
+    }
+
+    const key = String(id);
+    const points = cornersOf(subset['value']);
+
+    return [
+      { id: key, kind, points: points.length >= 2 ? points : (known.get(key)?.points ?? []) },
+    ];
+  });
+
+  return withMap(state, {
+    barriers: [
+      ...state.map.barriers.filter((each) => each.kind !== kind),
+      ...listed.slice(0, BARRIERS_MAXIMUM),
+    ],
+  });
 }
 
 /**
@@ -412,13 +499,22 @@ export function applyReport(state, command, data) {
     case 'CleanInfo': {
       const activity = cleanActivityOf(record, state);
 
+      const said = record['state'];
+
       return {
         ...state,
         activity,
+        // A job stays open until the robot says it is idle: paused, going to charge half way, or
+        // stopped by a fault in the middle of it.
+        isResumable: said === 'clean' ? true : said === 'idle' ? false : state.isResumable,
         isCharging: activity === 'cleaning' ? false : state.isCharging,
-        // A new job's path starts again.
+        // A new job's path starts again; one carried on - after a pause, a charge half way, a
+        // fault - keeps the path it had.
         map:
-          activity === 'cleaning' && state.activity !== 'cleaning' && state.activity !== 'paused'
+          activity === 'cleaning' &&
+          !state.isResumable &&
+          state.activity !== 'cleaning' &&
+          state.activity !== 'paused'
             ? { ...state.map, trace: [] }
             : state.map,
       };
@@ -515,6 +611,16 @@ export function applyReport(state, command, data) {
     }
 
     case 'MapSet': {
+      const barrier = BARRIER_KINDS[String(record['type'])];
+
+      if (barrier !== undefined) {
+        return withBarriersListed(
+          state,
+          barrier,
+          Array.isArray(record['subsets']) ? record['subsets'].map(recordOf) : [],
+        );
+      }
+
       if (record['type'] !== undefined && record['type'] !== 'ar') {
         return state;
       }
@@ -550,6 +656,23 @@ export function applyReport(state, command, data) {
       }
 
       const key = String(id);
+      const barrier = BARRIER_KINDS[String(record['type'])];
+
+      if (barrier !== undefined) {
+        const points = cornersOf(record['value']);
+        const isKnown = state.map.barriers.some((each) => each.kind === barrier && each.id === key);
+
+        return points.length < 2
+          ? state
+          : withMap(state, {
+              barriers: isKnown
+                ? state.map.barriers.map((each) =>
+                    each.kind === barrier && each.id === key ? { ...each, points } : each,
+                  )
+                : [...state.map.barriers, { id: key, kind: barrier, points }],
+            });
+      }
+
       const outline = outlineOf(record['value']);
       const rooms = state.map.rooms.some((room) => room.id === key)
         ? state.map.rooms.map((room) =>
@@ -600,6 +723,21 @@ export function applyReport(state, command, data) {
       return withMap(state, {
         pieceCrcs,
         pieces,
+        mapId: record['mid'] === undefined ? state.map.mapId : String(record['mid']),
+      });
+    }
+
+    case 'MapInfo_V2': {
+      // Version 0 is a map the robot keeps and does not use; 1 is the one it cleans by.
+      const version = record['outlineVer'];
+      const info = record['info'];
+
+      if ((version !== undefined && String(version) !== '1') || typeof info !== 'string') {
+        return state;
+      }
+
+      return withMap(state, {
+        outline: info === '' ? null : info,
         mapId: record['mid'] === undefined ? state.map.mapId : String(record['mid']),
       });
     }
@@ -657,9 +795,11 @@ export function isTelling(command) {
  */
 
 /**
- * What cleaning, pausing, ending, docking, locating or cleaning some rooms sends, in a dialect.
+ * What cleaning, pausing, ending, docking, locating, cleaning some rooms or carrying on a job
+ * sends, in a dialect.
  *
- * @param {'start' | 'pause' | 'stop' | 'dock' | 'locate' | 'rooms'} act - The act.
+ * @param {'start' | 'pause' | 'stop' | 'dock' | 'locate' | 'rooms' | 'resume'} act - The act:
+ *   `resume` carries on the job the robot stopped, a fault's included.
  * @param {VacuumState} state - The state now: a paused job is resumed, not started again.
  * @param {Dialect} dialect - The dialect.
  * @param {readonly string[]} [rooms] - For `rooms`: which, by id.

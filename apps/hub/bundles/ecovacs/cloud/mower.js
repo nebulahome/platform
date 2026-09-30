@@ -47,6 +47,8 @@
  *
  * @typedef {object} MowerState
  * @property {Activity | null} activity - What it is doing; null until it has said.
+ * @property {boolean} isResumable - Whether a job it stopped part way - paused, or stopped by a
+ *   fault - is there to carry on from where it got to.
  * @property {string | null} taskId - The job it is on, which writes carry.
  * @property {number | null} battery - Percent.
  * @property {boolean | null} isCharging - Whether it charges.
@@ -159,6 +161,7 @@ export const SLOW_READS = ['getWifiList', 'getLifeSpan', 'getTotalStats'];
 export function emptyState() {
   return {
     activity: null,
+    isResumable: false,
     taskId: null,
     battery: null,
     isCharging: null,
@@ -335,6 +338,30 @@ function cleanActivityOf(data, current) {
 }
 
 /**
+ * Whether a mowing report says a job is open - out on the lawn, paused, or stopped by a fault -
+ * or that there is none; undefined when it does not say.
+ *
+ * @param {Record<string, unknown>} data - `getCleanInfo_V2` or `getCleanInfo`.
+ * @returns {boolean | undefined} Whether a job is open.
+ */
+function jobOpenOf(data) {
+  const state = data['state'];
+  const motion = recordOf(data['cleanState'])?.['motionState'];
+
+  if (
+    state === 'clean' ||
+    state === 'working' ||
+    motion === 'pause' ||
+    motion === 'working' ||
+    motion === 'goCharging'
+  ) {
+    return true;
+  }
+
+  return state === 'idle' ? false : undefined;
+}
+
+/**
  * Folds one report into the state.
  *
  * @param {MowerState} state - The state before.
@@ -427,6 +454,7 @@ export function applyReport(state, command, data) {
       return {
         ...state,
         activity,
+        isResumable: jobOpenOf(record) ?? state.isResumable,
         isCharging: activity === 'mowing' ? false : state.isCharging,
         taskId: taskOf(record, state.taskId),
       };
@@ -615,9 +643,10 @@ export function isTelling(command) {
  */
 
 /**
- * What mowing, pausing, ending or docking sends, in a dialect.
+ * What mowing, pausing, ending, docking or carrying on a job sends, in a dialect.
  *
- * @param {'start' | 'pause' | 'stop' | 'dock'} act - The act.
+ * @param {'start' | 'pause' | 'stop' | 'dock' | 'resume'} act - The act: `resume` carries on the
+ *   job the mower stopped, a fault's included, where a start would begin the lawn again.
  * @param {MowerState} state - The state now: a paused job is resumed, not started again, and a
  *   mower on its way home is stopped rather than sent home twice.
  * @param {Dialect} dialect - The dialect.

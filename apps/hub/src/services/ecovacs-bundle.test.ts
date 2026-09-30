@@ -12,6 +12,7 @@ import { generateKeyPairSync, privateDecrypt, constants } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { zstdCompressSync } from 'node:zlib';
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
@@ -69,6 +70,8 @@ type VacuumMap = {
   readonly pieceCrcs: (string | null)[];
   readonly pieces: Record<string, string>;
   readonly trace: [number, number, boolean][];
+  readonly barriers: { id: string; kind: string; points: [number, number][] }[];
+  readonly outline: string | null;
 };
 
 /** One command. */
@@ -113,6 +116,15 @@ type MapModule = {
     lzma: (bytes: Uint8Array) => Buffer,
   ) => [number, number, boolean][];
   readonly unpackedSubset: (data: unknown, lzma: (bytes: Uint8Array) => Buffer) => unknown;
+  readonly barrierSetOf: (
+    data: unknown,
+    type: 'vw' | 'mw',
+    lzma: (bytes: Uint8Array) => Buffer,
+  ) => unknown;
+  readonly outlineShapesOf: (
+    value: string,
+    lzma: (bytes: Uint8Array) => Buffer,
+  ) => { walls: [number, number][][]; rooms: [number, number][][] };
   readonly piecesToAsk: (map: VacuumMap) => number[];
   readonly createMapDrawer: (
     sdk: Pick<BundleSdk, 'codecs' | 'images'>,
@@ -305,6 +317,23 @@ const OUTLINE = 'XQAAgAAnAAAAABqMLFgvO2El3GqjDpYp1xQb///4+kAA';
 /** The CRC of a piece with nothing in it. */
 const EMPTY_CRC = '1295764014';
 
+/**
+ * The outline a robot without pieces sends whole, as {@link OUTLINE_JSON} packed: a closed square
+ * of walls, a wall on its own beside it, the square's room, and an entry of a type not drawn.
+ */
+const MAP_INFO =
+  'XQAAgAB1AAAAAC3ghGIjMOLiCnLwySXAfen0dEqp2rDo9eC5rk+gJ/zBHR9ar0n/7iJadY3mtIdB+5CyudqduFNtjXasTn//u28gAA==';
+
+/** What {@link MAP_INFO} holds. */
+const OUTLINE_JSON =
+  '[["1","10;0,0;4000,0;4000,-4000;0,-4000","11;6000,0,3-1-0;8000,0"],["2","1;0,0;4000,0;4000,-4000;0,-4000"],["5","x"]]';
+
+/**
+ * A virtual wall and a no-mop zone as `getMapSet_V2` packs them:
+ * `[["3",-1000,500,-1000,-1500],["4",0,0,1000,0,1000,-1000,0,-1000]]`.
+ */
+const BARRIERS_V2 = 'XQAAgABBAAAAAC3ghGYjMKXu28EhAMBD+OJhfo2tN00ke+pdpvpOLJK1DBRpraJqjm6V/oYggA==';
+
 /** An RSA key pair standing in for ECOVACS's, so what is encrypted with it can be read back. */
 const KEYS = generateKeyPairSync('rsa', { modulusLength: 1024 });
 
@@ -350,6 +379,18 @@ function vacuumAnswer(command: string, data: unknown): unknown {
     }
 
     case 'getMapSet': {
+      if (asked['type'] === 'vw') {
+        return { type: 'vw', mid: '7', subsets: [{ mssid: '3' }] };
+      }
+
+      if (asked['type'] === 'mw') {
+        return {
+          type: 'mw',
+          mid: '7',
+          subsets: [{ mssid: '4', value: '0,0,1000,0,1000,-1000,0,-1000' }],
+        };
+      }
+
       return {
         type: 'ar',
         mid: '7',
@@ -361,9 +402,17 @@ function vacuumAnswer(command: string, data: unknown): unknown {
     }
 
     case 'getMapSubSet': {
+      if (asked['type'] === 'vw') {
+        return { type: 'vw', mssid: asked['mssid'], value: '[-1000,500,-1000,-1500]' };
+      }
+
       return asked['mssid'] === '1'
         ? { mssid: '1', compress: 1, value: OUTLINE }
         : { mssid: '2', value: '-3000,-500;-1000,-500;-1000,-2500;-3000,-2500' };
+    }
+
+    case 'getMapInfo_V2': {
+      return { mid: '7', outlineVer: '1', info: MAP_INFO };
     }
 
     case 'getMajorMap': {
@@ -702,6 +751,25 @@ describe("a GOAT's commands", () => {
 
     expect(() => mower.settingCommandOf('cutDirection', 45, mowing)).toThrow(/end the job/u);
   });
+
+  it('carries on a job a fault stopped, where a start would begin the lawn again', () => {
+    const mowing = mower.applyReport(mower.emptyState(), 'onCleanInfo_V2', { state: 'clean' });
+    const stuck = mower.applyReport(mowing, 'onError', { code: [104] });
+    const idle = mower.applyReport(stuck, 'onCleanInfo_V2', { state: 'idle' });
+
+    expect(stuck).toMatchObject({ activity: 'error', isResumable: true });
+    expect(idle['isResumable']).toBe(false);
+    expect(mower.mowCommandOf('resume', stuck, 'g1')).toMatchObject({
+      command: 'clean_V2',
+      data: { act: 'resume' },
+      fallback: 'clean',
+      fallbackData: { act: 'resume', content: { type: 'auto' } },
+    });
+    expect(mower.mowCommandOf('start', stuck, 'g1').data).toEqual({
+      act: 'start',
+      content: { type: 'auto' },
+    });
+  });
 });
 
 describe("a DEEBOT's state", () => {
@@ -739,6 +807,16 @@ describe("a DEEBOT's state", () => {
     expect(docked.activity).toBe('docked');
   });
 
+  it('keeps a job open through a fault, until it says it is idle', () => {
+    const cleaning = vacuum.applyReport(vacuum.emptyState(), 'getInfo', VACUUM_GROUPED);
+    const stuck = vacuum.applyReport(cleaning, 'onError', { code: [102] });
+    const done = vacuum.applyReport(stuck, 'onCleanInfo_V2', { state: 'idle' });
+
+    expect(vacuum.emptyState()['isResumable']).toBe(false);
+    expect(stuck).toMatchObject({ activity: 'error', isResumable: true });
+    expect(done['isResumable']).toBe(false);
+  });
+
   it('names its rooms after the app, or after the kind of room they are', () => {
     const state = vacuum.applyReport(
       vacuum.emptyState(),
@@ -773,6 +851,21 @@ describe("a DEEBOT's commands", () => {
     });
   });
 
+  it('carries on a job a fault stopped, in either dialect', () => {
+    const stuck = vacuum.applyReport(
+      vacuum.applyReport(vacuum.emptyState(), 'getInfo', VACUUM_GROUPED),
+      'onError',
+      { code: [102] },
+    );
+
+    expect(vacuum.cleanCommandOf('resume', stuck, 'v2')).toEqual({
+      command: 'clean_V2',
+      data: { act: 'resume', content: { type: 'auto' } },
+      fallback: 'clean',
+      fallbackData: { act: 'r', type: 'auto' },
+    });
+  });
+
   it('turns a setting into the command the app sends, and refuses one it does not take', () => {
     expect(vacuum.settingCommandOf('suction', 'quiet')).toEqual({
       command: 'setSpeed',
@@ -804,6 +897,131 @@ describe("a DEEBOT's map", () => {
       compress: 0,
       value: '500,-500;4500,-500;4500,-4500;500,-4500',
     });
+  });
+
+  it('reads the virtual walls and the no-mop zones set in the app', () => {
+    let state = vacuum.applyReport(vacuum.emptyState(), 'getMapSet', {
+      type: 'vw',
+      subsets: [{ mssid: '3' }],
+    });
+
+    expect(state.map.barriers).toEqual([{ id: '3', kind: 'virtual', points: [] }]);
+
+    state = vacuum.applyReport(state, 'getMapSubSet', {
+      type: 'vw',
+      mssid: '3',
+      value: '[-1000,500,-1000,-1500]',
+    });
+    state = vacuum.applyReport(state, 'getMapSet', {
+      type: 'mw',
+      subsets: [{ mssid: '4', value: '0,0;1000,0;1000,-1000;0,-1000' }],
+    });
+
+    expect(state.map.barriers).toEqual([
+      {
+        id: '3',
+        kind: 'virtual',
+        points: [
+          [-1000, 500],
+          [-1000, -1500],
+        ],
+      },
+      {
+        id: '4',
+        kind: 'no_mop',
+        points: [
+          [0, 0],
+          [1000, 0],
+          [1000, -1000],
+          [0, -1000],
+        ],
+      },
+    ]);
+    // The rooms are left as they were.
+    expect(state.rooms).toEqual([]);
+    expect(map.barrierSetOf({ type: 'vw', subsets: BARRIERS_V2 }, 'vw', decodeLzma)).toEqual({
+      type: 'vw',
+      subsets: [
+        { mssid: '3', value: '-1000,500,-1000,-1500' },
+        { mssid: '4', value: '0,0,1000,0,1000,-1000,0,-1000' },
+      ],
+    });
+  });
+
+  it('reads the outline of the walls a robot without pieces sends, LZMA or Zstandard', () => {
+    const shapes = {
+      walls: [
+        [
+          [0, 0],
+          [4000, 0],
+          [4000, -4000],
+          [0, -4000],
+          [0, 0],
+        ],
+        [
+          [6000, 0],
+          [8000, 0],
+        ],
+      ],
+      rooms: [
+        [
+          [0, 0],
+          [4000, 0],
+          [4000, -4000],
+          [0, -4000],
+        ],
+      ],
+    };
+
+    expect(map.outlineShapesOf(MAP_INFO, decodeLzma)).toEqual(shapes);
+    expect(
+      map.outlineShapesOf(zstdCompressSync(Buffer.from(OUTLINE_JSON)).toString('base64'), () => {
+        throw new Error('not LZMA');
+      }),
+    ).toEqual(shapes);
+    expect(map.outlineShapesOf('bm90IHBhY2tlZA==', decodeLzma)).toEqual({ walls: [], rooms: [] });
+
+    const kept = vacuum.applyReport(vacuum.emptyState(), 'onMapInfo_V2', {
+      mid: '7',
+      outlineVer: '1',
+      info: MAP_INFO,
+    });
+
+    expect(kept.map.outline).toBe(MAP_INFO);
+    // A map the robot keeps and does not clean by is not drawn.
+    expect(
+      vacuum.applyReport(vacuum.emptyState(), 'onMapInfo_V2', { outlineVer: '0', info: MAP_INFO })
+        .map.outline,
+    ).toBeNull();
+  });
+
+  it('draws the walls of the outline, the virtual walls and the no-mop zones', () => {
+    let state = vacuum.applyReport(vacuum.emptyState(), 'onMapInfo_V2', {
+      mid: '7',
+      info: MAP_INFO,
+    });
+
+    state = vacuum.applyReport(state, 'getMapSubSet', {
+      type: 'vw',
+      mssid: '3',
+      value: '[-1000,500,-1000,-1500]',
+    });
+    state = vacuum.applyReport(state, 'getMapSet', {
+      type: 'mw',
+      subsets: [{ mssid: '4', value: '0,0,1000,0,1000,-1000,0,-1000' }],
+    });
+
+    const svg =
+      map.createMapDrawer({ codecs: { lzma: decodeLzma }, images: { png: encodePalettedPng } })(
+        state.map,
+      ) ?? '';
+
+    // No pieces: the outline's room is the floor, its walls drawn over it.
+    expect(svg).not.toContain('<image');
+    expect(svg).toContain('<polygon points="400,400 480,400 480,480 400,480" fill="#cddcf0"/>');
+    expect(svg).toContain('d="M400 400L480 400L480 480L400 480L400 400M520 400L560 400"');
+    expect(svg).toContain('<polyline points="380,390 380,430" fill="none" stroke="#e5484d"');
+    expect(svg).toContain('<polygon points="400,400 420,400 420,420 400,420" fill="#f2a33a"');
   });
 
   it('asks only for the pieces that hold something and were not received', () => {
@@ -1233,6 +1451,74 @@ describe('the robots, followed', () => {
     await connection.close();
   });
 
+  it('reads the virtual walls, and the outline from a robot that sends no pieces', async () => {
+    const fake = servers();
+
+    fake.refused.add('getMajorMap');
+
+    const { connection, delivered } = await following(fake, ['did-deebot']);
+
+    await vi.waitFor(() => {
+      expect(lastOf(delivered, 'did-deebot')['mapSvg']).toContain('stroke="#2f4a73"');
+    });
+
+    const sent = controls(fake, 'did-deebot');
+
+    expect(sent).toEqual(
+      expect.arrayContaining([
+        { command: 'getMapSet', data: { mid: '7', type: 'vw' } },
+        { command: 'getMapSet', data: { mid: '7', type: 'mw' } },
+        { command: 'getMapSubSet', data: { mid: '7', mssid: '3', type: 'vw' } },
+        { command: 'getMapInfo_V2', data: { mid: '7', type: '0' } },
+      ]),
+    );
+    expect(sent.some((each) => each.command === 'getMinorMap')).toBe(false);
+    expect(lastOf(delivered, 'did-deebot')['mapSvg']).toContain('stroke="#e5484d"');
+
+    await connection.close();
+  });
+
+  it('carries on a job a fault stopped, keeping the path it had', async () => {
+    const fake = servers();
+    const { connection, delivered, session } = await following(fake, ['did-deebot']);
+
+    await vi.waitFor(() => {
+      expect(lastOf(delivered, 'did-deebot')['mapSvg']).toBeDefined();
+    });
+    session.options.onMessage(
+      'iot/atr/onError/did-deebot/p95mgv/XyZ1/j',
+      Buffer.from(JSON.stringify({ body: { data: { code: [102] } } })),
+    );
+
+    expect(lastOf(delivered, 'did-deebot')).toMatchObject({
+      activity: 'error',
+      isResumable: true,
+    });
+
+    await connection.send(
+      { deviceKey: 'did-deebot', op: 'clean', args: { act: 'resume' } },
+      new AbortController().signal,
+    );
+
+    expect(controls(fake, 'did-deebot').at(-1)).toEqual({
+      command: 'clean_V2',
+      data: { act: 'resume', content: { type: 'auto' } },
+    });
+    expect(lastOf(delivered, 'did-deebot')).toMatchObject({
+      activity: 'cleaning',
+      isResumable: true,
+    });
+
+    await connection.send(
+      { deviceKey: 'did-deebot', op: 'clean', args: { act: 'stop' } },
+      new AbortController().signal,
+    );
+
+    expect(lastOf(delivered, 'did-deebot')).toMatchObject({ activity: 'idle', isResumable: false });
+
+    await connection.close();
+  });
+
   it('cleans the rooms asked for, and moves the robot on the map as it pushes', async () => {
     const fake = servers();
     const { connection, delivered, session } = await following(fake, ['did-deebot']);
@@ -1389,7 +1675,9 @@ describe("the mower's profile", () => {
         .map((report) => [report.entityId, report.state]),
     );
 
-    expect(reports.get(idOf(ids, 'mower'))).toEqual({ lawn_mower: { activity: 'docked' } });
+    expect(reports.get(idOf(ids, 'mower'))).toEqual({
+      lawn_mower: { activity: 'docked', isResumable: false },
+    });
     expect(reports.get(idOf(ids, 'mowing_efficiency'))).toEqual({ select: { option: 'delicate' } });
     expect(reports.get(idOf(ids, 'rain_delay'))).toEqual({ number: { value: 180 } });
     expect(reports.get(idOf(ids, 'rain_sensor'))).toEqual({ on_off: { isOn: true } });
@@ -1421,6 +1709,12 @@ describe("the mower's profile", () => {
         context,
       ),
     ).toEqual({ deviceKey: 'did-goat', op: 'mow', args: { act: 'dock' } });
+    expect(
+      integration.toCommand(
+        { entityId: idOf(ids, 'mower'), capability: 'lawn_mower', command: { command: 'resume' } },
+        context,
+      ),
+    ).toEqual({ deviceKey: 'did-goat', op: 'mow', args: { act: 'resume' } });
   });
 });
 
@@ -1450,6 +1744,7 @@ describe("the vacuum's profile", () => {
           { id: '1', name: 'Kitchen <&>' },
           { id: '2', name: 'Bedroom' },
         ],
+        isResumable: true,
       },
     });
     expect(byId.get(idOf(ids, 'suction'))?.state).toEqual({ select: { option: 'max' } });
