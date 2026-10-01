@@ -29,3 +29,6 @@ infra/data/
 graphify-out/
 .impeccable/hook.cache.json
 pkgs/*/ui/
+
+# Design sources and renders live outside the repository.
+/design/
