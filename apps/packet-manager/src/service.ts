@@ -1232,7 +1232,7 @@ export class PacketManager {
 
         logger.warn(
           {
-            service: service.name,
+            platformService: service.name,
             package: service.defaultPackage,
             problems: plan.problems.map((problem) =>
               describeDependencyProblem(problem, (id) => names.get(id) ?? id),
@@ -1261,12 +1261,12 @@ export class PacketManager {
         }
 
         logger.info(
-          { service: service.name, packages: installed.map((entry) => entry.row.id) },
+          { platformService: service.name, packages: installed.map((entry) => entry.row.id) },
           `Installed the house's ${service.label}`,
         );
       } catch (error: unknown) {
         logger.warn(
-          { err: error, service: service.name, package: service.defaultPackage },
+          { err: error, platformService: service.name, package: service.defaultPackage },
           `The house's ${service.label} could not be installed`,
         );
       }
