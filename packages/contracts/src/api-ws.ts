@@ -157,7 +157,7 @@ export const wsServerMessageSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('package_event'),
-    event: z.enum(['installed', 'removed', 'started', 'stopped']),
+    event: z.enum(['installed', 'removed', 'started', 'stopped', 'configured']),
     payload: jsonObjectSchema,
   }),
   z.object({

@@ -162,11 +162,13 @@ export const busSubjects = {
   /**
    * Announcing a package lifecycle event.
    *
-   * @param event - What happened to the package, or `routes` for a new routing table.
+   * @param event - What happened to the package - `configured` for settings changed while it
+   *   runs - or `routes` for a new routing table.
    * @returns The fan-out subject to publish the event on.
    */
-  packageEvent: (event: 'installed' | 'removed' | 'started' | 'stopped' | 'routes'): string =>
-    `${BUS_SUBJECT_PREFIX}.pkg.${event}`,
+  packageEvent: (
+    event: 'installed' | 'removed' | 'started' | 'stopped' | 'configured' | 'routes',
+  ): string => `${BUS_SUBJECT_PREFIX}.pkg.${event}`,
 
   /**
    * A camera's frames, as bytes: the one subject that carries no envelope (camera.ts).

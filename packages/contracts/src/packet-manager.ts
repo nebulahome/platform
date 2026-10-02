@@ -4,7 +4,7 @@
  * The packet-manager installs, runs and removes packages ([PACKAGES.md](../../../../PACKAGES.md)):
  * `api` asks it on the owner's behalf - `nebula.v1.svc.packet-manager.<method>` - and a package's
  * process, once started, announces what it registered (`announce`): the RPC methods its pages call.
- * Its events, `nebula.v1.pkg.<installed|started|stopped|removed>`, are what the rest of the
+ * Its events, `nebula.v1.pkg.<installed|started|stopped|removed|configured>`, are what the rest of the
  * platform follows a package's life by: `hub` holds and releases the vendors that need it, `api`
  * relays them to the interface, which loads the package's page and cards without a reload.
  *
