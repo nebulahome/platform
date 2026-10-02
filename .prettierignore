@@ -8,3 +8,4 @@ packages/db/migrations
 graphify-out
 .impeccable
 pkgs/*/ui
+packages/package-sdk/etc/api

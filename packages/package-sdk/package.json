@@ -43,6 +43,7 @@
       "types": "./dist/testing.d.ts",
       "default": "./dist/testing.js"
     },
+    "./styles.css": "./dist/styles.css",
     "./package.json": "./package.json"
   },
   "bin": {
@@ -61,10 +62,13 @@
     "provenance": true
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && node scripts/build-styles.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "api:report": "node scripts/api-report.js",
+    "api:check": "node scripts/api-report.js --check",
+    "check:package": "publint --strict && attw --pack . --profile esm-only --exclude-entrypoints ./styles.css"
   },
   "peerDependencies": {
     "@types/react": "^19.2.0",

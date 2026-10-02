@@ -4,7 +4,8 @@ export default [
   ...config,
 
   // A package the tests build, written as an author writes one.
-  { ignores: ['tests/fixture/**'] },
+  // and the published declarations, kept as the build wrote them.
+  { ignores: ['tests/fixture/**', 'etc/**'] },
 
   // The public API is what authors' code is checked against and what the platform implements,
   // so it names nothing private: a type of `@nebulahome/contracts` in a public declaration would
