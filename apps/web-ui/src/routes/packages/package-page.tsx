@@ -10,10 +10,10 @@
  * - **Depends on** and **Used by**: the packages and integrations on either side of it, which is
  *   what explains a refusal to remove or to stop it.
  * - **Its containers** and **its devices**, each a way to their own pages.
- * - **Its page**: what the package draws itself, with the interface's own components, while it
- *   runs.
  * - **Its log**, with the viewer a container's has, for a package that runs a process.
  *
+ * A package with a page of its own is opened from here - Open, while it runs - and from the
+ * sidebar when it asks for an entry there; the page is its own address, `/packages/<id>/app`.
  * Start, Stop and Restart are for whoever may configure packages; Update and Remove for whoever
  * may install them. A package that is part of the platform is never removed, only restarted, and
  * the page says so rather than offering a button that would be refused. Stopping a package others
@@ -24,7 +24,7 @@ import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import type { ApiPackageDetail, PackageRelation } from '@nebulahome/contracts';
-import { Badge, Button, Modal, Panel, PanelNote, PanelRow, Switch } from '@nebulahome/ui';
+import { Badge, Button, Modal, Panel, PanelRow, Switch } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { ExternalLinkIcon } from '@/components/icons';
@@ -42,7 +42,7 @@ import {
   removePackage,
   updatePackage,
 } from '@/packages/api';
-import { PackageSlot } from '@/packages/package-slot';
+import { packageAppPath } from '@/packages/package-paths';
 import { ContainerBadges } from '@/routes/containers/container-parts';
 import { devicePath } from '@/routes/library/device/device-path';
 import { LibraryPage } from '@/routes/library/library-page';
@@ -464,10 +464,23 @@ export function PackagePage() {
   const dependents = found?.usedBy ?? [];
 
   let action: ReactNode;
+  const hasPage = found?.ui?.page === true;
 
-  if (found !== undefined && (canConfigure || canInstall)) {
+  if (found !== undefined && (canConfigure || canInstall || hasPage)) {
     action = (
       <>
+        {hasPage ? (
+          <Button
+            size="compact"
+            disabled={found.state !== 'running'}
+            title={found.state === 'running' ? undefined : 'Its page opens while it runs'}
+            onClick={() => {
+              void navigate(packageAppPath(found.id));
+            }}
+          >
+            Open
+          </Button>
+        ) : null}
         {canInstall && newer !== undefined ? (
           <Button
             size="compact"
@@ -601,31 +614,6 @@ export function PackagePage() {
 
             {can('container:read') ? <PackageContainers packageId={found.id} /> : null}
             {can('device:read') ? <PackageDevices packageId={found.id} /> : null}
-
-            {found.ui?.page === true ? (
-              found.state === 'running' ? (
-                <PackageSlot
-                  found={found}
-                  target={{ kind: 'page' }}
-                  loading={
-                    <p role="status" className="text-ui text-foreground-subtle">
-                      Loading {found.name}…
-                    </p>
-                  }
-                  renderProblem={(message) => (
-                    <Panel title={found.name} elevation="flat">
-                      <PanelNote>
-                        {found.name} could not draw its page: {message}
-                      </PanelNote>
-                    </Panel>
-                  )}
-                />
-              ) : (
-                <Panel title={found.name} elevation="flat">
-                  <PanelNote>Its page is drawn while it runs.</PanelNote>
-                </Panel>
-              )
-            ) : null}
 
             {found.runtime === 'node' ? (
               <LogViewer

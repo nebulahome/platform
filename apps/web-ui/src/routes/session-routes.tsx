@@ -46,6 +46,7 @@ import { IntegrationsPage } from '@/routes/library/integrations-page';
 import { ScenesPage } from '@/routes/library/scenes-page';
 import { TagsPage } from '@/routes/library/tags-page';
 import { VendorPage } from '@/routes/library/vendor-page';
+import { PackageAppPage } from '@/routes/packages/package-app-page';
 import { PackagePage } from '@/routes/packages/package-page';
 import { PackagesPage } from '@/routes/packages/packages-page';
 import { RETURN_TO_PARAM, safeReturnTo } from '@/routes/return-to';
@@ -296,6 +297,14 @@ export function SessionRoutes() {
           element={
             <RequiresPermission permission="package:read" section="Packages">
               <PackagePage />
+            </RequiresPermission>
+          }
+        />
+        <Route
+          path="/packages/:packageId/app/*"
+          element={
+            <RequiresPermission permission="package:read" section="Packages">
+              <PackageAppPage />
             </RequiresPermission>
           }
         />

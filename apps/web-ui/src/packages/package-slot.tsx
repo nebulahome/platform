@@ -1,32 +1,33 @@
 /**
  * Draws one thing a package adds - its page, one of its cards, one of its entity views - inside
- * the interface (PACKAGES.md 5).
+ * the interface (PACKAGES_DOCS.md 6.2).
  *
- * The package's module is imported the first time, and kept; its component is drawn inside the
- * package's scope, so its hooks speak for it, and inside an error boundary, so a package that
- * throws draws its own sentence and never takes the page down with it. The boundary starts over
- * with a new release: an update that fixes the error is given its chance at once.
+ * The interface gives only the frame; what is inside is the package's own, any React and any CSS.
+ * The component is loaded from its own chunk the first time, and kept; it is drawn inside an
+ * element marked `data-nebula-package="<id>"`, the one its stylesheet is scoped to, with a node of
+ * that element for its portals; inside the package's scope, so its hooks speak for it; inside
+ * `<Suspense>`, for a component that waits on something of its own; and inside an error boundary,
+ * so a package that throws draws its own sentence and never takes the page down with it. The
+ * boundary starts over with a new release: an update that fixes the error is given its chance at
+ * once.
  */
 import { useQuery } from '@tanstack/react-query';
-import { Component, type ReactNode } from 'react';
+import { Component, Suspense, useState, type ReactNode } from 'react';
 
 import type { InstalledPackage } from '@nebulahome/contracts';
-import type {
-  PackageCardProps,
-  PackageEntityViewProps,
-  PackageUiDefinition,
-} from '@nebulahome/package-ui';
+import type { CardProps, EntityViewProps, PageProps } from '@nebulahome/package-sdk/ui';
+import { cn } from '@nebulahome/ui';
 
 import { isApiError } from '@/lib/api-error';
 import { toMessage } from '@/lib/error-message';
-import { loadPackageUi } from '@/packages/loader';
-import { PackageScope } from '@/packages/runtime';
+import { loadPackageComponent, type PackageComponentTarget } from '@/packages/loader';
+import { PackageScope } from '@/packages/sdk-ui';
 
-/** Which of the package's components. */
+/** Which of the package's components, with what it is given. */
 export type PackageSlotTarget =
-  | { readonly kind: 'page' }
-  | { readonly kind: 'card'; readonly props: PackageCardProps }
-  | { readonly kind: 'entityView'; readonly type: string; readonly props: PackageEntityViewProps };
+  | { readonly kind: 'page'; readonly props: PageProps }
+  | { readonly kind: 'card'; readonly props: CardProps }
+  | { readonly kind: 'entityView'; readonly props: EntityViewProps };
 
 /** What the slot needs. */
 export type PackageSlotProps = {
@@ -36,7 +37,7 @@ export type PackageSlotProps = {
   /** What to draw of it. */
   readonly target: PackageSlotTarget;
 
-  /** What stands in while its module is being imported. */
+  /** What stands in while its component is being loaded. */
   readonly loading: ReactNode;
 
   /**
@@ -47,6 +48,9 @@ export type PackageSlotProps = {
    * @returns What to draw.
    */
   readonly renderProblem: (message: string) => ReactNode;
+
+  /** Classes for the package's element: `h-full` in a card. */
+  readonly className?: string;
 };
 
 /**
@@ -100,34 +104,19 @@ class PackageBoundary extends Component<BoundaryProps, BoundaryState> {
 }
 
 /**
- * The component a target names, drawn, if the package has it.
+ * The component a target names, as the loader knows it.
  *
- * @param definition - What the package adds.
  * @param target - Which one.
- * @param packageId - Whose, for its page.
- * @returns The element; null when the package has none by that name.
+ * @returns The loader's target.
  */
-function draw(
-  definition: PackageUiDefinition,
-  target: PackageSlotTarget,
-  packageId: string,
-): ReactNode {
+function componentTargetOf(target: PackageSlotTarget): PackageComponentTarget {
   switch (target.kind) {
-    case 'page': {
-      const Page = definition.page;
-
-      return Page === undefined ? null : <Page packageId={packageId} />;
-    }
-    case 'card': {
-      const Card = definition.cards?.[target.props.cardId];
-
-      return Card === undefined ? null : <Card {...target.props} />;
-    }
-    case 'entityView': {
-      const View = definition.entityViews?.[target.type];
-
-      return View === undefined ? null : <View {...target.props} />;
-    }
+    case 'page':
+      return { kind: 'page' };
+    case 'card':
+      return { kind: 'card', cardId: target.props.cardId };
+    case 'entityView':
+      return { kind: 'entityView', type: target.props.type };
   }
 }
 
@@ -135,14 +124,14 @@ function draw(
  * What a target is called in a sentence.
  *
  * @param target - Which one.
- * @returns "page", "the broker card", "the recording view".
+ * @returns "a page", "a broker card", "a view of recording".
  */
-function nameOf(target: PackageSlotTarget): string {
+function nameOf(target: PackageComponentTarget): string {
   switch (target.kind) {
     case 'page':
       return 'a page';
     case 'card':
-      return `a ${target.props.cardId} card`;
+      return `a ${target.cardId} card`;
     case 'entityView':
       return `a view of ${target.type}`;
   }
@@ -155,40 +144,56 @@ function nameOf(target: PackageSlotTarget): string {
  * @returns The package's component, or what stands in for it.
  */
 export function PackageSlot(props: PackageSlotProps) {
-  const { found, target, loading, renderProblem } = props;
-  const definition = useQuery({
-    queryKey: ['package-ui', found.id, found.version],
+  const { found, target, loading, renderProblem, className } = props;
+  const [portal, setPortal] = useState<HTMLElement | null>(null);
+  const which = componentTargetOf(target);
+  const component = useQuery({
+    queryKey: ['package-ui', found.id, found.version, which],
     staleTime: Infinity,
     gcTime: Infinity,
     retry: false,
 
     /**
-     * Imports the package's module.
+     * Loads the component.
      *
-     * @returns What it adds.
+     * @returns It, held in an object so the cache keeps the function as it is; null when the
+     *   package draws none by that name.
      */
-    queryFn: async () => loadPackageUi(found),
+    queryFn: async () => {
+      const loaded = await loadPackageComponent(found, which);
+
+      return loaded === null ? null : { Drawn: loaded };
+    },
   });
 
-  if (definition.isPending) {
+  if (component.isPending) {
     return loading;
   }
 
-  if (definition.isError) {
-    return renderProblem(problemOf(definition.error));
+  if (component.isError) {
+    return renderProblem(problemOf(component.error));
   }
 
-  const drawn = draw(definition.data, target, found.id);
-
-  if (drawn === null) {
-    return renderProblem(`${found.name} does not draw ${nameOf(target)}.`);
+  if (component.data === null) {
+    return renderProblem(`${found.name} does not draw ${nameOf(which)}.`);
   }
+
+  // The component's props are its target's: what the SDK types each loader with.
+  const Drawn = component.data.Drawn as (props: object) => ReactNode;
 
   return (
-    <PackageScope value={{ id: found.id, version: found.version, name: found.name }}>
-      <PackageBoundary key={found.version} renderProblem={renderProblem}>
-        {drawn}
-      </PackageBoundary>
-    </PackageScope>
+    <div data-nebula-package={found.id} className={cn('relative min-w-0', className)}>
+      <PackageScope
+        value={{ id: found.id, version: found.version, name: found.name }}
+        portal={portal}
+      >
+        <PackageBoundary key={found.version} renderProblem={renderProblem}>
+          <Suspense fallback={loading}>
+            <Drawn {...target.props} />
+          </Suspense>
+        </PackageBoundary>
+      </PackageScope>
+      <div ref={setPortal} />
+    </div>
   );
 }

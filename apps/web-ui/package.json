@@ -21,7 +21,7 @@
     "@lezer/highlight": "^1.2.4",
     "@nebulahome/contracts": "workspace:*",
     "@nebulahome/icons": "workspace:*",
-    "@nebulahome/package-ui": "workspace:*",
+    "@nebulahome/package-sdk": "workspace:*",
     "@nebulahome/ui": "workspace:*",
     "@tanstack/react-query": "^5.102.8",
     "i18next": "^26.4.1",

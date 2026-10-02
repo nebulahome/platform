@@ -14,6 +14,9 @@ import type { DashboardData } from '@/routes/dashboard/use-dashboard-data';
 export type CardViewProps = {
   readonly card: DashboardLeafCard;
   readonly data: DashboardData;
+
+  /** Whether the dashboard is being edited. */
+  readonly isEditing?: boolean;
 };
 
 /**
@@ -23,7 +26,7 @@ export type CardViewProps = {
  * @returns The card.
  */
 export function CardView(props: CardViewProps) {
-  const { card, data } = props;
+  const { card, data, isEditing = false } = props;
 
   switch (card.type) {
     case 'entity':
@@ -35,7 +38,7 @@ export function CardView(props: CardViewProps) {
     case 'energy':
       return <EnergyCard card={card} data={data} />;
     case 'package':
-      return <PackageCard card={card} />;
+      return <PackageCard card={card} isEditing={isEditing} />;
   }
 }
 

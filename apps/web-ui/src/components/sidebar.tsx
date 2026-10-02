@@ -18,11 +18,15 @@
  * any longer, it outlived the navigation it was for: a group opened from the dashboards stayed
  * open on every page after, beside the one the new page opened, and the group you were inside
  * could not be closed at all.
+ *
+ * Under Packages, the pages of the packages that ask for an entry (`ui.sidebar`), while they run:
+ * a package managed from its own page is one click away, like the platform's own sections.
  */
 import { useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router';
 
-import { Logo } from '@nebulahome/ui';
+import type { ApiPackage } from '@nebulahome/contracts';
+import { CatalogueIcon, Logo } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { Avatar } from '@/components/avatar';
@@ -36,6 +40,10 @@ import {
   WrenchIcon,
   ZapIcon,
 } from '@/components/icons';
+import { packageAppPath } from '@/packages/package-paths';
+import { useInstalledPackages } from '@/packages/use-packages';
+import { useCatalogueIcons } from '@/routes/library/device-icon';
+import { PackageLogo } from '@/routes/packages/package-tile';
 
 /** One entry inside a group. */
 type GroupEntry = {
@@ -256,6 +264,59 @@ function UserChip() {
   );
 }
 
+/**
+ * The entries of the packages' own pages, under Packages: each running package with a page that
+ * asks for one, by the label and icon it asks for - its name and logo when it says neither.
+ *
+ * @returns The entries; nothing when no package asks.
+ */
+function PackagePages() {
+  const { packages } = useInstalledPackages();
+  const pages = packages.filter(
+    (found): found is ApiPackage & { ui: NonNullable<ApiPackage['ui']> } =>
+      found.state === 'running' && found.ui?.page === true && found.ui.sidebar !== undefined,
+  );
+  const icons = useCatalogueIcons(pages.map((found) => found.ui.sidebar?.icon ?? null));
+
+  if (pages.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="-mt-3 ml-[19px] flex flex-col gap-0.5 border-l border-border pl-2.5">
+      {pages.map((found) => {
+        const iconId = found.ui.sidebar?.icon;
+        const icon = iconId === undefined ? undefined : icons.get(iconId);
+
+        return (
+          <NavLink
+            key={found.id}
+            to={packageAppPath(found.id)}
+            className={({ isActive }) =>
+              `press flex h-8.5 items-center gap-2 rounded-chip px-2.5 text-ui ${
+                isActive
+                  ? 'bg-surface-raised font-medium text-foreground'
+                  : 'text-foreground-muted hover:text-foreground'
+              }`
+            }
+          >
+            {iconId === undefined ? (
+              <PackageLogo found={found} size={16} />
+            ) : (
+              <CatalogueIcon
+                node={icon?.node ?? []}
+                frame={icon?.frame ?? { x: 0, y: 0, size: 24 }}
+                size={16}
+              />
+            )}
+            <span className="truncate">{found.ui.sidebar?.label ?? found.name}</span>
+          </NavLink>
+        );
+      })}
+    </div>
+  );
+}
+
 /** A group of the rail, before the permissions narrow it. */
 type Group = {
   readonly label: string;
@@ -354,6 +415,8 @@ export function Sidebar() {
       <NavRow to="/integrations" icon={<LibraryIcon />} label="Integrations" />
 
       <NavRow to="/packages" icon={<PackagesIcon />} label="Packages" />
+
+      <PackagePages />
 
       {can('container:read') ? (
         <NavRow to="/containers" icon={<ContainersIcon />} label="Containers" />

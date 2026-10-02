@@ -63,6 +63,18 @@ export const PACKAGE_QUERY_KEYS = {
    */
   rpc: (id: string, method: string, input: JsonValue) =>
     ['packages', 'rpc', id, method, input] as const,
+
+  /**
+   * What a package's methods answered: every one of them, or one for any input.
+   *
+   * @param id - The package.
+   * @param method - The method, when only its answers.
+   * @returns The key's prefix.
+   */
+  rpcOf: (id: string, method?: string) =>
+    method === undefined
+      ? (['packages', 'rpc', id] as const)
+      : (['packages', 'rpc', id, method] as const),
 } as const;
 
 /** Where a package's interface is served from, under the release installed. */

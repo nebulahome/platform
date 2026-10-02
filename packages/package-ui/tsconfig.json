@@ -1,4 +1,0 @@
-{
-  "extends": "@nebulahome/tsconfig/react.json",
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
-}

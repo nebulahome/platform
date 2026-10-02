@@ -6,13 +6,24 @@
  * entry sits in the group it belongs to, and that the current row is marked in a way something
  * other than a colour can perceive.
  */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+import type { ApiPackage } from '@nebulahome/contracts';
 
 import { isPermitted, useSession } from '@/auth/session-store';
 import { Sidebar } from '@/components/sidebar';
+import type * as PackagesApi from '@/packages/api';
+import { fetchPackages } from '@/packages/api';
 import { toUsername } from '@/routes/first-run';
+import { aPackage } from '@/testing/package-fixtures';
+
+vi.mock('@/packages/api', async (original) => ({
+  ...(await original<typeof PackagesApi>()),
+  fetchPackages: vi.fn(async () => Promise.resolve([])),
+}));
 
 /**
  * Renders the rail at a given address, with somebody signed in.
@@ -38,13 +49,48 @@ function renderAt(pathname: string, permissions: readonly string[] = []): void {
   });
 
   render(
-    <MemoryRouter initialEntries={[pathname]}>
-      <Sidebar />
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={[pathname]}>
+        <Sidebar />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
+/**
+ * The fixture package's interface, with an entry in the sidebar.
+ *
+ * @param sidebar - What the entry says.
+ * @param sidebar.label - Its label, when not the package's name.
+ * @returns The interface.
+ */
+function withEntry(sidebar: { readonly label?: string }): ApiPackage['ui'] {
+  const { ui } = aPackage();
+
+  return ui === null ? null : { ...ui, sidebar };
+}
+
 describe('Sidebar', () => {
+  it('lists the pages of the running packages that ask for an entry, under Packages', async () => {
+    vi.mocked(fetchPackages).mockResolvedValueOnce([
+      aPackage({ id: 'recorder', name: 'Recorder', ui: withEntry({}) }),
+      aPackage({
+        id: 'stopped',
+        state: 'stopped',
+        ui: withEntry({ label: 'Stopped' }),
+      }),
+      aPackage({ id: 'mqtt' }),
+    ]);
+    renderAt('/packages/recorder/app/clips', ['package:read']);
+
+    const entry = await screen.findByRole('link', { name: 'Recorder' });
+
+    expect(entry.getAttribute('href')).toBe('/packages/recorder/app');
+    expect(entry.getAttribute('aria-current')).toBe('page');
+    expect(screen.queryByRole('link', { name: 'Stopped' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'MQTT' })).toBeNull();
+  });
+
   it('shows the top-level destinations and the two groups', () => {
     renderAt('/dashboards');
 

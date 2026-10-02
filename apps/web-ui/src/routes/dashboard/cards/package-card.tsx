@@ -1,10 +1,11 @@
 /**
  * A card a package draws.
  *
- * The interface draws the frame - the same border, radius and padding as every other card - and
- * the package draws what is inside, with the design system the rest of the dashboard draws with.
- * So a package's card reads as a card of the dashboard, and a package cannot make one that looks
- * like nothing else on it.
+ * The interface draws the frame - the same cell, border, radius and background as every other
+ * card, and its padding unless the card asks for none - and the package draws what is inside: any
+ * React, any CSS, scoped to its own elements (PACKAGES_DOCS.md 6.2). The card is given its declared
+ * name, its title, its size, its options with their defaults, and whether the dashboard is being
+ * edited.
  *
  * The layout keeps a package's card whether or not the package is there to draw it: removing a
  * package, stopping it, or restoring onto an installation without it leaves a card that says
@@ -14,9 +15,13 @@
 import type {
   ApiPackage,
   DashboardPackageCard,
+  JsonObject,
+  JsonValue,
+  PackageCard as DeclaredCard,
   PackageCardSize,
   PackageState,
 } from '@nebulahome/contracts';
+import type { CardProps } from '@nebulahome/package-sdk/ui';
 import { AppIcon } from '@nebulahome/ui';
 
 import { PackageSlot } from '@/packages/package-slot';
@@ -27,6 +32,9 @@ import { CardFrame } from '@/routes/dashboard/cards/card-parts';
 export type PackageCardProps = {
   /** The card as the layout stores it. */
   readonly card: DashboardPackageCard;
+
+  /** Whether the dashboard is being edited: the card is drawn, never used. */
+  readonly isEditing?: boolean;
 };
 
 /** What each state that is not running says about the card. */
@@ -55,6 +63,25 @@ export function packageCardSizeOf(card: Pick<DashboardPackageCard, 'w' | 'h'>): 
   }
 
   return card.h >= 3 ? 'large' : 'medium';
+}
+
+/**
+ * A card's options as its inspector left them, each one not set given its declared default.
+ *
+ * @param declared - The card, as the package declares it.
+ * @param options - What the layout stores.
+ * @returns The options.
+ */
+export function packageCardOptionsOf(declared: DeclaredCard, options: JsonObject): JsonObject {
+  const filled: Record<string, JsonValue> = { ...options };
+
+  for (const field of declared.options) {
+    if (filled[field.key] === undefined && 'default' in field && field.default !== undefined) {
+      filled[field.key] = field.default;
+    }
+  }
+
+  return filled;
 }
 
 /**
@@ -116,7 +143,7 @@ function whyNotDrawn(found: ApiPackage | undefined, card: DashboardPackageCard):
  * @returns The card.
  */
 export function PackageCard(props: PackageCardProps) {
-  const { card } = props;
+  const { card, isEditing = false } = props;
   const { packages, canRead, isPending } = useInstalledPackages();
   const found = packages.find((each) => each.id === card.packageId);
   const declared = found?.ui?.cards.find((each) => each.id === card.cardId);
@@ -132,22 +159,26 @@ export function PackageCard(props: PackageCardProps) {
 
   const why = whyNotDrawn(found, card);
 
-  if (why !== null || found === undefined) {
+  if (why !== null || found === undefined || declared === undefined) {
     return <Placeholder title={title} note={why ?? ''} />;
   }
 
   return (
-    <CardFrame label={title}>
+    <CardFrame label={title} {...(declared.padding === 'none' ? { className: 'p-0' } : {})}>
       <PackageSlot
         found={found}
+        className="h-full"
         target={{
           kind: 'card',
           props: {
             packageId: card.packageId,
             cardId: card.cardId,
-            options: card.options,
-            size: packageCardSizeOf(card),
+            name: declared.name,
             title: card.title,
+            size: packageCardSizeOf(card),
+            // The options are the card's own fields, which its inspector holds to their types.
+            options: packageCardOptionsOf(declared, card.options) as CardProps['options'],
+            isEditing,
           },
         }}
         loading={<span className="sr-only">Loading {title}…</span>}

@@ -1,13 +1,14 @@
 /**
- * A package's dashboard card: drawn by the package while it runs, with its hooks speaking for
- * it; and, when it cannot be drawn, a card that says whose it is and why.
+ * A package's dashboard card: drawn by the package while it runs, inside its own scoped element,
+ * with its hooks speaking for it; and, when it cannot be drawn, a card that says whose it is and
+ * why.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ApiPackage, DashboardPackageCard } from '@nebulahome/contracts';
-import { usePackage, type PackageCardProps } from '@nebulahome/package-ui';
+import { usePackage, type CardProps } from '@nebulahome/package-sdk/ui';
 
 import { useSession } from '@/auth/session-store';
 import type * as PackagesApi from '@/packages/api';
@@ -15,7 +16,7 @@ import { fetchPackages } from '@/packages/api';
 import { importModule } from '@/packages/import-module';
 import { aPackage } from '@/testing/package-fixtures';
 
-import { PackageCard, packageCardSizeOf } from './package-card';
+import { PackageCard, packageCardOptionsOf, packageCardSizeOf } from './package-card';
 
 vi.mock('@/packages/import-module', () => ({ importModule: vi.fn() }));
 vi.mock('@/packages/api', async (original) => ({
@@ -43,13 +44,14 @@ const CARD: DashboardPackageCard = {
  * @param props - What the interface draws it with.
  * @returns The card's inside.
  */
-function BrokerCard(props: PackageCardProps) {
+function BrokerCard(props: CardProps) {
   const found = usePackage();
   const topic = props.options['topic'];
 
   return (
     <p>
-      {found.name} {props.size} {typeof topic === 'string' ? topic : ''}
+      {found.name} {props.name} {props.size} {typeof topic === 'string' ? topic : ''}
+      {props.isEditing ? ' editing' : ''}
     </p>
   );
 }
@@ -91,14 +93,42 @@ function signIn(permissions: readonly string[]): void {
  *
  * @param packages - What is installed.
  * @param card - The card.
+ * @param isEditing - Whether the dashboard is being edited.
  */
-function renderCard(packages: ApiPackage[], card: DashboardPackageCard = CARD): void {
+function renderCard(
+  packages: ApiPackage[],
+  card: DashboardPackageCard = CARD,
+  isEditing = false,
+): void {
   vi.mocked(fetchPackages).mockResolvedValue(packages);
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <PackageCard card={card} />
+      <PackageCard card={card} isEditing={isEditing} />
     </QueryClientProvider>,
   );
+}
+
+/**
+ * A package's entry, as the SDK's build generates it, with the cards given.
+ *
+ * @param cards - The cards' components, by id.
+ * @returns What its module exports.
+ */
+function entryWith(cards: Record<string, unknown>): Record<string, unknown> {
+  return {
+    default: {
+      kind: 'nebula.ui',
+      sdk: '1.0.0',
+      page: undefined,
+      cards: Object.fromEntries(
+        Object.entries(cards).map(([id, component]) => [
+          id,
+          async () => Promise.resolve({ default: component }),
+        ]),
+      ),
+      entityViews: {},
+    },
+  };
 }
 
 beforeEach(() => {
@@ -108,16 +138,25 @@ beforeEach(() => {
 });
 
 describe('PackageCard', () => {
-  it("is drawn by its package, whose hooks speak for it, with the card's options and size", async () => {
-    vi.mocked(importModule).mockResolvedValue({ default: { cards: { broker: BrokerCard } } });
+  it("is drawn by its package, whose hooks speak for it, with the card's name, options and size", async () => {
+    vi.mocked(importModule).mockResolvedValue(entryWith({ broker: BrokerCard }));
     renderCard([aPackage({ version: '1.0.1' })]);
 
-    expect(await screen.findByText('MQTT medium zigbee2mqtt/#')).toBeTruthy();
+    const drawn = await screen.findByText('MQTT MQTT broker medium zigbee2mqtt/#');
+
+    expect(drawn.closest('[data-nebula-package="mqtt"]')).not.toBeNull();
     expect(importModule).toHaveBeenCalledWith('/api/v1/packages/mqtt/ui/1.0.1/index.js');
   });
 
+  it('tells the card the dashboard is being edited', async () => {
+    vi.mocked(importModule).mockResolvedValue(entryWith({ broker: BrokerCard }));
+    renderCard([aPackage({ version: '1.0.3' })], CARD, true);
+
+    expect(await screen.findByText(/MQTT broker medium zigbee2mqtt\/# editing/u)).toBeTruthy();
+  });
+
   it('keeps what a package that throws draws inside the card', async () => {
-    vi.mocked(importModule).mockResolvedValue({ default: { cards: { broker: BrokenCard } } });
+    vi.mocked(importModule).mockResolvedValue(entryWith({ broker: BrokenCard }));
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     renderCard([aPackage({ version: '1.0.2' })]);
 
@@ -147,6 +186,44 @@ describe('PackageCard', () => {
 
     expect(screen.getByText("A package's card, which your role does not show.")).toBeTruthy();
     expect(fetchPackages).not.toHaveBeenCalled();
+  });
+});
+
+describe('packageCardOptionsOf', () => {
+  it('gives an option the inspector left unset its declared default', () => {
+    const declared = aPackage().ui?.cards[0];
+
+    expect(declared).toBeDefined();
+    expect(
+      packageCardOptionsOf(
+        {
+          id: 'broker',
+          name: 'MQTT broker',
+          icon: 'router',
+          sizes: ['small'],
+          padding: 'default',
+          options: [
+            {
+              key: 'topic',
+              type: 'text',
+              label: 'Topic',
+              isRequired: false,
+              maxLength: 512,
+              default: '#',
+            },
+            {
+              key: 'qos',
+              type: 'number',
+              label: 'QoS',
+              isRequired: false,
+              isInteger: true,
+              default: 0,
+            },
+          ],
+        },
+        { topic: 'zigbee2mqtt/#' },
+      ),
+    ).toEqual({ topic: 'zigbee2mqtt/#', qos: 0 });
   });
 });
 

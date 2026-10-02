@@ -126,8 +126,7 @@ export function CustomControl(props: ControlProps) {
           found={found}
           target={{
             kind: 'entityView',
-            type: viewType,
-            props: { entityId: entity.entityId },
+            props: { packageId: found.id, entityId: entity.entityId, type: viewType },
           }}
           loading={<FieldList type={type} values={values} />}
           renderProblem={(message) => (

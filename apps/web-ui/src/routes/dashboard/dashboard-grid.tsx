@@ -600,7 +600,7 @@ export function DashboardGrid(props: DashboardGridProps) {
             )}
             inert={editor !== null}
           >
-            <CardView card={card} data={data} />
+            <CardView card={card} data={data} isEditing={editor !== null} />
           </div>
         )}
 
@@ -719,7 +719,7 @@ export function DashboardGrid(props: DashboardGridProps) {
                 place={place}
               />
             ) : (
-              <CardView card={carried} data={data} />
+              <CardView card={carried} data={data} isEditing />
             )}
           </div>
         </div>
