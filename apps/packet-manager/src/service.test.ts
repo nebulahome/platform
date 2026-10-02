@@ -3,7 +3,7 @@
  * image's packages started in order, one installed from the index with what it needs, a package
  * waiting for another and following it down and up, and removals refused and made.
  */
-import { rm, stat } from 'node:fs/promises';
+import { rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -68,6 +68,7 @@ async function setUp(): Promise<{
   synced: SyncPackageRequest[];
   work: string;
   again: () => PacketManager;
+  reconciled: unknown[];
 }> {
   const work = await scratch();
 
@@ -159,12 +160,16 @@ async function setUp(): Promise<{
       return { devices: [], refused: [], kept: [] };
     },
   );
+  const reconciled: unknown[] = [];
+
   platform.serve(
     busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.reconcile),
     z.unknown(),
-    () => ({
-      containers: [],
-    }),
+    (request) => {
+      reconciled.push(request);
+
+      return { containers: [] };
+    },
   );
   platform.serve(busSubjects.service(HUB_SERVICE, HUB_CATALOGUE_METHOD), z.unknown(), () => ({
     vendors: [],
@@ -212,7 +217,7 @@ async function setUp(): Promise<{
     return made;
   };
 
-  return { manager: again(), store, transport, synced, work, again };
+  return { manager: again(), store, transport, synced, work, again, reconciled };
 }
 
 /**
@@ -340,6 +345,45 @@ describe('the packet-manager', () => {
 
     expect(told).toHaveLength(1);
     expect(await states(next)).toMatchObject({ ticker: 'starting' });
+  });
+
+  it('hands the supervisor a package’s compose file, its settings as the file’s variables', async () => {
+    const { manager, work, again, reconciled } = await setUp();
+
+    await manager.start();
+    await manager.stop();
+
+    const root = await writePackage(
+      path.join(work, 'pkgs', 'recorder'),
+      manifest({
+        id: 'recorder',
+        runtime: 'container',
+        compose: { file: './compose.yaml' },
+        setup: './setup.json',
+      }),
+      {
+        transport: { fields: [{ key: 'apiToken', type: 'text', label: 'Token', default: 'abc' }] },
+      },
+    );
+
+    const file = ['services:', '  server:', '    image: x:1', ''].join('\n');
+
+    await writeFile(path.join(root, 'compose.yaml'), file);
+
+    const next = again();
+
+    await next.start();
+
+    expect(reconciled.at(-1)).toMatchObject({
+      ownerKind: 'package',
+      composeProjects: [
+        {
+          packageId: 'recorder',
+          file,
+          values: { NEBULA_SETUP_API_TOKEN: 'abc' },
+        },
+      ],
+    });
   });
 
   it('keeps a sealed secret the owner left as it was', async () => {

@@ -42,6 +42,7 @@ import {
   ConflictError,
   CORE_SERVICE,
   CORE_SYNC_PACKAGE_METHOD,
+  composeVariableOf,
   dependentsOf,
   describeDependencyProblem,
   HUB_CATALOGUE_METHOD,
@@ -123,6 +124,21 @@ type Entry = {
   /** The release to go back to if the one just updated to fails, until it has run a while. */
   rollbackTo: { readonly version: string; readonly untilMs: number } | undefined;
 };
+
+/**
+ * A package's settings as its compose file's variables: `NEBULA_SETUP_<KEY>`, each value as text.
+ *
+ * @param settings - The settings, secrets opened.
+ * @returns The variables.
+ */
+function composeValuesOf(settings: JsonObject): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(settings).map(([key, value]) => [
+      composeVariableOf(key),
+      typeof value === 'string' ? value : JSON.stringify(value),
+    ]),
+  );
+}
 
 /**
  * Says whether a value is the mask a sealed secret is served as.
@@ -762,7 +778,12 @@ export class PacketManager {
         );
 
         if (parsed.success) {
-          const entry = this.#entryOf(row, { root, manifest: parsed.data, setup: null });
+          const entry = this.#entryOf(row, {
+            root,
+            manifest: parsed.data,
+            setup: null,
+            compose: null,
+          });
 
           this.#entries.set(row.id, entry);
           // eslint-disable-next-line no-await-in-loop -- see above
@@ -1203,7 +1224,10 @@ export class PacketManager {
 
   // --- containers ---------------------------------------------------------------------------
 
-  /** Hands the supervisor every container the packages that should run declare, whole. */
+  /**
+   * Hands the supervisor every container the packages that should run declare, and every
+   * compose project they run, whole.
+   */
   async #reconcileContainers(): Promise<void> {
     const vendors = [...this.#entries.values()]
       .filter(
@@ -1232,10 +1256,24 @@ export class PacketManager {
         }
       });
 
+    const composeProjects = [...this.#entries.values()].flatMap((entry) =>
+      entry.files.compose === null ||
+      entry.row.state === 'stopped' ||
+      entry.row.state === 'disabled'
+        ? []
+        : [
+            {
+              packageId: entry.row.id,
+              file: entry.files.compose,
+              values: composeValuesOf(this.#settingsOf(entry)),
+            },
+          ],
+    );
+
     try {
       await this.#options.client.request(
         busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.reconcile),
-        { ownerKind: 'package', vendors },
+        { ownerKind: 'package', vendors, composeProjects },
         managedReplySchema,
         { timeoutMs: CALL_TIMEOUT_MS },
       );

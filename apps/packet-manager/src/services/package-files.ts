@@ -11,6 +11,7 @@ import path from 'node:path';
 
 import {
   integrationSetupSchema,
+  PACKAGE_COMPOSE_MAXIMUM_BYTES,
   packageManifestSchema,
   ValidationError,
   type IntegrationSetup,
@@ -25,6 +26,9 @@ export type PackageFiles = {
   readonly root: string;
   readonly manifest: PackageManifest;
   readonly setup: IntegrationSetup | null;
+
+  /** The compose file it runs, as its release carries it; null for a package that runs none. */
+  readonly compose: string | null;
 };
 
 /**
@@ -80,7 +84,19 @@ export async function readPackageFiles(root: string): Promise<PackageFiles> {
     setup = read.data;
   }
 
-  return { root, manifest, setup };
+  let compose: string | null = null;
+
+  if (manifest.compose !== undefined) {
+    compose = await readFile(path.join(root, manifest.compose.file), 'utf8');
+
+    if (Buffer.byteLength(compose) > PACKAGE_COMPOSE_MAXIMUM_BYTES) {
+      throw new ValidationError(`${manifest.compose.file} is larger than a compose file may be`, {
+        details: { root },
+      });
+    }
+  }
+
+  return { root, manifest, setup, compose };
 }
 
 /**
