@@ -14,7 +14,7 @@ import path from 'node:path';
 
 import type { Plugin } from 'vite';
 
-import { isRecord } from '../build/fields.js';
+import { isRecord } from '../generate/fields.js';
 import { SDK_VERSION } from '../version.js';
 
 import { loadPackage } from './load.js';

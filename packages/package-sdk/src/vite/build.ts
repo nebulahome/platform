@@ -12,10 +12,10 @@ import path from 'node:path';
 
 import { build, resolveConfig, type LogLevel } from 'vite';
 
-import { composeFileProblems } from '../build/compose.js';
-import { isRecord } from '../build/fields.js';
-import { generatePackage, RELEASE_PATHS, type GeneratedPackage } from '../build/manifest.js';
-import { PackageConfigError } from '../build/problems.js';
+import { composeFileProblems } from '../generate/compose.js';
+import { isRecord } from '../generate/fields.js';
+import { generatePackage, RELEASE_PATHS, type GeneratedPackage } from '../generate/manifest.js';
+import { PackageConfigError } from '../generate/problems.js';
 import { SDK_VERSION } from '../version.js';
 
 import { loadPackage } from './load.js';

@@ -14,10 +14,10 @@ import { create } from 'tar';
 
 import { packageReleaseSchema } from '@nebulahome/contracts';
 
-import { isRecord } from '../build/fields.js';
-import { RELEASE_PATHS } from '../build/manifest.js';
-import { PackageConfigError } from '../build/problems.js';
 import { githubEnvironment } from '../config.js';
+import { isRecord } from '../generate/fields.js';
+import { RELEASE_PATHS } from '../generate/manifest.js';
+import { PackageConfigError } from '../generate/problems.js';
 
 /** What packing takes. */
 export type PackOptions = {

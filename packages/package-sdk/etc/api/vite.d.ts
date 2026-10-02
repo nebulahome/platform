@@ -1,5 +1,5 @@
 import { LogLevel, Plugin } from "vite";
-//#region src/build/problems.d.ts
+//#region src/generate/problems.d.ts
 /**
  * What is wrong with a package's declaration, every problem at once and each with where it is,
  * so an author fixes them in one pass rather than one build at a time.
@@ -16,7 +16,7 @@ export declare class PackageConfigError extends Error {
   constructor(problems: readonly string[]);
 }
 //#endregion
-//#region src/build/manifest.d.ts
+//#region src/generate/manifest.d.ts
 /** What a release holds, generated. */
 type GeneratedPackage = {
   /** `nebula.package.json`, as the platform reads it. */

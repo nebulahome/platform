@@ -13,7 +13,7 @@ export default [
   // Vite plugin and the command, which bundle the manifest's schemas - and the tests may.
   {
     files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/build/**', 'src/vite/**', 'src/cli/**', 'src/**/*.test.{ts,tsx}'],
+    ignores: ['src/generate/**', 'src/vite/**', 'src/cli/**', 'src/**/*.test.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',

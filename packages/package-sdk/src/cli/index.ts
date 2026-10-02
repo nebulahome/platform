@@ -14,7 +14,7 @@
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 
-import { PackageConfigError } from '../build/problems.js';
+import { PackageConfigError } from '../generate/problems.js';
 import { buildPackage, checkPackage } from '../vite/build.js';
 
 import { packRelease } from './pack.js';
