@@ -202,7 +202,7 @@ export function ActionFields(props: ActionFieldsProps) {
       <TextField
         label="Package"
         size="compact"
-        placeholder="pkg-mqtt"
+        placeholder="weather"
         value={action.packageId}
         onChange={(event) => {
           onChange({ ...action, packageId: event.target.value });

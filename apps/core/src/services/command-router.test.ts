@@ -89,7 +89,7 @@ describe('startCommandRouter', () => {
    *
    * @param packageId - The package the adapter publishes under.
    */
-  function startAdapter(packageId = 'pkg-mqtt'): void {
+  function startAdapter(packageId = 'pkg-weather'): void {
     harness
       .clientFor(packageId)
       .serve(

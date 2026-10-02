@@ -26,8 +26,8 @@ The two do not share anything - each has its own database - and can run side by 
 ## The container
 
 NebulaHome runs as **one container**: PostgreSQL 16 with TimescaleDB, NATS with JetStream, and
-`core`, `hub`, `api`, `backup`, `supervisor`, `proxy` and `packet-manager` - which runs the packages
-the image ships, the house's MQTT broker among them - supervised by s6-overlay
+`core`, `hub`, `api`, `backup`, `supervisor`, `proxy` and `packet-manager` - which installs and runs
+the packages, the house's MQTT broker among them - supervised by s6-overlay
 (ARCHITECTURE.md §14). It is built from `../Dockerfile` and runs on Linux only; there is no Windows
 build of the runtime. Beside it run the containers an integration needs - zigbee2mqtt for Zigbee -
 which the platform downloads and runs itself through Docker's socket (below).
@@ -86,10 +86,12 @@ In order, each once the one before is ready:
 6. `core`, `hub`, `api` (`127.0.0.1:4100`), `backup`, `supervisor`, `proxy` (`8080`, `8443`),
    `packet-manager`. Each connects to the database as its own role (DATABASE.md §12); `backup`
    runs as root, for the mounts, and `supervisor` as root, the one process given Docker's socket.
-7. The packages the image ships, run by `packet-manager`: `mqtt`, the house's MQTT broker, on
-   `1883` of every address of the container - devices on the network connect to it with a
-   username added on its page, the containers an integration runs reach it as `nebulahome:1883`
-   with one of their own, and the hub on loopback with its own.
+7. The packages, run by `packet-manager` - which installs the house's MQTT broker, the `mqtt`
+   package, by itself when no package provides `mqtt-broker`. It listens on `1883` of every address
+   of the container: devices on the network connect to it with a username added on its page, the
+   containers an integration runs reach it as `nebulahome:1883` with one of their own, and the hub
+   on loopback with its own. Under `pnpm docker:up` the local folder, `infra/local-packages`, is
+   mounted at `/app/local-packages`.
 
 The ports are not the usual ones on purpose: on the host's network the container shares the
 machine's ports, and must not collide with the development stack.
@@ -224,8 +226,9 @@ integrations catalogue exists - the image carries them too.
 
 The services run on the machine with `pnpm dev`; only the database and the bus are containers -
 the `postgres` and `nats` services of the same compose file, started by name. The MQTT broker is
-the `mqtt` package, which `pnpm dev` builds and `packet-manager` runs on this machine's `1883` -
-parked in `parked/pkg-mqtt` while the package SDK is rewritten, so for now there is none:
+the `mqtt` package, from its own repository (`nebula-home/pkg-mqtt`): `packet-manager` installs it
+by itself when no package provides `mqtt-broker` and runs it on this machine's `1883`. Until the
+package index exists, put its archive in `infra/local-packages` (`local-packages/README.md`):
 
 ```bash
 pnpm infra:up           # PostgreSQL and NATS; waits until they are healthy

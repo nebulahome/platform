@@ -1,7 +1,7 @@
 /**
  * An MQTT broker for the integration tests: aedes in this process, on a port of its own, letting
- * anyone in - what the development stack's Mosquitto was before the house's broker became
- * `pkg-mqtt`.
+ * anyone in - what the development stack's Mosquitto was before the house's broker became a
+ * package.
  *
  * Started once for the whole run by vitest's global setup; each file reads its address with
  * `inject('mqttUrl')`.

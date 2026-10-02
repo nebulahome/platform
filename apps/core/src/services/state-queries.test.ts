@@ -26,7 +26,7 @@ describe('state queries', () => {
 
     harness.registry.apply(
       { entityId: bulb, state: { on_off: { isOn: true } } },
-      { source: 'pkg-mqtt' },
+      { source: 'pkg-weather' },
     );
     harness.registry.apply(
       { entityId: thermometer, state: { sensor_numeric: { value: 21.5 } } },
@@ -87,7 +87,7 @@ describe('state queries', () => {
   it('reflects a change made after the service started', async () => {
     harness.registry.apply(
       { entityId: bulb, state: { on_off: { isOn: false } } },
-      { source: 'pkg-mqtt' },
+      { source: 'pkg-weather' },
     );
 
     const state = await harness

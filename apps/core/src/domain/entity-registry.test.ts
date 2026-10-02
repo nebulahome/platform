@@ -27,7 +27,7 @@ describe('EntityRegistry', () => {
    * @returns What the report did.
    */
   const report = (report: StateReport): ReturnType<EntityRegistry['apply']> =>
-    registry.apply(report, { source: 'pkg-mqtt' });
+    registry.apply(report, { source: 'pkg-weather' });
 
   it('treats the first report as a change', () => {
     const result = report({ entityId: bulb, state: { on_off: { isOn: true } } });
@@ -152,7 +152,7 @@ describe('EntityRegistry', () => {
       isAvailable: true,
       lastChanged: T0,
       lastUpdated: T0,
-      source: 'pkg-mqtt',
+      source: 'pkg-weather',
     };
 
     registry.seed(stored);
@@ -168,7 +168,7 @@ describe('EntityRegistry', () => {
       { source: 'pkg-wifi' },
     );
 
-    expect(registry.entitiesOf('pkg-mqtt')).toStrictEqual([bulb]);
+    expect(registry.entitiesOf('pkg-weather')).toStrictEqual([bulb]);
     expect(registry.entitiesOf('pkg-wifi')).toStrictEqual([thermometer]);
   });
 
@@ -177,7 +177,7 @@ describe('EntityRegistry', () => {
     const runId = '01234567-89ab-4cde-8f01-23456789abcd';
     const result = registry.apply(
       { entityId: bulb, state: { on_off: { isOn: true } } },
-      { source: 'pkg-mqtt', context: { type: 'automation', id: runId } },
+      { source: 'pkg-weather', context: { type: 'automation', id: runId } },
     );
 
     expect(result.current.context).toStrictEqual({ type: 'automation', id: runId });

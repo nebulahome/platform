@@ -175,8 +175,8 @@ export type ManagedMqtt = {
 export type OpenMqtt = (options: ManagedMqttOptions) => ManagedMqtt;
 
 /**
- * The house's MQTT broker, as the hub reaches it: `pkg-mqtt`, with the hub's own username - or the
- * broker `NEBULA_MQTT_URL` names. Read again each time it is needed: the broker may start after
+ * The house's MQTT broker, as the hub reaches it: the package that provides `mqtt-broker`, with
+ * the hub's own username - or the broker `NEBULA_MQTT_URL` names. Read again each time it is needed: the broker may start after
  * the hub, and a bundle that opens a session later finds it then.
  */
 export type PlatformMqtt = {

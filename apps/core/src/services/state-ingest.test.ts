@@ -76,7 +76,7 @@ describe('startStateIngest', () => {
   });
 
   it("sends a numeric sensor's reading to the telemetry stream, and a held value once", async () => {
-    const adapter = harness.clientFor('pkg-mqtt');
+    const adapter = harness.clientFor('pkg-weather');
 
     for (const value of [21.5, 21.5, 21.5, 22]) {
       adapter.publish(busSubjects.stateReport(thermometer), {
@@ -94,7 +94,7 @@ describe('startStateIngest', () => {
   });
 
   it('sends nothing for an unreachable sensor, nor for anything but a sensor', async () => {
-    const adapter = harness.clientFor('pkg-mqtt');
+    const adapter = harness.clientFor('pkg-weather');
 
     adapter.publish(busSubjects.stateReport(thermometer), {
       entityId: thermometer,
@@ -114,7 +114,7 @@ describe('startStateIngest', () => {
   });
 
   it('applies a report from the owning adapter', async () => {
-    harness.clientFor('pkg-mqtt').publish(busSubjects.stateReport(bulb), {
+    harness.clientFor('pkg-weather').publish(busSubjects.stateReport(bulb), {
       entityId: bulb,
       state: { on_off: { isOn: true } },
     });
@@ -125,7 +125,7 @@ describe('startStateIngest', () => {
   });
 
   it('writes one history row and one cache row per change', async () => {
-    harness.clientFor('pkg-mqtt').publish(busSubjects.stateReport(bulb), {
+    harness.clientFor('pkg-weather').publish(busSubjects.stateReport(bulb), {
       entityId: bulb,
       state: { level: { level: 40 } },
     });
@@ -161,7 +161,7 @@ describe('startStateIngest', () => {
   });
 
   it('keeps a new picture in the cache and out of the history', async () => {
-    harness.clientFor('pkg-mqtt').publish(busSubjects.stateReport(robotMap), {
+    harness.clientFor('pkg-weather').publish(busSubjects.stateReport(robotMap), {
       entityId: robotMap,
       state: { image: { contentType: 'image/svg+xml', revision: 'a1b2c3' } },
     });
@@ -175,7 +175,7 @@ describe('startStateIngest', () => {
   });
 
   it('writes nothing when a sensor repeats itself', async () => {
-    const adapter = harness.clientFor('pkg-mqtt');
+    const adapter = harness.clientFor('pkg-weather');
 
     adapter.publish(busSubjects.stateReport(thermometer), {
       entityId: thermometer,
@@ -216,7 +216,7 @@ describe('startStateIngest', () => {
 
   it('refuses a report whose subject and payload name different entities', async () => {
     // Guessing which of the two to believe is how a report ends up applied to the wrong light.
-    harness.clientFor('pkg-mqtt').publish(busSubjects.stateReport(hallway), {
+    harness.clientFor('pkg-weather').publish(busSubjects.stateReport(hallway), {
       entityId: bulb,
       state: { on_off: { isOn: true } },
     });
@@ -228,7 +228,7 @@ describe('startStateIngest', () => {
   });
 
   it('refuses a report for an entity nobody registered', async () => {
-    harness.clientFor('pkg-mqtt').publish(busSubjects.stateReport(hallway), {
+    harness.clientFor('pkg-weather').publish(busSubjects.stateReport(hallway), {
       entityId: hallway,
       state: { on_off: { isOn: true } },
     });
@@ -241,7 +241,7 @@ describe('startStateIngest', () => {
   it('ignores a report for an entity the owner disabled', async () => {
     harness.directory.set(entityRecord(hallway, { isEnabled: false }));
 
-    harness.clientFor('pkg-mqtt').publish(busSubjects.stateReport(hallway), {
+    harness.clientFor('pkg-weather').publish(busSubjects.stateReport(hallway), {
       entityId: hallway,
       state: { on_off: { isOn: true } },
     });
@@ -252,7 +252,7 @@ describe('startStateIngest', () => {
   });
 
   it('drops a report whose payload does not match the capability schema', async () => {
-    harness.clientFor('pkg-mqtt').publish(busSubjects.stateReport(bulb), {
+    harness.clientFor('pkg-weather').publish(busSubjects.stateReport(bulb), {
       entityId: bulb,
       state: { level: { level: 'very bright' } },
     });
@@ -264,7 +264,7 @@ describe('startStateIngest', () => {
 
   it('keeps serving after a rejected report', async () => {
     // One misbehaving adapter must not silently stop every state report in the house.
-    const adapter = harness.clientFor('pkg-mqtt');
+    const adapter = harness.clientFor('pkg-weather');
 
     adapter.publish(busSubjects.stateReport(bulb), { entityId: bulb, state: { level: {} } });
     adapter.publish(busSubjects.stateReport(bulb), {
@@ -290,7 +290,7 @@ describe('startStateIngest', () => {
         },
       );
 
-    const adapter = harness.clientFor('pkg-mqtt');
+    const adapter = harness.clientFor('pkg-weather');
 
     adapter.publish(busSubjects.stateReport(bulb), {
       entityId: bulb,

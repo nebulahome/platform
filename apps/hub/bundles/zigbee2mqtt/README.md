@@ -10,14 +10,15 @@ container of its own beside its MQTT broker: the first bundle that depends on a 
 coordinator ── USB or tcp:// ──> Zigbee2MQTT (container nebulahome-zigbee2mqtt)
                                       │ MQTT, base topic zigbee2mqtt
                                       v
-                                 pkg-mqtt, the house's broker (a system package)
+                                 the house's broker (the package that provides mqtt-broker)
                                       │
                                       v
                                  hub: zigbee2mqtt/mqtt ──> the bridge and every Zigbee device
 ```
 
-The bundle `requires` the `mqtt-broker` service, which the `mqtt` package provides: until the
-broker runs, its devices are not added and its page says so, and its listener waits for it. The
+The bundle `requires` the `mqtt-broker` service, which the `mqtt` package provides - or another
+that stands in for it: until the broker runs, its devices are not added and its page says so, and
+its listener waits for it. The
 container is given a username of its own on the broker, held to the topics it declares
 (`mqttTopics`: `zigbee2mqtt/#`).
 

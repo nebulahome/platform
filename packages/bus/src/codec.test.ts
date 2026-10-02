@@ -35,7 +35,10 @@ describe('createEnvelope', () => {
 
 describe('decodeEnvelope', () => {
   it('round-trips a payload', () => {
-    const sent = createEnvelope({ entityId: 'light.kitchen', level: 40 }, { source: 'pkg-mqtt' });
+    const sent = createEnvelope(
+      { entityId: 'light.kitchen', level: 40 },
+      { source: 'pkg-weather' },
+    );
     const received = decodeEnvelope(encodeEnvelope(sent), 'nebula.v1.x', payloadSchema);
 
     expect(received.payload).toStrictEqual({ entityId: 'light.kitchen', level: 40 });
@@ -44,7 +47,7 @@ describe('decodeEnvelope', () => {
   });
 
   it('rejects a payload that does not match the subject schema', () => {
-    const sent = createEnvelope({ entityId: 'light.kitchen' }, { source: 'pkg-mqtt' });
+    const sent = createEnvelope({ entityId: 'light.kitchen' }, { source: 'pkg-weather' });
 
     expect(() => decodeEnvelope(encodeEnvelope(sent), 'nebula.v1.x', payloadSchema)).toThrow(
       ValidationError,
@@ -52,7 +55,7 @@ describe('decodeEnvelope', () => {
   });
 
   it('names the offending field, so the log says what to fix', () => {
-    const sent = createEnvelope({ entityId: 'light.kitchen' }, { source: 'pkg-mqtt' });
+    const sent = createEnvelope({ entityId: 'light.kitchen' }, { source: 'pkg-weather' });
 
     try {
       decodeEnvelope(encodeEnvelope(sent), 'nebula.v1.x', payloadSchema);
@@ -88,7 +91,7 @@ describe('decodeEnvelope', () => {
     const sent = createEnvelope(
       { observedAt: new Date('2026-09-04T10:35:19.852Z') },
       {
-        source: 'pkg-mqtt',
+        source: 'pkg-weather',
       },
     );
 
@@ -101,7 +104,7 @@ describe('decodeEnvelope', () => {
 describe('peekEnvelopeHeader', () => {
   it('recovers the trace id of a message whose payload is wrong', () => {
     // So the rejection is logged under the same identifier as the work that produced it.
-    const sent = createEnvelope({ nonsense: true }, { source: 'pkg-mqtt' });
+    const sent = createEnvelope({ nonsense: true }, { source: 'pkg-weather' });
     const header = peekEnvelopeHeader(encodeEnvelope(sent));
 
     expect(header?.traceId).toBe(sent.traceId);

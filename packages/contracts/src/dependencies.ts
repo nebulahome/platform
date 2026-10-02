@@ -3,8 +3,8 @@
  *
  * A package's manifest - and a vendor's - says what it needs (`requires`): the platform in a
  * version range, packages by id and range, and services by name, which any package that
- * `provides` them satisfies - Zigbee2MQTT needs `mqtt-broker`, not `pkg-mqtt` itself, so a package
- * with another broker may stand in. This file is the one reading of those declarations, shared by
+ * `provides` them satisfies - Zigbee2MQTT needs `mqtt-broker`, not the `mqtt` package itself, so a
+ * package with another broker may stand in. This file is the one reading of those declarations, shared by
  * the packet-manager (what to install, in which order, and what may be removed), `hub` (which
  * vendors wait for a package) and `api` (why a request is refused):
  *

@@ -24,13 +24,13 @@ describe('requestResync', () => {
   beforeEach(() => {
     harness = createCoreHarness();
 
-    harness.directory.set(entityRecord(bulb, { source: 'pkg-mqtt' }));
+    harness.directory.set(entityRecord(bulb, { source: 'pkg-weather' }));
     harness.directory.set(entityRecord(thermometer, { source: 'pkg-wifi' }));
     harness.directory.set(entityRecord(average, { source: 'derived' }));
 
     harness.registry.apply(
       { entityId: bulb, state: { on_off: { isOn: true } } },
-      { source: 'pkg-mqtt' },
+      { source: 'pkg-weather' },
     );
     harness.registry.apply(
       { entityId: thermometer, state: { sensor_numeric: { value: 21 } } },
@@ -76,35 +76,35 @@ describe('requestResync', () => {
   it('asks only the packages that actually own an entity', async () => {
     // A derived entity has no adapter behind it, so asking would be a request nobody answers and
     // a timeout at every single startup.
-    const mqtt: ResyncRequest[] = [];
+    const weather: ResyncRequest[] = [];
     const wifi: ResyncRequest[] = [];
 
-    startAdapter('pkg-mqtt', mqtt);
+    startAdapter('pkg-weather', weather);
     startAdapter('pkg-wifi', wifi);
 
     const outcome = await run();
 
-    expect(outcome.answered.toSorted()).toStrictEqual(['pkg-mqtt', 'pkg-wifi']);
+    expect(outcome.answered.toSorted()).toStrictEqual(['pkg-weather', 'pkg-wifi']);
     expect(outcome.silent).toStrictEqual([]);
-    expect(mqtt).toStrictEqual([{ reason: 'startup' }]);
+    expect(weather).toStrictEqual([{ reason: 'startup' }]);
     expect(wifi).toStrictEqual([{ reason: 'startup' }]);
   });
 
   it('marks the entities of a silent adapter unreachable', async () => {
     // A package that is not running is the expected case, not a failure to abort on. Showing
     // values nobody has confirmed since the restart would be worse than greying them out.
-    startAdapter('pkg-mqtt', []);
+    startAdapter('pkg-weather', []);
 
     const outcome = await run();
 
-    expect(outcome.answered).toStrictEqual(['pkg-mqtt']);
+    expect(outcome.answered).toStrictEqual(['pkg-weather']);
     expect(outcome.silent).toStrictEqual(['pkg-wifi']);
     expect(harness.registry.get(thermometer)?.isAvailable).toBe(false);
     expect(harness.registry.get(bulb)?.isAvailable).toBe(true);
   });
 
   it('keeps the last known values of an unreachable adapter', async () => {
-    startAdapter('pkg-mqtt', []);
+    startAdapter('pkg-weather', []);
 
     await run();
 
@@ -124,7 +124,7 @@ describe('requestResync', () => {
         },
       );
 
-    startAdapter('pkg-mqtt', []);
+    startAdapter('pkg-weather', []);
 
     await run();
 

@@ -717,21 +717,20 @@ Zigbee through Zigbee2MQTT, which NebulaHome runs itself: the first vendor that 
 **container** in its manifest - `koenkk/zigbee2mqtt`, 2.1.0 or newer - which the supervisor pulls
 and runs once the vendor is set up (the coordinator's chip, and its USB path or network address),
 and which the integration then owns. Its own transport, `zigbee2mqtt/mqtt`, one session to the
-house's broker (`sdk.platform.mqtt`, since 1.3: `pkg-mqtt`, read each time a session opens, since
-the broker may start after the hub) under the base topic, hands each message to the
-device it is about by IEEE address. Two drivers: `bridge` (declarative: online, pairing, devices,
-version) and `device` (code, a function of the SDK: every model Zigbee2MQTT supports, from its
-`exposes`). Found by its own listener on the broker, which runs where the hub hears no multicast
-too (`"lan": false`), and added on its own (`"adopt": "automatic"`): a device paired with
-Zigbee2MQTT is one the owner meant to have. **Pair devices** on its page presses the bridge's
-button (`pairing`), and waits for Zigbee2MQTT's answer; the bridge's _Pairing_ sensor says
-`enabled` while it is open, with the time left as Zigbee2MQTT says it and the devices that joined.
-A device's settings - a child lock, a calibration, the power-on behaviour - are its switches,
-numbers and selects. Its
-listener says when it hears nothing of Zigbee2MQTT on the broker, and which devices Zigbee2MQTT
-lists that are not added yet, and why. Zigbee2MQTT's own web page is always on, on the port the
-setup asks, behind a password when one is set. Its README says what each expose becomes and what
-each setting does.
+house's broker (`sdk.platform.mqtt`, since 1.3: the package that provides `mqtt-broker`, read each
+time a session opens, since the broker may start after the hub) under the base topic, hands each
+message to the device it is about by IEEE address. Two drivers: `bridge` (declarative: online,
+pairing, devices, version) and `device` (code, a function of the SDK: every model Zigbee2MQTT
+supports, from its `exposes`). Found by its own listener on the broker, which runs where the hub
+hears no multicast too (`"lan": false`), and added on its own (`"adopt": "automatic"`): a device
+paired with Zigbee2MQTT is one the owner meant to have. **Pair devices** on its page presses the
+bridge's button (`pairing`), and waits for Zigbee2MQTT's answer; the bridge's _Pairing_ sensor says
+`enabled` while it is open, with the time left as Zigbee2MQTT says it and the devices that joined. A
+device's settings - a child lock, a calibration, the power-on behaviour - are its switches, numbers
+and selects. Its listener says when it hears nothing of Zigbee2MQTT on the broker, and which devices
+Zigbee2MQTT lists that are not added yet, and why. Zigbee2MQTT's own web page is always on, on the
+port the setup asks, behind a password when one is set. Its README says what each expose becomes and
+what each setting does.
 
 ## ecovacs
 

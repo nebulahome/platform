@@ -49,7 +49,7 @@ export function silentLogger(): PlatformLogger {
 
 /** How one entity's configuration differs from the default. */
 export type EntityRecordOptions = {
-  /** Who owns it. Defaults to `pkg-mqtt`. */
+  /** Who owns it. Defaults to `pkg-weather`. */
   readonly source?: SourceRef;
 
   /** Whether the owner has left it enabled. Defaults to true. */
@@ -72,7 +72,7 @@ export function entityRecord(entityId: EntityId, options: EntityRecordOptions = 
   return {
     entityId,
     rowId: `row-${entityId}`,
-    source: options.source ?? 'pkg-mqtt',
+    source: options.source ?? 'pkg-weather',
     isEnabled: options.isEnabled ?? true,
     capabilities: new Map(
       Object.entries(capabilities).map(([capability, params]) => [

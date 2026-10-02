@@ -33,7 +33,7 @@ describe('EntityDirectory', () => {
   it('reads back what was put in', () => {
     const directory = new EntityDirectory();
 
-    directory.set(record(bulb, 'pkg-mqtt'));
+    directory.set(record(bulb, 'pkg-weather'));
 
     expect(directory.get(bulb)?.rowId).toBe('row-light.kitchen_ceiling');
     expect(directory.size).toBe(1);
@@ -48,18 +48,18 @@ describe('EntityDirectory', () => {
     // a request nobody answers and a five-second timeout at every startup.
     const directory = new EntityDirectory();
 
-    directory.set(record(bulb, 'pkg-mqtt'));
-    directory.set(record(parseEntityId('sensor.hallway_motion'), 'pkg-mqtt'));
+    directory.set(record(bulb, 'pkg-weather'));
+    directory.set(record(parseEntityId('sensor.hallway_motion'), 'pkg-weather'));
     directory.set(record(parseEntityId('switch.desk_lamp'), 'pkg-wifi'));
     directory.set(record(derived, 'derived'));
 
-    expect(directory.owningPackages().toSorted()).toStrictEqual(['pkg-mqtt', 'pkg-wifi']);
+    expect(directory.owningPackages().toSorted()).toStrictEqual(['pkg-weather', 'pkg-wifi']);
   });
 
   it('forgets an entity', () => {
     const directory = new EntityDirectory();
 
-    directory.set(record(bulb, 'pkg-mqtt'));
+    directory.set(record(bulb, 'pkg-weather'));
 
     expect(directory.remove(bulb)).toBe(true);
     expect(directory.remove(bulb)).toBe(false);

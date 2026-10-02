@@ -2,7 +2,7 @@
 #
 #   pnpm docker:up     the whole platform in one container (../Dockerfile): http://localhost:8080
 #   pnpm infra:up      only PostgreSQL and NATS, for the services run natively (pnpm dev) - the
-#                      MQTT broker is the `mqtt` package, which pnpm dev runs with them
+#                      MQTT broker is the `mqtt` package, which packet-manager installs and runs
 #
 # Settings are in infra/.env, optional (see .env.example beside this file): read both to fill in
 # this file and as the container's environment.

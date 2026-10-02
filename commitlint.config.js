@@ -45,7 +45,6 @@ export default {
         'package-runtime',
         'package-host',
         'package-sdk',
-        'pkg-mqtt',
         'icons',
         'ui',
         'infra',

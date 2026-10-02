@@ -24,7 +24,7 @@ function record(
   return {
     entityId: parseEntityId('light.kitchen_ceiling'),
     rowId: '11111111-2222-4333-8444-555555555555',
-    source: 'pkg-mqtt',
+    source: 'pkg-weather',
     isEnabled: true,
     capabilities: new Map(Object.entries(capabilities) as [CapabilityName, JsonObject][]),
     ...overrides,

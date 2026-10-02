@@ -8,7 +8,7 @@ import { toSourceRef } from './entities.js';
 
 describe('toSourceRef', () => {
   it('names the package that registered an adapter entity', () => {
-    expect(toSourceRef('adapter', 'pkg-mqtt', null)).toBe('pkg-mqtt');
+    expect(toSourceRef('adapter', 'pkg-weather', null)).toBe('pkg-weather');
   });
 
   it('names the integration instance that registered an adapter entity', () => {
