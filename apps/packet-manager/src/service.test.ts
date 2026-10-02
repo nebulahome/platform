@@ -22,6 +22,7 @@ import {
   syncPackageRequestSchema,
   type SyncPackageRequest,
 } from '@nebulahome/contracts';
+import { sealSecret } from '@nebulahome/db';
 import { createLogger } from '@nebulahome/logging';
 
 import { packetManagerEnvSchema } from './config.js';
@@ -339,6 +340,17 @@ describe('the packet-manager', () => {
 
     expect(told).toHaveLength(1);
     expect(await states(next)).toMatchObject({ ticker: 'starting' });
+  });
+
+  it('keeps a sealed secret the owner left as it was', async () => {
+    const { manager, store } = await setUp();
+    const sealed = sealSecret('s3cret', Buffer.alloc(32, 1));
+
+    await manager.start();
+    await manager.configure('cards', { password: sealed });
+    await manager.configure('cards', { password: { $sealed: true }, port: 1884 });
+
+    expect(store.rows.get('cards')?.config).toEqual({ password: sealed, port: 1884 });
   });
 
   it('installs from the index, and says what it needs and why another cannot be', async () => {

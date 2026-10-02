@@ -124,6 +124,18 @@ type Entry = {
   rollbackTo: { readonly version: string; readonly untilMs: number } | undefined;
 };
 
+/**
+ * Says whether a value is the mask a sealed secret is served as.
+ *
+ * @param value - The value.
+ * @returns True for `{ "$sealed": true }`.
+ */
+function isMask(value: unknown): boolean {
+  return (
+    typeof value === 'object' && value !== null && '$sealed' in value && value.$sealed === true
+  );
+}
+
 /** The packages. */
 export class PacketManager {
   readonly #options: PacketManagerOptions;
@@ -564,8 +576,16 @@ export class PacketManager {
     return this.#serially(async () => {
       const entry = this.#require(packageId);
       const previous = entry.row.config;
-      const changed = [...new Set([...Object.keys(previous), ...Object.keys(values)])].filter(
-        (key) => !isDeepStrictEqual(previous[key], values[key]),
+      // A secret the owner left as it was comes back as the mask it was served as: the sealed
+      // value kept here is the one that holds.
+      const kept: JsonObject = Object.fromEntries(
+        Object.entries(values).map(([key, value]) => [
+          key,
+          isMask(value) && previous[key] !== undefined ? previous[key] : value,
+        ]),
+      );
+      const changed = [...new Set([...Object.keys(previous), ...Object.keys(kept)])].filter(
+        (key) => !isDeepStrictEqual(previous[key], kept[key]),
       );
       const live = new Set(
         [
@@ -576,8 +596,8 @@ export class PacketManager {
           .map((field) => field.key),
       );
 
-      await this.#options.store.update(packageId, { config: values });
-      entry.row = { ...entry.row, config: values };
+      await this.#options.store.update(packageId, { config: kept });
+      entry.row = { ...entry.row, config: kept };
 
       if (
         entry.row.state === 'running' &&
