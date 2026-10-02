@@ -73,6 +73,55 @@ export const PACKET_MANAGER_METHODS = {
 /** The subject token a package answers its pages' calls on: `svc.<id>.rpc`. */
 export const PACKAGE_RPC_METHOD = 'rpc';
 
+/** The subject token a package hears a live change of its settings on: `svc.<id>.settings`. */
+export const PACKAGE_SETTINGS_METHOD = 'settings';
+
+/**
+ * The subject tokens under a package's id that are the platform's, never a service of the
+ * package's own: its commands, its methods, its settings, and those kept for what is planned - a
+ * package's health, its events, what it says of itself - and anything starting with `_`.
+ */
+export const RESERVED_PACKAGE_SERVICES = [
+  'command',
+  'rpc',
+  'settings',
+  'health',
+  'events',
+  'info',
+] as const;
+
+/**
+ * Says whether a service name is one a package may provide.
+ *
+ * @param name - The name.
+ * @returns False for a reserved one.
+ */
+export function isPackageServiceAllowed(name: string): boolean {
+  return !name.startsWith('_') && !RESERVED_PACKAGE_SERVICES.some((reserved) => reserved === name);
+}
+
+/** A live change of a package's settings, as its process hears it. */
+export const packageSettingsChangeSchema = z.strictObject({
+  /** Every setting as it now stands, secrets opened. */
+  values: jsonObjectSchema,
+
+  /** The keys that changed: each one of a field marked live. */
+  changed: z.array(z.string().min(1).max(64)).max(64),
+});
+
+/** A live change of a package's settings. */
+export type PackageSettingsChange = z.output<typeof packageSettingsChangeSchema>;
+
+/** Who called a package's method from its interface. */
+export const packageRpcCallerSchema = z.strictObject({
+  userId: z.string().min(1).max(64),
+  username: z.string().min(1).max(64),
+  role: z.string().min(1).max(64),
+});
+
+/** Who called a package's method. */
+export type PackageRpcCaller = z.output<typeof packageRpcCallerSchema>;
+
 /** Who may call an RPC method of a package's: anyone who may read it, or configure it. */
 export const PACKAGE_RPC_ACCESS = ['read', 'configure'] as const;
 
@@ -333,6 +382,9 @@ export type PackageEvent = z.output<typeof packageEventSchema>;
 export const packageRpcRequestSchema = z.strictObject({
   method: packageRpcMethodSchema.shape.name,
   input: jsonValueSchema.default(null),
+
+  /** Who called, when a person did through the interface. */
+  caller: packageRpcCallerSchema.optional(),
 });
 
 /** A call a package's page makes. */

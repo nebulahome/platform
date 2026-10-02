@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   packageAnnounceRequestSchema,
   packageRemoveRequestSchema,
+  isPackageServiceAllowed,
   packageRpcRequestSchema,
+  packageSettingsChangeSchema,
 } from './packet-manager.js';
 import { packageDeviceId, packageObjectPrefix, syncPackageRequestSchema } from './registration.js';
 import { ensureRequestSchema, managedContainerSpecSchema } from './supervisor.js';
@@ -47,6 +49,22 @@ describe('the packet-manager’s requests', () => {
   it('keeps a package’s data unless asked, and a call’s input is null when it has none', () => {
     expect(packageRemoveRequestSchema.parse({ packageId: 'nvr' }).isDataRemoved).toBe(false);
     expect(packageRpcRequestSchema.parse({ method: 'clients' }).input).toBeNull();
+  });
+
+  it('carries who called a method, and keeps a package’s own subjects for the platform', () => {
+    expect(
+      packageRpcRequestSchema.parse({
+        method: 'clients',
+        caller: { userId: 'u-1', username: 'ada', role: 'owner' },
+      }).caller,
+    ).toEqual({ userId: 'u-1', username: 'ada', role: 'owner' });
+    expect(isPackageServiceAllowed('recordings')).toBe(true);
+    expect(isPackageServiceAllowed('settings')).toBe(false);
+    expect(isPackageServiceAllowed('_internal')).toBe(false);
+    expect(
+      packageSettingsChangeSchema.safeParse({ values: { interval: 5 }, changed: ['interval'] })
+        .success,
+    ).toBe(true);
   });
 
   it('takes an announcement of the methods a package registered', () => {
