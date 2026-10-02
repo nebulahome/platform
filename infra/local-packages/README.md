@@ -21,3 +21,7 @@ Who reads this folder:
 - A production installation has no local folder unless `PACKET_MANAGER_LOCAL_DIR` names one.
 
 Everything here but this file is ignored by git and left out of the image.
+
+The house's MQTT broker is a package too - `mqtt`, from its own repository - and the platform
+installs it by itself when no package provides `mqtt-broker`: from the package index, or from
+here. Until there is an index to download it from, put its archive here (PACKAGES.md §2).

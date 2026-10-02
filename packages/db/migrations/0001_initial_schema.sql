@@ -267,16 +267,15 @@ CREATE TABLE auth.user_avatars (
 
 -- --------------------------------------------------------------------------------------
 
--- Where a package came from (`source`): shipped in the image, installed from the package index,
--- or put in the data directory by hand. A system package (`is_system`) - the MQTT broker - is
--- shipped in the image and is never removed, only restarted.
+-- Where a package came from (`source`): a release of the package index, or a file of the
+-- platform's local folder. Which package is the house's MQTT broker is not kept here: it is the
+-- one that provides `mqtt-broker`, and packet-manager installs one when none does.
 CREATE TABLE system.packages (
   id               text        PRIMARY KEY,
   version          text        NOT NULL,
   runtime          text        NOT NULL,
   state            text        NOT NULL DEFAULT 'installed',
   source           text        NOT NULL DEFAULT 'index',
-  is_system        boolean     NOT NULL DEFAULT false,
   manifest         jsonb       NOT NULL,   -- packageManifestSchema
   config           jsonb       NOT NULL DEFAULT '{}'::jsonb,
   previous_version text,
@@ -292,9 +291,8 @@ CREATE TABLE system.packages (
   CONSTRAINT packages_state CHECK (state IN (
     'installed', 'starting', 'running', 'stopped', 'failed', 'disabled', 'waiting-dependency'
   )),
-  CONSTRAINT packages_source CHECK (source IN ('builtin', 'index', 'local')),
-  CONSTRAINT packages_artifact_sha256 CHECK (artifact_sha256 ~ '^[0-9a-f]{64}$'),
-  CONSTRAINT packages_system_is_builtin CHECK (NOT is_system OR source = 'builtin')
+  CONSTRAINT packages_source CHECK (source IN ('index', 'local')),
+  CONSTRAINT packages_artifact_sha256 CHECK (artifact_sha256 ~ '^[0-9a-f]{64}$')
 );
 
 CREATE INDEX packages_state_idx ON system.packages (state);

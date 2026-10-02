@@ -43,11 +43,8 @@ export const packages = systemSchema.table(
     runtime: text('runtime').notNull(),
     state: text('state').notNull().default('installed'),
 
-    /** `builtin`, `index` or `local`: where it came from. */
+    /** `index` or `local`: a release of the package index, or a file of the local folder. */
     source: text('source').notNull().default('index'),
-
-    /** A package shipped in the image that is never removed, only restarted: the MQTT broker. */
-    isSystem: boolean('is_system').notNull().default(false),
 
     /** Validated against `packageManifestSchema` in `@nebulahome/contracts`. */
     manifest: jsonb('manifest').notNull(),

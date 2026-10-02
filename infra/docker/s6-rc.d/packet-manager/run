@@ -1,11 +1,10 @@
 #!/command/with-contenv sh
 # The packet-manager: installs, runs and removes packages (PACKAGES.md 4). A package's process is
 # its child, as `nebula`, with the package's own folder and the bus; a package's containers are
-# the supervisor's to run. The packages the platform ships are in /app/pkgs.
+# the supervisor's to run.
 . /etc/s6-overlay/scripts/nebula-env
 
 DATABASE_URL="$(nebula_database_url nebula_packet_manager)"
-PACKET_MANAGER_BUILTIN_DIR="${PACKET_MANAGER_BUILTIN_DIR:-/app/pkgs}"
-export DATABASE_URL PACKET_MANAGER_BUILTIN_DIR
+export DATABASE_URL
 cd /app/apps/packet-manager
 exec s6-setuidgid nebula node dist/main.js

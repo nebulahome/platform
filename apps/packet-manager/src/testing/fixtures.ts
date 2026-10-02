@@ -152,7 +152,6 @@ export function memoryStore(): PackageStore & { readonly rows: Map<string, Packa
         runtime: row.manifest.runtime,
         state: row.state,
         source: row.source,
-        isSystem: row.isSystem,
         manifest: row.manifest as unknown as JsonObject,
         config: {},
         previousVersion: null,

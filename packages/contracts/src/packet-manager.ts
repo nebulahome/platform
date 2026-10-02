@@ -166,7 +166,10 @@ export const installedPackageSchema = z.object({
   state: z.enum(PACKAGE_STATES),
   source: z.enum(PACKAGE_SOURCES),
 
-  /** Shipped in the image; never removed, only restarted. */
+  /**
+   * The only package that provides a service the house must have - the MQTT broker
+   * (PACKAGES.md 2): it is not removed or stopped while no other package provides it.
+   */
   isSystem: z.boolean(),
 
   repository: z.string().max(201).nullable(),
@@ -250,7 +253,7 @@ export const availablePackageSchema = z.object({
       changelogUrl: z.string().max(1024).nullable(),
 
       /** Whether it is a local file rather than a release of the index. */
-      source: z.enum(['index', 'local']),
+      source: z.enum(PACKAGE_SOURCES),
     })
     .nullable(),
 

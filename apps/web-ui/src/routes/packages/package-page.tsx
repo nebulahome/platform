@@ -52,7 +52,6 @@ import { PACKAGE_STATE_OF, PackageLogo } from '@/routes/packages/package-tile';
 
 /** What the sources are called under the name. */
 const SOURCE_LABELS = {
-  builtin: 'Ships with NebulaHome',
   index: 'From the package index',
   local: 'Installed from a file',
 } as const;

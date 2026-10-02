@@ -19,7 +19,7 @@ export function aPackage(overrides: Partial<ApiPackage> = {}): ApiPackage {
     category: 'protocol',
     runtime: 'node',
     state: 'running',
-    source: 'builtin',
+    source: 'index',
     isSystem: true,
     repository: 'nebula-home/pkg-mqtt',
     url: null,

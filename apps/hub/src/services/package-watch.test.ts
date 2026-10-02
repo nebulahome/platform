@@ -37,7 +37,7 @@ function broker(state: InstalledPackage['state']): InstalledPackage {
     category: 'protocol',
     runtime: 'node',
     state,
-    source: 'builtin',
+    source: 'index',
     isSystem: true,
     repository: null,
     url: null,

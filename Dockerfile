@@ -41,12 +41,12 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 
 # The tree that runs: the same layout, installed afresh with production dependencies only - the
 # web-ui's are left out, it is served as built files - and each package's built output with the
-# files it reads at runtime: the migrations, the icon catalogue, the bundles, and the packages the
-# platform ships (`pkgs/`) with their manifests and built interfaces, which packet-manager runs.
+# files it reads at runtime: the migrations, the icon catalogue and the bundles. No package ships
+# in the image: packet-manager installs them, the house's MQTT broker among them.
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     mkdir -p /app && \
     cp package.json pnpm-lock.yaml pnpm-workspace.yaml /app/ && \
-    for dir in apps/* packages/* pkgs/*; do \
+    for dir in apps/* packages/*; do \
       [ -f "$dir/package.json" ] || continue; \
       mkdir -p "/app/$dir" && cp "$dir/package.json" "/app/$dir/"; \
     done && \
@@ -54,13 +54,8 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --offline --prod --ignore-scripts \
       --filter '!@nebulahome/web-ui' --filter '!@nebulahome/ui' && \
     cd /src && \
-    for dir in apps/* packages/* pkgs/*; do \
+    for dir in apps/* packages/*; do \
       if [ -d "$dir/dist" ]; then cp -a "$dir/dist" "/app/$dir/"; fi; \
-    done && \
-    for dir in pkgs/*; do \
-      [ -f "$dir/nebula.package.json" ] || continue; \
-      tar -C "$dir" --exclude=./node_modules --exclude=./src --exclude=./dist -cf - . | \
-        tar -C "/app/$dir" -xf -; \
     done && \
     cp -a packages/db/migrations /app/packages/db/ && \
     cp packages/icons/catalogue.json /app/packages/icons/ && \
@@ -92,8 +87,7 @@ COPY --from=nats /usr/local/bin/nats-server /usr/local/bin/nats-server
 # libstdc++ for Node; cifs-utils and nfs-utils for the backup's network locations; openssl for
 # the generated keys and certificate; tzdata so a TZ is honoured; the Docker command line and its
 # compose plugin, which the supervisor runs the owner's compose projects with. The house's MQTT
-# broker is not here: it is the `mqtt` package, which /app/pkgs holds once it is back from
-# parked/pkg-mqtt.
+# broker is not here: it is a package, `mqtt`, which packet-manager installs and runs.
 RUN apk add --no-cache libstdc++ libgcc cifs-utils nfs-utils openssl tzdata xz \
     docker-cli docker-cli-compose
 

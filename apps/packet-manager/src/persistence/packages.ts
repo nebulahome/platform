@@ -22,7 +22,6 @@ export type PackageRow = {
   readonly runtime: PackageRuntime;
   readonly state: PackageState;
   readonly source: PackageSource;
-  readonly isSystem: boolean;
   readonly manifest: JsonObject;
   readonly config: JsonObject;
   readonly previousVersion: string | null;
@@ -43,7 +42,6 @@ export type PackageStore = {
     readonly id: string;
     readonly manifest: PackageManifest;
     readonly source: PackageSource;
-    readonly isSystem: boolean;
     readonly state: PackageState;
     readonly artifactSha256: string | null;
   }) => Promise<void>;
@@ -91,7 +89,6 @@ export function databasePackageStore(db: Database): PackageStore {
         runtime: row.runtime as PackageRuntime,
         state: row.state as PackageState,
         source: row.source as PackageSource,
-        isSystem: row.isSystem,
         manifest: row.manifest as JsonObject,
         config: row.config as JsonObject,
         previousVersion: row.previousVersion,
@@ -115,7 +112,6 @@ export function databasePackageStore(db: Database): PackageStore {
         runtime: row.manifest.runtime,
         state: row.state,
         source: row.source,
-        isSystem: row.isSystem,
         manifest: row.manifest,
         artifactSha256: row.artifactSha256,
       });

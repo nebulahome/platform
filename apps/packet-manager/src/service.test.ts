@@ -1,7 +1,8 @@
 /**
  * The packet-manager against a bus in memory, a store in memory and packages written here: the
- * image's packages started in order, one installed from the index with what it needs, a package
- * waiting for another and following it down and up, and removals refused and made.
+ * house's MQTT broker installed by itself from the local folder, packages installed from the index
+ * and from the folder with what they need, a package waiting for another and following it down and
+ * up, and removals refused and made.
  */
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -17,9 +18,11 @@ import {
   CORE_SYNC_PACKAGE_METHOD,
   HUB_CATALOGUE_METHOD,
   HUB_SERVICE,
+  MQTT_BROKER_SERVICE,
   SUPERVISOR_METHODS,
   SUPERVISOR_SERVICE,
   syncPackageRequestSchema,
+  type JsonObject,
   type SyncPackageRequest,
 } from '@nebulahome/contracts';
 import { sealSecret } from '@nebulahome/db';
@@ -53,16 +56,58 @@ afterEach(async () => {
 const TOOLS = manifest({
   id: 'zigbee-tools',
   version: '2.1.0',
-  requires: { packages: {}, services: ['mqtt-broker'] },
+  requires: { packages: {}, services: [MQTT_BROKER_SERVICE] },
+});
+
+/** The house's broker: a process that provides `mqtt-broker`. */
+const BROKER = manifest({
+  id: 'mqtt',
+  runtime: 'node',
+  server: { entry: './server/index.js' },
+  provides: [MQTT_BROKER_SERVICE],
 });
 
 /**
- * A packet-manager with two packages in the image - the broker, a process, and a page of cards
- * - and an index offering one more.
+ * Puts a package's release in the local folder.
  *
+ * @param work - The test's folder.
+ * @param written - Its manifest.
+ * @param setup - Its `setup.json`, when it has settings.
+ * @param extra - What else it writes into the package's folder before it is packed.
+ * @returns The package's folder, packed into `local/<id>-<version>.tgz`.
+ */
+async function putLocal(
+  work: string,
+  written: JsonObject,
+  setup?: JsonObject,
+  extra?: (root: string) => Promise<void>,
+): Promise<string> {
+  const { id, version } = z.object({ id: z.string(), version: z.string() }).parse(written);
+  const source = await writePackage(path.join(work, 'sources', `${id}-${version}`), written, setup);
+
+  await extra?.(source);
+  await archiveOf(source, path.join(work, 'local', `${id}-${version}.tgz`));
+
+  return source;
+}
+
+/** What a test sets up differently. */
+type SetUpOptions = {
+  /** Whether the local folder holds the broker; it does when not said. */
+  readonly hasBroker?: boolean;
+
+  /** The services something outside stands in for. */
+  readonly externalServices?: ReadonlySet<string>;
+};
+
+/**
+ * A packet-manager whose local folder holds the house's broker, and whose index offers one more
+ * package - and one that cannot be installed.
+ *
+ * @param options - See {@link SetUpOptions}.
  * @returns The manager, its store, the bus, what `core` was asked and the folder it works in.
  */
-async function setUp(): Promise<{
+async function setUp(options: SetUpOptions = {}): Promise<{
   manager: PacketManager;
   store: ReturnType<typeof memoryStore>;
   transport: FakeTransport;
@@ -74,19 +119,11 @@ async function setUp(): Promise<{
   const work = await scratch();
 
   folders.push(work);
+  await mkdir(path.join(work, 'local'));
 
-  const builtin = path.join(work, 'pkgs');
-
-  await writePackage(
-    path.join(builtin, 'mqtt'),
-    manifest({
-      id: 'mqtt',
-      runtime: 'node',
-      server: { entry: './server/index.js' },
-      provides: ['mqtt-broker'],
-    }),
-  );
-  await writePackage(path.join(builtin, 'cards'), manifest({ id: 'cards' }));
+  if (options.hasBroker !== false) {
+    await putLocal(work, BROKER);
+  }
 
   const source = await writePackage(path.join(work, 'source'), TOOLS);
   const archive = await archiveOf(source, path.join(work, 'tools.tgz'));
@@ -105,7 +142,7 @@ async function setUp(): Promise<{
             version: '2.1.0',
             platform: '^1.0.0',
             sdk: '^1.0.0',
-            requires: { packages: {}, services: ['mqtt-broker'] },
+            requires: { packages: {}, services: [MQTT_BROKER_SERVICE] },
             artifact: { url, size: archive.size, sha256: archive.sha256 },
             publishedAt: '2026-09-28T08:00:00Z',
           },
@@ -182,7 +219,6 @@ async function setUp(): Promise<{
     DATABASE_URL: 'postgres://nebula:nebula@localhost:5432/nebula',
     NATS_URL: 'nats://localhost:4222',
     NEBULA_SECRETS_KEY: 'a'.repeat(64),
-    PACKET_MANAGER_BUILTIN_DIR: builtin,
     NEBULA_DATA_DIR: path.join(work, 'data'),
     PACKET_MANAGER_ANNOUNCE_TIMEOUT_MS: '60000',
   });
@@ -206,6 +242,12 @@ async function setUp(): Promise<{
         ttlMs: 60_000,
         logger,
         fetch,
+
+        /**
+         * The local folder's releases.
+         *
+         * @returns Them.
+         */
         local: async () => local.entries(),
       }),
       secretsKey: Buffer.alloc(32, 1),
@@ -213,6 +255,10 @@ async function setUp(): Promise<{
       packagesDir: path.join(work, 'data', 'packages'),
       cacheDir: path.join(work, 'data', 'cache', 'packages'),
       fetch,
+      serviceRetryMs: 50,
+      ...(options.externalServices === undefined
+        ? {}
+        : { externalServices: options.externalServices }),
     });
 
     managers.push(made);
@@ -234,12 +280,12 @@ async function states(manager: PacketManager): Promise<Record<string, string>> {
 }
 
 describe('the packet-manager', () => {
-  it('installs the image’s packages as the system’s, and runs one once it announces itself', async () => {
+  it('installs the house’s MQTT broker by itself, and runs it once it announces itself', async () => {
     const { manager, store, work } = await setUp();
 
     await manager.start();
 
-    expect(await states(manager)).toEqual({ cards: 'running', mqtt: 'starting' });
+    expect(await states(manager)).toEqual({ mqtt: 'starting' });
     // Its folders are there before it runs: what it opens in them - a SQLite file - makes none.
     expect((await stat(path.join(work, 'data', 'packages', 'mqtt', 'data'))).isDirectory()).toBe(
       true,
@@ -247,7 +293,8 @@ describe('the packet-manager', () => {
     expect((await stat(path.join(work, 'data', 'cache', 'packages', 'mqtt'))).isDirectory()).toBe(
       true,
     );
-    expect(store.rows.get('mqtt')).toMatchObject({ source: 'builtin', isSystem: true });
+    expect(store.rows.get('mqtt')).toMatchObject({ source: 'local' });
+    expect((await manager.get('mqtt')).isSystem).toBe(true);
 
     await manager.announce({
       packageId: 'mqtt',
@@ -264,48 +311,44 @@ describe('the packet-manager', () => {
     });
   });
 
-  it('leaves a system package the image no longer ships as it was, and does not run it', async () => {
-    const { manager, store, work, again } = await setUp();
+  it('starts without a broker while none can be installed, and installs one once it is there', async () => {
+    const { manager, work } = await setUp({ hasBroker: false });
 
     await manager.start();
-    await manager.stop();
-    await rm(path.join(work, 'pkgs', 'mqtt'), { recursive: true, force: true });
 
-    const next = again();
+    expect(await states(manager)).toEqual({});
 
-    await next.start();
-
-    expect(await states(next)).toEqual({ cards: 'running' });
-    expect(store.rows.get('mqtt')).toMatchObject({ source: 'builtin', version: '1.0.0' });
-  });
-
-  it('fails a package built against an SDK the platform does not implement', async () => {
-    const { manager, work, again } = await setUp();
-
-    await manager.start();
-    await manager.stop();
-    await writePackage(
-      path.join(work, 'pkgs', 'future'),
-      manifest({ id: 'future', sdk: '^9.0.0' }),
-    );
-
-    const next = again();
-
-    await next.start();
-
-    expect(await next.get('future')).toMatchObject({
-      state: 'failed',
-      lastError: `FUTURE needs the NebulaHome package SDK ^9.0.0; this platform implements ${next.sdkVersion}`,
+    await putLocal(work, BROKER);
+    await vi.waitFor(async () => {
+      expect(await states(manager)).toEqual({ mqtt: 'starting' });
     });
   });
 
-  it('hands a package its settings’ defaults, and a live change without a restart', async () => {
-    const { manager, transport, work, again } = await setUp();
+  it('installs no broker while one outside the platform stands in', async () => {
+    const { manager } = await setUp({ externalServices: new Set([MQTT_BROKER_SERVICE]) });
 
     await manager.start();
-    await manager.stop();
-    await writePackage(
-      path.join(work, 'pkgs', 'ticker'),
+
+    expect(await states(manager)).toEqual({});
+  });
+
+  it('refuses a release built against an SDK the platform does not implement', async () => {
+    const { manager, work } = await setUp();
+
+    await putLocal(work, manifest({ id: 'future', sdk: '^9.0.0' }));
+    await manager.start();
+
+    // The resolver leaves out what this platform cannot run: the release is not one to install.
+    await expect(manager.install('future')).rejects.toThrow(
+      'No release of FUTURE matches * and this NebulaHome',
+    );
+  });
+
+  it('hands a package its settings’ defaults, and a live change without a restart', async () => {
+    const { manager, transport, work } = await setUp();
+
+    await putLocal(
+      work,
       manifest({
         id: 'ticker',
         runtime: 'node',
@@ -322,7 +365,6 @@ describe('the packet-manager', () => {
       },
     );
 
-    const next = again();
     const told: unknown[] = [];
     const ticker = new BusClient({ transport, source: 'ticker', logger });
 
@@ -331,33 +373,32 @@ describe('the packet-manager', () => {
 
       return {};
     });
-    await next.start();
-    await next.announce({ packageId: 'ticker', version: '1.0.0', rpcMethods: [] });
+    await manager.start();
+    await manager.install('ticker');
+    await manager.announce({ packageId: 'ticker', version: '1.0.0', rpcMethods: [] });
     await vi.waitFor(() => {
-      expect(next.logs('ticker', 20).lines.map((line) => line.text)).toContain(
+      expect(manager.logs('ticker', 20).lines.map((line) => line.text)).toContain(
         'settings {"interval":10,"port":1883}',
       );
     });
 
-    await next.configure('ticker', { interval: 5 });
+    await manager.configure('ticker', { interval: 5 });
 
     expect(told).toEqual([{ values: { interval: 5, port: 1883 }, changed: ['interval'] }]);
-    expect(await states(next)).toMatchObject({ ticker: 'running' });
+    expect(await states(manager)).toMatchObject({ ticker: 'running' });
 
-    await next.configure('ticker', { interval: 5, port: 1884 });
+    await manager.configure('ticker', { interval: 5, port: 1884 });
 
     expect(told).toHaveLength(1);
-    expect(await states(next)).toMatchObject({ ticker: 'starting' });
+    expect(await states(manager)).toMatchObject({ ticker: 'starting' });
   });
 
   it('hands the supervisor a package’s compose file, its settings as the file’s variables', async () => {
-    const { manager, work, again, reconciled } = await setUp();
+    const { manager, work, reconciled } = await setUp();
+    const file = ['services:', '  server:', '    image: x:1', ''].join('\n');
 
-    await manager.start();
-    await manager.stop();
-
-    const root = await writePackage(
-      path.join(work, 'pkgs', 'recorder'),
+    await putLocal(
+      work,
       manifest({
         id: 'recorder',
         runtime: 'container',
@@ -367,15 +408,10 @@ describe('the packet-manager', () => {
       {
         transport: { fields: [{ key: 'apiToken', type: 'text', label: 'Token', default: 'abc' }] },
       },
+      async (root) => writeFile(path.join(root, 'compose.yaml'), file),
     );
-
-    const file = ['services:', '  server:', '    image: x:1', ''].join('\n');
-
-    await writeFile(path.join(root, 'compose.yaml'), file);
-
-    const next = again();
-
-    await next.start();
+    await manager.start();
+    await manager.install('recorder');
 
     expect(reconciled.at(-1)).toMatchObject({
       ownerKind: 'package',
@@ -390,10 +426,12 @@ describe('the packet-manager', () => {
   });
 
   it('keeps a sealed secret the owner left as it was', async () => {
-    const { manager, store } = await setUp();
+    const { manager, store, work } = await setUp();
     const sealed = sealSecret('s3cret', Buffer.alloc(32, 1));
 
+    await putLocal(work, manifest({ id: 'cards' }));
     await manager.start();
+    await manager.install('cards');
     await manager.configure('cards', { password: sealed });
     await manager.configure('cards', { password: { $sealed: true }, port: 1884 });
 
@@ -414,12 +452,16 @@ describe('the packet-manager', () => {
 
     const installed = await manager.install('zigbee-tools');
 
-    expect(installed.map((item) => [item.id, item.state])).toEqual([['zigbee-tools', 'running']]);
+    expect(installed.map((item) => [item.id, item.state, item.source])).toEqual([
+      ['zigbee-tools', 'running', 'index'],
+    ]);
     expect(
       (await manager.available()).items.find((item) => item.id === 'zigbee-tools'),
     ).toMatchObject({
       installedVersion: '2.1.0',
       hasUpdate: false,
+      hasNewBuild: false,
+      latest: { source: 'index' },
     });
     expect((await manager.get('mqtt')).usedBy).toEqual([
       { kind: 'package', id: 'zigbee-tools', name: 'ZIGBEE-TOOLS' },
@@ -428,14 +470,9 @@ describe('the packet-manager', () => {
 
   it('installs a local file, and another build of its version over it', async () => {
     const { manager, work } = await setUp();
-    const source = await writePackage(
-      path.join(work, 'weather'),
-      manifest({ id: 'weather', version: '0.3.0' }),
-    );
+    const source = await putLocal(work, manifest({ id: 'weather', version: '0.3.0' }));
     const file = path.join(work, 'local', 'weather-0.3.0.tgz');
 
-    await mkdir(path.join(work, 'local'));
-    await archiveOf(source, file);
     await manager.start();
 
     /**
@@ -476,39 +513,61 @@ describe('the packet-manager', () => {
   });
 
   it('takes a package down with what it needs, and back up with it', async () => {
-    const { manager } = await setUp();
+    const { manager, work } = await setUp();
 
+    await putLocal(work, manifest({ id: 'detector', provides: ['object-detection'] }));
+    await putLocal(
+      work,
+      manifest({ id: 'viewer', requires: { packages: {}, services: ['object-detection'] } }),
+    );
     await manager.start();
-    await manager.announce({ packageId: 'mqtt', version: '1.0.0', rpcMethods: [] });
-    await manager.install('zigbee-tools');
-    await manager.stopPackage('mqtt');
 
-    expect(await states(manager)).toMatchObject({
-      mqtt: 'stopped',
-      'zigbee-tools': 'waiting-dependency',
-    });
-    expect((await manager.get('zigbee-tools')).problems).toEqual([
-      'ZIGBEE-TOOLS needs the MQTT package, which is not running',
+    expect((await manager.install('viewer')).map((item) => item.id)).toEqual([
+      'detector',
+      'viewer',
     ]);
 
-    await manager.startPackage('mqtt');
-    await manager.announce({ packageId: 'mqtt', version: '1.0.0', rpcMethods: [] });
+    await manager.stopPackage('detector');
 
-    expect(await states(manager)).toMatchObject({ mqtt: 'running', 'zigbee-tools': 'running' });
+    expect(await states(manager)).toMatchObject({
+      detector: 'stopped',
+      viewer: 'waiting-dependency',
+    });
+    expect((await manager.get('viewer')).problems).toEqual([
+      'VIEWER needs the DETECTOR package, which is not running',
+    ]);
+
+    await manager.startPackage('detector');
+
+    expect(await states(manager)).toMatchObject({ detector: 'running', viewer: 'running' });
   });
 
-  it('refuses to remove a system package or one something needs, and removes the rest with its devices', async () => {
-    const { manager, store, synced } = await setUp();
+  it('keeps the house’s last broker, removes it once another provides the service, and removes the rest with their devices', async () => {
+    const { manager, store, synced, work } = await setUp();
 
     await manager.start();
     await manager.announce({ packageId: 'mqtt', version: '1.0.0', rpcMethods: [] });
     await manager.install('zigbee-tools');
 
-    await expect(manager.remove('mqtt', false)).rejects.toThrow(/part of the platform/u);
+    await expect(manager.remove('mqtt', false)).rejects.toThrow(
+      "MQTT is the house's MQTT broker: install another package that provides mqtt-broker before removing it",
+    );
+    await expect(manager.stopPackage('mqtt')).rejects.toThrow(/before stopping it/u);
+
+    await putLocal(work, manifest({ id: 'mosquitto', provides: [MQTT_BROKER_SERVICE] }));
+    await manager.install('mosquitto');
+
+    expect((await manager.get('mqtt')).isSystem).toBe(false);
+
     await manager.remove('zigbee-tools', true);
+    await manager.remove('mqtt', false);
 
     expect(store.rows.has('zigbee-tools')).toBe(false);
-    expect(synced).toEqual([{ packageId: 'zigbee-tools', devices: [] }]);
-    expect(await states(manager)).toEqual({ cards: 'running', mqtt: 'running' });
+    expect(synced.map((each) => [each.packageId, each.devices])).toEqual([
+      ['zigbee-tools', []],
+      ['mqtt', []],
+    ]);
+    expect(await states(manager)).toEqual({ mosquitto: 'running' });
+    expect((await manager.get('mosquitto')).isSystem).toBe(true);
   });
 });

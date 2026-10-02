@@ -3,8 +3,8 @@
  *
  * Its own database role, for `system.packages`; the bus, which its packages are handed too; the
  * instance key, which opens the secrets a package's settings hold before the package is given
- * them; where the packages shipped in the image are, where the package index is, and the runner
- * a `node` package is started with.
+ * them; where the package index and the local folder are; the runner a `node` package is started
+ * with; and an external MQTT broker, which stands in for the house's own package.
  */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +15,7 @@ import {
   busEnvSchema,
   databaseEnvSchema,
   dataEnvSchema,
+  mqttEnvSchema,
   requireDataDirInProduction,
   runtimeEnvSchema,
   secretsEnvSchema,
@@ -27,12 +28,6 @@ export const SERVICE_NAME = 'packet-manager';
 /** Version this build reports on every log record. Kept in step with `package.json` by hand. */
 export const SERVICE_VERSION = '0.0.0';
 
-/** The monorepo's `pkgs/`, from where this file is built or run: the system packages in development. */
-const DEVELOPMENT_BUILTIN_DIR = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '../../../pkgs',
-);
-
 /** The repository's `infra/local-packages/`, from where this file is built or run. */
 const REPOSITORY_LOCAL_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -44,13 +39,12 @@ export const packetManagerEnvSchema = runtimeEnvSchema
   .extend(databaseEnvSchema.shape)
   .extend(busEnvSchema.shape)
   .extend(secretsEnvSchema.shape)
+  // A broker it names stands in for the house's: no package is installed to provide one.
+  .extend(mqttEnvSchema.shape)
   .extend({
-    /** The packages shipped with the platform: `/app/pkgs` in the image, `platform/pkgs` here. */
-    PACKET_MANAGER_BUILTIN_DIR: z.string().min(1).default(DEVELOPMENT_BUILTIN_DIR),
-
     /**
      * Where the package index is: a static JSON file until the Community Hub serves it. Unset,
-     * nothing is offered but the packages the platform ships.
+     * nothing is offered but what the local folder holds.
      */
     PACKAGE_INDEX_URL: urlWithScheme(['https:', 'http:']).optional(),
 

@@ -56,11 +56,10 @@ export const PACKAGE_STATES = [
 export type PackageState = (typeof PACKAGE_STATES)[number];
 
 /**
- * Where an installed package came from: shipped in the image (`builtin`, the system packages
- * among them), installed from the package index (`index`), or put in the data directory by hand
- * (`local`), which is how a package is tried before it is released.
+ * Where an installed package came from: a release of the package index (`index`), or a file of
+ * the platform's local folder (`local`), which is how a package is tried before it is released.
  */
-export const PACKAGE_SOURCES = ['builtin', 'index', 'local'] as const;
+export const PACKAGE_SOURCES = ['index', 'local'] as const;
 
 /** Where an installed package came from. */
 export type PackageSource = (typeof PACKAGE_SOURCES)[number];
