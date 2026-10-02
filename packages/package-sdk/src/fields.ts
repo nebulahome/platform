@@ -100,7 +100,7 @@ export type ChoiceOptions = FieldBase &
 
 /** What `field.list` takes: several texts, each held to the same pattern. */
 export type ListOptions = FieldBase &
-  InForm<readonly string[]> & {
+  Omit<InForm<readonly string[]>, 'default'> & {
     readonly placeholder?: string;
     readonly minItems?: number;
     readonly maxItems?: number;

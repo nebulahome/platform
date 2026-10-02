@@ -19,7 +19,7 @@ export type SettingsOf<TSettings> =
 
 /* @__NO_SIDE_EFFECTS__ */
 /**
- * Declares a package's settings, at most 64 fields, by their keys.
+ * Declares a package's settings, at most 32 fields, by their keys.
  *
  * @param fields - The fields, built with `field`.
  * @returns The settings, for `definePackage` and for the types of `ctx.settings`.
