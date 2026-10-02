@@ -145,7 +145,11 @@ export type SettingsPatch<TSettings> =
 
 /** The package's settings, to show and change. */
 export type PackageSettings<TSettings> = {
+  /** Every setting; while they are being read, the declared defaults. */
   readonly values: VisibleSettings<TSettings>;
+
+  /** Whether what was saved is still being read. */
+  readonly isLoading: boolean;
 
   /**
    * Saves some of them; a change of a field that is not live restarts the package.

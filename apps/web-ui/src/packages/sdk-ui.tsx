@@ -389,13 +389,37 @@ export function visibleSettingsOf(config: JsonObject, setup: IntegrationSetup | 
 }
 
 /**
+ * The values a settings declaration gives before anything is read: each field's default, and a
+ * secret as not saved.
+ *
+ * @param settings - The declaration, if the component passed it.
+ * @returns The values.
+ */
+export function declaredSettingsOf(settings: SettingsDefinition | undefined): JsonObject {
+  const values: Record<string, JsonValue> = {};
+
+  for (const [key, declared] of Object.entries(settings?.fields ?? {})) {
+    const field: Readonly<Record<string, unknown>> = declared;
+
+    if (field['kind'] === 'secret') {
+      values[key] = false;
+    } else if (field['default'] !== undefined) {
+      values[key] = field['default'] as JsonValue;
+    }
+  }
+
+  return values;
+}
+
+/**
  * The drawn package's settings, to show and - for whoever may configure it - to change.
  *
+ * @param settings - Their declaration, for their defaults while what was saved is read.
  * @returns Their values, a way to save some, and whether the viewer may.
  */
-function usePackageSettings<
-  TSettings extends SettingsDefinition | undefined = undefined,
->(): PackageSettings<TSettings> {
+function usePackageSettings<TSettings extends SettingsDefinition | undefined = undefined>(
+  settings?: TSettings,
+): PackageSettings<TSettings> {
   const scope = usePackage();
   const queryClient = useQueryClient();
   const canEdit = useSession((state) => state.can('package:configure'));
@@ -426,10 +450,13 @@ function usePackageSettings<
     },
   });
   const values =
-    detail.data === undefined ? {} : visibleSettingsOf(detail.data.config, detail.data.setup);
+    detail.data === undefined
+      ? declaredSettingsOf(settings)
+      : visibleSettingsOf(detail.data.config, detail.data.setup);
 
   return {
     values: values as PackageSettings<TSettings>['values'],
+    isLoading: detail.isPending,
 
     /**
      * Saves some of the settings.

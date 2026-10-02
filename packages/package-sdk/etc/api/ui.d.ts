@@ -94,7 +94,10 @@ type VisibleSettings<TSettings> = TSettings extends SettingsDefinition<infer TFi
 type SettingsPatch<TSettings> = TSettings extends SettingsDefinition<infer TFields> ? { readonly [TKey in keyof TFields]?: ValueOfField<TFields[TKey]>; } : JsonObject;
 /** The package's settings, to show and change. */
 type PackageSettings<TSettings> = {
+  /** Every setting; while they are being read, the declared defaults. */
   readonly values: VisibleSettings<TSettings>;
+  /** Whether what was saved is still being read. */
+  readonly isLoading: boolean;
   /**
    * Saves some of them; a change of a field that is not live restarts the package.
    *
