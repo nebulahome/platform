@@ -102,7 +102,7 @@ async function start(): Promise<void> {
     secretsKey: secretsKeyFrom(config.NEBULA_SECRETS_KEY),
     runner:
       config.PACKET_MANAGER_RUNNER ??
-      fileURLToPath(import.meta.resolve('@nebulahome/package-sdk/run')),
+      fileURLToPath(import.meta.resolve('@nebulahome/package-host/run')),
     packagesDir: layout.packages,
     cacheDir: `${layout.cache}/packages`,
   });

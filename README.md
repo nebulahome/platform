@@ -26,7 +26,7 @@ are not packages: they live in `apps/hub`. See PACKAGES.md, beside the architect
 | `packages/config`          | Zod-validated environment loader, data directory layout  |
 | `packages/logging`         | Shared pino factory                                      |
 | `packages/package-runtime` | Integration contract: transports, bundles, profiles      |
-| `packages/package-sdk`     | What a package's server is written with, and its runner  |
+| `packages/package-host`    | The runner of a package's process, and its context       |
 | `packages/package-ui`      | What a package's interface is written with, Vite preset  |
 | `packages/ui`              | Design system: Tailwind and shadcn/ui components         |
 | `infra/`                   | The container, docker-compose, seeds, the data directory |

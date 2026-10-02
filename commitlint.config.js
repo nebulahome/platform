@@ -43,6 +43,7 @@ export default {
         'config',
         'logging',
         'package-runtime',
+        'package-host',
         'package-sdk',
         'package-ui',
         'pkg-mqtt',

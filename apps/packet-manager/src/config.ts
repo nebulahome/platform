@@ -57,7 +57,7 @@ export const packetManagerEnvSchema = runtimeEnvSchema
       .default(21_600_000),
 
     /**
-     * The runner a `node` package is started with: `@nebulahome/package-sdk`'s, resolved from
+     * The runner a `node` package is started with: `@nebulahome/package-host`'s, resolved from
      * this service when not said.
      */
     PACKET_MANAGER_RUNNER: z.string().min(1).optional(),

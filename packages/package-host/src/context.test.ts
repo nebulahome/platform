@@ -23,7 +23,7 @@ import { createLogger } from '@nebulahome/logging';
 
 import { createPackageContext, type PackageContextHandle } from './context.js';
 
-const logger = createLogger({ service: 'package-sdk', version: '0.0.0', level: 'fatal' });
+const logger = createLogger({ service: 'package-host', version: '0.0.0', level: 'fatal' });
 
 let handle: PackageContextHandle | undefined;
 

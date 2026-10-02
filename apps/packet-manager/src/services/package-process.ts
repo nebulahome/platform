@@ -30,7 +30,7 @@ export type ProcessState =
 export type ProcessSpec = {
   readonly id: string;
 
-  /** The runner: `@nebulahome/package-sdk`'s `run.js`. */
+  /** The runner: `@nebulahome/package-host`'s `run.js`. */
   readonly runner: string;
 
   /** The package's server module, absolute. */
