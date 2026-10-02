@@ -24,10 +24,20 @@ import {
   PACKET_MANAGER_SERVICE,
 } from '@nebulahome/contracts';
 import { createLogger } from '@nebulahome/logging';
+import { SDK_VERSION } from '@nebulahome/package-sdk';
+import type { ServerContext } from '@nebulahome/package-sdk/server';
 
 import { createPackageContext } from './context.js';
 
-import type { PackageDefinition, PackageStop } from './index.js';
+/** What stops what a package's `start` opened. */
+type Stop = () => Promise<void> | void;
+
+/** A package's server, as the runner needs it: what `defineServer` made. */
+type Server = {
+  readonly kind: 'nebula.server';
+  readonly sdk: string;
+  readonly start: (ctx: ServerContext) => Promise<Stop | undefined> | Stop | undefined;
+};
 
 /** How long stopping is given before the process ends regardless. */
 const STOP_TIMEOUT_MS = 10_000;
@@ -38,6 +48,7 @@ const runnerEnvSchema = z.object({
   NEBULA_PACKAGE_VERSION: z.string().min(1).max(64),
   NEBULA_PACKAGE_DATA_DIR: z.string().min(1),
   NEBULA_PACKAGE_CACHE_DIR: z.string().min(1),
+  NEBULA_PLATFORM_VERSION: z.string().min(1).max(64).default('0.0.0'),
   NEBULA_PACKAGE_SETTINGS: z
     .string()
     .default('{}')
@@ -47,17 +58,32 @@ const runnerEnvSchema = z.object({
 });
 
 /**
- * Says whether a module's default export is a package.
+ * Says whether a module's default export is a package's server.
  *
  * @param value - The export.
- * @returns True when it has a `start`.
+ * @returns True when `defineServer` made it.
  */
-function isDefinition(value: unknown): value is PackageDefinition {
+function isServer(value: unknown): value is Server {
   return (
     typeof value === 'object' &&
     value !== null &&
-    typeof (value as { start?: unknown }).start === 'function'
+    'kind' in value &&
+    value.kind === 'nebula.server' &&
+    'sdk' in value &&
+    typeof value.sdk === 'string' &&
+    'start' in value &&
+    typeof value.start === 'function'
   );
+}
+
+/**
+ * The major version of an SDK version.
+ *
+ * @param version - The version.
+ * @returns Its first number.
+ */
+function majorOf(version: string): number {
+  return Number.parseInt(version.split('.')[0] ?? '0', 10);
 }
 
 /**
@@ -96,9 +122,26 @@ async function run(): Promise<void> {
   const loaded: unknown = await import(pathToFileURL(path.resolve(entry)).href);
   const definition = (loaded as { default?: unknown }).default;
 
-  if (!isDefinition(definition)) {
-    logger.fatal({ entry }, 'The module does not default-export definePackage({ start })');
+  if (!isServer(definition)) {
+    logger.fatal({ entry }, 'The module does not default-export defineServer({ start })');
     process.exit(EXIT_CODES.INVALID_CONFIGURATION);
+  }
+
+  if (majorOf(definition.sdk) > majorOf(SDK_VERSION)) {
+    logger.fatal(
+      { built: definition.sdk, implemented: SDK_VERSION },
+      `The package was built with package SDK ${definition.sdk}; this platform implements ${SDK_VERSION}`,
+    );
+    process.exit(EXIT_CODES.INVALID_CONFIGURATION);
+  }
+
+  // A package does not run on in a state nobody knows: what it failed to catch ends the process,
+  // which the packet-manager starts again.
+  for (const event of ['unhandledRejection', 'uncaughtException'] as const) {
+    process.on(event, (error: unknown) => {
+      logger.fatal({ err: error }, 'The package failed with an error it did not catch');
+      process.exit(EXIT_CODES.UNHANDLED_ERROR);
+    });
   }
 
   // The folders the package is handed exist before it reads them: the packet-manager makes them,
@@ -110,6 +153,7 @@ async function run(): Promise<void> {
     client,
     id: env.NEBULA_PACKAGE_ID,
     version: env.NEBULA_PACKAGE_VERSION,
+    platformVersion: env.NEBULA_PLATFORM_VERSION,
     settings: env.NEBULA_PACKAGE_SETTINGS,
     dataDir: env.NEBULA_PACKAGE_DATA_DIR,
     cacheDir: env.NEBULA_PACKAGE_CACHE_DIR,
@@ -117,7 +161,7 @@ async function run(): Promise<void> {
     signal: stopping.signal,
   });
 
-  let stop: PackageStop | undefined;
+  let stop: Stop | undefined;
 
   try {
     stop = await definition.start(handle.context);

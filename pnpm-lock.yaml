@@ -758,6 +758,9 @@ importers:
       '@nebulahome/logging':
         specifier: workspace:*
         version: link:../logging
+      '@nebulahome/package-sdk':
+        specifier: workspace:*
+        version: link:../package-sdk
       zod:
         specifier: ^4.5.4
         version: 4.5.4

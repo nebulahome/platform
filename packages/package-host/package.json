@@ -27,6 +27,7 @@
     "@nebulahome/config": "workspace:*",
     "@nebulahome/contracts": "workspace:*",
     "@nebulahome/logging": "workspace:*",
+    "@nebulahome/package-sdk": "workspace:*",
     "zod": "^4.5.4"
   },
   "devDependencies": {

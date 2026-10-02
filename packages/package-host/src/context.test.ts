@@ -2,7 +2,7 @@
  * A package's context on a bus in memory: what it serves, what it asks of `core`, what it
  * publishes - each under the package's own id.
  */
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { BusClient } from '@nebulahome/bus';
@@ -13,6 +13,7 @@ import {
   CORE_SERVICE,
   CORE_SYNC_PACKAGE_METHOD,
   PACKAGE_RPC_METHOD,
+  PACKAGE_SETTINGS_METHOD,
   packageRpcReplySchema,
   parseEntityId,
   stateReportSchema,
@@ -20,6 +21,7 @@ import {
   type SyncPackageRequest,
 } from '@nebulahome/contracts';
 import { createLogger } from '@nebulahome/logging';
+import { defineEntityType, field } from '@nebulahome/package-sdk';
 
 import { createPackageContext, type PackageContextHandle } from './context.js';
 
@@ -43,6 +45,7 @@ function setUp(): { handle: PackageContextHandle; platform: BusClient; transport
     client: new BusClient({ transport, source: 'nvr', logger, requestTimeoutMs: 500 }),
     id: 'nvr',
     version: '1.4.0',
+    platformVersion: '1.2.0',
     settings: { retentionDays: 7 },
     dataDir: '/data/packages/nvr/data',
     cacheDir: '/data/cache/packages/nvr',
@@ -155,7 +158,148 @@ describe("a package's context", () => {
 
     expect(() => {
       made.context.services.provide('rpc', () => null);
-    }).toThrow(/package's own subject/u);
+    }).toThrow(/keeps for itself/u);
+    expect(() => {
+      made.context.services.provide('_hidden', () => null);
+    }).toThrow(/keeps for itself/u);
     expect(made.context.entityId('custom', 'last')).toBe('custom.nvr_last');
+    expect(made.context.objectIdOf('custom.nvr_last')).toBe('last');
+    expect(made.context.objectIdOf('custom.other_last')).toBeUndefined();
+    expect(made.context.platform.version).toBe('1.2.0');
+  });
+
+  it('tells a method and a service who called, and checks a service’s input', async () => {
+    const { handle: made, platform } = setUp();
+    const callers: string[] = [];
+
+    made.context.rpc.method('whoami', { access: 'read' }, (input, { caller }) =>
+      input === null ? caller.username : null,
+    );
+    made.context.services.provide(
+      'count',
+      { input: z.object({ camera: z.string() }) },
+      ({ camera }, { caller }) => {
+        callers.push(caller);
+
+        return camera.length;
+      },
+    );
+
+    await expect(
+      platform.request(
+        busSubjects.service('nvr', PACKAGE_RPC_METHOD),
+        { method: 'whoami', caller: { userId: 'u-1', username: 'ada', role: 'owner' } },
+        packageRpcReplySchema,
+      ),
+    ).resolves.toEqual({ output: 'ada' });
+    await expect(
+      platform.request(busSubjects.service('nvr', 'count'), { camera: 'door' }, z.number()),
+    ).resolves.toBe(4);
+    await expect(
+      platform.request(busSubjects.service('nvr', 'count'), { camera: 1 }, z.number()),
+    ).rejects.toThrow(/does not take that input/u);
+    expect(callers).toEqual(['api']);
+    expect(() => {
+      made.context.services.provide('count', () => 0);
+    }).toThrow(/provided already/u);
+  });
+
+  it('routes a custom command to its type’s handler, and refuses a second handler', async () => {
+    const { handle: made, platform } = setUp();
+    const recording = defineEntityType({
+      id: 'recording',
+      name: 'Recording',
+      icon: 'video',
+      state: { note: field.text({ label: 'Note' }) },
+      commands: { rename: { name: 'Rename', fields: { note: field.text({ label: 'Note' }) } } },
+    });
+    const renamed: string[] = [];
+
+    platform.serve(
+      busSubjects.service(CORE_SERVICE, CORE_SYNC_PACKAGE_METHOD),
+      syncPackageRequestSchema,
+      () => ({ devices: [], refused: [], kept: [] }),
+    );
+    await made.context.devices.sync([
+      {
+        externalId: 'clips',
+        name: 'Clips',
+        entities: [{ objectId: 'last', name: 'Last', type: recording }],
+      },
+    ]);
+    made.context.custom(recording).onCommand('rename', ({ args }) => {
+      renamed.push(args.note);
+    });
+    await platform.request(
+      busSubjects.service('nvr', 'command'),
+      {
+        entityId: parseEntityId('custom.nvr_last'),
+        capability: 'custom',
+        command: { command: 'rename', args: { note: 'Garden' } },
+      },
+      adapterAckSchema,
+    );
+
+    expect(renamed).toEqual(['Garden']);
+    made.context.devices.onCommand(() => undefined);
+    expect(() => {
+      made.context.devices.onCommand(() => undefined);
+    }).toThrow(/has a handler already/u);
+  });
+
+  it('hears a live change of its settings', async () => {
+    const { handle: made, platform } = setUp();
+    const heard: unknown[] = [];
+
+    made.context.onSettingsChange((change) => {
+      heard.push(change.changed);
+    });
+    await platform.request(
+      busSubjects.service('nvr', PACKAGE_SETTINGS_METHOD),
+      { values: { retentionDays: 30 }, changed: ['retentionDays'] },
+      z.unknown(),
+    );
+
+    expect(heard).toEqual([['retentionDays']]);
+    expect(made.context.settings).toEqual({ retentionDays: 30 });
+  });
+
+  it('reads the house and follows its changes', async () => {
+    const { handle: made, platform } = setUp();
+    const kitchen = parseEntityId('sensor.kitchen_temperature');
+    const state = {
+      entityId: kitchen,
+      state: { sensor_numeric: { value: 21 } },
+      attributes: {},
+      isAvailable: true,
+      lastChanged: '2026-10-02T08:00:00.000Z',
+      lastUpdated: '2026-10-02T08:00:00.000Z',
+      source: 'pkg-weather',
+    };
+    const changes: string[] = [];
+
+    platform.serve(busSubjects.stateGet(kitchen), z.unknown(), () => state);
+    platform.serve(busSubjects.stateSnapshot(), z.unknown(), () => ({
+      entities: [state],
+      takenAt: '2026-10-02T08:00:00.000Z',
+    }));
+    made.context.entities.subscribe({ domain: 'sensor' }, (change) => {
+      changes.push(change.entityId);
+    });
+
+    expect(await made.context.entities.get(kitchen)).toEqual({
+      entityId: kitchen,
+      state: { sensor_numeric: { value: 21 } },
+      attributes: {},
+      isAvailable: true,
+      lastChanged: '2026-10-02T08:00:00.000Z',
+      lastUpdated: '2026-10-02T08:00:00.000Z',
+    });
+    expect(await made.context.entities.list({ domain: 'light' })).toEqual([]);
+
+    platform.publish(busSubjects.stateChanged(kitchen), { entityId: kitchen, current: state });
+    await vi.waitFor(() => {
+      expect(changes).toEqual([kitchen]);
+    });
   });
 });
