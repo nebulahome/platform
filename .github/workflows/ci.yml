@@ -1,0 +1,55 @@
+# The gates every change passes (RULES.md 18), on every pull request and on the integration and
+# release branches. The integration suites, the migration and contract checks and the security
+# gates need the platform's services and are not part of this workflow yet.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm turbo build
+
+      - name: Type check
+        run: pnpm turbo typecheck
+
+      - name: Lint
+        run: pnpm turbo lint
+
+      - name: Format
+        run: pnpm format:check
+
+      - name: Unit tests
+        run: pnpm turbo test
+
+      # @nebulahome/package-sdk is published: its public API changes only on purpose, and its
+      # tarball must resolve as npm and bundlers read it.
+      - name: Package SDK public API
+        run: pnpm --filter @nebulahome/package-sdk api:check
+
+      - name: Package SDK tarball
+        run: pnpm --filter @nebulahome/package-sdk check:package
