@@ -4,14 +4,18 @@
  *
  * The broker is whichever package provides `mqtt-broker` - the `mqtt` package, unless another
  * stands in - found on the packet-manager's list. It runs beside the hub and makes it a username
- * of its own the first time it is asked (`svc.<package>.credentials`); the hub asks when it starts
- * and whenever a package starts or stops, and a bundle reads the answer each time it opens a
- * session. A broker the environment names (`NEBULA_MQTT_URL`) - an external one, the tests' - is
- * used instead, and nothing is asked.
+ * of its own the first time it is asked (`svc.<package>.credentials`); a bundle reads the answer
+ * each time it opens a session. The hub asks when it starts, at every package event - one
+ * installed, started, stopped, configured with another port - and again every little while as long
+ * as it has no broker, since the broker may come up after the hub with nothing more to say. A
+ * broker the environment names (`NEBULA_MQTT_URL`) - an external one, the tests' - is used
+ * instead, and nothing is asked.
  */
-import type { BusClient } from '@nebulahome/bus';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
+  BUS_PATTERNS,
   busSubjects,
+  jsonObjectSchema,
   MQTT_BROKER_SERVICE,
   MQTT_CREDENTIALS_METHOD,
   mqttCredentialsReplySchema,
@@ -26,6 +30,9 @@ import type { PlatformMqtt } from '@nebulahome/package-runtime';
 /** How long the packet-manager and the broker each have to answer: the hub starts without them. */
 const TIMEOUT_MS = 2000;
 
+/** How often the broker is asked for again while there is none. */
+const RETRY_MS = 15_000;
+
 /** What the broker needs. */
 export type PlatformBrokerOptions = {
   readonly client: BusClient;
@@ -33,12 +40,17 @@ export type PlatformBrokerOptions = {
 
   /** The broker the environment names; null to ask the package that provides one. */
   readonly fixed: PlatformMqtt | null;
+
+  /** How often to ask again while there is no broker; fifteen seconds when not said. */
+  readonly retryMs?: number;
 };
 
 /** The broker the bundles reach. */
 export class PlatformBroker {
   readonly #options: PlatformBrokerOptions;
   #current: PlatformMqtt | null;
+  #subscription: BusSubscription | undefined;
+  #retry: NodeJS.Timeout | undefined;
 
   /**
    * Keeps the options.
@@ -57,6 +69,37 @@ export class PlatformBroker {
    */
   public get current(): PlatformMqtt | null {
     return this.#current;
+  }
+
+  /**
+   * Asks for the broker, and keeps asking: at every package event, and every little while as long
+   * as there is none.
+   *
+   * @returns Once asked the first time.
+   */
+  public async start(): Promise<void> {
+    if (this.#options.fixed !== null) {
+      return;
+    }
+
+    this.#subscription = this.#options.client.subscribe(
+      BUS_PATTERNS.allPackageEvents,
+      jsonObjectSchema,
+
+      /** Asks again: a package was installed, started, stopped, configured or removed. */
+      (): void => {
+        void this.refresh();
+      },
+    );
+    await this.refresh();
+  }
+
+  /** Stops asking. */
+  public stop(): void {
+    this.#subscription?.unsubscribe();
+    this.#subscription = undefined;
+    clearTimeout(this.#retry);
+    this.#retry = undefined;
   }
 
   /**
@@ -90,6 +133,7 @@ export class PlatformBroker {
 
       if (provider === undefined) {
         this.#current = null;
+        this.#retryWhileMissing();
 
         return;
       }
@@ -109,5 +153,22 @@ export class PlatformBroker {
     } catch (error: unknown) {
       logger.debug({ err: error }, 'The MQTT broker did not answer');
     }
+
+    this.#retryWhileMissing();
+  }
+
+  /** Asks again in a while, as long as there is no broker and the hub listens for one. */
+  #retryWhileMissing(): void {
+    clearTimeout(this.#retry);
+    this.#retry = undefined;
+
+    if (this.#current !== null || this.#subscription === undefined) {
+      return;
+    }
+
+    this.#retry = setTimeout(() => {
+      void this.refresh();
+    }, this.#options.retryMs ?? RETRY_MS);
+    this.#retry.unref();
   }
 }

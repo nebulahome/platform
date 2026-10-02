@@ -2,7 +2,7 @@
  * The hub's username on the house's broker - whichever package provides `mqtt-broker` - against
  * a packet-manager and a broker on a bus in memory, and a broker the environment names.
  */
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { BusClient, type BusSubscription } from '@nebulahome/bus';
@@ -71,10 +71,15 @@ function listed(id: string, provides: string[]): InstalledPackage {
 /**
  * The hub's bus client, a packet-manager listing the packages, and the broker answering.
  *
- * @param packages - What the packet-manager lists.
- * @returns The client, and what each package that provides the broker was asked.
+ * @param packages - What the packet-manager lists; changed in place, it lists what it holds then.
+ * @returns The client, the packet-manager's, and what each package that provides the broker was
+ *   asked.
  */
-function harness(packages: InstalledPackage[]): { client: BusClient; asked: unknown[] } {
+function harness(packages: InstalledPackage[]): {
+  client: BusClient;
+  packetManager: BusClient;
+  asked: unknown[];
+} {
   const transport = new FakeTransport();
   const client = new BusClient({ transport, source: 'hub', logger, requestTimeoutMs: 300 });
   const packetManager = new BusClient({ transport, source: 'packet-manager', logger });
@@ -88,19 +93,23 @@ function harness(packages: InstalledPackage[]): { client: BusClient; asked: unkn
     ),
   );
 
-  for (const found of packages.filter((each) => each.provides.includes('mqtt-broker'))) {
-    const broker = new BusClient({ transport, source: found.id, logger });
+  for (const id of ['mqtt', 'mosquitto']) {
+    const broker = new BusClient({ transport, source: id, logger });
 
     subscriptions.push(
-      broker.serve(busSubjects.service(found.id, 'credentials'), z.unknown(), (request) => {
-        asked.push({ [found.id]: request });
+      broker.serve(busSubjects.service(id, 'credentials'), z.unknown(), (request) => {
+        if (!packages.some((each) => each.id === id && each.state === 'running')) {
+          throw new Error(`${id} is not running`);
+        }
+
+        asked.push({ [id]: request });
 
         return { username: 'nebula-hub', password: 'p4ss', port: 1884 };
       }),
     );
   }
 
-  return { client, asked };
+  return { client, packetManager, asked };
 }
 
 describe('the platform broker', () => {
@@ -127,6 +136,42 @@ describe('the platform broker', () => {
     await broker.refresh();
 
     expect(broker.current).toBeNull();
+  });
+
+  it('asks again when a package starts: a broker that came up after the hub is found', async () => {
+    const packages: InstalledPackage[] = [];
+    const { client, packetManager } = harness(packages);
+    const broker = new PlatformBroker({ client, logger, fixed: null, retryMs: 60_000 });
+
+    await broker.start();
+
+    expect(broker.current).toBeNull();
+
+    packages.push(listed('mqtt', ['mqtt-broker']));
+    packetManager.publish(busSubjects.packageEvent('started'), {
+      packageId: 'mqtt',
+      version: '1.0.0',
+      state: 'running',
+    });
+
+    await vi.waitFor(() => {
+      expect(broker.current?.username).toBe('nebula-hub');
+    });
+    broker.stop();
+  });
+
+  it('asks again every little while it has no broker, with no event to wake it', async () => {
+    const packages: InstalledPackage[] = [];
+    const { client } = harness(packages);
+    const broker = new PlatformBroker({ client, logger, fixed: null, retryMs: 50 });
+
+    await broker.start();
+    packages.push(listed('mqtt', ['mqtt-broker']));
+
+    await vi.waitFor(() => {
+      expect(broker.current?.username).toBe('nebula-hub');
+    });
+    broker.stop();
   });
 
   it('asks nothing while the environment names a broker', async () => {

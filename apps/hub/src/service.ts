@@ -465,7 +465,8 @@ export class HubService {
       },
     };
 
-    await this.#broker.refresh();
+    // Asked now, and again at every package event and while there is none.
+    await this.#broker.start();
     const installed = await loadBundles({
       directory: resolveDataLayout(config).integrations,
       origin: 'installed',
@@ -680,6 +681,7 @@ export class HubService {
    */
   public async stop(): Promise<void> {
     this.#packages.stop();
+    this.#broker.stop();
     this.#cameras.stop();
     this.#images.stop();
     this.#vendorContainers.stop();
