@@ -4,7 +4,9 @@
  * The tile is the switch and its name; the tall card says whether it is on in a word large enough
  * to read across the room, and since when.
  */
-import { CardFrame, CardHeading, Figure, TileRow } from '@/routes/dashboard/cards/card-parts';
+import { CardHeading, Figure } from '@nebulahome/ui';
+
+import { CardFrame, TileRow } from '@/routes/dashboard/cards/card-parts';
 import { cardTime, sizeKey, type EntityCardModel } from '@/routes/dashboard/cards/entity-model';
 import { QuickPowerSwitch } from '@/routes/library/entity/quick-power-switch';
 

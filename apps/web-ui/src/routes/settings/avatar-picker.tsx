@@ -14,10 +14,9 @@
  */
 import { useRef, useState } from 'react';
 
-import { Button } from '@nebulahome/ui';
+import { Button, Hint } from '@nebulahome/ui';
 
 import { Avatar } from '@/components/avatar';
-import { Hint } from '@/components/hint';
 import { removeAvatar, setAvatar } from '@/settings/api';
 import { toAvatarUpload } from '@/settings/avatar-image';
 

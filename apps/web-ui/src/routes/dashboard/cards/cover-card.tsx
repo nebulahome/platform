@@ -5,9 +5,9 @@
  * open it is and offers the three movements - open, stop, close - because stopping half-way is
  * what people do most after starting one. The tile keeps the movements and the figure.
  */
-import { AppIcon, IconButton } from '@nebulahome/ui';
+import { AppIcon, IconButton, CardHeading } from '@nebulahome/ui';
 
-import { CardFrame, CardHeading, TileRow } from '@/routes/dashboard/cards/card-parts';
+import { CardFrame, TileRow } from '@/routes/dashboard/cards/card-parts';
 import { sizeKey, type EntityCardModel } from '@/routes/dashboard/cards/entity-model';
 import { useEntityCommand } from '@/routes/library/entity/use-entity-command';
 

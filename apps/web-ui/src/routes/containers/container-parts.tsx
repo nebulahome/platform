@@ -4,7 +4,14 @@
  * seen.
  */
 import type { ContainerState, ContainerSummary, DockerStatus } from '@nebulahome/contracts';
-import { AppIcon, Badge, cn, Panel, type BadgeTone, type UiIconId } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Badge,
+  Panel,
+  type BadgeTone,
+  type StatusDotTone,
+  type UiIconId,
+} from '@nebulahome/ui';
 
 /** What each state means to somebody reading the page. */
 export const CONTAINER_TONES: Readonly<Record<ContainerState, BadgeTone>> = {
@@ -87,50 +94,6 @@ export function ContainerTile(props: TileProps) {
   );
 }
 
-/** How a dot reads. */
-export type DotTone = 'success' | 'warning' | 'danger' | 'neutral' | 'accent';
-
-/** The colour of each tone's dot. */
-const DOT_CLASSES: Readonly<Record<DotTone, string>> = {
-  success: 'bg-success',
-  warning: 'bg-warning',
-  danger: 'bg-danger',
-  neutral: 'bg-foreground-subtle',
-  accent: 'bg-primary',
-};
-
-/**
- * A round mark with a dot in it: whether a container runs, at a glance, the word in its tooltip.
- *
- * @param props - What it says.
- * @param props.tone - Its colour.
- * @param props.title - What it means, for the tooltip and a screen reader.
- * @param props.isBusy - Whether it pulses: something is being done.
- * @returns The mark.
- */
-export function StatusDot(props: {
-  readonly tone: DotTone;
-  readonly title: string;
-  readonly isBusy?: boolean;
-}) {
-  return (
-    <span
-      role="img"
-      aria-label={props.title}
-      title={props.title}
-      className="inline-flex size-[26px] shrink-0 items-center justify-center rounded-full border border-border-soft face-raised"
-    >
-      <span
-        className={cn(
-          'size-2 rounded-full',
-          DOT_CLASSES[props.tone],
-          props.isBusy === true ? 'animate-pulse' : null,
-        )}
-      />
-    </span>
-  );
-}
-
 /**
  * How a container's dot reads.
  *
@@ -138,7 +101,7 @@ export function StatusDot(props: {
  * @returns Its tone, what it says, and whether it pulses.
  */
 export function dotOf(container: ContainerSummary): {
-  readonly tone: DotTone;
+  readonly tone: StatusDotTone;
   readonly title: string;
   readonly isBusy: boolean;
 } {
@@ -239,38 +202,6 @@ export function ContainerBadges(props: {
           Update
         </Badge>
       ) : null}
-    </span>
-  );
-}
-
-/**
- * A bar of how far something has got, and a pulse when it cannot say.
- *
- * @param props - How far.
- * @param props.percent - From 0 to 100; null when nothing says, which pulses the whole bar.
- * @param props.label - What it is, to a screen reader.
- * @returns The bar.
- */
-export function ProgressBar(props: { readonly percent: number | null; readonly label: string }) {
-  const { percent, label } = props;
-
-  return (
-    <span
-      role="progressbar"
-      aria-label={label}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={percent ?? undefined}
-      className="block h-1.5 w-full overflow-hidden rounded-full bg-surface-raised"
-    >
-      <span
-        className={cn(
-          'block h-full rounded-full bg-primary transition-[width] duration-500',
-          percent === null ? 'w-full animate-pulse' : null,
-        )}
-        /* eslint-disable-next-line react/forbid-dom-props -- the width is the value itself. */
-        style={percent === null ? undefined : { width: `${String(Math.max(4, percent))}%` }}
-      />
     </span>
   );
 }

@@ -10,18 +10,11 @@
 import { Link } from 'react-router';
 
 import type { ContainerInstall, ContainerSummary } from '@nebulahome/contracts';
-import { Badge, Button, cn } from '@nebulahome/ui';
+import { Badge, Button, cn, ProgressBar, StatusDot, type StatusDotTone } from '@nebulahome/ui';
 
 import { groupUsage, type ComposeGroup } from '@/containers/container-groups';
 import { formatBytes, formatPercent } from '@/lib/format-bytes';
-import {
-  ContainerBadges,
-  ContainerTile,
-  dotOf,
-  ProgressBar,
-  StatusDot,
-  type DotTone,
-} from '@/routes/containers/container-parts';
+import { ContainerBadges, ContainerTile, dotOf } from '@/routes/containers/container-parts';
 
 /** The shape every card of the grid has: the vendor card's. */
 const CARD =
@@ -156,7 +149,7 @@ export function ContainerCard(props: { readonly container: ContainerSummary }) {
  * @returns The tone, what it says, and whether it pulses.
  */
 function projectDot(group: ComposeGroup): {
-  readonly tone: DotTone;
+  readonly tone: StatusDotTone;
   readonly title: string;
   readonly isBusy: boolean;
 } {

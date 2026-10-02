@@ -5,11 +5,11 @@
  * sensor uses - "Clear", "Open" - and the tall card draws the last day as one bar an hour, each as
  * tall as the share of that hour it spent active, so the day reads at a glance.
  */
-import { cn } from '@nebulahome/ui';
+import { cn, CardHeading } from '@nebulahome/ui';
 
 import { activityShares } from '@/dashboard/activity';
 import { stateSegments } from '@/library/history-series';
-import { CardFrame, CardHeading, EndReading, TileRow } from '@/routes/dashboard/cards/card-parts';
+import { CardFrame, EndReading, TileRow } from '@/routes/dashboard/cards/card-parts';
 import { cardTime, sizeKey, type EntityCardModel } from '@/routes/dashboard/cards/entity-model';
 import { useStateChanges } from '@/routes/dashboard/cards/use-card-history';
 

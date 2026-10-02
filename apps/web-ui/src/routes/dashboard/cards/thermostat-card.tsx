@@ -8,10 +8,10 @@
  * the mode as something to choose, and the humidity when the thermostat reads it.
  */
 import type { THERMOSTAT_MODES } from '@nebulahome/contracts';
-import { AppIcon, Badge, Button, Segmented, type BadgeTone } from '@nebulahome/ui';
+import { AppIcon, Badge, Button, Segmented, type BadgeTone, CardHeading } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
-import { CardFrame, CardHeading } from '@/routes/dashboard/cards/card-parts';
+import { CardFrame } from '@/routes/dashboard/cards/card-parts';
 import { sizeKey, type EntityCardModel } from '@/routes/dashboard/cards/entity-model';
 import { useEntityCommand } from '@/routes/library/entity/use-entity-command';
 import { usePendingValue } from '@/routes/library/entity/use-pending-value';

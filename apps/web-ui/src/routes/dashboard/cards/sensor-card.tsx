@@ -6,15 +6,11 @@
  * and highest of the window and how far the reading has moved since it began. A reading in words -
  * a text sensor - is written out, as much of it as the card can hold.
  */
+import { CardHeading, Figure } from '@nebulahome/ui';
+
 import { LiveAreaChart } from '@/components/live-area-chart';
 import type { HistoryRange } from '@/library/history-series';
-import {
-  CardFrame,
-  CardHeading,
-  EndReading,
-  Figure,
-  TileRow,
-} from '@/routes/dashboard/cards/card-parts';
+import { CardFrame, EndReading, TileRow } from '@/routes/dashboard/cards/card-parts';
 import { cardTime, sizeKey, type EntityCardModel } from '@/routes/dashboard/cards/entity-model';
 import { useTelemetry } from '@/routes/dashboard/cards/use-card-history';
 

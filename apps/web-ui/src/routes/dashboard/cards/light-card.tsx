@@ -8,7 +8,7 @@
  * something to set.
  */
 import type { CapabilityState } from '@nebulahome/contracts';
-import { Slider, type WheelColour } from '@nebulahome/ui';
+import { Slider, type WheelColour, CardHeading, Figure } from '@nebulahome/ui';
 
 import {
   hasCapability,
@@ -20,13 +20,7 @@ import {
   paramsOf,
   warmthGradient,
 } from '@/library/entity-control';
-import {
-  CardFrame,
-  CardHeading,
-  Figure,
-  Groove,
-  TileRow,
-} from '@/routes/dashboard/cards/card-parts';
+import { CardFrame, Groove, TileRow } from '@/routes/dashboard/cards/card-parts';
 import { cardTime, sizeKey, type EntityCardModel } from '@/routes/dashboard/cards/entity-model';
 import { LightColourButton } from '@/routes/dashboard/cards/light-colour-button';
 import { QuickPowerSwitch } from '@/routes/library/entity/quick-power-switch';

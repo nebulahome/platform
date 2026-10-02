@@ -8,10 +8,10 @@
  */
 import { Link } from 'react-router';
 
-import { AppIcon, Button, cn } from '@nebulahome/ui';
+import { AppIcon, Button, cn, CardHeading } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
-import { CardFrame, CardHeading, TileRow } from '@/routes/dashboard/cards/card-parts';
+import { CardFrame, TileRow } from '@/routes/dashboard/cards/card-parts';
 import { cardTime, sizeKey, type EntityCardModel } from '@/routes/dashboard/cards/entity-model';
 import { entityPath } from '@/routes/library/entity/entity-path';
 import { useEntityCommand } from '@/routes/library/entity/use-entity-command';

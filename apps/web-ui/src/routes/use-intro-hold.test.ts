@@ -100,7 +100,7 @@ describe('useIntroHold', () => {
     // Resolved from the working directory rather than from `import.meta.url`: these tests run
     // in jsdom, where a module's own url is the http one Vite served it from and not a file.
     const stylesheet = readFileSync(
-      resolve(process.cwd(), '../../packages/ui/src/styles.css'),
+      resolve(process.cwd(), '../../packages/ui/src/theme.css'),
       'utf8',
     );
     const declared = /--animate-orbit:\s*orbit\s*([\d.]+)s/.exec(stylesheet);

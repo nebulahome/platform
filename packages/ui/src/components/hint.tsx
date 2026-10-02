@@ -25,9 +25,9 @@
  */
 import { useRef, useState } from 'react';
 
-import { cn } from '@nebulahome/ui';
+import { cn } from '../lib/cn.js';
 
-import { InfoIcon } from '@/components/icons';
+import { AppIcon } from './app-icon.js';
 
 /** Which side the bubble opens towards. */
 export type HintSide = 'top' | 'bottom';
@@ -113,7 +113,7 @@ export function Hint(props: HintProps) {
           className,
         )}
       >
-        <InfoIcon width="15" height="15" />
+        <AppIcon id="info" size={15} />
       </button>
 
       {isOpen ? (

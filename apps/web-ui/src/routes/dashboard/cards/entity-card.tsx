@@ -10,7 +10,7 @@
 import type { ReactNode } from 'react';
 
 import type { DashboardEntityCard, IconView } from '@nebulahome/contracts';
-import { AppIcon } from '@nebulahome/ui';
+import { AppIcon, CardHeading } from '@nebulahome/ui';
 
 import { CARD_SIZES, cardKindOf, snapSize, type EntityCardKind } from '@/dashboard/card-sizes';
 import { capabilityStateOf } from '@/library/entity-control';
@@ -18,12 +18,7 @@ import { entityKindOf } from '@/library/entity-kind';
 import { readingOf } from '@/library/entity-reading';
 import { BinaryCard } from '@/routes/dashboard/cards/binary-card';
 import { CameraCard } from '@/routes/dashboard/cards/camera-card';
-import {
-  CardFrame,
-  CardHeading,
-  TileRow,
-  UnavailableNote,
-} from '@/routes/dashboard/cards/card-parts';
+import { CardFrame, TileRow, UnavailableNote } from '@/routes/dashboard/cards/card-parts';
 import { CoverCard } from '@/routes/dashboard/cards/cover-card';
 import { cardTime, sizeKey, type EntityCardModel } from '@/routes/dashboard/cards/entity-model';
 import { LightCard } from '@/routes/dashboard/cards/light-card';

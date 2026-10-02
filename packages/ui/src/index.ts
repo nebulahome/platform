@@ -29,17 +29,22 @@ export {
   type WheelColour,
 } from './components/color-wheel.js';
 export { Button, type ButtonProps } from './components/button.js';
+export { CardHeading, type CardHeadingProps } from './components/card-heading.js';
 export { CatalogueIcon, type CatalogueIconProps } from './components/catalogue-icon.js';
 export { ColorSwatches, type ColorSwatchesProps } from './components/color-swatches.js';
 export { FieldShell, type FieldIds, type FieldShellProps } from './components/field-shell.js';
+export { Figure, type FigureProps } from './components/figure.js';
+export { Hint, type HintProps, type HintSide } from './components/hint.js';
 export { IconButton, type IconButtonProps } from './components/icon-button.js';
 export { Logo, type LogoProps } from './components/logo.js';
 export { Modal, type ModalProps } from './components/modal.js';
 export { Panel, type PanelProps } from './components/panel.js';
 export { PanelNote, type PanelNoteProps } from './components/panel-note.js';
 export { PanelRow, type PanelRowProps } from './components/panel-row.js';
+export { ProgressBar, type ProgressBarProps } from './components/progress-bar.js';
 export { Segmented, type SegmentedOption, type SegmentedProps } from './components/segmented.js';
 export { Slider, sliderPercent, type SliderProps } from './components/slider.js';
+export { StatusDot, type StatusDotProps, type StatusDotTone } from './components/status-dot.js';
 export { Stepper, stepValue, type StepperProps } from './components/stepper.js';
 export { Switch, type SwitchProps } from './components/switch.js';
 export {

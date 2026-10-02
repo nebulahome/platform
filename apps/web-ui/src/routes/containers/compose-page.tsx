@@ -14,7 +14,7 @@ import { lazy, Suspense, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import type { ComposeOperation, ContainerSummary } from '@nebulahome/contracts';
-import { Badge, Button, Modal, Panel, PanelNote, Switch } from '@nebulahome/ui';
+import { Badge, Button, Modal, Panel, PanelNote, Switch, StatusDot } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import {
@@ -34,7 +34,6 @@ import {
   ContainerBadges,
   ContainerTile,
   dotOf,
-  StatusDot,
 } from '@/routes/containers/container-parts';
 import { DetailPlaceholder } from '@/routes/library/detail-page';
 import { Fact } from '@/routes/library/entity/details-panel';
