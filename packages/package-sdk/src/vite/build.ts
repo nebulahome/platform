@@ -12,6 +12,7 @@ import path from 'node:path';
 
 import { build, resolveConfig, type LogLevel } from 'vite';
 
+import { composeFileProblems } from '../build/compose.js';
 import { isRecord } from '../build/fields.js';
 import { generatePackage, RELEASE_PATHS, type GeneratedPackage } from '../build/manifest.js';
 import { PackageConfigError } from '../build/problems.js';
@@ -56,6 +57,21 @@ async function exists(file: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * The keys of the settings a generated `setup.json` declares.
+ *
+ * @param setup - `setup.json`, or null.
+ * @returns The keys.
+ */
+function settingKeysOf(setup: GeneratedPackage['setup']): string[] {
+  const transport = setup?.['transport'];
+  const fields = isRecord(transport) ? transport['fields'] : undefined;
+
+  return (Array.isArray(fields) ? fields : []).flatMap((field: unknown) =>
+    isRecord(field) && typeof field['key'] === 'string' ? [field['key']] : [],
+  );
 }
 
 /**
@@ -124,10 +140,16 @@ export async function checkPackage(options: BuildOptions = {}): Promise<CheckedP
   const compose = generated.copies.find((copy) => copy.to === RELEASE_PATHS.compose);
 
   if (compose !== undefined && (await exists(path.resolve(base, compose.from)))) {
-    const { size } = await stat(path.resolve(base, compose.from));
+    const text = await readFile(path.resolve(base, compose.from), 'utf8');
 
-    if (size > COMPOSE_LIMIT) {
+    if (Buffer.byteLength(text) > COMPOSE_LIMIT) {
       missing.push(`${compose.from}: a compose file is at most 64 KB`);
+    } else {
+      missing.push(
+        ...composeFileProblems(text, settingKeysOf(generated.setup)).map(
+          (problem) => `${compose.from}: ${problem}`,
+        ),
+      );
     }
   }
 
