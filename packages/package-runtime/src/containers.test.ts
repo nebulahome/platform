@@ -170,6 +170,33 @@ describe('renderContainers', () => {
     });
   });
 
+  it('hands over a command with its settings, a healthcheck and what a container starts after', () => {
+    const declared = containerDependenciesSchema.parse([
+      {
+        id: 'db',
+        name: 'Database',
+        image: 'postgres',
+        minVersion: '16.0.0',
+        healthcheck: { test: ['CMD', 'pg_isready'], intervalMs: 5000 },
+      },
+      {
+        id: 'server',
+        name: 'Server',
+        image: 'example/server',
+        minVersion: '1.0.0',
+        command: ['serve', '--channel', '{setup.channel}'],
+        dependsOn: { db: 'healthy' },
+      },
+    ]);
+    const [db, server] = renderContainers('nvr', declared, { channel: 15 }, 'package');
+
+    expect(db?.healthcheck).toEqual({ test: ['CMD', 'pg_isready'], intervalMs: 5000 });
+    expect(server).toMatchObject({
+      command: ['serve', '--channel', '15'],
+      dependsOn: { db: 'healthy' },
+    });
+  });
+
   it('refuses a device outside /dev', () => {
     expect(() =>
       renderContainers('zigbee2mqtt', DECLARED, { connection: 'usb', serialPath: '/etc/shadow' }),

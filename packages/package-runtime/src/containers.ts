@@ -250,6 +250,13 @@ export function renderContainers(
       seed: dep.seed.map((seed) => ({ ...seed, content: fillSettings(seed.content, values) })),
       webPort,
       ...(dep.mqttTopics === undefined ? {} : { mqttTopics: [...dep.mqttTopics] }),
+      ...(dep.command === undefined
+        ? {}
+        : { command: dep.command.map((argument) => fillSettings(argument, values)) }),
+      ...(dep.healthcheck === undefined
+        ? {}
+        : { healthcheck: { ...dep.healthcheck, test: [...dep.healthcheck.test] } }),
+      ...(dep.dependsOn === undefined ? {} : { dependsOn: { ...dep.dependsOn } }),
     };
   });
 }
