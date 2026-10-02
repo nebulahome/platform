@@ -158,6 +158,10 @@ describe("a package's methods", () => {
 
     expect(clients.statusCode).toBe(200);
     expect(clients.json()).toEqual({ output: ['tasmota-kitchen'] });
+    expect(packetManagerRequests.find((each) => each.method === 'rpc')?.payload).toMatchObject({
+      method: 'clients',
+      caller: { username: expect.any(String) as string, role: expect.any(String) as string },
+    });
     expect(kick.statusCode).toBe(403);
     expect(nope.statusCode).toBe(404);
   });

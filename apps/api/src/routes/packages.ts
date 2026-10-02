@@ -575,6 +575,11 @@ export function registerPackageRoutes(environment: RouteEnvironment, context: Ap
           route.params.packageId,
           route.params.method,
           route.body.input,
+          {
+            userId: route.identity.userId,
+            username: route.identity.username,
+            role: route.identity.role,
+          },
         ),
       };
     },

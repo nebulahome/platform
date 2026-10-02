@@ -21,6 +21,7 @@ import {
   jsonObjectSchema,
   NotFoundError,
   PACKAGE_RPC_METHOD,
+  type PackageRpcCaller,
   packageAvailableReplySchema,
   packageDetailSchema,
   packageInstallReplySchema,
@@ -475,6 +476,7 @@ export async function rpcAccessOf(
  * @param packageId - The package.
  * @param method - The method.
  * @param input - What it is handed.
+ * @param caller - Who calls: the method is told.
  * @returns What it answered.
  */
 export async function callPackage(
@@ -482,10 +484,11 @@ export async function callPackage(
   packageId: string,
   method: string,
   input: JsonValue,
+  caller: PackageRpcCaller,
 ): Promise<JsonValue> {
   const reply = await busOf(context).request(
     busSubjects.service(packageId, PACKAGE_RPC_METHOD),
-    { method, input },
+    { method, input, caller },
     packageRpcReplySchema,
     { traceId: context.traceId, timeoutMs: RPC_TIMEOUT_MS },
   );
