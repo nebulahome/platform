@@ -11,7 +11,7 @@
  * state report, because a device that acknowledged a command and then never reported the result
  * is a device the interface shows as stuck.
  */
-import { BusClient, type BusSubscription, type BusTransport } from '@nebula-home/bus';
+import { BusClient, type BusSubscription, type BusTransport } from '@nebulahome/bus';
 import {
   adapterCommandSchema,
   ADAPTER_COMMAND_METHOD,
@@ -22,8 +22,8 @@ import {
   type CapabilityState,
   type EntityId,
   type ResyncReply,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 /** One entity the fake adapter owns. */
 export type FakeEntity = {

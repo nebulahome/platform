@@ -5,7 +5,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { IntegrationVendorView, ModelChoice } from '@nebula-home/contracts';
+import type { IntegrationVendorView, ModelChoice } from '@nebulahome/contracts';
 
 import { ModelList } from '@/routes/library/model-list';
 

@@ -9,7 +9,7 @@
  */
 import { useQueries } from '@tanstack/react-query';
 
-import type { DashboardEnergyCard, EntityView } from '@nebula-home/contracts';
+import type { DashboardEnergyCard, EntityView } from '@nebulahome/contracts';
 
 import {
   energyToday,

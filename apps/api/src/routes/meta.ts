@@ -14,7 +14,7 @@ import {
   healthResponseSchema,
   type ApiVersionsResponse,
   type HealthResponse,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import type { ApiContext } from '../context.js';
 import { buildOpenApiDocument } from '../http/openapi.js';

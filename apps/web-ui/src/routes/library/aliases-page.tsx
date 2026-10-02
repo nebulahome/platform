@@ -7,8 +7,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 
-import type { AliasView } from '@nebula-home/contracts';
-import { Badge, Button } from '@nebula-home/ui';
+import type { AliasView } from '@nebulahome/contracts';
+import { Badge, Button } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { useListState } from '@/lib/use-list-state';

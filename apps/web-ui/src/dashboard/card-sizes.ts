@@ -6,7 +6,7 @@
  * under the pointer and settles on the permitted size nearest to where the corner is let go, so the
  * grid never holds a card at a size it has no drawing for.
  */
-import type { CapabilityName, EntityView, PackageCardSize } from '@nebula-home/contracts';
+import type { CapabilityName, EntityView, PackageCardSize } from '@nebulahome/contracts';
 
 import type { GridSize } from '@/dashboard/grid-engine';
 import { hasCapability } from '@/library/entity-control';

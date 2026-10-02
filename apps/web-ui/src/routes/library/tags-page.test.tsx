@@ -15,7 +15,7 @@ import {
   type DeviceView,
   type EntityView,
   type TagView,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
 import { fetchDevices, fetchEntities, fetchIcons, fetchTags } from '@/library/api';

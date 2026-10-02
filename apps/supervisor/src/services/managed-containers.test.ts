@@ -4,8 +4,8 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import type { ManagedContainerSpec } from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+import type { ManagedContainerSpec } from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 
 import { MANAGED_LABELS } from '../domain/managed.js';
 

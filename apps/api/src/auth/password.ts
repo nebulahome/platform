@@ -1,14 +1,14 @@
 /**
  * Hashing and checking passwords.
  *
- * Thin on purpose: the parameters live in `@nebula-home/contracts` because they describe stored
+ * Thin on purpose: the parameters live in `@nebulahome/contracts` because they describe stored
  * artefacts, and the only judgement in this file is that a verify never says why it failed. A
  * caller that could tell "no such user" from "wrong password" apart could enumerate accounts,
  * so both answers are the same `false` and the timing is levelled by hashing a decoy.
  */
 import { hash, verify } from '@node-rs/argon2';
 
-import { ARGON2ID_PARAMS } from '@nebula-home/contracts';
+import { ARGON2ID_PARAMS } from '@nebulahome/contracts';
 
 /**
  * argon2id, as the library numbers its algorithms.

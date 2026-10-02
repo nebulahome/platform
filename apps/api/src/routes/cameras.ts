@@ -37,7 +37,7 @@ import {
   WS_CLOSE_UNAUTHENTICATED,
   type CameraSocketMessage,
   type EntityId,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { verifyAccessToken } from '../auth/tokens.js';
 import type { ApiContext } from '../context.js';

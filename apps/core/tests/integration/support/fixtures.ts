@@ -9,7 +9,7 @@
  */
 import { eq } from 'drizzle-orm';
 
-import { schema, type Database } from '@nebula-home/db';
+import { schema, type Database } from '@nebulahome/db';
 
 /** What was inserted, and how to name it afterwards. */
 export type Fixture = {

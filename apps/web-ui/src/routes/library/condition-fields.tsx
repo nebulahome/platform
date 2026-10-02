@@ -9,8 +9,8 @@ import {
   COMPARISON_OPERATORS,
   type ComparisonOperator,
   type AutomationCondition,
-} from '@nebula-home/contracts';
-import { SelectField, Segmented, TextField } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { SelectField, Segmented, TextField } from '@nebulahome/ui';
 
 import { WeekdayPicker } from '@/components/weekday-picker';
 import { hasNumber } from '@/library/entity-control';

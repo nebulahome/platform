@@ -27,8 +27,8 @@ import {
   type EntityId,
   type IntegrationVendorView,
   type JsonObject,
-} from '@nebula-home/contracts';
-import { AppIcon, Button, Panel } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { AppIcon, Button, Panel } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';

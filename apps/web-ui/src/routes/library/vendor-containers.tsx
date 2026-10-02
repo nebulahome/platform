@@ -9,8 +9,8 @@
  */
 import { Link } from 'react-router';
 
-import type { IntegrationVendorView, ManagedStatus } from '@nebula-home/contracts';
-import { Badge, Button, Panel, type BadgeTone } from '@nebula-home/ui';
+import type { IntegrationVendorView, ManagedStatus } from '@nebulahome/contracts';
+import { Badge, Button, Panel, type BadgeTone } from '@nebulahome/ui';
 
 /** How a declared container's state reads, and its colour. */
 const STATE_OF: Readonly<Record<ManagedStatus['state'], { label: string; tone: BadgeTone }>> = {

@@ -19,7 +19,7 @@ import { eq } from 'drizzle-orm';
 import createMulticastDns, { type MulticastDnsPacket } from 'multicast-dns';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { BusClient, connectBus, ulid, type BusConnection } from '@nebula-home/bus';
+import { BusClient, connectBus, ulid, type BusConnection } from '@nebulahome/bus';
 import {
   busSubjects,
   CORE_REGISTER_METHOD,
@@ -29,9 +29,9 @@ import {
   HUB_SERVICE,
   registerDeviceRequestSchema,
   type DiscoveredDevice,
-} from '@nebula-home/contracts';
-import { createDatabase, schema, type Database } from '@nebula-home/db';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createDatabase, schema, type Database } from '@nebulahome/db';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { hubEnvSchema } from '@/config.js';
 import { HubService } from '@/service.js';

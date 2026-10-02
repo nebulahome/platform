@@ -11,7 +11,7 @@ import type {
   EntityView,
   HouseStyle,
   TelemetryPoint,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import type { DashboardData } from '@/routes/dashboard/use-dashboard-data';

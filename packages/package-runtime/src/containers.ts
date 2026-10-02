@@ -33,7 +33,7 @@ import {
   type ContainerDependency,
   type IntegrationSetup,
   type ManagedContainerSpec,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 export { containerDependenciesSchema, containerDependencySchema, type ContainerDependency };
 

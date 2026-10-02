@@ -20,9 +20,9 @@ import {
   CURRENT_API_VERSION,
   TRACE_ID_HEADER,
   WS_CLOSE_UNAUTHENTICATED,
-} from '@nebula-home/contracts';
-import { secretsKeyFrom } from '@nebula-home/db';
-import { createLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { secretsKeyFrom } from '@nebulahome/db';
+import { createLogger } from '@nebulahome/logging';
 
 import { Authenticator } from './auth/authenticator.js';
 import { ChallengeStore } from './auth/challenges.js';

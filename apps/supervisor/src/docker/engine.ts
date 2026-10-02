@@ -19,7 +19,7 @@ import {
   NotFoundError,
   UpstreamError,
   type JsonObject,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import {
   containerListSchema,

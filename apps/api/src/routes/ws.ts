@@ -22,7 +22,7 @@ import {
   type Identity,
   type WsServerMessage,
   type WsTopic,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { verifyAccessToken } from '../auth/tokens.js';
 import type { ApiContext } from '../context.js';

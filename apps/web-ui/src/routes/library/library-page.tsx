@@ -17,7 +17,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import { Panel } from '@nebula-home/ui';
+import { Panel } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 

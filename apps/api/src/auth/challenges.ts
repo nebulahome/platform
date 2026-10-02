@@ -13,7 +13,7 @@
  */
 import { randomBytes } from 'node:crypto';
 
-import { TWO_FACTOR_CHALLENGE_TTL_SECONDS } from '@nebula-home/contracts';
+import { TWO_FACTOR_CHALLENGE_TTL_SECONDS } from '@nebulahome/contracts';
 
 /** What is remembered between the password step and the code step. */
 export type Challenge = {

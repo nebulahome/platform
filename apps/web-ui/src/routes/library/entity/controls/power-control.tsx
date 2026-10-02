@@ -4,7 +4,7 @@
  * A switch that commands at once, with the state in words beside the title, so the answer to
  * "is it on?" is read before the control is found.
  */
-import { Switch } from '@nebula-home/ui';
+import { Switch } from '@nebulahome/ui';
 
 import { powerCommand } from '@/library/entity-control';
 import {

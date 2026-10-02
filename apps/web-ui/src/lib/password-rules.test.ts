@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { createUserRequestSchema } from '@nebula-home/contracts';
+import { createUserRequestSchema } from '@nebulahome/contracts';
 
 import {
   PASSWORD_MAXIMUM_LENGTH,

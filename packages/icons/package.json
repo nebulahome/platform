@@ -1,5 +1,5 @@
 {
-  "name": "@nebula-home/icons",
+  "name": "@nebulahome/icons",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -23,13 +23,13 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@nebula-home/contracts": "workspace:*",
+    "@nebulahome/contracts": "workspace:*",
     "lucide-static": "1.39.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@nebula-home/eslint-config": "workspace:*",
-    "@nebula-home/tsconfig": "workspace:*",
+    "@nebulahome/eslint-config": "workspace:*",
+    "@nebulahome/tsconfig": "workspace:*",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11"
   }

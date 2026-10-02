@@ -12,10 +12,10 @@
  */
 import { Writable } from 'node:stream';
 
-import { BusClient } from '@nebula-home/bus';
-import { FakeTransport } from '@nebula-home/bus/testing';
-import type { CapabilityName, EntityId, JsonObject, SourceRef } from '@nebula-home/contracts';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+import { BusClient } from '@nebulahome/bus';
+import { FakeTransport } from '@nebulahome/bus/testing';
+import type { CapabilityName, EntityId, JsonObject, SourceRef } from '@nebulahome/contracts';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { EntityDirectory, type EntityRecord } from '../domain/entity-directory.js';
 import { EntityRegistry } from '../domain/entity-registry.js';

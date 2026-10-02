@@ -17,8 +17,8 @@ import {
   type BackupSection,
   type BackupSections,
   type JsonObject,
-} from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
 
 import type { LoadCell } from '../domain/quietest.js';
 

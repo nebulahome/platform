@@ -10,8 +10,8 @@ import { Writable } from 'node:stream';
 
 import { describe, expect, it } from 'vitest';
 
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
-import type { UdpPeer } from '@nebula-home/package-runtime';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
+import type { UdpPeer } from '@nebulahome/package-runtime';
 
 import { createUdpSockets } from './managed-udp.js';
 

@@ -1,7 +1,7 @@
 /**
  * What `core` reads from the environment.
  *
- * Composed from the shared fragments in `@nebula-home/config` plus the handful of variables only
+ * Composed from the shared fragments in `@nebulahome/config` plus the handful of variables only
  * this service has. Anything an owner can change while the system runs belongs in
  * `system.settings` instead; the environment is for what is fixed for the life of a process
  * (RULES.md 11).
@@ -14,7 +14,7 @@ import {
   dataEnvSchema,
   requireDataDirInProduction,
   runtimeEnvSchema,
-} from '@nebula-home/config';
+} from '@nebulahome/config';
 
 /** Name this service reports in log records and bus envelopes. */
 export const SERVICE_NAME = 'core';

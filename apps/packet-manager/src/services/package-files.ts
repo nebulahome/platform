@@ -15,7 +15,7 @@ import {
   ValidationError,
   type IntegrationSetup,
   type PackageManifest,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** The manifest's name at a package's root. */
 export const MANIFEST_FILE = 'nebula.package.json';

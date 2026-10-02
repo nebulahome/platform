@@ -1,4 +1,4 @@
-import { Panel, PanelNote, PanelRow, Segmented, SelectField } from '@nebula-home/ui';
+import { Panel, PanelNote, PanelRow, Segmented, SelectField } from '@nebulahome/ui';
 
 /**
  * The preferences that belong to this browser.

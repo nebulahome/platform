@@ -6,7 +6,7 @@
  * decision. The person choosing is marked as themselves, since assigning one to yourself is how a
  * dashboard reaches your own Dashboards page.
  */
-import type { DashboardAssignee } from '@nebula-home/contracts';
+import type { DashboardAssignee } from '@nebulahome/contracts';
 
 import { Avatar } from '@/components/avatar';
 

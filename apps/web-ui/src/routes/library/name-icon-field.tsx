@@ -17,8 +17,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 
-import type { IconView } from '@nebula-home/contracts';
-import { CatalogueIcon, cn, FieldShell } from '@nebula-home/ui';
+import type { IconView } from '@nebulahome/contracts';
+import { CatalogueIcon, cn, FieldShell } from '@nebulahome/ui';
 
 import { fetchIcons, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { IconPickerModal } from '@/routes/library/icon-picker-modal';

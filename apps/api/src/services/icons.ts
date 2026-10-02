@@ -23,16 +23,16 @@ import {
   type IconsQuery,
   type IconUpdate,
   type IconView,
-} from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
 import {
   IconCatalogue,
   IconSvgError,
   parseIconSvg,
   type BuiltinIcon,
   type IconRow,
-} from '@nebula-home/icons';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/icons';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 /** Where the owner's icons are kept. */
 export type IconStore = {

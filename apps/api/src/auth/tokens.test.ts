@@ -13,7 +13,7 @@ import {
   AuthenticationError,
   PERSONAL_ACCESS_TOKEN_PREFIX,
   type GrantedPermission,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import {
   digestsMatch,

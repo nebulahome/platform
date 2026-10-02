@@ -22,7 +22,7 @@ import {
   type PackageAvailableReply,
   type PackageConfigBody,
   type PackagePlanReply,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { apiRequest } from '@/lib/api-client';
 

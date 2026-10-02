@@ -8,8 +8,8 @@
  */
 import type { ReactNode } from 'react';
 
-import type { NetworkTotals, SystemMonitorSample } from '@nebula-home/contracts';
-import { cn, Panel, PanelNote } from '@nebula-home/ui';
+import type { NetworkTotals, SystemMonitorSample } from '@nebulahome/contracts';
+import { cn, Panel, PanelNote } from '@nebulahome/ui';
 
 import { DownloadIcon, UploadIcon } from '@/components/icons';
 import { LiveAreaChart } from '@/components/live-area-chart';

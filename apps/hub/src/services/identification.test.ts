@@ -3,16 +3,16 @@ import { Writable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { BusClient } from '@nebula-home/bus';
-import { FakeTransport } from '@nebula-home/bus/testing';
+import { BusClient } from '@nebulahome/bus';
+import { FakeTransport } from '@nebulahome/bus/testing';
 import {
   busSubjects,
   CORE_REGISTER_METHOD,
   CORE_SERVICE,
   registerDeviceRequestSchema,
   type RegisterDeviceRequest,
-} from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 import {
   bundleManifestSchema,
   createDeclarativeIntegration,
@@ -22,7 +22,7 @@ import {
   type Discovered,
   type Integration,
   type Transport,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import { IdentificationService, type IdentifiableInstance } from './identification.js';
 

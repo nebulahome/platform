@@ -1,5 +1,5 @@
 {
-  "name": "@nebula-home/ui",
+  "name": "@nebulahome/ui",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@nebula-home/contracts": "workspace:*",
+    "@nebulahome/contracts": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide": "1.39.0",
@@ -23,9 +23,9 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
-    "@nebula-home/eslint-config": "workspace:*",
-    "@nebula-home/icons": "workspace:*",
-    "@nebula-home/tsconfig": "workspace:*",
+    "@nebulahome/eslint-config": "workspace:*",
+    "@nebulahome/icons": "workspace:*",
+    "@nebulahome/tsconfig": "workspace:*",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@types/react": "^19.2.18",

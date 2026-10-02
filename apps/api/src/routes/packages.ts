@@ -37,7 +37,7 @@ import {
   type PackageAvailableReply,
   type PackagePlanReply,
   type PackageRpcReply,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';

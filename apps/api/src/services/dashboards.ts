@@ -27,8 +27,8 @@ import {
   type DashboardCreate,
   type DashboardUpdate,
   type DashboardView,
-} from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
 
 import { readAvatarUrls } from './avatars.js';
 

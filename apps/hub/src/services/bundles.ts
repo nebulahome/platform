@@ -34,8 +34,8 @@ import {
   withPollingField,
   type IntegrationSetup,
   type TransportWire,
-} from '@nebula-home/contracts';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 import {
   accountDeclarationSchema,
   containerDependencyProblems,
@@ -62,7 +62,7 @@ import {
   type StreamSource,
   type TransportFactory,
   type VendorManifest,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import { createUdpSockets } from '../transports/managed-udp.js';
 

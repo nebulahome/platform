@@ -9,8 +9,8 @@
  */
 import { Link } from 'react-router';
 
-import type { EntityView } from '@nebula-home/contracts';
-import { Button, Modal } from '@nebula-home/ui';
+import type { EntityView } from '@nebulahome/contracts';
+import { Button, Modal } from '@nebulahome/ui';
 
 import type { ActivityLine } from '@/library/device-activity';
 import { Fact } from '@/routes/library/entity/details-panel';

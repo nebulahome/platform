@@ -13,8 +13,8 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import type { EntityView, SceneApplyResult, SceneView } from '@nebula-home/contracts';
-import { Badge, Button, cn, IconButton, SelectField } from '@nebula-home/ui';
+import type { EntityView, SceneApplyResult, SceneView } from '@nebulahome/contracts';
+import { Badge, Button, cn, IconButton, SelectField } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { WrenchIcon } from '@/components/icons';

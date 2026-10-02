@@ -15,7 +15,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { z } from 'zod';
 
-import type { Identity } from '@nebula-home/contracts';
+import type { Identity } from '@nebulahome/contracts';
 
 import { requireIdentity } from './guard.js';
 

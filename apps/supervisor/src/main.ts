@@ -5,10 +5,10 @@
  * the work. No database: it has none. It runs as root in the container, the one process given
  * Docker's socket, which is root on the host; nothing else in the platform may reach Docker.
  */
-import { BusClient, connectBus } from '@nebula-home/bus';
-import { loadConfigOrExit } from '@nebula-home/config';
-import { EXIT_CODES } from '@nebula-home/contracts';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+import { BusClient, connectBus } from '@nebulahome/bus';
+import { loadConfigOrExit } from '@nebulahome/config';
+import { EXIT_CODES } from '@nebulahome/contracts';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { serveSupervisor } from './bus-service.js';
 import { SERVICE_NAME, SERVICE_VERSION, supervisorEnvSchema } from './config.js';

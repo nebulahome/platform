@@ -8,7 +8,7 @@
  */
 import { and, desc, eq, sql } from 'drizzle-orm';
 
-import type { BusClient } from '@nebula-home/bus';
+import type { BusClient } from '@nebulahome/bus';
 import {
   type BACKUP_METHODS,
   BACKUP_SERVICE,
@@ -33,8 +33,8 @@ import {
   type BackupTargetInput,
   type BackupTargetView,
   type JsonObject,
-} from '@nebula-home/contracts';
-import { isSealed, schema, sealSecrets, type Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { isSealed, schema, sealSecrets, type Database } from '@nebulahome/db';
 
 const { backupLocations, backupRuns, auditLog } = schema.system;
 const { users } = schema.auth;

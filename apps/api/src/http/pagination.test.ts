@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { ValidationError } from '@nebula-home/contracts';
+import { ValidationError } from '@nebulahome/contracts';
 
 import { decodeCursor, encodeCursor, toPage } from './pagination.js';
 

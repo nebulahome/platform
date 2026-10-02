@@ -9,15 +9,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { BusClient } from '@nebula-home/bus';
-import { FakeTransport } from '@nebula-home/bus/testing';
+import { BusClient } from '@nebulahome/bus';
+import { FakeTransport } from '@nebulahome/bus/testing';
 import {
   busSubjects,
   PACKET_MANAGER_METHODS,
   PACKET_MANAGER_SERVICE,
   type InstalledPackage,
-} from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 
 import { PackageWatch } from './package-watch.js';
 

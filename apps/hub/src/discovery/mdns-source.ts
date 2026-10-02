@@ -39,8 +39,8 @@ import createMulticastDns, {
   type MulticastDnsRemote,
 } from 'multicast-dns';
 
-import type { PlatformLogger } from '@nebula-home/logging';
-import type { MdnsAnnouncement } from '@nebula-home/package-runtime';
+import type { PlatformLogger } from '@nebulahome/logging';
+import type { MdnsAnnouncement } from '@nebulahome/package-runtime';
 
 /** What the source needs of a service it found. */
 export type BrowsedService = {

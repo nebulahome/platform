@@ -13,8 +13,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import type { EntityView, JsonObject } from '@nebula-home/contracts';
-import { Panel, Segmented } from '@nebula-home/ui';
+import type { EntityView, JsonObject } from '@nebulahome/contracts';
+import { Panel, Segmented } from '@nebulahome/ui';
 
 import { HistoryChart } from '@/components/history-chart';
 import { TimeRangePicker } from '@/components/time-range-picker';

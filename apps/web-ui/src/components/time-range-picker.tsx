@@ -12,7 +12,7 @@
  */
 import { useEffect, useId, useRef, useState } from 'react';
 
-import { AppIcon, Button, cn, TextField } from '@nebula-home/ui';
+import { AppIcon, Button, cn, TextField } from '@nebulahome/ui';
 
 import { readDateTimeLocal, shortTime, toDateTimeLocal } from '@/lib/format-time';
 import {

@@ -13,7 +13,7 @@
  * The sizes are a fixed set rather than a number, because RULES.md 15 does not allow an inline
  * style and a class cannot be built from an arbitrary one. Three is what the interface uses.
  */
-import { cn } from '@nebula-home/ui';
+import { cn } from '@nebulahome/ui';
 
 import { toInitials } from '@/lib/initials';
 

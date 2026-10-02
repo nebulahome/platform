@@ -9,8 +9,8 @@
  */
 import { sql } from 'drizzle-orm';
 
-import { schema, type Database } from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
+import { schema, type Database } from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import { BatchWriter } from './batch-writer.js';
 

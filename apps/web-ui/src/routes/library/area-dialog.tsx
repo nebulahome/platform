@@ -24,8 +24,8 @@ import {
   type AreaKind,
   type AreaUpdate,
   type AreaView,
-} from '@nebula-home/contracts';
-import { Button, Modal, TextField } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { Button, Modal, TextField } from '@nebulahome/ui';
 
 import { isApiError } from '@/lib/api-error';
 import { describeRemoval, type RemovalImpact } from '@/lib/area-tree';

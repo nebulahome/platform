@@ -15,8 +15,8 @@ import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { entityViewSchema, tagViewSchema, type TagView } from '@nebula-home/contracts';
-import { createDatabase, schema } from '@nebula-home/db';
+import { entityViewSchema, tagViewSchema, type TagView } from '@nebulahome/contracts';
+import { createDatabase, schema } from '@nebulahome/db';
 
 import { createIconStore } from '@/services/icons.js';
 import { bearer, buildTestServer, stopHub } from '@/testing/hub-harness.js';

@@ -10,14 +10,14 @@
  * running, and the honest thing to do is mark its entities unreachable so the interface greys
  * them out instead of showing values nobody has confirmed since the restart.
  */
-import type { BusClient } from '@nebula-home/bus';
+import type { BusClient } from '@nebulahome/bus';
 import {
   busSubjects,
   resyncReplySchema,
   type ResyncRequest,
   type SourceRef,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { EntityDirectory } from '../domain/entity-directory.js';
 import type { EntityRegistry } from '../domain/entity-registry.js';

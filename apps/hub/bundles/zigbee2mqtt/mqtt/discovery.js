@@ -34,11 +34,11 @@ import {
 } from './topics.js';
 import { openBroker } from './transport.js';
 
-/** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
-/** @typedef {import('@nebula-home/package-runtime').DiscoverySource} DiscoverySource */
-/** @typedef {import('@nebula-home/package-runtime').DiscoveryListenContext} DiscoveryListenContext */
-/** @typedef {import('@nebula-home/package-runtime').Sighting} Sighting */
-/** @typedef {import('@nebula-home/contracts').JsonObject} JsonObject */
+/** @typedef {import('@nebulahome/package-runtime').BundleSdk} BundleSdk */
+/** @typedef {import('@nebulahome/package-runtime').DiscoverySource} DiscoverySource */
+/** @typedef {import('@nebulahome/package-runtime').DiscoveryListenContext} DiscoveryListenContext */
+/** @typedef {import('@nebulahome/package-runtime').Sighting} Sighting */
+/** @typedef {import('@nebulahome/contracts').JsonObject} JsonObject */
 
 /** Where Zigbee2MQTT speaks unless the owner changed it. */
 const BASE = 'zigbee2mqtt';
@@ -185,7 +185,7 @@ export default function createZigbee2MqttDiscovery(sdk, options = {}) {
                 : `Zigbee2MQTT is online on ${broker.url}`,
             );
           } else if (topic === `${BASE}/bridge/devices`) {
-            /** @type {import('@nebula-home/package-runtime').PassedOverSighting[]} */
+            /** @type {import('@nebulahome/package-runtime').PassedOverSighting[]} */
             const passedOver = [];
 
             for (const device of devicesOf(value)) {

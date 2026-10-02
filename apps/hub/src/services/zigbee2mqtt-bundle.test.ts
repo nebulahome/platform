@@ -19,8 +19,8 @@ import {
   type CapabilityState,
   type EntityId,
   type JsonObject,
-} from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 import {
   createDeclarativeIntegration,
   defineAccount,
@@ -38,7 +38,7 @@ import {
   type ManagedMqttOptions,
   type Transport,
   type TransportInbound,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 /** A vendor with nothing saved: what a listener that needs no settings is handed. */
 const NO_SETTINGS = { settings: async (): Promise<Record<string, never>> => Promise.resolve({}) };

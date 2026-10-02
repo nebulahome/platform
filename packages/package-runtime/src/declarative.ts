@@ -23,7 +23,7 @@ import {
   type CapabilityState,
   type EntityId,
   type JsonObject,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import type { BundleManifest } from './bundle.js';
 import { conditionHolds, resolvePath, resolvePresence } from './evaluate.js';

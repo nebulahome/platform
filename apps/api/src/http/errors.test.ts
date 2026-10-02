@@ -16,7 +16,7 @@ import {
   PermissionError,
   UpstreamError,
   ValidationError,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { toErrorBody, toErrorShape, toValidationIssues } from './errors.js';
 

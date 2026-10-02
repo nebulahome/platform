@@ -23,8 +23,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
-import type { ApiPackageDetail, PackageRelation } from '@nebula-home/contracts';
-import { Badge, Button, Modal, Panel, PanelNote, PanelRow, Switch } from '@nebula-home/ui';
+import type { ApiPackageDetail, PackageRelation } from '@nebulahome/contracts';
+import { Badge, Button, Modal, Panel, PanelNote, PanelRow, Switch } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { ExternalLinkIcon } from '@/components/icons';

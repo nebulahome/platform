@@ -3,8 +3,8 @@
  * says whether it runs, the badges a container carries, and the card that says Docker cannot be
  * seen.
  */
-import type { ContainerState, ContainerSummary, DockerStatus } from '@nebula-home/contracts';
-import { AppIcon, Badge, cn, Panel, type BadgeTone, type UiIconId } from '@nebula-home/ui';
+import type { ContainerState, ContainerSummary, DockerStatus } from '@nebulahome/contracts';
+import { AppIcon, Badge, cn, Panel, type BadgeTone, type UiIconId } from '@nebulahome/ui';
 
 /** What each state means to somebody reading the page. */
 export const CONTAINER_TONES: Readonly<Record<ContainerState, BadgeTone>> = {

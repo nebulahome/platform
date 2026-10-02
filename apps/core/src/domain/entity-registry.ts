@@ -16,7 +16,7 @@ import type {
   EntityState,
   SourceRef,
   StateReport,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { hasStateChanged, haveAttributesChanged, mergeCapabilityState } from './state-diff.js';
 

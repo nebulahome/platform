@@ -18,7 +18,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
-import { Button, Panel, TextField } from '@nebula-home/ui';
+import { Button, Panel, TextField } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import {

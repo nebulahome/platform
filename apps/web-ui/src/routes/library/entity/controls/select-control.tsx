@@ -5,7 +5,7 @@
  * device was set to elsewhere and the list does not have is shown as it is, rather than as the
  * first choice it is not.
  */
-import { Segmented, SelectField } from '@nebula-home/ui';
+import { Segmented, SelectField } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
 import { capabilityLabel } from '@/library/entity-kind';

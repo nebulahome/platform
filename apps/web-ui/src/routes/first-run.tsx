@@ -16,7 +16,7 @@
  */
 import { useState, type SubmitEventHandler } from 'react';
 
-import { Button, TextField } from '@nebula-home/ui';
+import { Button, TextField } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { PasswordField } from '@/components/password-field';

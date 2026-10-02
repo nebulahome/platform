@@ -13,7 +13,7 @@ import {
   type ContainerDeviceRegistration,
   type EntityId,
   type StateReport,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** What the supervisor knows about a container when its entities are written or reported. */
 export type ContainerFacts = {

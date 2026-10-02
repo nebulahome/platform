@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseEntityId } from '@nebula-home/contracts';
+import { parseEntityId } from '@nebulahome/contracts';
 
 import { aliasDescendants, findAliasCycle } from './alias-graph.js';
 

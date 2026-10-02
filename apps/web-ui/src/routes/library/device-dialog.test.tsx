@@ -16,7 +16,7 @@ import {
   type IconView,
   type IntegrationSetup,
   type IntegrationVendorView,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { ApiError } from '@/lib/api-error';
 import {

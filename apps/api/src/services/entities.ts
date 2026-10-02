@@ -24,8 +24,8 @@ import {
   type EntityView,
   type Identity,
   type JsonObject,
-} from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
 
 import { entityScopes, isPermitted } from '../auth/permissions.js';
 import { decodeCursor, encodeCursor, toPage, type PageResult } from '../http/pagination.js';

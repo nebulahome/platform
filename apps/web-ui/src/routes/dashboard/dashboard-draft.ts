@@ -10,7 +10,7 @@
  */
 import { create } from 'zustand';
 
-import type { DashboardLayout } from '@nebula-home/contracts';
+import type { DashboardLayout } from '@nebulahome/contracts';
 
 /** The edit in progress, if any. */
 export type DashboardDraftState = {

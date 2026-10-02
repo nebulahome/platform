@@ -19,7 +19,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { Button, SelectField } from '@nebula-home/ui';
+import { Button, SelectField } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { CONTAINER_QUERY_KEYS, dismissInstall, fetchContainers } from '@/containers/api';

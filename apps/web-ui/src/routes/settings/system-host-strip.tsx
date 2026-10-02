@@ -8,8 +8,8 @@
  */
 import { Link } from 'react-router';
 
-import type { SystemHost } from '@nebula-home/contracts';
-import { Badge, cn } from '@nebula-home/ui';
+import type { SystemHost } from '@nebulahome/contracts';
+import { Badge, cn } from '@nebulahome/ui';
 
 import { ExternalLinkIcon, ServerIcon } from '@/components/icons';
 import { formatUptime } from '@/lib/format-bytes';

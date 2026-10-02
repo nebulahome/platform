@@ -10,8 +10,8 @@ import {
   parseEntityId,
   type AdapterAck,
   type AdapterCommand,
-} from '@nebula-home/contracts';
-import type { Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import type { Database } from '@nebulahome/db';
 
 import { AliasCatalog } from '../domain/alias-catalog.js';
 import { entityRecord, createCoreHarness, type CoreHarness } from '../testing/harness.js';

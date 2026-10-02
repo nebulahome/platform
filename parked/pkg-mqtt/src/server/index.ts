@@ -13,8 +13,8 @@ import path from 'node:path';
 
 import { z } from 'zod';
 
-import type { EntityDomain, JsonValue } from '@nebula-home/contracts';
-import { definePackage, type PackageContext, type PackageDevice } from '@nebula-home/package-sdk';
+import type { EntityDomain, JsonValue } from '@nebulahome/contracts';
+import { definePackage, type PackageContext, type PackageDevice } from '@nebulahome/package-sdk';
 
 import { clientAccess, FULL_ACCESS } from './acl.js';
 import { Broker } from './broker.js';

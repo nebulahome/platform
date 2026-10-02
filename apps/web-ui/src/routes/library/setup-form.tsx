@@ -6,8 +6,8 @@
  * schema the API runs - so this component is only the mapping from a field type to a control,
  * and the place the field's help and error are shown.
  */
-import { isFieldShown, type SetupField, type SetupGroup } from '@nebula-home/contracts';
-import { FieldShell, Segmented, SelectField, TextField } from '@nebula-home/ui';
+import { isFieldShown, type SetupField, type SetupGroup } from '@nebulahome/contracts';
+import { FieldShell, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
 import { PasswordField } from '@/components/password-field';
 import type { DraftValue, SetupDraft } from '@/library/setup-values';

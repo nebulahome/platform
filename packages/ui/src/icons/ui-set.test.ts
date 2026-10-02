@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 
-import { loadBuiltinIcons } from '@nebula-home/icons';
+import { loadBuiltinIcons } from '@nebulahome/icons';
 
 import { BUILTIN_UI_NODES, UI_ICON_IDS } from './ui-set.js';
 

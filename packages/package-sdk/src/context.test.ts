@@ -5,8 +5,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { BusClient } from '@nebula-home/bus';
-import { FakeTransport } from '@nebula-home/bus/testing';
+import { BusClient } from '@nebulahome/bus';
+import { FakeTransport } from '@nebulahome/bus/testing';
 import {
   adapterAckSchema,
   busSubjects,
@@ -18,8 +18,8 @@ import {
   stateReportSchema,
   syncPackageRequestSchema,
   type SyncPackageRequest,
-} from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 
 import { createPackageContext, type PackageContextHandle } from './context.js';
 

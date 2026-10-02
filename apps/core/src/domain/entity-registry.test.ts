@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { parseEntityId, type EntityState, type StateReport } from '@nebula-home/contracts';
+import { parseEntityId, type EntityState, type StateReport } from '@nebulahome/contracts';
 
 import { EntityRegistry } from './entity-registry.js';
 

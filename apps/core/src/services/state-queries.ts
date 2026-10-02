@@ -9,7 +9,7 @@
  * That pairing is what lets every event on the bus be fire-and-forget: a subscriber that missed
  * events while it was restarting does not replay a durable log, it asks for a snapshot.
  */
-import type { BusClient, BusSubscription, MessageContext } from '@nebula-home/bus';
+import type { BusClient, BusSubscription, MessageContext } from '@nebulahome/bus';
 import {
   busSubjects,
   BUS_SUBJECT_PREFIX,
@@ -21,7 +21,7 @@ import {
   type EntityId,
   type EntityState,
   type StateSnapshotReply,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import type { EntityRegistry } from '../domain/entity-registry.js';
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { BusClient } from '@nebula-home/bus';
-import { FakeTransport } from '@nebula-home/bus/testing';
+import { BusClient } from '@nebulahome/bus';
+import { FakeTransport } from '@nebulahome/bus/testing';
 import {
   ADAPTER_COMMAND_METHOD,
   adapterAckSchema,
@@ -10,8 +10,8 @@ import {
   stateReportSchema,
   type EntityId,
   type StateReport,
-} from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 import {
   bundleManifestSchema,
   createDeclarativeIntegration,
@@ -19,7 +19,7 @@ import {
   type Integration,
   type TransportConnection,
   type TransportRequest,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import { DeviceBook } from '../domain/devices.js';
 
@@ -250,7 +250,7 @@ describe('startInstanceServices', () => {
     const reply = await caller.request(
       busSubjects.stateResync('relay-lab'),
       { reason: 'startup' },
-      (await import('@nebula-home/contracts')).resyncReplySchema,
+      (await import('@nebulahome/contracts')).resyncReplySchema,
     );
 
     watching.unsubscribe();
@@ -265,7 +265,7 @@ describe('startInstanceServices', () => {
     const reply = await caller.request(
       busSubjects.stateResync('relay-lab'),
       { reason: 'startup' },
-      (await import('@nebula-home/contracts')).resyncReplySchema,
+      (await import('@nebulahome/contracts')).resyncReplySchema,
     );
 
     stop();

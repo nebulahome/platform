@@ -4,8 +4,8 @@
  * The built-in set is read from disk once per process, because a thousand and a half icons
  * take a moment to load and every server a test builds wants the same ones.
  */
-import { loadBuiltinIcons, type IconRow } from '@nebula-home/icons';
-import { createLogger } from '@nebula-home/logging';
+import { loadBuiltinIcons, type IconRow } from '@nebulahome/icons';
+import { createLogger } from '@nebulahome/logging';
 
 import { IconService, type IconStore, type IconUses } from '../services/icons.js';
 

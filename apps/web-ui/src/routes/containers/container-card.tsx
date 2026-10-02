@@ -9,8 +9,8 @@
  */
 import { Link } from 'react-router';
 
-import type { ContainerInstall, ContainerSummary } from '@nebula-home/contracts';
-import { Badge, Button, cn } from '@nebula-home/ui';
+import type { ContainerInstall, ContainerSummary } from '@nebulahome/contracts';
+import { Badge, Button, cn } from '@nebulahome/ui';
 
 import { groupUsage, type ComposeGroup } from '@/containers/container-groups';
 import { formatBytes, formatPercent } from '@/lib/format-bytes';

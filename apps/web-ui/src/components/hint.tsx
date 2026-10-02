@@ -25,7 +25,7 @@
  */
 import { useRef, useState } from 'react';
 
-import { cn } from '@nebula-home/ui';
+import { cn } from '@nebulahome/ui';
 
 import { InfoIcon } from '@/components/icons';
 

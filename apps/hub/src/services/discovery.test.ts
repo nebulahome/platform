@@ -11,8 +11,8 @@ import { Writable } from 'node:stream';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import type { DiscoveredDevice, JsonObject } from '@nebula-home/contracts';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+import type { DiscoveredDevice, JsonObject } from '@nebulahome/contracts';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 import {
   bundleManifestSchema,
   createDeclarativeIntegration,
@@ -27,7 +27,7 @@ import {
   type MdnsAnnouncement,
   type Sighting,
   type Transport,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import type { MdnsSource } from '../discovery/mdns-source.js';
 import type { TakenDevices } from '../domain/taken.js';

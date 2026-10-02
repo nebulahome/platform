@@ -6,7 +6,7 @@
  * `manifest.json`, and a package's `nebula.package.json`, may declare containers - an image on a
  * registry, the oldest release it works with, what the container is given - and the platform
  * downloads and runs them. The supervisor does the running (ARCHITECTURE.md 4.10); this file is the
- * grammar both declarations share, and `@nebula-home/package-runtime` the step that fills a
+ * grammar both declarations share, and `@nebulahome/package-runtime` the step that fills a
  * vendor's settings in.
  *
  * What a declaration may say is narrow on purpose. It names the path **inside** the container of

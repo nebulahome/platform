@@ -1,5 +1,5 @@
 {
-  "name": "@nebula-home/packet-manager",
+  "name": "@nebulahome/packet-manager",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,21 +13,21 @@
     "test:integration": "vitest run --config vitest.integration.config.ts --passWithNoTests"
   },
   "dependencies": {
-    "@nebula-home/bus": "workspace:*",
-    "@nebula-home/config": "workspace:*",
-    "@nebula-home/contracts": "workspace:*",
-    "@nebula-home/db": "workspace:*",
-    "@nebula-home/logging": "workspace:*",
-    "@nebula-home/package-runtime": "workspace:*",
-    "@nebula-home/package-sdk": "workspace:*",
+    "@nebulahome/bus": "workspace:*",
+    "@nebulahome/config": "workspace:*",
+    "@nebulahome/contracts": "workspace:*",
+    "@nebulahome/db": "workspace:*",
+    "@nebulahome/logging": "workspace:*",
+    "@nebulahome/package-runtime": "workspace:*",
+    "@nebulahome/package-sdk": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "semver": "^7.8.5",
     "tar": "^7.5.22",
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@nebula-home/eslint-config": "workspace:*",
-    "@nebula-home/tsconfig": "workspace:*",
+    "@nebulahome/eslint-config": "workspace:*",
+    "@nebulahome/tsconfig": "workspace:*",
     "@types/semver": "^7.7.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11"

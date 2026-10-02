@@ -5,7 +5,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { TagChip } from '@nebula-home/ui';
+import { TagChip } from '@nebulahome/ui';
 
 describe('TagChip', () => {
   it('shows the name, and carries its colour as a class the theme can restyle', () => {

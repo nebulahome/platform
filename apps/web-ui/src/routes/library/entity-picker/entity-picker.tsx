@@ -13,8 +13,8 @@
  */
 import { useState } from 'react';
 
-import type { EntityView } from '@nebula-home/contracts';
-import { Button, cn, Modal, TextField } from '@nebula-home/ui';
+import type { EntityView } from '@nebulahome/contracts';
+import { Button, cn, Modal, TextField } from '@nebulahome/ui';
 
 import { matchesQuery } from '@/lib/search-text';
 import {

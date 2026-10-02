@@ -9,7 +9,7 @@
  */
 import { connect, Events, type NatsConnection } from 'nats';
 
-import { withTraceId, type PlatformLogger } from '@nebula-home/logging';
+import { withTraceId, type PlatformLogger } from '@nebulahome/logging';
 
 import { backoffDelayMs, delay, type BackoffOptions } from './backoff.js';
 import { newTraceId } from './client.js';

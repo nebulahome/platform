@@ -8,8 +8,8 @@
  */
 import { Link } from 'react-router';
 
-import type { DeviceView, IconView } from '@nebula-home/contracts';
-import { AppIcon, Badge } from '@nebula-home/ui';
+import type { DeviceView, IconView } from '@nebulahome/contracts';
+import { AppIcon, Badge } from '@nebulahome/ui';
 
 import { relativeTime } from '@/lib/format-time';
 import { type DeviceStanding } from '@/library/entity-reading';

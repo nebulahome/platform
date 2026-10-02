@@ -33,8 +33,8 @@ import {
   type SceneMemberInput,
   type SceneUpdate,
   type SceneView,
-} from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
 
 import { isUniqueViolation } from './keys.js';
 

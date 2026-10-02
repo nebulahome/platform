@@ -18,7 +18,7 @@ import {
   decodeCameraFrame,
   type CameraSocketMessage,
   type CameraTrack,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** Where a player stands. */
 export type CameraPlayerStatus = 'connecting' | 'playing' | 'unsupported' | 'error' | 'ended';

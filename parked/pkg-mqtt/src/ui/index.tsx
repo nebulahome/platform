@@ -3,7 +3,7 @@
  */
 import './styles.css';
 
-import { definePackageUi } from '@nebula-home/package-ui';
+import { definePackageUi } from '@nebulahome/package-ui';
 
 import { BrokerCard } from './broker-card.js';
 import { BrokerPage } from './broker-page.js';

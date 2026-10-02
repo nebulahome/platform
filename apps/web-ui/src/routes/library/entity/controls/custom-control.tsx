@@ -7,8 +7,8 @@
  * each command that asks nothing. A field the type does not name is still shown, by its key, so an
  * entity of a package no longer installed keeps saying what it last reported.
  */
-import type { PackageEntityField, PackageEntityType } from '@nebula-home/contracts';
-import { Button } from '@nebula-home/ui';
+import type { PackageEntityField, PackageEntityType } from '@nebulahome/contracts';
+import { Button } from '@nebulahome/ui';
 
 import { absoluteTime } from '@/lib/format-time';
 import { paramsOf } from '@/library/entity-control';

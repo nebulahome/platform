@@ -10,7 +10,7 @@ import type {
   CapabilityName,
   EntityId,
   JsonObject,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import type { AliasGraphEdge } from './alias-graph.js';
 

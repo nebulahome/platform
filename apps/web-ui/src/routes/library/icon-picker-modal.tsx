@@ -13,8 +13,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState, type KeyboardEvent } from 'react';
 
-import type { IconView } from '@nebula-home/contracts';
-import { Button, CatalogueIcon, cn, Modal, TextField } from '@nebula-home/ui';
+import type { IconView } from '@nebulahome/contracts';
+import { Button, CatalogueIcon, cn, Modal, TextField } from '@nebulahome/ui';
 
 import { useDebounced } from '@/lib/use-debounced';
 import { fetchIcons, LIBRARY_QUERY_KEYS } from '@/library/api';

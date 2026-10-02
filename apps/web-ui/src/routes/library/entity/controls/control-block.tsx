@@ -7,8 +7,8 @@
  */
 import type { ReactNode } from 'react';
 
-import type { CapabilityName, CapabilityState, EntityView } from '@nebula-home/contracts';
-import { cn } from '@nebula-home/ui';
+import type { CapabilityName, CapabilityState, EntityView } from '@nebulahome/contracts';
+import { cn } from '@nebulahome/ui';
 
 import type { EntityCommander } from '@/routes/library/entity/use-entity-command';
 import type { PendingValue } from '@/routes/library/entity/use-pending-value';

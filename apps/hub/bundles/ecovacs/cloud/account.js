@@ -22,7 +22,7 @@ import { createHash } from 'node:crypto';
 import { createApi, EcovacsError } from './api.js';
 import { maskedEmail, signInValuesOf } from './sign-in.js';
 
-/** @typedef {import('@nebula-home/package-runtime').AccountHandle} AccountHandle */
+/** @typedef {import('@nebulahome/package-runtime').AccountHandle} AccountHandle */
 /** @typedef {import('./api.js').AccountSession} AccountSession */
 /** @typedef {import('./api.js').CloudDevice} CloudDevice */
 /** @typedef {import('./api.js').Credentials} Credentials */
@@ -59,7 +59,7 @@ const accounts = new Map();
 /**
  * Reads a session out of what the sign-in kept.
  *
- * @param {import('@nebula-home/contracts').JsonObject} kept - The handle's session.
+ * @param {import('@nebulahome/contracts').JsonObject} kept - The handle's session.
  * @returns {{ session: AccountSession | undefined; credentials: Credentials | undefined }} What
  *   of it is usable.
  */

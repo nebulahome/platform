@@ -8,7 +8,7 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import type { ContainersView } from '@nebula-home/contracts';
+import type { ContainersView } from '@nebulahome/contracts';
 
 import {
   bearer,

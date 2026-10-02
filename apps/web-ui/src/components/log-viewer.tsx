@@ -18,8 +18,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import type { ContainerLogLine, ContainerLogsReply } from '@nebula-home/contracts';
-import { AppIcon, Button, IconButton, Panel, Segmented, SelectField, cn } from '@nebula-home/ui';
+import type { ContainerLogLine, ContainerLogsReply } from '@nebulahome/contracts';
+import { AppIcon, Button, IconButton, Panel, Segmented, SelectField, cn } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { readLine, type LogLevel, type LogTone, type ReadLine } from '@/lib/log-lines';

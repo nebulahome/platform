@@ -12,7 +12,7 @@
  */
 import { useState, type SubmitEventHandler } from 'react';
 
-import { Button, TextField } from '@nebula-home/ui';
+import { Button, TextField } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';

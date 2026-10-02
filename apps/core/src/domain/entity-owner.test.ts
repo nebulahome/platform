@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ValidationError, parseEntityId } from '@nebula-home/contracts';
+import { ValidationError, parseEntityId } from '@nebulahome/contracts';
 
 import { resolveOwner } from './entity-owner.js';
 

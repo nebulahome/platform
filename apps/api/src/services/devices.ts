@@ -55,8 +55,8 @@ import {
   type IntegrationKind,
   type IntegrationVendor,
   type JsonObject,
-} from '@nebula-home/contracts';
-import { isSealed, schema } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { isSealed, schema } from '@nebulahome/db';
 
 import { checkRoom } from './areas.js';
 import { checkIcon, type IconLookup } from './icon-lookup.js';

@@ -10,7 +10,7 @@
  */
 import { create } from 'zustand';
 
-import type { JsonObject, WsServerMessage } from '@nebula-home/contracts';
+import type { JsonObject, WsServerMessage } from '@nebulahome/contracts';
 
 import type { LiveStatus } from '@/live/live-client';
 

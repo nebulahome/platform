@@ -5,7 +5,7 @@
  * An install answers once the packages are unpacked and started, which can be minutes on a slow
  * connection: `api` waits for it, with a timeout to match.
  */
-import type { BusClient, BusSubscription } from '@nebula-home/bus';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
   PACKET_MANAGER_METHODS,
@@ -17,7 +17,7 @@ import {
   packageLogsRequestSchema,
   packageRemoveRequestSchema,
   packetManagerEmptyRequestSchema,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import type { PacketManager } from './service.js';
 

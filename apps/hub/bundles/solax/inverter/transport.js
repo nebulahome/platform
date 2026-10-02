@@ -30,12 +30,12 @@
 import createSolaxLocal from '../local/transport.js';
 import createSolaxModbus, { NoConnectionError } from '../modbus/transport.js';
 
-/** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
-/** @typedef {import('@nebula-home/package-runtime').Transport} Transport */
-/** @typedef {import('@nebula-home/package-runtime').TransportConnection} TransportConnection */
-/** @typedef {import('@nebula-home/package-runtime').TransportContext} TransportContext */
-/** @typedef {import('@nebula-home/package-runtime').Discovered} Discovered */
-/** @typedef {import('@nebula-home/contracts').JsonObject} JsonObject */
+/** @typedef {import('@nebulahome/package-runtime').BundleSdk} BundleSdk */
+/** @typedef {import('@nebulahome/package-runtime').Transport} Transport */
+/** @typedef {import('@nebulahome/package-runtime').TransportConnection} TransportConnection */
+/** @typedef {import('@nebulahome/package-runtime').TransportContext} TransportContext */
+/** @typedef {import('@nebulahome/package-runtime').Discovered} Discovered */
+/** @typedef {import('@nebulahome/contracts').JsonObject} JsonObject */
 
 /**
  * Which way the inverter is read.
@@ -175,7 +175,7 @@ export default function createSolaxInverter(sdk) {
         /**
          * Hands a reading on, as this transport's and made the same.
          *
-         * @param {import('@nebula-home/package-runtime').TransportInbound} message - What the way
+         * @param {import('@nebulahome/package-runtime').TransportInbound} message - What the way
          * delivered.
          */
         deliver: (message) => {

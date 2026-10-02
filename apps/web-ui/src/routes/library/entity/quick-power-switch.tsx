@@ -5,7 +5,7 @@
  * {@link usePendingValue} - and a refusal is said in its tooltip and to a screen reader, then it
  * falls back to what the device last said.
  */
-import { Switch } from '@nebula-home/ui';
+import { Switch } from '@nebulahome/ui';
 
 import { powerCommand } from '@/library/entity-control';
 import { useEntityCommand } from '@/routes/library/entity/use-entity-command';

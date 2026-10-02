@@ -18,7 +18,7 @@
 import L from 'leaflet';
 import { useEffect, useRef } from 'react';
 
-import { cn } from '@nebula-home/ui';
+import { cn } from '@nebulahome/ui';
 
 import { apiBlob } from '@/lib/api-client';
 

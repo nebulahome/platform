@@ -7,7 +7,7 @@
  */
 import { useState, type ReactNode } from 'react';
 
-import { Panel } from '@nebula-home/ui';
+import { Panel } from '@nebulahome/ui';
 
 import type { BooleanJoin } from '@/library/automation-draft';
 import { AddBlockPlaceholder } from '@/routes/library/add-block-placeholder';

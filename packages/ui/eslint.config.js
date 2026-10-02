@@ -1,3 +1,3 @@
-import config from '@nebula-home/eslint-config/react';
+import config from '@nebulahome/eslint-config/react';
 
 export default config;

@@ -15,8 +15,8 @@ import { eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { aliasViewSchema, ConflictError, type AliasView } from '@nebula-home/contracts';
-import { createDatabase, schema } from '@nebula-home/db';
+import { aliasViewSchema, ConflictError, type AliasView } from '@nebulahome/contracts';
+import { createDatabase, schema } from '@nebulahome/db';
 
 import {
   aliasesRemoved,

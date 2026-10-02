@@ -16,8 +16,8 @@
  */
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 
-import type { IntegrationVendorView, ModelChoice } from '@nebula-home/contracts';
-import { cn } from '@nebula-home/ui';
+import type { IntegrationVendorView, ModelChoice } from '@nebulahome/contracts';
+import { cn } from '@nebulahome/ui';
 
 import { matchesQuery } from '@/lib/search-text';
 import { SearchField } from '@/routes/library/search-field';

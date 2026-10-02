@@ -20,9 +20,9 @@ import {
   type StateReport,
   type SystemMonitorSample,
   type SystemMonitorSnapshot,
-} from '@nebula-home/contracts';
-import type { Database } from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { Database } from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { NetworkCounters } from '../domain/network-counters.js';
 import {

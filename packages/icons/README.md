@@ -1,4 +1,4 @@
-# `@nebula-home/icons`
+# `@nebulahome/icons`
 
 The icons that ship with the platform, and the reader that turns an uploaded SVG into one.
 
@@ -15,8 +15,8 @@ src/catalogue.ts    IconCatalogue: built-in + rows, merged, searched, read by id
 src/svg.ts          parseIconSvg, suggestIconId - pure, shared by browser and server
 ```
 
-The package has two entry points on purpose. `@nebula-home/icons` reads `lucide-static` from
-disk and is for the server; `@nebula-home/icons/svg` touches no file and is what the browser
+The package has two entry points on purpose. `@nebulahome/icons` reads `lucide-static` from
+disk and is for the server; `@nebulahome/icons/svg` touches no file and is what the browser
 imports to preview an upload before sending it.
 
 ## What an icon is

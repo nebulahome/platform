@@ -9,7 +9,7 @@
  *
  * Pure, so what the grid shows is tested without the page.
  */
-import type { ComposeOperation, ContainerInstall, ContainerSummary } from '@nebula-home/contracts';
+import type { ComposeOperation, ContainerInstall, ContainerSummary } from '@nebulahome/contracts';
 
 import { matchesQuery } from '@/lib/search-text';
 

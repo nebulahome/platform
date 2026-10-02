@@ -16,7 +16,7 @@ import {
   sourceRefSchema,
   type EntityId,
   type SourceRef,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** The three columns, as the database holds them. */
 export type OwnerColumns = {

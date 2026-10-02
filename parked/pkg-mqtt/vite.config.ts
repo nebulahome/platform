@@ -10,6 +10,6 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-import { nebulaPackageUi } from '@nebula-home/package-ui/vite';
+import { nebulaPackageUi } from '@nebulahome/package-ui/vite';
 
 export default defineConfig({ plugins: [react(), tailwindcss(), nebulaPackageUi()] });

@@ -29,15 +29,15 @@ import { createHash } from 'node:crypto';
 import { Agent, fetch } from 'undici';
 import { z } from 'zod';
 
-import type { JsonObject } from '@nebula-home/contracts';
-import { defineTransport } from '@nebula-home/package-runtime';
+import type { JsonObject } from '@nebulahome/contracts';
+import { defineTransport } from '@nebulahome/package-runtime';
 import type {
   Discovered,
   TransportConnection,
   TransportContext,
   TransportRequest,
   TransportSubscription,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 /** How often a poll may run at most, so a profile cannot melt a device with a one-millisecond loop. */
 const MIN_POLL_MS = 250;

@@ -19,8 +19,8 @@
  */
 import { Link } from 'react-router';
 
-import type { CapabilityState, EntityView, IconView, TagView } from '@nebula-home/contracts';
-import { AppIcon, TagChip } from '@nebula-home/ui';
+import type { CapabilityState, EntityView, IconView, TagView } from '@nebulahome/contracts';
+import { AppIcon, TagChip } from '@nebulahome/ui';
 
 import { entityKindOf } from '@/library/entity-kind';
 import { type Reading } from '@/library/entity-reading';

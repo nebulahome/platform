@@ -10,8 +10,8 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { UpstreamError } from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+import { UpstreamError } from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 
 import { tilesAround } from './map-tile-geometry.js';
 import { createMapTileService, type MapTileService } from './map-tiles.js';

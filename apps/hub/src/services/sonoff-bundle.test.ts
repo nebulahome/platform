@@ -15,8 +15,8 @@ import { fileURLToPath } from 'node:url';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { parseEntityId, type CapabilityState } from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+import { parseEntityId, type CapabilityState } from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 import {
   associateModel,
   createDeclarativeIntegration,
@@ -30,7 +30,7 @@ import {
   type Integration,
   type MappingContext,
   type MdnsAnnouncement,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import { httpTransport } from '../transports/http.js';
 

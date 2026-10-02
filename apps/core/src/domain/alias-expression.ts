@@ -11,4 +11,4 @@ export {
   type AliasEvaluateLimits,
   type AliasEvaluateResult,
   type AliasScalar,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';

@@ -11,7 +11,7 @@ import type {
   BackupRetention,
   BackupSections,
   BackupStatusView,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { formatBytes } from '@/lib/format-bytes';
 

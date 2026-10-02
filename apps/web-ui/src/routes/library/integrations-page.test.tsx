@@ -9,7 +9,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { DiscoveredDevice, IntegrationVendorView } from '@nebula-home/contracts';
+import type { DiscoveredDevice, IntegrationVendorView } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
 import {

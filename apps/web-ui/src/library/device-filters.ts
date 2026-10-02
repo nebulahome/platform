@@ -7,7 +7,7 @@
  * because the point of a registry search is to find the row for the thing in your hand, and
  * the one string you remember about it could be any of those.
  */
-import type { DeviceView, EntityView } from '@nebula-home/contracts';
+import type { DeviceView, EntityView } from '@nebulahome/contracts';
 
 import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, type ListCodec } from '@/lib/use-list-state';

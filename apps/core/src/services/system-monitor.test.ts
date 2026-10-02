@@ -3,8 +3,8 @@ import { join } from 'node:path';
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { parseEntityId, SYSTEM_ENTITIES } from '@nebula-home/contracts';
-import type { Database } from '@nebula-home/db';
+import { parseEntityId, SYSTEM_ENTITIES } from '@nebulahome/contracts';
+import type { Database } from '@nebulahome/db';
 
 import type { NetworkCounters } from '../domain/network-counters.js';
 import { createCoreHarness, entityRecord, type CoreHarness } from '../testing/harness.js';

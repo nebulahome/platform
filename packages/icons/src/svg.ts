@@ -17,7 +17,7 @@ import {
   type IconElement,
   type IconFrame,
   type IconNode,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** What reading a file produced. */
 export type ParsedIconSvg = {

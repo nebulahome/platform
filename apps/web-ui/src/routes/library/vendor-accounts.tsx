@@ -16,8 +16,8 @@ import type {
   DeviceView,
   IntegrationAccountView,
   IntegrationVendorView,
-} from '@nebula-home/contracts';
-import { Badge, Button, Modal, Panel, Switch, type BadgeTone } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { Badge, Button, Modal, Panel, Switch, type BadgeTone } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { relativeTime } from '@/lib/format-time';

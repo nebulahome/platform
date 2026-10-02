@@ -5,7 +5,7 @@
  * or two facets, kept in the address like every other list's ({@link ListCodec}). Pure, so what a
  * list lets through is tested without the page.
  */
-import type { PackageState, SceneView } from '@nebula-home/contracts';
+import type { PackageState, SceneView } from '@nebulahome/contracts';
 
 import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, readChoice, type ListCodec } from '@/lib/use-list-state';

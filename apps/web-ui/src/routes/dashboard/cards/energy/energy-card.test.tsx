@@ -6,7 +6,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { HOUSE_STYLES, type HouseStyle } from '@nebula-home/contracts';
+import { HOUSE_STYLES, type HouseStyle } from '@nebulahome/contracts';
 
 import { geometryFor } from '@/routes/dashboard/cards/energy/geometry';
 import { energySample, energySampleCache, type SampleMeters } from '@/testing/energy-samples';

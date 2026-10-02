@@ -15,7 +15,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 
-import type { CapabilityName, JsonObject } from '@nebula-home/contracts';
+import type { CapabilityName, JsonObject } from '@nebulahome/contracts';
 
 import { toMessage } from '@/lib/error-message';
 import { commandEntity, LIBRARY_QUERY_KEYS } from '@/library/api';

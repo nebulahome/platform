@@ -11,7 +11,7 @@ import path from 'node:path';
 
 import { z } from 'zod';
 
-import type { BusClient, BusSubscription } from '@nebula-home/bus';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
   ConflictError,
@@ -26,7 +26,7 @@ import {
   packageRpcRequestSchema,
   type InstalledPackage,
   type PackageDetail,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** Where the fake package's files are. */
 export const FAKE_PACKAGE_ROOT = mkdtempSync(path.join(os.tmpdir(), 'api-package-'));

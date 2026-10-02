@@ -11,7 +11,7 @@
  * meaning 30. The floors come from the catalogue, so a level can never be offered a duration its
  * own schema would refuse.
  */
-import { PINO_LEVEL_BY_NAME, type JsonValue } from '@nebula-home/contracts';
+import { PINO_LEVEL_BY_NAME, type JsonValue } from '@nebulahome/contracts';
 
 /** One option, as a dropdown wants it. */
 export type Choice = {

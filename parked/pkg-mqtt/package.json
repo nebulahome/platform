@@ -1,5 +1,5 @@
 {
-  "name": "@nebula-home/pkg-mqtt",
+  "name": "@nebulahome/pkg-mqtt",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -11,17 +11,17 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@nebula-home/contracts": "workspace:*",
-    "@nebula-home/package-sdk": "workspace:*",
+    "@nebulahome/contracts": "workspace:*",
+    "@nebulahome/package-sdk": "workspace:*",
     "aedes": "^1.2.0",
     "aedes-persistence-sqlite": "^2.0.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@nebula-home/eslint-config": "workspace:*",
-    "@nebula-home/package-ui": "workspace:*",
-    "@nebula-home/tsconfig": "workspace:*",
-    "@nebula-home/ui": "workspace:*",
+    "@nebulahome/eslint-config": "workspace:*",
+    "@nebulahome/package-ui": "workspace:*",
+    "@nebulahome/tsconfig": "workspace:*",
+    "@nebulahome/ui": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.20.1",
     "@types/react": "^19.2.18",

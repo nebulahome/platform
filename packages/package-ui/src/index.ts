@@ -4,10 +4,10 @@
  *
  * A package's `ui/index.js` default-exports {@link definePackageUi}. The interface imports it when
  * something of the package is first drawn, and draws its components inside its own tree: the same
- * React, the same design system (`@nebula-home/ui`), the same live data. That is what the hooks
+ * React, the same design system (`@nebulahome/ui`), the same live data. That is what the hooks
  * here reach - the host's implementation of them, which the interface installs as
- * `globalThis.__nebula.modules['@nebula-home/package-ui']`, so a package built with the Vite preset
- * (`@nebula-home/package-ui/vite`) never bundles React or this module: it uses the interface's.
+ * `globalThis.__nebula.modules['@nebulahome/package-ui']`, so a package built with the Vite preset
+ * (`@nebulahome/package-ui/vite`) never bundles React or this module: it uses the interface's.
  */
 import type { ComponentType } from 'react';
 
@@ -18,7 +18,7 @@ import type {
   JsonObject,
   JsonValue,
   PackageCardSize,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 export { SHARED_MODULES, type SharedModule } from './shared.js';
 
@@ -118,7 +118,7 @@ type NebulaGlobal = { readonly modules?: Readonly<Record<string, unknown>> };
  */
 function host(): PackageUiHost {
   const nebula = (globalThis as { __nebula?: NebulaGlobal }).__nebula;
-  const found = nebula?.modules?.['@nebula-home/package-ui'] as Partial<PackageUiHost> | undefined;
+  const found = nebula?.modules?.['@nebulahome/package-ui'] as Partial<PackageUiHost> | undefined;
 
   if (found?.usePackage === undefined) {
     throw new Error('A package’s interface is drawn by the NebulaHome interface, and only there');

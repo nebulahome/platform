@@ -6,8 +6,8 @@
  */
 import { useState, type ReactNode } from 'react';
 
-import type { AutomationAction } from '@nebula-home/contracts';
-import { Button, SelectField, TextField } from '@nebula-home/ui';
+import type { AutomationAction } from '@nebulahome/contracts';
+import { Button, SelectField, TextField } from '@nebulahome/ui';
 
 import { blankAction, replaceAt, without } from '@/library/automation-draft';
 import { ActionFields } from '@/routes/library/action-fields';

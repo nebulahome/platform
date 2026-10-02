@@ -6,8 +6,8 @@
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
-import { newTraceId } from '@nebula-home/bus';
-import { TRACE_ID_HEADER } from '@nebula-home/contracts';
+import { newTraceId } from '@nebulahome/bus';
+import { TRACE_ID_HEADER } from '@nebulahome/contracts';
 
 /** The longest trace id accepted from a caller. */
 const MAX_TRACE_ID_LENGTH = 64;

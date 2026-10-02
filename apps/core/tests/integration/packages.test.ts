@@ -19,7 +19,7 @@ import { Writable } from 'node:stream';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { BusClient, connectBus, ulid, type BusConnection } from '@nebula-home/bus';
+import { BusClient, connectBus, ulid, type BusConnection } from '@nebulahome/bus';
 import {
   busSubjects,
   CORE_SERVICE,
@@ -29,9 +29,9 @@ import {
   parseEntityId,
   syncPackageReplySchema,
   type SyncPackageReply,
-} from '@nebula-home/contracts';
-import { createDatabase, schema, type Database } from '@nebula-home/db';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createDatabase, schema, type Database } from '@nebulahome/db';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { EntityDirectory } from '@/domain/entity-directory.js';
 import { EntityRegistry } from '@/domain/entity-registry.js';

@@ -24,15 +24,15 @@
  */
 import { createHash, randomInt } from 'node:crypto';
 
-/** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
-/** @typedef {import('@nebula-home/package-runtime').Transport} Transport */
-/** @typedef {import('@nebula-home/package-runtime').TransportConnection} TransportConnection */
-/** @typedef {import('@nebula-home/package-runtime').TransportContext} TransportContext */
-/** @typedef {import('@nebula-home/package-runtime').TransportRequest} TransportRequest */
-/** @typedef {import('@nebula-home/package-runtime').TransportSubscription} TransportSubscription */
-/** @typedef {import('@nebula-home/package-runtime').Discovered} Discovered */
-/** @typedef {import('@nebula-home/logging').PlatformLogger} PlatformLogger */
-/** @typedef {import('@nebula-home/contracts').JsonObject} JsonObject */
+/** @typedef {import('@nebulahome/package-runtime').BundleSdk} BundleSdk */
+/** @typedef {import('@nebulahome/package-runtime').Transport} Transport */
+/** @typedef {import('@nebulahome/package-runtime').TransportConnection} TransportConnection */
+/** @typedef {import('@nebulahome/package-runtime').TransportContext} TransportContext */
+/** @typedef {import('@nebulahome/package-runtime').TransportRequest} TransportRequest */
+/** @typedef {import('@nebulahome/package-runtime').TransportSubscription} TransportSubscription */
+/** @typedef {import('@nebulahome/package-runtime').Discovered} Discovered */
+/** @typedef {import('@nebulahome/logging').PlatformLogger} PlatformLogger */
+/** @typedef {import('@nebulahome/contracts').JsonObject} JsonObject */
 
 /**
  * What an owner configures to reach one device.

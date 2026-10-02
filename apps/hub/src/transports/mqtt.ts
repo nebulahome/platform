@@ -34,15 +34,15 @@
 import { connect, connectAsync, type MqttClient } from 'mqtt';
 import { z } from 'zod';
 
-import type { JsonObject } from '@nebula-home/contracts';
-import { defineTransport } from '@nebula-home/package-runtime';
+import type { JsonObject } from '@nebulahome/contracts';
+import { defineTransport } from '@nebulahome/package-runtime';
 import type {
   Discovered,
   TransportConnection,
   TransportContext,
   TransportRequest,
   TransportSubscription,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 /** How long the client waits before trying the broker again. */
 const RECONNECT_PERIOD_MS = 5000;

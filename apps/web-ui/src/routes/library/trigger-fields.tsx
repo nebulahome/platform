@@ -14,8 +14,8 @@ import {
   SOLAR_EVENTS,
   type SolarEvent,
   type AutomationTrigger,
-} from '@nebula-home/contracts';
-import { SelectField, TextField } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { SelectField, TextField } from '@nebulahome/ui';
 
 import { partialEntityId } from '@/library/automation-draft';
 import { hasNumber } from '@/library/entity-control';

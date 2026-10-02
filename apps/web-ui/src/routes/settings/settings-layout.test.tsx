@@ -13,7 +13,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
-import type { GrantedPermission } from '@nebula-home/contracts';
+import type { GrantedPermission } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
 import { RequiresPermission } from '@/routes/settings/requires-permission';

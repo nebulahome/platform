@@ -8,7 +8,7 @@
  */
 import { Link } from 'react-router';
 
-import { AppIcon, Button, cn } from '@nebula-home/ui';
+import { AppIcon, Button, cn } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
 import { CardFrame, CardHeading, TileRow } from '@/routes/dashboard/cards/card-parts';

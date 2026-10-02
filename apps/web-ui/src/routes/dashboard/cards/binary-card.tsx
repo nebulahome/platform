@@ -5,7 +5,7 @@
  * sensor uses - "Clear", "Open" - and the tall card draws the last day as one bar an hour, each as
  * tall as the share of that hour it spent active, so the day reads at a glance.
  */
-import { cn } from '@nebula-home/ui';
+import { cn } from '@nebulahome/ui';
 
 import { activityShares } from '@/dashboard/activity';
 import { stateSegments } from '@/library/history-series';

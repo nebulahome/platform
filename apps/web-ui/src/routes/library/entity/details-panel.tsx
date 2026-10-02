@@ -10,8 +10,8 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import { getSensorClass, type CapabilityName, type EntityView } from '@nebula-home/contracts';
-import { AppIcon, IconButton, Panel, TagChip } from '@nebula-home/ui';
+import { getSensorClass, type CapabilityName, type EntityView } from '@nebulahome/contracts';
+import { AppIcon, IconButton, Panel, TagChip } from '@nebulahome/ui';
 
 import { copyText } from '@/lib/clipboard';
 import { absoluteTime, relativeTime } from '@/lib/format-time';

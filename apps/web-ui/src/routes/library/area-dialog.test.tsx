@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AreaView } from '@nebula-home/contracts';
+import type { AreaView } from '@nebulahome/contracts';
 
 import { createArea, deleteArea, fetchIcons, updateArea } from '@/library/api';
 

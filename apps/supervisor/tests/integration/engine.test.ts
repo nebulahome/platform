@@ -14,9 +14,9 @@ import { promisify } from 'node:util';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { ulid } from '@nebula-home/bus';
-import { loadConfig } from '@nebula-home/config';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+import { ulid } from '@nebulahome/bus';
+import { loadConfig } from '@nebulahome/config';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { supervisorEnvSchema } from '@/config.js';
 import { DockerEngine } from '@/docker/engine.js';

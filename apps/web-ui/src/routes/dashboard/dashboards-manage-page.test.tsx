@@ -9,7 +9,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { DashboardAssignee, DashboardView } from '@nebula-home/contracts';
+import type { DashboardAssignee, DashboardView } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
 import {

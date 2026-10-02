@@ -16,8 +16,8 @@ import {
   parsePermission,
   type GrantedPermission,
   type Identity,
-} from '@nebula-home/contracts';
-import type { Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import type { Database } from '@nebulahome/db';
 
 import { intersectGrants, resolveGrants } from './permissions.js';
 import {

@@ -26,8 +26,8 @@ import {
   UpstreamError,
   type TileCacheStatus,
   type TilePrefetchResult,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import { tilesAround, type Tile } from './map-tile-geometry.js';
 

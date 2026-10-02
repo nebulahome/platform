@@ -5,7 +5,7 @@ import {
   ValidationError,
   type CapabilityName,
   type JsonObject,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { validateCommand } from './command-validation.js';
 import type { EntityRecord } from './entity-directory.js';

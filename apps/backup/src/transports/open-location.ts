@@ -7,8 +7,8 @@ import {
   localPathProblem,
   type BackupTargetInput,
   type JsonObject,
-} from '@nebula-home/contracts';
-import { openSecrets } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { openSecrets } from '@nebulahome/db';
 
 import type { StoredLocation } from '../persistence/backup-store.js';
 

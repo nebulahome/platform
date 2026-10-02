@@ -21,8 +21,8 @@ import {
   type DashboardLayout,
   type IconView,
   type SceneView,
-} from '@nebula-home/contracts';
-import { AppIcon, Button, IconButton, Segmented, SelectField, Switch } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { AppIcon, Button, IconButton, Segmented, SelectField, Switch } from '@nebulahome/ui';
 
 import {
   CARD_SIZES,

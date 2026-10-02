@@ -15,8 +15,8 @@
  */
 import { useState } from 'react';
 
-import type { DashboardCard, SceneView } from '@nebula-home/contracts';
-import { AppIcon, Button, CatalogueIcon, Modal, type UiIconId } from '@nebula-home/ui';
+import type { DashboardCard, SceneView } from '@nebulahome/contracts';
+import { AppIcon, Button, CatalogueIcon, Modal, type UiIconId } from '@nebulahome/ui';
 
 import {
   clockCard,

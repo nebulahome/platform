@@ -16,7 +16,7 @@ import {
   type SetupField,
   type SetupGroup,
   type SetupValueMode,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { isApiError } from '@/lib/api-error';
 

@@ -1,7 +1,7 @@
 /**
  * What `hub` reads from the environment.
  *
- * Composed from the shared fragments in `@nebula-home/config` plus the handful of variables only
+ * Composed from the shared fragments in `@nebulahome/config` plus the handful of variables only
  * this service has. Anything an owner can change while the system runs belongs in
  * `registry.integrations` or `system.settings` instead; the environment is for what is fixed for
  * the life of a process (RULES.md 11).
@@ -19,8 +19,8 @@ import {
   requireDataDirInProduction,
   runtimeEnvSchema,
   secretsEnvSchema,
-} from '@nebula-home/config';
-import type { PlatformMqtt } from '@nebula-home/package-runtime';
+} from '@nebulahome/config';
+import type { PlatformMqtt } from '@nebulahome/package-runtime';
 
 /** Name this service reports in log records and bus envelopes. */
 export const SERVICE_NAME = 'hub';

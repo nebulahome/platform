@@ -10,7 +10,7 @@
  * command in the house behind whichever device was slowest to answer. One unreachable relay would
  * hold up the lights in another room for the length of its timeout.
  */
-import type { BusClient, BusSubscription } from '@nebula-home/bus';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   ADAPTER_COMMAND_METHOD,
   adapterCommandSchema,
@@ -23,8 +23,8 @@ import {
   type JsonObject,
   type ResyncReply,
   type StateReport,
-} from '@nebula-home/contracts';
-import type { Integration, TransportConnection } from '@nebula-home/package-runtime';
+} from '@nebulahome/contracts';
+import type { Integration, TransportConnection } from '@nebulahome/package-runtime';
 
 import type { DeviceBook } from '../domain/devices.js';
 

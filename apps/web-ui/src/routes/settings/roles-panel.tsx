@@ -17,8 +17,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { PERMISSIONS } from '@nebula-home/contracts';
-import { Badge, Panel, PanelNote } from '@nebula-home/ui';
+import { PERMISSIONS } from '@nebulahome/contracts';
+import { Badge, Panel, PanelNote } from '@nebulahome/ui';
 
 import { ChevronIcon } from '@/components/icons';
 import { toMessage } from '@/lib/error-message';

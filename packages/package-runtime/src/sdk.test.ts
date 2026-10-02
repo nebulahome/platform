@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { createLogger } from '@nebula-home/logging';
+import { createLogger } from '@nebulahome/logging';
 
 import { defineAccount } from './account.js';
 import type { DiscoverySourceFactory, Sighting } from './discovery.js';

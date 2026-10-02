@@ -1,7 +1,7 @@
 /**
  * Containers as the API lists them, for the tests of the containers pages.
  */
-import type { ContainerCompose, ContainerSummary } from '@nebula-home/contracts';
+import type { ContainerCompose, ContainerSummary } from '@nebulahome/contracts';
 
 /**
  * A plain running container the owner started, varying what a test reads.

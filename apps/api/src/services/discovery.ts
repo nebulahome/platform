@@ -25,7 +25,7 @@ import {
   type DiscoveredDevice,
   type DiscoverReply,
   type DiscoveryAdopt,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { createDevice, type DevicesContext } from './devices.js';
 import { busOf, type IntegrationsContext } from './integrations.js';

@@ -2,6 +2,6 @@
  * The application stylesheet.
  *
  * One import. Every token lives in the design system, so that the interface and anything else
- * built on `@nebula-home/ui` cannot drift apart (RULES.md 15.3).
+ * built on `@nebulahome/ui` cannot drift apart (RULES.md 15.3).
  */
-@import '@nebula-home/ui/styles.css';
+@import '@nebulahome/ui/styles.css';

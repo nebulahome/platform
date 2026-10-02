@@ -14,7 +14,7 @@ import {
   type ImageDescription,
   type InstallNetwork,
   type RestartPolicy,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** One port row. */
 export type PortDraft = {

@@ -8,7 +8,7 @@ import {
   resyncRequestSchema,
   type ResyncReply,
   type ResyncRequest,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { entityRecord, createCoreHarness, type CoreHarness } from '../testing/harness.js';
 

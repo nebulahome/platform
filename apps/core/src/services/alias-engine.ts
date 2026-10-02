@@ -21,9 +21,9 @@ import {
   type EntityId,
   type JsonObject,
   type StateReport,
-} from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import { isStoredAlias, type AliasCatalog, type AliasDefinition } from '../domain/alias-catalog.js';
 import {

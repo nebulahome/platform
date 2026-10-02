@@ -9,8 +9,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
-import type { DashboardSceneCard, SceneApplyResult } from '@nebula-home/contracts';
-import { AppIcon, cn } from '@nebula-home/ui';
+import type { DashboardSceneCard, SceneApplyResult } from '@nebulahome/contracts';
+import { AppIcon, cn } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { applyScene } from '@/library/api';

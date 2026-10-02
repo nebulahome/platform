@@ -19,8 +19,8 @@ import {
   NotFoundError,
   telemetryReadingSchema,
   type EntityId,
-} from '@nebula-home/contracts';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import {
   BusClient,

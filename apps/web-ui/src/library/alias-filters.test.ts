@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { entityIdSchema, type AliasView } from '@nebula-home/contracts';
+import { entityIdSchema, type AliasView } from '@nebulahome/contracts';
 
 import {
   ALIAS_FILTER_CODEC,

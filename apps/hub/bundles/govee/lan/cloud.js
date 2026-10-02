@@ -18,8 +18,8 @@
  */
 import { createHash, randomUUID } from 'node:crypto';
 
-/** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
-/** @typedef {import('@nebula-home/package-runtime').ManagedMqtt} ManagedMqtt */
+/** @typedef {import('@nebulahome/package-runtime').BundleSdk} BundleSdk */
+/** @typedef {import('@nebulahome/package-runtime').ManagedMqtt} ManagedMqtt */
 
 /** Where the Govee app signs in. */
 const LOGIN_URL = 'https://app2.govee.com/account/rest/account/v1/login';

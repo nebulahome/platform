@@ -10,7 +10,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import { Badge, Panel } from '@nebula-home/ui';
+import { Badge, Panel } from '@nebulahome/ui';
 
 import type { AutomationRole } from '@/library/entity-correlations';
 import { useEntityCorrelations } from '@/routes/library/entity/use-entity-correlations';

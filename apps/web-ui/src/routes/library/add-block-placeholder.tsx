@@ -4,7 +4,7 @@
  * Same face as the "New scene" tile on the scenes page: a panel border that is dashed rather
  * than solid, so it reads as a place to put something rather than as something already there.
  */
-import { cn } from '@nebula-home/ui';
+import { cn } from '@nebulahome/ui';
 
 /** What the placeholder needs. */
 export type AddBlockPlaceholderProps = {

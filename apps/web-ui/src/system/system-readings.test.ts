@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { DiskUsage, SystemMonitorSample } from '@nebula-home/contracts';
+import type { DiskUsage, SystemMonitorSample } from '@nebulahome/contracts';
 
 import {
   categoryLabel,

@@ -7,8 +7,8 @@
  * beside the name, since the mode alone cannot say why nothing is running. The square card adds
  * the mode as something to choose, and the humidity when the thermostat reads it.
  */
-import type { THERMOSTAT_MODES } from '@nebula-home/contracts';
-import { AppIcon, Badge, Button, Segmented, type BadgeTone } from '@nebula-home/ui';
+import type { THERMOSTAT_MODES } from '@nebulahome/contracts';
+import { AppIcon, Badge, Button, Segmented, type BadgeTone } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
 import { CardFrame, CardHeading } from '@/routes/dashboard/cards/card-parts';

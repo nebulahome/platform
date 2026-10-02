@@ -15,8 +15,8 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { sceneApplyResultSchema, sceneViewSchema } from '@nebula-home/contracts';
-import { createDatabase, schema, type Database } from '@nebula-home/db';
+import { sceneApplyResultSchema, sceneViewSchema } from '@nebulahome/contracts';
+import { createDatabase, schema, type Database } from '@nebulahome/db';
 
 import { bearerFor, buildTestServer, commanded, stopHub } from '@/testing/hub-harness.js';
 

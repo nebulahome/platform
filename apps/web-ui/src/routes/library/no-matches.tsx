@@ -7,7 +7,7 @@
  * filter together - so a person who narrowed too far is one press from the whole list. It is a
  * status, so a screen reader hears the list go empty as the typing does it.
  */
-import { Button } from '@nebula-home/ui';
+import { Button } from '@nebulahome/ui';
 
 /** What the message needs. */
 export type NoMatchesProps = {

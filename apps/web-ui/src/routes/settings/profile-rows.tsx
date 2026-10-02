@@ -16,7 +16,7 @@
  */
 import { useState, type SubmitEventHandler } from 'react';
 
-import { Badge, Button, Modal, PanelRow, TextField } from '@nebula-home/ui';
+import { Badge, Button, Modal, PanelRow, TextField } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { Avatar } from '@/components/avatar';

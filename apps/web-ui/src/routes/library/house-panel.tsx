@@ -6,8 +6,8 @@
  * moved - so there is nothing here to press. What is shown is a tag: "Map cached" once every
  * tile is on disk, the count while some are missing, and "Caching map" while a fetch runs.
  */
-import type { AreaView, TileCacheStatus } from '@nebula-home/contracts';
-import { Badge, Button } from '@nebula-home/ui';
+import type { AreaView, TileCacheStatus } from '@nebulahome/contracts';
+import { Badge, Button } from '@nebulahome/ui';
 
 import type { DeviceIcons } from '@/routes/library/device-icon';
 import { DeviceIcon } from '@/routes/library/device-icon';

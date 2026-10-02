@@ -4,7 +4,7 @@
  * Small, the clients alone; wide, the messages a second beside them. The interface draws the
  * card's frame; this draws what is inside it.
  */
-import { usePackageRpc, type PackageCardProps } from '@nebula-home/package-ui';
+import { usePackageRpc, type PackageCardProps } from '@nebulahome/package-ui';
 
 import type { BrokerStatus } from './types.js';
 

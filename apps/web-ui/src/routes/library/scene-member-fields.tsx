@@ -6,8 +6,8 @@
  * fields.
  * There is no shared state editor elsewhere in the library; these fields are the place.
  */
-import { THERMOSTAT_MODES, type CapabilityState } from '@nebula-home/contracts';
-import { Segmented, SelectField, Slider, TextField } from '@nebula-home/ui';
+import { THERMOSTAT_MODES, type CapabilityState } from '@nebulahome/contracts';
+import { Segmented, SelectField, Slider, TextField } from '@nebulahome/ui';
 
 import { ColourPicker } from '@/components/colour-picker';
 

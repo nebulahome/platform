@@ -22,7 +22,7 @@ import { eq } from 'drizzle-orm';
 import { connectAsync } from 'mqtt';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
-import { BusClient, connectBus, ulid, type BusConnection } from '@nebula-home/bus';
+import { BusClient, connectBus, ulid, type BusConnection } from '@nebulahome/bus';
 import {
   busSubjects,
   CORE_REGISTER_METHOD,
@@ -37,15 +37,9 @@ import {
   registerDeviceRequestSchema,
   reloadReplySchema,
   type RegisterDeviceRequest,
-} from '@nebula-home/contracts';
-import {
-  createDatabase,
-  schema,
-  sealSecrets,
-  secretsKeyFrom,
-  type Database,
-} from '@nebula-home/db';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createDatabase, schema, sealSecrets, secretsKeyFrom, type Database } from '@nebulahome/db';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { hubEnvSchema } from '@/config.js';
 import { loadInstances, recordStatus } from '@/persistence/instances.js';

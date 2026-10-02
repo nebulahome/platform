@@ -5,7 +5,7 @@
  * knows how long the track is, a volume for one whose volume can be set, an input for one that
  * listed its inputs. Play and pause are one button that says which it will do.
  */
-import { AppIcon, IconButton, SelectField, Slider } from '@nebula-home/ui';
+import { AppIcon, IconButton, SelectField, Slider } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
 import { ControlBlock, type ControlProps } from '@/routes/library/entity/controls/control-block';

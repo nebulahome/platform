@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { entityIdSchema, type AutomationDefinition } from '@nebula-home/contracts';
+import { entityIdSchema, type AutomationDefinition } from '@nebulahome/contracts';
 
 import {
   countChecks,

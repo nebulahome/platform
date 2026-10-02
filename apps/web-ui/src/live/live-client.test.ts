@@ -8,7 +8,7 @@ import {
   entityIdSchema,
   WS_CLOSE_TOKEN_EXPIRED,
   type WsServerMessage,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { LiveClient, type LiveSocket, type LiveStatus } from './live-client';
 

@@ -13,7 +13,7 @@
  */
 import type { SVGProps } from 'react';
 
-import { AppIcon, cn, type UiIconId } from '@nebula-home/ui';
+import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
 /** What every icon accepts: SVG attributes, the element id aside, which names the icon here. */
 export type IconProps = Omit<SVGProps<SVGSVGElement>, 'id'>;

@@ -17,8 +17,8 @@ import {
   type CapabilityName,
   type EntityId,
   type JsonObject,
-} from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
 
 import type { AliasDefinition, AliasSourceBinding } from '../domain/alias-catalog.js';
 

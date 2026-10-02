@@ -16,8 +16,8 @@ import type {
   DashboardPackageCard,
   PackageCardSize,
   PackageState,
-} from '@nebula-home/contracts';
-import { AppIcon } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { AppIcon } from '@nebulahome/ui';
 
 import { PackageSlot } from '@/packages/package-slot';
 import { useInstalledPackages } from '@/packages/use-packages';

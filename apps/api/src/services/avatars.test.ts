@@ -8,8 +8,8 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { AVATAR_MAXIMUM_BYTES, ValidationError } from '@nebula-home/contracts';
-import type { Database } from '@nebula-home/db';
+import { AVATAR_MAXIMUM_BYTES, ValidationError } from '@nebulahome/contracts';
+import type { Database } from '@nebulahome/db';
 
 import { writeAvatar } from './avatars.js';
 

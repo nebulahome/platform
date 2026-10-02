@@ -33,7 +33,7 @@ import {
   type TwoFactorSetupResponse,
   type UpdateUserRequest,
   type UserView,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { apiRequest } from '@/lib/api-client';
 

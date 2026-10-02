@@ -16,7 +16,7 @@ import {
   runtimeEnvSchema,
   secretsEnvSchema,
   urlWithScheme,
-} from '@nebula-home/config';
+} from '@nebulahome/config';
 
 /** Name this service reports in log records and bus envelopes. */
 export const SERVICE_NAME = 'backup';

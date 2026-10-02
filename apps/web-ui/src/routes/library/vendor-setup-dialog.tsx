@@ -12,8 +12,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import type { IntegrationVendorView, JsonObject } from '@nebula-home/contracts';
-import { Button, Modal } from '@nebula-home/ui';
+import type { IntegrationVendorView, JsonObject } from '@nebulahome/contracts';
+import { Button, Modal } from '@nebulahome/ui';
 
 import { isApiError } from '@/lib/api-error';
 import { toMessage } from '@/lib/error-message';

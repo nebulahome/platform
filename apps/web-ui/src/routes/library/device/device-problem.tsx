@@ -9,8 +9,8 @@
  */
 import { useState } from 'react';
 
-import type { DeviceView } from '@nebula-home/contracts';
-import { AppIcon, Button, cn, Panel } from '@nebula-home/ui';
+import type { DeviceView } from '@nebulahome/contracts';
+import { AppIcon, Button, cn, Panel } from '@nebulahome/ui';
 
 /** How long a message may be before it is folded to its first lines. */
 const FOLDED_LENGTH = 240;

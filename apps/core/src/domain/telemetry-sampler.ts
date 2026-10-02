@@ -8,7 +8,7 @@
  * its value differs from the last one kept, and otherwise once a heartbeat has passed since then:
  * a steady sensor still draws a line, and a chatty one does not write a row a second.
  */
-import type { EntityId } from '@nebula-home/contracts';
+import type { EntityId } from '@nebulahome/contracts';
 
 /** How long an unchanged value waits before it is kept again, in milliseconds. */
 export const TELEMETRY_HEARTBEAT_MS = 60_000;

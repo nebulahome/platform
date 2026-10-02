@@ -1,22 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { BusClient } from '@nebula-home/bus';
-import { FakeTransport } from '@nebula-home/bus/testing';
+import { BusClient } from '@nebulahome/bus';
+import { FakeTransport } from '@nebulahome/bus/testing';
 import {
   accountStepSchema,
   busSubjects,
   HUB_ACCOUNT_BEGIN_METHOD,
   HUB_SERVICE,
   type AccountStatus,
-} from '@nebula-home/contracts';
-import { sealSecrets, secretsKeyFrom } from '@nebula-home/db';
-import { createLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { sealSecrets, secretsKeyFrom } from '@nebulahome/db';
+import { createLogger } from '@nebulahome/logging';
 import {
   accountDeclarationSchema,
   type AccountModule,
   type AccountModuleStep,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import type { AccountStore, StoredAccount } from '../persistence/accounts.js';
 

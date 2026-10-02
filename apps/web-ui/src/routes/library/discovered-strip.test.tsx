@@ -6,7 +6,7 @@ import { fireEvent, render as renderAlone, screen } from '@testing-library/react
 import type { ReactElement, ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { DiscoveredDevice } from '@nebula-home/contracts';
+import type { DiscoveredDevice } from '@nebulahome/contracts';
 
 import { DiscoveredStrip } from './discovered-strip';
 

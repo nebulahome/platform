@@ -21,11 +21,11 @@ import { robotKindOf } from './models.js';
 import { maskedEmail } from './sign-in.js';
 import { robotSighting } from './transport.js';
 
-/** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
-/** @typedef {import('@nebula-home/package-runtime').DiscoverySource} DiscoverySource */
-/** @typedef {import('@nebula-home/package-runtime').PassedOverSighting} PassedOverSighting */
-/** @typedef {import('@nebula-home/package-runtime').Sighting} Sighting */
-/** @typedef {import('@nebula-home/contracts').JsonObject} JsonObject */
+/** @typedef {import('@nebulahome/package-runtime').BundleSdk} BundleSdk */
+/** @typedef {import('@nebulahome/package-runtime').DiscoverySource} DiscoverySource */
+/** @typedef {import('@nebulahome/package-runtime').PassedOverSighting} PassedOverSighting */
+/** @typedef {import('@nebulahome/package-runtime').Sighting} Sighting */
+/** @typedef {import('@nebulahome/contracts').JsonObject} JsonObject */
 
 /** How often each account is asked for its robots. */
 const PASS_EVERY_MS = 10 * 60_000;
@@ -86,7 +86,7 @@ export default function createEcovacsDiscovery(sdk, options = {}) {
      * Reports the robots on every account at every pass, until the signal ends it.
      *
      * @param {AbortSignal} signal - Ends the listening.
-     * @param {import('@nebula-home/package-runtime').DiscoveryListenContext} context - The
+     * @param {import('@nebulahome/package-runtime').DiscoveryListenContext} context - The
      *   vendor's accounts.
      * @yields {Sighting} Each robot.
      */

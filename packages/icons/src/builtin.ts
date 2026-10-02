@@ -23,7 +23,7 @@ import {
   iconNodeSchema,
   type IconFrame,
   type IconNode,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** One icon that ships with the platform. */
 export type BuiltinIcon = {

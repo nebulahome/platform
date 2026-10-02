@@ -9,7 +9,7 @@
  * list of runs below, where it stays. One that did not succeed stays until it is closed, with
  * why, its bar red from where it stopped.
  */
-import { AppIcon, Button, cn } from '@nebula-home/ui';
+import { AppIcon, Button, cn } from '@nebulahome/ui';
 
 import { BACKUP_STEPS, progressOf, type BackupStep } from '@/backup/progress';
 import type { ShownRun } from '@/backup/use-backup-progress';

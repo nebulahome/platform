@@ -21,7 +21,7 @@
  */
 import { and, eq, inArray, ne, notInArray, or, sql, isNull } from 'drizzle-orm';
 
-import type { BusClient, BusSubscription } from '@nebula-home/bus';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
   CORE_SERVICE,
@@ -37,9 +37,9 @@ import {
   type PackageEntityType,
   type SyncPackageReply,
   type SyncPackageRequest,
-} from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { EntityDirectory } from '../domain/entity-directory.js';
 import type { EntityRegistry } from '../domain/entity-registry.js';

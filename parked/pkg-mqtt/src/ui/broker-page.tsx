@@ -7,8 +7,8 @@
  */
 import { useState } from 'react';
 
-import { usePackageRpc, type PackagePageProps } from '@nebula-home/package-ui';
-import { Badge, Button, Panel, PanelNote, PanelRow } from '@nebula-home/ui';
+import { usePackageRpc, type PackagePageProps } from '@nebulahome/package-ui';
+import { Badge, Button, Panel, PanelNote, PanelRow } from '@nebulahome/ui';
 
 import { ClientsPanel } from './clients-panel.js';
 import { MappingsPanel } from './mappings-panel.js';

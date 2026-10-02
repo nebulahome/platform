@@ -6,7 +6,7 @@
  * alias in is a request after the write; taking one out is the write itself, done here, for the
  * reason a device's release is done here (see `services/alias-engine.ts`).
  */
-import type { BusClient, BusSubscription } from '@nebula-home/bus';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
   CORE_REMOVE_ALIAS_METHOD,
@@ -18,8 +18,8 @@ import {
   type RemoveAliasRequest,
   type SyncAliasReply,
   type SyncAliasRequest,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { AliasEngine } from './alias-engine.js';
 

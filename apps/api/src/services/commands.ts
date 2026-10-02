@@ -10,7 +10,7 @@
  * `DeviceUnavailableError` from an adapter that did not answer becomes a `503` here without this
  * file knowing anything about statuses.
  */
-import type { BusClient } from '@nebula-home/bus';
+import type { BusClient } from '@nebulahome/bus';
 import {
   busSubjects,
   commandAckSchema,
@@ -20,7 +20,7 @@ import {
   type EntityId,
   type Identity,
   type JsonObject,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** What sending one command needs. */
 export type CommandOptions = {

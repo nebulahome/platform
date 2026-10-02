@@ -20,8 +20,8 @@ import {
   COMPOSE_PROJECT_PATTERN,
   PLATFORM_COMPOSE_PROJECT,
   type ComposeProblem,
-} from '@nebula-home/contracts';
-import { Button, Modal, TextField } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { Button, Modal, TextField } from '@nebulahome/ui';
 
 import {
   CONTAINER_QUERY_KEYS,

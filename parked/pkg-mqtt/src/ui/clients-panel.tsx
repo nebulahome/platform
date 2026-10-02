@@ -7,7 +7,7 @@
  */
 import { useState } from 'react';
 
-import { usePackageCall, usePackageRpc } from '@nebula-home/package-ui';
+import { usePackageCall, usePackageRpc } from '@nebulahome/package-ui';
 import {
   Badge,
   Button,
@@ -18,7 +18,7 @@ import {
   Segmented,
   TextField,
   type BadgeTone,
-} from '@nebula-home/ui';
+} from '@nebulahome/ui';
 
 import { ago, copy, type ClientPrincipal, type ClientsReply } from './types.js';
 

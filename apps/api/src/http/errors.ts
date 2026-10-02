@@ -8,8 +8,8 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
-import { ERROR_CODES, isNebulaError, type ApiError, type ErrorCode } from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+import { ERROR_CODES, isNebulaError, type ApiError, type ErrorCode } from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 /** The status returned when nothing more specific applies. */
 const INTERNAL_STATUS = 500;

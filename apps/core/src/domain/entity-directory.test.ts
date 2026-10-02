@@ -5,7 +5,7 @@ import {
   parseEntityId,
   type CapabilityName,
   type JsonObject,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { EntityDirectory, type EntityRecord } from './entity-directory.js';
 

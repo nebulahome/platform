@@ -8,8 +8,8 @@
  */
 import { eq } from 'drizzle-orm';
 
-import type { JsonObject } from '@nebula-home/contracts';
-import { openSecrets, schema, type Database } from '@nebula-home/db';
+import type { JsonObject } from '@nebulahome/contracts';
+import { openSecrets, schema, type Database } from '@nebulahome/db';
 
 import type { VendorSettings } from '../domain/vendors.js';
 

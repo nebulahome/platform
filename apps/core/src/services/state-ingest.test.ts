@@ -8,7 +8,7 @@ import {
   packageEntityTypeSchema,
   parseEntityId,
   type EntityState,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { PackageTypes } from '../domain/package-types.js';
 import { TelemetrySampler } from '../domain/telemetry-sampler.js';

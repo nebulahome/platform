@@ -34,7 +34,7 @@ import {
   jsonObjectSchema,
   transportIdSchema,
   type JsonObject,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import type { AccountHandle } from './account.js';
 import { bundlePathSchema } from './bundle.js';

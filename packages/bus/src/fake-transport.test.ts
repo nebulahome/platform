@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { BUS_PATTERNS, busSubjects, type EntityId } from '@nebula-home/contracts';
+import { BUS_PATTERNS, busSubjects, type EntityId } from '@nebulahome/contracts';
 
 import { subjectMatches } from './fake-transport.js';
 

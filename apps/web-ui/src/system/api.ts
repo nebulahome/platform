@@ -5,7 +5,7 @@
  * response type written here, so a server that changes the shape fails the parse instead of
  * drawing a chart out of whatever arrived.
  */
-import { systemMonitorSnapshotSchema, type SystemMonitorSnapshot } from '@nebula-home/contracts';
+import { systemMonitorSnapshotSchema, type SystemMonitorSnapshot } from '@nebulahome/contracts';
 
 import { apiRequest } from '@/lib/api-client';
 

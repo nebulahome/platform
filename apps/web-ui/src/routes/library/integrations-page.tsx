@@ -18,7 +18,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 
-import { Button } from '@nebula-home/ui';
+import { Button } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { useListState } from '@/lib/use-list-state';

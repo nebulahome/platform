@@ -17,7 +17,7 @@ import type {
   EntityView,
   IconView,
   SceneView,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
 import { CARD_SIZES, cardKindOf, packageCardSizes } from '@/dashboard/card-sizes';

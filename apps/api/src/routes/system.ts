@@ -6,7 +6,7 @@
  * switch the lights on has no reason to see it. The system entities carry the same readings to
  * anybody an entity permission lets see them; this is the detail behind them.
  */
-import { systemMonitorSnapshotSchema, type SystemMonitorSnapshot } from '@nebula-home/contracts';
+import { systemMonitorSnapshotSchema, type SystemMonitorSnapshot } from '@nebulahome/contracts';
 
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';

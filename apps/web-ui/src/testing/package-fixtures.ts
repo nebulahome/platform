@@ -1,7 +1,7 @@
 /**
  * Packages as the API lists them, for the tests of what draws them.
  */
-import type { ApiPackage, AvailablePackage } from '@nebula-home/contracts';
+import type { ApiPackage, AvailablePackage } from '@nebulahome/contracts';
 
 /**
  * The MQTT broker, running, with a card and a page.

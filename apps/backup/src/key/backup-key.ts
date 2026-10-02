@@ -14,7 +14,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { chmod, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { backupKeyFileSchema, type BackupKeyFile } from '@nebula-home/contracts';
+import { backupKeyFileSchema, type BackupKeyFile } from '@nebulahome/contracts';
 
 /** The key file's name in `secrets/`. */
 export const BACKUP_KEY_FILE = 'backup-key.json';

@@ -14,8 +14,8 @@
  */
 import { useState } from 'react';
 
-import type { LawnMowerActivity } from '@nebula-home/contracts';
-import { AppIcon, Button, cn } from '@nebula-home/ui';
+import type { LawnMowerActivity } from '@nebulahome/contracts';
+import { AppIcon, Button, cn } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
 import { capabilityLabel } from '@/library/entity-kind';

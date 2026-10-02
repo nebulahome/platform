@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { parseEntityId, type CapabilityState, type EntityId } from '@nebula-home/contracts';
+import { parseEntityId, type CapabilityState, type EntityId } from '@nebulahome/contracts';
 import {
   driverManifestSchema,
   createDeclarativeIntegration,
@@ -26,7 +26,7 @@ import {
   type Claim,
   type Integration,
   type MappingContext,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 /** The bundle, where the service reads it from. */
 const BUNDLE = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../bundles/bambu-lab');

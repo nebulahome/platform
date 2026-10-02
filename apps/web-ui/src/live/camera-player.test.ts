@@ -4,7 +4,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { encodeCameraFrame } from '@nebula-home/contracts';
+import { encodeCameraFrame } from '@nebulahome/contracts';
 
 import { CameraPlayer, type CameraCanvas, type CameraSocket } from './camera-player';
 

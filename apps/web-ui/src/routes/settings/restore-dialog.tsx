@@ -10,8 +10,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import type { BackupArchive } from '@nebula-home/contracts';
-import { Button, Modal, Switch } from '@nebula-home/ui';
+import type { BackupArchive } from '@nebulahome/contracts';
+import { Button, Modal, Switch } from '@nebulahome/ui';
 
 import { useMaintenance } from '@/auth/maintenance-store';
 import { startRestore } from '@/backup/api';

@@ -8,8 +8,8 @@
  */
 import type { z, ZodType } from 'zod';
 
-import { ConfigurationError, EXIT_CODES } from '@nebula-home/contracts';
-import { formatLogLine } from '@nebula-home/logging';
+import { ConfigurationError, EXIT_CODES } from '@nebulahome/contracts';
+import { formatLogLine } from '@nebulahome/logging';
 
 /** A source of environment variables. `process.env` in production, a literal in tests. */
 export type EnvironmentSource = Readonly<Record<string, string | undefined>>;

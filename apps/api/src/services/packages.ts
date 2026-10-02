@@ -13,7 +13,7 @@ import path from 'node:path';
 
 import { sql } from 'drizzle-orm';
 
-import type { BusClient } from '@nebula-home/bus';
+import type { BusClient } from '@nebulahome/bus';
 import {
   apiPackageDetailSchema,
   busSubjects,
@@ -44,9 +44,9 @@ import {
   type PackageDetail,
   type PackagePlanReply,
   type PackageRpcAccess,
-} from '@nebula-home/contracts';
-import { maskSealed, schema, sealSecrets, type Database } from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { maskSealed, schema, sealSecrets, type Database } from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import { validateSetup } from './integrations.js';
 

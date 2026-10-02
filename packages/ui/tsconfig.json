@@ -1,5 +1,5 @@
 {
-  "extends": "@nebula-home/tsconfig/react.json",
+  "extends": "@nebulahome/tsconfig/react.json",
   "compilerOptions": {
     "paths": {
       "@/*": ["./src/*"]

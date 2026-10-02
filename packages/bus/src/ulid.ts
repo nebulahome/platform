@@ -7,7 +7,7 @@
  * records arrived out of order from several services.
  *
  * Implemented here rather than taken from a dependency because it is forty lines of arithmetic
- * with an exactly specified output, and `@nebula-home/contracts` already owns the pattern that
+ * with an exactly specified output, and `@nebulahome/contracts` already owns the pattern that
  * validates the result.
  */
 import { randomFillSync } from 'node:crypto';

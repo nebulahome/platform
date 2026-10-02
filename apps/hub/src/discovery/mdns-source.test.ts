@@ -13,8 +13,8 @@ import createMulticastDns, {
 } from 'multicast-dns';
 import { describe, expect, it } from 'vitest';
 
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
-import type { MdnsAnnouncement } from '@nebula-home/package-runtime';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
+import type { MdnsAnnouncement } from '@nebulahome/package-runtime';
 
 import { createMdnsSource, isPrivateIpv4, toAnnouncement } from './mdns-source.js';
 

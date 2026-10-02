@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ULID_PATTERN } from '@nebula-home/contracts';
+import { ULID_PATTERN } from '@nebulahome/contracts';
 
 import { createUlidFactory, ulid } from './ulid.js';
 

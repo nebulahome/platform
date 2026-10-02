@@ -10,7 +10,7 @@ import {
   type DiscoveredDevice,
   type IntegrationVendorView,
   type TransportWire,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, readChoice, type ListCodec } from '@/lib/use-list-state';

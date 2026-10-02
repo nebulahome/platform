@@ -10,9 +10,9 @@ import path from 'node:path';
 
 import type { FastifyInstance } from 'fastify';
 
-import { loadConfigOrExit, resolveDataLayout } from '@nebula-home/config';
-import { EXIT_CODES } from '@nebula-home/contracts';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+import { loadConfigOrExit, resolveDataLayout } from '@nebulahome/config';
+import { EXIT_CODES } from '@nebulahome/contracts';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { proxyEnvSchema, SERVICE_NAME, SERVICE_VERSION, type ProxyConfig } from './config.js';
 import { buildProxyServer } from './server.js';

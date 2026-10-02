@@ -6,7 +6,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { entityIdSchema, type AliasView, type EntityView } from '@nebula-home/contracts';
+import { entityIdSchema, type AliasView, type EntityView } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
 import { ApiError } from '@/lib/api-error';

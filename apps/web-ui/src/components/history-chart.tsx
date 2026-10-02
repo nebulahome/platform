@@ -24,7 +24,7 @@ import {
   type TooltipValueType,
 } from 'recharts';
 
-import { cn } from '@nebula-home/ui';
+import { cn } from '@nebulahome/ui';
 
 import type { ChartSeries } from '@/components/live-area-chart';
 

@@ -24,8 +24,8 @@ import type {
   JsonObject,
   PassedOverDevice,
   VendorListener,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 import {
   associateModel,
   identifySighting,
@@ -41,7 +41,7 @@ import {
   type Registry,
   type Sighting,
   type Transport,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import { isPrivateIpv4, type MdnsSource } from '../discovery/mdns-source.js';
 import { addressOf as reachedAt, NOTHING_TAKEN, type TakenDevices } from '../domain/taken.js';

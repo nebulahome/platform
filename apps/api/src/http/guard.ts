@@ -8,7 +8,7 @@
  */
 import type { FastifyRequest } from 'fastify';
 
-import { AuthenticationError, type Identity } from '@nebula-home/contracts';
+import { AuthenticationError, type Identity } from '@nebulahome/contracts';
 
 /**
  * Reads the identity the authentication hook attached.

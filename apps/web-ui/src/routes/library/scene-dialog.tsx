@@ -15,8 +15,8 @@ import type {
   SceneCreate,
   SceneUpdate,
   SceneView,
-} from '@nebula-home/contracts';
-import { Button, Modal, Segmented, SelectField, TextField } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { Button, Modal, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
 import { areaChoices } from '@/lib/area-tree';
 import { toMessage } from '@/lib/error-message';

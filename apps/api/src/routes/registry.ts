@@ -32,7 +32,7 @@ import {
   type AutomationView,
   type SceneApplyResult,
   type SceneView,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { isPermitted, requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';

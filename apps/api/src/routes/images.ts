@@ -18,7 +18,7 @@ import {
   HUB_ENTITY_IMAGE_METHOD,
   HUB_SERVICE,
   NotFoundError,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import type { ApiContext } from '../context.js';
 import { requireIdentity } from '../http/guard.js';

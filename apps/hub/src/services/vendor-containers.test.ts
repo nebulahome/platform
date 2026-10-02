@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { integrationSetupSchema } from '@nebula-home/contracts';
-import { vendorManifestSchema } from '@nebula-home/package-runtime';
+import { integrationSetupSchema } from '@nebulahome/contracts';
+import { vendorManifestSchema } from '@nebulahome/package-runtime';
 
 import type { LoadedVendor } from './bundles.js';
 import { declaredContainers } from './vendor-containers.js';

@@ -7,13 +7,13 @@
  * with the device's configuration, and a probe tests it. Neither caller knows about accounts, so
  * the transport is wrapped once, when its vendor is loaded, and the account is looked up here.
  */
-import type { JsonObject } from '@nebula-home/contracts';
+import type { JsonObject } from '@nebulahome/contracts';
 import type {
   AccountHandle,
   Discovered,
   Transport,
   TransportLookContext,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 /** Finds one of a vendor's accounts. */
 export type AccountLookup = (

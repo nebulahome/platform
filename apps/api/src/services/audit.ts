@@ -9,9 +9,9 @@
  * deliberately not a foreign key, so that a record survives the deletion of the person it names.
  * An audit trail that forgets who did the thing when the account is closed is not one.
  */
-import type { Identity } from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
+import type { Identity } from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 /**
  * What kind of actor performed an action.

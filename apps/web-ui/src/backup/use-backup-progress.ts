@@ -11,7 +11,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
-import type { BackupPhase, BackupRunView, BackupStatusView } from '@nebula-home/contracts';
+import type { BackupPhase, BackupRunView, BackupStatusView } from '@nebulahome/contracts';
 
 import { BACKUP_QUERY_KEYS } from '@/backup/api';
 import { endingOf, type RunEnding } from '@/backup/progress';

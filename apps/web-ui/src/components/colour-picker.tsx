@@ -6,7 +6,7 @@
  * so the three work the same way. The dropper's colour is read as a hue and a saturation, its
  * brightness left out: brightness is the light's own setting.
  */
-import { AppIcon, ColorWheel, IconButton, type WheelColour } from '@nebula-home/ui';
+import { AppIcon, ColorWheel, IconButton, type WheelColour } from '@nebulahome/ui';
 
 import { useEyeDropper } from '@/lib/use-eye-dropper';
 import { hexToHs, hsColor } from '@/library/entity-control';

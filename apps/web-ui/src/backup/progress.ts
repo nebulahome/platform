@@ -8,7 +8,7 @@
  * bytes; the others are a stretch of the bar that pulses until the next one starts. Pure, so how
  * far the bar reaches when is tested without the page.
  */
-import type { BackupPhase, BackupRunView } from '@nebula-home/contracts';
+import type { BackupPhase, BackupRunView } from '@nebulahome/contracts';
 
 /** The steps the bar is made of, in order. */
 export const BACKUP_STEPS = ['prepare', 'database', 'files', 'copy'] as const;

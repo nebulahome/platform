@@ -14,8 +14,8 @@ import {
   isNebulaError,
   type ContainerInstall,
   type ContainerInstallRequest,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { DockerEngine } from '../docker/engine.js';
 import { installCreateBody, installedFolder } from '../domain/install.js';

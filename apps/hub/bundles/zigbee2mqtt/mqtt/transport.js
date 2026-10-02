@@ -43,15 +43,15 @@ import {
   topicOf,
 } from './topics.js';
 
-/** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
-/** @typedef {import('@nebula-home/package-runtime').Discovered} Discovered */
-/** @typedef {import('@nebula-home/package-runtime').ManagedMqtt} ManagedMqtt */
-/** @typedef {import('@nebula-home/package-runtime').PlatformMqtt} PlatformMqtt */
-/** @typedef {import('@nebula-home/package-runtime').Transport} Transport */
-/** @typedef {import('@nebula-home/package-runtime').TransportConnection} TransportConnection */
-/** @typedef {import('@nebula-home/package-runtime').TransportContext} TransportContext */
-/** @typedef {import('@nebula-home/package-runtime').TransportRequest} TransportRequest */
-/** @typedef {import('@nebula-home/package-runtime').TransportSubscription} TransportSubscription */
+/** @typedef {import('@nebulahome/package-runtime').BundleSdk} BundleSdk */
+/** @typedef {import('@nebulahome/package-runtime').Discovered} Discovered */
+/** @typedef {import('@nebulahome/package-runtime').ManagedMqtt} ManagedMqtt */
+/** @typedef {import('@nebulahome/package-runtime').PlatformMqtt} PlatformMqtt */
+/** @typedef {import('@nebulahome/package-runtime').Transport} Transport */
+/** @typedef {import('@nebulahome/package-runtime').TransportConnection} TransportConnection */
+/** @typedef {import('@nebulahome/package-runtime').TransportContext} TransportContext */
+/** @typedef {import('@nebulahome/package-runtime').TransportRequest} TransportRequest */
+/** @typedef {import('@nebulahome/package-runtime').TransportSubscription} TransportSubscription */
 /** @typedef {import('./topics.js').BridgeDevice} BridgeDevice */
 /** @typedef {import('./topics.js').BridgeSnapshot} BridgeSnapshot */
 
@@ -102,7 +102,7 @@ function brokerOf(sdk) {
  *
  * @param {BundleSdk} sdk - The SDK.
  * @param {string} purpose - What the session is for, in its client id.
- * @param {Omit<import('@nebula-home/package-runtime').ManagedMqttOptions, 'url' | 'logger'>} handlers
+ * @param {Omit<import('@nebulahome/package-runtime').ManagedMqttOptions, 'url' | 'logger'>} handlers
  *   - What to call.
  * @returns {ManagedMqtt} The session, connecting.
  */

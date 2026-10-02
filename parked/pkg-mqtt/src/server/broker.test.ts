@@ -15,8 +15,8 @@ import path from 'node:path';
 import mqtt, { type MqttClient } from 'mqtt';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import type { EntityDomain } from '@nebula-home/contracts';
-import type { PackageCommand, PackageContext, PackageDevice } from '@nebula-home/package-sdk';
+import type { EntityDomain } from '@nebulahome/contracts';
+import type { PackageCommand, PackageContext, PackageDevice } from '@nebulahome/package-sdk';
 
 import { startBroker } from './index.js';
 

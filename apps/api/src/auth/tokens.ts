@@ -24,7 +24,7 @@ import {
   formatPermission,
   type AccessTokenClaims,
   type GrantedPermission,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** What goes into a freshly issued access token. */
 export type AccessTokenSubject = {

@@ -9,7 +9,7 @@
  * port wins over the driver's: the device answers the platform and the browser from the same
  * server, so a Shelly moved to port 8080 serves its page there too.
  */
-import type { DeviceView, IntegrationKind } from '@nebula-home/contracts';
+import type { DeviceView, IntegrationKind } from '@nebulahome/contracts';
 
 /** A host followed by `:port`, and not an IPv6 literal that merely contains colons. */
 const HOST_WITH_PORT = /^(?:\[[^\]]+\]|[^:]+):\d{1,5}$/;

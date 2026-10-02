@@ -4,7 +4,7 @@
  * The ring answers "how full", the chart "and lately", and the lines beside the ring say what
  * the machine has, so a 90% on two cores and one on thirty-two are not read the same way.
  */
-import { Panel } from '@nebula-home/ui';
+import { Panel } from '@nebulahome/ui';
 
 import { LiveAreaChart } from '@/components/live-area-chart';
 import { UsageRing } from '@/components/usage-ring';

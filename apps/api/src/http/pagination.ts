@@ -11,7 +11,7 @@
  * something readable invites clients to construct their own, and then its shape can never
  * change again.
  */
-import { ValidationError } from '@nebula-home/contracts';
+import { ValidationError } from '@nebulahome/contracts';
 
 /** What a cursor remembers: the sort key of the last row on the previous page. */
 export type Cursor = {

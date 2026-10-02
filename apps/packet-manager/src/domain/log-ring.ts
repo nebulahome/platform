@@ -7,7 +7,7 @@
  * seconds and nanoseconds, the nanoseconds carrying a sequence within the millisecond so that two
  * lines of one millisecond are two cursors.
  */
-import { CONTAINER_LOG_MAXIMUM_CHARACTERS, type ContainerLogsReply } from '@nebula-home/contracts';
+import { CONTAINER_LOG_MAXIMUM_CHARACTERS, type ContainerLogsReply } from '@nebulahome/contracts';
 
 /** How many lines are kept. */
 export const LOG_RING_LINES = 2000;

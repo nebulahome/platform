@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { parseEntityId, type CapabilityState, type EntityId } from '@nebula-home/contracts';
+import { parseEntityId, type CapabilityState, type EntityId } from '@nebulahome/contracts';
 
 import { bundleManifestSchema } from './bundle.js';
 import { createDeclarativeIntegration } from './declarative.js';

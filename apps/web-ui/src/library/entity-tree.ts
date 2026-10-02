@@ -14,7 +14,7 @@
  * Floors follow their number - the cellar, the ground, the one above - and rooms the order the
  * owner arranged on the areas page; devices and entities read alphabetically.
  */
-import type { AreaView, DeviceView, EntityView } from '@nebula-home/contracts';
+import type { AreaView, DeviceView, EntityView } from '@nebulahome/contracts';
 
 import { byFloorLevel } from '@/lib/area-tree';
 

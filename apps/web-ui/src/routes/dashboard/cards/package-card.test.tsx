@@ -6,8 +6,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ApiPackage, DashboardPackageCard } from '@nebula-home/contracts';
-import { usePackage, type PackageCardProps } from '@nebula-home/package-ui';
+import type { ApiPackage, DashboardPackageCard } from '@nebulahome/contracts';
+import { usePackage, type PackageCardProps } from '@nebulahome/package-ui';
 
 import { useSession } from '@/auth/session-store';
 import type * as PackagesApi from '@/packages/api';

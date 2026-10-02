@@ -7,7 +7,7 @@
  * the filter asks them apart: one dropdown that mixed them could not find an alias that is on
  * and failing, which is the one worth finding.
  */
-import type { AliasView } from '@nebula-home/contracts';
+import type { AliasView } from '@nebulahome/contracts';
 
 import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, readChoice, type ListCodec } from '@/lib/use-list-state';

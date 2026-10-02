@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { CapabilityName, EntityDomain } from '@nebula-home/contracts';
+import type { CapabilityName, EntityDomain } from '@nebulahome/contracts';
 
 import { CARD_SIZES, cardKindOf, sizeName, snapSize, stepSize } from '@/dashboard/card-sizes';
 

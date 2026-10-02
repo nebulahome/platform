@@ -12,8 +12,8 @@ import {
   type DeviceView,
   type DiscoveredDevice,
   type DiscoveryAdopt,
-} from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 
 import { AutoAdoption } from './auto-adoption.js';
 import type { DevicesContext } from './devices.js';

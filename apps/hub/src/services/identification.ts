@@ -16,7 +16,7 @@
  * and it cannot be asked before its serial is known - so a pass that hears nothing is followed
  * by another almost at once, and only a pass that failed waits the longer while.
  */
-import type { BusClient } from '@nebula-home/bus';
+import type { BusClient } from '@nebulahome/bus';
 import {
   busSubjects,
   CORE_REGISTER_METHOD,
@@ -25,9 +25,9 @@ import {
   registerDeviceReplySchema,
   type EntityId,
   type JsonObject,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
-import type { Claim, Integration, Registry, Transport } from '@nebula-home/package-runtime';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
+import type { Claim, Integration, Registry, Transport } from '@nebulahome/package-runtime';
 
 import { describeDevice, type DeviceBinding } from '../domain/devices.js';
 import { configOf } from '../persistence/devices.js';

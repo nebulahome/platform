@@ -13,7 +13,7 @@ import {
   type AliasView,
   type AutomationView,
   type SceneView,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** Where in an automation an entity is named. */
 export type AutomationRole = 'trigger' | 'condition' | 'action';

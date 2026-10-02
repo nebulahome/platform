@@ -10,8 +10,8 @@
  */
 import { Link } from 'react-router';
 
-import type { IntegrationVendorView } from '@nebula-home/contracts';
-import { AppIcon, Badge, Panel, cn } from '@nebula-home/ui';
+import type { IntegrationVendorView } from '@nebulahome/contracts';
+import { AppIcon, Badge, Panel, cn } from '@nebulahome/ui';
 
 import { relativeTime } from '@/lib/format-time';
 

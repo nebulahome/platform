@@ -18,9 +18,9 @@ import { and, eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { ConflictError, deviceViewSchema } from '@nebula-home/contracts';
-import { createDatabase, schema, sealSecret, secretsKeyFrom, type Database } from '@nebula-home/db';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+import { ConflictError, deviceViewSchema } from '@nebulahome/contracts';
+import { createDatabase, schema, sealSecret, secretsKeyFrom, type Database } from '@nebulahome/db';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { listDevices, type DevicesContext } from '@/services/devices.js';
 import {

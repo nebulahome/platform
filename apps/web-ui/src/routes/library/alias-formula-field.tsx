@@ -17,8 +17,8 @@
  */
 import { useRef } from 'react';
 
-import { scanAliasExpression, type AliasSpanKind, type TagColor } from '@nebula-home/contracts';
-import { FieldShell, cn } from '@nebula-home/ui';
+import { scanAliasExpression, type AliasSpanKind, type TagColor } from '@nebulahome/contracts';
+import { FieldShell, cn } from '@nebulahome/ui';
 
 /** Colour classes for a source variable's chip, spelled out so Tailwind can see every one. */
 export const SOURCE_COLOR_CLASSES: Record<TagColor, string> = {

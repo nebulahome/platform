@@ -25,7 +25,7 @@ import { pipeline } from 'node:stream/promises';
 
 import { create, extract } from 'tar';
 
-import type { BackupSection } from '@nebula-home/contracts';
+import type { BackupSection } from '@nebulahome/contracts';
 
 import { createDecryptStream, createEncryptStream } from './stream-cipher.js';
 

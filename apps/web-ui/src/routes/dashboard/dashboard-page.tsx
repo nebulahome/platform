@@ -11,8 +11,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, type ReactNode } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 
-import type { DashboardView } from '@nebula-home/contracts';
-import { AppIcon, Button } from '@nebula-home/ui';
+import type { DashboardView } from '@nebulahome/contracts';
+import { AppIcon, Button } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { DASHBOARD_QUERY_KEYS, fetchDashboards } from '@/dashboard/api';

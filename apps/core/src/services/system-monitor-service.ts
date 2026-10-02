@@ -4,14 +4,14 @@
  * Read-only, and answered from memory: the window of samples is `core`'s, and the API asks for
  * it every ten seconds per open page, so nothing here touches the database.
  */
-import type { BusClient, BusSubscription } from '@nebula-home/bus';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
   CORE_SERVICE,
   CORE_SYSTEM_MONITOR_METHOD,
   systemMonitorRequestSchema,
   type SystemMonitorSnapshot,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import type { SystemMonitor } from './system-monitor.js';
 

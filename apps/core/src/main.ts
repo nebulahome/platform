@@ -9,11 +9,11 @@
  * down must not cascade into a platform that will not start, so `core` retries with backoff
  * until it appears (ARCHITECTURE.md 7.4).
  */
-import { connectBus } from '@nebula-home/bus';
-import { loadConfigOrExit } from '@nebula-home/config';
-import { EXIT_CODES, isNebulaError, ERROR_CODES } from '@nebula-home/contracts';
-import { assertSchemaVersion, createDatabase } from '@nebula-home/db';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+import { connectBus } from '@nebulahome/bus';
+import { loadConfigOrExit } from '@nebulahome/config';
+import { EXIT_CODES, isNebulaError, ERROR_CODES } from '@nebulahome/contracts';
+import { assertSchemaVersion, createDatabase } from '@nebulahome/db';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { coreEnvSchema, SERVICE_NAME, SERVICE_VERSION } from './config.js';
 import { CoreService } from './service.js';

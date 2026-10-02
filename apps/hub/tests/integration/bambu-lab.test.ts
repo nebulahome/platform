@@ -27,8 +27,8 @@ import { fileURLToPath } from 'node:url';
 import { connectAsync, type MqttClient } from 'mqtt';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
-import { parseEntityId, type CapabilityState, type EntityId } from '@nebula-home/contracts';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+import { parseEntityId, type CapabilityState, type EntityId } from '@nebulahome/contracts';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 import {
   driverManifestSchema,
   createDeclarativeIntegration,
@@ -40,7 +40,7 @@ import {
   type MappingContext,
   type TransportConnection,
   type TransportInbound,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import { mqttTransport } from '@/transports/mqtt.js';
 

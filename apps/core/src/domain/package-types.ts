@@ -8,7 +8,7 @@
  * so what one type's state may hold, and which commands it takes with which arguments, is checked
  * here, from the types `core` read out of the package's row when the package synced its devices.
  */
-import type { PackageEntityField, PackageEntityType } from '@nebula-home/contracts';
+import type { PackageEntityField, PackageEntityType } from '@nebulahome/contracts';
 
 /** The entity types of every package `core` has heard of, by package. */
 export class PackageTypes {

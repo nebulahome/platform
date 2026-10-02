@@ -6,7 +6,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 
-import type { AreaView } from '@nebula-home/contracts';
+import type { AreaView } from '@nebulahome/contracts';
 
 import { buildAreaTree, type HouseTree } from '@/lib/area-tree';
 import { fetchAreas, LIBRARY_QUERY_KEYS } from '@/library/api';

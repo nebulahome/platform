@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ContainerSummary } from '@nebula-home/contracts';
+import type { ContainerSummary } from '@nebulahome/contracts';
 
 import { composeOf, containerSummary } from '@/testing/container-fixtures';
 

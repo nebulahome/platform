@@ -77,7 +77,7 @@ import {
   accountSignOutReplySchema,
   accountStepSchema,
   type AccountStep,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { apiRequest } from '@/lib/api-client';
 

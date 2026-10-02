@@ -9,8 +9,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import type { ApiPackageDetail, InstalledPackage, JsonObject } from '@nebula-home/contracts';
-import { Button, Modal } from '@nebula-home/ui';
+import type { ApiPackageDetail, InstalledPackage, JsonObject } from '@nebulahome/contracts';
+import { Button, Modal } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import {

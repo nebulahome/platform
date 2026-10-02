@@ -5,11 +5,11 @@
  * it is there - then the work. It runs as root in the container, and only there does it restore
  * or mount a share; elsewhere it still backs up to a folder, and says what it cannot do.
  */
-import { BusClient, connectBus } from '@nebula-home/bus';
-import { loadConfigOrExit } from '@nebula-home/config';
-import { ERROR_CODES, EXIT_CODES, isNebulaError } from '@nebula-home/contracts';
-import { assertSchemaVersion, createDatabase } from '@nebula-home/db';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+import { BusClient, connectBus } from '@nebulahome/bus';
+import { loadConfigOrExit } from '@nebulahome/config';
+import { ERROR_CODES, EXIT_CODES, isNebulaError } from '@nebulahome/contracts';
+import { assertSchemaVersion, createDatabase } from '@nebulahome/db';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { serveBackup } from './bus-service.js';
 import { backupEnvSchema, SERVICE_NAME, SERVICE_VERSION } from './config.js';

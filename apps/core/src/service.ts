@@ -19,11 +19,11 @@ import {
   BusClient,
   type BusConnection,
   type BusSubscription,
-} from '@nebula-home/bus';
-import { resolveDataLayout } from '@nebula-home/config';
-import type { EntityId } from '@nebula-home/contracts';
-import type { Database } from '@nebula-home/db';
-import { withTraceId, type PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/bus';
+import { resolveDataLayout } from '@nebulahome/config';
+import type { EntityId } from '@nebulahome/contracts';
+import type { Database } from '@nebulahome/db';
+import { withTraceId, type PlatformLogger } from '@nebulahome/logging';
 
 import type { CoreConfig } from './config.js';
 import { SERVICE_NAME, SERVICE_VERSION } from './config.js';

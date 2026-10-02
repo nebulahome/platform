@@ -6,7 +6,7 @@ import {
   NotFoundError,
   parseEntityId,
   stateSnapshotReplySchema,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { createCoreHarness, type CoreHarness } from '../testing/harness.js';
 

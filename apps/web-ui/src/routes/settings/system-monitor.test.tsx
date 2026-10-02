@@ -11,7 +11,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { SystemMonitorSnapshot } from '@nebula-home/contracts';
+import type { SystemMonitorSnapshot } from '@nebulahome/contracts';
 
 import { ApiError } from '@/lib/api-error';
 import { fetchSystemMonitor } from '@/system/api';

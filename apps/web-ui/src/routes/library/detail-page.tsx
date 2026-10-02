@@ -9,7 +9,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import { cn } from '@nebula-home/ui';
+import { cn } from '@nebulahome/ui';
 
 /** One step of the way back. */
 export type Crumb = {

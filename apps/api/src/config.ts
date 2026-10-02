@@ -1,7 +1,7 @@
 /**
  * What `api` reads from the environment.
  *
- * Composed from the shared fragments in `@nebula-home/config` plus what only this service has.
+ * Composed from the shared fragments in `@nebulahome/config` plus what only this service has.
  * The signing key is the one entry with no default: a service that invents its own secret when
  * none is configured issues tokens that stop verifying the moment it restarts, and does it
  * silently.
@@ -16,7 +16,7 @@ import {
   requireDataDirInProduction,
   runtimeEnvSchema,
   secretsEnvSchema,
-} from '@nebula-home/config';
+} from '@nebulahome/config';
 
 /** Name this service reports in log records and bus envelopes. */
 export const SERVICE_NAME = 'api';

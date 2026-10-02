@@ -8,8 +8,8 @@
  */
 import type { CSSProperties, ReactNode } from 'react';
 
-import type { IconView } from '@nebula-home/contracts';
-import { AppIcon, cn } from '@nebula-home/ui';
+import type { IconView } from '@nebulahome/contracts';
+import { AppIcon, cn } from '@nebulahome/ui';
 
 import type { EntityKind } from '@/library/entity-kind';
 import { EntityTile } from '@/routes/library/entity-tile';

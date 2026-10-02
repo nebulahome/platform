@@ -19,7 +19,7 @@
  */
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
-import { ConfigurationError, type JsonObject, type JsonValue } from '@nebula-home/contracts';
+import { ConfigurationError, type JsonObject, type JsonValue } from '@nebulahome/contracts';
 
 /** GCM's standard nonce length. */
 const NONCE_BYTES = 12;

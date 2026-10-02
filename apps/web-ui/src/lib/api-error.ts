@@ -7,7 +7,7 @@
  * "the server said no" and "there was no server" are both just "this did not work", and both
  * have to be renderable.
  */
-import { apiErrorSchema, type ErrorCode } from '@nebula-home/contracts';
+import { apiErrorSchema, type ErrorCode } from '@nebulahome/contracts';
 
 /** The code used when the request never reached the server at all. */
 export const NETWORK_ERROR_CODE = 'NETWORK';

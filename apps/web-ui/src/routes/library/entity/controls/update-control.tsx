@@ -9,8 +9,8 @@
  */
 import { useState } from 'react';
 
-import { isUpdateOffered } from '@nebula-home/contracts';
-import { Button, Modal } from '@nebula-home/ui';
+import { isUpdateOffered } from '@nebulahome/contracts';
+import { Button, Modal } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
 import {

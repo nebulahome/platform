@@ -17,8 +17,8 @@ import {
   ValidationError,
   type BusEnvelope,
   type BusEnvelopeHeader,
-} from '@nebula-home/contracts';
-import { withTraceId, type PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { withTraceId, type PlatformLogger } from '@nebulahome/logging';
 
 import { createEnvelope, decodeEnvelope, encodeEnvelope, peekEnvelopeHeader } from './codec.js';
 import { fromBusError, toBusError } from './error-mapping.js';

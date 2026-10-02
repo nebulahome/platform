@@ -19,7 +19,7 @@ import {
   runtimeEnvSchema,
   secretsEnvSchema,
   urlWithScheme,
-} from '@nebula-home/config';
+} from '@nebulahome/config';
 
 /** Name this service reports in log records and bus envelopes. */
 export const SERVICE_NAME = 'packet-manager';
@@ -57,7 +57,7 @@ export const packetManagerEnvSchema = runtimeEnvSchema
       .default(21_600_000),
 
     /**
-     * The runner a `node` package is started with: `@nebula-home/package-sdk`'s, resolved from
+     * The runner a `node` package is started with: `@nebulahome/package-sdk`'s, resolved from
      * this service when not said.
      */
     PACKET_MANAGER_RUNNER: z.string().min(1).optional(),

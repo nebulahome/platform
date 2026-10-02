@@ -9,7 +9,7 @@ import {
   type AccountHandle,
   type Discovered,
   type TransportLookContext,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import { vendorOfTransport, withAccountLookups } from './account-lookups.js';
 

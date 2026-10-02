@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { TagView } from '@nebula-home/contracts';
+import type { TagView } from '@nebulahome/contracts';
 
 import { isNarrowingTags, matchesTagFilter, OPEN_TAG_FILTER } from './tag-filters';
 

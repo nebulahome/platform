@@ -6,7 +6,7 @@
  * described, which is where a segmented control stops fitting. The button and the sheet are the
  * library's shared shell.
  */
-import { SelectField } from '@nebula-home/ui';
+import { SelectField } from '@nebulahome/ui';
 
 import type { DeviceFilter } from '@/library/device-filters';
 import { Facet, facetChoices, FilterSheet, type FacetOption } from '@/routes/library/filter-sheet';

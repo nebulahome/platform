@@ -19,8 +19,8 @@ import {
   type StateHistoryPoint,
   type TelemetryPoint,
   type TelemetryResolution,
-} from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
 
 import { decodeCursor, toPage, type PageResult } from '../http/pagination.js';
 

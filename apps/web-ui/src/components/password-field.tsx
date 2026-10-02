@@ -22,7 +22,7 @@
  */
 import { useState, type ReactNode } from 'react';
 
-import { cn, controlFace, FieldShell, IconButton } from '@nebula-home/ui';
+import { cn, controlFace, FieldShell, IconButton } from '@nebulahome/ui';
 
 import { CheckIcon, EyeIcon, EyeOffIcon } from '@/components/icons';
 import { passwordRules } from '@/lib/password-rules';

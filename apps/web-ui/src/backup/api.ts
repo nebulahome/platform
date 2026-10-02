@@ -25,7 +25,7 @@ import {
   type BackupRunView,
   type BackupStatusView,
   type MaintenanceState,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { apiRequest } from '@/lib/api-client';
 

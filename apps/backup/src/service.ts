@@ -11,8 +11,8 @@ import path from 'node:path';
 
 import { Cron } from 'croner';
 
-import type { BusClient, BusSubscription } from '@nebula-home/bus';
-import { resolveDataLayout } from '@nebula-home/config';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
+import { resolveDataLayout } from '@nebulahome/config';
 import {
   ConflictError,
   NotFoundError,
@@ -32,15 +32,15 @@ import {
   type BackupStatus,
   type MaintenanceState,
   type QuietTime,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 import {
   openSecret,
   openSecrets,
   readSchemaVersion,
   sealSecret,
   type Database,
-} from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import { MAX_HEADER_LENGTH, readArchiveHeader } from './archive/stream-cipher.js';
 import { adminDatabaseUrl, SERVICE_VERSION, type BackupConfig } from './config.js';

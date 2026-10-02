@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { TransportSubscription } from '@nebula-home/package-runtime';
+import type { TransportSubscription } from '@nebulahome/package-runtime';
 
 import { planSubscriptions } from './subscriptions.js';
 

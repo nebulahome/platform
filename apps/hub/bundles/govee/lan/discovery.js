@@ -13,10 +13,10 @@
  */
 import { acquire, addressOf, SCAN_GROUP, SCAN_PORT } from './socket.js';
 
-/** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
-/** @typedef {import('@nebula-home/package-runtime').DiscoverySource} DiscoverySource */
-/** @typedef {import('@nebula-home/package-runtime').Sighting} Sighting */
-/** @typedef {import('@nebula-home/contracts').JsonObject} JsonObject */
+/** @typedef {import('@nebulahome/package-runtime').BundleSdk} BundleSdk */
+/** @typedef {import('@nebulahome/package-runtime').DiscoverySource} DiscoverySource */
+/** @typedef {import('@nebulahome/package-runtime').Sighting} Sighting */
+/** @typedef {import('@nebulahome/contracts').JsonObject} JsonObject */
 
 /** How often the scan is asked again. */
 const SCAN_INTERVAL_MS = 5 * 60_000;

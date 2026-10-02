@@ -12,8 +12,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import type { DashboardAssignee, DashboardView } from '@nebula-home/contracts';
-import { AppIcon, Button, IconButton } from '@nebula-home/ui';
+import type { DashboardAssignee, DashboardView } from '@nebulahome/contracts';
+import { AppIcon, Button, IconButton } from '@nebulahome/ui';
 
 import { Avatar } from '@/components/avatar';
 import { WrenchIcon } from '@/components/icons';

@@ -6,7 +6,7 @@
  * Kept in the address like every other list's filter, and pure, so what the list lets through is
  * tested without the page.
  */
-import type { ContainerSummary } from '@nebula-home/contracts';
+import type { ContainerSummary } from '@nebulahome/contracts';
 
 import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, readChoice, type ListCodec } from '@/lib/use-list-state';

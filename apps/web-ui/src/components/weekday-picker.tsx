@@ -5,8 +5,8 @@
  * stand out. Each chip is a checkbox - or a radio, choosing one - hidden behind its label, so the
  * keyboard and a screen reader get the control they expect.
  */
-import { DAYS_OF_WEEK, type DayOfWeek } from '@nebula-home/contracts';
-import { cn } from '@nebula-home/ui';
+import { DAYS_OF_WEEK, type DayOfWeek } from '@nebulahome/contracts';
+import { cn } from '@nebulahome/ui';
 
 /** What the picker needs. */
 export type WeekdayPickerProps = {

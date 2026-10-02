@@ -18,7 +18,7 @@ import {
   type EntityView,
   type DiscoveredDevice,
   type IntegrationVendorView,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
 import {

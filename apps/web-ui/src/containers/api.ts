@@ -28,7 +28,7 @@ import {
   type ImageDescription,
   type ImageSearchReply,
   type ImageTagsReply,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { apiRequest } from '@/lib/api-client';
 

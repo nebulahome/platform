@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { ConflictError, NotFoundError, ValidationError } from '@nebula-home/contracts';
-import { loadBuiltinIcons, type IconRow } from '@nebula-home/icons';
-import { createLogger } from '@nebula-home/logging';
+import { ConflictError, NotFoundError, ValidationError } from '@nebulahome/contracts';
+import { loadBuiltinIcons, type IconRow } from '@nebulahome/icons';
+import { createLogger } from '@nebulahome/logging';
 
 import { IconService, type IconStore, type IconUses } from './icons.js';
 

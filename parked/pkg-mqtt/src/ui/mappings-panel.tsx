@@ -4,8 +4,8 @@
  */
 import { useState } from 'react';
 
-import { usePackageCall, usePackageRpc } from '@nebula-home/package-ui';
-import { Button, Modal, Panel, PanelNote, PanelRow, SelectField, TextField } from '@nebula-home/ui';
+import { usePackageCall, usePackageRpc } from '@nebulahome/package-ui';
+import { Button, Modal, Panel, PanelNote, PanelRow, SelectField, TextField } from '@nebulahome/ui';
 
 import type { Mapping } from './types.js';
 

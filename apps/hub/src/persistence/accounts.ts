@@ -9,8 +9,8 @@
  */
 import { and, eq } from 'drizzle-orm';
 
-import type { AccountStatus, IntegrationAccountView, JsonObject } from '@nebula-home/contracts';
-import { isSealed, openSecret, schema, sealSecret, type Database } from '@nebula-home/db';
+import type { AccountStatus, IntegrationAccountView, JsonObject } from '@nebulahome/contracts';
+import { isSealed, openSecret, schema, sealSecret, type Database } from '@nebulahome/db';
 
 /** One account: what it typed stays sealed, the session is opened. */
 export type StoredAccount = {

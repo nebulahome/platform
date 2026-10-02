@@ -9,8 +9,8 @@
  */
 import { useState } from 'react';
 
-import type { DashboardCard, DashboardPackageCard, SetupGroup } from '@nebula-home/contracts';
-import { PanelNote, TextField } from '@nebula-home/ui';
+import type { DashboardCard, DashboardPackageCard, SetupGroup } from '@nebulahome/contracts';
+import { PanelNote, TextField } from '@nebulahome/ui';
 
 import { initialDraft, toValues, type SetupDraft } from '@/library/setup-values';
 import type { DashboardData } from '@/routes/dashboard/use-dashboard-data';

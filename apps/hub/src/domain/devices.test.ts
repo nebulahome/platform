@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseEntityId, type EntityId } from '@nebula-home/contracts';
+import { parseEntityId, type EntityId } from '@nebulahome/contracts';
 import {
   bundleManifestSchema,
   createDeclarativeIntegration,
   integrationProfileSchema,
   type Claim,
   type Integration,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import { DeviceBook, describeDevice } from './devices.js';
 

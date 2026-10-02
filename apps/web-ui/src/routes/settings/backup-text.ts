@@ -6,7 +6,7 @@ import type {
   BackupPhase,
   BackupRunView,
   BackupSection,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** Each part of a backup, as the page names it. */
 export const SECTION_NAMES: Readonly<Record<BackupSection, string>> = {

@@ -12,7 +12,7 @@
  */
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
-import { Button, cn } from '@nebula-home/ui';
+import { Button, cn } from '@nebulahome/ui';
 
 import { FilterIcon } from '@/components/icons';
 import { isOwnedListbox } from '@/lib/owned-listbox';

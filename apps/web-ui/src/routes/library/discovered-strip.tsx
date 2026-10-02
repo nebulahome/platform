@@ -23,8 +23,8 @@ import {
   type ReactNode,
 } from 'react';
 
-import type { DiscoveredDevice, IntegrationVendorView } from '@nebula-home/contracts';
-import { IconButton } from '@nebula-home/ui';
+import type { DiscoveredDevice, IntegrationVendorView } from '@nebulahome/contracts';
+import { IconButton } from '@nebulahome/ui';
 
 import { ChevronLeftIcon, ChevronRightIcon } from '@/components/icons';
 import { DiscoveredCard } from '@/routes/library/discovered-card';

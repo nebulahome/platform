@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { NotFoundError, ConflictError } from '@nebula-home/contracts';
+import { NotFoundError, ConflictError } from '@nebulahome/contracts';
 
 import { Registry } from './registry.js';
 

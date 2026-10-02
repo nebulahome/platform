@@ -17,8 +17,8 @@ import {
   parseEntityId,
   type CapabilityState,
   type JsonObject,
-} from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 import {
   createDeclarativeIntegration,
   driverManifestSchema,
@@ -27,7 +27,7 @@ import {
   vendorManifestSchema,
   type Integration,
   type TransportInbound,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import { httpTransport } from '../transports/http.js';
 

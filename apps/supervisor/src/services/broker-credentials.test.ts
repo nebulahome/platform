@@ -4,10 +4,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { BusClient, type BusSubscription } from '@nebula-home/bus';
-import { FakeTransport } from '@nebula-home/bus/testing';
-import { busSubjects, type ManagedContainerSpec } from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+import { BusClient, type BusSubscription } from '@nebulahome/bus';
+import { FakeTransport } from '@nebulahome/bus/testing';
+import { busSubjects, type ManagedContainerSpec } from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 
 import { brokerFor, speaksMqtt } from './broker-credentials.js';
 

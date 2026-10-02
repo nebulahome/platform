@@ -10,7 +10,7 @@
  */
 import { sql } from 'drizzle-orm';
 
-import { SchemaVersionMismatchError } from '@nebula-home/contracts';
+import { SchemaVersionMismatchError } from '@nebulahome/contracts';
 
 import type { Database } from './client.js';
 

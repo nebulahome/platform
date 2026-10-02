@@ -5,7 +5,7 @@
  * that, and nothing else. The API keeps no copy: a page open in two tabs asks twice, and each
  * answer is the same window read a moment apart.
  */
-import type { BusClient } from '@nebula-home/bus';
+import type { BusClient } from '@nebulahome/bus';
 import {
   busSubjects,
   CORE_SERVICE,
@@ -13,7 +13,7 @@ import {
   DeviceUnavailableError,
   systemMonitorSnapshotSchema,
   type SystemMonitorSnapshot,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** What reading the system monitor needs. */
 export type SystemMonitorContext = {

@@ -6,7 +6,7 @@
  * tag such as `latest` is offered the image the tag points at now, when it is not the one the
  * machine has. An image pinned to a digest never changes, and is not asked about.
  */
-import { isNebulaError } from '@nebula-home/contracts';
+import { isNebulaError } from '@nebulahome/contracts';
 
 import { parseImageReference, type ImageReference } from '../domain/image-ref.js';
 import { isPinnedTag, newestOfShape, shortDigest, versionOf } from '../domain/versions.js';

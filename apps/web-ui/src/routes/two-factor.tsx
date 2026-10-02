@@ -15,7 +15,7 @@
  */
 import { useRef, useState, type SubmitEventHandler } from 'react';
 
-import { Button } from '@nebula-home/ui';
+import { Button } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';

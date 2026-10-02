@@ -30,7 +30,7 @@ import {
   TRANSPORT_WIRES,
   transportIdSchema,
   type TransportWire,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { containerDependenciesSchema } from './containers.js';
 

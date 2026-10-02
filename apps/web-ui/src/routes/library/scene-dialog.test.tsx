@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { entityIdSchema, type EntityView, type SceneView } from '@nebula-home/contracts';
+import { entityIdSchema, type EntityView, type SceneView } from '@nebulahome/contracts';
 
 import { createScene, fetchEntities, fetchIcons } from '@/library/api';
 

@@ -13,7 +13,7 @@
  */
 import { z } from 'zod';
 
-import { API_VERSIONS, apiErrorSchema, type ApiVersion } from '@nebula-home/contracts';
+import { API_VERSIONS, apiErrorSchema, type ApiVersion } from '@nebulahome/contracts';
 
 import type { RouteDefinition, RouteRegistry } from './route.js';
 

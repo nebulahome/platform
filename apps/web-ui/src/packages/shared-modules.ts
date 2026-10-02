@@ -13,8 +13,8 @@ import * as JsxRuntime from 'react/jsx-runtime';
 import * as ReactDom from 'react-dom';
 import * as ReactDomClient from 'react-dom/client';
 
-import type { SharedModule } from '@nebula-home/package-ui';
-import * as Ui from '@nebula-home/ui';
+import type { SharedModule } from '@nebulahome/package-ui';
+import * as Ui from '@nebulahome/ui';
 
 import { PACKAGE_UI_RUNTIME } from '@/packages/runtime';
 
@@ -28,8 +28,8 @@ const MODULES: Readonly<Record<SharedModule, unknown>> = {
   'react-dom/client': ReactDomClient,
   'react/jsx-runtime': JsxRuntime,
   'react/jsx-dev-runtime': JsxDevRuntime,
-  '@nebula-home/ui': Ui,
-  '@nebula-home/package-ui': PACKAGE_UI_RUNTIME,
+  '@nebulahome/ui': Ui,
+  '@nebulahome/package-ui': PACKAGE_UI_RUNTIME,
 };
 
 /** Puts the shared modules where a package's build reads them. Once. */

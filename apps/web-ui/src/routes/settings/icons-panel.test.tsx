@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { IconView } from '@nebula-home/contracts';
+import type { IconView } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
 import { createIcon, deleteIcon, fetchIcons, updateIcon } from '@/library/api';

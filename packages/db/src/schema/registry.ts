@@ -392,7 +392,7 @@ export const entityStates = registrySchema.table(
       .primaryKey()
       .references(() => entities.id, { onDelete: 'cascade' }),
 
-    /** Validated against `capabilityStateSchema` in `@nebula-home/contracts`. */
+    /** Validated against `capabilityStateSchema` in `@nebulahome/contracts`. */
     state: jsonb('state').notNull(),
 
     attributes: jsonb('attributes')
@@ -546,7 +546,7 @@ export const sceneEntities = registrySchema.table(
       .notNull()
       .references(() => entities.id, { onDelete: 'cascade' }),
 
-    /** Validated against `capabilityStateSchema` in `@nebula-home/contracts`. */
+    /** Validated against `capabilityStateSchema` in `@nebulahome/contracts`. */
     targetState: jsonb('target_state').notNull(),
 
     /** Overrides the scene default for this entity only. */
@@ -571,7 +571,7 @@ export const automations = registrySchema.table(
     name: text('name').notNull(),
     description: text('description').notNull().default(''),
 
-    /** Validated against `automationDefinitionSchema` in `@nebula-home/contracts`. */
+    /** Validated against `automationDefinitionSchema` in `@nebulahome/contracts`. */
     definition: jsonb('definition').notNull(),
 
     /** Versions the automation DSL itself, so old documents can be migrated on read. */
@@ -609,7 +609,7 @@ export const dashboards = registrySchema.table(
     name: text('name').notNull(),
     icon: text('icon'),
 
-    /** Validated against `dashboardLayoutSchema` in `@nebula-home/contracts`. */
+    /** Validated against `dashboardLayoutSchema` in `@nebulahome/contracts`. */
     layout: jsonb('layout').notNull().default({ cards: [] }),
 
     /** Versions the layout format, so old documents can be migrated on read. */

@@ -10,9 +10,9 @@ import { fileURLToPath } from 'node:url';
 
 import postgres from 'postgres';
 
-import { databaseEnvSchema, loadConfigOrExit } from '@nebula-home/config';
-import { EXIT_CODES, isNebulaError } from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+import { databaseEnvSchema, loadConfigOrExit } from '@nebulahome/config';
+import { EXIT_CODES, isNebulaError } from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 
 import { applyMigrations } from '../migrate.js';
 

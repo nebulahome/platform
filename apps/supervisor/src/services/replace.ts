@@ -5,8 +5,8 @@
  * be made or started gives its name back, and the old one is started again, as it was. Only once
  * the new one is up is the old removed - its volumes stay, since the new container mounts them.
  */
-import type { JsonObject } from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+import type { JsonObject } from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { DockerEngine } from '../docker/engine.js';
 import type { ExtraNetwork } from '../domain/recreate.js';

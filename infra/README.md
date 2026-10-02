@@ -199,7 +199,7 @@ To bring an existing installation's keys into a new container, set `NEBULA_SECRE
 
 Every file a service keeps - everything but the database - lives under one directory,
 `NEBULA_DATA_DIR`. Unset, it is this `infra/data`; in the container it is the volume mounted at
-`/data`. Its layout is defined in `@nebula-home/config` (`data-layout.ts`) and described in
+`/data`. Its layout is defined in `@nebulahome/config` (`data-layout.ts`) and described in
 ARCHITECTURE.md §14:
 
 ```

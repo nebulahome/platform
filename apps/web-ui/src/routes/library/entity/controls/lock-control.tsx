@@ -8,7 +8,7 @@
  */
 import { useState } from 'react';
 
-import { AppIcon, Button, cn, TextField } from '@nebula-home/ui';
+import { AppIcon, Button, cn, TextField } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
 import {

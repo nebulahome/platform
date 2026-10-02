@@ -12,8 +12,8 @@
  * listening yet (API.md §10), and a button that posted to it would fail at the one moment it
  * mattered.
  */
-import type { AutomationView } from '@nebula-home/contracts';
-import { Badge, Button, cn } from '@nebula-home/ui';
+import type { AutomationView } from '@nebulahome/contracts';
+import { Badge, Button, cn } from '@nebulahome/ui';
 
 import { summaryOf, type AutomationSummary } from '@/lib/describe-automation';
 import { relativeTime } from '@/lib/format-time';

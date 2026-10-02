@@ -39,7 +39,7 @@ import {
   type ConditionLeaf,
   type EntityId,
   type TriggerTree,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /**
  * A half-written entity address.

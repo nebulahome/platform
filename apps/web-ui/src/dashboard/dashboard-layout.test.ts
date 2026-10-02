@@ -8,7 +8,7 @@ import {
   type DashboardEntityCard,
   type DashboardLayout,
   type DashboardLeafCard,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { CARD_SIZES } from '@/dashboard/card-sizes';
 import {

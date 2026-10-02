@@ -41,13 +41,13 @@ import { connect as openSocket } from 'node:net';
 
 import { MODBUS_FAMILIES, MODBUS_MODELS } from './families.js';
 
-/** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
-/** @typedef {import('@nebula-home/package-runtime').Transport} Transport */
-/** @typedef {import('@nebula-home/package-runtime').TransportConnection} TransportConnection */
-/** @typedef {import('@nebula-home/package-runtime').TransportContext} TransportContext */
-/** @typedef {import('@nebula-home/package-runtime').TransportSubscription} TransportSubscription */
-/** @typedef {import('@nebula-home/package-runtime').Discovered} Discovered */
-/** @typedef {import('@nebula-home/contracts').JsonObject} JsonObject */
+/** @typedef {import('@nebulahome/package-runtime').BundleSdk} BundleSdk */
+/** @typedef {import('@nebulahome/package-runtime').Transport} Transport */
+/** @typedef {import('@nebulahome/package-runtime').TransportConnection} TransportConnection */
+/** @typedef {import('@nebulahome/package-runtime').TransportContext} TransportContext */
+/** @typedef {import('@nebulahome/package-runtime').TransportSubscription} TransportSubscription */
+/** @typedef {import('@nebulahome/package-runtime').Discovered} Discovered */
+/** @typedef {import('@nebulahome/contracts').JsonObject} JsonObject */
 /** @typedef {import('./families.js').ModbusFamily} ModbusFamily */
 /** @typedef {import('./families.js').ModbusReading} ModbusReading */
 /** @typedef {import('./families.js').ModbusStep} ModbusStep */

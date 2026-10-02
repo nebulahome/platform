@@ -15,7 +15,7 @@ import {
   ValidationError,
   type BusEnvelope,
   type BusEnvelopeHeader,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { ulid } from './ulid.js';
 

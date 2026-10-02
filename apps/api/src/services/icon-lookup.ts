@@ -5,7 +5,7 @@
  * so a miss is a bug or a stale page, and worth a refusal naming the field rather than a row
  * pointing at a drawing that does not exist.
  */
-import { ValidationError } from '@nebula-home/contracts';
+import { ValidationError } from '@nebulahome/contracts';
 
 /** Whether an icon id names an icon. */
 export type IconLookup = {

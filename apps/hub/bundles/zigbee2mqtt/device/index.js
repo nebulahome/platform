@@ -14,12 +14,12 @@
  */
 import { commandOf, planEntities, refreshPayload, stateOf } from './exposes.js';
 
-/** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
-/** @typedef {import('@nebula-home/package-runtime').Claim} Claim */
-/** @typedef {import('@nebula-home/package-runtime').Integration} Integration */
-/** @typedef {import('@nebula-home/package-runtime').MappingContext} MappingContext */
-/** @typedef {import('@nebula-home/contracts').StateReport} StateReport */
-/** @typedef {import('@nebula-home/contracts').JsonObject} JsonObject */
+/** @typedef {import('@nebulahome/package-runtime').BundleSdk} BundleSdk */
+/** @typedef {import('@nebulahome/package-runtime').Claim} Claim */
+/** @typedef {import('@nebulahome/package-runtime').Integration} Integration */
+/** @typedef {import('@nebulahome/package-runtime').MappingContext} MappingContext */
+/** @typedef {import('@nebulahome/contracts').StateReport} StateReport */
+/** @typedef {import('@nebulahome/contracts').JsonObject} JsonObject */
 
 /**
  * The device's entry in `bridge/devices`, out of what its claim kept.
@@ -49,7 +49,7 @@ export default function createZigbeeDevice(sdk) {
     /**
      * Takes a device the scan found, never the bridge.
      *
-     * @param {import('@nebula-home/package-runtime').Discovered} discovered - What the scan saw.
+     * @param {import('@nebulahome/package-runtime').Discovered} discovered - What the scan saw.
      * @returns {Claim | null} The claim.
      */
     claim: (discovered) => {
@@ -64,7 +64,7 @@ export default function createZigbeeDevice(sdk) {
      * Asks each device for its readable state when the link comes up.
      *
      * @param {readonly Claim[]} claims - The devices.
-     * @returns {import('@nebula-home/package-runtime').TransportSubscription[]} One refresh each.
+     * @returns {import('@nebulahome/package-runtime').TransportSubscription[]} One refresh each.
      */
     subscriptions: (claims) =>
       claims.flatMap((claim) => {
@@ -79,7 +79,7 @@ export default function createZigbeeDevice(sdk) {
      * Says what the device is and what it exposes.
      *
      * @param {Claim} claim - The device.
-     * @returns {import('@nebula-home/package-runtime').DeviceDescriptor} Its identity and entities.
+     * @returns {import('@nebulahome/package-runtime').DeviceDescriptor} Its identity and entities.
      */
     describe: (claim) => {
       const device = deviceOf(claim);
@@ -109,7 +109,7 @@ export default function createZigbeeDevice(sdk) {
     /**
      * Turns what the transport delivered into state.
      *
-     * @param {import('@nebula-home/package-runtime').TransportInbound} message - What arrived.
+     * @param {import('@nebulahome/package-runtime').TransportInbound} message - What arrived.
      * @param {MappingContext} context - The claim and the entity ids.
      * @returns {StateReport[]} One report per entity the message says something about.
      */
@@ -158,9 +158,9 @@ export default function createZigbeeDevice(sdk) {
     /**
      * Turns a command into what to publish.
      *
-     * @param {import('@nebula-home/package-runtime').CommandTarget} target - The command.
+     * @param {import('@nebulahome/package-runtime').CommandTarget} target - The command.
      * @param {MappingContext} context - The claim and the entity ids.
-     * @returns {import('@nebula-home/package-runtime').TransportRequest} The request.
+     * @returns {import('@nebulahome/package-runtime').TransportRequest} The request.
      * @throws {Error} For an entity the device does not have.
      */
     toCommand: (target, context) => {
@@ -189,7 +189,7 @@ export default function createZigbeeDevice(sdk) {
     /**
      * Reads the firmware the device runs now, from the bridge's list.
      *
-     * @param {import('@nebula-home/package-runtime').TransportInbound} message - What arrived.
+     * @param {import('@nebulahome/package-runtime').TransportInbound} message - What arrived.
      * @returns {{ swVersion?: string } | undefined} The firmware, when the message is the list.
      */
     deviceInfo: (message) => {

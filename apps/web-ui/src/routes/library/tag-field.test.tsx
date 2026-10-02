@@ -7,7 +7,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { TagView } from '@nebula-home/contracts';
+import type { TagView } from '@nebulahome/contracts';
 
 import { TagField } from './tag-field';
 

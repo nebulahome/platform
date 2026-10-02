@@ -24,11 +24,11 @@
  */
 import { isIPv4 } from 'node:net';
 
-/** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
-/** @typedef {import('@nebula-home/package-runtime').DiscoverySource} DiscoverySource */
-/** @typedef {import('@nebula-home/package-runtime').ManagedUdpSocket} ManagedUdpSocket */
-/** @typedef {import('@nebula-home/package-runtime').Sighting} Sighting */
-/** @typedef {import('@nebula-home/package-runtime').UdpPeer} UdpPeer */
+/** @typedef {import('@nebulahome/package-runtime').BundleSdk} BundleSdk */
+/** @typedef {import('@nebulahome/package-runtime').DiscoverySource} DiscoverySource */
+/** @typedef {import('@nebulahome/package-runtime').ManagedUdpSocket} ManagedUdpSocket */
+/** @typedef {import('@nebulahome/package-runtime').Sighting} Sighting */
+/** @typedef {import('@nebulahome/package-runtime').UdpPeer} UdpPeer */
 
 /** Where printers announce themselves. */
 const GROUP = '239.255.255.250';

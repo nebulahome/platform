@@ -10,8 +10,8 @@ import { Writable } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocketServer, type WebSocket } from 'ws';
 
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
-import type { ManagedSocket } from '@nebula-home/package-runtime';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
+import type { ManagedSocket } from '@nebulahome/package-runtime';
 
 import { openWebSocket } from './managed-socket.js';
 

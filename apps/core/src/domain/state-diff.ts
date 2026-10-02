@@ -7,7 +7,7 @@
  * Get this wrong in the permissive direction and every automation in the house fires twice a
  * minute; get it wrong in the strict direction and none of them ever fire.
  */
-import type { CapabilityState } from '@nebula-home/contracts';
+import type { CapabilityState } from '@nebulahome/contracts';
 
 /**
  * Applies a report on top of what is already known.

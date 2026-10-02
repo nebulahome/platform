@@ -17,7 +17,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 
-import { TAG_COLORS, type IconView, type TagColor, type TagView } from '@nebula-home/contracts';
+import { TAG_COLORS, type IconView, type TagColor, type TagView } from '@nebulahome/contracts';
 import {
   Button,
   ColorSwatches,
@@ -27,7 +27,7 @@ import {
   TAG_FILL_CLASSES,
   TagChip,
   useAnchoredPlacement,
-} from '@nebula-home/ui';
+} from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { creatableTagName, filterTagChoices } from '@/library/tag-choices';

@@ -5,7 +5,7 @@
  * for a new gap is whatever the section chose when the card was added (OR for triggers, AND for
  * If).
  */
-import { Segmented } from '@nebula-home/ui';
+import { Segmented } from '@nebulahome/ui';
 
 import type { BooleanJoin } from '@/library/automation-draft';
 

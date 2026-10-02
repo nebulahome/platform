@@ -7,7 +7,7 @@
  * A stretch the device could not be reached is greyed out rather than drawn as off, and its
  * tooltip says so.
  */
-import { cn } from '@nebula-home/ui';
+import { cn } from '@nebulahome/ui';
 
 import { durationText } from '@/lib/format-time';
 import type { StateSegment, TimeWindow } from '@/library/history-series';

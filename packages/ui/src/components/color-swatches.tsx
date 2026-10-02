@@ -12,7 +12,7 @@
  */
 import { useId } from 'react';
 
-import { TAG_COLORS, type TagColor } from '@nebula-home/contracts';
+import { TAG_COLORS, type TagColor } from '@nebulahome/contracts';
 
 import { cn } from '../lib/cn.js';
 import { TAG_FILL_CLASSES } from '../lib/tag-colors.js';

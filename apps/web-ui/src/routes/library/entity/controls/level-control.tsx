@@ -6,7 +6,7 @@
  */
 import { useState } from 'react';
 
-import { Segmented, Slider } from '@nebula-home/ui';
+import { Segmented, Slider } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
 import { capabilityLabel } from '@/library/entity-kind';

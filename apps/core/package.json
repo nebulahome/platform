@@ -1,5 +1,5 @@
 {
-  "name": "@nebula-home/core",
+  "name": "@nebulahome/core",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,11 +13,11 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
-    "@nebula-home/bus": "workspace:*",
-    "@nebula-home/config": "workspace:*",
-    "@nebula-home/contracts": "workspace:*",
-    "@nebula-home/db": "workspace:*",
-    "@nebula-home/logging": "workspace:*",
+    "@nebulahome/bus": "workspace:*",
+    "@nebulahome/config": "workspace:*",
+    "@nebulahome/contracts": "workspace:*",
+    "@nebulahome/db": "workspace:*",
+    "@nebulahome/logging": "workspace:*",
     "croner": "^10.0.1",
     "drizzle-orm": "^0.45.2",
     "jsonata": "^2.2.2",
@@ -26,8 +26,8 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@nebula-home/eslint-config": "workspace:*",
-    "@nebula-home/tsconfig": "workspace:*",
+    "@nebulahome/eslint-config": "workspace:*",
+    "@nebulahome/tsconfig": "workspace:*",
     "@types/suncalc": "^1.9.2",
     "typescript": "^6.0.3"
   }

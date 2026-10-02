@@ -22,8 +22,8 @@
 import { readFile } from 'node:fs/promises';
 import os from 'node:os';
 
-import type { BusClient } from '@nebula-home/bus';
-import { resolveDataLayout } from '@nebula-home/config';
+import type { BusClient } from '@nebulahome/bus';
+import { resolveDataLayout } from '@nebulahome/config';
 import {
   busSubjects,
   COMPOSE_LABEL,
@@ -63,8 +63,8 @@ import {
   type ResyncReply,
   type StateReport,
   type VendorContainers,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { SupervisorConfig } from './config.js';
 import type { InspectedContainer, ListedContainer } from './docker/engine-schemas.js';

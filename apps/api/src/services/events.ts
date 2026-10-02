@@ -9,7 +9,7 @@
  * Which sockets get which event is decided here too. `core` fans out every change to everyone
  * on the bus; deciding who may see one is `api`'s job and nobody else's.
  */
-import type { BusClient, BusSubscription } from '@nebula-home/bus';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   backupEventSchema,
   BUS_PATTERNS,
@@ -23,8 +23,8 @@ import {
   type JsonObject,
   type WsServerMessage,
   integrationEventSchema,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 /** One open socket, as the fan-out sees it. */
 export type Subscriber = {

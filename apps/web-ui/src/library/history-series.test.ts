@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { entityIdSchema, type JsonObject, type StateHistoryPoint } from '@nebula-home/contracts';
+import { entityIdSchema, type JsonObject, type StateHistoryPoint } from '@nebulahome/contracts';
 
 import { anEntity } from '@/testing/fixtures';
 

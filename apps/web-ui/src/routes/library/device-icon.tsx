@@ -8,8 +8,8 @@
  */
 import { useQuery } from '@tanstack/react-query';
 
-import type { DeviceView, IconView } from '@nebula-home/contracts';
-import { CatalogueIcon, cn } from '@nebula-home/ui';
+import type { DeviceView, IconView } from '@nebulahome/contracts';
+import { CatalogueIcon, cn } from '@nebulahome/ui';
 
 import { fetchIcons, LIBRARY_QUERY_KEYS } from '@/library/api';
 

@@ -15,7 +15,7 @@ import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 
-import { CURRENT_API_VERSION, MaintenanceError } from '@nebula-home/contracts';
+import { CURRENT_API_VERSION, MaintenanceError } from '@nebulahome/contracts';
 
 import { readBearer } from './auth/authenticator.js';
 import type { ApiContext } from './context.js';

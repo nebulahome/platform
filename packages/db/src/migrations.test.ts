@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { PERMISSIONS, SETTINGS } from '@nebula-home/contracts';
+import { PERMISSIONS, SETTINGS } from '@nebulahome/contracts';
 
 import { readMigrations } from './migrate.js';
 import { EXPECTED_SCHEMA_VERSION } from './schema-version.js';

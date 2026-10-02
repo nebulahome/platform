@@ -15,7 +15,7 @@
  */
 import path from 'node:path';
 
-import { COMPOSE_LABEL, type ComposeProblem, type JsonObject } from '@nebula-home/contracts';
+import { COMPOSE_LABEL, type ComposeProblem, type JsonObject } from '@nebulahome/contracts';
 
 import type { DataMount } from './managed.js';
 

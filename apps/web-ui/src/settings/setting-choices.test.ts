@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { RETENTION_MINIMUM_DAYS } from '@nebula-home/contracts';
+import { RETENTION_MINIMUM_DAYS } from '@nebulahome/contracts';
 
 import {
   LOG_LEVEL_CHOICES,

@@ -12,8 +12,8 @@
  */
 import { useState } from 'react';
 
-import type { EntityView } from '@nebula-home/contracts';
-import { AppIcon, Button, cn, Panel, type UiIconId } from '@nebula-home/ui';
+import type { EntityView } from '@nebulahome/contracts';
+import { AppIcon, Button, cn, Panel, type UiIconId } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime } from '@/lib/format-time';

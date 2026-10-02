@@ -27,7 +27,7 @@ import {
   type DayOfWeek,
   type JsonValue,
   type SettingsResponse,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 import {
   Badge,
   Button,
@@ -38,7 +38,7 @@ import {
   Segmented,
   Switch,
   TextField,
-} from '@nebula-home/ui';
+} from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import {

@@ -1,3 +1,3 @@
-import config from '@nebula-home/eslint-config';
+import config from '@nebulahome/eslint-config';
 
 export default config;

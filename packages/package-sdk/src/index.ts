@@ -2,7 +2,7 @@
  * The package SDK: how a package's server is written (PACKAGES.md 4).
  *
  * A `node` package's `server/index.js` default-exports {@link definePackage}. The packet-manager
- * runs it with the platform's runner (`@nebula-home/package-sdk/run`), which connects it to the
+ * runs it with the platform's runner (`@nebulahome/package-sdk/run`), which connects it to the
  * bus under the package's id and hands `start` a {@link PackageContext}: its settings, its folders,
  * a logger, and the ways it reaches the rest of the platform - its devices and their entities
  * through `core`, the RPC methods its pages call, the services it offers and those it calls.
@@ -22,8 +22,8 @@ import type {
   JsonValue,
   PackageRpcAccess,
   SyncPackageReply,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 /** One entity of a package's device. */
 export type PackageEntity = {

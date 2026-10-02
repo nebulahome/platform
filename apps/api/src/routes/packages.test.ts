@@ -9,7 +9,7 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { isSealed } from '@nebula-home/db';
+import { isSealed } from '@nebulahome/db';
 
 import { bearer, buildTestServer, emptyDatabase, stopHub } from '../testing/hub-harness.js';
 import { packetManagerRequests } from '../testing/packet-manager-fake.js';

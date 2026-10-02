@@ -11,7 +11,7 @@
  */
 import { connect, type IClientOptions, type MqttClient } from 'mqtt';
 
-import type { ManagedMqtt, ManagedMqttOptions } from '@nebula-home/package-runtime';
+import type { ManagedMqtt, ManagedMqttOptions } from '@nebulahome/package-runtime';
 
 /** How long the client waits before trying the broker again. */
 const RECONNECT_PERIOD_MS = 5000;

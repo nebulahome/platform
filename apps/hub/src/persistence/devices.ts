@@ -14,9 +14,9 @@
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { jsonValueSchema, type JsonObject } from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
-import type { Claim, Integration } from '@nebula-home/package-runtime';
+import { jsonValueSchema, type JsonObject } from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
+import type { Claim, Integration } from '@nebulahome/package-runtime';
 
 import { describeDevice, type DeviceBinding } from '../domain/devices.js';
 

@@ -18,7 +18,7 @@ import {
   type DashboardDocument,
   type DashboardUpdate,
   type DashboardView,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { apiRequest } from '@/lib/api-client';
 

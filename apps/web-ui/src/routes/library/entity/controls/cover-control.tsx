@@ -6,7 +6,7 @@
  * to a position, and the tilt only for one that tilts; a cover that is moving says so in words
  * beside the title, since the position alone does not tell "open at 40%" from "on its way up".
  */
-import { AppIcon, Button, Slider } from '@nebula-home/ui';
+import { AppIcon, Button, Slider } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
 import {

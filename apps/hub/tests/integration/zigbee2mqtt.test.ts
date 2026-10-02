@@ -20,8 +20,8 @@ import { fileURLToPath } from 'node:url';
 import { connectAsync, type MqttClient } from 'mqtt';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
-import type { Transport, TransportInbound } from '@nebula-home/package-runtime';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
+import type { Transport, TransportInbound } from '@nebulahome/package-runtime';
 
 import { RUNTIME_VERSION } from '@/config.js';
 import { loadBundles } from '@/services/bundles.js';

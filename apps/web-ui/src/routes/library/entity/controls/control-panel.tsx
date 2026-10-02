@@ -13,8 +13,8 @@
  */
 import type { ReactNode } from 'react';
 
-import type { CapabilityName, EntityView } from '@nebula-home/contracts';
-import { Panel, PanelNote } from '@nebula-home/ui';
+import type { CapabilityName, EntityView } from '@nebulahome/contracts';
+import { Panel, PanelNote } from '@nebulahome/ui';
 
 import { hasCapability, isCommandable } from '@/library/entity-control';
 import type { Reading } from '@/library/entity-reading';

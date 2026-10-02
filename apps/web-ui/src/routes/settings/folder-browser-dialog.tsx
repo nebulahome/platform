@@ -9,7 +9,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { Button, Modal } from '@nebula-home/ui';
+import { Button, Modal } from '@nebulahome/ui';
 
 import { browseFolders } from '@/backup/api';
 import { toMessage } from '@/lib/error-message';

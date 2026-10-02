@@ -27,7 +27,7 @@ import {
   setupGroupSchema,
   type JsonObject,
   type SetupField,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { bundlePathSchema } from './bundle.js';
 import type { BundleSdk } from './sdk.js';

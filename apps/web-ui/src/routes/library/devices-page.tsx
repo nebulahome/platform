@@ -17,8 +17,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
-import type { DeviceView, EntityView } from '@nebula-home/contracts';
-import { Badge } from '@nebula-home/ui';
+import type { DeviceView, EntityView } from '@nebulahome/contracts';
+import { Badge } from '@nebulahome/ui';
 
 import { areaFacetChoices } from '@/lib/area-tree';
 import { useListState } from '@/lib/use-list-state';

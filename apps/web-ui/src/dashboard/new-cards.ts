@@ -14,7 +14,7 @@ import type {
   DashboardSceneCard,
   EntityView,
   PackageCard,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { CARD_SIZES, cardKindOf, packageCardSizes } from '@/dashboard/card-sizes';
 import { newCardId } from '@/dashboard/dashboard-layout';

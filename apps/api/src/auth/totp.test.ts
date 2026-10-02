@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { TOTP_PARAMS } from '@nebula-home/contracts';
+import { TOTP_PARAMS } from '@nebulahome/contracts';
 
 import {
   decryptSecret,

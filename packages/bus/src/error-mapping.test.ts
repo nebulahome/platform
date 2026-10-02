@@ -7,7 +7,7 @@ import {
   NotFoundError,
   PermissionError,
   UpstreamError,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { fromBusError, toBusError } from './error-mapping.js';
 

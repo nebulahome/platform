@@ -32,8 +32,8 @@ import {
   type AliasView,
   type CapabilityName,
   type EntityView,
-} from '@nebula-home/contracts';
-import { Button, Panel, Segmented, SelectField, TextField } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { Button, Panel, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
 import { isApiError } from '@/lib/api-error';
 import { toMessage } from '@/lib/error-message';

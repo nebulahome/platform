@@ -4,7 +4,7 @@
  * Two facets, each a segmented control - a handful of choices each, which is what a segmented
  * control is for. The wires offered are the ones some vendor goes over. The button and the sheet are the library's shared shell.
  */
-import { Segmented, type SegmentedOption } from '@nebula-home/ui';
+import { Segmented, type SegmentedOption } from '@nebulahome/ui';
 
 import type { InternetFilter, TransportFilter, VendorFilter, Wire } from '@/library/vendor-filters';
 import { Facet, FilterSheet } from '@/routes/library/filter-sheet';

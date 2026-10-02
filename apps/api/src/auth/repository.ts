@@ -11,8 +11,8 @@ import {
   SESSION_TTL_SECONDS,
   type GrantedPermission,
   type ScopedPermission,
-} from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
 
 import type { StoredGrant } from './permissions.js';
 

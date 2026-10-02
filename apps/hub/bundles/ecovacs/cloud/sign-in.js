@@ -19,10 +19,10 @@ import { createHash } from 'node:crypto';
 
 import { createApi, EcovacsError } from './api.js';
 
-/** @typedef {import('@nebula-home/package-runtime').AccountModule} AccountModule */
-/** @typedef {import('@nebula-home/package-runtime').AccountModuleStep} AccountModuleStep */
-/** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
-/** @typedef {import('@nebula-home/contracts').JsonObject} JsonObject */
+/** @typedef {import('@nebulahome/package-runtime').AccountModule} AccountModule */
+/** @typedef {import('@nebulahome/package-runtime').AccountModuleStep} AccountModuleStep */
+/** @typedef {import('@nebulahome/package-runtime').BundleSdk} BundleSdk */
+/** @typedef {import('@nebulahome/contracts').JsonObject} JsonObject */
 /** @typedef {import('./api.js').AccountSession} AccountSession */
 /** @typedef {import('./api.js').EcovacsApi} EcovacsApi */
 
@@ -163,7 +163,7 @@ export default function createEcovacsSignIn(sdk, options = {}) {
   const askForCode = (values, message) => ({
     kind: 'ask',
     message,
-    fields: /** @type {import('@nebula-home/contracts').SetupField[]} */ (CODE_FIELDS),
+    fields: /** @type {import('@nebulahome/contracts').SetupField[]} */ (CODE_FIELDS),
     // Held by the hub in memory, for a quarter of an hour: the answer signs in with it.
     pending: { email: values.email, password: values.password, country: values.country },
   });

@@ -12,7 +12,7 @@ import type {
   DiskUsage,
   SystemMonitorSample,
   SystemReading,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** The processor time of every core added together, in milliseconds. */
 export type CpuTotals = {

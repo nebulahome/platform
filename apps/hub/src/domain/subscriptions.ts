@@ -10,7 +10,7 @@
  * Duplicates collapse. Two integrations watching one topic filter must not make the broker
  * deliver every message twice, and must not make one of them unsubscribing cut off the other.
  */
-import type { TransportSubscription } from '@nebula-home/package-runtime';
+import type { TransportSubscription } from '@nebulahome/package-runtime';
 
 /**
  * Merges what every instance on one connection asks for.

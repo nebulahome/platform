@@ -8,9 +8,9 @@
  */
 import type { NatsConnection } from 'nats';
 
-import { createTelemetryConsumer, type TelemetryConsumer } from '@nebula-home/bus';
-import { schema, type Database } from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
+import { createTelemetryConsumer, type TelemetryConsumer } from '@nebulahome/bus';
+import { schema, type Database } from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { EntityDirectory } from '../domain/entity-directory.js';
 

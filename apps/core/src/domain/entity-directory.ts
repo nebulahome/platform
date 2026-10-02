@@ -18,7 +18,7 @@ import {
   type EntityId,
   type JsonObject,
   type SourceRef,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** One entity's configuration, as opposed to its state. */
 export type EntityRecord = {

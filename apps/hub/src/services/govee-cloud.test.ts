@@ -12,7 +12,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { createLogger } from '@nebula-home/logging';
+import { createLogger } from '@nebulahome/logging';
 import {
   defineAccount,
   defineStreamSource,
@@ -20,7 +20,7 @@ import {
   type BundleSdk,
   type ManagedMqtt,
   type ManagedMqttOptions,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 /** The module, where the bundle ships it. */
 const MODULE = path.join(

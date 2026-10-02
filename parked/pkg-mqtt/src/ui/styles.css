@@ -5,7 +5,7 @@
  * again: the interface the page is drawn in carries them already. What is written is the
  * utilities the broker's components use and the interface's do not.
  */
-@reference '@nebula-home/ui/styles.css';
+@reference '@nebulahome/ui/styles.css';
 @import 'tailwindcss/utilities.css' layer(utilities) source(none);
 @source './';
 @source not '../../../../packages/ui/src';

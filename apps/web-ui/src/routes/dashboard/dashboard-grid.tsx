@@ -33,8 +33,8 @@ import {
   type DashboardCard,
   type DashboardContainerCard,
   type DashboardLayout,
-} from '@nebula-home/contracts';
-import { AppIcon, cn } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { AppIcon, cn } from '@nebulahome/ui';
 
 import { sizeName, snapSize, stepSize } from '@/dashboard/card-sizes';
 import {

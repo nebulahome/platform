@@ -14,7 +14,7 @@ import {
   type CapabilityName,
   type EntityView,
   type JsonObject,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { capabilityLabel } from '@/library/entity-kind';
 import { describeState } from '@/library/entity-reading';

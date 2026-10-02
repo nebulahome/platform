@@ -17,7 +17,7 @@
  */
 import type { z } from 'zod';
 
-import type { PlatformLogger } from '@nebula-home/logging';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { defineAccount } from './account.js';
 import type { Integration } from './integration.js';

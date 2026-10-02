@@ -24,7 +24,7 @@ import {
   type EntityView,
   type JsonObject,
   type JsonValue,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** Playback values the scene editor offers; idle and buffering are not settable here. */
 const EDITABLE_PLAYBACK = ['playing', 'paused', 'stopped'] as const;

@@ -2,7 +2,7 @@
  * Counting what the platform keeps on disk.
  *
  * Two places hold it: the database, which is the bulk of it and grows with history, and the
- * data directory, laid out in `@nebula-home/config`. Each installed package is a directory under
+ * data directory, laid out in `@nebulahome/config`. Each installed package is a directory under
  * `packages/`, and the backups are `backups/`, so both become categories of their own the day
  * they appear, with nothing added here. Every other folder is the platform's, and is counted by
  * what is in it - `cache/maps`, `hub/integrations` - because "cache" alone would not tell anybody
@@ -19,9 +19,9 @@ import { join } from 'node:path';
 
 import { sql } from 'drizzle-orm';
 
-import { BACKUPS_DIRECTORY, PACKAGES_DIRECTORY } from '@nebula-home/config';
-import type { DiskCategory, DiskPart } from '@nebula-home/contracts';
-import type { Database } from '@nebula-home/db';
+import { BACKUPS_DIRECTORY, PACKAGES_DIRECTORY } from '@nebulahome/config';
+import type { DiskCategory, DiskPart } from '@nebulahome/contracts';
+import type { Database } from '@nebulahome/db';
 
 /** The part of the core category the database is. */
 export const DATABASE_PART = 'database';

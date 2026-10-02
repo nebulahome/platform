@@ -15,7 +15,7 @@ import {
   ValidationError,
   type CapabilityName,
   type JsonObject,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import type { EntityRecord } from './entity-directory.js';
 import { customCommandProblem, type PackageTypes } from './package-types.js';

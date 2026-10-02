@@ -16,7 +16,7 @@ import {
   type Page,
   type StateHistoryPoint,
   type TelemetryPoint,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';

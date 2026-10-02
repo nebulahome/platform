@@ -10,8 +10,8 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { AvailablePackage, InstalledPackage } from '@nebula-home/contracts';
-import { Button, Modal } from '@nebula-home/ui';
+import type { AvailablePackage, InstalledPackage } from '@nebulahome/contracts';
+import { Button, Modal } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { installPackage, PACKAGE_QUERY_KEYS, planPackage } from '@/packages/api';

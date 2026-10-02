@@ -13,7 +13,7 @@
  * where the labels leave room, and past the card's sides by a little, as the picture's does. What
  * is cut is never a label, and never the part a label reads.
  */
-import type { HouseStyle } from '@nebula-home/contracts';
+import type { HouseStyle } from '@nebulahome/contracts';
 
 import { formatPower, mainSource, type PowerFlows } from '@/lib/energy-flow';
 import { useElementSize } from '@/lib/use-element-size';

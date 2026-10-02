@@ -13,7 +13,7 @@ import type {
   DiscoveredDevice,
   IconView,
   IntegrationVendorView,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { ApiError } from '@/lib/api-error';
 import { adoptDiscovered, fetchAreas, fetchIcons, fetchTags } from '@/library/api';

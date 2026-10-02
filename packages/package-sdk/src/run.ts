@@ -14,16 +14,16 @@ import { pathToFileURL } from 'node:url';
 
 import { z } from 'zod';
 
-import { BusClient, connectBus } from '@nebula-home/bus';
-import { loadConfigOrExit } from '@nebula-home/config';
+import { BusClient, connectBus } from '@nebulahome/bus';
+import { loadConfigOrExit } from '@nebulahome/config';
 import {
   busSubjects,
   EXIT_CODES,
   jsonObjectSchema,
   PACKET_MANAGER_METHODS,
   PACKET_MANAGER_SERVICE,
-} from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 
 import { createPackageContext } from './context.js';
 

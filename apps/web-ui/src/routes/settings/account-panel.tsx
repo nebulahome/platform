@@ -1,4 +1,4 @@
-import { Panel } from '@nebula-home/ui';
+import { Panel } from '@nebulahome/ui';
 
 /**
  * One heading over everything that is you.

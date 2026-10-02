@@ -8,7 +8,7 @@
  * switch are refused too - the users, roles and sessions are the archive's now. What `api` holds
  * in memory needs no clearing: the restore starts it again, on the restored database.
  */
-import type { BusClient, BusSubscription } from '@nebula-home/bus';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   BACKUP_METHODS,
   BACKUP_SERVICE,
@@ -16,9 +16,9 @@ import {
   busSubjects,
   maintenanceStateSchema,
   type MaintenanceState,
-} from '@nebula-home/contracts';
-import type { Database } from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { Database } from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { Authenticator } from '../auth/authenticator.js';
 

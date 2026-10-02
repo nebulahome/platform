@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { parseEntityId, type CapabilityState, type EntityId } from '@nebula-home/contracts';
+import { parseEntityId, type CapabilityState, type EntityId } from '@nebulahome/contracts';
 import {
   associateModel,
   createDeclarativeIntegration,
@@ -27,7 +27,7 @@ import {
   type Claim,
   type Integration,
   type MappingContext,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import { loadBundles } from './bundles.js';
 

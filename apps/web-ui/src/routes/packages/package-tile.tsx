@@ -9,8 +9,8 @@
  */
 import { Link } from 'react-router';
 
-import type { ApiPackage, PackageState } from '@nebula-home/contracts';
-import { Badge, cn, type BadgeTone } from '@nebula-home/ui';
+import type { ApiPackage, PackageState } from '@nebulahome/contracts';
+import { Badge, cn, type BadgeTone } from '@nebulahome/ui';
 
 import { packageLogoUrl } from '@/packages/api';
 import { VendorLogo } from '@/routes/library/vendor-card';

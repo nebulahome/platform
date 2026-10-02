@@ -42,8 +42,8 @@ import {
   type IntegrationVendorView,
   type JsonObject,
   type ModelChoice,
-} from '@nebula-home/contracts';
-import { Button, Modal, Segmented, SelectField, TextField } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { Button, Modal, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
 import { CheckIcon, WarningIcon } from '@/components/icons';
 import { roomChoices } from '@/lib/area-tree';

@@ -16,7 +16,7 @@ import {
   requireDataDirInProduction,
   runtimeEnvSchema,
   urlWithScheme,
-} from '@nebula-home/config';
+} from '@nebulahome/config';
 
 /** Name this service reports in log records. */
 export const SERVICE_NAME = 'proxy';
@@ -35,7 +35,7 @@ export const PROXY_TLS_MODES = ['off', 'self-signed'] as const;
  * The built web-ui when none is given: `apps/web-ui/dist` beside this package.
  *
  * Found from where this file sits - the same depth under `src` and `dist` - rather than from the
- * working directory, as `@nebula-home/config` finds the data directory.
+ * working directory, as `@nebulahome/config` finds the data directory.
  */
 export const DEFAULT_WEB_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

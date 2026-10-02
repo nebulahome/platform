@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { createLogger } from '@nebula-home/logging';
+import { createLogger } from '@nebulahome/logging';
 import {
   defineTransport,
   Registry,
   type Discovered,
   type Transport,
   type TransportConnection,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import { ConnectionPool } from './connections.js';
 

@@ -10,7 +10,7 @@ import { Writable } from 'node:stream';
 
 import { pino, type DestinationStream, type Logger, type LoggerOptions } from 'pino';
 
-import type { LogLevel } from '@nebula-home/contracts';
+import type { LogLevel } from '@nebulahome/contracts';
 
 import { formatLogContext, formatLogLine, type RenderableLogRecord } from './format.js';
 import { REDACTED_PATHS, REDACTION_PLACEHOLDER } from './redaction.js';

@@ -28,7 +28,7 @@ import {
 import { tags } from '@lezer/highlight';
 import { useEffect, useRef } from 'react';
 
-import type { ComposeProblem } from '@nebula-home/contracts';
+import type { ComposeProblem } from '@nebulahome/contracts';
 
 /** What the editor needs. */
 export type YamlEditorProps = {

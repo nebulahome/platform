@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { createLogger } from '@nebula-home/logging';
-import { defineTransport } from '@nebula-home/package-runtime';
+import { createLogger } from '@nebulahome/logging';
+import { defineTransport } from '@nebulahome/package-runtime';
 
 import { openWebSocket } from '../transports/managed-socket.js';
 import { createUdpSockets } from '../transports/managed-udp.js';

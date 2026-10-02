@@ -28,8 +28,8 @@ import {
   type IntegrationAccountView,
   type IntegrationVendor,
   type JsonObject,
-} from '@nebula-home/contracts';
-import { schema, sealSecrets, type Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { schema, sealSecrets, type Database } from '@nebulahome/db';
 
 import { busOf, listCatalogue, type IntegrationsContext } from './integrations.js';
 

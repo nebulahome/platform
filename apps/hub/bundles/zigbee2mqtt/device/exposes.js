@@ -66,9 +66,9 @@ const WHOLE_KINDS = new Set(['light', 'switch', 'fan', 'cover', 'lock', 'climate
  * @property {Expose[]} [features] - What a light, a switch, a composite is made of.
  */
 
-/** @typedef {import('@nebula-home/package-runtime').EntityDescriptor} EntityDescriptor */
-/** @typedef {import('@nebula-home/contracts').StateReport} StateReport */
-/** @typedef {import('@nebula-home/package-runtime').TransportRequest} TransportRequest */
+/** @typedef {import('@nebulahome/package-runtime').EntityDescriptor} EntityDescriptor */
+/** @typedef {import('@nebulahome/contracts').StateReport} StateReport */
+/** @typedef {import('@nebulahome/package-runtime').TransportRequest} TransportRequest */
 
 /**
  * What kind of entity a plan is.

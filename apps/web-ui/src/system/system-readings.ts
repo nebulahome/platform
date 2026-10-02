@@ -10,7 +10,7 @@ import type {
   DiskUsage,
   SystemMonitorSample,
   SystemMonitorSnapshot,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** One point of a chart: when, and the value then, or null for a gap. */
 export type ChartPoint = {

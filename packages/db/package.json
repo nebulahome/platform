@@ -1,5 +1,5 @@
 {
-  "name": "@nebula-home/db",
+  "name": "@nebulahome/db",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -20,15 +20,15 @@
     "migrate": "tsx --env-file-if-exists=../../.env src/bin/migrate.ts"
   },
   "dependencies": {
-    "@nebula-home/config": "workspace:*",
-    "@nebula-home/contracts": "workspace:*",
-    "@nebula-home/logging": "workspace:*",
+    "@nebulahome/config": "workspace:*",
+    "@nebulahome/contracts": "workspace:*",
+    "@nebulahome/logging": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.9"
   },
   "devDependencies": {
-    "@nebula-home/eslint-config": "workspace:*",
-    "@nebula-home/tsconfig": "workspace:*",
+    "@nebulahome/eslint-config": "workspace:*",
+    "@nebulahome/tsconfig": "workspace:*",
     "@types/node": "^22.20.1",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.23.13",

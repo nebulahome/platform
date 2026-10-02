@@ -9,8 +9,8 @@
  * The totals are read every few seconds; the slices are counted every five minutes, because
  * counting means walking directories, and the card says when they were last counted.
  */
-import type { DiskUsage } from '@nebula-home/contracts';
-import { cn, Panel, PanelNote } from '@nebula-home/ui';
+import type { DiskUsage } from '@nebulahome/contracts';
+import { cn, Panel, PanelNote } from '@nebulahome/ui';
 
 import { formatBytes, formatPercent, formatShare } from '@/lib/format-bytes';
 import { useReducedMotion } from '@/lib/use-reduced-motion';

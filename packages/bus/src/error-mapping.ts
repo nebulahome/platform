@@ -26,7 +26,7 @@ import {
   type ErrorCode,
   type NebulaError,
   type NebulaErrorOptions,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** How long a message may be before it is truncated to fit the wire schema. */
 const MAX_MESSAGE_LENGTH = 1024;

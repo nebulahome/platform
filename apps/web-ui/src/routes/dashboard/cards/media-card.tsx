@@ -6,7 +6,7 @@
  * the title and the one button that matters. The art is the player's glyph on a tinted square:
  * the contract carries no cover image, and a picture made up here would be a picture of nothing.
  */
-import { AppIcon, cn, IconButton } from '@nebula-home/ui';
+import { AppIcon, cn, IconButton } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
 import { CardFrame } from '@/routes/dashboard/cards/card-parts';

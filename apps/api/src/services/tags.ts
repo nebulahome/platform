@@ -23,8 +23,8 @@ import {
   type TagCreate,
   type TagUpdate,
   type TagView,
-} from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
 
 import { checkIcon, type IconLookup } from './icon-lookup.js';
 import { chooseFreeKey, isUniqueViolation, keyPrefixOf } from './keys.js';

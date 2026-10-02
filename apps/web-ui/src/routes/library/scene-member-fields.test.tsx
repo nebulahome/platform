@@ -4,7 +4,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { CapabilityState } from '@nebula-home/contracts';
+import type { CapabilityState } from '@nebulahome/contracts';
 
 import { SceneMemberFields } from './scene-member-fields';
 

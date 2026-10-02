@@ -18,8 +18,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import type { EntityUpdate, EntityView } from '@nebula-home/contracts';
-import { Button, Modal } from '@nebula-home/ui';
+import type { EntityUpdate, EntityView } from '@nebulahome/contracts';
+import { Button, Modal } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { LIBRARY_QUERY_KEYS, updateEntity } from '@/library/api';

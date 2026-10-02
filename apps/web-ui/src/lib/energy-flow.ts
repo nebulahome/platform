@@ -16,7 +16,7 @@
  * is the energy that went through it in that minute, which is enough to say how many kilowatt-
  * hours the panels made today and how much of the house's use they covered.
  */
-import type { TelemetryPoint } from '@nebula-home/contracts';
+import type { TelemetryPoint } from '@nebulahome/contracts';
 
 /** Below this many watts a flow is noise from the meter, and is drawn as none. */
 export const IDLE_WATTS = 10;

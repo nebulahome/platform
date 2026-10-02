@@ -9,7 +9,7 @@
  * guarantee these two properties need: they are put there by hooks, not by the code that reads
  * them.
  */
-import type { Identity } from '@nebula-home/contracts';
+import type { Identity } from '@nebulahome/contracts';
 
 declare module 'fastify' {
   /*

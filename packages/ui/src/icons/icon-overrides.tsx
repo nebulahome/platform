@@ -8,7 +8,7 @@
  */
 import { createContext, useContext, type ReactNode } from 'react';
 
-import type { IconFrame, IconNode } from '@nebula-home/contracts';
+import type { IconFrame, IconNode } from '@nebulahome/contracts';
 
 /** A drawing the catalogue serves for an id. */
 export type IconDrawing = {

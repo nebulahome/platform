@@ -94,7 +94,7 @@ import {
   Zap,
 } from 'lucide';
 
-import { iconNodeSchema, type IconFrame, type IconNode } from '@nebula-home/contracts';
+import { iconNodeSchema, type IconFrame, type IconNode } from '@nebulahome/contracts';
 
 /**
  * Reads a lucide drawing into the catalogue's shape.

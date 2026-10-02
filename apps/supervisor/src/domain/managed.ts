@@ -22,13 +22,13 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 
-import { CACHE_DIRECTORY, CONTAINERS_DIRECTORY } from '@nebula-home/config';
+import { CACHE_DIRECTORY, CONTAINERS_DIRECTORY } from '@nebulahome/config';
 import type {
   JsonObject,
   ManagedContainerSpec,
   ManagedVolume,
   PlatformNetworkMode,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** The labels a managed container carries. */
 export const MANAGED_LABELS = {

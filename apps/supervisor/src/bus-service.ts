@@ -6,7 +6,7 @@
  * declared container being pulled - answers at once and goes on after, so reading the list never waits behind one; the reads are served
  * several at a time for the same reason.
  */
-import type { BusClient, BusSubscription } from '@nebula-home/bus';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   ADAPTER_COMMAND_METHOD,
   adapterCommandSchema,
@@ -30,7 +30,7 @@ import {
   SUPERVISOR_METHODS,
   SUPERVISOR_SERVICE,
   supervisorEmptyRequestSchema,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import type { SupervisorService } from './service.js';
 

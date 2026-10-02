@@ -3,7 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { ConfigurationError } from '@nebula-home/contracts';
+import { ConfigurationError } from '@nebulahome/contracts';
 
 import {
   busEnvSchema,

@@ -9,7 +9,7 @@ import path from 'node:path';
 
 import { create } from 'tar';
 
-import { jsonObjectSchema, type JsonObject, type PackageManifest } from '@nebula-home/contracts';
+import { jsonObjectSchema, type JsonObject, type PackageManifest } from '@nebulahome/contracts';
 
 import type { PackageRow, PackageStore } from '../persistence/packages.js';
 

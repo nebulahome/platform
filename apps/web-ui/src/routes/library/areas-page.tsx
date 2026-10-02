@@ -18,8 +18,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
-import type { AreaView } from '@nebula-home/contracts';
-import { Button } from '@nebula-home/ui';
+import type { AreaView } from '@nebulahome/contracts';
+import { Button } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { removalImpact } from '@/lib/area-tree';

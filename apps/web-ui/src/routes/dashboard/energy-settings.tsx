@@ -17,8 +17,8 @@ import {
   type DashboardCard,
   type DashboardEnergyCard,
   type EntityView,
-} from '@nebula-home/contracts';
-import { SelectField, Switch, TextField } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { SelectField, Switch, TextField } from '@nebulahome/ui';
 
 import { EntityField } from '@/routes/library/entity-field';
 

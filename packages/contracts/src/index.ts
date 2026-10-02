@@ -1,5 +1,5 @@
 /**
- * Public entry point of the `@nebula-home/contracts` package.
+ * Public entry point of the `@nebulahome/contracts` package.
  *
  * Everything that crosses a boundary between two NebulaHome processes - errors, exit codes,
  * entity identifiers, capabilities, bus envelopes and subjects, package manifests, permissions

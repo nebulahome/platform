@@ -4,7 +4,7 @@
  * The colour is a dropdown of the twelve; what a tag is on is four words, segmented. The button
  * and the sheet are the library's shared shell.
  */
-import { TAG_COLORS, type TagColor } from '@nebula-home/contracts';
+import { TAG_COLORS, type TagColor } from '@nebulahome/contracts';
 import {
   cn,
   SelectField,
@@ -12,7 +12,7 @@ import {
   TAG_FILL_CLASSES,
   type SegmentedOption,
   type SelectOption,
-} from '@nebula-home/ui';
+} from '@nebulahome/ui';
 
 import type { TagFilter, TagUsage } from '@/library/tag-filters';
 import { Facet, FilterSheet } from '@/routes/library/filter-sheet';

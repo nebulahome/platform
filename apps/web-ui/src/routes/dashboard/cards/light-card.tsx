@@ -7,8 +7,8 @@
  * as a figure and a groove; the square card makes the brightness and the white or the colour
  * something to set.
  */
-import type { CapabilityState } from '@nebula-home/contracts';
-import { Slider, type WheelColour } from '@nebula-home/ui';
+import type { CapabilityState } from '@nebulahome/contracts';
+import { Slider, type WheelColour } from '@nebulahome/ui';
 
 import {
   hasCapability,

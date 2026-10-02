@@ -24,7 +24,7 @@ import type {
   EntityStateClass,
   JsonObject,
   StateReport,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import type {
   Discovered,

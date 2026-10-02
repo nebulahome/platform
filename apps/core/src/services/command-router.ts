@@ -14,7 +14,7 @@
  * command subject: there is one command subject in the taxonomy and `core` is subscribed to it,
  * so republishing would route the command straight back here.
  */
-import type { BusClient, BusSubscription, MessageContext } from '@nebula-home/bus';
+import type { BusClient, BusSubscription, MessageContext } from '@nebulahome/bus';
 import {
   adapterAckSchema,
   ADAPTER_COMMAND_METHOD,
@@ -25,7 +25,7 @@ import {
   ValidationError,
   type CapabilityCommandRequest,
   type CommandAck,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { isStoredAlias, type AliasCatalog } from '../domain/alias-catalog.js';
 import { validateCommand } from '../domain/command-validation.js';

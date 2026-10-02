@@ -6,7 +6,7 @@ import { Writable } from 'node:stream';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { loadBundles, mergeBundleResults, wiresOf, type LoadBundlesResult } from './bundles.js';
 

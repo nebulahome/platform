@@ -12,8 +12,8 @@ import {
   integrationVendorSchema,
   ValidationError,
   type IntegrationVendor,
-} from '@nebula-home/contracts';
-import { isSealed, openSecrets, secretsKeyFrom } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { isSealed, openSecrets, secretsKeyFrom } from '@nebulahome/db';
 
 import {
   checkModel,

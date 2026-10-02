@@ -25,8 +25,8 @@ import {
   deviceViewSchema,
   entityViewSchema,
   type AreaView,
-} from '@nebula-home/contracts';
-import { createDatabase, schema } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { createDatabase, schema } from '@nebulahome/db';
 
 import { bearer, buildTestServer, stopHub } from '@/testing/hub-harness.js';
 import { cachedTiles } from '@/testing/map-tiles.js';

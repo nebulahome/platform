@@ -22,7 +22,7 @@ import {
   type JsonObject,
   type LawnMowerActivity,
   type VacuumActivity,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { miredsToKelvin } from '@/library/entity-control';
 import type { LiveReading } from '@/live/live-store';

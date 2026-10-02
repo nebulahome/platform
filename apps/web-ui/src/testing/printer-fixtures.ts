@@ -8,7 +8,7 @@ import {
   type DeviceView,
   type EntityView,
   type IntegrationVendorView,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** A tag the owner made, on the nozzle. */
 export const EXTERIOR = {

@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { PermissionError, type GrantedPermission } from '@nebula-home/contracts';
+import { PermissionError, type GrantedPermission } from '@nebulahome/contracts';
 
 import {
   entityScopes,

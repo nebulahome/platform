@@ -11,8 +11,8 @@
  * A sensor has no on and off, so its tile is always tinted; an entity that cannot be reached is
  * always grey.
  */
-import type { IconView } from '@nebula-home/contracts';
-import { AppIcon, CatalogueIcon, cn } from '@nebula-home/ui';
+import type { IconView } from '@nebulahome/contracts';
+import { AppIcon, CatalogueIcon, cn } from '@nebulahome/ui';
 
 import type { EntityKind, EntityTone } from '@/library/entity-kind';
 

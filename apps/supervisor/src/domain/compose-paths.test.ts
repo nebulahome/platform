@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { JsonObject } from '@nebula-home/contracts';
+import type { JsonObject } from '@nebulahome/contracts';
 
 import { composeConflicts, problemsOf, rewriteComposePaths } from './compose-paths.js';
 

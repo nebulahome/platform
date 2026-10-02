@@ -18,7 +18,7 @@
  */
 import { z } from 'zod';
 
-import type { BusClient, BusSubscription } from '@nebula-home/bus';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
   catalogueRequestSchema,
@@ -52,11 +52,11 @@ import {
   type ReloadRequest,
   type VendorChangedReply,
   type VendorChangedRequest,
-} from '@nebula-home/contracts';
-import type { JsonObject } from '@nebula-home/contracts';
-import { openSecrets } from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
-import type { Registry, Transport } from '@nebula-home/package-runtime';
+} from '@nebulahome/contracts';
+import type { JsonObject } from '@nebulahome/contracts';
+import { openSecrets } from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
+import type { Registry, Transport } from '@nebulahome/package-runtime';
 
 import type { LoadedBundle, LoadedVendor } from './bundles.js';
 import type { Detected, VendorHearing } from './discovery.js';

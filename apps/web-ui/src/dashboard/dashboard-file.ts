@@ -6,7 +6,7 @@
  * that reads is shown before it is imported: its name, how many cards, and how many of them name
  * entities or scenes this house does not have.
  */
-import { dashboardDocumentSchema, type DashboardDocument } from '@nebula-home/contracts';
+import { dashboardDocumentSchema, type DashboardDocument } from '@nebulahome/contracts';
 
 import { allCards } from '@/dashboard/dashboard-layout';
 

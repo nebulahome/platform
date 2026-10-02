@@ -11,7 +11,7 @@
  * be started without knowing where its adapter is. A supervisor that is not up when `hub` starts
  * is asked again every minute until it answers.
  */
-import type { BusClient } from '@nebula-home/bus';
+import type { BusClient } from '@nebulahome/bus';
 import {
   asksAnythingRequired,
   busSubjects,
@@ -22,9 +22,9 @@ import {
   type IntegrationSetup,
   type JsonObject,
   type VendorContainers,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
-import { renderContainers, type VendorValues } from '@nebula-home/package-runtime';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
+import { renderContainers, type VendorValues } from '@nebulahome/package-runtime';
 
 import type { VendorSettings } from '../domain/vendors.js';
 

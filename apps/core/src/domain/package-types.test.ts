@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { packageEntityTypeSchema, parseEntityId } from '@nebula-home/contracts';
+import { packageEntityTypeSchema, parseEntityId } from '@nebulahome/contracts';
 
 import { validateCommand } from './command-validation.js';
 import type { EntityRecord } from './entity-directory.js';

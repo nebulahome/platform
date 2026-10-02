@@ -11,15 +11,15 @@
  * or monitor the reading came from. Before a change is judged, since a value that held is a point
  * in the series too.
  */
-import type { BusClient, BusSubscription, MessageContext } from '@nebula-home/bus';
+import type { BusClient, BusSubscription, MessageContext } from '@nebulahome/bus';
 import {
   BUS_PATTERNS,
   busSubjects,
   stateReportSchema,
   type EntityId,
   type StateReport,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { EntityDirectory, EntityRecord } from '../domain/entity-directory.js';
 import type { EntityRegistry, IngestResult } from '../domain/entity-registry.js';

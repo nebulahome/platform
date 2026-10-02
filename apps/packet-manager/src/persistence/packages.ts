@@ -12,8 +12,8 @@ import type {
   PackageRuntime,
   PackageSource,
   PackageState,
-} from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
 
 /** One installed package, as its row holds it. */
 export type PackageRow = {

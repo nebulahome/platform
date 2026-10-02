@@ -9,7 +9,7 @@
  */
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
-import type { SystemMonitorSnapshot } from '@nebula-home/contracts';
+import type { SystemMonitorSnapshot } from '@nebulahome/contracts';
 
 import { fetchSystemMonitor, SYSTEM_QUERY_KEYS } from '@/system/api';
 

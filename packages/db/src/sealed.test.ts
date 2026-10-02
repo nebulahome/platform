@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ConfigurationError } from '@nebula-home/contracts';
+import { ConfigurationError } from '@nebulahome/contracts';
 
 import {
   isSealed,

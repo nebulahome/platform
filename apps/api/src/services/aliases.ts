@@ -17,7 +17,7 @@
  */
 import { asc, eq, inArray, sql } from 'drizzle-orm';
 
-import type { BusClient } from '@nebula-home/bus';
+import type { BusClient } from '@nebulahome/bus';
 import {
   aliasScalarFromState,
   aliasViewSchema,
@@ -48,9 +48,9 @@ import {
   type EntityId,
   type Identity,
   type JsonObject,
-} from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import { entityScopes, isPermitted } from '../auth/permissions.js';
 

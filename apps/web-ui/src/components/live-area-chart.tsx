@@ -23,7 +23,7 @@ import {
   type TooltipValueType,
 } from 'recharts';
 
-import { cn } from '@nebula-home/ui';
+import { cn } from '@nebulahome/ui';
 
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 

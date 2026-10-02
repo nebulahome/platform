@@ -17,7 +17,7 @@ import { Writable } from 'node:stream';
 import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { BusClient, connectBus, ulid, type BusConnection } from '@nebula-home/bus';
+import { BusClient, connectBus, ulid, type BusConnection } from '@nebulahome/bus';
 import {
   busSubjects,
   ConflictError,
@@ -28,9 +28,9 @@ import {
   removeAliasReplySchema,
   syncAliasReplySchema,
   type EntityId,
-} from '@nebula-home/contracts';
-import { createDatabase, schema, type Database } from '@nebula-home/db';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createDatabase, schema, type Database } from '@nebulahome/db';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { AliasCatalog } from '@/domain/alias-catalog.js';
 import { EntityDirectory } from '@/domain/entity-directory.js';

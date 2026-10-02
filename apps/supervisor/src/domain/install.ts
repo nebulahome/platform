@@ -9,13 +9,13 @@
  */
 import path from 'node:path';
 
-import { CONTAINERS_DIRECTORY, INSTALLED_CONTAINERS_DIRECTORY } from '@nebula-home/config';
+import { CONTAINERS_DIRECTORY, INSTALLED_CONTAINERS_DIRECTORY } from '@nebulahome/config';
 import {
   INSTALLED_LABEL,
   type ContainerInstallRequest,
   type InstallVolume,
   type JsonObject,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { folderMount, type PlatformContext } from './managed.js';
 

@@ -3,10 +3,10 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { BusClient } from '@nebula-home/bus';
-import { FakeTransport } from '@nebula-home/bus/testing';
-import { busSubjects, type WsServerMessage } from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+import { BusClient } from '@nebulahome/bus';
+import { FakeTransport } from '@nebulahome/bus/testing';
+import { busSubjects, type WsServerMessage } from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 
 import { EventFanout } from './events.js';
 

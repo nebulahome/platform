@@ -6,7 +6,7 @@
  * streaming, the socket closed. Played only while `isPlaying` is true: a picture nobody looks at
  * costs the camera, the hub and the network for nothing.
  */
-import { AppIcon, cn, IconButton } from '@nebula-home/ui';
+import { AppIcon, cn, IconButton } from '@nebulahome/ui';
 
 import { useCameraStream } from '@/live/use-camera-stream';
 

@@ -19,7 +19,7 @@ import {
   type IntegrationKind,
   type IntegrationVendorView,
   type TagColor,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 import {
   Badge,
   Button,
@@ -37,7 +37,7 @@ import {
   TagChip,
   TextField,
   type BadgeTone,
-} from '@nebula-home/ui';
+} from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { CheckIcon, CopyIcon, WarningIcon } from '@/components/icons';

@@ -1,5 +1,5 @@
 /**
- * Public entry point of the `@nebula-home/db` package.
+ * Public entry point of the `@nebulahome/db` package.
  *
  * The only place in the platform that speaks SQL. Services import a typed query builder from
  * here; nobody assembles a query string by hand, and installed packages never connect at all -

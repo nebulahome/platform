@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { entityIdSchema, type AutomationView } from '@nebula-home/contracts';
+import { entityIdSchema, type AutomationView } from '@nebulahome/contracts';
 
 import {
   matchesAutomationFilter,

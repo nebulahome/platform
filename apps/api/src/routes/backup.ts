@@ -11,7 +11,7 @@
  */
 import { z } from 'zod';
 
-import { resolveDataLayout } from '@nebula-home/config';
+import { resolveDataLayout } from '@nebulahome/config';
 import {
   AuthenticationError,
   BACKUP_METHODS,
@@ -35,8 +35,8 @@ import {
   type BackupKeyFile,
   type BackupStatusView,
   type Identity,
-} from '@nebula-home/contracts';
-import { openSecret, sealSecret } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { openSecret, sealSecret } from '@nebulahome/db';
 
 import { verifyPassword } from '../auth/password.js';
 import { requirePermission } from '../auth/permissions.js';

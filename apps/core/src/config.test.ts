@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { loadConfig } from '@nebula-home/config';
-import { ConfigurationError } from '@nebula-home/contracts';
+import { loadConfig } from '@nebulahome/config';
+import { ConfigurationError } from '@nebulahome/contracts';
 
 import { coreEnvSchema } from './config.js';
 

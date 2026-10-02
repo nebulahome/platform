@@ -9,8 +9,8 @@
  */
 import type { ReactNode } from 'react';
 
-import type { DashboardEntityCard, IconView } from '@nebula-home/contracts';
-import { AppIcon } from '@nebula-home/ui';
+import type { DashboardEntityCard, IconView } from '@nebulahome/contracts';
+import { AppIcon } from '@nebulahome/ui';
 
 import { CARD_SIZES, cardKindOf, snapSize, type EntityCardKind } from '@/dashboard/card-sizes';
 import { capabilityStateOf } from '@/library/entity-control';

@@ -13,12 +13,12 @@
  */
 import { createSocket, type Socket } from 'node:dgram';
 
-import type { PlatformLogger } from '@nebula-home/logging';
+import type { PlatformLogger } from '@nebulahome/logging';
 import type {
   ManagedUdpSocket,
   ManagedUdpSocketOptions,
   OpenUdpSocket,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 /** The UDP sockets of one vendor, and the way to close them all. */
 export type UdpSockets = {

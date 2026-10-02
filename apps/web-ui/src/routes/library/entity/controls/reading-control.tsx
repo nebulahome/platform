@@ -5,8 +5,8 @@
  * reads a thermometer from across a room. The class says what it measures and the state class
  * how it is measured over time - a meter that only counts up, a level that goes both ways.
  */
-import type { CapabilityState, EntityView } from '@nebula-home/contracts';
-import { getSensorClass } from '@nebula-home/contracts';
+import type { CapabilityState, EntityView } from '@nebulahome/contracts';
+import { getSensorClass } from '@nebulahome/contracts';
 
 import type { Reading } from '@/library/entity-reading';
 import { describeState } from '@/library/entity-reading';

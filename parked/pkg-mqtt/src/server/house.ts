@@ -23,7 +23,7 @@ import {
   type EntityDomain,
   type EntityStateClass,
   type JsonObject,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { textOf, type MqttEntity, type Skipped } from './discovery.js';
 import { valueAt, type ValuePath, readTemplate } from './templates.js';

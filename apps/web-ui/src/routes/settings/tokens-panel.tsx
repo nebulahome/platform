@@ -14,8 +14,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { PERMISSIONS, type ScopedPermission } from '@nebula-home/contracts';
-import { Button, Modal, Panel, PanelRow, Segmented, SelectField, TextField } from '@nebula-home/ui';
+import { PERMISSIONS, type ScopedPermission } from '@nebulahome/contracts';
+import { Button, Modal, Panel, PanelRow, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { copyText } from '@/lib/clipboard';

@@ -11,7 +11,7 @@ import {
   type BackupStatusView,
   type SessionUser,
   type SettingsResponse,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { BACKUP_QUERY_KEYS } from '@/backup/api';
 import { SETTINGS_QUERY_KEYS } from '@/settings/api';

@@ -10,8 +10,8 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import type { DeviceView, EntityView, TagView } from '@nebula-home/contracts';
-import { cn, IconButton, TagChip } from '@nebula-home/ui';
+import type { DeviceView, EntityView, TagView } from '@nebulahome/contracts';
+import { cn, IconButton, TagChip } from '@nebulahome/ui';
 
 import { ChevronIcon, WrenchIcon } from '@/components/icons';
 import { devicePath } from '@/routes/library/device/device-path';

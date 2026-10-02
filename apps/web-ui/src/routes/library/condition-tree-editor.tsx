@@ -10,7 +10,7 @@ import {
   booleanTreeFromCondition,
   type AutomationCondition,
   type BooleanTree,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import {
   blankCondition,

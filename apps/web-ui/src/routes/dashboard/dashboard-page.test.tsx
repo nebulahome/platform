@@ -9,7 +9,7 @@ import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { parseEntityId, type DashboardView } from '@nebula-home/contracts';
+import { parseEntityId, type DashboardView } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
 import { fetchDashboards } from '@/dashboard/api';

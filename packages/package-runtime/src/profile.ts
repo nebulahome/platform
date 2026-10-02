@@ -34,7 +34,7 @@ import {
   jsonObjectSchema,
   type CapabilityName,
   IMAGE_CONTENT_TYPES,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { pathSchema } from './expression.js';
 

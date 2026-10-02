@@ -8,7 +8,7 @@
  */
 import { z } from 'zod';
 
-import type { BusClient, BusSubscription } from '@nebula-home/bus';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   ADAPTER_COMMAND_METHOD,
   adapterCommandSchema,
@@ -28,8 +28,8 @@ import {
   type JsonObject,
   type PackageRpcMethod,
   type PackageRpcReply,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { InputSchema, PackageCommand, PackageContext } from './index.js';
 

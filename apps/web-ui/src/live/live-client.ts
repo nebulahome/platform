@@ -23,7 +23,7 @@ import {
   type WsClientMessage,
   type WsServerMessage,
   type WsTopic,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { retryDelayMs } from '@/auth/session-store';
 

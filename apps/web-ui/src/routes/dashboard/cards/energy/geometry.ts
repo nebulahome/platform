@@ -17,7 +17,7 @@
  * a second building: the house proper, two storeys behind its garage wing and larger than it, its
  * front door on the stretch of wall that reaches past the garage.
  */
-import type { HouseStyle } from '@nebula-home/contracts';
+import type { HouseStyle } from '@nebulahome/contracts';
 
 /** A point in the drawing. */
 export type Point = { readonly x: number; readonly y: number };

@@ -4,7 +4,7 @@
  * Run and restore answer at once with the run's id - the work goes on after - so no request
  * waits longer than trying a location or listing the archives takes.
  */
-import type { BusClient, BusSubscription } from '@nebula-home/bus';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   BACKUP_METHODS,
   BACKUP_SERVICE,
@@ -15,7 +15,7 @@ import {
   backupRunRequestSchema,
   backupTestRequestSchema,
   busSubjects,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import type { BackupService } from './service.js';
 

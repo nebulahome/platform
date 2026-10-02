@@ -8,7 +8,7 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import type { SystemMonitorSnapshot } from '@nebula-home/contracts';
+import type { SystemMonitorSnapshot } from '@nebulahome/contracts';
 
 import { bearer, buildTestServer, stopHub } from '../testing/hub-harness.js';
 

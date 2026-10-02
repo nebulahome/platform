@@ -5,7 +5,7 @@
  * wherever a colour was drawn, which is three places that had to agree without anything making
  * them.
  */
-import type { TagColor } from '@nebula-home/contracts';
+import type { TagColor } from '@nebulahome/contracts';
 
 /** The background class that paints a tag colour. */
 export const TAG_FILL_CLASSES: Record<TagColor, string> = {

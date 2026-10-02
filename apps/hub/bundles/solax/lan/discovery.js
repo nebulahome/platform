@@ -36,11 +36,11 @@ import createSolaxInverter from '../inverter/transport.js';
 import { MODBUS_MODELS } from '../modbus/families.js';
 import { isServerHeld } from '../modbus/transport.js';
 
-/** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
-/** @typedef {import('@nebula-home/package-runtime').DiscoverySource} DiscoverySource */
-/** @typedef {import('@nebula-home/package-runtime').Sighting} Sighting */
-/** @typedef {import('@nebula-home/package-runtime').Transport} Transport */
-/** @typedef {import('@nebula-home/contracts').JsonObject} JsonObject */
+/** @typedef {import('@nebulahome/package-runtime').BundleSdk} BundleSdk */
+/** @typedef {import('@nebulahome/package-runtime').DiscoverySource} DiscoverySource */
+/** @typedef {import('@nebulahome/package-runtime').Sighting} Sighting */
+/** @typedef {import('@nebulahome/package-runtime').Transport} Transport */
+/** @typedef {import('@nebulahome/contracts').JsonObject} JsonObject */
 
 /** How often the network is asked again. */
 const SWEEP_INTERVAL_MS = 30 * 60_000;

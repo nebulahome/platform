@@ -10,8 +10,8 @@
  * the house, so the house keeps the height; on the square card in a column beside it, where the
  * card is wide enough.
  */
-import type { DashboardEnergyCard } from '@nebula-home/contracts';
-import { AppIcon, cn, type UiIconId } from '@nebula-home/ui';
+import type { DashboardEnergyCard } from '@nebulahome/contracts';
+import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
 import { formatEnergy, formatPower, mainSource, type EnergyHeadline } from '@/lib/energy-flow';
 import { useElementSize } from '@/lib/use-element-size';

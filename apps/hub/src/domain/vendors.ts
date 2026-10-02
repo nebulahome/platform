@@ -14,7 +14,7 @@ import {
   asksAnythingRequired,
   type IntegrationSetup,
   type JsonObject,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** The two documents a configuration is made of, whether a vendor's or an instance's. */
 export type VendorSettings = {

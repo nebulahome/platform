@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { ConflictError, IDEMPOTENCY_TTL_SECONDS } from '@nebula-home/contracts';
+import { ConflictError, IDEMPOTENCY_TTL_SECONDS } from '@nebulahome/contracts';
 
 import { IdempotencyStore } from './idempotency.js';
 

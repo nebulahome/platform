@@ -13,7 +13,7 @@
  */
 import { eq, sql } from 'drizzle-orm';
 
-import type { BusClient } from '@nebula-home/bus';
+import type { BusClient } from '@nebulahome/bus';
 import {
   capabilityStateSchema,
   isNebulaError,
@@ -26,8 +26,8 @@ import {
   type Identity,
   type JsonObject,
   type SceneApplyResult,
-} from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
 
 import { entityScopes, isPermitted } from '../auth/permissions.js';
 

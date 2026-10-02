@@ -4,7 +4,7 @@
  * What it holds is set by the test; what it fetches is a fixed picture, unless the test has
  * taken the server away.
  */
-import { UpstreamError } from '@nebula-home/contracts';
+import { UpstreamError } from '@nebulahome/contracts';
 
 import { tilesAround, type Tile } from '../services/map-tile-geometry.js';
 import type { MapTileService } from '../services/map-tiles.js';

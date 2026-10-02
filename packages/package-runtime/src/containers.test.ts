@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { integrationSetupSchema } from '@nebula-home/contracts';
+import { integrationSetupSchema } from '@nebulahome/contracts';
 
 import {
   containerDependenciesSchema,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { SystemMonitorSample } from '@nebula-home/contracts';
+import type { SystemMonitorSample } from '@nebulahome/contracts';
 
 import {
   averageReadings,

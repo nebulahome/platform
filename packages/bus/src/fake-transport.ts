@@ -1,7 +1,7 @@
 /**
  * An in-memory broker, for tests.
  *
- * Published from `@nebula-home/bus/testing` rather than from the package root, so that nothing
+ * Published from `@nebulahome/bus/testing` rather than from the package root, so that nothing
  * in a running service can import it by accident.
  *
  * It implements the same {@link BusTransport} the real client does, with NATS' subject matching

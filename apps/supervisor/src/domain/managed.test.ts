@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ManagedContainerSpec } from '@nebula-home/contracts';
+import type { ManagedContainerSpec } from '@nebulahome/contracts';
 
 import {
   fillPlaceholders,

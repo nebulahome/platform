@@ -20,8 +20,8 @@ import {
   dashboardAssigneeSchema,
   dashboardViewSchema,
   type DashboardView,
-} from '@nebula-home/contracts';
-import { createDatabase, schema } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { createDatabase, schema } from '@nebulahome/db';
 
 import { bearerFor, buildTestServer, stopHub } from '@/testing/hub-harness.js';
 

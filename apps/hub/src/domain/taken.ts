@@ -6,7 +6,7 @@
  * to hear from its device, and one that failed to start. Both are keyed by vendor, since two
  * vendors' ids and addresses mean nothing to each other.
  */
-import type { JsonObject } from '@nebula-home/contracts';
+import type { JsonObject } from '@nebulahome/contracts';
 
 /** Where an identified device's instance reaches it. */
 export type TakenLocation = {

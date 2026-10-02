@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { SETTINGS, ValidationError, type JsonValue } from '@nebula-home/contracts';
+import { SETTINGS, ValidationError, type JsonValue } from '@nebulahome/contracts';
 
 import { auditableChanges, validateSettingChanges } from './settings.js';
 

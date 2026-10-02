@@ -21,7 +21,7 @@
  */
 import { eq, sql } from 'drizzle-orm';
 
-import type { BusClient } from '@nebula-home/bus';
+import type { BusClient } from '@nebulahome/bus';
 import {
   asksAnythingRequired,
   busSubjects,
@@ -49,9 +49,9 @@ import {
   type JsonObject,
   type ManagedStatus,
   type SetupValueMode,
-} from '@nebula-home/contracts';
-import { maskSealed, schema, sealSecrets, type Database } from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { maskSealed, schema, sealSecrets, type Database } from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import { listAccountViews, requireVendorAccount } from './accounts.js';
 import { containerStatusesOf } from './containers.js';

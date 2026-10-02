@@ -4,7 +4,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { DiscoveredDevice, IntegrationVendorView } from '@nebula-home/contracts';
+import type { DiscoveredDevice, IntegrationVendorView } from '@nebulahome/contracts';
 
 import { DiscoveredCard } from './discovered-card';
 

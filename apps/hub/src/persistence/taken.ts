@@ -7,8 +7,8 @@
  */
 import { eq } from 'drizzle-orm';
 
-import type { JsonObject } from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
+import type { JsonObject } from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
 
 import { takenFrom, type TakenDevices } from '../domain/taken.js';
 

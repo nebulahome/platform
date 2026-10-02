@@ -7,7 +7,7 @@
  */
 import type { ReactNode } from 'react';
 
-import { AppIcon, Badge, IconButton, Segmented, cn } from '@nebula-home/ui';
+import { AppIcon, Badge, IconButton, Segmented, cn } from '@nebulahome/ui';
 
 import { labelForKind } from '@/routes/library/editor-choices';
 

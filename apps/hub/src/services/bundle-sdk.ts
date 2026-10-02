@@ -10,7 +10,7 @@
  */
 import { z } from 'zod';
 
-import type { PlatformLogger } from '@nebula-home/logging';
+import type { PlatformLogger } from '@nebulahome/logging';
 import {
   defineAccount,
   defineStreamSource,
@@ -18,7 +18,7 @@ import {
   type BundleSdk,
   type OpenUdpSocket,
   type PlatformServices,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import { decodeLzma } from '../codecs/lzma.js';
 import { encodePalettedPng } from '../codecs/png.js';

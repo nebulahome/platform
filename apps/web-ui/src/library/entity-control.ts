@@ -25,7 +25,7 @@ import {
   type EntityView,
   type JsonObject,
   type TagView,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import type { LiveReading } from '@/live/live-store';
 

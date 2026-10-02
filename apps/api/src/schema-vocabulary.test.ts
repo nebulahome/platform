@@ -26,7 +26,7 @@ import {
   BACKUP_RUN_TRIGGERS,
   INTEGRATION_STATES,
   SETTINGS,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { SESSION_REVOKED_REASONS } from './auth/repository.js';
 import { ACTOR_TYPES, AUDIT_RESULTS } from './services/audit.js';

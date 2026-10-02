@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import type { CapabilityName } from '@nebula-home/contracts';
+import type { CapabilityName } from '@nebulahome/contracts';
 
 import { entityGroupsOf, isReadingOnly } from './entity-groups';
 

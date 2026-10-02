@@ -16,7 +16,7 @@
  * The note at the foot of the last panel is not decoration and should not be removed until it
  * stops being true. Nothing in the platform re-reads these values at runtime yet: retention is
  * enforced by TimescaleDB policies fixed when the database was built, the log level comes from
- * the environment, and how long a session lasts is a constant in `@nebula-home/contracts`. So a
+ * the environment, and how long a session lasts is a constant in `@nebulahome/contracts`. So a
  * change here is recorded, audited and durable, and it changes no behaviour until the service
  * that owns each one learns to read it. A settings page that quietly did nothing would be worse
  * than no settings page. It used to be a banner above everything; the pages open on what they
@@ -25,8 +25,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 
-import type { JsonValue, SettingsResponse } from '@nebula-home/contracts';
-import { Button, Panel, PanelNote, PanelRow, Segmented, SelectField } from '@nebula-home/ui';
+import type { JsonValue, SettingsResponse } from '@nebulahome/contracts';
+import { Button, Panel, PanelNote, PanelRow, Segmented, SelectField } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';

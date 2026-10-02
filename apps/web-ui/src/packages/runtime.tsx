@@ -1,5 +1,5 @@
 /**
- * What a package's components reach through `@nebula-home/package-ui`: the interface's own
+ * What a package's components reach through `@nebulahome/package-ui`: the interface's own
  * implementation of the hooks (PACKAGES.md 5).
  *
  * A package's component is drawn inside {@link PackageScope}, which says whose it is; every hook
@@ -17,8 +17,8 @@ import type {
   EntityView,
   JsonObject,
   JsonValue,
-} from '@nebula-home/contracts';
-import type { PackageUiDefinition, PackageUiHost, RpcState } from '@nebula-home/package-ui';
+} from '@nebulahome/contracts';
+import type { PackageUiDefinition, PackageUiHost, RpcState } from '@nebulahome/package-ui';
 
 import { commandEntity, fetchEntities, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { useLive, type LiveReading } from '@/live/live-store';
@@ -244,7 +244,7 @@ function definePackageUi(definition: PackageUiDefinition): PackageUiDefinition {
   return definition;
 }
 
-/** The interface's `@nebula-home/package-ui`, as a package's build reads it. */
+/** The interface's `@nebulahome/package-ui`, as a package's build reads it. */
 export const PACKAGE_UI_RUNTIME: PackageUiHost & {
   readonly definePackageUi: typeof definePackageUi;
 } = {

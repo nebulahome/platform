@@ -18,9 +18,9 @@
  */
 import { connect as connectTls } from 'node:tls';
 
-/** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
-/** @typedef {import('@nebula-home/package-runtime').StreamSource} StreamSource */
-/** @typedef {import('@nebula-home/package-runtime').StreamSink} StreamSink */
+/** @typedef {import('@nebulahome/package-runtime').BundleSdk} BundleSdk */
+/** @typedef {import('@nebulahome/package-runtime').StreamSource} StreamSource */
+/** @typedef {import('@nebulahome/package-runtime').StreamSink} StreamSink */
 
 /** The one user a Bambu printer lets in. */
 const USER = 'bblp';
@@ -315,7 +315,7 @@ export default function createBambuCamera(sdk) {
      * Reads the camera the way its family sends it.
      *
      * @param {Config} config - The printer's address and access code.
-     * @param {import('@nebula-home/contracts').JsonObject} args - `kind`, and a `port` when not
+     * @param {import('@nebulahome/contracts').JsonObject} args - `kind`, and a `port` when not
      *   the usual one.
      * @param {StreamSink} sink - Where the track and the frames go.
      * @param {AbortSignal} signal - Ends the stream.

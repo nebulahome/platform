@@ -10,12 +10,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { Component, type ReactNode } from 'react';
 
-import type { InstalledPackage } from '@nebula-home/contracts';
+import type { InstalledPackage } from '@nebulahome/contracts';
 import type {
   PackageCardProps,
   PackageEntityViewProps,
   PackageUiDefinition,
-} from '@nebula-home/package-ui';
+} from '@nebulahome/package-ui';
 
 import { isApiError } from '@/lib/api-error';
 import { toMessage } from '@/lib/error-message';

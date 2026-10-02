@@ -16,8 +16,8 @@
  */
 import { Link } from 'react-router';
 
-import type { IntegrationVendorView } from '@nebula-home/contracts';
-import { Badge, cn } from '@nebula-home/ui';
+import type { IntegrationVendorView } from '@nebulahome/contracts';
+import { Badge, cn } from '@nebulahome/ui';
 
 import {
   BluetoothIcon,

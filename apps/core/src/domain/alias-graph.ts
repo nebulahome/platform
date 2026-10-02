@@ -5,7 +5,7 @@
  * the process died; it is rejected at save time with the path that closes it (ARCHITECTURE.md
  * §6.3). On a source change, only the descendants of that source are recomputed.
  */
-import type { EntityId } from '@nebula-home/contracts';
+import type { EntityId } from '@nebulahome/contracts';
 
 /** One edge: an alias reads a source entity under a variable name. */
 export type AliasGraphEdge = {

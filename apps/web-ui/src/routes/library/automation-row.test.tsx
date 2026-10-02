@@ -10,7 +10,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { entityIdSchema, type AutomationView } from '@nebula-home/contracts';
+import { entityIdSchema, type AutomationView } from '@nebulahome/contracts';
 
 import { AutomationRow } from './automation-row';
 

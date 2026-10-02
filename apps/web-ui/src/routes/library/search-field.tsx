@@ -7,7 +7,7 @@
  * has been, and Escape to clear it from the keyboard. What a list matches on is the list's
  * business; how the box behaves is this one's.
  */
-import { AppIcon, cn, controlFace, FieldShell, IconButton } from '@nebula-home/ui';
+import { AppIcon, cn, controlFace, FieldShell, IconButton } from '@nebulahome/ui';
 
 /** What the box needs. */
 export type SearchFieldProps = {

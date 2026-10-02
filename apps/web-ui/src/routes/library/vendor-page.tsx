@@ -31,7 +31,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 
-import type { DiscoveredDevice, IntegrationState } from '@nebula-home/contracts';
+import type { DiscoveredDevice, IntegrationState } from '@nebulahome/contracts';
 import {
   AppIcon,
   Badge,
@@ -41,7 +41,7 @@ import {
   Panel,
   Segmented,
   type BadgeTone,
-} from '@nebula-home/ui';
+} from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { ExternalLinkIcon, WrenchIcon } from '@/components/icons';

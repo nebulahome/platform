@@ -9,7 +9,7 @@ import {
   type JsonObject,
   type AutomationView,
   type SceneView,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { correlationsOf } from './entity-correlations';
 

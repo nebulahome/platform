@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AreaView } from '@nebula-home/contracts';
+import type { AreaView } from '@nebulahome/contracts';
 
 import {
   areaChoices,

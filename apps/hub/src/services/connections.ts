@@ -10,8 +10,8 @@
  * would drift the first time either happened, and a drifted count either leaks a socket forever
  * or closes one somebody is still using.
  */
-import type { JsonObject } from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+import type { JsonObject } from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 import type {
   AccountHandle,
   Registry,
@@ -19,7 +19,7 @@ import type {
   TransportConnection,
   TransportInbound,
   TransportStatus,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 /** What the pool needs. */
 export type ConnectionPoolOptions = {

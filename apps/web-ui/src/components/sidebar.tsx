@@ -22,7 +22,7 @@
 import { useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router';
 
-import { Logo } from '@nebula-home/ui';
+import { Logo } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { Avatar } from '@/components/avatar';

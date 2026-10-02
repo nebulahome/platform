@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import type { SceneView } from '@nebula-home/contracts';
+import type { SceneView } from '@nebulahome/contracts';
 
 import {
   matchesSceneFilter,

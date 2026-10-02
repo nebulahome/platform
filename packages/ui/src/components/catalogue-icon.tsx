@@ -11,7 +11,7 @@
  */
 import { createElement, type SVGProps } from 'react';
 
-import type { IconFrame, IconNode } from '@nebula-home/contracts';
+import type { IconFrame, IconNode } from '@nebulahome/contracts';
 
 import { cn } from '../lib/cn.js';
 

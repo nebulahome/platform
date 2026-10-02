@@ -9,8 +9,8 @@ export const SHARED_MODULES = [
   'react-dom/client',
   'react/jsx-runtime',
   'react/jsx-dev-runtime',
-  '@nebula-home/ui',
-  '@nebula-home/package-ui',
+  '@nebulahome/ui',
+  '@nebulahome/package-ui',
 ] as const;
 
 /** A module the interface shares. */

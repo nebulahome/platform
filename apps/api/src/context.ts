@@ -5,9 +5,9 @@
  * that holds it in a variable. A singleton would make the whole service impossible to stand up
  * twice in one process, which is exactly what the tests do.
  */
-import type { BusClient } from '@nebula-home/bus';
-import type { Database } from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
+import type { BusClient } from '@nebulahome/bus';
+import type { Database } from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { Authenticator } from './auth/authenticator.js';
 import type { ChallengeStore } from './auth/challenges.js';

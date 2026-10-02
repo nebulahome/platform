@@ -36,8 +36,8 @@ import {
   type TwoFactorConfirmResponse,
   type TwoFactorSetupResponse,
   type UserView,
-} from '@nebula-home/contracts';
-import { schema } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { schema } from '@nebulahome/db';
 
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { isPermitted, requirePermission } from '../auth/permissions.js';

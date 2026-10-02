@@ -8,7 +8,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createLogger } from '@nebula-home/logging';
+import { createLogger } from '@nebulahome/logging';
 
 import { RestartPolicy } from '../domain/restart-policy.js';
 import { archiveOf, fakeRunner, manifest, scratch, writePackage } from '../testing/fixtures.js';

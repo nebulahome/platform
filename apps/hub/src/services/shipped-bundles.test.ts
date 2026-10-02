@@ -20,9 +20,9 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { getSensorClass, sensorRegistrationIssue, toCanonical } from '@nebula-home/contracts';
-import { loadBuiltinIcons } from '@nebula-home/icons';
-import { integrationProfileSchema, type IntegrationProfile } from '@nebula-home/package-runtime';
+import { getSensorClass, sensorRegistrationIssue, toCanonical } from '@nebulahome/contracts';
+import { loadBuiltinIcons } from '@nebulahome/icons';
+import { integrationProfileSchema, type IntegrationProfile } from '@nebulahome/package-runtime';
 
 import { RUNTIME_VERSION } from '../config.js';
 

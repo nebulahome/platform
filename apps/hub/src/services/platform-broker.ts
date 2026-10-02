@@ -10,10 +10,10 @@
  */
 import { z } from 'zod';
 
-import type { BusClient } from '@nebula-home/bus';
-import { busSubjects } from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
-import type { PlatformMqtt } from '@nebula-home/package-runtime';
+import type { BusClient } from '@nebulahome/bus';
+import { busSubjects } from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
+import type { PlatformMqtt } from '@nebulahome/package-runtime';
 
 /** What `svc.mqtt.credentials` answers. */
 const credentialsReplySchema = z.object({

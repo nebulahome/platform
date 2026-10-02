@@ -13,7 +13,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { Button } from '@nebula-home/ui';
+import { Button } from '@nebulahome/ui';
 
 import { useListState } from '@/lib/use-list-state';
 import {

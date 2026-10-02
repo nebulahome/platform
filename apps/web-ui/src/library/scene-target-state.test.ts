@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { entityIdSchema, type EntityView } from '@nebula-home/contracts';
+import { entityIdSchema, type EntityView } from '@nebulahome/contracts';
 
 import { isSceneEntity, seedTargetState } from './scene-target-state';
 

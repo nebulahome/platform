@@ -13,7 +13,7 @@
  */
 import { useParams, useSearchParams } from 'react-router';
 
-import { AppIcon, Badge, IconButton } from '@nebula-home/ui';
+import { AppIcon, Badge, IconButton } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { entityKindOf } from '@/library/entity-kind';

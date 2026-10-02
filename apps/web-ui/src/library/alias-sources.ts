@@ -21,7 +21,7 @@ import {
   type EntityId,
   type EntityView,
   type TagColor,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { capabilityStateOf } from '@/library/entity-control';
 import type { LiveReading } from '@/live/live-store';

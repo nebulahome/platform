@@ -1,5 +1,5 @@
 {
-  "name": "@nebula-home/hub",
+  "name": "@nebulahome/hub",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,12 +13,12 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
-    "@nebula-home/bus": "workspace:*",
-    "@nebula-home/config": "workspace:*",
-    "@nebula-home/contracts": "workspace:*",
-    "@nebula-home/db": "workspace:*",
-    "@nebula-home/logging": "workspace:*",
-    "@nebula-home/package-runtime": "workspace:*",
+    "@nebulahome/bus": "workspace:*",
+    "@nebulahome/config": "workspace:*",
+    "@nebulahome/contracts": "workspace:*",
+    "@nebulahome/db": "workspace:*",
+    "@nebulahome/logging": "workspace:*",
+    "@nebulahome/package-runtime": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "mqtt": "^5.14.1",
     "multicast-dns": "^7.2.5",
@@ -27,9 +27,9 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@nebula-home/eslint-config": "workspace:*",
-    "@nebula-home/icons": "workspace:*",
-    "@nebula-home/tsconfig": "workspace:*",
+    "@nebulahome/eslint-config": "workspace:*",
+    "@nebulahome/icons": "workspace:*",
+    "@nebulahome/tsconfig": "workspace:*",
     "@types/semver": "^7.7.1",
     "@types/ws": "^8.18.1",
     "aedes": "^1.2.0",

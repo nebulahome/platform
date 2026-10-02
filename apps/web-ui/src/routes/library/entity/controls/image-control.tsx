@@ -7,7 +7,7 @@
  */
 import { useState } from 'react';
 
-import { AppIcon, IconButton, Modal } from '@nebula-home/ui';
+import { AppIcon, IconButton, Modal } from '@nebulahome/ui';
 
 import { useEntityImage } from '@/library/use-entity-image';
 import { ControlBlock, type ControlProps } from '@/routes/library/entity/controls/control-block';

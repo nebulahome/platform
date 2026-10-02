@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { IntegrationVendorView } from '@nebula-home/contracts';
+import type { IntegrationVendorView } from '@nebulahome/contracts';
 
 import {
   matchesVendorFilter,

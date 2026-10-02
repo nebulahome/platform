@@ -12,8 +12,8 @@ import { readFile, statfs } from 'node:fs/promises';
 import os from 'node:os';
 import { dirname, join } from 'node:path';
 
-import type { SystemHost } from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+import type { SystemHost } from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import {
   defaultRouteInterface,

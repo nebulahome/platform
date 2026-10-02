@@ -23,8 +23,8 @@ import {
   type CapabilityState,
   type EntityId,
   type JsonObject,
-} from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 import {
   createDeclarativeIntegration,
   driverManifestSchema,
@@ -36,7 +36,7 @@ import {
   type MappingContext,
   type Transport,
   type TransportInbound,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import { loadBundles, type LoadedVendor } from './bundles.js';
 

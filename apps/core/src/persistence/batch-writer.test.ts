@@ -2,7 +2,7 @@ import { Writable } from 'node:stream';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { BatchWriter } from './batch-writer.js';
 

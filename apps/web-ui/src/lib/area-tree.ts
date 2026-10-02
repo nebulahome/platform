@@ -6,7 +6,7 @@
  * to say what goes with what. Built here, once, from what the API said and nothing else: a
  * room whose floor is not in the list is left out rather than given a floor that is not there.
  */
-import type { AreaView } from '@nebula-home/contracts';
+import type { AreaView } from '@nebulahome/contracts';
 
 /** A floor and the rooms on it. */
 export type FloorNode = {

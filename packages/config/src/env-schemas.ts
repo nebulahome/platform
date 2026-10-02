@@ -11,7 +11,7 @@ import path from 'node:path';
 
 import { z } from 'zod';
 
-import { LOG_LEVELS } from '@nebula-home/contracts';
+import { LOG_LEVELS } from '@nebulahome/contracts';
 
 /** The environments a service can run in. */
 export const NODE_ENVIRONMENTS = ['development', 'test', 'production'] as const;

@@ -26,8 +26,8 @@ import {
   type ManagedStatus,
   type ReconcileRequest,
   type VendorContainers,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { InspectedContainer } from '../docker/engine-schemas.js';
 import type { DockerEngine } from '../docker/engine.js';

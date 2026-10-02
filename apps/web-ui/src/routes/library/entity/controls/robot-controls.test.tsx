@@ -5,7 +5,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { CapabilityState, EntityView } from '@nebula-home/contracts';
+import type { CapabilityState, EntityView } from '@nebulahome/contracts';
 
 import { LawnMowerControl } from '@/routes/library/entity/controls/lawn-mower-control';
 import { NumberControl } from '@/routes/library/entity/controls/number-control';

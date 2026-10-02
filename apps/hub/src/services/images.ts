@@ -12,7 +12,7 @@
  * the one drawn inside the interval announced when it ends. A picture drawn again the same is not
  * announced at all.
  */
-import type { BusClient, BusSubscription } from '@nebula-home/bus';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
   entityImageRequestSchema,
@@ -22,9 +22,9 @@ import {
   NotFoundError,
   type EntityImageReply,
   type StateReport,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
-import type { ImageBlob, ReportedState } from '@nebula-home/package-runtime';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
+import type { ImageBlob, ReportedState } from '@nebulahome/package-runtime';
 
 /** How often at most an image entity's new picture is announced, when its integration says not. */
 const DEFAULT_MIN_INTERVAL_MS = 2000;

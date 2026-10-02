@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { entityIdSchema, type ActivityEntry } from '@nebula-home/contracts';
+import { entityIdSchema, type ActivityEntry } from '@nebulahome/contracts';
 
 import { anEntity } from '@/testing/fixtures';
 

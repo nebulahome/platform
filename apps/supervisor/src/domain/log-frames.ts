@@ -14,7 +14,7 @@ import {
   CONTAINER_LOG_MAXIMUM_CHARACTERS,
   type ContainerLogLine,
   type ContainerLogsReply,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** The length of a frame's header. */
 const HEADER_BYTES = 8;

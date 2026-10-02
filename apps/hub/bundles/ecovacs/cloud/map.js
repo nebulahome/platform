@@ -39,7 +39,7 @@
 import * as zlib from 'node:zlib';
 
 /** @typedef {import('./vacuum.js').VacuumMap} VacuumMap */
-/** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
+/** @typedef {import('@nebulahome/package-runtime').BundleSdk} BundleSdk */
 
 /** How many cells a piece is a side. */
 export const PIECE_CELLS = 100;

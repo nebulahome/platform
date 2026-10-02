@@ -18,7 +18,7 @@
  *
  * Defined in RULES.md 10.3.
  */
-import { PINO_LEVEL_BY_NAME, type LogLevel } from '@nebula-home/contracts';
+import { PINO_LEVEL_BY_NAME, type LogLevel } from '@nebulahome/contracts';
 
 /** The severity name for each numeric pino level, as stored in `history.logs.level`. */
 const LEVEL_NAME_BY_PINO_NUMBER = new Map<number, LogLevel>(

@@ -24,7 +24,7 @@
  */
 import type { ReactNode } from 'react';
 
-import { Logo } from '@nebula-home/ui';
+import { Logo } from '@nebulahome/ui';
 
 import { Aurora } from '@/components/aurora';
 

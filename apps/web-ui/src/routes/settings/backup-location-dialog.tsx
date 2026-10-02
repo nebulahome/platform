@@ -20,8 +20,8 @@ import {
   type BackupLocationView,
   type BackupLocationTestResult,
   type BackupTargetInput,
-} from '@nebula-home/contracts';
-import { Button, cn, Modal, Segmented, SelectField, Switch, TextField } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { Button, cn, Modal, Segmented, SelectField, Switch, TextField } from '@nebulahome/ui';
 
 import {
   BACKUP_QUERY_KEYS,

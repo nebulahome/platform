@@ -1,7 +1,7 @@
 /**
  * One card that is not a container, by its type, and the words a card is called by.
  */
-import type { DashboardCard, DashboardLeafCard } from '@nebula-home/contracts';
+import type { DashboardCard, DashboardLeafCard } from '@nebulahome/contracts';
 
 import { ClockCard } from '@/routes/dashboard/cards/clock-card';
 import { EnergyCard } from '@/routes/dashboard/cards/energy/energy-card';

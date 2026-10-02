@@ -9,8 +9,8 @@
  * An entity the adapter cannot reach says so rather than showing its last value as though it
  * were current.
  */
-import type { CapabilityState } from '@nebula-home/contracts';
-import { cn } from '@nebula-home/ui';
+import type { CapabilityState } from '@nebulahome/contracts';
+import { cn } from '@nebulahome/ui';
 
 import { hsColor, kelvinColor, miredsToKelvin } from '@/library/entity-control';
 import type { Reading } from '@/library/entity-reading';

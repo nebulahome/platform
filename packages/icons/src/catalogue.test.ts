@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { IconNode } from '@nebula-home/contracts';
+import type { IconNode } from '@nebulahome/contracts';
 
 import { loadBuiltinIcons } from './builtin.js';
 import { IconCatalogue, type IconRow } from './catalogue.js';

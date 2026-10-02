@@ -6,8 +6,8 @@
  * index half read would offer a release with the wrong digest. An installation without the
  * internet, or without an index set, offers the system packages and nothing else, and says why.
  */
-import { packageIndexSchema, type PackageIndex } from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+import { packageIndexSchema, type PackageIndex } from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 /** How long one read of the index may take. */
 const INDEX_TIMEOUT_MS = 20_000;

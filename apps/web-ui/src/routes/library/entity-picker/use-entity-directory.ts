@@ -7,7 +7,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 
-import type { AreaView, DeviceView, EntityView, IconView } from '@nebula-home/contracts';
+import type { AreaView, DeviceView, EntityView, IconView } from '@nebulahome/contracts';
 
 import { fetchDevices, fetchEntities, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { useLive, type LiveReading } from '@/live/live-store';

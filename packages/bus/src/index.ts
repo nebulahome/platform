@@ -1,11 +1,11 @@
 /**
- * Public entry point of the `@nebula-home/bus` package.
+ * Public entry point of the `@nebulahome/bus` package.
  *
  * The typed NATS client every service talks through. Nothing here knows what a light or an
  * automation is: it knows subjects, envelopes, schemas and delivery guarantees, and it refuses
  * to hand a handler anything that has not been validated first.
  *
- * The subject taxonomy itself lives in `@nebula-home/contracts`, because both ends of every
+ * The subject taxonomy itself lives in `@nebulahome/contracts`, because both ends of every
  * subject have to agree on it and only one of them uses this package.
  */
 

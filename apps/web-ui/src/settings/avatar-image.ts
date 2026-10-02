@@ -14,7 +14,7 @@
  * rather than failing: somebody who picked a photograph of a window on a bright day should get a
  * slightly softer picture, not a refusal.
  */
-import { AVATAR_MAXIMUM_BYTES, AVATAR_PIXELS, type AvatarMimeType } from '@nebula-home/contracts';
+import { AVATAR_MAXIMUM_BYTES, AVATAR_PIXELS, type AvatarMimeType } from '@nebulahome/contracts';
 
 /** The quality settings tried in order, until one produces a small enough file. */
 const QUALITY_STEPS: readonly number[] = [0.85, 0.7, 0.55, 0.4];

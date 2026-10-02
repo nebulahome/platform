@@ -15,8 +15,8 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import type { IconView } from '@nebula-home/contracts';
-import { Badge, Button, CatalogueIcon, Panel, PanelNote, UI_ICON_IDS } from '@nebula-home/ui';
+import type { IconView } from '@nebulahome/contracts';
+import { Badge, Button, CatalogueIcon, Panel, PanelNote, UI_ICON_IDS } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { useDebounced } from '@/lib/use-debounced';

@@ -13,8 +13,8 @@
  */
 import { useState } from 'react';
 
-import type { VacuumActivity } from '@nebula-home/contracts';
-import { AppIcon, Button, cn } from '@nebula-home/ui';
+import type { VacuumActivity } from '@nebulahome/contracts';
+import { AppIcon, Button, cn } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
 import { capabilityLabel } from '@/library/entity-kind';

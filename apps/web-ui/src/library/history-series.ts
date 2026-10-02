@@ -19,7 +19,7 @@ import {
   type JsonObject,
   type StateHistoryPoint,
   type TelemetryResolution,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { miredsToKelvin } from '@/library/entity-control';
 

@@ -4,7 +4,7 @@
  * Two things happen here that must not be spread across the route.
  *
  * **A value is validated by the schema its own key names.** The catalogue in
- * `@nebula-home/contracts` pairs each key with a schema and a default, and this is the only
+ * `@nebulahome/contracts` pairs each key with a schema and a default, and this is the only
  * place that pairing is applied, so `system.settings.value` is never written unvalidated.
  *
  * **The retention keys are validated as a group, not one at a time.** Each rung of the ladder is
@@ -30,8 +30,8 @@ import {
   type JsonValue,
   type SettingDefinition,
   type SettingView,
-} from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
 
 /** Every setting the platform knows about, by key. */
 const DEFINITIONS: ReadonlyMap<string, SettingDefinition> = new Map(

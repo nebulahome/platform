@@ -12,7 +12,7 @@
  * stream opened for it - which is what a card's thumbnail asks for. One that sends video has no
  * still to give: its picture exists only once the browser has decoded it.
  */
-import type { BusClient, BusSubscription } from '@nebula-home/bus';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
   CAMERA_FRAME_MAXIMUM_BYTES,
@@ -35,9 +35,9 @@ import {
   type CameraTrack,
   type EntityId,
   type JsonObject,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
-import type { Integration, StreamSource } from '@nebula-home/package-runtime';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
+import type { Integration, StreamSource } from '@nebulahome/package-runtime';
 
 import type { DeviceBook } from '../domain/devices.js';
 

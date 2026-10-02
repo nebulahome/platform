@@ -7,8 +7,8 @@
  * it is, which is what tells two identical relays apart. Its vendor sits small above the name,
  * because on this row the question is "which one is this", not "whose".
  */
-import type { DiscoveredDevice, IntegrationVendorView } from '@nebula-home/contracts';
-import { Button, cn } from '@nebula-home/ui';
+import type { DiscoveredDevice, IntegrationVendorView } from '@nebulahome/contracts';
+import { Button, cn } from '@nebulahome/ui';
 
 import { VendorLogo } from '@/routes/library/vendor-card';
 

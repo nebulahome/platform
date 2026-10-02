@@ -18,9 +18,9 @@
  * the vendor is unloaded. A port already taken is logged and leaves the devices on their timer.
  */
 
-/** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
-/** @typedef {import('@nebula-home/package-runtime').ManagedUdpSocket} ManagedUdpSocket */
-/** @typedef {import('@nebula-home/package-runtime').UdpPeer} UdpPeer */
+/** @typedef {import('@nebulahome/package-runtime').BundleSdk} BundleSdk */
+/** @typedef {import('@nebulahome/package-runtime').ManagedUdpSocket} ManagedUdpSocket */
+/** @typedef {import('@nebulahome/package-runtime').UdpPeer} UdpPeer */
 
 /** The multicast group Gen1 devices publish their status to. */
 export const COIOT_GROUP = '224.0.1.187';

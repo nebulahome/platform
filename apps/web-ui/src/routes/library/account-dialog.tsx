@@ -20,8 +20,8 @@ import type {
   JsonObject,
   SetupField,
   SetupGroup,
-} from '@nebula-home/contracts';
-import { AppIcon, Button, Modal } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { AppIcon, Button, Modal } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { answerAccountSignIn, beginAccountSignIn, pollAccountSignIn } from '@/library/api';

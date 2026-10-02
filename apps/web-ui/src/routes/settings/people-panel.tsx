@@ -13,8 +13,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type SubmitEventHandler } from 'react';
 
-import type { UserView } from '@nebula-home/contracts';
-import { Badge, Button, Modal, Panel, Segmented, SelectField, TextField } from '@nebula-home/ui';
+import type { UserView } from '@nebulahome/contracts';
+import { Badge, Button, Modal, Panel, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { Avatar } from '@/components/avatar';

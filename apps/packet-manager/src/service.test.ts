@@ -9,8 +9,8 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { BusClient } from '@nebula-home/bus';
-import { FakeTransport } from '@nebula-home/bus/testing';
+import { BusClient } from '@nebulahome/bus';
+import { FakeTransport } from '@nebulahome/bus/testing';
 import {
   busSubjects,
   CORE_SERVICE,
@@ -21,8 +21,8 @@ import {
   SUPERVISOR_SERVICE,
   syncPackageRequestSchema,
   type SyncPackageRequest,
-} from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 
 import { packetManagerEnvSchema } from './config.js';
 import { PacketManager } from './service.js';

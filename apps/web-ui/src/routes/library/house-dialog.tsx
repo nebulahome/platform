@@ -14,8 +14,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import type { AreaUpdate, AreaView } from '@nebula-home/contracts';
-import { Button, Modal, TextField } from '@nebula-home/ui';
+import type { AreaUpdate, AreaView } from '@nebulahome/contracts';
+import { Button, Modal, TextField } from '@nebulahome/ui';
 
 import { describeRemoval, type RemovalImpact } from '@/lib/area-tree';
 import { toMessage } from '@/lib/error-message';

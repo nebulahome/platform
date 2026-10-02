@@ -16,14 +16,14 @@
  * A device removed here is added again while the vendor still has it: it is the vendor's list that
  * decides, so a Zigbee device is removed for good in Zigbee2MQTT.
  */
-import { ulid, type BusClient, type BusSubscription } from '@nebula-home/bus';
+import { ulid, type BusClient, type BusSubscription } from '@nebulahome/bus';
 import {
   BUS_PATTERNS,
   discoveryEventSchema,
   suggestDeviceId,
   type DiscoveredDevice,
-} from '@nebula-home/contracts';
-import { schema } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { schema } from '@nebulahome/db';
 
 import type { AuditLog } from './audit.js';
 import type { DevicesContext } from './devices.js';

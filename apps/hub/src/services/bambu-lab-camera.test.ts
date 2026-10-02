@@ -14,7 +14,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createLogger } from '@nebula-home/logging';
+import { createLogger } from '@nebulahome/logging';
 import type {
   BundleSdk,
   DiscoverySource,
@@ -25,7 +25,7 @@ import type {
   StreamFactory,
   StreamFrame,
   StreamTrack,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import { createUdpSockets } from '../transports/managed-udp.js';
 

@@ -10,7 +10,7 @@ import type {
   DashboardEntityCard,
   EntityView,
   IconView,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import type { CardSize } from '@/dashboard/card-sizes';
 import type { EntityKind } from '@/library/entity-kind';

@@ -16,7 +16,7 @@ import {
   type EntityRegistration,
   type JsonObject,
   type StateReport,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 import type {
   Claim,
   DeviceDescriptor,
@@ -25,7 +25,7 @@ import type {
   MappingContext,
   TransportInbound,
   ReportedState,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 /** One identified device and the identifiers its entities carry. */
 export type DeviceBinding = {

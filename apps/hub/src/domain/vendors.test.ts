@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { integrationSetupSchema, type IntegrationSetup } from '@nebula-home/contracts';
+import { integrationSetupSchema, type IntegrationSetup } from '@nebulahome/contracts';
 
 import { needsSetup, withVendorSettings, type VendorSettings } from './vendors.js';
 

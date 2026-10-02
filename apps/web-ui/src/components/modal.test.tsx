@@ -16,7 +16,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { Modal } from '@nebula-home/ui';
+import { Modal } from '@nebulahome/ui';
 
 /**
  * An edit dialog with a picker dialog inside it, the way a device's icon is chosen.

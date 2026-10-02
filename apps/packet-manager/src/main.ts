@@ -8,11 +8,11 @@
  */
 import { fileURLToPath } from 'node:url';
 
-import { BusClient, connectBus } from '@nebula-home/bus';
-import { loadConfigOrExit, resolveDataLayout } from '@nebula-home/config';
-import { ERROR_CODES, EXIT_CODES, isNebulaError } from '@nebula-home/contracts';
-import { assertSchemaVersion, createDatabase, secretsKeyFrom } from '@nebula-home/db';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+import { BusClient, connectBus } from '@nebulahome/bus';
+import { loadConfigOrExit, resolveDataLayout } from '@nebulahome/config';
+import { ERROR_CODES, EXIT_CODES, isNebulaError } from '@nebulahome/contracts';
+import { assertSchemaVersion, createDatabase, secretsKeyFrom } from '@nebulahome/db';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { servePacketManager } from './bus-service.js';
 import { packetManagerEnvSchema, SERVICE_NAME, SERVICE_VERSION } from './config.js';
@@ -102,7 +102,7 @@ async function start(): Promise<void> {
     secretsKey: secretsKeyFrom(config.NEBULA_SECRETS_KEY),
     runner:
       config.PACKET_MANAGER_RUNNER ??
-      fileURLToPath(import.meta.resolve('@nebula-home/package-sdk/run')),
+      fileURLToPath(import.meta.resolve('@nebulahome/package-sdk/run')),
     packagesDir: layout.packages,
     cacheDir: `${layout.cache}/packages`,
   });

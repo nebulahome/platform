@@ -15,7 +15,7 @@ import {
   type GrantedPermission,
   type Identity,
   type ScopedPermission,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** The scope that means "everywhere". */
 const EVERYWHERE = '*';

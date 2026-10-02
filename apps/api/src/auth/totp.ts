@@ -12,7 +12,7 @@
  */
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto';
 
-import { TOTP_PARAMS } from '@nebula-home/contracts';
+import { TOTP_PARAMS } from '@nebulahome/contracts';
 
 /** The base32 alphabet, RFC 4648, which is what authenticator apps read. */
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';

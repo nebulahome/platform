@@ -20,8 +20,8 @@ import {
   type ActivityEntry,
   type CapabilityName,
   type Identity,
-} from '@nebula-home/contracts';
-import type { Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import type { Database } from '@nebulahome/db';
 
 import { isPermitted } from '../auth/permissions.js';
 import { decodeCursor, toPage, type PageResult } from '../http/pagination.js';

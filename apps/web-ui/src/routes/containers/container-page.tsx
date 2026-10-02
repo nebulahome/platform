@@ -13,8 +13,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
-import type { ContainerAction, ContainerDetail, ContainerPort } from '@nebula-home/contracts';
-import { Badge, Button, Modal, Panel, PanelNote, Switch } from '@nebula-home/ui';
+import type { ContainerAction, ContainerDetail, ContainerPort } from '@nebulahome/contracts';
+import { Badge, Button, Modal, Panel, PanelNote, Switch } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { ExternalLinkIcon } from '@/components/icons';

@@ -14,8 +14,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import type { JsonObject } from '@nebula-home/contracts';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+import type { JsonObject } from '@nebulahome/contracts';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 import {
   defineAccount,
   defineStreamSource,
@@ -28,7 +28,7 @@ import {
   type TransportFactory,
   type TransportInbound,
   type TransportStatus,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 /** The transport module, where the bundle ships it and where the loader imports it from. */
 const MODULE = path.join(

@@ -9,7 +9,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { SelectField } from '@nebula-home/ui';
+import { SelectField } from '@nebulahome/ui';
 
 /** Four options with distinct initials, so typeahead has something to be right about. */
 const OPTIONS = [

@@ -22,7 +22,7 @@
 import type { ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router';
 
-import { Badge } from '@nebula-home/ui';
+import { Badge } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { LockIcon } from '@/components/icons';

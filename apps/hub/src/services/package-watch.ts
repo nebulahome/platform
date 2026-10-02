@@ -14,7 +14,7 @@
  */
 import semver from 'semver';
 
-import type { BusClient, BusSubscription } from '@nebula-home/bus';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   BUS_PATTERNS,
   busSubjects,
@@ -26,8 +26,8 @@ import {
   unmetRequirements,
   type InstalledNode,
   type PackageRequires,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 /** How long the packet-manager has to answer: the hub starts without it. */
 const LIST_TIMEOUT_MS = 2000;

@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { SETTINGS, type JsonValue } from '@nebula-home/contracts';
+import { SETTINGS, type JsonValue } from '@nebulahome/contracts';
 
 import { RETENTION_RUNGS, ladderProblem } from '@/settings/retention';
 

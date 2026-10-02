@@ -27,9 +27,9 @@
  * added, so it needs the bundles to know what to listen for and the instances to know what is
  * already added; it is told again whenever an instance is added, removed or identified.
  */
-import type { BusConnection } from '@nebula-home/bus';
-import { BusClient } from '@nebula-home/bus';
-import { resolveDataLayout } from '@nebula-home/config';
+import type { BusConnection } from '@nebulahome/bus';
+import { BusClient } from '@nebulahome/bus';
+import { resolveDataLayout } from '@nebulahome/config';
 import {
   busSubjects,
   CORE_DEVICE_INFO_METHOD,
@@ -45,9 +45,9 @@ import {
   type ForgetReply,
   type JsonObject,
   type ReloadReply,
-} from '@nebula-home/contracts';
-import { secretsKeyFrom, type Database } from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { secretsKeyFrom, type Database } from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
 import {
   Registry,
   type DeviceInfo,
@@ -57,7 +57,7 @@ import {
   type TransportConnection,
   type TransportInbound,
   type TransportStatus,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import {
   developmentBundleDirectory,

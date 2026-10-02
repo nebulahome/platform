@@ -8,7 +8,7 @@
  * Immutable: the API builds a new one after every write. A thousand and a half icons is a
  * small enough set that rebuilding beats keeping two structures in step.
  */
-import type { IconFrame, IconNode, IconView } from '@nebula-home/contracts';
+import type { IconFrame, IconNode, IconView } from '@nebulahome/contracts';
 
 import type { BuiltinIcon } from './builtin.js';
 

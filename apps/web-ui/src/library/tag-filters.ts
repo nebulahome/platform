@@ -3,7 +3,7 @@
  *
  * Pure, like the device and vendor filters, so the page's behaviour is testable without a page.
  */
-import { TAG_COLORS, type TagColor, type TagView } from '@nebula-home/contracts';
+import { TAG_COLORS, type TagColor, type TagView } from '@nebulahome/contracts';
 
 import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, readChoice, type ListCodec } from '@/lib/use-list-state';

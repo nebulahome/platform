@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { BusClient } from '@nebula-home/bus';
-import { FakeTransport } from '@nebula-home/bus/testing';
+import { BusClient } from '@nebulahome/bus';
+import { FakeTransport } from '@nebulahome/bus/testing';
 import {
   busSubjects,
   catalogueReplySchema,
@@ -25,9 +25,9 @@ import {
   type DiscoverReply,
   type ForgetReply,
   type ReloadReply,
-} from '@nebula-home/contracts';
-import { sealSecrets, secretsKeyFrom } from '@nebula-home/db';
-import { createLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { sealSecrets, secretsKeyFrom } from '@nebulahome/db';
+import { createLogger } from '@nebulahome/logging';
 import {
   bundleManifestSchema,
   createDeclarativeIntegration,
@@ -36,7 +36,7 @@ import {
   Registry,
   type Discovered,
   type Transport,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import type { LoadedBundle, LoadedVendor } from './bundles.js';
 import type { Detected } from './discovery.js';

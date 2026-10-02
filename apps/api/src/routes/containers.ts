@@ -43,7 +43,7 @@ import {
   type ImageDescription,
   type ImageSearchReply,
   type ImageTagsReply,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';

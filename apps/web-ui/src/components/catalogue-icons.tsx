@@ -10,7 +10,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
-import { IconOverridesProvider, UI_ICON_IDS, type IconOverrides } from '@nebula-home/ui';
+import { IconOverridesProvider, UI_ICON_IDS, type IconOverrides } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { fetchIcons, LIBRARY_QUERY_KEYS } from '@/library/api';

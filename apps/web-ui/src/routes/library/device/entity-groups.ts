@@ -5,7 +5,7 @@
  * the light is hard to find among its own measurements. The controls - lights, switches,
  * buttons, covers, locks, climate, media - come first, then the sensors, each under a heading.
  */
-import type { CapabilityName, EntityView } from '@nebula-home/contracts';
+import type { CapabilityName, EntityView } from '@nebulahome/contracts';
 
 /** The capabilities that only report: an entity with nothing else is a sensor. */
 const READING_CAPABILITIES: ReadonlySet<CapabilityName> = new Set([

@@ -5,7 +5,7 @@
  * // vite.config.ts
  * import { defineConfig } from 'vite';
  * import react from '@vitejs/plugin-react';
- * import { nebulaPackageUi } from '@nebula-home/package-ui/vite';
+ * import { nebulaPackageUi } from '@nebulahome/package-ui/vite';
  *
  * export default defineConfig({ plugins: [react(), nebulaPackageUi()] });
  * ```

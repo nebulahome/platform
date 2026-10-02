@@ -7,8 +7,8 @@
  */
 import { useState } from 'react';
 
-import type { CapabilityState } from '@nebula-home/contracts';
-import { Modal, type WheelColour } from '@nebula-home/ui';
+import type { CapabilityState } from '@nebulahome/contracts';
+import { Modal, type WheelColour } from '@nebulahome/ui';
 
 import { ColourPicker } from '@/components/colour-picker';
 import { hsColor } from '@/library/entity-control';

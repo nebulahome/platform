@@ -12,7 +12,7 @@
  */
 import { create } from 'zustand';
 
-import type { GrantedPermission, SessionUser } from '@nebula-home/contracts';
+import type { GrantedPermission, SessionUser } from '@nebulahome/contracts';
 
 import {
   completeSetup,

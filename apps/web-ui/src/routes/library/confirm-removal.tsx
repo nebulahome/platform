@@ -6,7 +6,7 @@
  * says what goes with the thing - "its 6 entities", "off 3 devices" - because "Are you sure?"
  * asks for a nerve rather than a decision.
  */
-import { Button } from '@nebula-home/ui';
+import { Button } from '@nebulahome/ui';
 
 /** What the confirmation needs. */
 export type ConfirmRemovalProps = {

@@ -4,8 +4,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { TAG_COLORS } from '@nebula-home/contracts';
-import { ColorSwatches } from '@nebula-home/ui';
+import { TAG_COLORS } from '@nebulahome/contracts';
+import { ColorSwatches } from '@nebulahome/ui';
 
 describe('ColorSwatches', () => {
   it('offers every colour of the palette as one radio group', () => {

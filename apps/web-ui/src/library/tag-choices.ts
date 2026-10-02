@@ -4,7 +4,7 @@
  * Pure, so the field's behaviour is testable without a field: which tags a query narrows to,
  * and when what was typed is a name no tag has yet and so could become one.
  */
-import { TAG_NAME_MAXIMUM_LENGTH, type TagView } from '@nebula-home/contracts';
+import { TAG_NAME_MAXIMUM_LENGTH, type TagView } from '@nebulahome/contracts';
 
 /**
  * The tags a query narrows to, leaving out those already on the row.

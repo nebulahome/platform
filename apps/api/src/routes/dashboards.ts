@@ -24,7 +24,7 @@ import {
   type DashboardAssignee,
   type DashboardDocument,
   type DashboardView,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { isPermitted, requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';

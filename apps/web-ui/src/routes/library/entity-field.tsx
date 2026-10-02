@@ -13,8 +13,8 @@
  */
 import { useState } from 'react';
 
-import type { EntityView } from '@nebula-home/contracts';
-import { AppIcon, cn, controlFace, FieldShell, IconButton, TextField } from '@nebula-home/ui';
+import type { EntityView } from '@nebulahome/contracts';
+import { AppIcon, cn, controlFace, FieldShell, IconButton, TextField } from '@nebulahome/ui';
 
 import { capabilityStateOf } from '@/library/entity-control';
 import { entityKindOf } from '@/library/entity-kind';

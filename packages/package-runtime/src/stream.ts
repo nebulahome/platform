@@ -12,7 +12,7 @@
  */
 import type { z } from 'zod';
 
-import type { JsonObject } from '@nebula-home/contracts';
+import type { JsonObject } from '@nebulahome/contracts';
 
 /** What a stream carries: stills, or H.264 with the codec string its decoder is set up with. */
 export type StreamTrack =

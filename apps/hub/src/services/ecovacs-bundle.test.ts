@@ -22,8 +22,8 @@ import {
   type CapabilityState,
   type EntityId,
   type JsonObject,
-} from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 import {
   createDeclarativeIntegration,
   defineAccount,
@@ -45,7 +45,7 @@ import {
   type Transport,
   type TransportConnection,
   type TransportInbound,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import { decodeLzma } from '../codecs/lzma.js';
 import { encodePalettedPng } from '../codecs/png.js';

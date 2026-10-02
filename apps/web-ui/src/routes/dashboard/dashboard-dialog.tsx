@@ -18,8 +18,8 @@ import {
   dashboardFileName,
   type DashboardDocument,
   type DashboardView,
-} from '@nebula-home/contracts';
-import { AppIcon, Button, Modal } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { AppIcon, Button, Modal } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import {

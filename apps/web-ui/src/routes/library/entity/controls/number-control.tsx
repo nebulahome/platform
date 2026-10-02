@@ -6,7 +6,7 @@
  * a delay of up to a day in minutes is not something to reach one press at a time. The unit is
  * the entity's, as a sensor's is.
  */
-import { Slider, Stepper } from '@nebula-home/ui';
+import { Slider, Stepper } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
 import { capabilityLabel } from '@/library/entity-kind';

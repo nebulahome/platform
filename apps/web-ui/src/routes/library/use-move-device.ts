@@ -9,7 +9,7 @@
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import type { DiscoveredDevice } from '@nebula-home/contracts';
+import type { DiscoveredDevice } from '@nebulahome/contracts';
 
 import { toMessage } from '@/lib/error-message';
 import { LIBRARY_QUERY_KEYS, updateDevice } from '@/library/api';

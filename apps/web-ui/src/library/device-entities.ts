@@ -2,7 +2,7 @@
  * What the devices list and a device's page both work out from the registry: which entities a
  * device owns, and what its vendor is called.
  */
-import type { EntityView } from '@nebula-home/contracts';
+import type { EntityView } from '@nebulahome/contracts';
 
 /**
  * The entities, by the device that owns them.

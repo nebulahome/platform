@@ -8,7 +8,7 @@ import {
   discoveryAdoptSchema,
   ValidationError,
   type DiscoveredDevice,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { adoptionOf } from './discovery.js';
 

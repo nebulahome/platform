@@ -22,7 +22,7 @@
  */
 import { randomUUID } from 'node:crypto';
 
-import type { BusClient, BusSubscription } from '@nebula-home/bus';
+import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   accountAnswerRequestSchema,
   accountBeginRequestSchema,
@@ -45,10 +45,10 @@ import {
   type IntegrationEvent,
   type JsonObject,
   type SetupField,
-} from '@nebula-home/contracts';
-import { openSecrets } from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
-import type { AccountHandle, AccountModuleStep } from '@nebula-home/package-runtime';
+} from '@nebulahome/contracts';
+import { openSecrets } from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
+import type { AccountHandle, AccountModuleStep } from '@nebulahome/package-runtime';
 
 import { accountViewOf, type AccountStore, type StoredAccount } from '../persistence/accounts.js';
 

@@ -22,7 +22,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { COMPOSE_PROJECTS_DIRECTORY, CONTAINERS_DIRECTORY } from '@nebula-home/config';
+import { COMPOSE_PROJECTS_DIRECTORY, CONTAINERS_DIRECTORY } from '@nebulahome/config';
 import {
   COMPOSE_LOG_LINES,
   ConflictError,
@@ -38,8 +38,8 @@ import {
   type ComposeProblem,
   type ComposeValidation,
   type JsonObject,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import {
   composeConflicts,

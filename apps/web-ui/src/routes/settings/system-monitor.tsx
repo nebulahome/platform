@@ -8,7 +8,7 @@
  *
  * Reading it needs `system:read`. The figures move on their own; nothing here can be changed.
  */
-import { Panel, PanelNote } from '@nebula-home/ui';
+import { Panel, PanelNote } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { formatBytes } from '@/lib/format-bytes';

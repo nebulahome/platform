@@ -11,8 +11,8 @@
  * "Add a source" is a dashed row at the foot, the way every other "nothing here yet" in the
  * interface is drawn.
  */
-import type { EntityView, TagColor } from '@nebula-home/contracts';
-import { AppIcon, IconButton, Panel, cn } from '@nebula-home/ui';
+import type { EntityView, TagColor } from '@nebulahome/contracts';
+import { AppIcon, IconButton, Panel, cn } from '@nebulahome/ui';
 
 import { nextVariableName, variableProblem, type SourceDraft } from '@/library/alias-sources';
 import { SOURCE_COLOR_CLASSES } from '@/routes/library/alias-formula-field';

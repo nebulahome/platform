@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { UpstreamError } from '@nebula-home/contracts';
+import { UpstreamError } from '@nebulahome/contracts';
 
 import type { RegistryClient } from '../registry/registry-client.js';
 

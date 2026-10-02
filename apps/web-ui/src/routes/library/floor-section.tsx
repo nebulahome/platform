@@ -6,8 +6,8 @@
  * devices are in it, because that is what a room is for here - a device is put in a room, and
  * the row is where you see that it was.
  */
-import type { AreaView } from '@nebula-home/contracts';
-import { Badge, Button, IconButton, Panel } from '@nebula-home/ui';
+import type { AreaView } from '@nebulahome/contracts';
+import { Badge, Button, IconButton, Panel } from '@nebulahome/ui';
 
 import { WrenchIcon } from '@/components/icons';
 import type { DeviceIcons } from '@/routes/library/device-icon';

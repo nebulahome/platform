@@ -7,8 +7,8 @@
  * loaded fresh, its stylesheet put in place of the old one - while the old module stays in memory
  * until the next reload, where it does nothing.
  */
-import type { InstalledPackage } from '@nebula-home/contracts';
-import type { PackageUiDefinition } from '@nebula-home/package-ui';
+import type { InstalledPackage } from '@nebulahome/contracts';
+import type { PackageUiDefinition } from '@nebulahome/package-ui';
 
 import { packageFileUrl } from '@/packages/api';
 import { importModule } from '@/packages/import-module';

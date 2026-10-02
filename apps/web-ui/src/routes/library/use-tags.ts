@@ -7,7 +7,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { TagColor, TagView } from '@nebula-home/contracts';
+import type { TagColor, TagView } from '@nebulahome/contracts';
 
 import { createTag, fetchTags, LIBRARY_QUERY_KEYS } from '@/library/api';
 

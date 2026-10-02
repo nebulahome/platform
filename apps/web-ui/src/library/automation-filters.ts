@@ -12,7 +12,7 @@ import {
   type AutomationView,
   type TriggerType,
   type TriggerTree,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { chainText } from '@/lib/describe-automation';
 import { matchesQuery } from '@/lib/search-text';

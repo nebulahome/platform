@@ -143,7 +143,7 @@ export default tseslint.config(
         {
           groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
           pathGroups: [
-            { pattern: '@nebula-home/**', group: 'internal', position: 'before' },
+            { pattern: '@nebulahome/**', group: 'internal', position: 'before' },
             { pattern: '@/**', group: 'internal', position: 'after' },
           ],
           pathGroupsExcludedImportTypes: ['builtin'],
@@ -187,7 +187,7 @@ export default tseslint.config(
           object: 'process',
           property: 'env',
           message:
-            'Read configuration through @nebula-home/config, not process.env (RULES.md 11). The config package is the only place allowed to touch the environment.',
+            'Read configuration through @nebulahome/config, not process.env (RULES.md 11). The config package is the only place allowed to touch the environment.',
         },
       ],
 
@@ -223,7 +223,7 @@ export default tseslint.config(
     },
   },
 
-  // Each service reads the environment in exactly one file. The `@nebula-home/config` package
+  // Each service reads the environment in exactly one file. The `@nebulahome/config` package
   // itself is exempted by its own flat config: ESLint runs with the package as its base path,
   // so a pattern naming `packages/config/` here would never match anything.
   {

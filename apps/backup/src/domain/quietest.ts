@@ -15,7 +15,7 @@
  *
  * Pure: the load comes in, the time goes out.
  */
-import type { DayOfWeek, QuietTime } from '@nebula-home/contracts';
+import type { DayOfWeek, QuietTime } from '@nebulahome/contracts';
 
 /** One quarter hour of one day's load. */
 export type LoadCell = {

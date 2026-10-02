@@ -27,8 +27,8 @@ import {
   telemetryReadingSchema,
   type BusEnvelopeHeader,
   type TelemetryReading,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import { decodeEnvelope } from './codec.js';
 import { toBusError } from './error-mapping.js';

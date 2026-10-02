@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ContainerLogsReply } from '@nebula-home/contracts';
+import type { ContainerLogsReply } from '@nebulahome/contracts';
 
 import { LogViewer } from '@/components/log-viewer';
 

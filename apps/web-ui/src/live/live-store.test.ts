@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { entityIdSchema } from '@nebula-home/contracts';
+import { entityIdSchema } from '@nebulahome/contracts';
 
 import { useLive } from './live-store';
 

@@ -16,8 +16,8 @@ import { Writable } from 'node:stream';
 import { connectAsync, type MqttClient } from 'mqtt';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
-import type { TransportConnection, TransportInbound } from '@nebula-home/package-runtime';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
+import type { TransportConnection, TransportInbound } from '@nebulahome/package-runtime';
 
 import { mqttTransport } from '@/transports/mqtt.js';
 

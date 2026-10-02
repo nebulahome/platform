@@ -4,8 +4,8 @@
  */
 import { useState } from 'react';
 
-import { usePackageRpc } from '@nebula-home/package-ui';
-import { Badge, Panel, PanelNote, TextField } from '@nebula-home/ui';
+import { usePackageRpc } from '@nebulahome/package-ui';
+import { Badge, Panel, PanelNote, TextField } from '@nebulahome/ui';
 
 import { ago, type TopicsReply } from './types.js';
 

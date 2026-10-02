@@ -7,7 +7,7 @@
  * the page would have to translate. Everything else - one container, its logs, an action - needs
  * the supervisor, and says so as a 503 when it is away.
  */
-import type { BusClient } from '@nebula-home/bus';
+import type { BusClient } from '@nebulahome/bus';
 import {
   busSubjects,
   composeDocumentSchema,
@@ -37,8 +37,8 @@ import {
   type ImageSearchReply,
   type ImageTagsReply,
   type ManagedStatus,
-} from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 /** How long a read may take. */
 const READ_TIMEOUT_MS = 10_000;

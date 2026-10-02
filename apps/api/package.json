@@ -1,5 +1,5 @@
 {
-  "name": "@nebula-home/api",
+  "name": "@nebulahome/api",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -17,12 +17,12 @@
     "@fastify/helmet": "^13.1.1",
     "@fastify/rate-limit": "^11.2.0",
     "@fastify/websocket": "^11.3.0",
-    "@nebula-home/bus": "workspace:*",
-    "@nebula-home/config": "workspace:*",
-    "@nebula-home/contracts": "workspace:*",
-    "@nebula-home/db": "workspace:*",
-    "@nebula-home/icons": "workspace:*",
-    "@nebula-home/logging": "workspace:*",
+    "@nebulahome/bus": "workspace:*",
+    "@nebulahome/config": "workspace:*",
+    "@nebulahome/contracts": "workspace:*",
+    "@nebulahome/db": "workspace:*",
+    "@nebulahome/icons": "workspace:*",
+    "@nebulahome/logging": "workspace:*",
     "@node-rs/argon2": "^2.2.0",
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.12.1",
@@ -31,8 +31,8 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@nebula-home/eslint-config": "workspace:*",
-    "@nebula-home/tsconfig": "workspace:*",
+    "@nebulahome/eslint-config": "workspace:*",
+    "@nebulahome/tsconfig": "workspace:*",
     "@types/ws": "^8.18.1",
     "typescript": "^6.0.3"
   }

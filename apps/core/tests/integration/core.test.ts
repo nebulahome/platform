@@ -15,7 +15,7 @@ import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { BusClient, connectBus, ulid, type BusConnection } from '@nebula-home/bus';
+import { BusClient, connectBus, ulid, type BusConnection } from '@nebulahome/bus';
 import {
   busSubjects,
   CORE_SERVICE,
@@ -26,9 +26,9 @@ import {
   stateSnapshotReplySchema,
   SYSTEM_ENTITIES,
   systemMonitorSnapshotSchema,
-} from '@nebula-home/contracts';
-import { createDatabase, schema, type DatabaseHandle } from '@nebula-home/db';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createDatabase, schema, type DatabaseHandle } from '@nebulahome/db';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import type { CoreConfig } from '@/config.js';
 import { ensureSystemDevice, SYSTEM_DEVICE_NAME } from '@/persistence/system-entities.js';

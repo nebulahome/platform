@@ -15,7 +15,7 @@ import {
   type DashboardContainerCard,
   type DashboardLayout,
   type DashboardLeafCard,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { sameSize, snapSize, type CardSize } from '@/dashboard/card-sizes';
 import {

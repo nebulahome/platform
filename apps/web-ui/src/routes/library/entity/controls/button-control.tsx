@@ -9,7 +9,7 @@
  */
 import { useState } from 'react';
 
-import { Button, Modal } from '@nebula-home/ui';
+import { Button, Modal } from '@nebulahome/ui';
 
 import {
   ControlBlock,

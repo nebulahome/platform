@@ -3,8 +3,8 @@ import { Writable } from 'node:stream';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { DeviceUnavailableError, NotFoundError } from '@nebula-home/contracts';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+import { DeviceUnavailableError, NotFoundError } from '@nebulahome/contracts';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { BusClient } from './client.js';
 import { FakeTransport } from './fake-transport.js';

@@ -14,7 +14,7 @@
  * `docker compose` labels every container it makes with its project, service and replica, and
  * with where the project's files were: the containers page groups by the first and shows the rest.
  */
-import { PLATFORM_LABEL, type ContainerCompose } from '@nebula-home/contracts';
+import { PLATFORM_LABEL, type ContainerCompose } from '@nebulahome/contracts';
 
 /** The labels `docker compose` puts on every container it makes. */
 export const COMPOSE_LABELS = {

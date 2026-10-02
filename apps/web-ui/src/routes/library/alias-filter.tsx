@@ -6,7 +6,7 @@
  * two questions: an alias can be on and failing, and that is the one worth finding. The button
  * and the sheet are the library's shared shell.
  */
-import { Segmented, SelectField } from '@nebula-home/ui';
+import { Segmented, SelectField } from '@nebulahome/ui';
 
 import { aliasFacetCount, type AliasFilter } from '@/library/alias-filters';
 import { Facet, facetChoices, FilterSheet, type FacetOption } from '@/routes/library/filter-sheet';

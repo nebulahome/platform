@@ -7,7 +7,7 @@
  */
 import { useMemo, useState, type KeyboardEvent } from 'react';
 
-import { Button, Modal, TextField, cn } from '@nebula-home/ui';
+import { Button, Modal, TextField, cn } from '@nebulahome/ui';
 
 import type { EditorChoiceGroup } from '@/routes/library/editor-choices';
 

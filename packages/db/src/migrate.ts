@@ -21,7 +21,7 @@ import path from 'node:path';
 
 import type { Sql } from 'postgres';
 
-import { ConflictError, ValidationError } from '@nebula-home/contracts';
+import { ConflictError, ValidationError } from '@nebulahome/contracts';
 
 /**
  * Marker a migration file carries when it must not run inside a transaction.

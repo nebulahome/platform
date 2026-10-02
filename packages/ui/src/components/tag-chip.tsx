@@ -23,7 +23,7 @@
  */
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import type { IconFrame, IconNode, TagColor } from '@nebula-home/contracts';
+import type { IconFrame, IconNode, TagColor } from '@nebulahome/contracts';
 
 import { cn } from '../lib/cn.js';
 

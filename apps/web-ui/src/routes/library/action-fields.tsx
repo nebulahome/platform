@@ -7,8 +7,8 @@
  *
  * Durations are asked for in seconds and stored in milliseconds. Nobody types 300000.
  */
-import { CAPABILITIES, commandSchemaFor, type AutomationAction } from '@nebula-home/contracts';
-import { SelectField, TextField } from '@nebula-home/ui';
+import { CAPABILITIES, commandSchemaFor, type AutomationAction } from '@nebulahome/contracts';
+import { SelectField, TextField } from '@nebulahome/ui';
 
 import { isEditableAction } from '@/library/automation-draft';
 import { isCommandable } from '@/library/entity-control';

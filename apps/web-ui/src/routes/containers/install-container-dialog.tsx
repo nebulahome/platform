@@ -20,7 +20,7 @@ import {
   type ImageSearchResult,
   type InstallNetwork,
   type RestartPolicy,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 import {
   AppIcon,
   Badge,
@@ -32,7 +32,7 @@ import {
   SelectField,
   Switch,
   TextField,
-} from '@nebula-home/ui';
+} from '@nebulahome/ui';
 
 import {
   CONTAINER_QUERY_KEYS,

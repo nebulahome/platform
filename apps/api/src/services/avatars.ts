@@ -17,8 +17,8 @@
  */
 import { eq, inArray } from 'drizzle-orm';
 
-import { AVATAR_MAXIMUM_BYTES, ValidationError, type AvatarMimeType } from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
+import { AVATAR_MAXIMUM_BYTES, ValidationError, type AvatarMimeType } from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
 
 /**
  * Builds the `data:` URL for one stored avatar.

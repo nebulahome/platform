@@ -6,7 +6,7 @@
  * them; now it is chosen from the house as the areas page arranges it. Before there is a house
  * there is nothing to choose, and the field is typed as it was.
  */
-import { SelectField, TextField } from '@nebula-home/ui';
+import { SelectField, TextField } from '@nebulahome/ui';
 
 import { areaChoices } from '@/lib/area-tree';
 import { useAreas } from '@/routes/library/use-areas';

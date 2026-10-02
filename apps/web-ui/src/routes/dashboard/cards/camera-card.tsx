@@ -9,7 +9,7 @@
  */
 import { useState } from 'react';
 
-import { AppIcon, Badge, Button } from '@nebula-home/ui';
+import { AppIcon, Badge, Button } from '@nebulahome/ui';
 
 import { CameraView } from '@/components/camera-view';
 import { paramsOf } from '@/library/entity-control';

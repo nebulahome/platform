@@ -26,8 +26,8 @@ import {
   type IntegrationVendorView,
   type JsonObject,
   type SetupGroup,
-} from '@nebula-home/contracts';
-import { Button, Modal, SelectField } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { Button, Modal, SelectField } from '@nebulahome/ui';
 
 import { roomChoices } from '@/lib/area-tree';
 import { toMessage } from '@/lib/error-message';

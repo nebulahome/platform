@@ -13,8 +13,8 @@ import {
   type IntegrationState,
   type JsonObject,
   type ReloadReply,
-} from '@nebula-home/contracts';
-import { openSecrets, schema, type Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { openSecrets, schema, type Database } from '@nebulahome/db';
 
 /** One configured instance, as `hub` needs it. */
 export type IntegrationInstance = {

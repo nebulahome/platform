@@ -11,8 +11,8 @@
  */
 import type { z } from 'zod';
 
-import type { JsonObject } from '@nebula-home/contracts';
-import type { PlatformLogger } from '@nebula-home/logging';
+import type { JsonObject } from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { AccountHandle } from './account.js';
 

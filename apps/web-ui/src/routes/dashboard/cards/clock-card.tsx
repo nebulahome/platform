@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from 'react';
 
-import type { DashboardClockCard } from '@nebula-home/contracts';
+import type { DashboardClockCard } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
 import { CardFrame } from '@/routes/dashboard/cards/card-parts';

@@ -9,8 +9,8 @@
  */
 import { useQuery } from '@tanstack/react-query';
 
-import type { BackupPhase, MaintenanceState } from '@nebula-home/contracts';
-import { Button } from '@nebula-home/ui';
+import type { BackupPhase, MaintenanceState } from '@nebulahome/contracts';
+import { Button } from '@nebulahome/ui';
 
 import { useMaintenance } from '@/auth/maintenance-store';
 import { useSession } from '@/auth/session-store';

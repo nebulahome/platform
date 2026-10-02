@@ -7,8 +7,8 @@
  */
 import { NavLink } from 'react-router';
 
-import type { DashboardView } from '@nebula-home/contracts';
-import { cn } from '@nebula-home/ui';
+import type { DashboardView } from '@nebulahome/contracts';
+import { cn } from '@nebulahome/ui';
 
 /** What the tabs need. */
 export type DashboardTabsProps = {

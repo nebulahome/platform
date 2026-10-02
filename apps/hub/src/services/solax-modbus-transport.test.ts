@@ -18,8 +18,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { parseEntityId, type CapabilityState } from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+import { parseEntityId, type CapabilityState } from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 import {
   createDeclarativeIntegration,
   driverManifestSchema,
@@ -31,7 +31,7 @@ import {
   type Integration,
   type Transport,
   type TransportInbound,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import { createBundleSdk } from './bundle-sdk.js';
 import { loadBundles, type LoadedVendor } from './bundles.js';

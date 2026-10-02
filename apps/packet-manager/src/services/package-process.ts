@@ -11,7 +11,7 @@
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 
-import type { PlatformLogger } from '@nebula-home/logging';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import { LogRing } from '../domain/log-ring.js';
 import { RestartPolicy } from '../domain/restart-policy.js';
@@ -30,7 +30,7 @@ export type ProcessState =
 export type ProcessSpec = {
   readonly id: string;
 
-  /** The runner: `@nebula-home/package-sdk`'s `run.js`. */
+  /** The runner: `@nebulahome/package-sdk`'s `run.js`. */
   readonly runner: string;
 
   /** The package's server module, absolute. */

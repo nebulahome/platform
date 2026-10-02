@@ -21,8 +21,8 @@ import type {
   AutomationTrigger,
   BooleanTree,
   TriggerTree,
-} from '@nebula-home/contracts';
-import { flattenTriggers, isTriggerTreeOp, migrateDefinition } from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
+import { flattenTriggers, isTriggerTreeOp, migrateDefinition } from '@nebulahome/contracts';
 
 /** How one part of the chain reads. */
 export type AutomationSummary = {

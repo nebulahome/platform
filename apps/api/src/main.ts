@@ -11,12 +11,12 @@
  * everything it can read from the database in the meantime. Commands fail with
  * `DEVICE_UNAVAILABLE` while it is away, which is the truth.
  */
-import { BusClient, connectBus, type BusConnection } from '@nebula-home/bus';
-import { loadConfigOrExit, resolveDataLayout } from '@nebula-home/config';
-import { ERROR_CODES, EXIT_CODES, isNebulaError } from '@nebula-home/contracts';
-import { assertSchemaVersion, createDatabase, secretsKeyFrom } from '@nebula-home/db';
-import { loadBuiltinIcons } from '@nebula-home/icons';
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+import { BusClient, connectBus, type BusConnection } from '@nebulahome/bus';
+import { loadConfigOrExit, resolveDataLayout } from '@nebulahome/config';
+import { ERROR_CODES, EXIT_CODES, isNebulaError } from '@nebulahome/contracts';
+import { assertSchemaVersion, createDatabase, secretsKeyFrom } from '@nebulahome/db';
+import { loadBuiltinIcons } from '@nebulahome/icons';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { Authenticator } from './auth/authenticator.js';
 import { ChallengeStore } from './auth/challenges.js';

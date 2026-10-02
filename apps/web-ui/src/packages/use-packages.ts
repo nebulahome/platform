@@ -8,7 +8,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 
-import type { ApiPackage } from '@nebula-home/contracts';
+import type { ApiPackage } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
 import { fetchPackages, PACKAGE_QUERY_KEYS } from '@/packages/api';

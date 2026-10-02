@@ -15,7 +15,7 @@
 import { DrizzleQueryError } from 'drizzle-orm/errors';
 import { describe, expect, it } from 'vitest';
 
-import { SchemaVersionMismatchError } from '@nebula-home/contracts';
+import { SchemaVersionMismatchError } from '@nebulahome/contracts';
 
 import type { Database } from './client.js';
 import { assertSchemaVersion, readSchemaVersion } from './schema-version.js';

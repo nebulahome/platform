@@ -10,8 +10,8 @@
  * a light that can take a colour is a colour light whatever else it can do. A calculated alias
  * says so in its name, because what it reads is not a device's.
  */
-import { sensorClassLabel, type CapabilityName, type EntityView } from '@nebula-home/contracts';
-import type { UiIconId } from '@nebula-home/ui';
+import { sensorClassLabel, type CapabilityName, type EntityView } from '@nebulahome/contracts';
+import type { UiIconId } from '@nebulahome/ui';
 
 /**
  * The family an entity's tile is drawn in.

@@ -31,8 +31,8 @@ beforeAll(async () => {
       "import './styles.css';",
       "import { useState } from 'react';",
       "import { jsx } from 'react/jsx-runtime';",
-      "import { Button } from '@nebula-home/ui';",
-      "import { definePackageUi, usePackageRpc } from '@nebula-home/package-ui';",
+      "import { Button } from '@nebulahome/ui';",
+      "import { definePackageUi, usePackageRpc } from '@nebulahome/package-ui';",
       "import { shout } from './helper.js';",
       '',
       'function Page() {',
@@ -64,8 +64,8 @@ describe('the build of a package interface', () => {
   it('reads what the interface shares instead of bundling it', () => {
     expect(built).toContain('globalThis.__nebula');
     expect(built).toContain('does not share react');
-    expect(built).toContain('does not share @nebula-home/ui');
-    expect(built).toContain('does not share @nebula-home/package-ui');
+    expect(built).toContain('does not share @nebulahome/ui');
+    expect(built).toContain('does not share @nebulahome/package-ui');
     expect(built).not.toContain('react.production');
     expect(built).not.toMatch(/from\s*["']react["']/u);
   });
@@ -88,8 +88,8 @@ describe('the build of a package interface', () => {
         'react/jsx-runtime': {
           jsx: (type: unknown, props: { children: string }) => ({ type, props }),
         },
-        '@nebula-home/ui': { Button: 'button' },
-        '@nebula-home/package-ui': {
+        '@nebulahome/ui': { Button: 'button' },
+        '@nebulahome/package-ui': {
           definePackageUi: (definition: unknown) => definition,
           usePackageRpc: (method: string) => {
             calls.push(method);

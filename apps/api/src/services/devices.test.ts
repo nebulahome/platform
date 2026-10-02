@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { IntegrationVendor } from '@nebula-home/contracts';
+import type { IntegrationVendor } from '@nebulahome/contracts';
 
 import { toDeviceView, type DeviceRow } from './devices.js';
 

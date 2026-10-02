@@ -19,7 +19,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { createLogger, type PlatformLogger } from '@nebula-home/logging';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 import {
   defineAccount,
   defineStreamSource,
@@ -32,7 +32,7 @@ import {
   type TransportFactory,
   type TransportInbound,
   type TransportStatus,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 /** The bundle's Gen1 directory, where the loader imports its modules from. */
 const GEN1 = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../bundles/shelly/gen1');

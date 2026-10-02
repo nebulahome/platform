@@ -5,7 +5,7 @@
  * transport by its name, an integration by its bundle kind - and populated at startup, before
  * any instance is resolved against it.
  */
-import { ConflictError, NotFoundError } from '@nebula-home/contracts';
+import { ConflictError, NotFoundError } from '@nebulahome/contracts';
 
 /** Anything a registry can hold: something that knows its own id. */
 export type Identified = { readonly id: string };

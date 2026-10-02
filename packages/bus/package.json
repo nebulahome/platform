@@ -1,5 +1,5 @@
 {
-  "name": "@nebula-home/bus",
+  "name": "@nebulahome/bus",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -24,14 +24,14 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
-    "@nebula-home/contracts": "workspace:*",
-    "@nebula-home/logging": "workspace:*",
+    "@nebulahome/contracts": "workspace:*",
+    "@nebulahome/logging": "workspace:*",
     "nats": "^2.29.3",
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@nebula-home/eslint-config": "workspace:*",
-    "@nebula-home/tsconfig": "workspace:*",
+    "@nebulahome/eslint-config": "workspace:*",
+    "@nebulahome/tsconfig": "workspace:*",
     "typescript": "^6.0.3"
   }
 }

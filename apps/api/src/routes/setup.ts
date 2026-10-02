@@ -20,8 +20,8 @@ import {
   setupStatusSchema,
   type SetupResponse,
   type SetupStatus,
-} from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
 
 import { hashPassword } from '../auth/password.js';
 import { resolveGrants } from '../auth/permissions.js';

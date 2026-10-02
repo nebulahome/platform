@@ -7,7 +7,7 @@
  * and dropped when two of them land on the same white. On a lamp that also makes colours,
  * choosing a white leaves the colour: the colour block turns white with it.
  */
-import { Button, Slider } from '@nebula-home/ui';
+import { Button, Slider } from '@nebulahome/ui';
 
 import {
   hasCapability,

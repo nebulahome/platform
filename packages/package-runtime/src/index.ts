@@ -1,5 +1,5 @@
 /**
- * Public entry point of the `@nebula-home/package-runtime` package.
+ * Public entry point of the `@nebulahome/package-runtime` package.
  *
  * The contract an integration is written against, in two layers: a {@link Transport} owns
  * connections and is the only place I/O happens, and an {@link Integration} owns meaning and is

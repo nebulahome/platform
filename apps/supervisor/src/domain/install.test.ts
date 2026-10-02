@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ContainerInstallRequest } from '@nebula-home/contracts';
+import type { ContainerInstallRequest } from '@nebulahome/contracts';
 
 import { installCreateBody, installedFolder, takenPorts } from './install.js';
 import type { PlatformContext } from './managed.js';

@@ -19,7 +19,7 @@ import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 
 import { extract } from 'tar';
 
-import { ValidationError, type PackageArtifact } from '@nebula-home/contracts';
+import { ValidationError, type PackageArtifact } from '@nebulahome/contracts';
 
 import {
   isPackageFolder,

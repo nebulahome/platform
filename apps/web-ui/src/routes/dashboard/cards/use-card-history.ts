@@ -8,7 +8,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 
-import type { StateHistoryPoint, TelemetryPoint } from '@nebula-home/contracts';
+import type { StateHistoryPoint, TelemetryPoint } from '@nebulahome/contracts';
 
 import { fetchStateHistory, fetchTelemetry, LIBRARY_QUERY_KEYS } from '@/library/api';
 import {

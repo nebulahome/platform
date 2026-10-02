@@ -49,7 +49,7 @@ export const packages = systemSchema.table(
     /** A package shipped in the image that is never removed, only restarted: the MQTT broker. */
     isSystem: boolean('is_system').notNull().default(false),
 
-    /** Validated against `packageManifestSchema` in `@nebula-home/contracts`. */
+    /** Validated against `packageManifestSchema` in `@nebulahome/contracts`. */
     manifest: jsonb('manifest').notNull(),
 
     config: jsonb('config')
@@ -106,7 +106,7 @@ export const settings = systemSchema.table('settings', {
   key: text('key').primaryKey(),
   value: jsonb('value').notNull(),
 
-  /** Names the Zod schema in `@nebula-home/contracts` that validates `value`. */
+  /** Names the Zod schema in `@nebulahome/contracts` that validates `value`. */
   schemaRef: text('schema_ref').notNull(),
 
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -173,7 +173,7 @@ export const auditLog = systemSchema.table(
  *
  * One row of kind `system` - the data directory's `backups/`, seeded by the migration and never
  * deleted - and the owner's own: a folder, an SMB share, an FTP server, an NFS export. `config`
- * holds the kind's settings, validated by `backupTargetInputSchema` in `@nebula-home/contracts`,
+ * holds the kind's settings, validated by `backupTargetInputSchema` in `@nebulahome/contracts`,
  * with the password sealed as `{ "$sealed": "v1:…" }` (sealed.ts).
  */
 export const backupLocations = systemSchema.table(

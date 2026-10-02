@@ -4,7 +4,7 @@
  * Three dropdowns in the shared sheet. Standing and mode are short fixed lists; trigger kind is
  * the five leaves the schema knows, so the sheet does not grow with every rule on the page.
  */
-import { SelectField } from '@nebula-home/ui';
+import { SelectField } from '@nebulahome/ui';
 
 import {
   AUTOMATION_MODE_CHOICES,

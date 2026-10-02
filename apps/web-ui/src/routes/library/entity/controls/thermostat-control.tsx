@@ -7,8 +7,8 @@
  * said apart from the mode: a thermostat on auto that has reached its target is idle, and a page
  * that showed only the mode could not explain why nothing is running.
  */
-import { THERMOSTAT_MODES } from '@nebula-home/contracts';
-import { Segmented, SelectField, Stepper } from '@nebula-home/ui';
+import { THERMOSTAT_MODES } from '@nebulahome/contracts';
+import { Segmented, SelectField, Stepper } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
 import { ControlBlock, type ControlProps } from '@/routes/library/entity/controls/control-block';

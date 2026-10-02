@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { entityIdSchema, type DeviceView, type EntityView } from '@nebula-home/contracts';
+import { entityIdSchema, type DeviceView, type EntityView } from '@nebulahome/contracts';
 
 import { DEVICE_FILTER_CODEC, isNarrowing, matchesFilter, OPEN_FILTER } from './device-filters';
 

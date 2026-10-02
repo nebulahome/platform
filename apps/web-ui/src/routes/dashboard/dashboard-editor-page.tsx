@@ -18,8 +18,8 @@ import {
   type DashboardCard,
   type DashboardLayout,
   type DashboardView,
-} from '@nebula-home/contracts';
-import { AppIcon, Badge, Button } from '@nebula-home/ui';
+} from '@nebulahome/contracts';
+import { AppIcon, Badge, Button } from '@nebulahome/ui';
 
 import { DASHBOARD_QUERY_KEYS, fetchManagedDashboards, updateDashboard } from '@/dashboard/api';
 import { addCard, findCard, removeCard } from '@/dashboard/dashboard-layout';

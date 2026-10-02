@@ -9,7 +9,7 @@
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 
-import type { ActivityEntry } from '@nebula-home/contracts';
+import type { ActivityEntry } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
 import { fetchDeviceActivity, LIBRARY_QUERY_KEYS, type ActivityPage } from '@/library/api';

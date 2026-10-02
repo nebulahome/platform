@@ -19,8 +19,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
-import { isUpdateOffered, type EntityView } from '@nebula-home/contracts';
-import { AppIcon, Badge, IconButton, Panel, TagChip } from '@nebula-home/ui';
+import { isUpdateOffered, type EntityView } from '@nebulahome/contracts';
+import { AppIcon, Badge, IconButton, Panel, TagChip } from '@nebulahome/ui';
 
 import { ExternalLinkIcon } from '@/components/icons';
 import { deviceWebPageOf } from '@/lib/device-web-page';

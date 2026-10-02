@@ -21,7 +21,7 @@ import { createHash } from 'node:crypto';
 import { connect as connectTcp, isIP, type Socket } from 'node:net';
 import { connect as connectTls } from 'node:tls';
 
-import type { OpenRtsp, RtspFrame, RtspOptions } from '@nebula-home/package-runtime';
+import type { OpenRtsp, RtspFrame, RtspOptions } from '@nebulahome/package-runtime';
 
 /** How long an answer to one request may take. */
 const REQUEST_TIMEOUT_MS = 10_000;

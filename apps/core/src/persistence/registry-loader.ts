@@ -19,9 +19,9 @@ import {
   type EntityId,
   type EntityState,
   type JsonObject,
-} from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import { EntityDirectory, type EntityRecord } from '../domain/entity-directory.js';
 import { resolveOwner } from '../domain/entity-owner.js';

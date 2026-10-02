@@ -12,8 +12,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { TAG_COLORS, type TagColor, type TagUpdate, type TagView } from '@nebula-home/contracts';
-import { Button, ColorSwatches, Modal } from '@nebula-home/ui';
+import { TAG_COLORS, type TagColor, type TagUpdate, type TagView } from '@nebulahome/contracts';
+import { Button, ColorSwatches, Modal } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { createTag, deleteTag, LIBRARY_QUERY_KEYS, updateTag } from '@/library/api';

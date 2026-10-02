@@ -6,7 +6,7 @@
  * schedule's own time zone, so three in the morning stays three in the morning across a change
  * of summer time.
  */
-import type { BackupFrequency, DayOfWeek } from '@nebula-home/contracts';
+import type { BackupFrequency, DayOfWeek } from '@nebulahome/contracts';
 
 /** Each day as cron numbers it: Sunday is 0. */
 const CRON_DAY: Readonly<Record<DayOfWeek, number>> = {

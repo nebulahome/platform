@@ -6,7 +6,7 @@
  * whose clock is wrong, or whose owner set one day and was away a week, must not end up empty.
  * Only archives are considered: a file named otherwise is somebody else's and is never touched.
  */
-import type { BackupRetention } from '@nebula-home/contracts';
+import type { BackupRetention } from '@nebulahome/contracts';
 
 import { parseArchiveName } from './archive-name.js';
 

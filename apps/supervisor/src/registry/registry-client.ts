@@ -19,7 +19,7 @@ import {
   type ImageDescription,
   type ImageSearchResult,
   type ImageTag,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 import { DOCKER_HUB, type ImageReference } from '../domain/image-ref.js';
 import { VERSION_LABEL } from '../domain/versions.js';

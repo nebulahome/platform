@@ -12,9 +12,9 @@
  * once however many times it is imported, which is what makes the socket one.
  */
 
-/** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
-/** @typedef {import('@nebula-home/package-runtime').ManagedUdpSocket} ManagedUdpSocket */
-/** @typedef {import('@nebula-home/package-runtime').UdpPeer} UdpPeer */
+/** @typedef {import('@nebulahome/package-runtime').BundleSdk} BundleSdk */
+/** @typedef {import('@nebulahome/package-runtime').ManagedUdpSocket} ManagedUdpSocket */
+/** @typedef {import('@nebulahome/package-runtime').UdpPeer} UdpPeer */
 
 /** Where a light listens for a scan. */
 export const SCAN_PORT = 4001;

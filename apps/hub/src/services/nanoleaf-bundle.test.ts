@@ -18,8 +18,8 @@ import {
   parseEntityId,
   type CapabilityState,
   type JsonObject,
-} from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
 import {
   associateModel,
   createDeclarativeIntegration,
@@ -32,7 +32,7 @@ import {
   type Integration,
   type MappingContext,
   type MdnsAnnouncement,
-} from '@nebula-home/package-runtime';
+} from '@nebulahome/package-runtime';
 
 import { httpTransport } from '../transports/http.js';
 

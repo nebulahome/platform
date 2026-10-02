@@ -30,8 +30,8 @@ import {
   type GrantedPermission,
   type LoginResponse,
   type SessionUser,
-} from '@nebula-home/contracts';
-import { schema } from '@nebula-home/db';
+} from '@nebulahome/contracts';
+import { schema } from '@nebulahome/db';
 
 import { hashPassword, needsRehash, verifyAgainstDecoy, verifyPassword } from '../auth/password.js';
 import { resolveGrants } from '../auth/permissions.js';

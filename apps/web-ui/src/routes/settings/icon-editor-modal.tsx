@@ -16,9 +16,9 @@
 import { useMutation } from '@tanstack/react-query';
 import { useId, useRef, useState, type ChangeEvent } from 'react';
 
-import type { IconFrame, IconNode, IconView } from '@nebula-home/contracts';
-import { parseIconSvg, suggestIconId } from '@nebula-home/icons/svg';
-import { AppIcon, Button, CatalogueIcon, cn, Modal, TextField } from '@nebula-home/ui';
+import type { IconFrame, IconNode, IconView } from '@nebulahome/contracts';
+import { parseIconSvg, suggestIconId } from '@nebulahome/icons/svg';
+import { AppIcon, Button, CatalogueIcon, cn, Modal, TextField } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { createIcon, deleteIcon, updateIcon } from '@/library/api';

@@ -10,7 +10,7 @@ import {
   type DeviceView,
   type EntityView,
   type TagView,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /**
  * An entity: a switch on a Shelly relay that has reported once.

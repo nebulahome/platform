@@ -17,8 +17,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { PACKAGE_STATES, type AvailablePackage } from '@nebula-home/contracts';
-import { Badge, Button, Panel, PanelNote, PanelRow, Segmented, SelectField } from '@nebula-home/ui';
+import { PACKAGE_STATES, type AvailablePackage } from '@nebulahome/contracts';
+import { Badge, Button, Panel, PanelNote, PanelRow, Segmented, SelectField } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { matchesQuery } from '@/lib/search-text';

@@ -11,8 +11,8 @@
  */
 import { z } from 'zod';
 
-import type { BusClient } from '@nebula-home/bus';
-import { busSubjects, type ManagedContainerSpec } from '@nebula-home/contracts';
+import type { BusClient } from '@nebulahome/bus';
+import { busSubjects, type ManagedContainerSpec } from '@nebulahome/contracts';
 
 import type { PlatformContext } from '../domain/managed.js';
 

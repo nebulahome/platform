@@ -10,7 +10,7 @@
  * oldest rows and say so, rather than to hold every unwritten row until the process runs out of
  * memory and takes the live state of the house down with it.
  */
-import type { PlatformLogger } from '@nebula-home/logging';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 /** How a batch writer is sized and paced. */
 export type BatchWriterOptions<TRow> = {

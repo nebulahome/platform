@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { CapabilityState } from '@nebula-home/contracts';
+import type { CapabilityState } from '@nebulahome/contracts';
 
 import { hasStateChanged, mergeCapabilityState } from './state-diff.js';
 

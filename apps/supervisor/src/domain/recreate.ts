@@ -11,7 +11,7 @@
  * is copied as it is. The networks beyond the first are joined after the container is made, as
  * `docker network connect` would.
  */
-import type { JsonObject } from '@nebula-home/contracts';
+import type { JsonObject } from '@nebulahome/contracts';
 
 import type { InspectedContainer, InspectedImage } from '../docker/engine-schemas.js';
 

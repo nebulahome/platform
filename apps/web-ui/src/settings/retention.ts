@@ -4,7 +4,7 @@
  * The constraint is checked here as well as on the server, and the duplication is deliberate.
  * The server's check is the one that protects the data; this one exists so the person finds out
  * while looking at the four dropdowns that produced the problem, rather than after pressing save
- * and reading a sentence about a key. Both call the same schema from `@nebula-home/contracts`,
+ * and reading a sentence about a key. Both call the same schema from `@nebulahome/contracts`,
  * so there is one definition of the rule and two places that ask it.
  *
  * What the rule protects against is worth restating, because it is not obvious: each aggregate
@@ -17,7 +17,7 @@ import {
   RETENTION_MINIMUM_DAYS,
   retentionLadderSchema,
   type JsonValue,
-} from '@nebula-home/contracts';
+} from '@nebulahome/contracts';
 
 /** One rung, as it reads on screen. */
 export type RetentionRung = {

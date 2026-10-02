@@ -13,9 +13,9 @@
  */
 import { and, eq, inArray, ne, sql } from 'drizzle-orm';
 
-import { entityRegistrationSchema, SYSTEM_ENTITIES } from '@nebula-home/contracts';
-import { schema, type Database } from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
+import { entityRegistrationSchema, SYSTEM_ENTITIES } from '@nebulahome/contracts';
+import { schema, type Database } from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 /** What the system device is called until the owner calls it something else. */
 export const SYSTEM_DEVICE_NAME = 'System';

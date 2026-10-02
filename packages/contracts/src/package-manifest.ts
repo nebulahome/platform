@@ -241,7 +241,7 @@ export const packageManifestSchema = z
     /** The platform versions it works with: checked before it is installed or started. */
     platform: semverRangeSchema,
 
-    /** The package SDK versions it was written against: `@nebula-home/package-sdk`. */
+    /** The package SDK versions it was written against: `@nebulahome/package-sdk`. */
     sdk: semverRangeSchema,
 
     name: z.string().min(1).max(64),

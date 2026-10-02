@@ -32,7 +32,7 @@ import path from 'node:path';
 import { satisfies } from 'semver';
 import { z } from 'zod';
 
-import type { BusClient } from '@nebula-home/bus';
+import type { BusClient } from '@nebulahome/bus';
 import {
   blockedUpdate,
   busSubjects,
@@ -68,10 +68,10 @@ import {
   type PackageRelation,
   type PackageRpcMethod,
   type PackageState,
-} from '@nebula-home/contracts';
-import { maskSealed, openSecrets } from '@nebula-home/db';
-import type { PlatformLogger } from '@nebula-home/logging';
-import { renderContainers } from '@nebula-home/package-runtime';
+} from '@nebulahome/contracts';
+import { maskSealed, openSecrets } from '@nebulahome/db';
+import type { PlatformLogger } from '@nebulahome/logging';
+import { renderContainers } from '@nebulahome/package-runtime';
 
 import type { PacketManagerConfig } from './config.js';
 import { LogRing } from './domain/log-ring.js';

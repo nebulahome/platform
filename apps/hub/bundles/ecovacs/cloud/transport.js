@@ -41,16 +41,16 @@ import { robotKindOf } from './models.js';
 import * as mower from './mower.js';
 import * as vacuum from './vacuum.js';
 
-/** @typedef {import('@nebula-home/package-runtime').AccountHandle} AccountHandle */
-/** @typedef {import('@nebula-home/package-runtime').BundleSdk} BundleSdk */
-/** @typedef {import('@nebula-home/package-runtime').Discovered} Discovered */
-/** @typedef {import('@nebula-home/package-runtime').ManagedMqtt} ManagedMqtt */
-/** @typedef {import('@nebula-home/package-runtime').Transport} Transport */
-/** @typedef {import('@nebula-home/package-runtime').TransportConnection} TransportConnection */
-/** @typedef {import('@nebula-home/package-runtime').TransportContext} TransportContext */
-/** @typedef {import('@nebula-home/package-runtime').TransportLookContext} TransportLookContext */
-/** @typedef {import('@nebula-home/package-runtime').TransportRequest} TransportRequest */
-/** @typedef {import('@nebula-home/package-runtime').TransportSubscription} TransportSubscription */
+/** @typedef {import('@nebulahome/package-runtime').AccountHandle} AccountHandle */
+/** @typedef {import('@nebulahome/package-runtime').BundleSdk} BundleSdk */
+/** @typedef {import('@nebulahome/package-runtime').Discovered} Discovered */
+/** @typedef {import('@nebulahome/package-runtime').ManagedMqtt} ManagedMqtt */
+/** @typedef {import('@nebulahome/package-runtime').Transport} Transport */
+/** @typedef {import('@nebulahome/package-runtime').TransportConnection} TransportConnection */
+/** @typedef {import('@nebulahome/package-runtime').TransportContext} TransportContext */
+/** @typedef {import('@nebulahome/package-runtime').TransportLookContext} TransportLookContext */
+/** @typedef {import('@nebulahome/package-runtime').TransportRequest} TransportRequest */
+/** @typedef {import('@nebulahome/package-runtime').TransportSubscription} TransportSubscription */
 /** @typedef {import('./account.js').Account} Account */
 /** @typedef {import('./api.js').CloudDevice} CloudDevice */
 /** @typedef {import('./models.js').RobotKind} RobotKind */
@@ -1252,7 +1252,7 @@ export default function createEcovacsCloud(sdk, options = {}) {
    * configuration which one.
    *
    * @param {Config} config - The account, and a robot's id when looking for that one.
-   * @param {import('@nebula-home/contracts').JsonObject} terms - `{ role }`.
+   * @param {import('@nebulahome/contracts').JsonObject} terms - `{ role }`.
    * @param {AbortSignal} signal - Ends the scan.
    * @param {TransportLookContext} [context] - The account, as the hub hands it.
    * @yields {Discovered} Each robot.

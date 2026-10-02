@@ -12,7 +12,7 @@
  */
 import { WebSocket } from 'node:http';
 
-import type { ManagedSocket, ManagedSocketOptions } from '@nebula-home/package-runtime';
+import type { ManagedSocket, ManagedSocketOptions } from '@nebulahome/package-runtime';
 
 /** The first pause after a drop. */
 const DEFAULT_MIN_MS = 1000;

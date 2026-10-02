@@ -9,7 +9,7 @@
  */
 import path from 'node:path';
 
-import type { BackupEstimates } from '@nebula-home/contracts';
+import type { BackupEstimates } from '@nebulahome/contracts';
 
 import { FILE_SECTIONS } from '../archive/archive.js';
 import { connectAdmin, databasePartSizes } from '../database/admin.js';

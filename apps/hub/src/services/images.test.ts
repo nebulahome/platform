@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { parseEntityId, type StateReport } from '@nebula-home/contracts';
-import { createLogger } from '@nebula-home/logging';
-import type { ReportedState } from '@nebula-home/package-runtime';
+import { parseEntityId, type StateReport } from '@nebulahome/contracts';
+import { createLogger } from '@nebulahome/logging';
+import type { ReportedState } from '@nebulahome/package-runtime';
 
 import { ImageStore } from './images.js';
 

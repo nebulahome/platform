@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import type { DayOfWeek } from '@nebula-home/contracts';
+import type { DayOfWeek } from '@nebulahome/contracts';
 
 import { quietestTime, slotOf, SLOTS_PER_DAY, type LoadCell } from './quietest.js';
 

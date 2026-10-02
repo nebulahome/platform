@@ -8,8 +8,8 @@
  */
 import type { FastifyInstance } from 'fastify';
 
-import { BusClient } from '@nebula-home/bus';
-import { FakeTransport } from '@nebula-home/bus/testing';
+import { BusClient } from '@nebulahome/bus';
+import { FakeTransport } from '@nebulahome/bus/testing';
 import {
   accountBeginRequestSchema,
   accountSignOutRequestSchema,
@@ -84,9 +84,9 @@ import {
   type UnregisterDeviceReply,
   type UnregisterDeviceRequest,
   type BackupStatus,
-} from '@nebula-home/contracts';
-import { secretsKeyFrom } from '@nebula-home/db';
-import { createLogger } from '@nebula-home/logging';
+} from '@nebulahome/contracts';
+import { secretsKeyFrom } from '@nebulahome/db';
+import { createLogger } from '@nebulahome/logging';
 
 import { Authenticator } from '../auth/authenticator.js';
 import { ChallengeStore } from '../auth/challenges.js';

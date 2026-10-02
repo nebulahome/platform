@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import type { AutomationView } from '@nebula-home/contracts';
+import type { AutomationView } from '@nebulahome/contracts';
 
 import {
   blankAction,

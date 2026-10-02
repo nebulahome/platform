@@ -5,7 +5,7 @@
  * where the answer is read: a person, an automation, a scene, the device itself. A change made
  * while the device could not be reached says that instead.
  */
-import type { EntityView, StateHistoryPoint } from '@nebula-home/contracts';
+import type { EntityView, StateHistoryPoint } from '@nebulahome/contracts';
 
 import { absoluteTime, relativeTime } from '@/lib/format-time';
 import { describeState } from '@/library/entity-reading';

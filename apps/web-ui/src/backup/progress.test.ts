@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BackupRunView } from '@nebula-home/contracts';
+import type { BackupRunView } from '@nebulahome/contracts';
 
 import { endingOf, progressOf } from './progress';
 
