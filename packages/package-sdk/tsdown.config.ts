@@ -11,6 +11,7 @@ import { defineConfig } from 'tsdown';
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
+    server: 'src/server/index.ts',
   },
   format: 'esm',
   platform: 'neutral',
@@ -21,6 +22,7 @@ export default defineConfig({
   sourcemap: false,
   hash: false,
   fixedExtension: false,
+  outputOptions: { chunkFileNames: 'chunks/[name].js' },
   deps: {
     neverBundle: [/^node:/, 'react', 'react-dom', /^react\//, 'vite', /^vite\//],
   },
