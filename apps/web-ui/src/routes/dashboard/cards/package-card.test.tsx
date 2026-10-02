@@ -140,7 +140,7 @@ beforeEach(() => {
 describe('PackageCard', () => {
   it("is drawn by its package, whose hooks speak for it, with the card's name, options and size", async () => {
     vi.mocked(importModule).mockResolvedValue(entryWith({ broker: BrokerCard }));
-    renderCard([aPackage({ version: '1.0.1' })]);
+    renderCard([aPackage({ version: '1.0.1', build: '1.0.1' })]);
 
     const drawn = await screen.findByText('MQTT MQTT broker medium zigbee2mqtt/#');
 
@@ -150,7 +150,7 @@ describe('PackageCard', () => {
 
   it('tells the card the dashboard is being edited', async () => {
     vi.mocked(importModule).mockResolvedValue(entryWith({ broker: BrokerCard }));
-    renderCard([aPackage({ version: '1.0.3' })], CARD, true);
+    renderCard([aPackage({ version: '1.0.3', build: '1.0.3' })], CARD, true);
 
     expect(await screen.findByText(/MQTT broker medium zigbee2mqtt\/# editing/u)).toBeTruthy();
   });
@@ -158,7 +158,7 @@ describe('PackageCard', () => {
   it('keeps what a package that throws draws inside the card', async () => {
     vi.mocked(importModule).mockResolvedValue(entryWith({ broker: BrokenCard }));
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    renderCard([aPackage({ version: '1.0.2' })]);
+    renderCard([aPackage({ version: '1.0.2', build: '1.0.2' })]);
 
     expect(
       await screen.findByText('MQTT could not draw this card: the broker is on fire'),

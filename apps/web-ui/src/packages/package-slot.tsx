@@ -32,7 +32,7 @@ export type PackageSlotTarget =
 /** What the slot needs. */
 export type PackageSlotProps = {
   /** The package, at the release installed. */
-  readonly found: Pick<InstalledPackage, 'id' | 'version' | 'name' | 'ui'>;
+  readonly found: Pick<InstalledPackage, 'id' | 'version' | 'build' | 'name' | 'ui'>;
 
   /** What to draw of it. */
   readonly target: PackageSlotTarget;
@@ -148,7 +148,7 @@ export function PackageSlot(props: PackageSlotProps) {
   const [portal, setPortal] = useState<HTMLElement | null>(null);
   const which = componentTargetOf(target);
   const component = useQuery({
-    queryKey: ['package-ui', found.id, found.version, which],
+    queryKey: ['package-ui', found.id, found.build, which],
     staleTime: Infinity,
     gcTime: Infinity,
     retry: false,
@@ -187,7 +187,7 @@ export function PackageSlot(props: PackageSlotProps) {
         value={{ id: found.id, version: found.version, name: found.name }}
         portal={portal}
       >
-        <PackageBoundary key={found.version} renderProblem={renderProblem}>
+        <PackageBoundary key={found.build} renderProblem={renderProblem}>
           <Suspense fallback={loading}>
             <Drawn {...target.props} />
           </Suspense>

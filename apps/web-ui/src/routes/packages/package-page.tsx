@@ -172,7 +172,11 @@ function Header(props: HeaderProps) {
             <span key="id" className="font-mono">
               {found.id}
             </span>,
-            <span key="version" className="tabular">
+            <span
+              key="version"
+              className="tabular"
+              title={found.source === 'local' ? `Build ${found.build}` : undefined}
+            >
               v{found.version}
             </span>,
             <span key="source">{SOURCE_LABELS[found.source]}</span>,
@@ -458,6 +462,8 @@ export function PackagePage() {
   const found = detail.data;
   const offered = available.data?.items.find((each) => each.id === packageId);
   const newer = offered?.hasUpdate === true ? offered.latest?.version : undefined;
+  // Another build of the version installed, in the platform's local folder.
+  const hasNewBuild = newer === undefined && offered?.hasNewBuild === true;
   const isUp = found?.state === 'running' || found?.state === 'starting';
   const problem = control.error ?? update.error;
   const hasSetup = found?.setup !== null && found?.setup !== undefined;
@@ -490,6 +496,18 @@ export function PackagePage() {
             }}
           >
             Update to v{newer}
+          </Button>
+        ) : null}
+        {canInstall && hasNewBuild ? (
+          <Button
+            size="compact"
+            isBusy={update.isPending}
+            title="The local folder holds another build of this version"
+            onClick={() => {
+              update.mutate();
+            }}
+          >
+            Reinstall
           </Button>
         ) : null}
         {canConfigure && isUp ? (

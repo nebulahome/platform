@@ -63,19 +63,24 @@ describe('loadPackageUi', () => {
     await expect(loadPackageUi(found)).resolves.toMatchObject({ sdk: '1.0.0' });
     await loadPackageUi(found);
     expect(importModule).toHaveBeenCalledTimes(1);
-    expect(importModule).toHaveBeenCalledWith('/api/v1/packages/broker-a/ui/1.0.0/index.js');
+    expect(importModule).toHaveBeenCalledWith(
+      '/api/v1/packages/broker-a/ui/1.0.0%2B3f2a9c1d/index.js',
+    );
   });
 
-  it("puts a new release's stylesheet in place of the old one", async () => {
+  it("puts a new build's stylesheet in place of the old one", async () => {
     vi.mocked(importModule).mockResolvedValue({ default: entry() });
 
-    await loadPackageUi(aPackage({ id: 'broker-b', version: '1.0.0' }));
-    await loadPackageUi(aPackage({ id: 'broker-b', version: '1.1.0' }));
+    await loadPackageUi(aPackage({ id: 'broker-b', version: '1.0.0', build: '1.0.0+3f2a9c1d' }));
+    // The same version, built again: another address, imported afresh.
+    await loadPackageUi(aPackage({ id: 'broker-b', version: '1.0.0', build: '1.0.0+77e01b2c' }));
 
     const links = document.head.querySelectorAll('link[data-package="broker-b"]');
 
     expect(links).toHaveLength(1);
-    expect(links[0]?.getAttribute('href')).toBe('/api/v1/packages/broker-b/ui/1.1.0/index.css');
+    expect(links[0]?.getAttribute('href')).toBe(
+      '/api/v1/packages/broker-b/ui/1.0.0%2B77e01b2c/index.css',
+    );
     expect(importModule).toHaveBeenCalledTimes(2);
   });
 

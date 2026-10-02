@@ -202,9 +202,21 @@ export function PackagesPage() {
                     <Badge tone="neutral" size="small">
                       {each.category}
                     </Badge>
+                    {each.latest?.source === 'local' ? (
+                      <Badge tone="warning" size="small">
+                        Local file
+                      </Badge>
+                    ) : null}
                     {each.installedVersion === null ? null : (
-                      <Badge tone={each.hasUpdate ? 'accent' : 'success'} size="small">
-                        {each.hasUpdate ? 'Update out' : 'Installed'}
+                      <Badge
+                        tone={each.hasUpdate || each.hasNewBuild ? 'accent' : 'success'}
+                        size="small"
+                      >
+                        {each.hasUpdate
+                          ? 'Update out'
+                          : each.hasNewBuild
+                            ? 'New build'
+                            : 'Installed'}
                       </Badge>
                     )}
                   </span>

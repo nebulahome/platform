@@ -116,15 +116,16 @@ function withoutDot(name: string): string {
  * The API serves a package's interface from the folder its entry is in, so a file is named from
  * there: with the entry `./ui/index.js`, the stylesheet `./ui/index.css` is `index.css`.
  *
- * @param found - The package, at the release installed.
+ * @param found - The package, at the build installed.
  * @param found.id - Its id.
- * @param found.version - The release: in the address, so an update is loaded fresh.
+ * @param found.build - The build: in the address, so an update - or another build of the same
+ *   version, reinstalled from a local file - is loaded fresh.
  * @param entry - Its interface's entry, as the manifest names it.
  * @param file - The file, as the manifest names it.
  * @returns Its address.
  */
 export function packageFileUrl(
-  found: Pick<InstalledPackage, 'id' | 'version'>,
+  found: Pick<InstalledPackage, 'id' | 'build'>,
   entry: string,
   file: string,
 ): string {
@@ -133,7 +134,7 @@ export function packageFileUrl(
   const relative =
     folder !== '' && name.startsWith(`${folder}/`) ? name.slice(folder.length + 1) : name;
 
-  return `${API_ROOT}${pathOf(found.id)}/ui/${encodeURIComponent(found.version)}/${relative}`;
+  return `${API_ROOT}${pathOf(found.id)}/ui/${encodeURIComponent(found.build)}/${relative}`;
 }
 
 /**

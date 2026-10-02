@@ -145,6 +145,36 @@ describe('PackagesPage', () => {
     ).toBe(true);
   });
 
+  it('marks a release of the local folder, and a new build of what is installed', async () => {
+    const local = {
+      version: '1.0.0',
+      requires: { packages: {}, services: [] },
+      provides: [],
+      publishedAt: new Date('2026-10-02T08:00:00.000Z'),
+      changelogUrl: null,
+      source: 'local' as const,
+    };
+
+    vi.mocked(fetchAvailablePackages).mockResolvedValue({
+      items: [
+        anOffer({ id: 'weather', name: 'Weather', latest: local }),
+        anOffer({
+          id: 'mqtt',
+          name: 'MQTT',
+          installedVersion: '1.0.0',
+          hasNewBuild: true,
+          latest: local,
+        }),
+      ],
+      checkedAt: new Date('2026-10-02T08:00:00.000Z'),
+      error: null,
+    });
+    renderPage('/packages?view=available');
+
+    expect(await screen.findAllByText('Local file')).toHaveLength(2);
+    expect(screen.getByText('New build')).toBeTruthy();
+  });
+
   it('offers no Install to somebody who may only look', async () => {
     renderPage('/packages?view=available', ['package:read']);
 

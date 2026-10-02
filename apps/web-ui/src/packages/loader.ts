@@ -18,7 +18,7 @@ import { packageFileUrl } from '@/packages/api';
 import { importModule } from '@/packages/import-module';
 
 /** What loading a package's interface needs of it. */
-export type LoadablePackage = Pick<InstalledPackage, 'id' | 'version' | 'ui'>;
+export type LoadablePackage = Pick<InstalledPackage, 'id' | 'build' | 'ui'>;
 
 /** A loader of one of a package's components: its chunk, imported. */
 type ComponentLoader = () => Promise<unknown>;
@@ -148,9 +148,9 @@ function entryOf(packageId: string, value: unknown): PackageUiEntry {
 }
 
 /**
- * Imports a package's entry, once per release.
+ * Imports a package's entry, once per build.
  *
- * @param found - The package, at the release installed.
+ * @param found - The package, at the build installed.
  * @returns What it adds.
  * @throws {Error} For a package that adds nothing to the interface, or a module that is not one.
  */
@@ -161,7 +161,7 @@ export async function loadPackageUi(found: LoadablePackage): Promise<PackageUiEn
     throw new Error(`The ${found.id} package adds nothing to the interface`);
   }
 
-  const key = `${found.id}@${found.version}`;
+  const key = `${found.id}@${found.build}`;
   const cached = loaded.get(key);
 
   if (cached !== undefined) {
