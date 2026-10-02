@@ -218,7 +218,8 @@ export class EventFanout {
             event === 'installed' ||
             event === 'removed' ||
             event === 'started' ||
-            event === 'stopped'
+            event === 'stopped' ||
+            event === 'configured'
           ) {
             this.#dispatch('packages', null, { type: 'package_event', event, payload });
           }
