@@ -61,6 +61,14 @@ export const INSTALLED_CONTAINERS_DIRECTORY = 'installed';
  */
 export const COMPOSE_PROJECTS_DIRECTORY = 'compose';
 
+/**
+ * The compose projects packages run, one folder per project - `nebulahome-pkg-<id>` - holding
+ * the package's file, its `.env` and every folder its services keep beside it, under
+ * {@link CONTAINERS_DIRECTORY}: in the configuration section of a backup with the rest of it. No
+ * integration's container may take the name.
+ */
+export const PACKAGE_COMPOSE_DIRECTORY = 'packages';
+
 /** The instance keys, for an installation that keeps them in files rather than the environment. */
 export const SECRETS_DIRECTORY = 'secrets';
 
