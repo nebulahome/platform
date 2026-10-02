@@ -85,6 +85,9 @@
     },
     "tailwindcss": {
       "optional": true
+    },
+    "vite": {
+      "optional": true
     }
   },
   "devDependencies": {
