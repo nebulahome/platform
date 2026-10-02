@@ -60,6 +60,7 @@ writeFileSync(path.join(FAKE_PACKAGE_ROOT, 'secret.txt'), 'not for the browser')
 export const MQTT_PACKAGE: InstalledPackage = {
   id: 'mqtt',
   version: '1.0.0',
+  build: '1.0.0+3f2a9c1d',
   name: 'MQTT',
   description: 'The broker.',
   category: 'protocol',

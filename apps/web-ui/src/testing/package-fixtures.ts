@@ -13,6 +13,7 @@ export function aPackage(overrides: Partial<ApiPackage> = {}): ApiPackage {
   return {
     id: 'mqtt',
     version: '1.0.0',
+    build: '1.0.0+3f2a9c1d',
     name: 'MQTT',
     description: 'The broker the house talks MQTT through.',
     category: 'protocol',
@@ -79,10 +80,12 @@ export function anOffer(overrides: Partial<AvailablePackage> = {}): AvailablePac
       provides: [],
       publishedAt: new Date('2026-09-20T08:00:00.000Z'),
       changelogUrl: null,
+      source: 'index',
     },
     newestVersion: '1.4.0',
     installedVersion: null,
     hasUpdate: false,
+    hasNewBuild: false,
     ...overrides,
   };
 }

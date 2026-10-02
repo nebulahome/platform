@@ -26,6 +26,10 @@ export type PackageRow = {
   readonly manifest: JsonObject;
   readonly config: JsonObject;
   readonly previousVersion: string | null;
+
+  /** The SHA-256 of the archive it was unpacked from. */
+  readonly artifactSha256: string | null;
+
   readonly lastStartedAt: Date | null;
   readonly lastError: string | null;
   readonly installedAt: Date;
@@ -41,6 +45,7 @@ export type PackageStore = {
     readonly source: PackageSource;
     readonly isSystem: boolean;
     readonly state: PackageState;
+    readonly artifactSha256: string | null;
   }) => Promise<void>;
   readonly update: (
     id: string,
@@ -50,8 +55,10 @@ export type PackageStore = {
         | 'version'
         | 'runtime'
         | 'state'
+        | 'source'
         | 'config'
         | 'previousVersion'
+        | 'artifactSha256'
         | 'lastStartedAt'
         | 'lastError'
       > & { readonly manifest: PackageManifest }
@@ -88,6 +95,7 @@ export function databasePackageStore(db: Database): PackageStore {
         manifest: row.manifest as JsonObject,
         config: row.config as JsonObject,
         previousVersion: row.previousVersion,
+        artifactSha256: row.artifactSha256,
         lastStartedAt: row.lastStartedAt,
         lastError: row.lastError,
         installedAt: row.installedAt,
@@ -109,6 +117,7 @@ export function databasePackageStore(db: Database): PackageStore {
         source: row.source,
         isSystem: row.isSystem,
         manifest: row.manifest,
+        artifactSha256: row.artifactSha256,
       });
     },
 

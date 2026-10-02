@@ -280,6 +280,7 @@ CREATE TABLE system.packages (
   manifest         jsonb       NOT NULL,   -- packageManifestSchema
   config           jsonb       NOT NULL DEFAULT '{}'::jsonb,
   previous_version text,
+  artifact_sha256  text,                  -- of the archive it was unpacked from
   last_started_at  timestamptz,
   last_error       text,
   installed_at     timestamptz NOT NULL DEFAULT now(),
@@ -292,6 +293,7 @@ CREATE TABLE system.packages (
     'installed', 'starting', 'running', 'stopped', 'failed', 'disabled', 'waiting-dependency'
   )),
   CONSTRAINT packages_source CHECK (source IN ('builtin', 'index', 'local')),
+  CONSTRAINT packages_artifact_sha256 CHECK (artifact_sha256 ~ '^[0-9a-f]{64}$'),
   CONSTRAINT packages_system_is_builtin CHECK (NOT is_system OR source = 'builtin')
 );
 

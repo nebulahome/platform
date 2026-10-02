@@ -3,7 +3,7 @@
  * image's packages started in order, one installed from the index with what it needs, a package
  * waiting for another and following it down and up, and removals refused and made.
  */
-import { rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -28,6 +28,7 @@ import { createLogger } from '@nebulahome/logging';
 import { packetManagerEnvSchema } from './config.js';
 import { PacketManager } from './service.js';
 import { PackageIndexClient } from './services/index-client.js';
+import { LocalReleases } from './services/local-releases.js';
 import {
   archiveOf,
   fakeRunner,
@@ -187,6 +188,7 @@ async function setUp(): Promise<{
   });
   const store = memoryStore();
   const runner = await fakeRunner(work);
+  const local = new LocalReleases(path.join(work, 'local'), logger);
 
   /**
    * A packet-manager over this store, bus and folders: the one set up, or one started after it.
@@ -204,6 +206,7 @@ async function setUp(): Promise<{
         ttlMs: 60_000,
         logger,
         fetch,
+        local: async () => local.entries(),
       }),
       secretsKey: Buffer.alloc(32, 1),
       runner,
@@ -421,6 +424,55 @@ describe('the packet-manager', () => {
     expect((await manager.get('mqtt')).usedBy).toEqual([
       { kind: 'package', id: 'zigbee-tools', name: 'ZIGBEE-TOOLS' },
     ]);
+  });
+
+  it('installs a local file, and another build of its version over it', async () => {
+    const { manager, work } = await setUp();
+    const source = await writePackage(
+      path.join(work, 'weather'),
+      manifest({ id: 'weather', version: '0.3.0' }),
+    );
+    const file = path.join(work, 'local', 'weather-0.3.0.tgz');
+
+    await mkdir(path.join(work, 'local'));
+    await archiveOf(source, file);
+    await manager.start();
+
+    /**
+     * What the store offers of the package.
+     *
+     * @returns Its item.
+     */
+    const offered = async () =>
+      (await manager.available()).items.find((item) => item.id === 'weather');
+
+    expect(await offered()).toMatchObject({
+      latest: { version: '0.3.0', source: 'local' },
+      hasNewBuild: false,
+    });
+
+    const [installed] = await manager.install('weather');
+
+    expect(installed).toMatchObject({ source: 'local', state: 'running' });
+    expect(installed?.build).toMatch(/^0\.3\.0\+[0-9a-f]{8}$/u);
+
+    await writeFile(path.join(source, 'ui', 'index.js'), 'export default { rebuilt: true };\n');
+    await archiveOf(source, file);
+
+    expect(await offered()).toMatchObject({ hasUpdate: false, hasNewBuild: true });
+
+    const rebuilt = await manager.update('weather');
+
+    expect(rebuilt).toMatchObject({ version: '0.3.0', state: 'running' });
+    expect(rebuilt.build).not.toBe(installed?.build);
+    expect(
+      await readFile(
+        path.join(work, 'data', 'packages', 'weather', '0.3.0', 'ui', 'index.js'),
+        'utf8',
+      ),
+    ).toContain('rebuilt');
+    expect(await offered()).toMatchObject({ hasNewBuild: false });
+    await expect(manager.update('weather')).rejects.toThrow(/is the newest release/u);
   });
 
   it('takes a package down with what it needs, and back up with it', async () => {

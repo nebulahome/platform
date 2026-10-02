@@ -15,10 +15,16 @@ import { assertSchemaVersion, createDatabase, secretsKeyFrom } from '@nebulahome
 import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { servePacketManager } from './bus-service.js';
-import { packetManagerEnvSchema, SERVICE_NAME, SERVICE_VERSION } from './config.js';
+import {
+  localPackagesDirectory,
+  packetManagerEnvSchema,
+  SERVICE_NAME,
+  SERVICE_VERSION,
+} from './config.js';
 import { databasePackageStore } from './persistence/packages.js';
 import { PacketManager } from './service.js';
 import { PackageIndexClient } from './services/index-client.js';
+import { LocalReleases } from './services/local-releases.js';
 
 /** How long a graceful shutdown is given before the process ends regardless. */
 const SHUTDOWN_TIMEOUT_MS = 20_000;
@@ -89,6 +95,8 @@ async function start(): Promise<void> {
   });
   const client = new BusClient({ transport: bus.transport, source: SERVICE_NAME, logger });
   const layout = resolveDataLayout(config);
+  const localFolder = localPackagesDirectory(config);
+  const local = new LocalReleases(localFolder, logger);
   const service = new PacketManager({
     config,
     store: databasePackageStore(database.db),
@@ -98,6 +106,13 @@ async function start(): Promise<void> {
       url: config.PACKAGE_INDEX_URL,
       ttlMs: config.PACKET_MANAGER_INDEX_TTL_MS,
       logger,
+
+      /**
+       * The local folder's releases.
+       *
+       * @returns Them, in the index's shape.
+       */
+      local: async () => local.entries(),
     }),
     secretsKey: secretsKeyFrom(config.NEBULA_SECRETS_KEY),
     runner:
@@ -111,7 +126,10 @@ async function start(): Promise<void> {
   const subscriptions = servePacketManager(client, service);
 
   await service.start();
-  logger.info({ platform: service.platformVersion }, 'The packet-manager is serving');
+  logger.info(
+    { platform: service.platformVersion, localFolder: localFolder ?? null },
+    'The packet-manager is serving',
+  );
 
   let isStopping = false;
 

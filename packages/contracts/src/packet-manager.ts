@@ -151,6 +151,14 @@ export type PackageRelation = z.output<typeof packageRelationSchema>;
 export const installedPackageSchema = z.object({
   id: packageIdSchema,
   version: semverSchema,
+
+  /**
+   * The release and the archive it came from, `<version>+<first 8 of its SHA-256>`: in the
+   * address of its interface's files, so that a new build of the same version - a local file
+   * reinstalled - is loaded fresh.
+   */
+  build: z.string().min(1).max(96),
+
   name: z.string().min(1).max(64),
   description: z.string().min(1).max(512),
   category: z.enum(PACKAGE_CATEGORIES),
@@ -223,7 +231,7 @@ export const packageDetailSchema = installedPackageSchema.extend({
 /** One installed package, for its page. */
 export type PackageDetail = z.output<typeof packageDetailSchema>;
 
-/** A package the index offers. */
+/** A package the index offers - or a local file, beside it. */
 export const availablePackageSchema = z.object({
   id: packageIdSchema,
   name: z.string().min(1).max(64),
@@ -240,6 +248,9 @@ export const availablePackageSchema = z.object({
       provides: z.array(packageServiceNameSchema),
       publishedAt: timestampSchema,
       changelogUrl: z.string().max(1024).nullable(),
+
+      /** Whether it is a local file rather than a release of the index. */
+      source: z.enum(['index', 'local']),
     })
     .nullable(),
 
@@ -251,6 +262,12 @@ export const availablePackageSchema = z.object({
 
   /** Whether a newer compatible release than the one installed is out. */
   hasUpdate: z.boolean(),
+
+  /**
+   * Whether a local file holds another build of the version installed - the same version, other
+   * bytes - which updating reinstalls.
+   */
+  hasNewBuild: z.boolean(),
 });
 
 /** A package the index offers. */

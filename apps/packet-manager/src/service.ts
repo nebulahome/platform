@@ -69,6 +69,7 @@ import {
   type PackageIndex,
   type PackagePlanReply,
   type PackageRelation,
+  type PackageRelease,
   type PackageRpcMethod,
   type PackageState,
 } from '@nebulahome/contracts';
@@ -150,6 +151,28 @@ function isMask(value: unknown): boolean {
   return (
     typeof value === 'object' && value !== null && '$sealed' in value && value.$sealed === true
   );
+}
+
+/**
+ * Where a release comes from, by its archive's address: a file of the local folder, or the index.
+ *
+ * @param url - The archive's address.
+ * @returns The source.
+ */
+function sourceOf(url: string): 'index' | 'local' {
+  return url.startsWith('file:') ? 'local' : 'index';
+}
+
+/**
+ * A package's build: its version and the archive it was unpacked from.
+ *
+ * @param row - Its row.
+ * @returns `<version>+<first 8 of the archive's SHA-256>`, or the version alone without one.
+ */
+function buildOf(row: Pick<PackageRow, 'version' | 'artifactSha256'>): string {
+  return row.artifactSha256 === null
+    ? row.version
+    : `${row.version}+${row.artifactSha256.slice(0, 8)}`;
 }
 
 /** The packages. */
@@ -270,7 +293,8 @@ export class PacketManager {
           compareVersions(right.version, left.version),
         )[0];
         const latest = fitting[0];
-        const installed = this.#entries.get(entry.id)?.row.version ?? null;
+        const row = this.#entries.get(entry.id)?.row;
+        const installed = row?.version ?? null;
 
         return {
           id: entry.id,
@@ -288,6 +312,7 @@ export class PacketManager {
                   provides: latest.provides,
                   publishedAt: latest.publishedAt,
                   changelogUrl: latest.changelogUrl ?? null,
+                  source: sourceOf(latest.artifact.url),
                 },
           newestVersion: newest?.version ?? '0.0.0',
           installedVersion: installed,
@@ -295,6 +320,7 @@ export class PacketManager {
             installed !== null &&
             latest !== undefined &&
             compareVersions(latest.version, installed) > 0,
+          hasNewBuild: row !== undefined && this.#newBuild(read.index, row) !== undefined,
         };
       }),
       checkedAt: read.checkedAt,
@@ -389,6 +415,16 @@ export class PacketManager {
 
       const read = await this.#options.index.read(true);
       const release = this.#newestRelease(read.index, packageId);
+      const rebuilt = this.#newBuild(read.index, entry.row);
+
+      if (
+        rebuilt !== undefined &&
+        (release === undefined || compareVersions(release.version, entry.row.version) <= 0)
+      ) {
+        await this.#reinstall(entry, rebuilt);
+
+        return this.#viewOf(entry, await this.#vendors());
+      }
 
       if (release === undefined || compareVersions(release.version, entry.row.version) <= 0) {
         throw new ConflictError(
@@ -431,6 +467,8 @@ export class PacketManager {
         runtime: files.manifest.runtime,
         manifest: files.manifest,
         previousVersion: previous,
+        source: sourceOf(release.artifact.url),
+        artifactSha256: release.artifact.sha256,
         state: 'installed',
         lastError: null,
       });
@@ -439,6 +477,8 @@ export class PacketManager {
         version: files.manifest.version,
         runtime: files.manifest.runtime,
         previousVersion: previous,
+        source: sourceOf(release.artifact.url),
+        artifactSha256: release.artifact.sha256,
         state: 'installed',
       };
       entry.files = files;
@@ -732,6 +772,7 @@ export class PacketManager {
           source: 'builtin',
           isSystem: true,
           state: 'installed',
+          artifactSha256: null,
         });
       } else if (row.version !== manifest.version || row.source !== 'builtin') {
         // eslint-disable-next-line no-await-in-loop -- see above
@@ -816,6 +857,7 @@ export class PacketManager {
       manifest: manifest as unknown as JsonObject,
       config: {},
       previousVersion: null,
+      artifactSha256: null,
       lastStartedAt: null,
       lastError: null,
       installedAt: now,
@@ -1093,9 +1135,16 @@ export class PacketManager {
       runtime: files.manifest.runtime,
       manifest: files.manifest,
       previousVersion: failedVersion,
+      // The archive of the release gone back to is not kept: its build is its version.
+      artifactSha256: null,
       lastError: `${failedVersion} failed to run (${reason}); went back to ${target.version}`,
     });
-    entry.row = { ...entry.row, version: target.version, previousVersion: failedVersion };
+    entry.row = {
+      ...entry.row,
+      version: target.version,
+      previousVersion: failedVersion,
+      artifactSha256: null,
+    };
     entry.files = files;
     entry.process = undefined;
     await this.#startOne(entry);
@@ -1383,15 +1432,18 @@ export class PacketManager {
       await this.#options.store.insert({
         id: candidate.id,
         manifest: files.manifest,
-        source: 'index',
+        source: sourceOf(release.artifact.url),
         isSystem: false,
         state: 'installed',
+        artifactSha256: release.artifact.sha256,
       });
     } else {
       await this.#options.store.update(candidate.id, {
         version: files.manifest.version,
         runtime: files.manifest.runtime,
         manifest: files.manifest,
+        source: sourceOf(release.artifact.url),
+        artifactSha256: release.artifact.sha256,
         state: 'installed',
       });
     }
@@ -1426,6 +1478,74 @@ export class PacketManager {
       .find((entry) => entry.id === packageId)
       ?.versions.filter((release) => this.#fits(release))
       .sort((left, right) => compareVersions(right.version, left.version))[0];
+  }
+
+  /**
+   * Another build of the version a package has installed, in the local folder: the same version,
+   * other bytes.
+   *
+   * @param index - The index, the local folder's releases in it.
+   * @param row - The package's row.
+   * @returns The release, or undefined when there is none.
+   */
+  #newBuild(index: PackageIndex | null, row: PackageRow): PackageRelease | undefined {
+    return index?.packages
+      .find((entry) => entry.id === row.id)
+      ?.versions.find(
+        (release) =>
+          release.version === row.version &&
+          sourceOf(release.artifact.url) === 'local' &&
+          release.artifact.sha256 !== row.artifactSha256 &&
+          this.#fits(release),
+      );
+  }
+
+  /**
+   * Installs another build of the version a package runs: its process stopped, the archive
+   * unpacked over the release's folder, and started again. There is no going back to the build
+   * before - it is a build being tried.
+   *
+   * @param entry - The package.
+   * @param release - The build, from the local folder.
+   * @returns Once it is starting.
+   */
+  async #reinstall(entry: Entry, release: PackageRelease): Promise<void> {
+    await this.#stopProcess(entry);
+
+    const files = await installRelease(
+      { id: entry.row.id, version: release.version, artifact: release.artifact },
+      this.#options.packagesDir,
+      {
+        timeoutMs: this.#options.config.PACKET_MANAGER_DOWNLOAD_TIMEOUT_MS,
+        ...this.#fetchOption(),
+      },
+    );
+
+    await this.#options.store.update(entry.row.id, {
+      runtime: files.manifest.runtime,
+      manifest: files.manifest,
+      source: 'local',
+      artifactSha256: release.artifact.sha256,
+      state: 'installed',
+      lastError: null,
+    });
+    entry.row = {
+      ...entry.row,
+      runtime: files.manifest.runtime,
+      source: 'local',
+      artifactSha256: release.artifact.sha256,
+      state: 'installed',
+    };
+    entry.files = files;
+    entry.process = undefined;
+    entry.rollbackTo = undefined;
+    this.#publish('installed', entry);
+    this.#options.logger.info(
+      { package: entry.row.id, version: release.version, build: buildOf(entry.row) },
+      'Installed another build of a package',
+    );
+    await this.#reconcileContainers();
+    await this.#startOne(entry);
   }
 
   /**
@@ -1587,6 +1707,7 @@ export class PacketManager {
     return {
       id: manifest.id,
       version: entry.row.version,
+      build: buildOf(entry.row),
       name: manifest.name,
       description: manifest.description,
       category: manifest.category,

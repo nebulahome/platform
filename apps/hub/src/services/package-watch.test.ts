@@ -31,6 +31,7 @@ function broker(state: InstalledPackage['state']): InstalledPackage {
   return {
     id: 'mqtt',
     version: '1.0.0',
+    build: '1.0.0',
     name: 'MQTT',
     description: 'The broker.',
     category: 'protocol',

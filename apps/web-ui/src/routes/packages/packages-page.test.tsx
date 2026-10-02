@@ -85,6 +85,7 @@ beforeEach(() => {
           provides: ['mqtt-broker'],
           publishedAt: new Date('2026-09-25T08:00:00.000Z'),
           changelogUrl: null,
+          source: 'index',
         },
       }),
       anOffer(),

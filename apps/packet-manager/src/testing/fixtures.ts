@@ -156,6 +156,7 @@ export function memoryStore(): PackageStore & { readonly rows: Map<string, Packa
         manifest: row.manifest as unknown as JsonObject,
         config: {},
         previousVersion: null,
+        artifactSha256: row.artifactSha256,
         lastStartedAt: null,
         lastError: null,
         installedAt: now,

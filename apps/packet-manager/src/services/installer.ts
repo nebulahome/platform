@@ -2,20 +2,22 @@
  * Installing one release: downloading its archive, checking it, and unpacking it.
  *
  * The archive is a GitHub release asset, fetched over HTTPS - following GitHub's redirect to
- * where it keeps the bytes - to a file in the package's folder, its SHA-256 and its size counted
- * as it arrives. Only an archive whose size and digest are the index's is unpacked; any other is
+ * where it keeps the bytes - or a file of the platform's local folder (`file:`, which only the
+ * packet-manager itself names: the index takes HTTPS alone). Either is copied to a file in the
+ * package's folder, its SHA-256 and its size counted as it arrives. Only an archive whose size and digest are the index's is unpacked; any other is
  * deleted and refused, naming the two digests. It is unpacked beside the folder it goes to, and
  * moved into place only once whole, so a failure halfway leaves no half-installed release where
  * the packet-manager would find it. Links are not unpacked: an archive of files is all a package
  * needs, and a link is the one entry that could point outside its folder.
  */
 import { createHash } from 'node:crypto';
-import { createWriteStream } from 'node:fs';
+import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
+import { fileURLToPath } from 'node:url';
 
 import { extract } from 'tar';
 
@@ -35,6 +37,31 @@ export type DownloadOptions = {
 };
 
 /**
+ * The bytes of an archive: a local file's, or what its address answers.
+ *
+ * @param artifact - Where it is.
+ * @param options - The HTTP client and how long it may take.
+ * @returns A stream of its bytes.
+ * @throws {Error} When it cannot be downloaded.
+ */
+async function bytesOf(artifact: PackageArtifact, options: DownloadOptions): Promise<Readable> {
+  if (artifact.url.startsWith('file:')) {
+    return createReadStream(fileURLToPath(artifact.url));
+  }
+
+  const response = await (options.fetch ?? globalThis.fetch)(artifact.url, {
+    redirect: 'follow',
+    signal: AbortSignal.timeout(options.timeoutMs),
+  });
+
+  if (!response.ok || response.body === null) {
+    throw new Error(`The archive answered HTTP ${String(response.status)}: ${artifact.url}`);
+  }
+
+  return Readable.fromWeb(response.body as WebReadableStream<Uint8Array>);
+}
+
+/**
  * Downloads an archive to a file, checking its size and digest.
  *
  * @param artifact - Where it is, how large, its SHA-256.
@@ -49,15 +76,7 @@ export async function downloadArtifact(
   file: string,
   options: DownloadOptions,
 ): Promise<void> {
-  const response = await (options.fetch ?? globalThis.fetch)(artifact.url, {
-    redirect: 'follow',
-    signal: AbortSignal.timeout(options.timeoutMs),
-  });
-
-  if (!response.ok || response.body === null) {
-    throw new Error(`The archive answered HTTP ${String(response.status)}: ${artifact.url}`);
-  }
-
+  const source = await bytesOf(artifact, options);
   const hash = createHash('sha256');
   let size = 0;
   const counter = new Transform({
@@ -87,11 +106,7 @@ export async function downloadArtifact(
   });
 
   try {
-    await pipeline(
-      Readable.fromWeb(response.body as WebReadableStream<Uint8Array>),
-      counter,
-      createWriteStream(file),
-    );
+    await pipeline(source, counter, createWriteStream(file));
   } catch (error: unknown) {
     await rm(file, { force: true });
 

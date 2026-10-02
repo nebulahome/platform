@@ -46,7 +46,7 @@ function migrationColumns(qualified: string): [string, string][] {
 
   const body = sql.slice(opening, sql.indexOf('\n);', opening));
 
-  return [...body.matchAll(/^ {2}([a-z_]+)\s+(\S.*)$/gm)]
+  return [...body.matchAll(/^ {2}([a-z_][a-z0-9_]*)\s+(\S.*)$/gm)]
     .map(([, name, definition]): [string, string] => [name ?? '', definition ?? ''])
     .filter(([name]) => !CLAUSE_KEYWORDS.has(name));
 }

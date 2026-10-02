@@ -44,10 +44,14 @@ services:
         required: false
     environment:
       HUB_DISCOVERY_ENABLED: ${HUB_DISCOVERY_ENABLED:-false}
+      PACKET_MANAGER_LOCAL_DIR: /app/local-packages
     volumes:
       - nebula-data:/data
       - nebula-postgres:/var/lib/postgresql/data
       - nebula-nats:/var/lib/nats
+      # Packages to try before they are released: <id>-<version>.tgz files put in
+      # infra/local-packages, offered in the store beside the index's (local-packages/README.md).
+      - ./local-packages:/app/local-packages:ro
       # Docker's socket, for the supervisor: the Containers page, and the containers integrations
       # need (zigbee2mqtt). It is root on this machine - only the supervisor, running as root,
       # holds it. Remove the line to keep Docker out of reach; the page then says so.

@@ -13,3 +13,4 @@
 !**/.env.example
 infra/data
 infra/certs
+infra/local-packages

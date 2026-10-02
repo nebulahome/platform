@@ -59,6 +59,12 @@ export const packages = systemSchema.table(
     /** What was running before an update, so a failed one is reverted by reinstalling it. */
     previousVersion: text('previous_version'),
 
+    /**
+     * The SHA-256 of the archive it was unpacked from: a local file of the same version with
+     * other bytes is a new build, and its interface is served under another address.
+     */
+    artifactSha256: text('artifact_sha256'),
+
     lastStartedAt: timestamp('last_started_at', { withTimezone: true }),
     lastError: text('last_error'),
     installedAt: timestamp('installed_at', { withTimezone: true }).notNull().defaultNow(),

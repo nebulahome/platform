@@ -33,6 +33,12 @@ const DEVELOPMENT_BUILTIN_DIR = path.resolve(
   '../../../pkgs',
 );
 
+/** The repository's `infra/local-packages/`, from where this file is built or run. */
+const REPOSITORY_LOCAL_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../infra/local-packages',
+);
+
 /** Everything `packet-manager` needs from the environment. */
 export const packetManagerEnvSchema = runtimeEnvSchema
   .extend(databaseEnvSchema.shape)
@@ -47,6 +53,18 @@ export const packetManagerEnvSchema = runtimeEnvSchema
      * nothing is offered but the packages the platform ships.
      */
     PACKAGE_INDEX_URL: urlWithScheme(['https:', 'http:']).optional(),
+
+    /**
+     * The local folder: releases put there by hand (`<id>-<version>.tgz`, as `nebulahome-package
+     * pack` writes them), offered beside the index's, to try a package before it is released.
+     * Absent, the repository's `infra/local-packages` outside production and none in production.
+     * Absolute, for the reason `NEBULA_DATA_DIR` is. See {@link localPackagesDirectory}.
+     */
+    PACKET_MANAGER_LOCAL_DIR: z
+      .string()
+      .min(1)
+      .refine((value) => path.isAbsolute(value), 'Must be an absolute path')
+      .optional(),
 
     /** How long the index is trusted before it is read again. */
     PACKET_MANAGER_INDEX_TTL_MS: z.coerce
@@ -94,3 +112,18 @@ export const packetManagerEnvSchema = runtimeEnvSchema
 
 /** Everything `packet-manager` needs from the environment. */
 export type PacketManagerConfig = z.output<typeof packetManagerEnvSchema>;
+
+/**
+ * Where the local folder is, if anywhere.
+ *
+ * @param config - The parsed environment.
+ * @returns `PACKET_MANAGER_LOCAL_DIR` when given; otherwise the repository's
+ * `infra/local-packages` outside production, and none in production.
+ */
+export function localPackagesDirectory(config: PacketManagerConfig): string | undefined {
+  if (config.PACKET_MANAGER_LOCAL_DIR !== undefined) {
+    return config.PACKET_MANAGER_LOCAL_DIR;
+  }
+
+  return config.NODE_ENV === 'production' ? undefined : REPOSITORY_LOCAL_DIR;
+}
