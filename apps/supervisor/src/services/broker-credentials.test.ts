@@ -1,12 +1,18 @@
 /**
- * The username a container is given on the house's broker, against a broker on a bus in memory.
+ * The username a container is given on the house's broker - whichever package provides
+ * `mqtt-broker` - against a packet-manager and a broker on a bus in memory.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { BusClient, type BusSubscription } from '@nebulahome/bus';
 import { FakeTransport } from '@nebulahome/bus/testing';
-import { busSubjects, type ManagedContainerSpec } from '@nebulahome/contracts';
+import {
+  busSubjects,
+  PACKET_MANAGER_METHODS,
+  PACKET_MANAGER_SERVICE,
+  type ManagedContainerSpec,
+} from '@nebulahome/contracts';
 import { createLogger } from '@nebulahome/logging';
 
 import { brokerFor, speaksMqtt } from './broker-credentials.js';
@@ -38,22 +44,77 @@ afterEach(() => {
 });
 
 /**
- * A supervisor's bus client and, when asked, the broker answering on the same bus.
+ * A package as the packet-manager lists it, with what matters here.
  *
- * @param isBrokerUp - Whether the broker answers.
+ * @param id - Its id.
+ * @param provides - What it provides.
+ * @returns It.
+ */
+function listed(id: string, provides: string[]): Record<string, unknown> {
+  return {
+    id,
+    version: '1.0.0',
+    build: '1.0.0',
+    name: id,
+    description: `The ${id} package.`,
+    category: 'protocol',
+    runtime: 'node',
+    state: 'running',
+    source: 'local',
+    isSystem: provides.length > 0,
+    repository: null,
+    url: null,
+    color: null,
+    hasLogo: false,
+    ui: null,
+    entityTypes: [],
+    requires: { packages: {}, services: [] },
+    provides,
+    hasSetup: false,
+    previousVersion: null,
+    lastStartedAt: null,
+    lastError: null,
+    installedAt: '2026-10-02T08:00:00Z',
+    updatedAt: '2026-10-02T08:00:00Z',
+    rpcMethods: [],
+    problems: [],
+    usedBy: [],
+    dependsOn: [],
+  };
+}
+
+/**
+ * A supervisor's bus client, the packet-manager listing the packages, and - when asked - the
+ * package that provides the broker answering on the same bus.
+ *
+ * @param broker - The package that provides `mqtt-broker`; none when not said.
  * @returns The client, and what the broker was asked.
  */
-function harness(isBrokerUp: boolean): { client: BusClient; asked: unknown[] } {
+function harness(broker?: string): { client: BusClient; asked: unknown[] } {
   const transport = new FakeTransport();
   const logger = createLogger({ service: 'supervisor', version: '0.0.0', level: 'fatal' });
   const client = new BusClient({ transport, source: 'supervisor', logger, requestTimeoutMs: 300 });
+  const packetManager = new BusClient({ transport, source: 'packet-manager', logger });
   const asked: unknown[] = [];
 
-  if (isBrokerUp) {
-    const broker = new BusClient({ transport, source: 'mqtt', logger, requestTimeoutMs: 300 });
+  subscriptions.push(
+    packetManager.serve(
+      busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.list),
+      z.unknown(),
+      () => ({
+        items: [
+          listed('cards', []),
+          ...(broker === undefined ? [] : [listed(broker, ['mqtt-broker'])]),
+        ],
+      }),
+    ),
+  );
+
+  if (broker !== undefined) {
+    const answering = new BusClient({ transport, source: broker, logger });
 
     subscriptions.push(
-      broker.serve(busSubjects.service('mqtt', 'credentials'), z.unknown(), (request) => {
+      answering.serve(busSubjects.service(broker, 'credentials'), z.unknown(), (request) => {
         asked.push(request);
 
         return { username: 'nebula-vendor-zigbee2mqtt', password: 'p4ss', port: 1883 };
@@ -66,7 +127,8 @@ function harness(isBrokerUp: boolean): { client: BusClient; asked: unknown[] } {
 
 describe('brokerFor', () => {
   it('asks the house broker for a username held to the topics the container names', async () => {
-    const { client, asked } = harness(true);
+    // Whichever package provides the service: not only the one named mqtt.
+    const { client, asked } = harness('mosquitto');
 
     await expect(brokerFor(client, ZIGBEE)).resolves.toEqual({
       url: 'mqtt://127.0.0.1:1883',
@@ -82,12 +144,12 @@ describe('brokerFor', () => {
     ]);
   });
 
-  it("leaves the platform's broker in place when the house broker does not answer", async () => {
-    await expect(brokerFor(harness(false).client, ZIGBEE)).resolves.toBeUndefined();
+  it('gives no broker while no package provides one', async () => {
+    await expect(brokerFor(harness().client, ZIGBEE)).resolves.toBeUndefined();
   });
 
   it('asks nothing for a container that does not speak MQTT', async () => {
-    const { client, asked } = harness(true);
+    const { client, asked } = harness('mqtt');
     const quiet = { ...ZIGBEE, env: [{ name: 'TZ', value: '{platform.timezone}' }] };
 
     expect(speaksMqtt(quiet)).toBe(false);

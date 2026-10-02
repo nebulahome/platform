@@ -427,7 +427,8 @@ export class ManagedContainers {
     const key = keyOf(spec.ownerKind, spec.vendorId, spec.dependencyId);
     const name = managedName(spec);
     const platform = this.#options.context();
-    const broker = platform === null ? undefined : await this.#options.brokerFor?.(spec);
+    // A broker the environment names is the one; the house's is asked only without it.
+    const broker = platform?.mqtt === null ? await this.#options.brokerFor?.(spec) : undefined;
     const context =
       platform === null || broker === undefined ? platform : { ...platform, mqtt: broker };
 

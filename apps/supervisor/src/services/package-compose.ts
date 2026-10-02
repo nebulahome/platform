@@ -120,9 +120,11 @@ export class PackageCompose {
       return;
     }
 
-    const broker = declared.file.includes('NEBULA_PLATFORM_MQTT')
-      ? await brokerForPackage(this.#options.client, declared.packageId)
-      : undefined;
+    // A broker the environment names is the one; the house's is asked only without it.
+    const broker =
+      context.mqtt === null && declared.file.includes('NEBULA_PLATFORM_MQTT')
+        ? await brokerForPackage(this.#options.client, declared.packageId)
+        : undefined;
     const env = composeEnv({
       ...platformVariables(broker === undefined ? context : { ...context, mqtt: broker }),
       ...declared.values,

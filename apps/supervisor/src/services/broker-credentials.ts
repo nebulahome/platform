@@ -1,32 +1,32 @@
 /**
- * The broker a managed container reaches, with a username of its own (PACKAGES.md 13).
+ * The broker a managed container reaches, with a username of its own (PACKAGES.md 2, 13).
  *
  * A container that speaks MQTT - its environment or its first configuration names
  * `{platform.mqtt.url}` and the like - is given a username the house's broker made for it,
- * `nebula-vendor-zigbee2mqtt`, held to the topics its declaration names. The broker is
- * `pkg-mqtt`, asked over the bus (`svc.mqtt.credentials`); it answers the port it listens on, and
- * the address is the platform's, which `brokerUrlFor` turns into the one the container reaches it
- * by. When `pkg-mqtt` does not answer, the broker the environment names - an external one, or none
- * - stands in.
+ * `nebula-vendor-zigbee2mqtt`, held to the topics its declaration names. The house's broker is
+ * whichever package provides `mqtt-broker`, found on the packet-manager's list and asked over the
+ * bus (`svc.<package>.credentials`); it answers the port it listens on, and the address is the
+ * platform's, which `brokerUrlFor` turns into the one the container reaches it by. With no such
+ * package, or none that answers, the container goes without one. A broker the environment names
+ * (`NEBULA_MQTT_URL`) is used instead, and nothing is asked: the callers do not ask then.
  */
-import { z } from 'zod';
-
 import type { BusClient } from '@nebulahome/bus';
-import { busSubjects, type ManagedContainerSpec } from '@nebulahome/contracts';
+import {
+  busSubjects,
+  MQTT_BROKER_SERVICE,
+  MQTT_CREDENTIALS_METHOD,
+  mqttCredentialsReplySchema,
+  PACKET_MANAGER_METHODS,
+  PACKET_MANAGER_SERVICE,
+  packageListReplySchema,
+  providerOf,
+  type ManagedContainerSpec,
+  type MqttCredentialsRequest,
+} from '@nebulahome/contracts';
 
 import type { PlatformContext } from '../domain/managed.js';
 
-/** The package that is the house's broker, and its service. */
-const BROKER_PACKAGE = 'mqtt';
-
-/** What it answers. */
-const credentialsReplySchema = z.object({
-  username: z.string().min(1),
-  password: z.string().min(1),
-  port: z.int().min(1).max(65_535),
-});
-
-/** How long the broker has to answer: a container is not held up by it. */
+/** How long the packet-manager and the broker each have to answer: a container is not held up. */
 const TIMEOUT_MS = 3000;
 
 /**
@@ -47,7 +47,7 @@ export function speaksMqtt(spec: ManagedContainerSpec): boolean {
  * @param client - The bus.
  * @param spec - The container's declaration.
  * @returns The broker as the platform reaches it, with the container's username; undefined when
- *   the container does not speak MQTT or the broker did not answer.
+ *   the container does not speak MQTT, or no broker answered.
  */
 export async function brokerFor(
   client: BusClient,
@@ -57,7 +57,11 @@ export async function brokerFor(
     return undefined;
   }
 
-  return credentialsFor(client, `${spec.ownerKind}:${spec.vendorId}`, spec.mqttTopics);
+  return credentialsFor(client, {
+    principal: 'container',
+    owner: `${spec.ownerKind}:${spec.vendorId}`,
+    ...(spec.mqttTopics === undefined ? {} : { topics: [...spec.mqttTopics] }),
+  });
 }
 
 /**
@@ -66,33 +70,50 @@ export async function brokerFor(
  *
  * @param client - The bus.
  * @param packageId - The package.
- * @returns The broker with the project's username; undefined when the broker did not answer.
+ * @returns The broker with the project's username; undefined when no broker answered.
  */
 export async function brokerForPackage(
   client: BusClient,
   packageId: string,
 ): Promise<PlatformContext['mqtt'] | undefined> {
-  return credentialsFor(client, `package:${packageId}`, undefined);
+  return credentialsFor(client, { principal: 'container', owner: `package:${packageId}` });
 }
 
 /**
- * Asks the house's broker for an owner's username.
+ * Asks the house's broker for a username: first which package it is, then that package.
  *
  * @param client - The bus.
- * @param owner - `vendor:<id>` or `package:<id>`.
- * @param topics - The topics it is held to; every topic when undefined.
- * @returns The broker with the username; undefined when the broker did not answer.
+ * @param request - Whose username, held to which topics.
+ * @returns The broker with the username; undefined when there is none, or it did not answer.
  */
 async function credentialsFor(
   client: BusClient,
-  owner: string,
-  topics: readonly string[] | undefined,
+  request: MqttCredentialsRequest,
 ): Promise<PlatformContext['mqtt'] | undefined> {
   try {
+    const listed = await client.request(
+      busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.list),
+      {},
+      packageListReplySchema,
+      { timeoutMs: TIMEOUT_MS },
+    );
+    const provider = providerOf(
+      MQTT_BROKER_SERVICE,
+      listed.items.map((item) => ({
+        id: item.id,
+        provides: item.provides,
+        isRunning: item.state === 'running',
+      })),
+    );
+
+    if (provider === undefined) {
+      return undefined;
+    }
+
     const reply = await client.request(
-      busSubjects.service(BROKER_PACKAGE, 'credentials'),
-      { principal: 'container', owner, ...(topics === undefined ? {} : { topics }) },
-      credentialsReplySchema,
+      busSubjects.service(provider, MQTT_CREDENTIALS_METHOD),
+      request,
+      mqttCredentialsReplySchema,
       { timeoutMs: TIMEOUT_MS },
     );
 
