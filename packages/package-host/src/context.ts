@@ -69,6 +69,7 @@ import type {
   StateChange,
 } from '@nebulahome/package-sdk/server';
 
+import { convertedState, measuredOf, type Measured } from './measurements.js';
 import { check } from './schema.js';
 
 /** How long `core` has to take in a package's devices, unless the package says otherwise. */
@@ -221,6 +222,9 @@ export function createPackageContext(options: PackageContextOptions): PackageCon
   const services = new Map<string, Service>();
   const subscriptions: BusSubscription[] = [];
   const customTypes = new Map<string, string>();
+
+  // The device's unit of each sensor whose numbers are converted to its class's, by entity id.
+  const conversions = new Map<string, Measured['conversion']>();
   const customHandlers = new Map<
     string,
     (command: CustomCommand<Readonly<Record<string, CustomValue>>>) => Awaitable<void>
@@ -617,6 +621,7 @@ export function createPackageContext(options: PackageContextOptions): PackageCon
        * @returns What `core` did.
        */
       sync: async (devices: readonly DeviceInput[], sync = {}) => {
+        const synced = new Map<string, Measured['conversion']>();
         const reply = await client.request(
           busSubjects.service(CORE_SERVICE, CORE_SYNC_PACKAGE_METHOD),
           {
@@ -639,8 +644,12 @@ export function createPackageContext(options: PackageContextOptions): PackageCon
                 }
 
                 const { domain, objectId, ...rest } = entity;
+                const entityId = context.entityId(domain, objectId);
+                const measured = measuredOf(rest);
 
-                return { ...rest, entityId: context.entityId(domain, objectId) };
+                synced.set(entityId, measured.conversion);
+
+                return { ...measured.entity, entityId };
               }),
             })),
           },
@@ -649,6 +658,13 @@ export function createPackageContext(options: PackageContextOptions): PackageCon
         );
 
         customTypes.clear();
+        conversions.clear();
+
+        for (const [entityId, conversion] of synced) {
+          if (conversion !== undefined) {
+            conversions.set(entityId, conversion);
+          }
+        }
 
         for (const entity of devices.flatMap((device) => device.entities)) {
           if ('type' in entity) {
@@ -667,9 +683,20 @@ export function createPackageContext(options: PackageContextOptions): PackageCon
        * @param report - Its attributes and whether it is reachable.
        */
       report: (entityId, state, report = {}) => {
+        const converted = convertedState(state, conversions.get(entityId));
+
+        if (converted === undefined) {
+          logger.debug(
+            { entityId, state },
+            'A number its class’s unit cannot hold is not reported',
+          );
+
+          return;
+        }
+
         client.publish(busSubjects.stateReport(parseEntityId(entityId)), {
           entityId,
-          state,
+          state: converted,
           ...(report.attributes === undefined ? {} : { attributes: report.attributes }),
           ...(report.isAvailable === undefined ? {} : { isAvailable: report.isAvailable }),
           observedAt: new Date().toISOString(),

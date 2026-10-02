@@ -123,6 +123,101 @@ describe("a package's context", () => {
     expect(received[0]?.devices[0]?.entities[0]?.entityId).toBe('binary_sensor.nvr_door_person');
   });
 
+  it('registers a sensor in its class’s unit, and converts the numbers it reports', async () => {
+    const { handle: made, platform, transport } = setUp();
+    const received: SyncPackageRequest[] = [];
+
+    platform.serve(
+      busSubjects.service(CORE_SERVICE, CORE_SYNC_PACKAGE_METHOD),
+      syncPackageRequestSchema,
+      (request) => {
+        received.push(request);
+
+        return { devices: [], refused: [], kept: [] };
+      },
+    );
+
+    /**
+     * A numeric sensor.
+     *
+     * @param objectId - Its object id.
+     * @param fields - Its class and unit.
+     * @param fields.deviceClass - Its class.
+     * @param fields.unitOfMeasurement - The unit its device speaks.
+     * @returns The entity.
+     */
+    const sensor = (
+      objectId: string,
+      fields: { readonly deviceClass?: string; readonly unitOfMeasurement?: string },
+    ) => ({
+      domain: 'sensor' as const,
+      objectId,
+      name: objectId,
+      capabilities: { sensor_numeric: {} },
+      ...fields,
+    });
+
+    await made.context.devices.sync([
+      {
+        externalId: 'meter',
+        name: 'Meter',
+        entities: [
+          sensor('power', { deviceClass: 'power', unitOfMeasurement: 'kW' }),
+          sensor('outside', { deviceClass: 'temperature', unitOfMeasurement: '°F' }),
+          sensor('noise', { deviceClass: 'power', unitOfMeasurement: 'furlongs' }),
+          sensor('missing', { deviceClass: 'energy' }),
+          sensor('plain', { unitOfMeasurement: 'pulses' }),
+        ],
+      },
+    ]);
+
+    const registered = Object.fromEntries(
+      (received[0]?.devices[0]?.entities ?? []).map((entity) => [entity.entityId, entity]),
+    );
+
+    expect(registered['sensor.nvr_power']).toMatchObject({
+      deviceClass: 'power',
+      unitOfMeasurement: 'W',
+      stateClass: 'measurement',
+    });
+    expect(registered['sensor.nvr_outside']).toMatchObject({
+      deviceClass: 'temperature',
+      unitOfMeasurement: '°C',
+    });
+    expect(registered['sensor.nvr_noise']).toMatchObject({ unitOfMeasurement: 'furlongs' });
+    expect(registered['sensor.nvr_noise']).not.toHaveProperty('deviceClass');
+    expect(registered['sensor.nvr_missing']).toMatchObject({
+      deviceClass: 'energy',
+      unitOfMeasurement: 'Wh',
+    });
+    expect(registered['sensor.nvr_plain']).toMatchObject({ unitOfMeasurement: 'pulses' });
+
+    /**
+     * What was published for an entity, last.
+     *
+     * @param entityId - The entity.
+     * @returns Its state.
+     */
+    const lastState = (entityId: string): unknown => {
+      const published = transport.published.findLast(
+        (each) => each.subject === busSubjects.stateReport(parseEntityId(entityId)),
+      );
+      const envelope = JSON.parse(new TextDecoder().decode(published?.data)) as {
+        payload: unknown;
+      };
+
+      return stateReportSchema.parse(envelope.payload).state;
+    };
+
+    made.context.devices.report('sensor.nvr_power', { sensor_numeric: { value: 1.5 } });
+    made.context.devices.report('sensor.nvr_outside', { sensor_numeric: { value: 212 } });
+    made.context.devices.report('sensor.nvr_plain', { sensor_numeric: { value: 7 } });
+
+    expect(lastState('sensor.nvr_power')).toEqual({ sensor_numeric: { value: 1500 } });
+    expect(lastState('sensor.nvr_outside')).toEqual({ sensor_numeric: { value: 100 } });
+    expect(lastState('sensor.nvr_plain')).toEqual({ sensor_numeric: { value: 7 } });
+  });
+
   it('hands the commands core routes to its handler, and reports as the package', async () => {
     const { handle: made, platform, transport } = setUp();
     const commands: unknown[] = [];
