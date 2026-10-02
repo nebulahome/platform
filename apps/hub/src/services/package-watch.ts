@@ -2,7 +2,7 @@
  * Which packages run, for the vendors whose devices need one (PACKAGES.md 7).
  *
  * A vendor's manifest may say what it needs besides itself - `{ "services": ["mqtt-broker"] }`
- * for Zigbee2MQTT, which talks through the broker `pkg-mqtt` runs. Until that runs, the vendor
+ * for Zigbee2MQTT, which talks through the house's broker, a package. Until one runs, the vendor
  * waits: its instances do not start, and fail with the sentence that says which package they wait
  * for, and its page says the same. So this service keeps what the packet-manager says is
  * installed and running - read once when the hub starts, and again at every package event - and

@@ -455,7 +455,8 @@ export class HubService {
     const broker = this.#broker;
     const platform = {
       /**
-       * The house's broker as it stands now: asked of `pkg-mqtt`, which may start after the hub.
+       * The house's broker as it stands now: asked of the package that provides it, which may
+       * start after the hub.
        *
        * @returns It, or null while there is none.
        */
