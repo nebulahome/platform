@@ -270,6 +270,77 @@ describe('the packet-manager', () => {
     expect(store.rows.get('mqtt')).toMatchObject({ source: 'builtin', version: '1.0.0' });
   });
 
+  it('fails a package built against an SDK the platform does not implement', async () => {
+    const { manager, work, again } = await setUp();
+
+    await manager.start();
+    await manager.stop();
+    await writePackage(
+      path.join(work, 'pkgs', 'future'),
+      manifest({ id: 'future', sdk: '^9.0.0' }),
+    );
+
+    const next = again();
+
+    await next.start();
+
+    expect(await next.get('future')).toMatchObject({
+      state: 'failed',
+      lastError: `FUTURE needs the NebulaHome package SDK ^9.0.0; this platform implements ${next.sdkVersion}`,
+    });
+  });
+
+  it('hands a package its settings’ defaults, and a live change without a restart', async () => {
+    const { manager, transport, work, again } = await setUp();
+
+    await manager.start();
+    await manager.stop();
+    await writePackage(
+      path.join(work, 'pkgs', 'ticker'),
+      manifest({
+        id: 'ticker',
+        runtime: 'node',
+        server: { entry: './server/index.js' },
+        setup: './setup.json',
+      }),
+      {
+        transport: {
+          fields: [
+            { key: 'interval', type: 'number', label: 'Interval', default: 10, isLive: true },
+            { key: 'port', type: 'number', label: 'Port', default: 1883 },
+          ],
+        },
+      },
+    );
+
+    const next = again();
+    const told: unknown[] = [];
+    const ticker = new BusClient({ transport, source: 'ticker', logger });
+
+    ticker.serve(busSubjects.service('ticker', 'settings'), z.unknown(), (request) => {
+      told.push(request);
+
+      return {};
+    });
+    await next.start();
+    await next.announce({ packageId: 'ticker', version: '1.0.0', rpcMethods: [] });
+    await vi.waitFor(() => {
+      expect(next.logs('ticker', 20).lines.map((line) => line.text)).toContain(
+        'settings {"interval":10,"port":1883}',
+      );
+    });
+
+    await next.configure('ticker', { interval: 5 });
+
+    expect(told).toEqual([{ values: { interval: 5, port: 1883 }, changed: ['interval'] }]);
+    expect(await states(next)).toMatchObject({ ticker: 'running' });
+
+    await next.configure('ticker', { interval: 5, port: 1884 });
+
+    expect(told).toHaveLength(1);
+    expect(await states(next)).toMatchObject({ ticker: 'starting' });
+  });
+
   it('installs from the index, and says what it needs and why another cannot be', async () => {
     const { manager } = await setUp();
 

@@ -334,6 +334,9 @@ importers:
       '@nebulahome/package-runtime':
         specifier: workspace:*
         version: link:../../packages/package-runtime
+      '@nebulahome/package-sdk':
+        specifier: workspace:*
+        version: link:../../packages/package-sdk
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(postgres@3.4.9)

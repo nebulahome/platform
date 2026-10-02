@@ -28,6 +28,7 @@
  */
 import { mkdir, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 
 import { satisfies } from 'semver';
 import { z } from 'zod';
@@ -47,6 +48,7 @@ import {
   HUB_SERVICE,
   managedReplySchema,
   NotFoundError,
+  PACKAGE_SETTINGS_METHOD,
   packageManifestSchema,
   planInstall,
   startOrder,
@@ -72,6 +74,7 @@ import {
 import { maskSealed, openSecrets } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
 import { renderContainers } from '@nebulahome/package-runtime';
+import { SDK_VERSION } from '@nebulahome/package-sdk';
 
 import type { PacketManagerConfig } from './config.js';
 import { LogRing } from './domain/log-ring.js';
@@ -229,12 +232,11 @@ export class PacketManager {
     error: string | null;
   }> {
     const read = await this.#options.index.read();
-    const { platformVersion } = this;
 
     return {
       items: (read.index?.packages ?? []).map((entry): AvailablePackage => {
         const fitting = entry.versions
-          .filter((release) => satisfies(platformVersion, release.platform))
+          .filter((release) => this.#fits(release))
           .sort((left, right) => compareVersions(right.version, left.version));
         const newest = [...entry.versions].sort((left, right) =>
           compareVersions(right.version, left.version),
@@ -551,7 +553,8 @@ export class PacketManager {
   }
 
   /**
-   * Saves what the owner configured, and starts the package again with it.
+   * Saves what the owner configured, and starts the package again with it - or, when every
+   * field that changed is live and the package runs, hands it the settings instead.
    *
    * @param packageId - The package.
    * @param values - The settings, secrets sealed by `api`.
@@ -560,9 +563,32 @@ export class PacketManager {
   public async configure(packageId: string, values: JsonObject): Promise<InstalledPackage> {
     return this.#serially(async () => {
       const entry = this.#require(packageId);
+      const previous = entry.row.config;
+      const changed = [...new Set([...Object.keys(previous), ...Object.keys(values)])].filter(
+        (key) => !isDeepStrictEqual(previous[key], values[key]),
+      );
+      const live = new Set(
+        [
+          ...(entry.files.setup?.transport.fields ?? []),
+          ...(entry.files.setup?.options.fields ?? []),
+        ]
+          .filter((field) => field.isLive === true)
+          .map((field) => field.key),
+      );
 
       await this.#options.store.update(packageId, { config: values });
       entry.row = { ...entry.row, config: values };
+
+      if (
+        entry.row.state === 'running' &&
+        changed.length > 0 &&
+        changed.every((key) => live.has(key)) &&
+        (await this.#tellSettings(entry, changed))
+      ) {
+        this.#publish('configured', entry);
+
+        return this.#viewOf(entry, await this.#vendors());
+      }
 
       if (entry.row.state !== 'stopped' && entry.row.state !== 'disabled') {
         await this.#stopProcess(entry);
@@ -614,6 +640,31 @@ export class PacketManager {
    */
   public get platformVersion(): string {
     return this.#options.config.NEBULA_PLATFORM_VERSION;
+  }
+
+  /**
+   * The package SDK version this platform implements, without a prerelease: a platform that
+   * implements `1.0.0-rc.2` runs what was built against `^1.0.0`.
+   *
+   * @returns The version.
+   */
+  public get sdkVersion(): string {
+    return SDK_VERSION.split('-')[0] ?? SDK_VERSION;
+  }
+
+  /**
+   * Says whether a release works with this platform: its NebulaHome range, and the SDK it was
+   * built with.
+   *
+   * @param release - Its ranges.
+   * @param release.platform - The NebulaHome versions it works with.
+   * @param release.sdk - The SDK versions it was built against.
+   * @returns True when both are met.
+   */
+  #fits(release: { readonly platform: string; readonly sdk: string }): boolean {
+    return (
+      satisfies(this.platformVersion, release.platform) && satisfies(this.sdkVersion, release.sdk)
+    );
   }
 
   // --- loading ------------------------------------------------------------------------------
@@ -771,6 +822,19 @@ export class PacketManager {
       return;
     }
 
+    if (!satisfies(this.sdkVersion, manifest.sdk)) {
+      await this.#setState(
+        entry,
+        'failed',
+        describeDependencyProblem(
+          { kind: 'sdk', by: manifest.id, range: manifest.sdk, version: this.sdkVersion },
+          () => manifest.name,
+        ),
+      );
+
+      return;
+    }
+
     const problems = unmetRequirements(manifest.id, manifest.requires, this.#nodes(), {
       platformVersion: this.platformVersion,
       satisfies,
@@ -891,17 +955,25 @@ export class PacketManager {
   }
 
   /**
-   * A package's settings, secrets opened, over its setup's constants.
+   * A package's settings, secrets opened, over its setup's constants and its fields' defaults:
+   * a default holds until the owner saves another value.
    *
    * @param entry - The package.
    * @returns The settings.
    */
   #settingsOf(entry: Entry): JsonObject {
     const setup = entry.files.setup;
+    const defaults = Object.fromEntries(
+      [...(setup?.transport.fields ?? []), ...(setup?.options.fields ?? [])].flatMap(
+        (field): [string, JsonObject[string]][] =>
+          'default' in field && field.default !== undefined ? [[field.key, field.default]] : [],
+      ),
+    );
 
     return {
       ...(setup?.transport.constants ?? {}),
       ...(setup?.options.constants ?? {}),
+      ...defaults,
       ...openSecrets(entry.row.config, this.#options.secretsKey),
     };
   }
@@ -1070,12 +1142,38 @@ export class PacketManager {
   }
 
   /**
+   * Hands a running package a live change of its settings.
+   *
+   * @param entry - The package.
+   * @param changed - The keys that changed.
+   * @returns Whether it took them; when it did not, it is started again instead.
+   */
+  async #tellSettings(entry: Entry, changed: readonly string[]): Promise<boolean> {
+    try {
+      await this.#options.client.request(
+        busSubjects.service(entry.row.id, PACKAGE_SETTINGS_METHOD),
+        { values: this.#settingsOf(entry), changed },
+        z.unknown(),
+      );
+
+      return true;
+    } catch (error: unknown) {
+      this.#options.logger.warn(
+        { err: error, package: entry.row.id },
+        'A package did not take its settings live; starting it again',
+      );
+
+      return false;
+    }
+  }
+
+  /**
    * Says a package's event.
    *
    * @param event - What happened.
    * @param entry - The package.
    */
-  #publish(event: 'installed' | 'started' | 'stopped', entry: Entry): void {
+  #publish(event: 'installed' | 'started' | 'stopped' | 'configured', entry: Entry): void {
     this.#options.client.publish(busSubjects.packageEvent(event), {
       packageId: entry.row.id,
       version: entry.row.version,
@@ -1180,6 +1278,7 @@ export class PacketManager {
           id: entry.id,
           version: release.version,
           platform: release.platform,
+          sdk: release.sdk,
           requires: release.requires,
           provides: release.provides,
         })),
@@ -1190,6 +1289,7 @@ export class PacketManager {
       installed: this.#nodes(),
       available,
       platformVersion: this.platformVersion,
+      sdkVersion: this.sdkVersion,
       satisfies,
     });
   }
@@ -1257,7 +1357,7 @@ export class PacketManager {
   }
 
   /**
-   * The newest release of a package that works with this platform.
+   * The newest release of a package that works with this platform and its SDK.
    *
    * @param index - The index.
    * @param packageId - The package.
@@ -1266,7 +1366,7 @@ export class PacketManager {
   #newestRelease(index: PackageIndex | null, packageId: string) {
     return index?.packages
       .find((entry) => entry.id === packageId)
-      ?.versions.filter((release) => satisfies(this.platformVersion, release.platform))
+      ?.versions.filter((release) => this.#fits(release))
       .sort((left, right) => compareVersions(right.version, left.version))[0];
   }
 

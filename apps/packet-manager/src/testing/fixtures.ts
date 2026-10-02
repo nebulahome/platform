@@ -49,12 +49,22 @@ export function manifest(fields: Partial<PackageManifest> & { id: string }): Jso
  *
  * @param root - Where.
  * @param written - Its manifest.
+ * @param setup - Its `setup.json`, when it has settings.
  * @returns The folder.
  */
-export async function writePackage(root: string, written: JsonObject): Promise<string> {
+export async function writePackage(
+  root: string,
+  written: JsonObject,
+  setup?: JsonObject,
+): Promise<string> {
   await mkdir(path.join(root, 'ui'), { recursive: true });
   await mkdir(path.join(root, 'server'), { recursive: true });
   await writeFile(path.join(root, 'nebula.package.json'), JSON.stringify(written));
+
+  if (setup !== undefined) {
+    await writeFile(path.join(root, 'setup.json'), JSON.stringify(setup));
+  }
+
   await writeFile(path.join(root, 'ui', 'index.js'), 'export default {};\n');
   await writeFile(path.join(root, 'server', 'index.js'), 'export default { start() {} };\n');
 
@@ -98,6 +108,7 @@ export async function fakeRunner(folder: string, exitCode?: number): Promise<str
     [
       "console.log(`started ${process.env.NEBULA_PACKAGE_ID} ${process.argv[2] ?? ''}`);",
       "console.error('something went wrong');",
+      'console.log(`settings ${process.env.NEBULA_PACKAGE_SETTINGS}`);',
       ...(exitCode === undefined ? [] : [`process.exit(${String(exitCode)});`]),
       'const keep = setInterval(() => {}, 1000);',
       "process.on('SIGTERM', () => { clearInterval(keep); process.exit(0); });",
