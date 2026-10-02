@@ -288,6 +288,74 @@ function mountOf(
   );
 }
 
+/** Nanoseconds in a millisecond: Docker counts a healthcheck's times in nanoseconds. */
+const NANOSECONDS_PER_MILLISECOND = 1_000_000;
+
+/**
+ * A declared healthcheck, in Docker's words.
+ *
+ * @param healthcheck - The declaration.
+ * @returns Docker's `Healthcheck`.
+ */
+function healthcheckOf(healthcheck: NonNullable<ManagedContainerSpec['healthcheck']>): JsonObject {
+  return {
+    Test: [...healthcheck.test],
+    ...(healthcheck.intervalMs === undefined
+      ? {}
+      : { Interval: healthcheck.intervalMs * NANOSECONDS_PER_MILLISECOND }),
+    ...(healthcheck.timeoutMs === undefined
+      ? {}
+      : { Timeout: healthcheck.timeoutMs * NANOSECONDS_PER_MILLISECOND }),
+    ...(healthcheck.retries === undefined ? {} : { Retries: healthcheck.retries }),
+    ...(healthcheck.startPeriodMs === undefined
+      ? {}
+      : { StartPeriod: healthcheck.startPeriodMs * NANOSECONDS_PER_MILLISECOND }),
+  };
+}
+
+/**
+ * An owner's containers in the order they start: each after those it depends on. The
+ * declaration refused a circle, so every container finds its place; one naming a container that
+ * is not declared waits for nothing.
+ *
+ * @param specs - The owner's containers.
+ * @returns The same containers, each after what it starts after.
+ */
+export function startOrder(specs: readonly ManagedContainerSpec[]): ManagedContainerSpec[] {
+  const byId = new Map(specs.map((spec) => [spec.dependencyId, spec]));
+  const ordered: ManagedContainerSpec[] = [];
+  const placed = new Set<string>();
+
+  /**
+   * Places a container after what it depends on.
+   *
+   * @param spec - The container.
+   * @param path - The containers that led here, against a circle.
+   */
+  const place = (spec: ManagedContainerSpec, path: readonly string[]): void => {
+    if (placed.has(spec.dependencyId) || path.includes(spec.dependencyId)) {
+      return;
+    }
+
+    for (const id of Object.keys(spec.dependsOn ?? {})) {
+      const before = byId.get(id);
+
+      if (before !== undefined) {
+        place(before, [...path, spec.dependencyId]);
+      }
+    }
+
+    placed.add(spec.dependencyId);
+    ordered.push(spec);
+  };
+
+  for (const spec of specs) {
+    place(spec, []);
+  }
+
+  return ordered;
+}
+
 /**
  * The body of `POST /containers/create` for a declared container.
  *
@@ -321,6 +389,10 @@ export function managedCreateBody(
     ExposedPorts: Object.fromEntries(
       spec.ports.map((port) => [`${String(port.container)}/${port.protocol}`, {}]),
     ),
+    ...(spec.command === undefined
+      ? {}
+      : { Cmd: spec.command.map((argument) => fillPlaceholders(argument, values)) }),
+    ...(spec.healthcheck === undefined ? {} : { Healthcheck: healthcheckOf(spec.healthcheck) }),
     HostConfig: {
       RestartPolicy: { Name: 'unless-stopped' },
       Mounts: spec.volumes.map((volume) => mountOf(spec, volume, context.dataMount)),
@@ -382,6 +454,10 @@ function specHash(
         volumes: spec.volumes,
         devices: spec.devices,
         ports: spec.ports,
+        // Present only when declared, so what a container was made from before they existed
+        // still hashes the same and is not made again.
+        ...(spec.command === undefined ? {} : { command: spec.command }),
+        ...(spec.healthcheck === undefined ? {} : { healthcheck: spec.healthcheck }),
         network: context.network,
         dataMount: context.dataMount,
         installation: context.installationId,

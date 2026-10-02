@@ -11,6 +11,7 @@ import {
   managedName,
   ownerKindOf,
   platformValues,
+  startOrder,
   volumeFolder,
   type PlatformContext,
 } from './managed.js';
@@ -192,5 +193,51 @@ describe('managedCreateBody', () => {
         BRIDGE,
       ).hash,
     ).not.toBe(before);
+  });
+});
+
+describe('a container that runs its own command, says when it is ready, and starts after another', () => {
+  it('hands Docker the command with the platform filled in, and the healthcheck in nanoseconds', () => {
+    const { body } = managedCreateBody(
+      {
+        ...SPEC,
+        command: ['serve', '--zone', '{platform.timezone}'],
+        healthcheck: { test: ['CMD', 'true'], intervalMs: 5000, retries: 3 },
+      },
+      '2.1.0',
+      BRIDGE,
+    );
+
+    expect(body['Cmd']).toEqual(['serve', '--zone', 'Europe/Rome']);
+    expect(body['Healthcheck']).toEqual({
+      Test: ['CMD', 'true'],
+      Interval: 5_000_000_000,
+      Retries: 3,
+    });
+  });
+
+  it('makes again a container whose command changed, and not one declared before commands were', () => {
+    const before = managedCreateBody(SPEC, '2.1.0', BRIDGE).hash;
+
+    expect(managedCreateBody({ ...SPEC }, '2.1.0', BRIDGE).hash).toBe(before);
+    expect(managedCreateBody({ ...SPEC, command: ['serve'] }, '2.1.0', BRIDGE).hash).not.toBe(
+      before,
+    );
+  });
+
+  it('starts each container after those it depends on', () => {
+    const db = { ...SPEC, dependencyId: 'db' };
+    const cache = { ...SPEC, dependencyId: 'cache' };
+    const server = {
+      ...SPEC,
+      dependencyId: 'server',
+      dependsOn: { db: 'healthy', cache: 'started' },
+    } as const;
+
+    expect(startOrder([server, db, cache]).map((spec) => spec.dependencyId)).toEqual([
+      'db',
+      'cache',
+      'server',
+    ]);
   });
 });

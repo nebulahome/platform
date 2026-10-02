@@ -15,6 +15,7 @@
  */
 import { writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 import {
   isNebulaError,
@@ -41,6 +42,7 @@ import {
   NETWORK_LABELS,
   isAnotherInstallations,
   platformValues,
+  startOrder,
   volumeFolder,
   type PlatformContext,
 } from '../domain/managed.js';
@@ -78,7 +80,16 @@ export type ManagedContainersOptions = {
    * @returns The broker, or undefined to keep the platform's.
    */
   readonly brokerFor?: (spec: ManagedContainerSpec) => Promise<PlatformContext['mqtt'] | undefined>;
+
+  /**
+   * How long a container another waits for as healthy is given to become so, and how often it
+   * is looked at; two minutes, every two seconds, when not said.
+   */
+  readonly healthWait?: { readonly timeoutMs: number; readonly intervalMs: number };
 };
+
+/** How long a container waited for as healthy is given, and how often it is looked at. */
+const DEFAULT_HEALTH_WAIT = { timeoutMs: 120_000, intervalMs: 2000 };
 
 /** The key an owner's declarations are kept under. */
 type OwnerKey = `${ContainerOwnerKind}:${string}`;
@@ -346,11 +357,48 @@ export class ManagedContainers {
         return;
       }
 
-      for (const spec of this.#desired.get(key) ?? []) {
+      const specs = startOrder(this.#desired.get(key) ?? []);
+
+      for (const spec of specs) {
         // eslint-disable-next-line no-await-in-loop -- one container at a time, one pull at a time
         await this.#ensureOne(spec);
+
+        if (specs.some((other) => other.dependsOn?.[spec.dependencyId] === 'healthy')) {
+          // eslint-disable-next-line no-await-in-loop -- what depends on it starts after it
+          await this.#waitHealthy(spec);
+        }
       }
     });
+  }
+
+  /**
+   * Waits for a container to say it is healthy, for as long as it is given: what depends on it
+   * starts after. One that never does is logged, and what depends on it is started regardless.
+   *
+   * @param spec - The container.
+   * @returns Once healthy, or once its time is up.
+   */
+  async #waitHealthy(spec: ManagedContainerSpec): Promise<void> {
+    const name = managedName(spec);
+    const { timeoutMs, intervalMs } = this.#options.healthWait ?? DEFAULT_HEALTH_WAIT;
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+      // eslint-disable-next-line no-await-in-loop -- one look at a time, until it is healthy
+      const container = await this.#inspect(name).catch(() => undefined);
+
+      if (container?.State.Health?.Status === 'healthy') {
+        return;
+      }
+
+      // eslint-disable-next-line no-await-in-loop -- see above
+      await sleep(intervalMs);
+    }
+
+    this.#options.logger.warn(
+      { container: name, timeoutMs },
+      'A container others wait for did not become healthy in time; starting them regardless',
+    );
   }
 
   /**
