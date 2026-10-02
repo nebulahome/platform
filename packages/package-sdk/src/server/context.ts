@@ -61,9 +61,23 @@ export type CapabilityEntityInput = {
   readonly domain: EntityDomain;
   readonly capabilities: DeclaredCapabilities;
   readonly icon?: string;
+
+  /**
+   * The unit the device gives its numbers in. For a sensor of a class the platform knows, the
+   * platform registers the class's own unit and converts every number reported - kW to W, °F to
+   * °C - so report what the device says, as it says it.
+   */
   readonly unitOfMeasurement?: string;
+
+  /**
+   * What the number measures: `temperature`, `power`, `energy`. A unit the class cannot be
+   * converted from drops the class, and the number is kept as it comes.
+   */
   readonly deviceClass?: string;
+
+  /** How its numbers add up; the class's own when not said. */
   readonly stateClass?: EntityStateClass;
+
   readonly displayPrecision?: number;
 };
 

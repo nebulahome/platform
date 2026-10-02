@@ -123,6 +123,10 @@ describe('building a package', () => {
     });
     const entries: string[] = [];
 
+    if (packed.indexEntry === undefined) {
+      throw new Error('An address was given: the entry is written');
+    }
+
     await list({ file: packed.archive, onReadEntry: (entry) => entries.push(entry.path) });
 
     expect(entries).toContain('nebula.package.json');
@@ -149,6 +153,24 @@ describe('building a package', () => {
 
     await rm(packed.archive);
     await rm(packed.indexEntry);
+  });
+
+  it('packs only the archive when there is no address to release it at', async () => {
+    vi.stubEnv('GITHUB_SERVER_URL', undefined);
+
+    try {
+      const packed = await packRelease({ root, outDir: dist });
+
+      expect(packed.indexEntry).toBeUndefined();
+      expect(
+        createHash('sha256')
+          .update(await readFile(packed.archive))
+          .digest('hex'),
+      ).toBe(packed.sha256);
+      await rm(packed.archive);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('says through its command whether the package holds together', async () => {

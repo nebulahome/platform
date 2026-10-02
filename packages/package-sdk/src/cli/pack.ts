@@ -5,6 +5,8 @@
  * The archive is a gzipped tar of `dist/` at its root - what the packet-manager unpacks - written
  * with the same library the packet-manager reads it with, without links. The index entry is
  * checked against the index's own schema, so a release the index would refuse is refused here.
+ * Without an address for the archive - no `--url`, and not on GitHub Actions - only the archive
+ * is written: what a platform's local folder takes to try the package before it is released.
  */
 import { createHash } from 'node:crypto';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
@@ -37,7 +39,10 @@ export type PackOptions = {
 /** What packing wrote. */
 export type PackResult = {
   readonly archive: string;
-  readonly indexEntry: string;
+
+  /** The index entry; undefined when there was no address to give the archive. */
+  readonly indexEntry: string | undefined;
+
   readonly sha256: string;
   readonly size: number;
 };
@@ -47,7 +52,7 @@ export type PackResult = {
  *
  * @param options - Where the package and its release are, and where the archive will be.
  * @returns What was written, with the archive's digest and size.
- * @throws {PackageConfigError} When there is no release, or no address for its archive.
+ * @throws {PackageConfigError} When there is no release, or its index entry does not hold.
  */
 export async function packRelease(options: PackOptions): Promise<PackResult> {
   const { root, outDir } = options;
@@ -78,12 +83,6 @@ export async function packRelease(options: PackOptions): Promise<PackResult> {
       ? undefined
       : `${github.serverUrl}/${github.repository}/releases/download/${github.refName}`);
 
-  if (base === undefined) {
-    throw new PackageConfigError([
-      'Where will the archive be downloaded from? Pass --url <base>, or pack on GitHub Actions',
-    ]);
-  }
-
   await create(
     { gzip: true, cwd: outDir, file: archive, portable: true, follow: false, noMtime: true },
     (await readdir(outDir)).sort(),
@@ -91,6 +90,11 @@ export async function packRelease(options: PackOptions): Promise<PackResult> {
 
   const bytes = await readFile(archive);
   const sha256 = createHash('sha256').update(bytes).digest('hex');
+
+  if (base === undefined) {
+    return { archive, indexEntry: undefined, sha256, size: bytes.length };
+  }
+
   const release = packageReleaseSchema.safeParse({
     version: manifest['version'],
     platform: manifest['platform'],

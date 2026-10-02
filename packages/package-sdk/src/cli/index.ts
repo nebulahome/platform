@@ -5,7 +5,7 @@
  * ```
  * nebulahome-package validate        the declaration holds together, the way the platform reads it
  * nebulahome-package build           validate, then build both halves into dist/
- * nebulahome-package pack [--url u]  pack dist/ into <id>-<version>.tgz and write index-entry.json
+ * nebulahome-package pack [--url u]  pack dist/ into <id>-<version>.tgz, and index-entry.json with --url
  * ```
  *
  * Every command takes `--root <folder>`, the package's folder - the working directory when not
@@ -24,7 +24,8 @@ const USAGE = `Usage: nebulahome-package <validate | build | pack> [--root <fold
 
   validate   check nebula.config.ts the way the platform reads a release
   build      validate, then build the interface and the server into dist/
-  pack       pack dist/ into <id>-<version>.tgz and write index-entry.json
+  pack       pack dist/ into <id>-<version>.tgz; with --url, or on GitHub Actions, write
+             index-entry.json for the package index too
 `;
 
 /**
@@ -94,7 +95,11 @@ export async function run(args: readonly string[]): Promise<number> {
         say(
           `Packed ${path.relative(root, packed.archive)} (${String(packed.size)} bytes, sha256 ${packed.sha256}).`,
         );
-        say(`Wrote ${path.relative(root, packed.indexEntry)}.`);
+        say(
+          packed.indexEntry === undefined
+            ? 'Wrote no index-entry.json: pass --url <base> for the address the archive is released at.'
+            : `Wrote ${path.relative(root, packed.indexEntry)}.`,
+        );
 
         return 0;
       }
