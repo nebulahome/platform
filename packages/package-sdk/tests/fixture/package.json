@@ -1,0 +1,7 @@
+{
+  "name": "fixture-weather",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "repository": "github:nebula-home/pkg-weather"
+}

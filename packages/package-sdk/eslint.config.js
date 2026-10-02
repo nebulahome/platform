@@ -3,6 +3,9 @@ import config from '@nebulahome/eslint-config/react';
 export default [
   ...config,
 
+  // A package the tests build, written as an author writes one.
+  { ignores: ['tests/fixture/**'] },
+
   // The public API is what authors' code is checked against and what the platform implements,
   // so it names nothing private: a type of `@nebulahome/contracts` in a public declaration would
   // make every internal change of the platform a change of the SDK. Only the build tooling - the

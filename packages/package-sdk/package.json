@@ -35,6 +35,10 @@
       "types": "./dist/components.d.ts",
       "default": "./dist/components.js"
     },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "default": "./dist/vite.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -80,12 +84,15 @@
     "@nebulahome/ui": "workspace:*",
     "@types/node": "^22.20.1",
     "@types/react": "^19.2.18",
+    "postcss": "^8.5.26",
     "publint": "^0.3.25",
     "react": "^19.2.8",
+    "tar": "^7.5.22",
     "tsdown": "^0.23.0",
     "typescript": "^6.0.3",
     "vite": "^8.2.2",
     "vitest": "^4.1.11",
+    "yaml": "^2.9.0",
     "zod": "^4.5.4"
   }
 }

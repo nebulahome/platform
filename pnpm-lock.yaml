@@ -827,12 +827,18 @@ importers:
       '@types/react':
         specifier: ^19.2.18
         version: 19.2.18
+      postcss:
+        specifier: ^8.5.26
+        version: 8.5.26
       publint:
         specifier: ^0.3.25
         version: 0.3.25
       react:
         specifier: ^19.2.8
         version: 19.2.8
+      tar:
+        specifier: ^7.5.22
+        version: 7.5.22
       tsdown:
         specifier: ^0.23.0
         version: 0.23.0(@arethetypeswrong/core@0.18.5)(publint@0.3.25)(tsx@4.23.13)(typescript@6.0.3)
@@ -845,6 +851,9 @@ importers:
       vitest:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@22.20.1)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
       zod:
         specifier: ^4.5.4
         version: 4.5.4
