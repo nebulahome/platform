@@ -35,6 +35,7 @@ export function aPackage(overrides: Partial<ApiPackage> = {}): ApiPackage {
           icon: 'router',
           sizes: ['small', 'medium'],
           options: [],
+          padding: 'default',
         },
       ],
       entityViews: [],

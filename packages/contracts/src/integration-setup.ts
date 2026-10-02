@@ -81,6 +81,12 @@ const fieldBase = {
 
   /** Asked only after an earlier choice; see the module comment. */
   shownWhen: shownWhenSchema.optional(),
+
+  /**
+   * For a package's settings: a change of it reaches the running process instead of starting it
+   * again, when no other field changed with it. A vendor's settings ignore it.
+   */
+  isLive: z.boolean().optional(),
 };
 
 /**

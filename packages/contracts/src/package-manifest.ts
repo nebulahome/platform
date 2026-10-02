@@ -87,6 +87,12 @@ export const packagePathSchema = z
   .regex(/^\.\/[A-Za-z0-9._/-]+$/, 'Must be a path inside the package, starting with ./')
   .refine((value) => !value.split('/').includes('..'), 'Must stay inside the package');
 
+/** How a package's card fills its frame: inside the frame's padding, or to its edges. */
+export const PACKAGE_CARD_PADDINGS = ['default', 'none'] as const;
+
+/** How a package's card fills its frame. */
+export type PackageCardPadding = (typeof PACKAGE_CARD_PADDINGS)[number];
+
 /** The sizes a package's card may take on the dashboard's grid. */
 export const PACKAGE_CARD_SIZES = ['small', 'medium', 'large', 'wide'] as const;
 
@@ -108,6 +114,9 @@ export const packageCardSchema = z.strictObject({
 
   /** What the card's inspector asks, in the setup grammar: the card's own options. */
   options: z.array(setupFieldSchema).max(16).default([]),
+
+  /** `none` draws the card to its frame's edges: an image, a map, a canvas. */
+  padding: z.enum(PACKAGE_CARD_PADDINGS).default('default'),
 });
 
 /** A card a package adds to the dashboard. */
@@ -192,14 +201,25 @@ export type PackageEntityType = z.output<typeof packageEntityTypeSchema>;
 
 /** What a package adds to the interface. */
 export const packageUiSchema = z.strictObject({
-  /** The ES module the interface loads: its default export is `definePackageUi(...)`. */
+  /** The ES module the interface loads, built by `@nebulahome/package-sdk/vite`. */
   entry: packagePathSchema,
 
   /** Its stylesheet, when it has one. */
   styles: packagePathSchema.optional(),
 
-  /** Whether it has a page of its own, under its entry in the interface's menu. */
+  /** Whether it has a page of its own, opened from the package's page in the interface. */
   page: z.boolean().default(false),
+
+  /**
+   * An entry of its page in the interface's sidebar, while it runs: what it says - the package's
+   * name when not given - and its icon - the package's logo when not given.
+   */
+  sidebar: z
+    .strictObject({
+      label: z.string().min(1).max(32).optional(),
+      icon: iconIdSchema.optional(),
+    })
+    .optional(),
 
   /** The cards it adds to the dashboard editor. */
   cards: z.array(packageCardSchema).max(16).default([]),
@@ -269,7 +289,7 @@ export const packageManifestSchema = z
     category: z.enum(PACKAGE_CATEGORIES),
     runtime: z.enum(PACKAGE_RUNTIMES),
 
-    /** For `node`: the module the packet-manager runs, whose default export is `definePackage`. */
+    /** For `node`: the module the packet-manager runs, whose default export is `defineServer`. */
     server: z.strictObject({ entry: packagePathSchema }).optional(),
 
     ui: packageUiSchema.optional(),
@@ -279,6 +299,12 @@ export const packageManifestSchema = z
 
     /** The containers it runs, in the grammar a vendor declares them in. */
     containers: containerDependenciesSchema,
+
+    /**
+     * A compose file it runs instead of declared containers: the supervisor runs it as a project
+     * of its own, under the platform's rules (PACKAGES.md 7).
+     */
+    compose: z.strictObject({ file: packagePathSchema }).optional(),
 
     requires: packageRequiresSchema,
 
@@ -306,12 +332,28 @@ export const packageManifestSchema = z
       problem(['server'], `A ${manifest.runtime} package runs no module of its own`);
     }
 
-    if (manifest.runtime === 'container' && manifest.containers.length === 0) {
-      problem(['containers'], 'A container package declares its containers');
+    if (
+      manifest.runtime === 'container' &&
+      manifest.containers.length === 0 &&
+      manifest.compose === undefined
+    ) {
+      problem(['containers'], 'A container package declares its containers or a compose file');
     }
 
     if (manifest.runtime === 'none' && manifest.containers.length > 0) {
       problem(['containers'], 'A package that runs nothing declares no containers');
+    }
+
+    if (manifest.runtime === 'none' && manifest.compose !== undefined) {
+      problem(['compose'], 'A package that runs nothing has no compose file');
+    }
+
+    if (manifest.compose !== undefined && manifest.containers.length > 0) {
+      problem(['compose'], 'A package declares containers or a compose file, not both');
+    }
+
+    if (manifest.ui?.sidebar !== undefined && !manifest.ui.page) {
+      problem(['ui', 'sidebar'], 'Only a package with a page of its own has an entry for it');
     }
 
     if (manifest.runtime === 'none' && manifest.ui === undefined) {

@@ -26,9 +26,16 @@ import { SEMVER_PATTERN } from './semver.js';
 /**
  * An id a bundle gives one of its containers: `zigbee2mqtt`, `mosquitto`. It names the
  * container and its folder of the data directory, so it is a directory name people read - and
- * never `installed` or `compose`, the folders beside it the owner's own containers keep.
+ * never `installed` or `compose`, the folders beside it the owner's own containers keep, nor
+ * `packages`, where the packages' compose projects are.
  */
-export const DEPENDENCY_ID_PATTERN = /^(?!(?:installed|compose)$)[a-z][a-z0-9-]{1,31}$/;
+export const DEPENDENCY_ID_PATTERN = /^(?!(?:installed|compose|packages)$)[a-z][a-z0-9-]{1,31}$/;
+
+/** How far a container must have come before one that depends on it starts. */
+export const CONTAINER_DEPENDENCY_CONDITIONS = ['started', 'healthy'] as const;
+
+/** How far a container must have come before one that depends on it starts. */
+export type ContainerDependencyCondition = (typeof CONTAINER_DEPENDENCY_CONDITIONS)[number];
 
 /** A value that is one setting and nothing else, for a number that comes from the settings. */
 export const WHOLE_SETTING_PATTERN = /^\{setup\.([a-zA-Z][a-zA-Z0-9]*)\}$/;
@@ -164,6 +171,40 @@ export const containerDependencySchema = z.strictObject({
 
   /** Whether the web page is published at all: a condition on the settings, like `when`. */
   webPortWhen: containerWhenSchema.optional(),
+
+  /** The command the container runs, in place of its image's: each argument on its own. */
+  command: z.array(z.string().max(4096)).min(1).max(64).optional(),
+
+  /**
+   * How the platform knows the container is ready, in Docker's words: `test` is `CMD` and its
+   * arguments, or `CMD-SHELL` and one line for a shell.
+   */
+  healthcheck: z
+    .strictObject({
+      test: z
+        .array(z.string().min(1).max(4096))
+        .min(2)
+        .max(64)
+        .refine((test) => test[0] === 'CMD' || test[0] === 'CMD-SHELL', {
+          message: 'Starts with CMD or CMD-SHELL',
+        }),
+      intervalMs: z.int().min(1000).max(3_600_000).optional(),
+      timeoutMs: z.int().min(1000).max(600_000).optional(),
+      retries: z.int().min(1).max(100).optional(),
+      startPeriodMs: z.int().min(0).max(3_600_000).optional(),
+    })
+    .optional(),
+
+  /**
+   * The containers of the same declaration this one starts after, and how far each must have
+   * come: `started`, or `healthy` for one with a `healthcheck`.
+   */
+  dependsOn: z
+    .record(
+      z.string().regex(DEPENDENCY_ID_PATTERN, 'Must be a container of the same declaration'),
+      z.enum(CONTAINER_DEPENDENCY_CONDITIONS),
+    )
+    .optional(),
 });
 
 /** One container a vendor or a package declares. */
@@ -176,4 +217,57 @@ export const containerDependenciesSchema = z
   .default([])
   .refine((deps) => new Set(deps.map((dep) => dep.id)).size === deps.length, {
     message: 'Each container needs an id of its own',
+  })
+  .superRefine((deps, context) => {
+    for (const [index, problem] of dependsOnProblems(deps)) {
+      context.addIssue({ code: 'custom', path: [index, 'dependsOn'], message: problem });
+    }
   });
+
+/**
+ * What is wrong with the containers' `dependsOn`: a container that is not declared, itself, one
+ * waited for as healthy that has no healthcheck, or a circle.
+ *
+ * @param deps - The declaration's containers.
+ * @returns Each problem, with the index of the container that has it.
+ */
+function dependsOnProblems(
+  deps: readonly z.output<typeof containerDependencySchema>[],
+): [number, string][] {
+  const byId = new Map(deps.map((dep) => [dep.id, dep]));
+  const problems: [number, string][] = [];
+
+  for (const [index, dep] of deps.entries()) {
+    for (const [target, condition] of Object.entries(dep.dependsOn ?? {})) {
+      const other = byId.get(target);
+
+      if (target === dep.id) {
+        problems.push([index, `${dep.id} cannot start after itself`]);
+      } else if (other === undefined) {
+        problems.push([index, `${target} is not one of the declared containers`]);
+      } else if (condition === 'healthy' && other.healthcheck === undefined) {
+        problems.push([index, `${target} has no healthcheck to wait for`]);
+      }
+    }
+  }
+
+  /**
+   * Says whether a container, by following what it starts after, comes back to where it began.
+   *
+   * @param id - Where the walk is.
+   * @param path - The containers walked through.
+   * @returns True on a circle.
+   */
+  const isCircular = (id: string, path: readonly string[]): boolean =>
+    Object.keys(byId.get(id)?.dependsOn ?? {}).some(
+      (next) => path.includes(next) || (byId.has(next) && isCircular(next, [...path, next])),
+    );
+
+  for (const [index, dep] of deps.entries()) {
+    if (isCircular(dep.id, [dep.id]) && !problems.some(([at]) => at === index)) {
+      problems.push([index, `${dep.id} starts after a container that starts after it`]);
+    }
+  }
+
+  return problems;
+}

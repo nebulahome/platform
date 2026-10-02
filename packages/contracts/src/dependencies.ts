@@ -52,6 +52,12 @@ export type DependencyProblem =
       readonly version: string;
     }
   | {
+      readonly kind: 'sdk';
+      readonly by: string;
+      readonly range: string;
+      readonly version: string;
+    }
+  | {
       readonly kind: 'missing-package';
       readonly by: string;
       readonly packageId: string;
@@ -85,6 +91,10 @@ export function describeDependencyProblem(
       return `${nameOf(problem.by)} needs NebulaHome ${problem.range}; this is ${problem.version}`;
     }
 
+    case 'sdk': {
+      return `${nameOf(problem.by)} needs the NebulaHome package SDK ${problem.range}; this platform implements ${problem.version}`;
+    }
+
     case 'missing-package': {
       return `${nameOf(problem.by)} needs the ${nameOf(problem.packageId)} package (${problem.range}), which is not installed`;
     }
@@ -115,6 +125,9 @@ export function describeDependencyProblem(
 export type Candidate = DependencyNode & {
   /** The platform versions it works with. */
   readonly platform: string;
+
+  /** The package SDK versions it was built against, when the index says. */
+  readonly sdk?: string;
 };
 
 /** What installing takes, or why it cannot be done. */
@@ -135,27 +148,38 @@ export type InstallContext = {
   /** This platform's version. */
   readonly platformVersion: string;
 
+  /**
+   * The package SDK version this platform implements, without a prerelease - `1.2.0`, never
+   * `1.2.0-rc.1`, which no `^1.2.0` would take. Releases it does not satisfy are not offered.
+   */
+  readonly sdkVersion?: string;
+
   readonly satisfies: SatisfiesRange;
 };
 
 /**
- * The newest release of a package in a range that works with this platform.
+ * The newest release of a package in a range that works with this platform and its SDK.
  *
  * @param releases - Its releases.
  * @param range - The range, or undefined for any.
- * @param context - The platform's version and the comparison.
+ * @param context - The platform's version, the SDK version it implements, and the comparison.
  * @returns The release, or undefined.
  */
 function newestIn(
   releases: readonly Candidate[],
   range: string | undefined,
-  context: Pick<InstallContext, 'platformVersion' | 'satisfies'>,
+  context: Pick<InstallContext, 'platformVersion' | 'sdkVersion' | 'satisfies'>,
 ): Candidate | undefined {
+  const { sdkVersion } = context;
+
   return releases
     .filter(
       (release) =>
         (range === undefined || context.satisfies(release.version, range)) &&
-        context.satisfies(context.platformVersion, release.platform),
+        context.satisfies(context.platformVersion, release.platform) &&
+        (sdkVersion === undefined ||
+          release.sdk === undefined ||
+          context.satisfies(sdkVersion, release.sdk)),
     )
     .reduce<Candidate | undefined>(
       (newest, release) =>

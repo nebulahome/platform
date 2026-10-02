@@ -75,7 +75,7 @@ describe('a package manifest', () => {
       'A node package names the module it runs',
     );
     expect(problems({ ...MQTT, runtime: 'container', server: undefined })).toContain(
-      'A container package declares its containers',
+      'A container package declares its containers or a compose file',
     );
     expect(problems({ ...MQTT, requires: { packages: { mqtt: '^1.0.0' } } })).toContain(
       'A package does not require itself',
@@ -89,6 +89,54 @@ describe('a package manifest', () => {
     expect(problems({ ...MQTT, requires: { platform: 'latest please' } })).toEqual([
       'Must be a version range, such as ^1.0.0',
     ]);
+  });
+
+  it('refuses the name of a part of the platform', () => {
+    expect(packageManifestSchema.safeParse({ ...MQTT, id: 'core' }).error?.issues[0]?.message).toBe(
+      'Is the name of a part of the platform, which no package may take',
+    );
+    expect(packageManifestSchema.safeParse({ ...MQTT, id: 'core-tools' }).success).toBe(true);
+  });
+
+  it('reads a compose file in place of containers, and never both', () => {
+    const compose = {
+      ...MQTT,
+      runtime: 'container',
+      server: undefined,
+      ui: undefined,
+      compose: { file: './compose.yaml' },
+    };
+    const container = {
+      id: 'server',
+      name: 'Server',
+      image: 'example/server',
+      minVersion: '1.0.0',
+    };
+
+    expect(packageManifestSchema.parse(compose).compose).toEqual({ file: './compose.yaml' });
+    expect(
+      packageManifestSchema.safeParse({ ...compose, containers: [container] }).error?.issues[0]
+        ?.message,
+    ).toBe('A package declares containers or a compose file, not both');
+    expect(
+      packageManifestSchema.safeParse({ ...compose, runtime: 'none' }).error?.issues[0]?.message,
+    ).toBe('A package that runs nothing has no compose file');
+  });
+
+  it('gives a page an entry in the sidebar, and a card its padding', () => {
+    const manifest = packageManifestSchema.parse({
+      ...MQTT,
+      ui: { ...MQTT.ui, sidebar: { label: 'Broker' } },
+    });
+
+    expect(manifest.ui?.sidebar).toEqual({ label: 'Broker' });
+    expect(manifest.ui?.cards[0]?.padding).toBe('default');
+    expect(
+      packageManifestSchema.safeParse({
+        ...MQTT,
+        ui: { ...MQTT.ui, page: false, sidebar: {} },
+      }).error?.issues[0]?.message,
+    ).toBe('Only a package with a page of its own has an entry for it');
   });
 });
 

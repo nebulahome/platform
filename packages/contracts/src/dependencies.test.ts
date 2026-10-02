@@ -162,6 +162,29 @@ describe('planning an installation', () => {
 
     expect(plan.problems).toEqual([{ kind: 'no-release', packageId: 'nvr', range: '^2.0.0' }]);
   });
+
+  it('takes the newest release this platform’s SDK runs, and says the one it cannot', () => {
+    const available = offered(
+      release('nvr', '1.0.0', { sdk: '^1.0.0' }),
+      release('nvr', '1.1.0', { sdk: '^1.3.0' }),
+    );
+
+    expect(
+      planInstall('nvr', undefined, {
+        ...CONTEXT,
+        sdkVersion: '1.2.0',
+        installed: [],
+        available,
+      }).install.map((each) => each.version),
+    ).toEqual(['1.0.0']);
+    expect(
+      planInstall('nvr', '^1.1.0', { ...CONTEXT, sdkVersion: '1.2.0', installed: [], available })
+        .problems,
+    ).toEqual([{ kind: 'no-release', packageId: 'nvr', range: '^1.1.0' }]);
+    expect(
+      describeDependencyProblem({ kind: 'sdk', by: 'nvr', range: '^1.3.0', version: '1.2.0' }),
+    ).toBe('nvr needs the NebulaHome package SDK ^1.3.0; this platform implements 1.2.0');
+  });
 });
 
 describe('what is still missing', () => {
