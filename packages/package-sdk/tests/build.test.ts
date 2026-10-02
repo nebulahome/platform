@@ -94,6 +94,20 @@ describe('building a package', () => {
     expect((await readdir(path.join(dist, 'ui', 'chunks'))).length).toBeGreaterThanOrEqual(3);
   });
 
+  it('bundles no React of its own, and builds for React’s production runtime', async () => {
+    const files = [
+      path.join(dist, 'ui', 'index.js'),
+      ...(await readdir(path.join(dist, 'ui', 'chunks'))).map((file) =>
+        path.join(dist, 'ui', 'chunks', file),
+      ),
+    ];
+    const code = (await Promise.all(files.map(async (file) => readFile(file, 'utf8')))).join('\n');
+
+    // React's element symbol is in its own code, never in a module that borrows it.
+    expect(code).not.toContain('react.transitional.element');
+    expect(code).not.toContain('jsxDEV');
+  });
+
   it('scopes the interface’s stylesheet to the package', async () => {
     const css = await readFile(path.join(dist, 'ui', 'index.css'), 'utf8');
 

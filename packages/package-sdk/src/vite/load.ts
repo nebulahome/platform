@@ -4,10 +4,14 @@
  * never evaluated outside a browser.
  *
  * Vite's `runnerImport` is marked experimental; it is wrapped here so a change to it stays here.
+ * It also sets `NODE_ENV` to `development` when nothing set it, which would turn the build that
+ * loads the config into a development one: it is put back as it was.
  */
 import path from 'node:path';
 
 import { runnerImport } from 'vite';
+
+import { keepingNodeEnv } from '../config.js';
 
 /** A package's declaration, loaded. */
 export type LoadedPackage = {
@@ -30,9 +34,12 @@ export type LoadedPackage = {
  */
 export async function loadPackage(root: string, config: string): Promise<LoadedPackage> {
   const configPath = path.resolve(root, config);
-  const { module, dependencies } = await runnerImport<Readonly<Record<string, unknown>>>(
-    configPath,
-    { configFile: false, root, logLevel: 'silent' },
+  const { module, dependencies } = await keepingNodeEnv(async () =>
+    runnerImport<Readonly<Record<string, unknown>>>(configPath, {
+      configFile: false,
+      root,
+      logLevel: 'silent',
+    }),
   );
 
   return { definition: module['default'], configPath, dependencies };

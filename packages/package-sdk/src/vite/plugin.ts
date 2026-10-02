@@ -82,6 +82,9 @@ export function nebula(options: NebulaOptions = {}): Plugin {
   return {
     name: PLUGIN_NAME,
     apply: 'build',
+    // Before Vite's own resolver: React must be read from the interface, whichever plugin or
+    // dependency imports it, never resolved to a copy in node_modules and bundled.
+    enforce: 'pre',
     api: { options },
 
     /**
@@ -134,7 +137,10 @@ export function nebula(options: NebulaOptions = {}): Plugin {
 
       return {
         base: './',
+        // A release is a production build whatever the environment says: React's production
+        // runtime, which the interface lends, and its dependencies' production code.
         define: { 'process.env.NODE_ENV': JSON.stringify('production') },
+        oxc: { jsx: { development: false } },
         build: {
           outDir: path.join(outDir, 'ui'),
           emptyOutDir: true,
