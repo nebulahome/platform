@@ -20,9 +20,13 @@
  * Every colour in the application resolves through one of these. A hard-coded colour in a
  * component is a review failure (RULES.md 15.3), and so is a pixel value: the sizes, the radii
  * and the type steps are tokens for the same reason the colours are.
+ *
+ * `static`: every token is on the page as a CSS variable, whether the interface uses it or not,
+ * because a package's own stylesheet reads them - `var(--color-primary)` - and a token missing
+ * from the page would leave its rule with nothing (PACKAGES_DOCS.md 6.2).
  */
 
-@theme {
+@theme static {
   /* --- surfaces, darkest to lightest ------------------------------------------------- */
 
   /** The page behind everything. */
