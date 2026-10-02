@@ -12,6 +12,8 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
     server: 'src/server/index.ts',
+    ui: 'src/ui/index.ts',
+    components: 'src/components/index.ts',
   },
   format: 'esm',
   platform: 'neutral',
