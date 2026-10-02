@@ -52,6 +52,7 @@ export * from './package-index.js';
 export * from './packet-manager.js';
 export * from './dependencies.js';
 export * from './permissions.js';
+export * from './platform-services.js';
 export * from './registration.js';
 export * from './sensor-classes.js';
 export * from './settings.js';
