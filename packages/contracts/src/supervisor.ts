@@ -20,7 +20,10 @@
  */
 import { z } from 'zod';
 
-import { DEPENDENCY_ID_PATTERN } from './container-dependencies.js';
+import {
+  CONTAINER_DEPENDENCY_CONDITIONS,
+  DEPENDENCY_ID_PATTERN,
+} from './container-dependencies.js';
 import { entityIdSchema } from './entity-id.js';
 import { entityRegistrationSchema } from './registration.js';
 import { SEMVER_PATTERN } from './semver.js';
@@ -1039,6 +1042,25 @@ export const managedContainerSpecSchema = z.object({
 
   /** The MQTT topics its broker username is held to; every topic when absent. */
   mqttTopics: z.array(z.string().min(1).max(256)).max(16).optional(),
+
+  /** The command it runs, in place of its image's, settings filled in. */
+  command: z.array(z.string().max(4096)).min(1).max(64).optional(),
+
+  /** How Docker knows it is ready. */
+  healthcheck: z
+    .object({
+      test: z.array(z.string().min(1).max(4096)).min(2).max(64),
+      intervalMs: z.int().min(1000).max(3_600_000).optional(),
+      timeoutMs: z.int().min(1000).max(600_000).optional(),
+      retries: z.int().min(1).max(100).optional(),
+      startPeriodMs: z.int().min(0).max(3_600_000).optional(),
+    })
+    .optional(),
+
+  /** The containers of the same owner it starts after, and how far each must have come. */
+  dependsOn: z
+    .record(z.string().regex(DEPENDENCY_ID_PATTERN), z.enum(CONTAINER_DEPENDENCY_CONDITIONS))
+    .optional(),
 });
 
 /** One container an integration runs, as `hub` hands it over. */
