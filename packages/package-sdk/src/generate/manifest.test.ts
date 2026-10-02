@@ -30,8 +30,8 @@ const TEMPLATE_MANIFEST = {
   name: 'Template',
   description:
     'A package to start from: a counter that ticks, a note the owner writes, a page, a dashboard card and a view of its own kind of entity.',
-  repository: 'nebula-home/pkg-template',
-  url: 'https://github.com/nebula-home/pkg-template',
+  repository: 'nebulahome/pkg-template',
+  url: 'https://github.com/nebulahome/pkg-template',
   color: '#3F6FD8',
   logo: { path: './logo.svg' },
   category: 'other',
@@ -137,7 +137,7 @@ const template = definePackage({
   name: 'Template',
   description:
     'A package to start from: a counter that ticks, a note the owner writes, a page, a dashboard card and a view of its own kind of entity.',
-  url: 'https://github.com/nebula-home/pkg-template',
+  url: 'https://github.com/nebulahome/pkg-template',
   color: '#3F6FD8',
   logo: './logo.svg',
   category: 'other',
@@ -169,7 +169,7 @@ const template = definePackage({
 const OPTIONS = {
   packageJson: {
     version: '0.1.0',
-    repository: { type: 'git', url: 'git+https://github.com/nebula-home/pkg-template.git' },
+    repository: { type: 'git', url: 'git+https://github.com/nebulahome/pkg-template.git' },
   },
   sdkVersion: '1.0.0-rc.0',
   hasStyles: true,
@@ -274,9 +274,9 @@ describe('the manifest generator', () => {
 
   it('records the SDK’s major and minor, and reads the repository from package.json', () => {
     expect(sdkRangeOf('1.3.2-rc.1')).toBe('^1.3.0');
-    expect(githubRepositoryOf('github:nebula-home/pkg-nvr')).toBe('nebula-home/pkg-nvr');
-    expect(githubRepositoryOf({ url: 'https://github.com/nebula-home/pkg-nvr.git' })).toBe(
-      'nebula-home/pkg-nvr',
+    expect(githubRepositoryOf('github:nebulahome/pkg-nvr')).toBe('nebulahome/pkg-nvr');
+    expect(githubRepositoryOf({ url: 'https://github.com/nebulahome/pkg-nvr.git' })).toBe(
+      'nebulahome/pkg-nvr',
     );
     expect(githubRepositoryOf('https://gitlab.com/someone/thing')).toBeUndefined();
   });

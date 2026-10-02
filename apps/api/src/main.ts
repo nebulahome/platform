@@ -192,7 +192,7 @@ async function start(): Promise<void> {
     mapTiles: createMapTileService({
       directory: resolveDataLayout(config).mapTiles,
       template: config.API_MAP_TILE_URL,
-      userAgent: `NebulaHome/${SERVICE_VERSION} (+https://github.com/nebula-home/platform)`,
+      userAgent: `NebulaHome/${SERVICE_VERSION} (+https://github.com/nebulahome/platform)`,
       fetch: globalThis.fetch,
       logger,
     }),

@@ -53,7 +53,7 @@ describe('building a package', () => {
       version: '0.2.0',
       sdk: '^1.0.0',
       runtime: 'node',
-      repository: 'nebula-home/pkg-weather',
+      repository: 'nebulahome/pkg-weather',
       logo: { path: './logo.svg' },
       server: { entry: './server/index.js' },
       ui: {
@@ -118,7 +118,7 @@ describe('building a package', () => {
     const packed = await packRelease({
       root,
       outDir: dist,
-      urlBase: 'https://github.com/nebula-home/pkg-weather/releases/download/v0.2.0',
+      urlBase: 'https://github.com/nebulahome/pkg-weather/releases/download/v0.2.0',
       now: new Date('2026-10-02T08:00:00Z'),
     });
     const entries: string[] = [];
@@ -144,7 +144,7 @@ describe('building a package', () => {
       requires: { packages: {}, services: [] },
       provides: [],
       artifact: {
-        url: 'https://github.com/nebula-home/pkg-weather/releases/download/v0.2.0/weather-0.2.0.tgz',
+        url: 'https://github.com/nebulahome/pkg-weather/releases/download/v0.2.0/weather-0.2.0.tgz',
         sha256: packed.sha256,
         size: packed.size,
       },

@@ -68,7 +68,7 @@ export const MQTT_PACKAGE: InstalledPackage = {
   state: 'running',
   source: 'index',
   isSystem: true,
-  repository: 'nebula-home/pkg-mqtt',
+  repository: 'nebulahome/pkg-mqtt',
   url: null,
   color: null,
   hasLogo: true,

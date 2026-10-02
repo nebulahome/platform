@@ -226,7 +226,7 @@ integrations catalogue exists - the image carries them too.
 
 The services run on the machine with `pnpm dev`; only the database and the bus are containers -
 the `postgres` and `nats` services of the same compose file, started by name. The MQTT broker is
-the `mqtt` package, from its own repository (`nebula-home/pkg-mqtt`): `packet-manager` installs it
+the `mqtt` package, from its own repository (`nebulahome/pkg-mqtt`): `packet-manager` installs it
 by itself when no package provides `mqtt-broker` and runs it on this machine's `1883`. Until the
 package index exists, put its archive in `infra/local-packages` (`local-packages/README.md`):
 

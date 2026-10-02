@@ -11,7 +11,7 @@ const MQTT = {
   sdk: '^1.0.0',
   name: 'MQTT',
   description: 'The house’s MQTT broker, and the devices that speak MQTT to it.',
-  repository: 'nebula-home/pkg-mqtt',
+  repository: 'nebulahome/pkg-mqtt',
   category: 'protocol',
   runtime: 'node',
   server: { entry: './server/index.js' },
@@ -149,7 +149,7 @@ describe('the package index', () => {
           id: 'mqtt',
           name: 'MQTT',
           description: 'The house’s MQTT broker.',
-          repository: 'nebula-home/pkg-mqtt',
+          repository: 'nebulahome/pkg-mqtt',
           category: 'protocol',
           versions: [
             {
@@ -158,7 +158,7 @@ describe('the package index', () => {
               sdk: '^1.0.0',
               provides: ['mqtt-broker'],
               artifact: {
-                url: 'https://github.com/nebula-home/pkg-mqtt/releases/download/v1.0.0/mqtt-1.0.0.tgz',
+                url: 'https://github.com/nebulahome/pkg-mqtt/releases/download/v1.0.0/mqtt-1.0.0.tgz',
                 sha256: 'a'.repeat(64),
                 size: 123_456,
               },
@@ -178,7 +178,7 @@ describe('the package index', () => {
       id: 'mqtt',
       name: 'MQTT',
       description: 'The broker.',
-      repository: 'nebula-home/pkg-mqtt',
+      repository: 'nebulahome/pkg-mqtt',
       category: 'protocol',
       versions: [
         {

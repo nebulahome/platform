@@ -12,10 +12,10 @@
     "package",
     "sdk"
   ],
-  "homepage": "https://github.com/nebula-home/platform/tree/main/packages/package-sdk#readme",
+  "homepage": "https://github.com/nebulahome/platform/tree/main/packages/package-sdk#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nebula-home/platform.git",
+    "url": "git+https://github.com/nebulahome/platform.git",
     "directory": "packages/package-sdk"
   },
   "exports": {

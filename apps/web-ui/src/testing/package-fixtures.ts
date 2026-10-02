@@ -21,7 +21,7 @@ export function aPackage(overrides: Partial<ApiPackage> = {}): ApiPackage {
     state: 'running',
     source: 'index',
     isSystem: true,
-    repository: 'nebula-home/pkg-mqtt',
+    repository: 'nebulahome/pkg-mqtt',
     url: null,
     color: null,
     hasLogo: false,
@@ -72,7 +72,7 @@ export function anOffer(overrides: Partial<AvailablePackage> = {}): AvailablePac
     name: 'NVR',
     description: 'Records the cameras.',
     category: 'media',
-    repository: 'nebula-home/pkg-nvr',
+    repository: 'nebulahome/pkg-nvr',
     icon: null,
     latest: {
       version: '1.4.0',

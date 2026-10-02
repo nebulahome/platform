@@ -127,7 +127,7 @@ async function setUp(options: SetUpOptions = {}): Promise<{
 
   const source = await writePackage(path.join(work, 'source'), TOOLS);
   const archive = await archiveOf(source, path.join(work, 'tools.tgz'));
-  const url = 'https://github.com/nebula-home/pkg-zigbee-tools/releases/download/v2.1.0/t.tgz';
+  const url = 'https://github.com/nebulahome/pkg-zigbee-tools/releases/download/v2.1.0/t.tgz';
   const index = {
     generatedAt: '2026-09-29T08:00:00Z',
     packages: [
@@ -135,7 +135,7 @@ async function setUp(options: SetUpOptions = {}): Promise<{
         id: 'zigbee-tools',
         name: 'Zigbee tools',
         description: 'Tools.',
-        repository: 'nebula-home/pkg-zigbee-tools',
+        repository: 'nebulahome/pkg-zigbee-tools',
         category: 'protocol',
         versions: [
           {
@@ -152,7 +152,7 @@ async function setUp(options: SetUpOptions = {}): Promise<{
         id: 'watcher',
         name: 'Watcher',
         description: 'Needs a detector nobody has.',
-        repository: 'nebula-home/pkg-watcher',
+        repository: 'nebulahome/pkg-watcher',
         category: 'security',
         versions: [
           {

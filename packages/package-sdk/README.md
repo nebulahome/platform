@@ -5,7 +5,7 @@ itself that is not a device brand - a broker, a recorder, a 3D view of the house
 It runs a Node process, containers or a compose file, or nothing, and may add a page of its own,
 dashboard cards and views of its own kinds of entity to the interface.
 
-Start from the template, [nebula-home/pkg-template](https://github.com/nebula-home/pkg-template):
+Start from the template, [nebulahome/pkg-template](https://github.com/nebulahome/pkg-template):
 a small package that uses each part of the SDK once. The full reference is `PACKAGES_DOCS.md` in
 the NebulaHome documentation.
 

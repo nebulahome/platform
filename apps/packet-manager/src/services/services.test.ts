@@ -64,7 +64,7 @@ describe('installing a release', () => {
       manifest({ id: 'nvr', version: '1.4.0' }),
     );
     const archive = await archiveOf(source, path.join(work, 'nvr.tgz'));
-    const url = 'https://github.com/nebula-home/pkg-nvr/releases/download/v1.4.0/nvr-1.4.0.tgz';
+    const url = 'https://github.com/nebulahome/pkg-nvr/releases/download/v1.4.0/nvr-1.4.0.tgz';
     const packages = path.join(work, 'packages');
 
     const files = await installRelease(
@@ -256,7 +256,7 @@ describe('the package index', () => {
       id: 'weather',
       name: 'Weather',
       description: 'The weather.',
-      repository: 'nebula-home/pkg-weather',
+      repository: 'nebulahome/pkg-weather',
       category: 'other' as const,
     };
     const indexed = {

@@ -2,7 +2,7 @@
  * The manifest every package ships: `nebula.package.json`, at the root of its release.
  *
  * A package is what an installation adds to itself - a broker, a recorder, a 3D view of the house
- * - released from a repository of its own (`nebula-home/pkg-<id>`) on its own schedule. The
+ * - released from a repository of its own (`nebulahome/pkg-<id>`) on its own schedule. The
  * manifest says what it is and what it brings, in the parts the platform must know **before** the
  * package runs: the store lists it, the dashboard editor offers its cards, the supervisor runs its
  * containers, and a package or an integration that depends on another is refused or held until
