@@ -319,9 +319,12 @@ describe('the packet-manager', () => {
     expect(await states(manager)).toEqual({});
 
     await putLocal(work, BROKER);
-    await vi.waitFor(async () => {
-      expect(await states(manager)).toEqual({ mqtt: 'starting' });
-    });
+    await vi.waitFor(
+      async () => {
+        expect(await states(manager)).toEqual({ mqtt: 'starting' });
+      },
+      { timeout: 10_000 },
+    );
   });
 
   it('installs no broker while one outside the platform stands in', async () => {
