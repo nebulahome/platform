@@ -57,14 +57,41 @@ export async function brokerFor(
     return undefined;
   }
 
+  return credentialsFor(client, `${spec.ownerKind}:${spec.vendorId}`, spec.mqttTopics);
+}
+
+/**
+ * The broker a package's compose project reaches, from the house's broker: one username for the
+ * project, every topic.
+ *
+ * @param client - The bus.
+ * @param packageId - The package.
+ * @returns The broker with the project's username; undefined when the broker did not answer.
+ */
+export async function brokerForPackage(
+  client: BusClient,
+  packageId: string,
+): Promise<PlatformContext['mqtt'] | undefined> {
+  return credentialsFor(client, `package:${packageId}`, undefined);
+}
+
+/**
+ * Asks the house's broker for an owner's username.
+ *
+ * @param client - The bus.
+ * @param owner - `vendor:<id>` or `package:<id>`.
+ * @param topics - The topics it is held to; every topic when undefined.
+ * @returns The broker with the username; undefined when the broker did not answer.
+ */
+async function credentialsFor(
+  client: BusClient,
+  owner: string,
+  topics: readonly string[] | undefined,
+): Promise<PlatformContext['mqtt'] | undefined> {
   try {
     const reply = await client.request(
       busSubjects.service(BROKER_PACKAGE, 'credentials'),
-      {
-        principal: 'container',
-        owner: `${spec.ownerKind}:${spec.vendorId}`,
-        ...(spec.mqttTopics === undefined ? {} : { topics: spec.mqttTopics }),
-      },
+      { principal: 'container', owner, ...(topics === undefined ? {} : { topics }) },
       credentialsReplySchema,
       { timeoutMs: TIMEOUT_MS },
     );

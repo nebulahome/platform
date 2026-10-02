@@ -176,6 +176,26 @@ export type ComposeProjectsOptions = {
 
   /** Told whenever an operation moved, so the lists read again. */
   readonly onChange: (project: string) => void;
+
+  /** The folder of the data directory's containers the projects are kept in: the owner's when not said. */
+  readonly directory?: string;
+
+  /**
+   * What is done to a project's configuration once compose read it, before it runs: the rules a
+   * package's file is held to, and the network and labels the platform puts on its services.
+   *
+   * @param config - The configuration, as `docker compose config` gave it.
+   * @param project - The project.
+   * @param context - The platform.
+   * @param projectDir - The project's folder, as compose wrote its paths.
+   * @returns The configuration to run, and what cannot run.
+   */
+  readonly transform?: (
+    config: JsonObject,
+    project: string,
+    context: PlatformContext,
+    projectDir: string,
+  ) => { readonly config: JsonObject; readonly problems: readonly ComposeProblem[] };
 };
 
 /** A checked file, ready to run. */
@@ -423,11 +443,7 @@ export class ComposeProjects {
    * Reads which projects were deployed from here: every folder with a file in it.
    */
   async #load(): Promise<void> {
-    const root = path.join(
-      this.#options.dataRoot,
-      CONTAINERS_DIRECTORY,
-      COMPOSE_PROJECTS_DIRECTORY,
-    );
+    const root = path.join(this.#options.dataRoot, CONTAINERS_DIRECTORY, this.#directory);
     const entries = await readdir(root, { withFileTypes: true }).catch(() => []);
 
     await Promise.all(
@@ -452,12 +468,16 @@ export class ComposeProjects {
    * @returns The folder.
    */
   #folderOf(project: string): string {
-    return path.join(
-      this.#options.dataRoot,
-      CONTAINERS_DIRECTORY,
-      COMPOSE_PROJECTS_DIRECTORY,
-      project,
-    );
+    return path.join(this.#options.dataRoot, CONTAINERS_DIRECTORY, this.#directory, project);
+  }
+
+  /**
+   * The folder the projects are kept in, under the data directory's containers.
+   *
+   * @returns `compose` for the owner's, or what the options say.
+   */
+  get #directory(): string {
+    return this.#options.directory ?? COMPOSE_PROJECTS_DIRECTORY;
   }
 
   /**
@@ -486,7 +506,7 @@ export class ComposeProjects {
     const staging = path.join(
       this.#options.dataRoot,
       CONTAINERS_DIRECTORY,
-      COMPOSE_PROJECTS_DIRECTORY,
+      this.#directory,
       STAGING_DIRECTORY,
       randomUUID(),
     );
@@ -521,15 +541,22 @@ export class ComposeProjects {
         return refused(problemsOf(run.stderr));
       }
 
-      const config = JSON.parse(run.stdout) as JsonObject;
+      const read = JSON.parse(run.stdout) as JsonObject;
+      const projectDir = toPosix(this.#folderOf(definition.project));
+      const shaped = this.#options.transform?.(read, definition.project, context, projectDir) ?? {
+        config: read,
+        problems: [],
+      };
+      const { config } = shaped;
       const services = Object.keys((config['services'] ?? {}) as JsonObject);
       const rewritten = rewriteComposePaths(config, {
-        projectDir: toPosix(this.#folderOf(definition.project)),
+        projectDir,
         dataRoot: toPosix(this.#options.dataRoot),
         dataMount: context.dataMount,
       });
       const problems = [
         ...(services.length === 0 ? [{ line: null, message: 'The file declares no service' }] : []),
+        ...shaped.problems,
         ...composeConflicts(config, neighbours),
         ...rewritten.problems,
       ];

@@ -23,7 +23,7 @@ import { readFile } from 'node:fs/promises';
 import os from 'node:os';
 
 import type { BusClient } from '@nebulahome/bus';
-import { resolveDataLayout } from '@nebulahome/config';
+import { PACKAGE_COMPOSE_DIRECTORY, resolveDataLayout } from '@nebulahome/config';
 import {
   busSubjects,
   COMPOSE_LABEL,
@@ -76,6 +76,7 @@ import { imageName, parseImageReference, registryPageOf } from './domain/image-r
 import { takenPorts } from './domain/install.js';
 import { logsReplyOf, parseLogEntries } from './domain/log-frames.js';
 import type { DataMount, PlatformContext } from './domain/managed.js';
+import { shapePackageCompose } from './domain/package-compose.js';
 import { PullProgressTracker } from './domain/pull-progress.js';
 import { planRecreate } from './domain/recreate.js';
 import { containerIdFromCgroup, containerIdFromMountinfo, findSelf } from './domain/self.js';
@@ -94,6 +95,7 @@ import { brokerFor } from './services/broker-credentials.js';
 import { commandRunner, ComposeProjects, dockerHostOf } from './services/compose-projects.js';
 import { Installs } from './services/installs.js';
 import { ManagedContainers } from './services/managed-containers.js';
+import { PackageCompose } from './services/package-compose.js';
 import { replaceContainer } from './services/replace.js';
 import { checkImage } from './services/update-check.js';
 
@@ -227,6 +229,8 @@ export class SupervisorService {
   readonly #managed: ManagedContainers;
   readonly #installs: Installs;
   readonly #compose: ComposeProjects;
+  readonly #packageProjects: ComposeProjects;
+  readonly #packageCompose: PackageCompose;
   readonly #dataRoot: string;
   readonly #containers = new Map<string, Tracked>();
   readonly #entityOwners = new Map<EntityId, string>();
@@ -301,6 +305,17 @@ export class SupervisorService {
       brokerFor: async (spec) => brokerFor(this.#client, spec),
 
       /**
+       * Whether a package's compose project declares a container: it is the package's, locked
+       * as its declared containers are.
+       *
+       * @param ownerKind - Who the container says declares it.
+       * @param vendorId - The package.
+       * @returns True for a service of a package's project.
+       */
+      isDeclaredElsewhere: (ownerKind, vendorId) =>
+        ownerKind === 'package' && this.#packageCompose.runs(vendorId),
+
+      /**
        * Announces a managed container that was made, replaced or started.
        *
        * @param name - The container.
@@ -357,6 +372,53 @@ export class SupervisorService {
         this.#scheduleRefresh();
       },
     });
+    this.#packageProjects = new ComposeProjects({
+      runner: commandRunner(
+        options.config.SUPERVISOR_DOCKER_CLI,
+        dockerHostOf(options.config.SUPERVISOR_DOCKER_SOCKET),
+      ),
+      logger: options.logger,
+      dataRoot: this.#dataRoot,
+      directory: PACKAGE_COMPOSE_DIRECTORY,
+      transform: shapePackageCompose,
+
+      /**
+       * The platform as the containers see it.
+       *
+       * @returns The context, or null while Docker cannot be reached.
+       */
+      context: () => this.#context,
+
+      /**
+       * Says a package project's operation moved, and reads the list again.
+       *
+       * @param project - The project.
+       */
+      onChange: (project) => {
+        this.#changed(project, 'changed');
+        this.#scheduleRefresh();
+      },
+    });
+    this.#packageCompose = new PackageCompose({
+      projects: this.#packageProjects,
+      client: this.#client,
+      logger: options.logger,
+
+      /**
+       * The platform as the containers see it.
+       *
+       * @returns The context, or null while Docker cannot be reached.
+       */
+      context: () => this.#context,
+
+      /**
+       * What the other containers hold.
+       *
+       * @param project - The project.
+       * @returns What the others hold.
+       */
+      neighbours: (project) => this.#neighboursOf(project),
+    });
   }
 
   /**
@@ -364,6 +426,7 @@ export class SupervisorService {
    */
   public async start(): Promise<void> {
     await this.#compose.start();
+    await this.#packageProjects.start();
     await this.#connect();
 
     this.#timers.push(
@@ -681,6 +744,12 @@ export class SupervisorService {
   public reconcile(request: ReconcileRequest): ManagedReply {
     const reply = this.#managed.reconcile(request);
 
+    if (request.ownerKind === 'package' && request.composeProjects !== undefined) {
+      void this.#packageCompose.reconcile(request.composeProjects).catch((error: unknown) => {
+        this.#logger.warn({ err: error }, "Could not bring the packages' compose projects up");
+      });
+    }
+
     this.#resyncWithCore();
 
     return reply;
@@ -807,6 +876,9 @@ export class SupervisorService {
       void this.#followEvents();
       await this.#rejoinNetwork();
       this.#managed.retry();
+      void this.#packageCompose.retry().catch((error: unknown) => {
+        this.#logger.warn({ err: error }, "Could not bring the packages' compose projects up");
+      });
       this.#logger.info(
         {
           version: version.Version,

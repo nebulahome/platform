@@ -86,6 +86,21 @@ export type ManagedContainersOptions = {
    * is looked at; two minutes, every two seconds, when not said.
    */
   readonly healthWait?: { readonly timeoutMs: number; readonly intervalMs: number };
+
+  /**
+   * Whether something besides a declaration declares a container: a package's compose project,
+   * whose services are the package's as much as its declared containers are.
+   *
+   * @param ownerKind - Who the container says declares it.
+   * @param vendorId - The vendor, or the package.
+   * @param dependencyId - The container, or the service.
+   * @returns True when it is declared there.
+   */
+  readonly isDeclaredElsewhere?: (
+    ownerKind: ContainerOwnerKind,
+    vendorId: string,
+    dependencyId: string,
+  ) => boolean;
 };
 
 /** How long a container waited for as healthy is given, and how often it is looked at. */
@@ -248,9 +263,10 @@ export class ManagedContainers {
     }
 
     const ownerKind = ownerKindOf(labels);
-    const isDeclared = (this.#desired.get(ownerKeyOf(ownerKind, vendorId)) ?? []).some(
-      (spec) => spec.dependencyId === dependencyId,
-    );
+    const isDeclared =
+      (this.#desired.get(ownerKeyOf(ownerKind, vendorId)) ?? []).some(
+        (spec) => spec.dependencyId === dependencyId,
+      ) || this.#options.isDeclaredElsewhere?.(ownerKind, vendorId, dependencyId) === true;
 
     return {
       ownerKind,
