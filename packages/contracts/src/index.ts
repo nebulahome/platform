@@ -43,6 +43,7 @@ export * from './integrations.js';
 export * from './json.js';
 export * from './log-level.js';
 export * from './container-dependencies.js';
+export * from './package-compose.js';
 export * from './package-id.js';
 export * from './package-manifest.js';
 export * from './package-requires.js';

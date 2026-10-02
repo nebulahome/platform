@@ -25,6 +25,7 @@ import {
   DEPENDENCY_ID_PATTERN,
 } from './container-dependencies.js';
 import { entityIdSchema } from './entity-id.js';
+import { packageComposeProjectSchema } from './package-compose.js';
 import { entityRegistrationSchema } from './registration.js';
 import { SEMVER_PATTERN } from './semver.js';
 import { timestampSchema } from './timestamp.js';
@@ -1085,6 +1086,9 @@ export const reconcileRequestSchema = z.strictObject({
 
   /** Every owner of the kind, with its containers: vendors, or packages. */
   vendors: z.array(vendorContainersSchema),
+
+  /** For packages: the compose files they run, every one of them; a project left out is taken down. */
+  composeProjects: z.array(packageComposeProjectSchema).max(64).optional(),
 });
 
 /** Every container every loaded vendor declares. */
