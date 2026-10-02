@@ -32,6 +32,7 @@ export default defineConfig([
       server: 'src/server/index.ts',
       ui: 'src/ui/index.ts',
       components: 'src/components/index.ts',
+      testing: 'src/testing/index.ts',
     },
     platform: 'neutral',
     clean: true,
