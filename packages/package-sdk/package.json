@@ -41,6 +41,9 @@
     },
     "./package.json": "./package.json"
   },
+  "bin": {
+    "nebulahome-package": "./dist/cli.js"
+  },
   "files": [
     "dist",
     "README.md",

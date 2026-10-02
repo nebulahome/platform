@@ -41,6 +41,7 @@ export default defineConfig([
     ...shared,
     entry: {
       vite: 'src/vite/index.ts',
+      cli: 'src/cli/bin.ts',
     },
     platform: 'node',
     clean: false,

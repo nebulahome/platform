@@ -3,14 +3,18 @@
  * `vite.config.ts`, the release staged as the platform unpacks it, the interface's entry and
  * chunks loadable with the interface's React, the server free of the interface.
  */
+import { createHash } from 'node:crypto';
 import { readdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import * as React from 'react';
 import * as JsxRuntime from 'react/jsx-runtime';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { list } from 'tar';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { run } from '../src/cli/index.js';
+import { packRelease } from '../src/cli/pack.js';
 import { buildPackage } from '../src/vite/build.js';
 
 const root = fileURLToPath(new URL('fixture/', import.meta.url));
@@ -94,5 +98,57 @@ describe('building a package', () => {
     const css = await readFile(path.join(dist, 'ui', 'index.css'), 'utf8');
 
     expect(css).toContain(':where([data-nebula-package="weather"]) .forecast');
+  });
+
+  it('packs the release, at its root, with its entry for the index', async () => {
+    const packed = await packRelease({
+      root,
+      outDir: dist,
+      urlBase: 'https://github.com/nebula-home/pkg-weather/releases/download/v0.2.0',
+      now: new Date('2026-10-02T08:00:00Z'),
+    });
+    const entries: string[] = [];
+
+    await list({ file: packed.archive, onReadEntry: (entry) => entries.push(entry.path) });
+
+    expect(entries).toContain('nebula.package.json');
+    expect(entries).toContain('server/index.js');
+    expect(entries).toContain('ui/index.js');
+    expect(
+      createHash('sha256')
+        .update(await readFile(packed.archive))
+        .digest('hex'),
+    ).toBe(packed.sha256);
+    expect(JSON.parse(await readFile(packed.indexEntry, 'utf8'))).toEqual({
+      version: '0.2.0',
+      platform: '^1.0.0',
+      sdk: '^1.0.0',
+      requires: { packages: {}, services: [] },
+      provides: [],
+      artifact: {
+        url: 'https://github.com/nebula-home/pkg-weather/releases/download/v0.2.0/weather-0.2.0.tgz',
+        sha256: packed.sha256,
+        size: packed.size,
+      },
+      publishedAt: '2026-10-02T08:00:00.000Z',
+    });
+
+    await rm(packed.archive);
+    await rm(packed.indexEntry);
+  });
+
+  it('says through its command whether the package holds together', async () => {
+    const written: string[] = [];
+    const write = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation((chunk: string | Uint8Array) => written.push(String(chunk)) > 0);
+    const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    expect(await run(['validate', '--root', root])).toBe(0);
+    expect(await run(['pack', '--root', path.join(root, 'src')])).toBe(1);
+    expect(await run(['launch'])).toBe(1);
+    write.mockRestore();
+    out.mockRestore();
+    expect(written.join('')).toContain('There is no command launch');
   });
 });
