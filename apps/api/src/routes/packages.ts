@@ -30,7 +30,6 @@ import {
   packagePlanReplySchema,
   packageRpcBodySchema,
   packageRpcReplySchema,
-  semverSchema,
   type ApiPackageDetail,
   type ContainerLogsReply,
   type InstalledPackage,
@@ -186,17 +185,19 @@ export function registerPackageFileRoutes(
 ): void {
   const fileParamsSchema = z.object({
     packageId: packageIdSchema,
-    version: semverSchema,
+
+    /** Its build, `<version>+<digest>`: a new one is another address, never a stale cache. */
+    build: z.string().regex(/^[0-9A-Za-z.+-]{1,96}$/),
     '*': z.string().min(1).max(512),
   });
 
   server.get(
-    `${basePath}/packages/:packageId/ui/:version/*`,
+    `${basePath}/packages/:packageId/ui/:build/*`,
 
     /**
      * Serves one file of a package's interface.
      *
-     * @param request - Which package, which release, which file.
+     * @param request - Which package, which build, which file.
      * @param reply - Where it goes.
      * @returns The file.
      */
@@ -205,7 +206,7 @@ export function registerPackageFileRoutes(
       const file = await readPackageUiFile(
         packagesContext(context, request.traceId),
         params.packageId,
-        params.version,
+        params.build,
         params['*'],
       );
 

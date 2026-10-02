@@ -168,22 +168,27 @@ describe("a package's methods", () => {
 });
 
 describe("a package's interface", () => {
-  it('is served to anyone, for good, from the folder of its entry and the release installed', async () => {
+  it('is served to anyone, for good, from the folder of its entry and the build installed', async () => {
     const module = await server.inject({
       method: 'GET',
-      url: '/api/v1/packages/mqtt/ui/1.0.0/index.js',
+      url: '/api/v1/packages/mqtt/ui/1.0.0%2B3f2a9c1d/index.js',
     });
     const asset = await server.inject({
       method: 'GET',
-      url: '/api/v1/packages/mqtt/ui/1.0.0/assets/broker.svg',
+      url: '/api/v1/packages/mqtt/ui/1.0.0%2B3f2a9c1d/assets/broker.svg',
     });
     const old = await server.inject({
       method: 'GET',
       url: '/api/v1/packages/mqtt/ui/0.9.0/index.js',
     });
+    // The same version, another build: not the one installed.
+    const otherBuild = await server.inject({
+      method: 'GET',
+      url: '/api/v1/packages/mqtt/ui/1.0.0%2Bdeadbeef/index.js',
+    });
     const outside = await server.inject({
       method: 'GET',
-      url: '/api/v1/packages/mqtt/ui/1.0.0/..%2Fsecret.txt',
+      url: '/api/v1/packages/mqtt/ui/1.0.0%2B3f2a9c1d/..%2Fsecret.txt',
     });
     const logo = await server.inject({ method: 'GET', url: '/api/v1/packages/mqtt/logo' });
 
@@ -192,6 +197,7 @@ describe("a package's interface", () => {
     expect(module.headers['cache-control']).toContain('immutable');
     expect(asset.headers['content-type']).toBe('image/svg+xml');
     expect(old.statusCode).toBe(404);
+    expect(otherBuild.statusCode).toBe(404);
     expect(outside.statusCode).toBe(404);
     expect(logo.statusCode).toBe(200);
   });

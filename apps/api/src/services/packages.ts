@@ -498,7 +498,9 @@ export async function callPackage(
 
 /** What is known of the folder a package serves its interface from. */
 type Folder = {
-  readonly version: string;
+  /** The build it holds: its version and the archive it was unpacked from. */
+  readonly build: string;
+
   readonly uiDir: string | null;
   readonly logo: string | null;
   readonly untilMs: number;
@@ -512,12 +514,17 @@ const folders = new Map<string, Folder>();
  *
  * @param context - The request's collaborators.
  * @param packageId - The package.
- * @returns Its version, the folder of its interface's entry, and its logo's file.
+ * @param isFresh - Whether to ask again whatever was known: a build not yet seen was asked for.
+ * @returns Its build, the folder of its interface's entry, and its logo's file.
  */
-async function folderOf(context: PackagesContext, packageId: string): Promise<Folder> {
+async function folderOf(
+  context: PackagesContext,
+  packageId: string,
+  isFresh = false,
+): Promise<Folder> {
   const known = folders.get(packageId);
 
-  if (known !== undefined && known.untilMs > Date.now()) {
+  if (!isFresh && known !== undefined && known.untilMs > Date.now()) {
     return known;
   }
 
@@ -526,7 +533,7 @@ async function folderOf(context: PackagesContext, packageId: string): Promise<Fo
     JSON.parse(await readFile(path.join(detail.root, 'nebula.package.json'), 'utf8')),
   );
   const folder: Folder = {
-    version: detail.version,
+    build: detail.build,
     uiDir:
       manifest.ui === undefined ? null : path.dirname(path.resolve(detail.root, manifest.ui.entry)),
     logo: manifest.logo === undefined ? null : path.resolve(detail.root, manifest.logo.path),
@@ -564,22 +571,24 @@ export type PackageFile = { readonly bytes: Buffer; readonly contentType: string
  *
  * @param context - The request's collaborators.
  * @param packageId - The package.
- * @param version - The release the address names: an old one is not served.
+ * @param build - The build the address names: another one, old or not installed, is not served.
  * @param file - The file, under the folder of its interface's entry.
  * @returns Its bytes and type.
- * @throws {NotFoundError} When there is no such file, of this release, of a type it may serve.
+ * @throws {NotFoundError} When there is no such file, of this build, of a type it may serve.
  */
 export async function readPackageUiFile(
   context: PackagesContext,
   packageId: string,
-  version: string,
+  build: string,
   file: string,
 ): Promise<PackageFile> {
-  const folder = await folderOf(context, packageId);
+  const known = await folderOf(context, packageId);
+  // A build just installed is newer than what was known a few seconds ago.
+  const folder = known.build === build ? known : await folderOf(context, packageId, true);
   const contentType = CONTENT_TYPES[path.extname(file).toLowerCase()];
 
-  if (folder.uiDir === null || folder.version !== version || contentType === undefined) {
-    throw new NotFoundError('No such file', { details: { packageId, version, file } });
+  if (folder.uiDir === null || folder.build !== build || contentType === undefined) {
+    throw new NotFoundError('No such file', { details: { packageId, build, file } });
   }
 
   const resolved = path.resolve(folder.uiDir, file);
