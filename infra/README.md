@@ -224,8 +224,8 @@ integrations catalogue exists - the image carries them too.
 
 The services run on the machine with `pnpm dev`; only the database and the bus are containers -
 the `postgres` and `nats` services of the same compose file, started by name. The MQTT broker is
-the `mqtt` package (`pkgs/mqtt`), which `pnpm dev` builds and `packet-manager` runs on this
-machine's `1883`:
+the `mqtt` package, which `pnpm dev` builds and `packet-manager` runs on this machine's `1883` -
+parked in `parked/pkg-mqtt` while the package SDK is rewritten, so for now there is none:
 
 ```bash
 pnpm infra:up           # PostgreSQL and NATS; waits until they are healthy

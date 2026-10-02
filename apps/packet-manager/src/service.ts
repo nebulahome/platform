@@ -668,6 +668,15 @@ export class PacketManager {
     }
 
     for (const row of rows.values()) {
+      if (row.source === 'builtin') {
+        // The image no longer ships it: kept as it was, and not run, until an image ships it again.
+        logger.warn(
+          { package: row.id },
+          'A system package the image no longer ships is left as it is',
+        );
+        continue;
+      }
+
       const root = path.join(this.#options.packagesDir, row.id, row.version);
 
       try {

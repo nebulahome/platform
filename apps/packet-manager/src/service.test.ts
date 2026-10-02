@@ -66,6 +66,7 @@ async function setUp(): Promise<{
   transport: FakeTransport;
   synced: SyncPackageRequest[];
   work: string;
+  again: () => PacketManager;
 }> {
   const work = await scratch();
 
@@ -179,27 +180,38 @@ async function setUp(): Promise<{
     PACKET_MANAGER_ANNOUNCE_TIMEOUT_MS: '60000',
   });
   const store = memoryStore();
-  const manager = new PacketManager({
-    config,
-    store,
-    client: new BusClient({ transport, source: 'packet-manager', logger, requestTimeoutMs: 500 }),
-    logger,
-    index: new PackageIndexClient({
-      url: 'https://example.com/index.json',
-      ttlMs: 60_000,
+  const runner = await fakeRunner(work);
+
+  /**
+   * A packet-manager over this store, bus and folders: the one set up, or one started after it.
+   *
+   * @returns The manager, stopped after the test.
+   */
+  const again = (): PacketManager => {
+    const made = new PacketManager({
+      config,
+      store,
+      client: new BusClient({ transport, source: 'packet-manager', logger, requestTimeoutMs: 500 }),
       logger,
+      index: new PackageIndexClient({
+        url: 'https://example.com/index.json',
+        ttlMs: 60_000,
+        logger,
+        fetch,
+      }),
+      secretsKey: Buffer.alloc(32, 1),
+      runner,
+      packagesDir: path.join(work, 'data', 'packages'),
+      cacheDir: path.join(work, 'data', 'cache', 'packages'),
       fetch,
-    }),
-    secretsKey: Buffer.alloc(32, 1),
-    runner: await fakeRunner(work),
-    packagesDir: path.join(work, 'data', 'packages'),
-    cacheDir: path.join(work, 'data', 'cache', 'packages'),
-    fetch,
-  });
+    });
 
-  managers.push(manager);
+    managers.push(made);
 
-  return { manager, store, transport, synced, work };
+    return made;
+  };
+
+  return { manager: again(), store, transport, synced, work, again };
 }
 
 /**
@@ -241,6 +253,21 @@ describe('the packet-manager', () => {
         'something went wrong',
       );
     });
+  });
+
+  it('leaves a system package the image no longer ships as it was, and does not run it', async () => {
+    const { manager, store, work, again } = await setUp();
+
+    await manager.start();
+    await manager.stop();
+    await rm(path.join(work, 'pkgs', 'mqtt'), { recursive: true, force: true });
+
+    const next = again();
+
+    await next.start();
+
+    expect(await states(next)).toEqual({ cards: 'running' });
+    expect(store.rows.get('mqtt')).toMatchObject({ source: 'builtin', version: '1.0.0' });
   });
 
   it('installs from the index, and says what it needs and why another cannot be', async () => {

@@ -92,7 +92,8 @@ COPY --from=nats /usr/local/bin/nats-server /usr/local/bin/nats-server
 # libstdc++ for Node; cifs-utils and nfs-utils for the backup's network locations; openssl for
 # the generated keys and certificate; tzdata so a TZ is honoured; the Docker command line and its
 # compose plugin, which the supervisor runs the owner's compose projects with. The house's MQTT
-# broker is not here: it is the `mqtt` package, in /app/pkgs.
+# broker is not here: it is the `mqtt` package, which /app/pkgs holds once it is back from
+# parked/pkg-mqtt.
 RUN apk add --no-cache libstdc++ libgcc cifs-utils nfs-utils openssl tzdata xz \
     docker-cli docker-cli-compose
 

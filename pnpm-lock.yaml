@@ -896,67 +896,6 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@22.20.1)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
 
-  pkgs/mqtt:
-    dependencies:
-      '@nebula-home/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-      '@nebula-home/package-sdk':
-        specifier: workspace:*
-        version: link:../../packages/package-sdk
-      aedes:
-        specifier: ^1.2.0
-        version: 1.2.0(supports-color@7.2.0)
-      aedes-persistence-sqlite:
-        specifier: ^2.0.0
-        version: 2.0.0(supports-color@7.2.0)
-      zod:
-        specifier: ^4.5.4
-        version: 4.5.4
-    devDependencies:
-      '@nebula-home/eslint-config':
-        specifier: workspace:*
-        version: link:../../packages/eslint-config
-      '@nebula-home/package-ui':
-        specifier: workspace:*
-        version: link:../../packages/package-ui
-      '@nebula-home/tsconfig':
-        specifier: workspace:*
-        version: link:../../packages/tsconfig
-      '@nebula-home/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
-      '@tailwindcss/vite':
-        specifier: ^4.3.3
-        version: 4.3.3(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
-      '@types/node':
-        specifier: ^22.20.1
-        version: 22.20.1
-      '@types/react':
-        specifier: ^19.2.18
-        version: 19.2.18
-      '@vitejs/plugin-react':
-        specifier: ^6.1.1
-        version: 6.1.1(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
-      mqtt:
-        specifier: ^5.14.1
-        version: 5.15.2(supports-color@7.2.0)
-      react:
-        specifier: ^19.2.8
-        version: 19.2.8
-      tailwindcss:
-        specifier: ^4.3.3
-        version: 4.3.3
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vite:
-        specifier: ^8.2.2
-        version: 8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0)
-      vitest:
-        specifier: ^4.1.11
-        version: 4.1.11(@types/node@22.20.1)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
-
 packages:
 
   '@adobe/css-tools@4.5.0':
@@ -3384,20 +3323,8 @@ packages:
     engines: {node: '>=0.4.0'}
     hasBin: true
 
-  aedes-packet@3.0.0:
-    resolution: {integrity: sha512-swASey0BxGs4/npZGWoiVDmnEyPvVFIRY6l2LVKL4rbiW8IhcIGDLfnb20Qo8U20itXlitAKPQ3MVTEbOGG5ZA==}
-    engines: {node: '>=14'}
-
   aedes-packet@4.0.1:
     resolution: {integrity: sha512-PLjKJElXEYB66RzHhJCw0SrRLfSmGRbbg2mtO5t/6FAbFp8vC0cG5ErhvPvfa9iKBrKZwoluWLgn8doBU8sRAw==}
-    engines: {node: '>=20'}
-
-  aedes-persistence-sqlite@2.0.0:
-    resolution: {integrity: sha512-tD8ZzKSauyzUCiWAYTd9DcbVT0vzlsLa11DXFsOGBNdbiConOuz17KJpR9U2jWYugky7oL+StgGS7SB2f+1uqw==}
-    engines: {node: '>=22.13.0'}
-
-  aedes-persistence@10.3.1:
-    resolution: {integrity: sha512-C/z0zLEXY9PkUH+7pz31H5gGzlQZxqhFONK1lt5VON0hiHXQq6tr4cSIAtFUVQ1kyUdd7SsfkeKLAECp3gjjpw==}
     engines: {node: '>=20'}
 
   aedes-persistence@11.0.0:
@@ -3568,9 +3495,6 @@ packages:
   bidi-js@1.0.3:
     resolution: {integrity: sha512-RKshQI1R3YQ+n9YJz2QQ147P66ELpa1FQEg20Dk8oW9t2KgLbpDLLp9aGZ7y8WHSshDknG0bknqGw5/tyCs5tw==}
 
-  bl@4.1.0:
-    resolution: {integrity: sha512-1W07cM9gS6DcLperZfFSj+bWLtaPGSOHWhPiGzXmvVJbRLdG82sH/Kn8EtW1VqWVA54AKf2h5k5BbnIbwF3h6w==}
-
   bl@6.1.6:
     resolution: {integrity: sha512-jLsPgN/YSvPUg9UX0Kd73CXpm2Psg9FxMeCSXnk3WBO3CMT10JMwijubhGfHCnFu6TPn1ei3b975dxv7K2pWVg==}
 
@@ -3591,9 +3515,6 @@ packages:
 
   buffer-from@1.1.2:
     resolution: {integrity: sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ==}
-
-  buffer@5.7.1:
-    resolution: {integrity: sha512-EHcyIPBQ4BSGlvjB16k5KgAJ27CIsHY/2JBmCRReo48y9rQ3MaUzWX3KVlBa4U7MyX02HdVj0K7C3WaB3ju7FQ==}
 
   buffer@6.0.3:
     resolution: {integrity: sha512-FTiCpNxtwiZZHEZbcbTIcZjERVICn9yq/pDFkTl95/AxzD1naBctN7YO68riM/gLSDY7sdrMby8hofADYuuqOA==}
@@ -4186,9 +4107,6 @@ packages:
     resolution: {integrity: sha512-kVscqXk4OCp68SZ0dkgEKVi6/8ij300KBWTJq32P/dYeWTSwK41WyTxalN1eRmA5Z9UU/LX9D7FWSmV9SAYx6g==}
     engines: {node: '>=0.10.0'}
 
-  event-lite@0.1.3:
-    resolution: {integrity: sha512-8qz9nOz5VeD2z96elrEKD2U433+L3DWdUdDkOINLGOJvx1GsMBbMn0aCeu28y8/e85A6mCigBiFlYMnTBEGlSw==}
-
   event-target-shim@5.0.1:
     resolution: {integrity: sha512-i/2XbnSz/uxRCU6+NdVJgKWDTM427+MqYbkQzD321DuCQJUqOuJKIA0IM2+W2xtYHdKOmZ4dR6fExsd4SXL+WQ==}
     engines: {node: '>=6'}
@@ -4508,9 +4426,6 @@ packages:
     resolution: {integrity: sha512-IBTdIkzZNOpqm7q3dRqJvMaldXjDHWkEDfrwGEQTs5eaQMWV+djAhR+wahyNNMAa+qpbDUhBMVt4ZKNwpPm7xQ==}
     engines: {node: ^20.17.0 || >=22.9.0}
 
-  int64-buffer@0.1.10:
-    resolution: {integrity: sha512-v7cSY1J8ydZ0GyjUHqF+1bshJ6cnEVLo9EnjB8p+4HDRPZc9N5jjmvUV7NvEsqQOKyH0pmIBFWXVQbiS0+OBbA==}
-
   internal-slot@1.1.0:
     resolution: {integrity: sha512-4gd7VpWNQNB4UKKCFFVcp1AVv+FMOgs9NKzjHKusc8jTMhd5eL1NqQqOpE0KzMds804/yHlglp3uxgluOqAPLw==}
     engines: {node: '>= 0.4'}
@@ -4647,9 +4562,6 @@ packages:
   is-weakset@2.0.4:
     resolution: {integrity: sha512-mfcwb6IzQyOKTs84CQMrOwW4gQcaTOAWJ0zzJCl2WSPDrWk/OzDaImWFH3djXhb24g4eudZfLRozAvPGw4d9hQ==}
     engines: {node: '>= 0.4'}
-
-  isarray@1.0.0:
-    resolution: {integrity: sha512-VLghIWNM6ELQzo7zwmcg0NmTVyWKYjvIeM83yjp0wRDTmUnrM678fQbcKBo6n2CJEF0szoG//ytg+TKla89ALQ==}
 
   isarray@2.0.5:
     resolution: {integrity: sha512-xHjhDr3cNBK0BzdUJSPXZntQUx/mwMS5Rw4A7lPJ90XGAO6ISP/ePDNuo0vhqOZU+UD5JoodwCAAoZQd3FeAKw==}
@@ -5026,9 +4938,6 @@ packages:
     resolution: {integrity: sha512-GnBDNz3lxmllW201ne0mrmdy5tPOTnc79jjVcsfUa2LG2pUGeyGWVeiae6ZysfC/64XrYOqCKRAQYrB7pGyBVQ==}
     engines: {node: '>=20'}
 
-  mqtt-packet@7.1.2:
-    resolution: {integrity: sha512-FFZbcZ2omsf4c5TxEQfcX9hI+JzDpDKPT46OmeIBpVA7+t32ey25UNqlqNXTmeZOr5BLsSIERpQQLsFWJS94SQ==}
-
   mqtt-packet@9.0.2:
     resolution: {integrity: sha512-MvIY0B8/qjq7bKxdN1eD+nrljoeaai+qjLJgfRn3TiMuz0pamsIWY2bFODPZMSNmabsLANXsLl4EMoWvlaTZWA==}
 
@@ -5039,10 +4948,6 @@ packages:
 
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
-
-  msgpack-lite@0.1.27:
-    resolution: {integrity: sha512-q/ic+YAXhbEZVEtITloe2hOqnd6Zt75nwrX5vsDlo3mmZm99JUg9poC/wOzgp+Xl7jisbmU586DN1mhBnruWWQ==}
-    hasBin: true
 
   multicast-dns@7.2.5:
     resolution: {integrity: sha512-2eznPJP8z2BFLX50tf0LuODrpINqP1RVIm/CObbTcBRITQgmC/TjcREF1NeTBzIcR5XO/ukWo+YHOjBbFwIupg==}
@@ -8526,31 +8431,9 @@ snapshots:
 
   acorn@8.18.0: {}
 
-  aedes-packet@3.0.0(supports-color@7.2.0):
-    dependencies:
-      mqtt-packet: 7.1.2(supports-color@7.2.0)
-    transitivePeerDependencies:
-      - supports-color
-
   aedes-packet@4.0.1(supports-color@7.2.0):
     dependencies:
       mqtt-packet: 9.0.2(supports-color@7.2.0)
-    transitivePeerDependencies:
-      - supports-color
-
-  aedes-persistence-sqlite@2.0.0(supports-color@7.2.0):
-    dependencies:
-      aedes-packet: 3.0.0(supports-color@7.2.0)
-      aedes-persistence: 10.3.1(supports-color@7.2.0)
-      msgpack-lite: 0.1.27
-      qlobber: 8.0.1
-    transitivePeerDependencies:
-      - supports-color
-
-  aedes-persistence@10.3.1(supports-color@7.2.0):
-    dependencies:
-      aedes-packet: 4.0.1(supports-color@7.2.0)
-      qlobber: 8.0.1
     transitivePeerDependencies:
       - supports-color
 
@@ -8734,12 +8617,6 @@ snapshots:
     dependencies:
       require-from-string: 2.0.2
 
-  bl@4.1.0:
-    dependencies:
-      buffer: 5.7.1
-      inherits: 2.0.4
-      readable-stream: 3.6.2
-
   bl@6.1.6:
     dependencies:
       '@types/readable-stream': 4.0.24
@@ -8772,11 +8649,6 @@ snapshots:
       update-browserslist-db: 1.3.2(browserslist@4.28.8)
 
   buffer-from@1.1.2: {}
-
-  buffer@5.7.1:
-    dependencies:
-      base64-js: 1.5.1
-      ieee754: 1.2.1
 
   buffer@6.0.3:
     dependencies:
@@ -9484,8 +9356,6 @@ snapshots:
 
   esutils@2.0.3: {}
 
-  event-lite@0.1.3: {}
-
   event-target-shim@5.0.1: {}
 
   eventemitter3@5.0.4: {}
@@ -9789,8 +9659,6 @@ snapshots:
 
   ini@6.0.0: {}
 
-  int64-buffer@0.1.10: {}
-
   internal-slot@1.1.0:
     dependencies:
       es-errors: 1.3.0
@@ -9931,8 +9799,6 @@ snapshots:
     dependencies:
       call-bound: 1.0.4
       get-intrinsic: 1.3.0
-
-  isarray@1.0.0: {}
 
   isarray@2.0.5: {}
 
@@ -10254,14 +10120,6 @@ snapshots:
       fastparallel: 2.4.1
       qlobber: 8.0.1
 
-  mqtt-packet@7.1.2(supports-color@7.2.0):
-    dependencies:
-      bl: 4.1.0
-      debug: 4.4.3(supports-color@7.2.0)
-      process-nextick-args: 2.0.1
-    transitivePeerDependencies:
-      - supports-color
-
   mqtt-packet@9.0.2(supports-color@7.2.0):
     dependencies:
       bl: 6.1.6
@@ -10294,13 +10152,6 @@ snapshots:
       - utf-8-validate
 
   ms@2.1.3: {}
-
-  msgpack-lite@0.1.27:
-    dependencies:
-      event-lite: 0.1.3
-      ieee754: 1.2.1
-      int64-buffer: 0.1.10
-      isarray: 1.0.0
 
   multicast-dns@7.2.5:
     dependencies:
