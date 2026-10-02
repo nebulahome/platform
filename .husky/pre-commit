@@ -1,1 +1,3 @@
-pnpm lint-staged
+# cmd.exe refuses a command line over 8191 characters, and the tools are run through its shims on
+# Windows - with room for the paths the shims add: a commit of many files is linted in chunks.
+pnpm lint-staged --max-arg-length 4000
