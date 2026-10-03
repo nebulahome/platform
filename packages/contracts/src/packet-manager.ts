@@ -44,6 +44,15 @@ export const PACKET_MANAGER_METHODS = {
   /** What the package index offers, with what fits this platform. */
   available: 'available',
 
+  /**
+   * The Community Hub's packages, searched - and the local folder's files - each with what
+   * installing it here would take.
+   */
+  search: 'search',
+
+  /** A logo the Hub showed in a search, by its digest: the interface may not load the Hub's own. */
+  hubLogo: 'hub_logo',
+
   /** What installing a package would take, before the owner confirms. */
   plan: 'plan',
 
@@ -299,6 +308,104 @@ export const packageAvailableReplySchema = z.object({
 /** What the index offers. */
 export type PackageAvailableReply = z.output<typeof packageAvailableReplySchema>;
 
+/** How many packages one page of a search asks the Hub for. */
+export const PACKAGE_SEARCH_PAGE_SIZE = 30;
+
+/** Where a package of a search comes from: the Community Hub, or the local folder alone. */
+export const PACKAGE_LISTING_ORIGINS = ['hub', 'local'] as const;
+
+/** Where a package of a search comes from. */
+export type PackageListingOrigin = (typeof PACKAGE_LISTING_ORIGINS)[number];
+
+/** A SHA-256 digest, in hex: how the Hub addresses a logo. */
+const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/u, 'Must be a SHA-256 in hex');
+
+/** `svc.packet-manager.search`: what to look for, and from which page on. */
+export const packageSearchRequestSchema = z.strictObject({
+  /** Words of a name or description; the Hub's most installed first when not said. */
+  q: z.string().trim().min(1).max(100).optional(),
+
+  /** The Hub's cursor of the page to read, from the reply before. */
+  cursor: z.string().min(1).max(512).optional(),
+});
+
+/** What to look for. */
+export type PackageSearchRequest = z.output<typeof packageSearchRequestSchema>;
+
+/**
+ * One package a search found: what the Hub says of it - its colour, its logo, how many installed
+ * it - and, from the package index, what installing it here would take.
+ */
+export const packageListingSchema = availablePackageSchema.extend({
+  /** What the Hub holds may be empty, unlike a manifest's. */
+  description: z.string().max(512),
+
+  /** Null for a package the Hub lists that is not in the index yet. */
+  repository: z.string().max(201).nullable(),
+
+  /** The newest release the index has, or the Hub's latest; null when neither says. */
+  newestVersion: semverSchema.nullable(),
+
+  /** Its colour, `#rrggbb`: the Hub's word, so checked before it reaches a style. */
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/u)
+    .nullable(),
+
+  /** Its logo's digest, served at `GET /api/v1/catalogue/logos/:sha256`. */
+  logo: sha256Schema.nullable(),
+
+  /** Whether the NebulaHome team publishes it. */
+  isOfficial: z.boolean(),
+
+  /** How many installations put it in, and how many accounts starred it. */
+  downloads: z.int().min(0),
+  stars: z.int().min(0),
+
+  origin: z.enum(PACKAGE_LISTING_ORIGINS),
+
+  /** Why it cannot be installed here, in a sentence; null when it can, or is. */
+  unavailableReason: z.string().max(512).nullable(),
+});
+
+/** One package a search found. */
+export type PackageListing = z.output<typeof packageListingSchema>;
+
+/** What a search found, and why the Hub could not be asked, when it could not. */
+export const packageSearchReplySchema = z.object({
+  items: z.array(packageListingSchema).max(200),
+
+  /** The cursor of the next page; null on the last. */
+  nextCursor: z.string().min(1).max(512).nullable(),
+
+  /** Why the Hub could not be asked. The local folder's files are listed still. */
+  hubError: z.string().max(1024).nullable(),
+});
+
+/** What a search found. */
+export type PackageSearchReply = z.output<typeof packageSearchReplySchema>;
+
+/** The largest logo the Hub keeps (its importer refuses more), and so the largest relayed. */
+export const PACKAGE_HUB_LOGO_MAXIMUM_BYTES = 256 * 1024;
+
+/** `svc.packet-manager.hub_logo`: which logo. */
+export const packageHubLogoRequestSchema = z.strictObject({ sha256: sha256Schema });
+
+/** Which logo. */
+export type PackageHubLogoRequest = z.output<typeof packageHubLogoRequestSchema>;
+
+/** A Hub logo's bytes, in base64, and what they are. */
+export const packageHubLogoReplySchema = z.object({
+  contentType: z.enum(['image/svg+xml', 'image/png']),
+  data: z
+    .string()
+    .max(Math.ceil(PACKAGE_HUB_LOGO_MAXIMUM_BYTES / 3) * 4)
+    .regex(/^[A-Za-z0-9+/]*={0,2}$/u),
+});
+
+/** A Hub logo. */
+export type PackageHubLogoReply = z.output<typeof packageHubLogoReplySchema>;
+
 /** A method about one package. */
 export const packageIdRequestSchema = z.strictObject({ packageId: packageIdSchema });
 
@@ -435,6 +542,15 @@ export const apiPackageDetailSchema = packageDetailSchema.omit({ root: true }).e
 
 /** One package, for its page. */
 export type ApiPackageDetail = z.output<typeof apiPackageDetailSchema>;
+
+/** `GET /packages/catalogue`: what to look for, and from which page on. */
+export const packageCatalogueQuerySchema = z.object({
+  q: z.string().trim().min(1).max(100).optional(),
+  cursor: z.string().min(1).max(512).optional(),
+});
+
+/** `GET /catalogue/logos/:sha256`. */
+export const packageHubLogoParamsSchema = packageHubLogoRequestSchema;
 
 /** `POST /packages/:id/install` and `/plan`: which release, the newest that fits when not said. */
 export const packageInstallBodySchema = z.strictObject({ version: semverSchema.optional() });

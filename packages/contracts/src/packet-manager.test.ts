@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   packageAnnounceRequestSchema,
+  packageHubLogoReplySchema,
+  packageListingSchema,
   packageRemoveRequestSchema,
   isPackageServiceAllowed,
   packageRpcRequestSchema,
+  packageSearchRequestSchema,
   packageSettingsChangeSchema,
 } from './packet-manager.js';
 import { packageDeviceId, packageObjectPrefix, syncPackageRequestSchema } from './registration.js';
@@ -112,5 +115,58 @@ describe('a container a package declares', () => {
         containers: [{ ...spec, ownerKind: 'package' }],
       }).containers[0]?.ownerKind,
     ).toBe('package');
+  });
+});
+
+describe('a search of the Community Hub', () => {
+  /** A package a search found, as the packet-manager answers it. */
+  const listing = {
+    id: 'nvr',
+    name: 'Recorder',
+    description: '',
+    category: 'security',
+    repository: null,
+    icon: null,
+    latest: null,
+    newestVersion: '1.4.0',
+    installedVersion: null,
+    hasUpdate: false,
+    hasNewBuild: false,
+    color: '#3F6FD8',
+    logo: 'a'.repeat(64),
+    isOfficial: true,
+    downloads: 3,
+    stars: 0,
+    origin: 'hub',
+    unavailableReason: 'No release of it is in the package index yet',
+  };
+
+  it('trims what is looked for, and asks for nothing more', () => {
+    expect(packageSearchRequestSchema.parse({ q: '  rec ' })).toEqual({ q: 'rec' });
+    expect(packageSearchRequestSchema.safeParse({ q: 'rec', limit: 500 }).success).toBe(false);
+  });
+
+  it('takes the Hub’s empty description, and no colour or digest that is not one', () => {
+    expect(packageListingSchema.safeParse(listing).success).toBe(true);
+    expect(
+      packageListingSchema.safeParse({ ...listing, color: 'url(javascript:alert(1))' }).success,
+    ).toBe(false);
+    expect(packageListingSchema.safeParse({ ...listing, logo: '../etc/passwd' }).success).toBe(
+      false,
+    );
+  });
+
+  it('relays an image logo, no bigger than the Hub keeps', () => {
+    expect(
+      packageHubLogoReplySchema.safeParse({ contentType: 'image/png', data: 'iVBORw0KGgo=' })
+        .success,
+    ).toBe(true);
+    expect(
+      packageHubLogoReplySchema.safeParse({ contentType: 'text/html', data: 'PGI+' }).success,
+    ).toBe(false);
+    expect(
+      packageHubLogoReplySchema.safeParse({ contentType: 'image/png', data: 'A'.repeat(400_000) })
+        .success,
+    ).toBe(false);
   });
 });

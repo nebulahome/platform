@@ -3,14 +3,14 @@
  *
  * The releases themselves are files on GitHub - each package's repository publishes a release
  * with its archive as an asset, which a public repository serves to anyone without a token. The
- * index is what points at them: one JSON document, fetched from `PACKAGE_INDEX_URL`, naming for
- * each release the versions of the platform and the SDK it needs, and the archive's address,
- * size and SHA-256. The packet-manager downloads an archive only to check it against these
- * before it unpacks anything.
+ * index is what points at them: one JSON document, which the Community Hub serves at
+ * `<COMMUNITY_HUB_URL>/v1/index/packages.json`, naming for each release the versions of the
+ * platform and the SDK it needs, and the archive's address, size and SHA-256. The packet-manager
+ * downloads an archive only to check it against these before it unpacks anything.
  *
- * Until the Community Hub exists the index is a static file; the Hub will serve the same
- * document, which is why its metadata - the name, the description, the category - is here rather
- * than read out of each archive (ARCHITECTURE.md 9.1, 10).
+ * The Hub describes a package before anything is downloaded, which is why its metadata - the
+ * name, the description, the category - is here rather than read out of each archive
+ * (ARCHITECTURE.md 9.1, 10).
  */
 import { z } from 'zod';
 
