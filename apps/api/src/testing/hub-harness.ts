@@ -141,10 +141,14 @@ export const PRINTER_SETUP = {
 
 /** What the fake hub says it has loaded: a local vendor, and a cloud one that wants a key. */
 export const CATALOGUE: CatalogueReply = {
+  failures: [],
   vendors: [
     {
       id: 'bambu-lab',
       version: '1.0.0',
+      origin: 'development',
+      install: null,
+      hasCode: false,
       name: 'Bambu Lab',
       logoPadding: 0,
       internetRequired: false,
@@ -176,6 +180,9 @@ export const CATALOGUE: CatalogueReply = {
     {
       id: 'acme',
       version: '2.0.0',
+      origin: 'development',
+      install: null,
+      hasCode: false,
       name: 'ACME',
       logoPadding: 0,
       internetRequired: true,
@@ -214,6 +221,9 @@ export const CATALOGUE: CatalogueReply = {
     {
       id: 'cloudy',
       version: '1.0.0',
+      origin: 'development',
+      install: null,
+      hasCode: true,
       name: 'Cloudy',
       logoPadding: 0,
       internetRequired: true,
@@ -263,6 +273,9 @@ export const CATALOGUE: CatalogueReply = {
     {
       id: 'relay',
       version: '1.0.0',
+      origin: 'development',
+      install: null,
+      hasCode: false,
       name: 'Relay',
       logoPadding: 0,
       internetRequired: false,

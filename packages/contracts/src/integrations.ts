@@ -172,6 +172,91 @@ export const vendorChangedReplySchema = z.object({ isLoaded: z.boolean() });
 export type VendorChangedReply = z.output<typeof vendorChangedReplySchema>;
 
 /**
+ * Which of the two places `hub` read a vendor from: the data directory, where the platform
+ * installs vendors, or a directory of bundles under development, read outside production.
+ */
+export const BUNDLE_ORIGINS = ['installed', 'development'] as const;
+
+/** Which of the two places `hub` read a vendor from. */
+export type BundleOrigin = (typeof BUNDLE_ORIGINS)[number];
+
+/** Where an installed vendor came from: the integrations index, or the platform's local folder. */
+export const INTEGRATION_INSTALL_SOURCES = ['index', 'local'] as const;
+
+/**
+ * How the platform installed a vendor: the contents of the marker beside its builds,
+ * `hub/integrations/<vendor>/.nebula-install.json`, which names the build `hub` loads.
+ */
+export const integrationInstallSchema = z.strictObject({
+  /** The folder of the build, beside the marker: the version, then a nonce. */
+  build: z.string().regex(/^[0-9A-Za-z.+-]{1,96}$/u, 'Must be a build folder name'),
+
+  /** The bundle's version, as its manifest says it. */
+  version: z.string().min(1).max(64),
+
+  source: z.enum(INTEGRATION_INSTALL_SOURCES),
+
+  /** The archive's SHA-256, in hex: what tells a rebuilt local file from the one installed. */
+  artifactSha256: z.string().regex(/^[0-9a-f]{64}$/u, 'Must be a SHA-256 in hex'),
+
+  installedAt: z.iso.datetime({ offset: true }),
+
+  /** The user who installed it; null when the platform did. */
+  installedBy: z.uuid().nullable(),
+});
+
+/** How the platform installed a vendor. */
+export type IntegrationInstall = z.output<typeof integrationInstallSchema>;
+
+/**
+ * Makes the vendor `hub` runs match the data directory: what the packet-manager asks once it has
+ * unpacked a build, or removed one. `hub` loads the build beside the one running, and swaps the
+ * two only when it loaded.
+ */
+export const HUB_VENDOR_LOAD_METHOD = 'vendor_load';
+
+/** Which vendor, and - for a build unpacked and not yet marked current - which build. */
+export const vendorLoadRequestSchema = z.strictObject({
+  vendorId: z.string().regex(VENDOR_ID_PATTERN),
+
+  /**
+   * The build to load, and how it was installed: the marker the packet-manager writes once `hub`
+   * says it loaded. Absent, `hub` reads the vendor's folder as it stands, and lets go of a vendor
+   * whose folder is gone.
+   */
+  install: integrationInstallSchema.optional(),
+});
+
+/** Which vendor, and which build. */
+export type VendorLoadRequest = z.output<typeof vendorLoadRequestSchema>;
+
+/** What `hub` runs of the vendor now. */
+export const vendorLoadReplySchema = z.object({
+  /** Whether a copy of it runs. */
+  isLoaded: z.boolean(),
+
+  /** The version that runs; null when none does. */
+  version: z.string().max(64).nullable(),
+
+  origin: z.enum(BUNDLE_ORIGINS).nullable(),
+
+  /**
+   * Why the build asked for did not load - the vendor's own failure, or every driver's - in
+   * sentences. A build that did not load replaces nothing: the copy that ran before runs on.
+   */
+  failures: z.array(z.string().max(2048)).max(64),
+
+  /**
+   * True when a copy under development the removed one stood in for comes back only once `hub`
+   * restarts: its code is loaded already, and is not loaded twice.
+   */
+  isRestartNeeded: z.boolean(),
+});
+
+/** What `hub` runs of the vendor now. */
+export type VendorLoadReply = z.output<typeof vendorLoadReplySchema>;
+
+/**
  * Stops one instance and drops it, without reading the registry: what the API asks just before
  * `core` deletes the rows, so that nothing is still reporting into a device that is gone.
  */
@@ -305,6 +390,18 @@ export type PassedOverDevice = z.output<typeof passedOverDeviceSchema>;
 export const integrationVendorSchema = z.object({
   id: z.string().regex(VENDOR_ID_PATTERN),
   version: z.string().min(1).max(64),
+
+  /** Where `hub` read it from: installed by the platform, or a bundle under development. */
+  origin: z.enum(BUNDLE_ORIGINS).default('installed'),
+
+  /** How the platform installed it; null for one under development, or put there by hand. */
+  install: integrationInstallSchema.nullable().default(null),
+
+  /**
+   * Whether it ships code - a driver, a transport, a stream, an account or a discovery module of
+   * its own - which runs inside `hub`, rather than profiles alone.
+   */
+  hasCode: z.boolean().default(false),
   name: z.string().min(1).max(128),
   description: z.string().max(512).optional(),
   url: z.string().max(512).optional(),
@@ -419,8 +516,25 @@ export function modelChoicesOf(vendor: IntegrationVendor): ModelChoice[] {
   );
 }
 
-/** What `hub` has loaded. */
-export const catalogueReplySchema = z.object({ vendors: z.array(integrationVendorSchema) });
+/** A vendor, or a driver of one, that `hub` could not load, and why. */
+export const bundleFailureSchema = z.object({
+  /** The vendor it belongs to - its folder's name - or null for a folder that is no vendor. */
+  vendorId: z.string().max(64).nullable(),
+
+  /** The file or folder, relative to the directory of vendors. */
+  path: z.string().max(512),
+
+  message: z.string().max(2048),
+});
+
+/** A vendor, or a driver of one, that `hub` could not load. */
+export type BundleFailureView = z.output<typeof bundleFailureSchema>;
+
+/** What `hub` has loaded, and what it could not. */
+export const catalogueReplySchema = z.object({
+  vendors: z.array(integrationVendorSchema),
+  failures: z.array(bundleFailureSchema).max(256).default([]),
+});
 
 /** What `hub` has loaded. */
 export type CatalogueReply = z.output<typeof catalogueReplySchema>;

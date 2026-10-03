@@ -9,6 +9,9 @@ const CATALOGUE: IntegrationVendor[] = [
   {
     id: 'bambu-lab',
     version: '1.0.0',
+    origin: 'development',
+    install: null,
+    hasCode: false,
     name: 'Bambu Lab',
     logoPadding: 0,
     internetRequired: false,
