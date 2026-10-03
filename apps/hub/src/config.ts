@@ -51,16 +51,22 @@ export const hubEnvSchema = runtimeEnvSchema
   .extend({
     /**
      * Where the integration bundles under development are, read beside the ones installed in the
-     * data directory until the integrations catalogue exists to download them from.
+     * data directory: one directory of vendors, or several separated by the system's path
+     * delimiter (`:` on Linux, `;` on Windows) - the repository's `apps/hub/bundles` and an
+     * integration repository's `dist/`, say. A later directory's vendor replaces an earlier one's.
      *
      * Absent, the repository's own `apps/hub/bundles` outside production and nothing in it: the
-     * product ships with no integration, and a production image does not contain that directory.
-     * Absolute, for the reason `NEBULA_DATA_DIR` is. See {@link developmentBundleDirectory}.
+     * product ships with no integration. Absolute, for the reason `NEBULA_DATA_DIR` is. See
+     * {@link developmentBundleDirectories}.
      */
     HUB_DEV_BUNDLE_DIR: z
       .string()
       .min(1)
-      .refine((value) => path.isAbsolute(value), 'Must be an absolute path')
+      .transform((value) => value.split(path.delimiter).filter((entry) => entry !== ''))
+      .refine(
+        (values) => values.length > 0 && values.every((value) => path.isAbsolute(value)),
+        'Must be absolute paths',
+      )
       .optional(),
 
     /**
@@ -131,15 +137,15 @@ const REPOSITORY_BUNDLE_DIR = path.resolve(
  * Where the bundles under development are read from, if anywhere.
  *
  * @param config - The parsed environment.
- * @returns `HUB_DEV_BUNDLE_DIR` when given; otherwise the repository's `apps/hub/bundles` outside
- * production, and nothing in production.
+ * @returns `HUB_DEV_BUNDLE_DIR`'s directories when given; otherwise the repository's
+ * `apps/hub/bundles` outside production, and none in production.
  */
-export function developmentBundleDirectory(config: HubConfig): string | undefined {
+export function developmentBundleDirectories(config: HubConfig): readonly string[] {
   if (config.HUB_DEV_BUNDLE_DIR !== undefined) {
     return config.HUB_DEV_BUNDLE_DIR;
   }
 
-  return config.NODE_ENV === 'production' ? undefined : REPOSITORY_BUNDLE_DIR;
+  return config.NODE_ENV === 'production' ? [] : [REPOSITORY_BUNDLE_DIR];
 }
 
 /**

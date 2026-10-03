@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { developmentBundleDirectory, hubEnvSchema } from './config.js';
+import { developmentBundleDirectories, hubEnvSchema } from './config.js';
 
 /** What every hub needs, whatever else a test varies. */
 const REQUIRED = {
@@ -11,11 +11,12 @@ const REQUIRED = {
   NEBULA_SECRETS_KEY: 'ab'.repeat(32),
 };
 
-describe('developmentBundleDirectory', () => {
+describe('developmentBundleDirectories', () => {
   it("reads the repository's bundles outside production, found from the package", () => {
-    const directory = developmentBundleDirectory(hubEnvSchema.parse(REQUIRED));
+    const directories = developmentBundleDirectories(hubEnvSchema.parse(REQUIRED));
 
-    expect(directory?.endsWith(path.join('apps', 'hub', 'bundles'))).toBe(true);
+    expect(directories).toHaveLength(1);
+    expect(directories[0]?.endsWith(path.join('apps', 'hub', 'bundles'))).toBe(true);
   });
 
   it('reads none in production, where the product ships with no integration', () => {
@@ -25,7 +26,7 @@ describe('developmentBundleDirectory', () => {
       NEBULA_DATA_DIR: path.resolve('/srv/nebula'),
     });
 
-    expect(developmentBundleDirectory(config)).toBeUndefined();
+    expect(developmentBundleDirectories(config)).toEqual([]);
   });
 
   it('reads the one it was given, in production too', () => {
@@ -37,7 +38,18 @@ describe('developmentBundleDirectory', () => {
       HUB_DEV_BUNDLE_DIR: given,
     });
 
-    expect(developmentBundleDirectory(config)).toBe(given);
+    expect(developmentBundleDirectories(config)).toEqual([given]);
+  });
+
+  it("reads several, separated as the system separates a PATH's: an integration's dist/ too", () => {
+    const shipped = path.resolve('/opt/bundles');
+    const mine = path.resolve('/home/me/integration-acme/dist');
+    const config = hubEnvSchema.parse({
+      ...REQUIRED,
+      HUB_DEV_BUNDLE_DIR: [shipped, mine].join(path.delimiter),
+    });
+
+    expect(developmentBundleDirectories(config)).toEqual([shipped, mine]);
   });
 
   it('refuses a relative one, which would depend on where the process was started', () => {

@@ -482,6 +482,20 @@ export class AccountService {
     return flow;
   }
 
+  /**
+   * Forgets every sign-in of a vendor still waiting: the vendor is being replaced or removed, and
+   * the module that began them is not the one that would answer.
+   *
+   * @param vendorId - The vendor.
+   */
+  public forgetFlowsOf(vendorId: string): void {
+    for (const [flowId, flow] of this.#flows) {
+      if (flow.vendorId === vendorId) {
+        this.#flows.delete(flowId);
+      }
+    }
+  }
+
   /** Forgets the flows nobody answered in time. */
   #forgetExpired(): void {
     const now = this.#now();

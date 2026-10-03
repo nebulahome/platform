@@ -95,24 +95,40 @@ export class PackageWatch {
    * @returns Once the first read is answered, or has given up.
    */
   public async start(vendors: readonly WatchedVendor[]): Promise<void> {
+    await this.setVendors(vendors);
+  }
+
+  /**
+   * Follows the packages for another set of vendors: one was installed, updated or removed while
+   * the hub runs. What each needs is worked out again now - read, not compared: the vendor that
+   * changed is started again by whoever changed it.
+   *
+   * @param vendors - The vendors loaded, with what each needs.
+   * @returns Once the packages are read, when this is the first vendor that needs one.
+   */
+  public async setVendors(vendors: readonly WatchedVendor[]): Promise<void> {
     this.#vendors = vendors.filter((vendor) => needsAnything(vendor.requires));
 
     if (this.#vendors.length === 0) {
+      this.#problems = new Map();
+
       return;
     }
 
-    this.#subscription = this.#options.client.subscribe(
-      BUS_PATTERNS.allPackageEvents,
-      jsonObjectSchema,
+    if (this.#subscription === undefined) {
+      this.#subscription = this.#options.client.subscribe(
+        BUS_PATTERNS.allPackageEvents,
+        jsonObjectSchema,
 
-      /** Reads the packages again: one was installed, started, stopped or removed. */
-      (): void => {
-        void this.#refresh();
-      },
-    );
+        /** Reads the packages again: one was installed, started, stopped or removed. */
+        (): void => {
+          void this.#refresh();
+        },
+      );
 
-    // Read, not compared: nothing has started yet that would have to start again.
-    await this.#read();
+      await this.#read();
+    }
+
     this.#problems = new Map(this.#vendors.map((vendor) => [vendor.id, this.#problemsOf(vendor)]));
   }
 

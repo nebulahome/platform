@@ -90,6 +90,9 @@ export type CameraServiceOptions = {
 type Stream = {
   readonly abort: AbortController;
 
+  /** The stream source it reads with, `<vendor>/<name>`. */
+  readonly sourceId: string;
+
   /** Settles with what it sends once the source said; rejects when it failed before. */
   readonly track: Promise<CameraTrack>;
 
@@ -167,6 +170,20 @@ export class CameraService {
     }
 
     this.#streams.clear();
+  }
+
+  /**
+   * Stops the streams a vendor's sources read: the vendor is being replaced or removed, and a
+   * viewer that asks again opens one with the source that replaced it.
+   *
+   * @param vendorId - The vendor.
+   */
+  public endVendor(vendorId: string): void {
+    for (const [entityId, stream] of this.#streams) {
+      if (stream.sourceId.startsWith(`${vendorId}/`)) {
+        this.#end(entityId, stream);
+      }
+    }
   }
 
   /**
@@ -329,6 +346,7 @@ export class CameraService {
     });
     const stream: Stream = {
       abort,
+      sourceId: request.source,
       track,
       deadlineMs: this.#now() + CAMERA_KEEPALIVE_WINDOW_MS,
       lastKey: undefined,

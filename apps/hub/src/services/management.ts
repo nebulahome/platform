@@ -33,10 +33,13 @@ import {
   HUB_RELOAD_METHOD,
   HUB_SERVICE,
   HUB_VENDOR_CHANGED_METHOD,
+  HUB_VENDOR_LOAD_METHOD,
   NotFoundError,
   probeRequestSchema,
   reloadRequestSchema,
   vendorChangedRequestSchema,
+  vendorLoadRequestSchema,
+  type BundleFailureView,
   type CatalogueReply,
   type DiscoveredDevice,
   type DiscoveredReply,
@@ -52,6 +55,8 @@ import {
   type ReloadRequest,
   type VendorChangedReply,
   type VendorChangedRequest,
+  type VendorLoadReply,
+  type VendorLoadRequest,
 } from '@nebulahome/contracts';
 import type { JsonObject } from '@nebulahome/contracts';
 import { openSecrets } from '@nebulahome/db';
@@ -146,6 +151,23 @@ export type ManagementServiceOptions = {
    * @returns Whether the vendor is loaded.
    */
   readonly vendorChanged: (vendorId: string) => Promise<boolean>;
+
+  /**
+   * What could not be loaded, read when asked: a vendor whose folder is broken is in no list of
+   * vendors, and its page has to say why. None when not said.
+   *
+   * @returns The failures.
+   */
+  readonly failures?: () => readonly BundleFailureView[];
+
+  /**
+   * Makes the vendor `hub` runs match the data directory: a build installed, or one removed.
+   * Not served when not said.
+   *
+   * @param request - Which vendor, and which build.
+   * @returns What runs of it now.
+   */
+  readonly vendorLoad?: (request: VendorLoadRequest) => Promise<VendorLoadReply>;
 };
 
 /** How many Tests may be waiting on their devices at once. */
@@ -212,6 +234,9 @@ function vendorOf(
   return {
     id: manifest.id,
     version: manifest.version,
+    origin: vendor.origin,
+    install: vendor.install ?? null,
+    hasCode: hasCode(vendor),
     name: manifest.name,
     ...(manifest.description === undefined ? {} : { description: manifest.description }),
     ...(manifest.url === undefined ? {} : { url: manifest.url }),
@@ -258,6 +283,23 @@ function vendorOf(
   };
 }
 
+/**
+ * Whether a vendor ships code of its own, which runs inside `hub`: a code driver, a transport, a
+ * stream source, an account module or a discovery module.
+ *
+ * @param vendor - As the loader produced it.
+ * @returns True when it does.
+ */
+function hasCode(vendor: LoadedVendor): boolean {
+  return (
+    vendor.drivers.some((driver) => driver.manifest.kind === 'code') ||
+    vendor.ownTransports.length > 0 ||
+    vendor.streams.length > 0 ||
+    vendor.account !== undefined ||
+    (vendor.discovery?.sources.some((source) => source.kind === 'module') ?? false)
+  );
+}
+
 /** Answers the interface's questions about bundles and configurations. */
 export class ManagementService {
   readonly #options: ManagementServiceOptions;
@@ -287,6 +329,7 @@ export class ManagementService {
             this.#options.packageProblems?.(vendor.manifest.id) ?? [],
           ),
         ),
+      failures: [...(this.#options.failures?.() ?? [])],
     };
   }
 
@@ -453,6 +496,16 @@ export class ManagementService {
           isLoaded: await this.#options.vendorChanged(request.vendorId),
         }),
       ),
+
+      ...(this.#options.vendorLoad === undefined
+        ? []
+        : [
+            client.serve(
+              busSubjects.service(HUB_SERVICE, HUB_VENDOR_LOAD_METHOD),
+              vendorLoadRequestSchema,
+              this.#options.vendorLoad,
+            ),
+          ]),
     ];
   }
 }

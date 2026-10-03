@@ -27,6 +27,8 @@
  * added, so it needs the bundles to know what to listen for and the instances to know what is
  * already added; it is told again whenever an instance is added, removed or identified.
  */
+import path from 'node:path';
+
 import type { BusConnection } from '@nebulahome/bus';
 import { BusClient } from '@nebulahome/bus';
 import { resolveDataLayout } from '@nebulahome/config';
@@ -45,13 +47,18 @@ import {
   type ForgetReply,
   type JsonObject,
   type ReloadReply,
+  type BundleFailureView,
+  type VendorLoadReply,
+  type VendorLoadRequest,
 } from '@nebulahome/contracts';
 import { secretsKeyFrom, type Database } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
 import {
+  findVendorFolder,
   Registry,
   type DeviceInfo,
   type Integration,
+  type PlatformServices,
   type StreamSource,
   type Transport,
   type TransportConnection,
@@ -60,7 +67,7 @@ import {
 } from '@nebulahome/package-runtime';
 
 import {
-  developmentBundleDirectory,
+  developmentBundleDirectories,
   platformMqttOf,
   RUNTIME_VERSION,
   SERVICE_NAME,
@@ -85,7 +92,16 @@ import { loadTakenDevices } from './persistence/taken.js';
 import { loadVendorSettings } from './persistence/vendors.js';
 import { withAccountLookups } from './services/account-lookups.js';
 import { AccountService } from './services/accounts.js';
-import { loadBundles, mergeBundleResults, type LoadedVendor } from './services/bundles.js';
+import {
+  loadBundles,
+  loadVendor,
+  mergeBundleResults,
+  type BundleFailure,
+  type BundleOrigin,
+  type LoadBundlesOptions,
+  type LoadBundlesResult,
+  type LoadedVendor,
+} from './services/bundles.js';
 import { CameraService, type CameraOwner } from './services/cameras.js';
 import { ConnectionPool } from './services/connections.js';
 import { DiscoveryService, type Detected } from './services/discovery.js';
@@ -93,7 +109,7 @@ import { IdentificationService, type Identified } from './services/identificatio
 import { ImageStore } from './services/images.js';
 import { publishReports, startInstanceServices } from './services/instance.js';
 import { ManagementService } from './services/management.js';
-import { PackageWatch } from './services/package-watch.js';
+import { PackageWatch, type WatchedVendor } from './services/package-watch.js';
 import { PlatformBroker } from './services/platform-broker.js';
 import { VendorContainersService } from './services/vendor-containers.js';
 
@@ -139,6 +155,22 @@ type Listening = {
   readonly done: Promise<void>;
 };
 
+/**
+ * What a reply about a vendor says of the copy that runs.
+ *
+ * @param vendor - The copy, or undefined for none.
+ * @returns Whether one runs, its version and where it was read from.
+ */
+function replyOf(
+  vendor: LoadedVendor | undefined,
+): Pick<VendorLoadReply, 'isLoaded' | 'version' | 'origin'> {
+  return {
+    isLoaded: vendor !== undefined,
+    version: vendor?.manifest.version ?? null,
+    origin: vendor?.origin ?? null,
+  };
+}
+
 /** Everything `hub` runs. */
 export class HubService {
   readonly #options: HubServiceOptions;
@@ -166,6 +198,15 @@ export class HubService {
   readonly #forgotten = new Map<string, string>();
   #management: { unsubscribe: () => void }[] = [];
   #discovery: DiscoveryService | undefined;
+
+  /** What the platform runs that bundle code may use: its broker, as it stands when asked. */
+  readonly #platform: PlatformServices;
+
+  /** What could not be loaded, by vendor: what its page says, and a list of vendors cannot. */
+  readonly #failures = new Map<string, readonly BundleFailure[]>();
+
+  /** Vendors swapped while `hub` runs, one after another, the start's loading first. */
+  #swaps: Promise<unknown> = Promise.resolve();
 
   /**
    * Prepares the service without starting anything.
@@ -355,6 +396,22 @@ export class HubService {
        */
       vendorChanged: async (vendorId: string): Promise<boolean> =>
         this.#vendorContainers.vendorChanged(vendorId),
+
+      /**
+       * Says what could not be loaded.
+       *
+       * @returns Every failure, each with its vendor.
+       */
+      failures: (): BundleFailureView[] => this.#failureViews(),
+
+      /**
+       * Makes the vendor that runs match the data directory.
+       *
+       * @param request - Which vendor, and which build.
+       * @returns What runs of it now.
+       */
+      vendorLoad: async (request: VendorLoadRequest): Promise<VendorLoadReply> =>
+        this.loadVendor(request),
     });
 
     this.#images = new ImageStore({ logger: options.logger });
@@ -388,6 +445,20 @@ export class HubService {
       logger: options.logger,
       fixed: platformMqttOf(options.config),
     });
+
+    const broker = this.#broker;
+
+    this.#platform = {
+      /**
+       * The house's broker as it stands now: asked of the package that provides it, which may
+       * start after the hub.
+       *
+       * @returns It, or null while there is none.
+       */
+      get mqtt() {
+        return broker.current;
+      },
+    };
     this.#packages = new PackageWatch({
       client: this.#client,
       logger: options.logger,
@@ -449,127 +520,77 @@ export class HubService {
    */
   public async start(): Promise<void> {
     const { config, db, logger } = this.#options;
+    let discovering: Promise<void> = Promise.resolve();
 
-    // The data directory always; the repository's bundles under development only outside
-    // production, where they stand in for the integrations catalogue.
-    const broker = this.#broker;
-    const platform = {
-      /**
-       * The house's broker as it stands now: asked of the package that provides it, which may
-       * start after the hub.
-       *
-       * @returns It, or null while there is none.
-       */
-      get mqtt() {
-        return broker.current;
-      },
-    };
+    // Held until discovery is built: a vendor installed meanwhile is swapped in after, rather than
+    // into a hub half started.
+    await this.#serialised(async () => {
+      // Asked now, and again at every package event and while there is none.
+      await this.#broker.start();
 
-    // Asked now, and again at every package event and while there is none.
-    await this.#broker.start();
-    const installed = await loadBundles({
-      directory: resolveDataLayout(config).integrations,
-      origin: 'installed',
-      runtimeVersion: RUNTIME_VERSION,
-      logger,
-      platform,
-    });
-    const developmentDirectory = developmentBundleDirectory(config);
-    const bundles =
-      developmentDirectory === undefined
-        ? installed
-        : mergeBundleResults(
-            await loadBundles({
-              directory: developmentDirectory,
-              origin: 'development',
-              runtimeVersion: RUNTIME_VERSION,
-              logger,
-              platform,
-            }),
-            installed,
-            logger,
-          );
+      const bundles = await this.#loadAll();
 
-    for (const failure of bundles.failures) {
-      logger.error({ directory: failure.directory }, failure.message);
-    }
-
-    for (const vendor of bundles.vendors) {
-      this.#vendors.set(vendor.manifest.id, vendor);
-
-      // A vendor's own transports first: its drivers name them, and a driver is only as
-      // loadable as the transport it opens.
-      for (const transport of vendor.ownTransports) {
-        this.#transports.register(
-          withAccountLookups(transport, async (vendorId, accountId) =>
-            this.#accounts.handleFor(vendorId, accountId),
-          ),
-        );
+      for (const failure of bundles.failures) {
+        logger.error({ directory: failure.directory }, failure.message);
       }
 
-      for (const source of vendor.streams) {
-        this.#streams.set(source.id, source);
+      for (const vendor of bundles.vendors) {
+        this.#registerVendor(vendor);
       }
 
-      for (const driver of vendor.drivers) {
-        this.#integrations.register(driver.integration);
-      }
-    }
-
-    logger.info(
-      {
-        vendors: this.#vendors.size,
-        installed: bundles.vendors.filter((vendor) => vendor.origin === 'installed').length,
-        development: bundles.vendors.filter((vendor) => vendor.origin === 'development').length,
-        drivers: this.#integrations.size,
-        transports: this.#transports.size,
-      },
-      'Loaded integration bundles',
-    );
-
-    // Not awaited: a supervisor that is not up yet is asked again every minute, and nothing here
-    // waits on the containers - an instance whose container is still being pulled simply fails
-    // to connect until it runs, as it would against any device that is not up.
-    void this.#vendorContainers.reconcile();
-
-    this.#management = [
-      ...this.#managementService.serve(),
-      ...this.#accounts.serve(),
-      this.#images.serve(this.#client),
-      ...this.#cameras.serve(),
-      this.#client.subscribe(
-        busSubjects.deviceEvent('removed'),
-        deviceEventSchema,
-
-        /**
-         * Shows a removed device to discovery again.
-         *
-         * `core` publishes this once the rows are gone, which is the first moment the device
-         * is no longer added: asked any earlier, discovery would read it still there.
-         *
-         * @param payload - Which device went.
-         */
-        (payload): void => {
-          const vendorId = this.#forgotten.get(payload.deviceId);
-
-          this.#forgotten.delete(payload.deviceId);
-          void this.#releaseDiscovery(vendorId);
+      this.#recordFailures(bundles.failures);
+      logger.info(
+        {
+          vendors: this.#vendors.size,
+          installed: bundles.vendors.filter((vendor) => vendor.origin === 'installed').length,
+          development: bundles.vendors.filter((vendor) => vendor.origin === 'development').length,
+          drivers: this.#integrations.size,
+          transports: this.#transports.size,
         },
-      ),
-    ];
+        'Loaded integration bundles',
+      );
 
-    // Before the instances: a vendor that waits for a package is not started against it.
-    await this.#packages.start(
-      [...this.#vendors.values()].map((vendor) => ({
-        id: vendor.manifest.id,
-        name: vendor.manifest.name,
-        requires: vendor.manifest.requires,
-      })),
-    );
+      // Not awaited: a supervisor that is not up yet is asked again every minute, and nothing
+      // here waits on the containers - an instance whose container is still being pulled simply
+      // fails to connect until it runs, as it would against any device that is not up.
+      void this.#vendorContainers.reconcile();
+
+      this.#management = [
+        ...this.#managementService.serve(),
+        ...this.#accounts.serve(),
+        this.#images.serve(this.#client),
+        ...this.#cameras.serve(),
+        this.#client.subscribe(
+          busSubjects.deviceEvent('removed'),
+          deviceEventSchema,
+
+          /**
+           * Shows a removed device to discovery again.
+           *
+           * `core` publishes this once the rows are gone, which is the first moment the device
+           * is no longer added: asked any earlier, discovery would read it still there.
+           *
+           * @param payload - Which device went.
+           */
+          (payload): void => {
+            const vendorId = this.#forgotten.get(payload.deviceId);
+
+            this.#forgotten.delete(payload.deviceId);
+            void this.#releaseDiscovery(vendorId);
+          },
+        ),
+      ];
+
+      // Before the instances: a vendor that waits for a package is not started against it.
+      await this.#packages.start(this.#watchedVendors());
+
+      this.#discovery = this.#createDiscovery();
+      // Off the house's network - a container on a bridge - only a vendor that listens on a
+      // broker can hear its devices, and it still does.
+      discovering = this.#discovery.start({ lan: config.HUB_DISCOVERY_ENABLED });
+    });
 
     const instances = await loadInstances(db);
-
-    this.#discovery = this.#createDiscovery();
 
     // Started in parallel: one instance waiting on a broker that is not answering must not hold
     // up the others, and there is no ordering between them to preserve. Discovery starts beside
@@ -578,10 +599,325 @@ export class HubService {
     // had given up.
     await Promise.all([
       ...instances.map(async (instance) => this.#startInstance(instance)),
-      // Off the house's network - a container on a bridge - only a vendor that listens on a
-      // broker can hear its devices, and it still does.
-      this.#discovery.start({ lan: config.HUB_DISCOVERY_ENABLED }),
+      discovering,
     ]);
+  }
+
+  /**
+   * What the loader is asked for one directory of vendors.
+   *
+   * @param directory - The directory.
+   * @param origin - Which of the two places it is.
+   * @returns The options.
+   */
+  #bundleOptions(directory: string, origin: BundleOrigin): LoadBundlesOptions {
+    return {
+      directory,
+      origin,
+      runtimeVersion: RUNTIME_VERSION,
+      logger: this.#options.logger,
+      platform: this.#platform,
+    };
+  }
+
+  /**
+   * Reads every vendor: the data directory always, and outside production the directories under
+   * development, which stand in for the integrations index - the later directory winning, and an
+   * installed vendor over all of them.
+   *
+   * @returns The vendors, and what did not load.
+   */
+  async #loadAll(): Promise<LoadBundlesResult> {
+    const { config, logger } = this.#options;
+    const none: LoadBundlesResult = { vendors: [], loaded: [], failures: [] };
+    const [installed, development] = await Promise.all([
+      loadBundles(this.#bundleOptions(resolveDataLayout(config).integrations, 'installed')),
+      Promise.all(
+        developmentBundleDirectories(config).map(async (directory) =>
+          loadBundles(this.#bundleOptions(directory, 'development')),
+        ),
+      ),
+    ]);
+    const underDevelopment = development.reduce<LoadBundlesResult>(
+      (merged, next) => mergeBundleResults(merged, next, logger),
+      none,
+    );
+
+    return mergeBundleResults(underDevelopment, installed, logger);
+  }
+
+  /**
+   * Makes a vendor's transports, stream sources and drivers available to run.
+   *
+   * @param vendor - The vendor.
+   */
+  #registerVendor(vendor: LoadedVendor): void {
+    this.#vendors.set(vendor.manifest.id, vendor);
+
+    // A vendor's own transports first: its drivers name them, and a driver is only as loadable
+    // as the transport it opens.
+    for (const transport of vendor.ownTransports) {
+      this.#transports.register(
+        withAccountLookups(transport, async (vendorId, accountId) =>
+          this.#accounts.handleFor(vendorId, accountId),
+        ),
+      );
+    }
+
+    for (const source of vendor.streams) {
+      this.#streams.set(source.id, source);
+    }
+
+    for (const driver of vendor.drivers) {
+      this.#integrations.register(driver.integration);
+    }
+  }
+
+  /**
+   * Takes a vendor's transports, stream sources and drivers out, so another copy can go in.
+   *
+   * @param vendor - The vendor.
+   */
+  #unregisterVendor(vendor: LoadedVendor): void {
+    for (const transport of vendor.ownTransports) {
+      this.#transports.unregister(transport.id);
+    }
+
+    for (const source of vendor.streams) {
+      this.#streams.delete(source.id);
+    }
+
+    for (const driver of vendor.drivers) {
+      this.#integrations.unregister(driver.integration.id);
+    }
+
+    this.#vendors.delete(vendor.manifest.id);
+  }
+
+  /**
+   * Keeps what did not load, by vendor, in place of what was kept for the same vendors.
+   *
+   * @param failures - The failures.
+   * @param vendorIds - The vendors read again, whose old failures go; every vendor when absent.
+   */
+  #recordFailures(failures: readonly BundleFailure[], vendorIds?: readonly string[]): void {
+    if (vendorIds === undefined) {
+      this.#failures.clear();
+    } else {
+      for (const vendorId of vendorIds) {
+        this.#failures.delete(vendorId);
+      }
+    }
+
+    for (const failure of failures) {
+      const vendorId = failure.vendorId ?? '';
+
+      this.#failures.set(vendorId, [...(this.#failures.get(vendorId) ?? []), failure]);
+    }
+  }
+
+  /**
+   * What did not load, as the catalogue serves it: each path relative to the directory of
+   * vendors it is in, which says nothing of the server's disk.
+   *
+   * @returns The failures.
+   */
+  #failureViews(): BundleFailureView[] {
+    const { config } = this.#options;
+    const roots = [resolveDataLayout(config).integrations, ...developmentBundleDirectories(config)];
+
+    return [...this.#failures.values()].flat().map((failure) => {
+      const relative = roots
+        .map((root) => path.relative(root, failure.directory))
+        .find((candidate) => !candidate.startsWith('..') && !path.isAbsolute(candidate));
+
+      return {
+        vendorId: failure.vendorId ?? null,
+        path: (relative ?? path.basename(failure.directory)).split(path.sep).join('/'),
+        message: failure.message.slice(0, 2048),
+      };
+    });
+  }
+
+  /**
+   * The vendors loaded, with what each needs, as the package watch follows them.
+   *
+   * @returns The vendors.
+   */
+  #watchedVendors(): WatchedVendor[] {
+    return [...this.#vendors.values()].map((vendor) => ({
+      id: vendor.manifest.id,
+      name: vendor.manifest.name,
+      requires: vendor.manifest.requires,
+    }));
+  }
+
+  /**
+   * Runs one swap after the ones before it have finished.
+   *
+   * @param task - The swap.
+   * @returns What it returns.
+   */
+  async #serialised<TResult>(task: () => Promise<TResult>): Promise<TResult> {
+    const run = this.#swaps.then(task, task);
+
+    this.#swaps = run.catch(() => undefined);
+
+    return run;
+  }
+
+  /**
+   * Makes the vendor `hub` runs match the data directory: what the packet-manager asks once it has
+   * unpacked a build of a vendor, or removed one.
+   *
+   * The build asked for is loaded beside the copy that runs, which keeps running meanwhile; a
+   * build that does not load replaces nothing, and the reply says why. One that loads is swapped
+   * in: the vendor's instances, its discovery and its camera streams stop, the old copy lets go
+   * of what its code opened, the new one goes in, and its instances start again in the
+   * background - the reply does not wait on devices that may not answer. A vendor whose folder is
+   * gone is let go of; a copy under development it stood in for comes back when `hub` restarts,
+   * its code being loaded already.
+   *
+   * @param request - Which vendor, and the build unpacked when it is not marked current yet.
+   * @returns What runs of the vendor now.
+   */
+  public async loadVendor(request: VendorLoadRequest): Promise<VendorLoadReply> {
+    return this.#serialised(async () => this.#loadVendor(request));
+  }
+
+  /**
+   * See {@link loadVendor}.
+   *
+   * @param request - Which vendor, and which build.
+   * @returns What runs of the vendor now.
+   */
+  async #loadVendor(request: VendorLoadRequest): Promise<VendorLoadReply> {
+    const { config, logger } = this.#options;
+    const { vendorId } = request;
+    const found = await loadVendor(
+      this.#bundleOptions(resolveDataLayout(config).integrations, 'installed'),
+      vendorId,
+      request.install,
+    );
+    const current = this.#vendors.get(vendorId);
+
+    if (found === null) {
+      this.#recordFailures([], [vendorId]);
+
+      if (current?.origin !== 'installed') {
+        return { ...replyOf(current), failures: [], isRestartNeeded: false };
+      }
+
+      await this.#swapVendor(vendorId, null);
+      logger.info({ vendorId }, 'An installed integration was let go of');
+
+      return {
+        ...replyOf(undefined),
+        failures: [],
+        isRestartNeeded: await this.#hasDevelopmentCopy(vendorId),
+      };
+    }
+
+    if (found.vendor === null) {
+      // It did not load: what ran before runs on. A build only tried is not recorded, since the
+      // packet-manager takes it away; the folder as it stands is.
+      for (const failure of found.failures) {
+        logger.warn({ vendorId, directory: failure.directory }, failure.message);
+      }
+
+      if (request.install === undefined) {
+        this.#recordFailures(found.failures, [vendorId]);
+      }
+
+      return {
+        ...replyOf(current),
+        failures: found.failures.map((failure) => failure.message.slice(0, 2048)),
+        isRestartNeeded: false,
+      };
+    }
+
+    const loaded = found.vendor;
+
+    await this.#swapVendor(vendorId, loaded);
+    this.#recordFailures(found.failures, [vendorId]);
+    logger.info(
+      { vendorId, version: loaded.manifest.version, build: request.install?.build },
+      'An installed integration was loaded',
+    );
+
+    // Not awaited: an instance waits on its device, and the packet-manager on this reply.
+    void this.#restartVendor(vendorId, 'its bundle was installed').catch((error: unknown) => {
+      logger.warn({ err: error, vendorId }, 'Could not start a vendor again');
+    });
+
+    return {
+      ...replyOf(loaded),
+      failures: found.failures.map((failure) => failure.message.slice(0, 2048)),
+      isRestartNeeded: false,
+    };
+  }
+
+  /**
+   * Swaps the copy of a vendor that runs for another, or for none.
+   *
+   * @param vendorId - The vendor.
+   * @param next - The copy to run, loaded; null to run none.
+   * @returns Once the new copy is registered and discovery listens again.
+   */
+  async #swapVendor(vendorId: string, next: LoadedVendor | null): Promise<void> {
+    const { config, db, logger } = this.#options;
+    const current = this.#vendors.get(vendorId);
+
+    // First, while the old copy's sockets are still open: discovery listens with them.
+    await this.#discovery?.stop();
+
+    if (current !== undefined) {
+      const instances = (await loadInstances(db)).filter((instance) =>
+        instance.kind.startsWith(`${vendorId}/`),
+      );
+
+      // One after another: they may share one connection.
+      for (const instance of instances) {
+        // eslint-disable-next-line no-await-in-loop -- see above
+        await this.#stopInstance(instance.id);
+      }
+
+      this.#cameras.endVendor(vendorId);
+      this.#accounts.forgetFlowsOf(vendorId);
+      this.#unregisterVendor(current);
+      await current.release().catch((error: unknown) => {
+        logger.warn({ err: error, vendorId }, 'Could not release a replaced vendor');
+      });
+    }
+
+    if (next !== null) {
+      this.#registerVendor(next);
+    }
+
+    this.#discovery = this.#createDiscovery();
+    void this.#discovery.start({ lan: config.HUB_DISCOVERY_ENABLED }).catch((error: unknown) => {
+      logger.warn({ err: error }, 'Discovery did not start again');
+    });
+    await this.#packages.setVendors(this.#watchedVendors());
+    void this.#vendorContainers.reconcile();
+  }
+
+  /**
+   * Whether a directory under development holds a vendor.
+   *
+   * @param vendorId - The vendor.
+   * @returns True when one does.
+   */
+  async #hasDevelopmentCopy(vendorId: string): Promise<boolean> {
+    const found = await Promise.all(
+      developmentBundleDirectories(this.#options.config).map(async (directory) => {
+        const result = await findVendorFolder(directory, vendorId).catch(() => null);
+
+        return result !== null;
+      }),
+    );
+
+    return found.includes(true);
   }
 
   /**
