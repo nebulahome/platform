@@ -35,6 +35,18 @@ describe('Registry', () => {
     }).toThrow(ConflictError);
   });
 
+  it('takes an entry out, so that a new copy of it can be registered', () => {
+    const registry = new Registry<Entry>('transport');
+    registry.register({ id: 'shelly/rpc' });
+
+    expect(registry.unregister('shelly/rpc')).toBe(true);
+    expect(registry.unregister('shelly/rpc')).toBe(false);
+
+    registry.register({ id: 'shelly/rpc' });
+
+    expect(registry.ids()).toEqual(['shelly/rpc']);
+  });
+
   it('reports nothing rather than throwing when a caller is only asking', () => {
     const registry = new Registry<Entry>('transport');
 

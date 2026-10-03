@@ -3,7 +3,8 @@
  *
  * One class for both, because they differ only in what the failure says. Keyed by id - a
  * transport by its name, an integration by its bundle kind - and populated at startup, before
- * any instance is resolved against it.
+ * any instance is resolved against it. A vendor installed, updated or removed while `hub` runs
+ * takes its entries out and puts the new ones in.
  */
 import { ConflictError, NotFoundError } from '@nebulahome/contracts';
 
@@ -49,6 +50,16 @@ export class Registry<TEntry extends Identified> {
     }
 
     this.#entries.set(entry.id, entry);
+  }
+
+  /**
+   * Takes one entry out: a vendor that is being replaced or removed.
+   *
+   * @param id - What to take out.
+   * @returns True when something was registered under it.
+   */
+  public unregister(id: string): boolean {
+    return this.#entries.delete(id);
   }
 
   /**

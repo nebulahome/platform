@@ -21,11 +21,13 @@
   "dependencies": {
     "@nebulahome/contracts": "workspace:*",
     "@nebulahome/logging": "workspace:*",
+    "semver": "^7.8.5",
     "zod": "^4.5.4"
   },
   "devDependencies": {
     "@nebulahome/eslint-config": "workspace:*",
     "@nebulahome/tsconfig": "workspace:*",
+    "@types/semver": "^7.7.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11"
   }

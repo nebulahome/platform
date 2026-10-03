@@ -789,6 +789,9 @@ importers:
       '@nebulahome/logging':
         specifier: workspace:*
         version: link:../logging
+      semver:
+        specifier: ^7.8.5
+        version: 7.8.5
       zod:
         specifier: ^4.5.4
         version: 4.5.4
@@ -799,6 +802,9 @@ importers:
       '@nebulahome/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
+      '@types/semver':
+        specifier: ^7.7.1
+        version: 7.8.0
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
