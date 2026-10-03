@@ -14,6 +14,7 @@ import {
   packageAvailableReplySchema,
   packagePlanReplySchema,
   packageRpcReplySchema,
+  packageSearchReplySchema,
   type ApiPackage,
   type ApiPackageDetail,
   type ContainerLogsReply,
@@ -22,6 +23,7 @@ import {
   type PackageAvailableReply,
   type PackageConfigBody,
   type PackagePlanReply,
+  type PackageSearchReply,
 } from '@nebulahome/contracts';
 
 import { apiRequest } from '@/lib/api-client';
@@ -36,6 +38,22 @@ export const PACKAGE_QUERY_KEYS = {
 
   /** What the index offers. */
   available: ['packages', 'available'] as const,
+
+  /**
+   * A search of the Community Hub.
+   *
+   * @param q - What was looked for; empty for the Hub's most installed.
+   * @returns The key.
+   */
+  catalogue: (q: string) => ['packages', 'catalogue', q] as const,
+
+  /**
+   * What installing a package would take.
+   *
+   * @param id - The package.
+   * @returns The key.
+   */
+  plan: (id: string) => ['packages', 'plan', id] as const,
 
   /**
    * One installed package.
@@ -152,6 +170,17 @@ export function packageLogoUrl(
 }
 
 /**
+ * The address of a logo the Community Hub showed in a search, relayed by the platform: the
+ * interface loads images from its own origin only.
+ *
+ * @param sha256 - The logo's digest, as the search gave it.
+ * @returns Its address, or undefined for a package with none.
+ */
+export function catalogueLogoUrl(sha256: string | null): string | undefined {
+  return sha256 === null ? undefined : `${API_ROOT}/catalogue/logos/${sha256}`;
+}
+
+/**
  * Reads every installed package.
  *
  * @param signal - Cancels the request.
@@ -186,6 +215,39 @@ export async function fetchPackage(id: string, signal?: AbortSignal): Promise<Ap
  */
 export async function fetchAvailablePackages(signal?: AbortSignal): Promise<PackageAvailableReply> {
   return apiRequest('/packages/available', packageAvailableReplySchema, withSignal(signal));
+}
+
+/**
+ * Searches the Community Hub's packages, and the local folder's, each with what installing it
+ * here would take.
+ *
+ * @param q - What to look for; the Hub's most installed when empty.
+ * @param cursor - The page after the first, from the reply before.
+ * @param signal - Cancels the request.
+ * @returns What was found, and why the Hub could not be asked, when it could not.
+ */
+export async function searchCatalogue(
+  q: string,
+  cursor: string | undefined,
+  signal?: AbortSignal,
+): Promise<PackageSearchReply> {
+  const params = new URLSearchParams();
+
+  if (q !== '') {
+    params.set('q', q);
+  }
+
+  if (cursor !== undefined) {
+    params.set('cursor', cursor);
+  }
+
+  const query = params.toString();
+
+  return apiRequest(
+    `/packages/catalogue${query === '' ? '' : `?${query}`}`,
+    packageSearchReplySchema,
+    withSignal(signal),
+  );
 }
 
 /**

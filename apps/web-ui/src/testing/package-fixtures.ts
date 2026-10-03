@@ -1,7 +1,7 @@
 /**
  * Packages as the API lists them, for the tests of what draws them.
  */
-import type { ApiPackage, AvailablePackage } from '@nebulahome/contracts';
+import type { ApiPackage, AvailablePackage, PackageListing } from '@nebulahome/contracts';
 
 /**
  * The MQTT broker, running, with a card and a page.
@@ -86,6 +86,26 @@ export function anOffer(overrides: Partial<AvailablePackage> = {}): AvailablePac
     installedVersion: null,
     hasUpdate: false,
     hasNewBuild: false,
+    ...overrides,
+  };
+}
+
+/**
+ * A package a search of the Community Hub found: the index's NVR, as the Hub presents it.
+ *
+ * @param overrides - What differs.
+ * @returns The package.
+ */
+export function aListing(overrides: Partial<PackageListing> = {}): PackageListing {
+  return {
+    ...anOffer(),
+    color: '#3F6FD8',
+    logo: null,
+    isOfficial: true,
+    downloads: 1823,
+    stars: 97,
+    origin: 'hub',
+    unavailableReason: null,
     ...overrides,
   };
 }

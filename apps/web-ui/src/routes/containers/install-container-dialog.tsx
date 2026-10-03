@@ -52,6 +52,7 @@ import {
   type VolumeKind,
 } from '@/containers/install-form';
 import { toMessage } from '@/lib/error-message';
+import { shortCount } from '@/lib/format-count';
 import { useDebounced } from '@/lib/use-debounced';
 import { SearchField } from '@/routes/library/search-field';
 
@@ -82,16 +83,6 @@ const PROTOCOLS = [
   { value: 'tcp', label: 'TCP' },
   { value: 'udp', label: 'UDP' },
 ] as const;
-
-/**
- * A count written short: `1.2M`, `34k`.
- *
- * @param count - The count.
- * @returns It, short.
- */
-function shortCount(count: number): string {
-  return Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(count);
-}
 
 /** What the search card needs. */
 type ImageSearchProps = {

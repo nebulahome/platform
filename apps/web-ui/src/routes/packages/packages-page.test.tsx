@@ -1,6 +1,6 @@
 /**
- * The packages page: what is installed, what the index offers, and installing one - with what
- * it needs, or why it cannot be.
+ * The packages page: what is installed, where each stands and the updates out, and the button
+ * that opens the Community Hub's search - for who may install.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, within } from '@testing-library/react';
@@ -8,34 +8,34 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useSession } from '@/auth/session-store';
-import { fetchAvailablePackages, fetchPackages, installPackage, planPackage } from '@/packages/api';
-import { aPackage, anOffer } from '@/testing/package-fixtures';
+import { fetchAvailablePackages, fetchPackages, searchCatalogue } from '@/packages/api';
+import { aListing, aPackage, anOffer } from '@/testing/package-fixtures';
 
 import { PackagesPage } from './packages-page';
 
 vi.mock('@/packages/api', () => ({
   fetchPackages: vi.fn(),
   fetchAvailablePackages: vi.fn(),
+  searchCatalogue: vi.fn(),
   planPackage: vi.fn(),
   installPackage: vi.fn(),
   packageLogoUrl: vi.fn(() => undefined),
+  catalogueLogoUrl: vi.fn(() => undefined),
   PACKAGE_QUERY_KEYS: {
     all: ['packages'],
     list: ['packages', 'list'],
     available: ['packages', 'available'],
+    catalogue: (q: string) => ['packages', 'catalogue', q],
+    plan: (id: string) => ['packages', 'plan', id],
   },
 }));
 
 /**
- * Draws the page at an address, for somebody who may do what is given.
+ * Draws the page, for somebody who may do what is given.
  *
- * @param address - Where.
  * @param permissions - What they may do.
  */
-function renderPage(
-  address = '/packages',
-  permissions: readonly string[] = ['package:read', 'package:install'],
-): void {
+function renderPage(permissions: readonly string[] = ['package:read', 'package:install']): void {
   useSession.setState({
     status: 'signed-in',
     user: {
@@ -54,7 +54,7 @@ function renderPage(
 
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[address]}>
+      <MemoryRouter initialEntries={['/packages']}>
         <Routes>
           <Route path="/packages" element={<PackagesPage />} />
           <Route path="/packages/:packageId" element={<p>The package page</p>} />
@@ -67,9 +67,13 @@ function renderPage(
 beforeEach(() => {
   vi.mocked(fetchPackages).mockReset();
   vi.mocked(fetchAvailablePackages).mockReset();
-  vi.mocked(planPackage).mockReset();
-  vi.mocked(installPackage).mockReset();
+  vi.mocked(searchCatalogue).mockReset();
   vi.mocked(fetchPackages).mockResolvedValue([aPackage()]);
+  vi.mocked(searchCatalogue).mockResolvedValue({
+    items: [aListing()],
+    nextCursor: null,
+    hubError: null,
+  });
   vi.mocked(fetchAvailablePackages).mockResolvedValue({
     items: [
       anOffer({
@@ -105,80 +109,23 @@ describe('PackagesPage', () => {
     expect(within(tile).getByText('System')).toBeTruthy();
     expect(await within(tile).findByText('Update')).toBeTruthy();
     expect(screen.getByText(/1 update out/u)).toBeTruthy();
+    // What the index offers is no list of its own here: only the updates are read from it.
+    expect(screen.queryByText('Records the cameras.')).toBeNull();
   });
 
-  it('installs what the index offers, saying what else goes in with it', async () => {
-    vi.mocked(planPackage).mockResolvedValue({
-      install: [
-        { id: 'object-detection', version: '2.0.0', name: 'Object detection' },
-        { id: 'nvr', version: '1.4.0', name: 'NVR' },
-      ],
-      problems: [],
-    });
-    vi.mocked(installPackage).mockResolvedValue([aPackage({ id: 'nvr', name: 'NVR' })]);
-    renderPage('/packages?view=available');
+  it('opens the Community Hub’s search from Install packages', async () => {
+    renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Install' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Install packages' }));
 
-    expect(await screen.findByText('Also installs Object detection, which it needs.')).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Install 2 packages' }));
-
-    expect(await screen.findByText('The package page')).toBeTruthy();
-    expect(installPackage).toHaveBeenCalledWith('nvr');
-  });
-
-  it('says why a package cannot be installed, and does not offer to', async () => {
-    vi.mocked(planPackage).mockResolvedValue({
-      install: [],
-      problems: ['NVR needs a package that provides object-detection, and none does'],
-    });
-    renderPage('/packages?view=available');
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Install' }));
-
-    expect(
-      await screen.findByText('NVR needs a package that provides object-detection, and none does'),
-    ).toBeTruthy();
-    expect(
-      (screen.getAllByRole('button', { name: 'Install' }).at(-1) as HTMLButtonElement).disabled,
-    ).toBe(true);
-  });
-
-  it('marks a release of the local folder, and a new build of what is installed', async () => {
-    const local = {
-      version: '1.0.0',
-      requires: { packages: {}, services: [] },
-      provides: [],
-      publishedAt: new Date('2026-10-02T08:00:00.000Z'),
-      changelogUrl: null,
-      source: 'local' as const,
-    };
-
-    vi.mocked(fetchAvailablePackages).mockResolvedValue({
-      items: [
-        anOffer({ id: 'weather', name: 'Weather', latest: local }),
-        anOffer({
-          id: 'mqtt',
-          name: 'MQTT',
-          installedVersion: '1.0.0',
-          hasNewBuild: true,
-          latest: local,
-        }),
-      ],
-      checkedAt: new Date('2026-10-02T08:00:00.000Z'),
-      error: null,
-    });
-    renderPage('/packages?view=available');
-
-    expect(await screen.findAllByText('Local file')).toHaveLength(2);
-    expect(screen.getByText('New build')).toBeTruthy();
-  });
-
-  it('offers no Install to somebody who may only look', async () => {
-    renderPage('/packages?view=available', ['package:read']);
-
+    expect(await screen.findByRole('heading', { name: 'Install packages' })).toBeTruthy();
     expect(await screen.findByText('Records the cameras.')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Install' })).toBeNull();
+  });
+
+  it('offers no Install packages to somebody who may only look', async () => {
+    renderPage(['package:read']);
+
+    expect(await screen.findByRole('link', { name: 'MQTT' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Install packages' })).toBeNull();
   });
 });

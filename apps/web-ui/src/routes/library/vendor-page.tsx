@@ -475,7 +475,7 @@ export function VendorPage() {
                     to={
                       Object.keys(found.requires.packages).length === 1
                         ? `/packages/${encodeURIComponent(Object.keys(found.requires.packages)[0] ?? '')}`
-                        : '/packages?view=available'
+                        : '/packages'
                     }
                     className="shrink-0 text-ui font-medium text-primary underline-offset-2 hover:underline"
                   >
