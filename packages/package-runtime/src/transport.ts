@@ -12,9 +12,9 @@
 import type { z } from 'zod';
 
 import type { JsonObject } from '@nebulahome/contracts';
-import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { AccountHandle } from './account.js';
+import type { BundleLogger } from './sdk.js';
 
 /** What an integration asks a transport to do, expressed as data. */
 export type TransportRequest = {
@@ -71,7 +71,7 @@ export type TransportStatus = 'up' | 'down';
  * when something arrived and when the connection dropped; `hub` cannot poll for either.
  */
 export type TransportContext = {
-  readonly logger: PlatformLogger;
+  readonly logger: BundleLogger;
 
   /** Called for every message the connection delivered without being asked. */
   deliver: (message: TransportInbound) => void;

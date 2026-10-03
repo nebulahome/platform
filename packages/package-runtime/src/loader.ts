@@ -28,6 +28,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { satisfies } from 'semver';
+import type { z } from 'zod';
 
 import {
   integrationSetupSchema,
@@ -36,7 +37,6 @@ import {
   type IntegrationSetup,
   type TransportWire,
 } from '@nebulahome/contracts';
-import type { PlatformLogger } from '@nebulahome/logging';
 
 import {
   accountDeclarationSchema,
@@ -65,7 +65,7 @@ import {
 import { INSTALL_MARKER_FILE, installMarkerSchema, type InstallMarker } from './install-marker.js';
 import type { Integration } from './integration.js';
 import { integrationProfileSchema, type IntegrationProfile } from './profile.js';
-import type { BundleSdk, StreamFactory, TransportFactory } from './sdk.js';
+import type { BundleLogger, BundleSdk, StreamFactory, TransportFactory } from './sdk.js';
 import type { StreamSource } from './stream.js';
 import type { Transport } from './transport.js';
 
@@ -402,6 +402,86 @@ export async function readBundleJson(directory: string, file: string): Promise<u
   return parsed;
 }
 
+/** How many of a schema's complaints a message names. */
+const ISSUES_NAMED = 4;
+
+/**
+ * A file's name as a message says it: `relay/setup.json`, not `./setup.json` or a Windows path.
+ *
+ * @param file - The name, as the bundle writes it.
+ * @returns It, tidied.
+ */
+function nameOf(file: string): string {
+  return path.normalize(file).split(path.sep).join('/');
+}
+
+/**
+ * Reads one JSON file of a bundle and checks it, saying which file and which field when it does
+ * not hold - a sentence an author can act on, rather than a dump of the schema's findings.
+ *
+ * @param schema - What the file must be.
+ * @param directory - The folder it is in.
+ * @param file - The file, relative to it.
+ * @returns What it holds, checked.
+ * @throws {Error} When it is not there, is not JSON, or does not hold.
+ */
+async function readBundleFile<TSchema extends z.ZodType>(
+  schema: TSchema,
+  directory: string,
+  file: string,
+): Promise<z.output<TSchema>> {
+  let raw: unknown;
+
+  try {
+    raw = await readBundleJson(directory, file);
+  } catch (error: unknown) {
+    const code = (error as { readonly code?: unknown } | null)?.code;
+
+    throw new Error(
+      code === 'ENOENT'
+        ? `${nameOf(file)} is missing`
+        : `${nameOf(file)} could not be read: ${messageOf(error)}`,
+      { cause: error },
+    );
+  }
+
+  return parseBundleValue(schema, raw, file);
+}
+
+/**
+ * Checks what one file of a bundle holds, saying which file and which field when it does not.
+ *
+ * @param schema - What it must be.
+ * @param value - What it holds.
+ * @param file - The file, for the message.
+ * @returns The value, checked.
+ * @throws {Error} When it does not hold.
+ */
+function parseBundleValue<TSchema extends z.ZodType>(
+  schema: TSchema,
+  value: unknown,
+  file: string,
+): z.output<TSchema> {
+  const parsed = schema.safeParse(value);
+
+  if (parsed.success) {
+    return parsed.data;
+  }
+
+  const { issues } = parsed.error;
+  const named = issues
+    .slice(0, ISSUES_NAMED)
+    .map((issue) =>
+      issue.path.length === 0
+        ? issue.message
+        : `${issue.path.map(String).join('.')}: ${issue.message}`,
+    );
+  const more =
+    issues.length > ISSUES_NAMED ? `; and ${String(issues.length - ISSUES_NAMED)} more` : '';
+
+  throw new Error(`${nameOf(file)}: ${named.join('; ')}${more}`, { cause: parsed.error });
+}
+
 /**
  * Whether a file is there to be read.
  *
@@ -542,7 +622,7 @@ async function readDriver(
   directory: string,
   resolve: ResolveModule,
 ): Promise<DriverDeclaration> {
-  const driver = driverManifestSchema.parse(await readBundleJson(directory, DRIVER_FILE));
+  const driver = await readBundleFile(driverManifestSchema, directory, DRIVER_FILE);
 
   if (driver.id !== path.basename(directory)) {
     throw new Error(
@@ -561,7 +641,7 @@ async function readDriver(
 
   // `polling` is served as the option it stands for, so nothing past the loader has to know it.
   const setup = withPollingField(
-    integrationSetupSchema.parse(await readBundleJson(directory, manifest.setup)),
+    await readBundleFile(integrationSetupSchema, directory, manifest.setup),
   );
   const identity = {
     manifest,
@@ -573,8 +653,10 @@ async function readDriver(
   };
 
   if (manifest.kind === 'declarative') {
-    const profile = integrationProfileSchema.parse(
-      await readBundleJson(directory, manifest.profile ?? ''),
+    const profile = await readBundleFile(
+      integrationProfileSchema,
+      directory,
+      manifest.profile ?? '',
     );
 
     return { ...identity, profile };
@@ -667,7 +749,7 @@ async function readDiscovery(
   drivers: readonly DriverDeclaration[],
   resolve: ResolveModule,
 ): Promise<NonNullable<VendorDeclaration['discovery']>> {
-  const declaration = vendorDiscoverySchema.parse(await readBundleJson(directory, DISCOVERY_FILE));
+  const declaration = await readBundleFile(vendorDiscoverySchema, directory, DISCOVERY_FILE);
 
   planDiscovery(vendor, declaration, drivers);
 
@@ -719,7 +801,7 @@ export async function readVendorDirectory(
     source = { ...raw, ...options.stamp };
   }
 
-  const manifest = vendorManifestSchema.parse(source);
+  const manifest = parseBundleValue(vendorManifestSchema, source, MANIFEST_FILE);
 
   if (manifest.id !== expectedId) {
     throw new Error(`The vendor in ${expectedId} calls itself ${manifest.id}; the two must agree`);
@@ -753,9 +835,7 @@ export async function readVendorDirectory(
   let account: VendorDeclaration['account'];
 
   if (manifest.account !== undefined) {
-    const declaration = accountDeclarationSchema.parse(
-      await readBundleJson(directory, manifest.account),
-    );
+    const declaration = await readBundleFile(accountDeclarationSchema, directory, manifest.account);
 
     account = {
       declaration,
@@ -766,9 +846,7 @@ export async function readVendorDirectory(
   const setup =
     manifest.setup === undefined
       ? NO_SETUP
-      : withPollingField(
-          integrationSetupSchema.parse(await readBundleJson(directory, manifest.setup)),
-        );
+      : withPollingField(await readBundleFile(integrationSetupSchema, directory, manifest.setup));
   const logo =
     manifest.logo === undefined ? undefined : await readLogo(directory, manifest.logo.path);
   const containerProblems = containerDependencyProblems(manifest.containers, setup);
@@ -1150,7 +1228,7 @@ export async function findVendorFolder(
     return null;
   }
 
-  const install = installMarkerSchema.parse(JSON.parse(await readFile(markerFile, 'utf8')));
+  const install = await readBundleFile(installMarkerSchema, folder, INSTALL_MARKER_FILE);
   const directory = path.join(folder, install.build);
 
   if (!(await isFile(path.join(directory, MANIFEST_FILE)))) {
@@ -1268,7 +1346,7 @@ export async function loadBundleDirectory(
 export function mergeBundleResults(
   development: LoadBundlesResult,
   installed: LoadBundlesResult,
-  logger: PlatformLogger,
+  logger: Pick<BundleLogger, 'warn'>,
 ): LoadBundlesResult {
   const byId = new Map<string, LoadedVendor>();
 

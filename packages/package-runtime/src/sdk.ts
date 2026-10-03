@@ -17,19 +17,47 @@
  */
 import type { z } from 'zod';
 
-import type { PlatformLogger } from '@nebulahome/logging';
-
 import type { defineAccount } from './account.js';
 import type { Integration } from './integration.js';
 import type { defineStreamSource, OpenRtsp, StreamSource } from './stream.js';
 import type { defineTransport, Transport } from './transport.js';
+
+/**
+ * One level of a bundle's log: fields and a message, or a message alone - pino's way, which is the
+ * logger `hub` hands over.
+ */
+export type BundleLogFn = {
+  (fields: object, message?: string): void;
+  (message: string): void;
+};
+
+/**
+ * The hub's logger, as far as a bundle's code may use it: named here rather than as the platform's
+ * logger type, so that what a bundle is written against says nothing of how the platform logs.
+ */
+export type BundleLogger = {
+  readonly trace: BundleLogFn;
+  readonly debug: BundleLogFn;
+  readonly info: BundleLogFn;
+  readonly warn: BundleLogFn;
+  readonly error: BundleLogFn;
+  readonly fatal: BundleLogFn;
+
+  /**
+   * A logger whose every line carries these fields too.
+   *
+   * @param fields - The fields.
+   * @returns The logger.
+   */
+  child: (fields: Record<string, unknown>) => BundleLogger;
+};
 
 /** What opening a managed WebSocket takes. */
 export type ManagedSocketOptions = {
   /** `ws://host/path` or `wss://…`. */
   readonly url: string;
 
-  readonly logger: PlatformLogger;
+  readonly logger: BundleLogger;
 
   /** Called after every connection, the first and each one after a drop. */
   readonly onOpen: () => void;
@@ -137,7 +165,7 @@ export type ManagedMqttOptions = {
     readonly rejectUnauthorized?: boolean;
   };
 
-  readonly logger: PlatformLogger;
+  readonly logger: BundleLogger;
 
   /** Called after every connection, the first and each one after a drop. */
   readonly onConnect?: () => void;
@@ -240,7 +268,7 @@ export type BundleSdk = {
   readonly z: typeof z;
 
   /** The hub's logger, for what happens outside a connection: a probe, a scan. */
-  readonly logger: PlatformLogger;
+  readonly logger: BundleLogger;
 
   readonly defineTransport: typeof defineTransport;
   readonly openWebSocket: OpenWebSocket;

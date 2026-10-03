@@ -31,7 +31,7 @@ import { createHash, randomInt } from 'node:crypto';
 /** @typedef {import('@nebulahome/package-runtime').TransportRequest} TransportRequest */
 /** @typedef {import('@nebulahome/package-runtime').TransportSubscription} TransportSubscription */
 /** @typedef {import('@nebulahome/package-runtime').Discovered} Discovered */
-/** @typedef {import('@nebulahome/logging').PlatformLogger} PlatformLogger */
+/** @typedef {import('@nebulahome/package-runtime').BundleLogger} BundleLogger */
 /** @typedef {import('@nebulahome/contracts').JsonObject} JsonObject */
 
 /**
@@ -327,7 +327,7 @@ function textOf(record, key) {
  *
  * @param {BundleSdk} sdk - The platform pieces.
  * @param {Config} config - The device.
- * @param {PlatformLogger} logger - Where to write.
+ * @param {BundleLogger} logger - Where to write.
  * @param {SessionHooks} hooks - What to call back.
  * @returns {Session} The session, connecting in the background.
  */
