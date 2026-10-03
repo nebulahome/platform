@@ -40,9 +40,11 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm build
 
 # The tree that runs: the same layout, installed afresh with production dependencies only - the
-# web-ui's are left out, it is served as built files - and each package's built output with the
-# files it reads at runtime: the migrations, the icon catalogue and the bundles. No package ships
-# in the image: packet-manager installs them, the house's MQTT broker among them.
+# web-ui's are left out, it is served as built files, and so are the integration SDK's: the hub
+# reads only its package.json, the contract's version, and its builder is an author's tool - and
+# each package's built output with the files it reads at runtime: the migrations, the icon
+# catalogue and the bundles. No package ships in the image: packet-manager installs them, the
+# house's MQTT broker among them.
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     mkdir -p /app && \
     cp package.json pnpm-lock.yaml pnpm-workspace.yaml /app/ && \
@@ -52,7 +54,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     done && \
     cd /app && \
     pnpm install --frozen-lockfile --offline --prod --ignore-scripts \
-      --filter '!@nebulahome/web-ui' --filter '!@nebulahome/ui' && \
+      --filter '!@nebulahome/web-ui' --filter '!@nebulahome/ui'       --filter '!@nebulahome/integration-sdk' && \
     cd /src && \
     for dir in apps/* packages/*; do \
       if [ -d "$dir/dist" ]; then cp -a "$dir/dist" "/app/$dir/"; fi; \

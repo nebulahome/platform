@@ -17,6 +17,7 @@
     "@nebulahome/config": "workspace:*",
     "@nebulahome/contracts": "workspace:*",
     "@nebulahome/db": "workspace:*",
+    "@nebulahome/integration-sdk": "workspace:*",
     "@nebulahome/logging": "workspace:*",
     "@nebulahome/package-runtime": "workspace:*",
     "drizzle-orm": "^0.45.2",

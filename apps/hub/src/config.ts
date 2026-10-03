@@ -9,6 +9,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import semver from 'semver';
 import { z } from 'zod';
 
 import {
@@ -20,6 +21,7 @@ import {
   runtimeEnvSchema,
   secretsEnvSchema,
 } from '@nebulahome/config';
+import integrationSdk from '@nebulahome/integration-sdk/package.json' with { type: 'json' };
 import type { PlatformMqtt } from '@nebulahome/package-runtime';
 
 /** Name this service reports in log records and bus envelopes. */
@@ -33,13 +35,16 @@ export const SERVICE_NAME = 'hub';
 export const SERVICE_VERSION = '0.0.0';
 
 /**
- * The integration contract version this build implements.
+ * The integration contract version this build implements: the version of the integration SDK an
+ * integration is written and built with, which says the same contract - one number, so the two
+ * cannot drift. Without its prerelease, which no bundle's range would match.
  *
  * Separate from {@link SERVICE_VERSION} on purpose: a bundle declares the *contract* it was
  * written against, not the release of the service that happens to be running it, and the two move
  * for entirely different reasons.
  */
-export const RUNTIME_VERSION = '1.6.0';
+export const RUNTIME_VERSION: string =
+  semver.coerce(integrationSdk.version)?.version ?? integrationSdk.version;
 
 /** Everything `hub` needs from the environment. */
 export const hubEnvSchema = runtimeEnvSchema

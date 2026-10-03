@@ -230,6 +230,9 @@ importers:
       '@nebulahome/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@nebulahome/integration-sdk':
+        specifier: workspace:*
+        version: link:../../packages/integration-sdk
       '@nebulahome/logging':
         specifier: workspace:*
         version: link:../../packages/logging
@@ -725,6 +728,55 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@22.20.1)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
 
+  packages/integration-sdk:
+    dependencies:
+      rolldown:
+        specifier: ^1.2.7
+        version: 1.2.7
+      zod:
+        specifier: ^4.5.4
+        version: 4.5.4
+    devDependencies:
+      '@arethetypeswrong/cli':
+        specifier: ^0.18.5
+        version: 0.18.5
+      '@nebulahome/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@nebulahome/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@nebulahome/package-runtime':
+        specifier: workspace:*
+        version: link:../package-runtime
+      '@nebulahome/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
+      '@types/semver':
+        specifier: ^7.7.1
+        version: 7.8.0
+      publint:
+        specifier: ^0.3.25
+        version: 0.3.25
+      semver:
+        specifier: ^7.8.5
+        version: 7.8.5
+      tar:
+        specifier: ^7.5.22
+        version: 7.5.22
+      tsdown:
+        specifier: ^0.23.0
+        version: 0.23.0(@arethetypeswrong/core@0.18.5)(publint@0.3.25)(tsx@4.23.13)(typescript@6.0.3)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@22.20.1)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
+
   packages/logging:
     dependencies:
       '@nebulahome/contracts':
@@ -786,9 +838,6 @@ importers:
       '@nebulahome/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@nebulahome/logging':
-        specifier: workspace:*
-        version: link:../logging
       semver:
         specifier: ^7.8.5
         version: 7.8.5
@@ -799,6 +848,9 @@ importers:
       '@nebulahome/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
+      '@nebulahome/logging':
+        specifier: workspace:*
+        version: link:../logging
       '@nebulahome/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
@@ -6773,7 +6825,7 @@ snapshots:
   '@changesets/format@0.1.2':
     dependencies:
       package-manager-detector: 1.8.0
-      tinyexec: 1.3.0
+      tinyexec: 1.3.1
 
   '@changesets/get-dependents-graph@3.0.0':
     dependencies:
@@ -7684,7 +7736,7 @@ snapshots:
 
   '@publint/pack@0.1.7':
     dependencies:
-      tinyexec: 1.3.0
+      tinyexec: 1.3.1
 
   '@quansync/fs@1.1.0':
     dependencies:
