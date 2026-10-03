@@ -12,10 +12,12 @@ import {
   PACKET_MANAGER_SERVICE,
   packageAnnounceRequestSchema,
   packageConfigureRequestSchema,
+  packageHubLogoRequestSchema,
   packageIdRequestSchema,
   packageInstallRequestSchema,
   packageLogsRequestSchema,
   packageRemoveRequestSchema,
+  packageSearchRequestSchema,
   packetManagerEmptyRequestSchema,
 } from '@nebulahome/contracts';
 
@@ -61,6 +63,18 @@ export function servePacketManager(client: BusClient, service: PacketManager): B
       subject(PACKET_MANAGER_METHODS.available),
       packetManagerEmptyRequestSchema,
       async () => service.available(),
+      reads,
+    ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.search),
+      packageSearchRequestSchema,
+      async (request) => service.search(request),
+      reads,
+    ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.hubLogo),
+      packageHubLogoRequestSchema,
+      async (request) => service.hubLogo(request.sha256),
       reads,
     ),
     client.serve(

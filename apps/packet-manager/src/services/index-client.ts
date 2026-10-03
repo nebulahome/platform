@@ -1,11 +1,11 @@
 /**
  * The package index: what there is to install.
  *
- * One JSON document at `PACKAGE_INDEX_URL` (PACKAGES.md 10), read when asked and trusted for a
+ * One JSON document the Community Hub serves (PACKAGES.md 10), read when asked and trusted for a
  * few hours, then read again. A document that is not the index's shape is refused whole: an
  * index half read would offer a release with the wrong digest. Beside it, the releases of the
  * platform's local folder, read on every ask: a release there wins over the index's of the same
- * version. An installation without the internet, or without an index set, offers what the local
+ * version. An installation without the internet, or without a Hub set, offers what the local
  * folder holds and nothing else, and says why.
  */
 import {
@@ -150,7 +150,7 @@ export class PackageIndexClient {
       this.#last = {
         index: null,
         checkedAt: at,
-        error: 'No package index is set: PACKAGE_INDEX_URL',
+        error: 'No Community Hub is set: COMMUNITY_HUB_URL',
       };
 
       return this.#last;

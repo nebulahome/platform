@@ -1,7 +1,9 @@
 /**
  * The installer against archives made here, the index client against a fake of its server and a
- * local folder, and a package's process against a runner that stands in for the SDK's.
+ * local folder, the Community Hub's client against a fake of the Hub, and a package's process
+ * against a runner that stands in for the SDK's.
  */
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -14,6 +16,7 @@ import { createLogger } from '@nebulahome/logging';
 import { RestartPolicy } from '../domain/restart-policy.js';
 import { archiveOf, fakeRunner, manifest, scratch, writePackage } from '../testing/fixtures.js';
 
+import { CommunityHubClient } from './hub-client.js';
 import { PackageIndexClient } from './index-client.js';
 import { installRelease } from './installer.js';
 import { LocalReleases } from './local-releases.js';
@@ -231,7 +234,7 @@ describe('the package index', () => {
 
     expect(await client.read()).toMatchObject({
       index: null,
-      error: expect.stringMatching(/PACKAGE_INDEX_URL/u) as unknown,
+      error: expect.stringMatching(/COMMUNITY_HUB_URL/u) as unknown,
     });
   });
 
@@ -357,5 +360,119 @@ describe("a package's process", () => {
     );
 
     expect(states.filter((state) => state.kind === 'exited')).toHaveLength(2);
+  });
+});
+
+describe('the Community Hub client', () => {
+  /**
+   * A client over a fake Hub.
+   *
+   * @param answer - What the Hub answers each call.
+   * @returns The client.
+   */
+  const clientOf = (answer: (url: string) => Response | Promise<Response>): CommunityHubClient =>
+    new CommunityHubClient({
+      url: 'https://hub.example',
+      logger,
+
+      /**
+       * The fake Hub.
+       *
+       * @param input - What is asked.
+       * @returns Its answer.
+       */
+      fetch: async (input) => answer(String(input instanceof Request ? input.url : input)),
+    });
+
+  it('says why it cannot search: no Hub set, none reachable, or what the Hub refused', async () => {
+    await expect(
+      new CommunityHubClient({ url: undefined, logger }).search({ limit: 30 }),
+    ).rejects.toThrow('No Community Hub is set: COMMUNITY_HUB_URL');
+    await expect(
+      clientOf(() => {
+        throw new TypeError('getaddrinfo ENOTFOUND hub.example');
+      }).search({ limit: 30 }),
+    ).rejects.toThrow(
+      'The Community Hub could not be reached at https://hub.example: getaddrinfo ENOTFOUND hub.example',
+    );
+    await expect(
+      clientOf(() =>
+        Response.json(
+          { error: { code: 'MAINTENANCE', message: 'Upgrading the catalogue' } },
+          { status: 503 },
+        ),
+      ).search({ limit: 30 }),
+    ).rejects.toThrow('The Community Hub answered HTTP 503: Upgrading the catalogue');
+  });
+
+  it('leaves out a package the Hub describes wrongly, not the page', async () => {
+    const page = await clientOf(() =>
+      Response.json({
+        items: [
+          { kind: 'package', slug: 'nvr', name: 'Recorder', description: 'Records.' },
+          {
+            kind: 'package',
+            slug: 'nvr',
+            name: 'Recorder',
+            description: 'Records.',
+            category: 'security',
+            official: true,
+            color: '#123456',
+            logoUrl: null,
+            latestVersion: '1.4.0',
+            downloads: 3,
+            stars: 1,
+          },
+        ],
+      }),
+    ).search({ q: 'rec', limit: 30 });
+
+    expect(page).toEqual({
+      items: [
+        {
+          id: 'nvr',
+          name: 'Recorder',
+          description: 'Records.',
+          category: 'security',
+          isOfficial: true,
+          color: '#123456',
+          logo: null,
+          latestVersion: '1.4.0',
+          downloads: 3,
+          stars: 1,
+        },
+      ],
+      nextCursor: null,
+    });
+  });
+
+  it('refuses a logo whose bytes are not the digest a search showed', async () => {
+    const bytes = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>');
+    const sha = createHash('sha256').update(bytes).digest('hex');
+    const client = clientOf((url) =>
+      url.includes('/v1/assets/')
+        ? new Response('<svg>another</svg>', { headers: { 'content-type': 'image/svg+xml' } })
+        : Response.json({
+            items: [
+              {
+                kind: 'package',
+                slug: 'nvr',
+                name: 'Recorder',
+                description: '',
+                category: null,
+                official: false,
+                color: null,
+                logoUrl: `https://assets.example/v1/assets/${sha}`,
+                latestVersion: null,
+                downloads: 0,
+                stars: 0,
+              },
+            ],
+          }),
+    );
+
+    await client.search({ limit: 30 });
+
+    await expect(client.logo(sha)).rejects.toThrow(/not the one asked for/u);
   });
 });

@@ -4,6 +4,7 @@
  * and from the folder with what they need, a package waiting for another and following it down and
  * up, and removals refused and made.
  */
+import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -30,6 +31,7 @@ import { createLogger } from '@nebulahome/logging';
 
 import { packetManagerEnvSchema } from './config.js';
 import { PacketManager } from './service.js';
+import { CommunityHubClient } from './services/hub-client.js';
 import { PackageIndexClient } from './services/index-client.js';
 import { LocalReleases } from './services/local-releases.js';
 import {
@@ -98,7 +100,66 @@ type SetUpOptions = {
 
   /** The services something outside stands in for. */
   readonly externalServices?: ReadonlySet<string>;
+
+  /** Whether the Community Hub can be reached; it can when not said. */
+  readonly isHubDown?: boolean;
 };
+
+/** A logo the Hub serves, as a PNG's first bytes are enough for. */
+const HUB_LOGO = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+
+/** Its digest, how the Hub addresses it. */
+const HUB_LOGO_SHA = createHash('sha256').update(HUB_LOGO).digest('hex');
+
+/**
+ * What the Community Hub lists: the index's two packages, one it has no release of in the index
+ * yet, and one whose name is no package id.
+ */
+const HUB_ITEMS = [
+  {
+    kind: 'package',
+    slug: 'zigbee-tools',
+    name: 'Zigbee tools',
+    description: 'Tools.',
+    category: 'protocol',
+    official: true,
+    color: '#3F6FD8',
+    logoUrl: `https://hub.example/v1/assets/${HUB_LOGO_SHA}`,
+    latestVersion: '2.1.0',
+    publishedAt: '2026-09-28T08:00:00.000Z',
+    downloads: 1200,
+    stars: 30,
+  },
+  {
+    kind: 'package',
+    slug: 'watcher',
+    name: 'Watcher',
+    description: 'Needs a detector nobody has.',
+    category: 'security',
+    official: false,
+    color: 'url(javascript:alert(1))',
+    logoUrl: null,
+    latestVersion: '1.0.0',
+    publishedAt: '2026-09-28T08:00:00.000Z',
+    downloads: 4,
+    stars: 0,
+  },
+  {
+    kind: 'package',
+    slug: 'newcomer',
+    name: 'Newcomer',
+    description: '',
+    category: 'media',
+    official: false,
+    color: null,
+    logoUrl: null,
+    latestVersion: '0.3.0',
+    publishedAt: '2026-10-03T08:00:00.000Z',
+    downloads: 0,
+    stars: 0,
+  },
+  { kind: 'package', slug: 'Not An Id', name: 'Odd', description: '', category: null },
+];
 
 /**
  * A packet-manager whose local folder holds the house's broker, and whose index offers one more
@@ -115,6 +176,7 @@ async function setUp(options: SetUpOptions = {}): Promise<{
   work: string;
   again: () => PacketManager;
   reconciled: unknown[];
+  hubAsked: string[];
 }> {
   const work = await scratch();
 
@@ -177,6 +239,30 @@ async function setUp(options: SetUpOptions = {}): Promise<{
   const fetch: typeof globalThis.fetch = async (input) => {
     const asked = String(input instanceof Request ? input.url : input);
 
+    if (asked.startsWith('https://hub.example/')) {
+      hubAsked.push(asked);
+
+      if (options.isHubDown === true) {
+        throw new TypeError('fetch failed');
+      }
+
+      const q = new URL(asked).searchParams.get('q');
+
+      return Promise.resolve(
+        asked.startsWith('https://hub.example/v1/packages?')
+          ? Response.json({
+              items: HUB_ITEMS.filter((item) => q === null || item.slug.includes(q)),
+              nextCursor: q === null ? 'page-2' : null,
+            })
+          : asked === `https://hub.example/v1/assets/${HUB_LOGO_SHA}`
+            ? new Response(new Uint8Array(HUB_LOGO), { headers: { 'content-type': 'image/png' } })
+            : Response.json(
+                { error: { code: 'NOT_FOUND', message: 'No such item' } },
+                { status: 404 },
+              ),
+      );
+    }
+
     return Promise.resolve(
       asked === 'https://example.com/index.json'
         ? Response.json(index)
@@ -185,6 +271,7 @@ async function setUp(options: SetUpOptions = {}): Promise<{
           : new Response('not found', { status: 404 }),
     );
   };
+  const hubAsked: string[] = [];
   const transport = new FakeTransport();
   const platform = new BusClient({ transport, source: 'core', logger });
   const synced: SyncPackageRequest[] = [];
@@ -250,6 +337,7 @@ async function setUp(options: SetUpOptions = {}): Promise<{
          */
         local: async () => local.entries(),
       }),
+      hub: new CommunityHubClient({ url: 'https://hub.example', logger, fetch }),
       secretsKey: Buffer.alloc(32, 1),
       runner,
       packagesDir: path.join(work, 'data', 'packages'),
@@ -266,7 +354,7 @@ async function setUp(options: SetUpOptions = {}): Promise<{
     return made;
   };
 
-  return { manager: again(), store, transport, synced, work, again, reconciled };
+  return { manager: again(), store, transport, synced, work, again, reconciled, hubAsked };
 }
 
 /**
@@ -572,5 +660,75 @@ describe('the packet-manager', () => {
     ]);
     expect(await states(manager)).toEqual({ mosquitto: 'running' });
     expect((await manager.get('mosquitto')).isSystem).toBe(true);
+  });
+
+  it('searches the Hub, each package with what installing it here takes, the local folder’s first', async () => {
+    const { manager, hubAsked } = await setUp();
+
+    await manager.start();
+
+    const found = await manager.search({});
+
+    expect(found.hubError).toBeNull();
+    expect(found.nextCursor).toBe('page-2');
+    expect(found.items.map((item) => [item.id, item.origin])).toEqual([
+      ['mqtt', 'local'],
+      ['zigbee-tools', 'hub'],
+      ['watcher', 'hub'],
+      ['newcomer', 'hub'],
+    ]);
+    expect(found.items[0]).toMatchObject({ installedVersion: '1.0.0', unavailableReason: null });
+    expect(found.items[1]).toMatchObject({
+      isOfficial: true,
+      color: '#3F6FD8',
+      logo: HUB_LOGO_SHA,
+      downloads: 1200,
+      repository: 'nebulahome/pkg-zigbee-tools',
+      latest: { version: '2.1.0', source: 'index' },
+      unavailableReason: null,
+    });
+    // The Hub's word is checked before it reaches a style.
+    expect(found.items[2]?.color).toBeNull();
+    expect(found.items[3]).toMatchObject({
+      latest: null,
+      newestVersion: '0.3.0',
+      repository: null,
+      unavailableReason: 'No release of it is in the package index yet',
+    });
+
+    const narrowed = await manager.search({ q: 'zig' });
+
+    expect(narrowed.items.map((item) => item.id)).toEqual(['zigbee-tools']);
+    expect(hubAsked.at(-1)).toBe('https://hub.example/v1/packages?limit=30&q=zig');
+  });
+
+  it('lists the local folder’s files when the Hub cannot be asked, and says why', async () => {
+    const { manager } = await setUp({ isHubDown: true });
+
+    await manager.start();
+
+    const found = await manager.search({ q: 'mqtt' });
+
+    expect(found.hubError).toMatch(/could not be reached at https:\/\/hub\.example/u);
+    expect(found.items.map((item) => item.id)).toEqual(['mqtt']);
+  });
+
+  it('relays a logo a search showed, checked against its digest, and no other', async () => {
+    const { manager, hubAsked } = await setUp();
+
+    await expect(manager.hubLogo(HUB_LOGO_SHA)).rejects.toThrow(/No search showed/u);
+
+    await manager.search({});
+
+    const logo = await manager.hubLogo(HUB_LOGO_SHA);
+
+    expect(logo).toEqual({ contentType: 'image/png', data: HUB_LOGO.toString('base64') });
+
+    const asked = hubAsked.length;
+
+    await manager.hubLogo(HUB_LOGO_SHA);
+
+    // The second time from what it kept.
+    expect(hubAsked.length).toBe(asked);
   });
 });

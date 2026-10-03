@@ -3,7 +3,7 @@
  *
  * Its own database role, for `system.packages`; the bus, which its packages are handed too; the
  * instance key, which opens the secrets a package's settings hold before the package is given
- * them; where the package index and the local folder are; the runner a `node` package is started
+ * them; where the Community Hub and the local folder are; the runner a `node` package is started
  * with; and an external MQTT broker, which stands in for the house's own package.
  */
 import path from 'node:path';
@@ -43,10 +43,13 @@ export const packetManagerEnvSchema = runtimeEnvSchema
   .extend(mqttEnvSchema.shape)
   .extend({
     /**
-     * Where the package index is: a static JSON file until the Community Hub serves it. Unset,
-     * nothing is offered but what the local folder holds.
+     * The Community Hub's public API, `https://hub.example.com` - no path, no `/v1`: where the
+     * package index is read (`/v1/index/packages.json`) and the packages are searched
+     * (`/v1/packages`). Unset, nothing is offered but what the local folder holds.
      */
-    PACKAGE_INDEX_URL: urlWithScheme(['https:', 'http:']).optional(),
+    COMMUNITY_HUB_URL: urlWithScheme(['https:', 'http:'])
+      .transform((url) => url.replace(/\/+$/u, ''))
+      .optional(),
 
     /**
      * The local folder: releases put there by hand (`<id>-<version>.tgz`, as `nebulahome-package
@@ -106,6 +109,18 @@ export const packetManagerEnvSchema = runtimeEnvSchema
 
 /** Everything `packet-manager` needs from the environment. */
 export type PacketManagerConfig = z.output<typeof packetManagerEnvSchema>;
+
+/**
+ * Where the package index is: the Community Hub's document of it.
+ *
+ * @param config - The parsed environment.
+ * @returns Its address; undefined when no Hub is set.
+ */
+export function packageIndexUrlOf(config: PacketManagerConfig): string | undefined {
+  return config.COMMUNITY_HUB_URL === undefined
+    ? undefined
+    : `${config.COMMUNITY_HUB_URL}/v1/index/packages.json`;
+}
 
 /**
  * Where the local folder is, if anywhere.

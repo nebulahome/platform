@@ -17,12 +17,14 @@ import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 import { servePacketManager } from './bus-service.js';
 import {
   localPackagesDirectory,
+  packageIndexUrlOf,
   packetManagerEnvSchema,
   SERVICE_NAME,
   SERVICE_VERSION,
 } from './config.js';
 import { databasePackageStore } from './persistence/packages.js';
 import { PacketManager } from './service.js';
+import { CommunityHubClient } from './services/hub-client.js';
 import { PackageIndexClient } from './services/index-client.js';
 import { LocalReleases } from './services/local-releases.js';
 
@@ -103,7 +105,7 @@ async function start(): Promise<void> {
     client,
     logger,
     index: new PackageIndexClient({
-      url: config.PACKAGE_INDEX_URL,
+      url: packageIndexUrlOf(config),
       ttlMs: config.PACKET_MANAGER_INDEX_TTL_MS,
       logger,
 
@@ -114,6 +116,7 @@ async function start(): Promise<void> {
        */
       local: async () => local.entries(),
     }),
+    hub: new CommunityHubClient({ url: config.COMMUNITY_HUB_URL, logger }),
     secretsKey: secretsKeyFrom(config.NEBULA_SECRETS_KEY),
     runner:
       config.PACKET_MANAGER_RUNNER ??

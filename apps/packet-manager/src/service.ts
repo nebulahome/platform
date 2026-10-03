@@ -55,9 +55,13 @@ import {
   HUB_SERVICE,
   managedReplySchema,
   NotFoundError,
+  PACKAGE_CATEGORIES,
+  PACKAGE_SEARCH_PAGE_SIZE,
   PACKAGE_SETTINGS_METHOD,
+  packageIdSchema,
   packageManifestSchema,
   planInstall,
+  semverSchema,
   servicesHeldBy,
   startOrder,
   SUPERVISOR_METHODS,
@@ -73,11 +77,16 @@ import {
   type JsonObject,
   type PackageAnnounceRequest,
   type PackageDetail,
+  type PackageHubLogoReply,
   type PackageIndex,
+  type PackageIndexEntry,
+  type PackageListing,
   type PackagePlanReply,
   type PackageRelation,
   type PackageRelease,
   type PackageRpcMethod,
+  type PackageSearchReply,
+  type PackageSearchRequest,
   type PackageState,
 } from '@nebulahome/contracts';
 import { maskSealed, openSecrets } from '@nebulahome/db';
@@ -88,7 +97,8 @@ import { SDK_VERSION } from '@nebulahome/package-sdk';
 import type { PacketManagerConfig } from './config.js';
 import { LogRing } from './domain/log-ring.js';
 import type { PackageRow, PackageStore } from './persistence/packages.js';
-import type { PackageIndexClient } from './services/index-client.js';
+import type { CommunityHubClient, HubPackage } from './services/hub-client.js';
+import type { IndexRead, PackageIndexClient } from './services/index-client.js';
 import { installRelease } from './services/installer.js';
 import { readPackageFiles, type PackageFiles } from './services/package-files.js';
 import { PackageProcess, type ProcessState } from './services/package-process.js';
@@ -109,6 +119,10 @@ export type PacketManagerOptions = {
   readonly client: BusClient;
   readonly logger: PlatformLogger;
   readonly index: PackageIndexClient;
+
+  /** The Community Hub, searched for what to install. */
+  readonly hub: CommunityHubClient;
+
   readonly secretsKey: Buffer;
 
   /** The runner a `node` package is started with. */
@@ -192,6 +206,65 @@ function buildOf(row: Pick<PackageRow, 'version' | 'artifactSha256'>): string {
   return row.artifactSha256 === null
     ? row.version
     : `${row.version}+${row.artifactSha256.slice(0, 8)}`;
+}
+
+/**
+ * How old a read of the index may be before a search reads it again for a package the Hub lists
+ * and it lacks: one published since the index was read is installable at once.
+ */
+const INDEX_RECHECK_MS = 60_000;
+
+/** How many of the local folder's packages one search lists at most. */
+const LOCAL_LISTINGS_LIMIT = 50;
+
+/** What installing a package would take here, as the index and the store say it. */
+type Availability = Pick<
+  PackageListing,
+  'latest' | 'installedVersion' | 'hasUpdate' | 'hasNewBuild' | 'unavailableReason'
+> & {
+  /** The newest release of the index's, compatible or not; null when it has none. */
+  readonly newestVersion: string | null;
+};
+
+/**
+ * Says whether a package of the index is one a search asked for: the words in its id, name or
+ * description, whatever their case.
+ *
+ * @param entry - The package.
+ * @param q - The words; every package when not said.
+ * @returns True when it matches.
+ */
+function matchesSearch(entry: PackageIndexEntry, q: string | undefined): boolean {
+  if (q === undefined) {
+    return true;
+  }
+
+  const wanted = q.toLowerCase();
+
+  return [entry.id, entry.name, entry.description].some((text) =>
+    text.toLowerCase().includes(wanted),
+  );
+}
+
+/**
+ * Cuts a sentence to the length a reply keeps.
+ *
+ * @param text - The sentence.
+ * @param length - The most characters kept.
+ * @returns It, cut.
+ */
+function clipped(text: string, length: number): string {
+  return text.length <= length ? text : `${text.slice(0, length - 1)}…`;
+}
+
+/**
+ * The message of a failure, for a reply.
+ *
+ * @param error - What was thrown.
+ * @returns Its message.
+ */
+function messageOf(error: unknown): string {
+  return clipped(error instanceof Error ? error.message : String(error), 1024);
 }
 
 /** The packages. */
@@ -312,15 +385,7 @@ export class PacketManager {
 
     return {
       items: (read.index?.packages ?? []).map((entry): AvailablePackage => {
-        const fitting = entry.versions
-          .filter((release) => this.#fits(release))
-          .sort((left, right) => compareVersions(right.version, left.version));
-        const newest = [...entry.versions].sort((left, right) =>
-          compareVersions(right.version, left.version),
-        )[0];
-        const latest = fitting[0];
-        const row = this.#entries.get(entry.id)?.row;
-        const installed = row?.version ?? null;
+        const availability = this.#availabilityOf(entry.id, entry, read);
 
         return {
           id: entry.id,
@@ -329,29 +394,213 @@ export class PacketManager {
           category: entry.category,
           repository: entry.repository,
           icon: entry.icon ?? null,
-          latest:
-            latest === undefined
-              ? null
-              : {
-                  version: latest.version,
-                  requires: latest.requires,
-                  provides: latest.provides,
-                  publishedAt: latest.publishedAt,
-                  changelogUrl: latest.changelogUrl ?? null,
-                  source: sourceOf(latest.artifact.url),
-                },
-          newestVersion: newest?.version ?? '0.0.0',
-          installedVersion: installed,
-          hasUpdate:
-            installed !== null &&
-            latest !== undefined &&
-            compareVersions(latest.version, installed) > 0,
-          hasNewBuild: row !== undefined && this.#newBuild(read.index, row) !== undefined,
+          latest: availability.latest,
+          newestVersion: availability.newestVersion ?? '0.0.0',
+          installedVersion: availability.installedVersion,
+          hasUpdate: availability.hasUpdate,
+          hasNewBuild: availability.hasNewBuild,
         };
       }),
       checkedAt: read.checkedAt,
       error: read.error,
     };
+  }
+
+  /**
+   * Searches the Community Hub's packages, each with what installing it here would take - from
+   * the package index, which says which release fits and where its archive is. On the first
+   * page the local folder's packages that match come first, those the Hub does not list: they
+   * are what is being tried before a release. A Hub that cannot be asked says why, and the local
+   * folder's files are listed still.
+   *
+   * @param request - What to look for, and from which page on.
+   * @returns What was found.
+   */
+  public async search(request: PackageSearchRequest): Promise<PackageSearchReply> {
+    const [first, asked] = await Promise.all([
+      this.#options.index.read(),
+      this.#options.hub
+        .search({ q: request.q, cursor: request.cursor, limit: PACKAGE_SEARCH_PAGE_SIZE })
+        .then(
+          (page) => ({ page, error: null }),
+          (error: unknown) => ({ page: null, error: messageOf(error) }),
+        ),
+    ]);
+    let read = first;
+    let entries = new Map((read.index?.packages ?? []).map((entry) => [entry.id, entry]));
+    const listed = (asked.page?.items ?? []).filter(
+      (item) => packageIdSchema.safeParse(item.id).success,
+    );
+
+    // A package published since the index was read: read it again, once, rather than call it
+    // not installable for the hours the index is trusted.
+    if (
+      listed.some((item) => !entries.has(item.id)) &&
+      Date.now() - (read.checkedAt?.getTime() ?? 0) > INDEX_RECHECK_MS
+    ) {
+      read = await this.#options.index.read(true);
+      entries = new Map((read.index?.packages ?? []).map((entry) => [entry.id, entry]));
+    }
+
+    const hubIds = new Set(listed.map((item) => item.id));
+    const local =
+      request.cursor === undefined
+        ? [...entries.values()]
+            .filter(
+              (entry) =>
+                !hubIds.has(entry.id) &&
+                entry.versions.some((release) => sourceOf(release.artifact.url) === 'local') &&
+                matchesSearch(entry, request.q),
+            )
+            .slice(0, LOCAL_LISTINGS_LIMIT)
+        : [];
+
+    return {
+      items: [
+        ...local.map((entry) => this.#listingOfLocal(entry, read)),
+        ...listed.map((item) => this.#listingOfHub(item, entries.get(item.id), read)),
+      ],
+      nextCursor: asked.page?.nextCursor ?? null,
+      hubError: asked.error,
+    };
+  }
+
+  /**
+   * A logo the Hub showed in a search, relayed: the interface loads images from its own origin
+   * only.
+   *
+   * @param sha256 - Its digest.
+   * @returns Its bytes in base64, and their type.
+   */
+  public async hubLogo(sha256: string): Promise<PackageHubLogoReply> {
+    return this.#options.hub.logo(sha256);
+  }
+
+  /**
+   * A package of the Hub, with what installing it here would take.
+   *
+   * @param item - What the Hub says of it.
+   * @param entry - What the index says of it, when it has it.
+   * @param read - The index, as read.
+   * @returns The listing.
+   */
+  #listingOfHub(
+    item: HubPackage,
+    entry: PackageIndexEntry | undefined,
+    read: IndexRead,
+  ): PackageListing {
+    const availability = this.#availabilityOf(item.id, entry, read);
+    const category = PACKAGE_CATEGORIES.find(
+      (candidate) => candidate === (item.category ?? entry?.category),
+    );
+    const latestVersion = semverSchema.safeParse(item.latestVersion);
+
+    return {
+      id: item.id,
+      name: clipped(entry?.name ?? item.name, 64),
+      description: clipped(entry?.description ?? item.description, 512),
+      category: category ?? 'other',
+      repository: entry?.repository ?? null,
+      icon: entry?.icon ?? null,
+      color: item.color,
+      logo: item.logo,
+      isOfficial: item.isOfficial,
+      downloads: item.downloads,
+      stars: item.stars,
+      origin: 'hub',
+      ...availability,
+      newestVersion:
+        availability.newestVersion ?? (latestVersion.success ? latestVersion.data : null),
+    };
+  }
+
+  /**
+   * A package only the local folder has, with what installing it here would take.
+   *
+   * @param entry - The folder's releases of it, as the index holds them.
+   * @param read - The index, as read.
+   * @returns The listing.
+   */
+  #listingOfLocal(entry: PackageIndexEntry, read: IndexRead): PackageListing {
+    return {
+      id: entry.id,
+      name: entry.name,
+      description: entry.description,
+      category: entry.category,
+      repository: entry.repository,
+      icon: entry.icon ?? null,
+      color: null,
+      logo: null,
+      isOfficial: false,
+      downloads: 0,
+      stars: 0,
+      origin: 'local',
+      ...this.#availabilityOf(entry.id, entry, read),
+    };
+  }
+
+  /**
+   * What installing a package would take here: the newest release of the index's that fits this
+   * platform, whether one is installed and something newer is out, and why it cannot be
+   * installed when it cannot.
+   *
+   * @param id - The package.
+   * @param entry - What the index says of it; undefined when it lacks it.
+   * @param read - The index, as read.
+   * @returns Its availability.
+   */
+  #availabilityOf(id: string, entry: PackageIndexEntry | undefined, read: IndexRead): Availability {
+    const versions = [...(entry?.versions ?? [])].sort((left, right) =>
+      compareVersions(right.version, left.version),
+    );
+    const latest = versions.find((release) => this.#fits(release));
+    const newest = versions[0];
+    const row = this.#entries.get(id)?.row;
+    const installed = row?.version ?? null;
+
+    return {
+      latest:
+        latest === undefined
+          ? null
+          : {
+              version: latest.version,
+              requires: latest.requires,
+              provides: latest.provides,
+              publishedAt: latest.publishedAt,
+              changelogUrl: latest.changelogUrl ?? null,
+              source: sourceOf(latest.artifact.url),
+            },
+      newestVersion: newest?.version ?? null,
+      installedVersion: installed,
+      hasUpdate:
+        installed !== null &&
+        latest !== undefined &&
+        compareVersions(latest.version, installed) > 0,
+      hasNewBuild: row !== undefined && this.#newBuild(read.index, row) !== undefined,
+      unavailableReason:
+        installed !== null || latest !== undefined
+          ? null
+          : clipped(this.#whyUnavailable(newest, read), 512),
+    };
+  }
+
+  /**
+   * Why no release of a package can be installed here.
+   *
+   * @param newest - Its newest release in the index; undefined when the index lacks it.
+   * @param read - The index, as read.
+   * @returns The reason, in a sentence.
+   */
+  #whyUnavailable(newest: PackageRelease | undefined, read: IndexRead): string {
+    if (newest === undefined) {
+      return read.error === null
+        ? 'No release of it is in the package index yet'
+        : `The package index could not be read: ${read.error}`;
+    }
+
+    return satisfies(this.platformVersion, newest.platform)
+      ? `Its newest release, ${newest.version}, is built for the package SDK ${newest.sdk}; this NebulaHome has ${this.sdkVersion}`
+      : `Its newest release, ${newest.version}, needs NebulaHome ${newest.platform}; this is ${this.platformVersion}`;
   }
 
   /**
