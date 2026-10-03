@@ -3,7 +3,8 @@
  *
  * The package is `mqtt`, a system package with a setup that asks for a port and a password, a
  * folder written here with its interface's module and its logo, and two methods: `clients`, for
- * anyone who may read it, and `kick`, for who may configure it.
+ * anyone who may read it, and `kick`, for who may configure it. A search of the Community Hub
+ * finds one package, `nvr`, whose logo it relays.
  */
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -20,12 +21,15 @@ import {
   PACKET_MANAGER_METHODS,
   PACKET_MANAGER_SERVICE,
   packageConfigureRequestSchema,
+  packageHubLogoRequestSchema,
   packageIdRequestSchema,
   packageInstallRequestSchema,
   packageRemoveRequestSchema,
   packageRpcRequestSchema,
+  packageSearchRequestSchema,
   type InstalledPackage,
   type PackageDetail,
+  type PackageListing,
 } from '@nebulahome/contracts';
 
 /** Where the fake package's files are. */
@@ -116,6 +120,41 @@ const MQTT_DETAIL: PackageDetail = {
   root: FAKE_PACKAGE_ROOT,
 };
 
+/** The logo the Hub shows for `nvr`, and its digest. */
+export const HUB_LOGO = {
+  sha256: 'a'.repeat(64),
+  svg: '<svg xmlns="http://www.w3.org/2000/svg"><circle r="4"/></svg>',
+};
+
+/** What a search of the Hub finds. */
+export const NVR_LISTING: PackageListing = {
+  id: 'nvr',
+  name: 'Recorder',
+  description: 'Records the cameras.',
+  category: 'security',
+  repository: 'nebulahome/pkg-nvr',
+  icon: null,
+  latest: {
+    version: '1.4.0',
+    requires: { packages: {}, services: [] },
+    provides: [],
+    publishedAt: new Date('2026-09-29T08:00:00.000Z'),
+    changelogUrl: null,
+    source: 'index',
+  },
+  newestVersion: '1.4.0',
+  installedVersion: null,
+  hasUpdate: false,
+  hasNewBuild: false,
+  color: '#3F6FD8',
+  logo: HUB_LOGO.sha256,
+  isOfficial: true,
+  downloads: 1823,
+  stars: 97,
+  origin: 'hub',
+  unavailableReason: null,
+};
+
 /** What the fake was asked, by method. */
 export const packetManagerRequests: { method: string; payload: unknown }[] = [];
 
@@ -180,6 +219,29 @@ export function servePacketManagerFake(
           installed: [
             { ...MQTT_PACKAGE, id: request.packageId, isSystem: false, source: 'index' as const },
           ],
+        };
+      },
+    ),
+    packetManager.serve(
+      subject(PACKET_MANAGER_METHODS.search),
+      packageSearchRequestSchema,
+      (request) => {
+        record('search', request);
+
+        return { items: [NVR_LISTING], nextCursor: null, hubError: null };
+      },
+    ),
+    packetManager.serve(
+      subject(PACKET_MANAGER_METHODS.hubLogo),
+      packageHubLogoRequestSchema,
+      (request) => {
+        if (request.sha256 !== HUB_LOGO.sha256) {
+          throw new NotFoundError('No search showed this logo');
+        }
+
+        return {
+          contentType: 'image/svg+xml',
+          data: Buffer.from(HUB_LOGO.svg).toString('base64'),
         };
       },
     ),

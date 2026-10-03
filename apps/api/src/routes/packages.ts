@@ -1,7 +1,7 @@
 /**
- * The packages: what is installed and what the index offers, installing, updating, removing,
- * starting and stopping them, their settings and their log, the files their interface is made of,
- * and the methods their pages call (PACKAGES.md, API.md).
+ * The packages: what is installed, what the index offers and what the Community Hub finds,
+ * installing, updating, removing, starting and stopping them, their settings and their log, the
+ * files their interface is made of, and the methods their pages call (PACKAGES.md, API.md).
  *
  * Three permissions: `package:read` to see them and use their pages, `package:install` to change
  * what is installed, `package:configure` to start, stop and configure them. A package's method is
@@ -11,7 +11,9 @@
  *
  * The files of a package's interface are public, as the interface's own are: they are code, not
  * the house's data, and a module is imported by the browser with no way to add a token. The
- * address names the release, so a file is cached for good and an update is a new address.
+ * address names the release, so a file is cached for good and an update is a new address. A
+ * logo the Hub showed in a search is public too, for the same `<img>`: it is addressed by its
+ * digest, and the packet-manager fetches only the digests its searches handed out.
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -24,18 +26,22 @@ import {
   installedPackageSchema,
   isNebulaError,
   packageAvailableReplySchema,
+  packageCatalogueQuerySchema,
   packageConfigBodySchema,
+  packageHubLogoParamsSchema,
   packageIdSchema,
   packageInstallBodySchema,
   packagePlanReplySchema,
   packageRpcBodySchema,
   packageRpcReplySchema,
+  packageSearchReplySchema,
   type ApiPackageDetail,
   type ContainerLogsReply,
   type InstalledPackage,
   type PackageAvailableReply,
   type PackagePlanReply,
   type PackageRpcReply,
+  type PackageSearchReply,
 } from '@nebulahome/contracts';
 
 import { requirePermission } from '../auth/permissions.js';
@@ -50,12 +56,14 @@ import {
   installPackage,
   listPackages,
   planPackage,
+  readHubLogo,
   readPackage,
   readPackageLogo,
   readPackageLogs,
   readPackageUiFile,
   removePackage,
   rpcAccessOf,
+  searchCatalogue,
   updatePackage,
   type PackageFile,
   type PackagesContext,
@@ -215,6 +223,27 @@ export function registerPackageFileRoutes(
   );
 
   server.get(
+    `${basePath}/catalogue/logos/:sha256`,
+
+    /**
+     * Serves a logo the Community Hub showed in a search.
+     *
+     * @param request - Which logo, by its digest.
+     * @param reply - Where it goes.
+     * @returns The logo.
+     */
+    async (request: FastifyRequest, reply: FastifyReply): Promise<Buffer> => {
+      const { sha256 } = packageHubLogoParamsSchema.parse(request.params);
+      const file = await readHubLogo(packagesContext(context, request.traceId), sha256);
+
+      // A logo is shown, never run: no script in an SVG, no page around it.
+      void reply.header('content-security-policy', "default-src 'none'; style-src 'unsafe-inline'");
+
+      return sendFile(reply, file, 'public, max-age=31536000, immutable');
+    },
+  );
+
+  server.get(
     `${basePath}/packages/:packageId/logo`,
 
     /**
@@ -285,6 +314,34 @@ export function registerPackageRoutes(environment: RouteEnvironment, context: Ap
       requirePermission(route.identity, 'package:read');
 
       return availablePackages(packagesContext(context, route.request.traceId));
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/packages/catalogue',
+      summary: 'Search the Community Hub, each package with what installing it here would take',
+      tag: 'Packages',
+      permission: 'package:read',
+      query: packageCatalogueQuerySchema,
+      response: packageSearchReplySchema,
+    },
+
+    /**
+     * Searches the Hub's packages, and the local folder's.
+     *
+     * @param route - Who is asking, and what for.
+     * @returns What was found, and why the Hub could not be asked, when it could not.
+     */
+    async (route): Promise<PackageSearchReply> => {
+      requirePermission(route.identity, 'package:read');
+
+      return searchCatalogue(packagesContext(context, route.request.traceId), {
+        ...(route.query.q === undefined ? {} : { q: route.query.q }),
+        ...(route.query.cursor === undefined ? {} : { cursor: route.query.cursor }),
+      });
     },
   );
 

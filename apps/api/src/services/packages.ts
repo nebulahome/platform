@@ -24,6 +24,7 @@ import {
   type PackageRpcCaller,
   packageAvailableReplySchema,
   packageDetailSchema,
+  packageHubLogoReplySchema,
   packageInstallReplySchema,
   packageListReplySchema,
   packageLogsReplySchema,
@@ -31,6 +32,7 @@ import {
   packagePlanReplySchema,
   packageReplySchema,
   packageRpcReplySchema,
+  packageSearchReplySchema,
   PACKET_MANAGER_METHODS,
   PACKET_MANAGER_SERVICE,
   secretKeysOf,
@@ -45,6 +47,8 @@ import {
   type PackageDetail,
   type PackagePlanReply,
   type PackageRpcAccess,
+  type PackageSearchReply,
+  type PackageSearchRequest,
 } from '@nebulahome/contracts';
 import { maskSealed, schema, sealSecrets, type Database } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
@@ -224,6 +228,43 @@ export async function readPackage(
  */
 export async function availablePackages(context: PackagesContext): Promise<PackageAvailableReply> {
   return ask(context, PACKET_MANAGER_METHODS.available, {}, packageAvailableReplySchema, 30_000);
+}
+
+/**
+ * Searches the Community Hub's packages - and the local folder's - each with what installing it
+ * here would take. The packet-manager asks the Hub: the browser could not, the Hub's CORS being
+ * for its own sites.
+ *
+ * @param context - The request's collaborators.
+ * @param request - What to look for, and from which page on.
+ * @returns What was found, and why the Hub could not be asked, when it could not.
+ */
+export async function searchCatalogue(
+  context: PackagesContext,
+  request: PackageSearchRequest,
+): Promise<PackageSearchReply> {
+  return ask(context, PACKET_MANAGER_METHODS.search, request, packageSearchReplySchema, 30_000);
+}
+
+/**
+ * A logo of the Hub's, relayed by the packet-manager: the interface loads images from its own
+ * origin only.
+ *
+ * @param context - The request's collaborators.
+ * @param sha256 - The logo's digest, as a search handed it out.
+ * @returns Its bytes and type.
+ * @throws {NotFoundError} When no search showed it, or the Hub has it no more.
+ */
+export async function readHubLogo(context: PackagesContext, sha256: string): Promise<PackageFile> {
+  const logo = await ask(
+    context,
+    PACKET_MANAGER_METHODS.hubLogo,
+    { sha256 },
+    packageHubLogoReplySchema,
+    15_000,
+  );
+
+  return { bytes: Buffer.from(logo.data, 'base64'), contentType: logo.contentType };
 }
 
 /**

@@ -12,7 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { isSealed } from '@nebulahome/db';
 
 import { bearer, buildTestServer, emptyDatabase, stopHub } from '../testing/hub-harness.js';
-import { packetManagerRequests } from '../testing/packet-manager-fake.js';
+import { HUB_LOGO, packetManagerRequests } from '../testing/packet-manager-fake.js';
 
 let server: FastifyInstance;
 
@@ -200,5 +200,50 @@ describe("a package's interface", () => {
     expect(otherBuild.statusCode).toBe(404);
     expect(outside.statusCode).toBe(404);
     expect(logo.statusCode).toBe(200);
+  });
+});
+
+describe('the Community Hub', () => {
+  it('is searched for whoever may read packages, the words passed on', async () => {
+    const anonymous = await server.inject({ method: 'GET', url: '/api/v1/packages/catalogue' });
+    const found = await server.inject({
+      method: 'GET',
+      url: '/api/v1/packages/catalogue?q=%20rec%20',
+      headers: { authorization: await bearer('package:read') },
+    });
+
+    expect(anonymous.statusCode).toBe(401);
+    expect(found.statusCode).toBe(200);
+    expect(found.json()).toMatchObject({
+      items: [{ id: 'nvr', isOfficial: true, logo: HUB_LOGO.sha256 }],
+      nextCursor: null,
+      hubError: null,
+    });
+    expect(packetManagerRequests.at(-1)).toEqual({ method: 'search', payload: { q: 'rec' } });
+  });
+
+  it('has its logos served to anyone, for good, shown and never run', async () => {
+    const logo = await server.inject({
+      method: 'GET',
+      url: `/api/v1/catalogue/logos/${HUB_LOGO.sha256}`,
+    });
+    const unknown = await server.inject({
+      method: 'GET',
+      url: `/api/v1/catalogue/logos/${'b'.repeat(64)}`,
+    });
+    const malformed = await server.inject({
+      method: 'GET',
+      url: '/api/v1/catalogue/logos/not-a-digest',
+    });
+
+    expect(logo.statusCode).toBe(200);
+    expect(logo.headers['content-type']).toBe('image/svg+xml');
+    expect(logo.headers['cache-control']).toContain('immutable');
+    expect(logo.headers['content-security-policy']).toBe(
+      "default-src 'none'; style-src 'unsafe-inline'",
+    );
+    expect(logo.body).toBe(HUB_LOGO.svg);
+    expect(unknown.statusCode).toBe(404);
+    expect(malformed.statusCode).toBe(400);
   });
 });

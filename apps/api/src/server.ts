@@ -85,11 +85,14 @@ const SOCKET_PATHS = [
 /**
  * The files packages serve the interface: their modules and their logos, public as the
  * interface's own files are - code rather than the house's data, and imported by the browser with
- * no way to add a header. Exact shapes, so nothing else under `/packages/` is public by accident.
+ * no way to add a header - and the logos the Community Hub showed in a search, by digest, under
+ * `/catalogue/` for packages and integrations alike. Exact shapes, so nothing else under
+ * `/packages/` is public by accident.
  */
 const PACKAGE_FILE_PATHS = [
   new RegExp(`^/api/${CURRENT_API_VERSION}/packages/[a-z][a-z0-9-]{1,63}/ui/[^/]+/.+$`, 'u'),
   new RegExp(`^/api/${CURRENT_API_VERSION}/packages/[a-z][a-z0-9-]{1,63}/logo$`, 'u'),
+  new RegExp(`^/api/${CURRENT_API_VERSION}/catalogue/logos/[^/]+$`, 'u'),
 ];
 
 /**
