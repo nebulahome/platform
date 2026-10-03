@@ -1,0 +1,78 @@
+{
+  "name": "@nebulahome/integration-sdk",
+  "version": "1.6.0",
+  "private": true,
+  "description": "Write a NebulaHome integration: check it, build it, test it and release it for the platform.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "sideEffects": false,
+  "keywords": [
+    "nebulahome",
+    "smart-home",
+    "home-automation",
+    "integration",
+    "sdk"
+  ],
+  "homepage": "https://github.com/nebulahome/platform/tree/main/packages/integration-sdk#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nebulahome/platform.git",
+    "directory": "packages/integration-sdk"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    },
+    "./schemas/*": "./schemas/*",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "nebulahome-integration": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "schemas",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsdown && node scripts/build-schemas.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "api:report": "node scripts/api-report.js",
+    "api:check": "node scripts/api-report.js --check",
+    "check:package": "publint --strict && attw --pack . --profile esm-only --exclude-entrypoints ./schemas/*"
+  },
+  "dependencies": {
+    "rolldown": "^1.2.7",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@nebulahome/contracts": "workspace:*",
+    "@nebulahome/eslint-config": "workspace:*",
+    "@nebulahome/package-runtime": "workspace:*",
+    "@nebulahome/tsconfig": "workspace:*",
+    "@types/node": "^22.20.1",
+    "@types/semver": "^7.7.1",
+    "publint": "^0.3.25",
+    "semver": "^7.8.5",
+    "tar": "^7.5.22",
+    "tsdown": "^0.23.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  }
+}

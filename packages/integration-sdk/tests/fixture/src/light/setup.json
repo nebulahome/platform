@@ -1,0 +1,7 @@
+{
+  "$schema": "../../../../schemas/setup.schema.json",
+  "transport": {
+    "fields": [{ "key": "host", "type": "text", "label": "Address", "isRequired": true }]
+  },
+  "polling": { "default": 10, "min": 2 }
+}

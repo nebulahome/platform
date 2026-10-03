@@ -1,0 +1,10 @@
+{
+  "$schema": "../../../schemas/manifest.schema.json",
+  "id": "fixture",
+  "name": "Fixture",
+  "description": "A vendor the SDK's tests build: one light over HTTP, and a transport of its own.",
+  "url": "https://example.com",
+  "color": "#3B9DFF",
+  "logo": "./logo.svg",
+  "transports": { "lan": { "module": "./lan/transport.js", "wires": ["udp"] } }
+}

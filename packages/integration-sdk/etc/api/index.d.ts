@@ -1,0 +1,1389 @@
+import { z } from "zod";
+//#region ../contracts/dist/capabilities.d.ts
+/** Every capability an entity may declare. */
+declare const CAPABILITIES: readonly ["on_off", "level", "color_hs", "color_temp", "cover", "lock", "thermostat", "sensor_numeric", "sensor_binary", "sensor_text", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "vacuum", "image", "custom"];
+/** The name of a single capability. */
+type CapabilityName = (typeof CAPABILITIES)[number];
+/**
+ * The composite state of an entity: one entry per capability it declares.
+ *
+ * An entity is rarely one capability. A dimmable colour bulb is `on_off` plus `level` plus
+ * `color_hs`, and its state carries all three, which is why this is a partial record rather
+ * than a discriminated union - a union could only ever describe one of them at a time.
+ */
+declare const capabilityStateSchema: z.ZodObject<{
+  on_off: z.ZodOptional<z.ZodObject<{
+    isOn: z.ZodBoolean;
+  }, z.core.$strip>>;
+  level: z.ZodOptional<z.ZodObject<{
+    level: z.ZodNumber;
+  }, z.core.$strip>>;
+  color_hs: z.ZodOptional<z.ZodObject<{
+    hue: z.ZodNumber;
+    saturation: z.ZodNumber;
+  }, z.core.$strip>>;
+  color_temp: z.ZodOptional<z.ZodObject<{
+    mireds: z.ZodInt;
+  }, z.core.$strip>>;
+  cover: z.ZodOptional<z.ZodObject<{
+    position: z.ZodNumber;
+    tilt: z.ZodOptional<z.ZodNumber>;
+    motion: z.ZodEnum<{
+      opening: "opening";
+      closing: "closing";
+      stopped: "stopped";
+    }>;
+  }, z.core.$strip>>;
+  lock: z.ZodOptional<z.ZodObject<{
+    lockState: z.ZodEnum<{
+      locked: "locked";
+      unlocked: "unlocked";
+      jammed: "jammed";
+    }>;
+  }, z.core.$strip>>;
+  thermostat: z.ZodOptional<z.ZodObject<{
+    currentTemperature: z.ZodNumber;
+    targetTemperature: z.ZodNumber;
+    mode: z.ZodEnum<{
+      off: "off";
+      heat: "heat";
+      cool: "cool";
+      auto: "auto";
+      fan_only: "fan_only";
+      dry: "dry";
+    }>;
+    action: z.ZodEnum<{
+      off: "off";
+      idle: "idle";
+      heating: "heating";
+      cooling: "cooling";
+      drying: "drying";
+      fan: "fan";
+    }>;
+    humidity: z.ZodOptional<z.ZodNumber>;
+  }, z.core.$strip>>;
+  sensor_numeric: z.ZodOptional<z.ZodObject<{
+    value: z.ZodNumber;
+  }, z.core.$strip>>;
+  sensor_binary: z.ZodOptional<z.ZodObject<{
+    isOn: z.ZodBoolean;
+  }, z.core.$strip>>;
+  sensor_text: z.ZodOptional<z.ZodObject<{
+    value: z.ZodString;
+  }, z.core.$strip>>;
+  media_player: z.ZodOptional<z.ZodObject<{
+    playback: z.ZodEnum<{
+      stopped: "stopped";
+      idle: "idle";
+      playing: "playing";
+      paused: "paused";
+      buffering: "buffering";
+    }>;
+    volume: z.ZodNumber;
+    isMuted: z.ZodBoolean;
+    source: z.ZodOptional<z.ZodString>;
+    mediaTitle: z.ZodOptional<z.ZodString>;
+    mediaArtist: z.ZodOptional<z.ZodString>;
+    mediaDurationSeconds: z.ZodOptional<z.ZodNumber>;
+    mediaPositionSeconds: z.ZodOptional<z.ZodNumber>;
+  }, z.core.$strip>>;
+  camera: z.ZodOptional<z.ZodObject<{
+    isStreamAvailable: z.ZodBoolean;
+    snapshotPath: z.ZodOptional<z.ZodString>;
+    isRecording: z.ZodDefault<z.ZodBoolean>;
+  }, z.core.$strip>>;
+  button: z.ZodOptional<z.ZodObject<{}, z.core.$strip>>;
+  update: z.ZodOptional<z.ZodObject<{
+    installedVersion: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+    latestVersion: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+    isInstalling: z.ZodDefault<z.ZodBoolean>;
+    progress: z.ZodDefault<z.ZodNullable<z.ZodNumber>>;
+  }, z.core.$strip>>;
+  lawn_mower: z.ZodOptional<z.ZodObject<{
+    activity: z.ZodEnum<{
+      error: "error";
+      idle: "idle";
+      paused: "paused";
+      mowing: "mowing";
+      returning: "returning";
+      docked: "docked";
+    }>;
+    isResumable: z.ZodDefault<z.ZodBoolean>;
+  }, z.core.$strip>>;
+  select: z.ZodOptional<z.ZodObject<{
+    option: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+  }, z.core.$strip>>;
+  number: z.ZodOptional<z.ZodObject<{
+    value: z.ZodDefault<z.ZodNullable<z.ZodNumber>>;
+  }, z.core.$strip>>;
+  vacuum: z.ZodOptional<z.ZodObject<{
+    activity: z.ZodEnum<{
+      error: "error";
+      idle: "idle";
+      paused: "paused";
+      returning: "returning";
+      docked: "docked";
+      cleaning: "cleaning";
+    }>;
+    rooms: z.ZodDefault<z.ZodArray<z.ZodObject<{
+      id: z.ZodString;
+      name: z.ZodString;
+    }, z.core.$strip>>>;
+    isResumable: z.ZodDefault<z.ZodBoolean>;
+  }, z.core.$strip>>;
+  image: z.ZodOptional<z.ZodObject<{
+    contentType: z.ZodEnum<{
+      "image/svg+xml": "image/svg+xml";
+      "image/png": "image/png";
+      "image/jpeg": "image/jpeg";
+    }>;
+    revision: z.ZodString;
+    width: z.ZodOptional<z.ZodInt>;
+    height: z.ZodOptional<z.ZodInt>;
+  }, z.core.$strip>>;
+  custom: z.ZodOptional<z.ZodObject<{
+    values: z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull]>>;
+  }, z.core.$strip>>;
+}, z.core.$strip>;
+/** The composite state of an entity, keyed by capability. */
+type CapabilityState = z.output<typeof capabilityStateSchema>;
+//#endregion
+//#region ../contracts/dist/json.d.ts
+/**
+ * A JSON object, the shape most `jsonb` columns actually hold.
+ *
+ * Written as an index signature rather than `Record<string, JsonValue>` because `Record` is a
+ * mapped type, which TypeScript resolves eagerly and therefore cannot use in the recursive
+ * definition below (TS2456). The index signature is deferred, so it can.
+ */
+type JsonObject = {
+  [key: string]: JsonValue;
+};
+/** Any value that survives a JSON round trip unchanged. */
+type JsonValue = string | number | boolean | null | JsonValue[] | JsonObject;
+//#endregion
+//#region ../contracts/dist/entity-id.d.ts
+/** The kinds of thing an entity can be. The domain is the part before the dot. */
+declare const ENTITY_DOMAINS: readonly ["light", "switch", "sensor", "binary_sensor", "cover", "lock", "climate", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "vacuum", "image", "custom", "alias"];
+/** The kind of thing an entity is. */
+type EntityDomain = (typeof ENTITY_DOMAINS)[number];
+/**
+ * Validates an entity identifier and brands the result.
+ *
+ * The brand means an `EntityId` cannot be produced from a bare string without going through
+ * validation. Identifiers reach the database as primary lookups and NATS as subject tokens, so
+ * an unvalidated one does not fail where it was created - it fails somewhere else, later.
+ */
+declare const entityIdSchema: z.core.$ZodBranded<z.ZodString, "EntityId", "out">;
+/** A validated `<domain>.<object_id>` identifier. */
+type EntityId = z.output<typeof entityIdSchema>;
+//#endregion
+//#region ../contracts/dist/registration.d.ts
+/**
+ * How history should aggregate a numeric entity.
+ *
+ * `total_increasing` is the one that matters: energy consumed over a day is last minus first,
+ * not a sum of averages, and only the integration knows which kind of counter it is reading.
+ */
+declare const ENTITY_STATE_CLASSES: readonly ["measurement", "total", "total_increasing"];
+/** How history should aggregate a numeric entity. */
+type EntityStateClass = (typeof ENTITY_STATE_CLASSES)[number];
+/**
+ * What an entity declares it can do, with the device's own limits for each.
+ *
+ * A partial record rather than a full one: an entity declares the capabilities it has, not every
+ * capability that exists. Each capability's parameters are checked against that capability's own
+ * schema, because `core` later validates commands against them - `color_temp` without its mired
+ * range would be accepted here and then reject every `set_color_temp` for a reason the owner
+ * cannot act on.
+ */
+declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
+  number: "number";
+  custom: "custom";
+  image: "image";
+  level: "level";
+  on_off: "on_off";
+  color_hs: "color_hs";
+  color_temp: "color_temp";
+  cover: "cover";
+  lock: "lock";
+  thermostat: "thermostat";
+  sensor_numeric: "sensor_numeric";
+  sensor_binary: "sensor_binary";
+  sensor_text: "sensor_text";
+  media_player: "media_player";
+  camera: "camera";
+  button: "button";
+  update: "update";
+  lawn_mower: "lawn_mower";
+  select: "select";
+  vacuum: "vacuum";
+}> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
+/** What an entity declares it can do, with the device's own limits for each. */
+type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
+//#endregion
+//#region ../contracts/dist/entity-state.d.ts
+/**
+ * What an adapter publishes when a device reports.
+ *
+ * Deliberately smaller than {@link entityStateSchema}: an adapter reports what it observed, and
+ * `core` is the single writer that decides `lastChanged`, resolves the context and persists the
+ * result. An adapter that could set `lastChanged` itself would be a second writer of the
+ * registry's most load-bearing field.
+ */
+declare const stateReportSchema: z.ZodObject<{
+  entityId: z.core.$ZodBranded<z.ZodString, "EntityId", "out">;
+  state: z.ZodObject<{
+    on_off: z.ZodOptional<z.ZodObject<{
+      isOn: z.ZodBoolean;
+    }, z.core.$strip>>;
+    level: z.ZodOptional<z.ZodObject<{
+      level: z.ZodNumber;
+    }, z.core.$strip>>;
+    color_hs: z.ZodOptional<z.ZodObject<{
+      hue: z.ZodNumber;
+      saturation: z.ZodNumber;
+    }, z.core.$strip>>;
+    color_temp: z.ZodOptional<z.ZodObject<{
+      mireds: z.ZodInt;
+    }, z.core.$strip>>;
+    cover: z.ZodOptional<z.ZodObject<{
+      position: z.ZodNumber;
+      tilt: z.ZodOptional<z.ZodNumber>;
+      motion: z.ZodEnum<{
+        opening: "opening";
+        closing: "closing";
+        stopped: "stopped";
+      }>;
+    }, z.core.$strip>>;
+    lock: z.ZodOptional<z.ZodObject<{
+      lockState: z.ZodEnum<{
+        locked: "locked";
+        unlocked: "unlocked";
+        jammed: "jammed";
+      }>;
+    }, z.core.$strip>>;
+    thermostat: z.ZodOptional<z.ZodObject<{
+      currentTemperature: z.ZodNumber;
+      targetTemperature: z.ZodNumber;
+      mode: z.ZodEnum<{
+        off: "off";
+        heat: "heat";
+        cool: "cool";
+        auto: "auto";
+        fan_only: "fan_only";
+        dry: "dry";
+      }>;
+      action: z.ZodEnum<{
+        off: "off";
+        idle: "idle";
+        heating: "heating";
+        cooling: "cooling";
+        drying: "drying";
+        fan: "fan";
+      }>;
+      humidity: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strip>>;
+    sensor_numeric: z.ZodOptional<z.ZodObject<{
+      value: z.ZodNumber;
+    }, z.core.$strip>>;
+    sensor_binary: z.ZodOptional<z.ZodObject<{
+      isOn: z.ZodBoolean;
+    }, z.core.$strip>>;
+    sensor_text: z.ZodOptional<z.ZodObject<{
+      value: z.ZodString;
+    }, z.core.$strip>>;
+    media_player: z.ZodOptional<z.ZodObject<{
+      playback: z.ZodEnum<{
+        stopped: "stopped";
+        idle: "idle";
+        playing: "playing";
+        paused: "paused";
+        buffering: "buffering";
+      }>;
+      volume: z.ZodNumber;
+      isMuted: z.ZodBoolean;
+      source: z.ZodOptional<z.ZodString>;
+      mediaTitle: z.ZodOptional<z.ZodString>;
+      mediaArtist: z.ZodOptional<z.ZodString>;
+      mediaDurationSeconds: z.ZodOptional<z.ZodNumber>;
+      mediaPositionSeconds: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strip>>;
+    camera: z.ZodOptional<z.ZodObject<{
+      isStreamAvailable: z.ZodBoolean;
+      snapshotPath: z.ZodOptional<z.ZodString>;
+      isRecording: z.ZodDefault<z.ZodBoolean>;
+    }, z.core.$strip>>;
+    button: z.ZodOptional<z.ZodObject<{}, z.core.$strip>>;
+    update: z.ZodOptional<z.ZodObject<{
+      installedVersion: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+      latestVersion: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+      isInstalling: z.ZodDefault<z.ZodBoolean>;
+      progress: z.ZodDefault<z.ZodNullable<z.ZodNumber>>;
+    }, z.core.$strip>>;
+    lawn_mower: z.ZodOptional<z.ZodObject<{
+      activity: z.ZodEnum<{
+        error: "error";
+        idle: "idle";
+        paused: "paused";
+        mowing: "mowing";
+        returning: "returning";
+        docked: "docked";
+      }>;
+      isResumable: z.ZodDefault<z.ZodBoolean>;
+    }, z.core.$strip>>;
+    select: z.ZodOptional<z.ZodObject<{
+      option: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+    }, z.core.$strip>>;
+    number: z.ZodOptional<z.ZodObject<{
+      value: z.ZodDefault<z.ZodNullable<z.ZodNumber>>;
+    }, z.core.$strip>>;
+    vacuum: z.ZodOptional<z.ZodObject<{
+      activity: z.ZodEnum<{
+        error: "error";
+        idle: "idle";
+        paused: "paused";
+        returning: "returning";
+        docked: "docked";
+        cleaning: "cleaning";
+      }>;
+      rooms: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        id: z.ZodString;
+        name: z.ZodString;
+      }, z.core.$strip>>>;
+      isResumable: z.ZodDefault<z.ZodBoolean>;
+    }, z.core.$strip>>;
+    image: z.ZodOptional<z.ZodObject<{
+      contentType: z.ZodEnum<{
+        "image/svg+xml": "image/svg+xml";
+        "image/png": "image/png";
+        "image/jpeg": "image/jpeg";
+      }>;
+      revision: z.ZodString;
+      width: z.ZodOptional<z.ZodInt>;
+      height: z.ZodOptional<z.ZodInt>;
+    }, z.core.$strip>>;
+    custom: z.ZodOptional<z.ZodObject<{
+      values: z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull]>>;
+    }, z.core.$strip>>;
+  }, z.core.$strip>;
+  attributes: z.ZodOptional<z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
+  isAvailable: z.ZodOptional<z.ZodBoolean>;
+  observedAt: z.ZodOptional<z.ZodUnion<readonly [z.ZodDate, z.ZodPipe<z.ZodISODateTime, z.ZodTransform<Date, string>>]>>;
+}, z.core.$strip>;
+/** What an adapter publishes when a device reports. */
+type StateReport = z.output<typeof stateReportSchema>;
+//#endregion
+//#region ../contracts/dist/integration-setup.d.ts
+/** Validates one field of a group. */
+declare const setupFieldSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
+  type: z.ZodLiteral<"text">;
+  placeholder: z.ZodOptional<z.ZodString>;
+  pattern: z.ZodOptional<z.ZodString>;
+  patternMessage: z.ZodOptional<z.ZodString>;
+  minLength: z.ZodOptional<z.ZodInt>;
+  maxLength: z.ZodDefault<z.ZodInt>;
+  default: z.ZodOptional<z.ZodString>;
+  key: z.ZodString;
+  label: z.ZodString;
+  help: z.ZodOptional<z.ZodString>;
+  isRequired: z.ZodDefault<z.ZodBoolean>;
+  shownWhen: z.ZodOptional<z.ZodObject<{
+    key: z.ZodString;
+    equals: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodBoolean]>>;
+  }, z.core.$strict>>;
+  isLive: z.ZodOptional<z.ZodBoolean>;
+}, z.core.$strict>, z.ZodObject<{
+  type: z.ZodLiteral<"secret">;
+  pattern: z.ZodOptional<z.ZodString>;
+  patternMessage: z.ZodOptional<z.ZodString>;
+  minLength: z.ZodOptional<z.ZodInt>;
+  maxLength: z.ZodDefault<z.ZodInt>;
+  key: z.ZodString;
+  label: z.ZodString;
+  help: z.ZodOptional<z.ZodString>;
+  isRequired: z.ZodDefault<z.ZodBoolean>;
+  shownWhen: z.ZodOptional<z.ZodObject<{
+    key: z.ZodString;
+    equals: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodBoolean]>>;
+  }, z.core.$strict>>;
+  isLive: z.ZodOptional<z.ZodBoolean>;
+}, z.core.$strict>, z.ZodObject<{
+  type: z.ZodLiteral<"number">;
+  min: z.ZodOptional<z.ZodNumber>;
+  max: z.ZodOptional<z.ZodNumber>;
+  isInteger: z.ZodDefault<z.ZodBoolean>;
+  unit: z.ZodOptional<z.ZodString>;
+  default: z.ZodOptional<z.ZodNumber>;
+  warnBelow: z.ZodOptional<z.ZodNumber>;
+  warning: z.ZodOptional<z.ZodString>;
+  key: z.ZodString;
+  label: z.ZodString;
+  help: z.ZodOptional<z.ZodString>;
+  isRequired: z.ZodDefault<z.ZodBoolean>;
+  shownWhen: z.ZodOptional<z.ZodObject<{
+    key: z.ZodString;
+    equals: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodBoolean]>>;
+  }, z.core.$strict>>;
+  isLive: z.ZodOptional<z.ZodBoolean>;
+}, z.core.$strict>, z.ZodObject<{
+  type: z.ZodLiteral<"boolean">;
+  default: z.ZodOptional<z.ZodBoolean>;
+  key: z.ZodString;
+  label: z.ZodString;
+  help: z.ZodOptional<z.ZodString>;
+  isRequired: z.ZodDefault<z.ZodBoolean>;
+  shownWhen: z.ZodOptional<z.ZodObject<{
+    key: z.ZodString;
+    equals: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodBoolean]>>;
+  }, z.core.$strict>>;
+  isLive: z.ZodOptional<z.ZodBoolean>;
+}, z.core.$strict>, z.ZodObject<{
+  type: z.ZodLiteral<"choice">;
+  choices: z.ZodArray<z.ZodObject<{
+    value: z.ZodString;
+    label: z.ZodString;
+  }, z.core.$strict>>;
+  default: z.ZodOptional<z.ZodString>;
+  key: z.ZodString;
+  label: z.ZodString;
+  help: z.ZodOptional<z.ZodString>;
+  isRequired: z.ZodDefault<z.ZodBoolean>;
+  shownWhen: z.ZodOptional<z.ZodObject<{
+    key: z.ZodString;
+    equals: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodBoolean]>>;
+  }, z.core.$strict>>;
+  isLive: z.ZodOptional<z.ZodBoolean>;
+}, z.core.$strict>, z.ZodObject<{
+  type: z.ZodLiteral<"list">;
+  placeholder: z.ZodOptional<z.ZodString>;
+  minItems: z.ZodDefault<z.ZodInt>;
+  maxItems: z.ZodDefault<z.ZodInt>;
+  pattern: z.ZodOptional<z.ZodString>;
+  patternMessage: z.ZodOptional<z.ZodString>;
+  key: z.ZodString;
+  label: z.ZodString;
+  help: z.ZodOptional<z.ZodString>;
+  isRequired: z.ZodDefault<z.ZodBoolean>;
+  shownWhen: z.ZodOptional<z.ZodObject<{
+    key: z.ZodString;
+    equals: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodBoolean]>>;
+  }, z.core.$strict>>;
+  isLive: z.ZodOptional<z.ZodBoolean>;
+}, z.core.$strict>], "type">;
+/** One field of a group. */
+type SetupField = z.output<typeof setupFieldSchema>;
+//#endregion
+//#region ../package-runtime/dist/transport.d.ts
+/** What an integration asks a transport to do, expressed as data. */
+type TransportRequest = {
+  /** Which device, in whatever way this transport identifies one. */
+  readonly deviceKey: string;
+  /** The transport's own verb: `get` and `post` for HTTP, `publish` for MQTT. */
+  readonly op: string;
+  /** The verb's arguments, in the transport's own vocabulary. */
+  readonly args: JsonObject;
+};
+/**
+ * A standing interest an integration has in what a connection carries.
+ *
+ * No `deviceKey`: a subscription is usually broader than one device - a topic filter, a polling
+ * schedule - and the transport reports which device a message came from when it arrives.
+ */
+type TransportSubscription = {
+  readonly op: string;
+  readonly args: JsonObject;
+};
+/** Something a connection delivered without being asked. */
+type TransportInbound = {
+  readonly connectionKey: string;
+  readonly deviceKey: string;
+  /** Raw, as it arrived. Making sense of it is the integration's job. */
+  readonly payload: unknown;
+};
+/** Something a scan found, before any integration has claimed it. */
+type Discovered = {
+  readonly deviceKey: string;
+  /**
+   * What the scan saw.
+   *
+   * The blob an integration decides on and, if it claims the device, describes it from. Keeping
+   * it raw is what lets `describe` be a pure function of it.
+   */
+  readonly payload: unknown;
+};
+/** Whether a connection is currently usable. */
+type TransportStatus = 'up' | 'down';
+/**
+ * What a transport is given when it opens a connection.
+ *
+ * The transport **calls** these. It is the one holding the socket, so it is the one that knows
+ * when something arrived and when the connection dropped; `hub` cannot poll for either.
+ */
+type TransportContext = {
+  readonly logger: BundleLogger;
+  /** Called for every message the connection delivered without being asked. */
+  deliver: (message: TransportInbound) => void;
+  /** Called when the connection comes up or goes down. */
+  report: (status: TransportStatus) => void;
+  /**
+   * Since 1.5: the account the connection is for, when its configuration names one
+   * (`config.account`) of the transport's own vendor - the session to use, and how to keep a
+   * renewed one or say the owner must sign in again. Absent otherwise.
+   */
+  readonly account?: AccountHandle;
+};
+/**
+ * Since 1.5: what a scan or a probe is handed beside its arguments - the account its
+ * configuration names (`config.account`), as a connection is handed it. Absent otherwise, and for
+ * a hub older than 1.5.
+ */
+type TransportLookContext = {
+  readonly account?: AccountHandle;
+};
+/** One live connection, shared by every instance whose configuration resolves to it. */
+type TransportConnection = {
+  /** What this connection is shared under. */
+  readonly key: string;
+  /**
+   * Performs one request.
+   *
+   * @param request - What to do.
+   * @param signal - Cancels the request.
+   * @returns Whatever the device answered, raw.
+   */
+  send: (request: TransportRequest, signal: AbortSignal) => Promise<unknown>;
+  /**
+   * Replaces the set of standing subscriptions.
+   *
+   * Replaces rather than adds, so that `hub` can recompute the whole set when an instance is
+   * added or removed and apply it without tracking what it asked for last time.
+   *
+   * @param subscriptions - Everything this connection should now carry.
+   * @returns A promise that settles once the transport has applied them.
+   */
+  apply: (subscriptions: readonly TransportSubscription[]) => Promise<void>;
+  /**
+   * Closes the connection.
+   *
+   * @returns A promise that settles once it is closed.
+   */
+  close: () => Promise<void>;
+};
+/**
+ * How a kind of connection is opened, scanned and spoken to.
+ *
+ * Configuration arrives as `unknown` because this is what a registry holds, and a registry holds
+ * transports of every shape. Each one narrows its own with {@link defineTransport}, which is also
+ * the single place the settings an owner typed are validated.
+ *
+ * The alternative - a generic `Transport<TConfig>` - does not survive being put in a collection:
+ * a `Transport<HttpConfig>` is not a `Transport<JsonObject>`, because a function taking the
+ * narrower type cannot stand in for one taking the wider. Erasing the parameter here and
+ * restoring it in the helper keeps both ends honest without a cast anywhere.
+ */
+type Transport = {
+  /** `http`, `mqtt`, `esphome`. */
+  readonly id: string;
+  /** Validates the connection settings an owner supplied. */
+  readonly configSchema: z.ZodType;
+  /**
+   * What two configurations must agree on to share one connection.
+   *
+   * Derived from the configuration rather than declared, because the answer is the transport's:
+   * two MQTT instances share a connection when the broker matches, two HTTP ones never do.
+   *
+   * @param config - The connection settings.
+   * @returns The key this configuration's connection is shared under.
+   */
+  connectionKey: (config: unknown) => string;
+  /**
+   * Opens a connection.
+   *
+   * @param config - The connection settings.
+   * @param context - Where inbound messages and status changes go.
+   * @returns The connection, once it is usable.
+   */
+  connect: (config: unknown, context: TransportContext) => Promise<TransportConnection>;
+  /**
+   * Looks for devices this transport can reach.
+   *
+   * @param config - The connection settings.
+   * @param scan - The integration's search terms, in this transport's vocabulary.
+   * @param signal - Ends the scan.
+   * @param context - Since 1.5: the account the configuration names.
+   * @returns Candidates as they are found, rather than a list once the scan is over: a scan of a
+   * house takes long enough that the interface should be filling in while it runs.
+   */
+  scan: (config: unknown, scan: JsonObject, signal: AbortSignal, context?: TransportLookContext) => AsyncIterable<Discovered>;
+  /**
+   * Tries the settings against the world and lets go again.
+   *
+   * What "Test" in the interface does before an owner saves: open whatever the transport opens
+   * - a broker session, a request to each address - then close it, keeping nothing. Resolves
+   * with one sentence saying what worked, so the interface can show it; rejects with an error
+   * whose message names what did not, in the transport's own words, because "Not authorized"
+   * and "ECONNREFUSED" send an owner to different places.
+   *
+   * @param config - What the owner typed, complete and in the clear.
+   * @param signal - Gives up: a host that never answers must not hold the form open.
+   * @param context - Since 1.5: the account the configuration names.
+   */
+  probe: (config: unknown, signal: AbortSignal, context?: TransportLookContext) => Promise<string>;
+};
+/** A transport as its author writes it, with its own configuration type. */
+type TransportSpec<TConfig> = {
+  readonly id: string;
+  readonly configSchema: z.ZodType<TConfig>;
+  connectionKey: (config: TConfig) => string;
+  connect: (config: TConfig, context: TransportContext) => Promise<TransportConnection>;
+  scan: (config: TConfig, scan: JsonObject, signal: AbortSignal, context?: TransportLookContext) => AsyncIterable<Discovered>;
+  probe: (config: TConfig, signal: AbortSignal, context?: TransportLookContext) => Promise<string>;
+};
+/**
+ * Turns a transport written against its own configuration into one a registry can hold.
+ *
+ * Validation happens here and only here. Everything above receives whatever an owner put in a
+ * `jsonb` column and passes it straight through, so a wrong setting fails once, with the
+ * transport's own message, instead of being parsed in every caller that happens to remember to.
+ *
+ * @param spec - The transport, written against the configuration it understands.
+ * @returns The same transport, with its configuration parameter erased.
+ */
+declare function defineTransport<TConfig>(spec: TransportSpec<TConfig>): Transport;
+//#endregion
+//#region ../package-runtime/dist/integration.d.ts
+/** A device an integration has recognised as its own. */
+type Claim = {
+  /** How the transport addresses it. */
+  readonly deviceKey: string;
+  /** How the integration identifies it, stable across restarts. */
+  readonly externalId: string;
+  /**
+   * What the integration recognised it from, kept for {@link Integration.describe}.
+   *
+   * Raw. For zigbee2mqtt this is the `exposes` tree, for ESPHome the entity list, for Matter the
+   * endpoint and cluster tree. All three are self-describing, which is exactly why `describe`
+   * can be a pure function of this and why those integrations cover thousands of devices each.
+   */
+  readonly descriptor: unknown;
+};
+/** One entity a device exposes, before `hub` has given it an identifier. */
+type EntityDescriptor = {
+  readonly domain: EntityDomain;
+  /** Distinguishes it from the device's other entities. Omitted when it is the only one. */
+  readonly objectId?: string;
+  readonly name: string;
+  /** The catalogue icon it starts with, when the bundle names one. */
+  readonly icon?: string;
+  readonly capabilities: DeclaredCapabilities;
+  readonly unitOfMeasurement?: string;
+  readonly deviceClass?: string;
+  readonly stateClass?: EntityStateClass;
+  readonly displayPrecision?: number;
+};
+/** What a claimed device turns out to be. */
+type DeviceDescriptor = {
+  readonly externalId: string;
+  readonly name: string;
+  readonly manufacturer?: string;
+  readonly model?: string;
+  readonly swVersion?: string;
+  readonly hwVersion?: string;
+  /**
+   * The device this one is reached through, named the way this integration names devices.
+   *
+   * A BLE thermometer reached through an ESPHome proxy names the proxy here. It is what lets the
+   * interface answer "why did six things go offline at once" with the one that actually did.
+   */
+  readonly viaExternalId?: string;
+  readonly entities: readonly EntityDescriptor[];
+};
+/** What a mapper may look at besides its own arguments. */
+type MappingContext = {
+  /** The instance's own settings, already validated against the integration's schema. */
+  readonly options: JsonObject;
+  /** The device being mapped. */
+  readonly claim: Claim;
+  /** The entity identifiers `hub` gave this device, keyed by descriptor `objectId`. */
+  readonly entities: ReadonlyMap<string, EntityId>;
+  /**
+   * The last state `hub` published for an entity.
+   *
+   * Present so that a command needing the current value can be built without asking the device.
+   * Undefined before the entity has ever reported.
+   *
+   * @param entityId - The entity to look up.
+   * @returns Its last known state, or undefined.
+   */
+  lastState: (entityId: EntityId) => CapabilityState | undefined;
+};
+/** A command, resolved to the device and entity it is for. */
+type CommandTarget = {
+  readonly entityId: EntityId;
+  readonly capability: CapabilityName;
+  /** Already validated by `core` against the capability's command schema. */
+  readonly command: JsonObject;
+};
+/**
+ * Since 1.5: the picture an image entity's report carries beside its state - an SVG, a PNG - which
+ * the hub keeps and never publishes: the state says which picture it is (`revision`), and the
+ * bytes are asked for by whoever shows it.
+ */
+type ImageBlob = {
+  readonly contentType: 'image/svg+xml' | 'image/png' | 'image/jpeg';
+  /** The picture: an SVG's text, or bytes. */
+  readonly data: string | Buffer;
+  /** How often at most a new picture of the entity is announced; 2 s unless said. */
+  readonly minIntervalMs?: number;
+};
+/** A report as an integration makes it: the state, and the picture of an image entity. */
+type ReportedState = StateReport & {
+  readonly blob?: ImageBlob;
+};
+/** What a kind of device means, in terms of the canonical model. */
+type Integration<TOptions = JsonObject> = {
+  /** The bundle kind: `zigbee2mqtt`, `shelly-gen2`. An instance of it gets its own id. */
+  readonly id: string;
+  /** Which transport carries it. */
+  readonly transport: string;
+  /** Validates the settings an owner supplied for an instance. */
+  readonly optionsSchema: z.ZodType<TOptions>;
+  /**
+   * What to tell the transport to look for during a scan.
+   *
+   * The transport's own vocabulary - an mDNS service name, an MQTT topic filter - and opaque
+   * here. An empty object means "whatever you would find anyway", which is what a code
+   * integration on a transport that enumerates broadly uses.
+   */
+  readonly discovery: JsonObject;
+  /**
+   * Decides whether a discovered device is this integration's to own.
+   *
+   * @param discovered - What the scan found.
+   * @param options - The instance's settings.
+   * @returns The claim, or null when the device belongs to someone else.
+   */
+  claim: (discovered: Discovered, options: TOptions) => Claim | null;
+  /**
+   * States what the transport must carry for these devices.
+   *
+   * Data rather than an action: `hub` collects the answers from every instance sharing a
+   * connection, deduplicates them, and applies the set once.
+   *
+   * @param claims - The devices this instance owns.
+   * @param options - The instance's settings.
+   * @returns Everything the transport should subscribe to or poll.
+   */
+  subscriptions: (claims: readonly Claim[], options: TOptions) => TransportSubscription[];
+  /**
+   * Says what a claimed device is and what it exposes.
+   *
+   * @param claim - The device.
+   * @param options - The instance's settings.
+   * @returns Its identity and its entities.
+   */
+  describe: (claim: Claim, options: TOptions) => DeviceDescriptor;
+  /**
+   * Turns something the device sent into canonical state.
+   *
+   * @param message - What arrived.
+   * @param context - The claim, the settings and the last known state.
+   * @returns One report per entity the message says something about, which may be none.
+   */
+  toState: (message: TransportInbound, context: MappingContext) => ReportedState[];
+  /**
+   * Turns a canonical command into something the transport can perform.
+   *
+   * @param target - The entity, the capability and the command.
+   * @param context - The claim, the settings and the last known state.
+   * @returns The request. Performing it is the transport's job.
+   */
+  toCommand: (target: CommandTarget, context: MappingContext) => TransportRequest;
+  /**
+   * Reads what a message says about the device itself, beyond its entities: the firmware it runs
+   * now, which changes when it is updated and is otherwise only known from when it was found.
+   *
+   * Optional: an integration whose messages say nothing of the kind leaves it out.
+   *
+   * @param message - What arrived.
+   * @param context - The claim, the settings and the last known state.
+   * @returns What the message says, field by field; undefined, or a field left out, when it says
+   * nothing about it.
+   */
+  deviceInfo?: (message: TransportInbound, context: MappingContext) => DeviceInfo | undefined;
+  /**
+   * Says how a camera entity's picture is read, when it is one.
+   *
+   * Optional: an integration with no camera leaves it out.
+   *
+   * @param entityId - The entity.
+   * @param context - The claim, the settings and the last known state.
+   * @returns The stream source and what it is told to read, or undefined for an entity with none.
+   */
+  streamOf?: (entityId: EntityId, context: MappingContext) => StreamRequest | undefined;
+};
+/** How one camera's picture is read: which source, told what. */
+type StreamRequest = {
+  readonly source: string;
+  readonly args: JsonObject;
+};
+/** What a message says about the device itself. */
+type DeviceInfo = {
+  readonly swVersion?: string;
+  readonly hwVersion?: string;
+};
+//#endregion
+//#region ../package-runtime/dist/stream.d.ts
+/** What a stream carries: stills, or H.264 with the codec string its decoder is set up with. */
+type StreamTrack = {
+  readonly kind: 'jpeg';
+} | {
+  readonly kind: 'h264';
+  readonly codec: string;
+};
+/** One frame of a stream. */
+type StreamFrame = {
+  /** A JPEG, or an H.264 access unit in Annex B with its parameter sets before a key frame. */
+  readonly data: Uint8Array;
+  /** Whether a decoder can start from it. */
+  readonly isKey: boolean;
+  /** When it was taken, in microseconds from the start of the stream. */
+  readonly timestampUs: number;
+};
+/** Where a source puts what it reads. */
+type StreamSink = {
+  /** Says what the stream carries; called once, before the first frame. */
+  describe: (track: StreamTrack) => void;
+  /** Hands over one frame. */
+  frame: (frame: StreamFrame) => void;
+};
+/** How a camera's picture is read. */
+type StreamSource = {
+  /** `<vendor>/<name>`, as the profile names it. */
+  readonly id: string;
+  /** Validates the settings it reads the camera with: the instance's transport settings. */
+  readonly configSchema: z.ZodType;
+  /**
+   * Reads the stream until the signal ends it or the camera does.
+   *
+   * @param config - The instance's transport settings, secrets opened.
+   * @param args - What the profile's camera entity says to read.
+   * @param sink - Where the track and the frames go.
+   * @param signal - Ends the stream.
+   * @returns A promise that settles when the stream ended; rejects with why, when it failed.
+   */
+  open: (config: unknown, args: JsonObject, sink: StreamSink, signal: AbortSignal) => Promise<void>;
+};
+/** A stream source as its author writes it, with its own configuration type. */
+type StreamSourceSpec<TConfig> = {
+  readonly id: string;
+  readonly configSchema: z.ZodType<TConfig>;
+  open: (config: TConfig, args: JsonObject, sink: StreamSink, signal: AbortSignal) => Promise<void>;
+};
+/**
+ * Turns a stream source written against its own configuration into one a registry can hold,
+ * validating the settings on the way in as {@link defineTransport} does.
+ *
+ * @param spec - The source.
+ * @returns The same source, its configuration parameter erased.
+ */
+declare function defineStreamSource<TConfig>(spec: StreamSourceSpec<TConfig>): StreamSource;
+/** One access unit an RTSP session delivered. */
+type RtspFrame = StreamFrame & {
+  /** The codec string of the stream, from its sequence parameters. */
+  readonly codec: string;
+};
+/** What opening an RTSP session takes. */
+type RtspOptions = {
+  /** `rtsp://user:password@host:port/path`, or `rtsps://` over TLS. */
+  readonly url: string;
+  /** Whether a TLS camera's certificate must chain to an authority this machine trusts. */
+  readonly rejectUnauthorized?: boolean;
+  /** Ends the session. */
+  readonly signal: AbortSignal;
+};
+/**
+ * Plays an RTSP stream over TCP and yields its H.264 access units.
+ *
+ * @throws {Error} From the iteration, when the camera refused or the session failed.
+ */
+type OpenRtsp = (options: RtspOptions) => AsyncIterable<RtspFrame>;
+//#endregion
+//#region ../package-runtime/dist/sdk.d.ts
+/**
+ * One level of a bundle's log: fields and a message, or a message alone - pino's way, which is the
+ * logger `hub` hands over.
+ */
+type BundleLogFn = {
+  (fields: object, message?: string): void;
+  (message: string): void;
+};
+/**
+ * The hub's logger, as far as a bundle's code may use it: named here rather than as the platform's
+ * logger type, so that what a bundle is written against says nothing of how the platform logs.
+ */
+type BundleLogger = {
+  readonly trace: BundleLogFn;
+  readonly debug: BundleLogFn;
+  readonly info: BundleLogFn;
+  readonly warn: BundleLogFn;
+  readonly error: BundleLogFn;
+  readonly fatal: BundleLogFn;
+  /**
+   * A logger whose every line carries these fields too.
+   *
+   * @param fields - The fields.
+   * @returns The logger.
+   */
+  child: (fields: Record<string, unknown>) => BundleLogger;
+};
+/** What opening a managed WebSocket takes. */
+type ManagedSocketOptions = {
+  /** `ws://host/path` or `wss://…`. */
+  readonly url: string;
+  readonly logger: BundleLogger;
+  /** Called after every connection, the first and each one after a drop. */
+  readonly onOpen: () => void;
+  /** Called with each text frame. */
+  readonly onMessage: (text: string) => void;
+  /** Called when the socket dropped or failed to connect; the helper reconnects by itself. */
+  readonly onClose: (reason: string) => void;
+  /**
+   * How to come back after a drop: doubling from `minMs` (1 s) to `maxMs` (30 s), reset by a
+   * connection that opens. `false` is one attempt and no more, for a probe or a scan.
+   */
+  readonly reconnect?: {
+    readonly minMs?: number;
+    readonly maxMs?: number;
+  } | false;
+};
+/** A WebSocket the hub keeps open on a bundle's behalf. */
+type ManagedSocket = {
+  /** Whether a frame can be sent right now. */
+  readonly isOpen: boolean;
+  /**
+   * Sends one text frame.
+   *
+   * @throws {Error} When the socket is not open.
+   */
+  send: (text: string) => void;
+  /** Drops the socket so the helper reconnects - after a request that timed out. */
+  reset: (reason: string) => void;
+  /** Closes for good. */
+  close: () => Promise<void>;
+};
+/** Opens a managed WebSocket. */
+type OpenWebSocket = (options: ManagedSocketOptions) => ManagedSocket;
+/** Where a datagram came from. */
+type UdpPeer = {
+  readonly address: string;
+  readonly port: number;
+};
+/** What opening a managed UDP socket takes. */
+type ManagedUdpSocketOptions = {
+  /** The port to listen on; absent, whatever port the system picks. */
+  readonly port?: number;
+  /** Whether another socket may bind the same port, as a multicast listener must allow. */
+  readonly reuseAddr?: boolean;
+  /** A multicast group to join, and whether to hear what this host itself sends to it. */
+  readonly multicast?: {
+    readonly group: string;
+    readonly loopback?: boolean;
+  };
+  /** Whether the socket may send to a broadcast address. */
+  readonly broadcast?: boolean;
+  /** Called with each datagram, as bytes: some protocols are text and some are not. */
+  readonly onMessage: (message: Buffer, from: UdpPeer) => void;
+  /** Called when the socket fails after it opened. The hub has logged it already. */
+  readonly onError?: (error: Error) => void;
+};
+/** A UDP socket the hub holds on a bundle's behalf. */
+type ManagedUdpSocket = {
+  /** The port it is bound to, known once it has opened. */
+  readonly port: number;
+  /**
+   * Sends one datagram.
+   *
+   * @throws {Error} When the socket is closed or the send fails.
+   */
+  send: (message: Buffer | string, port: number, address: string) => Promise<void>;
+  /** Closes for good, leaving the group. */
+  close: () => Promise<void>;
+};
+/** Opens a managed UDP socket. */
+type OpenUdpSocket = (options: ManagedUdpSocketOptions) => ManagedUdpSocket;
+/** What opening a managed MQTT session takes. */
+type ManagedMqttOptions = {
+  /** `mqtt://host:1883`, or `mqtts://host:8883` behind TLS. */
+  readonly url: string;
+  /** The client id to connect as; one the client makes up when absent. */
+  readonly clientId?: string;
+  readonly username?: string;
+  readonly password?: string;
+  /**
+   * TLS for an `mqtts://` broker: a client certificate as a PKCS#12 bundle and its passphrase,
+   * for a broker that authenticates the client by certificate, and whether the broker's own
+   * certificate must chain to an authority this machine trusts (on unless said).
+   */
+  readonly tls?: {
+    readonly pfx?: Buffer;
+    readonly passphrase?: string;
+    readonly rejectUnauthorized?: boolean;
+  };
+  readonly logger: BundleLogger;
+  /** Called after every connection, the first and each one after a drop. */
+  readonly onConnect?: () => void;
+  /** Called with each message on a topic subscribed to. */
+  readonly onMessage: (topic: string, payload: Buffer) => void;
+  /** Called when the session dropped or failed to come up; the helper reconnects by itself. */
+  readonly onClose?: (reason: string) => void;
+};
+/** An MQTT session the hub keeps up on a bundle's behalf. */
+type ManagedMqtt = {
+  /** Whether a message can be published right now. */
+  readonly isConnected: boolean;
+  /** Subscribes, now and after every reconnect, until unsubscribed. */
+  subscribe: (topic: string) => void;
+  /** Stops hearing a topic. */
+  unsubscribe: (topic: string) => void;
+  /**
+   * Publishes one message, at most once.
+   *
+   * @throws {Error} When the session is not up.
+   */
+  publish: (topic: string, payload: string | Buffer) => Promise<void>;
+  /** Closes for good. */
+  close: () => Promise<void>;
+};
+/** Opens a managed MQTT session. */
+type OpenMqtt = (options: ManagedMqttOptions) => ManagedMqtt;
+/**
+ * The house's MQTT broker, as the hub reaches it: the package that provides `mqtt-broker`, with
+ * the hub's own username - or the broker `NEBULA_MQTT_URL` names. Read again each time it is needed: the broker may start after
+ * the hub, and a bundle that opens a session later finds it then.
+ */
+type PlatformMqtt = {
+  readonly url: string;
+  readonly username?: string;
+  readonly password?: string;
+};
+/** What the platform offers a bundle beyond the pieces to build a transport from. */
+type PlatformServices = {
+  /**
+   * The house's broker, for a vendor whose devices report through it - zigbee2mqtt - and which
+   * runs its own program beside the platform. Null on an installation without one.
+   */
+  readonly mqtt: PlatformMqtt | null;
+};
+/** One colour of a palette: red, green, blue and, optionally, how opaque, each 0 to 255. */
+type PaletteColour = readonly [number, number, number] | readonly [number, number, number, number];
+/** A picture of a few colours: a robot's map, one palette index per cell. */
+type PalettedPicture = {
+  readonly width: number;
+  readonly height: number;
+  /** At most 256 colours. */
+  readonly palette: readonly PaletteColour[];
+  /** One index into the palette per pixel, row after row from the top left. */
+  readonly pixels: Uint8Array;
+};
+/** Since 1.5: what a bundle drawing a picture needs, and could not bring as a dependency. */
+type BundleCodecs = {
+  /**
+   * Unpacks an LZMA stream in the alone format (`.lzma`): a 13-byte header - the properties and
+   * the size, eight bytes of ones when unknown - then the stream. ECOVACS packs its maps so.
+   *
+   * @throws {Error} When the stream is corrupt.
+   */
+  readonly lzma: (bytes: Uint8Array) => Buffer;
+};
+/** Since 1.5: pictures a bundle draws, for an image entity. */
+type BundleImages = {
+  /**
+   * Encodes a paletted picture as a PNG, a colour with an alpha below 255 transparent.
+   *
+   * @throws {Error} When the size, the palette and the pixels do not fit together.
+   */
+  readonly png: (picture: PalettedPicture) => Buffer;
+};
+/** What the hub hands a bundle's transport factory. */
+type BundleSdk = {
+  /** The runtime version, the same string `manifest.sdk` was matched against. */
+  readonly version: string;
+  /** The runtime's zod, so a bundle's schemas validate under the one instance the hub uses. */
+  readonly z: typeof z;
+  /** The hub's logger, for what happens outside a connection: a probe, a scan. */
+  readonly logger: BundleLogger;
+  readonly defineTransport: typeof defineTransport;
+  readonly openWebSocket: OpenWebSocket;
+  readonly openUdpSocket: OpenUdpSocket;
+  /** Since 1.2: an MQTT session, for a vendor whose devices report through a broker of its own. */
+  readonly openMqtt: OpenMqtt;
+  /** Since 1.2: how a camera's stream source is written, as defineTransport is for a transport. */
+  readonly defineStreamSource: typeof defineStreamSource;
+  /** Since 1.2: an RTSP session over TCP, yielding a camera's H.264 as it comes. */
+  readonly openRtsp: OpenRtsp;
+  /** Since 1.3: what the platform itself runs that a bundle may use - its MQTT broker. */
+  readonly platform: PlatformServices;
+  /** Since 1.5: how an account's sign-in module is written, as defineTransport is for a transport. */
+  readonly defineAccount: typeof defineAccount;
+  /** Since 1.5: unpacking what a vendor's cloud packs. */
+  readonly codecs: BundleCodecs;
+  /** Since 1.5: drawing pictures, for an image entity. */
+  readonly images: BundleImages;
+};
+/** What a transport module default-exports. */
+type TransportFactory = (sdk: BundleSdk) => Transport;
+/** What a stream module default-exports. */
+type StreamFactory = (sdk: BundleSdk) => StreamSource;
+/**
+ * Since 1.3: what a code driver may default-export instead of an integration - a function of
+ * the SDK, so the driver can build its schemas with the runtime's zod rather than bring its own.
+ */
+type IntegrationFactory = (sdk: BundleSdk) => Integration;
+//#endregion
+//#region ../package-runtime/dist/account.d.ts
+/** Who an account signed in as: the cloud's id for it, and what its card calls it. */
+type AccountIdentity = {
+  /** Stable across sign-ins: the account's id at the cloud. What a device remembers. */
+  readonly id: string;
+  /** What its card calls it: the email it was made with. */
+  readonly label: string;
+};
+/** Where a sign-in stands, as the module answers it. */
+type AccountModuleStep =
+/** Done: who it is, and what to keep - tokens, a user id - for the next start. */
+{
+  readonly kind: 'connected';
+  readonly identity: AccountIdentity;
+  readonly session: JsonObject;
+} |
+/**
+ * The cloud wants something more - a code it emailed, a second factor. `pending` is whatever
+ * the module needs to carry on; it comes back with the answers.
+ */
+{
+  readonly kind: 'ask';
+  readonly message: string;
+  readonly fields: readonly SetupField[];
+  readonly pending: JsonObject;
+} |
+/** The owner approves on a page of the cloud's; asked again every `pollMs`. */
+{
+  readonly kind: 'link';
+  readonly message: string;
+  readonly url: string;
+  readonly code?: string;
+  readonly pollMs: number;
+  readonly pending: JsonObject;
+} |
+/** It did not work, and why; `field` is the one to correct, when one is to blame. */
+{
+  readonly kind: 'failed';
+  readonly message: string;
+  readonly field?: string;
+};
+/** What a sign-in step is handed beside its arguments. */
+type AccountStepContext = {
+  /** Ends the step: the owner gave up, or it took too long. */
+  readonly signal: AbortSignal;
+};
+/** What signing in to a vendor's account does, as its module writes it. */
+type AccountModule = {
+  /**
+   * Signs in with what the owner typed, secrets opened.
+   *
+   * @returns Where it stands.
+   */
+  readonly signIn: (values: JsonObject, context: AccountStepContext) => Promise<AccountModuleStep>;
+  /**
+   * Carries on after a question, with its answers.
+   *
+   * @returns Where it stands now; the same question again, with why, for a wrong answer.
+   */
+  readonly answer: (pending: JsonObject, answers: JsonObject, context: AccountStepContext) => Promise<AccountModuleStep>;
+  /**
+   * Asks whether the page the owner was sent to was approved.
+   *
+   * @returns `link` again while it was not.
+   */
+  readonly poll?: (pending: JsonObject, context: AccountStepContext) => Promise<AccountModuleStep>;
+  /**
+   * Tells the cloud the account is forgotten, when the cloud has a way to: a token revoked.
+   * Failing is not refusing - the account is forgotten here all the same.
+   */
+  readonly signOut?: (session: JsonObject, context: AccountStepContext) => Promise<void>;
+};
+/**
+ * Declares what signing in to a vendor's account does. The identity function, as
+ * `defineTransport` is: what it adds is the type, for a module written in JavaScript.
+ *
+ * @param module - The steps.
+ * @returns The same steps.
+ */
+declare function defineAccount(module: AccountModule): AccountModule;
+/** What an account module default-exports: a function of the SDK. */
+type AccountFactory = (sdk: BundleSdk) => AccountModule;
+/**
+ * One account signed in to, as a vendor's transport and listener are handed it.
+ *
+ * `credentials` are what the owner typed, secrets opened - for a module that signs in again with
+ * the password when the session expired; `session` is what the last sign-in kept. A transport
+ * that finds the session refused signs in again and keeps the new one (`update`); one that cannot
+ * - the cloud wants the owner again - says so (`needsSignIn`), and the account's card asks.
+ */
+type AccountHandle = {
+  readonly id: string;
+  readonly label: string;
+  readonly status: 'connected' | 'needs-sign-in' | 'failed';
+  readonly credentials: JsonObject;
+  readonly session: JsonObject;
+  /**
+   * Keeps a new session - tokens renewed - for this run and the next.
+   *
+   * @returns Once it is stored.
+   */
+  readonly update: (session: JsonObject) => Promise<void>;
+  /**
+   * Says the account needs the owner to sign in again, and why; its devices stop until then.
+   *
+   * @returns Once it is recorded.
+   */
+  readonly needsSignIn: (message: string) => Promise<void>;
+};
+//#endregion
+//#region ../package-runtime/dist/discovery.d.ts
+/**
+ * What a listening source heard: a device, how to reach it, and what it said.
+ *
+ * `config` is what reaches it in the transport's own terms - `{ host }` - and becomes the
+ * device's connection once adopted. `payload` is what identity and match read.
+ */
+type Sighting = {
+  readonly config: JsonObject;
+  readonly payload: JsonObject;
+};
+/** How a listener is getting on, as the vendor's page says it. */
+type ListenerStatus = {
+  /** `ok` hears what it listens to; `warning` listens but hears nothing; `error` cannot listen. */
+  readonly level: 'ok' | 'warning' | 'error';
+  /** A sentence for the owner: where it listens, and what to look at when it hears nothing. */
+  readonly message: string;
+};
+/**
+ * A device a listener heard and does not report, and why: one its vendor does not support, one
+ * still being paired. The vendor's page lists them, so "why is my device not here" has an answer.
+ */
+type PassedOverSighting = {
+  /** What tells it from the others: its IEEE address, its id on the account. */
+  readonly id: string;
+  readonly name: string;
+  readonly model?: string | null;
+  /** Why it is not added, in a sentence: `Zigbee2MQTT is still pairing it`. */
+  readonly reason: string;
+};
+/** Since 1.4: what the hub hands a listener beside the signal. */
+type DiscoveryListenContext = {
+  /**
+   * Reads what the owner saved for the vendor - an account, a key - secrets opened, for a
+   * listener that asks a cloud which devices the account has. Read it at every pass rather than
+   * once: a change the owner saves is then heard without the listener being started again.
+   *
+   * @returns The vendor's settings; empty while it is not set up.
+   */
+  readonly settings: () => Promise<JsonObject>;
+  /**
+   * Since 1.5: says how listening goes - connected to a broker but hearing nothing, unable to
+   * reach it - which the vendor's page shows. The last one said stands until the next. Optional
+   * for the hub to offer, so a listener calls it as `context.status?.(…)`.
+   */
+  readonly status?: (status: ListenerStatus) => void;
+  /**
+   * Since 1.5: every device the listener hears and does not report, the whole list each time -
+   * it replaces the last one. Optional for the hub to offer, like `status`.
+   */
+  readonly passedOver?: (devices: readonly PassedOverSighting[]) => void;
+  /**
+   * Since 1.5: every account of the vendor signed in to, for a listener that asks each which
+   * devices it has. Read it at every pass, like the settings: an account added is heard then.
+   *
+   * @returns The accounts; none for a vendor without, or before one is signed in to.
+   */
+  readonly accounts?: () => Promise<readonly AccountHandle[]>;
+};
+/** A vendor's own listener, for a protocol the platform does not speak. */
+type DiscoverySource = {
+  /**
+   * Listens until the signal ends it, reporting every device heard.
+   *
+   * @param signal - Ends the listening.
+   * @param context - Since 1.4: the vendor's settings, for a listener that needs them.
+   * @returns Every sighting, as it happens. The same device may be reported again.
+   */
+  listen: (signal: AbortSignal, context: DiscoveryListenContext) => AsyncIterable<Sighting>;
+  /**
+   * Asks the network again now, rather than at the listener's own next pass: what the owner's
+   * "look for devices" reaches. Optional, for a listener that only ever hears announcements and
+   * has nothing to ask. Answers arrive through `listen`, like every other sighting.
+   */
+  scan?: () => void;
+};
+/** What a discovery module default-exports. */
+type DiscoverySourceFactory = (sdk: BundleSdk) => DiscoverySource;
+/**
+ * What the platform's mDNS source reports, which a vendor's match and identity read.
+ *
+ * `txt` holds the service's TXT record as text; a key with no value reads as an empty string.
+ */
+type MdnsAnnouncement = {
+  readonly service: string;
+  readonly instance: string;
+  readonly host: string;
+  readonly address: string;
+  readonly port: number;
+  readonly txt: Readonly<Record<string, string>>;
+};
+//#endregion
+//#region src/modules.d.ts
+/**
+ * Types a transport module: `manifest.json`'s `transports`. The transport it builds must call
+ * itself `<vendor>/<name>`, the name the manifest gives it.
+ *
+ * @param factory - Builds the transport from the SDK, with `sdk.defineTransport`.
+ * @returns The factory, as the module's default export.
+ */
+export declare function defineTransportModule(factory: TransportFactory): TransportFactory;
+/**
+ * Types a code driver's module: `driver.json`'s `entry`, for a driver whose entities depend on
+ * what the device says.
+ *
+ * @param factory - Builds the integration from the SDK.
+ * @returns The factory, as the module's default export.
+ */
+export declare function defineDriverModule(factory: IntegrationFactory): IntegrationFactory;
+/**
+ * Types a discovery module: `discovery.json`'s `{ "module": "./lan/discovery.js" }`, a listener
+ * of the vendor's own for a protocol the platform does not speak.
+ *
+ * @param factory - Builds what listens, from the SDK.
+ * @returns The factory, as the module's default export.
+ */
+export declare function defineDiscoveryModule(factory: DiscoverySourceFactory): DiscoverySourceFactory;
+/**
+ * Types an account module: `account.json`'s `module`, which signs in to the account the
+ * vendor's devices are reached through.
+ *
+ * @param factory - Builds the sign-in from the SDK, with `sdk.defineAccount`.
+ * @returns The factory, as the module's default export.
+ */
+export declare function defineAccountModule(factory: AccountFactory): AccountFactory;
+/**
+ * Types a stream module: `manifest.json`'s `streams`, a camera's source. It must call itself
+ * `<vendor>/<name>`.
+ *
+ * @param factory - Builds the source from the SDK, with `sdk.defineStreamSource`.
+ * @returns The factory, as the module's default export.
+ */
+export declare function defineStreamModule(factory: StreamFactory): StreamFactory;
+//#endregion
+export type { AccountFactory, AccountHandle, AccountIdentity, AccountModule, AccountModuleStep, AccountStepContext, BundleCodecs, BundleImages, BundleLogFn, BundleLogger, BundleSdk, Claim, CommandTarget, DeviceDescriptor, DeviceInfo, Discovered, DiscoveryListenContext, DiscoverySource, DiscoverySourceFactory, EntityDescriptor, ImageBlob, Integration, IntegrationFactory, ListenerStatus, ManagedMqtt, ManagedMqttOptions, ManagedSocket, ManagedSocketOptions, ManagedUdpSocket, ManagedUdpSocketOptions, MappingContext, MdnsAnnouncement, OpenMqtt, OpenRtsp, OpenUdpSocket, OpenWebSocket, PaletteColour, PalettedPicture, PassedOverSighting, PlatformMqtt, PlatformServices, ReportedState, RtspFrame, RtspOptions, Sighting, StreamFactory, StreamFrame, StreamRequest, StreamSink, StreamSource, StreamSourceSpec, StreamTrack, Transport, TransportConnection, TransportContext, TransportFactory, TransportInbound, TransportLookContext, TransportRequest, TransportSpec, TransportStatus, TransportSubscription, UdpPeer };

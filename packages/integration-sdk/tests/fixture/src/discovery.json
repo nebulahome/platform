@@ -1,0 +1,6 @@
+{
+  "$schema": "../../../schemas/discovery.schema.json",
+  "listen": [{ "mdns": "_fixture._tcp" }],
+  "match": [{ "path": "txt.md", "exists": true }],
+  "identity": { "model": "txt.md", "name": "instance", "externalId": "txt.id" }
+}

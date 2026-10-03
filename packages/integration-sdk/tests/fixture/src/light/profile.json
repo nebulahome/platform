@@ -1,0 +1,20 @@
+{
+  "$schema": "../../../../schemas/profile.schema.json",
+  "discovery": {
+    "probe": { "op": "get", "args": { "path": "/info" } },
+    "claim": [{ "path": "vendor", "equals": "Fixture" }],
+    "identity": { "externalId": "id", "name": "name", "model": "model" }
+  },
+  "subscriptions": [{ "op": "poll", "args": { "path": "/state", "everyMs": 10000 } }],
+  "entities": [
+    {
+      "domain": "light",
+      "capabilities": { "on_off": {} },
+      "state": { "on_off": { "isOn": "on" } },
+      "commands": {
+        "on_off.turn_on": { "op": "post", "args": { "path": "/state", "body": { "on": true } } },
+        "on_off.turn_off": { "op": "post", "args": { "path": "/state", "body": { "on": false } } }
+      }
+    }
+  ]
+}

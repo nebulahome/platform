@@ -18,3 +18,10 @@ opens the pull request that versions the SDK, and once that is merged it publish
 version through npm's trusted publishing, with provenance. Before the first publish, the
 `@nebulahome` organization must exist on npmjs.com and list this repository's `release-sdk.yml`
 as the package's trusted publisher.
+
+`@nebulahome/integration-sdk` is ready to be published the same way but is marked `private` until
+it is: without the flag, `changeset publish` would publish it on the next run on `main`. To publish
+it, remove `"private": true` from its `package.json`, build and check it in `release-sdk.yml`
+beside the package SDK, and add it to the trusted publishers. Its version is the integration
+contract's (INTEGRATIONS_DOCS.md 11): the hub reads it from the SDK's `package.json`, and a
+changeset that raises it changes what bundles the platform loads.

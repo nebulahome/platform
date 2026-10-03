@@ -1,0 +1,12 @@
+{
+  "$schema": "../../../../schemas/driver.schema.json",
+  "id": "light",
+  "name": "Light",
+  "transport": "http",
+  "models": ["Bulb", "Strip"],
+  "modelCodes": { "FX1": "Bulb", "FX2": "Strip" },
+  "defaultIcon": "light",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

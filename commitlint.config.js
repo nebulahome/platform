@@ -45,6 +45,7 @@ export default {
         'package-runtime',
         'package-host',
         'package-sdk',
+        'integration-sdk',
         'icons',
         'ui',
         'infra',

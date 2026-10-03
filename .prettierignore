@@ -8,3 +8,6 @@ packages/db/migrations
 graphify-out
 .impeccable
 packages/package-sdk/etc/api
+packages/integration-sdk/etc/api
+packages/integration-sdk/schemas
+packages/integration-sdk/tests/fixture
