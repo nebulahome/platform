@@ -259,6 +259,13 @@ export const PERMISSIONS = [
     description: 'Add integrations, change their configuration and start or stop them',
   },
   {
+    key: 'integration:install',
+    resource: 'integration',
+    action: 'install',
+    isScopable: false,
+    description: 'Install, update and remove integrations',
+  },
+  {
     key: 'user:read',
     resource: 'user',
     action: 'read',

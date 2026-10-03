@@ -1390,6 +1390,7 @@ INSERT INTO auth.permissions (key, resource, action, description, is_scopable) V
   ('package:configure', 'package', 'configure', 'Change a package configuration and start or stop it', false),
   ('integration:read', 'integration', 'read', 'See configured integrations and the bundles available', false),
   ('integration:configure', 'integration', 'configure', 'Add integrations, change their configuration and start or stop them', false),
+  ('integration:install', 'integration', 'install', 'Install, update and remove integrations', false),
   ('user:read', 'user', 'read', 'See the list of users', false),
   ('user:manage', 'user', 'manage', 'Create, edit, disable and delete users', false),
   ('role:manage', 'role', 'manage', 'Create roles and change what they grant', false),
@@ -1429,7 +1430,7 @@ VALUES ('This machine', 'system', 'count', 3);
 -- Role grants: generated from DEFAULT_ROLE_PERMISSIONS in @nebula-home/contracts.
 INSERT INTO auth.role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM auth.roles r, auth.permissions p
-WHERE r.key = 'admin' AND p.key IN ('entity:read', 'entity:control', 'entity:write', 'entity:delete', 'device:read', 'device:write', 'device:delete', 'area:read', 'area:write', 'tag:read', 'tag:write', 'automation:read', 'automation:write', 'automation:trigger', 'scene:read', 'scene:apply', 'scene:write', 'alias:read', 'alias:write', 'dashboard:manage', 'history:read', 'package:read', 'package:install', 'package:configure', 'integration:read', 'integration:configure', 'user:read', 'user:manage', 'logs:read', 'settings:read', 'settings:write', 'audit:read', 'system:read', 'container:read', 'container:control', 'container:install');
+WHERE r.key = 'admin' AND p.key IN ('entity:read', 'entity:control', 'entity:write', 'entity:delete', 'device:read', 'device:write', 'device:delete', 'area:read', 'area:write', 'tag:read', 'tag:write', 'automation:read', 'automation:write', 'automation:trigger', 'scene:read', 'scene:apply', 'scene:write', 'alias:read', 'alias:write', 'dashboard:manage', 'history:read', 'package:read', 'package:install', 'package:configure', 'integration:read', 'integration:configure', 'integration:install', 'user:read', 'user:manage', 'logs:read', 'settings:read', 'settings:write', 'audit:read', 'system:read', 'container:read', 'container:control', 'container:install');
 INSERT INTO auth.role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM auth.roles r, auth.permissions p
 WHERE r.key = 'member' AND p.key IN ('entity:read', 'entity:control', 'device:read', 'area:read', 'tag:read', 'automation:read', 'automation:trigger', 'scene:read', 'scene:apply', 'alias:read', 'history:read', 'package:read', 'integration:read');
