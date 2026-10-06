@@ -32,9 +32,12 @@ import {
   HUB_RELOAD_METHOD,
   HUB_SERVICE,
   HUB_VENDOR_CHANGED_METHOD,
+  integrationAvailableReplySchema,
   integrationVendorViewSchema,
   modelChoicesOf,
   NotFoundError,
+  PACKET_MANAGER_METHODS,
+  PACKET_MANAGER_SERVICE,
   reloadReplySchema,
   secretKeysOf,
   setupValueSchema,
@@ -43,6 +46,7 @@ import {
   type IntegrationKind,
   type IntegrationSetup,
   type IntegrationAccountView,
+  type IntegrationAvailability,
   type IntegrationVendor,
   type IntegrationVendorConfigUpdate,
   type IntegrationVendorView,
@@ -285,6 +289,7 @@ export type VendorCounts = {
  * @param containerStatuses - Where each container it depends on stands, null for one the
  * supervisor did not answer about.
  * @param accounts - The accounts signed in to, for a vendor that has one.
+ * @param update - What the integrations index offers it, for a vendor the platform installed.
  * @returns The view.
  */
 export function vendorViewOf(
@@ -293,6 +298,7 @@ export function vendorViewOf(
   counts: VendorCounts,
   containerStatuses: readonly (ManagedStatus | null)[] = [],
   accounts: readonly IntegrationAccountView[] = [],
+  update?: IntegrationAvailability,
 ): IntegrationVendorView {
   return integrationVendorViewSchema.parse({
     ...vendor,
@@ -308,6 +314,14 @@ export function vendorViewOf(
     needsAccount:
       vendor.account !== null && !accounts.some((account) => account.status === 'connected'),
     needsPackage: vendor.packageProblems.length > 0,
+    update:
+      update === undefined
+        ? null
+        : {
+            latestVersion: update.latestVersion,
+            hasUpdate: update.hasUpdate,
+            hasNewBuild: update.hasNewBuild,
+          },
   });
 }
 
@@ -559,6 +573,38 @@ async function vendorCounts(db: Database): Promise<Map<string, VendorCounts>> {
   return counts;
 }
 
+/** How long the packet-manager has to say what the index offers the installed integrations. */
+const AVAILABLE_TIMEOUT_MS = 5000;
+
+/**
+ * What the integrations index offers each integration the platform installed.
+ *
+ * @param context - The request's collaborators.
+ * @returns It, by vendor; nothing while the packet-manager cannot be asked.
+ */
+export async function integrationUpdates(
+  context: IntegrationsContext,
+): Promise<Map<string, IntegrationAvailability>> {
+  if (context.bus === undefined) {
+    return new Map();
+  }
+
+  try {
+    const reply = await context.bus.request(
+      busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.integrationAvailable),
+      {},
+      integrationAvailableReplySchema,
+      { traceId: context.traceId, timeoutMs: AVAILABLE_TIMEOUT_MS },
+    );
+
+    return new Map(reply.items.map((item) => [item.vendorId, item]));
+  } catch (error: unknown) {
+    context.logger.debug({ err: error }, 'No integration updates read: the packet-manager is away');
+
+    return new Map();
+  }
+}
+
 /**
  * Lists every vendor the hub has loaded, with what the owner has done about each.
  *
@@ -568,7 +614,7 @@ async function vendorCounts(db: Database): Promise<Map<string, VendorCounts>> {
  */
 export async function listVendors(context: IntegrationsContext): Promise<IntegrationVendorView[]> {
   const catalogue = await listCatalogue(context);
-  const [saved, counts] = await Promise.all([
+  const [saved, counts, updates] = await Promise.all([
     context.db
       .select({
         id: schema.registry.integrationVendors.id,
@@ -578,6 +624,7 @@ export async function listVendors(context: IntegrationsContext): Promise<Integra
       })
       .from(schema.registry.integrationVendors),
     vendorCounts(context.db),
+    integrationUpdates(context),
   ]);
   const savedBy = new Map(saved.map((row) => [row.id, row]));
   const accounts = await listAccountViews(context.db);
@@ -597,6 +644,7 @@ export async function listVendors(context: IntegrationsContext): Promise<Integra
       counts.get(vendor.id) ?? { devices: 0, entities: 0 },
       statuses[index] ?? [],
       accounts.filter((account) => account.vendorId === vendor.id),
+      vendor.origin === 'installed' ? updates.get(vendor.id) : undefined,
     ),
   );
 }

@@ -23,6 +23,7 @@ import {
   apiPackageSchema,
   containerLogsQuerySchema,
   containerLogsReplySchema,
+  hubDetailSchema,
   installedPackageSchema,
   isNebulaError,
   packageAvailableReplySchema,
@@ -37,6 +38,7 @@ import {
   packageSearchReplySchema,
   type ApiPackageDetail,
   type ContainerLogsReply,
+  type HubDetail,
   type InstalledPackage,
   type PackageAvailableReply,
   type PackagePlanReply,
@@ -56,6 +58,7 @@ import {
   installPackage,
   listPackages,
   planPackage,
+  readCatalogueDetail,
   readHubLogo,
   readPackage,
   readPackageLogo,
@@ -342,6 +345,34 @@ export function registerPackageRoutes(environment: RouteEnvironment, context: Ap
         ...(route.query.q === undefined ? {} : { q: route.query.q }),
         ...(route.query.cursor === undefined ? {} : { cursor: route.query.cursor }),
       });
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/packages/catalogue/:packageId',
+      summary: 'What the Community Hub says of one package beyond its search row',
+      tag: 'Packages',
+      permission: 'package:read',
+      params: packageParamsSchema,
+      response: hubDetailSchema,
+    },
+
+    /**
+     * Reads what the Hub says of one package.
+     *
+     * @param route - Who is asking, and which package.
+     * @returns Whose it is, and its newest release.
+     */
+    async (route): Promise<HubDetail> => {
+      requirePermission(route.identity, 'package:read');
+
+      return readCatalogueDetail(
+        packagesContext(context, route.request.traceId),
+        route.params.packageId,
+      );
     },
   );
 

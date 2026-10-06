@@ -24,6 +24,7 @@ import {
   type PackageRpcCaller,
   packageAvailableReplySchema,
   packageDetailSchema,
+  hubDetailSchema,
   packageHubLogoReplySchema,
   packageInstallReplySchema,
   packageListReplySchema,
@@ -45,6 +46,7 @@ import {
   type PackageAvailableReply,
   type PackageConfigBody,
   type PackageDetail,
+  type HubDetail,
   type PackagePlanReply,
   type PackageRpcAccess,
   type PackageSearchReply,
@@ -244,6 +246,27 @@ export async function searchCatalogue(
   request: PackageSearchRequest,
 ): Promise<PackageSearchReply> {
   return ask(context, PACKET_MANAGER_METHODS.search, request, packageSearchReplySchema, 30_000);
+}
+
+/**
+ * What the Hub says of one package beyond its search row: whose it is, and its newest release.
+ *
+ * @param context - The request's collaborators.
+ * @param packageId - The package.
+ * @returns What it says.
+ * @throws {NotFoundError} When the Hub does not list it.
+ */
+export async function readCatalogueDetail(
+  context: PackagesContext,
+  packageId: string,
+): Promise<HubDetail> {
+  return ask(
+    context,
+    PACKET_MANAGER_METHODS.hubDetail,
+    { kind: 'package', id: packageId },
+    hubDetailSchema,
+    20_000,
+  );
 }
 
 /**

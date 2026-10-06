@@ -4,7 +4,8 @@
  * The package is `mqtt`, a system package with a setup that asks for a port and a password, a
  * folder written here with its interface's module and its logo, and two methods: `clients`, for
  * anyone who may read it, and `kick`, for who may configure it. A search of the Community Hub
- * finds one package, `nvr`, whose logo it relays.
+ * finds one package, `nvr`, whose logo it relays, and one integration, `zigbee`, which installs
+ * and removes as the packet-manager would.
  */
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -16,6 +17,10 @@ import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
   ConflictError,
+  hubDetailRequestSchema,
+  integrationInstallRequestSchema,
+  integrationRemoveRequestSchema,
+  integrationSearchRequestSchema,
   NotFoundError,
   PACKAGE_RPC_METHOD,
   PACKET_MANAGER_METHODS,
@@ -28,6 +33,7 @@ import {
   packageRpcRequestSchema,
   packageSearchRequestSchema,
   type InstalledPackage,
+  type IntegrationListing,
   type PackageDetail,
   type PackageListing,
 } from '@nebulahome/contracts';
@@ -155,6 +161,36 @@ export const NVR_LISTING: PackageListing = {
   unavailableReason: null,
 };
 
+/** The one integration a search of the Hub finds. */
+export const ZIGBEE_LISTING: IntegrationListing = {
+  id: 'zigbee',
+  name: 'Zigbee2MQTT',
+  description: 'Every Zigbee device Zigbee2MQTT supports, through its bridge.',
+  repository: 'nebulahome/integration-zigbee',
+  color: '#ffc135',
+  logo: null,
+  isOfficial: true,
+  downloads: 1200,
+  stars: 14,
+  internetRequired: false,
+  origin: 'hub',
+  latest: {
+    version: '1.1.0',
+    sdk: '^1.0.0',
+    requires: { packages: {}, services: ['mqtt-broker'] },
+    bundleKind: 'declarative',
+    publishedAt: new Date('2026-10-01T08:00:00Z'),
+    changelogUrl: null,
+    source: 'index',
+  },
+  newestVersion: '1.1.0',
+  installedVersion: null,
+  isBuiltIn: false,
+  hasUpdate: false,
+  hasNewBuild: false,
+  unavailableReason: null,
+};
+
 /** What the fake was asked, by method. */
 export const packetManagerRequests: { method: string; payload: unknown }[] = [];
 
@@ -229,6 +265,68 @@ export function servePacketManagerFake(
         record('search', request);
 
         return { items: [NVR_LISTING], nextCursor: null, hubError: null };
+      },
+    ),
+    packetManager.serve(
+      subject(PACKET_MANAGER_METHODS.integrationSearch),
+      integrationSearchRequestSchema,
+      (request) => {
+        record('integration_search', request);
+
+        return { items: [ZIGBEE_LISTING], nextCursor: null, hubError: null };
+      },
+    ),
+    packetManager.serve(
+      subject(PACKET_MANAGER_METHODS.hubDetail),
+      hubDetailRequestSchema,
+      (request) => {
+        record('hub_detail', request);
+
+        return {
+          ...request,
+          owner: 'nebulahome',
+          homepageUrl: null,
+          models: request.kind === 'integration' ? ['CC2652P'] : [],
+          internetRequired: request.kind === 'integration' ? false : null,
+          version: '1.1.0',
+          publishedAt: new Date('2026-10-01T08:00:00Z'),
+          transports: request.kind === 'integration' ? ['mqtt'] : [],
+          bundleKind: request.kind === 'integration' ? ('declarative' as const) : null,
+        };
+      },
+    ),
+    packetManager.serve(
+      subject(PACKET_MANAGER_METHODS.integrationInstall),
+      integrationInstallRequestSchema,
+      (request) => {
+        record('integration_install', request);
+
+        return {
+          vendorId: request.vendorId,
+          action: 'installed' as const,
+          install: {
+            build: `${request.version ?? '1.1.0'}-0a1b2c3d`,
+            version: request.version ?? '1.1.0',
+            source: 'index' as const,
+            artifactSha256: 'a'.repeat(64),
+            installedAt: '2026-10-06T08:00:00.000Z',
+            installedBy: request.requestedBy ?? null,
+          },
+          warnings: [],
+        };
+      },
+    ),
+    packetManager.serve(
+      subject(PACKET_MANAGER_METHODS.integrationRemove),
+      integrationRemoveRequestSchema,
+      (request) => {
+        record('integration_remove', request);
+
+        if (request.vendorId !== 'zigbee') {
+          throw new NotFoundError(`${request.vendorId} was not installed by the platform`);
+        }
+
+        return { isRestartNeeded: false };
       },
     ),
     packetManager.serve(

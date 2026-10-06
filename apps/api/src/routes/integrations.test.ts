@@ -14,6 +14,7 @@ import {
   emptyDatabase,
   stopHub,
 } from '../testing/hub-harness.js';
+import { packetManagerRequests } from '../testing/packet-manager-fake.js';
 
 let server: FastifyInstance;
 
@@ -195,5 +196,87 @@ describe('with the bus away', () => {
 
     expect(response.statusCode).toBe(503);
     expect(response.json()).toMatchObject({ error: { code: 'DEVICE_UNAVAILABLE' } });
+  });
+});
+
+describe('installing integrations from the Community Hub', () => {
+  beforeAll(async () => {
+    server = await buildTestServer(true, emptyDatabase());
+  });
+
+  afterAll(async () => {
+    stopHub();
+    await server.close();
+  });
+
+  it('searches the Hub for whoever may read integrations, and says more of one', async () => {
+    const authorization = await bearer('integration:read');
+    const found = await server.inject({
+      method: 'GET',
+      url: '/api/v1/integrations/catalogue?q=zig',
+      headers: { authorization },
+    });
+    const detail = await server.inject({
+      method: 'GET',
+      url: '/api/v1/integrations/catalogue/zigbee',
+      headers: { authorization },
+    });
+
+    expect(found.statusCode).toBe(200);
+    expect(found.json()).toMatchObject({ items: [{ id: 'zigbee', stars: 14 }], hubError: null });
+    expect(packetManagerRequests).toContainEqual({
+      method: 'integration_search',
+      payload: { q: 'zig' },
+    });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json()).toMatchObject({ owner: 'nebulahome', transports: ['mqtt'] });
+  });
+
+  it('installs only for whoever may install, naming who asked', async () => {
+    const refused = await server.inject({
+      method: 'POST',
+      url: '/api/v1/integrations/vendors/zigbee/install',
+      headers: { authorization: await bearer('integration:read', 'integration:configure') },
+      payload: {},
+    });
+    const installed = await server.inject({
+      method: 'POST',
+      url: '/api/v1/integrations/vendors/zigbee/install',
+      headers: { authorization: await bearer('integration:install') },
+      payload: { version: '1.1.0' },
+    });
+    const asked = packetManagerRequests.at(-1);
+
+    expect(refused.statusCode).toBe(403);
+    expect(installed.statusCode).toBe(200);
+    expect(installed.json()).toMatchObject({ vendorId: 'zigbee', action: 'installed' });
+    expect(asked).toMatchObject({
+      method: 'integration_install',
+      payload: { vendorId: 'zigbee', version: '1.1.0' },
+    });
+    expect((asked?.payload as { requestedBy?: string }).requestedBy).toEqual(expect.any(String));
+  });
+
+  it('removes one the platform installed, and refuses one built into it', async () => {
+    const authorization = await bearer('integration:install');
+    const removed = await server.inject({
+      method: 'DELETE',
+      url: '/api/v1/integrations/vendors/zigbee',
+      headers: { authorization },
+    });
+    const builtIn = await server.inject({
+      method: 'DELETE',
+      url: '/api/v1/integrations/vendors/acme',
+      headers: { authorization },
+    });
+
+    expect(removed.statusCode).toBe(200);
+    expect(removed.json()).toEqual({ devices: 0, accounts: 0, isRestartNeeded: false });
+    expect(packetManagerRequests.at(-1)).toEqual({
+      method: 'integration_remove',
+      payload: { vendorId: 'zigbee' },
+    });
+    expect(builtIn.statusCode).toBe(409);
+    expect(JSON.stringify(builtIn.json())).toContain('built into this NebulaHome');
   });
 });
