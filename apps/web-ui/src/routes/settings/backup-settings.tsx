@@ -925,7 +925,7 @@ export function BackupSettings() {
               >
                 {run.error === null &&
                 run.destinations.every((each) => each.error === null) ? undefined : (
-                  <details className="rounded-field border border-border-soft bg-sunk px-3 py-2">
+                  <details className="rounded-field border border-border bg-surface-raised px-3 py-2">
                     <summary className="cursor-pointer text-caption text-foreground-muted">
                       Why
                     </summary>

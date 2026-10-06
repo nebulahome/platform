@@ -197,7 +197,7 @@ export function HouseMap(props: HouseMapProps) {
       role="application"
       aria-label="Map"
       className={cn(
-        'h-72 w-full overflow-hidden rounded-field border border-border face-sunk',
+        'h-72 w-full overflow-hidden rounded-field border border-border bg-surface-raised',
         className,
       )}
     />

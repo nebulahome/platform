@@ -76,7 +76,7 @@ export function Mark(props: MarkProps) {
         size === 'small' ? 'size-[26px]' : 'size-7',
         tone === 'warning'
           ? 'border-warning/30 bg-warning/13 text-warning'
-          : 'border-border-soft face-raised text-foreground-muted',
+          : 'border-border bg-surface-raised text-foreground-muted',
       )}
     >
       <Icon width={size === 'small' ? 13 : 14} height={size === 'small' ? 13 : 14} />
@@ -209,8 +209,8 @@ export function VendorCard(props: VendorCardProps) {
         to={`/integrations/${vendor.id}`}
         aria-label={vendor.name}
         className={cn(
-          'flex h-41 flex-col rounded-panel border border-border face-card p-[18px]',
-          'transition-[border-color,box-shadow] hover:border-border-strong hover:shadow-card',
+          'flex h-41 flex-col rounded-panel border border-border bg-surface p-[18px]',
+          'transition-[border-color,box-shadow] hover:border-border-strong',
           'focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none',
         )}
       >

@@ -37,11 +37,11 @@ export function ReadingControl(props: ReadingControlProps) {
     return (
       <ControlBlock title={measures ?? 'Reading'}>
         <p className="flex items-baseline gap-2">
-          <span className="font-mono text-reading-lg text-foreground tabular">
+          <span className="font-mono text-mono-reading text-foreground tabular">
             {figure?.figure ?? (state.sensor_numeric === undefined ? '—' : reading.text)}
           </span>
           {figure?.unit === undefined || figure.unit === null ? null : (
-            <span className="text-head text-foreground-subtle">{figure.unit}</span>
+            <span className="text-headline-sm text-foreground-subtle">{figure.unit}</span>
           )}
         </p>
       </ControlBlock>
@@ -66,7 +66,7 @@ export function ReadingControl(props: ReadingControlProps) {
   if (state.sensor_text !== undefined) {
     return (
       <ControlBlock title="Text">
-        <p className="rounded-field border border-border face-sunk px-3.5 py-3 text-title break-words text-foreground">
+        <p className="rounded-field border border-border bg-surface-raised px-3.5 py-3 text-title break-words text-foreground">
           {state.sensor_text.value}
         </p>
       </ControlBlock>

@@ -25,7 +25,7 @@ import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '../lib/cn.js';
 
 const track = cva(
-  'relative isolate flex shrink-0 items-center rounded-full border border-border-soft face-sunk',
+  'relative isolate flex shrink-0 items-center rounded-pill border border-border-strong bg-surface',
   {
     variants: {
       size: {
@@ -38,21 +38,21 @@ const track = cva(
 );
 
 const option = cva(
-  'relative z-10 flex cursor-pointer items-center rounded-full ' +
+  'relative z-10 flex cursor-pointer items-center rounded-pill whitespace-nowrap ' +
     'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 ' +
     'has-[:focus-visible]:outline-primary',
   {
     variants: {
       size: {
         compact: 'h-6 px-2.5 text-caption',
-        medium: 'h-7 px-3.5 text-ui',
+        medium: 'h-7 px-3.5 text-ui-sm',
       },
       isChosen: {
         true: 'font-medium text-foreground',
         false: 'text-foreground-muted hover:text-foreground',
       },
       isDisabled: {
-        true: 'cursor-not-allowed opacity-60',
+        true: 'cursor-not-allowed opacity-50',
         false: '',
       },
     },
@@ -61,7 +61,7 @@ const option = cva(
 );
 
 /** The pill sits inside the track's own padding, which differs by size. */
-const pillBox = cva('segment-pill face-pill absolute left-0 rounded-full', {
+const pillBox = cva('segment-pill absolute left-0 rounded-pill bg-surface-high', {
   variants: {
     size: {
       compact: 'top-0.5 bottom-0.5',

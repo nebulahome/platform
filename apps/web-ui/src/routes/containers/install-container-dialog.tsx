@@ -122,7 +122,7 @@ function ImageSearch(props: ImageSearchProps) {
 
   return (
     <>
-      <div className="flex flex-col gap-3 border-b border-border-soft p-4">
+      <div className="flex flex-col gap-3 border-b border-border p-4">
         <h3 id={`${id}-label`} className="text-title font-semibold">
           Docker Hub
         </h3>
@@ -217,7 +217,7 @@ function RowsHeading(props: {
 }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <h4 className="text-label font-semibold text-foreground-muted uppercase">{props.title}</h4>
+      <h4 className="font-mono text-label text-foreground-muted uppercase">{props.title}</h4>
       <Button variant="ghost" size="compact" onClick={props.onAdd}>
         {props.addLabel}
       </Button>

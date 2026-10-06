@@ -528,8 +528,8 @@ export function BackupLocationDialog(props: BackupLocationDialogProps) {
                           className={cn(
                             'flex w-full flex-col items-start gap-0.5 rounded-field px-3 py-2 text-left transition-colors',
                             form.kind === kind
-                              ? 'face-pill text-foreground'
-                              : 'text-foreground-muted hover:bg-surface-lit',
+                              ? 'bg-surface-high text-foreground'
+                              : 'text-foreground-muted hover:bg-surface-raised',
                           )}
                           onClick={() => {
                             update({ kind });
@@ -647,7 +647,7 @@ export function BackupLocationDialog(props: BackupLocationDialogProps) {
           </div>
 
           {isSystem ? null : (
-            <div className="flex flex-col gap-2 rounded-field border border-border-soft p-3">
+            <div className="flex flex-col gap-2 rounded-field border border-border p-3">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-ui text-foreground-muted">
                   Connects, writes a small file and removes it.
@@ -681,7 +681,7 @@ export function BackupLocationDialog(props: BackupLocationDialogProps) {
           )}
 
           {location?.lastError == null ? null : (
-            <div className="flex flex-col gap-1 rounded-field border border-border-soft bg-sunk p-3">
+            <div className="flex flex-col gap-1 rounded-field border border-border bg-surface-raised p-3">
               <span className="text-caption font-medium text-foreground-muted">
                 The last backup here failed
               </span>

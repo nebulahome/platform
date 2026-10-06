@@ -67,38 +67,35 @@ import { cn } from '../lib/cn.js';
 /** What a card of a dialog is drawn as: the dialog's own, and the one beside it. */
 const CARD = 'rounded-dialog border border-border-strong bg-surface text-foreground shadow-dialog';
 
-const dialogBox = cva(
-  'm-auto p-0 backdrop:bg-canvas/70 backdrop:backdrop-blur-sm open:animate-fade-in',
-  {
-    variants: {
-      size: {
-        /** A confirmation, or one field. */
-        small: 'w-[min(92vw,26rem)]',
+const dialogBox = cva('m-auto p-0 backdrop:bg-scrim open:animate-fade-in', {
+  variants: {
+    size: {
+      /** A confirmation, or one field. */
+      small: 'w-[min(92vw,26rem)]',
 
-        /** The default: a short form. */
-        medium: 'w-[min(92vw,29rem)]',
+      /** The default: a short form. */
+      medium: 'w-[min(92vw,29rem)]',
 
-        /** A form with several fields, or something with a list in it. */
-        large: 'w-[min(92vw,40rem)]',
-      },
-
-      /**
-       * Whether a second card stands beside the dialog's own. The dialog element is then only
-       * the frame the two sit in: it draws no card itself, and is as wide as both.
-       */
-      isPaired: {
-        false: CARD,
-        true: 'overflow-y-auto border-0 bg-transparent text-foreground shadow-none',
-      },
+      /** A form with several fields, or something with a list in it. */
+      large: 'w-[min(92vw,40rem)]',
     },
-    compoundVariants: [
-      { isPaired: true, size: 'small', className: 'w-[min(94vw,45rem)]' },
-      { isPaired: true, size: 'medium', className: 'w-[min(94vw,48rem)]' },
-      { isPaired: true, size: 'large', className: 'w-[min(94vw,59rem)]' },
-    ],
-    defaultVariants: { size: 'medium', isPaired: false },
+
+    /**
+     * Whether a second card stands beside the dialog's own. The dialog element is then only
+     * the frame the two sit in: it draws no card itself, and is as wide as both.
+     */
+    isPaired: {
+      false: CARD,
+      true: 'overflow-y-auto border-0 bg-transparent text-foreground shadow-none',
+    },
   },
-);
+  compoundVariants: [
+    { isPaired: true, size: 'small', className: 'w-[min(94vw,45rem)]' },
+    { isPaired: true, size: 'medium', className: 'w-[min(94vw,48rem)]' },
+    { isPaired: true, size: 'large', className: 'w-[min(94vw,59rem)]' },
+  ],
+  defaultVariants: { size: 'medium', isPaired: false },
+});
 
 /** What a dialog needs. */
 export type ModalProps = Pick<VariantProps<typeof dialogBox>, 'size'> & {
@@ -264,7 +261,7 @@ export function Modal(props: ModalProps) {
   const body = (
     <div className="flex flex-col gap-5 p-6">
       <div className="flex flex-col gap-1.5">
-        <h2 id={titleId} className="text-subhead font-semibold">
+        <h2 id={titleId} className="text-headline-sm font-medium">
           {title}
         </h2>
         {description === undefined ? null : (

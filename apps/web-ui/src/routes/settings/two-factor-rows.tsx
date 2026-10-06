@@ -201,7 +201,7 @@ export function TwoFactorRow() {
             <div className="flex flex-col gap-2">
               <span className="text-caption font-medium text-foreground-muted">Secret</span>
               <div className="flex items-center gap-2">
-                <code className="grow rounded-field border border-border bg-groove px-3 py-2.5 font-mono text-ui break-all text-foreground">
+                <code className="grow rounded-field border border-border bg-surface-high px-3 py-2.5 font-mono text-ui break-all text-foreground">
                   {stage.secret}
                 </code>
                 <Button
@@ -242,7 +242,7 @@ export function TwoFactorRow() {
       >
         {stage.step === 'codes' ? (
           <div className="flex flex-col gap-3">
-            <ul className="grid grid-cols-2 gap-1.5 rounded-field border border-border bg-groove p-3">
+            <ul className="grid grid-cols-2 gap-1.5 rounded-field border border-border bg-surface-high p-3">
               {stage.codes.map((recovery) => (
                 <li key={recovery} className="font-mono text-ui text-foreground">
                   {recovery}

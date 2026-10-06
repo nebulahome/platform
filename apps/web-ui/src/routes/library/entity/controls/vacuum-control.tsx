@@ -169,7 +169,7 @@ export function VacuumControl(props: ControlProps) {
                     'press h-control-sm rounded-full border px-3 text-ui transition-colors',
                     isPicked
                       ? 'border-primary/50 bg-primary/13 text-primary'
-                      : 'border-border-strong face-raised text-foreground',
+                      : 'border-border-strong bg-surface-raised text-foreground',
                   )}
                   onClick={() => {
                     toggleRoom(room.id);

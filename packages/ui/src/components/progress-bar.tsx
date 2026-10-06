@@ -28,7 +28,7 @@ export function ProgressBar(props: ProgressBarProps) {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={percent ?? undefined}
-      className="block h-1.5 w-full overflow-hidden rounded-full bg-surface-raised"
+      className="block h-1.5 w-full overflow-hidden rounded-pill bg-surface-high"
     >
       <span
         className={cn(

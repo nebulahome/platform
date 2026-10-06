@@ -64,7 +64,7 @@ export function AutomationRow(props: AutomationRowProps) {
     automation.lastTriggeredAt === null ? 'never run' : relativeTime(automation.lastTriggeredAt);
 
   return (
-    <li className="border-b border-border-soft last:border-b-0">
+    <li className="border-b border-border last:border-b-0">
       <div className={`${AUTOMATION_COLUMNS} px-4 py-3`}>
         <span className="min-w-0 truncate text-ui font-medium text-foreground">
           {automation.name}

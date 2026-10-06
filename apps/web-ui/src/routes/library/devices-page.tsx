@@ -215,9 +215,9 @@ export function DevicesPage() {
         )}
       </div>
 
-      <div className="overflow-hidden rounded-panel border border-border face-card">
+      <div className="overflow-hidden rounded-panel border border-border bg-surface">
         <div
-          className={`${DEVICE_COLUMNS} border-b border-border-soft px-4 py-2.5 text-label text-foreground-subtle uppercase`}
+          className={`${DEVICE_COLUMNS} border-b border-border px-4 py-2.5 font-mono text-label text-foreground-subtle uppercase`}
           aria-hidden="true"
         >
           <span>Device</span>

@@ -97,7 +97,7 @@ export function EntityRow(props: EntityRowProps) {
   const hiddenTags = tags.length - shownTags.length;
 
   return (
-    <li className="relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-field border border-border face-sunk py-2 pr-2.5 pl-2.5 transition-colors hover:border-border-strong has-[[data-row-link]:focus-visible]:ring-3 has-[[data-row-link]:focus-visible]:ring-primary/25 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto]">
+    <li className="relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-field border border-border bg-surface-raised py-2 pr-2.5 pl-2.5 transition-colors hover:border-border-strong has-[[data-row-link]:focus-visible]:ring-3 has-[[data-row-link]:focus-visible]:ring-primary/25 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto]">
       <EntityTile
         icon={icon}
         kind={kind}

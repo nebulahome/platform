@@ -37,7 +37,7 @@ export function CardHeading(props: CardHeadingProps) {
       <div className="flex min-w-0 grow flex-col gap-0.5">
         <span
           className={cn(
-            'truncate text-title font-medium tracking-tight',
+            'truncate text-ui font-medium',
             isMuted ? 'text-foreground-muted' : 'text-foreground',
           )}
         >

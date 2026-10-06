@@ -62,7 +62,7 @@ export function DeviceRow(props: DeviceRowProps) {
 
   return (
     <li
-      className={`${DEVICE_COLUMNS} relative border-b border-border-soft px-4 py-3 transition-colors last:border-b-0 hover:bg-surface-lit has-[[data-row-link]:focus-visible]:ring-3 has-[[data-row-link]:focus-visible]:ring-primary/25 has-[[data-row-link]:focus-visible]:ring-inset`}
+      className={`${DEVICE_COLUMNS} relative border-b border-border px-4 py-3 transition-colors last:border-b-0 hover:bg-surface-raised has-[[data-row-link]:focus-visible]:ring-3 has-[[data-row-link]:focus-visible]:ring-primary/25 has-[[data-row-link]:focus-visible]:ring-inset`}
     >
       <span className="flex min-w-0 items-center gap-3">
         <DeviceIcon icon={icon} className="text-foreground-muted" />

@@ -71,7 +71,7 @@ function ContainerRow(props: { readonly container: ContainerSummary }) {
 
   return (
     <li
-      className={`${ROW_COLUMNS} relative border-b border-border-soft px-4 py-3 transition-colors last:border-b-0 hover:bg-surface-lit has-[[data-row-link]:focus-visible]:ring-3 has-[[data-row-link]:focus-visible]:ring-primary/25 has-[[data-row-link]:focus-visible]:ring-inset`}
+      className={`${ROW_COLUMNS} relative border-b border-border px-4 py-3 transition-colors last:border-b-0 hover:bg-surface-raised has-[[data-row-link]:focus-visible]:ring-3 has-[[data-row-link]:focus-visible]:ring-primary/25 has-[[data-row-link]:focus-visible]:ring-inset`}
     >
       <span className="flex min-w-0 items-center gap-3">
         <StatusDot tone={dot.tone} title={dot.title} isBusy={dot.isBusy} />
@@ -394,12 +394,12 @@ export function ComposePage() {
           )
         ) : (
           <>
-            <section className="flex flex-wrap items-start gap-x-4.5 gap-y-4 rounded-panel border border-border face-card p-5 md:flex-nowrap">
+            <section className="flex flex-wrap items-start gap-x-4.5 gap-y-4 rounded-panel border border-border bg-surface p-5 md:flex-nowrap">
               <ContainerTile name={group.project} icon="layers" size={56} />
 
               <div className="flex min-w-0 grow flex-col gap-2">
                 <div className="flex items-center gap-2.5">
-                  <h2 className="text-head font-semibold tracking-tight text-foreground">
+                  <h2 className="text-headline-sm font-semibold tracking-tight text-foreground">
                     {group.title}
                   </h2>
                   <Badge tone={group.isSystem ? 'accent' : 'neutral'} size="small">
@@ -457,7 +457,7 @@ export function ComposePage() {
                 <>
                   <div
                     aria-hidden="true"
-                    className={`${ROW_COLUMNS} hidden border-b border-border-soft px-4 py-2 text-label font-semibold text-foreground-subtle uppercase md:grid`}
+                    className={`${ROW_COLUMNS} hidden border-b border-border px-4 py-2 font-mono text-label text-foreground-subtle uppercase md:grid`}
                   >
                     <span>Container</span>
                     <span>Service</span>

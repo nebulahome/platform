@@ -391,8 +391,8 @@ export function SelectField(props: SelectFieldProps) {
                       ...(placement.bottom === undefined ? {} : { bottom: placement.bottom }),
                     }}
                     className={cn(
-                      'z-50 overflow-y-auto rounded-field border border-border-strong',
-                      'animate-rise face-card p-1 shadow-dialog',
+                      'z-50 overflow-y-auto rounded-tile border border-border-strong',
+                      'animate-rise bg-surface p-1 shadow-float',
                     )}
                   >
                     {options.map((option, index) => [
@@ -400,7 +400,7 @@ export function SelectField(props: SelectFieldProps) {
                         <li
                           key={`group-${option.group}`}
                           role="presentation"
-                          className="px-2.5 pt-2.5 pb-1 text-label text-foreground-subtle uppercase first:pt-1"
+                          className="px-2.5 pt-2.5 pb-1 font-mono text-label text-foreground-subtle uppercase first:pt-1"
                         >
                           {option.group}
                         </li>

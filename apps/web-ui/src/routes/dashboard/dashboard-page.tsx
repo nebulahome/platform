@@ -190,7 +190,7 @@ export function Frame(props: FrameProps) {
     <div className="flex min-h-0 min-w-0 grow flex-col">
       <header className="flex min-h-17 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-6 py-2.5">
         <div className="flex min-w-0 items-center gap-3">
-          {heading ?? <h1 className="text-head font-semibold tracking-tight">Dashboards</h1>}
+          {heading ?? <h1 className="text-headline-sm font-semibold tracking-tight">Dashboards</h1>}
         </div>
         {tools === undefined ? null : (
           <div className="flex min-w-0 flex-wrap items-center gap-2.5">{tools}</div>

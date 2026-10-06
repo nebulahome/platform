@@ -1,16 +1,15 @@
 /**
- * The one button.
+ * The one button: always a pill.
  *
- * Three intents and three sizes. The intent says what pressing it means and the size says where
- * it sits - `compact` in a table row, `default` in a panel, `large` as the one thing a form is
- * for. A fourth intent should be added when a screen needs one, not in advance.
+ * Four intents and three sizes. The intent says what pressing it means and the size says where
+ * it sits - `compact` (30px) in a header or a row, `medium` (36px) in a toolbar, a form or a
+ * footer, `large` (46px, full width) as the single action of an auth screen.
  *
  * `busy` rather than a separate spinner the caller places: a button that is waiting must also
  * stop being clickable, and keeping those two facts in one prop is what stops them diverging.
  *
- * The faces come from the theme rather than from a fill and a border written out here. A raised
- * control is a gradient, a lit top edge and a shadow that have to change together, and the light
- * theme replaces all three at once - which is only possible while they have one name.
+ * Flat: a fill, an edge where the intent has one, no gradient and no shadow. Pressed, it sinks a
+ * pixel (`press`).
  */
 import { cva, type VariantProps } from 'class-variance-authority';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
@@ -18,37 +17,44 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { cn } from '../lib/cn.js';
 
 const button = cva(
-  'press inline-flex items-center justify-center gap-2 rounded-field font-medium ' +
-    'disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none',
+  'press inline-flex shrink-0 items-center justify-center gap-2 rounded-pill border ' +
+    'border-transparent font-medium whitespace-nowrap ' +
+    'disabled:cursor-not-allowed disabled:opacity-50',
   {
     variants: {
       variant: {
-        /** The one thing the screen is for. */
-        primary: 'face-primary text-primary-foreground',
+        /** The one thing the screen is for: one per view. */
+        primary: 'bg-primary text-primary-foreground hover:enabled:bg-primary-hover',
 
-        /**
-         * Everything else.
-         *
-         * It used to be `bg-surface`, the same colour as the panel it sits on, so its only edge
-         * was a border the same weight as every divider. A control sits one step above what it
-         * sits on, or it is not a control.
-         */
-        ghost: 'face-raised border border-border-strong text-foreground',
+        /** Everything else that does something. */
+        ghost:
+          'border-border-strong bg-surface-raised text-foreground hover:enabled:bg-surface-high',
 
         /** Destroys something. Outlined rather than filled: it should not attract the eye. */
-        danger: 'rounded-field border border-danger/40 bg-danger/8 text-danger hover:bg-danger/15',
+        danger: 'border-danger-line bg-transparent text-danger hover:enabled:bg-danger-soft',
+
+        /** Cancel, Back, Skip for now: no face until it is pointed at. */
+        bare: 'bg-transparent text-foreground-muted hover:enabled:bg-surface-raised hover:enabled:text-foreground',
       },
       size: {
-        /** In a table row or a panel header, beside other row controls. */
-        compact: 'h-control-sm px-3 text-ui',
+        /** In a header or a row, beside other row controls. */
+        compact: 'h-control-sm px-3 text-ui-sm',
 
-        /** In a form or a dialog footer. */
-        medium: 'h-control px-4 text-ui',
+        /** In a toolbar, a form or a dialog footer. */
+        medium: 'h-control px-3.5 text-ui',
 
-        /** The single action a sign-in screen exists for. */
-        large: 'h-control-lg w-full px-4 text-title',
+        /** The single action an auth screen exists for. */
+        large: 'h-control-xl w-full px-5 text-title',
       },
     },
+    compoundVariants: [
+      {
+        // A large primary that cannot be pressed yet says so by its fill, not by fading.
+        variant: 'primary',
+        size: 'large',
+        className: 'disabled:bg-surface-high disabled:text-foreground-subtle disabled:opacity-100',
+      },
+    ],
     defaultVariants: { variant: 'primary', size: 'medium' },
   },
 );

@@ -114,7 +114,7 @@ export function MediaCard(props: { readonly model: EntityCardModel }) {
         {duration === undefined || duration <= 0 ? null : (
           <div className="flex items-center gap-2 font-mono text-label text-foreground-subtle tabular">
             <span>{clock(position)}</span>
-            <div className="h-1.5 grow overflow-hidden rounded-full face-sunk">
+            <div className="h-1.5 grow overflow-hidden rounded-full bg-surface-raised">
               <div
                 className="h-full rounded-full bg-success"
                 /* eslint-disable-next-line react/forbid-dom-props -- the bar is as long as the track has played,

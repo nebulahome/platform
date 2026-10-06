@@ -16,21 +16,20 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn.js';
 
 const track = cva(
-  'press-scale relative inline-flex shrink-0 items-center rounded-full border transition-colors ' +
-    'focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none ' +
-    'disabled:cursor-not-allowed disabled:opacity-55',
+  'relative inline-flex shrink-0 items-center rounded-pill transition-colors duration-150 ' +
+    'disabled:cursor-not-allowed disabled:opacity-50',
   {
     variants: {
       size: {
         /** Beside a name in a row. */
         small: 'h-5 w-8.5',
 
-        /** On its own, as the control of a panel. */
-        medium: 'h-7 w-12',
+        /** On its own, as the control of a panel row. */
+        medium: 'h-6 w-10',
       },
       isOn: {
-        true: 'border-primary/40 face-primary',
-        false: 'border-border-strong bg-control',
+        true: 'bg-primary',
+        false: 'bg-control',
       },
     },
     defaultVariants: { size: 'medium', isOn: false },
@@ -38,22 +37,22 @@ const track = cva(
 );
 
 const knob = cva(
-  'pointer-events-none absolute top-1/2 left-0.5 -translate-y-1/2 rounded-full bg-knob shadow-raised ' +
-    'transition-transform duration-200 ease-out',
+  'pointer-events-none absolute top-0.75 left-0.75 rounded-full ' +
+    'transition duration-180 ease-out',
   {
     variants: {
       size: {
         small: 'size-3.5',
-        medium: 'size-5.5',
+        medium: 'size-4.5',
       },
       isOn: {
-        true: '',
-        false: 'translate-x-0',
+        true: 'bg-knob',
+        false: 'translate-x-0 bg-foreground-muted',
       },
     },
     compoundVariants: [
       { size: 'small', isOn: true, className: 'translate-x-3.5' },
-      { size: 'medium', isOn: true, className: 'translate-x-5' },
+      { size: 'medium', isOn: true, className: 'translate-x-4' },
     ],
     defaultVariants: { size: 'medium', isOn: false },
   },

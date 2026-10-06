@@ -104,7 +104,7 @@ export function CoverCard(props: { readonly model: EntityCardModel }) {
       <CardHeading title={title} subtitle={subtitle} />
       <div
         aria-hidden="true"
-        className="mt-3 flex h-18 flex-col justify-start gap-1 rounded-field border border-border bg-gradient-to-b from-tag-blue/25 to-sunk p-1.5"
+        className="mt-3 flex h-18 flex-col justify-start gap-1 rounded-field border border-border bg-gradient-to-b from-tag-blue/25 to-surface-raised p-1.5"
       >
         {[...Array.from({ length: slats }).keys()].map((slat) => (
           <div key={slat} className="h-2 rounded-[2px] bg-foreground-subtle/60 shadow-sm" />

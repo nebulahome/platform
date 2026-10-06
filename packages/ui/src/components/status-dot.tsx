@@ -40,7 +40,7 @@ export function StatusDot(props: StatusDotProps) {
       role="img"
       aria-label={props.title}
       title={props.title}
-      className="inline-flex size-[26px] shrink-0 items-center justify-center rounded-full border border-border-soft face-raised"
+      className="inline-flex size-6.5 shrink-0 items-center justify-center rounded-full border border-border-strong"
     >
       <span
         className={cn(

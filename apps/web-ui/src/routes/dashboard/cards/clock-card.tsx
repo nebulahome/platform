@@ -86,7 +86,7 @@ export function ClockCard(props: ClockCardProps) {
         <span
           className={
             isLarge
-              ? 'text-reading-lg leading-none font-semibold tabular'
+              ? 'font-mono text-mono-reading leading-none tabular'
               : 'text-reading leading-none font-semibold tabular'
           }
         >

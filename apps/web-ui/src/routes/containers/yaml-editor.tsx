@@ -61,7 +61,7 @@ export type YamlEditorProps = {
 const HIGHLIGHT = HighlightStyle.define([
   {
     tag: [tags.propertyName, tags.definition(tags.propertyName)],
-    color: 'var(--color-primary-lit)',
+    color: 'var(--color-primary-hover)',
   },
   { tag: [tags.string, tags.special(tags.string)], color: 'var(--color-tag-green)' },
   { tag: [tags.number, tags.bool, tags.null], color: 'var(--color-tag-amber)' },
@@ -87,7 +87,7 @@ const HIGHLIGHT = HighlightStyle.define([
 function frame(minHeight: string, maxHeight: string) {
   return EditorView.theme({
     '&': {
-      backgroundColor: 'var(--color-sunk)',
+      backgroundColor: 'var(--color-surface-raised)',
       color: 'var(--color-foreground)',
       border: '1px solid var(--color-border)',
       borderRadius: 'var(--radius-field)',
@@ -110,10 +110,10 @@ function frame(minHeight: string, maxHeight: string) {
       backgroundColor: 'transparent',
       color: 'var(--color-foreground-subtle)',
       border: 'none',
-      borderRight: '1px solid var(--color-border-soft)',
+      borderRight: '1px solid var(--color-border)',
     },
     '.cm-activeLine': {
-      backgroundColor: 'color-mix(in srgb, var(--color-surface-lit) 55%, transparent)',
+      backgroundColor: 'color-mix(in srgb, var(--color-surface-raised) 55%, transparent)',
     },
     '.cm-activeLineGutter': {
       backgroundColor: 'transparent',

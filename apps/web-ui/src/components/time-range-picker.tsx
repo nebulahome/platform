@@ -181,10 +181,10 @@ export function TimeRangePicker(props: TimeRangePickerProps) {
           id={sheetId}
           role="group"
           aria-label="Choose the window"
-          className="absolute top-full right-0 z-40 mt-2 flex w-80 animate-rise flex-col gap-4 rounded-field border border-border-strong face-card p-4 shadow-dialog"
+          className="absolute top-full right-0 z-40 mt-2 flex w-80 animate-rise flex-col gap-4 rounded-field border border-border-strong bg-surface p-4 shadow-dialog"
         >
           <div className="flex flex-col gap-2">
-            <span className="text-label text-foreground-subtle uppercase">Up to now</span>
+            <span className="font-mono text-label text-foreground-subtle uppercase">Up to now</span>
             <div role="group" aria-label="Up to now" className="flex flex-wrap gap-1.5">
               {HISTORY_RANGES.map((range) => {
                 const isChosen = value.kind === 'preset' && value.range === range;
@@ -202,8 +202,8 @@ export function TimeRangePicker(props: TimeRangePickerProps) {
                       'press h-7 rounded-full border px-3 text-caption transition-colors',
                       'focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none',
                       isChosen
-                        ? 'border-border-strong face-pill font-medium text-foreground'
-                        : 'border-border-soft text-foreground-muted hover:text-foreground',
+                        ? 'border-border-strong bg-surface-high font-medium text-foreground'
+                        : 'border-border text-foreground-muted hover:text-foreground',
                     )}
                   >
                     {range}
@@ -213,7 +213,7 @@ export function TimeRangePicker(props: TimeRangePickerProps) {
             </div>
           </div>
 
-          <div className="h-px bg-border-soft" />
+          <div className="h-px bg-border" />
 
           <form
             className="flex flex-col gap-3"
@@ -222,7 +222,7 @@ export function TimeRangePicker(props: TimeRangePickerProps) {
               apply();
             }}
           >
-            <span className="text-label text-foreground-subtle uppercase">Between</span>
+            <span className="font-mono text-label text-foreground-subtle uppercase">Between</span>
             <TextField
               label="From"
               size="compact"

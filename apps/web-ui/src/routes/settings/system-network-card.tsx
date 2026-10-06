@@ -124,7 +124,7 @@ export function SystemNetworkCard(props: SystemNetworkCardProps) {
         />
       </div>
 
-      <p className="px-4 pt-2.5 pb-3.5 text-label text-foreground-subtle uppercase">
+      <p className="px-4 pt-2.5 pb-3.5 font-mono text-label text-foreground-subtle uppercase">
         Last 15 minutes · totals since the interface came up
       </p>
     </Panel>

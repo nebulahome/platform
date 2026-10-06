@@ -212,7 +212,7 @@ export function EntityPickerTree(props: EntityPickerTreeProps) {
     <div className="flex flex-col gap-4" onKeyDown={moveBetweenRows}>
       {tree.floors.map((floor) => (
         <section key={floor.floor.id} aria-label={floor.floor.name} className="flex flex-col gap-2">
-          <h3 className="sticky top-0 z-10 flex items-center gap-2 border-b border-border-soft bg-surface py-2 text-label text-foreground-subtle uppercase">
+          <h3 className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-surface py-2 font-mono text-label text-foreground-subtle uppercase">
             <AppIcon id="layers" size={13} />
             {floor.floor.name}
           </h3>
@@ -230,7 +230,7 @@ export function EntityPickerTree(props: EntityPickerTreeProps) {
       ))}
       {tree.unplaced.length === 0 ? null : (
         <section aria-label="Not in a room" className="flex flex-col gap-2">
-          <h3 className="sticky top-0 z-10 border-b border-border-soft bg-surface py-2 text-label text-foreground-subtle uppercase">
+          <h3 className="sticky top-0 z-10 border-b border-border bg-surface py-2 font-mono text-label text-foreground-subtle uppercase">
             Not in a room
           </h3>
           {tree.unplaced.map((group) => renderGroup(group, 'unplaced'))}

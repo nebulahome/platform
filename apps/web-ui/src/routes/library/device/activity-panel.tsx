@@ -29,7 +29,7 @@ import { useDeviceActivity } from '@/routes/library/device/use-device-activity';
 /** How each kind of line is marked: the glyph and its colour. */
 const MARKS: Readonly<Record<ActivityTone, { readonly icon: UiIconId; readonly tone: string }>> = {
   on: { icon: 'power', tone: 'text-success border-success/30 bg-success/10' },
-  off: { icon: 'power', tone: 'text-foreground-subtle border-border-soft face-raised' },
+  off: { icon: 'power', tone: 'text-foreground-subtle border-border bg-surface-raised' },
   change: { icon: 'activity', tone: 'text-primary border-primary/30 bg-primary/10' },
   offline: { icon: 'triangle-alert', tone: 'text-warning border-warning/30 bg-warning/10' },
   online: { icon: 'check', tone: 'text-success border-success/30 bg-success/10' },
@@ -94,7 +94,7 @@ export function ActivityPanel(props: ActivityPanelProps) {
         <div className="flex max-h-[30rem] flex-col overflow-y-auto pb-1.5">
           {byDay(lines).map((group) => (
             <section key={group.day} aria-label={group.day}>
-              <h3 className="px-4 pt-3 pb-1 text-label text-foreground-subtle uppercase">
+              <h3 className="px-4 pt-3 pb-1 font-mono text-label text-foreground-subtle uppercase">
                 {group.day}
               </h3>
               <ol className="flex flex-col px-1.5">

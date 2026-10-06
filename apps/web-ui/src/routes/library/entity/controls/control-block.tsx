@@ -85,13 +85,13 @@ export function ControlBlock(props: ControlBlockProps) {
     <section
       aria-label={title}
       className={cn(
-        'flex flex-col gap-3.5 border-b border-border-soft px-4 py-4 last:border-b-0',
+        'flex flex-col gap-3.5 border-b border-border px-4 py-4 last:border-b-0',
         className,
       )}
     >
       <div className="flex min-h-7 items-center justify-between gap-3">
         <div className="flex min-w-0 items-baseline gap-3">
-          <h3 className="text-label text-foreground-subtle uppercase">{title}</h3>
+          <h3 className="font-mono text-label text-foreground-subtle uppercase">{title}</h3>
           {value === undefined ? null : (
             <span className="truncate text-ui font-medium text-foreground tabular">{value}</span>
           )}

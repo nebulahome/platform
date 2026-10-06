@@ -55,7 +55,10 @@ export function ColorSwatches(props: ColorSwatchesProps) {
     <div className={cn('flex flex-col gap-2', className)}>
       <span
         id={labelId}
-        className={cn('text-label text-foreground-subtle uppercase', isLabelHidden && 'sr-only')}
+        className={cn(
+          'font-mono text-label text-foreground-subtle uppercase',
+          isLabelHidden && 'sr-only',
+        )}
       >
         {label}
       </span>

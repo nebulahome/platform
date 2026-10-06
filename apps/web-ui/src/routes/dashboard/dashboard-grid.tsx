@@ -622,7 +622,7 @@ export function DashboardGrid(props: DashboardGridProps) {
               aria-pressed={isLifted}
               aria-describedby="dashboard-grid-help"
               className={cn(
-                'absolute top-0 left-1/2 z-20 flex h-4.5 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none items-center rounded-full border border-border-strong face-raised px-2 text-foreground-subtle',
+                'absolute top-0 left-1/2 z-20 flex h-4.5 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none items-center rounded-full border border-border-strong bg-surface-raised px-2 text-foreground-subtle',
                 'focus-visible:ring-2 focus-visible:ring-primary',
                 isLifted ? 'cursor-grabbing text-primary' : undefined,
               )}
@@ -644,7 +644,7 @@ export function DashboardGrid(props: DashboardGridProps) {
             <button
               type="button"
               aria-label={`Remove ${title}`}
-              className="absolute -top-2 -left-2 z-20 flex size-6 items-center justify-center rounded-full border border-border-strong face-raised text-foreground-muted hover:text-danger"
+              className="absolute -top-2 -left-2 z-20 flex size-6 items-center justify-center rounded-full border border-border-strong bg-surface-raised text-foreground-muted hover:text-danger"
               onClick={() => {
                 editor.onRemove(card.id);
               }}
@@ -795,7 +795,7 @@ function ContainerView(props: ContainerViewProps) {
     <section
       aria-label={container.title}
       className={cn(
-        'relative h-full rounded-panel border border-border-soft bg-sunk/45',
+        'relative h-full rounded-panel border border-border bg-surface-raised/45',
         isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-canvas' : undefined,
       )}
     >

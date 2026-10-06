@@ -41,9 +41,9 @@ export function SystemHostStrip(props: SystemHostStripProps) {
   return (
     <section
       aria-label="This machine"
-      className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-panel border border-border face-card px-4 py-3.5"
+      className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-panel border border-border bg-surface px-4 py-3.5"
     >
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-tile border border-border-soft face-sunk text-foreground-muted">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-tile border border-border bg-surface-raised text-foreground-muted">
         <ServerIcon width="19" height="19" />
       </span>
 

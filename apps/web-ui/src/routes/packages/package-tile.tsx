@@ -92,8 +92,8 @@ export function PackageTile(props: PackageTileProps) {
         to={`/packages/${encodeURIComponent(found.id)}`}
         aria-label={found.name}
         className={cn(
-          'flex h-41 flex-col rounded-panel border border-border face-card p-[18px]',
-          'transition-[border-color,box-shadow] hover:border-border-strong hover:shadow-card',
+          'flex h-41 flex-col rounded-panel border border-border bg-surface p-[18px]',
+          'transition-[border-color,box-shadow] hover:border-border-strong',
           'focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none',
         )}
       >

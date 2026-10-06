@@ -47,7 +47,7 @@ export function WeekdayPicker(props: WeekdayPickerProps) {
               'press flex h-control-sm items-center rounded-chip border px-3 text-ui capitalize',
               disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
               isChosen
-                ? 'border-border-strong face-pill text-foreground'
+                ? 'border-border-strong bg-surface-high text-foreground'
                 : 'border-border text-foreground-muted hover:text-foreground',
             )}
           >

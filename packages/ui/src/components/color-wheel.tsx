@@ -209,7 +209,7 @@ export function ColorWheel(props: ColorWheelProps) {
         aria-hidden="true"
         className={cn(
           'pointer-events-none absolute size-6 -translate-x-1/2 -translate-y-1/2 rounded-full',
-          'border-2 border-surface shadow-card ring-1 ring-border-strong',
+          'border-2 border-surface ring-1 ring-border-strong',
           isDragging ? 'scale-110' : 'transition-[left,top] duration-150',
         )}
         /* eslint-disable-next-line react/forbid-dom-props -- where the knob is, and the colour it

@@ -242,8 +242,8 @@ function PortChip(props: { readonly children: string; readonly isMuted?: boolean
     <span
       className={
         props.isMuted === true
-          ? 'inline-flex h-6 items-center rounded-chip border border-border-soft px-2 font-mono text-caption text-foreground-subtle tabular'
-          : 'inline-flex h-6 items-center rounded-chip border border-border face-raised px-2 font-mono text-caption text-foreground tabular'
+          ? 'inline-flex h-6 items-center rounded-chip border border-border px-2 font-mono text-caption text-foreground-subtle tabular'
+          : 'inline-flex h-6 items-center rounded-chip border border-border bg-surface-raised px-2 font-mono text-caption text-foreground tabular'
       }
     >
       {props.children}
@@ -273,7 +273,7 @@ function ContainerPorts(props: { readonly container: ContainerDetail }) {
       ) : published.length === 0 && exposed.length === 0 ? (
         <p className="px-4 py-3.5 text-ui text-foreground-muted">It opens no port.</p>
       ) : (
-        <ul className="flex flex-col divide-y divide-border-soft">
+        <ul className="flex flex-col divide-y divide-border">
           {published.map((port) => {
             const page = `${window.location.protocol === 'https:' && port.containerPort === 443 ? 'https' : 'http'}://${port.hostIp ?? window.location.hostname}:${String(port.hostPort)}`;
 
@@ -406,7 +406,7 @@ function ContainerStorage(props: { readonly container: ContainerDetail }) {
  */
 function EnvironmentList(props: { readonly variables: ContainerDetail['env'] }) {
   return (
-    <ul className="flex flex-col divide-y divide-border-soft">
+    <ul className="flex flex-col divide-y divide-border">
       {props.variables.map((variable, index) => (
         // Two variables may share a name in a hand-written configuration.
         <li key={`${variable.name}-${String(index)}`} className="flex flex-col gap-0.5 px-4 py-2">

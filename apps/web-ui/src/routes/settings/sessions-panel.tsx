@@ -78,10 +78,10 @@ export function SessionsPanel() {
         </Button>
       }
     >
-      <div className={`${COLUMNS} border-b border-border-soft py-2.5`}>
-        <span className="text-label text-foreground-subtle uppercase">Browser</span>
-        <span className="text-label text-foreground-subtle uppercase">Address</span>
-        <span className="text-label text-foreground-subtle uppercase">Last active</span>
+      <div className={`${COLUMNS} border-b border-border py-2.5`}>
+        <span className="font-mono text-label text-foreground-subtle uppercase">Browser</span>
+        <span className="font-mono text-label text-foreground-subtle uppercase">Address</span>
+        <span className="font-mono text-label text-foreground-subtle uppercase">Last active</span>
         <span />
       </div>
 
@@ -96,10 +96,7 @@ export function SessionsPanel() {
       ) : null}
 
       {(sessions.data ?? []).map((entry) => (
-        <div
-          key={entry.id}
-          className={`${COLUMNS} border-b border-border-soft py-3 last:border-b-0`}
-        >
+        <div key={entry.id} className={`${COLUMNS} border-b border-border py-3 last:border-b-0`}>
           <span className="truncate text-ui text-foreground">
             {describeUserAgent(entry.userAgent)}
           </span>
@@ -134,7 +131,7 @@ export function SessionsPanel() {
       ))}
 
       {error === undefined ? null : (
-        <p role="alert" className="border-t border-border-soft px-4 py-3 text-ui text-danger">
+        <p role="alert" className="border-t border-border px-4 py-3 text-ui text-danger">
           {error}
         </p>
       )}

@@ -142,7 +142,7 @@ export function Slider(props: SliderProps) {
         <label htmlFor={id} className="text-caption font-medium text-foreground-muted">
           {label}
         </label>
-        <span aria-hidden="true" className="font-mono text-title text-foreground tabular">
+        <span aria-hidden="true" className="font-mono text-mono-ui text-foreground tabular">
           {display}
         </span>
       </div>

@@ -91,7 +91,7 @@ export function NameIconField(props: NameIconFieldProps) {
         {(ids) => (
           <div
             className={cn(
-              'flex h-control w-full items-stretch overflow-hidden rounded-field border face-sunk text-foreground transition-colors',
+              'flex h-control w-full items-stretch overflow-hidden rounded-field border bg-surface-raised text-foreground transition-colors',
               'focus-within:ring-3 focus-within:ring-primary/25',
               ids.isInvalid
                 ? 'border-danger focus-within:border-danger focus-within:ring-danger/25'

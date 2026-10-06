@@ -146,7 +146,7 @@ function Preview(props: PreviewProps) {
   const { node, frame, measureKey, onMeasure } = props;
 
   return (
-    <div className="relative mx-auto size-40 rounded-field border border-border face-sunk text-foreground">
+    <div className="relative mx-auto size-40 rounded-field border border-border bg-surface-raised text-foreground">
       <CatalogueIcon
         node={node}
         frame={frame}

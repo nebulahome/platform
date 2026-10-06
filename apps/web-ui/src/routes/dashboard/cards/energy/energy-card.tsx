@@ -115,7 +115,7 @@ function DayLine(props: DayLineProps) {
   const { icon, title, detail, wraps = false } = props;
 
   return (
-    <div className="flex min-w-0 items-center gap-2.5 border-t border-border-soft py-2.5 first:border-t-0 [.grid-cols-2>&]:border-t-0">
+    <div className="flex min-w-0 items-center gap-2.5 border-t border-border py-2.5 first:border-t-0 [.grid-cols-2>&]:border-t-0">
       <AppIcon id={icon} size={16} className="shrink-0 text-foreground-subtle" />
       <div className="flex min-w-0 flex-col">
         <span className="text-ui leading-tight font-semibold text-foreground">{title}</span>
@@ -255,7 +255,7 @@ export function EnergyCard(props: EnergyCardProps) {
           <div
             ref={dayRef}
             className={cn(
-              'mt-1.5 grid border-t border-border-soft',
+              'mt-1.5 grid border-t border-border',
               isSideBySide ? 'grid-cols-2 gap-x-4' : 'grid-cols-1',
             )}
           >
@@ -269,7 +269,7 @@ export function EnergyCard(props: EnergyCardProps) {
             {scene}
           </div>
           {hasDayColumn ? (
-            <div className="flex w-36 shrink-0 flex-col justify-center border-l border-border-soft pl-3">
+            <div className="flex w-36 shrink-0 flex-col justify-center border-l border-border pl-3">
               {dayLines}
             </div>
           ) : null}

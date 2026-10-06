@@ -91,7 +91,7 @@ export function HousePanel(props: HousePanelProps) {
   return (
     <section
       aria-labelledby="house-name"
-      className="flex flex-col gap-4 rounded-panel border border-border face-card p-5"
+      className="flex flex-col gap-4 rounded-panel border border-border bg-surface p-5"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">

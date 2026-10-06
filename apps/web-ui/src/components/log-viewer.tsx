@@ -197,7 +197,7 @@ function Message(props: { readonly read: ReadLine; readonly search: string }) {
         while (at !== -1) {
           parts.push(segment.text.slice(from, at));
           parts.push(
-            <mark key={at} className="rounded-sm bg-warning/30 text-foreground">
+            <mark key={at} className="rounded-chip bg-warning/30 text-foreground">
               {segment.text.slice(at, at + needle.length)}
             </mark>,
           );
@@ -265,7 +265,7 @@ function LogRow(props: {
             {' '}
             <button
               type="button"
-              className="rounded-sm px-1 text-foreground-subtle hover:text-foreground"
+              className="rounded-chip px-1 text-foreground-subtle hover:text-foreground"
               aria-expanded={isOpen}
               onClick={() => {
                 setOpen(!isOpen);
@@ -586,7 +586,7 @@ export function LogViewer(props: LogViewerProps) {
           {hasUnseen ? (
             <button
               type="button"
-              className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full face-primary px-3 py-1 text-caption font-medium text-primary-foreground shadow-md"
+              className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-caption font-medium text-primary-foreground shadow-md"
               onClick={jumpToLatest}
             >
               New lines below

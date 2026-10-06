@@ -60,7 +60,7 @@ function fillOf(segment: DiskSegment, packageIndex: number): string {
       return 'bg-foreground-subtle/45';
     }
     case 'free': {
-      return 'bg-groove';
+      return 'bg-surface-high';
     }
   }
 }
@@ -117,7 +117,7 @@ export function SystemDiskCard(props: SystemDiskCardProps) {
 
         <div
           aria-hidden
-          className="flex h-3 w-full gap-px overflow-hidden rounded-full border border-border-soft bg-groove"
+          className="flex h-3 w-full gap-px overflow-hidden rounded-full border border-border bg-surface-high"
         >
           {segments.map((segment) => (
             <span
@@ -134,7 +134,7 @@ export function SystemDiskCard(props: SystemDiskCardProps) {
           ))}
         </div>
 
-        <ul className="flex flex-col divide-y divide-border-soft">
+        <ul className="flex flex-col divide-y divide-border">
           {segments.map((segment) => (
             <li key={segment.id} className="flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0">
               <span className="flex items-center gap-2.5 text-ui">

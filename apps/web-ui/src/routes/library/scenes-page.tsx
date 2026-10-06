@@ -272,7 +272,7 @@ export function ScenesPage() {
               <li key={scene.id} className="list-none">
                 <article
                   className={cn(
-                    'flex h-full min-h-41 flex-col rounded-panel border border-border face-card p-4.5',
+                    'flex h-full min-h-41 flex-col rounded-panel border border-border bg-surface p-4.5',
                     'transition-[border-color,box-shadow]',
                   )}
                 >

@@ -118,7 +118,7 @@ export function BackupProgressCard(props: BackupProgressCardProps) {
       aria-live="polite"
       aria-busy={!isEnded}
       className={cn(
-        'flex flex-col gap-4 rounded-panel border border-border face-card p-5 transition-opacity duration-500',
+        'flex flex-col gap-4 rounded-panel border border-border bg-surface p-5 transition-opacity duration-500',
         run.isLeaving ? 'opacity-0' : 'opacity-100',
       )}
     >

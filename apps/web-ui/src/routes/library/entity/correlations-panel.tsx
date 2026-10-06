@@ -38,8 +38,8 @@ function Group(props: GroupProps) {
   const { title, children } = props;
 
   return (
-    <section aria-label={title} className="border-b border-border-soft px-4 py-3 last:border-b-0">
-      <h3 className="mb-1.5 text-label text-foreground-subtle uppercase">{title}</h3>
+    <section aria-label={title} className="border-b border-border px-4 py-3 last:border-b-0">
+      <h3 className="mb-1.5 font-mono text-label text-foreground-subtle uppercase">{title}</h3>
       <ul className="flex flex-col gap-1">{children}</ul>
     </section>
   );

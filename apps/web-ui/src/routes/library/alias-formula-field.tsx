@@ -167,7 +167,7 @@ export function AliasFormulaField(props: AliasFormulaFieldProps) {
             aria-hidden="true"
             className={cn(
               LAYER,
-              'pointer-events-none absolute inset-0 overflow-hidden face-sunk text-foreground',
+              'pointer-events-none absolute inset-0 overflow-hidden bg-surface-raised text-foreground',
               ids.isInvalid ? 'border-danger' : 'border-border',
             )}
           >

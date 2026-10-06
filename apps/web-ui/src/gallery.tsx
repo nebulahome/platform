@@ -507,7 +507,7 @@ function Section(props: SectionProps) {
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h2 className="text-head font-semibold">{title}</h2>
+        <h2 className="text-headline-sm font-semibold">{title}</h2>
         <p className="text-caption text-foreground-subtle">{note}</p>
       </div>
       <div className="flex flex-wrap items-start gap-4">{children}</div>
@@ -550,7 +550,7 @@ function Gallery() {
       <div className="mx-auto flex max-w-4xl flex-col gap-10">
         <header className="flex items-center justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h1 className="text-head font-semibold">Design system</h1>
+            <h1 className="text-headline-sm font-semibold">Design system</h1>
             <p className="text-caption text-foreground-subtle">
               Development only. Every variant of every shared component.
             </p>
@@ -569,15 +569,17 @@ function Gallery() {
 
         <Section title="Type" note="Each step names a job rather than a size.">
           <div className="flex flex-col gap-2">
-            <span className="text-label text-foreground-subtle uppercase">Label · 11</span>
+            <span className="font-mono text-label text-foreground-subtle uppercase">
+              Label · 11
+            </span>
             <span className="text-caption text-foreground-subtle">Caption · 12</span>
             <span className="text-ui">Interface · 13</span>
             <span className="text-title font-medium">Title · 14</span>
             <span className="text-subhead font-semibold">Subhead · 16</span>
-            <span className="text-head font-semibold">Head · 18</span>
+            <span className="text-headline-sm font-semibold">Head · 18</span>
             <span className="text-headline font-semibold">Headline · 20</span>
             <span className="text-reading font-semibold tabular">21.5 · reading</span>
-            <span className="text-reading-lg font-semibold tabular">60% · large</span>
+            <span className="text-reading font-medium tabular">60% · large</span>
             <span className="font-mono text-ui text-foreground-muted">light.hallway_ceiling</span>
           </div>
         </Section>
@@ -589,10 +591,10 @@ function Gallery() {
           <div className="flex flex-wrap gap-3">
             <Swatch className="border border-border bg-canvas">canvas</Swatch>
             <Swatch className="border border-border bg-rail">rail</Swatch>
-            <Swatch className="border border-border face-card">card</Swatch>
-            <Swatch className="border border-border-strong face-raised">raised</Swatch>
-            <Swatch className="border border-border face-sunk">sunk</Swatch>
-            <Swatch className="face-primary text-primary-foreground">primary</Swatch>
+            <Swatch className="border border-border bg-surface">card</Swatch>
+            <Swatch className="border border-border-strong bg-surface-raised">raised</Swatch>
+            <Swatch className="border border-border bg-surface-raised">sunk</Swatch>
+            <Swatch className="bg-primary text-primary-foreground">primary</Swatch>
           </div>
         </Section>
 

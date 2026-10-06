@@ -1,14 +1,15 @@
 /**
- * A small coloured label.
+ * A short word or count in mono capitals, outlined in its colour: a status, a count of what was
+ * found, a kind.
  *
  * The tone is a variant rather than a class the caller passes, so that the meanings the palette
- * carries stay countable: accent for a role, success for a protection that is on, warning for one
- * that is off, danger for a failure, neutral for a fact with no verdict attached. A badge that
- * could be any colour would eventually be every colour, and then it would mean nothing.
+ * carries stay countable: accent for found or new, success for running, warning for needs
+ * attention, danger for failed, violet for computed, cyan for live, neutral for a fact with no
+ * verdict attached. A badge that could be any colour would eventually be every colour, and then
+ * it would mean nothing.
  *
- * Every tone carries a border as well as a fill. A translucent fill alone floats on whatever is
- * behind it, and these sit on cards, in table rows and over photographs - the edge is what keeps
- * the shape from dissolving into the third of those.
+ * No fill: the tone is the text and the edge together, and the word is the message - colour is
+ * never its only carrier. A status in sentence case with a dot is a `Pill`.
  */
 import { cva, type VariantProps } from 'class-variance-authority';
 import type { ReactNode } from 'react';
@@ -16,22 +17,37 @@ import type { ReactNode } from 'react';
 import { cn } from '../lib/cn.js';
 
 const badge = cva(
-  'inline-flex shrink-0 items-center gap-1.5 rounded-full border font-medium whitespace-nowrap',
+  'inline-flex shrink-0 items-center gap-1.5 rounded-pill border border-current bg-transparent ' +
+    'font-mono text-label tracking-wider whitespace-nowrap uppercase',
   {
     variants: {
       tone: {
-        neutral: 'border-border bg-surface-raised text-foreground-muted',
-        accent: 'border-primary/30 bg-primary/13 text-primary',
-        success: 'border-success/30 bg-success/13 text-success',
-        warning: 'border-warning/30 bg-warning/13 text-warning',
-        danger: 'border-danger/30 bg-danger/13 text-danger',
+        neutral: 'text-foreground-subtle',
+
+        /** Found, or new for you. */
+        accent: 'text-primary',
+
+        /** Running, healthy, on. */
+        success: 'text-success',
+
+        /** Needs attention, waiting, off. */
+        warning: 'text-warning',
+
+        /** Failed. */
+        danger: 'text-danger',
+
+        /** Computed: an alias, a scene. */
+        violet: 'text-violet',
+
+        /** New, live. */
+        cyan: 'text-cyan',
       },
       size: {
         /** In a dense table row. */
-        small: 'h-5 px-2 text-label tracking-normal normal-case',
+        small: 'h-5 px-2',
 
         /** Everywhere else. */
-        medium: 'h-6 px-2.5 text-caption',
+        medium: 'h-6 px-2.5',
       },
     },
     defaultVariants: { tone: 'neutral', size: 'medium' },

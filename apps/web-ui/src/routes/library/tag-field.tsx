@@ -300,7 +300,7 @@ export function TagField(props: TagFieldProps) {
           <div
             ref={root}
             className={cn(
-              'min-h-control flex w-full flex-wrap items-center gap-1.5 rounded-field border border-border face-sunk px-2 py-1.5 transition-colors',
+              'min-h-control flex w-full flex-wrap items-center gap-1.5 rounded-field border border-border bg-surface-raised px-2 py-1.5 transition-colors',
               'focus-within:border-primary focus-within:ring-3 focus-within:ring-primary/25',
               disabled && 'cursor-not-allowed opacity-60',
             )}
@@ -377,7 +377,7 @@ export function TagField(props: TagFieldProps) {
                   }}
                   className={cn(
                     'z-50 overflow-y-auto rounded-field border border-border-strong',
-                    'animate-rise face-card p-1 shadow-dialog',
+                    'animate-rise bg-surface p-1 shadow-dialog',
                   )}
                 >
                   {draft === null ? (

@@ -38,7 +38,7 @@ export function DashboardTabs(props: DashboardTabsProps) {
   return (
     <nav
       aria-label="Dashboards"
-      className="flex min-w-0 items-center gap-1 overflow-x-auto rounded-full border border-border-soft face-sunk p-1"
+      className="flex min-w-0 items-center gap-1 overflow-x-auto rounded-full border border-border bg-surface-raised p-1"
     >
       {dashboards.map((dashboard) => (
         <NavLink
@@ -48,7 +48,7 @@ export function DashboardTabs(props: DashboardTabsProps) {
             cn(
               'press flex h-7 shrink-0 items-center rounded-full px-3.5 text-ui whitespace-nowrap transition-colors',
               isActive || isCurrent(dashboard.id)
-                ? 'face-pill font-medium text-foreground'
+                ? 'bg-surface-high font-medium text-foreground'
                 : 'text-foreground-muted hover:text-foreground',
             )
           }

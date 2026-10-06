@@ -68,7 +68,7 @@ export function ThermostatControl(props: ControlProps) {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <span className="text-caption text-foreground-subtle">Now</span>
-          <span className="font-mono text-reading-lg text-foreground tabular">
+          <span className="font-mono text-mono-reading text-foreground tabular">
             {thermostat === undefined
               ? '—'
               : `${temperature.format(thermostat.currentTemperature)}°`}

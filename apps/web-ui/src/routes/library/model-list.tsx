@@ -179,7 +179,7 @@ export function ModelList(props: ModelListProps) {
 
   return (
     <>
-      <div className="flex flex-col gap-3 border-b border-border-soft p-4">
+      <div className="flex flex-col gap-3 border-b border-border p-4">
         <div className="flex items-baseline justify-between gap-2">
           <h3 id={`${id}-label`} className="text-title font-semibold">
             Model
@@ -244,7 +244,7 @@ export function ModelList(props: ModelListProps) {
             {isGrouped ? (
               <div
                 aria-hidden="true"
-                className="px-2.5 pt-2 pb-1 text-label font-semibold text-foreground-muted uppercase"
+                className="px-2.5 pt-2 pb-1 font-mono text-label text-foreground-muted uppercase"
               >
                 {group.heading}
               </div>

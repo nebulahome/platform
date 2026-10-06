@@ -6,9 +6,8 @@
  * right, and a data structure describing all of that would be a worse language for it than JSX
  * already is.
  *
- * The divider between rows is drawn by the row and not by the panel, because the panel does not
- * know how many children it has - a selector does: the last row that is not followed by anything
- * but a dialog.
+ * Flat: a `surface` fill on a `border` edge, 18px round. The head is the panel's title and no
+ * divider; each row draws the line above it, so the first row's line sets the title apart.
  */
 import { cva, type VariantProps } from 'class-variance-authority';
 import type { ReactNode } from 'react';
@@ -24,7 +23,7 @@ const panel = cva('rounded-panel border border-border', {
      * another surface, where the second shadow would only say that somebody nested two cards.
      */
     elevation: {
-      raised: 'face-card',
+      raised: 'bg-surface',
       flat: 'bg-surface',
     },
   },
@@ -57,8 +56,8 @@ export function Panel(props: PanelProps) {
 
   return (
     <section className={cn(panel({ elevation }), className)}>
-      <header className="flex h-12 items-center justify-between gap-4 border-b border-border-soft px-4">
-        <h2 className="text-label text-foreground-subtle uppercase">{title}</h2>
+      <header className="flex min-h-12 items-center justify-between gap-3 px-5.5 pt-4 pb-3">
+        <h2 className="text-subhead font-medium text-foreground">{title}</h2>
         {action}
       </header>
 

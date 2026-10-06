@@ -63,7 +63,7 @@ function DeviceSummary(props: DeviceSummaryProps) {
 
   return (
     <section className="flex flex-wrap items-center gap-4">
-      <span className="flex size-14 shrink-0 items-center justify-center rounded-panel border border-border face-card text-foreground-muted">
+      <span className="flex size-14 shrink-0 items-center justify-center rounded-panel border border-border bg-surface text-foreground-muted">
         <DeviceIcon icon={icons.get(device.icon ?? '')} size={28} />
       </span>
       <div className="flex min-w-0 grow flex-col gap-1">
@@ -115,7 +115,7 @@ function EntityGroups(props: {
           className="flex flex-col gap-1.5"
         >
           {isGrouped ? (
-            <h3 className="px-1 pt-1.5 text-label text-foreground-subtle uppercase">
+            <h3 className="px-1 pt-1.5 font-mono text-label text-foreground-subtle uppercase">
               {group.title}
             </h3>
           ) : null}

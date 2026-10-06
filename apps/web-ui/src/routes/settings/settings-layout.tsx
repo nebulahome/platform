@@ -99,7 +99,7 @@ function SectionGroup(props: SectionGroupProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex h-5 items-center justify-between gap-2 px-3">
-        <span className="text-label text-foreground-subtle uppercase">{title}</span>
+        <span className="font-mono text-label text-foreground-subtle uppercase">{title}</span>
         {badge}
       </div>
 
@@ -138,7 +138,7 @@ export function SettingsLayout() {
   return (
     <div className="flex min-w-0 grow flex-col">
       <header className="flex h-17 shrink-0 items-center border-b border-border px-6">
-        <h1 className="text-head font-semibold tracking-tight">Settings</h1>
+        <h1 className="text-headline-sm font-semibold tracking-tight">Settings</h1>
       </header>
 
       <div className="flex min-h-0 grow gap-6 overflow-hidden p-6">

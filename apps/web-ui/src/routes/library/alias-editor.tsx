@@ -906,7 +906,7 @@ function Shell(props: ShellProps) {
   return (
     <div className="flex min-h-0 grow flex-col">
       <header className="flex h-17 shrink-0 items-center justify-between gap-4 border-b border-border px-6">
-        <h1 className="flex min-w-0 items-center gap-2 text-head tracking-tight">
+        <h1 className="flex min-w-0 items-center gap-2 text-headline-sm tracking-tight">
           <Link
             to="/aliases"
             className="shrink-0 text-foreground-muted transition-colors hover:text-foreground"

@@ -68,7 +68,9 @@ export function PagePlaceholder() {
   return (
     <div className="flex grow flex-col">
       <header className="flex h-17 shrink-0 items-center border-b border-border px-6">
-        <h1 className="text-head font-semibold tracking-tight">{page?.title ?? 'Nebula Home'}</h1>
+        <h1 className="text-headline-sm font-semibold tracking-tight">
+          {page?.title ?? 'Nebula Home'}
+        </h1>
       </header>
 
       <div className="flex grow items-center justify-center p-6">

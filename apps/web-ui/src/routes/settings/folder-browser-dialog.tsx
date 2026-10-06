@@ -101,7 +101,7 @@ export function FolderBrowserDialog(props: FolderBrowserDialogProps) {
           ))}
         </nav>
 
-        <div className="max-h-72 overflow-auto rounded-field border border-border-soft">
+        <div className="max-h-72 overflow-auto rounded-field border border-border">
           {folder.isPending ? (
             <p className="px-3 py-3 text-ui text-foreground-subtle">Reading the folder…</p>
           ) : folder.isError ? (
@@ -111,12 +111,12 @@ export function FolderBrowserDialog(props: FolderBrowserDialogProps) {
           ) : folder.data.directories.length === 0 ? (
             <p className="px-3 py-3 text-ui text-foreground-subtle">No folders in here.</p>
           ) : (
-            <ul className="divide-y divide-border-soft">
+            <ul className="divide-y divide-border">
               {folder.data.directories.map((name) => (
                 <li key={name}>
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-ui text-foreground hover:bg-surface-lit"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-ui text-foreground hover:bg-surface-raised"
                     onClick={() => {
                       setPath(`${path === '/' ? '' : path}/${name}`);
                     }}

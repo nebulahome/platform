@@ -87,7 +87,7 @@ function Dial(props: DialProps) {
   return (
     <div className="relative flex min-h-0 grow items-center justify-center">
       <svg viewBox="6 6 108 94" className="h-full max-h-28 w-auto" fill="none" aria-hidden="true">
-        <path d={path} stroke="var(--color-groove)" strokeWidth="9" strokeLinecap="round" />
+        <path d={path} stroke="var(--color-surface-high)" strokeWidth="9" strokeLinecap="round" />
         {isOff ? null : (
           <path
             d={path}

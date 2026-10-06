@@ -131,9 +131,9 @@ export function AutomationsPage() {
       isEmpty={items.length === 0}
       emptyMessage="No automations yet. Press New automation to write the first one."
     >
-      <div className="overflow-hidden rounded-panel border border-border face-card">
+      <div className="overflow-hidden rounded-panel border border-border bg-surface">
         <div
-          className={`${AUTOMATION_COLUMNS} border-b border-border-soft px-4 py-2.5 text-label text-foreground-subtle uppercase`}
+          className={`${AUTOMATION_COLUMNS} border-b border-border px-4 py-2.5 font-mono text-label text-foreground-subtle uppercase`}
           aria-hidden="true"
         >
           <span>Name</span>

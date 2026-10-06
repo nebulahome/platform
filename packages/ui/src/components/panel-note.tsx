@@ -22,7 +22,7 @@ export function PanelNote(props: PanelNoteProps) {
   const { children } = props;
 
   return (
-    <p className="border-t border-border-soft px-4 py-3 text-caption text-foreground-subtle">
+    <p className="border-t border-border px-5.5 py-3 text-caption text-foreground-subtle">
       {children}
     </p>
   );

@@ -79,8 +79,8 @@ export function TagRow(props: TagRowProps) {
   const { tag, devices, entities, icons, isOpen, onToggle, canEdit, onEdit } = props;
 
   return (
-    <li className="border-b border-border-soft last:border-b-0">
-      <div className={cn(TAG_COLUMNS, 'pr-3 pl-4', isOpen ? 'bg-sunk' : undefined)}>
+    <li className="border-b border-border last:border-b-0">
+      <div className={cn(TAG_COLUMNS, 'pr-3 pl-4', isOpen ? 'bg-surface-raised' : undefined)}>
         <button
           type="button"
           aria-expanded={isOpen}
@@ -116,13 +116,13 @@ export function TagRow(props: TagRowProps) {
       </div>
 
       {isOpen ? (
-        <div className="grid gap-4 bg-sunk px-4 pt-1 pb-4 md:grid-cols-2">
+        <div className="grid gap-4 bg-surface-raised px-4 pt-1 pb-4 md:grid-cols-2">
           <Carried title="Devices" isEmpty={devices.length === 0}>
             {devices.map((device) => (
               <li key={device.id}>
                 <Link
                   to={devicePath(device.id)}
-                  className="flex items-center gap-2.5 rounded-field border border-border face-sunk px-3 py-2 text-ui font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                  className="flex items-center gap-2.5 rounded-field border border-border bg-surface-raised px-3 py-2 text-ui font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary"
                 >
                   <DeviceIcon
                     icon={device.icon === null ? undefined : icons.get(device.icon)}
@@ -138,7 +138,7 @@ export function TagRow(props: TagRowProps) {
             {entities.map((entity) => (
               <li
                 key={entity.entityId}
-                className="flex items-center gap-2.5 rounded-field border border-border face-sunk px-3 py-2"
+                className="flex items-center gap-2.5 rounded-field border border-border bg-surface-raised px-3 py-2"
               >
                 <DeviceIcon
                   icon={entity.icon === null ? undefined : icons.get(entity.icon)}
@@ -180,7 +180,7 @@ function Carried(props: CarriedProps) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-label text-foreground-subtle uppercase">{title}</span>
+      <span className="font-mono text-label text-foreground-subtle uppercase">{title}</span>
       {isEmpty ? (
         <span className="text-caption text-foreground-subtle">None carry it.</span>
       ) : (

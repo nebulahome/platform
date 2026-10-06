@@ -40,7 +40,7 @@ export function DetailHeader(props: DetailHeaderProps) {
 
   return (
     <header className="flex min-h-17 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-6 py-2.5">
-      <h1 className="flex min-w-0 items-center gap-2 text-head tracking-tight">
+      <h1 className="flex min-w-0 items-center gap-2 text-headline-sm tracking-tight">
         {crumbs.map((crumb) => (
           <span key={crumb.to} className="flex min-w-0 items-center gap-2">
             <Link

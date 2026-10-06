@@ -76,7 +76,7 @@ export function ActivityDialog(props: ActivityDialogProps) {
     >
       {line === null || first === undefined ? null : (
         <div className="flex flex-col gap-4">
-          <dl className="overflow-hidden rounded-field border border-border-soft">
+          <dl className="overflow-hidden rounded-field border border-border">
             <Fact term="When">
               <time dateTime={line.time.toISOString()}>{exactly.format(line.time)}</time>
             </Fact>
@@ -114,11 +114,11 @@ export function ActivityDialog(props: ActivityDialogProps) {
             )}
           </dl>
 
-          <details className="group rounded-field border border-border-soft">
+          <details className="group rounded-field border border-border">
             <summary className="cursor-pointer px-4 py-2.5 text-caption text-foreground-subtle select-none hover:text-foreground">
               As the device reported it
             </summary>
-            <pre className="max-h-64 overflow-auto border-t border-border-soft px-4 py-3 font-mono text-caption text-foreground-muted">
+            <pre className="max-h-64 overflow-auto border-t border-border px-4 py-3 font-mono text-caption text-foreground-muted">
               {JSON.stringify(
                 line.entries.map((entry) => ({
                   entityId: entry.entityId,

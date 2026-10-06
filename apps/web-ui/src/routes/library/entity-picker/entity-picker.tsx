@@ -161,8 +161,8 @@ function PickerBody(props: PickerBodyProps) {
                 'press h-7 rounded-full border px-3 text-caption transition-colors',
                 'focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none',
                 family === candidate
-                  ? 'border-border-strong face-pill font-medium text-foreground'
-                  : 'border-border-soft text-foreground-muted hover:text-foreground',
+                  ? 'border-border-strong bg-surface-high font-medium text-foreground'
+                  : 'border-border text-foreground-muted hover:text-foreground',
               )}
             >
               {candidate === null ? 'Everything' : FAMILY_LABELS[candidate]}
@@ -199,7 +199,7 @@ function PickerBody(props: PickerBodyProps) {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-border-soft pt-4">
+      <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-border pt-4">
         <p className="mr-auto min-w-0 truncate text-caption text-foreground-subtle">
           {chosenEntities.length === 0
             ? 'Nothing chosen yet.'

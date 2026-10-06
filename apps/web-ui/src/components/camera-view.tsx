@@ -49,7 +49,7 @@ export function CameraView(props: CameraViewProps) {
         : (message ?? 'The stream stopped');
 
   return (
-    <div className={cn('relative overflow-hidden bg-sunk', className)}>
+    <div className={cn('relative overflow-hidden bg-surface-raised', className)}>
       <canvas
         ref={setCanvas}
         aria-label={`Live picture from ${name}`}

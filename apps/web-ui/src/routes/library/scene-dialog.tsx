@@ -423,7 +423,7 @@ export function SceneDialog(props: SceneDialogProps) {
                 return (
                   <li
                     key={member.entityId}
-                    className="flex flex-col gap-3 rounded-panel border border-border face-card p-3.5"
+                    className="flex flex-col gap-3 rounded-panel border border-border bg-surface p-3.5"
                   >
                     <div className="flex items-start gap-2">
                       <div className="min-w-0 grow">

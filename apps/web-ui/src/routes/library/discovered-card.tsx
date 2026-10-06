@@ -73,8 +73,8 @@ export function DiscoveredCard(props: DiscoveredCardProps) {
       <article
         aria-label={title}
         className={cn(
-          'flex h-full flex-col rounded-panel border border-border face-card p-[18px]',
-          'transition-[border-color,box-shadow] hover:border-border-strong hover:shadow-card',
+          'flex h-full flex-col rounded-panel border border-border bg-surface p-[18px]',
+          'transition-[border-color,box-shadow] hover:border-border-strong',
         )}
       >
         <div className="flex items-start gap-3">

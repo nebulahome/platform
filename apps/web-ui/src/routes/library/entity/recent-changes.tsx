@@ -51,7 +51,7 @@ export function RecentChanges(props: RecentChangesProps) {
       {shown.map((point) => (
         <li
           key={point.time.getTime()}
-          className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 border-b border-border-soft py-2 last:border-b-0"
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 border-b border-border py-2 last:border-b-0"
         >
           <span className="min-w-0">
             <span className="block truncate font-mono text-ui text-foreground">

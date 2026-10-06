@@ -51,7 +51,7 @@ export function AssigneeField(props: AssigneeFieldProps) {
     <fieldset className="flex flex-col gap-2">
       <legend className="mb-2 text-caption font-medium text-foreground-muted">Shown to</legend>
 
-      <div className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-field border border-border bg-groove p-2">
+      <div className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-field border border-border bg-surface-high p-2">
         {isPending ? (
           <p className="px-2 py-1.5 text-caption text-foreground-subtle">Reading…</p>
         ) : people.length === 0 ? (

@@ -90,7 +90,7 @@ function ChartTooltip(props: ChartTooltipProps) {
   }
 
   return (
-    <div className="flex flex-col gap-1 rounded-field border border-border bg-surface-raised px-3 py-2 text-caption shadow-raised">
+    <div className="flex flex-col gap-1 rounded-field border border-border bg-surface-raised px-3 py-2 text-caption">
       <span className="text-foreground-subtle tabular">{timeOf(label)}</span>
       {series.map((line) => {
         const value = payload.find((entry) => entry.dataKey === line.key)?.value;
@@ -140,7 +140,7 @@ export function LiveAreaChart(props: LiveAreaChartProps) {
             ))}
           </defs>
 
-          <CartesianGrid vertical={false} stroke="var(--color-border-soft)" strokeDasharray="3 4" />
+          <CartesianGrid vertical={false} stroke="var(--color-border)" strokeDasharray="3 4" />
           <XAxis dataKey="at" type="number" domain={['dataMin', 'dataMax']} hide />
           <YAxis domain={domain === undefined ? [0, 'auto'] : [...domain]} hide />
           <Tooltip

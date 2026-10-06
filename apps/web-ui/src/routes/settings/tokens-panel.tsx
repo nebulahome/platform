@@ -297,7 +297,7 @@ export function TokensPanel() {
         ))}
 
         {error === undefined || isCreating ? null : (
-          <p role="alert" className="border-t border-border-soft px-4 py-3 text-ui text-danger">
+          <p role="alert" className="border-t border-border px-4 py-3 text-ui text-danger">
             {error}
           </p>
         )}
@@ -357,7 +357,7 @@ export function TokensPanel() {
                 What it may do
               </legend>
 
-              <div className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-field border border-border bg-groove p-2">
+              <div className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-field border border-border bg-surface-high p-2">
                 {offerable.map((key) => (
                   <label
                     key={key}
@@ -390,7 +390,7 @@ export function TokensPanel() {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            <code className="rounded-field border border-border bg-groove px-3 py-2.5 font-mono text-ui break-all text-foreground">
+            <code className="rounded-field border border-border bg-surface-high px-3 py-2.5 font-mono text-ui break-all text-foreground">
               {secret}
             </code>
 

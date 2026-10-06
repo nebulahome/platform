@@ -55,7 +55,7 @@ function glowStyle(color: string): CSSProperties {
 
   return {
     borderColor: mix(30),
-    backgroundImage: `radial-gradient(135% 105% at 12% 118%, ${mix(22)} 0%, ${mix(5)} 46%, transparent 72%), var(--face-card)`,
+    backgroundImage: `radial-gradient(135% 105% at 12% 118%, ${mix(22)} 0%, ${mix(5)} 46%, transparent 72%)`,
   };
 }
 
@@ -74,8 +74,8 @@ export function CardFrame(props: CardFrameProps) {
       className={cn(
         'relative flex h-full min-w-0 flex-col overflow-hidden rounded-panel border p-4',
         tone === 'plain'
-          ? 'border-border face-card'
-          : 'border-dashed border-border-strong bg-sunk/60',
+          ? 'border-border bg-surface'
+          : 'border-dashed border-border-strong bg-surface-raised/60',
         className,
       )}
       /* eslint-disable-next-line react/forbid-dom-props -- the wash is the light's own colour, which
@@ -116,7 +116,7 @@ export function Groove(props: GrooveProps) {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(clamped)}
-      className="h-3.5 rounded-full border border-border-soft face-sunk p-0.5"
+      className="h-3.5 rounded-full border border-border bg-surface-raised p-0.5"
     >
       <div
         className={cn('h-full rounded-full', fill === undefined ? 'bg-primary' : undefined)}

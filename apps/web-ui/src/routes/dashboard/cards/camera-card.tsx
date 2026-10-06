@@ -35,7 +35,7 @@ export function CameraCard(props: { readonly model: EntityCardModel }) {
   return (
     <article
       aria-label={title}
-      className="relative h-full min-w-0 overflow-hidden rounded-panel border border-border bg-sunk"
+      className="relative h-full min-w-0 overflow-hidden rounded-panel border border-border bg-surface-raised"
     >
       {isPlaying ? (
         <CameraView

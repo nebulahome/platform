@@ -271,11 +271,11 @@ export function PeoplePanel() {
           </span>
         }
       >
-        <div className={`${COLUMNS} border-b border-border-soft py-2.5`}>
-          <span className="text-label text-foreground-subtle uppercase">Person</span>
-          <span className="text-label text-foreground-subtle uppercase">Role</span>
-          <span className="text-label text-foreground-subtle uppercase">2FA</span>
-          <span className="text-label text-foreground-subtle uppercase">Last seen</span>
+        <div className={`${COLUMNS} border-b border-border py-2.5`}>
+          <span className="font-mono text-label text-foreground-subtle uppercase">Person</span>
+          <span className="font-mono text-label text-foreground-subtle uppercase">Role</span>
+          <span className="font-mono text-label text-foreground-subtle uppercase">2FA</span>
+          <span className="font-mono text-label text-foreground-subtle uppercase">Last seen</span>
           <span />
         </div>
 
@@ -303,7 +303,7 @@ export function PeoplePanel() {
         {shown.map((person) => (
           <div
             key={person.id}
-            className={`${COLUMNS} border-b border-border-soft py-2.5 last:border-b-0`}
+            className={`${COLUMNS} border-b border-border py-2.5 last:border-b-0`}
           >
             <div className="flex min-w-0 items-center gap-3">
               <Avatar displayName={person.displayName} avatarUrl={person.avatarUrl} />

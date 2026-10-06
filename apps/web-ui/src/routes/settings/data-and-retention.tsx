@@ -253,10 +253,7 @@ export function DataAndRetention() {
             coarser level had read them — and nothing would report it.
           </PanelNote>
         ) : (
-          <p
-            role="alert"
-            className="border-t border-border-soft px-4 py-3 text-caption text-danger"
-          >
+          <p role="alert" className="border-t border-border px-4 py-3 text-caption text-danger">
             {problem}
           </p>
         )}

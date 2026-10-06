@@ -160,7 +160,7 @@ function CatalogueSearch(props: CatalogueSearchProps) {
 
   return (
     <>
-      <div className="flex flex-col gap-3 border-b border-border-soft p-4">
+      <div className="flex flex-col gap-3 border-b border-border p-4">
         <h3 id={`${id}-label`} className="text-title font-semibold">
           Community Hub
         </h3>

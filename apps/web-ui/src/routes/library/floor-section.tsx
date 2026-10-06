@@ -92,7 +92,7 @@ export function FloorSection(props: FloorSectionProps) {
           {rooms.map((room) => (
             <li
               key={room.id}
-              className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-border-soft px-4 py-2.5 last:border-b-0"
+              className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0"
             >
               <DeviceIcon
                 icon={icons.get(room.icon ?? '')}

@@ -63,7 +63,7 @@ function IconTile(props: { readonly icon: IconView; readonly onOpen: () => void 
       <button
         type="button"
         title={icon.id}
-        className="flex h-full w-full flex-col items-center gap-2 rounded-field border border-border face-card px-2 pt-4 pb-3 text-center transition-[border-color,box-shadow] hover:border-border-strong hover:shadow-card focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none"
+        className="flex h-full w-full flex-col items-center gap-2 rounded-field border border-border bg-surface px-2 pt-4 pb-3 text-center transition-[border-color,box-shadow] hover:border-border-strong focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none"
         onClick={onOpen}
       >
         <CatalogueIcon node={icon.node} frame={icon.frame} size={28} className="text-foreground" />

@@ -319,7 +319,7 @@ function ComposeForm(props: ComposeFormProps) {
 
         <Suspense
           fallback={
-            <div className="h-64 rounded-field border border-border face-sunk px-3 py-2 text-ui text-foreground-subtle">
+            <div className="h-64 rounded-field border border-border bg-surface-raised px-3 py-2 text-ui text-foreground-subtle">
               Opening the editor…
             </div>
           }

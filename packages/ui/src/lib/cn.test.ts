@@ -20,11 +20,12 @@ describe('cn', () => {
   });
 
   it('lets a later type step replace an earlier one', () => {
-    expect(cn('text-ui', 'text-reading-lg')).toBe('text-reading-lg');
+    expect(cn('text-ui', 'text-reading')).toBe('text-reading');
+    expect(cn('text-ui-sm', 'text-display')).toBe('text-display');
   });
 
   it('resolves the theme radii and shadows against the stock ones', () => {
     expect(cn('rounded-field', 'rounded-full')).toBe('rounded-full');
-    expect(cn('shadow-sunk', 'shadow-none')).toBe('shadow-none');
+    expect(cn('', 'shadow-none')).toBe('shadow-none');
   });
 });

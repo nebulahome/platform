@@ -7,15 +7,13 @@
  */
 
 /*
- * The design tokens, measured rather than picked.
+ * The design tokens: the Nebula system (`design/tokens.json`, the source of truth).
  *
- * The accent is the logo's own hue: #6E7BFF read off the SVG is oklch(0.640 0.194 275), and the
- * neutrals sit at hue 268 so the greys lean the same way the mark does. Every pair a person
- * actually reads was checked against WCAG AA, and the lowest passing ratio in the set is 4.77:1.
- *
- * Dark is the default and the theme the interface was designed in. Light is derived from it by
- * mapping each token to a counterpart, never by inverting: a camera feed and a piece of album art
- * stay dark whatever the page around them does.
+ * Dark is the home theme. The neutrals lean indigo (hue ~268), the way the logo does, and the
+ * accent is the logo's own hue. Surfaces are flat fills separated by 1px lines: depth comes from
+ * the step between grounds - canvas, rail, surface, surface-raised, surface-high - never from a
+ * gradient or a shadow. The only resting shadow belongs to a dialog. Light is a counterpart of
+ * each token, set in `styles.css`, never an inversion.
  *
  * Every colour in the application resolves through one of these. A hard-coded colour in a
  * component is a review failure (RULES.md 15.3), and so is a pixel value: the sizes, the radii
@@ -27,124 +25,128 @@
  */
 
 @theme static {
-  /* --- surfaces, darkest to lightest ------------------------------------------------- */
+  /* --- grounds, darkest to lightest -------------------------------------------------- */
 
-  /** The page behind everything. */
-  --color-canvas: #080d19;
+  /** The page. Near-black with an indigo lean; the sky of sign-in is painted straight onto it. */
+  --color-canvas: #05060c;
 
-  /**
-   * The navigation rail.
-   *
-   * A hair above the canvas and below every card, so the cards read as lifted off it rather
-   * than as holes cut into it.
-   */
-  --color-rail: #0b1120;
+  /** The sidebar, one step darker than the page, and a disabled field. */
+  --color-rail: #07080f;
 
-  /** A panel or card sitting on the canvas. */
-  --color-surface: #121826;
+  /** Cards, panels, dialogs: anything that holds content. Flat, with a 1px `border`. */
+  --color-surface: #0c0e19;
 
   /**
-   * The lit top edge of a card.
-   *
-   * A surface catches light along its top; a rectangle does not. This is the other end of the
-   * gradient in `face-card`, and it is a token because the light theme has to be able to say
-   * that a white card has no such edge.
+   * Things sitting on a surface: fields, ghost buttons, the active nav row, icon chips, hovered
+   * rows, the track of a fat slider.
    */
-  --color-surface-lit: #161c2b;
-
-  /** A control on a surface: a hovered row, a filled input. */
-  --color-surface-raised: #1b2131;
+  --color-surface-raised: #141729;
 
   /**
-   * A recess: a field you type into, the groove behind a slider or a segmented control.
-   *
-   * Below the canvas rather than above it. A control that takes input reads as cut into the
-   * page; a control that performs an action reads as sitting on it, and the direction of that
-   * one step is the whole difference.
+   * The one step above raised: the chosen segment, thin tracks, nested tiles, a disabled primary.
+   * Keep `foreground-muted` or brighter on it.
    */
-  --color-sunk: #0a0f1c;
+  --color-surface-high: #1b1f35;
 
-  /** Kept for the segmented control's own groove, which is the same idea by an older name. */
-  --color-groove: #0a0f1c;
+  /** The off track of a switch. Nothing else. */
+  --color-control: #23273d;
 
   /* --- lines --------------------------------------------------------------------------- */
 
-  /** Panel edges. */
-  --color-border: #242a38;
+  /** Edges of cards and panels, dividers between rows, the rail's edge. It separates. */
+  --color-border: #1c2036;
 
   /**
-   * A divider inside a panel, where a full edge would shout.
-   *
-   * Rows used to be separated by `surface-raised`, which is a fill doing a line's job: the same
-   * value read as a divider in one place and as a button face in another, so softening one
-   * changed the other.
+   * Edges of controls: fields, ghost buttons, pills, outlined badges, dialogs, the active nav row.
+   * The fill step and the shape carry a control; the edge only finishes it.
    */
-  --color-border-soft: #1c2231;
-
-  /** An edge that has to survive sitting on top of a card: a button, a dashed drop target. */
-  --color-border-strong: #2f3648;
-
-  /**
-   * A filled neutral control, as opposed to a line.
-   *
-   * The active pill in a tab bar, an off switch, the track behind a slider. Deliberately a
-   * separate token from `border`: softening the lines must not flatten the controls.
-   */
-  --color-control: #2c3242;
+  --color-border-strong: #262b45;
 
   /* --- text ---------------------------------------------------------------------------- */
 
   /** Body text and headings. */
-  --color-foreground: #f3f5fb;
+  --color-foreground: #eceefb;
 
-  /** Secondary text: labels, inactive navigation. */
-  --color-foreground-muted: #a5abb9;
+  /** Labels, inactive navigation, field labels, secondary sentences. */
+  --color-foreground-muted: #a4a8c6;
 
   /**
-   * Tertiary text: captions, counts, timestamps.
-   *
-   * Set against the lit top edge of a card rather than against the card's body, because that is
-   * the lightest thing it ever sits on and the one that decides whether it passes: 4.91:1 there,
-   * 5.43:1 on the rail, 5.60:1 on the canvas.
+   * Captions, counts, timestamps, hints, group labels, placeholders. 5.28:1 on `surface`, 4.87:1
+   * on `surface-raised`; 4.46:1 on `surface-high`, so not for small text there.
    */
-  --color-foreground-subtle: #838a99;
+  --color-foreground-subtle: #8084a6;
 
-  /** Text on a control that cannot be used. */
-  --color-foreground-disabled: #4a5060;
+  /** Disabled text only, never a placeholder. */
+  --color-foreground-disabled: #4b5072;
 
-  /* --- accent and status ---------------------------------------------------------------- */
+  /* --- accent ---------------------------------------------------------------------------- */
 
-  --color-primary: #6d7bff;
-  --color-primary-hover: #8b96ff;
-
-  /** The two ends of the accent's lit face. */
-  --color-primary-lit: #7b87ff;
-  --color-primary-deep: #626ff5;
+  /** The logo's hue: the one primary action, an on-state, focus, the active nav icon. */
+  --color-primary: #7c86ff;
+  --color-primary-hover: #9aa3ff;
 
   /** Text and glyphs on top of the accent. */
-  --color-primary-foreground: #080d1a;
+  --color-primary-foreground: #05060c;
+
+  /** A selection's tint, and an accent note's ground. */
+  --color-primary-soft: rgb(124 134 255 / 0.1);
+
+  /** The focus halo of a field. */
+  --color-primary-ring: rgb(124 134 255 / 0.25);
 
   /**
-   * The handle of a switch or a slider: the lightest thing on a control in both themes, so the
-   * part a finger moves never sinks into the track it moves along.
+   * The handle of a switch that is on, and of a slider: the lightest thing on a control in both
+   * themes, so the part a finger moves never sinks into its track. Off, a switch's knob is
+   * `foreground-muted`.
    */
-  --color-knob: #f3f5fb;
+  --color-knob: #ffffff;
 
-  /**
-   * A lamp's light, where a level or a colour stands for it: the brightness a slider fills to.
-   * Warm in both themes; the light theme's tag amber is darkened for text and reads as brown.
-   */
+  /* --- entities: what kind of thing a card is about ---------------------------------------- */
+
+  /** A light's warmth, never a warning: a lit lamp, the level a slider fills to. */
   --color-lamp: #ffc247;
+  --color-lamp-soft: rgb(255 194 71 / 0.1);
+
+  /** Heating. */
+  --color-heat: #ff8a4c;
+
+  /** Scenes, aliases and computed things; the If lane of an automation. */
+  --color-violet: #a78bfa;
+
+  /** Sensors, charts, live scanning; the When lane of an automation. */
+  --color-cyan: #4fd0ee;
+
+  /* --- states ------------------------------------------------------------------------------ */
 
   --color-success: #52cd86;
   --color-warning: #edb345;
   --color-danger: #f75d59;
 
+  /** The tinted grounds of a state: a health card that needs attention, a soft note. */
+  --color-success-soft: rgb(82 205 134 / 0.12);
+  --color-warning-soft: rgb(237 179 69 / 0.12);
+  --color-danger-soft: rgb(247 93 89 / 0.1);
+
+  /** The edge of something dangerous or waiting: a danger button, a warning note. */
+  --color-danger-line: rgb(247 93 89 / 0.45);
+  --color-warning-line: rgb(237 179 69 / 0.4);
+
+  /* --- glass: only for what floats over the sky or the page ----------------------------------- */
+
+  /** The card on the sky. */
+  --color-glass: rgb(12 14 25 / 0.78);
+
+  /** Fields on glass. */
+  --color-veil: rgb(5 6 12 / 0.55);
+
+  /** Behind a dialog. */
+  --color-scrim: rgb(5 6 12 / 0.72);
+
   /*
    * --- tag palette --------------------------------------------------------------------------
-   * Twelve hues with one meaning between them: a tag the owner made. They are the only colours
-   * here that carry no verdict, which is why a tag is a chip of its own and never a badge. Each
-   * key has a shade per theme, chosen so the name reads at 4.5:1 on a card and on a sunk row.
+   * Twelve hues with one meaning between them: a tag the owner made, or a vendor's monogram. They
+   * are the only colours here that carry no verdict, which is why a tag is a chip of its own and
+   * never a badge.
    */
   --color-tag-red: #ff7a70;
   --color-tag-orange: #ffa057;
@@ -169,109 +171,144 @@
   --color-energy-battery: #62a9ff;
   --color-energy-grid: #f2d94b;
 
-  --color-house-wall: #1b2130;
-  --color-house-wall-shade: #151a27;
-  --color-house-roof: #202736;
-  --color-house-roof-edge: #2c3446;
-  --color-house-panel: #1a2540;
-  --color-house-panel-line: #34436a;
+  --color-house-wall: #161a2c;
+  --color-house-wall-shade: #111423;
+  --color-house-roof: #1b1f35;
+  --color-house-roof-edge: #262b45;
+  --color-house-panel: #1a2244;
+  --color-house-panel-line: #34406e;
   --color-house-window: #f1e2bf;
-  --color-house-window-frame: #3a4254;
-  --color-house-wire: #2d3446;
-  --color-house-ground: #0d1220;
-  --color-house-device: #c9ced8;
+  --color-house-window-frame: #383e5c;
+  --color-house-wire: #2a2f4a;
+  --color-house-ground: #0a0c17;
+  --color-house-device: #c9cde2;
 
   /* The details a style adds: tiles, trim, shutters, siding, a garage, a sand-coloured house. */
-  --color-house-trim: #333b4f;
-  --color-house-plinth: #141a27;
-  --color-house-interior: #080b14;
-  --color-house-panel-frame: #58637d;
-  --color-house-panel-cell: #0b1020;
-  --color-house-panel-glare: #8fa6d8;
+  --color-house-trim: #2f3553;
+  --color-house-plinth: #10132a;
+  --color-house-interior: #05060c;
+  --color-house-panel-frame: #565e82;
+  --color-house-panel-cell: #090c1c;
+  --color-house-panel-glare: #8fa3dc;
+
+  /* --- the sky ------------------------------------------------------------------------------ */
+  /*
+   * The three lights of the aurora behind sign-in and first-run, all in the accent's family -
+   * one at its hue, one violet, one closer to cyan - because every other colour here means
+   * something. An amber light behind a login form is a warning nobody raised.
+   */
+  --color-aurora-one: #6d7bff;
+  --color-aurora-two: #8f5cff;
+  --color-aurora-three: #3ba7d6;
 
   /* --- shape ---------------------------------------------------------------------------- */
   /*
-   * Five steps, and a control inside a card takes the step below the card so the curves stay
-   * concentric. Before this the radii ran 6, 8, 9, 10, 12, 14 and 18 with no rule behind which
-   * was which, which is how two buttons on one row end up differently round.
+   * A pill is a control; a rounded rectangle holds things. A control inside a card takes the step
+   * below the card so the curves stay concentric.
    */
 
+  --radius-check: 5px;
   --radius-chip: 8px;
   --radius-field: 10px;
   --radius-tile: 12px;
-  --radius-panel: 16px;
-  --radius-dialog: 20px;
+  --radius-inner: 14px;
+  --radius-card: 16px;
+  --radius-panel: 18px;
+  --radius-dialog: 22px;
+  --radius-pill: 9999px;
 
   /* --- type ------------------------------------------------------------------------------ */
   /*
-   * Named for the job, not the size. A step called `ui` survives someone deciding that controls
-   * should be a pixel larger; a class called `text-[13.5px]` has to be found in forty files.
-   *
-   * Each step carries its own line height and tracking, because those are not free choices: type
-   * needs tracking pulled in as it grows and left alone as it shrinks, and getting that wrong is
-   * most of what makes an interface look untended.
+   * Named for the job, not the size. Each step carries its own line height and tracking:
+   * tracking tightens as size grows and opens only for `label` and `code`.
    */
 
-  /** Small capitals over a group of rows. Pair with `uppercase`. */
+  /**
+   * The interface raising its voice: group labels, breadcrumbs, card tops, "STEP 3 OF 7". Mono,
+   * uppercase, `foreground-subtle` - always with `font-mono uppercase`.
+   */
   --text-label: 11px;
   --text-label--line-height: 1.3;
-  --text-label--letter-spacing: 0.085em;
-  --text-label--font-weight: 500;
+  --text-label--letter-spacing: 0.08em;
+  --text-label--font-weight: 400;
 
-  /** Captions, counts, timestamps, the line under a field. */
+  /** Hints, counts and timestamps; a field's label at weight 500. */
   --text-caption: 12px;
   --text-caption--line-height: 1.45;
 
-  /** Body text and the label on every control. The interface mostly lives here. */
-  --text-ui: 13px;
+  /** Secondary sentences, compact buttons, option labels in dense lists. */
+  --text-ui-sm: 13px;
+  --text-ui-sm--line-height: 1.45;
+
+  /** Body text and the label of every button, field and nav row. The default. */
+  --text-ui: 14px;
   --text-ui--line-height: 1.45;
   --text-ui--letter-spacing: -0.006em;
 
-  /** A row's title, a card's name. */
-  --text-title: 14px;
-  --text-title--line-height: 1.4;
-  --text-title--letter-spacing: -0.012em;
+  /** A row's title, a card's name, a tile's name. */
+  --text-title: 15px;
+  --text-title--line-height: 1.35;
+  --text-title--letter-spacing: -0.01em;
 
-  /** A dialog's heading. */
+  /** A panel's heading. */
   --text-subhead: 16px;
   --text-subhead--line-height: 1.3;
-  --text-subhead--letter-spacing: -0.018em;
+  --text-subhead--letter-spacing: -0.014em;
 
-  /** A page's heading. */
-  --text-head: 18px;
-  --text-head--line-height: 1.25;
-  --text-head--letter-spacing: -0.022em;
+  /** A dialog's title. */
+  --text-headline-sm: 18px;
+  --text-headline-sm--line-height: 1.25;
+  --text-headline-sm--letter-spacing: -0.018em;
 
-  /** The largest thing that is still a heading: a page title, or a state word. */
-  --text-headline: 20px;
-  --text-headline--line-height: 1.2;
-  --text-headline--letter-spacing: -0.024em;
+  /** The sign-in card's title; the lockup's name at weight 600. */
+  --text-headline: 22px;
+  --text-headline--line-height: 1.25;
+  --text-headline--letter-spacing: -0.02em;
 
-  /** A reading on a card. */
-  --text-reading: 30px;
+  /** The page title, one per screen, with its meta beside it in `mono-ui`. */
+  --text-display: 30px;
+  --text-display--line-height: 1.15;
+  --text-display--letter-spacing: -0.03em;
+
+  /** The number an entity card is about; its unit follows at half size in `foreground-subtle`. */
+  --text-reading: 32px;
   --text-reading--line-height: 1;
-  --text-reading--letter-spacing: -0.032em;
+  --text-reading--letter-spacing: -0.03em;
 
-  /** The one reading a card is about. */
-  --text-reading-lg: 44px;
-  --text-reading-lg--line-height: 0.95;
-  --text-reading-lg--letter-spacing: -0.03em;
+  /** A state spelled in words on a card: Locked, Open, Paused. */
+  --text-reading-sm: 22px;
+  --text-reading-sm--line-height: 1.1;
+  --text-reading-sm--letter-spacing: -0.02em;
+
+  /** Versions, addresses, ids. With `font-mono`. */
+  --text-mono-caption: 12px;
+  --text-mono-caption--line-height: 1.45;
+
+  /** The meta beside a page title; keys and values in tables. With `font-mono`. */
+  --text-mono-ui: 13px;
+  --text-mono-ui--line-height: 1.45;
+
+  /** The clock card. With `font-mono`. */
+  --text-mono-reading: 40px;
+  --text-mono-reading--line-height: 1;
+  --text-mono-reading--letter-spacing: -0.04em;
 
   /**
-   * A code read one character at a time.
-   *
-   * The six digits of a second factor, and nothing else. Opened right out, because a person is
-   * copying them across from a phone and the only thing that matters is telling one from the
-   * next.
+   * A code read one character at a time: the six digits of a second factor, one per box. Opened
+   * right out, because a person is copying them across from a phone. With `font-mono`.
    */
-  --tracking-code: 0.2em;
+  --text-code: 20px;
+  --text-code--line-height: 1.2;
+  --text-code--letter-spacing: 0.12em;
+
+  --tracking-code: 0.12em;
 
   --font-sans: Geist, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, monospace;
 
   /* --- control heights -------------------------------------------------------------------- */
   /*
-   * Three, so that a button and the field next to it line up without anybody measuring.
+   * So that a button and the field beside it line up without anybody measuring.
    *
    * Deliberately *not* `--spacing-control`, even though that is the namespace they belong to by
    * meaning. Naming a value inside `--spacing-*` replaces the whole spacing namespace, which
@@ -281,74 +318,32 @@
    * below instead, which leaves Tailwind's own scale alone.
    */
 
+  /** Compact buttons, icon buttons, a field in a dense row. */
   --control-height-sm: 30px;
+
+  /** Buttons, search. */
   --control-height: 36px;
+
+  /** Form fields. */
+  --control-height-field: 38px;
+
+  /** Sign-in fields. */
   --control-height-lg: 44px;
+
+  /** The one button of an auth screen. */
+  --control-height-xl: 46px;
 
   /* --- depth -------------------------------------------------------------------------------- */
   /*
-   * Shadows carry an offset and a blur, because that is what a shadow is. A colourless halo at
-   * zero offset is decoration, and a coloured one is decoration that also lies about where the
-   * light is.
-   *
-   * The inset white line at the top of each is the other half: on a dark page a raised thing is
-   * lit along its top edge, and that edge does more of the work than the shadow underneath.
+   * Flat. A panel has no resting shadow; an entity card has the faint lit top edge of `edge`. A
+   * dialog and the sign-in card take `dialog`, a menu and a dragged card `float`, a focused
+   * field `focus`.
    */
 
-  --shadow-raised: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 1px 2px rgb(3 6 14 / 0.45);
-  --shadow-card:
-    inset 0 1px 0 rgb(255 255 255 / 0.045), 0 1px 2px rgb(3 6 14 / 0.5),
-    0 6px 16px -10px rgb(3 6 14 / 0.85);
-  --shadow-dialog:
-    inset 0 1px 0 rgb(255 255 255 / 0.06), 0 2px 8px rgb(3 6 14 / 0.4),
-    0 24px 56px -20px rgb(3 6 14 / 0.8);
-  --shadow-sunk: inset 0 1px 2px rgb(3 6 14 / 0.45);
-
-  /* --- faces ---------------------------------------------------------------------------------- */
-  /*
-   * The gradient half of a surface, applied through the `face-*` utilities below.
-   *
-   * These are tokens rather than classes so the light theme can replace them: a white card has no
-   * lit top edge to speak of, and a light page gets its depth from the shadow instead.
-   */
-
-  --face-card: linear-gradient(180deg, var(--color-surface-lit) 0%, var(--color-surface) 58%);
-  --face-raised: linear-gradient(180deg, #1e2434 0%, #191f2d 100%);
-  --face-primary: linear-gradient(
-    180deg,
-    var(--color-primary-lit) 0%,
-    var(--color-primary) 55%,
-    var(--color-primary-deep) 100%
-  );
-  --face-pill: linear-gradient(180deg, #333a4c 0%, #2a3040 100%);
-
-  /*
-   * The same faces, lit.
-   *
-   * A face is a gradient, and a gradient is a `background-image` - which paints over the
-   * `background-color` underneath it. So `hover:bg-primary-hover` on a control wearing a face
-   * changed a value nothing could see, and every button in the interface had a hover state that
-   * did precisely nothing. The lit face is what hover actually swaps.
-   */
-  --face-primary-hover: linear-gradient(
-    180deg,
-    var(--color-primary-hover) 0%,
-    var(--color-primary-lit) 55%,
-    var(--color-primary) 100%
-  );
-  --face-raised-hover: linear-gradient(180deg, #262d40 0%, #212739 100%);
-
-  /* --- the aurora ------------------------------------------------------------------------ */
-  /*
-   * Three lights behind the sign-in screen, blurred past recognition. All three sit in the
-   * accent's own family - one at its hue, one violet, one closer to cyan - because the palette
-   * has three other colours and every one of them means something. An amber blob behind a login
-   * form is a warning nobody raised.
-   */
-
-  --color-aurora-one: #6d7bff;
-  --color-aurora-two: #8f5cff;
-  --color-aurora-three: #3ba7d6;
+  --shadow-edge: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  --shadow-focus: 0 0 0 3px rgb(124 134 255 / 0.25);
+  --shadow-float: 0 24px 48px -12px rgb(0 0 0 / 0.7);
+  --shadow-dialog: 0 30px 80px -20px rgb(0 0 0 / 0.9);
 
   /* --- motion ---------------------------------------------------------------------------- */
 
@@ -366,6 +361,11 @@
   --animate-drift-one: drift-one 46s ease-in-out infinite;
   --animate-drift-two: drift-two 61s ease-in-out infinite;
   --animate-drift-three: drift-three 73s ease-in-out infinite;
+
+  /** The sky's layers: far clouds, near clouds and stars, each its own slow loop, there and back. */
+  --animate-sky-far: sky-far 95s ease-in-out infinite alternate;
+  --animate-sky-near: sky-near 70s ease-in-out infinite alternate;
+  --animate-sky-stars: sky-stars 120s ease-in-out infinite alternate;
 
   /**
    * A thing that has just arrived.
@@ -438,6 +438,34 @@
   }
 }
 
+/* The sky's layers drift a little each way and back: parallax, the near layer furthest. */
+@keyframes sky-far {
+  from {
+    transform: translate3d(1.5%, 0.5%, 0) scale(1.05);
+  }
+  to {
+    transform: translate3d(-2%, -1.5%, 0) scale(1.01);
+  }
+}
+
+@keyframes sky-near {
+  from {
+    transform: translate3d(-1.5%, 1%, 0) scale(1.02);
+  }
+  to {
+    transform: translate3d(1.5%, -1%, 0) scale(1.06);
+  }
+}
+
+@keyframes sky-stars {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-0.6%, 0.4%, 0);
+  }
+}
+
 /* A dropdown or a dialog arriving: it starts almost where it ends. */
 @keyframes rise {
   from {
@@ -466,43 +494,7 @@
 }
 
 /*
- * The four surfaces, as one class each.
- *
- * A raised thing is a fill, a gradient and a shadow that have to change together; written out at
- * every call site they drift within a week. Naming them by what they are - a card, a raised
- * control, a recess - is also what lets the light theme replace all three at once.
- */
-@utility face-card {
-  background-color: var(--color-surface);
-  background-image: var(--face-card);
-  box-shadow: var(--shadow-card);
-}
-
-@utility face-raised {
-  background-color: var(--color-surface-raised);
-  background-image: var(--face-raised);
-  box-shadow: var(--shadow-raised);
-}
-
-@utility face-primary {
-  background-color: var(--color-primary);
-  background-image: var(--face-primary);
-  box-shadow: var(--shadow-raised);
-}
-
-@utility face-pill {
-  background-color: var(--color-control);
-  background-image: var(--face-pill);
-  box-shadow: var(--shadow-raised);
-}
-
-@utility face-sunk {
-  background-color: var(--color-sunk);
-  box-shadow: var(--shadow-sunk);
-}
-
-/*
- * The three control heights, as utilities rather than as spacing tokens.
+ * The control heights, as utilities rather than as spacing tokens.
  *
  * See the note beside `--control-height` for why they cannot live in `--spacing-*`.
  */
@@ -514,8 +506,16 @@
   height: var(--control-height);
 }
 
+@utility h-control-field {
+  height: var(--control-height-field);
+}
+
 @utility h-control-lg {
   height: var(--control-height-lg);
+}
+
+@utility h-control-xl {
+  height: var(--control-height-xl);
 }
 
 @utility size-control-sm {
@@ -526,6 +526,26 @@
 @utility size-control {
   width: var(--control-height);
   height: var(--control-height);
+}
+
+/*
+ * An entity card's ground: a faint two-stop wash, and - when its entity is on - a 14% glow of
+ * the entity's colour at the top-left, the one place colour is allowed to spread. The colour is
+ * `--glow`, set by the card from its kind (`[--glow:var(--color-lamp)]`); unset, no glow.
+ */
+@utility entity-wash {
+  background-image:
+    radial-gradient(
+      120% 90% at 0% 0%,
+      color-mix(in srgb, var(--glow, transparent) 14%, transparent) 0%,
+      transparent 60%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-surface-raised) 60%, var(--color-surface)) 0%,
+      var(--color-surface) 55%
+    );
+  box-shadow: var(--shadow-edge);
 }
 
 /*

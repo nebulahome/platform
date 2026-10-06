@@ -116,7 +116,7 @@ export function FilterSheet(props: FilterSheetProps) {
           aria-label={label}
           className={cn(
             'absolute top-full right-0 z-40 mt-2 flex flex-col gap-4 rounded-field border',
-            'animate-rise border-border-strong face-card p-4 shadow-dialog',
+            'animate-rise border-border-strong bg-surface p-4 shadow-dialog',
             width === 'wide' ? 'w-80' : 'w-72',
           )}
         >
@@ -199,7 +199,7 @@ export function Facet(props: FacetProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-label text-foreground-subtle uppercase">{title}</span>
+      <span className="font-mono text-label text-foreground-subtle uppercase">{title}</span>
       {children}
     </div>
   );

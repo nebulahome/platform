@@ -20,9 +20,9 @@ export type FigureProps = {
 
 /** The classes of each figure size. */
 const FIGURE_SIZES = {
-  large: 'text-reading-lg',
-  medium: 'text-reading',
-  small: 'text-headline',
+  large: 'text-reading',
+  medium: 'text-reading-sm',
+  small: 'text-headline-sm',
 } as const;
 
 /**
@@ -37,7 +37,7 @@ export function Figure(props: FigureProps) {
   return (
     <span className="flex min-w-0 items-baseline gap-1">
       <span
-        className={cn(FIGURE_SIZES[size], 'truncate leading-none font-semibold tabular')}
+        className={cn(FIGURE_SIZES[size], 'truncate leading-none font-medium tabular')}
         /* eslint-disable-next-line react/forbid-dom-props -- the figure takes the light's own colour,
         which the palette does not hold (RULES.md 15.3). */
         style={color === undefined ? undefined : { color }}
@@ -45,7 +45,7 @@ export function Figure(props: FigureProps) {
         {value}
       </span>
       {unit === undefined || unit === null || unit === '' ? null : (
-        <span className="shrink-0 text-subhead text-foreground-muted">{unit}</span>
+        <span className="shrink-0 text-subhead text-foreground-subtle">{unit}</span>
       )}
     </span>
   );

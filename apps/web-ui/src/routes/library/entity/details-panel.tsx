@@ -75,7 +75,7 @@ export function Fact(props: FactProps) {
   const { term, children } = props;
 
   return (
-    <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] items-baseline gap-3 border-b border-border-soft px-4 py-2.5 last:border-b-0">
+    <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] items-baseline gap-3 border-b border-border px-4 py-2.5 last:border-b-0">
       <dt className="text-caption text-foreground-subtle">{term}</dt>
       <dd className="min-w-0 text-ui break-words text-foreground">{children}</dd>
     </div>

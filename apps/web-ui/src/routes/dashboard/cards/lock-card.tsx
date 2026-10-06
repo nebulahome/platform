@@ -58,7 +58,7 @@ export function LockCard(props: { readonly model: EntityCardModel }) {
   const action = needsCode ? (
     <Link
       to={entityPath(entity.entityId)}
-      className="press flex h-control-sm items-center justify-center rounded-field border border-border-strong face-raised px-3 text-ui font-medium"
+      className="press flex h-control-sm items-center justify-center rounded-field border border-border-strong bg-surface-raised px-3 text-ui font-medium"
     >
       {label}…
     </Link>

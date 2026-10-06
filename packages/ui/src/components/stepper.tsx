@@ -71,8 +71,8 @@ export function stepValue(
 
 /** The classes of the two round buttons. */
 const BUTTON =
-  'press-scale flex size-control shrink-0 items-center justify-center rounded-full border ' +
-  'border-border-strong face-raised text-foreground-muted hover:text-foreground ' +
+  'press-scale flex size-control shrink-0 items-center justify-center rounded-pill border ' +
+  'border-border-strong bg-surface-raised text-foreground hover:enabled:bg-surface-high ' +
   'disabled:cursor-not-allowed disabled:opacity-45';
 
 /**
@@ -133,7 +133,7 @@ export function Stepper(props: StepperProps) {
         aria-valuenow={value}
         aria-valuetext={format(value)}
         aria-disabled={disabled || undefined}
-        className="min-w-24 rounded-chip text-center font-mono text-reading text-foreground tabular focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none"
+        className="min-w-24 rounded-chip text-center font-mono text-reading text-foreground tabular focus-visible:shadow-focus focus-visible:outline-none"
         onKeyDown={onKeyDown}
       >
         {format(value)}

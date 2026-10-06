@@ -71,7 +71,7 @@ export function RolesPanel() {
         const held = new Set(role.permissions.map((grant) => grant.key));
 
         return (
-          <div key={role.id} className="border-b border-border-soft last:border-b-0">
+          <div key={role.id} className="border-b border-border last:border-b-0">
             <button
               type="button"
               aria-expanded={isOpen}

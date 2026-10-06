@@ -204,9 +204,9 @@ export function DashboardsManagePage() {
         isEmpty={all.length === 0}
         emptyMessage="No dashboard yet. Make one, lay its cards out, and choose who sees it on their Dashboards page."
       >
-        <div className="overflow-hidden rounded-panel border border-border face-card">
+        <div className="overflow-hidden rounded-panel border border-border bg-surface">
           <div
-            className={`${COLUMNS} border-b border-border-soft px-4 py-2.5 text-label text-foreground-subtle uppercase`}
+            className={`${COLUMNS} border-b border-border px-4 py-2.5 font-mono text-label text-foreground-subtle uppercase`}
             aria-hidden="true"
           >
             <span>Dashboard</span>
@@ -232,7 +232,7 @@ export function DashboardsManagePage() {
                 return (
                   <li
                     key={dashboard.id}
-                    className={`${COLUMNS} border-b border-border-soft px-4 py-3 last:border-b-0`}
+                    className={`${COLUMNS} border-b border-border px-4 py-3 last:border-b-0`}
                   >
                     <span className="flex min-w-0 items-center gap-3">
                       <DeviceIcon

@@ -51,7 +51,7 @@ export function UsageRing(props: UsageRingProps) {
             dataKey="value"
             fill={color}
             cornerRadius={8}
-            background={{ fill: 'var(--color-groove)' }}
+            background={{ fill: 'var(--color-surface-high)' }}
             isAnimationActive={!isReduced}
             animationDuration={700}
             animationEasing="ease-out"

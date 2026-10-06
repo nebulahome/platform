@@ -129,7 +129,7 @@ export function MaintenanceOverlay() {
       aria-labelledby="maintenance-title"
       className="fixed inset-0 z-[100] grid place-items-center bg-canvas/92 px-4 backdrop-blur-sm"
     >
-      <div className="flex w-full max-w-md flex-col gap-4 rounded-panel border border-border face-card p-6">
+      <div className="flex w-full max-w-md flex-col gap-4 rounded-panel border border-border bg-surface p-6">
         <h2 id="maintenance-title" className="text-subhead font-semibold text-foreground">
           {ended === null
             ? 'Restoring from a backup'
@@ -147,7 +147,7 @@ export function MaintenanceOverlay() {
               …
             </p>
             <div
-              className="h-1.5 overflow-hidden rounded-full bg-groove"
+              className="h-1.5 overflow-hidden rounded-full bg-surface-high"
               role="progressbar"
               aria-label="How far the restore is"
               aria-valuemin={0}
@@ -197,7 +197,7 @@ export function MaintenanceOverlay() {
                   ? 'Putting things back did not complete either: the installation needs looking at.'
                   : 'Nothing was changed.'}
             </p>
-            <div className="max-h-48 overflow-auto rounded-field border border-border-soft bg-sunk p-3">
+            <div className="max-h-48 overflow-auto rounded-field border border-border bg-surface-raised p-3">
               <p role="alert" className="text-ui break-words whitespace-pre-wrap text-danger">
                 {ended.message ?? 'The restore failed.'}
               </p>

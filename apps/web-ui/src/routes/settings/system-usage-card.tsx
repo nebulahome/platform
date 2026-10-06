@@ -76,7 +76,7 @@ export function SystemUsageCard(props: SystemUsageCardProps) {
         />
       </div>
 
-      <p className="px-4 pt-2.5 pb-3.5 text-label text-foreground-subtle uppercase">
+      <p className="px-4 pt-2.5 pb-3.5 font-mono text-label text-foreground-subtle uppercase">
         Last 15 minutes
       </p>
     </Panel>

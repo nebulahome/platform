@@ -50,12 +50,12 @@ const COLOR_CLASSES: Record<TagColor, string> = {
 };
 
 const chip = cva(
-  'group inline-flex max-w-full shrink-0 items-center rounded-full border font-medium whitespace-nowrap',
+  'group inline-flex max-w-full shrink-0 items-center rounded-pill border font-medium whitespace-nowrap',
   {
     variants: {
       size: {
         /** In a dense row, beside badges of the same size. */
-        small: 'h-5 px-1 text-label',
+        small: 'h-5 px-1 text-label tracking-normal',
 
         /** In a field, and on the tags page. */
         medium: 'h-6 px-1.5 text-caption',

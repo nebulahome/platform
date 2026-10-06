@@ -153,7 +153,7 @@ export function AddCardDialog(props: AddCardDialogProps) {
               <li key={choice.key} className="list-none">
                 <button
                   type="button"
-                  className="press flex h-full w-full items-start gap-3 rounded-panel border border-border face-card p-3.5 text-left hover:border-border-strong"
+                  className="press flex h-full w-full items-start gap-3 rounded-panel border border-border bg-surface p-3.5 text-left hover:border-border-strong"
                   onClick={() => {
                     if (choice.key === 'entity') {
                       setPicking(true);
@@ -193,7 +193,7 @@ export function AddCardDialog(props: AddCardDialogProps) {
                 <li key={`${found.id}:${declared.id}`} className="list-none">
                   <button
                     type="button"
-                    className="press flex w-full items-center gap-3 rounded-field border border-border face-card px-3.5 py-2.5 text-left hover:border-border-strong"
+                    className="press flex w-full items-center gap-3 rounded-field border border-border bg-surface px-3.5 py-2.5 text-left hover:border-border-strong"
                     onClick={() => {
                       add([packageCardFor(found.id, declared)]);
                     }}
@@ -232,7 +232,7 @@ export function AddCardDialog(props: AddCardDialogProps) {
               <li key={scene.id} className="list-none">
                 <button
                   type="button"
-                  className="press flex w-full items-center justify-between gap-3 rounded-field border border-border face-card px-3.5 py-2.5 text-left hover:border-border-strong"
+                  className="press flex w-full items-center justify-between gap-3 rounded-field border border-border bg-surface px-3.5 py-2.5 text-left hover:border-border-strong"
                   onClick={() => {
                     add([sceneCardFor(scene.id)]);
                   }}

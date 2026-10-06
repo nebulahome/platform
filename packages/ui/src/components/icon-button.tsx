@@ -16,29 +16,32 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { cn } from '../lib/cn.js';
 
 const iconButton = cva(
-  'press-scale inline-flex shrink-0 items-center justify-center ' +
-    'disabled:cursor-not-allowed disabled:opacity-60',
+  'press-scale inline-flex shrink-0 items-center justify-center rounded-pill border ' +
+    'border-transparent disabled:cursor-not-allowed disabled:opacity-50',
   {
     variants: {
       variant: {
         /** Sits on a surface and looks like a control. */
         raised:
-          'face-raised rounded-chip border border-border-strong text-foreground-muted hover:text-foreground',
+          'border-border-strong bg-surface-raised text-foreground-muted hover:enabled:bg-surface-high hover:enabled:text-foreground',
 
         /** No face at all until it is pointed at. For a button inside a field or a row. */
-        bare: 'rounded-chip text-foreground-subtle hover:bg-surface-raised hover:text-foreground',
+        bare: 'text-foreground-muted hover:enabled:bg-surface-high hover:enabled:text-foreground',
 
         /** A destructive action reduced to its glyph. */
-        danger: 'rounded-chip text-foreground-subtle hover:bg-danger/10 hover:text-danger',
+        danger: 'text-foreground-subtle hover:enabled:bg-danger-soft hover:enabled:text-danger',
+
+        /** The one action of a row, reduced to its glyph. */
+        primary: 'bg-primary text-primary-foreground hover:enabled:bg-primary-hover',
       },
       size: {
-        /** Inside a field or a table row. */
-        small: 'size-7',
+        /** Inside a field or a chip. */
+        small: 'size-6',
 
-        /** Beside a control, or in a panel header. */
-        medium: 'size-control-sm',
+        /** Beside a control, in a row, or in a panel header. */
+        medium: 'size-8',
 
-        /** On its own. */
+        /** On its own, beside a button. */
         large: 'size-control',
       },
     },
