@@ -5,3 +5,125 @@
  * built on `@nebulahome/ui` cannot drift apart (RULES.md 15.3).
  */
 @import '@nebulahome/ui/styles.css';
+
+/*
+ * The sky behind sign-in and first-run (`components/sky.tsx`): decorative art, the one drawing
+ * RULES.md 15.4 lets the interface hold, which is why its Dawn colours are written here rather
+ * than taken from the tokens - they belong to the picture, not to the interface.
+ *
+ * Dark is the night sky as the layers draw it. Light is Dawn: a lavender-to-peach sky, the clouds
+ * multiplied over it and desaturated, the stars inverted and faded out below the top 45%, and a
+ * warm glow rising from under the card. The theme's two selectors, as `styles.css` uses them: a
+ * choice made in the interface, and the system's preference for someone who made none.
+ */
+@layer components {
+  /* A cloud layer overhangs the screen by a tenth on each side, so its drift never shows an edge. */
+  .sky-cloud {
+    position: absolute;
+    inset: -10%;
+    width: 120%;
+    max-width: none;
+    height: 120%;
+    object-fit: cover;
+  }
+
+  .sky-vignette {
+    background: radial-gradient(
+      ellipse at center,
+      transparent 50%,
+      color-mix(in srgb, var(--color-canvas) 60%, transparent) 100%
+    );
+  }
+
+  .sky-sunrise {
+    display: none;
+  }
+
+  [data-theme='light'] .sky {
+    background: linear-gradient(180deg, #dfe2fa 0%, #ebe6fb 34%, #f7ecf3 64%, #fde9db 100%);
+  }
+
+  [data-theme='light'] .sky-far {
+    opacity: 0.32;
+    filter: saturate(0.7) hue-rotate(-12deg);
+    mix-blend-mode: multiply;
+  }
+
+  [data-theme='light'] .sky-near {
+    opacity: 0.26;
+    filter: saturate(0.8);
+    mix-blend-mode: multiply;
+  }
+
+  [data-theme='light'] .sky-stars {
+    opacity: 0.55;
+    filter: invert(1) brightness(0.35);
+    mask-image: linear-gradient(180deg, #000 0%, transparent 45%);
+  }
+
+  [data-theme='light'] .sky-sunrise {
+    position: absolute;
+    bottom: -38%;
+    left: 50%;
+    display: block;
+    width: 120%;
+    height: 70%;
+    border-radius: 50%;
+    background: radial-gradient(
+      closest-side,
+      rgb(255 196 140 / 0.55),
+      rgb(255 196 140 / 0.18) 55%,
+      transparent 100%
+    );
+    transform: translateX(-50%);
+  }
+
+  [data-theme='light'] .sky-vignette {
+    background: none;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme='dark']) .sky {
+      background: linear-gradient(180deg, #dfe2fa 0%, #ebe6fb 34%, #f7ecf3 64%, #fde9db 100%);
+    }
+
+    :root:not([data-theme='dark']) .sky-far {
+      opacity: 0.32;
+      filter: saturate(0.7) hue-rotate(-12deg);
+      mix-blend-mode: multiply;
+    }
+
+    :root:not([data-theme='dark']) .sky-near {
+      opacity: 0.26;
+      filter: saturate(0.8);
+      mix-blend-mode: multiply;
+    }
+
+    :root:not([data-theme='dark']) .sky-stars {
+      opacity: 0.55;
+      filter: invert(1) brightness(0.35);
+      mask-image: linear-gradient(180deg, #000 0%, transparent 45%);
+    }
+
+    :root:not([data-theme='dark']) .sky-sunrise {
+      position: absolute;
+      bottom: -38%;
+      left: 50%;
+      display: block;
+      width: 120%;
+      height: 70%;
+      border-radius: 50%;
+      background: radial-gradient(
+        closest-side,
+        rgb(255 196 140 / 0.55),
+        rgb(255 196 140 / 0.18) 55%,
+        transparent 100%
+      );
+      transform: translateX(-50%);
+    }
+
+    :root:not([data-theme='dark']) .sky-vignette {
+      background: none;
+    }
+  }
+}

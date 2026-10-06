@@ -87,7 +87,7 @@ export function TwoFactorForm() {
             }}
             className={
               isRecoveryCode
-                ? 'h-12 w-full rounded-field border border-border bg-canvas px-3.5 text-center font-mono text-subhead tracking-code text-foreground focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none'
+                ? 'h-13 w-full rounded-tile border border-border-strong bg-veil px-3.5 text-center font-mono text-subhead tracking-code text-foreground focus-visible:border-primary focus-visible:shadow-focus focus-visible:outline-none'
                 : 'absolute inset-0 h-full w-full cursor-default opacity-0'
             }
           />
@@ -101,12 +101,12 @@ export function TwoFactorForm() {
                 return (
                   <span
                     key={index}
-                    className={`flex h-12 flex-1 items-center justify-center rounded-field border bg-canvas font-mono text-head ${
+                    className={`flex h-13 flex-1 items-center justify-center rounded-tile border bg-veil font-mono text-code ${
                       error !== undefined
                         ? 'border-danger'
                         : isNext
-                          ? 'border-primary ring-3 ring-primary/25'
-                          : 'border-border'
+                          ? 'border-primary shadow-focus'
+                          : 'border-border-strong'
                     }`}
                   >
                     {character === '' && isNext ? (

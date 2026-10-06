@@ -26,7 +26,7 @@ const SIZES: Readonly<Record<AvatarSize, string>> = {
   small: 'size-8 text-ui',
 
   /** On the profile card. */
-  medium: 'size-13 text-head',
+  medium: 'size-13 text-headline-sm',
 
   /** In the dialog where a picture is chosen, where it is the subject rather than a label. */
   large: 'size-22 text-2xl',
@@ -65,7 +65,7 @@ export function Avatar(props: AvatarProps) {
         'flex shrink-0 items-center justify-center overflow-hidden rounded-full font-medium',
         SIZES[size],
         isAccented
-          ? 'bg-primary text-primary-foreground'
+          ? 'border border-primary text-foreground'
           : 'bg-surface-raised text-foreground-muted',
         className,
       )}

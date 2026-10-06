@@ -101,12 +101,13 @@ describe('AuthLayout', () => {
     expect(container.querySelector('[class*="scale-x-[0.86]"]')).not.toBeNull();
   });
 
-  it('puts the drifting lights behind everything, and hides them from a reader', () => {
+  it('puts the sky behind everything, and hides it from a reader', () => {
     const { container } = render(<AuthLayout isLoading />);
-    const aurora = container.querySelector('[aria-hidden="true"]');
+    const sky = container.querySelector('[aria-hidden="true"]');
 
-    expect(aurora).not.toBeNull();
-    expect(aurora?.querySelectorAll('div')).toHaveLength(3);
-    expect(aurora?.className).toContain('pointer-events-none');
+    expect(sky).not.toBeNull();
+    // Far clouds, near clouds and stars, each a picture with nothing to say.
+    expect(sky?.querySelectorAll('img[alt=""]')).toHaveLength(3);
+    expect(sky?.className).toContain('pointer-events-none');
   });
 });

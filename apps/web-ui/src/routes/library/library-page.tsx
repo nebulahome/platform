@@ -17,8 +17,9 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import { Panel } from '@nebulahome/ui';
+import { PageHeader, Panel } from '@nebulahome/ui';
 
+import { ChevronLeftIcon } from '@/components/icons';
 import { toMessage } from '@/lib/error-message';
 
 /** What the frame needs. */
@@ -114,59 +115,54 @@ export function LibraryPage(props: LibraryPageProps) {
     children,
   } = props;
 
+  const facts = summary.filter((fact): fact is string => typeof fact === 'string' && fact !== '');
+
   return (
-    <div className="flex min-h-0 grow flex-col">
-      <header className="flex min-h-17 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-6 py-2.5">
-        <div className="flex min-w-0 items-baseline gap-4">
-          {parent === undefined ? (
-            <h1 className="text-head font-semibold tracking-tight">{title}</h1>
-          ) : (
-            <h1 className="flex min-w-0 items-center gap-2 text-head tracking-tight">
+    <div className="min-h-0 grow overflow-y-auto px-8 py-7">
+      <div className="mx-auto flex max-w-7xl flex-col gap-5">
+        <PageHeader
+          title={title}
+          crumb={
+            parent === undefined ? undefined : (
               <Link
                 to={parent.to}
-                className="shrink-0 text-foreground-muted transition-colors hover:text-foreground"
+                className="flex items-center gap-1 rounded-chip normal-case transition-colors hover:text-foreground"
               >
-                {parent.label}
+                <ChevronLeftIcon width={14} height={14} />
+                <span className="font-sans text-ui-sm tracking-normal">{parent.label}</span>
               </Link>
-              <span aria-hidden="true" className="font-light text-foreground-subtle">
-                /
-              </span>
-              <span className="truncate font-semibold">{title}</span>
-            </h1>
-          )}
+            )
+          }
+          meta={
+            count === undefined ? undefined : (
+              <>
+                {shownCount === undefined || shownCount === count
+                  ? ''
+                  : `${String(shownCount)} of `}
+                {count} {count === 1 ? noun : plural}
+                {facts.map((fact) => ` · ${fact}`).join('')}
+              </>
+            )
+          }
+          actions={
+            tools === undefined && action === undefined ? undefined : (
+              <>
+                {tools}
+                {action}
+              </>
+            )
+          }
+        />
 
-          {count === undefined ? null : (
-            <span className="truncate text-caption whitespace-nowrap text-foreground-subtle tabular">
-              {shownCount === undefined || shownCount === count ? '' : `${String(shownCount)} of `}
-              {count} {count === 1 ? noun : plural}
-              {summary
-                .filter((fact): fact is string => typeof fact === 'string' && fact !== '')
-                .map((fact) => ` · ${fact}`)
-                .join('')}
-            </span>
-          )}
-        </div>
+        {isPending ? <Placeholder>Reading…</Placeholder> : null}
 
-        {tools === undefined && action === undefined ? null : (
-          <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-            {tools}
-            {action}
-          </div>
-        )}
-      </header>
+        {error === undefined || error === null ? null : <Refusal>{toMessage(error)}</Refusal>}
 
-      <div className="min-h-0 grow overflow-y-auto p-6">
-        <div className="mx-auto flex max-w-5xl flex-col gap-4">
-          {isPending ? <Placeholder>Reading…</Placeholder> : null}
+        {!isPending && (error === undefined || error === null) && isEmpty ? (
+          <Placeholder>{emptyMessage}</Placeholder>
+        ) : null}
 
-          {error === undefined || error === null ? null : <Refusal>{toMessage(error)}</Refusal>}
-
-          {!isPending && (error === undefined || error === null) && isEmpty ? (
-            <Placeholder>{emptyMessage}</Placeholder>
-          ) : null}
-
-          {isPending || isEmpty ? null : children}
-        </div>
+        {isPending || isEmpty ? null : children}
       </div>
     </div>
   );
@@ -220,7 +216,7 @@ function Refusal(props: MessageProps) {
 
   return (
     <Panel title="Could not read">
-      <p role="alert" className="px-4 py-3.5 text-ui text-danger">
+      <p role="alert" className="border-t border-border px-5.5 py-3.5 text-ui text-danger">
         {children}
       </p>
     </Panel>

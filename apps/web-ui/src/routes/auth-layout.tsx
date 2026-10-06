@@ -26,7 +26,7 @@ import type { ReactNode } from 'react';
 
 import { Logo } from '@nebulahome/ui';
 
-import { Aurora } from '@/components/aurora';
+import { Sky } from '@/components/sky';
 
 /** How much larger the lockup is while the mark is turning. */
 const INTRO_SCALE = 'scale-[2.1]';
@@ -75,7 +75,7 @@ export function AuthLayout(props: AuthLayoutProps) {
 
   return (
     <main className="relative grid min-h-screen place-items-center overflow-hidden bg-canvas px-4 py-10">
-      <Aurora />
+      <Sky />
 
       <div className="relative flex w-full max-w-100 flex-col items-center">
         {/*
@@ -116,10 +116,10 @@ export function AuthLayout(props: AuthLayoutProps) {
                 isLoading ? 'scale-x-[0.86] opacity-0' : 'scale-x-100 opacity-100 delay-300'
               }`}
             >
-              <div className="flex flex-col gap-6 rounded-dialog border border-border bg-surface/80 p-7 backdrop-blur-xl">
+              <div className="flex flex-col gap-5.5 rounded-dialog border border-border-strong bg-glass p-7 shadow-dialog backdrop-blur-xl">
                 <div className="flex flex-col gap-1.5">
-                  <h1 className="text-headline font-medium tracking-tight">{title}</h1>
-                  <p className="text-ui text-foreground-subtle">{subtitle}</p>
+                  <h1 className="text-headline font-medium">{title}</h1>
+                  <p className="text-ui text-foreground-muted">{subtitle}</p>
                 </div>
 
                 {children}

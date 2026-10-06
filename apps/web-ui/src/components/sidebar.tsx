@@ -21,12 +21,15 @@
  *
  * Under Packages, the pages of the packages that ask for an entry (`ui.sidebar`), while they run:
  * a package managed from its own page is one click away, like the platform's own sections.
+ *
+ * Drawn as the Nebula rail: 240px on `rail`, rows 38px tall, the current one outlined on
+ * `surface-raised` with its glyph in `primary`, and each group's heading in the mono label style.
  */
 import { useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router';
 
 import type { ApiPackage } from '@nebulahome/contracts';
-import { CatalogueIcon, Logo } from '@nebulahome/ui';
+import { AppIcon, CatalogueIcon, Logo, type UiIconId } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { Avatar } from '@/components/avatar';
@@ -37,8 +40,6 @@ import {
   LibraryIcon,
   PackagesIcon,
   SettingsIcon,
-  WrenchIcon,
-  ZapIcon,
 } from '@/components/icons';
 import { packageAppPath } from '@/packages/package-paths';
 import { useInstalledPackages } from '@/packages/use-packages';
@@ -53,6 +54,9 @@ type GroupEntry = {
   /** What it is called. */
   readonly label: string;
 
+  /** Its glyph. */
+  readonly icon: UiIconId;
+
   /**
    * The permission needed to open it, when one is; the entry is not drawn without it. A courtesy
    * rather than a control - the route checks the permission itself.
@@ -62,21 +66,35 @@ type GroupEntry = {
 
 /** What the house does on its own. */
 const AUTOMATION: readonly GroupEntry[] = [
-  { to: '/automations', label: 'Automations' },
-  { to: '/scenes', label: 'Scenes' },
-  { to: '/aliases', label: 'Aliases' },
+  { to: '/automations', label: 'Automations', icon: 'zap' },
+  { to: '/scenes', label: 'Scenes', icon: 'layers' },
+  { to: '/aliases', label: 'Aliases', icon: 'sigma' },
 ];
 
 /** How the house is described, and the dashboards it is shown on. */
 const CONFIGURATION: readonly GroupEntry[] = [
-  { to: '/devices', label: 'Devices' },
-  { to: '/tags', label: 'Tags' },
-  { to: '/areas', label: 'Areas' },
-  { to: '/configuration/dashboards', label: 'Dashboards', permission: 'dashboard:manage' },
+  { to: '/devices', label: 'Devices', icon: 'cpu' },
+  { to: '/tags', label: 'Tags', icon: 'tag' },
+  { to: '/areas', label: 'Areas', icon: 'house' },
+  {
+    to: '/configuration/dashboards',
+    label: 'Dashboards',
+    icon: 'layout-grid',
+    permission: 'dashboard:manage',
+  },
 ];
 
 /** The classes a row shares whether or not it is the current one. */
-const ROW = 'press flex h-10 items-center gap-3 rounded-field px-2.5 text-title';
+const ROW =
+  'press flex h-9.5 shrink-0 items-center gap-3 rounded-field border px-3 text-ui transition-colors';
+
+/** A row that is the current page: outlined, raised, its glyph in the accent. */
+const ROW_ACTIVE =
+  'border-border-strong bg-surface-raised font-medium text-foreground [&_svg]:text-primary';
+
+/** A row that is not. */
+const ROW_IDLE =
+  'border-transparent text-foreground-muted hover:bg-surface-raised hover:text-foreground';
 
 /** What one top-level row needs. */
 type NavRowProps = {
@@ -103,20 +121,11 @@ function NavRow(props: NavRowProps) {
   const { to, icon, label, count } = props;
 
   return (
-    <NavLink
-      to={to}
-      className={({ isActive }) =>
-        `${ROW} ${
-          isActive
-            ? 'bg-surface-raised font-medium text-foreground [&_svg]:text-primary'
-            : 'text-foreground-muted hover:bg-surface-raised/60 hover:text-foreground'
-        }`
-      }
-    >
+    <NavLink to={to} className={({ isActive }) => `${ROW} ${isActive ? ROW_ACTIVE : ROW_IDLE}`}>
       {icon}
-      <span className="grow">{label}</span>
+      <span className="grow truncate">{label}</span>
       {count === undefined ? null : (
-        <span className="font-mono text-caption text-foreground-subtle">{count}</span>
+        <span className="font-mono text-mono-caption text-foreground-subtle">{count}</span>
       )}
     </NavLink>
   );
@@ -126,9 +135,6 @@ function NavRow(props: NavRowProps) {
 type NavGroupProps = {
   /** What it is called. */
   readonly label: string;
-
-  /** The glyph beside the heading. */
-  readonly icon: ReactNode;
 
   /** The entries under it, in the order they read, already narrowed to what may be opened. */
   readonly entries: readonly GroupEntry[];
@@ -147,42 +153,32 @@ type NavGroupProps = {
  * @returns The group.
  */
 function NavGroup(props: NavGroupProps) {
-  const { label, icon, entries, isOpen, onToggle } = props;
+  const { label, entries, isOpen, onToggle } = props;
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-0.5">
       <button
         type="button"
         aria-expanded={isOpen}
         onClick={onToggle}
-        className={`${ROW} w-full ${
-          isOpen ? 'text-foreground [&_svg]:first:text-primary' : 'text-foreground-muted'
-        } hover:bg-surface-raised/60 hover:text-foreground`}
+        className="press flex h-9.5 w-full items-center gap-3 rounded-field px-3 font-mono text-label text-foreground-subtle uppercase transition-colors hover:text-foreground-muted"
       >
-        {icon}
-        <span className={`grow text-left ${isOpen ? 'font-medium' : ''}`}>{label}</span>
+        <span className="grow text-left">{label}</span>
         <ChevronIcon isOpen={isOpen} className="text-foreground-subtle" />
       </button>
 
-      {isOpen ? (
-        <div className="ml-[19px] flex flex-col gap-0.5 border-l border-border pl-2.5">
-          {entries.map((entry) => (
+      {isOpen
+        ? entries.map((entry) => (
             <NavLink
               key={entry.to}
               to={entry.to}
-              className={({ isActive }) =>
-                `press flex h-8.5 items-center rounded-chip px-2.5 text-ui ${
-                  isActive
-                    ? 'bg-surface-raised font-medium text-foreground'
-                    : 'text-foreground-muted hover:text-foreground'
-                }`
-              }
+              className={({ isActive }) => `${ROW} ${isActive ? ROW_ACTIVE : ROW_IDLE}`}
             >
-              {entry.label}
+              <AppIcon id={entry.icon} size={18} />
+              <span className="grow truncate">{entry.label}</span>
             </NavLink>
-          ))}
-        </div>
-      ) : null}
+          ))
+        : null}
     </div>
   );
 }
@@ -217,7 +213,7 @@ function UserChip() {
       {isOpen ? (
         <div
           role="menu"
-          className="absolute bottom-full left-0 mb-1 w-full overflow-hidden rounded-field border border-border-strong face-card p-1 shadow-dialog"
+          className="absolute bottom-full left-0 mb-1.5 w-full animate-rise overflow-hidden rounded-tile border border-border-strong bg-surface p-1 shadow-float"
         >
           <button
             type="button"
@@ -231,7 +227,7 @@ function UserChip() {
               setOpen(false);
               void endSession();
             }}
-            className="press flex h-9 w-full items-center rounded-chip px-2.5 text-ui text-foreground-muted hover:bg-surface hover:text-danger"
+            className="press flex h-8 w-full items-center rounded-chip px-2.5 text-ui text-foreground-muted hover:bg-surface-raised hover:text-danger"
           >
             Sign out
           </button>
@@ -250,7 +246,7 @@ function UserChip() {
         onClick={() => {
           setOpen(!isOpen);
         }}
-        className="press flex h-13 w-full items-center gap-3 rounded-field px-2.5 text-left hover:bg-surface-raised/60"
+        className="press mt-1.5 flex w-full items-center gap-2.5 rounded-tile border border-border p-2.5 text-left transition-colors hover:bg-surface-raised"
       >
         <Avatar displayName={user?.displayName ?? ''} avatarUrl={user?.avatarUrl} isAccented />
         <span className="flex min-w-0 grow flex-col">
@@ -283,7 +279,7 @@ function PackagePages() {
   }
 
   return (
-    <div className="-mt-3 ml-[19px] flex flex-col gap-0.5 border-l border-border pl-2.5">
+    <div className="ml-4.5 flex flex-col gap-0.5 border-l border-border pl-2">
       {pages.map((found) => {
         const iconId = found.ui.sidebar?.icon;
         const icon = iconId === undefined ? undefined : icons.get(iconId);
@@ -293,10 +289,8 @@ function PackagePages() {
             key={found.id}
             to={packageAppPath(found.id)}
             className={({ isActive }) =>
-              `press flex h-8.5 items-center gap-2 rounded-chip px-2.5 text-ui ${
-                isActive
-                  ? 'bg-surface-raised font-medium text-foreground'
-                  : 'text-foreground-muted hover:text-foreground'
+              `press flex h-8.5 items-center gap-2 rounded-field border px-2.5 text-ui-sm transition-colors ${
+                isActive ? ROW_ACTIVE : ROW_IDLE
               }`
             }
           >
@@ -320,14 +314,13 @@ function PackagePages() {
 /** A group of the rail, before the permissions narrow it. */
 type Group = {
   readonly label: string;
-  readonly icon: ReactNode;
   readonly entries: readonly GroupEntry[];
 };
 
 /** The two groups, in the order they read. */
 const GROUPS: readonly Group[] = [
-  { label: 'Automation', icon: <ZapIcon />, entries: AUTOMATION },
-  { label: 'Configuration', icon: <WrenchIcon />, entries: CONFIGURATION },
+  { label: 'Automation', entries: AUTOMATION },
+  { label: 'Configuration', entries: CONFIGURATION },
 ];
 
 /**
@@ -386,24 +379,21 @@ export function Sidebar() {
   return (
     <nav
       aria-label="Main"
-      className="flex w-66 shrink-0 flex-col gap-4 border-r border-border bg-rail p-4"
+      className="flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border bg-rail px-3.5 py-4.5"
     >
-      <div className="flex h-11 items-center gap-3 px-2">
-        <Logo size={27} />
+      <div className="mb-4 flex h-8 items-center gap-2.5 px-1.5">
+        <Logo size={26} />
         <span className="text-subhead font-semibold tracking-tight">Nebula Home</span>
       </div>
 
-      <div className="h-px bg-border" />
-
       <NavRow to="/dashboards" icon={<DashboardsIcon />} label="Dashboards" />
 
-      <div className="h-px bg-border" />
+      <div className="h-3 shrink-0" />
 
       {groups.map((group) => (
         <NavGroup
           key={group.label}
           label={group.label}
-          icon={group.icon}
           entries={group.entries}
           isOpen={open === group.label}
           onToggle={() => {
@@ -422,11 +412,9 @@ export function Sidebar() {
         <NavRow to="/containers" icon={<ContainersIcon />} label="Containers" />
       ) : null}
 
-      <div className="grow" />
+      <div className="min-h-4 grow" />
 
-      <div className="h-px bg-border" />
-
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-0.5">
         <NavRow to="/settings" icon={<SettingsIcon />} label="Settings" />
 
         {/*
