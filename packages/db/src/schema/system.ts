@@ -100,6 +100,20 @@ export const packageRoutes = systemSchema.table(
 );
 
 /**
+ * The house's registration at each Community Hub it reported an install to.
+ *
+ * One row per Hub address: the installation the Hub made of the house after a proof of work, and
+ * the token it showed once, sealed (`{ "$sealed": "v1:…" }`) as every secret at rest is. Written by
+ * `packet-manager`, which reports what it installs, and read by nothing else.
+ */
+export const communityHubInstallations = systemSchema.table('community_hub_installations', {
+  hubUrl: text('hub_url').primaryKey(),
+  installationId: uuid('installation_id').notNull(),
+  token: jsonb('token').notNull(),
+  registeredAt: timestamp('registered_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
  * Runtime-changeable configuration, as opposed to environment variables.
  *
  * Anything an owner can change while the system runs lives here: retention periods, timeouts,

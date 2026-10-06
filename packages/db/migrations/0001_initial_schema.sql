@@ -297,6 +297,19 @@ CREATE TABLE system.packages (
 
 CREATE INDEX packages_state_idx ON system.packages (state);
 
+-- The house as the Community Hub knows it: one registration per Hub address, made the first time
+-- the house reports an install (a proof of work, then a token the Hub shows once), and the token
+-- every report since is sent with. Sealed under NEBULA_SECRETS_KEY like any other secret. A row
+-- of a Hub no longer set is kept: pointing the house back at it reports as the same house.
+CREATE TABLE system.community_hub_installations (
+  hub_url          text        PRIMARY KEY,
+  installation_id  uuid        NOT NULL,
+  token            jsonb       NOT NULL,   -- { "$sealed": "v1:…" }
+  registered_at    timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT community_hub_installations_url CHECK (hub_url ~ '^https?://')
+);
+
 CREATE TABLE system.settings (
   key        text        PRIMARY KEY,
   value      jsonb       NOT NULL,
@@ -1305,9 +1318,10 @@ GRANT INSERT, SELECT ON history.logs TO nebula_logger;
 GRANT SELECT ON system.settings, system.v_schema_version TO nebula_logger;
 -- Explicitly no access to auth.users, registry, or any other history table.
 
--- packet-manager: packages and routes.
+-- packet-manager: packages and routes, and the house's registration at the Community Hub.
 GRANT USAGE ON SCHEMA system, registry TO nebula_packet_manager;
-GRANT SELECT, INSERT, UPDATE, DELETE ON system.packages, system.package_routes
+GRANT SELECT, INSERT, UPDATE, DELETE ON system.packages, system.package_routes,
+  system.community_hub_installations
   TO nebula_packet_manager;
 GRANT INSERT, SELECT ON system.audit_log TO nebula_packet_manager;
 GRANT SELECT ON registry.devices, registry.entities TO nebula_packet_manager;
