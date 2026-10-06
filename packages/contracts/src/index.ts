@@ -49,6 +49,8 @@ export * from './package-manifest.js';
 export * from './package-requires.js';
 export * from './semver.js';
 export * from './package-index.js';
+export * from './integration-index.js';
+export * from './integration-catalogue.js';
 export * from './packet-manager.js';
 export * from './dependencies.js';
 export * from './permissions.js';

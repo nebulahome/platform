@@ -928,6 +928,20 @@ export const integrationVendorViewSchema = integrationVendorSchema.extend({
    * devices cannot be added, nor its instances started, until it runs.
    */
   needsPackage: z.boolean().default(false),
+
+  /**
+   * What the integrations index offers a vendor the platform installed: a newer release, or a
+   * rebuild of the one installed in the local folder. Null for one under development, and while
+   * the packet-manager cannot be asked.
+   */
+  update: z
+    .object({
+      latestVersion: z.string().max(64).nullable(),
+      hasUpdate: z.boolean(),
+      hasNewBuild: z.boolean(),
+    })
+    .nullable()
+    .default(null),
 });
 
 /** One vendor the hub has loaded, with what the owner has done about it. */

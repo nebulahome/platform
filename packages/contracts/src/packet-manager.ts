@@ -77,6 +77,24 @@ export const PACKET_MANAGER_METHODS = {
 
   /** A package's process, once started: the RPC methods it registered. */
   announce: 'announce',
+
+  /**
+   * The Community Hub's integrations, searched - and the local integrations folder's files - each
+   * with what installing it here would take.
+   */
+  integrationSearch: 'integration_search',
+
+  /** Installs, updates or reinstalls an integration's bundle, and has `hub` load it. */
+  integrationInstall: 'integration_install',
+
+  /** Removes an installed integration's bundle, and has `hub` let go of it. */
+  integrationRemove: 'integration_remove',
+
+  /** Every installed integration, and the update the integrations index offers it. */
+  integrationAvailable: 'integration_available',
+
+  /** What the Hub says of one package or integration beyond its search row, for its own page. */
+  hubDetail: 'hub_detail',
 } as const;
 
 /** The subject token a package answers its pages' calls on: `svc.<id>.rpc`. */
@@ -318,7 +336,7 @@ export const PACKAGE_LISTING_ORIGINS = ['hub', 'local'] as const;
 export type PackageListingOrigin = (typeof PACKAGE_LISTING_ORIGINS)[number];
 
 /** A SHA-256 digest, in hex: how the Hub addresses a logo. */
-const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/u, 'Must be a SHA-256 in hex');
+export const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/u, 'Must be a SHA-256 in hex');
 
 /** `svc.packet-manager.search`: what to look for, and from which page on. */
 export const packageSearchRequestSchema = z.strictObject({

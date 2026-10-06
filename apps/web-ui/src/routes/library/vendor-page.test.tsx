@@ -108,6 +108,7 @@ const BAMBU: IntegrationVendorView = {
   accounts: [],
   needsAccount: false,
   needsPackage: false,
+  update: null,
   containers: [],
   containerStatuses: [],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
@@ -488,6 +489,7 @@ describe('a vendor that adds its own devices', () => {
     accounts: [],
     needsAccount: false,
     needsPackage: false,
+    update: null,
   };
 
   /**

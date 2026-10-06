@@ -106,6 +106,7 @@ export const VENDORS: IntegrationVendorView[] = ['bambu-lab', 'shelly'].map((id)
   accounts: [],
   needsAccount: false,
   needsPackage: false,
+  update: null,
   containers: [],
   containerStatuses: [],
   setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },

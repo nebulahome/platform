@@ -39,6 +39,7 @@ function vendor(overrides: Partial<IntegrationVendorView> = {}): IntegrationVend
     accounts: [],
     needsAccount: false,
     needsPackage: false,
+    update: null,
     containers: [],
     containerStatuses: [],
     setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
