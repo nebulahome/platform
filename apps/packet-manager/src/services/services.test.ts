@@ -386,12 +386,12 @@ describe('the Community Hub client', () => {
 
   it('says why it cannot search: no Hub set, none reachable, or what the Hub refused', async () => {
     await expect(
-      new CommunityHubClient({ url: undefined, logger }).search({ limit: 30 }),
+      new CommunityHubClient({ url: undefined, logger }).search('package', { limit: 30 }),
     ).rejects.toThrow('No Community Hub is set: COMMUNITY_HUB_URL');
     await expect(
       clientOf(() => {
         throw new TypeError('getaddrinfo ENOTFOUND hub.example');
-      }).search({ limit: 30 }),
+      }).search('package', { limit: 30 }),
     ).rejects.toThrow(
       'The Community Hub could not be reached at https://hub.example: getaddrinfo ENOTFOUND hub.example',
     );
@@ -401,7 +401,7 @@ describe('the Community Hub client', () => {
           { error: { code: 'MAINTENANCE', message: 'Upgrading the catalogue' } },
           { status: 503 },
         ),
-      ).search({ limit: 30 }),
+      ).search('package', { limit: 30 }),
     ).rejects.toThrow('The Community Hub answered HTTP 503: Upgrading the catalogue');
   });
 
@@ -425,7 +425,7 @@ describe('the Community Hub client', () => {
           },
         ],
       }),
-    ).search({ q: 'rec', limit: 30 });
+    ).search('package', { q: 'rec', limit: 30 });
 
     expect(page).toEqual({
       items: [
@@ -438,6 +438,7 @@ describe('the Community Hub client', () => {
           color: '#123456',
           logo: null,
           latestVersion: '1.4.0',
+          publishedAt: null,
           downloads: 3,
           stars: 1,
         },
@@ -471,7 +472,7 @@ describe('the Community Hub client', () => {
           }),
     );
 
-    await client.search({ limit: 30 });
+    await client.search('package', { limit: 30 });
 
     await expect(client.logo(sha)).rejects.toThrow(/not the one asked for/u);
   });

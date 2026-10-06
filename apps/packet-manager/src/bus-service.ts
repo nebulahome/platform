@@ -2,12 +2,18 @@
  * What `packet-manager` answers on the bus: `nebula.v1.svc.packet-manager.<method>`, asked by
  * `api` on the owner's behalf, and `announce`, by a package's own process once it runs.
  *
- * An install answers once the packages are unpacked and started, which can be minutes on a slow
- * connection: `api` waits for it, with a timeout to match.
+ * An install answers once the packages are unpacked and started - or the integration's bundle is
+ * unpacked and `hub` has loaded it - which can be minutes on a slow connection: `api` waits for
+ * it, with a timeout to match.
  */
 import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
+  hubDetailRequestSchema,
+  integrationAvailableRequestSchema,
+  integrationInstallRequestSchema,
+  integrationRemoveRequestSchema,
+  integrationSearchRequestSchema,
   PACKET_MANAGER_METHODS,
   PACKET_MANAGER_SERVICE,
   packageAnnounceRequestSchema,
@@ -21,6 +27,7 @@ import {
   packetManagerEmptyRequestSchema,
 } from '@nebulahome/contracts';
 
+import type { IntegrationManager } from './integrations/integration-manager.js';
 import type { PacketManager } from './service.js';
 
 /**
@@ -40,9 +47,14 @@ function subject(
  *
  * @param client - The bus.
  * @param service - The packet-manager.
+ * @param integrations - The integrations it installs.
  * @returns The subscriptions, to end on shutdown.
  */
-export function servePacketManager(client: BusClient, service: PacketManager): BusSubscription[] {
+export function servePacketManager(
+  client: BusClient,
+  service: PacketManager,
+  integrations: IntegrationManager,
+): BusSubscription[] {
   /** Reads may be answered side by side with a long install. */
   const reads = { concurrency: 8 };
 
@@ -76,6 +88,35 @@ export function servePacketManager(client: BusClient, service: PacketManager): B
       packageHubLogoRequestSchema,
       async (request) => service.hubLogo(request.sha256),
       reads,
+    ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.hubDetail),
+      hubDetailRequestSchema,
+      async (request) => service.hubDetail(request.kind, request.id),
+      reads,
+    ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.integrationSearch),
+      integrationSearchRequestSchema,
+      async (request) => integrations.search(request),
+      reads,
+    ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.integrationAvailable),
+      integrationAvailableRequestSchema,
+      async () => integrations.available(),
+      reads,
+    ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.integrationInstall),
+      integrationInstallRequestSchema,
+      async (request) =>
+        integrations.install(request.vendorId, request.version, request.requestedBy),
+    ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.integrationRemove),
+      integrationRemoveRequestSchema,
+      async (request) => integrations.remove(request.vendorId),
     ),
     client.serve(
       subject(PACKET_MANAGER_METHODS.plan),

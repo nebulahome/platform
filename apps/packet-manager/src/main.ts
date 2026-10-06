@@ -16,17 +16,23 @@ import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { servePacketManager } from './bus-service.js';
 import {
+  INTEGRATION_RUNTIME_VERSION,
+  integrationIndexUrlOf,
+  localIntegrationsDirectory,
   localPackagesDirectory,
   packageIndexUrlOf,
   packetManagerEnvSchema,
   SERVICE_NAME,
   SERVICE_VERSION,
 } from './config.js';
+import { IntegrationManager } from './integrations/integration-manager.js';
+import { databaseHubInstallationStore } from './persistence/hub-installations.js';
 import { databasePackageStore } from './persistence/packages.js';
 import { PacketManager } from './service.js';
 import { CommunityHubClient } from './services/hub-client.js';
-import { PackageIndexClient } from './services/index-client.js';
-import { LocalReleases } from './services/local-releases.js';
+import { HubReporter } from './services/hub-reporter.js';
+import { IntegrationIndexClient, PackageIndexClient } from './services/index-client.js';
+import { LocalIntegrationReleases, LocalReleases } from './services/local-releases.js';
 
 /** How long a graceful shutdown is given before the process ends regardless. */
 const SHUTDOWN_TIMEOUT_MS = 20_000;
@@ -99,6 +105,18 @@ async function start(): Promise<void> {
   const layout = resolveDataLayout(config);
   const localFolder = localPackagesDirectory(config);
   const local = new LocalReleases(localFolder, logger);
+  const localIntegrationsFolder = localIntegrationsDirectory(config);
+  const localIntegrations = new LocalIntegrationReleases(localIntegrationsFolder, logger);
+  const secretsKey = secretsKeyFrom(config.NEBULA_SECRETS_KEY);
+  const hub = new CommunityHubClient({ url: config.COMMUNITY_HUB_URL, logger });
+  const reporter = new HubReporter({
+    hub,
+    store: databaseHubInstallationStore(database.db),
+    secretsKey,
+    platformVersion: config.NEBULA_PLATFORM_VERSION,
+    logger,
+    isEnabled: config.COMMUNITY_HUB_REPORT_INSTALLS,
+  });
   const service = new PacketManager({
     config,
     store: databasePackageStore(database.db),
@@ -116,8 +134,9 @@ async function start(): Promise<void> {
        */
       local: async () => local.entries(),
     }),
-    hub: new CommunityHubClient({ url: config.COMMUNITY_HUB_URL, logger }),
-    secretsKey: secretsKeyFrom(config.NEBULA_SECRETS_KEY),
+    hub,
+    reporter,
+    secretsKey,
     runner:
       config.PACKET_MANAGER_RUNNER ??
       fileURLToPath(import.meta.resolve('@nebulahome/package-host/run')),
@@ -126,12 +145,41 @@ async function start(): Promise<void> {
     externalServices: new Set(config.NEBULA_MQTT_URL === undefined ? [] : [MQTT_BROKER_SERVICE]),
   });
 
+  const integrations = new IntegrationManager({
+    index: new IntegrationIndexClient({
+      url: integrationIndexUrlOf(config),
+      ttlMs: config.PACKET_MANAGER_INDEX_TTL_MS,
+      logger,
+
+      /**
+       * The local integrations folder's releases.
+       *
+       * @returns Them, in the index's shape.
+       */
+      local: async () => localIntegrations.entries(),
+    }),
+    hub,
+    client,
+    logger,
+    integrationsDir: layout.integrations,
+    cacheDir: `${layout.cache}/integrations`,
+    runtimeVersion: INTEGRATION_RUNTIME_VERSION,
+    downloadTimeoutMs: config.PACKET_MANAGER_DOWNLOAD_TIMEOUT_MS,
+    reporter,
+  });
+
   // Served before the packages start: each announces itself to the service as it comes up.
-  const subscriptions = servePacketManager(client, service);
+  const subscriptions = servePacketManager(client, service, integrations);
 
   await service.start();
   logger.info(
-    { platform: service.platformVersion, localFolder: localFolder ?? null },
+    {
+      platform: service.platformVersion,
+      integrationRuntime: INTEGRATION_RUNTIME_VERSION,
+      localFolder: localFolder ?? null,
+      localIntegrationsFolder: localIntegrationsFolder ?? null,
+      hubReports: config.COMMUNITY_HUB_URL !== undefined && config.COMMUNITY_HUB_REPORT_INSTALLS,
+    },
     'The packet-manager is serving',
   );
 
@@ -158,6 +206,7 @@ async function start(): Promise<void> {
           subscription.unsubscribe();
         }
 
+        reporter.stop();
         await service.stop();
         await client.drain();
         await database.close();

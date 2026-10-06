@@ -328,6 +328,9 @@ importers:
       '@nebulahome/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@nebulahome/integration-sdk':
+        specifier: workspace:*
+        version: link:../../packages/integration-sdk
       '@nebulahome/logging':
         specifier: workspace:*
         version: link:../../packages/logging

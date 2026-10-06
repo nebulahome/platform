@@ -70,6 +70,8 @@ import {
   unmetRequirements,
   type AvailablePackage,
   type Candidate,
+  type HubDetail,
+  type HubItemKind,
   type Dependent,
   type DependencyNode,
   type InstalledNode,
@@ -97,7 +99,8 @@ import { SDK_VERSION } from '@nebulahome/package-sdk';
 import type { PacketManagerConfig } from './config.js';
 import { LogRing } from './domain/log-ring.js';
 import type { PackageRow, PackageStore } from './persistence/packages.js';
-import type { CommunityHubClient, HubPackage } from './services/hub-client.js';
+import type { CommunityHubClient, HubItem } from './services/hub-client.js';
+import type { InstallReporter } from './services/hub-reporter.js';
 import type { IndexRead, PackageIndexClient } from './services/index-client.js';
 import { installRelease } from './services/installer.js';
 import { readPackageFiles, type PackageFiles } from './services/package-files.js';
@@ -122,6 +125,9 @@ export type PacketManagerOptions = {
 
   /** The Community Hub, searched for what to install. */
   readonly hub: CommunityHubClient;
+
+  /** Where an install of a release of the index is reported to the Hub; none in a test. */
+  readonly reporter?: InstallReporter;
 
   readonly secretsKey: Buffer;
 
@@ -420,7 +426,11 @@ export class PacketManager {
     const [first, asked] = await Promise.all([
       this.#options.index.read(),
       this.#options.hub
-        .search({ q: request.q, cursor: request.cursor, limit: PACKAGE_SEARCH_PAGE_SIZE })
+        .search('package', {
+          q: request.q,
+          cursor: request.cursor,
+          limit: PACKAGE_SEARCH_PAGE_SIZE,
+        })
         .then(
           (page) => ({ page, error: null }),
           (error: unknown) => ({ page: null, error: messageOf(error) }),
@@ -477,6 +487,20 @@ export class PacketManager {
   }
 
   /**
+   * What the Hub says of one package or integration beyond its search row, for its page in the
+   * install dialog.
+   *
+   * @param kind - Which the Hub lists.
+   * @param id - The item.
+   * @returns What it says.
+   */
+  public async hubDetail(kind: HubItemKind, id: string): Promise<HubDetail> {
+    const detail = await this.#options.hub.detail(kind, id);
+
+    return { kind, id, ...detail, models: [...detail.models], transports: [...detail.transports] };
+  }
+
+  /**
    * A package of the Hub, with what installing it here would take.
    *
    * @param item - What the Hub says of it.
@@ -485,7 +509,7 @@ export class PacketManager {
    * @returns The listing.
    */
   #listingOfHub(
-    item: HubPackage,
+    item: HubItem,
     entry: PackageIndexEntry | undefined,
     read: IndexRead,
   ): PackageListing {
@@ -754,6 +778,7 @@ export class PacketManager {
       entry.rollbackTo = { version: previous, untilMs: Date.now() + ROLLBACK_WINDOW_MS };
       await this.#removeOldReleases(packageId, [files.manifest.version, previous]);
       this.#publish('installed', entry);
+      this.#report(release.artifact.url, packageId, files.manifest.version, 'update');
       await this.#reconcileContainers();
       await this.#startOne(entry);
 
@@ -1743,12 +1768,36 @@ export class PacketManager {
 
     this.#entries.set(candidate.id, entry);
     this.#publish('installed', entry);
+
+    if (existing?.row.version !== candidate.version) {
+      this.#report(
+        release.artifact.url,
+        candidate.id,
+        candidate.version,
+        existing === undefined ? 'install' : 'update',
+      );
+    }
+
     this.#options.logger.info(
       { package: candidate.id, version: candidate.version },
       'Installed a package',
     );
 
     return entry;
+  }
+
+  /**
+   * Reports an install of a release of the index to the Community Hub; a local file's is not.
+   *
+   * @param url - The archive's address, which says where the release came from.
+   * @param packageId - The package.
+   * @param version - The release.
+   * @param action - Whether it is new to the house, or an update.
+   */
+  #report(url: string, packageId: string, version: string, action: 'install' | 'update'): void {
+    if (sourceOf(url) === 'index') {
+      this.#options.reporter?.report({ kind: 'package', slug: packageId, version, action });
+    }
   }
 
   /**
