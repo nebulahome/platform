@@ -191,16 +191,6 @@
   --color-house-panel-cell: #090c1c;
   --color-house-panel-glare: #8fa3dc;
 
-  /* --- the sky ------------------------------------------------------------------------------ */
-  /*
-   * The three lights of the aurora behind sign-in and first-run, all in the accent's family -
-   * one at its hue, one violet, one closer to cyan - because every other colour here means
-   * something. An amber light behind a login form is a warning nobody raised.
-   */
-  --color-aurora-one: #6d7bff;
-  --color-aurora-two: #8f5cff;
-  --color-aurora-three: #3ba7d6;
-
   /* --- shape ---------------------------------------------------------------------------- */
   /*
    * A pill is a control; a rounded rectangle holds things. A control inside a card takes the step
@@ -357,11 +347,6 @@
    */
   --animate-orbit: orbit 1.2s linear infinite;
 
-  /** The three lights, each on its own slow loop so they never come back into phase. */
-  --animate-drift-one: drift-one 46s ease-in-out infinite;
-  --animate-drift-two: drift-two 61s ease-in-out infinite;
-  --animate-drift-three: drift-three 73s ease-in-out infinite;
-
   /** The sky's layers: far clouds, near clouds and stars, each its own slow loop, there and back. */
   --animate-sky-far: sky-far 95s ease-in-out infinite alternate;
   --animate-sky-near: sky-near 70s ease-in-out infinite alternate;
@@ -400,41 +385,6 @@
 @keyframes orbit {
   to {
     transform: rotate(360deg);
-  }
-}
-
-/*
- * The lights drift. Slowly - a full loop is between three quarters of a minute and a minute and
- * a quarter, which is slow enough that you notice the screen is alive without noticing motion.
- * The three periods are coprime so the arrangement does not repeat.
- */
-@keyframes drift-one {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  50% {
-    transform: translate3d(16vw, 10vh, 0) scale(1.18);
-  }
-}
-
-@keyframes drift-two {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1.1);
-  }
-  50% {
-    transform: translate3d(-13vw, -12vh, 0) scale(0.92);
-  }
-}
-
-@keyframes drift-three {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(0.95);
-  }
-  50% {
-    transform: translate3d(9vw, -14vh, 0) scale(1.2);
   }
 }
 
