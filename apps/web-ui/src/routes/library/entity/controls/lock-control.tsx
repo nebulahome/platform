@@ -5,10 +5,13 @@
  * a fact about the front door, not a hiccup to retry quietly. A lock that wants a code gets a
  * field for it; the code is sent with the command and kept nowhere, and the field empties once
  * it has gone.
+ *
+ * Unlocking is held, never tapped: a door opened by a tap in a pocket, or by a child at the
+ * dashboard, is a door open. Locking is a tap - nothing is lost by a door locked by mistake.
  */
 import { useState } from 'react';
 
-import { AppIcon, Button, cn, TextField } from '@nebulahome/ui';
+import { AppIcon, Button, cn, HoldButton, TextField } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
 import {
@@ -86,16 +89,17 @@ export function LockControl(props: ControlProps) {
           <AppIcon id="lock" size={15} />
           Lock
         </Button>
-        <Button
-          variant="ghost"
+        <HoldButton
           disabled={disabled || busy || (hasCode && code === '')}
-          onClick={() => {
+          onConfirm={() => {
             send('unlock');
           }}
         >
-          <AppIcon id="lock-open" size={15} />
-          Unlock
-        </Button>
+          <span className="inline-flex items-center gap-2">
+            <AppIcon id="lock-open" size={15} />
+            Hold to unlock
+          </span>
+        </HoldButton>
       </div>
     </ControlBlock>
   );

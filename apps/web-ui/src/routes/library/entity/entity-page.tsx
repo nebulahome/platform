@@ -1,25 +1,36 @@
 /**
  * One entity's own page: what it is doing now, what it has done, and the facts about it.
  *
- * A page rather than a dialog, because it holds three different things and each needs room: the
- * controls for whatever the entity can be told, a chart of its past, and the facts about it. What
- * it is called, drawn as and tagged with is a dialog behind the settings button in the header -
- * the way a device's is on its page - and `?settings` in the address opens the page with it open,
- * which is where the spanner on an entity's row leads.
+ * As the board draws it, one column: the way back to its device, the entity's tile, name and what
+ * it is, its state as a Pill with its area and its id, Settings - then the health strip
+ * (Availability, Last change with what caused it, Device, Integration), its Control, its History
+ * with the recent changes, what else in the house names it, and the facts about it.
  *
- * The header names where it is the way the navigation does: Devices, then the device it belongs
- * to, then the entity. The device's name is a link to the device's page. Under the facts, what
- * else in the house names it - the automations, scenes and aliases it takes part in.
+ * What it is called, drawn as and tagged with is a dialog behind Settings - the way a device's is
+ * on its page - and `?settings` in the address opens the page with it open, which is where the
+ * spanner on an entity's row leads.
  */
+import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams } from 'react-router';
 
-import { AppIcon, Badge, IconButton } from '@nebulahome/ui';
+import { pollIntervalMsOf } from '@nebulahome/contracts';
+import {
+  AppIcon,
+  Button,
+  DetailHero,
+  HealthCard,
+  HealthStrip,
+  HeroFact,
+  Pill,
+} from '@nebulahome/ui';
 
-import { toMessage } from '@/lib/error-message';
+import { relativeTime } from '@/lib/format-time';
+import { fetchStateHistory, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { hasCapability } from '@/library/entity-control';
 import { entityKindOf } from '@/library/entity-kind';
-import { isActiveState } from '@/library/history-series';
-import { useLive } from '@/live/live-store';
-import { DetailHeader, DetailPlaceholder, type Crumb } from '@/routes/library/detail-page';
+import { isActiveState, windowOfChoice } from '@/library/history-series';
+import { useCauseNames } from '@/library/use-cause-names';
+import { BackLink, DetailFrame } from '@/routes/library/detail-page';
 import { devicePath } from '@/routes/library/device/device-path';
 import { ControlPanel } from '@/routes/library/entity/controls/control-panel';
 import { CorrelationsPanel } from '@/routes/library/entity/correlations-panel';
@@ -30,51 +41,104 @@ import { HistoryPanel } from '@/routes/library/entity/history-panel';
 import { useEntityPage, type EntityPageView } from '@/routes/library/entity/use-entity-page';
 import { EntityTile } from '@/routes/library/entity-tile';
 
-/** What the summary needs. */
-type EntitySummaryProps = {
-  readonly view: EntityPageView;
-};
+/**
+ * A polling interval in short words: "Every 5 s", "Every 2 min".
+ *
+ * @param ms - The interval.
+ * @returns The words.
+ */
+function everyText(ms: number): string {
+  return ms < 60_000
+    ? `Every ${String(Math.round(ms / 1000))} s`
+    : `Every ${String(Math.round(ms / 60_000))} min`;
+}
 
 /**
- * The entity at a glance: its tile, its name, what it is and where, and whether it is there.
+ * The health strip of an entity: whether it reports, its last change and what made it, the
+ * device it belongs to, and the integration that brings it.
  *
- * @param props - See {@link EntitySummaryProps}.
- * @returns The summary.
+ * @param props - The page's view.
+ * @param props.view - See {@link EntityPageView}.
+ * @returns The strip.
  */
-function EntitySummary(props: EntitySummaryProps) {
+function EntityHealth(props: { readonly view: EntityPageView }) {
   const { view } = props;
-  const liveStatus = useLive((state) => state.status);
-  const { entity, reading, state, room, floor, icons } = view;
-  const kind = entityKindOf(entity);
-  const place = [floor?.name, room?.name ?? entity.areaName].filter(Boolean).join(' › ');
+  const { entity, reading, device, vendorName } = view;
+  const nameOf = useCauseNames();
+  const isReading = hasCapability(entity, 'sensor_numeric');
+
+  // The same window, under the same key, as the History opens on: one read for both.
+  const changes = useQuery({
+    queryKey: [...LIBRARY_QUERY_KEYS.history, entity.entityId, 'state', '24h'],
+    enabled: !isReading,
+
+    /**
+     * Reads the last day's changes, for the newest and what caused it.
+     *
+     * @param context - The abort signal.
+     * @param context.signal - Cancels the read.
+     * @returns The window and its changes.
+     */
+    queryFn: async ({ signal }: { signal: AbortSignal }) => {
+      const window = windowOfChoice({ kind: 'preset', range: '24h' }, Date.now());
+      const points = await fetchStateHistory(
+        { entityId: entity.entityId, from: new Date(window.from), to: new Date(window.to) },
+        signal,
+      );
+
+      return { window, points };
+    },
+  });
+  const latest = changes.data?.points.at(-1);
+  const every = device === undefined ? undefined : pollIntervalMsOf(device.options);
+  const seen = reading.at === null ? 'never' : relativeTime(reading.at);
 
   return (
-    <section className="flex flex-wrap items-center gap-4">
-      <EntityTile
-        size="large"
-        icon={entity.icon === null ? undefined : icons.get(entity.icon)}
-        kind={kind}
-        isActive={isActiveState(state)}
-        isAvailable={reading.isAvailable}
+    <HealthStrip>
+      <HealthCard
+        label="Availability"
+        tone={reading.isAvailable ? 'success' : 'warning'}
+        value={reading.isAvailable ? 'Reporting' : 'Unreachable'}
+        detail={
+          reading.isAvailable
+            ? `${every === undefined ? 'On every change' : everyText(every)} · ${seen}`
+            : `Last value ${seen}`
+        }
       />
-      <div className="flex min-w-0 grow flex-col gap-1">
-        <h2 className="truncate text-headline font-medium">{entity.name}</h2>
-        <p className="text-ui text-foreground-muted">
-          {kind.label}
-          {place === '' ? null : <span className="text-foreground-subtle"> · {place}</span>}
-        </p>
-      </div>
-      <div className="flex items-center gap-2">
-        <Badge tone={reading.isAvailable ? 'success' : 'warning'}>
-          {reading.isAvailable ? 'Reachable' : 'Unreachable'}
-        </Badge>
-        {liveStatus === 'live' ? (
-          <Badge tone="neutral">Live</Badge>
-        ) : (
-          <Badge tone="neutral">{liveStatus === 'connecting' ? 'Connecting' : 'Not live'}</Badge>
-        )}
-      </div>
-    </section>
+      <HealthCard
+        label="Last change"
+        tone="success"
+        value={entity.lastChanged === null ? 'None yet' : relativeTime(entity.lastChanged)}
+        detail={
+          isReading
+            ? reading.text
+            : latest === undefined
+              ? 'Nothing changed today'
+              : `${latest.isAvailable ? 'Changed' : 'Went away'} · ${nameOf(latest.context).label}`
+        }
+      />
+      <HealthCard
+        label="Device"
+        tone={device === undefined ? 'neutral' : device.state === 'failed' ? 'warning' : 'success'}
+        value={device?.name ?? 'None'}
+        detail={
+          device === undefined
+            ? 'It is worked out, not a device'
+            : [
+                device.model ?? device.driverName,
+                device.state === 'running' ? 'reporting' : device.state,
+              ]
+                .filter(Boolean)
+                .join(' · ')
+        }
+      />
+      <HealthCard
+        label="Integration"
+        tone={device?.state === 'failed' ? 'warning' : 'success'}
+        value={vendorName ?? 'Nebula Home'}
+        detail={device?.state === 'failed' ? (device.lastError ?? 'Failing') : 'Running'}
+      />
+    </HealthStrip>
   );
 }
 
@@ -88,12 +152,6 @@ export function EntityPage() {
   const [params, setParams] = useSearchParams();
   const isSettingsOpen = params.has(ENTITY_SETTINGS_PARAM);
   const { view, isPending, error } = useEntityPage(entityId);
-  const crumbs: Crumb[] = [
-    { to: '/devices', label: 'Devices' },
-    ...(view?.device === undefined
-      ? []
-      : [{ to: devicePath(view.device.id), label: view.device.name }]),
-  ];
 
   /**
    * Opens the settings dialog, or shuts it, in the address so the back button agrees.
@@ -117,61 +175,100 @@ export function EntityPage() {
     );
   };
 
-  return (
-    <div className="flex min-h-0 grow flex-col">
-      <DetailHeader
-        crumbs={crumbs}
-        title={view?.entity.name ?? entityId}
-        actions={
-          view === undefined ? undefined : (
-            <IconButton
-              variant="raised"
-              label={`Configure ${view.entity.name}`}
-              onClick={() => {
-                showSettings(true);
-              }}
-            >
-              <AppIcon id="settings" size={15} />
-            </IconButton>
-          )
-        }
-      />
+  const kind = view === undefined ? null : entityKindOf(view.entity);
+  const place =
+    view === undefined
+      ? ''
+      : [view.floor?.name, view.room?.name ?? view.entity.areaName].filter(Boolean).join(' › ');
+  const isActive = view === undefined ? null : isActiveState(view.state);
 
-      <div className="min-h-0 grow overflow-y-auto px-8 pt-5 pb-7">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5">
-          {view === undefined ? (
-            isPending ? (
-              <DetailPlaceholder>Reading…</DetailPlaceholder>
-            ) : (
-              <DetailPlaceholder isProblem>{toMessage(error)}</DetailPlaceholder>
-            )
-          ) : (
-            <>
-              <EntitySummary view={view} />
-              <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
-                <div className="flex min-w-0 flex-col gap-5">
-                  <ControlPanel
-                    entity={view.entity}
-                    state={view.state}
-                    reportedAt={view.reportedAt}
-                    reading={view.reading}
-                    canControl={view.canControl}
-                  />
-                  <HistoryPanel
-                    entity={view.entity}
-                    reading={view.reading}
-                    current={view.live?.state ?? view.entity.state}
-                  />
-                </div>
-                <div className="flex min-w-0 flex-col gap-5">
-                  <DetailsPanel view={view} />
-                  <CorrelationsPanel entityId={view.entity.entityId} />
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+  return (
+    <>
+      <DetailFrame
+        isPending={isPending}
+        error={view === undefined ? error : undefined}
+        hero={
+          <DetailHero
+            back={
+              view?.device === undefined ? (
+                <BackLink to="/devices">Devices</BackLink>
+              ) : (
+                <BackLink to={devicePath(view.device.id)}>{view.device.name}</BackLink>
+              )
+            }
+            mark={
+              view === undefined || kind === null ? undefined : (
+                <EntityTile
+                  size="large"
+                  icon={view.entity.icon === null ? undefined : view.icons.get(view.entity.icon)}
+                  kind={kind}
+                  isActive={isActive}
+                  isAvailable={view.reading.isAvailable}
+                />
+              )
+            }
+            title={view?.entity.name ?? entityId}
+            description={
+              kind === null
+                ? undefined
+                : [kind.label, place].filter((part) => part !== '').join(' · ')
+            }
+            facts={
+              view === undefined ? undefined : (
+                <>
+                  <Pill
+                    tone={
+                      !view.reading.isAvailable
+                        ? 'warning'
+                        : isActive === true
+                          ? 'success'
+                          : 'neutral'
+                    }
+                  >
+                    {view.reading.isAvailable ? view.reading.text : 'Unreachable'}
+                  </Pill>
+                  {place === '' ? null : <HeroFact icon="house">{place}</HeroFact>}
+                  <HeroFact className="font-mono">{view.entity.entityId}</HeroFact>
+                </>
+              )
+            }
+            actions={
+              view === undefined ? undefined : (
+                <Button
+                  variant="ghost"
+                  aria-label={`Configure ${view.entity.name}`}
+                  onClick={() => {
+                    showSettings(true);
+                  }}
+                >
+                  <AppIcon id="settings" size={15} />
+                  Settings
+                </Button>
+              )
+            }
+          />
+        }
+      >
+        {view === undefined ? null : (
+          <div className="flex flex-col gap-8">
+            <EntityHealth view={view} />
+            <ControlPanel
+              entity={view.entity}
+              state={view.state}
+              reportedAt={view.reportedAt}
+              reading={view.reading}
+              canControl={view.canControl}
+            />
+            <HistoryPanel
+              entity={view.entity}
+              reading={view.reading}
+              current={view.live?.state ?? view.entity.state}
+            />
+            <CorrelationsPanel entityId={view.entity.entityId} />
+            <DetailsPanel view={view} />
+          </div>
+        )}
+      </DetailFrame>
 
       {view === undefined ? null : (
         <EntitySettingsDialog
@@ -186,6 +283,6 @@ export function EntityPage() {
           canCreateTags={view.canCreateTags}
         />
       )}
-    </div>
+    </>
   );
 }

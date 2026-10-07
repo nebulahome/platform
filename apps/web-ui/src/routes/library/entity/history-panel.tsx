@@ -1,35 +1,42 @@
 /**
- * An entity's History panel: how it has behaved over whatever stretch of time is asked.
- *
- * A sensor is drawn from its telemetry, as a line of readings. Anything else is drawn from its
- * state changes: the numbers in its state - a lamp's brightness, a cover's position - as a line
- * that holds each value until the next change; whether it was on as a band; and the last few
+ * An entity's History: how it has behaved over whatever stretch of time is asked, and its recent
  * changes with what caused them.
  *
- * The window is chosen in the panel's header: a preset ending now - the last hour, day, week,
- * month - or any stretch by its two ends. A preset is read again every minute, so a page left
- * open keeps drawing to now; a stretch chosen by its ends is the past, and is read once.
+ * As the board draws it: the window chosen by the presets beside the heading - 1 h, 6 h, 24 h,
+ * 7 d, 30 d - or Custom… for any stretch by its two ends; a row of figures over the window; the
+ * chart; and a line saying the times are the viewer's own, with Show as a table for whoever
+ * would rather read the values. A reading is drawn from its telemetry and its figures are now,
+ * lowest, average and highest; anything else from its state changes - the numbers in its state as
+ * a line that holds each value, whether it was on as a band - and its figures are how long it was
+ * on and how often it turned on.
+ *
+ * A preset is read again every minute, so a page left open keeps drawing to now; a stretch chosen
+ * by its ends is the past, and is read once.
  */
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import type { EntityView, JsonObject } from '@nebulahome/contracts';
-import { Panel, Segmented } from '@nebulahome/ui';
+import { AppIcon, Section, Segmented } from '@nebulahome/ui';
 
 import { HistoryChart } from '@/components/history-chart';
 import { TimeRangePicker } from '@/components/time-range-picker';
 import { toMessage } from '@/lib/error-message';
+import { absoluteTime } from '@/lib/format-time';
 import { fetchStateHistory, fetchTelemetry, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { hasCapability } from '@/library/entity-control';
 import { describeState, type Reading } from '@/library/entity-reading';
 import {
+  HISTORY_RANGES,
   numericFieldsOf,
   numericSeries,
   stateSegments,
   telemetryResolutionFor,
   windowOfChoice,
   type HistoryChoice,
+  type HistoryRange,
 } from '@/library/history-series';
+import { activeStats, durationText, numericStats } from '@/library/history-stats';
 import { RecentChanges } from '@/routes/library/entity/recent-changes';
 import { StateBand } from '@/routes/library/entity/state-band';
 
@@ -41,6 +48,18 @@ const numbers = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 
 /** What the panel shows when it opens. */
 const INITIAL_CHOICE: HistoryChoice = { kind: 'preset', range: '24h' };
+
+/** What each preset is called beside the heading. */
+const PRESET_LABELS: Readonly<Record<HistoryRange, string>> = {
+  '1h': '1 h',
+  '6h': '6 h',
+  '24h': '24 h',
+  '7d': '7 d',
+  '30d': '30 d',
+};
+
+/** The viewer's time zone, for the line under the chart. */
+const TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 /**
  * The part of the cache key that says which window: the preset's name, shared with the cards
@@ -88,16 +107,44 @@ function activeWordOf(entity: EntityView): string {
     : 'On';
 }
 
+/** What one figure needs. */
+type FigureProps = {
+  readonly label: string;
+  readonly value: string;
+  readonly note?: string | undefined;
+};
+
 /**
- * Renders the panel.
+ * One figure of the row above the chart: what it is, the number in mono, a line under it.
+ *
+ * @param props - See {@link FigureProps}.
+ * @returns The figure.
+ */
+function Figure(props: FigureProps) {
+  const { label, value, note } = props;
+
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="text-caption text-foreground-subtle">{label}</span>
+      <span className="font-mono text-mono-ui text-foreground tabular">{value}</span>
+      {note === undefined ? null : (
+        <span className="truncate font-mono text-mono-caption text-foreground-subtle">{note}</span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Renders the History and the recent changes.
  *
  * @param props - See {@link HistoryPanelProps}.
- * @returns The panel.
+ * @returns The two blocks.
  */
 export function HistoryPanel(props: HistoryPanelProps) {
   const { entity, reading, current } = props;
   const [choice, setChoice] = useState<HistoryChoice>(INITIAL_CHOICE);
   const [fieldIndex, setFieldIndex] = useState(0);
+  const [isTable, setTable] = useState(false);
   const isNumeric = hasCapability(entity, 'sensor_numeric');
   const fields = numericFieldsOf(entity);
   const unit = reading.sensorFigure?.unit ?? entity.unitOfMeasurement ?? '';
@@ -159,95 +206,251 @@ export function HistoryPanel(props: HistoryPanelProps) {
           (state) => describeState(state, entity),
         );
   const field = fields[Math.min(fieldIndex, fields.length - 1)];
+  const stats = telemetry.data === undefined ? null : numericStats(telemetry.data.points);
+  const active = activeStats(segments);
+  /**
+   * A value with the entity's unit.
+   *
+   * @param value - The value.
+   * @returns "21.4 °C".
+   */
+  const withUnit = (value: number): string =>
+    unit === '' ? numbers.format(value) : `${numbers.format(value)} ${unit}`;
+  const isBanded = segments.some((segment) => segment.isActive);
 
   return (
-    <Panel title="History" action={<TimeRangePicker value={choice} onChange={setChoice} />}>
-      <div className="flex flex-col gap-4 px-4 py-4">
-        {query.isPending ? (
-          <p className="text-caption text-foreground-subtle">Reading…</p>
-        ) : query.error === null ? null : (
-          <p role="alert" className="text-ui text-danger">
-            {toMessage(query.error)}
-          </p>
-        )}
+    <>
+      <Section
+        title="History"
+        actions={
+          <>
+            <Segmented
+              label="Window"
+              size="compact"
+              options={HISTORY_RANGES.map((range) => ({
+                value: range,
+                label: PRESET_LABELS[range],
+              }))}
+              // A stretch chosen by its ends lights no preset.
+              value={choice.kind === 'preset' ? choice.range : ''}
+              onChange={(range) => {
+                if (range !== '') {
+                  setChoice({ kind: 'preset', range });
+                }
+              }}
+            />
+            <TimeRangePicker value={choice} onChange={setChoice} />
+          </>
+        }
+      >
+        <div className="flex flex-col gap-5 rounded-card border border-border bg-surface p-5">
+          {isNumeric && stats !== null ? (
+            <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
+              <Figure label="Now" value={withUnit(stats.now)} />
+              <Figure label="Lowest" value={withUnit(stats.low)} />
+              <Figure label="Average" value={withUnit(stats.average)} />
+              <Figure label="Highest" value={withUnit(stats.high)} />
+            </div>
+          ) : null}
 
-        {isNumeric && telemetry.data !== undefined ? (
-          telemetry.data.points.length === 0 ? (
-            <p className="text-caption text-foreground-subtle">Nothing recorded in this window.</p>
-          ) : (
-            <div className="h-56">
-              <HistoryChart
-                data={telemetry.data.points.map((point) => ({
-                  at: point.time.getTime(),
-                  value: point.value,
-                }))}
-                series={[
-                  {
-                    key: 'value',
-                    label: reading.sensorFigure?.classLabel ?? 'Reading',
-                    color: 'var(--color-cyan)',
-                    dotClass: 'bg-cyan',
-                  },
-                ]}
-                window={telemetry.data.window}
-                curve="smooth"
-                formatValue={(value) =>
-                  unit === '' ? numbers.format(value) : `${numbers.format(value)} ${unit}`
+          {!isNumeric && isBanded ? (
+            <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
+              <Figure
+                label={`${activeWordOf(entity)} for`}
+                value={durationText(active.activeMs)}
+                note="in this window"
+              />
+              <Figure
+                label={`Turned ${activeWordOf(entity).toLowerCase()}`}
+                value={`${String(active.turnedOn)} ${active.turnedOn === 1 ? 'time' : 'times'}`}
+                note={
+                  active.lastOnAt === null
+                    ? undefined
+                    : `last at ${new Date(active.lastOnAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`
                 }
               />
+              <Figure label="Longest" value={durationText(active.longestMs)} />
             </div>
-          )
-        ) : null}
+          ) : null}
 
-        {!isNumeric && changes.data !== undefined ? (
-          <>
-            {field === undefined ? null : (
-              <div className="flex flex-col gap-2">
-                {fields.length > 1 ? (
-                  <Segmented
-                    label="Line"
-                    size="compact"
-                    className="self-start"
-                    options={fields.map((candidate, index) => ({
-                      value: String(index),
-                      label: candidate.label,
-                    }))}
-                    value={String(fields.indexOf(field))}
-                    onChange={(value) => {
-                      setFieldIndex(Number(value));
-                    }}
-                  />
-                ) : null}
-                <div className="h-48">
-                  <HistoryChart
-                    data={numericSeries(changes.data.points, [field], changes.data.window, current)}
-                    series={[
-                      {
-                        key: 'f0',
-                        label: field.label,
-                        color: 'var(--color-lamp)',
-                        dotClass: 'bg-lamp',
-                      },
-                    ]}
-                    window={changes.data.window}
-                    curve="stepped"
-                    {...(field.unit === '%' ? { domain: [0, 100] as const } : {})}
-                    formatValue={(value) => `${numbers.format(value)} ${field.unit}`}
-                  />
-                </div>
-              </div>
-            )}
-            {segments.length === 0 ? null : (
-              <StateBand
-                segments={segments}
-                window={changes.data.window}
-                activeWord={activeWordOf(entity)}
+          {query.isPending ? (
+            <p className="text-caption text-foreground-subtle">Reading…</p>
+          ) : query.error === null ? null : (
+            <p role="alert" className="text-ui text-danger">
+              {toMessage(query.error)}
+            </p>
+          )}
+
+          {isNumeric && telemetry.data !== undefined ? (
+            telemetry.data.points.length === 0 ? (
+              <p className="text-caption text-foreground-subtle">
+                Nothing recorded in this window.
+              </p>
+            ) : isTable ? (
+              <ValueTable
+                rows={telemetry.data.points.map((point) => ({
+                  at: point.time,
+                  value: withUnit(point.value),
+                }))}
               />
-            )}
-            <RecentChanges entity={entity} points={changes.data.points} />
-          </>
-        ) : null}
-      </div>
-    </Panel>
+            ) : (
+              <div className="h-56">
+                <HistoryChart
+                  data={telemetry.data.points.map((point) => ({
+                    at: point.time.getTime(),
+                    value: point.value,
+                  }))}
+                  series={[
+                    {
+                      key: 'value',
+                      label: reading.sensorFigure?.classLabel ?? 'Reading',
+                      color: 'var(--color-cyan)',
+                      dotClass: 'bg-cyan',
+                    },
+                  ]}
+                  window={telemetry.data.window}
+                  curve="smooth"
+                  formatValue={withUnit}
+                />
+              </div>
+            )
+          ) : null}
+
+          {!isNumeric && changes.data !== undefined ? (
+            isTable ? (
+              <ValueTable
+                rows={[...changes.data.points].reverse().map((point) => ({
+                  at: point.time,
+                  value: point.isAvailable ? describeState(point.state, entity) : 'Unreachable',
+                }))}
+              />
+            ) : (
+              <>
+                {segments.length === 0 ? null : (
+                  <div className="flex flex-col gap-2">
+                    <span className="font-mono text-label text-foreground-subtle uppercase">
+                      State
+                    </span>
+                    <StateBand
+                      segments={segments}
+                      window={changes.data.window}
+                      activeWord={activeWordOf(entity)}
+                    />
+                  </div>
+                )}
+                {field === undefined ? null : (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-mono text-label text-foreground-subtle uppercase">
+                        {field.label}
+                      </span>
+                      {fields.length > 1 ? (
+                        <Segmented
+                          label="Line"
+                          size="compact"
+                          options={fields.map((candidate, index) => ({
+                            value: String(index),
+                            label: candidate.label,
+                          }))}
+                          value={String(fields.indexOf(field))}
+                          onChange={(value) => {
+                            setFieldIndex(Number(value));
+                          }}
+                        />
+                      ) : null}
+                    </div>
+                    <div className="h-48">
+                      <HistoryChart
+                        data={numericSeries(
+                          changes.data.points,
+                          [field],
+                          changes.data.window,
+                          current,
+                        )}
+                        series={[
+                          {
+                            key: 'f0',
+                            label: field.label,
+                            color: 'var(--color-lamp)',
+                            dotClass: 'bg-lamp',
+                          },
+                        ]}
+                        window={changes.data.window}
+                        curve="stepped"
+                        {...(field.unit === '%' ? { domain: [0, 100] as const } : {})}
+                        formatValue={(value) => `${numbers.format(value)} ${field.unit}`}
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
+            )
+          ) : null}
+
+          <p className="flex flex-wrap items-center gap-x-2 text-caption text-foreground-subtle">
+            Times are local ({TIME_ZONE}).
+            <button
+              type="button"
+              aria-pressed={isTable}
+              onClick={() => {
+                setTable(!isTable);
+              }}
+              className="inline-flex items-center gap-1 rounded-chip text-primary transition-colors hover:text-primary-hover"
+            >
+              <AppIcon id={isTable ? 'chart-line' : 'list'} size={13} />
+              {isTable ? 'Show as a chart' : 'Show as a table'}
+            </button>
+          </p>
+        </div>
+      </Section>
+
+      {!isNumeric && changes.data !== undefined ? (
+        <Section title="Recent changes">
+          <RecentChanges entity={entity} points={changes.data.points} />
+        </Section>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * The window's values as a table, newest first: for whoever would rather read than see a chart.
+ *
+ * @param props - The rows.
+ * @param props.rows - Each a time and its value in words.
+ * @returns The table.
+ */
+function ValueTable(props: {
+  readonly rows: readonly { readonly at: Date; readonly value: string }[];
+}) {
+  const { rows } = props;
+
+  return (
+    <div className="max-h-80 overflow-y-auto rounded-tile border border-border">
+      <table className="w-full text-left">
+        <thead className="font-mono text-label text-foreground-subtle uppercase">
+          <tr>
+            <th scope="col" className="px-4 py-2.5 font-normal">
+              When
+            </th>
+            <th scope="col" className="px-4 py-2.5 font-normal">
+              Value
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.at.getTime()} className="border-t border-border">
+              <td className="px-4 py-2 font-mono text-mono-caption text-foreground-subtle tabular">
+                {absoluteTime(row.at)}
+              </td>
+              <td className="px-4 py-2 font-mono text-mono-ui text-foreground tabular">
+                {row.value}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

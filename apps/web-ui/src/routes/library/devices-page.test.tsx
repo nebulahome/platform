@@ -115,7 +115,16 @@ describe('DevicesPage', () => {
     expect(row.textContent).toContain('Bambu Lab');
     expect(row.textContent).toContain('Silent');
     expect(screen.queryByText('Registry')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Add device' })).toBeNull();
+  });
+
+  it('adds a device from the integrations, and sorts and pages the table', async () => {
+    renderPage();
+    await rowOf('Workshop printer');
+
+    expect(screen.getByRole('button', { name: 'Add device' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sort by device' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sort by status' })).toBeTruthy();
+    expect(screen.getByText('1–2')).toBeTruthy();
   });
 
   it('leads from each row to the device’s own page, and opens nothing in place', async () => {
@@ -135,7 +144,7 @@ describe('DevicesPage', () => {
 
     const row = await rowOf('Garage relay');
 
-    expect(row.textContent).toContain('disabled');
+    expect(row.textContent).toContain('Disabled');
     expect(row.textContent).not.toContain('Silent');
   });
 

@@ -145,12 +145,12 @@ describe('EntityPage', () => {
   it('names where the entity is, and what it is', async () => {
     renderPage(LAMP);
 
-    expect(await screen.findByRole('heading', { name: 'Desk lamp', level: 2 })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Desk lamp', level: 1 })).toBeTruthy();
     expect(screen.getAllByText('Tunable white light').length).toBeGreaterThan(0);
     await waitFor(() => {
       expect(screen.getAllByText(/First floor › Study/u).length).toBeGreaterThan(0);
     });
-    expect(screen.getByText('light.desk_lamp')).toBeTruthy();
+    expect(screen.getAllByText('light.desk_lamp').length).toBeGreaterThan(0);
   });
 
   it('draws a control for each capability the lamp declares, and no other', async () => {

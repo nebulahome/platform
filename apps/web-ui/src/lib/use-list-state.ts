@@ -12,6 +12,9 @@
  */
 import { useSearchParams } from 'react-router';
 
+/** Where a paged list keeps its page: dropped whenever the filter changes. */
+export const PAGE_PARAM = 'page';
+
 /** How one page's filter lives in the address. */
 export type ListCodec<TFilter> = {
   /**
@@ -58,6 +61,9 @@ export function useListState<TFilter>(
         for (const key of codec.keys) {
           updated.delete(key);
         }
+
+        // A list narrowed another way starts again from its first page.
+        updated.delete(PAGE_PARAM);
 
         for (const [key, value] of Object.entries(codec.write(next))) {
           updated.set(key, value);

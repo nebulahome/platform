@@ -108,19 +108,21 @@ describe('DevicePage', () => {
   it('names the device, where it comes from and what it is, with the way back', async () => {
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: 'Workshop printer', level: 2 })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Workshop printer', level: 1 })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Devices' }).getAttribute('href')).toBe('/devices');
     expect(screen.getByRole('link', { name: 'Bambu Lab' }).getAttribute('href')).toBe(
       '/integrations/bambu-lab',
     );
     expect(screen.getByText('01P00A000000042')).toBeTruthy();
-    expect(screen.getByText('Silent')).toBeTruthy();
+    // Its standing is its hero's Pill, and the Connection card of its health strip.
+    expect(screen.getAllByText('Silent').length).toBeGreaterThan(0);
+    expect(screen.getByRole('region', { name: 'Health' }).textContent).toContain('Connection');
   });
 
   it('lists its entities by name, with what each is in words, its tags and its reading', async () => {
     renderPage();
 
-    expect(await screen.findByText('Entities · 2')).toBeTruthy();
+    expect(await screen.findByRole('region', { name: 'Sensors' })).toBeTruthy();
     // The address is what automations name an entity by, not what a person recognises it by.
     expect(screen.queryByText(NOZZLE_ID)).toBeNull();
     expect(screen.getByText('Nozzle temperature').getAttribute('title')).toBe(NOZZLE_ID);
@@ -150,7 +152,7 @@ describe('DevicePage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Configure Nozzle temperature' }));
 
     expect(screen.getByRole('dialog')).toBeTruthy();
-    expect(screen.getByText('Entities · 2')).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Sensors' })).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'Configure Nozzle temperature' })).toBeNull();
   });
 
@@ -169,7 +171,7 @@ describe('DevicePage', () => {
     );
   });
 
-  it('links to the device web page from its details, not from the header', async () => {
+  it('links to the device web page from its header and its details', async () => {
     vi.mocked(fetchDevices).mockResolvedValue([
       { ...PRINTER, transportConfig: { host: '192.168.1.60' } },
       RELAY,
@@ -195,7 +197,9 @@ describe('DevicePage', () => {
 
     expect(link.getAttribute('href')).toBe('http://192.168.1.60/');
     expect(link.getAttribute('target')).toBe('_blank');
-    expect(screen.queryByRole('link', { name: /^Web page/u })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Open its web page' }).getAttribute('href')).toBe(
+      'http://192.168.1.60/',
+    );
   });
 
   it('offers a switch on what can be switched, and holds it to the role', async () => {
@@ -212,7 +216,7 @@ describe('DevicePage', () => {
 
   it('shows what the channel delivers, and turns the device to reporting', async () => {
     renderPage();
-    await screen.findByText('Entities · 2');
+    await screen.findByRole('region', { name: 'Sensors' });
 
     useLive.getState().apply({
       type: 'state_changed',
@@ -225,14 +229,14 @@ describe('DevicePage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('215')).toBeTruthy();
-      expect(screen.getByText('Reporting')).toBeTruthy();
+      expect(screen.getAllByText('Reporting').length).toBeGreaterThan(0);
     });
   });
 
   it('opens the settings from the header, for someone who may change the device', async () => {
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Configure Workshop printer' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Settings' }));
 
     expect(screen.getByRole('dialog').textContent).toContain('Configure Workshop printer');
   });
@@ -240,9 +244,9 @@ describe('DevicePage', () => {
   it('keeps the settings from someone who may only look', async () => {
     renderPage('bambu-lab-p1s', ['integration:read']);
 
-    await screen.findByText('Entities · 2');
+    await screen.findByRole('region', { name: 'Sensors' });
 
-    expect(screen.queryByRole('button', { name: 'Configure Workshop printer' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Settings' })).toBeNull();
   });
 
   it('says so when there is no such device', async () => {
@@ -269,6 +273,8 @@ describe('DevicePage', () => {
     });
     renderPage('bambu-lab-p1s', ['device:write', 'entity:write', 'history:read']);
 
+    // What changed on it is its own tab.
+    fireEvent.click(await screen.findByRole('tab', { name: 'Activity' }));
     fireEvent.click(await screen.findByRole('button', { name: /Went offline/u }));
 
     const dialog = screen.getByRole('dialog');
@@ -281,9 +287,9 @@ describe('DevicePage', () => {
     vi.mocked(fetchDeviceActivity).mockClear();
     renderPage();
 
-    await screen.findByText('Entities · 2');
+    await screen.findByRole('region', { name: 'Sensors' });
 
-    expect(screen.queryByText('Activity')).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Activity' })).toBeNull();
     expect(fetchDeviceActivity).not.toHaveBeenCalled();
   });
 });

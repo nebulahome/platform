@@ -142,6 +142,9 @@ export type DetailFrameProps = {
   /** Why it could not be read. */
   readonly error?: unknown;
 
+  /** What to say instead of the error, when the page knows better: "There is no such device". */
+  readonly problem?: string | undefined;
+
   /** The open tab's panel. */
   readonly children: ReactNode;
 };
@@ -155,7 +158,7 @@ export type DetailFrameProps = {
  * @returns The page.
  */
 export function DetailFrame(props: DetailFrameProps) {
-  const { hero, isPending = false, error, children } = props;
+  const { hero, isPending = false, error, problem, children } = props;
 
   return (
     <div className="min-h-0 grow overflow-y-auto px-8 pt-6 pb-10">
@@ -163,6 +166,8 @@ export function DetailFrame(props: DetailFrameProps) {
         {hero}
         {isPending ? (
           <DetailPlaceholder>Reading…</DetailPlaceholder>
+        ) : problem !== undefined ? (
+          <DetailPlaceholder isProblem>{problem}</DetailPlaceholder>
         ) : error === undefined || error === null ? (
           children
         ) : (

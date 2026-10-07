@@ -5,7 +5,7 @@
  *
  * Pages stack these 32px apart, in one column: a detail page reads top to bottom.
  */
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 
 import { cn } from '../lib/cn.js';
 
@@ -35,12 +35,16 @@ export type SectionProps = {
  */
 export function Section(props: SectionProps) {
   const { title, note, actions, children, className } = props;
+  const headingId = useId();
 
+  // Named by its heading, so a screen reader lists it as a region a person can jump to.
   return (
-    <section className={cn('flex flex-col gap-3', className)}>
+    <section aria-labelledby={headingId} className={cn('flex flex-col gap-3', className)}>
       <div className="flex min-h-7.5 flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="text-title font-medium text-foreground">{title}</h2>
+          <h2 id={headingId} className="text-title font-medium text-foreground">
+            {title}
+          </h2>
           {note === undefined ? null : <p className="text-ui-sm text-foreground-subtle">{note}</p>}
         </div>
         {actions === undefined ? null : (

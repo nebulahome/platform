@@ -2,124 +2,86 @@
  * One device's own page: what it is, how it is doing, and every entity it exposes.
  *
  * The page the devices list leads to, and every link to a device - from an entity's page, a tag,
- * a vendor, the system monitor - lands here. At the top the device at a glance; beside the list
- * of its entities, the facts about it: where it comes from, how it is reached, what it runs - and,
- * for a device whose driver says it serves one, a link to the device's own web page. The entities
- * are in two groups, what can be operated and what only reports; each is the same row the rest of
- * the library draws, with its reading live and its switch at hand, and a press opens the entity's
- * own page.
+ * a vendor, the system monitor - lands here. As the board draws a detail page: the way back, the
+ * device's glyph, its name with its model and room, how it stands as a Pill with its room and
+ * tags, its actions - its own web page, for a device whose driver serves one, and Settings - then
+ * the tabs. Overview opens with the health strip (Connection, Signal, Firmware, Integration), then
+ * its controls and its sensors, each the row the rest of the library draws, with its reading live
+ * and its switch at hand, then the facts about it. Activity is what changed on it, newest first.
  *
- * Changing the device is a dialog behind the settings button, the one a vendor's page opens for
- * the same device: its name, icon, tags and room, the model and the connection, and a Remove.
- *
- * Under the facts, the device's activity: what changed on it, newest first, each change opening
- * into everything known about it.
+ * Changing the device is a dialog behind Settings, the one a vendor's page opens for the same
+ * device: its name, icon, tags and room, the model and the connection, and a Remove.
  */
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
-import { isUpdateOffered, type EntityView } from '@nebulahome/contracts';
-import { AppIcon, Badge, IconButton, Panel, TagChip } from '@nebulahome/ui';
+import type { EntityView } from '@nebulahome/contracts';
+import {
+  AppIcon,
+  Button,
+  DetailHero,
+  FactGrid,
+  HealthCard,
+  HealthStrip,
+  HeroFact,
+  HeroMark,
+  Pill,
+  Section,
+  TabPanel,
+  Tabs,
+  TagChip,
+  type Fact,
+} from '@nebulahome/ui';
 
-import { ExternalLinkIcon } from '@/components/icons';
+import { useSession } from '@/auth/session-store';
 import { deviceWebPageOf } from '@/lib/device-web-page';
-import { toMessage } from '@/lib/error-message';
+import { relativeTime } from '@/lib/format-time';
+import { useTab } from '@/lib/use-tab';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
-import { useLive } from '@/live/live-store';
-import { DetailHeader, DetailPlaceholder } from '@/routes/library/detail-page';
+import {
+  deviceConnectionHealth,
+  deviceFirmwareHealth,
+  deviceIntegrationHealth,
+  deviceSignalHealth,
+} from '@/library/device-health';
+import { deviceStatusOf } from '@/library/device-status';
+import { BackLink, DetailFrame } from '@/routes/library/detail-page';
 import { ActivityPanel } from '@/routes/library/device/activity-panel';
 import { DeviceProblem } from '@/routes/library/device/device-problem';
 import { entityGroupsOf } from '@/routes/library/device/entity-groups';
 import { useDevicePage, type DevicePageView } from '@/routes/library/device/use-device-page';
 import { DeviceDialog } from '@/routes/library/device-dialog';
 import { DeviceIcon } from '@/routes/library/device-icon';
-import { Fact, When } from '@/routes/library/entity/details-panel';
+import { entityPath } from '@/routes/library/entity/entity-path';
 import { EntitySettingsDialog } from '@/routes/library/entity/entity-settings-dialog';
 import { EntityRow } from '@/routes/library/entity-row';
 
-/** What the summary needs. */
-type DeviceSummaryProps = {
-  readonly view: DevicePageView;
-};
+/** The tabs of the page; the first is the page itself. */
+const TABS = ['overview', 'activity'] as const;
+
+/** One tab. */
+type DeviceTab = (typeof TABS)[number];
 
 /**
- * The device at a glance: its icon, its name, what it is and where, whether it is reporting, and
- * whether it has a firmware update waiting.
- *
- * @param props - See {@link DeviceSummaryProps}.
- * @returns The summary.
- */
-function DeviceSummary(props: DeviceSummaryProps) {
-  const { view } = props;
-  const liveStatus = useLive((state) => state.status);
-  const { device, room, floor, standing, icons } = view;
-  const make = [device.manufacturer, device.model].filter(Boolean).join(' ');
-  const place = [floor?.name, room?.name ?? device.areaName].filter(Boolean).join(' › ');
-  const isDisabled = device.state === 'disabled';
-  const firmware = view.lines.find((line) => line.state.update !== undefined)?.state.update;
-  const isInstalling = firmware?.isInstalling === true;
-  const hasUpdate = firmware !== undefined && !isInstalling && isUpdateOffered(firmware);
-
-  return (
-    <section className="flex flex-wrap items-center gap-4">
-      <span className="flex size-14 shrink-0 items-center justify-center rounded-panel border border-border bg-surface text-foreground-muted">
-        <DeviceIcon icon={icons.get(device.icon ?? '')} size={28} />
-      </span>
-      <div className="flex min-w-0 grow flex-col gap-1">
-        <h2 className="truncate text-headline font-medium">{device.name}</h2>
-        <p className="text-ui text-foreground-muted">
-          {make === '' ? (device.series ?? device.driverName) : make}
-          {place === '' ? null : <span className="text-foreground-subtle"> · {place}</span>}
-        </p>
-      </div>
-      <div className="flex items-center gap-2">
-        {isInstalling ? <Badge tone="accent">Installing firmware</Badge> : null}
-        {hasUpdate ? <Badge tone="accent">Update available</Badge> : null}
-        <Badge tone={isDisabled ? 'neutral' : standing.isReporting ? 'success' : 'warning'}>
-          {isDisabled ? 'Disabled' : standing.isReporting ? 'Reporting' : 'Silent'}
-        </Badge>
-        <Badge tone="neutral">
-          {liveStatus === 'live' ? 'Live' : liveStatus === 'connecting' ? 'Connecting' : 'Not live'}
-        </Badge>
-      </div>
-    </section>
-  );
-}
-
-/**
- * The device's entities, the controls apart from the sensors.
- *
- * A heading over each group only when there are two: a device that only measures is a list of
- * sensors without being told so.
+ * The device's entities, the controls apart from the sensors, each group a section.
  *
  * @param props - The view, and what the spanner on a row opens.
  * @param props.view - See {@link DevicePageView}.
  * @param props.onConfigure - Opens an entity's settings; absent for somebody who may not edit.
- * @returns The groups.
+ * @returns The sections.
  */
 function EntityGroups(props: {
   readonly view: DevicePageView;
   readonly onConfigure: ((entity: EntityView) => void) | undefined;
 }) {
   const { view, onConfigure } = props;
-  const groups = entityGroupsOf(view.lines);
-  const isGrouped = groups.length > 1;
 
   return (
-    <div className="flex flex-col gap-1 p-3">
-      {groups.map((group) => (
-        <section
-          key={group.title}
-          aria-label={isGrouped ? group.title : undefined}
-          className="flex flex-col gap-1.5"
-        >
-          {isGrouped ? (
-            <h3 className="px-1 pt-1.5 font-mono text-label text-foreground-subtle uppercase">
-              {group.title}
-            </h3>
-          ) : null}
-          <ul className="flex flex-col gap-1.5">
+    <>
+      {entityGroupsOf(view.lines).map((group) => (
+        <Section key={group.title} title={group.title}>
+          <ul className="flex flex-col gap-1.5 rounded-card border border-border bg-surface p-2">
             {group.lines.map((line) => (
               <EntityRow
                 key={line.entity.entityId}
@@ -129,116 +91,84 @@ function EntityGroups(props: {
               />
             ))}
           </ul>
-        </section>
+        </Section>
       ))}
-    </div>
+    </>
   );
 }
 
 /**
- * The facts about the device.
+ * The facts about the device, for its Details.
  *
- * @param props - The view, and where the device's web page is.
- * @param props.view - See {@link DevicePageView}.
- * @param props.webPage - The device's own web page, when its driver says it serves one.
- * @returns The panel.
+ * @param view - See {@link DevicePageView}.
+ * @param webPage - The device's own web page, when its driver says it serves one.
+ * @returns The facts.
  */
-function DeviceDetails(props: { readonly view: DevicePageView; readonly webPage: string | null }) {
-  const { view, webPage } = props;
-  const { device, vendorName, tags, icons, standing } = view;
+function factsOf(view: DevicePageView, webPage: string | null): Fact[] {
+  const { device, vendorName } = view;
+  const address =
+    typeof device.transportConfig['host'] === 'string'
+      ? device.transportConfig['host']
+      : typeof device.transportConfig['address'] === 'string'
+        ? device.transportConfig['address']
+        : null;
+  const link = 'text-primary transition-colors hover:text-primary-hover';
 
-  return (
-    <Panel title="Details">
-      <dl>
-        <Fact term="Id">
-          <span className="font-mono text-caption break-all">{device.id}</span>
-        </Fact>
-        <Fact
-          term={
-            device.origin === 'container'
-              ? 'Container'
-              : device.origin === 'package'
-                ? 'Package'
-                : 'Integration'
-          }
-        >
-          {device.origin === 'system' ? (
-            vendorName
-          ) : device.origin === 'package' ? (
-            <Link
-              to={`/packages/${encodeURIComponent(device.vendorId)}`}
-              className="text-primary underline-offset-2 hover:underline"
-            >
-              {device.driverName}
-            </Link>
-          ) : device.origin === 'container' ? (
-            <Link
-              to={`/containers/${encodeURIComponent(device.externalId ?? device.name)}`}
-              className="text-primary underline-offset-2 hover:underline"
-            >
-              {device.externalId ?? device.name}
-            </Link>
-          ) : (
-            <Link
-              to={`/integrations/${encodeURIComponent(device.vendorId)}`}
-              className="text-primary underline-offset-2 hover:underline"
-            >
-              {vendorName}
-            </Link>
-          )}
-          {device.origin === 'package' ? null : (
-            <span className="text-foreground-subtle"> · {device.series ?? device.driverName}</span>
-          )}
-        </Fact>
-        {device.model === null ? null : <Fact term="Model">{device.model}</Fact>}
-        {device.origin === 'integration' ? <Fact term="Transport">{device.transport}</Fact> : null}
-        {webPage === null ? null : (
-          <Fact term="Web page">
-            <a
-              href={webPage}
-              target="_blank"
-              rel="noreferrer"
-              title={`Open ${webPage}`}
-              className="inline-flex max-w-full items-center gap-1 text-primary transition-colors hover:text-primary-hover"
-            >
-              <span className="truncate">
+  return [
+    {
+      label:
+        device.origin === 'container'
+          ? 'Container'
+          : device.origin === 'package'
+            ? 'Package'
+            : 'Integration',
+      value:
+        device.origin === 'system' ? (
+          vendorName
+        ) : device.origin === 'package' ? (
+          <Link to={`/packages/${encodeURIComponent(device.vendorId)}`} className={link}>
+            {device.driverName}
+          </Link>
+        ) : device.origin === 'container' ? (
+          <Link
+            to={`/containers/${encodeURIComponent(device.externalId ?? device.name)}`}
+            className={link}
+          >
+            {device.externalId ?? device.name}
+          </Link>
+        ) : (
+          <Link to={`/integrations/${encodeURIComponent(device.vendorId)}`} className={link}>
+            {vendorName}
+          </Link>
+        ),
+    },
+    {
+      label: 'Model',
+      value: [device.model, device.series ?? device.driverName].filter(Boolean).join(' · '),
+    },
+    ...(device.swVersion === null
+      ? []
+      : [{ label: 'Firmware', value: device.swVersion, isMono: true }]),
+    ...(device.origin === 'integration' ? [{ label: 'Transport', value: device.transport }] : []),
+    ...(address === null ? [] : [{ label: 'Address', value: address, isMono: true }]),
+    ...(device.externalId === null
+      ? []
+      : [{ label: 'Serial', value: device.externalId, isMono: true }]),
+    ...(device.hwVersion === null ? [] : [{ label: 'Hardware', value: device.hwVersion }]),
+    ...(webPage === null
+      ? []
+      : [
+          {
+            label: 'Web page',
+            value: (
+              <a href={webPage} target="_blank" rel="noreferrer" className={link}>
                 {webPage.replace(/^https?:\/\//u, '').replace(/\/$/u, '')}
-              </span>
-              <ExternalLinkIcon width="12" height="12" className="shrink-0" />
-            </a>
-          </Fact>
-        )}
-        {device.externalId === null ? null : (
-          <Fact term="Serial">
-            <span className="font-mono text-caption break-all">{device.externalId}</span>
-          </Fact>
-        )}
-        {device.swVersion === null ? null : <Fact term="Firmware">{device.swVersion}</Fact>}
-        {device.hwVersion === null ? null : <Fact term="Hardware">{device.hwVersion}</Fact>}
-        <Fact term="State">{device.state}</Fact>
-        <Fact term="Tags">
-          {tags.length === 0 ? (
-            <span className="text-foreground-subtle">None</span>
-          ) : (
-            <span className="flex flex-wrap gap-1.5">
-              {tags.map((tag) => (
-                <TagChip
-                  key={tag.id}
-                  color={tag.color}
-                  icon={tag.icon === null ? undefined : icons.get(tag.icon)}
-                >
-                  {tag.name}
-                </TagChip>
-              ))}
-            </span>
-          )}
-        </Fact>
-        <Fact term="Last seen">
-          <When when={standing.lastSeenAt} />
-        </Fact>
-      </dl>
-    </Panel>
-  );
+              </a>
+            ),
+          },
+        ]),
+    { label: 'Id', value: device.id, isMono: true },
+  ];
 }
 
 /**
@@ -253,6 +183,9 @@ export function DevicePage() {
   const { view, isPending, error, isMissing } = useDevicePage(deviceId);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [configuring, setConfiguring] = useState<EntityView | null>(null);
+  const [tab, setTab] = useTab<DeviceTab>(TABS);
+  // What changed on a device is its history: the tab is there for who may read the past.
+  const canReadHistory = useSession((state) => state.can('history:read'));
 
   /** Reads again everything a change to the device shows up in. */
   const refresh = (): void => {
@@ -277,73 +210,195 @@ export function DevicePage() {
           view.device,
           view.vendor?.drivers.find((driver) => driver.id === view.device.kind),
         );
+  const firmware =
+    view === undefined ? null : deviceFirmwareHealth(view.lines, view.device.swVersion);
+  const status =
+    view === undefined
+      ? null
+      : deviceStatusOf(view.device, view.standing, firmware?.updateEntityId !== null);
+  const connection = view === undefined ? null : deviceConnectionHealth(view.device, view.standing);
+  const signal =
+    view === undefined ? null : deviceSignalHealth(view.lines, view.device.transport.toUpperCase());
+  const integration =
+    view === undefined ? null : deviceIntegrationHealth(view.device, view.vendor, view.vendorName);
 
   return (
-    <div className="flex min-h-0 grow flex-col">
-      <DetailHeader
-        crumbs={[{ to: '/devices', label: 'Devices' }]}
-        title={view?.device.name ?? deviceId}
-        actions={
-          canConfigure ? (
-            <IconButton
-              variant="raised"
-              label={`Configure ${view.device.name}`}
-              onClick={() => {
-                setSettingsOpen(true);
-              }}
-            >
-              <AppIcon id="settings" size={15} />
-            </IconButton>
-          ) : undefined
+    <>
+      <DetailFrame
+        isPending={isPending}
+        error={view === undefined ? error : undefined}
+        problem={
+          view === undefined && !isPending && isMissing
+            ? `There is no device with the id ${deviceId}.`
+            : undefined
         }
-      />
-
-      <div className="min-h-0 grow overflow-y-auto px-8 pt-5 pb-7">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5">
-          {view === undefined ? (
-            isPending ? (
-              <DetailPlaceholder>Reading…</DetailPlaceholder>
-            ) : (
-              <DetailPlaceholder isProblem>
-                {isMissing ? `There is no device with the id ${deviceId}.` : toMessage(error)}
-              </DetailPlaceholder>
-            )
-          ) : (
-            <>
-              <DeviceSummary view={view} />
-              <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
-                <div className="flex min-w-0 flex-col gap-5">
-                  <DeviceProblem device={view.device} />
-                  {/* A device with nothing to show but its problem shows only that: the problem
-                      is why there are no entities. */}
-                  {view.lines.length === 0 && view.device.lastError !== null ? null : (
-                    <Panel title={`Entities · ${String(view.lines.length)}`}>
-                      {view.lines.length === 0 ? (
-                        <p className="px-4 py-3.5 text-ui text-foreground-muted">
-                          No entities yet. They appear as soon as the hub hears from the device.
-                        </p>
-                      ) : (
-                        <EntityGroups
-                          view={view}
-                          onConfigure={view.canEditEntities ? setConfiguring : undefined}
-                        />
-                      )}
-                    </Panel>
+        hero={
+          <DetailHero
+            back={<BackLink to="/devices">Devices</BackLink>}
+            mark={
+              view === undefined ? undefined : (
+                <HeroMark>
+                  <DeviceIcon icon={view.icons.get(view.device.icon ?? '')} size={26} />
+                </HeroMark>
+              )
+            }
+            title={view?.device.name ?? deviceId}
+            description={
+              view === undefined
+                ? undefined
+                : [
+                    [view.device.manufacturer, view.device.model].filter(Boolean).join(' ') ||
+                      (view.device.series ?? view.device.driverName),
+                    view.room?.name ?? view.device.areaName,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')
+            }
+            facts={
+              view === undefined || status === null ? undefined : (
+                <>
+                  <Pill tone={status.tone}>{status.label}</Pill>
+                  {view.room === undefined && view.device.areaName === null ? null : (
+                    <HeroFact icon="house">{view.room?.name ?? view.device.areaName}</HeroFact>
                   )}
-                </div>
-                <div className="flex min-w-0 flex-col gap-5">
-                  <DeviceDetails view={view} webPage={webPage} />
-                  <ActivityPanel
-                    deviceId={view.device.id}
-                    deviceName={view.device.name}
-                    entities={view.lines.map((line) => line.entity)}
-                  />
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+                  {view.tags.map((tag) => (
+                    <TagChip
+                      key={tag.id}
+                      color={tag.color}
+                      icon={tag.icon === null ? undefined : view.icons.get(tag.icon)}
+                    >
+                      {tag.name}
+                    </TagChip>
+                  ))}
+                </>
+              )
+            }
+            actions={
+              view === undefined ? undefined : (
+                <>
+                  {webPage === null ? null : (
+                    <a
+                      href={webPage}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="press inline-flex h-control items-center gap-2 rounded-pill border border-border-strong bg-surface-raised px-3.5 text-ui font-medium text-foreground transition-colors hover:bg-surface-high"
+                    >
+                      <AppIcon id="external-link" size={15} />
+                      Open its web page
+                    </a>
+                  )}
+                  {canConfigure ? (
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setSettingsOpen(true);
+                      }}
+                    >
+                      <AppIcon id="settings" size={15} />
+                      Settings
+                    </Button>
+                  ) : null}
+                </>
+              )
+            }
+            tabs={
+              view === undefined ? undefined : (
+                <Tabs
+                  label={view.device.name}
+                  idPrefix="device"
+                  value={tab}
+                  onChange={setTab}
+                  items={[
+                    { id: 'overview', label: 'Overview' },
+                    ...(canReadHistory ? [{ id: 'activity' as const, label: 'Activity' }] : []),
+                  ]}
+                />
+              )
+            }
+          />
+        }
+      >
+        {view === undefined ||
+        firmware === null ||
+        connection === null ||
+        signal === null ||
+        integration === null ? null : tab === 'overview' || !canReadHistory ? (
+          <TabPanel idPrefix="device" id="overview" className="flex flex-col gap-8">
+            <HealthStrip>
+              <HealthCard
+                label="Connection"
+                tone={connection.tone}
+                value={connection.value}
+                detail={connection.detail}
+              />
+              <HealthCard
+                label="Signal"
+                tone={signal.tone}
+                value={signal.value}
+                detail={signal.detail}
+              />
+              <HealthCard
+                label="Firmware"
+                tone={firmware.tone}
+                value={firmware.value}
+                detail={firmware.detail}
+                action={
+                  firmware.updateEntityId === null ? undefined : (
+                    <Link
+                      to={entityPath(firmware.updateEntityId)}
+                      className="inline-flex h-control-sm items-center gap-1.5 rounded-pill bg-primary px-3 text-ui-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover"
+                    >
+                      <AppIcon id="download" size={13} />
+                      Install
+                    </Link>
+                  )
+                }
+              />
+              <HealthCard
+                label="Integration"
+                tone={integration.tone}
+                value={integration.value}
+                detail={integration.detail}
+              />
+            </HealthStrip>
+
+            <DeviceProblem device={view.device} />
+
+            {/* A device with nothing to show but its problem shows only that: the problem
+                    is why there are no entities. */}
+            {view.lines.length === 0 ? (
+              view.device.lastError !== null ? null : (
+                <p className="rounded-card border border-dashed border-border-strong px-5.5 py-4 text-ui text-foreground-muted">
+                  No entities yet. They appear as soon as the hub hears from the device.
+                </p>
+              )
+            ) : (
+              <EntityGroups
+                view={view}
+                onConfigure={view.canEditEntities ? setConfiguring : undefined}
+              />
+            )}
+
+            <Section title="Details">
+              <FactGrid facts={factsOf(view, webPage)} />
+            </Section>
+
+            <p className="text-caption text-foreground-subtle">
+              {view.standing.lastSeenAt === null
+                ? 'Never heard from.'
+                : `Last heard from ${relativeTime(view.standing.lastSeenAt)}.`}
+            </p>
+          </TabPanel>
+        ) : (
+          <TabPanel idPrefix="device" id="activity">
+            <ActivityPanel
+              deviceId={view.device.id}
+              deviceName={view.device.name}
+              entities={view.lines.map((line) => line.entity)}
+            />
+          </TabPanel>
+        )}
+      </DetailFrame>
 
       {view === undefined || configuring === null ? null : (
         <EntitySettingsDialog
@@ -383,6 +438,6 @@ export function DevicePage() {
           }}
         />
       )}
-    </div>
+    </>
   );
 }

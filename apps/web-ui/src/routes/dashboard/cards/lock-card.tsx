@@ -8,7 +8,7 @@
  */
 import { Link } from 'react-router';
 
-import { AppIcon, Button, cn, CardHeading } from '@nebulahome/ui';
+import { AppIcon, Button, cn, CardHeading, HoldButton } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
 import { CardFrame, TileRow } from '@/routes/dashboard/cards/card-parts';
@@ -62,6 +62,17 @@ export function LockCard(props: { readonly model: EntityCardModel }) {
     >
       {label}…
     </Link>
+  ) : next === 'unlock' ? (
+    // A door is never opened by a tap: unlocking is held, the way the board draws the card.
+    <HoldButton
+      disabled={disabled}
+      className="h-control-sm text-ui-sm"
+      onConfirm={() => {
+        commander.send('lock', { command: 'unlock' });
+      }}
+    >
+      Hold to unlock
+    </HoldButton>
   ) : (
     <Button
       variant="ghost"
