@@ -15,6 +15,7 @@ import {
   deleteAlias,
   fetchAliases,
   fetchEntities,
+  fetchTelemetry,
   previewAlias,
   updateAlias,
 } from '@/library/api';
@@ -31,11 +32,13 @@ vi.mock('@/library/api', () => ({
   updateAlias: vi.fn(),
   deleteAlias: vi.fn(),
   previewAlias: vi.fn(),
+  fetchTelemetry: vi.fn().mockResolvedValue([]),
   LIBRARY_QUERY_KEYS: {
     aliases: ['library', 'aliases'],
     areas: ['library', 'areas'],
     devices: ['library', 'devices'],
     entities: ['library', 'entities'],
+    history: ['library', 'history'],
     icons: ['library', 'icons'],
   },
 }));
@@ -146,7 +149,17 @@ beforeEach(() => {
   vi.mocked(updateAlias).mockReset();
   vi.mocked(deleteAlias).mockReset();
   vi.mocked(previewAlias).mockReset();
+  vi.mocked(fetchTelemetry).mockReset().mockResolvedValue([]);
 });
+
+/**
+ * The formula's text area: the section around it carries the same name, so the role says which.
+ *
+ * @returns The text area.
+ */
+function formulaBox(): HTMLTextAreaElement {
+  return screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Formula' });
+}
 
 describe('AliasEditor', () => {
   it('shows New alias with a derived id caption and no Enabled control', async () => {
@@ -160,7 +173,7 @@ describe('AliasEditor', () => {
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Hall average' } });
     expect(screen.getByText('alias.hall_average')).toBeTruthy();
-    expect(screen.getByLabelText('Formula')).toBeTruthy();
+    expect(formulaBox()).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add a source' })).toBeTruthy();
   });
 
@@ -172,7 +185,7 @@ describe('AliasEditor', () => {
     });
 
     expect(screen.getByText(AVERAGE_ID)).toBeTruthy();
-    expect(screen.getByLabelText<HTMLInputElement>('Formula').value).toBe('(t1 + t2) / 2');
+    expect(formulaBox().value).toBe('(t1 + t2) / 2');
     expect(screen.queryByRole('radiogroup', { name: /Enabled/iu })).toBeNull();
   });
 
@@ -181,7 +194,7 @@ describe('AliasEditor', () => {
     renderEditor('/aliases/new');
 
     fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Hall average' } });
-    fireEvent.change(screen.getByLabelText('Formula'), { target: { value: 't1' } });
+    fireEvent.change(formulaBox(), { target: { value: 't1' } });
 
     fireEvent.click(await screen.findByRole('button', { name: /Entity read as t1/u }));
     fireEvent.click(
@@ -244,11 +257,39 @@ describe('AliasEditor', () => {
     ]);
     renderEditor(`/aliases/${AVERAGE.id}`);
 
-    expect(await screen.findByText(/^Reads 22/u)).toBeTruthy();
+    expect(await screen.findByText(/^22\b/u)).toBeTruthy();
+    expect(screen.getByText('Reads now')).toBeTruthy();
+    expect(screen.getByLabelText('t1 reads now').textContent).toMatch(/^21\b/u);
 
-    fireEvent.change(screen.getByLabelText('Formula'), { target: { value: 't1 + t3' } });
+    fireEvent.change(formulaBox(), { target: { value: 't1 + t3' } });
     expect(screen.getByText('t3 is not one of the sources.')).toBeTruthy();
-    expect(screen.getByLabelText('Formula').getAttribute('aria-invalid')).toBe('true');
+    expect(formulaBox().getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('previews the last day from the sources history', async () => {
+    const hour = (at: number, value: number) => ({
+      time: new Date(Date.UTC(2026, 9, 7, at)),
+      value,
+    });
+
+    vi.mocked(fetchTelemetry).mockImplementation((window) =>
+      Promise.resolve(
+        window.entityId === 'sensor.kitchen_temperature'
+          ? [hour(1, 20), hour(2, 22)]
+          : [hour(1, 22), hour(2, 24)],
+      ),
+    );
+    renderEditor(`/aliases/${AVERAGE.id}`);
+
+    // (20 + 22) / 2 at 01:00, (22 + 24) / 2 at 02:00.
+    expect(
+      await screen.findByRole('img', { name: /^The last day, from 21 .* to 23 /u }),
+    ).toBeTruthy();
+    expect(fetchTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({ entityId: 'sensor.living_room_temperature' }),
+      '1h',
+      expect.anything(),
+    );
   });
 });
 

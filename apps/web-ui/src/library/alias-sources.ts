@@ -151,7 +151,7 @@ export function nextVariableName(sources: readonly SourceDraft[]): string {
 /** What the formula reads now, as the field says it. */
 export type FormulaReading =
   | { readonly tone: 'hint'; readonly text: string }
-  | { readonly tone: 'value'; readonly text: string }
+  | { readonly tone: 'value'; readonly text: string; readonly value: string }
   | { readonly tone: 'problem'; readonly text: string };
 
 /** How a figure is written in the reading. */
@@ -236,10 +236,11 @@ export function readFormula(
 
   const evaluated = evaluateAliasExpression(expression, bindings);
 
-  return evaluated.ok
-    ? {
-        tone: 'value',
-        text: `Reads ${spokenResult(evaluated.value, result.capability, result.unit)} now.`,
-      }
-    : { tone: 'problem', text: evaluated.error };
+  if (!evaluated.ok) {
+    return { tone: 'problem', text: evaluated.error };
+  }
+
+  const spoken = spokenResult(evaluated.value, result.capability, result.unit);
+
+  return { tone: 'value', text: `Reads ${spoken} now.`, value: spoken };
 }

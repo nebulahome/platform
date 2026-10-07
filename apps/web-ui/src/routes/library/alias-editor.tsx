@@ -2,9 +2,10 @@
  * Making an alias or changing one: calculated formula, or stored helper.
  *
  * A page rather than a dialog — same shell as the automation editor — because formula, sources
- * and the entity picker need room: on a wide window the formula is on the left and its sources on
- * the right, as the design lays them out, and the formula says what it reads now as it is typed. Create and edit share this screen; the only differences are
- * where the draft starts and which verb the save uses.
+ * and the entity picker need room. As the board lays a calculated alias out: on the left the
+ * formula, which says what it reads now as it is typed, its sources with what each reads now, and
+ * a preview of the last day; on the right what the alias is and how it behaves. Create and edit
+ * share this screen; the only differences are where the draft starts and which verb the save uses.
  *
  * The name is the only editable identity field. Under it, in caption, sits `alias.<objectId>`:
  * derived from the name on create, the saved address on edit. Enabled is not on the form: a
@@ -33,11 +34,17 @@ import {
   type CapabilityName,
   type EntityView,
 } from '@nebulahome/contracts';
-import { Button, Panel, Segmented, SelectField, TextField } from '@nebulahome/ui';
+import { AppIcon, Button, Panel, Section, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
 import { isApiError } from '@/lib/api-error';
 import { toMessage } from '@/lib/error-message';
-import { readFormula, sourceColors, toSources, type SourceDraft } from '@/library/alias-sources';
+import {
+  readFormula,
+  sourceColors,
+  toSources,
+  type FormulaReading,
+  type SourceDraft,
+} from '@/library/alias-sources';
 import {
   createAlias,
   deleteAlias,
@@ -47,8 +54,11 @@ import {
   updateAlias,
 } from '@/library/api';
 import { toKey } from '@/library/automation-draft';
+import { NO_READING, readingOf } from '@/library/entity-reading';
+import { useAliasPreview } from '@/library/use-alias-preview';
 import { useLive } from '@/live/live-store';
 import { AliasFormulaField } from '@/routes/library/alias-formula-field';
+import { AliasPreviewCard } from '@/routes/library/alias-preview-card';
 import { AliasSourcesPanel, nextRowKey } from '@/routes/library/alias-sources-panel';
 import { ConfirmRemoval } from '@/routes/library/confirm-removal';
 import { DetailHeader } from '@/routes/library/detail-page';
@@ -61,10 +71,20 @@ const CALCULATED_OPTIONS = ALIAS_CALCULATED_CAPABILITIES.map((capability) => ({
   label: capability.replaceAll('_', ' '),
 }));
 
+/** What each fallback is called, as the board words it. */
+const FALLBACK_LABELS: Readonly<Record<AliasFallbackPolicy, string>> = {
+  unavailable: 'Become unavailable',
+  ignore_missing: 'Ignore the missing ones',
+  last_known: 'Keep the last value',
+};
+
 const FALLBACK_OPTIONS = ALIAS_FALLBACK_POLICIES.map((policy) => ({
   value: policy,
-  label: policy.replaceAll('_', ' '),
+  label: FALLBACK_LABELS[policy],
 }));
+
+/** What a formula may be written with: the evaluator's operators, and nothing else. */
+const FORMULA_OPERATORS = '+ - * / · < <= > >= == != · && || ! · a ? b : c';
 
 const DOMAIN_OPTIONS = ALIAS_STORED_DOMAINS.map((domain) => ({
   value: domain,
@@ -281,6 +301,11 @@ export function AliasEditor() {
   const [step, setStep] = useState('');
   const [isConfirming, setConfirming] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const preview = useAliasPreview(
+    expression,
+    sources,
+    (loaded?.kind ?? kind) === 'calculated' && expression.trim() !== '',
+  );
 
   // Seed once from the loaded alias (RULES.md 15.2 — derived during render, not an effect).
   if (!isNew && !draftReady && loaded !== undefined) {
@@ -480,13 +505,26 @@ export function AliasEditor() {
     : (loaded?.entityId ?? `alias.${objectId}`);
   const colors = sourceColors(sources);
   const classEntry = getSensorClass(deviceClass);
+  const unitSymbol =
+    classEntry === undefined || unitOfMeasurement === ''
+      ? unitOfMeasurement
+      : (findSensorUnit(classEntry, unitOfMeasurement)?.symbol ?? unitOfMeasurement);
   const formula = readFormula(expression, sources, entityById, readings, {
     capability,
-    unit:
-      classEntry === undefined || unitOfMeasurement === ''
-        ? unitOfMeasurement
-        : (findSensorUnit(classEntry, unitOfMeasurement)?.symbol ?? unitOfMeasurement),
+    unit: unitSymbol,
   });
+
+  /**
+   * What a source's entity reads now, for the Now column.
+   *
+   * @param entityId - The entity's address.
+   * @returns Its reading, or a dash when it is unknown or has said nothing.
+   */
+  const nowOf = (entityId: string): string => {
+    const entity = entityById.get(entityId);
+
+    return entity === undefined ? NO_READING : readingOf(entity, readings[entityId]).text;
+  };
 
   /** Saves, unless the required fields are blank. */
   const submit = (): void => {
@@ -623,259 +661,301 @@ export function AliasEditor() {
       <div
         className={
           isCalculated
-            ? 'grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]'
+            ? 'grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]'
             : 'grid items-start gap-4'
         }
       >
-        <Panel title="What it is">
-          <div className="flex flex-col gap-4 p-4">
-            {isNew ? (
-              <Segmented
-                label="Kind"
-                options={[
-                  { value: 'calculated', label: 'Calculated' },
-                  { value: 'stored', label: 'Stored' },
-                ]}
-                value={kind}
-                onChange={(value) => {
-                  setKind(value === 'stored' ? 'stored' : 'calculated');
-                  setProblem(null);
-                }}
-              />
-            ) : null}
-
-            <div className="flex flex-col gap-1">
-              <TextField
-                label="Name"
-                size="medium"
-                value={name}
+        {isCalculated ? (
+          <div className="flex min-w-0 flex-col gap-8">
+            <Section
+              title="Formula"
+              note="Write it with the variables of the sources, e.g. (t1 + t2) / 2."
+            >
+              <AliasFormulaField
+                value={expression}
                 required
-                autoComplete="off"
-                onChange={(event) => {
-                  const next = event.target.value;
-
-                  setName(next);
-
-                  if (isNew) {
-                    setObjectId(toObjectId(next));
-                  }
-                }}
+                isLabelHidden
+                sources={sources.map((source) => ({
+                  variableName: source.variableName,
+                  color: colors.get(source.rowKey) ?? 'indigo',
+                }))}
+                {...(formula.tone === 'problem' ? { error: formula.text } : {})}
+                footer={<FormulaFooter reading={formula} />}
+                onChange={setExpression}
               />
-              <p className="font-mono text-caption text-foreground-subtle">{addressCaption}</p>
-            </div>
+            </Section>
 
-            {isCalculated ? (
-              <>
-                <SelectField
-                  label="Capability"
+            <AliasSourcesPanel
+              sources={sources}
+              colors={colors}
+              onChange={setSources}
+              selfId={loaded?.entityId ?? null}
+              nowOf={nowOf}
+            />
+
+            <AliasPreviewCard preview={preview} unit={unitSymbol} />
+          </div>
+        ) : null}
+
+        <div className="flex min-w-0 flex-col gap-4">
+          <Panel title="What it is">
+            <div className="flex flex-col gap-4 p-4">
+              <div className="flex flex-col gap-1">
+                <TextField
+                  label="Name"
                   size="medium"
-                  options={CALCULATED_OPTIONS}
-                  value={capability}
-                  disabled={!isNew}
+                  value={name}
+                  required
+                  autoComplete="off"
+                  onChange={(event) => {
+                    const next = event.target.value;
+
+                    setName(next);
+
+                    if (isNew) {
+                      setObjectId(toObjectId(next));
+                    }
+                  }}
+                />
+                <p className="font-mono text-caption text-foreground-subtle">{addressCaption}</p>
+              </div>
+
+              {isNew ? (
+                <div className="flex flex-col gap-1.5">
+                  <Segmented
+                    label="Kind"
+                    options={[
+                      { value: 'calculated', label: 'Calculated' },
+                      { value: 'stored', label: 'Stored' },
+                    ]}
+                    value={kind}
+                    onChange={(value) => {
+                      setKind(value === 'stored' ? 'stored' : 'calculated');
+                      setProblem(null);
+                    }}
+                  />
+                  <p className="text-caption text-foreground-subtle">
+                    Calculated works out a value; stored holds one you set.
+                  </p>
+                </div>
+              ) : null}
+
+              {isCalculated ? (
+                <>
+                  <SelectField
+                    label="Produces"
+                    size="medium"
+                    options={CALCULATED_OPTIONS}
+                    value={capability}
+                    disabled={!isNew}
+                    onChange={(value) => {
+                      setCapability(
+                        ALIAS_CALCULATED_CAPABILITIES.find((entry) => entry === value) ??
+                          'sensor_numeric',
+                      );
+                    }}
+                  />
+
+                  {showMeasure ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <SelectField
+                        label="Device class"
+                        size="medium"
+                        options={DEVICE_CLASS_OPTIONS}
+                        value={deviceClass}
+                        onChange={changeDeviceClass}
+                      />
+                      <SelectField
+                        label="Unit"
+                        size="medium"
+                        options={
+                          unitOptions.length === 0
+                            ? [{ value: '', label: 'Choose a class first' }]
+                            : [{ value: '', label: 'None' }, ...unitOptions]
+                        }
+                        value={unitOfMeasurement}
+                        disabled={unitOptions.length === 0}
+                        onChange={setUnit}
+                      />
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <SelectField
+                    label="Domain"
+                    size="medium"
+                    options={DOMAIN_OPTIONS}
+                    value={domain}
+                    disabled={!isNew}
+                    onChange={(value) => {
+                      setDomain(ALIAS_STORED_DOMAINS.find((entry) => entry === value) ?? 'switch');
+                      setLightExtras(new Set());
+                    }}
+                  />
+
+                  {domain === 'light' ? (
+                    <div className="flex flex-col gap-3">
+                      <span className="text-caption text-foreground-muted">
+                        Lights always carry on/off. Add optional capabilities below.
+                      </span>
+                      {LIGHT_OPTIONAL.map((extra) => (
+                        <Segmented
+                          key={extra}
+                          label={extra.replaceAll('_', ' ')}
+                          size="compact"
+                          options={[
+                            { value: 'off', label: 'Off' },
+                            { value: 'on', label: 'On' },
+                          ]}
+                          value={lightExtras.has(extra) ? 'on' : 'off'}
+                          onChange={(value) => {
+                            setLightExtra(extra, value === 'on');
+                          }}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {domain === 'sensor' ? (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <SelectField
+                        label="Device class"
+                        size="medium"
+                        options={DEVICE_CLASS_OPTIONS}
+                        value={deviceClass}
+                        onChange={changeDeviceClass}
+                      />
+                      <SelectField
+                        label="Unit"
+                        size="medium"
+                        options={
+                          unitOptions.length === 0
+                            ? [{ value: '', label: 'Choose a class first' }]
+                            : [{ value: '', label: 'None' }, ...unitOptions]
+                        }
+                        value={unitOfMeasurement}
+                        disabled={unitOptions.length === 0}
+                        onChange={setUnit}
+                      />
+                      <TextField
+                        label="Min"
+                        size="medium"
+                        type="number"
+                        value={min}
+                        onChange={(event) => {
+                          setMin(event.target.value);
+                        }}
+                      />
+                      <TextField
+                        label="Max"
+                        size="medium"
+                        type="number"
+                        value={max}
+                        onChange={(event) => {
+                          setMax(event.target.value);
+                        }}
+                      />
+                      <TextField
+                        label="Step"
+                        size="medium"
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={step}
+                        onChange={(event) => {
+                          setStep(event.target.value);
+                        }}
+                      />
+                    </div>
+                  ) : null}
+
+                  {domain === 'switch' ||
+                  domain === 'cover' ||
+                  domain === 'lock' ||
+                  domain === 'climate' ||
+                  domain === 'media_player' ? (
+                    <p className="text-caption text-foreground-muted">
+                      Capabilities: {[...storedCapabilitiesForDomain(domain)].join(', ')}.
+                    </p>
+                  ) : null}
+                </>
+              )}
+            </div>
+          </Panel>
+
+          {isCalculated ? (
+            <Panel title="Behaviour">
+              <div className="flex flex-col gap-4 p-4">
+                <TextField
+                  label="Debounce (ms)"
+                  size="medium"
+                  type="number"
+                  min={0}
+                  hint="Waits this long after a source changes before working it out."
+                  value={String(debounceMs)}
+                  onChange={(event) => {
+                    setDebounceMs(Math.max(0, Number(event.target.value) || 0));
+                  }}
+                />
+                <SelectField
+                  label="When a source stops reporting"
+                  size="medium"
+                  options={FALLBACK_OPTIONS}
+                  value={fallbackPolicy}
                   onChange={(value) => {
-                    setCapability(
-                      ALIAS_CALCULATED_CAPABILITIES.find((entry) => entry === value) ??
-                        'sensor_numeric',
+                    setFallback(
+                      ALIAS_FALLBACK_POLICIES.find((entry) => entry === value) ?? 'unavailable',
                     );
                   }}
                 />
-
-                <AliasFormulaField
-                  value={expression}
-                  required
-                  sources={sources.map((source) => ({
-                    variableName: source.variableName,
-                    color: colors.get(source.rowKey) ?? 'indigo',
-                  }))}
-                  {...(formula.tone === 'problem'
-                    ? { error: formula.text }
-                    : { hint: formula.text })}
-                  onChange={setExpression}
-                />
-
-                {showMeasure ? (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <SelectField
-                      label="Device class"
-                      size="medium"
-                      options={DEVICE_CLASS_OPTIONS}
-                      value={deviceClass}
-                      onChange={changeDeviceClass}
-                    />
-                    <SelectField
-                      label="Unit"
-                      size="medium"
-                      options={
-                        unitOptions.length === 0
-                          ? [{ value: '', label: 'Choose a class first' }]
-                          : [{ value: '', label: 'None' }, ...unitOptions]
-                      }
-                      value={unitOfMeasurement}
-                      disabled={unitOptions.length === 0}
-                      onChange={setUnit}
-                    />
-                    <SelectField
-                      label="Fallback"
-                      size="medium"
-                      options={FALLBACK_OPTIONS}
-                      value={fallbackPolicy}
-                      onChange={(value) => {
-                        setFallback(
-                          ALIAS_FALLBACK_POLICIES.find((entry) => entry === value) ?? 'unavailable',
-                        );
-                      }}
-                    />
-                    <TextField
-                      label="Debounce (ms)"
-                      size="medium"
-                      type="number"
-                      min={0}
-                      value={String(debounceMs)}
-                      onChange={(event) => {
-                        setDebounceMs(Math.max(0, Number(event.target.value) || 0));
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <SelectField
-                      label="Fallback"
-                      size="medium"
-                      options={FALLBACK_OPTIONS}
-                      value={fallbackPolicy}
-                      onChange={(value) => {
-                        setFallback(
-                          ALIAS_FALLBACK_POLICIES.find((entry) => entry === value) ?? 'unavailable',
-                        );
-                      }}
-                    />
-                    <TextField
-                      label="Debounce (ms)"
-                      size="medium"
-                      type="number"
-                      min={0}
-                      value={String(debounceMs)}
-                      onChange={(event) => {
-                        setDebounceMs(Math.max(0, Number(event.target.value) || 0));
-                      }}
-                    />
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <SelectField
-                  label="Domain"
-                  size="medium"
-                  options={DOMAIN_OPTIONS}
-                  value={domain}
-                  disabled={!isNew}
-                  onChange={(value) => {
-                    setDomain(ALIAS_STORED_DOMAINS.find((entry) => entry === value) ?? 'switch');
-                    setLightExtras(new Set());
-                  }}
-                />
-
-                {domain === 'light' ? (
-                  <div className="flex flex-col gap-3">
-                    <span className="text-caption text-foreground-muted">
-                      Lights always carry on/off. Add optional capabilities below.
-                    </span>
-                    {LIGHT_OPTIONAL.map((extra) => (
-                      <Segmented
-                        key={extra}
-                        label={extra.replaceAll('_', ' ')}
-                        size="compact"
-                        options={[
-                          { value: 'off', label: 'Off' },
-                          { value: 'on', label: 'On' },
-                        ]}
-                        value={lightExtras.has(extra) ? 'on' : 'off'}
-                        onChange={(value) => {
-                          setLightExtra(extra, value === 'on');
-                        }}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-
-                {domain === 'sensor' ? (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <SelectField
-                      label="Device class"
-                      size="medium"
-                      options={DEVICE_CLASS_OPTIONS}
-                      value={deviceClass}
-                      onChange={changeDeviceClass}
-                    />
-                    <SelectField
-                      label="Unit"
-                      size="medium"
-                      options={
-                        unitOptions.length === 0
-                          ? [{ value: '', label: 'Choose a class first' }]
-                          : [{ value: '', label: 'None' }, ...unitOptions]
-                      }
-                      value={unitOfMeasurement}
-                      disabled={unitOptions.length === 0}
-                      onChange={setUnit}
-                    />
-                    <TextField
-                      label="Min"
-                      size="medium"
-                      type="number"
-                      value={min}
-                      onChange={(event) => {
-                        setMin(event.target.value);
-                      }}
-                    />
-                    <TextField
-                      label="Max"
-                      size="medium"
-                      type="number"
-                      value={max}
-                      onChange={(event) => {
-                        setMax(event.target.value);
-                      }}
-                    />
-                    <TextField
-                      label="Step"
-                      size="medium"
-                      type="number"
-                      min={0}
-                      step="any"
-                      value={step}
-                      onChange={(event) => {
-                        setStep(event.target.value);
-                      }}
-                    />
-                  </div>
-                ) : null}
-
-                {domain === 'switch' ||
-                domain === 'cover' ||
-                domain === 'lock' ||
-                domain === 'climate' ||
-                domain === 'media_player' ? (
-                  <p className="text-caption text-foreground-muted">
-                    Capabilities: {[...storedCapabilitiesForDomain(domain)].join(', ')}.
-                  </p>
-                ) : null}
-              </>
-            )}
-          </div>
-        </Panel>
-
-        {isCalculated ? (
-          <AliasSourcesPanel
-            sources={sources}
-            colors={colors}
-            onChange={setSources}
-            selfId={loaded?.entityId ?? null}
-          />
-        ) : null}
+              </div>
+            </Panel>
+          ) : null}
+        </div>
       </div>
     </Shell>
+  );
+}
+
+/** What the formula's footer needs. */
+type FormulaFooterProps = {
+  /** What the formula reads now, or why it does not. */
+  readonly reading: FormulaReading;
+};
+
+/**
+ * The line inside the formula's frame: what it reads now on the left, what it may be written
+ * with on the right. A problem is said under the field, in full; here it is only flagged.
+ *
+ * @param props - See {@link FormulaFooterProps}.
+ * @returns The two halves.
+ */
+function FormulaFooter(props: FormulaFooterProps) {
+  const { reading } = props;
+
+  return (
+    <>
+      <span aria-live="polite" className="flex min-w-0 items-center gap-2 text-ui-sm">
+        {reading.tone === 'value' ? (
+          <>
+            <AppIcon id="check" size={15} className="text-success" />
+            <span className="text-foreground-muted">Reads now</span>
+            <span className="truncate text-headline-sm font-medium text-foreground tabular">
+              {reading.value}
+            </span>
+          </>
+        ) : reading.tone === 'problem' ? (
+          <>
+            <AppIcon id="triangle-alert" size={15} className="text-danger" />
+            <span className="text-danger">Cannot work it out</span>
+          </>
+        ) : (
+          <span className="text-foreground-subtle">{reading.text}</span>
+        )}
+      </span>
+      <span className="font-mono text-caption text-foreground-subtle">{FORMULA_OPERATORS}</span>
+    </>
   );
 }
 

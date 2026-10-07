@@ -14,8 +14,12 @@
  *
  * Several lines are allowed - the evaluator reads a newline as a space - and the field grows
  * with what is written.
+ *
+ * The box can carry a footer inside its border, as the board draws it: what the formula reads
+ * now on the left, what may be written on the right. The border and the focus ring belong to the
+ * box around both, so the footer is part of the field rather than a line under it.
  */
-import { useRef } from 'react';
+import { useRef, type ReactNode } from 'react';
 
 import { scanAliasExpression, type AliasSpanKind, type TagColor } from '@nebulahome/contracts';
 import { FieldShell, cn } from '@nebulahome/ui';
@@ -62,9 +66,12 @@ const KIND_CLASSES: Readonly<Record<Exclude<AliasSpanKind, 'ident'>, string>> = 
   invalid: 'text-danger underline decoration-danger decoration-wavy underline-offset-4',
 };
 
-/** The box both layers share, so the painted copy lies exactly under the typed text. */
+/**
+ * The box both layers share, so the painted copy lies exactly under the typed text. Both keep a
+ * transparent border of the same width; the visible one is the frame's.
+ */
 const LAYER =
-  'block w-full rounded-field border px-3.5 py-2.5 font-mono text-ui whitespace-pre-wrap break-words';
+  'block w-full border border-transparent px-3.5 py-2.5 font-mono text-ui whitespace-pre-wrap break-words';
 
 /** One source colour the formula can paint. */
 export type FormulaSourceColor = {
@@ -95,6 +102,12 @@ export type AliasFormulaFieldProps = {
 
   /** Why the formula cannot be worked out, when it cannot. */
   readonly error?: string | undefined;
+
+  /** Hides the label, for a field under a heading that already says Formula. */
+  readonly isLabelHidden?: boolean;
+
+  /** A line inside the frame, under the text: what it reads now, what may be written. */
+  readonly footer?: ReactNode;
 };
 
 /**
@@ -134,7 +147,16 @@ export function formulaSegments(
  * @returns The field.
  */
 export function AliasFormulaField(props: AliasFormulaFieldProps) {
-  const { value, onChange, sources, required = false, hint, error } = props;
+  const {
+    value,
+    onChange,
+    sources,
+    required = false,
+    hint,
+    error,
+    isLabelHidden = false,
+    footer,
+  } = props;
   const backdrop = useRef<HTMLDivElement>(null);
   const colors = new Map(
     sources
@@ -152,59 +174,76 @@ export function AliasFormulaField(props: AliasFormulaFieldProps) {
   return (
     <FieldShell
       label="Formula"
-      // One line under the field: what is wrong, when something is; otherwise what it reads.
+      isLabelHidden={isLabelHidden}
+      // One line under the field: what is wrong, when something is; otherwise what it reads. A
+      // field with a footer says what it reads there, and its heading says how to write it.
       hint={
         error === undefined
-          ? (hint ?? 'Write it with the variables of the sources, e.g. (t1 + t2) / 2.')
+          ? (hint ??
+            (footer === undefined
+              ? 'Write it with the variables of the sources, e.g. (t1 + t2) / 2.'
+              : undefined))
           : undefined
       }
       error={error}
     >
       {(ids) => (
-        <div className="relative">
-          <div
-            ref={backdrop}
-            aria-hidden="true"
-            className={cn(
-              LAYER,
-              'pointer-events-none absolute inset-0 overflow-hidden bg-surface-raised text-foreground',
-              ids.isInvalid ? 'border-danger' : 'border-border',
-            )}
-          >
-            {segments.map((segment, index) => (
-              <span key={starts[index]} className={segment.className}>
-                {segment.text}
-              </span>
-            ))}
-            {/* A text area ending in a newline shows the empty line under it; so must the copy. */}{' '}
+        <div
+          className={cn(
+            'overflow-hidden rounded-field border bg-surface-raised transition-[border-color,box-shadow]',
+            'focus-within:border-primary focus-within:ring-3 focus-within:ring-primary/25',
+            ids.isInvalid ? 'border-danger' : 'border-border',
+          )}
+        >
+          <div className="relative">
+            <div
+              ref={backdrop}
+              aria-hidden="true"
+              className={cn(
+                LAYER,
+                'pointer-events-none absolute inset-0 overflow-hidden text-foreground',
+              )}
+            >
+              {segments.map((segment, index) => (
+                <span key={starts[index]} className={segment.className}>
+                  {segment.text}
+                </span>
+              ))}
+              {/* A text area ending in a newline shows the empty line under it; so must the copy. */}{' '}
+            </div>
+            <textarea
+              id={ids.id}
+              aria-invalid={ids.isInvalid}
+              aria-describedby={ids.describedBy}
+              required={required}
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              rows={Math.max(3, lines)}
+              placeholder="(t1 + t2) / 2"
+              value={value}
+              className={cn(
+                LAYER,
+                'relative min-h-24 resize-none overflow-y-auto bg-transparent',
+                'text-transparent caret-foreground placeholder:text-foreground-disabled',
+                'field-sizing-content selection:bg-primary/30 selection:text-transparent',
+                'focus-visible:outline-none',
+              )}
+              onChange={(event) => {
+                onChange(event.target.value);
+              }}
+              onScroll={(event) => {
+                if (backdrop.current !== null) {
+                  backdrop.current.scrollTop = event.currentTarget.scrollTop;
+                }
+              }}
+            />
           </div>
-          <textarea
-            id={ids.id}
-            aria-invalid={ids.isInvalid}
-            aria-describedby={ids.describedBy}
-            required={required}
-            autoComplete="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            rows={Math.max(3, lines)}
-            placeholder="(t1 + t2) / 2"
-            value={value}
-            className={cn(
-              LAYER,
-              'relative min-h-24 resize-none overflow-y-auto border-transparent bg-transparent',
-              'text-transparent caret-foreground placeholder:text-foreground-disabled',
-              'field-sizing-content selection:bg-primary/30 selection:text-transparent',
-              'focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none',
-            )}
-            onChange={(event) => {
-              onChange(event.target.value);
-            }}
-            onScroll={(event) => {
-              if (backdrop.current !== null) {
-                backdrop.current.scrollTop = event.currentTarget.scrollTop;
-              }
-            }}
-          />
+          {footer === undefined ? null : (
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border px-3.5 py-2.5">
+              {footer}
+            </div>
+          )}
         </div>
       )}
     </FieldShell>
