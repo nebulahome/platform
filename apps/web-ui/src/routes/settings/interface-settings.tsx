@@ -14,10 +14,12 @@ import { Panel, PanelNote, PanelRow, Segmented, SelectField } from '@nebulahome/
  */
 import {
   MOTION_CHOICES,
+  SIDEBAR_CHOICES,
   START_PAGES,
   THEME_CHOICES,
   usePreferences,
   type MotionChoice,
+  type SidebarChoice,
   type StartPage,
   type ThemeChoice,
 } from '@/settings/preferences';
@@ -37,6 +39,12 @@ const MOTION_LABELS: Readonly<Record<MotionChoice, string>> = {
 };
 
 /** What each start page is called on screen. */
+/** What each rail width is called. */
+const SIDEBAR_LABELS: Readonly<Record<SidebarChoice, string>> = {
+  expanded: 'Expanded',
+  collapsed: 'Collapsed',
+};
+
 const START_PAGE_LABELS: Readonly<Record<StartPage, string>> = {
   '/dashboards': 'Dashboards',
   '/automations': 'Automations',
@@ -56,6 +64,7 @@ export function InterfaceSettings() {
   const theme = usePreferences((state) => state.theme);
   const motion = usePreferences((state) => state.motion);
   const startPage = usePreferences((state) => state.startPage);
+  const sidebar = usePreferences((state) => state.sidebar);
   const change = usePreferences((state) => state.set);
 
   return (
@@ -81,7 +90,7 @@ export function InterfaceSettings() {
 
         <PanelRow
           title="Motion"
-          note="Reduced stops the drifting lights behind the sign-in screen and turns the loading mark into a pulse."
+          note="Reduced stops the drifting sky behind the sign-in screen and turns the loading mark into a pulse."
           control={
             <Segmented
               label="Motion"
@@ -92,6 +101,24 @@ export function InterfaceSettings() {
               }))}
               onChange={(next) => {
                 change({ motion: next });
+              }}
+            />
+          }
+        />
+
+        <PanelRow
+          title="Sidebar"
+          note="Collapsed keeps only the glyphs, for more room. The dashboard editor collapses it anyway."
+          control={
+            <Segmented
+              label="Sidebar"
+              value={sidebar}
+              options={SIDEBAR_CHOICES.map((choice) => ({
+                value: choice,
+                label: SIDEBAR_LABELS[choice],
+              }))}
+              onChange={(next) => {
+                change({ sidebar: next });
               }}
             />
           }

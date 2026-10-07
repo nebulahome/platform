@@ -67,6 +67,8 @@ import { ListingLogo } from '@/components/catalogue/listing-logo';
 import { CheckIcon, CopyIcon, WarningIcon } from '@/components/icons';
 import { LogViewer } from '@/components/log-viewer';
 import { PasswordField } from '@/components/password-field';
+import { Sidebar } from '@/components/sidebar';
+import { CONTAINER_QUERY_KEYS } from '@/containers/api';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { capabilityStateOf } from '@/library/entity-control';
 import { readingOf } from '@/library/entity-reading';
@@ -431,6 +433,33 @@ const BACKUP_CACHE = backupSampleCache();
 
 // The Backup page shows its controls to whoever may use them: the gallery's visitor is the owner.
 useSession.setState({ user: SAMPLE_OWNER });
+
+/**
+ * A list of so many things, for a count: the rail reads only how long a list is.
+ *
+ * @param length - How many.
+ * @param item - What each one is.
+ * @returns The list.
+ */
+function listOf<TItem>(length: number, item: TItem): readonly TItem[] {
+  return Array.from({ length }, () => item);
+}
+
+/** The cache the rail's counts are read from: the house of the boards. */
+const RAIL_CACHE = (() => {
+  const cache = new QueryClient();
+
+  cache.setQueryData(LIBRARY_QUERY_KEYS.automations, listOf(148, {}));
+  cache.setQueryData(LIBRARY_QUERY_KEYS.scenes, listOf(52, {}));
+  cache.setQueryData(LIBRARY_QUERY_KEYS.aliases, listOf(67, {}));
+  cache.setQueryData(LIBRARY_QUERY_KEYS.devices, listOf(64, {}));
+  cache.setQueryData(LIBRARY_QUERY_KEYS.areas, listOf(9, { kind: 'room' }));
+  cache.setQueryData(LIBRARY_QUERY_KEYS.tags, listOf(5, {}));
+  cache.setQueryData(LIBRARY_QUERY_KEYS.vendors, listOf(9, {}));
+  cache.setQueryData(CONTAINER_QUERY_KEYS.list, { items: listOf(6, {}) });
+
+  return cache;
+})();
 
 /** The cache the energy samples' days are read from. */
 const ENERGY_CACHE = energySampleCache();
@@ -1087,6 +1116,20 @@ function Gallery() {
               }}
             />
           </div>
+        </Section>
+
+        <Section
+          title="Rail"
+          note="The sidebar: Automate, House and System, counts beside the entries, and the 72px rail it collapses to."
+        >
+          <QueryClientProvider client={RAIL_CACHE}>
+            <MemoryRouter initialEntries={['/devices']}>
+              <div className="flex h-180 overflow-hidden rounded-panel border border-border">
+                <Sidebar />
+                <div className="grow bg-canvas" />
+              </div>
+            </MemoryRouter>
+          </QueryClientProvider>
         </Section>
 
         <Section

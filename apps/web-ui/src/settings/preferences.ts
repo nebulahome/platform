@@ -28,6 +28,15 @@ export const MOTION_CHOICES = ['system', 'full', 'reduced'] as const;
 /** How much the interface moves. */
 export type MotionChoice = (typeof MOTION_CHOICES)[number];
 
+/**
+ * How wide the rail is: 240px with its labels, or 72px of glyphs. Collapsed gives a page the
+ * room; the dashboard editor collapses it whatever is chosen here.
+ */
+export const SIDEBAR_CHOICES = ['expanded', 'collapsed'] as const;
+
+/** One of {@link SIDEBAR_CHOICES}. */
+export type SidebarChoice = (typeof SIDEBAR_CHOICES)[number];
+
 /** Where signing in leaves you. */
 export const START_PAGES = [
   '/dashboards',
@@ -52,6 +61,9 @@ export type Preferences = {
 
   /** Which page opens when you sign in. */
   readonly startPage: StartPage;
+
+  /** How wide the rail is. */
+  readonly sidebar: SidebarChoice;
 };
 
 /** What a browser that has never been told anything uses. */
@@ -59,6 +71,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   theme: 'system',
   motion: 'system',
   startPage: '/dashboards',
+  sidebar: 'expanded',
 };
 
 /** The key the whole set is filed under. One key, so a read is one parse and one guard. */
@@ -111,6 +124,7 @@ export function readPreferences(): Preferences {
     theme: oneOf(THEME_CHOICES, record['theme'], DEFAULT_PREFERENCES.theme),
     motion: oneOf(MOTION_CHOICES, record['motion'], DEFAULT_PREFERENCES.motion),
     startPage: oneOf(START_PAGES, record['startPage'], DEFAULT_PREFERENCES.startPage),
+    sidebar: oneOf(SIDEBAR_CHOICES, record['sidebar'], DEFAULT_PREFERENCES.sidebar),
   };
 }
 
@@ -182,8 +196,8 @@ export const usePreferences = create<PreferencesState>((set, get) => ({
    * @param changes - What to change.
    */
   set: (changes: Partial<Preferences>): void => {
-    const { theme, motion, startPage } = { ...get(), ...changes };
-    const next: Preferences = { theme, motion, startPage };
+    const { theme, motion, startPage, sidebar } = { ...get(), ...changes };
+    const next: Preferences = { theme, motion, startPage, sidebar };
 
     set(next);
     writePreferences(next);

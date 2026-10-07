@@ -35,13 +35,19 @@ describe('readPreferences', () => {
   it('reads back what was stored', () => {
     globalThis.localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ theme: 'dark', motion: 'reduced', startPage: '/devices' }),
+      JSON.stringify({
+        theme: 'dark',
+        motion: 'reduced',
+        startPage: '/devices',
+        sidebar: 'collapsed',
+      }),
     );
 
     expect(readPreferences()).toEqual({
       theme: 'dark',
       motion: 'reduced',
       startPage: '/devices',
+      sidebar: 'collapsed',
     });
   });
 
@@ -56,6 +62,7 @@ describe('readPreferences', () => {
       theme: 'system',
       motion: 'system',
       startPage: '/scenes',
+      sidebar: 'expanded',
     });
   });
 
@@ -90,7 +97,10 @@ describe('applyPreferences', () => {
   it('marks the root with a chosen theme', () => {
     const root = globalThis.document.createElement('html');
 
-    applyPreferences({ theme: 'light', motion: 'reduced', startPage: '/devices' }, root);
+    applyPreferences(
+      { theme: 'light', motion: 'reduced', startPage: '/devices', sidebar: 'expanded' },
+      root,
+    );
 
     expect(root.getAttribute('data-theme')).toBe('light');
     expect(root.getAttribute('data-motion')).toBe('reduced');
@@ -102,7 +112,10 @@ describe('applyPreferences', () => {
     root.setAttribute('data-theme', 'dark');
     root.setAttribute('data-motion', 'full');
 
-    applyPreferences({ theme: 'system', motion: 'system', startPage: '/devices' }, root);
+    applyPreferences(
+      { theme: 'system', motion: 'system', startPage: '/devices', sidebar: 'collapsed' },
+      root,
+    );
 
     expect(root.hasAttribute('data-theme')).toBe(false);
     expect(root.hasAttribute('data-motion')).toBe(false);

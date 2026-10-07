@@ -11,19 +11,80 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ApiPackage } from '@nebulahome/contracts';
+import type { ApiPackage, SceneView } from '@nebulahome/contracts';
 
 import { isPermitted, useSession } from '@/auth/session-store';
 import { Sidebar } from '@/components/sidebar';
+import type * as ContainersApi from '@/containers/api';
+import type * as LibraryApi from '@/library/api';
+import { fetchScenes } from '@/library/api';
 import type * as PackagesApi from '@/packages/api';
 import { fetchPackages } from '@/packages/api';
 import { toUsername } from '@/routes/first-run';
+import { usePreferences } from '@/settings/preferences';
 import { aPackage } from '@/testing/package-fixtures';
 
 vi.mock('@/packages/api', async (original) => ({
   ...(await original<typeof PackagesApi>()),
   fetchPackages: vi.fn(async () => Promise.resolve([])),
 }));
+
+// The rail counts each list; the lists are empty unless a test fills one.
+vi.mock('@/library/api', async (original) => ({
+  ...(await original<typeof LibraryApi>()),
+  fetchAutomations: vi.fn(async () => Promise.resolve([])),
+  fetchScenes: vi.fn(async () => Promise.resolve([])),
+  fetchAliases: vi.fn(async () => Promise.resolve([])),
+  fetchDevices: vi.fn(async () => Promise.resolve([])),
+  fetchAreas: vi.fn(async () => Promise.resolve([])),
+  fetchTags: vi.fn(async () => Promise.resolve([])),
+  fetchVendors: vi.fn(async () => Promise.resolve([])),
+}));
+
+vi.mock('@/containers/api', async (original) => ({
+  ...(await original<typeof ContainersApi>()),
+  fetchContainers: vi.fn(async () =>
+    Promise.resolve({
+      docker: { isAvailable: true },
+      items: [],
+      installs: [],
+      composeOperations: [],
+    }),
+  ),
+}));
+
+/** Every list the rail can count, readable. */
+const EVERYTHING = [
+  'automation:read',
+  'scene:read',
+  'alias:read',
+  'device:read',
+  'area:read',
+  'tag:read',
+  'integration:read',
+  'package:read',
+  'container:read',
+] as const;
+
+/**
+ * A scene, as the list returns it, with only its key telling it apart.
+ *
+ * @param key - Its key.
+ * @returns The scene.
+ */
+function aScene(key: string): SceneView {
+  return {
+    id:
+      key === 'a' ? '00000000-0000-4000-8000-00000000000a' : '00000000-0000-4000-8000-00000000000b',
+    key,
+    name: key,
+    icon: null,
+    areaKey: null,
+    transitionMs: 0,
+    rollbackOnPartialFailure: false,
+    members: [],
+  };
+}
 
 /**
  * Renders the rail at a given address, with somebody signed in.
@@ -32,6 +93,7 @@ vi.mock('@/packages/api', async (original) => ({
  * @param permissions - What they hold.
  */
 function renderAt(pathname: string, permissions: readonly string[] = []): void {
+  usePreferences.setState({ sidebar: 'expanded' });
   useSession.setState({
     status: 'signed-in',
     user: {
@@ -91,95 +153,109 @@ describe('Sidebar', () => {
     expect(screen.queryByRole('link', { name: 'MQTT' })).toBeNull();
   });
 
-  it('shows the top-level destinations and the two groups', () => {
-    renderAt('/dashboards');
+  it('shows Dashboards and the three groups, Automate, House and System', () => {
+    renderAt('/dashboards', EVERYTHING);
 
     expect(screen.getByRole('link', { name: 'Dashboards' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Automation/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Configuration/ })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Packages' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Automate/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /House/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /System/ })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Settings' })).toBeTruthy();
   });
 
-  it('keeps both groups shut when you are not inside either', () => {
-    renderAt('/dashboards');
+  it('keeps every group shut when you are not inside one', () => {
+    renderAt('/dashboards', EVERYTHING);
 
-    expect(screen.getByRole('button', { name: /Automation/ }).getAttribute('aria-expanded')).toBe(
-      'false',
-    );
-    expect(
-      screen.getByRole('button', { name: /Configuration/ }).getAttribute('aria-expanded'),
-    ).toBe('false');
+    for (const name of [/Automate/, /House/, /System/]) {
+      expect(screen.getByRole('button', { name }).getAttribute('aria-expanded')).toBe('false');
+    }
     expect(screen.queryByRole('link', { name: 'Scenes' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Devices' })).toBeNull();
   });
 
   it('opens the group you are in because of where you are, not because it was clicked', () => {
-    renderAt('/scenes');
+    renderAt('/scenes', EVERYTHING);
 
-    // What runs the house on its own is one group; what describes the house is the other.
-    expect(screen.getByRole('button', { name: /Automation/ }).getAttribute('aria-expanded')).toBe(
+    expect(screen.getByRole('button', { name: /Automate/ }).getAttribute('aria-expanded')).toBe(
       'true',
     );
-    expect(
-      screen.getByRole('button', { name: /Configuration/ }).getAttribute('aria-expanded'),
-    ).toBe('false');
+    expect(screen.getByRole('button', { name: /House/ }).getAttribute('aria-expanded')).toBe(
+      'false',
+    );
     expect(screen.getByRole('link', { name: 'Automations' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Aliases' })).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'Tags' })).toBeNull();
   });
 
-  it('puts devices, tags and areas together, as the things that describe the house', () => {
-    renderAt('/tags');
+  it('puts devices, areas and tags together, then the setup of the dashboards', () => {
+    renderAt('/tags', [...EVERYTHING, 'dashboard:manage']);
 
-    expect(
-      screen.getByRole('button', { name: /Configuration/ }).getAttribute('aria-expanded'),
-    ).toBe('true');
+    const house = screen.getByRole('button', { name: /House/ });
+    expect(house.getAttribute('aria-expanded')).toBe('true');
     expect(screen.getByRole('link', { name: 'Devices' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Tags' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Areas' }).getAttribute('href')).toBe('/areas');
+    expect(screen.getByRole('link', { name: 'Dashboard setup' }).getAttribute('href')).toBe(
+      '/configuration/dashboards',
+    );
     expect(screen.queryByRole('link', { name: 'Automations' })).toBeNull();
   });
 
-  it('lists the dashboards under Configuration only for someone who manages them', () => {
-    renderAt('/tags');
+  it('puts integrations, packages and containers under System', () => {
+    renderAt('/containers', EVERYTHING);
 
-    expect(screen.getAllByRole('link', { name: 'Dashboards' })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: /System/ }).getAttribute('aria-expanded')).toBe(
+      'true',
+    );
+    expect(screen.getByRole('link', { name: 'Integrations' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Packages' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Containers' }).getAttribute('aria-current')).toBe(
+      'page',
+    );
   });
 
-  it('opens Configuration on the dashboards page, beside the dashboards themselves', () => {
-    renderAt('/configuration/dashboards', ['dashboard:manage']);
+  it('shows only what the role may read, and no group left empty', () => {
+    renderAt('/scenes', ['scene:read']);
 
-    const links = screen.getAllByRole('link', { name: 'Dashboards' });
+    expect(screen.getByRole('link', { name: 'Scenes' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Automations' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /House/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /System/ })).toBeNull();
+  });
 
-    expect(links.map((link) => link.getAttribute('href'))).toEqual([
-      '/dashboards',
-      '/configuration/dashboards',
-    ]);
-    expect(
-      screen.getByRole('button', { name: /Configuration/ }).getAttribute('aria-expanded'),
-    ).toBe('true');
+  it('draws House only for someone who may read the devices', () => {
+    renderAt('/tags', ['tag:read', 'area:read']);
+
+    expect(screen.queryByRole('button', { name: /House/ })).toBeNull();
+  });
+
+  it('counts each list beside its entry', async () => {
+    vi.mocked(fetchScenes).mockResolvedValueOnce([aScene('a'), aScene('b')]);
+    renderAt('/scenes', EVERYTHING);
+
+    const scenes = screen.getByRole('link', { name: /Scenes/ });
+    expect(await within(scenes).findByText('2')).toBeTruthy();
   });
 
   it('lets the group you are in be closed by hand', () => {
-    renderAt('/scenes');
+    renderAt('/scenes', EVERYTHING);
 
-    const automation = screen.getByRole('button', { name: /Automation/ });
+    const automate = screen.getByRole('button', { name: /Automate/ });
 
-    fireEvent.click(automation);
+    fireEvent.click(automate);
 
-    expect(automation.getAttribute('aria-expanded')).toBe('false');
+    expect(automate.getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByRole('link', { name: 'Scenes' })).toBeNull();
   });
 
   it('opens one group at a time', () => {
-    renderAt('/scenes');
+    renderAt('/scenes', EVERYTHING);
 
-    fireEvent.click(screen.getByRole('button', { name: /Configuration/ }));
+    fireEvent.click(screen.getByRole('button', { name: /House/ }));
 
-    expect(
-      screen.getByRole('button', { name: /Configuration/ }).getAttribute('aria-expanded'),
-    ).toBe('true');
-    expect(screen.getByRole('button', { name: /Automation/ }).getAttribute('aria-expanded')).toBe(
+    expect(screen.getByRole('button', { name: /House/ }).getAttribute('aria-expanded')).toBe(
+      'true',
+    );
+    expect(screen.getByRole('button', { name: /Automate/ }).getAttribute('aria-expanded')).toBe(
       'false',
     );
   });
@@ -187,40 +263,61 @@ describe('Sidebar', () => {
   it('forgets a group opened by hand once you move on, and follows where you are', () => {
     // The bug this guards: a group opened by hand stayed open on every page after, beside the
     // one the new page opened, until it happened to be clicked again from outside it.
-    renderAt('/scenes');
+    renderAt('/scenes', EVERYTHING);
 
-    fireEvent.click(screen.getByRole('button', { name: /Configuration/ }));
+    fireEvent.click(screen.getByRole('button', { name: /House/ }));
     fireEvent.click(screen.getByRole('link', { name: 'Tags' }));
 
-    expect(
-      screen.getByRole('button', { name: /Configuration/ }).getAttribute('aria-expanded'),
-    ).toBe('true');
-    expect(screen.getByRole('button', { name: /Automation/ }).getAttribute('aria-expanded')).toBe(
+    expect(screen.getByRole('button', { name: /House/ }).getAttribute('aria-expanded')).toBe(
+      'true',
+    );
+    expect(screen.getByRole('button', { name: /Automate/ }).getAttribute('aria-expanded')).toBe(
       'false',
     );
 
     fireEvent.click(screen.getByRole('link', { name: 'Dashboards' }));
 
-    expect(
-      screen.getByRole('button', { name: /Configuration/ }).getAttribute('aria-expanded'),
-    ).toBe('false');
-    expect(screen.getByRole('button', { name: /Automation/ }).getAttribute('aria-expanded')).toBe(
+    expect(screen.getByRole('button', { name: /House/ }).getAttribute('aria-expanded')).toBe(
       'false',
     );
   });
 
-  it('opens Configuration on the page of a device and of an entity', () => {
-    renderAt('/devices/entities/light.kitchen');
+  it('opens House on the page of a device and of an entity', () => {
+    renderAt('/devices/entities/light.kitchen', EVERYTHING);
 
-    expect(
-      screen.getByRole('button', { name: /Configuration/ }).getAttribute('aria-expanded'),
-    ).toBe('true');
+    expect(screen.getByRole('button', { name: /House/ }).getAttribute('aria-expanded')).toBe(
+      'true',
+    );
+  });
+
+  it('collapses to glyphs named on hover, and remembers it', () => {
+    renderAt('/scenes', EVERYTHING);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
+
+    expect(usePreferences.getState().sidebar).toBe('collapsed');
+    expect(screen.queryByRole('button', { name: /Automate/ })).toBeNull();
+    const devices = screen.getByRole('link', { name: 'Devices' });
+    expect(devices.getAttribute('title')).toBe('Devices');
+    expect(screen.getByRole('link', { name: 'Scenes' }).getAttribute('aria-current')).toBe('page');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
+    expect(usePreferences.getState().sidebar).toBe('expanded');
+    expect(screen.getByRole('button', { name: /Automate/ })).toBeTruthy();
+  });
+
+  it('stays collapsed while a dashboard is being edited, whatever was chosen', () => {
+    renderAt('/configuration/dashboards/home/edit', [...EVERYTHING, 'dashboard:manage']);
+
+    expect(screen.queryByRole('button', { name: 'Collapse sidebar' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Expand sidebar' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Dashboard setup' })).toBeTruthy();
   });
 
   it('marks the current row for something that cannot see a colour', () => {
-    renderAt('/packages');
+    renderAt('/packages', EVERYTHING);
 
-    expect(screen.getByRole('link', { name: 'Packages' }).getAttribute('aria-current')).toBe(
+    expect(screen.getByRole('link', { name: /Packages/ }).getAttribute('aria-current')).toBe(
       'page',
     );
     expect(
