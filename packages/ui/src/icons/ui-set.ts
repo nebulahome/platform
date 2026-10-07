@@ -11,13 +11,17 @@
  */
 import {
   Activity,
+  ArrowDown,
   ArrowDownToLine,
+  ArrowUp,
+  ArrowUpDown,
   ArrowUpToLine,
   BadgeCheck,
   Blinds,
-  Bot,
   Bluetooth,
+  Bot,
   Cable,
+  Calendar,
   Camera,
   ChartLine,
   Check,
@@ -25,7 +29,9 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleArrowUp,
+  CircleCheck,
   CircleDot,
+  CircleX,
   Clock,
   Container,
   Copy,
@@ -66,6 +72,7 @@ import {
   Play,
   Plus,
   Power,
+  Radio,
   RadioTower,
   RotateCcw,
   RotateCcwClock,
@@ -87,6 +94,7 @@ import {
   TriangleAlert,
   Type,
   Upload,
+  Users,
   Video,
   VideoOff,
   Volume2,
@@ -202,6 +210,17 @@ export const BUILTIN_UI_NODES = {
   // The Community Hub's marks in the install dialogs: who publishes it, how it is liked.
   'badge-check': drawing(BadgeCheck),
   star: drawing(Star),
+
+  // The health strip of a detail page, the sort of a table's columns, the window of a history,
+  // looking for devices, and the people a role is held by.
+  'circle-check': drawing(CircleCheck),
+  'circle-x': drawing(CircleX),
+  'arrow-up': drawing(ArrowUp),
+  'arrow-down': drawing(ArrowDown),
+  'arrow-up-down': drawing(ArrowUpDown),
+  calendar: drawing(Calendar),
+  radio: drawing(Radio),
+  users: drawing(Users),
 
   // The wires a vendor's devices are reached over, on its card.
   bluetooth: drawing(Bluetooth),

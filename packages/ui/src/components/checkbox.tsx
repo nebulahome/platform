@@ -5,6 +5,9 @@
  * A native checkbox, visually hidden, under an 18px box drawn by the theme: the input keeps the
  * keyboard, the label and the form behaviour, and the box is only its picture. Ticked, the box is
  * `primary` with a check; the check changes the shape, so colour is not the only carrier.
+ *
+ * A box over a group whose members are partly ticked is `mixed`: filled, with a dash. A filter's
+ * box can carry a count on the right - what ticking it would show.
  */
 import type { ReactNode } from 'react';
 
@@ -23,6 +26,12 @@ export type CheckboxProps = {
   /** Whether it is ticked. */
   readonly isChecked: boolean;
 
+  /** Whether it stands for a group partly ticked: drawn with a dash, read as mixed. */
+  readonly isMixed?: boolean;
+
+  /** On the right, in mono: how many it would show. */
+  readonly count?: ReactNode;
+
   /** Called with what it should become. */
   readonly onChange: (isChecked: boolean) => void;
 
@@ -40,7 +49,17 @@ export type CheckboxProps = {
  * @returns The labelled box.
  */
 export function Checkbox(props: CheckboxProps) {
-  const { label, note, isChecked, onChange, disabled = false, className } = props;
+  const {
+    label,
+    note,
+    isChecked,
+    isMixed = false,
+    count,
+    onChange,
+    disabled = false,
+    className,
+  } = props;
+  const isFilled = isChecked || isMixed;
 
   return (
     <label
@@ -54,6 +73,11 @@ export function Checkbox(props: CheckboxProps) {
         type="checkbox"
         className="peer sr-only"
         checked={isChecked}
+        ref={(input) => {
+          if (input !== null) {
+            input.indeterminate = isMixed;
+          }
+        }}
         disabled={disabled}
         onChange={(event) => {
           onChange(event.target.checked);
@@ -64,19 +88,28 @@ export function Checkbox(props: CheckboxProps) {
         className={cn(
           'border-1.5 mt-px flex size-4.5 shrink-0 items-center justify-center rounded-check transition-colors',
           'peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary',
-          isChecked
+          isFilled
             ? 'border-primary bg-primary text-primary-foreground'
             : 'border-border-strong bg-transparent',
         )}
       >
-        {isChecked ? <AppIcon id="check" size={12} strokeWidth={2.5} /> : null}
+        {isMixed ? (
+          <AppIcon id="minus" size={12} strokeWidth={2.5} />
+        ) : isChecked ? (
+          <AppIcon id="check" size={12} strokeWidth={2.5} />
+        ) : null}
       </span>
-      <span className="flex min-w-0 flex-col gap-0.5">
+      <span className="flex min-w-0 grow flex-col gap-0.5">
         <span className="text-foreground">{label}</span>
         {note === undefined ? null : (
           <span className="text-ui-sm text-foreground-subtle">{note}</span>
         )}
       </span>
+      {count === undefined ? null : (
+        <span className="shrink-0 font-mono text-mono-ui text-foreground-subtle tabular">
+          {count}
+        </span>
+      )}
     </label>
   );
 }

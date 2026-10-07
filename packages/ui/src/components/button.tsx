@@ -12,7 +12,7 @@
  * pixel (`press`).
  */
 import { cva, type VariantProps } from 'class-variance-authority';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react';
 
 import { cn } from '../lib/cn.js';
 
@@ -64,6 +64,9 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> &
   VariantProps<typeof button> & {
     /** Shows a spinner and disables the button. */
     readonly isBusy?: boolean;
+
+    /** The element, for a menu to give the focus back to. */
+    readonly ref?: Ref<HTMLButtonElement>;
 
     /** The label. */
     readonly children: ReactNode;

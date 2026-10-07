@@ -35,6 +35,57 @@ export { Checkbox, type CheckboxProps } from './components/checkbox.js';
 export { ColorSwatches, type ColorSwatchesProps } from './components/color-swatches.js';
 export { FieldShell, type FieldIds, type FieldShellProps } from './components/field-shell.js';
 export { Figure, type FigureProps } from './components/figure.js';
+export {
+  DetailHero,
+  HeroFact,
+  HeroMark,
+  HERO_BACK,
+  type DetailHeroProps,
+  type HeroFactProps,
+  type HeroMarkProps,
+} from './components/detail-hero.js';
+export { FactGrid, type Fact, type FactGridProps } from './components/fact-grid.js';
+export {
+  FilterChips,
+  type ActiveFilter,
+  type FilterChipsProps,
+} from './components/filter-chips.js';
+export {
+  HealthCard,
+  HealthStrip,
+  type HealthCardProps,
+  type HealthStripProps,
+  type HealthTone,
+} from './components/health-strip.js';
+export { HoldButton, type HoldButtonProps } from './components/hold-button.js';
+export {
+  ListRow,
+  RowList,
+  ROW_LIST_MORE,
+  type ListRowProps,
+  type RowListProps,
+} from './components/list-row.js';
+export { Menu, type MenuItem, type MenuProps, type MenuState } from './components/menu.js';
+export { MenuButton, type MenuButtonProps } from './components/menu-button.js';
+export { Note, type NoteProps, type NoteTone } from './components/note.js';
+export { OverflowMenu, type OverflowMenuProps } from './components/overflow-menu.js';
+export {
+  Pagination,
+  pageSlots,
+  TableFooter,
+  type PageSlot,
+  type PaginationProps,
+  type TableFooterProps,
+} from './components/pagination.js';
+export { RadioGroup, type RadioGroupProps, type RadioOption } from './components/radio-group.js';
+export { Section, type SectionProps } from './components/section.js';
+export {
+  TabPanel,
+  Tabs,
+  type TabItem,
+  type TabPanelProps,
+  type TabsProps,
+} from './components/tabs.js';
 export { Hint, type HintProps, type HintSide } from './components/hint.js';
 export { IconButton, type IconButtonProps } from './components/icon-button.js';
 export { Logo, type LogoProps } from './components/logo.js';
