@@ -33,7 +33,8 @@ export type Identification = {
  * @param heard - What was heard: the announcement `match` reads, and the probe's answer that
  * `identity` and the drivers' claims read - the announcement itself for a vendor without a probe.
  * @param heard.announcement - The announcement: an mDNS record, what a listener reported.
- * @param heard.probed - The probe's answer; the announcement when not said.
+ * @param heard.probed - The probe's answer, for a vendor that probes; the announcement when not
+ * said.
  * @param heard.deviceKey - How the device is reached, for the drivers' claims: `192.0.2.10` when
  * not said.
  * @returns What discovery makes of it.
@@ -49,7 +50,9 @@ export function identify(
     throw new Error(`${vendor.manifest.id} has no discovery.json that loaded`);
   }
 
-  const answer = heard.probed ?? heard.announcement;
+  // A vendor without a probe reads the announcement itself, as the hub does.
+  const answer =
+    plan.discovery.probe === undefined ? heard.announcement : (heard.probed ?? heard.announcement);
   const identity = identifySighting(plan, answer);
   const discovered: Discovered = { deviceKey: heard.deviceKey ?? '192.0.2.10', payload: answer };
   const claims =

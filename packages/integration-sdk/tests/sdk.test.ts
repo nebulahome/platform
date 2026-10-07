@@ -132,6 +132,8 @@ describe('build', () => {
     // The sibling it imports is in it, and nothing of the SDK but what the types said.
     expect(transport).toContain('"hello"');
     expect(transport).not.toMatch(/from ["']\.\/packet/u);
+    // Nothing of the author's disk: no comment naming where each part came from.
+    expect(transport).not.toContain('#region');
     await expect(readdir(path.join(root, 'dist/fixture/lan'))).resolves.toEqual(['transport.js']);
   });
 
@@ -142,6 +144,20 @@ describe('build', () => {
     );
 
     expect((await problemsOf(buildIntegration({ root })))[0]).toMatch(/sdk\.z/u);
+  });
+
+  it('refuses an import nothing resolves, which an installed bundle could not load', async () => {
+    const file = path.join(root, 'src/lan/packet.ts');
+
+    await writeFile(
+      file,
+      `import 'left-pad';
+${await readFile(file, 'utf8')}`,
+    );
+
+    expect((await problemsOf(buildIntegration({ root })))[0]).toMatch(
+      /left-pad.*a bundle carries what its code imports/su,
+    );
   });
 
   it('refuses a transport that calls itself something else, once loaded back', async () => {
@@ -218,11 +234,9 @@ describe('testing', () => {
     const integration = await loadIntegration({ root });
     const [transport] = integration.vendor.ownTransports;
 
-    await expect(
-      transport?.probe({ host: '192.0.2.7' }, AbortSignal.timeout(1000)),
-    ).resolves.toEqual({
-      said: 'hello',
-    });
+    await expect(transport?.probe({ host: '192.0.2.7' }, AbortSignal.timeout(1000))).resolves.toBe(
+      '192.0.2.7 was greeted',
+    );
     expect(integration.fake.udpSockets[0]?.sent).toEqual([
       { message: Buffer.from('{"msg":"hello"}'), port: 4003, address: '192.0.2.7' },
     ]);

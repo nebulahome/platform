@@ -21,7 +21,7 @@ export default function lan(sdk: BundleSdk): Transport {
       await socket.send(packetOf('hello'), PORT, config.host);
       await socket.close();
 
-      return { said: 'hello' };
+      return `${config.host} was greeted`;
     },
   });
 }

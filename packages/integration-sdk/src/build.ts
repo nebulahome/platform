@@ -99,7 +99,8 @@ function isNodeBuiltin(id: string): boolean {
 }
 
 /**
- * Refuses what an integration's code must not import.
+ * Refuses what an integration's code must not import, and keeps the author's paths out of what
+ * it writes.
  *
  * @returns The plugin.
  */
@@ -129,6 +130,18 @@ function refusedImports(): Plugin {
       }
 
       return null;
+    },
+
+    /**
+     * Drops the comments that say which file each part of a chunk came from: they name the
+     * author's own disk, which a release has no business carrying, and would make two machines
+     * build the same sources to different bytes.
+     *
+     * @param code - The chunk.
+     * @returns The chunk, without them.
+     */
+    renderChunk(code: string): string {
+      return code.replace(/^\/\/#(?:end)?region\b.*(?:\r?\n|$)/gmu, '');
     },
   };
 }
@@ -216,6 +229,25 @@ async function buildModules(
       external: isNodeBuiltin,
       plugins: [refusedImports()],
       logLevel: 'warn',
+
+      /**
+       * Refuses an import nothing resolves, which rolldown would leave an import: an installed
+       * bundle has no `node_modules`, so it would fail only once the hub loads it.
+       *
+       * @param level - How much it matters.
+       * @param log - What happened.
+       * @param handle - Hands a log on as rolldown would.
+       * @throws {Error} For an import nothing resolves.
+       */
+      onLog: (level, log, handle) => {
+        if (log.code === 'UNRESOLVED_IMPORT') {
+          const [first = log.message] = log.message.split(/\r?\n/u);
+
+          throw new Error(`${first}: install it - a bundle carries what its code imports`);
+        }
+
+        handle(level, log);
+      },
     });
 
     try {

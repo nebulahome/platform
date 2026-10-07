@@ -158,7 +158,8 @@ type Identification = {
  * @param heard - What was heard: the announcement `match` reads, and the probe's answer that
  * `identity` and the drivers' claims read - the announcement itself for a vendor without a probe.
  * @param heard.announcement - The announcement: an mDNS record, what a listener reported.
- * @param heard.probed - The probe's answer; the announcement when not said.
+ * @param heard.probed - The probe's answer, for a vendor that probes; the announcement when not
+ * said.
  * @param heard.deviceKey - How the device is reached, for the drivers' claims: `192.0.2.10` when
  * not said.
  * @returns What discovery makes of it.
