@@ -4,6 +4,10 @@
  *
  * Keyed from the outside the way AreaDialog is, so opening Create or Edit always starts from a
  * fresh form rather than whatever the last visit left behind.
+ *
+ * Drawn two ways from the one form: the scene's own page, as the board draws it - its members in
+ * the main column, What it is and How it applies beside them, Apply now, Delete and Save in the
+ * header - and a dialog, for wherever a scene is made without leaving the page it is made from.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -16,7 +20,18 @@ import type {
   SceneUpdate,
   SceneView,
 } from '@nebulahome/contracts';
-import { Button, Modal, Segmented, SelectField, TextField } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Button,
+  DetailHero,
+  IconButton,
+  Modal,
+  Panel,
+  Section,
+  Segmented,
+  SelectField,
+  TextField,
+} from '@nebulahome/ui';
 
 import { areaChoices } from '@/lib/area-tree';
 import { toMessage } from '@/lib/error-message';
@@ -30,6 +45,7 @@ import {
 import { toKey } from '@/library/automation-draft';
 import { isSceneEntity, narrowTargetState, seedTargetState } from '@/library/scene-target-state';
 import { ConfirmRemoval } from '@/routes/library/confirm-removal';
+import { BackLink } from '@/routes/library/detail-page';
 import { EntityPicker } from '@/routes/library/entity-picker/entity-picker';
 import { NameIconField } from '@/routes/library/name-icon-field';
 import { SceneMemberFields } from '@/routes/library/scene-member-fields';
@@ -60,6 +76,12 @@ export type SceneDialogProps = {
 
   /** Called with the id of the scene that was removed. */
   readonly onDeleted: (id: string) => void;
+
+  /** Whether it is a dialog over the list, or the scene's own page. */
+  readonly presentation?: 'dialog' | 'page';
+
+  /** Applies the scene, from its page. */
+  readonly onApply?: (id: string) => void;
 };
 
 /** Keys the API accepts. */
@@ -106,7 +128,7 @@ function draftsFromScene(scene: SceneView): SceneMemberDraft[] {
  * @returns The dialog.
  */
 export function SceneDialog(props: SceneDialogProps) {
-  const { target, onClose, onSaved, onDeleted } = props;
+  const { target, onClose, onSaved, onDeleted, presentation = 'dialog', onApply } = props;
   const queryClient = useQueryClient();
   const existing = target?.mode === 'edit' ? target.scene : undefined;
   const { areas, tree } = useAreas();
@@ -287,6 +309,296 @@ export function SceneDialog(props: SceneDialogProps) {
     ]);
   };
 
+  const identity = (
+    <>
+      <NameIconField
+        value={name}
+        required
+        onChange={(next) => {
+          setName(next);
+
+          if (isKeyFollowing) {
+            setKey(toKey(next));
+          }
+        }}
+        icon={icon}
+        onIconChange={(view) => {
+          setIcon(view.id);
+        }}
+      />
+
+      <TextField
+        label="Key"
+        size="medium"
+        value={key}
+        required={existing === undefined}
+        disabled={existing !== undefined}
+        autoComplete="off"
+        className="font-mono"
+        hint={
+          existing === undefined
+            ? 'What the API and automations refer to. It never changes after this.'
+            : 'The key never changes.'
+        }
+        onChange={(event) => {
+          setKeyFollowing(false);
+          setKey(event.target.value);
+        }}
+      />
+
+      <SelectField
+        label="Area"
+        size="medium"
+        options={areaChoices(tree)}
+        value={areaId}
+        onChange={setAreaId}
+      />
+    </>
+  );
+
+  const applying = (
+    <>
+      <TextField
+        label="Transition"
+        size="medium"
+        type="number"
+        min={0}
+        max={600}
+        step={0.1}
+        value={String(transitionSeconds)}
+        hint="Seconds. 0 means immediate."
+        onChange={(event) => {
+          const next = Number(event.target.value);
+
+          setTransitionSeconds(Number.isFinite(next) ? next : 0);
+        }}
+      />
+
+      <div className="flex flex-col gap-2">
+        <span className="text-caption font-medium text-foreground-muted">On partial failure</span>
+        <Segmented
+          label="On partial failure"
+          options={[
+            { value: 'leave', label: 'Leave partial' },
+            { value: 'rollback', label: 'Roll back' },
+          ]}
+          value={rollback ? 'rollback' : 'leave'}
+          onChange={(value) => {
+            setRollback(value === 'rollback');
+          }}
+        />
+        <span className="text-caption text-foreground-subtle">
+          {rollback
+            ? 'Roll back: when one entity refuses, the others go back to how they were.'
+            : 'Leave partial: what could be set stays set.'}
+        </span>
+      </div>
+    </>
+  );
+
+  const membersBlock = (
+    <div className="flex flex-col gap-3">
+      {members.length === 0 ? (
+        <p className="rounded-card border border-dashed border-border-strong px-5 py-4 text-ui text-foreground-subtle">
+          None yet. Add an entity to capture what it is on right now.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {members.map((member, index) => {
+            const entity = entityById.get(member.entityId);
+            const title = entity?.name ?? member.entityId;
+            const areaName = entity?.areaName;
+
+            return (
+              <li
+                key={member.entityId}
+                className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4"
+              >
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 grow">
+                    <p className="truncate text-ui font-medium text-foreground">{title}</p>
+                    <p className="truncate text-caption text-foreground-subtle">
+                      {areaName ?? member.entityId}
+                      {entity !== undefined && !entity.isAvailable ? (
+                        <span className="text-warning"> · Unavailable now</span>
+                      ) : null}
+                    </p>
+                  </div>
+                  <IconButton
+                    label={`Remove ${title}`}
+                    disabled={isBusy}
+                    onClick={() => {
+                      setMembers(members.filter((member, at) => at !== index));
+                    }}
+                  >
+                    <AppIcon id="x" size={14} />
+                  </IconButton>
+                </div>
+
+                <SceneMemberFields
+                  targetState={member.targetState}
+                  onChange={(targetState) => {
+                    setMembers(
+                      members.map((entry, i) => (i === index ? { ...entry, targetState } : entry)),
+                    );
+                  }}
+                />
+
+                <TextField
+                  label="Transition"
+                  size="compact"
+                  type="number"
+                  min={0}
+                  max={600}
+                  step={0.1}
+                  value={member.transitionSeconds === null ? '' : String(member.transitionSeconds)}
+                  hint="Seconds for this entity only. Leave blank for the scene default."
+                  onChange={(event) => {
+                    const raw = event.target.value.trim();
+
+                    setMembers(
+                      members.map((entry, i) => {
+                        if (i !== index) {
+                          return entry;
+                        }
+
+                        if (raw === '') {
+                          return { ...entry, transitionSeconds: null };
+                        }
+
+                        const next = Number(raw);
+
+                        return {
+                          ...entry,
+                          transitionSeconds: Number.isFinite(next) ? next : null,
+                        };
+                      }),
+                    );
+                  }}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <Button
+        variant="ghost"
+        size="compact"
+        className="self-start"
+        disabled={isBusy}
+        onClick={() => {
+          setAdding(true);
+        }}
+      >
+        <AppIcon id="plus" size={14} />
+        Add entities
+      </Button>
+      <EntityPicker
+        isOpen={isAdding}
+        title="Add to the scene"
+        isMultiple
+        accept={(entity) => isSceneEntity(entity) && !taken.has(entity.entityId)}
+        onClose={() => {
+          setAdding(false);
+        }}
+        onChoose={(chosen) => {
+          addMembers(chosen);
+          setAdding(false);
+        }}
+      />
+    </div>
+  );
+
+  const confirm =
+    isConfirming && existing !== undefined ? (
+      <ConfirmRemoval
+        question={`Remove ${existing.name}? Applying it will no longer be possible.`}
+        isBusy={removing.isPending}
+        onCancel={() => {
+          setConfirming(false);
+        }}
+        onConfirm={() => {
+          removing.mutate();
+        }}
+      />
+    ) : null;
+
+  const problemLine =
+    problem === null ? null : (
+      <p role="alert" className="text-ui text-danger">
+        {problem}
+      </p>
+    );
+
+  if (presentation === 'page') {
+    return (
+      <div className="min-h-0 grow overflow-y-auto px-8 pt-6 pb-10">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5">
+          <DetailHero
+            back={<BackLink to="/scenes">Scenes</BackLink>}
+            title={existing === undefined ? 'New scene' : existing.name}
+            actions={
+              confirm ?? (
+                <>
+                  {existing === undefined || onApply === undefined ? null : (
+                    <Button
+                      variant="ghost"
+                      disabled={isBusy}
+                      onClick={() => {
+                        onApply(existing.id);
+                      }}
+                    >
+                      <AppIcon id="play" size={15} />
+                      Apply now
+                    </Button>
+                  )}
+                  {existing === undefined ? null : (
+                    <Button
+                      variant="danger"
+                      disabled={isBusy}
+                      onClick={() => {
+                        setProblem(null);
+                        setConfirming(true);
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  )}
+                  <Button variant="bare" disabled={isBusy} onClick={onClose}>
+                    Cancel
+                  </Button>
+                  <Button isBusy={save.isPending} disabled={removing.isPending} onClick={submit}>
+                    <AppIcon id="check" size={15} />
+                    {existing === undefined ? 'Create' : 'Save'}
+                  </Button>
+                </>
+              )
+            }
+          />
+          {problemLine}
+          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+            <Section title="Members" note="What the scene sets, each entity with what it is told.">
+              {membersBlock}
+            </Section>
+            <div className="flex flex-col gap-4">
+              <Panel title="What it is">
+                <div className="flex flex-col gap-3.5 border-t border-border px-5.5 py-4">
+                  {identity}
+                </div>
+              </Panel>
+              <Panel title="How it applies">
+                <div className="flex flex-col gap-3.5 border-t border-border px-5.5 py-4">
+                  {applying}
+                </div>
+              </Panel>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Modal
       isOpen={target !== null}
@@ -299,18 +611,7 @@ export function SceneDialog(props: SceneDialogProps) {
           : undefined
       }
       footer={
-        isConfirming && existing !== undefined ? (
-          <ConfirmRemoval
-            question={`Remove ${existing.name}? Applying it will no longer be possible.`}
-            isBusy={removing.isPending}
-            onCancel={() => {
-              setConfirming(false);
-            }}
-            onConfirm={() => {
-              removing.mutate();
-            }}
-          />
-        ) : (
+        confirm ?? (
           <>
             {existing === undefined ? null : (
               <Button
@@ -336,196 +637,13 @@ export function SceneDialog(props: SceneDialogProps) {
       }
     >
       <div className="flex flex-col gap-4">
-        <NameIconField
-          value={name}
-          required
-          onChange={(next) => {
-            setName(next);
-
-            if (isKeyFollowing) {
-              setKey(toKey(next));
-            }
-          }}
-          icon={icon}
-          onIconChange={(view) => {
-            setIcon(view.id);
-          }}
-        />
-
-        <TextField
-          label="Key"
-          size="medium"
-          value={key}
-          required={existing === undefined}
-          disabled={existing !== undefined}
-          autoComplete="off"
-          hint={
-            existing === undefined
-              ? 'What the API and automations refer to. It never changes after this.'
-              : 'The key never changes.'
-          }
-          onChange={(event) => {
-            setKeyFollowing(false);
-            setKey(event.target.value);
-          }}
-        />
-
-        <SelectField
-          label="Area"
-          size="medium"
-          options={areaChoices(tree)}
-          value={areaId}
-          onChange={setAreaId}
-        />
-
-        <TextField
-          label="Transition"
-          size="medium"
-          type="number"
-          min={0}
-          max={600}
-          step={0.1}
-          value={String(transitionSeconds)}
-          hint="Seconds. 0 means immediate."
-          onChange={(event) => {
-            const next = Number(event.target.value);
-
-            setTransitionSeconds(Number.isFinite(next) ? next : 0);
-          }}
-        />
-
-        <Segmented
-          label="On partial failure"
-          options={[
-            { value: 'leave', label: 'Leave partial' },
-            { value: 'rollback', label: 'Roll back' },
-          ]}
-          value={rollback ? 'rollback' : 'leave'}
-          onChange={(value) => {
-            setRollback(value === 'rollback');
-          }}
-        />
-
+        {identity}
+        {applying}
         <div className="flex flex-col gap-3">
           <h3 className="text-caption font-medium text-foreground-muted">Members</h3>
-
-          {members.length === 0 ? (
-            <p className="text-ui text-foreground-subtle">
-              None yet. Add an entity to capture what it is on right now.
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-3">
-              {members.map((member, index) => {
-                const entity = entityById.get(member.entityId);
-                const title = entity?.name ?? member.entityId;
-                const areaName = entity?.areaName;
-
-                return (
-                  <li
-                    key={member.entityId}
-                    className="flex flex-col gap-3 rounded-panel border border-border bg-surface p-3.5"
-                  >
-                    <div className="flex items-start gap-2">
-                      <div className="min-w-0 grow">
-                        <p className="truncate text-ui font-medium text-foreground">{title}</p>
-                        <p className="truncate text-caption text-foreground-subtle">
-                          {areaName ?? member.entityId}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="compact"
-                        disabled={isBusy}
-                        onClick={() => {
-                          setMembers(members.filter((member, at) => at !== index));
-                        }}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-
-                    <SceneMemberFields
-                      targetState={member.targetState}
-                      onChange={(targetState) => {
-                        setMembers(
-                          members.map((entry, i) =>
-                            i === index ? { ...entry, targetState } : entry,
-                          ),
-                        );
-                      }}
-                    />
-
-                    <TextField
-                      label="Transition"
-                      size="compact"
-                      type="number"
-                      min={0}
-                      max={600}
-                      step={0.1}
-                      value={
-                        member.transitionSeconds === null ? '' : String(member.transitionSeconds)
-                      }
-                      hint="Seconds for this entity only. Leave blank for the scene default."
-                      onChange={(event) => {
-                        const raw = event.target.value.trim();
-
-                        setMembers(
-                          members.map((entry, i) => {
-                            if (i !== index) {
-                              return entry;
-                            }
-
-                            if (raw === '') {
-                              return { ...entry, transitionSeconds: null };
-                            }
-
-                            const next = Number(raw);
-
-                            return {
-                              ...entry,
-                              transitionSeconds: Number.isFinite(next) ? next : null,
-                            };
-                          }),
-                        );
-                      }}
-                    />
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          <Button
-            variant="ghost"
-            size="compact"
-            className="self-start"
-            disabled={isBusy}
-            onClick={() => {
-              setAdding(true);
-            }}
-          >
-            Add entities
-          </Button>
-          <EntityPicker
-            isOpen={isAdding}
-            title="Add to the scene"
-            isMultiple
-            accept={(entity) => isSceneEntity(entity) && !taken.has(entity.entityId)}
-            onClose={() => {
-              setAdding(false);
-            }}
-            onChoose={(chosen) => {
-              addMembers(chosen);
-              setAdding(false);
-            }}
-          />
+          {membersBlock}
         </div>
-
-        {problem === null ? null : (
-          <p role="alert" className="text-ui text-danger">
-            {problem}
-          </p>
-        )}
+        {problemLine}
       </div>
     </Modal>
   );

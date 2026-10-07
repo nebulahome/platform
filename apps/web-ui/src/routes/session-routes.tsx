@@ -43,6 +43,7 @@ import { DevicePage } from '@/routes/library/device/device-page';
 import { DevicesPage } from '@/routes/library/devices-page';
 import { EntityPage } from '@/routes/library/entity/entity-page';
 import { IntegrationsPage } from '@/routes/library/integrations-page';
+import { ScenePage } from '@/routes/library/scene-page';
 import { ScenesPage } from '@/routes/library/scenes-page';
 import { TagsPage } from '@/routes/library/tags-page';
 import { VendorPage } from '@/routes/library/vendor-page';
@@ -246,6 +247,8 @@ export function SessionRoutes() {
         <Route path="/automations/new" element={<AutomationEditor />} />
         <Route path="/automations/:automationId" element={<AutomationEditor />} />
         <Route path="/scenes" element={<ScenesPage />} />
+        <Route path="/scenes/new" element={<ScenePage />} />
+        <Route path="/scenes/:sceneId" element={<ScenePage />} />
         <Route path="/devices" element={<DevicesPage />} />
         <Route path="/devices/entities/:entityId" element={<EntityPage />} />
         <Route path="/devices/:deviceId" element={<DevicePage />} />

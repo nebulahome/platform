@@ -12,22 +12,23 @@
  */
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Link, useNavigate } from 'react-router';
 
 import type { EntityView, SceneApplyResult, SceneView } from '@nebulahome/contracts';
-import { Badge, Button, cn, IconButton, SelectField } from '@nebulahome/ui';
+import { AppIcon, Button, OverflowMenu, SelectField, TableFooter } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
-import { WrenchIcon } from '@/components/icons';
+import { SortHeader } from '@/components/sort-header';
 import { areaFacetChoices } from '@/lib/area-tree';
 import { toMessage } from '@/lib/error-message';
 import { useListState } from '@/lib/use-list-state';
+import { usePaging } from '@/lib/use-paging';
 import { applyScene, fetchEntities, fetchScenes, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { matchesSceneFilter, OPEN_SCENE_FILTER, SCENE_FILTER_CODEC } from '@/library/list-filters';
 import { DeviceIcon, useCatalogueIcons } from '@/routes/library/device-icon';
 import { Facet, facetChoices, FilterSheet } from '@/routes/library/filter-sheet';
 import { LibraryPage } from '@/routes/library/library-page';
 import { NoMatches } from '@/routes/library/no-matches';
-import { SceneDialog, type SceneDialogTarget } from '@/routes/library/scene-dialog';
 import { SearchField } from '@/routes/library/search-field';
 import { useAreas } from '@/routes/library/use-areas';
 
@@ -56,6 +57,9 @@ function areaNamesFor(scene: SceneView, entities: ReadonlyMap<string, EntityView
   return names;
 }
 
+/** The columns the table sorts by; the first is the order it opens in. */
+const SORTS = ['name', 'members'] as const;
+
 /**
  * Renders the scenes page.
  *
@@ -65,7 +69,7 @@ export function ScenesPage() {
   const can = useSession((state) => state.can);
   const canWrite = can('scene:write');
   const canApply = can('scene:apply');
-  const [target, setTarget] = useState<SceneDialogTarget | null>(null);
+  const navigate = useNavigate();
   const [filter, setFilter] = useListState(SCENE_FILTER_CODEC);
   const { areas, tree } = useAreas();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -111,7 +115,16 @@ export function ScenesPage() {
       }),
     }),
   );
-  const isNarrowed = filter.search.trim() !== '' || filter.areaKey !== '';
+  const paging = usePaging('scenes', SORTS, shown.length);
+  const rows = paging.rows(
+    [...shown].sort((left, right) => {
+      const byName = left.name.localeCompare(right.name);
+      const order =
+        paging.sort === 'members' ? left.members.length - right.members.length || byName : byName;
+
+      return paging.direction === 'asc' ? order : -order;
+    }),
+  );
   // Each area under its floor, the floors by their number, the way the areas page reads.
   const areaOptions = facetChoices(
     areaFacetChoices(
@@ -193,159 +206,148 @@ export function ScenesPage() {
   });
 
   return (
-    <>
-      <LibraryPage
-        title="Scenes"
-        noun="scene"
-        count={scenes.isPending ? undefined : items.length}
-        shownCount={shown.length}
-        summary={[`${String(memberCount)} ${memberCount === 1 ? 'entity' : 'entities'} set`]}
-        tools={
-          <>
-            <SearchField
-              placeholder="Search scenes, members…"
-              value={filter.search}
-              onChange={(search) => {
-                setFilter({ ...filter, search });
-              }}
-            />
-            <FilterSheet
-              label="Narrow the scenes"
-              count={Number(filter.areaKey !== '')}
-              onClear={() => {
-                setFilter({ ...filter, areaKey: '' });
-              }}
-            >
-              <Facet title="Area">
-                {areaOptions.length === 1 ? (
-                  <span className="text-caption text-foreground-subtle">
-                    No scene is placed in an area yet.
-                  </span>
-                ) : (
-                  <SelectField
-                    label="Area"
-                    isLabelHidden
-                    size="compact"
-                    options={areaOptions}
-                    value={filter.areaKey}
-                    onChange={(areaKey) => {
-                      setFilter({ ...filter, areaKey });
-                    }}
-                  />
-                )}
-              </Facet>
-            </FilterSheet>
-          </>
-        }
-        action={
-          canWrite ? (
-            <Button
-              size="compact"
-              onClick={() => {
-                setTarget({ mode: 'create' });
-              }}
-            >
-              New scene
-            </Button>
-          ) : undefined
-        }
-        isPending={scenes.isPending}
-        error={scenes.error ?? (pageError === null ? undefined : new Error(pageError))}
-        isEmpty={items.length === 0}
-        emptyMessage="No scenes yet."
-      >
-        {shown.length === 0 ? (
-          <NoMatches
-            query={filter.search}
-            onClear={() => {
-              setFilter(OPEN_SCENE_FILTER);
+    <LibraryPage
+      title="Scenes"
+      noun="scene"
+      count={scenes.isPending ? undefined : items.length}
+      shownCount={shown.length}
+      summary={[`${String(memberCount)} ${memberCount === 1 ? 'entity' : 'entities'} set`]}
+      tools={
+        <>
+          <SearchField
+            placeholder="Search scenes, members…"
+            value={filter.search}
+            onChange={(search) => {
+              setFilter({ ...filter, search });
             }}
           />
-        ) : null}
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {shown.map((scene) => {
-            const memberAreas = areaNamesFor(scene, entityById);
-            const partial = partialById.get(scene.id);
-            const isBusy = busyId === scene.id;
+          <FilterSheet
+            label="Narrow the scenes"
+            count={Number(filter.areaKey !== '')}
+            onClear={() => {
+              setFilter({ ...filter, areaKey: '' });
+            }}
+          >
+            <Facet title="Area">
+              {areaOptions.length === 1 ? (
+                <span className="text-caption text-foreground-subtle">
+                  No scene is placed in an area yet.
+                </span>
+              ) : (
+                <SelectField
+                  label="Area"
+                  isLabelHidden
+                  size="compact"
+                  options={areaOptions}
+                  value={filter.areaKey}
+                  onChange={(areaKey) => {
+                    setFilter({ ...filter, areaKey });
+                  }}
+                />
+              )}
+            </Facet>
+          </FilterSheet>
+        </>
+      }
+      action={
+        canWrite ? (
+          <Button
+            onClick={() => {
+              void navigate('/scenes/new');
+            }}
+          >
+            <AppIcon id="plus" size={15} />
+            New scene
+          </Button>
+        ) : undefined
+      }
+      isPending={scenes.isPending}
+      error={scenes.error ?? (pageError === null ? undefined : new Error(pageError))}
+      isEmpty={items.length === 0}
+      emptyMessage="No scenes yet."
+    >
+      {shown.length === 0 ? (
+        <NoMatches
+          query={filter.search}
+          onClear={() => {
+            setFilter(OPEN_SCENE_FILTER);
+          }}
+        />
+      ) : null}
+      {shown.length === 0 ? null : (
+        <div className="overflow-hidden rounded-card border border-border bg-surface">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 border-b border-border px-5 py-3 font-mono text-label text-foreground-subtle uppercase md:grid-cols-[minmax(0,1fr)_96px_auto_36px]">
+            <SortHeader
+              label="Scene"
+              isSorted={paging.sort === 'name'}
+              direction={paging.direction}
+              onSort={() => {
+                paging.toggleSort('name');
+              }}
+              className="justify-self-start"
+            />
+            <SortHeader
+              label="Members"
+              isSorted={paging.sort === 'members'}
+              direction={paging.direction}
+              onSort={() => {
+                paging.toggleSort('members');
+              }}
+              className="hidden justify-self-start md:inline-flex"
+            />
+            <span />
+            <span className="hidden md:block" />
+          </div>
+          <ul>
+            {rows.map((scene) => {
+              const memberAreas = areaNamesFor(scene, entityById);
+              const partial = partialById.get(scene.id);
+              const isBusy = busyId === scene.id;
+              const place =
+                scene.areaKey === null
+                  ? memberAreas.join(', ')
+                  : (areaByKey.get(scene.areaKey)?.name ?? scene.areaKey.replaceAll('_', ' '));
 
-            return (
-              <li key={scene.id} className="list-none">
-                <article
-                  className={cn(
-                    'flex h-full min-h-41 flex-col rounded-panel border border-border bg-surface p-4.5',
-                    'transition-[border-color,box-shadow]',
-                  )}
+              return (
+                <li
+                  key={scene.id}
+                  className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 border-t border-border px-5 py-3 first:border-t-0 md:grid-cols-[minmax(0,1fr)_96px_auto_36px]"
                 >
-                  <div className="flex items-start gap-1.5">
+                  <span className="flex min-w-0 items-center gap-3">
                     <span
                       aria-hidden="true"
-                      className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-tile bg-surface-raised text-foreground-muted"
+                      className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-field bg-surface-raised text-violet"
                     >
                       {scene.icon === null ? (
-                        <span className="text-subhead leading-none font-medium">
-                          {scene.name.charAt(0).toUpperCase()}
-                        </span>
+                        <AppIcon id="layers" size={17} />
                       ) : (
-                        <DeviceIcon icon={icons.get(scene.icon)} size={18} />
+                        <DeviceIcon icon={icons.get(scene.icon)} size={17} />
                       )}
                     </span>
-                    <span className="grow" />
-                    {canWrite ? (
-                      <IconButton
-                        variant="bare"
-                        size="small"
-                        label={`Configure ${scene.name}`}
-                        className="-mt-0.5 -mr-1 text-foreground-subtle hover:text-foreground"
-                        disabled={isBusy}
-                        onClick={() => {
-                          setTarget({ mode: 'edit', scene });
-                        }}
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <Link
+                        to={`/scenes/${scene.id}`}
+                        className="truncate text-ui font-medium text-foreground transition-colors hover:text-primary"
                       >
-                        <WrenchIcon width="15" height="15" />
-                      </IconButton>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-4 flex min-w-0 flex-col gap-1">
-                    <span className="truncate text-title leading-tight font-medium text-foreground">
-                      {scene.name}
+                        {scene.name}
+                      </Link>
+                      <span className="truncate text-ui-sm text-foreground-subtle">
+                        {place === '' ? scene.key : place}
+                      </span>
+                      {partial === undefined ? null : (
+                        <span role="alert" className="truncate text-caption text-danger">
+                          {partial}
+                        </span>
+                      )}
                     </span>
-                    <span className="text-caption leading-tight text-foreground-subtle tabular">
-                      {String(scene.members.length)} entit
-                      {scene.members.length === 1 ? 'y' : 'ies'}
-                      {memberAreas.length === 0
-                        ? ''
-                        : ` across ${String(memberAreas.length)} area${memberAreas.length === 1 ? '' : 's'}`}
-                    </span>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {scene.areaKey === null ? null : (
-                      <Badge tone="neutral" size="small">
-                        {areaByKey.get(scene.areaKey)?.name ?? scene.areaKey.replaceAll('_', ' ')}
-                      </Badge>
-                    )}
-                    {memberAreas.map((area) => (
-                      <Badge key={area} tone="neutral" size="small">
-                        {area}
-                      </Badge>
-                    ))}
-                  </div>
-
-                  <span className="grow" />
-
-                  {partial === undefined ? null : (
-                    <p role="alert" className="mt-3 text-caption text-danger">
-                      {partial}
-                    </p>
-                  )}
-
-                  <div className="mt-3 flex items-center gap-2">
-                    <span className="grow font-mono text-caption text-foreground-subtle">
-                      {scene.key}
-                    </span>
+                  </span>
+                  <span className="hidden font-mono text-mono-ui text-foreground-muted tabular md:block">
+                    {scene.members.length}
+                  </span>
+                  <span>
                     {canApply ? (
                       <Button
+                        variant="ghost"
                         size="compact"
                         isBusy={isBusy}
                         disabled={busyId !== null && !isBusy}
@@ -355,53 +357,41 @@ export function ScenesPage() {
                           apply.mutate(scene.id);
                         }}
                       >
+                        <AppIcon id="play" size={13} />
                         Apply
                       </Button>
                     ) : null}
-                  </div>
-                </article>
-              </li>
-            );
-          })}
-
-          {canWrite && !isNarrowed ? (
-            <li className="list-none">
-              <button
-                type="button"
-                className={cn(
-                  'flex h-full min-h-41 w-full flex-col items-start justify-center gap-1 rounded-panel border border-dashed border-border-strong p-4.5 text-left',
-                  'text-foreground-muted transition-colors hover:border-primary/40 hover:text-foreground',
-                  'focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none',
-                )}
-                onClick={() => {
-                  setTarget({ mode: 'create' });
-                }}
-              >
-                <span className="text-title font-medium text-foreground">New scene</span>
-                <span className="text-caption text-foreground-subtle">
-                  Capture what is on right now
-                </span>
-              </button>
-            </li>
-          ) : null}
-        </ul>
-      </LibraryPage>
-
-      <SceneDialog
-        key={
-          target === null ? 'shut' : target.mode === 'create' ? 'create' : `edit:${target.scene.id}`
-        }
-        target={target}
-        onClose={() => {
-          setTarget(null);
-        }}
-        onSaved={() => {
-          setTarget(null);
-        }}
-        onDeleted={() => {
-          setTarget(null);
-        }}
-      />
-    </>
+                  </span>
+                  <span className="hidden md:block">
+                    {canWrite ? (
+                      <OverflowMenu
+                        label={`More for ${scene.name}`}
+                        items={[
+                          {
+                            label: 'Edit',
+                            icon: 'pencil',
+                            /** Opens the scene's page. */
+                            onSelect: () => {
+                              void navigate(`/scenes/${scene.id}`);
+                            },
+                          },
+                        ]}
+                      />
+                    ) : null}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <TableFooter
+            page={paging.page}
+            size={paging.size}
+            total={shown.length}
+            onPage={paging.setPage}
+            onSize={paging.setSize}
+          />
+        </div>
+      )}
+    </LibraryPage>
   );
 }
