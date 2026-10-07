@@ -107,26 +107,27 @@ describe('PackagesPage', () => {
     const tile = await screen.findByRole('link', { name: 'MQTT' });
 
     expect(within(tile).getByText('Running')).toBeTruthy();
-    expect(within(tile).getByText('System')).toBeTruthy();
-    expect(await within(tile).findByText('Update')).toBeTruthy();
+    // Part of the platform and an update out are marks, named for whoever cannot see them.
+    expect(within(tile).getByRole('img', { name: 'Part of the platform' })).toBeTruthy();
+    expect(await within(tile).findByTitle(/is out/u)).toBeTruthy();
     expect(screen.getByText(/1 update out/u)).toBeTruthy();
     // What the index offers is no list of its own here: only the updates are read from it.
     expect(screen.queryByText('Records the cameras.')).toBeNull();
   });
 
-  it('opens the Community Hub’s search from Install packages', async () => {
+  it('opens the Community Hub’s search from Install', async () => {
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Install packages' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Install' }));
 
     expect(await screen.findByRole('heading', { name: 'Install a package' })).toBeTruthy();
     expect(await screen.findByText('Records the cameras.')).toBeTruthy();
   });
 
-  it('offers no Install packages to somebody who may only look', async () => {
+  it('offers no Install to somebody who may only look', async () => {
     renderPage(['package:read']);
 
     expect(await screen.findByRole('link', { name: 'MQTT' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Install packages' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Install' })).toBeNull();
   });
 });

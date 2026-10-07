@@ -6,7 +6,7 @@
  * a connector to a vendor, and has its own section. Both are drawn alike, a grid of the same
  * cards, so the two sections read as one library.
  *
- * What there is to install is found with **Install packages**: a dialog that searches the
+ * What there is to install is found with **Install**: a dialog that searches the
  * Community Hub, and the local folder beside it. An installed package with a newer release out
  * says so on its card - the package index is read for that - and the update is on its page,
  * beside what depends on it.
@@ -16,7 +16,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { PACKAGE_STATES } from '@nebulahome/contracts';
-import { Button, SelectField, TILE_GRID } from '@nebulahome/ui';
+import { AppIcon, BrowseTile, Button, SelectField, TILE_GRID } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { matchesQuery } from '@/lib/search-text';
@@ -108,6 +108,7 @@ export function PackagesPage() {
             <FilterSheet
               label="Narrow the packages"
               count={Number(filter.state !== '')}
+              summary={`${String(shownInstalled.length)} of ${String(installed.packages.length)} shown`}
               onClear={() => {
                 setFilter({ ...filter, state: '' });
               }}
@@ -133,12 +134,12 @@ export function PackagesPage() {
         action={
           canInstall ? (
             <Button
-              size="compact"
               onClick={() => {
                 setInstalling(true);
               }}
             >
-              Install packages
+              <AppIcon id="plus" size={15} />
+              Install
             </Button>
           ) : undefined
         }
@@ -150,7 +151,7 @@ export function PackagesPage() {
           installed.packages.length === 0 ? (
             <p className="text-ui text-foreground-muted">
               {canInstall
-                ? 'Nothing installed yet. Install packages finds them on the Community Hub.'
+                ? 'Nothing installed yet. Install finds them on the Community Hub.'
                 : 'Nothing installed yet.'}
             </p>
           ) : (
@@ -166,6 +167,18 @@ export function PackagesPage() {
             {shownInstalled.map((found) => (
               <PackageTile key={found.id} found={found} update={updates.get(found.id)} />
             ))}
+            {canInstall ? (
+              <li className="flex list-none flex-col">
+                <BrowseTile
+                  title="Browse the package index"
+                  note="Energy, cameras, media and more"
+                  icon="globe"
+                  onClick={() => {
+                    setInstalling(true);
+                  }}
+                />
+              </li>
+            ) : null}
           </ul>
         )}
       </LibraryPage>

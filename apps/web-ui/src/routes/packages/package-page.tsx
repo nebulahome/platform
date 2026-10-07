@@ -1,38 +1,43 @@
 /**
- * One package: who it is, where it stands, what it needs and what needs it, and its own page.
+ * One package: who it is, how it stands, what it needs and what needs it, and its own page.
  *
- * The header reads `Packages / MQTT`, as a vendor's reads `Integrations / Shelly`, and under it
- * the same panel a vendor has - logo, name, what the package says about itself, its release and
- * where it comes from, the devices and entities it brought in. Then, in the order somebody looks
- * for them:
+ * As the board draws a detail page: the way back, the package's logo, name and line, its state as a
+ * Pill with its version and whether it is part of the platform, its actions on the right - then the
+ * tabs. Overview opens with the health strip (Runtime, Needs, Used by, Updates), then what it
+ * provides and About; Configuration is the settings its `setup.json` asks for; Log is its process's
+ * output, for a package that runs one.
  *
- * - **What is wrong**, when something is: why it failed, or which package it waits for.
- * - **Depends on** and **Used by**: the packages and integrations on either side of it, which is
- *   what explains a refusal to remove or to stop it.
- * - **Its containers** and **its devices**, each a way to their own pages.
- * - **Its log**, with the viewer a container's has, for a package that runs a process.
- *
- * A package with a page of its own is opened from here - Open, while it runs - and from the
- * sidebar when it asks for an entry there; the page is its own address, `/packages/<id>/app`.
- * Start, Stop and Restart are for whoever may configure packages; Update and Remove for whoever
- * may install them. A package that is part of the platform is never removed, only restarted, and
- * the page says so rather than offering a button that would be refused. Stopping a package others
- * need asks first, naming them: they stop with it.
+ * A package with a page of its own is opened from here - Open, while it runs - and from the sidebar
+ * when it asks for an entry there; the page is its own address, `/packages/<id>/app`. Start, Stop
+ * and Restart are for whoever may configure packages; Update and Remove for whoever may install
+ * them. A package that is part of the platform is never removed, only restarted, and the page says
+ * so rather than offering a button that would be refused. Stopping a package others need asks
+ * first, naming them: they stop with it.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
 
-import type { ApiPackageDetail, PackageRelation } from '@nebulahome/contracts';
-import { Badge, Button, Modal, Panel, PanelRow, Switch } from '@nebulahome/ui';
+import type { ApiPackageDetail } from '@nebulahome/contracts';
+import {
+  AppIcon,
+  Button,
+  DetailHero,
+  HeroFact,
+  Modal,
+  OverflowMenu,
+  Pill,
+  Switch,
+  TabPanel,
+  Tabs,
+  type MenuItem,
+  type PillTone,
+} from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
-import { ExternalLinkIcon } from '@/components/icons';
 import { LogViewer } from '@/components/log-viewer';
-import { CONTAINER_QUERY_KEYS, fetchContainers } from '@/containers/api';
 import { toMessage } from '@/lib/error-message';
-import { absoluteTime, relativeTime } from '@/lib/format-time';
-import { fetchDevices, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { useTab } from '@/lib/use-tab';
 import {
   controlPackage,
   fetchAvailablePackages,
@@ -42,279 +47,29 @@ import {
   removePackage,
   updatePackage,
 } from '@/packages/api';
+import { listed } from '@/packages/package-health';
 import { packageAppPath } from '@/packages/package-paths';
-import { ContainerBadges } from '@/routes/containers/container-parts';
-import { devicePath } from '@/routes/library/device/device-path';
-import { LibraryPage } from '@/routes/library/library-page';
-import { MetaLine, Stat } from '@/routes/library/meta-line';
-import { PackageSetupDialog } from '@/routes/packages/package-setup-dialog';
+import { BackLink, DetailFrame } from '@/routes/library/detail-page';
+import { PackageConfiguration } from '@/routes/packages/package-configuration';
+import { PackageOverview } from '@/routes/packages/package-overview';
 import { PACKAGE_STATE_OF, PackageLogo } from '@/routes/packages/package-tile';
 
-/** What the sources are called under the name. */
-const SOURCE_LABELS = {
-  index: 'From the package index',
-  local: 'Installed from a file',
-} as const;
+/** The tabs of the page; the first is the page itself. */
+const TABS = ['overview', 'configuration', 'log'] as const;
+
+/** One tab. */
+type PackageTab = (typeof TABS)[number];
 
 /**
- * Where one relation's page is.
+ * The Pill tone of a state's badge tone: the same words, in the colours a Pill has.
  *
- * @param relation - A package or an integration.
- * @returns Its address.
+ * @param tone - The badge tone.
+ * @returns The Pill tone.
  */
-function relationPath(relation: PackageRelation): string {
-  return relation.kind === 'package'
-    ? `/packages/${encodeURIComponent(relation.id)}`
-    : `/integrations/${encodeURIComponent(relation.id)}`;
-}
-
-/**
- * Names in a sentence: "MQTT", "MQTT and Matter", "MQTT, Matter and NVR".
- *
- * @param names - The names.
- * @returns The sentence's words.
- */
-function listed(names: readonly string[]): string {
-  return names.length <= 1
-    ? names.join('')
-    : `${names.slice(0, -1).join(', ')} and ${names.at(-1) ?? ''}`;
-}
-
-/**
- * The relations on one side, as links.
- *
- * @param props - The title and the relations.
- * @param props.title - "Depends on", "Used by".
- * @param props.relations - Them.
- * @param props.empty - What is said when there are none.
- * @returns The rows.
- */
-function Relations(props: {
-  readonly title: string;
-  readonly relations: readonly PackageRelation[];
-  readonly empty: string;
-}) {
-  const { title, relations, empty } = props;
-
-  return (
-    <div className="flex min-w-0 flex-col gap-2 px-4 py-3.5">
-      <h3 className="text-caption font-medium tracking-wide text-foreground-subtle uppercase">
-        {title}
-      </h3>
-      {relations.length === 0 ? (
-        <p className="text-ui text-foreground-subtle">{empty}</p>
-      ) : (
-        <ul className="flex flex-wrap gap-2">
-          {relations.map((relation) => (
-            <li key={`${relation.kind}:${relation.id}`} className="list-none">
-              <Link
-                to={relationPath(relation)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-raised px-2.5 py-1 text-ui text-foreground transition-colors hover:border-border-strong"
-              >
-                {relation.name}
-                <span className="text-caption text-foreground-subtle">
-                  {relation.kind === 'package' ? 'package' : 'integration'}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-/** What the header's panel needs. */
-type HeaderProps = {
-  readonly found: ApiPackageDetail;
-  readonly update: string | undefined;
-};
-
-/**
- * The package's own panel: logo, name, what it says about itself, where it comes from.
- *
- * @param props - See {@link HeaderProps}.
- * @returns The panel.
- */
-function Header(props: HeaderProps) {
-  const { found, update } = props;
-  const state = PACKAGE_STATE_OF[found.state];
-
-  return (
-    <section className="flex flex-wrap items-start gap-x-4.5 gap-y-4 rounded-panel border border-border bg-surface p-5.5 md:flex-nowrap">
-      <PackageLogo found={found} size={56} />
-
-      <div className="flex min-w-0 grow flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <h2 className="text-headline font-medium text-foreground">{found.name}</h2>
-          <Badge tone={state.tone} size="small">
-            {state.label}
-          </Badge>
-          {found.isSystem ? (
-            <Badge tone="neutral" size="small">
-              Part of the platform
-            </Badge>
-          ) : null}
-          {update === undefined ? null : (
-            <Badge tone="accent" size="small">
-              v{update} out
-            </Badge>
-          )}
-        </div>
-
-        <p className="max-w-2xl text-ui leading-relaxed text-foreground-muted">
-          {found.description}
-        </p>
-
-        <MetaLine
-          parts={[
-            <span key="id" className="font-mono">
-              {found.id}
-            </span>,
-            <span
-              key="version"
-              className="tabular"
-              title={found.source === 'local' ? `Build ${found.build}` : undefined}
-            >
-              v{found.version}
-            </span>,
-            <span key="source">{SOURCE_LABELS[found.source]}</span>,
-            found.lastStartedAt === null ? null : (
-              <span key="started" title={absoluteTime(found.lastStartedAt)}>
-                Started {relativeTime(found.lastStartedAt)}
-              </span>
-            ),
-            found.repository === null ? null : (
-              <a
-                key="repository"
-                href={`https://github.com/${found.repository}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-primary transition-colors hover:text-primary-hover"
-              >
-                {found.repository}
-                <ExternalLinkIcon width="12" height="12" />
-              </a>
-            ),
-          ]}
-        />
-      </div>
-
-      <div className="flex items-start pl-14 md:pl-0">
-        <Stat value={found.deviceCount} noun={found.deviceCount === 1 ? 'device' : 'devices'} />
-        <Stat value={found.entityCount} noun={found.entityCount === 1 ? 'entity' : 'entities'} />
-      </div>
-    </section>
-  );
-}
-
-/**
- * The containers the package runs, from the host's list.
- *
- * @param props - The package.
- * @param props.packageId - Its id.
- * @returns The panel, or nothing for a package that runs none.
- */
-function PackageContainers(props: { readonly packageId: string }) {
-  const containers = useQuery({
-    queryKey: CONTAINER_QUERY_KEYS.list,
-
-    /**
-     * Reads the host's containers.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns Them.
-     */
-    queryFn: async ({ signal }) => fetchContainers(signal),
-  });
-  const owned = (containers.data?.items ?? []).filter(
-    (container) =>
-      container.managedBy?.ownerKind === 'package' &&
-      container.managedBy.vendorId === props.packageId,
-  );
-
-  if (owned.length === 0) {
-    return null;
-  }
-
-  return (
-    <Panel title={owned.length === 1 ? 'Runs in a container' : 'Runs in containers'}>
-      {owned.map((container) => (
-        <PanelRow
-          key={container.id}
-          title={
-            <Link
-              to={`/containers/${encodeURIComponent(container.name)}`}
-              className="font-medium text-primary underline-offset-2 hover:underline"
-            >
-              {container.displayName}
-            </Link>
-          }
-          note={
-            <span className="font-mono">
-              {container.image}
-              {container.version === null ? '' : ` · ${container.version}`}
-            </span>
-          }
-          control={<ContainerBadges container={container} />}
-        />
-      ))}
-    </Panel>
-  );
-}
-
-/**
- * The devices the package keeps.
- *
- * @param props - The package.
- * @param props.packageId - Its id.
- * @returns The panel, or nothing for a package that keeps none.
- */
-function PackageDevices(props: { readonly packageId: string }) {
-  const devices = useQuery({
-    queryKey: LIBRARY_QUERY_KEYS.devices,
-
-    /**
-     * Reads every device; the panel keeps the package's.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }) => fetchDevices(signal),
-  });
-  const owned = (devices.data ?? []).filter(
-    (device) => device.origin === 'package' && device.vendorId === props.packageId,
-  );
-
-  if (owned.length === 0) {
-    return null;
-  }
-
-  return (
-    <Panel title={`Devices · ${String(owned.length)}`}>
-      {owned.map((device) => (
-        <PanelRow
-          key={device.id}
-          title={
-            <Link
-              to={devicePath(device.id)}
-              className="font-medium text-primary underline-offset-2 hover:underline"
-            >
-              {device.name}
-            </Link>
-          }
-          note={[device.model, device.areaName].filter((part) => part !== null).join(' · ')}
-          control={
-            <span className="text-caption text-foreground-subtle tabular">
-              {device.entityIds.length} {device.entityIds.length === 1 ? 'entity' : 'entities'}
-            </span>
-          }
-        />
-      ))}
-    </Panel>
-  );
+function pillTone(tone: string): PillTone {
+  return tone === 'success' || tone === 'warning' || tone === 'danger' || tone === 'accent'
+    ? tone
+    : 'neutral';
 }
 
 /** What the removal dialog needs. */
@@ -403,9 +158,9 @@ export function PackagePage() {
   const can = useSession((state) => state.can);
   const canConfigure = can('package:configure');
   const canInstall = can('package:install');
-  const [isConfiguring, setConfiguring] = useState(false);
   const [isRemoving, setRemoving] = useState(false);
   const [isStopAsked, setStopAsked] = useState(false);
+  const [tab, setTab] = useTab<PackageTab>(TABS);
 
   const detail = useQuery({
     queryKey: PACKAGE_QUERY_KEYS.one(packageId),
@@ -466,198 +221,230 @@ export function PackagePage() {
   const isUp = found?.state === 'running' || found?.state === 'starting';
   const problem = control.error ?? update.error;
   const hasSetup = found?.setup !== null && found?.setup !== undefined;
+  const hasLog = found?.runtime === 'node';
   const dependents = found?.usedBy ?? [];
-
-  let action: ReactNode;
   const hasPage = found?.ui?.page === true;
+  const shownTab: PackageTab =
+    (tab === 'configuration' && !hasSetup) || (tab === 'log' && !hasLog) ? 'overview' : tab;
 
-  if (found !== undefined && (canConfigure || canInstall || hasPage)) {
-    action = (
-      <>
-        {hasPage ? (
-          <Button
-            size="compact"
-            disabled={found.state !== 'running'}
-            title={found.state === 'running' ? undefined : 'Its page opens while it runs'}
-            onClick={() => {
-              void navigate(packageAppPath(found.id));
-            }}
-          >
-            Open
-          </Button>
-        ) : null}
-        {canInstall && newer !== undefined ? (
-          <Button
-            size="compact"
-            isBusy={update.isPending}
-            onClick={() => {
-              update.mutate();
-            }}
-          >
-            Update to v{newer}
-          </Button>
-        ) : null}
-        {canInstall && hasNewBuild ? (
-          <Button
-            size="compact"
-            isBusy={update.isPending}
-            title="The local folder holds another build of this version"
-            onClick={() => {
-              update.mutate();
-            }}
-          >
-            Reinstall
-          </Button>
-        ) : null}
-        {canConfigure && isUp ? (
-          <Button
-            variant="ghost"
-            size="compact"
-            isBusy={control.isPending && control.variables === 'restart'}
-            onClick={() => {
-              control.mutate('restart');
-            }}
-          >
-            Restart
-          </Button>
-        ) : null}
-        {canConfigure && isUp && !found.isSystem ? (
-          <Button
-            variant="ghost"
-            size="compact"
-            isBusy={control.isPending && control.variables === 'stop'}
-            onClick={() => {
-              if (dependents.length > 0) {
-                setStopAsked(true);
-              } else {
-                control.mutate('stop');
-              }
-            }}
-          >
-            Stop
-          </Button>
-        ) : null}
-        {canConfigure && !isUp ? (
-          <Button
-            size="compact"
-            isBusy={control.isPending && control.variables === 'start'}
-            onClick={() => {
-              control.mutate('start');
-            }}
-          >
-            Start
-          </Button>
-        ) : null}
-        {canConfigure && hasSetup ? (
-          <Button
-            variant="ghost"
-            size="compact"
-            onClick={() => {
-              setConfiguring(true);
-            }}
-          >
-            Configure
-          </Button>
-        ) : null}
-        {canInstall && !found.isSystem ? (
-          <Button
-            variant="ghost"
-            size="compact"
-            disabled={dependents.length > 0}
-            title={
-              dependents.length > 0
-                ? `${listed(dependents.map((each) => each.name))} need it`
-                : undefined
-            }
-            onClick={() => {
-              setRemoving(true);
-            }}
-          >
-            Remove
-          </Button>
-        ) : null}
-      </>
-    );
-  }
+  /** Stops it, asking first when something needs it. */
+  const stop = (): void => {
+    if (dependents.length > 0) {
+      setStopAsked(true);
+    } else {
+      control.mutate('stop');
+    }
+  };
+
+  const menu: MenuItem[] =
+    found === undefined
+      ? []
+      : [
+          ...(canInstall && newer !== undefined
+            ? [
+                {
+                  label: `Update to v${newer}`,
+                  icon: 'circle-arrow-up' as const,
+                  disabled: update.isPending,
+                  /** Installs the newer release. */
+                  onSelect: () => {
+                    update.mutate();
+                  },
+                },
+              ]
+            : []),
+          ...(canInstall && hasNewBuild
+            ? [
+                {
+                  label: 'Reinstall',
+                  description: 'The build in the local folder',
+                  icon: 'rotate-ccw' as const,
+                  disabled: update.isPending,
+                  /** Installs the rebuild of the same version. */
+                  onSelect: () => {
+                    update.mutate();
+                  },
+                },
+              ]
+            : []),
+          ...(canConfigure && isUp
+            ? [
+                {
+                  label: 'Restart',
+                  icon: 'rotate-ccw' as const,
+                  /** Restarts it. */
+                  onSelect: () => {
+                    control.mutate('restart');
+                  },
+                },
+              ]
+            : []),
+          ...(canConfigure && isUp && !found.isSystem
+            ? [{ label: 'Stop', icon: 'square' as const, onSelect: stop }]
+            : []),
+          ...(canInstall && !found.isSystem
+            ? [
+                {
+                  label: 'Remove',
+                  icon: 'trash-2' as const,
+                  tone: 'danger' as const,
+                  disabled: dependents.length > 0,
+                  disabledReason: `${listed(dependents.map((each) => each.name))} need it`,
+                  /** Asks first, and whether what it kept goes with it. */
+                  onSelect: () => {
+                    setRemoving(true);
+                  },
+                },
+              ]
+            : []),
+        ];
+
+  const state = found === undefined ? null : PACKAGE_STATE_OF[found.state];
 
   return (
     <>
-      <LibraryPage
-        title={found?.name ?? packageId}
-        parent={{ to: '/packages', label: 'Packages' }}
-        noun="device"
-        action={action}
+      <DetailFrame
         isPending={detail.isPending}
         error={detail.error}
-        isEmpty={false}
+        hero={
+          <DetailHero
+            back={<BackLink to="/packages">Packages</BackLink>}
+            mark={found === undefined ? undefined : <PackageLogo found={found} size={56} />}
+            title={found?.name ?? packageId}
+            description={found?.description}
+            facts={
+              found === undefined || state === null ? undefined : (
+                <>
+                  <Pill tone={pillTone(state.tone)}>{state.label}</Pill>
+                  <HeroFact>v{found.version}</HeroFact>
+                  {found.isSystem ? <HeroFact icon="lock">System</HeroFact> : null}
+                  {found.source === 'local' ? (
+                    <HeroFact icon="hard-drive">Local file</HeroFact>
+                  ) : null}
+                </>
+              )
+            }
+            actions={
+              found === undefined ? undefined : (
+                <>
+                  {canConfigure && !isUp ? (
+                    <Button
+                      isBusy={control.isPending && control.variables === 'start'}
+                      onClick={() => {
+                        control.mutate('start');
+                      }}
+                    >
+                      <AppIcon id="play" size={15} />
+                      Start
+                    </Button>
+                  ) : null}
+                  {hasPage ? (
+                    <Button
+                      variant={isUp ? 'primary' : 'ghost'}
+                      disabled={found.state !== 'running'}
+                      title={found.state === 'running' ? undefined : 'Its page opens while it runs'}
+                      onClick={() => {
+                        void navigate(packageAppPath(found.id));
+                      }}
+                    >
+                      Open
+                    </Button>
+                  ) : null}
+                  {hasSetup ? (
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setTab('configuration');
+                      }}
+                    >
+                      <AppIcon id="settings" size={16} />
+                      Configure
+                    </Button>
+                  ) : null}
+                  <OverflowMenu items={menu} />
+                </>
+              )
+            }
+            tabs={
+              found === undefined ? undefined : (
+                <Tabs
+                  label={found.name}
+                  idPrefix="package"
+                  value={shownTab}
+                  onChange={setTab}
+                  items={[
+                    { id: 'overview', label: 'Overview' },
+                    ...(hasSetup ? [{ id: 'configuration' as const, label: 'Configuration' }] : []),
+                    ...(hasLog ? [{ id: 'log' as const, label: 'Log' }] : []),
+                  ]}
+                />
+              )
+            }
+          />
+        }
       >
         {found === undefined ? null : (
           <>
-            <Header found={found} update={newer} />
-
             {problem === null ? null : (
               <p role="alert" className="text-ui text-danger">
                 {toMessage(problem)}
               </p>
             )}
 
-            {found.lastError === null && found.problems.length === 0 ? null : (
-              <Panel title="What is wrong" elevation="flat">
-                <div className="flex flex-col gap-1.5 px-4 py-3.5 text-ui">
-                  {found.lastError === null ? null : (
-                    <p className="text-danger">{found.lastError}</p>
-                  )}
-                  {found.problems.map((each) => (
-                    <p key={each} className="text-foreground-muted">
-                      {each}
-                    </p>
-                  ))}
-                </div>
-              </Panel>
-            )}
+            {shownTab === 'overview' ? (
+              <TabPanel idPrefix="package" id="overview">
+                <PackageOverview
+                  found={found}
+                  newer={newer}
+                  hasNewBuild={hasNewBuild}
+                  isOffered={offered !== undefined}
+                  isUpdating={update.isPending}
+                  {...(canInstall
+                    ? {
+                        /** Updates it, or reinstalls the rebuild. */
+                        onUpdate: () => {
+                          update.mutate();
+                        },
+                      }
+                    : {})}
+                  {...(hasLog
+                    ? {
+                        /** Opens its log. */
+                        onOpenLog: () => {
+                          setTab('log');
+                        },
+                      }
+                    : {})}
+                />
+              </TabPanel>
+            ) : null}
 
-            {found.dependsOn.length === 0 && found.usedBy.length === 0 ? null : (
-              <Panel title="Dependencies">
-                <div className="grid divide-y divide-border md:grid-cols-2 md:divide-x md:divide-y-0">
-                  <Relations
-                    title="Depends on"
-                    relations={found.dependsOn}
-                    empty="Nothing: it runs on its own."
-                  />
-                  <Relations title="Used by" relations={found.usedBy} empty="Nothing needs it." />
-                </div>
-              </Panel>
-            )}
+            {shownTab === 'configuration' ? (
+              <TabPanel idPrefix="package" id="configuration">
+                <PackageConfiguration
+                  key={found.updatedAt.toString()}
+                  found={found}
+                  canConfigure={canConfigure}
+                  onSaved={settle}
+                />
+              </TabPanel>
+            ) : null}
 
-            {can('container:read') ? <PackageContainers packageId={found.id} /> : null}
-            {can('device:read') ? <PackageDevices packageId={found.id} /> : null}
-
-            {found.runtime === 'node' ? (
-              <LogViewer
-                title="Log"
-                queryKey={PACKAGE_QUERY_KEYS.logs(found.id)}
-                fileName={`package-${found.id}`}
-                read={async (tail, since, signal) =>
-                  fetchPackageLogs(found.id, tail, since, signal)
-                }
-              />
+            {shownTab === 'log' ? (
+              <TabPanel idPrefix="package" id="log">
+                <LogViewer
+                  title="Log"
+                  queryKey={PACKAGE_QUERY_KEYS.logs(found.id)}
+                  fileName={`package-${found.id}`}
+                  read={async (tail, since, signal) =>
+                    fetchPackageLogs(found.id, tail, since, signal)
+                  }
+                />
+              </TabPanel>
             ) : null}
           </>
         )}
-      </LibraryPage>
-
-      {isConfiguring && found !== undefined ? (
-        <PackageSetupDialog
-          found={found}
-          onClose={() => {
-            setConfiguring(false);
-          }}
-          onSaved={() => {
-            setConfiguring(false);
-            settle();
-          }}
-        />
-      ) : null}
+      </DetailFrame>
 
       {isRemoving && found !== undefined ? (
         <RemoveDialog

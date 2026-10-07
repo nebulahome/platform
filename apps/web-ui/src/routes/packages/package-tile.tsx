@@ -10,7 +10,15 @@
 import { Link } from 'react-router';
 
 import type { ApiPackage, PackageState } from '@nebulahome/contracts';
-import { Badge, Tile, TILE_FRAME, TileStat, type BadgeTone } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Pill,
+  Tile,
+  TILE_FRAME,
+  TileMark,
+  type BadgeTone,
+  type PillTone,
+} from '@nebulahome/ui';
 
 import { packageLogoUrl } from '@/packages/api';
 import { VendorLogo } from '@/routes/library/vendor-card';
@@ -68,6 +76,15 @@ function noun(count: number, one: string, many: string): string {
   return count === 1 ? one : many;
 }
 
+/** The Pill tone of each state's badge tone. */
+const PILL_TONES: Readonly<Partial<Record<BadgeTone, PillTone>>> = {
+  neutral: 'neutral',
+  accent: 'accent',
+  success: 'success',
+  warning: 'warning',
+  danger: 'danger',
+};
+
 /** What the tile needs. */
 export type PackageTileProps = {
   readonly found: ApiPackage;
@@ -85,6 +102,11 @@ export type PackageTileProps = {
 export function PackageTile(props: PackageTileProps) {
   const { found, update } = props;
   const state = PACKAGE_STATE_OF[found.state];
+  const cards = found.ui?.cards.length ?? 0;
+  const extras = [
+    found.ui?.page === true ? 'a page' : null,
+    cards === 0 ? null : cards === 1 ? 'a card' : `${String(cards)} cards`,
+  ].filter((part) => part !== null);
 
   return (
     <li className="list-none">
@@ -96,37 +118,35 @@ export function PackageTile(props: PackageTileProps) {
         <Tile
           logo={<PackageLogo found={found} size={44} />}
           marks={
-            <Badge tone={state.tone} size="small">
-              {state.label}
-            </Badge>
+            !found.isSystem && update === undefined ? undefined : (
+              <>
+                {update === undefined ? null : (
+                  <span
+                    title={`Version ${update} is out`}
+                    className="inline-flex h-6.5 items-center gap-1.5 rounded-chip bg-cyan/12 px-2 font-mono text-mono-caption text-cyan tabular"
+                  >
+                    <AppIcon id="circle-arrow-up" size={13} />
+                    {update}
+                  </span>
+                )}
+                {found.isSystem ? (
+                  <TileMark title="Part of the platform">
+                    <AppIcon id="lock" size={13} />
+                  </TileMark>
+                ) : null}
+              </>
+            )
           }
           name={found.name}
-          badges={
+          footer={
             <>
-              {found.isSystem ? (
-                <Badge tone="neutral" size="small">
-                  System
-                </Badge>
-              ) : null}
-              {update === undefined ? null : (
-                <Badge tone="accent" size="small">
-                  Update
-                </Badge>
-              )}
-            </>
-          }
-          version={`v${found.version}${update === undefined ? '' : ` · v${update} out`}`}
-          stats={
-            <>
-              <TileStat
-                value={found.deviceCount}
-                label={noun(found.deviceCount, 'device', 'devices')}
-              />
-              <span className="text-foreground-subtle">·</span>
-              <TileStat
-                value={found.entityCount}
-                label={noun(found.entityCount, 'entity', 'entities')}
-              />
+              <Pill tone={PILL_TONES[state.tone] ?? 'neutral'}>{state.label}</Pill>
+              <span>
+                {[
+                  `${String(found.deviceCount)} ${noun(found.deviceCount, 'device', 'devices')}`,
+                  ...extras,
+                ].join(' · ')}
+              </span>
             </>
           }
         />
