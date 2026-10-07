@@ -116,7 +116,7 @@ export function AuthLayout(props: AuthLayoutProps) {
                 isLoading ? 'scale-x-[0.86] opacity-0' : 'scale-x-100 opacity-100 delay-300'
               }`}
             >
-              <div className="flex flex-col gap-5.5 rounded-dialog border border-border-strong bg-glass p-7 shadow-dialog backdrop-blur-xl">
+              <div className="flex flex-col gap-5.5 rounded-dialog border border-border-strong bg-glass p-7 backdrop-blur-xl">
                 <div className="flex flex-col gap-1.5">
                   <h1 className="text-headline font-medium">{title}</h1>
                   <p className="text-ui text-foreground-muted">{subtitle}</p>
