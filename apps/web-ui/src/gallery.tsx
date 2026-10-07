@@ -41,6 +41,9 @@ import {
 } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
+import { CatalogueChip, CatalogueItem, CatalogueStat } from '@/components/catalogue/catalogue-item';
+import { CatalogueRow, Installs, Stars } from '@/components/catalogue/catalogue-row';
+import { ListingLogo } from '@/components/catalogue/listing-logo';
 import { CheckIcon, CopyIcon, WarningIcon } from '@/components/icons';
 import { LogViewer } from '@/components/log-viewer';
 import { PasswordField } from '@/components/password-field';
@@ -981,6 +984,125 @@ function Gallery() {
               />
             </div>
           </QueryClientProvider>
+        </Section>
+
+        <Section
+          title="Install dialog"
+          note="The Community Hub's results as full-width rows, and an item's own page."
+        >
+          <div className="flex w-full flex-col gap-4">
+            <ul
+              id="gallery-catalogue-rows"
+              className="flex w-full flex-col rounded-dialog border border-border-strong bg-surface p-4"
+            >
+              <CatalogueRow
+                logo={
+                  <ListingLogo
+                    listing={{ name: 'Philips Hue', color: '#3b9dff', logo: null }}
+                    size={48}
+                  />
+                }
+                name="Philips Hue"
+                isOfficial
+                description="Lights, switches and motion sensors through the Hue bridge, all local."
+                facts={
+                  <>
+                    <Stars count={1240} />
+                    <Installs count={41_800} />
+                    <span>by nebulahome</span>
+                  </>
+                }
+                isInstalled={false}
+                onOpen={() => undefined}
+              />
+              <CatalogueRow
+                logo={
+                  <ListingLogo
+                    listing={{ name: 'Govee', color: '#62a9ff', logo: null }}
+                    size={48}
+                  />
+                }
+                name="Govee"
+                isOfficial={false}
+                description="LED strips and lights over LAN, with cloud as a fallback."
+                facts={
+                  <>
+                    <Stars count={86} />
+                    <Installs count={12_700} />
+                    <span>by govee-community</span>
+                    <span className="rounded-pill border border-warning-line px-2 text-warning">
+                      Needs the internet
+                    </span>
+                  </>
+                }
+                isInstalled
+                onOpen={() => undefined}
+              />
+            </ul>
+            <div
+              id="gallery-catalogue-item"
+              className="w-full rounded-dialog border border-border-strong bg-surface"
+            >
+              <CatalogueItem
+                logo={
+                  <ListingLogo
+                    listing={{ name: 'Philips Hue', color: '#3b9dff', logo: null }}
+                    size={80}
+                  />
+                }
+                name="Philips Hue"
+                by="by nebulahome"
+                chips={
+                  <>
+                    <CatalogueChip tone="accent">Official</CatalogueChip>
+                    <CatalogueChip icon="network">Local network</CatalogueChip>
+                    <CatalogueChip icon="cable">HTTP</CatalogueChip>
+                  </>
+                }
+                stats={
+                  <>
+                    <CatalogueStat
+                      icon="star"
+                      iconClassName="text-lamp"
+                      value="1.2K"
+                      label="stars"
+                    />
+                    <CatalogueStat icon="download" value="41.8K" label="installs" />
+                    <CatalogueStat icon="tag" value="3.1.0" />
+                    <CatalogueStat
+                      icon="clock"
+                      value="12 days ago"
+                      label="since the last release"
+                    />
+                  </>
+                }
+                description="Lights, switches and motion sensors through the Hue bridge, all local."
+                worksWith={[
+                  'Hue Bridge v2',
+                  'White and colour bulbs',
+                  'Lightstrips',
+                  'Motion sensors',
+                ]}
+                effects={[
+                  {
+                    icon: 'cable',
+                    title: 'Talks to its devices over HTTP',
+                    note: 'On your network. Nothing leaves the house.',
+                  },
+                  {
+                    icon: 'package',
+                    title: 'Nothing else to install',
+                    note: 'Profiles only: it runs inside Nebula Home, with no code of its own.',
+                  },
+                  {
+                    icon: 'radio-tower',
+                    title: 'Then add its devices',
+                    note: 'From its page, once it is installed.',
+                  },
+                ]}
+              />
+            </div>
+          </div>
         </Section>
 
         <Section title="Modal" note="Clicking away closes it, unless what it holds is shown once.">
