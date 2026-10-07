@@ -38,6 +38,13 @@ describe('snapSize', () => {
 });
 
 describe('cardKindOf', () => {
+  it('gives what is told rather than switched the entity page control on a card', () => {
+    expect(cardKindOf(entity('vacuum', 'vacuum', 'on_off'))).toBe('control');
+    expect(cardKindOf(entity('select', 'select'))).toBe('control');
+    expect(cardKindOf(entity('update', 'update'))).toBe('control');
+    expect(CARD_SIZES.control.preferred).toEqual({ w: 2, h: 2 });
+  });
+
   it('draws the richest thing an entity can do', () => {
     expect(cardKindOf(entity('climate', 'on_off', 'thermostat'))).toBe('thermostat');
     expect(cardKindOf(entity('light', 'on_off', 'level'))).toBe('light');

@@ -80,13 +80,16 @@ export function DashboardPage() {
   const manageLink = canManage ? (
     <Button
       variant="ghost"
-      size="compact"
       onClick={() => {
-        void navigate(DASHBOARDS_CONFIGURATION_PATH);
+        void navigate(
+          current === undefined
+            ? DASHBOARDS_CONFIGURATION_PATH
+            : `${DASHBOARDS_CONFIGURATION_PATH}/${current.id}/edit`,
+        );
       }}
     >
       <AppIcon id="pencil" size={14} />
-      Manage dashboards
+      {current === undefined ? 'Manage dashboards' : 'Edit layout'}
     </Button>
   ) : undefined;
 

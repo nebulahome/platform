@@ -40,8 +40,11 @@ import { VacuumControl } from '@/routes/library/entity/controls/vacuum-control';
 import { useEntityCommand } from '@/routes/library/entity/use-entity-command';
 import { usePendingValue } from '@/routes/library/entity/use-pending-value';
 
-/** The controls, in the order they are drawn. */
-const CONTROLS: readonly (readonly [CapabilityName, (props: ControlProps) => ReactNode])[] = [
+/** The controls, in the order they are drawn: a dashboard card draws the one it is about. */
+export const ENTITY_CONTROLS: readonly (readonly [
+  CapabilityName,
+  (props: ControlProps) => ReactNode,
+])[] = [
   ['image', ImageControl],
   ['lawn_mower', LawnMowerControl],
   ['vacuum', VacuumControl],
@@ -127,7 +130,7 @@ export function ControlPanel(props: ControlPanelProps) {
 
   return (
     <Panel title="Control">
-      {CONTROLS.filter(([capability]) => hasCapability(entity, capability)).map((entry) => {
+      {ENTITY_CONTROLS.filter(([capability]) => hasCapability(entity, capability)).map((entry) => {
         const [capability, Control] = entry;
 
         return <Control key={capability} {...controlProps} />;

@@ -19,6 +19,7 @@ import { readingOf } from '@/library/entity-reading';
 import { BinaryCard } from '@/routes/dashboard/cards/binary-card';
 import { CameraCard } from '@/routes/dashboard/cards/camera-card';
 import { CardFrame, TileRow, UnavailableNote } from '@/routes/dashboard/cards/card-parts';
+import { ControlCard } from '@/routes/dashboard/cards/control-card';
 import { CoverCard } from '@/routes/dashboard/cards/cover-card';
 import { cardTime, sizeKey, type EntityCardModel } from '@/routes/dashboard/cards/entity-model';
 import { LightCard } from '@/routes/dashboard/cards/light-card';
@@ -43,6 +44,7 @@ const KINDS: Readonly<
   lock: LockCard,
   media: MediaCard,
   camera: CameraCard,
+  control: ControlCard,
 };
 
 /** What an entity card needs. */

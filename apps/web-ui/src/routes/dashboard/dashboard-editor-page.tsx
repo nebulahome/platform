@@ -8,6 +8,10 @@
  * dashboard is assigned to sees it the next time their page reads - and Cancel throws the copy
  * away; both go back to the list. The copy survives leaving the page, and closing the tab asks
  * first. A window too narrow for four columns cannot edit, and says so.
+ *
+ * As the board draws it: the rail collapses to give the grid room; a banner says what is being
+ * edited and who sees the change - everyone the dashboard is shown to - with Add card, Add group,
+ * Cancel and Done beside it; each card shows its size and the way to remove it.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
@@ -19,10 +23,16 @@ import {
   type DashboardLayout,
   type DashboardView,
 } from '@nebulahome/contracts';
-import { AppIcon, Badge, Button } from '@nebulahome/ui';
+import { AppIcon, Button, Note } from '@nebulahome/ui';
 
-import { DASHBOARD_QUERY_KEYS, fetchManagedDashboards, updateDashboard } from '@/dashboard/api';
+import {
+  DASHBOARD_QUERY_KEYS,
+  fetchAssignees,
+  fetchManagedDashboards,
+  updateDashboard,
+} from '@/dashboard/api';
 import { addCard, findCard, removeCard } from '@/dashboard/dashboard-layout';
+import { containerCard } from '@/dashboard/new-cards';
 import { toMessage } from '@/lib/error-message';
 import { AddCardDialog } from '@/routes/dashboard/add-card-dialog';
 import { CardInspector } from '@/routes/dashboard/card-inspector';
@@ -117,6 +127,24 @@ function Editor(props: { readonly dashboard: DashboardView }) {
   const [isNarrow, setNarrow] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const isDirty = isEditing && isDraftDirty(draft);
+  const assignees = useQuery({
+    queryKey: DASHBOARD_QUERY_KEYS.assignees,
+    staleTime: 60_000,
+
+    /**
+     * Reads the people a dashboard can be shown to, for who sees this one.
+     *
+     * @param context - The abort signal.
+     * @param context.signal - Cancels the request.
+     * @returns The people.
+     */
+    queryFn: async ({ signal }) => fetchAssignees(signal),
+  });
+  const viewers = dashboard.userIds.flatMap((id) => {
+    const person = assignees.data?.find((each) => each.id === id);
+
+    return person === undefined ? [] : [person.displayName];
+  });
   const scenes = [...data.sceneById.values()];
   const { begin } = draft;
   const hasBegun = useRef(false);
@@ -267,52 +295,71 @@ function Editor(props: { readonly dashboard: DashboardView }) {
 
   return (
     <div className="flex min-h-0 min-w-0 grow flex-col">
-      <DetailHeader
-        crumbs={[{ to: DASHBOARDS_CONFIGURATION_PATH, label: 'Dashboards' }]}
-        title={dashboard.name}
-        actions={
-          <>
-            <Badge tone="accent" size="small">
-              Editing layout
-            </Badge>
-            {problem === null ? null : (
-              <p
-                role="alert"
-                className="max-w-sm truncate text-caption text-danger"
-                title={problem}
+      <div className="shrink-0 px-8 pt-6">
+        <h1 className="sr-only">Editing {dashboard.name}</h1>
+        <Note
+          tone="accent"
+          className="mx-auto max-w-7xl"
+          action={
+            <span className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="ghost"
+                size="compact"
+                disabled={!canEdit}
+                onClick={() => {
+                  setAdding(true);
+                }}
               >
-                {problem}
-              </p>
-            )}
-            <Button
-              variant="ghost"
-              size="compact"
-              disabled={!canEdit}
-              onClick={() => {
-                setAdding(true);
-              }}
-            >
-              <AppIcon id="plus" size={14} />
-              Add card
-            </Button>
-            <Button
-              variant="ghost"
-              size="compact"
-              disabled={save.isPending}
-              onClick={() => {
-                setProblem(null);
-                draft.end();
-                leave();
-              }}
-            >
-              Cancel
-            </Button>
-            <Button size="compact" isBusy={save.isPending} disabled={!isEditing} onClick={done}>
-              Done
-            </Button>
-          </>
-        }
-      />
+                <AppIcon id="plus" size={14} />
+                Add card
+              </Button>
+              <Button
+                variant="ghost"
+                size="compact"
+                disabled={!canEdit}
+                onClick={() => {
+                  add([containerCard('New group')]);
+                }}
+              >
+                <AppIcon id="layout-grid" size={14} />
+                Add group
+              </Button>
+              <Button
+                variant="bare"
+                size="compact"
+                disabled={save.isPending}
+                onClick={() => {
+                  setProblem(null);
+                  draft.end();
+                  leave();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button size="compact" isBusy={save.isPending} disabled={!isEditing} onClick={done}>
+                <AppIcon id="check" size={14} />
+                Done
+              </Button>
+            </span>
+          }
+        >
+          <span className="font-medium">Editing “{dashboard.name}”</span>
+          <span className="text-foreground-muted">
+            {' · '}
+            {viewers.length === 0
+              ? 'Nobody sees it yet: assign it under Dashboard setup'
+              : viewers.length <= 3
+                ? `${viewers.join(', ')} ${viewers.length === 1 ? 'sees' : 'see'} the change`
+                : `Everyone who uses ${dashboard.name} sees the change`}
+          </span>
+          <span className="text-foreground-subtle"> · drag to move, drag a corner to resize</span>
+        </Note>
+        {problem === null ? null : (
+          <p role="alert" className="mx-auto mt-2 max-w-7xl text-ui-sm text-danger">
+            {problem}
+          </p>
+        )}
+      </div>
 
       <div className="min-h-0 grow overflow-y-auto px-8 pt-5 pb-7">
         <div className="mx-auto flex max-w-7xl items-start gap-6">

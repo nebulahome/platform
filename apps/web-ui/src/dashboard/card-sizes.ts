@@ -25,6 +25,7 @@ export const ENTITY_CARD_KINDS = [
   'switch',
   'sensor',
   'binary',
+  'control',
   'text',
 ] as const;
 
@@ -54,6 +55,10 @@ export const CARD_SIZES: Readonly<Record<LeafCardKind, SizeRule>> = {
   sensor: { sizes: [TILE, STRIP, CARD, SQUARE], preferred: TILE },
   binary: { sizes: [TILE, CARD], preferred: TILE },
   text: { sizes: [TILE, STRIP], preferred: TILE },
+
+  // A robot, a choice, a number, a button, a firmware update, a picture: the entity page's own
+  // control for it, on a card tall or square enough to hold it.
+  control: { sizes: [CARD, SQUARE, LARGE], preferred: SQUARE },
   thermostat: { sizes: [CARD, SQUARE], preferred: CARD },
   cover: { sizes: [TILE, CARD], preferred: CARD },
   lock: { sizes: [TILE, CARD], preferred: CARD },
@@ -187,6 +192,9 @@ const RICHEST_FIRST: readonly (readonly [CapabilityName, EntityCardKind])[] = [
   ['thermostat', 'thermostat'],
   ['media_player', 'media'],
   ['camera', 'camera'],
+  ['vacuum', 'control'],
+  ['lawn_mower', 'control'],
+  ['image', 'control'],
   ['cover', 'cover'],
   ['lock', 'lock'],
   ['level', 'light'],
@@ -195,6 +203,10 @@ const RICHEST_FIRST: readonly (readonly [CapabilityName, EntityCardKind])[] = [
   ['on_off', 'switch'],
   ['sensor_numeric', 'sensor'],
   ['sensor_binary', 'binary'],
+  ['select', 'control'],
+  ['number', 'control'],
+  ['button', 'control'],
+  ['update', 'control'],
 ];
 
 /**

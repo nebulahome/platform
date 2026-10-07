@@ -641,10 +641,16 @@ export function DashboardGrid(props: DashboardGridProps) {
             >
               <AppIcon id="grip-horizontal" size={14} />
             </button>
+            <span
+              aria-hidden="true"
+              className="absolute top-2 left-2 z-20 rounded-chip border border-border-strong bg-surface-raised px-1.5 font-mono text-mono-caption text-foreground-muted tabular"
+            >
+              {card.w}×{card.h}
+            </span>
             <button
               type="button"
               aria-label={`Remove ${title}`}
-              className="absolute -top-2 -left-2 z-20 flex size-6 items-center justify-center rounded-full border border-border-strong bg-surface-raised text-foreground-muted hover:text-danger"
+              className="absolute -top-2 -right-2 z-20 flex size-6 items-center justify-center rounded-full border border-border-strong bg-surface-raised text-foreground-muted hover:text-danger"
               onClick={() => {
                 editor.onRemove(card.id);
               }}
