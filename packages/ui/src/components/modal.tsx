@@ -151,6 +151,9 @@ export type ModalProps = Pick<VariantProps<typeof dialogBox>, 'size'> & {
 
   /** In the `sections` layout: what the close button is called. */
   readonly closeLabel?: string;
+
+  /** In the sectioned header, before the close button: a wizard's steps. */
+  readonly trail?: ReactNode;
 };
 
 /**
@@ -174,6 +177,7 @@ export function Modal(props: ModalProps) {
     layout = 'plain',
     lead,
     closeLabel = 'Close',
+    trail,
   } = props;
 
   const dialog = useRef<HTMLDialogElement>(null);
@@ -296,6 +300,7 @@ export function Modal(props: ModalProps) {
             </p>
           )}
         </div>
+        {trail}
         <IconButton variant="raised" label={closeLabel} onClick={onClose}>
           <AppIcon id="x" size={15} />
         </IconButton>

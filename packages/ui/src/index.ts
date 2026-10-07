@@ -86,6 +86,7 @@ export {
   type TabPanelProps,
   type TabsProps,
 } from './components/tabs.js';
+export { WizardSteps, type WizardStepsProps } from './components/wizard-steps.js';
 export { Hint, type HintProps, type HintSide } from './components/hint.js';
 export { IconButton, type IconButtonProps } from './components/icon-button.js';
 export { Logo, type LogoProps } from './components/logo.js';
