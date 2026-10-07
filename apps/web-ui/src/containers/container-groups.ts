@@ -3,8 +3,9 @@
  * container started on its own, one per install still going.
  *
  * A compose project is one thing to the person who wrote it - the services of a stack - so it is
- * one card, opening a page of its own that lists them; the platform's own project comes first,
- * called NebulaHome. A project the platform is deploying before any of its containers exists
+ * one card, opening a page of its own that lists them. The platform's own project is the
+ * exception, as the board draws it: Nebula Home, PostgreSQL and NATS are each a card, first, each
+ * marked part of the platform. A project the platform is deploying before any of its containers exists
  * still gets its card, from the operation, so the page shows the work from the moment it began.
  *
  * Pure, so what the grid shows is tested without the page.
@@ -131,13 +132,19 @@ export function containerTiles(
   // running: shown unless the filter asks for something else.
   const isPendingShown =
     filter.run !== 'running' && (filter.owner === 'any' || filter.owner === 'other');
-  const groups = composeGroups(containers, operations).filter((group) =>
-    group.containers.length === 0
-      ? isPendingShown && matchesQuery([group.project, group.title], filter.search)
-      : group.containers.some((container) => matchesContainer(container, filter)),
+  const groups = composeGroups(containers, operations).filter(
+    (group) =>
+      // The platform's own project is not one card: each of its containers is its own.
+      !group.isSystem &&
+      (group.containers.length === 0
+        ? isPendingShown && matchesQuery([group.project, group.title], filter.search)
+        : group.containers.some((container) => matchesContainer(container, filter))),
   );
   const alone = containers
-    .filter((container) => container.compose === null && matchesContainer(container, filter))
+    .filter(
+      (container) =>
+        (container.compose === null || container.isSystem) && matchesContainer(container, filter),
+    )
     .map((container) => ({ kind: 'container' as const, container }));
   const pending = isPendingShown
     ? installs

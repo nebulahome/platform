@@ -41,6 +41,17 @@ export type VolumeDraft = {
   readonly isReadOnly: boolean;
 };
 
+/** A device of the machine handed to the container, as the form holds it. */
+export type DeviceDraft = {
+  readonly key: string;
+
+  /** Its path on the machine: `/dev/ttyUSB0`. */
+  readonly host: string;
+
+  /** Where the container sees it; the same path when left blank. */
+  readonly container: string;
+};
+
 /** Everything the form holds. */
 export type InstallDraft = {
   readonly image: string;
@@ -51,6 +62,7 @@ export type InstallDraft = {
   readonly ports: readonly PortDraft[];
   readonly env: readonly EnvDraft[];
   readonly volumes: readonly VolumeDraft[];
+  readonly devices: readonly DeviceDraft[];
 };
 
 /** The form before anything is picked. */
@@ -63,6 +75,7 @@ export const EMPTY_INSTALL: InstallDraft = {
   ports: [],
   env: [],
   volumes: [],
+  devices: [],
 };
 
 /** The last key handed out. */
@@ -245,7 +258,12 @@ export function checkInstall(draft: InstallDraft, taken: readonly string[]): Ins
             isReadOnly: volume.isReadOnly,
           },
     ),
-    devices: [],
+    devices: draft.devices
+      .filter((device) => device.host.trim() !== '' || device.container.trim() !== '')
+      .map((device) => ({
+        host: device.host.trim(),
+        container: device.container.trim() === '' ? device.host.trim() : device.container.trim(),
+      })),
     restartPolicy: draft.restartPolicy,
     network: draft.network,
   };
@@ -261,9 +279,12 @@ export function checkInstall(draft: InstallDraft, taken: readonly string[]): Ins
           : issue.path.join('.');
 
       errors[path] ??=
-        issue.path.at(-1) === 'host' || issue.path.at(-1) === 'container'
+        issue.path[0] === 'ports' &&
+        (issue.path.at(-1) === 'host' || issue.path.at(-1) === 'container')
           ? 'A port from 1 to 65535'
-          : issue.message;
+          : issue.path[0] === 'devices'
+            ? 'A path on the machine, such as /dev/ttyUSB0'
+            : issue.message;
     }
   }
 

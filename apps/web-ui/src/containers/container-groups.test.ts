@@ -76,7 +76,7 @@ describe('composeGroups', () => {
 });
 
 describe('containerTiles', () => {
-  it('shows installs first, then the projects and lone containers, the platform first', () => {
+  it('shows installs first, then the platform container by container, then the rest', () => {
     const tiles = containerTiles(
       [PLEX, ALONE, DATABASE, PLATFORM],
       [],
@@ -92,7 +92,7 @@ describe('containerTiles', () => {
             ? tile.container.displayName
             : tile.install.name,
       ),
-    ).toEqual(['grafana', 'NebulaHome', 'Media Stack', 'Whoami']);
+    ).toEqual(['grafana', 'NebulaHome', 'PostgreSQL', 'Media Stack', 'Whoami']);
   });
 
   it('keeps a project when one of its containers passes the filter', () => {
@@ -110,9 +110,10 @@ describe('containerTiles', () => {
       owner: 'system',
     });
 
-    expect(tiles.map((tile) => (tile.kind === 'compose' ? tile.project : tile.kind))).toEqual([
-      'nebulahome',
-    ]);
+    // The platform's containers, each its own card: not its project as one.
+    expect(
+      tiles.map((tile) => (tile.kind === 'container' ? tile.container.displayName : tile.kind)),
+    ).toEqual(['NebulaHome', 'PostgreSQL']);
   });
 });
 

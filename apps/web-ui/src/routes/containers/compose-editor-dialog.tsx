@@ -10,6 +10,11 @@
  * answering at once while the images are pulled - the project's card and its page follow that.
  * A file that cannot run is refused by Deploy too, with the same marks, so nothing half-kept is
  * left behind.
+ *
+ * Laid out as the board draws it: the project's name and Paste / Upload a file on the left, the
+ * editor under a bar naming the file and saying "Valid · 3 services" once checked; on the right,
+ * the services found. The board's second step - each service's ports and folders, the variables to
+ * fill - needs `docker compose` to say more than the names of the services, and waits for it.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useRef, useState } from 'react';
@@ -21,7 +26,7 @@ import {
   PLATFORM_COMPOSE_PROJECT,
   type ComposeProblem,
 } from '@nebulahome/contracts';
-import { Button, Modal, TextField } from '@nebulahome/ui';
+import { AppIcon, Button, Modal, Segmented, TextField } from '@nebulahome/ui';
 
 import {
   CONTAINER_QUERY_KEYS,
@@ -123,6 +128,7 @@ function ComposeForm(props: ComposeFormProps) {
   const [problems, setProblems] = useState<readonly ComposeProblem[]>([]);
   const [checked, setChecked] = useState<readonly string[] | null>(null);
   const [nameError, setNameError] = useState<string | undefined>(undefined);
+  const [source, setSource] = useState<'paste' | 'upload'>('paste');
 
   /**
    * Checks the project's name before it is sent.
@@ -227,112 +233,139 @@ function ComposeForm(props: ComposeFormProps) {
     <Modal
       isOpen
       onClose={onClose}
-      size="large"
-      title={existing === null ? 'New compose project' : `Change ${existing}`}
+      size="xlarge"
+      layout="sections"
+      title={existing === null ? 'Install a compose project' : `Change ${existing}`}
       description={
         existing === null
-          ? 'Write a compose file or upload one. Its folders are kept in NebulaHome’s data, and backed up.'
+          ? 'Its folders are kept in NebulaHome’s data, and backed up.'
           : 'Deploying again makes only the services that changed again.'
       }
       footer={
         <>
-          {failure === null ? null : (
-            <p role="alert" className="mr-auto text-ui text-danger">
-              {failure}
-            </p>
-          )}
-          <Button variant="ghost" disabled={busy} onClick={onClose}>
+          <Button variant="bare" disabled={busy} onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            variant="ghost"
-            isBusy={check.isPending}
-            disabled={busy || file.trim() === ''}
-            onClick={() => {
-              const name = checkName();
+          <span className="flex items-center gap-2.5">
+            {failure === null ? null : (
+              <span role="alert" className="text-ui-sm text-danger">
+                {failure}
+              </span>
+            )}
+            <Button
+              variant="ghost"
+              isBusy={check.isPending}
+              disabled={busy || file.trim() === ''}
+              onClick={() => {
+                const name = checkName();
 
-              if (name !== null) {
-                check.mutate({ project: name, file, env });
-              }
-            }}
-          >
-            Check
-          </Button>
-          <Button
-            isBusy={deploy.isPending}
-            disabled={busy || file.trim() === ''}
-            onClick={() => {
-              const name = checkName();
+                if (name !== null) {
+                  check.mutate({ project: name, file, env });
+                }
+              }}
+            >
+              Check
+            </Button>
+            <Button
+              isBusy={deploy.isPending}
+              disabled={busy || file.trim() === ''}
+              onClick={() => {
+                const name = checkName();
 
-              if (name !== null) {
-                deploy.mutate(name);
-              }
-            }}
-          >
-            Deploy
-          </Button>
+                if (name !== null) {
+                  deploy.mutate(name);
+                }
+              }}
+            >
+              <AppIcon id="download" size={15} />
+              Deploy
+            </Button>
+          </span>
         </>
       }
     >
-      <div className="flex flex-col gap-4 px-5 py-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <TextField
-            label="Project"
-            value={project}
-            disabled={existing !== null}
-            error={nameError}
-            className="font-mono"
-            placeholder="media"
-            onChange={(event) => {
-              setProject(event.target.value.toLowerCase());
-              setNamed(true);
-            }}
-          />
-          <input
-            ref={upload}
-            type="file"
-            accept=".yml,.yaml,application/yaml,text/yaml"
-            className="hidden"
-            aria-hidden="true"
-            tabIndex={-1}
-            onChange={(event) => {
-              const picked = event.target.files?.[0];
+      <div className="grid min-h-0 grow lg:grid-cols-3">
+        <div className="flex min-w-0 flex-col gap-4 px-6 py-5 lg:col-span-2">
+          <div className="flex flex-wrap items-end gap-3">
+            <TextField
+              label="Project name"
+              value={project}
+              disabled={existing !== null}
+              error={nameError}
+              className="font-mono"
+              placeholder="media"
+              onChange={(event) => {
+                setProject(event.target.value.toLowerCase());
+                setNamed(true);
+              }}
+            />
+            <Segmented
+              label="Where the file comes from"
+              options={[
+                { value: 'paste', label: 'Paste' },
+                { value: 'upload', label: 'Upload a file' },
+              ]}
+              value={source}
+              onChange={(next) => {
+                setSource(next);
+                if (next === 'upload') {
+                  upload.current?.click();
+                }
+              }}
+            />
+            <input
+              ref={upload}
+              type="file"
+              accept=".yml,.yaml,application/yaml,text/yaml"
+              className="hidden"
+              aria-hidden="true"
+              tabIndex={-1}
+              onChange={(event) => {
+                const picked = event.target.files?.[0];
 
-              if (picked !== undefined) {
-                void picked.text().then((text) => {
-                  replaceFile(text, picked.name);
-                });
-              }
+                if (picked !== undefined) {
+                  void picked.text().then((text) => {
+                    replaceFile(text, picked.name);
+                    setSource('paste');
+                  });
+                }
 
-              event.target.value = '';
-            }}
-          />
-          <Button
-            variant="ghost"
-            onClick={() => {
-              upload.current?.click();
-            }}
-          >
-            Upload file
-          </Button>
-        </div>
+                event.target.value = '';
+              }}
+            />
+          </div>
 
-        <Suspense
-          fallback={
-            <div className="h-64 rounded-field border border-border bg-surface-raised px-3 py-2 text-ui text-foreground-subtle">
-              Opening the editor…
+          <div className="flex min-h-0 flex-col overflow-hidden rounded-inner border border-border">
+            <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5 text-caption">
+              <span className="flex items-center gap-2 text-foreground-muted">
+                <AppIcon id="type" size={13} />
+                compose.yaml
+              </span>
+              {checked === null ? null : (
+                <span role="status" className="flex items-center gap-1.5 text-success">
+                  <AppIcon id="check" size={13} />
+                  Valid · {checked.length} {checked.length === 1 ? 'service' : 'services'}
+                </span>
+              )}
             </div>
-          }
-        >
-          <YamlEditor
-            label="Compose file"
-            value={file}
-            problems={problems}
-            onChange={(text) => {
-              setFile(text);
-              setChecked(null);
-            }}
-          />
+            <Suspense
+              fallback={
+                <div className="h-64 bg-surface-raised px-3 py-2 text-ui text-foreground-subtle">
+                  Opening the editor…
+                </div>
+              }
+            >
+              <YamlEditor
+                label="Compose file"
+                value={file}
+                problems={problems}
+                onChange={(text) => {
+                  setFile(text);
+                  setChecked(null);
+                }}
+              />
+            </Suspense>
+          </div>
 
           <div className="flex flex-col gap-2">
             <button
@@ -350,44 +383,65 @@ function ComposeForm(props: ComposeFormProps) {
                   : 'Show the .env file'}
             </button>
             {isEnvShown ? (
-              <YamlEditor
-                label="The .env file"
-                value={env}
-                minHeight="5rem"
-                maxHeight="12rem"
-                placeholder="TZ=Europe/Rome"
-                onChange={(text) => {
-                  setEnv(text);
-                  setChecked(null);
-                }}
-              />
+              <Suspense fallback={null}>
+                <YamlEditor
+                  label="The .env file"
+                  value={env}
+                  minHeight="5rem"
+                  maxHeight="12rem"
+                  placeholder="TZ=Europe/Rome"
+                  onChange={(text) => {
+                    setEnv(text);
+                    setChecked(null);
+                  }}
+                />
+              </Suspense>
             ) : null}
           </div>
-        </Suspense>
 
-        {problems.length === 0 ? null : (
-          <ul
-            role="alert"
-            className="flex flex-col gap-1 rounded-field border border-danger/30 bg-danger/8 px-3.5 py-2.5 text-ui text-danger"
-          >
-            {problems.map((problem, index) => (
-              // The same message can come twice, for two services.
-              <li key={`${String(index)}-${problem.message}`}>
-                {problem.line === null ? null : (
-                  <span className="mr-1.5 font-mono text-caption">line {problem.line}</span>
-                )}
-                {problem.message}
-              </li>
-            ))}
-          </ul>
-        )}
+          {problems.length === 0 ? null : (
+            <ul
+              role="alert"
+              className="flex flex-col gap-1 rounded-field border border-danger-line bg-danger-soft px-3.5 py-2.5 text-ui text-danger"
+            >
+              {problems.map((problem, index) => (
+                // The same message can come twice, for two services.
+                <li key={`${String(index)}-${problem.message}`}>
+                  {problem.line === null ? null : (
+                    <span className="mr-1.5 font-mono text-caption">line {problem.line}</span>
+                  )}
+                  {problem.message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
-        {checked === null ? null : (
-          <p role="status" className="text-ui text-success">
-            It runs: {checked.length} {checked.length === 1 ? 'service' : 'services'},{' '}
-            {checked.join(', ')}.
-          </p>
-        )}
+        <aside
+          aria-label="Services found"
+          className="flex flex-col gap-3 border-t border-border px-6 py-5 lg:border-t-0 lg:border-l"
+        >
+          <h3 className="font-mono text-label text-foreground-subtle uppercase">Services found</h3>
+          {checked === null ? (
+            <p className="text-ui-sm text-foreground-subtle">
+              Check the file: what it runs is listed here.
+            </p>
+          ) : (
+            <ul className="flex flex-col">
+              {checked.map((service) => (
+                <li
+                  key={service}
+                  className="flex items-center gap-3 border-t border-border py-3 first:border-t-0"
+                >
+                  <span className="flex size-9 items-center justify-center rounded-field border border-border-strong bg-surface-raised text-cyan">
+                    <AppIcon id="container" size={16} />
+                  </span>
+                  <span className="truncate font-mono text-mono-ui text-foreground">{service}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </aside>
       </div>
     </Modal>
   );

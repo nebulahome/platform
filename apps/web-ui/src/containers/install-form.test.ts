@@ -68,4 +68,17 @@ describe('checkInstall', () => {
       'ports.0.host': 'A port from 1 to 65535',
     });
   });
+
+  it('hands a device of the machine over, at the same path unless told otherwise', () => {
+    const devices = [
+      { key: 'a', host: '/dev/ttyUSB0', container: '' },
+      { key: 'b', host: '/dev/ttyACM0', container: '/dev/zigbee' },
+      { key: 'c', host: '', container: '' },
+    ];
+
+    expect(checkInstall({ ...draft, devices }, []).request?.devices).toEqual([
+      { host: '/dev/ttyUSB0', container: '/dev/ttyUSB0' },
+      { host: '/dev/ttyACM0', container: '/dev/zigbee' },
+    ]);
+  });
 });

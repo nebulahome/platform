@@ -1,18 +1,22 @@
 /**
- * Installing a container: an image from Docker Hub, and how it is run.
+ * Installing a container, in two steps as the board draws it: the image, then how it runs.
  *
- * Two cards on one backdrop, as adding a device is: Docker Hub's images in a card of their own
- * beside the form, searched as the owner types, the official images first; the form beside it.
- * Picking an image names the container after it and fills in what the image declares - its ports,
- * published on the same numbers; its environment; its volumes, kept in NebulaHome's data so a
- * backup takes them - and every row can be changed, taken away or added to. An image that is not
- * on Docker Hub is typed into the form instead: `ghcr.io/owner/image`.
+ * **Image**: Docker Hub's images, searched across the whole dialog as the owner types, each a row
+ * with its marks - Docker official, stars, pulls - and a radio; or, under Other registry, a full
+ * reference typed in: `ghcr.io/owner/image`. A line at the foot says which is picked; its tag is
+ * chosen in the next step.
+ *
+ * **Settings**: a menu of the sections on the left - General, Ports and Storage (marked "from
+ * image" when the image declared them), Environment, Devices, Network - and the sections on the
+ * right. Picking an image names the container after it and fills in what the image declares - its
+ * ports, published on the same numbers; its environment; its volumes, kept in NebulaHome's data so
+ * a backup takes them - and every row can be changed, taken away or added to.
  *
  * Install answers at once; the image is pulled and the container made and started while the
  * dialog is gone, on a card of its own in the grid.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useId, useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 
 import {
   INSTALL_NETWORKS,
@@ -32,6 +36,7 @@ import {
   SelectField,
   Switch,
   TextField,
+  WizardSteps,
 } from '@nebulahome/ui';
 
 import {
@@ -84,7 +89,7 @@ const PROTOCOLS = [
   { value: 'udp', label: 'UDP' },
 ] as const;
 
-/** What the search card needs. */
+/** What the search needs. */
 type ImageSearchProps = {
   /** The image picked, if any. */
   readonly picked: string;
@@ -94,10 +99,11 @@ type ImageSearchProps = {
 };
 
 /**
- * Docker Hub's images, searched as the owner types: the side card.
+ * Docker Hub's images, searched as the owner types: a field across the dialog, then a row per
+ * image, the one picked marked.
  *
  * @param props - See {@link ImageSearchProps}.
- * @returns The card's content.
+ * @returns The search.
  */
 function ImageSearch(props: ImageSearchProps) {
   const { picked, onPick } = props;
@@ -121,39 +127,35 @@ function ImageSearch(props: ImageSearchProps) {
   const found = results.data?.results ?? [];
 
   return (
-    <>
-      <div className="flex flex-col gap-3 border-b border-border p-4">
-        <h3 id={`${id}-label`} className="text-title font-medium">
-          Docker Hub
-        </h3>
-        <SearchField
-          label="Search Docker Hub"
-          placeholder="Search images…"
-          value={search}
-          onChange={setSearch}
-          className="w-full lg:w-full"
-        />
-      </div>
+    <div className="flex flex-col gap-3">
+      <SearchField
+        label="Search Docker Hub"
+        placeholder="Search images…"
+        value={search}
+        onChange={setSearch}
+        className="w-full lg:w-full"
+      />
 
       <ul
-        aria-labelledby={`${id}-label`}
+        id={id}
+        aria-label="Docker Hub images"
         aria-busy={results.isFetching}
-        className="flex min-h-0 grow flex-col gap-0.5 overflow-y-auto p-2"
+        className="flex flex-col gap-1"
       >
         {query.length < 2 ? (
-          <li className="px-2.5 py-3 text-ui text-foreground-subtle">
+          <li className="px-3 py-3 text-ui text-foreground-subtle">
             Type an image&apos;s name: jellyfin, pihole, grafana.
           </li>
         ) : results.isPending ? (
-          <li className="px-2.5 py-3 text-ui text-foreground-subtle">Asking Docker Hub…</li>
+          <li className="px-3 py-3 text-ui text-foreground-subtle">Asking Docker Hub…</li>
         ) : results.error === null ? (
           found.length === 0 ? (
-            <li className="px-2.5 py-3 text-ui text-foreground-subtle">
+            <li className="px-3 py-3 text-ui text-foreground-subtle">
               Docker Hub has no image called “{query}”.
             </li>
           ) : null
         ) : (
-          <li className="px-2.5 py-3 text-ui text-danger">{toMessage(results.error)}</li>
+          <li className="px-3 py-3 text-ui text-danger">{toMessage(results.error)}</li>
         )}
         {found.map((result) => {
           const isPicked = result.repository === picked;
@@ -167,63 +169,128 @@ function ImageSearch(props: ImageSearchProps) {
                   onPick(result);
                 }}
                 className={cn(
-                  'flex w-full flex-col gap-1 rounded-chip px-2.5 py-2 text-left',
-                  'focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none',
+                  'flex w-full items-center gap-3.5 rounded-tile border px-3.5 py-3 text-left transition-colors',
+                  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
                   isPicked
-                    ? 'bg-primary/13 text-foreground'
-                    : 'text-foreground-muted hover:bg-surface-raised/70 hover:text-foreground',
+                    ? 'border-primary bg-primary-soft'
+                    : 'border-transparent hover:bg-surface-raised',
                 )}
               >
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="truncate font-mono text-ui font-medium text-foreground">
-                    {result.repository}
-                  </span>
-                  {result.isOfficial ? (
-                    <Badge tone="accent" size="small">
-                      Official
-                    </Badge>
-                  ) : null}
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'flex size-4 shrink-0 items-center justify-center rounded-full border',
+                    isPicked ? 'border-primary' : 'border-border-strong',
+                  )}
+                >
+                  {isPicked ? <span className="size-2 rounded-full bg-primary" /> : null}
                 </span>
-                {result.description === null ? null : (
-                  <span className="line-clamp-2 text-caption text-foreground-muted">
-                    {result.description}
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-field border border-border-strong bg-surface-raised text-cyan">
+                  <AppIcon id="container" size={17} />
+                </span>
+                <span className="flex min-w-0 grow flex-col gap-0.5">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-mono text-mono-ui text-foreground">
+                      {result.repository}
+                    </span>
+                    {result.isOfficial ? (
+                      <Badge tone="cyan" size="small">
+                        Docker official
+                      </Badge>
+                    ) : null}
                   </span>
-                )}
-                <span className="text-caption text-foreground-subtle tabular">
-                  ★ {shortCount(result.stars)} · {shortCount(result.pulls)} pulls
+                  {result.description === null ? null : (
+                    <span className="truncate text-ui-sm text-foreground-subtle">
+                      {result.description}
+                    </span>
+                  )}
+                </span>
+                <span className="flex shrink-0 items-center gap-3 text-caption text-foreground-muted tabular">
+                  <span className="flex items-center gap-1">
+                    <AppIcon id="star" size={13} className="text-lamp" />
+                    {shortCount(result.stars)}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <AppIcon id="download" size={13} />
+                    {shortCount(result.pulls)}
+                  </span>
                 </span>
               </button>
             </li>
           );
         })}
       </ul>
-    </>
+    </div>
   );
 }
 
 /**
- * A small heading over a group of rows, with the button that adds one.
+ * One section of the settings step: its heading, a line under it, the button that adds a row,
+ * and its rows.
  *
- * @param props - The words and the button.
- * @param props.title - The heading.
- * @param props.addLabel - What the button says.
- * @param props.onAdd - Adds a row.
- * @returns The heading.
+ * @param props - The section.
+ * @param props.id - Where the menu on the left scrolls to.
+ * @param props.title - Its heading.
+ * @param props.note - A line under the heading.
+ * @param props.action - The button that adds a row.
+ * @param props.children - Its rows.
+ * @returns The section.
  */
-function RowsHeading(props: {
+function SettingsSection(props: {
+  readonly id: string;
   readonly title: string;
-  readonly addLabel: string;
-  readonly onAdd: () => void;
+  readonly note?: ReactNode;
+  readonly action?: ReactNode;
+  readonly children: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2">
-      <h4 className="font-mono text-label text-foreground-muted uppercase">{props.title}</h4>
-      <Button variant="ghost" size="compact" onClick={props.onAdd}>
-        {props.addLabel}
-      </Button>
-    </div>
+    <section
+      id={props.id}
+      className="flex scroll-mt-4 flex-col gap-3 border-t border-border pt-5 first:border-t-0 first:pt-0"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-0.5">
+          <h3 className="text-title font-medium text-foreground">{props.title}</h3>
+          {props.note === undefined ? null : (
+            <p className="text-ui-sm text-foreground-subtle">{props.note}</p>
+          )}
+        </div>
+        {props.action}
+      </div>
+      {props.children}
+    </section>
   );
 }
+
+/**
+ * The button that adds a row to a section.
+ *
+ * @param props - What it says, and what it does.
+ * @param props.label - What it says.
+ * @param props.onAdd - Adds a row.
+ * @returns The button.
+ */
+function AddRow(props: { readonly label: string; readonly onAdd: () => void }) {
+  return (
+    <Button variant="ghost" size="compact" onClick={props.onAdd}>
+      <AppIcon id="plus" size={14} />
+      {props.label}
+    </Button>
+  );
+}
+
+/** The sections of the settings step, in the order they read. */
+const SECTIONS = [
+  { id: 'general', label: 'General' },
+  { id: 'ports', label: 'Ports' },
+  { id: 'storage', label: 'Storage' },
+  { id: 'environment', label: 'Environment' },
+  { id: 'devices', label: 'Devices' },
+  { id: 'network', label: 'Network' },
+] as const;
+
+/** Where the registry search looks. */
+type Registry = 'hub' | 'other';
 
 /**
  * The button that takes a row away.
@@ -262,9 +329,12 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
   const [draft, setDraft] = useState<InstallDraft>(EMPTY_INSTALL);
   const [errors, setErrors] = useState<Readonly<Record<string, string>>>({});
   const [isDescribing, setDescribing] = useState(false);
+  const [isDescribed, setDescribed] = useState(false);
+  const [step, setStep] = useState(0);
+  const [registry, setRegistry] = useState<Registry>('hub');
   const tags = useQuery({
     queryKey: IMAGE_QUERY_KEYS.tags(draft.image),
-    enabled: isOpen && draft.image !== '',
+    enabled: isOpen && draft.image !== '' && step === 1,
     staleTime: 5 * 60_000,
     retry: false,
 
@@ -285,6 +355,7 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
       void queryClient.invalidateQueries({ queryKey: CONTAINER_QUERY_KEYS.list });
       setDraft(EMPTY_INSTALL);
       setErrors({});
+      setStep(0);
       onClose();
     },
   });
@@ -293,6 +364,8 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
   const close = (): void => {
     setDraft(EMPTY_INSTALL);
     setErrors({});
+    setStep(0);
+    setDescribed(false);
     install.reset();
     onClose();
   };
@@ -318,6 +391,7 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
     setDraft(picked);
     setErrors({});
     setDescribing(true);
+    setDescribed(false);
 
     void queryClient
       .query({
@@ -336,6 +410,7 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
         setDraft((current) =>
           current.image === image ? applyDescription(current, description) : current,
         );
+        setDescribed(true);
       })
       .catch(() => {
         // The image says nothing the form needs: its rows stay the owner's to add.
@@ -345,7 +420,16 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
       });
   };
 
-  /** Checks the form and sends it. */
+  /** Goes on to the settings, naming the container after a typed image if nothing did yet. */
+  const next = (): void => {
+    if (draft.name === '') {
+      pick(draft.image, draft.tag);
+    }
+
+    setStep(1);
+  };
+
+  /** Checks the form and sends it, going back to the image when that is what is wrong. */
   const submit = (): void => {
     const checked = checkInstall(draft, taken);
 
@@ -353,6 +437,8 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
 
     if (checked.request !== null) {
       install.mutate(checked.request);
+    } else if (checked.errors['image'] !== undefined) {
+      setStep(0);
     }
   };
 
@@ -365,362 +451,553 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
     <Modal
       isOpen={isOpen}
       onClose={close}
-      size="large"
+      size="xlarge"
+      layout="sections"
       title="Install a container"
-      description="An image from Docker Hub, and how it runs: its ports, its settings, where it keeps its files."
-      aside={
-        <ImageSearch
-          picked={draft.image}
-          onPick={(result) => {
-            pick(result.repository);
-          }}
-        />
-      }
-      asideLabel="Docker Hub"
+      trail={<WizardSteps steps={['Image', 'Settings']} current={step} className="mr-2" />}
       footer={
-        <>
-          {failure === null ? null : (
-            <p role="alert" className="mr-auto text-ui text-danger">
-              {failure}
-            </p>
-          )}
-          <Button variant="ghost" disabled={install.isPending} onClick={close}>
-            Cancel
-          </Button>
-          <Button isBusy={install.isPending} disabled={draft.image === ''} onClick={submit}>
-            Install
-          </Button>
-        </>
+        step === 0 ? (
+          <>
+            <Button variant="bare" onClick={close}>
+              Cancel
+            </Button>
+            <Button disabled={draft.image === ''} onClick={next}>
+              <AppIcon id="arrow-right" size={15} />
+              Next: settings
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="bare"
+              disabled={install.isPending}
+              onClick={() => {
+                setStep(0);
+              }}
+            >
+              <AppIcon id="chevron-left" size={15} />
+              Back
+            </Button>
+            <span className="flex items-center gap-2.5">
+              {failure === null ? null : (
+                <span role="alert" className="text-ui-sm text-danger">
+                  {failure}
+                </span>
+              )}
+              <Button variant="bare" disabled={install.isPending} onClick={close}>
+                Cancel
+              </Button>
+              <Button isBusy={install.isPending} onClick={submit}>
+                <AppIcon id="download" size={15} />
+                Install
+              </Button>
+            </span>
+          </>
+        )
       }
     >
-      <form
-        className="flex flex-col gap-5 px-5 py-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          submit();
-        }}
-      >
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
-          <TextField
-            label="Image"
-            placeholder="nginx, or ghcr.io/owner/image"
-            value={draft.image}
-            error={errors['image']}
-            className="font-mono"
-            onChange={(event) => {
-              edit({ image: event.target.value.trim().toLowerCase() });
-            }}
-            onBlur={() => {
-              if (draft.image !== '' && draft.name === '') {
-                pick(draft.image, draft.tag);
-              }
-            }}
-          />
-          <SelectField
-            label="Tag"
-            options={tagOptions}
-            value={draft.tag}
-            error={errors['tag']}
-            hint={tags.isFetching ? 'Reading the tags…' : undefined}
-            onChange={(tag) => {
-              edit({ tag });
-            }}
-          />
-        </div>
+      {step === 0 ? (
+        <div className="flex grow flex-col gap-4 px-6 py-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Segmented
+              label="Registry"
+              size="compact"
+              options={[
+                { value: 'hub', label: 'Docker Hub' },
+                { value: 'other', label: 'Other registry' },
+              ]}
+              value={registry}
+              onChange={setRegistry}
+            />
+            <span className="text-caption text-foreground-subtle">
+              Or a full image reference, e.g. ghcr.io/owner/app
+            </span>
+          </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <TextField
-            label="Name"
-            value={draft.name}
-            error={errors['name']}
-            className="font-mono"
-            onChange={(event) => {
-              edit({ name: event.target.value });
-            }}
-          />
-          <SelectField
-            label="Restart"
-            options={RESTART_POLICIES.map((policy) => ({
-              value: policy,
-              label: RESTART_LABELS[policy],
-            }))}
-            value={draft.restartPolicy}
-            onChange={(restartPolicy) => {
-              edit({
-                restartPolicy:
-                  RESTART_POLICIES.find((policy) => policy === restartPolicy) ?? 'unless-stopped',
-              });
-            }}
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <span className="text-ui font-medium text-foreground">Network</span>
-          <Segmented
-            label="Network"
-            size="compact"
-            className="self-start"
-            options={NETWORK_OPTIONS}
-            value={draft.network}
-            onChange={(network) => {
-              edit({ network });
-            }}
-          />
-          <span className="text-caption text-foreground-subtle">
-            {draft.network === 'platform'
-              ? 'Beside NebulaHome and the containers integrations run: they reach it by its name.'
-              : draft.network === 'host'
-                ? "On the machine's own network: every port it opens is the machine's."
-                : "Docker's own network: only the ports published below reach it."}
-          </span>
-        </div>
-
-        {isDescribing ? (
-          <p role="status" className="text-ui text-foreground-muted">
-            Reading what the image declares…
-          </p>
-        ) : null}
-
-        {draft.network === 'host' ? null : (
-          <section className="flex flex-col gap-2">
-            <RowsHeading
-              title="Ports"
-              addLabel="Add port"
-              onAdd={() => {
-                edit({
-                  ports: [
-                    ...draft.ports,
-                    { key: rowKey(), host: '', container: '', protocol: 'tcp' },
-                  ],
-                });
+          {registry === 'hub' ? (
+            <ImageSearch
+              picked={draft.image}
+              onPick={(result) => {
+                pick(result.repository);
               }}
             />
-            {draft.ports.length === 0 ? (
-              <p className="text-caption text-foreground-subtle">
-                None published: only other containers reach it.
-              </p>
-            ) : null}
-            {draft.ports.map((port, index) => (
-              <div
-                key={port.key}
-                className="grid grid-cols-[1fr_auto_1fr_6rem_auto] items-end gap-2"
+          ) : (
+            <TextField
+              label="Image reference"
+              placeholder="ghcr.io/owner/image"
+              value={draft.image}
+              error={errors['image']}
+              className="font-mono"
+              onChange={(event) => {
+                edit({ image: event.target.value.trim().toLowerCase(), name: '' });
+              }}
+            />
+          )}
+
+          <span className="grow" />
+
+          {draft.image === '' ? null : (
+            <p
+              role="status"
+              className="flex items-center gap-2.5 rounded-tile border border-border px-4 py-3 text-ui-sm text-foreground-muted"
+            >
+              <AppIcon id="info" size={15} className="shrink-0" />
+              <span>
+                Selected <span className="font-mono text-foreground">{draft.image}</span> · you
+                choose the tag in the next step.
+              </span>
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="flex min-h-0 grow">
+          <nav
+            aria-label="Sections"
+            className="hidden w-52 shrink-0 flex-col gap-0.5 border-r border-border p-3 md:flex"
+          >
+            {SECTIONS.map((section) => (
+              <a
+                key={section.id}
+                href={`#install-${section.id}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  document
+                    .getElementById(`install-${section.id}`)
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="flex h-9.5 items-center justify-between gap-2 rounded-field px-3 text-ui text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground"
               >
+                {section.label}
+                {isDescribed &&
+                ((section.id === 'ports' && draft.ports.length > 0) ||
+                  (section.id === 'storage' && draft.volumes.length > 0)) ? (
+                  <span className="text-caption text-foreground-subtle">from image</span>
+                ) : null}
+              </a>
+            ))}
+          </nav>
+
+          <form
+            className="flex min-w-0 grow flex-col gap-5 overflow-y-auto px-6 py-5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              submit();
+            }}
+          >
+            <SettingsSection id="install-general" title="General">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <TextField
-                  label="On the machine"
-                  isLabelHidden={index > 0}
-                  inputMode="numeric"
-                  size="compact"
-                  value={port.host}
-                  error={errors[`ports.${String(index)}.host`]}
+                  label="Name"
+                  value={draft.name}
+                  error={errors['name']}
+                  hint="Lower case, unique on this machine."
+                  className="font-mono"
                   onChange={(event) => {
-                    edit({
-                      ports: draft.ports.map((each) =>
-                        each.key === port.key ? { ...each, host: event.target.value } : each,
-                      ),
-                    });
+                    edit({ name: event.target.value });
                   }}
                 />
-                <span aria-hidden="true" className="pb-2 text-foreground-subtle">
-                  →
-                </span>
-                <TextField
-                  label="In the container"
-                  isLabelHidden={index > 0}
-                  inputMode="numeric"
-                  size="compact"
-                  value={port.container}
-                  error={errors[`ports.${String(index)}.container`]}
-                  onChange={(event) => {
-                    edit({
-                      ports: draft.ports.map((each) =>
-                        each.key === port.key ? { ...each, container: event.target.value } : each,
-                      ),
-                    });
-                  }}
-                />
+                <div className="grid grid-cols-2 gap-3">
+                  <TextField
+                    label="Image"
+                    value={draft.image}
+                    readOnly
+                    className="font-mono text-foreground-muted"
+                  />
+                  <SelectField
+                    label="Tag"
+                    options={tagOptions}
+                    value={draft.tag}
+                    error={errors['tag']}
+                    hint={tags.isFetching ? 'Reading the tags…' : undefined}
+                    onChange={(tag) => {
+                      edit({ tag });
+                    }}
+                  />
+                </div>
                 <SelectField
-                  label="Protocol"
-                  isLabelHidden={index > 0}
-                  size="compact"
-                  options={PROTOCOLS}
-                  value={port.protocol}
-                  onChange={(protocol) => {
+                  label="Restart"
+                  options={RESTART_POLICIES.map((policy) => ({
+                    value: policy,
+                    label: RESTART_LABELS[policy],
+                  }))}
+                  value={draft.restartPolicy}
+                  onChange={(restartPolicy) => {
                     edit({
-                      ports: draft.ports.map((each) =>
-                        each.key === port.key
-                          ? { ...each, protocol: protocol === 'udp' ? 'udp' : 'tcp' }
-                          : each,
-                      ),
+                      restartPolicy:
+                        RESTART_POLICIES.find((policy) => policy === restartPolicy) ??
+                        'unless-stopped',
                     });
-                  }}
-                />
-                <RemoveRow
-                  label="Remove the port"
-                  onRemove={() => {
-                    edit({ ports: draft.ports.filter((each) => each.key !== port.key) });
                   }}
                 />
               </div>
-            ))}
-          </section>
-        )}
+              {isDescribing ? (
+                <p role="status" className="text-ui-sm text-foreground-muted">
+                  Reading what the image declares…
+                </p>
+              ) : tags.data === undefined ? null : (
+                <p className="flex items-center gap-2 rounded-tile bg-success-soft px-3.5 py-2.5 text-ui-sm text-foreground-muted">
+                  <AppIcon id="check" size={14} className="shrink-0 text-success" />
+                  <span className="truncate">
+                    <span className="font-mono text-foreground">
+                      {draft.image}:{draft.tag}
+                    </span>{' '}
+                    · {tags.data.tags.length} {tags.data.tags.length === 1 ? 'tag' : 'tags'}
+                  </span>
+                </p>
+              )}
+            </SettingsSection>
 
-        <section className="flex flex-col gap-2">
-          <RowsHeading
-            title="Environment"
-            addLabel="Add variable"
-            onAdd={() => {
-              edit({ env: [...draft.env, { key: rowKey(), name: '', value: '' }] });
-            }}
-          />
-          {draft.env.length === 0 ? (
-            <p className="text-caption text-foreground-subtle">No variable is set.</p>
-          ) : null}
-          {draft.env.map((entry, index) => (
-            <div
-              key={entry.key}
-              className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] items-end gap-2"
+            <SettingsSection
+              id="install-ports"
+              title="Ports"
+              note={
+                draft.network === 'host'
+                  ? "On the machine's own network: every port it opens is the machine's."
+                  : draft.ports.length === 0
+                    ? 'None published: only other containers reach it.'
+                    : 'Published on the machine, as the image declares them.'
+              }
+              action={
+                draft.network === 'host' ? undefined : (
+                  <AddRow
+                    label="Add port"
+                    onAdd={() => {
+                      edit({
+                        ports: [
+                          ...draft.ports,
+                          { key: rowKey(), host: '', container: '', protocol: 'tcp' },
+                        ],
+                      });
+                    }}
+                  />
+                )
+              }
             >
-              <TextField
-                label="Name"
-                isLabelHidden={index > 0}
-                size="compact"
-                className="font-mono"
-                value={entry.name}
-                error={errors[`env.${String(index)}.name`]}
-                onChange={(event) => {
-                  edit({
-                    env: draft.env.map((each) =>
-                      each.key === entry.key ? { ...each, name: event.target.value } : each,
-                    ),
-                  });
-                }}
-              />
-              <TextField
-                label="Value"
-                isLabelHidden={index > 0}
-                size="compact"
-                className="font-mono"
-                value={entry.value}
-                onChange={(event) => {
-                  edit({
-                    env: draft.env.map((each) =>
-                      each.key === entry.key ? { ...each, value: event.target.value } : each,
-                    ),
-                  });
-                }}
-              />
-              <RemoveRow
-                label="Remove the variable"
-                onRemove={() => {
-                  edit({ env: draft.env.filter((each) => each.key !== entry.key) });
-                }}
-              />
-            </div>
-          ))}
-        </section>
+              {draft.network === 'host'
+                ? null
+                : draft.ports.map((port, index) => (
+                    <div
+                      key={port.key}
+                      className="grid grid-cols-[1fr_auto_1fr_6rem_auto] items-end gap-2"
+                    >
+                      <TextField
+                        label="On the machine"
+                        isLabelHidden={index > 0}
+                        inputMode="numeric"
+                        size="compact"
+                        value={port.host}
+                        error={errors[`ports.${String(index)}.host`]}
+                        onChange={(event) => {
+                          edit({
+                            ports: draft.ports.map((each) =>
+                              each.key === port.key ? { ...each, host: event.target.value } : each,
+                            ),
+                          });
+                        }}
+                      />
+                      <span aria-hidden="true" className="pb-2 text-foreground-subtle">
+                        →
+                      </span>
+                      <TextField
+                        label="In the container"
+                        isLabelHidden={index > 0}
+                        inputMode="numeric"
+                        size="compact"
+                        value={port.container}
+                        error={errors[`ports.${String(index)}.container`]}
+                        onChange={(event) => {
+                          edit({
+                            ports: draft.ports.map((each) =>
+                              each.key === port.key
+                                ? { ...each, container: event.target.value }
+                                : each,
+                            ),
+                          });
+                        }}
+                      />
+                      <SelectField
+                        label="Protocol"
+                        isLabelHidden={index > 0}
+                        size="compact"
+                        options={PROTOCOLS}
+                        value={port.protocol}
+                        onChange={(protocol) => {
+                          edit({
+                            ports: draft.ports.map((each) =>
+                              each.key === port.key
+                                ? { ...each, protocol: protocol === 'udp' ? 'udp' : 'tcp' }
+                                : each,
+                            ),
+                          });
+                        }}
+                      />
+                      <RemoveRow
+                        label="Remove the port"
+                        onRemove={() => {
+                          edit({ ports: draft.ports.filter((each) => each.key !== port.key) });
+                        }}
+                      />
+                    </div>
+                  ))}
+            </SettingsSection>
 
-        <section className="flex flex-col gap-2">
-          <RowsHeading
-            title="Folders"
-            addLabel="Add folder"
-            onAdd={() => {
-              edit({
-                volumes: [
-                  ...draft.volumes,
-                  { key: rowKey(), kind: 'data', source: '', target: '', isReadOnly: false },
-                ],
-              });
-            }}
-          />
-          {draft.volumes.length === 0 ? (
-            <p className="text-caption text-foreground-subtle">
-              Nothing kept: what it writes goes when the container does.
-            </p>
-          ) : (
-            <p className="text-caption text-foreground-subtle">
-              A folder in NebulaHome&apos;s data is backed up with the rest.
-            </p>
-          )}
-          {draft.volumes.map((volume, index) => (
-            <div
-              key={volume.key}
-              className="grid grid-cols-[10rem_minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-end gap-2"
+            <SettingsSection
+              id="install-storage"
+              title="Storage"
+              note={
+                draft.volumes.length === 0
+                  ? 'Nothing kept: what it writes goes when the container does.'
+                  : "A folder in NebulaHome's data is backed up with the rest."
+              }
+              action={
+                <AddRow
+                  label="Add folder"
+                  onAdd={() => {
+                    edit({
+                      volumes: [
+                        ...draft.volumes,
+                        { key: rowKey(), kind: 'data', source: '', target: '', isReadOnly: false },
+                      ],
+                    });
+                  }}
+                />
+              }
             >
-              <SelectField
-                label="Kept in"
-                isLabelHidden={index > 0}
+              {draft.volumes.map((volume, index) => (
+                <div
+                  key={volume.key}
+                  className="grid grid-cols-[10rem_minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-end gap-2"
+                >
+                  <SelectField
+                    label="Kept in"
+                    isLabelHidden={index > 0}
+                    size="compact"
+                    options={VOLUME_KINDS}
+                    value={volume.kind}
+                    onChange={(kind) => {
+                      edit({
+                        volumes: draft.volumes.map((each) =>
+                          each.key === volume.key
+                            ? {
+                                ...each,
+                                kind:
+                                  VOLUME_KINDS.find((option) => option.value === kind)?.value ??
+                                  'data',
+                              }
+                            : each,
+                        ),
+                      });
+                    }}
+                  />
+                  <TextField
+                    label={volume.kind === 'bind' ? 'Machine path' : 'Name'}
+                    isLabelHidden={index > 0}
+                    size="compact"
+                    className="font-mono"
+                    placeholder={volume.kind === 'bind' ? '/mnt/media' : 'config'}
+                    value={volume.source}
+                    error={errors[`volumes.${String(index)}.source`]}
+                    onChange={(event) => {
+                      edit({
+                        volumes: draft.volumes.map((each) =>
+                          each.key === volume.key ? { ...each, source: event.target.value } : each,
+                        ),
+                      });
+                    }}
+                  />
+                  <TextField
+                    label="In the container"
+                    isLabelHidden={index > 0}
+                    size="compact"
+                    className="font-mono"
+                    placeholder="/config"
+                    value={volume.target}
+                    error={errors[`volumes.${String(index)}.target`]}
+                    onChange={(event) => {
+                      edit({
+                        volumes: draft.volumes.map((each) =>
+                          each.key === volume.key ? { ...each, target: event.target.value } : each,
+                        ),
+                      });
+                    }}
+                  />
+                  <Switch
+                    label="Read only"
+                    isOn={volume.isReadOnly}
+                    className="pb-1.5"
+                    onChange={(isReadOnly) => {
+                      edit({
+                        volumes: draft.volumes.map((each) =>
+                          each.key === volume.key ? { ...each, isReadOnly } : each,
+                        ),
+                      });
+                    }}
+                  />
+                  <RemoveRow
+                    label="Remove the folder"
+                    onRemove={() => {
+                      edit({ volumes: draft.volumes.filter((each) => each.key !== volume.key) });
+                    }}
+                  />
+                </div>
+              ))}
+            </SettingsSection>
+
+            <SettingsSection
+              id="install-environment"
+              title="Environment"
+              note={draft.env.length === 0 ? 'No variable is set.' : undefined}
+              action={
+                <AddRow
+                  label="Add variable"
+                  onAdd={() => {
+                    edit({ env: [...draft.env, { key: rowKey(), name: '', value: '' }] });
+                  }}
+                />
+              }
+            >
+              {draft.env.map((entry, index) => (
+                <div
+                  key={entry.key}
+                  className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] items-end gap-2"
+                >
+                  <TextField
+                    label="Name"
+                    isLabelHidden={index > 0}
+                    size="compact"
+                    className="font-mono"
+                    value={entry.name}
+                    error={errors[`env.${String(index)}.name`]}
+                    onChange={(event) => {
+                      edit({
+                        env: draft.env.map((each) =>
+                          each.key === entry.key ? { ...each, name: event.target.value } : each,
+                        ),
+                      });
+                    }}
+                  />
+                  <TextField
+                    label="Value"
+                    isLabelHidden={index > 0}
+                    size="compact"
+                    className="font-mono"
+                    value={entry.value}
+                    onChange={(event) => {
+                      edit({
+                        env: draft.env.map((each) =>
+                          each.key === entry.key ? { ...each, value: event.target.value } : each,
+                        ),
+                      });
+                    }}
+                  />
+                  <RemoveRow
+                    label="Remove the variable"
+                    onRemove={() => {
+                      edit({ env: draft.env.filter((each) => each.key !== entry.key) });
+                    }}
+                  />
+                </div>
+              ))}
+            </SettingsSection>
+
+            <SettingsSection
+              id="install-devices"
+              title="Devices"
+              note={
+                draft.devices.length === 0
+                  ? 'None handed over: a USB stick or a radio of the machine, such as /dev/ttyUSB0.'
+                  : 'Handed to the container as they are.'
+              }
+              action={
+                draft.devices.length >= 8 ? undefined : (
+                  <AddRow
+                    label="Add device"
+                    onAdd={() => {
+                      edit({
+                        devices: [...draft.devices, { key: rowKey(), host: '', container: '' }],
+                      });
+                    }}
+                  />
+                )
+              }
+            >
+              {draft.devices.map((device, index) => (
+                <div
+                  key={device.key}
+                  className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] items-end gap-2"
+                >
+                  <TextField
+                    label="On the machine"
+                    isLabelHidden={index > 0}
+                    size="compact"
+                    className="font-mono"
+                    placeholder="/dev/ttyUSB0"
+                    value={device.host}
+                    error={errors[`devices.${String(index)}.host`]}
+                    onChange={(event) => {
+                      edit({
+                        devices: draft.devices.map((each) =>
+                          each.key === device.key ? { ...each, host: event.target.value } : each,
+                        ),
+                      });
+                    }}
+                  />
+                  <span aria-hidden="true" className="pb-2 text-foreground-subtle">
+                    →
+                  </span>
+                  <TextField
+                    label="In the container"
+                    isLabelHidden={index > 0}
+                    size="compact"
+                    className="font-mono"
+                    placeholder="The same path"
+                    value={device.container}
+                    error={errors[`devices.${String(index)}.container`]}
+                    onChange={(event) => {
+                      edit({
+                        devices: draft.devices.map((each) =>
+                          each.key === device.key
+                            ? { ...each, container: event.target.value }
+                            : each,
+                        ),
+                      });
+                    }}
+                  />
+                  <RemoveRow
+                    label="Remove the device"
+                    onRemove={() => {
+                      edit({ devices: draft.devices.filter((each) => each.key !== device.key) });
+                    }}
+                  />
+                </div>
+              ))}
+            </SettingsSection>
+
+            <SettingsSection
+              id="install-network"
+              title="Network"
+              note={
+                draft.network === 'platform'
+                  ? 'Beside NebulaHome and the containers integrations run: they reach it by its name.'
+                  : draft.network === 'host'
+                    ? "On the machine's own network: every port it opens is the machine's."
+                    : "Docker's own network: only the ports published reach it."
+              }
+            >
+              <Segmented
+                label="Network"
                 size="compact"
-                options={VOLUME_KINDS}
-                value={volume.kind}
-                onChange={(kind) => {
-                  edit({
-                    volumes: draft.volumes.map((each) =>
-                      each.key === volume.key
-                        ? {
-                            ...each,
-                            kind:
-                              VOLUME_KINDS.find((option) => option.value === kind)?.value ?? 'data',
-                          }
-                        : each,
-                    ),
-                  });
+                className="self-start"
+                options={NETWORK_OPTIONS}
+                value={draft.network}
+                onChange={(network) => {
+                  edit({ network });
                 }}
               />
-              <TextField
-                label={volume.kind === 'bind' ? 'Machine path' : 'Name'}
-                isLabelHidden={index > 0}
-                size="compact"
-                className="font-mono"
-                placeholder={volume.kind === 'bind' ? '/mnt/media' : 'config'}
-                value={volume.source}
-                error={errors[`volumes.${String(index)}.source`]}
-                onChange={(event) => {
-                  edit({
-                    volumes: draft.volumes.map((each) =>
-                      each.key === volume.key ? { ...each, source: event.target.value } : each,
-                    ),
-                  });
-                }}
-              />
-              <TextField
-                label="In the container"
-                isLabelHidden={index > 0}
-                size="compact"
-                className="font-mono"
-                placeholder="/config"
-                value={volume.target}
-                error={errors[`volumes.${String(index)}.target`]}
-                onChange={(event) => {
-                  edit({
-                    volumes: draft.volumes.map((each) =>
-                      each.key === volume.key ? { ...each, target: event.target.value } : each,
-                    ),
-                  });
-                }}
-              />
-              <Switch
-                label="Read only"
-                isOn={volume.isReadOnly}
-                className="pb-1.5"
-                onChange={(isReadOnly) => {
-                  edit({
-                    volumes: draft.volumes.map((each) =>
-                      each.key === volume.key ? { ...each, isReadOnly } : each,
-                    ),
-                  });
-                }}
-              />
-              <RemoveRow
-                label="Remove the folder"
-                onRemove={() => {
-                  edit({ volumes: draft.volumes.filter((each) => each.key !== volume.key) });
-                }}
-              />
-            </div>
-          ))}
-        </section>
-      </form>
+            </SettingsSection>
+          </form>
+        </div>
+      )}
     </Modal>
   );
 }

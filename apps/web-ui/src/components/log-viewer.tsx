@@ -48,11 +48,12 @@ type Preferences = {
 const DEFAULT_PREFERENCES: Preferences = { intervalSeconds: 5, lineCount: 500, isWrapped: true };
 
 /** Which lines are shown, by level. */
-type LevelFilter = 'all' | 'warnings' | 'errors';
+type LevelFilter = 'all' | 'info' | 'warnings' | 'errors';
 
 /** The level filter's choices. */
 const LEVEL_OPTIONS = [
   { value: 'all', label: 'All' },
+  { value: 'info', label: 'Info' },
   { value: 'warnings', label: 'Warnings' },
   { value: 'errors', label: 'Errors' },
 ] as const;
@@ -155,9 +156,24 @@ function passesLevel(kept: KeptLine, filter: LevelFilter): boolean {
     return true;
   }
 
-  const level = kept.read.level ?? (kept.line.stream === 'stderr' ? 'warning' : null);
+  const level = levelOf(kept);
 
-  return filter === 'errors' ? level === 'error' : level === 'error' || level === 'warning';
+  return filter === 'info'
+    ? level !== 'debug'
+    : filter === 'errors'
+      ? level === 'error'
+      : level === 'error' || level === 'warning';
+}
+
+/**
+ * A line's level: the one it says, or a warning for one written to the error stream that says
+ * none.
+ *
+ * @param kept - The line.
+ * @returns Its level, or null for one that says none.
+ */
+function levelOf(kept: KeptLine): LogLevel | null {
+  return kept.read.level ?? (kept.line.stream === 'stderr' ? 'warning' : null);
 }
 
 /**
@@ -374,6 +390,8 @@ export function LogViewer(props: LogViewerProps) {
         kept.read.message.toLowerCase().includes(search.trim().toLowerCase())),
   );
   const lastKey = lines.at(-1)?.key ?? 0;
+  const errorCount = lines.filter((kept) => levelOf(kept) === 'error').length;
+  const warningCount = lines.filter((kept) => levelOf(kept) === 'warning').length;
 
   // Following is keeping the list at its bottom as lines arrive: the DOM, after React drew it.
   useLayoutEffect(() => {
@@ -534,6 +552,21 @@ export function LogViewer(props: LogViewerProps) {
         >
           {preferences.isWrapped ? 'Wrap on' : 'Wrap off'}
         </Button>
+        <Button
+          variant="ghost"
+          size="compact"
+          aria-pressed={isFollowing}
+          className={cn(isFollowing ? 'border-primary-ring text-primary' : undefined)}
+          onClick={() => {
+            if (isFollowing) {
+              setFollowing(false);
+            } else {
+              jumpToLatest();
+            }
+          }}
+        >
+          Follow
+        </Button>
       </div>
 
       {logs.error === null ? (
@@ -542,7 +575,7 @@ export function LogViewer(props: LogViewerProps) {
             ref={list}
             role="log"
             aria-live="off"
-            className="max-h-[32rem] min-h-40 overflow-auto py-1.5 font-mono text-caption leading-relaxed"
+            className="max-h-[32rem] min-h-40 overflow-auto bg-rail py-1.5 font-mono text-caption leading-relaxed"
             onScroll={(event) => {
               const element = event.currentTarget;
               const isAtBottom =
@@ -597,12 +630,30 @@ export function LogViewer(props: LogViewerProps) {
         <p className="px-4 py-3.5 text-ui text-danger">{toMessage(logs.error)}</p>
       )}
 
-      <p className="flex items-center gap-1.5 border-t border-border px-3 py-2 text-caption text-foreground-subtle">
+      <p className="flex flex-wrap items-center gap-1.5 border-t border-border px-3 py-2 text-caption text-foreground-subtle">
+        <span>{preferences.intervalSeconds === 0 ? 'Still' : 'Streaming'}</span>
+        <span aria-hidden="true">·</span>
         <span className="tabular">
           {shown.length === lines.length
             ? `${String(lines.length)} lines`
             : `${String(shown.length)} of ${String(lines.length)} lines`}
         </span>
+        {errorCount === 0 ? null : (
+          <>
+            <span aria-hidden="true">·</span>
+            <span className="text-danger tabular">
+              {errorCount} {errorCount === 1 ? 'error' : 'errors'}
+            </span>
+          </>
+        )}
+        {warningCount === 0 ? null : (
+          <>
+            <span aria-hidden="true">·</span>
+            <span className="text-warning tabular">
+              {warningCount} {warningCount === 1 ? 'warning' : 'warnings'}
+            </span>
+          </>
+        )}
         <span aria-hidden="true">·</span>
         <span>
           {preferences.intervalSeconds === 0

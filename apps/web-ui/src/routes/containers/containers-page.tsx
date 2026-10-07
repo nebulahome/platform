@@ -19,7 +19,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { Button, SelectField, TILE_GRID } from '@nebulahome/ui';
+import { MenuButton, SelectField, TILE_GRID } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { CONTAINER_QUERY_KEYS, dismissInstall, fetchContainers } from '@/containers/api';
@@ -137,6 +137,7 @@ export function ContainersPage() {
             <FilterSheet
               label="Narrow the containers"
               count={narrowed}
+              summary={`${String(tiles.length)} shown`}
               onClear={() => {
                 setFilter({ ...filter, run: 'any', owner: 'any' });
               }}
@@ -176,31 +177,33 @@ export function ContainersPage() {
         }
         action={
           canInstall && isDockerUp ? (
-            <>
-              <Button
-                variant="ghost"
-                size="compact"
-                disabled={!hasCompose}
-                title={
-                  hasCompose
-                    ? 'Write or upload a compose file and run its services'
-                    : 'docker compose is not installed where NebulaHome runs'
-                }
-                onClick={() => {
-                  setComposing(true);
-                }}
-              >
-                New compose
-              </Button>
-              <Button
-                size="compact"
-                onClick={() => {
-                  setInstalling(true);
-                }}
-              >
-                Install container
-              </Button>
-            </>
+            <MenuButton
+              label="Install"
+              icon="plus"
+              items={[
+                {
+                  label: 'Image',
+                  description: 'One container from a registry image',
+                  icon: 'container',
+                  /** Opens the install of one image. */
+                  onSelect: () => {
+                    setInstalling(true);
+                  },
+                },
+                {
+                  label: 'Compose',
+                  description: hasCompose
+                    ? 'Several containers from a compose file'
+                    : 'docker compose is not installed where NebulaHome runs',
+                  icon: 'layers',
+                  disabled: !hasCompose,
+                  /** Opens a new compose project. */
+                  onSelect: () => {
+                    setComposing(true);
+                  },
+                },
+              ]}
+            />
           ) : undefined
         }
         isPending={containers.isPending}
