@@ -90,8 +90,9 @@ In order, each once the one before is ready:
    package, by itself when no package provides `mqtt-broker`. It listens on `1883` of every address
    of the container: devices on the network connect to it with a username added on its page, the
    containers an integration runs reach it as `nebulahome:1883` with one of their own, and the hub
-   on loopback with its own. Under `pnpm docker:up` the local folder, `infra/local-packages`, is
-   mounted at `/app/local-packages`.
+   on loopback with its own. Under `pnpm docker:up` the local folders, `infra/local-packages` and
+   `infra/local-integrations`, are mounted at `/app/local-packages` and
+   `/app/local-integrations`, read-only.
 
 The ports are not the usual ones on purpose: on the host's network the container shares the
 machine's ports, and must not collide with the development stack.
@@ -218,9 +219,16 @@ data/
     └── .staging/                a backup or a restore in progress
 ```
 
-Deleting `cache/` is always safe. The bundles in `apps/hub/bundles` are not here: they are the
-integrations under development, which the hub reads beside `hub/integrations` until the
-integrations catalogue exists - the image carries them too.
+Deleting `cache/` is always safe. An integration installed from the interface lands in
+`hub/integrations/<vendor>/<version>-<nonce>/`, the build `.nebula-install.json` names running.
+The bundles in `apps/hub/bundles` are not here: they are the integrations under development,
+which the hub reads beside `hub/integrations` outside production - the image carries them too.
+
+**The Community Hub.** `COMMUNITY_HUB_URL` names it (`cloud-backend`, `http://localhost:8088` when
+its stack runs on this machine); unset, the install dialogs offer the local folders and nothing
+else. `packet-manager` reports to it what it installs from its indexes, with one token for the
+whole installation kept in `system.community_hub_installations`;
+`COMMUNITY_HUB_REPORT_INSTALLS=false` turns that off.
 
 ## Development
 
