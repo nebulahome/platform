@@ -38,7 +38,7 @@ import {
 import { DetailPlaceholder } from '@/routes/library/detail-page';
 import { Fact } from '@/routes/library/entity/details-panel';
 import { LibraryPage } from '@/routes/library/library-page';
-import { MetaLine, Stat } from '@/routes/library/vendor-page';
+import { MetaLine, Stat } from '@/routes/library/meta-line';
 
 /** The editor, loaded when the file is shown. */
 const YamlEditor = lazy(async () => import('@/routes/containers/yaml-editor'));

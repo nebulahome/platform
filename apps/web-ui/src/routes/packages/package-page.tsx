@@ -46,7 +46,7 @@ import { packageAppPath } from '@/packages/package-paths';
 import { ContainerBadges } from '@/routes/containers/container-parts';
 import { devicePath } from '@/routes/library/device/device-path';
 import { LibraryPage } from '@/routes/library/library-page';
-import { MetaLine, Stat } from '@/routes/library/vendor-page';
+import { MetaLine, Stat } from '@/routes/library/meta-line';
 import { PackageSetupDialog } from '@/routes/packages/package-setup-dialog';
 import { PACKAGE_STATE_OF, PackageLogo } from '@/routes/packages/package-tile';
 
