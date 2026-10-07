@@ -54,7 +54,8 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     done && \
     cd /app && \
     pnpm install --frozen-lockfile --offline --prod --ignore-scripts \
-      --filter '!@nebulahome/web-ui' --filter '!@nebulahome/ui'       --filter '!@nebulahome/integration-sdk' && \
+      --filter '!@nebulahome/web-ui' --filter '!@nebulahome/ui' \
+      --filter '!@nebulahome/integration-sdk' && \
     cd /src && \
     for dir in apps/* packages/*; do \
       if [ -d "$dir/dist" ]; then cp -a "$dir/dist" "/app/$dir/"; fi; \
