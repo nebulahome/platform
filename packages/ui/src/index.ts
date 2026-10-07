@@ -108,11 +108,13 @@ export {
 } from './components/select-field.js';
 export { TagChip, type TagChipProps } from './components/tag-chip.js';
 export {
+  BrowseTile,
   Tile,
   TileMark,
   TileStat,
   TILE_FRAME,
   TILE_GRID,
+  type BrowseTileProps,
   type TileMarkProps,
   type TileProps,
   type TileStatProps,

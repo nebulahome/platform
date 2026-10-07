@@ -12,6 +12,7 @@
 import {
   Activity,
   ArrowDown,
+  ArrowRight,
   ArrowDownToLine,
   ArrowUp,
   ArrowUpDown,
@@ -217,6 +218,7 @@ export const BUILTIN_UI_NODES = {
   'circle-x': drawing(CircleX),
   'arrow-up': drawing(ArrowUp),
   'arrow-down': drawing(ArrowDown),
+  'arrow-right': drawing(ArrowRight),
   'arrow-up-down': drawing(ArrowUpDown),
   calendar: drawing(Calendar),
   radio: drawing(Radio),
