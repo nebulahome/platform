@@ -20,15 +20,18 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { AppIcon, Button, TILE_GRID } from '@nebulahome/ui';
+import { AppIcon, BrowseTile, Button, FilterChips, TILE_GRID } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { useListState } from '@/lib/use-list-state';
 import { fetchDiscovered, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
+  countStatuses,
   isNarrowing,
   matchesVendorFilter,
   OPEN_VENDOR_FILTER,
+  sortVendors,
+  statusesText,
   VENDOR_FILTER_CODEC,
   WIRES,
   wiresOf,
@@ -81,13 +84,82 @@ export function IntegrationsPage() {
   });
 
   const all = vendors.data ?? [];
-  const shown = all.filter((vendor) => matchesVendorFilter(vendor, filter));
-  const wires = WIRES.filter((wire) => all.some((vendor) => wiresOf(vendor).includes(wire)));
   const foundBy = new Map<string, number>();
 
   for (const device of discovered.data ?? []) {
     foundBy.set(device.vendorId, (foundBy.get(device.vendorId) ?? 0) + 1);
   }
+
+  const shown = sortVendors(
+    all.filter((vendor) => matchesVendorFilter(vendor, filter, foundBy.get(vendor.id) ?? 0)),
+    filter.sort,
+  );
+  const wires = WIRES.filter((wire) => all.some((vendor) => wiresOf(vendor).includes(wire)));
+  const chips = [
+    ...(filter.statuses.length === 0
+      ? []
+      : [
+          {
+            id: 'status',
+            key: 'Status',
+            value: statusesText(filter.statuses),
+            /** Takes the standings off. */
+            onRemove: () => {
+              setFilter({ ...filter, statuses: [] });
+            },
+          },
+        ]),
+    ...(filter.internet === ''
+      ? []
+      : [
+          {
+            id: 'connection',
+            key: 'Connection',
+            value: filter.internet === 'local' ? 'Local' : 'Cloud',
+            /** Takes the connection off. */
+            onRemove: () => {
+              setFilter({ ...filter, internet: '' });
+            },
+          },
+        ]),
+    ...(filter.transport === ''
+      ? []
+      : [
+          {
+            id: 'wire',
+            key: 'Wire',
+            value: filter.transport.toUpperCase(),
+            /** Takes the wire off. */
+            onRemove: () => {
+              setFilter({ ...filter, transport: '' });
+            },
+          },
+        ]),
+    ...(filter.hasNew
+      ? [
+          {
+            id: 'new',
+            value: 'Has new devices',
+            /** Shows every vendor again, found devices or not. */
+            onRemove: () => {
+              setFilter({ ...filter, hasNew: false });
+            },
+          },
+        ]
+      : []),
+    ...(filter.hasUpdate
+      ? [
+          {
+            id: 'update',
+            value: 'Update ready',
+            /** Shows every vendor again, update or not. */
+            onRemove: () => {
+              setFilter({ ...filter, hasUpdate: false });
+            },
+          },
+        ]
+      : []),
+  ];
 
   const found = discovered.data?.length ?? 0;
 
@@ -107,7 +179,14 @@ export function IntegrationsPage() {
               setFilter({ ...filter, search });
             }}
           />
-          <IntegrationFilter filter={filter} wires={wires} onChange={setFilter} />
+          <IntegrationFilter
+            filter={filter}
+            wires={wires}
+            counts={countStatuses(all)}
+            shown={shown.length}
+            total={all.length}
+            onChange={setFilter}
+          />
         </>
       }
       action={
@@ -138,6 +217,15 @@ export function IntegrationsPage() {
           </>
         ) : undefined
       }
+      filters={
+        <FilterChips
+          filters={chips}
+          summary={`${String(shown.length)} of ${String(all.length)}`}
+          onClearAll={() => {
+            setFilter({ ...OPEN_VENDOR_FILTER, search: filter.search, sort: filter.sort });
+          }}
+        />
+      }
       isPending={vendors.isPending}
       error={vendors.error}
       isEmpty={all.length === 0}
@@ -155,6 +243,18 @@ export function IntegrationsPage() {
           {shown.map((vendor) => (
             <VendorCard key={vendor.id} vendor={vendor} foundCount={foundBy.get(vendor.id) ?? 0} />
           ))}
+          {canInstall ? (
+            <li className="flex list-none flex-col">
+              <BrowseTile
+                title="Browse the integration index"
+                note="Brands, protocols and services"
+                icon="globe"
+                onClick={() => {
+                  setInstalling(true);
+                }}
+              />
+            </li>
+          ) : null}
         </ul>
       )}
     </LibraryPage>

@@ -13,11 +13,14 @@
  *
  * When the hub has found devices of the vendor that nobody has added, the card says how many, in
  * the tint the vendor's page draws them in: that page is where they are adopted.
+ *
+ * As the boards draw it, the foot is parted by a line: how the vendor stands as a Pill - Running,
+ * Degraded, Needs sign-in, Idle - and what has come in through it. The wires are its page's.
  */
 import { Link } from 'react-router';
 
 import type { IntegrationVendorView } from '@nebulahome/contracts';
-import { Badge, Tile, TILE_FRAME, TileMark, TileStat } from '@nebulahome/ui';
+import { AppIcon, Pill, Tile, TILE_FRAME, TileMark } from '@nebulahome/ui';
 
 import {
   BluetoothIcon,
@@ -30,6 +33,7 @@ import {
   type IconProps,
 } from '@/components/icons';
 import { wiresOf, type Wire } from '@/library/vendor-filters';
+import { vendorStatusOf } from '@/library/vendor-status';
 
 /** The colour a vendor without one of its own is drawn in: the accent. */
 const FALLBACK_COLOR = 'var(--color-primary)';
@@ -185,40 +189,39 @@ function noun(count: number, one: string, many: string): string {
  */
 export function VendorCard(props: VendorCardProps) {
   const { vendor, foundCount = 0 } = props;
+  const status = vendorStatusOf(vendor);
 
   return (
     <li className="list-none">
       <Link to={`/integrations/${vendor.id}`} aria-label={vendor.name} className={TILE_FRAME}>
         <Tile
           logo={<VendorLogo vendor={vendor} size={44} />}
-          marks={<Marks vendor={vendor} />}
-          name={vendor.name}
-          badges={
-            <>
-              {vendor.needsSetup ? (
-                <Badge tone="warning" size="small">
-                  Needs setup
-                </Badge>
-              ) : null}
-              {foundCount > 0 ? (
-                <Badge tone="accent" size="small">
-                  {foundCount} found
-                </Badge>
-              ) : null}
-            </>
+          marks={
+            foundCount === 0 && !vendor.internetRequired ? undefined : (
+              <>
+                {foundCount > 0 ? (
+                  <span
+                    title={`${String(foundCount)} found on the network`}
+                    className="inline-flex h-6.5 items-center gap-1.5 rounded-chip bg-cyan/12 px-2 text-caption font-medium text-cyan tabular"
+                  >
+                    <AppIcon id="radio" size={13} />
+                    {foundCount}
+                  </span>
+                ) : null}
+                {vendor.internetRequired ? (
+                  <Mark title="Needs the internet" glyph={GlobeIcon} tone="warning" />
+                ) : null}
+              </>
+            )
           }
-          version={`v${vendor.version}`}
-          stats={
+          name={vendor.name}
+          footer={
             <>
-              <TileStat
-                value={vendor.deviceCount}
-                label={noun(vendor.deviceCount, 'device', 'devices')}
-              />
-              <span className="text-foreground-subtle">·</span>
-              <TileStat
-                value={vendor.entityCount}
-                label={noun(vendor.entityCount, 'entity', 'entities')}
-              />
+              <Pill tone={status.tone}>{status.label}</Pill>
+              <span>
+                {vendor.deviceCount} {noun(vendor.deviceCount, 'device', 'devices')} ·{' '}
+                {vendor.entityCount} {noun(vendor.entityCount, 'entity', 'entities')}
+              </span>
             </>
           }
         />

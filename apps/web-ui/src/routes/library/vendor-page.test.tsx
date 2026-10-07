@@ -221,8 +221,9 @@ beforeAll(() => {
  *
  * @param vendorId - Which vendor the address names.
  * @param extra - Permissions held beside configuring and adding devices.
+ * @param tab - The tab the address opens; the overview when blank.
  */
-function renderPage(vendorId: string, extra: readonly string[] = []): void {
+function renderPage(vendorId: string, extra: readonly string[] = [], tab = ''): void {
   useSession.setState({
     status: 'signed-in',
     user: {
@@ -245,7 +246,9 @@ function renderPage(vendorId: string, extra: readonly string[] = []): void {
 
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[`/integrations/${vendorId}`]}>
+      <MemoryRouter
+        initialEntries={[`/integrations/${vendorId}${tab === '' ? '' : `?tab=${tab}`}`]}
+      >
         <Routes>
           <Route path="/integrations/:vendorId" element={<VendorPage />} />
         </Routes>
@@ -268,7 +271,7 @@ describe('a vendor page', () => {
         lastUpdatedAt: null,
       }),
     ]);
-    renderPage('bambu-lab');
+    renderPage('bambu-lab', [], 'devices');
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Bambu Lab');
@@ -276,7 +279,11 @@ describe('a vendor page', () => {
     expect(
       screen.getByText('Printers in LAN mode, over the broker each one runs itself.'),
     ).toBeTruthy();
-    expect(screen.getByRole('img', { name: 'Listens on the MQTT broker' })).toBeTruthy();
+    // The wire it speaks is a fact of its hero, beside its version.
+    expect(screen.getByText('MQTT')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: /Devices/u }).getAttribute('aria-selected')).toBe(
+      'true',
+    );
 
     const rows = screen.getAllByRole('listitem');
 
@@ -303,7 +310,7 @@ describe('a vendor page', () => {
     vi.mocked(fetchDevices).mockResolvedValue([
       device({ isEnabled: false, state: 'disabled', lastUpdatedAt: null }),
     ]);
-    renderPage('bambu-lab');
+    renderPage('bambu-lab', [], 'devices');
 
     await waitFor(() => {
       expect(screen.getByRole('listitem').textContent).toContain('disabled');
@@ -316,18 +323,29 @@ describe('a vendor page', () => {
     expect(screen.getByRole('dialog').textContent).toContain('Configure Studio printer');
   });
 
-  it('separates the id, the version and the site with dots', async () => {
+  it('says what the vendor is under About: its id, its version, its site', async () => {
     vi.mocked(fetchVendor).mockResolvedValue(BAMBU);
     vi.mocked(fetchDevices).mockResolvedValue([]);
     renderPage('bambu-lab');
 
-    await waitFor(() => {
-      expect(screen.getByText('bambulab.com')).toBeTruthy();
-    });
+    const site = await screen.findByRole('link', { name: 'bambulab.com' });
+    const about = site.closest('dl');
 
-    const meta = screen.getByText('bambulab.com').closest('div');
+    expect(about?.textContent).toContain('bambu-lab');
+    expect(about?.textContent).toContain('1.0.0');
+  });
 
-    expect(meta?.textContent).toMatch(/bambu-lab\s*·\s*v1\.0\.0\s*·\s*bambulab\.com/u);
+  it('opens with the health strip: how it runs, connects, its devices and its updates', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue(BAMBU);
+    vi.mocked(fetchDevices).mockResolvedValue([device({})]);
+    renderPage('bambu-lab');
+
+    const strip = await screen.findByRole('region', { name: 'Health' });
+
+    expect(strip.textContent).toContain('Runtime');
+    expect(strip.textContent).toContain('Running');
+    expect(strip.textContent).toContain('1 of 1 reporting');
+    expect(strip.textContent).toContain('Updated with Nebula Home');
   });
 
   it('opens the add-device dialog with the vendor, offering its models', async () => {
@@ -371,40 +389,39 @@ describe('a vendor page', () => {
     renderPage('bambu-lab');
 
     expect(
-      await screen.findByText('Bambu Lab needs the MQTT package, which is not running.'),
+      await screen.findByText('Bambu Lab needs the MQTT package, which is not running'),
     ).toBeTruthy();
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Add device' }).disabled).toBe(
       true,
     );
-    expect(screen.getByRole('link', { name: 'Go to Packages' }).getAttribute('href')).toBe(
-      '/packages/mqtt',
-    );
+    // The way to the package is what the page is for until it runs.
+    expect(screen.getByRole('button', { name: 'Open mqtt' })).toBeTruthy();
   });
 
-  it('opens the vendor form from Configure, with what the vendor asks', async () => {
+  it('opens the vendor form from Settings, on its own tab, with what the vendor asks', async () => {
     vi.mocked(fetchVendor).mockResolvedValue(ACME);
     vi.mocked(fetchDevices).mockResolvedValue([]);
     renderPage('acme');
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Configure' })).toBeTruthy();
-    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Settings' }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
-
-    expect(screen.getByRole('dialog').textContent).toContain('Set up ACME');
+    expect(screen.getByRole('tab', { name: 'Configuration' }).getAttribute('aria-selected')).toBe(
+      'true',
+    );
     expect(screen.getByLabelText('API key')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
   });
 
-  it('has no Configure for a vendor that asks for nothing', async () => {
+  it('has no Settings for a vendor that asks for nothing', async () => {
     vi.mocked(fetchVendor).mockResolvedValue(BAMBU);
     vi.mocked(fetchDevices).mockResolvedValue([]);
     renderPage('bambu-lab');
 
     await screen.findByRole('heading', { level: 1, name: 'Bambu Lab' });
 
-    expect(screen.queryByRole('button', { name: 'Configure' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Settings' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Configuration' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'More' })).toBeNull();
   });
 
   it('says a vendor built into this NebulaHome is, and offers no Remove for it', async () => {
@@ -412,8 +429,8 @@ describe('a vendor page', () => {
     vi.mocked(fetchDevices).mockResolvedValue([]);
     renderPage('bambu-lab', ['integration:install']);
 
-    expect(await screen.findByText('Built in')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
+    expect((await screen.findAllByText('Built in')).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'More' })).toBeNull();
   });
 
   it('removes an installed vendor after saying what goes with it, and offers its update', async () => {
@@ -430,9 +447,12 @@ describe('a vendor page', () => {
     });
     renderPage('bambu-lab', ['integration:install']);
 
-    expect(await screen.findByRole('button', { name: 'Update to 2.0.0' })).toBeTruthy();
+    // The Updates card offers it, and so does the menu.
+    expect(await screen.findByRole('button', { name: 'Update' })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    expect(screen.getByRole('menuitem', { name: 'Update to 2.0.0' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove' }));
 
     const confirm = await screen.findByRole('dialog', { name: 'Remove Bambu Lab?' });
 
@@ -504,7 +524,7 @@ describe('the devices of a vendor found on the network', () => {
     vi.mocked(fetchDevices).mockResolvedValue([]);
     renderPage('bambu-lab', ['device:read']);
 
-    await screen.findByRole('heading', { name: 'Bambu Lab', level: 2 });
+    await screen.findByRole('heading', { name: 'Bambu Lab', level: 1 });
 
     expect(screen.queryByRole('button', { name: 'Discover devices' })).toBeNull();
   });
@@ -695,7 +715,7 @@ describe('a vendor that adds its own devices', () => {
       ],
     });
     vi.mocked(fetchDevices).mockResolvedValue([]);
-    renderPage('zigbee2mqtt', ['device:read', 'entity:control']);
+    renderPage('zigbee2mqtt', ['device:read', 'entity:control'], 'devices');
 
     expect(await screen.findByText('Seen but not added · 1')).toBeTruthy();
     expect(screen.getByText('Zigbee2MQTT is still pairing it')).toBeTruthy();

@@ -68,6 +68,9 @@ export type LibraryPageProps = {
   /** Controls in the header. */
   readonly action?: ReactNode;
 
+  /** Under the header: the filters that are on, as chips. */
+  readonly filters?: ReactNode;
+
   /**
    * Facts about the collection shown after its count, each set off by a dot: `8 enabled`,
    * `3 floors`. Empty or absent for a page whose count says it all; a fact that is null is left
@@ -107,6 +110,7 @@ export function LibraryPage(props: LibraryPageProps) {
     parent,
     tools,
     action,
+    filters,
     summary = [],
     isPending,
     error,
@@ -153,6 +157,8 @@ export function LibraryPage(props: LibraryPageProps) {
             )
           }
         />
+
+        {filters}
 
         {isPending ? <Placeholder>Reading…</Placeholder> : null}
 

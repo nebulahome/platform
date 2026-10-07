@@ -9,9 +9,10 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import { cn, PageHeader } from '@nebulahome/ui';
+import { AppIcon, cn, HERO_BACK, PageHeader } from '@nebulahome/ui';
 
 import { ChevronLeftIcon } from '@/components/icons';
+import { toMessage } from '@/lib/error-message';
 
 /** One step of the way back. */
 export type Crumb = {
@@ -100,6 +101,74 @@ export function DetailPlaceholder(props: {
       >
         {children}
       </p>
+    </div>
+  );
+}
+
+/** What the way back needs. */
+export type BackLinkProps = {
+  /** Where it goes. */
+  readonly to: string;
+
+  /** What it is called: the page above. */
+  readonly children: ReactNode;
+};
+
+/**
+ * The way back at the top of a detail page: "‹ Integrations".
+ *
+ * @param props - See {@link BackLinkProps}.
+ * @returns The link.
+ */
+export function BackLink(props: BackLinkProps) {
+  const { to, children } = props;
+
+  return (
+    <Link to={to} className={HERO_BACK}>
+      <AppIcon id="chevron-left" size={14} />
+      {children}
+    </Link>
+  );
+}
+
+/** What the frame needs. */
+export type DetailFrameProps = {
+  /** The top of the page: a DetailHero, with its tabs. */
+  readonly hero: ReactNode;
+
+  /** Whether the thing is still being read. */
+  readonly isPending?: boolean;
+
+  /** Why it could not be read. */
+  readonly error?: unknown;
+
+  /** The open tab's panel. */
+  readonly children: ReactNode;
+};
+
+/**
+ * The frame a detail page sits in: the hero, then the open tab's panel - or, while the thing is
+ * read or when it cannot be, a line saying so where the panel would be. One column, 32px gutters,
+ * the page scrolling under the rail.
+ *
+ * @param props - See {@link DetailFrameProps}.
+ * @returns The page.
+ */
+export function DetailFrame(props: DetailFrameProps) {
+  const { hero, isPending = false, error, children } = props;
+
+  return (
+    <div className="min-h-0 grow overflow-y-auto px-8 pt-6 pb-10">
+      <div className="mx-auto flex max-w-7xl flex-col gap-5">
+        {hero}
+        {isPending ? (
+          <DetailPlaceholder>Reading…</DetailPlaceholder>
+        ) : error === undefined || error === null ? (
+          children
+        ) : (
+          <DetailPlaceholder isProblem>{toMessage(error)}</DetailPlaceholder>
+        )}
+      </div>
     </div>
   );
 }

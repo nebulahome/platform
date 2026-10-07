@@ -9,6 +9,9 @@
  *
  * Shut by Escape, by a press anywhere else, and by the button again - where "anywhere else"
  * leaves alone the list a dropdown inside the sheet has portalled out of it.
+ *
+ * Drawn as the boards' Filters panel: a head with Reset, each facet a section under a line, and
+ * a foot saying how many of how many the list shows - applied as they are chosen, no Apply.
  */
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
@@ -31,6 +34,9 @@ export type FilterSheetProps = {
   /** How wide the sheet is; `wide` unless said otherwise, so every page's sheet is one shape. */
   readonly width?: 'medium' | 'wide';
 
+  /** The foot's count: "4 of 9 shown". */
+  readonly summary?: ReactNode;
+
   /** The facets. */
   readonly children: ReactNode;
 };
@@ -42,7 +48,7 @@ export type FilterSheetProps = {
  * @returns The control.
  */
 export function FilterSheet(props: FilterSheetProps) {
-  const { label, count, onClear, width = 'wide', children } = props;
+  const { label, count, onClear, width = 'wide', summary, children } = props;
   const [isOpen, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const sheetId = useId();
@@ -117,18 +123,32 @@ export function FilterSheet(props: FilterSheetProps) {
           role="group"
           aria-label={label}
           className={cn(
-            'absolute top-full right-0 z-40 mt-2 flex flex-col gap-4 rounded-card border',
-            'animate-rise border-border-strong bg-surface p-4 shadow-float',
-            width === 'wide' ? 'w-80' : 'w-72',
+            'absolute top-full right-0 z-40 mt-2 flex flex-col rounded-card border',
+            'animate-rise border-border-strong bg-surface shadow-float',
+            width === 'wide' ? 'w-85' : 'w-72',
           )}
         >
+          <div className="flex items-center justify-between gap-3 px-6 pt-4.5 pb-3">
+            <span className="text-title font-medium text-foreground">Filters</span>
+            {count > 0 ? (
+              <button
+                type="button"
+                onClick={onClear}
+                className="rounded-chip text-ui-sm text-primary transition-colors hover:text-primary-hover"
+              >
+                Reset
+              </button>
+            ) : null}
+          </div>
+
           {children}
 
-          {count > 0 ? (
-            <Button variant="ghost" size="compact" className="self-start" onClick={onClear}>
-              Clear
-            </Button>
-          ) : null}
+          {summary === undefined ? null : (
+            <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-3 text-caption text-foreground-subtle">
+              <span>{summary}</span>
+              <span>Applied as you choose</span>
+            </div>
+          )}
         </div>
       ) : null}
     </div>
@@ -188,6 +208,9 @@ export type FacetProps = {
 
   /** The control. */
   readonly children: ReactNode;
+
+  /** On the right of the heading: "2 selected". */
+  readonly aside?: ReactNode;
 };
 
 /**
@@ -197,11 +220,16 @@ export type FacetProps = {
  * @returns The facet.
  */
 export function Facet(props: FacetProps) {
-  const { title, children } = props;
+  const { title, aside, children } = props;
 
   return (
-    <div className="flex flex-col gap-2">
-      <span className="font-mono text-label text-foreground-subtle uppercase">{title}</span>
+    <div className="flex flex-col gap-2.5 border-t border-border px-6 py-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="font-mono text-label text-foreground-subtle uppercase">{title}</span>
+        {aside === undefined ? null : (
+          <span className="text-caption text-foreground-subtle">{aside}</span>
+        )}
+      </div>
       {children}
     </div>
   );

@@ -3,11 +3,16 @@ import { describe, expect, it } from 'vitest';
 import type { IntegrationVendorView } from '@nebulahome/contracts';
 
 import {
+  countStatuses,
   matchesVendorFilter,
   OPEN_VENDOR_FILTER,
+  sortVendors,
+  VENDOR_FILTER_CODEC,
   wiresOf,
   type VendorFilter,
 } from './vendor-filters';
+import { connectionHealth, devicesHealth, runtimeHealth, updatesHealth } from './vendor-health';
+import { vendorStatusOf } from './vendor-status';
 
 /**
  * A vendor as the list serves it, varying what the filters read.
@@ -122,5 +127,138 @@ describe('matchesVendorFilter', () => {
         filter({ search: 'shelly', transport: 'http', internet: 'needed' }),
       ),
     ).toBe(false);
+  });
+});
+
+describe('how a vendor stands', () => {
+  it('reads a package or a container it needs before anything it asks of the owner', () => {
+    expect(vendorStatusOf(vendor({ needsPackage: true, needsSetup: true })).kind).toBe('degraded');
+    expect(
+      vendorStatusOf(
+        vendor({
+          containerStatuses: [
+            {
+              ownerKind: 'vendor',
+              vendorId: 'shelly',
+              dependencyId: 'bridge',
+              containerName: null,
+              state: 'pulling',
+              version: null,
+              error: null,
+            },
+          ],
+        }),
+      ),
+    ).toMatchObject({ kind: 'degraded', detail: 'Its container is pulling' });
+    expect(vendorStatusOf(vendor({ needsAccount: true })).label).toBe('Needs sign-in');
+    expect(vendorStatusOf(vendor({ needsSetup: true })).label).toBe('Needs setup');
+    expect(vendorStatusOf(vendor({ deviceCount: 2 })).tone).toBe('success');
+    expect(vendorStatusOf(vendor()).label).toBe('Idle');
+  });
+
+  it('narrows by standing, by new devices and by an update waiting', () => {
+    const idle = vendor();
+    const running = vendor({ id: 'govee', name: 'Govee', deviceCount: 1 });
+
+    expect(matchesVendorFilter(idle, filter({ statuses: ['running'] }))).toBe(false);
+    expect(matchesVendorFilter(running, filter({ statuses: ['running', 'idle'] }))).toBe(true);
+    expect(matchesVendorFilter(idle, filter({ hasNew: true }), 0)).toBe(false);
+    expect(matchesVendorFilter(idle, filter({ hasNew: true }), 3)).toBe(true);
+    expect(matchesVendorFilter(idle, filter({ hasUpdate: true }))).toBe(false);
+    expect(
+      matchesVendorFilter(
+        vendor({ update: { latestVersion: '2.0.0', hasUpdate: true, hasNewBuild: false } }),
+        filter({ hasUpdate: true }),
+      ),
+    ).toBe(true);
+    expect(countStatuses([idle, running])).toMatchObject({ idle: 1, running: 1, degraded: 0 });
+  });
+
+  it('sorts by name, by the most devices, and by the newest install', () => {
+    const shelly = vendor({ deviceCount: 1 });
+    const acme = vendor({
+      id: 'acme',
+      name: 'ACME',
+      deviceCount: 4,
+      origin: 'installed',
+      install: {
+        build: '1.0.0-0a1b2c3d',
+        version: '1.0.0',
+        source: 'index',
+        artifactSha256: 'a'.repeat(64),
+        installedAt: '2026-10-07T08:00:00.000Z',
+        installedBy: null,
+      },
+    });
+
+    expect(sortVendors([shelly, acme], 'name').map((each) => each.id)).toEqual(['acme', 'shelly']);
+    expect(sortVendors([shelly, acme], 'devices')[0]?.id).toBe('acme');
+    expect(sortVendors([shelly, acme], 'recent')[0]?.id).toBe('acme');
+  });
+
+  it('keeps the standings, the switches and the order in the address', () => {
+    const written = VENDOR_FILTER_CODEC.write(
+      filter({ statuses: ['running', 'degraded'], hasNew: true, sort: 'devices' }),
+    );
+
+    expect(written).toEqual({ status: 'running,degraded', new: '1', sort: 'devices' });
+    expect(VENDOR_FILTER_CODEC.read(new URLSearchParams(written))).toMatchObject({
+      statuses: ['running', 'degraded'],
+      hasNew: true,
+      hasUpdate: false,
+      sort: 'devices',
+    });
+  });
+});
+
+describe('the health strip of an integration', () => {
+  it('says how it runs from the devices the page found', () => {
+    expect(runtimeHealth(vendor(), 2)).toMatchObject({ tone: 'success', value: 'Running' });
+    expect(runtimeHealth(vendor(), 0)).toMatchObject({ tone: 'neutral', value: 'Idle' });
+  });
+
+  it('says how it connects, and that it cannot while its package is down', () => {
+    expect(connectionHealth(vendor({ discoverySources: ['mdns'] }))).toMatchObject({
+      value: 'Local network',
+      detail: 'Discovery over mDNS',
+    });
+    expect(
+      connectionHealth(vendor({ needsPackage: true, packageProblems: ['MQTT is stopped'] })),
+    ).toMatchObject({ tone: 'danger', detail: 'MQTT is stopped' });
+  });
+
+  it('counts the devices reporting, the ones failing, and the ones found', () => {
+    expect(devicesHealth(vendor(), [{ state: 'running' }, { state: 'running' }], 0)).toMatchObject({
+      tone: 'success',
+      value: '2 of 2 reporting',
+    });
+    expect(devicesHealth(vendor(), [{ state: 'failed' }, { state: 'running' }], 0)).toMatchObject({
+      tone: 'warning',
+      value: '1 of 2 failing',
+    });
+    expect(devicesHealth(vendor(), [{ state: 'running' }], 5)).toMatchObject({
+      tone: 'info',
+      detail: '5 more found on the network',
+    });
+  });
+
+  it('says whether a newer release waits, and that a vendor built in is updated with the platform', () => {
+    expect(updatesHealth(vendor()).value).toBe('Built in');
+    expect(
+      updatesHealth(
+        vendor({
+          origin: 'installed',
+          update: { latestVersion: '2.0.0', hasUpdate: true, hasNewBuild: false },
+        }),
+      ),
+    ).toMatchObject({ tone: 'info', value: '2.0.0 ready' });
+    expect(
+      updatesHealth(
+        vendor({
+          origin: 'installed',
+          update: { latestVersion: '1.0.0', hasUpdate: false, hasNewBuild: false },
+        }),
+      ),
+    ).toMatchObject({ tone: 'success', value: 'Up to date' });
   });
 });

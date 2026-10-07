@@ -247,7 +247,7 @@ export function PairingButton(props: { readonly pairing: PairingState }) {
     return (
       <Button
         variant="primary"
-        size="compact"
+        size="medium"
         isBusy={pairing.isBusy}
         disabled={!pairing.canPress}
         title={pairing.reason ?? 'Close pairing now'}
@@ -265,8 +265,9 @@ export function PairingButton(props: { readonly pairing: PairingState }) {
 
   return (
     <Button
-      variant="primary"
-      size="compact"
+      // Disabled, it gives the header's primary to the recovery that would enable it.
+      variant={pairing.canPress ? 'primary' : 'ghost'}
+      size="medium"
       isBusy={pairing.isBusy}
       disabled={!pairing.canPress}
       title={pairing.reason ?? 'Let new devices join for about four minutes'}

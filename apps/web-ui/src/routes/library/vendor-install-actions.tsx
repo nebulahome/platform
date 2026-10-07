@@ -1,23 +1,24 @@
 /**
- * What a vendor's page offers about the vendor's bundle itself: an update the integrations index
- * has, a rebuild in the local folder to reinstall, and removing the integration - with everything
+ * The ⋮ of an integration's page: updating its bundle to what the integrations index has,
+ * reinstalling a rebuild from the local folder, and removing the integration - with everything
  * that came in through it, after the owner sees what that is.
  *
- * Only for a vendor the platform installed. One built into this NebulaHome - a bundle of the
- * repository's - says so and offers nothing: there is nothing of it to update or take away here.
+ * Only for a vendor the platform installed, and only for who may install: one built into this
+ * NebulaHome - a bundle of the repository's - has nothing to update or take away here, and its
+ * hero says "Built in" instead.
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import type { IntegrationVendorView } from '@nebulahome/contracts';
-import { Badge, Button, Modal } from '@nebulahome/ui';
+import { Button, Modal, OverflowMenu, type MenuItem } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
 import { useIntegrationInstall, useIntegrationRemove } from '@/library/use-integration-install';
 
-/** What the actions need. */
-export type VendorInstallActionsProps = {
+/** What the menu needs. */
+export type VendorInstallMenuProps = {
   readonly vendor: IntegrationVendorView;
 
   /** How many devices were added under it: what removing it takes with it. */
@@ -37,12 +38,12 @@ function counted(count: number, one: string, many: string): string {
 }
 
 /**
- * Renders the vendor's install actions.
+ * Renders the ⋮ and the confirmation removing opens.
  *
- * @param props - See {@link VendorInstallActionsProps}.
- * @returns The buttons, and the confirmation removing opens; nothing for who may not install.
+ * @param props - See {@link VendorInstallMenuProps}.
+ * @returns The menu, or nothing for who may not install and for a vendor built in.
  */
-export function VendorInstallActions(props: VendorInstallActionsProps) {
+export function VendorInstallMenu(props: VendorInstallMenuProps) {
   const { vendor, deviceCount } = props;
   const canInstall = useSession((state) => state.can('integration:install'));
   const navigate = useNavigate();
@@ -53,59 +54,61 @@ export function VendorInstallActions(props: VendorInstallActionsProps) {
     void navigate('/integrations');
   });
 
-  if (!canInstall) {
+  if (!canInstall || vendor.origin === 'development') {
     return null;
-  }
-
-  if (vendor.origin === 'development') {
-    return (
-      <Badge tone="neutral" size="small">
-        Built in
-      </Badge>
-    );
   }
 
   const update = vendor.update;
   const accounts = vendor.accounts.length;
+  const items: MenuItem[] = [
+    ...(update?.hasUpdate === true && update.latestVersion !== null
+      ? [
+          {
+            label: `Update to ${update.latestVersion}`,
+            icon: 'circle-arrow-up' as const,
+            disabled: install.isPending,
+            /** Installs the newer release. */
+            onSelect: () => {
+              install.mutate({ vendorId: vendor.id, version: update.latestVersion ?? undefined });
+            },
+          },
+        ]
+      : []),
+    ...(update?.hasNewBuild === true
+      ? [
+          {
+            label: 'Reinstall',
+            description: 'The build in the local folder',
+            icon: 'rotate-ccw' as const,
+            disabled: install.isPending,
+            /** Installs the rebuild of the same version. */
+            onSelect: () => {
+              install.mutate({ vendorId: vendor.id });
+            },
+          },
+        ]
+      : []),
+    {
+      label: 'Remove',
+      icon: 'trash-2',
+      tone: 'danger',
+      /** Asks first: removing takes the devices with it. */
+      onSelect: () => {
+        remove.reset();
+        setConfirming(true);
+      },
+    },
+  ];
 
   return (
     <>
-      {update?.hasUpdate === true && update.latestVersion !== null ? (
-        <Button
-          variant="ghost"
-          size="compact"
-          isBusy={install.isPending}
-          title={install.error === null ? undefined : toMessage(install.error)}
-          onClick={() => {
-            install.mutate({ vendorId: vendor.id, version: update.latestVersion ?? undefined });
-          }}
-        >
-          Update to {update.latestVersion}
-        </Button>
-      ) : update?.hasNewBuild === true ? (
-        <Button
-          variant="ghost"
-          size="compact"
-          isBusy={install.isPending}
-          title={install.error === null ? undefined : toMessage(install.error)}
-          onClick={() => {
-            install.mutate({ vendorId: vendor.id });
-          }}
-        >
-          Reinstall
-        </Button>
-      ) : null}
+      <OverflowMenu items={items} />
 
-      <Button
-        variant="danger"
-        size="compact"
-        onClick={() => {
-          remove.reset();
-          setConfirming(true);
-        }}
-      >
-        Remove
-      </Button>
+      {install.error === null ? null : (
+        <p role="alert" className="basis-full text-right text-ui-sm text-danger">
+          {toMessage(install.error)}
+        </p>
+      )}
 
       <Modal
         isOpen={isConfirming}
@@ -147,11 +150,6 @@ export function VendorInstallActions(props: VendorInstallActionsProps) {
           )}
           <li>Its settings, and its bundle</li>
         </ul>
-        {install.error === null ? null : (
-          <p role="alert" className="text-ui text-danger">
-            {toMessage(install.error)}
-          </p>
-        )}
         {remove.error === null ? null : (
           <p role="alert" className="text-ui text-danger">
             {toMessage(remove.error)}

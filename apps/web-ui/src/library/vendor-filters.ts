@@ -1,5 +1,6 @@
 /**
- * Narrowing the vendors grid: a search, the wire, and whether the internet is needed.
+ * Narrowing the vendors grid: a search, how each stands, the wire, whether the internet is needed,
+ * whether it has new devices on the network or an update waiting - and the order it is shown in.
  *
  * Pure, so the page's header can be tested by what it lets through rather than by what it
  * renders. The search reads more than the vendor's name on purpose: a person looking for their
@@ -14,6 +15,12 @@ import {
 
 import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, readChoice, type ListCodec } from '@/lib/use-list-state';
+import {
+  VENDOR_STATUS_KINDS,
+  VENDOR_STATUS_LABELS,
+  vendorStatusOf,
+  type VendorStatusKind,
+} from '@/library/vendor-status';
 
 /**
  * The wires the interface names: what a person recognises on the box - HTTP, MQTT, Bluetooth LE,
@@ -44,10 +51,36 @@ export type VendorFilter = {
 
   /** Only vendors that need the internet, or only those that do not. Blank means any. */
   readonly internet: InternetFilter;
+
+  /** Only vendors standing so: any of them. None means any standing. */
+  readonly statuses: readonly VendorStatusKind[];
+
+  /** Only vendors with devices found on the network that nobody has added. */
+  readonly hasNew: boolean;
+
+  /** Only vendors with a newer release, or a rebuild, waiting. */
+  readonly hasUpdate: boolean;
+
+  /** The order the grid is shown in. */
+  readonly sort: VendorSort;
 };
 
-/** The header as the page opens: everything shown. */
-export const OPEN_VENDOR_FILTER: VendorFilter = { search: '', transport: '', internet: '' };
+/** The orders the grid can be shown in. */
+export const VENDOR_SORTS = ['name', 'devices', 'recent'] as const;
+
+/** One order. */
+export type VendorSort = (typeof VENDOR_SORTS)[number];
+
+/** The header as the page opens: everything shown, by name. */
+export const OPEN_VENDOR_FILTER: VendorFilter = {
+  search: '',
+  transport: '',
+  internet: '',
+  statuses: [],
+  hasNew: false,
+  hasUpdate: false,
+  sort: 'name',
+};
 
 /**
  * Whether a filter narrows anything at all.
@@ -56,12 +89,29 @@ export const OPEN_VENDOR_FILTER: VendorFilter = { search: '', transport: '', int
  * @returns True when some facet is set.
  */
 export function isNarrowing(filter: VendorFilter): boolean {
-  return filter.search.trim() !== '' || filter.transport !== '' || filter.internet !== '';
+  return filter.search.trim() !== '' || narrowingCount(filter) > 0;
+}
+
+/**
+ * How many facets of the sheet are set: the number on its button. The search and the order are
+ * not facets - the one has its own field, the other narrows nothing.
+ *
+ * @param filter - What the header is set to.
+ * @returns The count.
+ */
+export function narrowingCount(filter: VendorFilter): number {
+  return (
+    Number(filter.statuses.length > 0) +
+    Number(filter.transport !== '') +
+    Number(filter.internet !== '') +
+    Number(filter.hasNew) +
+    Number(filter.hasUpdate)
+  );
 }
 
 /** How the filter lives in the address. */
 export const VENDOR_FILTER_CODEC: ListCodec<VendorFilter> = {
-  keys: ['q', 'wire', 'internet'],
+  keys: ['q', 'wire', 'internet', 'status', 'new', 'update', 'sort'],
 
   /**
    * Reads the filter from the query.
@@ -73,6 +123,12 @@ export const VENDOR_FILTER_CODEC: ListCodec<VendorFilter> = {
     search: params.get('q') ?? '',
     transport: readChoice<TransportFilter>(params, 'wire', ['', ...WIRES], ''),
     internet: readChoice<InternetFilter>(params, 'internet', ['', 'needed', 'local'], ''),
+    statuses: (params.get('status') ?? '')
+      .split(',')
+      .flatMap((value) => VENDOR_STATUS_KINDS.filter((kind) => kind === value)),
+    hasNew: params.get('new') === '1',
+    hasUpdate: params.get('update') === '1',
+    sort: readChoice<VendorSort>(params, 'sort', VENDOR_SORTS, 'name'),
   }),
 
   /**
@@ -86,6 +142,10 @@ export const VENDOR_FILTER_CODEC: ListCodec<VendorFilter> = {
       q: [filter.search, ''],
       wire: [filter.transport, ''],
       internet: [filter.internet, ''],
+      status: [filter.statuses.join(','), ''],
+      new: [filter.hasNew ? '1' : '', ''],
+      update: [filter.hasUpdate ? '1' : '', ''],
+      sort: [filter.sort, 'name'],
     }),
 };
 
@@ -134,9 +194,14 @@ export function wiresOf(vendor: Pick<IntegrationVendorView, 'wires'>): Wire[] {
  *
  * @param vendor - As the list serves it.
  * @param filter - What the header is set to.
+ * @param foundCount - How many of its devices were found on the network and not added.
  * @returns True when every facet lets it through.
  */
-export function matchesVendorFilter(vendor: IntegrationVendorView, filter: VendorFilter): boolean {
+export function matchesVendorFilter(
+  vendor: IntegrationVendorView,
+  filter: VendorFilter,
+  foundCount = 0,
+): boolean {
   if (
     !matchesQuery(
       [
@@ -162,5 +227,95 @@ export function matchesVendorFilter(vendor: IntegrationVendorView, filter: Vendo
     return false;
   }
 
+  if (filter.statuses.length > 0 && !filter.statuses.includes(vendorStatusOf(vendor).kind)) {
+    return false;
+  }
+
+  if (filter.hasNew && foundCount === 0) {
+    return false;
+  }
+
+  if (
+    filter.hasUpdate &&
+    vendor.update?.hasUpdate !== true &&
+    vendor.update?.hasNewBuild !== true
+  ) {
+    return false;
+  }
+
   return true;
+}
+
+/**
+ * Puts the vendors in the order asked for.
+ *
+ * Most devices puts the busiest first; recently added puts the newest install first, and the
+ * vendors built into this installation - never installed - after every installed one. Ties go
+ * by name.
+ *
+ * @param vendors - As the list serves them.
+ * @param sort - The order.
+ * @returns A sorted copy.
+ */
+export function sortVendors(
+  vendors: readonly IntegrationVendorView[],
+  sort: VendorSort,
+): IntegrationVendorView[] {
+  /**
+   * When a vendor was installed, for the newest first; zero for one never installed.
+   *
+   * @param vendor - The vendor.
+   * @returns The time, in milliseconds.
+   */
+  const installedAt = (vendor: IntegrationVendorView): number =>
+    vendor.install === null ? 0 : Date.parse(vendor.install.installedAt);
+
+  return [...vendors].sort((left, right) => {
+    const byName = left.name.localeCompare(right.name);
+
+    switch (sort) {
+      case 'name':
+        return byName;
+      case 'devices':
+        return right.deviceCount - left.deviceCount || byName;
+      case 'recent':
+        return installedAt(right) - installedAt(left) || byName;
+    }
+  });
+}
+
+/**
+ * How many vendors stand each way, for the counts beside the filter's boxes.
+ *
+ * @param vendors - As the list serves them.
+ * @returns The count of each standing.
+ */
+export function countStatuses(
+  vendors: readonly IntegrationVendorView[],
+): Readonly<Record<VendorStatusKind, number>> {
+  const counts: Record<VendorStatusKind, number> = {
+    running: 0,
+    degraded: 0,
+    'needs-sign-in': 0,
+    'needs-setup': 0,
+    idle: 0,
+  };
+
+  for (const vendor of vendors) {
+    counts[vendorStatusOf(vendor).kind] += 1;
+  }
+
+  return counts;
+}
+
+/**
+ * The standings chosen, in words, for the chip that shows them.
+ *
+ * @param statuses - The standings chosen.
+ * @returns "Running, Degraded".
+ */
+export function statusesText(statuses: readonly VendorStatusKind[]): string {
+  return VENDOR_STATUS_KINDS.filter((kind) => statuses.includes(kind))
+    .map((kind) => VENDOR_STATUS_LABELS[kind])
+    .join(', ');
 }

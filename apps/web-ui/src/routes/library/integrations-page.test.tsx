@@ -281,9 +281,8 @@ describe('the devices found on the network', () => {
     vi.mocked(fetchDiscovered).mockResolvedValue([FOUND]);
     renderPage(['device:read', 'device:write']);
 
-    await waitFor(() => {
-      expect(screen.getByRole('link', { name: 'Shelly' }).textContent).toContain('1 found');
-    });
+    // The count is a mark on the card, named in words for whoever cannot see it.
+    expect(await screen.findByTitle('1 found on the network')).toBeTruthy();
     expect(screen.queryByRole('region', { name: /Found on your network/u })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Adopt Kitchen' })).toBeNull();
   });
