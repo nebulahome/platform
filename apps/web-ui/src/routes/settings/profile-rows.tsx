@@ -44,12 +44,20 @@ type Note = {
   readonly text: string;
 };
 
+/** What the rows need. */
+type ProfileRowsProps = {
+  /** Which row: who you are, under Profile, or the password, under Security. */
+  readonly part: 'profile' | 'password';
+};
+
 /**
- * Renders the identity and password rows, and the dialogs behind them.
+ * Renders the identity row or the password row, and the dialog behind it.
  *
- * @returns The rows.
+ * @param props - See {@link ProfileRowsProps}.
+ * @returns The row.
  */
-export function ProfileRows() {
+export function ProfileRows(props: ProfileRowsProps) {
+  const { part } = props;
   const user = useSession((state) => state.user);
   const refreshUser = useSession((state) => state.refreshUser);
   const [open, setOpen] = useState<OpenDialog>(null);
@@ -128,7 +136,7 @@ export function ProfileRows() {
     })();
   };
 
-  return (
+  return part === 'profile' ? (
     <>
       <PanelRow
         title={
@@ -169,29 +177,6 @@ export function ProfileRows() {
         }
       >
         {note?.row === 'profile' ? <Confirmation>{note.text}</Confirmation> : null}
-      </PanelRow>
-
-      <PanelRow
-        title="Password"
-        // The row's own note stays whatever else has happened: it says what a password has to be,
-        // which is still true after one was changed. A confirmation is an extra line, not a
-        // replacement for the explanation the row exists to give.
-        note="At least twelve characters, and no other rules."
-        control={
-          <Button
-            variant="ghost"
-            size="compact"
-            onClick={() => {
-              setError(undefined);
-              setNote(undefined);
-              setOpen('password');
-            }}
-          >
-            Change password
-          </Button>
-        }
-      >
-        {note?.row === 'password' ? <Confirmation>{note.text}</Confirmation> : null}
       </PanelRow>
 
       <Modal
@@ -251,6 +236,31 @@ export function ProfileRows() {
           </form>
         </div>
       </Modal>
+    </>
+  ) : (
+    <>
+      <PanelRow
+        title="Password"
+        // The row's own note stays whatever else has happened: it says what a password has to be,
+        // which is still true after one was changed. A confirmation is an extra line, not a
+        // replacement for the explanation the row exists to give.
+        note="At least twelve characters, and no other rules."
+        control={
+          <Button
+            variant="ghost"
+            size="compact"
+            onClick={() => {
+              setError(undefined);
+              setNote(undefined);
+              setOpen('password');
+            }}
+          >
+            Change password
+          </Button>
+        }
+      >
+        {note?.row === 'password' ? <Confirmation>{note.text}</Confirmation> : null}
+      </PanelRow>
 
       <Modal
         isOpen={open === 'password'}

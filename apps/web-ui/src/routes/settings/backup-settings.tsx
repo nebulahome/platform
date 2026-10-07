@@ -218,6 +218,40 @@ function scheduleNote(status: BackupStatusView | undefined, isEnabled: boolean):
 }
 
 /**
+ * The line at the top of the page, as the board draws it: how the last backup went, whether more
+ * will come on their own, and how big each is likely to be.
+ *
+ * @param status - The service's state.
+ * @param isEnabled - Whether automatic backups are on, draft included.
+ * @param archiveBytes - The expected size of an archive, or null before anything is known.
+ * @returns The headline and the line under it.
+ */
+function statusLine(
+  status: BackupStatusView,
+  isEnabled: boolean,
+  archiveBytes: number | null,
+): { readonly title: string; readonly note: string } {
+  const last = status.lastBackup;
+  const next = status.schedule.nextRunAt;
+  const title =
+    last?.finishedAt == null
+      ? 'No backup yet'
+      : last.status === 'success'
+        ? `Last backup ${relativeTime(last.finishedAt)}`
+        : 'The last backup did not finish';
+  const parts = [
+    isEnabled
+      ? next === null
+        ? 'Automatic backups are on'
+        : `Next ${absoluteTime(next)}`
+      : 'Automatic backups are off',
+    archiveBytes === null ? null : `≈ ${formatBytes(archiveBytes)} each, encrypted`,
+  ].filter((part) => part !== null);
+
+  return { title, note: parts.join(' · ') };
+}
+
+/**
  * Renders the Backup page.
  *
  * @returns The page.
@@ -437,6 +471,7 @@ export function BackupSettings() {
   const estimates = data.estimates;
   const active = data.active;
   const keyInfo = data.key;
+  const headline = statusLine(data, isEnabled, archiveBytes);
 
   // A run the card shows, or one still running, is not in the list yet: it moves there once the
   // card is gone.
@@ -485,6 +520,7 @@ export function BackupSettings() {
           ) : undefined
         }
       >
+        <PanelRow title={headline.title} note={headline.note} />
         {active?.kind !== 'restore' ? null : (
           <PanelRow
             title="Restoring…"
