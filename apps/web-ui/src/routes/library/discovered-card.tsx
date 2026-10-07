@@ -73,8 +73,8 @@ export function DiscoveredCard(props: DiscoveredCardProps) {
       <article
         aria-label={title}
         className={cn(
-          'flex h-full flex-col rounded-panel border border-border bg-surface p-[18px]',
-          'transition-[border-color,box-shadow] hover:border-border-strong',
+          'flex h-full flex-col rounded-panel border border-border bg-surface p-4.5',
+          'transition-colors hover:border-border-strong',
         )}
       >
         <div className="flex items-start gap-3">
@@ -91,9 +91,7 @@ export function DiscoveredCard(props: DiscoveredCardProps) {
             <span className="truncate text-caption leading-tight text-foreground-subtle">
               {vendorName}
             </span>
-            <span className="truncate text-[15px] leading-tight font-medium text-foreground">
-              {title}
-            </span>
+            <span className="truncate text-title font-medium text-foreground">{title}</span>
           </div>
         </div>
 
@@ -106,7 +104,9 @@ export function DiscoveredCard(props: DiscoveredCardProps) {
           )}
           <div className="flex min-w-0 items-baseline gap-2">
             <dt className="shrink-0 text-foreground-subtle">Address</dt>
-            <dd className="truncate text-foreground-muted tabular">{device.address}</dd>
+            <dd className="truncate font-mono text-mono-ui text-foreground-muted tabular">
+              {device.address}
+            </dd>
           </div>
           {device.movedFrom === null ? null : (
             <div className="flex min-w-0 items-baseline gap-2">

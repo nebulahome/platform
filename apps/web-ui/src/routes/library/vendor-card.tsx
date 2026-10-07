@@ -17,7 +17,7 @@
 import { Link } from 'react-router';
 
 import type { IntegrationVendorView } from '@nebulahome/contracts';
-import { Badge, cn } from '@nebulahome/ui';
+import { Badge, Tile, TILE_FRAME, TileMark, TileStat } from '@nebulahome/ui';
 
 import {
   BluetoothIcon,
@@ -31,8 +31,8 @@ import {
 } from '@/components/icons';
 import { wiresOf, type Wire } from '@/library/vendor-filters';
 
-/** The colour a vendor without one of its own is tinted with. */
-const FALLBACK_COLOR = '#6d7bff';
+/** The colour a vendor without one of its own is drawn in: the accent. */
+const FALLBACK_COLOR = 'var(--color-primary)';
 
 /** A glyph, as the icon set draws one. */
 type Glyph = (props: IconProps) => React.ReactNode;
@@ -67,20 +67,9 @@ export function Mark(props: MarkProps) {
   const { title, glyph: Icon, tone = 'neutral', size = 'small' } = props;
 
   return (
-    <span
-      title={title}
-      aria-label={title}
-      role="img"
-      className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-full border',
-        size === 'small' ? 'size-[26px]' : 'size-7',
-        tone === 'warning'
-          ? 'border-warning/30 bg-warning/13 text-warning'
-          : 'border-border bg-surface-raised text-foreground-muted',
-      )}
-    >
+    <TileMark title={title} tone={tone} className={size === 'small' ? undefined : 'size-7'}>
       <Icon width={size === 'small' ? 13 : 14} height={size === 'small' ? 13 : 14} />
-    </span>
+    </TileMark>
   );
 }
 
@@ -142,22 +131,16 @@ export function VendorLogo(props: LogoProps) {
   return (
     <span
       aria-hidden="true"
-      className="flex shrink-0 items-center justify-center overflow-hidden rounded-tile"
+      className="flex shrink-0 items-center justify-center overflow-hidden rounded-tile border border-border-strong bg-surface-raised"
       /* eslint-disable-next-line react/forbid-dom-props -- the size and the vendor's own colour
          are values, not styles a class could carry: they come from the bundle, per vendor. */
-      style={{
-        width: size,
-        height: size,
-        backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)`,
-        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 14%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.04)`,
-        color,
-      }}
+      style={{ width: size, height: size, color }}
     >
       {vendor.logo === undefined ? (
         <span
-          className="leading-none font-semibold tracking-tight"
+          className="font-mono leading-none"
           /* eslint-disable-next-line react/forbid-dom-props -- scaled from the square's side. */
-          style={{ fontSize: Math.round(size * 0.43) }}
+          style={{ fontSize: Math.round(size * 0.41) }}
         >
           {vendor.name.charAt(0).toUpperCase()}
         </span>
@@ -205,51 +188,40 @@ export function VendorCard(props: VendorCardProps) {
 
   return (
     <li className="list-none">
-      <Link
-        to={`/integrations/${vendor.id}`}
-        aria-label={vendor.name}
-        className={cn(
-          'flex h-41 flex-col rounded-panel border border-border bg-surface p-[18px]',
-          'transition-[border-color,box-shadow] hover:border-border-strong',
-          'focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none',
-        )}
-      >
-        <span className="flex items-start gap-1.5">
-          <VendorLogo vendor={vendor} size={44} />
-          <span className="grow" />
-          <Marks vendor={vendor} />
-        </span>
-
-        <span className="mt-4 flex min-w-0 flex-col gap-1">
-          <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-[15px] leading-tight font-medium text-foreground">
-              {vendor.name}
-            </span>
-            {vendor.needsSetup ? (
-              <Badge tone="warning" size="small">
-                Needs setup
-              </Badge>
-            ) : null}
-            {foundCount > 0 ? (
-              <Badge tone="accent" size="small">
-                {foundCount} found
-              </Badge>
-            ) : null}
-          </span>
-          <span className="text-caption leading-tight text-foreground-subtle tabular">
-            v{vendor.version}
-          </span>
-        </span>
-
-        <span className="grow" />
-
-        <span className="mt-3 flex items-baseline gap-1 text-ui leading-tight text-foreground-muted tabular">
-          <span className="font-medium text-foreground">{vendor.deviceCount}</span>
-          <span>{noun(vendor.deviceCount, 'device', 'devices')}</span>
-          <span className="mx-1 text-foreground-subtle">·</span>
-          <span className="font-medium text-foreground">{vendor.entityCount}</span>
-          <span>{noun(vendor.entityCount, 'entity', 'entities')}</span>
-        </span>
+      <Link to={`/integrations/${vendor.id}`} aria-label={vendor.name} className={TILE_FRAME}>
+        <Tile
+          logo={<VendorLogo vendor={vendor} size={44} />}
+          marks={<Marks vendor={vendor} />}
+          name={vendor.name}
+          badges={
+            <>
+              {vendor.needsSetup ? (
+                <Badge tone="warning" size="small">
+                  Needs setup
+                </Badge>
+              ) : null}
+              {foundCount > 0 ? (
+                <Badge tone="accent" size="small">
+                  {foundCount} found
+                </Badge>
+              ) : null}
+            </>
+          }
+          version={`v${vendor.version}`}
+          stats={
+            <>
+              <TileStat
+                value={vendor.deviceCount}
+                label={noun(vendor.deviceCount, 'device', 'devices')}
+              />
+              <span className="text-foreground-subtle">·</span>
+              <TileStat
+                value={vendor.entityCount}
+                label={noun(vendor.entityCount, 'entity', 'entities')}
+              />
+            </>
+          }
+        />
       </Link>
     </li>
   );

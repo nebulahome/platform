@@ -71,7 +71,7 @@ function ContainerRow(props: { readonly container: ContainerSummary }) {
 
   return (
     <li
-      className={`${ROW_COLUMNS} relative border-b border-border px-4 py-3 transition-colors last:border-b-0 hover:bg-surface-raised has-[[data-row-link]:focus-visible]:ring-3 has-[[data-row-link]:focus-visible]:ring-primary/25 has-[[data-row-link]:focus-visible]:ring-inset`}
+      className={`${ROW_COLUMNS} relative border-b border-border px-5.5 py-3.5 transition-colors last:border-b-0 hover:bg-surface-raised has-[[data-row-link]:focus-visible]:ring-3 has-[[data-row-link]:focus-visible]:ring-primary/25 has-[[data-row-link]:focus-visible]:ring-inset`}
     >
       <span className="flex min-w-0 items-center gap-3">
         <StatusDot tone={dot.tone} title={dot.title} isBusy={dot.isBusy} />
@@ -457,7 +457,7 @@ export function ComposePage() {
                 <>
                   <div
                     aria-hidden="true"
-                    className={`${ROW_COLUMNS} hidden border-b border-border px-4 py-2 font-mono text-label text-foreground-subtle uppercase md:grid`}
+                    className={`${ROW_COLUMNS} hidden border-b border-border px-5.5 py-3 font-mono text-label text-foreground-subtle uppercase md:grid`}
                   >
                     <span>Container</span>
                     <span>Service</span>

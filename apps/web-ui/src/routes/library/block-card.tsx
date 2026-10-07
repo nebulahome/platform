@@ -7,14 +7,43 @@
  */
 import type { ReactNode } from 'react';
 
-import { AppIcon, Badge, IconButton, Segmented, cn } from '@nebulahome/ui';
+import { AppIcon, IconButton, Segmented, cn } from '@nebulahome/ui';
 
 import { labelForKind } from '@/routes/library/editor-choices';
+
+/**
+ * The lane a block runs in, which colours its kind: When `cyan`, If `violet`, Then `primary`, and
+ * the blocks that hold other blocks `lamp`.
+ */
+export type BlockLane = 'when' | 'if' | 'then' | 'control';
+
+/** The blocks that hold other blocks: their lane is `control`, whatever list they are in. */
+const CONTROL_KINDS: ReadonlySet<string> = new Set([
+  'if',
+  'switch',
+  'for',
+  'while',
+  'do_while',
+  'sequence',
+  'parallel',
+  'stop',
+]);
+
+/** The colour of each lane's kind label. */
+const LANE_TEXT: Readonly<Record<BlockLane, string>> = {
+  when: 'text-cyan',
+  if: 'text-violet',
+  then: 'text-primary',
+  control: 'text-lamp',
+};
 
 /** What one block needs. */
 export type BlockCardProps = {
   /** What kind of block this is, as the format names it. */
   readonly kind: string;
+
+  /** The lane it runs in; Then - or control, for a block that holds others - when not said. */
+  readonly lane?: BlockLane;
 
   /** Optional override for the badge text (e.g. "else", "case"). */
   readonly kindLabel?: string;
@@ -56,6 +85,7 @@ export type BlockCardProps = {
 export function BlockCard(props: BlockCardProps) {
   const {
     kind,
+    lane = CONTROL_KINDS.has(kind) ? 'control' : 'then',
     kindLabel,
     position,
     children,
@@ -71,7 +101,7 @@ export function BlockCard(props: BlockCardProps) {
   const label = kindLabel ?? labelForKind(kind);
 
   return (
-    <div className="flex flex-col gap-3 rounded-panel border border-border bg-surface p-3.5">
+    <div className="flex flex-col gap-3 rounded-inner border border-border bg-surface p-3.5">
       <div className="flex items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2.5">
           {isCollapsible ? (
@@ -91,12 +121,14 @@ export function BlockCard(props: BlockCardProps) {
           ) : null}
 
           {position === undefined ? null : (
-            <span className="text-caption text-foreground-subtle tabular">{position}</span>
+            <span className="font-mono text-mono-caption text-foreground-subtle tabular">
+              {position}
+            </span>
           )}
 
-          <Badge tone="neutral" size="small">
+          <span className={cn('text-label font-medium tracking-wider uppercase', LANE_TEXT[lane])}>
             {label}
-          </Badge>
+          </span>
 
           {onNotChange === undefined ? null : (
             <Segmented

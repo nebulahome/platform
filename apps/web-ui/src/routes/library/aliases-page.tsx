@@ -151,7 +151,7 @@ export function AliasesPage() {
 
       <div className="overflow-hidden rounded-panel border border-border bg-surface">
         <div
-          className={`${ALIAS_COLUMNS} border-b border-border px-4 py-2.5 font-mono text-label text-foreground-subtle uppercase`}
+          className={`${ALIAS_COLUMNS} border-b border-border px-5.5 py-3 font-mono text-label text-foreground-subtle uppercase`}
           aria-hidden="true"
         >
           <span>Name</span>
@@ -216,7 +216,7 @@ function AliasRow(props: AliasRowProps) {
 
   return (
     <li className="border-b border-border last:border-b-0">
-      <div className={`${ALIAS_COLUMNS} px-4 py-3`}>
+      <div className={`${ALIAS_COLUMNS} px-5.5 py-3.5`}>
         <span className="min-w-0 truncate text-ui font-medium text-foreground">{alias.name}</span>
         <span className="hidden min-w-0 truncate font-mono text-caption text-foreground-subtle md:block">
           {alias.entityId}

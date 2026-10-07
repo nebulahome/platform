@@ -18,7 +18,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 
-import { Button } from '@nebulahome/ui';
+import { Button, TILE_GRID } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { useListState } from '@/lib/use-list-state';
@@ -125,7 +125,7 @@ export function IntegrationsPage() {
           }}
         />
       ) : (
-        <ul className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+        <ul className={TILE_GRID}>
           {shown.map((vendor) => (
             <VendorCard key={vendor.id} vendor={vendor} foundCount={foundBy.get(vendor.id) ?? 0} />
           ))}

@@ -19,7 +19,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { Button, SelectField } from '@nebulahome/ui';
+import { Button, SelectField, TILE_GRID } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { CONTAINER_QUERY_KEYS, dismissInstall, fetchContainers } from '@/containers/api';
@@ -220,7 +220,7 @@ export function ContainersPage() {
         ) : null}
 
         {tiles.length === 0 ? null : (
-          <ul className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+          <ul className={TILE_GRID}>
             {tiles.map((tile) =>
               tile.kind === 'compose' ? (
                 <ComposeCard key={`compose:${tile.project}`} group={tile} />

@@ -10,17 +10,22 @@
 import { Link } from 'react-router';
 
 import type { ContainerInstall, ContainerSummary } from '@nebulahome/contracts';
-import { Badge, Button, cn, ProgressBar, StatusDot, type StatusDotTone } from '@nebulahome/ui';
+import {
+  Badge,
+  Button,
+  cn,
+  ProgressBar,
+  StatusDot,
+  type StatusDotTone,
+  TILE_FRAME,
+} from '@nebulahome/ui';
 
 import { groupUsage, type ComposeGroup } from '@/containers/container-groups';
 import { formatBytes, formatPercent } from '@/lib/format-bytes';
 import { ContainerBadges, ContainerTile, dotOf } from '@/routes/containers/container-parts';
 
 /** The shape every card of the grid has: the vendor card's. */
-const CARD =
-  'flex h-41 flex-col rounded-panel border border-border bg-surface p-[18px] ' +
-  'transition-[border-color,box-shadow] hover:border-border-strong ' +
-  'focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none';
+const CARD = TILE_FRAME;
 
 /** What each phase of a compose operation is called on a card. */
 const COMPOSE_PHASE_LABELS = {
@@ -71,11 +76,11 @@ function Foot(props: { readonly parts: readonly (readonly [string | null, string
   const parts = props.parts.filter(([figure]) => figure !== null);
 
   return (
-    <span className="mt-3 flex items-baseline gap-1 truncate text-ui leading-tight text-foreground-muted tabular">
+    <span className="mt-auto flex items-baseline gap-1 truncate text-ui-sm text-foreground-muted tabular">
       {parts.map(([figure, word], index) => (
         <span key={word} className="flex items-baseline gap-1">
           {index > 0 ? <span className="mx-1 text-foreground-subtle">·</span> : null}
-          <span className="font-medium text-foreground">{figure}</span>
+          <b className="font-mono font-medium text-foreground">{figure}</b>
           <span>{word}</span>
         </span>
       ))}
@@ -104,16 +109,16 @@ export function ContainerCard(props: { readonly container: ContainerSummary }) {
           <StatusDot tone={dot.tone} title={dot.title} isBusy={dot.isBusy} />
         </span>
 
-        <span className="mt-4 flex min-w-0 flex-col gap-1">
+        <span className="flex min-w-0 flex-col gap-1">
           <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-[15px] leading-tight font-medium text-foreground">
+            <span className="truncate text-title font-medium text-foreground">
               {container.displayName}
             </span>
             <ContainerBadges container={container} isStateShown={false} />
           </span>
           <span
             title={container.image}
-            className="truncate font-mono text-caption leading-tight text-foreground-subtle"
+            className="truncate font-mono text-mono-caption text-foreground-subtle"
           >
             {container.image}
           </span>
@@ -207,11 +212,9 @@ export function ComposeCard(props: { readonly group: ComposeGroup }) {
           <StatusDot tone={dot.tone} title={dot.title} isBusy={dot.isBusy} />
         </span>
 
-        <span className="mt-4 flex min-w-0 flex-col gap-1">
+        <span className="flex min-w-0 flex-col gap-1">
           <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-[15px] leading-tight font-medium text-foreground">
-              {group.title}
-            </span>
+            <span className="truncate text-title font-medium text-foreground">{group.title}</span>
             {group.isSystem ? (
               <Badge tone="accent" size="small">
                 System
@@ -267,7 +270,7 @@ export function InstallCard(props: InstallCardProps) {
   return (
     <li className="list-none">
       <div
-        className={cn(CARD, 'hover:border-border hover:shadow-none')}
+        className={cn(CARD, 'hover:border-border')}
         aria-busy={!isFailed}
         aria-label={`${install.name}: ${INSTALL_PHASE_LABELS[install.phase]}`}
       >
@@ -281,16 +284,14 @@ export function InstallCard(props: InstallCardProps) {
           />
         </span>
 
-        <span className="mt-4 flex min-w-0 flex-col gap-1">
+        <span className="flex min-w-0 flex-col gap-1">
           <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-[15px] leading-tight font-medium text-foreground">
-              {install.name}
-            </span>
+            <span className="truncate text-title font-medium text-foreground">{install.name}</span>
             <Badge tone={isFailed ? 'danger' : 'accent'} size="small">
               {INSTALL_PHASE_LABELS[install.phase]}
             </Badge>
           </span>
-          <span className="truncate font-mono text-caption leading-tight text-foreground-subtle">
+          <span className="truncate font-mono text-mono-caption text-foreground-subtle">
             {install.image}
           </span>
         </span>

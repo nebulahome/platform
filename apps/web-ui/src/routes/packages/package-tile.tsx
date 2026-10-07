@@ -10,7 +10,7 @@
 import { Link } from 'react-router';
 
 import type { ApiPackage, PackageState } from '@nebulahome/contracts';
-import { Badge, cn, type BadgeTone } from '@nebulahome/ui';
+import { Badge, Tile, TILE_FRAME, TileStat, type BadgeTone } from '@nebulahome/ui';
 
 import { packageLogoUrl } from '@/packages/api';
 import { VendorLogo } from '@/routes/library/vendor-card';
@@ -91,51 +91,45 @@ export function PackageTile(props: PackageTileProps) {
       <Link
         to={`/packages/${encodeURIComponent(found.id)}`}
         aria-label={found.name}
-        className={cn(
-          'flex h-41 flex-col rounded-panel border border-border bg-surface p-[18px]',
-          'transition-[border-color,box-shadow] hover:border-border-strong',
-          'focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none',
-        )}
+        className={TILE_FRAME}
       >
-        <span className="flex items-start gap-1.5">
-          <PackageLogo found={found} size={44} />
-          <span className="grow" />
-          <Badge tone={state.tone} size="small">
-            {state.label}
-          </Badge>
-        </span>
-
-        <span className="mt-4 flex min-w-0 flex-col gap-1">
-          <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-[15px] leading-tight font-medium text-foreground">
-              {found.name}
-            </span>
-            {found.isSystem ? (
-              <Badge tone="neutral" size="small">
-                System
-              </Badge>
-            ) : null}
-            {update === undefined ? null : (
-              <Badge tone="accent" size="small">
-                Update
-              </Badge>
-            )}
-          </span>
-          <span className="text-caption leading-tight text-foreground-subtle tabular">
-            v{found.version}
-            {update === undefined ? null : ` · v${update} out`}
-          </span>
-        </span>
-
-        <span className="grow" />
-
-        <span className="mt-3 flex items-baseline gap-1 text-ui leading-tight text-foreground-muted tabular">
-          <span className="font-medium text-foreground">{found.deviceCount}</span>
-          <span>{noun(found.deviceCount, 'device', 'devices')}</span>
-          <span className="mx-1 text-foreground-subtle">·</span>
-          <span className="font-medium text-foreground">{found.entityCount}</span>
-          <span>{noun(found.entityCount, 'entity', 'entities')}</span>
-        </span>
+        <Tile
+          logo={<PackageLogo found={found} size={44} />}
+          marks={
+            <Badge tone={state.tone} size="small">
+              {state.label}
+            </Badge>
+          }
+          name={found.name}
+          badges={
+            <>
+              {found.isSystem ? (
+                <Badge tone="neutral" size="small">
+                  System
+                </Badge>
+              ) : null}
+              {update === undefined ? null : (
+                <Badge tone="accent" size="small">
+                  Update
+                </Badge>
+              )}
+            </>
+          }
+          version={`v${found.version}${update === undefined ? '' : ` · v${update} out`}`}
+          stats={
+            <>
+              <TileStat
+                value={found.deviceCount}
+                label={noun(found.deviceCount, 'device', 'devices')}
+              />
+              <span className="text-foreground-subtle">·</span>
+              <TileStat
+                value={found.entityCount}
+                label={noun(found.entityCount, 'entity', 'entities')}
+              />
+            </>
+          }
+        />
       </Link>
     </li>
   );

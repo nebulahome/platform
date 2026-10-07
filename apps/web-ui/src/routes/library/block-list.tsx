@@ -59,6 +59,9 @@ export type BlockListProps<TBlock extends { readonly type: string }> = {
 
   /** Optional kind label override (e.g. when the card wraps `not`). */
   readonly kindOf?: (block: TBlock) => string;
+
+  /** The lane the blocks run in, which colours their kind: When or If. */
+  readonly lane: 'when' | 'if';
 };
 
 /**
@@ -83,6 +86,7 @@ export function BlockList<TBlock extends { readonly type: string }>(props: Block
     getNot,
     onNotChange,
     kindOf,
+    lane,
   } = props;
 
   const [isPickerOpen, setPickerOpen] = useState(false);
@@ -108,6 +112,7 @@ export function BlockList<TBlock extends { readonly type: string }>(props: Block
 
             <BlockCard
               kind={kindOf?.(block) ?? block.type}
+              lane={lane}
               position={index + 1}
               {...(getNot === undefined || onNotChange === undefined
                 ? {}

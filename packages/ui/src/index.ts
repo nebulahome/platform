@@ -55,6 +55,16 @@ export {
   type SelectOption,
 } from './components/select-field.js';
 export { TagChip, type TagChipProps } from './components/tag-chip.js';
+export {
+  Tile,
+  TileMark,
+  TileStat,
+  TILE_FRAME,
+  TILE_GRID,
+  type TileMarkProps,
+  type TileProps,
+  type TileStatProps,
+} from './components/tile.js';
 export { TextField, type TextFieldProps } from './components/text-field.js';
 export { TAG_FILL_CLASSES } from './lib/tag-colors.js';
 export {

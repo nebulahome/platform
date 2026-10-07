@@ -111,7 +111,7 @@ export function NameIconField(props: NameIconFieldProps) {
               )}
             >
               {shown === undefined ? (
-                <span className="size-[22px] rounded-tile bg-surface-raised" aria-hidden="true" />
+                <span className="size-5.5 rounded-tile bg-surface-raised" aria-hidden="true" />
               ) : (
                 <CatalogueIcon node={shown.node} frame={shown.frame} size={22} />
               )}

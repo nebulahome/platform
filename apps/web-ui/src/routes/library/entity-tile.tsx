@@ -18,24 +18,24 @@ import type { EntityKind, EntityTone } from '@/library/entity-kind';
 
 /** The lit classes of each family, spelled out so Tailwind can see every one. */
 const LIT: Readonly<Record<EntityTone, string>> = {
-  light: 'border-tag-amber/30 bg-tag-amber/13 text-tag-amber',
-  power: 'border-tag-teal/30 bg-tag-teal/13 text-tag-teal',
-  sensor: 'border-primary/30 bg-primary/13 text-primary',
-  cover: 'border-primary/30 bg-primary/13 text-primary',
-  climate: 'border-tag-orange/30 bg-tag-orange/13 text-tag-orange',
-  secure: 'border-tag-green/30 bg-tag-green/13 text-tag-green',
-  media: 'border-tag-violet/30 bg-tag-violet/13 text-tag-violet',
-  camera: 'border-tag-blue/30 bg-tag-blue/13 text-tag-blue',
-  garden: 'border-tag-lime/30 bg-tag-lime/13 text-tag-lime',
-  derived: 'border-tag-cyan/30 bg-tag-cyan/13 text-tag-cyan',
+  light: 'bg-lamp/14 text-lamp',
+  power: 'bg-primary/14 text-primary',
+  sensor: 'bg-cyan/14 text-cyan',
+  cover: 'bg-primary/14 text-primary',
+  climate: 'bg-heat/14 text-heat',
+  secure: 'bg-success/14 text-success',
+  media: 'bg-violet/14 text-violet',
+  camera: 'bg-cyan/14 text-cyan',
+  garden: 'bg-tag-lime/14 text-tag-lime',
+  derived: 'bg-violet/14 text-violet',
 };
 
 /** How large a tile is drawn, and the glyph inside it. */
 const SIZES = {
   tiny: { box: 'size-5 rounded-chip', glyph: 12 },
   small: { box: 'size-7 rounded-chip', glyph: 15 },
-  medium: { box: 'size-8 rounded-chip', glyph: 17 },
-  large: { box: 'size-12 rounded-tile', glyph: 24 },
+  medium: { box: 'size-8 rounded-field', glyph: 16 },
+  large: { box: 'size-12 rounded-tile', glyph: 22 },
 } as const;
 
 /** What a tile needs. */
@@ -77,9 +77,9 @@ export function EntityTile(props: EntityTileProps) {
     <span
       aria-hidden="true"
       className={cn(
-        'flex shrink-0 items-center justify-center border transition-colors',
+        'flex shrink-0 items-center justify-center transition-colors',
         box,
-        isLit ? LIT[kind.tone] : 'border-border bg-surface-raised text-foreground-subtle',
+        isLit ? LIT[kind.tone] : 'bg-surface-raised text-foreground-subtle',
         className,
       )}
     >

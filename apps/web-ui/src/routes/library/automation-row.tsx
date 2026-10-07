@@ -65,7 +65,7 @@ export function AutomationRow(props: AutomationRowProps) {
 
   return (
     <li className="border-b border-border last:border-b-0">
-      <div className={`${AUTOMATION_COLUMNS} px-4 py-3`}>
+      <div className={`${AUTOMATION_COLUMNS} px-5.5 py-3.5`}>
         <span className="min-w-0 truncate text-ui font-medium text-foreground">
           {automation.name}
         </span>

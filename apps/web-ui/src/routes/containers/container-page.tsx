@@ -708,8 +708,8 @@ export function ContainerPage() {
         }
       />
 
-      <div className="min-h-0 grow overflow-y-auto p-6">
-        <div className="mx-auto flex max-w-5xl flex-col gap-5">
+      <div className="min-h-0 grow overflow-y-auto px-8 pt-5 pb-7">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5">
           {view === undefined ? (
             container.isPending ? (
               <DetailPlaceholder>Reading…</DetailPlaceholder>

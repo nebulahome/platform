@@ -314,8 +314,8 @@ function Editor(props: { readonly dashboard: DashboardView }) {
         }
       />
 
-      <div className="min-h-0 grow overflow-y-auto p-6">
-        <div className="mx-auto flex max-w-6xl items-start gap-6">
+      <div className="min-h-0 grow overflow-y-auto px-8 pt-5 pb-7">
+        <div className="mx-auto flex max-w-7xl items-start gap-6">
           <div className="flex min-w-0 grow flex-col gap-4">
             {isNarrow ? (
               <PageMessage>

@@ -98,7 +98,7 @@ function SectionGroup(props: SectionGroupProps) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex h-5 items-center justify-between gap-2 px-3">
+      <div className="flex h-6 items-center justify-between gap-2 px-3">
         <span className="font-mono text-label text-foreground-subtle uppercase">{title}</span>
         {badge}
       </div>
@@ -108,10 +108,10 @@ function SectionGroup(props: SectionGroupProps) {
           key={section.path}
           to={section.path}
           className={({ isActive }) =>
-            `flex h-9 items-center rounded-field px-3 text-ui transition-colors ${
+            `flex h-9.5 items-center rounded-field px-3 text-ui transition-colors ${
               isActive
                 ? 'bg-surface-raised font-medium text-foreground'
-                : 'text-foreground-muted hover:text-foreground'
+                : 'text-foreground-muted hover:bg-surface-raised hover:text-foreground'
             }`
           }
         >
@@ -137,12 +137,12 @@ export function SettingsLayout() {
 
   return (
     <div className="flex min-w-0 grow flex-col">
-      <header className="flex h-17 shrink-0 items-center border-b border-border px-6">
-        <h1 className="text-headline-sm font-semibold tracking-tight">Settings</h1>
+      <header className="shrink-0 px-8 pt-7">
+        <h1 className="text-display font-medium">Settings</h1>
       </header>
 
-      <div className="flex min-h-0 grow gap-6 overflow-hidden p-6">
-        <nav aria-label="Settings" className="flex w-56 shrink-0 flex-col gap-5">
+      <div className="flex min-h-0 grow gap-8 overflow-hidden px-8 pt-6 pb-7">
+        <nav aria-label="Settings" className="flex w-50 shrink-0 flex-col gap-5">
           <SectionGroup
             title="You"
             sections={reachable.filter((section) => section.group === 'you')}

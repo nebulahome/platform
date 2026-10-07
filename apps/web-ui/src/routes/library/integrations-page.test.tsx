@@ -183,8 +183,8 @@ describe('the integrations grid', () => {
     expect(screen.getByRole('link', { name: 'Bambu Lab' }).getAttribute('href')).toBe(
       '/integrations/bambu-lab',
     );
-    expect(screen.getByRole('link', { name: 'Shelly' }).textContent).toContain('2devices');
-    expect(screen.getByRole('link', { name: 'Bambu Lab' }).textContent).toContain('12entities');
+    expect(screen.getByRole('link', { name: 'Shelly' }).textContent).toContain('2 devices');
+    expect(screen.getByRole('link', { name: 'Bambu Lab' }).textContent).toContain('12 entities');
   });
 
   it('marks a vendor that needs the internet, and one that still needs setting up', async () => {

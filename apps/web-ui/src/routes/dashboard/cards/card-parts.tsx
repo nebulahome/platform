@@ -35,28 +35,14 @@ export type CardFrameProps = {
 };
 
 /**
- * The wash a lit card is drawn with: its colour at the edge and rising from the lower left.
- *
- * `color-mix` keeps it a colour of the light itself rather than a tint chosen here, and the card's
- * own face is kept underneath, so the light theme's plain card stays plain where the wash fades.
+ * The glow a lit card is drawn with: 14% of its colour from the top-left, the one place colour is
+ * allowed to spread (`entity-wash` in the theme draws it from `--glow`).
  *
  * @param color - The light's colour, any CSS colour.
  * @returns The style.
  */
-function glowStyle(color: string): CSSProperties {
-  /**
-   * The light's colour at a strength.
-   *
-   * @param percent - How much of it, the rest transparent.
-   * @returns A CSS colour.
-   */
-  const mix = (percent: number): string =>
-    `color-mix(in oklab, ${color} ${String(percent)}%, transparent)`;
-
-  return {
-    borderColor: mix(30),
-    backgroundImage: `radial-gradient(135% 105% at 12% 118%, ${mix(22)} 0%, ${mix(5)} 46%, transparent 72%)`,
-  };
+function glowStyle(color: string): CSSProperties & Record<'--glow', string> {
+  return { '--glow': color };
 }
 
 /**
@@ -72,9 +58,9 @@ export function CardFrame(props: CardFrameProps) {
     <article
       aria-label={label}
       className={cn(
-        'relative flex h-full min-w-0 flex-col overflow-hidden rounded-panel border p-4',
+        'relative flex h-full min-w-0 flex-col overflow-hidden rounded-card border p-4',
         tone === 'plain'
-          ? 'border-border bg-surface'
+          ? 'border-border bg-surface entity-wash'
           : 'border-dashed border-border-strong bg-surface-raised/60',
         className,
       )}
@@ -116,10 +102,10 @@ export function Groove(props: GrooveProps) {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(clamped)}
-      className="h-3.5 rounded-full border border-border bg-surface-raised p-0.5"
+      className="h-1.5 overflow-hidden rounded-pill bg-surface-high"
     >
       <div
-        className={cn('h-full rounded-full', fill === undefined ? 'bg-primary' : undefined)}
+        className={cn('h-full rounded-pill', fill === undefined ? 'bg-primary' : undefined)}
         /* eslint-disable-next-line react/forbid-dom-props -- the fill is as long as the level, in the
         colour of what it measures - values, not styles (RULES.md 15.3). */
         style={{
@@ -205,11 +191,11 @@ export function EndReading(props: EndReadingProps) {
 
   return (
     <span className="flex max-w-32 flex-col items-end gap-0.5 text-right">
-      <span className={cn('truncate text-headline leading-none font-semibold tabular', className)}>
+      <span className={cn('truncate text-reading-sm leading-none font-medium tabular', className)}>
         {value}
       </span>
       {note === undefined || note === null || note === '' ? null : (
-        <span className="truncate text-label text-foreground-subtle">{note}</span>
+        <span className="truncate text-caption text-foreground-subtle">{note}</span>
       )}
     </span>
   );

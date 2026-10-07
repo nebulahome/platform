@@ -9,7 +9,9 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import { cn } from '@nebulahome/ui';
+import { cn, PageHeader } from '@nebulahome/ui';
+
+import { ChevronLeftIcon } from '@/components/icons';
 
 /** One step of the way back. */
 export type Crumb = {
@@ -39,28 +41,35 @@ export function DetailHeader(props: DetailHeaderProps) {
   const { crumbs, title, actions } = props;
 
   return (
-    <header className="flex min-h-17 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-6 py-2.5">
-      <h1 className="flex min-w-0 items-center gap-2 text-headline-sm tracking-tight">
-        {crumbs.map((crumb) => (
-          <span key={crumb.to} className="flex min-w-0 items-center gap-2">
-            <Link
-              to={crumb.to}
-              className="max-w-48 truncate text-foreground-muted transition-colors hover:text-foreground"
-            >
-              {crumb.label}
-            </Link>
-            <span aria-hidden="true" className="font-light text-foreground-subtle">
-              /
-            </span>
-          </span>
-        ))}
-        <span className="truncate font-semibold">{title}</span>
-      </h1>
-
-      {actions === undefined ? null : (
-        <div className="flex shrink-0 items-center gap-2">{actions}</div>
-      )}
-    </header>
+    <div className="shrink-0 px-8 pt-7">
+      <PageHeader
+        className="mx-auto max-w-7xl"
+        title={title}
+        crumb={
+          crumbs.length === 0 ? undefined : (
+            <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5">
+              <ChevronLeftIcon width={14} height={14} className="shrink-0" />
+              {crumbs.map((crumb, index) => (
+                <span key={crumb.to} className="flex min-w-0 items-center gap-1.5">
+                  {index === 0 ? null : (
+                    <span aria-hidden="true" className="text-foreground-subtle">
+                      /
+                    </span>
+                  )}
+                  <Link
+                    to={crumb.to}
+                    className="max-w-48 truncate rounded-chip font-sans text-ui-sm tracking-normal normal-case transition-colors hover:text-foreground"
+                  >
+                    {crumb.label}
+                  </Link>
+                </span>
+              ))}
+            </nav>
+          )
+        }
+        actions={actions}
+      />
+    </div>
   );
 }
 

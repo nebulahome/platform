@@ -528,6 +528,11 @@
   height: var(--control-height);
 }
 
+/* The catalogue's grid: as many 220px tiles as fit, sharing what is left over. */
+@utility grid-tiles {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
 /*
  * An entity card's ground: a faint two-stop wash, and - when its entity is on - a 14% glow of
  * the entity's colour at the top-left, the one place colour is allowed to spread. The colour is

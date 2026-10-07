@@ -188,16 +188,18 @@ export function Frame(props: FrameProps) {
 
   return (
     <div className="flex min-h-0 min-w-0 grow flex-col">
-      <header className="flex min-h-17 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-6 py-2.5">
-        <div className="flex min-w-0 items-center gap-3">
-          {heading ?? <h1 className="text-headline-sm font-semibold tracking-tight">Dashboards</h1>}
+      <header className="shrink-0 px-8 pt-7">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          <div className="flex min-w-0 items-center gap-3">
+            {heading ?? <h1 className="text-display font-medium">Dashboards</h1>}
+          </div>
+          {tools === undefined ? null : (
+            <div className="flex min-w-0 flex-wrap items-center gap-2.5">{tools}</div>
+          )}
         </div>
-        {tools === undefined ? null : (
-          <div className="flex min-w-0 flex-wrap items-center gap-2.5">{tools}</div>
-        )}
       </header>
-      <div className="min-h-0 grow overflow-y-auto p-6">
-        <div className="mx-auto max-w-6xl">{children}</div>
+      <div className="min-h-0 grow overflow-y-auto px-8 pt-5 pb-7">
+        <div className="mx-auto max-w-7xl">{children}</div>
       </div>
     </div>
   );

@@ -160,7 +160,7 @@ export function TagsPage() {
       >
         <div className="overflow-hidden rounded-panel border border-border bg-surface">
           <div
-            className={`${TAG_COLUMNS} border-b border-border px-4 py-2.5 font-mono text-label text-foreground-subtle uppercase`}
+            className={`${TAG_COLUMNS} border-b border-border px-5.5 py-3 font-mono text-label text-foreground-subtle uppercase`}
             aria-hidden="true"
           >
             <span className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">

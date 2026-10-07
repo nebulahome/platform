@@ -81,6 +81,7 @@ export function ConditionTreeEditor(props: ConditionTreeEditorProps) {
 
             <BlockCard
               kind={inner.type}
+              lane="if"
               position={index + 1}
               notValue={isConditionNegated(condition)}
               onNotChange={(negated) => {

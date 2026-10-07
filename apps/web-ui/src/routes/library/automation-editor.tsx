@@ -16,7 +16,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 
 import { Button, Panel, TextField } from '@nebulahome/ui';
 
@@ -46,6 +46,7 @@ import {
 import { ActionSequenceEditor } from '@/routes/library/action-sequence-editor';
 import { BlockList } from '@/routes/library/block-list';
 import { ConditionFields } from '@/routes/library/condition-fields';
+import { DetailHeader } from '@/routes/library/detail-page';
 import { CONDITION_CHOICE_GROUPS, TRIGGER_CHOICE_GROUPS } from '@/routes/library/editor-choices';
 import { TriggerFields } from '@/routes/library/trigger-fields';
 
@@ -230,6 +231,7 @@ export function AutomationEditor() {
 
       <BlockList
         title="When"
+        lane="when"
         note={
           isKeepingTriggers(draft)
             ? 'These triggers are grouped in a way the cards cannot show, and are saved as they were until you change one.'
@@ -277,6 +279,7 @@ export function AutomationEditor() {
 
       <BlockList
         title="If"
+        lane="if"
         note="Entity state checks before it acts. AND between new cards by default. NOT on a card negates that check."
         pickerTitle="Add a condition"
         pickerDescription="Entity state checks only."
@@ -384,23 +387,13 @@ function Shell(props: ShellProps) {
 
   return (
     <div className="flex min-h-0 grow flex-col">
-      <header className="flex h-17 shrink-0 items-center justify-between gap-4 border-b border-border px-6">
-        <h1 className="flex min-w-0 items-center gap-2 text-headline-sm tracking-tight">
-          <Link
-            to="/automations"
-            className="shrink-0 text-foreground-muted transition-colors hover:text-foreground"
-          >
-            Automations
-          </Link>
-          <span aria-hidden="true" className="font-light text-foreground-subtle">
-            /
-          </span>
-          <span className="truncate font-semibold">{title}</span>
-        </h1>
-        {action}
-      </header>
+      <DetailHeader
+        crumbs={[{ to: '/automations', label: 'Automations' }]}
+        title={title}
+        actions={action}
+      />
 
-      <div className="min-h-0 grow overflow-y-auto p-6">
+      <div className="min-h-0 grow overflow-y-auto px-8 pt-5 pb-7">
         <div className="mx-auto flex max-w-3xl flex-col gap-4">{children}</div>
       </div>
     </div>

@@ -16,7 +16,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { PACKAGE_STATES } from '@nebulahome/contracts';
-import { Button, SelectField } from '@nebulahome/ui';
+import { Button, SelectField, TILE_GRID } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { matchesQuery } from '@/lib/search-text';
@@ -162,7 +162,7 @@ export function PackagesPage() {
             />
           )
         ) : (
-          <ul className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+          <ul className={TILE_GRID}>
             {shownInstalled.map((found) => (
               <PackageTile key={found.id} found={found} update={updates.get(found.id)} />
             ))}

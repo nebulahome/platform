@@ -133,7 +133,7 @@ export function AutomationsPage() {
     >
       <div className="overflow-hidden rounded-panel border border-border bg-surface">
         <div
-          className={`${AUTOMATION_COLUMNS} border-b border-border px-4 py-2.5 font-mono text-label text-foreground-subtle uppercase`}
+          className={`${AUTOMATION_COLUMNS} border-b border-border px-5.5 py-3 font-mono text-label text-foreground-subtle uppercase`}
           aria-hidden="true"
         >
           <span>Name</span>
