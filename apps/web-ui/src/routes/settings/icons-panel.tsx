@@ -16,7 +16,16 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import { useState } from 'react';
 
 import type { IconView } from '@nebulahome/contracts';
-import { Badge, Button, CatalogueIcon, Panel, PanelNote, UI_ICON_IDS } from '@nebulahome/ui';
+import {
+  Badge,
+  Button,
+  CatalogueIcon,
+  Panel,
+  PanelNote,
+  TabPanel,
+  Tabs,
+  UI_ICON_IDS,
+} from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { useDebounced } from '@/lib/use-debounced';
@@ -30,6 +39,24 @@ const PAGE = 200;
 
 /** The ids the interface draws itself with, for the badge. */
 const INTERFACE_IDS: ReadonlySet<string> = new Set(UI_ICON_IDS);
+
+/** Which part of the catalogue the grid shows: all of it, the interface's, or the owner's. */
+type IconScope = 'all' | 'interface' | 'custom';
+
+/**
+ * Whether an icon belongs to a part of the catalogue.
+ *
+ * @param icon - The icon.
+ * @param scope - The part.
+ * @returns True when the grid shows it.
+ */
+function inScope(icon: IconView, scope: IconScope): boolean {
+  if (scope === 'interface') {
+    return INTERFACE_IDS.has(icon.id);
+  }
+
+  return scope === 'custom' ? icon.origin === 'custom' : true;
+}
 
 /**
  * One icon in the grid.
@@ -90,6 +117,7 @@ export function IconsPanel() {
   const [search, setSearch] = useState('');
   const query = useDebounced(search.trim());
   const [editing, setEditing] = useState<IconEditorTarget | null>(null);
+  const [scope, setScope] = useState<IconScope>('all');
 
   const icons = useQuery({
     queryKey: [...LIBRARY_QUERY_KEYS.icons, 'settings', query],
@@ -106,6 +134,8 @@ export function IconsPanel() {
     // flashing "Loading" at every pause in the typing.
     placeholderData: keepPreviousData,
   });
+
+  const shown = (icons.data ?? []).filter((icon) => inScope(icon, scope));
 
   /**
    * Shuts the editor and reads the catalogue again: every page draws from it.
@@ -141,43 +171,67 @@ export function IconsPanel() {
           </div>
         }
       >
-        {icons.isPending ? (
-          <p className="px-4 py-3.5 text-ui text-foreground-muted">Loading…</p>
-        ) : icons.error !== null ? (
-          <p role="alert" className="px-4 py-3.5 text-ui text-danger">
-            The catalogue could not be read.
-          </p>
-        ) : icons.data.length === 0 ? (
-          query === '' ? (
-            <p className="px-4 py-3.5 text-ui text-foreground-muted">The catalogue is empty.</p>
+        <div className="border-t border-border px-4 pt-3">
+          <Tabs
+            label="Which icons"
+            idPrefix="icons"
+            value={scope}
+            onChange={setScope}
+            items={[
+              { id: 'all', label: 'All' },
+              { id: 'interface', label: 'Interface' },
+              { id: 'custom', label: 'Custom' },
+            ]}
+          />
+          {scope === 'interface' ? (
+            <p className="pt-3 text-caption text-foreground-subtle">
+              The icons the interface draws itself with. Drawing one afresh changes it everywhere.
+            </p>
+          ) : null}
+        </div>
+        <TabPanel idPrefix="icons" id={scope}>
+          {icons.isPending ? (
+            <p className="px-4 py-3.5 text-ui text-foreground-muted">Loading…</p>
+          ) : icons.error !== null ? (
+            <p role="alert" className="px-4 py-3.5 text-ui text-danger">
+              The catalogue could not be read.
+            </p>
+          ) : icons.data.length === 0 ? (
+            query === '' ? (
+              <p className="px-4 py-3.5 text-ui text-foreground-muted">The catalogue is empty.</p>
+            ) : (
+              <div className="p-4">
+                <NoMatches
+                  query={query}
+                  onClear={() => {
+                    setSearch('');
+                  }}
+                />
+              </div>
+            )
+          ) : shown.length === 0 ? (
+            <p className="px-4 py-3.5 text-ui text-foreground-muted">
+              {scope === 'custom' ? 'No icons of your own yet.' : 'None of these icons match.'}
+            </p>
           ) : (
-            <div className="p-4">
-              <NoMatches
-                query={query}
-                onClear={() => {
-                  setSearch('');
-                }}
-              />
-            </div>
-          )
-        ) : (
-          <ul
-            aria-label="Icons"
-            className="grid grid-cols-3 gap-2.5 p-4 sm:grid-cols-4 lg:grid-cols-6"
-          >
-            {icons.data.map((icon) => (
-              <IconTile
-                key={icon.id}
-                icon={icon}
-                onOpen={() => {
-                  if (canWrite) {
-                    setEditing({ mode: 'edit', icon });
-                  }
-                }}
-              />
-            ))}
-          </ul>
-        )}
+            <ul
+              aria-label="Icons"
+              className="grid grid-cols-3 gap-2.5 p-4 sm:grid-cols-4 lg:grid-cols-6"
+            >
+              {shown.map((icon) => (
+                <IconTile
+                  key={icon.id}
+                  icon={icon}
+                  onOpen={() => {
+                    if (canWrite) {
+                      setEditing({ mode: 'edit', icon });
+                    }
+                  }}
+                />
+              ))}
+            </ul>
+          )}
+        </TabPanel>
         {icons.data !== undefined && icons.data.length >= PAGE ? (
           <PanelNote>
             The first {PAGE} are shown. Search to find the rest of the catalogue.

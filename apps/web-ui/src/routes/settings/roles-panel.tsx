@@ -91,11 +91,22 @@ export function RolesPanel() {
                 {role.userCount === 1 ? '1 person' : `${String(role.userCount)} people`}
               </Badge>
 
-              <Badge tone={role.key === 'owner' ? 'accent' : 'neutral'}>
-                {role.key === 'owner'
-                  ? 'everything'
-                  : `${String(held.size)} of ${String(PERMISSIONS.length)}`}
-              </Badge>
+              <span className="hidden w-44 flex-col gap-1.5 sm:flex">
+                <span className="text-caption text-foreground-muted tabular">
+                  {role.key === 'owner'
+                    ? 'Every permission'
+                    : `${String(held.size)} of ${String(PERMISSIONS.length)} permissions`}
+                </span>
+                <span className="h-1 overflow-hidden rounded-pill bg-surface-high">
+                  <span
+                    className="block h-full rounded-pill bg-primary"
+                    /* eslint-disable-next-line react/forbid-dom-props -- the bar's width is the share of permissions held. */
+                    style={{
+                      width: `${String(role.key === 'owner' ? 100 : (held.size / PERMISSIONS.length) * 100)}%`,
+                    }}
+                  />
+                </span>
+              </span>
 
               <ChevronIcon isOpen={isOpen} className="text-foreground-subtle" />
             </button>
