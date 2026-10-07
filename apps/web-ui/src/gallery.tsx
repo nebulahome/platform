@@ -21,7 +21,27 @@ import {
   type TagColor,
 } from '@nebulahome/contracts';
 import {
+  AppIcon,
   Badge,
+  DetailHero,
+  FactGrid,
+  FilterChips,
+  HealthCard,
+  HealthStrip,
+  HERO_BACK,
+  HeroFact,
+  HeroMark,
+  HoldButton,
+  ListRow,
+  MenuButton,
+  Note,
+  OverflowMenu,
+  RadioGroup,
+  RowList,
+  ROW_LIST_MORE,
+  Section as KitSection,
+  TableFooter,
+  Tabs,
   type BadgeTone,
   Button,
   ColorSwatches,
@@ -509,7 +529,7 @@ function Section(props: SectionProps) {
   const { title, note, children } = props;
 
   return (
-    <section className="flex flex-col gap-4">
+    <section aria-label={title} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <h2 className="text-headline-sm font-medium">{title}</h2>
         <p className="text-caption text-foreground-subtle">{note}</p>
@@ -520,6 +540,210 @@ function Section(props: SectionProps) {
 }
 
 const TONES: readonly BadgeTone[] = ['neutral', 'accent', 'success', 'warning', 'danger'];
+
+/** What a sample's choices do: nothing, they are shown rather than used. */
+function doNothing(): void {
+  // A gallery choice changes nothing.
+}
+
+/**
+ * A detail page's top and body, drawn from the kit alone: what every page about one thing opens
+ * with.
+ *
+ * @returns The sample.
+ */
+function DetailPageSample() {
+  const [tab, setTab] = useState<'overview' | 'devices' | 'configuration'>('overview');
+  const [page, setPage] = useState(1);
+
+  return (
+    <div className="flex w-full flex-col gap-8">
+      <DetailHero
+        back={
+          <a href="#integrations" className={HERO_BACK}>
+            <AppIcon id="chevron-left" size={14} />
+            Integrations
+          </a>
+        }
+        mark={<HeroMark className="text-primary">S</HeroMark>}
+        title="Shelly"
+        description="Relays, dimmers and meters, Gen1 to Gen4, on the local network."
+        facts={
+          <>
+            <Pill tone="success">Running</Pill>
+            <HeroFact>v2.2.0</HeroFact>
+            <HeroFact icon="network">Local network</HeroFact>
+          </>
+        }
+        actions={
+          <>
+            <Button variant="ghost">
+              <AppIcon id="radio" size={16} />
+              Discover devices
+            </Button>
+            <OverflowMenu
+              items={[
+                { label: 'Reinstall', icon: 'rotate-ccw', onSelect: doNothing },
+                { label: 'Remove', icon: 'trash-2', tone: 'danger', onSelect: doNothing },
+              ]}
+            />
+          </>
+        }
+        tabs={
+          <Tabs
+            label="Integration"
+            idPrefix="gallery-vendor"
+            value={tab}
+            onChange={setTab}
+            items={[
+              { id: 'overview', label: 'Overview' },
+              { id: 'devices', label: 'Devices', count: 2 },
+              { id: 'configuration', label: 'Configuration' },
+            ]}
+          />
+        }
+      />
+
+      <HealthStrip>
+        <HealthCard label="Runtime" tone="success" value="Running" detail="Loaded and answering" />
+        <HealthCard label="Connection" tone="success" value="Local network" detail="mDNS" />
+        <HealthCard
+          label="Devices"
+          tone="info"
+          value="2 of 2 reporting"
+          detail="5 more found on the network"
+          action={
+            <Button variant="ghost" size="compact">
+              Review
+            </Button>
+          }
+        />
+        <HealthCard
+          label="Updates"
+          tone="danger"
+          value="Failed"
+          detail="Exited with code 1"
+          action={
+            <Button variant="ghost" size="compact">
+              Open the log
+            </Button>
+          }
+        />
+      </HealthStrip>
+
+      <KitSection title="Devices">
+        <RowList>
+          <ListRow
+            icon={<AppIcon id="zap" size={18} />}
+            title="Kitchen relay"
+            subtitle="Plus 2PM · Kitchen"
+            meta="4 entities"
+            trailing={<Pill tone="cyan">Update ready</Pill>}
+            hasChevron
+            wrap={(className, parts) => (
+              <a href="#kitchen" className={className}>
+                {parts}
+              </a>
+            )}
+          />
+          <ListRow
+            icon={<AppIcon id="lightbulb" size={18} className="text-lamp" />}
+            title="Living room ceiling"
+            subtitle="Dimmer 2 · Living room"
+            meta="3 entities"
+            trailing={<Pill tone="success">Reporting</Pill>}
+          />
+          <a href="#all" className={ROW_LIST_MORE}>
+            All devices
+            <AppIcon id="chevron-right" size={14} />
+          </a>
+        </RowList>
+      </KitSection>
+
+      <KitSection title="About">
+        <FactGrid
+          facts={[
+            { label: 'Id', value: 'shelly', isMono: true },
+            { label: 'Version', value: '2.2.0', isMono: true },
+            { label: 'Discovery', value: 'mDNS, and on demand' },
+            { label: 'Set up', value: '12 September 2026' },
+          ]}
+        />
+      </KitSection>
+
+      <div className="rounded-card border border-border bg-surface">
+        <TableFooter page={page} size={20} total={148} onPage={setPage} onSize={() => undefined} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The parts a long list and its page are given: filters on, a banner, a choice, a held button.
+ *
+ * @returns The sample.
+ */
+function ListPartsSample() {
+  const [sort, setSort] = useState<'name' | 'devices' | 'recent'>('name');
+  const [unlocked, setUnlocked] = useState(0);
+
+  return (
+    <div className="flex w-full flex-col gap-5">
+      <FilterChips
+        filters={[
+          { id: 'status', key: 'Status', value: 'Running', onRemove: doNothing },
+          { id: 'update', value: 'Update ready', onRemove: doNothing },
+        ]}
+        summary="4 of 9 shown"
+        onClearAll={() => undefined}
+      />
+      <Note tone="accent">
+        <span className="font-medium">Editing “Home”.</span> Everyone who uses Home sees the change.
+      </Note>
+      <Note tone="warning">Nothing runs these yet: the automation engine is not built.</Note>
+      <div className="flex flex-wrap items-start gap-8">
+        <RadioGroup
+          label="Sort"
+          value={sort}
+          onChange={setSort}
+          options={[
+            { value: 'name', label: 'Name' },
+            { value: 'devices', label: 'Most devices' },
+            { value: 'recent', label: 'Recently added' },
+          ]}
+        />
+        <div className="flex flex-col items-start gap-2">
+          <HoldButton
+            onConfirm={() => {
+              setUnlocked(unlocked + 1);
+            }}
+          >
+            Hold to unlock
+          </HoldButton>
+          <span className="text-caption text-foreground-subtle">Unlocked {unlocked} times</span>
+        </div>
+        <MenuButton
+          label="Install"
+          icon="plus"
+          items={[
+            {
+              label: 'Image',
+              description: 'One container from a registry image',
+              icon: 'container',
+              onSelect: doNothing,
+            },
+            {
+              label: 'Compose',
+              description: 'Several containers from a compose file',
+              icon: 'layers',
+              onSelect: doNothing,
+            },
+          ]}
+        />
+      </div>
+    </div>
+  );
+}
 
 /**
  * The gallery.
@@ -863,6 +1087,20 @@ function Gallery() {
               }}
             />
           </div>
+        </Section>
+
+        <Section
+          title="Detail page"
+          note="Hero, tabs, the health strip, rows and facts: the top and body of a page about one thing."
+        >
+          <DetailPageSample />
+        </Section>
+
+        <Section
+          title="Lists and banners"
+          note="Filters on, the foot of a paged table, a banner, a choice, and a button to hold."
+        >
+          <ListPartsSample />
         </Section>
 
         <Section title="Panel" note="The group of rows a settings page is built from.">
