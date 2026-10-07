@@ -1,8 +1,11 @@
 /**
  * Writing an automation.
  *
- * One column, three groups: **When** wakes it, **If** gates it, **Then** is what it does — which
- * is the sentence ARCHITECTURE.md §6.1 defines and the order somebody thinks in. A page rather
+ * As the board draws it: three lanes in the main column - **When** wakes it, **If** gates it,
+ * **Then** is what it does, which is the sentence ARCHITECTURE.md §6.1 defines and the order
+ * somebody thinks in - and a 340px column beside them: **What it is** (name, key, description) and
+ * **How it runs** (what a second trigger does while it runs, how long a run may take, whether it is
+ * on). The title says Edited once anything changed. A page rather
  * than a dialog, because a rule with four actions does not fit in a box over a list, and a
  * dialog that scrolls is a page with the escape key wired wrong.
  *
@@ -18,7 +21,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
-import { Button, Panel, TextField } from '@nebulahome/ui';
+import { AUTOMATION_MODES, type AutomationMode } from '@nebulahome/contracts';
+import {
+  AppIcon,
+  Button,
+  DetailHero,
+  Panel,
+  PanelRow,
+  Pill,
+  Segmented,
+  Switch,
+  TextField,
+} from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import {
@@ -46,9 +60,17 @@ import {
 import { ActionSequenceEditor } from '@/routes/library/action-sequence-editor';
 import { BlockList } from '@/routes/library/block-list';
 import { ConditionFields } from '@/routes/library/condition-fields';
-import { DetailHeader } from '@/routes/library/detail-page';
+import { BackLink } from '@/routes/library/detail-page';
 import { CONDITION_CHOICE_GROUPS, TRIGGER_CHOICE_GROUPS } from '@/routes/library/editor-choices';
 import { TriggerFields } from '@/routes/library/trigger-fields';
+
+/** What each mode is called, and what a second trigger does in it. */
+const MODES: Readonly<Record<AutomationMode, { readonly label: string; readonly note: string }>> = {
+  single: { label: 'Single', note: 'Single: a trigger while it runs is ignored.' },
+  restart: { label: 'Restart', note: 'Restart: stop the current run and start over.' },
+  queued: { label: 'Queued', note: 'Queued: the next run waits for this one to end.' },
+  parallel: { label: 'Parallel', note: 'Parallel: each trigger starts a run of its own.' },
+};
 
 /**
  * Renders the automation editor.
@@ -67,6 +89,9 @@ export function AutomationEditor() {
   // a key that keeps moving under its author is worse than one they think about once.
   const [isKeyFollowing, setKeyFollowing] = useState(isNew);
   const [problems, setProblems] = useState<readonly string[]>([]);
+
+  // The draft as it started, for whether anything changed: Edited in the title.
+  const [initial, setInitial] = useState<AutomationDraft | null>(isNew ? emptyDraft() : null);
 
   const existing = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.automations,
@@ -87,7 +112,10 @@ export function AutomationEditor() {
   const loaded = existing.data?.find((one) => one.id === automationId);
 
   if (draft === null && loaded !== undefined) {
-    setDraft(draftFrom(loaded));
+    const seeded = draftFrom(loaded);
+
+    setDraft(seeded);
+    setInitial(seeded);
   }
 
   const save = useMutation({
@@ -149,24 +177,122 @@ export function AutomationEditor() {
     }
   };
 
+  const isEdited = JSON.stringify(draft) !== JSON.stringify(initial);
+
   return (
     <Shell
       title={isNew ? 'New automation' : draft.name}
+      isEdited={isEdited}
       action={
         <span className="flex items-center gap-2">
           <Button
-            variant="ghost"
-            size="compact"
+            variant="bare"
             onClick={() => {
               void navigate('/automations');
             }}
           >
             Cancel
           </Button>
-          <Button size="compact" isBusy={save.isPending} onClick={onSave}>
+          <Button isBusy={save.isPending} onClick={onSave}>
+            <AppIcon id="check" size={15} />
             {isNew ? 'Create' : 'Save'}
           </Button>
         </span>
+      }
+      aside={
+        <>
+          <Panel title="What it is">
+            <div className="flex flex-col gap-3.5 border-t border-border px-5.5 py-4">
+              <TextField
+                label="Name"
+                size="compact"
+                placeholder="Evening lights"
+                value={draft.name}
+                onChange={(event) => {
+                  const name = event.target.value;
+
+                  setDraft({
+                    ...draft,
+                    name,
+                    ...(isKeyFollowing ? { key: toKey(name) } : {}),
+                  });
+                }}
+              />
+              <TextField
+                label="Key"
+                size="compact"
+                placeholder="evening_lights"
+                hint="What other automations call it. Fixed once created."
+                className="font-mono"
+                value={draft.key}
+                disabled={!isNew}
+                onChange={(event) => {
+                  setKeyFollowing(false);
+                  setDraft({ ...draft, key: event.target.value });
+                }}
+              />
+              <TextField
+                label="Description"
+                size="compact"
+                value={draft.description}
+                onChange={(event) => {
+                  setDraft({ ...draft, description: event.target.value });
+                }}
+              />
+            </div>
+          </Panel>
+
+          <Panel title="How it runs">
+            <div className="flex flex-col gap-2 border-t border-border px-5.5 py-4">
+              <span className="text-caption font-medium text-foreground-muted">
+                When it is already running
+              </span>
+              <Segmented
+                label="When it is already running"
+                size="compact"
+                options={AUTOMATION_MODES.map((mode) => ({
+                  value: mode,
+                  label: MODES[mode].label,
+                }))}
+                value={draft.mode}
+                onChange={(mode) => {
+                  setDraft({ ...draft, mode });
+                }}
+              />
+              <span className="text-caption text-foreground-subtle">{MODES[draft.mode].note}</span>
+            </div>
+            <div className="border-t border-border px-5.5 py-4">
+              <TextField
+                label="Stop a run after"
+                size="compact"
+                inputMode="numeric"
+                hint="Seconds. A run that takes longer is ended."
+                className="font-mono"
+                value={String(draft.maxRuntimeSeconds)}
+                onChange={(event) => {
+                  const seconds = Number(event.target.value);
+
+                  if (Number.isFinite(seconds)) {
+                    setDraft({ ...draft, maxRuntimeSeconds: seconds });
+                  }
+                }}
+              />
+            </div>
+            <PanelRow
+              title="Enabled"
+              note="Saved rules run once the engine is on."
+              control={
+                <Switch
+                  label="Enabled"
+                  isOn={draft.isEnabled}
+                  onChange={(isEnabled) => {
+                    setDraft({ ...draft, isEnabled });
+                  }}
+                />
+              }
+            />
+          </Panel>
+        </>
       }
     >
       {problems.length === 0 ? null : (
@@ -184,50 +310,6 @@ export function AutomationEditor() {
           <p className="px-4 py-3.5 text-ui text-danger">{toMessage(save.error)}</p>
         </Panel>
       )}
-
-      <Panel title="What it is">
-        <div className="grid gap-3.5 p-4 sm:grid-cols-2">
-          <TextField
-            label="Name"
-            size="compact"
-            placeholder="Evening lights"
-            value={draft.name}
-            onChange={(event) => {
-              const name = event.target.value;
-
-              setDraft({
-                ...draft,
-                name,
-                ...(isKeyFollowing ? { key: toKey(name) } : {}),
-              });
-            }}
-          />
-
-          <TextField
-            label="Key"
-            size="compact"
-            placeholder="evening_lights"
-            hint="What other automations and the API refer to. It never changes after this."
-            value={draft.key}
-            disabled={!isNew}
-            onChange={(event) => {
-              setKeyFollowing(false);
-              setDraft({ ...draft, key: event.target.value });
-            }}
-          />
-
-          <div className="sm:col-span-2">
-            <TextField
-              label="Description"
-              size="compact"
-              value={draft.description}
-              onChange={(event) => {
-                setDraft({ ...draft, description: event.target.value });
-              }}
-            />
-          </div>
-        </div>
-      </Panel>
 
       <BlockList
         title="When"
@@ -364,37 +446,43 @@ type ShellProps = {
   /** The heading. */
   readonly title: string;
 
+  /** Whether anything changed since it was opened. */
+  readonly isEdited?: boolean;
+
   /** Controls in the header. */
   readonly action?: React.ReactNode;
 
-  /** The body. */
+  /** The 340px column beside the lanes: what it is, how it runs. */
+  readonly aside?: React.ReactNode;
+
+  /** The lanes. */
   readonly children: React.ReactNode;
 };
 
 /**
- * The editor's frame, which is the library page's frame without the collection states.
- *
- * The heading reads `Automations / New automation`, the way the vendor page reads
- * `Integrations / Shelly`: where you are and the way back are the same three words, and the
- * first of them is a link. Cancel does the same thing, but Cancel is at the far end of the bar
- * and says "throw this away" - the crumb says "this is one of those", which is a different fact.
+ * The editor's frame: the way back to the automations, the title with Edited beside it once
+ * anything changed, Cancel and Save on the right; then the lanes, and the side column beside them
+ * on a wide window and under them on a narrow one.
  *
  * @param props - See {@link ShellProps}.
  * @returns The frame.
  */
 function Shell(props: ShellProps) {
-  const { title, action, children } = props;
+  const { title, isEdited = false, action, aside, children } = props;
 
   return (
-    <div className="flex min-h-0 grow flex-col">
-      <DetailHeader
-        crumbs={[{ to: '/automations', label: 'Automations' }]}
-        title={title}
-        actions={action}
-      />
-
-      <div className="min-h-0 grow overflow-y-auto px-8 pt-5 pb-7">
-        <div className="mx-auto flex max-w-3xl flex-col gap-4">{children}</div>
+    <div className="min-h-0 grow overflow-y-auto px-8 pt-6 pb-10">
+      <div className="mx-auto flex max-w-7xl flex-col gap-5">
+        <DetailHero
+          back={<BackLink to="/automations">Automations</BackLink>}
+          title={title}
+          titleAside={isEdited ? <Pill tone="warning">Edited</Pill> : undefined}
+          actions={action}
+        />
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="flex min-w-0 flex-col gap-4">{children}</div>
+          {aside === undefined ? null : <div className="flex flex-col gap-4">{aside}</div>}
+        </div>
       </div>
     </div>
   );

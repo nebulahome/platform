@@ -6,16 +6,21 @@
  * `/automations/new`.
  *
  * **Nothing runs these yet.** The engine is ARCHITECTURE.md §6.1 and is not built, so an
- * automation saved here waits rather than fires. The page says so once, at the top, rather than
- * on every row: it is a fact about the platform, not about any one rule.
+ * automation saved here waits rather than fires. The page says so once, in a banner at the top,
+ * rather than on every row: it is a fact about the platform, not about any one rule.
+ *
+ * As the board draws it: a table sorted by Name or Last run, a page at a time, the page and its
+ * size in the address beside the search and the filter.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { Button } from '@nebulahome/ui';
+import { AppIcon, Button, Note, TableFooter } from '@nebulahome/ui';
 
+import { SortHeader } from '@/components/sort-header';
 import { useListState } from '@/lib/use-list-state';
+import { usePaging } from '@/lib/use-paging';
 import {
   deleteAutomation,
   fetchAutomations,
@@ -96,6 +101,19 @@ export function AutomationsPage() {
 
   const items = automations.data ?? [];
   const shown = items.filter((automation) => matchesAutomationFilter(automation, filter));
+  const paging = usePaging('automations', SORTS, shown.length);
+  const rows = paging.rows(
+    [...shown].sort((left, right) => {
+      const byName = left.name.localeCompare(right.name);
+      const order =
+        paging.sort === 'run'
+          ? (right.lastTriggeredAt?.getTime() ?? 0) - (left.lastTriggeredAt?.getTime() ?? 0) ||
+            byName
+          : byName;
+
+      return paging.direction === 'asc' ? order : -order;
+    }),
+  );
 
   return (
     <LibraryPage
@@ -118,11 +136,11 @@ export function AutomationsPage() {
       }
       action={
         <Button
-          size="compact"
           onClick={() => {
             void navigate('/automations/new');
           }}
         >
+          <AppIcon id="plus" size={15} />
           New automation
         </Button>
       }
@@ -131,16 +149,35 @@ export function AutomationsPage() {
       isEmpty={items.length === 0}
       emptyMessage="No automations yet. Press New automation to write the first one."
     >
-      <div className="overflow-hidden rounded-panel border border-border bg-surface">
+      <Note tone="warning">
+        <span className="font-medium">Nothing runs these yet.</span> The automation engine is not
+        built: an automation saved here waits rather than fires.
+      </Note>
+
+      <div className="overflow-hidden rounded-card border border-border bg-surface">
         <div
-          className={`${AUTOMATION_COLUMNS} border-b border-border px-5.5 py-3 font-mono text-label text-foreground-subtle uppercase`}
-          aria-hidden="true"
+          className={`${AUTOMATION_COLUMNS} border-b border-border px-5 py-3 font-mono text-label text-foreground-subtle uppercase`}
         >
-          <span>Name</span>
-          <span className="hidden md:block">Chain</span>
+          <SortHeader
+            label="Name"
+            isSorted={paging.sort === 'name'}
+            direction={paging.direction}
+            onSort={() => {
+              paging.toggleSort('name');
+            }}
+            className="justify-self-start"
+          />
           <span className="hidden md:block">Mode</span>
-          <span className="hidden md:block">Last run</span>
-          <span className="hidden md:block">Status</span>
+          <span>Enabled</span>
+          <SortHeader
+            label="Last run"
+            isSorted={paging.sort === 'run'}
+            direction={paging.direction}
+            onSort={() => {
+              paging.toggleSort('run');
+            }}
+            className="hidden justify-self-start md:inline-flex"
+          />
           <span />
         </div>
 
@@ -159,7 +196,7 @@ export function AutomationsPage() {
           </div>
         ) : (
           <ul>
-            {shown.map((automation) => (
+            {rows.map((automation) => (
               <AutomationRow
                 key={automation.id}
                 automation={automation}
@@ -177,10 +214,21 @@ export function AutomationsPage() {
             ))}
           </ul>
         )}
+
+        <TableFooter
+          page={paging.page}
+          size={paging.size}
+          total={shown.length}
+          onPage={paging.setPage}
+          onSize={paging.setSize}
+        />
       </div>
     </LibraryPage>
   );
 }
+
+/** The columns the table sorts by; the first is the order it opens in. */
+const SORTS = ['name', 'run'] as const;
 
 /** One thing a row can ask for. */
 type Change =

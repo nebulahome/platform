@@ -8,6 +8,7 @@
  * the failure people report as "automations is broken".
  */
 import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 
 import { entityIdSchema, type AutomationView } from '@nebulahome/contracts';
@@ -59,13 +60,15 @@ function renderRow(automation: AutomationView) {
   const onDelete = vi.fn();
 
   render(
-    <AutomationRow
-      automation={automation}
-      isBusy={false}
-      onEdit={onEdit}
-      onToggle={onToggle}
-      onDelete={onDelete}
-    />,
+    <MemoryRouter>
+      <AutomationRow
+        automation={automation}
+        isBusy={false}
+        onEdit={onEdit}
+        onToggle={onToggle}
+        onDelete={onDelete}
+      />
+    </MemoryRouter>,
   );
 
   return { onEdit, onToggle, onDelete };
@@ -80,32 +83,34 @@ describe('AutomationRow', () => {
     expect(screen.getAllByText('on_off hallway ceiling').length).toBeGreaterThan(0);
   });
 
-  it('offers to turn off what is on, and says which it is', () => {
+  it('turns it off from its switch, which says whether it is on', () => {
     const { onToggle } = renderRow(AUTOMATION);
-    const button = screen.getByRole('button', { name: 'Turn off' });
+    const enabled = screen.getByRole('switch', { name: 'Evening lights enabled' });
 
-    // Announced as well as drawn: the label says what pressing it does and `aria-pressed` says
-    // what state it is in, which are two different questions.
-    expect(button.getAttribute('aria-pressed')).toBe('true');
+    expect(enabled.getAttribute('aria-checked')).toBe('true');
 
-    fireEvent.click(button);
+    fireEvent.click(enabled);
 
     expect(onToggle).toHaveBeenCalledWith(false);
   });
 
-  it('offers to turn on what is off', () => {
+  it('turns on what is off', () => {
     const { onToggle } = renderRow({ ...AUTOMATION, isEnabled: false });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Turn on' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Evening lights enabled' }));
 
     expect(onToggle).toHaveBeenCalledWith(true);
-    expect(screen.getAllByText('Off').length).toBeGreaterThan(0);
   });
 
-  it('offers to edit the rule', () => {
+  it('opens the rule from its name, and edits or deletes it from its menu', () => {
     const { onEdit } = renderRow(AUTOMATION);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByRole('link', { name: 'Evening lights' }).getAttribute('href')).toBe(
+      '/automations/00000000-0000-4000-8000-000000000001',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'More for Evening lights' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Edit' }));
 
     expect(onEdit).toHaveBeenCalledOnce();
   });
@@ -113,7 +118,7 @@ describe('AutomationRow', () => {
   it('says a rule has never run rather than leaving the column empty', () => {
     renderRow(AUTOMATION);
 
-    expect(screen.getAllByText('never run').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Not run yet').length).toBeGreaterThan(0);
   });
 
   it('does not offer to run one, because nothing would', () => {

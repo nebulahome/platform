@@ -1,19 +1,22 @@
 /**
- * One automation in the list table.
+ * One automation in the list table, as the board draws it: its name with the chain under it -
+ * what wakes it, what it checks, what it does - its mode, Enabled as a switch, its last run, and a
+ * menu.
  *
- * The whole chain on one line — what wakes it, what it checks, what it does — because the
- * question somebody scanning this page is asking is "which one is the porch light", and reading
- * the rule is how they answer it.
+ * The chain is under the name because the question somebody scanning this page is asking is
+ * "which one is the porch light", and reading the rule is how they answer it.
  *
  * **Enabled is a switch, and it writes.** It is the one thing about an automation that can be
- * changed without opening anything. Edit opens the editor; Delete removes the row.
+ * changed without opening anything. The name opens the editor; the menu has Edit and Delete.
  *
- * There is no Run button. `POST /automations/:id/trigger` does not exist, because nothing is
+ * There is no Run now. `POST /automations/:id/trigger` does not exist, because nothing is
  * listening yet (API.md §10), and a button that posted to it would fail at the one moment it
- * mattered.
+ * mattered. The last run says "Not run yet" for the same reason.
  */
+import { Link } from 'react-router';
+
 import type { AutomationView } from '@nebulahome/contracts';
-import { Badge, Button, cn } from '@nebulahome/ui';
+import { OverflowMenu, Switch } from '@nebulahome/ui';
 
 import { summaryOf, type AutomationSummary } from '@/lib/describe-automation';
 import { relativeTime } from '@/lib/format-time';
@@ -22,12 +25,12 @@ import { MODE_LABELS } from '@/library/automation-filters';
 /**
  * The column widths, shared by the header and every row so they line up.
  *
- * Name and chain take the flexible room; mode, last run, status and the actions stay fixed so a
- * long summary never shoves Edit off the edge of a narrow window.
+ * The name and its chain take the flexible room; mode, enabled, last run and the menu stay fixed
+ * so a long summary never shoves the menu off the edge of a narrow window.
  */
 export const AUTOMATION_COLUMNS =
-  'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 ' +
-  'md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_88px_104px_72px_auto]';
+  'grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 ' +
+  'md:grid-cols-[minmax(0,1fr)_96px_72px_120px_36px]';
 
 /** What one row needs. */
 export type AutomationRowProps = {
@@ -61,77 +64,66 @@ export function AutomationRow(props: AutomationRowProps) {
   const { automation, isBusy, onEdit, onToggle, onDelete } = props;
   const summary = summaryOf(automation.definition);
   const lastRun =
-    automation.lastTriggeredAt === null ? 'never run' : relativeTime(automation.lastTriggeredAt);
+    automation.lastTriggeredAt === null
+      ? 'Not run yet'
+      : `Ran ${relativeTime(automation.lastTriggeredAt)}`;
 
   return (
-    <li className="border-b border-border last:border-b-0">
-      <div className={`${AUTOMATION_COLUMNS} px-5.5 py-3.5`}>
-        <span className="min-w-0 truncate text-ui font-medium text-foreground">
+    <li className={`${AUTOMATION_COLUMNS} border-t border-border px-5 py-3 first:border-t-0`}>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <Link
+          to={`/automations/${automation.id}`}
+          className="truncate text-ui font-medium text-foreground transition-colors hover:text-primary"
+        >
           {automation.name}
-        </span>
-
-        <span className="hidden min-w-0 md:block">
-          <Chain summary={summary} />
-        </span>
-
-        <span className="hidden text-ui text-foreground-muted md:block">
-          {MODE_LABELS[automation.mode]}
-        </span>
-
-        <span className="hidden text-caption text-foreground-subtle tabular md:block">
-          {lastRun}
-        </span>
-
-        <span className="hidden md:block">
-          <Badge tone={automation.isEnabled ? 'success' : 'neutral'} size="small">
-            {automation.isEnabled ? 'Enabled' : 'Off'}
-          </Badge>
-        </span>
-
-        <span className="flex flex-wrap items-center justify-end gap-2">
-          <Button variant="ghost" size="compact" onClick={onEdit}>
-            Edit
-          </Button>
-          <Button
-            variant="ghost"
-            size="compact"
-            isBusy={isBusy}
-            aria-pressed={automation.isEnabled}
-            onClick={() => {
-              onToggle(!automation.isEnabled);
-            }}
-          >
-            {automation.isEnabled ? 'Turn off' : 'Turn on'}
-          </Button>
-          <Button variant="danger" size="compact" disabled={isBusy} onClick={onDelete}>
-            Delete
-          </Button>
-        </span>
-      </div>
-
-      {/* Narrow windows: chain, mode and standing under the name, since the grid collapses. */}
-      <div className="flex flex-col gap-1.5 px-4 pb-3 md:hidden">
+        </Link>
         <Chain summary={summary} />
-        <span className="text-caption text-foreground-muted">
-          {automation.mode} · {lastRun}
-        </span>
-        <span className="flex flex-wrap items-center gap-1.5">
-          <Badge tone={automation.isEnabled ? 'success' : 'neutral'} size="small">
-            {automation.isEnabled ? 'Enabled' : 'Off'}
-          </Badge>
-        </span>
-      </div>
+      </span>
+
+      <span className="hidden text-ui-sm text-foreground-muted md:block">
+        {MODE_LABELS[automation.mode]}
+      </span>
+
+      <span>
+        <Switch
+          label={`${automation.name} enabled`}
+          isOn={automation.isEnabled}
+          isBusy={isBusy}
+          onChange={onToggle}
+        />
+      </span>
+
+      <span className="hidden font-mono text-mono-caption text-foreground-subtle tabular md:block">
+        {lastRun}
+      </span>
+
+      <OverflowMenu
+        label={`More for ${automation.name}`}
+        items={[
+          { label: 'Edit', icon: 'pencil', onSelect: onEdit },
+          {
+            label: 'Delete',
+            icon: 'trash-2',
+            tone: 'danger',
+            disabled: isBusy,
+            onSelect: onDelete,
+          },
+        ]}
+      />
     </li>
   );
 }
 
-/** What the chain cell needs. */
+/** What the chain line needs. */
 type ChainProps = {
   readonly summary: AutomationSummary | null;
 };
 
 /**
  * The trigger → if → then line, or a warning when the document cannot be read.
+ *
+ * The arrows are hidden from a screen reader: read aloud, the chain is three phrases in a row,
+ * and an arrow between them is punctuation rather than a word.
  *
  * @param props - See {@link ChainProps}.
  * @returns The chain.
@@ -148,50 +140,16 @@ function Chain(props: ChainProps) {
   }
 
   return (
-    <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-caption">
-      <Step>{summary.trigger}</Step>
+    <span className="truncate text-ui-sm text-foreground-subtle">
+      <span>{summary.trigger}</span>
       {summary.conditions === null ? null : (
         <>
-          <Arrow />
-          <Step>{summary.conditions}</Step>
+          <span aria-hidden="true"> → </span>
+          <span>{summary.conditions}</span>
         </>
       )}
-      <Arrow />
-      <Step>{summary.actions}</Step>
-    </span>
-  );
-}
-
-/** What one step of the chain needs. */
-type StepProps = {
-  /** The phrase. */
-  readonly children: string;
-};
-
-/**
- * One phrase of the chain.
- *
- * @param props - See {@link StepProps}.
- * @returns The phrase.
- */
-function Step(props: StepProps) {
-  const { children } = props;
-
-  return <span className={cn('text-foreground-muted')}>{children}</span>;
-}
-
-/**
- * The mark between two steps.
- *
- * Hidden from a screen reader: read aloud, the chain is three phrases in a row, and an arrow
- * between them is punctuation rather than a word.
- *
- * @returns The arrow.
- */
-function Arrow() {
-  return (
-    <span aria-hidden="true" className="text-foreground-subtle">
-      →
+      <span aria-hidden="true"> → </span>
+      <span>{summary.actions}</span>
     </span>
   );
 }
