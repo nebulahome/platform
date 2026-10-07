@@ -1,12 +1,17 @@
 # Bundles under development
 
-The product ships with no integration: a production hub reads only the data directory's
-`hub/integrations`, where a download from the integrations catalogue will land. Until that
-catalogue exists, the bundles written in this repository live here, and outside production the
-hub reads this directory beside the data directory - `HUB_DEV_BUNDLE_DIR` defaults to it - so
-anything here is loaded at startup without anybody installing it. A bundle with the same id in
-`hub/integrations` replaces the one here, and the log says so. A production image does not
-contain this directory.
+The vendors written in this repository, from before integrations had repositories of their own.
+A **new** vendor does not go here: it is a repository `integration-<vendor>`, started from
+[`integration-template`](https://github.com/nebulahome/integration-template) and built with
+`@nebulahome/integration-sdk` (`packages/integration-sdk`), which checks it with the hub's own
+loader, builds its TypeScript and packs the release the Community Hub imports.
+
+A production hub reads the data directory's `hub/integrations`, where the platform installs a
+vendor from the Community Hub or its local folder. Outside production the hub reads this directory
+beside it - `HUB_DEV_BUNDLE_DIR` defaults to it, and may name several directories, an integration
+repository's `dist/` among them - so anything here is loaded at startup without anybody
+installing it. A bundle with the same id in `hub/integrations` replaces the one here, and the log
+says so. Until these vendors move out, the image carries this directory too.
 
 Loaded means present and offering to connect to devices; nothing is connected until somebody
 adds one. Adding one is the whole of it: a device added from the vendor's page is an instance of its

@@ -28,6 +28,7 @@ Integrations are not packages: they live in `apps/hub`. See PACKAGES.md, beside 
 | `packages/package-runtime` | Integration contract: transports, bundles, profiles      |
 | `packages/package-host`    | The runner of a package's process, and its context       |
 | `packages/package-sdk`     | `@nebulahome/package-sdk`, on npm: what packages use     |
+| `packages/integration-sdk` | `@nebulahome/integration-sdk`: what integrations use     |
 | `packages/ui`              | Design system: Tailwind and shadcn/ui components         |
 | `infra/`                   | The container, docker-compose, seeds, the data directory |
 | `Dockerfile`               | The one image: database, bus and every service           |

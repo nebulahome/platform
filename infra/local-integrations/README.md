@@ -5,8 +5,9 @@ packet-manager offers each one in **Integrations → Install**, beside the integ
 releases, and installs it the way it installs a downloaded one: the same checks, a folder of its
 own build under `hub/integrations/<vendor>/`, and `hub` loading it without restarting.
 
-1. In the integration's repository: `pnpm build` and `pnpm pack` (`nebulahome-integration build`,
-   then `pack`): only `<vendor>-<version>.tgz` is written, its files under a `<vendor>/` folder.
+1. In the integration's repository: `pnpm nebulahome-integration build`, then
+   `pnpm nebulahome-integration pack` (`pnpm pack` is pnpm's own command, not this one): only
+   `<vendor>-<version>.tgz` is written, its files under a `<vendor>/` folder.
 2. Copy `<vendor>-<version>.tgz` here.
 3. In the interface, **Integrations → Install**: the integration is listed first, as a local file.
    Install it; its page opens once `hub` has loaded it.
