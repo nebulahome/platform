@@ -185,8 +185,8 @@ export function HistoryPanel(props: HistoryPanelProps) {
                   {
                     key: 'value',
                     label: reading.sensorFigure?.classLabel ?? 'Reading',
-                    color: 'var(--color-primary)',
-                    dotClass: 'bg-primary',
+                    color: 'var(--color-cyan)',
+                    dotClass: 'bg-cyan',
                   },
                 ]}
                 window={telemetry.data.window}

@@ -94,10 +94,10 @@ export function FilterSheet(props: FilterSheetProps) {
     <div ref={root} className="relative">
       <Button
         variant="ghost"
-        size="compact"
+        size="medium"
         aria-expanded={isOpen}
         aria-controls={sheetId}
-        className={cn(count > 0 ? 'text-primary' : undefined)}
+        className={cn(count > 0 ? 'border-primary bg-primary-soft text-primary' : undefined)}
         onClick={() => {
           setOpen((current) => !current);
         }}
@@ -105,7 +105,9 @@ export function FilterSheet(props: FilterSheetProps) {
         <FilterIcon width="15" height="15" />
         <span>Filter</span>
         {count > 0 ? (
-          <span className="rounded-full bg-primary/15 px-1.5 text-label tabular">{count}</span>
+          <span className="rounded-pill bg-primary/15 px-1.5 font-mono text-label tabular">
+            {count}
+          </span>
         ) : null}
       </Button>
 
@@ -115,8 +117,8 @@ export function FilterSheet(props: FilterSheetProps) {
           role="group"
           aria-label={label}
           className={cn(
-            'absolute top-full right-0 z-40 mt-2 flex flex-col gap-4 rounded-field border',
-            'animate-rise border-border-strong bg-surface p-4 shadow-dialog',
+            'absolute top-full right-0 z-40 mt-2 flex flex-col gap-4 rounded-card border',
+            'animate-rise border-border-strong bg-surface p-4 shadow-float',
             width === 'wide' ? 'w-80' : 'w-72',
           )}
         >

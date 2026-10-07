@@ -87,7 +87,7 @@ export function ClockCard(props: ClockCardProps) {
           className={
             isLarge
               ? 'font-mono text-mono-reading leading-none tabular'
-              : 'text-reading leading-none font-semibold tabular'
+              : 'text-reading leading-none font-medium tabular'
           }
         >
           {time}

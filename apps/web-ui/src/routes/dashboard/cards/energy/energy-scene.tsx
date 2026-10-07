@@ -544,7 +544,7 @@ function Label(props: LabelProps) {
         y={valueY}
         fontSize={metrics.figure}
         textAnchor={isEnd ? 'end' : 'start'}
-        className="fill-foreground font-semibold tabular"
+        className="fill-foreground font-medium tabular"
       >
         {value}
       </text>

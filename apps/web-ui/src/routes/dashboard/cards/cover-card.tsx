@@ -110,7 +110,7 @@ export function CoverCard(props: { readonly model: EntityCardModel }) {
           <div key={slat} className="h-2 rounded-[2px] bg-foreground-subtle/60 shadow-sm" />
         ))}
       </div>
-      <span className="mt-3 text-headline leading-none font-semibold tabular">{words}</span>
+      <span className="mt-3 text-headline leading-none font-medium tabular">{words}</span>
       <div className="grow" />
       {moves}
     </CardFrame>

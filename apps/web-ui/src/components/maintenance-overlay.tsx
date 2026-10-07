@@ -130,7 +130,7 @@ export function MaintenanceOverlay() {
       className="fixed inset-0 z-[100] grid place-items-center bg-canvas/92 px-4 backdrop-blur-sm"
     >
       <div className="flex w-full max-w-md flex-col gap-4 rounded-panel border border-border bg-surface p-6">
-        <h2 id="maintenance-title" className="text-subhead font-semibold text-foreground">
+        <h2 id="maintenance-title" className="text-subhead font-medium text-foreground">
           {ended === null
             ? 'Restoring from a backup'
             : isRestored

@@ -100,7 +100,7 @@ function Dial(props: DialProps) {
         <circle cx={knob.x} cy={knob.y} r="2.6" fill="var(--color-knob)" />
       </svg>
       <div className="absolute inset-x-0 flex translate-y-0.5 flex-col items-center gap-0.5">
-        <span className="text-reading leading-none font-semibold tabular">
+        <span className="text-reading leading-none font-medium tabular">
           {isOff ? 'Off' : `${temperature.format(target)}°`}
         </span>
         {now === undefined ? null : (

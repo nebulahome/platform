@@ -58,7 +58,7 @@ function EntitySummary(props: EntitySummaryProps) {
         isAvailable={reading.isAvailable}
       />
       <div className="flex min-w-0 grow flex-col gap-1">
-        <h2 className="truncate text-headline font-semibold tracking-tight">{entity.name}</h2>
+        <h2 className="truncate text-headline font-medium">{entity.name}</h2>
         <p className="text-ui text-foreground-muted">
           {kind.label}
           {place === '' ? null : <span className="text-foreground-subtle"> · {place}</span>}

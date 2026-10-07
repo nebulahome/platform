@@ -107,7 +107,7 @@ export function SystemDiskCard(props: SystemDiskCardProps) {
     >
       <div className="flex flex-col gap-4 px-4 py-4">
         <div className="flex items-baseline gap-3">
-          <span className="text-reading font-semibold tracking-tight tabular">
+          <span className="text-reading font-medium tabular">
             {formatPercent(diskPercent(disk))}
           </span>
           <span className="text-caption text-foreground-subtle">

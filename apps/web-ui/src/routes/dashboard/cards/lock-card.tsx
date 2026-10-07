@@ -106,7 +106,7 @@ export function LockCard(props: { readonly model: EntityCardModel }) {
           <AppIcon id={shown.icon} size={28} />
         </span>
         <span className="flex flex-col items-center gap-0.5">
-          <span className={cn('text-headline font-semibold', shown.text)}>{shown.label}</span>
+          <span className={cn('text-headline font-medium', shown.text)}>{shown.label}</span>
           {model.changedAt === null ? null : (
             <span className="text-caption text-foreground-subtle">
               since {cardTime(model.changedAt)}

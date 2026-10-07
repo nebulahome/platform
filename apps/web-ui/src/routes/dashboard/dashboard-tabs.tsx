@@ -36,20 +36,17 @@ export function DashboardTabs(props: DashboardTabsProps) {
   const isCurrent = (dashboardId: string): boolean => dashboardId === currentId;
 
   return (
-    <nav
-      aria-label="Dashboards"
-      className="flex min-w-0 items-center gap-1 overflow-x-auto rounded-full border border-border bg-surface-raised p-1"
-    >
+    <nav aria-label="Dashboards" className="flex min-w-0 items-center gap-1 overflow-x-auto">
       {dashboards.map((dashboard) => (
         <NavLink
           key={dashboard.id}
           to={`/dashboards/${dashboard.id}`}
           className={({ isActive }) =>
             cn(
-              'press flex h-7 shrink-0 items-center rounded-full px-3.5 text-ui whitespace-nowrap transition-colors',
+              'press flex h-8.5 shrink-0 items-center rounded-pill border px-3.5 text-ui whitespace-nowrap transition-colors',
               isActive || isCurrent(dashboard.id)
-                ? 'bg-surface-high font-medium text-foreground'
-                : 'text-foreground-muted hover:text-foreground',
+                ? 'border-border-strong bg-surface-raised font-medium text-foreground'
+                : 'border-transparent text-foreground-muted hover:text-foreground',
             )
           }
         >

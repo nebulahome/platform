@@ -67,7 +67,7 @@ function DeviceSummary(props: DeviceSummaryProps) {
         <DeviceIcon icon={icons.get(device.icon ?? '')} size={28} />
       </span>
       <div className="flex min-w-0 grow flex-col gap-1">
-        <h2 className="truncate text-headline font-semibold tracking-tight">{device.name}</h2>
+        <h2 className="truncate text-headline font-medium">{device.name}</h2>
         <p className="text-ui text-foreground-muted">
           {make === '' ? (device.series ?? device.driverName) : make}
           {place === '' ? null : <span className="text-foreground-subtle"> · {place}</span>}

@@ -177,7 +177,7 @@ function Message(props: { readonly read: ReadLine; readonly search: string }) {
       {read.segments.map((segment, index) => {
         const className = cn(
           segment.tone === null ? undefined : TONE_CLASSES[segment.tone],
-          segment.isBold && 'font-semibold',
+          segment.isBold && 'font-medium',
         );
 
         if (needle === '') {
@@ -250,7 +250,7 @@ function LogRow(props: {
       >
         {line.at === null ? '—' : TIME.format(line.at)}
       </span>
-      <span className={cn('font-semibold select-none', level?.className ?? 'text-transparent')}>
+      <span className={cn('font-medium select-none', level?.className ?? 'text-transparent')}>
         {level?.label ?? '·'}
       </span>
       <span

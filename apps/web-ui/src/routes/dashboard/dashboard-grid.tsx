@@ -816,9 +816,7 @@ function ContainerView(props: ContainerViewProps) {
           )}
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-subhead font-semibold tracking-tight">
-            {container.title}
-          </span>
+          <span className="truncate text-subhead font-medium">{container.title}</span>
           <span className="text-caption text-foreground-subtle tabular">
             {count === 0 ? 'Empty' : `${String(count)} ${count === 1 ? 'card' : 'cards'}`}
           </span>

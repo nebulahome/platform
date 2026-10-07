@@ -141,14 +141,12 @@ function Header(props: HeaderProps) {
   const state = PACKAGE_STATE_OF[found.state];
 
   return (
-    <section className="flex flex-wrap items-start gap-x-4.5 gap-y-4 rounded-panel border border-border bg-surface p-5 md:flex-nowrap">
+    <section className="flex flex-wrap items-start gap-x-4.5 gap-y-4 rounded-panel border border-border bg-surface p-5.5 md:flex-nowrap">
       <PackageLogo found={found} size={56} />
 
       <div className="flex min-w-0 grow flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2.5">
-          <h2 className="text-headline-sm font-semibold tracking-tight text-foreground">
-            {found.name}
-          </h2>
+          <h2 className="text-headline font-medium text-foreground">{found.name}</h2>
           <Badge tone={state.tone} size="small">
             {state.label}
           </Badge>

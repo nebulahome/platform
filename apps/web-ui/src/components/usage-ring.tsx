@@ -59,7 +59,7 @@ export function UsageRing(props: UsageRingProps) {
         </RadialBarChart>
       </div>
 
-      <span className="absolute inset-0 flex items-center justify-center text-title font-semibold tabular">
+      <span className="absolute inset-0 flex items-center justify-center text-title font-medium tabular">
         {formatPercent(percent)}
       </span>
     </div>

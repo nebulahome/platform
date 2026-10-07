@@ -721,9 +721,7 @@ export function ContainerPage() {
               <section className="flex flex-wrap items-center gap-4">
                 <ContainerTile name={view.name} icon="container" size={56} />
                 <div className="flex min-w-0 grow flex-col gap-1">
-                  <h2 className="truncate text-headline font-semibold tracking-tight">
-                    {view.displayName}
-                  </h2>
+                  <h2 className="truncate text-headline font-medium">{view.displayName}</h2>
                   <p className="truncate font-mono text-caption text-foreground-muted">
                     {view.name} · {view.image}
                   </p>

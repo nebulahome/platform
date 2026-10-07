@@ -146,9 +146,7 @@ export function Stat(props: { readonly value: number; readonly noun: string }) {
 
   return (
     <span className="flex flex-col items-end gap-0.5 pl-5">
-      <span className="text-headline font-semibold tracking-tight text-foreground tabular">
-        {value}
-      </span>
+      <span className="font-mono text-reading-sm font-medium text-foreground tabular">{value}</span>
       <span className="text-caption text-foreground-subtle">{noun}</span>
     </span>
   );
@@ -407,14 +405,12 @@ export function VendorPage() {
       >
         {found === undefined ? null : (
           <>
-            <section className="flex flex-wrap items-start gap-x-4.5 gap-y-4 rounded-panel border border-border bg-surface p-5 md:flex-nowrap">
+            <section className="flex flex-wrap items-start gap-x-4.5 gap-y-4 rounded-panel border border-border bg-surface p-5.5 md:flex-nowrap">
               <VendorLogo vendor={found} size={56} />
 
               <div className="flex min-w-0 grow flex-col gap-2">
                 <div className="flex items-center gap-2.5">
-                  <h2 className="text-headline-sm font-semibold tracking-tight text-foreground">
-                    {found.name}
-                  </h2>
+                  <h2 className="text-headline font-medium text-foreground">{found.name}</h2>
                   <Marks vendor={found} size="small" />
                 </div>
 
@@ -429,7 +425,7 @@ export function VendorPage() {
                     <span key="id" className="font-mono">
                       {found.id}
                     </span>,
-                    <span key="version" className="tabular">
+                    <span key="version" className="font-mono tabular">
                       v{found.version}
                     </span>,
                     found.configuredAt === null ? null : (

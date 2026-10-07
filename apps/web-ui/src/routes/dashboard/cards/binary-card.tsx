@@ -74,7 +74,7 @@ export function BinaryCard(props: { readonly model: EntityCardModel }) {
       <div className="mt-3 flex flex-col gap-0.5">
         <span
           className={cn(
-            'text-headline leading-tight font-semibold',
+            'text-headline leading-tight font-medium',
             isOn ? 'text-primary' : 'text-foreground-muted',
           )}
         >

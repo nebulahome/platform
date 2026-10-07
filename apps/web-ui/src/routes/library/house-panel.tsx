@@ -97,7 +97,7 @@ export function HousePanel(props: HousePanelProps) {
         <div className="flex min-w-0 items-center gap-3">
           <DeviceIcon icon={icons.get(HOUSE_ICON)} size={28} className="text-foreground" />
           <div className="flex min-w-0 flex-col gap-0.5">
-            <h2 id="house-name" className="truncate text-subhead font-semibold text-foreground">
+            <h2 id="house-name" className="truncate text-subhead font-medium text-foreground">
               {house.name}
             </h2>
             <p className="text-caption text-foreground-subtle">{describePosition(house)}</p>

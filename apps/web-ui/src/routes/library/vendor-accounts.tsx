@@ -182,7 +182,7 @@ export function VendorAccounts(props: VendorAccountsProps) {
                 >
                   <span
                     aria-hidden="true"
-                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/13 text-ui font-semibold text-primary"
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/13 text-ui font-medium text-primary"
                   >
                     {initialOf(account.label)}
                   </span>

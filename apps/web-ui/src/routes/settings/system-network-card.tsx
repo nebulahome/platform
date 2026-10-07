@@ -55,7 +55,7 @@ function Rate(props: RateProps) {
         {icon}
         {label}
       </span>
-      <span className="text-reading font-semibold tracking-tight tabular">{formatRate(rate)}</span>
+      <span className="text-reading font-medium tabular">{formatRate(rate)}</span>
       <span className="text-caption text-foreground-subtle tabular">
         {formatBytes(total)} {totalLabel}
       </span>

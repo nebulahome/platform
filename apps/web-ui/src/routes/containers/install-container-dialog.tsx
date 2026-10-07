@@ -123,7 +123,7 @@ function ImageSearch(props: ImageSearchProps) {
   return (
     <>
       <div className="flex flex-col gap-3 border-b border-border p-4">
-        <h3 id={`${id}-label`} className="text-title font-semibold">
+        <h3 id={`${id}-label`} className="text-title font-medium">
           Docker Hub
         </h3>
         <SearchField

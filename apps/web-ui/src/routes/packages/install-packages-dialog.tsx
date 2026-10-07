@@ -161,7 +161,7 @@ function CatalogueSearch(props: CatalogueSearchProps) {
   return (
     <>
       <div className="flex flex-col gap-3 border-b border-border p-4">
-        <h3 id={`${id}-label`} className="text-title font-semibold">
+        <h3 id={`${id}-label`} className="text-title font-medium">
           Community Hub
         </h3>
         <SearchField
@@ -352,7 +352,7 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
             <ListingLogo listing={picked} size={48} />
             <div className="flex min-w-0 flex-col gap-1">
               <span className="flex flex-wrap items-center gap-2">
-                <span className="text-title font-semibold">{picked.name}</span>
+                <span className="text-title font-medium">{picked.name}</span>
                 <Badge tone="neutral" size="small">
                   {picked.category}
                 </Badge>

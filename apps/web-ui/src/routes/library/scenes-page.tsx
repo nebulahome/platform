@@ -282,7 +282,7 @@ export function ScenesPage() {
                       className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-tile bg-surface-raised text-foreground-muted"
                     >
                       {scene.icon === null ? (
-                        <span className="text-subhead leading-none font-semibold tracking-tight">
+                        <span className="text-subhead leading-none font-medium">
                           {scene.name.charAt(0).toUpperCase()}
                         </span>
                       ) : (

@@ -141,7 +141,7 @@ export function BackupProgressCard(props: BackupProgressCardProps) {
           />
         </span>
         <div className="flex min-w-0 grow flex-col gap-0.5">
-          <h3 className="text-title font-semibold text-foreground">{title}</h3>
+          <h3 className="text-title font-medium text-foreground">{title}</h3>
           <p
             className={cn(
               'text-ui break-words',

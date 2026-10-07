@@ -394,14 +394,12 @@ export function ComposePage() {
           )
         ) : (
           <>
-            <section className="flex flex-wrap items-start gap-x-4.5 gap-y-4 rounded-panel border border-border bg-surface p-5 md:flex-nowrap">
+            <section className="flex flex-wrap items-start gap-x-4.5 gap-y-4 rounded-panel border border-border bg-surface p-5.5 md:flex-nowrap">
               <ContainerTile name={group.project} icon="layers" size={56} />
 
               <div className="flex min-w-0 grow flex-col gap-2">
                 <div className="flex items-center gap-2.5">
-                  <h2 className="text-headline-sm font-semibold tracking-tight text-foreground">
-                    {group.title}
-                  </h2>
+                  <h2 className="text-headline font-medium text-foreground">{group.title}</h2>
                   <Badge tone={group.isSystem ? 'accent' : 'neutral'} size="small">
                     {group.isSystem ? 'System' : 'Compose'}
                   </Badge>

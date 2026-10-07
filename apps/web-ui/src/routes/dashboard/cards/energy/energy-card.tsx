@@ -118,7 +118,7 @@ function DayLine(props: DayLineProps) {
     <div className="flex min-w-0 items-center gap-2.5 border-t border-border py-2.5 first:border-t-0 [.grid-cols-2>&]:border-t-0">
       <AppIcon id={icon} size={16} className="shrink-0 text-foreground-subtle" />
       <div className="flex min-w-0 flex-col">
-        <span className="text-ui leading-tight font-semibold text-foreground">{title}</span>
+        <span className="text-ui leading-tight font-medium text-foreground">{title}</span>
         <span className={cn('text-caption text-foreground-muted tabular', !wraps && 'truncate')}>
           {detail}
         </span>
@@ -234,10 +234,7 @@ export function EnergyCard(props: EnergyCardProps) {
     <CardFrame label={title} className="gap-1">
       <div className="flex items-baseline justify-between gap-2">
         <span
-          className={cn(
-            'text-subhead font-semibold',
-            color === undefined && 'text-foreground-muted',
-          )}
+          className={cn('text-subhead font-medium', color === undefined && 'text-foreground-muted')}
           /* eslint-disable-next-line react/forbid-dom-props -- the colour of the power, one of three
              tokens chosen at render. */
           style={color === undefined ? undefined : { color }}

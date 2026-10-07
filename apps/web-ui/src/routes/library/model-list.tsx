@@ -181,7 +181,7 @@ export function ModelList(props: ModelListProps) {
     <>
       <div className="flex flex-col gap-3 border-b border-border p-4">
         <div className="flex items-baseline justify-between gap-2">
-          <h3 id={`${id}-label`} className="text-title font-semibold">
+          <h3 id={`${id}-label`} className="text-title font-medium">
             Model
           </h3>
           <span className="text-caption text-foreground-subtle tabular">

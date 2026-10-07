@@ -134,7 +134,7 @@ export function CardInspector(props: CardInspectorProps) {
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-col gap-0.5">
-          <h2 className="text-title font-semibold tracking-tight">{TYPE_NAMES[card.type]}</h2>
+          <h2 className="text-title font-medium">{TYPE_NAMES[card.type]}</h2>
           <p className="truncate text-caption text-foreground-subtle">{cardTitle(card, data)}</p>
         </div>
         <IconButton variant="raised" size="small" label="Close the inspector" onClick={onClose}>

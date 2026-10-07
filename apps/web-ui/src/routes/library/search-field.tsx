@@ -43,7 +43,7 @@ export function SearchField(props: SearchFieldProps) {
           <AppIcon
             id="search"
             size={14}
-            className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-foreground-subtle"
+            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-foreground-subtle"
           />
           <input
             id={ids.id}
@@ -54,8 +54,9 @@ export function SearchField(props: SearchFieldProps) {
             aria-describedby={ids.describedBy}
             className={cn(
               controlFace({ size: 'compact' }),
-              // The browser's own cross is hidden: this box draws one that every browser shows.
-              'pr-8 pl-8 [&::-webkit-search-cancel-button]:appearance-none',
+              // A search is a pill on the page's own ground, as tall as the buttons beside it. The
+              // browser's own cross is hidden: this box draws one that every browser shows.
+              'h-control rounded-pill bg-surface pr-8 pl-8.5 text-ui [&::-webkit-search-cancel-button]:appearance-none',
             )}
             onChange={(event) => {
               onChange(event.target.value);
@@ -72,7 +73,7 @@ export function SearchField(props: SearchFieldProps) {
             <IconButton
               size="small"
               label="Clear the search"
-              className="absolute top-1/2 right-0.5 size-6 -translate-y-1/2"
+              className="absolute top-1/2 right-1.5 size-6 -translate-y-1/2"
               onClick={() => {
                 onChange('');
               }}

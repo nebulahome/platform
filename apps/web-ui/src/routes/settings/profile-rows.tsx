@@ -141,7 +141,7 @@ export function ProfileRows() {
             />
             <span className="flex flex-col gap-1">
               <span className="flex items-center gap-2.5">
-                <span className="text-subhead font-semibold">{user.displayName}</span>
+                <span className="text-subhead font-medium">{user.displayName}</span>
                 <Badge tone="accent">
                   <span className="capitalize">{user.role}</span>
                 </Badge>
