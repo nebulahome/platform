@@ -100,8 +100,9 @@ describe('the system monitor page', () => {
 
     expect(await screen.findByText('nebula-box')).toBeTruthy();
     expect(screen.getByText(/Linux 6\.8\.0 · x64 · up 3 d 4 h/)).toBeTruthy();
-    expect(screen.getByText('4 cores')).toBeTruthy();
-    expect(screen.getByText('4.0 GB in use')).toBeTruthy();
+    // The processor's tile names it and its cores; the memory's says how much of how much.
+    expect(screen.getByText(/· 4 cores$/u)).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Memory' }).textContent).toMatch(/4\.0 GB of/u);
   });
 
   it('reads the network in both directions, with what it has carried', async () => {

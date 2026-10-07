@@ -15,8 +15,8 @@ import { formatBytes } from '@/lib/format-bytes';
 import { SystemDiskCard } from '@/routes/settings/system-disk-card';
 import { SystemHostStrip } from '@/routes/settings/system-host-strip';
 import { SystemNetworkCard } from '@/routes/settings/system-network-card';
-import { SystemUsageCard } from '@/routes/settings/system-usage-card';
-import { cpuSeries, latestSample, memoryPercent, memorySeries } from '@/system/system-readings';
+import { SystemTile } from '@/routes/settings/system-tile';
+import { latestSample, memoryPercent } from '@/system/system-readings';
 import { useSystemMonitor } from '@/system/use-system-monitor';
 
 /**
@@ -57,30 +57,39 @@ export function SystemMonitor() {
         isStale={monitor.isRefetchError}
       />
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <SystemUsageCard
+      <div className="grid gap-4 md:grid-cols-3">
+        <SystemTile
           title="Processor"
+          detail={`${host.cpuModel} · ${String(host.cpuCount)} cores`}
           percent={latest?.cpuPercent ?? null}
-          details={[host.cpuModel, `${String(host.cpuCount)} cores`]}
-          series={cpuSeries(samples)}
-          color="var(--color-primary)"
-          dotClass="bg-primary"
+          series={samples.map((sample) => sample.cpuPercent)}
+          colour="cyan"
         />
-
-        <SystemUsageCard
+        <SystemTile
           title="Memory"
-          percent={latest === undefined ? null : memoryPercent(latest)}
-          details={
+          detail={
             latest === undefined
-              ? ['Waiting for the first reading']
-              : [
-                  `${formatBytes(latest.memoryUsedBytes)} in use`,
-                  `of ${formatBytes(latest.memoryTotalBytes)}`,
-                ]
+              ? 'Waiting for the first reading'
+              : `${formatBytes(latest.memoryUsedBytes)} of ${formatBytes(latest.memoryTotalBytes)}`
           }
-          series={memorySeries(samples)}
-          color="var(--color-tag-teal)"
-          dotClass="bg-tag-teal"
+          percent={latest === undefined ? null : memoryPercent(latest)}
+          series={samples.map((sample) => memoryPercent(sample))}
+          colour="lamp"
+        />
+        <SystemTile
+          title="Disk"
+          detail={
+            snapshot.disk === null
+              ? 'Not counted yet'
+              : `${formatBytes(snapshot.disk.usedBytes)} of ${formatBytes(snapshot.disk.usedBytes + snapshot.disk.freeBytes)}`
+          }
+          percent={
+            snapshot.disk === null || snapshot.disk.usedBytes + snapshot.disk.freeBytes === 0
+              ? null
+              : (snapshot.disk.usedBytes / (snapshot.disk.usedBytes + snapshot.disk.freeBytes)) *
+                100
+          }
+          colour="violet"
         />
       </div>
 
