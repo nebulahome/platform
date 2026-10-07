@@ -1,12 +1,18 @@
 /**
- * Installing packages from the Community Hub: the search, the local folder's files beside it,
- * what installing one would take - with what it needs, or why it cannot be - and the install.
+ * Installing packages from the Community Hub: the search, the local folder's files listed first,
+ * a package's own page with what installing it would take - with what it needs, or why it cannot
+ * be - the install, and the way back to the results.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { installPackage, planPackage, searchCatalogue } from '@/packages/api';
+import {
+  fetchPackageCatalogueDetail,
+  installPackage,
+  planPackage,
+  searchCatalogue,
+} from '@/packages/api';
 import { aListing, aPackage } from '@/testing/package-fixtures';
 
 import { InstallPackagesDialog } from './install-packages-dialog';
@@ -15,12 +21,14 @@ vi.mock('@/packages/api', () => ({
   searchCatalogue: vi.fn(),
   planPackage: vi.fn(),
   installPackage: vi.fn(),
+  fetchPackageCatalogueDetail: vi.fn(),
   catalogueLogoUrl: vi.fn((sha: string | null) =>
     sha === null ? undefined : `/api/v1/catalogue/logos/${sha}`,
   ),
   PACKAGE_QUERY_KEYS: {
     all: ['packages'],
     catalogue: (q: string) => ['packages', 'catalogue', q],
+    catalogueDetail: (id: string) => ['packages', 'catalogue-detail', id],
     plan: (id: string) => ['packages', 'plan', id],
   },
 }));
@@ -51,6 +59,18 @@ beforeEach(() => {
   vi.mocked(searchCatalogue).mockReset();
   vi.mocked(planPackage).mockReset();
   vi.mocked(installPackage).mockReset();
+  vi.mocked(fetchPackageCatalogueDetail).mockResolvedValue({
+    kind: 'package',
+    id: 'nvr',
+    owner: 'nebulahome',
+    homepageUrl: null,
+    models: [],
+    internetRequired: null,
+    version: '1.4.0',
+    publishedAt: new Date('2026-10-01T08:00:00.000Z'),
+    transports: [],
+    bundleKind: null,
+  });
   onInstalled.mockReset();
   onOpen.mockReset();
   vi.mocked(searchCatalogue).mockResolvedValue({
@@ -80,13 +100,15 @@ beforeEach(() => {
 });
 
 describe('InstallPackagesDialog', () => {
-  it('lists the Hub’s packages and the local folder’s, the local ones marked', async () => {
+  it('lists the local folder’s packages first, then the Hub’s with their stars and installs', async () => {
     renderDialog();
 
     expect(await screen.findByText('Music Player')).toBeTruthy();
-    expect(screen.getByText('Local file')).toBeTruthy();
-    expect(screen.getByText('New build')).toBeTruthy();
-    expect(screen.getAllByText(/1\.8K installs · ★ 97/u).length).toBeGreaterThan(0);
+    expect(screen.getByRole('region', { name: 'In the packages folder' }).textContent).toContain(
+      'Local file',
+    );
+    expect(screen.getAllByText('1.8K').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('97').length).toBeGreaterThan(0);
     expect(searchCatalogue).toHaveBeenCalledWith('', undefined, expect.anything());
   });
 
@@ -132,7 +154,8 @@ describe('InstallPackagesDialog', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /^NVR/u }));
 
-    expect(await screen.findByText('Also installs Object detection, which it needs.')).toBeTruthy();
+    expect(await screen.findByText('Also installs Object detection')).toBeTruthy();
+    expect(await screen.findByText('by nebulahome')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Install 2 packages' }));
 
@@ -154,12 +177,16 @@ describe('InstallPackagesDialog', () => {
     expect(
       await screen.findByText('NVR needs a package that provides object-detection, and none does'),
     ).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Install' })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: 'Install NVR' })).toHaveProperty('disabled', true);
 
-    fireEvent.click(screen.getByRole('button', { name: /^Newcomer/u }));
+    fireEvent.click(screen.getByRole('button', { name: 'Packages' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Newcomer/u }));
 
     expect(await screen.findByText('No release of it is in the package index yet.')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Install' })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: 'Install Newcomer' })).toHaveProperty(
+      'disabled',
+      true,
+    );
   });
 
   it('opens a package already installed rather than offering it again', async () => {

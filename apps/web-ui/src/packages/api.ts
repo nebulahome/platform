@@ -10,6 +10,7 @@ import {
   apiPackageDetailSchema,
   apiPackageSchema,
   containerLogsReplySchema,
+  hubDetailSchema,
   installedPackageSchema,
   packageAvailableReplySchema,
   packagePlanReplySchema,
@@ -18,6 +19,7 @@ import {
   type ApiPackage,
   type ApiPackageDetail,
   type ContainerLogsReply,
+  type HubDetail,
   type InstalledPackage,
   type JsonValue,
   type PackageAvailableReply,
@@ -46,6 +48,14 @@ export const PACKAGE_QUERY_KEYS = {
    * @returns The key.
    */
   catalogue: (q: string) => ['packages', 'catalogue', q] as const,
+
+  /**
+   * What the Hub says of one package beyond its search row.
+   *
+   * @param id - The package.
+   * @returns The key.
+   */
+  catalogueDetail: (id: string) => ['packages', 'catalogue-detail', id] as const,
 
   /**
    * What installing a package would take.
@@ -246,6 +256,24 @@ export async function searchCatalogue(
   return apiRequest(
     `/packages/catalogue${query === '' ? '' : `?${query}`}`,
     packageSearchReplySchema,
+    withSignal(signal),
+  );
+}
+
+/**
+ * What the Hub says of one package beyond its search row.
+ *
+ * @param id - The package.
+ * @param signal - Cancels the request.
+ * @returns Whose it is, and its newest release.
+ */
+export async function fetchPackageCatalogueDetail(
+  id: string,
+  signal?: AbortSignal,
+): Promise<HubDetail> {
+  return apiRequest(
+    `/packages/catalogue/${encodeURIComponent(id)}`,
+    hubDetailSchema,
     withSignal(signal),
   );
 }

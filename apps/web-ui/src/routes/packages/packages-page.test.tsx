@@ -26,6 +26,7 @@ vi.mock('@/packages/api', () => ({
     list: ['packages', 'list'],
     available: ['packages', 'available'],
     catalogue: (q: string) => ['packages', 'catalogue', q],
+    catalogueDetail: (id: string) => ['packages', 'catalogue-detail', id],
     plan: (id: string) => ['packages', 'plan', id],
   },
 }));
@@ -118,7 +119,7 @@ describe('PackagesPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Install packages' }));
 
-    expect(await screen.findByRole('heading', { name: 'Install packages' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Install a package' })).toBeTruthy();
     expect(await screen.findByText('Records the cameras.')).toBeTruthy();
   });
 

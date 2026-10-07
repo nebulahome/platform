@@ -1,257 +1,123 @@
 /**
- * "Install packages": the Community Hub searched in the side card, the package picked in the
- * dialog's own - what it is, where it comes from, what installing it would take - and the one
- * button.
+ * Installing packages: one dialog with two pages.
  *
- * The search is the packet-manager's: it asks the Hub (the browser could not, the Hub's CORS
- * being for its own sites) and answers each package with what installing it here would take,
- * from the package index. The local folder's files come first, those the Hub does not list -
- * what is being tried before a release - and stay listed when the Hub cannot be asked, which
- * the side card says. Picking a package that can be installed asks the packet-manager what it
- * would take before anything is downloaded: "Also installs MQTT", or why it cannot, naming both
- * parties. Nothing restarts: the package starts once it is in, and its page, its cards and its
- * devices appear as it does.
+ * The first page is the search - "In the packages folder" first, listed even when the Community
+ * Hub cannot be reached, then the Hub's results - each a full-width row. Picking one opens its own
+ * page in the same dialog, "‹ Packages" back: who publishes it, what the Hub says of it, and what
+ * installing it takes - the packages that go in with it - before anything is downloaded.
+ *
+ * A package already installed is opened rather than offered again: its own page has its update,
+ * its settings and its log.
  */
-import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
-import { useId, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 
-import type { InstalledPackage, PackageListing, PackageSearchReply } from '@nebulahome/contracts';
-import { Badge, Button, cn, Modal } from '@nebulahome/ui';
+import type { InstalledPackage, PackageListing } from '@nebulahome/contracts';
+import { Button } from '@nebulahome/ui';
 
+import { CatalogueDialog } from '@/components/catalogue/catalogue-dialog';
+import { CatalogueChip, CatalogueItem, CatalogueStat } from '@/components/catalogue/catalogue-item';
+import { CatalogueRow, Installs, Stars } from '@/components/catalogue/catalogue-row';
+import { ListingLogo } from '@/components/catalogue/listing-logo';
 import { toMessage } from '@/lib/error-message';
 import { shortCount } from '@/lib/format-count';
-import { useDebounced } from '@/lib/use-debounced';
-import { catalogueLogoUrl, PACKAGE_QUERY_KEYS, searchCatalogue } from '@/packages/api';
+import { relativeTime } from '@/lib/format-time';
+import { packageEffects } from '@/lib/install-effects';
+import { useCatalogueSearch } from '@/lib/use-catalogue-search';
+import { fetchPackageCatalogueDetail, PACKAGE_QUERY_KEYS, searchCatalogue } from '@/packages/api';
 import { usePackageInstall } from '@/packages/use-package-install';
-import { SearchField } from '@/routes/library/search-field';
-import { VendorLogo } from '@/routes/library/vendor-card';
 
-/** How long a search is trusted while the dialog is open: the Hub changes by the hour. */
-const SEARCH_STALE_MS = 60_000;
+/** What the results page needs. */
+type ResultsProps = {
+  readonly items: readonly PackageListing[];
 
-/**
- * Names in a sentence: "MQTT", "MQTT and Matter", "MQTT, Matter and NVR".
- *
- * @param names - The names.
- * @returns The sentence's words.
- */
-function listed(names: readonly string[]): string {
-  if (names.length <= 1) {
-    return names.join('');
-  }
-
-  return `${names.slice(0, -1).join(', ')} and ${names.at(-1) ?? ''}`;
-}
-
-/**
- * The square that names a package of a search: its logo from the Hub, or a monogram in its
- * colour.
- *
- * @param props - The package, and the side of the square.
- * @param props.listing - The package.
- * @param props.size - The side, in pixels.
- * @returns The square.
- */
-function ListingLogo(props: { readonly listing: PackageListing; readonly size: number }) {
-  const { listing, size } = props;
-  const logo = catalogueLogoUrl(listing.logo);
-
-  return (
-    <VendorLogo
-      vendor={{
-        name: listing.name,
-        logoPadding: 0,
-        ...(listing.color === null ? {} : { color: listing.color }),
-        ...(logo === undefined ? {} : { logo }),
-      }}
-      size={size}
-    />
-  );
-}
-
-/**
- * Where a package of a search stands here: installed, with an update or another build out, or a
- * file of the local folder.
- *
- * @param props - The package.
- * @param props.listing - The package.
- * @returns The badges; nothing for a package of the Hub not installed.
- */
-function ListingBadges(props: { readonly listing: PackageListing }) {
-  const { listing } = props;
-
-  return (
-    <>
-      {listing.isOfficial ? (
-        <Badge tone="accent" size="small">
-          Official
-        </Badge>
-      ) : null}
-      {listing.latest?.source === 'local' ? (
-        <Badge tone="warning" size="small">
-          Local file
-        </Badge>
-      ) : null}
-      {listing.installedVersion === null ? null : (
-        <Badge tone={listing.hasUpdate || listing.hasNewBuild ? 'accent' : 'success'} size="small">
-          {listing.hasUpdate ? 'Update out' : listing.hasNewBuild ? 'New build' : 'Installed'}
-        </Badge>
-      )}
-    </>
-  );
-}
-
-/** What the search card needs. */
-type CatalogueSearchProps = {
-  /** Whether the dialog is open: shut, it asks the Hub nothing. */
-  readonly isOpen: boolean;
-
-  /** The package picked, if any. */
-  readonly picked: string | null;
-
-  /** Called with the package picked. */
+  /** Called with the listing picked. */
   readonly onPick: (listing: PackageListing) => void;
 };
 
 /**
- * The Community Hub, searched as the owner types: the side card.
+ * The listings of the results page: the local folder's, then the Hub's, each under its label.
  *
- * @param props - See {@link CatalogueSearchProps}.
- * @returns The card's content.
+ * @param props - See {@link ResultsProps}.
+ * @returns The lists.
  */
-function CatalogueSearch(props: CatalogueSearchProps) {
-  const { isOpen, picked, onPick } = props;
-  const id = useId();
-  const [search, setSearch] = useState('');
-  const query = useDebounced(search.trim(), 350);
-  const results = useInfiniteQuery<
-    PackageSearchReply,
-    Error,
-    InfiniteData<PackageSearchReply>,
-    readonly unknown[],
-    string | undefined
-  >({
-    queryKey: PACKAGE_QUERY_KEYS.catalogue(query),
-    enabled: isOpen,
-    initialPageParam: undefined,
-    staleTime: SEARCH_STALE_MS,
-
-    /**
-     * Asks the Hub, through the packet-manager.
-     *
-     * @param context - The page's cursor and the abort signal.
-     * @param context.pageParam - The page; undefined for the first.
-     * @param context.signal - Cancels the request.
-     * @returns The page.
-     */
-    queryFn: async ({ pageParam, signal }) => searchCatalogue(query, pageParam, signal),
-
-    /**
-     * The next page's cursor.
-     *
-     * @param last - The last page read.
-     * @returns Its cursor, or undefined on the last.
-     */
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
-  });
-  const pages = results.data?.pages ?? [];
-  const found = pages.flatMap((page) => page.items);
-  const hubError = pages[0]?.hubError ?? null;
+function Results(props: ResultsProps) {
+  const { items, onPick } = props;
+  const local = items.filter((listing) => listing.origin === 'local');
+  const hub = items.filter((listing) => listing.origin === 'hub');
 
   return (
-    <>
-      <div className="flex flex-col gap-3 border-b border-border p-4">
-        <h3 id={`${id}-label`} className="text-title font-medium">
-          Community Hub
-        </h3>
-        <SearchField
-          label="Search the Community Hub"
-          placeholder="Search packages…"
-          value={search}
-          onChange={setSearch}
-          className="w-full lg:w-full"
-        />
-        {hubError === null ? null : (
-          <p role="status" className="text-caption text-warning">
-            {hubError}. The local folder&apos;s files are listed still.
-          </p>
-        )}
-      </div>
-
-      <ul
-        aria-labelledby={`${id}-label`}
-        aria-busy={results.isFetching}
-        className="flex min-h-0 grow flex-col gap-0.5 overflow-y-auto p-2"
-      >
-        {results.isPending ? (
-          <li className="px-2.5 py-3 text-ui text-foreground-subtle">Asking the Hub…</li>
-        ) : results.error === null ? (
-          found.length === 0 ? (
-            <li className="px-2.5 py-3 text-ui text-foreground-subtle">
-              {query === '' ? 'No package to offer yet.' : `No package matches “${query}”.`}
-            </li>
-          ) : null
-        ) : (
-          <li className="px-2.5 py-3 text-ui text-danger">{toMessage(results.error)}</li>
-        )}
-        {found.map((listing) => {
-          const isPicked = listing.id === picked;
-
-          return (
-            <li key={`${listing.origin}:${listing.id}`}>
-              <button
-                type="button"
-                aria-pressed={isPicked}
-                onClick={() => {
+    <div className="flex flex-col gap-4">
+      {local.length === 0 ? null : (
+        <section aria-label="In the packages folder" className="flex flex-col gap-1">
+          <h3 className="flex items-baseline justify-between px-1 pt-1 font-mono text-label text-foreground-subtle uppercase">
+            <span>In the packages folder</span>
+            <span className="font-sans text-caption tracking-normal normal-case">
+              not released yet
+            </span>
+          </h3>
+          <ul className="flex flex-col">
+            {local.map((listing) => (
+              <CatalogueRow
+                key={`local:${listing.id}`}
+                logo={<ListingLogo listing={listing} size={48} />}
+                name={listing.name}
+                isOfficial={false}
+                description={`v${listing.latest?.version ?? listing.newestVersion ?? '?'} · being tried on this machine`}
+                facts={
+                  <>
+                    <span>by you · local</span>
+                    <span className="rounded-chip border border-warning-line px-1.5 font-mono text-label text-warning uppercase">
+                      Local file
+                    </span>
+                    {listing.hasNewBuild ? <span className="text-primary">New build</span> : null}
+                  </>
+                }
+                isInstalled={listing.installedVersion !== null && !listing.hasNewBuild}
+                onOpen={() => {
                   onPick(listing);
                 }}
-                className={cn(
-                  'flex w-full items-start gap-2.5 rounded-chip px-2.5 py-2 text-left',
-                  'focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none',
-                  isPicked
-                    ? 'bg-primary/13 text-foreground'
-                    : 'text-foreground-muted hover:bg-surface-raised/70 hover:text-foreground',
-                )}
-              >
-                <ListingLogo listing={listing} size={32} />
-                <span className="flex min-w-0 grow flex-col gap-1">
-                  <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-                    <span className="truncate text-ui font-medium text-foreground">
-                      {listing.name}
-                    </span>
-                    <ListingBadges listing={listing} />
-                  </span>
-                  {listing.description === '' ? null : (
-                    <span className="line-clamp-2 text-caption text-foreground-muted">
-                      {listing.description}
-                    </span>
-                  )}
-                  <span className="text-caption text-foreground-subtle tabular">
-                    {listing.origin === 'local'
-                      ? `${listing.category} · this installation's local folder`
-                      : `${listing.category} · ${shortCount(listing.downloads)} installs · ★ ${shortCount(listing.stars)}`}
-                  </span>
-                </span>
-              </button>
-            </li>
-          );
-        })}
-        {results.hasNextPage ? (
-          <li className="px-2.5 py-2">
-            <Button
-              size="compact"
-              variant="ghost"
-              isBusy={results.isFetchingNextPage}
-              onClick={() => {
-                void results.fetchNextPage();
-              }}
-            >
-              More packages
-            </Button>
-          </li>
-        ) : null}
-      </ul>
-    </>
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {hub.length === 0 ? null : (
+        <section aria-label="Community Hub" className="flex flex-col gap-1">
+          {local.length === 0 ? null : (
+            <h3 className="flex items-baseline justify-between px-1 pt-1 font-mono text-label text-foreground-subtle uppercase">
+              <span>Community Hub</span>
+              <span className="font-sans text-caption tracking-normal normal-case">
+                {hub.length} {hub.length === 1 ? 'package' : 'packages'}
+              </span>
+            </h3>
+          )}
+          <ul className="flex flex-col">
+            {hub.map((listing) => (
+              <CatalogueRow
+                key={`hub:${listing.id}`}
+                logo={<ListingLogo listing={listing} size={48} />}
+                name={listing.name}
+                isOfficial={listing.isOfficial}
+                description={listing.description}
+                facts={
+                  <>
+                    <Stars count={listing.stars} />
+                    <Installs count={listing.downloads} />
+                    {listing.hasUpdate ? <span className="text-primary">Update out</span> : null}
+                  </>
+                }
+                isInstalled={listing.installedVersion !== null}
+                onOpen={() => {
+                  onPick(listing);
+                }}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
   );
 }
 
@@ -275,7 +141,29 @@ export type InstallPackagesDialogProps = {
  */
 export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
   const { isOpen, onClose, onInstalled, onOpen } = props;
+  const [search, setSearch] = useState('');
   const [picked, setPicked] = useState<PackageListing | null>(null);
+  const results = useCatalogueSearch({
+    text: search,
+    isOpen,
+    keyOf: PACKAGE_QUERY_KEYS.catalogue,
+    search: searchCatalogue,
+  });
+  const detail = useQuery({
+    queryKey: PACKAGE_QUERY_KEYS.catalogueDetail(picked?.id ?? ''),
+    enabled: picked !== null && picked.origin === 'hub',
+    retry: false,
+    staleTime: 60_000,
+
+    /**
+     * Asks the Hub what it says of the package.
+     *
+     * @param context - The abort signal.
+     * @param context.signal - Cancels the request.
+     * @returns What it says.
+     */
+    queryFn: async ({ signal }) => fetchPackageCatalogueDetail(picked?.id ?? '', signal),
+  });
   const isInstallable =
     picked !== null && picked.latest !== null && picked.installedVersion === null;
   const { plan, install, others, problems, canInstall } = usePackageInstall(
@@ -295,94 +183,171 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
     }
   };
 
+  const version = picked?.latest?.version ?? picked?.newestVersion ?? null;
+  const publishedAt = picked?.latest?.publishedAt ?? detail.data?.publishedAt ?? null;
+
   return (
-    <Modal
+    <CatalogueDialog
       isOpen={isOpen}
       onClose={close}
-      size="large"
-      title="Install packages"
-      description="Packages from the Community Hub: a broker, a recorder, a music player. Nothing restarts when one goes in."
-      aside={
-        <CatalogueSearch
-          isOpen={isOpen}
-          picked={picked?.id ?? null}
-          onPick={(listing) => {
-            if (!install.isPending) {
-              install.reset();
-              setPicked(listing);
+      title="Install a package"
+      subtitle="From the Community Hub, and the packages folder on this machine"
+      icon="package"
+      item={
+        picked === null
+          ? null
+          : {
+              name: picked.name,
+              backLabel: 'Packages',
+
+              /** Goes back to the results, unless an install is under way. */
+              onBack: () => {
+                if (!install.isPending) {
+                  install.reset();
+                  setPicked(null);
+                }
+              },
             }
-          }}
-        />
       }
-      asideLabel="Community Hub"
-      footer={
-        <>
-          <Button variant="ghost" disabled={install.isPending} onClick={close}>
-            {picked?.installedVersion === null || picked === null ? 'Cancel' : 'Close'}
-          </Button>
-          {picked !== null && picked.installedVersion !== null ? (
-            <Button
-              onClick={() => {
-                onOpen(picked.id);
-              }}
-            >
-              Open
-            </Button>
+      search={search}
+      onSearch={setSearch}
+      searchLabel="Search the Community Hub"
+      searchPlaceholder="Search packages"
+      status={
+        results.hubError === null ? (
+          results.isPending ? (
+            'Asking the Hub…'
           ) : (
-            <Button
-              isBusy={install.isPending}
-              disabled={!canInstall}
-              onClick={() => {
-                install.mutate();
-              }}
-            >
-              {others.length === 0 ? 'Install' : `Install ${String(others.length + 1)} packages`}
-            </Button>
-          )}
-        </>
+            `${String(results.items.length)}${results.hasMore ? '+' : ''} ${results.items.length === 1 ? 'package' : 'packages'}`
+          )
+        ) : (
+          <span role="status" className="text-warning">
+            {results.hubError}. The local folder&apos;s files are listed still.
+          </span>
+        )
+      }
+      footer={
+        picked === null ? undefined : (
+          <>
+            <span />
+            <div className="flex items-center gap-2.5">
+              <Button variant="bare" disabled={install.isPending} onClick={close}>
+                {picked.installedVersion === null ? 'Cancel' : 'Close'}
+              </Button>
+              {picked.installedVersion === null ? (
+                <Button
+                  isBusy={install.isPending}
+                  disabled={!canInstall}
+                  onClick={() => {
+                    install.mutate();
+                  }}
+                >
+                  {others.length === 0
+                    ? `Install ${picked.name}`
+                    : `Install ${String(others.length + 1)} packages`}
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => {
+                    onOpen(picked.id);
+                  }}
+                >
+                  Open
+                </Button>
+              )}
+            </div>
+          </>
+        )
       }
     >
       {picked === null ? (
-        <p className="flex min-h-64 items-center justify-center text-center text-ui text-foreground-subtle">
-          Pick a package on the left to see what it is and what installing it takes.
-        </p>
-      ) : (
-        <div className="flex min-h-64 flex-col gap-4 text-ui">
-          <div className="flex items-start gap-3">
-            <ListingLogo listing={picked} size={48} />
-            <div className="flex min-w-0 flex-col gap-1">
-              <span className="flex flex-wrap items-center gap-2">
-                <span className="text-title font-medium">{picked.name}</span>
-                <Badge tone="neutral" size="small">
-                  {picked.category}
-                </Badge>
-                <ListingBadges listing={picked} />
-              </span>
-              <span className="text-caption text-foreground-subtle tabular">
-                {[
-                  picked.latest === null
-                    ? picked.newestVersion === null
-                      ? null
-                      : `v${picked.newestVersion}`
-                    : `v${picked.latest.version}`,
-                  picked.repository,
-                  picked.origin === 'hub'
-                    ? `${shortCount(picked.downloads)} installs · ★ ${shortCount(picked.stars)}`
-                    : null,
-                ]
-                  .filter((part) => part !== null)
-                  .join(' · ')}
-              </span>
-            </div>
-          </div>
-
-          {picked.description === '' ? null : (
-            <p className="text-foreground-muted">{picked.description}</p>
+        <>
+          {results.error === null ? null : (
+            <p role="alert" className="px-1 text-ui text-danger">
+              {toMessage(results.error)}
+            </p>
           )}
-
+          {!results.isPending && results.error === null && results.items.length === 0 ? (
+            <p className="px-1 py-6 text-center text-ui text-foreground-subtle">
+              {results.query === ''
+                ? 'No package to offer yet.'
+                : `No package matches “${results.query}”.`}
+            </p>
+          ) : null}
+          <Results items={results.items} onPick={setPicked} />
+          {results.hasMore ? (
+            <Button
+              variant="ghost"
+              className="self-center"
+              isBusy={results.isLoadingMore}
+              onClick={results.loadMore}
+            >
+              Show more
+            </Button>
+          ) : null}
+        </>
+      ) : (
+        <CatalogueItem
+          logo={<ListingLogo listing={picked} size={80} />}
+          name={picked.name}
+          by={
+            picked.origin === 'local'
+              ? 'From the packages folder on this machine'
+              : detail.data?.owner === null || detail.data?.owner === undefined
+                ? null
+                : `by ${detail.data.owner}`
+          }
+          chips={
+            <>
+              {picked.isOfficial ? <CatalogueChip tone="accent">Official</CatalogueChip> : null}
+              {picked.latest?.source === 'local' ? (
+                <CatalogueChip tone="warning" icon="hard-drive">
+                  Local file
+                </CatalogueChip>
+              ) : null}
+              <CatalogueChip>{picked.category}</CatalogueChip>
+            </>
+          }
+          stats={
+            <>
+              {picked.origin === 'hub' ? (
+                <>
+                  <CatalogueStat
+                    icon="star"
+                    iconClassName="text-lamp"
+                    value={shortCount(picked.stars)}
+                    label="stars"
+                  />
+                  <CatalogueStat
+                    icon="download"
+                    value={shortCount(picked.downloads)}
+                    label="installs"
+                  />
+                </>
+              ) : null}
+              {version === null ? null : <CatalogueStat icon="tag" value={version} />}
+              {publishedAt === null ? null : (
+                <CatalogueStat
+                  icon="clock"
+                  value={relativeTime(publishedAt)}
+                  label="since the last release"
+                />
+              )}
+            </>
+          }
+          description={picked.description}
+          effects={
+            isInstallable && plan.data !== undefined
+              ? packageEffects(
+                  picked,
+                  others.map((each) => each.name),
+                )
+              : []
+          }
+        >
           {picked.installedVersion === null ? null : (
-            <p role="status" className="text-foreground">
-              Version <span className="font-medium tabular">{picked.installedVersion}</span> is
+            <p role="status" className="text-ui text-foreground">
+              Version <span className="font-mono font-medium">{picked.installedVersion}</span> is
               installed.{' '}
               {picked.hasUpdate || picked.hasNewBuild
                 ? 'Its page has the update.'
@@ -391,25 +356,19 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
           )}
 
           {picked.unavailableReason === null ? null : (
-            <p role="alert" className="text-danger">
+            <p role="alert" className="text-ui text-danger">
               {picked.unavailableReason}.
             </p>
           )}
 
           {isInstallable && plan.isPending ? (
-            <p role="status" className="text-foreground-subtle">
+            <p role="status" className="text-ui text-foreground-subtle">
               Working out what it needs…
             </p>
           ) : null}
 
-          {others.length === 0 ? null : (
-            <p role="status" className="text-foreground">
-              Also installs {listed(others.map((each) => each.name))}, which it needs.
-            </p>
-          )}
-
           {problems.length === 0 ? null : (
-            <ul role="alert" className="flex flex-col gap-1 text-danger">
+            <ul role="alert" className="flex flex-col gap-1 text-ui text-danger">
               {problems.map((problem) => (
                 <li key={problem}>{problem}</li>
               ))}
@@ -417,24 +376,24 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
           )}
 
           {plan.error === null ? null : (
-            <p role="alert" className="text-danger">
+            <p role="alert" className="text-ui text-danger">
               {toMessage(plan.error)}
             </p>
           )}
 
           {install.error === null ? null : (
-            <p role="alert" className="text-danger">
+            <p role="alert" className="text-ui text-danger">
               {toMessage(install.error)}
             </p>
           )}
 
           {install.isPending ? (
-            <p role="status" className="text-foreground-muted">
+            <p role="status" className="text-ui text-foreground-muted">
               Downloading and starting it. Nothing else restarts.
             </p>
           ) : null}
-        </div>
+        </CatalogueItem>
       )}
-    </Modal>
+    </CatalogueDialog>
   );
 }

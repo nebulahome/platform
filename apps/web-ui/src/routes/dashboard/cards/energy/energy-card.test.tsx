@@ -191,7 +191,7 @@ describe('EnergyCard', () => {
       );
       const svg = container.querySelector('svg[role="img"]');
       const [, , width = 0] = (svg?.getAttribute('viewBox') ?? '').split(' ').map(Number);
-      const figures = [...container.querySelectorAll('svg text.font-medium')].map((text) => ({
+      const figures = [...container.querySelectorAll('svg text.tabular')].map((text) => ({
         x: Number(text.getAttribute('x')),
         y: Number(text.getAttribute('y')),
         isEnd: text.getAttribute('text-anchor') === 'end',

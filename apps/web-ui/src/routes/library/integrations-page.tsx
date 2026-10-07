@@ -12,13 +12,15 @@
  * found, so the page worth opening is visible from here. Looking for a vendor's devices now,
  * rather than at the hub's next pass, is on that vendor's page.
  *
- * **Install integration** is here for the catalogue that will fill it, and does nothing yet.
- * Present rather than absent so the header already has the shape it will keep; disabled rather
- * than a no-op so nobody presses it twice wondering.
+ * **Install** opens the Community Hub's integrations - and the local integrations folder's - for
+ * whoever may install them (`integration:install`), and sends the owner to the vendor's page once
+ * the hub runs it, which is where its devices are added.
  */
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
 
-import { Button, TILE_GRID } from '@nebulahome/ui';
+import { AppIcon, Button, TILE_GRID } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { useListState } from '@/lib/use-list-state';
@@ -31,6 +33,7 @@ import {
   WIRES,
   wiresOf,
 } from '@/library/vendor-filters';
+import { InstallIntegrationsDialog } from '@/routes/library/install-integrations-dialog';
 import { IntegrationFilter } from '@/routes/library/integration-filter';
 import { LibraryPage } from '@/routes/library/library-page';
 import { NoMatches } from '@/routes/library/no-matches';
@@ -44,8 +47,10 @@ import { VendorCard } from '@/routes/library/vendor-card';
  */
 export function IntegrationsPage() {
   const can = useSession((state) => state.can);
-  const canConfigure = can('integration:configure');
+  const canInstall = can('integration:install');
   const canSeeDevices = can('device:read');
+  const navigate = useNavigate();
+  const [isInstalling, setInstalling] = useState(false);
   const [filter, setFilter] = useListState(VENDOR_FILTER_CODEC);
 
   const vendors = useQuery({
@@ -106,10 +111,31 @@ export function IntegrationsPage() {
         </>
       }
       action={
-        canConfigure ? (
-          <Button size="compact" disabled title="The catalogue is not here yet">
-            Install integration
-          </Button>
+        canInstall ? (
+          <>
+            <Button
+              onClick={() => {
+                setInstalling(true);
+              }}
+            >
+              <AppIcon id="plus" size={15} />
+              Install
+            </Button>
+            <InstallIntegrationsDialog
+              isOpen={isInstalling}
+              onClose={() => {
+                setInstalling(false);
+              }}
+              onInstalled={(reply) => {
+                setInstalling(false);
+                void navigate(`/integrations/${reply.vendorId}`);
+              }}
+              onOpen={(vendorId) => {
+                setInstalling(false);
+                void navigate(`/integrations/${vendorId}`);
+              }}
+            />
+          </>
         ) : undefined
       }
       isPending={vendors.isPending}

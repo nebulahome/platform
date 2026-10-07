@@ -30,8 +30,15 @@ import {
   fetchVendor,
   scanNetwork,
 } from '@/library/api';
+import { removeIntegration } from '@/library/integration-catalogue-api';
 
 import { VendorPage } from './vendor-page';
+
+vi.mock('@/library/integration-catalogue-api', () => ({
+  installIntegration: vi.fn(),
+  removeIntegration: vi.fn(),
+  INTEGRATION_CATALOGUE_KEYS: { all: ['integrations', 'catalogue'] },
+}));
 
 vi.mock('@/library/api', () => ({
   fetchVendor: vi.fn(),
@@ -389,17 +396,53 @@ describe('a vendor page', () => {
     expect(screen.getByLabelText('API key')).toBeTruthy();
   });
 
-  it('has no Configure for a vendor that asks for nothing, and keeps Remove for later', async () => {
+  it('has no Configure for a vendor that asks for nothing', async () => {
     vi.mocked(fetchVendor).mockResolvedValue(BAMBU);
     vi.mocked(fetchDevices).mockResolvedValue([]);
     renderPage('bambu-lab');
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Remove' })).toBeTruthy();
-    });
+    await screen.findByRole('heading', { level: 1, name: 'Bambu Lab' });
 
     expect(screen.queryByRole('button', { name: 'Configure' })).toBeNull();
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Remove' }).disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
+  });
+
+  it('says a vendor built into this NebulaHome is, and offers no Remove for it', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue(BAMBU);
+    vi.mocked(fetchDevices).mockResolvedValue([]);
+    renderPage('bambu-lab', ['integration:install']);
+
+    expect(await screen.findByText('Built in')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
+  });
+
+  it('removes an installed vendor after saying what goes with it, and offers its update', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue({
+      ...BAMBU,
+      origin: 'installed',
+      update: { latestVersion: '2.0.0', hasUpdate: true, hasNewBuild: false },
+    });
+    vi.mocked(fetchDevices).mockResolvedValue([device({})]);
+    vi.mocked(removeIntegration).mockResolvedValue({
+      devices: 1,
+      accounts: 0,
+      isRestartNeeded: false,
+    });
+    renderPage('bambu-lab', ['integration:install']);
+
+    expect(await screen.findByRole('button', { name: 'Update to 2.0.0' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+    const confirm = await screen.findByRole('dialog', { name: 'Remove Bambu Lab?' });
+
+    expect(confirm.textContent).toContain('1 device, and every entity they have');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Bambu Lab' }));
+
+    await waitFor(() => {
+      expect(removeIntegration).toHaveBeenCalledWith('bambu-lab');
+    });
   });
 });
 

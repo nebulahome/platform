@@ -68,6 +68,7 @@ import { VendorAccounts } from '@/routes/library/vendor-accounts';
 import { Marks, VendorLogo } from '@/routes/library/vendor-card';
 import { VendorContainers } from '@/routes/library/vendor-containers';
 import { ListenerCallout, PassedOverPanel } from '@/routes/library/vendor-hearing';
+import { VendorInstallActions } from '@/routes/library/vendor-install-actions';
 import { PairingButton, PairingPanel, usePairing } from '@/routes/library/vendor-pairing';
 import { VendorSetupDialog } from '@/routes/library/vendor-setup-dialog';
 
@@ -222,6 +223,7 @@ export function VendorPage() {
   const queryClient = useQueryClient();
   const can = useSession((state) => state.can);
   const canConfigure = can('integration:configure');
+  const canInstall = can('integration:install');
   const canWrite = can('device:write');
   const canRemove = can('device:delete');
   const canCreateTags = can('tag:write');
@@ -361,7 +363,7 @@ export function VendorPage() {
           )
         }
         action={
-          found !== undefined && (canConfigure || canDiscover || hasPairing) ? (
+          found !== undefined && (canConfigure || canDiscover || hasPairing || canInstall) ? (
             <>
               {hasPairing ? <PairingButton pairing={pairing} /> : null}
               {canDiscover ? (
@@ -391,11 +393,7 @@ export function VendorPage() {
                   Configure
                 </Button>
               ) : null}
-              {canConfigure ? (
-                <Button variant="ghost" size="compact" disabled title="Not here yet">
-                  Remove
-                </Button>
-              ) : null}
+              <VendorInstallActions vendor={found} deviceCount={devices.length} />
             </>
           ) : undefined
         }

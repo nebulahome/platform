@@ -20,8 +20,23 @@ import {
   fetchTags,
   fetchVendors,
 } from '@/library/api';
+import { searchIntegrationCatalogue } from '@/library/integration-catalogue-api';
 
 import { IntegrationsPage } from './integrations-page';
+
+vi.mock('@/library/integration-catalogue-api', () => ({
+  searchIntegrationCatalogue: vi.fn(async () =>
+    Promise.resolve({ items: [], nextCursor: null, hubError: null }),
+  ),
+  fetchIntegrationDetail: vi.fn(),
+  installIntegration: vi.fn(),
+  removeIntegration: vi.fn(),
+  INTEGRATION_CATALOGUE_KEYS: {
+    all: ['integrations', 'catalogue'],
+    search: (q: string) => ['integrations', 'catalogue', 'search', q],
+    detail: (id: string) => ['integrations', 'catalogue', 'detail', id],
+  },
+}));
 
 vi.mock('@/library/api', () => ({
   fetchVendors: vi.fn(),
@@ -234,17 +249,29 @@ describe('the integrations grid', () => {
     expect(screen.getByRole('link', { name: 'Bambu Lab' })).toBeTruthy();
   });
 
-  it('keeps the catalogue button, for when there is a catalogue', async () => {
+  it('offers Install to whoever may install integrations, and opens the Hub’s search', async () => {
     vi.mocked(fetchVendors).mockResolvedValue([vendor({})]);
-    renderPage();
+    renderPage(['integration:install']);
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: 'Shelly' })).toBeTruthy();
     });
 
-    const install = screen.getByRole<HTMLButtonElement>('button', { name: 'Install integration' });
+    fireEvent.click(screen.getByRole('button', { name: 'Install' }));
 
-    expect(install.disabled).toBe(true);
+    expect(await screen.findByRole('heading', { name: 'Install an integration' })).toBeTruthy();
+    expect(searchIntegrationCatalogue).toHaveBeenCalledWith('', undefined, expect.anything());
+  });
+
+  it('does not offer Install to somebody who may only configure integrations', async () => {
+    vi.mocked(fetchVendors).mockResolvedValue([vendor({})]);
+    renderPage(['integration:configure']);
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Shelly' })).toBeTruthy();
+    });
+
+    expect(screen.queryByRole('button', { name: 'Install' })).toBeNull();
   });
 });
 
