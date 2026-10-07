@@ -70,16 +70,33 @@ export function TriggerFields(props: TriggerFieldsProps) {
             onChange({ ...trigger, entityId: partialEntityId(entityId) });
           }}
         />
-        <TextField
-          label="Becomes"
-          size="compact"
-          placeholder="on"
-          value={trigger.to ?? ''}
-          hint="Leave empty to fire on any change."
-          onChange={(event) => {
-            onChange({ ...trigger, to: event.target.value });
-          }}
-        />
+        <div className="grid grid-cols-3 gap-3">
+          <TextField
+            label="From"
+            size="compact"
+            placeholder="Any"
+            value={trigger.from ?? ''}
+            onChange={(event) => {
+              onChange({ ...trigger, from: event.target.value === '' ? null : event.target.value });
+            }}
+          />
+          <TextField
+            label="To"
+            size="compact"
+            placeholder="on"
+            value={trigger.to ?? ''}
+            hint="Empty for any change."
+            onChange={(event) => {
+              onChange({ ...trigger, to: event.target.value });
+            }}
+          />
+          <HoldFor
+            value={trigger.forMs ?? null}
+            onChange={(forMs) => {
+              onChange({ ...trigger, forMs });
+            }}
+          />
+        </div>
       </>
     );
   }
@@ -115,6 +132,12 @@ export function TriggerFields(props: TriggerFieldsProps) {
             }}
           />
         </div>
+        <HoldFor
+          value={trigger.forMs ?? null}
+          onChange={(forMs) => {
+            onChange({ ...trigger, forMs });
+          }}
+        />
       </>
     );
   }
@@ -255,5 +278,41 @@ function TimeTriggerFields(props: TimeTriggerFieldsProps) {
         </div>
       ) : null}
     </>
+  );
+}
+
+/** What the hold field needs. */
+type HoldForProps = {
+  /** How long the new state must hold, in milliseconds; null for at once. */
+  readonly value: number | null;
+  readonly onChange: (forMs: number | null) => void;
+};
+
+/**
+ * "For at least": how long the new state must hold before the trigger counts, in seconds; empty
+ * fires at once.
+ *
+ * @param props - See {@link HoldForProps}.
+ * @returns The field.
+ */
+function HoldFor(props: HoldForProps) {
+  const { value, onChange } = props;
+
+  return (
+    <TextField
+      label="For at least"
+      size="compact"
+      type="number"
+      inputMode="numeric"
+      placeholder="0 s"
+      className="font-mono"
+      value={value === null ? '' : String(Math.round(value / 1000))}
+      hint="Seconds."
+      onChange={(event) => {
+        const seconds = Number(event.target.value);
+
+        onChange(event.target.value === '' || !Number.isFinite(seconds) ? null : seconds * 1000);
+      }}
+    />
   );
 }
