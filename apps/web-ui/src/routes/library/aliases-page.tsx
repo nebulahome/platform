@@ -1,17 +1,22 @@
 /**
- * Derived entities and stored helpers: a table of names, addresses, readings and standing.
+ * Derived entities and stored helpers: a table of names, what each is, what it reads now, and
+ * what it is worked out from.
  *
- * Search and filter sit in the header the way they do on devices. Formula, sources and debounce
- * live only in the editor — the table is what you scan, not what you rewrite.
+ * As the board draws it: the name with its address under it, its kind, its value, how many sources
+ * it reads, and a menu; a search shows as a chip that says how many of how many it found, with
+ * Clear; the table a page at a time. Formula, sources and debounce live only in the editor - the
+ * table is what you scan, not what you rewrite.
  */
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
 import type { AliasView } from '@nebulahome/contracts';
-import { Badge, Button } from '@nebulahome/ui';
+import { AppIcon, Button, FilterChips, OverflowMenu, Pill, TableFooter } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
+import { SortHeader } from '@/components/sort-header';
 import { useListState } from '@/lib/use-list-state';
+import { usePaging } from '@/lib/use-paging';
 import {
   ALIAS_FILTER_CODEC,
   byAliasName,
@@ -30,12 +35,14 @@ import { SearchField } from '@/routes/library/search-field';
 /**
  * The column widths, shared by the header and every row so they line up.
  *
- * Name and address take the flexible room; reading, status and Edit stay fixed so a long
- * formula never shoved the action off the edge of a narrow window — the formula is not here.
+ * The name and its address take the flexible room; kind, value, sources and the menu stay fixed.
  */
 export const ALIAS_COLUMNS =
-  'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 ' +
-  'md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_88px_minmax(0,0.9fr)_minmax(0,1fr)_52px]';
+  'grid grid-cols-[minmax(0,1fr)_auto_36px] items-center gap-4 ' +
+  'md:grid-cols-[minmax(0,1fr)_104px_minmax(0,0.8fr)_80px_36px]';
+
+/** The columns the table sorts by; the first is the order it opens in. */
+const SORTS = ['name', 'kind'] as const;
 
 /**
  * Renders the aliases page.
@@ -44,7 +51,6 @@ export const ALIAS_COLUMNS =
  */
 export function AliasesPage() {
   const readings = useLive((state) => state.readings);
-  const liveStatus = useLive((state) => state.status);
   const can = useSession((state) => state.can);
   const canWrite = can('alias:write');
   const navigate = useNavigate();
@@ -91,11 +97,22 @@ export function AliasesPage() {
   const shown = lines.filter((line) =>
     matchesAliasFilter(line.alias, filter, line.reading.isAvailable),
   );
+  const paging = usePaging('aliases', SORTS, shown.length);
+  const rows = paging.rows(
+    [...shown].sort((left, right) => {
+      const byName = left.alias.name.localeCompare(right.alias.name);
+      const order =
+        paging.sort === 'kind' ? left.alias.kind.localeCompare(right.alias.kind) || byName : byName;
+
+      return paging.direction === 'asc' ? order : -order;
+    }),
+  );
 
   const domainOptions = [...new Set(items.map((alias) => alias.domain))].map((domain) => ({
     value: domain,
     label: domain,
   }));
+  const search = filter.search.trim();
 
   return (
     <LibraryPage
@@ -113,8 +130,8 @@ export function AliasesPage() {
           <SearchField
             placeholder="Search aliases, sources…"
             value={filter.search}
-            onChange={(search) => {
-              setFilter({ ...filter, search });
+            onChange={(next) => {
+              setFilter({ ...filter, search: next });
             }}
           />
           <AliasFilterButton filter={filter} domains={domainOptions} onChange={setFilter} />
@@ -123,42 +140,65 @@ export function AliasesPage() {
       action={
         canWrite ? (
           <Button
-            size="compact"
             onClick={() => {
               void navigate('/aliases/new');
             }}
           >
+            <AppIcon id="plus" size={15} />
             New alias
           </Button>
         ) : undefined
+      }
+      filters={
+        search === '' ? undefined : (
+          <FilterChips
+            filters={[
+              {
+                id: 'search',
+                key: 'Search',
+                value: search,
+                /** Clears the search. */
+                onRemove: () => {
+                  setFilter({ ...filter, search: '' });
+                },
+              },
+            ]}
+            summary={`${String(shown.length)} of ${String(items.length)}`}
+            onClearAll={() => {
+              setFilter(OPEN_ALIAS_FILTER);
+            }}
+          />
+        )
       }
       isPending={aliases.isPending || entities.isPending}
       error={aliases.error ?? entities.error}
       isEmpty={items.length === 0}
       emptyMessage="No aliases yet. Create a calculated reading or a stored helper."
     >
-      <div className="flex flex-wrap items-center justify-end gap-2.5 text-caption text-foreground-subtle tabular">
-        {liveStatus === 'live' ? (
-          <Badge tone="success" size="small">
-            Live
-          </Badge>
-        ) : (
-          <Badge tone="neutral" size="small">
-            {liveStatus === 'connecting' ? 'Connecting' : 'Not live'}
-          </Badge>
-        )}
-      </div>
-
-      <div className="overflow-hidden rounded-panel border border-border bg-surface">
+      <div className="overflow-hidden rounded-card border border-border bg-surface">
         <div
-          className={`${ALIAS_COLUMNS} border-b border-border px-5.5 py-3 font-mono text-label text-foreground-subtle uppercase`}
-          aria-hidden="true"
+          className={`${ALIAS_COLUMNS} border-b border-border px-5 py-3 font-mono text-label text-foreground-subtle uppercase`}
         >
-          <span>Name</span>
-          <span className="hidden md:block">Alias id</span>
-          <span className="hidden md:block">Domain</span>
-          <span className="hidden md:block">Reading</span>
-          <span className="hidden md:block">Status</span>
+          <SortHeader
+            label="Name"
+            isSorted={paging.sort === 'name'}
+            direction={paging.direction}
+            onSort={() => {
+              paging.toggleSort('name');
+            }}
+            className="justify-self-start"
+          />
+          <SortHeader
+            label="Kind"
+            isSorted={paging.sort === 'kind'}
+            direction={paging.direction}
+            onSort={() => {
+              paging.toggleSort('kind');
+            }}
+            className="hidden justify-self-start md:inline-flex"
+          />
+          <span>Value</span>
+          <span className="hidden md:block">Sources</span>
           <span />
         </div>
 
@@ -177,7 +217,7 @@ export function AliasesPage() {
           </div>
         ) : (
           <ul>
-            {shown.map((line) => (
+            {rows.map((line) => (
               <AliasRow
                 key={line.alias.id}
                 alias={line.alias}
@@ -191,6 +231,14 @@ export function AliasesPage() {
             ))}
           </ul>
         )}
+
+        <TableFooter
+          page={paging.page}
+          size={paging.size}
+          total={shown.length}
+          onPage={paging.setPage}
+          onSize={paging.setSize}
+        />
       </div>
     </LibraryPage>
   );
@@ -213,67 +261,52 @@ type AliasRowProps = {
  */
 function AliasRow(props: AliasRowProps) {
   const { alias, readingText, isAvailable, canEdit, onEdit } = props;
+  const sources = alias.kind === 'calculated' ? alias.sources.length : null;
 
   return (
-    <li className="border-b border-border last:border-b-0">
-      <div className={`${ALIAS_COLUMNS} px-5.5 py-3.5`}>
-        <span className="min-w-0 truncate text-ui font-medium text-foreground">{alias.name}</span>
-        <span className="hidden min-w-0 truncate font-mono text-caption text-foreground-subtle md:block">
+    <li className={`${ALIAS_COLUMNS} border-t border-border px-5 py-3 first:border-t-0`}>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <Link
+          to={`/aliases/${alias.id}`}
+          className="truncate text-ui font-medium text-foreground transition-colors hover:text-primary"
+        >
+          {alias.name}
+        </Link>
+        <span className="truncate font-mono text-mono-caption text-foreground-subtle">
           {alias.entityId}
         </span>
-        <span className="hidden text-ui text-foreground-muted md:block">{alias.domain}</span>
+      </span>
+      <span className="hidden md:block">
+        <Pill tone={alias.kind === 'calculated' ? 'accent' : 'neutral'}>
+          {alias.kind === 'calculated' ? 'Calculated' : 'Stored'}
+        </Pill>
+      </span>
+      <span className="flex min-w-0 flex-col gap-0.5">
         <span
-          className="hidden truncate text-ui text-foreground tabular md:block"
+          className="truncate font-mono text-mono-ui text-foreground tabular"
           title={readingText}
         >
           {readingText}
         </span>
-        <span className="hidden flex-wrap items-center gap-1.5 md:flex">
-          <Badge tone={alias.isEnabled ? 'success' : 'neutral'} size="small">
-            {alias.isEnabled ? 'Enabled' : 'Off'}
-          </Badge>
-          {alias.lastError === null ? null : (
-            <Badge tone="danger" size="small">
-              Failing
-            </Badge>
-          )}
-          {isAvailable ? null : (
-            <Badge tone="warning" size="small">
-              Unavailable
-            </Badge>
-          )}
-        </span>
-        <span className="flex justify-end">
-          {canEdit ? (
-            <Button variant="ghost" size="compact" onClick={onEdit}>
-              Edit
-            </Button>
-          ) : null}
-        </span>
-      </div>
-
-      {/* Narrow windows: address and standing under the name, since the grid collapses. */}
-      <div className="flex flex-col gap-1 px-4 pb-3 md:hidden">
-        <span className="font-mono text-caption text-foreground-subtle">{alias.entityId}</span>
-        <span className="text-caption text-foreground-muted">
-          {alias.domain} · {readingText}
-        </span>
-        <span className="flex flex-wrap items-center gap-1.5">
-          <Badge tone={alias.isEnabled ? 'success' : 'neutral'} size="small">
-            {alias.isEnabled ? 'Enabled' : 'Off'}
-          </Badge>
-          {alias.lastError === null ? null : (
-            <Badge tone="danger" size="small">
-              Failing
-            </Badge>
-          )}
-          {isAvailable ? null : (
-            <Badge tone="warning" size="small">
-              Unavailable
-            </Badge>
-          )}
-        </span>
-      </div>
+        {alias.isEnabled && alias.lastError === null && isAvailable ? null : (
+          <span className="flex flex-wrap gap-x-2 text-caption">
+            {alias.isEnabled ? null : <span className="text-foreground-subtle">Off</span>}
+            {alias.lastError === null ? null : <span className="text-danger">Failing</span>}
+            {isAvailable ? null : <span className="text-warning">Unavailable</span>}
+          </span>
+        )}
+      </span>
+      <span className="hidden font-mono text-mono-ui text-foreground-muted tabular md:block">
+        {sources ?? '—'}
+      </span>
+      {canEdit ? (
+        <OverflowMenu
+          label={`More for ${alias.name}`}
+          items={[{ label: 'Edit', icon: 'pencil', onSelect: onEdit }]}
+        />
+      ) : (
+        <span />
+      )}
     </li>
   );
 }

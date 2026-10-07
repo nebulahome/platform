@@ -188,12 +188,12 @@ beforeEach(() => {
 });
 
 describe('AliasesPage', () => {
-  it('lists aliases by name, address, domain and standing', async () => {
+  it('lists aliases by name, address, kind and standing', async () => {
     renderPage();
 
     expect(await screen.findByText('Kitchen average')).toBeTruthy();
     expect(screen.getAllByText(AVERAGE_ID).length).toBeGreaterThan(0);
-    expect(screen.getAllByText('sensor').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Calculated').length).toBeGreaterThan(0);
     expect(screen.getByText('Porch light')).toBeTruthy();
     expect(screen.getAllByText(HELPER_ID).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Off').length).toBeGreaterThan(0);
@@ -207,7 +207,7 @@ describe('AliasesPage', () => {
     await screen.findByText('Kitchen average');
 
     expect(screen.queryByRole('button', { name: 'New alias' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^More for/u })).toBeNull();
   });
 
   it('narrows the list by what is typed, through source names too', async () => {
@@ -269,11 +269,12 @@ describe('AliasesPage', () => {
     expect((await screen.findByTestId('location')).textContent).toBe('/aliases/new');
   });
 
-  it('opens an existing alias for editing from Edit', async () => {
+  it('opens an existing alias for editing from Edit in its menu', async () => {
     renderPage();
     await screen.findByText('Kitchen average');
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[0]!);
+    fireEvent.click(screen.getByRole('button', { name: 'More for Kitchen average' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Edit' }));
 
     expect((await screen.findByTestId('location')).textContent).toBe(`/aliases/${AVERAGE.id}`);
   });
