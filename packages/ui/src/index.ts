@@ -31,6 +31,7 @@ export {
 export { Button, type ButtonProps } from './components/button.js';
 export { CardHeading, type CardHeadingProps } from './components/card-heading.js';
 export { CatalogueIcon, type CatalogueIconProps } from './components/catalogue-icon.js';
+export { Checkbox, type CheckboxProps } from './components/checkbox.js';
 export { ColorSwatches, type ColorSwatchesProps } from './components/color-swatches.js';
 export { FieldShell, type FieldIds, type FieldShellProps } from './components/field-shell.js';
 export { Figure, type FigureProps } from './components/figure.js';

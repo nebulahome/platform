@@ -51,6 +51,9 @@ import {
 
 import { cn } from '../lib/cn.js';
 
+import { AppIcon } from './app-icon.js';
+import { IconButton } from './icon-button.js';
+
 /*
  * The dialog fades; it does not move.
  *
@@ -78,6 +81,9 @@ const dialogBox = cva('m-auto p-0 backdrop:bg-scrim open:animate-fade-in', {
 
       /** A form with several fields, or something with a list in it. */
       large: 'w-[min(92vw,40rem)]',
+
+      /** A dialog with pages of its own: the install dialogs' search and an item's page. */
+      xlarge: 'w-[min(94vw,58rem)]',
     },
 
     /**
@@ -93,6 +99,7 @@ const dialogBox = cva('m-auto p-0 backdrop:bg-scrim open:animate-fade-in', {
     { isPaired: true, size: 'small', className: 'w-[min(94vw,45rem)]' },
     { isPaired: true, size: 'medium', className: 'w-[min(94vw,48rem)]' },
     { isPaired: true, size: 'large', className: 'w-[min(94vw,59rem)]' },
+    { isPaired: true, size: 'xlarge', className: 'w-[min(94vw,59rem)]' },
   ],
   defaultVariants: { size: 'medium', isPaired: false },
 });
@@ -130,6 +137,20 @@ export type ModalProps = Pick<VariantProps<typeof dialogBox>, 'size'> & {
 
   /** What the second card is called, to a screen reader. */
   readonly asideLabel?: string;
+
+  /**
+   * How the card is laid out. `plain`: the title over the body, the controls at its foot.
+   * `sections`: a header bar - whatever leads it, the title, a close button - a body that scrolls
+   * on its own, and a foot bar; the card keeps one height, so a dialog with pages does not jump
+   * as they change.
+   */
+  readonly layout?: 'plain' | 'sections';
+
+  /** In the `sections` layout: what stands before the title - a way back, an icon. */
+  readonly lead?: ReactNode;
+
+  /** In the `sections` layout: what the close button is called. */
+  readonly closeLabel?: string;
 };
 
 /**
@@ -150,6 +171,9 @@ export function Modal(props: ModalProps) {
     footer,
     aside,
     asideLabel,
+    layout = 'plain',
+    lead,
+    closeLabel = 'Close',
   } = props;
 
   const dialog = useRef<HTMLDialogElement>(null);
@@ -258,24 +282,56 @@ export function Modal(props: ModalProps) {
     }
   };
 
-  const body = (
-    <div className="flex flex-col gap-5 p-6">
-      <div className="flex flex-col gap-1.5">
-        <h2 id={titleId} className="text-headline-sm font-medium">
-          {title}
-        </h2>
-        {description === undefined ? null : (
-          <p id={descriptionId} className="text-ui text-foreground-subtle">
-            {description}
-          </p>
-        )}
-      </div>
+  const sections = (
+    <div className="flex h-[min(88vh,49rem)] flex-col">
+      <header className="flex shrink-0 items-center gap-3.5 border-b border-border px-6 py-4.5">
+        {lead}
+        <div className="flex min-w-0 grow flex-col gap-0.5">
+          <h2 id={titleId} className="truncate text-headline-sm font-medium">
+            {title}
+          </h2>
+          {description === undefined ? null : (
+            <p id={descriptionId} className="truncate text-ui-sm text-foreground-subtle">
+              {description}
+            </p>
+          )}
+        </div>
+        <IconButton variant="raised" label={closeLabel} onClick={onClose}>
+          <AppIcon id="x" size={15} />
+        </IconButton>
+      </header>
 
-      {children}
+      <div className="flex min-h-0 grow flex-col overflow-y-auto">{children}</div>
 
-      {footer === undefined ? null : <div className="flex justify-end gap-2.5">{footer}</div>}
+      {footer === undefined ? null : (
+        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2.5 border-t border-border px-6 py-4">
+          {footer}
+        </footer>
+      )}
     </div>
   );
+
+  const body =
+    layout === 'sections' ? (
+      sections
+    ) : (
+      <div className="flex flex-col gap-5 p-6">
+        <div className="flex flex-col gap-1.5">
+          <h2 id={titleId} className="text-headline-sm font-medium">
+            {title}
+          </h2>
+          {description === undefined ? null : (
+            <p id={descriptionId} className="text-ui text-foreground-subtle">
+              {description}
+            </p>
+          )}
+        </div>
+
+        {children}
+
+        {footer === undefined ? null : <div className="flex justify-end gap-2.5">{footer}</div>}
+      </div>
+    );
 
   return (
     /* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions,

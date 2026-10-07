@@ -13,6 +13,7 @@ import {
   Activity,
   ArrowDownToLine,
   ArrowUpToLine,
+  BadgeCheck,
   Blinds,
   Bot,
   Bluetooth,
@@ -77,6 +78,7 @@ import {
   SkipBack,
   SkipForward,
   Square,
+  Star,
   Sun,
   Tag,
   Thermometer,
@@ -196,6 +198,10 @@ export const BUILTIN_UI_NODES = {
   house: drawing(House),
   list: drawing(List),
   hash: drawing(Hash),
+
+  // The Community Hub's marks in the install dialogs: who publishes it, how it is liked.
+  'badge-check': drawing(BadgeCheck),
+  star: drawing(Star),
 
   // The wires a vendor's devices are reached over, on its card.
   bluetooth: drawing(Bluetooth),
