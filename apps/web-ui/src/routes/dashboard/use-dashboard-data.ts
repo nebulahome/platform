@@ -22,6 +22,7 @@ import type {
 import { useSession } from '@/auth/session-store';
 import { CARD_SIZES, cardKindOf, packageCardSizes } from '@/dashboard/card-sizes';
 import { allCards, type SizesOf } from '@/dashboard/dashboard-layout';
+import { entityTitle } from '@/dashboard/entity-title';
 import { fetchScenes, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { entityScopesOf, isCommandable } from '@/library/entity-control';
 import type { LiveReading } from '@/live/live-store';
@@ -46,6 +47,9 @@ export type DashboardData = {
 
   /** What the live channel has said since the page was read, by entity. */
   readonly readings: Readonly<Record<string, LiveReading>>;
+
+  /** What an entity's card is called when nobody named it: its device, then itself. */
+  readonly entityTitleOf: (entity: EntityView) => string;
 
   /** Whether this person may command an entity, and whether it takes commands at all. */
   readonly canControl: (entity: EntityView) => boolean;
@@ -119,6 +123,19 @@ export function useDashboardData(layout: DashboardLayout | undefined): Dashboard
     packageById,
     icons: new Map([...directory.icons, ...chosen]),
     readings: directory.readings,
+
+    /**
+     * What an entity's card is called when nobody named it.
+     *
+     * @param entity - The entity.
+     * @returns "Kitchen plug · Power".
+     */
+    entityTitleOf: (entity) =>
+      entityTitle(
+        entity.name,
+        entity.deviceId === null ? null : deviceById.get(entity.deviceId)?.name,
+      ),
+
     /**
      * Whether this person may command an entity, and it takes commands at all.
      *

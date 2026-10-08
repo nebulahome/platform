@@ -154,7 +154,7 @@ export function EntityCard(props: EntityCardProps) {
     reading: readingOf(entity, live),
     reportedAt: live?.receivedAt ?? entity.lastUpdated?.getTime() ?? null,
     changedAt: live?.changedAt ?? entity.lastChanged,
-    title: card.title ?? entity.name,
+    title: card.title ?? data.entityTitleOf(entity),
     subtitle: entity.areaName,
     icon,
     kind: entityKindOf(entity),

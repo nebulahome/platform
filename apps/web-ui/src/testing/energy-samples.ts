@@ -176,6 +176,14 @@ export function energySample(
       canApplyScenes: false,
 
       /**
+       * A sample's card is called by its entity.
+       *
+       * @param entity - The entity.
+       * @returns Its name.
+       */
+      entityTitleOf: (entity) => entity.name,
+
+      /**
        * A sample is not resized.
        *
        * @returns No sizes.

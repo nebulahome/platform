@@ -99,7 +99,11 @@ function PickerBody(props: PickerBodyProps) {
   const shown = choosable.filter(
     (entity) =>
       (family === null || entityFamilyOf(entity) === family) &&
-      pickerMatches(entity, deviceNames.get(entity.source) ?? null, query),
+      pickerMatches(
+        entity,
+        entity.deviceId === null ? null : (deviceNames.get(entity.deviceId) ?? null),
+        query,
+      ),
   );
   const tree = buildEntityTree({
     areas: directory.areas,

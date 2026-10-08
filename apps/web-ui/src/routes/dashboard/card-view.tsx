@@ -51,8 +51,11 @@ export function CardView(props: CardViewProps) {
  */
 export function cardTitle(card: DashboardCard, data: DashboardData): string {
   switch (card.type) {
-    case 'entity':
-      return card.title ?? data.entityById.get(card.entityId)?.name ?? card.entityId;
+    case 'entity': {
+      const entity = data.entityById.get(card.entityId);
+
+      return card.title ?? (entity === undefined ? card.entityId : data.entityTitleOf(entity));
+    }
     case 'scene':
       return card.title ?? data.sceneById.get(card.sceneId)?.name ?? 'Scene';
     case 'clock':

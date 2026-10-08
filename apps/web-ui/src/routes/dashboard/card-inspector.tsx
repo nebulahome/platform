@@ -90,6 +90,19 @@ function sizeValue(size: CardSize): string {
 }
 
 /**
+ * What an entity card's title field shows while it is empty: the title the card takes then.
+ *
+ * @param entityId - The card's entity.
+ * @param data - What the page read.
+ * @returns "Kitchen plug · Power", or the address of an entity no longer there.
+ */
+function entityPlaceholder(entityId: string, data: DashboardData): string {
+  const entity = data.entityById.get(entityId);
+
+  return entity === undefined ? entityId : data.entityTitleOf(entity);
+}
+
+/**
  * Renders the inspector.
  *
  * @param props - See {@link CardInspectorProps}.
@@ -166,7 +179,7 @@ export function CardInspector(props: CardInspectorProps) {
           />
           <TitleAndIcon
             card={card}
-            placeholder={data.entityById.get(card.entityId)?.name ?? card.entityId}
+            placeholder={entityPlaceholder(card.entityId, data)}
             onChange={change}
           />
           {data.entityById
