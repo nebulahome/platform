@@ -14,9 +14,10 @@
  * was made on: held any longer, it outlived the navigation it was for.
  *
  * The rail collapses to 72px of glyphs - every entry of every group, flat, parted by a line, each
- * named on hover and to a screen reader - by the button beside the title, and opens again from
- * the one at the foot. The choice is the person's and is kept with their interface preferences;
- * the dashboard editor collapses it whatever they chose, to give the grid the room.
+ * named on hover and to a screen reader - and opens again, by the same button, the last row at
+ * both widths. The change is animated: the width moves, the words fade and the headings fold,
+ * while the glyphs stay where they are. The choice is the person's alone and is kept with their
+ * interface preferences; no page overrides it.
  *
  * It shows only what the role may see: an entry without its permission is not drawn, a group with
  * nothing left is not drawn, and House is drawn only for someone who may read the devices it is
@@ -25,7 +26,7 @@
  * Under Packages, the pages of the packages that ask for an entry (`ui.sidebar`), while they run:
  * a package managed from its own page is one click away, like the platform's own sections.
  */
-import { useState, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router';
 
 import type { ApiPackage } from '@nebulahome/contracts';
@@ -35,6 +36,7 @@ import { useSession } from '@/auth/session-store';
 import { Avatar } from '@/components/avatar';
 import { ChevronIcon } from '@/components/icons';
 import { useRailCounts, type RailCountKey } from '@/lib/use-rail-counts';
+import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { packageAppPath } from '@/packages/package-paths';
 import { useInstalledPackages } from '@/packages/use-packages';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
@@ -142,9 +144,17 @@ const GROUPS: readonly Group[] = [
   },
 ];
 
-/** The classes a row shares whether or not it is the current one. */
+/** How the rail moves: one curve and one length for its width and for everything inside it. */
+const MOTION = 'duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]';
+
+/**
+ * The classes a row shares whether or not it is the current one. Its glyph sits 12px in at both
+ * widths, which is the middle of the 72px rail: the rail narrows around the glyphs rather than
+ * moving them, and only the words after them go.
+ */
 const ROW =
-  'press flex h-9.5 shrink-0 items-center gap-3 rounded-field border px-3 text-ui transition-colors';
+  'press flex h-10 w-full shrink-0 items-center gap-3 overflow-hidden rounded-field border px-3 ' +
+  'text-ui whitespace-nowrap transition-colors';
 
 /** A row that is the current page: outlined, raised, its glyph in the accent. */
 const ROW_ACTIVE =
@@ -154,14 +164,65 @@ const ROW_ACTIVE =
 const ROW_IDLE =
   'border-transparent text-foreground-muted hover:bg-surface-raised hover:text-foreground';
 
-/** A glyph of the collapsed rail: a 44px square, named on hover. */
-const SQUARE =
-  'press flex size-11 shrink-0 items-center justify-center rounded-tile border transition-colors';
+/** What everything inside the rail reads about it. */
+type RailState = {
+  /** Whether it is the 72px one. */
+  readonly isCollapsed: boolean;
 
-/** The round button that collapses or opens the rail. */
-const TOGGLE =
-  'press inline-flex size-7.5 shrink-0 items-center justify-center rounded-full text-foreground-muted ' +
-  'transition-colors hover:bg-surface-raised hover:text-foreground';
+  /** Whether it may move, or only change. */
+  readonly isReduced: boolean;
+};
+
+const RailContext = createContext<RailState>({ isCollapsed: false, isReduced: false });
+
+/**
+ * The classes of words that leave when the rail narrows: gone at once on the way in, back only
+ * once there is room for them on the way out, so a label is never seen squeezed.
+ *
+ * @param rail - How the rail stands.
+ * @returns The classes.
+ */
+function fading(rail: RailState): string {
+  if (rail.isReduced) {
+    return rail.isCollapsed ? 'opacity-0' : '';
+  }
+
+  return cn(
+    'transition-opacity',
+    rail.isCollapsed ? 'opacity-0 duration-100' : 'opacity-100 delay-150 duration-200',
+  );
+}
+
+/**
+ * Words that leave when the rail narrows.
+ *
+ * @param props - The words.
+ * @param props.className - Their own classes.
+ * @param props.children - The words.
+ * @returns The span.
+ */
+function Fading(props: { readonly className?: string; readonly children: ReactNode }) {
+  const rail = useContext(RailContext);
+
+  return <span className={cn(props.className, fading(rail))}>{props.children}</span>;
+}
+
+/**
+ * The classes of a part that opens and shuts by its height - a group's heading, a group's rows:
+ * a one-row grid whose row goes from nothing to its content, which is the one height CSS can
+ * move to without being told a number.
+ *
+ * @param isOpen - Whether it is shown.
+ * @param rail - How the rail stands.
+ * @returns The classes.
+ */
+function folding(isOpen: boolean, rail: RailState): string {
+  return cn(
+    'grid',
+    rail.isReduced ? undefined : `transition-[grid-template-rows,opacity] ${MOTION}`,
+    isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+  );
+}
 
 /** What one row needs. */
 type RowProps = {
@@ -172,45 +233,30 @@ type RowProps = {
 };
 
 /**
- * One row of the open rail: the glyph, the name, and how many.
+ * One row: the glyph, and - while the rail is open - the name and how many. Shut, the name is
+ * what the row is called and what a hover shows.
  *
  * @param props - See {@link RowProps}.
  * @returns The row.
  */
 function Row(props: RowProps) {
   const { entry, count } = props;
-
-  return (
-    <NavLink to={entry.to} className={({ isActive }) => cn(ROW, isActive ? ROW_ACTIVE : ROW_IDLE)}>
-      <AppIcon id={entry.icon} size={18} />
-      <span className="grow truncate">{entry.label}</span>
-      {count === undefined ? null : (
-        <span className="font-mono text-mono-caption font-normal text-foreground-subtle tabular">
-          {count}
-        </span>
-      )}
-    </NavLink>
-  );
-}
-
-/**
- * One glyph of the collapsed rail.
- *
- * @param props - The entry.
- * @param props.entry - Where it goes, and what it is called.
- * @returns The square.
- */
-function Square(props: { readonly entry: Entry }) {
-  const { entry } = props;
+  const { isCollapsed } = useContext(RailContext);
 
   return (
     <NavLink
       to={entry.to}
-      title={entry.label}
-      aria-label={entry.label}
-      className={({ isActive }) => cn(SQUARE, isActive ? ROW_ACTIVE : ROW_IDLE)}
+      title={isCollapsed ? entry.label : undefined}
+      aria-label={isCollapsed ? entry.label : undefined}
+      className={({ isActive }) => cn(ROW, isActive ? ROW_ACTIVE : ROW_IDLE)}
     >
       <AppIcon id={entry.icon} size={18} />
+      <Fading className="grow truncate">{entry.label}</Fading>
+      {count === undefined ? null : (
+        <Fading className="font-mono text-mono-caption font-normal text-foreground-subtle tabular">
+          {count}
+        </Fading>
+      )}
     </NavLink>
   );
 }
@@ -231,27 +277,47 @@ type NavGroupProps = {
 };
 
 /**
- * A heading and the rows under it.
+ * A heading and the rows under it. On the narrow rail the heading folds away and a line parts
+ * the group from the one above, and every row is shown: a glyph has no group to be found in.
+ *
+ * What is folded away is also `inert` and hidden from a screen reader: a row nobody can see must
+ * not take the focus or be read out.
  *
  * @param props - See {@link NavGroupProps}.
  * @returns The group.
  */
 function NavGroup(props: NavGroupProps) {
   const { label, isOpen, onToggle, children } = props;
+  const rail = useContext(RailContext);
+  const isShown = isOpen || rail.isCollapsed;
 
   return (
-    <div className="mt-2.5 flex flex-col gap-0.5">
-      <button
-        type="button"
-        aria-expanded={isOpen}
-        onClick={onToggle}
-        className="press flex h-8.5 w-full items-center gap-2 rounded-field px-3 font-mono text-label text-foreground-subtle uppercase transition-colors hover:text-foreground-muted"
-      >
-        <span className="grow text-left">{label}</span>
-        <ChevronIcon isOpen={isOpen} className="text-foreground-subtle" />
-      </button>
+    <div
+      className={cn(
+        'flex flex-col border-t',
+        rail.isReduced ? undefined : `transition-[margin,padding,border-color] ${MOTION}`,
+        rail.isCollapsed ? 'mt-2 border-border pt-2' : 'mt-2.5 border-transparent pt-0',
+      )}
+    >
+      <div className={folding(!rail.isCollapsed, rail)} inert={rail.isCollapsed}>
+        <div className="min-h-0 overflow-hidden" aria-hidden={rail.isCollapsed}>
+          <button
+            type="button"
+            aria-expanded={isOpen}
+            onClick={onToggle}
+            className="press flex h-8.5 w-full items-center gap-2 rounded-field px-3 font-mono text-label whitespace-nowrap text-foreground-subtle uppercase transition-colors hover:text-foreground-muted"
+          >
+            <span className="grow text-left">{label}</span>
+            <ChevronIcon isOpen={isOpen} className="text-foreground-subtle" />
+          </button>
+        </div>
+      </div>
 
-      {isOpen ? children : null}
+      <div className={folding(isShown, rail)} inert={!isShown}>
+        <div className="min-h-0 overflow-hidden" aria-hidden={!isShown}>
+          <div className="flex flex-col gap-0.5 pt-0.5">{children}</div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -263,12 +329,15 @@ function NavGroup(props: NavGroupProps) {
  * something and instead ends your session is a small betrayal. Escape and a click elsewhere
  * both close it, because a menu that can only be dismissed by choosing something is a trap.
  *
- * @param props - How much room it has.
- * @param props.isCollapsed - Whether the rail is the 72px one: the picture alone.
+ * On the open rail the menu opens upward over the chip; on the narrow one it opens to the right,
+ * over the page, since 72px has no room for "Sign out". Either way it sits outside the part of
+ * the rail that scrolls, so nothing clips it.
+ *
  * @returns The chip.
  */
-function UserChip(props: { readonly isCollapsed: boolean }) {
-  const { isCollapsed } = props;
+function UserChip() {
+  const rail = useContext(RailContext);
+  const { isCollapsed } = rail;
   const user = useSession((state) => state.user);
   const endSession = useSession((state) => state.signOut);
   const [isOpen, setOpen] = useState(false);
@@ -290,7 +359,12 @@ function UserChip(props: { readonly isCollapsed: boolean }) {
       {isOpen ? (
         <div
           role="menu"
-          className="absolute bottom-full left-0 z-30 mb-1.5 w-full min-w-48 animate-rise overflow-hidden rounded-tile border border-border-strong bg-surface p-1 shadow-float"
+          className={cn(
+            'absolute z-30 animate-rise overflow-hidden rounded-tile border border-border-strong bg-surface p-1 shadow-float',
+            isCollapsed
+              ? 'bottom-0 left-full ml-4.5 w-48'
+              : 'bottom-full left-0 mb-1.5 w-full min-w-48',
+          )}
         >
           <button
             type="button"
@@ -326,21 +400,18 @@ function UserChip(props: { readonly isCollapsed: boolean }) {
           setOpen(!isOpen);
         }}
         className={cn(
-          'press flex items-center transition-colors hover:bg-surface-raised',
-          isCollapsed
-            ? 'mx-auto mt-1.5 rounded-full p-0.5'
-            : 'mt-1.5 w-full gap-2.5 rounded-tile border border-border p-2.5 text-left',
+          'press mt-1.5 flex w-full items-center gap-2.5 overflow-hidden rounded-tile border text-left whitespace-nowrap hover:bg-surface-raised',
+          rail.isReduced
+            ? 'transition-colors'
+            : `transition-[padding,border-color,background-color] ${MOTION}`,
+          isCollapsed ? 'border-transparent p-1.25' : 'border-border p-2.5',
         )}
       >
         <Avatar displayName={user?.displayName ?? ''} avatarUrl={user?.avatarUrl} isAccented />
-        {isCollapsed ? null : (
-          <span className="flex min-w-0 grow flex-col">
-            <span className="truncate text-ui font-medium text-foreground">{name}</span>
-            <span className="text-caption text-foreground-subtle capitalize">
-              {user?.role ?? ''}
-            </span>
-          </span>
-        )}
+        <Fading className="flex min-w-0 grow flex-col">
+          <span className="truncate text-ui font-medium text-foreground">{name}</span>
+          <span className="text-caption text-foreground-subtle capitalize">{user?.role ?? ''}</span>
+        </Fading>
       </button>
     </div>
   );
@@ -349,13 +420,14 @@ function UserChip(props: { readonly isCollapsed: boolean }) {
 /**
  * The entries of the packages' own pages, under Packages: each running package with a page that
  * asks for one, by the label and icon it asks for - its name and logo when it says neither.
+ * Indented under Packages on the open rail; glyphs in the column like every other on the narrow
+ * one.
  *
- * @param props - How much room they have.
- * @param props.isCollapsed - Whether the rail is the 72px one: the glyphs alone.
  * @returns The entries; nothing when no package asks.
  */
-function PackagePages(props: { readonly isCollapsed: boolean }) {
-  const { isCollapsed } = props;
+function PackagePages() {
+  const rail = useContext(RailContext);
+  const { isCollapsed } = rail;
   const { packages } = useInstalledPackages();
   const pages = packages.filter(
     (found): found is ApiPackage & { ui: NonNullable<ApiPackage['ui']> } =>
@@ -370,8 +442,9 @@ function PackagePages(props: { readonly isCollapsed: boolean }) {
   return (
     <div
       className={cn(
-        'flex flex-col gap-0.5',
-        isCollapsed ? 'items-center' : 'ml-4.5 border-l border-border pl-2',
+        'flex flex-col gap-0.5 border-l',
+        rail.isReduced ? undefined : `transition-[margin,padding,border-color] ${MOTION}`,
+        isCollapsed ? 'ml-0 border-transparent pl-0' : 'ml-4.5 border-border pl-2',
       )}
     >
       {pages.map((found) => {
@@ -387,9 +460,12 @@ function PackagePages(props: { readonly isCollapsed: boolean }) {
             aria-label={isCollapsed ? label : undefined}
             className={({ isActive }) =>
               cn(
-                isCollapsed
-                  ? SQUARE
-                  : 'press flex h-8.5 items-center gap-2 rounded-field border px-2.5 text-ui-sm transition-colors',
+                'press flex h-8.5 w-full shrink-0 items-center overflow-hidden rounded-field border text-ui-sm whitespace-nowrap',
+                rail.isReduced
+                  ? 'transition-colors'
+                  : `transition-[padding,gap,background-color,border-color,color] ${MOTION}`,
+                // Shut, its 16px glyph sits where the rows' 18px ones do.
+                isCollapsed ? 'gap-3 px-3.25' : 'gap-2 px-2.5',
                 isActive ? ROW_ACTIVE : ROW_IDLE,
               )
             }
@@ -403,7 +479,7 @@ function PackagePages(props: { readonly isCollapsed: boolean }) {
                 size={16}
               />
             )}
-            {isCollapsed ? null : <span className="truncate">{label}</span>}
+            <Fading className="truncate">{label}</Fading>
           </NavLink>
         );
       })}
@@ -436,11 +512,14 @@ function groupOf(pathname: string, groups: readonly Group[]): string | null {
   );
 }
 
-/** The page whose grid needs the room: the rail is collapsed while it is open. */
-const DASHBOARD_EDITOR = /^\/configuration\/dashboards\/[^/]+\/edit$/u;
-
 /**
  * The rail.
+ *
+ * One element at both widths, so that the change between them can be watched rather than cut:
+ * the width moves, the words fade, the headings fold into lines, and the glyphs stay where they
+ * are. Three parts top to bottom - the name, the entries (the only part that scrolls), and the
+ * foot with the settings, the person and the button that collapses or opens the rail, which is
+ * the last row at both widths so it is always found in the same place.
  *
  * @returns The sidebar.
  */
@@ -450,8 +529,9 @@ export function Sidebar() {
   const width = usePreferences((state) => state.sidebar);
   const setPreferences = usePreferences((state) => state.set);
   const counts = useRailCounts();
-  const isForced = DASHBOARD_EDITOR.test(pathname);
-  const isCollapsed = isForced || width === 'collapsed';
+  const isReduced = useReducedMotion();
+  const isCollapsed = width === 'collapsed';
+  const rail = useMemo(() => ({ isCollapsed, isReduced }), [isCollapsed, isReduced]);
   const groups = GROUPS.filter((group) => group.permission === undefined || can(group.permission))
     .map((group) => ({
       ...group,
@@ -477,109 +557,87 @@ export function Sidebar() {
   const dashboards: Entry = { to: '/dashboards', label: 'Dashboards', icon: 'layout-dashboard' };
   const settings: Entry = { to: '/settings', label: 'Settings', icon: 'settings' };
 
-  if (isCollapsed) {
-    return (
+  return (
+    <RailContext.Provider value={rail}>
       <nav
         aria-label="Main"
-        className="flex w-18 shrink-0 flex-col items-center gap-0.5 overflow-y-auto border-r border-border bg-rail px-3.5 py-4.5"
+        className={cn(
+          'relative z-20 flex shrink-0 flex-col border-r border-border bg-rail py-4.5',
+          isReduced ? undefined : `transition-[width] ${MOTION}`,
+          isCollapsed ? 'w-18' : 'w-60',
+        )}
       >
-        <div className="mb-4 flex h-10 items-center justify-center">
+        <div className="mx-3.5 mb-3.5 flex h-10 shrink-0 items-center gap-2.5 overflow-hidden px-2 whitespace-nowrap">
           <Logo size={26} />
+          <Fading className="text-subhead font-semibold tracking-tight">Nebula Home</Fading>
         </div>
 
-        <Square entry={dashboards} />
-
-        {groups.map((group) => (
-          <div
-            key={group.label}
-            className="mt-2 flex flex-col items-center gap-0.5 border-t border-border pt-2"
-          >
-            {group.entries.map((entry) => (
-              <div key={entry.to} className="flex flex-col items-center gap-0.5">
-                <Square entry={entry} />
-                {entry.to === '/packages' ? <PackagePages isCollapsed /> : null}
-              </div>
-            ))}
-          </div>
-        ))}
-
-        <div className="min-h-4 grow" />
-
-        <Square entry={settings} />
-        <UserChip isCollapsed />
-        {isForced ? null : (
-          <button
-            type="button"
-            aria-label="Expand sidebar"
-            title="Expand sidebar"
-            onClick={() => {
-              setPreferences({ sidebar: 'expanded' });
-            }}
-            className={cn(TOGGLE, 'mt-2')}
-          >
-            <AppIcon id="chevron-right" size={16} />
-          </button>
-        )}
-      </nav>
-    );
-  }
-
-  return (
-    <nav
-      aria-label="Main"
-      className="flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border bg-rail px-3.5 py-4.5"
-    >
-      <div className="mb-3.5 flex h-10 items-center gap-2.5 pr-1 pl-1.5">
-        <Logo size={26} />
-        <span className="grow text-subhead font-semibold tracking-tight">Nebula Home</span>
-        <button
-          type="button"
-          aria-label="Collapse sidebar"
-          title="Collapse sidebar"
-          onClick={() => {
-            setPreferences({ sidebar: 'collapsed' });
-          }}
-          className={TOGGLE}
+        {/* Narrow, the rows have exactly the 43px between the gutters: a scrollbar on a short
+            window would take its width out of them and push every glyph off the middle, so it
+            still scrolls but draws none. */}
+        <div
+          className={cn(
+            'flex min-h-0 grow flex-col gap-0.5 overflow-x-hidden overflow-y-auto px-3.5',
+            isCollapsed ? 'scrollbar-none' : undefined,
+          )}
         >
-          <AppIcon id="chevron-left" size={16} />
-        </button>
-      </div>
+          <Row entry={dashboards} />
 
-      <Row entry={dashboards} />
-
-      {groups.map((group) => (
-        <NavGroup
-          key={group.label}
-          label={group.label}
-          isOpen={open === group.label}
-          onToggle={() => {
-            toggle(group.label);
-          }}
-        >
-          {group.entries.map((entry) => (
-            <div key={entry.to} className="flex flex-col gap-0.5">
-              <Row
-                entry={entry}
-                count={entry.count === undefined ? undefined : counts[entry.count]}
-              />
-              {entry.to === '/packages' ? <PackagePages isCollapsed={false} /> : null}
-            </div>
+          {groups.map((group) => (
+            <NavGroup
+              key={group.label}
+              label={group.label}
+              isOpen={open === group.label}
+              onToggle={() => {
+                toggle(group.label);
+              }}
+            >
+              {group.entries.map((entry) => (
+                <div key={entry.to} className="flex flex-col gap-0.5">
+                  <Row
+                    entry={entry}
+                    count={entry.count === undefined ? undefined : counts[entry.count]}
+                  />
+                  {entry.to === '/packages' ? <PackagePages /> : null}
+                </div>
+              ))}
+            </NavGroup>
           ))}
-        </NavGroup>
-      ))}
 
-      <div className="min-h-4 grow" />
-
-      <div className="flex flex-col gap-0.5">
-        <Row entry={settings} />
+          <div className="min-h-4 grow" />
+        </div>
 
         {/*
          * Settings above the person, not below. The rail is ordered by scope and a person is the
          * narrowest thing in it; it is also the row that opens a menu rather than navigating,
-         * so it sits at the very bottom where a menu has room to open upward.
+         * so it sits near the bottom where a menu has room to open. The button that collapses or
+         * opens the rail is the last row at both widths: it never moves.
          */}
-        <UserChip isCollapsed={false} />
-      </div>
-    </nav>
+        <div className="flex shrink-0 flex-col gap-0.5 px-3.5 pt-2">
+          <Row entry={settings} />
+          <UserChip />
+          <button
+            type="button"
+            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={isCollapsed ? 'Expand sidebar' : undefined}
+            aria-expanded={!isCollapsed}
+            onClick={() => {
+              setPreferences({ sidebar: isCollapsed ? 'expanded' : 'collapsed' });
+            }}
+            className={cn(ROW, ROW_IDLE, 'mt-1.5 text-ui-sm')}
+          >
+            <AppIcon
+              id="chevrons-left"
+              size={18}
+              className={cn(
+                isReduced ? undefined : `transition-transform ${MOTION}`,
+                isCollapsed ? 'rotate-180' : undefined,
+              )}
+            />
+            <Fading className="truncate">Collapse</Fading>
+          </button>
+        </div>
+      </nav>
+    </RailContext.Provider>
   );
 }

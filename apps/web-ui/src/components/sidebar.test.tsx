@@ -306,12 +306,42 @@ describe('Sidebar', () => {
     expect(screen.getByRole('button', { name: /Automate/ })).toBeTruthy();
   });
 
-  it('stays collapsed while a dashboard is being edited, whatever was chosen', () => {
+  it('keeps the width chosen on every page, the dashboard editor too', () => {
     renderAt('/configuration/dashboards/home/edit', [...EVERYTHING, 'dashboard:manage']);
 
-    expect(screen.queryByRole('button', { name: 'Collapse sidebar' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Expand sidebar' })).toBeNull();
-    expect(screen.getByRole('link', { name: 'Dashboard setup' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /House/ }).getAttribute('aria-expanded')).toBe(
+      'true',
+    );
+  });
+
+  it('keeps the button that collapses and opens the rail as its last row at both widths', () => {
+    renderAt('/scenes', EVERYTHING);
+
+    const rail = screen.getByRole('navigation', { name: 'Main' });
+    const lastButton = (): Element | null => {
+      const buttons = rail.querySelectorAll('button');
+
+      return buttons[buttons.length - 1] ?? null;
+    };
+
+    expect(lastButton()).toBe(screen.getByRole('button', { name: 'Collapse sidebar' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
+
+    expect(lastButton()).toBe(screen.getByRole('button', { name: 'Expand sidebar' }));
+  });
+
+  it('opens the account menu beside the narrow rail, outside the part that scrolls', () => {
+    renderAt('/scenes', EVERYTHING);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
+    fireEvent.click(screen.getByRole('button', { name: /Account menu/ }));
+
+    const menu = screen.getByRole('menu');
+    expect(menu.className).toContain('left-full');
+    expect(menu.closest('.overflow-y-auto')).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Sign out' })).toBeTruthy();
   });
 
   it('marks the current row for something that cannot see a colour', () => {
