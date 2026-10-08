@@ -89,6 +89,12 @@ export type DashboardGridProps = {
 
   /** Told whether the window is too narrow to edit in. */
   readonly onNarrowChange?: (isNarrow: boolean) => void;
+
+  /**
+   * What fills the room the editor keeps for a layout with no card yet: the grid stays where it
+   * is - and keeps measuring the window - with this laid over the two empty rows.
+   */
+  readonly emptyState?: ReactNode;
 };
 
 /** A card in the air, and where it would land. */
@@ -188,7 +194,7 @@ function whereIs(layout: DashboardLayout, id: string, data: DashboardData): stri
  * @returns The grid.
  */
 export function DashboardGrid(props: DashboardGridProps) {
-  const { layout, data, editor, onNarrowChange } = props;
+  const { layout, data, editor, onNarrowChange, emptyState } = props;
   const rootRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [gesture, setGesture] = useState<Gesture | null>(null);
@@ -573,7 +579,9 @@ export function DashboardGrid(props: DashboardGridProps) {
         data-card-id={card.id}
         className={cn(
           'absolute top-0 left-0',
-          isReduced || gesture?.kind === 'resize'
+          // Only while editing, where a card that moves should be seen moving. On a dashboard being
+          // looked at, a card only moves because the window changed, and sliding then is noise.
+          editor === null || isReduced || gesture?.kind === 'resize'
             ? undefined
             : 'transition-[transform,width,height] duration-200 ease-out',
           isSelected || isLifted ? 'z-10' : undefined,
@@ -700,6 +708,11 @@ export function DashboardGrid(props: DashboardGridProps) {
       }}
     >
       {width === 0 ? null : shown.cards.map((card) => place(card, column))}
+
+      {emptyState === undefined || editor === null || shown.cards.length > 0 ? null : (
+        // Over the two rows the editor keeps, not the gap under them (GAP_PX, 16px).
+        <div className="absolute inset-x-0 top-0 bottom-4 flex">{emptyState}</div>
+      )}
 
       {moving === null || carried === null || carried === undefined ? null : (
         <div

@@ -36,7 +36,12 @@ export function DashboardTabs(props: DashboardTabsProps) {
   const isCurrent = (dashboardId: string): boolean => dashboardId === currentId;
 
   return (
-    <nav aria-label="Dashboards" className="flex min-w-0 items-center gap-1 overflow-x-auto">
+    // Room above and below the pills, and no vertical scroll at all: a pressed pill sinks a pixel,
+    // and in a strip exactly its height that pixel was enough to grow a scrollbar beside it.
+    <nav
+      aria-label="Dashboards"
+      className="-my-1 flex min-w-0 scrollbar-none items-center gap-1 overflow-x-auto overflow-y-hidden py-1"
+    >
       {dashboards.map((dashboard) => (
         <NavLink
           key={dashboard.id}

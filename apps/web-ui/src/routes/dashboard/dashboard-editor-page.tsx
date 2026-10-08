@@ -63,6 +63,54 @@ function groupInUse(layout: DashboardLayout, selectedId: string | null): string 
   return found.card.type === 'container' ? found.card.id : found.parentId;
 }
 
+/** What the empty page needs. */
+type EmptyPageProps = {
+  /** The dashboard's name. */
+  readonly name: string;
+
+  /** Opens the card picker. */
+  readonly onAddCard: () => void;
+
+  /** Adds a group. */
+  readonly onAddGroup: () => void;
+};
+
+/**
+ * What a dashboard with nothing on it shows while it is edited: the two rows the grid keeps,
+ * drawn as the place cards will go, with the two ways to start. It sits where the first card will
+ * land rather than under an empty gap, which is where the button used to float.
+ *
+ * @param props - See {@link EmptyPageProps}.
+ * @returns The empty page.
+ */
+function EmptyPage(props: EmptyPageProps) {
+  const { name, onAddCard, onAddGroup } = props;
+
+  return (
+    <div className="flex grow flex-col items-center justify-center gap-4 rounded-panel border border-dashed border-border-strong bg-surface/40 px-6 text-center">
+      <span className="flex size-11 items-center justify-center rounded-tile bg-primary/10 text-primary">
+        <AppIcon id="layout-grid" size={20} />
+      </span>
+      <span className="flex flex-col gap-1">
+        <span className="text-title font-medium text-foreground">Nothing on {name} yet</span>
+        <span className="text-ui-sm text-foreground-muted">
+          Add cards for what you want at hand, or a group to gather them.
+        </span>
+      </span>
+      <span className="flex flex-wrap items-center justify-center gap-2.5">
+        <Button onClick={onAddCard}>
+          <AppIcon id="plus" size={15} />
+          Add card
+        </Button>
+        <Button variant="ghost" onClick={onAddGroup}>
+          <AppIcon id="layout-grid" size={15} />
+          Add group
+        </Button>
+      </span>
+    </div>
+  );
+}
+
 /**
  * Renders the editor for the dashboard in the address.
  *
@@ -299,7 +347,6 @@ function Editor(props: { readonly dashboard: DashboardView }) {
         <h1 className="sr-only">Editing {dashboard.name}</h1>
         <Note
           tone="accent"
-          className="mx-auto max-w-7xl"
           action={
             <span className="flex flex-wrap items-center gap-2">
               <Button
@@ -355,14 +402,14 @@ function Editor(props: { readonly dashboard: DashboardView }) {
           <span className="text-foreground-subtle"> · drag to move, drag a corner to resize</span>
         </Note>
         {problem === null ? null : (
-          <p role="alert" className="mx-auto mt-2 max-w-7xl text-ui-sm text-danger">
+          <p role="alert" className="mt-2 text-ui-sm text-danger">
             {problem}
           </p>
         )}
       </div>
 
       <div className="min-h-0 grow overflow-y-auto px-8 pt-5 pb-7">
-        <div className="mx-auto flex max-w-7xl items-start gap-6">
+        <div className="flex items-start gap-6">
           <div className="flex min-w-0 grow flex-col gap-4">
             {isNarrow ? (
               <PageMessage>
@@ -374,6 +421,17 @@ function Editor(props: { readonly dashboard: DashboardView }) {
               layout={layout}
               data={data}
               onNarrowChange={setNarrow}
+              emptyState={
+                <EmptyPage
+                  name={dashboard.name}
+                  onAddCard={() => {
+                    setAdding(true);
+                  }}
+                  onAddGroup={() => {
+                    add([containerCard('New group')]);
+                  }}
+                />
+              }
               editor={
                 canEdit
                   ? {
@@ -386,7 +444,7 @@ function Editor(props: { readonly dashboard: DashboardView }) {
               }
             />
 
-            {canEdit ? (
+            {canEdit && layout.cards.length > 0 ? (
               <button
                 type="button"
                 className="press flex h-16 items-center justify-center gap-3 rounded-panel border border-dashed border-border-strong bg-surface/40 text-ui font-medium text-foreground-muted hover:text-foreground"

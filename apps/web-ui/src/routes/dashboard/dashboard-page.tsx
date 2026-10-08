@@ -191,8 +191,9 @@ export function Frame(props: FrameProps) {
 
   return (
     <div className="flex min-h-0 min-w-0 grow flex-col">
-      <header className="shrink-0 px-8 pt-7">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-3">
+      {/* The same gutter as the body below, so the right edges of both still line up. */}
+      <header className="shrink-0 scrollbar-stable overflow-hidden px-8 pt-7">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
           <div className="flex min-w-0 items-center gap-3">
             {heading ?? <h1 className="text-display font-medium">Dashboards</h1>}
           </div>
@@ -201,9 +202,9 @@ export function Frame(props: FrameProps) {
           )}
         </div>
       </header>
-      <div className="min-h-0 grow overflow-y-auto px-8 pt-5 pb-7">
-        <div className="mx-auto max-w-7xl">{children}</div>
-      </div>
+      {/* The scrollbar's room kept whether or not it is drawn: the grid is measured from this
+          width, and a scrollbar appearing would narrow it and slide every card. */}
+      <div className="min-h-0 grow scrollbar-stable overflow-y-auto px-8 pt-5 pb-7">{children}</div>
     </div>
   );
 }
