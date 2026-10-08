@@ -10,6 +10,7 @@ import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   ADAPTER_COMMAND_METHOD,
   adapterCommandSchema,
+  BUS_PATTERNS,
   busSubjects,
   composeControlRequestSchema,
   composeDefinitionSchema,
@@ -24,6 +25,7 @@ import {
   imageDescribeRequestSchema,
   imageSearchRequestSchema,
   imageTagsRequestSchema,
+  jsonObjectSchema,
   managedRequestSchema,
   reconcileRequestSchema,
   resyncRequestSchema,
@@ -214,5 +216,9 @@ export function serveSupervisor(client: BusClient, service: SupervisorService): 
     client.serve(busSubjects.stateResync(SUPERVISOR_SERVICE), resyncRequestSchema, () =>
       service.resync(),
     ),
+    // Any package event: the broker a waiting container needs may just have come up.
+    client.subscribe(BUS_PATTERNS.allPackageEvents, jsonObjectSchema, () => {
+      service.packageChanged();
+    }),
   ];
 }

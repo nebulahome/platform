@@ -302,7 +302,7 @@ export class SupervisorService {
        * @param spec - The container's declaration.
        * @returns The broker with the container's username, or undefined for the platform's.
        */
-      brokerFor: async (spec) => brokerFor(this.#client, spec),
+      brokerFor: async (spec) => brokerFor(this.#client, spec, options.logger),
 
       /**
        * Whether a package's compose project declares a container: it is the package's, locked
@@ -453,6 +453,7 @@ export class SupervisorService {
    */
   public stop(): void {
     this.#shutdown.abort();
+    this.#managed.stop();
 
     for (const timer of this.#timers) {
       clearInterval(timer);
@@ -789,6 +790,14 @@ export class SupervisorService {
   public async resumeManaged(): Promise<void> {
     await this.#managed.resume();
     await this.#compose.resume((project) => this.#neighboursOf(project));
+  }
+
+  /**
+   * Asks the broker again for the containers that wait for it: a package was installed,
+   * started, configured or removed, and it may be the one that provides the broker.
+   */
+  public packageChanged(): void {
+    this.#managed.retryAwaitingBroker();
   }
 
   /**

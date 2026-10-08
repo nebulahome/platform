@@ -12,6 +12,13 @@
  * does. One no vendor declares any more - its bundle is gone - is **released** once `hub` has said
  * so, and is the owner's again. Until `hub` has spoken after a start, every managed container
  * stays locked: not having heard is not the same as having been told.
+ *
+ * A container that speaks MQTT is not made while the house's broker has not answered - at boot,
+ * before the MQTT package runs, or with no such package. Made then, it would be given an empty
+ * broker address, and zigbee2mqtt reads an empty address as `localhost:1883`, its own container,
+ * where nothing listens; a container already made would even be made again with it, since what it
+ * is made from changed. It waits instead, as it is, and the broker is asked again every 15 seconds
+ * and at every package event, until it answers.
  */
 import { writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -50,6 +57,7 @@ import { PullProgressTracker } from '../domain/pull-progress.js';
 import { newestSatisfying, satisfiesMinimum, versionOf } from '../domain/versions.js';
 import type { RegistryClient } from '../registry/registry-client.js';
 
+import { speaksMqtt } from './broker-credentials.js';
 import { replaceContainer } from './replace.js';
 
 /** What the managed containers need. */
@@ -81,6 +89,9 @@ export type ManagedContainersOptions = {
    */
   readonly brokerFor?: (spec: ManagedContainerSpec) => Promise<PlatformContext['mqtt'] | undefined>;
 
+  /** How long a container that speaks MQTT waits before the broker is asked again; 15 s. */
+  readonly brokerRetryMs?: number;
+
   /**
    * How long a container another waits for as healthy is given to become so, and how often it
    * is looked at; two minutes, every two seconds, when not said.
@@ -105,6 +116,13 @@ export type ManagedContainersOptions = {
 
 /** How long a container waited for as healthy is given, and how often it is looked at. */
 const DEFAULT_HEALTH_WAIT = { timeoutMs: 120_000, intervalMs: 2000 };
+
+/** How long a container that speaks MQTT waits, when no broker answered, before it asks again. */
+const BROKER_RETRY_MS = 15_000;
+
+/** What a container waiting for the broker says on its vendor's page. */
+export const WAITING_FOR_BROKER =
+  'Waiting for the house’s MQTT broker, which the MQTT package provides';
 
 /** The key an owner's declarations are kept under. */
 type OwnerKey = `${ContainerOwnerKind}:${string}`;
@@ -146,6 +164,10 @@ export class ManagedContainers {
   #isSuspended = false;
   #suspended: string[] = [];
   #queue: Promise<void> = Promise.resolve();
+
+  /** The owners with a container that waits for the broker, and the timer that asks again. */
+  readonly #awaitingBroker = new Set<OwnerKey>();
+  #brokerRetry: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Creates the set, empty until `hub` says what it holds.
@@ -219,6 +241,37 @@ export class ManagedContainers {
     for (const key of this.#desired.keys()) {
       this.#schedule(key);
     }
+  }
+
+  /**
+   * Starts the work again for the owners whose containers wait for the broker: a package was
+   * installed, started or configured, and it may be the broker. Nothing at all when none waits.
+   */
+  public retryAwaitingBroker(): void {
+    if (this.#brokerRetry !== null) {
+      clearTimeout(this.#brokerRetry);
+      this.#brokerRetry = null;
+    }
+
+    const keys = [...this.#awaitingBroker];
+
+    this.#awaitingBroker.clear();
+
+    for (const key of keys) {
+      if (this.#desired.has(key)) {
+        this.#schedule(key);
+      }
+    }
+  }
+
+  /** Stops asking the broker again. */
+  public stop(): void {
+    if (this.#brokerRetry !== null) {
+      clearTimeout(this.#brokerRetry);
+      this.#brokerRetry = null;
+    }
+
+    this.#awaitingBroker.clear();
   }
 
   /**
@@ -418,6 +471,23 @@ export class ManagedContainers {
   }
 
   /**
+   * Remembers an owner whose container waits for the broker, and asks again in a while.
+   *
+   * @param key - The owner.
+   */
+  #awaitBroker(key: OwnerKey): void {
+    this.#awaitingBroker.add(key);
+
+    if (this.#brokerRetry === null) {
+      this.#brokerRetry = setTimeout(() => {
+        this.#brokerRetry = null;
+        this.retryAwaitingBroker();
+      }, this.#options.brokerRetryMs ?? BROKER_RETRY_MS);
+      this.#brokerRetry.unref();
+    }
+  }
+
+  /**
    * Makes one declared container exist, at a release the vendor accepts, made from what the
    * vendor declared, and running.
    *
@@ -475,6 +545,25 @@ export class ManagedContainers {
           state: 'missing',
           error: `Another NebulaHome on this Docker runs ${name}, so this one leaves it alone. Stop that one, or remove its container, to run it from here.`,
         });
+
+        return;
+      }
+
+      // No broker, and the container needs one: it is not made, made again or started with an
+      // empty address - see the header. One that exists is left exactly as it is.
+      if (context.mqtt === null && this.#options.brokerFor !== undefined && speaksMqtt(spec)) {
+        if (this.#status.get(key)?.error !== WAITING_FOR_BROKER) {
+          this.#options.logger.info(
+            { container: name, vendor: spec.vendorId },
+            'A container waits for the house’s MQTT broker',
+          );
+        }
+
+        record({
+          state: existing?.State.Running === true ? 'running' : 'missing',
+          error: WAITING_FOR_BROKER,
+        });
+        this.#awaitBroker(ownerKeyOf(spec.ownerKind, spec.vendorId));
 
         return;
       }

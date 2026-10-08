@@ -7,8 +7,9 @@
  * whichever package provides `mqtt-broker`, found on the packet-manager's list and asked over the
  * bus (`svc.<package>.credentials`); it answers the port it listens on, and the address is the
  * platform's, which `brokerUrlFor` turns into the one the container reaches it by. With no such
- * package, or none that answers, the container goes without one. A broker the environment names
- * (`NEBULA_MQTT_URL`) is used instead, and nothing is asked: the callers do not ask then.
+ * package, or none that answers, the container waits for one (`ManagedContainers`). A broker the
+ * environment names (`NEBULA_MQTT_URL`) is used instead, and nothing is asked: the callers do not
+ * ask then.
  */
 import type { BusClient } from '@nebulahome/bus';
 import {
@@ -23,6 +24,7 @@ import {
   type ManagedContainerSpec,
   type MqttCredentialsRequest,
 } from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { PlatformContext } from '../domain/managed.js';
 
@@ -46,22 +48,28 @@ export function speaksMqtt(spec: ManagedContainerSpec): boolean {
  *
  * @param client - The bus.
  * @param spec - The container's declaration.
+ * @param logger - Where a broker that did not answer is noted.
  * @returns The broker as the platform reaches it, with the container's username; undefined when
  *   the container does not speak MQTT, or no broker answered.
  */
 export async function brokerFor(
   client: BusClient,
   spec: ManagedContainerSpec,
+  logger?: PlatformLogger,
 ): Promise<PlatformContext['mqtt'] | undefined> {
   if (!speaksMqtt(spec)) {
     return undefined;
   }
 
-  return credentialsFor(client, {
-    principal: 'container',
-    owner: `${spec.ownerKind}:${spec.vendorId}`,
-    ...(spec.mqttTopics === undefined ? {} : { topics: [...spec.mqttTopics] }),
-  });
+  return credentialsFor(
+    client,
+    {
+      principal: 'container',
+      owner: `${spec.ownerKind}:${spec.vendorId}`,
+      ...(spec.mqttTopics === undefined ? {} : { topics: [...spec.mqttTopics] }),
+    },
+    logger,
+  );
 }
 
 /**
@@ -84,12 +92,17 @@ export async function brokerForPackage(
  *
  * @param client - The bus.
  * @param request - Whose username, held to which topics.
+ * @param logger - Where a broker that did not answer is noted: at debug, since the callers ask
+ *   again every few seconds while there is none and say once themselves that they wait.
  * @returns The broker with the username; undefined when there is none, or it did not answer.
  */
 async function credentialsFor(
   client: BusClient,
   request: MqttCredentialsRequest,
+  logger?: PlatformLogger,
 ): Promise<PlatformContext['mqtt'] | undefined> {
+  const owner = request.principal === 'container' ? request.owner : request.principal;
+
   try {
     const listed = await client.request(
       busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.list),
@@ -107,6 +120,8 @@ async function credentialsFor(
     );
 
     if (provider === undefined) {
+      logger?.debug({ owner }, 'No package provides the house’s MQTT broker');
+
       return undefined;
     }
 
@@ -122,7 +137,9 @@ async function credentialsFor(
       username: reply.username,
       password: reply.password,
     };
-  } catch {
+  } catch (error: unknown) {
+    logger?.debug({ err: error, owner }, 'The house’s MQTT broker gave no username');
+
     return undefined;
   }
 }
