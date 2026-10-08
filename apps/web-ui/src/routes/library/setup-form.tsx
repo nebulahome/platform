@@ -104,7 +104,6 @@ function Field(props: {
           label={field.label}
           name={field.key}
           autoComplete="off"
-          size="medium"
           hasRules={false}
           required={field.isRequired && !isKept}
           value={textOf(value)}

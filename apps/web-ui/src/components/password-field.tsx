@@ -64,7 +64,10 @@ export type PasswordFieldProps = {
   /** A line under the control when there are no rules to list. */
   readonly hint?: ReactNode | undefined;
 
-  /** How tall the control is. Large by default, which is what a sign-in form wants. */
+  /**
+   * How tall the control is. Medium by default, the same as a `TextField`: the large one is a dark
+   * veil, and beside two medium fields on the first-run card it read as a field switched off.
+   */
   readonly size?: 'compact' | 'medium' | 'large';
 };
 
@@ -86,7 +89,7 @@ export function PasswordField(props: PasswordFieldProps) {
     required = false,
     placeholder,
     hint,
-    size = 'large',
+    size = 'medium',
   } = props;
 
   const [isRevealed, setRevealed] = useState(false);

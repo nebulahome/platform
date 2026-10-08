@@ -182,7 +182,6 @@ function KeyDialog(props: KeyDialogProps) {
           onChange={setPassword}
           autoComplete="current-password"
           hasRules={false}
-          size="medium"
         />
         {download.isError ? (
           <p role="alert" className="text-ui text-danger">
