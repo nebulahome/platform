@@ -162,7 +162,7 @@ export async function removeIntegration(
 
   if (vendor?.origin === 'development') {
     throw new ConflictError(
-      `${vendor.name} is built into this NebulaHome, not installed: it cannot be removed`,
+      `${vendor.name} is a copy under development, not installed: it cannot be removed`,
       { details: { vendorId, reason: 'built-in' } },
     );
   }

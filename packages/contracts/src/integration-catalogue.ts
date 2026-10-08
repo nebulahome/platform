@@ -93,8 +93,8 @@ export const integrationListingSchema = z.object({
   installedVersion: z.string().max(64).nullable(),
 
   /**
-   * Whether a copy under development - a bundle of the repository's - runs and none is installed:
-   * installing one puts it in that copy's place.
+   * Whether a copy under development - a bundle the hub reads from `HUB_DEV_BUNDLE_DIR` - runs
+   * and none is installed: installing one puts it in that copy's place.
    */
   isBuiltIn: z.boolean(),
 

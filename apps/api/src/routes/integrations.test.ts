@@ -257,7 +257,7 @@ describe('installing integrations from the Community Hub', () => {
     expect((asked?.payload as { requestedBy?: string }).requestedBy).toEqual(expect.any(String));
   });
 
-  it('removes one the platform installed, and refuses one built into it', async () => {
+  it('removes one the platform installed, and refuses a copy under development', async () => {
     const authorization = await bearer('integration:install');
     const removed = await server.inject({
       method: 'DELETE',
@@ -277,6 +277,6 @@ describe('installing integrations from the Community Hub', () => {
       payload: { vendorId: 'zigbee' },
     });
     expect(builtIn.statusCode).toBe(409);
-    expect(JSON.stringify(builtIn.json())).toContain('built into this NebulaHome');
+    expect(JSON.stringify(builtIn.json())).toContain('a copy under development');
   });
 });
