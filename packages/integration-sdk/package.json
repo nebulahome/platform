@@ -38,6 +38,7 @@
     "dist",
     "schemas",
     "README.md",
+    "FILES.md",
     "CHANGELOG.md"
   ],
   "engines": {

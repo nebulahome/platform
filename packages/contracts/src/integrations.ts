@@ -50,7 +50,7 @@ export const integrationKindIdSchema = z
   .string()
   .regex(INTEGRATION_KIND_PATTERN, 'Must be an integration kind, as vendor/driver');
 
-/** Identifies a vendor on its own: `shelly`, `bambu-lab`. A directory people type, so letter first. */
+/** Identifies a vendor on its own: `shelly`, `bambulab`. A directory people type, so letter first. */
 export const VENDOR_ID_PATTERN = /^[a-z][a-z0-9-]{1,63}$/;
 
 /** Identifies a driver within its vendor: `dimmer-pm`, `3em`. Named after the product, so digits allowed first. */

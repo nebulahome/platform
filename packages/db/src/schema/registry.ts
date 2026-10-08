@@ -93,7 +93,7 @@ export const integrations = registrySchema.table(
   {
     id: text('id').primaryKey(),
 
-    /** The driver, vendor-qualified: `shelly/dimmer-pm`, `bambu-lab/printer`. */
+    /** The driver, vendor-qualified: `shelly/dimmer-pm`, `bambulab/printer`. */
     kind: text('kind').notNull(),
     kindVersion: text('kind_version').notNull(),
 
@@ -142,7 +142,7 @@ export const integrations = registrySchema.table(
  * grants say.
  */
 export const integrationVendors = registrySchema.table('integration_vendors', {
-  /** The vendor bundle's directory name: `shelly`, `bambu-lab`. */
+  /** The vendor bundle's directory name: `shelly`, `bambulab`. */
   id: text('id').primaryKey(),
 
   /** The bundle version the settings were saved against. */

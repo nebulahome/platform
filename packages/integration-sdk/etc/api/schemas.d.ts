@@ -25,11 +25,11 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
       module: z.ZodString;
       wires: z.ZodArray<z.ZodEnum<{
-        udp: "udp";
         http: "http";
         mqtt: "mqtt";
         ble: "ble";
         zigbee: "zigbee";
+        udp: "udp";
         modbus: "modbus";
       }>>;
     }, z.core.$strict>]>>>;
@@ -364,8 +364,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     entities: z.ZodArray<z.ZodObject<{
       domain: z.ZodEnum<{
         number: "number";
-        image: "image";
         custom: "custom";
+        image: "image";
         light: "light";
         switch: "switch";
         sensor: "sensor";

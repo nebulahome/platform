@@ -190,7 +190,7 @@ export class HubService {
   readonly #broker: PlatformBroker;
   readonly #secretsKey: Buffer;
 
-  /** The stream sources the vendors ship, by id: `bambu-lab/camera`. */
+  /** The stream sources the vendors ship, by id: `bambulab/camera`. */
   readonly #streams = new Map<string, StreamSource>();
   readonly #cameras: CameraService;
 

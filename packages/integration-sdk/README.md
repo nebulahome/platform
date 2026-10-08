@@ -27,6 +27,9 @@ Every JSON file names its schema, so the editor checks it as it is typed:
 { "$schema": "../node_modules/@nebulahome/integration-sdk/schemas/manifest.schema.json" }
 ```
 
+`FILES.md`, beside this file, says what each of them holds in full - discovery, accounts, setup
+forms, the profile's grammar and its limits, firmware updates, cameras and pictures.
+
 ## The command
 
 ```sh

@@ -1614,11 +1614,11 @@ declare const vendorManifestSchema: z.ZodObject<{
   transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
     module: z.ZodString;
     wires: z.ZodArray<z.ZodEnum<{
-      udp: "udp";
       http: "http";
       mqtt: "mqtt";
       ble: "ble";
       zigbee: "zigbee";
+      udp: "udp";
       modbus: "modbus";
     }>>;
   }, z.core.$strict>]>>>;
@@ -1926,8 +1926,8 @@ type LoadedBundle = {
  *
  * `installed` is the data directory's `hub/integrations`: where the platform installs a vendor
  * from the integrations index or its local folder, and the only place a production hub reads.
- * `development` is a directory of bundles under development - the platform repository's
- * `apps/hub/bundles`, or an integration repository's `dist/` - read outside production.
+ * `development` is a directory of bundles under development - an integration repository's
+ * `dist/`, named in the hub's `HUB_DEV_BUNDLE_DIR` - read beside it.
  */
 type BundleOrigin = 'development' | 'installed';
 /** Where a vendor's devices announce themselves, ready to listen to. */
@@ -1968,7 +1968,7 @@ type LoadedVendor = {
   readonly wires: readonly TransportWire[];
   /** The transports the vendor ships itself, ready to register: `shelly/rpc`. */
   readonly ownTransports: readonly Transport[];
-  /** The stream sources the vendor ships, ready to register: `bambu-lab/camera`. */
+  /** The stream sources the vendor ships, ready to register: `bambulab/camera`. */
   readonly streams: readonly StreamSource[];
   readonly drivers: readonly LoadedBundle[];
   /** How its devices are found, when it has a `discovery.json` that loaded. */

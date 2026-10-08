@@ -56,7 +56,7 @@ function isSame(a: ModelChoice | undefined, b: ModelChoice): boolean {
 
 /** One heading of the list, and the choices under it. */
 type Group = {
-  /** A series, `series:X series`, or a driver, `driver:bambu-lab/printer`. */
+  /** A series, `series:X series`, or a driver, `driver:bambulab/printer`. */
   readonly key: string;
   readonly heading: string;
   readonly choices: ModelChoice[];

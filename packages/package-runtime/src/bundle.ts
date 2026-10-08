@@ -40,7 +40,7 @@ export const BUNDLE_KINDS = ['declarative', 'code'] as const;
 /** Bundle kind, which is both how it is written and how far it is trusted. */
 export type BundleKind = (typeof BUNDLE_KINDS)[number];
 
-/** Identifies a vendor, and names its directory: `shelly`, `bambu-lab`. */
+/** Identifies a vendor, and names its directory: `shelly`, `bambulab`. */
 export const VENDOR_ID_PATTERN = /^[a-z][a-z0-9-]{1,63}$/;
 
 /** Validates a vendor id. */
@@ -53,7 +53,7 @@ export const DRIVER_ID_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/;
 export const driverIdSchema = z.string().regex(DRIVER_ID_PATTERN, 'Must be a driver id');
 
 /**
- * Validates an integration kind: `shelly/gen2`, `bambu-lab/printer`.
+ * Validates an integration kind: `shelly/gen2`, `bambulab/printer`.
  *
  * Vendor-qualified, so two vendors may each have a `gen2` and an instance row names one of
  * them without ambiguity. Not an instance of one: an instance gets its own id. The pattern is
