@@ -86,7 +86,10 @@ function printerBundle(): LoadedBundle {
     vendor: { id: 'acme', name: 'ACME' },
     transport: 'fake',
     models: ['P1'],
+    modelSeries: { P1: 'P series' },
     defaultIcon: 'printer',
+    webPagePort: 8080,
+    webPagePath: '/web',
     kind: 'declarative',
     profile: './profile.json',
     setup: './setup.json',
@@ -306,7 +309,10 @@ describe('the catalogue', () => {
       name: 'Fake printer',
       transport: 'fake',
       models: ['P1'],
+      modelSeries: { P1: 'P series' },
       defaultIcon: 'printer',
+      webPagePort: 8080,
+      webPagePath: '/web',
     });
     expect(reply.vendors[0]?.drivers[0]?.setup.transport.constants).toEqual({ username: 'bblp' });
     expect(reply.vendors[0]?.drivers[0]?.setup.transport.fields.map((field) => field.key)).toEqual([

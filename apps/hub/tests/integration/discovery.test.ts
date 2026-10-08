@@ -2,9 +2,10 @@
  * Discovery end to end: a device announcing itself over real mDNS, found, proposed, adopted,
  * identified - and no longer proposed.
  *
- * The device is a Sonoff in DIY mode, served by this process: an HTTP server that answers as the
- * DIY API does, announced as `_ewelink._tcp` by a real mDNS responder on this host. The hub runs
- * with the repository's bundles, the HTTP transport, the development database and broker. The
+ * The device is the fixture vendor's relay (`tests/fixtures/vendors/acme/plug`), served by this
+ * process: an HTTP server that answers as its API does, announced as `_acme._tcp` by a real mDNS
+ * responder on this host. The hub runs with that vendor as a development copy, the HTTP transport,
+ * the development database and broker. The
  * adoption is written the way the API writes it - two rows, the second naming the id the device
  * announced - since what is under test is the hub's half: that it proposes the device, binds the
  * one it was adopted as, and stops proposing it once it is added.
@@ -40,20 +41,20 @@ import { httpTransport } from '@/transports/http.js';
 const DATABASE_URL = 'postgres://nebula:nebula@localhost:5432/nebula';
 const NATS_URL = 'nats://localhost:4222';
 
-/** The repository's bundles under development. */
-const REPOSITORY_BUNDLE_DIR = path.resolve(
+/** The vendor the test runs against (`tests/fixtures/vendors/acme`), read as a development copy. */
+const FIXTURE_VENDOR_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  '../../bundles',
+  '../fixtures/vendors',
 );
 
 /** A data directory with nothing installed in it. */
 const EMPTY_DATA_DIR = path.join(tmpdir(), 'nebula-hub-test-data-that-is-not-there');
 
-/** The id the fake Sonoff answers with and announces, unique to this run. */
+/** The id the fake relay answers with and announces, unique to this run. */
 const DEVICE_ID = `10${ulid().toLowerCase().slice(-8)}`;
 
 /** The instance the device is adopted as. */
-const adopted = `int-sonoff-${ulid().toLowerCase().slice(0, 10)}`;
+const adopted = `int-acme-${ulid().toLowerCase().slice(0, 10)}`;
 
 let database: { db: Database; close: () => Promise<void> };
 let bus: BusConnection;
@@ -88,8 +89,8 @@ function silent(): PlatformLogger {
  * Answers for a device on this host the way a real mDNS responder does: to every question about
  * its service type, its instance or its host name, and once unasked when it starts.
  *
- * @param instance - The instance's own name: `eWeLink_10abcdef`.
- * @param service - Its service type: `_ewelink._tcp`.
+ * @param instance - The instance's own name: `Acme_10abcdef`.
+ * @param service - Its service type: `_acme._tcp`.
  * @param devicePort - Where it serves.
  * @param txt - Its TXT record, as `key=value` strings.
  * @returns A function that stops answering.
@@ -250,7 +251,7 @@ afterAll(async () => {
 });
 
 describe('discovering and adopting a device', () => {
-  it('proposes a Sonoff it heard announce itself, binds it once adopted, and stops proposing it', async () => {
+  it('proposes a relay it heard announce itself, binds it once adopted, and stops proposing it', async () => {
     const own = await connectBus({
       url: NATS_URL,
       name: 'hub-under-test',
@@ -261,7 +262,7 @@ describe('discovering and adopting a device', () => {
       config: hubEnvSchema.parse({
         DATABASE_URL,
         NATS_URL,
-        HUB_DEV_BUNDLE_DIR: REPOSITORY_BUNDLE_DIR,
+        HUB_DEV_BUNDLE_DIR: FIXTURE_VENDOR_DIR,
         NEBULA_DATA_DIR: EMPTY_DATA_DIR,
         NEBULA_SECRETS_KEY: 'ab'.repeat(32),
       }),
@@ -292,10 +293,10 @@ describe('discovering and adopting a device', () => {
     await service.start();
 
     try {
-      stopResponding = respondAs(`eWeLink_${DEVICE_ID}`, '_ewelink._tcp', port, [
+      stopResponding = respondAs(`Acme_${DEVICE_ID}`, '_acme._tcp', port, [
         'txtvers=1',
         `id=${DEVICE_ID}`,
-        'type=diy_plug',
+        'type=acme_plug',
         'apivers=1',
       ]);
 
@@ -307,11 +308,11 @@ describe('discovering and adopting a device', () => {
       const candidate = proposed.find((item) => item.externalId === DEVICE_ID);
 
       expect(candidate).toMatchObject({
-        vendorId: 'sonoff',
-        kind: 'sonoff/diy-plug',
+        vendorId: 'acme',
+        kind: 'acme/plug',
         source: 'mdns',
         model: null,
-        modelChoices: ['BASICR3', 'RFR3', 'MINI', 'MINIR2'],
+        modelChoices: ['Plug S', 'Plug M'],
       });
       const host = candidate?.transportConfig['host'];
 
@@ -321,9 +322,9 @@ describe('discovering and adopting a device', () => {
       // device announced.
       await database.db.insert(schema.registry.integrations).values({
         id: adopted,
-        kind: 'sonoff/diy-plug',
+        kind: 'acme/plug',
         kindVersion: '1.0.0',
-        model: 'MINI',
+        model: 'Plug M',
         transport: 'http',
         transportConfig: candidate?.transportConfig ?? {},
         options: {},
@@ -333,7 +334,7 @@ describe('discovering and adopting a device', () => {
         integrationId: adopted,
         externalId: DEVICE_ID,
         name: 'Hall plug',
-        manufacturer: 'Sonoff',
+        manufacturer: 'Acme',
         config: {},
       });
 

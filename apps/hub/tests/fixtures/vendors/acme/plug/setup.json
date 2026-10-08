@@ -1,0 +1,16 @@
+{
+  "transport": {
+    "fields": [
+      {
+        "key": "host",
+        "type": "text",
+        "label": "Address",
+        "placeholder": "192.168.1.50:8081",
+        "isRequired": true,
+        "pattern": "^[A-Za-z0-9.-]+(:[0-9]{1,5})?$",
+        "patternMessage": "An IP or host name, with :port - no http:// and no path."
+      }
+    ]
+  },
+  "polling": { "default": 5, "min": 1, "warnBelow": 2 }
+}

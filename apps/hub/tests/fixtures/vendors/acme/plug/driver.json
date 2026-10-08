@@ -1,0 +1,11 @@
+{
+  "id": "plug",
+  "name": "Relay",
+  "transport": "http",
+  "models": ["Plug S", "Plug M"],
+  "modelCodes": { "acme_plug": ["Plug S", "Plug M"] },
+  "defaultIcon": "relay",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

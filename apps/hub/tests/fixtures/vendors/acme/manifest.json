@@ -1,0 +1,10 @@
+{
+  "id": "acme",
+  "version": "1.0.0",
+  "sdk": "^1.6.0",
+  "name": "Acme",
+  "description": "A vendor the hub's integration tests run against: a relay found over mDNS and spoken to over HTTP, and a printer on an MQTT broker.",
+  "url": "https://example.com",
+  "color": "#3366CC",
+  "internetRequired": false
+}

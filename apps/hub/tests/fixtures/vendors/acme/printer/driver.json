@@ -1,0 +1,11 @@
+{
+  "id": "printer",
+  "name": "Printer",
+  "transport": "mqtt",
+  "models": ["P1"],
+  "modelCodes": { "ACME-P1": "P1" },
+  "defaultIcon": "printer",
+  "kind": "declarative",
+  "profile": "./profile.json",
+  "setup": "./setup.json"
+}

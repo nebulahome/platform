@@ -1,0 +1,22 @@
+{
+  "transport": {
+    "constants": { "username": "bblp", "shouldVerifyCertificate": false },
+    "fields": [
+      {
+        "key": "url",
+        "type": "text",
+        "label": "Printer address",
+        "placeholder": "mqtts://192.168.1.60:8883",
+        "isRequired": true
+      },
+      {
+        "key": "password",
+        "type": "secret",
+        "label": "Access code",
+        "isRequired": true,
+        "minLength": 8,
+        "maxLength": 8
+      }
+    ]
+  }
+}

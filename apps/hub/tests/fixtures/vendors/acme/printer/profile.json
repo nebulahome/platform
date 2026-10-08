@@ -1,0 +1,45 @@
+{
+  "discovery": {
+    "scan": { "filter": "device/+/report" },
+    "claim": [
+      { "path": "message.print", "exists": true },
+      { "path": "segments[1]", "exists": true }
+    ],
+    "identity": { "externalId": "segments[1]" }
+  },
+  "subscriptions": [
+    { "op": "topic", "args": { "filter": ["device", { "$": "segments[1]" }, "report"] } },
+    {
+      "op": "publish",
+      "args": {
+        "topic": ["device", { "$": "segments[1]" }, "request"],
+        "payload": { "pushing": { "sequence_id": "0", "command": "pushall" } },
+        "everyMs": 300000
+      }
+    }
+  ],
+  "entities": [
+    {
+      "domain": "sensor",
+      "objectId": "nozzle_temperature",
+      "name": "Nozzle temperature",
+      "icon": "thermometer",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "message.print.nozzle_temper" } },
+      "unitOfMeasurement": "°C",
+      "deviceClass": "temperature",
+      "stateClass": "measurement"
+    },
+    {
+      "domain": "sensor",
+      "objectId": "bed_temperature",
+      "name": "Bed temperature",
+      "icon": "thermometer",
+      "capabilities": { "sensor_numeric": {} },
+      "state": { "sensor_numeric": { "value": "message.print.bed_temper" } },
+      "unitOfMeasurement": "°C",
+      "deviceClass": "temperature",
+      "stateClass": "measurement"
+    }
+  ]
+}

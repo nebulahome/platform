@@ -179,6 +179,35 @@ describe('sending to a device', () => {
     expect(heard).toEqual(['lab/relay/set:{"on":true}']);
   });
 
+  it('publishes several payloads in order on the one topic, for a command that is two messages', async () => {
+    // A device whose one switch is two nodes to its firmware - a Bambu H2's two chamber lights -
+    // is switched by one command that names `payloads` in place of `payload`.
+    const heard: string[] = [];
+    const listener = await connectAsync(BROKER, { reconnectPeriod: 0 });
+
+    await listener.subscribeAsync('lab/lights/set');
+    listener.on('message', (topic, raw) => {
+      heard.push(`${topic}:${raw.toString('utf8')}`);
+    });
+
+    await connection.send(
+      {
+        deviceKey: 'lab/lights',
+        op: 'publish',
+        args: { topic: 'lab/lights/set', payloads: [{ node: 'left' }, { node: 'right' }] },
+      },
+      AbortSignal.timeout(2000),
+    );
+
+    for (let attempt = 0; attempt < 200 && heard.length < 2; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    await listener.endAsync();
+
+    expect(heard).toEqual(['lab/lights/set:{"node":"left"}', 'lab/lights/set:{"node":"right"}']);
+  });
+
   it('refuses an operation it does not have', async () => {
     // The transport's vocabulary is small on purpose. A profile asking for something outside it
     // should fail where it is written, not silently do nothing.

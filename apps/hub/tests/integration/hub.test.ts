@@ -3,7 +3,7 @@
  *
  * What the unit tests cannot reach: the SQL, and the lifecycle decisions that depend on it. The
  * mapping, routing and adoption logic is covered by the tests beside the sources, against real
- * declarative bundles and an in-memory broker; this file exists for the handful of Drizzle
+ * declarative vendors and an in-memory broker; this file exists for the handful of Drizzle
  * statements that only a database can prove.
  *
  * Requires the development stack:
@@ -52,10 +52,10 @@ const BROKER = inject('mqttUrl');
 const DATABASE_URL = 'postgres://nebula:nebula@localhost:5432/nebula';
 const NATS_URL = 'nats://localhost:4222';
 
-/** The repository's bundles under development, which the tests run against. */
-const REPOSITORY_BUNDLE_DIR = path.resolve(
+/** The vendor the tests run against (`tests/fixtures/vendors/acme`), read as a development copy. */
+const FIXTURE_VENDOR_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  '../../bundles',
+  '../fixtures/vendors',
 );
 
 /**
@@ -179,7 +179,7 @@ beforeAll(async () => {
     {
       // A printer on the development broker, its access code sealed the way `api` stores it.
       id: printer,
-      kind: 'bambu-lab/printer',
+      kind: 'acme/printer',
       kindVersion: '1.0.0',
       transport: 'mqtt',
       transportConfig: sealSecrets(
@@ -291,7 +291,7 @@ describe('starting with nothing installed', () => {
 });
 
 /**
- * A hub with the shipped bundles and the MQTT transport, on a bus connection of its own.
+ * A hub with the fixture vendor and the MQTT transport, on a bus connection of its own.
  *
  * Its own connection because stopping a hub drains the connection it was given - the service
  * owns it in production - and the tests after it still need the shared one.
@@ -308,7 +308,7 @@ async function startHub(): Promise<{ service: HubService; stop: () => Promise<vo
   const config = hubEnvSchema.parse({
     DATABASE_URL,
     NATS_URL,
-    HUB_DEV_BUNDLE_DIR: REPOSITORY_BUNDLE_DIR,
+    HUB_DEV_BUNDLE_DIR: FIXTURE_VENDOR_DIR,
     NEBULA_DATA_DIR: EMPTY_DATA_DIR,
     NEBULA_SECRETS_KEY: SECRETS_KEY,
   });
@@ -438,8 +438,8 @@ describe('matching an instance to its row on request', () => {
       externalId: null,
       name: 'Studio printer',
       icon: 'printer',
-      manufacturer: 'Bambu Lab',
-      model: 'X1C',
+      manufacturer: 'Acme',
+      model: 'P1',
     });
 
     const asked: RegisterDeviceRequest[] = [];
@@ -516,7 +516,7 @@ describe('matching an instance to its row on request', () => {
       integrationId: printer,
       externalId: SERIAL,
       name: 'Studio printer',
-      manufacturer: 'Bambu Lab',
+      manufacturer: 'Acme',
       config: {},
     });
 
@@ -580,13 +580,13 @@ describe('matching an instance to its row on request', () => {
   it('binds the device it identified last time when an instance starts, and watches it', async () => {
     // A printer identified on an earlier run: its row carries the serial and the claim that
     // was kept. Starting the instance must bind it again without listening for it a second
-    // time - and prove it by doing what the bundle does for a bound printer, which is to ask
+    // time - and prove it by doing what the vendor does for a bound printer, which is to ask
     // it for everything on its request topic.
     await database.db.insert(schema.registry.devices).values({
       integrationId: printer,
       externalId: SERIAL,
       name: 'Studio printer',
-      manufacturer: 'Bambu Lab',
+      manufacturer: 'Acme',
       config: {
         claim: {
           deviceKey: `device/${SERIAL}/report`,
@@ -648,7 +648,7 @@ describe('matching an instance to its row on request', () => {
 
       const reply = await caller.request(
         busSubjects.service(HUB_SERVICE, HUB_PROBE_METHOD),
-        { kind: 'bambu-lab/printer', transportConfig: row?.transportConfig ?? {}, timeoutMs: 5000 },
+        { kind: 'acme/printer', transportConfig: row?.transportConfig ?? {}, timeoutMs: 5000 },
         probeReplySchema,
       );
 
