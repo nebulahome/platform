@@ -219,8 +219,7 @@ export function VendorCard(props: VendorCardProps) {
             <>
               <Pill tone={status.tone}>{status.label}</Pill>
               <span>
-                {vendor.deviceCount} {noun(vendor.deviceCount, 'device', 'devices')} ·{' '}
-                {vendor.entityCount} {noun(vendor.entityCount, 'entity', 'entities')}
+                {vendor.deviceCount} {noun(vendor.deviceCount, 'device', 'devices')}
               </span>
             </>
           }

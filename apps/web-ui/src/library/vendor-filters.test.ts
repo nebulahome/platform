@@ -156,6 +156,15 @@ describe('how a vendor stands', () => {
     expect(vendorStatusOf(vendor()).label).toBe('Idle');
   });
 
+  it('asks for the settings, not after a container, while nobody has set it up', () => {
+    // The supervisor makes the containers from the settings: a vendor never set up has none, and
+    // the API then answers null for each one it declares.
+    expect(vendorStatusOf(vendor({ needsSetup: true, containerStatuses: [null] }))).toMatchObject({
+      kind: 'needs-setup',
+      label: 'Needs setup',
+    });
+  });
+
   it('narrows by standing, by new devices and by an update waiting', () => {
     const idle = vendor();
     const running = vendor({ id: 'govee', name: 'Govee', deviceCount: 1 });

@@ -36,7 +36,6 @@ import {
 
 import { useSession } from '@/auth/session-store';
 import { deviceWebPageOf } from '@/lib/device-web-page';
-import { relativeTime } from '@/lib/format-time';
 import { useTab } from '@/lib/use-tab';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
@@ -382,12 +381,6 @@ export function DevicePage() {
             <Section title="Details">
               <FactGrid facts={factsOf(view, webPage)} />
             </Section>
-
-            <p className="text-caption text-foreground-subtle">
-              {view.standing.lastSeenAt === null
-                ? 'Never heard from.'
-                : `Last heard from ${relativeTime(view.standing.lastSeenAt)}.`}
-            </p>
           </TabPanel>
         ) : (
           <TabPanel idPrefix="device" id="activity">

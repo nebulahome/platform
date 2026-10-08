@@ -199,7 +199,8 @@ describe('the integrations grid', () => {
       '/integrations/bambu-lab',
     );
     expect(screen.getByRole('link', { name: 'Shelly' }).textContent).toContain('2 devices');
-    expect(screen.getByRole('link', { name: 'Bambu Lab' }).textContent).toContain('12 entities');
+    // Devices only: an entity count beside it wrapped the foot onto a second line.
+    expect(screen.getByRole('link', { name: 'Bambu Lab' }).textContent).not.toContain('entities');
   });
 
   it('marks a vendor that needs the internet, and one that still needs setting up', async () => {
@@ -243,7 +244,8 @@ describe('the integrations grid', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Filter/u }));
-    fireEvent.click(screen.getByRole('radio', { name: 'MQTT' }));
+    fireEvent.click(screen.getByRole('combobox', { name: /Wire/u }));
+    fireEvent.click(screen.getByRole('option', { name: 'MQTT' }));
 
     expect(screen.queryByRole('link', { name: 'Shelly' })).toBeNull();
     expect(screen.getByRole('link', { name: 'Bambu Lab' })).toBeTruthy();

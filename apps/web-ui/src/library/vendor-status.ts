@@ -5,7 +5,8 @@
  * Read from what the vendor view already carries, in the order a person needs it: a package or a
  * container it depends on not running is a fault in the house (Degraded); an account nobody
  * signed in to, or settings nobody gave, is something to do (Needs sign-in, Needs setup); with
- * devices it is Running; without any it is Idle - loaded, and waiting to be given a device.
+ * devices it is Running; without any it is Idle - loaded, and waiting to be given a device. Its
+ * containers are not looked at while it needs setting up: they are made from those settings.
  *
  * Pure, so the tile, the page and the filter agree, and a test can hold them to it.
  */
@@ -89,7 +90,12 @@ export function vendorStatusOf(vendor: StatusInput): VendorStatus {
     return status('degraded', vendor.packageProblems[0] ?? 'A package it needs is not running');
   }
 
-  const container = vendor.containerStatuses.find((each) => each?.state !== 'running');
+  // Not while it needs setting up: the supervisor makes the containers from the settings, so a
+  // vendor nobody set up has none, and "its container is missing" would send the person after
+  // the wrong thing.
+  const container = vendor.needsSetup
+    ? undefined
+    : vendor.containerStatuses.find((each) => each?.state !== 'running');
 
   if (container !== undefined) {
     return status(

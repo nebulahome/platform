@@ -13,6 +13,7 @@ import {
   cn,
   RadioGroup,
   Segmented,
+  SelectField,
   Switch,
   type PillTone,
   type SegmentedOption,
@@ -94,10 +95,19 @@ export type IntegrationFilterProps = {
  */
 export function IntegrationFilter(props: IntegrationFilterProps) {
   const { filter, wires, counts, shown, total, onChange } = props;
-  const wireChoices: readonly SegmentedOption<TransportFilter>[] = [
-    { value: '', label: 'Any' },
+  const wireChoices = [
+    { value: '', label: 'Any wire' },
     ...wires.map((wire) => ({ value: wire, label: WIRE_LABELS[wire] })),
   ];
+
+  /**
+   * Reads the dropdown's value back as a wire.
+   *
+   * @param value - What was chosen.
+   * @returns The wire it names, or any.
+   */
+  const toTransport = (value: string): TransportFilter =>
+    wires.find((wire) => wire === value) ?? '';
 
   /**
    * Ticks or unticks one standing.
@@ -194,13 +204,14 @@ export function IntegrationFilter(props: IntegrationFilterProps) {
 
       {wires.length < 2 ? null : (
         <Facet title="Wire">
-          <Segmented
+          <SelectField
             label="Wire"
+            isLabelHidden
             size="compact"
             options={wireChoices}
             value={filter.transport}
-            onChange={(transport) => {
-              onChange({ ...filter, transport });
+            onChange={(value) => {
+              onChange({ ...filter, transport: toTransport(value) });
             }}
           />
         </Facet>
