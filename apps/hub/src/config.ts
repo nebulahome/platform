@@ -7,7 +7,6 @@
  * the life of a process (RULES.md 11).
  */
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import semver from 'semver';
 import { z } from 'zod';
@@ -57,12 +56,11 @@ export const hubEnvSchema = runtimeEnvSchema
     /**
      * Where the integration bundles under development are, read beside the ones installed in the
      * data directory: one directory of vendors, or several separated by the system's path
-     * delimiter (`:` on Linux, `;` on Windows) - the repository's `apps/hub/bundles` and an
-     * integration repository's `dist/`, say. A later directory's vendor replaces an earlier one's.
+     * delimiter (`:` on Linux, `;` on Windows) - the `dist/` of two integration repositories,
+     * say. A later directory's vendor replaces an earlier one's.
      *
-     * Absent, the repository's own `apps/hub/bundles` outside production and nothing in it: the
-     * product ships with no integration. Absolute, for the reason `NEBULA_DATA_DIR` is. See
-     * {@link developmentBundleDirectories}.
+     * Absent, none: every vendor is installed, and the product ships with no integration.
+     * Absolute, for the reason `NEBULA_DATA_DIR` is. See {@link developmentBundleDirectories}.
      */
     HUB_DEV_BUNDLE_DIR: z
       .string()
@@ -128,29 +126,13 @@ export const hubEnvSchema = runtimeEnvSchema
 export type HubConfig = z.output<typeof hubEnvSchema>;
 
 /**
- * The repository's own bundles under development.
- *
- * Found from where this file sits - `src` and `dist` are at the same depth - rather than from the
- * working directory, which is wherever the process happened to be started.
- */
-const REPOSITORY_BUNDLE_DIR = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '../bundles',
-);
-
-/**
  * Where the bundles under development are read from, if anywhere.
  *
  * @param config - The parsed environment.
- * @returns `HUB_DEV_BUNDLE_DIR`'s directories when given; otherwise the repository's
- * `apps/hub/bundles` outside production, and none in production.
+ * @returns `HUB_DEV_BUNDLE_DIR`'s directories when given, in production too; otherwise none.
  */
 export function developmentBundleDirectories(config: HubConfig): readonly string[] {
-  if (config.HUB_DEV_BUNDLE_DIR !== undefined) {
-    return config.HUB_DEV_BUNDLE_DIR;
-  }
-
-  return config.NODE_ENV === 'production' ? [] : [REPOSITORY_BUNDLE_DIR];
+  return config.HUB_DEV_BUNDLE_DIR ?? [];
 }
 
 /**

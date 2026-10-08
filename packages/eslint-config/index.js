@@ -209,20 +209,6 @@ export default tseslint.config(
     },
   },
 
-  // A bundle's own code - a transport a vendor ships - is JavaScript, because an installed
-  // bundle is loaded as it is, with no build step. Its types can only be written in JSDoc, and
-  // `tsc` checks them there (the hub type-checks its bundles with `checkJs`), so the rule that
-  // keeps types out of TypeScript doc blocks would forbid the one place they can go. It is
-  // production code all the same: every function is documented, as RULES.md 4 asks.
-  {
-    files: ['**/bundles/**/*.js'],
-    rules: {
-      'jsdoc/require-jsdoc': 'error',
-      'jsdoc/no-types': 'off',
-      'jsdoc/check-tag-names': ['error', { typed: false }],
-    },
-  },
-
   // Each service reads the environment in exactly one file. The `@nebulahome/config` package
   // itself is exempted by its own flat config: ESLint runs with the package as its base path,
   // so a pattern naming `packages/config/` here would never match anything.

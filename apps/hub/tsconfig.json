@@ -2,11 +2,9 @@
   "extends": "@nebulahome/tsconfig/node.json",
   "compilerOptions": {
     "outDir": "dist",
-    "allowJs": true,
-    "checkJs": true,
     "paths": {
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "bundles/**/*.js", "vitest.integration.config.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.integration.config.ts"]
 }

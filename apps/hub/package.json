@@ -29,7 +29,6 @@
   },
   "devDependencies": {
     "@nebulahome/eslint-config": "workspace:*",
-    "@nebulahome/icons": "workspace:*",
     "@nebulahome/tsconfig": "workspace:*",
     "@types/semver": "^7.7.1",
     "@types/ws": "^8.18.1",

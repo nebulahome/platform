@@ -12,11 +12,8 @@ const REQUIRED = {
 };
 
 describe('developmentBundleDirectories', () => {
-  it("reads the repository's bundles outside production, found from the package", () => {
-    const directories = developmentBundleDirectories(hubEnvSchema.parse(REQUIRED));
-
-    expect(directories).toHaveLength(1);
-    expect(directories[0]?.endsWith(path.join('apps', 'hub', 'bundles'))).toBe(true);
+  it('reads none unless told: every vendor is installed, in development too', () => {
+    expect(developmentBundleDirectories(hubEnvSchema.parse(REQUIRED))).toEqual([]);
   });
 
   it('reads none in production, where the product ships with no integration', () => {

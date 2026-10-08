@@ -44,8 +44,8 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 # The tree that runs: the same layout, installed afresh with production dependencies only - the
 # web-ui's are left out, it is served as built files, and so are the integration SDK's: the hub
 # reads only its package.json, the contract's version, and its builder is an author's tool - and
-# each package's built output with the files it reads at runtime: the migrations, the icon
-# catalogue and the bundles. No package ships in the image: packet-manager installs them, the
+# each package's built output with the files it reads at runtime: the migrations and the icon
+# catalogue. No package and no integration ships in the image: packet-manager installs them, the
 # house's MQTT broker among them.
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     mkdir -p /app && \
@@ -64,7 +64,6 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     done && \
     cp -a packages/db/migrations /app/packages/db/ && \
     cp packages/icons/catalogue.json /app/packages/icons/ && \
-    cp -a apps/hub/bundles /app/apps/hub/ && \
     rm -rf /app/packages/ui /app/pnpm-lock.yaml
 
 # ---------------------------------------------------------------------------------------------
@@ -132,7 +131,6 @@ ENV PATH=/command:$PATH \
     NODE_ENV=production \
     LOG_LEVEL=info \
     NEBULA_DATA_DIR=/data \
-    HUB_DEV_BUNDLE_DIR=/app/apps/hub/bundles \
     PACKET_MANAGER_LOCAL_DIR=/app/local-packages \
     PACKET_MANAGER_LOCAL_INTEGRATIONS_DIR=/app/local-integrations \
     PGDATA=/var/lib/postgresql/data \

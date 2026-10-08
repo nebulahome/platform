@@ -222,8 +222,9 @@ data/
 
 Deleting `cache/` is always safe. An integration installed from the interface lands in
 `hub/integrations/<vendor>/<version>-<nonce>/`, the build `.nebula-install.json` names running.
-The bundles in `apps/hub/bundles` are not here: they are the integrations under development,
-which the hub reads beside `hub/integrations` outside production - the image carries them too.
+An integration under development is not here either: its repository's `dist/`, named in
+`HUB_DEV_BUNDLE_DIR`, is read beside `hub/integrations`. The image carries no integration; the
+archives in `infra/local-integrations` are offered to install.
 
 **The Community Hub.** `COMMUNITY_HUB_URL` names it (`cloud-backend`, `http://localhost:8088` when
 its stack runs on this machine); unset, the install dialogs offer the local folders and nothing
