@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.19
 #
 # NebulaHome in one image: PostgreSQL with TimescaleDB, NATS and every platform service,
 # supervised by s6-overlay. See ARCHITECTURE.md 14 (Production) and infra/README.md.
@@ -34,7 +34,9 @@ WORKDIR /src
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm fetch
 
-COPY . .
+# The local folders' archives are left out here and copied in the runtime stage alone, so changing
+# one rebuilds nothing.
+COPY --exclude=infra/local-packages --exclude=infra/local-integrations . .
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --offline && \
     pnpm build
@@ -116,6 +118,11 @@ COPY --from=build /app /app
 COPY infra/docker/s6-rc.d /etc/s6-overlay/s6-rc.d
 COPY infra/docker/scripts /etc/s6-overlay/scripts
 COPY infra/docker/bin /usr/local/bin
+# For now, while packages and integrations are tried before any index has them: what the local
+# folders hold when the image is built ships in it, offered in the store as local files. A folder
+# mounted over these paths (infra/docker-compose.yml) wins.
+COPY --chown=nebula:nebula infra/local-packages /app/local-packages
+COPY --chown=nebula:nebula infra/local-integrations /app/local-integrations
 
 RUN chmod +x /etc/s6-overlay/scripts/* /usr/local/bin/nebula-* \
              /etc/s6-overlay/s6-rc.d/*/run /etc/s6-overlay/s6-rc.d/*/finish 2>/dev/null || true; \
@@ -126,6 +133,8 @@ ENV PATH=/command:$PATH \
     LOG_LEVEL=info \
     NEBULA_DATA_DIR=/data \
     HUB_DEV_BUNDLE_DIR=/app/apps/hub/bundles \
+    PACKET_MANAGER_LOCAL_DIR=/app/local-packages \
+    PACKET_MANAGER_LOCAL_INTEGRATIONS_DIR=/app/local-integrations \
     PGDATA=/var/lib/postgresql/data \
     NEBULA_PG_PORT=5433 \
     PGPORT=5433 \

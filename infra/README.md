@@ -90,9 +90,10 @@ In order, each once the one before is ready:
    package, by itself when no package provides `mqtt-broker`. It listens on `1883` of every address
    of the container: devices on the network connect to it with a username added on its page, the
    containers an integration runs reach it as `nebulahome:1883` with one of their own, and the hub
-   on loopback with its own. Under `pnpm docker:up` the local folders, `infra/local-packages` and
-   `infra/local-integrations`, are mounted at `/app/local-packages` and
-   `/app/local-integrations`, read-only.
+   on loopback with its own. For now the image carries what the local folders,
+   `infra/local-packages` and `infra/local-integrations`, held when it was built, at
+   `/app/local-packages` and `/app/local-integrations`; under `pnpm docker:up` the folders are also
+   mounted over those paths, read-only, and read live.
 
 The ports are not the usual ones on purpose: on the host's network the container shares the
 machine's ports, and must not collide with the development stack.

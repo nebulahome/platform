@@ -16,11 +16,13 @@ back to the build before.
 Who reads this folder:
 
 - `pnpm dev`: the packet-manager reads `infra/local-packages` itself, outside production.
-- `pnpm docker:up`: `infra/docker-compose.yml` mounts it at `/app/local-packages`
-  (`PACKET_MANAGER_LOCAL_DIR`).
-- A production installation has no local folder unless `PACKET_MANAGER_LOCAL_DIR` names one.
+- The image, for now: what this folder holds when it is built ships at `/app/local-packages`
+  (`PACKET_MANAGER_LOCAL_DIR`), so an image pushed and run elsewhere offers it too.
+- `pnpm docker:up`: `infra/docker-compose.yml` also mounts the folder over that path, read live.
+- A production installation offers what its image carries; `PACKET_MANAGER_LOCAL_DIR` can name
+  another folder.
 
-Everything here but this file is ignored by git and left out of the image.
+Everything here but this file is ignored by git; for now it is copied into the image.
 
 The house's MQTT broker is a package too - `mqtt`, from its own repository - and the platform
 installs it by itself when no package provides `mqtt-broker`: from the package index, or from

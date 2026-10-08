@@ -13,5 +13,6 @@
 !**/.env.example
 infra/data
 infra/certs
-infra/local-packages
-infra/local-integrations
+# The local folders' READMEs: their archives go in the image for now (Dockerfile, runtime).
+infra/local-packages/README.md
+infra/local-integrations/README.md

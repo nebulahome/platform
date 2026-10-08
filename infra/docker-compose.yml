@@ -44,14 +44,13 @@ services:
         required: false
     environment:
       HUB_DISCOVERY_ENABLED: ${HUB_DISCOVERY_ENABLED:-false}
-      PACKET_MANAGER_LOCAL_DIR: /app/local-packages
-      PACKET_MANAGER_LOCAL_INTEGRATIONS_DIR: /app/local-integrations
     volumes:
       - nebula-data:/data
       - nebula-postgres:/var/lib/postgresql/data
       - nebula-nats:/var/lib/nats
       # Packages to try before they are released: <id>-<version>.tgz files put in
       # infra/local-packages, offered in the store beside the index's (local-packages/README.md).
+      # The image ships what the folder held when it was built; mounted, the folder is read live.
       - ./local-packages:/app/local-packages:ro
       # Integrations to try the same way: <vendor>-<version>.tgz files put in
       # infra/local-integrations (local-integrations/README.md).

@@ -20,10 +20,11 @@ one before runs on.
 Who reads this folder:
 
 - `pnpm dev`: the packet-manager reads `infra/local-integrations` itself, outside production.
-- `pnpm docker:up`: `infra/docker-compose.yml` mounts it at `/app/local-integrations`
-  (`PACKET_MANAGER_LOCAL_INTEGRATIONS_DIR`).
-- A production installation has no local folder unless `PACKET_MANAGER_LOCAL_INTEGRATIONS_DIR`
-  names one.
+- The image, for now: what this folder holds when it is built ships at `/app/local-integrations`
+  (`PACKET_MANAGER_LOCAL_INTEGRATIONS_DIR`), so an image pushed and run elsewhere offers it too.
+- `pnpm docker:up`: `infra/docker-compose.yml` also mounts the folder over that path, read live.
+- A production installation offers what its image carries;
+  `PACKET_MANAGER_LOCAL_INTEGRATIONS_DIR` can name another folder.
 
-Everything here but this file is ignored by git and left out of the image. An integration
-installed from here is never reported to the Community Hub.
+Everything here but this file is ignored by git; for now it is copied into the image. An
+integration installed from here is never reported to the Community Hub.
