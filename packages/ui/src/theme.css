@@ -478,6 +478,22 @@
   height: var(--control-height);
 }
 
+/*
+ * A strip that still scrolls but draws no bar: a row of pills, or the narrow rail, where a bar
+ * would take its room out of the very things it scrolls.
+ */
+@utility scrollbar-none {
+  scrollbar-width: none;
+}
+
+/*
+ * The scrollbar's room kept whether or not one is drawn, so that content measured from its
+ * width - the dashboard's grid - does not narrow, and slide, the moment one appears.
+ */
+@utility scrollbar-stable {
+  scrollbar-gutter: stable;
+}
+
 /* The catalogue's grid: as many 220px tiles as fit, sharing what is left over. */
 @utility grid-tiles {
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
