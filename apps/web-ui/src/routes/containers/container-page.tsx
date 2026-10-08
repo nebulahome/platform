@@ -196,6 +196,7 @@ export function ContainerPage() {
       <DetailFrame
         isPending={container.isPending}
         error={container.error}
+        isFilled={tab === 'log'}
         hero={
           <DetailHero
             back={
@@ -330,8 +331,9 @@ export function ContainerPage() {
             ) : null}
 
             {tab === 'log' ? (
-              <TabPanel idPrefix="container" id="log">
+              <TabPanel idPrefix="container" id="log" className="flex min-h-0 grow flex-col">
                 <LogViewer
+                  isFilled
                   queryKey={logKey}
                   fileName={view.name}
                   read={async (tail, since, signal) =>

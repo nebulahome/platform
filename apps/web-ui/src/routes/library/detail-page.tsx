@@ -44,7 +44,6 @@ export function DetailHeader(props: DetailHeaderProps) {
   return (
     <div className="shrink-0 px-8 pt-7">
       <PageHeader
-        className="mx-auto max-w-7xl"
         title={title}
         crumb={
           crumbs.length === 0 ? undefined : (
@@ -147,22 +146,33 @@ export type DetailFrameProps = {
 
   /** The open tab's panel. */
   readonly children: ReactNode;
+
+  /**
+   * Whether the panel takes the rest of the window's height - a log, which is a page of its
+   * own - rather than its own. The page still scrolls when the window is too short for it.
+   */
+  readonly isFilled?: boolean;
 };
 
 /**
  * The frame a detail page sits in: the hero, then the open tab's panel - or, while the thing is
  * read or when it cannot be, a line saying so where the panel would be. One column, 32px gutters,
- * the page scrolling under the rail.
+ * as wide as the window, the page scrolling under the rail.
  *
  * @param props - See {@link DetailFrameProps}.
  * @returns The page.
  */
 export function DetailFrame(props: DetailFrameProps) {
-  const { hero, isPending = false, error, problem, children } = props;
+  const { hero, isPending = false, error, problem, children, isFilled = false } = props;
 
   return (
-    <div className="min-h-0 grow overflow-y-auto px-8 pt-6 pb-10">
-      <div className="mx-auto flex max-w-7xl flex-col gap-5">
+    <div
+      className={cn(
+        'min-h-0 min-w-0 grow overflow-y-auto px-8 pt-6',
+        isFilled ? 'flex flex-col pb-7' : 'pb-10',
+      )}
+    >
+      <div className={cn('flex flex-col gap-5', isFilled ? 'min-h-0 grow' : undefined)}>
         {hero}
         {isPending ? (
           <DetailPlaceholder>Reading…</DetailPlaceholder>

@@ -10,7 +10,9 @@
  * the lines after the last one it has (`since`, the cursor the last read answered), so a read
  * carries what is new rather than the whole log again, and nothing at all while the tab is hidden.
  * The list stays at the bottom while the reader is there; one who scrolled up to read is left
- * where they are, and a pill says there is more below.
+ * where they are, and a round arrow in the list's corner takes them back to the newest line -
+ * lit when there is more below. The reads it makes on its own leave the chrome still: only a
+ * read asked for turns the button that asked.
  *
  * The owner of the log says how to read it (`read`) and where the reads are kept (`queryKey`):
  * the viewer knows nothing of containers.
@@ -19,7 +21,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import type { ContainerLogLine, ContainerLogsReply } from '@nebulahome/contracts';
-import { AppIcon, Button, IconButton, Panel, Segmented, SelectField, cn } from '@nebulahome/ui';
+import { AppIcon, IconButton, Segmented, SelectField, cn } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { readLine, type LogLevel, type LogTone, type ReadLine } from '@/lib/log-lines';
@@ -325,6 +327,12 @@ export type LogViewerProps = {
 
   /** What the downloaded file is called, without `.log`. */
   readonly fileName: string;
+
+  /**
+   * Whether the viewer takes the height it is given - a tab that is nothing but the log - rather
+   * than a list of its own height with the page scrolling past it.
+   */
+  readonly isFilled?: boolean;
 };
 
 /**
@@ -334,13 +342,14 @@ export type LogViewerProps = {
  * @returns The panel.
  */
 export function LogViewer(props: LogViewerProps) {
-  const { read, fileName } = props;
+  const { read, fileName, isFilled = false } = props;
   const queryClient = useQueryClient();
   const [preferences, setPreferences] = useState(readPreferences);
   const [search, setSearch] = useState('');
   const [levelFilter, setLevelFilter] = useState<LevelFilter>('all');
   const [isFollowing, setFollowing] = useState(true);
   const [hasUnseen, setUnseen] = useState(false);
+  const [isRereading, setRereading] = useState(false);
   const list = useRef<HTMLDivElement>(null);
   const queryKey = useMemo(
     () => [...props.queryKey, preferences.lineCount] as const,
@@ -390,6 +399,7 @@ export function LogViewer(props: LogViewerProps) {
         kept.read.message.toLowerCase().includes(search.trim().toLowerCase())),
   );
   const lastKey = lines.at(-1)?.key ?? 0;
+  const isStreaming = preferences.intervalSeconds > 0;
   const errorCount = lines.filter((kept) => levelOf(kept) === 'error').length;
   const warningCount = lines.filter((kept) => levelOf(kept) === 'warning').length;
 
@@ -431,10 +441,16 @@ export function LogViewer(props: LogViewerProps) {
     setUnseen(false);
   };
 
-  /** Throws away what was read and reads the newest lines again. */
+  /**
+   * Throws away what was read and reads the newest lines again. Only this read turns the button:
+   * the ones the viewer makes on its own every few seconds change nothing in the chrome.
+   */
   const readAgain = (): void => {
+    setRereading(true);
     queryClient.removeQueries({ queryKey, exact: true });
-    void logs.refetch();
+    void logs.refetch().finally(() => {
+      setRereading(false);
+    });
   };
 
   /**
@@ -451,17 +467,30 @@ export function LogViewer(props: LogViewerProps) {
       .join('\n');
 
   return (
-    <Panel
-      title={props.title ?? 'Logs'}
-      action={
-        <span className="flex items-center gap-1.5">
-          {logs.isFetching ? (
+    <section
+      className={cn(
+        'flex flex-col overflow-hidden rounded-panel border border-border bg-surface',
+        isFilled ? 'min-h-0 grow' : undefined,
+      )}
+    >
+      <header className="flex min-h-12 items-center justify-between gap-3 px-5.5 pt-4 pb-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <h2 className="text-subhead font-medium text-foreground">{props.title ?? 'Logs'}</h2>
+          {/* What the viewer is doing, said once and left alone: it does not blink with every read
+              it makes in the background, which is what made the corner flash. */}
+          <span className="flex items-center gap-1.5 font-mono text-mono-caption text-foreground-subtle">
             <span
               aria-hidden="true"
-              className="size-1.5 animate-pulse rounded-full bg-primary"
-              title="Reading"
+              className={cn(
+                'size-1.5 rounded-full',
+                isStreaming ? 'bg-success ring-3 ring-success/15' : 'bg-foreground-subtle',
+              )}
             />
-          ) : null}
+            {isStreaming ? `Live · every ${String(preferences.intervalSeconds)} s` : 'Manual'}
+          </span>
+        </div>
+
+        <span className="flex items-center gap-1">
           <IconButton
             label="Copy the lines shown"
             onClick={() => {
@@ -487,95 +516,95 @@ export function LogViewer(props: LogViewerProps) {
           >
             <AppIcon id="download" size={15} />
           </IconButton>
-          <Button variant="ghost" size="compact" isBusy={logs.isFetching} onClick={readAgain}>
-            Read again
-          </Button>
+          <IconButton label="Read the log again" disabled={isRereading} onClick={readAgain}>
+            <AppIcon
+              id="refresh-cw"
+              size={15}
+              className={isRereading ? 'animate-spin' : undefined}
+            />
+          </IconButton>
         </span>
-      }
-    >
-      <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2.5">
+      </header>
+
+      <div className="flex flex-wrap items-center gap-2 border-y border-border px-4 py-2.5">
         <SearchField
           placeholder="Search the log…"
           value={search}
           onChange={setSearch}
-          className="min-w-44 grow basis-48"
+          className="min-w-44 grow basis-56 lg:w-auto"
         />
         <Segmented
           label="Which lines"
           size="compact"
+          className="h-control"
           options={LEVEL_OPTIONS}
           value={levelFilter}
           onChange={setLevelFilter}
         />
-        <SelectField
-          label="Read again every"
-          isLabelHidden
-          size="compact"
-          className="w-36"
-          options={INTERVALS.map((seconds) => ({
-            value: String(seconds),
-            label: seconds === 0 ? 'Not on its own' : `Every ${String(seconds)} s`,
-          }))}
-          value={String(preferences.intervalSeconds)}
-          onChange={(value) => {
-            choose({
-              intervalSeconds:
-                INTERVALS.find((each) => String(each) === value) ??
-                DEFAULT_PREFERENCES.intervalSeconds,
-            });
-          }}
-        />
-        <SelectField
-          label="Lines kept"
-          isLabelHidden
-          size="compact"
-          className="w-32"
-          options={LINE_COUNTS.map((count) => ({
-            value: String(count),
-            label: `${String(count)} lines`,
-          }))}
-          value={String(preferences.lineCount)}
-          onChange={(value) => {
-            choose({
-              lineCount:
-                LINE_COUNTS.find((each) => String(each) === value) ?? DEFAULT_PREFERENCES.lineCount,
-            });
-          }}
-        />
-        <Button
-          variant="ghost"
-          size="compact"
-          aria-pressed={preferences.isWrapped}
-          onClick={() => {
-            choose({ isWrapped: !preferences.isWrapped });
-          }}
-        >
-          {preferences.isWrapped ? 'Wrap on' : 'Wrap off'}
-        </Button>
-        <Button
-          variant="ghost"
-          size="compact"
-          aria-pressed={isFollowing}
-          className={cn(isFollowing ? 'border-primary-ring text-primary' : undefined)}
-          onClick={() => {
-            if (isFollowing) {
-              setFollowing(false);
-            } else {
-              jumpToLatest();
-            }
-          }}
-        >
-          Follow
-        </Button>
+        <span className="flex items-center gap-2">
+          <SelectField
+            label="Read again every"
+            isLabelHidden
+            size="compact"
+            className="h-control w-36 rounded-pill bg-surface"
+            options={INTERVALS.map((seconds) => ({
+              value: String(seconds),
+              label: seconds === 0 ? 'Not on its own' : `Every ${String(seconds)} s`,
+            }))}
+            value={String(preferences.intervalSeconds)}
+            onChange={(value) => {
+              choose({
+                intervalSeconds:
+                  INTERVALS.find((each) => String(each) === value) ??
+                  DEFAULT_PREFERENCES.intervalSeconds,
+              });
+            }}
+          />
+          <SelectField
+            label="Lines kept"
+            isLabelHidden
+            size="compact"
+            className="h-control w-32 rounded-pill bg-surface"
+            options={LINE_COUNTS.map((count) => ({
+              value: String(count),
+              label: `${String(count)} lines`,
+            }))}
+            value={String(preferences.lineCount)}
+            onChange={(value) => {
+              choose({
+                lineCount:
+                  LINE_COUNTS.find((each) => String(each) === value) ??
+                  DEFAULT_PREFERENCES.lineCount,
+              });
+            }}
+          />
+          <IconButton
+            label={preferences.isWrapped ? 'Keep each line on one row' : 'Wrap long lines'}
+            variant="raised"
+            size="large"
+            aria-pressed={preferences.isWrapped}
+            className={cn(
+              preferences.isWrapped ? 'border-primary-ring text-primary' : 'bg-surface',
+            )}
+            onClick={() => {
+              choose({ isWrapped: !preferences.isWrapped });
+            }}
+          >
+            <AppIcon id="text-wrap" size={16} />
+          </IconButton>
+        </span>
       </div>
 
       {logs.error === null ? (
-        <div className="relative">
+        <div className={cn('relative flex flex-col', isFilled ? 'min-h-0 grow' : undefined)}>
           <div
             ref={list}
             role="log"
             aria-live="off"
-            className="max-h-[32rem] min-h-40 overflow-auto bg-rail py-1.5 font-mono text-caption leading-relaxed"
+            className={cn(
+              'overflow-auto bg-rail py-1.5 font-mono text-caption leading-relaxed',
+              isFilled ? 'min-h-80 grow basis-0' : 'max-h-[32rem] min-h-40',
+            )}
             onScroll={(event) => {
               const element = event.currentTarget;
               const isAtBottom =
@@ -616,53 +645,56 @@ export function LogViewer(props: LogViewerProps) {
               </ul>
             )}
           </div>
-          {hasUnseen ? (
-            <button
-              type="button"
-              className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-caption font-medium text-primary-foreground shadow-md"
+          {/* Following is the default and needs no control; the way back to it appears only once
+              the reader has scrolled away, where the newest line would be. */}
+          {isFollowing ? null : (
+            <IconButton
+              label={hasUnseen ? 'New lines below: follow them' : 'Follow the newest lines'}
+              variant={hasUnseen ? 'primary' : 'raised'}
+              size="large"
+              className="absolute right-6 bottom-4 animate-rise shadow-float"
               onClick={jumpToLatest}
             >
-              New lines below
-            </button>
-          ) : null}
+              <AppIcon id="arrow-down" size={16} />
+            </IconButton>
+          )}
         </div>
       ) : (
         <p className="px-4 py-3.5 text-ui text-danger">{toMessage(logs.error)}</p>
       )}
 
-      <p className="flex flex-wrap items-center gap-1.5 border-t border-border px-3 py-2 text-caption text-foreground-subtle">
-        <span>{preferences.intervalSeconds === 0 ? 'Still' : 'Streaming'}</span>
-        <span aria-hidden="true">·</span>
-        <span className="tabular">
-          {shown.length === lines.length
-            ? `${String(lines.length)} lines`
-            : `${String(shown.length)} of ${String(lines.length)} lines`}
+      <p className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border px-4 py-2 font-mono text-mono-caption text-foreground-subtle">
+        <span className="flex flex-wrap items-center gap-1.5 tabular">
+          <span>
+            {shown.length === lines.length
+              ? `${String(lines.length)} lines`
+              : `${String(shown.length)} of ${String(lines.length)} lines`}
+          </span>
+          {errorCount === 0 ? null : (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="text-danger">
+                {errorCount} {errorCount === 1 ? 'error' : 'errors'}
+              </span>
+            </>
+          )}
+          {warningCount === 0 ? null : (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="text-warning">
+                {warningCount} {warningCount === 1 ? 'warning' : 'warnings'}
+              </span>
+            </>
+          )}
         </span>
-        {errorCount === 0 ? null : (
-          <>
-            <span aria-hidden="true">·</span>
-            <span className="text-danger tabular">
-              {errorCount} {errorCount === 1 ? 'error' : 'errors'}
-            </span>
-          </>
-        )}
-        {warningCount === 0 ? null : (
-          <>
-            <span aria-hidden="true">·</span>
-            <span className="text-warning tabular">
-              {warningCount} {warningCount === 1 ? 'warning' : 'warnings'}
-            </span>
-          </>
-        )}
-        <span aria-hidden="true">·</span>
         <span>
-          {preferences.intervalSeconds === 0
+          {!isStreaming
             ? 'Read again only when asked'
             : isFollowing
               ? 'Following'
               : 'Paused where you scrolled; new lines are still read'}
         </span>
       </p>
-    </Panel>
+    </section>
   );
 }

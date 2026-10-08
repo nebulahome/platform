@@ -34,7 +34,7 @@ export function PackageConfiguration(props: PackageConfigurationProps) {
       title="Settings"
       note="Saving starts it again with what is saved. Nothing else restarts."
     >
-      <div className="flex max-w-2xl flex-col gap-5 rounded-card border border-border bg-surface p-5.5">
+      <div className="flex flex-col gap-5 rounded-card border border-border bg-surface p-5.5">
         <fieldset disabled={!canConfigure} className="contents">
           <VendorSetupFields form={form} />
         </fieldset>

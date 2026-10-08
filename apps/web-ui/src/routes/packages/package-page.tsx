@@ -306,6 +306,7 @@ export function PackagePage() {
       <DetailFrame
         isPending={detail.isPending}
         error={detail.error}
+        isFilled={shownTab === 'log'}
         hero={
           <DetailHero
             back={<BackLink to="/packages">Packages</BackLink>}
@@ -348,17 +349,6 @@ export function PackagePage() {
                       }}
                     >
                       Open
-                    </Button>
-                  ) : null}
-                  {hasSetup ? (
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setTab('configuration');
-                      }}
-                    >
-                      <AppIcon id="settings" size={16} />
-                      Configure
                     </Button>
                   ) : null}
                   <OverflowMenu items={menu} />
@@ -431,9 +421,10 @@ export function PackagePage() {
             ) : null}
 
             {shownTab === 'log' ? (
-              <TabPanel idPrefix="package" id="log">
+              <TabPanel idPrefix="package" id="log" className="flex min-h-0 grow flex-col">
                 <LogViewer
                   title="Log"
+                  isFilled
                   queryKey={PACKAGE_QUERY_KEYS.logs(found.id)}
                   fileName={`package-${found.id}`}
                   read={async (tail, since, signal) =>

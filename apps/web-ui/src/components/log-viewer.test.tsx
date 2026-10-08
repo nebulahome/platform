@@ -109,4 +109,70 @@ describe('LogViewer', () => {
 
     expect(await screen.findByText('It has written nothing.')).toBeTruthy();
   });
+
+  it('leaves the chrome still while it reads on its own', async () => {
+    const empty: ContainerLogsReply = { lines: [], cursor: null, isTruncated: false };
+    let release: ((reply: ContainerLogsReply) => void) | undefined;
+    let reads = 0;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(
+      <QueryClientProvider client={client}>
+        <LogViewer
+          queryKey={['logs', 'held']}
+          fileName="test"
+          read={async () => {
+            reads += 1;
+
+            // The first read answers at once; the next is held open, as a slow background read.
+            return reads === 1
+              ? empty
+              : new Promise<ContainerLogsReply>((resolve) => {
+                  release = resolve;
+                });
+          }}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('It has written nothing.')).toBeTruthy();
+    const header = screen.getByRole('heading', { name: 'Logs' }).closest('header');
+    const before = header?.innerHTML;
+    const refetch = client.refetchQueries({ queryKey: ['logs', 'held'] });
+
+    await waitFor(() => {
+      expect(release).toBeDefined();
+    });
+    // Mid-read: the header is exactly as it was, and no button has gone grey.
+    expect(header?.innerHTML).toBe(before);
+    for (const button of screen.getAllByRole('button')) {
+      expect((button as HTMLButtonElement).disabled).toBe(false);
+    }
+
+    release?.(empty);
+    await refetch;
+  });
+
+  it('offers the way back to the newest line only once the reader scrolls away', async () => {
+    renderViewer(() => ({
+      lines: [{ at: new Date('2026-09-28T10:00:00.000Z'), stream: 'stdout', text: 'Hello' }],
+      cursor: null,
+      isTruncated: false,
+    }));
+
+    expect(await screen.findByText('Hello')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Follow the newest lines/u })).toBeNull();
+
+    const log = screen.getByRole('log');
+    Object.defineProperty(log, 'scrollHeight', { configurable: true, value: 1000 });
+    Object.defineProperty(log, 'clientHeight', { configurable: true, value: 200 });
+    log.scrollTop = 100;
+    fireEvent.scroll(log);
+
+    fireEvent.click(screen.getByRole('button', { name: /Follow the newest lines/u }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /Follow the newest lines/u })).toBeNull();
+    });
+  });
 });
