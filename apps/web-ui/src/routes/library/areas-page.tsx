@@ -19,7 +19,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
 import type { AreaView } from '@nebulahome/contracts';
-import { Button } from '@nebulahome/ui';
+import { AppIcon, Button } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { removalImpact } from '@/lib/area-tree';
@@ -163,11 +163,11 @@ export function AreasPage() {
         action={
           canWrite && !isPending && tree === null ? (
             <Button
-              size="compact"
               onClick={() => {
                 setHouseTarget({ mode: 'create' });
               }}
             >
+              <AppIcon id="plus" size={15} />
               Create your house
             </Button>
           ) : undefined

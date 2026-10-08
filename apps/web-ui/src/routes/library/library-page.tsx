@@ -122,8 +122,8 @@ export function LibraryPage(props: LibraryPageProps) {
   const facts = summary.filter((fact): fact is string => typeof fact === 'string' && fact !== '');
 
   return (
-    <div className="min-h-0 grow overflow-y-auto px-8 py-7">
-      <div className="mx-auto flex max-w-7xl flex-col gap-5">
+    <div className="min-h-0 min-w-0 grow overflow-y-auto px-8 py-7">
+      <div className="flex flex-col gap-5">
         <PageHeader
           title={title}
           crumb={

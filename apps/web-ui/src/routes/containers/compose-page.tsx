@@ -320,7 +320,6 @@ export function ComposePage() {
                 (usage?.running ?? 0) > 0 ? (
                   <Button
                     variant="ghost"
-                    size="compact"
                     disabled={isWorking || control.isPending}
                     isBusy={control.isPending && control.variables === 'stop'}
                     onClick={() => {
@@ -332,7 +331,6 @@ export function ComposePage() {
                 ) : (
                   <Button
                     variant="ghost"
-                    size="compact"
                     disabled={isWorking || control.isPending}
                     isBusy={control.isPending && control.variables === 'start'}
                     onClick={() => {
@@ -347,7 +345,6 @@ export function ComposePage() {
                 <>
                   <Button
                     variant="ghost"
-                    size="compact"
                     disabled={isWorking || control.isPending}
                     isBusy={control.isPending && control.variables === 'pull'}
                     title="Pull the newest images and make again what they changed"
@@ -359,7 +356,6 @@ export function ComposePage() {
                   </Button>
                   <Button
                     variant="ghost"
-                    size="compact"
                     disabled={isWorking}
                     onClick={() => {
                       setEditing(true);
@@ -369,7 +365,6 @@ export function ComposePage() {
                   </Button>
                   <Button
                     variant="danger"
-                    size="compact"
                     disabled={isWorking}
                     onClick={() => {
                       setRemoving(true);

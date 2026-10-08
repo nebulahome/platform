@@ -190,12 +190,11 @@ export function DashboardsManagePage() {
         }
         action={
           <Button
-            size="compact"
             onClick={() => {
               setDialog({ mode: 'create' });
             }}
           >
-            <AppIcon id="plus" size={14} />
+            <AppIcon id="plus" size={15} />
             New dashboard
           </Button>
         }

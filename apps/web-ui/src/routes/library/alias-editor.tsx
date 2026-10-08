@@ -993,7 +993,7 @@ function Shell(props: ShellProps) {
       />
 
       <div className="min-h-0 grow overflow-y-auto px-8 pt-5 pb-7">
-        <div className="mx-auto flex max-w-5xl flex-col gap-4">{children}</div>
+        <div className="flex flex-col gap-4">{children}</div>
       </div>
     </div>
   );

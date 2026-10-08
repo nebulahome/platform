@@ -78,7 +78,6 @@ export function PackageAppPage() {
       action={
         <Button
           variant="ghost"
-          size="compact"
           onClick={() => {
             void navigate(`/packages/${encodeURIComponent(packageId)}`);
           }}

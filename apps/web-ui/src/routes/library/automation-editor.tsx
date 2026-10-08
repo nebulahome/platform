@@ -472,7 +472,7 @@ function Shell(props: ShellProps) {
 
   return (
     <div className="min-h-0 grow overflow-y-auto px-8 pt-6 pb-10">
-      <div className="mx-auto flex max-w-7xl flex-col gap-5">
+      <div className="flex flex-col gap-5">
         <DetailHero
           back={<BackLink to="/automations">Automations</BackLink>}
           title={title}

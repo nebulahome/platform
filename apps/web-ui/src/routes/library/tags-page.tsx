@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import type { DeviceView, EntityView } from '@nebulahome/contracts';
-import { Button } from '@nebulahome/ui';
+import { AppIcon, Button } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { useListState } from '@/lib/use-list-state';
@@ -145,11 +145,11 @@ export function TagsPage() {
         action={
           canWrite ? (
             <Button
-              size="compact"
               onClick={() => {
                 setTarget({ mode: 'create' });
               }}
             >
+              <AppIcon id="plus" size={15} />
               New tag
             </Button>
           ) : undefined
