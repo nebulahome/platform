@@ -345,7 +345,7 @@ describe('a vendor page', () => {
     expect(strip.textContent).toContain('Runtime');
     expect(strip.textContent).toContain('Running');
     expect(strip.textContent).toContain('1 of 1 reporting');
-    expect(strip.textContent).toContain('Updated with Nebula Home');
+    expect(strip.textContent).toContain('Updated by rebuilding it');
   });
 
   it('opens the add-device dialog with the vendor, offering its models', async () => {
@@ -424,12 +424,12 @@ describe('a vendor page', () => {
     expect(screen.queryByRole('button', { name: 'More' })).toBeNull();
   });
 
-  it('says a vendor built into this NebulaHome is, and offers no Remove for it', async () => {
+  it('says a vendor under development is, and offers no Remove for it', async () => {
     vi.mocked(fetchVendor).mockResolvedValue(BAMBU);
     vi.mocked(fetchDevices).mockResolvedValue([]);
     renderPage('bambu-lab', ['integration:install']);
 
-    expect((await screen.findAllByText('Built in')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('In development')).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'More' })).toBeNull();
   });
 

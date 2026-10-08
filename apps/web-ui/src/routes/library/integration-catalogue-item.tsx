@@ -111,7 +111,8 @@ export function IntegrationCatalogueItem(props: IntegrationCatalogueItemProps) {
     >
       {listing.isBuiltIn ? (
         <p role="status" className="text-ui text-foreground-muted">
-          A copy of it is built into this NebulaHome. Installing it puts this release in its place.
+          A copy under development runs from the development folder of the hub. Installing it puts
+          this release in its place.
         </p>
       ) : null}
 

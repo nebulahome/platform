@@ -3,8 +3,8 @@
  * standing, a word and one line, read from what the page already has.
  *
  * What is not known is not said: the hub does not tell how long a vendor has been loaded, so
- * Runtime says how it stands without an uptime; a vendor nobody installed - one built into this
- * installation - is updated with Nebula Home and says so.
+ * Runtime says how it stands without an uptime; a vendor nobody installed - a copy under
+ * development, read from the hub's development folder - is updated by rebuilding it, and says so.
  *
  * Pure, so the page draws what a test can hold it to.
  */
@@ -128,7 +128,7 @@ export function devicesHealth(
  */
 export function updatesHealth(vendor: IntegrationVendorView): HealthLine {
   if (vendor.origin === 'development') {
-    return { tone: 'neutral', value: 'Built in', detail: 'Updated with Nebula Home' };
+    return { tone: 'neutral', value: 'In development', detail: 'Updated by rebuilding it' };
   }
 
   if (vendor.update?.hasUpdate === true && vendor.update.latestVersion !== null) {

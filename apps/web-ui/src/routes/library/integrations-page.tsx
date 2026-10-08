@@ -229,7 +229,7 @@ export function IntegrationsPage() {
       isPending={vendors.isPending}
       error={vendors.error}
       isEmpty={all.length === 0}
-      emptyMessage="The hub has no integration bundles loaded. The ones that ship with it appear here as soon as it starts."
+      emptyMessage="No integration is installed yet. Install one, from the Community Hub or the local folder, and it appears here."
     >
       {shown.length === 0 && isNarrowing(filter) ? (
         <NoMatches

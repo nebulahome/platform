@@ -352,7 +352,7 @@ export function VendorOverview(props: VendorOverviewProps) {
               label: 'Source',
               value:
                 vendor.origin === 'development'
-                  ? 'Ships with Nebula Home'
+                  ? 'Development folder'
                   : vendor.install === null
                     ? 'Installed'
                     : `Installed ${absoluteTime(new Date(vendor.install.installedAt))}`,

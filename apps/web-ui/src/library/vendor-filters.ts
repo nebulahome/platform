@@ -250,7 +250,8 @@ export function matchesVendorFilter(
  * Puts the vendors in the order asked for.
  *
  * Most devices puts the busiest first; recently added puts the newest install first, and the
- * vendors built into this installation - never installed - after every installed one. Ties go
+ * vendors under development - read from the hub's development folder, never installed - after
+ * every installed one. Ties go
  * by name.
  *
  * @param vendors - As the list serves them.

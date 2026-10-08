@@ -67,7 +67,7 @@ function Facts(props: FactsProps) {
           Needs the internet
         </span>
       ) : null}
-      {listing.isBuiltIn ? <span>Built in</span> : null}
+      {listing.isBuiltIn ? <span>In development</span> : null}
       {listing.hasUpdate ? <span className="text-primary">Update out</span> : null}
     </>
   );

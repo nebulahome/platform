@@ -3,9 +3,9 @@
  * reinstalling a rebuild from the local folder, and removing the integration - with everything
  * that came in through it, after the owner sees what that is.
  *
- * Only for a vendor the platform installed, and only for who may install: one built into this
- * NebulaHome - a bundle of the repository's - has nothing to update or take away here, and its
- * hero says "Built in" instead.
+ * Only for a vendor the platform installed, and only for who may install: a copy under
+ * development - read from the hub's development folder - has nothing to update or take away
+ * here, and its hero says "In development" instead.
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router';

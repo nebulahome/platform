@@ -231,7 +231,7 @@ export function VendorPage() {
                     <HeroFact key={wire}>{wire === 'ble' ? 'BLE' : wire.toUpperCase()}</HeroFact>
                   ))}
                   {found.origin === 'development' ? (
-                    <HeroFact icon="lock">Built in</HeroFact>
+                    <HeroFact icon="lock">In development</HeroFact>
                   ) : null}
                 </>
               )

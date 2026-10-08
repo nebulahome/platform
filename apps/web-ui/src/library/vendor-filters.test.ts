@@ -252,7 +252,7 @@ describe('the health strip of an integration', () => {
   });
 
   it('says whether a newer release waits, and that a vendor built in is updated with the platform', () => {
-    expect(updatesHealth(vendor()).value).toBe('Built in');
+    expect(updatesHealth(vendor()).value).toBe('In development');
     expect(
       updatesHealth(
         vendor({
