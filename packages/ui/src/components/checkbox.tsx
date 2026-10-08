@@ -83,10 +83,12 @@ export function Checkbox(props: CheckboxProps) {
           onChange(event.target.checked);
         }}
       />
+      {/* The width in brackets: Tailwind 4 makes no class of `border-1.5`, and an empty box with no
+          edge was simply not there. */}
       <span
         aria-hidden="true"
         className={cn(
-          'border-1.5 mt-px flex size-4.5 shrink-0 items-center justify-center rounded-check transition-colors',
+          'mt-px flex size-4.5 shrink-0 items-center justify-center rounded-check border-[1.5px] transition-colors',
           'peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary',
           isFilled
             ? 'border-primary bg-primary text-primary-foreground'

@@ -18,6 +18,9 @@
  * The pill is measured rather than assumed, because the options are words and words are not the
  * same width. It is measured again whenever the track resizes - a narrower panel rewraps the
  * labels underneath a pill that would otherwise stay where it was.
+ *
+ * The track is as wide as its options (`w-fit`), wherever it sits: a column that stretches its
+ * children would otherwise draw the border on past the last option, around nothing.
  */
 import { cva, type VariantProps } from 'class-variance-authority';
 import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react';
@@ -25,7 +28,7 @@ import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '../lib/cn.js';
 
 const track = cva(
-  'relative isolate flex shrink-0 items-center rounded-pill border border-border-strong bg-surface',
+  'relative isolate flex w-fit shrink-0 items-center rounded-pill border border-border-strong bg-surface',
   {
     variants: {
       size: {

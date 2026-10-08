@@ -22,7 +22,7 @@ import { AppIcon } from './app-icon.js';
 
 /** The classes of the element a tile sits in: the link, or the card itself. */
 export const TILE_FRAME =
-  'flex min-h-41 flex-col gap-3.5 rounded-panel border border-border bg-surface p-4.5 ' +
+  'flex h-full min-h-41 flex-col gap-3.5 rounded-panel border border-border bg-surface p-4.5 ' +
   'transition-colors hover:border-border-strong focus-visible:outline-2 ' +
   'focus-visible:outline-offset-2 focus-visible:outline-primary';
 
