@@ -42,6 +42,7 @@ const AUTOMATION: AutomationView = {
   maxRuntimeMs: 300_000,
   isEnabled: true,
   lastTriggeredAt: null,
+  lastRun: null,
 };
 
 describe('matchesAutomationFilter', () => {

@@ -2,19 +2,17 @@
  * The configured shape of a home: scenes, automations, aliases and installed packages. Devices
  * have a service of their own, being two halves under one id, and areas theirs, being a tree.
  *
- * Scenes and automations are written here. A definition is a row, and the row is what the engine
- * will read when it exists - saving one is complete in itself: durable, audited, and not waiting
- * on a service to make it true. **Running** an automation is the opposite -
- * `POST /automations/:id/trigger` can only mean something once something is listening - and that
- * is why triggering is still absent while these are not. Applying a scene is different again: it
- * fans out ordinary entity commands from `api` itself (see `scene-apply.ts`), rather than waiting
- * on a scene engine.
+ * Scenes and automations are written here. A definition is a row, and saving one is complete in
+ * itself: durable and audited. `core` runs automations and applies scenes; after a write the
+ * route asks it to take the row in (`automations-core.ts`), and a `core` that does not answer
+ * reads the row when it next starts. An automation's runs are `core`'s to write and this
+ * service's to read: the latest one rides on every automation, and the rest page here.
  *
  * Aliases are written in `aliases.ts`. Package rows belong to `packet-manager`
  * ([DATABASE.md 12](../../../../DATABASE.md)); `nebula_api` holds `SELECT` on `system.packages`
  * and nothing more.
  */
-import { asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, lt, or } from 'drizzle-orm';
 
 import {
   CAPABILITIES,
@@ -22,8 +20,11 @@ import {
   ConflictError,
   NotFoundError,
   ValidationError,
+  automationRunSchema,
   automationViewSchema,
   sceneViewSchema,
+  type AutomationLastRun,
+  type AutomationRun,
   type AutomationCreate,
   type AutomationUpdate,
   type AutomationView,
@@ -35,6 +36,8 @@ import {
   type SceneView,
 } from '@nebulahome/contracts';
 import { schema, type Database } from '@nebulahome/db';
+
+import { decodeCursor, toPage, type PageResult } from '../http/pagination.js';
 
 import { isUniqueViolation } from './keys.js';
 
@@ -552,6 +555,70 @@ async function replaceSceneMembers(
   );
 }
 
+/** The columns an automation view is read from. */
+const AUTOMATION_COLUMNS = {
+  id: schema.registry.automations.id,
+  key: schema.registry.automations.key,
+  name: schema.registry.automations.name,
+  description: schema.registry.automations.description,
+  definition: schema.registry.automations.definition,
+  definitionVersion: schema.registry.automations.definitionVersion,
+  mode: schema.registry.automations.mode,
+  maxRuntimeMs: schema.registry.automations.maxRuntimeMs,
+  isEnabled: schema.registry.automations.isEnabled,
+  lastTriggeredAt: schema.registry.automations.lastTriggeredAt,
+};
+
+/** How a latest run is read off a run row. */
+const lastRunSchema = automationRunSchema.pick({
+  id: true,
+  time: true,
+  finishedAt: true,
+  result: true,
+});
+
+/**
+ * The latest run of each of some automations.
+ *
+ * One `DISTINCT ON` down the `(automation_id, time DESC)` index: a step per automation.
+ *
+ * @param db - The database.
+ * @param automationIds - Which automations.
+ * @returns Their latest runs, by automation.
+ */
+async function lastRunsOf(
+  db: Database,
+  automationIds: readonly string[],
+): Promise<Map<string, AutomationLastRun>> {
+  if (automationIds.length === 0) {
+    return new Map();
+  }
+
+  const runs = schema.history.automationRuns;
+  const rows = await db
+    .selectDistinctOn([runs.automationId], {
+      automationId: runs.automationId,
+      id: runs.id,
+      time: runs.time,
+      finishedAt: runs.finishedAt,
+      result: runs.result,
+    })
+    .from(runs)
+    .where(inArray(runs.automationId, [...automationIds]))
+    .orderBy(runs.automationId, desc(runs.time));
+  const latest = new Map<string, AutomationLastRun>();
+
+  for (const row of rows) {
+    const parsed = lastRunSchema.safeParse(row);
+
+    if (parsed.success) {
+      latest.set(row.automationId, parsed.data);
+    }
+  }
+
+  return latest;
+}
+
 /**
  * Lists automations.
  *
@@ -560,23 +627,20 @@ async function replaceSceneMembers(
  */
 export async function listAutomations(db: Database): Promise<AutomationView[]> {
   const rows = await db
-    .select({
-      id: schema.registry.automations.id,
-      key: schema.registry.automations.key,
-      name: schema.registry.automations.name,
-      description: schema.registry.automations.description,
-      definition: schema.registry.automations.definition,
-      definitionVersion: schema.registry.automations.definitionVersion,
-      mode: schema.registry.automations.mode,
-      maxRuntimeMs: schema.registry.automations.maxRuntimeMs,
-      isEnabled: schema.registry.automations.isEnabled,
-      lastTriggeredAt: schema.registry.automations.lastTriggeredAt,
-    })
+    .select(AUTOMATION_COLUMNS)
     .from(schema.registry.automations)
     .orderBy(asc(schema.registry.automations.name));
+  const lastRuns = await lastRunsOf(
+    db,
+    rows.map((row) => row.id),
+  );
 
   return rows.map((row) =>
-    automationViewSchema.parse({ ...row, definition: row.definition ?? {} }),
+    automationViewSchema.parse({
+      ...row,
+      definition: row.definition ?? {},
+      lastRun: lastRuns.get(row.id) ?? null,
+    }),
   );
 }
 
@@ -594,18 +658,7 @@ export async function listAutomations(db: Database): Promise<AutomationView[]> {
  */
 export async function readAutomation(db: Database, id: string): Promise<AutomationView> {
   const [row] = await db
-    .select({
-      id: schema.registry.automations.id,
-      key: schema.registry.automations.key,
-      name: schema.registry.automations.name,
-      description: schema.registry.automations.description,
-      definition: schema.registry.automations.definition,
-      definitionVersion: schema.registry.automations.definitionVersion,
-      mode: schema.registry.automations.mode,
-      maxRuntimeMs: schema.registry.automations.maxRuntimeMs,
-      isEnabled: schema.registry.automations.isEnabled,
-      lastTriggeredAt: schema.registry.automations.lastTriggeredAt,
-    })
+    .select(AUTOMATION_COLUMNS)
     .from(schema.registry.automations)
     .where(eq(schema.registry.automations.id, id))
     .limit(1);
@@ -614,7 +667,62 @@ export async function readAutomation(db: Database, id: string): Promise<Automati
     throw new NotFoundError('No automation has that id', { details: { id } });
   }
 
-  return automationViewSchema.parse({ ...row, definition: row.definition ?? {} });
+  const lastRuns = await lastRunsOf(db, [id]);
+
+  return automationViewSchema.parse({
+    ...row,
+    definition: row.definition ?? {},
+    lastRun: lastRuns.get(id) ?? null,
+  });
+}
+
+/**
+ * Reads one automation's runs, newest first, a page at a time.
+ *
+ * The cursor is the last run's start and id, compared as a pair down the
+ * `(automation_id, time DESC)` index. A run carries its whole trace: the interface opens one run
+ * at a time, and a trace is a few kilobytes.
+ *
+ * @param db - The database.
+ * @param automationId - Which automation; it must exist.
+ * @param page - How many and from where.
+ * @param page.limit - The page size.
+ * @param page.cursor - Where the previous page ended.
+ * @returns A page of runs.
+ * @throws {NotFoundError} When no automation has that id.
+ */
+export async function listAutomationRuns(
+  db: Database,
+  automationId: string,
+  page: { limit: number; cursor?: string },
+): Promise<PageResult<AutomationRun>> {
+  await readAutomation(db, automationId);
+
+  const runs = schema.history.automationRuns;
+  const cursor = page.cursor === undefined ? undefined : decodeCursor(page.cursor);
+  const ofAutomation = eq(runs.automationId, automationId);
+  const where =
+    cursor === undefined
+      ? ofAutomation
+      : and(
+          ofAutomation,
+          or(
+            lt(runs.time, new Date(cursor.key)),
+            and(eq(runs.time, new Date(cursor.key)), lt(runs.id, cursor.id ?? '')),
+          ),
+        );
+  const rows = await db
+    .select()
+    .from(runs)
+    .where(where)
+    .orderBy(desc(runs.time), desc(runs.id))
+    .limit(page.limit + 1);
+
+  return toPage(
+    rows.map((row) => automationRunSchema.parse(row)),
+    page.limit,
+    (run) => ({ key: run.time.toISOString(), id: run.id }),
+  );
 }
 
 /**

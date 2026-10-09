@@ -6,11 +6,31 @@
  * the bundle before a row is touched, a probe never touches one at all, and the catalogue comes
  * from the hub. What the hub is given and what comes back from it is the whole of the interest.
  */
+import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 
 import { BusClient } from '@nebulahome/bus';
 import { FakeTransport } from '@nebulahome/bus/testing';
 import {
+  applySceneRequestSchema,
+  capabilityStateSchema,
+  commandNameOf,
+  commandsForTargetState,
+  CORE_APPLY_SCENE_METHOD,
+  CORE_REMOVE_AUTOMATION_METHOD,
+  CORE_SYNC_AUTOMATION_METHOD,
+  CORE_SYNC_HOUSE_METHOD,
+  CORE_TRIGGER_AUTOMATION_METHOD,
+  removeAutomationRequestSchema,
+  syncAutomationRequestSchema,
+  syncHouseRequestSchema,
+  triggerAutomationRequestSchema,
+  type ApplySceneReply,
+  type ApplySceneRequest,
+  type RemoveAutomationReply,
+  type SyncAutomationReply,
+  type SyncHouseReply,
+  type TriggerAutomationReply,
   accountBeginRequestSchema,
   accountSignOutRequestSchema,
   HUB_ACCOUNT_BEGIN_METHOD,
@@ -85,7 +105,7 @@ import {
   type UnregisterDeviceRequest,
   type BackupStatus,
 } from '@nebulahome/contracts';
-import { secretsKeyFrom } from '@nebulahome/db';
+import { schema, secretsKeyFrom } from '@nebulahome/db';
 import { createLogger } from '@nebulahome/logging';
 
 import { Authenticator } from '../auth/authenticator.js';
@@ -482,6 +502,18 @@ export const aliasesSynced: string[] = [];
 /** What the fake `core` was asked to remove, by alias entity id, in order. */
 export const aliasesRemoved: string[] = [];
 
+/** What the fake `core` was asked about automations, in order: `sync:<id>`, `remove:<id>`. */
+export const automationsSynced: string[] = [];
+
+/** What the fake `core` was asked to run, in order. */
+export const automationsTriggered: { automationId: string; userId: string | undefined }[] = [];
+
+/** What the fake `core` was asked to apply, in order. */
+export const scenesApplied: ApplySceneRequest[] = [];
+
+/** How many times the fake `core` was asked to read the house again. */
+export const houseSyncs: { count: number } = { count: 0 };
+
 /** Every command the fake `core` accepted, in order. */
 export const commanded: { entityId: string; capability: string; command: string }[] = [];
 
@@ -787,6 +819,97 @@ export async function buildTestServer(
         aliasesRemoved.push(request.entityId);
 
         return { entityId: request.entityId };
+      },
+    ),
+    core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_SYNC_AUTOMATION_METHOD),
+      syncAutomationRequestSchema,
+      (request): SyncAutomationReply => {
+        automationsSynced.push(`sync:${request.automationId}`);
+
+        return { isLoaded: true, problems: [] };
+      },
+    ),
+    core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_REMOVE_AUTOMATION_METHOD),
+      removeAutomationRequestSchema,
+      (request): RemoveAutomationReply => {
+        automationsSynced.push(`remove:${request.automationId}`);
+
+        return { automationId: request.automationId };
+      },
+    ),
+    core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_TRIGGER_AUTOMATION_METHOD),
+      triggerAutomationRequestSchema,
+      (request): TriggerAutomationReply => {
+        automationsTriggered.push({ automationId: request.automationId, userId: request.userId });
+
+        return { runId: '0190f5a1-0000-7000-8000-000000000001', outcome: 'started' };
+      },
+    ),
+    core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_SYNC_HOUSE_METHOD),
+      syncHouseRequestSchema,
+      (): SyncHouseReply => {
+        houseSyncs.count += 1;
+
+        return { timeZone: 'UTC', hasPosition: false };
+      },
+    ),
+    core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_APPLY_SCENE_METHOD),
+      applySceneRequestSchema,
+
+      // Applies as `core` would: the members it was not told to skip get the commands their
+      // targets produce, recorded in `commanded` as the command subject would have.
+      async (request): Promise<ApplySceneReply> => {
+        scenesApplied.push(request);
+
+        const rows =
+          database === undefined
+            ? []
+            : await database
+                .select({
+                  entityId: schema.registry.entities.entityId,
+                  targetState: schema.registry.sceneEntities.targetState,
+                })
+                .from(schema.registry.sceneEntities)
+                .innerJoin(
+                  schema.registry.entities,
+                  eq(schema.registry.entities.id, schema.registry.sceneEntities.entityId),
+                )
+                .where(eq(schema.registry.sceneEntities.sceneId, request.sceneId));
+        const skipped = new Map(
+          request.skip.map((entry) => [String(entry.entityId), entry.reason]),
+        );
+        const members = rows.map((row) => {
+          const reason = skipped.get(row.entityId);
+
+          if (reason !== undefined) {
+            return { entityId: row.entityId, ok: false, error: reason, sent: [] };
+          }
+
+          const sent = commandsForTargetState(capabilityStateSchema.parse(row.targetState), 0);
+
+          for (const entry of sent) {
+            commanded.push({
+              entityId: row.entityId,
+              capability: entry.capability,
+              command: commandNameOf(entry.command),
+            });
+          }
+
+          return { entityId: row.entityId, ok: true, error: null, sent };
+        });
+        const applied = members.filter((member) => member.ok).length;
+
+        return {
+          sceneId: request.sceneId,
+          applied,
+          failed: members.length - applied,
+          members: members as ApplySceneReply['members'],
+        };
       },
     ),
     core.serve(

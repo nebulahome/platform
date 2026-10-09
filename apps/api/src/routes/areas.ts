@@ -28,6 +28,7 @@ import type { ApiContext } from '../context.js';
 import { collectionSchema } from '../http/collection.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import { createArea, deleteArea, listAreas, readArea, updateArea } from '../services/areas.js';
+import { syncHouseOnCore } from '../services/automations-core.js';
 
 /**
  * Reads the house an id names, placed, or says why the map cannot be had.
@@ -127,6 +128,16 @@ export function registerAreaRoutes(environment: RouteEnvironment, context: ApiCo
         details: { key: area.key, name: area.name, kind: area.kind, parentId: area.parentId },
       });
 
+      if (area.kind === 'house') {
+        // Where the house stands is when the sun rises for its automations.
+        await syncHouseOnCore({
+          bus: context.bus,
+          traceId: route.request.traceId,
+          timeoutMs: context.config.API_BUS_TIMEOUT_MS,
+          logger: context.logger,
+        });
+      }
+
       return area;
     },
   );
@@ -165,6 +176,16 @@ export function registerAreaRoutes(environment: RouteEnvironment, context: ApiCo
         traceId: route.request.traceId,
         details: { changed: Object.keys(route.body) },
       });
+
+      if (area.kind === 'house' && ('latitude' in route.body || 'longitude' in route.body)) {
+        // Where the house stands is when the sun rises for its automations.
+        await syncHouseOnCore({
+          bus: context.bus,
+          traceId: route.request.traceId,
+          timeoutMs: context.config.API_BUS_TIMEOUT_MS,
+          logger: context.logger,
+        });
+      }
 
       return area;
     },

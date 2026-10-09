@@ -34,6 +34,7 @@ function automation(name: string, definition: JsonObject): AutomationView {
     maxRuntimeMs: 300_000,
     isEnabled: true,
     lastTriggeredAt: null,
+    lastRun: null,
   };
 }
 

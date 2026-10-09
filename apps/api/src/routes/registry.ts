@@ -7,9 +7,9 @@
  * own file for that reason; devices and areas, being written as well as read, have files of
  * their own.
  *
- * Scenes and automations can also be written. What that covers and what it deliberately does not
- * - a definition is saved; an automation run is not started - is set out on the service beside
- * it. Applying a scene fans out entity commands from here.
+ * Scenes and automations can also be written; after a write `core` is told, since it is what runs
+ * automations and applies scenes. An automation can be run on request, and its runs read back a
+ * page at a time.
  */
 import { z } from 'zod';
 
@@ -20,18 +20,26 @@ import {
   aliasUpdateSchema,
   aliasViewSchema,
   automationCreateSchema,
+  automationRunSchema,
   automationUpdateSchema,
   automationViewSchema,
+  ConflictError,
   DeviceUnavailableError,
+  pageQuerySchema,
+  pageSchema,
+  triggerAutomationReplySchema,
   sceneApplyResultSchema,
   sceneCreateSchema,
   sceneUpdateSchema,
   sceneViewSchema,
   type AliasPreviewResponse,
   type AliasView,
+  type AutomationRun,
   type AutomationView,
+  type Page,
   type SceneApplyResult,
   type SceneView,
+  type TriggerAutomationReply,
 } from '@nebulahome/contracts';
 
 import { isPermitted, requirePermission } from '../auth/permissions.js';
@@ -47,12 +55,20 @@ import {
   type AliasesContext,
 } from '../services/aliases.js';
 import {
+  removeAutomationOnCore,
+  syncAutomationOnCore,
+  triggerAutomationOnCore,
+  type CoreLink,
+} from '../services/automations-core.js';
+import {
   createAutomation,
   createScene,
   deleteAutomation,
   deleteScene,
+  listAutomationRuns,
   listAutomations,
   listScenes,
+  readAutomation,
   updateAutomation,
   updateScene,
 } from '../services/registry.js';
@@ -80,6 +96,19 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
    */
   const aliasesContext = (traceId: string): AliasesContext => ({
     db: context.db,
+    bus: context.bus,
+    traceId,
+    timeoutMs: context.config.API_BUS_TIMEOUT_MS,
+    logger: context.logger,
+  });
+
+  /**
+   * What a request to `core` about an automation needs.
+   *
+   * @param traceId - The request's trace id.
+   * @returns The link.
+   */
+  const coreLink = (traceId: string): CoreLink => ({
     bus: context.bus,
     traceId,
     timeoutMs: context.config.API_BUS_TIMEOUT_MS,
@@ -252,8 +281,9 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
     /**
      * Applies a scene.
      *
-     * Fans out the same entity commands a person would send one by one. Acknowledgements mean
-     * the adapter accepted each command; this does not wait for the device to converge.
+     * `core` sends the commands; the members the caller may not control are left alone.
+     * Acknowledgements mean the adapter accepted each command; this does not wait for the
+     * device to converge.
      *
      * @param route - The id and who is asking.
      * @returns How each member fared.
@@ -271,7 +301,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
         client: context.bus,
         identity: route.identity,
         traceId: route.request.traceId,
-        timeoutMs: context.config.API_BUS_TIMEOUT_MS,
+        deadlineMs: context.config.API_SCENE_APPLY_TIMEOUT_MS,
 
         /**
          * Records a lock or an unlock the scene sent, as the command route records one sent
@@ -338,6 +368,115 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
   defineRoute(
     environment,
     {
+      method: 'GET',
+      url: '/automations/:automationId',
+      summary: 'Read one automation',
+      tag: 'Library',
+      permission: 'automation:read',
+      params: automationParamsSchema,
+      response: automationViewSchema,
+    },
+
+    /**
+     * Reads one automation, with its latest run.
+     *
+     * @param route - The id and who is asking.
+     * @returns The automation.
+     */
+    async (route): Promise<AutomationView> => {
+      requirePermission(route.identity, 'automation:read');
+
+      return readAutomation(context.db, route.params.automationId);
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/automations/:automationId/runs',
+      summary: "Read an automation's runs, newest first",
+      tag: 'Library',
+      permission: 'automation:read',
+      params: automationParamsSchema,
+      query: pageQuerySchema,
+      response: pageSchema(automationRunSchema),
+    },
+
+    /**
+     * Reads one page of an automation's runs, each with its trace.
+     *
+     * @param route - The id, the page and who is asking.
+     * @returns The page, newest first.
+     */
+    async (route): Promise<Page<AutomationRun>> => {
+      requirePermission(route.identity, 'automation:read');
+
+      return listAutomationRuns(context.db, route.params.automationId, {
+        limit: route.query.limit,
+        ...(route.query.cursor === undefined ? {} : { cursor: route.query.cursor }),
+      });
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/automations/:automationId/trigger',
+      summary: 'Run an automation now',
+      tag: 'Library',
+      permission: 'automation:trigger',
+      params: automationParamsSchema,
+      response: triggerAutomationReplySchema,
+
+      // Accepted, not done: the run goes on in `core` after the answer.
+      successStatus: 202,
+    },
+
+    /**
+     * Runs an automation now, through its mode and its checks, as a trigger would. The saved
+     * version runs, not whatever an editor has open.
+     *
+     * @param route - The id and who is asking.
+     * @returns The run's id, and whether it started, queued or was turned away.
+     * @throws {ConflictError} When the automation is turned off.
+     */
+    async (route): Promise<TriggerAutomationReply> => {
+      requirePermission(route.identity, 'automation:trigger');
+
+      const automation = await readAutomation(context.db, route.params.automationId);
+
+      if (!automation.isEnabled) {
+        throw new ConflictError('The automation is turned off', {
+          details: { id: automation.id },
+        });
+      }
+
+      const reply = await triggerAutomationOnCore(
+        coreLink(route.request.traceId),
+        automation.id,
+        route.identity.userId,
+      );
+
+      await context.audit.record({
+        action: 'automation.trigger',
+        resourceType: 'automation',
+        resourceId: automation.id,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { key: automation.key, outcome: reply.outcome, runId: reply.runId },
+      });
+
+      return reply;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
       method: 'POST',
       url: '/automations',
       summary: 'Create an automation',
@@ -348,11 +487,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
     },
 
     /**
-     * Creates an automation.
-     *
-     * It is saved disabled or enabled as asked, and either way nothing runs it yet: the engine
-     * that will is ARCHITECTURE.md 6.1. What this endpoint promises is that the definition is
-     * valid and stored, which is the whole of what it does.
+     * Creates an automation, and tells `core`, which runs it from then on when it is enabled.
      *
      * @param route - The body and who is asking.
      * @returns The automation as it now stands.
@@ -361,6 +496,8 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
       requirePermission(route.identity, 'automation:write');
 
       const automation = await createAutomation(context.db, route.body, route.identity.userId);
+
+      await syncAutomationOnCore(coreLink(route.request.traceId), automation.id);
 
       await context.audit.record({
         action: 'automation.create',
@@ -404,6 +541,10 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
 
       const automation = await updateAutomation(context.db, route.params.automationId, route.body);
 
+      // An edit to what it does or how it runs cancels its running runs in `core`; one to its
+      // name or description does not.
+      await syncAutomationOnCore(coreLink(route.request.traceId), automation.id);
+
       // The field names rather than the values. A definition is a whole document and the audit
       // log is not a version history; what it has to answer is who touched this, and when.
       await context.audit.record({
@@ -446,6 +587,8 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
       requirePermission(route.identity, 'automation:write');
 
       const automation = await deleteAutomation(context.db, route.params.automationId);
+
+      await removeAutomationOnCore(coreLink(route.request.traceId), automation.id);
 
       await context.audit.record({
         action: 'automation.delete',

@@ -317,6 +317,7 @@ describe('EntityPage', () => {
         maxRuntimeMs: 300_000,
         isEnabled: true,
         lastTriggeredAt: null,
+        lastRun: null,
       },
     ]);
     vi.mocked(fetchScenes).mockResolvedValue([]);

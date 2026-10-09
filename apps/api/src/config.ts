@@ -92,6 +92,12 @@ export const apiEnvSchema = runtimeEnvSchema
     /** How long a request to another service may take before it is given up on. */
     API_BUS_TIMEOUT_MS: z.coerce.number().int().min(100).max(120_000).default(5000),
 
+    /**
+     * How long applying a scene may take, rollback included. Longer than a single request: `core`
+     * waits for every member's acknowledgement, a few at a time.
+     */
+    API_SCENE_APPLY_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(600_000).default(60_000),
+
     /** The largest request body accepted, in bytes. */
     API_BODY_LIMIT_BYTES: z.coerce.number().int().min(1024).max(52_428_800).default(1_048_576),
 

@@ -11,6 +11,7 @@
  */
 import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
+  automationEventSchema,
   backupEventSchema,
   BUS_PATTERNS,
   busSubjects,
@@ -194,6 +195,30 @@ export class EventFanout {
          */
         (payload): void => {
           this.#dispatch('backups', null, { type: 'backup_event', payload });
+        },
+      ),
+    );
+
+    this.#subscriptions.push(
+      client.subscribe(
+        BUS_PATTERNS.allAutomationEvents,
+        automationEventSchema,
+
+        /**
+         * Tells the sockets watching the automations that a run started or ended, so a list can
+         * show its last run and an editor its runs without asking again.
+         *
+         * @param payload - Which run, and how it ended.
+         * @param context - The subject, whose last token names the automation.
+         */
+        (payload, context): void => {
+          const automationId = context.subject.split('.').pop() ?? '';
+
+          this.#dispatch('automations', null, {
+            type: 'automation_event',
+            automationId,
+            payload,
+          });
         },
       ),
     );

@@ -156,6 +156,7 @@ describe('draftFrom', () => {
     maxRuntimeMs: 300_000,
     isEnabled: true,
     lastTriggeredAt: null,
+    lastRun: null,
   };
 
   it('keeps what it cannot draw, and gives it back unchanged', () => {
@@ -283,6 +284,7 @@ describe('nested then blocks', () => {
       maxRuntimeMs: 60_000,
       isEnabled: true,
       lastTriggeredAt: null,
+      lastRun: null,
     };
 
     const result = toCreate(draftFrom(view));
@@ -365,6 +367,7 @@ describe('a trigger tree the cards cannot say', () => {
     maxRuntimeMs: 300_000,
     isEnabled: true,
     lastTriggeredAt: null,
+    lastRun: null,
   };
 
   it('is saved back as it was when the triggers are not touched', () => {

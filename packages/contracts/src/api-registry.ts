@@ -8,6 +8,7 @@
  */
 import { z } from 'zod';
 
+import { automationLastRunSchema } from './api-history.js';
 import { automationDefinitionSchema } from './automation-definition.js';
 import {
   CAPABILITY_DEFINITIONS,
@@ -452,6 +453,9 @@ export const automationViewSchema = z.object({
 
   /** When it last fired. Null means never. */
   lastTriggeredAt: timestampSchema.nullable(),
+
+  /** How its latest recorded run went. Null when it has none on record. */
+  lastRun: automationLastRunSchema.nullable(),
 });
 
 /** A rule. */

@@ -20,6 +20,7 @@ import {
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { syncHouseOnCore } from '../services/automations-core.js';
 import { askBackup, BACKUP_REPLIES } from '../services/backup.js';
 import {
   auditableChanges,
@@ -119,6 +120,16 @@ export function registerSettingsRoutes(environment: RouteEnvironment, context: A
           RELOAD_TIMEOUT_MS,
         ).catch((error: unknown) => {
           context.logger.warn({ err: error }, 'The backup service did not reload its settings');
+        });
+      }
+
+      // The house's zone is what automations keep time by; `core` reads it again now.
+      if ('house.timezone' in accepted) {
+        await syncHouseOnCore({
+          bus: context.bus,
+          traceId: route.request.traceId,
+          timeoutMs: context.config.API_BUS_TIMEOUT_MS,
+          logger: context.logger,
         });
       }
 

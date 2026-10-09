@@ -24,6 +24,7 @@ import {
   type WsTopic,
 } from '@nebulahome/contracts';
 
+import { isPermitted } from '../auth/permissions.js';
 import { verifyAccessToken } from '../auth/tokens.js';
 import type { ApiContext } from '../context.js';
 import { readableEntityIds } from '../services/entities.js';
@@ -233,6 +234,21 @@ export function registerWebSocket(
 
           if (state.identity === undefined) {
             send({ type: 'error', code: 'AUTHENTICATION', message: 'Authenticate first' });
+
+            return;
+          }
+
+          if (
+            message.data.type === 'subscribe' &&
+            message.data.topic === 'automations' &&
+            !isPermitted(state.identity.permissions, 'automation:read')
+          ) {
+            // Runs say what the house did and when; they are for those who may read automations.
+            send({
+              type: 'error',
+              code: 'PERMISSION',
+              message: 'Reading automations is not permitted',
+            });
 
             return;
           }
