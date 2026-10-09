@@ -17,7 +17,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
-import { PageHeader, Panel } from '@nebulahome/ui';
+import { cn, PageHeader, Panel } from '@nebulahome/ui';
 
 import { ChevronLeftIcon } from '@/components/icons';
 import { toMessage } from '@/lib/error-message';
@@ -87,6 +87,13 @@ export type LibraryPageProps = {
   /** What to say when there is nothing yet. */
   readonly emptyMessage?: string | undefined;
 
+  /**
+   * What to show when there is nothing yet, in place of the one-line message: an empty state
+   * centred in the page, with the first step and where to read more. While the page is reading,
+   * it then says so quietly rather than in an outline the empty state will not fill.
+   */
+  readonly empty?: ReactNode;
+
   /** Whether the collection came back empty. */
   readonly isEmpty: boolean;
 
@@ -115,15 +122,21 @@ export function LibraryPage(props: LibraryPageProps) {
     isPending,
     error,
     emptyMessage,
+    empty,
     isEmpty,
     children,
   } = props;
 
   const facts = summary.filter((fact): fact is string => typeof fact === 'string' && fact !== '');
+  const hasError = error !== undefined && error !== null;
+
+  // An empty state carries the first step itself; a search, a filter and a New over nothing
+  // would only repeat it.
+  const isShowingEmpty = empty !== undefined && !isPending && !hasError && isEmpty;
 
   return (
     <div className="min-h-0 min-w-0 grow overflow-y-auto px-8 py-7">
-      <div className="flex flex-col gap-5">
+      <div className={cn('flex flex-col gap-5', empty === undefined ? undefined : 'min-h-full')}>
         <PageHeader
           title={title}
           crumb={
@@ -138,7 +151,7 @@ export function LibraryPage(props: LibraryPageProps) {
             )
           }
           meta={
-            count === undefined ? undefined : (
+            count === undefined || isShowingEmpty ? undefined : (
               <>
                 {shownCount === undefined || shownCount === count
                   ? ''
@@ -149,7 +162,7 @@ export function LibraryPage(props: LibraryPageProps) {
             )
           }
           actions={
-            tools === undefined && action === undefined ? undefined : (
+            isShowingEmpty || (tools === undefined && action === undefined) ? undefined : (
               <>
                 {tools}
                 {action}
@@ -160,13 +173,21 @@ export function LibraryPage(props: LibraryPageProps) {
 
         {filters}
 
-        {isPending ? <Placeholder>Reading…</Placeholder> : null}
+        {isPending ? (
+          empty === undefined ? (
+            <Placeholder>Reading…</Placeholder>
+          ) : (
+            <p role="status" className="py-16 text-center text-ui text-foreground-subtle">
+              Reading…
+            </p>
+          )
+        ) : null}
 
         {error === undefined || error === null ? null : <Refusal>{toMessage(error)}</Refusal>}
 
-        {!isPending && (error === undefined || error === null) && isEmpty ? (
-          <Placeholder>{emptyMessage}</Placeholder>
-        ) : null}
+        {!isPending && (error === undefined || error === null) && isEmpty
+          ? (empty ?? <Placeholder>{emptyMessage}</Placeholder>)
+          : null}
 
         {isPending || isEmpty ? null : children}
       </div>

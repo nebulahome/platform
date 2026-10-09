@@ -11,10 +11,19 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
 
 import type { AliasView } from '@nebulahome/contracts';
-import { AppIcon, Button, FilterChips, OverflowMenu, Pill, TableFooter } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Button,
+  EmptyState,
+  FilterChips,
+  OverflowMenu,
+  Pill,
+  TableFooter,
+} from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { SortHeader } from '@/components/sort-header';
+import { DOCS_LINKS } from '@/lib/docs-links';
 import { useListState } from '@/lib/use-list-state';
 import { usePaging } from '@/lib/use-paging';
 import {
@@ -173,7 +182,26 @@ export function AliasesPage() {
       isPending={aliases.isPending || entities.isPending}
       error={aliases.error ?? entities.error}
       isEmpty={items.length === 0}
-      emptyMessage="No aliases yet. Create a calculated reading or a stored helper."
+      empty={
+        <EmptyState
+          icon={<AppIcon id="sigma" size={28} />}
+          title="Create your first alias"
+          description="An alias is an entity you define: a reading worked out from others, like the average temperature of the house, or a helper - a switch, a number - that automations set and read."
+          action={
+            canWrite ? (
+              <Button
+                onClick={() => {
+                  void navigate('/aliases/new');
+                }}
+              >
+                <AppIcon id="plus" size={15} />
+                New alias
+              </Button>
+            ) : undefined
+          }
+          learnMoreHref={DOCS_LINKS.aliases}
+        />
+      }
     >
       <div className="overflow-hidden rounded-card border border-border bg-surface">
         <div

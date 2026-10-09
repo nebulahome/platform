@@ -15,11 +15,19 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import type { EntityView, SceneApplyResult, SceneView } from '@nebulahome/contracts';
-import { AppIcon, Button, OverflowMenu, SelectField, TableFooter } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Button,
+  EmptyState,
+  OverflowMenu,
+  SelectField,
+  TableFooter,
+} from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { SortHeader } from '@/components/sort-header';
 import { areaFacetChoices } from '@/lib/area-tree';
+import { DOCS_LINKS } from '@/lib/docs-links';
 import { toMessage } from '@/lib/error-message';
 import { useListState } from '@/lib/use-list-state';
 import { usePaging } from '@/lib/use-paging';
@@ -264,7 +272,26 @@ export function ScenesPage() {
       isPending={scenes.isPending}
       error={scenes.error ?? (pageError === null ? undefined : new Error(pageError))}
       isEmpty={items.length === 0}
-      emptyMessage="No scenes yet."
+      empty={
+        <EmptyState
+          icon={<AppIcon id="layers" size={28} />}
+          title="Create your first scene"
+          description="A scene remembers how a group of devices should be - lamps dimmed, blinds half closed, music low - and puts all of it back with one press, or from an automation."
+          action={
+            canWrite ? (
+              <Button
+                onClick={() => {
+                  void navigate('/scenes/new');
+                }}
+              >
+                <AppIcon id="plus" size={15} />
+                New scene
+              </Button>
+            ) : undefined
+          }
+          learnMoreHref={DOCS_LINKS.scenes}
+        />
+      }
     >
       {shown.length === 0 ? (
         <NoMatches
