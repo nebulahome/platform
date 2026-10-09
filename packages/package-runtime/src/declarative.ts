@@ -44,6 +44,7 @@ import type {
   RequestTemplate,
   StateSource,
   StateValue,
+  TemplateReference,
   TemplateValue,
 } from './profile.js';
 import type {
@@ -56,34 +57,98 @@ import type {
 /** The key an entity without an `objectId` is held under, since a device may have only one. */
 const SOLE_ENTITY = '';
 
+/** What filling leaves out: an optional reference that found nothing. */
+const OMIT: unique symbol = Symbol('omit');
+
+/** The keys a reference may have; an object with any other is a literal. */
+const REFERENCE_KEYS: ReadonlySet<string> = new Set([
+  '$',
+  'scale',
+  'decimals',
+  'min',
+  'max',
+  'optional',
+]);
+
+/**
+ * Whether a template object is a reference into the command rather than a literal object.
+ *
+ * @param value - An object in a template.
+ * @returns True when it has a string `$` and no key a reference does not.
+ */
+function isReference(value: Readonly<Record<string, unknown>>): value is TemplateReference {
+  return (
+    typeof value['$'] === 'string' && Object.keys(value).every((key) => REFERENCE_KEYS.has(key))
+  );
+}
+
+/**
+ * Reads what a reference names, and converts a number the way it says.
+ *
+ * @param reference - The reference.
+ * @param source - What paths are resolved against.
+ * @returns The value; `null` for nothing, or {@link OMIT} when the reference is optional.
+ */
+function resolveReference(reference: TemplateReference, source: unknown): unknown {
+  const found = resolvePath(source, reference.$);
+
+  if (found === undefined || found === null) {
+    return reference.optional === true ? OMIT : null;
+  }
+
+  if (typeof found !== 'number') {
+    return found;
+  }
+
+  let number = found * (reference.scale ?? 1);
+
+  if (reference.decimals !== undefined) {
+    const factor = 10 ** reference.decimals;
+
+    number = Math.round(number * factor) / factor;
+  }
+
+  if (reference.min !== undefined) {
+    number = Math.max(reference.min, number);
+  }
+
+  if (reference.max !== undefined) {
+    number = Math.min(reference.max, number);
+  }
+
+  return number;
+}
+
 /**
  * Fills in a request template.
  *
- * Literals pass through; `{ "$": "path" }` is replaced by what the path names in `source`. A
- * path naming nothing yields `null` rather than being dropped, because a request missing an
- * argument silently is harder to diagnose than one carrying an obviously empty one.
+ * Literals pass through; a reference (`{ "$": "path" }`, see {@link TemplateReference}) is
+ * replaced by what the path names in `source`. A path naming nothing yields `null` rather than
+ * being dropped, because a request missing an argument silently is harder to diagnose than one
+ * carrying an obviously empty one - unless the reference says it is optional, and then the key
+ * or the element is left out.
  *
  * Arrays are filled element by element, which is what lets a transport accept a topic as a list
  * of segments with one of them taken from the device.
  *
  * @param value - The template.
  * @param source - What paths are resolved against.
- * @returns The filled-in value.
+ * @returns The filled-in value, or {@link OMIT} for an optional reference that found nothing.
  */
 function fill(value: TemplateValue, source: unknown): unknown {
   if (Array.isArray(value)) {
-    return value.map((item) => fill(item, source));
+    return value.map((item) => fill(item, source)).filter((item) => item !== OMIT);
   }
 
   if (typeof value === 'object' && value !== null) {
-    const marker = (value as Record<string, unknown>)['$'];
-
-    if (typeof marker === 'string' && Object.keys(value).length === 1) {
-      return resolvePath(source, marker) ?? null;
+    if (isReference(value)) {
+      return resolveReference(value, source);
     }
 
     return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [key, fill(item, source)]),
+      Object.entries(value)
+        .map(([key, item]) => [key, fill(item, source)] as const)
+        .filter(([, item]) => item !== OMIT),
     );
   }
 
@@ -99,7 +164,9 @@ function fill(value: TemplateValue, source: unknown): unknown {
  */
 function fillArgs(template: RequestTemplate, source: unknown): JsonObject {
   return Object.fromEntries(
-    Object.entries(template.args).map(([key, value]) => [key, fill(value, source)]),
+    Object.entries(template.args)
+      .map(([key, value]) => [key, fill(value, source)] as const)
+      .filter(([, value]) => value !== OMIT),
   ) as JsonObject;
 }
 
@@ -428,7 +495,10 @@ export function createDeclarativeIntegration(
     // something, and only the transport knows how to ask.
     discovery: {
       ...profile.discovery.scan,
-      ...(profile.discovery.probe === undefined ? {} : { probe: profile.discovery.probe }),
+      // Parsed from JSON, so its optional keys are absent rather than undefined: JSON as typed.
+      ...(profile.discovery.probe === undefined
+        ? {}
+        : { probe: profile.discovery.probe as unknown as JsonObject }),
     },
 
     /**

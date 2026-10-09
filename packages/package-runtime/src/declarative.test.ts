@@ -479,6 +479,72 @@ describe('toCommand', () => {
     expect(request.args).toEqual({ path: '/relay/dim', query: { v: 70 } });
   });
 
+  it("converts a fade into the device's units, and leaves it out when there is none", () => {
+    const dimmer = createDeclarativeIntegration(
+      manifest(),
+      integrationProfileSchema.parse({
+        ...PROFILE_JSON,
+        entities: [
+          {
+            ...PROFILE_JSON.entities[0],
+            commands: {
+              'level.set_level': {
+                op: 'call',
+                args: {
+                  method: 'Light.Set',
+                  params: {
+                    brightness: { $: 'command.level' },
+                    transition_duration: {
+                      $: 'command.transitionMs',
+                      scale: 0.001,
+                      decimals: 1,
+                      max: 10,
+                      optional: true,
+                    },
+                  },
+                  steps: [{ $: 'command.level' }, { $: 'command.nothing', optional: true }],
+                },
+              },
+            },
+          },
+        ],
+      }),
+    );
+    /**
+     * The request for a level, with or without a fade.
+     *
+     * @param transitionMs - The fade, if any.
+     * @returns The request's arguments.
+     */
+    const argsFor = (transitionMs?: number) =>
+      dimmer.toCommand(
+        {
+          entityId: RELAY,
+          capability: 'level',
+          command: {
+            command: 'set_level',
+            level: 40,
+            ...(transitionMs === undefined ? {} : { transitionMs }),
+          },
+        },
+        context(),
+      ).args;
+
+    expect(argsFor(2_345)).toEqual({
+      method: 'Light.Set',
+      params: { brightness: 40, transition_duration: 2.3 },
+      steps: [40],
+    });
+    // Clamped to what the device takes.
+    expect(argsFor(60_000)).toMatchObject({ params: { transition_duration: 10 } });
+    // No fade asked for: the key is not there at all, rather than null.
+    expect(argsFor()).toEqual({
+      method: 'Light.Set',
+      params: { brightness: 40 },
+      steps: [40],
+    });
+  });
+
   it('refuses a command the profile does not describe', () => {
     // Better than sending a request built from nothing: `core` turns the failure into an error
     // the caller sees, rather than an acknowledgement for something that never happened.

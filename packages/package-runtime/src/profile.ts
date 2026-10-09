@@ -165,12 +165,46 @@ export type IdentityMapping = z.output<typeof identityMappingSchema>;
  * schema that refers to itself.
  */
 export type TemplateValue =
-  string | number | boolean | null | TemplateValue[] | { readonly [key: string]: TemplateValue };
+  | string
+  | number
+  | boolean
+  | null
+  | TemplateReference
+  | TemplateValue[]
+  | { readonly [key: string]: TemplateValue };
 
-/** A value in a request template: a literal, or `{ "$": "path" }` taken from the command. */
+/** A path into the command, with what to do to what it names; see `templateReferenceSchema`. */
+export type TemplateReference = {
+  readonly $: string;
+  readonly scale?: number | undefined;
+  readonly decimals?: number | undefined;
+  readonly min?: number | undefined;
+  readonly max?: number | undefined;
+  readonly optional?: boolean | undefined;
+};
+
+/**
+ * A path into the command, with what to do to what it names.
+ *
+ * `{ "$": "command.level" }` takes the value as it is. A device that counts in other units says
+ * so: `scale` multiplies a number (`0.001` turns milliseconds into seconds), `decimals` rounds it,
+ * `min` and `max` clamp it - in that order, numbers only. `optional` leaves the key out of the
+ * request when the path names nothing, instead of sending `null`: a fade the command did not ask
+ * for is no fade, not a fade of null seconds.
+ */
+export const templateReferenceSchema = z.strictObject({
+  $: pathSchema,
+  scale: z.number().positive().optional(),
+  decimals: z.int().min(0).max(6).optional(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  optional: z.boolean().optional(),
+});
+
+/** A value in a request template: a literal, or a {@link TemplateReference} into the command. */
 export const templateValueSchema: z.ZodType<TemplateValue> = z.lazy(() =>
   z.union([
-    z.strictObject({ $: pathSchema }),
+    templateReferenceSchema,
     z.string(),
     z.number(),
     z.boolean(),
