@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
+import { isPackageServiceAllowed } from './package-id.js';
 import {
   packageAnnounceRequestSchema,
   packageHubLogoReplySchema,
   packageListingSchema,
   packageRemoveRequestSchema,
-  isPackageServiceAllowed,
   packageRpcRequestSchema,
   packageSearchRequestSchema,
   packageSettingsChangeSchema,

@@ -10,7 +10,12 @@
  */
 import { z } from 'zod';
 
-import { backupFrequencySchema, backupScheduleSchema, backupSectionsSchema } from './backup.js';
+import {
+  backupFrequencySchema,
+  backupScheduleSchema,
+  backupSectionsSchema,
+  timeZoneSchema,
+} from './backup.js';
 import type { LOG_LEVELS } from './log-level.js';
 
 /** The shape of a setting key. Mirrors `settings_key_format` in DATABASE.md. */
@@ -188,6 +193,13 @@ export const SETTINGS = [
     schema: z.enum(['celsius', 'fahrenheit']),
     defaultValue: 'celsius',
     description: 'Unit temperatures are displayed in',
+  },
+  {
+    key: 'house.timezone',
+    schema: timeZoneSchema,
+    defaultValue: 'UTC',
+    description:
+      'The time zone the house keeps: time triggers, time windows and days are read in it',
   },
   {
     key: 'security.session_lifetime_hours',

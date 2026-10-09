@@ -43,3 +43,27 @@ export const packageIdSchema = z
   .refine((id) => !RESERVED.has(id), {
     message: 'Is the name of a part of the platform, which no package may take',
   });
+
+/**
+ * The subject tokens under a package's id that are the platform's, never a service of the
+ * package's own: its commands, its methods, its settings, and those kept for what is planned - a
+ * package's health, its events, what it says of itself - and anything starting with `_`.
+ */
+export const RESERVED_PACKAGE_SERVICES = [
+  'command',
+  'rpc',
+  'settings',
+  'health',
+  'events',
+  'info',
+] as const;
+
+/**
+ * Says whether a service name is one a package may provide.
+ *
+ * @param name - The name.
+ * @returns False for a reserved one.
+ */
+export function isPackageServiceAllowed(name: string): boolean {
+  return !name.startsWith('_') && !RESERVED_PACKAGE_SERVICES.some((reserved) => reserved === name);
+}

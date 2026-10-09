@@ -101,11 +101,115 @@ export const telemetryPointSchema = z.object({
 /** One telemetry reading. */
 export type TelemetryPoint = z.output<typeof telemetryPointSchema>;
 
-/** How one automation run ended. */
-export const AUTOMATION_RESULTS = ['success', 'failed', 'skipped', 'timeout'] as const;
+/**
+ * How one automation run ended. Mirrors the `automation_runs_result` CHECK.
+ *
+ * `condition_not_met` is not a failure: the automation woke, checked, and correctly did nothing.
+ * The interface shows it as skipped. `cancelled` is a run another one replaced (restart mode), an
+ * edit of the automation, or a shutdown.
+ */
+export const AUTOMATION_RUN_RESULTS = [
+  'success',
+  'condition_not_met',
+  'failed',
+  'timeout',
+  'cancelled',
+] as const;
 
 /** How one automation run ended. */
-export type AutomationResult = (typeof AUTOMATION_RESULTS)[number];
+export type AutomationRunResult = (typeof AUTOMATION_RUN_RESULTS)[number];
+
+/** How one step of a run went. */
+export const TRACE_STEP_RESULTS = [
+  'ok',
+  'true',
+  'false',
+  'failed',
+  'timeout',
+  'cancelled',
+  'skipped',
+  'partial',
+] as const;
+
+/** How one step of a run went. */
+export type TraceStepResult = (typeof TRACE_STEP_RESULTS)[number];
+
+/** Which part of the document a step belongs to. */
+export const TRACE_STEP_KINDS = ['trigger', 'condition', 'action'] as const;
+
+/** Which part of the document a step belongs to. */
+export type TraceStepKind = (typeof TRACE_STEP_KINDS)[number];
+
+/**
+ * One step of a run: a trigger that fired, a condition that was checked, an action that ran.
+ *
+ * `path` locates the block in the document the way the editor addresses it (`if.0`,
+ * `then.2.else.1`), so the interface can point at the card a step came from.
+ */
+export const traceStepSchema = z.object({
+  path: z.string().max(200),
+  kind: z.enum(TRACE_STEP_KINDS),
+
+  /** The block's type: `state`, `time_window`, `command`, `wait_for`… */
+  type: z.string().max(40),
+
+  /** When the step started. */
+  at: timestampSchema,
+
+  durationMs: z.int().min(0),
+  result: z.enum(TRACE_STEP_RESULTS),
+
+  /** The entity the step was about, when it was about one. */
+  entityId: z.string().max(255).optional(),
+
+  /** What it saw or did, in words: "living room motion is on", "sent turn_on". */
+  detail: z.string().max(500).optional(),
+
+  /** Why it failed. */
+  error: z.string().max(500).optional(),
+});
+
+/** One step of a run. */
+export type TraceStep = z.output<typeof traceStepSchema>;
+
+/** What started a run. */
+export const AUTOMATION_RUN_TRIGGER_KINDS = [
+  'state',
+  'numeric_state',
+  'time',
+  'manual',
+  'automation',
+] as const;
+
+/** What started a run. */
+export type AutomationRunTriggerKind = (typeof AUTOMATION_RUN_TRIGGER_KINDS)[number];
+
+/** What started a run, as the run row records it. */
+export const automationRunTriggerSchema = z.object({
+  kind: z.enum(AUTOMATION_RUN_TRIGGER_KINDS),
+
+  /** The trigger leaf that fired, as a path into `triggers`. Absent for manual and automation. */
+  path: z.string().max(200).optional(),
+
+  entityId: z.string().max(255).optional(),
+
+  /** The state token left and entered, for a state trigger. */
+  from: z.string().max(200).optional(),
+  to: z.string().max(200).optional(),
+
+  /** The reading that crossed, for a numeric trigger. */
+  value: z.number().optional(),
+
+  /** Who pressed Run, for a manual run. */
+  userId: z.uuid().optional(),
+
+  /** The automation and run that called this one, for a run started by another. */
+  automationId: z.uuid().optional(),
+  runId: z.uuid().optional(),
+});
+
+/** What started a run. */
+export type AutomationRunTrigger = z.output<typeof automationRunTriggerSchema>;
 
 /** One recorded automation run. */
 export const automationRunSchema = z.object({
@@ -116,18 +220,18 @@ export const automationRunSchema = z.object({
   time: timestampSchema,
 
   /** What fired it. */
-  trigger: jsonObjectSchema,
+  trigger: automationRunTriggerSchema,
 
-  result: z.enum(AUTOMATION_RESULTS),
+  result: z.enum(AUTOMATION_RUN_RESULTS),
 
-  /** When it ended. Null while it is still running. */
+  /** When it ended. */
   finishedAt: timestampSchema.nullable(),
 
   /** How long it took. */
   durationMs: z.int().min(0).nullable(),
 
   /** Step-by-step record, which is what makes a failed run debuggable in the interface. */
-  trace: jsonObjectSchema.nullable(),
+  trace: z.array(traceStepSchema).max(1_001),
 
   /** Why it failed. */
   error: z.string().nullable(),
@@ -135,3 +239,14 @@ export const automationRunSchema = z.object({
 
 /** One recorded automation run. */
 export type AutomationRun = z.output<typeof automationRunSchema>;
+
+/** The latest run of an automation, as a list row shows it. */
+export const automationLastRunSchema = z.object({
+  id: z.uuid(),
+  time: timestampSchema,
+  finishedAt: timestampSchema.nullable(),
+  result: z.enum(AUTOMATION_RUN_RESULTS),
+});
+
+/** The latest run of an automation. */
+export type AutomationLastRun = z.output<typeof automationLastRunSchema>;

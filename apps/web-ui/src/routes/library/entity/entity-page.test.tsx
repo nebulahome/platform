@@ -304,7 +304,12 @@ describe('EntityPage', () => {
         definition: {
           triggers: { type: 'manual' },
           then: [
-            { type: 'command', entityId: 'light.desk_lamp', capability: 'on_off', params: {} },
+            {
+              type: 'command',
+              entityId: 'light.desk_lamp',
+              capability: 'on_off',
+              params: { command: 'turn_on' },
+            },
           ],
         },
         definitionVersion: 1,

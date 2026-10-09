@@ -849,8 +849,11 @@ export const automationCreateSchema = z.object({
   definition: automationDefinitionSchema,
   mode: z.enum(AUTOMATION_MODES).default('single'),
 
-  /** Ten minutes is the ceiling: a run longer than that is a schedule, not an automation. */
-  maxRuntimeMs: z.int().min(1_000).max(600_000).default(300_000),
+  /**
+   * A day is the ceiling, as the column's. A run that waits for the evening is an automation;
+   * one that waits for next week is a schedule.
+   */
+  maxRuntimeMs: z.int().min(1_000).max(86_400_000).default(300_000),
   isEnabled: z.boolean().default(true),
 });
 
@@ -869,7 +872,7 @@ export const automationUpdateSchema = z
     description: z.string().trim().max(2_000),
     definition: automationDefinitionSchema,
     mode: z.enum(AUTOMATION_MODES),
-    maxRuntimeMs: z.int().min(1_000).max(600_000),
+    maxRuntimeMs: z.int().min(1_000).max(86_400_000),
     isEnabled: z.boolean(),
   })
   .partial()

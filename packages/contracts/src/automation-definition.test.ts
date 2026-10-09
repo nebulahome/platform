@@ -21,14 +21,26 @@ import {
 const MINIMAL_LEGACY = {
   triggers: [{ type: 'state', entityId: 'binary_sensor.hallway_motion', to: 'on' }],
   actions: [
-    { type: 'command', entityId: 'light.hallway_ceiling', capability: 'on_off', params: {} },
+    {
+      type: 'command',
+      entityId: 'light.hallway_ceiling',
+      capability: 'on_off',
+      params: { command: 'turn_on' },
+    },
   ],
 };
 
 /** The same rule in the saved shape. */
 const MINIMAL = {
   triggers: { type: 'state', entityId: 'binary_sensor.hallway_motion', to: 'on' },
-  then: [{ type: 'command', entityId: 'light.hallway_ceiling', capability: 'on_off', params: {} }],
+  then: [
+    {
+      type: 'command',
+      entityId: 'light.hallway_ceiling',
+      capability: 'on_off',
+      params: { command: 'turn_on' },
+    },
+  ],
 };
 
 describe('automationDefinitionSchema', () => {
@@ -297,7 +309,14 @@ describe('entityIdsOfDefinition', () => {
         {
           type: 'if',
           condition: { type: 'state', entityId: 'binary_sensor.window', state: 'on' },
-          then: [{ type: 'command', entityId: 'light.hall', capability: 'on_off', params: {} }],
+          then: [
+            {
+              type: 'command',
+              entityId: 'light.hall',
+              capability: 'on_off',
+              params: { command: 'turn_on' },
+            },
+          ],
           else: [
             {
               type: 'switch',
@@ -313,7 +332,7 @@ describe('entityIdsOfDefinition', () => {
                           type: 'command',
                           entityId: 'light.porch',
                           capability: 'on_off',
-                          params: {},
+                          params: { command: 'turn_off' },
                         },
                       ],
                     },
@@ -352,5 +371,67 @@ describe('entityIdsOfDefinition', () => {
     });
 
     expect(entityIdsOfDefinition(definition)).toEqual([]);
+  });
+});
+
+describe('what a block may ask for', () => {
+  /**
+   * A one-action document around an action.
+   *
+   * @param action - The action.
+   * @returns Whether it parses.
+   */
+  const accepts = (action: unknown): boolean =>
+    automationDefinitionSchema.safeParse({ triggers: { type: 'manual' }, then: [action] }).success;
+
+  it('takes a command its capability takes, and refuses one it does not', () => {
+    const command = { type: 'command', entityId: 'light.hall', capability: 'level' };
+
+    expect(accepts({ ...command, params: { command: 'set_level', level: 60 } })).toBe(true);
+    // An empty body is a run that fails every time it reaches the block.
+    expect(accepts({ ...command, params: {} })).toBe(false);
+    expect(accepts({ ...command, params: { command: 'set_level', level: 160 } })).toBe(false);
+  });
+
+  it('refuses a command to a capability that only reports', () => {
+    expect(
+      accepts({
+        type: 'command',
+        entityId: 'sensor.lux',
+        capability: 'sensor_numeric',
+        params: { command: 'set' },
+      }),
+    ).toBe(false);
+  });
+
+  it("calls a package's own services, never the platform's", () => {
+    const call = { type: 'package_service', params: {} };
+
+    expect(accepts({ ...call, packageId: 'nvr', service: 'record' })).toBe(true);
+    expect(accepts({ ...call, packageId: 'supervisor', service: 'compose_remove' })).toBe(false);
+    expect(accepts({ ...call, packageId: 'core', service: 'sync_alias' })).toBe(false);
+    expect(accepts({ ...call, packageId: 'nvr', service: 'settings' })).toBe(false);
+  });
+});
+
+describe('expression variables', () => {
+  it('names entities the way an alias names its sources', () => {
+    const parsed = booleanTreeSchema.parse({
+      type: 'expression',
+      expression: 'power > 2 * avg_power',
+      variables: { power: 'sensor.house_power', avg_power: 'sensor.avg_power' },
+    });
+
+    expect(parsed).toMatchObject({ variables: { power: 'sensor.house_power' } });
+  });
+
+  it('refuses a name the language already means something by', () => {
+    expect(
+      booleanTreeSchema.safeParse({
+        type: 'expression',
+        expression: 'true',
+        variables: { true: 'sensor.house_power' },
+      }).success,
+    ).toBe(false);
   });
 });

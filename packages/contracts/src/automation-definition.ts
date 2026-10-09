@@ -28,9 +28,10 @@
  */
 import { z } from 'zod';
 
-import { capabilityNameSchema } from './capabilities.js';
+import { capabilityNameSchema, commandSchemaFor } from './capabilities.js';
 import { entityIdSchema } from './entity-id.js';
 import { jsonObjectSchema } from './json.js';
+import { isPackageServiceAllowed, packageIdSchema } from './package-id.js';
 
 /** How two numbers are compared, wherever this format compares them. */
 export const COMPARISON_OPERATORS = ['lt', 'lte', 'gt', 'gte', 'eq', 'neq'] as const;
@@ -78,6 +79,40 @@ export const cronExpressionSchema = z
 
 /** A stretch of time, in milliseconds. Capped at a week: longer belongs to a schedule. */
 export const durationMsSchema = z.int().min(0).max(604_800_000);
+
+/**
+ * The name an expression gives an entity's reading: `power`, `avg_power`.
+ *
+ * The same shape an alias gives its sources, because the same evaluator reads both. `true` and
+ * `false` are literals in that language, so they cannot also be names.
+ */
+export const expressionVariableNameSchema = z
+  .string()
+  .regex(/^[a-z][a-z0-9_]{0,31}$/, 'Must be a lower-case variable name')
+  .refine((name) => name !== 'true' && name !== 'false', {
+    message: 'Is a word the expression already means something by',
+  });
+
+/** The entities an expression reads, by the names it uses for them. At most sixteen. */
+export const expressionVariablesSchema = z
+  .record(expressionVariableNameSchema, entityIdSchema)
+  .refine((variables) => Object.keys(variables).length <= 16, {
+    message: 'An expression reads sixteen entities at most',
+  });
+
+/**
+ * Trigger kinds the format holds but the engine cannot wake on yet.
+ *
+ * Nothing reports device events to the bus - a button press has no state to change - so an
+ * `event` trigger is saved and shown, and never fires. Listed in `design/missing.md`.
+ */
+export const UNAVAILABLE_TRIGGER_TYPES = ['event'] as const;
+
+/**
+ * Action kinds the format holds but the engine cannot run yet: there is no notification service.
+ * A run that reaches one records it as a failed step.
+ */
+export const UNAVAILABLE_ACTION_TYPES = ['notify'] as const;
 
 /** The kinds of trigger an automation can wake on. */
 export const TRIGGER_TYPES = ['state', 'numeric_state', 'time', 'event', 'manual'] as const;
@@ -222,7 +257,13 @@ export type ConditionLeaf =
   | { readonly type: 'time_window'; readonly from: string; readonly to: string }
   | { readonly type: 'day_of_week'; readonly days: readonly DayOfWeek[] }
   | { readonly type: 'area_occupancy'; readonly areaKey: string; readonly isOccupied: boolean }
-  | { readonly type: 'expression'; readonly expression: string };
+  | {
+      readonly type: 'expression';
+      readonly expression: string;
+
+      /** The entities the expression reads, by the names it uses. Absent means none. */
+      readonly variables?: Readonly<Record<string, string>> | undefined;
+    };
 
 /**
  * A condition as the draft/editor holds it.
@@ -287,6 +328,9 @@ export const conditionLeafSchema: z.ZodType<ConditionLeaf> = z.discriminatedUnio
 
     /** Evaluated in the engine's sandbox. Bounded there, not here. */
     expression: z.string().min(1).max(2_000),
+
+    /** The entities it reads, by the names it uses for them. */
+    variables: expressionVariablesSchema.optional(),
   }),
 ]);
 
@@ -376,6 +420,7 @@ export const automationConditionSchema: z.ZodType<AutomationCondition> = z.lazy(
     z.object({
       type: z.literal('expression'),
       expression: z.string().min(1).max(2_000),
+      variables: expressionVariablesSchema.optional(),
     }),
     z.object({ type: z.literal('and'), conditions: z.array(automationConditionSchema).min(1) }),
     z.object({ type: z.literal('or'), conditions: z.array(automationConditionSchema).min(1) }),
@@ -540,12 +585,41 @@ const nestedActionsSchema = (): z.ZodType<AutomationAction[]> =>
 /** Something an automation does. */
 export const automationActionSchema: z.ZodType<AutomationAction> = z.lazy(() =>
   z.discriminatedUnion('type', [
-    z.object({
-      type: z.literal('command'),
-      entityId: entityIdSchema,
-      capability: capabilityNameSchema,
-      params: jsonObjectSchema.default({}),
-    }),
+    z
+      .object({
+        type: z.literal('command'),
+        entityId: entityIdSchema,
+        capability: capabilityNameSchema,
+
+        /** The command body, `{ command: 'set_level', level: 60 }`, as the capability defines it. */
+        params: jsonObjectSchema.default({}),
+      })
+      .superRefine((action, context) => {
+        // Whether the entity has the capability is the world's business; whether the command is
+        // one the capability can take at all is the document's, and saving one it cannot is a
+        // run that fails every time it is reached.
+        const schema = commandSchemaFor(action.capability);
+
+        if (schema === null) {
+          context.addIssue({
+            code: 'custom',
+            path: ['capability'],
+            message: 'This capability reports only and takes no commands',
+          });
+
+          return;
+        }
+
+        const parsed = schema.safeParse(action.params);
+
+        if (!parsed.success) {
+          context.addIssue({
+            code: 'custom',
+            path: ['params'],
+            message: `Not a command ${action.capability} takes: ${parsed.error.issues[0]?.message ?? 'invalid'}`,
+          });
+        }
+      }),
     z.object({ type: z.literal('scene'), sceneKey: z.string().min(1) }),
     z.object({ type: z.literal('automation'), automationKey: z.string().min(1) }),
     z.object({ type: z.literal('wait_duration'), durationMs: durationMsSchema }),
@@ -568,8 +642,14 @@ export const automationActionSchema: z.ZodType<AutomationAction> = z.lazy(() =>
     }),
     z.object({
       type: z.literal('package_service'),
-      packageId: z.string().min(1),
-      service: z.string().min(1),
+
+      /** A package, never a part of the platform: `svc.core.*` and its kin are not for calling. */
+      packageId: packageIdSchema,
+      service: z
+        .string()
+        .min(1)
+        .max(64)
+        .refine(isPackageServiceAllowed, { message: 'Is a name the platform keeps for itself' }),
       params: jsonObjectSchema.default({}),
     }),
     z.object({

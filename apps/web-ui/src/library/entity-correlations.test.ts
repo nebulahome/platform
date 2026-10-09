@@ -40,12 +40,26 @@ function automation(name: string, definition: JsonObject): AutomationView {
 const PORCH_AT_DUSK = automation('Porch at dusk', {
   triggers: { type: 'state', entityId: 'binary_sensor.porch_motion', to: 'on' },
   if: { type: 'state', entityId: 'switch.away', state: 'off' },
-  then: [{ type: 'command', entityId: 'light.porch', capability: 'on_off', params: {} }],
+  then: [
+    {
+      type: 'command',
+      entityId: 'light.porch',
+      capability: 'on_off',
+      params: { command: 'turn_on' },
+    },
+  ],
 });
 
 const AWAY = automation('Away', {
   triggers: { type: 'manual' },
-  then: [{ type: 'command', entityId: 'switch.away', capability: 'on_off', params: {} }],
+  then: [
+    {
+      type: 'command',
+      entityId: 'switch.away',
+      capability: 'on_off',
+      params: { command: 'turn_on' },
+    },
+  ],
 });
 
 const EVENING: SceneView = {

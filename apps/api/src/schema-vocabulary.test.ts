@@ -18,6 +18,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AREA_KINDS,
+  AUTOMATION_RUN_RESULTS,
   BACKUP_LOCATION_KINDS,
   BACKUP_LOCATION_RESULTS,
   BACKUP_RETENTION_MODES,
@@ -66,6 +67,7 @@ describe('the vocabularies the database constrains', () => {
     ['backup_runs_kind', BACKUP_RUN_KINDS],
     ['backup_runs_trigger', BACKUP_RUN_TRIGGERS],
     ['backup_runs_status', BACKUP_RUN_STATUSES],
+    ['automation_runs_result', AUTOMATION_RUN_RESULTS],
   ])('matches %s exactly', (constraint, values) => {
     expect([...values].sort()).toEqual(allowedValues(constraint).sort());
   });

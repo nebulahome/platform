@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { commandsForTargetState, restoreStateFor } from './scene-apply.js';
+import { commandsForTargetState, restoreStateFor } from './scene-commands.js';
 
 describe('commandsForTargetState', () => {
   it('maps on_off to turn_on and turn_off', () => {

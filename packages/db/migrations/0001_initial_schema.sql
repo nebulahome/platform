@@ -1431,6 +1431,7 @@ INSERT INTO system.settings (key, value, schema_ref) VALUES
   ('system.audit_log.retention_days', 'null'::jsonb, 'settings:system.audit_log.retention_days'),
   ('ui.default_theme', '"system"'::jsonb, 'settings:ui.default_theme'),
   ('units.temperature', '"celsius"'::jsonb, 'settings:units.temperature'),
+  ('house.timezone', '"UTC"'::jsonb, 'settings:house.timezone'),
   ('security.session_lifetime_hours', '720'::jsonb, 'settings:security.session_lifetime_hours'),
   ('backup.enabled', 'false'::jsonb, 'settings:backup.enabled'),
   ('backup.sections', '{"history": true, "packages": true}'::jsonb, 'settings:backup.sections'),

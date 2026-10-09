@@ -10,6 +10,7 @@
  */
 import { z } from 'zod';
 
+import { automationEventSchema } from './automation-bus.js';
 import { backupEventSchema } from './backup.js';
 import { DISCOVERY_EVENTS } from './discovery.js';
 import { entityIdSchema } from './entity-id.js';
@@ -163,7 +164,7 @@ export const wsServerMessageSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('automation_event'),
     automationId: z.uuid(),
-    payload: jsonObjectSchema,
+    payload: automationEventSchema,
   }),
   z.object({ type: z.literal('pong') }),
   z.object({
