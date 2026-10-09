@@ -1,6 +1,6 @@
 /**
  * A round mark with a dot in it: a state at a glance - running, failing, waiting - with the word
- * in its tooltip and for a screen reader.
+ * in its tooltip and for a screen reader. Bare, the dot alone, for a cell where a word follows.
  */
 import { cn } from '../lib/cn.js';
 
@@ -26,6 +26,9 @@ export type StatusDotProps = {
 
   /** Whether it pulses: something is being done. */
   readonly isBusy?: boolean;
+
+  /** Just the dot, without its ring: beside a word in a table cell, as a last run is. */
+  readonly isBare?: boolean;
 };
 
 /**
@@ -35,6 +38,17 @@ export type StatusDotProps = {
  * @returns The mark.
  */
 export function StatusDot(props: StatusDotProps) {
+  if (props.isBare === true) {
+    return (
+      <span
+        role="img"
+        aria-label={props.title}
+        title={props.title}
+        className={cn('size-1.5 shrink-0 rounded-full', DOT_CLASSES[props.tone])}
+      />
+    );
+  }
+
   return (
     <span
       role="img"

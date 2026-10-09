@@ -82,6 +82,9 @@ const dialogBox = cva('m-auto p-0 backdrop:bg-scrim open:animate-fade-in', {
       /** A form with several fields, or something with a list in it. */
       large: 'w-[min(92vw,40rem)]',
 
+      /** A picker of choices laid out two to a row: the automation editor's Add a block. */
+      picker: 'w-[min(92vw,45rem)]',
+
       /** A dialog with pages of its own: the install dialogs' search and an item's page. */
       xlarge: 'w-[min(94vw,58rem)]',
     },
@@ -99,6 +102,7 @@ const dialogBox = cva('m-auto p-0 backdrop:bg-scrim open:animate-fade-in', {
     { isPaired: true, size: 'small', className: 'w-[min(94vw,45rem)]' },
     { isPaired: true, size: 'medium', className: 'w-[min(94vw,48rem)]' },
     { isPaired: true, size: 'large', className: 'w-[min(94vw,59rem)]' },
+    { isPaired: true, size: 'picker', className: 'w-[min(94vw,59rem)]' },
     { isPaired: true, size: 'xlarge', className: 'w-[min(94vw,59rem)]' },
   ],
   defaultVariants: { size: 'medium', isPaired: false },
@@ -154,6 +158,12 @@ export type ModalProps = Pick<VariantProps<typeof dialogBox>, 'size'> & {
 
   /** In the sectioned header, before the close button: a wizard's steps. */
   readonly trail?: ReactNode;
+
+  /**
+   * In the `plain` layout: a close button beside the title, for a dialog with no foot to close
+   * it from - a picker, where choosing is the only other way out.
+   */
+  readonly hasCloseButton?: boolean;
 };
 
 /**
@@ -178,6 +188,7 @@ export function Modal(props: ModalProps) {
     lead,
     closeLabel = 'Close',
     trail,
+    hasCloseButton = false,
   } = props;
 
   const dialog = useRef<HTMLDialogElement>(null);
@@ -321,15 +332,22 @@ export function Modal(props: ModalProps) {
       sections
     ) : (
       <div className="flex flex-col gap-5 p-6">
-        <div className="flex flex-col gap-1.5">
-          <h2 id={titleId} className="text-headline-sm font-medium">
-            {title}
-          </h2>
-          {description === undefined ? null : (
-            <p id={descriptionId} className="text-ui text-foreground-subtle">
-              {description}
-            </p>
-          )}
+        <div className="flex items-start gap-3">
+          <div className="flex min-w-0 grow flex-col gap-1.5">
+            <h2 id={titleId} className="text-headline-sm font-medium">
+              {title}
+            </h2>
+            {description === undefined ? null : (
+              <p id={descriptionId} className="text-ui text-foreground-subtle">
+                {description}
+              </p>
+            )}
+          </div>
+          {hasCloseButton ? (
+            <IconButton variant="bare" label={closeLabel} onClick={onClose}>
+              <AppIcon id="x" size={15} />
+            </IconButton>
+          ) : null}
         </div>
 
         {children}

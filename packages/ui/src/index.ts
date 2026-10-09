@@ -22,6 +22,26 @@
 export { AppIcon, type AppIconProps } from './components/app-icon.js';
 export { Badge, type BadgeProps, type BadgeTone } from './components/badge.js';
 export {
+  Block,
+  BlockAdd,
+  BlockBranch,
+  BlockGrip,
+  BlockGroup,
+  BlockJoin,
+  BlockLaneConnector,
+  BlockLaneSection,
+  isBlockSelectClick,
+  laneClass,
+  type BlockAddProps,
+  type BlockBranchProps,
+  type BlockGripProps,
+  type BlockGroupProps,
+  type BlockJoinProps,
+  type BlockLane,
+  type BlockLaneHeaderProps,
+  type BlockProps,
+} from './components/block.js';
+export {
   ColorWheel,
   colourAt,
   wheelColour,
@@ -33,6 +53,7 @@ export { CardHeading, type CardHeadingProps } from './components/card-heading.js
 export { CatalogueIcon, type CatalogueIconProps } from './components/catalogue-icon.js';
 export { Checkbox, type CheckboxProps } from './components/checkbox.js';
 export { ColorSwatches, type ColorSwatchesProps } from './components/color-swatches.js';
+export { EmptyState, type EmptyStateProps } from './components/empty-state.js';
 export { FieldShell, type FieldIds, type FieldShellProps } from './components/field-shell.js';
 export { Figure, type FigureProps } from './components/figure.js';
 export {
@@ -120,6 +141,7 @@ export {
   type TileProps,
   type TileStatProps,
 } from './components/tile.js';
+export { TextArea, type TextAreaProps } from './components/text-area.js';
 export { TextField, type TextFieldProps } from './components/text-field.js';
 export { TAG_FILL_CLASSES } from './lib/tag-colors.js';
 export {
