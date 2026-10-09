@@ -49,6 +49,8 @@ import { startContainersService } from './services/containers.js';
 import { loadPackageTypes, startPackagesService } from './services/packages.js';
 import { startRegistrationService } from './services/registration.js';
 import { requestResync } from './services/resync.js';
+import { SceneEngine } from './services/scene-engine.js';
+import { startSceneService } from './services/scene-service.js';
 import { startStateIngest } from './services/state-ingest.js';
 import { startEntityReadService, startSnapshotService } from './services/state-queries.js';
 import { startSystemMonitorService } from './services/system-monitor-service.js';
@@ -258,6 +260,13 @@ export class CoreService {
       attribution: this.#attribution,
     });
 
+    const sceneEngine = new SceneEngine({
+      db,
+      registry: this.#registry,
+      dispatcher,
+      logger,
+    });
+
     this.#subscriptions = [
       startStateIngest(ingest),
       startSnapshotService({ client, registry: this.#registry }),
@@ -300,6 +309,7 @@ export class CoreService {
       }),
       ...startAliasService({ client, engine: aliasEngine, logger }),
       startSystemMonitorService({ client, monitor: systemMonitor }),
+      startSceneService({ client, engine: sceneEngine }),
     ];
 
     this.#telemetry = runTelemetryIngest({
