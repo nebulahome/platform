@@ -13,8 +13,15 @@ import {
 } from './capabilities.js';
 import type { JsonObject } from './json.js';
 
-/** Capabilities whose commands accept a fade. */
+/**
+ * Capabilities whose commands accept a fade.
+ *
+ * Whether a particular device can fade is its `hasTransition` param, which this mapper does not
+ * see: `core` drops the transition from a command to a device that cannot, so a scene can ask
+ * for one on every member and each gets what it can do.
+ */
 export const TRANSITION_CAPABILITIES: ReadonlySet<CapabilityName> = new Set<CapabilityName>([
+  'on_off',
   'level',
   'color_hs',
   'color_temp',
@@ -49,7 +56,11 @@ export function commandsForTargetState(
   if (targetState.on_off !== undefined) {
     commands.push({
       capability: 'on_off',
-      command: { command: targetState.on_off.isOn ? 'turn_on' : 'turn_off' },
+      command: withTransition(
+        'on_off',
+        { command: targetState.on_off.isOn ? 'turn_on' : 'turn_off' },
+        transitionMs,
+      ),
     });
   }
 

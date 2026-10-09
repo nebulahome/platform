@@ -10,29 +10,24 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  automationConditionSchema,
   automationDefinitionSchema,
   automationTriggerSchema,
-  booleanTreeSchema,
+  clockAtToCron,
+  conditionNodeSchema,
   entityIdsOfDefinition,
+  forEachBlock,
+  isBlockEnabled,
 } from './automation-definition.js';
 
-/** The smallest legacy document that means anything: one trigger, one action. */
-const MINIMAL_LEGACY = {
-  triggers: [{ type: 'state', entityId: 'binary_sensor.hallway_motion', to: 'on' }],
-  actions: [
+/** The smallest document that means anything: one trigger, one action. */
+const MINIMAL = {
+  triggers: [
     {
-      type: 'command',
-      entityId: 'light.hallway_ceiling',
-      capability: 'on_off',
-      params: { command: 'turn_on' },
+      type: 'entity',
+      entityId: 'binary_sensor.hallway_motion',
+      change: { kind: 'state', to: 'on' },
     },
   ],
-};
-
-/** The same rule in the saved shape. */
-const MINIMAL = {
-  triggers: { type: 'state', entityId: 'binary_sensor.hallway_motion', to: 'on' },
   then: [
     {
       type: 'command',
@@ -52,52 +47,27 @@ describe('automationDefinitionSchema', () => {
     expect(parsed.then).toHaveLength(1);
   });
 
-  it('reads a legacy { triggers, conditions, actions } document', () => {
-    const parsed = automationDefinitionSchema.parse({
-      ...MINIMAL_LEGACY,
-      conditions: [{ type: 'state', entityId: 'person.mattia', state: 'home' }],
-    });
-
-    // Flat triggers become a single leaf (OR of one); conditions become AND under `if`.
-    expect(parsed.triggers).toEqual(MINIMAL.triggers);
-    expect(parsed.if).toEqual({ type: 'state', entityId: 'person.mattia', state: 'home' });
-    expect(parsed.then).toEqual(MINIMAL.then);
-  });
-
-  it('reads a flat legacy trigger list as OR', () => {
-    const parsed = automationDefinitionSchema.parse({
-      triggers: [
-        { type: 'state', entityId: 'binary_sensor.hallway_motion', to: 'on' },
-        { type: 'manual' },
+  it('gives a current document back unchanged', () => {
+    const document = {
+      ...MINIMAL,
+      if: [
+        { type: 'time', from: '22:00', to: '06:30', days: ['friday', 'saturday'] },
+        {
+          type: 'or',
+          isNot: true,
+          conditions: [
+            {
+              type: 'entity',
+              entityId: 'person.mattia',
+              match: { kind: 'state', states: ['home'] },
+            },
+            { type: 'sun', phase: 'below', elevation: 5, name: 'Dark enough' },
+          ],
+        },
       ],
-      actions: MINIMAL_LEGACY.actions,
-    });
+    };
 
-    expect(parsed.triggers).toEqual({
-      op: 'or',
-      items: [
-        { type: 'state', entityId: 'binary_sensor.hallway_motion', to: 'on' },
-        { type: 'manual' },
-      ],
-    });
-  });
-
-  it('reads a flat legacy conditions list as AND under if', () => {
-    const parsed = automationDefinitionSchema.parse({
-      ...MINIMAL_LEGACY,
-      conditions: [
-        { type: 'time_window', from: '22:00', to: '06:30' },
-        { type: 'state', entityId: 'person.mattia', state: 'home' },
-      ],
-    });
-
-    expect(parsed.if).toEqual({
-      op: 'and',
-      items: [
-        { type: 'time_window', from: '22:00', to: '06:30' },
-        { type: 'state', entityId: 'person.mattia', state: 'home' },
-      ],
-    });
+    expect(automationDefinitionSchema.parse(document)).toEqual(document);
   });
 
   it('refuses a document that can never fire', () => {
@@ -108,28 +78,7 @@ describe('automationDefinitionSchema', () => {
     expect(() => automationDefinitionSchema.parse({ ...MINIMAL, then: [] })).toThrow();
   });
 
-  it('carries an if tree that nests, including legacy type-style not', () => {
-    const parsed = automationDefinitionSchema.parse({
-      ...MINIMAL,
-      if: {
-        op: 'and',
-        items: [
-          { type: 'time_window', from: '22:00', to: '06:30' },
-          { type: 'not', condition: { type: 'state', entityId: 'person.mattia', state: 'home' } },
-        ],
-      },
-    });
-
-    expect(parsed.if).toEqual({
-      op: 'and',
-      items: [
-        { type: 'time_window', from: '22:00', to: '06:30' },
-        { op: 'not', item: { type: 'state', entityId: 'person.mattia', state: 'home' } },
-      ],
-    });
-  });
-
-  it('carries then actions that nest, including the new block kinds', () => {
+  it('carries then actions that nest, including every control block', () => {
     const parsed = automationDefinitionSchema.parse({
       ...MINIMAL,
       then: [
@@ -139,7 +88,7 @@ describe('automationDefinitionSchema', () => {
             { type: 'scene', sceneKey: 'good_night' },
             {
               type: 'if',
-              condition: { type: 'state', entityId: 'person.mattia', state: 'home' },
+              conditions: [],
               then: [{ type: 'notify', channel: 'push', message: 'home' }],
               else: [{ type: 'stop' }],
             },
@@ -156,12 +105,13 @@ describe('automationDefinitionSchema', () => {
             },
             {
               type: 'while',
-              condition: { type: 'state', entityId: 'binary_sensor.busy', state: 'on' },
-              actions: [{ type: 'wait_duration', durationMs: 500 }],
-            },
-            {
-              type: 'do_while',
-              condition: { type: 'state', entityId: 'binary_sensor.busy', state: 'on' },
+              conditions: [
+                {
+                  type: 'entity',
+                  entityId: 'binary_sensor.busy',
+                  match: { kind: 'state', states: ['on'] },
+                },
+              ],
               actions: [{ type: 'wait_duration', durationMs: 500 }],
             },
             {
@@ -171,9 +121,9 @@ describe('automationDefinitionSchema', () => {
             },
             {
               type: 'parallel',
-              actions: [
-                { type: 'scene', sceneKey: 'good_night' },
-                { type: 'wait_duration', durationMs: 5_000 },
+              branches: [
+                [{ type: 'scene', sceneKey: 'good_night' }],
+                [{ type: 'wait_duration', durationMs: 5_000 }, { type: 'stop' }],
               ],
             },
           ],
@@ -183,12 +133,56 @@ describe('automationDefinitionSchema', () => {
 
     expect(parsed.then[0]?.type).toBe('sequence');
   });
+
+  it('lets an If check nothing, and a loop not', () => {
+    const body = [{ type: 'wait_duration', durationMs: 500 }];
+
+    expect(
+      automationDefinitionSchema.safeParse({
+        ...MINIMAL,
+        then: [{ type: 'if', conditions: [], then: body }],
+      }).success,
+    ).toBe(true);
+
+    // A loop with nothing to check would never end.
+    expect(
+      automationDefinitionSchema.safeParse({
+        ...MINIMAL,
+        then: [{ type: 'while', conditions: [], actions: body }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('keeps the name and the off switch of any block', () => {
+    const parsed = automationDefinitionSchema.parse({
+      triggers: [{ type: 'manual', name: 'By hand', isEnabled: false }],
+      then: [{ type: 'stop', name: 'Done' }],
+    });
+
+    expect(parsed.triggers[0]).toEqual({ type: 'manual', name: 'By hand', isEnabled: false });
+    expect(parsed.then[0]).toEqual({ type: 'stop', name: 'Done' });
+    expect(parsed.triggers[0] === undefined ? true : isBlockEnabled(parsed.triggers[0])).toBe(
+      false,
+    );
+  });
+
+  it('refuses area occupancy, which was removed', () => {
+    expect(
+      automationDefinitionSchema.safeParse({
+        ...MINIMAL,
+        if: [{ type: 'area_occupancy', areaKey: 'kitchen', isOccupied: true }],
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe('automationTriggerSchema', () => {
-  it('takes a time of day, a cron expression or the sun', () => {
+  it('takes a time of day with its days and months, or a cron expression', () => {
     expect(() =>
-      automationTriggerSchema.parse({ type: 'time', at: { kind: 'clock', time: '07:15' } }),
+      automationTriggerSchema.parse({
+        type: 'time',
+        at: { kind: 'clock', time: '07:15:30', weekdays: ['monday'], months: ['june'] },
+      }),
     ).not.toThrow();
 
     expect(() =>
@@ -197,14 +191,34 @@ describe('automationTriggerSchema', () => {
         at: { kind: 'cron', expression: '0 7 * * 1-5' },
       }),
     ).not.toThrow();
+  });
 
-    const solar = automationTriggerSchema.parse({
-      type: 'time',
-      at: { kind: 'solar', event: 'sunset' },
-    });
+  it('takes a moment of the sun, and an elevation only with its number', () => {
+    expect(() =>
+      automationTriggerSchema.parse({ type: 'sun', event: 'sunset', offsetMinutes: -15 }),
+    ).not.toThrow();
+    expect(
+      automationTriggerSchema.safeParse({ type: 'sun', event: 'elevation_crossed' }).success,
+    ).toBe(false);
+    expect(
+      automationTriggerSchema.safeParse({
+        type: 'sun',
+        event: 'elevation_crossed',
+        elevation: 10,
+        direction: 'setting',
+      }).success,
+    ).toBe(true);
+  });
 
-    // No offset means the event itself, not an unset field the engine has to interpret.
-    expect(solar).toMatchObject({ at: { offsetMinutes: 0 } });
+  it('takes an entity changing state or crossing a number', () => {
+    expect(() =>
+      automationTriggerSchema.parse({
+        type: 'entity',
+        entityId: 'sensor.lux',
+        change: { kind: 'numeric', operator: 'lt', value: 50 },
+        forMs: 60_000,
+      }),
+    ).not.toThrow();
   });
 
   it('refuses a time that is not one', () => {
@@ -214,7 +228,13 @@ describe('automationTriggerSchema', () => {
   });
 
   it('refuses an entity address that is not one', () => {
-    expect(() => automationTriggerSchema.parse({ type: 'state', entityId: 'hallway' })).toThrow();
+    expect(() =>
+      automationTriggerSchema.parse({
+        type: 'entity',
+        entityId: 'hallway',
+        change: { kind: 'state' },
+      }),
+    ).toThrow();
   });
 
   it('accepts a manual trigger, which is how the UI runs one by hand', () => {
@@ -222,41 +242,43 @@ describe('automationTriggerSchema', () => {
   });
 });
 
-describe('automationConditionSchema', () => {
-  it('needs at least one day when it names days', () => {
-    expect(() => automationConditionSchema.parse({ type: 'day_of_week', days: [] })).toThrow();
+describe('clockAtToCron', () => {
+  it('fires every day when no day or month is chosen', () => {
+    expect(clockAtToCron({ kind: 'clock', time: '07:00' })).toBe('0 0 7 * * *');
   });
 
-  it('needs at least one branch when it composes', () => {
-    expect(() => automationConditionSchema.parse({ type: 'or', conditions: [] })).toThrow();
+  it('numbers weekdays as cron does, Sunday first, and months from one', () => {
+    expect(
+      clockAtToCron({
+        kind: 'clock',
+        time: '22:15:30',
+        weekdays: ['sunday', 'monday', 'friday'],
+        months: ['december', 'june'],
+      }),
+    ).toBe('30 15 22 * 6,12 0,1,5');
+  });
+});
+
+describe('conditionNodeSchema', () => {
+  it('needs a time, a day, or both, in a time condition', () => {
+    expect(conditionNodeSchema.safeParse({ type: 'time' }).success).toBe(false);
+    expect(conditionNodeSchema.safeParse({ type: 'time', from: '22:00' }).success).toBe(true);
+    expect(conditionNodeSchema.safeParse({ type: 'time', days: ['monday'] }).success).toBe(true);
+  });
+
+  it('needs at least one condition in a group', () => {
+    expect(() => conditionNodeSchema.parse({ type: 'or', conditions: [] })).toThrow();
+  });
+
+  it('needs the elevation to compare the sun with', () => {
+    expect(conditionNodeSchema.safeParse({ type: 'sun', phase: 'above' }).success).toBe(false);
+    expect(conditionNodeSchema.safeParse({ type: 'sun', phase: 'golden_hour' }).success).toBe(true);
   });
 
   it('bounds a sandboxed expression', () => {
     expect(() =>
-      automationConditionSchema.parse({ type: 'expression', expression: 'x'.repeat(2_001) }),
+      conditionNodeSchema.parse({ type: 'expression', expression: 'x'.repeat(2_001) }),
     ).toThrow();
-  });
-});
-
-describe('booleanTreeSchema', () => {
-  it('rewrites a legacy type-style not into op form', () => {
-    expect(
-      booleanTreeSchema.parse({
-        type: 'not',
-        condition: { type: 'state', entityId: 'person.mattia', state: 'home' },
-      }),
-    ).toEqual({
-      op: 'not',
-      item: { type: 'state', entityId: 'person.mattia', state: 'home' },
-    });
-  });
-
-  it('keeps a non-state leaf rather than dropping it', () => {
-    expect(booleanTreeSchema.parse({ type: 'time_window', from: '22:00', to: '06:00' })).toEqual({
-      type: 'time_window',
-      from: '22:00',
-      to: '06:00',
-    });
   });
 });
 
@@ -268,7 +290,13 @@ describe('waiting', () => {
         then: [
           {
             type: 'wait_for',
-            condition: { type: 'state', entityId: 'person.mattia', state: 'home' },
+            conditions: [
+              {
+                type: 'entity',
+                entityId: 'person.mattia',
+                match: { kind: 'state', states: ['home'] },
+              },
+            ],
           },
         ],
       }),
@@ -285,70 +313,90 @@ describe('waiting', () => {
   });
 });
 
-describe('entityIdsOfDefinition', () => {
-  it('finds entities in triggers, the if tree and nested actions, each once', () => {
-    const definition = automationDefinitionSchema.parse({
-      triggers: {
-        op: 'or',
-        items: [
-          { type: 'state', entityId: 'binary_sensor.door', to: 'on' },
-          { type: 'numeric_state', entityId: 'sensor.lux', operator: 'lt', value: 10 },
-        ],
-      },
-      if: {
-        op: 'and',
-        items: [
-          { type: 'state', entityId: 'switch.away', state: 'off' },
-          {
-            op: 'not',
-            item: { type: 'numeric', entityId: 'sensor.lux', operator: 'gt', value: 50 },
-          },
-        ],
-      },
+/** A document with something in every place a block can be. */
+const EVERYWHERE = {
+  triggers: [
+    { type: 'entity', entityId: 'binary_sensor.door', change: { kind: 'state', to: 'on' } },
+    {
+      type: 'entity',
+      entityId: 'sensor.lux',
+      change: { kind: 'numeric', operator: 'lt', value: 10 },
+    },
+  ],
+  if: [
+    { type: 'entity', entityId: 'switch.away', match: { kind: 'state', states: ['off'] } },
+    {
+      type: 'and',
+      isNot: true,
+      conditions: [
+        {
+          type: 'entity',
+          entityId: 'sensor.lux',
+          match: { kind: 'numeric', operator: 'gt', value: 50 },
+        },
+      ],
+    },
+  ],
+  then: [
+    {
+      type: 'if',
+      conditions: [
+        {
+          type: 'entity',
+          entityId: 'binary_sensor.window',
+          match: { kind: 'state', states: ['on'] },
+        },
+      ],
       then: [
         {
-          type: 'if',
-          condition: { type: 'state', entityId: 'binary_sensor.window', state: 'on' },
-          then: [
+          type: 'command',
+          entityId: 'light.hall',
+          capability: 'on_off',
+          params: { command: 'turn_on' },
+        },
+      ],
+      else: [
+        {
+          type: 'switch',
+          entityId: 'sensor.mode',
+          cases: [
             {
-              type: 'command',
-              entityId: 'light.hall',
-              capability: 'on_off',
-              params: { command: 'turn_on' },
-            },
-          ],
-          else: [
-            {
-              type: 'switch',
-              entityId: 'sensor.mode',
-              cases: [
+              value: 'eco',
+              actions: [
                 {
-                  value: 'eco',
-                  actions: [
-                    {
-                      type: 'parallel',
-                      actions: [
-                        {
-                          type: 'command',
-                          entityId: 'light.porch',
-                          capability: 'on_off',
-                          params: { command: 'turn_off' },
-                        },
-                      ],
-                    },
+                  type: 'parallel',
+                  branches: [
+                    [
+                      {
+                        type: 'command',
+                        entityId: 'light.porch',
+                        capability: 'on_off',
+                        params: { command: 'turn_off' },
+                      },
+                    ],
                   ],
                 },
               ],
             },
           ],
         },
-        {
-          type: 'wait_for_trigger',
-          trigger: { type: 'state', entityId: 'binary_sensor.door', to: 'off' },
-          timeoutMs: 1000,
-        },
       ],
-    });
+    },
+    {
+      type: 'wait_for_trigger',
+      trigger: {
+        type: 'entity',
+        entityId: 'binary_sensor.door',
+        change: { kind: 'state', to: 'off' },
+      },
+      timeoutMs: 1000,
+    },
+  ],
+};
+
+describe('entityIdsOfDefinition', () => {
+  it('finds entities in triggers, the conditions and nested actions, each once', () => {
+    const definition = automationDefinitionSchema.parse(EVERYWHERE);
 
     expect(entityIdsOfDefinition(definition)).toEqual([
       'binary_sensor.door',
@@ -363,7 +411,7 @@ describe('entityIdsOfDefinition', () => {
 
   it('does not follow a scene or another automation called by key', () => {
     const definition = automationDefinitionSchema.parse({
-      triggers: { type: 'manual' },
+      triggers: [{ type: 'manual' }],
       then: [
         { type: 'scene', sceneKey: 'evening' },
         { type: 'automation', automationKey: 'porch' },
@@ -371,6 +419,32 @@ describe('entityIdsOfDefinition', () => {
     });
 
     expect(entityIdsOfDefinition(definition)).toEqual([]);
+  });
+});
+
+describe('forEachBlock', () => {
+  it('addresses every block the way the editor and the trace do', () => {
+    const paths: string[] = [];
+
+    forEachBlock(automationDefinitionSchema.parse(EVERYWHERE), (visited) => {
+      paths.push(`${visited.family}:${visited.path}`);
+    });
+
+    expect(paths).toEqual([
+      'trigger:triggers.0',
+      'trigger:triggers.1',
+      'condition:if.0',
+      'condition:if.1',
+      'condition:if.1.conditions.0',
+      'action:then.0',
+      'condition:then.0.conditions.0',
+      'action:then.0.then.0',
+      'action:then.0.else.0',
+      'action:then.0.else.0.cases.0.0',
+      'action:then.0.else.0.cases.0.0.branches.0.0',
+      'action:then.1',
+      'trigger:then.1.trigger',
+    ]);
   });
 });
 
@@ -382,7 +456,8 @@ describe('what a block may ask for', () => {
    * @returns Whether it parses.
    */
   const accepts = (action: unknown): boolean =>
-    automationDefinitionSchema.safeParse({ triggers: { type: 'manual' }, then: [action] }).success;
+    automationDefinitionSchema.safeParse({ triggers: [{ type: 'manual' }], then: [action] })
+      .success;
 
   it('takes a command its capability takes, and refuses one it does not', () => {
     const command = { type: 'command', entityId: 'light.hall', capability: 'level' };
@@ -391,6 +466,15 @@ describe('what a block may ask for', () => {
     // An empty body is a run that fails every time it reaches the block.
     expect(accepts({ ...command, params: {} })).toBe(false);
     expect(accepts({ ...command, params: { command: 'set_level', level: 160 } })).toBe(false);
+  });
+
+  it('fades a light on and off', () => {
+    const command = { type: 'command', entityId: 'light.hall', capability: 'on_off' };
+
+    expect(accepts({ ...command, params: { command: 'turn_on', transitionMs: 2_000 } })).toBe(true);
+    expect(accepts({ ...command, params: { command: 'turn_off', transitionMs: 2_000 } })).toBe(
+      true,
+    );
   });
 
   it('sets a stored number helper, the one command a sensor reading takes', () => {
@@ -427,7 +511,7 @@ describe('what a block may ask for', () => {
 
 describe('expression variables', () => {
   it('names entities the way an alias names its sources', () => {
-    const parsed = booleanTreeSchema.parse({
+    const parsed = conditionNodeSchema.parse({
       type: 'expression',
       expression: 'power > 2 * avg_power',
       variables: { power: 'sensor.house_power', avg_power: 'sensor.avg_power' },
@@ -438,7 +522,7 @@ describe('expression variables', () => {
 
   it('refuses a name the language already means something by', () => {
     expect(
-      booleanTreeSchema.safeParse({
+      conditionNodeSchema.safeParse({
         type: 'expression',
         expression: 'true',
         variables: { true: 'sensor.house_power' },

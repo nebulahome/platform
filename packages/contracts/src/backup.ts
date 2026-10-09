@@ -12,7 +12,7 @@
  */
 import { z } from 'zod';
 
-import { DAYS_OF_WEEK } from './automation-definition.js';
+import { DAYS_OF_WEEK } from './automation-meta.js';
 import { timestampSchema } from './timestamp.js';
 
 // ---------------------------------------------------------------------------------------------

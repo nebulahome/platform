@@ -150,7 +150,7 @@ export const traceStepSchema = z.object({
   path: z.string().max(200),
   kind: z.enum(TRACE_STEP_KINDS),
 
-  /** The block's type: `state`, `time_window`, `command`, `wait_for`… */
+  /** The block's type: `entity`, `time`, `command`, `wait_for`… */
   type: z.string().max(40),
 
   /** When the step started. */
@@ -172,13 +172,20 @@ export const traceStepSchema = z.object({
 /** One step of a run. */
 export type TraceStep = z.output<typeof traceStepSchema>;
 
-/** What started a run. */
+/**
+ * What started a run.
+ *
+ * `state` and `numeric_state` are the kinds runs were recorded under before the two triggers
+ * became one `entity` trigger; they stay so those rows still read.
+ */
 export const AUTOMATION_RUN_TRIGGER_KINDS = [
-  'state',
-  'numeric_state',
+  'entity',
   'time',
+  'sun',
   'manual',
   'automation',
+  'state',
+  'numeric_state',
 ] as const;
 
 /** What started a run. */
@@ -199,6 +206,9 @@ export const automationRunTriggerSchema = z.object({
 
   /** The reading that crossed, for a numeric trigger. */
   value: z.number().optional(),
+
+  /** The sun event, for a sun trigger: `sunset`, `golden_hour_start`… */
+  event: z.string().max(40).optional(),
 
   /** Who pressed Run, for a manual run. */
   userId: z.uuid().optional(),

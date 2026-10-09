@@ -888,6 +888,21 @@ export const automationUpdateSchema = z
 export type AutomationUpdate = z.output<typeof automationUpdateSchema>;
 
 /**
+ * What the automation editor needs to know of the house: the time zone its clocks run in and
+ * where it stands, for the next runs of a schedule and the times of the sun.
+ *
+ * A route of its own, behind `automation:read`, because the setting and the house row sit behind
+ * permissions somebody who writes automations need not have.
+ */
+export const automationHouseSchema = z.object({
+  timeZone: z.string().min(1).max(64),
+  position: z.object({ latitude: z.number(), longitude: z.number() }).nullable(),
+});
+
+/** What the automation editor knows of the house. */
+export type AutomationHouse = z.output<typeof automationHouseSchema>;
+
+/**
  * One vendor the hub has loaded, as `GET /integrations/vendors` lists it: the catalogue entry
  * with what the owner has done about it.
  *

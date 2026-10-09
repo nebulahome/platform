@@ -67,13 +67,21 @@ const NO_COMMANDS = null;
 /** Whether the entity is on. */
 export const onOffStateSchema = z.object({ isOn: z.boolean() });
 
-/** `on_off` has no device-specific limits. */
-export const onOffParamsSchema = z.object({});
+/**
+ * Whether the device can fade in and out rather than switch at once - a dimmable lamp that
+ * takes a transition. Nothing else about turning on and off differs from one device to another.
+ */
+export const onOffParamsSchema = z.object({ hasTransition: z.boolean().default(false) });
 
-/** Turning an entity on, off, or to the opposite of what it is now. */
+/**
+ * Turning an entity on, off, or to the opposite of what it is now.
+ *
+ * On and off can fade where the device says it can; a toggle cannot, because whether it fades in
+ * or out depends on a state the command does not know.
+ */
 export const onOffCommandSchema = z.discriminatedUnion('command', [
-  z.object({ command: z.literal('turn_on') }),
-  z.object({ command: z.literal('turn_off') }),
+  z.object({ command: z.literal('turn_on'), transitionMs: transitionMsSchema }),
+  z.object({ command: z.literal('turn_off'), transitionMs: transitionMsSchema }),
   z.object({ command: z.literal('toggle') }),
 ]);
 
@@ -107,8 +115,11 @@ export const colorHsStateSchema = z.object({
   saturation: z.number().min(0).max(100),
 });
 
-/** `color_hs` has no device-specific limits: every hue and saturation is representable. */
-export const colorHsParamsSchema = z.object({});
+/**
+ * Whether the lamp can fade from one colour to the next. Every hue and saturation is
+ * representable, so there is nothing else to say.
+ */
+export const colorHsParamsSchema = z.object({ hasTransition: z.boolean().default(false) });
 
 /** Setting the colour, optionally over time. */
 export const colorHsCommandSchema = z.discriminatedUnion('command', [
@@ -135,6 +146,9 @@ export const colorTempParamsSchema = z
   .object({
     minMireds: z.int().min(1).max(1000),
     maxMireds: z.int().min(1).max(1000),
+
+    /** Whether the lamp can fade from one temperature to the next. */
+    hasTransition: z.boolean().default(false),
   })
   .refine((params) => params.minMireds <= params.maxMireds, {
     message: 'minMireds must not exceed maxMireds',

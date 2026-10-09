@@ -39,7 +39,7 @@ describe('commandsForTargetState', () => {
     ]);
   });
 
-  it('attaches a positive transition only to capabilities that fade', () => {
+  it('attaches a positive transition to every capability that fades, on and off included', () => {
     expect(
       commandsForTargetState(
         {
@@ -51,7 +51,7 @@ describe('commandsForTargetState', () => {
         1_000,
       ),
     ).toEqual([
-      { capability: 'on_off', command: { command: 'turn_on' } },
+      { capability: 'on_off', command: { command: 'turn_on', transitionMs: 1_000 } },
       {
         capability: 'level',
         command: { command: 'set_level', level: 10, transitionMs: 1_000 },
@@ -136,7 +136,7 @@ describe('commandsForTargetState', () => {
         },
         500,
       ),
-    ).toEqual([{ capability: 'on_off', command: { command: 'turn_off' } }]);
+    ).toEqual([{ capability: 'on_off', command: { command: 'turn_off', transitionMs: 500 } }]);
   });
 
   it('maps media playback, volume and mute, and skips titles and idle', () => {

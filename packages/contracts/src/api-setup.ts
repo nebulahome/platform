@@ -9,6 +9,9 @@
 import { z } from 'zod';
 
 import { authenticatedResponseSchema } from './api-auth.js';
+import { latitudeSchema, longitudeSchema } from './areas.js';
+import { timeZoneSchema } from './backup.js';
+import { tagNameSchema } from './tags.js';
 
 /** What `GET /api/v1/setup` answers. */
 export const setupStatusSchema = z.object({
@@ -23,6 +26,24 @@ export const setupStatusSchema = z.object({
 
 /** What `GET /api/v1/setup` answers. */
 export type SetupStatus = z.output<typeof setupStatusSchema>;
+
+/**
+ * The house, as the first-run setup asks for it: what it is called, where it stands, the time it
+ * keeps and how temperatures are shown.
+ *
+ * Where it stands is what the sun is worked out from - sunrise, sunset and the sun entities - so
+ * the setup asks for it up front rather than leaving it to be found later on the areas page.
+ */
+export const setupHomeSchema = z.object({
+  name: tagNameSchema,
+  latitude: latitudeSchema,
+  longitude: longitudeSchema,
+  timeZone: timeZoneSchema,
+  temperatureUnit: z.enum(['celsius', 'fahrenheit']),
+});
+
+/** The house, as the first-run setup asks for it. */
+export type SetupHome = z.output<typeof setupHomeSchema>;
 
 /** What `POST /api/v1/setup` accepts. */
 export const setupRequestSchema = z.object({
@@ -48,6 +69,12 @@ export const setupRequestSchema = z.object({
 
   locale: z.string().min(2).max(16).default('en'),
   timezone: z.string().min(1).max(64).default('UTC'),
+
+  /**
+   * The house, created in the same transaction as the owner. Absent leaves the installation
+   * without one, to be added on the areas page; the interface always sends it.
+   */
+  home: setupHomeSchema.optional(),
 });
 
 /** What `POST /api/v1/setup` accepts. */

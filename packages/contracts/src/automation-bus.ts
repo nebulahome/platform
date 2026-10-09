@@ -8,8 +8,13 @@
  */
 import { z } from 'zod';
 
-import { AUTOMATION_RUN_RESULTS } from './api-history.js';
+import { AUTOMATION_RUN_RESULTS, traceStepSchema } from './api-history.js';
 import { sceneApplyMemberResultSchema, sceneApplyResultSchema } from './api-registry.js';
+import {
+  automationActionSchema,
+  automationTriggerSchema,
+  conditionNodeSchema,
+} from './automation-definition.js';
 import { capabilityNameSchema } from './capabilities.js';
 import { entityIdSchema } from './entity-id.js';
 import { changeContextSchema } from './entity-state.js';
@@ -30,6 +35,12 @@ export const CORE_APPLY_SCENE_METHOD = 'apply_scene';
 
 /** Reads the house again: its time zone and where it stands. */
 export const CORE_SYNC_HOUSE_METHOD = 'sync_house';
+
+/** Tries one block of an automation being edited: runs an action, checks a condition. */
+export const CORE_TEST_AUTOMATION_BLOCK_METHOD = 'test_automation_block';
+
+/** Stops a test still running. */
+export const CORE_CANCEL_AUTOMATION_TEST_METHOD = 'cancel_automation_test';
 
 /** Asks `core` to take in an automation the API has just written or changed. */
 export const syncAutomationRequestSchema = z.strictObject({ automationId: z.uuid() });
@@ -178,3 +189,94 @@ export const automationEventSchema = z.object({
 
 /** A run starting or ending. */
 export type AutomationEvent = z.output<typeof automationEventSchema>;
+
+/**
+ * The longest a tested block may run. A test is somebody watching the editor, not a run: a
+ * block that waits ten minutes is stopped here and reported as having timed out.
+ */
+export const AUTOMATION_TEST_MAX_MS = 60_000;
+
+/** How many tests `core` runs at once; a further one is refused until one ends. */
+export const AUTOMATION_TEST_MAX_CONCURRENT = 4;
+
+/** The block a test is about, as the editor holds it - saved or not. */
+export const automationTestTargetSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('trigger'), trigger: automationTriggerSchema }),
+  z.object({ kind: z.literal('condition'), condition: conditionNodeSchema }),
+  z.object({ kind: z.literal('action'), action: automationActionSchema }),
+]);
+
+/** The block a test is about. */
+export type AutomationTestTarget = z.output<typeof automationTestTargetSchema>;
+
+/**
+ * Asks to test a block, as the editor sends it to the API.
+ *
+ * The editor picks the id, so it can stop the test while the request is still open.
+ */
+export const automationTestRequestSchema = z.strictObject({
+  testId: z.uuid(),
+  target: automationTestTargetSchema,
+});
+
+/** Asks to test a block. */
+export type AutomationTestRequest = z.output<typeof automationTestRequestSchema>;
+
+/** Asks `core` to test a block, on behalf of a person. */
+export const testAutomationBlockRequestSchema = automationTestRequestSchema.extend({
+  userId: z.uuid(),
+});
+
+/** Asks `core` to test a block. */
+export type TestAutomationBlockRequest = z.output<typeof testAutomationBlockRequestSchema>;
+
+/** How a tested action went. */
+export const AUTOMATION_TEST_RESULTS = ['ok', 'partial', 'failed', 'timeout', 'cancelled'] as const;
+
+/** How a tested action went. */
+export type AutomationTestResult = (typeof AUTOMATION_TEST_RESULTS)[number];
+
+/**
+ * What a test found.
+ *
+ * A trigger says whether what it waits for holds now (`matches`, null when it is not that kind
+ * of trigger) and when it next fires (`nextAt`, null when it is not a time). A condition says
+ * whether it holds now. An action says how it ran. Step paths start at the tested block: `0`, then
+ * `0.then.1` and so on.
+ */
+export const automationTestReplySchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('trigger'),
+    matches: z.boolean().nullable(),
+    nextAt: timestampSchema.nullable(),
+    detail: z.string().max(300),
+    problem: z.string().max(300).optional(),
+  }),
+  z.object({
+    kind: z.literal('condition'),
+    value: z.boolean(),
+    steps: z.array(traceStepSchema).max(1_000),
+  }),
+  z.object({
+    kind: z.literal('action'),
+    result: z.enum(AUTOMATION_TEST_RESULTS),
+    durationMs: z.int().min(0),
+    error: z.string().max(500).optional(),
+    steps: z.array(traceStepSchema).max(1_000),
+  }),
+]);
+
+/** What a test found. */
+export type AutomationTestReply = z.output<typeof automationTestReplySchema>;
+
+/** Asks `core` to stop a test. */
+export const cancelAutomationTestRequestSchema = z.strictObject({ testId: z.uuid() });
+
+/** Asks `core` to stop a test. */
+export type CancelAutomationTestRequest = z.output<typeof cancelAutomationTestRequestSchema>;
+
+/** Whether there was a test of that id still running. */
+export const cancelAutomationTestReplySchema = z.object({ wasRunning: z.boolean() });
+
+/** Whether there was a test of that id still running. */
+export type CancelAutomationTestReply = z.output<typeof cancelAutomationTestReplySchema>;

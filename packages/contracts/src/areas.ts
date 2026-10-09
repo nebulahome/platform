@@ -31,10 +31,10 @@ export type AreaKind = (typeof AREA_KINDS)[number];
 export const areaKindSchema = z.enum(AREA_KINDS);
 
 /** Validates a latitude, in degrees. */
-const latitudeSchema = z.number().min(-90).max(90);
+export const latitudeSchema = z.number().min(-90).max(90);
 
 /** Validates a longitude, in degrees. */
-const longitudeSchema = z.number().min(-180).max(180);
+export const longitudeSchema = z.number().min(-180).max(180);
 
 /** The lowest storey a floor may be: a deep cellar, and well past any real one. */
 export const FLOOR_LEVEL_MINIMUM = -20;
