@@ -173,6 +173,7 @@ describe('core end to end', () => {
       CORE_SYSTEM_SAMPLE_INTERVAL_MS: 1000,
       CORE_SYSTEM_PUBLISH_INTERVAL_MS: 1000,
       CORE_NET_DEV_PATH: '/proc/net/dev',
+      CORE_AUTOMATION_STARTUP_GRACE_MS: 0,
     };
 
     service = new CoreService({ config, db: database.db, bus, logger: silentLogger() });

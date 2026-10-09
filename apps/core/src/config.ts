@@ -72,6 +72,13 @@ export const coreEnvSchema = runtimeEnvSchema
      * machine instead. `route` is read from beside it, to pick the interface the internet is on.
      */
     CORE_NET_DEV_PATH: z.string().min(1).default('/proc/net/dev'),
+
+    /**
+     * How long after startup changes wake no automation, at most: the adapters are
+     * resynchronising, and a light that changed while `core` was down reporting in is not a light
+     * turning on now. Ends early once every adapter has answered.
+     */
+    CORE_AUTOMATION_STARTUP_GRACE_MS: z.coerce.number().int().min(0).max(300_000).default(15_000),
   })
   // The data directory: `core` writes nothing there, but the system monitor reads the free space
   // of the volume it is on and counts what is in it.

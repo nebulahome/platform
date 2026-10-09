@@ -43,6 +43,8 @@ import { loadRegistry } from './persistence/registry-loader.js';
 import { ensureSystemDevice } from './persistence/system-entities.js';
 import { AliasEngine } from './services/alias-engine.js';
 import { startAliasService } from './services/alias-service.js';
+import { AutomationEngine } from './services/automation-engine.js';
+import { startAutomationService } from './services/automation-service.js';
 import { createCommandDispatcher } from './services/command-dispatch.js';
 import { startCommandRouter } from './services/command-router.js';
 import { startContainersService } from './services/containers.js';
@@ -82,6 +84,7 @@ export class CoreService {
   #directory = new EntityDirectory();
   #aliases = new AliasCatalog();
   #aliasEngine: AliasEngine | undefined;
+  #automationEngine: AutomationEngine | undefined;
   #systemMonitor: SystemMonitor | undefined;
   #client: BusClient | undefined;
   #subscriptions: BusSubscription[] = [];
@@ -92,12 +95,13 @@ export class CoreService {
 
   /**
    * Hands a change to everything in this process that reacts to one: aliases reading the
-   * entity recompute.
+   * entity recompute, and automations watching it may wake.
    *
    * @param result - What changed.
    */
   readonly #onChange = (result: IngestResult): void => {
     this.#aliasEngine?.onSourceChanged(result.entityId);
+    this.#automationEngine?.onStateChanged(result);
   };
 
   /**
@@ -267,6 +271,21 @@ export class CoreService {
       logger,
     });
 
+    const automationEngine = new AutomationEngine({
+      db,
+      client,
+      registry: this.#registry,
+      dispatcher,
+      scenes: sceneEngine,
+      logger,
+      newTraceId,
+    });
+
+    this.#automationEngine = automationEngine;
+    const automationCount = await automationEngine.load();
+
+    startupLogger.info({ automations: automationCount }, 'Automations loaded');
+
     this.#subscriptions = [
       startStateIngest(ingest),
       startSnapshotService({ client, registry: this.#registry }),
@@ -310,6 +329,7 @@ export class CoreService {
       ...startAliasService({ client, engine: aliasEngine, logger }),
       startSystemMonitorService({ client, monitor: systemMonitor }),
       startSceneService({ client, engine: sceneEngine }),
+      ...startAutomationService({ client, engine: automationEngine, logger }),
     ];
 
     this.#telemetry = runTelemetryIngest({
@@ -321,6 +341,11 @@ export class CoreService {
       batchSize: config.CORE_TELEMETRY_BATCH_SIZE,
     });
 
+    // Changes wake automations once the adapters have answered, or the grace has run out.
+    const goLive = setTimeout(() => {
+      automationEngine.goLive();
+    }, config.CORE_AUTOMATION_STARTUP_GRACE_MS);
+
     // Deliberately not awaited: a resynchronisation waits out the command timeout for every
     // adapter that is not running, and the service is already serving by this point.
     void requestResync({
@@ -331,9 +356,14 @@ export class CoreService {
       timeoutMs: config.CORE_COMMAND_TIMEOUT_MS,
       reason: 'startup',
       onNotableChange: this.#onChange,
-    }).catch((error: unknown) => {
-      startupLogger.error({ err: error }, 'Startup resynchronisation failed');
-    });
+    })
+      .catch((error: unknown) => {
+        startupLogger.error({ err: error }, 'Startup resynchronisation failed');
+      })
+      .finally(() => {
+        clearTimeout(goLive);
+        automationEngine.goLive();
+      });
 
     logger.info({ service: SERVICE_NAME }, 'Core is serving');
   }
@@ -354,6 +384,9 @@ export class CoreService {
     this.#subscriptions = [];
     this.#systemMonitor?.stop();
     this.#shutdown.abort();
+
+    // Before the writers drain: a cancelled run is still written down.
+    await this.#automationEngine?.stop();
 
     await Promise.allSettled([
       this.#history?.stop() ?? Promise.resolve(),
