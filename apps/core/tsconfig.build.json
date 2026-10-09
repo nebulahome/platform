@@ -4,6 +4,7 @@
     "src/**/*.test.ts",
     "src/testing/**",
     "tests/**/*.ts",
+    "vitest.config.ts",
     "vitest.integration.config.ts"
   ],
   "compilerOptions": {
