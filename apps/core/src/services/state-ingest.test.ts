@@ -10,6 +10,8 @@ import {
   type EntityState,
 } from '@nebulahome/contracts';
 
+import { ChangeAttribution } from '../domain/change-attribution.js';
+import type { IngestResult } from '../domain/entity-registry.js';
 import { PackageTypes } from '../domain/package-types.js';
 import { TelemetrySampler } from '../domain/telemetry-sampler.js';
 import { entityRecord, createCoreHarness, type CoreHarness } from '../testing/harness.js';
@@ -312,5 +314,69 @@ describe('startStateIngest', () => {
 
     // The previous state is what lets a subscriber tell "turned on" from "was already on".
     expect(events[1]?.previous).toMatchObject({ state: { level: { level: 10 } } });
+  });
+});
+
+describe('attributing a change', () => {
+  const run = { type: 'automation', id: '00000000-0000-4000-8000-0000000000aa' } as const;
+
+  it('records the cause a recent command left, and hands the change to the observer', async () => {
+    const harness = createCoreHarness();
+    const attribution = new ChangeAttribution();
+    const observed: IngestResult[] = [];
+
+    harness.directory.set(entityRecord(bulb, { capabilities: { on_off: {} } }));
+    startStateIngest({
+      client: harness.client,
+      registry: harness.registry,
+      directory: harness.directory,
+      history: harness.history,
+      stateCache: harness.stateCache,
+      logger: harness.logger,
+      attribution,
+      onNotableChange: (result) => {
+        observed.push(result);
+      },
+    });
+
+    attribution.note(bulb, run);
+    harness.clientFor('pkg-weather').publish(busSubjects.stateReport(bulb), {
+      entityId: bulb,
+      state: { on_off: { isOn: true } },
+    });
+
+    await vi.waitFor(() => {
+      expect(harness.historyRows).toHaveLength(1);
+    });
+
+    expect(harness.historyRows[0]).toMatchObject({ contextType: 'automation', contextId: run.id });
+    expect(observed[0]?.current.context).toEqual(run);
+    expect(observed[0]?.current.state.on_off?.isOn).toBe(true);
+  });
+
+  it('leaves a change nobody commanded without a cause', async () => {
+    const harness = createCoreHarness();
+
+    harness.directory.set(entityRecord(hallway, { capabilities: { on_off: {} } }));
+    startStateIngest({
+      client: harness.client,
+      registry: harness.registry,
+      directory: harness.directory,
+      history: harness.history,
+      stateCache: harness.stateCache,
+      logger: harness.logger,
+      attribution: new ChangeAttribution(),
+    });
+
+    harness.clientFor('pkg-weather').publish(busSubjects.stateReport(hallway), {
+      entityId: hallway,
+      state: { on_off: { isOn: true } },
+    });
+
+    await vi.waitFor(() => {
+      expect(harness.historyRows).toHaveLength(1);
+    });
+
+    expect(harness.historyRows[0]).toMatchObject({ contextType: null, contextId: null });
   });
 });

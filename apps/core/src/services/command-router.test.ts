@@ -14,6 +14,7 @@ import {
 import type { Database } from '@nebulahome/db';
 
 import { AliasCatalog } from '../domain/alias-catalog.js';
+import { ChangeAttribution } from '../domain/change-attribution.js';
 import { entityRecord, createCoreHarness, type CoreHarness } from '../testing/harness.js';
 
 import { AliasEngine } from './alias-engine.js';
@@ -28,11 +29,13 @@ describe('startCommandRouter', () => {
   let harness: CoreHarness;
   let received: AdapterCommand[];
   let aliases: AliasCatalog;
+  let attribution: ChangeAttribution;
 
   beforeEach(() => {
     harness = createCoreHarness();
     received = [];
     aliases = new AliasCatalog();
+    attribution = new ChangeAttribution();
 
     harness.directory.set(
       entityRecord(bulb, { capabilities: { on_off: {}, level: { hasTransition: true } } }),
@@ -81,6 +84,7 @@ describe('startCommandRouter', () => {
       aliases,
       aliasEngine,
       commandTimeoutMs: 200,
+      attribution,
     });
   });
 
@@ -118,6 +122,24 @@ describe('startCommandRouter', () => {
     expect(ack.capability).toBe('level');
     expect(received).toHaveLength(1);
     expect(received[0]?.command).toStrictEqual({ command: 'set_level', level: 55 });
+  });
+
+  it('writes down what caused a command, for the change it will produce', async () => {
+    startAdapter();
+
+    const cause = { type: 'automation', id: '00000000-0000-4000-8000-0000000000aa' } as const;
+
+    await harness
+      .clientFor('api')
+      .request(
+        busSubjects.command(bulb, 'on_off'),
+        { command: { command: 'turn_on' }, context: cause },
+        commandAckSchema,
+      );
+
+    expect(attribution.of(bulb)).toEqual(cause);
+    // The adapter is told what to do, not why: the cause stays in core.
+    expect(received[0]).not.toHaveProperty('context');
   });
 
   it('names the entity in the body on the second hop', async () => {

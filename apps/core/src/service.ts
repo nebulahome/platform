@@ -21,15 +21,15 @@ import {
   type BusSubscription,
 } from '@nebulahome/bus';
 import { resolveDataLayout } from '@nebulahome/config';
-import type { EntityId } from '@nebulahome/contracts';
 import type { Database } from '@nebulahome/db';
 import { withTraceId, type PlatformLogger } from '@nebulahome/logging';
 
 import type { CoreConfig } from './config.js';
 import { SERVICE_NAME, SERVICE_VERSION } from './config.js';
 import { AliasCatalog } from './domain/alias-catalog.js';
+import { ChangeAttribution } from './domain/change-attribution.js';
 import { EntityDirectory } from './domain/entity-directory.js';
-import { EntityRegistry } from './domain/entity-registry.js';
+import { EntityRegistry, type IngestResult } from './domain/entity-registry.js';
 import { PackageTypes } from './domain/package-types.js';
 import { TelemetrySampler } from './domain/telemetry-sampler.js';
 import type { BatchWriter } from './persistence/batch-writer.js';
@@ -43,6 +43,7 @@ import { loadRegistry } from './persistence/registry-loader.js';
 import { ensureSystemDevice } from './persistence/system-entities.js';
 import { AliasEngine } from './services/alias-engine.js';
 import { startAliasService } from './services/alias-service.js';
+import { createCommandDispatcher } from './services/command-dispatch.js';
 import { startCommandRouter } from './services/command-router.js';
 import { startContainersService } from './services/containers.js';
 import { loadPackageTypes, startPackagesService } from './services/packages.js';
@@ -85,6 +86,17 @@ export class CoreService {
   #history: BatchWriter<StateHistoryRow> | undefined;
   #stateCache: BatchWriter<EntityStateRow> | undefined;
   #telemetry: Promise<void> | undefined;
+  readonly #attribution = new ChangeAttribution();
+
+  /**
+   * Hands a change to everything in this process that reacts to one: aliases reading the
+   * entity recompute.
+   *
+   * @param result - What changed.
+   */
+  readonly #onChange = (result: IngestResult): void => {
+    this.#aliasEngine?.onSourceChanged(result.entityId);
+  };
 
   /**
    * Builds the service without starting anything.
@@ -203,14 +215,8 @@ export class CoreService {
       telemetry: new TelemetrySampler(),
       packageTypes,
       logger,
-      /**
-       * Wakes aliases that read the entity that just changed.
-       *
-       * @param entityId - The entity whose state changed.
-       */
-      onNotableChange: (entityId: EntityId): void => {
-        this.#aliasEngine?.onSourceChanged(entityId);
-      },
+      attribution: this.#attribution,
+      onNotableChange: this.#onChange,
     };
 
     const aliasEngine = new AliasEngine({
@@ -242,6 +248,16 @@ export class CoreService {
     this.#systemMonitor = systemMonitor;
     await systemMonitor.start();
 
+    const dispatcher = createCommandDispatcher({
+      client,
+      directory: this.#directory,
+      aliases: this.#aliases,
+      aliasEngine,
+      commandTimeoutMs: config.CORE_COMMAND_TIMEOUT_MS,
+      packageTypes,
+      attribution: this.#attribution,
+    });
+
     this.#subscriptions = [
       startStateIngest(ingest),
       startSnapshotService({ client, registry: this.#registry }),
@@ -253,6 +269,7 @@ export class CoreService {
         aliasEngine,
         commandTimeoutMs: config.CORE_COMMAND_TIMEOUT_MS,
         packageTypes,
+        dispatcher,
       }),
       startPackagesService({
         client,
@@ -262,6 +279,7 @@ export class CoreService {
         stateCache,
         packageTypes,
         logger,
+        onNotableChange: this.#onChange,
       }),
       ...startRegistrationService({
         client,
@@ -278,6 +296,7 @@ export class CoreService {
         registry: this.#registry,
         stateCache,
         logger,
+        onNotableChange: this.#onChange,
       }),
       ...startAliasService({ client, engine: aliasEngine, logger }),
       startSystemMonitorService({ client, monitor: systemMonitor }),
@@ -301,6 +320,7 @@ export class CoreService {
       logger: startupLogger,
       timeoutMs: config.CORE_COMMAND_TIMEOUT_MS,
       reason: 'startup',
+      onNotableChange: this.#onChange,
     }).catch((error: unknown) => {
       startupLogger.error({ err: error }, 'Startup resynchronisation failed');
     });

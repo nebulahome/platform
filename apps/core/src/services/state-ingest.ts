@@ -16,17 +16,20 @@ import {
   BUS_PATTERNS,
   busSubjects,
   stateReportSchema,
-  type EntityId,
+  type ChangeContext,
   type StateReport,
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 
+import type { ChangeAttribution } from '../domain/change-attribution.js';
 import type { EntityDirectory, EntityRecord } from '../domain/entity-directory.js';
 import type { EntityRegistry, IngestResult } from '../domain/entity-registry.js';
 import { customStateProblem, type PackageTypes } from '../domain/package-types.js';
 import type { TelemetrySampler } from '../domain/telemetry-sampler.js';
 import type { BatchWriter } from '../persistence/batch-writer.js';
 import type { EntityStateRow, StateHistoryRow } from '../persistence/history-writer.js';
+
+import { announceChange, type ChangeObserver } from './state-events.js';
 
 /** Everything the ingest pipeline writes to. */
 export type StateIngestOptions = {
@@ -56,11 +59,18 @@ export type StateIngestOptions = {
   readonly telemetry?: TelemetrySampler;
 
   /**
-   * Called after a notable change, so the alias engine can recompute descendants.
+   * Called after a notable change, so the alias engine can recompute descendants and the
+   * automation engine can see what fired. Must not block and must not throw.
    *
    * Optional: unit tests that only exercise ingest do not need an engine.
    */
-  readonly onNotableChange?: (entityId: EntityId) => void;
+  readonly onNotableChange?: ChangeObserver;
+
+  /**
+   * The causes of recent commands, read when their entities report so the change carries what
+   * caused it. Optional: without it no change is attributed.
+   */
+  readonly attribution?: ChangeAttribution;
 
   /**
    * The packages' entity types, which a `custom` entity's report is checked against.
@@ -162,6 +172,8 @@ function publishReading(
  * @param record - The entity's configuration.
  * @param report - What was observed.
  * @param traceId - The unit of work this report belongs to.
+ * @param context - What caused it, when the caller knows. Otherwise the cause a recent command
+ * to the entity left behind, if any.
  * @returns What the report did, or undefined when nothing was notable.
  */
 export function ingestReport(
@@ -169,8 +181,13 @@ export function ingestReport(
   record: EntityRecord,
   report: StateReport,
   traceId: string,
+  context?: ChangeContext,
 ): IngestResult | undefined {
-  const result = options.registry.apply(report, { source: record.source });
+  const cause = context ?? options.attribution?.of(report.entityId);
+  const result = options.registry.apply(report, {
+    source: record.source,
+    ...(cause === undefined ? {} : { context: cause }),
+  });
 
   publishReading(options, record, result, traceId);
 
@@ -180,12 +197,6 @@ export function ingestReport(
     return undefined;
   }
 
-  options.client.publish(
-    busSubjects.stateChanged(result.entityId),
-    { entityId: result.entityId, current: result.current, previous: result.previous },
-    { traceId },
-  );
-
   // A picture's state says only which picture it is: a robot's map is drawn again every few
   // seconds while it cleans, and a row each time would bury what the device's activity says.
   if (!isPicture(result.entityId)) {
@@ -193,7 +204,7 @@ export function ingestReport(
   }
 
   options.stateCache.add(toCacheRow(record, result));
-  options.onNotableChange?.(result.entityId);
+  announceChange(options.client, result, traceId, options.onNotableChange);
 
   return result;
 }

@@ -42,6 +42,8 @@ import type { EntityRegistry } from '../domain/entity-registry.js';
 import type { BatchWriter } from '../persistence/batch-writer.js';
 import type { EntityStateRow } from '../persistence/history-writer.js';
 
+import { announceChange, type ChangeObserver } from './state-events.js';
+
 /** The icon a container's device starts with. */
 export const CONTAINER_DEVICE_ICON = 'container';
 
@@ -62,6 +64,9 @@ export type ContainersServiceOptions = {
   /** The state rows waiting to be written; those of a removed entity are dropped with it. */
   readonly stateCache: BatchWriter<EntityStateRow>;
   readonly logger: PlatformLogger;
+
+  /** What in this process reacts to an entity becoming unreachable. Must not block. */
+  readonly onNotableChange?: ChangeObserver;
 };
 
 /** One entity as it was written. */
@@ -422,11 +427,7 @@ export function startContainersService(options: ContainersServiceOptions): BusSu
         const result = options.registry.setAvailability(entityId, false);
 
         if (result !== undefined) {
-          options.client.publish(busSubjects.stateChanged(entityId), {
-            entityId,
-            current: result.current,
-            previous: result.previous,
-          });
+          announceChange(options.client, result, undefined, options.onNotableChange);
         }
       }
 

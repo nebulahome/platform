@@ -47,6 +47,8 @@ import type { PackageTypes } from '../domain/package-types.js';
 import type { BatchWriter } from '../persistence/batch-writer.js';
 import type { EntityStateRow } from '../persistence/history-writer.js';
 
+import { announceChange, type ChangeObserver } from './state-events.js';
+
 /** What the packages service needs. */
 export type PackagesServiceOptions = {
   readonly client: BusClient;
@@ -65,6 +67,9 @@ export type PackagesServiceOptions = {
   readonly packageTypes: PackageTypes;
 
   readonly logger: PlatformLogger;
+
+  /** What in this process reacts to an entity becoming unreachable. Must not block. */
+  readonly onNotableChange?: ChangeObserver;
 };
 
 /** One entity as it was written. */
@@ -499,11 +504,7 @@ export function startPackagesService(options: PackagesServiceOptions): BusSubscr
         const result = options.registry.setAvailability(entityId, false);
 
         if (result !== undefined) {
-          options.client.publish(busSubjects.stateChanged(entityId), {
-            entityId,
-            current: result.current,
-            previous: result.previous,
-          });
+          announceChange(options.client, result, undefined, options.onNotableChange);
         }
       }
 

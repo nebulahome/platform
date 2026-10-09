@@ -1,24 +1,13 @@
 /**
- * Routing a command to the adapter that owns the entity, or applying it locally for a stored
- * alias helper.
+ * Serving the command subject: every entity command anyone sends over the bus.
  *
- * `core` knows which adapter owns each entity, so a caller does not have to. It validates the
- * command against the target capability, forwards it as a bus request to the owning adapter, and
- * acknowledges **only when the adapter confirms**. A timeout produces a `DeviceUnavailableError`
- * rather than a silent failure (ARCHITECTURE.md 4.1).
- *
- * Stored alias helpers are the exception: their state lives in `core`, so the command is applied
- * here and never forwarded to a hub. Calculated aliases reject every command.
- *
- * The forward is a service call, `nebula.v1.svc.<packageId>.command`, and not a republish of the
- * command subject: there is one command subject in the taxonomy and `core` is subscribed to it,
- * so republishing would route the command straight back here.
+ * The subject names the entity and the capability; the request carries the command and what
+ * caused it. Everything else - who owns the entity, whether it can be asked this, the forward to
+ * the adapter or the local apply for a stored helper - is the dispatcher's, which the engines
+ * inside `core` call directly.
  */
-import type { BusClient, BusSubscription, MessageContext } from '@nebulahome/bus';
+import type { BusSubscription, MessageContext } from '@nebulahome/bus';
 import {
-  adapterAckSchema,
-  ADAPTER_COMMAND_METHOD,
-  busSubjects,
   BUS_PATTERNS,
   capabilityCommandRequestSchema,
   parseCommandSubject,
@@ -27,32 +16,16 @@ import {
   type CommandAck,
 } from '@nebulahome/contracts';
 
-import { isStoredAlias, type AliasCatalog } from '../domain/alias-catalog.js';
-import { validateCommand } from '../domain/command-validation.js';
-import type { EntityDirectory } from '../domain/entity-directory.js';
-import type { PackageTypes } from '../domain/package-types.js';
-
-import type { AliasEngine } from './alias-engine.js';
+import {
+  createCommandDispatcher,
+  type CommandDispatcher,
+  type CommandDispatchOptions,
+} from './command-dispatch.js';
 
 /** What the command router needs. */
-export type CommandRouterOptions = {
-  /** The bus client to serve on and forward through. */
-  readonly client: BusClient;
-
-  /** Configured entities, consulted for ownership and declared capabilities. */
-  readonly directory: EntityDirectory;
-
-  /** Alias definitions, consulted before forwarding derived-entity commands. */
-  readonly aliases: AliasCatalog;
-
-  /** Applies commands to stored helpers locally. */
-  readonly aliasEngine: AliasEngine;
-
-  /** How long an adapter has to accept a command. */
-  readonly commandTimeoutMs: number;
-
-  /** The packages' entity types, which a command to a `custom` entity is checked against. */
-  readonly packageTypes?: PackageTypes;
+export type CommandRouterOptions = CommandDispatchOptions & {
+  /** The dispatcher to send through. Built from the options when absent. */
+  readonly dispatcher?: CommandDispatcher;
 };
 
 /** How many commands may be waiting on their devices at once. */
@@ -66,6 +39,8 @@ const COMMAND_CONCURRENCY = 32;
  * @returns The subscription, to unsubscribe on shutdown.
  */
 export function startCommandRouter(options: CommandRouterOptions): BusSubscription {
+  const dispatcher = options.dispatcher ?? createCommandDispatcher(options);
+
   return options.client.serve(
     BUS_PATTERNS.allCommands,
     capabilityCommandRequestSchema,
@@ -90,62 +65,14 @@ export function startCommandRouter(options: CommandRouterOptions): BusSubscripti
         });
       }
 
-      const record = options.directory.require(target.entityId);
-      const alias = options.aliases.getByEntity(target.entityId);
-
-      if (alias !== undefined) {
-        if (!isStoredAlias(alias)) {
-          throw new ValidationError(`Calculated alias ${target.entityId} rejects every command`, {
-            details: { entityId: target.entityId },
-          });
-        }
-
-        options.aliasEngine.applyStoredCommand(target.entityId, target.capability, request.command);
-
-        context.logger.debug(
-          { entityId: target.entityId, capability: target.capability },
-          'Command applied to stored alias in core',
-        );
-
-        return {
-          entityId: target.entityId,
-          capability: target.capability,
-          acceptedAt: new Date(),
-        };
-      }
-
-      if (record.source === 'derived' || record.source === 'system') {
-        // A derived entity without an alias row has no place to hold commanded state.
-        throw new ValidationError(
-          `Entity ${target.entityId} is ${record.source} and has no adapter to command`,
-          { details: { entityId: target.entityId, source: record.source } },
-        );
-      }
-
-      const command = validateCommand(
-        record,
-        target.capability,
-        request.command,
-        options.packageTypes,
-      );
-
-      await options.client.request(
-        busSubjects.service(record.source, ADAPTER_COMMAND_METHOD),
-        { entityId: target.entityId, capability: target.capability, command },
-        adapterAckSchema,
-        { traceId: context.header.traceId, timeoutMs: options.commandTimeoutMs },
-      );
-
-      context.logger.debug(
-        { entityId: target.entityId, capability: target.capability, adapter: record.source },
-        'Command accepted by the owning adapter',
-      );
-
-      return {
+      return dispatcher.dispatch({
         entityId: target.entityId,
         capability: target.capability,
-        acceptedAt: new Date(),
-      };
+        command: request.command,
+        context: request.context,
+        traceId: context.header.traceId,
+        logger: context.logger,
+      });
     },
 
     // Each command waits on the one device it is for, for up to the command timeout. Handled one

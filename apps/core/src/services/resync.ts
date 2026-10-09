@@ -22,6 +22,8 @@ import type { PlatformLogger } from '@nebulahome/logging';
 import type { EntityDirectory } from '../domain/entity-directory.js';
 import type { EntityRegistry } from '../domain/entity-registry.js';
 
+import { announceChange, type ChangeObserver } from './state-events.js';
+
 /** What a resynchronisation pass needs. */
 export type ResyncOptions = {
   /** The bus client to send the requests on. */
@@ -41,6 +43,9 @@ export type ResyncOptions = {
 
   /** Why the pass is happening, passed through for the adapter's own logs. */
   readonly reason: ResyncRequest['reason'];
+
+  /** What in this process reacts to an entity becoming unreachable. Must not block. */
+  readonly onNotableChange?: ChangeObserver;
 };
 
 /** What one pass achieved. */
@@ -118,11 +123,7 @@ function markUnavailable(options: ResyncOptions, source: SourceRef): void {
     const result = options.registry.setAvailability(entityId, false);
 
     if (result !== undefined) {
-      options.client.publish(busSubjects.stateChanged(entityId), {
-        entityId,
-        current: result.current,
-        previous: result.previous,
-      });
+      announceChange(options.client, result, undefined, options.onNotableChange);
     }
   }
 }

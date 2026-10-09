@@ -18,6 +18,7 @@ import {
   ValidationError,
   type CapabilityName,
   type CapabilityState,
+  type ChangeContext,
   type EntityId,
   type JsonObject,
   type StateReport,
@@ -241,12 +242,14 @@ export class AliasEngine {
    * @param entityId - The alias entity.
    * @param capability - The capability named in the command subject.
    * @param command - The command body.
+   * @param context - What caused it: the change it makes carries it.
    * @throws {ValidationError} When the entity is calculated, unknown, or the command is invalid.
    */
   public applyStoredCommand(
     entityId: EntityId,
     capability: CapabilityName,
     command: JsonObject,
+    context?: ChangeContext,
   ): void {
     const alias = this.#options.catalog.getByEntity(entityId);
 
@@ -293,7 +296,7 @@ export class AliasEngine {
       attributes: {},
     };
 
-    ingestReport(this.#options.ingest, record, report, this.#options.newTraceId());
+    ingestReport(this.#options.ingest, record, report, this.#options.newTraceId(), context);
   }
 
   /**

@@ -393,6 +393,17 @@ describe('what a block may ask for', () => {
     expect(accepts({ ...command, params: { command: 'set_level', level: 160 } })).toBe(false);
   });
 
+  it('sets a stored number helper, the one command a sensor reading takes', () => {
+    expect(
+      accepts({
+        type: 'command',
+        entityId: 'sensor.grid_power_limit',
+        capability: 'sensor_numeric',
+        params: { command: 'set_value', value: 3000 },
+      }),
+    ).toBe(true);
+  });
+
   it('refuses a command to a capability that only reports', () => {
     expect(
       accepts({

@@ -582,6 +582,16 @@ export type AutomationAction =
 const nestedActionsSchema = (): z.ZodType<AutomationAction[]> =>
   z.array(automationActionSchema).max(50);
 
+/**
+ * Whether a command body sets a stored number helper: `{ command: 'set_value', value }`.
+ *
+ * @param params - The command body.
+ * @returns True for that one shape.
+ */
+function isStoredNumberCommand(params: Readonly<Record<string, unknown>>): boolean {
+  return params['command'] === 'set_value' && typeof params['value'] === 'number';
+}
+
 /** Something an automation does. */
 export const automationActionSchema: z.ZodType<AutomationAction> = z.lazy(() =>
   z.discriminatedUnion('type', [
@@ -599,6 +609,11 @@ export const automationActionSchema: z.ZodType<AutomationAction> = z.lazy(() =>
         // one the capability can take at all is the document's, and saving one it cannot is a
         // run that fails every time it is reached.
         const schema = commandSchemaFor(action.capability);
+
+        if (action.capability === 'sensor_numeric' && isStoredNumberCommand(action.params)) {
+          // A stored number helper is set this way; a physical sensor refuses it when it runs.
+          return;
+        }
 
         if (schema === null) {
           context.addIssue({
