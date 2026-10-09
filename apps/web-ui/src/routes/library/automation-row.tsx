@@ -1,25 +1,24 @@
 /**
- * One automation in the list table, as the board draws it: its name with the chain under it -
- * what wakes it, what it checks, what it does - its mode, Enabled as a switch, its last run, and a
- * menu.
+ * One automation in the list table, as the board draws it (N-Automations): its name with the
+ * chain under it - what wakes it, what it checks, what it does - its mode, Enabled as a switch,
+ * how its last run went, and a menu.
  *
  * The chain is under the name because the question somebody scanning this page is asking is
- * "which one is the porch light", and reading the rule is how they answer it.
+ * "which one is the porch light", and reading the rule is how they answer it. The last run is a
+ * dot and a word: green Ran, amber Skipped when its checks said no, red Failed.
  *
- * **Enabled is a switch, and it writes.** It is the one thing about an automation that can be
- * changed without opening anything. The name opens the editor; the menu has Edit and Delete.
- *
- * There is no Run now. `POST /automations/:id/trigger` does not exist, because nothing is
- * listening yet (API.md §10), and a button that posted to it would fail at the one moment it
- * mattered. The last run says "Not run yet" for the same reason.
+ * **Enabled is a switch, and it writes** - for somebody who may change automations; for anybody
+ * else it is shown and cannot be moved.
  */
 import { Link } from 'react-router';
 
 import type { AutomationView } from '@nebulahome/contracts';
-import { OverflowMenu, Switch } from '@nebulahome/ui';
+import { OverflowMenu, StatusDot, Switch, type StatusDotTone } from '@nebulahome/ui';
 
+import type { BlockNames } from '@/lib/block-summary';
 import { summaryOf, type AutomationSummary } from '@/lib/describe-automation';
-import { relativeTime } from '@/lib/format-time';
+import { absoluteTime, runMoment } from '@/lib/format-time';
+import { runOutcome } from '@/lib/run-outcome';
 import { MODE_LABELS } from '@/library/automation-filters';
 
 /**
@@ -30,7 +29,7 @@ import { MODE_LABELS } from '@/library/automation-filters';
  */
 export const AUTOMATION_COLUMNS =
   'grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 ' +
-  'md:grid-cols-[minmax(0,1fr)_96px_72px_120px_36px]';
+  'md:grid-cols-[minmax(0,2.6fr)_100px_90px_160px_40px]';
 
 /** What one row needs. */
 export type AutomationRowProps = {
@@ -39,6 +38,12 @@ export type AutomationRowProps = {
 
   /** Whether a write for this row is in flight. */
   readonly isBusy: boolean;
+
+  /** Whether the person may change it: turn it on or off, delete it. */
+  readonly canWrite?: boolean;
+
+  /** Where the chain's names come from. */
+  readonly names?: BlockNames;
 
   /** Called to open the editor. */
   readonly onEdit: () => void;
@@ -51,6 +56,30 @@ export type AutomationRowProps = {
 };
 
 /**
+ * How the last run reads: a dot, a word and a time, or a dash.
+ *
+ * @param automation - The automation.
+ * @returns The tone, the text and the exact moment.
+ */
+function lastRunOf(automation: AutomationView): {
+  readonly tone: StatusDotTone;
+  readonly text: string;
+  readonly title: string | undefined;
+} {
+  if (automation.lastRun === null) {
+    return { tone: 'neutral', text: '—', title: 'Not run yet' };
+  }
+
+  const outcome = runOutcome(automation.lastRun.result);
+
+  return {
+    tone: outcome.tone,
+    text: `${outcome.word} ${runMoment(automation.lastRun.time)}`,
+    title: absoluteTime(automation.lastRun.time),
+  };
+}
+
+/**
  * Renders one automation as a table row.
  *
  * The definition is parsed defensively. It comes from a `jsonb` column that predates the schema
@@ -61,15 +90,12 @@ export type AutomationRowProps = {
  * @returns The row.
  */
 export function AutomationRow(props: AutomationRowProps) {
-  const { automation, isBusy, onEdit, onToggle, onDelete } = props;
-  const summary = summaryOf(automation.definition);
-  const lastRun =
-    automation.lastTriggeredAt === null
-      ? 'Not run yet'
-      : `Ran ${relativeTime(automation.lastTriggeredAt)}`;
+  const { automation, isBusy, canWrite = true, names, onEdit, onToggle, onDelete } = props;
+  const summary = summaryOf(automation.definition, names);
+  const lastRun = lastRunOf(automation);
 
   return (
-    <li className={`${AUTOMATION_COLUMNS} border-t border-border px-5 py-3 first:border-t-0`}>
+    <li className={`${AUTOMATION_COLUMNS} border-t border-border px-5 py-3.5 first:border-t-0`}>
       <span className="flex min-w-0 flex-col gap-0.5">
         <Link
           to={`/automations/${automation.id}`}
@@ -80,7 +106,7 @@ export function AutomationRow(props: AutomationRowProps) {
         <Chain summary={summary} />
       </span>
 
-      <span className="hidden text-ui-sm text-foreground-muted md:block">
+      <span className="hidden font-mono text-mono-ui text-foreground-muted md:block">
         {MODE_LABELS[automation.mode]}
       </span>
 
@@ -89,25 +115,35 @@ export function AutomationRow(props: AutomationRowProps) {
           label={`${automation.name} enabled`}
           isOn={automation.isEnabled}
           isBusy={isBusy}
+          disabled={!canWrite}
           onChange={onToggle}
         />
       </span>
 
-      <span className="hidden font-mono text-mono-caption text-foreground-subtle tabular md:block">
-        {lastRun}
+      <span className="hidden min-w-0 items-center gap-2 md:flex" title={lastRun.title}>
+        <StatusDot isBare tone={lastRun.tone} title={lastRun.title ?? lastRun.text} />
+        <span
+          className={`truncate text-ui-sm tabular ${lastRun.tone === 'danger' ? 'text-danger' : 'text-foreground-muted'}`}
+        >
+          {lastRun.text}
+        </span>
       </span>
 
       <OverflowMenu
         label={`More for ${automation.name}`}
         items={[
           { label: 'Edit', icon: 'pencil', onSelect: onEdit },
-          {
-            label: 'Delete',
-            icon: 'trash-2',
-            tone: 'danger',
-            disabled: isBusy,
-            onSelect: onDelete,
-          },
+          ...(canWrite
+            ? [
+                {
+                  label: 'Delete',
+                  icon: 'trash-2' as const,
+                  tone: 'danger' as const,
+                  disabled: isBusy,
+                  onSelect: onDelete,
+                },
+              ]
+            : []),
         ]}
       />
     </li>
@@ -140,7 +176,7 @@ function Chain(props: ChainProps) {
   }
 
   return (
-    <span className="truncate text-ui-sm text-foreground-subtle">
+    <span className="truncate text-caption text-foreground-subtle">
       <span>{summary.trigger}</span>
       {summary.conditions === null ? null : (
         <>

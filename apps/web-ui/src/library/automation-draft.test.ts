@@ -97,8 +97,8 @@ describe('toCreate', () => {
     }
   });
 
-  it('sends the runtime in milliseconds, having asked for seconds', () => {
-    const result = toCreate({ ...usable(), maxRuntimeSeconds: 90 });
+  it('sends the runtime as the field holds it, in milliseconds', () => {
+    const result = toCreate({ ...usable(), maxRuntimeMs: 90_000 });
 
     expect(result.ok).toBe(true);
 
@@ -212,8 +212,8 @@ describe('draftFrom', () => {
     expect(draft.actions).toEqual([]);
   });
 
-  it('reads the runtime back into seconds', () => {
-    expect(draftFrom(COMPOSED).maxRuntimeSeconds).toBe(300);
+  it('reads the runtime back as it was stored', () => {
+    expect(draftFrom(COMPOSED).maxRuntimeMs).toBe(300_000);
   });
 });
 

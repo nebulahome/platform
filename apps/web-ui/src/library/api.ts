@@ -12,6 +12,7 @@ import {
   aliasPreviewResponseSchema,
   aliasViewSchema,
   areaViewSchema,
+  automationRunSchema,
   automationViewSchema,
   deviceProbeReplySchema,
   deviceViewSchema,
@@ -39,6 +40,7 @@ import {
   type AreaUpdate,
   type AreaView,
   type AutomationCreate,
+  type AutomationRun,
   type AutomationUpdate,
   type AutomationView,
   type CapabilityName,
@@ -76,7 +78,9 @@ import {
   pageSchema,
   accountSignOutReplySchema,
   accountStepSchema,
+  triggerAutomationReplySchema,
   type AccountStep,
+  type TriggerAutomationReply,
 } from '@nebulahome/contracts';
 
 import { apiRequest } from '@/lib/api-client';
@@ -103,6 +107,54 @@ export async function fetchAutomations(signal?: AbortSignal): Promise<Automation
   });
 
   return items;
+}
+
+/**
+ * Reads one automation, with its latest run.
+ *
+ * @param automationId - Which.
+ * @param signal - Cancels the request.
+ * @returns The automation.
+ */
+export async function fetchAutomation(
+  automationId: string,
+  signal?: AbortSignal,
+): Promise<AutomationView> {
+  return apiRequest(`/automations/${automationId}`, automationViewSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
+}
+
+/**
+ * Reads one page of an automation's runs, newest first, each with its trace.
+ *
+ * @param automationId - Which.
+ * @param limit - How many.
+ * @param signal - Cancels the request.
+ * @returns The page.
+ */
+export async function fetchAutomationRuns(
+  automationId: string,
+  limit: number,
+  signal?: AbortSignal,
+): Promise<{ readonly items: AutomationRun[]; readonly nextCursor?: string | undefined }> {
+  return apiRequest(
+    `/automations/${automationId}/runs?limit=${String(limit)}`,
+    pageSchema(automationRunSchema),
+    { ...(signal === undefined ? {} : { signal }) },
+  );
+}
+
+/**
+ * Runs an automation now: the saved version, through its mode and its checks.
+ *
+ * @param automationId - Which.
+ * @returns The run's id, and whether it started.
+ */
+export async function triggerAutomation(automationId: string): Promise<TriggerAutomationReply> {
+  return apiRequest(`/automations/${automationId}/trigger`, triggerAutomationReplySchema, {
+    method: 'POST',
+  });
 }
 
 /**
@@ -928,8 +980,11 @@ export async function signOutOfAccount(
 
 /** The cache keys the library reads under. */
 export const LIBRARY_QUERY_KEYS = {
-  /** Every automation. */
+  /** Every automation; one automation and its runs are keyed further by its id. */
   automations: ['library', 'automations'] as const,
+
+  /** An automation's runs, keyed further by its id. */
+  automationRuns: ['library', 'automation-runs'] as const,
 
   /** Every scene. */
   scenes: ['library', 'scenes'] as const,

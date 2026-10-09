@@ -95,7 +95,7 @@ const VACUUM_WORDS: Readonly<Record<VacuumActivity, string>> = {
 };
 
 /** The words a binary sensor uses, by what kind of thing it senses. */
-const BINARY_WORDS: Readonly<Record<string, readonly [on: string, off: string]>> = {
+export const BINARY_WORDS: Readonly<Record<string, readonly [on: string, off: string]>> = {
   motion: ['Detected', 'Clear'],
   occupancy: ['Occupied', 'Clear'],
   presence: ['Present', 'Away'],

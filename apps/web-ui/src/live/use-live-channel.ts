@@ -112,6 +112,12 @@ export function useLiveChannel(): void {
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
         }
 
+        if (message.type === 'automation_event') {
+          // A run started or ended: the list shows its last run, the editor its runs.
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.automations });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.automationRuns });
+        }
+
         if (message.type === 'backup_event') {
           // A backup began, moved on or ended - a scheduled one too: the backups page follows it
           // at once rather than at its next poll.

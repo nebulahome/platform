@@ -87,6 +87,12 @@ import { backupSampleCache, SAMPLE_OWNER } from '@/testing/backup-samples';
 import { energySample, energySampleCache } from '@/testing/energy-samples';
 import { aDevice, anArea, anEntity } from '@/testing/fixtures';
 
+import {
+  AutomationEditorSample,
+  AutomationsListSample,
+  EmptyLibrarySample,
+} from './gallery-automations';
+
 import './styles/globals.css';
 
 /**
@@ -729,7 +735,7 @@ function ListPartsSample() {
       <Note tone="accent">
         <span className="font-medium">Editing “Home”.</span> Everyone who uses Home sees the change.
       </Note>
-      <Note tone="warning">Nothing runs these yet: the automation engine is not built.</Note>
+      <Note tone="warning">The house has no position yet, so the sun has no time here.</Note>
       <div className="flex flex-wrap items-start gap-8">
         <RadioGroup
           label="Sort"
@@ -823,6 +829,24 @@ function Gallery() {
             onChange={setTheme}
           />
         </header>
+
+        <Section
+          title="Automations"
+          note="The list on sample data: a last run of every kind, and one never run."
+        >
+          <AutomationsListSample />
+        </Section>
+
+        <Section
+          title="Automation editor"
+          note="The board's Evening lights. Click a block to select it; drag a grip to move one."
+        >
+          <AutomationEditorSample />
+        </Section>
+
+        <Section title="Empty library" note="Automations, scenes and aliases with nothing yet.">
+          <EmptyLibrarySample />
+        </Section>
 
         <Section title="Type" note="Each step names a job rather than a size.">
           <div className="flex flex-col gap-2">

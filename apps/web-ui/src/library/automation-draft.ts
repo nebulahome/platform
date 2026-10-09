@@ -63,11 +63,19 @@ export type BooleanJoin = 'and' | 'or';
 export const EDITABLE_TRIGGERS = TRIGGER_TYPES;
 
 /**
- * The kinds of condition the If Add modal offers: entity state only.
- *
- * Other leaf kinds already saved still open as cards; they are not offered when adding.
+ * The kinds of condition the If picker offers: every check, and the two groups - ALL OF and ANY
+ * OF - that hold others. NONE OF is ANY OF with NOT on.
  */
-export const IF_ADDABLE_CONDITIONS = ['state'] as const;
+export const IF_ADDABLE_CONDITIONS = [
+  'state',
+  'numeric',
+  'time_window',
+  'day_of_week',
+  'area_occupancy',
+  'expression',
+  'group_and',
+  'group_or',
+] as const;
 
 /** The kinds of condition this editor can draw fields for: the leaves, not the ones that compose. */
 export const EDITABLE_CONDITIONS = CONDITION_TYPES.filter(
@@ -91,8 +99,8 @@ export type AutomationDraft = {
   /** What happens when it is triggered while already running. */
   readonly mode: AutomationMode;
 
-  /** How long one run may take, in seconds — which is how the field asks for it. */
-  readonly maxRuntimeSeconds: number;
+  /** How long one run may take. */
+  readonly maxRuntimeMs: number;
 
   /** Whether it is on. */
   readonly isEnabled: boolean;
@@ -204,7 +212,7 @@ export function emptyDraft(): AutomationDraft {
     name: '',
     description: '',
     mode: 'single',
-    maxRuntimeSeconds: 300,
+    maxRuntimeMs: 300_000,
     isEnabled: true,
     triggers: [],
     triggerJoins: [],
@@ -241,7 +249,7 @@ export function draftFrom(automation: AutomationView): AutomationDraft {
     name: automation.name,
     description: automation.description,
     mode: automation.mode,
-    maxRuntimeSeconds: Math.round(automation.maxRuntimeMs / 1000),
+    maxRuntimeMs: automation.maxRuntimeMs,
     isEnabled: automation.isEnabled,
     triggers: triggers.items,
     triggerJoins: triggers.joins,
@@ -651,6 +659,11 @@ export function blankTrigger(type: string): AutomationTrigger {
  */
 export function blankCondition(type: string): AutomationCondition {
   switch (type) {
+    case 'group_and':
+    case 'group_or': {
+      return { type: type === 'group_and' ? 'and' : 'or', conditions: [blankCondition('state')] };
+    }
+
     case 'numeric': {
       return { type: 'numeric', entityId: '', operator: 'gt', value: 0 };
     }
@@ -767,7 +780,13 @@ export function blankAction(type: string): AutomationAction {
     }
 
     default: {
-      return { type: 'command', entityId: '', capability: 'on_off', params: {} };
+      // A command the capability takes, so the block is one choice of entity away from valid.
+      return {
+        type: 'command',
+        entityId: '',
+        capability: 'on_off',
+        params: { command: 'turn_on' },
+      };
     }
   }
 }
@@ -972,7 +991,7 @@ export function toCreate(draft: AutomationDraft): DraftResult {
       description: draft.description.trim(),
       definition: definition.data,
       mode: draft.mode,
-      maxRuntimeMs: draft.maxRuntimeSeconds * 1000,
+      maxRuntimeMs: draft.maxRuntimeMs,
       isEnabled: draft.isEnabled,
     },
   };

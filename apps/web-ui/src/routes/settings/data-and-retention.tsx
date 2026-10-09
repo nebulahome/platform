@@ -59,6 +59,17 @@ const HISTORY_ROWS: readonly { readonly key: string; readonly label: string }[] 
 /** Every duration setting outside the telemetry ladder has the same one-day floor. */
 const HISTORY_MINIMUM_DAYS = 1;
 
+/** The browser's own zone: what "use this browser's" sets. */
+const BROWSER_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+/**
+ * Every zone the browser knows, for the house's time zone; UTC first, and the browser's own zone
+ * among them even on a browser that lists none.
+ */
+const TIME_ZONES: readonly Choice[] = [
+  ...new Set(['UTC', BROWSER_ZONE, ...Intl.supportedValuesOf('timeZone')]),
+].map((zone) => ({ value: zone, label: zone.replaceAll('_', ' ') }));
+
 /**
  * Renders the server settings page.
  *
@@ -319,6 +330,42 @@ export function DataAndRetention() {
           }
         />
 
+        <PanelRow
+          title="Time zone"
+          note={
+            <>
+              {stored.get('house.timezone')?.description ?? ''}
+              {provenance('house.timezone')}
+            </>
+          }
+          control={
+            <span className="flex flex-col items-end gap-1">
+              <SelectField
+                label="Time zone"
+                isLabelHidden
+                disabled={!canWrite}
+                value={asWord(effective.get('house.timezone'), 'UTC')}
+                options={TIME_ZONES}
+                onChange={(next) => {
+                  edit('house.timezone', next);
+                }}
+                className="w-56"
+              />
+              {canWrite && BROWSER_ZONE !== asWord(effective.get('house.timezone'), 'UTC') ? (
+                <Button
+                  variant="bare"
+                  size="compact"
+                  onClick={() => {
+                    edit('house.timezone', BROWSER_ZONE);
+                  }}
+                >
+                  Use this browser’s, {BROWSER_ZONE}
+                </Button>
+              ) : null}
+            </span>
+          }
+        />
+
         {choiceRow(
           'security.session_lifetime_hours',
           'Session lifetime',
@@ -328,12 +375,13 @@ export function DataAndRetention() {
 
         <PanelNote>
           Where the house stands is set on the house itself, under Library → Areas. The map around
-          it is drawn from that position, and solar triggers will read it from there too.
+          it is drawn from that position, and sunrise and sunset triggers are timed from it.
         </PanelNote>
         <PanelNote>
-          A saved value is recorded and audited, and takes effect once the service that owns it
-          learns to re-read it; until then retention, the log level and session lifetime follow what
-          the platform was started with.
+          A saved value is recorded and audited. The time zone and the house’s position reach the
+          automations at once; retention, the log level and session lifetime take effect once the
+          service that owns them learns to re-read them, and until then follow what the platform was
+          started with.
         </PanelNote>
       </Panel>
 

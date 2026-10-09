@@ -300,6 +300,7 @@ export function saturationGradient(hue: number): string {
 export function hasNumber(entity: Pick<EntityView, 'capabilities'>): boolean {
   const numeric: readonly CapabilityName[] = [
     'sensor_numeric',
+    'number',
     'level',
     'color_temp',
     'cover',

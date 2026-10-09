@@ -1,0 +1,412 @@
+/**
+ * The automation pages in the gallery, on sample data: the list with every kind of last run, the
+ * editor on the board's Evening lights - every lane, a group, an if/else - and the three empty
+ * states. Development only, like the rest of the gallery: the pages read a cache filled here, and
+ * never ask the API.
+ */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter, Route, Routes } from 'react-router';
+
+import {
+  entityIdSchema,
+  type AutomationRun,
+  type AutomationView,
+  type SceneView,
+} from '@nebulahome/contracts';
+
+import { LIBRARY_QUERY_KEYS } from '@/library/api';
+import { PACKAGE_QUERY_KEYS } from '@/packages/api';
+import { AliasesPage } from '@/routes/library/aliases-page';
+import { AutomationEditor } from '@/routes/library/automation-editor';
+import { AutomationsPage } from '@/routes/library/automations-page';
+import { ScenesPage } from '@/routes/library/scenes-page';
+import { anArea, anEntity } from '@/testing/fixtures';
+
+/**
+ * An address, as the format holds one.
+ *
+ * @param value - The address.
+ * @returns It, checked.
+ */
+const entity = (value: string) => entityIdSchema.parse(value);
+
+/** The editor's sample: the board's Evening lights. */
+const EVENING_ID = '00000000-0000-4000-8000-0000000000e1';
+
+/**
+ * A moment some minutes ago.
+ *
+ * @param minutes - How many.
+ * @returns The moment.
+ */
+const ago = (minutes: number): Date => new Date(Date.now() - minutes * 60_000);
+
+/**
+ * An automation of the list.
+ *
+ * @param id - Its id's last digits.
+ * @param name - Its name.
+ * @param overrides - Anything else.
+ * @returns The automation.
+ */
+function anAutomation(
+  id: string,
+  name: string,
+  overrides: Partial<AutomationView> = {},
+): AutomationView {
+  return {
+    id: `00000000-0000-4000-8000-0000000000${id}`,
+    key: name.toLowerCase().replaceAll(' ', '_'),
+    name,
+    description: '',
+    definition: {
+      triggers: { type: 'state', entityId: 'binary_sensor.lr_motion', to: 'on' },
+      then: [{ type: 'scene', sceneKey: 'evening' }],
+    },
+    definitionVersion: 1,
+    mode: 'single',
+    maxRuntimeMs: 300_000,
+    isEnabled: true,
+    lastTriggeredAt: null,
+    lastRun: null,
+    ...overrides,
+  };
+}
+
+/**
+ * A last run.
+ *
+ * @param result - How it ended.
+ * @param minutes - How long ago.
+ * @returns The run.
+ */
+function lastRun(result: AutomationRun['result'], minutes: number): AutomationView['lastRun'] {
+  return {
+    id: '00000000-0000-4000-8000-0000000000f1',
+    time: ago(minutes),
+    finishedAt: ago(minutes),
+    result,
+  };
+}
+
+/** The board's Evening lights. */
+const EVENING: AutomationView = anAutomation('e1', 'Evening lights', {
+  id: EVENING_ID,
+  description: 'Warm light in the living room when someone comes in after sunset.',
+  mode: 'restart',
+  lastRun: lastRun('success', 20),
+  definition: {
+    triggers: {
+      op: 'or',
+      items: [
+        { type: 'state', entityId: entity('binary_sensor.lr_motion'), to: 'on' },
+        { type: 'time', at: { kind: 'solar', event: 'sunset', offsetMinutes: -15 } },
+      ],
+    },
+    if: {
+      op: 'and',
+      items: [
+        { type: 'time_window', from: '16:00', to: '23:30' },
+        { op: 'not', item: { type: 'day_of_week', days: ['saturday', 'sunday'] } },
+        { type: 'area_occupancy', areaKey: 'living_room', isOccupied: true },
+        {
+          op: 'or',
+          items: [
+            { type: 'state', entityId: entity('person.anna'), state: 'on' },
+            { type: 'state', entityId: entity('person.bobby'), state: 'on' },
+          ],
+        },
+      ],
+    },
+    then: [
+      {
+        type: 'command',
+        entityId: entity('light.living_room'),
+        capability: 'level',
+        params: { command: 'set_level', level: 60, transitionMs: 2_000 },
+      },
+      { type: 'wait_duration', durationMs: 600_000 },
+      {
+        type: 'if',
+        condition: {
+          type: 'numeric',
+          entityId: entity('sensor.lr_lux'),
+          operator: 'lt',
+          value: 50,
+        },
+        then: [{ type: 'scene', sceneKey: 'evening' }],
+        else: [
+          {
+            type: 'notify',
+            channel: 'telegram',
+            message: 'Evening lights skipped: it is still bright',
+          },
+        ],
+      },
+      { type: 'stop' },
+    ],
+  },
+});
+
+/** Its runs, for the Last runs card. */
+const EVENING_RUNS: AutomationRun[] = [
+  {
+    id: '00000000-0000-4000-8000-0000000000a1',
+    automationId: EVENING_ID,
+    time: ago(20),
+    trigger: { kind: 'state', entityId: 'binary_sensor.lr_motion', from: 'off', to: 'on' },
+    result: 'success',
+    finishedAt: ago(10),
+    durationMs: 600_400,
+    trace: [
+      {
+        path: 'triggers.0',
+        kind: 'trigger',
+        type: 'state',
+        at: ago(20),
+        durationMs: 0,
+        result: 'ok',
+        entityId: 'binary_sensor.lr_motion',
+        detail: 'off → on',
+      },
+      {
+        path: 'if.0',
+        kind: 'condition',
+        type: 'time_window',
+        at: ago(20),
+        durationMs: 0,
+        result: 'true',
+        detail: 'it is 19:42',
+      },
+      {
+        path: 'then.0',
+        kind: 'action',
+        type: 'command',
+        at: ago(20),
+        durationMs: 120,
+        result: 'ok',
+        entityId: 'light.living_room',
+        detail: 'sent set_level',
+      },
+    ],
+    error: null,
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000000a2',
+    automationId: EVENING_ID,
+    time: ago(60 * 26),
+    trigger: { kind: 'time', path: 'triggers.1' },
+    result: 'condition_not_met',
+    finishedAt: ago(60 * 26),
+    durationMs: 4,
+    trace: [
+      {
+        path: 'if.2',
+        kind: 'condition',
+        type: 'area_occupancy',
+        at: ago(60 * 26),
+        durationMs: 0,
+        result: 'false',
+        detail: 'nobody is there',
+      },
+    ],
+    error: null,
+  },
+  {
+    id: '00000000-0000-4000-8000-0000000000a3',
+    automationId: EVENING_ID,
+    time: ago(60 * 50),
+    trigger: { kind: 'manual' },
+    result: 'failed',
+    finishedAt: ago(60 * 50),
+    durationMs: 5_012,
+    trace: [],
+    error: 'No reply on nebula.v1.svc.govee.command within 5000ms',
+  },
+];
+
+/** The list: one of each kind of last run, and one never run. */
+const AUTOMATIONS: AutomationView[] = [
+  EVENING,
+  anAutomation('e2', 'Bathroom fan after a shower', {
+    mode: 'restart',
+    lastRun: lastRun('success', 90),
+  }),
+  anAutomation('e3', 'Dehumidifier in the cellar', { lastRun: lastRun('failed', 300) }),
+  anAutomation('e4', 'Garden irrigation', {
+    mode: 'queued',
+    lastRun: lastRun('condition_not_met', 600),
+  }),
+  anAutomation('e5', 'Christmas lights', { isEnabled: false }),
+  anAutomation('e6', 'Doorbell on the TV', {
+    mode: 'parallel',
+    lastRun: lastRun('cancelled', 60 * 30),
+  }),
+];
+
+/** A scene the blocks name. */
+const EVENING_SCENE: SceneView = {
+  id: '00000000-0000-4000-8000-0000000000c1',
+  key: 'evening',
+  name: 'Evening',
+  icon: null,
+  areaKey: 'living_room',
+  transitionMs: 2_000,
+  rollbackOnPartialFailure: false,
+  members: [],
+};
+
+/**
+ * A cache that never goes stale, filled with the house the samples name.
+ *
+ * @param automations - The automations it lists.
+ * @returns The cache.
+ */
+function automationCache(automations: readonly AutomationView[]): QueryClient {
+  const client = new QueryClient({
+    defaultOptions: { queries: { staleTime: Infinity, retry: false } },
+  });
+
+  client.setQueryData(LIBRARY_QUERY_KEYS.automations, automations);
+  client.setQueryData([...LIBRARY_QUERY_KEYS.automations, EVENING_ID], EVENING);
+  client.setQueryData([...LIBRARY_QUERY_KEYS.automationRuns, EVENING_ID], { items: EVENING_RUNS });
+  client.setQueryData(LIBRARY_QUERY_KEYS.scenes, automations.length === 0 ? [] : [EVENING_SCENE]);
+  client.setQueryData(LIBRARY_QUERY_KEYS.aliases, []);
+  client.setQueryData(PACKAGE_QUERY_KEYS.list, []);
+  client.setQueryData(LIBRARY_QUERY_KEYS.devices, []);
+  client.setQueryData(LIBRARY_QUERY_KEYS.areas, [
+    anArea('home', 'house', null, { latitude: 41.9, longitude: 12.5 }),
+    anArea('ground_floor', 'floor', 'home'),
+    anArea('living_room', 'room', 'ground_floor', { name: 'Living room' }),
+  ]);
+  client.setQueryData(LIBRARY_QUERY_KEYS.entities, [
+    anEntity({
+      entityId: 'binary_sensor.lr_motion',
+      name: 'Living room motion',
+      deviceClass: 'motion',
+      capabilities: [{ capability: 'sensor_binary', params: {} }],
+      state: { sensor_binary: { isOn: false } },
+    }),
+    anEntity({
+      entityId: 'light.living_room',
+      name: 'Living room ceiling',
+      capabilities: [
+        { capability: 'on_off', params: {} },
+        { capability: 'level', params: { hasTransition: true } },
+      ],
+      state: { on_off: { isOn: true }, level: { level: 60 } },
+    }),
+    anEntity({
+      entityId: 'sensor.lr_lux',
+      name: 'Living room lux',
+      deviceClass: 'illuminance',
+      unitOfMeasurement: 'lx',
+      capabilities: [{ capability: 'sensor_numeric', params: {} }],
+      state: { sensor_numeric: { value: 32 } },
+    }),
+    anEntity({
+      entityId: 'person.anna',
+      name: 'Anna',
+      deviceClass: 'presence',
+      capabilities: [{ capability: 'sensor_binary', params: {} }],
+      state: { sensor_binary: { isOn: true } },
+    }),
+    anEntity({
+      entityId: 'person.bobby',
+      name: 'Bobby',
+      deviceClass: 'presence',
+      capabilities: [{ capability: 'sensor_binary', params: {} }],
+      state: { sensor_binary: { isOn: false } },
+    }),
+  ]);
+
+  return client;
+}
+
+/** The cache of the list and the editor. */
+const FULL_CACHE = automationCache(AUTOMATIONS);
+
+/** The cache of a house with nothing yet. */
+const EMPTY_CACHE = automationCache([]);
+
+/**
+ * A page of the application, framed the way the shell frames it.
+ *
+ * @param props - The page and where it is.
+ * @param props.path - The route the page answers.
+ * @param props.at - Where the router starts.
+ * @param props.cache - The cache it reads.
+ * @param props.children - The page.
+ * @returns The framed page.
+ */
+function Frame(props: {
+  readonly path: string;
+  readonly at: string;
+  readonly cache: QueryClient;
+  readonly children: React.ReactNode;
+}) {
+  const { path, at, cache, children } = props;
+
+  return (
+    <QueryClientProvider client={cache}>
+      <MemoryRouter initialEntries={[at]}>
+        {/* Wider than the gallery's column: the editor's side column wants a window's width. */}
+        <div
+          data-sample={at}
+          className="relative left-1/2 flex h-[56rem] w-[min(94vw,90rem)] shrink-0 -translate-x-1/2 overflow-hidden rounded-panel border border-border bg-canvas"
+        >
+          <Routes>
+            <Route path={path} element={children} />
+          </Routes>
+        </div>
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+}
+
+/**
+ * The automation list on sample data.
+ *
+ * @returns The page.
+ */
+export function AutomationsListSample() {
+  return (
+    <Frame path="/automations" at="/automations" cache={FULL_CACHE}>
+      <AutomationsPage />
+    </Frame>
+  );
+}
+
+/**
+ * The automation editor on the board's Evening lights.
+ *
+ * @returns The page.
+ */
+export function AutomationEditorSample() {
+  return (
+    <Frame path="/automations/:automationId" at={`/automations/${EVENING_ID}`} cache={FULL_CACHE}>
+      <AutomationEditor />
+    </Frame>
+  );
+}
+
+/**
+ * The three empty states: a house with no automations, no scenes and no aliases.
+ *
+ * @returns The pages.
+ */
+export function EmptyLibrarySample() {
+  return (
+    <div className="flex w-full flex-col gap-6">
+      <Frame path="/automations" at="/automations" cache={EMPTY_CACHE}>
+        <AutomationsPage />
+      </Frame>
+      <Frame path="/scenes" at="/scenes" cache={EMPTY_CACHE}>
+        <ScenesPage />
+      </Frame>
+      <Frame path="/aliases" at="/aliases" cache={EMPTY_CACHE}>
+        <AliasesPage />
+      </Frame>
+    </div>
+  );
+}

@@ -37,7 +37,7 @@ const AUTOMATION: AutomationView = {
         type: 'command',
         entityId: entity('light.hallway_ceiling'),
         capability: 'on_off',
-        params: {},
+        params: { command: 'turn_on' },
       },
     ],
   },
@@ -79,9 +79,9 @@ describe('AutomationRow', () => {
   it('reads the whole chain on one line', () => {
     renderRow(AUTOMATION);
 
-    expect(screen.getAllByText('15 min before sunset').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Sunset, 15 min before').length).toBeGreaterThan(0);
     expect(screen.getAllByText('1 condition').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('on_off hallway ceiling').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Hallway ceiling · turn on').length).toBeGreaterThan(0);
   });
 
   it('turns it off from its switch, which says whether it is on', () => {
@@ -116,16 +116,53 @@ describe('AutomationRow', () => {
     expect(onEdit).toHaveBeenCalledOnce();
   });
 
-  it('says a rule has never run rather than leaving the column empty', () => {
+  it('shows a dash for a rule that has never run, and says so on hover', () => {
     renderRow(AUTOMATION);
 
-    expect(screen.getAllByText('Not run yet').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+    expect(screen.getAllByTitle('Not run yet').length).toBeGreaterThan(0);
   });
 
-  it('does not offer to run one, because nothing would', () => {
+  it('says how its last run went: skipped when its checks said no, failed in red', () => {
+    renderRow({
+      ...AUTOMATION,
+      lastRun: {
+        id: '00000000-0000-4000-8000-0000000000aa',
+        time: new Date(),
+        finishedAt: new Date(),
+        result: 'condition_not_met',
+      },
+    });
+
+    expect(screen.getAllByText(/^Skipped /).length).toBeGreaterThan(0);
+  });
+
+  it('keeps the switch and the delete from somebody who may not change it', () => {
+    const onEdit = vi.fn();
+
+    render(
+      <MemoryRouter>
+        <AutomationRow
+          automation={AUTOMATION}
+          isBusy={false}
+          canWrite={false}
+          onEdit={onEdit}
+          onToggle={vi.fn()}
+          onDelete={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole('switch', { name: 'Evening lights enabled' }).hasAttribute('disabled'),
+    ).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'More for Evening lights' }));
+    expect(screen.queryByRole('menuitem', { name: 'Delete' })).toBeNull();
+  });
+
+  it('does not run one from the list: Run now is in the editor', () => {
     renderRow(AUTOMATION);
 
-    // The engine is not built. A Run button here would post to an endpoint that does not exist.
     expect(screen.queryByRole('button', { name: /run/i })).toBeNull();
   });
 

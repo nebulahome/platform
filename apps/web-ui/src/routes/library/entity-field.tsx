@@ -1,8 +1,8 @@
 /**
  * A field that holds one entity, chosen from the house by floor, room and device.
  *
- * It looks like the other fields it sits among, and shows what it holds the way the picker does:
- * the entity's tile, its name, and its room. Pressing it opens the {@link EntityPicker}. A field
+ * It looks like the other fields it sits among, and shows what it holds the way the boards do:
+ * the entity's tile, its name and its address; the room is in its title. Pressing it opens the {@link EntityPicker}. A field
  * that may be left empty says so and offers to clear itself.
  *
  * A new installation has no entities at all - nothing has been adopted yet - and a picker with
@@ -106,8 +106,6 @@ export function EntityField(props: EntityFieldProps) {
     );
   }
 
-  const room = chosen?.areaName;
-
   return (
     <FieldShell label={label} isLabelHidden={isLabelHidden} hint={hint} error={error}>
       {(ids) => (
@@ -118,7 +116,13 @@ export function EntityField(props: EntityFieldProps) {
             aria-haspopup="dialog"
             aria-describedby={ids.describedBy}
             disabled={disabled}
-            title={chosen?.entityId ?? (value === '' ? undefined : value)}
+            title={
+              chosen === undefined
+                ? value === ''
+                  ? undefined
+                  : value
+                : [chosen.name, chosen.areaName, chosen.entityId].filter(Boolean).join(' · ')
+            }
             onClick={() => {
               setPicking(true);
             }}
@@ -148,7 +152,9 @@ export function EntityField(props: EntityFieldProps) {
                 />
                 <span className="min-w-0 grow truncate">
                   <span className="text-foreground">{chosen.name}</span>
-                  {room === null ? null : <span className="text-foreground-subtle"> · {room}</span>}
+                  <span className="ml-2 font-mono text-mono-caption text-foreground-subtle">
+                    {chosen.entityId}
+                  </span>
                 </span>
               </>
             )}

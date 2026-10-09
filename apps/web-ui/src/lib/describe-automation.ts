@@ -24,6 +24,8 @@ import type {
 } from '@nebulahome/contracts';
 import { flattenTriggers, isTriggerTreeOp, migrateDefinition } from '@nebulahome/contracts';
 
+import { actionSummary, NO_NAMES, triggerSummary, type BlockNames } from '@/lib/block-summary';
+
 /** How one part of the chain reads. */
 export type AutomationSummary = {
   /** What wakes it. */
@@ -36,162 +38,26 @@ export type AutomationSummary = {
   readonly actions: string;
 };
 
-/** How the six comparisons read in a sentence. */
-const COMPARISONS: Readonly<Record<string, string>> = {
-  lt: 'below',
-  lte: 'at most',
-  gt: 'above',
-  gte: 'at least',
-  eq: 'exactly',
-  neq: 'not',
-};
-
 /**
- * The last segment of an entity address.
- *
- * `light.hallway_ceiling` is what an automation refers to and `hallway ceiling` is what a person
- * calls it. The registry holds the name somebody actually gave it; this is the fallback for a
- * summary that has the address and nothing else.
- *
- * @param entityId - The address.
- * @returns Something readable.
- */
-function readable(entityId: string): string {
-  const [, object] = entityId.split('.');
-
-  return (object ?? entityId).replaceAll('_', ' ');
-}
-
-/**
- * Says what one trigger waits for.
+ * Says what one trigger waits for, as its closed block does.
  *
  * @param trigger - The trigger.
+ * @param names - Where names come from; the addresses spelled out without.
  * @returns One phrase.
  */
-export function describeTrigger(trigger: AutomationTrigger): string {
-  switch (trigger.type) {
-    case 'state': {
-      const target = readable(trigger.entityId);
-
-      if (typeof trigger.to === 'string') {
-        return `${target} becomes ${trigger.to}`;
-      }
-
-      return `${target} changes`;
-    }
-
-    case 'numeric_state': {
-      return `${readable(trigger.entityId)} goes ${COMPARISONS[trigger.operator] ?? trigger.operator} ${String(trigger.value)}`;
-    }
-
-    case 'time': {
-      if (trigger.at.kind === 'clock') {
-        return `at ${trigger.at.time}`;
-      }
-
-      if (trigger.at.kind === 'cron') {
-        return `on a schedule`;
-      }
-
-      const { event, offsetMinutes } = trigger.at;
-
-      if (offsetMinutes === 0) {
-        return `at ${event}`;
-      }
-
-      const minutes = Math.abs(offsetMinutes);
-
-      return `${String(minutes)} min ${offsetMinutes < 0 ? 'before' : 'after'} ${event}`;
-    }
-
-    case 'event': {
-      return trigger.entityId === null || trigger.entityId === undefined
-        ? trigger.event
-        : `${trigger.event} from ${readable(trigger.entityId)}`;
-    }
-
-    default: {
-      return 'run by hand';
-    }
-  }
+export function describeTrigger(trigger: AutomationTrigger, names: BlockNames = NO_NAMES): string {
+  return triggerSummary(trigger, names);
 }
 
 /**
- * Says what one action does.
+ * Says what one action does, as its closed block does.
  *
  * @param action - The action.
+ * @param names - Where names come from; the addresses spelled out without.
  * @returns One phrase.
  */
-export function describeAction(action: AutomationAction): string {
-  switch (action.type) {
-    case 'command': {
-      return `${action.capability} ${readable(action.entityId)}`;
-    }
-
-    case 'scene': {
-      return `apply ${action.sceneKey.replaceAll('_', ' ')}`;
-    }
-
-    case 'automation': {
-      return `run ${action.automationKey.replaceAll('_', ' ')}`;
-    }
-
-    case 'wait_duration': {
-      return `wait ${String(Math.round(action.durationMs / 1000))}s`;
-    }
-
-    case 'wait_for': {
-      return 'wait for a condition';
-    }
-
-    case 'wait_for_trigger': {
-      return 'wait for a trigger';
-    }
-
-    case 'notify': {
-      return `notify ${action.channel}`;
-    }
-
-    case 'package_service': {
-      return `${action.packageId} · ${action.service}`;
-    }
-
-    case 'parallel': {
-      return `${String(action.actions.length)} in parallel`;
-    }
-
-    case 'sequence': {
-      return `${String(action.actions.length)} in sequence`;
-    }
-
-    case 'switch': {
-      return `switch ${readable(action.entityId)}`;
-    }
-
-    case 'while': {
-      return 'while';
-    }
-
-    case 'do_while': {
-      return 'do while';
-    }
-
-    case 'if': {
-      return 'if / else';
-    }
-
-    case 'for': {
-      return action.over.kind === 'count' ? `repeat ${String(action.over.count)}×` : 'for each';
-    }
-
-    case 'stop': {
-      return 'stop';
-    }
-
-    default: {
-      return 'action';
-    }
-  }
+export function describeAction(action: AutomationAction, names: BlockNames = NO_NAMES): string {
+  return actionSummary(action, names);
 }
 
 /**
@@ -240,9 +106,10 @@ function countIfChecks(tree: BooleanTree | undefined): number {
  * Describes the trigger side of a tree.
  *
  * @param tree - The trigger tree.
+ * @param names - Where names come from.
  * @returns One phrase, with a "+N" when there are more leaves.
  */
-function describeTriggerTree(tree: TriggerTree): string {
+function describeTriggerTree(tree: TriggerTree, names: BlockNames): string {
   const leaves = isTriggerTreeOp(tree) ? flattenTriggers(tree) : [tree];
   const [first] = leaves;
 
@@ -252,7 +119,9 @@ function describeTriggerTree(tree: TriggerTree): string {
 
   const extra = leaves.length - 1;
 
-  return extra > 0 ? `${describeTrigger(first)} +${String(extra)}` : describeTrigger(first);
+  return extra > 0
+    ? `${describeTrigger(first, names)} +${String(extra)}`
+    : describeTrigger(first, names);
 }
 
 /**
@@ -260,10 +129,14 @@ function describeTriggerTree(tree: TriggerTree): string {
  *
  * @param definition - The stored document (`{ triggers, if, then }`, or a legacy shape already
  *   normalised by the caller).
+ * @param names - Where names come from.
  * @returns The three phrases the list shows.
  */
-export function describeAutomation(definition: AutomationDefinition): AutomationSummary {
-  const trigger = describeTriggerTree(definition.triggers);
+export function describeAutomation(
+  definition: AutomationDefinition,
+  names: BlockNames = NO_NAMES,
+): AutomationSummary {
+  const trigger = describeTriggerTree(definition.triggers, names);
 
   const checks = countIfChecks(definition.if);
 
@@ -275,8 +148,8 @@ export function describeAutomation(definition: AutomationDefinition): Automation
     firstAction === undefined
       ? 'no actions'
       : extraActions > 0
-        ? `${describeAction(firstAction)} +${String(extraActions)}`
-        : describeAction(firstAction);
+        ? `${describeAction(firstAction, names)} +${String(extraActions)}`
+        : describeAction(firstAction, names);
 
   return {
     trigger,
@@ -289,9 +162,13 @@ export function describeAutomation(definition: AutomationDefinition): Automation
  * Reads the stored document, or gives up on it.
  *
  * @param definition - Whatever the column held.
+ * @param names - Where names come from.
  * @returns The summary, or null when the document is not one this build can read.
  */
-export function summaryOf(definition: unknown): AutomationSummary | null {
+export function summaryOf(
+  definition: unknown,
+  names: BlockNames = NO_NAMES,
+): AutomationSummary | null {
   // Legacy rows may still hold `{ triggers: [...], conditions, actions }`; the schema's own
   // migration lifts them, so the list reads them exactly as a save would.
   const document: unknown = migrateDefinition(definition);
@@ -312,11 +189,14 @@ export function summaryOf(definition: unknown): AutomationSummary | null {
 
   // Not parsed: a leaf this build does not know still reads as its kind, rather than the whole
   // row reading as nothing.
-  return describeAutomation({
-    triggers: triggers as AutomationDefinition['triggers'],
-    if: ifTree as AutomationDefinition['if'],
-    then: then as AutomationDefinition['then'],
-  });
+  return describeAutomation(
+    {
+      triggers: triggers as AutomationDefinition['triggers'],
+      if: ifTree as AutomationDefinition['if'],
+      then: then as AutomationDefinition['then'],
+    },
+    names,
+  );
 }
 
 /**

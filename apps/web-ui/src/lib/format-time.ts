@@ -162,3 +162,35 @@ export function durationText(ms: number): string {
 
   return `${String(rest)} min`;
 }
+
+/**
+ * Names the moment a run happened, as briefly as the list can: the time today, "yesterday", the
+ * weekday within the week, the date before that.
+ *
+ * @param when - The moment.
+ * @param now - What "today" is measured against.
+ * @returns `08:14`, `yesterday`, `Monday`, `3 Sep`.
+ */
+export function runMoment(when: Date, now: Date = new Date()): string {
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const day = 86_400_000;
+
+  if (when.getTime() >= startOfToday) {
+    return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(when);
+  }
+
+  if (when.getTime() >= startOfToday - day) {
+    return 'yesterday';
+  }
+
+  // In English, as the words around it are: "Ran Monday", not half in the browser's language.
+  if (when.getTime() >= startOfToday - 6 * day) {
+    return new Intl.DateTimeFormat('en', { weekday: 'long' }).format(when);
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    ...(when.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' }),
+  }).format(when);
+}

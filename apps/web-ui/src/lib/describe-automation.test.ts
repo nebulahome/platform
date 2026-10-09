@@ -30,30 +30,44 @@ import {
 const entity = (value: string) => entityIdSchema.parse(value);
 
 describe('describeTrigger', () => {
-  it('reads an entity by its object rather than its address', () => {
+  it('reads an entity by its object rather than its address, when it has no name', () => {
     expect(
       describeTrigger({
         type: 'state',
         entityId: entity('binary_sensor.hallway_motion'),
         to: 'on',
       }),
-    ).toBe('hallway motion becomes on');
+    ).toBe('Hallway motion turns on');
+  });
+
+  it('uses the name the house gives it', () => {
+    expect(
+      describeTrigger(
+        {
+          type: 'state',
+          entityId: entity('binary_sensor.hallway_motion'),
+          to: 'on',
+          forMs: 120_000,
+        },
+        { entity: () => 'Front hall motion' },
+      ),
+    ).toBe('Front hall motion turns on for 2 min');
   });
 
   it('says a state changed when no destination is named', () => {
     expect(describeTrigger({ type: 'state', entityId: entity('light.kitchen_ceiling') })).toBe(
-      'kitchen ceiling changes',
+      'Kitchen ceiling changes',
     );
   });
 
   it('keeps a solar offset, which is the whole point of having one', () => {
     expect(
       describeTrigger({ type: 'time', at: { kind: 'solar', event: 'sunset', offsetMinutes: -30 } }),
-    ).toBe('30 min before sunset');
+    ).toBe('Sunset, 30 min before');
 
     expect(
       describeTrigger({ type: 'time', at: { kind: 'solar', event: 'sunrise', offsetMinutes: 0 } }),
-    ).toBe('at sunrise');
+    ).toBe('Sunrise');
   });
 
   it('turns a comparison into a word', () => {
@@ -64,24 +78,24 @@ describe('describeTrigger', () => {
         operator: 'gt',
         value: 22,
       }),
-    ).toBe('kitchen temperature goes above 22');
+    ).toBe('Kitchen temperature rises above 22');
   });
 });
 
 describe('describeAction', () => {
-  it('names the capability and the thing', () => {
+  it('names the thing and what it is told', () => {
     expect(
       describeAction({
         type: 'command',
         entityId: entity('light.hallway_ceiling'),
-        capability: 'on_off',
-        params: {},
+        capability: 'level',
+        params: { command: 'set_level', level: 60, transitionMs: 2_000 },
       }),
-    ).toBe('on_off hallway ceiling');
+    ).toBe('Hallway ceiling · level 60% over 2 s');
   });
 
-  it('reads a wait in seconds, because milliseconds are not how people say it', () => {
-    expect(describeAction({ type: 'wait_duration', durationMs: 90_000 })).toBe('wait 90s');
+  it('reads a wait the way people say one, not in milliseconds', () => {
+    expect(describeAction({ type: 'wait_duration', durationMs: 90_000 })).toBe('1 min 30 s');
   });
 
   it('counts what a parallel block holds', () => {
@@ -93,7 +107,7 @@ describe('describeAction', () => {
           { type: 'notify', channel: 'push', message: 'done' },
         ],
       }),
-    ).toBe('2 in parallel');
+    ).toBe('2 branches side by side');
   });
 });
 
@@ -161,7 +175,7 @@ describe('describeAutomation', () => {
         type: 'command',
         entityId: entity('light.hallway_ceiling'),
         capability: 'on_off',
-        params: {},
+        params: { command: 'turn_on' },
       },
       { type: 'wait_duration', durationMs: 5_000 },
     ],
@@ -172,8 +186,8 @@ describe('describeAutomation', () => {
 
     // The count matters more than the detail: somebody deciding whether to open a rule needs to
     // know there is more of it, and "+2" is that in two characters.
-    expect(summary.trigger).toBe('hallway motion becomes on +2');
-    expect(summary.actions).toBe('on_off hallway ceiling +1');
+    expect(summary.trigger).toBe('Hallway motion turns on +2');
+    expect(summary.actions).toBe('Hallway ceiling · turn on +1');
     expect(summary.conditions).toBe('2 conditions');
   });
 

@@ -1,29 +1,31 @@
 /**
- * Every rule the house follows.
+ * Every rule the house follows (board N-Automations).
  *
- * Search and filter sit in the header the way they do on aliases. Turning one on or off and
- * deleting one both go to the API from the row; Edit opens the editor. Creating one goes to
- * `/automations/new`.
+ * A table sorted by Name or Last run, a page at a time, the page and its size in the address
+ * beside the search and the filter. Turning one on or off writes from the row; deleting one asks
+ * first. The last run of each comes with the list, and the live channel keeps it current as runs
+ * start and end.
  *
- * **Nothing runs these yet.** The engine is ARCHITECTURE.md §6.1 and is not built, so an
- * automation saved here waits rather than fires. The page says so once, in a banner at the top,
- * rather than on every row: it is a fact about the platform, not about any one rule.
- *
- * As the board draws it: a table sorted by Name or Last run, a page at a time, the page and its
- * size in the address beside the search and the filter.
+ * A house with no automations yet is shown what one is for and where to start, in the middle of
+ * the page.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { AppIcon, Button, Note, TableFooter } from '@nebulahome/ui';
+import type { AutomationView } from '@nebulahome/contracts';
+import { AppIcon, Button, EmptyState, Modal, TableFooter } from '@nebulahome/ui';
 
+import { useSession } from '@/auth/session-store';
 import { SortHeader } from '@/components/sort-header';
+import type { BlockNames } from '@/lib/block-summary';
+import { DOCS_LINKS } from '@/lib/docs-links';
 import { useListState } from '@/lib/use-list-state';
 import { usePaging } from '@/lib/use-paging';
 import {
   deleteAutomation,
   fetchAutomations,
+  fetchScenes,
   LIBRARY_QUERY_KEYS,
   updateAutomation,
 } from '@/library/api';
@@ -35,6 +37,7 @@ import {
 } from '@/library/automation-filters';
 import { AutomationFilterButton } from '@/routes/library/automation-filter';
 import { AUTOMATION_COLUMNS, AutomationRow } from '@/routes/library/automation-row';
+import { useEntityDirectory } from '@/routes/library/entity-picker/use-entity-directory';
 import { LibraryPage } from '@/routes/library/library-page';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
@@ -47,7 +50,10 @@ import { SearchField } from '@/routes/library/search-field';
 export function AutomationsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const can = useSession((state) => state.can);
+  const canWrite = can('automation:write');
   const [filter, setFilter] = useListState(AUTOMATION_FILTER_CODEC);
+  const [deleting, setDeleting] = useState<AutomationView | null>(null);
 
   // Which row is writing, rather than a single flag: two rows toggled quickly must each show
   // their own progress, and a shared boolean would put the spinner on both.
@@ -64,6 +70,50 @@ export function AutomationsPage() {
      */
     queryFn: async ({ signal }: { signal: AbortSignal }) => fetchAutomations(signal),
   });
+  const scenes = useQuery({
+    queryKey: LIBRARY_QUERY_KEYS.scenes,
+    /**
+     * Reads the scenes, to name them in the chains.
+     *
+     * @param context - The query's abort signal.
+     * @param context.signal - Cancels the request.
+     * @returns The scenes.
+     */
+    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchScenes(signal),
+  });
+  const directory = useEntityDirectory(false);
+
+  const names = useMemo<BlockNames>(() => {
+    const entityNames = new Map(
+      directory.entities.map((entity) => [String(entity.entityId), entity.name]),
+    );
+    const sceneNames = new Map((scenes.data ?? []).map((scene) => [scene.key, scene.name]));
+    const automationNames = new Map((automations.data ?? []).map((one) => [one.key, one.name]));
+
+    return {
+      /**
+       * An entity's name.
+       *
+       * @param entityId - The address.
+       * @returns Its name, or undefined.
+       */
+      entity: (entityId) => entityNames.get(entityId),
+      /**
+       * A scene's name.
+       *
+       * @param sceneKey - The key.
+       * @returns Its name, or undefined.
+       */
+      scene: (sceneKey) => sceneNames.get(sceneKey),
+      /**
+       * An automation's name.
+       *
+       * @param automationKey - The key.
+       * @returns Its name, or undefined.
+       */
+      automation: (automationKey) => automationNames.get(automationKey),
+    };
+  }, [automations.data, directory.entities, scenes.data]);
 
   const write = useMutation({
     /**
@@ -82,9 +132,10 @@ export function AutomationsPage() {
     /** Clears the row's spinner and reads the collection back, whether it worked or not. */
     onSettled: async () => {
       setBusyId(null);
+      setDeleting(null);
 
       // Refetched rather than patched in place. The server answers with the row as it now
-      // stands, and `updatedAt` and anything a future engine touches are its to decide.
+      // stands, and what the engine touches - its last run - is the engine's to decide.
       await queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.automations });
     },
   });
@@ -107,13 +158,23 @@ export function AutomationsPage() {
       const byName = left.name.localeCompare(right.name);
       const order =
         paging.sort === 'run'
-          ? (right.lastTriggeredAt?.getTime() ?? 0) - (left.lastTriggeredAt?.getTime() ?? 0) ||
-            byName
+          ? (right.lastRun?.time.getTime() ?? 0) - (left.lastRun?.time.getTime() ?? 0) || byName
           : byName;
 
       return paging.direction === 'asc' ? order : -order;
     }),
   );
+
+  const newButton = canWrite ? (
+    <Button
+      onClick={() => {
+        void navigate('/automations/new');
+      }}
+    >
+      <AppIcon id="plus" size={15} />
+      New automation
+    </Button>
+  ) : undefined;
 
   return (
     <LibraryPage
@@ -125,7 +186,7 @@ export function AutomationsPage() {
       tools={
         <>
           <SearchField
-            placeholder="Search automations…"
+            placeholder="Search"
             value={filter.search}
             onChange={(search) => {
               setFilter({ ...filter, search });
@@ -134,27 +195,21 @@ export function AutomationsPage() {
           <AutomationFilterButton filter={filter} onChange={setFilter} />
         </>
       }
-      action={
-        <Button
-          onClick={() => {
-            void navigate('/automations/new');
-          }}
-        >
-          <AppIcon id="plus" size={15} />
-          New automation
-        </Button>
-      }
+      action={newButton}
       isPending={automations.isPending}
       error={automations.error ?? write.error}
       isEmpty={items.length === 0}
-      emptyMessage="No automations yet. Press New automation to write the first one."
+      empty={
+        <EmptyState
+          icon={<AppIcon id="zap" size={28} />}
+          title="Create your first automation"
+          description="An automation lets the house act on its own: choose what wakes it, the checks it makes first, and the steps it then takes - lights at sunset, the heating off when a window opens."
+          action={newButton}
+          learnMoreHref={DOCS_LINKS.automations}
+        />
+      }
     >
-      <Note tone="warning">
-        <span className="font-medium">Nothing runs these yet.</span> The automation engine is not
-        built: an automation saved here waits rather than fires.
-      </Note>
-
-      <div className="overflow-hidden rounded-card border border-border bg-surface">
+      <div className="overflow-hidden rounded-panel border border-border bg-surface">
         <div
           className={`${AUTOMATION_COLUMNS} border-b border-border px-5 py-3 font-mono text-label text-foreground-subtle uppercase`}
         >
@@ -200,6 +255,8 @@ export function AutomationsPage() {
               <AutomationRow
                 key={automation.id}
                 automation={automation}
+                names={names}
+                canWrite={canWrite}
                 isBusy={busyId === automation.id}
                 onEdit={() => {
                   void navigate(`/automations/${automation.id}`);
@@ -208,7 +265,7 @@ export function AutomationsPage() {
                   apply({ kind: 'toggle', id: automation.id, isEnabled });
                 }}
                 onDelete={() => {
-                  apply({ kind: 'delete', id: automation.id });
+                  setDeleting(automation);
                 }}
               />
             ))}
@@ -223,6 +280,41 @@ export function AutomationsPage() {
           onSize={paging.setSize}
         />
       </div>
+
+      <Modal
+        isOpen={deleting !== null}
+        size="small"
+        title={`Delete ${deleting?.name ?? 'this automation'}?`}
+        description="It stops running at once. Its past runs stay in the history until they expire."
+        onClose={() => {
+          setDeleting(null);
+        }}
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setDeleting(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              isBusy={write.isPending}
+              onClick={() => {
+                if (deleting !== null) {
+                  apply({ kind: 'delete', id: deleting.id });
+                }
+              }}
+            >
+              Delete
+            </Button>
+          </>
+        }
+      >
+        {null}
+      </Modal>
     </LibraryPage>
   );
 }
