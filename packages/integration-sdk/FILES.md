@@ -175,6 +175,21 @@ _Pairing_ sensor says `enabled` and carries when pairing closes as `endsAt`, whi
 page counts down. Every report carries all of them, and one whose source names nothing is left
 out, so an attribute that stopped being said is gone rather than stale.
 
+A command's request carries values out of the command as **references** -
+`{ "$": "command.level" }`. A device that counts in other units says so (since 1.7): `scale`
+multiplies a number, `decimals` rounds it, `min` and `max` clamp it, in that order, and
+`"optional": true` leaves the key out of the request when the command does not carry the value,
+instead of sending `null`. That is how a fade reaches a Shelly dimmer, which takes seconds:
+`"transition_duration": { "$": "command.transitionMs", "scale": 0.001, "decimals": 1,
+"optional": true }`. A reference is still a path and nothing more; anything it does not name is a
+literal.
+
+A light that can **fade** says so on each capability that can: `"on_off": { "hasTransition":
+true }`, and the same on `level`, `color_hs` and `color_temp` (since 1.7 for all but `level`). The
+platform drops `transitionMs` from a command to a capability that does not say so, and the editor
+offers no Transition field for it, so a lamp that changes at once is never promised a fade. A
+device added before its driver said so keeps what it was added with until it is added again.
+
 ### Firmware updates
 
 A driver whose devices say which firmware they run and what is on offer exposes one entity of domain

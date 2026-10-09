@@ -199,10 +199,8 @@ type EntityStateClass = (typeof ENTITY_STATE_CLASSES)[number];
  */
 declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   number: "number";
-  custom: "custom";
-  image: "image";
-  level: "level";
   on_off: "on_off";
+  level: "level";
   color_hs: "color_hs";
   color_temp: "color_temp";
   cover: "cover";
@@ -218,6 +216,8 @@ declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   lawn_mower: "lawn_mower";
   select: "select";
   vacuum: "vacuum";
+  image: "image";
+  custom: "custom";
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
 type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
@@ -698,8 +698,8 @@ declare const integrationInstallSchema: z.ZodObject<{
   build: z.ZodString;
   version: z.ZodString;
   source: z.ZodEnum<{
-    index: "index";
     local: "local";
+    index: "index";
   }>;
   artifactSha256: z.ZodString;
   installedAt: z.ZodISODateTime;
@@ -1614,11 +1614,11 @@ declare const vendorManifestSchema: z.ZodObject<{
   transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
     module: z.ZodString;
     wires: z.ZodArray<z.ZodEnum<{
+      udp: "udp";
       http: "http";
       mqtt: "mqtt";
       ble: "ble";
       zigbee: "zigbee";
-      udp: "udp";
       modbus: "modbus";
     }>>;
   }, z.core.$strict>]>>>;
@@ -1739,8 +1739,17 @@ type BundleManifest = z.output<typeof bundleManifestSchema>;
  * annotation for the same reason `jsonValueSchema` is: TypeScript cannot infer the type of a
  * schema that refers to itself.
  */
-type TemplateValue = string | number | boolean | null | TemplateValue[] | {
+type TemplateValue = string | number | boolean | null | TemplateReference | TemplateValue[] | {
   readonly [key: string]: TemplateValue;
+};
+/** A path into the command, with what to do to what it names; see `templateReferenceSchema`. */
+type TemplateReference = {
+  readonly $: string;
+  readonly scale?: number | undefined;
+  readonly decimals?: number | undefined;
+  readonly min?: number | undefined;
+  readonly max?: number | undefined;
+  readonly optional?: boolean | undefined;
 };
 //#endregion
 //#region ../package-runtime/dist/discovery.d.ts
