@@ -1,4 +1,4 @@
-import { C as CapabilityName, S as JsonObject, _ as ReportedState, a as LoadedListenSource, b as TransportSubscription, c as SightingIdentity, d as ManagedUdpSocketOptions, f as PlatformServices, g as Integration, h as DeviceDescriptor, i as LoadedDiscovery, m as Claim, n as LoadedAccount, o as LoadedVendor, p as UdpPeer, r as LoadedBundle, s as Association, t as BundleFailure, u as BundleSdk, v as Discovered, w as CapabilityState, x as EntityId, y as TransportRequest } from "./chunks/node-index.js";
+import { C as TransportSubscription, D as CapabilityState, E as CapabilityName, S as TransportRequest, T as JsonObject, _ as Claim, a as LoadedListenSource, b as ReportedState, c as SightingIdentity, d as ManagedSocketClose, f as ManagedSocketHeaders, g as UdpPeer, h as PlatformServices, i as LoadedDiscovery, m as ManagedUdpSocketOptions, n as LoadedAccount, o as LoadedVendor, p as ManagedSocketOptions, r as LoadedBundle, s as Association, t as BundleFailure, u as BundleSdk, v as DeviceDescriptor, w as EntityId, x as Discovered, y as Integration } from "./chunks/node-index.js";
 //#region src/testing/fake-sdk.d.ts
 /** The levels a bundle may log at. */
 type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
@@ -32,11 +32,48 @@ type FakeUdpSocket = {
    */
   deliver: (message: Buffer | string, from?: UdpPeer) => void;
 };
+/** Since 1.8: a WebSocket a bundle opened through the fake SDK. */
+type FakeWebSocket = {
+  /** What it was opened with: the URL, the headers, the ping, the callbacks. */
+  readonly options: ManagedSocketOptions;
+  readonly url: string;
+  /** The headers of the last opening: a function's answer, once `open` has called it. */
+  readonly headers: ManagedSocketHeaders | undefined;
+  /** What the bundle sent through it, in order, across every connection. */
+  readonly sent: readonly string[];
+  /** The reasons the bundle reset it for, in order. */
+  readonly resets: readonly string[];
+  /** Whether a frame can be sent now. */
+  readonly isOpen: boolean;
+  /** Whether the bundle, or the release, closed it for good. */
+  readonly isClosed: boolean;
+  /**
+   * Opens it - or opens it again after a drop or a reset, as the hub's reconnection would: reads
+   * the headers, a function's answer awaited, then calls `onOpen`.
+   *
+   * @throws {Error} When it is open already, or closed for good.
+   */
+  open: () => Promise<void>;
+  /**
+   * Hands the bundle a text frame, as if it arrived.
+   *
+   * @throws {Error} When it is not open.
+   */
+  deliver: (text: string) => void;
+  /**
+   * Ends the connection - or refuses an attempt to make one - as the network or the server
+   * would, and tells the bundle: `drop('connection not accepted (HTTP 401 Unauthorized)',
+   * { code: 1006, status: 401 })` is a handshake the server turned down.
+   *
+   * @throws {Error} When it is closed for good.
+   */
+  drop: (reason: string, details?: ManagedSocketClose) => void;
+};
 /** What a test builds a fake SDK with. */
 type FakeSdkOptions = {
   /** What the platform runs that the bundle may use: no broker when not said. */
   readonly platform?: PlatformServices;
-  /** Pieces of the SDK the test supplies itself: `openMqtt`, `openWebSocket`, `codecs`… */
+  /** Pieces of the SDK the test supplies itself: `openMqtt`, `openRtsp`, `codecs`… */
   readonly overrides?: Partial<Omit<BundleSdk, 'version' | 'z'>>;
 };
 /** A fake SDK, and what the bundle did with it. */
@@ -46,6 +83,8 @@ type FakeSdk = {
   readonly logs: readonly LogRecord[];
   /** The UDP sockets the bundle opened, in order. */
   readonly udpSockets: readonly FakeUdpSocket[];
+  /** Since 1.8: the WebSockets the bundle opened, in order; none is open until the test opens it. */
+  readonly webSockets: readonly FakeWebSocket[];
   /**
    * Closes every socket the bundle left open, as the hub does when it lets go of a vendor.
    *
@@ -225,4 +264,4 @@ export declare class IntegrationError extends Error {
   constructor(problems: readonly string[]);
 }
 //#endregion
-export type { Association, BundleFailure, DriverHarness, DriverHarnessOptions, FakeSdk, FakeSdkOptions, FakeUdpSocket, HarnessDevice, Identification, LoadIntegrationOptions, LoadedAccount, LoadedBundle, LoadedDiscovery, LoadedIntegration, LoadedListenSource, LoadedVendor, LogLevel, LogRecord, SentDatagram, SightingIdentity };
+export type { Association, BundleFailure, DriverHarness, DriverHarnessOptions, FakeSdk, FakeSdkOptions, FakeUdpSocket, FakeWebSocket, HarnessDevice, Identification, LoadIntegrationOptions, LoadedAccount, LoadedBundle, LoadedDiscovery, LoadedIntegration, LoadedListenSource, LoadedVendor, LogLevel, LogRecord, SentDatagram, SightingIdentity };

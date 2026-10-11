@@ -14,6 +14,7 @@ export {
   type FakeSdk,
   type FakeSdkOptions,
   type FakeUdpSocket,
+  type FakeWebSocket,
   type LogLevel,
   type LogRecord,
   type SentDatagram,

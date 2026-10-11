@@ -571,6 +571,13 @@ import them:
 | `images.png`         | since 1.5: encodes a picture of a palette as a PNG, for an image entity            |
 | `logger`             | the hub's logger, for what happens outside a connection                            |
 
+Since 1.8 `openWebSocket` also takes `headers` - sent on every handshake and never logged, or a
+function called before each attempt, for a token that expires - `ping: { everyMs, timeoutMs }`,
+which drops and reopens a socket whose peer stopped answering, and `tls: { rejectUnauthorized }`;
+and `onClose` is told the close code and, for a handshake the server refused, its HTTP `status`,
+so a vendor whose credentials are turned down can close the socket and ask for a new sign-in
+rather than retry for ever.
+
 The transport it returns is the one the platform's `http` and `mqtt` are:
 `connectionKey`, `connect`, `scan`, `probe`, and a `configSchema` for what the driver's
 `setup.json` asks. Since 1.5 `scan` and `probe` take a last argument, `{ account }`: the account

@@ -31,6 +31,8 @@ export type {
   ManagedMqtt,
   ManagedMqttOptions,
   ManagedSocket,
+  ManagedSocketClose,
+  ManagedSocketHeaders,
   ManagedSocketOptions,
   ManagedUdpSocket,
   ManagedUdpSocketOptions,

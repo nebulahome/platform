@@ -1,4 +1,4 @@
-import { S as JsonObject, l as TemplateValue } from "./chunks/node-index.js";
+import { T as JsonObject, l as TemplateValue } from "./chunks/node-index.js";
 import { z } from "zod";
 //#region src/schemas.d.ts
 /** Each file's schema, by the name its JSON Schema is written under. */

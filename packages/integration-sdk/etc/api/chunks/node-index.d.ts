@@ -1172,17 +1172,56 @@ type BundleLogger = {
    */
   child: (fields: Record<string, unknown>) => BundleLogger;
 };
+/** Since 1.8: HTTP headers for a WebSocket's opening handshake. */
+type ManagedSocketHeaders = Readonly<Record<string, string>>;
+/** Since 1.8: what a drop says beyond its reason. */
+type ManagedSocketClose = {
+  /** The WebSocket close code: the peer's, or 1006 for a socket that ended without one. */
+  readonly code?: number;
+  /**
+   * The HTTP status of a handshake the server refused - 401, 403 - so that credentials it turned
+   * down can be told from a network that failed. Absent for any other drop.
+   */
+  readonly status?: number;
+};
 /** What opening a managed WebSocket takes. */
 type ManagedSocketOptions = {
   /** `ws://host/path` or `wss://…`. */
   readonly url: string;
+  /**
+   * Since 1.8: headers sent on the opening handshake, the first and every reconnect's, for a
+   * server that authenticates the socket by them. Never logged. A function is called before each
+   * attempt and may answer with a promise - for a token that expires; one that throws fails that
+   * attempt as a refused connection would, and the next comes on the usual schedule.
+   */
+  readonly headers?: ManagedSocketHeaders | (() => ManagedSocketHeaders | Promise<ManagedSocketHeaders>);
+  /**
+   * Since 1.8: a ping every `everyMs`, and the socket dropped - then reconnected - when no pong
+   * comes within `timeoutMs`. For a peer that may say nothing for hours, whose silence would
+   * otherwise hide a dead connection. Off unless said.
+   */
+  readonly ping?: {
+    readonly everyMs: number;
+    readonly timeoutMs: number;
+  };
+  /**
+   * Since 1.8: TLS for a `wss://` server: whether its certificate must chain to an authority
+   * this machine trusts (on unless said).
+   */
+  readonly tls?: {
+    readonly rejectUnauthorized?: boolean;
+  };
   readonly logger: BundleLogger;
   /** Called after every connection, the first and each one after a drop. */
   readonly onOpen: () => void;
   /** Called with each text frame. */
   readonly onMessage: (text: string) => void;
-  /** Called when the socket dropped or failed to connect; the helper reconnects by itself. */
-  readonly onClose: (reason: string) => void;
+  /**
+   * Called when the socket dropped or failed to connect; the helper reconnects by itself unless
+   * the socket is closed here. Since 1.8 the hub also says the close code and, for a handshake
+   * the server refused, its HTTP status.
+   */
+  readonly onClose: (reason: string, details?: ManagedSocketClose) => void;
   /**
    * How to come back after a drop: doubling from `minMs` (1 s) to `maxMs` (30 s), reset by a
    * connection that opens. `false` is one attempt and no more, for a probe or a scan.
@@ -2004,4 +2043,4 @@ type BundleFailure = {
   readonly vendorId?: string;
 };
 //#endregion
-export { CapabilityName as C, JsonObject as S, ReportedState as _, LoadedListenSource as a, TransportSubscription as b, SightingIdentity as c, ManagedUdpSocketOptions as d, PlatformServices as f, Integration as g, DeviceDescriptor as h, LoadedDiscovery as i, TemplateValue as l, Claim as m, LoadedAccount as n, LoadedVendor as o, UdpPeer as p, LoadedBundle as r, Association as s, BundleFailure as t, BundleSdk as u, Discovered as v, CapabilityState as w, EntityId as x, TransportRequest as y };
+export { TransportSubscription as C, CapabilityState as D, CapabilityName as E, TransportRequest as S, JsonObject as T, Claim as _, LoadedListenSource as a, ReportedState as b, SightingIdentity as c, ManagedSocketClose as d, ManagedSocketHeaders as f, UdpPeer as g, PlatformServices as h, LoadedDiscovery as i, TemplateValue as l, ManagedUdpSocketOptions as m, LoadedAccount as n, LoadedVendor as o, ManagedSocketOptions as p, LoadedBundle as r, Association as s, BundleFailure as t, BundleSdk as u, DeviceDescriptor as v, EntityId as w, Discovered as x, Integration as y };

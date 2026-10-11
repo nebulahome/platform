@@ -14,9 +14,16 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildIntegration } from '../src/build.js';
 import { checkIntegration } from '../src/check.js';
 import { run } from '../src/cli/index.js';
+import type { ManagedSocket, ManagedSocketOptions } from '../src/index.js';
 import { packIntegration } from '../src/pack.js';
 import { IntegrationError } from '../src/project.js';
-import { createFakeSdk, driverHarness, identify, loadIntegration } from '../src/testing/index.js';
+import {
+  createFakeSdk,
+  driverHarness,
+  identify,
+  loadIntegration,
+  type FakeSdk,
+} from '../src/testing/index.js';
 import { SDK_VERSION } from '../src/version.js';
 
 const FIXTURE = fileURLToPath(new URL('fixture', import.meta.url));
@@ -296,5 +303,141 @@ describe('testing', () => {
     expect(() =>
       sdk.openMqtt({ url: 'mqtt://x', logger: sdk.logger, onMessage: () => undefined }),
     ).toThrow(/openMqtt is not faked/u);
+  });
+});
+
+describe('fake WebSockets', () => {
+  /** What a bundle's callbacks heard. */
+  type Heard = { opens: number; messages: string[]; closes: [string, unknown][] };
+
+  /**
+   * Opens a WebSocket through a fake SDK, as a bundle would, recording what it hears.
+   *
+   * @param headers - The headers it opens with.
+   * @returns The fake SDK, what the bundle holds, and what it heard.
+   */
+  function openThroughFake(headers?: ManagedSocketOptions['headers']): {
+    fake: FakeSdk;
+    socket: ManagedSocket;
+    heard: Heard;
+  } {
+    const fake = createFakeSdk();
+    const heard: Heard = { opens: 0, messages: [], closes: [] };
+    const socket = fake.sdk.openWebSocket({
+      url: 'wss://cloud.example/ws',
+      ...(headers === undefined ? {} : { headers }),
+      logger: fake.sdk.logger,
+      onOpen: () => {
+        heard.opens += 1;
+      },
+      onMessage: (text) => {
+        heard.messages.push(text);
+      },
+      onClose: (reason, details) => {
+        heard.closes.push([reason, details]);
+      },
+    });
+
+    return { fake, socket, heard };
+  }
+
+  it('opens when the test says, carries frames both ways and keeps what was sent', async () => {
+    const { fake, socket, heard } = openThroughFake({ username: 'access-id' });
+    const [ws] = fake.webSockets;
+
+    expect(ws?.url).toBe('wss://cloud.example/ws');
+    expect(socket.isOpen).toBe(false);
+    expect(() => {
+      socket.send('too soon');
+    }).toThrow(/not open/u);
+
+    await ws?.open();
+    ws?.deliver('{"messageId":"m1"}');
+    socket.send('{"messageId":"m1"}');
+
+    expect(ws?.headers).toEqual({ username: 'access-id' });
+    expect(heard).toEqual({ opens: 1, messages: ['{"messageId":"m1"}'], closes: [] });
+    expect(ws?.sent).toEqual(['{"messageId":"m1"}']);
+  });
+
+  it('drops and opens again, asking a header function each time', async () => {
+    let calls = 0;
+    const { fake, heard } = openThroughFake(async () => {
+      calls += 1;
+
+      return Promise.resolve({ authorization: `Bearer ${String(calls)}` });
+    });
+    const [ws] = fake.webSockets;
+
+    await ws?.open();
+    ws?.drop('connection lost', { code: 1006 });
+
+    expect(ws?.isOpen).toBe(false);
+    expect(() => ws?.deliver('late')).toThrow(/not open/u);
+
+    await ws?.open();
+
+    expect(ws?.headers).toEqual({ authorization: 'Bearer 2' });
+    expect(heard.opens).toBe(2);
+    expect(heard.closes).toEqual([['connection lost', { code: 1006 }]]);
+  });
+
+  it('refuses an attempt with its status, and stays closed when the bundle closes there', async () => {
+    const fake = createFakeSdk();
+    const socket = fake.sdk.openWebSocket({
+      url: 'wss://cloud.example/ws',
+      logger: fake.sdk.logger,
+      onOpen: () => undefined,
+      onMessage: () => undefined,
+      onClose: (reason, details) => {
+        if (details?.status === 401) {
+          void socket.close();
+        }
+      },
+    });
+    const [ws] = fake.webSockets;
+
+    ws?.drop('connection not accepted (HTTP 401 Unauthorized)', { code: 1006, status: 401 });
+
+    expect(ws?.isClosed).toBe(true);
+    await expect(ws?.open()).rejects.toThrow(/closed for good/u);
+  });
+
+  it('records a reset, and closes what the bundle left open on release', async () => {
+    const { fake, socket, heard } = openThroughFake();
+    const [ws] = fake.webSockets;
+
+    await ws?.open();
+    socket.reset('request timed out');
+
+    expect(ws?.resets).toEqual(['request timed out']);
+    expect(heard.closes).toEqual([['request timed out', {}]]);
+
+    await ws?.open();
+    await fake.release();
+
+    expect(ws?.isClosed).toBe(true);
+    expect(socket.isOpen).toBe(false);
+  });
+
+  it('gives way to a WebSocket the test passes itself', () => {
+    const own: ManagedSocket = {
+      isOpen: true,
+      send: () => undefined,
+      reset: () => undefined,
+      close: () => Promise.resolve(),
+    };
+    const fake = createFakeSdk({ overrides: { openWebSocket: () => own } });
+
+    expect(
+      fake.sdk.openWebSocket({
+        url: 'ws://x',
+        logger: fake.sdk.logger,
+        onOpen: () => undefined,
+        onMessage: () => undefined,
+        onClose: () => undefined,
+      }),
+    ).toBe(own);
+    expect(fake.webSockets).toEqual([]);
   });
 });

@@ -81,7 +81,8 @@ light.command('light.device', 'on_off', { command: 'turn_on' }); // → the HTTP
 ```
 
 `identify` says what discovery makes of a device heard, and `createFakeSdk` is the SDK handed to
-the code, recording what it logged and sent.
+the code, recording what it logged and sent: its UDP sockets and WebSockets connect to nothing, and
+a test opens, delivers to and drops them.
 
 ## Releasing
 
