@@ -1,0 +1,68 @@
+# Releases @nebulahome/integration-sdk when its tag is pushed: `integration-sdk@` and the version in
+# packages/integration-sdk/package.json, `integration-sdk@1.0.0` (the SDK's README, Releasing the
+# SDK).
+#
+# Its version is the integration contract's, raised by hand rather than by changesets (it is in
+# `.changeset/config.json`'s `ignore`). This checks the tag says the package's version, passes the
+# SDK's gates, packs it as npm will see it, and publishes a GitHub release with that archive. It
+# does not publish on npm: the maintainer publishes the same archive by hand, with
+# `npm publish <archive>`.
+name: release-integration-sdk
+
+on:
+  push:
+    tags: ['integration-sdk@*.*.*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-integration-sdk
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Check the tag is the package's version
+        run: |
+          version=$(node -p "require('./packages/integration-sdk/package.json').version")
+          if [ "$GITHUB_REF_NAME" != "integration-sdk@$version" ]; then
+            echo "::error::The tag is $GITHUB_REF_NAME, package.json says $version"
+            exit 1
+          fi
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm turbo build --filter=@nebulahome/integration-sdk
+
+      - name: Gates
+        run: pnpm turbo typecheck lint test --filter=@nebulahome/integration-sdk
+
+      - name: Public API
+        run: pnpm --filter @nebulahome/integration-sdk api:check
+
+      - name: Tarball
+        run: pnpm --filter @nebulahome/integration-sdk check:package
+
+      # pnpm's pack writes the workspace dependencies as versions, as the published package has them.
+      - name: Pack
+        run: pnpm --filter @nebulahome/integration-sdk pack --pack-destination "$RUNNER_TEMP"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP"/nebulahome-integration-sdk-*.tgz \
+            --title "$GITHUB_REF_NAME" --notes "See packages/integration-sdk/CHANGELOG.md."

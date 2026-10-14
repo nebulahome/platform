@@ -53,3 +53,10 @@ jobs:
 
       - name: Package SDK tarball
         run: pnpm --filter @nebulahome/package-sdk check:package
+
+      # @nebulahome/integration-sdk is published too, under the same two checks.
+      - name: Integration SDK public API
+        run: pnpm --filter @nebulahome/integration-sdk api:check
+
+      - name: Integration SDK tarball
+        run: pnpm --filter @nebulahome/integration-sdk check:package
