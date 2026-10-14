@@ -11,7 +11,7 @@
  * password is the kind of label that makes people press it to find out.
  */
 import { cva, type VariantProps } from 'class-variance-authority';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react';
 
 import { cn } from '../lib/cn.js';
 
@@ -57,6 +57,9 @@ export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'ari
 
     /** The glyph. */
     readonly children: ReactNode;
+
+    /** The button itself, for a menu to give the focus back to. */
+    readonly ref?: Ref<HTMLButtonElement>;
   };
 
 /**

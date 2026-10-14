@@ -18,13 +18,19 @@
  * field, switch or button it landed on: those are the field's. The chevron opens and closes it, as
  * does a double click on the title. Blocks nest, so the click is not stopped from bubbling; each
  * block checks that it is the nearest one to where the click landed.
+ *
+ * **The ⋯ menu** holds what is done to a block rather than in it - rename it, try it, turn it off.
+ * A block turned off is drawn faded with an Off pill; a block being renamed swaps its summary for a
+ * field. What trying it said goes in the header as a short {@link BlockStatus}; anything longer, a
+ * failure's message, goes in a {@link BlockNotice} at the top of the open block, never in a row.
  */
-import type { MouseEvent, ReactNode } from 'react';
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 
 import { cn } from '../lib/cn.js';
 
 import { AppIcon } from './app-icon.js';
 import { IconButton } from './icon-button.js';
+import { Menu, type MenuItem } from './menu.js';
 import { Segmented } from './segmented.js';
 
 /** What a block is, which is the colour it is drawn in. */
@@ -76,6 +82,18 @@ export function isBlockSelectClick(event: MouseEvent<HTMLElement>): boolean {
   return target.closest('[data-block]') === event.currentTarget;
 }
 
+/** A block's name being typed: the field that stands in for its summary meanwhile. */
+export type BlockRename = {
+  /** The name it starts from: the one it has, or empty. */
+  readonly value: string;
+
+  /** Keeps what was typed; empty takes the name away. */
+  readonly onCommit: (name: string) => void;
+
+  /** Leaves the name as it was. */
+  readonly onCancel: () => void;
+};
+
 /** What a block needs. */
 export type BlockProps = {
   readonly lane: BlockLane;
@@ -119,6 +137,21 @@ export type BlockProps = {
   /** Something more in the header, before the remove button. */
   readonly headerExtra?: ReactNode;
 
+  /** What trying it said, as a {@link BlockStatus}: in the header, after the summary. */
+  readonly status?: ReactNode;
+
+  /** Something longer it has to say, as a {@link BlockNotice}: at the top of the open block. */
+  readonly notice?: ReactNode;
+
+  /** The choices of its ⋯ menu: rename, test, turn off. */
+  readonly menu?: readonly MenuItem[];
+
+  /** Whether it is turned off: kept, faded, skipped when the automation runs. */
+  readonly isDisabled?: boolean;
+
+  /** Its name being typed, which replaces the summary while it is. */
+  readonly rename?: BlockRename;
+
   /** Whether something about it needs attention: an entity that is gone, a block not built. */
   readonly isWarning?: boolean;
 
@@ -153,6 +186,11 @@ export function Block(props: BlockProps) {
     onRemove,
     grip,
     headerExtra,
+    status,
+    notice,
+    menu,
+    isDisabled = false,
+    rename,
     isWarning = false,
     children,
     branches,
@@ -164,6 +202,7 @@ export function Block(props: BlockProps) {
     <div
       data-block=""
       data-selected={isSelected ? '' : undefined}
+      data-disabled={isDisabled ? '' : undefined}
       onClick={(event) => {
         if (onSelect !== undefined && isBlockSelectClick(event)) {
           onSelect();
@@ -193,29 +232,44 @@ export function Block(props: BlockProps) {
           className={cn(
             'flex size-7.5 shrink-0 items-center justify-center rounded-field text-[var(--lane)]',
             isNested ? 'bg-surface-high' : 'bg-surface-raised',
+            isDisabled ? 'opacity-55 grayscale' : undefined,
           )}
         >
           {glyph}
         </span>
-        <button
-          type="button"
-          className="flex min-w-0 grow cursor-pointer flex-col items-start gap-px text-left focus-visible:outline-none"
-          onClick={onSelect ?? onToggle}
-          onDoubleClick={onSelect === undefined ? undefined : onToggle}
-          onFocus={onSelect}
-        >
-          <span className="text-label font-medium tracking-[0.04em] text-[var(--lane)] uppercase">
-            {kind}
-          </span>
-          <span
+        {rename === undefined ? (
+          <button
+            type="button"
             className={cn(
-              'w-full truncate text-ui',
-              isWarning ? 'text-warning' : 'text-foreground',
+              'flex min-w-0 grow cursor-pointer flex-col items-start gap-px text-left focus-visible:outline-none',
+              isDisabled ? 'opacity-55' : undefined,
             )}
+            onClick={onSelect ?? onToggle}
+            onDoubleClick={onSelect === undefined ? undefined : onToggle}
+            onFocus={onSelect}
           >
-            {summary}
-          </span>
-        </button>
+            <span className="text-label font-medium tracking-[0.04em] text-[var(--lane)] uppercase">
+              {kind}
+            </span>
+            <span
+              className={cn(
+                'w-full truncate text-ui',
+                isWarning ? 'text-warning' : 'text-foreground',
+              )}
+            >
+              {summary}
+            </span>
+          </button>
+        ) : (
+          <div className="flex min-w-0 grow flex-col items-start gap-1">
+            <span className="text-label font-medium tracking-[0.04em] text-[var(--lane)] uppercase">
+              {kind}
+            </span>
+            <BlockNameField rename={rename} kind={kind} />
+          </div>
+        )}
+        {isDisabled ? <BlockStatus tone="neutral">Off</BlockStatus> : null}
+        {status}
         {negation === undefined ? null : (
           <Segmented
             label="Negate"
@@ -231,6 +285,7 @@ export function Block(props: BlockProps) {
           />
         )}
         {headerExtra}
+        {menu === undefined || menu.length === 0 ? null : <BlockMenu items={menu} kind={kind} />}
         {onRemove === undefined ? null : (
           <IconButton label={`Remove ${kind}`} size="small" variant="danger" onClick={onRemove}>
             <AppIcon id="x" size={14} />
@@ -246,8 +301,19 @@ export function Block(props: BlockProps) {
         </IconButton>
       </div>
 
+      {isOpen && notice !== undefined && notice !== null ? (
+        <div className="px-4 pt-1 sm:pl-14.5">{notice}</div>
+      ) : null}
+
       {isOpen && children !== undefined && children !== null ? (
-        <div className="flex flex-col gap-3.5 pt-1 pr-4 pb-4 pl-4 sm:pl-14.5">{children}</div>
+        <div
+          className={cn(
+            'flex flex-col gap-3.5 pt-1 pr-4 pb-4 pl-4 sm:pl-14.5',
+            isDisabled ? 'opacity-70' : undefined,
+          )}
+        >
+          {children}
+        </div>
       ) : null}
 
       {isOpen && branches !== undefined && branches !== null ? (
@@ -266,9 +332,9 @@ export function Block(props: BlockProps) {
   );
 }
 
-/** What a group of checks needs. */
+/** What a group of conditions needs. */
 export type BlockGroupProps = {
-  /** What it says: ALL OF, ANY OF, NONE OF. */
+  /** What it says: AND, OR, NOT AND, NOT OR - or the name it was given. */
   readonly label: string;
 
   /** Whether its checks join with AND or OR. */
@@ -292,12 +358,27 @@ export type BlockGroupProps = {
   /** The drag handle. */
   readonly grip?: ReactNode;
 
-  /** The checks inside, with their joins and the group's Add. */
+  /** What trying it said, as a {@link BlockStatus}. */
+  readonly status?: ReactNode;
+
+  /** Something longer it has to say, as a {@link BlockNotice}, above what it holds. */
+  readonly notice?: ReactNode;
+
+  /** The choices of its ⋯ menu. */
+  readonly menu?: readonly MenuItem[];
+
+  /** Whether it is turned off. */
+  readonly isDisabled?: boolean;
+
+  /** Its name being typed, which replaces its label while it is. */
+  readonly rename?: BlockRename;
+
+  /** The conditions inside, and the group's Add. */
   readonly children: ReactNode;
 };
 
 /**
- * Renders a dashed group of checks: ALL OF, ANY OF, NONE OF. Groups nest inside each other.
+ * Renders a dashed group of conditions: AND, OR, either turned around with NOT. Groups nest.
  *
  * @param props - See {@link BlockGroupProps}.
  * @returns The group.
@@ -312,6 +393,11 @@ export function BlockGroup(props: BlockGroupProps) {
     isSelected = false,
     onSelect,
     grip,
+    status,
+    notice,
+    menu,
+    isDisabled = false,
+    rename,
     children,
   } = props;
 
@@ -320,6 +406,7 @@ export function BlockGroup(props: BlockGroupProps) {
     <div
       data-block=""
       data-selected={isSelected ? '' : undefined}
+      data-disabled={isDisabled ? '' : undefined}
       onClick={(event) => {
         if (onSelect !== undefined && isBlockSelectClick(event)) {
           onSelect();
@@ -335,15 +422,26 @@ export function BlockGroup(props: BlockGroupProps) {
     >
       <div className="flex flex-wrap items-center gap-2.5 py-2 pr-2 pl-1.5">
         {grip}
-        <button
-          type="button"
-          className="grow cursor-pointer text-left text-label font-medium tracking-[0.08em] text-[var(--lane)] uppercase focus-visible:outline-none"
-          onClick={onSelect}
-        >
-          {label}
-        </button>
+        {rename === undefined ? (
+          <button
+            type="button"
+            className={cn(
+              'grow cursor-pointer text-left text-label font-medium tracking-[0.08em] text-[var(--lane)] uppercase focus-visible:outline-none',
+              isDisabled ? 'opacity-55' : undefined,
+            )}
+            onClick={onSelect}
+          >
+            {label}
+          </button>
+        ) : (
+          <div className="min-w-0 grow">
+            <BlockNameField rename={rename} kind={label} />
+          </div>
+        )}
+        {isDisabled ? <BlockStatus tone="neutral">Off</BlockStatus> : null}
+        {status}
         <Segmented
-          label="Join the checks with"
+          label="Join the conditions with"
           size="compact"
           options={[
             { value: 'and', label: 'AND' },
@@ -364,54 +462,315 @@ export function BlockGroup(props: BlockGroupProps) {
             negation.onChange(value === 'not');
           }}
         />
+        {menu === undefined || menu.length === 0 ? null : <BlockMenu items={menu} kind={label} />}
         {onRemove === undefined ? null : (
           <IconButton label={`Remove ${label}`} size="small" variant="danger" onClick={onRemove}>
             <AppIcon id="x" size={14} />
           </IconButton>
         )}
       </div>
-      <div className="flex flex-col gap-1.5 px-2.5 pb-2.5">{children}</div>
+      {notice === undefined || notice === null ? null : <div className="px-2.5 pb-2">{notice}</div>}
+      <div
+        className={cn('flex flex-col gap-1.5 px-2.5 pb-2.5', isDisabled ? 'opacity-70' : undefined)}
+      >
+        {children}
+      </div>
     </div>
   );
 }
 
-/** What the join between two blocks needs. */
-export type BlockJoinProps = {
-  /** How the two join. */
-  readonly value: 'and' | 'or';
+/** What a block's menu needs. */
+type BlockMenuProps = {
+  readonly items: readonly MenuItem[];
 
-  /** Changes it. Absent where the join is fixed, inside a group. */
-  readonly onChange?: (value: 'and' | 'or') => void;
+  /** What the block is, for the button's name. */
+  readonly kind: string;
 };
 
 /**
- * Renders the AND/OR between two blocks, on the line that runs down the lane.
+ * Renders a block's ⋯: a small button in the header and the list it opens.
  *
- * @param props - See {@link BlockJoinProps}.
- * @returns The join.
+ * @param props - See {@link BlockMenuProps}.
+ * @returns The menu.
  */
-export function BlockJoin(props: BlockJoinProps) {
-  const { value, onChange } = props;
+function BlockMenu(props: BlockMenuProps) {
+  const { items, kind } = props;
 
   return (
-    <div className="flex h-7.5 items-center gap-2.5 pl-5.5">
-      <span aria-hidden="true" className="-ml-px h-7.5 w-0.5 bg-border" />
-      {onChange === undefined ? (
-        <span className="inline-flex h-5.5 items-center rounded-pill bg-[color-mix(in_srgb,var(--lane)_12%,transparent)] px-2.5 text-label font-medium text-[var(--lane)] uppercase">
-          {value}
-        </span>
-      ) : (
-        <Segmented
-          label="Join with"
-          size="compact"
-          options={[
-            { value: 'and', label: 'AND' },
-            { value: 'or', label: 'OR' },
-          ]}
-          value={value}
-          onChange={onChange}
-        />
+    <Menu
+      items={items}
+      align="end"
+      width="wide"
+      trigger={({ isOpen, toggle, buttonRef }) => (
+        <IconButton
+          ref={buttonRef}
+          label={`More for ${kind}`}
+          size="small"
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+          onClick={toggle}
+        >
+          <AppIcon id="ellipsis" size={14} />
+        </IconButton>
       )}
+    />
+  );
+}
+
+/** What the name field needs. */
+type BlockNameFieldProps = {
+  readonly rename: BlockRename;
+
+  /** What the block is, for the field's name. */
+  readonly kind: string;
+};
+
+/**
+ * Renders the field a block's name is typed in. Enter keeps it, Escape leaves it, and leaving the
+ * field keeps what was typed - as moving on from a field does everywhere else.
+ *
+ * @param props - See {@link BlockNameFieldProps}.
+ * @returns The field.
+ */
+function BlockNameField(props: BlockNameFieldProps) {
+  const { rename, kind } = props;
+  const [value, setValue] = useState(rename.value);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const isDone = useRef(false);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  /**
+   * Ends the typing once, either way.
+   *
+   * @param keep - Whether to keep what was typed.
+   */
+  const finish = (keep: boolean): void => {
+    if (isDone.current) {
+      return;
+    }
+
+    isDone.current = true;
+
+    if (keep) {
+      rename.onCommit(value.trim());
+    } else {
+      rename.onCancel();
+    }
+  };
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      aria-label={`Name of the ${kind}`}
+      placeholder="A name of its own"
+      maxLength={80}
+      value={value}
+      onChange={(event) => {
+        setValue(event.target.value);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          finish(true);
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+          finish(false);
+        }
+      }}
+      onBlur={() => {
+        finish(true);
+      }}
+      className="h-8 w-full rounded-field border border-[var(--lane)] bg-canvas px-2.5 text-ui text-foreground outline-none focus-visible:ring-3 focus-visible:ring-[color-mix(in_srgb,var(--lane)_25%,transparent)]"
+    />
+  );
+}
+
+/** How a block's status reads. */
+export type BlockStatusTone = 'running' | 'success' | 'neutral' | 'warning' | 'danger';
+
+/** The colours of each tone. */
+const STATUS_TONES: Readonly<Record<BlockStatusTone, string>> = {
+  running: 'bg-[color-mix(in_srgb,var(--lane)_14%,transparent)] text-[var(--lane)]',
+  success: 'bg-success/12 text-success',
+  neutral: 'bg-surface-high text-foreground-muted',
+  warning: 'bg-warning/12 text-warning',
+  danger: 'bg-danger/12 text-danger',
+};
+
+/** What a status needs. */
+export type BlockStatusProps = {
+  readonly tone: BlockStatusTone;
+
+  /** What it says, a few words: "Done · 0.4 s", "True now", "Next · Thu 07:14". */
+  readonly children: ReactNode;
+
+  /** A longer line on hover. */
+  readonly title?: string;
+};
+
+/**
+ * Renders a short pill in a block's header: what trying it said, or that it is off.
+ *
+ * @param props - See {@link BlockStatusProps}.
+ * @returns The pill.
+ */
+export function BlockStatus(props: BlockStatusProps) {
+  const { tone, children, title } = props;
+
+  return (
+    <span
+      title={title}
+      className={cn(
+        'inline-flex h-6 shrink-0 items-center gap-1.5 rounded-pill px-2.5 text-label font-medium whitespace-nowrap',
+        STATUS_TONES[tone],
+      )}
+    >
+      {tone === 'running' ? (
+        <span
+          aria-hidden="true"
+          className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+        />
+      ) : null}
+      {children}
+    </span>
+  );
+}
+
+/** What a notice needs. */
+export type BlockNoticeProps = {
+  /** Danger for a failure, warning for something to fix, neutral for something to know. */
+  readonly tone: 'danger' | 'warning' | 'neutral';
+
+  /** What it says. */
+  readonly children: ReactNode;
+
+  /** Something to do about it: a Stop, a Dismiss. */
+  readonly action?: ReactNode;
+};
+
+/**
+ * Renders a card of its own at the top of an open block, for what is too long for the header: a
+ * failure's message, a block the format no longer has.
+ *
+ * @param props - See {@link BlockNoticeProps}.
+ * @returns The card.
+ */
+export function BlockNotice(props: BlockNoticeProps) {
+  const { tone, children, action } = props;
+
+  return (
+    <div
+      role={tone === 'danger' ? 'alert' : 'status'}
+      className={cn(
+        'flex items-start gap-2.5 rounded-tile border px-3 py-2.5 text-ui-sm',
+        tone === 'danger'
+          ? 'border-danger/30 bg-danger/8 text-danger'
+          : tone === 'warning'
+            ? 'border-warning/30 bg-warning/8 text-warning'
+            : 'border-border bg-surface-raised text-foreground-muted',
+      )}
+    >
+      <AppIcon
+        id={tone === 'neutral' ? 'info' : 'triangle-alert'}
+        size={15}
+        className="mt-0.5 shrink-0"
+      />
+      <div className="min-w-0 grow break-words whitespace-pre-wrap">{children}</div>
+      {action}
+    </div>
+  );
+}
+
+/**
+ * Renders where a dragged block would land: a line in its lane colour between two blocks.
+ *
+ * @returns The line.
+ */
+export function BlockDropLine() {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none h-0.5 rounded-pill bg-[var(--lane)] shadow-[0_0_0_3px_color-mix(in_srgb,var(--lane)_20%,transparent)]"
+    />
+  );
+}
+
+/** What an empty list offers a dragged block. */
+export type BlockDropZoneProps = {
+  /** Whether the block would land here if let go now. */
+  readonly isActive: boolean;
+};
+
+/**
+ * Renders the place an empty list offers a dragged block, while a drag is on.
+ *
+ * @param props - See {@link BlockDropZoneProps}.
+ * @returns The zone.
+ */
+export function BlockDropZone(props: BlockDropZoneProps) {
+  const { isActive } = props;
+
+  return (
+    <div
+      aria-hidden="true"
+      className={cn(
+        'pointer-events-none flex h-9.5 items-center justify-center rounded-tile border border-dashed text-ui-sm transition-colors',
+        isActive
+          ? 'border-[var(--lane)] bg-[color-mix(in_srgb,var(--lane)_8%,transparent)] text-[var(--lane)]'
+          : 'border-border-strong text-foreground-subtle',
+      )}
+    >
+      Drop here
+    </div>
+  );
+}
+
+/** What the dragged block's shadow needs. */
+export type BlockDragGhostProps = {
+  readonly lane: BlockLane;
+  readonly glyph: ReactNode;
+  readonly kind: string;
+  readonly summary: ReactNode;
+
+  /** Where the pointer is, in the viewport. */
+  readonly x: number;
+  readonly y: number;
+};
+
+/**
+ * Renders the block being dragged under the pointer: its header, lifted.
+ *
+ * @param props - See {@link BlockDragGhostProps}.
+ * @returns The ghost.
+ */
+export function BlockDragGhost(props: BlockDragGhostProps) {
+  const { lane, glyph, kind, summary, x, y } = props;
+
+  return (
+    <div
+      aria-hidden="true"
+      // eslint-disable-next-line react/forbid-dom-props -- where the pointer is, which changes on every move and is no token
+      style={{ transform: `translate(${String(x + 12)}px, ${String(y - 18)}px)` }}
+      className={cn(
+        laneClass(lane),
+        'pointer-events-none fixed top-0 left-0 z-50 flex w-72 items-center gap-2.5 rounded-inner border border-[var(--lane)] bg-surface px-3 py-2 opacity-95 shadow-float',
+      )}
+    >
+      <span className="flex size-7.5 shrink-0 items-center justify-center rounded-field bg-surface-raised text-[var(--lane)]">
+        {glyph}
+      </span>
+      <span className="flex min-w-0 flex-col">
+        <span className="text-label font-medium tracking-[0.04em] text-[var(--lane)] uppercase">
+          {kind}
+        </span>
+        <span className="truncate text-ui text-foreground">{summary}</span>
+      </span>
     </div>
   );
 }
@@ -547,6 +906,9 @@ export type BlockGripProps = {
 
   /** Moves with the keyboard: up and down. */
   readonly onKeyDown?: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
+
+  /** Which block it moves, for the drag to find it and the focus to come back to it. */
+  readonly blockId?: string;
 };
 
 /**
@@ -556,13 +918,14 @@ export type BlockGripProps = {
  * @returns The grip.
  */
 export function BlockGrip(props: BlockGripProps) {
-  const { label, onPointerDown, onKeyDown } = props;
+  const { label, onPointerDown, onKeyDown, blockId } = props;
 
   return (
     <button
       type="button"
       aria-label={label}
-      title="Drag to move, or Alt and an arrow key"
+      data-grip={blockId}
+      title="Drag to move it, here or into another block - or the arrow keys"
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
       className="flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-field text-border-strong transition-colors hover:text-foreground-subtle focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none active:cursor-grabbing"

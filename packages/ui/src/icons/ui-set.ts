@@ -38,11 +38,13 @@ import {
   CircleX,
   Clock,
   Columns2,
+  Compass,
   Container,
   Copy,
   Cpu,
   DoorOpen,
   Download,
+  Ellipsis,
   EllipsisVertical,
   ExternalLink,
   Eye,
@@ -69,9 +71,11 @@ import {
   ListOrdered,
   Lock,
   LockOpen,
+  MapPin,
   Maximize,
   MemoryStick,
   Minus,
+  Moon,
   MousePointerClick,
   Network,
   OctagonX,
@@ -265,6 +269,14 @@ export const BUILTIN_UI_NODES = {
   'mouse-pointer-click': drawing(MousePointerClick),
   'list-ordered': drawing(ListOrdered),
   'columns-2': drawing(Columns2),
+
+  // A block's menu, and the sun: where it stands, and the night it leaves.
+  ellipsis: drawing(Ellipsis),
+  compass: drawing(Compass),
+  moon: drawing(Moon),
+
+  // Where the house stands, in the first-run setup.
+  'map-pin': drawing(MapPin),
 } satisfies Record<string, IconNode>;
 
 /** A catalogue id the interface draws itself with. */

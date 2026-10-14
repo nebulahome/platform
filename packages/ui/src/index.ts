@@ -25,21 +25,30 @@ export {
   Block,
   BlockAdd,
   BlockBranch,
+  BlockDragGhost,
+  BlockDropLine,
+  BlockDropZone,
   BlockGrip,
   BlockGroup,
-  BlockJoin,
   BlockLaneConnector,
   BlockLaneSection,
+  BlockNotice,
+  BlockStatus,
   isBlockSelectClick,
   laneClass,
   type BlockAddProps,
   type BlockBranchProps,
+  type BlockDragGhostProps,
+  type BlockDropZoneProps,
   type BlockGripProps,
   type BlockGroupProps,
-  type BlockJoinProps,
   type BlockLane,
   type BlockLaneHeaderProps,
+  type BlockNoticeProps,
   type BlockProps,
+  type BlockRename,
+  type BlockStatusProps,
+  type BlockStatusTone,
 } from './components/block.js';
 export {
   ColorWheel,
@@ -119,6 +128,7 @@ export { PanelRow, type PanelRowProps } from './components/panel-row.js';
 export { Pill, type PillProps, type PillTone } from './components/pill.js';
 export { ProgressBar, type ProgressBarProps } from './components/progress-bar.js';
 export { Segmented, type SegmentedOption, type SegmentedProps } from './components/segmented.js';
+export { SetupSteps, type SetupStep, type SetupStepsProps } from './components/setup-steps.js';
 export { Slider, sliderPercent, type SliderProps } from './components/slider.js';
 export { StatusDot, type StatusDotProps, type StatusDotTone } from './components/status-dot.js';
 export { Stepper, stepValue, type StepperProps } from './components/stepper.js';
