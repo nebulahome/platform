@@ -3,44 +3,60 @@
  *
  * The API writes an automation's row and then asks `core` to take it in, the way it does an
  * alias; deleting one is the API's write followed by `remove_automation`. Run now is a request
- * here, after the API has checked who pressed it. The house - its zone and its position - is read
- * again when the API says either changed, since nothing else re-reads a saved setting.
+ * here, after the API has checked who pressed it, and so is testing one block of an automation
+ * being edited. The house - its zone and its position - is read again when the API says either
+ * changed, since nothing else re-reads a saved setting; a position given or cleared also brings
+ * the sun's entities or takes them away.
  */
 import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
+  cancelAutomationTestRequestSchema,
+  CORE_CANCEL_AUTOMATION_TEST_METHOD,
   CORE_REMOVE_AUTOMATION_METHOD,
   CORE_SERVICE,
   CORE_SYNC_AUTOMATION_METHOD,
   CORE_SYNC_HOUSE_METHOD,
+  CORE_TEST_AUTOMATION_BLOCK_METHOD,
   CORE_TRIGGER_AUTOMATION_METHOD,
   removeAutomationRequestSchema,
   syncAutomationRequestSchema,
   syncHouseRequestSchema,
+  testAutomationBlockRequestSchema,
   triggerAutomationRequestSchema,
+  type AutomationTestReply,
+  type CancelAutomationTestReply,
+  type CancelAutomationTestRequest,
   type RemoveAutomationReply,
   type RemoveAutomationRequest,
   type SyncAutomationReply,
   type SyncAutomationRequest,
   type SyncHouseReply,
+  type TestAutomationBlockRequest,
   type TriggerAutomationReply,
   type TriggerAutomationRequest,
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { AutomationEngine } from './automation-engine.js';
+import type { SunMonitor } from './sun-monitor.js';
 
 /** What the automation service needs. */
 export type AutomationServiceOptions = {
   readonly client: BusClient;
   readonly engine: AutomationEngine;
+
+  /** The sun's entities, which follow the house's position. Absent in tests that need none. */
+  readonly sun?: SunMonitor;
+
   readonly logger: PlatformLogger;
 };
 
 /**
- * Serves the subjects the API syncs, removes and runs automations on, and re-reads the house on.
+ * Serves the subjects the API syncs, removes, runs and tests automations on, and re-reads the
+ * house on.
  *
- * @param options - The bus client, the engine and the logger.
+ * @param options - The bus client, the engine, the sun's entities and the logger.
  * @returns The subscriptions, to unsubscribe on shutdown.
  */
 export function startAutomationService(options: AutomationServiceOptions): BusSubscription[] {
@@ -106,10 +122,44 @@ export function startAutomationService(options: AutomationServiceOptions): BusSu
       async (): Promise<SyncHouseReply> => {
         const reply = await engine.syncHouse();
 
+        await options.sun?.sync(engine.house.position);
         logger.info(reply, 'Read the house again');
 
         return reply;
       },
+    ),
+    client.serve(
+      busSubjects.service(CORE_SERVICE, CORE_TEST_AUTOMATION_BLOCK_METHOD),
+      testAutomationBlockRequestSchema,
+
+      /**
+       * Tries one block of an automation being edited.
+       *
+       * @param request - The block, who asked, and the test's id.
+       * @returns What the test found.
+       */
+      async (request: TestAutomationBlockRequest): Promise<AutomationTestReply> => {
+        logger.info(
+          { testId: request.testId, userId: request.userId, kind: request.target.kind },
+          'Testing a block',
+        );
+
+        return engine.test(request);
+      },
+    ),
+    client.serve(
+      busSubjects.service(CORE_SERVICE, CORE_CANCEL_AUTOMATION_TEST_METHOD),
+      cancelAutomationTestRequestSchema,
+
+      /**
+       * Stops a test still going.
+       *
+       * @param request - Which.
+       * @returns Whether there was one.
+       */
+      (request: CancelAutomationTestRequest): CancelAutomationTestReply => ({
+        wasRunning: engine.cancelTest(request.testId),
+      }),
     ),
   ];
 }

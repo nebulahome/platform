@@ -32,6 +32,7 @@ import { EntityDirectory } from './domain/entity-directory.js';
 import { EntityRegistry, type IngestResult } from './domain/entity-registry.js';
 import { PackageTypes } from './domain/package-types.js';
 import { TelemetrySampler } from './domain/telemetry-sampler.js';
+import { loadHouse } from './persistence/automation-store.js';
 import type { BatchWriter } from './persistence/batch-writer.js';
 import {
   createHistoryWriter,
@@ -40,7 +41,7 @@ import {
   type StateHistoryRow,
 } from './persistence/history-writer.js';
 import { loadRegistry } from './persistence/registry-loader.js';
-import { ensureSystemDevice } from './persistence/system-entities.js';
+import { ensureSystemDevice, syncSunEntities } from './persistence/system-entities.js';
 import { AliasEngine } from './services/alias-engine.js';
 import { startAliasService } from './services/alias-service.js';
 import { AutomationEngine } from './services/automation-engine.js';
@@ -55,6 +56,7 @@ import { SceneEngine } from './services/scene-engine.js';
 import { startSceneService } from './services/scene-service.js';
 import { startStateIngest } from './services/state-ingest.js';
 import { startEntityReadService, startSnapshotService } from './services/state-queries.js';
+import { SunMonitor } from './services/sun-monitor.js';
 import { startSystemMonitorService } from './services/system-monitor-service.js';
 import { SystemMonitor } from './services/system-monitor.js';
 import { createSystemProbes } from './services/system-probes.js';
@@ -86,6 +88,7 @@ export class CoreService {
   #aliasEngine: AliasEngine | undefined;
   #automationEngine: AutomationEngine | undefined;
   #systemMonitor: SystemMonitor | undefined;
+  #sunMonitor: SunMonitor | undefined;
   #client: BusClient | undefined;
   #subscriptions: BusSubscription[] = [];
   #history: BatchWriter<StateHistoryRow> | undefined;
@@ -165,6 +168,12 @@ export class CoreService {
       },
       startupLogger,
     );
+
+    // The sun's entities follow the house's position; written before the registry is read, so
+    // the directory holds them from the start.
+    const house = await loadHouse(db);
+
+    await syncSunEntities(db, house.position !== null, startupLogger);
 
     const loaded = await loadRegistry(db, startupLogger);
 
@@ -254,6 +263,11 @@ export class CoreService {
     this.#systemMonitor = systemMonitor;
     await systemMonitor.start();
 
+    const sunMonitor = new SunMonitor({ db, ingest, logger, newTraceId });
+
+    this.#sunMonitor = sunMonitor;
+    sunMonitor.start(house.position);
+
     const dispatcher = createCommandDispatcher({
       client,
       directory: this.#directory,
@@ -329,7 +343,7 @@ export class CoreService {
       ...startAliasService({ client, engine: aliasEngine, logger }),
       startSystemMonitorService({ client, monitor: systemMonitor }),
       startSceneService({ client, engine: sceneEngine }),
-      ...startAutomationService({ client, engine: automationEngine, logger }),
+      ...startAutomationService({ client, engine: automationEngine, sun: sunMonitor, logger }),
     ];
 
     this.#telemetry = runTelemetryIngest({
@@ -383,6 +397,7 @@ export class CoreService {
 
     this.#subscriptions = [];
     this.#systemMonitor?.stop();
+    this.#sunMonitor?.stop();
     this.#shutdown.abort();
 
     // Before the writers drain: a cancelled run is still written down.

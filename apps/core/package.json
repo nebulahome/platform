@@ -22,13 +22,11 @@
     "drizzle-orm": "^0.45.2",
     "jsonata": "^2.2.2",
     "nats": "^2.29.3",
-    "suncalc": "^2.0.2",
     "zod": "^4.5.4"
   },
   "devDependencies": {
     "@nebulahome/eslint-config": "workspace:*",
     "@nebulahome/tsconfig": "workspace:*",
-    "@types/suncalc": "^1.9.2",
     "typescript": "^6.0.3"
   }
 }

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   parseEntityId,
   type AutomationAction,
-  type BooleanTree,
+  type ConditionNode,
   type JsonObject,
 } from '@nebulahome/contracts';
 
@@ -64,7 +64,7 @@ function fakePorts(overrides: Partial<ExecutorPorts> = {}): { ports: ExecutorPor
         stateOf,
         now: new Date(clock),
         timeZone: 'Europe/Rome',
-        occupancy: () => null,
+        position: null,
       }),
     waitForCondition: () => Promise.resolve(true),
     waitForTrigger: () => Promise.resolve(false),
@@ -125,8 +125,12 @@ const turnOn: AutomationAction = {
   capability: 'on_off',
   params: { command: 'turn_on' },
 };
-const isDark: BooleanTree = { type: 'numeric', entityId: lux, operator: 'lt', value: 50 };
-const isBright: BooleanTree = { type: 'numeric', entityId: lux, operator: 'gt', value: 50 };
+const isDark: ConditionNode[] = [
+  { type: 'entity', entityId: lux, match: { kind: 'numeric', operator: 'lt', value: 50 } },
+];
+const isBright: ConditionNode[] = [
+  { type: 'entity', entityId: lux, match: { kind: 'numeric', operator: 'gt', value: 50 } },
+];
 
 describe('Executor', () => {
   it('runs blocks in order and records each', async () => {
@@ -217,7 +221,7 @@ describe('Executor', () => {
     const { trace, world } = await run([
       {
         type: 'if',
-        condition: isDark,
+        conditions: isDark,
         then: [turnOn],
         else: [{ type: 'wait_duration', durationMs: 1 }],
       },
@@ -226,15 +230,15 @@ describe('Executor', () => {
 
     expect(world.commands).toHaveLength(1);
     expect(steps.map((step) => [step.path, step.kind, step.result])).toEqual([
-      ['then.0.condition', 'condition', 'true'],
+      ['then.0.conditions.0', 'condition', 'true'],
       ['then.0', 'action', 'true'],
       ['then.0.then.0', 'action', 'ok'],
     ]);
   });
 
   it('runs else, or nothing when there is none', async () => {
-    const withElse = await run([{ type: 'if', condition: isBright, then: [], else: [turnOn] }]);
-    const without = await run([{ type: 'if', condition: isBright, then: [turnOn] }]);
+    const withElse = await run([{ type: 'if', conditions: isBright, then: [], else: [turnOn] }]);
+    const without = await run([{ type: 'if', conditions: isBright, then: [turnOn] }]);
 
     expect(withElse.world.commands).toHaveLength(1);
     expect(withElse.trace.steps(new Date())[1]).toMatchObject({ result: 'false', detail: 'else' });
@@ -269,7 +273,7 @@ describe('Executor', () => {
 
   it('loops while the condition holds, and stops a loop that never ends', async () => {
     let rounds = 0;
-    const counting = await run([{ type: 'while', condition: isDark, actions: [turnOn] }], {
+    const counting = await run([{ type: 'while', conditions: isDark, actions: [turnOn] }], {
       command: () => {
         rounds += 1;
 
@@ -277,21 +281,21 @@ describe('Executor', () => {
       },
       evaluate: (tree, path) => ({
         value: rounds < 3,
-        steps: [{ path, type: 'numeric', result: rounds < 3 ? 'true' : 'false' }],
+        steps: [{ path, type: 'entity', result: rounds < 3 ? 'true' : 'false' }],
       }),
     });
 
     expect(counting.error).toBeUndefined();
     expect(rounds).toBe(3);
 
-    const forever = await run([{ type: 'while', condition: isDark, actions: [turnOn] }]);
+    const forever = await run([{ type: 'while', conditions: isDark, actions: [turnOn] }]);
 
     expect(forever.error).toBeInstanceOf(ActionFailed);
     expect((forever.error as Error).message).toBe('Stopped after 5 times round');
   });
 
   it('runs a do-while once before it checks', async () => {
-    const { world } = await run([{ type: 'do_while', condition: isBright, actions: [turnOn] }]);
+    const { world } = await run([{ type: 'do_while', conditions: isBright, actions: [turnOn] }]);
 
     expect(world.commands).toHaveLength(1);
   });
@@ -329,7 +333,7 @@ describe('Executor', () => {
     const event = await run([
       {
         type: 'wait_for_trigger',
-        trigger: { type: 'event', event: 'button.pressed', match: {} },
+        trigger: { type: 'event', event: 'button.pressed' },
         timeoutMs: 1_000,
       },
     ]);
@@ -341,10 +345,10 @@ describe('Executor', () => {
   it('records a wait that gave up, and carries on', async () => {
     const { error, trace, world } = await run(
       [
-        { type: 'wait_for', condition: isDark, timeoutMs: 60_000 },
+        { type: 'wait_for', conditions: isDark, timeoutMs: 60_000 },
         {
           type: 'wait_for_trigger',
-          trigger: { type: 'state', entityId: ceiling, to: 'off' },
+          trigger: { type: 'entity', entityId: ceiling, change: { kind: 'state', to: 'off' } },
           timeoutMs: 120_000,
         },
         turnOn,
@@ -380,7 +384,7 @@ describe('Executor', () => {
   it('runs a sequence and parallel branches', async () => {
     const { error, world } = await run([
       { type: 'sequence', actions: [turnOn, turnOn] },
-      { type: 'parallel', actions: [turnOn, { type: 'wait_duration', durationMs: 1 }] },
+      { type: 'parallel', branches: [[turnOn], [{ type: 'wait_duration', durationMs: 1 }]] },
     ]);
 
     expect(error).toBeUndefined();
@@ -391,15 +395,50 @@ describe('Executor', () => {
     const { error, world } = await run([
       {
         type: 'parallel',
-        actions: [
-          { type: 'notify', channel: 'push', message: 'x' },
-          { type: 'sequence', actions: [{ type: 'wait_duration', durationMs: 10 }, turnOn] },
+        branches: [
+          [{ type: 'notify', channel: 'push', message: 'x' }],
+          [{ type: 'wait_duration', durationMs: 10 }, turnOn],
         ],
       },
     ]);
 
     expect(error).toBeInstanceOf(ActionFailed);
     expect(world.commands).toEqual([]);
+  });
+
+  it('checks nothing in an If with no conditions, and takes its then', async () => {
+    const { world, trace } = await run([{ type: 'if', conditions: [], then: [turnOn] }]);
+
+    expect(world.commands).toHaveLength(1);
+    expect(trace.steps(new Date())[0]).toMatchObject({ path: 'then.0', result: 'true' });
+  });
+
+  it('skips a block turned off, and everything it holds', async () => {
+    const { error, trace, world } = await run([
+      { ...turnOn, isEnabled: false },
+      { type: 'sequence', isEnabled: false, actions: [turnOn, turnOn] },
+      { type: 'wait_duration', durationMs: 5 },
+    ]);
+
+    expect(error).toBeUndefined();
+    expect(world.commands).toEqual([]);
+    expect(trace.steps(new Date()).map((step) => [step.path, step.result, step.detail])).toEqual([
+      ['then.0', 'skipped', 'Turned off'],
+      ['then.1', 'skipped', 'Turned off'],
+      ['then.2', 'ok', 'waited 5 ms'],
+    ]);
+  });
+
+  it('runs each parallel branch in order within itself', async () => {
+    const { trace } = await run([
+      { type: 'parallel', branches: [[turnOn, { type: 'wait_duration', durationMs: 2 }]] },
+    ]);
+
+    expect(trace.steps(new Date()).map((step) => step.path)).toEqual([
+      'then.0',
+      'then.0.branches.0.0',
+      'then.0.branches.0.1',
+    ]);
   });
 
   it('ends with the reason the signal gives, mid-wait', async () => {

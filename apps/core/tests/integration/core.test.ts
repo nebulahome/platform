@@ -24,6 +24,7 @@ import {
   entityStateSchema,
   parseEntityId,
   stateSnapshotReplySchema,
+  SUN_ENTITY_IDS,
   SYSTEM_ENTITIES,
   systemMonitorSnapshotSchema,
 } from '@nebulahome/contracts';
@@ -413,9 +414,16 @@ describe('core end to end', () => {
       .from(schema.registry.entities)
       .where(eq(schema.registry.entities.source, 'system'));
 
+    const [house] = await database.db
+      .select({ latitude: schema.registry.areas.latitude })
+      .from(schema.registry.areas)
+      .where(eq(schema.registry.areas.kind, 'house'));
+    // The sun's two are there exactly when the house has a position.
+    const sun = house?.latitude === null || house?.latitude === undefined ? [] : SUN_ENTITY_IDS;
+
     expect(devices).toHaveLength(1);
     expect(entities.map((entity) => entity.entityId).sort()).toEqual(
-      SYSTEM_ENTITIES.map((entity) => entity.entityId).sort(),
+      [...SYSTEM_ENTITIES.map((entity) => entity.entityId), ...sun].sort(),
     );
     expect(new Set(entities.map((entity) => entity.deviceId))).toEqual(new Set([devices[0]?.id]));
     expect(service.directory.get(systemCpu)?.source).toBe('system');

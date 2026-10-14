@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseEntityId, type EntityState, type TriggerTree } from '@nebulahome/contracts';
+import {
+  parseEntityId,
+  SUN_ELEVATION_ENTITY_ID,
+  type AutomationTrigger,
+  type EntityState,
+} from '@nebulahome/contracts';
 
 import { entityState, statesOf } from '@/testing/entity-states.js';
 
 import {
   entitiesOfTriggers,
   reactTriggers,
+  triggerHoldsNow,
   triggerLeaves,
   type TriggerEvent,
 } from './trigger-match.js';
@@ -73,28 +79,35 @@ function luxChange(from: number | 'gone', to: number): TriggerEvent {
   };
 }
 
-const turnsOn: TriggerTree = { type: 'state', entityId: motion, to: 'on' };
-const heldOn: TriggerTree = { type: 'state', entityId: motion, to: 'on', forMs: 120_000 };
-const sunset: TriggerTree = {
-  type: 'time',
-  at: { kind: 'solar', event: 'sunset', offsetMinutes: 0 },
-};
-const dark: TriggerTree = { type: 'numeric_state', entityId: lux, operator: 'lt', value: 50 };
-const heldDark: TriggerTree = {
-  type: 'numeric_state',
-  entityId: lux,
-  operator: 'lt',
-  value: 50,
-  forMs: 60_000,
-};
+/**
+ * A list of triggers: the one asked about, and its path in the list.
+ *
+ * @param triggers - The triggers.
+ * @returns The same, as the document holds them.
+ */
+const list = (...triggers: AutomationTrigger[]): AutomationTrigger[] => triggers;
 
-describe('reactTriggers: entity state', () => {
+const turnsOn: AutomationTrigger = {
+  type: 'entity',
+  entityId: motion,
+  change: { kind: 'state', to: 'on' },
+};
+const heldOn: AutomationTrigger = { ...turnsOn, forMs: 120_000 };
+const sunset: AutomationTrigger = { type: 'sun', event: 'sunset' };
+const dark: AutomationTrigger = {
+  type: 'entity',
+  entityId: lux,
+  change: { kind: 'numeric', operator: 'lt', value: 50 },
+};
+const heldDark: AutomationTrigger = { ...dark, forMs: 60_000 };
+
+describe('reactTriggers: an entity entering a state', () => {
   it('fires when the entity enters the state it waits for', () => {
     const { event, current } = motionChange(false, true);
 
-    expect(reactTriggers(turnsOn, event, { stateOf: statesOf(current), now }).fired).toEqual({
-      kind: 'state',
-      path: 'triggers',
+    expect(reactTriggers(list(turnsOn), event, { stateOf: statesOf(current), now }).fired).toEqual({
+      kind: 'entity',
+      path: 'triggers.0',
       entityId: motion,
       from: 'off',
       to: 'on',
@@ -104,17 +117,23 @@ describe('reactTriggers: entity state', () => {
   it('does not fire on the first report after startup, which is not a change', () => {
     const { event, current } = motionChange(undefined, true);
 
-    expect(reactTriggers(turnsOn, event, { stateOf: statesOf(current), now }).fired).toBeNull();
+    expect(
+      reactTriggers(list(turnsOn), event, { stateOf: statesOf(current), now }).fired,
+    ).toBeNull();
   });
 
   it('does not fire when a device comes back, unless the trigger asks about that', () => {
     const { event, current } = motionChange('gone', true);
     const context = { stateOf: statesOf(current), now };
 
-    expect(reactTriggers(turnsOn, event, context).fired).toBeNull();
+    expect(reactTriggers(list(turnsOn), event, context).fired).toBeNull();
     expect(
       reactTriggers(
-        { type: 'state', entityId: motion, from: 'unavailable', to: 'on' },
+        list({
+          type: 'entity',
+          entityId: motion,
+          change: { kind: 'state', from: 'unavailable', to: 'on' },
+        }),
         event,
         context,
       ).fired,
@@ -122,14 +141,21 @@ describe('reactTriggers: entity state', () => {
   });
 
   it('fires on any change when it names no state, but not on going away', () => {
-    const anyChange: TriggerTree = { type: 'state', entityId: motion };
+    const anyChange: AutomationTrigger = {
+      type: 'entity',
+      entityId: motion,
+      change: { kind: 'state' },
+    };
     const away = motionChange(true, 'gone');
 
     expect(
-      reactTriggers(anyChange, motionChange(true, false).event, { stateOf: statesOf(), now }).fired,
+      reactTriggers(list(anyChange), motionChange(true, false).event, {
+        stateOf: statesOf(),
+        now,
+      }).fired,
     ).not.toBeNull();
     expect(
-      reactTriggers(anyChange, away.event, { stateOf: statesOf(away.current), now }).fired,
+      reactTriggers(list(anyChange), away.event, { stateOf: statesOf(away.current), now }).fired,
     ).toBeNull();
   });
 
@@ -137,204 +163,180 @@ describe('reactTriggers: entity state', () => {
     const { event, current } = motionChange(false, true);
 
     expect(
-      reactTriggers({ type: 'state', entityId: motion, from: 'on', to: 'on' }, event, {
-        stateOf: statesOf(current),
-        now,
-      }).fired,
+      reactTriggers(
+        list({ type: 'entity', entityId: motion, change: { kind: 'state', from: 'on', to: 'on' } }),
+        event,
+        { stateOf: statesOf(current), now },
+      ).fired,
     ).toBeNull();
   });
 
   it('starts a hold instead of firing when it must last, and cancels it when it does not', () => {
     const on = motionChange(false, true);
-    const started = reactTriggers(heldOn, on.event, { stateOf: statesOf(on.current), now });
+    const started = reactTriggers(list(heldOn), on.event, { stateOf: statesOf(on.current), now });
 
     expect(started.fired).toBeNull();
-    expect(started.holds).toEqual([{ path: 'triggers', ms: 120_000, expectToken: 'on' }]);
+    expect(started.holds).toEqual([{ path: 'triggers.0', ms: 120_000, expectToken: 'on' }]);
 
     const off = motionChange(true, false);
 
     expect(
-      reactTriggers(heldOn, off.event, { stateOf: statesOf(off.current), now }).cancels,
-    ).toEqual(['triggers']);
+      reactTriggers(list(heldOn), off.event, { stateOf: statesOf(off.current), now }).cancels,
+    ).toEqual(['triggers.0']);
   });
 
   it('fires when a hold runs its course with the entity still in the state', () => {
-    const hold: TriggerEvent = { kind: 'hold', path: 'triggers', expectToken: 'on' };
+    const hold: TriggerEvent = { kind: 'hold', path: 'triggers.0', expectToken: 'on' };
 
     expect(
-      reactTriggers(heldOn, hold, { stateOf: statesOf(motionState(true)), now }).fired,
-    ).toMatchObject({ kind: 'state', to: 'on' });
+      reactTriggers(list(heldOn), hold, { stateOf: statesOf(motionState(true)), now }).fired,
+    ).toMatchObject({ kind: 'entity', to: 'on' });
     expect(
-      reactTriggers(heldOn, hold, { stateOf: statesOf(motionState(false)), now }).fired,
+      reactTriggers(list(heldOn), hold, { stateOf: statesOf(motionState(false)), now }).fired,
     ).toBeNull();
   });
 
   it('ignores a change of another entity', () => {
     expect(
-      reactTriggers(turnsOn, luxChange(80, 40), { stateOf: statesOf(), now }).fired,
+      reactTriggers(list(turnsOn), luxChange(80, 40), { stateOf: statesOf(), now }).fired,
     ).toBeNull();
   });
 });
 
-describe('reactTriggers: numeric', () => {
+describe('reactTriggers: an entity crossing a number', () => {
   it('fires on crossing the threshold, not while it stays past it', () => {
     const context = { stateOf: statesOf(), now };
 
-    expect(reactTriggers(dark, luxChange(80, 40), context).fired).toEqual({
-      kind: 'numeric_state',
-      path: 'triggers',
+    expect(reactTriggers(list(dark), luxChange(80, 40), context).fired).toEqual({
+      kind: 'entity',
+      path: 'triggers.0',
       entityId: lux,
       value: 40,
     });
-    expect(reactTriggers(dark, luxChange(40, 30), context).fired).toBeNull();
-    expect(reactTriggers(dark, luxChange('gone', 30), context).fired).toBeNull();
+    expect(reactTriggers(list(dark), luxChange(40, 30), context).fired).toBeNull();
+    expect(reactTriggers(list(dark), luxChange('gone', 30), context).fired).toBeNull();
   });
 
   it('holds when it must last, and cancels when the reading goes back', () => {
     const context = { stateOf: statesOf(), now };
 
-    expect(reactTriggers(heldDark, luxChange(80, 40), context).holds).toEqual([
-      { path: 'triggers', ms: 60_000 },
+    expect(reactTriggers(list(heldDark), luxChange(80, 40), context).holds).toEqual([
+      { path: 'triggers.0', ms: 60_000 },
     ]);
-    expect(reactTriggers(heldDark, luxChange(40, 80), context).cancels).toEqual(['triggers']);
+    expect(reactTriggers(list(heldDark), luxChange(40, 80), context).cancels).toEqual([
+      'triggers.0',
+    ]);
   });
 
   it('fires at the end of a hold only while the comparison holds', () => {
-    const hold: TriggerEvent = { kind: 'hold', path: 'triggers' };
+    const hold: TriggerEvent = { kind: 'hold', path: 'triggers.0' };
     const reads = (value: number): { stateOf: ReturnType<typeof statesOf>; now: Date } => ({
       stateOf: statesOf(entityState(lux, { sensor_numeric: { value } })),
       now,
     });
 
-    expect(reactTriggers(heldDark, hold, reads(10)).fired).toMatchObject({ value: 10 });
-    expect(reactTriggers(heldDark, hold, reads(90)).fired).toBeNull();
+    expect(reactTriggers(list(heldDark), hold, reads(10)).fired).toMatchObject({ value: 10 });
+    expect(reactTriggers(list(heldDark), hold, reads(90)).fired).toBeNull();
   });
 });
 
-describe('reactTriggers: trees', () => {
-  it('fires an OR on whichever card fires', () => {
-    const tree: TriggerTree = { op: 'or', items: [turnsOn, sunset] };
-
-    expect(
-      reactTriggers(tree, { kind: 'time', path: 'triggers.1' }, { stateOf: statesOf(), now }).fired,
-    ).toEqual({ kind: 'time', path: 'triggers.1' });
-  });
-
-  it('fires an AND when one card fires and the others hold right then', () => {
-    const tree: TriggerTree = { op: 'and', items: [sunset, turnsOn] };
-    const time: TriggerEvent = { kind: 'time', path: 'triggers.0' };
-
-    expect(
-      reactTriggers(tree, time, { stateOf: statesOf(motionState(true)), now }).fired,
-    ).toMatchObject({ kind: 'time' });
-    expect(
-      reactTriggers(tree, time, { stateOf: statesOf(motionState(false)), now }).fired,
-    ).toBeNull();
-  });
-
-  it('never fires an AND of two instants', () => {
-    const tree: TriggerTree = { op: 'and', items: [sunset, { type: 'manual' }] };
-
-    expect(reactTriggers(tree, { kind: 'manual' }, { stateOf: statesOf(), now }).fired).toBeNull();
-  });
-
-  it('counts a held card as satisfied only once it has lasted', () => {
-    const tree: TriggerTree = {
-      op: 'and',
-      items: [sunset, { type: 'state', entityId: motion, to: 'on', forMs: 300_000 }],
-    };
-    const time: TriggerEvent = { kind: 'time', path: 'triggers.0' };
-    const onSince = (ago: number): EntityState =>
-      entityState(
-        motion,
-        { sensor_binary: { isOn: true } },
-        { lastChanged: new Date(now.getTime() - ago) },
-      );
-
-    expect(reactTriggers(tree, time, { stateOf: statesOf(onSince(60_000)), now }).fired).toBeNull();
-    expect(
-      reactTriggers(tree, time, { stateOf: statesOf(onSince(600_000)), now }).fired,
-    ).not.toBeNull();
-  });
-
-  it('reads a numeric card as satisfied while the comparison holds', () => {
-    const tree: TriggerTree = { op: 'and', items: [sunset, dark] };
-
+describe('reactTriggers: the list', () => {
+  it('fires on whichever trigger fires: any of them wakes it', () => {
     expect(
       reactTriggers(
-        tree,
-        { kind: 'time', path: 'triggers.0' },
-        {
-          stateOf: statesOf(entityState(lux, { sensor_numeric: { value: 20 } })),
-          now,
-        },
+        list(turnsOn, sunset),
+        { kind: 'time', path: 'triggers.1' },
+        { stateOf: statesOf(), now },
       ).fired,
-    ).not.toBeNull();
+    ).toEqual({ kind: 'sun', path: 'triggers.1', event: 'sunset' });
   });
 
-  it('reads an OR inside an AND as satisfied when any of it is', () => {
-    const tree: TriggerTree = {
-      op: 'and',
-      items: [sunset, { op: 'or', items: [turnsOn, dark] }],
-    };
+  it('fires a time trigger at its moment', () => {
+    const seven: AutomationTrigger = { type: 'time', at: { kind: 'clock', time: '07:00' } };
 
     expect(
-      reactTriggers(
-        tree,
-        { kind: 'time', path: 'triggers.0' },
-        {
-          stateOf: statesOf(entityState(lux, { sensor_numeric: { value: 20 } })),
-          now,
-        },
-      ).fired,
-    ).not.toBeNull();
-  });
-
-  it('nests: an AND inside an OR', () => {
-    const tree: TriggerTree = {
-      op: 'or',
-      items: [{ type: 'manual' }, { op: 'and', items: [sunset, turnsOn] }],
-    };
-
-    expect(
-      reactTriggers(
-        tree,
-        { kind: 'time', path: 'triggers.1.0' },
-        {
-          stateOf: statesOf(motionState(true)),
-          now,
-        },
-      ).fired,
-    ).toEqual({ kind: 'time', path: 'triggers.1.0' });
+      reactTriggers(list(seven), { kind: 'time', path: 'triggers.0' }, { stateOf: statesOf(), now })
+        .fired,
+    ).toEqual({ kind: 'time', path: 'triggers.0' });
   });
 
   it('wakes a manual trigger only when somebody asks, and never an event', () => {
     const context = { stateOf: statesOf(), now };
 
-    expect(reactTriggers({ type: 'manual' }, { kind: 'manual' }, context).fired).toEqual({
+    expect(reactTriggers(list({ type: 'manual' }), { kind: 'manual' }, context).fired).toEqual({
       kind: 'manual',
-      path: 'triggers',
+      path: 'triggers.0',
     });
     expect(
-      reactTriggers(
-        { type: 'event', event: 'button.pressed', match: {} },
-        { kind: 'manual' },
-        context,
-      ).fired,
+      reactTriggers(list({ type: 'event', event: 'button.pressed' }), { kind: 'manual' }, context)
+        .fired,
     ).toBeNull();
   });
 
-  it('lists leaves with their paths, and the entities it watches', () => {
-    const tree: TriggerTree = {
-      op: 'or',
-      items: [turnsOn, { op: 'and', items: [sunset, dark] }],
+  it('ignores a trigger turned off, which keeps its place in the list', () => {
+    const { event, current } = motionChange(false, true);
+    const context = { stateOf: statesOf(current), now };
+    const off: AutomationTrigger = { ...turnsOn, isEnabled: false };
+
+    expect(reactTriggers(list(off), event, context).fired).toBeNull();
+    expect(reactTriggers(list(off, turnsOn), event, context).fired).toMatchObject({
+      path: 'triggers.1',
+    });
+    expect(triggerLeaves(list(off, sunset)).map((ref) => ref.path)).toEqual(['triggers.1']);
+  });
+
+  it('lists the triggers with their paths, and the entities it watches', () => {
+    const changed: AutomationTrigger = { type: 'sun', event: 'elevation_changed' };
+
+    expect(triggerLeaves(list(turnsOn, sunset, dark)).map((ref) => ref.path)).toEqual([
+      'triggers.0',
+      'triggers.1',
+      'triggers.2',
+    ]);
+    expect(entitiesOfTriggers(list(turnsOn, sunset, dark, changed))).toEqual([
+      motion,
+      lux,
+      SUN_ELEVATION_ENTITY_ID,
+    ]);
+  });
+});
+
+describe('reactTriggers: the sun', () => {
+  it('fires on each new elevation when it waits for the elevation to change', () => {
+    const changed: AutomationTrigger = { type: 'sun', event: 'elevation_changed' };
+    const sun = parseEntityId(SUN_ELEVATION_ENTITY_ID);
+    const event: TriggerEvent = {
+      kind: 'state',
+      entityId: sun,
+      previous: entityState(sun, { sensor_numeric: { value: 12.4 } }),
+      current: entityState(sun, { sensor_numeric: { value: 12.6 } }),
     };
 
-    expect(triggerLeaves(tree).map((ref) => ref.path)).toEqual([
-      'triggers.0',
-      'triggers.1.0',
-      'triggers.1.1',
-    ]);
-    expect(entitiesOfTriggers(tree)).toEqual([motion, lux]);
+    expect(reactTriggers(list(changed), event, { stateOf: statesOf(), now }).fired).toEqual({
+      kind: 'sun',
+      path: 'triggers.0',
+      event: 'elevation_changed',
+      entityId: SUN_ELEVATION_ENTITY_ID,
+      value: 12.6,
+    });
+  });
+});
+
+describe('triggerHoldsNow', () => {
+  it('says whether an entity is where a trigger waits for it, and nothing of an instant', () => {
+    const context = { stateOf: statesOf(motionState(true)), now };
+
+    expect(triggerHoldsNow(turnsOn, context)).toBe(true);
+    expect(triggerHoldsNow({ ...turnsOn, change: { kind: 'state', to: 'off' } }, context)).toBe(
+      false,
+    );
+    expect(triggerHoldsNow({ ...turnsOn, change: { kind: 'state' } }, context)).toBeNull();
+    expect(triggerHoldsNow(sunset, context)).toBeNull();
+    expect(
+      triggerHoldsNow(dark, {
+        stateOf: statesOf(entityState(lux, { sensor_numeric: { value: 20 } })),
+        now,
+      }),
+    ).toBe(true);
   });
 });

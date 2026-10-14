@@ -1,14 +1,13 @@
 /**
- * What the automation engine reads and writes: the automations, the house it keeps time for, the
- * sensors that say whether an area is occupied, and the record of every run.
+ * What the automation engine reads and writes: the automations, the house it keeps time for, and
+ * the record of every run.
  *
  * Automations are read at startup and again one at a time when the API says one changed. The
- * house is read at startup and when the API says its zone or position changed. Area sensors are
- * read when a check asks about an area, and kept for a little while. A run is written once, when
- * it ends: the table has no "running" result, so a run cut off by a crash of `core` itself leaves
- * no row - its `started` event is all that was said of it.
+ * house is read at startup and when the API says its zone or position changed. A run is written
+ * once, when it ends: the table has no "running" result, so a run cut off by a crash of `core`
+ * itself leaves no row - its `started` event is all that was said of it.
  */
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 import {
   automationDefinitionSchema,
@@ -47,9 +46,6 @@ export type AutomationRunRow = {
   readonly trace: readonly TraceStep[];
   readonly error: string | null;
 };
-
-/** The device classes whose binary sensors say somebody is in a room. */
-export const OCCUPANCY_DEVICE_CLASSES = ['motion', 'occupancy', 'presence'] as const;
 
 /**
  * Narrows a stored mode to the format's.
@@ -197,33 +193,6 @@ export async function loadHouse(db: Database): Promise<House> {
       : { latitude: house.latitude, longitude: house.longitude };
 
   return { timeZone, position };
-}
-
-/**
- * The sensors that say whether somebody is in an area, or in any room below it.
- *
- * An entity is in the area it names, or failing that in its device's.
- *
- * @param db - The database.
- * @param areaKey - The area.
- * @returns Their entity ids; empty when the area has none, or is not there.
- */
-export async function loadOccupancySensors(db: Database, areaKey: string): Promise<string[]> {
-  const rows = await db.execute<{ entity_id: string }>(sql`
-    WITH RECURSIVE subtree AS (
-      SELECT id FROM registry.areas WHERE key = ${areaKey}
-      UNION ALL
-      SELECT child.id FROM registry.areas child JOIN subtree ON child.parent_id = subtree.id
-    )
-    SELECT entity.entity_id
-    FROM registry.entities entity
-    LEFT JOIN registry.devices device ON device.id = entity.device_id
-    WHERE entity.is_enabled
-      AND entity.device_class IN ('motion', 'occupancy', 'presence')
-      AND coalesce(entity.area_id, device.area_id) IN (SELECT id FROM subtree)
-  `);
-
-  return [...rows].map((row) => row.entity_id);
 }
 
 /**

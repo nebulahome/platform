@@ -77,7 +77,12 @@ describe('applyScenePlan', () => {
 
     expect(reply).toMatchObject({ applied: 2, failed: 0 });
     expect(ports.sent).toEqual([
-      { entityId: ceiling, capability: 'on_off', command: { command: 'turn_on' } },
+      // The scene's fade on the ceiling, which has none of its own; the lamp's own 0, none.
+      {
+        entityId: ceiling,
+        capability: 'on_off',
+        command: { command: 'turn_on', transitionMs: 2_000 },
+      },
       { entityId: lamp, capability: 'on_off', command: { command: 'turn_off' } },
       {
         entityId: ceiling,
@@ -121,7 +126,7 @@ describe('applyScenePlan', () => {
     expect(ports.sent.at(-1)).toEqual({
       entityId: ceiling,
       capability: 'on_off',
-      command: { command: 'turn_off' },
+      command: { command: 'turn_off', transitionMs: 2_000 },
     });
   });
 

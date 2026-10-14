@@ -1,28 +1,35 @@
 /**
- * Whether an automation's checks hold right now: the `if` tree, and the conditions inside an
- * if/else, a loop or a wait.
+ * Whether an automation's conditions hold right now: its `if`, and the conditions inside an If,
+ * a loop or a wait.
  *
- * Every leaf is evaluated, not only until the answer is known: the trace shows each card with
- * what it saw, and "why did it not run" is answered by the one that said false. Times and days
- * are the house's ({@link zonedParts}); an expression runs in the alias evaluator's sandbox,
- * bounded in steps and time, over the readings of the entities it names.
+ * A list of conditions holds when every one in it does; an AND group the same, an OR group when
+ * any does, and NOT turns any of them around. A condition turned off is left out, as if it were
+ * not there - a list or a group with nothing left in it holds. Every condition is evaluated, not
+ * only until the answer is known: the trace shows each card with what it saw, and "why did it not
+ * run" is answered by the one that said false. Times and days are the house's ({@link zonedParts});
+ * the sun is worked out from where the house stands; an expression runs in the alias evaluator's
+ * sandbox, bounded in steps and time, over the readings of the entities it names.
  *
- * Pure: the state of the house, the clock and the occupancy of the areas come in through the
- * context.
+ * Pure: the state of the house, the clock and the house's position come in through the context.
  */
 import {
   aliasScalarFromState,
+  conditionLeavesOf,
   evaluateAliasExpression,
-  isBooleanTreeOp,
+  isBlockEnabled,
+  isConditionGroup,
+  isSunPhase,
   numericReadingOf,
   stateTokenOf,
+  sunState,
   type AliasScalar,
-  type BooleanTree,
   type ConditionLeaf,
+  type ConditionNode,
   type EntityState,
+  type GeoPosition,
 } from '@nebulahome/contracts';
 
-import { isInWindow, zonedParts } from './house-time.js';
+import { isInTimeCondition, zonedParts } from './house-time.js';
 import { compare } from './trigger-match.js';
 
 /** What the checks can see of the house. */
@@ -31,24 +38,21 @@ export type ConditionContext = {
   readonly now: Date;
   readonly timeZone: string;
 
-  /**
-   * Whether somebody is in an area, by its key: true or false from its sensors, null when it
-   * has none to say.
-   */
-  readonly occupancy: (areaKey: string) => boolean | null;
+  /** Where the house stands, for the sun; null when nobody has said. */
+  readonly position: GeoPosition | null;
 };
 
 /** One check, as the trace records it. */
 export type ConditionStep = {
   readonly path: string;
   readonly type: string;
-  readonly result: 'true' | 'false' | 'failed';
+  readonly result: 'true' | 'false' | 'failed' | 'skipped';
   readonly entityId?: string;
   readonly detail?: string;
   readonly error?: string;
 };
 
-/** What a tree said, and what each of its checks saw. */
+/** What a list of checks said, and what each of them saw. */
 export type ConditionOutcome = {
   readonly value: boolean;
   readonly steps: readonly ConditionStep[];
@@ -63,6 +67,17 @@ const DAY_WORDS: Readonly<Record<string, string>> = {
   friday: 'Friday',
   saturday: 'Saturday',
   sunday: 'Sunday',
+};
+
+/** Sun phases, for the trace. */
+const PHASE_WORDS: Readonly<Record<string, string>> = {
+  day: 'day',
+  twilight: 'twilight',
+  night: 'night',
+  golden_hour: 'the golden hour',
+  blue_hour: 'the blue hour',
+  midnight_sun: 'the midnight sun',
+  polar_night: 'the polar night',
 };
 
 /**
@@ -83,7 +98,7 @@ function clockOf(seconds: number): string {
  *
  * @param path - Where the leaf is.
  * @param leaf - The leaf.
- * @param value - What it said.
+ * @param value - What it said, before NOT.
  * @param detail - What it saw.
  * @returns The step.
  */
@@ -165,7 +180,81 @@ function evaluateExpression(
 }
 
 /**
- * Evaluates one leaf.
+ * Evaluates an entity leaf.
+ *
+ * @param path - Where it is.
+ * @param leaf - The entity check.
+ * @param context - The house.
+ * @returns What it said, before NOT.
+ */
+function evaluateEntity(
+  path: string,
+  leaf: Extract<ConditionLeaf, { type: 'entity' }>,
+  context: ConditionContext,
+): ConditionStep {
+  const state = context.stateOf(leaf.entityId);
+
+  if (leaf.match.kind === 'state') {
+    const token = state === undefined ? undefined : stateTokenOf(state.state, state.isAvailable);
+
+    return step(
+      path,
+      leaf,
+      token !== undefined && leaf.match.states.includes(token),
+      `is ${token ?? 'unknown'}`,
+    );
+  }
+
+  const reading = state?.isAvailable === true ? numericReadingOf(state.state) : undefined;
+
+  if (reading === undefined) {
+    return step(path, leaf, false, 'has no reading');
+  }
+
+  return step(
+    path,
+    leaf,
+    compare(leaf.match.operator, reading, leaf.match.value),
+    `reads ${String(reading)}`,
+  );
+}
+
+/**
+ * Evaluates a sun leaf.
+ *
+ * @param path - Where it is.
+ * @param leaf - The sun check.
+ * @param context - The house.
+ * @returns What it said, before NOT.
+ */
+function evaluateSun(
+  path: string,
+  leaf: Extract<ConditionLeaf, { type: 'sun' }>,
+  context: ConditionContext,
+): ConditionStep {
+  if (context.position === null) {
+    return {
+      path,
+      type: leaf.type,
+      result: 'failed',
+      error: 'The house has no position, so the sun has no height here',
+    };
+  }
+
+  const state = sunState(context.now, context.position);
+  const phase = PHASE_WORDS[leaf.phase];
+  const elevation = `the sun is at ${state.elevation.toFixed(1)}°`;
+
+  return step(
+    path,
+    leaf,
+    isSunPhase(leaf, state),
+    phase === undefined ? elevation : `${elevation}, asked for ${phase}`,
+  );
+}
+
+/**
+ * Evaluates one leaf, NOT not applied.
  *
  * @param path - Where it is.
  * @param leaf - The leaf.
@@ -174,65 +263,21 @@ function evaluateExpression(
  */
 function evaluateLeaf(path: string, leaf: ConditionLeaf, context: ConditionContext): ConditionStep {
   switch (leaf.type) {
-    case 'state': {
-      const state = context.stateOf(leaf.entityId);
-      const token = state === undefined ? undefined : stateTokenOf(state.state, state.isAvailable);
-
-      return step(path, leaf, token === leaf.state, `is ${token ?? 'unknown'}`);
+    case 'entity': {
+      return evaluateEntity(path, leaf, context);
     }
-    case 'numeric': {
-      const state = context.stateOf(leaf.entityId);
-      const reading = state?.isAvailable === true ? numericReadingOf(state.state) : undefined;
-
-      if (reading === undefined) {
-        return step(path, leaf, false, 'has no reading');
-      }
+    case 'time': {
+      const parts = zonedParts(context.now, context.timeZone);
 
       return step(
         path,
         leaf,
-        compare(leaf.operator, reading, leaf.value),
-        `reads ${String(reading)}`,
+        isInTimeCondition(parts, leaf),
+        `it is ${DAY_WORDS[parts.weekday] ?? parts.weekday} ${clockOf(parts.secondsOfDay)}`,
       );
     }
-    case 'time_window': {
-      const { secondsOfDay } = zonedParts(context.now, context.timeZone);
-
-      return step(
-        path,
-        leaf,
-        isInWindow(secondsOfDay, leaf.from, leaf.to),
-        `it is ${clockOf(secondsOfDay)}`,
-      );
-    }
-    case 'day_of_week': {
-      const { weekday } = zonedParts(context.now, context.timeZone);
-
-      return step(
-        path,
-        leaf,
-        leaf.days.includes(weekday),
-        `it is ${DAY_WORDS[weekday] ?? weekday}`,
-      );
-    }
-    case 'area_occupancy': {
-      const occupied = context.occupancy(leaf.areaKey);
-
-      if (occupied === null) {
-        return step(
-          path,
-          leaf,
-          false,
-          `No motion, occupancy or presence sensor in ${leaf.areaKey}`,
-        );
-      }
-
-      return step(
-        path,
-        leaf,
-        occupied === leaf.isOccupied,
-        occupied ? 'somebody is there' : 'nobody is there',
-      );
+    case 'sun': {
+      return evaluateSun(path, leaf, context);
     }
     case 'expression': {
       return evaluateExpression(path, leaf, context);
@@ -241,115 +286,134 @@ function evaluateLeaf(path: string, leaf: ConditionLeaf, context: ConditionConte
 }
 
 /**
- * Evaluates a tree of checks.
+ * Turns a step's result around for NOT. A failure stays one.
  *
- * A check that fails to evaluate - an expression that does not parse - counts as false.
- *
- * @param tree - The tree.
- * @param path - Its path: `if`, `then.2.condition`.
- * @param context - The house, the clock and the areas.
- * @returns Whether it holds, and every check's step.
+ * @param leafStep - The step.
+ * @returns The step, its result inverted.
  */
-export function evaluateConditions(
-  tree: BooleanTree,
+function negated(leafStep: ConditionStep): ConditionStep {
+  if (leafStep.result === 'true') {
+    return { ...leafStep, result: 'false' };
+  }
+
+  return leafStep.result === 'false' ? { ...leafStep, result: 'true' } : leafStep;
+}
+
+/**
+ * Evaluates one condition: a leaf, or a group of more.
+ *
+ * @param node - The condition.
+ * @param path - Where it is.
+ * @param context - The house.
+ * @returns Whether it holds, NOT applied, and the steps of everything in it.
+ */
+function evaluateNode(
+  node: ConditionNode,
   path: string,
   context: ConditionContext,
 ): ConditionOutcome {
-  if (!isBooleanTreeOp(tree)) {
-    const leafStep = evaluateLeaf(path, tree, context);
+  if (isConditionGroup(node)) {
+    const inner = evaluateList(node.conditions, `${path}.conditions`, context, node.type);
+    const value = node.isNot === true ? !inner.value : inner.value;
 
-    return { value: leafStep.result === 'true', steps: [leafStep] };
+    return {
+      value,
+      steps: [{ path, type: node.type, result: value ? 'true' : 'false' }, ...inner.steps],
+    };
   }
 
-  if (tree.op === 'not') {
-    const inner = evaluateConditions(tree.item, `${path}.not`, context);
+  const evaluated = evaluateLeaf(path, node, context);
+  const leafStep = node.isNot === true ? negated(evaluated) : evaluated;
 
-    return { value: !inner.value, steps: inner.steps };
-  }
-
-  const outcomes = tree.items.map((item, index) =>
-    evaluateConditions(item, `${path}.${String(index)}`, context),
-  );
-  const value =
-    tree.op === 'and'
-      ? outcomes.every((outcome) => outcome.value)
-      : outcomes.some((outcome) => outcome.value);
-
-  return { value, steps: outcomes.flatMap((outcome) => outcome.steps) };
+  return { value: leafStep.result === 'true', steps: [leafStep] };
 }
 
 /**
- * The areas a tree asks about, so their occupancy can be read before it is evaluated.
+ * Evaluates a list of conditions, all of which (AND) or any of which (OR) must hold.
  *
- * @param tree - The tree.
- * @returns Each area key once.
+ * @param nodes - The conditions.
+ * @param path - Where the list is.
+ * @param context - The house.
+ * @param join - How they combine.
+ * @returns Whether the list holds, and every step.
  */
-export function areasOfConditions(tree: BooleanTree): string[] {
-  if (!isBooleanTreeOp(tree)) {
-    return tree.type === 'area_occupancy' ? [tree.areaKey] : [];
-  }
+function evaluateList(
+  nodes: readonly ConditionNode[],
+  path: string,
+  context: ConditionContext,
+  join: 'and' | 'or',
+): ConditionOutcome {
+  const steps: ConditionStep[] = [];
+  const values: boolean[] = [];
 
-  const items = tree.op === 'not' ? [tree.item] : tree.items;
+  for (const [index, node] of nodes.entries()) {
+    const at = `${path}.${String(index)}`;
 
-  return [...new Set(items.flatMap(areasOfConditions))];
-}
-
-/**
- * The entities a tree reads, so a wait can listen for them.
- *
- * @param tree - The tree.
- * @returns Each entity once.
- */
-export function entitiesOfConditions(tree: BooleanTree): string[] {
-  if (!isBooleanTreeOp(tree)) {
-    if (tree.type === 'state' || tree.type === 'numeric') {
-      return [tree.entityId];
+    if (!isBlockEnabled(node)) {
+      steps.push({ path: at, type: node.type, result: 'skipped', detail: 'Turned off' });
+      continue;
     }
 
-    return tree.type === 'expression' ? Object.values(tree.variables ?? {}) : [];
+    const outcome = evaluateNode(node, at, context);
+
+    values.push(outcome.value);
+    steps.push(...outcome.steps);
   }
 
-  const items = tree.op === 'not' ? [tree.item] : tree.items;
+  // Nothing left to check holds: a list emptied by turning its conditions off asks nothing.
+  const value =
+    values.length === 0 || (join === 'and' ? values.every(Boolean) : values.some(Boolean));
 
-  return [...new Set(items.flatMap(entitiesOfConditions))];
+  return { value, steps };
 }
 
 /**
- * Whether a tree depends on the clock, so a wait must look again as time passes.
+ * Evaluates a list of conditions, all of which must hold.
  *
- * @param tree - The tree.
- * @returns True when it has a time window, a day, or an area (whose sensors are read fresh).
+ * A check that fails to evaluate - an expression that does not parse, the sun in a house with no
+ * position - counts as false.
+ *
+ * @param nodes - The conditions.
+ * @param path - Where the list is: `if`, `then.2.conditions`.
+ * @param context - The house and the clock.
+ * @returns Whether they hold, and every check's step.
  */
-export function dependsOnClock(tree: BooleanTree): boolean {
-  if (!isBooleanTreeOp(tree)) {
-    return (
-      tree.type === 'time_window' || tree.type === 'day_of_week' || tree.type === 'area_occupancy'
-    );
-  }
-
-  const items = tree.op === 'not' ? [tree.item] : tree.items;
-
-  return items.some(dependsOnClock);
+export function evaluateConditions(
+  nodes: readonly ConditionNode[],
+  path: string,
+  context: ConditionContext,
+): ConditionOutcome {
+  return evaluateList(nodes, path, context, 'and');
 }
 
 /**
- * Whether somebody is in an area, by its sensors.
+ * The entities a list of conditions reads, so a wait can listen for them.
  *
- * @param sensorIds - The motion, occupancy and presence sensors in the area and below it.
- * @param stateOf - The live state of an entity.
- * @returns True when any reachable one is on, false when none is, null when there are none.
+ * @param nodes - The conditions.
+ * @returns Each entity once.
  */
-export function isOccupied(
-  sensorIds: readonly string[],
-  stateOf: (entityId: string) => EntityState | undefined,
-): boolean | null {
-  if (sensorIds.length === 0) {
-    return null;
+export function entitiesOfConditions(nodes: readonly ConditionNode[]): string[] {
+  const found = new Set<string>();
+
+  for (const leaf of conditionLeavesOf(nodes)) {
+    if (leaf.type === 'entity') {
+      found.add(leaf.entityId);
+    } else if (leaf.type === 'expression') {
+      for (const entityId of Object.values(leaf.variables ?? {})) {
+        found.add(entityId);
+      }
+    }
   }
 
-  return sensorIds.some((entityId) => {
-    const state = stateOf(entityId);
+  return [...found];
+}
 
-    return state !== undefined && stateTokenOf(state.state, state.isAvailable) === 'on';
-  });
+/**
+ * Whether a list of conditions depends on the clock, so a wait must look again as time passes.
+ *
+ * @param nodes - The conditions.
+ * @returns True when one of them is a time or a phase of the sun.
+ */
+export function dependsOnClock(nodes: readonly ConditionNode[]): boolean {
+  return conditionLeavesOf(nodes).some((leaf) => leaf.type === 'time' || leaf.type === 'sun');
 }

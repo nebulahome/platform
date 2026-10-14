@@ -18,15 +18,19 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { BusClient, connectBus, ulid, type BusConnection } from '@nebulahome/bus';
 import {
   applySceneReplySchema,
+  automationTestReplySchema,
   busSubjects,
   CORE_APPLY_SCENE_METHOD,
   CORE_SERVICE,
   CORE_SYNC_AUTOMATION_METHOD,
+  CORE_TEST_AUTOMATION_BLOCK_METHOD,
   CORE_TRIGGER_AUTOMATION_METHOD,
   parseEntityId,
+  SUN_ELEVATION_ENTITY_ID,
   syncAutomationReplySchema,
   triggerAutomationReplySchema,
   type AutomationDefinition,
+  type AutomationTestTarget,
 } from '@nebulahome/contracts';
 import { createDatabase, schema, type DatabaseHandle } from '@nebulahome/db';
 import { createLogger, type PlatformLogger } from '@nebulahome/logging';
@@ -161,14 +165,14 @@ describe('automations in a running core', () => {
     ]);
 
     await insertAutomation('lamp_on_motion', {
-      triggers: { type: 'state', entityId: motion, to: 'on' },
+      triggers: [{ type: 'entity', entityId: motion, change: { kind: 'state', to: 'on' } }],
       then: [
         { type: 'command', entityId: lamp, capability: 'on_off', params: { command: 'turn_on' } },
       ],
     });
     await insertAutomation('never_true', {
-      triggers: { type: 'manual' },
-      if: { type: 'state', entityId: lamp, state: 'unavailable' },
+      triggers: [{ type: 'manual' }],
+      if: [{ type: 'entity', entityId: lamp, match: { kind: 'state', states: ['unavailable'] } }],
       then: [
         { type: 'command', entityId: lamp, capability: 'on_off', params: { command: 'turn_off' } },
       ],
@@ -176,7 +180,10 @@ describe('automations in a running core', () => {
     await insertAutomation(
       'toggles_itself',
       {
-        triggers: { op: 'or', items: [{ type: 'manual' }, { type: 'state', entityId: relay }] },
+        triggers: [
+          { type: 'manual' },
+          { type: 'entity', entityId: relay, change: { kind: 'state' } },
+        ],
         then: [
           { type: 'command', entityId: relay, capability: 'on_off', params: { command: 'toggle' } },
         ],
@@ -197,8 +204,21 @@ describe('automations in a running core', () => {
     });
 
     await insertAutomation('applies_scene', {
-      triggers: { type: 'manual' },
+      triggers: [{ type: 'manual' }],
       then: [{ type: 'scene', sceneKey: `lamp_off_${suffix}` }],
+    });
+    await insertAutomation('skips_what_is_off', {
+      triggers: [{ type: 'manual' }],
+      then: [
+        {
+          type: 'command',
+          entityId: relay,
+          capability: 'on_off',
+          params: { command: 'turn_on' },
+          isEnabled: false,
+        },
+        { type: 'wait_duration', durationMs: 1 },
+      ],
     });
 
     bus = await connectBus({
@@ -279,9 +299,9 @@ describe('automations in a running core', () => {
     );
 
     expect(adapter.received.some((command) => command.entityId === lamp)).toBe(true);
-    expect(runs[0]).toMatchObject({ result: 'success', trigger: { kind: 'state', to: 'on' } });
+    expect(runs[0]).toMatchObject({ result: 'success', trigger: { kind: 'entity', to: 'on' } });
     expect((runs[0]?.trace as { type: string }[]).map((step) => step.type)).toEqual([
-      'state',
+      'entity',
       'command',
     ]);
 
@@ -367,6 +387,98 @@ describe('automations in a running core', () => {
       failed: 1,
       members: [{ entityId: lamp, error: 'You may not control this entity', sent: [] }],
     });
+  });
+
+  it('skips a block turned off, and records it so', async () => {
+    const before = adapter.received.length;
+
+    await caller.request(
+      busSubjects.service(CORE_SERVICE, CORE_TRIGGER_AUTOMATION_METHOD),
+      { automationId: ids['skips_what_is_off'] },
+      triggerAutomationReplySchema,
+    );
+
+    const runs = await until(
+      () => runsOf('skips_what_is_off'),
+      (rows) => rows.length > 0,
+    );
+
+    expect(runs[0]).toMatchObject({ result: 'success' });
+    expect((runs[0]?.trace as { path: string; result: string }[])[1]).toMatchObject({
+      path: 'then.0',
+      result: 'skipped',
+    });
+    expect(adapter.received.slice(before).some((command) => command.entityId === relay)).toBe(
+      false,
+    );
+  });
+
+  /**
+   * Tests one block, as the API asks on behalf of somebody.
+   *
+   * @param target - The block.
+   * @returns What core found.
+   */
+  const test = (target: AutomationTestTarget) =>
+    caller.request(
+      busSubjects.service(CORE_SERVICE, CORE_TEST_AUTOMATION_BLOCK_METHOD),
+      { testId: crypto.randomUUID(), userId: crypto.randomUUID(), target },
+      automationTestReplySchema,
+    );
+
+  it('tests an action by running it now, on behalf of who asked', async () => {
+    const reply = await test({
+      kind: 'action',
+      action: {
+        type: 'command',
+        entityId: lamp,
+        capability: 'on_off',
+        params: { command: 'turn_on' },
+        isEnabled: false,
+      },
+    });
+
+    // Turned off in the editor, and tested all the same: that is often why it is tested.
+    expect(reply).toMatchObject({ kind: 'action', result: 'ok', steps: [{ path: '0' }] });
+    expect(adapter.received.at(-1)).toMatchObject({
+      entityId: lamp,
+      command: { command: 'turn_on' },
+    });
+  });
+
+  it('tests a condition and a trigger without running anything', async () => {
+    const condition = await test({
+      kind: 'condition',
+      condition: { type: 'entity', entityId: lamp, match: { kind: 'state', states: ['on'] } },
+    });
+    const seven = await test({
+      kind: 'trigger',
+      trigger: { type: 'time', at: { kind: 'clock', time: '07:00' } },
+    });
+    const manual = await test({ kind: 'trigger', trigger: { type: 'manual' } });
+
+    expect(condition).toMatchObject({ kind: 'condition', value: true });
+    expect(seven).toMatchObject({ kind: 'trigger', matches: null });
+    expect(seven.kind === 'trigger' && seven.nextAt).toBeInstanceOf(Date);
+    expect(manual).toMatchObject({
+      kind: 'trigger',
+      problem: 'A manual trigger has nothing to test',
+    });
+  });
+
+  it('has the sun entities exactly when the house has a position', async () => {
+    const [house] = await database.db
+      .select({ latitude: schema.registry.areas.latitude })
+      .from(schema.registry.areas)
+      .where(eq(schema.registry.areas.kind, 'house'));
+    const sun = service.registry.get(parseEntityId(SUN_ELEVATION_ENTITY_ID));
+
+    if (house?.latitude === null || house?.latitude === undefined) {
+      expect(sun).toBeUndefined();
+    } else {
+      expect(sun?.state.sensor_numeric?.value).toBeTypeOf('number');
+      expect(sun?.attributes).toHaveProperty('phase');
+    }
   });
 
   it('takes in an edited automation, and lets a disabled one go', async () => {

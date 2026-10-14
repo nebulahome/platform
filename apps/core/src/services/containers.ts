@@ -39,6 +39,7 @@ import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { EntityDirectory } from '../domain/entity-directory.js';
 import type { EntityRegistry } from '../domain/entity-registry.js';
+import { unreadByAliases } from '../persistence/alias-readers.js';
 import type { BatchWriter } from '../persistence/batch-writer.js';
 import type { EntityStateRow } from '../persistence/history-writer.js';
 
@@ -101,30 +102,6 @@ export type SyncOutcome = {
   /** Containers that are gone but whose device is kept because an alias reads it. */
   readonly kept: string[];
 };
-
-/** What reading the alias sources needs: the database, or a transaction on it. */
-type Reader = Pick<Database, 'selectDistinct'>;
-
-/**
- * The rows of entities no derived entity reads, out of those given.
- *
- * @param tx - The transaction.
- * @param rowIds - The candidates.
- * @returns The ones free to delete.
- */
-async function unread(tx: Reader, rowIds: readonly string[]): Promise<Set<string>> {
-  if (rowIds.length === 0) {
-    return new Set();
-  }
-
-  const read = await tx
-    .selectDistinct({ rowId: schema.registry.aliasSources.entityId })
-    .from(schema.registry.aliasSources)
-    .where(inArray(schema.registry.aliasSources.entityId, [...rowIds]));
-  const reading = new Set(read.map((row) => row.rowId));
-
-  return new Set(rowIds.filter((rowId) => !reading.has(rowId)));
-}
 
 /**
  * Makes the container devices match the list, in one transaction.
@@ -225,7 +202,7 @@ export async function syncContainerDevices(
                 ),
           ),
         );
-      const free = await unread(
+      const free = await unreadByAliases(
         tx,
         dropped.map((row) => row.rowId),
       );
@@ -333,7 +310,7 @@ export async function syncContainerDevices(
         .select({ rowId: entities.id, entityId: entities.entityId })
         .from(entities)
         .where(eq(entities.deviceId, device.id));
-      const free = await unread(
+      const free = await unreadByAliases(
         tx,
         owned.map((row) => row.rowId),
       );

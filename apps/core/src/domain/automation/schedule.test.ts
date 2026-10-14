@@ -4,9 +4,13 @@ import { nextFire, type House } from './schedule.js';
 
 const rome: House = { timeZone: 'Europe/Rome', position: { latitude: 41.9, longitude: 12.5 } };
 
-describe('nextFire', () => {
+describe('nextFire: the clock', () => {
   it("fires at a time of day on the house's clock", () => {
-    const next = nextFire({ kind: 'clock', time: '07:00' }, rome, new Date('2026-07-10T12:00:00Z'));
+    const next = nextFire(
+      { type: 'time', at: { kind: 'clock', time: '07:00' } },
+      rome,
+      new Date('2026-07-10T12:00:00Z'),
+    );
 
     // 07:00 in Rome in summer is 05:00 UTC, the next morning.
     expect(next).toEqual({ at: new Date('2026-07-11T05:00:00Z') });
@@ -14,20 +18,46 @@ describe('nextFire', () => {
 
   it('keeps seven in the morning across the change of the clocks', () => {
     // Summer time ends in Rome on 25 October 2026.
-    const next = nextFire({ kind: 'clock', time: '07:00' }, rome, new Date('2026-10-25T00:00:00Z'));
+    const next = nextFire(
+      { type: 'time', at: { kind: 'clock', time: '07:00' } },
+      rome,
+      new Date('2026-10-25T00:00:00Z'),
+    );
 
     expect(next).toEqual({ at: new Date('2026-10-25T06:00:00Z') });
   });
 
   it('is strictly later than the instant it looks past', () => {
-    const next = nextFire({ kind: 'clock', time: '07:00' }, rome, new Date('2026-07-11T05:00:00Z'));
+    const next = nextFire(
+      { type: 'time', at: { kind: 'clock', time: '07:00' } },
+      rome,
+      new Date('2026-07-11T05:00:00Z'),
+    );
 
     expect(next).toEqual({ at: new Date('2026-07-12T05:00:00Z') });
   });
 
+  it('keeps to its weekdays and its months', () => {
+    // Friday 10 July 2026: the next Monday is the 13th.
+    const monday = nextFire(
+      { type: 'time', at: { kind: 'clock', time: '07:00:30', weekdays: ['monday'] } },
+      rome,
+      new Date('2026-07-10T12:00:00Z'),
+    );
+    const december = nextFire(
+      { type: 'time', at: { kind: 'clock', time: '07:00', months: ['december'] } },
+      rome,
+      new Date('2026-07-10T12:00:00Z'),
+    );
+
+    expect(monday).toEqual({ at: new Date('2026-07-13T05:00:30Z') });
+    // 07:00 in Rome in winter is 06:00 UTC.
+    expect(december).toEqual({ at: new Date('2026-12-01T06:00:00Z') });
+  });
+
   it('follows a cron expression', () => {
     const next = nextFire(
-      { kind: 'cron', expression: '0 */2 * * 1-5' },
+      { type: 'time', at: { kind: 'cron', expression: '0 */2 * * 1-5' } },
       { timeZone: 'UTC', position: null },
       new Date('2026-07-10T13:15:00Z'),
     );
@@ -37,18 +67,20 @@ describe('nextFire', () => {
 
   it('says why when a cron expression cannot be read', () => {
     const next = nextFire(
-      { kind: 'cron', expression: '99 99 * * *' },
+      { type: 'time', at: { kind: 'cron', expression: '99 99 * * *' } },
       { timeZone: 'UTC', position: null },
       new Date('2026-07-10T13:15:00Z'),
     );
 
     expect('problem' in next && next.problem).toMatch(/cannot be read/);
   });
+});
 
+describe('nextFire: the sun', () => {
   it('fires at sunset, moved by its offset', () => {
     const after = new Date('2026-07-10T10:00:00Z');
-    const sunset = nextFire({ kind: 'solar', event: 'sunset', offsetMinutes: 0 }, rome, after);
-    const early = nextFire({ kind: 'solar', event: 'sunset', offsetMinutes: -15 }, rome, after);
+    const sunset = nextFire({ type: 'sun', event: 'sunset' }, rome, after);
+    const early = nextFire({ type: 'sun', event: 'sunset', offsetMinutes: -15 }, rome, after);
 
     if (!('at' in sunset) || !('at' in early)) {
       throw new Error('expected a sunset');
@@ -61,7 +93,7 @@ describe('nextFire', () => {
 
   it('looks to tomorrow once today has passed', () => {
     const next = nextFire(
-      { kind: 'solar', event: 'sunrise', offsetMinutes: 0 },
+      { type: 'sun', event: 'sunrise' },
       rome,
       new Date('2026-07-10T12:00:00Z'),
     );
@@ -71,7 +103,7 @@ describe('nextFire', () => {
 
   it('has no sun to go by without a position', () => {
     const next = nextFire(
-      { kind: 'solar', event: 'sunset', offsetMinutes: 0 },
+      { type: 'sun', event: 'sunset' },
       { timeZone: 'UTC', position: null },
       new Date(),
     );
@@ -79,15 +111,19 @@ describe('nextFire', () => {
     expect('problem' in next && next.problem).toMatch(/no position/);
   });
 
-  it('says so when the sun does not set for a week', () => {
-    const svalbard: House = { timeZone: 'UTC', position: { latitude: 78.2, longitude: 15.6 } };
-
+  it('says so when an event never happens where the house is', () => {
     const next = nextFire(
-      { kind: 'solar', event: 'sunset', offsetMinutes: 0 },
-      svalbard,
+      { type: 'sun', event: 'midnight_sun_start' },
+      rome,
       new Date('2026-06-20T12:00:00Z'),
     );
 
-    expect('problem' in next && next.problem).toMatch(/no sunset/);
+    expect('problem' in next && next.problem).toMatch(/no midnight sun/);
+  });
+
+  it('has no moment for a change of elevation, which comes from the sun entity', () => {
+    const next = nextFire({ type: 'sun', event: 'elevation_changed' }, rome, new Date());
+
+    expect('problem' in next).toBe(true);
   });
 });

@@ -127,6 +127,25 @@ describe('validateCommand', () => {
     ).toStrictEqual({ command: 'set_color_temp', mireds: 300 });
   });
 
+  it('keeps a fade for a lamp that can fade, and drops it for one that cannot', () => {
+    const fade = { command: 'set_level', level: 40, transitionMs: 2_000 };
+
+    expect(
+      validateCommand(record({ level: { hasTransition: true } }), 'level', fade),
+    ).toStrictEqual(fade);
+    // Not a refusal: a scene asks every member for the same fade, and each does what it can.
+    expect(validateCommand(record({ level: {} }), 'level', fade)).toStrictEqual({
+      command: 'set_level',
+      level: 40,
+    });
+    expect(
+      validateCommand(record({ on_off: { hasTransition: true } }), 'on_off', {
+        command: 'turn_off',
+        transitionMs: 500,
+      }),
+    ).toStrictEqual({ command: 'turn_off', transitionMs: 500 });
+  });
+
   it('refuses a thermostat target outside the declared range', () => {
     expect(() =>
       validateCommand(

@@ -118,3 +118,66 @@ export function isInWindow(secondsOfDay: number, from: string, to: string): bool
     ? secondsOfDay >= start && secondsOfDay < end
     : secondsOfDay >= start || secondsOfDay < end;
 }
+
+/** What a time condition says: from when, until when, on which days. */
+export type TimeCondition = {
+  readonly from?: string | undefined;
+  readonly to?: string | undefined;
+  readonly days?: readonly DayOfWeek[] | undefined;
+};
+
+/**
+ * The day before.
+ *
+ * @param day - A day.
+ * @returns The one before it.
+ */
+function dayBefore(day: DayOfWeek): DayOfWeek {
+  const index = DAYS_OF_WEEK.indexOf(day);
+
+  return DAYS_OF_WEEK[(index + DAYS_OF_WEEK.length - 1) % DAYS_OF_WEEK.length] ?? day;
+}
+
+/**
+ * Whether an instant on the house's clock falls in a time condition.
+ *
+ * Without a start the window opens at midnight; without an end it closes at midnight. Days are a
+ * whitelist (none means every day), and for a window that runs past midnight they name the day
+ * it starts: "Friday 22:00 to 06:30" holds at two on Saturday morning.
+ *
+ * @param parts - The instant, read on the house's clock.
+ * @param condition - The window and the days.
+ * @returns True when it holds.
+ */
+export function isInTimeCondition(parts: ZonedParts, condition: TimeCondition): boolean {
+  const days = condition.days ?? [];
+
+  /**
+   * Whether a day is one the condition holds on.
+   *
+   * @param day - The day.
+   * @returns True when there is no list, or the day is in it.
+   */
+  const isDayIn = (day: DayOfWeek): boolean => days.length === 0 || days.includes(day);
+
+  if (condition.from === undefined && condition.to === undefined) {
+    return isDayIn(parts.weekday);
+  }
+
+  const start = condition.from === undefined ? 0 : secondsOfClock(condition.from);
+  const end = condition.to === undefined ? 86_400 : secondsOfClock(condition.to);
+
+  if (start < end) {
+    return parts.secondsOfDay >= start && parts.secondsOfDay < end && isDayIn(parts.weekday);
+  }
+
+  if (start === end) {
+    return false;
+  }
+
+  if (parts.secondsOfDay >= start) {
+    return isDayIn(parts.weekday);
+  }
+
+  return parts.secondsOfDay < end && isDayIn(dayBefore(parts.weekday));
+}

@@ -196,9 +196,6 @@ importers:
       nats:
         specifier: ^2.29.3
         version: 2.29.3
-      suncalc:
-        specifier: ^2.0.2
-        version: 2.0.2
       zod:
         specifier: ^4.5.4
         version: 4.5.4
@@ -209,9 +206,6 @@ importers:
       '@nebulahome/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
-      '@types/suncalc':
-        specifier: ^1.9.2
-        version: 1.9.2
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -3184,9 +3178,6 @@ packages:
   '@types/semver@7.8.0':
     resolution: {integrity: sha512-1mAINjtQCXXeLkJ9ehXkwOcBpqtLxiVtKhpUf83DdRNdQKV0iXZpaHYqRr7nj+wvxuJzoAmAwXI+sCNMv1CzLQ==}
 
-  '@types/suncalc@1.9.2':
-    resolution: {integrity: sha512-ATAGBHHfA1TlE2tjfidLyTcysjoT2JHHEAmWRULh73SU9UTn++j5fqHEW16X6Y/2Li87jEQXzgu4R/OOdlDqzw==}
-
   '@types/use-sync-external-store@0.0.6':
     resolution: {integrity: sha512-zFDAD+tlpf2r4asuHEj0XH6pY6i0g5NeAHPn+15wk3BV6JA69eERFXC1gyGThDkVa1zCyKr5jox1+2LbV/AMLg==}
 
@@ -6069,9 +6060,6 @@ packages:
   style-mod@4.1.4:
     resolution: {integrity: sha512-XXWIQt633/EpAFx8aZDOTjBzrCaGmhvEQlQo6MVPfa2OzO2cWo+4hV9h+6UkHYlXGfy+ODXKUdP7Pthmcu5ATw==}
 
-  suncalc@2.0.2:
-    resolution: {integrity: sha512-cedP91TuhxggoERke/jLkUVr/VMUifEMz1OkxfBZezvOFQdk8LSe9CFv7/Ov0Frn2tc2YUs+44oSrXeNEyTyGQ==}
-
   super-regex@1.1.0:
     resolution: {integrity: sha512-WHkws2ZflZe41zj6AolvvmaTrWds/VuyeYr9iPVv/oQeaIoVxMKaushfFWpOGDT+GuBrM/sVqF8KUCYQlSSTdQ==}
     engines: {node: '>=18'}
@@ -8755,8 +8743,6 @@ snapshots:
       '@types/node': 22.20.1
 
   '@types/semver@7.8.0': {}
-
-  '@types/suncalc@1.9.2': {}
 
   '@types/use-sync-external-store@0.0.6': {}
 
@@ -11670,8 +11656,6 @@ snapshots:
   strip-indent@4.1.1: {}
 
   style-mod@4.1.4: {}
-
-  suncalc@2.0.2: {}
 
   super-regex@1.1.0:
     dependencies:

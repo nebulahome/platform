@@ -15,6 +15,8 @@
  * - **the signal aborts it**: the run went past its time, was replaced by a restart, or its
  *   automation was edited or removed.
  *
+ * A block turned off is one `skipped` step and nothing more: what it holds does not run either.
+ *
  * Loops are bounded twice over: an iteration cap per loop and an action budget per run, and each
  * time round a loop yields to the event loop, so a `while` whose condition never changes cannot
  * starve the rest of `core` while the run's own time runs out.
@@ -22,15 +24,16 @@
  * Pure: everything the blocks reach - the clock, sleeping, the state of the house, commands,
  * scenes, other automations, packages - comes in through the ports.
  */
-import type {
-  AutomationAction,
-  AutomationTrigger,
-  BooleanTree,
-  CapabilityName,
-  JsonObject,
-  TraceStep,
-  TraceStepResult,
-  TriggerOutcome,
+import {
+  isBlockEnabled,
+  type AutomationAction,
+  type AutomationTrigger,
+  type CapabilityName,
+  type ConditionNode,
+  type JsonObject,
+  type TraceStep,
+  type TraceStepResult,
+  type TriggerOutcome,
 } from '@nebulahome/contracts';
 
 import type { ConditionOutcome } from './conditions.js';
@@ -46,12 +49,12 @@ export type ExecutorPorts = {
   /** Lets the rest of the process run before carrying on. */
   readonly yieldTurn: () => Promise<void>;
 
-  /** Evaluates a tree of checks against the house now. */
-  readonly evaluate: (tree: BooleanTree, path: string) => ConditionOutcome;
+  /** Evaluates a list of conditions, all of which must hold, against the house now. */
+  readonly evaluate: (conditions: readonly ConditionNode[], path: string) => ConditionOutcome;
 
-  /** Resolves true once the tree holds, false when the timeout passes first. */
+  /** Resolves true once the conditions hold, false when the timeout passes first. */
   readonly waitForCondition: (
-    tree: BooleanTree,
+    conditions: readonly ConditionNode[],
     timeoutMs: number,
     signal: AbortSignal,
   ) => Promise<boolean>;
@@ -395,9 +398,16 @@ export class Executor {
    */
   async #action(action: AutomationAction, path: string, signal: AbortSignal): Promise<void> {
     this.#checkAbort(signal);
-    this.#spend(action, path);
 
     const at = this.#ports.now();
+
+    if (!isBlockEnabled(action)) {
+      this.#record(action, path, at, 'skipped', { detail: 'Turned off' });
+
+      return;
+    }
+
+    this.#spend(action, path);
 
     switch (action.type) {
       case 'command': {
@@ -487,7 +497,7 @@ export class Executor {
       }
       case 'wait_for': {
         const holds = await this.#await(
-          this.#ports.waitForCondition(action.condition, action.timeoutMs, signal),
+          this.#ports.waitForCondition(action.conditions, action.timeoutMs, signal),
           action,
           path,
           at,
@@ -553,14 +563,15 @@ export class Executor {
       }
       case 'parallel': {
         this.#record(action, path, at, 'ok', {
-          detail: `${String(action.actions.length)} side by side`,
+          detail: `${String(action.branches.length)} branches side by side`,
         });
-        await this.#parallel(action.actions, `${path}.actions`, signal);
+        await this.#parallel(action.branches, `${path}.branches`, signal);
 
         return;
       }
       case 'if': {
-        const outcome = this.#ports.evaluate(action.condition, `${path}.condition`);
+        // No conditions at all always holds: the If is there for its branches.
+        const outcome = this.#ports.evaluate(action.conditions, `${path}.conditions`);
 
         this.#recordConditions(outcome);
         this.#record(action, path, at, outcome.value ? 'true' : 'false', {
@@ -658,7 +669,7 @@ export class Executor {
 
     for (;;) {
       if (action.type === 'while' || rounds > 0) {
-        const outcome = this.#ports.evaluate(action.condition, `${path}.condition`);
+        const outcome = this.#ports.evaluate(action.conditions, `${path}.conditions`);
 
         this.#recordConditions(outcome);
 
@@ -688,20 +699,20 @@ export class Executor {
   /**
    * Runs branches side by side; the first to fail or end the run stops the others.
    *
-   * @param actions - One block per branch.
+   * @param branches - Each branch's blocks, run in order within it.
    * @param path - The branches' path.
    * @param signal - Aborts the run.
    */
   async #parallel(
-    actions: readonly AutomationAction[],
+    branches: readonly (readonly AutomationAction[])[],
     path: string,
     signal: AbortSignal,
   ): Promise<void> {
-    const branches = new AbortController();
+    const together = new AbortController();
 
     /** Passes the run's abort on to the branches. */
     const forward = (): void => {
-      branches.abort(signal.reason);
+      together.abort(signal.reason);
     };
 
     signal.addEventListener('abort', forward, { once: true });
@@ -710,13 +721,13 @@ export class Executor {
 
     try {
       await Promise.all(
-        actions.map(async (action, index) => {
+        branches.map(async (branch, index) => {
           try {
-            await this.#action(action, `${path}.${String(index)}`, branches.signal);
+            await this.run(branch, `${path}.${String(index)}`, together.signal);
           } catch (error: unknown) {
             if (first === undefined) {
               first = error;
-              branches.abort('cancelled');
+              together.abort('cancelled');
             }
           }
         }),

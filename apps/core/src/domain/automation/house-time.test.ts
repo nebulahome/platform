@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { isInWindow, secondsOfClock, zonedParts } from './house-time.js';
+import {
+  isInTimeCondition,
+  isInWindow,
+  secondsOfClock,
+  zonedParts,
+  type ZonedParts,
+} from './house-time.js';
 
 describe('zonedParts', () => {
   it("reads an instant on the house's clock, not the machine's", () => {
@@ -44,5 +50,48 @@ describe('isInWindow', () => {
 
   it('reads seconds when a time has them', () => {
     expect(secondsOfClock('07:00:30')).toBe(7 * 3_600 + 30);
+  });
+});
+
+describe('isInTimeCondition', () => {
+  /**
+   * A moment of a day.
+   *
+   * @param weekday - The day.
+   * @param clock - The time.
+   * @returns The parts.
+   */
+  const moment = (weekday: ZonedParts['weekday'], clock: string): ZonedParts => ({
+    year: 2026,
+    month: 10,
+    day: 10,
+    weekday,
+    secondsOfDay: secondsOfClock(clock),
+  });
+
+  it('opens at midnight without a start and closes at midnight without an end', () => {
+    expect(isInTimeCondition(moment('monday', '23:59'), { from: '20:00' })).toBe(true);
+    expect(isInTimeCondition(moment('monday', '19:59'), { from: '20:00' })).toBe(false);
+    expect(isInTimeCondition(moment('monday', '00:00'), { to: '06:00' })).toBe(true);
+    expect(isInTimeCondition(moment('monday', '06:00'), { to: '06:00' })).toBe(false);
+  });
+
+  it('takes the days as a whitelist, every day when there is none', () => {
+    expect(isInTimeCondition(moment('sunday', '12:00'), { days: ['saturday', 'sunday'] })).toBe(
+      true,
+    );
+    expect(isInTimeCondition(moment('monday', '12:00'), { days: ['saturday', 'sunday'] })).toBe(
+      false,
+    );
+    expect(isInTimeCondition(moment('monday', '12:00'), { from: '08:00', days: [] })).toBe(true);
+  });
+
+  it('counts the small hours of a night window on the day it started', () => {
+    const fridayNight = { from: '22:00', to: '06:30', days: ['friday' as const] };
+
+    expect(isInTimeCondition(moment('friday', '23:00'), fridayNight)).toBe(true);
+    expect(isInTimeCondition(moment('saturday', '02:00'), fridayNight)).toBe(true);
+    expect(isInTimeCondition(moment('saturday', '23:00'), fridayNight)).toBe(false);
+    expect(isInTimeCondition(moment('friday', '02:00'), fridayNight)).toBe(false);
   });
 });

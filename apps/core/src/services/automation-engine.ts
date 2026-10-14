@@ -11,6 +11,11 @@
  * it - which is how history answers "why did this light turn on" and how the loop guard sees an
  * automation waking itself.
  *
+ * It also tries single blocks for the editor ({@link AutomationEngine.test}): an action run now, on
+ * its own, with the person who asked as its cause; a condition checked now; a trigger asked
+ * whether it holds now or when it next fires. A test is not a run - it writes no row - and it is
+ * bounded in time and in how many go at once.
+ *
  * The hot path is the ingest pipeline's, and this engine never blocks it: a change is queued and
  * looked at once the pipeline has moved on. For a short while after `core` starts, changes wake
  * nothing: the adapters are resynchronising, and a light that changed while `core` was down
@@ -22,25 +27,31 @@ import { z } from 'zod';
 
 import type { BusClient } from '@nebulahome/bus';
 import {
+  AUTOMATION_TEST_MAX_CONCURRENT,
+  AUTOMATION_TEST_MAX_MS,
   busSubjects,
-  flattenTriggers,
+  ConflictError,
   isNebulaError,
+  numericReadingOf,
   stateTokenOf,
   UNAVAILABLE_TRIGGER_TYPES,
+  type AutomationAction,
   type AutomationEvent,
   type AutomationRunResult,
   type AutomationRunTrigger,
+  type AutomationTestReply,
+  type AutomationTestResult,
   type AutomationTrigger,
-  type BooleanTree,
   type ChangeContext,
+  type ConditionNode,
   type EntityId,
   type EntityState,
   type RemoveAutomationReply,
   type SyncAutomationReply,
   type SyncHouseReply,
+  type TestAutomationBlockRequest,
   type TraceStep,
   type TriggerAutomationReply,
-  type TriggerTree,
 } from '@nebulahome/contracts';
 import type { Database } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
@@ -49,10 +60,8 @@ import {
   dependsOnClock,
   entitiesOfConditions,
   evaluateConditions,
-  isOccupied,
   type ConditionContext,
 } from '../domain/automation/conditions.js';
-import { areasOfDefinition } from '../domain/automation/definition-walk.js';
 import {
   ActionFailed,
   Executor,
@@ -61,11 +70,12 @@ import {
   type ExecutorPorts,
 } from '../domain/automation/executor.js';
 import { decideMode, LoopGuard } from '../domain/automation/run-rules.js';
-import { nextFire, type House } from '../domain/automation/schedule.js';
+import { nextFire, type House, type ScheduledTrigger } from '../domain/automation/schedule.js';
 import { TraceRecorder } from '../domain/automation/trace.js';
 import {
   entitiesOfTriggers,
   reactTriggers,
+  triggerHoldsNow,
   triggerLeaves,
   type TriggerEvent,
 } from '../domain/automation/trigger-match.js';
@@ -76,7 +86,6 @@ import {
   loadAutomation,
   loadAutomations,
   loadHouse,
-  loadOccupancySensors,
   markTriggered,
   type AutomationRecord,
 } from '../persistence/automation-store.js';
@@ -108,9 +117,6 @@ export type AutomationEngineOptions = {
 /** How long a timer is set for at most; past it, the next moment is worked out again. */
 const MAX_TIMER_MS = 3_600_000;
 
-/** How long an area's sensor list is kept before it is read again. */
-const OCCUPANCY_TTL_MS = 30_000;
-
 /** How often a wait on a check that depends on the clock looks again. */
 const CLOCK_RECHECK_MS = 15_000;
 
@@ -119,6 +125,60 @@ const PACKAGE_SERVICE_TIMEOUT_MS = 30_000;
 
 /** How long a finished run is remembered, so the changes its last commands cause are its. */
 const RUN_MEMORY_MS = 15_000;
+
+/** Who a block's commands are sent on behalf of, and what it may still take. */
+type PortsScope = {
+  /** The cause the commands carry: the run, or the person testing a block. */
+  readonly context: ChangeContext;
+  readonly traceId: string;
+
+  /** The automations that led here, oldest first. */
+  readonly chain: readonly string[];
+
+  /** The automation the blocks belong to, which a run it starts adds to its chain. */
+  readonly automationId: string | null;
+
+  /** What another automation started from here records as having woken it. */
+  readonly startedBy: AutomationRunTrigger;
+
+  /** How long a scene applied from here may still take. */
+  readonly remainingMs: () => number;
+};
+
+/** Where a tested block sits: its steps' paths are given relative to it. */
+const TEST_PATH = 'test';
+
+/**
+ * A step's path relative to the tested block: `0`, `0.then.1`.
+ *
+ * @param path - The path under {@link TEST_PATH}.
+ * @returns The same without the prefix.
+ */
+function testPath(path: string): string {
+  return path.startsWith(`${TEST_PATH}.`) ? path.slice(TEST_PATH.length + 1) : path;
+}
+
+/**
+ * A block with its own switch set to on: a block turned off is tested all the same, since that is
+ * often why somebody tests it. What it holds keeps its own switches.
+ *
+ * @param block - The block.
+ * @returns The same, on.
+ */
+function turnedOn<TBlock extends { readonly isEnabled?: boolean | undefined }>(
+  block: TBlock,
+): TBlock {
+  return Object.fromEntries(Object.entries(block).filter(([key]) => key !== 'isEnabled')) as TBlock;
+}
+
+/** How a tested action went, by how a run would have ended. */
+const TEST_RESULTS: Readonly<Record<AutomationRunResult, AutomationTestResult>> = {
+  success: 'ok',
+  condition_not_met: 'ok',
+  failed: 'failed',
+  timeout: 'timeout',
+  cancelled: 'cancelled',
+};
 
 /** One run that is going. */
 type RunHandle = {
@@ -189,14 +249,24 @@ function messageOf(error: unknown): string {
  */
 function triggerDetail(trigger: AutomationRunTrigger): string {
   switch (trigger.kind) {
-    case 'state': {
-      return `${trigger.from ?? 'something'} → ${trigger.to ?? 'something'}`;
-    }
+    case 'entity':
+    case 'state':
     case 'numeric_state': {
-      return trigger.value === undefined ? 'crossed' : `reads ${String(trigger.value)}`;
+      if (trigger.value !== undefined) {
+        return `reads ${String(trigger.value)}`;
+      }
+
+      return trigger.to === undefined
+        ? 'crossed'
+        : `${trigger.from ?? 'something'} → ${trigger.to}`;
     }
     case 'time': {
       return 'its time came';
+    }
+    case 'sun': {
+      return trigger.value === undefined
+        ? `the sun: ${(trigger.event ?? 'its moment').replaceAll('_', ' ')}`
+        : `the sun is at ${trigger.value.toFixed(1)}°`;
     }
     case 'manual': {
       return trigger.userId === undefined ? 'run by hand' : 'run from its Run button';
@@ -216,7 +286,7 @@ export class AutomationEngine {
   readonly #byKey = new Map<string, string>();
   readonly #runs = new Map<string, { automationId: string; chain: readonly string[] }>();
   readonly #waiters = new Set<Waiter>();
-  readonly #occupancy = new Map<string, { sensors: string[]; until: number }>();
+  readonly #tests = new Map<string, AbortController>();
   readonly #guard = new LoopGuard();
   readonly #refusedAt = new Map<string, number>();
   #house: House = { timeZone: 'UTC', position: null };
@@ -265,6 +335,15 @@ export class AutomationEngine {
       this.#isLive = true;
       this.#options.logger.info({ automations: this.#slots.size }, 'Automations are listening');
     }
+  }
+
+  /**
+   * The house as the engine keeps it: its zone and where it stands.
+   *
+   * @returns The house.
+   */
+  public get house(): House {
+    return this.#house;
   }
 
   /**
@@ -380,12 +459,74 @@ export class AutomationEngine {
   }
 
   /**
+   * Tries one block of an automation being edited, without running the automation.
+   *
+   * An action runs now, on its own - its commands really go out, with the person who asked as
+   * their cause - for at most {@link AUTOMATION_TEST_MAX_MS}, and {@link cancelTest} stops it. A
+   * condition is checked now. A trigger says whether what it waits for holds now, or when it
+   * next fires. Nothing is written to the runs, and the loop guard is not consulted: a test is
+   * somebody watching the editor, not the house acting on its own.
+   *
+   * @param request - The block, who asked, and the test's id.
+   * @returns What the test found.
+   * @throws {ConflictError} When as many tests as may go at once are going.
+   */
+  public async test(request: TestAutomationBlockRequest): Promise<AutomationTestReply> {
+    const { target } = request;
+
+    if (target.kind === 'trigger') {
+      return this.#testTrigger(target.trigger);
+    }
+
+    if (target.kind === 'condition') {
+      const outcome = evaluateConditions(
+        [turnedOn(target.condition)],
+        TEST_PATH,
+        this.#conditionContext(),
+      );
+      const at = this.#now();
+
+      return {
+        kind: 'condition',
+        value: outcome.value,
+        steps: outcome.steps.map((step) => ({
+          ...step,
+          path: testPath(step.path),
+          kind: 'condition',
+          at,
+          durationMs: 0,
+        })),
+      };
+    }
+
+    return this.#testAction(request.testId, request.userId, turnedOn(target.action));
+  }
+
+  /**
+   * Stops a test still going.
+   *
+   * @param testId - Which.
+   * @returns Whether there was one to stop.
+   */
+  public cancelTest(testId: string): boolean {
+    const test = this.#tests.get(testId);
+
+    test?.abort('cancelled');
+
+    return test !== undefined;
+  }
+
+  /**
    * Cancels every run, disarms every timer and waits for the cancelled runs to be written.
    *
    * @returns A promise that settles once every run has ended.
    */
   public async stop(): Promise<void> {
     this.#isStopped = true;
+
+    for (const test of this.#tests.values()) {
+      test.abort('cancelled');
+    }
 
     const done: Promise<void>[] = [];
 
@@ -400,6 +541,132 @@ export class AutomationEngine {
     }
 
     await Promise.allSettled(done);
+  }
+
+  // --- testing ---------------------------------------------------------------------------
+
+  /**
+   * Runs one action on its own, now.
+   *
+   * @param testId - The test's id, for stopping it.
+   * @param userId - Who asked: the cause its commands carry.
+   * @param action - The action.
+   * @returns How it went, step by step.
+   */
+  async #testAction(
+    testId: string,
+    userId: string,
+    action: AutomationAction,
+  ): Promise<AutomationTestReply> {
+    if (this.#tests.has(testId)) {
+      throw new ConflictError('A test with this id is already going');
+    }
+
+    if (this.#tests.size >= AUTOMATION_TEST_MAX_CONCURRENT) {
+      throw new ConflictError(
+        `${String(AUTOMATION_TEST_MAX_CONCURRENT)} tests are going already; try again when one ends`,
+      );
+    }
+
+    const controller = new AbortController();
+    const startedAt = this.#now();
+    const trace = new TraceRecorder();
+    const timeout = setTimeout(() => {
+      controller.abort('timeout');
+    }, AUTOMATION_TEST_MAX_MS);
+    const ports = this.#ports({
+      context: { type: 'user', id: userId },
+      traceId: this.#options.newTraceId(),
+      chain: [],
+      automationId: null,
+      startedBy: { kind: 'manual', userId },
+      /**
+       * What is left of the test's time.
+       *
+       * @returns Milliseconds.
+       */
+      remainingMs: () => AUTOMATION_TEST_MAX_MS - (this.#now().getTime() - startedAt.getTime()),
+    });
+    let ending: RunEnding = { result: 'success', error: null };
+
+    this.#tests.set(testId, controller);
+
+    try {
+      await new Executor(ports, trace).run([action], TEST_PATH, controller.signal);
+    } catch (error: unknown) {
+      ending = this.#endingOf(error);
+    } finally {
+      clearTimeout(timeout);
+      this.#tests.delete(testId);
+    }
+
+    const finishedAt = this.#now();
+    const steps = trace.steps(finishedAt).map((step) => ({ ...step, path: testPath(step.path) }));
+    const result = TEST_RESULTS[ending.result];
+
+    return {
+      kind: 'action',
+      result:
+        result === 'ok' && steps.some((step) => step.result === 'partial') ? 'partial' : result,
+      durationMs: Math.max(0, finishedAt.getTime() - startedAt.getTime()),
+      ...(ending.error === null ? {} : { error: ending.error }),
+      steps,
+    };
+  }
+
+  /**
+   * Asks a trigger whether what it waits for holds now, or when it next fires.
+   *
+   * @param trigger - The trigger.
+   * @returns What it says.
+   */
+  #testTrigger(trigger: AutomationTrigger): AutomationTestReply {
+    const nothing = { kind: 'trigger', matches: null, nextAt: null } as const;
+
+    switch (trigger.type) {
+      case 'manual': {
+        return {
+          ...nothing,
+          detail: 'Fires from Run, from the API or from another automation',
+          problem: 'A manual trigger has nothing to test',
+        };
+      }
+      case 'event': {
+        return { ...nothing, detail: '', problem: 'Device events are not available yet' };
+      }
+      case 'time':
+      case 'sun': {
+        if (trigger.type === 'sun' && trigger.event === 'elevation_changed') {
+          return this.#house.position === null
+            ? { ...nothing, detail: '', problem: 'The house has no position, so the sun has none' }
+            : { ...nothing, detail: 'Fires each time the sun entity reports, about once a minute' };
+        }
+
+        const next = nextFire(trigger, this.#house, this.#now());
+
+        return 'problem' in next
+          ? { ...nothing, detail: '', problem: next.problem.slice(0, 300) }
+          : { ...nothing, nextAt: next.at, detail: 'Fires next at this moment' };
+      }
+      case 'entity': {
+        const state = this.#stateOf(trigger.entityId);
+        const matches = triggerHoldsNow(trigger, { stateOf: this.#stateOf, now: this.#now() });
+
+        if (state === undefined) {
+          return { ...nothing, matches, detail: 'The entity has not reported yet' };
+        }
+
+        const reading = numericReadingOf(state.state);
+        const detail =
+          trigger.change.kind === 'numeric'
+            ? reading === undefined
+              ? 'The entity has no reading'
+              : `It reads ${String(reading)}`
+            : `It is ${stateTokenOf(state.state, state.isAvailable) ?? 'in no state the trigger knows'}`;
+
+        return { ...nothing, matches, detail: detail.slice(0, 300) };
+      }
+    }
   }
 
   // --- installing ------------------------------------------------------------------------
@@ -493,13 +760,21 @@ export class AutomationEngine {
     slot.times.clear();
     slot.problems = [];
 
-    for (const { path, leaf } of triggerLeaves(slot.record.definition.triggers)) {
+    const leaves = triggerLeaves(slot.record.definition.triggers);
+
+    if (leaves.length === 0) {
+      slot.problems.push('Every trigger is turned off: only Run starts it');
+    }
+
+    for (const { path, leaf } of leaves) {
       if ((UNAVAILABLE_TRIGGER_TYPES as readonly string[]).includes(leaf.type)) {
         slot.problems.push('A device event trigger never fires yet: nothing reports device events');
       }
 
-      if (leaf.type === 'time') {
+      if (leaf.type === 'time' || (leaf.type === 'sun' && leaf.event !== 'elevation_changed')) {
         this.#armTime(slot, path, leaf, this.#now());
+      } else if (leaf.type === 'sun' && this.#house.position === null) {
+        slot.problems.push('The house has no position, so the sun has no height here');
       }
     }
 
@@ -519,13 +794,8 @@ export class AutomationEngine {
    * @param leaf - The trigger.
    * @param after - The instant to look past.
    */
-  #armTime(
-    slot: Slot,
-    path: string,
-    leaf: Extract<AutomationTrigger, { type: 'time' }>,
-    after: Date,
-  ): void {
-    const next = nextFire(leaf.at, this.#house, after);
+  #armTime(slot: Slot, path: string, leaf: ScheduledTrigger, after: Date): void {
+    const next = nextFire(leaf, this.#house, after);
 
     if ('problem' in next) {
       slot.problems.push(next.problem);
@@ -544,12 +814,7 @@ export class AutomationEngine {
    * @param leaf - The trigger.
    * @param at - The moment.
    */
-  #armUntil(
-    slot: Slot,
-    path: string,
-    leaf: Extract<AutomationTrigger, { type: 'time' }>,
-    at: Date,
-  ): void {
+  #armUntil(slot: Slot, path: string, leaf: ScheduledTrigger, at: Date): void {
     const delay = Math.max(0, at.getTime() - this.#now().getTime());
 
     slot.times.set(
@@ -851,9 +1116,7 @@ export class AutomationEngine {
     let ending: RunEnding = { result: 'success', error: null };
 
     try {
-      await this.#prefetchOccupancy(record);
-
-      if (record.definition.if !== undefined) {
+      if (record.definition.if !== undefined && record.definition.if.length > 0) {
         const outcome = evaluateConditions(record.definition.if, 'if', this.#conditionContext());
         const at = this.#now();
 
@@ -867,7 +1130,19 @@ export class AutomationEngine {
       }
 
       if (ending.result === 'success') {
-        const ports = this.#ports(record, runId, chain, traceId, startedAt);
+        const ports = this.#ports({
+          context: { type: 'automation', id: runId },
+          traceId,
+          chain,
+          automationId: record.id,
+          startedBy: { kind: 'automation', automationId: record.id, runId },
+          /**
+           * What is left of the run's time.
+           *
+           * @returns Milliseconds.
+           */
+          remainingMs: () => record.maxRuntimeMs - (this.#now().getTime() - startedAt.getTime()),
+        });
 
         await new Executor(ports, trace).run(record.definition.then, 'then', signal);
       }
@@ -976,61 +1251,18 @@ export class AutomationEngine {
       stateOf: this.#stateOf,
       now: this.#now(),
       timeZone: this.#house.timeZone,
-      /**
-       * Whether somebody is in an area, by the sensors read before the run.
-       *
-       * @param areaKey - The area.
-       * @returns True, false, or null when it has no sensors.
-       */
-      occupancy: (areaKey) => {
-        const sensors = this.#occupancy.get(areaKey)?.sensors;
-
-        return sensors === undefined ? null : isOccupied(sensors, this.#stateOf);
-      },
+      position: this.#house.position,
     };
   }
 
   /**
-   * Reads the sensors of every area a run may ask about, unless they were read recently.
+   * The ports blocks reach the world through: a run's, or a test's.
    *
-   * @param record - The automation.
-   */
-  async #prefetchOccupancy(record: AutomationRecord): Promise<void> {
-    const now = this.#now().getTime();
-
-    await Promise.all(
-      areasOfDefinition(record.definition).map(async (areaKey) => {
-        const cached = this.#occupancy.get(areaKey);
-
-        if (cached !== undefined && cached.until > now) {
-          return;
-        }
-
-        const sensors = await loadOccupancySensors(this.#options.db, areaKey);
-
-        this.#occupancy.set(areaKey, { sensors, until: now + OCCUPANCY_TTL_MS });
-      }),
-    );
-  }
-
-  /**
-   * The ports a run's blocks reach the world through.
-   *
-   * @param record - The automation.
-   * @param runId - The run.
-   * @param chain - The automations that led to it.
-   * @param traceId - The run's unit of work.
-   * @param startedAt - When it started, for a scene's deadline.
+   * @param scope - Who the commands are sent on behalf of, and what the blocks may still take.
    * @returns The ports.
    */
-  #ports(
-    record: AutomationRecord,
-    runId: string,
-    chain: readonly string[],
-    traceId: string,
-    startedAt: Date,
-  ): ExecutorPorts {
-    const context: ChangeContext = { type: 'automation', id: runId };
+  #ports(scope: PortsScope): ExecutorPorts {
+    const { context, traceId, chain } = scope;
     const logger = this.#options.logger;
 
     return {
@@ -1048,21 +1280,22 @@ export class AutomationEngine {
       /**
        * Evaluates checks against the house now.
        *
-       * @param tree - The checks.
+       * @param conditions - The checks.
        * @param path - Where they are.
        * @returns What they said.
        */
-      evaluate: (tree, path) => evaluateConditions(tree, path, this.#conditionContext()),
+      evaluate: (conditions, path) =>
+        evaluateConditions(conditions, path, this.#conditionContext()),
       /**
        * Waits until checks hold.
        *
-       * @param tree - The checks.
+       * @param conditions - The checks.
        * @param timeoutMs - How long at most.
        * @param signal - The run's signal.
        * @returns Whether they held in time.
        */
-      waitForCondition: (tree, timeoutMs, signal) =>
-        this.#waitForCondition(tree, timeoutMs, signal),
+      waitForCondition: (conditions, timeoutMs, signal) =>
+        this.#waitForCondition(conditions, timeoutMs, signal),
       /**
        * Waits until a trigger fires.
        *
@@ -1104,10 +1337,7 @@ export class AutomationEngine {
             {
               context,
               traceId,
-              deadlineMs: Math.max(
-                1_000,
-                record.maxRuntimeMs - (this.#now().getTime() - startedAt.getTime()),
-              ),
+              deadlineMs: Math.max(1_000, scope.remainingMs()),
               signal,
             },
           );
@@ -1140,10 +1370,11 @@ export class AutomationEngine {
             : { found: false };
         }
 
-        const reply = this.#wake(target, { kind: 'automation', automationId: record.id, runId }, [
-          ...chain,
-          record.id,
-        ]);
+        const reply = this.#wake(
+          target,
+          scope.startedBy,
+          scope.automationId === null ? chain : [...chain, scope.automationId],
+        );
 
         return { found: true, outcome: reply.outcome, reason: reply.reason };
       },
@@ -1190,26 +1421,31 @@ export class AutomationEngine {
   }
 
   /**
-   * Waits until a tree of checks holds.
+   * Waits until a list of checks holds.
    *
-   * @param tree - The checks.
+   * @param conditions - The checks.
    * @param timeoutMs - How long to wait at most.
    * @param signal - The run's signal.
-   * @returns True once it holds; false when the time ran out or the run was aborted.
+   * @returns True once they hold; false when the time ran out or the run was aborted.
    */
-  #waitForCondition(tree: BooleanTree, timeoutMs: number, signal: AbortSignal): Promise<boolean> {
+  #waitForCondition(
+    conditions: readonly ConditionNode[],
+    timeoutMs: number,
+    signal: AbortSignal,
+  ): Promise<boolean> {
     /**
      * Whether the checks hold now.
      *
      * @returns True when they do.
      */
-    const holds = (): boolean => evaluateConditions(tree, 'wait', this.#conditionContext()).value;
+    const holds = (): boolean =>
+      evaluateConditions(conditions, 'wait', this.#conditionContext()).value;
 
     if (holds()) {
       return Promise.resolve(true);
     }
 
-    const entities = new Set(entitiesOfConditions(tree));
+    const entities = new Set(entitiesOfConditions(conditions));
 
     return new Promise((resolve) => {
       const timers: NodeJS.Timeout[] = [];
@@ -1248,7 +1484,7 @@ export class AutomationEngine {
         }, timeoutMs),
       );
 
-      if (dependsOnClock(tree)) {
+      if (dependsOnClock(conditions)) {
         /** Looks again as time passes. */
         const tick = (): void => {
           if (holds()) {
@@ -1276,7 +1512,7 @@ export class AutomationEngine {
     timeoutMs: number,
     signal: AbortSignal,
   ): Promise<boolean> {
-    const tree: TriggerTree = trigger;
+    const triggers = [trigger];
 
     return new Promise((resolve) => {
       const timers = new Map<string, NodeJS.Timeout>();
@@ -1306,7 +1542,7 @@ export class AutomationEngine {
        * @param event - What happened.
        */
       const react = (event: TriggerEvent): void => {
-        const reaction = reactTriggers(tree, event, {
+        const reaction = reactTriggers(triggers, event, {
           stateOf: this.#stateOf,
           now: this.#now(),
         });
@@ -1352,15 +1588,15 @@ export class AutomationEngine {
         }, timeoutMs),
       );
 
-      for (const leaf of flattenTriggers(tree)) {
-        if (leaf.type === 'time') {
-          const next = nextFire(leaf.at, this.#house, this.#now());
+      for (const { path, leaf } of triggerLeaves(triggers)) {
+        if (leaf.type === 'time' || (leaf.type === 'sun' && leaf.event !== 'elevation_changed')) {
+          const next = nextFire(leaf, this.#house, this.#now());
 
           if ('at' in next && next.at.getTime() - this.#now().getTime() < timeoutMs) {
             timers.set(
               'time',
               setTimeout(() => {
-                react({ kind: 'time', path: 'triggers' });
+                react({ kind: 'time', path });
               }, next.at.getTime() - this.#now().getTime()),
             );
           }
