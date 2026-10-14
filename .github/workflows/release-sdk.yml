@@ -8,6 +8,9 @@
 #
 # Publishing uses npm's trusted publishing - this workflow, on this repository, is the SDK's
 # trusted publisher on npmjs.com - so no token is stored, and every version carries provenance.
+#
+# @nebulahome/integration-sdk is not released here: it is in `.changeset/config.json`'s `ignore`,
+# and `release-integration-sdk.yml` releases it from a tag.
 name: release-sdk
 
 on:

@@ -1,8 +1,8 @@
 # Changesets
 
-Only `@nebulahome/package-sdk` is versioned here: it is the one package published on npm, and
-every other workspace is private (`privatePackages` is off). A change to the SDK that a package
-author can see comes with a changeset:
+Only `@nebulahome/package-sdk` is versioned here: every other workspace is private
+(`privatePackages` is off), and `@nebulahome/integration-sdk`, published too, is in `ignore` (see
+below). A change to the package SDK that a package author can see comes with a changeset:
 
 ```bash
 pnpm changeset
@@ -19,9 +19,10 @@ version through npm's trusted publishing, with provenance. Before the first publ
 `@nebulahome` organization must exist on npmjs.com and list this repository's `release-sdk.yml`
 as the package's trusted publisher.
 
-`@nebulahome/integration-sdk` is ready to be published the same way but is marked `private` until
-it is: without the flag, `changeset publish` would publish it on the next run on `main`. To publish
-it, remove `"private": true` from its `package.json`, build and check it in `release-sdk.yml`
-beside the package SDK, and add it to the trusted publishers. Its version is the integration
-contract's (INTEGRATIONS_DOCS.md 11): the hub reads it from the SDK's `package.json`, and a
-changeset that raises it changes what bundles the platform loads.
+`@nebulahome/integration-sdk` is published on npm but not through changesets: it is in `ignore`,
+which `changeset version` and `changeset publish` both honour, so `release-sdk.yml` never versions
+or publishes it. Keep it there - without it the next run on `main` would publish the integration
+SDK unbuilt - and write no changeset naming it: one naming both SDKs is refused, and one naming
+only it is never consumed. Its version is the integration contract's (INTEGRATIONS_DOCS.md 10):
+the hub reads it from the SDK's `package.json`, so it is raised by hand, and released from a tag
+by `.github/workflows/release-integration-sdk.yml` (the SDK's README, Releasing the SDK).

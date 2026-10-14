@@ -7,7 +7,7 @@
   "access": "public",
   "baseBranch": "dev",
   "updateInternalDependencies": "patch",
-  "ignore": [],
+  "ignore": ["@nebulahome/integration-sdk"],
   "privatePackages": {
     "version": false,
     "tag": false
