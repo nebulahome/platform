@@ -80,7 +80,7 @@ export type TransportContext = {
   report: (status: TransportStatus) => void;
 
   /**
-   * Since 1.5: the account the connection is for, when its configuration names one
+   * The account the connection is for, when its configuration names one
    * (`config.account`) of the transport's own vendor - the session to use, and how to keep a
    * renewed one or say the owner must sign in again. Absent otherwise.
    */
@@ -88,9 +88,8 @@ export type TransportContext = {
 };
 
 /**
- * Since 1.5: what a scan or a probe is handed beside its arguments - the account its
- * configuration names (`config.account`), as a connection is handed it. Absent otherwise, and for
- * a hub older than 1.5.
+ * What a scan or a probe is handed beside its arguments - the account its
+ * configuration names (`config.account`), as a connection is handed it. Absent otherwise.
  */
 export type TransportLookContext = {
   readonly account?: AccountHandle;
@@ -174,7 +173,7 @@ export type Transport = {
    * @param config - The connection settings.
    * @param scan - The integration's search terms, in this transport's vocabulary.
    * @param signal - Ends the scan.
-   * @param context - Since 1.5: the account the configuration names.
+   * @param context - The account the configuration names.
    * @returns Candidates as they are found, rather than a list once the scan is over: a scan of a
    * house takes long enough that the interface should be filling in while it runs.
    */
@@ -196,7 +195,7 @@ export type Transport = {
    *
    * @param config - What the owner typed, complete and in the clear.
    * @param signal - Gives up: a host that never answers must not hold the form open.
-   * @param context - Since 1.5: the account the configuration names.
+   * @param context - The account the configuration names.
    */
   probe: (config: unknown, signal: AbortSignal, context?: TransportLookContext) => Promise<string>;
 };

@@ -292,7 +292,7 @@ export const entityProfileSchema = z
     commands: z.record(z.string().regex(COMMAND_KEY_PATTERN), requestTemplateSchema).default({}),
 
     /**
-     * Since 1.6: attributes the entity reports beside its state, each read as a state field is:
+     * Attributes the entity reports beside its state, each read as a state field is:
      * what a page needs of it and the entity itself is not - when pairing closes by itself, beside
      * whether it is open. A scalar each; one whose source names nothing is left out, and every
      * report carries all of them, so one that stopped being said is gone rather than stale.
@@ -322,7 +322,7 @@ export const entityProfileSchema = z
       .optional(),
 
     /**
-     * Since 1.5, for an image: where in the payload the picture is - an SVG's text, a PNG's bytes
+     * For an image: where in the payload the picture is - an SVG's text, a PNG's bytes
      * in base64 - what it is, and how often at most a new one is announced. The hub keeps the
      * picture and publishes only which one it is (`revision`), so the state stays small however
      * large the picture.

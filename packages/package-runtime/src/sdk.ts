@@ -52,10 +52,10 @@ export type BundleLogger = {
   child: (fields: Record<string, unknown>) => BundleLogger;
 };
 
-/** Since 1.8: HTTP headers for a WebSocket's opening handshake. */
+/** HTTP headers for a WebSocket's opening handshake. */
 export type ManagedSocketHeaders = Readonly<Record<string, string>>;
 
-/** Since 1.8: what a drop says beyond its reason. */
+/** What a drop says beyond its reason. */
 export type ManagedSocketClose = {
   /** The WebSocket close code: the peer's, or 1006 for a socket that ended without one. */
   readonly code?: number;
@@ -73,7 +73,7 @@ export type ManagedSocketOptions = {
   readonly url: string;
 
   /**
-   * Since 1.8: headers sent on the opening handshake, the first and every reconnect's, for a
+   * Headers sent on the opening handshake, the first and every reconnect's, for a
    * server that authenticates the socket by them. Never logged. A function is called before each
    * attempt and may answer with a promise - for a token that expires; one that throws fails that
    * attempt as a refused connection would, and the next comes on the usual schedule.
@@ -82,14 +82,14 @@ export type ManagedSocketOptions = {
     ManagedSocketHeaders | (() => ManagedSocketHeaders | Promise<ManagedSocketHeaders>);
 
   /**
-   * Since 1.8: a ping every `everyMs`, and the socket dropped - then reconnected - when no pong
+   * A ping every `everyMs`, and the socket dropped - then reconnected - when no pong
    * comes within `timeoutMs`. For a peer that may say nothing for hours, whose silence would
    * otherwise hide a dead connection. Off unless said.
    */
   readonly ping?: { readonly everyMs: number; readonly timeoutMs: number };
 
   /**
-   * Since 1.8: TLS for a `wss://` server: whether its certificate must chain to an authority
+   * TLS for a `wss://` server: whether its certificate must chain to an authority
    * this machine trusts (on unless said).
    */
   readonly tls?: { readonly rejectUnauthorized?: boolean };
@@ -104,7 +104,7 @@ export type ManagedSocketOptions = {
 
   /**
    * Called when the socket dropped or failed to connect; the helper reconnects by itself unless
-   * the socket is closed here. Since 1.8 the hub also says the close code and, for a handshake
+   * the socket is closed here. The hub also says the close code and, for a handshake
    * the server refused, its HTTP status.
    */
   readonly onClose: (reason: string, details?: ManagedSocketClose) => void;
@@ -279,7 +279,7 @@ export type PalettedPicture = {
   readonly pixels: Uint8Array;
 };
 
-/** Since 1.5: what a bundle drawing a picture needs, and could not bring as a dependency. */
+/** What a bundle drawing a picture needs, and could not bring as a dependency. */
 export type BundleCodecs = {
   /**
    * Unpacks an LZMA stream in the alone format (`.lzma`): a 13-byte header - the properties and
@@ -290,7 +290,7 @@ export type BundleCodecs = {
   readonly lzma: (bytes: Uint8Array) => Buffer;
 };
 
-/** Since 1.5: pictures a bundle draws, for an image entity. */
+/** Pictures a bundle draws, for an image entity. */
 export type BundleImages = {
   /**
    * Encodes a paletted picture as a PNG, a colour with an alpha below 255 transparent.
@@ -315,25 +315,25 @@ export type BundleSdk = {
   readonly openWebSocket: OpenWebSocket;
   readonly openUdpSocket: OpenUdpSocket;
 
-  /** Since 1.2: an MQTT session, for a vendor whose devices report through a broker of its own. */
+  /** An MQTT session, for a vendor whose devices report through a broker of its own. */
   readonly openMqtt: OpenMqtt;
 
-  /** Since 1.2: how a camera's stream source is written, as defineTransport is for a transport. */
+  /** How a camera's stream source is written, as defineTransport is for a transport. */
   readonly defineStreamSource: typeof defineStreamSource;
 
-  /** Since 1.2: an RTSP session over TCP, yielding a camera's H.264 as it comes. */
+  /** An RTSP session over TCP, yielding a camera's H.264 as it comes. */
   readonly openRtsp: OpenRtsp;
 
-  /** Since 1.3: what the platform itself runs that a bundle may use - its MQTT broker. */
+  /** What the platform itself runs that a bundle may use - its MQTT broker. */
   readonly platform: PlatformServices;
 
-  /** Since 1.5: how an account's sign-in module is written, as defineTransport is for a transport. */
+  /** How an account's sign-in module is written, as defineTransport is for a transport. */
   readonly defineAccount: typeof defineAccount;
 
-  /** Since 1.5: unpacking what a vendor's cloud packs. */
+  /** Unpacking what a vendor's cloud packs. */
   readonly codecs: BundleCodecs;
 
-  /** Since 1.5: drawing pictures, for an image entity. */
+  /** Drawing pictures, for an image entity. */
   readonly images: BundleImages;
 };
 
@@ -344,7 +344,7 @@ export type TransportFactory = (sdk: BundleSdk) => Transport;
 export type StreamFactory = (sdk: BundleSdk) => StreamSource;
 
 /**
- * Since 1.3: what a code driver may default-export instead of an integration - a function of
+ * What a code driver may default-export instead of an integration - a function of
  * the SDK, so the driver can build its schemas with the runtime's zod rather than bring its own.
  */
 export type IntegrationFactory = (sdk: BundleSdk) => Integration;

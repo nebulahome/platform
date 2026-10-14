@@ -122,7 +122,7 @@ export type CommandTarget = {
 };
 
 /**
- * Since 1.5: the picture an image entity's report carries beside its state - an SVG, a PNG - which
+ * The picture an image entity's report carries beside its state - an SVG, a PNG - which
  * the hub keeps and never publishes: the state says which picture it is (`revision`), and the
  * bytes are asked for by whoever shows it.
  */

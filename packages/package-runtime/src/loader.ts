@@ -185,7 +185,7 @@ export type LoadedVendor = {
   readonly discovery?: LoadedDiscovery;
 
   /**
-   * Since 1.5: the account its devices are reached through, when it has an `account.json` - what
+   * The account its devices are reached through, when it has an `account.json` - what
    * signing in asks, and the module that signs in.
    */
   readonly account?: LoadedAccount;
@@ -950,7 +950,7 @@ async function instantiateDriver(
 
   const exported = await defaultOf(options.importModule ?? importFile, entry ?? '');
 
-  // Since 1.3 a code driver may export a function of the SDK, which builds its schemas with the
+  // A code driver may export a function of the SDK, which builds its schemas with the
   // runtime's zod; an object is still an integration as it stands.
   const integration: unknown =
     typeof exported === 'function' ? (exported as (given: BundleSdk) => unknown)(sdk) : exported;

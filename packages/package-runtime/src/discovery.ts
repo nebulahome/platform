@@ -70,7 +70,7 @@ export const listenSourceSchema = z.union([
     module: bundlePathSchema,
 
     /**
-     * Since 1.3: whether the module listens on the house's network. Most do - a multicast scan,
+     * Whether the module listens on the house's network. Most do - a multicast scan,
      * an announcement - and are off where the platform cannot hear the network (a container on a
      * bridge). One that listens somewhere the platform always reaches - zigbee2mqtt's list of
      * devices on the platform's own broker - says `false`, and runs regardless.
@@ -145,14 +145,14 @@ export const vendorDiscoverySchema = z
     identity: discoveryIdentitySchema,
 
     /**
-     * Since 1.4: who adds a device found. `owner` - the default - proposes it on the vendor's
+     * Who adds a device found. `owner` - the default - proposes it on the vendor's
      * page; `automatic` adds it as soon as it is heard, for devices the owner already chose
      * somewhere else: a Zigbee device paired with Zigbee2MQTT.
      */
     adopt: z.enum(DEVICE_ADOPTIONS).default('owner'),
 
     /**
-     * Since 1.4: the entities pairing is run by, for a vendor whose devices are paired through
+     * The entities pairing is run by, for a vendor whose devices are paired through
      * one of its own - a driver of the vendor and, by `objectId` in its profile, the button that
      * opens pairing, the one that closes it, and the text sensor saying `enabled` while it is
      * open, with when it closes by itself in its `endsAt` attribute. The vendor's page offers it
@@ -443,7 +443,7 @@ export type PassedOverSighting = {
   readonly reason: string;
 };
 
-/** Since 1.4: what the hub hands a listener beside the signal. */
+/** What the hub hands a listener beside the signal. */
 export type DiscoveryListenContext = {
   /**
    * Reads what the owner saved for the vendor - an account, a key - secrets opened, for a
@@ -455,20 +455,20 @@ export type DiscoveryListenContext = {
   readonly settings: () => Promise<JsonObject>;
 
   /**
-   * Since 1.5: says how listening goes - connected to a broker but hearing nothing, unable to
+   * Says how listening goes - connected to a broker but hearing nothing, unable to
    * reach it - which the vendor's page shows. The last one said stands until the next. Optional
    * for the hub to offer, so a listener calls it as `context.status?.(…)`.
    */
   readonly status?: (status: ListenerStatus) => void;
 
   /**
-   * Since 1.5: every device the listener hears and does not report, the whole list each time -
+   * Every device the listener hears and does not report, the whole list each time -
    * it replaces the last one. Optional for the hub to offer, like `status`.
    */
   readonly passedOver?: (devices: readonly PassedOverSighting[]) => void;
 
   /**
-   * Since 1.5: every account of the vendor signed in to, for a listener that asks each which
+   * Every account of the vendor signed in to, for a listener that asks each which
    * devices it has. Read it at every pass, like the settings: an account added is heard then.
    *
    * @returns The accounts; none for a vendor without, or before one is signed in to.
@@ -482,7 +482,7 @@ export type DiscoverySource = {
    * Listens until the signal ends it, reporting every device heard.
    *
    * @param signal - Ends the listening.
-   * @param context - Since 1.4: the vendor's settings, for a listener that needs them.
+   * @param context - The vendor's settings, for a listener that needs them.
    * @returns Every sighting, as it happens. The same device may be reported again.
    */
   listen: (signal: AbortSignal, context: DiscoveryListenContext) => AsyncIterable<Sighting>;

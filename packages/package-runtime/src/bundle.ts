@@ -143,7 +143,7 @@ export const vendorManifestSchema = z.strictObject({
   setup: bundlePathSchema.optional(),
 
   /**
-   * Since 1.5: path to an `account.json` - what signing in to the account the vendor's devices
+   * Path to an `account.json` - what signing in to the account the vendor's devices
    * are reached through asks, and the module that signs in (`account.ts`). Absent for a vendor
    * without one.
    */
@@ -183,13 +183,13 @@ export const vendorManifestSchema = z.strictObject({
     .default({}),
 
   /**
-   * Since 1.3: the containers the vendor's devices depend on - zigbee2mqtt for Zigbee - which the
+   * The containers the vendor's devices depend on - zigbee2mqtt for Zigbee - which the
    * platform downloads and runs once the vendor is set up (`containers.ts`).
    */
   containers: containerDependenciesSchema,
 
   /**
-   * Since 1.5: the packages and services the vendor's devices need, in the grammar a package's
+   * The packages and services the vendor's devices need, in the grammar a package's
    * manifest names its own with (PACKAGES.md 7) - `{ "services": ["mqtt-broker"] }` for a vendor
    * that talks through the broker. Until what it needs runs, the vendor waits: its devices are
    * not added and its instances are not started, and its page says which package it waits for.
@@ -273,7 +273,7 @@ const driverShape = {
     .optional(),
 
   /**
-   * Since 1.6: the series each model belongs to, as the vendor sells them - Bambu Lab's
+   * The series each model belongs to, as the vendor sells them - Bambu Lab's
    * `A series`, `X series` - for a vendor whose drivers follow what the hardware needs rather than
    * how the owner knows it: an X1C and an X2D are both the X series, and run by two drivers. The
    * form groups the models by it, across the vendor's drivers. Every model named must be listed.

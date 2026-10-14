@@ -1,6 +1,6 @@
 /**
  * An account a vendor's devices are reached through - a cloud, an app's - and how signing in to
- * it goes (since 1.5).
+ * it goes.
  *
  * Two halves, as everything a bundle ships is:
  *
