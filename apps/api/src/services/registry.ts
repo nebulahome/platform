@@ -22,7 +22,9 @@ import {
   ValidationError,
   automationRunSchema,
   automationViewSchema,
+  migrateDefinition,
   sceneViewSchema,
+  type AutomationHouse,
   type AutomationLastRun,
   type AutomationRun,
   type AutomationCreate,
@@ -30,6 +32,7 @@ import {
   type AutomationView,
   type CapabilityName,
   type CapabilityState,
+  type JsonObject,
   type SceneCreate,
   type SceneMemberInput,
   type SceneUpdate,
@@ -620,6 +623,54 @@ async function lastRunsOf(
 }
 
 /**
+ * An automation's document in the shape the format has now.
+ *
+ * Read through the same rewrite the schema runs, so the list, the filters and the editor see the
+ * current shape whatever is in the column. A document that still does not parse - a check the
+ * format no longer has - comes back rewritten as far as it goes, for the editor to point at.
+ *
+ * @param stored - The column's value.
+ * @returns The document.
+ */
+function currentDefinition(stored: unknown): JsonObject {
+  const migrated = migrateDefinition(stored ?? {});
+
+  return typeof migrated === 'object' && migrated !== null && !Array.isArray(migrated)
+    ? (migrated as JsonObject)
+    : {};
+}
+
+/**
+ * What the automation editor needs of the house: its time zone and where it stands.
+ *
+ * @param db - The database.
+ * @returns The zone (`UTC` until somebody sets one) and the position, null when there is none.
+ */
+export async function readAutomationHouse(db: Database): Promise<AutomationHouse> {
+  const [setting] = await db
+    .select({ value: schema.system.settings.value })
+    .from(schema.system.settings)
+    .where(eq(schema.system.settings.key, 'house.timezone'))
+    .limit(1);
+  const [house] = await db
+    .select({
+      latitude: schema.registry.areas.latitude,
+      longitude: schema.registry.areas.longitude,
+    })
+    .from(schema.registry.areas)
+    .where(eq(schema.registry.areas.kind, 'house'))
+    .limit(1);
+  const latitude = house?.latitude ?? null;
+  const longitude = house?.longitude ?? null;
+  const position = latitude === null || longitude === null ? null : { latitude, longitude };
+
+  return {
+    timeZone: typeof setting?.value === 'string' ? setting.value : 'UTC',
+    position,
+  };
+}
+
+/**
  * Lists automations.
  *
  * @param db - The database.
@@ -638,7 +689,7 @@ export async function listAutomations(db: Database): Promise<AutomationView[]> {
   return rows.map((row) =>
     automationViewSchema.parse({
       ...row,
-      definition: row.definition ?? {},
+      definition: currentDefinition(row.definition),
       lastRun: lastRuns.get(row.id) ?? null,
     }),
   );
@@ -671,7 +722,7 @@ export async function readAutomation(db: Database, id: string): Promise<Automati
 
   return automationViewSchema.parse({
     ...row,
-    definition: row.definition ?? {},
+    definition: currentDefinition(row.definition),
     lastRun: lastRuns.get(id) ?? null,
   });
 }

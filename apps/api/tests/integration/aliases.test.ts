@@ -170,7 +170,12 @@ describe('creating an alias', () => {
       )
       .where(eq(schema.registry.entities.entityId, helper.entityId));
 
-    expect(params.map((row) => row.params)).toContainEqual({ minMireds: 153, maxMireds: 500 });
+    // A helper changes at once: nothing on the other side of it can fade.
+    expect(params.map((row) => row.params)).toContainEqual({
+      minMireds: 153,
+      maxMireds: 500,
+      hasTransition: false,
+    });
   });
 });
 

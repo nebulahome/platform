@@ -7,8 +7,13 @@
  * advisory lock, so a second concurrent request waits and then finds the account it was about to
  * create. Checking first and inserting afterwards would leave a window in which an installation
  * exposed on a network gets a second owner nobody asked for.
+ *
+ * The same transaction writes the house the setup asks about: its name, where it stands, the
+ * time zone it keeps and how temperatures are shown. Nothing about it leaves the machine - the
+ * position is typed or taken from the browser, never looked up, and no map is fetched for it -
+ * and `core` is told once it is written, so the sun's entities appear at once.
  */
-import { eq, sql } from 'drizzle-orm';
+import { eq, like, sql } from 'drizzle-orm';
 
 import {
   ACCESS_TOKEN_TTL_SECONDS,
@@ -18,6 +23,8 @@ import {
   setupRequestSchema,
   setupResponseSchema,
   setupStatusSchema,
+  toTagKey,
+  type SetupHome,
   type SetupResponse,
   type SetupStatus,
 } from '@nebulahome/contracts';
@@ -29,6 +36,8 @@ import { openSession, readIdentityGrants, findUserById } from '../auth/repositor
 import { generateOpaqueToken, signAccessToken } from '../auth/tokens.js';
 import type { ApiContext } from '../context.js';
 import { definePublicRoute, type RouteEnvironment } from '../http/route.js';
+import { syncHouseOnCore } from '../services/automations-core.js';
+import { chooseFreeKey, keyPrefixOf } from '../services/keys.js';
 
 /**
  * The advisory lock the setup transaction takes.
@@ -38,6 +47,65 @@ import { definePublicRoute, type RouteEnvironment } from '../http/route.js';
  * exactly what row locks cannot express.
  */
 const SETUP_LOCK_KEY = 6_198_450_137;
+
+/** The key a house gets when its name makes none. */
+const HOUSE_FALLBACK_KEY = 'home';
+
+/** A transaction on the database, as Drizzle hands it to a callback. */
+type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
+
+/**
+ * Writes the house the setup asked about, and the settings that go with it.
+ *
+ * An installation set up once already has no users and so cannot get here; one whose owner was
+ * removed still has its users. The house may exist all the same - areas outlive accounts - and is
+ * then renamed and placed rather than doubled.
+ *
+ * @param tx - The setup's transaction.
+ * @param home - The house.
+ * @param userId - The owner just created, who wrote the settings.
+ */
+async function writeHome(tx: Transaction, home: SetupHome, userId: string): Promise<void> {
+  const { areas } = schema.registry;
+  const [existing] = await tx
+    .select({ id: areas.id })
+    .from(areas)
+    .where(eq(areas.kind, 'house'))
+    .limit(1);
+
+  if (existing === undefined) {
+    const base = toTagKey(home.name) || HOUSE_FALLBACK_KEY;
+    const taken = await tx
+      .select({ key: areas.key })
+      .from(areas)
+      .where(like(areas.key, `${keyPrefixOf(base)}%`));
+
+    await tx.insert(areas).values({
+      key: chooseFreeKey(base, new Set(taken.map((row) => row.key))),
+      name: home.name,
+      kind: 'house',
+      latitude: home.latitude,
+      longitude: home.longitude,
+    });
+  } else {
+    await tx
+      .update(areas)
+      .set({ name: home.name, latitude: home.latitude, longitude: home.longitude })
+      .where(eq(areas.id, existing.id));
+  }
+
+  for (const [key, value] of [
+    ['house.timezone', home.timeZone],
+    ['units.temperature', home.temperatureUnit],
+  ] as const) {
+    // Two statements, one after the other, on the one connection a transaction holds.
+    // eslint-disable-next-line no-await-in-loop -- see above
+    await tx
+      .update(schema.system.settings)
+      .set({ value, updatedBy: userId })
+      .where(eq(schema.system.settings.key, key));
+  }
+}
 
 /**
  * Says whether the installation still has no accounts.
@@ -93,7 +161,7 @@ export function registerSetupRoutes(environment: RouteEnvironment, context: ApiC
     },
 
     /**
-     * Creates the first owner and signs them in.
+     * Creates the first owner, and the house when the setup asked about it, and signs them in.
      *
      * @param route - The parsed body and the raw request.
      * @returns The tokens and the new account.
@@ -155,8 +223,23 @@ export function registerSetupRoutes(environment: RouteEnvironment, context: ApiC
           throw new ConflictError('The account could not be created');
         }
 
+        if (route.body.home !== undefined) {
+          await writeHome(tx, route.body.home, user.id);
+        }
+
         return user.id;
       });
+
+      if (route.body.home !== undefined) {
+        // Best effort, as every house change is: a `core` that does not answer reads the house
+        // when it next starts.
+        await syncHouseOnCore({
+          bus: context.bus,
+          traceId: route.request.traceId,
+          timeoutMs: context.config.API_BUS_TIMEOUT_MS,
+          logger: context.logger,
+        });
+      }
 
       const user = await findUserById(context.db, created);
 

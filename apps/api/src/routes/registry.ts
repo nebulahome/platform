@@ -20,7 +20,10 @@ import {
   aliasUpdateSchema,
   aliasViewSchema,
   automationCreateSchema,
+  automationHouseSchema,
   automationRunSchema,
+  automationTestReplySchema,
+  automationTestRequestSchema,
   automationUpdateSchema,
   automationViewSchema,
   ConflictError,
@@ -34,7 +37,9 @@ import {
   sceneViewSchema,
   type AliasPreviewResponse,
   type AliasView,
+  type AutomationHouse,
   type AutomationRun,
+  type AutomationTestReply,
   type AutomationView,
   type Page,
   type SceneApplyResult,
@@ -55,8 +60,10 @@ import {
   type AliasesContext,
 } from '../services/aliases.js';
 import {
+  cancelTestOnCore,
   removeAutomationOnCore,
   syncAutomationOnCore,
+  testBlockOnCore,
   triggerAutomationOnCore,
   type CoreLink,
 } from '../services/automations-core.js';
@@ -69,6 +76,7 @@ import {
   listAutomations,
   listScenes,
   readAutomation,
+  readAutomationHouse,
   updateAutomation,
   updateScene,
 } from '../services/registry.js';
@@ -362,6 +370,119 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
       requirePermission(route.identity, 'automation:read');
 
       return { items: await listAutomations(context.db) };
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/automations/house',
+      summary: "The house's time zone and position, as the automation editor reads them",
+      tag: 'Library',
+      permission: 'automation:read',
+      response: automationHouseSchema,
+    },
+
+    /**
+     * Reads what the editor needs to show the next runs of a schedule and the times of the sun.
+     * Its own route because the setting and the house row sit behind permissions somebody who
+     * writes automations need not have.
+     *
+     * @param route - Who is asking.
+     * @returns The zone and the position.
+     */
+    async (route): Promise<AutomationHouse> => {
+      requirePermission(route.identity, 'automation:read');
+
+      return readAutomationHouse(context.db);
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/automations/test',
+      summary: 'Try one block of an automation being edited',
+      tag: 'Library',
+      permission: 'automation:write',
+      body: automationTestRequestSchema,
+      response: automationTestReplySchema,
+
+      // A question answered, not something made.
+      successStatus: 200,
+    },
+
+    /**
+     * Tries one block as the editor holds it, saved or not. An action really runs - its commands
+     * go to the devices on behalf of who asked - so it also takes the right to run automations,
+     * and is audited; a condition or a trigger only reads the house.
+     *
+     * @param route - The block, the test's id and who is asking.
+     * @returns What the test found.
+     */
+    async (route): Promise<AutomationTestReply> => {
+      requirePermission(route.identity, 'automation:write');
+
+      const { target } = route.body;
+
+      if (target.kind === 'action') {
+        requirePermission(route.identity, 'automation:trigger');
+      }
+
+      const reply = await testBlockOnCore(
+        coreLink(route.request.traceId),
+        route.body,
+        route.identity.userId,
+      );
+
+      if (target.kind === 'action') {
+        await context.audit.record({
+          action: 'automation.test',
+          resourceType: 'automation',
+          resourceId: null,
+          result: reply.kind === 'action' && reply.result === 'failed' ? 'failure' : 'success',
+          identity: route.identity,
+          ipAddress: route.request.ip,
+          traceId: route.request.traceId,
+          details: {
+            testId: route.body.testId,
+            type: target.action.type,
+            ...(reply.kind === 'action' ? { outcome: reply.result } : {}),
+          },
+        });
+      }
+
+      return reply;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/automations/test/:testId/cancel',
+      summary: 'Stop a test still going',
+      tag: 'Library',
+      permission: 'automation:write',
+      params: z.object({ testId: z.uuid() }),
+      response: z.object({ wasRunning: z.boolean() }),
+      successStatus: 200,
+    },
+
+    /**
+     * Stops a test of a block that is still going: a wait, a loop.
+     *
+     * @param route - The test's id and who is asking.
+     * @returns Whether there was one to stop.
+     */
+    async (route): Promise<{ wasRunning: boolean }> => {
+      requirePermission(route.identity, 'automation:write');
+
+      return {
+        wasRunning: await cancelTestOnCore(coreLink(route.request.traceId), route.params.testId),
+      };
     },
   );
 

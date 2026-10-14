@@ -108,7 +108,7 @@ describe('automations through the API', () => {
       key: `evening_${suffix}`,
       name: 'Evening',
       definition: {
-        triggers: { type: 'manual' },
+        triggers: [{ type: 'manual' }],
         then: [{ type: 'wait_duration', durationMs: 1000 }],
       },
     });

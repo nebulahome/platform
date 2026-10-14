@@ -16,20 +16,27 @@ import {
   capabilityStateSchema,
   commandNameOf,
   commandsForTargetState,
+  cancelAutomationTestRequestSchema,
   CORE_APPLY_SCENE_METHOD,
+  CORE_CANCEL_AUTOMATION_TEST_METHOD,
   CORE_REMOVE_AUTOMATION_METHOD,
   CORE_SYNC_AUTOMATION_METHOD,
   CORE_SYNC_HOUSE_METHOD,
+  CORE_TEST_AUTOMATION_BLOCK_METHOD,
   CORE_TRIGGER_AUTOMATION_METHOD,
   removeAutomationRequestSchema,
   syncAutomationRequestSchema,
   syncHouseRequestSchema,
+  testAutomationBlockRequestSchema,
   triggerAutomationRequestSchema,
   type ApplySceneReply,
   type ApplySceneRequest,
+  type AutomationTestReply,
+  type CancelAutomationTestReply,
   type RemoveAutomationReply,
   type SyncAutomationReply,
   type SyncHouseReply,
+  type TestAutomationBlockRequest,
   type TriggerAutomationReply,
   accountBeginRequestSchema,
   accountSignOutRequestSchema,
@@ -511,6 +518,12 @@ export const automationsTriggered: { automationId: string; userId: string | unde
 /** What the fake `core` was asked to apply, in order. */
 export const scenesApplied: ApplySceneRequest[] = [];
 
+/** The blocks the fake `core` was asked to test, in order. */
+export const blocksTested: TestAutomationBlockRequest[] = [];
+
+/** The tests the fake `core` was asked to stop, in order. */
+export const testsCancelled: string[] = [];
+
 /** How many times the fake `core` was asked to read the house again. */
 export const houseSyncs: { count: number } = { count: 0 };
 
@@ -846,6 +859,34 @@ export async function buildTestServer(
         automationsTriggered.push({ automationId: request.automationId, userId: request.userId });
 
         return { runId: '0190f5a1-0000-7000-8000-000000000001', outcome: 'started' };
+      },
+    ),
+    core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_TEST_AUTOMATION_BLOCK_METHOD),
+      testAutomationBlockRequestSchema,
+      (request): AutomationTestReply => {
+        blocksTested.push(request);
+
+        switch (request.target.kind) {
+          case 'action': {
+            return { kind: 'action', result: 'ok', durationMs: 5, steps: [] };
+          }
+          case 'condition': {
+            return { kind: 'condition', value: true, steps: [] };
+          }
+          case 'trigger': {
+            return { kind: 'trigger', matches: null, nextAt: null, detail: 'Fires at its moment' };
+          }
+        }
+      },
+    ),
+    core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_CANCEL_AUTOMATION_TEST_METHOD),
+      cancelAutomationTestRequestSchema,
+      (request): CancelAutomationTestReply => {
+        testsCancelled.push(request.testId);
+
+        return { wasRunning: false };
       },
     ),
     core.serve(
