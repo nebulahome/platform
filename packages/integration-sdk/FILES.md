@@ -63,14 +63,14 @@ with `padding` (0 to 16, default 0): extra room, in pixels, the interface leaves
 inside its tile. Every logo already gets a small margin; this is on top of it, for a mark drawn
 to the very edge of its file. It cannot ask for less than the margin, only for more.
 
-`requires` (since 1.5) says what the vendor's devices need besides the hub, in the grammar a
+`requires` says what the vendor's devices need besides the hub, in the grammar a
 package's manifest uses (PACKAGES.md §8, Dependencies):
 `{ "services": ["mqtt-broker"] }` for Zigbee2MQTT, which talks through the house's broker, or a
 package by id and range. Until what it needs runs, the vendor waits: its instances fail with the
 sentence that names the package, `api` refuses its devices with `409 needs-package`, and its page
 says so first. The hub follows the packages at every `pkg.*` event and starts only that vendor's
 instances again when its standing changes. A container that speaks to the broker names its topics
-in `mqttTopics` (since 1.5), and is given a username of its own held to them.
+in `mqttTopics`, and is given a username of its own held to them.
 
 `driver.json` says how one profile is loaded and **which models it drives**. The list is what the
 owner picks from when adding a device: Bambu Lab's `printer-p1-a1` driver lists five printers, so
@@ -111,7 +111,7 @@ may name a list when the hardware says its family but not which of it it is - a 
 announces `diy_plug` whether it is a BASICR3 or a MINI - and the owner then picks among those.
 Every model named must be in `models`, and a driver that lists none maps no codes.
 
-`modelSeries` (since 1.6) puts each model in the series the vendor sells it as, for a vendor whose
+`modelSeries` puts each model in the series the vendor sells it as, for a vendor whose
 drivers follow what the hardware needs rather than how the owner knows it: Bambu Lab's X1C and
 X2D are both `"X series"`, run by two drivers because their entities differ. The form then groups
 the vendor's models by series, across its drivers - the series by name, the models in each in
@@ -168,7 +168,7 @@ on anything its device says, so it is available exactly when the device is, and 
 `"deviceClass": "restart"` the interface asks before pressing, since the device goes away for a
 while.
 
-An entity may report **attributes** beside its state (since 1.6): `"attributes": { "endsAt":
+An entity may report **attributes** beside its state: `"attributes": { "endsAt":
 "pairing.endsAt" }`, each a camelCase key read the way a state field is, into a scalar. They are
 for what a page needs of the entity and the entity itself is not - the Zigbee2MQTT bridge's
 _Pairing_ sensor says `enabled` and carries when pairing closes as `endsAt`, which the vendor's
@@ -176,7 +176,7 @@ page counts down. Every report carries all of them, and one whose source names n
 out, so an attribute that stopped being said is gone rather than stale.
 
 A command's request carries values out of the command as **references** -
-`{ "$": "command.level" }`. A device that counts in other units says so (since 1.7): `scale`
+`{ "$": "command.level" }`. A device that counts in other units says so: `scale`
 multiplies a number, `decimals` rounds it, `min` and `max` clamp it, in that order, and
 `"optional": true` leaves the key out of the request when the command does not carry the value,
 instead of sending `null`. That is how a fade reaches a Shelly dimmer, which takes seconds:
@@ -185,7 +185,7 @@ instead of sending `null`. That is how a fade reaches a Shelly dimmer, which tak
 literal.
 
 A light that can **fade** says so on each capability that can: `"on_off": { "hasTransition":
-true }`, and the same on `level`, `color_hs` and `color_temp` (since 1.7 for all but `level`). The
+true }`, and the same on `level`, `color_hs` and `color_temp`. The
 platform drops `transitionMs` from a command to a capability that does not say so, and the editor
 offers no Transition field for it, so a lamp that changes at once is never promised a fade. A
 device added before its driver said so keeps what it was added with until it is added again.
@@ -261,14 +261,14 @@ because a device announced it there.
   is ever required. A field may be a list of paths, tried in order, for generations that answer
   in different words: a Shelly Gen1 says `type`, `mac` and `fw` where later ones say `model`,
   `id` and `ver`.
-- `adopt` - since 1.4, who adds a device found: `owner` (the default) proposes it on the vendor's
+- `adopt` - who adds a device found: `owner` (the default) proposes it on the vendor's
   page to adopt; `automatic` has `api` add it as soon as the hub proposes it, named as it named
   itself, with the id the add form would have offered - for devices the owner already chose
   somewhere else: a Zigbee device paired with Zigbee2MQTT, a mower bound to an ECOVACS account.
   Such a vendor's page has no **Add device**, no **Discover devices** and nothing to adopt, and a
   device removed there comes back while the vendor still lists it.
-- `pairing` - since 1.4, `{ "driver": "bridge", "open": "permit_join", "close":
-"permit_join_stop", "state": "pairing" }` (the shape since 1.6): the entities of one of the
+- `pairing` - `{ "driver": "bridge", "open": "permit_join", "close":
+"permit_join_stop", "state": "pairing" }`: the entities of one of the
   vendor's drivers pairing is run by, by object id - the button that opens it, the one that closes
   it, and the text sensor saying `enabled` while it is open, with when it closes in its `endsAt`
   attribute. The vendor's page offers them as **Pair devices** / **Stop**, read live, in place of
@@ -299,13 +299,13 @@ failure names the file.
 same SDK - whose default export returns `{ listen(signal, context), scan?() }`: an async iterable
 of sightings, `{ config: { host }, payload }`, reported as they happen until the signal ends it,
 and, optionally, a way to ask the network again now, which the owner's scan calls - its answers
-arrive through `listen` like every other. Since 1.4 `context.settings()` reads what the owner saved
+arrive through `listen` like every other. `context.settings()` reads what the owner saved
 for the vendor, secrets opened, for a listener that asks a cloud which devices an account has; read
 it at every pass and a change is heard without the listener being started again. It listens and
 reports; which driver a device belongs to stays the business of `discovery.json`. A sighting at a
 public address is not followed.
 
-Since 1.5 the context also takes two things the vendor's page shows, both optional for the hub to
+The context also takes two things the vendor's page shows, both optional for the hub to
 offer, so a listener calls them as `context.status?.(…)`:
 
 - `status({ level, message })` - how listening goes: `ok`, `warning` (listening, and hearing
@@ -319,7 +319,7 @@ offer, so a listener calls them as `context.status?.(…)`:
 
 ## `account.json` - the account the devices are reached through
 
-Since 1.5. A vendor whose devices are reached through an account - a cloud's, an app's - names an
+A vendor whose devices are reached through an account - a cloud's, an app's - names an
 `account.json` in its manifest (`"account": "./account.json"`) instead of asking for an email and
 a password in its `setup.json`:
 
@@ -562,16 +562,16 @@ import them:
 | `defineTransport`    | the contract the platform's own transports are written against                     |
 | `openWebSocket`      | a WebSocket the hub keeps open: reconnection with a doubling pause, resets         |
 | `openUdpSocket`      | a UDP socket the hub binds, joins to a multicast group, and closes with the vendor |
-| `openMqtt`           | since 1.2: an MQTT session with a client certificate, for a vendor's own broker    |
-| `defineStreamSource` | since 1.2: the contract a camera's stream source is written against                |
-| `openRtsp`           | since 1.2: an RTSP(S) session over TCP, yielding a camera's H.264 as it comes      |
-| `platform.mqtt`      | since 1.3: the platform's own MQTT broker, or null on an installation without one  |
-| `defineAccount`      | since 1.5: the contract an account's sign-in module is written against             |
-| `codecs.lzma`        | since 1.5: unpacks an LZMA stream in the alone format, as some clouds pack maps    |
-| `images.png`         | since 1.5: encodes a picture of a palette as a PNG, for an image entity            |
+| `openMqtt`           | an MQTT session with a client certificate, for a vendor's own broker               |
+| `defineStreamSource` | the contract a camera's stream source is written against                           |
+| `openRtsp`           | an RTSP(S) session over TCP, yielding a camera's H.264 as it comes                 |
+| `platform.mqtt`      | the platform's own MQTT broker, or null on an installation without one             |
+| `defineAccount`      | the contract an account's sign-in module is written against                        |
+| `codecs.lzma`        | unpacks an LZMA stream in the alone format, as some clouds pack maps               |
+| `images.png`         | encodes a picture of a palette as a PNG, for an image entity                       |
 | `logger`             | the hub's logger, for what happens outside a connection                            |
 
-Since 1.8 `openWebSocket` also takes `headers` - sent on every handshake and never logged, or a
+`openWebSocket` also takes `headers` - sent on every handshake and never logged, or a
 function called before each attempt, for a token that expires - `ping: { everyMs, timeoutMs }`,
 which drops and reopens a socket whose peer stopped answering, and `tls: { rejectUnauthorized }`;
 and `onClose` is told the close code and, for a handshake the server refused, its HTTP `status`,
@@ -580,7 +580,7 @@ rather than retry for ever.
 
 The transport it returns is the one the platform's `http` and `mqtt` are:
 `connectionKey`, `connect`, `scan`, `probe`, and a `configSchema` for what the driver's
-`setup.json` asks. Since 1.5 `scan` and `probe` take a last argument, `{ account }`: the account
+`setup.json` asks. `scan` and `probe` take a last argument, `{ account }`: the account
 the configuration names, as `connect` is handed it in `context.account`. Its `id` must be `<vendor>/<name>`, or the loader refuses the vendor naming
 both. It is **code**, so the vendor sits at the tier a code driver does - reviewed before a
 catalogue carries it; `verifyVendor` is where the hub asks. Its types come from
@@ -623,7 +623,7 @@ decodes them (WebCodecs for H.264), and a stream runs only while a viewer keeps 
 
 ## A picture that changes
 
-Since 1.5. A robot's map, a printer's plate: a picture the device's state carries, drawn again
+A robot's map, a printer's plate: a picture the device's state carries, drawn again
 when it changes. A profile's `image` entity says where in the payload it is and what it is:
 
 ```json

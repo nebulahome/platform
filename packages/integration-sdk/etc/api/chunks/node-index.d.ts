@@ -761,16 +761,15 @@ type TransportContext = {
   /** Called when the connection comes up or goes down. */
   report: (status: TransportStatus) => void;
   /**
-   * Since 1.5: the account the connection is for, when its configuration names one
+   * The account the connection is for, when its configuration names one
    * (`config.account`) of the transport's own vendor - the session to use, and how to keep a
    * renewed one or say the owner must sign in again. Absent otherwise.
    */
   readonly account?: AccountHandle;
 };
 /**
- * Since 1.5: what a scan or a probe is handed beside its arguments - the account its
- * configuration names (`config.account`), as a connection is handed it. Absent otherwise, and for
- * a hub older than 1.5.
+ * What a scan or a probe is handed beside its arguments - the account its
+ * configuration names (`config.account`), as a connection is handed it. Absent otherwise.
  */
 type TransportLookContext = {
   readonly account?: AccountHandle;
@@ -845,7 +844,7 @@ type Transport = {
    * @param config - The connection settings.
    * @param scan - The integration's search terms, in this transport's vocabulary.
    * @param signal - Ends the scan.
-   * @param context - Since 1.5: the account the configuration names.
+   * @param context - The account the configuration names.
    * @returns Candidates as they are found, rather than a list once the scan is over: a scan of a
    * house takes long enough that the interface should be filling in while it runs.
    */
@@ -861,7 +860,7 @@ type Transport = {
    *
    * @param config - What the owner typed, complete and in the clear.
    * @param signal - Gives up: a host that never answers must not hold the form open.
-   * @param context - Since 1.5: the account the configuration names.
+   * @param context - The account the configuration names.
    */
   probe: (config: unknown, signal: AbortSignal, context?: TransportLookContext) => Promise<string>;
 };
@@ -960,7 +959,7 @@ type CommandTarget = {
   readonly command: JsonObject;
 };
 /**
- * Since 1.5: the picture an image entity's report carries beside its state - an SVG, a PNG - which
+ * The picture an image entity's report carries beside its state - an SVG, a PNG - which
  * the hub keeps and never publishes: the state says which picture it is (`revision`), and the
  * bytes are asked for by whoever shows it.
  */
@@ -1172,9 +1171,9 @@ type BundleLogger = {
    */
   child: (fields: Record<string, unknown>) => BundleLogger;
 };
-/** Since 1.8: HTTP headers for a WebSocket's opening handshake. */
+/** HTTP headers for a WebSocket's opening handshake. */
 type ManagedSocketHeaders = Readonly<Record<string, string>>;
-/** Since 1.8: what a drop says beyond its reason. */
+/** What a drop says beyond its reason. */
 type ManagedSocketClose = {
   /** The WebSocket close code: the peer's, or 1006 for a socket that ended without one. */
   readonly code?: number;
@@ -1189,14 +1188,14 @@ type ManagedSocketOptions = {
   /** `ws://host/path` or `wss://…`. */
   readonly url: string;
   /**
-   * Since 1.8: headers sent on the opening handshake, the first and every reconnect's, for a
+   * Headers sent on the opening handshake, the first and every reconnect's, for a
    * server that authenticates the socket by them. Never logged. A function is called before each
    * attempt and may answer with a promise - for a token that expires; one that throws fails that
    * attempt as a refused connection would, and the next comes on the usual schedule.
    */
   readonly headers?: ManagedSocketHeaders | (() => ManagedSocketHeaders | Promise<ManagedSocketHeaders>);
   /**
-   * Since 1.8: a ping every `everyMs`, and the socket dropped - then reconnected - when no pong
+   * A ping every `everyMs`, and the socket dropped - then reconnected - when no pong
    * comes within `timeoutMs`. For a peer that may say nothing for hours, whose silence would
    * otherwise hide a dead connection. Off unless said.
    */
@@ -1205,7 +1204,7 @@ type ManagedSocketOptions = {
     readonly timeoutMs: number;
   };
   /**
-   * Since 1.8: TLS for a `wss://` server: whether its certificate must chain to an authority
+   * TLS for a `wss://` server: whether its certificate must chain to an authority
    * this machine trusts (on unless said).
    */
   readonly tls?: {
@@ -1218,7 +1217,7 @@ type ManagedSocketOptions = {
   readonly onMessage: (text: string) => void;
   /**
    * Called when the socket dropped or failed to connect; the helper reconnects by itself unless
-   * the socket is closed here. Since 1.8 the hub also says the close code and, for a handshake
+   * the socket is closed here. The hub also says the close code and, for a handshake
    * the server refused, its HTTP status.
    */
   readonly onClose: (reason: string, details?: ManagedSocketClose) => void;
@@ -1360,7 +1359,7 @@ type PalettedPicture = {
   /** One index into the palette per pixel, row after row from the top left. */
   readonly pixels: Uint8Array;
 };
-/** Since 1.5: what a bundle drawing a picture needs, and could not bring as a dependency. */
+/** What a bundle drawing a picture needs, and could not bring as a dependency. */
 type BundleCodecs = {
   /**
    * Unpacks an LZMA stream in the alone format (`.lzma`): a 13-byte header - the properties and
@@ -1370,7 +1369,7 @@ type BundleCodecs = {
    */
   readonly lzma: (bytes: Uint8Array) => Buffer;
 };
-/** Since 1.5: pictures a bundle draws, for an image entity. */
+/** Pictures a bundle draws, for an image entity. */
 type BundleImages = {
   /**
    * Encodes a paletted picture as a PNG, a colour with an alpha below 255 transparent.
@@ -1390,19 +1389,19 @@ type BundleSdk = {
   readonly defineTransport: typeof defineTransport;
   readonly openWebSocket: OpenWebSocket;
   readonly openUdpSocket: OpenUdpSocket;
-  /** Since 1.2: an MQTT session, for a vendor whose devices report through a broker of its own. */
+  /** An MQTT session, for a vendor whose devices report through a broker of its own. */
   readonly openMqtt: OpenMqtt;
-  /** Since 1.2: how a camera's stream source is written, as defineTransport is for a transport. */
+  /** How a camera's stream source is written, as defineTransport is for a transport. */
   readonly defineStreamSource: typeof defineStreamSource;
-  /** Since 1.2: an RTSP session over TCP, yielding a camera's H.264 as it comes. */
+  /** An RTSP session over TCP, yielding a camera's H.264 as it comes. */
   readonly openRtsp: OpenRtsp;
-  /** Since 1.3: what the platform itself runs that a bundle may use - its MQTT broker. */
+  /** What the platform itself runs that a bundle may use - its MQTT broker. */
   readonly platform: PlatformServices;
-  /** Since 1.5: how an account's sign-in module is written, as defineTransport is for a transport. */
+  /** How an account's sign-in module is written, as defineTransport is for a transport. */
   readonly defineAccount: typeof defineAccount;
-  /** Since 1.5: unpacking what a vendor's cloud packs. */
+  /** Unpacking what a vendor's cloud packs. */
   readonly codecs: BundleCodecs;
-  /** Since 1.5: drawing pictures, for an image entity. */
+  /** Drawing pictures, for an image entity. */
   readonly images: BundleImages;
 };
 //#endregion
@@ -1653,11 +1652,11 @@ declare const vendorManifestSchema: z.ZodObject<{
   transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
     module: z.ZodString;
     wires: z.ZodArray<z.ZodEnum<{
-      udp: "udp";
       http: "http";
       mqtt: "mqtt";
       ble: "ble";
       zigbee: "zigbee";
+      udp: "udp";
       modbus: "modbus";
     }>>;
   }, z.core.$strict>]>>>;
@@ -1903,7 +1902,7 @@ type PassedOverSighting = {
   /** Why it is not added, in a sentence: `Zigbee2MQTT is still pairing it`. */
   readonly reason: string;
 };
-/** Since 1.4: what the hub hands a listener beside the signal. */
+/** What the hub hands a listener beside the signal. */
 type DiscoveryListenContext = {
   /**
    * Reads what the owner saved for the vendor - an account, a key - secrets opened, for a
@@ -1914,18 +1913,18 @@ type DiscoveryListenContext = {
    */
   readonly settings: () => Promise<JsonObject>;
   /**
-   * Since 1.5: says how listening goes - connected to a broker but hearing nothing, unable to
+   * Says how listening goes - connected to a broker but hearing nothing, unable to
    * reach it - which the vendor's page shows. The last one said stands until the next. Optional
    * for the hub to offer, so a listener calls it as `context.status?.(…)`.
    */
   readonly status?: (status: ListenerStatus) => void;
   /**
-   * Since 1.5: every device the listener hears and does not report, the whole list each time -
+   * Every device the listener hears and does not report, the whole list each time -
    * it replaces the last one. Optional for the hub to offer, like `status`.
    */
   readonly passedOver?: (devices: readonly PassedOverSighting[]) => void;
   /**
-   * Since 1.5: every account of the vendor signed in to, for a listener that asks each which
+   * Every account of the vendor signed in to, for a listener that asks each which
    * devices it has. Read it at every pass, like the settings: an account added is heard then.
    *
    * @returns The accounts; none for a vendor without, or before one is signed in to.
@@ -1938,7 +1937,7 @@ type DiscoverySource = {
    * Listens until the signal ends it, reporting every device heard.
    *
    * @param signal - Ends the listening.
-   * @param context - Since 1.4: the vendor's settings, for a listener that needs them.
+   * @param context - The vendor's settings, for a listener that needs them.
    * @returns Every sighting, as it happens. The same device may be reported again.
    */
   listen: (signal: AbortSignal, context: DiscoveryListenContext) => AsyncIterable<Sighting>;
@@ -2022,7 +2021,7 @@ type LoadedVendor = {
   /** How its devices are found, when it has a `discovery.json` that loaded. */
   readonly discovery?: LoadedDiscovery;
   /**
-   * Since 1.5: the account its devices are reached through, when it has an `account.json` - what
+   * The account its devices are reached through, when it has an `account.json` - what
    * signing in asks, and the module that signs in.
    */
   readonly account?: LoadedAccount;

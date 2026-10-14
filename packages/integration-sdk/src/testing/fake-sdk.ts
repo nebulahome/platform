@@ -70,7 +70,7 @@ export type FakeUdpSocket = {
   deliver: (message: Buffer | string, from?: UdpPeer) => void;
 };
 
-/** Since 1.8: a WebSocket a bundle opened through the fake SDK. */
+/** A WebSocket a bundle opened through the fake SDK. */
 export type FakeWebSocket = {
   /** What it was opened with: the URL, the headers, the ping, the callbacks. */
   readonly options: ManagedSocketOptions;
@@ -136,7 +136,7 @@ export type FakeSdk = {
   /** The UDP sockets the bundle opened, in order. */
   readonly udpSockets: readonly FakeUdpSocket[];
 
-  /** Since 1.8: the WebSockets the bundle opened, in order; none is open until the test opens it. */
+  /** The WebSockets the bundle opened, in order; none is open until the test opens it. */
   readonly webSockets: readonly FakeWebSocket[];
 
   /**

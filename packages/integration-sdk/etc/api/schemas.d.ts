@@ -25,11 +25,11 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
       module: z.ZodString;
       wires: z.ZodArray<z.ZodEnum<{
-        udp: "udp";
         http: "http";
         mqtt: "mqtt";
         ble: "ble";
         zigbee: "zigbee";
+        udp: "udp";
         modbus: "modbus";
       }>>;
     }, z.core.$strict>]>>>;
@@ -365,6 +365,7 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       domain: z.ZodEnum<{
         number: "number";
         custom: "custom";
+        image: "image";
         light: "light";
         switch: "switch";
         sensor: "sensor";
@@ -379,7 +380,6 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         lawn_mower: "lawn_mower";
         select: "select";
         vacuum: "vacuum";
-        image: "image";
         alias: "alias";
       }>;
       objectId: z.ZodOptional<z.ZodString>;
@@ -526,8 +526,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
           "image/jpeg": "image/jpeg";
         }>;
         encoding: z.ZodDefault<z.ZodEnum<{
-          utf8: "utf8";
           base64: "base64";
+          utf8: "utf8";
         }>>;
         minIntervalMs: z.ZodDefault<z.ZodInt>;
       }, z.core.$strict>>;

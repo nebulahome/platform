@@ -4,7 +4,12 @@ Write a NebulaHome integration: check it, build it, test it and release it for t
 
 An integration teaches the platform a brand of devices. It is a **vendor directory** - the same
 files the hub loads - in a repository of its own, `integration-<vendor>`, started from
-[`integration-template`](https://github.com/nebulahome/integration-template):
+[`integration-template`](https://github.com/nebulahome/integration-template), which already
+depends on this package; anywhere else:
+
+```sh
+npm install --save-dev @nebulahome/integration-sdk
+```
 
 ```
 integration-acme/
@@ -94,3 +99,30 @@ platform before it is released, copy the archive into the platform's local folde
 
 The SDK's version is the version of the integration contract the platform implements; a bundle
 built with it declares `^<major>.<minor>.0`. The full guide is `INTEGRATIONS_DOCS.md`.
+
+## Releasing the SDK
+
+For the platform's maintainers. The hub reads the contract's version from this `package.json`, so
+the version is raised by hand - not by changesets, which ignore this package:
+
+- **patch** - a fix, or a change to the command, the tests' helpers or the documentation that
+  leaves what a bundle can use as it is. Bundles keep declaring `^<major>.<minor>.0`, so it is
+  released whenever it is ready.
+- **minor** - the contract grows. Raise it in the first commit that grows it, so a bundle using
+  the new part is never loaded by a platform without it; release it with the platform that
+  implements it.
+- **major** - the contract breaks: bundles built before are refused until they are built again.
+
+Every change of the release goes into `CHANGELOG.md`. Then, from the commit released:
+
+```sh
+git tag integration-sdk@<version> && git push origin integration-sdk@<version>
+```
+
+`.github/workflows/release-integration-sdk.yml` checks the tag says the package's version, runs the
+SDK's gates and publishes a GitHub release with the archive npm will receive. The maintainer
+publishes that archive, signed in to npm:
+
+```sh
+npm publish nebulahome-integration-sdk-<version>.tgz
+```

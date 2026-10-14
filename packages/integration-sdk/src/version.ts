@@ -7,7 +7,7 @@
  */
 import manifest from '../package.json' with { type: 'json' };
 
-/** The SDK's own version: `1.8.0`, or a prerelease of it. */
+/** The SDK's own version: `1.0.0`, or a prerelease of it. */
 export const SDK_VERSION: string = manifest.version;
 
 /**
@@ -15,7 +15,7 @@ export const SDK_VERSION: string = manifest.version;
  * platform with the same contract or a later one of the same major loads it.
  *
  * @param version - The SDK's version.
- * @returns The range, `^1.8.0`.
+ * @returns The range, `^1.0.0`.
  */
 export function sdkRangeOf(version: string): string {
   const [major = '0', minor = '0'] = version.split('-')[0]?.split('.') ?? [];

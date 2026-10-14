@@ -1,9 +1,8 @@
 {
   "name": "@nebulahome/integration-sdk",
-  "version": "1.8.0",
-  "private": true,
+  "version": "1.0.0",
   "description": "Write a NebulaHome integration: check it, build it, test it and release it for the platform.",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "sideEffects": false,
   "keywords": [
@@ -14,6 +13,7 @@
     "sdk"
   ],
   "homepage": "https://github.com/nebulahome/platform/tree/main/packages/integration-sdk#readme",
+  "bugs": "https://github.com/nebulahome/platform/issues",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nebulahome/platform.git",
@@ -39,14 +39,14 @@
     "schemas",
     "README.md",
     "FILES.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=22"
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "scripts": {
     "build": "tsdown && node scripts/build-schemas.js",
