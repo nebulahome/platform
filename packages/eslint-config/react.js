@@ -11,6 +11,8 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+import noUntranslatedText from './rules/no-untranslated-text.js';
+
 import base from './index.js';
 
 export default tseslint.config(
@@ -27,6 +29,7 @@ export default tseslint.config(
       react,
       'react-hooks': reactHooks,
       'jsx-a11y': jsxA11y,
+      nebula: { rules: { 'no-untranslated-text': noUntranslatedText } },
     },
 
     settings: {
@@ -69,6 +72,11 @@ export default tseslint.config(
           ],
         },
       ],
+
+      // --- RULES.md 1: every word a person reads goes through the catalogue -----------
+      // Off here and turned on by each package for the files it holds to it: a package moves
+      // to the catalogue a folder at a time.
+      'nebula/no-untranslated-text': 'off',
 
       // Component names are PascalCase even though files are kebab-case (RULES.md 6).
       '@typescript-eslint/naming-convention': [
