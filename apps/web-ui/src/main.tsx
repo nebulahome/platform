@@ -4,6 +4,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
+import '@/i18n/instance';
+
 import { App } from '@/app';
 import '@/styles/globals.css';
 

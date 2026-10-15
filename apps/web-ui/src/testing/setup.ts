@@ -10,6 +10,10 @@
 import { cleanup, configure } from '@testing-library/react';
 import { afterEach } from 'vitest';
 
+// The interface's i18next, in English: every `t` answers with the English written beside its key,
+// which is what the tests read. A test about another language switches it itself.
+import '@/i18n/instance';
+
 /*
  * How long a `findBy` query waits for what it is looking for. The library's second is enough
  * for one file on its own and not for sixty sharing the machine with the rest of the monorepo's

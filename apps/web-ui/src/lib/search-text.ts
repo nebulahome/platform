@@ -4,8 +4,9 @@
  * One rule, here, so the devices page, the aliases page and the entity picker answer the same
  * query the same way:
  *
- * - **Case and accents do not matter.** "citta" finds "Città", "CUCINA" finds "Cucina": text is
- *   folded to lower case and its combining marks removed before it is compared.
+ * - **Case and accents do not matter.** "cafe" finds "Caf&eacute;" (an accented e), "KITCHEN"
+ *   finds "Kitchen": text is folded to lower case and its combining marks removed before it is
+ *   compared.
  * - **Every word must be found, in any order.** "printer workshop" finds "Workshop printer", and
  *   narrows as more words are typed rather than widening.
  * - **Each word is looked for in each field on its own.** The fields are never run together, so a

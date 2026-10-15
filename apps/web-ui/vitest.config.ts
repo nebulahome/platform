@@ -13,7 +13,7 @@ export default defineConfig({
     // The client and the components both touch browser globals - `fetch`, `localStorage`, the
     // DOM - so the whole suite runs in one, rather than half of it importing a shim.
     environment: 'jsdom',
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'scripts/**/*.test.ts'],
     setupFiles: ['./src/testing/setup.ts'],
     globals: false,
   },

@@ -12,7 +12,14 @@
  */
 import { create } from 'zustand';
 
-import type { GrantedPermission, SessionUser } from '@nebulahome/contracts';
+import {
+  DEFAULT_LOCALE,
+  matchSupportedLocale,
+  resolveDisplayLocale,
+  type GrantedPermission,
+  type SessionUser,
+  type SupportedLocale,
+} from '@nebulahome/contracts';
 
 import {
   completeSetup,
@@ -23,6 +30,7 @@ import {
   submitSecondFactor,
 } from '@/auth/api';
 import { readRefreshToken, writeRefreshToken } from '@/auth/token-storage';
+import { applyLanguage, readLanguageHint } from '@/i18n/language';
 import { connectSession, refreshAccessToken } from '@/lib/api-client';
 import { isApiUnreachable } from '@/lib/api-error';
 
@@ -71,6 +79,15 @@ export type SessionState = {
    */
   readonly isWaitingForApi: boolean;
 
+  /** The house language, as the server last said it: what the sign-in screen speaks. */
+  readonly houseLocale: SupportedLocale;
+
+  /**
+   * The language the interface speaks to whoever is in front of it: a signed-in person's own
+   * choice, else the house's; on the first run, the one picked for the house.
+   */
+  readonly language: SupportedLocale;
+
   /** Works out which screen the application should open on. */
   readonly initialise: () => Promise<void>;
 
@@ -85,6 +102,9 @@ export type SessionState = {
 
   /** Re-reads the signed-in account, after something about it has changed. */
   readonly refreshUser: () => Promise<void>;
+
+  /** On the first run, speaks the language picked for the house before the house exists. */
+  readonly chooseSetupLanguage: (locale: SupportedLocale) => void;
 
   /** Signs out. */
   readonly signOut: (allSessions?: boolean) => Promise<void>;
@@ -171,8 +191,36 @@ type DecisionOutcome =
 
 /** The part of the store one attempt is allowed to write. */
 type DecisionSetter = (
-  partial: Partial<Pick<SessionState, 'status' | 'user' | 'accessToken' | 'challengeId'>>,
+  partial: Partial<
+    Pick<
+      SessionState,
+      'status' | 'user' | 'accessToken' | 'challengeId' | 'houseLocale' | 'language'
+    >
+  >,
 ) => void;
+
+/**
+ * The languages a signed-in person brings with them.
+ *
+ * @param user - Who signed in.
+ * @returns The house language, and the one they read.
+ */
+function languagesOf(user: SessionUser): Pick<SessionState, 'houseLocale' | 'language'> {
+  return {
+    houseLocale: user.houseLocale,
+    language: resolveDisplayLocale(user.locale, user.houseLocale),
+  };
+}
+
+/**
+ * The language a first run opens in: the browser's when the interface speaks it, else English.
+ * The person may pick another before the house exists, and the one they finish in is the house's.
+ *
+ * @returns The language.
+ */
+function browserLocale(): SupportedLocale {
+  return matchSupportedLocale(globalThis.navigator.languages) ?? DEFAULT_LOCALE;
+}
 
 /**
  * Makes the opening decision once.
@@ -197,7 +245,9 @@ async function decideOnce(set: DecisionSetter): Promise<DecisionOutcome> {
       if (accessToken !== null) {
         try {
           set({ accessToken });
-          set({ status: 'signed-in', user: await fetchSession(), challengeId: null });
+          const user = await fetchSession();
+
+          set({ status: 'signed-in', user, challengeId: null, ...languagesOf(user) });
 
           return 'decided';
         } catch (cause: unknown) {
@@ -225,9 +275,13 @@ async function decideOnce(set: DecisionSetter): Promise<DecisionOutcome> {
   }
 
   try {
-    const { isRequired } = await fetchSetupStatus();
+    const { isRequired, locale } = await fetchSetupStatus();
 
-    set({ status: isRequired ? 'setup-required' : 'signed-out' });
+    set({
+      status: isRequired ? 'setup-required' : 'signed-out',
+      houseLocale: locale,
+      language: isRequired ? browserLocale() : locale,
+    });
 
     return 'decided';
   } catch (cause: unknown) {
@@ -257,6 +311,10 @@ export const useSession = create<SessionState>((set, get) => ({
   accessToken: null,
   challengeId: null,
   isWaitingForApi: false,
+
+  // The language this browser spoke last time, until the server says which it is.
+  houseLocale: readLanguageHint() ?? DEFAULT_LOCALE,
+  language: readLanguageHint() ?? DEFAULT_LOCALE,
 
   /**
    * Works out which screen to open on.
@@ -313,6 +371,7 @@ export const useSession = create<SessionState>((set, get) => ({
       user: answer.user,
       accessToken: answer.tokens.accessToken,
       challengeId: null,
+      ...languagesOf(answer.user),
     });
 
     return false;
@@ -340,6 +399,7 @@ export const useSession = create<SessionState>((set, get) => ({
       user: answer.user,
       accessToken: answer.tokens.accessToken,
       challengeId: null,
+      ...languagesOf(answer.user),
     });
   },
 
@@ -357,6 +417,7 @@ export const useSession = create<SessionState>((set, get) => ({
       user: answer.user,
       accessToken: answer.tokens.accessToken,
       challengeId: null,
+      ...languagesOf(answer.user),
     });
   },
 
@@ -374,10 +435,21 @@ export const useSession = create<SessionState>((set, get) => ({
    */
   refreshUser: async (): Promise<void> => {
     try {
-      set({ user: await fetchSession() });
+      const user = await fetchSession();
+
+      set({ user, ...languagesOf(user) });
     } catch {
       // Deliberately quiet: see above.
     }
+  },
+
+  /**
+   * Speaks the language picked on the first run, before there is a house to store it on.
+   *
+   * @param locale - The language.
+   */
+  chooseSetupLanguage: (locale: SupportedLocale): void => {
+    set({ language: locale });
   },
 
   /**
@@ -394,7 +466,15 @@ export const useSession = create<SessionState>((set, get) => ({
       await signOut(allSessions);
     } finally {
       writeRefreshToken(null);
-      set({ status: 'signed-out', user: undefined, accessToken: null, challengeId: null });
+
+      // The sign-in screen speaks the house's language, whatever the person who left read.
+      set({
+        status: 'signed-out',
+        user: undefined,
+        accessToken: null,
+        challengeId: null,
+        language: get().houseLocale,
+      });
     }
   },
 
@@ -436,11 +516,24 @@ connectSession({
 
   /** Clears the session when the server says it is over. */
   onSignedOut: (): void => {
-    useSession.setState({
+    useSession.setState((state) => ({
       status: 'signed-out',
       user: undefined,
       accessToken: null,
       challengeId: null,
-    });
+      language: state.houseLocale,
+    }));
   },
+});
+
+/*
+ * The interface speaks the language the session decided, from the first render: the hint now,
+ * the server's answer as soon as there is one, and every change after.
+ */
+void applyLanguage(useSession.getState().language);
+
+useSession.subscribe((state, previous) => {
+  if (state.language !== previous.language) {
+    void applyLanguage(state.language);
+  }
 });

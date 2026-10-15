@@ -22,7 +22,8 @@
  * been created has nothing to animate from. One frame, changing children, is what lets the mark
  * travel instead of jumping.
  */
-import { useEffect, type ReactNode } from 'react';
+import { Fragment, useEffect, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 
 import { SetupSteps } from '@nebulahome/ui';
@@ -206,6 +207,11 @@ export function SessionRoutes() {
   const startPage = usePreferences((state) => state.startPage);
   const setupStep = useFirstRunStep((state) => state.step);
 
+  // What is drawn below is drawn again whole when the language changes, keyed by it: a label
+  // worked out once and kept - in a memo, a table, a query's selection - cannot then stay in the
+  // language before. This component itself is not, so the session is not decided twice.
+  const { i18n } = useTranslation();
+
   useAddressFollowsSession(status, startPage);
 
   useEffect(() => {
@@ -234,13 +240,13 @@ export function SessionRoutes() {
         {...(isSetup ? { steps: <SetupSteps steps={FIRST_RUN_STEPS} current={setupStep} /> } : {})}
         {...(screen?.footer === undefined ? {} : { footer: screen.footer })}
       >
-        {screen?.form}
+        <Fragment key={i18n.language}>{screen?.form}</Fragment>
       </AuthLayout>
     );
   }
 
   return (
-    <Routes>
+    <Routes key={i18n.language}>
       <Route element={<Shell />}>
         <Route index element={<Navigate to={startPage} replace />} />
         <Route path="/dashboards" element={<DashboardPage />} />

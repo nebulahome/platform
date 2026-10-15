@@ -8,8 +8,9 @@
     "dev": "vite --host",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint .",
-    "test": "vitest run"
+    "lint": "eslint . && tsx scripts/check-translations.ts",
+    "test": "vitest run",
+    "check:translations": "tsx scripts/check-translations.ts"
   },
   "dependencies": {
     "@codemirror/commands": "^6.11.1",
