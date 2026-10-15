@@ -6,6 +6,7 @@
  * screen stays until the next has arrived, so a map redrawn every few seconds does not blink.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { AppIcon, IconButton, Modal } from '@nebulahome/ui';
 
@@ -19,6 +20,8 @@ import { ControlBlock, type ControlProps } from '@/routes/library/entity/control
  * @returns The block.
  */
 export function ImageControl(props: ControlProps) {
+  const { t } = useTranslation();
+
   const { entity, state } = props;
   const image = state.image;
   const address = useEntityImage(
@@ -30,13 +33,13 @@ export function ImageControl(props: ControlProps) {
 
   return (
     <ControlBlock
-      title="Picture"
+      title={t('entity.controls.imageControl.picture', 'Picture')}
       value={
         address === null ? (
           '—'
         ) : (
           <IconButton
-            label="Show it full size"
+            label={t('entity.controls.imageControl.showItFullSize', 'Show it full size')}
             onClick={() => {
               setLarge(true);
             }}
@@ -48,7 +51,9 @@ export function ImageControl(props: ControlProps) {
     >
       {address === null ? (
         <p className="text-ui text-foreground-subtle">
-          {image === undefined ? 'Nothing drawn yet.' : 'Loading the picture…'}
+          {image === undefined
+            ? t('entity.controls.imageControl.nothingDrawnYet', 'Nothing drawn yet.')
+            : t('entity.controls.imageControl.loadingThePicture', 'Loading the picture…')}
         </p>
       ) : (
         <img

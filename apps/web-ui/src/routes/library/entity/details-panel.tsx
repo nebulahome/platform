@@ -8,11 +8,13 @@
  * since those limits are what decide whether an automation's command will be accepted.
  */
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import { getSensorClass, type CapabilityName, type EntityView } from '@nebulahome/contracts';
 import { AppIcon, IconButton, Panel, TagChip } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
 import { copyText } from '@/lib/clipboard';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
 import { miredsToKelvin, paramsOf } from '@/library/entity-control';
@@ -33,7 +35,7 @@ function limitsOf(entity: EntityView, capability: CapabilityName): string | null
       const params = paramsOf(entity, 'color_temp');
 
       return params === null
-        ? 'range not declared'
+        ? translate('entity.detailsPanel.rangeNotDeclared', 'range not declared')
         : `${String(miredsToKelvin(params.maxMireds))}–${String(miredsToKelvin(params.minMireds))} K`;
     }
 
@@ -48,7 +50,9 @@ function limitsOf(entity: EntityView, capability: CapabilityName): string | null
     case 'cover': {
       const params = paramsOf(entity, 'cover');
 
-      return params?.hasTilt === true ? 'position and tilt' : null;
+      return params?.hasTilt === true
+        ? translate('entity.detailsPanel.positionAndTilt', 'position and tilt')
+        : null;
     }
 
     case 'level':
@@ -90,10 +94,12 @@ export function Fact(props: FactProps) {
  * @returns The phrase.
  */
 export function When(props: { readonly when: Date | null }) {
+  const { t } = useTranslation();
+
   const { when } = props;
 
   return when === null ? (
-    <span className="text-foreground-subtle">Never</span>
+    <span className="text-foreground-subtle">{t('entity.detailsPanel.never', 'Never')}</span>
   ) : (
     <time dateTime={when.toISOString()} title={absoluteTime(when)}>
       {relativeTime(when)}
@@ -113,6 +119,8 @@ export type DetailsPanelProps = {
  * @returns The panel.
  */
 export function DetailsPanel(props: DetailsPanelProps) {
+  const { t } = useTranslation();
+
   const { view } = props;
   const { entity, device, vendorName, room, floor, tags, icons } = view;
   const [isCopied, setCopied] = useState(false);
@@ -120,14 +128,18 @@ export function DetailsPanel(props: DetailsPanelProps) {
   const place = [floor?.name, room?.name ?? entity.areaName].filter(Boolean).join(' › ');
 
   return (
-    <Panel title="Details">
+    <Panel title={t('entity.detailsPanel.details', 'Details')}>
       <dl>
-        <Fact term="Address">
+        <Fact term={t('entity.detailsPanel.address', 'Address')}>
           <span className="flex items-center gap-1.5">
             <span className="min-w-0 font-mono text-caption break-all">{entity.entityId}</span>
             <IconButton
               size="small"
-              label={isCopied ? 'Copied' : 'Copy the address'}
+              label={
+                isCopied
+                  ? t('common.copied', 'Copied')
+                  : t('entity.detailsPanel.copyTheAddress', 'Copy the address')
+              }
               onClick={() => {
                 void copyText(entity.entityId).then(setCopied);
               }}
@@ -136,11 +148,13 @@ export function DetailsPanel(props: DetailsPanelProps) {
             </IconButton>
           </span>
         </Fact>
-        <Fact term="Kind">{entityKindOf(entity).label}</Fact>
-        <Fact term="Device">
+        <Fact term={t('entity.detailsPanel.kind', 'Kind')}>{entityKindOf(entity).label}</Fact>
+        <Fact term={t('entity.detailsPanel.device', 'Device')}>
           {device === undefined ? (
             <span className="text-foreground-subtle">
-              {entity.source === 'derived' ? 'Calculated' : entity.source}
+              {entity.source === 'derived'
+                ? t('entity.detailsPanel.calculated', 'Calculated')
+                : entity.source}
             </span>
           ) : (
             <Link
@@ -154,15 +168,21 @@ export function DetailsPanel(props: DetailsPanelProps) {
             <span className="text-foreground-subtle"> · {vendorName}</span>
           )}
         </Fact>
-        <Fact term="Room">
-          {place === '' ? <span className="text-foreground-subtle">Not in a room</span> : place}
+        <Fact term={t('entity.detailsPanel.room', 'Room')}>
+          {place === '' ? (
+            <span className="text-foreground-subtle">
+              {t('entity.detailsPanel.notInARoom', 'Not in a room')}
+            </span>
+          ) : (
+            place
+          )}
         </Fact>
         {sensorClass === undefined && entity.unitOfMeasurement === null ? null : (
-          <Fact term="Measures">
+          <Fact term={t('entity.detailsPanel.measures', 'Measures')}>
             {[sensorClass?.label, entity.unitOfMeasurement].filter(Boolean).join(', ')}
           </Fact>
         )}
-        <Fact term="Can">
+        <Fact term={t('entity.detailsPanel.can', 'Can')}>
           <ul className="flex flex-col gap-0.5">
             {entity.capabilities.map((entry) => {
               const limits = limitsOf(entity, entry.capability);
@@ -178,9 +198,9 @@ export function DetailsPanel(props: DetailsPanelProps) {
             })}
           </ul>
         </Fact>
-        <Fact term="Tags">
+        <Fact term={t('entity.detailsPanel.tags', 'Tags')}>
           {tags.length === 0 ? (
-            <span className="text-foreground-subtle">None</span>
+            <span className="text-foreground-subtle">{t('entity.detailsPanel.none', 'None')}</span>
           ) : (
             <span className="flex flex-wrap gap-1.5">
               {tags.map((tag) => (
@@ -195,15 +215,19 @@ export function DetailsPanel(props: DetailsPanelProps) {
             </span>
           )}
         </Fact>
-        <Fact term="Changed">
+        <Fact term={t('entity.detailsPanel.changed', 'Changed')}>
           <When when={entity.lastChanged} />
         </Fact>
-        <Fact term="Reported">
+        <Fact term={t('entity.detailsPanel.reported', 'Reported')}>
           <When
             when={view.live === undefined ? entity.lastUpdated : new Date(view.live.receivedAt)}
           />
         </Fact>
-        {entity.isHidden ? <Fact term="Lists">Hidden by default</Fact> : null}
+        {entity.isHidden ? (
+          <Fact term={t('entity.detailsPanel.lists', 'Lists')}>
+            {t('entity.detailsPanel.hiddenByDefault', 'Hidden by default')}
+          </Fact>
+        ) : null}
       </dl>
     </Panel>
   );

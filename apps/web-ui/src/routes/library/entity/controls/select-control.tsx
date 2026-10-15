@@ -5,6 +5,8 @@
  * device was set to elsewhere and the list does not have is shown as it is, rather than as the
  * first choice it is not.
  */
+import { useTranslation } from 'react-i18next';
+
 import { Segmented, SelectField } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
@@ -26,6 +28,8 @@ const SEGMENTED_OPTIONS = 3;
  * @returns The block.
  */
 export function SelectControl(props: ControlProps) {
+  const { t } = useTranslation();
+
   const { entity, state, reportedAt, commander, disabled } = props;
   const options = paramsOf(entity, 'select')?.options ?? [];
   const option = usePendingValue(state.select?.option ?? '', reportedAt);
@@ -49,7 +53,10 @@ export function SelectControl(props: ControlProps) {
     >
       {options.length === 0 ? (
         <p className="text-caption text-foreground-subtle">
-          This setting has not said its choices, so it cannot be set from here.
+          {t(
+            'entity.controls.selectControl.thisSettingHasNot',
+            'This setting has not said its choices, so it cannot be set from here.',
+          )}
         </p>
       ) : options.length <= SEGMENTED_OPTIONS && known !== undefined ? (
         <Segmented

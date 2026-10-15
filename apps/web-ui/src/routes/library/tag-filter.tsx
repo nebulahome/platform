@@ -4,40 +4,43 @@
  * The colour is a dropdown of the twelve; what a tag is on is four words, segmented. The button
  * and the sheet are the library's shared shell.
  */
-import { TAG_COLORS, type TagColor } from '@nebulahome/contracts';
-import {
-  cn,
-  SelectField,
-  Segmented,
-  TAG_FILL_CLASSES,
-  type SegmentedOption,
-  type SelectOption,
-} from '@nebulahome/ui';
+import { useTranslation } from 'react-i18next';
 
+import { TAG_COLORS, type TagColor } from '@nebulahome/contracts';
+import { cn, SelectField, Segmented, TAG_FILL_CLASSES, type SelectOption } from '@nebulahome/ui';
+
+import { defineMessage, type Message, text, translate } from '@/i18n/messages';
+import { tagColourName } from '@/lib/tag-colour-names';
 import type { TagFilter, TagUsage } from '@/library/tag-filters';
 import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
 
-/** The colours, with any first, each shown as well as named. */
-const COLOURS: readonly SelectOption[] = [
-  { value: '', label: 'Any colour' },
-  ...TAG_COLORS.map((color) => ({
-    value: color,
-    label: color.charAt(0).toUpperCase() + color.slice(1),
-    leading: (
-      <span
-        aria-hidden="true"
-        className={cn('size-2 shrink-0 rounded-full', TAG_FILL_CLASSES[color])}
-      />
-    ),
-  })),
-];
+/**
+ * The colours, with any first, each shown as well as named.
+ *
+ * @returns The choices, in the reader's language.
+ */
+function colourOptions(): readonly SelectOption[] {
+  return [
+    { value: '', label: translate('library.tagFilter.anyColour', 'Any colour') },
+    ...TAG_COLORS.map((color) => ({
+      value: color,
+      label: tagColourName(color),
+      leading: (
+        <span
+          aria-hidden="true"
+          className={cn('size-2 shrink-0 rounded-full', TAG_FILL_CLASSES[color])}
+        />
+      ),
+    })),
+  ];
+}
 
 /** What a tag may be on. The facet above says "On"; these do not say it again. */
-const USAGES: readonly SegmentedOption<TagUsage>[] = [
-  { value: 'any', label: 'Any' },
-  { value: 'devices', label: 'Devices' },
-  { value: 'entities', label: 'Entities' },
-  { value: 'unused', label: 'Nothing' },
+const USAGES: readonly { readonly value: TagUsage; readonly label: Message }[] = [
+  { value: 'any', label: defineMessage('common.any', 'Any') },
+  { value: 'devices', label: defineMessage('library.tagFilter.devices', 'Devices') },
+  { value: 'entities', label: defineMessage('library.tagFilter.entities', 'Entities') },
+  { value: 'unused', label: defineMessage('library.tagFilter.nothing', 'Nothing') },
 ];
 
 /**
@@ -75,34 +78,36 @@ export type TagFilterButtonProps = {
  * @returns The control.
  */
 export function TagFilterButton(props: TagFilterButtonProps) {
+  const { t } = useTranslation();
+
   const { filter, onChange } = props;
   const count = Number(filter.color !== '') + Number(filter.usage !== 'any');
 
   return (
     <FilterSheet
-      label="Narrow the tags"
+      label={t('library.tagFilter.narrowTheTags', 'Narrow the tags')}
       count={count}
       onClear={() => {
         onChange({ ...filter, color: '', usage: 'any' });
       }}
     >
-      <Facet title="Colour">
+      <Facet title={t('library.tagFilter.colour', 'Colour')}>
         <SelectField
-          label="Colour"
+          label={t('library.tagFilter.colour', 'Colour')}
           isLabelHidden
           size="compact"
-          options={COLOURS}
+          options={colourOptions()}
           value={filter.color}
           onChange={(value) => {
             onChange({ ...filter, color: toColor(value) });
           }}
         />
       </Facet>
-      <Facet title="On">
+      <Facet title={t('common.on', 'On')}>
         <Segmented
-          label="On"
+          label={t('common.on', 'On')}
           size="compact"
-          options={USAGES}
+          options={USAGES.map((usage) => ({ ...usage, label: text(usage.label) }))}
           value={filter.usage}
           onChange={(value) => {
             onChange({ ...filter, usage: toUsage(value) });

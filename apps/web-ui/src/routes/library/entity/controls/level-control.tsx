@@ -5,9 +5,11 @@
  * transition rather than a jump - and remembers the choice for as long as the page is open.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Segmented, Slider } from '@nebulahome/ui';
 
+import { defineMessage, text } from '@/i18n/messages';
 import { paramsOf } from '@/library/entity-control';
 import { capabilityLabel } from '@/library/entity-kind';
 import { ControlBlock, type ControlProps } from '@/routes/library/entity/controls/control-block';
@@ -15,9 +17,9 @@ import { usePendingValue } from '@/routes/library/entity/use-pending-value';
 
 /** The fades offered, in milliseconds. */
 const FADES = [
-  { value: '0', label: 'Instant' },
-  { value: '1000', label: '1 s' },
-  { value: '3000', label: '3 s' },
+  { value: '0', label: defineMessage('entity.controls.levelControl.instant', 'Instant') },
+  { value: '1000', label: defineMessage('entity.controls.levelControl.n1S', '1 s') },
+  { value: '3000', label: defineMessage('entity.controls.levelControl.n3S', '3 s') },
 ] as const;
 
 /**
@@ -27,6 +29,8 @@ const FADES = [
  * @returns The block.
  */
 export function LevelControl(props: ControlProps) {
+  const { t } = useTranslation();
+
   const { entity, state, reportedAt, commander, disabled } = props;
   const label = capabilityLabel('level', entity.domain);
   const level = usePendingValue(state.level?.level ?? 0, reportedAt);
@@ -57,10 +61,10 @@ export function LevelControl(props: ControlProps) {
       />
       {canFade ? (
         <Segmented
-          label="Fade"
+          label={t('entity.controls.levelControl.fade', 'Fade')}
           size="compact"
           className="self-start"
-          options={FADES}
+          options={FADES.map((option) => ({ ...option, label: text(option.label) }))}
           value={fade}
           onChange={setFade}
         />

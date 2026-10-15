@@ -18,6 +18,7 @@ import {
   type SetupValueMode,
 } from '@nebulahome/contracts';
 
+import { translate } from '@/i18n/messages';
 import { isApiError } from '@/lib/api-error';
 
 /** What one control holds: text for everything but a switch. */
@@ -125,7 +126,9 @@ function typed(field: SetupField, draft: DraftValue): { value?: JsonValue; error
     case 'number': {
       const number = Number(text);
 
-      return Number.isFinite(number) ? { value: number } : { error: 'Must be a number' };
+      return Number.isFinite(number)
+        ? { value: number }
+        : { error: translate('library.setupValues.mustBeANumber', 'Must be a number') };
     }
     case 'list':
       return {

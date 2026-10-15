@@ -11,6 +11,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
 import type { AutomationView } from '@nebulahome/contracts';
@@ -48,6 +49,8 @@ import { SearchField } from '@/routes/library/search-field';
  * @returns The page.
  */
 export function AutomationsPage() {
+  const { t } = useTranslation();
+
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const can = useSession((state) => state.can);
@@ -180,21 +183,27 @@ export function AutomationsPage() {
       }}
     >
       <AppIcon id="plus" size={15} />
-      New automation
+      {t('library.automations.newAutomation', 'New automation')}
     </Button>
   ) : undefined;
 
   return (
     <LibraryPage
-      title="Automations"
-      noun="automation"
+      title={t('library.automations.automations', 'Automations')}
+      counted={(count) =>
+        t('library.automations.count', {
+          count,
+          defaultValue_one: '{{count}} automation',
+          defaultValue_other: '{{count}} automations',
+        })
+      }
       count={automations.isPending ? undefined : items.length}
       shownCount={shown.length}
       summary={[`${String(items.filter((automation) => automation.isEnabled).length)} enabled`]}
       tools={
         <>
           <SearchField
-            placeholder="Search"
+            placeholder={t('library.automations.search', 'Search')}
             value={filter.search}
             onChange={(search) => {
               setFilter({ ...filter, search });
@@ -210,8 +219,11 @@ export function AutomationsPage() {
       empty={
         <EmptyState
           icon={<AppIcon id="zap" size={28} />}
-          title="Create your first automation"
-          description="An automation lets the house act on its own: choose what wakes it, the checks it makes first, and the steps it then takes - lights at sunset, the heating off when a window opens."
+          title={t('library.automations.createYourFirstAutomation', 'Create your first automation')}
+          description={t(
+            'library.automations.automationLetsTheHouse',
+            'An automation lets the house act on its own: choose what wakes it, the checks it makes first, and the steps it then takes - lights at sunset, the heating off when a window opens.',
+          )}
           action={newButton}
           learnMoreHref={DOCS_LINKS.automations}
         />
@@ -222,7 +234,7 @@ export function AutomationsPage() {
           className={`${AUTOMATION_COLUMNS} border-b border-border px-5 py-3 font-mono text-label text-foreground-subtle uppercase`}
         >
           <SortHeader
-            label="Name"
+            label={t('library.automations.name', 'Name')}
             isSorted={paging.sort === 'name'}
             direction={paging.direction}
             onSort={() => {
@@ -230,10 +242,10 @@ export function AutomationsPage() {
             }}
             className="justify-self-start"
           />
-          <span className="hidden md:block">Mode</span>
-          <span>Enabled</span>
+          <span className="hidden md:block">{t('library.automations.mode', 'Mode')}</span>
+          <span>{t('library.automations.enabled', 'Enabled')}</span>
           <SortHeader
-            label="Last run"
+            label={t('library.automations.lastRun', 'Last run')}
             isSorted={paging.sort === 'run'}
             direction={paging.direction}
             onSort={() => {
@@ -292,8 +304,15 @@ export function AutomationsPage() {
       <Modal
         isOpen={deleting !== null}
         size="small"
-        title={`Delete ${deleting?.name ?? 'this automation'}?`}
-        description="It stops running at once. Its past runs stay in the history until they expire."
+        title={
+          deleting === null
+            ? t('library.automations.deleteThisAutomation', 'Delete this automation?')
+            : t('library.automations.deleteName', 'Delete {{name}}?', { name: deleting.name })
+        }
+        description={t(
+          'library.automations.itStopsRunningAt',
+          'It stops running at once. Its past runs stay in the history until they expire.',
+        )}
         onClose={() => {
           setDeleting(null);
         }}
@@ -305,7 +324,7 @@ export function AutomationsPage() {
                 setDeleting(null);
               }}
             >
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button
               variant="danger"
@@ -316,7 +335,7 @@ export function AutomationsPage() {
                 }
               }}
             >
-              Delete
+              {t('common.delete', 'Delete')}
             </Button>
           </>
         }

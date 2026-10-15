@@ -12,10 +12,12 @@
  * it at once. Several may be chosen where the caller adds many at a time.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { EntityView } from '@nebulahome/contracts';
 import { Button, cn, Modal, TextField } from '@nebulahome/ui';
 
+import { text } from '@/i18n/messages';
 import { matchesQuery } from '@/lib/search-text';
 import {
   ENTITY_FAMILIES,
@@ -85,6 +87,8 @@ type PickerBodyProps = Omit<EntityPickerProps, 'isOpen' | 'title'>;
  * @returns The contents.
  */
 function PickerBody(props: PickerBodyProps) {
+  const { t } = useTranslation();
+
   const { onClose, value = [], accept, isMultiple = false, onChoose } = props;
   const directory = useEntityDirectory();
   const [query, setQuery] = useState('');
@@ -138,10 +142,13 @@ function PickerBody(props: PickerBodyProps) {
   return (
     <div className="flex flex-col gap-4">
       <TextField
-        label="Search"
+        label={t('entityPicker.entityPicker.search', 'Search')}
         isLabelHidden
         type="search"
-        placeholder="Search by name, room or device…"
+        placeholder={t(
+          'entityPicker.entityPicker.searchByNameRoom',
+          'Search by name, room or device…',
+        )}
         // The dialog opens to find something; the search is where that starts.
         // eslint-disable-next-line jsx-a11y/no-autofocus -- see above
         autoFocus
@@ -152,7 +159,11 @@ function PickerBody(props: PickerBodyProps) {
       />
 
       {families.length < 2 ? null : (
-        <div role="group" aria-label="Kind" className="flex flex-wrap gap-1.5">
+        <div
+          role="group"
+          aria-label={t('entityPicker.entityPicker.kind', 'Kind')}
+          className="flex flex-wrap gap-1.5"
+        >
           {[null, ...families].map((candidate) => (
             <button
               key={candidate ?? 'all'}
@@ -169,7 +180,9 @@ function PickerBody(props: PickerBodyProps) {
                   : 'border-border text-foreground-muted hover:text-foreground',
               )}
             >
-              {candidate === null ? 'Everything' : FAMILY_LABELS[candidate]}
+              {candidate === null
+                ? t('entityPicker.entityPicker.everything', 'Everything')
+                : text(FAMILY_LABELS[candidate])}
             </button>
           ))}
         </div>
@@ -178,13 +191,19 @@ function PickerBody(props: PickerBodyProps) {
       <div className="h-96 overflow-y-auto pr-1">
         {directory.isPending ? (
           <p role="status" className="py-6 text-center text-ui text-foreground-muted">
-            Reading…
+            {t('entityPicker.entityPicker.reading', 'Reading…')}
           </p>
         ) : entityCountOf(tree) === 0 ? (
           <p role="status" className="py-6 text-center text-ui text-foreground-muted">
             {choosable.length === 0
-              ? 'There is nothing here to choose yet.'
-              : 'Nothing matches. Try fewer words, or another kind.'}
+              ? t(
+                  'entityPicker.entityPicker.thereIsNothingHere',
+                  'There is nothing here to choose yet.',
+                )
+              : t(
+                  'entityPicker.entityPicker.nothingMatchesTryFewer',
+                  'Nothing matches. Try fewer words, or another kind.',
+                )}
           </p>
         ) : (
           <EntityPickerTree
@@ -206,13 +225,17 @@ function PickerBody(props: PickerBodyProps) {
       <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-border pt-4">
         <p className="mr-auto min-w-0 truncate text-caption text-foreground-subtle">
           {chosenEntities.length === 0
-            ? 'Nothing chosen yet.'
+            ? t('entityPicker.entityPicker.nothingChosenYet', 'Nothing chosen yet.')
             : isMultiple
-              ? `${String(chosenEntities.length)} chosen`
-              : `Chosen: ${chosenEntities[0]?.name ?? ''}`}
+              ? t('entityPicker.entityPicker.chosenCount', '{{count}} chosen', {
+                  count: chosenEntities.length,
+                })
+              : t('entityPicker.entityPicker.chosenOne', 'Chosen: {{name}}', {
+                  name: chosenEntities[0]?.name ?? '',
+                })}
         </p>
         <Button variant="ghost" onClick={onClose}>
-          Cancel
+          {t('common.cancel', 'Cancel')}
         </Button>
         <Button
           disabled={chosenEntities.length === 0}
@@ -220,7 +243,11 @@ function PickerBody(props: PickerBodyProps) {
             onChoose(chosenEntities);
           }}
         >
-          {isMultiple ? `Add ${String(chosenEntities.length)}` : 'Use this one'}
+          {isMultiple
+            ? t('entityPicker.entityPicker.addCount', 'Add {{count}}', {
+                count: chosenEntities.length,
+              })
+            : t('entityPicker.entityPicker.useThisOne', 'Use this one')}
         </Button>
       </div>
     </div>
@@ -234,7 +261,14 @@ function PickerBody(props: PickerBodyProps) {
  * @returns The dialog.
  */
 export function EntityPicker(props: EntityPickerProps) {
-  const { isOpen, onClose, title = 'Which one?', ...body } = props;
+  const { t } = useTranslation();
+
+  const {
+    isOpen,
+    onClose,
+    title = t('entityPicker.entityPicker.whichOne', 'Which one?'),
+    ...body
+  } = props;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size="large">

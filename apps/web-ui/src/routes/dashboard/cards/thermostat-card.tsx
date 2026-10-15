@@ -10,6 +10,7 @@
 import type { THERMOSTAT_MODES } from '@nebulahome/contracts';
 import { AppIcon, Badge, Button, Segmented, type BadgeTone, CardHeading } from '@nebulahome/ui';
 
+import { numberFormat } from '@/i18n/formatters';
 import { paramsOf } from '@/library/entity-control';
 import { CardFrame } from '@/routes/dashboard/cards/card-parts';
 import { sizeKey, type EntityCardModel } from '@/routes/dashboard/cards/entity-model';
@@ -19,11 +20,16 @@ import { usePendingValue } from '@/routes/library/entity/use-pending-value';
 /** One thermostat mode. */
 type Mode = (typeof THERMOSTAT_MODES)[number];
 
-/** How a temperature is written. */
-const temperature = new Intl.NumberFormat(undefined, {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
+/**
+ * How a temperature is written.
+ *
+ * @returns The formatter, in the reader's language.
+ */
+const temperature = (): Intl.NumberFormat =>
+  numberFormat({
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
 
 /** The radius of the dial, in its own units. */
 const RADIUS = 48;
@@ -101,11 +107,11 @@ function Dial(props: DialProps) {
       </svg>
       <div className="absolute inset-x-0 flex translate-y-0.5 flex-col items-center gap-0.5">
         <span className="text-reading leading-none font-medium tabular">
-          {isOff ? 'Off' : `${temperature.format(target)}°`}
+          {isOff ? 'Off' : `${temperature().format(target)}°`}
         </span>
         {now === undefined ? null : (
           <span className="text-caption text-foreground-subtle tabular">
-            now {temperature.format(now)}°
+            now {temperature().format(now)}°
           </span>
         )}
       </div>

@@ -6,6 +6,8 @@
  * them; now it is chosen from the house as the areas page arranges it. Before there is a house
  * there is nothing to choose, and the field is typed as it was.
  */
+import { useTranslation } from 'react-i18next';
+
 import { SelectField, TextField } from '@nebulahome/ui';
 
 import { areaChoices } from '@/lib/area-tree';
@@ -30,6 +32,8 @@ export type AreaKeyFieldProps = {
  * @returns The field.
  */
 export function AreaKeyField(props: AreaKeyFieldProps) {
+  const { t } = useTranslation();
+
   const { label, value, onChange } = props;
   const { areas, tree } = useAreas();
 
@@ -38,7 +42,7 @@ export function AreaKeyField(props: AreaKeyFieldProps) {
       <TextField
         label={label}
         size="compact"
-        placeholder="living_room"
+        placeholder={t('library.areaKeyField.livingRoom', 'living_room')}
         value={value}
         onChange={(event) => {
           onChange(event.target.value);
@@ -51,7 +55,10 @@ export function AreaKeyField(props: AreaKeyFieldProps) {
   const options = areaChoices(tree).map((choice) => ({
     ...choice,
     value: choice.value === '' ? '' : (keys.get(choice.value) ?? choice.value),
-    label: choice.value === '' ? 'Choose an area…' : choice.label,
+    label:
+      choice.value === ''
+        ? t('library.areaKeyField.chooseAnArea', 'Choose an area…')
+        : choice.label,
   }));
   const isKnown = options.some((option) => option.value === value);
 

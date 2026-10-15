@@ -8,6 +8,7 @@
  * table is what you scan, not what you rewrite.
  */
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 
 import type { AliasView } from '@nebulahome/contracts';
@@ -59,6 +60,8 @@ const SORTS = ['name', 'kind'] as const;
  * @returns The page.
  */
 export function AliasesPage() {
+  const { t } = useTranslation();
+
   const readings = useLive((state) => state.readings);
   const can = useSession((state) => state.can);
   const canWrite = can('alias:write');
@@ -125,9 +128,14 @@ export function AliasesPage() {
 
   return (
     <LibraryPage
-      title="Aliases"
-      noun="alias"
-      plural="aliases"
+      title={t('library.aliases.aliases', 'Aliases')}
+      counted={(count) =>
+        t('library.aliases.count', {
+          count,
+          defaultValue_one: '{{count}} alias',
+          defaultValue_other: '{{count}} aliases',
+        })
+      }
       count={aliases.isPending ? undefined : items.length}
       shownCount={shown.length}
       summary={[
@@ -137,7 +145,7 @@ export function AliasesPage() {
       tools={
         <>
           <SearchField
-            placeholder="Search aliases, sources…"
+            placeholder={t('library.aliases.searchAliasesSources', 'Search aliases, sources…')}
             value={filter.search}
             onChange={(next) => {
               setFilter({ ...filter, search: next });
@@ -154,7 +162,7 @@ export function AliasesPage() {
             }}
           >
             <AppIcon id="plus" size={15} />
-            New alias
+            {t('library.aliases.newAlias', 'New alias')}
           </Button>
         ) : undefined
       }
@@ -172,7 +180,10 @@ export function AliasesPage() {
                 },
               },
             ]}
-            summary={`${String(shown.length)} of ${String(items.length)}`}
+            summary={t('library.shownOfTotal', '{{shown}} of {{total}}', {
+              shown: shown.length,
+              total: items.length,
+            })}
             onClearAll={() => {
               setFilter(OPEN_ALIAS_FILTER);
             }}
@@ -185,8 +196,11 @@ export function AliasesPage() {
       empty={
         <EmptyState
           icon={<AppIcon id="sigma" size={28} />}
-          title="Create your first alias"
-          description="An alias is an entity you define: a reading worked out from others, like the average temperature of the house, or a helper - a switch, a number - that automations set and read."
+          title={t('library.aliases.createYourFirstAlias', 'Create your first alias')}
+          description={t(
+            'library.aliases.aliasIsAnEntity',
+            'An alias is an entity you define: a reading worked out from others, like the average temperature of the house, or a helper - a switch, a number - that automations set and read.',
+          )}
           action={
             canWrite ? (
               <Button
@@ -195,7 +209,7 @@ export function AliasesPage() {
                 }}
               >
                 <AppIcon id="plus" size={15} />
-                New alias
+                {t('library.aliases.newAlias', 'New alias')}
               </Button>
             ) : undefined
           }
@@ -208,7 +222,7 @@ export function AliasesPage() {
           className={`${ALIAS_COLUMNS} border-b border-border px-5 py-3 font-mono text-label text-foreground-subtle uppercase`}
         >
           <SortHeader
-            label="Name"
+            label={t('library.aliases.name', 'Name')}
             isSorted={paging.sort === 'name'}
             direction={paging.direction}
             onSort={() => {
@@ -217,7 +231,7 @@ export function AliasesPage() {
             className="justify-self-start"
           />
           <SortHeader
-            label="Kind"
+            label={t('library.aliases.kind', 'Kind')}
             isSorted={paging.sort === 'kind'}
             direction={paging.direction}
             onSort={() => {
@@ -225,8 +239,8 @@ export function AliasesPage() {
             }}
             className="hidden justify-self-start md:inline-flex"
           />
-          <span>Value</span>
-          <span className="hidden md:block">Sources</span>
+          <span>{t('library.aliases.value', 'Value')}</span>
+          <span className="hidden md:block">{t('library.aliases.sources', 'Sources')}</span>
           <span />
         </div>
 
@@ -288,6 +302,8 @@ type AliasRowProps = {
  * @returns The row.
  */
 function AliasRow(props: AliasRowProps) {
+  const { t } = useTranslation();
+
   const { alias, readingText, isAvailable, canEdit, onEdit } = props;
   const sources = alias.kind === 'calculated' ? alias.sources.length : null;
 
@@ -306,7 +322,9 @@ function AliasRow(props: AliasRowProps) {
       </span>
       <span className="hidden md:block">
         <Pill tone={alias.kind === 'calculated' ? 'accent' : 'neutral'}>
-          {alias.kind === 'calculated' ? 'Calculated' : 'Stored'}
+          {alias.kind === 'calculated'
+            ? t('library.aliases.calculated', 'Calculated')
+            : t('library.aliases.stored', 'Stored')}
         </Pill>
       </span>
       <span className="flex min-w-0 flex-col gap-0.5">
@@ -318,9 +336,17 @@ function AliasRow(props: AliasRowProps) {
         </span>
         {alias.isEnabled && alias.lastError === null && isAvailable ? null : (
           <span className="flex flex-wrap gap-x-2 text-caption">
-            {alias.isEnabled ? null : <span className="text-foreground-subtle">Off</span>}
-            {alias.lastError === null ? null : <span className="text-danger">Failing</span>}
-            {isAvailable ? null : <span className="text-warning">Unavailable</span>}
+            {alias.isEnabled ? null : (
+              <span className="text-foreground-subtle">{t('common.off', 'Off')}</span>
+            )}
+            {alias.lastError === null ? null : (
+              <span className="text-danger">{t('library.aliases.failing', 'Failing')}</span>
+            )}
+            {isAvailable ? null : (
+              <span className="text-warning">
+                {t('library.aliases.unavailable', 'Unavailable')}
+              </span>
+            )}
           </span>
         )}
       </span>
@@ -329,8 +355,8 @@ function AliasRow(props: AliasRowProps) {
       </span>
       {canEdit ? (
         <OverflowMenu
-          label={`More for ${alias.name}`}
-          items={[{ label: 'Edit', icon: 'pencil', onSelect: onEdit }]}
+          label={t('library.aliases.moreForName', 'More for {{name}}', { name: alias.name })}
+          items={[{ label: t('common.edit', 'Edit'), icon: 'pencil', onSelect: onEdit }]}
         />
       ) : (
         <span />

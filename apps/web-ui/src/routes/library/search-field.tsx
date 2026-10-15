@@ -7,6 +7,8 @@
  * has been, and Escape to clear it from the keyboard. What a list matches on is the list's
  * business; how the box behaves is this one's.
  */
+import { useTranslation } from 'react-i18next';
+
 import { AppIcon, cn, controlFace, FieldShell, IconButton } from '@nebulahome/ui';
 
 /** What the box needs. */
@@ -34,6 +36,8 @@ export type SearchFieldProps = {
  * @returns The box.
  */
 export function SearchField(props: SearchFieldProps) {
+  const { t } = useTranslation();
+
   const { value, onChange, placeholder, label = 'Search', className } = props;
 
   return (
@@ -72,7 +76,7 @@ export function SearchField(props: SearchFieldProps) {
           {value === '' ? null : (
             <IconButton
               size="small"
-              label="Clear the search"
+              label={t('library.searchField.clearTheSearch', 'Clear the search')}
               className="absolute top-1/2 right-1.5 size-6 -translate-y-1/2"
               onClick={() => {
                 onChange('');

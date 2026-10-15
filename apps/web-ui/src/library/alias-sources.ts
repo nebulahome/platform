@@ -23,6 +23,8 @@ import {
   type TagColor,
 } from '@nebulahome/contracts';
 
+import { numberFormat } from '@/i18n/formatters';
+import { translate } from '@/i18n/messages';
 import { capabilityStateOf } from '@/library/entity-control';
 import type { LiveReading } from '@/live/live-store';
 
@@ -89,15 +91,22 @@ export function variableProblem(sources: readonly SourceDraft[], index: number):
   const name = sources[index]?.variableName.trim() ?? '';
 
   if (name === '') {
-    return 'Give it a name the formula can use.';
+    return translate('library.aliasSources.giveItAName', 'Give it a name the formula can use.');
   }
 
   if (!VARIABLE_PATTERN.test(name)) {
-    return 'Lower-case letters, digits and _, starting with a letter.';
+    return translate(
+      'library.aliasSources.lowerCaseLettersDigits',
+      'Lower-case letters, digits and _, starting with a letter.',
+    );
   }
 
   if (sources.some((other, at) => at !== index && other.variableName.trim() === name)) {
-    return `Another source is already called ${name}.`;
+    return translate(
+      'library.aliasSources.anotherSourceIsAlready',
+      'Another source is already called {{name}}.',
+      { name },
+    );
   }
 
   return null;
@@ -154,8 +163,12 @@ export type FormulaReading =
   | { readonly tone: 'value'; readonly text: string; readonly value: string }
   | { readonly tone: 'problem'; readonly text: string };
 
-/** How a figure is written in the reading. */
-const numbers = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+/**
+ * How a figure is written in the reading.
+ *
+ * @returns The formatter, in the reader's language.
+ */
+const numbers = (): Intl.NumberFormat => numberFormat({ maximumFractionDigits: 2 });
 
 /**
  * Writes a result the way the alias will show it.
@@ -167,7 +180,7 @@ const numbers = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
  */
 function spokenResult(value: AliasScalar, capability: string, unit: string): string {
   if (typeof value === 'number') {
-    return unit === '' ? numbers.format(value) : `${numbers.format(value)} ${unit}`;
+    return unit === '' ? numbers().format(value) : `${numbers().format(value)} ${unit}`;
   }
 
   if (typeof value === 'boolean') {
@@ -199,7 +212,10 @@ export function readFormula(
   if (expression.trim() === '') {
     return {
       tone: 'hint',
-      text: 'Write it with the variables of the sources, e.g. (t1 + t2) / 2.',
+      text: translate(
+        'library.aliasSources.writeItWithThe',
+        'Write it with the variables of the sources, e.g. (t1 + t2) / 2.',
+      ),
     };
   }
 
@@ -210,7 +226,14 @@ export function readFormula(
     .find((word) => !names.has(word));
 
   if (unknown !== undefined) {
-    return { tone: 'problem', text: `${unknown} is not one of the sources.` };
+    return {
+      tone: 'problem',
+      text: translate(
+        'library.aliasSources.unknownIsNotOne',
+        '{{unknown}} is not one of the sources.',
+        { unknown },
+      ),
+    };
   }
 
   const bindings = new Map<string, AliasScalar>();
@@ -219,7 +242,13 @@ export function readFormula(
     const entity = entities.get(source.entityId);
 
     if (entity === undefined) {
-      return { tone: 'hint', text: 'Choose an entity for every source to see what it reads.' };
+      return {
+        tone: 'hint',
+        text: translate(
+          'library.aliasSources.chooseAnEntityFor',
+          'Choose an entity for every source to see what it reads.',
+        ),
+      };
     }
 
     const value = aliasScalarFromState(capabilityStateOf(entity, readings[source.entityId]));
@@ -227,7 +256,11 @@ export function readFormula(
     if (value === undefined) {
       return {
         tone: 'hint',
-        text: `${source.variableName.trim()} has nothing to read yet, so the formula waits for it.`,
+        text: translate(
+          'library.aliasSources.nothingToReadYet',
+          '{{variable}} has nothing to read yet, so the formula waits for it.',
+          { variable: source.variableName.trim() },
+        ),
       };
     }
 
@@ -242,5 +275,9 @@ export function readFormula(
 
   const spoken = spokenResult(evaluated.value, result.capability, result.unit);
 
-  return { tone: 'value', text: `Reads ${spoken} now.`, value: spoken };
+  return {
+    tone: 'value',
+    text: translate('library.aliasSources.readsSpokenNow', 'Reads {{spoken}} now.', { spoken }),
+    value: spoken,
+  };
 }

@@ -7,6 +7,8 @@
  * filter together - so a person who narrowed too far is one press from the whole list. It is a
  * status, so a screen reader hears the list go empty as the typing does it.
  */
+import { useTranslation } from 'react-i18next';
+
 import { Button } from '@nebulahome/ui';
 
 /** What the message needs. */
@@ -25,6 +27,8 @@ export type NoMatchesProps = {
  * @returns The message.
  */
 export function NoMatches(props: NoMatchesProps) {
+  const { t } = useTranslation();
+
   const { query, onClear } = props;
   const trimmed = query.trim();
 
@@ -34,11 +38,15 @@ export function NoMatches(props: NoMatchesProps) {
       className="flex flex-col items-center gap-3 rounded-panel border border-dashed border-border-strong px-6 py-8 text-center"
     >
       <p className="max-w-md text-ui text-foreground-muted">
-        {trimmed === '' ? 'Nothing matches these filters.' : `Nothing matches “${trimmed}”.`}
+        {trimmed === ''
+          ? t('library.noMatches.nothingMatchesTheseFilters', 'Nothing matches these filters.')
+          : t('library.noMatches.nothingMatchesTrimmed', 'Nothing matches “{{trimmed}}”.', {
+              trimmed,
+            })}
       </p>
       {onClear === undefined ? null : (
         <Button variant="ghost" size="compact" onClick={onClear}>
-          Clear search and filters
+          {t('library.noMatches.clearSearchAndFilters', 'Clear search and filters')}
         </Button>
       )}
     </div>

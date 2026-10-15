@@ -17,6 +17,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { AreaView } from '@nebulahome/contracts';
 import { AppIcon, Button } from '@nebulahome/ui';
@@ -69,6 +70,8 @@ const AREA_SEARCH_CODEC: ListCodec<string> = {
  * @returns The page.
  */
 export function AreasPage() {
+  const { t } = useTranslation();
+
   const can = useSession((state) => state.can);
   const canWrite = can('area:write');
   const queryClient = useQueryClient();
@@ -143,8 +146,14 @@ export function AreasPage() {
   return (
     <>
       <LibraryPage
-        title="Areas"
-        noun="area"
+        title={t('library.areas.areas', 'Areas')}
+        counted={(count) =>
+          t('library.areas.count', {
+            count,
+            defaultValue_one: '{{count}} area',
+            defaultValue_other: '{{count}} areas',
+          })
+        }
         count={isPending ? undefined : areas.length}
         shownCount={search.trim() === '' ? undefined : shownCount}
         summary={
@@ -157,7 +166,11 @@ export function AreasPage() {
         }
         tools={
           tree === null ? undefined : (
-            <SearchField placeholder="Search floors, rooms…" value={search} onChange={setSearch} />
+            <SearchField
+              placeholder={t('library.areas.searchFloorsRooms', 'Search floors, rooms…')}
+              value={search}
+              onChange={setSearch}
+            />
           )
         }
         action={
@@ -168,14 +181,21 @@ export function AreasPage() {
               }}
             >
               <AppIcon id="plus" size={15} />
-              Create your house
+              {t('library.areas.createYourHouse', 'Create your house')}
             </Button>
           ) : undefined
         }
         isPending={isPending}
-        error={isError ? new Error('The areas could not be read') : undefined}
+        error={
+          isError
+            ? new Error(t('library.areas.areasCouldNotBe', 'The areas could not be read'))
+            : undefined
+        }
         isEmpty={tree === null}
-        emptyMessage="No house yet. Create it and place it on the map, then add its floors and the rooms on each; a device is put in a room from its own dialog."
+        emptyMessage={t(
+          'library.areas.noHouseYetCreate',
+          'No house yet. Create it and place it on the map, then add its floors and the rooms on each; a device is put in a room from its own dialog.',
+        )}
       >
         {tree === null ? null : (
           <div className="flex flex-col gap-5">

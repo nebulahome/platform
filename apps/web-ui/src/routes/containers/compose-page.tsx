@@ -25,6 +25,7 @@ import {
   removeCompose,
 } from '@/containers/api';
 import { composeGroups, groupUsage } from '@/containers/container-groups';
+import { translate } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { formatBytes, formatPercent } from '@/lib/format-bytes';
 import { ComposeEditorDialog } from '@/routes/containers/compose-editor-dialog';
@@ -311,7 +312,13 @@ export function ComposePage() {
       <LibraryPage
         title={group?.title ?? project}
         parent={{ to: '/containers', label: 'Containers' }}
-        noun="container"
+        counted={(count) =>
+          translate('containers.count', {
+            count,
+            defaultValue_one: '{{count}} container',
+            defaultValue_other: '{{count}} containers',
+          })
+        }
         count={group?.containers.length}
         action={
           isEditable && (canControl || canInstall) ? (

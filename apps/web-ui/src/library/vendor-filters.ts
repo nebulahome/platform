@@ -13,6 +13,7 @@ import {
   type TransportWire,
 } from '@nebulahome/contracts';
 
+import { text } from '@/i18n/messages';
 import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, readChoice, type ListCodec } from '@/lib/use-list-state';
 import {
@@ -317,6 +318,6 @@ export function countStatuses(
  */
 export function statusesText(statuses: readonly VendorStatusKind[]): string {
   return VENDOR_STATUS_KINDS.filter((kind) => statuses.includes(kind))
-    .map((kind) => VENDOR_STATUS_LABELS[kind])
+    .map((kind) => text(VENDOR_STATUS_LABELS[kind]))
     .join(', ');
 }

@@ -8,12 +8,14 @@
  * one line that leads to the device's page, where the transport's own sentence is in full.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { DeviceView, IntegrationState, IntegrationVendorView } from '@nebulahome/contracts';
 import { AppIcon, Badge, cn, IconButton, Panel, Segmented, type BadgeTone } from '@nebulahome/ui';
 
 import { WrenchIcon } from '@/components/icons';
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import { relativeTime } from '@/lib/format-time';
 import { matchesQuery } from '@/lib/search-text';
 import { useListState } from '@/lib/use-list-state';
@@ -57,12 +59,12 @@ const COLUMNS =
 /** The standings the device table is narrowed by. */
 const STANDING_OPTIONS: readonly {
   readonly value: DeviceStandingChoice;
-  readonly label: string;
+  readonly label: Message;
 }[] = [
-  { value: 'any', label: 'Any' },
-  { value: 'running', label: 'Running' },
-  { value: 'failing', label: 'Failed' },
-  { value: 'disabled', label: 'Disabled' },
+  { value: 'any', label: defineMessage('common.any', 'Any') },
+  { value: 'running', label: defineMessage('library.vendorDevicesTab.running', 'Running') },
+  { value: 'failing', label: defineMessage('library.vendorDevicesTab.failed', 'Failed') },
+  { value: 'disabled', label: defineMessage('library.vendorDevicesTab.disabled', 'Disabled') },
 ];
 
 /**
@@ -106,6 +108,8 @@ export type VendorDevicesTabProps = {
  * @returns The tab's content.
  */
 export function VendorDevicesTab(props: VendorDevicesTabProps) {
+  const { t } = useTranslation();
+
   const { vendor, devices, addButton, onConfigure } = props;
   const isAutomatic = vendor.adoption === 'automatic';
   const [filter, setFilter] = useListState(VENDOR_DEVICE_FILTER_CODEC);
@@ -133,26 +137,35 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
         {devices.length === 0 ? null : (
           <>
             <SearchField
-              placeholder="Search this vendor's devices…"
+              placeholder={t(
+                'library.vendorDevicesTab.searchThisVendorS',
+                "Search this vendor's devices…",
+              )}
               value={filter.search}
               onChange={(search) => {
                 setFilter({ ...filter, search });
               }}
             />
             <FilterSheet
-              label="Narrow the devices"
+              label={t('library.vendorDevicesTab.narrowTheDevices', 'Narrow the devices')}
               count={Number(filter.standing !== 'any')}
-              summary={`${String(shownDevices.length)} of ${String(devices.length)} shown`}
+              summary={t('library.vendorDevicesTab.shownOfTotal', '{{shown}} of {{total}} shown', {
+                shown: shownDevices.length,
+                total: devices.length,
+              })}
               onClear={() => {
                 setFilter({ ...filter, standing: 'any' });
               }}
             >
-              <Facet title="Status">
+              <Facet title={t('library.vendorDevicesTab.status', 'Status')}>
                 <Segmented
-                  label="Status"
+                  label={t('library.vendorDevicesTab.status', 'Status')}
                   size="compact"
                   className="self-start"
-                  options={STANDING_OPTIONS}
+                  options={STANDING_OPTIONS.map((option) => ({
+                    ...option,
+                    label: text(option.label),
+                  }))}
                   value={filter.standing}
                   onChange={(standing) => {
                     setFilter({ ...filter, standing });
@@ -168,26 +181,41 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
       <Panel
         title={
           shownDevices.length === devices.length
-            ? `Devices · ${String(devices.length)}`
-            : `Devices · ${String(shownDevices.length)} of ${String(devices.length)}`
+            ? t('library.vendorDevicesTab.devicesCount', 'Devices · {{count}}', {
+                count: devices.length,
+              })
+            : t(
+                'library.vendorDevicesTab.devicesShownOfTotal',
+                'Devices · {{shown}} of {{total}}',
+                { shown: shownDevices.length, total: devices.length },
+              )
         }
       >
         <div
           className={`${COLUMNS} border-t border-border px-5.5 py-2.5 font-mono text-label text-foreground-subtle uppercase`}
           aria-hidden="true"
         >
-          <span>Device</span>
-          <span className="hidden lg:block">Model</span>
-          <span className="hidden md:block">Status</span>
-          <span className="hidden lg:block">Last updated</span>
+          <span>{t('library.vendorDevicesTab.device', 'Device')}</span>
+          <span className="hidden lg:block">{t('library.vendorDevicesTab.model', 'Model')}</span>
+          <span className="hidden md:block">{t('library.vendorDevicesTab.status', 'Status')}</span>
+          <span className="hidden lg:block">
+            {t('library.vendorDevicesTab.lastUpdated', 'Last updated')}
+          </span>
           <span />
         </div>
 
         {devices.length === 0 ? (
           <p className="border-t border-border px-5.5 py-3.5 text-ui text-foreground-muted">
             {isAutomatic
-              ? `Nothing yet. A device paired with ${vendor.name} is added here on its own.`
-              : 'Nothing added yet. Add a device by its address and the hub listens for it at once.'}
+              ? t(
+                  'library.vendorDevicesTab.nothingYetADevice',
+                  'Nothing yet. A device paired with {{name}} is added here on its own.',
+                  { name: vendor.name },
+                )
+              : t(
+                  'library.vendorDevicesTab.nothingAddedYetAdd',
+                  'Nothing added yet. Add a device by its address and the hub listens for it at once.',
+                )}
           </p>
         ) : shownDevices.length === 0 ? (
           <div className="border-t border-border p-4">
@@ -229,13 +257,22 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
                         <AppIcon id="triangle-alert" size={12} className="shrink-0" />
                         <span className="truncate">
                           {device.state === 'identifying'
-                            ? 'Still listening - see why'
-                            : 'Not working - see why'}
+                            ? t(
+                                'library.vendorDevicesTab.stillListeningSeeWhy',
+                                'Still listening - see why',
+                              )
+                            : t(
+                                'library.vendorDevicesTab.notWorkingSeeWhy',
+                                'Not working - see why',
+                              )}
                         </span>
                       </Link>
                     ) : device.state === 'identifying' ? (
                       <span className="text-caption text-foreground-subtle">
-                        Listening for the device…
+                        {t(
+                          'library.vendorDevicesTab.listeningForTheDevice',
+                          'Listening for the device…',
+                        )}
                       </span>
                     ) : null}
                   </span>
@@ -256,7 +293,9 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
                     <IconButton
                       variant="bare"
                       size="small"
-                      label={`Configure ${device.name}`}
+                      label={t('library.vendorDevicesTab.configureName', 'Configure {{name}}', {
+                        name: device.name,
+                      })}
                       onClick={() => {
                         onConfigure(device);
                       }}

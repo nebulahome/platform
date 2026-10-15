@@ -22,6 +22,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { DiscoveredDevice, IntegrationVendorView } from '@nebulahome/contracts';
 import { IconButton } from '@nebulahome/ui';
@@ -73,6 +74,8 @@ function reachOf(list: HTMLElement): Reach {
  * @returns The row.
  */
 export function DiscoveredStrip(props: DiscoveredStripProps) {
+  const { t } = useTranslation();
+
   const { devices, vendors, canAdopt, onAdopt, action } = props;
   const headingId = useId();
   const mover = useMoveDevice();
@@ -132,7 +135,7 @@ export function DiscoveredStrip(props: DiscoveredStripProps) {
       <div className="flex items-center gap-2">
         <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-primary" />
         <h2 id={headingId} className="text-ui font-medium text-foreground">
-          Found on your network
+          {t('library.discoveredStrip.foundOnYourNetwork', 'Found on your network')}
         </h2>
         <span className="text-ui text-foreground-subtle tabular">{devices.length}</span>
         <span className="grow" />
@@ -142,7 +145,10 @@ export function DiscoveredStrip(props: DiscoveredStripProps) {
             <IconButton
               variant="raised"
               size="small"
-              label="Show the previous devices"
+              label={t(
+                'library.discoveredStrip.showThePreviousDevices',
+                'Show the previous devices',
+              )}
               disabled={!reach.canGoBack}
               onClick={() => {
                 page(-1);
@@ -153,7 +159,7 @@ export function DiscoveredStrip(props: DiscoveredStripProps) {
             <IconButton
               variant="raised"
               size="small"
-              label="Show the next devices"
+              label={t('library.discoveredStrip.showTheNextDevices', 'Show the next devices')}
               disabled={!reach.canGoOn}
               onClick={() => {
                 page(1);

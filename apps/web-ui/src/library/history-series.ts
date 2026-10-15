@@ -21,7 +21,7 @@ import {
   type TelemetryResolution,
 } from '@nebulahome/contracts';
 
-import { defineMessage, type Message } from '@/i18n/messages';
+import { defineMessage, type Message, translate } from '@/i18n/messages';
 import { miredsToKelvin } from '@/library/entity-control';
 
 /** The windows ending now that the chart offers at a press. */
@@ -325,29 +325,52 @@ export function numericFieldsOf(
 
   if (has.has('thermostat')) {
     fields.push(
-      { label: 'Temperature', unit: '°C', read: measuredTemperature },
-      { label: 'Target', unit: '°C', read: targetTemperature },
+      {
+        label: translate('library.historySeries.temperature', 'Temperature'),
+        unit: '°C',
+        read: measuredTemperature,
+      },
+      {
+        label: translate('library.historySeries.target', 'Target'),
+        unit: '°C',
+        read: targetTemperature,
+      },
     );
   }
 
   if (has.has('level')) {
     fields.push({
-      label: entity.domain === 'light' ? 'Brightness' : 'Level',
+      label:
+        entity.domain === 'light'
+          ? translate('library.historySeries.brightness', 'Brightness')
+          : translate('library.historySeries.level', 'Level'),
       unit: '%',
       read: levelOf,
     });
   }
 
   if (has.has('cover')) {
-    fields.push({ label: 'Position', unit: '%', read: positionOf });
+    fields.push({
+      label: translate('library.historySeries.position', 'Position'),
+      unit: '%',
+      read: positionOf,
+    });
   }
 
   if (has.has('color_temp')) {
-    fields.push({ label: 'Colour temperature', unit: 'K', read: kelvinOf });
+    fields.push({
+      label: translate('library.historySeries.colourTemperature', 'Colour temperature'),
+      unit: 'K',
+      read: kelvinOf,
+    });
   }
 
   if (has.has('media_player')) {
-    fields.push({ label: 'Volume', unit: '%', read: volumeOf });
+    fields.push({
+      label: translate('library.historySeries.volume', 'Volume'),
+      unit: '%',
+      read: volumeOf,
+    });
   }
 
   return fields;

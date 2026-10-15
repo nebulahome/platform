@@ -9,6 +9,8 @@
  * comes. `manual` has no fields and says how it runs; `event` is kept as written and says that
  * nothing reports device events yet.
  */
+import { useTranslation } from 'react-i18next';
+
 import {
   clockAtToCron,
   MONTHS,
@@ -48,13 +50,18 @@ export type TriggerFieldsProps = {
  * @returns The fields.
  */
 export function TriggerFields(props: TriggerFieldsProps) {
+  const { t } = useTranslation();
+
   const { trigger, onChange } = props;
 
   switch (trigger.type) {
     case 'manual': {
       return (
         <p className="text-ui-sm text-foreground-subtle">
-          Runs from its Run button, from the API, or from another automation.
+          {t(
+            'library.triggerFields.runsFromItsRun',
+            'Runs from its Run button, from the API, or from another automation.',
+          )}
         </p>
       );
     }
@@ -71,23 +78,28 @@ export function TriggerFields(props: TriggerFieldsProps) {
       return (
         <>
           <Note tone="warning">
-            Not available yet: nothing reports device events to the platform, so this trigger is
-            kept as written and never fires.
+            {t(
+              'library.triggerFields.notAvailableYetNothing',
+              'Not available yet: nothing reports device events to the platform, so this trigger is kept as written and never fires.',
+            )}
           </Note>
           <div className="grid gap-3 sm:grid-cols-2">
             <TextField
-              label="Event"
+              label={t('library.triggerFields.event', 'Event')}
               size="compact"
-              placeholder="button.pressed"
+              placeholder={t('library.triggerFields.buttonPressed', 'button.pressed')}
               value={trigger.event}
               onChange={(event) => {
                 onChange({ ...trigger, event: event.target.value });
               }}
             />
             <EntityField
-              label="From"
+              label={t('library.triggerFields.from', 'From')}
               isOptional
-              hint="Any entity, when none is chosen."
+              hint={t(
+                'library.triggerFields.anyEntityWhenNone',
+                'Any entity, when none is chosen.',
+              )}
               value={trigger.entityId ?? ''}
               onChange={(entityId) => {
                 onChange({
@@ -124,19 +136,23 @@ function TimeTriggerFields(props: {
   readonly trigger: TimeTrigger;
   readonly onChange: (trigger: AutomationTrigger) => void;
 }) {
+  const { t } = useTranslation();
+
   const { trigger, onChange } = props;
   const { at } = trigger;
 
   return (
     <>
       <div className="flex flex-col gap-1.5">
-        <span className="text-caption font-medium text-foreground-muted">Written as</span>
+        <span className="text-caption font-medium text-foreground-muted">
+          {t('library.triggerFields.writtenAs', 'Written as')}
+        </span>
         <Segmented
-          label="Written as"
+          label={t('library.triggerFields.writtenAs', 'Written as')}
           size="compact"
           options={[
-            { value: 'clock', label: 'Simple' },
-            { value: 'cron', label: 'Advanced' },
+            { value: 'clock', label: t('library.triggerFields.simple', 'Simple') },
+            { value: 'cron', label: t('library.triggerFields.advanced', 'Advanced') },
           ]}
           value={at.kind}
           onChange={(kind) => {
@@ -175,6 +191,8 @@ function SimpleTimeFields(props: {
   readonly trigger: TimeTrigger & { readonly at: Extract<TimeTrigger['at'], { kind: 'clock' }> };
   readonly onChange: (trigger: AutomationTrigger) => void;
 }) {
+  const { t } = useTranslation();
+
   const { trigger, onChange } = props;
   const { at } = trigger;
 
@@ -201,12 +219,12 @@ function SimpleTimeFields(props: {
     <>
       <div className="grid gap-3 sm:grid-cols-2">
         <TextField
-          label="Time"
+          label={t('library.triggerFields.time', 'Time')}
           size="compact"
           type="time"
           step={1}
           className="font-mono"
-          hint="On the house's clock."
+          hint={t('library.triggerFields.onTheHouseS', "On the house's clock.")}
           value={at.time}
           onChange={(event) => {
             write({ time: event.target.value });
@@ -214,22 +232,28 @@ function SimpleTimeFields(props: {
         />
       </div>
       <div className="flex flex-col gap-1.5">
-        <span className="text-caption font-medium text-foreground-muted">On</span>
+        <span className="text-caption font-medium text-foreground-muted">
+          {t('common.on', 'On')}
+        </span>
         <WeekdayPicker
-          label="On"
+          label={t('common.on', 'On')}
           value={at.weekdays ?? []}
           onChange={(weekdays) => {
             write({ weekdays });
           }}
         />
         {(at.weekdays ?? []).length === 0 ? (
-          <span className="text-caption text-foreground-subtle">None chosen: every day.</span>
+          <span className="text-caption text-foreground-subtle">
+            {t('library.triggerFields.noneChosenEveryDay', 'None chosen: every day.')}
+          </span>
         ) : null}
       </div>
       <div className="flex flex-col gap-1.5">
-        <span className="text-caption font-medium text-foreground-muted">In</span>
+        <span className="text-caption font-medium text-foreground-muted">
+          {t('library.triggerFields.in', 'In')}
+        </span>
         <ChoiceChips
-          label="In"
+          label={t('library.triggerFields.in', 'In')}
           options={MONTH_CHIPS}
           value={at.months ?? []}
           onChange={(months) => {
@@ -237,10 +261,16 @@ function SimpleTimeFields(props: {
           }}
         />
         {(at.months ?? []).length === 0 ? (
-          <span className="text-caption text-foreground-subtle">None chosen: every month.</span>
+          <span className="text-caption text-foreground-subtle">
+            {t('library.triggerFields.noneChosenEveryMonth', 'None chosen: every month.')}
+          </span>
         ) : null}
       </div>
-      <p className="text-caption text-foreground-muted">{`Fires: ${triggerSummary(trigger)}.`}</p>
+      <p className="text-caption text-foreground-muted">
+        {t('library.triggerFields.fires', 'Fires: {{summary}}.', {
+          summary: triggerSummary(trigger),
+        })}
+      </p>
     </>
   );
 }
@@ -257,6 +287,8 @@ function CronFields(props: {
   readonly trigger: TimeTrigger & { readonly at: Extract<TimeTrigger['at'], { kind: 'cron' }> };
   readonly onChange: (trigger: AutomationTrigger) => void;
 }) {
+  const { t } = useTranslation();
+
   const { trigger, onChange } = props;
   const house = useEditorHouse();
   const { expression } = trigger.at;
@@ -273,16 +305,19 @@ function CronFields(props: {
 
   return (
     <TextField
-      label="Expression"
+      label={t('library.triggerFields.expression', 'Expression')}
       size="compact"
       className="font-mono"
       placeholder="0 */2 * * 1-5"
       hint={
         said ??
-        'Five fields as cron writes them - minute, hour, day, month, weekday - or six with seconds first.'
+        t(
+          'library.triggerFields.fiveFieldsAsCron',
+          'Five fields as cron writes them - minute, hour, day, month, weekday - or six with seconds first.',
+        )
       }
       {...(words === null && expression.trim() !== ''
-        ? { error: 'Not a schedule cron can read' }
+        ? { error: t('library.triggerFields.notAScheduleCron', 'Not a schedule cron can read') }
         : {})}
       value={expression}
       onChange={(event) => {
@@ -326,6 +361,8 @@ function SunTriggerFields(props: {
   readonly trigger: SunTrigger;
   readonly onChange: (trigger: AutomationTrigger) => void;
 }) {
+  const { t } = useTranslation();
+
   const { trigger, onChange } = props;
   const house = useEditorHouse();
   const isTwice = TWICE_DAILY_SUN_EVENTS.has(trigger.event);
@@ -338,13 +375,15 @@ function SunTriggerFields(props: {
     <>
       {house.hasPosition ? null : (
         <Note tone="warning">
-          The house has no position yet, so the sun has no time here. Set it on the house, under
-          Library › Areas.
+          {t(
+            'library.triggerFields.houseHasNoPosition',
+            'The house has no position yet, so the sun has no time here. Set it on the house, under Library › Areas.',
+          )}
         </Note>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
         <SelectField
-          label="When"
+          label={t('library.triggerFields.when', 'When')}
           size="compact"
           options={sunEventOptions()}
           value={trigger.event}
@@ -365,13 +404,13 @@ function SunTriggerFields(props: {
         />
         {NO_OFFSET.has(trigger.event) ? null : (
           <TextField
-            label="Offset (min)"
+            label={t('library.triggerFields.offsetMin', 'Offset (min)')}
             size="compact"
             type="number"
             className="font-mono"
             min={-720}
             max={720}
-            hint="Negative is before."
+            hint={t('library.triggerFields.negativeIsBefore', 'Negative is before.')}
             value={String(trigger.offsetMinutes ?? 0)}
             onChange={(event) => {
               const minutes = Math.round(Number(event.target.value));
@@ -389,14 +428,16 @@ function SunTriggerFields(props: {
 
       {isTwice ? (
         <div className="flex flex-col gap-1.5">
-          <span className="text-caption font-medium text-foreground-muted">Which</span>
+          <span className="text-caption font-medium text-foreground-muted">
+            {t('library.triggerFields.which', 'Which')}
+          </span>
           <Segmented
-            label="Which"
+            label={t('library.triggerFields.which', 'Which')}
             size="compact"
             options={[
-              { value: 'both', label: 'Both' },
-              { value: 'morning', label: 'Morning' },
-              { value: 'evening', label: 'Evening' },
+              { value: 'both', label: t('library.triggerFields.both', 'Both') },
+              { value: 'morning', label: t('library.triggerFields.morning', 'Morning') },
+              { value: 'evening', label: t('library.triggerFields.evening', 'Evening') },
             ]}
             value={trigger.period ?? 'both'}
             onChange={(period) => {
@@ -411,13 +452,16 @@ function SunTriggerFields(props: {
       {trigger.event === 'elevation_crossed' ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField
-            label="Elevation (°)"
+            label={t('library.triggerFields.elevation', 'Elevation (°)')}
             size="compact"
             type="number"
             className="font-mono"
             min={-90}
             max={90}
-            hint="Above the horizon; negative is below it."
+            hint={t(
+              'library.triggerFields.aboveTheHorizonNegative',
+              'Above the horizon; negative is below it.',
+            )}
             value={String(trigger.elevation ?? 0)}
             onChange={(event) => {
               const degrees = Number(event.target.value);
@@ -429,14 +473,16 @@ function SunTriggerFields(props: {
             }}
           />
           <div className="flex flex-col gap-1.5">
-            <span className="text-caption font-medium text-foreground-muted">Going</span>
+            <span className="text-caption font-medium text-foreground-muted">
+              {t('library.triggerFields.going', 'Going')}
+            </span>
             <Segmented
-              label="Going"
+              label={t('library.triggerFields.going', 'Going')}
               size="compact"
               options={[
-                { value: 'either', label: 'Either way' },
-                { value: 'rising', label: 'Rising' },
-                { value: 'setting', label: 'Setting' },
+                { value: 'either', label: t('library.triggerFields.eitherWay', 'Either way') },
+                { value: 'rising', label: t('library.triggerFields.rising', 'Rising') },
+                { value: 'setting', label: t('library.triggerFields.setting', 'Setting') },
               ]}
               value={trigger.direction ?? 'either'}
               onChange={(direction) => {
@@ -451,12 +497,23 @@ function SunTriggerFields(props: {
 
       <p className="text-caption text-foreground-subtle">
         {trigger.event === 'elevation_changed'
-          ? 'Fires each time the sun entity reports its elevation, about once a minute.'
+          ? t(
+              'library.triggerFields.firesEachTimeThe',
+              'Fires each time the sun entity reports its elevation, about once a minute.',
+            )
           : next === null
             ? house.position === null
-              ? 'Worked out where the house stands, once it has a position.'
-              : 'This does not happen where the house is.'
-            : `Next: ${shortMoment(next, house.timeZone)}, on the house's clock.`}
+              ? t(
+                  'library.triggerFields.workedOutWhereThe',
+                  'Worked out where the house stands, once it has a position.',
+                )
+              : t(
+                  'library.triggerFields.thisDoesNotHappen',
+                  'This does not happen where the house is.',
+                )
+            : t('library.triggerFields.nextNextOnThe', "Next: {{next}}, on the house's clock.", {
+                next: shortMoment(next, house.timeZone),
+              })}
       </p>
     </>
   );

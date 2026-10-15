@@ -25,6 +25,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState, type MouseEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
 import { AUTOMATION_MODES, type AutomationMode } from '@nebulahome/contracts';
@@ -44,6 +45,7 @@ import {
 } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import { BlockDragProvider } from '@/lib/block-drag';
 import { blockIdOf } from '@/lib/block-ids';
 import { BlockUiProvider, useBlockUiStoreHandle, useClearBlockSelection } from '@/lib/block-ui';
@@ -73,12 +75,37 @@ import { TriggerLane } from '@/routes/library/automation/trigger-blocks';
 import { BackLink } from '@/routes/library/detail-page';
 
 /** What each mode is called, and what a second trigger does in it. */
-const MODES: Readonly<Record<AutomationMode, { readonly label: string; readonly note: string }>> = {
-  single: { label: 'Single', note: 'Single: a trigger while it runs is ignored.' },
-  restart: { label: 'Restart', note: 'Restart: stop the current run and start over.' },
-  queued: { label: 'Queued', note: 'Queued: the next run waits for this one to end.' },
-  parallel: { label: 'Parallel', note: 'Parallel: each trigger starts a run of its own.' },
-};
+const MODES: Readonly<Record<AutomationMode, { readonly label: Message; readonly note: Message }>> =
+  {
+    single: {
+      label: defineMessage('automations.modes.single', 'Single'),
+      note: defineMessage(
+        'library.automationEditor.singleATriggerWhile',
+        'Single: a trigger while it runs is ignored.',
+      ),
+    },
+    restart: {
+      label: defineMessage('automations.modes.restart', 'Restart'),
+      note: defineMessage(
+        'library.automationEditor.restartStopTheCurrent',
+        'Restart: stop the current run and start over.',
+      ),
+    },
+    queued: {
+      label: defineMessage('automations.modes.queued', 'Queued'),
+      note: defineMessage(
+        'library.automationEditor.queuedTheNextRun',
+        'Queued: the next run waits for this one to end.',
+      ),
+    },
+    parallel: {
+      label: defineMessage('automations.modes.parallel', 'Parallel'),
+      note: defineMessage(
+        'library.automationEditor.parallelEachTriggerStarts',
+        'Parallel: each trigger starts a run of its own.',
+      ),
+    },
+  };
 
 /** The longest a run may be: the column's day. */
 const DAY_MS = 86_400_000;
@@ -104,6 +131,8 @@ export function AutomationEditor() {
  * @returns The page.
  */
 function Editor() {
+  const { t } = useTranslation();
+
   const { automationId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -254,10 +283,20 @@ function Editor() {
     onSuccess: async (reply) => {
       setRunNotice(
         reply.outcome === 'started'
-          ? 'Started. It shows here when it ends.'
+          ? t('library.automationEditor.startedItShowsHere', 'Started. It shows here when it ends.')
           : reply.outcome === 'queued'
-            ? 'Queued behind the run that is going.'
-            : `Not started: ${reply.reason ?? 'it was turned away'}.`,
+            ? t(
+                'library.automationEditor.queuedBehindTheRun',
+                'Queued behind the run that is going.',
+              )
+            : reply.reason === undefined
+              ? t(
+                  'library.automationEditor.notStartedTurnedAway',
+                  'Not started: it was turned away.',
+                )
+              : t('library.automationEditor.notStarted', 'Not started: {{reason}}.', {
+                  reason: reply.reason,
+                }),
       );
       await queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.automationRuns });
     },
@@ -274,9 +313,11 @@ function Editor() {
 
   if (draft === null) {
     return (
-      <Shell title="Automation">
+      <Shell title={t('library.automationEditor.automation', 'Automation')}>
         <p className="text-ui text-foreground-muted">
-          {existing.isPending ? 'Reading…' : 'No automation has that address.'}
+          {existing.isPending
+            ? t('library.automationEditor.reading', 'Reading…')
+            : t('library.automationEditor.noAutomationHasThat', 'No automation has that address.')}
         </p>
       </Shell>
     );
@@ -298,10 +339,16 @@ function Editor() {
   const isEdited = JSON.stringify(draft) !== JSON.stringify(initial);
   const canRun = !isNew && can('automation:trigger');
   const runReason = !(existing.data?.isEnabled ?? false)
-    ? 'It is turned off. Turn it on and save it to run it.'
+    ? t(
+        'library.automationEditor.itIsTurnedOff',
+        'It is turned off. Turn it on and save it to run it.',
+      )
     : isEdited
-      ? 'Runs the saved version, not these changes.'
-      : 'Runs it now, through its checks.';
+      ? t(
+          'library.automationEditor.runsTheSavedVersion',
+          'Runs the saved version, not these changes.',
+        )
+      : t('library.automationEditor.runsItNowThrough', 'Runs it now, through its checks.');
 
   /**
    * Lets the selection go when the click landed outside every block.
@@ -319,7 +366,7 @@ function Editor() {
   return (
     <BlockDragProvider onMove={onMove} onStep={onStep}>
       <Shell
-        title={isNew ? 'New automation' : draft.name}
+        title={isNew ? t('library.automationEditor.newAutomation', 'New automation') : draft.name}
         isEdited={isEdited}
         onClick={onPageClick}
         action={
@@ -335,34 +382,39 @@ function Editor() {
                 }}
               >
                 <AppIcon id="play" size={14} />
-                Run now
+                {t('library.automationEditor.runNow', 'Run now')}
               </Button>
             ) : null}
             <Button
               variant="bare"
               title={
-                isEdited ? 'Back to the automations, leaving these changes unsaved' : undefined
+                isEdited
+                  ? t(
+                      'library.automationEditor.backToTheAutomations',
+                      'Back to the automations, leaving these changes unsaved',
+                    )
+                  : undefined
               }
               onClick={() => {
                 void navigate('/automations');
               }}
             >
-              {isEdited ? 'Cancel' : 'Close'}
+              {isEdited ? t('common.cancel', 'Cancel') : t('common.close', 'Close')}
             </Button>
             <Button isBusy={save.isPending} onClick={onSave}>
               <AppIcon id="check" size={15} />
-              Save
+              {t('common.save', 'Save')}
             </Button>
           </span>
         }
         aside={
           <>
-            <Panel title="What it is">
+            <Panel title={t('library.automationEditor.whatItIs', 'What it is')}>
               <div className="flex flex-col gap-3.5 border-t border-border px-5.5 py-4">
                 <TextField
-                  label="Name"
+                  label={t('library.automationEditor.name', 'Name')}
                   size="compact"
-                  placeholder="Evening lights"
+                  placeholder={t('library.automationEditor.eveningLights', 'Evening lights')}
                   value={draft.name}
                   onChange={(event) => {
                     const name = event.target.value;
@@ -375,10 +427,13 @@ function Editor() {
                   }}
                 />
                 <TextField
-                  label="Key"
+                  label={t('library.automationEditor.key', 'Key')}
                   size="compact"
-                  placeholder="evening_lights"
-                  hint="What other automations call it. Fixed once created."
+                  placeholder={t('library.automationEditor.eveningLights2', 'evening_lights')}
+                  hint={t(
+                    'library.automationEditor.whatOtherAutomationsCall',
+                    'What other automations call it. Fixed once created.',
+                  )}
                   className="font-mono"
                   value={draft.key}
                   disabled={!isNew}
@@ -388,9 +443,12 @@ function Editor() {
                   }}
                 />
                 <TextArea
-                  label="Description"
+                  label={t('library.automationEditor.description', 'Description')}
                   rows={2}
-                  placeholder="Warm light in the living room when someone comes in after sunset."
+                  placeholder={t(
+                    'library.automationEditor.warmLightInThe',
+                    'Warm light in the living room when someone comes in after sunset.',
+                  )}
                   value={draft.description}
                   onChange={(event) => {
                     setDraft({ ...draft, description: event.target.value });
@@ -399,17 +457,20 @@ function Editor() {
               </div>
             </Panel>
 
-            <Panel title="How it runs">
+            <Panel title={t('library.automationEditor.howItRuns', 'How it runs')}>
               <div className="flex flex-col gap-2 border-t border-border px-5.5 py-4">
                 <span className="text-caption font-medium text-foreground-muted">
-                  When it is already running
+                  {t('library.automationEditor.whenItIsAlready', 'When it is already running')}
                 </span>
                 <Segmented
-                  label="When it is already running"
+                  label={t(
+                    'library.automationEditor.whenItIsAlready',
+                    'When it is already running',
+                  )}
                   size="compact"
                   options={AUTOMATION_MODES.map((mode) => ({
                     value: mode,
-                    label: MODES[mode].label,
+                    label: text(MODES[mode].label),
                   }))}
                   value={draft.mode}
                   onChange={(mode) => {
@@ -417,14 +478,17 @@ function Editor() {
                   }}
                 />
                 <span className="text-caption text-foreground-subtle">
-                  {MODES[draft.mode].note}
+                  {text(MODES[draft.mode].note)}
                 </span>
               </div>
               <div className="border-t border-border px-5.5 py-4">
                 <DurationField
-                  label="Stop a run after"
+                  label={t('library.automationEditor.stopARunAfter', 'Stop a run after')}
                   maxMs={DAY_MS}
-                  hint="A run that takes longer is ended."
+                  hint={t(
+                    'library.automationEditor.runThatTakesLonger',
+                    'A run that takes longer is ended.',
+                  )}
                   value={draft.maxRuntimeMs}
                   onChange={(maxRuntimeMs) => {
                     setDraft({ ...draft, maxRuntimeMs: Math.max(1_000, maxRuntimeMs ?? 1_000) });
@@ -432,11 +496,14 @@ function Editor() {
                 />
               </div>
               <PanelRow
-                title="Enabled"
-                note="Runs whenever its triggers fire."
+                title={t('library.automationEditor.enabled', 'Enabled')}
+                note={t(
+                  'library.automationEditor.runsWheneverItsTriggers',
+                  'Runs whenever its triggers fire.',
+                )}
                 control={
                   <Switch
-                    label="Enabled"
+                    label={t('library.automationEditor.enabled', 'Enabled')}
                     isOn={draft.isEnabled}
                     onChange={(isEnabled) => {
                       setDraft({ ...draft, isEnabled });
@@ -455,7 +522,9 @@ function Editor() {
         {problems.length === 0 ? null : (
           <Note tone="danger">
             <span className="flex flex-col gap-1">
-              <span className="font-medium">Not saved</span>
+              <span className="font-medium">
+                {t('library.automationEditor.notSaved', 'Not saved')}
+              </span>
               {problems.map((problem) => (
                 <span key={problem}>{problem}</span>
               ))}
@@ -520,6 +589,8 @@ type ShellProps = {
  * @returns The frame.
  */
 function Shell(props: ShellProps) {
+  const { t } = useTranslation();
+
   const { title, isEdited = false, action, aside, onClick, children } = props;
 
   return (
@@ -527,9 +598,17 @@ function Shell(props: ShellProps) {
     <div className="min-h-0 grow overflow-y-auto px-8 pt-6 pb-10" onClick={onClick}>
       <div className="flex flex-col gap-5">
         <DetailHero
-          back={<BackLink to="/automations">Automations</BackLink>}
+          back={
+            <BackLink to="/automations">
+              {t('library.automationEditor.automations', 'Automations')}
+            </BackLink>
+          }
           title={title}
-          titleAside={isEdited ? <Pill tone="warning">Edited</Pill> : undefined}
+          titleAside={
+            isEdited ? (
+              <Pill tone="warning">{t('library.automationEditor.edited', 'Edited')}</Pill>
+            ) : undefined
+          }
           actions={action}
         />
         <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">

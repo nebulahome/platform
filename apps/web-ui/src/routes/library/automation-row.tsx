@@ -10,16 +10,18 @@
  * **Enabled is a switch, and it writes** - for somebody who may change automations; for anybody
  * else it is shown and cannot be moved.
  */
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { AutomationView } from '@nebulahome/contracts';
 import { OverflowMenu, StatusDot, Switch, type StatusDotTone } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
 import type { BlockNames } from '@/lib/block-summary';
 import { summaryOf, type AutomationSummary } from '@/lib/describe-automation';
 import { absoluteTime, runMoment } from '@/lib/format-time';
 import { runOutcome } from '@/lib/run-outcome';
-import { MODE_LABELS } from '@/library/automation-filters';
+import { modeLabel } from '@/library/automation-filters';
 
 /**
  * The column widths, shared by the header and every row so they line up.
@@ -67,7 +69,11 @@ function lastRunOf(automation: AutomationView): {
   readonly title: string | undefined;
 } {
   if (automation.lastRun === null) {
-    return { tone: 'neutral', text: '—', title: 'Not run yet' };
+    return {
+      tone: 'neutral',
+      text: '—',
+      title: translate('library.automationRow.notRunYet', 'Not run yet'),
+    };
   }
 
   const outcome = runOutcome(automation.lastRun.result);
@@ -90,6 +96,8 @@ function lastRunOf(automation: AutomationView): {
  * @returns The row.
  */
 export function AutomationRow(props: AutomationRowProps) {
+  const { t } = useTranslation();
+
   const { automation, isBusy, canWrite = true, names, onEdit, onToggle, onDelete } = props;
   const summary = summaryOf(automation.definition, names);
   const lastRun = lastRunOf(automation);
@@ -107,12 +115,14 @@ export function AutomationRow(props: AutomationRowProps) {
       </span>
 
       <span className="hidden font-mono text-mono-ui text-foreground-muted md:block">
-        {MODE_LABELS[automation.mode]}
+        {modeLabel(automation.mode)}
       </span>
 
       <span>
         <Switch
-          label={`${automation.name} enabled`}
+          label={t('library.automationRow.nameEnabled', '{{name}} enabled', {
+            name: automation.name,
+          })}
           isOn={automation.isEnabled}
           isBusy={isBusy}
           disabled={!canWrite}
@@ -130,13 +140,15 @@ export function AutomationRow(props: AutomationRowProps) {
       </span>
 
       <OverflowMenu
-        label={`More for ${automation.name}`}
+        label={t('library.automationRow.moreForName', 'More for {{name}}', {
+          name: automation.name,
+        })}
         items={[
-          { label: 'Edit', icon: 'pencil', onSelect: onEdit },
+          { label: t('common.edit', 'Edit'), icon: 'pencil', onSelect: onEdit },
           ...(canWrite
             ? [
                 {
-                  label: 'Delete',
+                  label: t('common.delete', 'Delete'),
                   icon: 'trash-2' as const,
                   tone: 'danger' as const,
                   disabled: isBusy,
@@ -165,12 +177,17 @@ type ChainProps = {
  * @returns The chain.
  */
 function Chain(props: ChainProps) {
+  const { t } = useTranslation();
+
   const { summary } = props;
 
   if (summary === null) {
     return (
       <span className="text-caption text-warning">
-        Its definition is not in a shape this build understands.
+        {t(
+          'library.automationRow.itsDefinitionIsNot',
+          'Its definition is not in a shape this build understands.',
+        )}
       </span>
     );
   }

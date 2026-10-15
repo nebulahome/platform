@@ -19,6 +19,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
 import { isUpdateOffered, type DeviceView, type EntityView } from '@nebulahome/contracts';
@@ -69,6 +70,8 @@ type DeviceLine = {
  * @returns The page.
  */
 export function DevicesPage() {
+  const { t } = useTranslation();
+
   const liveReadings = useLive((state) => state.readings);
   const [held, setHeld] = useState<typeof liveReadings | null>(null);
   const readings = held ?? liveReadings;
@@ -220,25 +223,31 @@ export function DevicesPage() {
 
   return (
     <LibraryPage
-      title="Devices"
-      noun="device"
+      title={t('library.devices.devices', 'Devices')}
+      counted={(count) =>
+        t('library.devices.count', {
+          count,
+          defaultValue_one: '{{count}} device',
+          defaultValue_other: '{{count}} devices',
+        })
+      }
       count={devices.isPending ? undefined : all.length}
       shownCount={shown.length}
       summary={[`${String(shownEntityCount)} ${shownEntityCount === 1 ? 'entity' : 'entities'}`]}
       tools={
         <>
           <span aria-hidden="true" className="text-ui-sm text-foreground-muted">
-            Live updates
+            {t('library.devices.liveUpdates', 'Live updates')}
           </span>
           <Switch
-            label="Live updates"
+            label={t('library.devices.liveUpdates', 'Live updates')}
             isOn={held === null}
             onChange={(isOn) => {
               setHeld(isOn ? null : liveReadings);
             }}
           />
           <SearchField
-            placeholder="Search devices, entities…"
+            placeholder={t('library.devices.searchDevicesEntities', 'Search devices, entities…')}
             value={filter.search}
             onChange={(search) => {
               setFilter({ ...filter, search });
@@ -259,20 +268,23 @@ export function DevicesPage() {
           }}
         >
           <AppIcon id="plus" size={15} />
-          Add device
+          {t('library.devices.addDevice', 'Add device')}
         </Button>
       }
       isPending={devices.isPending || entities.isPending}
       error={devices.error ?? entities.error}
       isEmpty={all.length === 0}
-      emptyMessage="Nothing yet. Add a device from Integrations and it appears here as soon as the hub has heard from it."
+      emptyMessage={t(
+        'library.devices.nothingYetAddA',
+        'Nothing yet. Add a device from Integrations and it appears here as soon as the hub has heard from it.',
+      )}
     >
       <div className="overflow-hidden rounded-card border border-border bg-surface">
         <div
           className={`${DEVICE_COLUMNS} border-b border-border px-5 py-3 font-mono text-label text-foreground-subtle uppercase`}
         >
           <SortHeader
-            label="Device"
+            label={t('library.devices.device', 'Device')}
             isSorted={paging.sort === 'device'}
             direction={paging.direction}
             onSort={() => {
@@ -280,9 +292,9 @@ export function DevicesPage() {
             }}
             className="justify-self-start"
           />
-          <span className="hidden md:block">Integration</span>
+          <span className="hidden md:block">{t('library.devices.integration', 'Integration')}</span>
           <SortHeader
-            label="Room"
+            label={t('library.devices.room', 'Room')}
             isSorted={paging.sort === 'room'}
             direction={paging.direction}
             onSort={() => {
@@ -290,9 +302,9 @@ export function DevicesPage() {
             }}
             className="hidden justify-self-start lg:inline-flex"
           />
-          <span className="hidden md:block">Entities</span>
+          <span className="hidden md:block">{t('library.devices.entities', 'Entities')}</span>
           <SortHeader
-            label="Status"
+            label={t('library.devices.status', 'Status')}
             isSorted={paging.sort === 'status'}
             direction={paging.direction}
             onSort={() => {
@@ -300,7 +312,7 @@ export function DevicesPage() {
             }}
             className="justify-self-start"
           />
-          <span className="hidden md:block">Seen</span>
+          <span className="hidden md:block">{t('library.devices.seen', 'Seen')}</span>
         </div>
 
         {shown.length === 0 ? (

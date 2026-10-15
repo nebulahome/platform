@@ -12,6 +12,7 @@ import {
   type TriggerType,
 } from '@nebulahome/contracts';
 
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import { chainText } from '@/lib/describe-automation';
 import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, readChoice, type ListCodec } from '@/lib/use-list-state';
@@ -101,9 +102,22 @@ export function matchesAutomationFilter(
 }
 
 /** What each mode is called, in the sheet and on the row alike. */
-export const MODE_LABELS: Readonly<Record<AutomationView['mode'], string>> = Object.fromEntries(
-  AUTOMATION_MODES.map((mode) => [mode, mode.charAt(0).toUpperCase() + mode.slice(1)]),
-) as Record<AutomationView['mode'], string>;
+const MODE_LABELS: Readonly<Record<AutomationView['mode'], Message>> = {
+  single: defineMessage('automations.modes.single', 'Single'),
+  restart: defineMessage('automations.modes.restart', 'Restart'),
+  queued: defineMessage('automations.modes.queued', 'Queued'),
+  parallel: defineMessage('automations.modes.parallel', 'Parallel'),
+};
+
+/**
+ * What a mode is called.
+ *
+ * @param mode - The mode.
+ * @returns Its name, in the reader's language.
+ */
+export function modeLabel(mode: AutomationView['mode']): string {
+  return text(MODE_LABELS[mode]);
+}
 
 /** How the filter lives in the address. */
 export const AUTOMATION_FILTER_CODEC: ListCodec<AutomationFilter> = {

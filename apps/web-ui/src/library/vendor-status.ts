@@ -13,6 +13,8 @@
 import type { IntegrationVendorView } from '@nebulahome/contracts';
 import type { PillTone } from '@nebulahome/ui';
 
+import { defineMessage, type Message, text, translate } from '@/i18n/messages';
+
 /** Each standing, in the order the filter lists them. */
 export const VENDOR_STATUS_KINDS = [
   'running',
@@ -26,12 +28,12 @@ export const VENDOR_STATUS_KINDS = [
 export type VendorStatusKind = (typeof VENDOR_STATUS_KINDS)[number];
 
 /** What each standing is called. */
-export const VENDOR_STATUS_LABELS: Readonly<Record<VendorStatusKind, string>> = {
-  running: 'Running',
-  degraded: 'Degraded',
-  'needs-sign-in': 'Needs sign-in',
-  'needs-setup': 'Needs setup',
-  idle: 'Idle',
+export const VENDOR_STATUS_LABELS: Readonly<Record<VendorStatusKind, Message>> = {
+  running: defineMessage('library.vendorStatus.running', 'Running'),
+  degraded: defineMessage('library.vendorStatus.degraded', 'Degraded'),
+  'needs-sign-in': defineMessage('library.vendorStatus.needsSignIn', 'Needs sign-in'),
+  'needs-setup': defineMessage('library.vendorStatus.needsSetup', 'Needs setup'),
+  idle: defineMessage('library.vendorStatus.idle', 'Idle'),
 };
 
 /** What each standing looks like. */
@@ -81,13 +83,17 @@ export function vendorStatusOf(vendor: StatusInput): VendorStatus {
    */
   const status = (kind: VendorStatusKind, detail: string): VendorStatus => ({
     kind,
-    label: VENDOR_STATUS_LABELS[kind],
+    label: text(VENDOR_STATUS_LABELS[kind]),
     tone: VENDOR_STATUS_TONES[kind],
     detail,
   });
 
   if (vendor.needsPackage) {
-    return status('degraded', vendor.packageProblems[0] ?? 'A package it needs is not running');
+    return status(
+      'degraded',
+      vendor.packageProblems[0] ??
+        translate('library.vendorStatus.packageItNeedsIs', 'A package it needs is not running'),
+    );
   }
 
   // Not while it needs setting up: the supervisor makes the containers from the settings, so a
@@ -101,20 +107,45 @@ export function vendorStatusOf(vendor: StatusInput): VendorStatus {
     return status(
       'degraded',
       container === null
-        ? 'The supervisor did not say how its container stands'
-        : (container.error ?? `Its container is ${container.state}`),
+        ? translate(
+            'library.vendorStatus.supervisorDidNotSay',
+            'The supervisor did not say how its container stands',
+          )
+        : (container.error ??
+            translate('library.vendorStatus.itsContainerIsState', 'Its container is {{state}}', {
+              state: container.state,
+            })),
     );
   }
 
   if (vendor.needsAccount) {
-    return status('needs-sign-in', `Sign in to ${vendor.account?.name ?? 'its account'}`);
+    return status(
+      'needs-sign-in',
+      vendor.account === null
+        ? translate('library.vendorStatus.signInToItsAccount', 'Sign in to its account')
+        : translate('library.vendorStatus.signInTo', 'Sign in to {{name}}', {
+            name: vendor.account.name,
+          }),
+    );
   }
 
   if (vendor.needsSetup) {
-    return status('needs-setup', 'It needs the settings every device shares');
+    return status(
+      'needs-setup',
+      translate(
+        'library.vendorStatus.itNeedsTheSettings',
+        'It needs the settings every device shares',
+      ),
+    );
   }
 
   return vendor.deviceCount > 0
-    ? status('running', 'Loaded and answering')
-    : status('idle', 'Loaded, with no device added yet');
+    ? status(
+        'running',
+        translate('library.vendorStatus.loadedAndAnswering', 'Loaded and answering'),
+      )
+    : status(
+        'idle',
+        translate('library.vendorStatus.loadedWithNoDevice', 'Loaded, with no device added yet'),
+      );
 }

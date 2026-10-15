@@ -11,10 +11,12 @@
  * ones when asked for, so a device with a year of switching does not arrive all at once.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { EntityView } from '@nebulahome/contracts';
 import { AppIcon, Button, cn, Panel, type UiIconId } from '@nebulahome/ui';
 
+import { dateTimeFormat } from '@/i18n/formatters';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime } from '@/lib/format-time';
 import {
@@ -35,8 +37,12 @@ const MARKS: Readonly<Record<ActivityTone, { readonly icon: UiIconId; readonly t
   online: { icon: 'check', tone: 'text-success border-success/30 bg-success/10' },
 };
 
-/** The time of day a line happened at. */
-const clock = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
+/**
+ * The time of day a line happened at.
+ *
+ * @returns The formatter, in the reader's language.
+ */
+const clock = (): Intl.DateTimeFormat => dateTimeFormat({ hour: '2-digit', minute: '2-digit' });
 
 /** What the panel needs. */
 export type ActivityPanelProps = {
@@ -57,6 +63,8 @@ export type ActivityPanelProps = {
  * @returns The panel.
  */
 export function ActivityPanel(props: ActivityPanelProps) {
+  const { t } = useTranslation();
+
   const { deviceId, deviceName, entities } = props;
   const byAddress = new Map(entities.map((entity) => [entity.entityId, entity]));
   const activity = useDeviceActivity(
@@ -76,17 +84,21 @@ export function ActivityPanel(props: ActivityPanelProps) {
 
   return (
     // Clipped to its corners: the list scrolls inside, and its scrollbar must not cross them.
-    <Panel title="Activity" className="overflow-hidden">
+    <Panel title={t('device.activityPanel.activity', 'Activity')} className="overflow-hidden">
       {activity.error !== null && lines === undefined ? (
         <p role="alert" className="px-4 py-3.5 text-ui text-danger">
           {toMessage(activity.error)}
         </p>
       ) : lines === undefined ? (
-        <p className="px-4 py-3.5 text-ui text-foreground-muted">Reading…</p>
+        <p className="px-4 py-3.5 text-ui text-foreground-muted">
+          {t('device.activityPanel.reading', 'Reading…')}
+        </p>
       ) : lines.length === 0 ? (
         <p className="px-4 py-3.5 text-ui text-foreground-muted">
-          Nothing has changed yet. Switches, doors, modes and the device going offline show here as
-          they happen; readings are drawn on each entity&apos;s own page.
+          {t(
+            'device.activityPanel.nothingHasChangedYet',
+            "Nothing has changed yet. Switches, doors, modes and the device going offline show here as they happen; readings are drawn on each entity's own page.",
+          )}
         </p>
       ) : (
         // About eight changes tall, then it scrolls: a busy device must not push everything
@@ -132,7 +144,7 @@ export function ActivityPanel(props: ActivityPanelProps) {
                           title={absoluteTime(line.time)}
                           className="text-caption whitespace-nowrap text-foreground-subtle tabular"
                         >
-                          {clock.format(line.time)}
+                          {clock().format(line.time)}
                         </time>
                       </button>
                     </li>
@@ -150,7 +162,7 @@ export function ActivityPanel(props: ActivityPanelProps) {
                 isBusy={activity.isLoadingMore}
                 onClick={activity.loadMore}
               >
-                Show earlier
+                {t('device.activityPanel.showEarlier', 'Show earlier')}
               </Button>
             </div>
           ) : null}

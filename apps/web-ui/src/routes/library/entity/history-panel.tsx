@@ -15,12 +15,15 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { EntityView, JsonObject } from '@nebulahome/contracts';
 import { AppIcon, Section, Segmented } from '@nebulahome/ui';
 
 import { HistoryChart } from '@/components/history-chart';
 import { TimeRangePicker } from '@/components/time-range-picker';
+import { dateTimeFormat, numberFormat } from '@/i18n/formatters';
+import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime } from '@/lib/format-time';
 import { fetchStateHistory, fetchTelemetry, LIBRARY_QUERY_KEYS } from '@/library/api';
@@ -43,19 +46,23 @@ import { StateBand } from '@/routes/library/entity/state-band';
 /** How often an open panel reads a window ending now again. */
 const REFRESH_MS = 60_000;
 
-/** How a figure is written on the chart. */
-const numbers = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+/**
+ * How a figure is written on the chart.
+ *
+ * @returns The formatter, in the reader's language.
+ */
+const numbers = (): Intl.NumberFormat => numberFormat({ maximumFractionDigits: 2 });
 
 /** What the panel shows when it opens. */
 const INITIAL_CHOICE: HistoryChoice = { kind: 'preset', range: '24h' };
 
 /** What each preset is called beside the heading. */
-const PRESET_LABELS: Readonly<Record<HistoryRange, string>> = {
-  '1h': '1 h',
-  '6h': '6 h',
-  '24h': '24 h',
-  '7d': '7 d',
-  '30d': '30 d',
+const PRESET_LABELS: Readonly<Record<HistoryRange, Message>> = {
+  '1h': defineMessage('entity.historyPanel.n1H', '1 h'),
+  '6h': defineMessage('entity.historyPanel.n6H', '6 h'),
+  '24h': defineMessage('entity.historyPanel.n24H', '24 h'),
+  '7d': defineMessage('entity.historyPanel.n7D', '7 d'),
+  '30d': defineMessage('entity.historyPanel.n30D', '30 d'),
 };
 
 /** The viewer's time zone, for the line under the chart. */
@@ -91,15 +98,15 @@ export type HistoryPanelProps = {
  */
 function activeWordOf(entity: EntityView): string {
   if (hasCapability(entity, 'cover')) {
-    return 'Open';
+    return translate('entity.historyPanel.open', 'Open');
   }
 
   if (hasCapability(entity, 'lock')) {
-    return 'Unlocked';
+    return translate('entity.historyPanel.unlocked', 'Unlocked');
   }
 
   if (hasCapability(entity, 'media_player')) {
-    return 'Playing';
+    return translate('entity.historyPanel.playing', 'Playing');
   }
 
   return hasCapability(entity, 'sensor_binary')
@@ -141,6 +148,8 @@ function Figure(props: FigureProps) {
  * @returns The two blocks.
  */
 export function HistoryPanel(props: HistoryPanelProps) {
+  const { t } = useTranslation();
+
   const { entity, reading, current } = props;
   const [choice, setChoice] = useState<HistoryChoice>(INITIAL_CHOICE);
   const [fieldIndex, setFieldIndex] = useState(0);
@@ -215,21 +224,21 @@ export function HistoryPanel(props: HistoryPanelProps) {
    * @returns "21.4 °C".
    */
   const withUnit = (value: number): string =>
-    unit === '' ? numbers.format(value) : `${numbers.format(value)} ${unit}`;
+    unit === '' ? numbers().format(value) : `${numbers().format(value)} ${unit}`;
   const isBanded = segments.some((segment) => segment.isActive);
 
   return (
     <>
       <Section
-        title="History"
+        title={t('entity.historyPanel.history', 'History')}
         actions={
           <>
             <Segmented
-              label="Window"
+              label={t('entity.historyPanel.window', 'Window')}
               size="compact"
               options={HISTORY_RANGES.map((range) => ({
                 value: range,
-                label: PRESET_LABELS[range],
+                label: text(PRESET_LABELS[range]),
               }))}
               // A stretch chosen by its ends lights no preset.
               value={choice.kind === 'preset' ? choice.range : ''}
@@ -246,35 +255,61 @@ export function HistoryPanel(props: HistoryPanelProps) {
         <div className="flex flex-col gap-5 rounded-card border border-border bg-surface p-5">
           {isNumeric && stats !== null ? (
             <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
-              <Figure label="Now" value={withUnit(stats.now)} />
-              <Figure label="Lowest" value={withUnit(stats.low)} />
-              <Figure label="Average" value={withUnit(stats.average)} />
-              <Figure label="Highest" value={withUnit(stats.high)} />
+              <Figure label={t('entity.historyPanel.now', 'Now')} value={withUnit(stats.now)} />
+              <Figure
+                label={t('entity.historyPanel.lowest', 'Lowest')}
+                value={withUnit(stats.low)}
+              />
+              <Figure
+                label={t('entity.historyPanel.average', 'Average')}
+                value={withUnit(stats.average)}
+              />
+              <Figure
+                label={t('entity.historyPanel.highest', 'Highest')}
+                value={withUnit(stats.high)}
+              />
             </div>
           ) : null}
 
           {!isNumeric && isBanded ? (
             <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
               <Figure
-                label={`${activeWordOf(entity)} for`}
+                label={t('entity.historyPanel.activeFor', '{{word}} for', {
+                  word: activeWordOf(entity),
+                })}
                 value={durationText(active.activeMs)}
-                note="in this window"
+                note={t('entity.historyPanel.inThisWindow', 'in this window')}
               />
               <Figure
-                label={`Turned ${activeWordOf(entity).toLowerCase()}`}
-                value={`${String(active.turnedOn)} ${active.turnedOn === 1 ? 'time' : 'times'}`}
+                label={t('entity.historyPanel.turned', 'Turned {{word}}', {
+                  word: activeWordOf(entity).toLowerCase(),
+                })}
+                value={t('entity.historyPanel.times', {
+                  count: active.turnedOn,
+                  defaultValue_one: '{{count}} time',
+                  defaultValue_other: '{{count}} times',
+                })}
                 note={
                   active.lastOnAt === null
                     ? undefined
-                    : `last at ${new Date(active.lastOnAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`
+                    : t('entity.historyPanel.lastAt', 'last at {{time}}', {
+                        time: dateTimeFormat({ hour: '2-digit', minute: '2-digit' }).format(
+                          new Date(active.lastOnAt),
+                        ),
+                      })
                 }
               />
-              <Figure label="Longest" value={durationText(active.longestMs)} />
+              <Figure
+                label={t('entity.historyPanel.longest', 'Longest')}
+                value={durationText(active.longestMs)}
+              />
             </div>
           ) : null}
 
           {query.isPending ? (
-            <p className="text-caption text-foreground-subtle">Reading…</p>
+            <p className="text-caption text-foreground-subtle">
+              {t('entity.historyPanel.reading', 'Reading…')}
+            </p>
           ) : query.error === null ? null : (
             <p role="alert" className="text-ui text-danger">
               {toMessage(query.error)}
@@ -284,7 +319,7 @@ export function HistoryPanel(props: HistoryPanelProps) {
           {isNumeric && telemetry.data !== undefined ? (
             telemetry.data.points.length === 0 ? (
               <p className="text-caption text-foreground-subtle">
-                Nothing recorded in this window.
+                {t('entity.historyPanel.nothingRecordedInThis', 'Nothing recorded in this window.')}
               </p>
             ) : isTable ? (
               <ValueTable
@@ -303,7 +338,9 @@ export function HistoryPanel(props: HistoryPanelProps) {
                   series={[
                     {
                       key: 'value',
-                      label: reading.sensorFigure?.classLabel ?? 'Reading',
+                      label:
+                        reading.sensorFigure?.classLabel ??
+                        t('entity.historyPanel.reading2', 'Reading'),
                       color: 'var(--color-cyan)',
                       dotClass: 'bg-cyan',
                     },
@@ -321,7 +358,9 @@ export function HistoryPanel(props: HistoryPanelProps) {
               <ValueTable
                 rows={[...changes.data.points].reverse().map((point) => ({
                   at: point.time,
-                  value: point.isAvailable ? describeState(point.state, entity) : 'Unreachable',
+                  value: point.isAvailable
+                    ? describeState(point.state, entity)
+                    : t('entity.historyPanel.unreachable', 'Unreachable'),
                 }))}
               />
             ) : (
@@ -329,7 +368,7 @@ export function HistoryPanel(props: HistoryPanelProps) {
                 {segments.length === 0 ? null : (
                   <div className="flex flex-col gap-2">
                     <span className="font-mono text-label text-foreground-subtle uppercase">
-                      State
+                      {t('entity.historyPanel.state', 'State')}
                     </span>
                     <StateBand
                       segments={segments}
@@ -346,7 +385,7 @@ export function HistoryPanel(props: HistoryPanelProps) {
                       </span>
                       {fields.length > 1 ? (
                         <Segmented
-                          label="Line"
+                          label={t('entity.historyPanel.line', 'Line')}
                           size="compact"
                           options={fields.map((candidate, index) => ({
                             value: String(index),
@@ -378,7 +417,7 @@ export function HistoryPanel(props: HistoryPanelProps) {
                         window={changes.data.window}
                         curve="stepped"
                         {...(field.unit === '%' ? { domain: [0, 100] as const } : {})}
-                        formatValue={(value) => `${numbers.format(value)} ${field.unit}`}
+                        formatValue={(value) => `${numbers().format(value)} ${field.unit}`}
                       />
                     </div>
                   </div>
@@ -388,7 +427,9 @@ export function HistoryPanel(props: HistoryPanelProps) {
           ) : null}
 
           <p className="flex flex-wrap items-center gap-x-2 text-caption text-foreground-subtle">
-            Times are local ({TIME_ZONE}).
+            {t('entity.historyPanel.timesAreLocal', 'Times are local ({{zone}}).', {
+              zone: TIME_ZONE,
+            })}
             <button
               type="button"
               aria-pressed={isTable}
@@ -398,14 +439,16 @@ export function HistoryPanel(props: HistoryPanelProps) {
               className="inline-flex items-center gap-1 rounded-chip text-primary transition-colors hover:text-primary-hover"
             >
               <AppIcon id={isTable ? 'chart-line' : 'list'} size={13} />
-              {isTable ? 'Show as a chart' : 'Show as a table'}
+              {isTable
+                ? t('entity.historyPanel.showAsAChart', 'Show as a chart')
+                : t('entity.historyPanel.showAsATable', 'Show as a table')}
             </button>
           </p>
         </div>
       </Section>
 
       {!isNumeric && changes.data !== undefined ? (
-        <Section title="Recent changes">
+        <Section title={t('entity.historyPanel.recentChanges', 'Recent changes')}>
           <RecentChanges entity={entity} points={changes.data.points} />
         </Section>
       ) : null}
@@ -423,6 +466,8 @@ export function HistoryPanel(props: HistoryPanelProps) {
 function ValueTable(props: {
   readonly rows: readonly { readonly at: Date; readonly value: string }[];
 }) {
+  const { t } = useTranslation();
+
   const { rows } = props;
 
   return (
@@ -431,10 +476,10 @@ function ValueTable(props: {
         <thead className="font-mono text-label text-foreground-subtle uppercase">
           <tr>
             <th scope="col" className="px-4 py-2.5 font-normal">
-              When
+              {t('entity.historyPanel.when', 'When')}
             </th>
             <th scope="col" className="px-4 py-2.5 font-normal">
-              Value
+              {t('entity.historyPanel.value', 'Value')}
             </th>
           </tr>
         </thead>

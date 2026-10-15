@@ -17,9 +17,11 @@
  */
 import L from 'leaflet';
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { cn } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
 import { apiBlob } from '@/lib/api-client';
 
 import 'leaflet/dist/leaflet.css';
@@ -118,6 +120,8 @@ function primaryColour(): string {
  * @returns The map's box.
  */
 export function HouseMap(props: HouseMapProps) {
+  const { t } = useTranslation();
+
   const { value, onChange, className } = props;
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
@@ -141,7 +145,10 @@ export function HouseMap(props: HouseMapProps) {
     const created = L.map(element, { attributionControl: true });
 
     new ApiTileLayer('', {
-      attribution: '© OpenStreetMap contributors',
+      attribution: translate(
+        'library.houseMap.openstreetmapContributors',
+        '© OpenStreetMap contributors',
+      ),
       maxZoom: 19,
     }).addTo(created);
     created.on('click', (event: L.LeafletMouseEvent) => {
@@ -195,7 +202,7 @@ export function HouseMap(props: HouseMapProps) {
     <div
       ref={container}
       role="application"
-      aria-label="Map"
+      aria-label={t('library.houseMap.map', 'Map')}
       className={cn(
         'h-72 w-full overflow-hidden rounded-field border border-border bg-surface-raised',
         className,

@@ -10,6 +10,8 @@
  * No Test: there is no one device to open a connection to. Whether the key works is found out
  * by the first device added, which is where a wrong key says so.
  */
+import { useTranslation } from 'react-i18next';
+
 import type { IntegrationVendorView } from '@nebulahome/contracts';
 import { Button, Modal } from '@nebulahome/ui';
 
@@ -74,6 +76,8 @@ export function VendorSetupFields(props: { readonly form: VendorSetup }) {
  * @returns The dialog.
  */
 export function VendorSetupDialog(props: VendorSetupDialogProps) {
+  const { t } = useTranslation();
+
   const { vendor, onClose, onSaved } = props;
   const form = useVendorSetup(vendor, onSaved);
 
@@ -81,15 +85,18 @@ export function VendorSetupDialog(props: VendorSetupDialogProps) {
     <Modal
       isOpen={vendor !== null}
       onClose={onClose}
-      title={`Set up ${vendor?.name ?? ''}`}
-      description="What every device of this vendor shares. Each device is asked only for its own address."
+      title={t('library.vendorSetupDialog.setUp', 'Set up {{name}}', { name: vendor?.name ?? '' })}
+      description={t(
+        'library.vendorSetupDialog.whatEveryDeviceOf',
+        'What every device of this vendor shares. Each device is asked only for its own address.',
+      )}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
           <Button isBusy={form.isSaving} disabled={form.isSaving} onClick={form.submit}>
-            Save
+            {t('common.save', 'Save')}
           </Button>
         </>
       }

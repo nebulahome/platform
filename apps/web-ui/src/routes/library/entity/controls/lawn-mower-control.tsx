@@ -13,10 +13,12 @@
  * which would begin the lawn again, and the job can still be ended.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { LawnMowerActivity } from '@nebulahome/contracts';
 import { AppIcon, Button, cn } from '@nebulahome/ui';
 
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import { paramsOf } from '@/library/entity-control';
 import { capabilityLabel } from '@/library/entity-kind';
 import {
@@ -27,14 +29,35 @@ import {
 
 /** What each activity is called, and how it is drawn. */
 const ACTIVITIES: Readonly<
-  Record<LawnMowerActivity, { readonly label: string; readonly className: string }>
+  Record<LawnMowerActivity, { readonly label: Message; readonly className: string }>
 > = {
-  mowing: { label: 'Mowing', className: 'text-success' },
-  paused: { label: 'Paused', className: 'text-warning' },
-  returning: { label: 'Going back to its station', className: 'text-foreground' },
-  docked: { label: 'In its station', className: 'text-foreground' },
-  idle: { label: 'Idle', className: 'text-foreground-muted' },
-  error: { label: 'Stopped by a fault', className: 'text-danger' },
+  mowing: {
+    label: defineMessage('entity.controls.lawnMowerControl.mowing', 'Mowing'),
+    className: 'text-success',
+  },
+  paused: {
+    label: defineMessage('entity.controls.lawnMowerControl.paused', 'Paused'),
+    className: 'text-warning',
+  },
+  returning: {
+    label: defineMessage(
+      'entity.controls.lawnMowerControl.goingBackToIts',
+      'Going back to its station',
+    ),
+    className: 'text-foreground',
+  },
+  docked: {
+    label: defineMessage('entity.controls.lawnMowerControl.inItsStation', 'In its station'),
+    className: 'text-foreground',
+  },
+  idle: {
+    label: defineMessage('entity.controls.lawnMowerControl.idle', 'Idle'),
+    className: 'text-foreground-muted',
+  },
+  error: {
+    label: defineMessage('entity.controls.lawnMowerControl.stoppedByAFault', 'Stopped by a fault'),
+    className: 'text-danger',
+  },
 };
 
 /**
@@ -44,6 +67,8 @@ const ACTIVITIES: Readonly<
  * @returns The block.
  */
 export function LawnMowerControl(props: ControlProps) {
+  const { t } = useTranslation();
+
   const { entity, state, commander, disabled } = props;
   const params = paramsOf(entity, 'lawn_mower') ?? {
     canPause: true,
@@ -80,7 +105,7 @@ export function LawnMowerControl(props: ControlProps) {
         ) : (
           <span className={cn('inline-flex items-center gap-1.5', shown.className)}>
             {activity === 'error' ? <AppIcon id="triangle-alert" size={14} /> : null}
-            {shown.label}
+            {text(shown.label)}
           </span>
         )
       }
@@ -95,7 +120,9 @@ export function LawnMowerControl(props: ControlProps) {
           }}
         >
           <AppIcon id="play" size={15} />
-          {isResuming ? 'Resume' : 'Start mowing'}
+          {isResuming
+            ? t('entity.controls.lawnMowerControl.resume', 'Resume')
+            : t('entity.controls.lawnMowerControl.startMowing', 'Start mowing')}
         </Button>
         {params.canPause ? (
           <Button
@@ -106,7 +133,7 @@ export function LawnMowerControl(props: ControlProps) {
             }}
           >
             <AppIcon id="pause" size={15} />
-            Pause
+            {t('entity.controls.lawnMowerControl.pause', 'Pause')}
           </Button>
         ) : null}
         {params.canDock ? (
@@ -118,7 +145,7 @@ export function LawnMowerControl(props: ControlProps) {
             }}
           >
             <AppIcon id="house" size={15} />
-            Back to station
+            {t('entity.controls.lawnMowerControl.backToStation', 'Back to station')}
           </Button>
         ) : null}
         {params.canStop && isOut ? (
@@ -134,17 +161,25 @@ export function LawnMowerControl(props: ControlProps) {
             }}
           >
             <AppIcon id="square" size={15} />
-            {isConfirmingStop ? 'End the job?' : 'End job'}
+            {isConfirmingStop
+              ? t('entity.controls.lawnMowerControl.endTheJob', 'End the job?')
+              : t('entity.controls.lawnMowerControl.endJob', 'End job')}
           </Button>
         ) : null}
       </div>
       {isConfirmingStop ? (
         <p role="status" className="text-caption text-foreground-subtle">
-          The mower forgets where it got to: the next start mows the lawn from the beginning.
+          {t(
+            'entity.controls.lawnMowerControl.mowerForgetsWhereIt',
+            'The mower forgets where it got to: the next start mows the lawn from the beginning.',
+          )}
         </p>
       ) : isHeldByFault ? (
         <p className="text-caption text-foreground-subtle">
-          Once the fault is seen to, Resume carries on from where it stopped.
+          {t(
+            'entity.controls.lawnMowerControl.onceTheFaultIs',
+            'Once the fault is seen to, Resume carries on from where it stopped.',
+          )}
         </p>
       ) : null}
     </ControlBlock>

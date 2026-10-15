@@ -10,9 +10,11 @@
  * dashboard, is a door open. Locking is a tap - nothing is lost by a door locked by mistake.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { AppIcon, Button, cn, HoldButton, TextField } from '@nebulahome/ui';
 
+import { defineMessage, text } from '@/i18n/messages';
 import { paramsOf } from '@/library/entity-control';
 import {
   ControlBlock,
@@ -22,9 +24,21 @@ import {
 
 /** The words for each bolt position. */
 const STATES = {
-  locked: { label: 'Locked', icon: 'lock', className: 'text-foreground' },
-  unlocked: { label: 'Unlocked', icon: 'lock-open', className: 'text-warning' },
-  jammed: { label: 'Jammed', icon: 'triangle-alert', className: 'text-danger' },
+  locked: {
+    label: defineMessage('entity.controls.lockControl.locked', 'Locked'),
+    icon: 'lock',
+    className: 'text-foreground',
+  },
+  unlocked: {
+    label: defineMessage('entity.controls.lockControl.unlocked', 'Unlocked'),
+    icon: 'lock-open',
+    className: 'text-warning',
+  },
+  jammed: {
+    label: defineMessage('entity.controls.lockControl.jammed', 'Jammed'),
+    icon: 'triangle-alert',
+    className: 'text-danger',
+  },
 } as const;
 
 /**
@@ -34,6 +48,8 @@ const STATES = {
  * @returns The block.
  */
 export function LockControl(props: ControlProps) {
+  const { t } = useTranslation();
+
   const { entity, state, commander, disabled } = props;
   const [code, setCode] = useState('');
   const hasCode = paramsOf(entity, 'lock')?.hasCode === true;
@@ -52,21 +68,21 @@ export function LockControl(props: ControlProps) {
 
   return (
     <ControlBlock
-      title="Lock"
+      title={t('entity.controls.lockControl.lock', 'Lock')}
       value={
         state.lock === undefined ? (
           '—'
         ) : (
           <span className={cn('inline-flex items-center gap-1.5', shown.className)}>
             <AppIcon id={shown.icon} size={14} />
-            {shown.label}
+            {text(shown.label)}
           </span>
         )
       }
     >
       {hasCode ? (
         <TextField
-          label="Code"
+          label={t('entity.controls.lockControl.code', 'Code')}
           size="compact"
           type="password"
           inputMode="numeric"
@@ -87,7 +103,7 @@ export function LockControl(props: ControlProps) {
           }}
         >
           <AppIcon id="lock" size={15} />
-          Lock
+          {t('entity.controls.lockControl.lock', 'Lock')}
         </Button>
         <HoldButton
           disabled={disabled || busy || (hasCode && code === '')}
@@ -97,7 +113,7 @@ export function LockControl(props: ControlProps) {
         >
           <span className="inline-flex items-center gap-2">
             <AppIcon id="lock-open" size={15} />
-            Hold to unlock
+            {t('entity.controls.lockControl.holdToUnlock', 'Hold to unlock')}
           </span>
         </HoldButton>
       </div>

@@ -6,16 +6,25 @@
  * fields.
  * There is no shared state editor elsewhere in the library; these fields are the place.
  */
+import { useTranslation } from 'react-i18next';
+
 import { THERMOSTAT_MODES, type CapabilityState } from '@nebulahome/contracts';
 import { Segmented, SelectField, Slider, TextField } from '@nebulahome/ui';
 
 import { ColourPicker } from '@/components/colour-picker';
+import { defineMessage, text } from '@/i18n/messages';
 
 /** Playback options the editor offers. */
 const PLAYBACK_OPTIONS = [
-  { value: 'playing' as const, label: 'Playing' },
-  { value: 'paused' as const, label: 'Paused' },
-  { value: 'stopped' as const, label: 'Stopped' },
+  {
+    value: 'playing' as const,
+    label: defineMessage('library.sceneMemberFields.playing', 'Playing'),
+  },
+  { value: 'paused' as const, label: defineMessage('library.sceneMemberFields.paused', 'Paused') },
+  {
+    value: 'stopped' as const,
+    label: defineMessage('library.sceneMemberFields.stopped', 'Stopped'),
+  },
 ];
 
 /** Thermostat mode options. */
@@ -68,6 +77,8 @@ function thermostatMode(value: string): (typeof THERMOSTAT_MODES)[number] {
  * @returns The fields.
  */
 export function SceneMemberFields(props: SceneMemberFieldsProps) {
+  const { t } = useTranslation();
+
   const { targetState, onChange } = props;
   const power = targetState.on_off;
   const level = targetState.level;
@@ -86,11 +97,11 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
     <div className="flex flex-col gap-3.5">
       {power === undefined ? null : (
         <Segmented
-          label="Power"
+          label={t('library.sceneMemberFields.power', 'Power')}
           size="compact"
           options={[
-            { value: 'on', label: 'On' },
-            { value: 'off', label: 'Off' },
+            { value: 'on', label: t('common.on', 'On') },
+            { value: 'off', label: t('common.off', 'Off') },
           ]}
           value={power.isOn ? 'on' : 'off'}
           onChange={(value) => {
@@ -101,7 +112,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
 
       {level === undefined ? null : (
         <Slider
-          label="Level"
+          label={t('library.sceneMemberFields.level', 'Level')}
           min={0}
           max={100}
           value={level.level}
@@ -115,7 +126,14 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
       {colour === undefined ? null : (
         <div className="flex flex-col gap-2">
           <span className="text-ui text-foreground-muted">
-            Colour · {String(Math.round(colour.hue))}° · {String(Math.round(colour.saturation))}%
+            {t(
+              'library.sceneMemberFields.colourHueSaturation',
+              'Colour · {{hue}}° · {{saturation}}%',
+              {
+                hue: String(Math.round(colour.hue)),
+                saturation: String(Math.round(colour.saturation)),
+              },
+            )}
           </span>
           <ColourPicker
             value={colour}
@@ -132,13 +150,13 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
 
       {colourTemp === undefined ? null : (
         <TextField
-          label="Colour temperature"
+          label={t('library.sceneMemberFields.colourTemperature', 'Colour temperature')}
           size="compact"
           type="number"
           min={1}
           max={1000}
           value={String(colourTemp.mireds)}
-          hint="Mireds."
+          hint={t('library.sceneMemberFields.mireds', 'Mireds.')}
           onChange={(event) => {
             const mireds = Number(event.target.value);
 
@@ -154,7 +172,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
       {cover === undefined ? null : (
         <>
           <Slider
-            label="Position"
+            label={t('library.sceneMemberFields.position', 'Position')}
             min={0}
             max={100}
             value={cover.position}
@@ -165,7 +183,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
           />
           {cover.tilt === undefined ? null : (
             <Slider
-              label="Tilt"
+              label={t('library.sceneMemberFields.tilt', 'Tilt')}
               min={0}
               max={100}
               value={cover.tilt}
@@ -180,11 +198,11 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
 
       {lock === undefined ? null : (
         <Segmented
-          label="Lock"
+          label={t('library.sceneMemberFields.lock', 'Lock')}
           size="compact"
           options={[
-            { value: 'locked', label: 'Locked' },
-            { value: 'unlocked', label: 'Unlocked' },
+            { value: 'locked', label: t('library.sceneMemberFields.locked', 'Locked') },
+            { value: 'unlocked', label: t('library.sceneMemberFields.unlocked', 'Unlocked') },
           ]}
           value={lock.lockState === 'unlocked' ? 'unlocked' : 'locked'}
           onChange={(lockState) => {
@@ -196,7 +214,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
       {thermostat === undefined ? null : (
         <>
           <TextField
-            label="Target temperature"
+            label={t('library.sceneMemberFields.targetTemperature', 'Target temperature')}
             size="compact"
             type="number"
             step={0.5}
@@ -213,7 +231,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
             }}
           />
           <SelectField
-            label="Mode"
+            label={t('library.sceneMemberFields.mode', 'Mode')}
             size="compact"
             options={MODE_OPTIONS}
             value={thermostat.mode}
@@ -232,9 +250,9 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
       {media === undefined ? null : (
         <>
           <Segmented
-            label="Playback"
+            label={t('library.sceneMemberFields.playback', 'Playback')}
             size="compact"
-            options={PLAYBACK_OPTIONS}
+            options={PLAYBACK_OPTIONS.map((option) => ({ ...option, label: text(option.label) }))}
             value={playback}
             onChange={(next) => {
               onChange(
@@ -246,7 +264,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
             }}
           />
           <Slider
-            label="Volume"
+            label={t('library.sceneMemberFields.volume', 'Volume')}
             min={0}
             max={100}
             value={media.volume}
@@ -256,11 +274,11 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
             }}
           />
           <Segmented
-            label="Muted"
+            label={t('library.sceneMemberFields.muted', 'Muted')}
             size="compact"
             options={[
-              { value: 'on', label: 'On' },
-              { value: 'off', label: 'Off' },
+              { value: 'on', label: t('common.on', 'On') },
+              { value: 'off', label: t('common.off', 'Off') },
             ]}
             value={media.isMuted ? 'on' : 'off'}
             onChange={(value) => {

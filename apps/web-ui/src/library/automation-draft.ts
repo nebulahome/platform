@@ -29,6 +29,8 @@ import {
   type EntityId,
 } from '@nebulahome/contracts';
 
+import { defineMessage, type Message, text, translate } from '@/i18n/messages';
+
 /**
  * A half-written entity address.
  *
@@ -298,14 +300,14 @@ export type DraftResult =
   | { readonly ok: false; readonly problems: readonly string[] };
 
 /** The lists a path can name, in the words the editor uses. */
-const LIST_WORDS: Readonly<Record<string, string>> = {
-  then: 'Then',
-  else: 'Else',
-  actions: 'Inside',
-  default: 'Otherwise',
-  conditions: 'Conditions',
-  branches: 'Branch',
-  cases: 'Case',
+const LIST_WORDS: Readonly<Record<string, Message>> = {
+  then: defineMessage('library.automationDraft.then', 'Then'),
+  else: defineMessage('library.automationDraft.else', 'Else'),
+  actions: defineMessage('library.automationDraft.inside', 'Inside'),
+  default: defineMessage('library.automationDraft.otherwise', 'Otherwise'),
+  conditions: defineMessage('library.automationDraft.conditions', 'Conditions'),
+  branches: defineMessage('library.automationDraft.branch', 'Branch'),
+  cases: defineMessage('library.automationDraft.case', 'Case'),
 };
 
 /**
@@ -318,7 +320,13 @@ export function describePath(path: readonly PropertyKey[]): string {
   const parts = path.map(String);
   const [group, ...rest] = parts;
   const words: string[] = [
-    group === 'triggers' ? 'When' : group === 'if' ? 'If' : group === 'then' ? 'Then' : '',
+    group === 'triggers'
+      ? translate('library.automationDraft.when', 'When')
+      : group === 'if'
+        ? translate('library.automationDraft.if', 'If')
+        : group === 'then'
+          ? translate('library.automationDraft.then', 'Then')
+          : '',
   ];
   const noun = group === 'triggers' ? 'trigger' : group === 'if' ? 'condition' : 'block';
   let current = noun;
@@ -335,18 +343,25 @@ export function describePath(path: readonly PropertyKey[]): string {
       continue;
     }
 
-    const word = LIST_WORDS[part];
+    const listWord = LIST_WORDS[part];
+    const word = listWord === undefined ? undefined : text(listWord);
 
     if (word === undefined) {
       words.push(part);
       continue;
     }
 
-    current = part === 'conditions' ? 'condition' : 'block';
+    current =
+      part === 'conditions'
+        ? translate('library.automationDraft.condition', 'condition')
+        : translate('library.automationDraft.block', 'block');
     words.push(word);
   }
 
-  return words.filter((word) => word !== '').join(' › ') || 'The rule';
+  return (
+    words.filter((word) => word !== '').join(' › ') ||
+    translate('library.automationDraft.rule', 'The rule')
+  );
 }
 
 /**
@@ -360,18 +375,18 @@ function describeIssue(issue: z.core.$ZodIssue): string {
 
   if (issue.code === 'too_small' && issue.origin === 'array') {
     return last === 'conditions'
-      ? 'add a condition'
+      ? translate('library.automationDraft.addACondition', 'add a condition')
       : last === 'states'
-        ? 'choose a state'
-        : 'add a block';
+        ? translate('library.automationDraft.chooseAState', 'choose a state')
+        : translate('library.automationDraft.addABlock', 'add a block');
   }
 
   if (issue.code === 'too_small' && issue.origin === 'string' && Number(issue.minimum) <= 1) {
-    return 'needs a value';
+    return translate('library.automationDraft.needsAValue', 'needs a value');
   }
 
   if (issue.code === 'invalid_type') {
-    return 'has not been filled in';
+    return translate('library.automationDraft.hasNotBeenFilled', 'has not been filled in');
   }
 
   if (issue.code === 'invalid_union' && last === 'type') {
@@ -391,19 +406,24 @@ export function toCreate(draft: AutomationDraft): DraftResult {
   const problems: string[] = [];
 
   if (draft.name.trim() === '') {
-    problems.push('It needs a name.');
+    problems.push(translate('library.automationDraft.itNeedsAName', 'It needs a name.'));
   }
 
   if (!/^[a-z][a-z0-9_]{1,62}$/u.test(draft.key)) {
-    problems.push('The key must be lower case letters, digits and underscores.');
+    problems.push(
+      translate(
+        'library.automationDraft.keyMustBeLower',
+        'The key must be lower case letters, digits and underscores.',
+      ),
+    );
   }
 
   if (draft.triggers.length === 0) {
-    problems.push('When: add a trigger');
+    problems.push(translate('library.automationDraft.whenAddATrigger', 'When: add a trigger'));
   }
 
   if (draft.then.length === 0) {
-    problems.push('Then: add a block');
+    problems.push(translate('library.automationDraft.thenAddABlock', 'Then: add a block'));
   }
 
   const definition = automationDefinitionSchema.safeParse({

@@ -11,6 +11,7 @@
  * spanner on an entity's row leads.
  */
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams } from 'react-router';
 
 import { pollIntervalMsOf } from '@nebulahome/contracts';
@@ -62,6 +63,8 @@ function everyText(ms: number): string {
  * @returns The strip.
  */
 function EntityHealth(props: { readonly view: EntityPageView }) {
+  const { t } = useTranslation();
+
   const { view } = props;
   const { entity, reading, device, vendorName } = view;
   const nameOf = useCauseNames();
@@ -96,34 +99,38 @@ function EntityHealth(props: { readonly view: EntityPageView }) {
   return (
     <HealthStrip>
       <HealthCard
-        label="Availability"
+        label={t('entity.entity.availability', 'Availability')}
         tone={reading.isAvailable ? 'success' : 'warning'}
         value={reading.isAvailable ? 'Reporting' : 'Unreachable'}
         detail={
           reading.isAvailable
-            ? `${every === undefined ? 'On every change' : everyText(every)} · ${seen}`
-            : `Last value ${seen}`
+            ? `${every === undefined ? t('entity.entity.onEveryChange', 'On every change') : everyText(every)} · ${seen}`
+            : t('entity.entity.lastValue', 'Last value {{seen}}', { seen })
         }
       />
       <HealthCard
-        label="Last change"
+        label={t('entity.entity.lastChange', 'Last change')}
         tone="success"
-        value={entity.lastChanged === null ? 'None yet' : relativeTime(entity.lastChanged)}
+        value={
+          entity.lastChanged === null
+            ? t('entity.entity.noneYet', 'None yet')
+            : relativeTime(entity.lastChanged)
+        }
         detail={
           isReading
             ? reading.text
             : latest === undefined
-              ? 'Nothing changed today'
-              : `${latest.isAvailable ? 'Changed' : 'Went away'} · ${nameOf(latest.context).label}`
+              ? t('entity.entity.nothingChangedToday', 'Nothing changed today')
+              : `${latest.isAvailable ? t('entity.entity.changed', 'Changed') : t('entity.entity.wentAway', 'Went away')} · ${nameOf(latest.context).label}`
         }
       />
       <HealthCard
-        label="Device"
+        label={t('entity.entity.device', 'Device')}
         tone={device === undefined ? 'neutral' : device.state === 'failed' ? 'warning' : 'success'}
         value={device?.name ?? 'None'}
         detail={
           device === undefined
-            ? 'It is worked out, not a device'
+            ? t('entity.entity.itIsWorkedOut', 'It is worked out, not a device')
             : [
                 device.model ?? device.driverName,
                 device.state === 'running' ? 'reporting' : device.state,
@@ -133,7 +140,7 @@ function EntityHealth(props: { readonly view: EntityPageView }) {
         }
       />
       <HealthCard
-        label="Integration"
+        label={t('entity.entity.integration', 'Integration')}
         tone={device?.state === 'failed' ? 'warning' : 'success'}
         value={vendorName ?? 'Nebula Home'}
         detail={device?.state === 'failed' ? (device.lastError ?? 'Failing') : 'Running'}
@@ -148,6 +155,8 @@ function EntityHealth(props: { readonly view: EntityPageView }) {
  * @returns The page.
  */
 export function EntityPage() {
+  const { t } = useTranslation();
+
   const { entityId = '' } = useParams();
   const [params, setParams] = useSearchParams();
   const isSettingsOpen = params.has(ENTITY_SETTINGS_PARAM);
@@ -191,7 +200,7 @@ export function EntityPage() {
           <DetailHero
             back={
               view?.device === undefined ? (
-                <BackLink to="/devices">Devices</BackLink>
+                <BackLink to="/devices">{t('entity.entity.devices', 'Devices')}</BackLink>
               ) : (
                 <BackLink to={devicePath(view.device.id)}>{view.device.name}</BackLink>
               )
@@ -225,7 +234,9 @@ export function EntityPage() {
                           : 'neutral'
                     }
                   >
-                    {view.reading.isAvailable ? view.reading.text : 'Unreachable'}
+                    {view.reading.isAvailable
+                      ? view.reading.text
+                      : t('entity.entity.unreachable', 'Unreachable')}
                   </Pill>
                   {place === '' ? null : <HeroFact icon="house">{place}</HeroFact>}
                   <HeroFact className="font-mono">{view.entity.entityId}</HeroFact>
@@ -236,13 +247,15 @@ export function EntityPage() {
               view === undefined ? undefined : (
                 <Button
                   variant="ghost"
-                  aria-label={`Configure ${view.entity.name}`}
+                  aria-label={t('entity.entity.configureName', 'Configure {{name}}', {
+                    name: view.entity.name,
+                  })}
                   onClick={() => {
                     showSettings(true);
                   }}
                 >
                   <AppIcon id="settings" size={15} />
-                  Settings
+                  {t('entity.entity.settings', 'Settings')}
                 </Button>
               )
             }

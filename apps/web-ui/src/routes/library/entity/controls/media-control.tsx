@@ -5,6 +5,8 @@
  * knows how long the track is, a volume for one whose volume can be set, an input for one that
  * listed its inputs. Play and pause are one button that says which it will do.
  */
+import { useTranslation } from 'react-i18next';
+
 import { AppIcon, IconButton, SelectField, Slider } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
@@ -35,6 +37,8 @@ function clock(seconds: number): string {
  * @returns The block.
  */
 export function MediaControl(props: ControlProps) {
+  const { t } = useTranslation();
+
   const { entity, state, reportedAt, commander, disabled } = props;
   const params = paramsOf(entity, 'media_player') ?? {
     supportedSources: [],
@@ -50,7 +54,7 @@ export function MediaControl(props: ControlProps) {
 
   return (
     <ControlBlock
-      title="Playback"
+      title={t('entity.controls.mediaControl.playback', 'Playback')}
       value={
         media === undefined ? '—' : media.playback.charAt(0).toUpperCase() + media.playback.slice(1)
       }
@@ -61,7 +65,7 @@ export function MediaControl(props: ControlProps) {
 
       {params.hasSeek && duration !== undefined && duration > 0 ? (
         <Slider
-          label="Position"
+          label={t('entity.controls.mediaControl.position', 'Position')}
           value={Math.round(position.shown)}
           min={0}
           max={Math.round(duration)}
@@ -79,7 +83,7 @@ export function MediaControl(props: ControlProps) {
         <IconButton
           variant="raised"
           size="large"
-          label="Previous"
+          label={t('entity.controls.mediaControl.previous', 'Previous')}
           disabled={disabled}
           onClick={() => {
             commander.send('media_player', { command: 'previous' });
@@ -90,7 +94,11 @@ export function MediaControl(props: ControlProps) {
         <IconButton
           variant="raised"
           size="large"
-          label={isPlaying ? 'Pause' : 'Play'}
+          label={
+            isPlaying
+              ? t('entity.controls.mediaControl.pause', 'Pause')
+              : t('entity.controls.mediaControl.play', 'Play')
+          }
           disabled={disabled}
           onClick={() => {
             commander.send('media_player', { command: isPlaying ? 'pause' : 'play' });
@@ -101,7 +109,7 @@ export function MediaControl(props: ControlProps) {
         <IconButton
           variant="raised"
           size="large"
-          label="Stop"
+          label={t('entity.controls.mediaControl.stop', 'Stop')}
           disabled={disabled}
           onClick={() => {
             commander.send('media_player', { command: 'stop' });
@@ -112,7 +120,7 @@ export function MediaControl(props: ControlProps) {
         <IconButton
           variant="raised"
           size="large"
-          label="Next"
+          label={t('entity.controls.mediaControl.next', 'Next')}
           disabled={disabled}
           onClick={() => {
             commander.send('media_player', { command: 'next' });
@@ -126,7 +134,11 @@ export function MediaControl(props: ControlProps) {
         <div className="flex items-end gap-3">
           <IconButton
             variant="bare"
-            label={media?.isMuted === true ? 'Unmute' : 'Mute'}
+            label={
+              media?.isMuted === true
+                ? t('entity.controls.mediaControl.unmute', 'Unmute')
+                : t('entity.controls.mediaControl.mute', 'Mute')
+            }
             disabled={disabled}
             onClick={() => {
               commander.send('media_player', {
@@ -138,7 +150,7 @@ export function MediaControl(props: ControlProps) {
             <AppIcon id={media?.isMuted === true ? 'volume-x' : 'volume-2'} size={16} />
           </IconButton>
           <Slider
-            label="Volume"
+            label={t('entity.controls.mediaControl.volume', 'Volume')}
             className="grow"
             value={Math.round(volume.shown)}
             min={0}
@@ -156,7 +168,7 @@ export function MediaControl(props: ControlProps) {
 
       {params.supportedSources.length === 0 ? null : (
         <SelectField
-          label="Input"
+          label={t('entity.controls.mediaControl.input', 'Input')}
           size="compact"
           options={params.supportedSources.map((source) => ({ value: source, label: source }))}
           value={media?.source ?? ''}

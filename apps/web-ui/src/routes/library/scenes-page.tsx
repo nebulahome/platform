@@ -12,6 +12,7 @@
  */
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 
 import type { EntityView, SceneApplyResult, SceneView } from '@nebulahome/contracts';
@@ -74,6 +75,8 @@ const SORTS = ['name', 'members'] as const;
  * @returns The page.
  */
 export function ScenesPage() {
+  const { t } = useTranslation();
+
   const can = useSession((state) => state.can);
   const canWrite = can('scene:write');
   const canApply = can('scene:apply');
@@ -147,7 +150,7 @@ export function ScenesPage() {
       ),
     ),
     filter.areaKey,
-    'Any area',
+    t('library.scenes.anyArea', 'Any area'),
     true,
   );
 
@@ -185,7 +188,11 @@ export function ScenesPage() {
           next.set(
             result.sceneId,
             failed.length === 0
-              ? `${String(result.failed)} entit${result.failed === 1 ? 'y' : 'ies'} failed.`
+              ? t('library.scenes.entitiesFailed', {
+                  count: result.failed,
+                  defaultValue_one: '{{count}} entity failed.',
+                  defaultValue_other: '{{count}} entities failed.',
+                })
               : failed.join(' · '),
           );
 
@@ -215,35 +222,41 @@ export function ScenesPage() {
 
   return (
     <LibraryPage
-      title="Scenes"
-      noun="scene"
+      title={t('library.scenes.scenes', 'Scenes')}
+      counted={(count) =>
+        t('library.scenes.count', {
+          count,
+          defaultValue_one: '{{count}} scene',
+          defaultValue_other: '{{count}} scenes',
+        })
+      }
       count={scenes.isPending ? undefined : items.length}
       shownCount={shown.length}
       summary={[`${String(memberCount)} ${memberCount === 1 ? 'entity' : 'entities'} set`]}
       tools={
         <>
           <SearchField
-            placeholder="Search scenes, members…"
+            placeholder={t('library.scenes.searchScenesMembers', 'Search scenes, members…')}
             value={filter.search}
             onChange={(search) => {
               setFilter({ ...filter, search });
             }}
           />
           <FilterSheet
-            label="Narrow the scenes"
+            label={t('library.scenes.narrowTheScenes', 'Narrow the scenes')}
             count={Number(filter.areaKey !== '')}
             onClear={() => {
               setFilter({ ...filter, areaKey: '' });
             }}
           >
-            <Facet title="Area">
+            <Facet title={t('library.scenes.area', 'Area')}>
               {areaOptions.length === 1 ? (
                 <span className="text-caption text-foreground-subtle">
-                  No scene is placed in an area yet.
+                  {t('library.scenes.noSceneIsPlaced', 'No scene is placed in an area yet.')}
                 </span>
               ) : (
                 <SelectField
-                  label="Area"
+                  label={t('library.scenes.area', 'Area')}
                   isLabelHidden
                   size="compact"
                   options={areaOptions}
@@ -265,7 +278,7 @@ export function ScenesPage() {
             }}
           >
             <AppIcon id="plus" size={15} />
-            New scene
+            {t('library.scenes.newScene', 'New scene')}
           </Button>
         ) : undefined
       }
@@ -275,8 +288,11 @@ export function ScenesPage() {
       empty={
         <EmptyState
           icon={<AppIcon id="layers" size={28} />}
-          title="Create your first scene"
-          description="A scene remembers how a group of devices should be - lamps dimmed, blinds half closed, music low - and puts all of it back with one press, or from an automation."
+          title={t('library.scenes.createYourFirstScene', 'Create your first scene')}
+          description={t(
+            'library.scenes.sceneRemembersHowA',
+            'A scene remembers how a group of devices should be - lamps dimmed, blinds half closed, music low - and puts all of it back with one press, or from an automation.',
+          )}
           action={
             canWrite ? (
               <Button
@@ -285,7 +301,7 @@ export function ScenesPage() {
                 }}
               >
                 <AppIcon id="plus" size={15} />
-                New scene
+                {t('library.scenes.newScene', 'New scene')}
               </Button>
             ) : undefined
           }
@@ -305,7 +321,7 @@ export function ScenesPage() {
         <div className="overflow-hidden rounded-card border border-border bg-surface">
           <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 border-b border-border px-5 py-3 font-mono text-label text-foreground-subtle uppercase md:grid-cols-[minmax(0,1fr)_96px_auto_36px]">
             <SortHeader
-              label="Scene"
+              label={t('library.scenes.scene', 'Scene')}
               isSorted={paging.sort === 'name'}
               direction={paging.direction}
               onSort={() => {
@@ -314,7 +330,7 @@ export function ScenesPage() {
               className="justify-self-start"
             />
             <SortHeader
-              label="Members"
+              label={t('library.scenes.members', 'Members')}
               isSorted={paging.sort === 'members'}
               direction={paging.direction}
               onSort={() => {
@@ -385,17 +401,19 @@ export function ScenesPage() {
                         }}
                       >
                         <AppIcon id="play" size={13} />
-                        Apply
+                        {t('library.scenes.apply', 'Apply')}
                       </Button>
                     ) : null}
                   </span>
                   <span className="hidden md:block">
                     {canWrite ? (
                       <OverflowMenu
-                        label={`More for ${scene.name}`}
+                        label={t('library.scenes.moreForName', 'More for {{name}}', {
+                          name: scene.name,
+                        })}
                         items={[
                           {
-                            label: 'Edit',
+                            label: t('common.edit', 'Edit'),
                             icon: 'pencil',
                             /** Opens the scene's page. */
                             onSelect: () => {

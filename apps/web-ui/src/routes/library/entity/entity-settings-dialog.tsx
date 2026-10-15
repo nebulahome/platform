@@ -17,6 +17,7 @@
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { EntityUpdate, EntityView } from '@nebulahome/contracts';
 import { Button, Modal } from '@nebulahome/ui';
@@ -80,6 +81,8 @@ export function diffOf(
  * @returns The dialog.
  */
 export function EntitySettingsDialog(props: EntitySettingsDialogProps) {
+  const { t } = useTranslation();
+
   const { entity, isOpen, onClose, canCreateTags, canEdit } = props;
   const queryClient = useQueryClient();
   const { tags, create } = useTags();
@@ -122,7 +125,7 @@ export function EntitySettingsDialog(props: EntitySettingsDialogProps) {
   /** Saves what changed. */
   const submit = (): void => {
     if (name.trim() === '') {
-      setProblem('The name cannot be blank.');
+      setProblem(t('entity.entitySettingsDialog.nameCannotBeBlank', 'The name cannot be blank.'));
 
       return;
     }
@@ -139,20 +142,22 @@ export function EntitySettingsDialog(props: EntitySettingsDialogProps) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Configure ${entity.name}`}
+      title={t('entity.entitySettingsDialog.configureName', 'Configure {{name}}', {
+        name: entity.name,
+      })}
       footer={
         canEdit ? (
           <>
             <Button variant="ghost" disabled={save.isPending} onClick={onClose}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button isBusy={save.isPending} disabled={change === null} onClick={submit}>
-              Save
+              {t('common.save', 'Save')}
             </Button>
           </>
         ) : (
           <Button variant="ghost" onClick={onClose}>
-            Close
+            {t('common.close', 'Close')}
           </Button>
         )
       }
@@ -186,7 +191,10 @@ export function EntitySettingsDialog(props: EntitySettingsDialogProps) {
 
         {canEdit ? null : (
           <p className="text-caption text-foreground-subtle">
-            Your role lets you see these settings but not change them.
+            {t(
+              'entity.entitySettingsDialog.yourRoleLetsYou',
+              'Your role lets you see these settings but not change them.',
+            )}
           </p>
         )}
         {problem === null ? null : (

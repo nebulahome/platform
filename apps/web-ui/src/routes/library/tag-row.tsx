@@ -8,12 +8,14 @@
  * is for. The spanner opens the tag's own dialog, to rename, recolour or delete it.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { DeviceView, EntityView, TagView } from '@nebulahome/contracts';
 import { cn, IconButton, TagChip } from '@nebulahome/ui';
 
 import { ChevronIcon, WrenchIcon } from '@/components/icons';
+import { translate } from '@/i18n/messages';
 import { devicePath } from '@/routes/library/device/device-path';
 import { DeviceIcon, type DeviceIcons } from '@/routes/library/device-icon';
 
@@ -62,7 +64,9 @@ export function describeCarriers(tag: TagView): string {
       : `${String(tag.entityCount)} entit${tag.entityCount === 1 ? 'y' : 'ies'}`,
   ].filter((part) => part !== null);
 
-  return parts.length === 0 ? 'On nothing yet' : parts.join(' · ');
+  return parts.length === 0
+    ? translate('library.tagRow.onNothingYet', 'On nothing yet')
+    : parts.join(' · ');
 }
 
 /**
@@ -76,6 +80,8 @@ export function describeCarriers(tag: TagView): string {
  * @returns The row, and what carries the tag when open.
  */
 export function TagRow(props: TagRowProps) {
+  const { t } = useTranslation();
+
   const { tag, devices, entities, icons, isOpen, onToggle, canEdit, onEdit } = props;
 
   return (
@@ -105,7 +111,7 @@ export function TagRow(props: TagRowProps) {
             <IconButton
               variant="bare"
               size="small"
-              label={`Configure ${tag.name}`}
+              label={t('library.tagRow.configureName', 'Configure {{name}}', { name: tag.name })}
               className="text-foreground-subtle hover:text-foreground"
               onClick={onEdit}
             >
@@ -117,7 +123,7 @@ export function TagRow(props: TagRowProps) {
 
       {isOpen ? (
         <div className="grid gap-4 bg-surface-raised px-4 pt-1 pb-4 md:grid-cols-2">
-          <Carried title="Devices" isEmpty={devices.length === 0}>
+          <Carried title={t('library.tagRow.devices', 'Devices')} isEmpty={devices.length === 0}>
             {devices.map((device) => (
               <li key={device.id}>
                 <Link
@@ -134,7 +140,7 @@ export function TagRow(props: TagRowProps) {
               </li>
             ))}
           </Carried>
-          <Carried title="Entities" isEmpty={entities.length === 0}>
+          <Carried title={t('library.tagRow.entities', 'Entities')} isEmpty={entities.length === 0}>
             {entities.map((entity) => (
               <li
                 key={entity.entityId}
@@ -176,13 +182,17 @@ type CarriedProps = {
  * @returns The list, or a line saying it is empty.
  */
 function Carried(props: CarriedProps) {
+  const { t } = useTranslation();
+
   const { title, isEmpty, children } = props;
 
   return (
     <div className="flex flex-col gap-1.5">
       <span className="font-mono text-label text-foreground-subtle uppercase">{title}</span>
       {isEmpty ? (
-        <span className="text-caption text-foreground-subtle">None carry it.</span>
+        <span className="text-caption text-foreground-subtle">
+          {t('library.tagRow.noneCarryIt', 'None carry it.')}
+        </span>
       ) : (
         <ul className="flex flex-col gap-1.5">{children}</ul>
       )}

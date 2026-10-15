@@ -16,6 +16,8 @@ import {
   type JsonObject,
 } from '@nebulahome/contracts';
 
+import { dateTimeFormat } from '@/i18n/formatters';
+import { translate } from '@/i18n/messages';
 import { capabilityLabel } from '@/library/entity-kind';
 import { describeState } from '@/library/entity-reading';
 
@@ -118,13 +120,13 @@ function summaryOfChanges(changes: readonly ActivityChange[]): {
   const [first] = changes;
 
   if (first === undefined) {
-    return { summary: 'Changed', tone: 'change' };
+    return { summary: translate('library.deviceActivity.changed', 'Changed'), tone: 'change' };
   }
 
   if (first.capability === 'on_off' && changes.length === 1) {
     return first.after === 'On'
-      ? { summary: 'Turned on', tone: 'on' }
-      : { summary: 'Turned off', tone: 'off' };
+      ? { summary: translate('library.deviceActivity.turnedOn', 'Turned on'), tone: 'on' }
+      : { summary: translate('library.deviceActivity.turnedOff', 'Turned off'), tone: 'off' };
   }
 
   const bare = first.capability === 'on_off' || first.capability.startsWith('sensor_');
@@ -133,7 +135,13 @@ function summaryOfChanges(changes: readonly ActivityChange[]): {
   const more = changes.length - 1;
 
   return {
-    summary: more === 0 ? said : `${said} and ${String(more)} more`,
+    summary:
+      more === 0
+        ? said
+        : translate('library.deviceActivity.saidAndMoreMore', '{{said}} and {{more}} more', {
+            said,
+            more: String(more),
+          }),
     tone: 'change',
   };
 }
@@ -171,7 +179,17 @@ export function activityLinesOf(
           ...previous,
           key: `${previous.key}+${entry.entityId}`,
           title: deviceName,
-          summary: `${entry.isAvailable ? 'Came back online' : 'Went offline'} · ${String(covered.length)} entities`,
+          summary: entry.isAvailable
+            ? translate('library.deviceActivity.cameBackOnlineCount', {
+                count: covered.length,
+                defaultValue_one: 'Came back online · {{count}} entity',
+                defaultValue_other: 'Came back online · {{count}} entities',
+              })
+            : translate('library.deviceActivity.wentOfflineCount', {
+                count: covered.length,
+                defaultValue_one: 'Went offline · {{count}} entity',
+                defaultValue_other: 'Went offline · {{count}} entities',
+              }),
           entries: covered,
         };
         continue;
@@ -182,7 +200,9 @@ export function activityLinesOf(
         time: entry.time,
         kind: 'availability',
         title: name,
-        summary: entry.isAvailable ? 'Came back online' : 'Went offline',
+        summary: entry.isAvailable
+          ? translate('library.deviceActivity.cameBackOnline', 'Came back online')
+          : translate('library.deviceActivity.wentOffline', 'Went offline'),
         tone: entry.isAvailable ? 'online' : 'offline',
         changes: [],
         entries: [entry],
@@ -227,14 +247,14 @@ export function dayOf(when: Date, now: Date = new Date()): string {
   const days = Math.round((midnight(now) - midnight(when)) / 86_400_000);
 
   if (days === 0) {
-    return 'Today';
+    return translate('library.deviceActivity.today', 'Today');
   }
 
   if (days === 1) {
-    return 'Yesterday';
+    return translate('library.deviceActivity.yesterday', 'Yesterday');
   }
 
-  return new Intl.DateTimeFormat(undefined, {
+  return dateTimeFormat({
     weekday: 'long',
     day: 'numeric',
     month: 'long',

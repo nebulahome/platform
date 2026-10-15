@@ -15,6 +15,7 @@
  * one or two facts about them worth knowing before reading the list.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import { cn, PageHeader, Panel } from '@nebulahome/ui';
@@ -27,16 +28,13 @@ export type LibraryPageProps = {
   /** What this page is about. */
   readonly title: string;
 
-  /** What the collection is called when it is counted, e.g. `automation`. */
-  readonly noun: string;
-
   /**
-   * What several of them are called, when adding an `s` does not say it.
+   * How a number of them is said, e.g. `3 automations`.
    *
-   * `alias` is the one so far: without this the header read `0 aliass`, which is the kind of
-   * word that makes a person doubt the number beside it.
+   * A function rather than a noun, because the plural is the language's business: English adds
+   * an `s` (but not to `alias`), Italian changes the ending, and the catalogue knows both.
    */
-  readonly plural?: string | undefined;
+  readonly counted: (count: number) => string;
 
   /** How many there are. Undefined while it is still being read. */
   readonly count?: number | undefined;
@@ -108,10 +106,11 @@ export type LibraryPageProps = {
  * @returns The page.
  */
 export function LibraryPage(props: LibraryPageProps) {
+  const { t } = useTranslation();
+
   const {
     title,
-    noun,
-    plural = `${noun}s`,
+    counted,
     count,
     shownCount,
     parent,
@@ -154,9 +153,11 @@ export function LibraryPage(props: LibraryPageProps) {
             count === undefined || isShowingEmpty ? undefined : (
               <>
                 {shownCount === undefined || shownCount === count
-                  ? ''
-                  : `${String(shownCount)} of `}
-                {count} {count === 1 ? noun : plural}
+                  ? counted(count)
+                  : t('library.library.shownOf', '{{shown}} of {{counted}}', {
+                      shown: shownCount,
+                      counted: counted(count),
+                    })}
                 {facts.map((fact) => ` · ${fact}`).join('')}
               </>
             )
@@ -175,10 +176,10 @@ export function LibraryPage(props: LibraryPageProps) {
 
         {isPending ? (
           empty === undefined ? (
-            <Placeholder>Reading…</Placeholder>
+            <Placeholder>{t('library.library.reading', 'Reading…')}</Placeholder>
           ) : (
             <p role="status" className="py-16 text-center text-ui text-foreground-subtle">
-              Reading…
+              {t('library.library.reading', 'Reading…')}
             </p>
           )
         ) : null}
@@ -239,10 +240,12 @@ function Placeholder(props: MessageProps) {
  * @returns The notice.
  */
 function Refusal(props: MessageProps) {
+  const { t } = useTranslation();
+
   const { children } = props;
 
   return (
-    <Panel title="Could not read">
+    <Panel title={t('library.library.couldNotRead', 'Could not read')}>
       <p role="alert" className="border-t border-border px-5.5 py-3.5 text-ui text-danger">
         {children}
       </p>

@@ -8,6 +8,7 @@
  * log. The second lists what was heard and passed over, with why: still being paired, a model no
  * driver takes, disabled in Zigbee2MQTT.
  */
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { IntegrationVendorView } from '@nebulahome/contracts';
@@ -27,6 +28,8 @@ export type ListenerCalloutProps = {
  * @returns The callout, or nothing while the listener hears what it listens to.
  */
 export function ListenerCallout(props: ListenerCalloutProps) {
+  const { t } = useTranslation();
+
   const { vendor } = props;
   const listener = vendor.listener;
 
@@ -52,7 +55,13 @@ export function ListenerCallout(props: ListenerCalloutProps) {
       />
       <div className="flex min-w-0 grow flex-col gap-1">
         <p className="text-ui font-medium text-foreground">
-          {isError ? `${vendor.name} cannot be heard` : `Nothing heard from ${vendor.name} yet`}
+          {isError
+            ? t('library.vendorHearing.nameCannotBeHeard', '{{name}} cannot be heard', {
+                name: vendor.name,
+              })
+            : t('library.vendorHearing.nothingHeardFromName', 'Nothing heard from {{name}} yet', {
+                name: vendor.name,
+              })}
         </p>
         <p className="text-ui leading-relaxed text-foreground-muted">{listener.message}</p>
         {container?.containerName == null ? null : (
@@ -60,7 +69,7 @@ export function ListenerCallout(props: ListenerCalloutProps) {
             to={`/containers/${encodeURIComponent(container.containerName)}`}
             className="self-start text-ui text-primary underline-offset-2 hover:underline"
           >
-            Open its log
+            {t('library.vendorHearing.openItsLog', 'Open its log')}
           </Link>
         )}
       </div>
@@ -80,6 +89,8 @@ export type PassedOverPanelProps = {
  * @returns The panel, or nothing when every device heard was added.
  */
 export function PassedOverPanel(props: PassedOverPanelProps) {
+  const { t } = useTranslation();
+
   const { vendor } = props;
 
   if (vendor.passedOver.length === 0) {
@@ -87,7 +98,11 @@ export function PassedOverPanel(props: PassedOverPanelProps) {
   }
 
   return (
-    <Panel title={`Seen but not added · ${String(vendor.passedOver.length)}`}>
+    <Panel
+      title={t('library.vendorHearing.seenButNotAdded', 'Seen but not added · {{count}}', {
+        count: vendor.passedOver.length,
+      })}
+    >
       <ul className="flex flex-col divide-y divide-border">
         {vendor.passedOver.map((device) => (
           <li key={device.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
@@ -102,7 +117,7 @@ export function PassedOverPanel(props: PassedOverPanelProps) {
             </span>
             <span className="flex items-center gap-2">
               <Badge tone="neutral" size="small">
-                Not added
+                {t('library.vendorHearing.notAdded', 'Not added')}
               </Badge>
               <span className="text-caption text-foreground-subtle">
                 {relativeTime(device.heardAt)}

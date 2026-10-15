@@ -16,6 +16,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { IconView } from '@nebulahome/contracts';
 import { CatalogueIcon, cn, FieldShell } from '@nebulahome/ui';
@@ -57,6 +58,8 @@ export type NameIconFieldProps = {
  * @returns The field, and the picker it opens.
  */
 export function NameIconField(props: NameIconFieldProps) {
+  const { t } = useTranslation();
+
   const {
     label = 'Name',
     value,
@@ -100,7 +103,7 @@ export function NameIconField(props: NameIconFieldProps) {
           >
             <button
               type="button"
-              aria-label="Change icon"
+              aria-label={t('library.nameIconField.changeIcon', 'Change icon')}
               aria-describedby={ids.describedBy}
               onClick={() => {
                 setPicking(true);
@@ -115,7 +118,9 @@ export function NameIconField(props: NameIconFieldProps) {
               ) : (
                 <CatalogueIcon node={shown.node} frame={shown.frame} size={22} />
               )}
-              <span className="sr-only">{shown?.name ?? icon ?? 'None'}</span>
+              <span className="sr-only">
+                {shown?.name ?? icon ?? t('library.nameIconField.none', 'None')}
+              </span>
             </button>
             <input
               id={ids.id}

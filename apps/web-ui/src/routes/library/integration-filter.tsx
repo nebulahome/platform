@@ -7,6 +7,8 @@
  * update waiting - then the wire, then Sort by. The foot says how many of how many the grid shows;
  * everything applies as it is chosen.
  */
+import { useTranslation } from 'react-i18next';
+
 import {
   AppIcon,
   Checkbox,
@@ -16,9 +18,9 @@ import {
   SelectField,
   Switch,
   type PillTone,
-  type SegmentedOption,
 } from '@nebulahome/ui';
 
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import {
   VENDOR_SORTS,
   narrowingCount,
@@ -47,10 +49,10 @@ const WIRE_LABELS: Readonly<Record<Wire, string>> = {
 };
 
 /** How it connects: on the network alone, or through the internet. */
-const CONNECTION: readonly SegmentedOption<InternetFilter>[] = [
-  { value: '', label: 'Any' },
-  { value: 'local', label: 'Local' },
-  { value: 'needed', label: 'Cloud' },
+const CONNECTION: readonly { readonly value: InternetFilter; readonly label: Message }[] = [
+  { value: '', label: defineMessage('common.any', 'Any') },
+  { value: 'local', label: defineMessage('library.integrationFilter.local', 'Local') },
+  { value: 'needed', label: defineMessage('library.integrationFilter.cloud', 'Cloud') },
 ];
 
 /** The dot of each standing, in its tone. */
@@ -64,10 +66,10 @@ const DOTS: Readonly<Record<PillTone, string>> = {
 };
 
 /** What each order is called. */
-const SORT_LABELS: Readonly<Record<VendorSort, string>> = {
-  name: 'Name',
-  devices: 'Most devices',
-  recent: 'Recently added',
+const SORT_LABELS: Readonly<Record<VendorSort, Message>> = {
+  name: defineMessage('library.integrationFilter.name', 'Name'),
+  devices: defineMessage('library.integrationFilter.mostDevices', 'Most devices'),
+  recent: defineMessage('library.integrationFilter.recentlyAdded', 'Recently added'),
 };
 
 /** What the filter needs. */
@@ -94,9 +96,11 @@ export type IntegrationFilterProps = {
  * @returns The filter.
  */
 export function IntegrationFilter(props: IntegrationFilterProps) {
+  const { t } = useTranslation();
+
   const { filter, wires, counts, shown, total, onChange } = props;
   const wireChoices = [
-    { value: '', label: 'Any wire' },
+    { value: '', label: t('library.integrationFilter.anyWire', 'Any wire') },
     ...wires.map((wire) => ({ value: wire, label: WIRE_LABELS[wire] })),
   ];
 
@@ -126,9 +130,12 @@ export function IntegrationFilter(props: IntegrationFilterProps) {
 
   return (
     <FilterSheet
-      label="Narrow the integrations"
+      label={t('library.integrationFilter.narrowTheIntegrations', 'Narrow the integrations')}
       count={narrowingCount(filter)}
-      summary={`${String(shown)} of ${String(total)} shown`}
+      summary={t('library.integrationFilter.shownOfTotalShown', '{{shown}} of {{total}} shown', {
+        shown: String(shown),
+        total: String(total),
+      })}
       onClear={() => {
         onChange({
           ...filter,
@@ -141,7 +148,7 @@ export function IntegrationFilter(props: IntegrationFilterProps) {
       }}
     >
       <Facet
-        title="Status"
+        title={t('library.integrationFilter.status', 'Status')}
         aside={
           filter.statuses.length === 0 ? undefined : `${String(filter.statuses.length)} selected`
         }
@@ -156,7 +163,7 @@ export function IntegrationFilter(props: IntegrationFilterProps) {
                     aria-hidden="true"
                     className={cn('size-1.5 rounded-full', DOTS[VENDOR_STATUS_TONES[kind]])}
                   />
-                  {VENDOR_STATUS_LABELS[kind]}
+                  {text(VENDOR_STATUS_LABELS[kind])}
                 </span>
               }
               count={counts[kind]}
@@ -169,11 +176,11 @@ export function IntegrationFilter(props: IntegrationFilterProps) {
         </div>
       </Facet>
 
-      <Facet title="Connection">
+      <Facet title={t('library.integrationFilter.connection', 'Connection')}>
         <Segmented
-          label="Connection"
+          label={t('library.integrationFilter.connection', 'Connection')}
           size="compact"
-          options={CONNECTION}
+          options={CONNECTION.map((option) => ({ ...option, label: text(option.label) }))}
           value={filter.internet}
           onChange={(internet) => {
             onChange({ ...filter, internet });
@@ -181,11 +188,11 @@ export function IntegrationFilter(props: IntegrationFilterProps) {
         />
       </Facet>
 
-      <Facet title="Show only">
+      <Facet title={t('library.integrationFilter.showOnly', 'Show only')}>
         <div className="flex flex-col gap-3">
           <ShowOnly
             icon="radio"
-            label="Has new devices"
+            label={t('library.integrationFilter.hasNewDevices', 'Has new devices')}
             isOn={filter.hasNew}
             onChange={(hasNew) => {
               onChange({ ...filter, hasNew });
@@ -193,7 +200,7 @@ export function IntegrationFilter(props: IntegrationFilterProps) {
           />
           <ShowOnly
             icon="circle-arrow-up"
-            label="Update ready"
+            label={t('library.integrationFilter.updateReady', 'Update ready')}
             isOn={filter.hasUpdate}
             onChange={(hasUpdate) => {
               onChange({ ...filter, hasUpdate });
@@ -203,9 +210,9 @@ export function IntegrationFilter(props: IntegrationFilterProps) {
       </Facet>
 
       {wires.length < 2 ? null : (
-        <Facet title="Wire">
+        <Facet title={t('library.integrationFilter.wire', 'Wire')}>
           <SelectField
-            label="Wire"
+            label={t('library.integrationFilter.wire', 'Wire')}
             isLabelHidden
             size="compact"
             options={wireChoices}
@@ -217,11 +224,11 @@ export function IntegrationFilter(props: IntegrationFilterProps) {
         </Facet>
       )}
 
-      <Facet title="Sort by">
+      <Facet title={t('library.integrationFilter.sortBy', 'Sort by')}>
         <RadioGroup
-          label="Sort by"
+          label={t('library.integrationFilter.sortBy', 'Sort by')}
           isLabelHidden
-          options={VENDOR_SORTS.map((sort) => ({ value: sort, label: SORT_LABELS[sort] }))}
+          options={VENDOR_SORTS.map((sort) => ({ value: sort, label: text(SORT_LABELS[sort]) }))}
           value={filter.sort}
           onChange={(sort) => {
             onChange({ ...filter, sort });

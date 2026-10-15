@@ -20,6 +20,7 @@
  * box around both, so the footer is part of the field rather than a line under it.
  */
 import { useRef, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { scanAliasExpression, type AliasSpanKind, type TagColor } from '@nebulahome/contracts';
 import { FieldShell, cn } from '@nebulahome/ui';
@@ -147,6 +148,8 @@ export function formulaSegments(
  * @returns The field.
  */
 export function AliasFormulaField(props: AliasFormulaFieldProps) {
+  const { t } = useTranslation();
+
   const {
     value,
     onChange,
@@ -173,7 +176,7 @@ export function AliasFormulaField(props: AliasFormulaFieldProps) {
 
   return (
     <FieldShell
-      label="Formula"
+      label={t('library.aliasFormulaField.formula', 'Formula')}
       isLabelHidden={isLabelHidden}
       // One line under the field: what is wrong, when something is; otherwise what it reads. A
       // field with a footer says what it reads there, and its heading says how to write it.
@@ -181,7 +184,10 @@ export function AliasFormulaField(props: AliasFormulaFieldProps) {
         error === undefined
           ? (hint ??
             (footer === undefined
-              ? 'Write it with the variables of the sources, e.g. (t1 + t2) / 2.'
+              ? t(
+                  'library.aliasFormulaField.writeItWithThe',
+                  'Write it with the variables of the sources, e.g. (t1 + t2) / 2.',
+                )
               : undefined))
           : undefined
       }
@@ -220,7 +226,7 @@ export function AliasFormulaField(props: AliasFormulaFieldProps) {
               autoCapitalize="off"
               spellCheck={false}
               rows={Math.max(3, lines)}
-              placeholder="(t1 + t2) / 2"
+              placeholder={t('library.aliasFormulaField.t1T22', '(t1 + t2) / 2')}
               value={value}
               className={cn(
                 LAYER,

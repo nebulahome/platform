@@ -9,9 +9,12 @@
  * An entity the adapter cannot reach says so rather than showing its last value as though it
  * were current.
  */
+import { useTranslation } from 'react-i18next';
+
 import type { CapabilityState } from '@nebulahome/contracts';
 import { cn } from '@nebulahome/ui';
 
+import { dateTimeFormat } from '@/i18n/formatters';
 import { hsColor, kelvinColor, miredsToKelvin } from '@/library/entity-control';
 import type { Reading } from '@/library/entity-reading';
 
@@ -61,8 +64,15 @@ function lampColour(state: CapabilityState): string | null {
  * @returns The summary.
  */
 export function EntityStateSummary(props: EntityStateSummaryProps) {
+  const { t } = useTranslation();
+
   const { reading, state, className } = props;
-  const title = reading.at === null ? 'Never reported' : `Reported ${reading.at.toLocaleString()}`;
+  const title =
+    reading.at === null
+      ? t('library.entityStateSummary.neverReported', 'Never reported')
+      : t('library.entityStateSummary.reportedAt', 'Reported {{when}}', {
+          when: dateTimeFormat({ dateStyle: 'medium', timeStyle: 'medium' }).format(reading.at),
+        });
 
   if (!reading.isAvailable) {
     return (
@@ -70,7 +80,7 @@ export function EntityStateSummary(props: EntityStateSummaryProps) {
         className={cn('text-caption whitespace-nowrap text-foreground-subtle', className)}
         title={title}
       >
-        Unavailable
+        {t('library.entityStateSummary.unavailable', 'Unavailable')}
       </span>
     );
   }

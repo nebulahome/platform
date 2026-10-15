@@ -19,6 +19,7 @@ import { Avatar } from '@/components/avatar';
 import { WrenchIcon } from '@/components/icons';
 import { DASHBOARD_QUERY_KEYS, fetchAssignees, fetchManagedDashboards } from '@/dashboard/api';
 import { allCards } from '@/dashboard/dashboard-layout';
+import { translate } from '@/i18n/messages';
 import { relativeTime } from '@/lib/format-time';
 import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, useListState, type ListCodec } from '@/lib/use-list-state';
@@ -176,7 +177,13 @@ export function DashboardsManagePage() {
     <>
       <LibraryPage
         title="Dashboards"
-        noun="dashboard"
+        counted={(count) =>
+          translate('dashboard.count', {
+            count,
+            defaultValue_one: '{{count}} dashboard',
+            defaultValue_other: '{{count}} dashboards',
+          })
+        }
         count={dashboards.isPending ? undefined : all.length}
         shownCount={shown.length}
         tools={

@@ -7,6 +7,8 @@
  * A stretch the device could not be reached is greyed out rather than drawn as off, and its
  * tooltip says so.
  */
+import { useTranslation } from 'react-i18next';
+
 import { cn } from '@nebulahome/ui';
 
 import { durationText } from '@/lib/format-time';
@@ -31,6 +33,8 @@ export type StateBandProps = {
  * @returns The band, with its total in words.
  */
 export function StateBand(props: StateBandProps) {
+  const { t } = useTranslation();
+
   const { segments, window, activeWord } = props;
   const span = window.to - window.from;
   const activeMs = segments
@@ -43,7 +47,10 @@ export function StateBand(props: StateBandProps) {
         {segments.map((segment) => (
           <span
             key={segment.from}
-            title={`${segment.label}, ${durationText(segment.to - segment.from)}`}
+            title={t('entity.stateBand.labelDurationtext', '{{label}}, {{durationText}}', {
+              label: segment.label,
+              durationText: durationText(segment.to - segment.from),
+            })}
             className={cn(
               'h-full',
               !segment.isAvailable
@@ -60,8 +67,14 @@ export function StateBand(props: StateBandProps) {
       </div>
       <p className="text-caption text-foreground-muted">
         {activeMs === 0
-          ? `Not ${activeWord.toLowerCase()} in this window.`
-          : `${activeWord} for ${durationText(activeMs)} in this window.`}
+          ? t('entity.stateBand.notInThisWindow', 'Not {{word}} in this window.', {
+              word: activeWord.toLowerCase(),
+            })
+          : t(
+              'entity.stateBand.activewordForActivemsIn',
+              '{{activeWord}} for {{activeMs}} in this window.',
+              { activeWord, activeMs: durationText(activeMs) },
+            )}
       </p>
     </div>
   );

@@ -13,6 +13,8 @@
 import { sensorClassLabel, type CapabilityName, type EntityView } from '@nebulahome/contracts';
 import type { UiIconId } from '@nebulahome/ui';
 
+import { defineMessage, type Message, translate } from '@/i18n/messages';
+
 /**
  * The family an entity's tile is drawn in.
  *
@@ -81,62 +83,101 @@ export function entityKindOf(
     const reads = has.has('sensor_numeric') ? sensorClassLabel(entity.deviceClass) : undefined;
 
     return {
-      label: reads === undefined ? 'Alias' : `Alias · ${reads}`,
+      label:
+        reads === undefined
+          ? translate('library.entityKind.alias', 'Alias')
+          : translate('library.entityKind.aliasReads', 'Alias · {{reads}}', { reads }),
       icon: 'sigma',
       tone: 'derived',
     };
   }
 
   if (has.has('camera')) {
-    return { label: 'Camera', icon: 'camera', tone: 'camera' };
+    return {
+      label: translate('library.entityKind.camera', 'Camera'),
+      icon: 'camera',
+      tone: 'camera',
+    };
   }
 
   if (has.has('lawn_mower')) {
-    return { label: 'Lawn mower', icon: 'tractor', tone: 'garden' };
+    return {
+      label: translate('library.entityKind.lawnMower', 'Lawn mower'),
+      icon: 'tractor',
+      tone: 'garden',
+    };
   }
 
   if (has.has('vacuum')) {
-    return { label: 'Robot vacuum', icon: 'bot', tone: 'power' };
+    return {
+      label: translate('library.entityKind.robotVacuum', 'Robot vacuum'),
+      icon: 'bot',
+      tone: 'power',
+    };
   }
 
   if (has.has('image')) {
-    return { label: 'Picture', icon: 'image', tone: 'camera' };
+    return {
+      label: translate('library.entityKind.picture', 'Picture'),
+      icon: 'image',
+      tone: 'camera',
+    };
   }
 
   if (has.has('media_player')) {
-    return { label: 'Media player', icon: 'play', tone: 'media' };
+    return {
+      label: translate('library.entityKind.mediaPlayer', 'Media player'),
+      icon: 'play',
+      tone: 'media',
+    };
   }
 
   if (has.has('thermostat')) {
-    return { label: 'Thermostat', icon: 'thermometer', tone: 'climate' };
+    return {
+      label: translate('library.entityKind.thermostat', 'Thermostat'),
+      icon: 'thermometer',
+      tone: 'climate',
+    };
   }
 
   if (has.has('lock')) {
-    return { label: 'Lock', icon: 'lock', tone: 'secure' };
+    return { label: translate('library.entityKind.lock', 'Lock'), icon: 'lock', tone: 'secure' };
   }
 
   if (has.has('cover')) {
-    return { label: 'Cover', icon: 'blinds', tone: 'cover' };
+    return { label: translate('library.entityKind.cover', 'Cover'), icon: 'blinds', tone: 'cover' };
   }
 
   if (has.has('color_hs')) {
-    return { label: 'Colour light', icon: 'lightbulb', tone: 'light' };
+    return {
+      label: translate('library.entityKind.colourLight', 'Colour light'),
+      icon: 'lightbulb',
+      tone: 'light',
+    };
   }
 
   if (has.has('color_temp')) {
-    return { label: 'Tunable white light', icon: 'lightbulb', tone: 'light' };
+    return {
+      label: translate('library.entityKind.tunableWhiteLight', 'Tunable white light'),
+      icon: 'lightbulb',
+      tone: 'light',
+    };
   }
 
   if (has.has('level')) {
     return isLight
-      ? { label: 'Dimmable light', icon: 'lightbulb', tone: 'light' }
-      : { label: 'Dimmer', icon: 'sun', tone: 'light' };
+      ? {
+          label: translate('library.entityKind.dimmableLight', 'Dimmable light'),
+          icon: 'lightbulb',
+          tone: 'light',
+        }
+      : { label: translate('library.entityKind.dimmer', 'Dimmer'), icon: 'sun', tone: 'light' };
   }
 
   if (has.has('on_off')) {
     return isLight
-      ? { label: 'Light', icon: 'lightbulb', tone: 'light' }
-      : { label: 'Switch', icon: 'power', tone: 'power' };
+      ? { label: translate('library.entityKind.light', 'Light'), icon: 'lightbulb', tone: 'light' }
+      : { label: translate('library.entityKind.switch', 'Switch'), icon: 'power', tone: 'power' };
   }
 
   if (has.has('sensor_numeric')) {
@@ -145,29 +186,53 @@ export function entityKindOf(
 
   if (has.has('sensor_binary')) {
     const label =
-      entity.deviceClass === null ? 'Binary sensor' : `${spoken(entity.deviceClass)} sensor`;
+      entity.deviceClass === null
+        ? translate('library.entityKind.binarySensor', 'Binary sensor')
+        : translate('library.entityKind.deviceclassSensor', '{{deviceClass}} sensor', {
+            deviceClass: spoken(entity.deviceClass),
+          });
 
     return { label, icon: 'activity', tone: 'sensor' };
   }
 
   if (has.has('sensor_text')) {
-    return { label: 'Text sensor', icon: 'type', tone: 'sensor' };
+    return {
+      label: translate('library.entityKind.textSensor', 'Text sensor'),
+      icon: 'type',
+      tone: 'sensor',
+    };
   }
 
   if (has.has('update')) {
-    return { label: 'Firmware', icon: 'circle-arrow-up', tone: 'power' };
+    return {
+      label: translate('library.entityKind.firmware', 'Firmware'),
+      icon: 'circle-arrow-up',
+      tone: 'power',
+    };
   }
 
   if (has.has('select')) {
-    return { label: 'Setting', icon: 'list', tone: 'power' };
+    return {
+      label: translate('library.entityKind.setting', 'Setting'),
+      icon: 'list',
+      tone: 'power',
+    };
   }
 
   if (has.has('number')) {
-    return { label: 'Number setting', icon: 'hash', tone: 'power' };
+    return {
+      label: translate('library.entityKind.numberSetting', 'Number setting'),
+      icon: 'hash',
+      tone: 'power',
+    };
   }
 
   if (has.has('button')) {
-    return { label: 'Button', icon: 'circle-dot', tone: 'power' };
+    return {
+      label: translate('library.entityKind.button', 'Button'),
+      icon: 'circle-dot',
+      tone: 'power',
+    };
   }
 
   if (has.has('custom')) {
@@ -191,45 +256,45 @@ export function entityKindOf(
 export function capabilityLabel(capability: CapabilityName, domain = ''): string {
   switch (capability) {
     case 'on_off':
-      return 'Power';
+      return translate('library.entityKind.power', 'Power');
     case 'level':
       return domain === 'light' ? 'Brightness' : 'Level';
     case 'color_hs':
-      return 'Colour';
+      return translate('library.entityKind.colour', 'Colour');
     case 'color_temp':
-      return 'Colour temperature';
+      return translate('library.entityKind.colourTemperature', 'Colour temperature');
     case 'cover':
-      return 'Position';
+      return translate('library.entityKind.position', 'Position');
     case 'lock':
-      return 'Lock';
+      return translate('library.entityKind.lock', 'Lock');
     case 'thermostat':
-      return 'Climate';
+      return translate('library.entityKind.climate', 'Climate');
     case 'sensor_numeric':
-      return 'Reading';
+      return translate('library.entityKind.reading', 'Reading');
     case 'sensor_binary':
-      return 'State';
+      return translate('library.entityKind.state', 'State');
     case 'sensor_text':
-      return 'Text';
+      return translate('library.entityKind.text', 'Text');
     case 'media_player':
-      return 'Playback';
+      return translate('library.entityKind.playback', 'Playback');
     case 'camera':
-      return 'Camera';
+      return translate('library.entityKind.camera', 'Camera');
     case 'button':
-      return 'Press';
+      return translate('library.entityKind.press', 'Press');
     case 'update':
-      return 'Firmware';
+      return translate('library.entityKind.firmware', 'Firmware');
     case 'lawn_mower':
-      return 'Mower';
+      return translate('library.entityKind.mower', 'Mower');
     case 'select':
-      return 'Choice';
+      return translate('library.entityKind.choice', 'Choice');
     case 'number':
-      return 'Value';
+      return translate('library.entityKind.value', 'Value');
     case 'vacuum':
-      return 'Cleaning';
+      return translate('library.entityKind.cleaning', 'Cleaning');
     case 'image':
-      return 'Picture';
+      return translate('library.entityKind.picture', 'Picture');
     case 'custom':
-      return 'Details';
+      return translate('library.entityKind.details', 'Details');
   }
 }
 
@@ -251,17 +316,17 @@ export const ENTITY_FAMILIES = [
 export type EntityFamily = (typeof ENTITY_FAMILIES)[number];
 
 /** What each family is called on its pill. */
-export const FAMILY_LABELS: Readonly<Record<EntityFamily, string>> = {
-  lights: 'Lights',
-  switches: 'Switches',
-  sensors: 'Sensors',
-  covers: 'Covers',
-  climate: 'Climate',
-  locks: 'Locks',
-  media: 'Media',
-  cameras: 'Cameras',
-  garden: 'Garden',
-  aliases: 'Aliases',
+export const FAMILY_LABELS: Readonly<Record<EntityFamily, Message>> = {
+  lights: defineMessage('library.entityKind.lights', 'Lights'),
+  switches: defineMessage('library.entityKind.switches', 'Switches'),
+  sensors: defineMessage('library.entityKind.sensors', 'Sensors'),
+  covers: defineMessage('library.entityKind.covers', 'Covers'),
+  climate: defineMessage('library.entityKind.climate', 'Climate'),
+  locks: defineMessage('library.entityKind.locks', 'Locks'),
+  media: defineMessage('library.entityKind.media', 'Media'),
+  cameras: defineMessage('library.entityKind.cameras', 'Cameras'),
+  garden: defineMessage('library.entityKind.garden', 'Garden'),
+  aliases: defineMessage('library.entityKind.aliases', 'Aliases'),
 };
 
 /**

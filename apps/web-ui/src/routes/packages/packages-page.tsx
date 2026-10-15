@@ -19,6 +19,7 @@ import { PACKAGE_STATES } from '@nebulahome/contracts';
 import { AppIcon, BrowseTile, Button, SelectField, TILE_GRID } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
+import { translate } from '@/i18n/messages';
 import { matchesQuery } from '@/lib/search-text';
 import { useListState } from '@/lib/use-list-state';
 import { OPEN_PACKAGE_FILTER, packageFilterCodec } from '@/library/list-filters';
@@ -88,7 +89,13 @@ export function PackagesPage() {
     <>
       <LibraryPage
         title="Packages"
-        noun="package"
+        counted={(count) =>
+          translate('packages.count', {
+            count,
+            defaultValue_one: '{{count}} package',
+            defaultValue_other: '{{count}} packages',
+          })
+        }
         count={installed.isPending ? undefined : installed.packages.length}
         shownCount={shownInstalled.length}
         summary={[

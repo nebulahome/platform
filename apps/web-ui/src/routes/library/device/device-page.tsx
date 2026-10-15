@@ -14,6 +14,7 @@
  */
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import type { EntityView } from '@nebulahome/contracts';
@@ -35,6 +36,7 @@ import {
 } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
+import { translate } from '@/i18n/messages';
 import { deviceWebPageOf } from '@/lib/device-web-page';
 import { useTab } from '@/lib/use-tab';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
@@ -117,10 +119,10 @@ function factsOf(view: DevicePageView, webPage: string | null): Fact[] {
     {
       label:
         device.origin === 'container'
-          ? 'Container'
+          ? translate('device.device.container', 'Container')
           : device.origin === 'package'
-            ? 'Package'
-            : 'Integration',
+            ? translate('device.device.package', 'Package')
+            : translate('device.device.integration', 'Integration'),
       value:
         device.origin === 'system' ? (
           vendorName
@@ -142,23 +144,41 @@ function factsOf(view: DevicePageView, webPage: string | null): Fact[] {
         ),
     },
     {
-      label: 'Model',
+      label: translate('device.device.model', 'Model'),
       value: [device.model, device.series ?? device.driverName].filter(Boolean).join(' · '),
     },
     ...(device.swVersion === null
       ? []
-      : [{ label: 'Firmware', value: device.swVersion, isMono: true }]),
-    ...(device.origin === 'integration' ? [{ label: 'Transport', value: device.transport }] : []),
-    ...(address === null ? [] : [{ label: 'Address', value: address, isMono: true }]),
+      : [
+          {
+            label: translate('device.device.firmware', 'Firmware'),
+            value: device.swVersion,
+            isMono: true,
+          },
+        ]),
+    ...(device.origin === 'integration'
+      ? [{ label: translate('device.device.transport', 'Transport'), value: device.transport }]
+      : []),
+    ...(address === null
+      ? []
+      : [{ label: translate('device.device.address', 'Address'), value: address, isMono: true }]),
     ...(device.externalId === null
       ? []
-      : [{ label: 'Serial', value: device.externalId, isMono: true }]),
-    ...(device.hwVersion === null ? [] : [{ label: 'Hardware', value: device.hwVersion }]),
+      : [
+          {
+            label: translate('device.device.serial', 'Serial'),
+            value: device.externalId,
+            isMono: true,
+          },
+        ]),
+    ...(device.hwVersion === null
+      ? []
+      : [{ label: translate('device.device.hardware', 'Hardware'), value: device.hwVersion }]),
     ...(webPage === null
       ? []
       : [
           {
-            label: 'Web page',
+            label: translate('device.device.webPage', 'Web page'),
             value: (
               <a href={webPage} target="_blank" rel="noreferrer" className={link}>
                 {webPage.replace(/^https?:\/\//u, '').replace(/\/$/u, '')}
@@ -166,7 +186,7 @@ function factsOf(view: DevicePageView, webPage: string | null): Fact[] {
             ),
           },
         ]),
-    { label: 'Id', value: device.id, isMono: true },
+    { label: translate('device.device.id', 'Id'), value: device.id, isMono: true },
   ];
 }
 
@@ -176,6 +196,8 @@ function factsOf(view: DevicePageView, webPage: string | null): Fact[] {
  * @returns The page.
  */
 export function DevicePage() {
+  const { t } = useTranslation();
+
   const { deviceId = '' } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -233,7 +255,7 @@ export function DevicePage() {
         }
         hero={
           <DetailHero
-            back={<BackLink to="/devices">Devices</BackLink>}
+            back={<BackLink to="/devices">{t('device.device.devices', 'Devices')}</BackLink>}
             mark={
               view === undefined ? undefined : (
                 <HeroMark>
@@ -283,7 +305,7 @@ export function DevicePage() {
                       className="press inline-flex h-control items-center gap-2 rounded-pill border border-border-strong bg-surface-raised px-3.5 text-ui font-medium text-foreground transition-colors hover:bg-surface-high"
                     >
                       <AppIcon id="external-link" size={15} />
-                      Open its web page
+                      {t('device.device.openItsWebPage', 'Open its web page')}
                     </a>
                   )}
                   {canConfigure ? (
@@ -294,7 +316,7 @@ export function DevicePage() {
                       }}
                     >
                       <AppIcon id="settings" size={15} />
-                      Settings
+                      {t('device.device.settings', 'Settings')}
                     </Button>
                   ) : null}
                 </>
@@ -308,8 +330,15 @@ export function DevicePage() {
                   value={tab}
                   onChange={setTab}
                   items={[
-                    { id: 'overview', label: 'Overview' },
-                    ...(canReadHistory ? [{ id: 'activity' as const, label: 'Activity' }] : []),
+                    { id: 'overview', label: t('device.device.overview', 'Overview') },
+                    ...(canReadHistory
+                      ? [
+                          {
+                            id: 'activity' as const,
+                            label: t('device.device.activity', 'Activity'),
+                          },
+                        ]
+                      : []),
                   ]}
                 />
               )
@@ -325,19 +354,19 @@ export function DevicePage() {
           <TabPanel idPrefix="device" id="overview" className="flex flex-col gap-8">
             <HealthStrip>
               <HealthCard
-                label="Connection"
+                label={t('device.device.connection', 'Connection')}
                 tone={connection.tone}
                 value={connection.value}
                 detail={connection.detail}
               />
               <HealthCard
-                label="Signal"
+                label={t('device.device.signal', 'Signal')}
                 tone={signal.tone}
                 value={signal.value}
                 detail={signal.detail}
               />
               <HealthCard
-                label="Firmware"
+                label={t('device.device.firmware', 'Firmware')}
                 tone={firmware.tone}
                 value={firmware.value}
                 detail={firmware.detail}
@@ -348,13 +377,13 @@ export function DevicePage() {
                       className="inline-flex h-control-sm items-center gap-1.5 rounded-pill bg-primary px-3 text-ui-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover"
                     >
                       <AppIcon id="download" size={13} />
-                      Install
+                      {t('device.device.install', 'Install')}
                     </Link>
                   )
                 }
               />
               <HealthCard
-                label="Integration"
+                label={t('device.device.integration', 'Integration')}
                 tone={integration.tone}
                 value={integration.value}
                 detail={integration.detail}
@@ -368,7 +397,10 @@ export function DevicePage() {
             {view.lines.length === 0 ? (
               view.device.lastError !== null ? null : (
                 <p className="rounded-card border border-dashed border-border-strong px-5.5 py-4 text-ui text-foreground-muted">
-                  No entities yet. They appear as soon as the hub hears from the device.
+                  {t(
+                    'device.device.noEntitiesYetThey',
+                    'No entities yet. They appear as soon as the hub hears from the device.',
+                  )}
                 </p>
               )
             ) : (
@@ -378,7 +410,7 @@ export function DevicePage() {
               />
             )}
 
-            <Section title="Details">
+            <Section title={t('device.device.details', 'Details')}>
               <FactGrid facts={factsOf(view, webPage)} />
             </Section>
           </TabPanel>

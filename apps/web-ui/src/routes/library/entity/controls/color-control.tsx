@@ -6,6 +6,8 @@
  * exactly; a row of colours sets a common one in a press, and where the browser can, the dropper
  * takes one from anywhere on the screen.
  */
+import { useTranslation } from 'react-i18next';
+
 import { ColourPicker } from '@/components/colour-picker';
 import { hsColor } from '@/library/entity-control';
 import {
@@ -22,6 +24,8 @@ import { usePendingValue } from '@/routes/library/entity/use-pending-value';
  * @returns The block.
  */
 export function ColorControl(props: ControlProps) {
+  const { t } = useTranslation();
+
   const { state, reportedAt, commander, disabled } = props;
   const own = usePendingValue<LightColour>(state.color_hs ?? { hue: 0, saturation: 0 }, reportedAt);
   // The panel's, when there is one: the white block turns it white.
@@ -44,7 +48,7 @@ export function ColorControl(props: ControlProps) {
 
   return (
     <ControlBlock
-      title="Colour"
+      title={t('entity.controls.colorControl.colour', 'Colour')}
       value={`${String(Math.round(hue))}° · ${String(Math.round(saturation))}%`}
       action={
         <span

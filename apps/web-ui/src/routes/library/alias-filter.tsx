@@ -6,6 +6,8 @@
  * two questions: an alias can be on and failing, and that is the one worth finding. The button
  * and the sheet are the library's shared shell.
  */
+import { useTranslation } from 'react-i18next';
+
 import { Segmented, SelectField } from '@nebulahome/ui';
 
 import { aliasFacetCount, type AliasFilter } from '@/library/alias-filters';
@@ -29,23 +31,31 @@ export type AliasFilterButtonProps = {
  * @returns The control.
  */
 export function AliasFilterButton(props: AliasFilterButtonProps) {
+  const { t } = useTranslation();
+
   const { filter, domains, onChange } = props;
-  const domainOptions = facetChoices(domains, filter.domain, 'Any domain');
+  const domainOptions = facetChoices(
+    domains,
+    filter.domain,
+    t('library.aliasFilter.anyDomain', 'Any domain'),
+  );
 
   return (
     <FilterSheet
-      label="Narrow the aliases"
+      label={t('library.aliasFilter.narrowTheAliases', 'Narrow the aliases')}
       count={aliasFacetCount(filter)}
       onClear={() => {
         onChange({ ...filter, domain: '', state: 'any', health: 'any' });
       }}
     >
-      <Facet title="Domain">
+      <Facet title={t('library.aliasFilter.domain', 'Domain')}>
         {domainOptions.length === 1 ? (
-          <span className="text-caption text-foreground-subtle">No alias has a domain yet.</span>
+          <span className="text-caption text-foreground-subtle">
+            {t('library.aliasFilter.noAliasHasA', 'No alias has a domain yet.')}
+          </span>
         ) : (
           <SelectField
-            label="Domain"
+            label={t('library.aliasFilter.domain', 'Domain')}
             isLabelHidden
             size="compact"
             options={domainOptions}
@@ -56,15 +66,15 @@ export function AliasFilterButton(props: AliasFilterButtonProps) {
           />
         )}
       </Facet>
-      <Facet title="State">
+      <Facet title={t('library.aliasFilter.state', 'State')}>
         <Segmented
-          label="State"
+          label={t('library.aliasFilter.state', 'State')}
           size="compact"
           className="self-start"
           options={[
-            { value: 'any', label: 'Any' },
-            { value: 'on', label: 'On' },
-            { value: 'off', label: 'Off' },
+            { value: 'any', label: t('common.any', 'Any') },
+            { value: 'on', label: t('common.on', 'On') },
+            { value: 'off', label: t('common.off', 'Off') },
           ]}
           value={filter.state}
           onChange={(state) => {
@@ -72,15 +82,15 @@ export function AliasFilterButton(props: AliasFilterButtonProps) {
           }}
         />
       </Facet>
-      <Facet title="Problems">
+      <Facet title={t('library.aliasFilter.problems', 'Problems')}>
         <Segmented
-          label="Problems"
+          label={t('library.aliasFilter.problems', 'Problems')}
           size="compact"
           className="self-start"
           options={[
-            { value: 'any', label: 'Any' },
-            { value: 'failing', label: 'Failing' },
-            { value: 'unavailable', label: 'Unavailable' },
+            { value: 'any', label: t('common.any', 'Any') },
+            { value: 'failing', label: t('library.aliasFilter.failing', 'Failing') },
+            { value: 'unavailable', label: t('library.aliasFilter.unavailable', 'Unavailable') },
           ]}
           value={filter.health}
           onChange={(health) => {

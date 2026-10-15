@@ -21,7 +21,7 @@ function renderPage(count: number, isPending = false): void {
     <MemoryRouter>
       <LibraryPage
         title="Automations"
-        noun="automation"
+        counted={(count) => `${String(count)} automation${count === 1 ? '' : 's'}`}
         count={count}
         isPending={isPending}
         isEmpty={count === 0}

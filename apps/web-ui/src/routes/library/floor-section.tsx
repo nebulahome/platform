@@ -6,10 +6,13 @@
  * devices are in it, because that is what a room is for here - a device is put in a room, and
  * the row is where you see that it was.
  */
+import { useTranslation } from 'react-i18next';
+
 import type { AreaView } from '@nebulahome/contracts';
 import { Badge, Button, IconButton, Panel } from '@nebulahome/ui';
 
 import { WrenchIcon } from '@/components/icons';
+import { translate } from '@/i18n/messages';
 import type { DeviceIcons } from '@/routes/library/device-icon';
 import { DeviceIcon } from '@/routes/library/device-icon';
 
@@ -44,7 +47,7 @@ export type FloorSectionProps = {
  */
 function describeContents(room: AreaView): string {
   return room.deviceCount === 0
-    ? 'Nothing yet'
+    ? translate('library.floorSection.nothingYet', 'Nothing yet')
     : `${String(room.deviceCount)} device${room.deviceCount === 1 ? '' : 's'}`;
 }
 
@@ -55,6 +58,8 @@ function describeContents(room: AreaView): string {
  * @returns The section.
  */
 export function FloorSection(props: FloorSectionProps) {
+  const { t } = useTranslation();
+
   const { floor, rooms, icons, canEdit, onEdit, onAddRoom, onEditRoom } = props;
 
   return (
@@ -64,7 +69,7 @@ export function FloorSection(props: FloorSectionProps) {
         <div className="flex items-center gap-2">
           {floor.level === null ? null : (
             <Badge tone="neutral" size="small">
-              Floor {floor.level}
+              {t('library.floorSection.floorLevel', 'Floor {{level}}', { level: floor.level })}
             </Badge>
           )}
           {canEdit ? (
@@ -72,13 +77,15 @@ export function FloorSection(props: FloorSectionProps) {
               <IconButton
                 variant="bare"
                 size="medium"
-                label={`Configure ${floor.name}`}
+                label={t('library.floorSection.configureName', 'Configure {{name}}', {
+                  name: floor.name,
+                })}
                 onClick={onEdit}
               >
                 <WrenchIcon width="15" height="15" />
               </IconButton>
               <Button size="compact" variant="ghost" onClick={onAddRoom}>
-                Add room
+                {t('library.floorSection.addRoom', 'Add room')}
               </Button>
             </>
           ) : null}
@@ -86,7 +93,9 @@ export function FloorSection(props: FloorSectionProps) {
       }
     >
       {rooms.length === 0 ? (
-        <p className="px-4 py-3.5 text-ui text-foreground-muted">No rooms on this floor yet.</p>
+        <p className="px-4 py-3.5 text-ui text-foreground-muted">
+          {t('library.floorSection.noRoomsOnThis', 'No rooms on this floor yet.')}
+        </p>
       ) : (
         <ul>
           {rooms.map((room) => (
@@ -108,7 +117,9 @@ export function FloorSection(props: FloorSectionProps) {
                   <IconButton
                     variant="bare"
                     size="small"
-                    label={`Configure ${room.name}`}
+                    label={t('library.floorSection.configureName', 'Configure {{name}}', {
+                      name: room.name,
+                    })}
                     onClick={() => {
                       onEditRoom(room);
                     }}

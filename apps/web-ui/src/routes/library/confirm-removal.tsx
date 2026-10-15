@@ -6,6 +6,8 @@
  * says what goes with the thing - "its 6 entities", "off 3 devices" - because "Are you sure?"
  * asks for a nerve rather than a decision.
  */
+import { useTranslation } from 'react-i18next';
+
 import { Button } from '@nebulahome/ui';
 
 /** What the confirmation needs. */
@@ -33,6 +35,8 @@ export type ConfirmRemovalProps = {
  * @returns The footer's contents while confirming.
  */
 export function ConfirmRemoval(props: ConfirmRemovalProps) {
+  const { t } = useTranslation();
+
   const { question, label = 'Remove', onConfirm, onCancel, isBusy = false } = props;
 
   return (
@@ -41,7 +45,7 @@ export function ConfirmRemoval(props: ConfirmRemovalProps) {
         {question}
       </p>
       <Button variant="ghost" disabled={isBusy} onClick={onCancel}>
-        Cancel
+        {t('common.cancel', 'Cancel')}
       </Button>
       <Button variant="danger" isBusy={isBusy} onClick={onConfirm}>
         {label}

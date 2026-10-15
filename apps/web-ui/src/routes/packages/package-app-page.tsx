@@ -13,6 +13,7 @@ import { useNavigate, useParams } from 'react-router';
 
 import { Button, Panel, PanelNote } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
 import { PackageSlot } from '@/packages/package-slot';
 import { useInstalledPackages } from '@/packages/use-packages';
 import { LibraryPage } from '@/routes/library/library-page';
@@ -74,7 +75,13 @@ export function PackageAppPage() {
     <LibraryPage
       title={title}
       parent={{ to: '/packages', label: 'Packages' }}
-      noun="page"
+      counted={(count) =>
+        translate('packages.pageCount', {
+          count,
+          defaultValue_one: '{{count}} page',
+          defaultValue_other: '{{count}} pages',
+        })
+      }
       action={
         <Button
           variant="ghost"

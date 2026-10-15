@@ -6,6 +6,8 @@
  * container opens from the container's row. Whether the key works is found out by the first
  * device, which is where a wrong one says so: there is no one device to test it against here.
  */
+import { useTranslation } from 'react-i18next';
+
 import type { IntegrationVendorView } from '@nebulahome/contracts';
 import { Button, Section } from '@nebulahome/ui';
 
@@ -30,13 +32,18 @@ export type VendorConfigurationProps = {
  * @returns The tab's content.
  */
 export function VendorConfiguration(props: VendorConfigurationProps) {
+  const { t } = useTranslation();
+
   const { vendor, canConfigure, onSaved } = props;
   const form = useVendorSetup(vendor, onSaved);
 
   return (
     <Section
-      title="Settings"
-      note="What every device of this vendor shares. Each device is asked only for its own address."
+      title={t('library.vendorConfiguration.settings', 'Settings')}
+      note={t(
+        'library.vendorConfiguration.whatEveryDeviceOf',
+        'What every device of this vendor shares. Each device is asked only for its own address.',
+      )}
     >
       <div className="flex max-w-2xl flex-col gap-5 rounded-card border border-border bg-surface p-5.5">
         <fieldset disabled={!canConfigure} className="contents">
@@ -47,16 +54,19 @@ export function VendorConfiguration(props: VendorConfigurationProps) {
           <div className="flex items-center justify-end gap-3">
             {form.isSaved ? (
               <span role="status" className="text-ui-sm text-success">
-                Saved
+                {t('library.vendorConfiguration.saved', 'Saved')}
               </span>
             ) : null}
             <Button isBusy={form.isSaving} disabled={form.isSaving} onClick={form.submit}>
-              Save
+              {t('common.save', 'Save')}
             </Button>
           </div>
         ) : (
           <p className="text-ui-sm text-foreground-subtle">
-            Changing these needs the permission to configure integrations.
+            {t(
+              'library.vendorConfiguration.changingTheseNeedsThe',
+              'Changing these needs the permission to configure integrations.',
+            )}
           </p>
         )}
       </div>

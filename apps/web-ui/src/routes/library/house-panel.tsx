@@ -6,9 +6,12 @@
  * moved - so there is nothing here to press. What is shown is a tag: "Map cached" once every
  * tile is on disk, the count while some are missing, and "Caching map" while a fetch runs.
  */
+import { useTranslation } from 'react-i18next';
+
 import type { AreaView, TileCacheStatus } from '@nebulahome/contracts';
 import { Badge, Button } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
 import type { DeviceIcons } from '@/routes/library/device-icon';
 import { DeviceIcon } from '@/routes/library/device-icon';
 
@@ -53,7 +56,7 @@ type MapTag = {
  */
 function mapTagOf(tiles: TileCacheStatus | undefined, isCaching: boolean): MapTag | null {
   if (isCaching) {
-    return { label: 'Caching map…', tone: 'neutral' };
+    return { label: translate('library.housePanel.cachingMap', 'Caching map…'), tone: 'neutral' };
   }
 
   if (tiles === undefined) {
@@ -61,8 +64,14 @@ function mapTagOf(tiles: TileCacheStatus | undefined, isCaching: boolean): MapTa
   }
 
   return tiles.cached >= tiles.total
-    ? { label: 'Map cached', tone: 'success' }
-    : { label: `Map ${String(tiles.cached)}/${String(tiles.total)}`, tone: 'neutral' };
+    ? { label: translate('library.housePanel.mapCached', 'Map cached'), tone: 'success' }
+    : {
+        label: translate('library.housePanel.mapCachedTotal', 'Map {{cached}}/{{total}}', {
+          cached: String(tiles.cached),
+          total: String(tiles.total),
+        }),
+        tone: 'neutral',
+      };
 }
 
 /**
@@ -73,7 +82,7 @@ function mapTagOf(tiles: TileCacheStatus | undefined, isCaching: boolean): MapTa
  */
 function describePosition(house: AreaView): string {
   return house.latitude === null || house.longitude === null
-    ? 'Not placed on the map yet.'
+    ? translate('library.housePanel.notPlacedOnThe', 'Not placed on the map yet.')
     : `${house.latitude.toFixed(4)}, ${house.longitude.toFixed(4)}`;
 }
 
@@ -84,6 +93,8 @@ function describePosition(house: AreaView): string {
  * @returns The panel.
  */
 export function HousePanel(props: HousePanelProps) {
+  const { t } = useTranslation();
+
   const { house, icons, tiles, isCaching, canEdit, onEdit, onAddFloor } = props;
   const isPlaced = house.latitude !== null && house.longitude !== null;
   const mapTag = isPlaced ? mapTagOf(tiles, isCaching) : null;
@@ -103,10 +114,17 @@ export function HousePanel(props: HousePanelProps) {
             <p className="text-caption text-foreground-subtle">{describePosition(house)}</p>
           </div>
           <Badge tone={isPlaced ? 'success' : 'neutral'} size="small">
-            {isPlaced ? 'Placed' : 'Not placed'}
+            {isPlaced
+              ? t('library.housePanel.placed', 'Placed')
+              : t('library.housePanel.notPlaced', 'Not placed')}
           </Badge>
           {mapTag === null ? null : (
-            <span title="The map around the house, kept on the server for the days the internet is away">
+            <span
+              title={t(
+                'library.housePanel.mapAroundTheHouse',
+                'The map around the house, kept on the server for the days the internet is away',
+              )}
+            >
               <Badge tone={mapTag.tone} size="small">
                 {mapTag.label}
               </Badge>
@@ -116,10 +134,10 @@ export function HousePanel(props: HousePanelProps) {
         {canEdit ? (
           <div className="flex items-center gap-2">
             <Button size="compact" variant="ghost" onClick={onEdit}>
-              Configure
+              {t('library.housePanel.configure', 'Configure')}
             </Button>
             <Button size="compact" onClick={onAddFloor}>
-              Add floor
+              {t('library.housePanel.addFloor', 'Add floor')}
             </Button>
           </div>
         ) : null}

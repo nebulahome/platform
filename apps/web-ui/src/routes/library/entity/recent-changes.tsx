@@ -6,9 +6,12 @@
  * As the board draws it: the time in mono, the change, and its cause as a chip on the right. A
  * change made while the device could not be reached says that instead.
  */
+import { useTranslation } from 'react-i18next';
+
 import type { EntityView, StateHistoryPoint } from '@nebulahome/contracts';
 import { AppIcon } from '@nebulahome/ui';
 
+import { dateTimeFormat } from '@/i18n/formatters';
 import { absoluteTime } from '@/lib/format-time';
 import { describeState } from '@/library/entity-reading';
 import { useCauseNames } from '@/library/use-cause-names';
@@ -16,8 +19,12 @@ import { useCauseNames } from '@/library/use-cause-names';
 /** How many changes are listed. */
 const SHOWN = 8;
 
-/** A time as the list shows it: hours and minutes, the viewer's own. */
-const CLOCK = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
+/**
+ * A time as the list shows it: hours and minutes, the viewer's own.
+ *
+ * @returns The formatter, in the reader's language.
+ */
+const CLOCK = (): Intl.DateTimeFormat => dateTimeFormat({ hour: '2-digit', minute: '2-digit' });
 
 /** What the list needs. */
 export type RecentChangesProps = {
@@ -35,6 +42,8 @@ export type RecentChangesProps = {
  * @returns The list, or a line saying there is nothing.
  */
 export function RecentChanges(props: RecentChangesProps) {
+  const { t } = useTranslation();
+
   const { entity, points } = props;
   const nameOf = useCauseNames();
   const shown = [...points].reverse().slice(0, SHOWN);
@@ -42,7 +51,7 @@ export function RecentChanges(props: RecentChangesProps) {
   if (shown.length === 0) {
     return (
       <p className="rounded-card border border-border bg-surface px-5 py-4 text-ui text-foreground-subtle">
-        No change in this window.
+        {t('entity.recentChanges.noChangeInThis', 'No change in this window.')}
       </p>
     );
   }
@@ -62,10 +71,12 @@ export function RecentChanges(props: RecentChangesProps) {
               title={absoluteTime(point.time)}
               className="w-14 shrink-0 font-mono text-mono-caption text-foreground-subtle tabular"
             >
-              {CLOCK.format(point.time)}
+              {CLOCK().format(point.time)}
             </time>
             <span className="min-w-0 grow truncate text-ui text-foreground">
-              {point.isAvailable ? describeState(point.state, entity) : 'Unreachable'}
+              {point.isAvailable
+                ? describeState(point.state, entity)
+                : t('entity.recentChanges.unreachable', 'Unreachable')}
             </span>
             <span className="inline-flex shrink-0 items-center gap-1.5 rounded-pill border border-border px-2.5 py-0.5 text-caption text-foreground-muted">
               <AppIcon id={cause.icon} size={12} />

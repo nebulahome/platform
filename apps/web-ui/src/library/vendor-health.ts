@@ -11,6 +11,7 @@
 import type { DeviceView, IntegrationVendorView } from '@nebulahome/contracts';
 import type { HealthTone } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
 import { vendorStatusOf } from '@/library/vendor-status';
 
 /** One card of the strip, before it is drawn. */
@@ -34,7 +35,9 @@ export function runtimeHealth(vendor: IntegrationVendorView, deviceCount: number
     tone: status.kind === 'running' ? 'success' : status.kind === 'idle' ? 'neutral' : 'warning',
     value: status.label,
     // The package's own sentence is the Connection card's: said once, where it breaks.
-    detail: vendor.needsPackage ? 'Waiting for a package it needs' : status.detail,
+    detail: vendor.needsPackage
+      ? translate('library.vendorHealth.waitingForAPackage', 'Waiting for a package it needs')
+      : status.detail,
   };
 }
 
@@ -48,30 +51,52 @@ export function connectionHealth(vendor: IntegrationVendorView): HealthLine {
   if (vendor.needsPackage) {
     return {
       tone: 'danger',
-      value: 'Not connected',
-      detail: vendor.packageProblems[0] ?? 'A package it needs is not running',
+      value: translate('library.vendorHealth.notConnected', 'Not connected'),
+      detail:
+        vendor.packageProblems[0] ??
+        translate('library.vendorHealth.packageItNeedsIs', 'A package it needs is not running'),
     };
   }
 
   if (vendor.needsAccount) {
     return {
       tone: 'warning',
-      value: 'Signed out',
-      detail: `No ${vendor.account?.name ?? 'account'} signed in`,
+      value: translate('library.vendorHealth.signedOut', 'Signed out'),
+      detail:
+        vendor.account === null
+          ? translate('library.vendorHealth.noAccountSignedIn', 'No account signed in')
+          : translate('library.vendorHealth.noNameSignedIn', 'No {{name}} signed in', {
+              name: vendor.account.name,
+            }),
     };
   }
 
   const detail = vendor.discoverySources.includes('mdns')
-    ? 'Discovery over mDNS'
+    ? translate('library.vendorHealth.discoveryOverMdns', 'Discovery over mDNS')
     : vendor.discoverySources.includes('module')
-      ? 'Finds its devices by its own scan'
+      ? translate('library.vendorHealth.findsItsDevicesBy', 'Finds its devices by its own scan')
       : vendor.adoption === 'automatic'
-        ? 'Its devices are paired on the bridge'
-        : 'Each device added by its address';
+        ? translate(
+            'library.vendorHealth.itsDevicesArePaired',
+            'Its devices are paired on the bridge',
+          )
+        : translate('library.vendorHealth.eachDeviceAddedBy', 'Each device added by its address');
 
   return vendor.internetRequired
-    ? { tone: 'success', value: 'Cloud', detail: `Through the internet · ${detail.toLowerCase()}` }
-    : { tone: 'success', value: 'Local network', detail };
+    ? {
+        tone: 'success',
+        value: translate('library.vendorHealth.cloud', 'Cloud'),
+        detail: translate(
+          'library.vendorHealth.throughTheInternet',
+          'Through the internet · {{detail}}',
+          { detail: detail.toLowerCase() },
+        ),
+      }
+    : {
+        tone: 'success',
+        value: translate('library.vendorHealth.localNetwork', 'Local network'),
+        detail,
+      };
 }
 
 /**
@@ -92,12 +117,15 @@ export function devicesHealth(
   if (devices.length === 0) {
     return {
       tone: foundCount === 0 ? 'neutral' : 'info',
-      value: 'None yet',
+      value: translate('library.vendorHealth.noneYet', 'None yet'),
       detail:
         found ??
         (vendor.adoption === 'automatic'
-          ? 'A device paired on the bridge appears here'
-          : 'Add one by its address'),
+          ? translate(
+              'library.vendorHealth.devicePairedOnThe',
+              'A device paired on the bridge appears here',
+            )
+          : translate('library.vendorHealth.addOneByIts', 'Add one by its address')),
     };
   }
 
@@ -108,15 +136,27 @@ export function devicesHealth(
   if (failing > 0) {
     return {
       tone: 'warning',
-      value: `${String(failing)} of ${total} failing`,
+      value: translate(
+        'library.vendorHealth.failingOfTotalFailing',
+        '{{failing}} of {{total}} failing',
+        { failing: String(failing), total },
+      ),
       detail: found ?? `${String(reporting)} reporting`,
     };
   }
 
   return {
     tone: foundCount === 0 ? 'success' : 'info',
-    value: `${String(reporting)} of ${total} reporting`,
-    detail: found ?? (reporting === devices.length ? 'Every device answers' : 'Some are starting'),
+    value: translate(
+      'library.vendorHealth.reportingOfTotalReporting',
+      '{{reporting}} of {{total}} reporting',
+      { reporting: String(reporting), total },
+    ),
+    detail:
+      found ??
+      (reporting === devices.length
+        ? translate('library.vendorHealth.everyDeviceAnswers', 'Every device answers')
+        : translate('library.vendorHealth.someAreStarting', 'Some are starting')),
   };
 }
 
@@ -128,24 +168,47 @@ export function devicesHealth(
  */
 export function updatesHealth(vendor: IntegrationVendorView): HealthLine {
   if (vendor.origin === 'development') {
-    return { tone: 'neutral', value: 'In development', detail: 'Updated by rebuilding it' };
+    return {
+      tone: 'neutral',
+      value: translate('library.vendorHealth.inDevelopment', 'In development'),
+      detail: translate('library.vendorHealth.updatedByRebuildingIt', 'Updated by rebuilding it'),
+    };
   }
 
   if (vendor.update?.hasUpdate === true && vendor.update.latestVersion !== null) {
     return {
       tone: 'info',
       value: `${vendor.update.latestVersion} ready`,
-      detail: `Installed ${vendor.version}`,
+      detail: translate('library.vendorHealth.installedVersion', 'Installed {{version}}', {
+        version: vendor.version,
+      }),
     };
   }
 
   if (vendor.update?.hasNewBuild === true) {
-    return { tone: 'info', value: 'New build', detail: 'Another build of the same version' };
+    return {
+      tone: 'info',
+      value: translate('library.vendorHealth.newBuild', 'New build'),
+      detail: translate(
+        'library.vendorHealth.anotherBuildOfThe',
+        'Another build of the same version',
+      ),
+    };
   }
 
   if (vendor.update === null) {
-    return { tone: 'neutral', value: `v${vendor.version}`, detail: 'The index cannot be asked' };
+    return {
+      tone: 'neutral',
+      value: `v${vendor.version}`,
+      detail: translate('library.vendorHealth.indexCannotBeAsked', 'The index cannot be asked'),
+    };
   }
 
-  return { tone: 'success', value: 'Up to date', detail: `${vendor.version} is the latest` };
+  return {
+    tone: 'success',
+    value: translate('library.vendorHealth.upToDate', 'Up to date'),
+    detail: translate('library.vendorHealth.versionIsTheLatest', '{{version}} is the latest', {
+      version: vendor.version,
+    }),
+  };
 }

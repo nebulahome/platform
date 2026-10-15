@@ -7,9 +7,12 @@
  * it is, which is what tells two identical relays apart. Its vendor sits small above the name,
  * because on this row the question is "which one is this", not "whose".
  */
+import { useTranslation } from 'react-i18next';
+
 import type { DiscoveredDevice, IntegrationVendorView } from '@nebulahome/contracts';
 import { Button, cn } from '@nebulahome/ui';
 
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import { VendorLogo } from '@/routes/library/vendor-card';
 
 /** What the card needs of the vendor, when the page has it. */
@@ -40,9 +43,12 @@ export type DiscoveredCardProps = {
 };
 
 /** How a device was heard, in the words on the card. */
-const SOURCES: Readonly<Record<DiscoveredDevice['source'], string>> = {
-  mdns: 'Announced over mDNS',
-  module: "Heard by its vendor's own listener",
+const SOURCES: Readonly<Record<DiscoveredDevice['source'], Message>> = {
+  mdns: defineMessage('library.discoveredCard.announcedOverMdns', 'Announced over mDNS'),
+  module: defineMessage(
+    'library.discoveredCard.heardByItsVendor',
+    "Heard by its vendor's own listener",
+  ),
 };
 
 /**
@@ -63,6 +69,8 @@ export function discoveredTitle(device: DiscoveredDevice, vendorName: string): s
  * @returns The card, as a list item.
  */
 export function DiscoveredCard(props: DiscoveredCardProps) {
+  const { t } = useTranslation();
+
   const { device, vendor, canAdopt, onAdopt, isMoving = false, onMove } = props;
   const vendorName = vendor?.name ?? device.vendorId;
   const title = discoveredTitle(device, vendorName);
@@ -98,19 +106,25 @@ export function DiscoveredCard(props: DiscoveredCardProps) {
         <dl className="mt-4 flex flex-col gap-1.5 text-ui leading-tight">
           {title === model ? null : (
             <div className="flex min-w-0 items-baseline gap-2">
-              <dt className="shrink-0 text-foreground-subtle">Model</dt>
+              <dt className="shrink-0 text-foreground-subtle">
+                {t('library.discoveredCard.model', 'Model')}
+              </dt>
               <dd className="truncate text-foreground-muted">{model}</dd>
             </div>
           )}
           <div className="flex min-w-0 items-baseline gap-2">
-            <dt className="shrink-0 text-foreground-subtle">Address</dt>
+            <dt className="shrink-0 text-foreground-subtle">
+              {t('library.discoveredCard.address', 'Address')}
+            </dt>
             <dd className="truncate font-mono text-mono-ui text-foreground-muted tabular">
               {device.address}
             </dd>
           </div>
           {device.movedFrom === null ? null : (
             <div className="flex min-w-0 items-baseline gap-2">
-              <dt className="shrink-0 text-foreground-subtle">Added at</dt>
+              <dt className="shrink-0 text-foreground-subtle">
+                {t('library.discoveredCard.addedAt', 'Added at')}
+              </dt>
               <dd className="truncate text-warning tabular">{device.movedFrom.address}</dd>
             </div>
           )}
@@ -121,29 +135,36 @@ export function DiscoveredCard(props: DiscoveredCardProps) {
         <div className="mt-4 flex items-center justify-between gap-3">
           <span className="truncate text-caption text-foreground-subtle">
             {device.movedFrom === null
-              ? SOURCES[device.source]
-              : 'Already added; its address changed'}
+              ? text(SOURCES[device.source])
+              : t(
+                  'library.discoveredCard.alreadyAddedItsAddress',
+                  'Already added; its address changed',
+                )}
           </span>
           {!canAdopt ? null : device.movedFrom === null ? (
             <Button
               size="compact"
-              aria-label={`Adopt ${title}`}
+              aria-label={t('library.discoveredCard.adoptTitle', 'Adopt {{title}}', { title })}
               onClick={() => {
                 onAdopt(device);
               }}
             >
-              Adopt
+              {t('library.discoveredCard.adopt', 'Adopt')}
             </Button>
           ) : onMove === undefined ? null : (
             <Button
               size="compact"
-              aria-label={`Move ${title} to ${device.address}`}
+              aria-label={t(
+                'library.discoveredCard.moveTitleToAddress',
+                'Move {{title}} to {{address}}',
+                { title, address: device.address },
+              )}
               isBusy={isMoving}
               onClick={() => {
                 onMove(device);
               }}
             >
-              Move here
+              {t('library.discoveredCard.moveHere', 'Move here')}
             </Button>
           )}
         </div>

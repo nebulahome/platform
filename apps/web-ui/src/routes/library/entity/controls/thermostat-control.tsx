@@ -7,9 +7,12 @@
  * said apart from the mode: a thermostat on auto that has reached its target is idle, and a page
  * that showed only the mode could not explain why nothing is running.
  */
+import { useTranslation } from 'react-i18next';
+
 import { THERMOSTAT_MODES } from '@nebulahome/contracts';
 import { Segmented, SelectField, Stepper } from '@nebulahome/ui';
 
+import { numberFormat } from '@/i18n/formatters';
 import { paramsOf } from '@/library/entity-control';
 import { ControlBlock, type ControlProps } from '@/routes/library/entity/controls/control-block';
 import { usePendingValue } from '@/routes/library/entity/use-pending-value';
@@ -20,11 +23,16 @@ type Mode = (typeof THERMOSTAT_MODES)[number];
 /** Past this many modes the choice is a dropdown rather than a segmented control. */
 const SEGMENTED_MODES = 4;
 
-/** How a temperature is written. */
-const temperature = new Intl.NumberFormat(undefined, {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
+/**
+ * How a temperature is written.
+ *
+ * @returns The formatter, in the reader's language.
+ */
+const temperature = (): Intl.NumberFormat =>
+  numberFormat({
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
 
 /**
  * Names a mode or an action.
@@ -53,6 +61,8 @@ function modeOf(value: string): Mode | null {
  * @returns The block.
  */
 export function ThermostatControl(props: ControlProps) {
+  const { t } = useTranslation();
+
   const { entity, state, reportedAt, commander, disabled } = props;
   const params = paramsOf(entity, 'thermostat');
   const thermostat = state.thermostat;
@@ -62,33 +72,39 @@ export function ThermostatControl(props: ControlProps) {
 
   return (
     <ControlBlock
-      title="Climate"
+      title={t('entity.controls.thermostatControl.climate', 'Climate')}
       value={thermostat === undefined ? '—' : spoken(thermostat.action)}
     >
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <span className="text-caption text-foreground-subtle">Now</span>
+          <span className="text-caption text-foreground-subtle">
+            {t('entity.controls.thermostatControl.now', 'Now')}
+          </span>
           <span className="font-mono text-mono-reading text-foreground tabular">
             {thermostat === undefined
               ? '—'
-              : `${temperature.format(thermostat.currentTemperature)}°`}
+              : `${temperature().format(thermostat.currentTemperature)}°`}
           </span>
           {thermostat?.humidity === undefined ? null : (
             <span className="text-caption text-foreground-subtle tabular">
-              Humidity {String(Math.round(thermostat.humidity))}%
+              {t('entity.controls.thermostatControl.humidityHumidity', 'Humidity {{humidity}}%', {
+                humidity: String(Math.round(thermostat.humidity)),
+              })}
             </span>
           )}
         </div>
         {params === null ? null : (
           <div className="flex flex-col items-center gap-1">
-            <span className="text-caption text-foreground-subtle">Target</span>
+            <span className="text-caption text-foreground-subtle">
+              {t('entity.controls.thermostatControl.target', 'Target')}
+            </span>
             <Stepper
-              label="Target temperature"
+              label={t('entity.controls.thermostatControl.targetTemperature', 'Target temperature')}
               value={target.shown}
               min={params.minTemperature}
               max={params.maxTemperature}
               step={params.temperatureStep}
-              format={(value) => `${temperature.format(value)}°`}
+              format={(value) => `${temperature().format(value)}°`}
               disabled={disabled || mode.shown === 'off'}
               onChange={(next) => {
                 target.sent(next);
@@ -100,11 +116,14 @@ export function ThermostatControl(props: ControlProps) {
       </div>
       {params === null ? (
         <p className="text-caption text-foreground-subtle">
-          This thermostat has not said its range and modes, so it cannot be set from here.
+          {t(
+            'entity.controls.thermostatControl.thisThermostatHasNot',
+            'This thermostat has not said its range and modes, so it cannot be set from here.',
+          )}
         </p>
       ) : modes.length <= SEGMENTED_MODES ? (
         <Segmented
-          label="Mode"
+          label={t('entity.controls.thermostatControl.mode', 'Mode')}
           className="self-start"
           options={modes}
           value={mode.shown}
@@ -116,7 +135,7 @@ export function ThermostatControl(props: ControlProps) {
         />
       ) : (
         <SelectField
-          label="Mode"
+          label={t('entity.controls.thermostatControl.mode', 'Mode')}
           size="compact"
           options={modes}
           value={mode.shown}

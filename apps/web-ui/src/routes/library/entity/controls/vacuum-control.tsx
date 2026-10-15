@@ -12,10 +12,12 @@
  * would start the house again.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { VacuumActivity } from '@nebulahome/contracts';
 import { AppIcon, Button, cn } from '@nebulahome/ui';
 
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import { paramsOf } from '@/library/entity-control';
 import { capabilityLabel } from '@/library/entity-kind';
 import {
@@ -26,14 +28,35 @@ import {
 
 /** What each activity is called, and how it is drawn. */
 const ACTIVITIES: Readonly<
-  Record<VacuumActivity, { readonly label: string; readonly className: string }>
+  Record<VacuumActivity, { readonly label: Message; readonly className: string }>
 > = {
-  cleaning: { label: 'Cleaning', className: 'text-success' },
-  paused: { label: 'Paused', className: 'text-warning' },
-  returning: { label: 'Going back to its station', className: 'text-foreground' },
-  docked: { label: 'In its station', className: 'text-foreground' },
-  idle: { label: 'Idle', className: 'text-foreground-muted' },
-  error: { label: 'Stopped by a fault', className: 'text-danger' },
+  cleaning: {
+    label: defineMessage('entity.controls.vacuumControl.cleaning', 'Cleaning'),
+    className: 'text-success',
+  },
+  paused: {
+    label: defineMessage('entity.controls.vacuumControl.paused', 'Paused'),
+    className: 'text-warning',
+  },
+  returning: {
+    label: defineMessage(
+      'entity.controls.vacuumControl.goingBackToIts',
+      'Going back to its station',
+    ),
+    className: 'text-foreground',
+  },
+  docked: {
+    label: defineMessage('entity.controls.vacuumControl.inItsStation', 'In its station'),
+    className: 'text-foreground',
+  },
+  idle: {
+    label: defineMessage('entity.controls.vacuumControl.idle', 'Idle'),
+    className: 'text-foreground-muted',
+  },
+  error: {
+    label: defineMessage('entity.controls.vacuumControl.stoppedByAFault', 'Stopped by a fault'),
+    className: 'text-danger',
+  },
 };
 
 /**
@@ -43,6 +66,8 @@ const ACTIVITIES: Readonly<
  * @returns The block.
  */
 export function VacuumControl(props: ControlProps) {
+  const { t } = useTranslation();
+
   const { entity, state, commander, disabled } = props;
   const params = paramsOf(entity, 'vacuum') ?? {
     canPause: true,
@@ -83,7 +108,7 @@ export function VacuumControl(props: ControlProps) {
         ) : (
           <span className={cn('inline-flex items-center gap-1.5', shown.className)}>
             {activity === 'error' ? <AppIcon id="triangle-alert" size={14} /> : null}
-            {shown.label}
+            {text(shown.label)}
           </span>
         )
       }
@@ -100,7 +125,9 @@ export function VacuumControl(props: ControlProps) {
           }}
         >
           <AppIcon id="play" size={15} />
-          {isResuming ? 'Resume' : 'Clean everywhere'}
+          {isResuming
+            ? t('entity.controls.vacuumControl.resume', 'Resume')
+            : t('entity.controls.vacuumControl.cleanEverywhere', 'Clean everywhere')}
         </Button>
         {params.canPause ? (
           <Button
@@ -111,7 +138,7 @@ export function VacuumControl(props: ControlProps) {
             }}
           >
             <AppIcon id="pause" size={15} />
-            Pause
+            {t('entity.controls.vacuumControl.pause', 'Pause')}
           </Button>
         ) : null}
         {params.canDock ? (
@@ -123,7 +150,7 @@ export function VacuumControl(props: ControlProps) {
             }}
           >
             <AppIcon id="house" size={15} />
-            Back to station
+            {t('entity.controls.vacuumControl.backToStation', 'Back to station')}
           </Button>
         ) : null}
         {params.canStop && isOut ? (
@@ -135,7 +162,7 @@ export function VacuumControl(props: ControlProps) {
             }}
           >
             <AppIcon id="square" size={15} />
-            End job
+            {t('entity.controls.vacuumControl.endJob', 'End job')}
           </Button>
         ) : null}
         {params.canLocate ? (
@@ -147,15 +174,21 @@ export function VacuumControl(props: ControlProps) {
             }}
           >
             <AppIcon id="rss" size={15} />
-            Where are you?
+            {t('entity.controls.vacuumControl.whereAreYou', 'Where are you?')}
           </Button>
         ) : null}
       </div>
 
       {params.canCleanRooms && rooms.length > 0 ? (
         <div className="flex flex-col gap-2.5">
-          <p className="text-caption text-foreground-subtle">Or only some rooms:</p>
-          <div role="group" aria-label="Rooms" className="flex flex-wrap gap-1.5">
+          <p className="text-caption text-foreground-subtle">
+            {t('entity.controls.vacuumControl.orOnlySomeRooms', 'Or only some rooms:')}
+          </p>
+          <div
+            role="group"
+            aria-label={t('entity.controls.vacuumControl.rooms', 'Rooms')}
+            className="flex flex-wrap gap-1.5"
+          >
             {rooms.map((room) => {
               const isPicked = picked.includes(room.id);
 
@@ -188,7 +221,13 @@ export function VacuumControl(props: ControlProps) {
               setPicked([]);
             }}
           >
-            {picked.length <= 1 ? 'Clean this room' : `Clean these ${String(picked.length)} rooms`}
+            {picked.length <= 1
+              ? t('entity.controls.vacuumControl.cleanThisRoom', 'Clean this room')
+              : t(
+                  'entity.controls.vacuumControl.cleanTheseCountRooms',
+                  'Clean these {{count}} rooms',
+                  { count: picked.length },
+                )}
           </Button>
         </div>
       ) : null}

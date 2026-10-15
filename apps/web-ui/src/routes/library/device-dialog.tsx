@@ -32,6 +32,7 @@
  */
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
   integrationIdSchema,
@@ -46,6 +47,8 @@ import {
 import { Button, Modal, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
 import { CheckIcon, WarningIcon } from '@/components/icons';
+import { listFormat } from '@/i18n/formatters';
+import { translate } from '@/i18n/messages';
 import { roomChoices } from '@/lib/area-tree';
 import { toMessage } from '@/lib/error-message';
 import { createDevice, deleteDevice, probeDevice, updateDevice } from '@/library/api';
@@ -205,6 +208,8 @@ function carriedOver(from: SetupDraft, into: SetupDraft): SetupDraft {
  * @returns The dialog.
  */
 export function DeviceDialog(props: DeviceDialogProps) {
+  const { t } = useTranslation();
+
   const { target, canRemove = false, canCreateTags = false, onClose, onSaved, onRemoved } = props;
   const { tags, create: createTagNamed } = useTags();
   const tagIcons = useCatalogueIcons(tags.map((tag) => tag.icon));
@@ -275,10 +280,13 @@ export function DeviceDialog(props: DeviceDialogProps) {
       transport: transport.errors,
       options: options.errors,
       general: !isNameValid
-        ? 'The device needs a name.'
+        ? t('library.deviceDialog.deviceNeedsAName', 'The device needs a name.')
         : isIdValid
           ? undefined
-          : 'The id must be lowercase letters, digits and dashes, starting with a letter.',
+          : t(
+              'library.deviceDialog.idMustBeLowercase',
+              'The id must be lowercase letters, digits and dashes, starting with a letter.',
+            ),
     });
 
     const isClean =
@@ -496,21 +504,41 @@ export function DeviceDialog(props: DeviceDialogProps) {
     }
   };
 
-  const title = existing === undefined ? 'Add a device' : `Configure ${existing.name}`;
+  const title =
+    existing === undefined
+      ? t('library.deviceDialog.addADevice', 'Add a device')
+      : t('library.deviceDialog.configureName', 'Configure {{name}}', { name: existing.name });
   const description = isSystem
     ? existing.origin === 'container'
-      ? 'A container of this machine: what it is called, its tags and its room.'
+      ? t(
+          'library.deviceDialog.containerOfThisMachine',
+          'A container of this machine: what it is called, its tags and its room.',
+        )
       : existing.origin === 'package'
-        ? `A device of the ${existing.driverName} package: what it is called, its tags and its room.`
-        : 'The machine NebulaHome runs on: what it is called, its tags and its room.'
+        ? t(
+            'library.deviceDialog.deviceOfTheDrivername',
+            'A device of the {{driverName}} package: what it is called, its tags and its room.',
+            { driverName: existing.driverName },
+          )
+        : t(
+            'library.deviceDialog.machineNebulahomeRunsOn',
+            'The machine NebulaHome runs on: what it is called, its tags and its room.',
+          )
     : driver === undefined
-      ? 'Which model, and what it needs to be reached.'
-      : `${choice?.series ?? driver.name}, over ${driver.transport}. Test tries the address before anything is saved.`;
+      ? t('library.deviceDialog.whichModelAndWhat', 'Which model, and what it needs to be reached.')
+      : t(
+          'library.deviceDialog.overTransport',
+          '{{model}}, over {{transport}}. Test tries the address before anything is saved.',
+          { model: choice?.series ?? driver.name, transport: driver.transport },
+        );
 
   /** Saves the System device: its name, icon, tags and room, and no connection. */
   const saveSystem = (): void => {
     if (name.trim() === '') {
-      setErrors({ ...NO_ERRORS, general: 'The device needs a name.' });
+      setErrors({
+        ...NO_ERRORS,
+        general: t('library.deviceDialog.deviceNeedsAName', 'The device needs a name.'),
+      });
 
       return;
     }
@@ -541,7 +569,7 @@ export function DeviceDialog(props: DeviceDialogProps) {
           />
         ) : undefined
       }
-      asideLabel="Models"
+      asideLabel={t('library.deviceDialog.models', 'Models')}
       footer={
         isRemoving && existing !== undefined ? (
           <ConfirmRemoval
@@ -566,7 +594,7 @@ export function DeviceDialog(props: DeviceDialogProps) {
                   setRemoving(true);
                 }}
               >
-                Remove
+                {t('common.remove', 'Remove')}
               </Button>
             ) : null}
             {isSystem ? null : (
@@ -582,11 +610,11 @@ export function DeviceDialog(props: DeviceDialogProps) {
                   }
                 }}
               >
-                Test
+                {t('library.deviceDialog.test', 'Test')}
               </Button>
             )}
             <Button variant="ghost" onClick={onClose}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button
               isBusy={save.isPending}
@@ -605,7 +633,7 @@ export function DeviceDialog(props: DeviceDialogProps) {
                 }
               }}
             >
-              Save
+              {t('common.save', 'Save')}
             </Button>
           </>
         )
@@ -621,7 +649,10 @@ export function DeviceDialog(props: DeviceDialogProps) {
           }}
           hint={
             existing === undefined
-              ? "The icon starts as the driver's; pick another from the catalogue."
+              ? t(
+                  'library.deviceDialog.iconStartsAsThe',
+                  "The icon starts as the driver's; pick another from the catalogue.",
+                )
               : undefined
           }
           required
@@ -634,17 +665,26 @@ export function DeviceDialog(props: DeviceDialogProps) {
           icons={tagIcons}
           canCreate={canCreateTags}
           onCreate={createTagNamed}
-          hint="What automations and scenes will pick this device by."
+          hint={t(
+            'library.deviceDialog.whatAutomationsAndScenes',
+            'What automations and scenes will pick this device by.',
+          )}
         />
 
         <SelectField
-          label="Room"
+          label={t('library.deviceDialog.room', 'Room')}
           options={rooms}
           value={areaId ?? ''}
           hint={
             rooms.length === 1
-              ? 'No rooms yet: make the house, its floors and their rooms under Areas.'
-              : 'Its entities are in the same room unless one of them says otherwise.'
+              ? t(
+                  'library.deviceDialog.noRoomsYetMake',
+                  'No rooms yet: make the house, its floors and their rooms under Areas.',
+                )
+              : t(
+                  'library.deviceDialog.itsEntitiesAreIn',
+                  'Its entities are in the same room unless one of them says otherwise.',
+                )
           }
           onChange={(value) => {
             setAreaId(value === '' ? null : value);
@@ -653,9 +693,12 @@ export function DeviceDialog(props: DeviceDialogProps) {
 
         {existing === undefined ? (
           <TextField
-            label="Id"
+            label={t('library.deviceDialog.id', 'Id')}
             size="medium"
-            hint="Lowercase letters, digits and dashes. It is what every entity of this device carries as its source."
+            hint={t(
+              'library.deviceDialog.lowercaseLettersDigitsAnd',
+              'Lowercase letters, digits and dashes. It is what every entity of this device carries as its source.',
+            )}
             value={id}
             required
             onChange={(event) => {
@@ -665,7 +708,11 @@ export function DeviceDialog(props: DeviceDialogProps) {
           />
         ) : driver === undefined && !isSystem ? (
           <p role="alert" className="text-ui text-danger">
-            The hub no longer has the driver {existing.kind}, so its fields cannot be shown.
+            {t(
+              'library.deviceDialog.hubNoLongerHas',
+              'The hub no longer has the driver {{kind}}, so its fields cannot be shown.',
+              { kind: existing.kind },
+            )}
           </p>
         ) : null}
 
@@ -690,10 +737,10 @@ export function DeviceDialog(props: DeviceDialogProps) {
 
         {existing === undefined || isSystem ? null : (
           <Segmented
-            label="Running"
+            label={t('library.deviceDialog.running', 'Running')}
             options={[
-              { value: 'on', label: 'Enabled' },
-              { value: 'off', label: 'Disabled' },
+              { value: 'on', label: t('library.deviceDialog.enabled', 'Enabled') },
+              { value: 'off', label: t('library.deviceDialog.disabled', 'Disabled') },
             ]}
             value={isEnabled ? 'on' : 'off'}
             onChange={(value) => {
@@ -709,7 +756,11 @@ export function DeviceDialog(props: DeviceDialogProps) {
               {verdict.detail}
               {verdict.detected === undefined || existing !== undefined
                 ? null
-                : ` It says it is a ${verdict.detected.model ?? verdict.detected.modelChoices.join(' or ')}.`}
+                : ` ${t('library.deviceDialog.itSaysItIs', 'It says it is a {{model}}.', {
+                    model:
+                      verdict.detected.model ??
+                      listFormat({ type: 'disjunction' }).format(verdict.detected.modelChoices),
+                  })}`}
             </span>
           </p>
         ) : (
@@ -739,8 +790,12 @@ function describeEntities(device: DeviceView): string {
   const count = device.entityIds.length;
 
   if (count === 0) {
-    return 'It has no entities yet';
+    return translate('library.deviceDialog.itHasNoEntities', 'It has no entities yet');
   }
 
-  return `Its ${String(count)} entit${count === 1 ? 'y goes' : 'ies go'} with it`;
+  return translate('library.deviceDialog.entitiesGoWithIt', {
+    count,
+    defaultValue_one: 'Its {{count}} entity goes with it',
+    defaultValue_other: 'Its {{count}} entities go with it',
+  });
 }

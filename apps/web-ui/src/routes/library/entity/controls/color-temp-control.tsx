@@ -7,8 +7,11 @@
  * and dropped when two of them land on the same white. On a lamp that also makes colours,
  * choosing a white leaves the colour: the colour block turns white with it.
  */
+import { useTranslation } from 'react-i18next';
+
 import { Button, Slider } from '@nebulahome/ui';
 
+import { defineMessage, text } from '@/i18n/messages';
 import {
   hasCapability,
   kelvinColor,
@@ -22,9 +25,9 @@ import { usePendingValue } from '@/routes/library/entity/use-pending-value';
 
 /** The whites offered as presets. */
 const PRESETS = [
-  { label: 'Warm', kelvin: 2700 },
-  { label: 'Neutral', kelvin: 4000 },
-  { label: 'Daylight', kelvin: 6500 },
+  { label: defineMessage('entity.controls.colorTempControl.warm', 'Warm'), kelvin: 2700 },
+  { label: defineMessage('entity.controls.colorTempControl.neutral', 'Neutral'), kelvin: 4000 },
+  { label: defineMessage('entity.controls.colorTempControl.daylight', 'Daylight'), kelvin: 6500 },
 ] as const;
 
 /** How far one step of the slider moves, in kelvin. */
@@ -37,6 +40,8 @@ const STEP_KELVIN = 50;
  * @returns The block, or a note when the lamp declared no range.
  */
 export function ColorTempControl(props: ControlProps) {
+  const { t } = useTranslation();
+
   const { entity, state, reportedAt, commander, disabled, colour } = props;
   const params = paramsOf(entity, 'color_temp');
   const reportedKelvin =
@@ -45,9 +50,14 @@ export function ColorTempControl(props: ControlProps) {
 
   if (params === null) {
     return (
-      <ControlBlock title="Colour temperature">
+      <ControlBlock
+        title={t('entity.controls.colorTempControl.colourTemperature', 'Colour temperature')}
+      >
         <p className="text-caption text-foreground-subtle">
-          This light has not said which whites it can make, so it cannot be set from here.
+          {t(
+            'entity.controls.colorTempControl.thisLightHasNot',
+            'This light has not said which whites it can make, so it cannot be set from here.',
+          )}
         </p>
       </ControlBlock>
     );
@@ -87,9 +97,12 @@ export function ColorTempControl(props: ControlProps) {
   const reads = reportedKelvin === null && kelvin.shown === 0 ? '—' : `${String(shown)} K`;
 
   return (
-    <ControlBlock title="Colour temperature" value={reads}>
+    <ControlBlock
+      title={t('entity.controls.colorTempControl.colourTemperature', 'Colour temperature')}
+      value={reads}
+    >
       <Slider
-        label="Colour temperature"
+        label={t('entity.controls.colorTempControl.colourTemperature', 'Colour temperature')}
         isLabelHidden
         value={shown}
         min={warmest}
@@ -108,7 +121,11 @@ export function ColorTempControl(props: ControlProps) {
             variant="ghost"
             size="compact"
             disabled={disabled}
-            aria-label={`${preset.label}, ${String(preset.kelvin)} K`}
+            aria-label={t(
+              'entity.controls.colorTempControl.labelKelvinK',
+              '{{label}}, {{kelvin}} K',
+              { label: text(preset.label), kelvin: String(preset.kelvin) },
+            )}
             onClick={() => {
               send(preset.kelvin);
             }}
@@ -120,7 +137,7 @@ export function ColorTempControl(props: ControlProps) {
                  the palette does not hold (RULES.md 15.3). */
               style={{ backgroundColor: kelvinColor(preset.kelvin) }}
             />
-            {preset.label}
+            {text(preset.label)}
           </Button>
         ))}
       </div>

@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 
 import { entityIdSchema, type EntityView } from '@nebulahome/contracts';
 
+import { numberFormat } from '@/i18n/formatters';
+
 import {
   describeState,
   NO_READING,
@@ -15,13 +17,13 @@ import {
 } from './entity-reading';
 
 /**
- * A figure as this machine's locale writes it, so the expectations hold wherever the tests run.
+ * A figure as the reader's language writes it (English, with its region from this machine).
  *
  * @param value - The number.
- * @returns "42.26" or "42,26", depending on the locale.
+ * @returns "42.26", or however the reader's English writes it.
  */
 function figure(value: number): string {
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value);
+  return numberFormat({ maximumFractionDigits: 2 }).format(value);
 }
 
 /**

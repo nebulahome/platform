@@ -13,6 +13,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 import { z } from 'zod';
 
@@ -36,6 +37,7 @@ import {
 } from '@nebulahome/contracts';
 import { AppIcon, Button, Panel, Section, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
+import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import { isApiError } from '@/lib/api-error';
 import { toMessage } from '@/lib/error-message';
 import {
@@ -72,29 +74,58 @@ const CALCULATED_OPTIONS = ALIAS_CALCULATED_CAPABILITIES.map((capability) => ({
 }));
 
 /** What each fallback is called, as the board words it. */
-const FALLBACK_LABELS: Readonly<Record<AliasFallbackPolicy, string>> = {
-  unavailable: 'Become unavailable',
-  ignore_missing: 'Ignore the missing ones',
-  last_known: 'Keep the last value',
+const FALLBACK_LABELS: Readonly<Record<AliasFallbackPolicy, Message>> = {
+  unavailable: defineMessage('library.aliasEditor.becomeUnavailable', 'Become unavailable'),
+  ignore_missing: defineMessage(
+    'library.aliasEditor.ignoreTheMissingOnes',
+    'Ignore the missing ones',
+  ),
+  last_known: defineMessage('library.aliasEditor.keepTheLastValue', 'Keep the last value'),
 };
 
-const FALLBACK_OPTIONS = ALIAS_FALLBACK_POLICIES.map((policy) => ({
-  value: policy,
-  label: FALLBACK_LABELS[policy],
-}));
+/**
+ * The fallbacks, as the select offers them.
+ *
+ * @returns The choices, in the reader's language.
+ */
+function fallbackOptions() {
+  return ALIAS_FALLBACK_POLICIES.map((policy) => ({
+    value: policy,
+    label: text(FALLBACK_LABELS[policy]),
+  }));
+}
 
 /** What a formula may be written with: the evaluator's operators, and nothing else. */
 const FORMULA_OPERATORS = '+ - * / · < <= > >= == != · && || ! · a ? b : c';
 
-const DOMAIN_OPTIONS = ALIAS_STORED_DOMAINS.map((domain) => ({
-  value: domain,
-  label: domain === 'media_player' ? 'media player' : domain === 'climate' ? 'climate' : domain,
-}));
+/**
+ * The domains a stored alias may take, as the select offers them.
+ *
+ * @returns The choices, in the reader's language.
+ */
+function domainOptions() {
+  return ALIAS_STORED_DOMAINS.map((domain) => ({
+    value: domain,
+    label:
+      domain === 'media_player'
+        ? translate('library.aliasEditor.mediaPlayer', 'media player')
+        : domain === 'climate'
+          ? translate('library.aliasEditor.climate', 'climate')
+          : domain,
+  }));
+}
 
-const DEVICE_CLASS_OPTIONS = [
-  { value: '', label: 'None' },
-  ...SENSOR_CLASS_LIST.map((entry) => ({ value: entry.id, label: entry.label })),
-];
+/**
+ * The sensor classes, as the select offers them.
+ *
+ * @returns The choices, in the reader's language.
+ */
+function deviceClassOptions() {
+  return [
+    { value: '', label: translate('library.aliasEditor.none', 'None') },
+    ...SENSOR_CLASS_LIST.map((entry) => ({ value: entry.id, label: entry.label })),
+  ];
+}
 
 const LIGHT_OPTIONAL: readonly CapabilityName[] = ['level', 'color_hs', 'color_temp'];
 
@@ -242,7 +273,11 @@ export function removalMessage(error: unknown): string {
 
   const names = dependents.data.map((dependent) => dependent.name).join(', ');
 
-  return `Other aliases still read this one: ${names}. Change their formulas first.`;
+  return translate(
+    'library.aliasEditor.otherAliasesStillRead',
+    'Other aliases still read this one: {{names}}. Change their formulas first.',
+    { names },
+  );
 }
 
 /**
@@ -251,6 +286,8 @@ export function removalMessage(error: unknown): string {
  * @returns The page.
  */
 export function AliasEditor() {
+  const { t } = useTranslation();
+
   const { aliasId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -353,7 +390,12 @@ export function AliasEditor() {
           const nextSources = toSources(sources);
 
           if (nextSources === null || nextSources.length === 0) {
-            throw new Error('Every source needs a variable name and an entity.');
+            throw new Error(
+              t(
+                'library.aliasEditor.everySourceNeedsA',
+                'Every source needs a variable name and an entity.',
+              ),
+            );
           }
 
           const body: AliasCreate = {
@@ -400,14 +442,19 @@ export function AliasEditor() {
       }
 
       if (loaded === undefined) {
-        throw new Error('No alias has that address.');
+        throw new Error(t('library.aliasEditor.noAliasHasThat', 'No alias has that address.'));
       }
 
       if (loaded.kind === 'calculated') {
         const nextSources = toSources(sources);
 
         if (nextSources === null || nextSources.length === 0) {
-          throw new Error('Every source needs a variable name and an entity.');
+          throw new Error(
+            t(
+              'library.aliasEditor.everySourceNeedsA',
+              'Every source needs a variable name and an entity.',
+            ),
+          );
         }
 
         const change: AliasUpdate = {
@@ -483,9 +530,11 @@ export function AliasEditor() {
 
   if (!isNew && !draftReady) {
     return (
-      <Shell title="Alias">
+      <Shell title={t('library.aliasEditor.alias', 'Alias')}>
         <p className="text-ui text-foreground-muted">
-          {existing.isPending ? 'Reading…' : 'No alias has that address.'}
+          {existing.isPending
+            ? t('library.aliasEditor.reading', 'Reading…')
+            : t('library.aliasEditor.noAliasHasThat', 'No alias has that address.')}
         </p>
       </Shell>
     );
@@ -529,19 +578,19 @@ export function AliasEditor() {
   /** Saves, unless the required fields are blank. */
   const submit = (): void => {
     if (name.trim() === '') {
-      setProblem('The name cannot be blank.');
+      setProblem(t('library.aliasEditor.nameCannotBeBlank', 'The name cannot be blank.'));
 
       return;
     }
 
     if (isNew && objectId.trim() === '') {
-      setProblem('The object id cannot be blank.');
+      setProblem(t('library.aliasEditor.objectIdCannotBe', 'The object id cannot be blank.'));
 
       return;
     }
 
     if (isCalculated && expression.trim() === '') {
-      setProblem('The formula cannot be blank.');
+      setProblem(t('library.aliasEditor.formulaCannotBeBlank', 'The formula cannot be blank.'));
 
       return;
     }
@@ -593,12 +642,18 @@ export function AliasEditor() {
 
   return (
     <Shell
-      title={isNew ? 'New alias' : name === '' ? (loaded?.name ?? 'Alias') : name}
+      title={
+        isNew
+          ? t('library.aliasEditor.newAlias', 'New alias')
+          : name === ''
+            ? (loaded?.name ?? t('library.aliasEditor.alias', 'Alias'))
+            : name
+      }
       action={
         isConfirming && loaded !== undefined ? (
           <ConfirmRemoval
             question={`Delete ${loaded.name}? Automations that name ${loaded.entityId} will break.`}
-            label="Delete"
+            label={t('common.delete', 'Delete')}
             isBusy={removal.isPending}
             onCancel={() => {
               setConfirming(false);
@@ -619,7 +674,7 @@ export function AliasEditor() {
                   setConfirming(true);
                 }}
               >
-                Delete
+                {t('common.delete', 'Delete')}
               </Button>
             )}
             <Button
@@ -630,7 +685,7 @@ export function AliasEditor() {
                 void navigate('/aliases');
               }}
             >
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button
               size="compact"
@@ -638,14 +693,14 @@ export function AliasEditor() {
               disabled={removal.isPending}
               onClick={submit}
             >
-              {isNew ? 'Create' : 'Save'}
+              {isNew ? t('common.create', 'Create') : t('common.save', 'Save')}
             </Button>
           </span>
         )
       }
     >
       {problem === null ? null : (
-        <Panel title="Not saved">
+        <Panel title={t('library.aliasEditor.notSaved', 'Not saved')}>
           <p role="alert" className="px-4 py-3.5 text-ui text-danger">
             {problem}
           </p>
@@ -653,7 +708,7 @@ export function AliasEditor() {
       )}
 
       {save.error === null || problem !== null ? null : (
-        <Panel title="The server refused it">
+        <Panel title={t('library.aliasEditor.serverRefusedIt', 'The server refused it')}>
           <p className="px-4 py-3.5 text-ui text-danger">{toMessage(save.error)}</p>
         </Panel>
       )}
@@ -668,8 +723,11 @@ export function AliasEditor() {
         {isCalculated ? (
           <div className="flex min-w-0 flex-col gap-8">
             <Section
-              title="Formula"
-              note="Write it with the variables of the sources, e.g. (t1 + t2) / 2."
+              title={t('library.aliasEditor.formula', 'Formula')}
+              note={t(
+                'library.aliasEditor.writeItWithThe',
+                'Write it with the variables of the sources, e.g. (t1 + t2) / 2.',
+              )}
             >
               <AliasFormulaField
                 value={expression}
@@ -698,11 +756,11 @@ export function AliasEditor() {
         ) : null}
 
         <div className="flex min-w-0 flex-col gap-4">
-          <Panel title="What it is">
+          <Panel title={t('library.aliasEditor.whatItIs', 'What it is')}>
             <div className="flex flex-col gap-4 p-4">
               <div className="flex flex-col gap-1">
                 <TextField
-                  label="Name"
+                  label={t('library.aliasEditor.name', 'Name')}
                   size="medium"
                   value={name}
                   required
@@ -723,10 +781,13 @@ export function AliasEditor() {
               {isNew ? (
                 <div className="flex flex-col gap-1.5">
                   <Segmented
-                    label="Kind"
+                    label={t('library.aliasEditor.kind', 'Kind')}
                     options={[
-                      { value: 'calculated', label: 'Calculated' },
-                      { value: 'stored', label: 'Stored' },
+                      {
+                        value: 'calculated',
+                        label: t('library.aliasEditor.calculated', 'Calculated'),
+                      },
+                      { value: 'stored', label: t('library.aliasEditor.stored', 'Stored') },
                     ]}
                     value={kind}
                     onChange={(value) => {
@@ -735,7 +796,10 @@ export function AliasEditor() {
                     }}
                   />
                   <p className="text-caption text-foreground-subtle">
-                    Calculated works out a value; stored holds one you set.
+                    {t(
+                      'library.aliasEditor.calculatedWorksOutA',
+                      'Calculated works out a value; stored holds one you set.',
+                    )}
                   </p>
                 </div>
               ) : null}
@@ -743,7 +807,7 @@ export function AliasEditor() {
               {isCalculated ? (
                 <>
                   <SelectField
-                    label="Produces"
+                    label={t('library.aliasEditor.produces', 'Produces')}
                     size="medium"
                     options={CALCULATED_OPTIONS}
                     value={capability}
@@ -759,19 +823,30 @@ export function AliasEditor() {
                   {showMeasure ? (
                     <div className="grid grid-cols-2 gap-4">
                       <SelectField
-                        label="Device class"
+                        label={t('library.aliasEditor.deviceClass', 'Device class')}
                         size="medium"
-                        options={DEVICE_CLASS_OPTIONS}
+                        options={deviceClassOptions()}
                         value={deviceClass}
                         onChange={changeDeviceClass}
                       />
                       <SelectField
-                        label="Unit"
+                        label={t('library.aliasEditor.unit', 'Unit')}
                         size="medium"
                         options={
                           unitOptions.length === 0
-                            ? [{ value: '', label: 'Choose a class first' }]
-                            : [{ value: '', label: 'None' }, ...unitOptions]
+                            ? [
+                                {
+                                  value: '',
+                                  label: t(
+                                    'library.aliasEditor.chooseAClassFirst',
+                                    'Choose a class first',
+                                  ),
+                                },
+                              ]
+                            : [
+                                { value: '', label: t('library.aliasEditor.none', 'None') },
+                                ...unitOptions,
+                              ]
                         }
                         value={unitOfMeasurement}
                         disabled={unitOptions.length === 0}
@@ -783,9 +858,9 @@ export function AliasEditor() {
               ) : (
                 <>
                   <SelectField
-                    label="Domain"
+                    label={t('library.aliasEditor.domain', 'Domain')}
                     size="medium"
-                    options={DOMAIN_OPTIONS}
+                    options={domainOptions()}
                     value={domain}
                     disabled={!isNew}
                     onChange={(value) => {
@@ -797,7 +872,10 @@ export function AliasEditor() {
                   {domain === 'light' ? (
                     <div className="flex flex-col gap-3">
                       <span className="text-caption text-foreground-muted">
-                        Lights always carry on/off. Add optional capabilities below.
+                        {t(
+                          'library.aliasEditor.lightsAlwaysCarryOn',
+                          'Lights always carry on/off. Add optional capabilities below.',
+                        )}
                       </span>
                       {LIGHT_OPTIONAL.map((extra) => (
                         <Segmented
@@ -805,8 +883,8 @@ export function AliasEditor() {
                           label={extra.replaceAll('_', ' ')}
                           size="compact"
                           options={[
-                            { value: 'off', label: 'Off' },
-                            { value: 'on', label: 'On' },
+                            { value: 'off', label: t('common.off', 'Off') },
+                            { value: 'on', label: t('common.on', 'On') },
                           ]}
                           value={lightExtras.has(extra) ? 'on' : 'off'}
                           onChange={(value) => {
@@ -820,26 +898,37 @@ export function AliasEditor() {
                   {domain === 'sensor' ? (
                     <div className="grid gap-4 sm:grid-cols-2">
                       <SelectField
-                        label="Device class"
+                        label={t('library.aliasEditor.deviceClass', 'Device class')}
                         size="medium"
-                        options={DEVICE_CLASS_OPTIONS}
+                        options={deviceClassOptions()}
                         value={deviceClass}
                         onChange={changeDeviceClass}
                       />
                       <SelectField
-                        label="Unit"
+                        label={t('library.aliasEditor.unit', 'Unit')}
                         size="medium"
                         options={
                           unitOptions.length === 0
-                            ? [{ value: '', label: 'Choose a class first' }]
-                            : [{ value: '', label: 'None' }, ...unitOptions]
+                            ? [
+                                {
+                                  value: '',
+                                  label: t(
+                                    'library.aliasEditor.chooseAClassFirst',
+                                    'Choose a class first',
+                                  ),
+                                },
+                              ]
+                            : [
+                                { value: '', label: t('library.aliasEditor.none', 'None') },
+                                ...unitOptions,
+                              ]
                         }
                         value={unitOfMeasurement}
                         disabled={unitOptions.length === 0}
                         onChange={setUnit}
                       />
                       <TextField
-                        label="Min"
+                        label={t('library.aliasEditor.min', 'Min')}
                         size="medium"
                         type="number"
                         value={min}
@@ -848,7 +937,7 @@ export function AliasEditor() {
                         }}
                       />
                       <TextField
-                        label="Max"
+                        label={t('library.aliasEditor.max', 'Max')}
                         size="medium"
                         type="number"
                         value={max}
@@ -857,7 +946,7 @@ export function AliasEditor() {
                         }}
                       />
                       <TextField
-                        label="Step"
+                        label={t('library.aliasEditor.step', 'Step')}
                         size="medium"
                         type="number"
                         min={0}
@@ -876,7 +965,9 @@ export function AliasEditor() {
                   domain === 'climate' ||
                   domain === 'media_player' ? (
                     <p className="text-caption text-foreground-muted">
-                      Capabilities: {[...storedCapabilitiesForDomain(domain)].join(', ')}.
+                      {t('library.aliasEditor.capabilities', 'Capabilities: {{capabilities}}.', {
+                        capabilities: [...storedCapabilitiesForDomain(domain)].join(', '),
+                      })}
                     </p>
                   ) : null}
                 </>
@@ -885,23 +976,26 @@ export function AliasEditor() {
           </Panel>
 
           {isCalculated ? (
-            <Panel title="Behaviour">
+            <Panel title={t('library.aliasEditor.behaviour', 'Behaviour')}>
               <div className="flex flex-col gap-4 p-4">
                 <TextField
-                  label="Debounce (ms)"
+                  label={t('library.aliasEditor.debounceMs', 'Debounce (ms)')}
                   size="medium"
                   type="number"
                   min={0}
-                  hint="Waits this long after a source changes before working it out."
+                  hint={t(
+                    'library.aliasEditor.waitsThisLongAfter',
+                    'Waits this long after a source changes before working it out.',
+                  )}
                   value={String(debounceMs)}
                   onChange={(event) => {
                     setDebounceMs(Math.max(0, Number(event.target.value) || 0));
                   }}
                 />
                 <SelectField
-                  label="When a source stops reporting"
+                  label={t('library.aliasEditor.whenASourceStops', 'When a source stops reporting')}
                   size="medium"
-                  options={FALLBACK_OPTIONS}
+                  options={fallbackOptions()}
                   value={fallbackPolicy}
                   onChange={(value) => {
                     setFallback(
@@ -932,6 +1026,8 @@ type FormulaFooterProps = {
  * @returns The two halves.
  */
 function FormulaFooter(props: FormulaFooterProps) {
+  const { t } = useTranslation();
+
   const { reading } = props;
 
   return (
@@ -940,7 +1036,9 @@ function FormulaFooter(props: FormulaFooterProps) {
         {reading.tone === 'value' ? (
           <>
             <AppIcon id="check" size={15} className="text-success" />
-            <span className="text-foreground-muted">Reads now</span>
+            <span className="text-foreground-muted">
+              {t('library.aliasEditor.readsNow', 'Reads now')}
+            </span>
             <span className="truncate text-headline-sm font-medium text-foreground tabular">
               {reading.value}
             </span>
@@ -948,7 +1046,9 @@ function FormulaFooter(props: FormulaFooterProps) {
         ) : reading.tone === 'problem' ? (
           <>
             <AppIcon id="triangle-alert" size={15} className="text-danger" />
-            <span className="text-danger">Cannot work it out</span>
+            <span className="text-danger">
+              {t('library.aliasEditor.cannotWorkItOut', 'Cannot work it out')}
+            </span>
           </>
         ) : (
           <span className="text-foreground-subtle">{reading.text}</span>
@@ -982,12 +1082,14 @@ type ShellProps = {
  * @returns The frame.
  */
 function Shell(props: ShellProps) {
+  const { t } = useTranslation();
+
   const { title, action, children } = props;
 
   return (
     <div className="flex min-h-0 grow flex-col">
       <DetailHeader
-        crumbs={[{ to: '/aliases', label: 'Aliases' }]}
+        crumbs={[{ to: '/aliases', label: t('library.aliasEditor.aliases', 'Aliases') }]}
         title={title}
         actions={action}
       />

@@ -8,18 +8,20 @@
  * so an empty panel never claims more than was looked at.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import { Badge, Panel } from '@nebulahome/ui';
 
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import type { AutomationRole } from '@/library/entity-correlations';
 import { useEntityCorrelations } from '@/routes/library/entity/use-entity-correlations';
 
 /** Where an automation names the entity, in the words the line uses. */
-const ROLE_WORDS: Readonly<Record<AutomationRole, string>> = {
-  trigger: 'Starts it',
-  condition: 'Checked',
-  action: 'Commanded',
+const ROLE_WORDS: Readonly<Record<AutomationRole, Message>> = {
+  trigger: defineMessage('entity.correlationsPanel.startsIt', 'Starts it'),
+  condition: defineMessage('entity.correlationsPanel.checked', 'Checked'),
+  action: defineMessage('entity.correlationsPanel.commanded', 'Commanded'),
 };
 
 /** What one group of lines needs. */
@@ -58,6 +60,8 @@ export type CorrelationsPanelProps = {
  * @returns The panel, or nothing for somebody who may see none of the three.
  */
 export function CorrelationsPanel(props: CorrelationsPanelProps) {
+  const { t } = useTranslation();
+
   const { entityId } = props;
   const { correlations, canRead } = useEntityCorrelations(entityId);
 
@@ -71,17 +75,28 @@ export function CorrelationsPanel(props: CorrelationsPanelProps) {
       : correlations.automations.length + correlations.scenes.length + correlations.aliases.length;
 
   return (
-    <Panel title={count === undefined || count === 0 ? 'Used by' : `Used by · ${String(count)}`}>
+    <Panel
+      title={
+        count === undefined || count === 0
+          ? t('entity.correlationsPanel.usedBy', 'Used by')
+          : t('entity.correlationsPanel.usedByCount', 'Used by · {{count}}', { count })
+      }
+    >
       {correlations === undefined ? (
-        <p className="px-4 py-3.5 text-ui text-foreground-muted">Reading…</p>
+        <p className="px-4 py-3.5 text-ui text-foreground-muted">
+          {t('entity.correlationsPanel.reading', 'Reading…')}
+        </p>
       ) : count === 0 ? (
         <p className="px-4 py-3.5 text-ui text-foreground-muted">
-          Not used by any automation, scene or alias.
+          {t(
+            'entity.correlationsPanel.notUsedByAny',
+            'Not used by any automation, scene or alias.',
+          )}
         </p>
       ) : (
         <>
           {correlations.automations.length === 0 ? null : (
-            <Group title="Automations">
+            <Group title={t('entity.correlationsPanel.automations', 'Automations')}>
               {correlations.automations.map((automation) => (
                 <li key={automation.id} className="flex items-center justify-between gap-3">
                   <Link
@@ -93,11 +108,11 @@ export function CorrelationsPanel(props: CorrelationsPanelProps) {
                   <span className="flex shrink-0 items-center gap-1.5">
                     {automation.isEnabled ? null : (
                       <Badge tone="neutral" size="small">
-                        Off
+                        {t('common.off', 'Off')}
                       </Badge>
                     )}
                     <span className="text-caption text-foreground-subtle">
-                      {automation.roles.map((role) => ROLE_WORDS[role]).join(' · ')}
+                      {automation.roles.map((role) => text(ROLE_WORDS[role])).join(' · ')}
                     </span>
                   </span>
                 </li>
@@ -106,7 +121,7 @@ export function CorrelationsPanel(props: CorrelationsPanelProps) {
           )}
 
           {correlations.scenes.length === 0 ? null : (
-            <Group title="Scenes">
+            <Group title={t('entity.correlationsPanel.scenes', 'Scenes')}>
               {correlations.scenes.map((scene) => (
                 <li key={scene.id}>
                   <Link
@@ -121,7 +136,7 @@ export function CorrelationsPanel(props: CorrelationsPanelProps) {
           )}
 
           {correlations.aliases.length === 0 ? null : (
-            <Group title="Aliases">
+            <Group title={t('entity.correlationsPanel.aliases', 'Aliases')}>
               {correlations.aliases.map((alias) => (
                 <li key={alias.id} className="flex items-center justify-between gap-3">
                   <Link
@@ -131,7 +146,9 @@ export function CorrelationsPanel(props: CorrelationsPanelProps) {
                     {alias.name}
                   </Link>
                   <span className="shrink-0 text-caption text-foreground-subtle">
-                    {alias.role === 'self' ? 'This entity' : 'Reads it'}
+                    {alias.role === 'self'
+                      ? t('entity.correlationsPanel.thisEntity', 'This entity')
+                      : t('entity.correlationsPanel.readsIt', 'Reads it')}
                   </span>
                 </li>
               ))}

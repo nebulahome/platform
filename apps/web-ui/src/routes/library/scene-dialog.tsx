@@ -11,6 +11,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type {
   CapabilityState,
@@ -128,6 +129,8 @@ function draftsFromScene(scene: SceneView): SceneMemberDraft[] {
  * @returns The dialog.
  */
 export function SceneDialog(props: SceneDialogProps) {
+  const { t } = useTranslation();
+
   const { target, onClose, onSaved, onDeleted, presentation = 'dialog', onApply } = props;
   const queryClient = useQueryClient();
   const existing = target?.mode === 'edit' ? target.scene : undefined;
@@ -206,7 +209,7 @@ export function SceneDialog(props: SceneDialogProps) {
       }
 
       if (existing === undefined) {
-        throw new Error('The dialog is shut');
+        throw new Error(t('library.sceneDialog.dialogIsShut', 'The dialog is shut'));
       }
 
       const change: SceneUpdate = {
@@ -276,14 +279,17 @@ export function SceneDialog(props: SceneDialogProps) {
   /** Saves, unless the name or key is wrong. */
   const submit = (): void => {
     if (name.trim() === '') {
-      setProblem('The name cannot be blank.');
+      setProblem(t('library.sceneDialog.nameCannotBeBlank', 'The name cannot be blank.'));
 
       return;
     }
 
     if (existing === undefined && !KEY_PATTERN.test(key.trim())) {
       setProblem(
-        'The key must start with a letter and use only lower case letters, digits and underscores.',
+        t(
+          'library.sceneDialog.keyMustStartWith',
+          'The key must start with a letter and use only lower case letters, digits and underscores.',
+        ),
       );
 
       return;
@@ -328,7 +334,7 @@ export function SceneDialog(props: SceneDialogProps) {
       />
 
       <TextField
-        label="Key"
+        label={t('library.sceneDialog.key', 'Key')}
         size="medium"
         value={key}
         required={existing === undefined}
@@ -337,8 +343,11 @@ export function SceneDialog(props: SceneDialogProps) {
         className="font-mono"
         hint={
           existing === undefined
-            ? 'What the API and automations refer to. It never changes after this.'
-            : 'The key never changes.'
+            ? t(
+                'library.sceneDialog.whatTheApiAnd',
+                'What the API and automations refer to. It never changes after this.',
+              )
+            : t('library.sceneDialog.keyNeverChanges', 'The key never changes.')
         }
         onChange={(event) => {
           setKeyFollowing(false);
@@ -347,7 +356,7 @@ export function SceneDialog(props: SceneDialogProps) {
       />
 
       <SelectField
-        label="Area"
+        label={t('library.sceneDialog.area', 'Area')}
         size="medium"
         options={areaChoices(tree)}
         value={areaId}
@@ -359,14 +368,17 @@ export function SceneDialog(props: SceneDialogProps) {
   const applying = (
     <>
       <TextField
-        label="Transition"
+        label={t('library.sceneDialog.transition', 'Transition')}
         size="medium"
         type="number"
         min={0}
         max={600}
         step={0.1}
         value={String(transitionSeconds)}
-        hint="Seconds. 0 means immediate. Lights that cannot fade change at once."
+        hint={t(
+          'library.sceneDialog.seconds0MeansImmediate',
+          'Seconds. 0 means immediate. Lights that cannot fade change at once.',
+        )}
         onChange={(event) => {
           const next = Number(event.target.value);
 
@@ -375,12 +387,14 @@ export function SceneDialog(props: SceneDialogProps) {
       />
 
       <div className="flex flex-col gap-2">
-        <span className="text-caption font-medium text-foreground-muted">On partial failure</span>
+        <span className="text-caption font-medium text-foreground-muted">
+          {t('library.sceneDialog.onPartialFailure', 'On partial failure')}
+        </span>
         <Segmented
-          label="On partial failure"
+          label={t('library.sceneDialog.onPartialFailure', 'On partial failure')}
           options={[
-            { value: 'leave', label: 'Leave partial' },
-            { value: 'rollback', label: 'Roll back' },
+            { value: 'leave', label: t('library.sceneDialog.leavePartial', 'Leave partial') },
+            { value: 'rollback', label: t('library.sceneDialog.rollBack', 'Roll back') },
           ]}
           value={rollback ? 'rollback' : 'leave'}
           onChange={(value) => {
@@ -389,8 +403,14 @@ export function SceneDialog(props: SceneDialogProps) {
         />
         <span className="text-caption text-foreground-subtle">
           {rollback
-            ? 'Roll back: when one entity refuses, the others go back to how they were.'
-            : 'Leave partial: what could be set stays set.'}
+            ? t(
+                'library.sceneDialog.rollBackWhenOne',
+                'Roll back: when one entity refuses, the others go back to how they were.',
+              )
+            : t(
+                'library.sceneDialog.leavePartialWhatCould',
+                'Leave partial: what could be set stays set.',
+              )}
         </span>
       </div>
     </>
@@ -400,7 +420,10 @@ export function SceneDialog(props: SceneDialogProps) {
     <div className="flex flex-col gap-3">
       {members.length === 0 ? (
         <p className="rounded-card border border-dashed border-border-strong px-5 py-4 text-ui text-foreground-subtle">
-          None yet. Add an entity to capture what it is on right now.
+          {t(
+            'library.sceneDialog.noneYetAddAn',
+            'None yet. Add an entity to capture what it is on right now.',
+          )}
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -420,12 +443,14 @@ export function SceneDialog(props: SceneDialogProps) {
                     <p className="truncate text-caption text-foreground-subtle">
                       {areaName ?? member.entityId}
                       {entity !== undefined && !entity.isAvailable ? (
-                        <span className="text-warning"> · Unavailable now</span>
+                        <span className="text-warning">
+                          {t('library.sceneDialog.unavailableNow', '· Unavailable now')}
+                        </span>
                       ) : null}
                     </p>
                   </div>
                   <IconButton
-                    label={`Remove ${title}`}
+                    label={t('library.sceneDialog.removeTitle', 'Remove {{title}}', { title })}
                     disabled={isBusy}
                     onClick={() => {
                       setMembers(members.filter((member, at) => at !== index));
@@ -445,14 +470,17 @@ export function SceneDialog(props: SceneDialogProps) {
                 />
 
                 <TextField
-                  label="Transition"
+                  label={t('library.sceneDialog.transition', 'Transition')}
                   size="compact"
                   type="number"
                   min={0}
                   max={600}
                   step={0.1}
                   value={member.transitionSeconds === null ? '' : String(member.transitionSeconds)}
-                  hint="Seconds for this entity only. Leave blank for the scene default."
+                  hint={t(
+                    'library.sceneDialog.secondsForThisEntity',
+                    'Seconds for this entity only. Leave blank for the scene default.',
+                  )}
                   onChange={(event) => {
                     const raw = event.target.value.trim();
 
@@ -492,11 +520,11 @@ export function SceneDialog(props: SceneDialogProps) {
         }}
       >
         <AppIcon id="plus" size={14} />
-        Add entities
+        {t('library.sceneDialog.addEntities', 'Add entities')}
       </Button>
       <EntityPicker
         isOpen={isAdding}
-        title="Add to the scene"
+        title={t('library.sceneDialog.addToTheScene', 'Add to the scene')}
         isMultiple
         accept={(entity) => isSceneEntity(entity) && !taken.has(entity.entityId)}
         onClose={() => {
@@ -536,8 +564,12 @@ export function SceneDialog(props: SceneDialogProps) {
       <div className="min-h-0 grow overflow-y-auto px-8 pt-6 pb-10">
         <div className="flex flex-col gap-5">
           <DetailHero
-            back={<BackLink to="/scenes">Scenes</BackLink>}
-            title={existing === undefined ? 'New scene' : existing.name}
+            back={<BackLink to="/scenes">{t('library.sceneDialog.scenes', 'Scenes')}</BackLink>}
+            title={
+              existing === undefined
+                ? t('library.sceneDialog.newScene', 'New scene')
+                : existing.name
+            }
             actions={
               confirm ?? (
                 <>
@@ -550,7 +582,7 @@ export function SceneDialog(props: SceneDialogProps) {
                       }}
                     >
                       <AppIcon id="play" size={15} />
-                      Apply now
+                      {t('library.sceneDialog.applyNow', 'Apply now')}
                     </Button>
                   )}
                   {existing === undefined ? null : (
@@ -562,15 +594,17 @@ export function SceneDialog(props: SceneDialogProps) {
                         setConfirming(true);
                       }}
                     >
-                      Delete
+                      {t('common.delete', 'Delete')}
                     </Button>
                   )}
                   <Button variant="bare" disabled={isBusy} onClick={onClose}>
-                    Cancel
+                    {t('common.cancel', 'Cancel')}
                   </Button>
                   <Button isBusy={save.isPending} disabled={removing.isPending} onClick={submit}>
                     <AppIcon id="check" size={15} />
-                    {existing === undefined ? 'Create' : 'Save'}
+                    {existing === undefined
+                      ? t('common.create', 'Create')
+                      : t('common.save', 'Save')}
                   </Button>
                 </>
               )
@@ -578,16 +612,22 @@ export function SceneDialog(props: SceneDialogProps) {
           />
           {problemLine}
           <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <Section title="Members" note="What the scene sets, each entity with what it is told.">
+            <Section
+              title={t('library.sceneDialog.members', 'Members')}
+              note={t(
+                'library.sceneDialog.whatTheSceneSets',
+                'What the scene sets, each entity with what it is told.',
+              )}
+            >
               {membersBlock}
             </Section>
             <div className="flex flex-col gap-4">
-              <Panel title="What it is">
+              <Panel title={t('library.sceneDialog.whatItIs', 'What it is')}>
                 <div className="flex flex-col gap-3.5 border-t border-border px-5.5 py-4">
                   {identity}
                 </div>
               </Panel>
-              <Panel title="How it applies">
+              <Panel title={t('library.sceneDialog.howItApplies', 'How it applies')}>
                 <div className="flex flex-col gap-3.5 border-t border-border px-5.5 py-4">
                   {applying}
                 </div>
@@ -604,10 +644,17 @@ export function SceneDialog(props: SceneDialogProps) {
       isOpen={target !== null}
       onClose={onClose}
       size="large"
-      title={existing === undefined ? 'New scene' : `Configure ${existing.name}`}
+      title={
+        existing === undefined
+          ? t('library.sceneDialog.newScene', 'New scene')
+          : t('library.sceneDialog.configureName', 'Configure {{name}}', { name: existing.name })
+      }
       description={
         existing === undefined
-          ? 'A saved set of states. Each entity you add starts from what it is reading now.'
+          ? t(
+              'library.sceneDialog.savedSetOfStates',
+              'A saved set of states. Each entity you add starts from what it is reading now.',
+            )
           : undefined
       }
       footer={
@@ -623,14 +670,14 @@ export function SceneDialog(props: SceneDialogProps) {
                   setConfirming(true);
                 }}
               >
-                Remove
+                {t('common.remove', 'Remove')}
               </Button>
             )}
             <Button variant="ghost" disabled={isBusy} onClick={onClose}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button isBusy={save.isPending} disabled={removing.isPending} onClick={submit}>
-              {existing === undefined ? 'Create' : 'Save'}
+              {existing === undefined ? t('common.create', 'Create') : t('common.save', 'Save')}
             </Button>
           </>
         )
@@ -640,7 +687,9 @@ export function SceneDialog(props: SceneDialogProps) {
         {identity}
         {applying}
         <div className="flex flex-col gap-3">
-          <h3 className="text-caption font-medium text-foreground-muted">Members</h3>
+          <h3 className="text-caption font-medium text-foreground-muted">
+            {t('library.sceneDialog.members', 'Members')}
+          </h3>
           {membersBlock}
         </div>
         {problemLine}

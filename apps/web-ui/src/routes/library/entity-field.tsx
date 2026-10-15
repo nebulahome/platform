@@ -12,6 +12,7 @@
  * in, which is why the switch lives here rather than at every call site.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { EntityView } from '@nebulahome/contracts';
 import { AppIcon, cn, controlFace, FieldShell, IconButton, TextField } from '@nebulahome/ui';
@@ -66,6 +67,8 @@ export type EntityFieldProps = {
  * @returns The field.
  */
 export function EntityField(props: EntityFieldProps) {
+  const { t } = useTranslation();
+
   const {
     label,
     isLabelHidden = false,
@@ -90,14 +93,20 @@ export function EntityField(props: EntityFieldProps) {
         isLabelHidden={isLabelHidden}
         value={value}
         size={size}
-        placeholder="light.hallway_ceiling"
+        placeholder={t('library.entityField.lightHallwayCeiling', 'light.hallway_ceiling')}
         disabled={disabled}
         error={error}
         hint={
           hint ??
           (directory.error === null
-            ? 'Nothing adopted yet, so this is typed rather than chosen.'
-            : 'The entities could not be read, so this is typed rather than chosen.')
+            ? t(
+                'library.entityField.nothingAdoptedYetSo',
+                'Nothing adopted yet, so this is typed rather than chosen.',
+              )
+            : t(
+                'library.entityField.entitiesCouldNotBe',
+                'The entities could not be read, so this is typed rather than chosen.',
+              ))
         }
         onChange={(event) => {
           onChange(event.target.value, undefined);
@@ -139,7 +148,9 @@ export function EntityField(props: EntityFieldProps) {
                   value === '' ? 'text-foreground-disabled' : 'font-mono text-foreground',
                 )}
               >
-                {value === '' ? 'Choose an entity…' : value}
+                {value === ''
+                  ? t('library.entityField.chooseAnEntity', 'Choose an entity…')
+                  : value}
               </span>
             ) : (
               <>
@@ -165,7 +176,7 @@ export function EntityField(props: EntityFieldProps) {
           {isOptional && value !== '' ? (
             <IconButton
               size="small"
-              label={`Clear ${label}`}
+              label={t('library.entityField.clearLabel', 'Clear {{label}}', { label })}
               disabled={disabled}
               className="absolute top-1/2 right-1 -translate-y-1/2"
               onClick={() => {

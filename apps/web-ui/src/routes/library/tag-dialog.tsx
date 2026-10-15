@@ -11,10 +11,12 @@
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { TAG_COLORS, type TagColor, type TagUpdate, type TagView } from '@nebulahome/contracts';
 import { Button, ColorSwatches, Modal } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { createTag, deleteTag, LIBRARY_QUERY_KEYS, updateTag } from '@/library/api';
 import { ConfirmRemoval } from '@/routes/library/confirm-removal';
@@ -55,7 +57,9 @@ function describeUse(tag: TagView): string {
       : `${String(tag.entityCount)} entit${tag.entityCount === 1 ? 'y' : 'ies'}`,
   ].filter((part) => part !== null);
 
-  return parts.length === 0 ? 'nothing yet' : parts.join(' and ');
+  return parts.length === 0
+    ? translate('library.tagDialog.nothingYet', 'nothing yet')
+    : parts.join(' and ');
 }
 
 /**
@@ -65,6 +69,8 @@ function describeUse(tag: TagView): string {
  * @returns The dialog.
  */
 export function TagDialog(props: TagDialogProps) {
+  const { t } = useTranslation();
+
   const { target, onClose, onSaved, onDeleted } = props;
   const queryClient = useQueryClient();
   const existing = target?.mode === 'edit' ? target.tag : undefined;
@@ -159,7 +165,7 @@ export function TagDialog(props: TagDialogProps) {
   /** Saves, unless the name is blank. */
   const submit = (): void => {
     if (name.trim() === '') {
-      setProblem('The name cannot be blank.');
+      setProblem(t('library.tagDialog.nameCannotBeBlank', 'The name cannot be blank.'));
 
       return;
     }
@@ -172,17 +178,26 @@ export function TagDialog(props: TagDialogProps) {
     <Modal
       isOpen={target !== null}
       onClose={onClose}
-      title={existing === undefined ? 'New tag' : `Configure ${existing.name}`}
+      title={
+        existing === undefined
+          ? t('library.tagDialog.newTag', 'New tag')
+          : t('library.tagDialog.configureName', 'Configure {{name}}', { name: existing.name })
+      }
       description={
         existing === undefined
-          ? 'A name and a colour. Put it on devices and entities from their own dialogs.'
-          : `On ${describeUse(existing)}.`
+          ? t(
+              'library.tagDialog.nameAndAColour',
+              'A name and a colour. Put it on devices and entities from their own dialogs.',
+            )
+          : t('library.tagDialog.onExisting', 'On {{existing}}.', {
+              existing: describeUse(existing),
+            })
       }
       footer={
         isConfirming && existing !== undefined ? (
           <ConfirmRemoval
             question={`Delete ${existing.name}? It comes off ${describeUse(existing)}.`}
-            label="Delete"
+            label={t('common.delete', 'Delete')}
             isBusy={removal.isPending}
             onCancel={() => {
               setConfirming(false);
@@ -203,14 +218,14 @@ export function TagDialog(props: TagDialogProps) {
                   setConfirming(true);
                 }}
               >
-                Delete
+                {t('common.delete', 'Delete')}
               </Button>
             )}
             <Button variant="ghost" disabled={isBusy} onClick={onClose}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button isBusy={save.isPending} disabled={removal.isPending} onClick={submit}>
-              {existing === undefined ? 'Create' : 'Save'}
+              {existing === undefined ? t('common.create', 'Create') : t('common.save', 'Save')}
             </Button>
           </>
         )
@@ -226,7 +241,12 @@ export function TagDialog(props: TagDialogProps) {
             setIcon(view.id);
           }}
         />
-        <ColorSwatches label="Colour" value={color} onChange={setColor} disabled={isBusy} />
+        <ColorSwatches
+          label={t('library.tagDialog.colour', 'Colour')}
+          value={color}
+          onChange={setColor}
+          disabled={isBusy}
+        />
         {problem === null ? null : (
           <p role="alert" className="text-ui text-danger">
             {problem}

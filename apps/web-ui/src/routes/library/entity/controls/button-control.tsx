@@ -8,9 +8,11 @@
  * its own block, with the versions and the install beside them.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Button, Modal } from '@nebulahome/ui';
 
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import {
   ControlBlock,
   isBusy,
@@ -18,9 +20,15 @@ import {
 } from '@/routes/library/entity/controls/control-block';
 
 /** Device classes whose press cannot be taken back, and what the question says about each. */
-const ASKED_FIRST: Readonly<Record<string, string>> = {
-  restart: 'The device restarts, and is offline until it is back.',
-  stop: 'What the device is doing stops, and cannot be picked up again.',
+const ASKED_FIRST: Readonly<Record<string, Message>> = {
+  restart: defineMessage(
+    'entity.controls.buttonControl.deviceRestartsAndIs',
+    'The device restarts, and is offline until it is back.',
+  ),
+  stop: defineMessage(
+    'entity.controls.buttonControl.whatTheDeviceIs',
+    'What the device is doing stops, and cannot be picked up again.',
+  ),
 };
 
 /**
@@ -30,9 +38,12 @@ const ASKED_FIRST: Readonly<Record<string, string>> = {
  * @returns The block.
  */
 export function ButtonControl(props: ControlProps) {
+  const { t } = useTranslation();
+
   const { entity, commander, disabled } = props;
   const [isAsking, setAsking] = useState(false);
-  const question = ASKED_FIRST[entity.deviceClass ?? ''];
+  const asked = ASKED_FIRST[entity.deviceClass ?? ''];
+  const question = asked === undefined ? undefined : text(asked);
   const asksFirst = question !== undefined;
 
   /** Sends the press. */
@@ -43,7 +54,7 @@ export function ButtonControl(props: ControlProps) {
 
   return (
     <ControlBlock
-      title="Button"
+      title={t('entity.controls.buttonControl.button', 'Button')}
       action={
         <Button
           size="compact"
@@ -58,7 +69,7 @@ export function ButtonControl(props: ControlProps) {
             }
           }}
         >
-          Press
+          {t('entity.controls.buttonControl.press', 'Press')}
         </Button>
       }
     >
@@ -69,7 +80,9 @@ export function ButtonControl(props: ControlProps) {
             setAsking(false);
           }}
           size="small"
-          title={`Press ${entity.name}?`}
+          title={t('entity.controls.buttonControl.pressName', 'Press {{name}}?', {
+            name: entity.name,
+          })}
           description={question}
           footer={
             <>
@@ -79,9 +92,9 @@ export function ButtonControl(props: ControlProps) {
                   setAsking(false);
                 }}
               >
-                Cancel
+                {t('common.cancel', 'Cancel')}
               </Button>
-              <Button onClick={press}>Press</Button>
+              <Button onClick={press}>{t('entity.controls.buttonControl.press', 'Press')}</Button>
             </>
           }
         >

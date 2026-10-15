@@ -7,6 +7,7 @@
  * read, or cannot be, a dashed outline says so where the content would be.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import { AppIcon, cn, HERO_BACK, PageHeader } from '@nebulahome/ui';
@@ -39,6 +40,8 @@ export type DetailHeaderProps = {
  * @returns The header.
  */
 export function DetailHeader(props: DetailHeaderProps) {
+  const { t } = useTranslation();
+
   const { crumbs, title, actions } = props;
 
   return (
@@ -47,7 +50,10 @@ export function DetailHeader(props: DetailHeaderProps) {
         title={title}
         crumb={
           crumbs.length === 0 ? undefined : (
-            <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5">
+            <nav
+              aria-label={t('library.detail.breadcrumb', 'Breadcrumb')}
+              className="flex min-w-0 items-center gap-1.5"
+            >
               <ChevronLeftIcon width={14} height={14} className="shrink-0" />
               {crumbs.map((crumb, index) => (
                 <span key={crumb.to} className="flex min-w-0 items-center gap-1.5">
@@ -163,6 +169,8 @@ export type DetailFrameProps = {
  * @returns The page.
  */
 export function DetailFrame(props: DetailFrameProps) {
+  const { t } = useTranslation();
+
   const { hero, isPending = false, error, problem, children, isFilled = false } = props;
 
   return (
@@ -175,7 +183,7 @@ export function DetailFrame(props: DetailFrameProps) {
       <div className={cn('flex flex-col gap-5', isFilled ? 'min-h-0 grow' : undefined)}>
         {hero}
         {isPending ? (
-          <DetailPlaceholder>Reading…</DetailPlaceholder>
+          <DetailPlaceholder>{t('library.detail.reading', 'Reading…')}</DetailPlaceholder>
         ) : problem !== undefined ? (
           <DetailPlaceholder isProblem>{problem}</DetailPlaceholder>
         ) : error === undefined || error === null ? (

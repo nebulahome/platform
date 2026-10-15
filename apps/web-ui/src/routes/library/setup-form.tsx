@@ -6,10 +6,13 @@
  * schema the API runs - so this component is only the mapping from a field type to a control,
  * and the place the field's help and error are shown.
  */
+import { useTranslation } from 'react-i18next';
+
 import { isFieldShown, type SetupField, type SetupGroup } from '@nebulahome/contracts';
 import { FieldShell, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
 import { PasswordField } from '@/components/password-field';
+import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import type { DraftValue, SetupDraft } from '@/library/setup-values';
 
 /** What the form needs. */
@@ -41,12 +44,26 @@ function textOf(value: DraftValue | undefined): string {
 }
 
 /** Units a person reads better spelled out: "In seconds." rather than "In s.". */
-const UNIT_WORDS: Readonly<Record<string, string>> = {
-  ms: 'milliseconds',
-  s: 'seconds',
-  min: 'minutes',
-  h: 'hours',
+const UNIT_WORDS: Readonly<Record<string, Message>> = {
+  ms: defineMessage('library.setupForm.inMilliseconds', 'In milliseconds.'),
+  s: defineMessage('library.setupForm.inSeconds', 'In seconds.'),
+  min: defineMessage('library.setupForm.inMinutes', 'In minutes.'),
+  h: defineMessage('library.setupForm.inHours', 'In hours.'),
 };
+
+/**
+ * Says which unit a field is in.
+ *
+ * @param unit - The unit the field declares.
+ * @returns The sentence, in the reader's language.
+ */
+function unitWords(unit: string): string {
+  const words = UNIT_WORDS[unit];
+
+  return words === undefined
+    ? translate('library.setupForm.inUnit', 'In {{unit}}.', { unit })
+    : text(words);
+}
 
 /**
  * What a number field warns about, for what its control holds now.
@@ -94,6 +111,8 @@ function Field(props: {
   readonly isKept: boolean;
   readonly onChange: (value: DraftValue) => void;
 }) {
+  const { t } = useTranslation();
+
   const { field, value, error, isKept, onChange } = props;
   const help = field.help;
 
@@ -107,7 +126,11 @@ function Field(props: {
           hasRules={false}
           required={field.isRequired && !isKept}
           value={textOf(value)}
-          placeholder={isKept ? 'Kept as saved · type to replace' : undefined}
+          placeholder={
+            isKept
+              ? t('library.setupForm.keptAsSavedType', 'Kept as saved · type to replace')
+              : undefined
+          }
           hint={help}
           error={error}
           onChange={onChange}
@@ -122,8 +145,8 @@ function Field(props: {
               label={field.label}
               className="self-start"
               options={[
-                { value: 'on', label: 'On' },
-                { value: 'off', label: 'Off' },
+                { value: 'on', label: t('common.on', 'On') },
+                { value: 'off', label: t('common.off', 'Off') },
               ]}
               value={value === true ? 'on' : 'off'}
               onChange={(next) => {
@@ -160,7 +183,7 @@ function Field(props: {
           hint={
             field.unit === undefined
               ? help
-              : [help, `In ${UNIT_WORDS[field.unit] ?? field.unit}.`].filter(Boolean).join(' ')
+              : [help, unitWords(field.unit)].filter(Boolean).join(' ')
           }
           warning={error === undefined ? warningOf(field, value) : undefined}
           error={error}
@@ -180,7 +203,12 @@ function Field(props: {
           required={field.isRequired}
           value={textOf(value)}
           placeholder={field.placeholder}
-          hint={[help, 'Separate several with commas.'].filter(Boolean).join(' ')}
+          hint={[
+            help,
+            t('library.setupForm.separateSeveralWithCommas', 'Separate several with commas.'),
+          ]
+            .filter(Boolean)
+            .join(' ')}
           error={error}
           onChange={(event) => {
             onChange(event.target.value);

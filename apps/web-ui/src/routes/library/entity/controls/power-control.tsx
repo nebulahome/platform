@@ -4,6 +4,8 @@
  * A switch that commands at once, with the state in words beside the title, so the answer to
  * "is it on?" is read before the control is found.
  */
+import { useTranslation } from 'react-i18next';
+
 import { Switch } from '@nebulahome/ui';
 
 import { powerCommand } from '@/library/entity-control';
@@ -21,6 +23,8 @@ import { usePendingValue } from '@/routes/library/entity/use-pending-value';
  * @returns The block.
  */
 export function PowerControl(props: ControlProps) {
+  const { t } = useTranslation();
+
   const { entity, state, reportedAt, commander, disabled } = props;
   const reported = state.on_off?.isOn ?? false;
   const power = usePendingValue(reported, reportedAt);
@@ -28,11 +32,13 @@ export function PowerControl(props: ControlProps) {
 
   return (
     <ControlBlock
-      title="Power"
+      title={t('entity.controls.powerControl.power', 'Power')}
       value={isOn ? 'On' : 'Off'}
       action={
         <Switch
-          label={`${entity.name} power`}
+          label={t('entity.controls.powerControl.namePower', '{{name}} power', {
+            name: entity.name,
+          })}
           isOn={isOn}
           disabled={disabled}
           isBusy={isBusy(props, 'on_off')}

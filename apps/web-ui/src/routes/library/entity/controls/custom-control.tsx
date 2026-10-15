@@ -7,6 +7,8 @@
  * each command that asks nothing. A field the type does not name is still shown, by its key, so an
  * entity of a package no longer installed keeps saying what it last reported.
  */
+import { useTranslation } from 'react-i18next';
+
 import type { PackageEntityField, PackageEntityType } from '@nebulahome/contracts';
 import { Button } from '@nebulahome/ui';
 
@@ -68,6 +70,8 @@ function FieldList(props: {
   readonly type: PackageEntityType | undefined;
   readonly values: Readonly<Record<string, CustomValue>>;
 }) {
+  const { t } = useTranslation();
+
   const { type, values } = props;
   const declared = type?.state ?? [];
   const named = new Set(declared.map((field) => field.key));
@@ -79,7 +83,11 @@ function FieldList(props: {
   ];
 
   if (rows.length === 0) {
-    return <p className="text-ui text-foreground-subtle">Nothing reported yet.</p>;
+    return (
+      <p className="text-ui text-foreground-subtle">
+        {t('entity.controls.customControl.nothingReportedYet', 'Nothing reported yet.')}
+      </p>
+    );
   }
 
   return (
@@ -103,6 +111,8 @@ function FieldList(props: {
  * @returns The block.
  */
 export function CustomControl(props: ControlProps) {
+  const { t } = useTranslation();
+
   const { entity, state, commander, disabled } = props;
   const params = paramsOf(entity, 'custom');
   const { packages } = useInstalledPackages();
@@ -118,7 +128,7 @@ export function CustomControl(props: ControlProps) {
 
   return (
     <ControlBlock
-      title={type?.name ?? 'Details'}
+      title={type?.name ?? t('entity.controls.customControl.details', 'Details')}
       {...(found === undefined ? {} : { value: found.name })}
     >
       {found !== undefined && viewType !== null ? (
@@ -133,7 +143,11 @@ export function CustomControl(props: ControlProps) {
             <div className="flex flex-col gap-3">
               <FieldList type={type} values={values} />
               <p role="alert" className="text-caption text-danger">
-                {found.name} could not draw this: {message}
+                {t(
+                  'entity.controls.customControl.nameCouldNotDraw',
+                  '{{name}} could not draw this: {{message}}',
+                  { name: found.name, message },
+                )}
               </p>
             </div>
           )}

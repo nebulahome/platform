@@ -12,6 +12,7 @@
  * the way a list of choices moves.
  */
 import { useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { EntityView } from '@nebulahome/contracts';
 import { AppIcon, cn } from '@nebulahome/ui';
@@ -84,6 +85,8 @@ function moveBetweenRows(event: KeyboardEvent<HTMLDivElement>): void {
  * @returns The list.
  */
 export function EntityPickerTree(props: EntityPickerTreeProps) {
+  const { t } = useTranslation();
+
   const { tree, directory, chosen, isMultiple, isNarrowed, onToggle, onTake } = props;
   const [toggled, setToggled] = useState<ReadonlySet<string>>(new Set());
 
@@ -229,9 +232,12 @@ export function EntityPickerTree(props: EntityPickerTreeProps) {
         </section>
       ))}
       {tree.unplaced.length === 0 ? null : (
-        <section aria-label="Not in a room" className="flex flex-col gap-2">
+        <section
+          aria-label={t('entityPicker.entityPickerTree.notInARoom', 'Not in a room')}
+          className="flex flex-col gap-2"
+        >
           <h3 className="sticky top-0 z-10 border-b border-border bg-surface py-2 font-mono text-label text-foreground-subtle uppercase">
-            Not in a room
+            {t('entityPicker.entityPickerTree.notInARoom', 'Not in a room')}
           </h3>
           {tree.unplaced.map((group) => renderGroup(group, 'unplaced'))}
         </section>

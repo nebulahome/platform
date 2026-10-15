@@ -7,27 +7,47 @@
  * caused it. Under all that, the change as the device reported it, for the person who needs to see
  * exactly what arrived.
  */
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { EntityView } from '@nebulahome/contracts';
 import { Button, Modal } from '@nebulahome/ui';
 
+import { dateTimeFormat } from '@/i18n/formatters';
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import type { ActivityLine } from '@/library/device-activity';
 import { Fact } from '@/routes/library/entity/details-panel';
 import { entityPath } from '@/routes/library/entity/entity-path';
 
 /** The words for each cause of a change, as the entity's recent changes say them. */
-const CAUSES: Readonly<Record<string, string>> = {
-  user: 'From the interface',
-  automation: 'An automation',
-  scene: 'A scene',
-  device: 'On the device',
-  alias: 'Worked out by an alias',
-  startup: 'At start-up',
+const CAUSES: Readonly<Record<string, Message>> = {
+  user: defineMessage('device.activityDialog.fromTheInterface', 'From the interface'),
+  automation: defineMessage('device.activityDialog.automation', 'An automation'),
+  scene: defineMessage('device.activityDialog.scene', 'A scene'),
+  device: defineMessage('device.activityDialog.onTheDevice', 'On the device'),
+  alias: defineMessage('device.activityDialog.workedOutByAn', 'Worked out by an alias'),
+  startup: defineMessage('device.activityDialog.atStartUp', 'At start-up'),
 };
 
-/** The moment to the second, in the reader's locale and zone. */
-const exactly = new Intl.DateTimeFormat(undefined, { dateStyle: 'full', timeStyle: 'medium' });
+/**
+ * Says what caused a change.
+ *
+ * @param type - The kind of cause.
+ * @returns Its words, or the kind itself when it has none.
+ */
+function causeWords(type: string): string {
+  const words = CAUSES[type];
+
+  return words === undefined ? type : text(words);
+}
+
+/**
+ * The moment to the second, in the reader's locale and zone.
+ *
+ * @returns The formatter, in the reader's language.
+ */
+const exactly = (): Intl.DateTimeFormat =>
+  dateTimeFormat({ dateStyle: 'full', timeStyle: 'medium' });
 
 /**
  * Says whether something could be reached.
@@ -58,6 +78,8 @@ export type ActivityDialogProps = {
  * @returns The dialog.
  */
 export function ActivityDialog(props: ActivityDialogProps) {
+  const { t } = useTranslation();
+
   const { line, entities, onClose } = props;
   const first = line?.entries[0];
 
@@ -70,17 +92,23 @@ export function ActivityDialog(props: ActivityDialogProps) {
       size="large"
       footer={
         <Button variant="ghost" onClick={onClose}>
-          Close
+          {t('common.close', 'Close')}
         </Button>
       }
     >
       {line === null || first === undefined ? null : (
         <div className="flex flex-col gap-4">
           <dl className="overflow-hidden rounded-field border border-border">
-            <Fact term="When">
-              <time dateTime={line.time.toISOString()}>{exactly.format(line.time)}</time>
+            <Fact term={t('device.activityDialog.when', 'When')}>
+              <time dateTime={line.time.toISOString()}>{exactly().format(line.time)}</time>
             </Fact>
-            <Fact term={line.entries.length === 1 ? 'Entity' : 'Entities'}>
+            <Fact
+              term={
+                line.entries.length === 1
+                  ? t('device.activityDialog.entity', 'Entity')
+                  : t('device.activityDialog.entities', 'Entities')
+              }
+            >
               <span className="flex flex-col gap-0.5">
                 {line.entries.map((entry) => (
                   <Link
@@ -101,22 +129,24 @@ export function ActivityDialog(props: ActivityDialogProps) {
                 </span>
               </Fact>
             ))}
-            <Fact term="Reachable">
+            <Fact term={t('device.activityDialog.reachable', 'Reachable')}>
               {reach(first.wasAvailable)}
               <span className="text-foreground-subtle"> → </span>
               {reach(first.isAvailable)}
             </Fact>
-            <Fact term="Reported by">
+            <Fact term={t('device.activityDialog.reportedBy', 'Reported by')}>
               <span className="font-mono text-caption">{first.source}</span>
             </Fact>
             {first.context === undefined ? null : (
-              <Fact term="Cause">{CAUSES[first.context.type] ?? first.context.type}</Fact>
+              <Fact term={t('device.activityDialog.cause', 'Cause')}>
+                {causeWords(first.context.type)}
+              </Fact>
             )}
           </dl>
 
           <details className="group rounded-field border border-border">
             <summary className="cursor-pointer px-4 py-2.5 text-caption text-foreground-subtle select-none hover:text-foreground">
-              As the device reported it
+              {t('device.activityDialog.asTheDeviceReported', 'As the device reported it')}
             </summary>
             <pre className="max-h-64 overflow-auto border-t border-border px-4 py-3 font-mono text-caption text-foreground-muted">
               {JSON.stringify(

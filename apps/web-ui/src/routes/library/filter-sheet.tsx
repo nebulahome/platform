@@ -14,6 +14,7 @@
  * a foot saying how many of how many the list shows - applied as they are chosen, no Apply.
  */
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Button, cn } from '@nebulahome/ui';
 
@@ -48,6 +49,8 @@ export type FilterSheetProps = {
  * @returns The control.
  */
 export function FilterSheet(props: FilterSheetProps) {
+  const { t } = useTranslation();
+
   const { label, count, onClear, width = 'wide', summary, children } = props;
   const [isOpen, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -109,7 +112,7 @@ export function FilterSheet(props: FilterSheetProps) {
         }}
       >
         <FilterIcon width="15" height="15" />
-        <span>Filter</span>
+        <span>{t('library.filterSheet.filter', 'Filter')}</span>
         {count > 0 ? (
           <span className="rounded-pill bg-primary/15 px-1.5 font-mono text-label tabular">
             {count}
@@ -129,14 +132,16 @@ export function FilterSheet(props: FilterSheetProps) {
           )}
         >
           <div className="flex items-center justify-between gap-3 px-6 pt-4.5 pb-3">
-            <span className="text-title font-medium text-foreground">Filters</span>
+            <span className="text-title font-medium text-foreground">
+              {t('library.filterSheet.filters', 'Filters')}
+            </span>
             {count > 0 ? (
               <button
                 type="button"
                 onClick={onClear}
                 className="rounded-chip text-ui-sm text-primary transition-colors hover:text-primary-hover"
               >
-                Reset
+                {t('library.filterSheet.reset', 'Reset')}
               </button>
             ) : null}
           </div>
@@ -146,7 +151,7 @@ export function FilterSheet(props: FilterSheetProps) {
           {summary === undefined ? null : (
             <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-3 text-caption text-foreground-subtle">
               <span>{summary}</span>
-              <span>Applied as you choose</span>
+              <span>{t('library.filterSheet.appliedAsYouChoose', 'Applied as you choose')}</span>
             </div>
           )}
         </div>

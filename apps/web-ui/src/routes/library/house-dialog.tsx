@@ -13,6 +13,7 @@
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { AreaUpdate, AreaView } from '@nebulahome/contracts';
 import { Button, Modal, TextField } from '@nebulahome/ui';
@@ -74,6 +75,8 @@ function isMovedFrom(position: HousePosition | null, house: AreaView | undefined
  * @returns The dialog.
  */
 export function HouseDialog(props: HouseDialogProps) {
+  const { t } = useTranslation();
+
   const { target, removal, onClose, onSaved, onDeleted } = props;
   const queryClient = useQueryClient();
   const existing = target?.mode === 'edit' ? target.house : undefined;
@@ -185,7 +188,7 @@ export function HouseDialog(props: HouseDialogProps) {
   /** Saves, unless the name is blank or the position is half there. */
   const submit = (): void => {
     if (name.trim() === '') {
-      setProblem('The name cannot be blank.');
+      setProblem(t('library.houseDialog.nameCannotBeBlank', 'The name cannot be blank.'));
 
       return;
     }
@@ -204,8 +207,15 @@ export function HouseDialog(props: HouseDialogProps) {
     <Modal
       isOpen={target !== null}
       onClose={onClose}
-      title={existing === undefined ? 'Your house' : `Configure ${existing.name}`}
-      description="Click the map where the house stands, or type its coordinates. Once it is placed, the map around it is kept on the server for the days the internet is away."
+      title={
+        existing === undefined
+          ? t('library.houseDialog.yourHouse', 'Your house')
+          : t('library.houseDialog.configureName', 'Configure {{name}}', { name: existing.name })
+      }
+      description={t(
+        'library.houseDialog.clickTheMapWhere',
+        'Click the map where the house stands, or type its coordinates. Once it is placed, the map around it is kept on the server for the days the internet is away.',
+      )}
       size="large"
       footer={
         isConfirming && existing !== undefined ? (
@@ -231,14 +241,14 @@ export function HouseDialog(props: HouseDialogProps) {
                   setConfirming(true);
                 }}
               >
-                Remove
+                {t('common.remove', 'Remove')}
               </Button>
             )}
             <Button variant="ghost" disabled={isBusy} onClick={onClose}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button isBusy={save.isPending} disabled={removing.isPending} onClick={submit}>
-              {existing === undefined ? 'Create' : 'Save'}
+              {existing === undefined ? t('common.create', 'Create') : t('common.save', 'Save')}
             </Button>
           </>
         )
@@ -246,7 +256,7 @@ export function HouseDialog(props: HouseDialogProps) {
     >
       <div className="flex flex-col gap-4">
         <TextField
-          label="Name"
+          label={t('library.houseDialog.name', 'Name')}
           size="medium"
           value={name}
           required
@@ -264,7 +274,7 @@ export function HouseDialog(props: HouseDialogProps) {
         />
         <div className="grid grid-cols-2 gap-3">
           <TextField
-            label="Latitude"
+            label={t('library.houseDialog.latitude', 'Latitude')}
             size="medium"
             inputMode="decimal"
             autoComplete="off"
@@ -275,7 +285,7 @@ export function HouseDialog(props: HouseDialogProps) {
             }}
           />
           <TextField
-            label="Longitude"
+            label={t('library.houseDialog.longitude', 'Longitude')}
             size="medium"
             inputMode="decimal"
             autoComplete="off"

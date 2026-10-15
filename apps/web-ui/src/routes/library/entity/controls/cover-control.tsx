@@ -6,8 +6,11 @@
  * to a position, and the tilt only for one that tilts; a cover that is moving says so in words
  * beside the title, since the position alone does not tell "open at 40%" from "on its way up".
  */
+import { useTranslation } from 'react-i18next';
+
 import { AppIcon, Button, Slider } from '@nebulahome/ui';
 
+import { defineMessage, text, translate } from '@/i18n/messages';
 import { paramsOf } from '@/library/entity-control';
 import {
   ControlBlock,
@@ -18,9 +21,17 @@ import { usePendingValue } from '@/routes/library/entity/use-pending-value';
 
 /** The three movements, with their glyphs. */
 const MOVES = [
-  { command: 'open', label: 'Open', icon: 'arrow-up-to-line' },
-  { command: 'stop', label: 'Stop', icon: 'square' },
-  { command: 'close', label: 'Close', icon: 'arrow-down-to-line' },
+  {
+    command: 'open',
+    label: defineMessage('entity.controls.coverControl.open', 'Open'),
+    icon: 'arrow-up-to-line',
+  },
+  {
+    command: 'stop',
+    label: defineMessage('entity.controls.coverControl.stop', 'Stop'),
+    icon: 'square',
+  },
+  { command: 'close', label: defineMessage('common.close', 'Close'), icon: 'arrow-down-to-line' },
 ] as const;
 
 /**
@@ -32,15 +43,15 @@ const MOVES = [
  */
 function whereItIs(position: number, motion: 'opening' | 'closing' | 'stopped'): string {
   if (motion === 'opening') {
-    return 'Opening';
+    return translate('entity.controls.coverControl.opening', 'Opening');
   }
 
   if (motion === 'closing') {
-    return 'Closing';
+    return translate('entity.controls.coverControl.closing', 'Closing');
   }
 
   if (position === 0) {
-    return 'Closed';
+    return translate('entity.controls.coverControl.closed', 'Closed');
   }
 
   return position === 100 ? 'Open' : `Open ${String(Math.round(position))}%`;
@@ -53,6 +64,8 @@ function whereItIs(position: number, motion: 'opening' | 'closing' | 'stopped'):
  * @returns The block.
  */
 export function CoverControl(props: ControlProps) {
+  const { t } = useTranslation();
+
   const { entity, state, reportedAt, commander, disabled } = props;
   const params = paramsOf(entity, 'cover') ?? { hasPosition: true, hasTilt: false };
   const cover = state.cover ?? { position: 0, motion: 'stopped' as const };
@@ -61,7 +74,10 @@ export function CoverControl(props: ControlProps) {
   const busy = isBusy(props, 'cover');
 
   return (
-    <ControlBlock title="Cover" value={whereItIs(cover.position, cover.motion)}>
+    <ControlBlock
+      title={t('entity.controls.coverControl.cover', 'Cover')}
+      value={whereItIs(cover.position, cover.motion)}
+    >
       <div className="grid grid-cols-3 gap-2">
         {MOVES.map((move) => (
           <Button
@@ -73,13 +89,13 @@ export function CoverControl(props: ControlProps) {
             }}
           >
             <AppIcon id={move.icon} size={15} />
-            {move.label}
+            {text(move.label)}
           </Button>
         ))}
       </div>
       {params.hasPosition ? (
         <Slider
-          label="Position"
+          label={t('entity.controls.coverControl.position', 'Position')}
           value={Math.round(position.shown)}
           min={0}
           max={100}
@@ -94,7 +110,7 @@ export function CoverControl(props: ControlProps) {
       ) : null}
       {params.hasTilt ? (
         <Slider
-          label="Tilt"
+          label={t('entity.controls.coverControl.tilt', 'Tilt')}
           value={Math.round(tilt.shown)}
           min={0}
           max={100}

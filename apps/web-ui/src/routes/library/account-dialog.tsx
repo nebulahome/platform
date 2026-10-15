@@ -12,6 +12,7 @@
  */
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type {
   AccountStep,
@@ -89,6 +90,8 @@ const groupOf = (fields: readonly SetupField[]): SetupGroup => ({
  * @returns The dialog.
  */
 export function AccountDialog(props: AccountDialogProps) {
+  const { t } = useTranslation();
+
   const { vendor, again, onClose, onConnected } = props;
   const account = vendor?.account ?? null;
   const fields = account?.fields ?? { constants: {}, fields: [] };
@@ -254,19 +257,27 @@ export function AccountDialog(props: AccountDialogProps) {
     <Modal
       isOpen={vendor !== null}
       onClose={onClose}
-      title={again === undefined ? `Sign in to your ${name}` : `Sign in to ${again.label} again`}
+      title={
+        again === undefined
+          ? t('library.accountDialog.signInToYour', 'Sign in to your {{name}}', { name })
+          : t('library.accountDialog.signInToLabel', 'Sign in to {{label}} again', {
+              label: again.label,
+            })
+      }
       {...(account?.help === undefined ? {} : { description: account.help })}
       footer={
         stage.kind === 'done' ? (
-          <Button onClick={onClose}>Done</Button>
+          <Button onClick={onClose}>{t('common.done', 'Done')}</Button>
         ) : (
           <>
             <Button variant="ghost" onClick={onClose}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             {stage.kind === 'link' ? null : (
               <Button isBusy={send.isPending} disabled={send.isPending} onClick={submit}>
-                {stage.kind === 'ask' ? 'Confirm' : 'Sign in'}
+                {stage.kind === 'ask'
+                  ? t('common.confirm', 'Confirm')
+                  : t('library.accountDialog.signIn', 'Sign in')}
               </Button>
             )}
           </>
@@ -308,12 +319,12 @@ export function AccountDialog(props: AccountDialogProps) {
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 self-start text-ui text-primary underline-offset-2 hover:underline"
             >
-              Open the page
+              {t('library.accountDialog.openThePage', 'Open the page')}
               <AppIcon id="external-link" size={14} />
             </a>
             <p role="status" className="flex items-center gap-2 text-caption text-foreground-muted">
               <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-primary" />
-              Waiting for it to be approved…
+              {t('library.accountDialog.waitingForItTo', 'Waiting for it to be approved…')}
             </p>
           </div>
         ) : null}
@@ -321,7 +332,11 @@ export function AccountDialog(props: AccountDialogProps) {
         {stage.kind === 'done' ? (
           <p role="status" className="flex items-center gap-2.5 text-ui text-foreground">
             <AppIcon id="check" size={16} className="text-success" />
-            Signed in as {stage.account.label}. The devices on it are added in a moment.
+            {t(
+              'library.accountDialog.signedInAsLabel',
+              'Signed in as {{label}}. The devices on it are added in a moment.',
+              { label: stage.account.label },
+            )}
           </p>
         ) : null}
 

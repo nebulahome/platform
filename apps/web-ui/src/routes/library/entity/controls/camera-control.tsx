@@ -8,10 +8,12 @@
  * of a bounded length - the contract refuses an open-ended recording, and so does the control.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { AppIcon, Badge, Button, Segmented } from '@nebulahome/ui';
 
 import { CameraView } from '@/components/camera-view';
+import { defineMessage, text } from '@/i18n/messages';
 import { paramsOf } from '@/library/entity-control';
 import {
   ControlBlock,
@@ -21,9 +23,9 @@ import {
 
 /** The clip lengths offered, in seconds. */
 const LENGTHS = [
-  { value: '10', label: '10 s' },
-  { value: '30', label: '30 s' },
-  { value: '60', label: '1 min' },
+  { value: '10', label: defineMessage('entity.controls.cameraControl.n10S', '10 s') },
+  { value: '30', label: defineMessage('entity.controls.cameraControl.n30S', '30 s') },
+  { value: '60', label: defineMessage('entity.controls.cameraControl.n1Min', '1 min') },
 ] as const;
 
 /**
@@ -33,6 +35,8 @@ const LENGTHS = [
  * @returns The block.
  */
 export function CameraControl(props: ControlProps) {
+  const { t } = useTranslation();
+
   const { entity, state, commander, disabled } = props;
   const params = paramsOf(entity, 'camera') ?? {
     hasSnapshot: false,
@@ -47,16 +51,18 @@ export function CameraControl(props: ControlProps) {
 
   return (
     <ControlBlock
-      title="Camera"
+      title={t('entity.controls.cameraControl.camera', 'Camera')}
       action={
         <span className="flex items-center gap-2">
           {camera?.isRecording === true ? (
             <Badge tone="danger" size="small" icon={<AppIcon id="circle-dot" size={11} />}>
-              Recording
+              {t('entity.controls.cameraControl.recording', 'Recording')}
             </Badge>
           ) : null}
           <Badge tone={isAvailable ? 'success' : 'neutral'} size="small">
-            {isAvailable ? 'Streaming' : 'No stream'}
+            {isAvailable
+              ? t('entity.controls.cameraControl.streaming', 'Streaming')
+              : t('entity.controls.cameraControl.noStream', 'No stream')}
           </Badge>
         </span>
       }
@@ -79,15 +85,17 @@ export function CameraControl(props: ControlProps) {
             }}
           >
             <AppIcon id={isPlaying ? 'square' : 'play'} size={15} />
-            {isPlaying ? 'Stop' : 'Watch live'}
+            {isPlaying
+              ? t('entity.controls.cameraControl.stop', 'Stop')
+              : t('entity.controls.cameraControl.watchLive', 'Watch live')}
           </Button>
         ) : null}
         {params.hasRecording ? (
           <>
             <Segmented
-              label="Clip length"
+              label={t('entity.controls.cameraControl.clipLength', 'Clip length')}
               size="compact"
-              options={LENGTHS}
+              options={LENGTHS.map((option) => ({ ...option, label: text(option.label) }))}
               value={length}
               disabled={disabled}
               onChange={setLength}
@@ -100,7 +108,7 @@ export function CameraControl(props: ControlProps) {
               }}
             >
               <AppIcon id="circle-dot" size={15} />
-              Record
+              {t('entity.controls.cameraControl.record', 'Record')}
             </Button>
           </>
         ) : null}

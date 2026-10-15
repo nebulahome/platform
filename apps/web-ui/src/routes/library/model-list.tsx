@@ -15,10 +15,12 @@
  * search, the down arrow goes into the list.
  */
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { IntegrationVendorView, ModelChoice } from '@nebulahome/contracts';
 import { cn } from '@nebulahome/ui';
 
+import { collator } from '@/i18n/formatters';
 import { matchesQuery } from '@/lib/search-text';
 import { SearchField } from '@/routes/library/search-field';
 
@@ -62,8 +64,12 @@ type Group = {
   readonly choices: ModelChoice[];
 };
 
-/** How names are put in order: as a person counts, `X1` before `X1C` before `X2D`. */
-const NAME_ORDER = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+/**
+ * How names are put in order: as a person counts, `X1` before `X1C` before `X2D`.
+ *
+ * @returns The formatter, in the reader's language.
+ */
+const NAME_ORDER = (): Intl.Collator => collator({ numeric: true, sensitivity: 'base' });
 
 /**
  * Groups the choices: by series when the vendor's drivers put their models in any, a model in
@@ -97,9 +103,9 @@ function groupsOf(choices: readonly ModelChoice[], driverName: (kind: string) =>
   return groups
     .map((group) => ({
       ...group,
-      choices: group.choices.toSorted((a, b) => NAME_ORDER.compare(a.model, b.model)),
+      choices: group.choices.toSorted((a, b) => NAME_ORDER().compare(a.model, b.model)),
     }))
-    .toSorted((a, b) => NAME_ORDER.compare(a.heading, b.heading));
+    .toSorted((a, b) => NAME_ORDER().compare(a.heading, b.heading));
 }
 
 /**
@@ -109,6 +115,8 @@ function groupsOf(choices: readonly ModelChoice[], driverName: (kind: string) =>
  * @returns The content, to sit in the dialog's side card.
  */
 export function ModelList(props: ModelListProps) {
+  const { t } = useTranslation();
+
   const { choices, value, vendor, onPick, disabled = false } = props;
   const id = useId();
   const listRef = useRef<HTMLDivElement>(null);
@@ -182,12 +190,19 @@ export function ModelList(props: ModelListProps) {
       <div className="flex flex-col gap-3 border-b border-border p-4">
         <div className="flex items-baseline justify-between gap-2">
           <h3 id={`${id}-label`} className="text-title font-medium">
-            Model
+            {t('library.modelList.model', 'Model')}
           </h3>
           <span className="text-caption text-foreground-subtle tabular">
             {shown.length === choices.length
-              ? `${String(choices.length)} models`
-              : `${String(shown.length)} of ${String(choices.length)}`}
+              ? t('library.modelList.models', {
+                  count: choices.length,
+                  defaultValue_one: '{{count}} model',
+                  defaultValue_other: '{{count}} models',
+                })
+              : t('library.shownOfTotal', '{{shown}} of {{total}}', {
+                  shown: shown.length,
+                  total: choices.length,
+                })}
           </span>
         </div>
         {choices.length >= MODEL_SEARCH_FROM ? (
@@ -196,7 +211,7 @@ export function ModelList(props: ModelListProps) {
           // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- see above
           <div
             role="group"
-            aria-label="Model search"
+            aria-label={t('library.modelList.modelSearch', 'Model search')}
             onKeyDown={(event) => {
               if (event.key === 'ArrowDown' && shown.length > 0) {
                 event.preventDefault();
@@ -205,8 +220,8 @@ export function ModelList(props: ModelListProps) {
             }}
           >
             <SearchField
-              label="Search models"
-              placeholder="Search models…"
+              label={t('library.modelList.searchModels', 'Search models')}
+              placeholder={t('library.modelList.searchModels2', 'Search models…')}
               value={search}
               onChange={setSearch}
               className="w-full lg:w-full"
@@ -228,7 +243,9 @@ export function ModelList(props: ModelListProps) {
       >
         {shown.length === 0 ? (
           <p className="px-2.5 py-3 text-ui text-foreground-subtle">
-            No model matches “{search.trim()}”.
+            {t('library.modelList.noModelMatches', 'No model matches “{{search}}”.', {
+              search: search.trim(),
+            })}
           </p>
         ) : null}
         {groups.map((group, groupIndex) => (

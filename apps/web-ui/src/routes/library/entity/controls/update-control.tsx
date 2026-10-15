@@ -8,6 +8,7 @@
  * an install already under way does not need.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { isUpdateOffered } from '@nebulahome/contracts';
 import { Button, Modal } from '@nebulahome/ui';
@@ -26,6 +27,8 @@ import {
  * @returns The block.
  */
 export function UpdateControl(props: ControlProps) {
+  const { t } = useTranslation();
+
   const { entity, state, commander, disabled } = props;
   const [isAsking, setAsking] = useState(false);
   const firmware = state.update;
@@ -42,7 +45,7 @@ export function UpdateControl(props: ControlProps) {
 
   return (
     <ControlBlock
-      title="Firmware"
+      title={t('entity.controls.updateControl.firmware', 'Firmware')}
       value={firmware?.installedVersion ?? '—'}
       action={
         canInstall && isOffered && !isInstalling ? (
@@ -55,7 +58,7 @@ export function UpdateControl(props: ControlProps) {
               setAsking(true);
             }}
           >
-            Install update
+            {t('entity.controls.updateControl.installUpdate', 'Install update')}
           </Button>
         ) : null
       }
@@ -63,13 +66,13 @@ export function UpdateControl(props: ControlProps) {
       {isInstalling ? (
         <div className="flex flex-col gap-2">
           <p role="status" className="text-ui text-foreground-muted">
-            Installing
+            {t('entity.controls.updateControl.installing', 'Installing')}
             {firmware.latestVersion === null ? '' : ` ${firmware.latestVersion}`}
             {progress === null ? '…' : ` · ${String(Math.round(progress))}%`}
           </p>
           <div
             role="progressbar"
-            aria-label="Firmware update"
+            aria-label={t('entity.controls.updateControl.firmwareUpdate', 'Firmware update')}
             aria-valuemin={0}
             aria-valuemax={100}
             {...(progress === null ? {} : { 'aria-valuenow': Math.round(progress) })}
@@ -89,11 +92,20 @@ export function UpdateControl(props: ControlProps) {
         </div>
       ) : isOffered ? (
         <p className="text-ui text-foreground-muted">
-          {firmware.latestVersion} is available
-          {canInstall ? '.' : '; install it from the device’s own app.'}
+          {canInstall
+            ? t('entity.controls.updateControl.isAvailable', '{{version}} is available.', {
+                version: firmware.latestVersion,
+              })
+            : t(
+                'entity.controls.updateControl.installItFromTheApp',
+                '{{version}} is available; install it from the device’s own app.',
+                { version: firmware.latestVersion },
+              )}
         </p>
       ) : firmware === undefined ? null : (
-        <p className="text-ui text-foreground-subtle">Up to date.</p>
+        <p className="text-ui text-foreground-subtle">
+          {t('entity.controls.updateControl.upToDate', 'Up to date.')}
+        </p>
       )}
 
       <Modal
@@ -102,8 +114,14 @@ export function UpdateControl(props: ControlProps) {
           setAsking(false);
         }}
         size="small"
-        title="Install the firmware update?"
-        description="The device downloads the update and restarts to install it. It is offline for a minute or two, and whatever it switches may turn off meanwhile."
+        title={t(
+          'entity.controls.updateControl.installTheFirmwareUpdate',
+          'Install the firmware update?',
+        )}
+        description={t(
+          'entity.controls.updateControl.deviceDownloadsTheUpdate',
+          'The device downloads the update and restarts to install it. It is offline for a minute or two, and whatever it switches may turn off meanwhile.',
+        )}
         footer={
           <>
             <Button
@@ -112,9 +130,11 @@ export function UpdateControl(props: ControlProps) {
                 setAsking(false);
               }}
             >
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
-            <Button onClick={install}>Install</Button>
+            <Button onClick={install}>
+              {t('entity.controls.updateControl.install', 'Install')}
+            </Button>
           </>
         }
       >

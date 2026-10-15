@@ -17,6 +17,7 @@
  */
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
   isFieldShown,
@@ -118,6 +119,8 @@ function leftToAsk(group: SetupGroup, filled: JsonObject): SetupGroup {
  * @returns The dialog.
  */
 export function AdoptDialog(props: AdoptDialogProps) {
+  const { t } = useTranslation();
+
   const { target, canCreateTags = false, onClose, onAdopted } = props;
   const { tags, create: createTagNamed } = useTags();
   const tagIcons = useCatalogueIcons(tags.map((tag) => tag.icon));
@@ -203,7 +206,9 @@ export function AdoptDialog(props: AdoptDialogProps) {
     setErrors({
       transport: transport.errors,
       options: options.errors,
-      general: isNamed ? undefined : 'The device needs a name.',
+      general: isNamed
+        ? undefined
+        : t('library.adoptDialog.deviceNeedsAName', 'The device needs a name.'),
     });
 
     if (
@@ -230,7 +235,11 @@ export function AdoptDialog(props: AdoptDialogProps) {
     };
 
   const title =
-    device === undefined ? 'Adopt' : `Adopt ${discoveredTitle(device, vendor?.name ?? '')}`;
+    device === undefined
+      ? t('library.adoptDialog.adopt', 'Adopt')
+      : t('library.adoptDialog.adoptDevice', 'Adopt {{device}}', {
+          device: discoveredTitle(device, vendor?.name ?? ''),
+        });
   const where =
     device === undefined
       ? ''
@@ -242,14 +251,18 @@ export function AdoptDialog(props: AdoptDialogProps) {
       isOpen={target !== null}
       onClose={onClose}
       title={title}
-      description={`${where} It is added as one typed in would be, and the hub starts talking to it at once.`}
+      description={t(
+        'library.adoptDialog.whereItIsAdded',
+        '{{where}} It is added as one typed in would be, and the hub starts talking to it at once.',
+        { where },
+      )}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
           <Button isBusy={adopt.isPending} disabled={adopt.isPending} onClick={submit}>
-            Adopt
+            {t('library.adoptDialog.adopt', 'Adopt')}
           </Button>
         </>
       }
@@ -267,8 +280,14 @@ export function AdoptDialog(props: AdoptDialogProps) {
           }}
           hint={
             device?.name === null || device?.name === undefined
-              ? 'The device gave no name of its own; it starts as its model.'
-              : 'The name the device was given in its own app.'
+              ? t(
+                  'library.adoptDialog.deviceGaveNoName',
+                  'The device gave no name of its own; it starts as its model.',
+                )
+              : t(
+                  'library.adoptDialog.nameTheDeviceWas',
+                  'The name the device was given in its own app.',
+                )
           }
           required
         />
@@ -280,17 +299,26 @@ export function AdoptDialog(props: AdoptDialogProps) {
           icons={tagIcons}
           canCreate={canCreateTags}
           onCreate={createTagNamed}
-          hint="What automations and scenes will pick this device by."
+          hint={t(
+            'library.adoptDialog.whatAutomationsAndScenes',
+            'What automations and scenes will pick this device by.',
+          )}
         />
 
         <SelectField
-          label="Room"
+          label={t('library.adoptDialog.room', 'Room')}
           options={rooms}
           value={areaId ?? ''}
           hint={
             rooms.length === 1
-              ? 'No rooms yet: make the house, its floors and their rooms under Areas.'
-              : 'Its entities are in the same room unless one of them says otherwise.'
+              ? t(
+                  'library.adoptDialog.noRoomsYetMake',
+                  'No rooms yet: make the house, its floors and their rooms under Areas.',
+                )
+              : t(
+                  'library.adoptDialog.itsEntitiesAreIn',
+                  'Its entities are in the same room unless one of them says otherwise.',
+                )
           }
           onChange={(value) => {
             setAreaId(value === '' ? null : value);
@@ -299,10 +327,13 @@ export function AdoptDialog(props: AdoptDialogProps) {
 
         {choices.length > 1 ? (
           <SelectField
-            label="Model"
+            label={t('library.adoptDialog.model', 'Model')}
             options={choices.map((each) => ({ value: each, label: each }))}
             value={model}
-            hint="The device said which family it is, not which of it."
+            hint={t(
+              'library.adoptDialog.deviceSaidWhichFamily',
+              'The device said which family it is, not which of it.',
+            )}
             onChange={(value) => {
               setModel(value);
 

@@ -25,6 +25,7 @@ import {
 
 import { cn } from '@nebulahome/ui';
 
+import { dateTimeFormat } from '@/i18n/formatters';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 
 /** One line of the chart. */
@@ -67,7 +68,7 @@ const EASING_MS = 700;
  * @returns The time of day, to the second.
  */
 function timeOf(at: number): string {
-  return new Intl.DateTimeFormat(undefined, { timeStyle: 'medium' }).format(at);
+  return dateTimeFormat({ timeStyle: 'medium' }).format(at);
 }
 
 /** What the tooltip needs: what Recharts hands it, and the chart's own series. */

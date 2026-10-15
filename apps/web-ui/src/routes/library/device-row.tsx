@@ -6,6 +6,7 @@
  * its name with its model under it, the integration, the room, how many entities, its status as a
  * Pill, and when it was last heard from, in mono.
  */
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { DeviceView, IconView } from '@nebulahome/contracts';
@@ -77,6 +78,8 @@ function seenText(at: Date, now: Date): string {
  * @returns The row.
  */
 export function DeviceRow(props: DeviceRowProps) {
+  const { t } = useTranslation();
+
   const { device, vendorName, icon, entityCount, standing, status, now } = props;
   const make = [device.manufacturer, device.model].filter(Boolean).join(' ');
   const subtitle = make === '' ? (device.externalId ?? device.id) : make;
@@ -117,7 +120,9 @@ export function DeviceRow(props: DeviceRowProps) {
       </span>
 
       <span className="hidden font-mono text-mono-caption text-foreground-subtle tabular md:block">
-        {standing.lastSeenAt === null ? 'never' : seenText(standing.lastSeenAt, now)}
+        {standing.lastSeenAt === null
+          ? t('library.deviceRow.never', 'never')
+          : seenText(standing.lastSeenAt, now)}
       </span>
     </li>
   );

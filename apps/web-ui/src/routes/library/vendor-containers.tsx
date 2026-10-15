@@ -7,22 +7,37 @@
  * container's own page. Setting the vendor up is what starts it, so the button that does - Set up
  * the first time, Configure after - sits on the container's row, where the owner is looking.
  */
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { IntegrationVendorView, ManagedStatus } from '@nebulahome/contracts';
 import { Badge, Button, Panel, type BadgeTone } from '@nebulahome/ui';
 
+import { defineMessage, type Message, text } from '@/i18n/messages';
+
 /** How a declared container's state reads, and its colour. */
-const STATE_OF: Readonly<Record<ManagedStatus['state'], { label: string; tone: BadgeTone }>> = {
-  missing: { label: 'Not running', tone: 'warning' },
-  pulling: { label: 'Downloading', tone: 'accent' },
-  created: { label: 'Created', tone: 'neutral' },
-  running: { label: 'Running', tone: 'success' },
-  paused: { label: 'Paused', tone: 'warning' },
-  restarting: { label: 'Restarting', tone: 'accent' },
-  removing: { label: 'Removing', tone: 'warning' },
-  exited: { label: 'Stopped', tone: 'neutral' },
-  dead: { label: 'Dead', tone: 'danger' },
+const STATE_OF: Readonly<Record<ManagedStatus['state'], { label: Message; tone: BadgeTone }>> = {
+  missing: {
+    label: defineMessage('library.vendorContainers.notRunning', 'Not running'),
+    tone: 'warning',
+  },
+  pulling: {
+    label: defineMessage('library.vendorContainers.downloading', 'Downloading'),
+    tone: 'accent',
+  },
+  created: { label: defineMessage('library.vendorContainers.created', 'Created'), tone: 'neutral' },
+  running: { label: defineMessage('library.vendorContainers.running', 'Running'), tone: 'success' },
+  paused: { label: defineMessage('library.vendorContainers.paused', 'Paused'), tone: 'warning' },
+  restarting: {
+    label: defineMessage('library.vendorContainers.restarting', 'Restarting'),
+    tone: 'accent',
+  },
+  removing: {
+    label: defineMessage('library.vendorContainers.removing', 'Removing'),
+    tone: 'warning',
+  },
+  exited: { label: defineMessage('library.vendorContainers.stopped', 'Stopped'), tone: 'neutral' },
+  dead: { label: defineMessage('library.vendorContainers.dead', 'Dead'), tone: 'danger' },
 };
 
 /** What the panel needs. */
@@ -44,6 +59,8 @@ export type VendorContainersProps = {
  * @returns The panel, or nothing for a vendor that runs none.
  */
 export function VendorContainers(props: VendorContainersProps) {
+  const { t } = useTranslation();
+
   const { vendor, onSetUp, hasSetupFields } = props;
 
   if (vendor.containers.length === 0) {
@@ -51,15 +68,24 @@ export function VendorContainers(props: VendorContainersProps) {
   }
 
   return (
-    <Panel title={vendor.containers.length === 1 ? 'Runs in a container' : 'Runs in containers'}>
+    <Panel
+      title={
+        vendor.containers.length === 1
+          ? t('library.vendorContainers.runsInAContainer', 'Runs in a container')
+          : t('library.vendorContainers.runsInContainers', 'Runs in containers')
+      }
+    >
       <ul className="flex flex-col divide-y divide-border">
         {vendor.containers.map((container, index) => {
           const status = vendor.containerStatuses[index] ?? null;
           const state = vendor.needsSetup
-            ? { label: 'Waiting for setup', tone: 'warning' as const }
+            ? {
+                label: t('library.vendorContainers.waitingForSetup', 'Waiting for setup'),
+                tone: 'warning' as const,
+              }
             : status === null
               ? null
-              : STATE_OF[status.state];
+              : { ...STATE_OF[status.state], label: text(STATE_OF[status.state].label) };
 
           return (
             <li
@@ -85,7 +111,11 @@ export function VendorContainers(props: VendorContainersProps) {
                   )}
                 </span>
                 <span className="font-mono text-caption text-foreground-subtle">
-                  {container.image} · {status?.version ?? `${container.minVersion} or newer`}
+                  {container.image} ·{' '}
+                  {status?.version ??
+                    t('library.vendorContainers.minversionOrNewer', '{{minVersion}} or newer', {
+                      minVersion: container.minVersion,
+                    })}
                 </span>
                 {status?.error === null || status?.error === undefined ? null : (
                   <span className="text-caption text-danger">{status.error}</span>
@@ -93,11 +123,11 @@ export function VendorContainers(props: VendorContainersProps) {
               </span>
               {onSetUp === undefined ? null : vendor.needsSetup ? (
                 <Button size="compact" onClick={onSetUp}>
-                  Set up
+                  {t('library.vendorContainers.setUp', 'Set up')}
                 </Button>
               ) : hasSetupFields ? (
                 <Button variant="ghost" size="compact" onClick={onSetUp}>
-                  Configure
+                  {t('library.vendorContainers.configure', 'Configure')}
                 </Button>
               ) : null}
             </li>

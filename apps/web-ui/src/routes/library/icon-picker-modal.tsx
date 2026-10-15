@@ -12,6 +12,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useState, type KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { IconView } from '@nebulahome/contracts';
 import { Button, CatalogueIcon, cn, Modal, TextField } from '@nebulahome/ui';
@@ -41,6 +42,8 @@ export type IconPickerModalProps = {
  * @returns The dialog.
  */
 export function IconPickerModal(props: IconPickerModalProps) {
+  const { t } = useTranslation();
+
   const { isOpen, onClose, current, onPick } = props;
   const [search, setSearch] = useState('');
   const query = useDebounced(search.trim());
@@ -75,12 +78,15 @@ export function IconPickerModal(props: IconPickerModalProps) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Choose an icon"
-      description="The platform's own icons first, then everything else in the catalogue."
+      title={t('library.iconPickerModal.chooseAnIcon', 'Choose an icon')}
+      description={t(
+        'library.iconPickerModal.platformSOwnIcons',
+        "The platform's own icons first, then everything else in the catalogue.",
+      )}
       size="large"
       footer={
         <Button variant="ghost" onClick={onClose}>
-          Cancel
+          {t('common.cancel', 'Cancel')}
         </Button>
       }
     >
@@ -89,11 +95,11 @@ export function IconPickerModal(props: IconPickerModalProps) {
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
       <div className="flex flex-col gap-4" onKeyDown={onKeyDown}>
         <TextField
-          label="Search icons"
+          label={t('library.iconPickerModal.searchIcons', 'Search icons')}
           isLabelHidden
           size="compact"
           type="search"
-          placeholder="Search icons…"
+          placeholder={t('library.iconPickerModal.searchIcons2', 'Search icons…')}
           value={search}
           onChange={(event) => {
             setSearch(event.target.value);
@@ -101,17 +107,21 @@ export function IconPickerModal(props: IconPickerModalProps) {
         />
 
         {icons.isPending ? (
-          <p className="text-ui text-foreground-muted">Looking…</p>
+          <p className="text-ui text-foreground-muted">
+            {t('library.iconPickerModal.looking', 'Looking…')}
+          </p>
         ) : icons.error !== null ? (
           <p role="alert" className="text-ui text-danger">
-            The catalogue could not be read.
+            {t('library.iconPickerModal.catalogueCouldNotBe', 'The catalogue could not be read.')}
           </p>
         ) : icons.data.length === 0 ? (
-          <p className="text-ui text-foreground-muted">Nothing matches.</p>
+          <p className="text-ui text-foreground-muted">
+            {t('library.iconPickerModal.nothingMatches', 'Nothing matches.')}
+          </p>
         ) : (
           <ul
             className="grid max-h-96 grid-cols-4 gap-1 overflow-y-auto pr-1 sm:grid-cols-6"
-            aria-label="Icons"
+            aria-label={t('library.iconPickerModal.icons', 'Icons')}
           >
             {icons.data.map((icon) => (
               <li key={icon.id}>

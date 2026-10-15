@@ -8,6 +8,8 @@
  * stands, with what it is now. An expression names the readings it uses and shows what it reads
  * now. The AND and OR groups are drawn by the group block, not here.
  */
+import { useTranslation } from 'react-i18next';
+
 import {
   aliasScalarFromState,
   evaluateAliasExpression,
@@ -85,6 +87,8 @@ function TimeConditionFields(props: {
   readonly condition: Extract<ConditionNode, { type: 'time' }>;
   readonly onChange: (condition: ConditionNode) => void;
 }) {
+  const { t } = useTranslation();
+
   const { condition, onChange } = props;
   const { from, to, days = [] } = condition;
 
@@ -102,26 +106,30 @@ function TimeConditionFields(props: {
     <>
       <div className="grid gap-3 sm:grid-cols-2">
         <TextField
-          label="From"
+          label={t('library.conditionFields.from', 'From')}
           size="compact"
           type="time"
           className="font-mono"
-          hint={from === undefined ? 'Empty: from midnight.' : undefined}
+          hint={
+            from === undefined
+              ? t('library.conditionFields.emptyFromMidnight', 'Empty: from midnight.')
+              : undefined
+          }
           value={from ?? ''}
           onChange={(event) => {
             setEnd('from', event.target.value);
           }}
         />
         <TextField
-          label="To"
+          label={t('library.conditionFields.to', 'To')}
           size="compact"
           type="time"
           className="font-mono"
           hint={
             to === undefined
-              ? 'Empty: until midnight.'
+              ? t('library.conditionFields.emptyUntilMidnight', 'Empty: until midnight.')
               : from !== undefined && crossesMidnight(from, to)
-                ? 'Ends the next morning.'
+                ? t('library.conditionFields.endsTheNextMorning', 'Ends the next morning.')
                 : undefined
           }
           value={to ?? ''}
@@ -131,9 +139,11 @@ function TimeConditionFields(props: {
         />
       </div>
       <div className="flex flex-col gap-1.5">
-        <span className="text-caption font-medium text-foreground-muted">On</span>
+        <span className="text-caption font-medium text-foreground-muted">
+          {t('common.on', 'On')}
+        </span>
         <WeekdayPicker
-          label="On"
+          label={t('common.on', 'On')}
           value={days}
           onChange={(next) => {
             onChange(
@@ -143,10 +153,13 @@ function TimeConditionFields(props: {
         />
         <span className="text-caption text-foreground-subtle">
           {days.length === 0
-            ? 'None chosen: every day.'
+            ? t('library.conditionFields.noneChosenEveryDay', 'None chosen: every day.')
             : from !== undefined && to !== undefined && crossesMidnight(from, to)
-              ? 'After midnight, the day the evening began counts.'
-              : 'Only on the days chosen.'}
+              ? t(
+                  'library.conditionFields.afterMidnightTheDay',
+                  'After midnight, the day the evening began counts.',
+                )
+              : t('library.conditionFields.onlyOnTheDays', 'Only on the days chosen.')}
         </span>
       </div>
     </>
@@ -194,6 +207,8 @@ function SunConditionFields(props: {
   readonly condition: Extract<ConditionNode, { type: 'sun' }>;
   readonly onChange: (condition: ConditionNode) => void;
 }) {
+  const { t } = useTranslation();
+
   const { condition, onChange } = props;
   const house = useEditorHouse();
   const takesElevation = condition.phase === 'above' || condition.phase === 'below';
@@ -204,13 +219,15 @@ function SunConditionFields(props: {
     <>
       {house.hasPosition ? null : (
         <Note tone="warning">
-          The house has no position yet, so the sun has no height here. Set it on the house, under
-          Library › Areas.
+          {t(
+            'library.conditionFields.houseHasNoPosition',
+            'The house has no position yet, so the sun has no height here. Set it on the house, under Library › Areas.',
+          )}
         </Note>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
         <SelectField
-          label="Is"
+          label={t('library.conditionFields.is', 'Is')}
           size="compact"
           options={phaseOptions()}
           value={condition.phase}
@@ -232,13 +249,16 @@ function SunConditionFields(props: {
         />
         {takesElevation ? (
           <TextField
-            label="Elevation (°)"
+            label={t('library.conditionFields.elevation', 'Elevation (°)')}
             size="compact"
             type="number"
             className="font-mono"
             min={-90}
             max={90}
-            hint="Above the horizon; negative is below it."
+            hint={t(
+              'library.conditionFields.aboveTheHorizonNegative',
+              'Above the horizon; negative is below it.',
+            )}
             value={String(condition.elevation ?? 0)}
             onChange={(event) => {
               const degrees = Number(event.target.value);
@@ -253,14 +273,16 @@ function SunConditionFields(props: {
       </div>
       {TWICE_DAILY.has(condition.phase) ? (
         <div className="flex flex-col gap-1.5">
-          <span className="text-caption font-medium text-foreground-muted">When</span>
+          <span className="text-caption font-medium text-foreground-muted">
+            {t('library.conditionFields.when', 'When')}
+          </span>
           <Segmented
-            label="When"
+            label={t('library.conditionFields.when', 'When')}
             size="compact"
             options={[
-              { value: 'any', label: 'Any time' },
-              { value: 'morning', label: 'Morning' },
-              { value: 'evening', label: 'Evening' },
+              { value: 'any', label: t('library.conditionFields.anyTime', 'Any time') },
+              { value: 'morning', label: t('library.conditionFields.morning', 'Morning') },
+              { value: 'evening', label: t('library.conditionFields.evening', 'Evening') },
             ]}
             value={condition.period ?? 'any'}
             onChange={(period) => {
@@ -273,7 +295,10 @@ function SunConditionFields(props: {
       ) : null}
       <p className="flex items-center gap-1.5 text-caption text-foreground-muted">
         {now === null ? (
-          'Worked out where the house stands, once it has a position.'
+          t(
+            'library.conditionFields.workedOutWhereThe',
+            'Worked out where the house stands, once it has a position.',
+          )
         ) : (
           <>
             <AppIcon
@@ -281,7 +306,29 @@ function SunConditionFields(props: {
               size={12}
               className={holds === true ? 'text-success' : 'text-foreground-subtle'}
             />
-            {`Now: the sun is at ${now.elevation.toFixed(1)}° and ${now.isRising ? 'rising' : 'setting'}, so it ${holds === true ? 'holds' : 'does not hold'}.`}
+            {holds === true
+              ? now.isRising
+                ? t(
+                    'library.conditionFields.sunRisingHolds',
+                    'Now: the sun is at {{elevation}}° and rising, so it holds.',
+                    { elevation: now.elevation.toFixed(1) },
+                  )
+                : t(
+                    'library.conditionFields.sunSettingHolds',
+                    'Now: the sun is at {{elevation}}° and setting, so it holds.',
+                    { elevation: now.elevation.toFixed(1) },
+                  )
+              : now.isRising
+                ? t(
+                    'library.conditionFields.sunRisingFails',
+                    'Now: the sun is at {{elevation}}° and rising, so it does not hold.',
+                    { elevation: now.elevation.toFixed(1) },
+                  )
+                : t(
+                    'library.conditionFields.sunSettingFails',
+                    'Now: the sun is at {{elevation}}° and setting, so it does not hold.',
+                    { elevation: now.elevation.toFixed(1) },
+                  )}
           </>
         )}
       </p>
@@ -307,7 +354,12 @@ function previewOf(
     const scalar = aliasScalarFromState(house.stateOf(entityId));
 
     if (scalar === undefined) {
-      return { text: `${name} has no reading yet`, tone: 'error' };
+      return {
+        text: translate('library.conditionFields.nameHasNoReading', '{{name}} has no reading yet', {
+          name,
+        }),
+        tone: 'error',
+      };
     }
 
     bindings.set(name, scalar);
@@ -315,7 +367,13 @@ function previewOf(
   }
 
   if (condition.expression.trim() === '') {
-    return { text: 'Write what has to hold, using the names below.', tone: 'error' };
+    return {
+      text: translate(
+        'library.conditionFields.writeWhatHasTo',
+        'Write what has to hold, using the names below.',
+      ),
+      tone: 'error',
+    };
   }
 
   const result = evaluateAliasExpression(condition.expression, bindings);
@@ -332,7 +390,11 @@ function previewOf(
         : result.value;
 
   return {
-    text: `Reads ${holds ? 'true' : 'false'} now${read.length === 0 ? '' : ` · ${read.join(', ')}`}`,
+    text: `${
+      holds
+        ? translate('library.conditionFields.readsTrue', 'Reads true now')
+        : translate('library.conditionFields.readsFalse', 'Reads false now')
+    }${read.length === 0 ? '' : ` · ${read.join(', ')}`}`,
     tone: holds ? 'true' : 'false',
   };
 }
@@ -349,6 +411,8 @@ function ExpressionFields(props: {
   readonly condition: Extract<ConditionNode, { type: 'expression' }>;
   readonly onChange: (condition: ConditionNode) => void;
 }) {
+  const { t } = useTranslation();
+
   const { condition, onChange } = props;
   const house = useEditorHouse();
   const variables = Object.entries(condition.variables ?? {});
@@ -367,10 +431,10 @@ function ExpressionFields(props: {
     <>
       <div className="flex flex-col gap-1.5">
         <TextField
-          label="Expression"
+          label={t('library.conditionFields.expression', 'Expression')}
           size="compact"
           className="font-mono"
-          placeholder="power > 2 * avg_power"
+          placeholder={t('library.conditionFields.power2AvgPower', 'power > 2 * avg_power')}
           value={condition.expression}
           onChange={(event) => {
             onChange({ ...condition, expression: event.target.value });
@@ -395,18 +459,20 @@ function ExpressionFields(props: {
       </div>
 
       <div className="flex flex-col gap-2">
-        <span className="text-caption font-medium text-foreground-muted">Readings it uses</span>
+        <span className="text-caption font-medium text-foreground-muted">
+          {t('library.conditionFields.readingsItUses', 'Readings it uses')}
+        </span>
         {variables.map(([name, entityId], index) => (
           <div
             key={`variable-${String(index)}`}
             className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_auto] items-end gap-2"
           >
             <TextField
-              label="Name"
+              label={t('library.conditionFields.name', 'Name')}
               isLabelHidden
               size="compact"
               className="font-mono"
-              placeholder="power"
+              placeholder={t('library.conditionFields.power', 'power')}
               value={name}
               onChange={(event) => {
                 setVariables(
@@ -417,7 +483,7 @@ function ExpressionFields(props: {
               }}
             />
             <EntityField
-              label={`Entity for ${name}`}
+              label={t('library.conditionFields.entityForName', 'Entity for {{name}}', { name })}
               isLabelHidden
               value={entityId}
               onChange={(next) => {
@@ -429,7 +495,7 @@ function ExpressionFields(props: {
               }}
             />
             <IconButton
-              label={`Remove ${name}`}
+              label={t('library.conditionFields.removeName', 'Remove {{name}}', { name })}
               variant="danger"
               size="small"
               className="mb-1.5"
@@ -451,7 +517,7 @@ function ExpressionFields(props: {
           }}
         >
           <AppIcon id="plus" size={13} />
-          Add a reading
+          {t('library.conditionFields.addAReading', 'Add a reading')}
         </Button>
       </div>
     </>

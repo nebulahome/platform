@@ -17,6 +17,7 @@
  * As the boards draw it, the foot is parted by a line: how the vendor stands as a Pill - Running,
  * Degraded, Needs sign-in, Idle - and what has come in through it. The wires are its page's.
  */
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { IntegrationVendorView } from '@nebulahome/contracts';
@@ -32,6 +33,7 @@ import {
   ZigbeeIcon,
   type IconProps,
 } from '@/components/icons';
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import { wiresOf, type Wire } from '@/library/vendor-filters';
 import { vendorStatusOf } from '@/library/vendor-status';
 
@@ -42,13 +44,43 @@ const FALLBACK_COLOR = 'var(--color-primary)';
 type Glyph = (props: IconProps) => React.ReactNode;
 
 /** What each wire is drawn as, and what the tooltip says. */
-const WIRES: Readonly<Record<Wire, { readonly glyph: Glyph; readonly title: string }>> = {
-  http: { glyph: HttpIcon, title: 'Speaks HTTP to each device' },
-  mqtt: { glyph: MqttIcon, title: 'Listens on the MQTT broker' },
-  ble: { glyph: BluetoothIcon, title: 'Reaches its devices over Bluetooth LE' },
-  zigbee: { glyph: ZigbeeIcon, title: 'Reaches its devices over Zigbee' },
-  udp: { glyph: UdpIcon, title: 'Speaks to each device in its own datagrams on the network' },
-  modbus: { glyph: ModbusIcon, title: 'Reads its devices over Modbus TCP' },
+const WIRES: Readonly<Record<Wire, { readonly glyph: Glyph; readonly title: Message }>> = {
+  http: {
+    glyph: HttpIcon,
+    title: defineMessage('library.vendorCard.speaksHttpToEach', 'Speaks HTTP to each device'),
+  },
+  mqtt: {
+    glyph: MqttIcon,
+    title: defineMessage('library.vendorCard.listensOnTheMqtt', 'Listens on the MQTT broker'),
+  },
+  ble: {
+    glyph: BluetoothIcon,
+    title: defineMessage(
+      'library.vendorCard.reachesItsDevicesOver',
+      'Reaches its devices over Bluetooth LE',
+    ),
+  },
+  zigbee: {
+    glyph: ZigbeeIcon,
+    title: defineMessage(
+      'library.vendorCard.reachesItsDevicesOver2',
+      'Reaches its devices over Zigbee',
+    ),
+  },
+  udp: {
+    glyph: UdpIcon,
+    title: defineMessage(
+      'library.vendorCard.speaksToEachDevice',
+      'Speaks to each device in its own datagrams on the network',
+    ),
+  },
+  modbus: {
+    glyph: ModbusIcon,
+    title: defineMessage(
+      'library.vendorCard.readsItsDevicesOver',
+      'Reads its devices over Modbus TCP',
+    ),
+  },
 };
 
 /** What a mark needs. */
@@ -90,17 +122,24 @@ type MarksProps = {
  * @returns The marks, in a row.
  */
 export function Marks(props: MarksProps) {
+  const { t } = useTranslation();
+
   const { vendor, size = 'small' } = props;
 
   return (
     <span className="flex items-center gap-1.5">
       {/* The wires a person recognises: a vendor's own protocol is marked by what it goes over. */}
       {wiresOf(vendor).map((wire) => (
-        <Mark key={wire} title={WIRES[wire].title} glyph={WIRES[wire].glyph} size={size} />
+        <Mark key={wire} title={text(WIRES[wire].title)} glyph={WIRES[wire].glyph} size={size} />
       ))}
 
       {vendor.internetRequired ? (
-        <Mark title="Needs the internet" glyph={GlobeIcon} tone="warning" size={size} />
+        <Mark
+          title={t('library.vendorCard.needsTheInternet', 'Needs the internet')}
+          glyph={GlobeIcon}
+          tone="warning"
+          size={size}
+        />
       ) : null}
     </span>
   );
@@ -188,6 +227,8 @@ function noun(count: number, one: string, many: string): string {
  * @returns The card.
  */
 export function VendorCard(props: VendorCardProps) {
+  const { t } = useTranslation();
+
   const { vendor, foundCount = 0 } = props;
   const status = vendorStatusOf(vendor);
 
@@ -201,7 +242,11 @@ export function VendorCard(props: VendorCardProps) {
               <>
                 {foundCount > 0 ? (
                   <span
-                    title={`${String(foundCount)} found on the network`}
+                    title={t(
+                      'library.vendorCard.foundcountFoundOnThe',
+                      '{{foundCount}} found on the network',
+                      { foundCount: String(foundCount) },
+                    )}
                     className="inline-flex h-6.5 items-center gap-1.5 rounded-chip bg-cyan/12 px-2 text-caption font-medium text-cyan tabular"
                   >
                     <AppIcon id="radio" size={13} />
@@ -209,7 +254,11 @@ export function VendorCard(props: VendorCardProps) {
                   </span>
                 ) : null}
                 {vendor.internetRequired ? (
-                  <Mark title="Needs the internet" glyph={GlobeIcon} tone="warning" />
+                  <Mark
+                    title={t('library.vendorCard.needsTheInternet', 'Needs the internet')}
+                    glyph={GlobeIcon}
+                    tone="warning"
+                  />
                 ) : null}
               </>
             )

@@ -27,6 +27,7 @@ import {
 import { cn } from '@nebulahome/ui';
 
 import type { ChartSeries } from '@/components/live-area-chart';
+import { dateTimeFormat } from '@/i18n/formatters';
 
 /** What the chart needs. */
 export type HistoryChartProps = {
@@ -49,10 +50,24 @@ export type HistoryChartProps = {
   readonly domain?: readonly [number, number];
 };
 
-/** The tick labels of a window: the time of day inside two days, the date beyond. */
-const SHORT = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
-const DATED = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' });
-const FULL = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+/**
+ * The tick labels of a window: the time of day inside two days, the date beyond.
+ *
+ * @returns The formatter, in the reader's language.
+ */
+const SHORT = (): Intl.DateTimeFormat => dateTimeFormat({ hour: '2-digit', minute: '2-digit' });
+/**
+ * The date, for a window longer than two days.
+ *
+ * @returns The formatter, in the reader's language.
+ */
+const DATED = (): Intl.DateTimeFormat => dateTimeFormat({ day: 'numeric', month: 'short' });
+/**
+ * The whole moment, for the tooltip.
+ *
+ * @returns The formatter, in the reader's language.
+ */
+const FULL = (): Intl.DateTimeFormat => dateTimeFormat({ dateStyle: 'medium', timeStyle: 'short' });
 
 /** Past this span the axis names days rather than times. */
 const DATED_AFTER_MS = 2 * 86_400_000;
@@ -78,7 +93,7 @@ function HistoryTooltip(props: HistoryTooltipProps) {
 
   return (
     <div className="flex flex-col gap-1 rounded-field border border-border bg-surface-raised px-3 py-2 text-caption">
-      <span className="text-foreground-subtle tabular">{FULL.format(label)}</span>
+      <span className="text-foreground-subtle tabular">{FULL().format(label)}</span>
       {series.map((line) => {
         const value = payload.find((entry) => entry.dataKey === line.key)?.value;
 
@@ -105,7 +120,7 @@ function HistoryTooltip(props: HistoryTooltipProps) {
 export function HistoryChart(props: HistoryChartProps) {
   const { data, series, window, curve, formatValue, domain } = props;
   const gradient = useId().replaceAll(':', '');
-  const ticks = window.to - window.from > DATED_AFTER_MS ? DATED : SHORT;
+  const ticks = window.to - window.from > DATED_AFTER_MS ? DATED() : SHORT();
 
   return (
     <div aria-hidden className="size-full">

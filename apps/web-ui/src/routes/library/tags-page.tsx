@@ -9,6 +9,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { DeviceView, EntityView } from '@nebulahome/contracts';
 import { AppIcon, Button } from '@nebulahome/ui';
@@ -57,6 +58,8 @@ function byTag<TRow extends { readonly tagIds: readonly string[] }>(
  * @returns The page.
  */
 export function TagsPage() {
+  const { t } = useTranslation();
+
   const can = useSession((state) => state.can);
   const canWrite = can('tag:write');
   const { tags, isPending } = useTags();
@@ -126,14 +129,20 @@ export function TagsPage() {
   return (
     <>
       <LibraryPage
-        title="Tags"
-        noun="tag"
+        title={t('library.tags.tags', 'Tags')}
+        counted={(count) =>
+          t('library.tags.count', {
+            count,
+            defaultValue_one: '{{count}} tag',
+            defaultValue_other: '{{count}} tags',
+          })
+        }
         count={isPending ? undefined : tags.length}
         shownCount={shown.length}
         tools={
           <>
             <SearchField
-              placeholder="Search tags…"
+              placeholder={t('library.tags.searchTags', 'Search tags…')}
               value={filter.search}
               onChange={(search) => {
                 setFilter({ ...filter, search });
@@ -150,13 +159,16 @@ export function TagsPage() {
               }}
             >
               <AppIcon id="plus" size={15} />
-              New tag
+              {t('library.tags.newTag', 'New tag')}
             </Button>
           ) : undefined
         }
         isPending={isPending}
         isEmpty={tags.length === 0}
-        emptyMessage="No tags yet. A tag groups devices and entities, so an automation or a scene can pick them all at once."
+        emptyMessage={t(
+          'library.tags.noTagsYetA',
+          'No tags yet. A tag groups devices and entities, so an automation or a scene can pick them all at once.',
+        )}
       >
         <div className="overflow-hidden rounded-panel border border-border bg-surface">
           <div
@@ -164,8 +176,8 @@ export function TagsPage() {
             aria-hidden="true"
           >
             <span className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-              <span>Tag</span>
-              <span className="hidden md:block">On</span>
+              <span>{t('library.tags.tag', 'Tag')}</span>
+              <span className="hidden md:block">{t('common.on', 'On')}</span>
               <span />
             </span>
             <span />

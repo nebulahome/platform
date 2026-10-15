@@ -7,8 +7,9 @@
  */
 import { stateTokenChoices, STATE_TOKEN_UNAVAILABLE, type EntityView } from '@nebulahome/contracts';
 
+import { text } from '@/i18n/messages';
 import { humanise } from '@/lib/command-choices';
-import { BINARY_WORDS } from '@/library/entity-reading';
+import { BINARY_WORDS, ON_OFF_WORDS } from '@/library/entity-reading';
 
 /** One state a dropdown offers. */
 export type StateChoice = {
@@ -29,9 +30,9 @@ export function stateLabel(token: string, entity: EntityView | undefined): strin
   }
 
   if (token === 'on' || token === 'off') {
-    const words = BINARY_WORDS[entity?.deviceClass ?? ''] ?? ['On', 'Off'];
+    const words = BINARY_WORDS[entity?.deviceClass ?? ''] ?? ON_OFF_WORDS;
 
-    return token === 'on' ? words[0] : words[1];
+    return text(token === 'on' ? words[0] : words[1]);
   }
 
   return humanise(token);

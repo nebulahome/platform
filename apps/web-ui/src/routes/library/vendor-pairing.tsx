@@ -20,6 +20,7 @@
  */
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
   composeEntityId,
@@ -102,6 +103,8 @@ export function usePairing(
   vendor: IntegrationVendorView | undefined,
   devices: readonly DeviceView[],
 ): PairingState {
+  const { t } = useTranslation();
+
   const can = useSession((state) => state.can);
   const pairing = vendor?.pairing ?? null;
   const device =
@@ -142,7 +145,9 @@ export function usePairing(
      */
     mutationFn: async (open: boolean) => {
       if (pairing === null || device === undefined) {
-        throw new Error('Pairing is not available yet');
+        throw new Error(
+          t('library.vendorPairing.pairingIsNotAvailable', 'Pairing is not available yet'),
+        );
       }
 
       return commandEntity(
@@ -157,11 +162,11 @@ export function usePairing(
     pairing === null
       ? null
       : device === undefined
-        ? `${vendor?.name ?? 'The bridge'} has not been added yet: it is, as soon as NebulaHome hears it`
+        ? `${vendor?.name ?? t('library.vendorPairing.bridge', 'The bridge')} has not been added yet: it is, as soon as NebulaHome hears it`
         : !isAvailable
           ? `${device.name} cannot be reached now`
           : !can('entity:control')
-            ? 'You may not control devices'
+            ? t('library.vendorPairing.youMayNotControl', 'You may not control devices')
             : null;
 
   return {
@@ -239,6 +244,8 @@ export function timeLeft(ms: number): string {
  * @returns The button.
  */
 export function PairingButton(props: { readonly pairing: PairingState }) {
+  const { t } = useTranslation();
+
   const { pairing } = props;
   const now = useSecondClock(pairing.isOpen);
   const left = pairing.closesAt === null ? null : pairing.closesAt - now;
@@ -250,15 +257,20 @@ export function PairingButton(props: { readonly pairing: PairingState }) {
         size="medium"
         isBusy={pairing.isBusy}
         disabled={!pairing.canPress}
-        title={pairing.reason ?? 'Close pairing now'}
+        title={pairing.reason ?? t('library.vendorPairing.closePairingNow', 'Close pairing now')}
         onClick={pairing.close}
       >
         <span
           aria-hidden="true"
           className="size-2 shrink-0 animate-pulse rounded-full bg-current"
         />
-        <span className="tabular">Pairing{left === null ? '' : ` · ${timeLeft(left)}`}</span>
-        <span className="opacity-80">Stop</span>
+        <span className="tabular">
+          {t('library.vendorPairing.pairing', 'Pairing')}
+          {left === null
+            ? ''
+            : t('library.vendorPairing.left', ' · {{left}}', { left: timeLeft(left) })}
+        </span>
+        <span className="opacity-80">{t('library.vendorPairing.stop', 'Stop')}</span>
       </Button>
     );
   }
@@ -270,11 +282,14 @@ export function PairingButton(props: { readonly pairing: PairingState }) {
       size="medium"
       isBusy={pairing.isBusy}
       disabled={!pairing.canPress}
-      title={pairing.reason ?? 'Let new devices join for about four minutes'}
+      title={
+        pairing.reason ??
+        t('library.vendorPairing.letNewDevicesJoin', 'Let new devices join for about four minutes')
+      }
       onClick={pairing.open}
     >
       <AppIcon id="plus" size={15} />
-      Pair devices
+      {t('library.vendorPairing.pairDevices', 'Pair devices')}
     </Button>
   );
 }
@@ -296,6 +311,8 @@ export type PairingPanelProps = {
  * @returns The panel, or nothing while pairing is shut.
  */
 export function PairingPanel(props: PairingPanelProps) {
+  const { t } = useTranslation();
+
   const { vendor, pairing, devices } = props;
   const now = useSecondClock(pairing.isOpen);
 
@@ -318,10 +335,14 @@ export function PairingPanel(props: PairingPanelProps) {
 
   return (
     <Panel
-      title="Pairing"
+      title={t('library.vendorPairing.pairing', 'Pairing')}
       action={
         <span className="text-caption text-foreground-muted tabular">
-          {left === null ? 'Open' : `Closes in ${timeLeft(left)}`}
+          {left === null
+            ? t('library.vendorPairing.open', 'Open')
+            : t('library.vendorPairing.closesInLeft', 'Closes in {{left}}', {
+                left: timeLeft(left),
+              })}
         </span>
       }
     >
@@ -332,14 +353,18 @@ export function PairingPanel(props: PairingPanelProps) {
             className="mt-1.5 size-2 shrink-0 animate-pulse rounded-full bg-primary"
           />
           <span>
-            Put the device in pairing mode now - usually by holding its button, or switching it off
-            and on a few times; its manual says how. It is added here once {vendor.name} has
-            interviewed it, which can take a minute. Pairing closes by itself.
+            {t(
+              'library.vendorPairing.putTheDeviceIn',
+              'Put the device in pairing mode now - usually by holding its button, or switching it off and on a few times; its manual says how. It is added here once {{name}} has interviewed it, which can take a minute. Pairing closes by itself.',
+              { name: vendor.name },
+            )}
           </span>
         </p>
 
         {joined.length === 0 ? (
-          <p className="text-caption text-foreground-subtle">No device has joined yet.</p>
+          <p className="text-caption text-foreground-subtle">
+            {t('library.vendorPairing.noDeviceHasJoined', 'No device has joined yet.')}
+          </p>
         ) : (
           <ul className="flex flex-col divide-y divide-border rounded-field border border-border">
             {joined.map((device) => (

@@ -9,6 +9,7 @@
  * devices of its found on the network, each with an Adopt.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type {
@@ -32,6 +33,7 @@ import {
   type PillTone,
 } from '@nebulahome/ui';
 
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import { absoluteTime } from '@/lib/format-time';
 import { useIntegrationInstall } from '@/library/use-integration-install';
 import {
@@ -52,13 +54,22 @@ import { PairingPanel, type PairingState } from '@/routes/library/vendor-pairing
 const ROWS_SHOWN = 5;
 
 /** How a device's state reads on its row. */
-const DEVICE_PILLS: Readonly<Record<IntegrationState, { tone: PillTone; label: string }>> = {
-  running: { tone: 'success', label: 'Reporting' },
-  failed: { tone: 'danger', label: 'Failed' },
-  starting: { tone: 'accent', label: 'Starting' },
-  identifying: { tone: 'accent', label: 'Listening' },
-  stopped: { tone: 'neutral', label: 'Stopped' },
-  disabled: { tone: 'neutral', label: 'Disabled' },
+const DEVICE_PILLS: Readonly<Record<IntegrationState, { tone: PillTone; label: Message }>> = {
+  running: {
+    tone: 'success',
+    label: defineMessage('library.vendorOverview.reporting', 'Reporting'),
+  },
+  failed: { tone: 'danger', label: defineMessage('library.vendorOverview.failed', 'Failed') },
+  starting: { tone: 'accent', label: defineMessage('library.vendorOverview.starting', 'Starting') },
+  identifying: {
+    tone: 'accent',
+    label: defineMessage('library.vendorOverview.listening', 'Listening'),
+  },
+  stopped: { tone: 'neutral', label: defineMessage('library.vendorOverview.stopped', 'Stopped') },
+  disabled: {
+    tone: 'neutral',
+    label: defineMessage('library.vendorOverview.disabled', 'Disabled'),
+  },
 };
 
 /**
@@ -119,6 +130,8 @@ export type VendorOverviewProps = {
  * @returns The tab's content.
  */
 export function VendorOverview(props: VendorOverviewProps) {
+  const { t } = useTranslation();
+
   const {
     vendor,
     devices,
@@ -151,26 +164,26 @@ export function VendorOverview(props: VendorOverviewProps) {
     <div className="flex flex-col gap-8">
       <HealthStrip>
         <HealthCard
-          label="Runtime"
+          label={t('library.vendorOverview.runtime', 'Runtime')}
           tone={runtime.tone}
           value={runtime.value}
           detail={runtime.detail}
           action={
             vendor.needsSetup && canConfigure && hasConfiguration ? (
               <Button variant="ghost" size="compact" onClick={onConfigure}>
-                Set up
+                {t('library.vendorOverview.setUp', 'Set up')}
               </Button>
             ) : undefined
           }
         />
         <HealthCard
-          label="Connection"
+          label={t('library.vendorOverview.connection', 'Connection')}
           tone={connection.tone}
           value={connection.value}
           detail={connection.detail}
         />
         <HealthCard
-          label="Devices"
+          label={t('library.vendorOverview.devices', 'Devices')}
           tone={deviceLine.tone}
           value={deviceLine.value}
           detail={deviceLine.detail}
@@ -183,13 +196,13 @@ export function VendorOverview(props: VendorOverviewProps) {
                   document.getElementById('vendor-found')?.scrollIntoView({ block: 'center' });
                 }}
               >
-                Review
+                {t('library.vendorOverview.review', 'Review')}
               </Button>
             )
           }
         />
         <HealthCard
-          label="Updates"
+          label={t('library.vendorOverview.updates', 'Updates')}
           tone={updates.tone}
           value={updates.value}
           detail={updates.detail}
@@ -206,7 +219,7 @@ export function VendorOverview(props: VendorOverviewProps) {
                   });
                 }}
               >
-                Update
+                {t('library.vendorOverview.update', 'Update')}
               </Button>
             ) : isInstallable && vendor.update?.hasNewBuild === true ? (
               <Button
@@ -217,7 +230,7 @@ export function VendorOverview(props: VendorOverviewProps) {
                   install.mutate({ vendorId: vendor.id });
                 }}
               >
-                Reinstall
+                {t('library.vendorOverview.reinstall', 'Reinstall')}
               </Button>
             ) : undefined
           }
@@ -230,13 +243,16 @@ export function VendorOverview(props: VendorOverviewProps) {
           action={
             canConfigure && hasConfiguration ? (
               <Button size="compact" onClick={onConfigure}>
-                Set up
+                {t('library.vendorOverview.setUp', 'Set up')}
               </Button>
             ) : undefined
           }
         >
-          {vendor.name} needs setting up before a device of theirs can connect: the bundle asks for
-          something every device shares.
+          {t(
+            'library.vendorOverview.nameNeedsSettingUp',
+            '{{name}} needs setting up before a device of theirs can connect: the bundle asks for something every device shares.',
+            { name: vendor.name },
+          )}
         </Note>
       ) : null}
 
@@ -256,7 +272,11 @@ export function VendorOverview(props: VendorOverviewProps) {
       !vendor.needsSetup ? (
         <p role="status" className="flex items-center gap-2 text-ui text-foreground-muted">
           <AppIcon id="info" size={15} className="shrink-0" />
-          Pairing is not available yet: {pairing.reason}.
+          {t(
+            'library.vendorOverview.pairingIsNotAvailable',
+            'Pairing is not available yet: {{reason}}.',
+            { reason: pairing.reason },
+          )}
         </p>
       ) : null}
 
@@ -286,12 +306,19 @@ export function VendorOverview(props: VendorOverviewProps) {
         />
       </div>
 
-      <Section title="Devices" actions={addButton}>
+      <Section title={t('library.vendorOverview.devices', 'Devices')} actions={addButton}>
         {rows.length === 0 ? (
           <p className="rounded-card border border-dashed border-border-strong px-5.5 py-4 text-ui text-foreground-muted">
             {vendor.adoption === 'automatic'
-              ? `Nothing yet. A device paired with ${vendor.name} is added here on its own.`
-              : 'Nothing added yet. Add a device by its address and the hub listens for it at once.'}
+              ? t(
+                  'library.vendorOverview.nothingYetADevice',
+                  'Nothing yet. A device paired with {{name}} is added here on its own.',
+                  { name: vendor.name },
+                )
+              : t(
+                  'library.vendorOverview.nothingAddedYetAdd',
+                  'Nothing added yet. Add a device by its address and the hub listens for it at once.',
+                )}
           </p>
         ) : (
           <RowList>
@@ -306,8 +333,12 @@ export function VendorOverview(props: VendorOverviewProps) {
                   subtitle={[device.model ?? device.driverName, device.areaName]
                     .filter(Boolean)
                     .join(' · ')}
-                  meta={`${String(device.entityIds.length)} ${device.entityIds.length === 1 ? 'entity' : 'entities'}`}
-                  trailing={<Pill tone={pill.tone}>{pill.label}</Pill>}
+                  meta={t('library.vendorOverview.entities', {
+                    count: device.entityIds.length,
+                    defaultValue_one: '{{count}} entity',
+                    defaultValue_other: '{{count}} entities',
+                  })}
+                  trailing={<Pill tone={pill.tone}>{text(pill.label)}</Pill>}
                   hasChevron
                   wrap={(className, parts) => (
                     <Link to={devicePath(device.id)} aria-label={device.name} className={className}>
@@ -318,50 +349,62 @@ export function VendorOverview(props: VendorOverviewProps) {
               );
             })}
             <button type="button" onClick={onAllDevices} className={ROW_LIST_MORE}>
-              {rows.length > ROWS_SHOWN ? `All ${String(rows.length)} devices` : 'All devices'}
+              {rows.length > ROWS_SHOWN
+                ? t('library.vendorOverview.allCountDevices', 'All {{count}} devices', {
+                    count: rows.length,
+                  })
+                : t('library.vendorOverview.allDevices', 'All devices')}
               <AppIcon id="chevron-right" size={14} />
             </button>
           </RowList>
         )}
       </Section>
 
-      <Section title="About">
+      <Section title={t('library.vendorOverview.about', 'About')}>
         <FactGrid
           facts={[
-            { label: 'Id', value: vendor.id, isMono: true },
-            { label: 'Version', value: vendor.version, isMono: true },
+            { label: t('library.vendorOverview.id', 'Id'), value: vendor.id, isMono: true },
             {
-              label: 'Discovery',
+              label: t('library.vendorOverview.version', 'Version'),
+              value: vendor.version,
+              isMono: true,
+            },
+            {
+              label: t('library.vendorOverview.discovery', 'Discovery'),
               value:
                 vendor.discoverySources.length === 0
                   ? vendor.adoption === 'automatic'
-                    ? 'Paired on the bridge'
-                    : 'By address'
+                    ? t('library.vendorOverview.pairedOnTheBridge', 'Paired on the bridge')
+                    : t('library.vendorOverview.byAddress', 'By address')
                   : vendor.discoverySources.includes('mdns')
-                    ? 'mDNS, and on demand'
-                    : 'Its own scan, and on demand',
+                    ? t('library.vendorOverview.mdnsAndOnDemand', 'mDNS, and on demand')
+                    : t('library.vendorOverview.itsOwnScanAnd', 'Its own scan, and on demand'),
             },
             {
-              label: 'Set up',
+              label: t('library.vendorOverview.setUp', 'Set up'),
               value:
                 vendor.configuredAt === null
-                  ? 'Nothing to set up yet'
+                  ? t('library.vendorOverview.nothingToSetUp', 'Nothing to set up yet')
                   : absoluteTime(vendor.configuredAt),
             },
             {
-              label: 'Source',
+              label: t('library.vendorOverview.source', 'Source'),
               value:
                 vendor.origin === 'development'
-                  ? 'Development folder'
+                  ? t('library.vendorOverview.developmentFolder', 'Development folder')
                   : vendor.install === null
-                    ? 'Installed'
-                    : `Installed ${absoluteTime(new Date(vendor.install.installedAt))}`,
+                    ? t('library.vendorOverview.installed', 'Installed')
+                    : t(
+                        'library.vendorOverview.installedAbsolutetime',
+                        'Installed {{absoluteTime}}',
+                        { absoluteTime: absoluteTime(new Date(vendor.install.installedAt)) },
+                      ),
             },
             ...(vendor.url === undefined
               ? []
               : [
                   {
-                    label: 'Website',
+                    label: t('library.vendorOverview.website', 'Website'),
                     value: (
                       <a
                         href={vendor.url}

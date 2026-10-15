@@ -10,6 +10,7 @@
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type {
   AccountStatus,
@@ -19,6 +20,7 @@ import type {
 } from '@nebulahome/contracts';
 import { Badge, Button, Modal, Panel, Switch, type BadgeTone } from '@nebulahome/ui';
 
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { relativeTime } from '@/lib/format-time';
 import { deleteDevice, LIBRARY_QUERY_KEYS, signOutOfAccount } from '@/library/api';
@@ -26,11 +28,20 @@ import { AccountDialog } from '@/routes/library/account-dialog';
 
 /** How each standing reads on its badge. */
 const STATUS: Readonly<
-  Record<AccountStatus, { readonly label: string; readonly tone: BadgeTone }>
+  Record<AccountStatus, { readonly label: Message; readonly tone: BadgeTone }>
 > = {
-  connected: { label: 'Signed in', tone: 'success' },
-  'needs-sign-in': { label: 'Sign in again', tone: 'warning' },
-  failed: { label: 'Not working', tone: 'danger' },
+  connected: {
+    label: defineMessage('library.vendorAccounts.signedIn', 'Signed in'),
+    tone: 'success',
+  },
+  'needs-sign-in': {
+    label: defineMessage('library.vendorAccounts.signInAgain', 'Sign in again'),
+    tone: 'warning',
+  },
+  failed: {
+    label: defineMessage('library.vendorAccounts.notWorking', 'Not working'),
+    tone: 'danger',
+  },
 };
 
 /** What the panel needs. */
@@ -72,6 +83,8 @@ function initialOf(label: string): string {
  * @returns The panel, or nothing for a vendor without an account.
  */
 export function VendorAccounts(props: VendorAccountsProps) {
+  const { t } = useTranslation();
+
   const { vendor, devices, canConfigure } = props;
   const queryClient = useQueryClient();
   const [signingIn, setSigningIn] = useState<{ again?: IntegrationAccountView } | null>(null);
@@ -137,7 +150,14 @@ export function VendorAccounts(props: VendorAccountsProps) {
   return (
     <>
       <Panel
-        title={vendor.accounts.length === 1 ? name : `${name}s · ${String(vendor.accounts.length)}`}
+        title={
+          vendor.accounts.length === 1
+            ? name
+            : t('library.vendorAccounts.accountsCount', '{{name}} · {{count}}', {
+                name,
+                count: vendor.accounts.length,
+              })
+        }
         action={
           canConfigure && vendor.accounts.length > 0 ? (
             <Button
@@ -147,7 +167,7 @@ export function VendorAccounts(props: VendorAccountsProps) {
                 openSignIn();
               }}
             >
-              Add account
+              {t('library.vendorAccounts.addAccount', 'Add account')}
             </Button>
           ) : undefined
         }
@@ -155,8 +175,11 @@ export function VendorAccounts(props: VendorAccountsProps) {
         {vendor.accounts.length === 0 ? (
           <div className="flex flex-wrap items-center gap-4 px-4 py-3.5">
             <p role="status" className="grow text-ui text-foreground-muted">
-              No {name} signed in yet. Sign in, and the devices bound to it are added here on their
-              own.
+              {t(
+                'library.vendorAccounts.noNameSignedIn',
+                'No {{name}} signed in yet. Sign in, and the devices bound to it are added here on their own.',
+                { name },
+              )}
             </p>
             {canConfigure ? (
               <Button
@@ -165,7 +188,7 @@ export function VendorAccounts(props: VendorAccountsProps) {
                   openSignIn();
                 }}
               >
-                Sign in
+                {t('library.vendorAccounts.signIn', 'Sign in')}
               </Button>
             ) : null}
           </div>
@@ -190,17 +213,25 @@ export function VendorAccounts(props: VendorAccountsProps) {
                     <span className="flex flex-wrap items-center gap-2 text-ui">
                       <span className="truncate font-medium text-foreground">{account.label}</span>
                       <Badge tone={status.tone} size="small">
-                        {status.label}
+                        {text(status.label)}
                       </Badge>
                     </span>
                     <span className="text-caption text-foreground-muted">
                       {account.status !== 'connected' && account.lastError !== null
                         ? account.lastError
                         : [
-                            count === 1 ? '1 device' : `${String(count)} devices`,
+                            t('library.vendorAccounts.devices', {
+                              count,
+                              defaultValue_one: '{{count}} device',
+                              defaultValue_other: '{{count}} devices',
+                            }),
                             account.connectedAt === null
                               ? null
-                              : `signed in ${relativeTime(account.connectedAt)}`,
+                              : t(
+                                  'library.vendorAccounts.signedInConnectedat',
+                                  'signed in {{connectedAt}}',
+                                  { connectedAt: relativeTime(account.connectedAt) },
+                                ),
                           ]
                             .filter((part) => part !== null)
                             .join(' · ')}
@@ -215,7 +246,7 @@ export function VendorAccounts(props: VendorAccountsProps) {
                             openSignIn(account);
                           }}
                         >
-                          Sign in again
+                          {t('library.vendorAccounts.signInAgain', 'Sign in again')}
                         </Button>
                       )}
                       <Button
@@ -226,7 +257,7 @@ export function VendorAccounts(props: VendorAccountsProps) {
                           setRemoving(account);
                         }}
                       >
-                        Remove
+                        {t('common.remove', 'Remove')}
                       </Button>
                     </span>
                   ) : null}
@@ -254,8 +285,14 @@ export function VendorAccounts(props: VendorAccountsProps) {
         onClose={() => {
           setRemoving(null);
         }}
-        title={`Remove ${removing?.label ?? ''}?`}
-        description={`NebulaHome signs out of this ${name}. It can be signed in to again later.`}
+        title={t('library.vendorAccounts.removeLabel', 'Remove {{name}}?', {
+          name: removing?.label ?? '',
+        })}
+        description={t(
+          'library.vendorAccounts.nebulahomeSignsOutOf',
+          'NebulaHome signs out of this {{name}}. It can be signed in to again later.',
+          { name },
+        )}
         footer={
           <>
             <Button
@@ -265,7 +302,7 @@ export function VendorAccounts(props: VendorAccountsProps) {
                 setRemoving(null);
               }}
             >
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button
               variant="danger"
@@ -276,27 +313,42 @@ export function VendorAccounts(props: VendorAccountsProps) {
                 }
               }}
             >
-              Remove
+              {t('common.remove', 'Remove')}
             </Button>
           </>
         }
       >
         <div className="flex flex-col gap-3">
           {removingDevices.length === 0 ? (
-            <p className="text-ui text-foreground-muted">No device came with it.</p>
+            <p className="text-ui text-foreground-muted">
+              {t('library.vendorAccounts.noDeviceCameWith', 'No device came with it.')}
+            </p>
           ) : (
             <div className="flex flex-col gap-1.5">
               <Switch
                 label={
                   removingDevices.length === 1
-                    ? `Remove its device too: ${removingDevices[0]?.name ?? ''}`
-                    : `Remove its ${String(removingDevices.length)} devices too`
+                    ? t(
+                        'library.vendorAccounts.removeItsDevice',
+                        'Remove its device too: {{name}}',
+                        {
+                          name: removingDevices[0]?.name ?? '',
+                        },
+                      )
+                    : t(
+                        'library.vendorAccounts.removeItsDevices',
+                        'Remove its {{count}} devices too',
+                        { count: removingDevices.length },
+                      )
                 }
                 isOn={alsoDevices}
                 onChange={setAlsoDevices}
               />
               <p className="text-caption text-foreground-subtle">
-                Kept, they stay unreachable until the account is signed in to again.
+                {t(
+                  'library.vendorAccounts.keptTheyStayUnreachable',
+                  'Kept, they stay unreachable until the account is signed in to again.',
+                )}
               </p>
             </div>
           )}

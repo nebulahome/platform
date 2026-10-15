@@ -18,6 +18,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
 import { AppIcon, BrowseTile, Button, FilterChips, TILE_GRID } from '@nebulahome/ui';
@@ -49,6 +50,8 @@ import { VendorCard } from '@/routes/library/vendor-card';
  * @returns The page.
  */
 export function IntegrationsPage() {
+  const { t } = useTranslation();
+
   const can = useSession((state) => state.can);
   const canInstall = can('integration:install');
   const canSeeDevices = can('device:read');
@@ -115,7 +118,10 @@ export function IntegrationsPage() {
           {
             id: 'connection',
             key: 'Connection',
-            value: filter.internet === 'local' ? 'Local' : 'Cloud',
+            value:
+              filter.internet === 'local'
+                ? t('library.integrations.local', 'Local')
+                : t('library.integrations.cloud', 'Cloud'),
             /** Takes the connection off. */
             onRemove: () => {
               setFilter({ ...filter, internet: '' });
@@ -139,7 +145,7 @@ export function IntegrationsPage() {
       ? [
           {
             id: 'new',
-            value: 'Has new devices',
+            value: t('library.integrations.hasNewDevices', 'Has new devices'),
             /** Shows every vendor again, found devices or not. */
             onRemove: () => {
               setFilter({ ...filter, hasNew: false });
@@ -151,7 +157,7 @@ export function IntegrationsPage() {
       ? [
           {
             id: 'update',
-            value: 'Update ready',
+            value: t('library.integrations.updateReady', 'Update ready'),
             /** Shows every vendor again, update or not. */
             onRemove: () => {
               setFilter({ ...filter, hasUpdate: false });
@@ -165,15 +171,27 @@ export function IntegrationsPage() {
 
   return (
     <LibraryPage
-      title="Integrations"
-      noun="integration"
+      title={t('library.integrations.integrations', 'Integrations')}
+      counted={(count) =>
+        t('library.integrations.count', {
+          count,
+          defaultValue_one: '{{count}} integration',
+          defaultValue_other: '{{count}} integrations',
+        })
+      }
       count={vendors.isPending ? undefined : all.length}
       shownCount={shown.length}
-      summary={[found === 0 ? null : `${String(found)} found on the network`]}
+      summary={[
+        found === 0
+          ? null
+          : t('library.integrations.foundFoundOnThe', '{{found}} found on the network', {
+              found: String(found),
+            }),
+      ]}
       tools={
         <>
           <SearchField
-            placeholder="Search integrations…"
+            placeholder={t('library.integrations.searchIntegrations', 'Search integrations…')}
             value={filter.search}
             onChange={(search) => {
               setFilter({ ...filter, search });
@@ -198,7 +216,7 @@ export function IntegrationsPage() {
               }}
             >
               <AppIcon id="plus" size={15} />
-              Install
+              {t('library.integrations.install', 'Install')}
             </Button>
             <InstallIntegrationsDialog
               isOpen={isInstalling}
@@ -220,7 +238,10 @@ export function IntegrationsPage() {
       filters={
         <FilterChips
           filters={chips}
-          summary={`${String(shown.length)} of ${String(all.length)}`}
+          summary={t('library.shownOfTotal', '{{shown}} of {{total}}', {
+            shown: shown.length,
+            total: all.length,
+          })}
           onClearAll={() => {
             setFilter({ ...OPEN_VENDOR_FILTER, search: filter.search, sort: filter.sort });
           }}
@@ -229,7 +250,10 @@ export function IntegrationsPage() {
       isPending={vendors.isPending}
       error={vendors.error}
       isEmpty={all.length === 0}
-      emptyMessage="No integration is installed yet. Install one, from the Community Hub or the local folder, and it appears here."
+      emptyMessage={t(
+        'library.integrations.noIntegrationIsInstalled',
+        'No integration is installed yet. Install one, from the Community Hub or the local folder, and it appears here.',
+      )}
     >
       {shown.length === 0 && isNarrowing(filter) ? (
         <NoMatches
@@ -246,8 +270,14 @@ export function IntegrationsPage() {
           {canInstall ? (
             <li className="flex list-none flex-col">
               <BrowseTile
-                title="Browse the integration index"
-                note="Brands, protocols and services"
+                title={t(
+                  'library.integrations.browseTheIntegrationIndex',
+                  'Browse the integration index',
+                )}
+                note={t(
+                  'library.integrations.brandsProtocolsAndServices',
+                  'Brands, protocols and services',
+                )}
                 icon="globe"
                 onClick={() => {
                   setInstalling(true);

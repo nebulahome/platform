@@ -7,12 +7,19 @@
  * under it. No axes and no tooltip: the preview answers "does this formula do what I meant", which
  * its shape and its range say; the alias's own page has the chart to read values off.
  */
+import { useTranslation } from 'react-i18next';
+
+import { numberFormat } from '@/i18n/formatters';
 import { toMessage } from '@/lib/error-message';
 import { previewRange, type PreviewPoint } from '@/library/alias-preview';
 import type { AliasPreview } from '@/library/use-alias-preview';
 
-/** How a figure is written in the range. */
-const FIGURES = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
+/**
+ * How a figure is written in the range.
+ *
+ * @returns The formatter, in the reader's language.
+ */
+const FIGURES = (): Intl.NumberFormat => numberFormat({ maximumFractionDigits: 1 });
 
 /** What the card needs. */
 export type AliasPreviewCardProps = {
@@ -58,6 +65,8 @@ function pathsOf(
  * @returns The card.
  */
 export function AliasPreviewCard(props: AliasPreviewCardProps) {
+  const { t } = useTranslation();
+
   const { preview, unit } = props;
   const points = preview.status === 'ready' ? preview.points : [];
   const range = previewRange(points);
@@ -70,28 +79,39 @@ export function AliasPreviewCard(props: AliasPreviewCardProps) {
    * @returns The words.
    */
   const withUnit = (value: number): string =>
-    unit === '' ? FIGURES.format(value) : `${FIGURES.format(value)} ${unit}`;
+    unit === '' ? FIGURES().format(value) : `${FIGURES().format(value)} ${unit}`;
 
   return (
     <section
-      aria-label="Preview"
+      aria-label={t('library.aliasPreviewCard.preview', 'Preview')}
       className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-caption text-foreground-subtle">
-        <span>Preview · last 24 h, from the sources’ history</span>
+        <span>
+          {t(
+            'library.aliasPreviewCard.previewLast24H',
+            'Preview · last 24 h, from the sources’ history',
+          )}
+        </span>
         {range === null ? null : (
           <span className="font-mono tabular">
-            min {withUnit(range.min)} · max {withUnit(range.max)}
+            {t('library.aliasPreviewCard.minMinMaxMax', 'min {{min}} · max {{max}}', {
+              min: withUnit(range.min),
+              max: withUnit(range.max),
+            })}
           </span>
         )}
       </div>
       {preview.status === 'waiting' ? (
         <p className="py-6 text-center text-ui-sm text-foreground-subtle">
-          Choose an entity for every source to see the last day.
+          {t(
+            'library.aliasPreviewCard.chooseAnEntityFor',
+            'Choose an entity for every source to see the last day.',
+          )}
         </p>
       ) : preview.status === 'reading' ? (
         <p className="py-6 text-center text-ui-sm text-foreground-subtle">
-          Reading the sources’ history…
+          {t('library.aliasPreviewCard.readingTheSourcesHistory', 'Reading the sources’ history…')}
         </p>
       ) : preview.status === 'failed' ? (
         <p role="alert" className="py-6 text-center text-ui-sm text-danger">
@@ -99,16 +119,22 @@ export function AliasPreviewCard(props: AliasPreviewCardProps) {
         </p>
       ) : paths === null ? (
         <p className="py-6 text-center text-ui-sm text-foreground-subtle">
-          Nothing to draw: the sources kept no numbers in the last day, or the formula does not give
-          one.
+          {t(
+            'library.aliasPreviewCard.nothingToDrawThe',
+            'Nothing to draw: the sources kept no numbers in the last day, or the formula does not give one.',
+          )}
         </p>
       ) : (
         <svg
           role="img"
           aria-label={
             range === null
-              ? 'The last day'
-              : `The last day, from ${withUnit(range.min)} to ${withUnit(range.max)}`
+              ? t('library.aliasPreviewCard.lastDay', 'The last day')
+              : t(
+                  'library.aliasPreviewCard.lastDayFromMin',
+                  'The last day, from {{min}} to {{max}}',
+                  { min: withUnit(range.min), max: withUnit(range.max) },
+                )
           }
           viewBox="0 0 100 48"
           preserveAspectRatio="none"

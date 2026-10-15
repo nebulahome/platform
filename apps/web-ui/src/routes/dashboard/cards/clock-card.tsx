@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import type { DashboardClockCard } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
+import { dateTimeFormat } from '@/i18n/formatters';
 import { CardFrame } from '@/routes/dashboard/cards/card-parts';
 
 /** What a clock card needs. */
@@ -61,13 +62,13 @@ export function ClockCard(props: ClockCardProps) {
   const timeZone = useSession((state) => state.user?.timezone);
   const now = useNow(card.showSeconds);
   const zone = timeZone === undefined || timeZone === '' ? {} : { timeZone };
-  const time = new Intl.DateTimeFormat(undefined, {
+  const time = dateTimeFormat({
     hour: '2-digit',
     minute: '2-digit',
     ...(card.showSeconds ? { second: '2-digit' } : {}),
     ...zone,
   }).format(now);
-  const date = new Intl.DateTimeFormat(undefined, {
+  const date = dateTimeFormat({
     weekday: 'long',
     day: 'numeric',
     month: 'long',

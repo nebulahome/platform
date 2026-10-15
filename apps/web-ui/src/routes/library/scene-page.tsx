@@ -7,6 +7,7 @@
  * scene as it is saved, and says when part of it did not take.
  */
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
 import { toMessage } from '@/lib/error-message';
@@ -20,6 +21,8 @@ import { SceneDialog } from '@/routes/library/scene-dialog';
  * @returns The page.
  */
 export function ScenePage() {
+  const { t } = useTranslation();
+
   const { sceneId } = useParams();
   const navigate = useNavigate();
   const isNew = sceneId === undefined;
@@ -59,9 +62,9 @@ export function ScenePage() {
       <div className="min-h-0 grow overflow-y-auto px-8 pt-6 pb-10">
         <DetailPlaceholder isProblem={!scenes.isPending}>
           {scenes.isPending
-            ? 'Reading…'
+            ? t('library.scene.reading', 'Reading…')
             : scenes.error === null
-              ? 'There is no scene with that id.'
+              ? t('library.scene.thereIsNoScene', 'There is no scene with that id.')
               : toMessage(scenes.error)}
         </DetailPlaceholder>
       </div>
@@ -81,8 +84,10 @@ export function ScenePage() {
           className="shrink-0 px-8 pt-3 text-ui-sm text-foreground-muted"
         >
           {apply.data.failed === 0
-            ? 'Applied.'
-            : `Applied, but ${String(apply.data.failed)} did not take.`}
+            ? t('library.scene.applied', 'Applied.')
+            : t('library.scene.appliedButFailedDid', 'Applied, but {{failed}} did not take.', {
+                failed: String(apply.data.failed),
+              })}
         </p>
       )}
       <SceneDialog

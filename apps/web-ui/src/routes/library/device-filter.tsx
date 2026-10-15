@@ -6,6 +6,8 @@
  * described, which is where a segmented control stops fitting. The button and the sheet are the
  * library's shared shell.
  */
+import { useTranslation } from 'react-i18next';
+
 import { SelectField } from '@nebulahome/ui';
 
 import type { DeviceFilter } from '@/library/device-filters';
@@ -32,22 +34,33 @@ export type DeviceFilterButtonProps = {
  * @returns The control.
  */
 export function DeviceFilterButton(props: DeviceFilterButtonProps) {
+  const { t } = useTranslation();
+
   const { filter, vendors, areas, onChange } = props;
   const count = Number(filter.vendorId !== '') + Number(filter.areaKey !== '');
-  const vendorOptions = facetChoices(vendors, filter.vendorId, 'Any integration');
-  const areaOptions = facetChoices(areas, filter.areaKey, 'Any area', true);
+  const vendorOptions = facetChoices(
+    vendors,
+    filter.vendorId,
+    t('library.deviceFilter.anyIntegration', 'Any integration'),
+  );
+  const areaOptions = facetChoices(
+    areas,
+    filter.areaKey,
+    t('library.deviceFilter.anyArea', 'Any area'),
+    true,
+  );
 
   return (
     <FilterSheet
-      label="Narrow the devices"
+      label={t('library.deviceFilter.narrowTheDevices', 'Narrow the devices')}
       count={count}
       onClear={() => {
         onChange({ ...filter, vendorId: '', areaKey: '' });
       }}
     >
-      <Facet title="Integration">
+      <Facet title={t('library.deviceFilter.integration', 'Integration')}>
         <SelectField
-          label="Integration"
+          label={t('library.deviceFilter.integration', 'Integration')}
           isLabelHidden
           size="compact"
           options={vendorOptions}
@@ -57,12 +70,14 @@ export function DeviceFilterButton(props: DeviceFilterButtonProps) {
           }}
         />
       </Facet>
-      <Facet title="Area">
+      <Facet title={t('library.deviceFilter.area', 'Area')}>
         {areaOptions.length === 1 ? (
-          <span className="text-caption text-foreground-subtle">No device is in a room yet.</span>
+          <span className="text-caption text-foreground-subtle">
+            {t('library.deviceFilter.noDeviceIsIn', 'No device is in a room yet.')}
+          </span>
         ) : (
           <SelectField
-            label="Area"
+            label={t('library.deviceFilter.area', 'Area')}
             isLabelHidden
             size="compact"
             options={areaOptions}

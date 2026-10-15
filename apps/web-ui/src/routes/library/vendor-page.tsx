@@ -21,12 +21,14 @@
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
 import type { DiscoveredDevice, IntegrationState } from '@nebulahome/contracts';
 import { AppIcon, Button, DetailHero, HeroFact, Pill, TabPanel, Tabs } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
+import { translate } from '@/i18n/messages';
 import { useTab } from '@/lib/use-tab';
 import { fetchDevices, fetchDiscovered, fetchVendor, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { vendorStatusOf } from '@/library/vendor-status';
@@ -59,13 +61,20 @@ type VendorTab = (typeof TABS)[number];
 function outcomeText(outcome: ScanOutcome, vendorName: string): string {
   switch (outcome.kind) {
     case 'off':
-      return 'The hub is not looking for devices: discovery is switched off on it.';
+      return translate(
+        'library.vendor.hubIsNotLooking',
+        'The hub is not looking for devices: discovery is switched off on it.',
+      );
     case 'found':
       return outcome.count === 1
         ? `Found 1 new ${vendorName} device.`
         : `Found ${String(outcome.count)} new ${vendorName} devices.`;
     case 'nothing':
-      return `Nothing new found. A ${vendorName} device on another network, or one that does not announce itself, is added by its address.`;
+      return translate(
+        'library.vendor.nothingNewFoundA',
+        'Nothing new found. A {{vendorName}} device on another network, or one that does not announce itself, is added by its address.',
+        { vendorName },
+      );
   }
 }
 
@@ -78,6 +87,8 @@ const SETTLE_MS = 3000;
  * @returns The page.
  */
 export function VendorPage() {
+  const { t } = useTranslation();
+
   const { vendorId = '' } = useParams();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -185,11 +196,16 @@ export function VendorPage() {
         disabled={found.needsSetup || found.needsAccount || found.needsPackage}
         title={
           found.needsPackage
-            ? (found.packageProblems[0] ?? 'A package it needs is not running')
+            ? (found.packageProblems[0] ??
+              t('library.vendor.packageItNeedsIs', 'A package it needs is not running'))
             : found.needsSetup
-              ? `Set up ${found.name} first`
+              ? t('library.vendor.setUpNameFirst', 'Set up {{name}} first', { name: found.name })
               : found.needsAccount
-                ? `Sign in to a ${found.account?.name ?? 'account'} first`
+                ? found.account === null
+                  ? t('library.vendor.signInFirst', 'Sign in to an account first')
+                  : t('library.vendor.signInToFirst', 'Sign in to a {{name}} first', {
+                      name: found.account.name,
+                    })
                 : undefined
         }
         onClick={() => {
@@ -201,7 +217,7 @@ export function VendorPage() {
         }}
       >
         <AppIcon id="plus" size={14} />
-        Add device
+        {t('library.vendor.addDevice', 'Add device')}
       </Button>
     ) : undefined;
 
@@ -215,7 +231,11 @@ export function VendorPage() {
         error={vendor.error ?? all.error}
         hero={
           <DetailHero
-            back={<BackLink to="/integrations">Integrations</BackLink>}
+            back={
+              <BackLink to="/integrations">
+                {t('library.vendor.integrations', 'Integrations')}
+              </BackLink>
+            }
             mark={found === undefined ? undefined : <VendorLogo vendor={found} size={56} />}
             title={found?.name ?? vendorId}
             description={found?.description}
@@ -223,15 +243,23 @@ export function VendorPage() {
               found === undefined || status === null ? undefined : (
                 <>
                   <Pill tone={status.tone}>{status.label}</Pill>
-                  <HeroFact>v{found.version}</HeroFact>
+                  <HeroFact>
+                    {t('library.vendor.vversion', 'v{{version}}', { version: found.version })}
+                  </HeroFact>
                   <HeroFact icon={found.internetRequired ? 'globe' : 'network'}>
-                    {found.internetRequired ? 'Needs the internet' : 'Local network'}
+                    {found.internetRequired
+                      ? t('library.vendor.needsTheInternet', 'Needs the internet')
+                      : t('library.vendor.localNetwork', 'Local network')}
                   </HeroFact>
                   {found.wires.map((wire) => (
-                    <HeroFact key={wire}>{wire === 'ble' ? 'BLE' : wire.toUpperCase()}</HeroFact>
+                    <HeroFact key={wire}>
+                      {wire === 'ble' ? t('library.vendor.ble', 'BLE') : wire.toUpperCase()}
+                    </HeroFact>
                   ))}
                   {found.origin === 'development' ? (
-                    <HeroFact icon="lock">In development</HeroFact>
+                    <HeroFact icon="lock">
+                      {t('library.vendor.inDevelopment', 'In development')}
+                    </HeroFact>
                   ) : null}
                 </>
               )
@@ -245,7 +273,7 @@ export function VendorPage() {
                         void navigate(`/packages/${encodeURIComponent(neededPackage)}`);
                       }}
                     >
-                      Open{' '}
+                      {t('library.vendor.open', 'Open')}{' '}
                       {packages.find((each) => each.id === neededPackage)?.name ?? neededPackage}
                     </Button>
                   )}
@@ -255,14 +283,21 @@ export function VendorPage() {
                       variant="ghost"
                       isBusy={network.isScanning}
                       title={
-                        network.problem ?? `Ask every ${found.name} device on the network who it is`
+                        network.problem ??
+                        t(
+                          'library.vendor.askEveryNameDevice',
+                          'Ask every {{name}} device on the network who it is',
+                          { name: found.name },
+                        )
                       }
                       onClick={() => {
                         network.scan(found.id);
                       }}
                     >
                       <AppIcon id="radio" size={16} />
-                      {network.isScanning ? 'Looking…' : 'Discover devices'}
+                      {network.isScanning
+                        ? t('library.vendor.looking', 'Looking…')
+                        : t('library.vendor.discoverDevices', 'Discover devices')}
                     </Button>
                   ) : null}
                   {hasConfiguration ? (
@@ -273,7 +308,7 @@ export function VendorPage() {
                       }}
                     >
                       <AppIcon id="settings" size={16} />
-                      Settings
+                      {t('library.vendor.settings', 'Settings')}
                     </Button>
                   ) : null}
                   <VendorInstallMenu vendor={found} deviceCount={devices.length} />
@@ -288,10 +323,19 @@ export function VendorPage() {
                   value={shownTab}
                   onChange={setTab}
                   items={[
-                    { id: 'overview', label: 'Overview' },
-                    { id: 'devices', label: 'Devices', count: devices.length },
+                    { id: 'overview', label: t('library.vendor.overview', 'Overview') },
+                    {
+                      id: 'devices',
+                      label: t('library.vendor.devices', 'Devices'),
+                      count: devices.length,
+                    },
                     ...(hasConfiguration
-                      ? [{ id: 'configuration' as const, label: 'Configuration' }]
+                      ? [
+                          {
+                            id: 'configuration' as const,
+                            label: t('library.vendor.configuration', 'Configuration'),
+                          },
+                        ]
                       : []),
                   ]}
                 />
@@ -318,11 +362,21 @@ export function VendorPage() {
                       ? { text: network.problem, isProblem: true }
                       : network.isScanning
                         ? {
-                            text: `Asking every ${found.name} device on the network who it is${
+                            text:
                               network.lookingForMs > 0
-                                ? `, for the next ${String(Math.round(network.lookingForMs / 1000))} seconds…`
-                                : '…'
-                            }`,
+                                ? t(
+                                    'library.vendor.askingEveryDeviceFor',
+                                    'Asking every {{name}} device on the network who it is, for the next {{seconds}} seconds…',
+                                    {
+                                      name: found.name,
+                                      seconds: Math.round(network.lookingForMs / 1000),
+                                    },
+                                  )
+                                : t(
+                                    'library.vendor.askingEveryDevice',
+                                    'Asking every {{name}} device on the network who it is…',
+                                    { name: found.name },
+                                  ),
                             isProblem: false,
                           }
                         : network.outcome === null

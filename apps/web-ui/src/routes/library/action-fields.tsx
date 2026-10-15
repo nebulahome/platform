@@ -13,6 +13,7 @@
  * Notify is kept as written and says it cannot run yet.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type {
   AutomationAction,
@@ -123,6 +124,8 @@ function kelvinRangeOf(entity: EntityView | undefined): { min: number; max: numb
  * @returns The fields, or null for a block whose fields are drawn elsewhere.
  */
 export function ActionFields(props: ActionFieldsProps) {
+  const { t } = useTranslation();
+
   const { action, onChange } = props;
   const house = useEditorHouse();
 
@@ -133,11 +136,14 @@ export function ActionFields(props: ActionFieldsProps) {
     case 'scene': {
       return house.scenes.length === 0 ? (
         <TextField
-          label="Scene"
+          label={t('library.actionFields.scene', 'Scene')}
           size="compact"
           className="font-mono"
-          placeholder="evening"
-          hint="Its key. There are no scenes yet to choose from."
+          placeholder={t('library.actionFields.evening', 'evening')}
+          hint={t(
+            'library.actionFields.itsKeyThereAre',
+            'Its key. There are no scenes yet to choose from.',
+          )}
           value={action.sceneKey}
           onChange={(event) => {
             onChange({ ...action, sceneKey: event.target.value });
@@ -145,15 +151,24 @@ export function ActionFields(props: ActionFieldsProps) {
         />
       ) : (
         <SelectField
-          label="Scene"
+          label={t('library.actionFields.scene', 'Scene')}
           size="compact"
           options={[
-            ...(action.sceneKey === '' ? [{ value: '', label: 'Choose a scene…' }] : []),
+            ...(action.sceneKey === ''
+              ? [{ value: '', label: t('library.actionFields.chooseAScene', 'Choose a scene…') }]
+              : []),
             ...house.scenes.map((scene) => ({ value: scene.key, label: scene.name })),
             ...(action.sceneKey === '' ||
             house.scenes.some((scene) => scene.key === action.sceneKey)
               ? []
-              : [{ value: action.sceneKey, label: `${action.sceneKey} (not found)` }]),
+              : [
+                  {
+                    value: action.sceneKey,
+                    label: t('library.actionFields.scenekeyNotFound', '{{sceneKey}} (not found)', {
+                      sceneKey: action.sceneKey,
+                    }),
+                  },
+                ]),
           ]}
           value={action.sceneKey}
           onChange={(sceneKey) => {
@@ -165,11 +180,21 @@ export function ActionFields(props: ActionFieldsProps) {
     case 'automation': {
       return (
         <SelectField
-          label="Automation"
+          label={t('library.actionFields.automation', 'Automation')}
           size="compact"
-          hint="It starts, and this run carries on without waiting for it."
+          hint={t(
+            'library.actionFields.itStartsAndThis',
+            'It starts, and this run carries on without waiting for it.',
+          )}
           options={[
-            ...(action.automationKey === '' ? [{ value: '', label: 'Choose an automation…' }] : []),
+            ...(action.automationKey === ''
+              ? [
+                  {
+                    value: '',
+                    label: t('library.actionFields.chooseAnAutomation', 'Choose an automation…'),
+                  },
+                ]
+              : []),
             ...house.automations.map((automation) => ({
               value: automation.key,
               label: automation.name,
@@ -177,7 +202,16 @@ export function ActionFields(props: ActionFieldsProps) {
             ...(action.automationKey === '' ||
             house.automations.some((automation) => automation.key === action.automationKey)
               ? []
-              : [{ value: action.automationKey, label: `${action.automationKey} (not found)` }]),
+              : [
+                  {
+                    value: action.automationKey,
+                    label: t(
+                      'library.actionFields.automationkeyNotFound',
+                      '{{automationKey}} (not found)',
+                      { automationKey: action.automationKey },
+                    ),
+                  },
+                ]),
           ]}
           value={action.automationKey}
           onChange={(automationKey) => {
@@ -190,7 +224,7 @@ export function ActionFields(props: ActionFieldsProps) {
       return (
         <div className="grid gap-3 sm:grid-cols-2">
           <DurationField
-            label="Wait"
+            label={t('library.actionFields.wait', 'Wait')}
             maxMs={WEEK_MS}
             value={action.durationMs}
             onChange={(durationMs) => {
@@ -204,21 +238,23 @@ export function ActionFields(props: ActionFieldsProps) {
       return (
         <>
           <Note tone="warning">
-            Not available yet: there is no notification service, so a run that reaches this block
-            records it as failed.
+            {t(
+              'library.actionFields.notAvailableYetThere',
+              'Not available yet: there is no notification service, so a run that reaches this block records it as failed.',
+            )}
           </Note>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
             <TextField
-              label="Channel"
+              label={t('library.actionFields.channel', 'Channel')}
               size="compact"
-              placeholder="telegram"
+              placeholder={t('library.actionFields.telegram', 'telegram')}
               value={action.channel}
               onChange={(event) => {
                 onChange({ ...action, channel: event.target.value });
               }}
             />
             <TextField
-              label="Message"
+              label={t('library.actionFields.message', 'Message')}
               size="compact"
               value={action.message}
               onChange={(event) => {
@@ -250,6 +286,8 @@ function CommandFields(props: {
   readonly action: Extract<AutomationAction, { type: 'command' }>;
   readonly onChange: (action: AutomationAction) => void;
 }) {
+  const { t } = useTranslation();
+
   const { action, onChange } = props;
   const house = useEditorHouse();
   const entity = house.entityOf(action.entityId);
@@ -293,7 +331,7 @@ function CommandFields(props: {
     <>
       <div className="grid gap-3 sm:grid-cols-2">
         <EntityField
-          label="Entity"
+          label={t('library.actionFields.entity', 'Entity')}
           accept={isCommandable}
           value={action.entityId}
           onChange={(entityId, next) => {
@@ -313,10 +351,17 @@ function CommandFields(props: {
           }}
         />
         <SelectField
-          label="Command"
+          label={t('library.actionFields.command', 'Command')}
           size="compact"
           options={[
-            ...(chosen === undefined ? [{ value: '', label: 'Choose what to do…' }] : []),
+            ...(chosen === undefined
+              ? [
+                  {
+                    value: '',
+                    label: t('library.actionFields.chooseWhatToDo', 'Choose what to do…'),
+                  },
+                ]
+              : []),
             ...choices.map((choice) => ({
               value: `${choice.capability}:${choice.command}`,
               label:
@@ -365,7 +410,10 @@ function CommandFields(props: {
       )}
       {isInstant ? (
         <p className="text-caption text-foreground-subtle">
-          This light changes at once: it cannot fade.
+          {t(
+            'library.actionFields.thisLightChangesAt',
+            'This light changes at once: it cannot fade.',
+          )}
         </p>
       ) : null}
     </>
@@ -388,6 +436,8 @@ function HexField(props: {
   readonly saturation: number;
   readonly onChange: (colour: { hue: number; saturation: number }) => void;
 }) {
+  const { t } = useTranslation();
+
   const { hue, saturation, onChange } = props;
   const [typed, setTyped] = useState<string | null>(null);
   const hex = hsToHex(hue, saturation);
@@ -403,14 +453,18 @@ function HexField(props: {
         style={{ background: hsColor(hue, saturation) }}
       />
       <TextField
-        label="HEX"
+        label={t('library.actionFields.hex', 'HEX')}
         size="compact"
         className="font-mono"
-        placeholder="#ff8800"
+        placeholder={t('library.actionFields.ff8800', '#ff8800')}
         spellCheck={false}
         autoComplete="off"
         value={value}
-        error={isWrong ? 'Six hex digits, as #ff8800' : undefined}
+        error={
+          isWrong
+            ? t('library.actionFields.sixHexDigitsAs', 'Six hex digits, as #ff8800')
+            : undefined
+        }
         onChange={(event) => {
           const colour = hexToHs(written(event.target.value));
 
@@ -460,6 +514,8 @@ function CommandFieldControl(props: {
   readonly kelvin: { readonly min: number; readonly max: number };
   readonly onChange: (value: JsonValue | undefined) => void;
 }) {
+  const { t } = useTranslation();
+
   const { field, value, hue, kelvin, onChange } = props;
 
   switch (field.kind) {
@@ -590,8 +646,8 @@ function CommandFieldControl(props: {
             label={field.label}
             size="compact"
             options={[
-              { value: 'on', label: 'On' },
-              { value: 'off', label: 'Off' },
+              { value: 'on', label: t('common.on', 'On') },
+              { value: 'off', label: t('common.off', 'Off') },
             ]}
             value={value === true ? 'on' : 'off'}
             onChange={(next) => {
@@ -606,7 +662,7 @@ function CommandFieldControl(props: {
         <TextField
           label={field.label}
           size="compact"
-          hint="Separated by commas."
+          hint={t('library.actionFields.separatedByCommas', 'Separated by commas.')}
           value={Array.isArray(value) ? value.join(', ') : ''}
           onChange={(event) => {
             onChange(
@@ -660,6 +716,8 @@ function PackageServiceFields(props: {
   readonly action: Extract<AutomationAction, { type: 'package_service' }>;
   readonly onChange: (action: AutomationAction) => void;
 }) {
+  const { t } = useTranslation();
+
   const { action, onChange } = props;
   const house = useEditorHouse();
   const params = JSON.stringify(action.params, null, 2);
@@ -669,11 +727,14 @@ function PackageServiceFields(props: {
       <div className="grid gap-3 sm:grid-cols-2">
         {house.packages.length === 0 ? (
           <TextField
-            label="Package"
+            label={t('library.actionFields.package', 'Package')}
             size="compact"
             className="font-mono"
-            placeholder="nvr"
-            hint="No packages are installed yet."
+            placeholder={t('library.actionFields.nvr', 'nvr')}
+            hint={t(
+              'library.actionFields.noPackagesAreInstalled',
+              'No packages are installed yet.',
+            )}
             value={action.packageId}
             onChange={(event) => {
               onChange({ ...action, packageId: event.target.value });
@@ -681,10 +742,17 @@ function PackageServiceFields(props: {
           />
         ) : (
           <SelectField
-            label="Package"
+            label={t('library.actionFields.package', 'Package')}
             size="compact"
             options={[
-              ...(action.packageId === '' ? [{ value: '', label: 'Choose a package…' }] : []),
+              ...(action.packageId === ''
+                ? [
+                    {
+                      value: '',
+                      label: t('library.actionFields.chooseAPackage', 'Choose a package…'),
+                    },
+                  ]
+                : []),
               ...house.packages.map((entry) => ({ value: entry.id, label: entry.name })),
             ]}
             value={action.packageId}
@@ -694,11 +762,11 @@ function PackageServiceFields(props: {
           />
         )}
         <TextField
-          label="Service"
+          label={t('library.actionFields.service', 'Service')}
           size="compact"
           className="font-mono"
-          placeholder="record"
-          hint="The name the package gives it."
+          placeholder={t('library.actionFields.record', 'record')}
+          hint={t('library.actionFields.nameThePackageGives', 'The name the package gives it.')}
           value={action.service}
           onChange={(event) => {
             onChange({ ...action, service: event.target.value });
@@ -706,9 +774,12 @@ function PackageServiceFields(props: {
         />
       </div>
       <TextArea
-        label="What it is given"
+        label={t('library.actionFields.whatItIsGiven', 'What it is given')}
         className="font-mono text-mono-ui"
-        hint="A JSON object, as the package's documentation describes it."
+        hint={t(
+          'library.actionFields.jsonObjectAsThe',
+          "A JSON object, as the package's documentation describes it.",
+        )}
         defaultValue={params}
         onBlur={(event) => {
           try {

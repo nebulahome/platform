@@ -11,6 +11,8 @@
  * not shift the first. A name that is badly formed, or already taken, is said under its row as it
  * is typed rather than after a save.
  */
+import { useTranslation } from 'react-i18next';
+
 import type { EntityView, TagColor } from '@nebulahome/contracts';
 import { AppIcon, Button, IconButton, Section, cn } from '@nebulahome/ui';
 
@@ -61,6 +63,8 @@ export type AliasSourcesPanelProps = {
  * @returns The panel.
  */
 export function AliasSourcesPanel(props: AliasSourcesPanelProps) {
+  const { t } = useTranslation();
+
   const { sources, colors, onChange, selfId, nowOf } = props;
 
   /**
@@ -83,7 +87,7 @@ export function AliasSourcesPanel(props: AliasSourcesPanelProps) {
 
   return (
     <Section
-      title="Sources"
+      title={t('library.aliasSourcesPanel.sources', 'Sources')}
       actions={
         <Button
           variant="ghost"
@@ -96,7 +100,7 @@ export function AliasSourcesPanel(props: AliasSourcesPanelProps) {
           }}
         >
           <AppIcon id="plus" size={15} />
-          Add a source
+          {t('library.aliasSourcesPanel.addASource', 'Add a source')}
         </Button>
       }
     >
@@ -105,9 +109,11 @@ export function AliasSourcesPanel(props: AliasSourcesPanelProps) {
           aria-hidden="true"
           className={`${SOURCE_COLUMNS} border-b border-border px-4 py-2.5 font-mono text-label text-foreground-subtle uppercase`}
         >
-          <span>Variable</span>
-          <span>Entity</span>
-          <span className="hidden text-right md:block">Now</span>
+          <span>{t('library.aliasSourcesPanel.variable', 'Variable')}</span>
+          <span>{t('library.aliasSourcesPanel.entity', 'Entity')}</span>
+          <span className="hidden text-right md:block">
+            {t('library.aliasSourcesPanel.now', 'Now')}
+          </span>
           <span className="w-8" />
         </div>
         <ol className="flex flex-col">
@@ -131,7 +137,8 @@ export function AliasSourcesPanel(props: AliasSourcesPanelProps) {
               >
                 <div className={SOURCE_COLUMNS}>
                   <label className="sr-only" htmlFor={inputId}>
-                    Variable of source {index + 1}
+                    {t('library.aliasSourcesPanel.variableOfSource', 'Variable of source')}{' '}
+                    {index + 1}
                   </label>
                   <input
                     id={inputId}
@@ -153,10 +160,20 @@ export function AliasSourcesPanel(props: AliasSourcesPanelProps) {
                     }}
                   />
                   <EntityField
-                    label={`Entity read as ${spoken}`}
+                    label={t(
+                      'library.aliasSourcesPanel.entityReadAsSpoken',
+                      'Entity read as {{spoken}}',
+                      { spoken },
+                    )}
                     isLabelHidden
                     size="medium"
-                    pickerTitle={`Which one is ${source.variableName.trim() === '' ? 'this source' : source.variableName.trim()}?`}
+                    pickerTitle={
+                      source.variableName.trim() === ''
+                        ? t('library.aliasSourcesPanel.whichOneIsThis', 'Which one is this source?')
+                        : t('library.aliasSourcesPanel.whichOneIs', 'Which one is {{name}}?', {
+                            name: source.variableName.trim(),
+                          })
+                    }
                     value={source.entityId}
                     accept={accept}
                     onChange={(entityId) => {
@@ -165,14 +182,24 @@ export function AliasSourcesPanel(props: AliasSourcesPanelProps) {
                   />
                   <span
                     className="hidden truncate text-right font-mono text-mono-ui text-foreground tabular md:block"
-                    aria-label={`${spoken} reads now`}
+                    aria-label={t(
+                      'library.aliasSourcesPanel.spokenReadsNow',
+                      '{{spoken}} reads now',
+                      { spoken },
+                    )}
                   >
                     {source.entityId === '' ? '—' : nowOf(source.entityId)}
                   </span>
                   <IconButton
                     variant="bare"
                     size="large"
-                    label={`Remove ${source.variableName.trim() === '' ? 'this source' : source.variableName.trim()}`}
+                    label={
+                      source.variableName.trim() === ''
+                        ? t('library.aliasSourcesPanel.removeThisSource', 'Remove this source')
+                        : t('library.aliasSourcesPanel.removeName', 'Remove {{name}}', {
+                            name: source.variableName.trim(),
+                          })
+                    }
                     disabled={sources.length < 2}
                     onClick={() => {
                       onChange(sources.filter((entry, at) => at !== index));

@@ -11,6 +11,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { IntegrationInstallReply, IntegrationListing } from '@nebulahome/contracts';
 import { Button } from '@nebulahome/ui';
@@ -42,17 +43,23 @@ type FactsProps = {
  * @returns The facts.
  */
 function Facts(props: FactsProps) {
+  const { t } = useTranslation();
+
   const { listing } = props;
   const owner = listing.repository?.split('/')[0];
 
   if (listing.origin === 'local') {
     return (
       <>
-        <span>by you · local</span>
+        <span>{t('library.installIntegrationsDialog.byYouLocal', 'by you · local')}</span>
         <span className="rounded-chip border border-warning-line px-1.5 font-mono text-label text-warning uppercase">
-          Local file
+          {t('library.installIntegrationsDialog.localFile', 'Local file')}
         </span>
-        {listing.hasNewBuild ? <span className="text-primary">New build</span> : null}
+        {listing.hasNewBuild ? (
+          <span className="text-primary">
+            {t('library.installIntegrationsDialog.newBuild', 'New build')}
+          </span>
+        ) : null}
       </>
     );
   }
@@ -61,14 +68,22 @@ function Facts(props: FactsProps) {
     <>
       <Stars count={listing.stars} />
       <Installs count={listing.downloads} />
-      {owner === undefined ? null : <span>by {owner}</span>}
+      {owner === undefined ? null : (
+        <span>{t('library.installIntegrationsDialog.byOwner', 'by {{owner}}', { owner })}</span>
+      )}
       {listing.internetRequired === true ? (
         <span className="rounded-pill border border-warning-line px-2 text-warning">
-          Needs the internet
+          {t('library.installIntegrationsDialog.needsTheInternet', 'Needs the internet')}
         </span>
       ) : null}
-      {listing.isBuiltIn ? <span>In development</span> : null}
-      {listing.hasUpdate ? <span className="text-primary">Update out</span> : null}
+      {listing.isBuiltIn ? (
+        <span>{t('library.installIntegrationsDialog.inDevelopment', 'In development')}</span>
+      ) : null}
+      {listing.hasUpdate ? (
+        <span className="text-primary">
+          {t('library.installIntegrationsDialog.updateOut', 'Update out')}
+        </span>
+      ) : null}
     </>
   );
 }
@@ -92,6 +107,8 @@ export type InstallIntegrationsDialogProps = {
  * @returns The dialog.
  */
 export function InstallIntegrationsDialog(props: InstallIntegrationsDialogProps) {
+  const { t } = useTranslation();
+
   const { isOpen, onClose, onInstalled, onOpen } = props;
   const [search, setSearch] = useState('');
   const [picked, setPicked] = useState<IntegrationListing | null>(null);
@@ -151,15 +168,18 @@ export function InstallIntegrationsDialog(props: InstallIntegrationsDialogProps)
     <CatalogueDialog
       isOpen={isOpen}
       onClose={close}
-      title="Install an integration"
-      subtitle="From the Community Hub, and the integrations folder on this machine"
+      title={t('library.installIntegrationsDialog.installAnIntegration', 'Install an integration')}
+      subtitle={t(
+        'library.installIntegrationsDialog.fromTheCommunityHub',
+        'From the Community Hub, and the integrations folder on this machine',
+      )}
       icon="library"
       item={
         picked === null
           ? null
           : {
               name: picked.name,
-              backLabel: 'Results',
+              backLabel: t('library.installIntegrationsDialog.results', 'Results'),
 
               /** Goes back to the results. */
               onBack: () => {
@@ -169,18 +189,28 @@ export function InstallIntegrationsDialog(props: InstallIntegrationsDialogProps)
       }
       search={search}
       onSearch={setSearch}
-      searchLabel="Search the Community Hub"
-      searchPlaceholder="Search integrations, brands, models"
+      searchLabel={t(
+        'library.installIntegrationsDialog.searchTheCommunityHub',
+        'Search the Community Hub',
+      )}
+      searchPlaceholder={t(
+        'library.installIntegrationsDialog.searchIntegrationsBrandsModels',
+        'Search integrations, brands, models',
+      )}
       status={
         results.hubError === null ? (
           results.isPending ? (
-            'Asking the Hub…'
+            t('library.installIntegrationsDialog.askingTheHub', 'Asking the Hub…')
           ) : (
             `${String(results.items.length)}${results.hasMore ? '+' : ''} ${results.items.length === 1 ? 'result' : 'results'}${results.query === '' ? '' : ` for “${results.query}”`}`
           )
         ) : (
           <span role="status" className="text-warning">
-            {results.hubError}. The local folder&apos;s files are listed still.
+            {t(
+              'library.installIntegrationsDialog.huberrorTheLocalFolder',
+              "{{hubError}}. The local folder's files are listed still.",
+              { hubError: results.hubError },
+            )}
           </span>
         )
       }
@@ -190,7 +220,7 @@ export function InstallIntegrationsDialog(props: InstallIntegrationsDialogProps)
             <span />
             <div className="flex items-center gap-2.5">
               <Button variant="bare" disabled={install.isPending} onClick={close}>
-                {action.kind === 'open' ? 'Close' : 'Cancel'}
+                {action.kind === 'open' ? t('common.close', 'Close') : t('common.cancel', 'Cancel')}
               </Button>
               {action.kind === 'open' ? (
                 <Button
@@ -229,8 +259,15 @@ export function InstallIntegrationsDialog(props: InstallIntegrationsDialogProps)
           {!results.isPending && results.error === null && results.items.length === 0 ? (
             <p className="px-1 py-6 text-center text-ui text-foreground-subtle">
               {results.query === ''
-                ? 'No integration to offer yet.'
-                : `No integration matches “${results.query}”.`}
+                ? t(
+                    'library.installIntegrationsDialog.noIntegrationToOffer',
+                    'No integration to offer yet.',
+                  )
+                : t(
+                    'library.installIntegrationsDialog.noIntegrationMatchesQuery',
+                    'No integration matches “{{query}}”.',
+                    { query: results.query },
+                  )}
             </p>
           ) : null}
           <ul className="flex flex-col">
@@ -258,7 +295,7 @@ export function InstallIntegrationsDialog(props: InstallIntegrationsDialogProps)
               isBusy={results.isLoadingMore}
               onClick={results.loadMore}
             >
-              Show more
+              {t('library.installIntegrationsDialog.showMore', 'Show more')}
             </Button>
           ) : null}
         </>

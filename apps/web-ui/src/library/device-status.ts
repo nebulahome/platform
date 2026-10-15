@@ -11,6 +11,7 @@
 import type { DeviceView } from '@nebulahome/contracts';
 import type { PillTone } from '@nebulahome/ui';
 
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import type { DeviceStanding } from '@/library/entity-reading';
 
 /** Each standing, in the order the Status column sorts. */
@@ -33,12 +34,34 @@ export type DeviceStatus = {
 };
 
 /** What each standing says and looks like. */
-const STATUSES: Readonly<Record<DeviceStatusKind, DeviceStatus>> = {
-  unreachable: { kind: 'unreachable', label: 'Unreachable', tone: 'danger' },
-  silent: { kind: 'silent', label: 'Silent', tone: 'warning' },
-  update: { kind: 'update', label: 'Update ready', tone: 'cyan' },
-  reporting: { kind: 'reporting', label: 'Reporting', tone: 'success' },
-  disabled: { kind: 'disabled', label: 'Disabled', tone: 'neutral' },
+const STATUSES: Readonly<
+  Record<DeviceStatusKind, Omit<DeviceStatus, 'label'> & { readonly label: Message }>
+> = {
+  unreachable: {
+    kind: 'unreachable',
+    label: defineMessage('library.deviceStatus.unreachable', 'Unreachable'),
+    tone: 'danger',
+  },
+  silent: {
+    kind: 'silent',
+    label: defineMessage('library.deviceStatus.silent', 'Silent'),
+    tone: 'warning',
+  },
+  update: {
+    kind: 'update',
+    label: defineMessage('library.deviceStatus.updateReady', 'Update ready'),
+    tone: 'cyan',
+  },
+  reporting: {
+    kind: 'reporting',
+    label: defineMessage('library.deviceStatus.reporting', 'Reporting'),
+    tone: 'success',
+  },
+  disabled: {
+    kind: 'disabled',
+    label: defineMessage('library.deviceStatus.disabled', 'Disabled'),
+    tone: 'neutral',
+  },
 };
 
 /**
@@ -55,16 +78,28 @@ export function deviceStatusOf(
   hasUpdate: boolean,
 ): DeviceStatus {
   if (device.state === 'disabled') {
-    return STATUSES.disabled;
+    return statusOf('disabled');
   }
 
   if (device.state === 'failed') {
-    return STATUSES.unreachable;
+    return statusOf('unreachable');
   }
 
   if (!standing.isReporting) {
-    return STATUSES.silent;
+    return statusOf('silent');
   }
 
-  return hasUpdate ? STATUSES.update : STATUSES.reporting;
+  return statusOf(hasUpdate ? 'update' : 'reporting');
+}
+
+/**
+ * One standing, in the reader's language.
+ *
+ * @param kind - The standing.
+ * @returns What it says and looks like.
+ */
+function statusOf(kind: DeviceStatusKind): DeviceStatus {
+  const status = STATUSES[kind];
+
+  return { ...status, label: text(status.label) };
 }

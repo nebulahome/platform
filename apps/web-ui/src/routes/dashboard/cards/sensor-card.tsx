@@ -9,13 +9,18 @@
 import { CardHeading, Figure } from '@nebulahome/ui';
 
 import { LiveAreaChart } from '@/components/live-area-chart';
+import { numberFormat } from '@/i18n/formatters';
 import type { HistoryRange } from '@/library/history-series';
 import { CardFrame, EndReading, TileRow } from '@/routes/dashboard/cards/card-parts';
 import { cardTime, sizeKey, type EntityCardModel } from '@/routes/dashboard/cards/entity-model';
 import { useTelemetry } from '@/routes/dashboard/cards/use-card-history';
 
-/** How a reading is written on a card. */
-const numbers = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
+/**
+ * How a reading is written on a card.
+ *
+ * @returns The formatter, in the reader's language.
+ */
+const numbers = (): Intl.NumberFormat => numberFormat({ maximumFractionDigits: 1 });
 
 /** The series the chart draws: the reading, in the accent. */
 const SERIES = [
@@ -39,7 +44,7 @@ function figureOf(model: EntityCardModel): {
   }
 
   if (state.sensor_numeric !== undefined) {
-    return { value: numbers.format(state.sensor_numeric.value), unit: entity.unitOfMeasurement };
+    return { value: numbers().format(state.sensor_numeric.value), unit: entity.unitOfMeasurement };
   }
 
   return { value: state.sensor_text?.value ?? reading.text, unit: null };
@@ -109,7 +114,9 @@ export function SensorCard(props: { readonly model: EntityCardModel }) {
         <LiveAreaChart
           data={data}
           series={SERIES}
-          formatValue={(reading) => `${numbers.format(reading)}${unit === null ? '' : ` ${unit}`}`}
+          formatValue={(reading) =>
+            `${numbers().format(reading)}${unit === null ? '' : ` ${unit}`}`
+          }
         />
       </div>
     );
@@ -169,7 +176,7 @@ export function SensorCard(props: { readonly model: EntityCardModel }) {
           {moved === null ? null : (
             <span className="text-caption text-foreground-muted tabular">
               {moved >= 0 ? '+' : '−'}
-              {numbers.format(Math.abs(moved))} in {range}
+              {numbers().format(Math.abs(moved))} in {range}
             </span>
           )}
         </div>
@@ -177,8 +184,8 @@ export function SensorCard(props: { readonly model: EntityCardModel }) {
           <div className="min-h-0 grow">{chart}</div>
           {lows.length === 0 ? null : (
             <div className="flex justify-between font-mono text-label text-foreground-subtle tabular">
-              <span>min {numbers.format(Math.min(...lows))}</span>
-              <span>max {numbers.format(Math.max(...highs))}</span>
+              <span>min {numbers().format(Math.min(...lows))}</span>
+              <span>max {numbers().format(Math.max(...highs))}</span>
             </div>
           )}
         </div>

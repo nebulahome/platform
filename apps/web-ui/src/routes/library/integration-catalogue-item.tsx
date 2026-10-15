@@ -3,6 +3,8 @@
  * what the Community Hub says of it, the models it works with, and what installing it does -
  * with the owner's word asked first for code nobody reviewed.
  */
+import { Trans, useTranslation } from 'react-i18next';
+
 import type { HubDetail, IntegrationListing } from '@nebulahome/contracts';
 import { Checkbox } from '@nebulahome/ui';
 
@@ -39,6 +41,8 @@ export type IntegrationCatalogueItemProps = {
  * @returns The page.
  */
 export function IntegrationCatalogueItem(props: IntegrationCatalogueItemProps) {
+  const { t } = useTranslation();
+
   const { listing, detail, isTrusted, onTrustChange, error, isInstalling } = props;
   const owner = detail?.owner ?? listing.repository?.split('/')[0] ?? null;
   const internetRequired = listing.internetRequired ?? detail?.internetRequired ?? null;
@@ -51,25 +55,34 @@ export function IntegrationCatalogueItem(props: IntegrationCatalogueItemProps) {
       name={listing.name}
       by={
         listing.origin === 'local'
-          ? 'From the integrations folder on this machine'
+          ? t(
+              'library.integrationCatalogueItem.fromTheIntegrationsFolder',
+              'From the integrations folder on this machine',
+            )
           : owner === null
             ? null
             : `by ${owner}`
       }
       chips={
         <>
-          {listing.isOfficial ? <CatalogueChip tone="accent">Official</CatalogueChip> : null}
+          {listing.isOfficial ? (
+            <CatalogueChip tone="accent">
+              {t('library.integrationCatalogueItem.official', 'Official')}
+            </CatalogueChip>
+          ) : null}
           {listing.latest?.source === 'local' ? (
             <CatalogueChip tone="warning" icon="hard-drive">
-              Local file
+              {t('library.integrationCatalogueItem.localFile', 'Local file')}
             </CatalogueChip>
           ) : null}
           {internetRequired === null ? null : internetRequired ? (
             <CatalogueChip tone="warning" icon="globe">
-              Needs the internet
+              {t('library.integrationCatalogueItem.needsTheInternet', 'Needs the internet')}
             </CatalogueChip>
           ) : (
-            <CatalogueChip icon="network">Local network</CatalogueChip>
+            <CatalogueChip icon="network">
+              {t('library.integrationCatalogueItem.localNetwork', 'Local network')}
+            </CatalogueChip>
           )}
           {(detail?.transports ?? []).map((transport) => (
             <CatalogueChip key={transport} icon="cable">
@@ -86,12 +99,12 @@ export function IntegrationCatalogueItem(props: IntegrationCatalogueItemProps) {
                 icon="star"
                 iconClassName="text-lamp"
                 value={shortCount(listing.stars)}
-                label="stars"
+                label={t('library.integrationCatalogueItem.stars', 'stars')}
               />
               <CatalogueStat
                 icon="download"
                 value={shortCount(listing.downloads)}
-                label="installs"
+                label={t('library.integrationCatalogueItem.installs', 'installs')}
               />
             </>
           ) : null}
@@ -100,7 +113,10 @@ export function IntegrationCatalogueItem(props: IntegrationCatalogueItemProps) {
             <CatalogueStat
               icon="clock"
               value={relativeTime(publishedAt)}
-              label="since the last release"
+              label={t(
+                'library.integrationCatalogueItem.sinceTheLastRelease',
+                'since the last release',
+              )}
             />
           )}
         </>
@@ -111,20 +127,32 @@ export function IntegrationCatalogueItem(props: IntegrationCatalogueItemProps) {
     >
       {listing.isBuiltIn ? (
         <p role="status" className="text-ui text-foreground-muted">
-          A copy under development runs from the development folder of the hub. Installing it puts
-          this release in its place.
+          {t(
+            'library.integrationCatalogueItem.copyUnderDevelopmentRuns',
+            'A copy under development runs from the development folder of the hub. Installing it puts this release in its place.',
+          )}
         </p>
       ) : null}
 
       {listing.installedVersion === null ? null : (
         <p role="status" className="text-ui text-foreground">
-          Version <span className="font-mono font-medium">{listing.installedVersion}</span> is
-          installed.{' '}
+          <Trans
+            i18nKey="library.integrationCatalogueItem.versionInstalled"
+            defaults="Version <0>{{version}}</0> is installed."
+            values={{ version: listing.installedVersion }}
+            components={[<span key="version" className="font-mono font-medium" />]}
+          />{' '}
           {listing.hasUpdate
-            ? 'A newer release is out.'
+            ? t('library.integrationCatalogueItem.newerReleaseIsOut', 'A newer release is out.')
             : listing.hasNewBuild
-              ? 'The integrations folder holds a rebuild of it.'
-              : 'Its page has its devices and its settings.'}
+              ? t(
+                  'library.integrationCatalogueItem.integrationsFolderHoldsA',
+                  'The integrations folder holds a rebuild of it.',
+                )
+              : t(
+                  'library.integrationCatalogueItem.itsPageHasIts',
+                  'Its page has its devices and its settings.',
+                )}
         </p>
       )}
 
@@ -136,8 +164,14 @@ export function IntegrationCatalogueItem(props: IntegrationCatalogueItemProps) {
 
       {needsTrust(listing) && listing.installedVersion === null ? (
         <Checkbox
-          label="I trust who publishes it"
-          note="Its code runs inside Nebula Home with the same reach as the platform's own."
+          label={t(
+            'library.integrationCatalogueItem.iTrustWhoPublishes',
+            'I trust who publishes it',
+          )}
+          note={t(
+            'library.integrationCatalogueItem.itsCodeRunsInside',
+            "Its code runs inside Nebula Home with the same reach as the platform's own.",
+          )}
           isChecked={isTrusted}
           disabled={isInstalling}
           onChange={onTrustChange}
@@ -152,7 +186,10 @@ export function IntegrationCatalogueItem(props: IntegrationCatalogueItemProps) {
 
       {isInstalling ? (
         <p role="status" className="text-ui text-foreground-muted">
-          Downloading it and loading it into the hub. Nothing restarts.
+          {t(
+            'library.integrationCatalogueItem.downloadingItAndLoading',
+            'Downloading it and loading it into the hub. Nothing restarts.',
+          )}
         </p>
       ) : null}
     </CatalogueItem>

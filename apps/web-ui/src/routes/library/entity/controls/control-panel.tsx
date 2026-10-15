@@ -12,10 +12,12 @@
  * none; one that vanished would leave the reader wondering whether the page had loaded.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { CapabilityName, EntityView } from '@nebulahome/contracts';
 import { Panel, PanelNote } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
 import { hasCapability, isCommandable } from '@/library/entity-control';
 import type { Reading } from '@/library/entity-reading';
 import { ButtonControl } from '@/routes/library/entity/controls/button-control';
@@ -83,15 +85,24 @@ export type ControlPanelProps = Omit<ControlProps, 'commander' | 'disabled'> & {
  */
 function whyNot(entity: EntityView, reading: Reading, canControl: boolean): string | null {
   if (entity.source === 'derived') {
-    return 'An alias is worked out from other entities; change those instead.';
+    return translate(
+      'entity.controls.controlPanel.aliasIsWorkedOut',
+      'An alias is worked out from other entities; change those instead.',
+    );
   }
 
   if (entity.source === 'system') {
-    return 'This reading comes from the machine the platform runs on and takes no commands.';
+    return translate(
+      'entity.controls.controlPanel.thisReadingComesFrom',
+      'This reading comes from the machine the platform runs on and takes no commands.',
+    );
   }
 
   if (!entity.isEnabled) {
-    return 'This entity is disabled, so it takes no commands.';
+    return translate(
+      'entity.controls.controlPanel.thisEntityIsDisabled',
+      'This entity is disabled, so it takes no commands.',
+    );
   }
 
   if (!isCommandable(entity)) {
@@ -99,10 +110,18 @@ function whyNot(entity: EntityView, reading: Reading, canControl: boolean): stri
   }
 
   if (!reading.isAvailable) {
-    return 'The device cannot be reached right now. The controls come back when it answers.';
+    return translate(
+      'entity.controls.controlPanel.deviceCannotBeReached',
+      'The device cannot be reached right now. The controls come back when it answers.',
+    );
   }
 
-  return canControl ? null : 'You can see this entity, but your role does not let you control it.';
+  return canControl
+    ? null
+    : translate(
+        'entity.controls.controlPanel.youCanSeeThis',
+        'You can see this entity, but your role does not let you control it.',
+      );
 }
 
 /**
@@ -112,6 +131,8 @@ function whyNot(entity: EntityView, reading: Reading, canControl: boolean): stri
  * @returns The panel.
  */
 export function ControlPanel(props: ControlPanelProps) {
+  const { t } = useTranslation();
+
   const { entity, state, reportedAt, reading, canControl } = props;
   const commander = useEntityCommand(entity.entityId);
   const colour = usePendingValue<LightColour>(
@@ -129,7 +150,7 @@ export function ControlPanel(props: ControlPanelProps) {
   };
 
   return (
-    <Panel title="Control">
+    <Panel title={t('entity.controls.controlPanel.control', 'Control')}>
       {ENTITY_CONTROLS.filter(([capability]) => hasCapability(entity, capability)).map((entry) => {
         const [capability, Control] = entry;
 
@@ -146,7 +167,7 @@ export function ControlPanel(props: ControlPanelProps) {
             className="shrink-0 text-caption text-foreground-subtle underline-offset-2 hover:text-foreground hover:underline"
             onClick={commander.dismissProblem}
           >
-            Dismiss
+            {t('entity.controls.controlPanel.dismiss', 'Dismiss')}
           </button>
         </div>
       )}

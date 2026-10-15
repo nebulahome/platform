@@ -17,6 +17,7 @@
  * history name an entity by, not what a person recognises it by; it is still what the search
  * finds, it sits on the name as a tooltip, and the entity's page shows it as a fact.
  */
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { CapabilityState, EntityView, IconView, TagView } from '@nebulahome/contracts';
@@ -87,6 +88,8 @@ export type EntityRowProps = {
  * @returns The row.
  */
 export function EntityRow(props: EntityRowProps) {
+  const { t } = useTranslation();
+
   const { line, deviceAreaKey, onConfigure } = props;
   const { entity, reading, state, reportedAt, icon, tags, canControl } = line;
   const kind = entityKindOf(entity);
@@ -118,12 +121,15 @@ export function EntityRow(props: EntityRowProps) {
         <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-caption text-foreground-subtle">
           <span className="truncate">
             {kind.label}
-            {room === null ? null : ` · ${room}`}
+            {room === null ? null : t('library.entityRow.room', ' · {{room}}', { room })}
           </span>
           {entity.isHidden ? (
-            <span className="inline-flex items-center gap-1" title="Hidden from lists by default">
+            <span
+              className="inline-flex items-center gap-1"
+              title={t('library.entityRow.hiddenFromListsBy', 'Hidden from lists by default')}
+            >
               <AppIcon id="eye-off" size={12} />
-              <span>Hidden</span>
+              <span>{t('library.entityRow.hidden', 'Hidden')}</span>
             </span>
           ) : null}
           {shownTags.map(({ tag, icon: tagIcon }) => (
@@ -163,8 +169,12 @@ export function EntityRow(props: EntityRowProps) {
         {onConfigure === undefined ? null : (
           <button
             type="button"
-            aria-label={`Configure ${entity.name}`}
-            title={`Configure ${entity.name}`}
+            aria-label={t('library.entityRow.configureName', 'Configure {{name}}', {
+              name: entity.name,
+            })}
+            title={t('library.entityRow.configureName', 'Configure {{name}}', {
+              name: entity.name,
+            })}
             onClick={() => {
               onConfigure(entity);
             }}

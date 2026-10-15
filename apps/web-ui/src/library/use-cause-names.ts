@@ -9,6 +9,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { useSession } from '@/auth/session-store';
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import { fetchAutomations, fetchScenes, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { fetchUsers, SETTINGS_QUERY_KEYS } from '@/settings/api';
 
@@ -21,17 +22,35 @@ export type CauseName = {
   readonly icon: 'zap' | 'layers' | 'users' | 'cpu' | 'sigma' | 'power';
 };
 
+/** A cause's words before they are read in the reader's language. */
+type CauseWords = { readonly label: Message; readonly icon: CauseName['icon'] };
+
 /** A change the device made of itself: what a cause with no kind is taken for. */
-const ON_THE_DEVICE: CauseName = { label: 'On the device', icon: 'cpu' };
+const ON_THE_DEVICE: CauseWords = {
+  label: defineMessage('library.useCauseNames.onTheDevice', 'On the device'),
+  icon: 'cpu',
+};
 
 /** The words for each kind of cause, when its id cannot be named. */
-const KINDS: Readonly<Record<string, CauseName>> = {
-  user: { label: 'From the interface', icon: 'users' },
-  automation: { label: 'By an automation', icon: 'zap' },
-  scene: { label: 'By a scene', icon: 'layers' },
-  device: { label: 'On the device', icon: 'cpu' },
-  alias: { label: 'Worked out', icon: 'sigma' },
-  startup: { label: 'At start-up', icon: 'power' },
+const KINDS: Readonly<Record<string, CauseWords>> = {
+  user: {
+    label: defineMessage('library.useCauseNames.fromTheInterface', 'From the interface'),
+    icon: 'users',
+  },
+  automation: {
+    label: defineMessage('library.useCauseNames.byAnAutomation', 'By an automation'),
+    icon: 'zap',
+  },
+  scene: { label: defineMessage('library.useCauseNames.byAScene', 'By a scene'), icon: 'layers' },
+  device: {
+    label: defineMessage('library.useCauseNames.onTheDevice', 'On the device'),
+    icon: 'cpu',
+  },
+  alias: { label: defineMessage('library.useCauseNames.workedOut', 'Worked out'), icon: 'sigma' },
+  startup: {
+    label: defineMessage('library.useCauseNames.atStartUp', 'At start-up'),
+    icon: 'power',
+  },
 };
 
 /**
@@ -85,7 +104,8 @@ export function useCauseNames(): (cause: Cause | null | undefined) => CauseName 
   });
 
   return (cause) => {
-    const kind = KINDS[cause?.type ?? 'device'] ?? ON_THE_DEVICE;
+    const words = KINDS[cause?.type ?? 'device'] ?? ON_THE_DEVICE;
+    const kind: CauseName = { label: text(words.label), icon: words.icon };
     const id = cause?.id ?? null;
 
     if (id === null) {

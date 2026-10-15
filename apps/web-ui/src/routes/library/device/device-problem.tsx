@@ -8,9 +8,12 @@
  * entities yet shows this in their place, since it is the reason there are none.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { DeviceView } from '@nebulahome/contracts';
 import { AppIcon, Button, cn, Panel } from '@nebulahome/ui';
+
+import { translate } from '@/i18n/messages';
 
 /** How long a message may be before it is folded to its first lines. */
 const FOLDED_LENGTH = 240;
@@ -25,18 +28,27 @@ function wordsFor(state: DeviceView['state']): { readonly title: string; readonl
   switch (state) {
     case 'identifying':
       return {
-        title: 'Waiting for the device',
-        lead: 'The hub keeps listening, and has not heard from the device yet. The last attempt said:',
+        title: translate('device.deviceProblem.waitingForTheDevice', 'Waiting for the device'),
+        lead: translate(
+          'device.deviceProblem.hubKeepsListeningAnd',
+          'The hub keeps listening, and has not heard from the device yet. The last attempt said:',
+        ),
       };
     case 'failed':
       return {
-        title: 'Problem',
-        lead: 'The device is not working. The hub last said:',
+        title: translate('device.deviceProblem.problem', 'Problem'),
+        lead: translate(
+          'device.deviceProblem.deviceIsNotWorking',
+          'The device is not working. The hub last said:',
+        ),
       };
     default:
       return {
-        title: 'Problem',
-        lead: 'Something went wrong the last time the hub spoke to the device:',
+        title: translate('device.deviceProblem.problem', 'Problem'),
+        lead: translate(
+          'device.deviceProblem.somethingWentWrongThe',
+          'Something went wrong the last time the hub spoke to the device:',
+        ),
       };
   }
 }
@@ -49,6 +61,8 @@ function wordsFor(state: DeviceView['state']): { readonly title: string; readonl
  * @returns The card, or null.
  */
 export function DeviceProblem(props: { readonly device: DeviceView }) {
+  const { t } = useTranslation();
+
   const { device } = props;
   const [isOpen, setOpen] = useState(false);
 
@@ -88,7 +102,9 @@ export function DeviceProblem(props: { readonly device: DeviceView }) {
                 setOpen(!isOpen);
               }}
             >
-              {isOpen ? 'Show less' : 'Show all'}
+              {isOpen
+                ? t('device.deviceProblem.showLess', 'Show less')
+                : t('device.deviceProblem.showAll', 'Show all')}
             </Button>
           ) : null}
         </div>

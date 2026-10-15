@@ -17,6 +17,7 @@
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
   FLOOR_LEVEL_MAXIMUM,
@@ -27,6 +28,7 @@ import {
 } from '@nebulahome/contracts';
 import { Button, Modal, TextField } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
 import { isApiError } from '@/lib/api-error';
 import { describeRemoval, type RemovalImpact } from '@/lib/area-tree';
 import { toMessage } from '@/lib/error-message';
@@ -93,12 +95,24 @@ export function readFloorLevel(
   const level = Number(trimmed);
 
   if (trimmed === '' || !Number.isInteger(level)) {
-    return { problem: 'The floor number is a whole number: 0 for the ground floor.' };
+    return {
+      problem: translate(
+        'library.areaDialog.floorNumberIsA',
+        'The floor number is a whole number: 0 for the ground floor.',
+      ),
+    };
   }
 
   if (level < FLOOR_LEVEL_MINIMUM || level > FLOOR_LEVEL_MAXIMUM) {
     return {
-      problem: `The floor number goes from ${String(FLOOR_LEVEL_MINIMUM)} to ${String(FLOOR_LEVEL_MAXIMUM)}.`,
+      problem: translate(
+        'library.areaDialog.floorNumberGoesFrom',
+        'The floor number goes from {{min}} to {{max}}.',
+        {
+          min: FLOOR_LEVEL_MINIMUM,
+          max: FLOOR_LEVEL_MAXIMUM,
+        },
+      ),
     };
   }
 
@@ -106,7 +120,13 @@ export function readFloorLevel(
 
   return holder === undefined
     ? { level }
-    : { problem: `${holder.name} is already floor ${String(level)}.` };
+    : {
+        problem: translate(
+          'library.areaDialog.nameIsAlreadyFloor',
+          '{{name}} is already floor {{level}}.',
+          { name: holder.name, level: String(level) },
+        ),
+      };
 }
 
 /**
@@ -147,6 +167,8 @@ function levelIssueOf(error: unknown): string | null {
  * @returns The dialog.
  */
 export function AreaDialog(props: AreaDialogProps) {
+  const { t } = useTranslation();
+
   const { target, removal, floors = [], onClose, onSaved, onDeleted } = props;
   const queryClient = useQueryClient();
   const existing = target?.mode === 'edit' ? target.area : undefined;
@@ -191,7 +213,7 @@ export function AreaDialog(props: AreaDialogProps) {
       }
 
       if (existing === undefined) {
-        throw new Error('The dialog is shut');
+        throw new Error(t('library.areaDialog.dialogIsShut', 'The dialog is shut'));
       }
 
       const change: AreaUpdate = {
@@ -262,7 +284,7 @@ export function AreaDialog(props: AreaDialogProps) {
   /** Saves, unless the name is blank or a floor's number will not do. */
   const submit = (): void => {
     if (name.trim() === '') {
-      setProblem('The name cannot be blank.');
+      setProblem(t('library.areaDialog.nameCannotBeBlank', 'The name cannot be blank.'));
 
       return;
     }
@@ -291,10 +313,16 @@ export function AreaDialog(props: AreaDialogProps) {
     <Modal
       isOpen={target !== null}
       onClose={onClose}
-      title={existing === undefined ? `New ${kind}` : `Configure ${existing.name}`}
+      title={
+        existing === undefined
+          ? t('library.areaDialog.newKind', 'New {{kind}}', { kind })
+          : t('library.areaDialog.configureName', 'Configure {{name}}', { name: existing.name })
+      }
       description={
         target?.mode === 'create'
-          ? `${kind === 'floor' ? 'A floor in' : 'A room on'} ${target.parent.name}.`
+          ? kind === 'floor'
+            ? t('library.areaDialog.floorIn', 'A floor in {{name}}.', { name: target.parent.name })
+            : t('library.areaDialog.roomOn', 'A room on {{name}}.', { name: target.parent.name })
           : undefined
       }
       footer={
@@ -321,14 +349,14 @@ export function AreaDialog(props: AreaDialogProps) {
                   setConfirming(true);
                 }}
               >
-                Remove
+                {t('common.remove', 'Remove')}
               </Button>
             )}
             <Button variant="ghost" disabled={isBusy} onClick={onClose}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button isBusy={save.isPending} disabled={removing.isPending} onClick={submit}>
-              {existing === undefined ? 'Create' : 'Save'}
+              {existing === undefined ? t('common.create', 'Create') : t('common.save', 'Save')}
             </Button>
           </>
         )
@@ -338,7 +366,7 @@ export function AreaDialog(props: AreaDialogProps) {
         {kind === 'floor' ? (
           <>
             <TextField
-              label="Name"
+              label={t('library.areaDialog.name', 'Name')}
               size="medium"
               value={name}
               required
@@ -348,7 +376,7 @@ export function AreaDialog(props: AreaDialogProps) {
               }}
             />
             <TextField
-              label="Floor number"
+              label={t('library.areaDialog.floorNumber', 'Floor number')}
               size="medium"
               type="number"
               inputMode="numeric"
@@ -357,7 +385,10 @@ export function AreaDialog(props: AreaDialogProps) {
               max={FLOOR_LEVEL_MAXIMUM}
               value={levelText}
               required
-              hint="Which storey it is, whatever it is called: 0 the ground floor, 1 the one above, -1 a cellar. Floors are listed by it."
+              hint={t(
+                'library.areaDialog.whichStoreyItIs',
+                'Which storey it is, whatever it is called: 0 the ground floor, 1 the one above, -1 a cellar. Floors are listed by it.',
+              )}
               {...(levelProblem === null ? {} : { error: levelProblem })}
               onChange={(event) => {
                 setLevelText(event.target.value);

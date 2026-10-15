@@ -16,6 +16,7 @@
  */
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { TAG_COLORS, type IconView, type TagColor, type TagView } from '@nebulahome/contracts';
 import {
@@ -93,6 +94,8 @@ function freshColor(tags: readonly TagView[]): TagColor {
  * @returns The field, and its list when open.
  */
 export function TagField(props: TagFieldProps) {
+  const { t } = useTranslation();
+
   const {
     label = 'Tags',
     value,
@@ -334,7 +337,9 @@ export function TagField(props: TagFieldProps) {
                 isOpen && choices.length > 0 ? `${listId}-option-${String(shownIndex)}` : undefined
               }
               aria-describedby={ids.describedBy}
-              placeholder={chosen.length === 0 ? 'Add a tag…' : undefined}
+              placeholder={
+                chosen.length === 0 ? t('library.tagField.addATag', 'Add a tag…') : undefined
+              }
               disabled={disabled}
               value={query}
               onChange={(event) => {
@@ -383,7 +388,9 @@ export function TagField(props: TagFieldProps) {
                   {draft === null ? (
                     choices.length === 0 ? (
                       <li className="px-2.5 py-2 text-caption text-foreground-subtle">
-                        {tags.length === 0 ? 'No tags yet.' : 'Every tag is on it already.'}
+                        {tags.length === 0
+                          ? t('library.tagField.noTagsYet', 'No tags yet.')
+                          : t('library.tagField.everyTagIsOn', 'Every tag is on it already.')}
                       </li>
                     ) : (
                       choices.map((choice, index) => (
@@ -415,7 +422,12 @@ export function TagField(props: TagFieldProps) {
                         >
                           {'create' in choice ? (
                             <span>
-                              Create tag <span className="font-medium">“{choice.create}”</span>
+                              <Trans
+                                i18nKey="library.tagField.createTag"
+                                defaults="Create tag <0>“{{name}}”</0>"
+                                values={{ name: choice.create }}
+                                components={[<span key="name" className="font-medium" />]}
+                              />
                             </span>
                           ) : (
                             <>
@@ -435,7 +447,9 @@ export function TagField(props: TagFieldProps) {
                   ) : (
                     <li className="flex flex-col gap-3 p-2">
                       <ColorSwatches
-                        label={`Colour for ${draft.name}`}
+                        label={t('library.tagField.colourForName', 'Colour for {{name}}', {
+                          name: draft.name,
+                        })}
                         isLabelHidden
                         value={draft.color}
                         disabled={isCreating}
@@ -453,7 +467,7 @@ export function TagField(props: TagFieldProps) {
                             input.current?.focus();
                           }}
                         >
-                          Cancel
+                          {t('common.cancel', 'Cancel')}
                         </Button>
                         <Button
                           size="compact"
@@ -462,7 +476,9 @@ export function TagField(props: TagFieldProps) {
                             void create();
                           }}
                         >
-                          Create {draft.name}
+                          {t('library.tagField.createName', 'Create {{name}}', {
+                            name: draft.name,
+                          })}
                         </Button>
                       </div>
                       {problem === null ? null : (

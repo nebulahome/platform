@@ -13,6 +13,7 @@ import type {
 } from '@nebulahome/contracts';
 
 import type { CardSize } from '@/dashboard/card-sizes';
+import { dateTimeFormat } from '@/i18n/formatters';
 import type { EntityKind } from '@/library/entity-kind';
 import type { Reading } from '@/library/entity-reading';
 
@@ -73,13 +74,23 @@ export function sizeKey(size: CardSize): SizeKey {
   return key === '2x1' || key === '1x2' || key === '2x2' || key === '2x3' ? key : '1x1';
 }
 
-/** How a moment is written on a card: the time today, the day and time before. */
-const TODAY = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
-const EARLIER = new Intl.DateTimeFormat(undefined, {
-  weekday: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-});
+/**
+ * How a moment is written on a card: the time today, the day and time before.
+ *
+ * @returns The formatter, in the reader's language.
+ */
+const TODAY = (): Intl.DateTimeFormat => dateTimeFormat({ hour: '2-digit', minute: '2-digit' });
+/**
+ * The day and the time, for a moment before today.
+ *
+ * @returns The formatter, in the reader's language.
+ */
+const EARLIER = (): Intl.DateTimeFormat =>
+  dateTimeFormat({
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
 /**
  * Writes when something happened, as briefly as a card has room for.
@@ -89,5 +100,5 @@ const EARLIER = new Intl.DateTimeFormat(undefined, {
  * @returns `08:12` today, `Mon 08:12` before.
  */
 export function cardTime(when: Date, now: Date = new Date()): string {
-  return when.toDateString() === now.toDateString() ? TODAY.format(when) : EARLIER.format(when);
+  return when.toDateString() === now.toDateString() ? TODAY().format(when) : EARLIER().format(when);
 }

@@ -8,6 +8,7 @@
  * here, and its hero says "In development" instead.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
 import type { IntegrationVendorView } from '@nebulahome/contracts';
@@ -44,6 +45,8 @@ function counted(count: number, one: string, many: string): string {
  * @returns The menu, or nothing for who may not install and for a vendor built in.
  */
 export function VendorInstallMenu(props: VendorInstallMenuProps) {
+  const { t } = useTranslation();
+
   const { vendor, deviceCount } = props;
   const canInstall = useSession((state) => state.can('integration:install'));
   const navigate = useNavigate();
@@ -64,7 +67,11 @@ export function VendorInstallMenu(props: VendorInstallMenuProps) {
     ...(update?.hasUpdate === true && update.latestVersion !== null
       ? [
           {
-            label: `Update to ${update.latestVersion}`,
+            label: t(
+              'library.vendorInstallActions.updateToLatestversion',
+              'Update to {{latestVersion}}',
+              { latestVersion: update.latestVersion },
+            ),
             icon: 'circle-arrow-up' as const,
             disabled: install.isPending,
             /** Installs the newer release. */
@@ -77,8 +84,11 @@ export function VendorInstallMenu(props: VendorInstallMenuProps) {
     ...(update?.hasNewBuild === true
       ? [
           {
-            label: 'Reinstall',
-            description: 'The build in the local folder',
+            label: t('library.vendorInstallActions.reinstall', 'Reinstall'),
+            description: t(
+              'library.vendorInstallActions.buildInTheLocal',
+              'The build in the local folder',
+            ),
             icon: 'rotate-ccw' as const,
             disabled: install.isPending,
             /** Installs the rebuild of the same version. */
@@ -89,7 +99,7 @@ export function VendorInstallMenu(props: VendorInstallMenuProps) {
         ]
       : []),
     {
-      label: 'Remove',
+      label: t('common.remove', 'Remove'),
       icon: 'trash-2',
       tone: 'danger',
       /** Asks first: removing takes the devices with it. */
@@ -113,8 +123,13 @@ export function VendorInstallMenu(props: VendorInstallMenuProps) {
       <Modal
         isOpen={isConfirming}
         size="small"
-        title={`Remove ${vendor.name}?`}
-        description="Removing an integration takes everything that came in through it."
+        title={t('library.vendorInstallActions.removeName', 'Remove {{name}}?', {
+          name: vendor.name,
+        })}
+        description={t(
+          'library.vendorInstallActions.removingAnIntegrationTakes',
+          'Removing an integration takes everything that came in through it.',
+        )}
         onClose={() => {
           if (!remove.isPending) {
             setConfirming(false);
@@ -129,7 +144,7 @@ export function VendorInstallMenu(props: VendorInstallMenuProps) {
                 setConfirming(false);
               }}
             >
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button
               variant="danger"
@@ -138,17 +153,33 @@ export function VendorInstallMenu(props: VendorInstallMenuProps) {
                 remove.mutate(vendor.id);
               }}
             >
-              Remove {vendor.name}
+              {t('library.vendorInstallActions.removeName2', 'Remove {{name}}', {
+                name: vendor.name,
+              })}
             </Button>
           </>
         }
       >
         <ul className="flex flex-col gap-1.5 text-ui text-foreground-muted">
-          <li>{counted(deviceCount, 'device', 'devices')}, and every entity they have</li>
+          <li>
+            {t(
+              'library.vendorInstallActions.devicecountAndEveryEntity',
+              '{{deviceCount}}, and every entity they have',
+              { deviceCount: counted(deviceCount, 'device', 'devices') },
+            )}
+          </li>
           {accounts === 0 ? null : (
-            <li>{counted(accounts, 'account', 'accounts')} signed in to, signed out</li>
+            <li>
+              {t(
+                'library.vendorInstallActions.accountsSignedInTo',
+                '{{accounts}} signed in to, signed out',
+                { accounts: counted(accounts, 'account', 'accounts') },
+              )}
+            </li>
           )}
-          <li>Its settings, and its bundle</li>
+          <li>
+            {t('library.vendorInstallActions.itsSettingsAndIts', 'Its settings, and its bundle')}
+          </li>
         </ul>
         {remove.error === null ? null : (
           <p role="alert" className="text-ui text-danger">

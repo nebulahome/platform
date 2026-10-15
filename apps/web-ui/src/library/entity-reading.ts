@@ -24,6 +24,8 @@ import {
   type VacuumActivity,
 } from '@nebulahome/contracts';
 
+import { numberFormat } from '@/i18n/formatters';
+import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import { miredsToKelvin } from '@/library/entity-control';
 import type { LiveReading } from '@/live/live-store';
 
@@ -72,48 +74,113 @@ export type DeviceStanding = {
 /** What a row shows for an entity that has never reported. */
 export const NO_READING = '—';
 
-const numbers = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+/**
+ * A number formatter.
+ *
+ * @returns The formatter, in the reader's language.
+ */
+const numbers = (): Intl.NumberFormat => numberFormat({ maximumFractionDigits: 2 });
 
 /** What a robot mower is doing, in words. */
-const MOWER_WORDS: Readonly<Record<LawnMowerActivity, string>> = {
-  mowing: 'Mowing',
-  paused: 'Paused',
-  returning: 'Going back to its station',
-  docked: 'In its station',
-  idle: 'Idle',
-  error: 'Stopped by a fault',
+const MOWER_WORDS: Readonly<Record<LawnMowerActivity, Message>> = {
+  mowing: defineMessage('library.entityReading.mowing', 'Mowing'),
+  paused: defineMessage('library.entityReading.paused', 'Paused'),
+  returning: defineMessage('library.entityReading.goingBackToIts', 'Going back to its station'),
+  docked: defineMessage('library.entityReading.inItsStation', 'In its station'),
+  idle: defineMessage('library.entityReading.idle', 'Idle'),
+  error: defineMessage('library.entityReading.stoppedByAFault', 'Stopped by a fault'),
 };
 
 /** What a robot vacuum is doing, in words. */
-const VACUUM_WORDS: Readonly<Record<VacuumActivity, string>> = {
-  cleaning: 'Cleaning',
-  paused: 'Paused',
-  returning: 'Going back to its station',
-  docked: 'In its station',
-  idle: 'Idle',
-  error: 'Stopped by a fault',
+const VACUUM_WORDS: Readonly<Record<VacuumActivity, Message>> = {
+  cleaning: defineMessage('library.entityReading.cleaning', 'Cleaning'),
+  paused: defineMessage('library.entityReading.paused', 'Paused'),
+  returning: defineMessage('library.entityReading.goingBackToIts', 'Going back to its station'),
+  docked: defineMessage('library.entityReading.inItsStation', 'In its station'),
+  idle: defineMessage('library.entityReading.idle', 'Idle'),
+  error: defineMessage('library.entityReading.stoppedByAFault', 'Stopped by a fault'),
 };
 
+/** What a binary sensor says when its kind has no words of its own. */
+export const ON_OFF_WORDS: readonly [on: Message, off: Message] = [
+  defineMessage('common.on', 'On'),
+  defineMessage('common.off', 'Off'),
+];
+
 /** The words a binary sensor uses, by what kind of thing it senses. */
-export const BINARY_WORDS: Readonly<Record<string, readonly [on: string, off: string]>> = {
-  motion: ['Detected', 'Clear'],
-  occupancy: ['Occupied', 'Clear'],
-  presence: ['Present', 'Away'],
-  door: ['Open', 'Closed'],
-  window: ['Open', 'Closed'],
-  opening: ['Open', 'Closed'],
-  garage_door: ['Open', 'Closed'],
-  running: ['Running', 'Idle'],
-  connectivity: ['Connected', 'Disconnected'],
-  battery: ['Low', 'Normal'],
-  battery_charging: ['Charging', 'Not charging'],
-  moisture: ['Wet', 'Dry'],
-  smoke: ['Detected', 'Clear'],
-  gas: ['Detected', 'Clear'],
-  problem: ['Problem', 'OK'],
-  plug: ['Plugged in', 'Unplugged'],
-  power: ['Powered', 'Unpowered'],
-  update: ['Update available', 'Up to date'],
+export const BINARY_WORDS: Readonly<Record<string, readonly [on: Message, off: Message]>> = {
+  motion: [
+    defineMessage('library.entityReading.detected', 'Detected'),
+    defineMessage('library.entityReading.clear', 'Clear'),
+  ],
+  occupancy: [
+    defineMessage('library.entityReading.occupied', 'Occupied'),
+    defineMessage('library.entityReading.clear', 'Clear'),
+  ],
+  presence: [
+    defineMessage('library.entityReading.present', 'Present'),
+    defineMessage('library.entityReading.away', 'Away'),
+  ],
+  door: [
+    defineMessage('library.entityReading.open', 'Open'),
+    defineMessage('library.entityReading.closed', 'Closed'),
+  ],
+  window: [
+    defineMessage('library.entityReading.open', 'Open'),
+    defineMessage('library.entityReading.closed', 'Closed'),
+  ],
+  opening: [
+    defineMessage('library.entityReading.open', 'Open'),
+    defineMessage('library.entityReading.closed', 'Closed'),
+  ],
+  garage_door: [
+    defineMessage('library.entityReading.open', 'Open'),
+    defineMessage('library.entityReading.closed', 'Closed'),
+  ],
+  running: [
+    defineMessage('library.entityReading.running', 'Running'),
+    defineMessage('library.entityReading.idle', 'Idle'),
+  ],
+  connectivity: [
+    defineMessage('library.entityReading.connected', 'Connected'),
+    defineMessage('library.entityReading.disconnected', 'Disconnected'),
+  ],
+  battery: [
+    defineMessage('library.entityReading.low', 'Low'),
+    defineMessage('library.entityReading.normal', 'Normal'),
+  ],
+  battery_charging: [
+    defineMessage('library.entityReading.charging', 'Charging'),
+    defineMessage('library.entityReading.notCharging', 'Not charging'),
+  ],
+  moisture: [
+    defineMessage('library.entityReading.wet', 'Wet'),
+    defineMessage('library.entityReading.dry', 'Dry'),
+  ],
+  smoke: [
+    defineMessage('library.entityReading.detected', 'Detected'),
+    defineMessage('library.entityReading.clear', 'Clear'),
+  ],
+  gas: [
+    defineMessage('library.entityReading.detected', 'Detected'),
+    defineMessage('library.entityReading.clear', 'Clear'),
+  ],
+  problem: [
+    defineMessage('library.entityReading.problem', 'Problem'),
+    defineMessage('library.entityReading.ok', 'OK'),
+  ],
+  plug: [
+    defineMessage('library.entityReading.pluggedIn', 'Plugged in'),
+    defineMessage('library.entityReading.unplugged', 'Unplugged'),
+  ],
+  power: [
+    defineMessage('library.entityReading.powered', 'Powered'),
+    defineMessage('library.entityReading.unpowered', 'Unpowered'),
+  ],
+  update: [
+    defineMessage('library.entityReading.updateAvailable', 'Update available'),
+    defineMessage('library.entityReading.upToDate', 'Up to date'),
+  ],
 };
 
 /**
@@ -154,7 +221,7 @@ function unitSymbol(entity: Pick<EntityView, 'unitOfMeasurement' | 'deviceClass'
  * @returns "42 lx", "87%", "215 °C".
  */
 function withUnit(value: number, unit: string | null): string {
-  const figure = numbers.format(value);
+  const figure = numbers().format(value);
 
   if (unit === null || unit === '') {
     return figure;
@@ -201,7 +268,7 @@ export function sensorFigureOf(
   }
 
   return {
-    figure: numbers.format(parsed.data.sensor_numeric.value),
+    figure: numbers().format(parsed.data.sensor_numeric.value),
     unit: unitSymbol(entity),
     classLabel: entry.label,
   };
@@ -234,11 +301,11 @@ export function describeState(
   const unit = unitSymbol(entity);
 
   if (value.on_off !== undefined) {
-    parts.push(value.on_off.isOn ? 'On' : 'Off');
+    parts.push(value.on_off.isOn ? translate('common.on', 'On') : translate('common.off', 'Off'));
   }
 
   if (value.level !== undefined) {
-    parts.push(`${numbers.format(value.level.level)}%`);
+    parts.push(`${numbers().format(value.level.level)}%`);
   }
 
   if (value.color_temp !== undefined) {
@@ -247,14 +314,20 @@ export function describeState(
 
   if (value.color_hs !== undefined) {
     parts.push(
-      `${numbers.format(value.color_hs.hue)}° ${numbers.format(value.color_hs.saturation)}%`,
+      `${numbers().format(value.color_hs.hue)}° ${numbers().format(value.color_hs.saturation)}%`,
     );
   }
 
   if (value.cover !== undefined) {
     const { position, motion } = value.cover;
 
-    parts.push(position === 0 ? 'Closed' : `Open ${numbers.format(position)}%`);
+    parts.push(
+      position === 0
+        ? translate('library.entityReading.closed', 'Closed')
+        : translate('library.entityReading.openPosition', 'Open {{position}}%', {
+            position: numbers().format(position),
+          }),
+    );
 
     if (motion !== 'stopped') {
       parts.push(capitalised(motion));
@@ -279,9 +352,9 @@ export function describeState(
   }
 
   if (value.sensor_binary !== undefined) {
-    const words = BINARY_WORDS[entity.deviceClass ?? ''] ?? ['On', 'Off'];
+    const words = BINARY_WORDS[entity.deviceClass ?? ''] ?? ON_OFF_WORDS;
 
-    parts.push(value.sensor_binary.isOn ? words[0] : words[1]);
+    parts.push(text(value.sensor_binary.isOn ? words[0] : words[1]));
   }
 
   if (value.sensor_text !== undefined) {
@@ -291,7 +364,14 @@ export function describeState(
   if (value.media_player !== undefined) {
     const { playback, volume, isMuted, mediaTitle } = value.media_player;
 
-    parts.push(capitalised(playback), isMuted ? 'Muted' : `${numbers.format(volume)}%`);
+    parts.push(
+      capitalised(playback),
+      isMuted
+        ? translate('library.entityReading.muted', 'Muted')
+        : translate('library.entityReading.volume', '{{volume}}%', {
+            volume: numbers().format(volume),
+          }),
+    );
 
     if (mediaTitle !== undefined) {
       parts.push(mediaTitle);
@@ -299,10 +379,14 @@ export function describeState(
   }
 
   if (value.camera !== undefined) {
-    parts.push(value.camera.isStreamAvailable ? 'Streaming' : 'No stream');
+    parts.push(
+      value.camera.isStreamAvailable
+        ? translate('library.entityReading.streaming', 'Streaming')
+        : translate('library.entityReading.noStream', 'No stream'),
+    );
 
     if (value.camera.isRecording) {
-      parts.push('Recording');
+      parts.push(translate('library.entityReading.recording', 'Recording'));
     }
   }
 
@@ -310,25 +394,45 @@ export function describeState(
     const { installedVersion, latestVersion, isInstalling, progress } = value.update;
 
     if (isInstalling) {
-      parts.push(progress === null ? 'Installing' : `Installing ${String(Math.round(progress))}%`);
+      parts.push(
+        progress === null
+          ? translate('library.entityReading.installing', 'Installing')
+          : translate('library.entityReading.installingProgress', 'Installing {{progress}}%', {
+              progress: String(Math.round(progress)),
+            }),
+      );
     } else if (isUpdateOffered(value.update)) {
-      parts.push(`Update available · ${String(latestVersion)}`);
+      parts.push(
+        translate(
+          'library.entityReading.updateAvailableLatestversion',
+          'Update available · {{latestVersion}}',
+          { latestVersion: String(latestVersion) },
+        ),
+      );
     } else {
-      parts.push(installedVersion === null ? 'Up to date' : `Up to date · ${installedVersion}`);
+      parts.push(
+        installedVersion === null
+          ? translate('library.entityReading.upToDate', 'Up to date')
+          : translate(
+              'library.entityReading.upToDateInstalledversion',
+              'Up to date · {{installedVersion}}',
+              { installedVersion },
+            ),
+      );
     }
   }
 
   if (value.lawn_mower !== undefined) {
-    parts.push(MOWER_WORDS[value.lawn_mower.activity]);
+    parts.push(text(MOWER_WORDS[value.lawn_mower.activity]));
   }
 
   if (value.vacuum !== undefined) {
-    parts.push(VACUUM_WORDS[value.vacuum.activity]);
+    parts.push(text(VACUUM_WORDS[value.vacuum.activity]));
   }
 
   if (value.image !== undefined && parts.length === 0) {
     // Nothing to read on a picture but that it is there: it is looked at, not read.
-    parts.push('Picture');
+    parts.push(translate('library.entityReading.picture', 'Picture'));
   }
 
   if (value.select?.option != null) {
@@ -341,7 +445,7 @@ export function describeState(
 
   if (value.button !== undefined && parts.length === 0) {
     // Nothing to read on a button but that it can be pressed.
-    parts.push('Ready');
+    parts.push(translate('library.entityReading.ready', 'Ready'));
   }
 
   return parts.length === 0 ? NO_READING : parts.join(' · ');

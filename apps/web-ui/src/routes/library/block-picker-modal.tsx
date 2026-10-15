@@ -7,6 +7,7 @@
  * run yet stays in the list, dimmed, saying why, so nobody wonders where it went.
  */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { AppIcon, cn, laneClass, Modal } from '@nebulahome/ui';
 
@@ -55,6 +56,8 @@ function matches(choice: EditorChoice, needle: string): boolean {
  * @returns The dialog.
  */
 export function BlockPickerModal(props: BlockPickerModalProps) {
+  const { t } = useTranslation();
+
   const { isOpen, onClose, title, description, groups, onPick } = props;
   const [search, setSearch] = useState('');
   const [active, setActive] = useState(0);
@@ -160,11 +163,13 @@ export function BlockPickerModal(props: BlockPickerModalProps) {
       <div className="flex flex-col gap-5">
         <label className="flex h-11.5 items-center gap-2.5 rounded-tile border border-primary bg-surface-raised px-3.5 shadow-focus">
           <AppIcon id="search" size={16} className="shrink-0 text-foreground-subtle" />
-          <span className="sr-only">Search blocks</span>
+          <span className="sr-only">
+            {t('library.blockPickerModal.searchBlocks', 'Search blocks')}
+          </span>
           <input
             ref={searchBox}
             type="search"
-            placeholder="Search blocks…"
+            placeholder={t('library.blockPickerModal.searchBlocks2', 'Search blocks…')}
             value={search}
             aria-activedescendant={activeValue === undefined ? undefined : `choice-${activeValue}`}
             aria-controls="block-choices"
@@ -176,12 +181,14 @@ export function BlockPickerModal(props: BlockPickerModalProps) {
             className="min-w-0 grow bg-transparent text-ui text-foreground placeholder:text-foreground-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden"
           />
           <kbd className="rounded-check border border-border-strong px-1.5 font-mono text-mono-caption text-foreground-subtle">
-            Esc
+            {t('library.blockPickerModal.esc', 'Esc')}
           </kbd>
         </label>
 
         {filtered.length === 0 ? (
-          <p className="py-6 text-center text-ui text-foreground-muted">Nothing matches.</p>
+          <p className="py-6 text-center text-ui text-foreground-muted">
+            {t('library.blockPickerModal.nothingMatches', 'Nothing matches.')}
+          </p>
         ) : (
           <div
             ref={list}

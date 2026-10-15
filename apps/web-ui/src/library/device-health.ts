@@ -18,6 +18,7 @@ import {
 } from '@nebulahome/contracts';
 import type { HealthTone } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
 import { relativeTime } from '@/lib/format-time';
 import type { DeviceStanding } from '@/library/entity-reading';
 import { vendorStatusOf } from '@/library/vendor-status';
@@ -56,26 +57,51 @@ export function deviceConnectionHealth(
   standing: DeviceStanding,
 ): DeviceHealthLine {
   const seen =
-    standing.lastSeenAt === null ? 'never seen' : `seen ${relativeTime(standing.lastSeenAt)}`;
+    standing.lastSeenAt === null
+      ? translate('library.deviceHealth.neverSeen', 'never seen')
+      : `seen ${relativeTime(standing.lastSeenAt)}`;
 
   if (device.state === 'disabled') {
-    return { tone: 'neutral', value: 'Disabled', detail: 'Switched off: the hub leaves it be' };
+    return {
+      tone: 'neutral',
+      value: translate('library.deviceHealth.disabled', 'Disabled'),
+      detail: translate(
+        'library.deviceHealth.switchedOffTheHub',
+        'Switched off: the hub leaves it be',
+      ),
+    };
   }
 
   if (device.state === 'failed') {
-    return { tone: 'danger', value: 'Unreachable', detail: device.lastError ?? seen };
+    return {
+      tone: 'danger',
+      value: translate('library.deviceHealth.unreachable', 'Unreachable'),
+      detail: device.lastError ?? seen,
+    };
   }
 
   if (!standing.isReporting) {
-    return { tone: 'warning', value: 'Silent', detail: seen };
+    return {
+      tone: 'warning',
+      value: translate('library.deviceHealth.silent', 'Silent'),
+      detail: seen,
+    };
   }
 
   const every = pollIntervalMsOf(device.options);
 
   return {
     tone: 'success',
-    value: 'Reporting',
-    detail: every === undefined ? `On every change · ${seen}` : `${everyText(every)} · ${seen}`,
+    value: translate('library.deviceHealth.reporting', 'Reporting'),
+    detail:
+      every === undefined
+        ? translate('library.deviceHealth.onEveryChangeSeen', 'On every change · {{seen}}', {
+            seen,
+          })
+        : translate('library.deviceHealth.everySeen', '{{every}} · {{seen}}', {
+            every: everyText(every),
+            seen,
+          }),
   };
 }
 
@@ -94,7 +120,13 @@ export function deviceSignalHealth(
   const value = signal?.state.sensor_numeric?.value;
 
   if (value === undefined) {
-    return { tone: 'neutral', value: 'Not reported', detail: `Reached over ${transport}` };
+    return {
+      tone: 'neutral',
+      value: translate('library.deviceHealth.notReported', 'Not reported'),
+      detail: translate('library.deviceHealth.reachedOverTransport', 'Reached over {{transport}}', {
+        transport,
+      }),
+    };
   }
 
   const strength = value >= -67 ? 'Good' : value >= -80 ? 'Fair' : 'Weak';
@@ -102,7 +134,11 @@ export function deviceSignalHealth(
   return {
     tone: strength === 'Good' ? 'success' : strength === 'Fair' ? 'neutral' : 'warning',
     value: strength,
-    detail: `${String(Math.round(value))} dBm over ${transport}`,
+    detail: translate(
+      'library.deviceHealth.signalOverTransport',
+      '{{signal}} dBm over {{transport}}',
+      { signal: Math.round(value), transport },
+    ),
   };
 }
 
@@ -129,8 +165,11 @@ export function deviceFirmwareHealth(
   if (firmware === undefined || update === undefined) {
     return {
       tone: 'neutral',
-      value: swVersion ?? 'Not reported',
-      detail: swVersion === null ? 'The device says no version' : 'Installed',
+      value: swVersion ?? translate('library.deviceHealth.notReported', 'Not reported'),
+      detail:
+        swVersion === null
+          ? translate('library.deviceHealth.deviceSaysNoVersion', 'The device says no version')
+          : translate('library.deviceHealth.installed', 'Installed'),
       updateEntityId: null,
     };
   }
@@ -140,8 +179,10 @@ export function deviceFirmwareHealth(
   if (update.isInstalling) {
     return {
       tone: 'info',
-      value: 'Installing',
-      detail: update.latestVersion ?? 'The newer firmware',
+      value: translate('library.deviceHealth.installing', 'Installing'),
+      detail:
+        update.latestVersion ??
+        translate('library.deviceHealth.newerFirmware', 'The newer firmware'),
       updateEntityId: null,
     };
   }
@@ -150,15 +191,25 @@ export function deviceFirmwareHealth(
     return {
       tone: 'info',
       value: `${update.latestVersion ?? 'Newer'} ready`,
-      detail: installed === null ? 'Newer firmware is out' : `Installed ${installed}`,
+      detail:
+        installed === null
+          ? translate('library.deviceHealth.newerFirmwareIsOut', 'Newer firmware is out')
+          : translate('library.deviceHealth.installedInstalled', 'Installed {{installed}}', {
+              installed,
+            }),
       updateEntityId: firmware.entity.entityId,
     };
   }
 
   return {
     tone: 'success',
-    value: 'Up to date',
-    detail: installed === null ? 'The latest' : `${installed} is the latest`,
+    value: translate('library.deviceHealth.upToDate', 'Up to date'),
+    detail:
+      installed === null
+        ? translate('library.deviceHealth.latest', 'The latest')
+        : translate('library.deviceHealth.installedIsTheLatest', '{{installed}} is the latest', {
+            installed,
+          }),
     updateEntityId: null,
   };
 }
@@ -177,19 +228,35 @@ export function deviceIntegrationHealth(
   vendorName: string,
 ): DeviceHealthLine {
   if (device.origin === 'package') {
-    return { tone: 'neutral', value: device.driverName, detail: 'Kept by its package' };
+    return {
+      tone: 'neutral',
+      value: device.driverName,
+      detail: translate('library.deviceHealth.keptByItsPackage', 'Kept by its package'),
+    };
   }
 
   if (device.origin === 'container') {
-    return { tone: 'neutral', value: device.externalId ?? device.name, detail: 'A container' };
+    return {
+      tone: 'neutral',
+      value: device.externalId ?? device.name,
+      detail: translate('library.deviceHealth.container', 'A container'),
+    };
   }
 
   if (device.origin === 'system') {
-    return { tone: 'neutral', value: vendorName, detail: 'Part of Nebula Home' };
+    return {
+      tone: 'neutral',
+      value: vendorName,
+      detail: translate('library.deviceHealth.partOfNebulaHome', 'Part of Nebula Home'),
+    };
   }
 
   if (vendor === undefined) {
-    return { tone: 'neutral', value: vendorName, detail: 'The hub did not say how it stands' };
+    return {
+      tone: 'neutral',
+      value: vendorName,
+      detail: translate('library.deviceHealth.hubDidNotSay', 'The hub did not say how it stands'),
+    };
   }
 
   const status = vendorStatusOf(vendor);

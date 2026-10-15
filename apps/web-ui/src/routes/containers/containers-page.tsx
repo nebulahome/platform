@@ -30,6 +30,7 @@ import {
   type ContainerRunChoice,
 } from '@/containers/container-filters';
 import { containerTiles } from '@/containers/container-groups';
+import { translate } from '@/i18n/messages';
 import { useListState } from '@/lib/use-list-state';
 import { ComposeEditorDialog } from '@/routes/containers/compose-editor-dialog';
 import { ComposeCard, ContainerCard, InstallCard } from '@/routes/containers/container-card';
@@ -113,7 +114,13 @@ export function ContainersPage() {
     <>
       <LibraryPage
         title="Containers"
-        noun="container"
+        counted={(count) =>
+          translate('containers.count', {
+            count,
+            defaultValue_one: '{{count}} container',
+            defaultValue_other: '{{count}} containers',
+          })
+        }
         count={containers.isPending ? undefined : items.length}
         shownCount={tiles.length}
         summary={

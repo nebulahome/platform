@@ -6,8 +6,11 @@
  * a delay of up to a day in minutes is not something to reach one press at a time. The unit is
  * the entity's, as a sensor's is.
  */
+import { useTranslation } from 'react-i18next';
+
 import { Slider, Stepper } from '@nebulahome/ui';
 
+import { numberFormat } from '@/i18n/formatters';
 import { paramsOf } from '@/library/entity-control';
 import { capabilityLabel } from '@/library/entity-kind';
 import {
@@ -20,7 +23,12 @@ import { usePendingValue } from '@/routes/library/entity/use-pending-value';
 /** Up to this many steps a stepper does; past it, a slider. */
 const STEPPER_STEPS = 24;
 
-const numbers = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+/**
+ * A number formatter.
+ *
+ * @returns The formatter, in the reader's language.
+ */
+const numbers = (): Intl.NumberFormat => numberFormat({ maximumFractionDigits: 2 });
 
 /**
  * Renders the number control.
@@ -29,6 +37,8 @@ const numbers = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
  * @returns The block.
  */
 export function NumberControl(props: ControlProps) {
+  const { t } = useTranslation();
+
   const { entity, state, reportedAt, commander, disabled } = props;
   const params = paramsOf(entity, 'number');
   const reported = state.number?.value ?? null;
@@ -44,10 +54,10 @@ export function NumberControl(props: ControlProps) {
    */
   const format = (figure: number): string =>
     unit === null || unit === ''
-      ? numbers.format(figure)
+      ? numbers().format(figure)
       : unit === '°' || unit === '%'
-        ? `${numbers.format(figure)}${unit}`
-        : `${numbers.format(figure)} ${unit}`;
+        ? `${numbers().format(figure)}${unit}`
+        : `${numbers().format(figure)} ${unit}`;
 
   /**
    * Sends a new value.
@@ -66,7 +76,10 @@ export function NumberControl(props: ControlProps) {
     >
       {params === null ? (
         <p className="text-caption text-foreground-subtle">
-          This setting has not said its limits, so it cannot be set from here.
+          {t(
+            'entity.controls.numberControl.thisSettingHasNot',
+            'This setting has not said its limits, so it cannot be set from here.',
+          )}
         </p>
       ) : (params.max - params.min) / params.step <= STEPPER_STEPS ? (
         <Stepper
