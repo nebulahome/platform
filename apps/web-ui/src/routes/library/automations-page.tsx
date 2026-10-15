@@ -122,10 +122,18 @@ export function AutomationsPage() {
      * @param change - What the row asked for.
      */
     mutationFn: async (change: Change): Promise<void> => {
+      const key = [...LIBRARY_QUERY_KEYS.automations, change.id];
+
+      // The editor reads the automation under its own key, and opens on whatever that holds:
+      // left alone, it would open on the switch as it was before this flip.
       if (change.kind === 'toggle') {
-        await updateAutomation(change.id, { isEnabled: change.isEnabled });
+        queryClient.setQueryData(
+          key,
+          await updateAutomation(change.id, { isEnabled: change.isEnabled }),
+        );
       } else {
         await deleteAutomation(change.id);
+        queryClient.removeQueries({ queryKey: key, exact: true });
       }
     },
 
