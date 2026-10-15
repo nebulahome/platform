@@ -10,14 +10,19 @@
  *
  * Every command takes `--root <folder>`, the package's folder - the working directory when not
  * said. A problem ends it with exit code 1, every problem printed.
+ *
+ * The build and the archive are loaded when a command needs them: the build imports Vite, the
+ * package's own development dependency, so the help runs anywhere - `npx` in an empty folder - and
+ * a command run without Vite says what to install.
  */
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { PackageConfigError } from '../generate/problems.js';
-import { buildPackage, checkPackage } from '../vite/build.js';
 
-import { packRelease } from './pack.js';
+/** The tools a package is built with, as the README has them installed. */
+const BUILD_TOOLS =
+  'pnpm add -D vite typescript react @types/react @vitejs/plugin-react tailwindcss @tailwindcss/vite';
 
 /** How the command is used. */
 const USAGE = `Usage: nebulahome-package <validate | build | pack> [--root <folder>] [--url <base>]
@@ -35,6 +40,39 @@ const USAGE = `Usage: nebulahome-package <validate | build | pack> [--root <fold
  */
 function say(line: string): void {
   process.stdout.write(`${line}\n`);
+}
+
+/**
+ * Says whether an error is Node failing to find Vite: the SDK is not where the package's tools
+ * are installed, or they are not installed yet.
+ *
+ * @param error - What was thrown.
+ * @returns True when it is.
+ */
+function isViteMissing(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    error.code === 'ERR_MODULE_NOT_FOUND' &&
+    error.message.includes("'vite'")
+  );
+}
+
+/**
+ * What to do when Vite is missing.
+ *
+ * @param command - The command that needs it.
+ * @returns The lines to print.
+ */
+function viteMissing(command: string): string {
+  return `nebulahome-package ${command} needs Vite, and it is not installed where the SDK is.
+Install the SDK and the tools a package is built with in the package's folder:
+
+  pnpm add @nebulahome/package-sdk
+  ${BUILD_TOOLS}
+
+then run the command from there: pnpm exec nebulahome-package ${command}
+`;
 }
 
 /**
@@ -65,6 +103,7 @@ export async function run(args: readonly string[]): Promise<number> {
   try {
     switch (command) {
       case 'validate': {
+        const { checkPackage } = await import('../vite/build.js');
         const { generated } = await checkPackage({ root });
 
         say(
@@ -75,6 +114,7 @@ export async function run(args: readonly string[]): Promise<number> {
       }
 
       case 'build': {
+        const { buildPackage } = await import('../vite/build.js');
         const { generated, outDir } = await buildPackage({ root, logLevel: 'warn' });
 
         say(
@@ -85,6 +125,10 @@ export async function run(args: readonly string[]): Promise<number> {
       }
 
       case 'pack': {
+        const [{ checkPackage }, { packRelease }] = await Promise.all([
+          import('../vite/build.js'),
+          import('./pack.js'),
+        ]);
         const { outDir } = await checkPackage({ root });
         const packed = await packRelease({
           root,
@@ -113,6 +157,12 @@ export async function run(args: readonly string[]): Promise<number> {
   } catch (error: unknown) {
     if (error instanceof PackageConfigError) {
       process.stderr.write(`${error.message}\n`);
+
+      return 1;
+    }
+
+    if (isViteMissing(error)) {
+      process.stderr.write(viteMissing(command));
 
       return 1;
     }
