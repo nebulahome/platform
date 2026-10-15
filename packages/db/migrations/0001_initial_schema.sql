@@ -89,7 +89,7 @@ CREATE TABLE auth.users (
   display_name          text        NOT NULL,
   password_hash         text        NOT NULL,          -- argon2id, encoded string
   role_id               uuid        NOT NULL REFERENCES auth.roles (id) ON DELETE RESTRICT,
-  locale                text        NOT NULL DEFAULT 'en',
+  locale                text,                          -- null: follows the house.locale setting
   timezone              text        NOT NULL DEFAULT 'UTC',
   is_active             boolean     NOT NULL DEFAULT true,
   must_change_password  boolean     NOT NULL DEFAULT false,
@@ -1432,6 +1432,7 @@ INSERT INTO system.settings (key, value, schema_ref) VALUES
   ('ui.default_theme', '"system"'::jsonb, 'settings:ui.default_theme'),
   ('units.temperature', '"celsius"'::jsonb, 'settings:units.temperature'),
   ('house.timezone', '"UTC"'::jsonb, 'settings:house.timezone'),
+  ('house.locale', '"en"'::jsonb, 'settings:house.locale'),
   ('security.session_lifetime_hours', '720'::jsonb, 'settings:security.session_lifetime_hours'),
   ('backup.enabled', 'false'::jsonb, 'settings:backup.enabled'),
   ('backup.sections', '{"history": true, "packages": true}'::jsonb, 'settings:backup.sections'),

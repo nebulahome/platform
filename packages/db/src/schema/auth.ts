@@ -85,7 +85,9 @@ export const users = authSchema.table(
     roleId: uuid('role_id')
       .notNull()
       .references(() => roles.id, { onDelete: 'restrict' }),
-    locale: text('locale').notNull().default('en'),
+
+    /** The language they chose; null follows the `house.locale` setting. */
+    locale: text('locale'),
     timezone: text('timezone').notNull().default('UTC'),
     isActive: boolean('is_active').notNull().default(true),
     mustChangePassword: boolean('must_change_password').notNull().default(false),
