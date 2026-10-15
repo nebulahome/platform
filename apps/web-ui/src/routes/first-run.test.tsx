@@ -4,9 +4,10 @@
  * where the house is as it is typed.
  */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useSession } from '@/auth/session-store';
+import { applyLanguage } from '@/i18n/language';
 
 import { FirstRunForm, unitsFor, useFirstRunStep } from './first-run';
 
@@ -33,7 +34,7 @@ function passAccount(): void {
 }
 
 beforeEach(() => {
-  useFirstRunStep.setState({ step: 0 });
+  useFirstRunStep.getState().reset();
   useSession.setState({ createFirstOwner: vi.fn().mockResolvedValue(undefined) });
 });
 
@@ -143,6 +144,45 @@ describe('FirstRunForm', () => {
       true,
     );
     expect(screen.getByText(/only over HTTPS or on this machine/u)).toBeTruthy();
+  });
+});
+
+describe('the language of the house', () => {
+  afterEach(async () => {
+    useSession.setState({ language: 'en' });
+    await applyLanguage('en');
+  });
+
+  it('switches the setup when another is picked, keeps what was typed, and sends it', async () => {
+    const createFirstOwner = vi.fn().mockResolvedValue(undefined);
+
+    useSession.setState({ createFirstOwner, language: 'en' });
+
+    const { rerender } = render(<FirstRunForm />);
+
+    type('Your name', 'Mattia Carli');
+    fireEvent.click(screen.getByRole('combobox', { name: /^Language/u }));
+    fireEvent.click(screen.getByRole('option', { name: 'Italiano' }));
+
+    expect(useSession.getState().language).toBe('it');
+
+    // The frame draws the form again, keyed by the language, once the catalogue is in.
+    await applyLanguage('it');
+    rerender(<FirstRunForm key="it" />);
+
+    expect(screen.getByLabelText('Il tuo nome')).toHaveProperty('value', 'Mattia Carli');
+
+    type(/^Password/u, LONG_ENOUGH);
+    fireEvent.click(screen.getByRole('button', { name: /Continua/u }));
+    type('Nome della casa', 'Casa Carli');
+    type('Latitudine', '45.4642');
+    type('Longitudine', '9.19');
+    fireEvent.click(screen.getByRole('button', { name: /Crea la mia casa/u }));
+
+    await waitFor(() => {
+      expect(createFirstOwner).toHaveBeenCalledTimes(1);
+    });
+    expect(createFirstOwner.mock.calls[0]?.[0]).toMatchObject({ locale: 'it' });
   });
 });
 

@@ -1,1 +1,52 @@
-{}
+{
+  "auth": {
+    "setup": {
+      "subtitle": "Questa casa non ha ancora account. Il primo è il tuo, e possiede tutto.",
+      "title": "Configura Nebula Home"
+    },
+    "signIn": {
+      "subtitle": "Bentornato a casa.",
+      "title": "Accedi"
+    },
+    "twoFactor": {
+      "subtitle": "Inserisci il codice dell'app di autenticazione, o uno dei tuoi codici di recupero.",
+      "title": "Ancora un passo"
+    },
+    "waiting": "In attesa che Nebula risponda…"
+  },
+  "firstRun": {
+    "account": {
+      "language": "Lingua",
+      "languageHint": "La lingua della casa. Ognuno potrà poi scegliere la propria.",
+      "name": "Il tuo nome",
+      "ownerNote": "Questo primo account è il proprietario: può fare tutto, anche aggiungere gli altri.",
+      "password": "Password",
+      "subtitle": "Questa casa non ha ancora account. Il primo è il tuo.",
+      "title": "Crea il tuo account",
+      "username": "Nome utente",
+      "usernameHint": "Lettere minuscole, cifre, punto, trattino e trattino basso."
+    },
+    "back": "Indietro",
+    "continue": "Continua",
+    "create": "Crea la mia casa",
+    "home": {
+      "imperial": "Imperiale",
+      "latitude": "Latitudine",
+      "longitude": "Longitudine",
+      "metric": "Metrico",
+      "name": "Nome della casa",
+      "namePlaceholder": "Casa Rossi",
+      "positionNote": "Serve per alba e tramonto, meteo e fotovoltaico. Resta su questa macchina.",
+      "subtitle": "Un nome, dove si trova e come misuri le cose.",
+      "timeZone": "Fuso orario",
+      "title": "La tua casa",
+      "units": "Unità",
+      "useDevice": "Usa questo dispositivo"
+    },
+    "stepOf": "Passo {{step}} di {{count}}",
+    "steps": {
+      "account": "Account",
+      "home": "Casa"
+    }
+  }
+}

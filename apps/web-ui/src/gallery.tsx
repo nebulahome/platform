@@ -76,8 +76,9 @@ import { readingOf } from '@/library/entity-reading';
 import { AuthLayout } from '@/routes/auth-layout';
 import { EnergyCard } from '@/routes/dashboard/cards/energy/energy-card';
 import {
-  FIRST_RUN_HEADINGS,
-  FIRST_RUN_STEPS,
+  FIRST_RUN_STEP_COUNT,
+  firstRunHeading,
+  firstRunSteps,
   FirstRunForm,
   useFirstRunStep,
 } from '@/routes/first-run';
@@ -592,13 +593,13 @@ const TONES: readonly BadgeTone[] = ['neutral', 'accent', 'success', 'warning', 
 function FirstRunSample() {
   const step = useFirstRunStep((state) => state.step);
   const setStep = useFirstRunStep((state) => state.setStep);
-  const heading = FIRST_RUN_HEADINGS[step];
+  const heading = firstRunHeading(step);
 
   return (
     <div className="flex w-full flex-col gap-3">
       <Segmented
         label="Step"
-        options={FIRST_RUN_STEPS.map((entry, index) => ({
+        options={firstRunSteps().map((entry, index) => ({
           value: String(index),
           label: entry.name,
         }))}
@@ -613,10 +614,10 @@ function FirstRunSample() {
       >
         <AuthLayout
           isWide
-          eyebrow={`Step ${String(step + 1)} of ${String(FIRST_RUN_STEPS.length)}`}
+          eyebrow={`Step ${String(step + 1)} of ${String(FIRST_RUN_STEP_COUNT)}`}
           title={heading?.title ?? ''}
           subtitle={heading?.subtitle ?? ''}
-          steps={<SetupSteps steps={FIRST_RUN_STEPS} current={step} />}
+          steps={<SetupSteps steps={firstRunSteps()} current={step} />}
         >
           <FirstRunForm />
         </AuthLayout>

@@ -29,6 +29,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { SetupSteps } from '@nebulahome/ui';
 
 import { useSession, type SessionStatus } from '@/auth/session-store';
+import { defineMessage, text, type Message } from '@/i18n/messages';
 import { AuthLayout } from '@/routes/auth-layout';
 import { ComposePage } from '@/routes/containers/compose-page';
 import { ContainerPage } from '@/routes/containers/container-page';
@@ -37,9 +38,10 @@ import { DashboardEditorPage } from '@/routes/dashboard/dashboard-editor-page';
 import { DashboardPage } from '@/routes/dashboard/dashboard-page';
 import { DashboardsManagePage } from '@/routes/dashboard/dashboards-manage-page';
 import {
-  FIRST_RUN_HEADINGS,
-  FIRST_RUN_STEPS,
+  FIRST_RUN_STEP_COUNT,
   FirstRunForm,
+  firstRunHeading,
+  firstRunSteps,
   useFirstRunStep,
 } from '@/routes/first-run';
 import { AliasEditor } from '@/routes/library/alias-editor';
@@ -83,10 +85,10 @@ type Screen = {
   readonly path: string;
 
   /** The heading on the card. */
-  readonly title: string;
+  readonly title: Message;
 
   /** The line under it. */
-  readonly subtitle: string;
+  readonly subtitle: Message;
 
   /** The form. */
   readonly form: ReactNode;
@@ -104,20 +106,26 @@ type Screen = {
 const SCREENS: Readonly<Record<UnauthenticatedStatus, Screen>> = {
   'setup-required': {
     path: '/setup',
-    title: 'Set up Nebula Home',
-    subtitle: 'This home has no accounts yet. The first one is yours, and it owns everything.',
+    title: defineMessage('auth.setup.title', 'Set up Nebula Home'),
+    subtitle: defineMessage(
+      'auth.setup.subtitle',
+      'This home has no accounts yet. The first one is yours, and it owns everything.',
+    ),
     form: <FirstRunForm />,
   },
   'signed-out': {
     path: '/sign-in',
-    title: 'Sign in',
-    subtitle: 'Welcome back to your home.',
+    title: defineMessage('auth.signIn.title', 'Sign in'),
+    subtitle: defineMessage('auth.signIn.subtitle', 'Welcome back to your home.'),
     form: <SignInForm />,
   },
   'awaiting-second-factor': {
     path: '/sign-in/two-factor',
-    title: 'One more step',
-    subtitle: 'Enter the code from your authenticator, or one of your recovery codes.',
+    title: defineMessage('auth.twoFactor.title', 'One more step'),
+    subtitle: defineMessage(
+      'auth.twoFactor.subtitle',
+      'Enter the code from your authenticator, or one of your recovery codes.',
+    ),
     form: <TwoFactorForm />,
     footer: <TwoFactorFooter />,
   },
@@ -225,19 +233,26 @@ export function SessionRoutes() {
     // The first run is two steps in one card: the card is titled by the step, and the steps
     // stand above it.
     const isSetup = status === 'setup-required' && !isIntro;
-    const heading = isSetup ? FIRST_RUN_HEADINGS[setupStep] : undefined;
+    const heading = isSetup ? firstRunHeading(setupStep) : undefined;
 
     return (
       <AuthLayout
         isLoading={isIntro}
-        loadingNote={isWaitingForApi ? 'Waiting for Nebula to answer…' : undefined}
-        eyebrow={
-          isSetup ? `Step ${String(setupStep + 1)} of ${String(FIRST_RUN_STEPS.length)}` : undefined
+        loadingNote={
+          isWaitingForApi ? i18n.t('auth.waiting', 'Waiting for Nebula to answer…') : undefined
         }
-        title={heading?.title ?? screen?.title ?? ''}
-        subtitle={heading?.subtitle ?? screen?.subtitle ?? ''}
+        eyebrow={
+          isSetup
+            ? i18n.t('firstRun.stepOf', 'Step {{step}} of {{count}}', {
+                step: setupStep + 1,
+                count: FIRST_RUN_STEP_COUNT,
+              })
+            : undefined
+        }
+        title={heading?.title ?? (screen === undefined ? '' : text(screen.title))}
+        subtitle={heading?.subtitle ?? (screen === undefined ? '' : text(screen.subtitle))}
         isWide={isSetup}
-        {...(isSetup ? { steps: <SetupSteps steps={FIRST_RUN_STEPS} current={setupStep} /> } : {})}
+        {...(isSetup ? { steps: <SetupSteps steps={firstRunSteps()} current={setupStep} /> } : {})}
         {...(screen?.footer === undefined ? {} : { footer: screen.footer })}
       >
         <Fragment key={i18n.language}>{screen?.form}</Fragment>
