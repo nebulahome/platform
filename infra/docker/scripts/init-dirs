@@ -24,7 +24,7 @@ chmod 0700 "$data/secrets"
 
 # The folders `nebula` writes into, each directly in one of root's: made by root, then handed over.
 for folder in "$data/hub" "$data/proxy" "$data/packages" "$data/cache/maps" \
-  "$data/cache/packages" /var/lib/nats; do
+  "$data/cache/packages" "$data/cache/integrations" /var/lib/nats; do
   mkdir -p "$folder"
   chown nebula:nebula "$folder"
 done
