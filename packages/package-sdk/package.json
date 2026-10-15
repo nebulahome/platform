@@ -1,8 +1,8 @@
 {
   "name": "@nebulahome/package-sdk",
-  "version": "1.0.0-rc.0",
+  "version": "1.0.0",
   "description": "Write a NebulaHome package: declare it, build it, and run it on the platform.",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "sideEffects": false,
   "keywords": [
@@ -13,6 +13,7 @@
     "sdk"
   ],
   "homepage": "https://github.com/nebulahome/platform/tree/main/packages/package-sdk#readme",
+  "bugs": "https://github.com/nebulahome/platform/issues",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nebulahome/platform.git",
@@ -52,14 +53,14 @@
   "files": [
     "dist",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=22"
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "scripts": {
     "build": "tsdown && node scripts/build-styles.js",

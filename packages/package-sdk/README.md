@@ -113,3 +113,30 @@ package and the platform cannot drift apart unnoticed. A package's manifest reco
 built with (`sdk: ^<major>.<minor>.0`), and the platform refuses to install or start a release it
 does not implement. A minor of the SDK is published only together with a platform release that
 implements it. React's major is part of the contract.
+
+## Releasing the SDK
+
+For the platform's maintainers. The packet-manager reads the version it implements from this
+`package.json`, so the version is raised by hand:
+
+- **patch** - a fix, or a change to the command, the build, the tests' helpers or the
+  documentation that leaves what a package can use as it is. Packages keep declaring
+  `^<major>.<minor>.0`, so it is released whenever it is ready.
+- **minor** - the API grows. Raise it in the first commit that grows it, so a package using the
+  new part is never installed on a platform without it; release it with the platform that
+  implements it.
+- **major** - the API breaks: packages built before are refused until they are built again.
+
+Every change of the release goes into `CHANGELOG.md`. Then, from the commit released:
+
+```sh
+git tag package-sdk@<version> && git push origin package-sdk@<version>
+```
+
+`.github/workflows/release-package-sdk.yml` checks the tag says the package's version, runs the
+SDK's gates and publishes a GitHub release with the archive npm will receive. The maintainer
+publishes that archive, signed in to npm:
+
+```sh
+npm publish nebulahome-package-sdk-<version>.tgz
+```

@@ -6,5 +6,5 @@
  */
 import manifest from '../package.json' with { type: 'json' };
 
-/** The SDK's own version: `1.0.0`, or a prerelease of it. */
+/** The SDK's own version, `1.0.0`. */
 export const SDK_VERSION: string = manifest.version;
