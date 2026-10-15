@@ -2,11 +2,10 @@
 # packages/integration-sdk/package.json, `integration-sdk@1.0.0` (the SDK's README, Releasing the
 # SDK).
 #
-# Its version is the integration contract's, raised by hand rather than by changesets (it is in
-# `.changeset/config.json`'s `ignore`). This checks the tag says the package's version, passes the
-# SDK's gates, packs it as npm will see it, and publishes a GitHub release with that archive. It
-# does not publish on npm: the maintainer publishes the same archive by hand, with
-# `npm publish <archive>`.
+# Its version is the integration contract's, raised by hand. This checks the tag says the
+# package's version, passes the SDK's gates, packs it as npm will see it, and publishes a GitHub
+# release with that archive. It does not publish on npm: the maintainer publishes the same archive
+# by hand, with `npm publish <archive>`.
 name: release-integration-sdk
 
 on:

@@ -38,7 +38,6 @@
     "docker:wipe": "docker compose -f infra/docker-compose.yml rm -s -f nebulahome && docker volume rm nebulahome_nebula-data nebulahome_nebula-postgres nebulahome_nebula-nats"
   },
   "devDependencies": {
-    "@changesets/cli": "^3.0.1",
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
     "@nebulahome/eslint-config": "workspace:*",
