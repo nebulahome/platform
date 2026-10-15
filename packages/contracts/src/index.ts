@@ -43,6 +43,7 @@ export * from './integration-accounts.js';
 export * from './integration-setup.js';
 export * from './integrations.js';
 export * from './json.js';
+export * from './locale.js';
 export * from './log-level.js';
 export * from './container-dependencies.js';
 export * from './package-compose.js';

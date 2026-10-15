@@ -7,6 +7,7 @@
 import { z } from 'zod';
 
 import { grantedPermissionSchema, scopedPermissionSchema } from './auth.js';
+import { supportedLocaleSchema } from './locale.js';
 import { permissionKeySchema, permissionScopeSchema } from './permissions.js';
 import { timestampSchema } from './timestamp.js';
 
@@ -23,7 +24,8 @@ export const userViewSchema = z.object({
   /** The role key. */
   role: z.string(),
 
-  locale: z.string(),
+  /** The language they chose; null when they follow the house's. */
+  locale: supportedLocaleSchema.nullable(),
   timezone: z.string(),
 
   /** False disables sign-in without deleting the account or its audit trail. */
@@ -81,7 +83,8 @@ export const createUserRequestSchema = z.object({
   /** Which role they get. */
   role: z.string().min(1).max(64),
 
-  locale: z.string().min(2).max(16).default('en'),
+  /** Their own language; left out or null, they follow the house's. */
+  locale: supportedLocaleSchema.nullable().default(null),
   timezone: z.string().min(1).max(64).default('UTC'),
 
   /** Make them choose their own password on first sign-in. */
@@ -101,7 +104,8 @@ export const updateUserRequestSchema = z.object({
   email: z.email().max(254).nullable().optional(),
   displayName: z.string().min(1).max(128).optional(),
   role: z.string().min(1).max(64).optional(),
-  locale: z.string().min(2).max(16).optional(),
+  /** Null goes back to following the house language. */
+  locale: supportedLocaleSchema.nullable().optional(),
   timezone: z.string().min(1).max(64).optional(),
   isActive: z.boolean().optional(),
 });

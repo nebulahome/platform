@@ -16,6 +16,7 @@ import {
   backupSectionsSchema,
   timeZoneSchema,
 } from './backup.js';
+import { DEFAULT_LOCALE, supportedLocaleSchema } from './locale.js';
 import type { LOG_LEVELS } from './log-level.js';
 
 /** The shape of a setting key. Mirrors `settings_key_format` in DATABASE.md. */
@@ -200,6 +201,13 @@ export const SETTINGS = [
     defaultValue: 'UTC',
     description:
       'The time zone the house keeps: time triggers, time windows and days are read in it',
+  },
+  {
+    key: 'house.locale',
+    schema: supportedLocaleSchema,
+    defaultValue: DEFAULT_LOCALE,
+    description:
+      'The language the house speaks: the sign-in screen, and everyone who has not chosen their own',
   },
   {
     key: 'security.session_lifetime_hours',

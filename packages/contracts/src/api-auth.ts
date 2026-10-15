@@ -10,6 +10,7 @@
 import { z } from 'zod';
 
 import { grantedPermissionSchema } from './auth.js';
+import { supportedLocaleSchema } from './locale.js';
 
 /** What `POST /api/v1/auth/login` accepts. */
 export const loginRequestSchema = z.object({
@@ -72,8 +73,14 @@ export const sessionUserSchema = z.object({
   /** Their picture as a `data:` URL, or null when they have not set one. */
   avatarUrl: z.string().nullable(),
 
-  /** Their language tag. */
-  locale: z.string(),
+  /** The language they chose for themselves; null when they follow the house's. */
+  locale: supportedLocaleSchema.nullable(),
+
+  /**
+   * The house language (`house.locale`), sent with them because it is what they read while
+   * `locale` is null, and the setting itself is not theirs to read.
+   */
+  houseLocale: supportedLocaleSchema,
 
   /** Their IANA time zone. */
   timezone: z.string(),

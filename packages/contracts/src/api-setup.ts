@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { authenticatedResponseSchema } from './api-auth.js';
 import { latitudeSchema, longitudeSchema } from './areas.js';
 import { timeZoneSchema } from './backup.js';
+import { DEFAULT_LOCALE, supportedLocaleSchema } from './locale.js';
 import { tagNameSchema } from './tags.js';
 
 /** What `GET /api/v1/setup` answers. */
@@ -22,6 +23,12 @@ export const setupStatusSchema = z.object({
    * between showing a sign-in form and showing the setup form.
    */
   isRequired: z.boolean(),
+
+  /**
+   * The house language, which the sign-in screen speaks. Asked before anyone is signed in, so it
+   * is the only setting served without a session.
+   */
+  locale: supportedLocaleSchema,
 });
 
 /** What `GET /api/v1/setup` answers. */
@@ -67,7 +74,11 @@ export const setupRequestSchema = z.object({
    */
   password: z.string().min(12).max(1024),
 
-  locale: z.string().min(2).max(16).default('en'),
+  /**
+   * The house language (`house.locale`): the one the first run was shown in, or the one picked
+   * there. The owner follows it, like everybody after them, until they choose their own.
+   */
+  locale: supportedLocaleSchema.default(DEFAULT_LOCALE),
   timezone: z.string().min(1).max(64).default('UTC'),
 
   /**
