@@ -3,6 +3,13 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
+## 1.0.1
+
+- `nebulahome-package --help`, and a mistyped command, work where Vite is not installed -
+  `npx -p @nebulahome/package-sdk nebulahome-package --help` in an empty folder. `validate`,
+  `build` and `pack` run without it say what to install in the package's folder, instead of
+  failing with `ERR_MODULE_NOT_FOUND`.
+
 ## 1.0.0
 
 The first public release.
