@@ -150,7 +150,7 @@ export type BlockProps = {
   readonly isDisabled?: boolean;
 
   /** Its name being typed, which replaces the summary while it is. */
-  readonly rename?: BlockRename;
+  readonly rename?: BlockRename | undefined;
 
   /** Whether something about it needs attention: an entity that is gone, a block not built. */
   readonly isWarning?: boolean;
@@ -371,7 +371,7 @@ export type BlockGroupProps = {
   readonly isDisabled?: boolean;
 
   /** Its name being typed, which replaces its label while it is. */
-  readonly rename?: BlockRename;
+  readonly rename?: BlockRename | undefined;
 
   /** The conditions inside, and the group's Add. */
   readonly children: ReactNode;
