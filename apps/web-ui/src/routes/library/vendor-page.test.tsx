@@ -238,6 +238,7 @@ function renderPage(vendorId: string, extra: readonly string[] = [], tab = ''): 
       ],
       avatarUrl: null,
       locale: 'it',
+      houseLocale: 'en',
       timezone: 'Europe/Rome',
       isTwoFactorEnabled: false,
       mustChangePassword: false,

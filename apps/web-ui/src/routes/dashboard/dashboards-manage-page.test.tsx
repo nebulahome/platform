@@ -98,6 +98,7 @@ function renderPage(): void {
       permissions: [{ key: 'dashboard:manage', scope: '*', effect: 'allow' as const }],
       avatarUrl: null,
       locale: 'it',
+      houseLocale: 'en',
       timezone: 'Europe/Rome',
       isTwoFactorEnabled: false,
       mustChangePassword: false,

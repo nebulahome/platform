@@ -41,6 +41,7 @@ function signedInWith(...keys: string[]): void {
       permissions,
       avatarUrl: null,
       locale: 'en',
+      houseLocale: 'en',
       timezone: 'UTC',
       isTwoFactorEnabled: false,
       mustChangePassword: false,

@@ -123,6 +123,7 @@ function renderEditor(path: string): void {
       ],
       avatarUrl: null,
       locale: 'it',
+      houseLocale: 'en',
       timezone: 'Europe/Rome',
       isTwoFactorEnabled: false,
       mustChangePassword: false,

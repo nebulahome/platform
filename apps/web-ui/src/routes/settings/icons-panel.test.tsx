@@ -67,6 +67,7 @@ function renderPanel(permissions = ['settings:read', 'settings:write']): void {
       permissions: permissions.map((key) => ({ key, scope: '*', effect: 'allow' })),
       avatarUrl: null,
       locale: 'it',
+      houseLocale: 'en',
       timezone: 'Europe/Rome',
       isTwoFactorEnabled: false,
       mustChangePassword: false,

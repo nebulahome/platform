@@ -47,6 +47,7 @@ function renderPage(permissions: readonly string[] = ['package:read', 'package:i
       permissions: permissions.map((key) => ({ key, scope: '*', effect: 'allow' as const })),
       avatarUrl: null,
       locale: 'it',
+      houseLocale: 'en',
       timezone: 'Europe/Rome',
       isTwoFactorEnabled: false,
       mustChangePassword: false,

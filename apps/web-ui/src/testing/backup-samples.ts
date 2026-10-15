@@ -40,6 +40,7 @@ export const SAMPLE_OWNER: SessionUser = {
   })),
   avatarUrl: null,
   locale: 'en',
+  houseLocale: 'en',
   timezone: 'Europe/Rome',
   mustChangePassword: false,
 } as unknown as SessionUser;

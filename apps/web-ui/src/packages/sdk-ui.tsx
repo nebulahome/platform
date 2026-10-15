@@ -21,11 +21,12 @@ import {
 } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 
-import type {
-  EntityView as ApiEntityView,
-  IntegrationSetup,
-  JsonObject,
-  JsonValue,
+import {
+  resolveDisplayLocale,
+  type EntityView as ApiEntityView,
+  type IntegrationSetup,
+  type JsonObject,
+  type JsonValue,
 } from '@nebulahome/contracts';
 import type {
   EntityTypeDefinition,
@@ -499,14 +500,17 @@ function useViewer(): Viewer {
 /**
  * The viewer's language and time zone.
  *
- * @returns Them, the browser's where the profile says nothing.
+ * The language is the one the interface speaks to them - their own choice, else the house's -
+ * so what a package formats agrees with the words around it.
+ *
+ * @returns Them; the browser's time zone where the profile says nothing.
  */
 function useLocale(): Locale {
   const user = useSession((state) => state.user);
   const browser = Intl.DateTimeFormat().resolvedOptions();
 
   return {
-    locale: user?.locale === undefined || user.locale === '' ? browser.locale : user.locale,
+    locale: resolveDisplayLocale(user?.locale, user?.houseLocale),
     timeZone:
       user?.timezone === undefined || user.timezone === '' ? browser.timeZone : user.timezone,
   };

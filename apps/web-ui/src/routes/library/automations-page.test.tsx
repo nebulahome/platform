@@ -81,6 +81,7 @@ function renderPage(): QueryClient {
       permissions: [{ key: 'automation:write', scope: '*', effect: 'allow' }],
       avatarUrl: null,
       locale: 'it',
+      houseLocale: 'en',
       timezone: 'Europe/Rome',
       isTwoFactorEnabled: false,
       mustChangePassword: false,

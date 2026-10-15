@@ -23,6 +23,7 @@
 import { useState, type SubmitEventHandler } from 'react';
 import { create } from 'zustand';
 
+import { DEFAULT_LOCALE, matchSupportedLocale } from '@nebulahome/contracts';
 import { AppIcon, Button, Note, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
@@ -159,7 +160,7 @@ export function FirstRunForm() {
 
           // The browser knows both of these and the person should not have to be asked. They
           // are editable later in settings, which is where a wrong guess gets corrected.
-          locale: globalThis.navigator.language.slice(0, 2),
+          locale: matchSupportedLocale(globalThis.navigator.languages) ?? DEFAULT_LOCALE,
           timezone: BROWSER_ZONE,
           home: {
             name: homeName.trim(),

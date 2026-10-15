@@ -128,6 +128,7 @@ function renderPage(permissions: string[] = ['tag:read', 'tag:write']): void {
       permissions: permissions.map((key) => ({ key, scope: '*', effect: 'allow' })),
       avatarUrl: null,
       locale: 'it',
+      houseLocale: 'en',
       timezone: 'Europe/Rome',
       isTwoFactorEnabled: false,
       mustChangePassword: false,

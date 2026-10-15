@@ -162,7 +162,9 @@ export function PeoplePanel() {
         displayName,
         password,
         role,
-        locale: 'en',
+
+        // No language: they follow the house's until they choose their own.
+        locale: null,
         timezone: 'UTC',
 
         // The password typed here is chosen by whoever is doing the inviting, so the person it

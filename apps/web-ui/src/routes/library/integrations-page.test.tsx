@@ -149,6 +149,7 @@ function renderPage(permissions: readonly string[] = ['integration:configure']):
       permissions: permissions.map((key) => ({ key, scope: '*', effect: 'allow' as const })),
       avatarUrl: null,
       locale: 'it',
+      houseLocale: 'en',
       timezone: 'Europe/Rome',
       isTwoFactorEnabled: false,
       mustChangePassword: false,

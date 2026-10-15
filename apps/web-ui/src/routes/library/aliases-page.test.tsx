@@ -158,6 +158,7 @@ function renderPage(permissions: string[] = ['alias:read', 'alias:write']): void
       permissions: permissions.map((key) => ({ key, scope: '*', effect: 'allow' as const })),
       avatarUrl: null,
       locale: 'it',
+      houseLocale: 'en',
       timezone: 'Europe/Rome',
       isTwoFactorEnabled: false,
       mustChangePassword: false,

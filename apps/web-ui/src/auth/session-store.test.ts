@@ -79,7 +79,7 @@ afterEach(() => {
 describe('initialise, while the API is not there', () => {
   it('keeps deciding rather than deciding wrongly, and says so', async () => {
     const counts = stubFetch({
-      '/setup': [PROXY_GONE, PROXY_GONE, () => json(200, { isRequired: true })],
+      '/setup': [PROXY_GONE, PROXY_GONE, () => json(200, { isRequired: true, locale: 'en' })],
     });
 
     const done = useSession.getState().initialise();
@@ -123,6 +123,7 @@ describe('initialise, while the API is not there', () => {
             permissions: [],
             avatarUrl: null,
             locale: 'en',
+            houseLocale: 'en',
             timezone: 'UTC',
             isTwoFactorEnabled: false,
             mustChangePassword: false,

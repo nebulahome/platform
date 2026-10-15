@@ -138,6 +138,7 @@ function renderPage(address = '/dashboards', canManage = false): void {
       })),
       avatarUrl: null,
       locale: 'it',
+      houseLocale: 'en',
       timezone: 'Europe/Rome',
       isTwoFactorEnabled: false,
       mustChangePassword: false,
