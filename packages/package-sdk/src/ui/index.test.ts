@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { cn } from '../components/index.js';
 import { COMPONENTS_MODULE, UI_MODULE } from '../host.js';
 
-import { usePackage, usePackageRpc } from './index.js';
+import { usePackage, usePackageRpc, useTranslation } from './index.js';
 
 /**
  * Lends a stand-in implementation, as the interface does before it imports a package.
@@ -58,5 +58,40 @@ describe('the forwarders', () => {
     expect(() => usePackage()).toThrow(
       'usePackage is lent by the NebulaHome interface, and there is none here',
     );
+  });
+});
+
+describe('useTranslation', () => {
+  it('says the English, filled in, where no interface lends it', () => {
+    const { t, locale } = useTranslation();
+
+    expect(locale).toBe('en');
+    expect(t('greeting', 'Hello, {{name}}', { name: 'Ada' })).toBe('Hello, Ada');
+    expect(
+      t('clients', { one: '{{count}} client', other: '{{count}} clients' }, { count: 1 }),
+    ).toBe('1 client');
+    expect(
+      t('clients', { one: '{{count}} client', other: '{{count}} clients' }, { count: 3 }),
+    ).toBe('3 clients');
+    expect(t('missing', 'Left {{as}} it is')).toBe('Left {{as}} it is');
+  });
+
+  it('says it through the interface when it lends it', () => {
+    lend('1.1.0', {
+      [UI_MODULE]: {
+        useTranslation: () => ({ t: (key: string) => `it:${key}`, locale: 'it' }),
+      },
+    });
+
+    const { t, locale } = useTranslation();
+
+    expect(locale).toBe('it');
+    expect(t('greeting', 'Hello')).toBe('it:greeting');
+  });
+
+  it('says the English in an interface older than it', () => {
+    lend('1.0.0', { [UI_MODULE]: {} });
+
+    expect(useTranslation().t('greeting', 'Hello')).toBe('Hello');
   });
 });

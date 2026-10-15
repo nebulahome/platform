@@ -46,19 +46,19 @@ export function hostSdkVersion(): string | undefined {
 }
 
 /**
- * One member of a module the interface lends.
+ * One member of a module the interface lends, when it lends it.
+ *
+ * For a member with a way of its own to do without the interface - `useTranslation` says the
+ * English - where {@link hostMember} would refuse.
  *
  * @param module - The module's key.
  * @param name - The member.
- * @param since - The SDK version that added it.
- * @returns The interface's implementation of it.
- * @throws {Error} When there is no interface, or it does not implement the member.
+ * @returns The interface's implementation of it, or undefined when there is none.
  */
-export function hostMember<TModule extends keyof Lent, TName extends keyof Lent[TModule] & string>(
+export function lentMember<TModule extends keyof Lent, TName extends keyof Lent[TModule] & string>(
   module: TModule,
   name: TName,
-  since: string,
-): Lent[TModule][TName] {
+): Lent[TModule][TName] | undefined {
   const nebula: unknown = Reflect.get(globalThis, '__nebula');
   const modules = isRecord(nebula) ? nebula['modules'] : undefined;
   const lent = isRecord(modules) ? modules[module] : undefined;
@@ -75,7 +75,26 @@ export function hostMember<TModule extends keyof Lent, TName extends keyof Lent[
   const isLent = (value: unknown): value is Lent[TModule][TName] =>
     typeof value === 'function' || (isRecord(value) && '$$typeof' in value);
 
-  if (isLent(member)) {
+  return isLent(member) ? member : undefined;
+}
+
+/**
+ * One member of a module the interface lends.
+ *
+ * @param module - The module's key.
+ * @param name - The member.
+ * @param since - The SDK version that added it.
+ * @returns The interface's implementation of it.
+ * @throws {Error} When there is no interface, or it does not implement the member.
+ */
+export function hostMember<TModule extends keyof Lent, TName extends keyof Lent[TModule] & string>(
+  module: TModule,
+  name: TName,
+  since: string,
+): Lent[TModule][TName] {
+  const member = lentMember(module, name);
+
+  if (member !== undefined) {
     return member;
   }
 

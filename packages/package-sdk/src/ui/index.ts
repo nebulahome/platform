@@ -11,9 +11,10 @@ import { createElement, type ReactElement } from 'react';
 import type { EntityTypeDefinition } from '../definitions/entity-type.js';
 import type { SettingsDefinition } from '../definitions/settings.js';
 import type { EntityId } from '../entities.js';
-import { hostMember, UI_MODULE } from '../host.js';
+import { hostMember, lentMember, UI_MODULE } from '../host.js';
 import type { JsonValue } from '../json.js';
 
+import { ENGLISH } from './english.js';
 import type {
   CustomEntityState,
   EntitiesFilter,
@@ -33,6 +34,7 @@ import type {
   RpcState,
   SendCommand,
   Theme,
+  Translation,
   UiHost,
   Viewer,
 } from './types.js';
@@ -53,11 +55,15 @@ export type {
   PlatformLinkProps,
   PlatformNavigate,
   PlatformTarget,
+  PluralEnglish,
   RpcOptions,
   RpcState,
   SendCommand,
   SettingsPatch,
   Theme,
+  Translate,
+  Translation,
+  TranslationValues,
   UiHost,
   Viewer,
   VisibleSettings,
@@ -195,6 +201,22 @@ export function useViewer(): Viewer {
  */
 export function useLocale(): Locale {
   return ui('useLocale', '1.0')();
+}
+
+/**
+ * The package's strings in the viewer's language, from the catalogues in its `locales` folder
+ * (PACKAGES_DOCS.md 6.5).
+ *
+ * `t('clients.title', 'Clients')` says the key from the viewer's catalogue, and its English when
+ * the catalogue lacks it; outside an interface that lends this - a component's unit test - every
+ * string is its English.
+ *
+ * @returns `t`, and the language it speaks.
+ */
+export function useTranslation(): Translation {
+  const lent = lentMember(UI_MODULE, 'useTranslation');
+
+  return lent === undefined ? ENGLISH : lent();
 }
 
 /**

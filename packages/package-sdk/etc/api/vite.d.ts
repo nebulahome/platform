@@ -52,8 +52,8 @@ type CheckedPackage = {
   readonly generated: GeneratedPackage;
 };
 /**
- * Checks a package without building it: its declaration against the platform's schemas, and the
- * files it names.
+ * Checks a package without building it: its declaration against the platform's schemas, the
+ * files it names, and its translation catalogues.
  *
  * @param options - Where the package is.
  * @returns The package, checked.

@@ -18,6 +18,7 @@ import { generatePackage, RELEASE_PATHS, type GeneratedPackage } from '../genera
 import { PackageConfigError } from '../generate/problems.js';
 import { SDK_VERSION } from '../version.js';
 
+import { catalogueProblems, findCatalogues } from './catalogues.js';
 import { loadPackage } from './load.js';
 import { PLUGIN_NAME, type NebulaOptions } from './plugin.js';
 
@@ -102,8 +103,8 @@ async function pluginOptions(root: string, logLevel: LogLevel): Promise<NebulaOp
 }
 
 /**
- * Checks a package without building it: its declaration against the platform's schemas, and the
- * files it names.
+ * Checks a package without building it: its declaration against the platform's schemas, the
+ * files it names, and its translation catalogues.
  *
  * @param options - Where the package is.
  * @returns The package, checked.
@@ -152,6 +153,8 @@ export async function checkPackage(options: BuildOptions = {}): Promise<CheckedP
       );
     }
   }
+
+  missing.push(...(await catalogueProblems(await findCatalogues(base), base)));
 
   if (missing.length > 0) {
     throw new PackageConfigError(missing);

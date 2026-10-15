@@ -3,6 +3,21 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
+## 1.1.0
+
+- `useTranslation()` in `@nebulahome/package-sdk/ui`: a package's page, cards and entity views
+  say their strings with `t('clients.title', 'Clients')`, in the viewer's language. The English
+  is the fallback, and a plural takes `{ one, other }` with `count`; outside the interface - a
+  component's unit test - every string is its English.
+- Catalogues: `locales/<language>.json` beside `nebula.config.ts` (`it.json`, `pt-BR.json`), JSON
+  objects of strings nested as the keys are dotted, with i18next's plural suffixes and
+  `{{placeholders}}`. `nebula()` bundles each as a chunk of the interface, loaded only for a viewer
+  who reads that language; `validate` checks them (a language for a name, strings only, plurals
+  with their `_other`, at most 256 KB); `build` warns which strings a catalogue says in English
+  and which of its keys no string uses.
+- What `nebula.config.ts` declares - names, settings, entity types - stays English, as the
+  platform shows it everywhere.
+
 ## 1.0.1
 
 - `nebulahome-package --help`, and a mistyped command, work where Vite is not installed -

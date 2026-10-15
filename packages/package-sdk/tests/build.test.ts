@@ -51,7 +51,7 @@ describe('building a package', () => {
     expect(await json('nebula.package.json')).toMatchObject({
       id: 'weather',
       version: '0.2.0',
-      sdk: '^1.0.0',
+      sdk: '^1.1.0',
       runtime: 'node',
       repository: 'nebulahome/pkg-weather',
       logo: { path: './logo.svg' },
@@ -89,8 +89,14 @@ describe('building a package', () => {
     const cards = definition['cards'] as Record<string, () => Promise<unknown>>;
     const forecastCard = await cards['forecast']?.();
 
+    const locales = definition['locales'] as Record<string, () => Promise<{ default: unknown }>>;
+
     expect(definition).toMatchObject({ kind: 'nebula.ui' });
     expect(typeof forecastCard).toBe('function');
+    expect(Object.keys(locales)).toEqual(['it']);
+    expect((await locales['it']?.())?.default).toEqual({
+      page: { title: 'Il meteo di {{name}}' },
+    });
     expect((await readdir(path.join(dist, 'ui', 'chunks'))).length).toBeGreaterThanOrEqual(3);
   });
 
@@ -140,7 +146,7 @@ describe('building a package', () => {
     expect(JSON.parse(await readFile(packed.indexEntry, 'utf8'))).toEqual({
       version: '0.2.0',
       platform: '^1.0.0',
-      sdk: '^1.0.0',
+      sdk: '^1.1.0',
       requires: { packages: {}, services: [] },
       provides: [],
       artifact: {

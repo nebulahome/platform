@@ -188,6 +188,36 @@ export type Locale = {
   readonly timeZone: string;
 };
 
+/** A plural's English: the form for one, and the form for any other number. */
+export type PluralEnglish = {
+  readonly one: string;
+  readonly other: string;
+};
+
+/** What fills a string's `{{placeholders}}`; `count` also picks a plural's form. */
+export type TranslationValues = Readonly<Record<string, string | number>>;
+
+/**
+ * Says one of the package's strings in the viewer's language.
+ *
+ * The key is looked up in the package's catalogue for that language (`locales/it.json`); when it
+ * is not there, the English given here is said instead. A plural takes its English as
+ * `{ one, other }` and the number as `count`: each language's catalogue holds the forms it needs.
+ */
+export type Translate = (
+  key: string,
+  english: string | PluralEnglish,
+  values?: TranslationValues,
+) => string;
+
+/** The package's strings, in the viewer's language. */
+export type Translation = {
+  readonly t: Translate;
+
+  /** The language they are said in, `it`: the viewer's, whether or not the package has it. */
+  readonly locale: string;
+};
+
 /** Which theme the interface draws in. */
 export type Theme = {
   readonly scheme: 'light' | 'dark';
@@ -256,6 +286,9 @@ export type UiHost = {
   ) => PackageSettings<TSettings>;
   readonly useViewer: () => Viewer;
   readonly useLocale: () => Locale;
+
+  /** Since 1.1. */
+  readonly useTranslation: () => Translation;
   readonly useTheme: () => Theme;
   readonly usePortalContainer: () => HTMLElement | null;
   readonly usePackageRoute: () => PackageRoute;

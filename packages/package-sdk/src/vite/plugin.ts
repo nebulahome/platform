@@ -2,8 +2,9 @@
  * `nebula()`: the Vite plugin that builds a package's two halves (PACKAGES_DOCS.md 8.1).
  *
  * - **The interface** (`vite build`): one entry generated from the components bound in
- *   `nebula.config.ts`, one chunk per component, React read from the interface, the stylesheet
- *   scoped to the package's own elements; into `<outDir>/ui/`.
+ *   `nebula.config.ts`, one chunk per component and per translation catalogue, React read from
+ *   the interface, the stylesheet scoped to the package's own elements; into `<outDir>/ui/`. What
+ *   each catalogue lacks of the strings the code says is reported, never refused.
  * - **The server** (`vite build --ssr`): the config's `server` module with every dependency inside
  *   it, for Node 22, into one `<outDir>/server/index.js`. The config's loaders are emptied there,
  *   and an import of `/ui` or `/components` refused: the interface is never part of the server.
@@ -17,6 +18,13 @@ import type { Plugin } from 'vite';
 import { isRecord } from '../generate/fields.js';
 import { SDK_VERSION } from '../version.js';
 
+import {
+  catalogueCoverage,
+  findCatalogues,
+  namedCatalogues,
+  readCatalogue,
+  type Catalogue,
+} from './catalogues.js';
 import { loadPackage } from './load.js';
 import { scopeCss } from './scope-css.js';
 import { isSharedModule, SHARED_PREFIX, sharedModuleCode } from './shared-modules.js';
@@ -39,6 +47,15 @@ const UI_ENTRY = 'virtual:nebulahome/ui';
 /** An import of a module, as the config's loaders are written: `import('./card.js')`. */
 const DYNAMIC_IMPORT = /\bimport\(\s*(['"`])[^'"`]+\1\s*\)/g;
 
+/**
+ * A string the interface's code says, as `t('clients.title', …)`: a literal key, the way the
+ * catalogues can be checked against it.
+ */
+const SAID_KEY = /\bt\(\s*(['"`])([\w.-]+)\1\s*,/g;
+
+/** The package's own modules, which say its strings: not its dependencies. */
+const OWN_MODULE = /^(?!.*[\\/]node_modules[\\/]).*\.[cm]?[jt]sx?$/;
+
 /** The SDK's entry points that belong to the interface. */
 const INTERFACE_ENTRIES = ['@nebulahome/package-sdk/ui', '@nebulahome/package-sdk/components'];
 
@@ -47,16 +64,23 @@ type State = {
   readonly side: 'ui' | 'server';
   readonly configPath: string;
   readonly packageId: string;
+
+  /** The interface's catalogues, by language. */
+  readonly catalogues: readonly Catalogue[];
+
+  /** The keys the interface's code says, gathered as it is built. */
+  readonly said: Set<string>;
 };
 
 /**
- * The code of the interface's entry: the components the config binds, as the interface reads
- * them.
+ * The code of the interface's entry: the components the config binds, and a loader per
+ * translation catalogue, as the interface reads them.
  *
  * @param configPath - The config's path.
+ * @param catalogues - The catalogues, by language.
  * @returns The module.
  */
-function uiEntryCode(configPath: string): string {
+function uiEntryCode(configPath: string, catalogues: readonly Catalogue[]): string {
   return [
     `import definition from ${JSON.stringify(configPath.replaceAll('\\', '/'))};`,
     'const ui = definition.ui ?? {};',
@@ -66,6 +90,12 @@ function uiEntryCode(configPath: string): string {
     '  page: ui.page?.component,',
     '  cards: ui.cards ?? {},',
     '  entityViews: ui.entityViews ?? {},',
+    '  locales: {',
+    ...catalogues.map(
+      (catalogue) =>
+        `    ${JSON.stringify(catalogue.language)}: () => import(${JSON.stringify(catalogue.file.replaceAll('\\', '/'))}),`,
+    ),
+    '  },',
     '};',
   ].join('\n');
 }
@@ -114,7 +144,7 @@ export function nebula(options: NebulaOptions = {}): Plugin {
           throw new Error('The package declares no server, so there is no server to build');
         }
 
-        state = { side: 'server', configPath, packageId };
+        state = { side: 'server', configPath, packageId, catalogues: [], said: new Set() };
 
         return {
           build: {
@@ -133,7 +163,13 @@ export function nebula(options: NebulaOptions = {}): Plugin {
         };
       }
 
-      state = { side: 'ui', configPath, packageId };
+      state = {
+        side: 'ui',
+        configPath,
+        packageId,
+        catalogues: namedCatalogues(await findCatalogues(path.dirname(configPath))),
+        said: new Set(),
+      };
 
       return {
         base: './',
@@ -208,7 +244,7 @@ export function nebula(options: NebulaOptions = {}): Plugin {
       }
 
       if (id === `\0${UI_ENTRY}`) {
-        return uiEntryCode(state.configPath);
+        return uiEntryCode(state.configPath, state.catalogues);
       }
 
       return id.startsWith(SHARED_PREFIX) ? sharedModuleCode(id.slice(SHARED_PREFIX.length)) : null;
@@ -216,17 +252,55 @@ export function nebula(options: NebulaOptions = {}): Plugin {
 
     /**
      * Empties the config's loaders in the server: they load components the server never draws.
+     * In the interface, notes the keys the package's own code says, for the catalogues' report.
      *
      * @param code - The module's code.
      * @param id - The module.
      * @returns The code without them, or null to leave it.
      */
     transform(code, id) {
+      if (state?.side === 'ui') {
+        if (OWN_MODULE.test(id)) {
+          for (const match of code.matchAll(SAID_KEY)) {
+            state.said.add(match[2] ?? '');
+          }
+        }
+
+        return null;
+      }
+
       if (state?.side !== 'server' || path.resolve(id) !== state.configPath) {
         return null;
       }
 
       return { code: code.replace(DYNAMIC_IMPORT, 'Promise.resolve(undefined)'), map: null };
+    },
+
+    /**
+     * Says, per catalogue, the strings it lacks and the keys no string uses: English stands in
+     * for the first, and the second are left over from strings that changed.
+     */
+    async closeBundle() {
+      if (state?.side !== 'ui') {
+        return;
+      }
+
+      for (const catalogue of state.catalogues) {
+        // eslint-disable-next-line no-await-in-loop -- a catalogue per language, read once
+        const { keys } = await readCatalogue(catalogue.file);
+        const { missing, unknown } = catalogueCoverage(state.said, keys);
+        const name = `locales/${catalogue.language}.json`;
+
+        if (missing.length > 0) {
+          this.warn(
+            `${name}: ${String(missing.length)} of ${String(state.said.size)} strings are said in English (${missing.join(', ')})`,
+          );
+        }
+
+        if (unknown.length > 0) {
+          this.warn(`${name}: no string says ${unknown.join(', ')}`);
+        }
+      }
     },
 
     generateBundle: {

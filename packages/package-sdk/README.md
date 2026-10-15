@@ -86,17 +86,48 @@ import { nebula } from '@nebulahome/package-sdk/vite';
 export default defineConfig({ plugins: [react(), tailwindcss(), nebula()] });
 ```
 
+## Translating the interface
+
+The page, the cards and the entity views say their strings through `useTranslation()`, with the
+English beside each key; a catalogue per language goes in `locales/` next to `nebula.config.ts`:
+
+```tsx
+// src/ui/forecast-card.tsx
+import { useTranslation } from '@nebulahome/package-sdk/ui';
+
+const { t } = useTranslation();
+
+t('forecast.empty', 'No forecast yet');
+t('forecast.days', { one: '{{count}} day', other: '{{count}} days' }, { count: days.length });
+```
+
+```json
+// locales/it.json
+{
+  "forecast": {
+    "empty": "Ancora nessuna previsione",
+    "days_one": "{{count}} giorno",
+    "days_other": "{{count}} giorni"
+  }
+}
+```
+
+A string a catalogue lacks is said in English, and `nebulahome-package build` lists them. What
+`nebula.config.ts` declares - the package's name, its cards' and settings' names, its entity types
+
+- stays English: the platform shows it the same way to everyone.
+
 ## Entry points
 
-| Import                    | What                                                                                                                                                                                                    |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@nebulahome/package-sdk` | `definePackage`, `defineSettings`, `defineCard`, `defineEntityType`, `definePage`, `defineContainer`, `defineCompose`, `field`, entity id helpers, `SDK_VERSION`, the value types.                      |
-| `/server`                 | `defineServer`, and the context `start` is given: settings (live or restart), devices and entities, typed custom entities, the rest of the house, methods for the interface, services between packages. |
-| `/ui`                     | The props of a page, a card and an entity view; hooks for the package, its methods, its settings, the house, the viewer, the theme; navigation inside the package's page and to the platform's places.  |
-| `/components`             | The part of the interface's design system a package may draw with.                                                                                                                                      |
-| `/vite`                   | `nebula()`, the Vite plugin that builds both halves: the interface in chunks with its CSS scoped to the package, the server bundled whole.                                                              |
-| `/testing`                | `createTestContext()`: run `start` in a unit test, every effect recorded.                                                                                                                               |
-| `/styles.css`             | The interface's Tailwind tokens, to `@reference`.                                                                                                                                                       |
+| Import                    | What                                                                                                                                                                                                      |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@nebulahome/package-sdk` | `definePackage`, `defineSettings`, `defineCard`, `defineEntityType`, `definePage`, `defineContainer`, `defineCompose`, `field`, entity id helpers, `SDK_VERSION`, the value types.                        |
+| `/server`                 | `defineServer`, and the context `start` is given: settings (live or restart), devices and entities, typed custom entities, the rest of the house, methods for the interface, services between packages.   |
+| `/ui`                     | The props of a page, a card and an entity view; hooks for the package, its methods, its settings, the house, the viewer, the theme, its strings; navigation inside the package's page and the platform's. |
+| `/components`             | The part of the interface's design system a package may draw with.                                                                                                                                        |
+| `/vite`                   | `nebula()`, the Vite plugin that builds both halves: the interface in chunks with its CSS scoped to the package, the server bundled whole.                                                                |
+| `/testing`                | `createTestContext()`: run `start` in a unit test, every effect recorded.                                                                                                                                 |
+| `/styles.css`             | The interface's Tailwind tokens, to `@reference`.                                                                                                                                                         |
 
 The `nebulahome-package` command checks, builds and packs a package:
 
