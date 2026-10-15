@@ -48,5 +48,20 @@
       "account": "Account",
       "home": "Casa"
     }
+  },
+  "settings": {
+    "account": {
+      "profile": "Profilo",
+      "security": "Sicurezza"
+    },
+    "data": {
+      "houseLanguage": "Lingua della casa",
+      "houseLanguageNote": "La lingua della schermata di accesso e di chi non ha scelto la propria"
+    },
+    "language": {
+      "followHouse": "Lingua della casa ({{name}})",
+      "note": "La lingua in cui l'interfaccia ti parla. I nomi e tutto ciò che è stato scritto restano come sono.",
+      "title": "Lingua"
+    }
   }
 }

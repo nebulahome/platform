@@ -24,8 +24,15 @@
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
-import type { JsonValue, SettingsResponse } from '@nebulahome/contracts';
+import {
+  DEFAULT_LOCALE,
+  LOCALE_NAMES,
+  SUPPORTED_LOCALES,
+  type JsonValue,
+  type SettingsResponse,
+} from '@nebulahome/contracts';
 import { Button, Panel, PanelNote, PanelRow, Segmented, SelectField } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
@@ -57,6 +64,12 @@ const HISTORY_ROWS: readonly { readonly key: string; readonly label: string }[] 
   { key: 'system.audit_log.retention_days', label: 'Audit trail' },
 ];
 
+/** The languages the house may speak, each by its own name. */
+const LANGUAGE_CHOICES: readonly Choice[] = SUPPORTED_LOCALES.map((locale) => ({
+  value: locale,
+  label: LOCALE_NAMES[locale],
+}));
+
 /** Every duration setting outside the telemetry ladder has the same one-day floor. */
 const HISTORY_MINIMUM_DAYS = 1;
 
@@ -72,7 +85,9 @@ const TIME_ZONE_CHOICES: readonly Choice[] = TIME_ZONES.map((zone) => ({
  * @returns The page.
  */
 export function DataAndRetention() {
+  const { t } = useTranslation();
   const can = useSession((state) => state.can);
+  const refreshUser = useSession((state) => state.refreshUser);
   const queryClient = useQueryClient();
   const canWrite = can('settings:write');
 
@@ -139,6 +154,13 @@ export function DataAndRetention() {
         const answer = await updateServerSettings(draft);
 
         queryClient.setQueryData<SettingsResponse>(SETTINGS_QUERY_KEYS.server, answer);
+
+        // The house language is what the session carries for whoever follows it: read it back,
+        // so this page switches at once when its reader is one of them.
+        if ('house.locale' in draft) {
+          await refreshUser();
+        }
+
         setDraft({});
       } catch (cause: unknown) {
         setError(toMessage(cause));
@@ -359,6 +381,32 @@ export function DataAndRetention() {
                 </Button>
               ) : null}
             </span>
+          }
+        />
+
+        <PanelRow
+          title={t('settings.data.houseLanguage', 'House language')}
+          note={
+            <>
+              {t(
+                'settings.data.houseLanguageNote',
+                'What the sign-in screen speaks, and everyone who has not chosen their own language',
+              )}
+              {provenance('house.locale')}
+            </>
+          }
+          control={
+            <SelectField
+              label={t('settings.data.houseLanguage', 'House language')}
+              isLabelHidden
+              disabled={!canWrite}
+              value={asWord(effective.get('house.locale'), DEFAULT_LOCALE)}
+              options={LANGUAGE_CHOICES}
+              onChange={(next) => {
+                edit('house.locale', next);
+              }}
+              className="w-56"
+            />
           }
         />
 
