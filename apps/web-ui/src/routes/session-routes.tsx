@@ -25,6 +25,8 @@
 import { useEffect, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 
+import { SetupSteps } from '@nebulahome/ui';
+
 import { useSession, type SessionStatus } from '@/auth/session-store';
 import { AuthLayout } from '@/routes/auth-layout';
 import { ComposePage } from '@/routes/containers/compose-page';
@@ -33,7 +35,12 @@ import { ContainersPage } from '@/routes/containers/containers-page';
 import { DashboardEditorPage } from '@/routes/dashboard/dashboard-editor-page';
 import { DashboardPage } from '@/routes/dashboard/dashboard-page';
 import { DashboardsManagePage } from '@/routes/dashboard/dashboards-manage-page';
-import { FirstRunForm } from '@/routes/first-run';
+import {
+  FIRST_RUN_HEADINGS,
+  FIRST_RUN_STEPS,
+  FirstRunForm,
+  useFirstRunStep,
+} from '@/routes/first-run';
 import { AliasEditor } from '@/routes/library/alias-editor';
 import { AliasesPage } from '@/routes/library/aliases-page';
 import { AreasPage } from '@/routes/library/areas-page';
@@ -197,6 +204,7 @@ export function SessionRoutes() {
   const isWaitingForApi = useSession((state) => state.isWaitingForApi);
   const isHeld = useIntroHold(status !== 'starting');
   const startPage = usePreferences((state) => state.startPage);
+  const setupStep = useFirstRunStep((state) => state.step);
 
   useAddressFollowsSession(status, startPage);
 
@@ -208,12 +216,22 @@ export function SessionRoutes() {
   const isIntro = status === 'starting' || isHeld;
 
   if (isIntro || screen !== undefined) {
+    // The first run is two steps in one card: the card is titled by the step, and the steps
+    // stand above it.
+    const isSetup = status === 'setup-required' && !isIntro;
+    const heading = isSetup ? FIRST_RUN_HEADINGS[setupStep] : undefined;
+
     return (
       <AuthLayout
         isLoading={isIntro}
         loadingNote={isWaitingForApi ? 'Waiting for Nebula to answer…' : undefined}
-        title={screen?.title ?? ''}
-        subtitle={screen?.subtitle ?? ''}
+        eyebrow={
+          isSetup ? `Step ${String(setupStep + 1)} of ${String(FIRST_RUN_STEPS.length)}` : undefined
+        }
+        title={heading?.title ?? screen?.title ?? ''}
+        subtitle={heading?.subtitle ?? screen?.subtitle ?? ''}
+        isWide={isSetup}
+        {...(isSetup ? { steps: <SetupSteps steps={FIRST_RUN_STEPS} current={setupStep} /> } : {})}
         {...(screen?.footer === undefined ? {} : { footer: screen.footer })}
       >
         {screen?.form}

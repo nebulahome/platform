@@ -43,6 +43,9 @@ export type AuthLayoutProps = {
    */
   readonly isLoading?: boolean;
 
+  /** A line above the heading: `STEP 2 OF 2`. */
+  readonly eyebrow?: string | undefined;
+
   /** The heading inside the card. */
   readonly title?: string;
 
@@ -54,6 +57,12 @@ export type AuthLayoutProps = {
 
   /** Anything below the card, such as a way back. */
   readonly footer?: ReactNode;
+
+  /** Something between the lockup and the card: the first run's steps. */
+  readonly steps?: ReactNode;
+
+  /** Whether the card is the first run's wide one (640px) rather than sign-in's. */
+  readonly isWide?: boolean;
 
   /**
    * A line under the lockup while it is still loading.
@@ -71,13 +80,27 @@ export type AuthLayoutProps = {
  * @returns The page.
  */
 export function AuthLayout(props: AuthLayoutProps) {
-  const { isLoading = false, title, subtitle, children, footer, loadingNote } = props;
+  const {
+    isLoading = false,
+    eyebrow,
+    title,
+    subtitle,
+    children,
+    footer,
+    steps,
+    isWide = false,
+    loadingNote,
+  } = props;
 
   return (
     <main className="relative grid min-h-screen place-items-center overflow-hidden bg-canvas px-4 py-10">
       <Sky />
 
-      <div className="relative flex w-full max-w-100 flex-col items-center">
+      <div
+        className={`relative flex w-full flex-col items-center transition-[max-width] duration-[600ms] ${SETTLE} ${
+          isWide ? 'max-w-160' : 'max-w-100'
+        }`}
+      >
         {/*
          * The word travels with the mark rather than arriving after it. The two are one lockup,
          * and a brand mark that assembles itself on screen draws attention to the assembling
@@ -116,8 +139,14 @@ export function AuthLayout(props: AuthLayoutProps) {
                 isLoading ? 'scale-x-[0.86] opacity-0' : 'scale-x-100 opacity-100 delay-300'
               }`}
             >
+              {steps === undefined ? null : <div className="mb-7">{steps}</div>}
               <div className="flex flex-col gap-5.5 rounded-dialog border border-border-strong bg-glass p-7 backdrop-blur-xl">
                 <div className="flex flex-col gap-1.5">
+                  {eyebrow === undefined ? null : (
+                    <span className="font-mono text-mono-caption tracking-[0.18em] text-primary uppercase">
+                      {eyebrow}
+                    </span>
+                  )}
                   <h1 className="text-headline font-medium">{title}</h1>
                   <p className="text-ui text-foreground-muted">{subtitle}</p>
                 </div>

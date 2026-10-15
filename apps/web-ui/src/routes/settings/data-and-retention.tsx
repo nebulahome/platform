@@ -31,6 +31,7 @@ import { Button, Panel, PanelNote, PanelRow, Segmented, SelectField } from '@neb
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
+import { BROWSER_ZONE, TIME_ZONES, zoneName } from '@/lib/time-zones';
 import { SETTINGS_QUERY_KEYS, fetchServerSettings, updateServerSettings } from '@/settings/api';
 import { RETENTION_RUNGS, ladderProblem } from '@/settings/retention';
 import {
@@ -59,16 +60,11 @@ const HISTORY_ROWS: readonly { readonly key: string; readonly label: string }[] 
 /** Every duration setting outside the telemetry ladder has the same one-day floor. */
 const HISTORY_MINIMUM_DAYS = 1;
 
-/** The browser's own zone: what "use this browser's" sets. */
-const BROWSER_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-/**
- * Every zone the browser knows, for the house's time zone; UTC first, and the browser's own zone
- * among them even on a browser that lists none.
- */
-const TIME_ZONES: readonly Choice[] = [
-  ...new Set(['UTC', BROWSER_ZONE, ...Intl.supportedValuesOf('timeZone')]),
-].map((zone) => ({ value: zone, label: zone.replaceAll('_', ' ') }));
+/** Every zone the browser knows, for the house's time zone (`time-zones.ts`). */
+const TIME_ZONE_CHOICES: readonly Choice[] = TIME_ZONES.map((zone) => ({
+  value: zone,
+  label: zoneName(zone),
+}));
 
 /**
  * Renders the server settings page.
@@ -345,7 +341,7 @@ export function DataAndRetention() {
                 isLabelHidden
                 disabled={!canWrite}
                 value={asWord(effective.get('house.timezone'), 'UTC')}
-                options={TIME_ZONES}
+                options={TIME_ZONE_CHOICES}
                 onChange={(next) => {
                   edit('house.timezone', next);
                 }}

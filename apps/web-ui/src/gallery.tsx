@@ -52,6 +52,7 @@ import {
   PanelRow,
   Pill,
   Segmented,
+  SetupSteps,
   SelectField,
   Slider,
   Stepper,
@@ -72,7 +73,14 @@ import { CONTAINER_QUERY_KEYS } from '@/containers/api';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { capabilityStateOf } from '@/library/entity-control';
 import { readingOf } from '@/library/entity-reading';
+import { AuthLayout } from '@/routes/auth-layout';
 import { EnergyCard } from '@/routes/dashboard/cards/energy/energy-card';
+import {
+  FIRST_RUN_HEADINGS,
+  FIRST_RUN_STEPS,
+  FirstRunForm,
+  useFirstRunStep,
+} from '@/routes/first-run';
 import { AliasFormulaField } from '@/routes/library/alias-formula-field';
 import { AutomationEditor } from '@/routes/library/automation-editor';
 import { DeviceDialog } from '@/routes/library/device-dialog';
@@ -576,6 +584,47 @@ function Section(props: SectionProps) {
 
 const TONES: readonly BadgeTone[] = ['neutral', 'accent', 'success', 'warning', 'danger'];
 
+/**
+ * The first run, framed as the setup screen frames it, with a switch between its two steps.
+ *
+ * @returns The sample.
+ */
+function FirstRunSample() {
+  const step = useFirstRunStep((state) => state.step);
+  const setStep = useFirstRunStep((state) => state.setStep);
+  const heading = FIRST_RUN_HEADINGS[step];
+
+  return (
+    <div className="flex w-full flex-col gap-3">
+      <Segmented
+        label="Step"
+        options={FIRST_RUN_STEPS.map((entry, index) => ({
+          value: String(index),
+          label: entry.name,
+        }))}
+        value={String(step)}
+        onChange={(value) => {
+          setStep(Number(value));
+        }}
+      />
+      <div
+        data-sample="/setup"
+        className="relative h-[62rem] w-full overflow-hidden rounded-panel border border-border"
+      >
+        <AuthLayout
+          isWide
+          eyebrow={`Step ${String(step + 1)} of ${String(FIRST_RUN_STEPS.length)}`}
+          title={heading?.title ?? ''}
+          subtitle={heading?.subtitle ?? ''}
+          steps={<SetupSteps steps={FIRST_RUN_STEPS} current={step} />}
+        >
+          <FirstRunForm />
+        </AuthLayout>
+      </div>
+    </div>
+  );
+}
+
 /** What a sample's choices do: nothing, they are shown rather than used. */
 function doNothing(): void {
   // A gallery choice changes nothing.
@@ -846,6 +895,13 @@ function Gallery() {
 
         <Section title="Empty library" note="Automations, scenes and aliases with nothing yet.">
           <EmptyLibrarySample />
+        </Section>
+
+        <Section
+          title="First run"
+          note="Account, then Home: the steps above a 640px card. The pin and the times follow what is typed."
+        >
+          <FirstRunSample />
         </Section>
 
         <Section title="Type" note="Each step names a job rather than a size.">
