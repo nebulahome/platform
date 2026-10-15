@@ -13,6 +13,8 @@
  */
 import { PINO_LEVEL_BY_NAME, type JsonValue } from '@nebulahome/contracts';
 
+import { translate } from '@/i18n/messages';
+
 /** One option, as a dropdown wants it. */
 export type Choice = {
   /** The encoded value. */
@@ -82,7 +84,7 @@ export function retentionChoices(minimumDays: number, canBeForever = true): Choi
   return DURATIONS.filter((days) => (days === null ? canBeForever : days >= minimumDays)).map(
     (days) => ({
       value: encodeChoice(days),
-      label: days === null ? 'Forever' : durationLabel(days),
+      label: days === null ? translate('time.forever', 'Forever') : durationLabel(days),
     }),
   );
 }
@@ -95,12 +97,18 @@ export function retentionChoices(minimumDays: number, canBeForever = true): Choi
  */
 export function durationLabel(days: number): string {
   if (days % 365 === 0) {
-    const years = days / 365;
-
-    return years === 1 ? '1 year' : `${String(years)} years`;
+    return translate('time.years', {
+      count: days / 365,
+      defaultValue_one: '{{count}} year',
+      defaultValue_other: '{{count}} years',
+    });
   }
 
-  return days === 1 ? '1 day' : `${String(days)} days`;
+  return translate('time.days', {
+    count: days,
+    defaultValue_one: '{{count}} day',
+    defaultValue_other: '{{count}} days',
+  });
 }
 
 /**
@@ -108,20 +116,29 @@ export function durationLabel(days: number): string {
  *
  * The stored value is pino's number rather than its name, so the label is the name and the value
  * is what the column holds.
+ *
+ * @returns The choices.
  */
-export const LOG_LEVEL_CHOICES: readonly Choice[] = Object.entries(PINO_LEVEL_BY_NAME).map(
-  ([name, level]) => ({
+export function logLevelChoices(): Choice[] {
+  // The level's own name stays English, as it does in every log line (RULES.md 1).
+  return Object.entries(PINO_LEVEL_BY_NAME).map(([name, level]) => ({
     value: String(level),
-    label: `${name} and above`,
-  }),
-);
+    label: translate('settings.data.levelAndAbove', '{{level}} and above', { level: name }),
+  }));
+}
 
-/** How long a session may last, in hours. */
-export const SESSION_LIFETIME_CHOICES: readonly Choice[] = [
-  { value: '12', label: '12 hours' },
-  { value: '24', label: 'A day' },
-  { value: '168', label: 'A week' },
-  { value: '720', label: 'A month' },
-  { value: '2160', label: 'Three months' },
-  { value: '8760', label: 'A year' },
-];
+/**
+ * How long a session may last, in hours.
+ *
+ * @returns The choices.
+ */
+export function sessionLifetimeChoices(): Choice[] {
+  return [
+    { value: '12', label: translate('settings.data.lifetimes.12h', '12 hours') },
+    { value: '24', label: translate('settings.data.lifetimes.day', 'A day') },
+    { value: '168', label: translate('settings.data.lifetimes.week', 'A week') },
+    { value: '720', label: translate('settings.data.lifetimes.month', 'A month') },
+    { value: '2160', label: translate('settings.data.lifetimes.threeMonths', 'Three months') },
+    { value: '8760', label: translate('settings.data.lifetimes.year', 'A year') },
+  ];
+}

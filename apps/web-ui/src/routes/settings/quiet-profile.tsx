@@ -2,6 +2,8 @@
  * A day of processor load, as the quietest time was learned from it: the smoothed profile from
  * midnight to midnight, and a mark where backups start.
  */
+import { useTranslation } from 'react-i18next';
+
 import { slotOfTime } from '@/routes/settings/backup-text';
 
 /** What the chart needs. */
@@ -24,6 +26,7 @@ const HEIGHT = 40;
  * @returns The chart, or nothing without a profile.
  */
 export function QuietProfile(props: QuietProfileProps) {
+  const { t } = useTranslation();
   const { profile, time } = props;
   const known = profile.filter((value): value is number => value !== null);
 
@@ -48,7 +51,11 @@ export function QuietProfile(props: QuietProfileProps) {
         viewBox={`0 0 ${String(WIDTH)} ${String(HEIGHT)}`}
         className="h-10 w-full max-w-md"
         role="img"
-        aria-label={`The processor's load over a typical day; backups start at ${time}`}
+        aria-label={t(
+          'settings.backup.quietProfile',
+          "The processor's load over a typical day; backups start at {{time}}",
+          { time },
+        )}
         preserveAspectRatio="none"
       >
         <path

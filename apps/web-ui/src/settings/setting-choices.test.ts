@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { RETENTION_MINIMUM_DAYS } from '@nebulahome/contracts';
 
 import {
-  LOG_LEVEL_CHOICES,
+  logLevelChoices,
   asWord,
   decodeNumberChoice,
   durationLabel,
@@ -83,13 +83,13 @@ describe('durationLabel', () => {
   });
 });
 
-describe('LOG_LEVEL_CHOICES', () => {
+describe('logLevelChoices', () => {
   it('offers pino numbers as values and names as labels', () => {
     // The column holds the number; nobody should have to know that to change the setting.
-    expect(LOG_LEVEL_CHOICES).toContainEqual({ value: '30', label: 'info and above' });
+    expect(logLevelChoices()).toContainEqual({ value: '30', label: 'info and above' });
   });
 
   it('offers all six levels', () => {
-    expect(LOG_LEVEL_CHOICES).toHaveLength(6);
+    expect(logLevelChoices()).toHaveLength(6);
   });
 });

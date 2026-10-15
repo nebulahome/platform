@@ -7,6 +7,7 @@
  * since boot.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { NetworkTotals, SystemMonitorSample } from '@nebulahome/contracts';
 import { cn, Panel, PanelNote } from '@nebulahome/ui';
@@ -70,14 +71,17 @@ function Rate(props: RateProps) {
  * @returns The card.
  */
 export function SystemNetworkCard(props: SystemNetworkCardProps) {
+  const { t } = useTranslation();
   const { samples, network } = props;
 
   if (network === null) {
     return (
-      <Panel title="Network">
+      <Panel title={t('system.network', 'Network')}>
         <PanelNote>
-          The network cannot be read on this machine. It is read from the kernel on Linux and from
-          netstat on Windows; the two network entities stay unavailable until it can be.
+          {t(
+            'system.networkUnreadable',
+            'The network cannot be read on this machine. It is read from the kernel on Linux and from netstat on Windows; the two network entities stay unavailable until it can be.',
+          )}
         </PanelNote>
       </Panel>
     );
@@ -87,7 +91,7 @@ export function SystemNetworkCard(props: SystemNetworkCardProps) {
 
   return (
     <Panel
-      title="Network"
+      title={t('system.network', 'Network')}
       action={
         network.interface === null ? undefined : (
           <span className="font-mono text-caption text-foreground-subtle">{network.interface}</span>
@@ -96,20 +100,20 @@ export function SystemNetworkCard(props: SystemNetworkCardProps) {
     >
       <div className="grid grid-cols-2 gap-4 px-4 pt-4">
         <Rate
-          label="Download"
+          label={t('system.download', 'Download')}
           icon={<DownloadIcon width="13" height="13" />}
           dotClass="bg-tag-cyan"
           rate={latest?.receiveRate ?? null}
           total={network.receivedBytes}
-          totalLabel="received"
+          totalLabel={t('system.received', 'received')}
         />
         <Rate
-          label="Upload"
+          label={t('system.upload', 'Upload')}
           icon={<UploadIcon width="13" height="13" />}
           dotClass="bg-tag-violet"
           rate={latest?.transmitRate ?? null}
           total={network.transmittedBytes}
-          totalLabel="sent"
+          totalLabel={t('system.sent', 'sent')}
         />
       </div>
 
@@ -117,15 +121,25 @@ export function SystemNetworkCard(props: SystemNetworkCardProps) {
         <LiveAreaChart
           data={networkSeries(samples)}
           series={[
-            { key: 'download', label: 'Download', color: DOWNLOAD_COLOR, dotClass: 'bg-tag-cyan' },
-            { key: 'upload', label: 'Upload', color: UPLOAD_COLOR, dotClass: 'bg-tag-violet' },
+            {
+              key: 'download',
+              label: t('system.download', 'Download'),
+              color: DOWNLOAD_COLOR,
+              dotClass: 'bg-tag-cyan',
+            },
+            {
+              key: 'upload',
+              label: t('system.upload', 'Upload'),
+              color: UPLOAD_COLOR,
+              dotClass: 'bg-tag-violet',
+            },
           ]}
           formatValue={(value) => formatRate(value)}
         />
       </div>
 
       <p className="px-4 pt-2.5 pb-3.5 font-mono text-label text-foreground-subtle uppercase">
-        Last 15 minutes · totals since the interface came up
+        {t('system.networkFoot', 'Last 15 minutes · totals since the interface came up')}
       </p>
     </Panel>
   );

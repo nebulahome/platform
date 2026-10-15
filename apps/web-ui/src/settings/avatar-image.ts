@@ -16,6 +16,8 @@
  */
 import { AVATAR_MAXIMUM_BYTES, AVATAR_PIXELS, type AvatarMimeType } from '@nebulahome/contracts';
 
+import { translate } from '@/i18n/messages';
+
 /** The quality settings tried in order, until one produces a small enough file. */
 const QUALITY_STEPS: readonly number[] = [0.85, 0.7, 0.55, 0.4];
 
@@ -65,7 +67,12 @@ async function decode(file: File): Promise<ImageBitmap> {
   try {
     return await globalThis.createImageBitmap(file);
   } catch (cause: unknown) {
-    throw new Error('That file could not be read as an image', { cause });
+    throw new Error(
+      translate('settings.avatar.unreadable', 'That file could not be read as an image'),
+      {
+        cause,
+      },
+    );
   }
 }
 
@@ -119,7 +126,7 @@ export async function toAvatarUpload(file: File): Promise<AvatarUpload> {
   const context = canvas.getContext('2d');
 
   if (context === null) {
-    throw new Error('This browser cannot resize images');
+    throw new Error(translate('settings.avatar.noCanvas', 'This browser cannot resize images'));
   }
 
   context.drawImage(
@@ -138,7 +145,9 @@ export async function toAvatarUpload(file: File): Promise<AvatarUpload> {
   const blob = (await encode(canvas, 'image/webp')) ?? (await encode(canvas, 'image/png'));
 
   if (blob === null) {
-    throw new Error('That image could not be made small enough');
+    throw new Error(
+      translate('settings.avatar.tooBig', 'That image could not be made small enough'),
+    );
   }
 
   const bytes = new Uint8Array(await blob.arrayBuffer());

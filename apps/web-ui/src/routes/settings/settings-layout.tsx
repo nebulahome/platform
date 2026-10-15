@@ -20,12 +20,15 @@
  * happened to be over.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet } from 'react-router';
 
 import { Badge } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { LockIcon } from '@/components/icons';
+import { defineMessage, text, type Message } from '@/i18n/messages';
+import { roleName } from '@/lib/role-names';
 
 /** One entry in the settings rail. */
 export type SettingsSection = {
@@ -33,7 +36,7 @@ export type SettingsSection = {
   readonly path: string;
 
   /** What it is called. */
-  readonly label: string;
+  readonly label: Message;
 
   /** Whose answer the settings in it are. */
   readonly group: 'you' | 'server';
@@ -49,23 +52,48 @@ export type SettingsSection = {
  * of each other.
  */
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
-  { path: '/settings/account', label: 'Account & security', group: 'you', permission: null },
-  { path: '/settings/interface', label: 'Interface', group: 'you', permission: null },
+  {
+    path: '/settings/account',
+    label: defineMessage('settings.nav.account', 'Account & security'),
+    group: 'you',
+    permission: null,
+  },
+  {
+    path: '/settings/interface',
+    label: defineMessage('settings.nav.interface', 'Interface'),
+    group: 'you',
+    permission: null,
+  },
   {
     path: '/settings/system',
-    label: 'System monitor',
+    label: defineMessage('settings.nav.system', 'System monitor'),
     group: 'server',
     permission: 'system:read',
   },
-  { path: '/settings/users', label: 'Users & roles', group: 'server', permission: 'user:read' },
+  {
+    path: '/settings/users',
+    label: defineMessage('settings.nav.users', 'Users & roles'),
+    group: 'server',
+    permission: 'user:read',
+  },
   {
     path: '/settings/data',
-    label: 'Data & retention',
+    label: defineMessage('settings.nav.data', 'Data & retention'),
     group: 'server',
     permission: 'settings:read',
   },
-  { path: '/settings/backup', label: 'Backup', group: 'server', permission: 'settings:read' },
-  { path: '/settings/icons', label: 'Icons', group: 'server', permission: 'settings:read' },
+  {
+    path: '/settings/backup',
+    label: defineMessage('settings.nav.backup', 'Backup'),
+    group: 'server',
+    permission: 'settings:read',
+  },
+  {
+    path: '/settings/icons',
+    label: defineMessage('settings.nav.icons', 'Icons'),
+    group: 'server',
+    permission: 'settings:read',
+  },
 ];
 
 /** Where somebody who opens `/settings` with nothing more specific in mind ends up. */
@@ -115,7 +143,7 @@ function SectionGroup(props: SectionGroupProps) {
             }`
           }
         >
-          {section.label}
+          {text(section.label)}
         </NavLink>
       ))}
     </div>
@@ -128,6 +156,7 @@ function SectionGroup(props: SectionGroupProps) {
  * @returns The page.
  */
 export function SettingsLayout() {
+  const { t } = useTranslation();
   const can = useSession((state) => state.can);
   const role = useSession((state) => state.user?.role);
   const reachable = SETTINGS_SECTIONS.filter(
@@ -138,23 +167,26 @@ export function SettingsLayout() {
   return (
     <div className="flex min-w-0 grow flex-col">
       <header className="shrink-0 px-8 pt-7">
-        <h1 className="text-display font-medium">Settings</h1>
+        <h1 className="text-display font-medium">{t('settings.title', 'Settings')}</h1>
       </header>
 
       <div className="flex min-h-0 grow gap-8 overflow-hidden px-8 pt-6 pb-7">
-        <nav aria-label="Settings" className="flex w-50 shrink-0 flex-col gap-5">
+        <nav
+          aria-label={t('settings.title', 'Settings')}
+          className="flex w-50 shrink-0 flex-col gap-5"
+        >
           <SectionGroup
-            title="You"
+            title={t('settings.groups.you', 'You')}
             sections={reachable.filter((section) => section.group === 'you')}
           />
 
           <SectionGroup
-            title="Server"
+            title={t('settings.groups.server', 'Server')}
             sections={server}
             badge={
               server.length === 0 || role === undefined ? undefined : (
                 <Badge tone="accent" icon={<LockIcon width="11" height="11" />}>
-                  <span className="capitalize">{role}</span>
+                  {roleName(role)}
                 </Badge>
               )
             }

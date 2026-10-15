@@ -11,6 +11,7 @@
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Badge, Button, Panel } from '@nebulahome/ui';
 
@@ -29,6 +30,7 @@ const COLUMNS = 'grid grid-cols-[1fr_140px_110px_86px] items-center gap-3 px-4';
  * @returns The panel.
  */
 export function SessionsPanel() {
+  const { t } = useTranslation();
   const endSession = useSession((state) => state.signOut);
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | undefined>(undefined);
@@ -65,7 +67,7 @@ export function SessionsPanel() {
 
   return (
     <Panel
-      title="Active sessions"
+      title={t('settings.sessions.title', 'Active sessions')}
       action={
         <Button
           variant="danger"
@@ -74,19 +76,27 @@ export function SessionsPanel() {
             void endSession(true);
           }}
         >
-          Sign out everywhere
+          {t('settings.sessions.signOutEverywhere', 'Sign out everywhere')}
         </Button>
       }
     >
       <div className={`${COLUMNS} border-b border-border py-2.5`}>
-        <span className="font-mono text-label text-foreground-subtle uppercase">Browser</span>
-        <span className="font-mono text-label text-foreground-subtle uppercase">Address</span>
-        <span className="font-mono text-label text-foreground-subtle uppercase">Last active</span>
+        <span className="font-mono text-label text-foreground-subtle uppercase">
+          {t('settings.sessions.browser', 'Browser')}
+        </span>
+        <span className="font-mono text-label text-foreground-subtle uppercase">
+          {t('settings.sessions.address', 'Address')}
+        </span>
+        <span className="font-mono text-label text-foreground-subtle uppercase">
+          {t('settings.sessions.lastActive', 'Last active')}
+        </span>
         <span />
       </div>
 
       {sessions.isPending ? (
-        <p className="px-4 py-4 text-ui text-foreground-subtle">Reading your sessions…</p>
+        <p className="px-4 py-4 text-ui text-foreground-subtle">
+          {t('settings.sessions.reading', 'Reading your sessions…')}
+        </p>
       ) : null}
 
       {sessions.isError ? (
@@ -114,7 +124,7 @@ export function SessionsPanel() {
 
           <div className="flex justify-end">
             {entry.isCurrent ? (
-              <Badge tone="success">This one</Badge>
+              <Badge tone="success">{t('settings.sessions.thisOne', 'This one')}</Badge>
             ) : (
               <Button
                 variant="danger"
@@ -123,7 +133,7 @@ export function SessionsPanel() {
                   revoke(entry.id);
                 }}
               >
-                Revoke
+                {t('settings.sessions.revoke', 'Revoke')}
               </Button>
             )}
           </div>

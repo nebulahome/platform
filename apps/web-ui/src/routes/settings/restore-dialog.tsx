@@ -9,6 +9,7 @@
  */
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { BackupArchive } from '@nebulahome/contracts';
 import { Button, Modal, Switch } from '@nebulahome/ui';
@@ -19,7 +20,7 @@ import { PasswordField } from '@/components/password-field';
 import { toMessage } from '@/lib/error-message';
 import { formatBytes } from '@/lib/format-bytes';
 import { absoluteTime } from '@/lib/format-time';
-import { SECTION_NAMES } from '@/routes/settings/backup-text';
+import { sectionName } from '@/routes/settings/backup-text';
 
 /** What the dialog needs. */
 export type RestoreDialogProps = {
@@ -35,6 +36,7 @@ export type RestoreDialogProps = {
  * @returns The dialog.
  */
 export function RestoreDialog(props: RestoreDialogProps) {
+  const { t } = useTranslation();
   const { archive, onClose } = props;
   const enter = useMaintenance((state) => state.enter);
   const [password, setPassword] = useState('');
@@ -51,7 +53,7 @@ export function RestoreDialog(props: RestoreDialogProps) {
      */
     mutationFn: async () => {
       if (archive === null) {
-        throw new Error('No archive is chosen');
+        throw new Error(t('backup.restoreDialog.noArchive', 'No archive is chosen'));
       }
 
       return startRestore({
@@ -91,12 +93,12 @@ export function RestoreDialog(props: RestoreDialogProps) {
       onClose={onClose}
       size="small"
       closesOnBackdrop={false}
-      title="Restore this backup"
+      title={t('backup.restoreDialog.title', 'Restore this backup')}
       description={`${absoluteTime(archive.createdAt)} · ${archive.locationName} · ${formatBytes(archive.bytes)}`}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
           <Button
             variant="danger"
@@ -107,44 +109,70 @@ export function RestoreDialog(props: RestoreDialogProps) {
               restore.mutate();
             }}
           >
-            Restore
+            {t('backup.restore', 'Restore')}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5 text-ui text-foreground-muted">
-          <p>What is here now is replaced by what the backup holds:</p>
+          <p>
+            {t(
+              'backup.restoreDialog.replaced',
+              'What is here now is replaced by what the backup holds:',
+            )}
+          </p>
           <ul className="list-disc pl-5">
-            <li>the users and their roles, the devices, the automations and the settings;</li>
             <li>
-              {archive.sections.includes('history')
-                ? 'the history;'
-                : 'the history is emptied: this backup was taken without it;'}
+              {t(
+                'backup.restoreDialog.configuration',
+                'the users and their roles, the devices, the automations and the settings;',
+              )}
             </li>
             <li>
-              the installed integrations
-              {archive.sections.includes('packages') ? ' and the packages' : ''}.
+              {archive.sections.includes('history')
+                ? t('backup.restoreDialog.history', 'the history;')
+                : t(
+                    'backup.restoreDialog.noHistory',
+                    'the history is emptied: this backup was taken without it;',
+                  )}
+            </li>
+            <li>
+              {archive.sections.includes('packages')
+                ? t(
+                    'backup.restoreDialog.integrationsAndPackages',
+                    'the installed integrations and the packages.',
+                  )
+                : t('backup.restoreDialog.integrations', 'the installed integrations.')}
             </li>
           </ul>
           <p>
-            The backup locations and their settings stay as they are here. Everybody signs in again
-            afterwards.
+            {t(
+              'backup.restoreDialog.locationsStay',
+              'The backup locations and their settings stay as they are here. Everybody signs in again afterwards.',
+            )}
           </p>
           <p className="text-caption text-foreground-subtle">
-            Holds: {archive.sections.map((section) => SECTION_NAMES[section]).join(', ')}
+            {t('backup.restoreDialog.holds', 'Holds: {{sections}}', {
+              sections: archive.sections.map((section) => sectionName(section)).join(', '),
+            })}
           </p>
         </div>
 
         <div className="flex items-center justify-between gap-4">
           <div className="flex flex-col">
-            <span className="text-ui text-foreground">Back up what is here first</span>
+            <span className="text-ui text-foreground">
+              {t('backup.restoreDialog.safety', 'Back up what is here first')}
+            </span>
             <span className="text-caption text-foreground-subtle">
-              The way back, if this is not what you wanted.
+              {t(
+                'backup.restoreDialog.safetyNote',
+                'The way back, if this is not what you wanted.',
+              )}
             </span>
           </div>
           <Switch
-            label="Back up what is here first"
+            label={t('backup.restoreDialog.safety', 'Back up what is here first')}
             isOn={takeSafetyBackup}
             onChange={setSafetyBackup}
           />
@@ -152,10 +180,14 @@ export function RestoreDialog(props: RestoreDialogProps) {
 
         {needsKey ? (
           <label className="flex flex-col gap-1.5">
-            <span className="text-ui font-medium text-foreground">Backup key</span>
+            <span className="text-ui font-medium text-foreground">
+              {t('backup.key.title', 'Backup key')}
+            </span>
             <span className="text-caption text-foreground-subtle">
-              This backup was made with another installation’s key: choose the key file downloaded
-              from it.
+              {t(
+                'backup.restoreDialog.otherKey',
+                'This backup was made with another installation’s key: choose the key file downloaded from it.',
+              )}
             </span>
             <input
               type="file"
@@ -179,7 +211,7 @@ export function RestoreDialog(props: RestoreDialogProps) {
         ) : null}
 
         <PasswordField
-          label="Your password"
+          label={t('backup.key.password', 'Your password')}
           value={password}
           onChange={setPassword}
           autoComplete="current-password"

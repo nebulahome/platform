@@ -14,6 +14,7 @@
  */
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { IconView } from '@nebulahome/contracts';
 import {
@@ -28,6 +29,7 @@ import {
 } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
+import { iconName } from '@/lib/icon-names';
 import { useDebounced } from '@/lib/use-debounced';
 import { fetchIcons, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { NoMatches } from '@/routes/library/no-matches';
@@ -67,20 +69,21 @@ function inScope(icon: IconView, scope: IconScope): boolean {
  * @returns The tile.
  */
 function IconTile(props: { readonly icon: IconView; readonly onOpen: () => void }) {
+  const { t } = useTranslation();
   const { icon, onOpen } = props;
   const marks = [
     INTERFACE_IDS.has(icon.id) ? (
       <Badge key="interface" tone="accent" size="small">
-        Interface
+        {t('settings.icons.interface', 'Interface')}
       </Badge>
     ) : null,
     icon.origin === 'custom' ? (
       <Badge key="custom" tone="neutral" size="small">
-        Custom
+        {t('settings.icons.custom', 'Custom')}
       </Badge>
     ) : icon.isOverridden ? (
       <Badge key="modified" tone="warning" size="small">
-        Modified
+        {t('settings.icons.modified', 'Modified')}
       </Badge>
     ) : null,
   ].filter((mark) => mark !== null);
@@ -95,7 +98,9 @@ function IconTile(props: { readonly icon: IconView; readonly onOpen: () => void 
       >
         <CatalogueIcon node={icon.node} frame={icon.frame} size={28} className="text-foreground" />
         <span className="flex w-full min-w-0 flex-col gap-0.5">
-          <span className="truncate text-ui font-medium text-foreground">{icon.name}</span>
+          <span className="truncate text-ui font-medium text-foreground">
+            {iconName(icon.id, icon.name)}
+          </span>
           <span className="truncate font-mono text-caption text-foreground-subtle">{icon.id}</span>
         </span>
         {marks.length === 0 ? null : (
@@ -112,6 +117,7 @@ function IconTile(props: { readonly icon: IconView; readonly onOpen: () => void 
  * @returns The panel.
  */
 export function IconsPanel() {
+  const { t } = useTranslation();
   const canWrite = useSession((state) => state.can)('settings:write');
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -148,12 +154,12 @@ export function IconsPanel() {
   return (
     <div className="flex flex-col gap-5">
       <Panel
-        title="Icons"
+        title={t('settings.nav.icons', 'Icons')}
         action={
           <div className="flex items-center gap-2.5">
             <SearchField
-              label="Search icons"
-              placeholder="Search icons…"
+              label={t('settings.icons.search', 'Search icons')}
+              placeholder={t('settings.icons.searchPlaceholder', 'Search icons…')}
               className="w-44 lg:w-64"
               value={search}
               onChange={setSearch}
@@ -165,7 +171,7 @@ export function IconsPanel() {
                   setEditing({ mode: 'create' });
                 }}
               >
-                New icon
+                {t('settings.icons.new', 'New icon')}
               </Button>
             ) : null}
           </div>
@@ -173,32 +179,39 @@ export function IconsPanel() {
       >
         <div className="border-t border-border px-4 pt-3">
           <Tabs
-            label="Which icons"
+            label={t('settings.icons.which', 'Which icons')}
             idPrefix="icons"
             value={scope}
             onChange={setScope}
             items={[
-              { id: 'all', label: 'All' },
-              { id: 'interface', label: 'Interface' },
-              { id: 'custom', label: 'Custom' },
+              { id: 'all', label: t('settings.icons.all', 'All') },
+              { id: 'interface', label: t('settings.icons.interface', 'Interface') },
+              { id: 'custom', label: t('settings.icons.custom', 'Custom') },
             ]}
           />
           {scope === 'interface' ? (
             <p className="pt-3 text-caption text-foreground-subtle">
-              The icons the interface draws itself with. Drawing one afresh changes it everywhere.
+              {t(
+                'settings.icons.interfaceNote',
+                'The icons the interface draws itself with. Drawing one afresh changes it everywhere.',
+              )}
             </p>
           ) : null}
         </div>
         <TabPanel idPrefix="icons" id={scope}>
           {icons.isPending ? (
-            <p className="px-4 py-3.5 text-ui text-foreground-muted">Loading…</p>
+            <p className="px-4 py-3.5 text-ui text-foreground-muted">
+              {t('common.loading', 'Loading…')}
+            </p>
           ) : icons.error !== null ? (
             <p role="alert" className="px-4 py-3.5 text-ui text-danger">
-              The catalogue could not be read.
+              {t('settings.icons.unreadable', 'The catalogue could not be read.')}
             </p>
           ) : icons.data.length === 0 ? (
             query === '' ? (
-              <p className="px-4 py-3.5 text-ui text-foreground-muted">The catalogue is empty.</p>
+              <p className="px-4 py-3.5 text-ui text-foreground-muted">
+                {t('settings.icons.empty', 'The catalogue is empty.')}
+              </p>
             ) : (
               <div className="p-4">
                 <NoMatches
@@ -211,11 +224,13 @@ export function IconsPanel() {
             )
           ) : shown.length === 0 ? (
             <p className="px-4 py-3.5 text-ui text-foreground-muted">
-              {scope === 'custom' ? 'No icons of your own yet.' : 'None of these icons match.'}
+              {scope === 'custom'
+                ? t('settings.icons.noCustom', 'No icons of your own yet.')
+                : t('settings.icons.noMatch', 'None of these icons match.')}
             </p>
           ) : (
             <ul
-              aria-label="Icons"
+              aria-label={t('settings.nav.icons', 'Icons')}
               className="grid grid-cols-3 gap-2.5 p-4 sm:grid-cols-4 lg:grid-cols-6"
             >
               {shown.map((icon) => (
@@ -234,7 +249,11 @@ export function IconsPanel() {
         </TabPanel>
         {icons.data !== undefined && icons.data.length >= PAGE ? (
           <PanelNote>
-            The first {PAGE} are shown. Search to find the rest of the catalogue.
+            {t(
+              'settings.icons.firstShown',
+              'The first {{count}} are shown. Search to find the rest of the catalogue.',
+              { count: PAGE },
+            )}
           </PanelNote>
         ) : null}
       </Panel>

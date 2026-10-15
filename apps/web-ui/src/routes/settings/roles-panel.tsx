@@ -16,12 +16,15 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { PERMISSIONS } from '@nebulahome/contracts';
 import { Badge, Panel, PanelNote } from '@nebulahome/ui';
 
 import { ChevronIcon } from '@/components/icons';
 import { toMessage } from '@/lib/error-message';
+import { permissionDescription } from '@/lib/permission-descriptions';
+import { roleDescription, roleName } from '@/lib/role-names';
 import { SETTINGS_QUERY_KEYS, fetchRoles } from '@/settings/api';
 
 /** Every resource the catalogue names, in the order it declares them. */
@@ -29,17 +32,13 @@ const RESOURCES: readonly string[] = [
   ...new Set(PERMISSIONS.map((permission) => permission.resource)),
 ];
 
-/** Each permission's description, by key. */
-const DESCRIPTIONS: ReadonlyMap<string, string> = new Map(
-  PERMISSIONS.map((permission) => [permission.key, permission.description]),
-);
-
 /**
  * Renders the roles panel.
  *
  * @returns The panel.
  */
 export function RolesPanel() {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState<string | null>(null);
   const roles = useQuery({
     queryKey: SETTINGS_QUERY_KEYS.roles,
@@ -55,9 +54,11 @@ export function RolesPanel() {
   });
 
   return (
-    <Panel title="What each role grants" className="overflow-hidden">
+    <Panel title={t('settings.roles.title', 'What each role grants')} className="overflow-hidden">
       {roles.isPending ? (
-        <p className="px-4 py-4 text-ui text-foreground-subtle">Reading the roles…</p>
+        <p className="px-4 py-4 text-ui text-foreground-subtle">
+          {t('settings.roles.reading', 'Reading the roles…')}
+        </p>
       ) : null}
 
       {roles.isError ? (
@@ -81,21 +82,30 @@ export function RolesPanel() {
               className="flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-surface-raised/50"
             >
               <div className="flex min-w-0 grow flex-col gap-0.5">
-                <span className="text-ui font-medium text-foreground">{role.name}</span>
+                <span className="text-ui font-medium text-foreground">
+                  {roleName(role.key, role.name)}
+                </span>
                 <span className="text-caption leading-snug text-foreground-subtle">
-                  {role.description}
+                  {roleDescription(role.key, role.description)}
                 </span>
               </div>
 
               <Badge>
-                {role.userCount === 1 ? '1 person' : `${String(role.userCount)} people`}
+                {t('settings.roles.people', {
+                  count: role.userCount,
+                  defaultValue_one: '{{count}} person',
+                  defaultValue_other: '{{count}} people',
+                })}
               </Badge>
 
               <span className="hidden w-44 flex-col gap-1.5 sm:flex">
                 <span className="text-caption text-foreground-muted tabular">
                   {role.key === 'owner'
-                    ? 'Every permission'
-                    : `${String(held.size)} of ${String(PERMISSIONS.length)} permissions`}
+                    ? t('settings.roles.every', 'Every permission')
+                    : t('settings.roles.held', '{{held}} of {{count}} permissions', {
+                        held: held.size,
+                        count: PERMISSIONS.length,
+                      })}
                 </span>
                 <span className="h-1 overflow-hidden rounded-pill bg-surface-high">
                   <span
@@ -137,7 +147,9 @@ export function RolesPanel() {
                             >
                               <span className="w-37.5 shrink-0 font-mono">{permission.key}</span>
                               <span className={isHeld ? 'text-foreground-subtle' : ''}>
-                                {isHeld ? (DESCRIPTIONS.get(permission.key) ?? '') : 'not granted'}
+                                {isHeld
+                                  ? permissionDescription(permission.key)
+                                  : t('settings.roles.notGranted', 'not granted')}
                               </span>
                             </li>
                           );
@@ -153,9 +165,10 @@ export function RolesPanel() {
       })}
 
       <PanelNote>
-        Roles are read-only here. Changing what one grants needs an endpoint that does not exist yet
-        — `role:manage` is in the permission catalogue and nothing serves it. A person can still be
-        moved between roles from the table above.
+        {t(
+          'settings.roles.readOnly',
+          'Roles are read-only here. Changing what one grants needs an endpoint that does not exist yet — `role:manage` is in the permission catalogue and nothing serves it. A person can still be moved between roles from the table above.',
+        )}
       </PanelNote>
     </Panel>
   );

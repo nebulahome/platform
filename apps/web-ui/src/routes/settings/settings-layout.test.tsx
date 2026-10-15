@@ -125,7 +125,7 @@ describe('the settings rail', () => {
     signedInWith('settings:read');
     renderAt('/settings/account');
 
-    expect(screen.getByText('member')).toBeTruthy();
+    expect(screen.getByText('Member')).toBeTruthy();
   });
 });
 

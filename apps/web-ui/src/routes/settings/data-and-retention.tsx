@@ -36,20 +36,22 @@ import {
 import { Button, Panel, PanelNote, PanelRow, Segmented, SelectField } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
+import { defineMessage, text, type Message } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
 import { BROWSER_ZONE, TIME_ZONES, zoneName } from '@/lib/time-zones';
 import { SETTINGS_QUERY_KEYS, fetchServerSettings, updateServerSettings } from '@/settings/api';
 import { RETENTION_RUNGS, ladderProblem } from '@/settings/retention';
 import {
-  LOG_LEVEL_CHOICES,
-  SESSION_LIFETIME_CHOICES,
   asWord,
   decodeNumberChoice,
   encodeChoice,
+  logLevelChoices,
   retentionChoices,
+  sessionLifetimeChoices,
   type Choice,
 } from '@/settings/setting-choices';
+import { settingDescription } from '@/settings/setting-descriptions';
 
 /**
  * The other durations, with a short name for each.
@@ -57,11 +59,20 @@ import {
  * Named here rather than taken from the catalogue, whose descriptions are sentences - "How long
  * entity state changes are kept" reads as a note under a row and not as the row's title.
  */
-const HISTORY_ROWS: readonly { readonly key: string; readonly label: string }[] = [
-  { key: 'history.state_history.retention_days', label: 'Entity state changes' },
-  { key: 'history.automation_runs.retention_days', label: 'Automation traces' },
-  { key: 'history.logs.retention_days', label: 'Logs' },
-  { key: 'system.audit_log.retention_days', label: 'Audit trail' },
+const HISTORY_ROWS: readonly { readonly key: string; readonly label: Message }[] = [
+  {
+    key: 'history.state_history.retention_days',
+    label: defineMessage('settings.data.rows.stateChanges', 'Entity state changes'),
+  },
+  {
+    key: 'history.automation_runs.retention_days',
+    label: defineMessage('settings.data.rows.automationTraces', 'Automation traces'),
+  },
+  { key: 'history.logs.retention_days', label: defineMessage('settings.data.rows.logs', 'Logs') },
+  {
+    key: 'system.audit_log.retention_days',
+    label: defineMessage('settings.data.rows.audit', 'Audit trail'),
+  },
 ];
 
 /** The languages the house may speak, each by its own name. */
@@ -185,8 +196,9 @@ export function DataAndRetention() {
 
     return (
       <>
-        {' · changed by '}
-        {item.updatedBy.displayName}
+        {` · ${t('settings.data.changedBy', 'changed by {{name}}', {
+          name: item.updatedBy.displayName,
+        })}`}
         <span title={absoluteTime(item.updatedAt)}> {relativeTime(item.updatedAt)}</span>
       </>
     );
@@ -214,7 +226,7 @@ export function DataAndRetention() {
       title={label}
       note={
         <>
-          {note ?? stored.get(key)?.description ?? ''}
+          {note ?? settingDescription(key, stored.get(key)?.description)}
           {provenance(key)}
         </>
       }
@@ -235,7 +247,11 @@ export function DataAndRetention() {
   );
 
   if (settings.isPending) {
-    return <p className="text-ui text-foreground-subtle">Reading the settings…</p>;
+    return (
+      <p className="text-ui text-foreground-subtle">
+        {t('settings.data.reading', 'Reading the settings…')}
+      </p>
+    );
   }
 
   if (settings.isError) {
@@ -248,20 +264,22 @@ export function DataAndRetention() {
 
   return (
     <>
-      <Panel title="Telemetry retention">
+      <Panel title={t('settings.data.telemetry', 'Telemetry retention')}>
         {RETENTION_RUNGS.map((rung) => (
           <PanelRow
             key={rung.key}
-            title={<span className="font-mono">{rung.label}</span>}
+            title={<span className="font-mono">{text(rung.label)}</span>}
             note={
               <>
-                {rung.note}
+                {text(rung.note)}
                 {provenance(rung.key)}
               </>
             }
             control={
               <SelectField
-                label={`${rung.label} retention`}
+                label={t('settings.data.rungRetention', '{{rung}} retention', {
+                  rung: text(rung.label),
+                })}
                 isLabelHidden
                 disabled={!canWrite}
                 value={encodeChoice(effective.get(rung.key) ?? null)}
@@ -277,9 +295,10 @@ export function DataAndRetention() {
 
         {problem === null ? (
           <PanelNote>
-            A level cannot keep data for less time than the one below it. Each roll-up reads a fixed
-            distance back into the level beneath, so a shorter rung would drop the rows before the
-            coarser level had read them — and nothing would report it.
+            {t(
+              'settings.data.ladderNote',
+              'A level cannot keep data for less time than the one below it. Each roll-up reads a fixed distance back into the level beneath, so a shorter rung would drop the rows before the coarser level had read them — and nothing would report it.',
+            )}
           </PanelNote>
         ) : (
           <p role="alert" className="border-t border-border px-4 py-3 text-caption text-danger">
@@ -288,28 +307,39 @@ export function DataAndRetention() {
         )}
       </Panel>
 
-      <Panel title="How long the rest is kept">
+      <Panel title={t('settings.data.rest', 'How long the rest is kept')}>
         {HISTORY_ROWS.map((row) =>
-          choiceRow(row.key, row.label, retentionChoices(HISTORY_MINIMUM_DAYS), decodeNumberChoice),
+          choiceRow(
+            row.key,
+            text(row.label),
+            retentionChoices(HISTORY_MINIMUM_DAYS),
+            decodeNumberChoice,
+          ),
         )}
 
-        {choiceRow('history.logs.min_level', 'Log level', LOG_LEVEL_CHOICES, (encoded) =>
-          Number(encoded),
+        {choiceRow(
+          'history.logs.min_level',
+          t('settings.data.logLevel', 'Log level'),
+          logLevelChoices(),
+          (encoded) => Number(encoded),
         )}
       </Panel>
 
-      <Panel title="This installation">
+      <Panel title={t('settings.data.installation', 'This installation')}>
         <PanelRow
-          title="Temperature"
+          title={t('settings.data.temperature', 'Temperature')}
           note={
             <>
-              {stored.get('units.temperature')?.description ?? ''}
+              {settingDescription(
+                'units.temperature',
+                stored.get('units.temperature')?.description,
+              )}
               {provenance('units.temperature')}
             </>
           }
           control={
             <Segmented
-              label="Temperature unit"
+              label={t('settings.data.temperatureUnit', 'Temperature unit')}
               disabled={!canWrite}
               value={asWord(effective.get('units.temperature'), 'celsius')}
               options={[
@@ -324,22 +354,22 @@ export function DataAndRetention() {
         />
 
         <PanelRow
-          title="Default theme"
+          title={t('settings.data.defaultTheme', 'Default theme')}
           note={
             <>
-              {stored.get('ui.default_theme')?.description ?? ''}
+              {settingDescription('ui.default_theme', stored.get('ui.default_theme')?.description)}
               {provenance('ui.default_theme')}
             </>
           }
           control={
             <Segmented
-              label="Default theme"
+              label={t('settings.data.defaultTheme', 'Default theme')}
               disabled={!canWrite}
               value={asWord(effective.get('ui.default_theme'), 'system')}
               options={[
-                { value: 'system', label: 'System' },
-                { value: 'light', label: 'Light' },
-                { value: 'dark', label: 'Dark' },
+                { value: 'system', label: t('settings.interface.themes.system', 'System') },
+                { value: 'light', label: t('settings.interface.themes.light', 'Light') },
+                { value: 'dark', label: t('settings.interface.themes.dark', 'Dark') },
               ]}
               onChange={(next) => {
                 edit('ui.default_theme', next);
@@ -349,17 +379,17 @@ export function DataAndRetention() {
         />
 
         <PanelRow
-          title="Time zone"
+          title={t('firstRun.home.timeZone', 'Time zone')}
           note={
             <>
-              {stored.get('house.timezone')?.description ?? ''}
+              {settingDescription('house.timezone', stored.get('house.timezone')?.description)}
               {provenance('house.timezone')}
             </>
           }
           control={
             <span className="flex flex-col items-end gap-1">
               <SelectField
-                label="Time zone"
+                label={t('firstRun.home.timeZone', 'Time zone')}
                 isLabelHidden
                 disabled={!canWrite}
                 value={asWord(effective.get('house.timezone'), 'UTC')}
@@ -377,7 +407,9 @@ export function DataAndRetention() {
                     edit('house.timezone', BROWSER_ZONE);
                   }}
                 >
-                  Use this browser’s, {BROWSER_ZONE}
+                  {t('settings.data.useBrowserZone', 'Use this browser’s, {{zone}}', {
+                    zone: BROWSER_ZONE,
+                  })}
                 </Button>
               ) : null}
             </span>
@@ -388,10 +420,7 @@ export function DataAndRetention() {
           title={t('settings.data.houseLanguage', 'House language')}
           note={
             <>
-              {t(
-                'settings.data.houseLanguageNote',
-                'What the sign-in screen speaks, and everyone who has not chosen their own language',
-              )}
+              {settingDescription('house.locale', stored.get('house.locale')?.description)}
               {provenance('house.locale')}
             </>
           }
@@ -412,29 +441,33 @@ export function DataAndRetention() {
 
         {choiceRow(
           'security.session_lifetime_hours',
-          'Session lifetime',
-          SESSION_LIFETIME_CHOICES,
+          t('settings.data.sessionLifetime', 'Session lifetime'),
+          sessionLifetimeChoices(),
           (encoded) => Number(encoded),
         )}
 
         <PanelNote>
-          Where the house stands is set on the house itself, under Library → Areas. The map around
-          it is drawn from that position, and sunrise and sunset triggers are timed from it.
+          {t(
+            'settings.data.positionNote',
+            'Where the house stands is set on the house itself, under Library → Areas. The map around it is drawn from that position, and sunrise and sunset triggers are timed from it.',
+          )}
         </PanelNote>
         <PanelNote>
-          A saved value is recorded and audited. The time zone and the house’s position reach the
-          automations at once; retention, the log level and session lifetime take effect once the
-          service that owns them learns to re-read them, and until then follow what the platform was
-          started with.
+          {t(
+            'settings.data.effectNote',
+            'A saved value is recorded and audited. The time zone, the house language and the house’s position take effect at once; retention, the log level and session lifetime take effect once the service that owns them learns to re-read them, and until then follow what the platform was started with.',
+          )}
         </PanelNote>
       </Panel>
 
       {canWrite && isDirty ? (
         <div className="sticky bottom-0 flex items-center gap-4 rounded-panel border border-border bg-surface-raised px-4 py-3">
           <span className="grow text-ui text-foreground-muted">
-            {Object.keys(draft).length === 1
-              ? '1 unsaved change'
-              : `${String(Object.keys(draft).length)} unsaved changes`}
+            {t('settings.data.unsaved', {
+              count: Object.keys(draft).length,
+              defaultValue_one: '{{count}} unsaved change',
+              defaultValue_other: '{{count}} unsaved changes',
+            })}
           </span>
 
           {error === undefined ? null : (
@@ -451,7 +484,7 @@ export function DataAndRetention() {
               setError(undefined);
             }}
           >
-            Discard
+            {t('common.discard', 'Discard')}
           </Button>
 
           <Button
@@ -460,7 +493,7 @@ export function DataAndRetention() {
             disabled={problem !== null}
             onClick={save}
           >
-            Save
+            {t('common.save', 'Save')}
           </Button>
         </div>
       ) : null}

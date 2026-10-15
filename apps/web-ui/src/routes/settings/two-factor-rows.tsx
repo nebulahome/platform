@@ -18,6 +18,7 @@
  * too, for anyone whose app takes a link.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Badge, Button, Modal, PanelRow, TextField } from '@nebulahome/ui';
 
@@ -51,6 +52,7 @@ type Stage =
  * @returns The row.
  */
 export function TwoFactorRow() {
+  const { t } = useTranslation();
   const isEnabled = useSession((state) => state.user?.isTwoFactorEnabled ?? false);
   const refreshUser = useSession((state) => state.refreshUser);
   const [stage, setStage] = useState<Stage>({ step: 'idle' });
@@ -134,21 +136,27 @@ export function TwoFactorRow() {
   return (
     <>
       <PanelRow
-        title="Authenticator app"
+        title={t('settings.twoFactor.title', 'Authenticator app')}
         note={
           isEnabled
-            ? 'A code from your authenticator is required at every sign-in.'
-            : 'A password on its own is one secret. A second factor is the one that survives it leaking.'
+            ? t(
+                'settings.twoFactor.onNote',
+                'A code from your authenticator is required at every sign-in.',
+              )
+            : t(
+                'settings.twoFactor.offNote',
+                'A password on its own is one secret. A second factor is the one that survives it leaking.',
+              )
         }
         control={
           <div className="flex shrink-0 items-center gap-2.5">
             {isEnabled ? (
               <Badge tone="success" icon={<CheckIcon width="12" height="12" />}>
-                On
+                {t('common.on', 'On')}
               </Badge>
             ) : (
               <Badge tone="warning" icon={<WarningIcon width="12" height="12" />}>
-                Off
+                {t('common.off', 'Off')}
               </Badge>
             )}
 
@@ -161,11 +169,11 @@ export function TwoFactorRow() {
                   setStage({ step: 'disabling' });
                 }}
               >
-                Turn off
+                {t('settings.twoFactor.turnOff', 'Turn off')}
               </Button>
             ) : (
               <Button className="h-8 px-3 text-ui" isBusy={isBusy} onClick={begin}>
-                Set up
+                {t('settings.twoFactor.setUp', 'Set up')}
               </Button>
             )}
           </div>
@@ -181,17 +189,20 @@ export function TwoFactorRow() {
       <Modal
         isOpen={stage.step === 'enrolling'}
         onClose={close}
-        title="Set up your authenticator"
+        title={t('settings.twoFactor.enrolTitle', 'Set up your authenticator')}
         // The shared secret is on screen and is not shown again.
         closesOnBackdrop={false}
-        description="Add this secret to your authenticator app, then type the code it shows to prove it worked."
+        description={t(
+          'settings.twoFactor.enrolNote',
+          'Add this secret to your authenticator app, then type the code it shows to prove it worked.',
+        )}
         footer={
           <>
             <Button variant="ghost" onClick={close}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button isBusy={isBusy} disabled={code.length < 6} onClick={confirm}>
-              Confirm
+              {t('common.confirm', 'Confirm')}
             </Button>
           </>
         }
@@ -199,7 +210,9 @@ export function TwoFactorRow() {
         {stage.step === 'enrolling' ? (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <span className="text-caption font-medium text-foreground-muted">Secret</span>
+              <span className="text-caption font-medium text-foreground-muted">
+                {t('settings.twoFactor.secret', 'Secret')}
+              </span>
               <div className="flex items-center gap-2">
                 <code className="grow rounded-field border border-border bg-surface-high px-3 py-2.5 font-mono text-ui break-all text-foreground">
                   {stage.secret}
@@ -211,14 +224,14 @@ export function TwoFactorRow() {
                     void copyText(stage.secret).then(setCopied);
                   }}
                 >
-                  {isCopied ? 'Copied' : 'Copy'}
+                  {isCopied ? t('common.copied', 'Copied') : t('common.copy', 'Copy')}
                 </Button>
               </div>
               <span className="text-caption break-all text-foreground-subtle">{stage.uri}</span>
             </div>
 
             <TextField
-              label="Code from the app"
+              label={t('settings.twoFactor.code', 'Code from the app')}
               inputMode="numeric"
               autoComplete="one-time-code"
               value={code}
@@ -234,11 +247,16 @@ export function TwoFactorRow() {
       <Modal
         isOpen={stage.step === 'codes'}
         onClose={close}
-        title="Your recovery codes"
+        title={t('settings.twoFactor.codesTitle', 'Your recovery codes')}
         // Shown once, and the only way back into an account whose phone is gone.
         closesOnBackdrop={false}
-        description="Each one signs you in once, if you lose the authenticator. They are shown here and nowhere else — the server keeps only hashes."
-        footer={<Button onClick={close}>I have saved them</Button>}
+        description={t(
+          'settings.twoFactor.codesNote',
+          'Each one signs you in once, if you lose the authenticator. They are shown here and nowhere else — the server keeps only hashes.',
+        )}
+        footer={
+          <Button onClick={close}>{t('settings.twoFactor.saved', 'I have saved them')}</Button>
+        }
       >
         {stage.step === 'codes' ? (
           <div className="flex flex-col gap-3">
@@ -256,7 +274,7 @@ export function TwoFactorRow() {
                 void copyText(stage.codes.join('\n')).then(setCopied);
               }}
             >
-              {isCopied ? 'Copied' : 'Copy all'}
+              {isCopied ? t('common.copied', 'Copied') : t('common.copyAll', 'Copy all')}
             </Button>
           </div>
         ) : null}
@@ -265,21 +283,24 @@ export function TwoFactorRow() {
       <Modal
         isOpen={stage.step === 'disabling'}
         onClose={close}
-        title="Turn off two-factor authentication?"
-        description="Your account goes back to being protected by its password alone, and the recovery codes stop working."
+        title={t('settings.twoFactor.disableTitle', 'Turn off two-factor authentication?')}
+        description={t(
+          'settings.twoFactor.disableNote',
+          'Your account goes back to being protected by its password alone, and the recovery codes stop working.',
+        )}
         footer={
           <>
             <Button variant="ghost" onClick={close}>
-              Keep it on
+              {t('settings.twoFactor.keepOn', 'Keep it on')}
             </Button>
             <Button variant="danger" isBusy={isBusy} onClick={turnOff}>
-              Turn it off
+              {t('settings.twoFactor.turnItOff', 'Turn it off')}
             </Button>
           </>
         }
       >
         {error === undefined ? (
-          <span className="sr-only">Nothing has gone wrong.</span>
+          <span className="sr-only">{t('common.nothingWrong', 'Nothing has gone wrong.')}</span>
         ) : (
           <span role="alert" className="text-ui text-danger">
             {error}

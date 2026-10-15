@@ -14,6 +14,7 @@
  * The full string stays available in the interface, because the summary is a convenience and the
  * original is the evidence.
  */
+import { translate } from '@/i18n/messages';
 
 /** Browsers, most specific claim first. */
 const BROWSERS: readonly { readonly name: string; readonly marker: RegExp }[] = [
@@ -35,9 +36,6 @@ const SYSTEMS: readonly { readonly name: string; readonly marker: RegExp }[] = [
   { name: 'Linux', marker: /\bLinux\b|\bX11\b/ },
 ];
 
-/** What a session with no user agent at all is called. */
-const UNKNOWN = 'Unrecognised client';
-
 /**
  * Summarises a user agent.
  *
@@ -46,14 +44,17 @@ const UNKNOWN = 'Unrecognised client';
  */
 export function describeUserAgent(userAgent: string | null): string {
   if (userAgent === null || userAgent.trim() === '') {
-    return UNKNOWN;
+    return translate('settings.sessions.unknownClient', 'Unrecognised client');
   }
 
   const browser = BROWSERS.find((entry) => entry.marker.test(userAgent))?.name;
   const system = SYSTEMS.find((entry) => entry.marker.test(userAgent))?.name;
 
   if (browser !== undefined && system !== undefined) {
-    return `${browser} on ${system}`;
+    return translate('settings.sessions.browserOn', '{{browser}} on {{system}}', {
+      browser,
+      system,
+    });
   }
 
   // One half is still worth more than none: a session labelled "Windows" narrows it down, and a

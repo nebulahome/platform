@@ -15,6 +15,7 @@
  * open on a shared machine should not be enough to take the account over permanently.
  */
 import { useState, type SubmitEventHandler } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Badge, Button, Modal, PanelRow, TextField } from '@nebulahome/ui';
 
@@ -23,6 +24,7 @@ import { Avatar } from '@/components/avatar';
 import { PasswordField } from '@/components/password-field';
 import { toMessage } from '@/lib/error-message';
 import { isPasswordAcceptable } from '@/lib/password-rules';
+import { roleName } from '@/lib/role-names';
 import { AvatarPicker } from '@/routes/settings/avatar-picker';
 import { changePassword, updateUser } from '@/settings/api';
 
@@ -57,6 +59,7 @@ type ProfileRowsProps = {
  * @returns The row.
  */
 export function ProfileRows(props: ProfileRowsProps) {
+  const { t } = useTranslation();
   const { part } = props;
   const user = useSession((state) => state.user);
   const refreshUser = useSession((state) => state.refreshUser);
@@ -101,7 +104,7 @@ export function ProfileRows(props: ProfileRowsProps) {
         await updateUser(user.id, { displayName, ...(email === '' ? {} : { email }) });
         await refreshUser();
         close();
-        setNote({ row: 'profile', text: 'Profile updated.' });
+        setNote({ row: 'profile', text: t('settings.profile.updated', 'Profile updated.') });
       } catch (cause: unknown) {
         setError(toMessage(cause));
       } finally {
@@ -126,7 +129,10 @@ export function ProfileRows(props: ProfileRowsProps) {
         close();
         setNote({
           row: 'password',
-          text: 'Password changed. Your other sessions are still signed in.',
+          text: t(
+            'settings.password.changed',
+            'Password changed. Your other sessions are still signed in.',
+          ),
         });
       } catch (cause: unknown) {
         setError(toMessage(cause));
@@ -150,9 +156,7 @@ export function ProfileRows(props: ProfileRowsProps) {
             <span className="flex flex-col gap-1">
               <span className="flex items-center gap-2.5">
                 <span className="text-subhead font-medium">{user.displayName}</span>
-                <Badge tone="accent">
-                  <span className="capitalize">{user.role}</span>
-                </Badge>
+                <Badge tone="accent">{roleName(user.role)}</Badge>
               </span>
               <span className="font-mono text-ui font-normal text-foreground-muted">
                 {user.username}
@@ -172,7 +176,7 @@ export function ProfileRows(props: ProfileRowsProps) {
               setOpen('profile');
             }}
           >
-            Edit profile
+            {t('settings.profile.edit', 'Edit profile')}
           </Button>
         }
       >
@@ -182,15 +186,18 @@ export function ProfileRows(props: ProfileRowsProps) {
       <Modal
         isOpen={open === 'profile'}
         onClose={close}
-        title="Edit profile"
-        description="Your username cannot be changed; it is what the audit trail records."
+        title={t('settings.profile.edit', 'Edit profile')}
+        description={t(
+          'settings.profile.editNote',
+          'Your username cannot be changed; it is what the audit trail records.',
+        )}
         footer={
           <>
             <Button variant="ghost" onClick={close}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button type="submit" form="profile-form" isBusy={isBusy}>
-              Save
+              {t('common.save', 'Save')}
             </Button>
           </>
         }
@@ -210,7 +217,7 @@ export function ProfileRows(props: ProfileRowsProps) {
             noValidate
           >
             <TextField
-              label="Display name"
+              label={t('settings.profile.displayName', 'Display name')}
               value={displayName}
               onChange={(event) => {
                 setDisplayName(event.target.value);
@@ -219,10 +226,13 @@ export function ProfileRows(props: ProfileRowsProps) {
             />
 
             <TextField
-              label="Email"
+              label={t('settings.profile.email', 'Email')}
               type="email"
               value={email}
-              hint="Optional, and used for nothing but recognising you. Leave it blank to keep what is there."
+              hint={t(
+                'settings.profile.emailHint',
+                'Optional, and used for nothing but recognising you. Leave it blank to keep what is there.',
+              )}
               onChange={(event) => {
                 setEmail(event.target.value);
               }}
@@ -240,11 +250,11 @@ export function ProfileRows(props: ProfileRowsProps) {
   ) : (
     <>
       <PanelRow
-        title="Password"
+        title={t('settings.password.title', 'Password')}
         // The row's own note stays whatever else has happened: it says what a password has to be,
         // which is still true after one was changed. A confirmation is an extra line, not a
         // replacement for the explanation the row exists to give.
-        note="At least twelve characters, and no other rules."
+        note={t('settings.password.note', 'At least twelve characters, and no other rules.')}
         control={
           <Button
             variant="ghost"
@@ -255,7 +265,7 @@ export function ProfileRows(props: ProfileRowsProps) {
               setOpen('password');
             }}
           >
-            Change password
+            {t('settings.password.change', 'Change password')}
           </Button>
         }
       >
@@ -265,12 +275,15 @@ export function ProfileRows(props: ProfileRowsProps) {
       <Modal
         isOpen={open === 'password'}
         onClose={close}
-        title="Change password"
-        description="Length is the only axis that costs an attacker anything, so length is the only thing asked for."
+        title={t('settings.password.change', 'Change password')}
+        description={t(
+          'settings.password.changeNote',
+          'Length is the only axis that costs an attacker anything, so length is the only thing asked for.',
+        )}
         footer={
           <>
             <Button variant="ghost" onClick={close}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button
               type="submit"
@@ -278,7 +291,7 @@ export function ProfileRows(props: ProfileRowsProps) {
               isBusy={isBusy}
               disabled={!isPasswordAcceptable(newPassword)}
             >
-              Change it
+              {t('settings.password.changeIt', 'Change it')}
             </Button>
           </>
         }
@@ -290,7 +303,7 @@ export function ProfileRows(props: ProfileRowsProps) {
           noValidate
         >
           <PasswordField
-            label="Current password"
+            label={t('settings.password.current', 'Current password')}
             autoComplete="current-password"
             hasRules={false}
             value={currentPassword}
@@ -299,7 +312,7 @@ export function ProfileRows(props: ProfileRowsProps) {
           />
 
           <PasswordField
-            label="New password"
+            label={t('settings.password.new', 'New password')}
             autoComplete="new-password"
             value={newPassword}
             onChange={setNewPassword}

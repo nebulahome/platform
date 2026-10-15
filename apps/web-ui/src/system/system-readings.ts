@@ -12,6 +12,8 @@ import type {
   SystemMonitorSnapshot,
 } from '@nebulahome/contracts';
 
+import { defineMessage, text, translate, type Message } from '@/i18n/messages';
+
 /** One point of a chart: when, and the value then, or null for a gap. */
 export type ChartPoint = {
   /** Milliseconds since the epoch, which is what a time axis scales. */
@@ -120,18 +122,20 @@ export function categoryLabel(category: Pick<DiskCategory, 'id' | 'kind'>): stri
   }
 
   if (category.kind === 'backups') {
-    return 'Backups';
+    return translate('system.categories.backups', 'Backups');
   }
 
-  return `Package ${category.id.replace(/^package:/, '')}`;
+  return translate('system.categories.package', 'Package {{id}}', {
+    id: category.id.replace(/^package:/, ''),
+  });
 }
 
 /** What each part of the platform is called on the page. */
-const PART_LABELS: Readonly<Record<string, string>> = {
-  database: 'Database',
-  'cache/maps': 'Map tiles',
-  'hub/integrations': 'Integrations',
-  files: 'Other files',
+const PART_LABELS: Readonly<Record<string, Message>> = {
+  database: defineMessage('system.parts.database', 'Database'),
+  'cache/maps': defineMessage('system.parts.maps', 'Map tiles'),
+  'hub/integrations': defineMessage('system.parts.integrations', 'Integrations'),
+  files: defineMessage('system.parts.files', 'Other files'),
 };
 
 /**
@@ -142,7 +146,9 @@ const PART_LABELS: Readonly<Record<string, string>> = {
  * @returns What the page calls it; a directory nobody named here keeps its own name.
  */
 export function partLabel(id: string): string {
-  return PART_LABELS[id] ?? id;
+  const known = PART_LABELS[id];
+
+  return known === undefined ? id : text(known);
 }
 
 /**
@@ -164,8 +170,18 @@ export function diskSegments(disk: DiskUsage): DiskSegment[] {
       label: categoryLabel(category),
       bytes: category.bytes,
     })),
-    { id: 'other', kind: 'other' as const, label: 'Everything else', bytes: disk.otherBytes },
-    { id: 'free', kind: 'free' as const, label: 'Free', bytes: disk.freeBytes },
+    {
+      id: 'other',
+      kind: 'other' as const,
+      label: translate('system.categories.other', 'Everything else'),
+      bytes: disk.otherBytes,
+    },
+    {
+      id: 'free',
+      kind: 'free' as const,
+      label: translate('system.categories.free', 'Free'),
+      bytes: disk.freeBytes,
+    },
   ].filter((slice) => slice.bytes > 0);
   const total = slices.reduce((sum, slice) => sum + slice.bytes, 0);
 

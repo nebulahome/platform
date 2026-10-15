@@ -6,6 +6,7 @@
  * coming, and says how old the last one is, so a page left open while `core` was down does not
  * pass off a frozen chart as a quiet machine.
  */
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { SystemHost } from '@nebulahome/contracts';
@@ -35,12 +36,13 @@ export type SystemHostStripProps = {
  * @returns The strip.
  */
 export function SystemHostStrip(props: SystemHostStripProps) {
+  const { t } = useTranslation();
   const { host, updatedAt, isStale } = props;
   const isReduced = useReducedMotion();
 
   return (
     <section
-      aria-label="This machine"
+      aria-label={t('system.thisMachine', 'This machine')}
       className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-panel border border-border bg-surface px-4 py-3.5"
     >
       <span className="flex size-10 shrink-0 items-center justify-center rounded-tile border border-border bg-surface-raised text-foreground-muted">
@@ -50,7 +52,11 @@ export function SystemHostStrip(props: SystemHostStripProps) {
       <span className="flex min-w-0 grow flex-col gap-0.5">
         <span className="truncate text-title font-medium text-foreground">{host.hostname}</span>
         <span className="truncate text-caption text-foreground-subtle">
-          {host.osName} · {host.arch} · up {formatUptime(host.uptimeSeconds)}
+          {t('system.hostLine', '{{os}} · {{arch}} · up {{uptime}}', {
+            os: host.osName,
+            arch: host.arch,
+            uptime: formatUptime(host.uptimeSeconds),
+          })}
         </span>
       </span>
 
@@ -67,14 +73,15 @@ export function SystemHostStrip(props: SystemHostStripProps) {
           />
         }
       >
-        {isStale ? 'Not answering' : 'Live'} · {relativeTime(updatedAt)}
+        {isStale ? t('system.notAnswering', 'Not answering') : t('system.live', 'Live')} ·{' '}
+        {relativeTime(updatedAt)}
       </Badge>
 
       <Link
         to={devicePath('system')}
         className="flex items-center gap-1.5 text-ui text-foreground-muted transition-colors hover:text-foreground"
       >
-        Open in Devices
+        {t('system.openInDevices', 'Open in Devices')}
         <ExternalLinkIcon width="13" height="13" />
       </Link>
     </section>

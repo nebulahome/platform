@@ -9,9 +9,12 @@
  * The totals are read every few seconds; the slices are counted every five minutes, because
  * counting means walking directories, and the card says when they were last counted.
  */
+import { useTranslation } from 'react-i18next';
+
 import type { DiskUsage } from '@nebulahome/contracts';
 import { cn, Panel, PanelNote } from '@nebulahome/ui';
 
+import { dateTimeFormat } from '@/i18n/formatters';
 import { formatBytes, formatPercent, formatShare } from '@/lib/format-bytes';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import {
@@ -25,14 +28,11 @@ import {
 /**
  * Writes the time of day a count finished.
  *
- * A clock time rather than "two minutes ago": the relative phrase comes out in the browser's
- * language, and in the middle of an English sentence it reads as two languages at once.
- *
  * @param when - The moment.
  * @returns Hours and minutes.
  */
 function clockTime(when: Date): string {
-  return new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(when);
+  return dateTimeFormat({ timeStyle: 'short' }).format(when);
 }
 
 /** The fills packages take in turn, so two packages side by side never share a colour. */
@@ -78,13 +78,16 @@ export type SystemDiskCardProps = {
  * @returns The card.
  */
 export function SystemDiskCard(props: SystemDiskCardProps) {
+  const { t } = useTranslation();
   const { disk } = props;
   const isReduced = useReducedMotion();
 
   if (disk === null) {
     return (
-      <Panel title="Disk">
-        <PanelNote>The volume the data lives on could not be read.</PanelNote>
+      <Panel title={t('system.disk', 'Disk')}>
+        <PanelNote>
+          {t('system.diskUnreadable', 'The volume the data lives on could not be read.')}
+        </PanelNote>
       </Panel>
     );
   }
@@ -98,10 +101,13 @@ export function SystemDiskCard(props: SystemDiskCardProps) {
 
   return (
     <Panel
-      title="Disk"
+      title={t('system.disk', 'Disk')}
       action={
         <span className="text-caption text-foreground-subtle tabular">
-          {formatBytes(disk.usedBytes)} of {formatBytes(disk.usedBytes + disk.freeBytes)} used
+          {t('system.diskUsed', '{{used}} of {{total}} used', {
+            used: formatBytes(disk.usedBytes),
+            total: formatBytes(disk.usedBytes + disk.freeBytes),
+          })}
         </span>
       }
     >
@@ -111,7 +117,7 @@ export function SystemDiskCard(props: SystemDiskCardProps) {
             {formatPercent(diskPercent(disk))}
           </span>
           <span className="text-caption text-foreground-subtle">
-            {formatBytes(disk.freeBytes)} free
+            {t('system.free', '{{size}} free', { size: formatBytes(disk.freeBytes) })}
           </span>
         </div>
 
@@ -168,10 +174,15 @@ export function SystemDiskCard(props: SystemDiskCardProps) {
 
       <PanelNote>
         {disk.measuredAt === null
-          ? 'Counting what is on the disk…'
-          : `Counted at ${clockTime(disk.measuredAt)}, and again every five minutes.`}
+          ? t('system.counting', 'Counting what is on the disk…')
+          : t('system.countedAt', 'Counted at {{time}}, and again every five minutes.', {
+              time: clockTime(disk.measuredAt),
+            })}
         {isPartlyElsewhere(disk)
-          ? ' Part of what NebulaHome keeps is on another disk - the database, when it runs in Docker - so the bar is a little longer than this volume.'
+          ? ` ${t(
+              'system.partlyElsewhere',
+              'Part of what NebulaHome keeps is on another disk - the database, when it runs in Docker - so the bar is a little longer than this volume.',
+            )}`
           : ''}
       </PanelNote>
     </Panel>

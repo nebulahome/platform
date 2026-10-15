@@ -8,38 +8,72 @@ import type {
   BackupSection,
 } from '@nebulahome/contracts';
 
+import { defineMessage, text, translate, type Message } from '@/i18n/messages';
+
 /** Each part of a backup, as the page names it. */
-export const SECTION_NAMES: Readonly<Record<BackupSection, string>> = {
-  configuration: 'Configuration',
-  history: 'History',
-  packages: 'Packages',
+const SECTION_NAMES: Readonly<Record<BackupSection, Message>> = {
+  configuration: defineMessage('backup.sections.configuration', 'Configuration'),
+  history: defineMessage('backup.sections.history', 'History'),
+  packages: defineMessage('backup.sections.packages', 'Packages'),
 };
 
-/** Each kind of location, as the page names it. */
-export const KIND_NAMES = {
-  system: 'System',
-  local: 'Folder',
+/**
+ * A part of a backup, as the page names it.
+ *
+ * @param section - The part.
+ * @returns Its name.
+ */
+export function sectionName(section: BackupSection): string {
+  return text(SECTION_NAMES[section]);
+}
+
+/** Each kind of location, as the page names it: the protocols by their own names. */
+const KIND_NAMES: Readonly<Record<BackupLocationView['target']['kind'], Message | string>> = {
+  system: defineMessage('backup.kinds.system', 'System'),
+  local: defineMessage('backup.kinds.local', 'Folder'),
   smb: 'SMB',
   ftp: 'FTP',
   nfs: 'NFS',
-} as const;
+};
+
+/**
+ * A kind of location, as the page names it.
+ *
+ * @param kind - The kind.
+ * @returns Its name.
+ */
+export function kindName(kind: BackupLocationView['target']['kind']): string {
+  const name = KIND_NAMES[kind];
+
+  return typeof name === 'string' ? name : text(name);
+}
 
 /** What a run is doing, in a few words. */
-export const PHASE_NAMES: Readonly<Record<BackupPhase, string>> = {
-  preparing: 'Preparing',
-  dumping: 'Dumping the database',
-  packing: 'Packing and encrypting',
-  uploading: 'Writing to the locations',
-  pruning: 'Removing old backups',
-  downloading: 'Fetching the archive',
-  verifying: 'Checking the archive',
-  safety_backup: 'Backing up first',
-  restoring_database: 'Restoring the database',
-  reconciling: 'Reconciling',
-  switching: 'Switching',
-  starting_services: 'Starting the services',
-  finishing: 'Finishing',
+const PHASE_NAMES: Readonly<Record<BackupPhase, Message>> = {
+  preparing: defineMessage('backup.phases.preparing', 'Preparing'),
+  dumping: defineMessage('backup.phases.dumping', 'Dumping the database'),
+  packing: defineMessage('backup.phases.packing', 'Packing and encrypting'),
+  uploading: defineMessage('backup.phases.uploading', 'Writing to the locations'),
+  pruning: defineMessage('backup.phases.pruning', 'Removing old backups'),
+  downloading: defineMessage('backup.phases.downloading', 'Fetching the archive'),
+  verifying: defineMessage('backup.phases.verifying', 'Checking the archive'),
+  safety_backup: defineMessage('backup.phases.safetyBackup', 'Backing up first'),
+  restoring_database: defineMessage('backup.phases.restoringDatabase', 'Restoring the database'),
+  reconciling: defineMessage('backup.phases.reconciling', 'Reconciling'),
+  switching: defineMessage('backup.phases.switching', 'Switching'),
+  starting_services: defineMessage('backup.phases.startingServices', 'Starting the services'),
+  finishing: defineMessage('backup.phases.finishing', 'Finishing'),
 };
+
+/**
+ * What a run is doing, in a few words.
+ *
+ * @param phase - Its step.
+ * @returns The words.
+ */
+export function phaseName(phase: BackupPhase): string {
+  return text(PHASE_NAMES[phase]);
+}
 
 /**
  * Where a location writes, in one line.
@@ -63,7 +97,7 @@ export function targetText(location: BackupLocationView): string {
 
   switch (target.kind) {
     case 'system':
-      return 'backups/ in the data directory';
+      return translate('backup.systemTarget', 'backups/ in the data directory');
     case 'local':
       return target.path;
     case 'smb':
@@ -89,27 +123,43 @@ export function runOutcome(run: BackupRunView): {
 } {
   switch (run.status) {
     case 'running':
-      return { words: 'Running', tone: 'accent' };
+      return { words: translate('backup.outcomes.running', 'Running'), tone: 'accent' };
     case 'success':
-      return { words: run.kind === 'restore' ? 'Restored' : 'Done', tone: 'success' };
+      return {
+        words:
+          run.kind === 'restore'
+            ? translate('backup.outcomes.restored', 'Restored')
+            : translate('backup.outcomes.done', 'Done'),
+        tone: 'success',
+      };
     case 'partial':
-      return { words: 'Partly done', tone: 'warning' };
+      return { words: translate('backup.outcomes.partial', 'Partly done'), tone: 'warning' };
     case 'failure':
-      return { words: 'Failed', tone: 'danger' };
+      return { words: translate('backup.outcomes.failed', 'Failed'), tone: 'danger' };
     case 'interrupted':
-      return { words: 'Interrupted', tone: 'warning' };
+      return { words: translate('backup.outcomes.interrupted', 'Interrupted'), tone: 'warning' };
     case 'cancelled':
-      return { words: 'Cancelled', tone: 'neutral' };
+      return { words: translate('backup.outcomes.cancelled', 'Cancelled'), tone: 'neutral' };
   }
 }
 
 /** What started a run, in a few words. */
-export const TRIGGER_NAMES: Readonly<Record<BackupRunView['trigger'], string>> = {
-  schedule: 'Scheduled',
-  catch_up: 'Missed, taken later',
-  manual: 'By hand',
-  pre_restore: 'Before a restore',
+const TRIGGER_NAMES: Readonly<Record<BackupRunView['trigger'], Message>> = {
+  schedule: defineMessage('backup.triggers.schedule', 'Scheduled'),
+  catch_up: defineMessage('backup.triggers.catchUp', 'Missed, taken later'),
+  manual: defineMessage('backup.triggers.manual', 'By hand'),
+  pre_restore: defineMessage('backup.triggers.preRestore', 'Before a restore'),
 };
+
+/**
+ * What started a run, in a few words.
+ *
+ * @param trigger - What started it.
+ * @returns The words.
+ */
+export function triggerName(trigger: BackupRunView['trigger']): string {
+  return text(TRIGGER_NAMES[trigger]);
+}
 
 /**
  * The quarter hour a time starts.

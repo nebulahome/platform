@@ -13,18 +13,13 @@
  * of blaming the upload.
  */
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Button, Hint } from '@nebulahome/ui';
 
 import { Avatar } from '@/components/avatar';
 import { removeAvatar, setAvatar } from '@/settings/api';
 import { toAvatarUpload } from '@/settings/avatar-image';
-
-/** What the picker explains when asked. */
-const EXPLANATION =
-  'Any image your browser can open. It is cropped to a square and shrunk to 128 pixels before ' +
-  'it is sent, then kept in the database so it is part of your backup. A photo straight from an ' +
-  'iPhone may not open — export it as JPEG first.';
 
 /** What the picker needs. */
 export type AvatarPickerProps = {
@@ -48,6 +43,7 @@ export type AvatarPickerProps = {
  * @returns The control.
  */
 export function AvatarPicker(props: AvatarPickerProps) {
+  const { t } = useTranslation();
   const { userId, displayName, avatarUrl, onChanged } = props;
   const input = useRef<HTMLInputElement>(null);
   const [isBusy, setBusy] = useState(false);
@@ -67,7 +63,11 @@ export function AvatarPicker(props: AvatarPickerProps) {
         await setAvatar(userId, await toAvatarUpload(file));
         await onChanged();
       } catch (cause: unknown) {
-        setError(cause instanceof Error ? cause.message : 'That picture could not be used.');
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : t('settings.avatar.unusable', 'That picture could not be used.'),
+        );
       } finally {
         setBusy(false);
       }
@@ -86,7 +86,11 @@ export function AvatarPicker(props: AvatarPickerProps) {
         await removeAvatar(userId);
         await onChanged();
       } catch (cause: unknown) {
-        setError(cause instanceof Error ? cause.message : 'That picture could not be removed.');
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : t('settings.avatar.notRemoved', 'That picture could not be removed.'),
+        );
       } finally {
         setBusy(false);
       }
@@ -107,21 +111,28 @@ export function AvatarPicker(props: AvatarPickerProps) {
               input.current?.click();
             }}
           >
-            {avatarUrl === null ? 'Choose a picture' : 'Replace'}
+            {avatarUrl === null
+              ? t('settings.avatar.choose', 'Choose a picture')
+              : t('settings.avatar.replace', 'Replace')}
           </Button>
 
           {avatarUrl === null ? null : (
             <Button variant="danger" className="h-8 px-3 text-ui" disabled={isBusy} onClick={clear}>
-              Remove
+              {t('common.remove', 'Remove')}
             </Button>
           )}
 
-          <Hint text={EXPLANATION} />
+          <Hint
+            text={t(
+              'settings.avatar.explanation',
+              'Any image your browser can open. It is cropped to a square and shrunk to 128 pixels before it is sent, then kept in the database so it is part of your backup. A photo straight from an iPhone may not open — export it as JPEG first.',
+            )}
+          />
         </div>
 
         {error === undefined ? (
           <span className="text-caption text-foreground-subtle">
-            Cropped to a square and shrunk before it is sent.
+            {t('settings.avatar.note', 'Cropped to a square and shrunk before it is sent.')}
           </span>
         ) : (
           <span role="alert" className="text-caption text-danger">
@@ -137,7 +148,7 @@ export function AvatarPicker(props: AvatarPickerProps) {
         className="sr-only"
         // Named for a screen reader that reaches it directly: it is visually hidden, not
         // removed, so it is still in the tab order behind the button that clicks it.
-        aria-label="Choose a picture"
+        aria-label={t('settings.avatar.choose', 'Choose a picture')}
         onChange={(event) => {
           const file = event.target.files?.[0];
 

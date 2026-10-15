@@ -8,6 +8,8 @@
  *
  * Reading it needs `system:read`. The figures move on their own; nothing here can be changed.
  */
+import { useTranslation } from 'react-i18next';
+
 import { Panel, PanelNote } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
@@ -25,21 +27,28 @@ import { useSystemMonitor } from '@/system/use-system-monitor';
  * @returns The page.
  */
 export function SystemMonitor() {
+  const { t } = useTranslation();
   const monitor = useSystemMonitor();
 
   if (monitor.isPending) {
-    return <p className="text-ui text-foreground-subtle">Reading the machine…</p>;
+    return (
+      <p className="text-ui text-foreground-subtle">
+        {t('system.reading', 'Reading the machine…')}
+      </p>
+    );
   }
 
   if (monitor.isError) {
     return (
-      <Panel title="System monitor">
+      <Panel title={t('system.title', 'System monitor')}>
         <p role="alert" className="px-4 pt-4 text-ui text-danger">
           {toMessage(monitor.error)}
         </p>
         <PanelNote>
-          The readings come from core, which samples the machine. The page asks again every ten
-          seconds and fills in as soon as core answers.
+          {t(
+            'system.errorNote',
+            'The readings come from core, which samples the machine. The page asks again every ten seconds and fills in as soon as core answers.',
+          )}
         </PanelNote>
       </Panel>
     );
@@ -59,29 +68,40 @@ export function SystemMonitor() {
 
       <div className="grid gap-4 md:grid-cols-3">
         <SystemTile
-          title="Processor"
-          detail={`${host.cpuModel} · ${String(host.cpuCount)} cores`}
+          title={t('system.processor', 'Processor')}
+          detail={t('system.cores', {
+            model: host.cpuModel,
+            count: host.cpuCount,
+            defaultValue_one: '{{model}} · {{count}} core',
+            defaultValue_other: '{{model}} · {{count}} cores',
+          })}
           percent={latest?.cpuPercent ?? null}
           series={samples.map((sample) => sample.cpuPercent)}
           colour="cyan"
         />
         <SystemTile
-          title="Memory"
+          title={t('system.memory', 'Memory')}
           detail={
             latest === undefined
-              ? 'Waiting for the first reading'
-              : `${formatBytes(latest.memoryUsedBytes)} of ${formatBytes(latest.memoryTotalBytes)}`
+              ? t('system.waiting', 'Waiting for the first reading')
+              : t('system.usedOf', '{{used}} of {{total}}', {
+                  used: formatBytes(latest.memoryUsedBytes),
+                  total: formatBytes(latest.memoryTotalBytes),
+                })
           }
           percent={latest === undefined ? null : memoryPercent(latest)}
           series={samples.map((sample) => memoryPercent(sample))}
           colour="lamp"
         />
         <SystemTile
-          title="Disk"
+          title={t('system.disk', 'Disk')}
           detail={
             snapshot.disk === null
-              ? 'Not counted yet'
-              : `${formatBytes(snapshot.disk.usedBytes)} of ${formatBytes(snapshot.disk.usedBytes + snapshot.disk.freeBytes)}`
+              ? t('system.notCounted', 'Not counted yet')
+              : t('system.usedOf', '{{used}} of {{total}}', {
+                  used: formatBytes(snapshot.disk.usedBytes),
+                  total: formatBytes(snapshot.disk.usedBytes + snapshot.disk.freeBytes),
+                })
           }
           percent={
             snapshot.disk === null || snapshot.disk.usedBytes + snapshot.disk.freeBytes === 0

@@ -85,7 +85,7 @@ describe('RETENTION_RUNGS', () => {
   });
 
   it('reads finest first, which is the order they constrain each other in', () => {
-    expect(RETENTION_RUNGS.map((rung) => rung.label)).toEqual([
+    expect(RETENTION_RUNGS.map((rung) => rung.label.defaultValue)).toEqual([
       'raw',
       '1 minute',
       '1 hour',

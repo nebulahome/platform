@@ -4,6 +4,8 @@
  * The ring answers "how full", the chart "and lately", and the lines beside the ring say what
  * the machine has, so a 90% on two cores and one on thirty-two are not read the same way.
  */
+import { useTranslation } from 'react-i18next';
+
 import { Panel } from '@nebulahome/ui';
 
 import { LiveAreaChart } from '@/components/live-area-chart';
@@ -39,6 +41,7 @@ export type SystemUsageCardProps = {
  * @returns The card.
  */
 export function SystemUsageCard(props: SystemUsageCardProps) {
+  const { t } = useTranslation();
   const { title, percent, details, series, color, dotClass } = props;
 
   return (
@@ -50,7 +53,10 @@ export function SystemUsageCard(props: SystemUsageCardProps) {
 
         <div className="flex min-w-0 flex-col gap-1">
           <span className="sr-only">
-            {title} at {formatPercent(percent)}
+            {t('system.usageAt', '{{title}} at {{percent}}', {
+              title,
+              percent: formatPercent(percent),
+            })}
           </span>
           {details.map((detail, index) => (
             <span
@@ -77,7 +83,7 @@ export function SystemUsageCard(props: SystemUsageCardProps) {
       </div>
 
       <p className="px-4 pt-2.5 pb-3.5 font-mono text-label text-foreground-subtle uppercase">
-        Last 15 minutes
+        {t('system.last15', 'Last 15 minutes')}
       </p>
     </Panel>
   );

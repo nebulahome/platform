@@ -8,6 +8,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Button, Modal } from '@nebulahome/ui';
 
@@ -33,6 +34,7 @@ export type FolderBrowserDialogProps = {
  * @returns The dialog.
  */
 export function FolderBrowserDialog(props: FolderBrowserDialogProps) {
+  const { t } = useTranslation();
   const { isOpen, start, onClose, onChoose } = props;
   const [path, setPath] = useState(start);
   const folder = useQuery({
@@ -54,12 +56,15 @@ export function FolderBrowserDialog(props: FolderBrowserDialogProps) {
       isOpen={isOpen}
       onClose={onClose}
       size="small"
-      title="Choose a folder"
-      description="On the machine NebulaHome runs on. In the container, a disk of the host appears once it is mounted into it."
+      title={t('backup.folders.title', 'Choose a folder')}
+      description={t(
+        'backup.folders.note',
+        'On the machine NebulaHome runs on. In the container, a disk of the host appears once it is mounted into it.',
+      )}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
           <Button
             disabled={folder.data?.isWritable !== true}
@@ -67,13 +72,16 @@ export function FolderBrowserDialog(props: FolderBrowserDialogProps) {
               onChoose(path);
             }}
           >
-            Use this folder
+            {t('backup.folders.use', 'Use this folder')}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-3">
-        <nav aria-label="Where" className="flex flex-wrap items-center gap-1 text-ui">
+        <nav
+          aria-label={t('backup.folders.where', 'Where')}
+          className="flex flex-wrap items-center gap-1 text-ui"
+        >
           <button
             type="button"
             className="rounded-chip px-1.5 text-foreground-muted hover:text-foreground"
@@ -103,13 +111,17 @@ export function FolderBrowserDialog(props: FolderBrowserDialogProps) {
 
         <div className="max-h-72 overflow-auto rounded-field border border-border">
           {folder.isPending ? (
-            <p className="px-3 py-3 text-ui text-foreground-subtle">Reading the folder…</p>
+            <p className="px-3 py-3 text-ui text-foreground-subtle">
+              {t('backup.folders.reading', 'Reading the folder…')}
+            </p>
           ) : folder.isError ? (
             <p role="alert" className="px-3 py-3 text-ui text-danger">
               {toMessage(folder.error)}
             </p>
           ) : folder.data.directories.length === 0 ? (
-            <p className="px-3 py-3 text-ui text-foreground-subtle">No folders in here.</p>
+            <p className="px-3 py-3 text-ui text-foreground-subtle">
+              {t('backup.folders.empty', 'No folders in here.')}
+            </p>
           ) : (
             <ul className="divide-y divide-border">
               {folder.data.directories.map((name) => (
@@ -134,13 +146,17 @@ export function FolderBrowserDialog(props: FolderBrowserDialogProps) {
 
         {folder.data === undefined || folder.data.isWritable ? null : (
           <p className="text-caption text-foreground-subtle">
-            Backups cannot be written here: choose a folder on a disk of your own, outside the data
-            directory and the system’s folders.
+            {t(
+              'backup.folders.notWritable',
+              'Backups cannot be written here: choose a folder on a disk of your own, outside the data directory and the system’s folders.',
+            )}
           </p>
         )}
         {folder.data?.isTruncated === true ? (
           <p className="text-caption text-foreground-subtle">
-            Only the first 500 folders are listed.
+            {t('backup.folders.truncated', 'Only the first {{count}} folders are listed.', {
+              count: 500,
+            })}
           </p>
         ) : null}
       </div>

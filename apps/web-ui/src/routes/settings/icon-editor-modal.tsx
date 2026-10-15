@@ -15,12 +15,14 @@
  */
 import { useMutation } from '@tanstack/react-query';
 import { useId, useRef, useState, type ChangeEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { IconFrame, IconNode, IconView } from '@nebulahome/contracts';
 import { parseIconSvg, suggestIconId } from '@nebulahome/icons/svg';
 import { AppIcon, Button, CatalogueIcon, cn, Modal, TextField } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
+import { iconName } from '@/lib/icon-names';
 import { createIcon, deleteIcon, updateIcon } from '@/library/api';
 
 /** What the editor is for: a new icon, or one that exists. */
@@ -209,6 +211,7 @@ function Preview(props: PreviewProps) {
  * @returns The dialog.
  */
 export function IconEditorModal(props: IconEditorModalProps) {
+  const { t } = useTranslation();
   const { target, onClose, onSaved } = props;
   const existing = target?.mode === 'edit' ? target.icon : undefined;
   const isBuiltin = existing?.origin === 'builtin';
@@ -316,7 +319,7 @@ export function IconEditorModal(props: IconEditorModalProps) {
 
       if (existing === undefined) {
         if (drawing === null) {
-          throw new Error('Upload a drawing first.');
+          throw new Error(t('settings.icons.uploadFirst', 'Upload a drawing first.'));
         }
 
         await createIcon({
@@ -378,7 +381,13 @@ export function IconEditorModal(props: IconEditorModalProps) {
 
   const isBusy = save.isPending || remove.isPending;
   const title =
-    existing === undefined ? 'New icon' : isBuiltin ? `Redraw ${existing.name}` : existing.name;
+    existing === undefined
+      ? t('settings.icons.new', 'New icon')
+      : isBuiltin
+        ? t('settings.icons.redraw', 'Redraw {{name}}', {
+            name: iconName(existing.id, existing.name),
+          })
+        : existing.name;
 
   return (
     <Modal
@@ -387,8 +396,14 @@ export function IconEditorModal(props: IconEditorModalProps) {
       title={title}
       description={
         isBuiltin
-          ? 'A built-in icon keeps its id and its name. Give it a new drawing, or new words to find it by.'
-          : 'An icon of your own. Everything about it is yours to change.'
+          ? t(
+              'settings.icons.builtinNote',
+              'A built-in icon keeps its id and its name. Give it a new drawing, or new words to find it by.',
+            )
+          : t(
+              'settings.icons.customNote',
+              'An icon of your own. Everything about it is yours to change.',
+            )
       }
       size="large"
       footer={
@@ -402,12 +417,14 @@ export function IconEditorModal(props: IconEditorModalProps) {
                 remove.mutate();
               }}
             >
-              {isBuiltin ? 'Reset to default' : 'Delete'}
+              {isBuiltin
+                ? t('settings.icons.reset', 'Reset to default')
+                : t('common.delete', 'Delete')}
             </Button>
           ) : null}
           <span className="grow" />
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
           <Button
             isBusy={save.isPending}
@@ -416,7 +433,7 @@ export function IconEditorModal(props: IconEditorModalProps) {
               save.mutate();
             }}
           >
-            Save
+            {t('common.save', 'Save')}
           </Button>
         </>
       }
@@ -424,11 +441,11 @@ export function IconEditorModal(props: IconEditorModalProps) {
       <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_200px]">
         <div className="flex flex-col gap-4">
           <TextField
-            label="Name"
+            label={t('settings.icons.name', 'Name')}
             size="medium"
-            value={name}
+            value={isBuiltin ? iconName(existing.id, name) : name}
             readOnly={isBuiltin}
-            hint={isBuiltin ? 'Fixed for a built-in icon.' : undefined}
+            hint={isBuiltin ? t('settings.icons.fixed', 'Fixed for a built-in icon.') : undefined}
             onChange={(event) => {
               setName(event.target.value);
 
@@ -438,14 +455,17 @@ export function IconEditorModal(props: IconEditorModalProps) {
             }}
           />
           <TextField
-            label="Id"
+            label={t('settings.icons.id', 'Id')}
             size="medium"
             value={id}
             readOnly={isBuiltin}
             hint={
               isBuiltin
-                ? 'Fixed for a built-in icon.'
-                : 'Lowercase letters, digits and dashes. Devices point at it.'
+                ? t('settings.icons.fixed', 'Fixed for a built-in icon.')
+                : t(
+                    'settings.icons.idHint',
+                    'Lowercase letters, digits and dashes. Devices point at it.',
+                  )
             }
             onChange={(event) => {
               setId(event.target.value);
@@ -453,18 +473,21 @@ export function IconEditorModal(props: IconEditorModalProps) {
             }}
           />
           <TextField
-            label="Keywords"
+            label={t('settings.icons.keywords', 'Keywords')}
             size="medium"
             value={keywords}
-            placeholder="heating, boiler, hot water"
-            hint="Comma-separated. What the search finds the icon by, beside its name."
+            placeholder={t('settings.icons.keywordsPlaceholder', 'heating, boiler, hot water')}
+            hint={t(
+              'settings.icons.keywordsHint',
+              'Comma-separated. What the search finds the icon by, beside its name.',
+            )}
             onChange={(event) => {
               setKeywords(event.target.value);
             }}
           />
           <div className="flex flex-col gap-1.5">
             <label htmlFor={fileId} className="text-caption font-medium text-foreground">
-              Drawing
+              {t('settings.icons.drawing', 'Drawing')}
             </label>
             <input
               id={fileId}
@@ -476,7 +499,10 @@ export function IconEditorModal(props: IconEditorModalProps) {
               }}
             />
             <span className="text-caption text-foreground-subtle">
-              An SVG of shapes: paths, circles, lines. It takes the colour of the text beside it.
+              {t(
+                'settings.icons.drawingHint',
+                'An SVG of shapes: paths, circles, lines. It takes the colour of the text beside it.',
+              )}
             </span>
           </div>
 
@@ -497,7 +523,7 @@ export function IconEditorModal(props: IconEditorModalProps) {
             />
           ) : (
             <div className="flex size-40 items-center justify-center rounded-field border border-dashed border-border-strong text-caption text-foreground-subtle">
-              Upload a drawing
+              {t('settings.icons.upload', 'Upload a drawing')}
             </div>
           )}
 
@@ -506,19 +532,19 @@ export function IconEditorModal(props: IconEditorModalProps) {
               variant="ghost"
               size="compact"
               disabled={!hasDrawing}
-              title="Fit the drawing to the guides"
+              title={t('settings.icons.fitTitle', 'Fit the drawing to the guides')}
               onClick={() => {
                 reframe((frame) => fit(shownNode, frame));
               }}
             >
               <AppIcon id="maximize" size={14} />
-              Fit
+              {t('settings.icons.fit', 'Fit')}
             </Button>
             <Button
               variant="ghost"
               size="compact"
               disabled={!hasDrawing}
-              aria-label="Zoom in"
+              aria-label={t('settings.icons.zoomIn', 'Zoom in')}
               onClick={() => {
                 reframe((frame) => {
                   const size = frame.size / ZOOM_STEP;
@@ -537,7 +563,7 @@ export function IconEditorModal(props: IconEditorModalProps) {
               variant="ghost"
               size="compact"
               disabled={!hasDrawing}
-              aria-label="Zoom out"
+              aria-label={t('settings.icons.zoomOut', 'Zoom out')}
               onClick={() => {
                 reframe((frame) => {
                   const size = frame.size * ZOOM_STEP;
@@ -559,7 +585,7 @@ export function IconEditorModal(props: IconEditorModalProps) {
               variant="ghost"
               size="compact"
               disabled={!hasDrawing}
-              aria-label="Nudge up"
+              aria-label={t('settings.icons.nudgeUp', 'Nudge up')}
               onClick={() => {
                 reframe((frame) => ({ ...frame, y: frame.y + frame.size * NUDGE }));
               }}
@@ -571,7 +597,7 @@ export function IconEditorModal(props: IconEditorModalProps) {
               variant="ghost"
               size="compact"
               disabled={!hasDrawing}
-              aria-label="Nudge left"
+              aria-label={t('settings.icons.nudgeLeft', 'Nudge left')}
               onClick={() => {
                 reframe((frame) => ({ ...frame, x: frame.x + frame.size * NUDGE }));
               }}
@@ -582,7 +608,7 @@ export function IconEditorModal(props: IconEditorModalProps) {
               variant="ghost"
               size="compact"
               disabled={!hasDrawing}
-              aria-label="Nudge down"
+              aria-label={t('settings.icons.nudgeDown', 'Nudge down')}
               onClick={() => {
                 reframe((frame) => ({ ...frame, y: frame.y - frame.size * NUDGE }));
               }}
@@ -593,7 +619,7 @@ export function IconEditorModal(props: IconEditorModalProps) {
               variant="ghost"
               size="compact"
               disabled={!hasDrawing}
-              aria-label="Nudge right"
+              aria-label={t('settings.icons.nudgeRight', 'Nudge right')}
               onClick={() => {
                 reframe((frame) => ({ ...frame, x: frame.x - frame.size * NUDGE }));
               }}

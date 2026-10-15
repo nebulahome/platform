@@ -9,13 +9,16 @@
  * list of runs below, where it stays. One that did not succeed stays until it is closed, with
  * why, its bar red from where it stopped.
  */
+import { useTranslation } from 'react-i18next';
+
 import { AppIcon, Button, cn } from '@nebulahome/ui';
 
 import { BACKUP_STEPS, progressOf, type BackupStep } from '@/backup/progress';
 import type { ShownRun } from '@/backup/use-backup-progress';
+import { translate } from '@/i18n/messages';
 import { formatBytes } from '@/lib/format-bytes';
 import { relativeTime } from '@/lib/format-time';
-import { PHASE_NAMES } from '@/routes/settings/backup-text';
+import { phaseName } from '@/routes/settings/backup-text';
 
 /** What the card needs. */
 export type BackupProgressCardProps = {
@@ -45,30 +48,38 @@ function wordsOf(
 ): { readonly title: string; readonly note: string } {
   switch (step) {
     case 'prepare': {
-      return { title: 'Preparing', note: 'Room and locations' };
+      return {
+        title: translate('backup.steps.prepare', 'Preparing'),
+        note: translate('backup.steps.prepareNote', 'Room and locations'),
+      };
     }
 
     case 'database': {
       return {
-        title: 'Database',
-        note: props.hasHistory ? 'Configuration and history' : 'Configuration',
+        title: translate('backup.steps.database', 'Database'),
+        note: props.hasHistory
+          ? translate('backup.steps.withHistory', 'Configuration and history')
+          : translate('backup.sections.configuration', 'Configuration'),
       };
     }
 
     case 'files': {
       return {
-        title: 'Files',
-        note: props.hasPackages ? 'Configuration and packages' : 'Configuration',
+        title: translate('backup.steps.files', 'Files'),
+        note: props.hasPackages
+          ? translate('backup.steps.withPackages', 'Configuration and packages')
+          : translate('backup.sections.configuration', 'Configuration'),
       };
     }
 
     case 'copy': {
       return {
-        title: 'Copy',
-        note:
-          props.locationCount === 1
-            ? 'To 1 location'
-            : `To ${String(props.locationCount)} locations`,
+        title: translate('backup.steps.copy', 'Copy'),
+        note: translate('backup.steps.copyNote', {
+          count: props.locationCount,
+          defaultValue_one: 'To {{count}} location',
+          defaultValue_other: 'To {{count}} locations',
+        }),
       };
     }
   }
@@ -81,6 +92,7 @@ function wordsOf(
  * @returns The card.
  */
 export function BackupProgressCard(props: BackupProgressCardProps) {
+  const { t } = useTranslation();
   const { run, onDismiss } = props;
   const ending = run.ending;
   const progress = progressOf(run.phase, ending?.status ?? null, {
@@ -93,24 +105,30 @@ export function BackupProgressCard(props: BackupProgressCardProps) {
   const isFailed = isEnded && !isSucceeded && ending.status !== 'partial';
   const title =
     ending === null
-      ? 'Backing up'
+      ? t('backup.progress.running', 'Backing up')
       : isSucceeded
-        ? 'Completed'
+        ? t('backup.progress.completed', 'Completed')
         : ending.status === 'partial'
-          ? 'Partly done'
+          ? t('backup.outcomes.partial', 'Partly done')
           : ending.status === 'cancelled'
-            ? 'Stopped'
-            : 'The backup failed';
+            ? t('backup.progress.stopped', 'Stopped')
+            : t('backup.progress.failed', 'The backup failed');
   const detail =
     ending === null
-      ? `${PHASE_NAMES[run.phase]}${
+      ? `${phaseName(run.phase)}${
           run.phase === 'uploading' && run.bytesTotal !== null && run.bytesTotal > 0
-            ? ` · ${formatBytes(run.bytesDone)} of ${formatBytes(run.bytesTotal)}`
+            ? ` · ${t('system.usedOf', '{{used}} of {{total}}', {
+                used: formatBytes(run.bytesDone),
+                total: formatBytes(run.bytesTotal),
+              })}`
             : ''
-        } · started ${relativeTime(run.startedAt)}`
+        } · ${t('backup.started', 'started {{when}}', { when: relativeTime(run.startedAt) })}`
       : isSucceeded
-        ? 'Every step is done: the archive is in its locations, and in the runs below.'
-        : (ending.error ?? 'It did not finish.');
+        ? t(
+            'backup.progress.doneNote',
+            'Every step is done: the archive is in its locations, and in the runs below.',
+          )
+        : (ending.error ?? t('backup.progress.unfinished', 'It did not finish.'));
 
   return (
     <section
@@ -153,7 +171,7 @@ export function BackupProgressCard(props: BackupProgressCardProps) {
         </div>
         {isEnded && !isSucceeded ? (
           <Button variant="ghost" size="compact" onClick={onDismiss}>
-            Close
+            {t('common.close', 'Close')}
           </Button>
         ) : null}
       </div>
@@ -161,7 +179,7 @@ export function BackupProgressCard(props: BackupProgressCardProps) {
       <div className="flex flex-col gap-2">
         <div
           role="progressbar"
-          aria-label="How far the backup is"
+          aria-label={t('backup.progress.label', 'How far the backup is')}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={progress.percent}
@@ -195,8 +213,13 @@ export function BackupProgressCard(props: BackupProgressCardProps) {
           <p className="min-w-0 truncate text-caption text-foreground-subtle">
             <span className="font-medium text-foreground">
               {isSucceeded
-                ? 'All 4 steps'
-                : `Step ${String(progress.index + 1)} of ${String(BACKUP_STEPS.length)} · ${words.title}`}
+                ? t('backup.progress.allSteps', 'All {{count}} steps', {
+                    count: BACKUP_STEPS.length,
+                  })
+                : `${t('firstRun.stepOf', 'Step {{step}} of {{count}}', {
+                    step: progress.index + 1,
+                    count: BACKUP_STEPS.length,
+                  })} · ${words.title}`}
             </span>
             {isSucceeded ? null : ` · ${words.note}`}
           </p>

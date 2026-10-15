@@ -7,6 +7,7 @@
  * a tab apart, and the address remembers which is open.
  */
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { TabPanel, Tabs } from '@nebulahome/ui';
 
@@ -27,6 +28,7 @@ type UsersTab = (typeof TABS)[number];
  * @returns The page.
  */
 export function UsersAndRoles() {
+  const { t } = useTranslation();
   const [tab, setTab] = useTab<UsersTab>(TABS);
 
   // The same lists, under the same keys, as the panels read: the counts cost nothing.
@@ -58,19 +60,19 @@ export function UsersAndRoles() {
   return (
     <div className="flex flex-col gap-5">
       <Tabs
-        label="Users and roles"
+        label={t('settings.users.tabs', 'Users and roles')}
         idPrefix="users-roles"
         value={tab}
         onChange={setTab}
         items={[
           {
             id: 'users',
-            label: 'Users',
+            label: t('settings.users.users', 'Users'),
             ...(users.data === undefined ? {} : { count: users.data.length }),
           },
           {
             id: 'roles',
-            label: 'Roles',
+            label: t('settings.users.roles', 'Roles'),
             ...(roles.data === undefined ? {} : { count: roles.data.length }),
           },
         ]}

@@ -11,6 +11,7 @@
  * closed one.
  */
 import type { ReactNode } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { useSession } from '@/auth/session-store';
 import { LockIcon } from '@/components/icons';
@@ -34,6 +35,7 @@ export type RequiresPermissionProps = {
  * @returns Whichever applies.
  */
 export function RequiresPermission(props: RequiresPermissionProps) {
+  const { t } = useTranslation();
   const { permission, section, children } = props;
   const can = useSession((state) => state.can);
 
@@ -46,11 +48,17 @@ export function RequiresPermission(props: RequiresPermissionProps) {
       <div className="flex max-w-sm flex-col items-center gap-3 rounded-panel border border-dashed border-border-strong p-8 text-center">
         <LockIcon className="text-foreground-subtle" />
 
-        <p className="text-title text-foreground-muted">{section} is not yours to open.</p>
+        <p className="text-title text-foreground-muted">
+          {t('settings.forbidden.title', '{{section}} is not yours to open.', { section })}
+        </p>
 
         <p className="text-caption text-foreground-subtle">
-          It needs <span className="font-mono">{permission}</span>, which your role does not grant.
-          An owner or an administrator can change that.
+          <Trans
+            i18nKey="settings.forbidden.note"
+            defaults="It needs <0>{{permission}}</0>, which your role does not grant. An owner or an administrator can change that."
+            values={{ permission }}
+            components={[<span key="permission" className="font-mono" />]}
+          />
         </p>
       </div>
     </div>

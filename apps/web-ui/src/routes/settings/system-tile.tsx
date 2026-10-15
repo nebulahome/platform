@@ -7,6 +7,8 @@
  * The line is drawn from the samples the page already has: a path in a box, no axes, nothing to
  * read off it but its shape.
  */
+import { useTranslation } from 'react-i18next';
+
 import { cn } from '@nebulahome/ui';
 
 import { formatPercent } from '@/lib/format-bytes';
@@ -61,6 +63,7 @@ function pointsOf(series: readonly (number | null)[]): string {
  * @returns The tile.
  */
 export function SystemTile(props: SystemTileProps) {
+  const { t } = useTranslation();
   const { title, detail, percent, series = [], colour } = props;
   const look = COLOURS[colour];
   const isHigh = percent !== null && percent >= 90;
@@ -102,7 +105,9 @@ export function SystemTile(props: SystemTileProps) {
           style={{ width: `${String(Math.max(0, Math.min(100, percent ?? 0)))}%` }}
         />
       </div>
-      {isHigh ? <span className="text-caption text-warning">Nearly full</span> : null}
+      {isHigh ? (
+        <span className="text-caption text-warning">{t('system.nearlyFull', 'Nearly full')}</span>
+      ) : null}
     </section>
   );
 }

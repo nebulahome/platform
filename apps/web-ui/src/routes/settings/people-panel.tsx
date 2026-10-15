@@ -12,6 +12,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type SubmitEventHandler } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { UserView } from '@nebulahome/contracts';
 import { Badge, Button, Modal, Panel, Segmented, SelectField, TextField } from '@nebulahome/ui';
@@ -23,6 +24,7 @@ import { PasswordField } from '@/components/password-field';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
 import { isPasswordAcceptable } from '@/lib/password-rules';
+import { roleName } from '@/lib/role-names';
 import { matchesQuery } from '@/lib/search-text';
 import { useListState } from '@/lib/use-list-state';
 import { OPEN_PEOPLE_FILTER, PEOPLE_FILTER_CODEC } from '@/library/list-filters';
@@ -68,6 +70,7 @@ type OpenDialog =
  * @returns The panel.
  */
 export function PeoplePanel() {
+  const { t } = useTranslation();
   const can = useSession((state) => state.can);
   const selfId = useSession((state) => state.user?.id);
   const queryClient = useQueryClient();
@@ -203,19 +206,26 @@ export function PeoplePanel() {
       matchesQuery([person.displayName, person.username, person.email, person.role], filter.search),
   );
   const roleOptions = facetChoices(
-    (roles.data ?? []).map((entry) => ({ value: entry.key, label: entry.name })),
+    (roles.data ?? []).map((entry) => ({
+      value: entry.key,
+      label: roleName(entry.key, entry.name),
+    })),
     filter.role,
-    'Any role',
+    t('settings.people.anyRole', 'Any role'),
   );
+  const roleChoices = (roles.data ?? []).map((entry) => ({
+    value: entry.key,
+    label: roleName(entry.key, entry.name),
+  }));
 
   return (
     <>
       <Panel
-        title="Users and roles"
+        title={t('settings.users.tabs', 'Users and roles')}
         action={
           <span className="flex items-center gap-2">
             <SearchField
-              placeholder="Search people…"
+              placeholder={t('settings.people.search', 'Search people…')}
               className="w-40 lg:w-56"
               value={filter.search}
               onChange={(search) => {
@@ -223,15 +233,15 @@ export function PeoplePanel() {
               }}
             />
             <FilterSheet
-              label="Narrow the people"
+              label={t('settings.people.narrow', 'Narrow the people')}
               count={Number(filter.role !== '') + Number(filter.status !== 'any')}
               onClear={() => {
                 setFilter({ ...filter, role: '', status: 'any' });
               }}
             >
-              <Facet title="Role">
+              <Facet title={t('settings.people.role', 'Role')}>
                 <SelectField
-                  label="Role"
+                  label={t('settings.people.role', 'Role')}
                   isLabelHidden
                   size="compact"
                   options={roleOptions}
@@ -241,15 +251,15 @@ export function PeoplePanel() {
                   }}
                 />
               </Facet>
-              <Facet title="Account">
+              <Facet title={t('settings.people.account', 'Account')}>
                 <Segmented
-                  label="Account"
+                  label={t('settings.people.account', 'Account')}
                   size="compact"
                   className="self-start"
                   options={[
-                    { value: 'any', label: 'Any' },
-                    { value: 'active', label: 'Active' },
-                    { value: 'disabled', label: 'Disabled' },
+                    { value: 'any', label: t('common.any', 'Any') },
+                    { value: 'active', label: t('settings.people.active', 'Active') },
+                    { value: 'disabled', label: t('settings.people.disabled', 'Disabled') },
                   ]}
                   value={filter.status}
                   onChange={(status) => {
@@ -267,22 +277,32 @@ export function PeoplePanel() {
                   setDialog({ kind: 'invite' });
                 }}
               >
-                Invite person
+                {t('settings.people.invite', 'Invite person')}
               </Button>
             ) : null}
           </span>
         }
       >
         <div className={`${COLUMNS} border-b border-border py-2.5`}>
-          <span className="font-mono text-label text-foreground-subtle uppercase">Person</span>
-          <span className="font-mono text-label text-foreground-subtle uppercase">Role</span>
-          <span className="font-mono text-label text-foreground-subtle uppercase">2FA</span>
-          <span className="font-mono text-label text-foreground-subtle uppercase">Last seen</span>
+          <span className="font-mono text-label text-foreground-subtle uppercase">
+            {t('settings.people.person', 'Person')}
+          </span>
+          <span className="font-mono text-label text-foreground-subtle uppercase">
+            {t('settings.people.role', 'Role')}
+          </span>
+          <span className="font-mono text-label text-foreground-subtle uppercase">
+            {t('settings.people.twoFactor', '2FA')}
+          </span>
+          <span className="font-mono text-label text-foreground-subtle uppercase">
+            {t('settings.people.lastSeen', 'Last seen')}
+          </span>
           <span />
         </div>
 
         {users.isPending ? (
-          <p className="px-4 py-4 text-ui text-foreground-subtle">Reading the accounts…</p>
+          <p className="px-4 py-4 text-ui text-foreground-subtle">
+            {t('settings.people.reading', 'Reading the accounts…')}
+          </p>
         ) : null}
 
         {users.isError ? (
@@ -312,7 +332,7 @@ export function PeoplePanel() {
               <div className="flex min-w-0 flex-col">
                 <span className="truncate text-ui text-foreground">
                   {person.displayName}
-                  {person.isActive ? '' : ' · disabled'}
+                  {person.isActive ? '' : ` · ${t('settings.people.disabledLower', 'disabled')}`}
                 </span>
                 <span className="truncate font-mono text-caption text-foreground-subtle">
                   {person.email ?? person.username}
@@ -320,19 +340,17 @@ export function PeoplePanel() {
               </div>
             </div>
 
-            <Badge tone={ROLE_TONES[person.role] ?? 'neutral'}>
-              <span className="capitalize">{person.role}</span>
-            </Badge>
+            <Badge tone={ROLE_TONES[person.role] ?? 'neutral'}>{roleName(person.role)}</Badge>
 
             {person.isTwoFactorEnabled ? (
               <span className="flex items-center gap-1.5 text-caption text-success">
                 <CheckIcon width="13" height="13" />
-                On
+                {t('common.on', 'On')}
               </span>
             ) : (
               <span className="flex items-center gap-1.5 text-caption text-warning">
                 <WarningIcon width="13" height="13" />
-                Off
+                {t('common.off', 'Off')}
               </span>
             )}
 
@@ -340,7 +358,9 @@ export function PeoplePanel() {
               className="text-caption text-foreground-subtle"
               title={person.lastLoginAt === null ? undefined : absoluteTime(person.lastLoginAt)}
             >
-              {person.lastLoginAt === null ? 'never' : relativeTime(person.lastLoginAt)}
+              {person.lastLoginAt === null
+                ? t('settings.people.never', 'never')
+                : relativeTime(person.lastLoginAt)}
             </span>
 
             <div className="flex justify-end gap-2">
@@ -356,7 +376,7 @@ export function PeoplePanel() {
                     setDialog({ kind: 'edit', user: person });
                   }}
                 >
-                  Edit
+                  {t('common.edit', 'Edit')}
                 </Button>
               ) : null}
 
@@ -369,7 +389,7 @@ export function PeoplePanel() {
                     setDialog({ kind: 'delete', user: person });
                   }}
                 >
-                  Delete
+                  {t('common.delete', 'Delete')}
                 </Button>
               ) : null}
             </div>
@@ -380,12 +400,15 @@ export function PeoplePanel() {
       <Modal
         isOpen={dialog.kind === 'invite'}
         onClose={close}
-        title="Invite someone"
-        description="They sign in with the password you set here, and have to replace it the first time."
+        title={t('settings.people.inviteTitle', 'Invite someone')}
+        description={t(
+          'settings.people.inviteNote',
+          'They sign in with the password you set here, and have to replace it the first time.',
+        )}
         footer={
           <>
             <Button variant="ghost" onClick={close}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button
               type="submit"
@@ -393,16 +416,19 @@ export function PeoplePanel() {
               isBusy={changes.isPending}
               disabled={!isPasswordAcceptable(password)}
             >
-              Create account
+              {t('settings.people.createAccount', 'Create account')}
             </Button>
           </>
         }
       >
         <form id="invite-form" className="flex flex-col gap-4" onSubmit={onInvite} noValidate>
           <TextField
-            label="Username"
+            label={t('settings.people.username', 'Username')}
             value={username}
-            hint="Lower case letters, digits, dot, dash and underscore."
+            hint={t(
+              'firstRun.account.usernameHint',
+              'Lower case letters, digits, dot, dash and underscore.',
+            )}
             onChange={(event) => {
               setUsername(event.target.value);
             }}
@@ -410,7 +436,7 @@ export function PeoplePanel() {
           />
 
           <TextField
-            label="Display name"
+            label={t('settings.profile.displayName', 'Display name')}
             value={displayName}
             onChange={(event) => {
               setDisplayName(event.target.value);
@@ -419,7 +445,7 @@ export function PeoplePanel() {
           />
 
           <PasswordField
-            label="First password"
+            label={t('settings.people.firstPassword', 'First password')}
             autoComplete="new-password"
             value={password}
             onChange={setPassword}
@@ -427,12 +453,9 @@ export function PeoplePanel() {
           />
 
           <SelectField
-            label="Role"
+            label={t('settings.people.role', 'Role')}
             value={role}
-            options={(roles.data ?? []).map((entry) => ({
-              value: entry.key,
-              label: entry.name,
-            }))}
+            options={roleChoices}
             onChange={setRole}
           />
 
@@ -447,19 +470,29 @@ export function PeoplePanel() {
       <Modal
         isOpen={dialog.kind === 'edit'}
         onClose={close}
-        title={dialog.kind === 'edit' ? dialog.user.displayName : 'Edit account'}
+        title={
+          dialog.kind === 'edit'
+            ? dialog.user.displayName
+            : t('settings.people.editAccount', 'Edit account')
+        }
         description={
           dialog.kind === 'edit' && dialog.user.id === selfId
-            ? 'This is your own account, so its role and whether it is active are not yours to change here.'
-            : 'Disabling an account refuses every sign-in without deleting it, or its audit trail.'
+            ? t(
+                'settings.people.ownAccount',
+                'This is your own account, so its role and whether it is active are not yours to change here.',
+              )
+            : t(
+                'settings.people.disableNote',
+                'Disabling an account refuses every sign-in without deleting it, or its audit trail.',
+              )
         }
         footer={
           <>
             <Button variant="ghost" onClick={close}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button type="submit" form="edit-form" isBusy={changes.isPending}>
-              Save
+              {t('common.save', 'Save')}
             </Button>
           </>
         }
@@ -478,7 +511,7 @@ export function PeoplePanel() {
 
           <form id="edit-form" className="flex flex-col gap-4" onSubmit={onEdit} noValidate>
             <TextField
-              label="Display name"
+              label={t('settings.profile.displayName', 'Display name')}
               value={displayName}
               onChange={(event) => {
                 setDisplayName(event.target.value);
@@ -487,23 +520,20 @@ export function PeoplePanel() {
             />
 
             <SelectField
-              label="Role"
+              label={t('settings.people.role', 'Role')}
               value={role}
               disabled={dialog.kind === 'edit' && dialog.user.id === selfId}
-              options={(roles.data ?? []).map((entry) => ({
-                value: entry.key,
-                label: entry.name,
-              }))}
+              options={roleChoices}
               onChange={setRole}
             />
 
             <SelectField
-              label="Sign-in"
+              label={t('settings.people.signIn', 'Sign-in')}
               value={isActive ? 'active' : 'disabled'}
               disabled={dialog.kind === 'edit' && dialog.user.id === selfId}
               options={[
-                { value: 'active', label: 'Allowed' },
-                { value: 'disabled', label: 'Refused' },
+                { value: 'active', label: t('settings.people.allowed', 'Allowed') },
+                { value: 'disabled', label: t('settings.people.refused', 'Refused') },
               ]}
               onChange={(next) => {
                 setActive(next === 'active');
@@ -522,12 +552,15 @@ export function PeoplePanel() {
       <Modal
         isOpen={dialog.kind === 'delete'}
         onClose={close}
-        title="Delete this account?"
-        description="Their sessions end immediately. The audit trail keeps their name, because a record that forgets who did something is not one."
+        title={t('settings.people.deleteTitle', 'Delete this account?')}
+        description={t(
+          'settings.people.deleteNote',
+          'Their sessions end immediately. The audit trail keeps their name, because a record that forgets who did something is not one.',
+        )}
         footer={
           <>
             <Button variant="ghost" onClick={close}>
-              Keep it
+              {t('common.keepIt', 'Keep it')}
             </Button>
             <Button
               variant="danger"
@@ -540,7 +573,7 @@ export function PeoplePanel() {
                 }
               }}
             >
-              Delete
+              {t('common.delete', 'Delete')}
             </Button>
           </>
         }

@@ -13,14 +13,17 @@
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { PERMISSIONS, type ScopedPermission } from '@nebulahome/contracts';
+import { type ScopedPermission } from '@nebulahome/contracts';
 import { Button, Modal, Panel, PanelRow, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
+import { defineMessage, text, type Message } from '@/i18n/messages';
 import { copyText } from '@/lib/clipboard';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
+import { permissionDescription } from '@/lib/permission-descriptions';
 import { matchesQuery } from '@/lib/search-text';
 import { useListState } from '@/lib/use-list-state';
 import { OPEN_SEARCH_AND_FACET, searchAndFacetCodec } from '@/library/list-filters';
@@ -35,17 +38,12 @@ import {
 } from '@/settings/api';
 
 /** How long a token may last, and what each choice is called. */
-const LIFETIMES: readonly { readonly value: string; readonly label: string }[] = [
-  { value: '30', label: '30 days' },
-  { value: '90', label: '90 days' },
-  { value: '365', label: 'A year' },
-  { value: 'never', label: 'Never expires' },
+const LIFETIMES: readonly { readonly value: string; readonly label: Message }[] = [
+  { value: '30', label: defineMessage('settings.tokens.lifetimes.30', '30 days') },
+  { value: '90', label: defineMessage('settings.tokens.lifetimes.90', '90 days') },
+  { value: '365', label: defineMessage('settings.tokens.lifetimes.365', 'A year') },
+  { value: 'never', label: defineMessage('settings.tokens.lifetimes.never', 'Never expires') },
 ];
-
-/** What one permission is described as, by key. */
-const DESCRIPTIONS: ReadonlyMap<string, string> = new Map(
-  PERMISSIONS.map((permission) => [permission.key, permission.description]),
-);
 
 /**
  * Works out when a token should stop working.
@@ -73,6 +71,7 @@ const TOKEN_FILTER_CODEC = searchAndFacetCodec('used');
  * @returns The panel.
  */
 export function TokensPanel() {
+  const { t } = useTranslation();
   const grants = useSession((state) => state.user?.permissions ?? []);
   const queryClient = useQueryClient();
   const [isCreating, setCreating] = useState(false);
@@ -184,13 +183,13 @@ export function TokensPanel() {
   return (
     <>
       <Panel
-        title="Personal access tokens"
+        title={t('settings.tokens.title', 'Personal access tokens')}
         action={
           <span className="flex items-center gap-2">
             {all.length === 0 ? null : (
               <>
                 <SearchField
-                  placeholder="Search tokens…"
+                  placeholder={t('settings.tokens.search', 'Search tokens…')}
                   className="w-40 lg:w-56"
                   value={filter.search}
                   onChange={(search) => {
@@ -198,21 +197,21 @@ export function TokensPanel() {
                   }}
                 />
                 <FilterSheet
-                  label="Narrow the tokens"
+                  label={t('settings.tokens.narrow', 'Narrow the tokens')}
                   count={Number(filter.facet !== '')}
                   onClear={() => {
                     setFilter({ ...filter, facet: '' });
                   }}
                 >
-                  <Facet title="Used">
+                  <Facet title={t('settings.tokens.used', 'Used')}>
                     <Segmented
-                      label="Used"
+                      label={t('settings.tokens.used', 'Used')}
                       size="compact"
                       className="self-start"
                       options={[
-                        { value: '', label: 'Any' },
-                        { value: 'yes', label: 'Used' },
-                        { value: 'no', label: 'Never used' },
+                        { value: '', label: t('common.any', 'Any') },
+                        { value: 'yes', label: t('settings.tokens.used', 'Used') },
+                        { value: 'no', label: t('settings.tokens.neverUsed', 'Never used') },
                       ]}
                       value={filter.facet === 'yes' || filter.facet === 'no' ? filter.facet : ''}
                       onChange={(facet) => {
@@ -230,13 +229,15 @@ export function TokensPanel() {
                 setCreating(true);
               }}
             >
-              Create token
+              {t('settings.tokens.create', 'Create token')}
             </Button>
           </span>
         }
       >
         {tokens.isPending ? (
-          <p className="px-4 py-4 text-ui text-foreground-subtle">Reading your tokens…</p>
+          <p className="px-4 py-4 text-ui text-foreground-subtle">
+            {t('settings.tokens.reading', 'Reading your tokens…')}
+          </p>
         ) : null}
 
         {tokens.isError ? (
@@ -247,7 +248,10 @@ export function TokensPanel() {
 
         {tokens.isSuccess && tokens.data.length === 0 ? (
           <p className="px-4 py-4 text-ui text-foreground-subtle">
-            None yet. A token is how a script signs in without your password.
+            {t(
+              'settings.tokens.empty',
+              'None yet. A token is how a script signs in without your password.',
+            )}
           </p>
         ) : null}
 
@@ -273,13 +277,17 @@ export function TokensPanel() {
                 {token.permissions.map((permission) => permission.key).join(', ')}
                 {' · '}
                 {token.lastUsedAt === null ? (
-                  'never used'
+                  t('settings.tokens.neverUsedLower', 'never used')
                 ) : (
                   <span title={absoluteTime(token.lastUsedAt)}>
-                    last used {relativeTime(token.lastUsedAt)}
+                    {t('settings.tokens.lastUsed', 'last used {{when}}', {
+                      when: relativeTime(token.lastUsedAt),
+                    })}
                   </span>
                 )}
-                {token.expiresAt === null ? ' · never expires' : ''}
+                {token.expiresAt === null
+                  ? ` · ${t('settings.tokens.neverExpiresLower', 'never expires')}`
+                  : ''}
               </>
             }
             control={
@@ -290,7 +298,7 @@ export function TokensPanel() {
                   revoke(token.id);
                 }}
               >
-                Revoke
+                {t('settings.sessions.revoke', 'Revoke')}
               </Button>
             }
           />
@@ -306,39 +314,50 @@ export function TokensPanel() {
       <Modal
         isOpen={isCreating}
         onClose={close}
-        title={secret === undefined ? 'Create a token' : 'Your new token'}
+        title={
+          secret === undefined
+            ? t('settings.tokens.createTitle', 'Create a token')
+            : t('settings.tokens.newTitle', 'Your new token')
+        }
         // The secret is shown once and never again. A stray click that dismissed it
         // would cost a token that has to be created afresh.
         closesOnBackdrop={secret === undefined}
         description={
           secret === undefined
-            ? 'A token can never do more than you can. Give it the least it needs.'
-            : 'This is the only time the secret exists in a readable form. Copy it now.'
+            ? t(
+                'settings.tokens.createNote',
+                'A token can never do more than you can. Give it the least it needs.',
+              )
+            : t(
+                'settings.tokens.newNote',
+                'This is the only time the secret exists in a readable form. Copy it now.',
+              )
         }
         footer={
           secret === undefined ? (
             <>
               <Button variant="ghost" onClick={close}>
-                Cancel
+                {t('common.cancel', 'Cancel')}
               </Button>
               <Button
                 isBusy={isBusy}
                 disabled={name.trim() === '' || chosen.length === 0}
                 onClick={create}
               >
-                Create
+                {t('common.create', 'Create')}
               </Button>
             </>
           ) : (
-            <Button onClick={close}>Done</Button>
+            <Button onClick={close}>{t('common.done', 'Done')}</Button>
           )
         }
       >
         {secret === undefined ? (
           <div className="flex flex-col gap-4">
             <TextField
-              label="What is it for"
+              label={t('settings.tokens.purpose', 'What is it for')}
               placeholder="grafana-readonly"
+              translate="no"
               value={name}
               onChange={(event) => {
                 setName(event.target.value);
@@ -346,15 +365,18 @@ export function TokensPanel() {
             />
 
             <SelectField
-              label="Expires"
+              label={t('settings.tokens.expires', 'Expires')}
               value={lifetime}
-              options={LIFETIMES}
+              options={LIFETIMES.map((choice) => ({
+                value: choice.value,
+                label: text(choice.label),
+              }))}
               onChange={setLifetime}
             />
 
             <fieldset className="flex flex-col gap-2">
               <legend className="mb-2 text-caption font-medium text-foreground-muted">
-                What it may do
+                {t('settings.tokens.mayDo', 'What it may do')}
               </legend>
 
               <div className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-field border border-border bg-surface-high p-2">
@@ -375,7 +397,7 @@ export function TokensPanel() {
                     />
                     <span className="min-w-0 font-mono text-caption text-foreground">{key}</span>
                     <span className="col-start-2 min-w-0 text-caption text-foreground-subtle">
-                      {DESCRIPTIONS.get(key) ?? ''}
+                      {permissionDescription(key)}
                     </span>
                   </label>
                 ))}
@@ -400,7 +422,7 @@ export function TokensPanel() {
                 void copyText(secret).then(setCopied);
               }}
             >
-              {isCopied ? 'Copied' : 'Copy'}
+              {isCopied ? t('common.copied', 'Copied') : t('common.copy', 'Copy')}
             </Button>
           </div>
         )}

@@ -11,6 +11,7 @@
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
   type FTP_SECURITY_MODES,
@@ -31,20 +32,27 @@ import {
   updateBackupLocation,
 } from '@/backup/api';
 import { retentionSummary } from '@/backup/estimates';
+import { defineMessage, text, type Message } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { formatBytes } from '@/lib/format-bytes';
-import { KIND_NAMES } from '@/routes/settings/backup-text';
+import { kindName } from '@/routes/settings/backup-text';
 import { FolderBrowserDialog } from '@/routes/settings/folder-browser-dialog';
 
 /** The kinds the owner adds. */
 type UserKind = 'local' | 'smb' | 'ftp' | 'nfs';
 
 /** Each kind, with a line saying what it is. */
-const KINDS: readonly { readonly kind: UserKind; readonly note: string }[] = [
-  { kind: 'local', note: 'A disk or folder of this machine' },
-  { kind: 'smb', note: 'A Windows or NAS share (SMB/CIFS)' },
-  { kind: 'ftp', note: 'An FTP server, plain or over TLS' },
-  { kind: 'nfs', note: 'An NFS export of a NAS or a server' },
+const KINDS: readonly { readonly kind: UserKind; readonly note: Message }[] = [
+  {
+    kind: 'local',
+    note: defineMessage('backup.kindNotes.local', 'A disk or folder of this machine'),
+  },
+  { kind: 'smb', note: defineMessage('backup.kindNotes.smb', 'A Windows or NAS share (SMB/CIFS)') },
+  { kind: 'ftp', note: defineMessage('backup.kindNotes.ftp', 'An FTP server, plain or over TLS') },
+  {
+    kind: 'nfs',
+    note: defineMessage('backup.kindNotes.nfs', 'An NFS export of a NAS or a server'),
+  },
 ];
 
 /** Everything the form holds, for every kind: only the chosen kind's fields are sent. */
@@ -210,6 +218,7 @@ export type BackupLocationDialogProps = {
  * @returns The dialog.
  */
 export function BackupLocationDialog(props: BackupLocationDialogProps) {
+  const { t } = useTranslation();
   const { isOpen, location, frequency, archiveBytes, mountProblem, onClose } = props;
   const queryClient = useQueryClient();
   const [form, setForm] = useState<Form>(() => formOf(location));
@@ -382,42 +391,58 @@ export function BackupLocationDialog(props: BackupLocationDialogProps) {
 
   const hasSavedPassword =
     location !== null && 'hasPassword' in location.target && location.target.hasPassword;
-  const passwordHint = hasSavedPassword ? 'Leave empty to keep the saved one.' : undefined;
+  const passwordHint = hasSavedPassword
+    ? t('backup.location.keepPassword', 'Leave empty to keep the saved one.')
+    : undefined;
 
   const kindFields: Record<UserKind, ReactNode> = {
     local: (
       <div className="flex items-end gap-2">
-        <div className="grow">{field('path', 'Folder', { placeholder: '/mnt/usb/backups' })}</div>
+        <div className="grow">
+          {field('path', t('backup.location.folder', 'Folder'), {
+            placeholder: '/mnt/usb/backups',
+          })}
+        </div>
         <Button
           variant="ghost"
           onClick={() => {
             setBrowsing(true);
           }}
         >
-          Browse…
+          {t('backup.location.browse', 'Browse…')}
         </Button>
       </div>
     ),
     smb: (
       <>
         <div className="grid gap-3 sm:grid-cols-2">
-          {field('host', 'Server', { placeholder: 'nas.local' })}
-          {field('share', 'Share', { placeholder: 'backups' })}
+          {field('host', t('backup.location.server', 'Server'), { placeholder: 'nas.local' })}
+          {field('share', t('backup.location.share', 'Share'), { placeholder: 'backups' })}
         </div>
-        {field('path', 'Folder in the share', { placeholder: 'nebulahome' })}
+        {field('path', t('backup.location.folderInShare', 'Folder in the share'), {
+          placeholder: 'nebulahome',
+        })}
         <div className="grid gap-3 sm:grid-cols-2">
-          {field('username', 'User')}
-          {field('password', 'Password', { type: 'password', hint: passwordHint })}
+          {field('username', t('backup.location.user', 'User'))}
+          {field('password', t('backup.location.password', 'Password'), {
+            type: 'password',
+            hint: passwordHint,
+          })}
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          {field('domain', 'Domain', { placeholder: 'Optional' })}
+          {field('domain', t('backup.location.domain', 'Domain'), {
+            placeholder: t('backup.location.optional', 'Optional'),
+          })}
           <SelectField
-            label="SMB version"
+            label={t('backup.location.smbVersion', 'SMB version')}
             size="medium"
             value={form.smbVersion}
             options={SMB_VERSIONS.map((version) => ({
               value: version,
-              label: version === 'auto' ? 'Agree with the server' : `SMB ${version}`,
+              label:
+                version === 'auto'
+                  ? t('backup.location.autoVersion', 'Agree with the server')
+                  : `SMB ${version}`,
             }))}
             onChange={(value) => {
               update({ smbVersion: value as Form['smbVersion'] });
@@ -429,21 +454,23 @@ export function BackupLocationDialog(props: BackupLocationDialogProps) {
     ftp: (
       <>
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_7rem]">
-          {field('host', 'Server', { placeholder: 'ftp.example.org' })}
-          {field('port', 'Port', {
+          {field('host', t('backup.location.server', 'Server'), { placeholder: 'ftp.example.org' })}
+          {field('port', t('backup.location.port', 'Port'), {
             type: 'number',
             placeholder: form.security === 'implicit' ? '990' : '21',
           })}
         </div>
         <div className="flex flex-col gap-1.5">
-          <span className="text-ui font-medium text-foreground">Security</span>
+          <span className="text-ui font-medium text-foreground">
+            {t('backup.location.security', 'Security')}
+          </span>
           <Segmented
-            label="Security"
+            label={t('backup.location.security', 'Security')}
             value={form.security}
             options={[
               { value: 'explicit', label: 'TLS (FTPS)' },
-              { value: 'implicit', label: 'Implicit TLS' },
-              { value: 'none', label: 'None' },
+              { value: 'implicit', label: t('backup.location.implicitTls', 'Implicit TLS') },
+              { value: 'none', label: t('backup.location.noSecurity', 'None') },
             ]}
             onChange={(value) => {
               update({ security: value });
@@ -452,9 +479,11 @@ export function BackupLocationDialog(props: BackupLocationDialogProps) {
         </div>
         {form.security === 'none' ? null : (
           <div className="flex items-center justify-between gap-4">
-            <span className="text-ui text-foreground">Accept a self-signed certificate</span>
+            <span className="text-ui text-foreground">
+              {t('backup.location.selfSigned', 'Accept a self-signed certificate')}
+            </span>
             <Switch
-              label="Accept a self-signed certificate"
+              label={t('backup.location.selfSigned', 'Accept a self-signed certificate')}
               isOn={form.allowSelfSigned}
               onChange={(isOn) => {
                 update({ allowSelfSigned: isOn });
@@ -462,28 +491,40 @@ export function BackupLocationDialog(props: BackupLocationDialogProps) {
             />
           </div>
         )}
-        {field('path', 'Folder on the server', { placeholder: 'backups/nebulahome' })}
+        {field('path', t('backup.location.folderOnServer', 'Folder on the server'), {
+          placeholder: 'backups/nebulahome',
+        })}
         <div className="grid gap-3 sm:grid-cols-2">
-          {field('username', 'User')}
-          {field('password', 'Password', { type: 'password', hint: passwordHint })}
+          {field('username', t('backup.location.user', 'User'))}
+          {field('password', t('backup.location.password', 'Password'), {
+            type: 'password',
+            hint: passwordHint,
+          })}
         </div>
       </>
     ),
     nfs: (
       <>
         <div className="grid gap-3 sm:grid-cols-2">
-          {field('host', 'Server', { placeholder: '192.168.1.10' })}
-          {field('exportPath', 'Export', { placeholder: '/volume1/backups' })}
+          {field('host', t('backup.location.server', 'Server'), { placeholder: '192.168.1.10' })}
+          {field('exportPath', t('backup.location.export', 'Export'), {
+            placeholder: '/volume1/backups',
+          })}
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          {field('path', 'Folder in the export', { placeholder: 'nebulahome' })}
+          {field('path', t('backup.location.folderInExport', 'Folder in the export'), {
+            placeholder: 'nebulahome',
+          })}
           <SelectField
-            label="NFS version"
+            label={t('backup.location.nfsVersion', 'NFS version')}
             size="medium"
             value={form.nfsVersion}
             options={NFS_VERSIONS.map((version) => ({
               value: version,
-              label: version === 'auto' ? 'Agree with the server' : `NFS ${version}`,
+              label:
+                version === 'auto'
+                  ? t('backup.location.autoVersion', 'Agree with the server')
+                  : `NFS ${version}`,
             }))}
             onChange={(value) => {
               update({ nfsVersion: value as Form['nfsVersion'] });
@@ -504,16 +545,26 @@ export function BackupLocationDialog(props: BackupLocationDialogProps) {
         size="medium"
         closesOnBackdrop={false}
         title={
-          isNew ? 'Add a backup location' : isSystem ? 'This machine' : `Change ${location.name}`
+          isNew
+            ? t('backup.location.addTitle', 'Add a backup location')
+            : isSystem
+              ? t('system.thisMachine', 'This machine')
+              : t('backup.location.changeTitle', 'Change {{name}}', { name: location.name })
         }
         description={
           isSystem
-            ? 'The backups folder of the data directory. It is always here; it can be turned off.'
-            : 'Every backup is written here too, and older ones removed as the retention says.'
+            ? t(
+                'backup.location.systemNote',
+                'The backups folder of the data directory. It is always here; it can be turned off.',
+              )
+            : t(
+                'backup.location.note',
+                'Every backup is written here too, and older ones removed as the retention says.',
+              )
         }
         {...(isNew
           ? {
-              asideLabel: 'Kinds of location',
+              asideLabel: t('backup.location.kinds', 'Kinds of location'),
               aside: (
                 <ul className="flex flex-col gap-1 p-2">
                   {KINDS.map(({ kind, note }) => {
@@ -535,9 +586,9 @@ export function BackupLocationDialog(props: BackupLocationDialogProps) {
                             update({ kind });
                           }}
                         >
-                          <span className="text-ui font-medium">{KIND_NAMES[kind]}</span>
+                          <span className="text-ui font-medium">{kindName(kind)}</span>
                           <span className="text-caption text-foreground-subtle">
-                            {isUnavailable ? mountProblem : note}
+                            {isUnavailable ? mountProblem : text(note)}
                           </span>
                         </button>
                       </li>
@@ -562,11 +613,13 @@ export function BackupLocationDialog(props: BackupLocationDialogProps) {
                   }
                 }}
               >
-                {isRemoving ? 'Remove it: the archives there stay' : 'Remove'}
+                {isRemoving
+                  ? t('backup.location.removeConfirm', 'Remove it: the archives there stay')
+                  : t('common.remove', 'Remove')}
               </Button>
             )}
             <Button variant="ghost" onClick={onClose}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button
               isBusy={save.isPending}
@@ -575,7 +628,7 @@ export function BackupLocationDialog(props: BackupLocationDialogProps) {
                 save.mutate();
               }}
             >
-              {isNew ? 'Add' : 'Save'}
+              {isNew ? t('common.add', 'Add') : t('common.save', 'Save')}
             </Button>
           </>
         }
@@ -583,8 +636,9 @@ export function BackupLocationDialog(props: BackupLocationDialogProps) {
         <div className="flex flex-col gap-4">
           {isSystem ? null : (
             <>
-              {field('name', 'Name', {
-                placeholder: KIND_NAMES[form.kind] === 'Folder' ? 'USB disk' : 'NAS',
+              {field('name', t('backup.location.name', 'Name'), {
+                placeholder:
+                  form.kind === 'local' ? t('backup.location.usbDisk', 'USB disk') : 'NAS',
               })}
               {kindFields[form.kind]}
               {isMountKind && mountProblem !== null ? (
@@ -594,21 +648,27 @@ export function BackupLocationDialog(props: BackupLocationDialogProps) {
           )}
 
           <div className="flex flex-col gap-2">
-            <span className="text-ui font-medium text-foreground">Keep</span>
+            <span className="text-ui font-medium text-foreground">
+              {t('backup.location.keep', 'Keep')}
+            </span>
             <div className="flex flex-wrap items-center gap-3">
               <Segmented
-                label="Keep backups by"
+                label={t('backup.location.keepBy', 'Keep backups by')}
                 value={form.retentionMode}
                 options={[
-                  { value: 'count', label: 'The last' },
-                  { value: 'days', label: 'The last days' },
+                  { value: 'count', label: t('backup.location.theLast', 'The last') },
+                  { value: 'days', label: t('backup.location.theLastDays', 'The last days') },
                 ]}
                 onChange={(value) => {
                   update({ retentionMode: value });
                 }}
               />
               <TextField
-                label={form.retentionMode === 'count' ? 'Backups' : 'Days'}
+                label={
+                  form.retentionMode === 'count'
+                    ? t('backup.location.backups', 'Backups')
+                    : t('backup.location.days', 'Days')
+                }
                 isLabelHidden
                 size="medium"
                 type="number"
@@ -621,24 +681,30 @@ export function BackupLocationDialog(props: BackupLocationDialogProps) {
                 }}
               />
               <span className="text-ui text-foreground-muted">
-                {form.retentionMode === 'count' ? 'backups' : 'days'}
+                {form.retentionMode === 'count'
+                  ? t('backup.location.backupsLower', 'backups')
+                  : t('backup.location.daysLower', 'days')}
               </span>
             </div>
             <span className="text-caption text-foreground-subtle">
               {isRetentionValid
-                ? `${retentionSummary(
-                    { mode: form.retentionMode, value: retentionValue },
-                    frequency,
-                    archiveBytes,
-                  )} (estimate)`
-                : 'From 1 to 3650.'}
+                ? t('backup.location.estimate', '{{summary}} (estimate)', {
+                    summary: retentionSummary(
+                      { mode: form.retentionMode, value: retentionValue },
+                      frequency,
+                      archiveBytes,
+                    ),
+                  })
+                : t('backup.location.range', 'From 1 to 3650.')}
             </span>
           </div>
 
           <div className="flex items-center justify-between gap-4">
-            <span className="text-ui text-foreground">Write backups here</span>
+            <span className="text-ui text-foreground">
+              {t('backup.location.writeHere', 'Write backups here')}
+            </span>
             <Switch
-              label="Write backups here"
+              label={t('backup.location.writeHere', 'Write backups here')}
               isOn={form.isEnabled}
               onChange={(isOn) => {
                 update({ isEnabled: isOn });
@@ -650,7 +716,7 @@ export function BackupLocationDialog(props: BackupLocationDialogProps) {
             <div className="flex flex-col gap-2 rounded-field border border-border p-3">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-ui text-foreground-muted">
-                  Connects, writes a small file and removes it.
+                  {t('backup.location.tryNote', 'Connects, writes a small file and removes it.')}
                 </span>
                 <Button
                   variant="ghost"
@@ -661,20 +727,26 @@ export function BackupLocationDialog(props: BackupLocationDialogProps) {
                     tryIt.mutate();
                   }}
                 >
-                  Try it
+                  {t('backup.location.try', 'Try it')}
                 </Button>
               </div>
               {trial === null ? null : trial.isReachable ? (
                 <p className="text-ui text-success">
-                  It works
-                  {trial.freeBytes === null ? '' : ` · ${formatBytes(trial.freeBytes)} free`}
+                  {t('backup.location.works', 'It works')}
+                  {trial.freeBytes === null
+                    ? ''
+                    : ` · ${t('system.free', '{{size}} free', { size: formatBytes(trial.freeBytes) })}`}
                   {trial.archiveCount === null || trial.archiveCount === 0
                     ? ''
-                    : ` · ${String(trial.archiveCount)} backups there already`}
+                    : ` · ${t('backup.location.already', {
+                        count: trial.archiveCount,
+                        defaultValue_one: '{{count}} backup there already',
+                        defaultValue_other: '{{count}} backups there already',
+                      })}`}
                 </p>
               ) : (
                 <p role="alert" className="text-ui break-words text-danger">
-                  {trial.message ?? 'It does not work.'}
+                  {trial.message ?? t('backup.location.doesNotWork', 'It does not work.')}
                 </p>
               )}
             </div>
@@ -683,7 +755,7 @@ export function BackupLocationDialog(props: BackupLocationDialogProps) {
           {location?.lastError == null ? null : (
             <div className="flex flex-col gap-1 rounded-field border border-border bg-surface-raised p-3">
               <span className="text-caption font-medium text-foreground-muted">
-                The last backup here failed
+                {t('backup.location.lastFailed', 'The last backup here failed')}
               </span>
               <p className="text-ui break-words whitespace-pre-wrap text-danger">
                 {location.lastError}

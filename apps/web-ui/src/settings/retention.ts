@@ -19,16 +19,18 @@ import {
   type JsonValue,
 } from '@nebulahome/contracts';
 
+import { defineMessage, translate, type Message } from '@/i18n/messages';
+
 /** One rung, as it reads on screen. */
 export type RetentionRung = {
   /** The setting key. */
   readonly key: string;
 
   /** What the level is called. */
-  readonly label: string;
+  readonly label: Message;
 
   /** Where its rows come from. */
-  readonly note: string;
+  readonly note: Message;
 
   /** The shortest duration this level may be kept for, from the catalogue. */
   readonly minimumDays: number;
@@ -39,26 +41,26 @@ export const RETENTION_RUNGS: readonly RetentionRung[] = [
   {
     key: 'history.telemetry.raw_retention_days',
     minimumDays: RETENTION_MINIMUM_DAYS.raw,
-    label: 'raw',
-    note: 'Every reading, as it arrived',
+    label: defineMessage('settings.data.rungs.raw', 'raw'),
+    note: defineMessage('settings.data.rungs.rawNote', 'Every reading, as it arrived'),
   },
   {
     key: 'history.telemetry.tier_1m_retention_days',
     minimumDays: RETENTION_MINIMUM_DAYS.tier1m,
-    label: '1 minute',
-    note: 'Rolled up from raw',
+    label: defineMessage('settings.data.rungs.minute', '1 minute'),
+    note: defineMessage('settings.data.rungs.minuteNote', 'Rolled up from raw'),
   },
   {
     key: 'history.telemetry.tier_1h_retention_days',
     minimumDays: RETENTION_MINIMUM_DAYS.tier1h,
-    label: '1 hour',
-    note: 'Rolled up from the minute level',
+    label: defineMessage('settings.data.rungs.hour', '1 hour'),
+    note: defineMessage('settings.data.rungs.hourNote', 'Rolled up from the minute level'),
   },
   {
     key: 'history.telemetry.tier_1d_retention_days',
     minimumDays: RETENTION_MINIMUM_DAYS.tier1d,
-    label: '1 day',
-    note: 'Rolled up from the hour level',
+    label: defineMessage('settings.data.rungs.day', '1 day'),
+    note: defineMessage('settings.data.rungs.dayNote', 'Rolled up from the hour level'),
   },
 ];
 
@@ -75,5 +77,11 @@ export function ladderProblem(values: ReadonlyMap<string, JsonValue>): string | 
 
   const parsed = retentionLadderSchema.safeParse(ladder);
 
-  return parsed.success ? null : (parsed.error.issues[0]?.message ?? 'This ladder is not valid');
+  // The schema's own sentence is the API's, in English; the page says it in the reader's language.
+  return parsed.success
+    ? null
+    : translate(
+        'settings.data.ladderProblem',
+        'Retention must not decrease as resolution coarsens: raw <= 1m <= 1h <= 1d, null last',
+      );
 }

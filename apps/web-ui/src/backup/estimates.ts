@@ -13,6 +13,7 @@ import type {
   BackupStatusView,
 } from '@nebulahome/contracts';
 
+import { translate } from '@/i18n/messages';
 import { formatBytes } from '@/lib/format-bytes';
 
 /**
@@ -101,8 +102,23 @@ export function retentionSummary(
 ): string {
   const kept = archivesKept(retention, frequency);
   const days = daysCovered(retention, frequency);
-  const reach = days <= 1 ? 'a day back' : days === 7 ? 'a week back' : `${String(days)} days back`;
-  const room = archiveBytes === null ? '' : `, ≈ ${formatBytes(archiveBytes * kept)}`;
+  const reach =
+    days <= 1
+      ? translate('backup.reach.day', 'a day back')
+      : days === 7
+        ? translate('backup.reach.week', 'a week back')
+        : translate('backup.reach.days', '{{count}} days back', { count: days });
+  const backups = translate('backup.kept', {
+    count: kept,
+    defaultValue_one: '≈ {{count}} backup',
+    defaultValue_other: '≈ {{count}} backups',
+  });
 
-  return `≈ ${String(kept)} ${kept === 1 ? 'backup' : 'backups'}, ${reach}${room}`;
+  return archiveBytes === null
+    ? translate('backup.retention', '{{backups}}, {{reach}}', { backups, reach })
+    : translate('backup.retentionSized', '{{backups}}, {{reach}}, ≈ {{size}}', {
+        backups,
+        reach,
+        size: formatBytes(archiveBytes * kept),
+      });
 }

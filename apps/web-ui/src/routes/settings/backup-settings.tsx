@@ -13,6 +13,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
   backupFrequencySchema,
@@ -56,6 +57,7 @@ import { expectedArchiveBytes, retentionSummary } from '@/backup/estimates';
 import { useBackupProgress } from '@/backup/use-backup-progress';
 import { PasswordField } from '@/components/password-field';
 import { WeekdayPicker } from '@/components/weekday-picker';
+import { defineMessage, text, translate, type Message } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { formatBytes } from '@/lib/format-bytes';
 import { absoluteTime, durationText, relativeTime } from '@/lib/format-time';
@@ -64,12 +66,12 @@ import { BackupProgressCard } from '@/routes/settings/backup-progress-card';
 import {
   browserTimeZone,
   isSameJson,
-  KIND_NAMES,
-  PHASE_NAMES,
+  kindName,
+  phaseName,
   runOutcome,
-  SECTION_NAMES,
+  sectionName,
   targetText,
-  TRIGGER_NAMES,
+  triggerName,
 } from '@/routes/settings/backup-text';
 import { QuietProfile } from '@/routes/settings/quiet-profile';
 import { RestoreDialog } from '@/routes/settings/restore-dialog';
@@ -89,10 +91,22 @@ const DEFAULT_SCHEDULE: BackupSchedule = { mode: 'quietest', time: '03:00', time
 /** The optional parts, with a line saying what each is. */
 const OPTIONAL_SECTIONS: readonly {
   readonly key: keyof BackupSections;
-  readonly note: string;
+  readonly note: Message;
 }[] = [
-  { key: 'history', note: 'Readings, state changes, automation traces and logs' },
-  { key: 'packages', note: 'The installed feature packages and what they keep' },
+  {
+    key: 'history',
+    note: defineMessage(
+      'backup.sectionNotes.history',
+      'Readings, state changes, automation traces and logs',
+    ),
+  },
+  {
+    key: 'packages',
+    note: defineMessage(
+      'backup.sectionNotes.packages',
+      'The installed feature packages and what they keep',
+    ),
+  },
 ];
 
 /**
@@ -125,6 +139,7 @@ type KeyDialogProps = {
  * @returns The dialog.
  */
 function KeyDialog(props: KeyDialogProps) {
+  const { t } = useTranslation();
   const { isOpen, onClose, onDownloaded } = props;
   const [password, setPassword] = useState('');
   const download = useMutation({
@@ -156,12 +171,15 @@ function KeyDialog(props: KeyDialogProps) {
       onClose={onClose}
       size="small"
       closesOnBackdrop={false}
-      title="Download the backup key"
-      description="Keep it somewhere other than this machine: a password manager, a USB stick in a drawer. Without it, a backup opens nowhere else; with it, anybody can open every backup."
+      title={t('backup.key.downloadTitle', 'Download the backup key')}
+      description={t(
+        'backup.key.downloadNote',
+        'Keep it somewhere other than this machine: a password manager, a USB stick in a drawer. Without it, a backup opens nowhere else; with it, anybody can open every backup.',
+      )}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
           <Button
             isBusy={download.isPending}
@@ -170,14 +188,14 @@ function KeyDialog(props: KeyDialogProps) {
               download.mutate();
             }}
           >
-            Download
+            {t('common.download', 'Download')}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-3">
         <PasswordField
-          label="Your password"
+          label={t('backup.key.password', 'Your password')}
           value={password}
           onChange={setPassword}
           autoComplete="current-password"
@@ -204,16 +222,30 @@ function scheduleNote(status: BackupStatusView | undefined, isEnabled: boolean):
   const last = status?.lastBackup;
   const lastText =
     last?.finishedAt == null
-      ? 'No backup yet'
-      : `Last ${relativeTime(last.finishedAt)}${last.archiveBytes === null ? '' : `, ${formatBytes(last.archiveBytes)}`}`;
+      ? translate('backup.status.none', 'No backup yet')
+      : last.archiveBytes === null
+        ? translate('backup.status.last', 'Last {{when}}', { when: relativeTime(last.finishedAt) })
+        : translate('backup.status.lastSized', 'Last {{when}}, {{size}}', {
+            when: relativeTime(last.finishedAt),
+            size: formatBytes(last.archiveBytes),
+          });
 
   if (!isEnabled) {
-    return `Off: backups are taken only by hand. ${lastText}.`;
+    return translate('backup.status.offNote', 'Off: backups are taken only by hand. {{last}}.', {
+      last: lastText,
+    });
   }
 
   const next = status?.schedule.nextRunAt;
 
-  return `${next == null ? 'Saved changes take effect at once' : `Next ${absoluteTime(next)}`}. ${lastText}.`;
+  return next == null
+    ? translate('backup.status.atOnceNote', 'Saved changes take effect at once. {{last}}.', {
+        last: lastText,
+      })
+    : translate('backup.status.nextNote', 'Next {{when}}. {{last}}.', {
+        when: absoluteTime(next),
+        last: lastText,
+      });
 }
 
 /**
@@ -234,17 +266,23 @@ function statusLine(
   const next = status.schedule.nextRunAt;
   const title =
     last?.finishedAt == null
-      ? 'No backup yet'
+      ? translate('backup.status.none', 'No backup yet')
       : last.status === 'success'
-        ? `Last backup ${relativeTime(last.finishedAt)}`
-        : 'The last backup did not finish';
+        ? translate('backup.status.lastBackup', 'Last backup {{when}}', {
+            when: relativeTime(last.finishedAt),
+          })
+        : translate('backup.status.lastFailed', 'The last backup did not finish');
   const parts = [
     isEnabled
       ? next === null
-        ? 'Automatic backups are on'
-        : `Next ${absoluteTime(next)}`
-      : 'Automatic backups are off',
-    archiveBytes === null ? null : `≈ ${formatBytes(archiveBytes)} each, encrypted`,
+        ? translate('backup.status.on', 'Automatic backups are on')
+        : translate('backup.status.next', 'Next {{when}}', { when: absoluteTime(next) })
+      : translate('backup.status.off', 'Automatic backups are off'),
+    archiveBytes === null
+      ? null
+      : translate('backup.status.each', '≈ {{size}} each, encrypted', {
+          size: formatBytes(archiveBytes),
+        }),
   ].filter((part) => part !== null);
 
   return { title, note: parts.join(' · ') };
@@ -256,6 +294,7 @@ function statusLine(
  * @returns The page.
  */
 export function BackupSettings() {
+  const { t } = useTranslation();
   const can = useSession((state) => state.can);
   const canWrite = can('settings:write');
   const canRestore = can('backup:restore');
@@ -454,13 +493,19 @@ export function BackupSettings() {
   });
 
   if (status.isPending || settings.isPending) {
-    return <p className="text-ui text-foreground-subtle">Reading the backups…</p>;
+    return (
+      <p className="text-ui text-foreground-subtle">
+        {t('backup.reading', 'Reading the backups…')}
+      </p>
+    );
   }
 
   if (status.isError) {
     return (
       <p role="alert" className="text-ui text-danger">
-        The backup service could not be reached: {toMessage(status.error)}
+        {t('backup.unreachable', 'The backup service could not be reached: {{message}}', {
+          message: toMessage(status.error),
+        })}
       </p>
     );
   }
@@ -491,7 +536,7 @@ export function BackupSettings() {
       )}
 
       <Panel
-        title="Backups"
+        title={t('backup.title', 'Backups')}
         action={
           canWrite ? (
             isRunning && active?.kind === 'backup' ? (
@@ -502,7 +547,7 @@ export function BackupSettings() {
                   void cancelBackup(active.runId);
                 }}
               >
-                Stop
+                {t('backup.stop', 'Stop')}
               </Button>
             ) : (
               <Button
@@ -513,7 +558,7 @@ export function BackupSettings() {
                   backUpNow.mutate();
                 }}
               >
-                Back up now
+                {t('backup.now', 'Back up now')}
               </Button>
             )
           ) : undefined
@@ -522,27 +567,27 @@ export function BackupSettings() {
         <PanelRow title={headline.title} note={headline.note} />
         {active?.kind !== 'restore' ? null : (
           <PanelRow
-            title="Restoring…"
-            note={`${PHASE_NAMES[active.phase]}${
+            title={t('backup.restoring', 'Restoring…')}
+            note={`${phaseName(active.phase)}${
               active.bytesTotal === null || active.bytesTotal === 0
                 ? ''
                 : ` · ${String(Math.round(active.bytesDone))}%`
-            } · started ${relativeTime(active.startedAt)}`}
+            } · ${t('backup.started', 'started {{when}}', { when: relativeTime(active.startedAt) })}`}
           />
         )}
         {backUpNow.isError ? (
           <PanelRow
-            title="The backup did not start"
+            title={t('backup.didNotStart', 'The backup did not start')}
             note={<span className="text-danger">{toMessage(backUpNow.error)}</span>}
           />
         ) : null}
 
         <PanelRow
-          title="Automatic backups"
+          title={t('backup.automatic', 'Automatic backups')}
           note={scheduleNote(data, isEnabled)}
           control={
             <Switch
-              label="Automatic backups"
+              label={t('backup.automatic', 'Automatic backups')}
               isOn={isEnabled}
               disabled={!canWrite}
               onChange={(isOn) => {
@@ -553,24 +598,24 @@ export function BackupSettings() {
         />
 
         <PanelRow
-          title="How often"
+          title={t('backup.frequency', 'How often')}
           note={
             frequency.mode === 'daily'
-              ? 'Every day.'
+              ? t('backup.frequencyNotes.daily', 'Every day.')
               : frequency.mode === 'weekly'
-                ? 'Once a week, on the day chosen.'
-                : 'On the days chosen.'
+                ? t('backup.frequencyNotes.weekly', 'Once a week, on the day chosen.')
+                : t('backup.frequencyNotes.custom', 'On the days chosen.')
           }
           control={
             <Segmented
-              label="How often"
+              label={t('backup.frequency', 'How often')}
               size="compact"
               disabled={!canWrite}
               value={frequency.mode}
               options={[
-                { value: 'daily', label: 'Daily' },
-                { value: 'weekly', label: 'Weekly' },
-                { value: 'custom', label: 'Custom' },
+                { value: 'daily', label: t('backup.frequencies.daily', 'Daily') },
+                { value: 'weekly', label: t('backup.frequencies.weekly', 'Weekly') },
+                { value: 'custom', label: t('backup.frequencies.custom', 'Custom') },
               ]}
               onChange={(mode) => {
                 const days: DayOfWeek[] =
@@ -594,7 +639,11 @@ export function BackupSettings() {
         >
           {frequency.mode === 'daily' ? undefined : (
             <WeekdayPicker
-              label={frequency.mode === 'weekly' ? 'The day' : 'The days'}
+              label={
+                frequency.mode === 'weekly'
+                  ? t('backup.theDay', 'The day')
+                  : t('backup.theDays', 'The days')
+              }
               isSingle={frequency.mode === 'weekly'}
               disabled={!canWrite}
               value={frequency.mode === 'weekly' ? [frequency.day] : frequency.days}
@@ -610,30 +659,45 @@ export function BackupSettings() {
         </PanelRow>
 
         <PanelRow
-          title="When"
+          title={t('backup.when', 'When')}
           note={
             schedule.mode === 'fixed' ? (
-              `At ${schedule.time}, ${schedule.timezone} time.`
+              t('backup.whenFixed', 'At {{time}}, {{zone}} time.', {
+                time: schedule.time,
+                zone: schedule.timezone,
+              })
             ) : quiet.state === 'ready' ? (
               <>
-                When the machine is quietest:{' '}
+                {t('backup.quietest', 'When the machine is quietest:')}{' '}
                 <strong className="font-medium text-foreground">{quiet.time}</strong>
                 {quiet.meanLoadPercent === null
                   ? ''
-                  : `, about ${String(Math.round(quiet.meanLoadPercent))}% busy`}
-                {` - learned from ${String(quiet.daysOfData)} days of load, ${schedule.timezone} time.`}
+                  : t('backup.busy', ', about {{percent}}% busy', {
+                      percent: Math.round(quiet.meanLoadPercent),
+                    })}
+                {t('backup.learned', ' - learned from {{days}} days of load, {{zone}} time.', {
+                  days: quiet.daysOfData,
+                  zone: schedule.timezone,
+                })}
               </>
             ) : quiet.state === 'learning' ? (
-              `Learning the machine's load (${String(quiet.daysOfData)} of ${String(quiet.daysNeeded)} days): at ${schedule.time} until then.`
+              t(
+                'backup.learning',
+                "Learning the machine's load ({{days}} of {{needed}} days): at {{time}} until then.",
+                { days: quiet.daysOfData, needed: quiet.daysNeeded, time: schedule.time },
+              )
             ) : (
-              `${quiet.reason ?? 'The load cannot be learned'}: at ${schedule.time} instead.`
+              t('backup.cannotLearn', '{{reason}}: at {{time}} instead.', {
+                reason: quiet.reason ?? t('backup.loadUnlearnable', 'The load cannot be learned'),
+                time: schedule.time,
+              })
             )
           }
           control={
             <div className="flex items-center gap-2">
               {schedule.mode === 'fixed' ? (
                 <TextField
-                  label="Time"
+                  label={t('backup.time', 'Time')}
                   isLabelHidden
                   size="compact"
                   type="time"
@@ -648,13 +712,13 @@ export function BackupSettings() {
                 />
               ) : null}
               <Segmented
-                label="When"
+                label={t('backup.when', 'When')}
                 size="compact"
                 disabled={!canWrite}
                 value={schedule.mode}
                 options={[
-                  { value: 'fixed', label: 'At a time' },
-                  { value: 'quietest', label: 'Quietest' },
+                  { value: 'fixed', label: t('backup.modes.fixed', 'At a time') },
+                  { value: 'quietest', label: t('backup.modes.quietest', 'Quietest') },
                 ]}
                 onChange={(mode) => {
                   editSchedule({ mode });
@@ -673,28 +737,30 @@ export function BackupSettings() {
         )}
       </Panel>
 
-      <Panel title="What to back up">
+      <Panel title={t('backup.what', 'What to back up')}>
         <PanelRow
-          title={SECTION_NAMES.configuration}
+          title={sectionName('configuration')}
           note={
             <>
-              Users, devices, automations, settings, the installed integrations and the certificate.
-              Always taken.
+              {t(
+                'backup.sectionNotes.configuration',
+                'Users, devices, automations, settings, the installed integrations and the certificate. Always taken.',
+              )}
               {estimates === null ? '' : ` ≈ ${formatBytes(estimates.configuration)}`}
             </>
           }
           control={
-            <Switch label={SECTION_NAMES.configuration} isOn disabled onChange={() => undefined} />
+            <Switch label={sectionName('configuration')} isOn disabled onChange={() => undefined} />
           }
         />
         {OPTIONAL_SECTIONS.map(({ key, note }) => (
           <PanelRow
             key={key}
-            title={SECTION_NAMES[key]}
-            note={`${note}.${estimates === null ? '' : ` ≈ ${formatBytes(estimates[key])}`}`}
+            title={sectionName(key)}
+            note={`${text(note)}.${estimates === null ? '' : ` ≈ ${formatBytes(estimates[key])}`}`}
             control={
               <Switch
-                label={SECTION_NAMES[key]}
+                label={sectionName(key)}
                 isOn={sections[key]}
                 disabled={!canWrite}
                 onChange={(isOn) => {
@@ -705,21 +771,31 @@ export function BackupSettings() {
           />
         ))}
         <PanelNote>
-          The sizes are an estimate, not what an archive will weigh: they are worked out from what
-          is stored now{estimates?.basis === 'last-backup' ? ' and the last backup' : ''}. Every
-          backup is full, and encrypted with the backup key.
-          {archiveBytes === null ? '' : ` About ${formatBytes(archiveBytes)} each, as chosen.`}
+          {estimates?.basis === 'last-backup'
+            ? t(
+                'backup.estimateLast',
+                'The sizes are an estimate, not what an archive will weigh: they are worked out from what is stored now and the last backup. Every backup is full, and encrypted with the backup key.',
+              )
+            : t(
+                'backup.estimate',
+                'The sizes are an estimate, not what an archive will weigh: they are worked out from what is stored now. Every backup is full, and encrypted with the backup key.',
+              )}
+          {archiveBytes === null
+            ? ''
+            : ` ${t('backup.estimateEach', 'About {{size}} each, as chosen.', {
+                size: formatBytes(archiveBytes),
+              })}`}
         </PanelNote>
       </Panel>
 
-      <Panel title="Backup key">
+      <Panel title={t('backup.key.title', 'Backup key')}>
         <PanelRow
           title={
             <span className="flex items-center gap-2">
-              Encryption key
+              {t('backup.key.encryption', 'Encryption key')}
               {keyInfo.downloadedAt === null ? (
                 <Badge tone="warning" size="small">
-                  Not downloaded yet
+                  {t('backup.key.notDownloaded', 'Not downloaded yet')}
                 </Badge>
               ) : null}
             </span>
@@ -727,10 +803,14 @@ export function BackupSettings() {
           note={
             <>
               <span className="font-mono">{keyInfo.keyId.slice(0, 8)}</span>
-              {keyInfo.source === 'environment' ? ' · from the environment' : ''}
+              {keyInfo.source === 'environment'
+                ? ` · ${t('backup.key.fromEnvironment', 'from the environment')}`
+                : ''}
               {keyInfo.downloadedAt === null
-                ? ' · without it, a backup can be restored only on this machine'
-                : ` · downloaded ${relativeTime(keyInfo.downloadedAt)}`}
+                ? ` · ${t('backup.key.onlyHere', 'without it, a backup can be restored only on this machine')}`
+                : ` · ${t('backup.key.downloaded', 'downloaded {{when}}', {
+                    when: relativeTime(keyInfo.downloadedAt),
+                  })}`}
             </>
           }
           control={
@@ -742,7 +822,7 @@ export function BackupSettings() {
                   setKeyOpen(true);
                 }}
               >
-                Download
+                {t('common.download', 'Download')}
               </Button>
             ) : undefined
           }
@@ -750,7 +830,7 @@ export function BackupSettings() {
       </Panel>
 
       <Panel
-        title="Locations"
+        title={t('backup.locations', 'Locations')}
         action={
           canWrite ? (
             <Button
@@ -760,7 +840,7 @@ export function BackupSettings() {
                 setEditing('new');
               }}
             >
-              Add location
+              {t('backup.addLocation', 'Add location')}
             </Button>
           ) : undefined
         }
@@ -772,7 +852,7 @@ export function BackupSettings() {
               <span className="flex items-center gap-2">
                 {location.name}
                 <Badge size="small" tone="neutral">
-                  {KIND_NAMES[location.target.kind]}
+                  {kindName(location.target.kind)}
                 </Badge>
               </span>
             }
@@ -781,13 +861,27 @@ export function BackupSettings() {
                 <span className="break-all">{targetText(location)}</span>
                 {' · '}
                 {location.retention.mode === 'count'
-                  ? `keeps the last ${String(location.retention.value)}`
-                  : `keeps ${String(location.retention.value)} days`}
-                {` (${retentionSummary(location.retention, frequency, archiveBytes)}, estimate)`}
+                  ? t('backup.keepsLast', 'keeps the last {{count}}', {
+                      count: location.retention.value,
+                    })
+                  : t('backup.keepsDays', 'keeps {{count}} days', {
+                      count: location.retention.value,
+                    })}
+                {` (${t('backup.estimateOf', '{{summary}}, estimate', {
+                  summary: retentionSummary(location.retention, frequency, archiveBytes),
+                })})`}
                 {location.lastResult === 'failure' ? (
-                  <span className="text-danger"> · Not working - see why</span>
+                  <span className="text-danger">
+                    {' · '}
+                    {t('backup.notWorking', 'Not working - see why')}
+                  </span>
                 ) : location.lastSuccessAt === null ? null : (
-                  <span> · last backup {relativeTime(location.lastSuccessAt)}</span>
+                  <span>
+                    {' · '}
+                    {t('backup.lastBackupWhen', 'last backup {{when}}', {
+                      when: relativeTime(location.lastSuccessAt),
+                    })}
+                  </span>
                 )}
               </>
             }
@@ -801,11 +895,13 @@ export function BackupSettings() {
                       setEditing(location);
                     }}
                   >
-                    {location.lastResult === 'failure' ? 'Why' : 'Edit'}
+                    {location.lastResult === 'failure'
+                      ? t('backup.why', 'Why')
+                      : t('common.edit', 'Edit')}
                   </Button>
                 ) : null}
                 <Switch
-                  label={`Write backups to ${location.name}`}
+                  label={t('backup.writeTo', 'Write backups to {{name}}', { name: location.name })}
                   isOn={location.isEnabled}
                   disabled={!canWrite}
                   isBusy={toggleLocation.isPending && toggleLocation.variables.id === location.id}
@@ -819,14 +915,17 @@ export function BackupSettings() {
         ))}
         {data.capabilities.canMount ? null : (
           <PanelNote>
-            SMB and NFS shares cannot be added here: {data.capabilities.mountProblem}. A disk
-            mounted on the host can still be added as a folder.
+            {t(
+              'backup.noMount',
+              'SMB and NFS shares cannot be added here: {{problem}}. A disk mounted on the host can still be added as a folder.',
+              { problem: data.capabilities.mountProblem },
+            )}
           </PanelNote>
         )}
       </Panel>
 
       <Panel
-        title="Restore"
+        title={t('backup.restore', 'Restore')}
         action={
           isArchivesShown ? (
             <Button
@@ -837,15 +936,18 @@ export function BackupSettings() {
                 void archives.refetch();
               }}
             >
-              Look again
+              {t('backup.lookAgain', 'Look again')}
             </Button>
           ) : undefined
         }
       >
         {!isArchivesShown ? (
           <PanelRow
-            title="The backups in every location"
-            note="Listing them opens every location, network shares too, which can take a moment."
+            title={t('backup.archivesTitle', 'The backups in every location')}
+            note={t(
+              'backup.archivesNote',
+              'Listing them opens every location, network shares too, which can take a moment.',
+            )}
             control={
               <Button
                 variant="ghost"
@@ -854,12 +956,14 @@ export function BackupSettings() {
                   setArchivesShown(true);
                 }}
               >
-                Show
+                {t('common.show', 'Show')}
               </Button>
             }
           />
         ) : archives.isPending ? (
-          <p className="px-4 py-4 text-ui text-foreground-subtle">Opening the locations…</p>
+          <p className="px-4 py-4 text-ui text-foreground-subtle">
+            {t('backup.opening', 'Opening the locations…')}
+          </p>
         ) : archives.isError ? (
           <p role="alert" className="px-4 py-4 text-ui text-danger">
             {toMessage(archives.error)}
@@ -867,28 +971,30 @@ export function BackupSettings() {
         ) : (
           <>
             {archives.data.items.length === 0 ? (
-              <p className="px-4 py-4 text-ui text-foreground-subtle">No backups yet.</p>
+              <p className="px-4 py-4 text-ui text-foreground-subtle">
+                {t('backup.noArchives', 'No backups yet.')}
+              </p>
             ) : (
               archives.data.items.map((archive) => (
                 <PanelRow
                   key={`${archive.locationId}/${archive.name}`}
                   title={absoluteTime(archive.createdAt)}
                   note={`${archive.locationName} · ${formatBytes(archive.bytes)} · ${archive.sections
-                    .map((section) => SECTION_NAMES[section])
+                    .map((section) => sectionName(section))
                     .join(', ')}`}
                   control={
                     <div className="flex items-center gap-2">
                       {archive.restorable === 'needs-key' ? (
                         <Badge size="small" tone="warning">
-                          Another key
+                          {t('backup.anotherKey', 'Another key')}
                         </Badge>
                       ) : archive.restorable === 'schema-mismatch' ? (
                         <Badge size="small" tone="neutral">
-                          Another version
+                          {t('backup.anotherVersion', 'Another version')}
                         </Badge>
                       ) : archive.restorable === 'unreadable' ? (
                         <Badge size="small" tone="danger">
-                          Unreadable
+                          {t('backup.unreadable', 'Unreadable')}
                         </Badge>
                       ) : null}
                       {canRestore &&
@@ -902,7 +1008,7 @@ export function BackupSettings() {
                             setRestoring(archive);
                           }}
                         >
-                          Restore…
+                          {t('backup.restoreEllipsis', 'Restore…')}
                         </Button>
                       ) : null}
                     </div>
@@ -912,21 +1018,29 @@ export function BackupSettings() {
             )}
             {archives.data.problems.map((problem) => (
               <PanelNote key={problem.locationId}>
-                {problem.name} could not be read: {problem.message}
+                {t('backup.locationUnreadable', '{{name}} could not be read: {{message}}', {
+                  name: problem.name,
+                  message: problem.message,
+                })}
               </PanelNote>
             ))}
           </>
         )}
         {data.canRestore ? null : (
           <PanelNote>
-            Restoring needs the NebulaHome container, which stops and starts the services around it.
+            {t(
+              'backup.needsContainer',
+              'Restoring needs the NebulaHome container, which stops and starts the services around it.',
+            )}
           </PanelNote>
         )}
       </Panel>
 
-      <Panel title="Recent runs">
+      <Panel title={t('backup.recentRuns', 'Recent runs')}>
         {pastRuns.length === 0 ? (
-          <p className="px-4 py-4 text-ui text-foreground-subtle">Nothing has run yet.</p>
+          <p className="px-4 py-4 text-ui text-foreground-subtle">
+            {t('backup.noRuns', 'Nothing has run yet.')}
+          </p>
         ) : (
           pastRuns.map((run) => {
             const outcome = runOutcome(run);
@@ -939,7 +1053,9 @@ export function BackupSettings() {
                 key={run.id}
                 title={
                   <span className="flex items-center gap-2">
-                    {run.kind === 'restore' ? 'Restore' : 'Backup'}
+                    {run.kind === 'restore'
+                      ? t('backup.restore', 'Restore')
+                      : t('backup.backupRun', 'Backup')}
                     <Badge size="small" tone={outcome.tone}>
                       {outcome.words}
                     </Badge>
@@ -948,13 +1064,18 @@ export function BackupSettings() {
                 note={
                   <>
                     <span title={absoluteTime(run.startedAt)}>{relativeTime(run.startedAt)}</span>
-                    {` · ${TRIGGER_NAMES[run.trigger]}`}
-                    {run.requestedBy === null ? '' : ` by ${run.requestedBy.username}`}
+                    {` · ${triggerName(run.trigger)}`}
+                    {run.requestedBy === null
+                      ? ''
+                      : ` ${t('backup.by', 'by {{name}}', { name: run.requestedBy.username })}`}
                     {run.archiveBytes === null ? '' : ` · ${formatBytes(run.archiveBytes)}`}
                     {took === null ? '' : ` · ${durationText(took)}`}
                     {run.destinations.length === 0
                       ? ''
-                      : ` · ${String(taken)} of ${String(run.destinations.length)} locations`}
+                      : ` · ${t('backup.locationsTaken', '{{taken}} of {{count}} locations', {
+                          taken,
+                          count: run.destinations.length,
+                        })}`}
                   </>
                 }
               >
@@ -962,7 +1083,7 @@ export function BackupSettings() {
                 run.destinations.every((each) => each.error === null) ? undefined : (
                   <details className="rounded-field border border-border bg-surface-raised px-3 py-2">
                     <summary className="cursor-pointer text-caption text-foreground-muted">
-                      Why
+                      {t('backup.why', 'Why')}
                     </summary>
                     <div className="mt-2 flex flex-col gap-1 text-ui break-words whitespace-pre-wrap text-danger">
                       {run.error === null ? null : <p>{run.error}</p>}
@@ -985,9 +1106,11 @@ export function BackupSettings() {
       {canWrite && isDirty ? (
         <div className="sticky bottom-0 flex items-center gap-4 rounded-panel border border-border bg-surface-raised px-4 py-3">
           <span className="grow text-ui text-foreground-muted">
-            {Object.keys(draft).length === 1
-              ? '1 unsaved change'
-              : `${String(Object.keys(draft).length)} unsaved changes`}
+            {t('settings.data.unsaved', {
+              count: Object.keys(draft).length,
+              defaultValue_one: '{{count}} unsaved change',
+              defaultValue_other: '{{count}} unsaved changes',
+            })}
           </span>
           {saveError === undefined ? null : (
             <span role="alert" className="text-ui text-danger">
@@ -1002,10 +1125,10 @@ export function BackupSettings() {
               setSaveError(undefined);
             }}
           >
-            Discard
+            {t('common.discard', 'Discard')}
           </Button>
           <Button className="h-8 px-3 text-ui" isBusy={isSaving} onClick={save}>
-            Save
+            {t('common.save', 'Save')}
           </Button>
         </div>
       ) : null}
