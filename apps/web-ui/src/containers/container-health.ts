@@ -10,6 +10,7 @@
 import type { ContainerDetail, ContainerSummary } from '@nebulahome/contracts';
 import type { HealthTone, PillTone } from '@nebulahome/ui';
 
+import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import { relativeTime } from '@/lib/format-time';
 
 /** One card of the strip, before it is drawn. */
@@ -21,15 +22,30 @@ export type ContainerHealthLine = {
 
 /** How each state reads in a Pill. */
 const STATE_PILLS: Readonly<
-  Record<ContainerSummary['state'], { readonly tone: PillTone; readonly label: string }>
+  Record<ContainerSummary['state'], { readonly tone: PillTone; readonly label: Message }>
 > = {
-  created: { tone: 'neutral', label: 'Created' },
-  running: { tone: 'success', label: 'Running' },
-  paused: { tone: 'warning', label: 'Paused' },
-  restarting: { tone: 'warning', label: 'Restarting' },
-  removing: { tone: 'neutral', label: 'Removing' },
-  exited: { tone: 'neutral', label: 'Stopped' },
-  dead: { tone: 'danger', label: 'Dead' },
+  created: {
+    tone: 'neutral',
+    label: defineMessage('containers.containerHealth.created', 'Created'),
+  },
+  running: {
+    tone: 'success',
+    label: defineMessage('containers.containerHealth.running', 'Running'),
+  },
+  paused: { tone: 'warning', label: defineMessage('containers.containerHealth.paused', 'Paused') },
+  restarting: {
+    tone: 'warning',
+    label: defineMessage('containers.containerHealth.restarting', 'Restarting'),
+  },
+  removing: {
+    tone: 'neutral',
+    label: defineMessage('containers.containerHealth.removing', 'Removing'),
+  },
+  exited: {
+    tone: 'neutral',
+    label: defineMessage('containers.containerHealth.stopped', 'Stopped'),
+  },
+  dead: { tone: 'danger', label: defineMessage('containers.containerHealth.dead', 'Dead') },
 };
 
 /**
@@ -43,10 +59,15 @@ export function containerPill(container: Pick<ContainerSummary, 'state' | 'healt
   readonly label: string;
 } {
   if (container.state === 'running' && container.health === 'unhealthy') {
-    return { tone: 'warning', label: 'Unhealthy' };
+    return {
+      tone: 'warning',
+      label: translate('containers.containerHealth.unhealthy', 'Unhealthy'),
+    };
   }
 
-  return STATE_PILLS[container.state];
+  const pill = STATE_PILLS[container.state];
+
+  return { ...pill, label: text(pill.label) };
 }
 
 /**
@@ -63,14 +84,22 @@ export function containerPurpose(container: ContainerDetail): string {
   }
 
   if (container.isSystem) {
-    return container.isSelf ? 'Nebula Home itself.' : 'Part of Nebula Home.';
+    return container.isSelf
+      ? translate('containers.containerHealth.nebulaHomeItself', 'Nebula Home itself.')
+      : translate('containers.containerHealth.partOfNebulaHome', 'Part of Nebula Home.');
   }
 
   if (container.compose !== null) {
-    return `The ${container.compose.service} service of ${container.compose.project}.`;
+    return translate(
+      'containers.containerHealth.serviceServiceOfProject',
+      'The {{service}} service of {{project}}.',
+      { service: container.compose.service, project: container.compose.project },
+    );
   }
 
-  return `Runs ${container.image}.`;
+  return translate('containers.containerHealth.runsImage', 'Runs {{image}}.', {
+    image: container.image,
+  });
 }
 
 /**
@@ -86,26 +115,66 @@ export function containerRuntimeHealth(container: ContainerDetail): ContainerHea
   switch (container.state) {
     case 'running':
       return container.health === 'unhealthy'
-        ? { tone: 'warning', value: 'Unhealthy', detail: 'Its healthcheck is failing' }
+        ? {
+            tone: 'warning',
+            value: translate('containers.containerHealth.unhealthy', 'Unhealthy'),
+            detail: translate(
+              'containers.containerHealth.itsHealthcheckIsFailing',
+              'Its healthcheck is failing',
+            ),
+          }
         : {
             tone: 'success',
-            value: 'Running',
-            detail: [container.health === null ? null : `Healthcheck ${container.health}`, since]
+            value: translate('containers.containerHealth.running', 'Running'),
+            detail: [
+              container.health === null
+                ? null
+                : translate(
+                    'containers.containerHealth.healthcheckHealth',
+                    'Healthcheck {{health}}',
+                    { health: container.health },
+                  ),
+              since,
+            ]
               .filter((part) => part !== null)
               .join(' · '),
           };
     case 'restarting':
-      return { tone: 'warning', value: 'Restarting', detail: container.status };
+      return {
+        tone: 'warning',
+        value: translate('containers.containerHealth.restarting', 'Restarting'),
+        detail: container.status,
+      };
     case 'paused':
-      return { tone: 'warning', value: 'Paused', detail: container.status };
+      return {
+        tone: 'warning',
+        value: translate('containers.containerHealth.paused', 'Paused'),
+        detail: container.status,
+      };
     case 'dead':
-      return { tone: 'danger', value: 'Dead', detail: container.status };
+      return {
+        tone: 'danger',
+        value: translate('containers.containerHealth.dead', 'Dead'),
+        detail: container.status,
+      };
     case 'exited':
-      return { tone: 'neutral', value: 'Stopped', detail: container.status };
+      return {
+        tone: 'neutral',
+        value: translate('containers.containerHealth.stopped', 'Stopped'),
+        detail: container.status,
+      };
     case 'created':
-      return { tone: 'neutral', value: 'Created', detail: 'Never started' };
+      return {
+        tone: 'neutral',
+        value: translate('containers.containerHealth.created', 'Created'),
+        detail: translate('containers.containerHealth.neverStarted', 'Never started'),
+      };
     case 'removing':
-      return { tone: 'neutral', value: 'Removing', detail: container.status };
+      return {
+        tone: 'neutral',
+        value: translate('containers.containerHealth.removing', 'Removing'),
+        detail: container.status,
+      };
   }
 }
 
@@ -121,31 +190,45 @@ export function containerImageHealth(container: ContainerDetail): ContainerHealt
   if (container.update.isInstalling) {
     return {
       tone: 'info',
-      value: 'Updating',
+      value: translate('containers.containerHealth.updating', 'Updating'),
       detail:
         container.update.progress === null
-          ? 'Pulling the new image'
-          : `${String(container.update.progress)}% pulled`,
+          ? translate('containers.containerHealth.pullingTheNewImage', 'Pulling the new image')
+          : translate('containers.containerHealth.progressPulled', '{{progress}}% pulled', {
+              progress: String(container.update.progress),
+            }),
     };
   }
 
   if (container.update.error !== null) {
-    return { tone: 'warning', value: 'Check failed', detail: container.update.error };
+    return {
+      tone: 'warning',
+      value: translate('containers.containerHealth.checkFailed', 'Check failed'),
+      detail: container.update.error,
+    };
   }
 
   if (container.update.isAvailable) {
     return {
       tone: 'info',
-      value: `${container.update.latestVersion ?? 'A newer image'} ready`,
+      value: `${container.update.latestVersion ?? translate('containers.containerHealth.newerImage', 'A newer image')} ready`,
       detail: running,
     };
   }
 
   if (container.update.checkedAt === null) {
-    return { tone: 'neutral', value: 'Not checked', detail: running };
+    return {
+      tone: 'neutral',
+      value: translate('containers.containerHealth.notChecked', 'Not checked'),
+      detail: running,
+    };
   }
 
-  return { tone: 'success', value: 'Up to date', detail: running };
+  return {
+    tone: 'success',
+    value: translate('containers.containerHealth.upToDate', 'Up to date'),
+    detail: running,
+  };
 }
 
 /** How the integration or package that runs a container stands, when it is known. */
@@ -174,29 +257,60 @@ export function containerUsedByHealth(
     const kind = container.managedBy.ownerKind === 'package' ? 'package' : 'integration';
 
     if (owner === null) {
-      return { tone: 'neutral', value: container.managedBy.vendorId, detail: `Its ${kind}` };
+      return {
+        tone: 'neutral',
+        value: container.managedBy.vendorId,
+        detail: translate('containers.containerHealth.itsKind', 'Its {{kind}}', { kind }),
+      };
     }
 
     return owner.isWorking
-      ? { tone: 'success', value: owner.name, detail: `Its ${kind} works` }
+      ? {
+          tone: 'success',
+          value: owner.name,
+          detail: translate('containers.containerHealth.itsKindWorks', 'Its {{kind}} works', {
+            kind,
+          }),
+        }
       : {
           tone: 'warning',
-          value: 'Waiting',
-          detail: owner.problem ?? `The ${kind} is not working`,
+          value: translate('containers.containerHealth.waiting', 'Waiting'),
+          detail:
+            owner.problem ??
+            translate(
+              'containers.containerHealth.kindIsNotWorking',
+              'The {{kind}} is not working',
+              { kind },
+            ),
         };
   }
 
   if (container.isSystem) {
-    return { tone: 'neutral', value: 'Nebula Home', detail: 'Part of the platform' };
+    return {
+      tone: 'neutral',
+      value: 'Nebula Home',
+      detail: translate('containers.containerHealth.partOfThePlatform', 'Part of the platform'),
+    };
   }
 
   if (container.compose !== null) {
     return {
       tone: 'neutral',
       value: container.compose.project,
-      detail: `As its ${container.compose.service} service`,
+      detail: translate(
+        'containers.containerHealth.asItsServiceService',
+        'As its {{service}} service',
+        { service: container.compose.service },
+      ),
     };
   }
 
-  return { tone: 'neutral', value: 'Nothing', detail: 'Nothing else depends on it' };
+  return {
+    tone: 'neutral',
+    value: translate('containers.containerHealth.nothing', 'Nothing'),
+    detail: translate(
+      'containers.containerHealth.nothingElseDependsOn',
+      'Nothing else depends on it',
+    ),
+  };
 }

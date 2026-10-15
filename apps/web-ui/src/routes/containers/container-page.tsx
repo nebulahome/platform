@@ -13,6 +13,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
 import type { ContainerAction } from '@nebulahome/contracts';
@@ -62,6 +63,8 @@ type ContainerTab = (typeof TABS)[number];
  * @returns The page.
  */
 export function ContainerPage() {
+  const { t } = useTranslation();
+
   const { name = '' } = useParams();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -178,7 +181,7 @@ export function ContainerPage() {
     view !== undefined && isControllable && canInstall
       ? [
           {
-            label: 'Remove',
+            label: t('common.remove', 'Remove'),
             icon: 'trash-2',
             tone: 'danger',
             disabled: isBusy,
@@ -201,7 +204,9 @@ export function ContainerPage() {
           <DetailHero
             back={
               view?.compose === null || view?.compose === undefined ? (
-                <BackLink to="/containers">Containers</BackLink>
+                <BackLink to="/containers">
+                  {t('containers.container.containers', 'Containers')}
+                </BackLink>
               ) : (
                 <BackLink to={composePath(view.compose.project)}>
                   {projectTitle(view.compose.project, view.isSystem)}
@@ -221,9 +226,13 @@ export function ContainerPage() {
                   <Pill tone={pill.tone}>{pill.label}</Pill>
                   {view.version === null ? null : <HeroFact>{view.version}</HeroFact>}
                   {view.managedBy !== null && !view.managedBy.isReleased ? (
-                    <HeroFact icon="lock">Run by the supervisor</HeroFact>
+                    <HeroFact icon="lock">
+                      {t('containers.container.runByTheSupervisor', 'Run by the supervisor')}
+                    </HeroFact>
                   ) : view.isSystem ? (
-                    <HeroFact icon="lock">Part of the platform</HeroFact>
+                    <HeroFact icon="lock">
+                      {t('containers.container.partOfThePlatform', 'Part of the platform')}
+                    </HeroFact>
                   ) : null}
                 </>
               )
@@ -240,7 +249,8 @@ export function ContainerPage() {
                       }}
                     >
                       <AppIcon id="circle-arrow-up" size={16} />
-                      Update to {view.update.latestVersion ?? 'the newest'}
+                      {t('containers.container.updateTo', 'Update to')}{' '}
+                      {view.update.latestVersion ?? t('containers.container.newest', 'the newest')}
                     </Button>
                   ) : null}
                   {canControl && isRunning ? (
@@ -254,7 +264,7 @@ export function ContainerPage() {
                         }}
                       >
                         <AppIcon id="rotate-ccw" size={15} />
-                        Restart
+                        {t('containers.container.restart', 'Restart')}
                       </Button>
                       <Button
                         variant="ghost"
@@ -265,7 +275,7 @@ export function ContainerPage() {
                         }}
                       >
                         <AppIcon id="square" size={14} />
-                        Stop
+                        {t('containers.container.stop', 'Stop')}
                       </Button>
                     </>
                   ) : null}
@@ -279,7 +289,7 @@ export function ContainerPage() {
                       }}
                     >
                       <AppIcon id="play" size={15} />
-                      Start
+                      {t('containers.container.start', 'Start')}
                     </Button>
                   ) : null}
                   <OverflowMenu items={menu} />
@@ -294,9 +304,13 @@ export function ContainerPage() {
                   value={tab}
                   onChange={setTab}
                   items={[
-                    { id: 'overview', label: 'Overview' },
-                    { id: 'environment', label: 'Environment', count: view.env.length },
-                    { id: 'log', label: 'Log' },
+                    { id: 'overview', label: t('containers.container.overview', 'Overview') },
+                    {
+                      id: 'environment',
+                      label: t('containers.container.environment', 'Environment'),
+                      count: view.env.length,
+                    },
+                    { id: 'log', label: t('containers.container.log', 'Log') },
                   ]}
                 />
               )
@@ -352,8 +366,13 @@ export function ContainerPage() {
           setRemoving(false);
         }}
         size="small"
-        title={`Remove ${view?.displayName ?? name}?`}
-        description="It is stopped and removed. Its named volumes and the folders it was given stay."
+        title={t('containers.container.removeName', 'Remove {{name}}?', {
+          name: view?.displayName ?? name,
+        })}
+        description={t(
+          'containers.container.itIsStoppedAnd',
+          'It is stopped and removed. Its named volumes and the folders it was given stay.',
+        )}
         footer={
           <>
             {removal.error === null ? null : (
@@ -368,7 +387,7 @@ export function ContainerPage() {
                 setRemoving(false);
               }}
             >
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button
               variant="danger"
@@ -377,14 +396,17 @@ export function ContainerPage() {
                 removal.mutate();
               }}
             >
-              Remove
+              {t('common.remove', 'Remove')}
             </Button>
           </>
         }
       >
         <div className="px-5 py-4">
           <Switch
-            label="Also delete the volumes Docker made for it alone"
+            label={t(
+              'containers.container.alsoDeleteTheVolumes',
+              'Also delete the volumes Docker made for it alone',
+            )}
             isOn={removeVolumes}
             onChange={setRemoveVolumes}
           />

@@ -14,6 +14,7 @@ import type { ComponentType } from 'react';
 import type { InstalledPackage } from '@nebulahome/contracts';
 import { SDK_VERSION } from '@nebulahome/package-sdk';
 
+import { translate } from '@/i18n/messages';
 import { packageFileUrl } from '@/packages/api';
 import { importModule } from '@/packages/import-module';
 
@@ -121,7 +122,11 @@ function entryOf(packageId: string, value: unknown): PackageUiEntry {
     !isLoaders(value['entityViews'])
   ) {
     throw new Error(
-      `The ${packageId} package's interface was not built with @nebulahome/package-sdk`,
+      translate(
+        'packages.loader.packageidPackageSInterface',
+        "The {{packageId}} package's interface was not built with @nebulahome/package-sdk",
+        { packageId },
+      ),
     );
   }
 
@@ -135,7 +140,11 @@ function entryOf(packageId: string, value: unknown): PackageUiEntry {
 
   if (major(value['sdk']) > major(SDK_VERSION)) {
     throw new Error(
-      `The ${packageId} package needs package SDK ${value['sdk']}; this interface implements ${SDK_VERSION}`,
+      translate(
+        'packages.loader.packageidPackageNeedsPackage',
+        'The {{packageId}} package needs package SDK {{needed}}; this interface implements {{version}}',
+        { packageId, needed: value['sdk'], version: SDK_VERSION },
+      ),
     );
   }
 
@@ -158,7 +167,13 @@ export async function loadPackageUi(found: LoadablePackage): Promise<PackageUiEn
   const { ui } = found;
 
   if (ui === null) {
-    throw new Error(`The ${found.id} package adds nothing to the interface`);
+    throw new Error(
+      translate(
+        'packages.loader.idPackageAddsNothing',
+        'The {{id}} package adds nothing to the interface',
+        { id: found.id },
+      ),
+    );
   }
 
   const key = `${found.id}@${found.build}`;
@@ -227,7 +242,13 @@ export async function loadPackageComponent(
   const component = isRecord(module) && 'default' in module ? module['default'] : module;
 
   if (!isComponent(component)) {
-    throw new Error(`The ${found.id} package's module for this is not a component`);
+    throw new Error(
+      translate(
+        'packages.loader.idPackageSModule',
+        "The {{id}} package's module for this is not a component",
+        { id: found.id },
+      ),
+    );
   }
 
   return component;

@@ -8,6 +8,7 @@
  * that says what it is.
  */
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { ContainerDetail, ContainerPort } from '@nebulahome/contracts';
@@ -195,6 +196,8 @@ export type ContainerOverviewProps = {
  * @returns The tab's content.
  */
 export function ContainerOverview(props: ContainerOverviewProps) {
+  const { t } = useTranslation();
+
   const { container, failure, onUpdate, isUpdating } = props;
   const owner = useOwnerStanding(container);
   const runtime = containerRuntimeHealth(container);
@@ -209,27 +212,47 @@ export function ContainerOverview(props: ContainerOverviewProps) {
   const problems = [...(failure === null ? [] : [failure]), ...container.warnings];
 
   const facts: Fact[] = [
-    { label: 'Image', value: container.image, isMono: true },
-    { label: 'Created', value: absoluteTime(container.createdAt) },
-    { label: 'Restart policy', value: container.restartPolicy ?? 'no', isMono: true },
     {
-      label: 'Network',
+      label: t('containers.containerOverview.image', 'Image'),
+      value: container.image,
+      isMono: true,
+    },
+    {
+      label: t('containers.containerOverview.created', 'Created'),
+      value: absoluteTime(container.createdAt),
+    },
+    {
+      label: t('containers.containerOverview.restartPolicy', 'Restart policy'),
+      value: container.restartPolicy ?? 'no',
+      isMono: true,
+    },
+    {
+      label: t('containers.containerOverview.network', 'Network'),
       value:
         container.networks.length === 0
           ? container.networkMode
           : container.networks
-              .map((network) => `${network.name} · ${network.ipAddress ?? 'no address'}`)
+              .map(
+                (network) =>
+                  `${network.name} · ${network.ipAddress ?? t('containers.containerOverview.noAddress', 'no address')}`,
+              )
               .join(', '),
       isMono: true,
     },
     ...(container.command === null
       ? []
-      : [{ label: 'Command', value: container.command, isMono: true }]),
+      : [
+          {
+            label: t('containers.containerOverview.command', 'Command'),
+            value: container.command,
+            isMono: true,
+          },
+        ]),
     ...(container.managedBy === null || container.managedBy.isReleased
       ? []
       : [
           {
-            label: 'Run by',
+            label: t('containers.containerOverview.runBy', 'Run by'),
             value: (
               <Link
                 to={
@@ -239,7 +262,8 @@ export function ContainerOverview(props: ContainerOverviewProps) {
                 }
                 className="text-primary transition-colors hover:text-primary-hover"
               >
-                The supervisor, for {owner?.name ?? container.managedBy.vendorId}
+                {t('containers.containerOverview.supervisorFor', 'The supervisor, for')}{' '}
+                {owner?.name ?? container.managedBy.vendorId}
               </Link>
             ),
           },
@@ -248,7 +272,7 @@ export function ContainerOverview(props: ContainerOverviewProps) {
       ? []
       : [
           {
-            label: 'Compose',
+            label: t('containers.containerOverview.compose', 'Compose'),
             value: (
               <Link
                 to={composePath(container.compose.project)}
@@ -264,7 +288,7 @@ export function ContainerOverview(props: ContainerOverviewProps) {
       ? []
       : [
           {
-            label: 'Registry',
+            label: t('containers.containerOverview.registry', 'Registry'),
             value: (
               <OutLink href={container.registryUrl}>
                 {container.registryUrl.replace(/^https?:\/\//u, '')}
@@ -276,7 +300,7 @@ export function ContainerOverview(props: ContainerOverviewProps) {
       ? []
       : [
           {
-            label: 'Web page',
+            label: t('containers.containerOverview.webPage', 'Web page'),
             value: <OutLink href={webPage}>{webPage.replace(/^https?:\/\//u, '')}</OutLink>,
           },
         ]),
@@ -284,18 +308,22 @@ export function ContainerOverview(props: ContainerOverviewProps) {
       ? []
       : [
           {
-            label: 'Device',
+            label: t('containers.containerOverview.device', 'Device'),
             value: (
               <Link
                 to={`/devices/${encodeURIComponent(container.deviceId)}`}
                 className="text-primary transition-colors hover:text-primary-hover"
               >
-                Its entities
+                {t('containers.containerOverview.itsEntities', 'Its entities')}
               </Link>
             ),
           },
         ]),
-    { label: 'Id', value: container.id.slice(0, 12), isMono: true },
+    {
+      label: t('containers.containerOverview.id', 'Id'),
+      value: container.id.slice(0, 12),
+      isMono: true,
+    },
   ];
 
   return (
@@ -312,13 +340,13 @@ export function ContainerOverview(props: ContainerOverviewProps) {
 
       <HealthStrip>
         <HealthCard
-          label="Runtime"
+          label={t('containers.containerOverview.runtime', 'Runtime')}
           tone={runtime.tone}
           value={runtime.value}
           detail={runtime.detail}
         />
         <HealthCard
-          label="Image"
+          label={t('containers.containerOverview.image', 'Image')}
           tone={image.tone}
           value={image.value}
           detail={image.detail}
@@ -327,13 +355,13 @@ export function ContainerOverview(props: ContainerOverviewProps) {
             container.update.isAvailable &&
             !container.update.isInstalling ? (
               <Button variant="ghost" size="compact" isBusy={isUpdating} onClick={onUpdate}>
-                Update
+                {t('containers.containerOverview.update', 'Update')}
               </Button>
             ) : undefined
           }
         />
         <HealthCard
-          label="Used by"
+          label={t('containers.containerOverview.usedBy', 'Used by')}
           tone={usedBy.tone}
           value={usedBy.value}
           detail={usedBy.detail}
@@ -342,14 +370,17 @@ export function ContainerOverview(props: ContainerOverviewProps) {
 
       {container.state === 'running' ? <ContainerUsage container={container} /> : null}
 
-      <Section title="Ports">
+      <Section title={t('containers.containerOverview.ports', 'Ports')}>
         {isHost ? (
           <p className="rounded-card border border-border bg-surface px-5 py-4 text-ui text-foreground-muted">
-            On the machine&apos;s own network: every port it opens is the machine&apos;s.
+            {t(
+              'containers.containerOverview.onTheMachineS',
+              "On the machine's own network: every port it opens is the machine's.",
+            )}
           </p>
         ) : published.length === 0 && exposed.length === 0 ? (
           <p className="rounded-card border border-border bg-surface px-5 py-4 text-ui text-foreground-muted">
-            It opens no port.
+            {t('containers.containerOverview.itOpensNoPort', 'It opens no port.')}
           </p>
         ) : (
           <RowList>
@@ -365,9 +396,24 @@ export function ContainerOverview(props: ContainerOverviewProps) {
                       {port.hostPort} → {port.containerPort}
                     </span>
                   }
-                  subtitle={`${port.protocol.toUpperCase()}${port.hostIp === null ? '' : ` · on ${port.hostIp}`}`}
+                  subtitle={
+                    port.hostIp === null
+                      ? port.protocol.toUpperCase()
+                      : t(
+                          'containers.containerOverview.protocolOnHost',
+                          '{{protocol}} · on {{host}}',
+                          {
+                            protocol: port.protocol.toUpperCase(),
+                            host: port.hostIp,
+                          },
+                        )
+                  }
                   trailing={
-                    port.protocol === 'tcp' ? <OutLink href={page}>Open</OutLink> : undefined
+                    port.protocol === 'tcp' ? (
+                      <OutLink href={page}>
+                        {t('containers.containerOverview.open', 'Open')}
+                      </OutLink>
+                    ) : undefined
                   }
                 />
               );
@@ -376,17 +422,20 @@ export function ContainerOverview(props: ContainerOverviewProps) {
               <ListRow
                 icon={<AppIcon id="network" size={18} />}
                 title={<span className="font-mono tabular">{exposed.join(', ')}</span>}
-                subtitle="Only other containers reach these"
+                subtitle={t(
+                  'containers.containerOverview.onlyOtherContainersReach',
+                  'Only other containers reach these',
+                )}
               />
             )}
           </RowList>
         )}
       </Section>
 
-      <Section title="Storage">
+      <Section title={t('containers.containerOverview.storage', 'Storage')}>
         {container.mounts.length === 0 && container.devices.length === 0 ? (
           <p className="rounded-card border border-border bg-surface px-5 py-4 text-ui text-foreground-muted">
-            Nothing is mounted.
+            {t('containers.containerOverview.nothingIsMounted', 'Nothing is mounted.')}
           </p>
         ) : (
           <RowList>
@@ -395,10 +444,18 @@ export function ContainerOverview(props: ContainerOverviewProps) {
                 key={mount.destination}
                 icon={<AppIcon id="hard-drive" size={18} />}
                 title={<span className="font-mono">{mount.destination}</span>}
-                subtitle={`${mount.type === 'bind' ? 'Folder' : mount.type === 'volume' ? 'Volume' : mount.type} · ${mount.source ?? 'in memory'}${mount.subpath === null ? '' : ` / ${mount.subpath}`}`}
+                subtitle={`${
+                  mount.type === 'bind'
+                    ? t('containers.containerOverview.folder', 'Folder')
+                    : mount.type === 'volume'
+                      ? t('containers.containerOverview.volume', 'Volume')
+                      : mount.type
+                } · ${mount.source ?? t('containers.containerOverview.inMemory', 'in memory')}${mount.subpath === null ? '' : ` / ${mount.subpath}`}`}
                 trailing={
                   <Badge tone="neutral" size="small">
-                    {mount.isReadOnly ? 'Read-only' : 'Read-write'}
+                    {mount.isReadOnly
+                      ? t('containers.containerOverview.readOnly', 'Read-only')
+                      : t('containers.containerOverview.readWrite', 'Read-write')}
                   </Badge>
                 }
               />
@@ -408,10 +465,12 @@ export function ContainerOverview(props: ContainerOverviewProps) {
                 key={device.container}
                 icon={<AppIcon id="cable" size={18} />}
                 title={<span className="font-mono">{device.container}</span>}
-                subtitle={`Device · ${device.host}`}
+                subtitle={t('containers.containerOverview.deviceHost', 'Device · {{host}}', {
+                  host: device.host,
+                })}
                 trailing={
                   <Badge tone="neutral" size="small">
-                    Passed through
+                    {t('containers.containerOverview.passedThrough', 'Passed through')}
                   </Badge>
                 }
               />
@@ -420,7 +479,7 @@ export function ContainerOverview(props: ContainerOverviewProps) {
         )}
       </Section>
 
-      <Section title="Details">
+      <Section title={t('containers.containerOverview.details', 'Details')}>
         <FactGrid facts={facts} />
       </Section>
     </div>

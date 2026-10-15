@@ -16,6 +16,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
 import type { ApiPackageDetail } from '@nebulahome/contracts';
@@ -36,6 +37,7 @@ import {
 
 import { useSession } from '@/auth/session-store';
 import { LogViewer } from '@/components/log-viewer';
+import { text } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { useTab } from '@/lib/use-tab';
 import {
@@ -86,6 +88,8 @@ type RemoveDialogProps = {
  * @returns The dialog.
  */
 function RemoveDialog(props: RemoveDialogProps) {
+  const { t } = useTranslation();
+
   const { found, onClose, onRemoved } = props;
   const [isDataRemoved, setDataRemoved] = useState(false);
   const remove = useMutation({
@@ -103,16 +107,29 @@ function RemoveDialog(props: RemoveDialogProps) {
       isOpen={found !== null}
       onClose={onClose}
       size="small"
-      title={`Remove ${found?.name ?? ''}?`}
+      title={t('packages.package.removeName', 'Remove {{name}}?', { name: found?.name ?? '' })}
       description={
         found === null
           ? undefined
-          : `Its ${String(found.deviceCount)} device${found.deviceCount === 1 ? '' : 's'} and ${String(found.entityCount)} entit${found.entityCount === 1 ? 'y' : 'ies'} go with it; its cards stay on the dashboards and say it is not installed.`
+          : t('packages.package.removeTakes', {
+              devices: t('packages.package.devices', {
+                count: found.deviceCount,
+                defaultValue_one: '{{count}} device',
+                defaultValue_other: '{{count}} devices',
+              }),
+              entities: t('packages.package.entities', {
+                count: found.entityCount,
+                defaultValue_one: '{{count}} entity',
+                defaultValue_other: '{{count}} entities',
+              }),
+              defaultValue:
+                'Its {{devices}} and {{entities}} go with it; its cards stay on the dashboards and say it is not installed.',
+            })
       }
       footer={
         <>
           <Button variant="ghost" disabled={remove.isPending} onClick={onClose}>
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
           <Button
             variant="danger"
@@ -121,20 +138,32 @@ function RemoveDialog(props: RemoveDialogProps) {
               remove.mutate();
             }}
           >
-            Remove
+            {t('common.remove', 'Remove')}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3 text-ui">
-          <span aria-hidden="true">Delete what it kept, too</span>
-          <Switch label="Delete what it kept, too" isOn={isDataRemoved} onChange={setDataRemoved} />
+          <span aria-hidden="true">
+            {t('packages.package.deleteWhatItKept', 'Delete what it kept, too')}
+          </span>
+          <Switch
+            label={t('packages.package.deleteWhatItKept', 'Delete what it kept, too')}
+            isOn={isDataRemoved}
+            onChange={setDataRemoved}
+          />
         </div>
         <p className="text-caption text-foreground-subtle">
           {isDataRemoved
-            ? 'Its data folder is deleted: installing it again starts from nothing.'
-            : 'Its data folder is kept: installing it again picks up where it left off.'}
+            ? t(
+                'packages.package.itsDataFolderIs',
+                'Its data folder is deleted: installing it again starts from nothing.',
+              )
+            : t(
+                'packages.package.itsDataFolderIs2',
+                'Its data folder is kept: installing it again picks up where it left off.',
+              )}
         </p>
         {remove.error === null ? null : (
           <p role="alert" className="text-ui text-danger">
@@ -152,6 +181,8 @@ function RemoveDialog(props: RemoveDialogProps) {
  * @returns The page.
  */
 export function PackagePage() {
+  const { t } = useTranslation();
+
   const { packageId = '' } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -243,7 +274,7 @@ export function PackagePage() {
           ...(canInstall && newer !== undefined
             ? [
                 {
-                  label: `Update to v${newer}`,
+                  label: t('packages.package.updateToVnewer', 'Update to v{{newer}}', { newer }),
                   icon: 'circle-arrow-up' as const,
                   disabled: update.isPending,
                   /** Installs the newer release. */
@@ -256,8 +287,11 @@ export function PackagePage() {
           ...(canInstall && hasNewBuild
             ? [
                 {
-                  label: 'Reinstall',
-                  description: 'The build in the local folder',
+                  label: t('packages.package.reinstall', 'Reinstall'),
+                  description: t(
+                    'packages.package.buildInTheLocal',
+                    'The build in the local folder',
+                  ),
                   icon: 'rotate-ccw' as const,
                   disabled: update.isPending,
                   /** Installs the rebuild of the same version. */
@@ -270,7 +304,7 @@ export function PackagePage() {
           ...(canConfigure && isUp
             ? [
                 {
-                  label: 'Restart',
+                  label: t('packages.package.restart', 'Restart'),
                   icon: 'rotate-ccw' as const,
                   /** Restarts it. */
                   onSelect: () => {
@@ -280,16 +314,27 @@ export function PackagePage() {
               ]
             : []),
           ...(canConfigure && isUp && !found.isSystem
-            ? [{ label: 'Stop', icon: 'square' as const, onSelect: stop }]
+            ? [
+                {
+                  label: t('packages.package.stop', 'Stop'),
+                  icon: 'square' as const,
+                  onSelect: stop,
+                },
+              ]
             : []),
           ...(canInstall && !found.isSystem
             ? [
                 {
-                  label: 'Remove',
+                  label: t('common.remove', 'Remove'),
                   icon: 'trash-2' as const,
                   tone: 'danger' as const,
                   disabled: dependents.length > 0,
-                  disabledReason: `${listed(dependents.map((each) => each.name))} need it`,
+                  disabledReason: t('packages.package.needIt', {
+                    count: dependents.length,
+                    names: listed(dependents.map((each) => each.name)),
+                    defaultValue_one: '{{names}} needs it',
+                    defaultValue_other: '{{names}} need it',
+                  }),
                   /** Asks first, and whether what it kept goes with it. */
                   onSelect: () => {
                     setRemoving(true);
@@ -309,18 +354,24 @@ export function PackagePage() {
         isFilled={shownTab === 'log'}
         hero={
           <DetailHero
-            back={<BackLink to="/packages">Packages</BackLink>}
+            back={<BackLink to="/packages">{t('packages.package.packages', 'Packages')}</BackLink>}
             mark={found === undefined ? undefined : <PackageLogo found={found} size={56} />}
             title={found?.name ?? packageId}
             description={found?.description}
             facts={
               found === undefined || state === null ? undefined : (
                 <>
-                  <Pill tone={pillTone(state.tone)}>{state.label}</Pill>
-                  <HeroFact>v{found.version}</HeroFact>
-                  {found.isSystem ? <HeroFact icon="lock">System</HeroFact> : null}
+                  <Pill tone={pillTone(state.tone)}>{text(state.label)}</Pill>
+                  <HeroFact>
+                    {t('packages.package.vversion', 'v{{version}}', { version: found.version })}
+                  </HeroFact>
+                  {found.isSystem ? (
+                    <HeroFact icon="lock">{t('packages.package.system', 'System')}</HeroFact>
+                  ) : null}
                   {found.source === 'local' ? (
-                    <HeroFact icon="hard-drive">Local file</HeroFact>
+                    <HeroFact icon="hard-drive">
+                      {t('packages.package.localFile', 'Local file')}
+                    </HeroFact>
                   ) : null}
                 </>
               )
@@ -336,19 +387,23 @@ export function PackagePage() {
                       }}
                     >
                       <AppIcon id="play" size={15} />
-                      Start
+                      {t('packages.package.start', 'Start')}
                     </Button>
                   ) : null}
                   {hasPage ? (
                     <Button
                       variant={isUp ? 'primary' : 'ghost'}
                       disabled={found.state !== 'running'}
-                      title={found.state === 'running' ? undefined : 'Its page opens while it runs'}
+                      title={
+                        found.state === 'running'
+                          ? undefined
+                          : t('packages.package.itsPageOpensWhile', 'Its page opens while it runs')
+                      }
                       onClick={() => {
                         void navigate(packageAppPath(found.id));
                       }}
                     >
-                      Open
+                      {t('packages.package.open', 'Open')}
                     </Button>
                   ) : null}
                   <OverflowMenu items={menu} />
@@ -363,9 +418,18 @@ export function PackagePage() {
                   value={shownTab}
                   onChange={setTab}
                   items={[
-                    { id: 'overview', label: 'Overview' },
-                    ...(hasSetup ? [{ id: 'configuration' as const, label: 'Configuration' }] : []),
-                    ...(hasLog ? [{ id: 'log' as const, label: 'Log' }] : []),
+                    { id: 'overview', label: t('packages.package.overview', 'Overview') },
+                    ...(hasSetup
+                      ? [
+                          {
+                            id: 'configuration' as const,
+                            label: t('packages.package.configuration', 'Configuration'),
+                          },
+                        ]
+                      : []),
+                    ...(hasLog
+                      ? [{ id: 'log' as const, label: t('packages.package.log', 'Log') }]
+                      : []),
                   ]}
                 />
               )
@@ -423,7 +487,7 @@ export function PackagePage() {
             {shownTab === 'log' ? (
               <TabPanel idPrefix="package" id="log" className="flex min-h-0 grow flex-col">
                 <LogViewer
-                  title="Log"
+                  title={t('packages.package.log', 'Log')}
                   isFilled
                   queryKey={PACKAGE_QUERY_KEYS.logs(found.id)}
                   fileName={`package-${found.id}`}
@@ -457,8 +521,13 @@ export function PackagePage() {
           setStopAsked(false);
         }}
         size="small"
-        title={`Stop ${found?.name ?? ''}?`}
-        description={`${listed(dependents.map((each) => each.name))} need${dependents.length === 1 ? 's' : ''} it, and stop${dependents.length === 1 ? 's' : ''} with it until it is started again.`}
+        title={t('packages.package.stopName', 'Stop {{name}}?', { name: found?.name ?? '' })}
+        description={t('packages.package.stopsWithIt', {
+          count: dependents.length,
+          names: listed(dependents.map((each) => each.name)),
+          defaultValue_one: '{{names}} needs it, and stops with it until it is started again.',
+          defaultValue_other: '{{names}} need it, and stop with it until it is started again.',
+        })}
         footer={
           <>
             <Button
@@ -467,7 +536,7 @@ export function PackagePage() {
                 setStopAsked(false);
               }}
             >
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button
               variant="danger"
@@ -476,12 +545,14 @@ export function PackagePage() {
                 control.mutate('stop');
               }}
             >
-              Stop
+              {t('packages.package.stop', 'Stop')}
             </Button>
           </>
         }
       >
-        <span className="sr-only">Stopping it stops what needs it.</span>
+        <span className="sr-only">
+          {t('packages.package.stoppingItStopsWhat', 'Stopping it stops what needs it.')}
+        </span>
       </Modal>
     </>
   );

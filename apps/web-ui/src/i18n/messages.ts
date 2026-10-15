@@ -50,6 +50,19 @@ export function text(message: Message, values?: MessageValues): string {
 }
 
 /**
+ * Says the labels of a declared list of choices - a select's, a segmented control's - in the
+ * language the interface speaks now.
+ *
+ * @param choices - The choices, each with its label declared.
+ * @returns The same choices, with their labels said.
+ */
+export function withLabels<TChoice extends { readonly label: Message }>(
+  choices: readonly TChoice[],
+): (Omit<TChoice, 'label'> & { readonly label: string })[] {
+  return choices.map((choice) => ({ ...choice, label: text(choice.label) }));
+}
+
+/**
  * Says a string outside a component: `t` without the hook.
  *
  * Takes what `t` takes, so a sentence moves between a component and a helper unchanged - the

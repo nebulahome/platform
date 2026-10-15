@@ -17,6 +17,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type ReactNode } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 
 import {
   INSTALL_NETWORKS,
@@ -56,31 +57,54 @@ import {
   type InstallDraft,
   type VolumeKind,
 } from '@/containers/install-form';
+import { defineMessage, type Message, text, translate, withLabels } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { shortCount } from '@/lib/format-count';
 import { useDebounced } from '@/lib/use-debounced';
 import { SearchField } from '@/routes/library/search-field';
 
-/** How the networks read. */
-const NETWORK_OPTIONS: readonly { readonly value: InstallNetwork; readonly label: string }[] =
-  INSTALL_NETWORKS.map((network) => ({
+/**
+ * How the networks read.
+ *
+ * @returns The choices, in the reader's language.
+ */
+function networkOptions(): readonly { readonly value: InstallNetwork; readonly label: string }[] {
+  return INSTALL_NETWORKS.map((network) => ({
     value: network,
-    label: network === 'platform' ? 'NebulaHome' : network === 'host' ? 'Host' : 'Bridge',
+    label:
+      network === 'platform'
+        ? 'NebulaHome'
+        : network === 'host'
+          ? translate('containers.installContainerDialog.host', 'Host')
+          : translate('containers.installContainerDialog.bridge', 'Bridge'),
   }));
+}
 
 /** How the restart policies read. */
-const RESTART_LABELS: Readonly<Record<RestartPolicy, string>> = {
-  no: 'Never',
-  always: 'Always',
-  'unless-stopped': 'Unless stopped',
-  'on-failure': 'When it fails',
+const RESTART_LABELS: Readonly<Record<RestartPolicy, Message>> = {
+  no: defineMessage('containers.installContainerDialog.never', 'Never'),
+  always: defineMessage('containers.installContainerDialog.always', 'Always'),
+  'unless-stopped': defineMessage(
+    'containers.installContainerDialog.unlessStopped',
+    'Unless stopped',
+  ),
+  'on-failure': defineMessage('containers.installContainerDialog.whenItFails', 'When it fails'),
 };
 
 /** How the kinds of folder read. */
-const VOLUME_KINDS: readonly { readonly value: VolumeKind; readonly label: string }[] = [
-  { value: 'data', label: 'NebulaHome data' },
-  { value: 'volume', label: 'Docker volume' },
-  { value: 'bind', label: 'Machine folder' },
+const VOLUME_KINDS: readonly { readonly value: VolumeKind; readonly label: Message }[] = [
+  {
+    value: 'data',
+    label: defineMessage('containers.installContainerDialog.nebulahomeData', 'NebulaHome data'),
+  },
+  {
+    value: 'volume',
+    label: defineMessage('containers.installContainerDialog.dockerVolume', 'Docker volume'),
+  },
+  {
+    value: 'bind',
+    label: defineMessage('containers.installContainerDialog.machineFolder', 'Machine folder'),
+  },
 ];
 
 /** How the protocols read. */
@@ -106,6 +130,8 @@ type ImageSearchProps = {
  * @returns The search.
  */
 function ImageSearch(props: ImageSearchProps) {
+  const { t } = useTranslation();
+
   const { picked, onPick } = props;
   const id = useId();
   const [search, setSearch] = useState('');
@@ -129,8 +155,8 @@ function ImageSearch(props: ImageSearchProps) {
   return (
     <div className="flex flex-col gap-3">
       <SearchField
-        label="Search Docker Hub"
-        placeholder="Search images…"
+        label={t('containers.installContainerDialog.searchDockerHub', 'Search Docker Hub')}
+        placeholder={t('containers.installContainerDialog.searchImages', 'Search images…')}
         value={search}
         onChange={setSearch}
         className="w-full lg:w-full"
@@ -138,20 +164,29 @@ function ImageSearch(props: ImageSearchProps) {
 
       <ul
         id={id}
-        aria-label="Docker Hub images"
+        aria-label={t('containers.installContainerDialog.dockerHubImages', 'Docker Hub images')}
         aria-busy={results.isFetching}
         className="flex flex-col gap-1"
       >
         {query.length < 2 ? (
           <li className="px-3 py-3 text-ui text-foreground-subtle">
-            Type an image&apos;s name: jellyfin, pihole, grafana.
+            {t(
+              'containers.installContainerDialog.typeAnImageS',
+              "Type an image's name: jellyfin, pihole, grafana.",
+            )}
           </li>
         ) : results.isPending ? (
-          <li className="px-3 py-3 text-ui text-foreground-subtle">Asking Docker Hub…</li>
+          <li className="px-3 py-3 text-ui text-foreground-subtle">
+            {t('containers.installContainerDialog.askingDockerHub', 'Asking Docker Hub…')}
+          </li>
         ) : results.error === null ? (
           found.length === 0 ? (
             <li className="px-3 py-3 text-ui text-foreground-subtle">
-              Docker Hub has no image called “{query}”.
+              {t(
+                'containers.installContainerDialog.dockerHubHasNo',
+                'Docker Hub has no image called “{{query}}”.',
+                { query },
+              )}
             </li>
           ) : null
         ) : (
@@ -195,7 +230,7 @@ function ImageSearch(props: ImageSearchProps) {
                     </span>
                     {result.isOfficial ? (
                       <Badge tone="cyan" size="small">
-                        Docker official
+                        {t('containers.installContainerDialog.dockerOfficial', 'Docker official')}
                       </Badge>
                     ) : null}
                   </span>
@@ -281,12 +316,15 @@ function AddRow(props: { readonly label: string; readonly onAdd: () => void }) {
 
 /** The sections of the settings step, in the order they read. */
 const SECTIONS = [
-  { id: 'general', label: 'General' },
-  { id: 'ports', label: 'Ports' },
-  { id: 'storage', label: 'Storage' },
-  { id: 'environment', label: 'Environment' },
-  { id: 'devices', label: 'Devices' },
-  { id: 'network', label: 'Network' },
+  { id: 'general', label: defineMessage('containers.installContainerDialog.general', 'General') },
+  { id: 'ports', label: defineMessage('containers.installContainerDialog.ports', 'Ports') },
+  { id: 'storage', label: defineMessage('containers.installContainerDialog.storage', 'Storage') },
+  {
+    id: 'environment',
+    label: defineMessage('containers.installContainerDialog.environment', 'Environment'),
+  },
+  { id: 'devices', label: defineMessage('containers.installContainerDialog.devices', 'Devices') },
+  { id: 'network', label: defineMessage('containers.installContainerDialog.network', 'Network') },
 ] as const;
 
 /** Where the registry search looks. */
@@ -324,6 +362,8 @@ export type InstallContainerDialogProps = {
  * @returns The dialog.
  */
 export function InstallContainerDialog(props: InstallContainerDialogProps) {
+  const { t } = useTranslation();
+
   const { isOpen, taken, onClose } = props;
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<InstallDraft>(EMPTY_INSTALL);
@@ -453,17 +493,26 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
       onClose={close}
       size="xlarge"
       layout="sections"
-      title="Install a container"
-      trail={<WizardSteps steps={['Image', 'Settings']} current={step} className="mr-2" />}
+      title={t('containers.installContainerDialog.installAContainer', 'Install a container')}
+      trail={
+        <WizardSteps
+          steps={[
+            t('containers.installContainerDialog.image', 'Image'),
+            t('containers.installContainerDialog.settings', 'Settings'),
+          ]}
+          current={step}
+          className="mr-2"
+        />
+      }
       footer={
         step === 0 ? (
           <>
             <Button variant="bare" onClick={close}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button disabled={draft.image === ''} onClick={next}>
               <AppIcon id="arrow-right" size={15} />
-              Next: settings
+              {t('containers.installContainerDialog.nextSettings', 'Next: settings')}
             </Button>
           </>
         ) : (
@@ -476,7 +525,7 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
               }}
             >
               <AppIcon id="chevron-left" size={15} />
-              Back
+              {t('containers.installContainerDialog.back', 'Back')}
             </Button>
             <span className="flex items-center gap-2.5">
               {failure === null ? null : (
@@ -485,11 +534,11 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                 </span>
               )}
               <Button variant="bare" disabled={install.isPending} onClick={close}>
-                Cancel
+                {t('common.cancel', 'Cancel')}
               </Button>
               <Button isBusy={install.isPending} onClick={submit}>
                 <AppIcon id="download" size={15} />
-                Install
+                {t('containers.installContainerDialog.install', 'Install')}
               </Button>
             </span>
           </>
@@ -500,17 +549,26 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
         <div className="flex grow flex-col gap-4 px-6 py-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Segmented
-              label="Registry"
+              label={t('containers.installContainerDialog.registry', 'Registry')}
               size="compact"
               options={[
-                { value: 'hub', label: 'Docker Hub' },
-                { value: 'other', label: 'Other registry' },
+                {
+                  value: 'hub',
+                  label: t('containers.installContainerDialog.dockerHub', 'Docker Hub'),
+                },
+                {
+                  value: 'other',
+                  label: t('containers.installContainerDialog.otherRegistry', 'Other registry'),
+                },
               ]}
               value={registry}
               onChange={setRegistry}
             />
             <span className="text-caption text-foreground-subtle">
-              Or a full image reference, e.g. ghcr.io/owner/app
+              {t(
+                'containers.installContainerDialog.orAFullImage',
+                'Or a full image reference, e.g. ghcr.io/owner/app',
+              )}
             </span>
           </div>
 
@@ -523,8 +581,11 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
             />
           ) : (
             <TextField
-              label="Image reference"
-              placeholder="ghcr.io/owner/image"
+              label={t('containers.installContainerDialog.imageReference', 'Image reference')}
+              placeholder={t(
+                'containers.installContainerDialog.ghcrIoOwnerImage',
+                'ghcr.io/owner/image',
+              )}
               value={draft.image}
               error={errors['image']}
               className="font-mono"
@@ -543,8 +604,12 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
             >
               <AppIcon id="info" size={15} className="shrink-0" />
               <span>
-                Selected <span className="font-mono text-foreground">{draft.image}</span> · you
-                choose the tag in the next step.
+                <Trans
+                  i18nKey="containers.installContainerDialog.selectedImage"
+                  defaults="Selected <0>{{image}}</0> · you choose the tag in the next step."
+                  values={{ image: draft.image }}
+                  components={[<span key="image" className="font-mono text-foreground" />]}
+                />
               </span>
             </p>
           )}
@@ -552,7 +617,7 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
       ) : (
         <div className="flex min-h-0 grow">
           <nav
-            aria-label="Sections"
+            aria-label={t('containers.installContainerDialog.sections', 'Sections')}
             className="hidden w-52 shrink-0 flex-col gap-0.5 border-r border-border p-3 md:flex"
           >
             {SECTIONS.map((section) => (
@@ -567,11 +632,13 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                 }}
                 className="flex h-9.5 items-center justify-between gap-2 rounded-field px-3 text-ui text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground"
               >
-                {section.label}
+                {text(section.label)}
                 {isDescribed &&
                 ((section.id === 'ports' && draft.ports.length > 0) ||
                   (section.id === 'storage' && draft.volumes.length > 0)) ? (
-                  <span className="text-caption text-foreground-subtle">from image</span>
+                  <span className="text-caption text-foreground-subtle">
+                    {t('containers.installContainerDialog.fromImage', 'from image')}
+                  </span>
                 ) : null}
               </a>
             ))}
@@ -584,13 +651,19 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
               submit();
             }}
           >
-            <SettingsSection id="install-general" title="General">
+            <SettingsSection
+              id="install-general"
+              title={t('containers.installContainerDialog.general', 'General')}
+            >
               <div className="grid gap-3 sm:grid-cols-2">
                 <TextField
-                  label="Name"
+                  label={t('containers.installContainerDialog.name', 'Name')}
                   value={draft.name}
                   error={errors['name']}
-                  hint="Lower case, unique on this machine."
+                  hint={t(
+                    'containers.installContainerDialog.lowerCaseUniqueOn',
+                    'Lower case, unique on this machine.',
+                  )}
                   className="font-mono"
                   onChange={(event) => {
                     edit({ name: event.target.value });
@@ -598,27 +671,31 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                 />
                 <div className="grid grid-cols-2 gap-3">
                   <TextField
-                    label="Image"
+                    label={t('containers.installContainerDialog.image', 'Image')}
                     value={draft.image}
                     readOnly
                     className="font-mono text-foreground-muted"
                   />
                   <SelectField
-                    label="Tag"
+                    label={t('containers.installContainerDialog.tag', 'Tag')}
                     options={tagOptions}
                     value={draft.tag}
                     error={errors['tag']}
-                    hint={tags.isFetching ? 'Reading the tags…' : undefined}
+                    hint={
+                      tags.isFetching
+                        ? t('containers.installContainerDialog.readingTheTags', 'Reading the tags…')
+                        : undefined
+                    }
                     onChange={(tag) => {
                       edit({ tag });
                     }}
                   />
                 </div>
                 <SelectField
-                  label="Restart"
+                  label={t('containers.installContainerDialog.restart', 'Restart')}
                   options={RESTART_POLICIES.map((policy) => ({
                     value: policy,
-                    label: RESTART_LABELS[policy],
+                    label: text(RESTART_LABELS[policy]),
                   }))}
                   value={draft.restartPolicy}
                   onChange={(restartPolicy) => {
@@ -632,7 +709,10 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
               </div>
               {isDescribing ? (
                 <p role="status" className="text-ui-sm text-foreground-muted">
-                  Reading what the image declares…
+                  {t(
+                    'containers.installContainerDialog.readingWhatTheImage',
+                    'Reading what the image declares…',
+                  )}
                 </p>
               ) : tags.data === undefined ? null : (
                 <p className="flex items-center gap-2 rounded-tile bg-success-soft px-3.5 py-2.5 text-ui-sm text-foreground-muted">
@@ -641,7 +721,10 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                     <span className="font-mono text-foreground">
                       {draft.image}:{draft.tag}
                     </span>{' '}
-                    · {tags.data.tags.length} {tags.data.tags.length === 1 ? 'tag' : 'tags'}
+                    · {tags.data.tags.length}{' '}
+                    {tags.data.tags.length === 1
+                      ? t('containers.installContainerDialog.tag2', 'tag')
+                      : t('containers.installContainerDialog.tags', 'tags')}
                   </span>
                 </p>
               )}
@@ -649,18 +732,27 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
 
             <SettingsSection
               id="install-ports"
-              title="Ports"
+              title={t('containers.installContainerDialog.ports', 'Ports')}
               note={
                 draft.network === 'host'
-                  ? "On the machine's own network: every port it opens is the machine's."
+                  ? t(
+                      'containers.installContainerDialog.onTheMachineS',
+                      "On the machine's own network: every port it opens is the machine's.",
+                    )
                   : draft.ports.length === 0
-                    ? 'None published: only other containers reach it.'
-                    : 'Published on the machine, as the image declares them.'
+                    ? t(
+                        'containers.installContainerDialog.nonePublishedOnlyOther',
+                        'None published: only other containers reach it.',
+                      )
+                    : t(
+                        'containers.installContainerDialog.publishedOnTheMachine',
+                        'Published on the machine, as the image declares them.',
+                      )
               }
               action={
                 draft.network === 'host' ? undefined : (
                   <AddRow
-                    label="Add port"
+                    label={t('containers.installContainerDialog.addPort', 'Add port')}
                     onAdd={() => {
                       edit({
                         ports: [
@@ -681,7 +773,10 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                       className="grid grid-cols-[1fr_auto_1fr_6rem_auto] items-end gap-2"
                     >
                       <TextField
-                        label="On the machine"
+                        label={t(
+                          'containers.installContainerDialog.onTheMachine',
+                          'On the machine',
+                        )}
                         isLabelHidden={index > 0}
                         inputMode="numeric"
                         size="compact"
@@ -699,7 +794,10 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                         →
                       </span>
                       <TextField
-                        label="In the container"
+                        label={t(
+                          'containers.installContainerDialog.inTheContainer',
+                          'In the container',
+                        )}
                         isLabelHidden={index > 0}
                         inputMode="numeric"
                         size="compact"
@@ -716,7 +814,7 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                         }}
                       />
                       <SelectField
-                        label="Protocol"
+                        label={t('containers.installContainerDialog.protocol', 'Protocol')}
                         isLabelHidden={index > 0}
                         size="compact"
                         options={PROTOCOLS}
@@ -732,7 +830,10 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                         }}
                       />
                       <RemoveRow
-                        label="Remove the port"
+                        label={t(
+                          'containers.installContainerDialog.removeThePort',
+                          'Remove the port',
+                        )}
                         onRemove={() => {
                           edit({ ports: draft.ports.filter((each) => each.key !== port.key) });
                         }}
@@ -743,15 +844,21 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
 
             <SettingsSection
               id="install-storage"
-              title="Storage"
+              title={t('containers.installContainerDialog.storage', 'Storage')}
               note={
                 draft.volumes.length === 0
-                  ? 'Nothing kept: what it writes goes when the container does.'
-                  : "A folder in NebulaHome's data is backed up with the rest."
+                  ? t(
+                      'containers.installContainerDialog.nothingKeptWhatIt',
+                      'Nothing kept: what it writes goes when the container does.',
+                    )
+                  : t(
+                      'containers.installContainerDialog.folderInNebulahomeS',
+                      "A folder in NebulaHome's data is backed up with the rest.",
+                    )
               }
               action={
                 <AddRow
-                  label="Add folder"
+                  label={t('containers.installContainerDialog.addFolder', 'Add folder')}
                   onAdd={() => {
                     edit({
                       volumes: [
@@ -769,10 +876,10 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                   className="grid grid-cols-[10rem_minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-end gap-2"
                 >
                   <SelectField
-                    label="Kept in"
+                    label={t('containers.installContainerDialog.keptIn', 'Kept in')}
                     isLabelHidden={index > 0}
                     size="compact"
-                    options={VOLUME_KINDS}
+                    options={withLabels(VOLUME_KINDS)}
                     value={volume.kind}
                     onChange={(kind) => {
                       edit({
@@ -790,11 +897,19 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                     }}
                   />
                   <TextField
-                    label={volume.kind === 'bind' ? 'Machine path' : 'Name'}
+                    label={
+                      volume.kind === 'bind'
+                        ? t('containers.installContainerDialog.machinePath', 'Machine path')
+                        : t('containers.installContainerDialog.name', 'Name')
+                    }
                     isLabelHidden={index > 0}
                     size="compact"
                     className="font-mono"
-                    placeholder={volume.kind === 'bind' ? '/mnt/media' : 'config'}
+                    placeholder={
+                      volume.kind === 'bind'
+                        ? t('containers.installContainerDialog.mntMedia', '/mnt/media')
+                        : t('containers.installContainerDialog.config', 'config')
+                    }
                     value={volume.source}
                     error={errors[`volumes.${String(index)}.source`]}
                     onChange={(event) => {
@@ -806,11 +921,14 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                     }}
                   />
                   <TextField
-                    label="In the container"
+                    label={t(
+                      'containers.installContainerDialog.inTheContainer',
+                      'In the container',
+                    )}
                     isLabelHidden={index > 0}
                     size="compact"
                     className="font-mono"
-                    placeholder="/config"
+                    placeholder={t('containers.installContainerDialog.config2', '/config')}
                     value={volume.target}
                     error={errors[`volumes.${String(index)}.target`]}
                     onChange={(event) => {
@@ -822,7 +940,7 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                     }}
                   />
                   <Switch
-                    label="Read only"
+                    label={t('containers.installContainerDialog.readOnly', 'Read only')}
                     isOn={volume.isReadOnly}
                     className="pb-1.5"
                     onChange={(isReadOnly) => {
@@ -834,7 +952,10 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                     }}
                   />
                   <RemoveRow
-                    label="Remove the folder"
+                    label={t(
+                      'containers.installContainerDialog.removeTheFolder',
+                      'Remove the folder',
+                    )}
                     onRemove={() => {
                       edit({ volumes: draft.volumes.filter((each) => each.key !== volume.key) });
                     }}
@@ -845,11 +966,15 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
 
             <SettingsSection
               id="install-environment"
-              title="Environment"
-              note={draft.env.length === 0 ? 'No variable is set.' : undefined}
+              title={t('containers.installContainerDialog.environment', 'Environment')}
+              note={
+                draft.env.length === 0
+                  ? t('containers.installContainerDialog.noVariableIsSet', 'No variable is set.')
+                  : undefined
+              }
               action={
                 <AddRow
-                  label="Add variable"
+                  label={t('containers.installContainerDialog.addVariable', 'Add variable')}
                   onAdd={() => {
                     edit({ env: [...draft.env, { key: rowKey(), name: '', value: '' }] });
                   }}
@@ -862,7 +987,7 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                   className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] items-end gap-2"
                 >
                   <TextField
-                    label="Name"
+                    label={t('containers.installContainerDialog.name', 'Name')}
                     isLabelHidden={index > 0}
                     size="compact"
                     className="font-mono"
@@ -877,7 +1002,7 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                     }}
                   />
                   <TextField
-                    label="Value"
+                    label={t('containers.installContainerDialog.value', 'Value')}
                     isLabelHidden={index > 0}
                     size="compact"
                     className="font-mono"
@@ -891,7 +1016,10 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                     }}
                   />
                   <RemoveRow
-                    label="Remove the variable"
+                    label={t(
+                      'containers.installContainerDialog.removeTheVariable',
+                      'Remove the variable',
+                    )}
                     onRemove={() => {
                       edit({ env: draft.env.filter((each) => each.key !== entry.key) });
                     }}
@@ -902,16 +1030,22 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
 
             <SettingsSection
               id="install-devices"
-              title="Devices"
+              title={t('containers.installContainerDialog.devices', 'Devices')}
               note={
                 draft.devices.length === 0
-                  ? 'None handed over: a USB stick or a radio of the machine, such as /dev/ttyUSB0.'
-                  : 'Handed to the container as they are.'
+                  ? t(
+                      'containers.installContainerDialog.noneHandedOverA',
+                      'None handed over: a USB stick or a radio of the machine, such as /dev/ttyUSB0.',
+                    )
+                  : t(
+                      'containers.installContainerDialog.handedToTheContainer',
+                      'Handed to the container as they are.',
+                    )
               }
               action={
                 draft.devices.length >= 8 ? undefined : (
                   <AddRow
-                    label="Add device"
+                    label={t('containers.installContainerDialog.addDevice', 'Add device')}
                     onAdd={() => {
                       edit({
                         devices: [...draft.devices, { key: rowKey(), host: '', container: '' }],
@@ -927,11 +1061,11 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                   className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] items-end gap-2"
                 >
                   <TextField
-                    label="On the machine"
+                    label={t('containers.installContainerDialog.onTheMachine', 'On the machine')}
                     isLabelHidden={index > 0}
                     size="compact"
                     className="font-mono"
-                    placeholder="/dev/ttyUSB0"
+                    placeholder={t('containers.installContainerDialog.devTtyusb0', '/dev/ttyUSB0')}
                     value={device.host}
                     error={errors[`devices.${String(index)}.host`]}
                     onChange={(event) => {
@@ -946,11 +1080,14 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                     →
                   </span>
                   <TextField
-                    label="In the container"
+                    label={t(
+                      'containers.installContainerDialog.inTheContainer',
+                      'In the container',
+                    )}
                     isLabelHidden={index > 0}
                     size="compact"
                     className="font-mono"
-                    placeholder="The same path"
+                    placeholder={t('containers.installContainerDialog.samePath', 'The same path')}
                     value={device.container}
                     error={errors[`devices.${String(index)}.container`]}
                     onChange={(event) => {
@@ -964,7 +1101,10 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
                     }}
                   />
                   <RemoveRow
-                    label="Remove the device"
+                    label={t(
+                      'containers.installContainerDialog.removeTheDevice',
+                      'Remove the device',
+                    )}
                     onRemove={() => {
                       edit({ devices: draft.devices.filter((each) => each.key !== device.key) });
                     }}
@@ -975,20 +1115,29 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
 
             <SettingsSection
               id="install-network"
-              title="Network"
+              title={t('containers.installContainerDialog.network', 'Network')}
               note={
                 draft.network === 'platform'
-                  ? 'Beside NebulaHome and the containers integrations run: they reach it by its name.'
+                  ? t(
+                      'containers.installContainerDialog.besideNebulahomeAndThe',
+                      'Beside NebulaHome and the containers integrations run: they reach it by its name.',
+                    )
                   : draft.network === 'host'
-                    ? "On the machine's own network: every port it opens is the machine's."
-                    : "Docker's own network: only the ports published reach it."
+                    ? t(
+                        'containers.installContainerDialog.onTheMachineS',
+                        "On the machine's own network: every port it opens is the machine's.",
+                      )
+                    : t(
+                        'containers.installContainerDialog.dockerSOwnNetwork',
+                        "Docker's own network: only the ports published reach it.",
+                      )
               }
             >
               <Segmented
-                label="Network"
+                label={t('containers.installContainerDialog.network', 'Network')}
                 size="compact"
                 className="self-start"
-                options={NETWORK_OPTIONS}
+                options={networkOptions()}
                 value={draft.network}
                 onChange={(network) => {
                   edit({ network });

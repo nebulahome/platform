@@ -16,6 +16,8 @@ import {
   type RestartPolicy,
 } from '@nebulahome/contracts';
 
+import { translate } from '@/i18n/messages';
+
 /** One port row. */
 export type PortDraft = {
   readonly key: string;
@@ -281,24 +283,38 @@ export function checkInstall(draft: InstallDraft, taken: readonly string[]): Ins
       errors[path] ??=
         issue.path[0] === 'ports' &&
         (issue.path.at(-1) === 'host' || issue.path.at(-1) === 'container')
-          ? 'A port from 1 to 65535'
+          ? translate('containers.installForm.portFrom1To', 'A port from 1 to 65535')
           : issue.path[0] === 'devices'
-            ? 'A path on the machine, such as /dev/ttyUSB0'
+            ? translate(
+                'containers.installForm.pathOnTheMachine',
+                'A path on the machine, such as /dev/ttyUSB0',
+              )
             : issue.message;
     }
   }
 
   if (request.name !== '' && !CONTAINER_NAME_PATTERN.test(request.name)) {
-    errors['name'] =
-      'Letters, digits, dots, dashes and underscores, starting with a letter or digit';
+    errors['name'] = translate(
+      'containers.installForm.lettersDigitsDotsDashes',
+      'Letters, digits, dots, dashes and underscores, starting with a letter or digit',
+    );
   } else if (taken.includes(request.name)) {
-    errors['name'] = 'A container is already called that';
+    errors['name'] = translate(
+      'containers.installForm.containerIsAlreadyCalled',
+      'A container is already called that',
+    );
   } else if (request.name === '') {
-    errors['name'] = 'The container needs a name';
+    errors['name'] = translate(
+      'containers.installForm.containerNeedsAName',
+      'The container needs a name',
+    );
   }
 
   if (request.image === '') {
-    errors['image'] = 'Pick an image, or type one';
+    errors['image'] = translate(
+      'containers.installForm.pickAnImageOr',
+      'Pick an image, or type one',
+    );
   }
 
   return Object.keys(errors).length > 0 || !parsed.success

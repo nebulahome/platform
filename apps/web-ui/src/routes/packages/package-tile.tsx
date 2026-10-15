@@ -7,6 +7,7 @@
  * a package is a process, and whether it runs is the first thing to know - and whether it is part
  * of the platform, which says it cannot be removed.
  */
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { ApiPackage, PackageState } from '@nebulahome/contracts';
@@ -20,20 +21,27 @@ import {
   type PillTone,
 } from '@nebulahome/ui';
 
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import { packageLogoUrl } from '@/packages/api';
 import { VendorLogo } from '@/routes/library/vendor-card';
 
 /** What each state reads as, and its colour. */
 export const PACKAGE_STATE_OF: Readonly<
-  Record<PackageState, { readonly label: string; readonly tone: BadgeTone }>
+  Record<PackageState, { readonly label: Message; readonly tone: BadgeTone }>
 > = {
-  installed: { label: 'Installed', tone: 'neutral' },
-  starting: { label: 'Starting', tone: 'accent' },
-  running: { label: 'Running', tone: 'success' },
-  stopped: { label: 'Stopped', tone: 'neutral' },
-  failed: { label: 'Failed', tone: 'danger' },
-  disabled: { label: 'Disabled', tone: 'neutral' },
-  'waiting-dependency': { label: 'Waiting', tone: 'warning' },
+  installed: {
+    label: defineMessage('packages.packageTile.installed', 'Installed'),
+    tone: 'neutral',
+  },
+  starting: { label: defineMessage('packages.packageTile.starting', 'Starting'), tone: 'accent' },
+  running: { label: defineMessage('packages.packageTile.running', 'Running'), tone: 'success' },
+  stopped: { label: defineMessage('packages.packageTile.stopped', 'Stopped'), tone: 'neutral' },
+  failed: { label: defineMessage('packages.packageTile.failed', 'Failed'), tone: 'danger' },
+  disabled: { label: defineMessage('packages.packageTile.disabled', 'Disabled'), tone: 'neutral' },
+  'waiting-dependency': {
+    label: defineMessage('packages.packageTile.waiting', 'Waiting'),
+    tone: 'warning',
+  },
 };
 
 /**
@@ -100,12 +108,18 @@ export type PackageTileProps = {
  * @returns The tile.
  */
 export function PackageTile(props: PackageTileProps) {
+  const { t } = useTranslation();
+
   const { found, update } = props;
   const state = PACKAGE_STATE_OF[found.state];
   const cards = found.ui?.cards.length ?? 0;
   const extras = [
-    found.ui?.page === true ? 'a page' : null,
-    cards === 0 ? null : cards === 1 ? 'a card' : `${String(cards)} cards`,
+    found.ui?.page === true ? t('packages.packageTile.page', 'a page') : null,
+    cards === 0
+      ? null
+      : cards === 1
+        ? t('packages.packageTile.card', 'a card')
+        : t('packages.packageTile.cards', '{{count}} cards', { count: cards }),
   ].filter((part) => part !== null);
 
   return (
@@ -122,7 +136,11 @@ export function PackageTile(props: PackageTileProps) {
               <>
                 {update === undefined ? null : (
                   <span
-                    title={`Version ${update} is out`}
+                    title={t(
+                      'packages.packageTile.versionUpdateIsOut',
+                      'Version {{update}} is out',
+                      { update },
+                    )}
                     className="inline-flex h-6.5 items-center gap-1.5 rounded-chip bg-cyan/12 px-2 font-mono text-mono-caption text-cyan tabular"
                   >
                     <AppIcon id="circle-arrow-up" size={13} />
@@ -130,7 +148,9 @@ export function PackageTile(props: PackageTileProps) {
                   </span>
                 )}
                 {found.isSystem ? (
-                  <TileMark title="Part of the platform">
+                  <TileMark
+                    title={t('packages.packageTile.partOfThePlatform', 'Part of the platform')}
+                  >
                     <AppIcon id="lock" size={13} />
                   </TileMark>
                 ) : null}
@@ -140,7 +160,7 @@ export function PackageTile(props: PackageTileProps) {
           name={found.name}
           footer={
             <>
-              <Pill tone={PILL_TONES[state.tone] ?? 'neutral'}>{state.label}</Pill>
+              <Pill tone={PILL_TONES[state.tone] ?? 'neutral'}>{text(state.label)}</Pill>
               <span>
                 {[
                   `${String(found.deviceCount)} ${noun(found.deviceCount, 'device', 'devices')}`,

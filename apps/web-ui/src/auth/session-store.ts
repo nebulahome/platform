@@ -31,6 +31,7 @@ import {
 } from '@/auth/api';
 import { readRefreshToken, writeRefreshToken } from '@/auth/token-storage';
 import { applyLanguage, readLanguageHint } from '@/i18n/language';
+import { translate } from '@/i18n/messages';
 import { connectSession, refreshAccessToken } from '@/lib/api-client';
 import { isApiUnreachable } from '@/lib/api-error';
 
@@ -388,7 +389,9 @@ export const useSession = create<SessionState>((set, get) => ({
     const { challengeId } = get();
 
     if (challengeId === null) {
-      throw new Error('There is no sign-in to complete');
+      throw new Error(
+        translate('auth.sessionStore.thereIsNoSign', 'There is no sign-in to complete'),
+      );
     }
 
     const answer = await submitSecondFactor(challengeId, code);

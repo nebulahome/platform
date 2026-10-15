@@ -105,7 +105,10 @@ function frame(minHeight: string, maxHeight: string) {
       maxHeight,
       overflow: 'auto',
     },
-    '.cm-content': { caretColor: 'var(--color-primary)', padding: '8px 0' },
+    '.cm-content': {
+      caretColor: 'var(--color-primary)',
+      padding: '8px 0',
+    },
     '.cm-gutters': {
       backgroundColor: 'transparent',
       color: 'var(--color-foreground-subtle)',

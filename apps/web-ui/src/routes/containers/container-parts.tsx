@@ -3,6 +3,8 @@
  * says whether it runs, the badges a container carries, and the card that says Docker cannot be
  * seen.
  */
+import { Trans, useTranslation } from 'react-i18next';
+
 import type { ContainerState, ContainerSummary, DockerStatus } from '@nebulahome/contracts';
 import {
   AppIcon,
@@ -12,6 +14,8 @@ import {
   type StatusDotTone,
   type UiIconId,
 } from '@nebulahome/ui';
+
+import { translate } from '@/i18n/messages';
 
 /** What each state means to somebody reading the page. */
 export const CONTAINER_TONES: Readonly<Record<ContainerState, BadgeTone>> = {
@@ -106,17 +110,28 @@ export function dotOf(container: ContainerSummary): {
   readonly isBusy: boolean;
 } {
   if (container.update.isInstalling) {
-    return { tone: 'accent', title: 'Updating', isBusy: true };
+    return {
+      tone: 'accent',
+      title: translate('containers.containerParts.updating', 'Updating'),
+      isBusy: true,
+    };
   }
 
   if (container.health === 'unhealthy') {
-    return { tone: 'danger', title: 'Running, unhealthy', isBusy: false };
+    return {
+      tone: 'danger',
+      title: translate('containers.containerParts.runningUnhealthy', 'Running, unhealthy'),
+      isBusy: false,
+    };
   }
 
   if (container.state === 'running') {
     return {
       tone: 'success',
-      title: container.health === 'starting' ? 'Starting' : 'Running',
+      title:
+        container.health === 'starting'
+          ? translate('containers.containerParts.starting', 'Starting')
+          : translate('containers.containerParts.running', 'Running'),
       isBusy: container.health === 'starting',
     };
   }
@@ -136,17 +151,24 @@ export function dotOf(container: ContainerSummary): {
  * @returns The card.
  */
 export function DockerUnavailable(props: { readonly docker: DockerStatus }) {
+  const { t } = useTranslation();
+
   return (
-    <Panel title="Docker cannot be seen">
+    <Panel title={t('containers.containerParts.dockerCannotBeSeen', 'Docker cannot be seen')}>
       <div className="flex flex-col gap-3 px-4 py-3.5 text-ui text-foreground-muted">
-        <p>{props.docker.reason ?? 'The supervisor has not reached Docker yet.'}</p>
         <p>
-          The platform reaches Docker through its socket. Give the container{' '}
-          <code className="font-mono text-caption">
-            -v /var/run/docker.sock:/var/run/docker.sock
-          </code>{' '}
-          - the compose file does - and it is asked again within half a minute. The socket is the
-          machine&apos;s root: only the supervisor holds it.
+          {props.docker.reason ??
+            t(
+              'containers.containerParts.supervisorHasNotReached',
+              'The supervisor has not reached Docker yet.',
+            )}
+        </p>
+        <p>
+          <Trans
+            i18nKey="containers.containerParts.giveTheSocket"
+            defaults="The platform reaches Docker through its socket. Give the container <0>-v /var/run/docker.sock:/var/run/docker.sock</0> - the compose file does - and it is asked again within half a minute. The socket is the machine's root: only the supervisor holds it."
+            components={[<code key="socket" className="font-mono text-caption" translate="no" />]}
+          />
         </p>
       </div>
     </Panel>
@@ -165,6 +187,8 @@ export function ContainerBadges(props: {
   readonly container: ContainerSummary;
   readonly isStateShown?: boolean;
 }) {
+  const { t } = useTranslation();
+
   const { container, isStateShown = true } = props;
 
   return (
@@ -176,30 +200,30 @@ export function ContainerBadges(props: {
       ) : null}
       {isStateShown && container.health === 'unhealthy' ? (
         <Badge tone="danger" size="small">
-          unhealthy
+          {t('containers.containerParts.unhealthy', 'unhealthy')}
         </Badge>
       ) : null}
       {container.isSelf ? (
         <Badge tone="accent" size="small">
-          Core
+          {t('containers.containerParts.core', 'Core')}
         </Badge>
       ) : container.isSystem ? (
         <Badge tone="accent" size="small">
-          System
+          {t('containers.containerParts.system', 'System')}
         </Badge>
       ) : null}
       {container.managedBy !== null && !container.managedBy.isReleased ? (
         <Badge tone="neutral" size="small">
-          Integration
+          {t('containers.containerParts.integration', 'Integration')}
         </Badge>
       ) : null}
       {container.update.isInstalling ? (
         <Badge tone="accent" size="small">
-          Updating
+          {t('containers.containerParts.updating', 'Updating')}
         </Badge>
       ) : container.update.isAvailable ? (
         <Badge tone="accent" size="small">
-          Update
+          {t('containers.containerParts.update', 'Update')}
         </Badge>
       ) : null}
     </span>

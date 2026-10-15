@@ -7,6 +7,7 @@
  * image beneath it, and the foot, under its line, says how it stands as a Pill and what it takes of
  * the machine.
  */
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { ContainerInstall, ContainerSummary } from '@nebulahome/contracts';
@@ -26,25 +27,26 @@ import {
 
 import { groupUsage, type ComposeGroup } from '@/containers/container-groups';
 import { containerPill } from '@/containers/container-health';
+import { defineMessage, text, translate } from '@/i18n/messages';
 import { formatBytes, formatPercent } from '@/lib/format-bytes';
 import { ContainerTile } from '@/routes/containers/container-parts';
 
 /** What each phase of a compose operation is called on a card. */
 const COMPOSE_PHASE_LABELS = {
-  pulling: 'Pulling',
-  starting: 'Starting',
-  stopping: 'Stopping',
-  removing: 'Removing',
-  done: 'Done',
-  failed: 'Failed',
+  pulling: defineMessage('containers.containerCard.pulling', 'Pulling'),
+  starting: defineMessage('containers.containerCard.starting', 'Starting'),
+  stopping: defineMessage('containers.containerCard.stopping', 'Stopping'),
+  removing: defineMessage('containers.containerCard.removing', 'Removing'),
+  done: defineMessage('common.done', 'Done'),
+  failed: defineMessage('containers.containerCard.failed', 'Failed'),
 } as const;
 
 /** What each phase of an install is called on a card. */
 const INSTALL_PHASE_LABELS = {
-  pulling: 'Downloading',
-  creating: 'Creating',
-  starting: 'Starting',
-  failed: 'Failed',
+  pulling: defineMessage('containers.containerCard.downloading', 'Downloading'),
+  creating: defineMessage('containers.containerCard.creating', 'Creating'),
+  starting: defineMessage('containers.containerCard.starting', 'Starting'),
+  failed: defineMessage('containers.containerCard.failed', 'Failed'),
 } as const;
 
 /**
@@ -89,13 +91,17 @@ function usageText(cpuPercent: number | null, memoryUsedBytes: number | null): s
  * @returns The mark.
  */
 function UpdateMark(props: { readonly version: string | null }) {
+  const { t } = useTranslation();
+
   return (
     <span
-      title={`Update ${props.version ?? ''} ready`}
+      title={t('containers.containerCard.updateReady', 'Update {{version}} ready', {
+        version: props.version ?? '',
+      })}
       className="inline-flex h-6.5 items-center gap-1.5 rounded-chip bg-cyan/12 px-2 font-mono text-mono-caption text-cyan tabular"
     >
       <AppIcon id="circle-arrow-up" size={13} />
-      {props.version ?? 'New'}
+      {props.version ?? t('containers.containerCard.new', 'New')}
     </span>
   );
 }
@@ -108,6 +114,8 @@ function UpdateMark(props: { readonly version: string | null }) {
  * @returns The card.
  */
 export function ContainerCard(props: { readonly container: ContainerSummary }) {
+  const { t } = useTranslation();
+
   const { container } = props;
   const pill = containerPill(container);
   const isRunning = container.state === 'running';
@@ -128,7 +136,9 @@ export function ContainerCard(props: { readonly container: ContainerSummary }) {
                   <UpdateMark version={container.update.latestVersion} />
                 ) : null}
                 {container.isSystem ? (
-                  <TileMark title="Part of the platform">
+                  <TileMark
+                    title={t('containers.containerCard.partOfThePlatform', 'Part of the platform')}
+                  >
                     <AppIcon id="lock" size={13} />
                   </TileMark>
                 ) : null}
@@ -162,7 +172,7 @@ function projectPill(group: ComposeGroup): { readonly tone: PillTone; readonly l
   const phase = group.operation?.phase;
 
   if (phase !== undefined && phase !== 'done' && phase !== 'failed') {
-    return { tone: 'accent', label: COMPOSE_PHASE_LABELS[phase] };
+    return { tone: 'accent', label: text(COMPOSE_PHASE_LABELS[phase]) };
   }
 
   const { running } = groupUsage(group);
@@ -170,19 +180,29 @@ function projectPill(group: ComposeGroup): { readonly tone: PillTone; readonly l
 
   if (total === 0) {
     return phase === 'failed'
-      ? { tone: 'danger', label: 'Failed' }
-      : { tone: 'neutral', label: 'No container yet' };
+      ? { tone: 'danger', label: translate('containers.containerCard.failed', 'Failed') }
+      : {
+          tone: 'neutral',
+          label: translate('containers.containerCard.noContainerYet', 'No container yet'),
+        };
   }
 
   if (group.containers.some((container) => container.health === 'unhealthy')) {
-    return { tone: 'warning', label: 'Unhealthy' };
+    return { tone: 'warning', label: translate('containers.containerCard.unhealthy', 'Unhealthy') };
   }
 
   return running === total
-    ? { tone: 'success', label: 'Running' }
+    ? { tone: 'success', label: translate('containers.containerCard.running', 'Running') }
     : running === 0
-      ? { tone: 'neutral', label: 'Stopped' }
-      : { tone: 'warning', label: `${String(running)} of ${String(total)} running` };
+      ? { tone: 'neutral', label: translate('containers.containerCard.stopped', 'Stopped') }
+      : {
+          tone: 'warning',
+          label: translate(
+            'containers.containerCard.runningOfTotalRunning',
+            '{{running}} of {{total}} running',
+            { running: String(running), total: String(total) },
+          ),
+        };
 }
 
 /**
@@ -193,6 +213,8 @@ function projectPill(group: ComposeGroup): { readonly tone: PillTone; readonly l
  * @returns The card.
  */
 export function ComposeCard(props: { readonly group: ComposeGroup }) {
+  const { t } = useTranslation();
+
   const { group } = props;
   const pill = projectPill(group);
   const usage = groupUsage(group);
@@ -205,7 +227,9 @@ export function ComposeCard(props: { readonly group: ComposeGroup }) {
           logo={<ContainerTile name={group.project} icon="layers" size={44} />}
           marks={
             group.isSystem ? (
-              <TileMark title="Part of the platform">
+              <TileMark
+                title={t('containers.containerCard.partOfThePlatform', 'Part of the platform')}
+              >
                 <AppIcon id="lock" size={13} />
               </TileMark>
             ) : undefined
@@ -242,6 +266,8 @@ type InstallCardProps = {
  * @returns The card.
  */
 export function InstallCard(props: InstallCardProps) {
+  const { t } = useTranslation();
+
   const { install, onDismiss } = props;
   const isFailed = install.phase === 'failed';
 
@@ -250,14 +276,14 @@ export function InstallCard(props: InstallCardProps) {
       <div
         className={cn(TILE_FRAME, 'hover:border-border')}
         aria-busy={!isFailed}
-        aria-label={`${install.name}: ${INSTALL_PHASE_LABELS[install.phase]}`}
+        aria-label={`${install.name}: ${text(INSTALL_PHASE_LABELS[install.phase])}`}
       >
         <span className="flex items-start gap-1.5">
           <ContainerTile name={install.name} icon="download" size={44} />
           <span className="grow" />
           <StatusDot
             tone={isFailed ? 'danger' : 'accent'}
-            title={INSTALL_PHASE_LABELS[install.phase]}
+            title={text(INSTALL_PHASE_LABELS[install.phase])}
             isBusy={!isFailed}
           />
         </span>
@@ -266,7 +292,7 @@ export function InstallCard(props: InstallCardProps) {
           <span className="flex min-w-0 items-center gap-2">
             <span className="truncate text-title font-medium text-foreground">{install.name}</span>
             <Badge tone={isFailed ? 'danger' : 'accent'} size="small">
-              {INSTALL_PHASE_LABELS[install.phase]}
+              {text(INSTALL_PHASE_LABELS[install.phase])}
             </Badge>
           </span>
           <span className="truncate font-mono text-mono-caption text-foreground-subtle">
@@ -282,7 +308,7 @@ export function InstallCard(props: InstallCardProps) {
               title={install.error ?? undefined}
               className="grow truncate text-caption text-danger"
             >
-              {install.error ?? 'It did not install'}
+              {install.error ?? t('containers.containerCard.itDidNotInstall', 'It did not install')}
             </span>
             {onDismiss === undefined ? null : (
               <Button
@@ -292,7 +318,7 @@ export function InstallCard(props: InstallCardProps) {
                   onDismiss(install.name);
                 }}
               >
-                Dismiss
+                {t('containers.containerCard.dismiss', 'Dismiss')}
               </Button>
             )}
           </span>
@@ -300,12 +326,16 @@ export function InstallCard(props: InstallCardProps) {
           <span className="mt-3 flex flex-col gap-1.5">
             <ProgressBar
               percent={install.phase === 'pulling' ? install.progress : null}
-              label={`Installing ${install.name}`}
+              label={t('containers.containerCard.installingName', 'Installing {{name}}', {
+                name: install.name,
+              })}
             />
             <span className="text-caption text-foreground-subtle tabular">
               {install.phase === 'pulling' && install.progress !== null
-                ? `${String(Math.round(install.progress))}% downloaded`
-                : `${INSTALL_PHASE_LABELS[install.phase]}…`}
+                ? t('containers.containerCard.progressDownloaded', '{{progress}}% downloaded', {
+                    progress: String(Math.round(install.progress)),
+                  })
+                : `${text(INSTALL_PHASE_LABELS[install.phase])}…`}
             </span>
           </span>
         )}

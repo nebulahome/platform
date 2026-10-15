@@ -7,6 +7,7 @@
  * supervisor has no way to change them and start the container again yet.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { ContainerDetail } from '@nebulahome/contracts';
 import { Badge, Section } from '@nebulahome/ui';
@@ -26,6 +27,8 @@ export type ContainerEnvironmentProps = {
  * @returns The tab's content.
  */
 export function ContainerEnvironment(props: ContainerEnvironmentProps) {
+  const { t } = useTranslation();
+
   const { container } = props;
   const [search, setSearch] = useState('');
   const found = container.env.filter((variable) =>
@@ -34,13 +37,16 @@ export function ContainerEnvironment(props: ContainerEnvironmentProps) {
 
   return (
     <Section
-      title="Variables"
-      note="The value of one whose name says it is a secret is withheld."
+      title={t('containers.containerEnvironment.variables', 'Variables')}
+      note={t(
+        'containers.containerEnvironment.valueOfOneWhose',
+        'The value of one whose name says it is a secret is withheld.',
+      )}
       actions={
         container.env.length === 0 ? undefined : (
           <SearchField
-            label="Search the variables"
-            placeholder="Search variables…"
+            label={t('containers.containerEnvironment.searchTheVariables', 'Search the variables')}
+            placeholder={t('containers.containerEnvironment.searchVariables', 'Search variables…')}
             value={search}
             onChange={setSearch}
           />
@@ -52,14 +58,20 @@ export function ContainerEnvironment(props: ContainerEnvironmentProps) {
           aria-hidden="true"
           className="grid grid-cols-5 gap-4 border-b border-border px-5 py-2.5 font-mono text-label text-foreground-subtle uppercase"
         >
-          <span className="col-span-2">Name</span>
-          <span className="col-span-3">Value</span>
+          <span className="col-span-2">{t('containers.containerEnvironment.name', 'Name')}</span>
+          <span className="col-span-3">{t('containers.containerEnvironment.value', 'Value')}</span>
         </div>
         {container.env.length === 0 ? (
-          <p className="px-5 py-4 text-ui text-foreground-muted">No variables.</p>
+          <p className="px-5 py-4 text-ui text-foreground-muted">
+            {t('containers.containerEnvironment.noVariables', 'No variables.')}
+          </p>
         ) : found.length === 0 ? (
           <p className="px-5 py-4 text-ui text-foreground-subtle">
-            No variable matches “{search.trim()}”.
+            {t(
+              'containers.containerEnvironment.noVariableMatchesSearch',
+              'No variable matches “{{search}}”.',
+              { search: search.trim() },
+            )}
           </p>
         ) : (
           <ul>
@@ -75,7 +87,7 @@ export function ContainerEnvironment(props: ContainerEnvironmentProps) {
                 {variable.isHidden ? (
                   <span className="col-span-3">
                     <Badge tone="neutral" size="small">
-                      Withheld
+                      {t('containers.containerEnvironment.withheld', 'Withheld')}
                     </Badge>
                   </span>
                 ) : (

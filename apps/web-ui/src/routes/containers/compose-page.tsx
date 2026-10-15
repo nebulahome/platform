@@ -11,6 +11,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import type { ComposeOperation, ContainerSummary } from '@nebulahome/contracts';
@@ -25,7 +26,7 @@ import {
   removeCompose,
 } from '@/containers/api';
 import { composeGroups, groupUsage } from '@/containers/container-groups';
-import { translate } from '@/i18n/messages';
+import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { formatBytes, formatPercent } from '@/lib/format-bytes';
 import { ComposeEditorDialog } from '@/routes/containers/compose-editor-dialog';
@@ -44,13 +45,16 @@ import { MetaLine, Stat } from '@/routes/library/meta-line';
 /** The editor, loaded when the file is shown. */
 const YamlEditor = lazy(async () => import('@/routes/containers/yaml-editor'));
 
+/** The product's name, which no language translates. */
+const PRODUCT_NAME = 'NebulaHome';
+
 /** What each operation is called while it runs, and once it ended. */
-const OPERATION_LABELS: Readonly<Record<ComposeOperation['action'], string>> = {
-  deploy: 'Deploying',
-  start: 'Starting',
-  stop: 'Stopping',
-  pull: 'Updating the images',
-  remove: 'Removing',
+const OPERATION_LABELS: Readonly<Record<ComposeOperation['action'], Message>> = {
+  deploy: defineMessage('containers.compose.deploying', 'Deploying'),
+  start: defineMessage('containers.compose.starting', 'Starting'),
+  stop: defineMessage('containers.compose.stopping', 'Stopping'),
+  pull: defineMessage('containers.compose.updatingTheImages', 'Updating the images'),
+  remove: defineMessage('containers.compose.removing', 'Removing'),
 };
 
 /** The rows' columns, shared by the heading and every row so they line up. */
@@ -125,18 +129,28 @@ function ContainerRow(props: { readonly container: ContainerSummary }) {
  * @returns The panel.
  */
 function LastOperation(props: { readonly operation: ComposeOperation }) {
+  const { t } = useTranslation();
+
   const { operation } = props;
   const isRunning = operation.phase !== 'done' && operation.phase !== 'failed';
 
   return (
     <Panel
-      title={isRunning ? OPERATION_LABELS[operation.action] : 'Last deployment'}
+      title={
+        isRunning
+          ? text(OPERATION_LABELS[operation.action])
+          : t('containers.compose.lastDeployment', 'Last deployment')
+      }
       action={
         <Badge
           tone={isRunning ? 'accent' : operation.phase === 'failed' ? 'danger' : 'success'}
           size="small"
         >
-          {isRunning ? operation.phase : operation.phase === 'failed' ? 'Failed' : 'Done'}
+          {isRunning
+            ? operation.phase
+            : operation.phase === 'failed'
+              ? t('containers.compose.failed', 'Failed')
+              : t('common.done', 'Done')}
         </Badge>
       }
     >
@@ -150,7 +164,9 @@ function LastOperation(props: { readonly operation: ComposeOperation }) {
         className="max-h-72 overflow-auto px-4 py-3 font-mono text-caption whitespace-pre-wrap text-foreground-muted"
       >
         {operation.log.join('\n') ||
-          (isRunning ? 'Waiting for docker compose…' : 'It wrote nothing.')}
+          (isRunning
+            ? t('containers.compose.waitingForDockerCompose', 'Waiting for docker compose…')
+            : t('containers.compose.itWroteNothing', 'It wrote nothing.'))}
       </pre>
     </Panel>
   );
@@ -172,6 +188,8 @@ function RemoveDialog(props: {
   readonly onClose: () => void;
   readonly onRemoved: () => void;
 }) {
+  const { t } = useTranslation();
+
   const [removeVolumes, setRemoveVolumes] = useState(false);
   const [removeFiles, setRemoveFiles] = useState(false);
   const removal = useMutation({
@@ -189,8 +207,13 @@ function RemoveDialog(props: {
       isOpen={props.isOpen}
       onClose={props.onClose}
       size="small"
-      title={`Remove ${props.project}?`}
-      description="Its containers are stopped and removed, and NebulaHome forgets the project."
+      title={t('containers.compose.removeProject', 'Remove {{project}}?', {
+        project: props.project,
+      })}
+      description={t(
+        'containers.compose.itsContainersAreStopped',
+        'Its containers are stopped and removed, and NebulaHome forgets the project.',
+      )}
       footer={
         <>
           {removal.error === null ? null : (
@@ -199,7 +222,7 @@ function RemoveDialog(props: {
             </p>
           )}
           <Button variant="ghost" disabled={removal.isPending} onClick={props.onClose}>
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
           <Button
             variant="danger"
@@ -208,15 +231,22 @@ function RemoveDialog(props: {
               removal.mutate();
             }}
           >
-            Remove
+            {t('common.remove', 'Remove')}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-3 px-5 py-4">
-        <Switch label="Also delete its volumes" isOn={removeVolumes} onChange={setRemoveVolumes} />
         <Switch
-          label="Also delete its folder: the file and what its services kept there"
+          label={t('containers.compose.alsoDeleteItsVolumes', 'Also delete its volumes')}
+          isOn={removeVolumes}
+          onChange={setRemoveVolumes}
+        />
+        <Switch
+          label={t(
+            'containers.compose.alsoDeleteItsFolder',
+            'Also delete its folder: the file and what its services kept there',
+          )}
           isOn={removeFiles}
           onChange={setRemoveFiles}
         />
@@ -231,6 +261,8 @@ function RemoveDialog(props: {
  * @returns The page.
  */
 export function ComposePage() {
+  const { t } = useTranslation();
+
   const { project = '' } = useParams();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -311,7 +343,7 @@ export function ComposePage() {
     <>
       <LibraryPage
         title={group?.title ?? project}
-        parent={{ to: '/containers', label: 'Containers' }}
+        parent={{ to: '/containers', label: t('containers.compose.containers', 'Containers') }}
         counted={(count) =>
           translate('containers.count', {
             count,
@@ -333,7 +365,7 @@ export function ComposePage() {
                       control.mutate('stop');
                     }}
                   >
-                    Stop all
+                    {t('containers.compose.stopAll', 'Stop all')}
                   </Button>
                 ) : (
                   <Button
@@ -344,7 +376,7 @@ export function ComposePage() {
                       control.mutate('start');
                     }}
                   >
-                    Start all
+                    {t('containers.compose.startAll', 'Start all')}
                   </Button>
                 )
               ) : null}
@@ -354,12 +386,15 @@ export function ComposePage() {
                     variant="ghost"
                     disabled={isWorking || control.isPending}
                     isBusy={control.isPending && control.variables === 'pull'}
-                    title="Pull the newest images and make again what they changed"
+                    title={t(
+                      'containers.compose.pullTheNewestImages',
+                      'Pull the newest images and make again what they changed',
+                    )}
                     onClick={() => {
                       control.mutate('pull');
                     }}
                   >
-                    Update images
+                    {t('containers.compose.updateImages', 'Update images')}
                   </Button>
                   <Button
                     variant="ghost"
@@ -368,7 +403,7 @@ export function ComposePage() {
                       setEditing(true);
                     }}
                   >
-                    Edit
+                    {t('common.edit', 'Edit')}
                   </Button>
                   <Button
                     variant="danger"
@@ -377,7 +412,7 @@ export function ComposePage() {
                       setRemoving(true);
                     }}
                   >
-                    Remove
+                    {t('common.remove', 'Remove')}
                   </Button>
                 </>
               ) : null}
@@ -390,9 +425,15 @@ export function ComposePage() {
       >
         {group === undefined ? (
           containers.isPending ? null : (
-            <DetailPlaceholder
-              isProblem
-            >{`No compose project is called ${project}.`}</DetailPlaceholder>
+            <DetailPlaceholder isProblem>
+              {t(
+                'containers.compose.noProjectCalled',
+                'No compose project is called {{project}}.',
+                {
+                  project,
+                },
+              )}
+            </DetailPlaceholder>
           )
         ) : (
           <>
@@ -403,16 +444,27 @@ export function ComposePage() {
                 <div className="flex items-center gap-2.5">
                   <h2 className="text-headline font-medium text-foreground">{group.title}</h2>
                   <Badge tone={group.isSystem ? 'accent' : 'neutral'} size="small">
-                    {group.isSystem ? 'System' : 'Compose'}
+                    {group.isSystem
+                      ? t('containers.compose.system', 'System')
+                      : t('containers.compose.compose', 'Compose')}
                   </Badge>
                 </div>
 
                 <p className="max-w-2xl text-ui leading-relaxed text-foreground-muted">
                   {group.isSystem
-                    ? 'The platform itself and what it runs beside it: shown and measured, never stopped from here.'
+                    ? t(
+                        'containers.compose.platformItselfAndWhat',
+                        'The platform itself and what it runs beside it: shown and measured, never stopped from here.',
+                      )
                     : isEditable
-                      ? 'Deployed from here: its file is kept in NebulaHome’s data, with the folders its services keep.'
-                      : 'Started outside NebulaHome: its containers can be started and stopped one by one here, and its file changed where it lives.'}
+                      ? t(
+                          'containers.compose.deployedFromHereIts',
+                          'Deployed from here: its file is kept in NebulaHome’s data, with the folders its services keep.',
+                        )
+                      : t(
+                          'containers.compose.startedOutsideNebulahomeIts',
+                          'Started outside NebulaHome: its containers can be started and stopped one by one here, and its file changed where it lives.',
+                        )}
                 </p>
 
                 <MetaLine
@@ -422,7 +474,9 @@ export function ComposePage() {
                     </span>,
                     first?.version === null || first?.version === undefined ? null : (
                       <span key="version" className="tabular">
-                        Compose {first.version}
+                        {t('containers.compose.composeVersion', 'Compose {{version}}', {
+                          version: first.version,
+                        })}
                       </span>
                     ),
                   ]}
@@ -448,10 +502,15 @@ export function ComposePage() {
               <LastOperation operation={operation} />
             )}
 
-            <Panel title="Containers">
+            <Panel title={t('containers.compose.containers', 'Containers')}>
               {group.containers.length === 0 ? (
                 <p className="px-4 py-3.5 text-ui text-foreground-muted">
-                  {isWorking ? 'Its containers appear once they are made.' : 'It has no container.'}
+                  {isWorking
+                    ? t(
+                        'containers.compose.itsContainersAppearOnce',
+                        'Its containers appear once they are made.',
+                      )
+                    : t('containers.compose.itHasNoContainer', 'It has no container.')}
                 </p>
               ) : (
                 <>
@@ -459,11 +518,11 @@ export function ComposePage() {
                     aria-hidden="true"
                     className={`${ROW_COLUMNS} hidden border-b border-border px-5.5 py-3 font-mono text-label text-foreground-subtle uppercase md:grid`}
                   >
-                    <span>Container</span>
-                    <span>Service</span>
-                    <span>State</span>
-                    <span>CPU</span>
-                    <span>RAM</span>
+                    <span>{t('containers.compose.container', 'Container')}</span>
+                    <span>{t('containers.compose.service', 'Service')}</span>
+                    <span>{t('containers.compose.state', 'State')}</span>
+                    <span>{t('containers.compose.cpu', 'CPU')}</span>
+                    <span>{t('containers.compose.ram', 'RAM')}</span>
                   </div>
                   <ul>
                     {group.containers.map((container) => (
@@ -474,28 +533,45 @@ export function ComposePage() {
               )}
               {usage === null || usage.running === 0 ? null : (
                 <PanelNote>
-                  Together {formatPercent(usage.cpuPercent)} of the processor
                   {usage.memoryUsedBytes === null
-                    ? ''
-                    : ` and ${formatBytes(usage.memoryUsedBytes)} of memory`}
-                  .
+                    ? t(
+                        'containers.compose.togetherProcessor',
+                        'Together {{cpu}} of the processor.',
+                        {
+                          cpu: formatPercent(usage.cpuPercent),
+                        },
+                      )
+                    : t(
+                        'containers.compose.togetherProcessorAndMemory',
+                        'Together {{cpu}} of the processor and {{memory}} of memory.',
+                        {
+                          cpu: formatPercent(usage.cpuPercent),
+                          memory: formatBytes(usage.memoryUsedBytes),
+                        },
+                      )}
                 </PanelNote>
               )}
             </Panel>
 
             {first === null ? null : (
-              <Panel title="Details">
+              <Panel title={t('containers.compose.details', 'Details')}>
                 <dl>
-                  <Fact term="Project">
+                  <Fact term={t('containers.compose.project', 'Project')}>
                     <span className="font-mono text-caption">{group.project}</span>
                   </Fact>
                   {first.workingDir === null ? null : (
-                    <Fact term="Folder">
+                    <Fact term={t('containers.compose.folder', 'Folder')}>
                       <span className="font-mono text-caption break-all">{first.workingDir}</span>
                     </Fact>
                   )}
                   {first.configFiles.length === 0 ? null : (
-                    <Fact term={first.configFiles.length === 1 ? 'File' : 'Files'}>
+                    <Fact
+                      term={
+                        first.configFiles.length === 1
+                          ? t('containers.compose.file', 'File')
+                          : t('containers.compose.files', 'Files')
+                      }
+                    >
                       <span className="flex flex-col gap-0.5 font-mono text-caption break-all">
                         {first.configFiles.map((file) => (
                           <span key={file}>{file}</span>
@@ -503,25 +579,32 @@ export function ComposePage() {
                       </span>
                     </Fact>
                   )}
-                  <Fact term="Made by">
+                  <Fact term={t('containers.compose.madeBy', 'Made by')}>
                     {group.isSystem
-                      ? 'The platform'
+                      ? t('containers.compose.platform', 'The platform')
                       : isEditable
-                        ? 'NebulaHome'
-                        : 'docker compose, outside NebulaHome'}
+                        ? PRODUCT_NAME
+                        : t(
+                            'containers.compose.dockerComposeOutsideNebulahome',
+                            'docker compose, outside NebulaHome',
+                          )}
                   </Fact>
                 </dl>
               </Panel>
             )}
 
             {isEditable && document.data !== undefined ? (
-              <Panel title="Compose file">
+              <Panel title={t('containers.compose.composeFile', 'Compose file')}>
                 <div className="p-3">
                   <Suspense
-                    fallback={<p className="px-1 py-2 text-ui text-foreground-subtle">Opening…</p>}
+                    fallback={
+                      <p className="px-1 py-2 text-ui text-foreground-subtle">
+                        {t('containers.compose.opening', 'Opening…')}
+                      </p>
+                    }
                   >
                     <YamlEditor
-                      label="Compose file"
+                      label={t('containers.compose.composeFile', 'Compose file')}
                       value={document.data.file}
                       isReadOnly
                       minHeight="6rem"

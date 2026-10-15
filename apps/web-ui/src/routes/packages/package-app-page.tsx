@@ -9,6 +9,7 @@
  * otherwise the header stays and says why there is nothing under it.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
 import { Button, Panel, PanelNote } from '@nebulahome/ui';
@@ -24,6 +25,8 @@ import { LibraryPage } from '@/routes/library/library-page';
  * @returns The page.
  */
 export function PackageAppPage() {
+  const { t } = useTranslation();
+
   const { packageId = '' } = useParams();
   const navigate = useNavigate();
   const { packages, isPending, error } = useInstalledPackages();
@@ -35,13 +38,23 @@ export function PackageAppPage() {
   if (found === undefined) {
     body = (
       <Panel title={packageId} elevation="flat">
-        <PanelNote>The {packageId} package is not installed.</PanelNote>
+        <PanelNote>
+          {t(
+            'packages.packageApp.packageidPackageIsNot',
+            'The {{packageId}} package is not installed.',
+            { packageId },
+          )}
+        </PanelNote>
       </Panel>
     );
   } else if (found.ui?.page !== true) {
     body = (
       <Panel title={found.name} elevation="flat">
-        <PanelNote>{found.name} has no page of its own.</PanelNote>
+        <PanelNote>
+          {t('packages.packageApp.nameHasNoPage', '{{name}} has no page of its own.', {
+            name: found.name,
+          })}
+        </PanelNote>
       </Panel>
     );
   } else if (found.state === 'running') {
@@ -51,13 +64,17 @@ export function PackageAppPage() {
         target={{ kind: 'page', props: { packageId: found.id } }}
         loading={
           <p role="status" className="text-ui text-foreground-subtle">
-            Loading {found.name}…
+            {t('packages.packageApp.loadingName', 'Loading {{name}}…', { name: found.name })}
           </p>
         }
         renderProblem={(message) => (
           <Panel title={found.name} elevation="flat">
             <PanelNote>
-              {found.name} could not draw its page: {message}
+              {t(
+                'packages.packageApp.nameCouldNotDraw',
+                '{{name}} could not draw its page: {{message}}',
+                { name: found.name, message },
+              )}
             </PanelNote>
           </Panel>
         )}
@@ -66,7 +83,9 @@ export function PackageAppPage() {
   } else {
     body = (
       <Panel title={found.name} elevation="flat">
-        <PanelNote>Its page is drawn while it runs.</PanelNote>
+        <PanelNote>
+          {t('packages.packageApp.itsPageIsDrawn', 'Its page is drawn while it runs.')}
+        </PanelNote>
       </Panel>
     );
   }
@@ -74,7 +93,7 @@ export function PackageAppPage() {
   return (
     <LibraryPage
       title={title}
-      parent={{ to: '/packages', label: 'Packages' }}
+      parent={{ to: '/packages', label: t('packages.packageApp.packages', 'Packages') }}
       counted={(count) =>
         translate('packages.pageCount', {
           count,
@@ -89,7 +108,7 @@ export function PackageAppPage() {
             void navigate(`/packages/${encodeURIComponent(packageId)}`);
           }}
         >
-          Details
+          {t('packages.packageApp.details', 'Details')}
         </Button>
       }
       isPending={isPending}

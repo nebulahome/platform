@@ -200,7 +200,14 @@ export class CameraPlayer {
     const support = await VideoDecoder.isConfigSupported(config).catch(() => undefined);
 
     if (support?.supported !== true) {
-      onStatus('unsupported', `This browser cannot decode ${codec}`);
+      onStatus(
+        'unsupported',
+        translate(
+          'live.cameraPlayer.thisBrowserCannotDecode',
+          'This browser cannot decode {{codec}}',
+          { codec },
+        ),
+      );
 
       return;
     }

@@ -11,6 +11,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 
 import type { InstalledPackage, PackageListing } from '@nebulahome/contracts';
 import { Button } from '@nebulahome/ui';
@@ -42,6 +43,8 @@ type ResultsProps = {
  * @returns The lists.
  */
 function Results(props: ResultsProps) {
+  const { t } = useTranslation();
+
   const { items, onPick } = props;
   const local = items.filter((listing) => listing.origin === 'local');
   const hub = items.filter((listing) => listing.origin === 'hub');
@@ -49,11 +52,19 @@ function Results(props: ResultsProps) {
   return (
     <div className="flex flex-col gap-4">
       {local.length === 0 ? null : (
-        <section aria-label="In the packages folder" className="flex flex-col gap-1">
+        <section
+          aria-label={t(
+            'packages.installPackagesDialog.inThePackagesFolder',
+            'In the packages folder',
+          )}
+          className="flex flex-col gap-1"
+        >
           <h3 className="flex items-baseline justify-between px-1 pt-1 font-mono text-label text-foreground-subtle uppercase">
-            <span>In the packages folder</span>
+            <span>
+              {t('packages.installPackagesDialog.inThePackagesFolder', 'In the packages folder')}
+            </span>
             <span className="font-sans text-caption tracking-normal normal-case">
-              not released yet
+              {t('packages.installPackagesDialog.notReleasedYet', 'not released yet')}
             </span>
           </h3>
           <ul className="flex flex-col">
@@ -63,14 +74,22 @@ function Results(props: ResultsProps) {
                 logo={<ListingLogo listing={listing} size={48} />}
                 name={listing.name}
                 isOfficial={false}
-                description={`v${listing.latest?.version ?? listing.newestVersion ?? '?'} · being tried on this machine`}
+                description={t(
+                  'packages.installPackagesDialog.beingTried',
+                  'v{{version}} · being tried on this machine',
+                  { version: listing.latest?.version ?? listing.newestVersion ?? '?' },
+                )}
                 facts={
                   <>
-                    <span>by you · local</span>
+                    <span>{t('packages.installPackagesDialog.byYouLocal', 'by you · local')}</span>
                     <span className="rounded-chip border border-warning-line px-1.5 font-mono text-label text-warning uppercase">
-                      Local file
+                      {t('packages.installPackagesDialog.localFile', 'Local file')}
                     </span>
-                    {listing.hasNewBuild ? <span className="text-primary">New build</span> : null}
+                    {listing.hasNewBuild ? (
+                      <span className="text-primary">
+                        {t('packages.installPackagesDialog.newBuild', 'New build')}
+                      </span>
+                    ) : null}
                   </>
                 }
                 isInstalled={listing.installedVersion !== null && !listing.hasNewBuild}
@@ -84,12 +103,18 @@ function Results(props: ResultsProps) {
       )}
 
       {hub.length === 0 ? null : (
-        <section aria-label="Community Hub" className="flex flex-col gap-1">
+        <section
+          aria-label={t('packages.installPackagesDialog.communityHub', 'Community Hub')}
+          className="flex flex-col gap-1"
+        >
           {local.length === 0 ? null : (
             <h3 className="flex items-baseline justify-between px-1 pt-1 font-mono text-label text-foreground-subtle uppercase">
-              <span>Community Hub</span>
+              <span>{t('packages.installPackagesDialog.communityHub', 'Community Hub')}</span>
               <span className="font-sans text-caption tracking-normal normal-case">
-                {hub.length} {hub.length === 1 ? 'package' : 'packages'}
+                {hub.length}{' '}
+                {hub.length === 1
+                  ? t('packages.installPackagesDialog.package', 'package')
+                  : t('packages.installPackagesDialog.packages', 'packages')}
               </span>
             </h3>
           )}
@@ -105,7 +130,11 @@ function Results(props: ResultsProps) {
                   <>
                     <Stars count={listing.stars} />
                     <Installs count={listing.downloads} />
-                    {listing.hasUpdate ? <span className="text-primary">Update out</span> : null}
+                    {listing.hasUpdate ? (
+                      <span className="text-primary">
+                        {t('packages.installPackagesDialog.updateOut', 'Update out')}
+                      </span>
+                    ) : null}
                   </>
                 }
                 isInstalled={listing.installedVersion !== null}
@@ -140,6 +169,8 @@ export type InstallPackagesDialogProps = {
  * @returns The dialog.
  */
 export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
+  const { t } = useTranslation();
+
   const { isOpen, onClose, onInstalled, onOpen } = props;
   const [search, setSearch] = useState('');
   const [picked, setPicked] = useState<PackageListing | null>(null);
@@ -190,15 +221,18 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
     <CatalogueDialog
       isOpen={isOpen}
       onClose={close}
-      title="Install a package"
-      subtitle="From the Community Hub, and the packages folder on this machine"
+      title={t('packages.installPackagesDialog.installAPackage', 'Install a package')}
+      subtitle={t(
+        'packages.installPackagesDialog.fromTheCommunityHub',
+        'From the Community Hub, and the packages folder on this machine',
+      )}
       icon="package"
       item={
         picked === null
           ? null
           : {
               name: picked.name,
-              backLabel: 'Packages',
+              backLabel: t('packages.installPackagesDialog.packages2', 'Packages'),
 
               /** Goes back to the results, unless an install is under way. */
               onBack: () => {
@@ -211,18 +245,25 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
       }
       search={search}
       onSearch={setSearch}
-      searchLabel="Search the Community Hub"
-      searchPlaceholder="Search packages"
+      searchLabel={t(
+        'packages.installPackagesDialog.searchTheCommunityHub',
+        'Search the Community Hub',
+      )}
+      searchPlaceholder={t('packages.installPackagesDialog.searchPackages', 'Search packages')}
       status={
         results.hubError === null ? (
           results.isPending ? (
-            'Asking the Hub…'
+            t('packages.installPackagesDialog.askingTheHub', 'Asking the Hub…')
           ) : (
             `${String(results.items.length)}${results.hasMore ? '+' : ''} ${results.items.length === 1 ? 'package' : 'packages'}`
           )
         ) : (
           <span role="status" className="text-warning">
-            {results.hubError}. The local folder&apos;s files are listed still.
+            {t(
+              'packages.installPackagesDialog.huberrorTheLocalFolder',
+              "{{hubError}}. The local folder's files are listed still.",
+              { hubError: results.hubError },
+            )}
           </span>
         )
       }
@@ -232,7 +273,9 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
             <span />
             <div className="flex items-center gap-2.5">
               <Button variant="bare" disabled={install.isPending} onClick={close}>
-                {picked.installedVersion === null ? 'Cancel' : 'Close'}
+                {picked.installedVersion === null
+                  ? t('common.cancel', 'Cancel')
+                  : t('common.close', 'Close')}
               </Button>
               {picked.installedVersion === null ? (
                 <Button
@@ -243,8 +286,16 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
                   }}
                 >
                   {others.length === 0
-                    ? `Install ${picked.name}`
-                    : `Install ${String(others.length + 1)} packages`}
+                    ? t('packages.installPackagesDialog.installName', 'Install {{name}}', {
+                        name: picked.name,
+                      })
+                    : t(
+                        'packages.installPackagesDialog.installCount',
+                        'Install {{count}} packages',
+                        {
+                          count: others.length + 1,
+                        },
+                      )}
                 </Button>
               ) : (
                 <Button
@@ -252,7 +303,7 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
                     onOpen(picked.id);
                   }}
                 >
-                  Open
+                  {t('packages.installPackagesDialog.open', 'Open')}
                 </Button>
               )}
             </div>
@@ -270,8 +321,12 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
           {!results.isPending && results.error === null && results.items.length === 0 ? (
             <p className="px-1 py-6 text-center text-ui text-foreground-subtle">
               {results.query === ''
-                ? 'No package to offer yet.'
-                : `No package matches “${results.query}”.`}
+                ? t('packages.installPackagesDialog.noPackageToOffer', 'No package to offer yet.')
+                : t(
+                    'packages.installPackagesDialog.noPackageMatchesQuery',
+                    'No package matches “{{query}}”.',
+                    { query: results.query },
+                  )}
             </p>
           ) : null}
           <Results items={results.items} onPick={setPicked} />
@@ -282,7 +337,7 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
               isBusy={results.isLoadingMore}
               onClick={results.loadMore}
             >
-              Show more
+              {t('packages.installPackagesDialog.showMore', 'Show more')}
             </Button>
           ) : null}
         </>
@@ -292,17 +347,24 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
           name={picked.name}
           by={
             picked.origin === 'local'
-              ? 'From the packages folder on this machine'
+              ? t(
+                  'packages.installPackagesDialog.fromThePackagesFolder',
+                  'From the packages folder on this machine',
+                )
               : detail.data?.owner === null || detail.data?.owner === undefined
                 ? null
                 : `by ${detail.data.owner}`
           }
           chips={
             <>
-              {picked.isOfficial ? <CatalogueChip tone="accent">Official</CatalogueChip> : null}
+              {picked.isOfficial ? (
+                <CatalogueChip tone="accent">
+                  {t('packages.installPackagesDialog.official', 'Official')}
+                </CatalogueChip>
+              ) : null}
               {picked.latest?.source === 'local' ? (
                 <CatalogueChip tone="warning" icon="hard-drive">
-                  Local file
+                  {t('packages.installPackagesDialog.localFile', 'Local file')}
                 </CatalogueChip>
               ) : null}
               <CatalogueChip>{picked.category}</CatalogueChip>
@@ -316,12 +378,12 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
                     icon="star"
                     iconClassName="text-lamp"
                     value={shortCount(picked.stars)}
-                    label="stars"
+                    label={t('packages.installPackagesDialog.stars', 'stars')}
                   />
                   <CatalogueStat
                     icon="download"
                     value={shortCount(picked.downloads)}
-                    label="installs"
+                    label={t('packages.installPackagesDialog.installs', 'installs')}
                   />
                 </>
               ) : null}
@@ -330,7 +392,10 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
                 <CatalogueStat
                   icon="clock"
                   value={relativeTime(publishedAt)}
-                  label="since the last release"
+                  label={t(
+                    'packages.installPackagesDialog.sinceTheLastRelease',
+                    'since the last release',
+                  )}
                 />
               )}
             </>
@@ -347,11 +412,18 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
         >
           {picked.installedVersion === null ? null : (
             <p role="status" className="text-ui text-foreground">
-              Version <span className="font-mono font-medium">{picked.installedVersion}</span> is
-              installed.{' '}
+              <Trans
+                i18nKey="packages.installPackagesDialog.versionInstalled"
+                defaults="Version <0>{{version}}</0> is installed."
+                values={{ version: picked.installedVersion }}
+                components={[<span key="version" className="font-mono font-medium" />]}
+              />{' '}
               {picked.hasUpdate || picked.hasNewBuild
-                ? 'Its page has the update.'
-                : 'Its page has its settings and its log.'}
+                ? t('packages.installPackagesDialog.itsPageHasThe', 'Its page has the update.')
+                : t(
+                    'packages.installPackagesDialog.itsPageHasIts',
+                    'Its page has its settings and its log.',
+                  )}
             </p>
           )}
 
@@ -363,7 +435,7 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
 
           {isInstallable && plan.isPending ? (
             <p role="status" className="text-ui text-foreground-subtle">
-              Working out what it needs…
+              {t('packages.installPackagesDialog.workingOutWhatIt', 'Working out what it needs…')}
             </p>
           ) : null}
 
@@ -389,7 +461,10 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
 
           {install.isPending ? (
             <p role="status" className="text-ui text-foreground-muted">
-              Downloading and starting it. Nothing else restarts.
+              {t(
+                'packages.installPackagesDialog.downloadingAndStartingIt',
+                'Downloading and starting it. Nothing else restarts.',
+              )}
             </p>
           ) : null}
         </CatalogueItem>

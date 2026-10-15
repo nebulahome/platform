@@ -19,6 +19,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router';
 
 import {
@@ -119,10 +120,17 @@ async function call(
  * @throws {Error} Outside a package's component, where the hooks have nobody to speak for.
  */
 function usePackage(): PackageInfo {
+  const { t } = useTranslation();
+
   const scope = useContext(PackageScopeContext);
 
   if (scope === null) {
-    throw new Error('A package hook was called outside a package’s component');
+    throw new Error(
+      t(
+        'packages.sdkUi.packageHookWasCalled',
+        'A package hook was called outside a package’s component',
+      ),
+    );
   }
 
   return scope;

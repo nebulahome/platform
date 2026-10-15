@@ -18,6 +18,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { MenuButton, SelectField, TILE_GRID } from '@nebulahome/ui';
 
@@ -30,7 +31,7 @@ import {
   type ContainerRunChoice,
 } from '@/containers/container-filters';
 import { containerTiles } from '@/containers/container-groups';
-import { translate } from '@/i18n/messages';
+import { defineMessage, type Message, translate, withLabels } from '@/i18n/messages';
 import { useListState } from '@/lib/use-list-state';
 import { ComposeEditorDialog } from '@/routes/containers/compose-editor-dialog';
 import { ComposeCard, ContainerCard, InstallCard } from '@/routes/containers/container-card';
@@ -42,19 +43,23 @@ import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
 
 /** The run choices, for the facet. */
-const RUN_OPTIONS: readonly { readonly value: ContainerRunChoice; readonly label: string }[] = [
-  { value: 'any', label: 'Running or not' },
-  { value: 'running', label: 'Running' },
-  { value: 'stopped', label: 'Stopped' },
+const RUN_OPTIONS: readonly { readonly value: ContainerRunChoice; readonly label: Message }[] = [
+  { value: 'any', label: defineMessage('containers.containers.runningOrNot', 'Running or not') },
+  { value: 'running', label: defineMessage('containers.containers.running', 'Running') },
+  { value: 'stopped', label: defineMessage('containers.containers.stopped', 'Stopped') },
 ];
 
 /** The owner choices, for the facet. */
-const OWNER_OPTIONS: readonly { readonly value: ContainerOwnerChoice; readonly label: string }[] = [
-  { value: 'any', label: 'Anyone' },
-  { value: 'system', label: 'The platform' },
-  { value: 'integration', label: 'An integration' },
-  { value: 'other', label: 'You' },
-];
+const OWNER_OPTIONS: readonly { readonly value: ContainerOwnerChoice; readonly label: Message }[] =
+  [
+    { value: 'any', label: defineMessage('containers.containers.anyone', 'Anyone') },
+    { value: 'system', label: defineMessage('containers.containers.platform', 'The platform') },
+    {
+      value: 'integration',
+      label: defineMessage('containers.containers.integration', 'An integration'),
+    },
+    { value: 'other', label: defineMessage('containers.containers.you', 'You') },
+  ];
 
 /**
  * Renders the containers page.
@@ -62,6 +67,8 @@ const OWNER_OPTIONS: readonly { readonly value: ContainerOwnerChoice; readonly l
  * @returns The page.
  */
 export function ContainersPage() {
+  const { t } = useTranslation();
+
   const queryClient = useQueryClient();
   const can = useSession((state) => state.can);
   const canInstall = can('container:install');
@@ -113,7 +120,7 @@ export function ContainersPage() {
   return (
     <>
       <LibraryPage
-        title="Containers"
+        title={t('containers.containers.containers', 'Containers')}
         counted={(count) =>
           translate('containers.count', {
             count,
@@ -126,35 +133,43 @@ export function ContainersPage() {
         summary={
           isDockerUp
             ? [
-                `Docker ${docker.version ?? ''}`,
-                docker.composeVersion === null ? null : `Compose ${docker.composeVersion}`,
-                docker.platformNetwork === 'host' ? 'host network' : null,
+                `Docker ${docker.version ?? ''}`.trim(),
+                docker.composeVersion === null
+                  ? null
+                  : t('containers.containers.composeComposeversion', 'Compose {{composeVersion}}', {
+                      composeVersion: docker.composeVersion,
+                    }),
+                docker.platformNetwork === 'host'
+                  ? t('containers.containers.hostNetwork', 'host network')
+                  : null,
               ]
             : undefined
         }
         tools={
           <>
             <SearchField
-              placeholder="Search containers…"
+              placeholder={t('containers.containers.searchContainers', 'Search containers…')}
               value={filter.search}
               onChange={(search) => {
                 setFilter({ ...filter, search });
               }}
             />
             <FilterSheet
-              label="Narrow the containers"
+              label={t('containers.containers.narrowTheContainers', 'Narrow the containers')}
               count={narrowed}
-              summary={`${String(tiles.length)} shown`}
+              summary={t('containers.containers.countShown', '{{count}} shown', {
+                count: tiles.length,
+              })}
               onClear={() => {
                 setFilter({ ...filter, run: 'any', owner: 'any' });
               }}
             >
-              <Facet title="Running">
+              <Facet title={t('containers.containers.running', 'Running')}>
                 <SelectField
-                  label="Running"
+                  label={t('containers.containers.running', 'Running')}
                   isLabelHidden
                   size="compact"
-                  options={RUN_OPTIONS}
+                  options={withLabels(RUN_OPTIONS)}
                   value={filter.run}
                   onChange={(run) => {
                     setFilter({
@@ -164,12 +179,12 @@ export function ContainersPage() {
                   }}
                 />
               </Facet>
-              <Facet title="Belongs to">
+              <Facet title={t('containers.containers.belongsTo', 'Belongs to')}>
                 <SelectField
-                  label="Belongs to"
+                  label={t('containers.containers.belongsTo', 'Belongs to')}
                   isLabelHidden
                   size="compact"
-                  options={OWNER_OPTIONS}
+                  options={withLabels(OWNER_OPTIONS)}
                   value={filter.owner}
                   onChange={(owner) => {
                     setFilter({
@@ -185,12 +200,15 @@ export function ContainersPage() {
         action={
           canInstall && isDockerUp ? (
             <MenuButton
-              label="Install"
+              label={t('containers.containers.install', 'Install')}
               icon="plus"
               items={[
                 {
-                  label: 'Image',
-                  description: 'One container from a registry image',
+                  label: t('containers.containers.image', 'Image'),
+                  description: t(
+                    'containers.containers.oneContainerFromA',
+                    'One container from a registry image',
+                  ),
                   icon: 'container',
                   /** Opens the install of one image. */
                   onSelect: () => {
@@ -198,10 +216,16 @@ export function ContainersPage() {
                   },
                 },
                 {
-                  label: 'Compose',
+                  label: t('containers.containers.compose', 'Compose'),
                   description: hasCompose
-                    ? 'Several containers from a compose file'
-                    : 'docker compose is not installed where NebulaHome runs',
+                    ? t(
+                        'containers.containers.severalContainersFromA',
+                        'Several containers from a compose file',
+                      )
+                    : t(
+                        'containers.containers.dockerComposeIsNot',
+                        'docker compose is not installed where NebulaHome runs',
+                      ),
                   icon: 'layers',
                   disabled: !hasCompose,
                   /** Opens a new compose project. */
@@ -216,7 +240,10 @@ export function ContainersPage() {
         isPending={containers.isPending}
         error={containers.error}
         isEmpty={isEmpty}
-        emptyMessage="Docker runs no container on this machine."
+        emptyMessage={t(
+          'containers.containers.dockerRunsNoContainer',
+          'Docker runs no container on this machine.',
+        )}
       >
         {docker !== undefined && !docker.isAvailable ? <DockerUnavailable docker={docker} /> : null}
 

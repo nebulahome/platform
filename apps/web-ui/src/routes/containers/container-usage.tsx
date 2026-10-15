@@ -8,12 +8,14 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { ContainerDetail } from '@nebulahome/contracts';
 import { Section, Segmented } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { LiveAreaChart } from '@/components/live-area-chart';
+import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import { formatBytes, formatPercent } from '@/lib/format-bytes';
 import { fetchDevices, fetchTelemetry, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { telemetryResolutionFor } from '@/library/history-series';
@@ -32,10 +34,10 @@ const RANGE_MS: Readonly<Record<UsageRange, number>> = {
 };
 
 /** What each window is called. */
-const RANGE_LABELS: Readonly<Record<UsageRange, string>> = {
-  '15m': '15 min',
-  '1h': '1 h',
-  '24h': '24 h',
+const RANGE_LABELS: Readonly<Record<UsageRange, Message>> = {
+  '15m': defineMessage('containers.containerUsage.n15Min', '15 min'),
+  '1h': defineMessage('containers.containerUsage.n1H', '1 h'),
+  '24h': defineMessage('containers.containerUsage.n24H', '24 h'),
 };
 
 /** A point of a chart. */
@@ -56,7 +58,11 @@ function spread(points: readonly Point[]): string | null {
 
   const average = values.reduce((sum, value) => sum + value, 0) / values.length;
 
-  return `avg ${average.toFixed(1)}% · peak ${Math.max(...values).toFixed(1)}%`;
+  return translate(
+    'containers.containerUsage.avgAveragePeakMax',
+    'avg {{average}}% · peak {{max}}%',
+    { average: average.toFixed(1), max: Math.max(...values).toFixed(1) },
+  );
 }
 
 /**
@@ -151,6 +157,8 @@ export type ContainerUsageProps = {
  * @returns The block.
  */
 export function ContainerUsage(props: ContainerUsageProps) {
+  const { t } = useTranslation();
+
   const { container } = props;
   const [range, setRange] = useState<UsageRange>('15m');
   const canRead = useSession((state) => state.can('device:read') && state.can('history:read'));
@@ -190,24 +198,26 @@ export function ContainerUsage(props: ContainerUsageProps) {
 
   return (
     <Section
-      title="Usage"
+      title={t('containers.containerUsage.usage', 'Usage')}
       actions={
         hasLongerWindows ? (
           <Segmented
-            label="Window"
+            label={t('containers.containerUsage.window', 'Window')}
             size="compact"
-            options={RANGES.map((each) => ({ value: each, label: RANGE_LABELS[each] }))}
+            options={RANGES.map((each) => ({ value: each, label: text(RANGE_LABELS[each]) }))}
             value={range}
             onChange={setRange}
           />
         ) : (
-          <span className="text-caption text-foreground-subtle">Last 15 minutes</span>
+          <span className="text-caption text-foreground-subtle">
+            {t('containers.containerUsage.last15Minutes', 'Last 15 minutes')}
+          </span>
         )
       }
     >
       <div className="grid gap-8 rounded-card border border-border bg-surface p-5.5 lg:grid-cols-2">
         <UsageChart
-          title="Processor"
+          title={t('containers.containerUsage.processor', 'Processor')}
           value={formatPercent(latest?.cpuPercent ?? null)}
           meta={spread(cpu)}
           points={cpu}
@@ -215,7 +225,7 @@ export function ContainerUsage(props: ContainerUsageProps) {
           dotClass="bg-cyan"
         />
         <UsageChart
-          title="Memory"
+          title={t('containers.containerUsage.memory', 'Memory')}
           value={latest === undefined ? '—' : formatBytes(latest.memoryUsedBytes)}
           meta={
             latest === undefined || latest.memoryLimitBytes === 0

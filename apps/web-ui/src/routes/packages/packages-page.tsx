@@ -13,13 +13,14 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
 import { PACKAGE_STATES } from '@nebulahome/contracts';
 import { AppIcon, BrowseTile, Button, SelectField, TILE_GRID } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
-import { translate } from '@/i18n/messages';
+import { defineMessage, translate, withLabels } from '@/i18n/messages';
 import { matchesQuery } from '@/lib/search-text';
 import { useListState } from '@/lib/use-list-state';
 import { OPEN_PACKAGE_FILTER, packageFilterCodec } from '@/library/list-filters';
@@ -37,7 +38,7 @@ const PACKAGE_FILTER_CODEC = packageFilterCodec(PACKAGE_STATES);
 
 /** The state choices, with any first. */
 const STATE_OPTIONS = [
-  { value: '', label: 'Any state' },
+  { value: '', label: defineMessage('packages.packages.anyState', 'Any state') },
   ...PACKAGE_STATES.map((state) => ({ value: state, label: PACKAGE_STATE_OF[state].label })),
 ];
 
@@ -50,6 +51,8 @@ const INDEX_STALE_MS = 5 * 60_000;
  * @returns The page.
  */
 export function PackagesPage() {
+  const { t } = useTranslation();
+
   const navigate = useNavigate();
   const canInstall = useSession((state) => state.can('package:install'));
   const [filter, setFilter] = useListState(PACKAGE_FILTER_CODEC);
@@ -88,7 +91,7 @@ export function PackagesPage() {
   return (
     <>
       <LibraryPage
-        title="Packages"
+        title={t('packages.packages.packages', 'Packages')}
         counted={(count) =>
           translate('packages.count', {
             count,
@@ -101,31 +104,38 @@ export function PackagesPage() {
         summary={[
           updates.size === 0
             ? null
-            : `${String(updates.size)} update${updates.size === 1 ? '' : 's'} out`,
+            : translate('packages.packages.updatesOut', {
+                count: updates.size,
+                defaultValue_one: '{{count}} update out',
+                defaultValue_other: '{{count}} updates out',
+              }),
         ]}
         tools={
           <>
             <SearchField
-              placeholder="Search packages…"
+              placeholder={t('packages.packages.searchPackages', 'Search packages…')}
               value={filter.search}
               onChange={(search) => {
                 setFilter({ ...filter, search });
               }}
             />
             <FilterSheet
-              label="Narrow the packages"
+              label={t('packages.packages.narrowThePackages', 'Narrow the packages')}
               count={Number(filter.state !== '')}
-              summary={`${String(shownInstalled.length)} of ${String(installed.packages.length)} shown`}
+              summary={t('packages.packages.shownOfTotal', '{{shown}} of {{total}} shown', {
+                shown: shownInstalled.length,
+                total: installed.packages.length,
+              })}
               onClear={() => {
                 setFilter({ ...filter, state: '' });
               }}
             >
-              <Facet title="State">
+              <Facet title={t('packages.packages.state', 'State')}>
                 <SelectField
-                  label="State"
+                  label={t('packages.packages.state', 'State')}
                   isLabelHidden
                   size="compact"
-                  options={STATE_OPTIONS}
+                  options={withLabels(STATE_OPTIONS)}
                   value={filter.state}
                   onChange={(state) => {
                     setFilter({
@@ -146,7 +156,7 @@ export function PackagesPage() {
               }}
             >
               <AppIcon id="plus" size={15} />
-              Install
+              {t('packages.packages.install', 'Install')}
             </Button>
           ) : undefined
         }
@@ -158,8 +168,11 @@ export function PackagesPage() {
           installed.packages.length === 0 ? (
             <p className="text-ui text-foreground-muted">
               {canInstall
-                ? 'Nothing installed yet. Install finds them on the Community Hub.'
-                : 'Nothing installed yet.'}
+                ? t(
+                    'packages.packages.nothingInstalledYetInstall',
+                    'Nothing installed yet. Install finds them on the Community Hub.',
+                  )
+                : t('packages.packages.nothingInstalledYet', 'Nothing installed yet.')}
             </p>
           ) : (
             <NoMatches
@@ -177,8 +190,11 @@ export function PackagesPage() {
             {canInstall ? (
               <li className="flex list-none flex-col">
                 <BrowseTile
-                  title="Browse the package index"
-                  note="Energy, cameras, media and more"
+                  title={t('packages.packages.browseThePackageIndex', 'Browse the package index')}
+                  note={t(
+                    'packages.packages.energyCamerasMediaAnd',
+                    'Energy, cameras, media and more',
+                  )}
                   icon="globe"
                   onClick={() => {
                     setInstalling(true);

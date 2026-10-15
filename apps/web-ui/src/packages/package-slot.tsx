@@ -13,11 +13,13 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { Component, Suspense, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { InstalledPackage } from '@nebulahome/contracts';
 import type { CardProps, EntityViewProps, PageProps } from '@nebulahome/package-sdk/ui';
 import { cn } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
 import { isApiError } from '@/lib/api-error';
 import { toMessage } from '@/lib/error-message';
 import { loadPackageComponent, type PackageComponentTarget } from '@/packages/loader';
@@ -129,11 +131,15 @@ function componentTargetOf(target: PackageSlotTarget): PackageComponentTarget {
 function nameOf(target: PackageComponentTarget): string {
   switch (target.kind) {
     case 'page':
-      return 'a page';
+      return translate('packages.packageSlot.page', 'a page');
     case 'card':
-      return `a ${target.cardId} card`;
+      return translate('packages.packageSlot.cardidCard', 'a {{cardId}} card', {
+        cardId: target.cardId,
+      });
     case 'entityView':
-      return `a view of ${target.type}`;
+      return translate('packages.packageSlot.viewOfType', 'a view of {{type}}', {
+        type: target.type,
+      });
   }
 }
 
@@ -144,6 +150,8 @@ function nameOf(target: PackageComponentTarget): string {
  * @returns The package's component, or what stands in for it.
  */
 export function PackageSlot(props: PackageSlotProps) {
+  const { t } = useTranslation();
+
   const { found, target, loading, renderProblem, className } = props;
   const [portal, setPortal] = useState<HTMLElement | null>(null);
   const which = componentTargetOf(target);
@@ -175,7 +183,12 @@ export function PackageSlot(props: PackageSlotProps) {
   }
 
   if (component.data === null) {
-    return renderProblem(`${found.name} does not draw ${nameOf(which)}.`);
+    return renderProblem(
+      t('packages.packageSlot.nameDoesNotDraw', '{{name}} does not draw {{which}}.', {
+        name: found.name,
+        which: nameOf(which),
+      }),
+    );
   }
 
   // The component's props are its target's: what the SDK types each loader with.

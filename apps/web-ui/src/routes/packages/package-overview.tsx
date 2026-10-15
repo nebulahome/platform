@@ -8,6 +8,7 @@
  * containers it runs, the cards it adds to the dashboards - each a row that opens its own page.
  */
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { ApiPackageDetail, PackageRelation } from '@nebulahome/contracts';
@@ -25,6 +26,7 @@ import {
 
 import { useSession } from '@/auth/session-store';
 import { CONTAINER_QUERY_KEYS, fetchContainers } from '@/containers/api';
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import { absoluteTime } from '@/lib/format-time';
 import { fetchDevices, LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
@@ -39,15 +41,15 @@ import { devicePath } from '@/routes/library/device/device-path';
 
 /** What the sources are called. */
 const SOURCE_LABELS = {
-  index: 'From the package index',
-  local: 'Installed from a file',
+  index: defineMessage('packages.packageOverview.fromThePackageIndex', 'From the package index'),
+  local: defineMessage('packages.packageOverview.installedFromAFile', 'Installed from a file'),
 } as const;
 
 /** What the runtimes are called. */
-const RUNTIME_LABELS: Readonly<Record<ApiPackageDetail['runtime'], string>> = {
-  node: 'A Node process',
-  container: 'Containers only',
-  none: 'Nothing of its own',
+const RUNTIME_LABELS: Readonly<Record<ApiPackageDetail['runtime'], Message>> = {
+  node: defineMessage('packages.packageOverview.nodeProcess', 'A Node process'),
+  container: defineMessage('packages.packageOverview.containersOnly', 'Containers only'),
+  none: defineMessage('packages.packageOverview.nothingOfItsOwn', 'Nothing of its own'),
 };
 
 /**
@@ -92,6 +94,8 @@ export type PackageOverviewProps = {
  * @returns The tab's content.
  */
 export function PackageOverview(props: PackageOverviewProps) {
+  const { t } = useTranslation();
+
   const { found, newer, hasNewBuild, isOffered, onUpdate, isUpdating, onOpenLog } = props;
   const can = useSession((state) => state.can);
   const { packages } = useInstalledPackages();
@@ -141,21 +145,26 @@ export function PackageOverview(props: PackageOverviewProps) {
     <div className="flex flex-col gap-8">
       <HealthStrip>
         <HealthCard
-          label="Runtime"
+          label={t('packages.packageOverview.runtime', 'Runtime')}
           tone={runtime.tone}
           value={runtime.value}
           detail={runtime.detail}
           action={
             found.state === 'failed' && onOpenLog !== undefined ? (
               <Button variant="ghost" size="compact" onClick={onOpenLog}>
-                Open the log
+                {t('packages.packageOverview.openTheLog', 'Open the log')}
               </Button>
             ) : undefined
           }
         />
-        <HealthCard label="Needs" tone={needs.tone} value={needs.value} detail={needs.detail} />
         <HealthCard
-          label="Used by"
+          label={t('packages.packageOverview.needs', 'Needs')}
+          tone={needs.tone}
+          value={needs.value}
+          detail={needs.detail}
+        />
+        <HealthCard
+          label={t('packages.packageOverview.usedBy', 'Used by')}
           tone={usedBy.tone}
           value={usedBy.value}
           detail={usedBy.detail}
@@ -165,20 +174,22 @@ export function PackageOverview(props: PackageOverviewProps) {
                 to={relationPath(firstUser)}
                 className="inline-flex h-control-sm items-center rounded-pill border border-border-strong bg-surface-raised px-3 text-ui-sm font-medium text-foreground transition-colors hover:bg-surface-high"
               >
-                Open
+                {t('packages.packageOverview.open', 'Open')}
               </Link>
             )
           }
         />
         <HealthCard
-          label="Updates"
+          label={t('packages.packageOverview.updates', 'Updates')}
           tone={updates.tone}
           value={updates.value}
           detail={updates.detail}
           action={
             onUpdate !== undefined && (newer !== undefined || hasNewBuild) ? (
               <Button variant="ghost" size="compact" isBusy={isUpdating} onClick={onUpdate}>
-                {newer === undefined ? 'Reinstall' : 'Update'}
+                {newer === undefined
+                  ? t('packages.packageOverview.reinstall', 'Reinstall')
+                  : t('packages.packageOverview.update', 'Update')}
               </Button>
             ) : undefined
           }
@@ -186,20 +197,28 @@ export function PackageOverview(props: PackageOverviewProps) {
       </HealthStrip>
 
       {hasProvides ? (
-        <Section title="Provides">
+        <Section title={t('packages.packageOverview.provides', 'Provides')}>
           <RowList>
             {ownDevices.map((device) => (
               <ListRow
                 key={device.id}
                 icon={<AppIcon id="cpu" size={18} />}
                 title={device.name}
-                subtitle={['Device', device.model, device.areaName].filter(Boolean).join(' · ')}
+                subtitle={[
+                  t('packages.packageOverview.device', 'Device'),
+                  device.model,
+                  device.areaName,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
                 meta={`${String(device.entityIds.length)} ${device.entityIds.length === 1 ? 'entity' : 'entities'}`}
                 trailing={
                   device.state === 'running' ? (
-                    <Pill tone="success">Reporting</Pill>
+                    <Pill tone="success">
+                      {t('packages.packageOverview.reporting', 'Reporting')}
+                    </Pill>
                   ) : (
-                    <Pill>Silent</Pill>
+                    <Pill>{t('packages.packageOverview.silent', 'Silent')}</Pill>
                   )
                 }
                 hasChevron
@@ -215,7 +234,9 @@ export function PackageOverview(props: PackageOverviewProps) {
                 key={container.id}
                 icon={<AppIcon id="container" size={18} />}
                 title={container.displayName}
-                subtitle={`Container · ${container.image}`}
+                subtitle={t('packages.packageOverview.containerImage', 'Container · {{image}}', {
+                  image: container.image,
+                })}
                 trailing={<ContainerBadges container={container} />}
                 hasChevron
                 wrap={(className, parts) => (
@@ -234,27 +255,35 @@ export function PackageOverview(props: PackageOverviewProps) {
                 key={card.id}
                 icon={<AppIcon id="layout-grid" size={18} />}
                 title={card.name}
-                subtitle={card.description ?? 'Dashboard card'}
+                subtitle={
+                  card.description ?? t('packages.packageOverview.dashboardCard', 'Dashboard card')
+                }
               />
             ))}
           </RowList>
         </Section>
       ) : null}
 
-      <Section title="About">
+      <Section title={t('packages.packageOverview.about', 'About')}>
         <FactGrid
           facts={[
-            { label: 'Id', value: found.id, isMono: true },
-            { label: 'Version', value: found.version, isMono: true },
+            { label: t('packages.packageOverview.id', 'Id'), value: found.id, isMono: true },
             {
-              label: 'Source',
-              value: found.isSystem ? 'Ships with Nebula Home' : SOURCE_LABELS[found.source],
+              label: t('packages.packageOverview.version', 'Version'),
+              value: found.version,
+              isMono: true,
+            },
+            {
+              label: t('packages.packageOverview.source', 'Source'),
+              value: found.isSystem
+                ? t('packages.packageOverview.shipsWithNebulaHome', 'Ships with Nebula Home')
+                : text(SOURCE_LABELS[found.source]),
             },
             ...(found.repository === null
               ? []
               : [
                   {
-                    label: 'Repository',
+                    label: t('packages.packageOverview.repository', 'Repository'),
                     value: (
                       <a
                         href={`https://github.com/${found.repository}`}
@@ -268,12 +297,20 @@ export function PackageOverview(props: PackageOverviewProps) {
                     ),
                   },
                 ]),
-            { label: 'Runs as', value: RUNTIME_LABELS[found.runtime] },
             {
-              label: 'Removable',
-              value: found.isSystem ? 'No, part of the platform' : 'Yes',
+              label: t('packages.packageOverview.runsAs', 'Runs as'),
+              value: text(RUNTIME_LABELS[found.runtime]),
             },
-            { label: 'Installed', value: absoluteTime(found.installedAt) },
+            {
+              label: t('packages.packageOverview.removable', 'Removable'),
+              value: found.isSystem
+                ? t('packages.packageOverview.noPartOfThe', 'No, part of the platform')
+                : t('packages.packageOverview.yes', 'Yes'),
+            },
+            {
+              label: t('packages.packageOverview.installed', 'Installed'),
+              value: absoluteTime(found.installedAt),
+            },
           ]}
         />
       </Section>

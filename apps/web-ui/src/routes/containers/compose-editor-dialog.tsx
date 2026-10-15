@@ -18,6 +18,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
 import {
@@ -116,6 +117,8 @@ type ComposeFormProps = {
  * @returns The form, in its dialog.
  */
 function ComposeForm(props: ComposeFormProps) {
+  const { t } = useTranslation();
+
   const { project: existing, initialFile, initialEnv, onClose } = props;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -139,13 +142,20 @@ function ComposeForm(props: ComposeFormProps) {
     const name = project.trim();
 
     if (!COMPOSE_PROJECT_PATTERN.test(name)) {
-      setNameError('Lower-case letters, digits, dashes and underscores');
+      setNameError(
+        t(
+          'containers.composeEditorDialog.lowerCaseLettersDigits',
+          'Lower-case letters, digits, dashes and underscores',
+        ),
+      );
 
       return null;
     }
 
     if (name === PLATFORM_COMPOSE_PROJECT) {
-      setNameError("That is the platform's own project");
+      setNameError(
+        t('containers.composeEditorDialog.thatIsThePlatform', "That is the platform's own project"),
+      );
 
       return null;
     }
@@ -235,16 +245,26 @@ function ComposeForm(props: ComposeFormProps) {
       onClose={onClose}
       size="xlarge"
       layout="sections"
-      title={existing === null ? 'Install a compose project' : `Change ${existing}`}
+      title={
+        existing === null
+          ? t('containers.composeEditorDialog.installAComposeProject', 'Install a compose project')
+          : t('containers.composeEditorDialog.changeExisting', 'Change {{existing}}', { existing })
+      }
       description={
         existing === null
-          ? 'Its folders are kept in NebulaHome’s data, and backed up.'
-          : 'Deploying again makes only the services that changed again.'
+          ? t(
+              'containers.composeEditorDialog.itsFoldersAreKept',
+              'Its folders are kept in NebulaHome’s data, and backed up.',
+            )
+          : t(
+              'containers.composeEditorDialog.deployingAgainMakesOnly',
+              'Deploying again makes only the services that changed again.',
+            )
       }
       footer={
         <>
           <Button variant="bare" disabled={busy} onClick={onClose}>
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
           <span className="flex items-center gap-2.5">
             {failure === null ? null : (
@@ -264,7 +284,7 @@ function ComposeForm(props: ComposeFormProps) {
                 }
               }}
             >
-              Check
+              {t('containers.composeEditorDialog.check', 'Check')}
             </Button>
             <Button
               isBusy={deploy.isPending}
@@ -278,7 +298,7 @@ function ComposeForm(props: ComposeFormProps) {
               }}
             >
               <AppIcon id="download" size={15} />
-              Deploy
+              {t('containers.composeEditorDialog.deploy', 'Deploy')}
             </Button>
           </span>
         </>
@@ -288,22 +308,28 @@ function ComposeForm(props: ComposeFormProps) {
         <div className="flex min-w-0 flex-col gap-4 px-6 py-5 lg:col-span-2">
           <div className="flex flex-wrap items-end gap-3">
             <TextField
-              label="Project name"
+              label={t('containers.composeEditorDialog.projectName', 'Project name')}
               value={project}
               disabled={existing !== null}
               error={nameError}
               className="font-mono"
-              placeholder="media"
+              placeholder={t('containers.composeEditorDialog.media', 'media')}
               onChange={(event) => {
                 setProject(event.target.value.toLowerCase());
                 setNamed(true);
               }}
             />
             <Segmented
-              label="Where the file comes from"
+              label={t(
+                'containers.composeEditorDialog.whereTheFileComes',
+                'Where the file comes from',
+              )}
               options={[
-                { value: 'paste', label: 'Paste' },
-                { value: 'upload', label: 'Upload a file' },
+                { value: 'paste', label: t('containers.composeEditorDialog.paste', 'Paste') },
+                {
+                  value: 'upload',
+                  label: t('containers.composeEditorDialog.uploadAFile', 'Upload a file'),
+                },
               ]}
               value={source}
               onChange={(next) => {
@@ -339,24 +365,28 @@ function ComposeForm(props: ComposeFormProps) {
             <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5 text-caption">
               <span className="flex items-center gap-2 text-foreground-muted">
                 <AppIcon id="type" size={13} />
-                compose.yaml
+                {t('containers.composeEditorDialog.composeYaml', 'compose.yaml')}
               </span>
               {checked === null ? null : (
                 <span role="status" className="flex items-center gap-1.5 text-success">
                   <AppIcon id="check" size={13} />
-                  Valid · {checked.length} {checked.length === 1 ? 'service' : 'services'}
+                  {t('containers.composeEditorDialog.validServices', {
+                    count: checked.length,
+                    defaultValue_one: 'Valid · {{count}} service',
+                    defaultValue_other: 'Valid · {{count}} services',
+                  })}
                 </span>
               )}
             </div>
             <Suspense
               fallback={
                 <div className="h-64 bg-surface-raised px-3 py-2 text-ui text-foreground-subtle">
-                  Opening the editor…
+                  {t('containers.composeEditorDialog.openingTheEditor', 'Opening the editor…')}
                 </div>
               }
             >
               <YamlEditor
-                label="Compose file"
+                label={t('containers.composeEditorDialog.composeFile', 'Compose file')}
                 value={file}
                 problems={problems}
                 onChange={(text) => {
@@ -377,19 +407,19 @@ function ComposeForm(props: ComposeFormProps) {
               className="self-start text-ui font-medium text-primary transition-colors hover:text-primary-hover"
             >
               {isEnvShown
-                ? 'Hide the .env file'
+                ? t('containers.composeEditorDialog.hideTheEnvFile', 'Hide the .env file')
                 : env === ''
-                  ? 'Add a .env file'
-                  : 'Show the .env file'}
+                  ? t('containers.composeEditorDialog.addAEnvFile', 'Add a .env file')
+                  : t('containers.composeEditorDialog.showTheEnvFile', 'Show the .env file')}
             </button>
             {isEnvShown ? (
               <Suspense fallback={null}>
                 <YamlEditor
-                  label="The .env file"
+                  label={t('containers.composeEditorDialog.envFile', 'The .env file')}
                   value={env}
                   minHeight="5rem"
                   maxHeight="12rem"
-                  placeholder="TZ=Europe/Rome"
+                  placeholder={t('containers.composeEditorDialog.tzEuropeRome', 'TZ=Europe/Rome')}
                   onChange={(text) => {
                     setEnv(text);
                     setChecked(null);
@@ -408,7 +438,11 @@ function ComposeForm(props: ComposeFormProps) {
                 // The same message can come twice, for two services.
                 <li key={`${String(index)}-${problem.message}`}>
                   {problem.line === null ? null : (
-                    <span className="mr-1.5 font-mono text-caption">line {problem.line}</span>
+                    <span className="mr-1.5 font-mono text-caption">
+                      {t('containers.composeEditorDialog.lineLine', 'line {{line}}', {
+                        line: problem.line,
+                      })}
+                    </span>
                   )}
                   {problem.message}
                 </li>
@@ -418,13 +452,18 @@ function ComposeForm(props: ComposeFormProps) {
         </div>
 
         <aside
-          aria-label="Services found"
+          aria-label={t('containers.composeEditorDialog.servicesFound', 'Services found')}
           className="flex flex-col gap-3 border-t border-border px-6 py-5 lg:border-t-0 lg:border-l"
         >
-          <h3 className="font-mono text-label text-foreground-subtle uppercase">Services found</h3>
+          <h3 className="font-mono text-label text-foreground-subtle uppercase">
+            {t('containers.composeEditorDialog.servicesFound', 'Services found')}
+          </h3>
           {checked === null ? (
             <p className="text-ui-sm text-foreground-subtle">
-              Check the file: what it runs is listed here.
+              {t(
+                'containers.composeEditorDialog.checkTheFileWhat',
+                'Check the file: what it runs is listed here.',
+              )}
             </p>
           ) : (
             <ul className="flex flex-col">
@@ -460,6 +499,8 @@ export type ComposeEditorDialogProps = {
  * @returns The dialog, or nothing while it is shut.
  */
 export function ComposeEditorDialog(props: ComposeEditorDialogProps) {
+  const { t } = useTranslation();
+
   const { target, onClose } = props;
   const project = target?.kind === 'edit' ? target.project : null;
   const document = useQuery({
@@ -486,9 +527,18 @@ export function ComposeEditorDialog(props: ComposeEditorDialogProps) {
 
   if (document.data === undefined) {
     return (
-      <Modal isOpen onClose={onClose} title={`Change ${target.project}`} size="small">
+      <Modal
+        isOpen
+        onClose={onClose}
+        title={t('containers.composeEditorDialog.changeProject', 'Change {{project}}', {
+          project: target.project,
+        })}
+        size="small"
+      >
         <p className="px-5 py-4 text-ui text-foreground-muted">
-          {document.error === null ? 'Reading the file…' : toMessage(document.error)}
+          {document.error === null
+            ? t('containers.composeEditorDialog.readingTheFile', 'Reading the file…')
+            : toMessage(document.error)}
         </p>
       </Modal>
     );
