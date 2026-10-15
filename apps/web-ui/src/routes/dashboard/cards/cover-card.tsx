@@ -7,15 +7,24 @@
  */
 import { AppIcon, IconButton, CardHeading } from '@nebulahome/ui';
 
+import { defineMessage, text, translate } from '@/i18n/messages';
 import { CardFrame, TileRow } from '@/routes/dashboard/cards/card-parts';
 import { sizeKey, type EntityCardModel } from '@/routes/dashboard/cards/entity-model';
 import { useEntityCommand } from '@/routes/library/entity/use-entity-command';
 
 /** The three movements, with their glyphs. */
 const MOVES = [
-  { command: 'open', label: 'Open', icon: 'arrow-up-to-line' },
-  { command: 'stop', label: 'Stop', icon: 'square' },
-  { command: 'close', label: 'Close', icon: 'arrow-down-to-line' },
+  {
+    command: 'open',
+    label: defineMessage('dashboard.cards.coverCard.open', 'Open'),
+    icon: 'arrow-up-to-line',
+  },
+  {
+    command: 'stop',
+    label: defineMessage('dashboard.cards.coverCard.stop', 'Stop'),
+    icon: 'square',
+  },
+  { command: 'close', label: defineMessage('common.close', 'Close'), icon: 'arrow-down-to-line' },
 ] as const;
 
 /** How many slats the drawn blind has at its fullest. */
@@ -30,15 +39,15 @@ const SLATS = 5;
  */
 function whereItIs(position: number, motion: string): string {
   if (motion === 'opening') {
-    return 'Opening';
+    return translate('dashboard.cards.coverCard.opening', 'Opening');
   }
 
   if (motion === 'closing') {
-    return 'Closing';
+    return translate('dashboard.cards.coverCard.closing', 'Closing');
   }
 
   if (position <= 0) {
-    return 'Closed';
+    return translate('dashboard.cards.coverCard.closed', 'Closed');
   }
 
   return position >= 100 ? 'Open' : `${String(Math.round(position))}% open`;
@@ -65,7 +74,7 @@ export function CoverCard(props: { readonly model: EntityCardModel }) {
           key={move.command}
           variant="raised"
           size="small"
-          label={`${move.label} ${title}`}
+          label={`${text(move.label)} ${title}`}
           className="grow"
           disabled={disabled}
           onClick={() => {

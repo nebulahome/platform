@@ -9,6 +9,7 @@
 import { dashboardDocumentSchema, type DashboardDocument } from '@nebulahome/contracts';
 
 import { allCards } from '@/dashboard/dashboard-layout';
+import { translate } from '@/i18n/messages';
 
 /** What reading a file produced. */
 export type DashboardFileReading =
@@ -39,14 +40,26 @@ export function readDashboardFile(text: string): DashboardFileReading {
   try {
     parsed = JSON.parse(text);
   } catch {
-    return { ok: false, problem: 'This file is not JSON, so it cannot be a dashboard.' };
+    return {
+      ok: false,
+      problem: translate(
+        'dashboard.dashboardFile.thisFileIsNot',
+        'This file is not JSON, so it cannot be a dashboard.',
+      ),
+    };
   }
 
   const format =
     typeof parsed === 'object' && parsed !== null && 'format' in parsed ? parsed.format : undefined;
 
   if (format !== 'nebula-home/dashboard') {
-    return { ok: false, problem: 'This file is not a Nebula Home dashboard.' };
+    return {
+      ok: false,
+      problem: translate(
+        'dashboard.dashboardFile.thisFileIsNot2',
+        'This file is not a Nebula Home dashboard.',
+      ),
+    };
   }
 
   const result = dashboardDocumentSchema.safeParse(parsed);
@@ -58,8 +71,15 @@ export function readDashboardFile(text: string): DashboardFileReading {
       ok: false,
       problem:
         first === undefined
-          ? 'This dashboard file does not read.'
-          : `This dashboard file does not read: ${first.message}.`,
+          ? translate(
+              'dashboard.dashboardFile.thisDashboardFileDoes',
+              'This dashboard file does not read.',
+            )
+          : translate(
+              'dashboard.dashboardFile.thisDashboardFileDoes2',
+              'This dashboard file does not read: {{message}}.',
+              { message: first.message },
+            ),
     };
   }
 

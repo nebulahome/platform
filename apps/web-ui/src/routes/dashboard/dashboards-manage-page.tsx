@@ -10,6 +10,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
 import type { DashboardAssignee, DashboardView } from '@nebulahome/contracts';
@@ -83,6 +84,8 @@ type AssigneeFacesProps = {
  * @returns The faces, or a word for nobody.
  */
 function AssigneeFaces(props: AssigneeFacesProps) {
+  const { t } = useTranslation();
+
   const { userIds, people } = props;
   const named = userIds.flatMap((id) => {
     const person = people.get(id);
@@ -91,7 +94,11 @@ function AssigneeFaces(props: AssigneeFacesProps) {
   });
 
   if (named.length === 0) {
-    return <span className="text-caption text-foreground-subtle">Nobody</span>;
+    return (
+      <span className="text-caption text-foreground-subtle">
+        {t('dashboard.dashboardsManage.nobody', 'Nobody')}
+      </span>
+    );
   }
 
   const shown = named.slice(0, FACES_SHOWN);
@@ -112,7 +119,11 @@ function AssigneeFaces(props: AssigneeFacesProps) {
         ))}
       </span>
       <span className="truncate text-caption text-foreground-muted">
-        {named.length === 1 ? (named[0]?.displayName ?? '') : `${String(named.length)} people`}
+        {named.length === 1
+          ? (named[0]?.displayName ?? '')
+          : t('dashboard.dashboardsManage.countPeople', '{{count}} people', {
+              count: named.length,
+            })}
       </span>
     </span>
   );
@@ -124,6 +135,8 @@ function AssigneeFaces(props: AssigneeFacesProps) {
  * @returns The page.
  */
 export function DashboardsManagePage() {
+  const { t } = useTranslation();
+
   const navigate = useNavigate();
   const [search, setSearch] = useListState(SEARCH_CODEC);
   const [dialog, setDialog] = useState<DashboardDialogTarget | null>(null);
@@ -176,7 +189,7 @@ export function DashboardsManagePage() {
   return (
     <>
       <LibraryPage
-        title="Dashboards"
+        title={t('dashboard.dashboardsManage.dashboards', 'Dashboards')}
         counted={(count) =>
           translate('dashboard.count', {
             count,
@@ -189,7 +202,10 @@ export function DashboardsManagePage() {
         tools={
           all.length === 0 ? undefined : (
             <SearchField
-              placeholder="Search dashboards, people…"
+              placeholder={t(
+                'dashboard.dashboardsManage.searchDashboardsPeople',
+                'Search dashboards, people…',
+              )}
               value={search}
               onChange={setSearch}
             />
@@ -202,22 +218,29 @@ export function DashboardsManagePage() {
             }}
           >
             <AppIcon id="plus" size={15} />
-            New dashboard
+            {t('dashboard.dashboardsManage.newDashboard', 'New dashboard')}
           </Button>
         }
         isPending={dashboards.isPending}
         error={dashboards.error}
         isEmpty={all.length === 0}
-        emptyMessage="No dashboard yet. Make one, lay its cards out, and choose who sees it on their Dashboards page."
+        emptyMessage={t(
+          'dashboard.dashboardsManage.noDashboardYetMake',
+          'No dashboard yet. Make one, lay its cards out, and choose who sees it on their Dashboards page.',
+        )}
       >
         <div className="overflow-hidden rounded-panel border border-border bg-surface">
           <div
             className={`${COLUMNS} border-b border-border px-4 py-2.5 font-mono text-label text-foreground-subtle uppercase`}
             aria-hidden="true"
           >
-            <span>Dashboard</span>
-            <span className="hidden md:block">Shown to</span>
-            <span className="hidden md:block">Changed</span>
+            <span>{t('dashboard.dashboardsManage.dashboard', 'Dashboard')}</span>
+            <span className="hidden md:block">
+              {t('dashboard.dashboardsManage.shownTo', 'Shown to')}
+            </span>
+            <span className="hidden md:block">
+              {t('dashboard.dashboardsManage.changed', 'Changed')}
+            </span>
             <span />
           </div>
 
@@ -250,7 +273,11 @@ export function DashboardsManagePage() {
                           {dashboard.name}
                         </span>
                         <span className="text-caption text-foreground-subtle tabular">
-                          {cards} {cards === 1 ? 'card' : 'cards'}
+                          {t('dashboard.cards.count', {
+                            count: cards,
+                            defaultValue_one: '{{count}} card',
+                            defaultValue_other: '{{count}} cards',
+                          })}
                         </span>
                       </span>
                     </span>
@@ -267,18 +294,26 @@ export function DashboardsManagePage() {
                       <Button
                         variant="ghost"
                         size="compact"
-                        aria-label={`Edit the layout of ${dashboard.name}`}
+                        aria-label={t(
+                          'dashboard.dashboardsManage.editTheLayoutOf',
+                          'Edit the layout of {{name}}',
+                          { name: dashboard.name },
+                        )}
                         onClick={() => {
                           void navigate(dashboardEditorPath(dashboard.id));
                         }}
                       >
                         <AppIcon id="pencil" size={14} />
-                        <span className="hidden sm:inline">Edit layout</span>
+                        <span className="hidden sm:inline">
+                          {t('dashboard.dashboardsManage.editLayout', 'Edit layout')}
+                        </span>
                       </Button>
                       <IconButton
                         variant="bare"
                         size="small"
-                        label={`Configure ${dashboard.name}`}
+                        label={t('dashboard.dashboardsManage.configureName', 'Configure {{name}}', {
+                          name: dashboard.name,
+                        })}
                         onClick={() => {
                           configure(dashboard);
                         }}

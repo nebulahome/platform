@@ -8,6 +8,7 @@
  * kind is drawn for when what it can do has changed since the card was placed.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { DashboardEntityCard, IconView } from '@nebulahome/contracts';
 import { AppIcon, CardHeading } from '@nebulahome/ui';
@@ -65,6 +66,8 @@ export type EntityCardProps = {
  * @returns The card.
  */
 function MissingCard(props: { readonly card: DashboardEntityCard; readonly isCompact: boolean }) {
+  const { t } = useTranslation();
+
   const { card, isCompact } = props;
   const title = card.title ?? card.entityId;
 
@@ -73,14 +76,19 @@ function MissingCard(props: { readonly card: DashboardEntityCard; readonly isCom
       <div className="flex h-full min-w-0 flex-col gap-1.5">
         <span className="flex items-center gap-2 text-foreground-muted">
           <AppIcon id="triangle-alert" size={15} />
-          <span className="truncate text-ui font-medium">{card.title ?? 'Entity not found'}</span>
+          <span className="truncate text-ui font-medium">
+            {card.title ?? t('dashboard.cards.entityCard.entityNotFound', 'Entity not found')}
+          </span>
         </span>
         <span className="truncate font-mono text-caption text-foreground-subtle">
           {card.entityId}
         </span>
         {isCompact ? null : (
           <span className="text-caption text-foreground-subtle">
-            It was removed, or it is not one you may see. Choose another in the layout editor.
+            {t(
+              'dashboard.cards.entityCard.itWasRemovedOr',
+              'It was removed, or it is not one you may see. Choose another in the layout editor.',
+            )}
           </span>
         )}
       </div>

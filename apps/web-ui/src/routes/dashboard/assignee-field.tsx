@@ -6,6 +6,8 @@
  * decision. The person choosing is marked as themselves, since assigning one to yourself is how a
  * dashboard reaches your own Dashboards page.
  */
+import { useTranslation } from 'react-i18next';
+
 import type { DashboardAssignee } from '@nebulahome/contracts';
 
 import { Avatar } from '@/components/avatar';
@@ -35,6 +37,8 @@ export type AssigneeFieldProps = {
  * @returns The field.
  */
 export function AssigneeField(props: AssigneeFieldProps) {
+  const { t } = useTranslation();
+
   const { people, value, onChange, selfId, isPending } = props;
   const chosen = new Set(value);
 
@@ -49,13 +53,19 @@ export function AssigneeField(props: AssigneeFieldProps) {
 
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="mb-2 text-caption font-medium text-foreground-muted">Shown to</legend>
+      <legend className="mb-2 text-caption font-medium text-foreground-muted">
+        {t('dashboard.assigneeField.shownTo', 'Shown to')}
+      </legend>
 
       <div className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-field border border-border bg-surface-high p-2">
         {isPending ? (
-          <p className="px-2 py-1.5 text-caption text-foreground-subtle">Reading…</p>
+          <p className="px-2 py-1.5 text-caption text-foreground-subtle">
+            {t('dashboard.assigneeField.reading', 'Reading…')}
+          </p>
         ) : people.length === 0 ? (
-          <p className="px-2 py-1.5 text-caption text-foreground-subtle">Nobody to show it to.</p>
+          <p className="px-2 py-1.5 text-caption text-foreground-subtle">
+            {t('dashboard.assigneeField.nobodyToShowIt', 'Nobody to show it to.')}
+          </p>
         ) : (
           people.map((person) => (
             <label
@@ -81,7 +91,9 @@ export function AssigneeField(props: AssigneeFieldProps) {
                 <span className="truncate text-ui text-foreground">
                   {person.displayName}
                   {person.id === selfId ? (
-                    <span className="text-foreground-subtle"> (you)</span>
+                    <span className="text-foreground-subtle">
+                      {t('dashboard.assigneeField.you', '(you)')}
+                    </span>
                   ) : null}
                 </span>
                 <span className="truncate font-mono text-caption text-foreground-subtle">
@@ -95,8 +107,12 @@ export function AssigneeField(props: AssigneeFieldProps) {
 
       <p className="text-caption text-foreground-subtle">
         {value.length === 0
-          ? 'Nobody sees it yet.'
-          : `${String(value.length)} ${value.length === 1 ? 'person sees' : 'people see'} it on their Dashboards page.`}
+          ? t('dashboard.assigneeField.nobodySeesItYet', 'Nobody sees it yet.')
+          : t('dashboard.assigneeField.peopleSeeIt', {
+              count: value.length,
+              defaultValue_one: '{{count}} person sees it on their Dashboards page.',
+              defaultValue_other: '{{count}} people see it on their Dashboards page.',
+            })}
       </p>
     </fieldset>
   );

@@ -9,6 +9,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Navigate, useNavigate, useParams } from 'react-router';
 
 import type { DashboardView } from '@nebulahome/contracts';
@@ -59,6 +60,8 @@ function rememberDashboard(dashboardId: string): void {
  * @returns The page.
  */
 export function DashboardPage() {
+  const { t } = useTranslation();
+
   const { dashboardId } = useParams();
   const navigate = useNavigate();
   const canManage = useSession((state) => state.can('dashboard:manage'));
@@ -89,7 +92,9 @@ export function DashboardPage() {
       }}
     >
       <AppIcon id="pencil" size={14} />
-      {current === undefined ? 'Manage dashboards' : 'Edit layout'}
+      {current === undefined
+        ? t('dashboard.dashboard.manageDashboards', 'Manage dashboards')
+        : t('dashboard.dashboard.editLayout', 'Edit layout')}
     </Button>
   ) : undefined;
 
@@ -97,7 +102,9 @@ export function DashboardPage() {
     return (
       <Frame>
         <PageMessage>
-          {dashboards.error === null ? 'Reading…' : toMessage(dashboards.error)}
+          {dashboards.error === null
+            ? t('dashboard.dashboard.reading', 'Reading…')
+            : toMessage(dashboards.error)}
         </PageMessage>
       </Frame>
     );
@@ -115,8 +122,14 @@ export function DashboardPage() {
       <Frame tools={manageLink}>
         <PageMessage>
           {canManage
-            ? 'No dashboard is assigned to you yet. Make one, or assign one to yourself, under Configuration › Dashboards.'
-            : 'No dashboard is assigned to you yet. Whoever manages the dashboards of this house can assign you one.'}
+            ? t(
+                'dashboard.dashboard.noDashboardIsAssigned',
+                'No dashboard is assigned to you yet. Make one, or assign one to yourself, under Configuration › Dashboards.',
+              )
+            : t(
+                'dashboard.dashboard.noDashboardIsAssigned2',
+                'No dashboard is assigned to you yet. Whoever manages the dashboards of this house can assign you one.',
+              )}
         </PageMessage>
       </Frame>
     );
@@ -143,6 +156,8 @@ type OpenDashboardProps = {
  * @returns The page.
  */
 function OpenDashboard(props: OpenDashboardProps) {
+  const { t } = useTranslation();
+
   const { dashboard, dashboards, tools } = props;
   const data = useDashboardData(dashboard.layout);
 
@@ -161,7 +176,11 @@ function OpenDashboard(props: OpenDashboardProps) {
       tools={tools}
     >
       {dashboard.layout.cards.length === 0 ? (
-        <PageMessage>Nothing on {dashboard.name} yet.</PageMessage>
+        <PageMessage>
+          {t('dashboard.dashboard.nothingOnNameYet', 'Nothing on {{name}} yet.', {
+            name: dashboard.name,
+          })}
+        </PageMessage>
       ) : (
         <DashboardGrid layout={dashboard.layout} data={data} editor={null} />
       )}
@@ -187,6 +206,8 @@ type FrameProps = {
  * @returns The frame.
  */
 export function Frame(props: FrameProps) {
+  const { t } = useTranslation();
+
   const { heading, tools, children } = props;
 
   return (
@@ -195,7 +216,11 @@ export function Frame(props: FrameProps) {
       <header className="shrink-0 scrollbar-stable overflow-hidden px-8 pt-7">
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
           <div className="flex min-w-0 items-center gap-3">
-            {heading ?? <h1 className="text-display font-medium">Dashboards</h1>}
+            {heading ?? (
+              <h1 className="text-display font-medium">
+                {t('dashboard.dashboard.dashboards', 'Dashboards')}
+              </h1>
+            )}
           </div>
           {tools === undefined ? null : (
             <div className="flex min-w-0 flex-wrap items-center gap-2.5">{tools}</div>

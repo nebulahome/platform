@@ -8,10 +8,12 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { AutomationRun, TraceStep } from '@nebulahome/contracts';
 import { AppIcon, cn, Panel, StatusDot } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
 import { formatDuration } from '@/lib/duration';
 import { absoluteTime, runMoment } from '@/lib/format-time';
 import { runOutcome } from '@/lib/run-outcome';
@@ -37,6 +39,8 @@ export type LastRunsProps = {
  * @returns The card.
  */
 export function LastRuns(props: LastRunsProps) {
+  const { t } = useTranslation();
+
   const { automationId, notice } = props;
   const runs = useQuery({
     queryKey: [...LIBRARY_QUERY_KEYS.automationRuns, automationId],
@@ -52,7 +56,7 @@ export function LastRuns(props: LastRunsProps) {
   });
 
   return (
-    <Panel title="Last runs">
+    <Panel title={t('automation.lastRuns.lastRuns', 'Last runs')}>
       <div className="flex flex-col border-t border-border">
         {notice === null || notice === undefined ? null : (
           <p className="border-b border-border px-5.5 py-3 text-ui-sm text-foreground-muted">
@@ -60,10 +64,15 @@ export function LastRuns(props: LastRunsProps) {
           </p>
         )}
         {runs.isPending ? (
-          <p className="px-5.5 py-4 text-ui-sm text-foreground-subtle">Reading…</p>
+          <p className="px-5.5 py-4 text-ui-sm text-foreground-subtle">
+            {t('automation.lastRuns.reading', 'Reading…')}
+          </p>
         ) : runs.data === undefined || runs.data.items.length === 0 ? (
           <p className="px-5.5 py-4 text-ui-sm text-foreground-subtle">
-            Not run yet. It runs when one of its triggers fires, or from Run now.
+            {t(
+              'automation.lastRuns.notRunYetIt',
+              'Not run yet. It runs when one of its triggers fires, or from Run now.',
+            )}
           </p>
         ) : (
           <ul className="flex flex-col">
@@ -137,16 +146,19 @@ function RunRow(props: { readonly run: AutomationRun }) {
 function triggerLine(run: AutomationRun): string {
   switch (run.trigger.kind) {
     case 'manual': {
-      return 'Run by hand';
+      return translate('automation.lastRuns.runByHand', 'Run by hand');
     }
     case 'automation': {
-      return 'Started by another automation';
+      return translate(
+        'automation.lastRuns.startedByAnotherAutomation',
+        'Started by another automation',
+      );
     }
     case 'time': {
-      return 'Its time came';
+      return translate('automation.lastRuns.itsTimeCame', 'Its time came');
     }
     default: {
-      return 'An entity changed';
+      return translate('automation.lastRuns.entityChanged', 'An entity changed');
     }
   }
 }
@@ -171,11 +183,17 @@ const STEP_TONE: Readonly<Record<TraceStep['result'], string>> = {
  * @returns The timeline.
  */
 function Trace(props: { readonly steps: readonly TraceStep[] }) {
+  const { t } = useTranslation();
+
   const { steps } = props;
   const house = useEditorHouse();
 
   if (steps.length === 0) {
-    return <p className="px-5.5 pb-3 text-caption text-foreground-subtle">No steps recorded.</p>;
+    return (
+      <p className="px-5.5 pb-3 text-caption text-foreground-subtle">
+        {t('automation.lastRuns.noStepsRecorded', 'No steps recorded.')}
+      </p>
+    );
   }
 
   return (
@@ -195,7 +213,11 @@ function Trace(props: { readonly steps: readonly TraceStep[] }) {
             <span className="flex min-w-0 flex-col">
               <span className="text-caption text-foreground">
                 <span className="font-mono text-mono-caption text-foreground-subtle uppercase">
-                  {step.kind === 'trigger' ? 'When' : step.kind === 'condition' ? 'If' : 'Then'}
+                  {step.kind === 'trigger'
+                    ? t('automation.lastRuns.when', 'When')
+                    : step.kind === 'condition'
+                      ? t('automation.lastRuns.if', 'If')
+                      : t('automation.lastRuns.then', 'Then')}
                 </span>{' '}
                 {labelForKind(
                   step.kind === 'trigger'

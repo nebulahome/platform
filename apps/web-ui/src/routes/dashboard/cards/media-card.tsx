@@ -6,6 +6,8 @@
  * the title and the one button that matters. The art is the player's glyph on a tinted square:
  * the contract carries no cover image, and a picture made up here would be a picture of nothing.
  */
+import { useTranslation } from 'react-i18next';
+
 import { AppIcon, cn, IconButton } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
@@ -33,6 +35,8 @@ function clock(seconds: number): string {
  * @returns The card.
  */
 export function MediaCard(props: { readonly model: EntityCardModel }) {
+  const { t } = useTranslation();
+
   const { model } = props;
   const { entity, state, title, subtitle } = model;
   const commander = useEntityCommand(entity.entityId);
@@ -42,7 +46,7 @@ export function MediaCard(props: { readonly model: EntityCardModel }) {
   const nowPlaying =
     media?.mediaTitle ??
     (media === undefined
-      ? 'Nothing playing'
+      ? t('dashboard.cards.mediaCard.nothingPlaying', 'Nothing playing')
       : `${media.playback.charAt(0).toUpperCase()}${media.playback.slice(1)}`);
   const artist = media?.mediaArtist;
   const source = [title, subtitle].filter(Boolean).join(' · ');
@@ -71,7 +75,11 @@ export function MediaCard(props: { readonly model: EntityCardModel }) {
     <IconButton
       variant="raised"
       size="large"
-      label={isPlaying ? `Pause ${title}` : `Play ${title}`}
+      label={
+        isPlaying
+          ? t('dashboard.cards.mediaCard.pauseTitle', 'Pause {{title}}', { title })
+          : t('dashboard.cards.mediaCard.playTitle', 'Play {{title}}', { title })
+      }
       className="rounded-full"
       disabled={disabled}
       onClick={() => {
@@ -128,7 +136,9 @@ export function MediaCard(props: { readonly model: EntityCardModel }) {
         <div className="mt-2.5 flex items-center gap-1.5">
           {hasSkip ? (
             <IconButton
-              label={`Previous on ${title}`}
+              label={t('dashboard.cards.mediaCard.previousOnTitle', 'Previous on {{title}}', {
+                title,
+              })}
               disabled={disabled}
               onClick={() => {
                 send('previous');
@@ -140,7 +150,7 @@ export function MediaCard(props: { readonly model: EntityCardModel }) {
           {playPause}
           {hasSkip ? (
             <IconButton
-              label={`Next on ${title}`}
+              label={t('dashboard.cards.mediaCard.nextOnTitle', 'Next on {{title}}', { title })}
               disabled={disabled}
               onClick={() => {
                 send('next');
@@ -153,7 +163,9 @@ export function MediaCard(props: { readonly model: EntityCardModel }) {
           {media === undefined ? null : (
             <span className="flex items-center gap-1 text-caption text-foreground-subtle tabular">
               <AppIcon id={media.isMuted ? 'volume-x' : 'volume-2'} size={14} />
-              {media.isMuted ? 'Muted' : `${String(Math.round(media.volume))}%`}
+              {media.isMuted
+                ? t('dashboard.cards.mediaCard.muted', 'Muted')
+                : `${String(Math.round(media.volume))}%`}
             </span>
           )}
         </div>

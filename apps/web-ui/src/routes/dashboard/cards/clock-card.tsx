@@ -6,6 +6,7 @@
  * the turn of the minute, so it never shows 14:02 for most of 14:03.
  */
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { DashboardClockCard } from '@nebulahome/contracts';
 
@@ -58,6 +59,8 @@ function useNow(isEverySecond: boolean): Date {
  * @returns The card.
  */
 export function ClockCard(props: ClockCardProps) {
+  const { t } = useTranslation();
+
   const { card } = props;
   const timeZone = useSession((state) => state.user?.timezone);
   const now = useNow(card.showSeconds);
@@ -78,7 +81,7 @@ export function ClockCard(props: ClockCardProps) {
   const isLarge = card.h > 1;
 
   return (
-    <CardFrame label="Clock" className="justify-center">
+    <CardFrame label={t('dashboard.cards.clockCard.clock', 'Clock')} className="justify-center">
       <time
         dateTime={now.toISOString()}
         className="flex min-w-0 flex-col gap-1"

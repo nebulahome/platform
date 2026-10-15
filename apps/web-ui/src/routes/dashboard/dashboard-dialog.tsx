@@ -13,6 +13,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
   dashboardFileName,
@@ -87,6 +88,8 @@ export type DashboardDialogProps = {
  * @returns The dialog.
  */
 export function DashboardDialog(props: DashboardDialogProps) {
+  const { t } = useTranslation();
+
   const { target, onClose, hasEntity, hasScene, onSaved, onDeleted } = props;
   const queryClient = useQueryClient();
   const selfId = useSession((state) => state.user?.id);
@@ -244,7 +247,7 @@ export function DashboardDialog(props: DashboardDialogProps) {
   /** Saves, unless the name is blank. */
   const submit = (): void => {
     if (name.trim() === '' && file === null) {
-      setProblem('The name cannot be blank.');
+      setProblem(t('dashboard.dashboardDialog.nameCannotBeBlank', 'The name cannot be blank.'));
 
       return;
     }
@@ -262,11 +265,21 @@ export function DashboardDialog(props: DashboardDialogProps) {
       isOpen={target !== null}
       onClose={onClose}
       closesOnBackdrop={false}
-      title={existing === undefined ? 'New dashboard' : 'Dashboard'}
+      title={
+        existing === undefined
+          ? t('dashboard.dashboardDialog.newDashboard', 'New dashboard')
+          : t('dashboard.dashboardDialog.dashboard', 'Dashboard')
+      }
       description={
         existing === undefined
-          ? 'A page of cards, shown on the Dashboards page of everyone it is assigned to.'
-          : 'Its name and icon, who it is shown to, its file, and removing it.'
+          ? t(
+              'dashboard.dashboardDialog.pageOfCardsShown',
+              'A page of cards, shown on the Dashboards page of everyone it is assigned to.',
+            )
+          : t(
+              'dashboard.dashboardDialog.itsNameAndIcon',
+              'Its name and icon, who it is shown to, its file, and removing it.',
+            )
       }
       footer={
         isConfirming && existing !== undefined ? (
@@ -292,14 +305,18 @@ export function DashboardDialog(props: DashboardDialogProps) {
                   setConfirming(true);
                 }}
               >
-                Remove
+                {t('common.remove', 'Remove')}
               </Button>
             )}
             <Button variant="ghost" disabled={isBusy} onClick={onClose}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button isBusy={save.isPending} disabled={removing.isPending} onClick={submit}>
-              {existing !== undefined ? 'Save' : file === null ? 'Create' : 'Import'}
+              {existing !== undefined
+                ? t('common.save', 'Save')
+                : file === null
+                  ? t('common.create', 'Create')
+                  : t('dashboard.dashboardDialog.import', 'Import')}
             </Button>
           </>
         )
@@ -328,9 +345,14 @@ export function DashboardDialog(props: DashboardDialogProps) {
           <div className="flex flex-col gap-2.5 rounded-panel border border-dashed border-border-strong p-3.5">
             <div className="flex items-center justify-between gap-3">
               <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-ui font-medium">Start from a file</span>
+                <span className="text-ui font-medium">
+                  {t('dashboard.dashboardDialog.startFromAFile', 'Start from a file')}
+                </span>
                 <span className="text-caption text-foreground-subtle">
-                  A dashboard exported from here or from another house.
+                  {t(
+                    'dashboard.dashboardDialog.dashboardExportedFromHere',
+                    'A dashboard exported from here or from another house.',
+                  )}
                 </span>
               </span>
               <Button
@@ -341,7 +363,7 @@ export function DashboardDialog(props: DashboardDialogProps) {
                 onClick={() => fileInput.current?.click()}
               >
                 <AppIcon id="upload" size={14} />
-                Choose a file
+                {t('dashboard.dashboardDialog.chooseAFile', 'Choose a file')}
               </Button>
               <input
                 ref={fileInput}
@@ -363,19 +385,35 @@ export function DashboardDialog(props: DashboardDialogProps) {
             </div>
             {summary === null ? null : (
               <p role="status" className="text-caption text-foreground-muted">
-                {summary.cards} {summary.cards === 1 ? 'card' : 'cards'}
                 {missing === 0
-                  ? ', all of them for things this house has.'
-                  : `; ${String(missing)} of them name things this house does not have, and will say so.`}
+                  ? t('dashboard.dashboardDialog.allFound', {
+                      count: summary.cards,
+                      defaultValue_one: '{{count}} card, for something this house has.',
+                      defaultValue_other: '{{count}} cards, all of them for things this house has.',
+                    })
+                  : t('dashboard.dashboardDialog.someMissing', {
+                      count: summary.cards,
+                      missing,
+                      defaultValue_one:
+                        '{{count}} card; it names something this house does not have, and will say so.',
+                      defaultValue_other:
+                        '{{count}} cards; {{missing}} of them name things this house does not have, and will say so.',
+                    })}
               </p>
             )}
           </div>
         ) : (
           <div className="flex items-center justify-between gap-3 rounded-panel border border-border p-3.5">
             <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-ui font-medium">Export as a file</span>
+              <span className="text-ui font-medium">
+                {t('dashboard.dashboardDialog.exportAsAFile', 'Export as a file')}
+              </span>
               <span className="truncate text-caption text-foreground-subtle">
-                {dashboardFileName(existing.name)}, to keep or to import elsewhere.
+                {t(
+                  'dashboard.dashboardDialog.nameToKeepOr',
+                  '{{name}}, to keep or to import elsewhere.',
+                  { name: dashboardFileName(existing.name) },
+                )}
               </span>
             </span>
             <Button
@@ -389,7 +427,7 @@ export function DashboardDialog(props: DashboardDialogProps) {
               }}
             >
               <AppIcon id="download" size={14} />
-              Export
+              {t('dashboard.dashboardDialog.export', 'Export')}
             </Button>
           </div>
         )}

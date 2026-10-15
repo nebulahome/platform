@@ -13,6 +13,7 @@
  * (the house rule for errors): the header says Failed, the card says why.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { z } from 'zod';
 
 import {
@@ -25,6 +26,7 @@ import {
 import { BlockNotice, BlockStatus, Button, type BlockRename, type MenuItem } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
+import { translate } from '@/i18n/messages';
 import { useBlockUi, useBlockUiStoreHandle } from '@/lib/block-ui';
 import { shortMoment } from '@/lib/cron-words';
 import { formatDuration } from '@/lib/duration';
@@ -73,7 +75,19 @@ function problemOf(error: z.ZodError): string {
   const [issue] = error.issues;
   const where = issue === undefined ? '' : describePath(['', ...issue.path]);
 
-  return `Finish it first${where === '' ? '' : ` - ${where}`}: ${issue?.message ?? 'it is not whole'}`;
+  const problem =
+    issue?.message ?? translate('automation.blockTools.itIsNotWhole', 'it is not whole');
+
+  return where === ''
+    ? translate('automation.blockTools.finishItFirst', 'Finish it first: {{problem}}', { problem })
+    : translate(
+        'automation.blockTools.finishItFirstWhere',
+        'Finish it first - {{where}}: {{problem}}',
+        {
+          where,
+          problem,
+        },
+      );
 }
 
 /**
@@ -121,13 +135,19 @@ function statusOf(reply: AutomationTestReply, timeZone: string): ReactNode {
   switch (reply.kind) {
     case 'trigger': {
       if (reply.problem !== undefined) {
-        return <BlockStatus tone="warning">Cannot fire</BlockStatus>;
+        return (
+          <BlockStatus tone="warning">
+            {translate('automation.blockTools.cannotFire', 'Cannot fire')}
+          </BlockStatus>
+        );
       }
 
       if (reply.nextAt !== null) {
         return (
           <BlockStatus tone="neutral" title={reply.detail}>
-            {`Next · ${shortMoment(reply.nextAt, timeZone)}`}
+            {translate('automation.blockTools.next', 'Next · {{when}}', {
+              when: shortMoment(reply.nextAt, timeZone),
+            })}
           </BlockStatus>
         );
       }
@@ -135,21 +155,25 @@ function statusOf(reply: AutomationTestReply, timeZone: string): ReactNode {
       if (reply.matches === null) {
         return (
           <BlockStatus tone="neutral" title={reply.detail}>
-            Tested
+            {translate('automation.blockTools.tested', 'Tested')}
           </BlockStatus>
         );
       }
 
       return (
         <BlockStatus tone={reply.matches ? 'success' : 'neutral'} title={reply.detail}>
-          {reply.matches ? 'Holds now' : 'Not now'}
+          {reply.matches
+            ? translate('automation.blockTools.holdsNow', 'Holds now')
+            : translate('automation.blockTools.notNow', 'Not now')}
         </BlockStatus>
       );
     }
     case 'condition': {
       return (
         <BlockStatus tone={reply.value ? 'success' : 'neutral'}>
-          {reply.value ? 'True now' : 'False now'}
+          {reply.value
+            ? translate('automation.blockTools.trueNow', 'True now')
+            : translate('automation.blockTools.falseNow', 'False now')}
         </BlockStatus>
       );
     }
@@ -157,20 +181,40 @@ function statusOf(reply: AutomationTestReply, timeZone: string): ReactNode {
       switch (reply.result) {
         case 'ok': {
           return (
-            <BlockStatus tone="success">{`Done · ${formatDuration(reply.durationMs)}`}</BlockStatus>
+            <BlockStatus tone="success">
+              {translate('automation.blockTools.done', 'Done · {{duration}}', {
+                duration: formatDuration(reply.durationMs),
+              })}
+            </BlockStatus>
           );
         }
         case 'partial': {
-          return <BlockStatus tone="warning">Partly done</BlockStatus>;
+          return (
+            <BlockStatus tone="warning">
+              {translate('automation.blockTools.partlyDone', 'Partly done')}
+            </BlockStatus>
+          );
         }
         case 'failed': {
-          return <BlockStatus tone="danger">Failed</BlockStatus>;
+          return (
+            <BlockStatus tone="danger">
+              {translate('automation.blockTools.failed', 'Failed')}
+            </BlockStatus>
+          );
         }
         case 'timeout': {
-          return <BlockStatus tone="warning">Stopped after a minute</BlockStatus>;
+          return (
+            <BlockStatus tone="warning">
+              {translate('automation.blockTools.stoppedAfterAMinute', 'Stopped after a minute')}
+            </BlockStatus>
+          );
         }
         case 'cancelled': {
-          return <BlockStatus tone="neutral">Stopped</BlockStatus>;
+          return (
+            <BlockStatus tone="neutral">
+              {translate('automation.blockTools.stopped', 'Stopped')}
+            </BlockStatus>
+          );
         }
       }
     }
@@ -207,6 +251,8 @@ function messageOf(reply: AutomationTestReply): string | null {
 export function useBlockTools<TBlock extends MetaBlock>(
   options: BlockToolsOptions<TBlock>,
 ): BlockTools {
+  const { t } = useTranslation();
+
   const { id, family, block, onChange, untestable } = options;
   const ui = useBlockUi(id, false);
   const store = useBlockUiStoreHandle();
@@ -246,16 +292,19 @@ export function useBlockTools<TBlock extends MetaBlock>(
 
   const menu: MenuItem[] = [
     {
-      label: 'Rename',
+      label: t('automation.blockTools.rename', 'Rename'),
       icon: 'pencil',
-      description: 'A name of its own, in place of what the card says.',
+      description: t(
+        'automation.blockTools.nameOfItsOwn',
+        'A name of its own, in place of what the card says.',
+      ),
       onSelect: ui.startRename,
     },
     ...(block.name === undefined
       ? []
       : [
           {
-            label: 'Clear the name',
+            label: t('automation.blockTools.clearTheName', 'Clear the name'),
             icon: 'x' as const,
             /** Takes the name away: the card says what the block does again. */
             onSelect: () => {
@@ -265,7 +314,7 @@ export function useBlockTools<TBlock extends MetaBlock>(
         ]),
     isRunning
       ? {
-          label: 'Stop the test',
+          label: t('automation.blockTools.stopTheTest', 'Stop the test'),
           icon: 'square' as const,
           /** Asks core to stop the test going on. */
           onSelect: () => {
@@ -273,28 +322,45 @@ export function useBlockTools<TBlock extends MetaBlock>(
           },
         }
       : {
-          label: 'Test',
+          label: t('automation.blockTools.test', 'Test'),
           icon: 'play' as const,
           description:
             family === 'action'
-              ? 'Runs it now, on its own: the devices will move.'
+              ? t(
+                  'automation.blockTools.runsItNowOn',
+                  'Runs it now, on its own: the devices will move.',
+                )
               : family === 'condition'
-                ? 'Checks it against the house now.'
-                : 'Says whether it holds now, or when it next fires.',
+                ? t('automation.blockTools.checksItAgainstThe', 'Checks it against the house now.')
+                : t(
+                    'automation.blockTools.saysWhetherItHolds',
+                    'Says whether it holds now, or when it next fires.',
+                  ),
           disabled: untestable !== undefined || !canTest,
           disabledReason:
             untestable ??
             (family === 'action'
-              ? 'Testing an action takes the right to write and to run automations'
-              : 'Testing takes the right to write automations'),
+              ? t(
+                  'automation.blockTools.testingAnActionTakes',
+                  'Testing an action takes the right to write and to run automations',
+                )
+              : t(
+                  'automation.blockTools.testingTakesTheRight',
+                  'Testing takes the right to write automations',
+                )),
           onSelect: run,
         },
     {
-      label: isDisabled ? 'Turn on' : 'Turn off',
+      label: isDisabled
+        ? t('automation.blockTools.turnOn', 'Turn on')
+        : t('automation.blockTools.turnOff', 'Turn off'),
       icon: 'power',
       description: isDisabled
-        ? 'It counts again when the automation runs.'
-        : 'Kept here, and skipped when the automation runs.',
+        ? t('automation.blockTools.itCountsAgainWhen', 'It counts again when the automation runs.')
+        : t(
+            'automation.blockTools.keptHereAndSkipped',
+            'Kept here, and skipped when the automation runs.',
+          ),
       /** Turns the block off, or back on. */
       onSelect: () => {
         onChange(
@@ -308,9 +374,13 @@ export function useBlockTools<TBlock extends MetaBlock>(
   let notice: ReactNode = null;
 
   if (test?.status === 'running') {
-    status = <BlockStatus tone="running">Testing…</BlockStatus>;
+    status = (
+      <BlockStatus tone="running">{t('automation.blockTools.testing', 'Testing…')}</BlockStatus>
+    );
   } else if (test?.status === 'error') {
-    status = <BlockStatus tone="danger">Not tested</BlockStatus>;
+    status = (
+      <BlockStatus tone="danger">{t('automation.blockTools.notTested', 'Not tested')}</BlockStatus>
+    );
     notice = test.message;
   } else if (test?.status === 'done') {
     status = statusOf(test.reply, house.timeZone);
@@ -319,7 +389,10 @@ export function useBlockTools<TBlock extends MetaBlock>(
 
   if (isStale && status !== null) {
     status = (
-      <span className="opacity-55" title="Changed since it was tested">
+      <span
+        className="opacity-55"
+        title={t('automation.blockTools.changedSinceItWas', 'Changed since it was tested')}
+      >
         {status}
       </span>
     );
@@ -340,7 +413,7 @@ export function useBlockTools<TBlock extends MetaBlock>(
                 store.setTest(id, undefined);
               }}
             >
-              Dismiss
+              {t('automation.blockTools.dismiss', 'Dismiss')}
             </Button>
           }
         >

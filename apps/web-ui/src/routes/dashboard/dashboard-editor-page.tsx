@@ -15,6 +15,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
 import {
@@ -33,6 +34,7 @@ import {
 } from '@/dashboard/api';
 import { addCard, findCard, removeCard } from '@/dashboard/dashboard-layout';
 import { containerCard } from '@/dashboard/new-cards';
+import { listFormat } from '@/i18n/formatters';
 import { toMessage } from '@/lib/error-message';
 import { AddCardDialog } from '@/routes/dashboard/add-card-dialog';
 import { CardInspector } from '@/routes/dashboard/card-inspector';
@@ -84,6 +86,8 @@ type EmptyPageProps = {
  * @returns The empty page.
  */
 function EmptyPage(props: EmptyPageProps) {
+  const { t } = useTranslation();
+
   const { name, onAddCard, onAddGroup } = props;
 
   return (
@@ -92,19 +96,24 @@ function EmptyPage(props: EmptyPageProps) {
         <AppIcon id="layout-grid" size={20} />
       </span>
       <span className="flex flex-col gap-1">
-        <span className="text-title font-medium text-foreground">Nothing on {name} yet</span>
+        <span className="text-title font-medium text-foreground">
+          {t('dashboard.dashboardEditor.nothingOnNameYet', 'Nothing on {{name}} yet', { name })}
+        </span>
         <span className="text-ui-sm text-foreground-muted">
-          Add cards for what you want at hand, or a group to gather them.
+          {t(
+            'dashboard.dashboardEditor.addCardsForWhat',
+            'Add cards for what you want at hand, or a group to gather them.',
+          )}
         </span>
       </span>
       <span className="flex flex-wrap items-center justify-center gap-2.5">
         <Button onClick={onAddCard}>
           <AppIcon id="plus" size={15} />
-          Add card
+          {t('dashboard.dashboardEditor.addCard', 'Add card')}
         </Button>
         <Button variant="ghost" onClick={onAddGroup}>
           <AppIcon id="layout-grid" size={15} />
-          Add group
+          {t('dashboard.dashboardEditor.addGroup', 'Add group')}
         </Button>
       </span>
     </div>
@@ -117,6 +126,8 @@ function EmptyPage(props: EmptyPageProps) {
  * @returns The page.
  */
 export function DashboardEditorPage() {
+  const { t } = useTranslation();
+
   const { dashboardId = '' } = useParams();
 
   const dashboards = useQuery({
@@ -137,15 +148,23 @@ export function DashboardEditorPage() {
     return (
       <div className="flex min-h-0 grow flex-col">
         <DetailHeader
-          crumbs={[{ to: DASHBOARDS_CONFIGURATION_PATH, label: 'Dashboards' }]}
-          title="Layout"
+          crumbs={[
+            {
+              to: DASHBOARDS_CONFIGURATION_PATH,
+              label: t('dashboard.dashboardEditor.dashboards', 'Dashboards'),
+            },
+          ]}
+          title={t('dashboard.dashboardEditor.layout', 'Layout')}
         />
         <div className="p-6">
           <PageMessage>
             {dashboards.isPending
-              ? 'Reading…'
+              ? t('dashboard.dashboardEditor.reading', 'Reading…')
               : dashboards.error === null
-                ? 'There is no dashboard with that id.'
+                ? t(
+                    'dashboard.dashboardEditor.thereIsNoDashboard',
+                    'There is no dashboard with that id.',
+                  )
                 : toMessage(dashboards.error)}
           </PageMessage>
         </div>
@@ -164,6 +183,8 @@ export function DashboardEditorPage() {
  * @returns The page.
  */
 function Editor(props: { readonly dashboard: DashboardView }) {
+  const { t } = useTranslation();
+
   const { dashboard } = props;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -282,8 +303,16 @@ function Editor(props: { readonly dashboard: DashboardView }) {
 
       setProblem(
         first?.path.includes('title') === true
-          ? 'Every group needs a name.'
-          : `This layout cannot be saved: ${first?.message ?? 'it does not read'}.`,
+          ? t('dashboard.dashboardEditor.everyGroupNeedsA', 'Every group needs a name.')
+          : t(
+              'dashboard.dashboardEditor.cannotBeSaved',
+              'This layout cannot be saved: {{problem}}.',
+              {
+                problem:
+                  first?.message ??
+                  t('dashboard.dashboardEditor.itDoesNotRead', 'it does not read'),
+              },
+            ),
       );
 
       return;
@@ -344,7 +373,9 @@ function Editor(props: { readonly dashboard: DashboardView }) {
   return (
     <div className="flex min-h-0 min-w-0 grow flex-col">
       <div className="shrink-0 px-8 pt-6">
-        <h1 className="sr-only">Editing {dashboard.name}</h1>
+        <h1 className="sr-only">
+          {t('dashboard.dashboardEditor.editingName', 'Editing {{name}}', { name: dashboard.name })}
+        </h1>
         <Note
           tone="accent"
           action={
@@ -358,18 +389,18 @@ function Editor(props: { readonly dashboard: DashboardView }) {
                 }}
               >
                 <AppIcon id="plus" size={14} />
-                Add card
+                {t('dashboard.dashboardEditor.addCard', 'Add card')}
               </Button>
               <Button
                 variant="ghost"
                 size="compact"
                 disabled={!canEdit}
                 onClick={() => {
-                  add([containerCard('New group')]);
+                  add([containerCard(t('dashboard.dashboardEditor.newGroup', 'New group'))]);
                 }}
               >
                 <AppIcon id="layout-grid" size={14} />
-                Add group
+                {t('dashboard.dashboardEditor.addGroup', 'Add group')}
               </Button>
               <Button
                 variant="bare"
@@ -381,25 +412,46 @@ function Editor(props: { readonly dashboard: DashboardView }) {
                   leave();
                 }}
               >
-                Cancel
+                {t('common.cancel', 'Cancel')}
               </Button>
               <Button size="compact" isBusy={save.isPending} disabled={!isEditing} onClick={done}>
                 <AppIcon id="check" size={14} />
-                Done
+                {t('common.done', 'Done')}
               </Button>
             </span>
           }
         >
-          <span className="font-medium">Editing “{dashboard.name}”</span>
+          <span className="font-medium">
+            {t('dashboard.dashboardEditor.editingName2', 'Editing “{{name}}”', {
+              name: dashboard.name,
+            })}
+          </span>
           <span className="text-foreground-muted">
             {' · '}
             {viewers.length === 0
-              ? 'Nobody sees it yet: assign it under Dashboard setup'
+              ? t(
+                  'dashboard.dashboardEditor.nobodySeesItYet',
+                  'Nobody sees it yet: assign it under Dashboard setup',
+                )
               : viewers.length <= 3
-                ? `${viewers.join(', ')} ${viewers.length === 1 ? 'sees' : 'see'} the change`
-                : `Everyone who uses ${dashboard.name} sees the change`}
+                ? t('dashboard.dashboardEditor.viewersSeeTheChange', {
+                    count: viewers.length,
+                    names: listFormat({ type: 'conjunction' }).format(viewers),
+                    defaultValue_one: '{{names}} sees the change',
+                    defaultValue_other: '{{names}} see the change',
+                  })
+                : t(
+                    'dashboard.dashboardEditor.everyoneWhoUsesName',
+                    'Everyone who uses {{name}} sees the change',
+                    { name: dashboard.name },
+                  )}
           </span>
-          <span className="text-foreground-subtle"> · drag to move, drag a corner to resize</span>
+          <span className="text-foreground-subtle">
+            {t(
+              'dashboard.dashboardEditor.dragToMoveDrag',
+              '· drag to move, drag a corner to resize',
+            )}
+          </span>
         </Note>
         {problem === null ? null : (
           <p role="alert" className="mt-2 text-ui-sm text-danger">
@@ -413,7 +465,10 @@ function Editor(props: { readonly dashboard: DashboardView }) {
           <div className="flex min-w-0 grow flex-col gap-4">
             {isNarrow ? (
               <PageMessage>
-                Widen the window to lay out the dashboard: it takes four columns.
+                {t(
+                  'dashboard.dashboardEditor.widenTheWindowTo',
+                  'Widen the window to lay out the dashboard: it takes four columns.',
+                )}
               </PageMessage>
             ) : null}
 
@@ -428,7 +483,7 @@ function Editor(props: { readonly dashboard: DashboardView }) {
                     setAdding(true);
                   }}
                   onAddGroup={() => {
-                    add([containerCard('New group')]);
+                    add([containerCard(t('dashboard.dashboardEditor.newGroup', 'New group'))]);
                   }}
                 />
               }
@@ -455,9 +510,13 @@ function Editor(props: { readonly dashboard: DashboardView }) {
                 <span className="flex size-7 items-center justify-center rounded-chip bg-primary/10 text-primary">
                   <AppIcon id="plus" size={15} />
                 </span>
-                Add a card
+                {t('dashboard.dashboardEditor.addACard', 'Add a card')}
                 <span className="text-caption font-normal text-foreground-subtle">
-                  {groupName === null ? 'on the page' : `into ${groupName}`}
+                  {groupName === null
+                    ? t('dashboard.dashboardEditor.onThePage', 'on the page')
+                    : t('dashboard.dashboardEditor.intoGroupname', 'into {{groupName}}', {
+                        groupName,
+                      })}
                 </span>
               </button>
             ) : null}

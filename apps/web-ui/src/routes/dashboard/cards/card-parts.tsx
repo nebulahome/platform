@@ -7,6 +7,7 @@
  * face every panel in the interface has.
  */
 import type { CSSProperties, ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { IconView } from '@nebulahome/contracts';
 import { AppIcon, CardHeading, cn } from '@nebulahome/ui';
@@ -217,6 +218,8 @@ export type UnavailableNoteProps = {
  * @returns The note.
  */
 export function UnavailableNote(props: UnavailableNoteProps) {
+  const { t } = useTranslation();
+
   const { last, isCompact = false } = props;
 
   return (
@@ -224,7 +227,7 @@ export function UnavailableNote(props: UnavailableNoteProps) {
       <span className="flex items-center gap-2 text-warning">
         <AppIcon id="triangle-alert" size={isCompact ? 14 : 17} />
         <span className={cn('font-medium', isCompact ? 'text-ui' : 'text-subhead')}>
-          Unavailable
+          {t('dashboard.cards.cardParts.unavailable', 'Unavailable')}
         </span>
       </span>
       {isCompact || last === undefined ? null : (

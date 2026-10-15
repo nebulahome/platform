@@ -4,6 +4,8 @@
  * The tile is the switch and its name; the tall card says whether it is on in a word large enough
  * to read across the room, and since when.
  */
+import { useTranslation } from 'react-i18next';
+
 import { CardHeading, Figure } from '@nebulahome/ui';
 
 import { CardFrame, TileRow } from '@/routes/dashboard/cards/card-parts';
@@ -18,6 +20,8 @@ import { QuickPowerSwitch } from '@/routes/library/entity/quick-power-switch';
  * @returns The card.
  */
 export function SwitchCard(props: { readonly model: EntityCardModel }) {
+  const { t } = useTranslation();
+
   const { model } = props;
   const { entity, state, title, subtitle, reading, reportedAt } = model;
   const isOn = state.on_off?.isOn ?? false;
@@ -55,7 +59,10 @@ export function SwitchCard(props: { readonly model: EntityCardModel }) {
         <Figure value={isOn ? 'On' : 'Off'} size="medium" />
         {model.changedAt === null ? null : (
           <span className="text-caption text-foreground-muted">
-            {isOn ? 'On' : 'Off'} since {cardTime(model.changedAt)}
+            {isOn ? t('common.on', 'On') : t('common.off', 'Off')}{' '}
+            {t('dashboard.cards.switchCard.sinceChangedat', 'since {{changedAt}}', {
+              changedAt: cardTime(model.changedAt),
+            })}
           </span>
         )}
       </div>

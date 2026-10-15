@@ -8,6 +8,7 @@
  * refuse. A package that is not installed keeps what was chosen, and says so.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { DashboardCard, DashboardPackageCard, SetupGroup } from '@nebulahome/contracts';
 import { PanelNote, TextField } from '@nebulahome/ui';
@@ -30,6 +31,8 @@ export type PackageCardSettingsProps = {
  * @returns The fields.
  */
 export function PackageCardSettings(props: PackageCardSettingsProps) {
+  const { t } = useTranslation();
+
   const { card, data, onChange } = props;
   const found = data.packageById.get(card.packageId);
   const declared = found?.ui?.cards.find((each) => each.id === card.cardId);
@@ -40,11 +43,17 @@ export function PackageCardSettings(props: PackageCardSettingsProps) {
   return (
     <div className="flex flex-col gap-3.5">
       <TextField
-        label="Title"
+        label={t('dashboard.packageCardSettings.title', 'Title')}
         size="compact"
         value={card.title ?? ''}
         placeholder={declared?.name ?? card.cardId}
-        hint={`Empty for ${declared?.name ?? 'its own name'}.`}
+        hint={
+          declared === undefined
+            ? t('dashboard.packageCardSettings.emptyForItsOwnName', 'Empty for its own name.')
+            : t('dashboard.packageCardSettings.emptyForName', 'Empty for {{name}}.', {
+                name: declared.name,
+              })
+        }
         onChange={(event) => {
           const title = event.target.value;
 
@@ -59,8 +68,16 @@ export function PackageCardSettings(props: PackageCardSettingsProps) {
       {declared === undefined ? (
         <PanelNote>
           {found === undefined
-            ? `The ${card.packageId} package is not installed: what this card was set to is kept for when it is.`
-            : `${found.name} ${found.version} no longer has this card.`}
+            ? t(
+                'dashboard.packageCardSettings.packageidPackageIsNot',
+                'The {{packageId}} package is not installed: what this card was set to is kept for when it is.',
+                { packageId: card.packageId },
+              )
+            : t(
+                'dashboard.packageCardSettings.nameVersionNoLonger',
+                '{{name}} {{version}} no longer has this card.',
+                { name: found.name, version: found.version },
+              )}
         </PanelNote>
       ) : (
         <SetupForm

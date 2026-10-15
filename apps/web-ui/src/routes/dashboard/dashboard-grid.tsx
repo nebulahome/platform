@@ -27,6 +27,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
   DASHBOARD_COLUMNS,
@@ -194,6 +195,8 @@ function whereIs(layout: DashboardLayout, id: string, data: DashboardData): stri
  * @returns The grid.
  */
 export function DashboardGrid(props: DashboardGridProps) {
+  const { t } = useTranslation();
+
   const { layout, data, editor, onNarrowChange, emptyState } = props;
   const rootRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -360,7 +363,11 @@ export function DashboardGrid(props: DashboardGridProps) {
 
       if (lifted !== null && lifted.preview !== lifted.start) {
         editor.onChange(lifted.preview);
-        setAnnouncement(`Moved. ${whereIs(lifted.preview, card.id, data)}`);
+        setAnnouncement(
+          t('dashboard.dashboardGrid.movedPreview', 'Moved. {{preview}}', {
+            preview: whereIs(lifted.preview, card.id, data),
+          }),
+        );
       }
 
       setGesture(null);
@@ -442,7 +449,11 @@ export function DashboardGrid(props: DashboardGridProps) {
 
       if (current.preview !== current.start) {
         editor.onChange(current.preview);
-        setAnnouncement(`Resized. ${whereIs(current.preview, card.id, data)}`);
+        setAnnouncement(
+          t('dashboard.dashboardGrid.resizedPreview', 'Resized. {{preview}}', {
+            preview: whereIs(current.preview, card.id, data),
+          }),
+        );
       }
 
       setGesture(null);
@@ -471,7 +482,11 @@ export function DashboardGrid(props: DashboardGridProps) {
         event.preventDefault();
         setGesture({ kind: 'keyboard', id: card.id, start: layout, preview: layout });
         setAnnouncement(
-          `Picked up ${cardTitle(card, data)}. Arrow keys move it, Shift and an arrow key change its size, Enter puts it down, Escape puts it back.`,
+          t(
+            'dashboard.dashboardGrid.pickedUpCardArrow',
+            'Picked up {{card}}. Arrow keys move it, Shift and an arrow key change its size, Enter puts it down, Escape puts it back.',
+            { card: cardTitle(card, data) },
+          ),
         );
       }
 
@@ -482,7 +497,11 @@ export function DashboardGrid(props: DashboardGridProps) {
       event.preventDefault();
       editor.onChange(lifted.preview);
       setGesture(null);
-      setAnnouncement(`Put down. ${whereIs(lifted.preview, card.id, data)}`);
+      setAnnouncement(
+        t('dashboard.dashboardGrid.putDownPreview', 'Put down. {{preview}}', {
+          preview: whereIs(lifted.preview, card.id, data),
+        }),
+      );
 
       return;
     }
@@ -490,7 +509,11 @@ export function DashboardGrid(props: DashboardGridProps) {
     if (event.key === 'Escape') {
       event.preventDefault();
       setGesture(null);
-      setAnnouncement(`Put back. ${whereIs(lifted.start, card.id, data)}`);
+      setAnnouncement(
+        t('dashboard.dashboardGrid.putBackStart', 'Put back. {{start}}', {
+          start: whereIs(lifted.start, card.id, data),
+        }),
+      );
 
       return;
     }
@@ -617,7 +640,7 @@ export function DashboardGrid(props: DashboardGridProps) {
             {card.type === 'container' ? null : (
               <button
                 type="button"
-                aria-label={`Edit ${title}`}
+                aria-label={t('dashboard.dashboardGrid.editTitle', 'Edit {{title}}', { title })}
                 className="absolute inset-0 cursor-pointer rounded-panel"
                 onClick={() => {
                   editor.onSelect(card.id);
@@ -626,7 +649,7 @@ export function DashboardGrid(props: DashboardGridProps) {
             )}
             <button
               type="button"
-              aria-label={`Move ${title}`}
+              aria-label={t('dashboard.dashboardGrid.moveTitle', 'Move {{title}}', { title })}
               aria-pressed={isLifted}
               aria-describedby="dashboard-grid-help"
               className={cn(
@@ -657,7 +680,7 @@ export function DashboardGrid(props: DashboardGridProps) {
             </span>
             <button
               type="button"
-              aria-label={`Remove ${title}`}
+              aria-label={t('dashboard.dashboardGrid.removeTitle', 'Remove {{title}}', { title })}
               className="absolute -top-2 -right-2 z-20 flex size-6 items-center justify-center rounded-full border border-border-strong bg-surface-raised text-foreground-muted hover:text-danger"
               onClick={() => {
                 editor.onRemove(card.id);
@@ -745,8 +768,10 @@ export function DashboardGrid(props: DashboardGridProps) {
       )}
 
       <p id="dashboard-grid-help" className="sr-only">
-        Press Space to pick the card up, then the arrow keys to move it and Shift with an arrow key
-        to change its size.
+        {t(
+          'dashboard.dashboardGrid.pressSpaceToPick',
+          'Press Space to pick the card up, then the arrow keys to move it and Shift with an arrow key to change its size.',
+        )}
       </p>
       <div aria-live="polite" className="sr-only">
         {announcement}
@@ -774,6 +799,8 @@ type ContainerViewProps = {
  * @returns The container.
  */
 function ContainerView(props: ContainerViewProps) {
+  const { t } = useTranslation();
+
   const { container, data, isEditing, isSelected, onSelect, place } = props;
   const [innerWidth, setInnerWidth] = useState(0);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -837,13 +864,21 @@ function ContainerView(props: ContainerViewProps) {
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="truncate text-subhead font-medium">{container.title}</span>
           <span className="text-caption text-foreground-subtle tabular">
-            {count === 0 ? 'Empty' : `${String(count)} ${count === 1 ? 'card' : 'cards'}`}
+            {count === 0
+              ? t('dashboard.dashboardGrid.empty', 'Empty')
+              : t('dashboard.cards.count', {
+                  count,
+                  defaultValue_one: '{{count}} card',
+                  defaultValue_other: '{{count}} cards',
+                })}
           </span>
         </span>
         {isEditing ? (
           <button
             type="button"
-            aria-label={`Edit ${container.title}`}
+            aria-label={t('dashboard.dashboardGrid.editTitle', 'Edit {{title}}', {
+              title: container.title,
+            })}
             className="absolute inset-0 cursor-pointer rounded-t-panel"
             onClick={onSelect}
           />
@@ -866,7 +901,9 @@ function ContainerView(props: ContainerViewProps) {
       >
         {count === 0 ? (
           <div className="flex h-full items-center justify-center rounded-panel border border-dashed border-border-strong text-caption text-foreground-subtle">
-            {isEditing ? 'Drag cards here' : 'Nothing in this group yet'}
+            {isEditing
+              ? t('dashboard.dashboardGrid.dragCardsHere', 'Drag cards here')
+              : t('dashboard.dashboardGrid.nothingInThisGroup', 'Nothing in this group yet')}
           </div>
         ) : innerWidth === 0 ? null : (
           container.cards.map((card) => place(card, innerColumn))

@@ -7,7 +7,7 @@
  */
 import { stateTokenChoices, STATE_TOKEN_UNAVAILABLE, type EntityView } from '@nebulahome/contracts';
 
-import { text } from '@/i18n/messages';
+import { text, translate } from '@/i18n/messages';
 import { humanise } from '@/lib/command-choices';
 import { BINARY_WORDS, ON_OFF_WORDS } from '@/library/entity-reading';
 
@@ -26,7 +26,7 @@ export type StateChoice = {
  */
 export function stateLabel(token: string, entity: EntityView | undefined): string {
   if (token === STATE_TOKEN_UNAVAILABLE) {
-    return 'Out of reach';
+    return translate('automation.stateChoices.outOfReach', 'Out of reach');
   }
 
   if (token === 'on' || token === 'off') {

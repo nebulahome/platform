@@ -7,9 +7,12 @@
  * as a figure and a groove; the square card makes the brightness and the white or the colour
  * something to set.
  */
+import { useTranslation } from 'react-i18next';
+
 import type { CapabilityState } from '@nebulahome/contracts';
 import { Slider, type WheelColour, CardHeading, Figure } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
 import {
   hasCapability,
   hsColor,
@@ -62,7 +65,9 @@ function lightCaption(model: EntityCardModel, state: CapabilityState, isOn: bool
   const { color_hs: colour, color_temp: white } = state;
 
   if (colour !== undefined && colour.saturation > 0) {
-    return `Colour · ${String(Math.round(colour.hue))}°`;
+    return translate('dashboard.cards.lightCard.colourHue', 'Colour · {{hue}}°', {
+      hue: String(Math.round(colour.hue)),
+    });
   }
 
   return white === undefined ? 'On' : `White · ${String(miredsToKelvin(white.mireds))} K`;
@@ -76,6 +81,8 @@ function lightCaption(model: EntityCardModel, state: CapabilityState, isOn: bool
  * @returns The card.
  */
 export function LightCard(props: { readonly model: EntityCardModel }) {
+  const { t } = useTranslation();
+
   const { model } = props;
   const { entity, state, reportedAt, title, subtitle, reading } = model;
   const commander = useEntityCommand(entity.entityId);
@@ -144,7 +151,7 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
 
   const groove = hasLevel ? (
     <Groove
-      label="Brightness"
+      label={t('dashboard.cards.lightCard.brightness', 'Brightness')}
       percent={isOn ? percent : 0}
       fill={
         glow === undefined
@@ -204,7 +211,7 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
         </div>
         {hasLevel ? (
           <Slider
-            label="Brightness"
+            label={t('dashboard.cards.lightCard.brightness', 'Brightness')}
             isLabelHidden
             value={percent}
             min={0}
@@ -221,7 +228,7 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
         ) : null}
         {whites === null ? null : (
           <Slider
-            label="White"
+            label={t('dashboard.cards.lightCard.white', 'White')}
             isLabelHidden
             value={white}
             min={warmest}
@@ -250,7 +257,7 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
         )}
         {whites === null && canColour ? (
           <Slider
-            label="Colour"
+            label={t('dashboard.cards.lightCard.colour', 'Colour')}
             isLabelHidden
             value={Math.round(hue.shown)}
             min={0}

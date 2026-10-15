@@ -7,6 +7,7 @@
  * AND, a group says what it is in its header.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { isConditionGroup, type ConditionGroup, type ConditionNode } from '@nebulahome/contracts';
 import { AppIcon, Block, BlockGroup, BlockLaneSection, BlockNotice } from '@nebulahome/ui';
@@ -117,6 +118,8 @@ export type ConditionListProps = {
  * @returns The list.
  */
 export function ConditionList(props: ConditionListProps) {
+  const { t } = useTranslation();
+
   const { items, path, onChange, addLabel, isNested = false } = props;
   const house = useEditorHouse();
 
@@ -164,8 +167,11 @@ export function ConditionList(props: ConditionListProps) {
         <AddBlock
           label={addLabel}
           isWide={isNested}
-          pickerTitle="Add a condition"
-          pickerDescription="A condition, or an AND or OR group of them."
+          pickerTitle={t('automation.conditionBlocks.addACondition', 'Add a condition')}
+          pickerDescription={t(
+            'automation.conditionBlocks.conditionOrAnAnd',
+            'A condition, or an AND or OR group of them.',
+          )}
           groups={CONDITION_CHOICE_GROUPS}
           onPick={(type) => {
             onChange([...items, blankCondition(type)]);
@@ -193,6 +199,8 @@ type ConditionBlockProps = {
  * @returns The block.
  */
 function ConditionBlock(props: ConditionBlockProps) {
+  const { t } = useTranslation();
+
   const { condition, id, grip, isNested, onChange, onRemove } = props;
   const house = useEditorHouse();
   const ui = useBlockUi(id, isIncomplete(condition) || !isKnownKind('condition', condition.type));
@@ -239,7 +247,10 @@ function ConditionBlock(props: ConditionBlockProps) {
           tools.notice
         ) : (
           <BlockNotice tone="warning">
-            This check is not part of automations any more. Remove it to save the automation.
+            {t(
+              'automation.conditionBlocks.thisCheckIsNot',
+              'This check is not part of automations any more. Remove it to save the automation.',
+            )}
           </BlockNotice>
         )
       }
@@ -275,6 +286,8 @@ type ConditionGroupBlockProps = {
  * @returns The group.
  */
 function ConditionGroupBlock(props: ConditionGroupBlockProps) {
+  const { t } = useTranslation();
+
   const { group, id, path, grip, onChange, onRemove } = props;
   const ui = useBlockUi(id, true);
   const tools = useBlockTools({
@@ -316,7 +329,7 @@ function ConditionGroupBlock(props: ConditionGroupBlockProps) {
         items={group.conditions}
         path={`${path}.conditions`}
         isNested
-        addLabel="Add to the group"
+        addLabel={t('automation.conditionBlocks.addToTheGroup', 'Add to the group')}
         onChange={(conditions) => {
           onChange({ ...group, conditions: [...conditions] });
         }}
@@ -338,16 +351,26 @@ export type ConditionLaneProps = {
  * @returns The lane.
  */
 export function ConditionLane(props: ConditionLaneProps) {
+  const { t } = useTranslation();
+
   const { items, onChange } = props;
 
   return (
     <BlockLaneSection
       lane="if"
       glyph={<AppIcon id="list-filter" size={20} />}
-      title="If"
-      note="All of these must hold. Group them with AND or OR; NOT turns one around. Optional."
+      title={t('automation.conditionBlocks.if', 'If')}
+      note={t(
+        'automation.conditionBlocks.allOfTheseMust',
+        'All of these must hold. Group them with AND or OR; NOT turns one around. Optional.',
+      )}
     >
-      <ConditionList items={items} path="if" onChange={onChange} addLabel="Add a condition" />
+      <ConditionList
+        items={items}
+        path="if"
+        onChange={onChange}
+        addLabel={t('automation.conditionBlocks.addACondition', 'Add a condition')}
+      />
     </BlockLaneSection>
   );
 }
@@ -373,16 +396,20 @@ export type ConditionsFieldProps = {
  * @returns The conditions.
  */
 export function ConditionsField(props: ConditionsFieldProps) {
+  const { t } = useTranslation();
+
   const { items, path, onChange, note } = props;
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-caption font-medium text-foreground-muted">Conditions</span>
+      <span className="text-caption font-medium text-foreground-muted">
+        {t('automation.conditionBlocks.conditions', 'Conditions')}
+      </span>
       <ConditionList
         items={items}
         path={path}
         isNested
-        addLabel="Add a condition"
+        addLabel={t('automation.conditionBlocks.addACondition', 'Add a condition')}
         onChange={onChange}
       />
       {note === undefined ? null : (

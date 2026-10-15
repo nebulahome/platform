@@ -10,9 +10,12 @@
  * the house, so the house keeps the height; on the square card in a column beside it, where the
  * card is wide enough.
  */
+import { useTranslation } from 'react-i18next';
+
 import type { DashboardEnergyCard } from '@nebulahome/contracts';
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
+import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import { formatEnergy, formatPower, mainSource, type EnergyHeadline } from '@/lib/energy-flow';
 import { useElementSize } from '@/lib/use-element-size';
 import { CardFrame } from '@/routes/dashboard/cards/card-parts';
@@ -22,13 +25,13 @@ import { useEnergy, type EnergyModel } from '@/routes/dashboard/cards/energy/use
 import type { DashboardData } from '@/routes/dashboard/use-dashboard-data';
 
 /** The one word the card leads with, for what the house is doing. */
-const HEADLINES: Readonly<Record<EnergyHeadline, string>> = {
-  charging: 'Charging',
-  discharging: 'On battery',
-  exporting: 'Exporting',
-  'self-powered': 'Self-powered',
-  importing: 'On the grid',
-  idle: 'Idle',
+const HEADLINES: Readonly<Record<EnergyHeadline, Message>> = {
+  charging: defineMessage('dashboard.energy.energyCard.charging', 'Charging'),
+  discharging: defineMessage('dashboard.energy.energyCard.onBattery', 'On battery'),
+  exporting: defineMessage('dashboard.energy.energyCard.exporting', 'Exporting'),
+  'self-powered': defineMessage('dashboard.energy.energyCard.selfPowered', 'Self-powered'),
+  importing: defineMessage('dashboard.energy.energyCard.onTheGrid', 'On the grid'),
+  idle: defineMessage('dashboard.energy.energyCard.idle', 'Idle'),
 };
 
 /**
@@ -74,25 +77,53 @@ function sceneLabel(model: EnergyModel): string {
   const said = (watts: number): string => {
     const { value, unit } = formatPower(watts);
 
-    return `${value} ${unit === 'kW' ? 'kilowatts' : 'watts'}`;
+    return unit === 'kW'
+      ? translate('dashboard.energy.energyCard.kilowatts', '{{value}} kilowatts', { value })
+      : translate('dashboard.energy.energyCard.watts', '{{value}} watts', { value });
   };
   const { readings, flows, batteryLevel } = model;
   const parts = [
-    readings.solar === null ? null : `panels making ${said(readings.solar)}`,
+    readings.solar === null
+      ? null
+      : translate('dashboard.energy.energyCard.panelsMakingSolar', 'panels making {{solar}}', {
+          solar: said(readings.solar),
+        }),
     readings.battery === null
       ? null
-      : `battery ${readings.battery < 0 ? 'charging at' : 'giving'} ${said(readings.battery)}${
-          batteryLevel === null ? '' : `, ${String(Math.round(batteryLevel))} percent full`
+      : `${
+          readings.battery < 0
+            ? translate(
+                'dashboard.energy.energyCard.batteryCharging',
+                'battery charging at {{power}}',
+                {
+                  power: said(readings.battery),
+                },
+              )
+            : translate('dashboard.energy.energyCard.batteryGiving', 'battery giving {{power}}', {
+                power: said(readings.battery),
+              })
+        }${
+          batteryLevel === null
+            ? ''
+            : translate('dashboard.energy.energyCard.percentFull', ', {{level}} percent full', {
+                level: Math.round(batteryLevel),
+              })
         }`,
     readings.grid === null
       ? null
-      : `${readings.grid < 0 ? 'selling' : 'buying'} ${said(readings.grid)} ${
-          readings.grid < 0 ? 'to' : 'from'
-        } the grid`,
-    `house using ${said(flows.home)}`,
+      : readings.grid < 0
+        ? translate('dashboard.energy.energyCard.selling', 'selling {{power}} to the grid', {
+            power: said(readings.grid),
+          })
+        : translate('dashboard.energy.energyCard.buying', 'buying {{power}} from the grid', {
+            power: said(readings.grid),
+          }),
+    translate('dashboard.energy.energyCard.houseUsingHome', 'house using {{home}}', {
+      home: said(flows.home),
+    }),
   ].filter((part): part is string => part !== null);
 
-  return `${HEADLINES[model.headline]}: ${parts.join('; ')}.`;
+  return `${text(HEADLINES[model.headline])}: ${parts.join('; ')}.`;
 }
 
 /** What one line of the day needs. */
@@ -156,6 +187,8 @@ export type EnergyCardProps = {
  * @returns The card.
  */
 export function EnergyCard(props: EnergyCardProps) {
+  const { t } = useTranslation();
+
   const { card, data } = props;
   const isLarge = card.h >= 3;
   const { ref: dayRef, size: daySize } = useElementSize<HTMLDivElement>();
@@ -164,14 +197,17 @@ export function EnergyCard(props: EnergyCardProps) {
   // Before the card is laid out - and in a test - the column is assumed to fit.
   const hasDayColumn = !isLarge && (bodySize.width === 0 || bodySize.width >= DAY_COLUMN_WIDTH);
   const model = useEnergy(card, data, isLarge || hasDayColumn);
-  const title = card.title ?? 'Energy';
+  const title = card.title ?? t('dashboard.energy.energyCard.energy', 'Energy');
 
   if (model.isEmpty) {
     return (
       <CardFrame label={title} tone="faint" className="items-center justify-center text-center">
         <AppIcon id="zap" size={20} className="text-foreground-subtle" />
         <p className="mt-2 max-w-52 text-caption text-foreground-muted">
-          Pick the panels, battery and grid meters in this card&apos;s settings.
+          {t(
+            'dashboard.energy.energyCard.pickThePanelsBattery',
+            "Pick the panels, battery and grid meters in this card's settings.",
+          )}
         </p>
       </CardFrame>
     );
@@ -189,13 +225,13 @@ export function EnergyCard(props: EnergyCardProps) {
     today === undefined
       ? model.canReadDay
         ? 'Reading…'
-        : 'Needs access to history'
+        : t('dashboard.energy.energyCard.needsAccessToHistory', 'Needs access to history')
       : words(today);
   const dayLines = (
     <>
       <DayLine
         icon="chart-line"
-        title="Energy"
+        title={t('dashboard.energy.energyCard.energy', 'Energy')}
         wraps={!isLarge}
         detail={dayDetail((day) =>
           day.generated === null
@@ -206,7 +242,7 @@ export function EnergyCard(props: EnergyCardProps) {
       {model.hasSolar ? (
         <DayLine
           icon="leaf"
-          title="Impact"
+          title={t('dashboard.energy.energyCard.impact', 'Impact')}
           wraps={!isLarge}
           detail={dayDetail((day) => `${String(day.selfPowered ?? 0)}% self-powered today`)}
         />
@@ -239,7 +275,7 @@ export function EnergyCard(props: EnergyCardProps) {
              tokens chosen at render. */
           style={color === undefined ? undefined : { color }}
         >
-          {HEADLINES[model.headline]}
+          {text(HEADLINES[model.headline])}
         </span>
         <span className="truncate text-caption text-foreground-subtle">{title}</span>
       </div>

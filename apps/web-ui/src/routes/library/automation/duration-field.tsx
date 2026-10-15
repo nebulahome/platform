@@ -6,6 +6,7 @@
  * the value stays what it was.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { TextField } from '@nebulahome/ui';
 
@@ -38,6 +39,8 @@ export type DurationFieldProps = {
  * @returns The field.
  */
 export function DurationField(props: DurationFieldProps) {
+  const { t } = useTranslation();
+
   const { label, value, onChange, isOptional = false, maxMs, hint } = props;
   const [typed, setTyped] = useState<string | null>(null);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -62,13 +65,17 @@ export function DurationField(props: DurationFieldProps) {
     const parsed = parseDuration(text);
 
     if (parsed === null) {
-      setError('Write it as 30 s, 2 min or 1 h 30 min.');
+      setError(t('automation.durationField.writeItAs30', 'Write it as 30 s, 2 min or 1 h 30 min.'));
 
       return;
     }
 
     if (maxMs !== undefined && parsed > maxMs) {
-      setError(`At most ${formatDuration(maxMs)}.`);
+      setError(
+        t('automation.durationField.atMostMaxms', 'At most {{maxMs}}.', {
+          maxMs: formatDuration(maxMs),
+        }),
+      );
 
       return;
     }
@@ -83,7 +90,7 @@ export function DurationField(props: DurationFieldProps) {
       size="compact"
       className="font-mono"
       value={typed ?? (value === null ? '' : formatDuration(value))}
-      placeholder={isOptional ? '0 s' : undefined}
+      placeholder={isOptional ? t('automation.durationField.n0S', '0 s') : undefined}
       error={error}
       hint={hint}
       onChange={(event) => {

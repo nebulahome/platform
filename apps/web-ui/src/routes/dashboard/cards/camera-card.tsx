@@ -8,6 +8,7 @@
  * name and the play button. Whether it is streaming is said in words on the frame.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { AppIcon, Badge, Button } from '@nebulahome/ui';
 
@@ -24,6 +25,8 @@ import { useCameraStill } from '@/routes/dashboard/cards/use-camera-still';
  * @returns The card.
  */
 export function CameraCard(props: { readonly model: EntityCardModel }) {
+  const { t } = useTranslation();
+
   const { model } = props;
   const { entity, state, title, subtitle } = model;
   const camera = state.camera;
@@ -49,13 +52,19 @@ export function CameraCard(props: { readonly model: EntityCardModel }) {
         <div className="absolute inset-0 flex -translate-y-3 flex-col items-center justify-center gap-3 text-foreground-subtle">
           <AppIcon id="camera" size={44} />
           <span className="text-caption">
-            {isAvailable ? 'Press play to watch' : 'Not streaming'}
+            {isAvailable
+              ? t('dashboard.cards.cameraCard.pressPlayToWatch', 'Press play to watch')
+              : t('dashboard.cards.cameraCard.notStreaming', 'Not streaming')}
           </span>
         </div>
       ) : (
         <img
           src={still}
-          alt={`The latest still from ${title}`}
+          alt={t(
+            'dashboard.cards.cameraCard.latestStillFromTitle',
+            'The latest still from {{title}}',
+            { title },
+          )}
           className="absolute inset-0 size-full object-cover"
         />
       )}
@@ -65,11 +74,15 @@ export function CameraCard(props: { readonly model: EntityCardModel }) {
       <div className="absolute top-3.5 right-3.5 flex gap-2">
         {camera?.isRecording === true ? (
           <Badge tone="danger" size="small" icon={<AppIcon id="circle-dot" size={11} />}>
-            Recording
+            {t('dashboard.cards.cameraCard.recording', 'Recording')}
           </Badge>
         ) : null}
         <Badge tone={isPlaying ? 'success' : 'neutral'} size="small">
-          {isPlaying ? 'Live' : isAvailable ? 'Streaming' : 'No stream'}
+          {isPlaying
+            ? t('dashboard.cards.cameraCard.live', 'Live')
+            : isAvailable
+              ? t('dashboard.cards.cameraCard.streaming', 'Streaming')
+              : t('dashboard.cards.cameraCard.noStream', 'No stream')}
         </Badge>
       </div>
 
@@ -84,13 +97,21 @@ export function CameraCard(props: { readonly model: EntityCardModel }) {
           <Button
             variant="ghost"
             size="compact"
-            aria-label={isPlaying ? `Stop watching ${title}` : `Watch ${title} live`}
+            aria-label={
+              isPlaying
+                ? t('dashboard.cards.cameraCard.stopWatchingTitle', 'Stop watching {{title}}', {
+                    title,
+                  })
+                : t('dashboard.cards.cameraCard.watchTitleLive', 'Watch {{title}} live', { title })
+            }
             onClick={() => {
               setPlaying(!isPlaying);
             }}
           >
             <AppIcon id={isPlaying ? 'square' : 'play'} size={14} />
-            {isPlaying ? 'Stop' : 'Live'}
+            {isPlaying
+              ? t('dashboard.cards.cameraCard.stop', 'Stop')
+              : t('dashboard.cards.cameraCard.live', 'Live')}
           </Button>
         ) : null}
       </div>

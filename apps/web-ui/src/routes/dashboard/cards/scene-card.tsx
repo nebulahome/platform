@@ -8,6 +8,7 @@
  */
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { DashboardSceneCard, SceneApplyResult } from '@nebulahome/contracts';
 import { AppIcon, cn } from '@nebulahome/ui';
@@ -49,6 +50,8 @@ function outcomeOf(result: SceneApplyResult): string {
  * @returns The card.
  */
 export function SceneCard(props: SceneCardProps) {
+  const { t } = useTranslation();
+
   const { card, data } = props;
   const scene = data.sceneById.get(card.sceneId);
   const [outcome, setOutcome] = useState<{ text: string; isProblem: boolean } | null>(null);
@@ -95,18 +98,26 @@ export function SceneCard(props: SceneCardProps) {
     };
   }, [outcome]);
 
-  const title = card.title ?? scene?.name ?? 'Scene not found';
+  const title =
+    card.title ?? scene?.name ?? t('dashboard.cards.sceneCard.sceneNotFound', 'Scene not found');
   const iconId = card.icon ?? scene?.icon ?? null;
   const disabled = scene === undefined || !data.canApplyScenes || apply.isPending;
   const note =
     outcome?.text ??
     (apply.isPending
-      ? 'Applying…'
+      ? t('dashboard.cards.sceneCard.applying', 'Applying…')
       : scene === undefined
-        ? 'It was removed, or it is not one you may see.'
+        ? t(
+            'dashboard.cards.sceneCard.itWasRemovedOr',
+            'It was removed, or it is not one you may see.',
+          )
         : data.canApplyScenes
-          ? `${String(scene.members.length)} ${scene.members.length === 1 ? 'thing' : 'things'}`
-          : 'You may look, not apply.');
+          ? t('dashboard.cards.sceneCard.things', {
+              count: scene.members.length,
+              defaultValue_one: '{{count}} thing',
+              defaultValue_other: '{{count}} things',
+            })
+          : t('dashboard.cards.sceneCard.youMayLookNot', 'You may look, not apply.'));
 
   return (
     <CardFrame label={title} tone={scene === undefined ? 'faint' : 'plain'} className="p-0">

@@ -9,6 +9,7 @@
 import type { CapabilityName, EntityView, PackageCardSize } from '@nebulahome/contracts';
 
 import type { GridSize } from '@/dashboard/grid-engine';
+import { translate } from '@/i18n/messages';
 import { hasCapability } from '@/library/entity-control';
 
 /** A size a card is drawn for. */
@@ -108,12 +109,12 @@ export const CONTAINER_WIDTHS: readonly number[] = [1, 2, 3, 4];
 export function sizeName(size: CardSize): string {
   const key = `${String(size.w)}x${String(size.h)}`;
   const names: Readonly<Record<string, string>> = {
-    '1x1': 'Tile',
-    '2x1': 'Strip',
-    '1x2': 'Card',
-    '2x2': 'Square',
-    '2x3': 'Large',
-    '2x4': 'Tall',
+    '1x1': translate('dashboard.cardSizes.tile', 'Tile'),
+    '2x1': translate('dashboard.cardSizes.strip', 'Strip'),
+    '1x2': translate('dashboard.cardSizes.card', 'Card'),
+    '2x2': translate('dashboard.cardSizes.square', 'Square'),
+    '2x3': translate('dashboard.cardSizes.large', 'Large'),
+    '2x4': translate('dashboard.cardSizes.tall', 'Tall'),
   };
 
   return names[key] ?? key.replace('x', '×');

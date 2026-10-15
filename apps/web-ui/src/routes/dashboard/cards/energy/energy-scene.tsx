@@ -13,6 +13,8 @@
  * where the labels leave room, and past the card's sides by a little, as the picture's does. What
  * is cut is never a label, and never the part a label reads.
  */
+import { useTranslation } from 'react-i18next';
+
 import type { HouseStyle } from '@nebulahome/contracts';
 
 import { formatPower, mainSource, type PowerFlows } from '@/lib/energy-flow';
@@ -585,6 +587,8 @@ function powerText(watts: number | null): string {
  * @returns The drawing, filling the box it is given.
  */
 export function EnergyScene(props: EnergySceneProps) {
+  const { t } = useTranslation();
+
   const { meters, houseStyle, hasSolar, hasBattery, flows, label } = props;
   const { ref, size } = useElementSize<HTMLDivElement>();
   const width = size.width > 0 ? size.width : FALLBACK_SIZE.width;
@@ -611,7 +615,7 @@ export function EnergyScene(props: EnergySceneProps) {
                 target: placed(at, targets.solar),
                 side: geometry.targets.solarSide,
                 value: powerText(meters.solar),
-                caption: 'Solar',
+                caption: t('dashboard.energy.energyScene.solar', 'Solar'),
               },
             ]
           : []),
@@ -635,8 +639,12 @@ export function EnergyScene(props: EnergySceneProps) {
                 value: powerText(meters.battery),
                 caption:
                   meters.batteryLevel === null
-                    ? 'Battery'
-                    : `Battery · ${String(Math.round(meters.batteryLevel))}%`,
+                    ? t('dashboard.energy.energyScene.battery', 'Battery')
+                    : t(
+                        'dashboard.energy.energyScene.batteryBatterylevel',
+                        'Battery · {{batteryLevel}}%',
+                        { batteryLevel: String(Math.round(meters.batteryLevel)) },
+                      ),
               },
             ]
           : []),
@@ -646,7 +654,7 @@ export function EnergyScene(props: EnergySceneProps) {
                 target: placed(at, targets.grid),
                 side: 'right' as const,
                 value: powerText(meters.grid),
-                caption: 'Grid',
+                caption: t('dashboard.energy.energyScene.grid', 'Grid'),
               },
             ]
           : []),

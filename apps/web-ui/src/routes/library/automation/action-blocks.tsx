@@ -9,6 +9,7 @@
  * reads at a glance.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { AutomationAction } from '@nebulahome/contracts';
 import {
@@ -22,6 +23,7 @@ import {
   TextField,
 } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
 import type { DragLook } from '@/lib/block-drag';
 import { carryBlockId } from '@/lib/block-ids';
 import { actionSummary, type BlockNames } from '@/lib/block-summary';
@@ -93,7 +95,15 @@ export type ActionListProps = {
  * @returns The list.
  */
 export function ActionList(props: ActionListProps) {
-  const { items, path, onChange, addLabel = 'Add a block', isNested = false } = props;
+  const { t } = useTranslation();
+
+  const {
+    items,
+    path,
+    onChange,
+    addLabel = t('automation.actionBlocks.addABlock', 'Add a block'),
+    isNested = false,
+  } = props;
   const house = useEditorHouse();
 
   return (
@@ -121,8 +131,11 @@ export function ActionList(props: ActionListProps) {
         <AddBlock
           label={addLabel}
           isWide={isNested}
-          pickerTitle="Add a block"
-          pickerDescription="Something to do, or a block that holds other blocks."
+          pickerTitle={t('automation.actionBlocks.addABlock', 'Add a block')}
+          pickerDescription={t(
+            'automation.actionBlocks.somethingToDoOr',
+            'Something to do, or a block that holds other blocks.',
+          )}
           groups={ACTION_CHOICE_GROUPS}
           onPick={(type) => {
             onChange([...items, blankAction(type)]);
@@ -146,14 +159,19 @@ export type ActionLaneProps = {
  * @returns The lane.
  */
 export function ActionLane(props: ActionLaneProps) {
+  const { t } = useTranslation();
+
   const { items, onChange } = props;
 
   return (
     <BlockLaneSection
       lane="then"
       glyph={<AppIcon id="play" size={20} />}
-      title="Then"
-      note="What it does, in order. Control blocks nest."
+      title={t('automation.actionBlocks.then', 'Then')}
+      note={t(
+        'automation.actionBlocks.whatItDoesIn',
+        'What it does, in order. Control blocks nest.',
+      )}
     >
       <ActionList items={items} path="then" onChange={onChange} />
     </BlockLaneSection>
@@ -217,6 +235,8 @@ type ActionBlockProps = {
  * @returns The block.
  */
 function ActionBlock(props: ActionBlockProps) {
+  const { t } = useTranslation();
+
   const { action, id, path, grip, isNested, onChange, onRemove } = props;
   const house = useEditorHouse();
   const ui = useBlockUi(id, isIncomplete(action));
@@ -230,9 +250,9 @@ function ActionBlock(props: ActionBlockProps) {
     untestable:
       unavailableReason('action', action.type) ??
       (isForEach
-        ? 'For each is not available yet'
+        ? t('automation.actionBlocks.forEachIsNot', 'For each is not available yet')
         : action.type === 'stop'
-          ? 'Stop has nothing to do on its own'
+          ? t('automation.actionBlocks.stopHasNothingTo', 'Stop has nothing to do on its own')
           : undefined),
   });
   const isGone =
@@ -300,7 +320,11 @@ function actionContent(
           <ConditionsField
             items={action.conditions}
             path={`${path}.conditions`}
-            note={action.conditions.length === 0 ? 'None: Then always runs.' : undefined}
+            note={
+              action.conditions.length === 0
+                ? translate('automation.actionBlocks.noneThenAlwaysRuns', 'None: Then always runs.')
+                : undefined
+            }
             onChange={(conditions) => {
               onChange({ ...action, conditions: [...conditions] });
             }}
@@ -308,7 +332,7 @@ function actionContent(
         ),
         branches: (
           <>
-            <BlockBranch label="Then">
+            <BlockBranch label={translate('automation.actionBlocks.then', 'Then')}>
               <ActionList
                 isNested
                 items={action.then}
@@ -324,11 +348,11 @@ function actionContent(
                   onChange({ ...action, else: [] });
                 }}
               >
-                Add else
+                {translate('automation.actionBlocks.addElse', 'Add else')}
               </BlockAdd>
             ) : (
               <BlockBranch
-                label="Else"
+                label={translate('automation.actionBlocks.else', 'Else')}
                 aside={
                   <Button
                     variant="bare"
@@ -337,13 +361,13 @@ function actionContent(
                       onChange(withoutKey(action, 'else'));
                     }}
                   >
-                    Remove else
+                    {translate('automation.actionBlocks.removeElse', 'Remove else')}
                   </Button>
                 }
               >
                 <ActionList
                   isNested
-                  addLabel="Add to else"
+                  addLabel={translate('automation.actionBlocks.addToElse', 'Add to else')}
                   items={action.else}
                   path={`${path}.else`}
                   onChange={(elseActions) => {
@@ -361,7 +385,7 @@ function actionContent(
         fields: (
           <div className="grid gap-3 sm:grid-cols-2">
             <EntityField
-              label="Entity"
+              label={translate('automation.actionBlocks.entity', 'Entity')}
               value={action.entityId}
               onChange={(entityId) => {
                 onChange({ ...action, entityId: partialEntityId(entityId) });
@@ -374,11 +398,16 @@ function actionContent(
             {action.cases.map((branch, index) => (
               <BlockBranch
                 key={`case-${String(index)}`}
-                label={`When "${branch.value === '' ? '…' : branch.value}"`}
+                label={translate('automation.actionBlocks.whenValue', 'When "{{value}}"', {
+                  value: branch.value === '' ? '…' : branch.value,
+                })}
                 aside={
                   action.cases.length <= 1 ? undefined : (
                     <IconButton
-                      label="Remove this case"
+                      label={translate(
+                        'automation.actionBlocks.removeThisCase',
+                        'Remove this case',
+                      )}
                       size="small"
                       variant="danger"
                       onClick={() => {
@@ -392,7 +421,7 @@ function actionContent(
               >
                 <div className="max-w-xs">
                   <StateField
-                    label="When it is"
+                    label={translate('automation.actionBlocks.whenItIs', 'When it is')}
                     entityId={action.entityId}
                     value={branch.value}
                     onChange={(value) => {
@@ -421,12 +450,12 @@ function actionContent(
                 onChange({ ...action, cases: [...action.cases, { value: '', actions: [] }] });
               }}
             >
-              Add a case
+              {translate('automation.actionBlocks.addACase', 'Add a case')}
             </BlockAdd>
-            <BlockBranch label="Otherwise">
+            <BlockBranch label={translate('automation.actionBlocks.otherwise', 'Otherwise')}>
               <ActionList
                 isNested
-                addLabel="Add to otherwise"
+                addLabel={translate('automation.actionBlocks.addToOtherwise', 'Add to otherwise')}
                 items={action.default ?? []}
                 path={`${path}.default`}
                 onChange={(actions) => {
@@ -447,13 +476,15 @@ function actionContent(
         fields:
           action.over.kind === 'each' ? (
             <p className="text-ui-sm text-warning">
-              For each is not available yet: a run that reaches this block records it as failed.
-              Repeat a number of times instead.
+              {translate(
+                'automation.actionBlocks.forEachIsNot2',
+                'For each is not available yet: a run that reaches this block records it as failed. Repeat a number of times instead.',
+              )}
             </p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-3">
               <TextField
-                label="Times"
+                label={translate('automation.actionBlocks.times', 'Times')}
                 size="compact"
                 type="number"
                 min={1}
@@ -472,7 +503,7 @@ function actionContent(
             </div>
           ),
         branches: (
-          <BlockBranch label="Each time">
+          <BlockBranch label={translate('automation.actionBlocks.eachTime', 'Each time')}>
             <ActionList
               isNested
               items={action.actions}
@@ -494,8 +525,14 @@ function actionContent(
             path={`${path}.conditions`}
             note={
               action.type === 'while'
-                ? 'Checks first, runs while they all hold, and checks again each time round.'
-                : 'Runs once before it checks, then again while they all hold.'
+                ? translate(
+                    'automation.actionBlocks.checksFirstRunsWhile',
+                    'Checks first, runs while they all hold, and checks again each time round.',
+                  )
+                : translate(
+                    'automation.actionBlocks.runsOnceBeforeIt',
+                    'Runs once before it checks, then again while they all hold.',
+                  )
             }
             onChange={(conditions) => {
               onChange({ ...action, conditions: [...conditions] });
@@ -503,7 +540,13 @@ function actionContent(
           />
         ),
         branches: (
-          <BlockBranch label={action.type === 'while' ? 'Repeat' : 'Do'}>
+          <BlockBranch
+            label={
+              action.type === 'while'
+                ? translate('automation.actionBlocks.repeat', 'Repeat')
+                : translate('automation.actionBlocks.do', 'Do')
+            }
+          >
             <ActionList
               isNested
               items={action.actions}
@@ -519,7 +562,7 @@ function actionContent(
     case 'sequence': {
       return {
         branches: (
-          <BlockBranch label="In order">
+          <BlockBranch label={translate('automation.actionBlocks.inOrder', 'In order')}>
             <ActionList
               isNested
               items={action.actions}
@@ -536,7 +579,10 @@ function actionContent(
       return {
         fields: (
           <p className="text-caption text-foreground-subtle">
-            The branches run side by side; the run carries on when every branch has finished.
+            {translate(
+              'automation.actionBlocks.branchesRunSideBy',
+              'The branches run side by side; the run carries on when every branch has finished.',
+            )}
           </p>
         ),
         branches: (
@@ -544,11 +590,17 @@ function actionContent(
             {action.branches.map((branch, index) => (
               <BlockBranch
                 key={`branch-${String(index)}`}
-                label={`Branch ${String(index + 1)}`}
+                label={translate('automation.actionBlocks.branchValue', 'Branch {{value}}', {
+                  value: String(index + 1),
+                })}
                 aside={
                   action.branches.length > 1 ? (
                     <IconButton
-                      label={`Remove branch ${String(index + 1)}`}
+                      label={translate(
+                        'automation.actionBlocks.removeBranchValue',
+                        'Remove branch {{value}}',
+                        { value: String(index + 1) },
+                      )}
                       size="small"
                       variant="danger"
                       onClick={() => {
@@ -578,7 +630,7 @@ function actionContent(
                 onChange({ ...action, branches: [...action.branches, []] });
               }}
             >
-              Add a branch
+              {translate('automation.actionBlocks.addABranch', 'Add a branch')}
             </BlockAdd>
           </>
         ),
@@ -588,7 +640,10 @@ function actionContent(
       return {
         fields: (
           <p className="text-ui-sm text-foreground-subtle">
-            Nothing after this block runs. The automation is not turned off.
+            {translate(
+              'automation.actionBlocks.nothingAfterThisBlock',
+              'Nothing after this block runs. The automation is not turned off.',
+            )}
           </p>
         ),
       };
@@ -600,16 +655,22 @@ function actionContent(
             <ConditionsField
               items={action.conditions}
               path={`${path}.conditions`}
-              note="The run waits here until they all hold."
+              note={translate(
+                'automation.actionBlocks.runWaitsHereUntil',
+                'The run waits here until they all hold.',
+              )}
               onChange={(conditions) => {
                 onChange({ ...action, conditions: [...conditions] });
               }}
             />
             <div className="grid gap-3 sm:grid-cols-2">
               <DurationField
-                label="Give up after"
+                label={translate('automation.actionBlocks.giveUpAfter', 'Give up after')}
                 maxMs={WEEK_MS}
-                hint="Then the run carries on."
+                hint={translate(
+                  'automation.actionBlocks.thenTheRunCarries',
+                  'Then the run carries on.',
+                )}
                 value={action.timeoutMs}
                 onChange={(timeoutMs) => {
                   onChange({ ...action, timeoutMs: timeoutMs ?? 0 });
@@ -632,9 +693,12 @@ function actionContent(
             />
             <div className="grid gap-3 sm:grid-cols-2">
               <DurationField
-                label="Give up after"
+                label={translate('automation.actionBlocks.giveUpAfter', 'Give up after')}
                 maxMs={WEEK_MS}
-                hint="Then the run carries on."
+                hint={translate(
+                  'automation.actionBlocks.thenTheRunCarries',
+                  'Then the run carries on.',
+                )}
                 value={action.timeoutMs}
                 onChange={(timeoutMs) => {
                   onChange({ ...action, timeoutMs: timeoutMs ?? 0 });

@@ -14,6 +14,7 @@
  * dismissed, and this one would take that for the person giving up on adding a card.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { DashboardCard, SceneView } from '@nebulahome/contracts';
 import { AppIcon, Button, CatalogueIcon, Modal, type UiIconId } from '@nebulahome/ui';
@@ -26,6 +27,7 @@ import {
   packageCardFor,
   sceneCardFor,
 } from '@/dashboard/new-cards';
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import { useInstalledPackages } from '@/packages/use-packages';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { EntityPicker } from '@/routes/library/entity-picker/entity-picker';
@@ -48,8 +50,8 @@ export type AddCardDialogProps = {
 /** One kind of card on offer. */
 type Choice = {
   readonly key: 'entity' | 'scene' | 'clock' | 'energy' | 'package' | 'group';
-  readonly label: string;
-  readonly summary: string;
+  readonly label: Message;
+  readonly summary: Message;
   readonly icon: UiIconId;
 };
 
@@ -57,28 +59,53 @@ type Choice = {
 const CHOICES: readonly Choice[] = [
   {
     key: 'entity',
-    label: 'Entity',
-    summary: 'A light, a sensor, a lock: drawn from what it can do.',
+    label: defineMessage('dashboard.addCardDialog.entity', 'Entity'),
+    summary: defineMessage(
+      'dashboard.addCardDialog.lightASensorA',
+      'A light, a sensor, a lock: drawn from what it can do.',
+    ),
     icon: 'lightbulb',
   },
-  { key: 'scene', label: 'Scene', summary: 'A button that applies a scene.', icon: 'play' },
-  { key: 'clock', label: 'Clock', summary: 'The time and the date.', icon: 'clock' },
+  {
+    key: 'scene',
+    label: defineMessage('dashboard.addCardDialog.scene', 'Scene'),
+    summary: defineMessage(
+      'dashboard.addCardDialog.buttonThatAppliesA',
+      'A button that applies a scene.',
+    ),
+    icon: 'play',
+  },
+  {
+    key: 'clock',
+    label: defineMessage('dashboard.addCardDialog.clock', 'Clock'),
+    summary: defineMessage('dashboard.addCardDialog.timeAndTheDate', 'The time and the date.'),
+    icon: 'clock',
+  },
   {
     key: 'energy',
-    label: 'Energy',
-    summary: 'The house, its panels, battery and grid, and the power between them.',
+    label: defineMessage('dashboard.addCardDialog.energy', 'Energy'),
+    summary: defineMessage(
+      'dashboard.addCardDialog.houseItsPanelsBattery',
+      'The house, its panels, battery and grid, and the power between them.',
+    ),
     icon: 'zap',
   },
   {
     key: 'package',
-    label: 'From a package',
-    summary: 'A card an installed package draws: a broker, a recorder, a player.',
+    label: defineMessage('dashboard.addCardDialog.fromAPackage', 'From a package'),
+    summary: defineMessage(
+      'dashboard.addCardDialog.cardAnInstalledPackage',
+      'A card an installed package draws: a broker, a recorder, a player.',
+    ),
     icon: 'package',
   },
   {
     key: 'group',
-    label: 'Group',
-    summary: 'A titled box you drag other cards into.',
+    label: defineMessage('dashboard.addCardDialog.group', 'Group'),
+    summary: defineMessage(
+      'dashboard.addCardDialog.titledBoxYouDrag',
+      'A titled box you drag other cards into.',
+    ),
     icon: 'layout-grid',
   },
 ];
@@ -90,6 +117,8 @@ const CHOICES: readonly Choice[] = [
  * @returns The dialog.
  */
 export function AddCardDialog(props: AddCardDialogProps) {
+  const { t } = useTranslation();
+
   const { isOpen, onClose, groupName, scenes, onAdd } = props;
   const [step, setStep] = useState<'kind' | 'scene' | 'package'>('kind');
   const [isPicking, setPicking] = useState(false);
@@ -122,13 +151,23 @@ export function AddCardDialog(props: AddCardDialogProps) {
         isOpen={isOpen}
         onClose={close}
         title={
-          step === 'scene' ? 'Which scene?' : step === 'package' ? 'Which card?' : 'Add a card'
+          step === 'scene'
+            ? t('dashboard.addCardDialog.whichScene', 'Which scene?')
+            : step === 'package'
+              ? t('dashboard.addCardDialog.whichCard', 'Which card?')
+              : t('dashboard.addCardDialog.addACard', 'Add a card')
         }
-        description={groupName === null ? 'It goes on the page.' : `It goes into ${groupName}.`}
+        description={
+          groupName === null
+            ? t('dashboard.addCardDialog.itGoesOnThe', 'It goes on the page.')
+            : t('dashboard.addCardDialog.itGoesIntoGroupname', 'It goes into {{groupName}}.', {
+                groupName,
+              })
+        }
         footer={
           step === 'kind' ? (
             <Button variant="ghost" onClick={close}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
           ) : (
             <Button
@@ -138,7 +177,7 @@ export function AddCardDialog(props: AddCardDialogProps) {
                 setStep('kind');
               }}
             >
-              Back
+              {t('dashboard.addCardDialog.back', 'Back')}
             </Button>
           )
         }
@@ -166,7 +205,7 @@ export function AddCardDialog(props: AddCardDialogProps) {
                     } else if (choice.key === 'package') {
                       setStep('package');
                     } else {
-                      add([containerCard('New group')]);
+                      add([containerCard(t('dashboard.addCardDialog.newGroup', 'New group'))]);
                     }
                   }}
                 >
@@ -177,8 +216,10 @@ export function AddCardDialog(props: AddCardDialogProps) {
                     <AppIcon id={choice.icon} size={17} />
                   </span>
                   <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="text-title font-medium">{choice.label}</span>
-                    <span className="text-caption text-foreground-subtle">{choice.summary}</span>
+                    <span className="text-title font-medium">{text(choice.label)}</span>
+                    <span className="text-caption text-foreground-subtle">
+                      {text(choice.summary)}
+                    </span>
                   </span>
                 </button>
               </li>
@@ -224,7 +265,10 @@ export function AddCardDialog(props: AddCardDialogProps) {
           </ul>
         ) : scenes.length === 0 ? (
           <p className="text-ui text-foreground-muted">
-            There are no scenes to add. Make one on the Scenes page first.
+            {t(
+              'dashboard.addCardDialog.thereAreNoScenes',
+              'There are no scenes to add. Make one on the Scenes page first.',
+            )}
           </p>
         ) : (
           <ul className="flex max-h-96 flex-col gap-1.5 overflow-y-auto">
@@ -239,7 +283,11 @@ export function AddCardDialog(props: AddCardDialogProps) {
                 >
                   <span className="truncate text-ui font-medium">{scene.name}</span>
                   <span className="shrink-0 text-caption text-foreground-subtle tabular">
-                    {scene.members.length} {scene.members.length === 1 ? 'thing' : 'things'}
+                    {t('dashboard.cards.sceneCard.things', {
+                      count: scene.members.length,
+                      defaultValue_one: '{{count}} thing',
+                      defaultValue_other: '{{count}} things',
+                    })}
                   </span>
                 </button>
               </li>
@@ -251,7 +299,7 @@ export function AddCardDialog(props: AddCardDialogProps) {
       <EntityPicker
         isOpen={isOpen && isPicking}
         isMultiple
-        title="Which ones?"
+        title={t('dashboard.addCardDialog.whichOnes', 'Which ones?')}
         onClose={() => {
           setPicking(false);
         }}

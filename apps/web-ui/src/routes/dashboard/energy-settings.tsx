@@ -9,6 +9,8 @@
  * Each picker offers only what its meter can be - a power meter for the flows, a battery level for
  * the charge - as {@link ENERGY_CARD_REQUIREMENTS} says.
  */
+import { useTranslation } from 'react-i18next';
+
 import {
   ENERGY_CARD_REQUIREMENTS,
   HOUSE_STYLES,
@@ -20,34 +22,64 @@ import {
 } from '@nebulahome/contracts';
 import { SelectField, Switch, TextField } from '@nebulahome/ui';
 
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import { EntityField } from '@/routes/library/entity-field';
 
 /** The fields that name a meter, what each is called, and the hint under it. */
 const METER_FIELDS = [
   {
     field: 'solarPower',
-    label: 'Solar panels',
-    hint: 'What the panels produce now: a power meter, in W or kW.',
+    label: defineMessage('dashboard.energySettings.solarPanels', 'Solar panels'),
+    hint: defineMessage(
+      'dashboard.energySettings.whatThePanelsProduce',
+      'What the panels produce now: a power meter, in W or kW.',
+    ),
   },
   {
     field: 'batteryPower',
-    label: 'Battery power',
-    hint: 'What goes in or out of the battery now.',
+    label: defineMessage('dashboard.energySettings.batteryPower', 'Battery power'),
+    hint: defineMessage(
+      'dashboard.energySettings.whatGoesInOr',
+      'What goes in or out of the battery now.',
+    ),
   },
-  { field: 'batteryLevel', label: 'Battery level', hint: 'How full it is, in percent.' },
-  { field: 'gridPower', label: 'Grid', hint: 'What the house buys from or sells to the grid.' },
+  {
+    field: 'batteryLevel',
+    label: defineMessage('dashboard.energySettings.batteryLevel', 'Battery level'),
+    hint: defineMessage('dashboard.energySettings.howFullItIs', 'How full it is, in percent.'),
+  },
+  {
+    field: 'gridPower',
+    label: defineMessage('dashboard.energySettings.grid', 'Grid'),
+    hint: defineMessage(
+      'dashboard.energySettings.whatTheHouseBuys',
+      'What the house buys from or sells to the grid.',
+    ),
+  },
   {
     field: 'homePower',
-    label: 'House',
-    hint: 'What the house uses. Left empty, it is worked out from the others.',
+    label: defineMessage('dashboard.energySettings.house', 'House'),
+    hint: defineMessage(
+      'dashboard.energySettings.whatTheHouseUses',
+      'What the house uses. Left empty, it is worked out from the others.',
+    ),
   },
 ] as const;
 
 /** What each house the card can draw is called. */
-const HOUSE_STYLE_LABELS: Readonly<Record<HouseStyle, string>> = {
-  european: 'European - a gabled house',
-  american: 'American - a garage wing in front of the house',
-  arabic: 'Arabic - flat roof and terrace',
+const HOUSE_STYLE_LABELS: Readonly<Record<HouseStyle, Message>> = {
+  european: defineMessage(
+    'dashboard.energySettings.europeanAGabledHouse',
+    'European - a gabled house',
+  ),
+  american: defineMessage(
+    'dashboard.energySettings.americanAGarageWing',
+    'American - a garage wing in front of the house',
+  ),
+  arabic: defineMessage(
+    'dashboard.energySettings.arabicFlatRoofAnd',
+    'Arabic - flat roof and terrace',
+  ),
 };
 
 /**
@@ -87,6 +119,8 @@ export type EnergySettingsProps = {
  * @returns The fields.
  */
 export function EnergySettings(props: EnergySettingsProps) {
+  const { t } = useTranslation();
+
   const { card, onChange } = props;
 
   /**
@@ -101,11 +135,11 @@ export function EnergySettings(props: EnergySettingsProps) {
   return (
     <div className="flex flex-col gap-3.5">
       <TextField
-        label="Title"
+        label={t('dashboard.energySettings.title', 'Title')}
         size="compact"
         value={card.title ?? ''}
-        placeholder="Energy"
-        hint="Empty for Energy."
+        placeholder={t('dashboard.energySettings.energy', 'Energy')}
+        hint={t('dashboard.energySettings.emptyForEnergy', 'Empty for Energy.')}
         onChange={(event) => {
           const title = event.target.value;
 
@@ -114,11 +148,17 @@ export function EnergySettings(props: EnergySettingsProps) {
       />
 
       <SelectField
-        label="House"
+        label={t('dashboard.energySettings.house', 'House')}
         size="compact"
-        options={HOUSE_STYLES.map((style) => ({ value: style, label: HOUSE_STYLE_LABELS[style] }))}
+        options={HOUSE_STYLES.map((style) => ({
+          value: style,
+          label: text(HOUSE_STYLE_LABELS[style]),
+        }))}
         value={card.houseStyle}
-        hint="The house the card draws; the panels, battery and wires sit on it the same way."
+        hint={t(
+          'dashboard.energySettings.houseTheCardDraws',
+          'The house the card draws; the panels, battery and wires sit on it the same way.',
+        )}
         onChange={(value) => {
           set({ houseStyle: houseStyleOf(value) });
         }}
@@ -127,13 +167,17 @@ export function EnergySettings(props: EnergySettingsProps) {
       {METER_FIELDS.map((meter) => (
         <div key={meter.field} className="flex flex-col gap-2">
           <EntityField
-            label={meter.label}
+            label={text(meter.label)}
             size="compact"
             value={card[meter.field] ?? ''}
             accept={acceptsFor(meter.field)}
             isOptional
-            pickerTitle={`Which entity is the ${meter.label.toLowerCase()} meter?`}
-            hint={meter.hint}
+            pickerTitle={t(
+              'dashboard.energySettings.whichEntityIsThe',
+              'Which entity is the {{label}} meter?',
+              { label: text(meter.label).toLowerCase() },
+            )}
+            hint={text(meter.hint)}
             onChange={(value, entity) => {
               set({ [meter.field]: value === '' ? null : (entity?.entityId ?? null) });
             }}
@@ -141,9 +185,17 @@ export function EnergySettings(props: EnergySettingsProps) {
 
           {meter.field === 'batteryPower' && card.batteryPower !== null ? (
             <div className="flex items-center justify-between gap-3 text-ui">
-              <span aria-hidden="true">Discharging counts as positive</span>
+              <span aria-hidden="true">
+                {t(
+                  'dashboard.energySettings.dischargingCountsAsPositive',
+                  'Discharging counts as positive',
+                )}
+              </span>
               <Switch
-                label="Discharging counts as positive"
+                label={t(
+                  'dashboard.energySettings.dischargingCountsAsPositive',
+                  'Discharging counts as positive',
+                )}
                 isOn={card.isBatteryDischargePositive}
                 onChange={(isBatteryDischargePositive) => {
                   set({ isBatteryDischargePositive });
@@ -154,9 +206,14 @@ export function EnergySettings(props: EnergySettingsProps) {
 
           {meter.field === 'gridPower' && card.gridPower !== null ? (
             <div className="flex items-center justify-between gap-3 text-ui">
-              <span aria-hidden="true">Buying counts as positive</span>
+              <span aria-hidden="true">
+                {t('dashboard.energySettings.buyingCountsAsPositive', 'Buying counts as positive')}
+              </span>
               <Switch
-                label="Buying counts as positive"
+                label={t(
+                  'dashboard.energySettings.buyingCountsAsPositive',
+                  'Buying counts as positive',
+                )}
                 isOn={card.isGridImportPositive}
                 onChange={(isGridImportPositive) => {
                   set({ isGridImportPositive });

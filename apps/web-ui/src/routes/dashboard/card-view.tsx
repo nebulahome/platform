@@ -3,6 +3,7 @@
  */
 import type { DashboardCard, DashboardLeafCard } from '@nebulahome/contracts';
 
+import { translate } from '@/i18n/messages';
 import { ClockCard } from '@/routes/dashboard/cards/clock-card';
 import { EnergyCard } from '@/routes/dashboard/cards/energy/energy-card';
 import { EntityCard } from '@/routes/dashboard/cards/entity-card';
@@ -59,7 +60,7 @@ export function cardTitle(card: DashboardCard, data: DashboardData): string {
     case 'scene':
       return card.title ?? data.sceneById.get(card.sceneId)?.name ?? 'Scene';
     case 'clock':
-      return 'Clock';
+      return translate('dashboard.cardView.clock', 'Clock');
     case 'energy':
       return card.title ?? 'Energy';
     case 'package':

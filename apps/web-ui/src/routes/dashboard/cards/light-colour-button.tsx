@@ -6,6 +6,7 @@
  * dialog, and each colour chosen there is sent as it is chosen, so the lamp follows the finger.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { CapabilityState } from '@nebulahome/contracts';
 import { Modal, type WheelColour } from '@nebulahome/ui';
@@ -42,6 +43,8 @@ export type LightColourButtonProps = {
  * @returns The button.
  */
 export function LightColourButton(props: LightColourButtonProps) {
+  const { t } = useTranslation();
+
   const { name, state, colour, commander, disabled } = props;
   const [isOpen, setOpen] = useState(false);
 
@@ -49,8 +52,12 @@ export function LightColourButton(props: LightColourButtonProps) {
     <>
       <button
         type="button"
-        aria-label={`Choose the colour of ${name}`}
-        title="Colour"
+        aria-label={t(
+          'dashboard.cards.lightColourButton.chooseTheColourOf',
+          'Choose the colour of {{name}}',
+          { name },
+        )}
+        title={t('dashboard.cards.lightColourButton.colour', 'Colour')}
         disabled={disabled}
         className="press-scale size-7 shrink-0 rounded-full ring-1 ring-border-strong transition-shadow hover:ring-2 hover:ring-foreground-muted focus-visible:ring-3 focus-visible:ring-primary/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         /* eslint-disable-next-line react/forbid-dom-props -- the swatch is the light's colour
@@ -71,7 +78,7 @@ export function LightColourButton(props: LightColourButtonProps) {
           setOpen(false);
         }}
         size="small"
-        title={`Colour of ${name}`}
+        title={t('dashboard.cards.lightColourButton.colourOfName', 'Colour of {{name}}', { name })}
       >
         <ColourPicker
           value={colour.shown}

@@ -7,6 +7,8 @@
  * comparison; one with both, a dimmable light, says which with a switch. One block for what used
  * to be two, so the question is always the same: which entity, and what about it.
  */
+import { useTranslation } from 'react-i18next';
+
 import {
   COMPARISON_OPERATORS,
   type AutomationTrigger,
@@ -17,24 +19,31 @@ import {
 import { Segmented, SelectField, TextField } from '@nebulahome/ui';
 
 import { ChoiceChips } from '@/components/choice-chips';
+import { translate } from '@/i18n/messages';
 import { partialEntityId } from '@/library/automation-draft';
 import { DurationField } from '@/routes/library/automation/duration-field';
 import { useEditorHouse } from '@/routes/library/automation/editor-house';
 import { stateChoices } from '@/routes/library/automation/state-choices';
 import { EntityField } from '@/routes/library/entity-field';
 
-/** The comparisons, as a dropdown reads them. */
-export const OPERATOR_OPTIONS = COMPARISON_OPERATORS.map((value) => ({
-  value,
-  label: {
-    lt: 'below <',
-    lte: 'at most ≤',
-    gt: 'above >',
-    gte: 'at least ≥',
-    eq: 'equal =',
-    neq: 'not equal ≠',
-  }[value],
-}));
+/**
+ * The comparisons, as a dropdown reads them.
+ *
+ * @returns The choices, in the reader's language.
+ */
+export function operatorOptions() {
+  return COMPARISON_OPERATORS.map((value) => ({
+    value,
+    label: {
+      lt: translate('automation.entityMatchFields.below', 'below <'),
+      lte: translate('automation.entityMatchFields.atMost', 'at most ≤'),
+      gt: translate('automation.entityMatchFields.above', 'above >'),
+      gte: translate('automation.entityMatchFields.atLeast', 'at least ≥'),
+      eq: translate('automation.entityMatchFields.equal', 'equal ='),
+      neq: translate('automation.entityMatchFields.notEqual', 'not equal ≠'),
+    }[value],
+  }));
+}
 
 /** The longest a hold may be: the format's week. */
 const WEEK_MS = 604_800_000;
@@ -67,22 +76,30 @@ export function readingOf(entity: EntityView | undefined): EntityReading | null 
   }
 
   if (has('sensor_numeric') || has('number')) {
-    return { label: 'Value', unit: entity.unitOfMeasurement ?? null };
+    return {
+      label: translate('automation.entityMatchFields.value', 'Value'),
+      unit: entity.unitOfMeasurement ?? null,
+    };
   }
 
   if (has('level')) {
-    return { label: 'Level', unit: '%' };
+    return { label: translate('automation.entityMatchFields.level', 'Level'), unit: '%' };
   }
 
   if (has('cover')) {
-    return { label: 'Position', unit: '%' };
+    return { label: translate('automation.entityMatchFields.position', 'Position'), unit: '%' };
   }
 
   if (has('thermostat')) {
-    return { label: 'Temperature', unit: '°' };
+    return {
+      label: translate('automation.entityMatchFields.temperature', 'Temperature'),
+      unit: '°',
+    };
   }
 
-  return has('media_player') ? { label: 'Volume', unit: '%' } : null;
+  return has('media_player')
+    ? { label: translate('automation.entityMatchFields.volume', 'Volume'), unit: '%' }
+    : null;
 }
 
 /**
@@ -109,16 +126,20 @@ function KindSwitch(props: {
   readonly reading: EntityReading;
   readonly onChange: (kind: 'state' | 'numeric') => void;
 }) {
+  const { t } = useTranslation();
+
   const { kind, reading, onChange } = props;
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-caption font-medium text-foreground-muted">By its</span>
+      <span className="text-caption font-medium text-foreground-muted">
+        {t('automation.entityMatchFields.byIts', 'By its')}
+      </span>
       <Segmented
-        label="By its"
+        label={t('automation.entityMatchFields.byIts', 'By its')}
         size="compact"
         options={[
-          { value: 'state', label: 'State' },
+          { value: 'state', label: t('automation.entityMatchFields.state', 'State') },
           { value: 'numeric', label: reading.label },
         ]}
         value={kind}
@@ -144,21 +165,29 @@ function Comparison(props: {
   readonly reading: EntityReading | null;
   readonly onChange: (operator: ComparisonOperator, value: number) => void;
 }) {
+  const { t } = useTranslation();
+
   const { operator, value, reading, onChange } = props;
 
   return (
     <>
       <SelectField
-        label="Is"
+        label={t('automation.entityMatchFields.is', 'Is')}
         size="compact"
-        options={OPERATOR_OPTIONS}
+        options={operatorOptions()}
         value={operator}
         onChange={(next) => {
           onChange(next as ComparisonOperator, value);
         }}
       />
       <TextField
-        label={reading?.unit === null || reading === null ? 'Value' : `Value (${reading.unit})`}
+        label={
+          reading?.unit === null || reading === null
+            ? t('automation.entityMatchFields.value', 'Value')
+            : t('automation.entityMatchFields.valueUnit', 'Value ({{unit}})', {
+                unit: reading.unit,
+              })
+        }
         size="compact"
         type="number"
         className="font-mono"
@@ -191,6 +220,8 @@ export function StateField(props: {
   readonly onChange: (value: string) => void;
   readonly anyLabel?: string;
 }) {
+  const { t } = useTranslation();
+
   const { label, entityId, value, onChange, anyLabel } = props;
   const house = useEditorHouse();
   const choices = stateChoices(house.entityOf(entityId));
@@ -200,7 +231,7 @@ export function StateField(props: {
       <TextField
         label={label}
         size="compact"
-        placeholder={anyLabel ?? 'on'}
+        placeholder={anyLabel ?? t('automation.entityMatchFields.on', 'on')}
         value={value}
         onChange={(event) => {
           onChange(event.target.value);
@@ -217,7 +248,9 @@ export function StateField(props: {
       size="compact"
       options={[
         ...(anyLabel === undefined ? [] : [{ value: '', label: anyLabel }]),
-        ...(anyLabel === undefined && value === '' ? [{ value: '', label: 'Choose…' }] : []),
+        ...(anyLabel === undefined && value === ''
+          ? [{ value: '', label: t('automation.entityMatchFields.choose', 'Choose…') }]
+          : []),
         ...choices,
         // A state the entity no longer offers is still shown, so it is not lost by looking.
         ...(known || value === '' ? [] : [{ value, label: value }]),
@@ -242,6 +275,8 @@ export type EntityTriggerFieldsProps = {
  * @returns The fields.
  */
 export function EntityTriggerFields(props: EntityTriggerFieldsProps) {
+  const { t } = useTranslation();
+
   const { trigger, onChange } = props;
   const house = useEditorHouse();
   const entity = house.entityOf(trigger.entityId);
@@ -253,7 +288,7 @@ export function EntityTriggerFields(props: EntityTriggerFieldsProps) {
     <>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <EntityField
-          label="Entity"
+          label={t('automation.entityMatchFields.entity', 'Entity')}
           value={trigger.entityId}
           onChange={(entityId, next) => {
             onChange({
@@ -286,8 +321,8 @@ export function EntityTriggerFields(props: EntityTriggerFieldsProps) {
         {change.kind === 'state' ? (
           <>
             <StateField
-              label="From"
-              anyLabel="Any"
+              label={t('automation.entityMatchFields.from', 'From')}
+              anyLabel={t('common.any', 'Any')}
               entityId={trigger.entityId}
               value={change.from ?? ''}
               onChange={(from) => {
@@ -295,8 +330,8 @@ export function EntityTriggerFields(props: EntityTriggerFieldsProps) {
               }}
             />
             <StateField
-              label="To"
-              anyLabel="Any"
+              label={t('automation.entityMatchFields.to', 'To')}
+              anyLabel={t('common.any', 'Any')}
               entityId={trigger.entityId}
               value={change.to ?? ''}
               onChange={(to) => {
@@ -315,7 +350,7 @@ export function EntityTriggerFields(props: EntityTriggerFieldsProps) {
           />
         )}
         <DurationField
-          label="For at least"
+          label={t('automation.entityMatchFields.forAtLeast', 'For at least')}
           isOptional
           maxMs={WEEK_MS}
           value={trigger.forMs ?? null}
@@ -342,6 +377,8 @@ export type EntityConditionFieldsProps = {
  * @returns The fields.
  */
 export function EntityConditionFields(props: EntityConditionFieldsProps) {
+  const { t } = useTranslation();
+
   const { condition, onChange } = props;
   const house = useEditorHouse();
   const entity = house.entityOf(condition.entityId);
@@ -353,7 +390,7 @@ export function EntityConditionFields(props: EntityConditionFieldsProps) {
     <>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <EntityField
-          label="Entity"
+          label={t('automation.entityMatchFields.entity', 'Entity')}
           value={condition.entityId}
           onChange={(entityId, next) => {
             onChange({
@@ -396,10 +433,10 @@ export function EntityConditionFields(props: EntityConditionFieldsProps) {
       ) : choices === null ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField
-            label="Is"
+            label={t('automation.entityMatchFields.is', 'Is')}
             size="compact"
-            placeholder="on"
-            hint="Its state, as it reports it."
+            placeholder={t('automation.entityMatchFields.on', 'on')}
+            hint={t('automation.entityMatchFields.itsStateAsIt', 'Its state, as it reports it.')}
             value={match.states[0] ?? ''}
             onChange={(event) => {
               const state = event.target.value;
@@ -413,9 +450,11 @@ export function EntityConditionFields(props: EntityConditionFieldsProps) {
         </div>
       ) : (
         <div className="flex flex-col gap-1.5">
-          <span className="text-caption font-medium text-foreground-muted">Is one of</span>
+          <span className="text-caption font-medium text-foreground-muted">
+            {t('automation.entityMatchFields.isOneOf', 'Is one of')}
+          </span>
           <ChoiceChips
-            label="Is one of"
+            label={t('automation.entityMatchFields.isOneOf', 'Is one of')}
             options={[
               ...choices,
               // A state the entity no longer offers is still shown, so it is not lost by looking.

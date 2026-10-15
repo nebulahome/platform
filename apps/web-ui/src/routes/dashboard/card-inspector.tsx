@@ -12,6 +12,8 @@
  * floats over the page rather than taking a column beside the grid: a grid that narrowed whenever
  * a card was chosen would resize every other card on it.
  */
+import { useTranslation } from 'react-i18next';
+
 import {
   DASHBOARD_COLUMNS,
   DASHBOARD_HISTORY_RANGES,
@@ -38,6 +40,7 @@ import {
   resizeCard,
   updateCard,
 } from '@/dashboard/dashboard-layout';
+import { defineMessage, text } from '@/i18n/messages';
 import { cardTitle } from '@/routes/dashboard/card-view';
 import { EnergySettings } from '@/routes/dashboard/energy-settings';
 import { PackageCardSettings } from '@/routes/dashboard/package-card-settings';
@@ -71,12 +74,12 @@ export type CardInspectorProps = {
 
 /** The words for what a card is, in the inspector's heading. */
 const TYPE_NAMES = {
-  entity: 'Entity card',
-  scene: 'Scene card',
-  clock: 'Clock',
-  energy: 'Energy card',
-  package: 'Package card',
-  container: 'Group',
+  entity: defineMessage('dashboard.cardInspector.entityCard', 'Entity card'),
+  scene: defineMessage('dashboard.cardInspector.sceneCard', 'Scene card'),
+  clock: defineMessage('dashboard.cardInspector.clock', 'Clock'),
+  energy: defineMessage('dashboard.cardInspector.energyCard', 'Energy card'),
+  package: defineMessage('dashboard.cardInspector.packageCard', 'Package card'),
+  container: defineMessage('dashboard.cardInspector.group', 'Group'),
 } as const;
 
 /**
@@ -109,6 +112,8 @@ function entityPlaceholder(entityId: string, data: DashboardData): string {
  * @returns The inspector, or nothing when the card is no longer there.
  */
 export function CardInspector(props: CardInspectorProps) {
+  const { t } = useTranslation();
+
   const { layout, cardId, data, scenes, onChange, onRemove, onClose } = props;
   const found = findCard(layout, cardId);
 
@@ -142,15 +147,20 @@ export function CardInspector(props: CardInspectorProps) {
 
   return (
     <aside
-      aria-label={`${TYPE_NAMES[card.type]}: ${cardTitle(card, data)}`}
+      aria-label={`${text(TYPE_NAMES[card.type])}: ${cardTitle(card, data)}`}
       className="fixed top-22 right-6 z-30 flex max-h-[calc(100vh-7rem)] w-80 flex-col gap-4 overflow-y-auto rounded-dialog border border-border-strong bg-surface p-4.5 shadow-dialog"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-col gap-0.5">
-          <h2 className="text-title font-medium">{TYPE_NAMES[card.type]}</h2>
+          <h2 className="text-title font-medium">{text(TYPE_NAMES[card.type])}</h2>
           <p className="truncate text-caption text-foreground-subtle">{cardTitle(card, data)}</p>
         </div>
-        <IconButton variant="raised" size="small" label="Close the inspector" onClick={onClose}>
+        <IconButton
+          variant="raised"
+          size="small"
+          label={t('dashboard.cardInspector.closeTheInspector', 'Close the inspector')}
+          onClick={onClose}
+        >
           <AppIcon id="x" size={14} />
         </IconButton>
       </div>
@@ -158,7 +168,7 @@ export function CardInspector(props: CardInspectorProps) {
       {card.type === 'entity' ? (
         <>
           <EntityField
-            label="Entity"
+            label={t('dashboard.cardInspector.entity', 'Entity')}
             size="compact"
             value={card.entityId}
             onChange={(value, entity) => {
@@ -186,7 +196,7 @@ export function CardInspector(props: CardInspectorProps) {
             .get(card.entityId)
             ?.capabilities.some((entry) => entry.capability === 'sensor_numeric') === true ? (
             <Segmented<DashboardHistoryRange>
-              label="Chart"
+              label={t('dashboard.cardInspector.chart', 'Chart')}
               size="compact"
               className="self-start"
               options={DASHBOARD_HISTORY_RANGES.map((range) => ({ value: range, label: range }))}
@@ -202,7 +212,7 @@ export function CardInspector(props: CardInspectorProps) {
       {card.type === 'scene' ? (
         <>
           <SelectField
-            label="Scene"
+            label={t('dashboard.cardInspector.scene', 'Scene')}
             size="compact"
             options={scenes.map((scene) => ({ value: scene.id, label: scene.name }))}
             value={card.sceneId}
@@ -212,7 +222,9 @@ export function CardInspector(props: CardInspectorProps) {
           />
           <TitleAndIcon
             card={card}
-            placeholder={data.sceneById.get(card.sceneId)?.name ?? 'Scene'}
+            placeholder={
+              data.sceneById.get(card.sceneId)?.name ?? t('dashboard.cardInspector.scene', 'Scene')
+            }
             onChange={change}
           />
         </>
@@ -221,9 +233,9 @@ export function CardInspector(props: CardInspectorProps) {
       {card.type === 'clock' ? (
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3 text-ui">
-            <span aria-hidden="true">Seconds</span>
+            <span aria-hidden="true">{t('dashboard.cardInspector.seconds', 'Seconds')}</span>
             <Switch
-              label="Show seconds"
+              label={t('dashboard.cardInspector.showSeconds', 'Show seconds')}
               isOn={card.showSeconds}
               onChange={(showSeconds) => {
                 change((current) =>
@@ -233,9 +245,9 @@ export function CardInspector(props: CardInspectorProps) {
             />
           </div>
           <div className="flex items-center justify-between gap-3 text-ui">
-            <span aria-hidden="true">Date</span>
+            <span aria-hidden="true">{t('dashboard.cardInspector.date', 'Date')}</span>
             <Switch
-              label="Show the date"
+              label={t('dashboard.cardInspector.showTheDate', 'Show the date')}
               isOn={card.showDate}
               onChange={(showDate) => {
                 change((current) =>
@@ -255,7 +267,7 @@ export function CardInspector(props: CardInspectorProps) {
 
       {card.type === 'container' ? (
         <NameIconField
-          label="Name"
+          label={t('dashboard.cardInspector.name', 'Name')}
           value={card.title}
           required
           onChange={(title) => {
@@ -272,7 +284,11 @@ export function CardInspector(props: CardInspectorProps) {
 
       {sizes.length > 1 ? (
         <Segmented
-          label={card.type === 'container' ? 'Width' : 'Size'}
+          label={
+            card.type === 'container'
+              ? t('dashboard.cardInspector.width', 'Width')
+              : t('dashboard.cardInspector.size', 'Size')
+          }
           size="compact"
           className="self-start"
           options={sizes.map((size) => ({
@@ -292,14 +308,14 @@ export function CardInspector(props: CardInspectorProps) {
 
       {card.type === 'container' || groups.length === 0 ? null : (
         <SelectField
-          label="Place in"
+          label={t('dashboard.cardInspector.placeIn', 'Place in')}
           size="compact"
           options={[
-            { value: '', label: 'The page' },
+            { value: '', label: t('dashboard.cardInspector.page', 'The page') },
             ...groups.map((group) => ({ value: group.id, label: group.title })),
           ]}
           value={parentId ?? ''}
-          hint="Or drag it by its grip."
+          hint={t('dashboard.cardInspector.orDragItBy', 'Or drag it by its grip.')}
           onChange={(value) => {
             const target = value === '' ? null : value;
 
@@ -317,7 +333,10 @@ export function CardInspector(props: CardInspectorProps) {
           onRemove(cardId);
         }}
       >
-        Remove {card.type === 'container' ? 'group and its cards' : 'card'}
+        {t('common.remove', 'Remove')}{' '}
+        {card.type === 'container'
+          ? t('dashboard.cardInspector.groupAndItsCards', 'group and its cards')
+          : t('dashboard.cardInspector.card', 'card')}
       </Button>
     </aside>
   );
@@ -340,14 +359,20 @@ type TitleAndIconProps = {
  * @returns The fields.
  */
 function TitleAndIcon(props: TitleAndIconProps) {
+  const { t } = useTranslation();
+
   const { card, placeholder, onChange } = props;
 
   return (
     <div className="flex flex-col gap-1.5">
       <NameIconField
-        label="Title"
+        label={t('dashboard.cardInspector.title', 'Title')}
         value={card.title ?? ''}
-        hint={`Empty for its own name, ${placeholder}.`}
+        hint={t(
+          'dashboard.cardInspector.emptyForItsOwn',
+          'Empty for its own name, {{placeholder}}.',
+          { placeholder },
+        )}
         onChange={(value) => {
           onChange((current) =>
             current.type === 'entity' || current.type === 'scene'
@@ -376,7 +401,7 @@ function TitleAndIcon(props: TitleAndIconProps) {
             );
           }}
         >
-          Use its own icon
+          {t('dashboard.cardInspector.useItsOwnIcon', 'Use its own icon')}
         </button>
       )}
     </div>

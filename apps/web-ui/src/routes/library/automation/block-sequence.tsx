@@ -8,6 +8,7 @@
  * from one list to another (`block-ids.ts`).
  */
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { BlockAdd, BlockDropLine, BlockDropZone, BlockGrip } from '@nebulahome/ui';
 
@@ -62,6 +63,8 @@ export type BlockSequenceProps<TItem extends object> = {
  * @returns The list.
  */
 export function BlockSequence<TItem extends object>(props: BlockSequenceProps<TItem>) {
+  const { t } = useTranslation();
+
   const { items, path, family, lookOf, renderItem, footer } = props;
   const { drag, startPointer, onGripKey } = useBlockDrag();
   const drop = drag?.drop?.list === path ? drag.drop : null;
@@ -90,7 +93,9 @@ export function BlockSequence<TItem extends object>(props: BlockSequenceProps<TI
               path: `${path}.${String(index)}`,
               grip: (
                 <BlockGrip
-                  label={`Move ${look.kind}`}
+                  label={t('automation.blockSequence.moveKind', 'Move {{kind}}', {
+                    kind: look.kind,
+                  })}
                   blockId={id}
                   onPointerDown={(event) => {
                     startPointer(event, source);

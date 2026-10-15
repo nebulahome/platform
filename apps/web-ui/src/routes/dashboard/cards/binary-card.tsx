@@ -5,9 +5,12 @@
  * sensor uses - "Clear", "Open" - and the tall card draws the last day as one bar an hour, each as
  * tall as the share of that hour it spent active, so the day reads at a glance.
  */
+import { useTranslation } from 'react-i18next';
+
 import { cn, CardHeading } from '@nebulahome/ui';
 
 import { activityShares } from '@/dashboard/activity';
+import { defineMessage, text } from '@/i18n/messages';
 import { stateSegments } from '@/library/history-series';
 import { CardFrame, EndReading, TileRow } from '@/routes/dashboard/cards/card-parts';
 import { cardTime, sizeKey, type EntityCardModel } from '@/routes/dashboard/cards/entity-model';
@@ -17,7 +20,13 @@ import { useStateChanges } from '@/routes/dashboard/cards/use-card-history';
 const HOURS = 24;
 
 /** The hours the axis names. */
-const AXIS = ['−24 h', '−18 h', '−12 h', '−6 h', 'now'] as const;
+const AXIS = [
+  defineMessage('dashboard.cards.binaryCard.n24H', '−24 h'),
+  defineMessage('dashboard.cards.binaryCard.n18H', '−18 h'),
+  defineMessage('dashboard.cards.binaryCard.n12H', '−12 h'),
+  defineMessage('dashboard.cards.binaryCard.n6H', '−6 h'),
+  defineMessage('dashboard.cards.binaryCard.now', 'now'),
+] as const;
 
 /**
  * Renders a binary sensor card at its size.
@@ -27,6 +36,8 @@ const AXIS = ['−24 h', '−18 h', '−12 h', '−6 h', 'now'] as const;
  * @returns The card.
  */
 export function BinaryCard(props: { readonly model: EntityCardModel }) {
+  const { t } = useTranslation();
+
   const { model } = props;
   const { entity, state, title, subtitle, reading } = model;
   const key = sizeKey(model.size);
@@ -89,7 +100,11 @@ export function BinaryCard(props: { readonly model: EntityCardModel }) {
         <div className="flex flex-col gap-1.5">
           <div
             role="img"
-            aria-label={`Active in ${String(shares.filter((share) => share > 0).length)} of the last 24 hours`}
+            aria-label={t(
+              'dashboard.cards.binaryCard.activeInCountOf',
+              'Active in {{count}} of the last 24 hours',
+              { count: shares.filter((share) => share > 0).length },
+            )}
             className="flex h-13 items-end gap-0.5"
           >
             {shares.map((share, index) => (
@@ -110,7 +125,7 @@ export function BinaryCard(props: { readonly model: EntityCardModel }) {
           </div>
           <div className="flex justify-between font-mono text-label text-foreground-subtle">
             {AXIS.map((label) => (
-              <span key={label}>{label}</span>
+              <span key={label.key}>{text(label)}</span>
             ))}
           </div>
         </div>

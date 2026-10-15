@@ -5,6 +5,7 @@
  * moving between views anywhere else. There is nothing to add here: dashboards are made under
  * Configuration › Dashboards.
  */
+import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router';
 
 import type { DashboardView } from '@nebulahome/contracts';
@@ -25,6 +26,8 @@ export type DashboardTabsProps = {
  * @returns The tabs.
  */
 export function DashboardTabs(props: DashboardTabsProps) {
+  const { t } = useTranslation();
+
   const { dashboards, currentId } = props;
   /**
    * Whether a pill is the dashboard on screen: the address decides which is lit, and the id
@@ -39,7 +42,7 @@ export function DashboardTabs(props: DashboardTabsProps) {
     // Room above and below the pills, and no vertical scroll at all: a pressed pill sinks a pixel,
     // and in a strip exactly its height that pixel was enough to grow a scrollbar beside it.
     <nav
-      aria-label="Dashboards"
+      aria-label={t('dashboard.dashboardTabs.dashboards', 'Dashboards')}
       className="-my-1 flex min-w-0 scrollbar-none items-center gap-1 overflow-x-auto overflow-y-hidden py-1"
     >
       {dashboards.map((dashboard) => (

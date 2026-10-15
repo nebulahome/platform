@@ -32,7 +32,7 @@ import { useEditorHouse } from '@/routes/library/automation/editor-house';
 import { EntityTriggerFields } from '@/routes/library/automation/entity-match-fields';
 import { EntityField } from '@/routes/library/entity-field';
 
-export { OPERATOR_OPTIONS, StateField } from '@/routes/library/automation/entity-match-fields';
+export { operatorOptions, StateField } from '@/routes/library/automation/entity-match-fields';
 
 /** What the fields need. */
 export type TriggerFieldsProps = {

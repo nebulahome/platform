@@ -7,6 +7,8 @@
  * beside the name, since the mode alone cannot say why nothing is running. The square card adds
  * the mode as something to choose, and the humidity when the thermostat reads it.
  */
+import { useTranslation } from 'react-i18next';
+
 import type { THERMOSTAT_MODES } from '@nebulahome/contracts';
 import { AppIcon, Badge, Button, Segmented, type BadgeTone, CardHeading } from '@nebulahome/ui';
 
@@ -80,6 +82,8 @@ type DialProps = {
  * @returns The dial.
  */
 function Dial(props: DialProps) {
+  const { t } = useTranslation();
+
   const { target, now, min, max, action, isOff } = props;
   const share = max > min ? Math.min(1, Math.max(0, (target - min) / (max - min))) : 0;
   // The arc starts at the lower left, 135 degrees round from the right, and turns clockwise.
@@ -107,11 +111,13 @@ function Dial(props: DialProps) {
       </svg>
       <div className="absolute inset-x-0 flex translate-y-0.5 flex-col items-center gap-0.5">
         <span className="text-reading leading-none font-medium tabular">
-          {isOff ? 'Off' : `${temperature().format(target)}°`}
+          {isOff ? t('common.off', 'Off') : `${temperature().format(target)}°`}
         </span>
         {now === undefined ? null : (
           <span className="text-caption text-foreground-subtle tabular">
-            now {temperature().format(now)}°
+            {t('dashboard.cards.thermostatCard.nowNow', 'now {{now}}°', {
+              now: temperature().format(now),
+            })}
           </span>
         )}
       </div>
@@ -127,6 +133,8 @@ function Dial(props: DialProps) {
  * @returns The card.
  */
 export function ThermostatCard(props: { readonly model: EntityCardModel }) {
+  const { t } = useTranslation();
+
   const { model } = props;
   const { entity, state, title, subtitle, reportedAt } = model;
   const thermostat = state.thermostat;
@@ -175,7 +183,7 @@ export function ThermostatCard(props: { readonly model: EntityCardModel }) {
         variant="ghost"
         size="compact"
         className="grow"
-        aria-label="Lower the target"
+        aria-label={t('dashboard.cards.thermostatCard.lowerTheTarget', 'Lower the target')}
         disabled={disabled || target.shown <= min}
         onClick={() => {
           nudge(-1);
@@ -187,7 +195,7 @@ export function ThermostatCard(props: { readonly model: EntityCardModel }) {
         variant="ghost"
         size="compact"
         className="grow"
-        aria-label="Raise the target"
+        aria-label={t('dashboard.cards.thermostatCard.raiseTheTarget', 'Raise the target')}
         disabled={disabled || target.shown >= max}
         onClick={() => {
           nudge(1);
@@ -231,12 +239,14 @@ export function ThermostatCard(props: { readonly model: EntityCardModel }) {
         <div className="flex w-2/5 shrink-0 flex-col justify-end gap-3">
           {thermostat?.humidity === undefined ? null : (
             <span className="text-caption text-foreground-muted tabular">
-              Humidity {String(Math.round(thermostat.humidity))}%
+              {t('dashboard.cards.thermostatCard.humidityHumidity', 'Humidity {{humidity}}%', {
+                humidity: String(Math.round(thermostat.humidity)),
+              })}
             </span>
           )}
           {modes.length === 0 ? null : (
             <Segmented
-              label="Mode"
+              label={t('dashboard.cards.thermostatCard.mode', 'Mode')}
               size="compact"
               className="flex-wrap"
               options={modes}

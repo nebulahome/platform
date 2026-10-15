@@ -4,6 +4,7 @@
  * happened while that holds" is what the If lane is for.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { AutomationTrigger } from '@nebulahome/contracts';
 import { AppIcon, Block, BlockLaneSection, type UiIconId } from '@nebulahome/ui';
@@ -96,6 +97,8 @@ function isIncomplete(trigger: AutomationTrigger): boolean {
  * @returns The lane.
  */
 export function TriggerLane(props: TriggerLaneProps) {
+  const { t } = useTranslation();
+
   const { triggers, onChange } = props;
   const house = useEditorHouse();
 
@@ -103,8 +106,8 @@ export function TriggerLane(props: TriggerLaneProps) {
     <BlockLaneSection
       lane="when"
       glyph={<AppIcon id="zap" size={20} />}
-      title="When"
-      note="What wakes it. Any one of these does."
+      title={t('automation.triggerBlocks.when', 'When')}
+      note={t('automation.triggerBlocks.whatWakesItAny', 'What wakes it. Any one of these does.')}
     >
       <BlockSequence
         items={triggers}
@@ -126,9 +129,12 @@ export function TriggerLane(props: TriggerLaneProps) {
         )}
         footer={
           <AddBlock
-            label="Add a trigger"
-            pickerTitle="Add a trigger"
-            pickerDescription="What wakes the automation."
+            label={t('automation.triggerBlocks.addATrigger', 'Add a trigger')}
+            pickerTitle={t('automation.triggerBlocks.addATrigger', 'Add a trigger')}
+            pickerDescription={t(
+              'automation.triggerBlocks.whatWakesTheAutomation',
+              'What wakes the automation.',
+            )}
             groups={TRIGGER_CHOICE_GROUPS}
             onPick={(type) => {
               onChange([...triggers, blankTrigger(type)]);
@@ -156,6 +162,8 @@ type TriggerBlockProps = {
  * @returns The block.
  */
 function TriggerBlock(props: TriggerBlockProps) {
+  const { t } = useTranslation();
+
   const { trigger, id, grip, onChange, onRemove } = props;
   const house = useEditorHouse();
   const ui = useBlockUi(id, isIncomplete(trigger));
@@ -167,9 +175,12 @@ function TriggerBlock(props: TriggerBlockProps) {
     onChange,
     untestable:
       trigger.type === 'manual'
-        ? 'A manual trigger has nothing to test: it fires from Run'
+        ? t(
+            'automation.triggerBlocks.manualTriggerHasNothing',
+            'A manual trigger has nothing to test: it fires from Run',
+          )
         : trigger.type === 'event'
-          ? 'Device events are not available yet'
+          ? t('automation.triggerBlocks.deviceEventsAreNot', 'Device events are not available yet')
           : undefined,
   });
   const isGone =

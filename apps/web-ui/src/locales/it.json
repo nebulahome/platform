@@ -43,6 +43,145 @@
     },
     "waiting": "In attesa che Nebula risponda…"
   },
+  "automation": {
+    "actionBlocks": {
+      "addABlock": "Aggiungi un blocco",
+      "addABranch": "Aggiungi un ramo",
+      "addACase": "Aggiungi un caso",
+      "addElse": "Aggiungi altrimenti",
+      "addToElse": "Aggiungi ad altrimenti",
+      "addToOtherwise": "Aggiungi ad altrimenti",
+      "branchValue": "Ramo {{value}}",
+      "branchesRunSideBy": "I rami vengono eseguiti fianco a fianco; l'esecuzione prosegue quando tutti i rami hanno finito.",
+      "checksFirstRunsWhile": "Controlla prima, ripete finché sono tutte vere, e ricontrolla a ogni giro.",
+      "do": "Fai",
+      "eachTime": "Ogni volta",
+      "else": "Altrimenti",
+      "entity": "Entità",
+      "forEachIsNot": "Per ognuno non è ancora disponibile",
+      "forEachIsNot2": "Per ognuno non è ancora disponibile: un'esecuzione che arriva a questo blocco lo registra come non riuscito. Usa invece Ripeti un numero di volte.",
+      "giveUpAfter": "Rinuncia dopo",
+      "inOrder": "In ordine",
+      "noneThenAlwaysRuns": "Nessuna: Allora viene sempre eseguito.",
+      "nothingAfterThisBlock": "Dopo questo blocco non viene eseguito niente. L'automazione non viene disattivata.",
+      "otherwise": "Altrimenti",
+      "removeBranchValue": "Rimuovi il ramo {{value}}",
+      "removeElse": "Rimuovi altrimenti",
+      "removeThisCase": "Rimuovi questo caso",
+      "repeat": "Ripeti",
+      "runWaitsHereUntil": "L'esecuzione aspetta qui finché sono tutte vere.",
+      "runsOnceBeforeIt": "Esegue una volta prima di controllare, poi di nuovo finché sono tutte vere.",
+      "somethingToDoOr": "Qualcosa da fare, o un blocco che contiene altri blocchi.",
+      "stopHasNothingTo": "Ferma non ha niente da fare da solo",
+      "then": "Allora",
+      "thenTheRunCarries": "Poi l'esecuzione prosegue.",
+      "times": "Volte",
+      "whatItDoesIn": "Cosa fa, in ordine. I blocchi di controllo si annidano.",
+      "whenItIs": "Quando è",
+      "whenValue": "Quando “{{value}}”"
+    },
+    "blockSequence": {
+      "moveKind": "Sposta {{kind}}"
+    },
+    "blockTools": {
+      "cannotFire": "Non può scattare",
+      "changedSinceItWas": "Cambiato da quando è stato provato",
+      "checksItAgainstThe": "Lo confronta con la casa adesso.",
+      "clearTheName": "Togli il nome",
+      "dismiss": "Chiudi",
+      "done": "Fatto · {{duration}}",
+      "failed": "Non riuscito",
+      "falseNow": "Ora è falsa",
+      "finishItFirst": "Prima completalo: {{problem}}",
+      "finishItFirstWhere": "Prima completalo - {{where}}: {{problem}}",
+      "holdsNow": "Ora è vera",
+      "itCountsAgainWhen": "Torna a contare quando l'automazione viene eseguita.",
+      "itIsNotWhole": "non è completo",
+      "keptHereAndSkipped": "Resta qui, e viene saltato quando l'automazione viene eseguita.",
+      "nameOfItsOwn": "Un nome suo, al posto di quello che dice la scheda.",
+      "next": "Prossima · {{when}}",
+      "notNow": "Non ora",
+      "notTested": "Non provato",
+      "partlyDone": "Fatto in parte",
+      "rename": "Rinomina",
+      "runsItNowOn": "Lo esegue ora, da solo: i dispositivi si muoveranno.",
+      "saysWhetherItHolds": "Dice se è vera adesso, o quando scatterà la prossima volta.",
+      "stopTheTest": "Ferma la prova",
+      "stopped": "Fermato",
+      "stoppedAfterAMinute": "Fermato dopo un minuto",
+      "test": "Prova",
+      "tested": "Provato",
+      "testing": "Prova in corso…",
+      "testingAnActionTakes": "Provare un'azione richiede il permesso di modificare ed eseguire le automazioni",
+      "testingTakesTheRight": "Provare richiede il permesso di modificare le automazioni",
+      "trueNow": "Ora è vera",
+      "turnOff": "Disattiva",
+      "turnOn": "Attiva"
+    },
+    "conditionBlocks": {
+      "addACondition": "Aggiungi una condizione",
+      "addToTheGroup": "Aggiungi al gruppo",
+      "allOfTheseMust": "Devono essere tutte vere. Raggruppale con AND o OR; NOT ne capovolge una. Facoltative.",
+      "conditionOrAnAnd": "Una condizione, o un gruppo AND oppure OR di condizioni.",
+      "conditions": "Condizioni",
+      "if": "Se",
+      "thisCheckIsNot": "Questo controllo non fa più parte delle automazioni. Rimuovilo per salvare l'automazione."
+    },
+    "durationField": {
+      "atMostMaxms": "Al massimo {{maxMs}}.",
+      "n0S": "0 s",
+      "writeItAs30": "Scrivila come 30 s, 2 min o 1 h 30 min."
+    },
+    "entityMatchFields": {
+      "above": "sopra >",
+      "atLeast": "almeno ≥",
+      "atMost": "al massimo ≤",
+      "below": "sotto <",
+      "byIts": "In base a",
+      "choose": "Scegli…",
+      "entity": "Entità",
+      "equal": "uguale =",
+      "forAtLeast": "Per almeno",
+      "from": "Da",
+      "is": "È",
+      "isOneOf": "È uno di",
+      "itsStateAsIt": "Il suo stato, come lo riferisce.",
+      "level": "Livello",
+      "notEqual": "diverso ≠",
+      "on": "on",
+      "position": "Posizione",
+      "state": "Stato",
+      "temperature": "Temperatura",
+      "to": "A",
+      "value": "Valore",
+      "valueUnit": "Valore ({{unit}})",
+      "volume": "Volume"
+    },
+    "lastRuns": {
+      "entityChanged": "Un'entità è cambiata",
+      "if": "Se",
+      "itsTimeCame": "È arrivata la sua ora",
+      "lastRuns": "Ultime esecuzioni",
+      "noStepsRecorded": "Nessun passo registrato.",
+      "notRunYetIt": "Non ancora eseguita. Viene eseguita quando scatta una delle sue attivazioni, o da Esegui ora.",
+      "reading": "Lettura…",
+      "runByHand": "Eseguita a mano",
+      "startedByAnotherAutomation": "Avviata da un'altra automazione",
+      "then": "Allora",
+      "when": "Quando"
+    },
+    "stateChoices": {
+      "outOfReach": "Irraggiungibile"
+    },
+    "triggerBlocks": {
+      "addATrigger": "Aggiungi un'attivazione",
+      "deviceEventsAreNot": "Gli eventi dei dispositivi non sono ancora disponibili",
+      "manualTriggerHasNothing": "Un'attivazione manuale non ha niente da provare: scatta da Esegui",
+      "whatWakesItAny": "Cosa la sveglia. Ne basta una qualsiasi.",
+      "whatWakesTheAutomation": "Cosa sveglia l'automazione.",
+      "when": "Quando"
+    }
+  },
   "automations": {
     "conditions": {
       "phaseElevation": "{{phase}} un'elevazione"
@@ -580,9 +719,339 @@
     "count_other": "{{count}} container"
   },
   "dashboard": {
+    "addCardDialog": {
+      "addACard": "Aggiungi una scheda",
+      "back": "Indietro",
+      "buttonThatAppliesA": "Un pulsante che applica una scena.",
+      "cardAnInstalledPackage": "Una scheda disegnata da un pacchetto installato: un broker, un registratore, un lettore.",
+      "clock": "Orologio",
+      "energy": "Energia",
+      "entity": "Entità",
+      "fromAPackage": "Da un pacchetto",
+      "group": "Gruppo",
+      "houseItsPanelsBattery": "La casa, i suoi pannelli, la batteria e la rete, e la potenza tra di loro.",
+      "itGoesIntoGroupname": "Va in {{groupName}}.",
+      "itGoesOnThe": "Va nella pagina.",
+      "lightASensorA": "Una luce, un sensore, una serratura: disegnata da quello che sa fare.",
+      "newGroup": "Nuovo gruppo",
+      "scene": "Scena",
+      "thereAreNoScenes": "Non ci sono scene da aggiungere. Creane prima una nella pagina Scene.",
+      "timeAndTheDate": "L'ora e la data.",
+      "titledBoxYouDrag": "Un riquadro con un titolo in cui trascinare altre schede.",
+      "whichCard": "Quale scheda?",
+      "whichOnes": "Quali?",
+      "whichScene": "Quale scena?"
+    },
+    "assigneeField": {
+      "nobodySeesItYet": "Ancora nessuno la vede.",
+      "nobodyToShowIt": "Nessuno a cui mostrarla.",
+      "peopleSeeIt_many": "{{count}} persone la vedono nella loro pagina Dashboard.",
+      "peopleSeeIt_one": "{{count}} persona la vede nella sua pagina Dashboard.",
+      "peopleSeeIt_other": "{{count}} persone la vedono nella loro pagina Dashboard.",
+      "reading": "Lettura…",
+      "shownTo": "Mostrata a",
+      "you": "(tu)"
+    },
+    "cardInspector": {
+      "card": "scheda",
+      "chart": "Grafico",
+      "clock": "Orologio",
+      "closeTheInspector": "Chiudi l'ispettore",
+      "date": "Data",
+      "emptyForItsOwn": "Vuoto per il suo nome, {{placeholder}}.",
+      "energyCard": "Scheda energia",
+      "entity": "Entità",
+      "entityCard": "Scheda entità",
+      "group": "Gruppo",
+      "groupAndItsCards": "gruppo e le sue schede",
+      "name": "Nome",
+      "orDragItBy": "Oppure trascinala dalla sua maniglia.",
+      "packageCard": "Scheda di un pacchetto",
+      "page": "La pagina",
+      "placeIn": "Metti in",
+      "scene": "Scena",
+      "sceneCard": "Scheda scena",
+      "seconds": "Secondi",
+      "showSeconds": "Mostra i secondi",
+      "showTheDate": "Mostra la data",
+      "size": "Dimensione",
+      "title": "Titolo",
+      "useItsOwnIcon": "Usa la sua icona",
+      "width": "Larghezza"
+    },
+    "cardSizes": {
+      "card": "Scheda",
+      "large": "Grande",
+      "square": "Quadrata",
+      "strip": "Striscia",
+      "tall": "Alta",
+      "tile": "Riquadro"
+    },
+    "cardView": {
+      "clock": "Orologio"
+    },
+    "cards": {
+      "binaryCard": {
+        "activeInCountOf": "Attivo in {{count}} delle ultime 24 ore",
+        "n12H": "−12 h",
+        "n18H": "−18 h",
+        "n24H": "−24 h",
+        "n6H": "−6 h",
+        "now": "ora"
+      },
+      "cameraCard": {
+        "latestStillFromTitle": "L'ultimo fotogramma di {{title}}",
+        "live": "In diretta",
+        "noStream": "Nessun flusso",
+        "notStreaming": "Non trasmette",
+        "pressPlayToWatch": "Premi play per guardare",
+        "recording": "In registrazione",
+        "stop": "Ferma",
+        "stopWatchingTitle": "Smetti di guardare {{title}}",
+        "streaming": "In trasmissione",
+        "watchTitleLive": "Guarda {{title}} in diretta"
+      },
+      "cardParts": {
+        "unavailable": "Non disponibile"
+      },
+      "clockCard": {
+        "clock": "Orologio"
+      },
+      "count_many": "{{count}} schede",
+      "count_one": "{{count}} scheda",
+      "count_other": "{{count}} schede",
+      "coverCard": {
+        "closed": "Chiusa",
+        "closing": "In chiusura",
+        "open": "Apri",
+        "opening": "In apertura",
+        "stop": "Ferma"
+      },
+      "entityCard": {
+        "entityNotFound": "Entità non trovata",
+        "itWasRemovedOr": "È stata rimossa, oppure non è una che puoi vedere. Scegline un'altra nell'editor della disposizione."
+      },
+      "lightCard": {
+        "brightness": "Luminosità",
+        "colour": "Colore",
+        "colourHue": "Colore · {{hue}}°",
+        "white": "Bianco"
+      },
+      "lightColourButton": {
+        "chooseTheColourOf": "Scegli il colore di {{name}}",
+        "colour": "Colore",
+        "colourOfName": "Colore di {{name}}"
+      },
+      "lockCard": {
+        "holdToUnlock": "Tieni premuto per sbloccare",
+        "jammed": "Inceppata",
+        "lock": "Blocca",
+        "locked": "Bloccata",
+        "sinceChangedat": "dalle {{changedAt}}",
+        "unlock": "Sblocca",
+        "unlocked": "Sbloccata"
+      },
+      "mediaCard": {
+        "muted": "Muto",
+        "nextOnTitle": "Successivo su {{title}}",
+        "nothingPlaying": "Niente in riproduzione",
+        "pauseTitle": "Metti in pausa {{title}}",
+        "playTitle": "Riproduci {{title}}",
+        "previousOnTitle": "Precedente su {{title}}"
+      },
+      "packageCard": {
+        "cardOfThePackageid": "Una scheda del pacchetto {{packageId}}, che non è installato.",
+        "hasFailed": "{{name}} non è riuscito a partire.",
+        "hasNotStartedYet": "{{name}} non è ancora partito.",
+        "isStarting": "{{name}} si sta avviando.",
+        "isStopped": "{{name}} è fermo.",
+        "isSwitchedOff": "{{name}} è disattivato.",
+        "isWaitingForA": "{{name}} aspetta un pacchetto di cui ha bisogno.",
+        "loadingTitle": "Caricamento di {{title}}…",
+        "nameCouldNotDraw": "{{name}} non è riuscito a disegnare questa scheda: {{message}}",
+        "nameVersionNoLonger": "{{name}} {{version}} non ha più questa scheda.",
+        "packageSCardWhich": "La scheda di un pacchetto, che il tuo ruolo non mostra."
+      },
+      "sceneCard": {
+        "applying": "Applicazione…",
+        "itWasRemovedOr": "È stata rimossa, oppure non è una che puoi vedere.",
+        "sceneNotFound": "Scena non trovata",
+        "things_many": "{{count}} elementi",
+        "things_one": "{{count}} elemento",
+        "things_other": "{{count}} elementi",
+        "youMayLookNot": "Puoi guardare, non applicare."
+      },
+      "sensorCard": {
+        "maxMax": "max {{max}}",
+        "minMin": "min {{min}}",
+        "movedInRange": "{{moved}} in {{range}}",
+        "reading": "Lettura",
+        "sinceChanged": "dalle {{changed}}"
+      },
+      "switchCard": {
+        "sinceChangedat": "dalle {{changedAt}}"
+      },
+      "thermostatCard": {
+        "humidityHumidity": "Umidità {{humidity}}%",
+        "lowerTheTarget": "Abbassa l'obiettivo",
+        "mode": "Modalità",
+        "nowNow": "ora {{now}}°",
+        "raiseTheTarget": "Alza l'obiettivo"
+      }
+    },
     "count_many": "{{count}} dashboard",
     "count_one": "{{count}} dashboard",
-    "count_other": "{{count}} dashboard"
+    "count_other": "{{count}} dashboard",
+    "dashboard": {
+      "dashboards": "Dashboard",
+      "editLayout": "Modifica la disposizione",
+      "manageDashboards": "Gestisci le dashboard",
+      "noDashboardIsAssigned": "Non ti è ancora assegnata nessuna dashboard. Creane una, o assegnatene una, in Configurazione › Dashboard.",
+      "noDashboardIsAssigned2": "Non ti è ancora assegnata nessuna dashboard. Chi gestisce le dashboard di questa casa può assegnartene una.",
+      "nothingOnNameYet": "Ancora niente su {{name}}.",
+      "reading": "Lettura…"
+    },
+    "dashboardDialog": {
+      "allFound_many": "{{count}} schede, tutte per cose che questa casa ha.",
+      "allFound_one": "{{count}} scheda, per qualcosa che questa casa ha.",
+      "allFound_other": "{{count}} schede, tutte per cose che questa casa ha.",
+      "chooseAFile": "Scegli un file",
+      "dashboard": "Dashboard",
+      "dashboardExportedFromHere": "Una dashboard esportata da qui o da un'altra casa.",
+      "export": "Esporta",
+      "exportAsAFile": "Esporta come file",
+      "import": "Importa",
+      "itsNameAndIcon": "Il suo nome e la sua icona, a chi è mostrata, il suo file, e la sua rimozione.",
+      "nameCannotBeBlank": "Il nome non può essere vuoto.",
+      "nameToKeepOr": "{{name}}, da conservare o da importare altrove.",
+      "newDashboard": "Nuova dashboard",
+      "pageOfCardsShown": "Una pagina di schede, mostrata nella pagina Dashboard di chiunque a cui è assegnata.",
+      "someMissing_many": "{{count}} schede; {{missing}} nominano cose che questa casa non ha, e lo diranno.",
+      "someMissing_one": "{{count}} scheda; nomina qualcosa che questa casa non ha, e lo dirà.",
+      "someMissing_other": "{{count}} schede; {{missing}} nominano cose che questa casa non ha, e lo diranno.",
+      "startFromAFile": "Parti da un file"
+    },
+    "dashboardEditor": {
+      "addACard": "Aggiungi una scheda",
+      "addCard": "Aggiungi scheda",
+      "addCardsForWhat": "Aggiungi schede per quello che vuoi a portata di mano, o un gruppo per raccoglierle.",
+      "addGroup": "Aggiungi gruppo",
+      "cannotBeSaved": "Questa disposizione non si può salvare: {{problem}}.",
+      "dashboards": "Dashboard",
+      "dragToMoveDrag": "· trascina per spostare, trascina un angolo per ridimensionare",
+      "editingName": "Modifica di {{name}}",
+      "editingName2": "Modifica di “{{name}}”",
+      "everyGroupNeedsA": "Ogni gruppo ha bisogno di un nome.",
+      "everyoneWhoUsesName": "Tutti quelli che usano {{name}} vedono la modifica",
+      "intoGroupname": "in {{groupName}}",
+      "itDoesNotRead": "non si riesce a leggere",
+      "layout": "Disposizione",
+      "newGroup": "Nuovo gruppo",
+      "nobodySeesItYet": "Ancora nessuno la vede: assegnala in Configura dashboard",
+      "nothingOnNameYet": "Ancora niente su {{name}}",
+      "onThePage": "nella pagina",
+      "reading": "Lettura…",
+      "thereIsNoDashboard": "Non c'è nessuna dashboard con quell'id.",
+      "viewersSeeTheChange_many": "{{names}} vedono la modifica",
+      "viewersSeeTheChange_one": "{{names}} vede la modifica",
+      "viewersSeeTheChange_other": "{{names}} vedono la modifica",
+      "widenTheWindowTo": "Allarga la finestra per disporre la dashboard: servono quattro colonne."
+    },
+    "dashboardFile": {
+      "thisDashboardFileDoes": "Questo file di dashboard non si riesce a leggere.",
+      "thisDashboardFileDoes2": "Questo file di dashboard non si riesce a leggere: {{message}}.",
+      "thisFileIsNot": "Questo file non è JSON, quindi non può essere una dashboard.",
+      "thisFileIsNot2": "Questo file non è una dashboard di Nebula Home."
+    },
+    "dashboardGrid": {
+      "dragCardsHere": "Trascina qui le schede",
+      "editTitle": "Modifica {{title}}",
+      "empty": "Vuoto",
+      "moveTitle": "Sposta {{title}}",
+      "movedPreview": "Spostata. {{preview}}",
+      "nothingInThisGroup": "Ancora niente in questo gruppo",
+      "pickedUpCardArrow": "Presa {{card}}. Le frecce la spostano, Maiusc con una freccia ne cambia la dimensione, Invio la posa, Esc la rimette dov'era.",
+      "pressSpaceToPick": "Premi Spazio per prendere la scheda, poi le frecce per spostarla e Maiusc con una freccia per cambiarne la dimensione.",
+      "putBackStart": "Rimessa a posto. {{start}}",
+      "putDownPreview": "Posata. {{preview}}",
+      "removeTitle": "Rimuovi {{title}}",
+      "resizedPreview": "Ridimensionata. {{preview}}"
+    },
+    "dashboardTabs": {
+      "dashboards": "Dashboard"
+    },
+    "dashboardsManage": {
+      "changed": "Modificata",
+      "configureName": "Configura {{name}}",
+      "countPeople": "{{count}} persone",
+      "dashboard": "Dashboard",
+      "dashboards": "Dashboard",
+      "editLayout": "Modifica la disposizione",
+      "editTheLayoutOf": "Modifica la disposizione di {{name}}",
+      "newDashboard": "Nuova dashboard",
+      "noDashboardYetMake": "Ancora nessuna dashboard. Creane una, disponi le sue schede, e scegli chi la vede nella sua pagina Dashboard.",
+      "nobody": "Nessuno",
+      "searchDashboardsPeople": "Cerca dashboard, persone…",
+      "shownTo": "Mostrata a"
+    },
+    "energy": {
+      "energyCard": {
+        "batteryCharging": "batteria in carica a {{power}}",
+        "batteryGiving": "batteria che fornisce {{power}}",
+        "buying": "compra {{power}} dalla rete",
+        "charging": "In carica",
+        "energy": "Energia",
+        "exporting": "In cessione",
+        "houseUsingHome": "casa che consuma {{home}}",
+        "idle": "Inattiva",
+        "impact": "Impatto",
+        "kilowatts": "{{value}} chilowatt",
+        "needsAccessToHistory": "Serve l'accesso alla cronologia",
+        "onBattery": "A batteria",
+        "onTheGrid": "Dalla rete",
+        "panelsMakingSolar": "pannelli che producono {{solar}}",
+        "percentFull": ", carica al {{level}} per cento",
+        "pickThePanelsBattery": "Scegli i misuratori di pannelli, batteria e rete nelle impostazioni di questa scheda.",
+        "selfPowered": "Autosufficiente",
+        "selling": "vende {{power}} alla rete",
+        "watts": "{{value}} watt"
+      },
+      "energyScene": {
+        "battery": "Batteria",
+        "batteryBatterylevel": "Batteria · {{batteryLevel}}%",
+        "grid": "Rete",
+        "solar": "Solare"
+      }
+    },
+    "energySettings": {
+      "americanAGarageWing": "Americana - un garage davanti alla casa",
+      "arabicFlatRoofAnd": "Araba - tetto piano e terrazza",
+      "batteryLevel": "Livello della batteria",
+      "batteryPower": "Potenza della batteria",
+      "buyingCountsAsPositive": "L'acquisto conta come positivo",
+      "dischargingCountsAsPositive": "La scarica conta come positiva",
+      "emptyForEnergy": "Vuoto per Energia.",
+      "energy": "Energia",
+      "europeanAGabledHouse": "Europea - una casa con il tetto a due falde",
+      "grid": "Rete",
+      "house": "Casa",
+      "houseTheCardDraws": "La casa che disegna la scheda; pannelli, batteria e cavi ci stanno sopra allo stesso modo.",
+      "howFullItIs": "Quanto è carica, in percentuale.",
+      "solarPanels": "Pannelli solari",
+      "title": "Titolo",
+      "whatGoesInOr": "Quello che entra o esce dalla batteria adesso.",
+      "whatTheHouseBuys": "Quello che la casa compra dalla rete o le vende.",
+      "whatTheHouseUses": "Quello che la casa consuma. Se lo lasci vuoto, si calcola dagli altri.",
+      "whatThePanelsProduce": "Quello che producono adesso i pannelli: un misuratore di potenza, in W o kW.",
+      "whichEntityIsThe": "Quale entità è il misuratore di {{label}}?"
+    },
+    "packageCardSettings": {
+      "emptyForItsOwnName": "Vuoto per il suo nome.",
+      "emptyForName": "Vuoto per {{name}}.",
+      "nameVersionNoLonger": "{{name}} {{version}} non ha più questa scheda.",
+      "packageidPackageIsNot": "Il pacchetto {{packageId}} non è installato: le impostazioni di questa scheda sono conservate per quando lo sarà.",
+      "title": "Titolo"
+    }
   },
   "device": {
     "activityDialog": {

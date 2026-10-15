@@ -12,6 +12,8 @@
  * whose it is and why it cannot be drawn, rather than a hole in the grid or a layout that no
  * longer loads. The package's own drawing takes its place once it runs again.
  */
+import { useTranslation } from 'react-i18next';
+
 import type {
   ApiPackage,
   DashboardPackageCard,
@@ -24,6 +26,7 @@ import type {
 import type { CardProps } from '@nebulahome/package-sdk/ui';
 import { AppIcon } from '@nebulahome/ui';
 
+import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import { PackageSlot } from '@/packages/package-slot';
 import { useInstalledPackages } from '@/packages/use-packages';
 import { CardFrame } from '@/routes/dashboard/cards/card-parts';
@@ -38,13 +41,19 @@ export type PackageCardProps = {
 };
 
 /** What each state that is not running says about the card. */
-const NOT_RUNNING: Readonly<Record<Exclude<PackageState, 'running'>, string>> = {
-  installed: 'has not started yet',
-  starting: 'is starting',
-  stopped: 'is stopped',
-  failed: 'has failed',
-  disabled: 'is switched off',
-  'waiting-dependency': 'is waiting for a package it needs',
+const NOT_RUNNING: Readonly<Record<Exclude<PackageState, 'running'>, Message>> = {
+  installed: defineMessage(
+    'dashboard.cards.packageCard.hasNotStartedYet',
+    '{{name}} has not started yet.',
+  ),
+  starting: defineMessage('dashboard.cards.packageCard.isStarting', '{{name}} is starting.'),
+  stopped: defineMessage('dashboard.cards.packageCard.isStopped', '{{name}} is stopped.'),
+  failed: defineMessage('dashboard.cards.packageCard.hasFailed', '{{name}} has failed.'),
+  disabled: defineMessage('dashboard.cards.packageCard.isSwitchedOff', '{{name}} is switched off.'),
+  'waiting-dependency': defineMessage(
+    'dashboard.cards.packageCard.isWaitingForA',
+    '{{name}} is waiting for a package it needs.',
+  ),
 };
 
 /**
@@ -122,15 +131,23 @@ function Placeholder(props: { readonly title: string; readonly note: string }) {
  */
 function whyNotDrawn(found: ApiPackage | undefined, card: DashboardPackageCard): string | null {
   if (found === undefined) {
-    return `A card of the ${card.packageId} package, which is not installed.`;
+    return translate(
+      'dashboard.cards.packageCard.cardOfThePackageid',
+      'A card of the {{packageId}} package, which is not installed.',
+      { packageId: card.packageId },
+    );
   }
 
   if (found.state !== 'running') {
-    return `${found.name} ${NOT_RUNNING[found.state]}.`;
+    return text(NOT_RUNNING[found.state], { name: found.name });
   }
 
   if (found.ui?.cards.some((declared) => declared.id === card.cardId) !== true) {
-    return `${found.name} ${found.version} no longer has this card.`;
+    return translate(
+      'dashboard.cards.packageCard.nameVersionNoLonger',
+      '{{name}} {{version}} no longer has this card.',
+      { name: found.name, version: found.version },
+    );
   }
 
   return null;
@@ -143,6 +160,8 @@ function whyNotDrawn(found: ApiPackage | undefined, card: DashboardPackageCard):
  * @returns The card.
  */
 export function PackageCard(props: PackageCardProps) {
+  const { t } = useTranslation();
+
   const { card, isEditing = false } = props;
   const { packages, canRead, isPending } = useInstalledPackages();
   const found = packages.find((each) => each.id === card.packageId);
@@ -150,11 +169,19 @@ export function PackageCard(props: PackageCardProps) {
   const title = card.title ?? declared?.name ?? `${card.packageId} · ${card.cardId}`;
 
   if (!canRead) {
-    return <Placeholder title={title} note="A package's card, which your role does not show." />;
+    return (
+      <Placeholder
+        title={title}
+        note={t(
+          'dashboard.cards.packageCard.packageSCardWhich',
+          "A package's card, which your role does not show.",
+        )}
+      />
+    );
   }
 
   if (isPending) {
-    return <Placeholder title={title} note="Loading…" />;
+    return <Placeholder title={title} note={t('common.loading', 'Loading…')} />;
   }
 
   const why = whyNotDrawn(found, card);
@@ -181,10 +208,18 @@ export function PackageCard(props: PackageCardProps) {
             isEditing,
           },
         }}
-        loading={<span className="sr-only">Loading {title}…</span>}
+        loading={
+          <span className="sr-only">
+            {t('dashboard.cards.packageCard.loadingTitle', 'Loading {{title}}…', { title })}
+          </span>
+        }
         renderProblem={(message) => (
           <p role="alert" className="line-clamp-4 text-caption text-danger">
-            {found.name} could not draw this card: {message}
+            {t(
+              'dashboard.cards.packageCard.nameCouldNotDraw',
+              '{{name}} could not draw this card: {{message}}',
+              { name: found.name, message },
+            )}
           </p>
         )}
       />
