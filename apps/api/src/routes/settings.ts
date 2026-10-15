@@ -111,7 +111,7 @@ export function registerSettingsRoutes(environment: RouteEnvironment, context: A
       // The backup schedule is the backup service's to run: it reads its settings again now, so
       // the next backup and the page that shows it agree at once. Best effort - a service that
       // does not answer reads them when it starts.
-      if (Object.keys(accepted).some((key) => key.startsWith('backup.'))) {
+      if ([...accepted.keys()].some((key) => key.startsWith('backup.'))) {
         await askBackup(
           { bus: context.bus, traceId: route.request.traceId },
           BACKUP_METHODS.reload,
@@ -124,7 +124,7 @@ export function registerSettingsRoutes(environment: RouteEnvironment, context: A
       }
 
       // The house's zone is what automations keep time by; `core` reads it again now.
-      if ('house.timezone' in accepted) {
+      if (accepted.has('house.timezone')) {
         await syncHouseOnCore({
           bus: context.bus,
           traceId: route.request.traceId,
