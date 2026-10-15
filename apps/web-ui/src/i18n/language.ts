@@ -20,6 +20,7 @@ import {
   DEFAULT_LOCALE,
   isSupportedLocale,
   resolveDisplayLocale,
+  SUPPORTED_LOCALES,
   type SupportedLocale,
 } from '@nebulahome/contracts';
 
@@ -199,13 +200,20 @@ export async function applyLanguage(locale: SupportedLocale): Promise<void> {
  * Adds a namespace whose catalogues are loaded with the interface's: a package's interface.
  *
  * The language spoken now is loaded straight away, so whatever the package draws first is already
- * in it; every later switch loads the namespace with the rest.
+ * in it; every later switch loads the namespace with the rest. Added again - a new build of the
+ * package - it forgets what the old one loaded.
  *
  * @param namespace - The namespace: `package/<id>`.
  * @param load - How to load one of its catalogues.
  * @returns A promise that settles once the language spoken now is loaded for it.
  */
 export async function addCatalogueSource(namespace: string, load: CatalogueLoader): Promise<void> {
+  if (sources.get(namespace) !== load) {
+    for (const locale of SUPPORTED_LOCALES) {
+      i18n.removeResourceBundle(locale, namespace);
+    }
+  }
+
   sources.set(namespace, load);
 
   const locale = currentLocale();

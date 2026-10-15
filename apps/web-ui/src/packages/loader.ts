@@ -11,9 +11,10 @@
  */
 import type { ComponentType } from 'react';
 
-import type { InstalledPackage } from '@nebulahome/contracts';
+import type { InstalledPackage, SupportedLocale } from '@nebulahome/contracts';
 import { SDK_VERSION } from '@nebulahome/package-sdk';
 
+import { addCatalogueSource, type CatalogueTree } from '@/i18n/language';
 import { translate } from '@/i18n/messages';
 import { packageFileUrl } from '@/packages/api';
 import { importModule } from '@/packages/import-module';
@@ -32,7 +33,23 @@ export type PackageUiEntry = {
   readonly page: ComponentLoader | undefined;
   readonly cards: Readonly<Record<string, ComponentLoader>>;
   readonly entityViews: Readonly<Record<string, ComponentLoader>>;
+
+  /** Its translation catalogues, by language: none from a build before SDK 1.1. */
+  readonly locales: Readonly<Record<string, CatalogueModuleLoader>>;
 };
+
+/** A loader of one of a package's catalogues: its chunk, imported. */
+type CatalogueModuleLoader = () => Promise<unknown>;
+
+/**
+ * The namespace a package's strings are in.
+ *
+ * @param packageId - The package.
+ * @returns `package/<id>`.
+ */
+export function packageNamespace(packageId: string): string {
+  return `package/${packageId}`;
+}
 
 /** Which of a package's components. */
 export type PackageComponentTarget =
@@ -119,7 +136,8 @@ function entryOf(packageId: string, value: unknown): PackageUiEntry {
     typeof value['sdk'] !== 'string' ||
     (value['page'] !== undefined && typeof value['page'] !== 'function') ||
     !isLoaders(value['cards']) ||
-    !isLoaders(value['entityViews'])
+    !isLoaders(value['entityViews']) ||
+    (value['locales'] !== undefined && !isLoaders(value['locales']))
   ) {
     throw new Error(
       translate(
@@ -153,7 +171,32 @@ function entryOf(packageId: string, value: unknown): PackageUiEntry {
     page: typeof value['page'] === 'function' ? (value['page'] as ComponentLoader) : undefined,
     cards: value['cards'],
     entityViews: value['entityViews'],
+    locales: isLoaders(value['locales']) ? value['locales'] : {},
   };
+}
+
+/**
+ * Reads a package's catalogue for a language.
+ *
+ * @param entry - The package's entry.
+ * @param locale - The language.
+ * @returns The catalogue, or undefined when the package has none for it.
+ */
+async function catalogueOf(
+  entry: PackageUiEntry,
+  locale: SupportedLocale,
+): Promise<CatalogueTree | undefined> {
+  const load = entry.locales[locale];
+
+  if (load === undefined) {
+    return undefined;
+  }
+
+  const module = await load();
+  const catalogue = isRecord(module) ? module['default'] : undefined;
+
+  // The build checked it: an object of strings, nested.
+  return isRecord(catalogue) ? (catalogue as CatalogueTree) : undefined;
 }
 
 /**
@@ -194,8 +237,14 @@ export async function loadPackageUi(found: LoadablePackage): Promise<PackageUiEn
     }
 
     const module = await importModule(packageFileUrl(found, ui.entry, ui.entry));
+    const entry = entryOf(found.id, module['default']);
 
-    return entryOf(found.id, module['default']);
+    // Before anything of it is drawn, so its first strings are already in the reader's language.
+    await addCatalogueSource(packageNamespace(found.id), async (locale) =>
+      catalogueOf(entry, locale),
+    );
+
+    return entry;
   })();
 
   loaded.set(key, loading);

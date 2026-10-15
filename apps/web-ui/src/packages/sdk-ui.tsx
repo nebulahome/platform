@@ -16,6 +16,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useMemo,
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
@@ -49,10 +50,13 @@ import type {
   PackageSettings,
   PlatformLinkProps,
   PlatformNavigate,
+  PluralEnglish,
   RpcOptions,
   RpcState,
   SendCommand,
   Theme,
+  Translation,
+  TranslationValues,
   UiHost,
   Viewer,
 } from '@nebulahome/package-sdk/ui';
@@ -61,6 +65,7 @@ import { useSession } from '@/auth/session-store';
 import { commandEntity, fetchEntities, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { useLive, type LiveReading } from '@/live/live-store';
 import { callPackage, configurePackage, fetchPackage, PACKAGE_QUERY_KEYS } from '@/packages/api';
+import { packageNamespace } from '@/packages/loader';
 import { packageAppPath, packagePathOf, platformPath } from '@/packages/package-paths';
 import { usePreferences } from '@/settings/preferences';
 
@@ -524,6 +529,43 @@ function useLocale(): Locale {
   };
 }
 
+/**
+ * The package's strings, in the viewer's language: its namespace of the interface's catalogues,
+ * which its loader filled from the package's `locales/`.
+ *
+ * @returns `t`, taking the English beside the key, and the language spoken.
+ */
+function usePackageStrings(): Translation {
+  const { id } = usePackage();
+  // Its own name: the key is the package's, which the interface's checker cannot read.
+  const { t: inPackage, i18n } = useTranslation(packageNamespace(id));
+  const language = i18n.language;
+
+  return useMemo(
+    () => ({
+      /**
+       * Says one of the package's strings.
+       *
+       * @param key - Its key in the package's catalogue.
+       * @param english - Its English, or a plural's two forms.
+       * @param values - What fills it; `count` also picks the plural's form.
+       * @returns It, translated, or its English.
+       */
+      t: (key: string, english: string | PluralEnglish, values?: TranslationValues): string =>
+        typeof english === 'string'
+          ? inPackage(key, { ...values, defaultValue: english })
+          : inPackage(key, {
+              ...values,
+              count: typeof values?.['count'] === 'number' ? values['count'] : 0,
+              defaultValue_one: english.one,
+              defaultValue_other: english.other,
+            }),
+      locale: language,
+    }),
+    [inPackage, language],
+  );
+}
+
 /** The query of the system's dark scheme. */
 const DARK_SCHEME = '(prefers-color-scheme: dark)';
 
@@ -669,6 +711,7 @@ export const UI_HOST = {
   usePackageSettings,
   useViewer,
   useLocale,
+  useTranslation: usePackageStrings,
   useTheme,
   usePortalContainer,
   usePackageRoute,
