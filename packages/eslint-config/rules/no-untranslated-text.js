@@ -37,6 +37,7 @@ const TEXT_ATTRIBUTES = new Set([
   'placeholder',
   'subtitle',
   'summary',
+  'term',
   'title',
   'tooltip',
   'warning',
