@@ -103,7 +103,7 @@ built with it declares `^<major>.<minor>.0`. The full guide is `INTEGRATIONS_DOC
 ## Releasing the SDK
 
 For the platform's maintainers. The hub reads the contract's version from this `package.json`, so
-the version is raised by hand - not by changesets, which ignore this package:
+the version is raised by hand:
 
 - **patch** - a fix, or a change to the command, the tests' helpers or the documentation that
   leaves what a bundle can use as it is. Bundles keep declaring `^<major>.<minor>.0`, so it is
