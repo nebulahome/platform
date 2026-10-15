@@ -24,6 +24,8 @@
     "@nebulahome/package-sdk": "workspace:*",
     "@nebulahome/ui": "workspace:*",
     "@tanstack/react-query": "^5.102.8",
+    "croner": "^10.0.1",
+    "cronstrue": "^3.32.0",
     "i18next": "^26.4.1",
     "leaflet": "^1.9.4",
     "react": "^19.2.8",

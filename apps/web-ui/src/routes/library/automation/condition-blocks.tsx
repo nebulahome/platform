@@ -1,72 +1,49 @@
 /**
- * Checks: the If lane, and the checks inside an if/else, a loop or a wait.
+ * Conditions: the If lane, and the conditions inside an If, a loop or a wait.
  *
- * A list of check blocks joined by AND or OR, where any card can be negated and any card can be a
- * group - ALL OF, ANY OF, NONE OF - holding a list of its own (board N-Blocks-Conditions). Inside a
- * group the join is the group's: an ALL OF joins its checks with AND. Groups nest.
+ * A list of conditions means all of them. To say "either", or to gather a few, there are two group
+ * blocks - AND and OR - that hold a list of their own and nest; any block, a group included, can
+ * be turned around with IS/NOT (board N-Blocks-Conditions). No pills join the blocks: a list is
+ * AND, a group says what it is in its header.
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
-import {
-  booleanTreeFromCondition,
-  type AutomationCondition,
-  type BooleanTree,
-} from '@nebulahome/contracts';
-import { AppIcon, Block, BlockGroup, BlockJoin, BlockLaneSection } from '@nebulahome/ui';
+import { isConditionGroup, type ConditionGroup, type ConditionNode } from '@nebulahome/contracts';
+import { AppIcon, Block, BlockGroup, BlockLaneSection, BlockNotice } from '@nebulahome/ui';
 
-import { useBlockSelection } from '@/lib/block-selection';
-import { conditionSummary } from '@/lib/block-summary';
-import { moveItem } from '@/lib/use-sortable';
+import type { DragLook } from '@/lib/block-drag';
+import { carryBlockId } from '@/lib/block-ids';
+import { conditionSummary, type BlockNames } from '@/lib/block-summary';
+import { useBlockUi } from '@/lib/block-ui';
 import {
   blankCondition,
-  conditionWithoutNot,
-  flatFromBooleanTree,
-  ifTreeFromFlat,
-  isConditionNegated,
+  keepMeta,
   replaceAt,
-  resizeJoins,
-  withConditionNegated,
   without,
-  type BooleanJoin,
+  withoutKey,
 } from '@/library/automation-draft';
 import { AddBlock, BlockSequence } from '@/routes/library/automation/block-sequence';
+import { useBlockTools } from '@/routes/library/automation/block-tools';
 import { useEditorHouse } from '@/routes/library/automation/editor-house';
 import { ConditionFields } from '@/routes/library/condition-fields';
 import {
   CONDITION_CHOICE_GROUPS,
   glyphForKind,
+  isKnownKind,
   labelForKind,
+  unavailableReason,
 } from '@/routes/library/editor-choices';
 
-/** A group of checks: ALL OF, ANY OF. */
-type Group = Extract<AutomationCondition, { type: 'and' | 'or' }>;
-
 /**
- * The group a card is, when it is one: itself, or the group under its NOT.
+ * Whether a condition still needs something: it opens so it gets it.
  *
- * @param condition - The card.
- * @returns The group, or undefined for a single check.
+ * @param condition - The condition.
+ * @returns True when an entity or an expression is missing.
  */
-function groupOf(condition: AutomationCondition): Group | undefined {
-  const inner = conditionWithoutNot(condition);
-
-  return inner.type === 'and' || inner.type === 'or' ? inner : undefined;
-}
-
-/**
- * Whether a check still needs something: it opens so it gets it.
- *
- * @param condition - The check.
- * @returns True when an entity, an area or an expression is missing.
- */
-function isIncomplete(condition: AutomationCondition): boolean {
+function isIncomplete(condition: ConditionNode): boolean {
   switch (condition.type) {
-    case 'state':
-    case 'numeric': {
+    case 'entity': {
       return condition.entityId === '';
-    }
-    case 'area_occupancy': {
-      return condition.areaKey === '';
     }
     case 'expression': {
       return condition.expression === '';
@@ -77,16 +54,54 @@ function isIncomplete(condition: AutomationCondition): boolean {
   }
 }
 
-/** What a list of checks needs. */
+/**
+ * The header of a group: AND, OR, either turned around.
+ *
+ * @param group - The group.
+ * @returns Its label.
+ */
+function groupLabel(group: ConditionGroup): string {
+  return `${group.isNot === true ? 'NOT ' : ''}${group.type.toUpperCase()}`;
+}
+
+/**
+ * How a condition looks under the pointer while it is dragged.
+ *
+ * @param condition - The condition.
+ * @param names - The house.
+ * @returns Its look.
+ */
+function conditionLook(condition: ConditionNode, names: BlockNames): DragLook {
+  return {
+    lane: 'if',
+    glyph: glyphForKind('condition', condition.type),
+    kind: isConditionGroup(condition)
+      ? groupLabel(condition)
+      : labelForKind('condition', condition.type),
+    summary: condition.name ?? conditionSummary(condition, names),
+  };
+}
+
+/**
+ * The same condition with NOT on or off.
+ *
+ * @param condition - The condition.
+ * @param isNot - Whether NOT should be on.
+ * @returns The condition, NOT kept only when on.
+ */
+function negated(condition: ConditionNode, isNot: boolean): ConditionNode {
+  return isNot ? { ...condition, isNot: true } : (withoutKey(condition, 'isNot') as ConditionNode);
+}
+
+/** What a list of conditions needs. */
 export type ConditionListProps = {
-  readonly items: readonly AutomationCondition[];
-  readonly joins: readonly BooleanJoin[];
+  readonly items: readonly ConditionNode[];
 
-  /** Inside a group: the group's join, shown between its checks and not changed there. */
-  readonly fixedJoin?: BooleanJoin;
+  /** Where the list is: `if`, `then.2.conditions`, `if.1.conditions`. */
+  readonly path: string;
 
-  /** Called with the checks and joins as they now stand. */
-  readonly onChange: (items: readonly AutomationCondition[], joins: readonly BooleanJoin[]) => void;
+  /** Called with the conditions as they now stand. */
+  readonly onChange: (items: readonly ConditionNode[]) => void;
 
   /** What the Add says. */
   readonly addLabel: string;
@@ -96,225 +111,214 @@ export type ConditionListProps = {
 };
 
 /**
- * Renders a list of checks.
+ * Renders a list of conditions, all of which must hold.
  *
  * @param props - See {@link ConditionListProps}.
  * @returns The list.
  */
 export function ConditionList(props: ConditionListProps) {
-  const { items, joins, fixedJoin, onChange, addLabel, isNested = false } = props;
+  const { items, path, onChange, addLabel, isNested = false } = props;
+  const house = useEditorHouse();
 
   return (
-    <>
-      <BlockSequence
-        items={items}
-        itemLabel={(condition) => labelForKind(conditionWithoutNot(condition).type)}
-        onMove={(from, to) => {
-          onChange(moveItem(items, from, to), joins);
-        }}
-        renderJoin={(index) =>
-          fixedJoin === undefined ? (
-            <BlockJoin
-              value={joins[index - 1] ?? 'and'}
-              onChange={(join) => {
-                onChange(items, replaceAt(joins, index - 1, join));
-              }}
-            />
-          ) : (
-            <BlockJoin value={fixedJoin} />
-          )
-        }
-        renderItem={({ item, index, blockKey, grip }) => {
-          /**
-           * Puts a changed check back in its place.
-           *
-           * @param next - The check as it now stands.
-           */
-          const replace = (next: AutomationCondition): void => {
-            onChange(replaceAt(items, index, next), joins);
-          };
-          /** Takes the check away, and the join before it. */
-          const remove = (): void => {
-            const rest = without(items, index);
+    <BlockSequence
+      items={items}
+      path={path}
+      family="condition"
+      lookOf={(condition) => conditionLook(condition, house.names)}
+      renderItem={({ item, index, id, path: blockPath, grip }) => {
+        /**
+         * Puts a changed condition back in its place.
+         *
+         * @param next - The condition as it now stands.
+         */
+        const replace = (next: ConditionNode): void => {
+          onChange(replaceAt(items, index, carryBlockId(item, next)));
+        };
+        /** Takes the condition away. */
+        const remove = (): void => {
+          onChange(without(items, index));
+        };
 
-            onChange(rest, resizeJoins(without(joins, Math.max(0, index - 1)), rest.length, 'and'));
-          };
-
-          return groupOf(item) === undefined ? (
-            <ConditionBlock
-              condition={item}
-              blockKey={blockKey}
-              grip={grip}
-              isNested={isNested}
-              onChange={replace}
-              onRemove={remove}
-            />
-          ) : (
-            <ConditionGroupBlock
-              condition={item}
-              blockKey={blockKey}
-              grip={grip}
-              onChange={replace}
-              onRemove={remove}
-            />
-          );
-        }}
-      />
-      <AddBlock
-        label={addLabel}
-        isWide={isNested}
-        pickerTitle="Add a condition"
-        pickerDescription="A check, or a group of them."
-        groups={CONDITION_CHOICE_GROUPS}
-        onPick={(type) => {
-          const next = [...items, blankCondition(type)];
-
-          onChange(next, resizeJoins(joins, next.length, 'and'));
-        }}
-      />
-    </>
+        return isConditionGroup(item) ? (
+          <ConditionGroupBlock
+            group={item}
+            id={id}
+            path={blockPath}
+            grip={grip}
+            onChange={replace}
+            onRemove={remove}
+          />
+        ) : (
+          <ConditionBlock
+            condition={item}
+            id={id}
+            grip={grip}
+            isNested={isNested}
+            onChange={replace}
+            onRemove={remove}
+          />
+        );
+      }}
+      footer={
+        <AddBlock
+          label={addLabel}
+          isWide={isNested}
+          pickerTitle="Add a condition"
+          pickerDescription="A condition, or an AND or OR group of them."
+          groups={CONDITION_CHOICE_GROUPS}
+          onPick={(type) => {
+            onChange([...items, blankCondition(type)]);
+          }}
+        />
+      }
+    />
   );
 }
 
-/** What one check block needs. */
+/** What one condition block needs. */
 type ConditionBlockProps = {
-  readonly condition: AutomationCondition;
-  readonly blockKey: string;
+  readonly condition: ConditionNode;
+  readonly id: string;
   readonly grip: ReactNode;
   readonly isNested: boolean;
-  readonly onChange: (condition: AutomationCondition) => void;
+  readonly onChange: (condition: ConditionNode) => void;
   readonly onRemove: () => void;
 };
 
 /**
- * Renders one check, with IS/NOT.
+ * Renders one condition, with IS/NOT.
  *
  * @param props - See {@link ConditionBlockProps}.
  * @returns The block.
  */
 function ConditionBlock(props: ConditionBlockProps) {
-  const { condition, blockKey, grip, isNested, onChange, onRemove } = props;
+  const { condition, id, grip, isNested, onChange, onRemove } = props;
   const house = useEditorHouse();
-  const selection = useBlockSelection(blockKey);
-  const inner = conditionWithoutNot(condition);
-  const isNot = isConditionNegated(condition);
-  const [isOpen, setOpen] = useState(() => isIncomplete(inner));
+  const ui = useBlockUi(id, isIncomplete(condition) || !isKnownKind('condition', condition.type));
+  const kind = labelForKind('condition', condition.type);
+  const gone = unavailableReason('condition', condition.type);
+  const tools = useBlockTools({
+    id,
+    family: 'condition',
+    block: condition,
+    onChange,
+    untestable: gone,
+  });
+  const said = conditionSummary(condition, house.names);
 
   return (
     <Block
       lane="if"
-      glyph={<AppIcon id={glyphForKind(inner.type)} size={15} />}
-      kind={labelForKind(inner.type)}
-      summary={conditionSummary(condition, house.names)}
-      isOpen={isOpen}
-      onToggle={() => {
-        setOpen((open) => !open);
-      }}
-      isSelected={selection.isSelected}
-      onSelect={selection.select}
+      glyph={<AppIcon id={glyphForKind('condition', condition.type)} size={15} />}
+      kind={kind}
+      summary={condition.name === undefined ? said : <span title={said}>{condition.name}</span>}
+      isWarning={gone !== undefined || !isKnownKind('condition', condition.type)}
+      isOpen={ui.isOpen}
+      onToggle={ui.toggle}
+      isSelected={ui.isSelected}
+      onSelect={ui.select}
       isNested={isNested}
       grip={grip}
       negation={{
-        isNot,
+        isNot: condition.isNot === true,
         /**
-         * Negates the check, or stops negating it.
+         * Turns the condition around, or back.
          *
-         * @param negated - Whether NOT is on.
+         * @param isNot - Whether NOT is on.
          */
-        onChange: (negated) => {
-          onChange(withConditionNegated(condition, negated));
+        onChange: (isNot) => {
+          onChange(negated(condition, isNot));
         },
       }}
       onRemove={onRemove}
+      menu={tools.menu}
+      status={tools.status}
+      notice={
+        gone === undefined ? (
+          tools.notice
+        ) : (
+          <BlockNotice tone="warning">
+            This check is not part of automations any more. Remove it to save the automation.
+          </BlockNotice>
+        )
+      }
+      rename={tools.rename}
+      isDisabled={tools.isDisabled}
     >
       <ConditionFields
-        condition={inner}
+        condition={condition}
         onChange={(next) => {
-          onChange(isNot ? { type: 'not', condition: next } : next);
+          onChange(keepMeta(condition, next));
         }}
       />
-      {isNot && inner.type === 'day_of_week' ? (
-        <p className="text-caption text-foreground-subtle">
-          NOT is on: it runs on the days left unmarked.
-        </p>
-      ) : null}
     </Block>
   );
 }
 
 /** What one group block needs. */
 type ConditionGroupBlockProps = {
-  readonly condition: AutomationCondition;
-  readonly blockKey: string;
+  readonly group: ConditionGroup;
+  readonly id: string;
+
+  /** The group's own path, under which its conditions sit. */
+  readonly path: string;
   readonly grip: ReactNode;
-  readonly onChange: (condition: AutomationCondition) => void;
+  readonly onChange: (condition: ConditionNode) => void;
   readonly onRemove: () => void;
 };
 
 /**
- * Renders a group of checks: ALL OF, ANY OF, NONE OF.
+ * Renders a group of conditions: AND, OR, either turned around.
  *
  * @param props - See {@link ConditionGroupBlockProps}.
  * @returns The group.
  */
 function ConditionGroupBlock(props: ConditionGroupBlockProps) {
-  const { condition, blockKey, grip, onChange, onRemove } = props;
-  const selection = useBlockSelection(blockKey);
-  const group = groupOf(condition);
-  const isNot = isConditionNegated(condition);
-
-  if (group === undefined) {
-    return null;
-  }
-
-  /**
-   * Writes the group back, keeping its NOT.
-   *
-   * @param next - The group as it now stands.
-   */
-  const write = (next: Group): void => {
-    onChange(isNot ? { type: 'not', condition: next } : next);
-  };
-
-  const label = isNot
-    ? group.type === 'or'
-      ? 'None of'
-      : 'Not all of'
-    : group.type === 'and'
-      ? 'All of'
-      : 'Any of';
+  const { group, id, path, grip, onChange, onRemove } = props;
+  const ui = useBlockUi(id, true);
+  const tools = useBlockTools({
+    id,
+    family: 'condition',
+    block: group,
+    onChange,
+  });
 
   return (
     <BlockGroup
-      label={label}
+      label={group.name ?? groupLabel(group)}
       op={group.type}
       onOpChange={(op) => {
-        write({ type: op, conditions: group.conditions });
+        onChange({ ...group, type: op });
       }}
       negation={{
-        isNot,
+        isNot: group.isNot === true,
         /**
-         * Negates the group, or stops negating it.
+         * Turns the group around, or back.
          *
-         * @param negated - Whether NOT is on.
+         * @param isNot - Whether NOT is on.
          */
-        onChange: (negated) => {
-          onChange(negated ? { type: 'not', condition: group } : group);
+        onChange: (isNot) => {
+          onChange(negated(group, isNot));
         },
       }}
-      isSelected={selection.isSelected}
-      onSelect={selection.select}
+      isSelected={ui.isSelected}
+      onSelect={ui.select}
       grip={grip}
       onRemove={onRemove}
+      menu={tools.menu}
+      status={tools.status}
+      notice={tools.notice}
+      rename={tools.rename}
+      isDisabled={tools.isDisabled}
     >
       <ConditionList
         items={group.conditions}
-        joins={[]}
-        fixedJoin={group.type}
+        path={`${path}.conditions`}
         isNested
         addLabel="Add to the group"
         onChange={(conditions) => {
-          write({ type: group.type, conditions: [...conditions] });
+          onChange({ ...group, conditions: [...conditions] });
         }}
       />
     </BlockGroup>
@@ -323,9 +327,8 @@ function ConditionGroupBlock(props: ConditionGroupBlockProps) {
 
 /** What the If lane needs. */
 export type ConditionLaneProps = {
-  readonly items: readonly AutomationCondition[];
-  readonly joins: readonly BooleanJoin[];
-  readonly onChange: (items: readonly AutomationCondition[], joins: readonly BooleanJoin[]) => void;
+  readonly items: readonly ConditionNode[];
+  readonly onChange: (items: readonly ConditionNode[]) => void;
 };
 
 /**
@@ -335,57 +338,56 @@ export type ConditionLaneProps = {
  * @returns The lane.
  */
 export function ConditionLane(props: ConditionLaneProps) {
-  const { items, joins, onChange } = props;
+  const { items, onChange } = props;
 
   return (
     <BlockLaneSection
       lane="if"
       glyph={<AppIcon id="list-filter" size={20} />}
       title="If"
-      note="Checks before it acts. NOT on a card negates it. Optional."
+      note="All of these must hold. Group them with AND or OR; NOT turns one around. Optional."
     >
-      <ConditionList items={items} joins={joins} onChange={onChange} addLabel="Add a condition" />
+      <ConditionList items={items} path="if" onChange={onChange} addLabel="Add a condition" />
     </BlockLaneSection>
   );
 }
 
-/** What a field of checks needs: the checks of an if/else, a loop or a wait. */
-export type ConditionTreeFieldProps = {
-  /** The checks, as the document stores them. */
-  readonly value: BooleanTree;
+/** What the conditions of a block that holds them need. */
+export type ConditionsFieldProps = {
+  readonly items: readonly ConditionNode[];
 
-  /** Called with the checks as they now stand. */
-  readonly onChange: (tree: BooleanTree) => void;
+  /** The list's path: the block's, then `conditions`. */
+  readonly path: string;
+
+  /** Called with the conditions as they now stand. */
+  readonly onChange: (items: readonly ConditionNode[]) => void;
+
+  /** A line under them: what an empty list means here. */
+  readonly note?: string | undefined;
 };
 
 /**
- * Renders the checks of a block that holds them.
+ * Renders the conditions of an If, a loop or a wait.
  *
- * @param props - See {@link ConditionTreeFieldProps}.
- * @returns The checks.
+ * @param props - See {@link ConditionsFieldProps}.
+ * @returns The conditions.
  */
-export function ConditionTreeField(props: ConditionTreeFieldProps) {
-  const { value, onChange } = props;
-
-  // Kept for as long as the tree is the same tree: a list that is new on every render would give
-  // its blocks new keys on every render.
-  const flat = useMemo(() => flatFromBooleanTree(value), [value]);
+export function ConditionsField(props: ConditionsFieldProps) {
+  const { items, path, onChange, note } = props;
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-caption font-medium text-foreground-muted">Checks</span>
+      <span className="text-caption font-medium text-foreground-muted">Conditions</span>
       <ConditionList
-        items={flat.items}
-        joins={flat.joins}
+        items={items}
+        path={path}
         isNested
-        addLabel="Add a check"
-        onChange={(items, joins) => {
-          // A block that checks has to check something: emptied, it starts again from a blank.
-          onChange(
-            ifTreeFromFlat(items, joins) ?? booleanTreeFromCondition(blankCondition('state')),
-          );
-        }}
+        addLabel="Add a condition"
+        onChange={onChange}
       />
+      {note === undefined ? null : (
+        <span className="text-caption text-foreground-subtle">{note}</span>
+      )}
     </div>
   );
 }

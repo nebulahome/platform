@@ -51,7 +51,7 @@ export type EntityCorrelations = {
 };
 
 /** A trigger that names no entity, for walking the parts of a document one at a time. */
-const NO_TRIGGER = { type: 'manual' } as const;
+const NO_TRIGGER = [{ type: 'manual' }] as const;
 
 /**
  * Where in a document an entity is named.

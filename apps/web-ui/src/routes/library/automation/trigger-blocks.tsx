@@ -1,25 +1,20 @@
 /**
- * The When lane: what wakes the automation, one block per trigger, joined by AND or OR.
- *
- * AND binds tighter than OR, as the document says it does: two cards joined by AND are a group
- * that fires when one of them fires while the other holds, and the note says so.
+ * The When lane: what wakes the automation, one block per trigger. Any one of them wakes it -
+ * there is no AND between triggers, since two things seldom happen in the same instant; "this
+ * happened while that holds" is what the If lane is for.
  */
-import { useState } from 'react';
+import type { ReactNode } from 'react';
 
 import type { AutomationTrigger } from '@nebulahome/contracts';
-import { AppIcon, Block, BlockJoin, BlockLaneSection, type UiIconId } from '@nebulahome/ui';
+import { AppIcon, Block, BlockLaneSection, type UiIconId } from '@nebulahome/ui';
 
-import { useBlockSelection } from '@/lib/block-selection';
-import { triggerSummary } from '@/lib/block-summary';
-import { moveItem } from '@/lib/use-sortable';
-import {
-  blankTrigger,
-  replaceAt,
-  resizeJoins,
-  without,
-  type BooleanJoin,
-} from '@/library/automation-draft';
+import type { DragLook } from '@/lib/block-drag';
+import { carryBlockId } from '@/lib/block-ids';
+import { triggerSummary, type BlockNames } from '@/lib/block-summary';
+import { useBlockUi } from '@/lib/block-ui';
+import { blankTrigger, keepMeta, replaceAt, without } from '@/library/automation-draft';
 import { AddBlock, BlockSequence } from '@/routes/library/automation/block-sequence';
+import { useBlockTools } from '@/routes/library/automation/block-tools';
 import { useEditorHouse } from '@/routes/library/automation/editor-house';
 import {
   labelForKind,
@@ -31,41 +26,57 @@ import { TriggerFields } from '@/routes/library/trigger-fields';
 /** What the lane needs. */
 export type TriggerLaneProps = {
   readonly triggers: readonly AutomationTrigger[];
-  readonly joins: readonly BooleanJoin[];
 
-  /** Called with the triggers and joins as they now stand. */
-  readonly onChange: (
-    triggers: readonly AutomationTrigger[],
-    joins: readonly BooleanJoin[],
-  ) => void;
-
-  /** Said under the title instead of the usual line: the triggers are kept as they were. */
-  readonly note?: string | undefined;
+  /** Called with the triggers as they now stand. */
+  readonly onChange: (triggers: readonly AutomationTrigger[]) => void;
 };
 
 /**
  * A trigger's glyph.
  *
  * @param trigger - The trigger.
- * @returns Its icon: a time is a clock, the sun, or a timer.
+ * @returns Its icon: a time is a clock or a timer, the sun a sunrise or a sunset.
  */
 export function triggerGlyph(trigger: AutomationTrigger): UiIconId {
-  if (trigger.type === 'time') {
-    if (trigger.at.kind === 'solar') {
-      return trigger.at.event === 'sunrise' ? 'sunrise' : 'sunset';
+  switch (trigger.type) {
+    case 'time': {
+      return trigger.at.kind === 'cron' ? 'timer' : 'clock';
     }
-
-    return trigger.at.kind === 'cron' ? 'timer' : 'clock';
+    case 'sun': {
+      return ['sunrise', 'dawn', 'golden_hour_end', 'blue_hour_start', 'polar_night_end'].includes(
+        trigger.event,
+      )
+        ? 'sunrise'
+        : trigger.event === 'solar_noon' || trigger.event === 'elevation_changed'
+          ? 'sun'
+          : 'sunset';
+    }
+    case 'entity': {
+      return trigger.change.kind === 'numeric' ? 'gauge' : 'activity';
+    }
+    case 'event': {
+      return 'radio';
+    }
+    case 'manual': {
+      return 'mouse-pointer-click';
+    }
   }
+}
 
-  return (
-    {
-      state: 'activity',
-      numeric_state: 'gauge',
-      event: 'radio',
-      manual: 'mouse-pointer-click',
-    } as const
-  )[trigger.type];
+/**
+ * How a trigger looks under the pointer while it is dragged.
+ *
+ * @param trigger - The trigger.
+ * @param names - The house.
+ * @returns Its look.
+ */
+function triggerLook(trigger: AutomationTrigger, names: BlockNames): DragLook {
+  return {
+    lane: 'when',
+    glyph: triggerGlyph(trigger),
+    kind: labelForKind('trigger', trigger.type),
+    summary: trigger.name ?? triggerSummary(trigger, names),
+  };
 }
 
 /**
@@ -75,7 +86,7 @@ export function triggerGlyph(trigger: AutomationTrigger): UiIconId {
  * @returns True when an entity is missing.
  */
 function isIncomplete(trigger: AutomationTrigger): boolean {
-  return (trigger.type === 'state' || trigger.type === 'numeric_state') && trigger.entityId === '';
+  return trigger.type === 'entity' && trigger.entityId === '';
 }
 
 /**
@@ -85,61 +96,45 @@ function isIncomplete(trigger: AutomationTrigger): boolean {
  * @returns The lane.
  */
 export function TriggerLane(props: TriggerLaneProps) {
-  const { triggers, joins, onChange, note } = props;
+  const { triggers, onChange } = props;
+  const house = useEditorHouse();
 
   return (
     <BlockLaneSection
       lane="when"
       glyph={<AppIcon id="zap" size={20} />}
       title="When"
-      note={
-        note ??
-        'What wakes it. Cards combine with AND or OR; an AND fires when one card fires while the others hold.'
-      }
+      note="What wakes it. Any one of these does."
     >
       <BlockSequence
         items={triggers}
-        itemLabel={(trigger) => labelForKind(trigger.type)}
-        onMove={(from, to) => {
-          onChange(moveItem(triggers, from, to), joins);
-        }}
-        renderJoin={(index) => (
-          <BlockJoin
-            value={joins[index - 1] ?? 'or'}
-            onChange={(join) => {
-              onChange(triggers, replaceAt(joins, index - 1, join));
-            }}
-          />
-        )}
-        renderItem={({ item, index, blockKey, grip }) => (
+        path="triggers"
+        family="trigger"
+        lookOf={(trigger) => triggerLook(trigger, house.names)}
+        renderItem={({ item, index, id, grip }) => (
           <TriggerBlock
             trigger={item}
-            blockKey={blockKey}
+            id={id}
             grip={grip}
             onChange={(next) => {
-              onChange(replaceAt(triggers, index, next), joins);
+              onChange(replaceAt(triggers, index, carryBlockId(item, next)));
             }}
             onRemove={() => {
-              const rest = without(triggers, index);
-
-              onChange(
-                rest,
-                resizeJoins(without(joins, Math.max(0, index - 1)), rest.length, 'or'),
-              );
+              onChange(without(triggers, index));
             }}
           />
         )}
-      />
-      <AddBlock
-        label="Add a trigger"
-        pickerTitle="Add a trigger"
-        pickerDescription="What wakes the automation."
-        groups={TRIGGER_CHOICE_GROUPS}
-        onPick={(type) => {
-          const next = [...triggers, blankTrigger(type)];
-
-          onChange(next, resizeJoins(joins, next.length, 'or'));
-        }}
+        footer={
+          <AddBlock
+            label="Add a trigger"
+            pickerTitle="Add a trigger"
+            pickerDescription="What wakes the automation."
+            groups={TRIGGER_CHOICE_GROUPS}
+            onPick={(type) => {
+              onChange([...triggers, blankTrigger(type)]);
+            }}
+          />
+        }
       />
     </BlockLaneSection>
   );
@@ -148,8 +143,8 @@ export function TriggerLane(props: TriggerLaneProps) {
 /** What one trigger block needs. */
 type TriggerBlockProps = {
   readonly trigger: AutomationTrigger;
-  readonly blockKey: string;
-  readonly grip: React.ReactNode;
+  readonly id: string;
+  readonly grip: ReactNode;
   readonly onChange: (trigger: AutomationTrigger) => void;
   readonly onRemove: () => void;
 };
@@ -161,34 +156,55 @@ type TriggerBlockProps = {
  * @returns The block.
  */
 function TriggerBlock(props: TriggerBlockProps) {
-  const { trigger, blockKey, grip, onChange, onRemove } = props;
+  const { trigger, id, grip, onChange, onRemove } = props;
   const house = useEditorHouse();
-  const selection = useBlockSelection(blockKey);
-  const [isOpen, setOpen] = useState(() => isIncomplete(trigger));
+  const ui = useBlockUi(id, isIncomplete(trigger));
+  const kind = labelForKind('trigger', trigger.type);
+  const tools = useBlockTools({
+    id,
+    family: 'trigger',
+    block: trigger,
+    onChange,
+    untestable:
+      trigger.type === 'manual'
+        ? 'A manual trigger has nothing to test: it fires from Run'
+        : trigger.type === 'event'
+          ? 'Device events are not available yet'
+          : undefined,
+  });
   const isGone =
-    (trigger.type === 'state' || trigger.type === 'numeric_state') &&
+    trigger.type === 'entity' &&
     trigger.entityId !== '' &&
     !house.isPending &&
     house.entities.length > 0 &&
     house.entityOf(trigger.entityId) === undefined;
+  const said = isGone ? `${trigger.entityId} is gone` : triggerSummary(trigger, house.names);
 
   return (
     <Block
       lane="when"
       glyph={<AppIcon id={triggerGlyph(trigger)} size={15} />}
-      kind={labelForKind(trigger.type)}
-      summary={isGone ? `${trigger.entityId} is gone` : triggerSummary(trigger, house.names)}
-      isWarning={isGone || unavailableReason(trigger.type) !== undefined}
-      isOpen={isOpen}
-      onToggle={() => {
-        setOpen((open) => !open);
-      }}
-      isSelected={selection.isSelected}
-      onSelect={selection.select}
+      kind={kind}
+      summary={trigger.name === undefined ? said : <span title={said}>{trigger.name}</span>}
+      isWarning={isGone || unavailableReason('trigger', trigger.type) !== undefined}
+      isOpen={ui.isOpen}
+      onToggle={ui.toggle}
+      isSelected={ui.isSelected}
+      onSelect={ui.select}
       grip={grip}
       onRemove={onRemove}
+      menu={tools.menu}
+      status={tools.status}
+      notice={tools.notice}
+      rename={tools.rename}
+      isDisabled={tools.isDisabled}
     >
-      <TriggerFields trigger={trigger} onChange={onChange} />
+      <TriggerFields
+        trigger={trigger}
+        onChange={(next) => {
+          onChange(keepMeta(trigger, next));
+        }}
+      />
     </Block>
   );
 }

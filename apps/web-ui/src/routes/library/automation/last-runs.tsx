@@ -197,7 +197,14 @@ function Trace(props: { readonly steps: readonly TraceStep[] }) {
                 <span className="font-mono text-mono-caption text-foreground-subtle uppercase">
                   {step.kind === 'trigger' ? 'When' : step.kind === 'condition' ? 'If' : 'Then'}
                 </span>{' '}
-                {labelForKind(step.type)}
+                {labelForKind(
+                  step.kind === 'trigger'
+                    ? 'trigger'
+                    : step.kind === 'condition'
+                      ? 'condition'
+                      : 'action',
+                  step.type,
+                )}
                 {name === undefined ? '' : ` · ${name}`}
                 <span className="text-foreground-subtle"> · {step.result}</span>
               </span>

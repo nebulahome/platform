@@ -267,6 +267,35 @@ export function hexToHs(hex: string): { hue: number; saturation: number } | null
 }
 
 /**
+ * The colour a hue and a saturation stand for at full brightness, as `#rrggbb`: what a HEX field
+ * shows, and what {@link hexToHs} reads back to the same hue and saturation.
+ *
+ * @param hue - 0 to 360.
+ * @param saturation - 0 to 100.
+ * @returns The colour.
+ */
+export function hsToHex(hue: number, saturation: number): string {
+  const s = Math.min(100, Math.max(0, saturation)) / 100;
+  const h = (((hue % 360) + 360) % 360) / 60;
+
+  /**
+   * One channel of the colour, by the HSV formula at full value.
+   *
+   * @param n - Which channel: 5 red, 3 green, 1 blue.
+   * @returns The channel, 0 to 255.
+   */
+  const channel = (n: number): number => {
+    const k = (n + h) % 6;
+
+    return Math.round((1 - s * Math.max(0, Math.min(k, 4 - k, 1))) * 255);
+  };
+
+  return `#${[channel(5), channel(3), channel(1)]
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
+/**
  * The groove of a hue slider: the whole wheel, unrolled.
  *
  * @returns A CSS gradient.

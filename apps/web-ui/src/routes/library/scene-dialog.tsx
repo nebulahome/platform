@@ -366,7 +366,7 @@ export function SceneDialog(props: SceneDialogProps) {
         max={600}
         step={0.1}
         value={String(transitionSeconds)}
-        hint="Seconds. 0 means immediate."
+        hint="Seconds. 0 means immediate. Lights that cannot fade change at once."
         onChange={(event) => {
           const next = Number(event.target.value);
 

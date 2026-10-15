@@ -1,89 +1,112 @@
 /**
- * A list of blocks that can be reordered, and the Add at its foot.
+ * A list of blocks, and the Add at its foot.
  *
- * Every list in the editor is one of these - the triggers, the checks, a branch of actions - so a
- * block drags, keeps its open state and its selection, and is added, the same way wherever it is.
- * The keys follow each block (`block-keys.ts`); the joins between blocks stay where they are.
+ * Every list in the editor is one of these - the triggers, the conditions, a branch of actions -
+ * so a block is drawn, dragged and added the same way wherever it is. The list says where it is
+ * (`path`) and what it holds (`family`), which is how a block dragged anywhere in the editor finds
+ * the lists it may land in (`block-drag.tsx`). Blocks are keyed by their id, which follows them
+ * from one list to another (`block-ids.ts`).
  */
-import { useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
-import { BlockAdd, BlockGrip, cn } from '@nebulahome/ui';
+import { BlockAdd, BlockDropLine, BlockDropZone, BlockGrip } from '@nebulahome/ui';
 
-import { useBlockKeys } from '@/lib/block-keys';
-import { useSortable } from '@/lib/use-sortable';
+import { useBlockDrag, type DragLook } from '@/lib/block-drag';
+import { blockIdOf } from '@/lib/block-ids';
+import type { BlockFamily } from '@/library/block-path';
 import { BlockPickerModal } from '@/routes/library/block-picker-modal';
 import type { EditorChoiceGroup } from '@/routes/library/editor-choices';
 
 /** What one block in the list is handed to draw itself. */
-export type BlockSlot<TItem> = {
+export type BlockSlotProps<TItem> = {
   readonly item: TItem;
   readonly index: number;
 
-  /** Its key, which follows it: what its selection is held by. */
-  readonly blockKey: string;
+  /** Its id, which follows it wherever it is moved. */
+  readonly id: string;
+
+  /** Its path: the list's, and its place in it. */
+  readonly path: string;
 
   /** Its drag handle. */
   readonly grip: ReactNode;
 };
 
 /** What a list needs. */
-export type BlockSequenceProps<TItem> = {
+export type BlockSequenceProps<TItem extends object> = {
   readonly items: readonly TItem[];
 
-  /** Moves the block at one place to another. */
-  readonly onMove: (from: number, to: number) => void;
+  /** Where the list is: `then`, `then.2.else`, `if.1.conditions`. */
+  readonly path: string;
 
-  /** What a block is called, for its grip. */
-  readonly itemLabel: (item: TItem) => string;
+  /** What it holds. */
+  readonly family: BlockFamily;
+
+  /** How a block looks under the pointer and is named on its grip. */
+  readonly lookOf: (item: TItem) => DragLook;
 
   /** Draws one block. */
-  readonly renderItem: (slot: BlockSlot<TItem>) => ReactNode;
+  readonly renderItem: (slot: BlockSlotProps<TItem>) => ReactNode;
 
-  /** Draws what goes between a block and the one before it: AND, OR. */
-  readonly renderJoin?: (index: number) => ReactNode;
+  /**
+   * What closes the list: its Add. Inside the list, so a block dragged over it lands at the end -
+   * an empty branch is mostly its Add.
+   */
+  readonly footer?: ReactNode;
 };
 
 /**
- * Renders a reorderable list of blocks.
+ * Renders a list of blocks that can be moved, here and into other lists.
  *
  * @param props - See {@link BlockSequenceProps}.
  * @returns The list.
  */
-export function BlockSequence<TItem>(props: BlockSequenceProps<TItem>) {
-  const { items, onMove, itemLabel, renderItem, renderJoin } = props;
-  const keys = useBlockKeys(items);
-  const listRef = useRef<HTMLDivElement | null>(null);
-  const sortable = useSortable(listRef, items.length, onMove);
+export function BlockSequence<TItem extends object>(props: BlockSequenceProps<TItem>) {
+  const { items, path, family, lookOf, renderItem, footer } = props;
+  const { drag, startPointer, onGripKey } = useBlockDrag();
+  const drop = drag?.drop?.list === path ? drag.drop : null;
+  const isOffering = drag !== null && drag.source.family === family;
 
   return (
-    <div ref={listRef} className="flex flex-col gap-2 empty:hidden">
+    <div data-block-list={path} data-family={family} className="flex flex-col gap-2">
       {items.map((item, index) => {
-        const blockKey = keys[index] ?? String(index);
-        const side = sortable.dropSide(index);
+        const id = blockIdOf(item);
+        const look = lookOf(item);
+        const source = { id, slot: { list: path, index }, family, look };
+        const isSource = drag?.source.id === id;
 
         return [
-          index > 0 && renderJoin !== undefined ? (
-            <div key={`${blockKey}-join`}>{renderJoin(index)}</div>
-          ) : null,
-          <div key={blockKey} {...sortable.itemProps(index)} className="relative">
-            {side === null ? null : (
-              <span
-                aria-hidden="true"
-                className={cn(
-                  'absolute inset-x-1 z-30 h-0.5 rounded-pill bg-[var(--lane)]',
-                  side === 'before' ? '-top-1.5' : '-bottom-1.5',
-                )}
-              />
-            )}
+          drop?.index === index ? <BlockDropLine key={`${id}-drop`} /> : null,
+          <div
+            key={id}
+            data-sort-item=""
+            data-block-item={id}
+            className={isSource ? 'pointer-events-none opacity-40' : undefined}
+          >
             {renderItem({
               item,
               index,
-              blockKey,
-              grip: <BlockGrip label={`Move ${itemLabel(item)}`} {...sortable.gripProps(index)} />,
+              id,
+              path: `${path}.${String(index)}`,
+              grip: (
+                <BlockGrip
+                  label={`Move ${look.kind}`}
+                  blockId={id}
+                  onPointerDown={(event) => {
+                    startPointer(event, source);
+                  }}
+                  onKeyDown={(event) => {
+                    onGripKey(event, source);
+                  }}
+                />
+              ),
             })}
           </div>,
         ];
       })}
+      {drop !== null && drop.index >= items.length && items.length > 0 ? <BlockDropLine /> : null}
+      {items.length === 0 && isOffering ? <BlockDropZone isActive={drop !== null} /> : null}
+      {footer}
     </div>
   );
 }

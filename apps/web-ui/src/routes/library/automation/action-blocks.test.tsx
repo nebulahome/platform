@@ -1,49 +1,77 @@
 /**
  * The Then blocks: a block clicked is selected and lights the blocks inside it; a field, a
- * switch or a button inside it is the field's, not a selection; Escape lets it go. And the blocks
- * that hold others draw their branches and add to them.
+ * switch or a button inside it is the field's, not a selection; Escape lets it go. The blocks
+ * that hold others draw their branches and add to them; every block's ⋯ menu renames it and turns
+ * it off; and a block moved with the keyboard walks into the branches of the block beside it.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { useState } from 'react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { useEffect, useState } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { entityIdSchema, type AutomationAction } from '@nebulahome/contracts';
 
-import { BlockSelectionProvider } from '@/lib/block-selection';
+import { BlockDragProvider } from '@/lib/block-drag';
+import { BlockUiProvider } from '@/lib/block-ui';
+import { emptyDraft, type AutomationDraft } from '@/library/automation-draft';
+import { moveBlock, stepBlock } from '@/library/block-path';
 
 import { ActionList } from './action-blocks';
 
-/** An if/else that turns a lamp on, or else waits. */
+/** An if/else that applies a scene, or else waits. */
 const IF_ELSE: AutomationAction = {
   type: 'if',
-  condition: {
-    type: 'numeric',
-    entityId: entityIdSchema.parse('sensor.lux'),
-    operator: 'lt',
-    value: 50,
-  },
+  conditions: [
+    {
+      type: 'entity',
+      entityId: entityIdSchema.parse('sensor.lux'),
+      match: { kind: 'numeric', operator: 'lt', value: 50 },
+    },
+  ],
   then: [{ type: 'scene', sceneKey: 'evening' }],
   else: [{ type: 'wait_duration', durationMs: 60_000 }],
 };
 
+/** The blocks as they now stand, for a test to read. */
+const seen: { then: readonly AutomationAction[] } = { then: [] };
+
 /**
- * The list, holding its own actions as the editor does.
+ * The list, holding a draft as the editor does, with the editor's way of moving blocks.
  *
  * @param props - What it starts with.
- * @param props.initial - The actions.
+ * @param props.initial - The blocks.
  * @returns The list.
  */
 function Harness(props: { readonly initial: readonly AutomationAction[] }) {
-  const [actions, setActions] = useState(props.initial);
+  const [draft, setDraft] = useState<AutomationDraft>({ ...emptyDraft(), then: props.initial });
+
+  useEffect(() => {
+    seen.then = draft.then;
+  });
 
   return (
-    <ActionList
-      actions={actions}
-      onChange={(next) => {
-        setActions(next);
+    <BlockDragProvider
+      onMove={(from, to) => {
+        setDraft((current) => moveBlock(current, from, to) ?? current);
       }}
-    />
+      onStep={(from, step) => {
+        const stepped = stepBlock(draft, from, step);
+
+        if (stepped !== null) {
+          setDraft(stepped.draft);
+        }
+
+        return stepped?.at ?? null;
+      }}
+    >
+      <ActionList
+        items={draft.then}
+        path="then"
+        onChange={(then) => {
+          setDraft({ ...draft, then });
+        }}
+      />
+    </BlockDragProvider>
   );
 }
 
@@ -61,9 +89,9 @@ function renderList(actions: readonly AutomationAction[]): void {
 
   render(
     <QueryClientProvider client={client}>
-      <BlockSelectionProvider>
+      <BlockUiProvider>
         <Harness initial={actions} />
-      </BlockSelectionProvider>
+      </BlockUiProvider>
     </QueryClientProvider>,
   );
 }
@@ -90,10 +118,8 @@ describe('selecting a block', () => {
   it('selects the block whose title is clicked, and lights its branches', () => {
     renderList([IF_ELSE]);
 
-    const block = blockOf('If / else');
-
-    expect(block.hasAttribute('data-selected')).toBe(false);
-    fireEvent.click(screen.getByText(/^If Sensor lux|^If Lux/u));
+    expect(blockOf('If / else').hasAttribute('data-selected')).toBe(false);
+    fireEvent.click(screen.getByText(/^If Lux below 50/u));
     expect(blockOf('If / else').hasAttribute('data-selected')).toBe(true);
   });
 
@@ -126,9 +152,11 @@ describe('selecting a block', () => {
 });
 
 describe('the blocks that hold others', () => {
-  it('draws Then and Else, and takes else away', () => {
+  it('draws its conditions, Then and Else, and takes else away', () => {
     renderList([IF_ELSE]);
 
+    expect(screen.getByText('Conditions')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add a condition' })).toBeTruthy();
     expect(screen.getByText('Then')).toBeTruthy();
     expect(screen.getByText('Else')).toBeTruthy();
 
@@ -136,6 +164,7 @@ describe('the blocks that hold others', () => {
 
     expect(screen.queryByText('Else')).toBeNull();
     expect(screen.getByRole('button', { name: 'Add else' })).toBeTruthy();
+    expect(seen.then[0]).not.toHaveProperty('else');
   });
 
   it('adds a case to a switch, under Otherwise', () => {
@@ -162,9 +191,94 @@ describe('the blocks that hold others', () => {
     expect(screen.getAllByText('End this run').length).toBeGreaterThan(0);
   });
 
+  it('calls the Add of a list "Add a block"', () => {
+    renderList([]);
+
+    expect(screen.getByRole('button', { name: 'Add a block' })).toBeTruthy();
+  });
+
+  it('gives a parallel block a branch, each its own list', () => {
+    renderList([{ type: 'parallel', branches: [[{ type: 'stop' }], []] }]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add a branch' }));
+
+    expect(screen.getByText('Branch 3')).toBeTruthy();
+    expect(seen.then[0]).toEqual({ type: 'parallel', branches: [[{ type: 'stop' }], [], []] });
+  });
+
   it('says a block the engine cannot run yet is not available', () => {
     renderList([{ type: 'notify', channel: 'push', message: 'Hello' }]);
 
     expect(screen.getByText(/not available yet/u)).toBeTruthy();
+  });
+});
+
+describe('the ⋯ menu', () => {
+  it('renames a block, which then reads as its name', () => {
+    renderList([{ type: 'scene', sceneKey: 'evening' }]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'More for Apply a scene' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Rename/u }));
+
+    const field = screen.getByRole('textbox', { name: /name/iu });
+
+    fireEvent.change(field, { target: { value: 'Lights down' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+
+    expect(screen.getByText('Lights down')).toBeTruthy();
+    expect(seen.then[0]).toEqual({ type: 'scene', sceneKey: 'evening', name: 'Lights down' });
+  });
+
+  it('turns a block off and on, keeping it', () => {
+    renderList([{ type: 'scene', sceneKey: 'evening' }]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'More for Apply a scene' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Turn off/u }));
+
+    expect(blockOf('Apply a scene').hasAttribute('data-disabled')).toBe(true);
+    expect(within(blockOf('Apply a scene')).getByText('Off')).toBeTruthy();
+    expect(seen.then[0]).toEqual({ type: 'scene', sceneKey: 'evening', isEnabled: false });
+
+    fireEvent.click(screen.getByRole('button', { name: 'More for Apply a scene' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Turn on/u }));
+
+    expect(seen.then[0]).toEqual({ type: 'scene', sceneKey: 'evening' });
+  });
+
+  it('keeps Test out of reach without the right to run it', () => {
+    renderList([{ type: 'scene', sceneKey: 'evening' }]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'More for Apply a scene' }));
+
+    expect(screen.getByRole('menuitem', { name: /Test/u }).hasAttribute('disabled')).toBe(true);
+  });
+});
+
+describe('moving with the keyboard', () => {
+  it('walks a block out of Then and into Else', () => {
+    renderList([IF_ELSE]);
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Move Apply a scene' }), {
+      key: 'ArrowDown',
+    });
+
+    expect(seen.then[0]).toMatchObject({
+      type: 'if',
+      then: [],
+      else: [
+        { type: 'scene', sceneKey: 'evening' },
+        { type: 'wait_duration', durationMs: 60_000 },
+      ],
+    });
+  });
+
+  it('walks a block out of the If it is in', () => {
+    renderList([IF_ELSE]);
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Move Apply a scene' }), {
+      key: 'ArrowUp',
+    });
+
+    expect(seen.then.map((action) => action.type)).toEqual(['scene', 'if']);
   });
 });

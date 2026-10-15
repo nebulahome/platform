@@ -2,9 +2,10 @@
  * Turning a stored document into the line somebody reads.
  *
  * The cases here are the ones where a summary would otherwise mislead rather than merely read
- * badly: a rule with four triggers that claims to have one, a nested `and` counted as a single
- * check, and a solar trigger whose offset is dropped — which turns "half an hour before sunset"
- * into "at sunset" on a page somebody is using to decide whether the rule is the one misfiring.
+ * badly: a rule with four triggers that claims to have one, a group counted as a single check, a
+ * sun trigger whose offset is dropped — which turns "half an hour before sunset" into "at sunset"
+ * on a page somebody is using to decide whether the rule is the one misfiring — and a rule whose
+ * every trigger is turned off, which never runs.
  */
 import { describe, expect, it } from 'vitest';
 
@@ -15,6 +16,7 @@ import {
   describeAction,
   describeAutomation,
   describeTrigger,
+  summaryOf,
 } from './describe-automation';
 
 /**
@@ -33,9 +35,9 @@ describe('describeTrigger', () => {
   it('reads an entity by its object rather than its address, when it has no name', () => {
     expect(
       describeTrigger({
-        type: 'state',
+        type: 'entity',
         entityId: entity('binary_sensor.hallway_motion'),
-        to: 'on',
+        change: { kind: 'state', to: 'on' },
       }),
     ).toBe('Hallway motion turns on');
   });
@@ -44,9 +46,9 @@ describe('describeTrigger', () => {
     expect(
       describeTrigger(
         {
-          type: 'state',
+          type: 'entity',
           entityId: entity('binary_sensor.hallway_motion'),
-          to: 'on',
+          change: { kind: 'state', to: 'on' },
           forMs: 120_000,
         },
         { entity: () => 'Front hall motion' },
@@ -55,28 +57,28 @@ describe('describeTrigger', () => {
   });
 
   it('says a state changed when no destination is named', () => {
-    expect(describeTrigger({ type: 'state', entityId: entity('light.kitchen_ceiling') })).toBe(
-      'Kitchen ceiling changes',
-    );
+    expect(
+      describeTrigger({
+        type: 'entity',
+        entityId: entity('light.kitchen_ceiling'),
+        change: { kind: 'state' },
+      }),
+    ).toBe('Kitchen ceiling changes');
   });
 
-  it('keeps a solar offset, which is the whole point of having one', () => {
-    expect(
-      describeTrigger({ type: 'time', at: { kind: 'solar', event: 'sunset', offsetMinutes: -30 } }),
-    ).toBe('Sunset, 30 min before');
-
-    expect(
-      describeTrigger({ type: 'time', at: { kind: 'solar', event: 'sunrise', offsetMinutes: 0 } }),
-    ).toBe('Sunrise');
+  it('keeps a sun offset, which is the whole point of having one', () => {
+    expect(describeTrigger({ type: 'sun', event: 'sunset', offsetMinutes: -30 })).toBe(
+      'Sunset, 30 min before',
+    );
+    expect(describeTrigger({ type: 'sun', event: 'sunrise', offsetMinutes: 0 })).toBe('Sunrise');
   });
 
   it('turns a comparison into a word', () => {
     expect(
       describeTrigger({
-        type: 'numeric_state',
+        type: 'entity',
         entityId: entity('sensor.kitchen_temperature'),
-        operator: 'gt',
-        value: 22,
+        change: { kind: 'numeric', operator: 'gt', value: 22 },
       }),
     ).toBe('Kitchen temperature rises above 22');
   });
@@ -102,74 +104,74 @@ describe('describeAction', () => {
     expect(
       describeAction({
         type: 'parallel',
-        actions: [
-          { type: 'scene', sceneKey: 'good_night' },
-          { type: 'notify', channel: 'push', message: 'done' },
+        branches: [
+          [{ type: 'scene', sceneKey: 'good_night' }],
+          [{ type: 'notify', channel: 'push', message: 'done' }],
         ],
       }),
-    ).toBe('2 branches side by side');
+    ).toBe('2 branches · 2 blocks');
   });
 });
 
 describe('countChecks', () => {
-  it('counts the leaves of a composed condition, not the node', () => {
+  it('counts the conditions inside groups, not the groups', () => {
     expect(
-      countChecks({
-        op: 'and',
-        items: [
-          { type: 'time_window', from: '22:00', to: '06:00' },
-          {
-            op: 'or',
-            items: [
-              { type: 'state', entityId: entity('person.mattia'), state: 'home' },
-              { type: 'state', entityId: entity('person.giulia'), state: 'home' },
-            ],
-          },
-        ],
-      }),
+      countChecks([
+        { type: 'time', from: '22:00', to: '06:00' },
+        {
+          type: 'or',
+          conditions: [
+            {
+              type: 'entity',
+              entityId: entity('person.mattia'),
+              match: { kind: 'state', states: ['home'] },
+            },
+            {
+              type: 'entity',
+              entityId: entity('person.giulia'),
+              match: { kind: 'state', states: ['home'] },
+            },
+          ],
+        },
+      ]),
     ).toBe(3);
   });
 
-  it('sees through a negation', () => {
+  it('sees through a NOT', () => {
     expect(
-      countChecks({
-        op: 'not',
-        item: { type: 'state', entityId: entity('person.mattia'), state: 'home' },
-      }),
+      countChecks([
+        {
+          type: 'entity',
+          isNot: true,
+          entityId: entity('person.mattia'),
+          match: { kind: 'state', states: ['home'] },
+        },
+      ]),
     ).toBe(1);
   });
 
-  it('still counts a draft-style type:and tree', () => {
-    expect(
-      countChecks({
-        type: 'and',
-        conditions: [
-          { type: 'time_window', from: '22:00', to: '06:00' },
-          { type: 'day_of_week', days: ['saturday'] },
-        ],
-      }),
-    ).toBe(2);
+  it('counts nothing for no conditions', () => {
+    expect(countChecks(undefined)).toBe(0);
+    expect(countChecks([])).toBe(0);
   });
 });
 
 describe('describeAutomation', () => {
   /** A rule with more of everything than one line can hold. */
   const CROWDED: AutomationDefinition = {
-    triggers: {
-      op: 'or',
-      items: [
-        { type: 'state', entityId: entity('binary_sensor.hallway_motion'), to: 'on' },
-        { type: 'manual' },
-        { type: 'time', at: { kind: 'clock', time: '18:00' } },
-      ],
-    },
-    if: {
-      op: 'and',
-      items: [
-        { type: 'time_window', from: '22:00', to: '06:00' },
-        { type: 'day_of_week', days: ['saturday', 'sunday'] },
-      ],
-    },
+    triggers: [
+      {
+        type: 'entity',
+        entityId: entity('binary_sensor.hallway_motion'),
+        change: { kind: 'state', to: 'on' },
+      },
+      { type: 'manual' },
+      { type: 'time', at: { kind: 'clock', time: '18:00' } },
+    ],
+    if: [
+      { type: 'time', from: '22:00', to: '06:00' },
+      { type: 'time', days: ['saturday', 'sunday'] },
+    ],
     then: [
       {
         type: 'command',
@@ -191,8 +193,25 @@ describe('describeAutomation', () => {
     expect(summary.conditions).toBe('2 conditions');
   });
 
+  it('leaves out a trigger that is turned off, and says when every one is', () => {
+    const [first, ...rest] = CROWDED.triggers;
+
+    expect(
+      describeAutomation({
+        ...CROWDED,
+        triggers: [...(first === undefined ? [] : [{ ...first, isEnabled: false }]), ...rest],
+      }).trigger,
+    ).toBe('Only when somebody asks for it +1');
+    expect(
+      describeAutomation({
+        ...CROWDED,
+        triggers: CROWDED.triggers.map((trigger) => ({ ...trigger, isEnabled: false })),
+      }).trigger,
+    ).toBe('every trigger is off');
+  });
+
   it('says nothing about conditions when there are none', () => {
-    const summary = describeAutomation({ ...CROWDED, if: undefined });
+    const summary = describeAutomation({ ...CROWDED, if: [] });
 
     // Null rather than "0 conditions": the row draws an arrow for each phrase it is given, and a
     // rule with no conditions should read as two steps, not three.
@@ -202,18 +221,46 @@ describe('describeAutomation', () => {
   it('does not pluralise a single condition', () => {
     const summary = describeAutomation({
       ...CROWDED,
-      if: { type: 'state', entityId: entity('person.mattia'), state: 'home' },
+      if: [
+        {
+          type: 'entity',
+          entityId: entity('person.mattia'),
+          match: { kind: 'state', states: ['home'] },
+        },
+      ],
     });
 
     expect(summary.conditions).toBe('1 condition');
   });
 
   it('survives a document with nothing in it', () => {
-    const summary = describeAutomation({
-      triggers: { op: 'or', items: [] },
-      then: [],
-    });
+    const summary = describeAutomation({ triggers: [], then: [] });
 
     expect(summary).toEqual({ trigger: 'no trigger', conditions: null, actions: 'no actions' });
+  });
+});
+
+describe('summaryOf', () => {
+  it('reads a document stored in the old shape, as a save would lift it', () => {
+    const summary = summaryOf({
+      triggers: {
+        op: 'or',
+        items: [{ type: 'state', entityId: 'binary_sensor.hallway_motion', to: 'on' }],
+      },
+      if: {
+        op: 'and',
+        items: [
+          { type: 'time_window', from: '22:00', to: '06:00' },
+          { type: 'day_of_week', days: ['saturday'] },
+        ],
+      },
+      then: [{ type: 'stop' }],
+    });
+
+    expect(summary).toEqual({
+      trigger: 'Hallway motion turns on',
+      conditions: '2 conditions',
+      actions: 'Stop here',
+    });
   });
 });

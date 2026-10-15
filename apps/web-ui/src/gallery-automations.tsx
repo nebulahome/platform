@@ -1,6 +1,7 @@
 /**
  * The automation pages in the gallery, on sample data: the list with every kind of last run, the
- * editor on the board's Evening lights - every lane, a group, an if/else - and the three empty
+ * editor on the board's Evening lights - every lane, a renamed block and one turned off, AND and OR
+ * groups with a NOT, the sun, an if/else, a loop and parallel branches - and the three empty
  * states. Development only, like the rest of the gallery: the pages read a cache filled here, and
  * never ask the API.
  */
@@ -60,7 +61,13 @@ function anAutomation(
     name,
     description: '',
     definition: {
-      triggers: { type: 'state', entityId: 'binary_sensor.lr_motion', to: 'on' },
+      triggers: [
+        {
+          type: 'entity',
+          entityId: 'binary_sensor.lr_motion',
+          change: { kind: 'state', to: 'on' },
+        },
+      ],
       then: [{ type: 'scene', sceneKey: 'evening' }],
     },
     definitionVersion: 1,
@@ -96,52 +103,103 @@ const EVENING: AutomationView = anAutomation('e1', 'Evening lights', {
   mode: 'restart',
   lastRun: lastRun('success', 20),
   definition: {
-    triggers: {
-      op: 'or',
-      items: [
-        { type: 'state', entityId: entity('binary_sensor.lr_motion'), to: 'on' },
-        { type: 'time', at: { kind: 'solar', event: 'sunset', offsetMinutes: -15 } },
-      ],
-    },
-    if: {
-      op: 'and',
-      items: [
-        { type: 'time_window', from: '16:00', to: '23:30' },
-        { op: 'not', item: { type: 'day_of_week', days: ['saturday', 'sunday'] } },
-        { type: 'area_occupancy', areaKey: 'living_room', isOccupied: true },
-        {
-          op: 'or',
-          items: [
-            { type: 'state', entityId: entity('person.anna'), state: 'on' },
-            { type: 'state', entityId: entity('person.bobby'), state: 'on' },
-          ],
-        },
-      ],
-    },
+    triggers: [
+      {
+        type: 'entity',
+        entityId: entity('binary_sensor.lr_motion'),
+        change: { kind: 'state', to: 'on' },
+        name: 'Someone comes in',
+      },
+      { type: 'sun', event: 'sunset', offsetMinutes: -15 },
+      {
+        type: 'time',
+        at: { kind: 'clock', time: '18:30', weekdays: ['saturday', 'sunday'] },
+        isEnabled: false,
+      },
+      { type: 'time', at: { kind: 'cron', expression: '0 */2 * * 1-5' } },
+    ],
+    if: [
+      { type: 'time', from: '16:00', to: '23:30', days: ['monday', 'tuesday', 'wednesday'] },
+      { type: 'sun', phase: 'below', elevation: 6 },
+      {
+        type: 'or',
+        conditions: [
+          {
+            type: 'entity',
+            entityId: entity('person.anna'),
+            match: { kind: 'state', states: ['on'] },
+          },
+          {
+            type: 'entity',
+            entityId: entity('person.bobby'),
+            match: { kind: 'state', states: ['on'] },
+          },
+        ],
+      },
+      {
+        type: 'and',
+        isNot: true,
+        conditions: [
+          {
+            type: 'entity',
+            entityId: entity('sensor.lr_lux'),
+            match: { kind: 'numeric', operator: 'gt', value: 200 },
+          },
+          { type: 'time', days: ['saturday', 'sunday'] },
+        ],
+      },
+    ],
     then: [
       {
         type: 'command',
         entityId: entity('light.living_room'),
         capability: 'level',
         params: { command: 'set_level', level: 60, transitionMs: 2_000 },
+        name: 'Warm the room',
+      },
+      {
+        type: 'command',
+        entityId: entity('light.lr_strip'),
+        capability: 'color_hs',
+        params: { command: 'set_color', hue: 28, saturation: 80 },
       },
       { type: 'wait_duration', durationMs: 600_000 },
       {
         type: 'if',
-        condition: {
-          type: 'numeric',
-          entityId: entity('sensor.lr_lux'),
-          operator: 'lt',
-          value: 50,
-        },
+        conditions: [
+          {
+            type: 'entity',
+            entityId: entity('sensor.lr_lux'),
+            match: { kind: 'numeric', operator: 'lt', value: 50 },
+          },
+        ],
         then: [{ type: 'scene', sceneKey: 'evening' }],
         else: [
           {
             type: 'notify',
             channel: 'telegram',
             message: 'Evening lights skipped: it is still bright',
+            isEnabled: false,
           },
         ],
+      },
+      {
+        type: 'parallel',
+        branches: [
+          [{ type: 'scene', sceneKey: 'evening' }],
+          [{ type: 'wait_duration', durationMs: 5_000 }],
+        ],
+      },
+      {
+        type: 'while',
+        conditions: [
+          {
+            type: 'entity',
+            entityId: entity('binary_sensor.lr_motion'),
+            match: { kind: 'state', states: ['on'] },
+          },
+        ],
+        actions: [{ type: 'wait_duration', durationMs: 60_000 }],
       },
       { type: 'stop' },
     ],
@@ -154,7 +212,7 @@ const EVENING_RUNS: AutomationRun[] = [
     id: '00000000-0000-4000-8000-0000000000a1',
     automationId: EVENING_ID,
     time: ago(20),
-    trigger: { kind: 'state', entityId: 'binary_sensor.lr_motion', from: 'off', to: 'on' },
+    trigger: { kind: 'entity', entityId: 'binary_sensor.lr_motion', from: 'off', to: 'on' },
     result: 'success',
     finishedAt: ago(10),
     durationMs: 600_400,
@@ -162,7 +220,7 @@ const EVENING_RUNS: AutomationRun[] = [
       {
         path: 'triggers.0',
         kind: 'trigger',
-        type: 'state',
+        type: 'entity',
         at: ago(20),
         durationMs: 0,
         result: 'ok',
@@ -172,7 +230,7 @@ const EVENING_RUNS: AutomationRun[] = [
       {
         path: 'if.0',
         kind: 'condition',
-        type: 'time_window',
+        type: 'time',
         at: ago(20),
         durationMs: 0,
         result: 'true',
@@ -195,19 +253,20 @@ const EVENING_RUNS: AutomationRun[] = [
     id: '00000000-0000-4000-8000-0000000000a2',
     automationId: EVENING_ID,
     time: ago(60 * 26),
-    trigger: { kind: 'time', path: 'triggers.1' },
+    trigger: { kind: 'sun', path: 'triggers.1' },
     result: 'condition_not_met',
     finishedAt: ago(60 * 26),
     durationMs: 4,
     trace: [
       {
-        path: 'if.2',
+        path: 'if.2.conditions.1',
         kind: 'condition',
-        type: 'area_occupancy',
+        type: 'entity',
         at: ago(60 * 26),
         durationMs: 0,
         result: 'false',
-        detail: 'nobody is there',
+        entityId: 'person.bobby',
+        detail: 'off',
       },
     ],
     error: null,
@@ -274,6 +333,10 @@ function automationCache(automations: readonly AutomationView[]): QueryClient {
   client.setQueryData(LIBRARY_QUERY_KEYS.aliases, []);
   client.setQueryData(PACKAGE_QUERY_KEYS.list, []);
   client.setQueryData(LIBRARY_QUERY_KEYS.devices, []);
+  client.setQueryData(LIBRARY_QUERY_KEYS.automationHouse, {
+    timeZone: 'Europe/Rome',
+    position: { latitude: 41.9, longitude: 12.5 },
+  });
   client.setQueryData(LIBRARY_QUERY_KEYS.areas, [
     anArea('home', 'house', null, { latitude: 41.9, longitude: 12.5 }),
     anArea('ground_floor', 'floor', 'home'),
@@ -295,6 +358,15 @@ function automationCache(automations: readonly AutomationView[]): QueryClient {
         { capability: 'level', params: { hasTransition: true } },
       ],
       state: { on_off: { isOn: true }, level: { level: 60 } },
+    }),
+    anEntity({
+      entityId: 'light.lr_strip',
+      name: 'Living room strip',
+      capabilities: [
+        { capability: 'on_off', params: {} },
+        { capability: 'color_hs', params: {} },
+      ],
+      state: { on_off: { isOn: false }, color_hs: { hue: 28, saturation: 80 } },
     }),
     anEntity({
       entityId: 'sensor.lr_lux',

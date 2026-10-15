@@ -86,12 +86,16 @@ describe('matchesAutomationFilter', () => {
     );
   });
 
-  it('narrows by a trigger kind present in the definition', () => {
+  it('narrows by a trigger kind present in the definition, read as a save would lift it', () => {
+    // Stored as a solar time, which is a Sun trigger now.
     expect(
-      matchesAutomationFilter(AUTOMATION, { ...OPEN_AUTOMATION_FILTER, triggerType: 'time' }),
+      matchesAutomationFilter(AUTOMATION, { ...OPEN_AUTOMATION_FILTER, triggerType: 'sun' }),
     ).toBe(true);
     expect(
-      matchesAutomationFilter(AUTOMATION, { ...OPEN_AUTOMATION_FILTER, triggerType: 'state' }),
+      matchesAutomationFilter(AUTOMATION, { ...OPEN_AUTOMATION_FILTER, triggerType: 'time' }),
+    ).toBe(false);
+    expect(
+      matchesAutomationFilter(AUTOMATION, { ...OPEN_AUTOMATION_FILTER, triggerType: 'entity' }),
     ).toBe(false);
   });
 
@@ -112,6 +116,9 @@ describe('matchesAutomationFilter', () => {
 
     expect(
       matchesAutomationFilter(treeShaped, { ...OPEN_AUTOMATION_FILTER, triggerType: 'manual' }),
+    ).toBe(true);
+    expect(
+      matchesAutomationFilter(treeShaped, { ...OPEN_AUTOMATION_FILTER, triggerType: 'entity' }),
     ).toBe(true);
     expect(
       matchesAutomationFilter(treeShaped, { ...OPEN_AUTOMATION_FILTER, triggerType: 'event' }),

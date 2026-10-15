@@ -1,184 +1,283 @@
 /**
- * The fields one check needs (board N-Blocks-Conditions).
+ * The fields one condition needs (board N-Blocks-Conditions).
  *
- * Six kinds. An entity's state is offered as its own words; a time window that ends before it
- * starts says it ends the next morning; occupancy is read from the room's sensors and says so; an
- * expression names the readings it uses and shows what it reads now. Groups - ALL OF, ANY OF,
- * NONE OF - are drawn by the group block, not here.
+ * Four kinds. An entity is chosen first and the rest fits it - the states it may be in, or the
+ * number it must pass (`entity-match-fields.tsx`). A time holds from one time to another, either
+ * left open, on the days ticked; one that ends before it starts says it ends the next morning. The
+ * sun is a phase - day, night, the golden hour - or an elevation, worked out where the house
+ * stands, with what it is now. An expression names the readings it uses and shows what it reads
+ * now. The AND and OR groups are drawn by the group block, not here.
  */
 import {
   aliasScalarFromState,
   evaluateAliasExpression,
+  isSunPhase,
+  sunState,
+  SUN_PHASES,
   type AliasScalar,
-  type AutomationCondition,
-  type ComparisonOperator,
+  type ConditionNode,
+  type SunPhase,
 } from '@nebulahome/contracts';
-import { AppIcon, Button, IconButton, Segmented, SelectField, TextField } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Button,
+  IconButton,
+  Note,
+  Segmented,
+  SelectField,
+  TextField,
+} from '@nebulahome/ui';
 
 import { WeekdayPicker } from '@/components/weekday-picker';
-import { crossesMidnight } from '@/lib/block-summary';
-import { partialEntityId } from '@/library/automation-draft';
-import { hasNumber } from '@/library/entity-control';
-import { AreaKeyField } from '@/routes/library/area-key-field';
+import { crossesMidnight, SUN_PHASE_WORDS } from '@/lib/block-summary';
+import { partialEntityId, withoutKey } from '@/library/automation-draft';
 import { useEditorHouse, type EditorHouse } from '@/routes/library/automation/editor-house';
+import { EntityConditionFields } from '@/routes/library/automation/entity-match-fields';
 import { EntityField } from '@/routes/library/entity-field';
-import { OPERATOR_OPTIONS, StateField } from '@/routes/library/trigger-fields';
 
 /** What the fields need. */
 export type ConditionFieldsProps = {
-  /** The check being edited, without its NOT. */
-  readonly condition: AutomationCondition;
+  /** The condition being edited. */
+  readonly condition: ConditionNode;
 
-  /** Called with the check as it now stands. */
-  readonly onChange: (condition: AutomationCondition) => void;
+  /** Called with the condition as it now stands. */
+  readonly onChange: (condition: ConditionNode) => void;
 };
 
 /**
- * Renders the fields for one check.
+ * Renders the fields for one condition.
  *
  * @param props - See {@link ConditionFieldsProps}.
- * @returns The fields.
+ * @returns The fields, or null for a group or a condition this build no longer has.
  */
 export function ConditionFields(props: ConditionFieldsProps) {
   const { condition, onChange } = props;
 
   switch (condition.type) {
-    case 'and':
-    case 'or':
-    case 'not': {
-      return null;
+    case 'entity': {
+      return <EntityConditionFields condition={condition} onChange={onChange} />;
     }
-    case 'state': {
-      return (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <EntityField
-            label="Entity"
-            value={condition.entityId}
-            onChange={(entityId) => {
-              onChange({ ...condition, entityId, state: '' });
-            }}
-          />
-          <StateField
-            label="State"
-            entityId={condition.entityId}
-            value={condition.state}
-            onChange={(state) => {
-              onChange({ ...condition, state });
-            }}
-          />
-        </div>
-      );
+    case 'time': {
+      return <TimeConditionFields condition={condition} onChange={onChange} />;
     }
-    case 'numeric': {
-      return (
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)]">
-          <EntityField
-            label="Entity"
-            accept={hasNumber}
-            value={condition.entityId}
-            onChange={(entityId) => {
-              onChange({ ...condition, entityId });
-            }}
-          />
-          <SelectField
-            label="Is"
-            size="compact"
-            options={OPERATOR_OPTIONS}
-            value={condition.operator}
-            onChange={(operator) => {
-              onChange({ ...condition, operator: operator as ComparisonOperator });
-            }}
-          />
-          <TextField
-            label="Value"
-            size="compact"
-            type="number"
-            className="font-mono"
-            value={String(condition.value)}
-            onChange={(event) => {
-              const value = Number(event.target.value);
-
-              onChange({ ...condition, value: Number.isFinite(value) ? value : 0 });
-            }}
-          />
-        </div>
-      );
-    }
-    case 'time_window': {
-      return (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <TextField
-            label="From"
-            size="compact"
-            type="time"
-            className="font-mono"
-            value={condition.from}
-            onChange={(event) => {
-              onChange({ ...condition, from: event.target.value });
-            }}
-          />
-          <TextField
-            label="To"
-            size="compact"
-            type="time"
-            className="font-mono"
-            hint={
-              crossesMidnight(condition.from, condition.to) ? 'Ends the next morning.' : undefined
-            }
-            value={condition.to}
-            onChange={(event) => {
-              onChange({ ...condition, to: event.target.value });
-            }}
-          />
-        </div>
-      );
-    }
-    case 'day_of_week': {
-      return (
-        <WeekdayPicker
-          label="Days"
-          value={condition.days}
-          onChange={(days) => {
-            onChange({ ...condition, days });
-          }}
-        />
-      );
-    }
-    case 'area_occupancy': {
-      return (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <AreaKeyField
-            label="Area"
-            value={condition.areaKey}
-            onChange={(areaKey) => {
-              onChange({ ...condition, areaKey });
-            }}
-          />
-          <div className="flex flex-col gap-1.5">
-            <span className="text-caption font-medium text-foreground-muted">Is</span>
-            <Segmented
-              label="Is"
-              size="compact"
-              options={[
-                { value: 'occupied', label: 'Occupied' },
-                { value: 'empty', label: 'Empty' },
-              ]}
-              value={condition.isOccupied ? 'occupied' : 'empty'}
-              onChange={(value) => {
-                onChange({ ...condition, isOccupied: value === 'occupied' });
-              }}
-            />
-            <span className="text-caption text-foreground-subtle">
-              Read from the motion, occupancy and presence sensors in it and the rooms below.
-            </span>
-          </div>
-        </div>
-      );
+    case 'sun': {
+      return <SunConditionFields condition={condition} onChange={onChange} />;
     }
     case 'expression': {
       return <ExpressionFields condition={condition} onChange={onChange} />;
     }
+    default: {
+      return null;
+    }
   }
+}
+
+/**
+ * The fields of a time condition: from, until - either left open - and the days.
+ *
+ * @param props - The condition and its change handler.
+ * @param props.condition - The time condition.
+ * @param props.onChange - Called with it as it now stands.
+ * @returns The fields.
+ */
+function TimeConditionFields(props: {
+  readonly condition: Extract<ConditionNode, { type: 'time' }>;
+  readonly onChange: (condition: ConditionNode) => void;
+}) {
+  const { condition, onChange } = props;
+  const { from, to, days = [] } = condition;
+
+  /**
+   * Writes one end back, or leaves it open.
+   *
+   * @param key - Which end.
+   * @param value - The time; empty to leave it open.
+   */
+  const setEnd = (key: 'from' | 'to', value: string): void => {
+    onChange(value === '' ? withoutKey(condition, key) : { ...condition, [key]: value });
+  };
+
+  return (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TextField
+          label="From"
+          size="compact"
+          type="time"
+          className="font-mono"
+          hint={from === undefined ? 'Empty: from midnight.' : undefined}
+          value={from ?? ''}
+          onChange={(event) => {
+            setEnd('from', event.target.value);
+          }}
+        />
+        <TextField
+          label="To"
+          size="compact"
+          type="time"
+          className="font-mono"
+          hint={
+            to === undefined
+              ? 'Empty: until midnight.'
+              : from !== undefined && crossesMidnight(from, to)
+                ? 'Ends the next morning.'
+                : undefined
+          }
+          value={to ?? ''}
+          onChange={(event) => {
+            setEnd('to', event.target.value);
+          }}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <span className="text-caption font-medium text-foreground-muted">On</span>
+        <WeekdayPicker
+          label="On"
+          value={days}
+          onChange={(next) => {
+            onChange(
+              next.length === 0 ? withoutKey(condition, 'days') : { ...condition, days: next },
+            );
+          }}
+        />
+        <span className="text-caption text-foreground-subtle">
+          {days.length === 0
+            ? 'None chosen: every day.'
+            : from !== undefined && to !== undefined && crossesMidnight(from, to)
+              ? 'After midnight, the day the evening began counts.'
+              : 'Only on the days chosen.'}
+        </span>
+      </div>
+    </>
+  );
+}
+
+/** The phases of the sun, as the dropdown offers them. */
+const PHASE_OPTIONS = SUN_PHASES.map((phase) => ({
+  value: phase,
+  label:
+    phase === 'above' || phase === 'below'
+      ? `${SUN_PHASE_WORDS[phase] ?? phase} an elevation`
+      : (SUN_PHASE_WORDS[phase] ?? phase),
+}));
+
+/** The phases that come round twice a day, and can be narrowed to the morning or the evening. */
+const TWICE_DAILY: ReadonlySet<SunPhase> = new Set<SunPhase>([
+  'day',
+  'twilight',
+  'night',
+  'golden_hour',
+  'blue_hour',
+  'above',
+  'below',
+]);
+
+/**
+ * The fields of a sun condition: the phase, an elevation where it takes one, the half of the
+ * day, and what the sun is doing now.
+ *
+ * @param props - The condition and its change handler.
+ * @param props.condition - The sun condition.
+ * @param props.onChange - Called with it as it now stands.
+ * @returns The fields.
+ */
+function SunConditionFields(props: {
+  readonly condition: Extract<ConditionNode, { type: 'sun' }>;
+  readonly onChange: (condition: ConditionNode) => void;
+}) {
+  const { condition, onChange } = props;
+  const house = useEditorHouse();
+  const takesElevation = condition.phase === 'above' || condition.phase === 'below';
+  const now = house.position === null ? null : sunState(new Date(), house.position);
+  const holds = now === null ? null : isSunPhase(condition, now);
+
+  return (
+    <>
+      {house.hasPosition ? null : (
+        <Note tone="warning">
+          The house has no position yet, so the sun has no height here. Set it on the house, under
+          Library › Areas.
+        </Note>
+      )}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SelectField
+          label="Is"
+          size="compact"
+          options={PHASE_OPTIONS}
+          value={condition.phase}
+          onChange={(value) => {
+            const phase = value as SunPhase;
+            const rest = withoutKey(withoutKey(condition, 'elevation'), 'period');
+
+            onChange({
+              ...rest,
+              phase,
+              ...(phase === 'above' || phase === 'below'
+                ? { elevation: condition.elevation ?? 10 }
+                : {}),
+              ...(TWICE_DAILY.has(phase) && condition.period !== undefined
+                ? { period: condition.period }
+                : {}),
+            });
+          }}
+        />
+        {takesElevation ? (
+          <TextField
+            label="Elevation (°)"
+            size="compact"
+            type="number"
+            className="font-mono"
+            min={-90}
+            max={90}
+            hint="Above the horizon; negative is below it."
+            value={String(condition.elevation ?? 0)}
+            onChange={(event) => {
+              const degrees = Number(event.target.value);
+
+              onChange({
+                ...condition,
+                elevation: Number.isFinite(degrees) ? Math.max(-90, Math.min(90, degrees)) : 0,
+              });
+            }}
+          />
+        ) : null}
+      </div>
+      {TWICE_DAILY.has(condition.phase) ? (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-caption font-medium text-foreground-muted">When</span>
+          <Segmented
+            label="When"
+            size="compact"
+            options={[
+              { value: 'any', label: 'Any time' },
+              { value: 'morning', label: 'Morning' },
+              { value: 'evening', label: 'Evening' },
+            ]}
+            value={condition.period ?? 'any'}
+            onChange={(period) => {
+              const rest = withoutKey(condition, 'period');
+
+              onChange(period === 'any' ? rest : { ...rest, period });
+            }}
+          />
+        </div>
+      ) : null}
+      <p className="flex items-center gap-1.5 text-caption text-foreground-muted">
+        {now === null ? (
+          'Worked out where the house stands, once it has a position.'
+        ) : (
+          <>
+            <AppIcon
+              id={holds === true ? 'check' : 'x'}
+              size={12}
+              className={holds === true ? 'text-success' : 'text-foreground-subtle'}
+            />
+            {`Now: the sun is at ${now.elevation.toFixed(1)}° and ${now.isRising ? 'rising' : 'setting'}, so it ${holds === true ? 'holds' : 'does not hold'}.`}
+          </>
+        )}
+      </p>
+    </>
+  );
 }
 
 /**
@@ -189,7 +288,7 @@ export function ConditionFields(props: ConditionFieldsProps) {
  * @returns The line, and whether it reads true.
  */
 function previewOf(
-  condition: Extract<AutomationCondition, { type: 'expression' }>,
+  condition: Extract<ConditionNode, { type: 'expression' }>,
   house: EditorHouse,
 ): { readonly text: string; readonly tone: 'true' | 'false' | 'error' } {
   const bindings = new Map<string, AliasScalar>();
@@ -238,8 +337,8 @@ function previewOf(
  * @returns The fields.
  */
 function ExpressionFields(props: {
-  readonly condition: Extract<AutomationCondition, { type: 'expression' }>;
-  readonly onChange: (condition: AutomationCondition) => void;
+  readonly condition: Extract<ConditionNode, { type: 'expression' }>;
+  readonly onChange: (condition: ConditionNode) => void;
 }) {
   const { condition, onChange } = props;
   const house = useEditorHouse();

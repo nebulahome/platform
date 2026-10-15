@@ -3,13 +3,17 @@
  * other blocks are drawn by the action list, and their checks by the condition list.
  *
  * **Set entity shows the fields of the command it is given**, so each kind of device gets its own
- * controls: a light's level is a warm slider with a fade beside it, a colour a hue and a
- * saturation, a thermostat its modes, a cover its position. The commands offered are the chosen
- * entity's own, read from the capabilities it declares (`command-choices.ts`).
+ * controls: a light's level is a warm slider, a colour a hue and a saturation - or a HEX code - a
+ * white its temperature in kelvin, a thermostat its modes, a cover its position. The commands
+ * offered are the chosen entity's own, read from the capabilities it declares
+ * (`command-choices.ts`). A fade is offered only where the device said it can fade; elsewhere the
+ * engine would drop it, so the field would promise what never happens.
  *
  * Scenes and automations are picked from the ones there are, packages from the ones installed.
  * Notify is kept as written and says it cannot run yet.
  */
+import { useState } from 'react';
+
 import type {
   AutomationAction,
   CapabilityName,
@@ -28,7 +32,18 @@ import {
   type CommandField,
 } from '@/lib/command-choices';
 import { partialEntityId } from '@/library/automation-draft';
-import { hueGradient, isCommandable, saturationGradient } from '@/library/entity-control';
+import {
+  hexToHs,
+  hsColor,
+  hsToHex,
+  hueGradient,
+  isCommandable,
+  kelvinToMireds,
+  miredsToKelvin,
+  paramsOf,
+  saturationGradient,
+  warmthGradient,
+} from '@/library/entity-control';
 import { capabilityLabel } from '@/library/entity-kind';
 import { DurationField } from '@/routes/library/automation/duration-field';
 import { useEditorHouse } from '@/routes/library/automation/editor-house';
@@ -60,6 +75,45 @@ function commandableCapabilities(entity: EntityView | undefined): CapabilityName
     entity === undefined ? CAPABILITIES : entity.capabilities.map((entry) => entry.capability);
 
   return declared.filter((capability) => commandSchemaFor(capability) !== null);
+}
+
+/** The whites a lamp is assumed to span when the entity is not known yet. */
+const DEFAULT_KELVIN = { min: 2_000, max: 6_500 } as const;
+
+/**
+ * Whether a device can fade what one of its capabilities does.
+ *
+ * @param entity - The entity, or undefined while none is chosen.
+ * @param capability - The capability of the command.
+ * @returns True when the device declared it can; a fade it cannot do is dropped by the engine.
+ */
+function canFade(entity: EntityView | undefined, capability: CapabilityName): boolean {
+  if (entity === undefined) {
+    return false;
+  }
+
+  const params: unknown = paramsOf(entity, capability);
+
+  return (
+    params !== null &&
+    typeof params === 'object' &&
+    'hasTransition' in params &&
+    params.hasTransition === true
+  );
+}
+
+/**
+ * The whites a lamp spans, warmest first.
+ *
+ * @param entity - The entity, or undefined while none is chosen.
+ * @returns The range in kelvin.
+ */
+function kelvinRangeOf(entity: EntityView | undefined): { min: number; max: number } {
+  const params = entity === undefined ? null : paramsOf(entity, 'color_temp');
+
+  return params === null
+    ? DEFAULT_KELVIN
+    : { min: miredsToKelvin(params.maxMireds), max: miredsToKelvin(params.minMireds) };
 }
 
 /**
@@ -201,6 +255,16 @@ function CommandFields(props: {
   const entity = house.entityOf(action.entityId);
   const choices = commandChoicesFor(commandableCapabilities(entity));
   const chosen = choiceOf(choices, action.capability, action.params);
+  const fades = chosen !== undefined && canFade(entity, chosen.capability);
+  const fields = chosen?.fields.filter((field) => fades || field.key !== 'transitionMs') ?? [];
+  const isInstant =
+    chosen !== undefined && !fades && chosen.fields.some((field) => field.key === 'transitionMs');
+  const hue = typeof action.params['hue'] === 'number' ? action.params['hue'] : 0;
+  const saturation =
+    typeof action.params['saturation'] === 'number' ? action.params['saturation'] : 0;
+  const takesColour =
+    fields.some((field) => field.key === 'hue') &&
+    fields.some((field) => field.key === 'saturation');
 
   /**
    * Switches to another command, with its fields at their defaults.
@@ -274,23 +338,106 @@ function CommandFields(props: {
         />
       </div>
 
-      {chosen === undefined || chosen.fields.length === 0 ? null : (
+      {fields.length === 0 ? null : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {chosen.fields.map((field) => (
+          {fields.map((field) => (
             <CommandFieldControl
               key={field.key}
               field={field}
               value={action.params[field.key]}
-              hue={typeof action.params['hue'] === 'number' ? action.params['hue'] : 0}
+              hue={hue}
+              kelvin={kelvinRangeOf(entity)}
               onChange={(value) => {
                 setField(field.key, value);
               }}
             />
           ))}
+          {takesColour ? (
+            <HexField
+              hue={hue}
+              saturation={saturation}
+              onChange={(next) => {
+                onChange({ ...action, params: { ...action.params, ...next } });
+              }}
+            />
+          ) : null}
         </div>
       )}
+      {isInstant ? (
+        <p className="text-caption text-foreground-subtle">
+          This light changes at once: it cannot fade.
+        </p>
+      ) : null}
     </>
   );
+}
+
+/**
+ * A colour written as a HEX code, beside its hue and saturation sliders: what a colour picker or
+ * a design hands over. Brightness is the light's level, so `#800000` reads as the same red as
+ * `#ff0000`.
+ *
+ * @param props - The colour and its change handler.
+ * @param props.hue - The command's hue.
+ * @param props.saturation - The command's saturation.
+ * @param props.onChange - Called with the hue and saturation of a complete code.
+ * @returns The field.
+ */
+function HexField(props: {
+  readonly hue: number;
+  readonly saturation: number;
+  readonly onChange: (colour: { hue: number; saturation: number }) => void;
+}) {
+  const { hue, saturation, onChange } = props;
+  const [typed, setTyped] = useState<string | null>(null);
+  const hex = hsToHex(hue, saturation);
+  const value = typed ?? hex;
+  const isWrong = typed !== null && hexToHs(written(typed)) === null;
+
+  return (
+    <div className="flex items-start gap-2">
+      <span
+        aria-hidden="true"
+        className="mt-6 size-7 shrink-0 rounded-field border border-border"
+        // eslint-disable-next-line react/forbid-dom-props -- the colour typed, which is no token
+        style={{ background: hsColor(hue, saturation) }}
+      />
+      <TextField
+        label="HEX"
+        size="compact"
+        className="font-mono"
+        placeholder="#ff8800"
+        spellCheck={false}
+        autoComplete="off"
+        value={value}
+        error={isWrong ? 'Six hex digits, as #ff8800' : undefined}
+        onChange={(event) => {
+          const colour = hexToHs(written(event.target.value));
+
+          setTyped(event.target.value);
+
+          if (colour !== null) {
+            onChange(colour);
+          }
+        }}
+        onBlur={() => {
+          setTyped(null);
+        }}
+      />
+    </div>
+  );
+}
+
+/**
+ * A HEX code as typed, with its # whether it was typed or not.
+ *
+ * @param text - What is in the field.
+ * @returns The code, ready for {@link hexToHs}.
+ */
+function written(text: string): string {
+  const trimmed = text.trim();
+
+  return trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
 }
 
 /**
@@ -300,6 +447,9 @@ function CommandFields(props: {
  * @param props.field - The field.
  * @param props.value - Its value in the command body.
  * @param props.hue - The command's hue, for a saturation slider's groove.
+ * @param props.kelvin - The whites the lamp spans, for a colour temperature.
+ * @param props.kelvin.min - The warmest, in kelvin.
+ * @param props.kelvin.max - The coolest, in kelvin.
  * @param props.onChange - Called with the new value; undefined to leave it out.
  * @returns The control.
  */
@@ -307,9 +457,10 @@ function CommandFieldControl(props: {
   readonly field: CommandField;
   readonly value: unknown;
   readonly hue: number;
+  readonly kelvin: { readonly min: number; readonly max: number };
   readonly onChange: (value: JsonValue | undefined) => void;
 }) {
-  const { field, value, hue, onChange } = props;
+  const { field, value, hue, kelvin, onChange } = props;
 
   switch (field.kind) {
     case 'percent': {
@@ -344,6 +495,28 @@ function CommandFieldControl(props: {
       );
     }
     case 'number': {
+      if (field.key === 'mireds') {
+        const shown =
+          typeof value === 'number'
+            ? Math.min(kelvin.max, Math.max(kelvin.min, miredsToKelvin(value)))
+            : kelvin.min;
+
+        return (
+          <Slider
+            label={field.label}
+            min={kelvin.min}
+            max={kelvin.max}
+            step={50}
+            value={shown}
+            display={`${String(shown)} K`}
+            gradient={warmthGradient(kelvin.min, kelvin.max)}
+            onChange={(next) => {
+              onChange(kelvinToMireds(next));
+            }}
+          />
+        );
+      }
+
       if (field.key === 'hue') {
         const number = typeof value === 'number' ? value : 0;
 

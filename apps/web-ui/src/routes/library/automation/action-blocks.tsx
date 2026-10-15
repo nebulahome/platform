@@ -1,12 +1,14 @@
 /**
- * The Then lane and every branch inside it: actions in order, and the control blocks that hold
- * other actions (boards N-Blocks-Actions and N-Blocks-Control).
+ * The Then lane and every branch inside it: blocks in order, and the control blocks that hold
+ * other blocks (boards N-Blocks-Actions and N-Blocks-Control).
  *
- * Each branch of a control block is a lane of its own under a label - THEN, ELSE, WHEN "Done",
- * OTHERWISE, EACH TIME, BRANCH 1 - with its own Add. Closed, a block says what it holds. Selected,
- * the area holding its branches is tinted in its colour, so what belongs to it reads at a glance.
+ * Each branch of a control block is a list of its own under a label - THEN, ELSE, WHEN "Done",
+ * OTHERWISE, EACH TIME, BRANCH 1 - with its own Add, and a block can be dragged into it or out of
+ * it from anywhere in the lane. Closed, a block says what it holds; held over while dragging, it
+ * opens. Selected, the area holding its branches is tinted in its colour, so what belongs to it
+ * reads at a glance.
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import type { AutomationAction } from '@nebulahome/contracts';
 import {
@@ -20,13 +22,22 @@ import {
   TextField,
 } from '@nebulahome/ui';
 
-import { useBlockSelection } from '@/lib/block-selection';
-import { actionSummary } from '@/lib/block-summary';
-import { moveItem } from '@/lib/use-sortable';
-import { blankAction, partialEntityId, replaceAt, without } from '@/library/automation-draft';
+import type { DragLook } from '@/lib/block-drag';
+import { carryBlockId } from '@/lib/block-ids';
+import { actionSummary, type BlockNames } from '@/lib/block-summary';
+import { useBlockUi } from '@/lib/block-ui';
+import {
+  blankAction,
+  keepMeta,
+  partialEntityId,
+  replaceAt,
+  without,
+  withoutKey,
+} from '@/library/automation-draft';
 import { ActionFields } from '@/routes/library/action-fields';
 import { AddBlock, BlockSequence } from '@/routes/library/automation/block-sequence';
-import { ConditionTreeField } from '@/routes/library/automation/condition-blocks';
+import { useBlockTools } from '@/routes/library/automation/block-tools';
+import { ConditionsField } from '@/routes/library/automation/condition-blocks';
 import { DurationField } from '@/routes/library/automation/duration-field';
 import { useEditorHouse } from '@/routes/library/automation/editor-house';
 import {
@@ -42,10 +53,31 @@ import { StateField, TriggerFields } from '@/routes/library/trigger-fields';
 /** The longest a wait may be: the format's week. */
 const WEEK_MS = 604_800_000;
 
-/** What a list of actions needs. */
+/**
+ * How a block looks under the pointer while it is dragged.
+ *
+ * @param action - The block.
+ * @param names - The house.
+ * @returns Its look.
+ */
+function actionLook(action: AutomationAction, names: BlockNames): DragLook {
+  return {
+    lane: CONTROL_KINDS.has(action.type) ? 'control' : 'then',
+    glyph: glyphForKind('action', action.type),
+    kind: labelForKind('action', action.type),
+    summary: action.name ?? actionSummary(action, names),
+  };
+}
+
+/** What a list of blocks needs. */
 export type ActionListProps = {
-  readonly actions: readonly AutomationAction[];
-  readonly onChange: (actions: readonly AutomationAction[]) => void;
+  readonly items: readonly AutomationAction[];
+
+  /** Where the list is: `then`, `then.2.else`, `then.3.cases.1`, `then.4.branches.0`. */
+  readonly path: string;
+
+  /** Called with the blocks as they now stand. */
+  readonly onChange: (items: readonly AutomationAction[]) => void;
 
   /** What its Add says. */
   readonly addLabel?: string;
@@ -55,55 +87,56 @@ export type ActionListProps = {
 };
 
 /**
- * Renders a list of actions, in order.
+ * Renders a list of blocks, in order.
  *
  * @param props - See {@link ActionListProps}.
  * @returns The list.
  */
 export function ActionList(props: ActionListProps) {
-  const { actions, onChange, addLabel = 'Add an action', isNested = false } = props;
+  const { items, path, onChange, addLabel = 'Add a block', isNested = false } = props;
+  const house = useEditorHouse();
 
   return (
-    <>
-      <BlockSequence
-        items={actions}
-        itemLabel={(action) => labelForKind(action.type)}
-        onMove={(from, to) => {
-          onChange(moveItem(actions, from, to));
-        }}
-        renderItem={({ item, index, blockKey, grip }) => (
-          <ActionBlock
-            action={item}
-            blockKey={blockKey}
-            grip={grip}
-            isNested={isNested}
-            onChange={(next) => {
-              onChange(replaceAt(actions, index, next));
-            }}
-            onRemove={() => {
-              onChange(without(actions, index));
-            }}
-          />
-        )}
-      />
-      <AddBlock
-        label={addLabel}
-        isWide={isNested}
-        pickerTitle="Add an action"
-        pickerDescription="Something to do, or a block that holds other actions."
-        groups={ACTION_CHOICE_GROUPS}
-        onPick={(type) => {
-          onChange([...actions, blankAction(type)]);
-        }}
-      />
-    </>
+    <BlockSequence
+      items={items}
+      path={path}
+      family="action"
+      lookOf={(action) => actionLook(action, house.names)}
+      renderItem={({ item, index, id, path: blockPath, grip }) => (
+        <ActionBlock
+          action={item}
+          id={id}
+          path={blockPath}
+          grip={grip}
+          isNested={isNested}
+          onChange={(next) => {
+            onChange(replaceAt(items, index, carryBlockId(item, next)));
+          }}
+          onRemove={() => {
+            onChange(without(items, index));
+          }}
+        />
+      )}
+      footer={
+        <AddBlock
+          label={addLabel}
+          isWide={isNested}
+          pickerTitle="Add a block"
+          pickerDescription="Something to do, or a block that holds other blocks."
+          groups={ACTION_CHOICE_GROUPS}
+          onPick={(type) => {
+            onChange([...items, blankAction(type)]);
+          }}
+        />
+      }
+    />
   );
 }
 
 /** What the Then lane needs. */
 export type ActionLaneProps = {
-  readonly actions: readonly AutomationAction[];
-  readonly onChange: (actions: readonly AutomationAction[]) => void;
+  readonly items: readonly AutomationAction[];
+  readonly onChange: (items: readonly AutomationAction[]) => void;
 };
 
 /**
@@ -113,7 +146,7 @@ export type ActionLaneProps = {
  * @returns The lane.
  */
 export function ActionLane(props: ActionLaneProps) {
-  const { actions, onChange } = props;
+  const { items, onChange } = props;
 
   return (
     <BlockLaneSection
@@ -122,7 +155,7 @@ export function ActionLane(props: ActionLaneProps) {
       title="Then"
       note="What it does, in order. Control blocks nest."
     >
-      <ActionList actions={actions} onChange={onChange} />
+      <ActionList items={items} path="then" onChange={onChange} />
     </BlockLaneSection>
   );
 }
@@ -131,7 +164,7 @@ export function ActionLane(props: ActionLaneProps) {
  * Whether a block opens when it is drawn: one that still needs something before it can run, so
  * it gets it, and one that holds others, so what it holds is in view.
  *
- * @param action - The action.
+ * @param action - The block.
  * @returns True to open it.
  */
 function isIncomplete(action: AutomationAction): boolean {
@@ -155,33 +188,22 @@ function isIncomplete(action: AutomationAction): boolean {
 }
 
 /**
- * The actions of one parallel branch.
+ * Whether a block holds other blocks, and so opens when one is held over it.
  *
- * @param branch - One entry under `parallel.actions`.
- * @returns Its actions: a sequence's, or the one action it is.
+ * @param action - The block.
+ * @returns True for the control blocks with branches or conditions.
  */
-function branchActions(branch: AutomationAction): readonly AutomationAction[] {
-  return branch.type === 'sequence' ? branch.actions : [branch];
+function holdsBlocks(action: AutomationAction): boolean {
+  return CONTROL_KINDS.has(action.type) && action.type !== 'stop';
 }
 
-/**
- * A branch written back as one entry under `parallel.actions`.
- *
- * @param actions - The branch's actions.
- * @returns The one action, or a sequence of them.
- */
-function asBranch(actions: readonly AutomationAction[]): AutomationAction {
-  const [only] = actions;
-
-  return actions.length === 1 && only !== undefined && only.type !== 'sequence'
-    ? only
-    : { type: 'sequence', actions: [...actions] };
-}
-
-/** What one action block needs. */
+/** What one block needs. */
 type ActionBlockProps = {
   readonly action: AutomationAction;
-  readonly blockKey: string;
+  readonly id: string;
+
+  /** Its own path, under which its branches sit. */
+  readonly path: string;
   readonly grip: ReactNode;
   readonly isNested: boolean;
   readonly onChange: (action: AutomationAction) => void;
@@ -189,46 +211,66 @@ type ActionBlockProps = {
 };
 
 /**
- * Renders one action, and the branches of one that holds others.
+ * Renders one block, and the branches of one that holds others.
  *
  * @param props - See {@link ActionBlockProps}.
  * @returns The block.
  */
 function ActionBlock(props: ActionBlockProps) {
-  const { action, blockKey, grip, isNested, onChange, onRemove } = props;
+  const { action, id, path, grip, isNested, onChange, onRemove } = props;
   const house = useEditorHouse();
-  const selection = useBlockSelection(blockKey);
-  const [isOpen, setOpen] = useState(() => isIncomplete(action));
+  const ui = useBlockUi(id, isIncomplete(action));
+  const kind = labelForKind('action', action.type);
+  const isForEach = action.type === 'for' && action.over.kind === 'each';
+  const tools = useBlockTools({
+    id,
+    family: 'action',
+    block: action,
+    onChange,
+    untestable:
+      unavailableReason('action', action.type) ??
+      (isForEach
+        ? 'For each is not available yet'
+        : action.type === 'stop'
+          ? 'Stop has nothing to do on its own'
+          : undefined),
+  });
   const isGone =
     (action.type === 'command' || action.type === 'switch') &&
     action.entityId !== '' &&
     !house.isPending &&
     house.entities.length > 0 &&
     house.entityOf(action.entityId) === undefined;
-  const isForEach = action.type === 'for' && action.over.kind === 'each';
-
-  const content = actionContent(action, onChange);
+  const said = isGone ? `${action.entityId} is gone` : actionSummary(action, house.names);
+  const content = actionContent(action, path, (next) => {
+    onChange(keepMeta(action, next));
+  });
 
   return (
-    <Block
-      lane={CONTROL_KINDS.has(action.type) ? 'control' : 'then'}
-      glyph={<AppIcon id={glyphForKind(action.type)} size={15} />}
-      kind={labelForKind(action.type)}
-      summary={isGone ? `${action.entityId} is gone` : actionSummary(action, house.names)}
-      isWarning={isGone || isForEach || unavailableReason(action.type) !== undefined}
-      isOpen={isOpen}
-      onToggle={() => {
-        setOpen((open) => !open);
-      }}
-      isSelected={selection.isSelected}
-      onSelect={selection.select}
-      isNested={isNested}
-      grip={grip}
-      onRemove={onRemove}
-      branches={content.branches}
-    >
-      {content.fields}
-    </Block>
+    <div data-block-closed={!ui.isOpen && holdsBlocks(action) ? id : undefined}>
+      <Block
+        lane={CONTROL_KINDS.has(action.type) ? 'control' : 'then'}
+        glyph={<AppIcon id={glyphForKind('action', action.type)} size={15} />}
+        kind={kind}
+        summary={action.name === undefined ? said : <span title={said}>{action.name}</span>}
+        isWarning={isGone || isForEach || unavailableReason('action', action.type) !== undefined}
+        isOpen={ui.isOpen}
+        onToggle={ui.toggle}
+        isSelected={ui.isSelected}
+        onSelect={ui.select}
+        isNested={isNested}
+        grip={grip}
+        onRemove={onRemove}
+        menu={tools.menu}
+        status={tools.status}
+        notice={tools.notice}
+        rename={tools.rename}
+        isDisabled={tools.isDisabled}
+        branches={content.branches}
+      >
+        {content.fields}
+      </Block>
+    </div>
   );
 }
 
@@ -239,24 +281,28 @@ type ActionContent = {
 };
 
 /**
- * What one action shows open: its fields, and for a control block its branches.
+ * What one block shows open: its fields, and for a control block its branches.
  *
- * @param action - The action.
+ * @param action - The block.
+ * @param path - Its path.
  * @param onChange - Called with it as it now stands.
  * @returns Its fields and branches.
  */
 function actionContent(
   action: AutomationAction,
+  path: string,
   onChange: (action: AutomationAction) => void,
 ): ActionContent {
   switch (action.type) {
     case 'if': {
       return {
         fields: (
-          <ConditionTreeField
-            value={action.condition}
-            onChange={(condition) => {
-              onChange({ ...action, condition });
+          <ConditionsField
+            items={action.conditions}
+            path={`${path}.conditions`}
+            note={action.conditions.length === 0 ? 'None: Then always runs.' : undefined}
+            onChange={(conditions) => {
+              onChange({ ...action, conditions: [...conditions] });
             }}
           />
         ),
@@ -265,7 +311,8 @@ function actionContent(
             <BlockBranch label="Then">
               <ActionList
                 isNested
-                actions={action.then}
+                items={action.then}
+                path={`${path}.then`}
                 onChange={(then) => {
                   onChange({ ...action, then: [...then] });
                 }}
@@ -287,7 +334,7 @@ function actionContent(
                     variant="bare"
                     size="compact"
                     onClick={() => {
-                      onChange({ ...action, else: undefined });
+                      onChange(withoutKey(action, 'else'));
                     }}
                   >
                     Remove else
@@ -297,7 +344,8 @@ function actionContent(
                 <ActionList
                   isNested
                   addLabel="Add to else"
-                  actions={action.else}
+                  items={action.else}
+                  path={`${path}.else`}
                   onChange={(elseActions) => {
                     onChange({ ...action, else: [...elseActions] });
                   }}
@@ -357,7 +405,8 @@ function actionContent(
                 </div>
                 <ActionList
                   isNested
-                  actions={branch.actions}
+                  items={branch.actions}
+                  path={`${path}.cases.${String(index)}`}
                   onChange={(actions) => {
                     onChange({
                       ...action,
@@ -378,9 +427,14 @@ function actionContent(
               <ActionList
                 isNested
                 addLabel="Add to otherwise"
-                actions={action.default ?? []}
+                items={action.default ?? []}
+                path={`${path}.default`}
                 onChange={(actions) => {
-                  onChange({ ...action, default: actions.length === 0 ? undefined : [...actions] });
+                  onChange(
+                    actions.length === 0
+                      ? withoutKey(action, 'default')
+                      : { ...action, default: [...actions] },
+                  );
                 }}
               />
             </BlockBranch>
@@ -421,7 +475,8 @@ function actionContent(
           <BlockBranch label="Each time">
             <ActionList
               isNested
-              actions={action.actions}
+              items={action.actions}
+              path={`${path}.actions`}
               onChange={(actions) => {
                 onChange({ ...action, actions: [...actions] });
               }}
@@ -434,25 +489,25 @@ function actionContent(
     case 'do_while': {
       return {
         fields: (
-          <>
-            <ConditionTreeField
-              value={action.condition}
-              onChange={(condition) => {
-                onChange({ ...action, condition });
-              }}
-            />
-            <p className="text-caption text-foreground-subtle">
-              {action.type === 'while'
-                ? 'Checks first, runs while it holds, and checks again each time round.'
-                : 'Runs once before it checks, then again while it holds.'}
-            </p>
-          </>
+          <ConditionsField
+            items={action.conditions}
+            path={`${path}.conditions`}
+            note={
+              action.type === 'while'
+                ? 'Checks first, runs while they all hold, and checks again each time round.'
+                : 'Runs once before it checks, then again while they all hold.'
+            }
+            onChange={(conditions) => {
+              onChange({ ...action, conditions: [...conditions] });
+            }}
+          />
         ),
         branches: (
           <BlockBranch label={action.type === 'while' ? 'Repeat' : 'Do'}>
             <ActionList
               isNested
-              actions={action.actions}
+              items={action.actions}
+              path={`${path}.actions`}
               onChange={(actions) => {
                 onChange({ ...action, actions: [...actions] });
               }}
@@ -467,7 +522,8 @@ function actionContent(
           <BlockBranch label="In order">
             <ActionList
               isNested
-              actions={action.actions}
+              items={action.actions}
+              path={`${path}.actions`}
               onChange={(actions) => {
                 onChange({ ...action, actions: [...actions] });
               }}
@@ -485,23 +541,41 @@ function actionContent(
         ),
         branches: (
           <>
-            {action.actions.map((branch, index) => (
-              <ParallelBranch
+            {action.branches.map((branch, index) => (
+              <BlockBranch
                 key={`branch-${String(index)}`}
-                index={index}
-                branch={branch}
-                canRemove={action.actions.length > 1}
-                onChange={(next) => {
-                  onChange({ ...action, actions: replaceAt(action.actions, index, next) });
-                }}
-                onRemove={() => {
-                  onChange({ ...action, actions: without(action.actions, index) });
-                }}
-              />
+                label={`Branch ${String(index + 1)}`}
+                aside={
+                  action.branches.length > 1 ? (
+                    <IconButton
+                      label={`Remove branch ${String(index + 1)}`}
+                      size="small"
+                      variant="danger"
+                      onClick={() => {
+                        onChange({ ...action, branches: without(action.branches, index) });
+                      }}
+                    >
+                      <AppIcon id="x" size={13} />
+                    </IconButton>
+                  ) : undefined
+                }
+              >
+                <ActionList
+                  isNested
+                  items={branch}
+                  path={`${path}.branches.${String(index)}`}
+                  onChange={(actions) => {
+                    onChange({
+                      ...action,
+                      branches: replaceAt(action.branches, index, [...actions]),
+                    });
+                  }}
+                />
+              </BlockBranch>
             ))}
             <BlockAdd
               onClick={() => {
-                onChange({ ...action, actions: [...action.actions, blankAction('sequence')] });
+                onChange({ ...action, branches: [...action.branches, []] });
               }}
             >
               Add a branch
@@ -523,10 +597,12 @@ function actionContent(
       return {
         fields: (
           <>
-            <ConditionTreeField
-              value={action.condition}
-              onChange={(condition) => {
-                onChange({ ...action, condition });
+            <ConditionsField
+              items={action.conditions}
+              path={`${path}.conditions`}
+              note="The run waits here until they all hold."
+              onChange={(conditions) => {
+                onChange({ ...action, conditions: [...conditions] });
               }}
             />
             <div className="grid gap-3 sm:grid-cols-2">
@@ -551,7 +627,7 @@ function actionContent(
             <TriggerFields
               trigger={action.trigger}
               onChange={(trigger) => {
-                onChange({ ...action, trigger });
+                onChange({ ...action, trigger: keepMeta(action.trigger, trigger) });
               }}
             />
             <div className="grid gap-3 sm:grid-cols-2">
@@ -573,52 +649,4 @@ function actionContent(
       return { fields: <ActionFields action={action} onChange={onChange} /> };
     }
   }
-}
-
-/**
- * One branch of a parallel block.
- *
- * @param props - The branch, its place and its change handlers.
- * @param props.index - Its place.
- * @param props.branch - Its action, or the sequence of them.
- * @param props.canRemove - Whether it may be removed: a parallel keeps one branch at least.
- * @param props.onChange - Called with the branch as it now stands.
- * @param props.onRemove - Takes the branch away.
- * @returns The branch.
- */
-function ParallelBranch(props: {
-  readonly index: number;
-  readonly branch: AutomationAction;
-  readonly canRemove: boolean;
-  readonly onChange: (branch: AutomationAction) => void;
-  readonly onRemove: () => void;
-}) {
-  const { index, branch, canRemove, onChange, onRemove } = props;
-  const actions = useMemo(() => branchActions(branch), [branch]);
-
-  return (
-    <BlockBranch
-      label={`Branch ${String(index + 1)}`}
-      aside={
-        canRemove ? (
-          <IconButton
-            label={`Remove branch ${String(index + 1)}`}
-            size="small"
-            variant="danger"
-            onClick={onRemove}
-          >
-            <AppIcon id="x" size={13} />
-          </IconButton>
-        ) : undefined
-      }
-    >
-      <ActionList
-        isNested
-        actions={actions}
-        onChange={(next) => {
-          onChange(asBranch(next));
-        }}
-      />
-    </BlockBranch>
-  );
 }

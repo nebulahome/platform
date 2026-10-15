@@ -14,15 +14,15 @@
  * summary that tries to be complete stops being a summary. The editor is where the whole
  * document is shown.
  */
-import type {
-  AutomationAction,
-  AutomationCondition,
-  AutomationDefinition,
-  AutomationTrigger,
-  BooleanTree,
-  TriggerTree,
+import {
+  conditionLeavesOf,
+  isBlockEnabled,
+  migrateDefinition,
+  type AutomationAction,
+  type AutomationDefinition,
+  type AutomationTrigger,
+  type ConditionNode,
 } from '@nebulahome/contracts';
-import { flattenTriggers, isTriggerTreeOp, migrateDefinition } from '@nebulahome/contracts';
 
 import { actionSummary, NO_NAMES, triggerSummary, type BlockNames } from '@/lib/block-summary';
 
@@ -61,63 +61,34 @@ export function describeAction(action: AutomationAction, names: BlockNames = NO_
 }
 
 /**
- * Counts a condition, including the ones inside it.
+ * Counts the checks a list of conditions makes, the ones inside groups included.
  *
- * A composed condition is one node and several checks, and "1 condition" for a three-way `and`
- * understates what somebody is about to open.
+ * A group is one block and several checks, and "1 condition" for a three-way AND understates what
+ * somebody is about to open.
  *
- * Accepts both the document's {@link BooleanTree} (`op`) and the draft's
- * {@link AutomationCondition} (`type: 'and' | 'or' | 'not'`).
- *
- * @param condition - The condition.
- * @returns How many leaf checks it makes.
+ * @param conditions - The conditions, or undefined when there are none.
+ * @returns How many leaf checks they make.
  */
-export function countChecks(condition: BooleanTree | AutomationCondition): number {
-  if ('op' in condition) {
-    if (condition.op === 'not') {
-      return countChecks(condition.item);
-    }
-
-    return condition.items.reduce((total, inner) => total + countChecks(inner), 0);
-  }
-
-  if (condition.type === 'and' || condition.type === 'or') {
-    return condition.conditions.reduce((total, inner) => total + countChecks(inner), 0);
-  }
-
-  if (condition.type === 'not') {
-    return countChecks(condition.condition);
-  }
-
-  return 1;
+export function countChecks(conditions: readonly ConditionNode[] | undefined): number {
+  return conditions === undefined ? 0 : conditionLeavesOf(conditions).length;
 }
 
 /**
- * Counts leaf checks in a stored `if` tree.
+ * Describes the triggers: the first that is on, and how many more.
  *
- * @param tree - The `if` tree, or undefined when there is none.
- * @returns How many leaf checks it makes.
- */
-function countIfChecks(tree: BooleanTree | undefined): number {
-  return tree === undefined ? 0 : countChecks(tree);
-}
-
-/**
- * Describes the trigger side of a tree.
- *
- * @param tree - The trigger tree.
+ * @param triggers - The triggers.
  * @param names - Where names come from.
- * @returns One phrase, with a "+N" when there are more leaves.
+ * @returns One phrase, with a "+N" when there are more.
  */
-function describeTriggerTree(tree: TriggerTree, names: BlockNames): string {
-  const leaves = isTriggerTreeOp(tree) ? flattenTriggers(tree) : [tree];
-  const [first] = leaves;
+function describeTriggers(triggers: readonly AutomationTrigger[], names: BlockNames): string {
+  const on = triggers.filter((trigger) => isBlockEnabled(trigger));
+  const [first] = on;
 
   if (first === undefined) {
-    return 'no trigger';
+    return triggers.length === 0 ? 'no trigger' : 'every trigger is off';
   }
 
-  const extra = leaves.length - 1;
+  const extra = on.length - 1;
 
   return extra > 0
     ? `${describeTrigger(first, names)} +${String(extra)}`
@@ -136,9 +107,9 @@ export function describeAutomation(
   definition: AutomationDefinition,
   names: BlockNames = NO_NAMES,
 ): AutomationSummary {
-  const trigger = describeTriggerTree(definition.triggers, names);
+  const trigger = describeTriggers(definition.triggers, names);
 
-  const checks = countIfChecks(definition.if);
+  const checks = countChecks(definition.if);
 
   const actionsList = definition.then;
   const [firstAction] = actionsList;
@@ -183,7 +154,7 @@ export function summaryOf(
     then,
   } = document as { readonly triggers?: unknown; readonly if?: unknown; readonly then?: unknown };
 
-  if (triggers === undefined || triggers === null || !Array.isArray(then)) {
+  if (!Array.isArray(triggers) || !Array.isArray(then)) {
     return null;
   }
 
@@ -192,7 +163,7 @@ export function summaryOf(
   return describeAutomation(
     {
       triggers: triggers as AutomationDefinition['triggers'],
-      if: ifTree as AutomationDefinition['if'],
+      if: Array.isArray(ifTree) ? (ifTree as AutomationDefinition['if']) : undefined,
       then: then as AutomationDefinition['then'],
     },
     names,

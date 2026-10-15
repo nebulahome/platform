@@ -14,11 +14,17 @@ import type {
   AutomationView,
   CapabilityState,
   EntityView,
+  GeoPosition,
   SceneView,
 } from '@nebulahome/contracts';
 
 import type { BlockNames } from '@/lib/block-summary';
-import { fetchAutomations, fetchScenes, LIBRARY_QUERY_KEYS } from '@/library/api';
+import {
+  fetchAutomationHouse,
+  fetchAutomations,
+  fetchScenes,
+  LIBRARY_QUERY_KEYS,
+} from '@/library/api';
 import { capabilityStateOf } from '@/library/entity-control';
 import { fetchPackages, PACKAGE_QUERY_KEYS } from '@/packages/api';
 import { stateLabel } from '@/routes/library/automation/state-choices';
@@ -44,6 +50,12 @@ export type EditorHouse = {
   /** Whether the house has a position, without which the sun has no time. */
   readonly hasPosition: boolean;
 
+  /** The zone the house's clock keeps, for the next runs of a schedule. */
+  readonly timeZone: string;
+
+  /** Where the house stands, for the times of the sun; null when nobody has said. */
+  readonly position: GeoPosition | null;
+
   /** Whether the entities are still being read. */
   readonly isPending: boolean;
 };
@@ -68,6 +80,8 @@ const EMPTY: EditorHouse = {
   automations: [],
   packages: [],
   hasPosition: true,
+  timeZone: 'UTC',
+  position: null,
   isPending: false,
 };
 
@@ -105,6 +119,17 @@ export function EditorHouseProvider(props: { readonly children: ReactNode }) {
      */
     queryFn: async ({ signal }: { signal: AbortSignal }) => fetchAutomations(signal),
   });
+  const house = useQuery({
+    queryKey: LIBRARY_QUERY_KEYS.automationHouse,
+    /**
+     * Reads the house's zone and position, for the time and sun blocks.
+     *
+     * @param context - The query's abort signal.
+     * @param context.signal - Cancels the request.
+     * @returns The zone and the position.
+     */
+    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchAutomationHouse(signal),
+  });
   const packages = useQuery({
     queryKey: PACKAGE_QUERY_KEYS.list,
     /**
@@ -123,8 +148,6 @@ export function EditorHouseProvider(props: { readonly children: ReactNode }) {
     const automationByKey = new Map(
       (automations.data ?? []).map((automation) => [automation.key, automation.name]),
     );
-    const areaByKey = new Map(directory.areas.map((area) => [area.key, area.name]));
-    const house = directory.areas.find((area) => area.kind === 'house');
 
     return {
       /**
@@ -155,13 +178,6 @@ export function EditorHouseProvider(props: { readonly children: ReactNode }) {
          * @returns Its name, or undefined.
          */
         entity: (entityId) => byId.get(entityId)?.name,
-        /**
-         * An area's name.
-         *
-         * @param areaKey - The key.
-         * @returns Its name, or undefined.
-         */
-        area: (areaKey) => areaByKey.get(areaKey),
         /**
          * A scene's name.
          *
@@ -194,7 +210,10 @@ export function EditorHouseProvider(props: { readonly children: ReactNode }) {
       scenes: scenes.data ?? [],
       automations: automations.data ?? [],
       packages: packages.data ?? [],
-      hasPosition: house === undefined || (house.latitude !== null && house.longitude !== null),
+      // Said only once the house has been read: a warning that flashes while it loads is noise.
+      hasPosition: house.data?.position !== null,
+      timeZone: house.data?.timeZone ?? 'UTC',
+      position: house.data?.position ?? null,
       isPending: directory.isPending,
     };
   }, [
@@ -203,6 +222,7 @@ export function EditorHouseProvider(props: { readonly children: ReactNode }) {
     directory.entities,
     directory.isPending,
     directory.readings,
+    house.data,
     packages.data,
     scenes.data,
   ]);

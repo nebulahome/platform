@@ -42,9 +42,9 @@ const MODES: readonly FacetOption[] = AUTOMATION_MODE_CHOICES.map((mode) => ({
 /** How each trigger kind reads in the sheet. */
 const TRIGGER_LABELS: Readonly<Record<string, string>> = {
   any: 'Any trigger',
-  state: 'State',
-  numeric_state: 'Numeric state',
+  entity: 'Entity',
   time: 'Time',
+  sun: 'Sun',
   event: 'Event',
   manual: 'Manual',
 };

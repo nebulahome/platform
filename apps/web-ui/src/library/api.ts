@@ -12,7 +12,9 @@ import {
   aliasPreviewResponseSchema,
   aliasViewSchema,
   areaViewSchema,
+  automationHouseSchema,
   automationRunSchema,
+  automationTestReplySchema,
   automationViewSchema,
   deviceProbeReplySchema,
   deviceViewSchema,
@@ -40,7 +42,10 @@ import {
   type AreaUpdate,
   type AreaView,
   type AutomationCreate,
+  type AutomationHouse,
   type AutomationRun,
+  type AutomationTestReply,
+  type AutomationTestRequest,
   type AutomationUpdate,
   type AutomationView,
   type CapabilityName,
@@ -155,6 +160,50 @@ export async function triggerAutomation(automationId: string): Promise<TriggerAu
   return apiRequest(`/automations/${automationId}/trigger`, triggerAutomationReplySchema, {
     method: 'POST',
   });
+}
+
+/**
+ * Reads what the automation editor needs of the house: its time zone and where it stands.
+ *
+ * @param signal - Cancels the request.
+ * @returns The zone and the position, null when the house has none.
+ */
+export async function fetchAutomationHouse(signal?: AbortSignal): Promise<AutomationHouse> {
+  return apiRequest('/automations/house', automationHouseSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
+}
+
+/**
+ * Tries one block of the automation being edited, as the editor holds it: an action runs now,
+ * a condition is checked now, a trigger says whether it holds or when it next fires.
+ *
+ * @param request - The block and the test's id.
+ * @returns What the test found.
+ */
+export async function testAutomationBlock(
+  request: AutomationTestRequest,
+): Promise<AutomationTestReply> {
+  return apiRequest('/automations/test', automationTestReplySchema, {
+    method: 'POST',
+    body: request,
+  });
+}
+
+/**
+ * Stops a test still going.
+ *
+ * @param testId - Which.
+ * @returns Whether there was one to stop.
+ */
+export async function cancelAutomationTest(testId: string): Promise<boolean> {
+  const reply = await apiRequest(
+    `/automations/test/${testId}/cancel`,
+    z.object({ wasRunning: z.boolean() }),
+    { method: 'POST' },
+  );
+
+  return reply.wasRunning;
 }
 
 /**
@@ -985,6 +1034,9 @@ export const LIBRARY_QUERY_KEYS = {
 
   /** An automation's runs, keyed further by its id. */
   automationRuns: ['library', 'automation-runs'] as const,
+
+  /** The house as the automation editor reads it: its zone and its position. */
+  automationHouse: ['library', 'automation-house'] as const,
 
   /** Every scene. */
   scenes: ['library', 'scenes'] as const,

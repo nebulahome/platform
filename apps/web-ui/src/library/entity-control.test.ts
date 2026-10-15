@@ -10,6 +10,7 @@ import {
   entityScopesOf,
   hexToHs,
   hsColor,
+  hsToHex,
   isCommandable,
   kelvinColor,
   kelvinToMireds,
@@ -118,5 +119,21 @@ describe('the commands and the colours', () => {
     expect(hexToHs('#00f')).toEqual({ hue: 240, saturation: 100 });
     expect(hexToHs('#ffffff')).toEqual({ hue: 0, saturation: 0 });
     expect(hexToHs('red')).toBeNull();
+  });
+
+  it('writes a hue and a saturation as the HEX code that reads back to them', () => {
+    expect(hsToHex(0, 100)).toBe('#ff0000');
+    expect(hsToHex(120, 50)).toBe('#80ff80');
+    expect(hsToHex(240, 100)).toBe('#0000ff');
+    expect(hsToHex(0, 0)).toBe('#ffffff');
+    expect(hsToHex(-120, 100)).toBe('#0000ff');
+
+    for (const [hue, saturation] of [
+      [30, 80],
+      [200, 35],
+      [300, 100],
+    ] as const) {
+      expect(hexToHs(hsToHex(hue, saturation))).toEqual({ hue, saturation });
+    }
   });
 });

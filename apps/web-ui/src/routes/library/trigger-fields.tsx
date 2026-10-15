@@ -2,26 +2,35 @@
  * The fields one trigger needs, which depend on what kind of trigger it is (board
  * N-Blocks-Triggers).
  *
- * An entity's states are offered as its own words - a door's Open and Closed, a thermostat's
- * modes - rather than typed; "For at least" is a duration as a person writes one. A time is a time
- * of day, the sun, or a schedule. `manual` has no fields and says how it runs; `event` is kept as
- * written and says that nothing reports device events yet.
+ * An entity is chosen first and the rest fits it (`entity-match-fields.tsx`). A time is Simple - a
+ * time of day, the days of the week and the months it fires on - or Advanced, a cron expression
+ * said back in words with its next runs. The sun is one of its moments - sunrise, the golden
+ * hour, the sun crossing an elevation - worked out where the house stands, with when it next
+ * comes. `manual` has no fields and says how it runs; `event` is kept as written and says that
+ * nothing reports device events yet.
  */
 import {
-  COMPARISON_OPERATORS,
-  SOLAR_EVENTS,
+  clockAtToCron,
+  MONTHS,
+  nextSunEvent,
+  SUN_EVENTS,
+  TWICE_DAILY_SUN_EVENTS,
   type AutomationTrigger,
-  type ComparisonOperator,
-  type SolarEvent,
+  type Month,
+  type SunEvent,
 } from '@nebulahome/contracts';
 import { Note, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
-import { partialEntityId } from '@/library/automation-draft';
-import { hasNumber } from '@/library/entity-control';
-import { DurationField } from '@/routes/library/automation/duration-field';
+import { ChoiceChips } from '@/components/choice-chips';
+import { WeekdayPicker } from '@/components/weekday-picker';
+import { SUN_EVENT_WORDS, triggerSummary } from '@/lib/block-summary';
+import { cronWords, nextCronRuns, shortMoment } from '@/lib/cron-words';
+import { partialEntityId, withoutKey } from '@/library/automation-draft';
 import { useEditorHouse } from '@/routes/library/automation/editor-house';
-import { stateChoices } from '@/routes/library/automation/state-choices';
+import { EntityTriggerFields } from '@/routes/library/automation/entity-match-fields';
 import { EntityField } from '@/routes/library/entity-field';
+
+export { OPERATOR_OPTIONS, StateField } from '@/routes/library/automation/entity-match-fields';
 
 /** What the fields need. */
 export type TriggerFieldsProps = {
@@ -32,78 +41,6 @@ export type TriggerFieldsProps = {
   readonly onChange: (trigger: AutomationTrigger) => void;
 };
 
-/** The comparisons, as a dropdown reads them. */
-export const OPERATOR_OPTIONS = COMPARISON_OPERATORS.map((value) => ({
-  value,
-  label: {
-    lt: 'below <',
-    lte: 'at most ≤',
-    gt: 'above >',
-    gte: 'at least ≥',
-    eq: 'equal =',
-    neq: 'not equal ≠',
-  }[value],
-}));
-
-/** The longest a hold may be: the format's week. */
-const WEEK_MS = 604_800_000;
-
-/**
- * A state field: the entity's states as a dropdown, with Any; typed when the state is a number or
- * a text.
- *
- * @param props - The field's label, value and entity.
- * @param props.label - What it is.
- * @param props.entityId - The entity whose states are offered.
- * @param props.value - The state chosen; empty for any.
- * @param props.onChange - Called with the state; empty for any.
- * @param props.anyLabel - What "any" is called; absent when the field must name a state.
- * @returns The field.
- */
-export function StateField(props: {
-  readonly label: string;
-  readonly entityId: string;
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-  readonly anyLabel?: string;
-}) {
-  const { label, entityId, value, onChange, anyLabel } = props;
-  const house = useEditorHouse();
-  const choices = stateChoices(house.entityOf(entityId));
-
-  if (choices === null) {
-    return (
-      <TextField
-        label={label}
-        size="compact"
-        placeholder={anyLabel ?? 'on'}
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-      />
-    );
-  }
-
-  const known = choices.some((choice) => choice.value === value);
-
-  return (
-    <SelectField
-      label={label}
-      size="compact"
-      options={[
-        ...(anyLabel === undefined ? [] : [{ value: '', label: anyLabel }]),
-        ...(anyLabel === undefined && value === '' ? [{ value: '', label: 'Choose…' }] : []),
-        ...choices,
-        // A state the entity no longer offers is still shown, so it is not lost by looking.
-        ...(known || value === '' ? [] : [{ value, label: value }]),
-      ]}
-      value={value}
-      onChange={onChange}
-    />
-  );
-}
-
 /**
  * Renders the fields for one trigger.
  *
@@ -113,263 +50,411 @@ export function StateField(props: {
 export function TriggerFields(props: TriggerFieldsProps) {
   const { trigger, onChange } = props;
 
-  if (trigger.type === 'manual') {
-    return (
-      <p className="text-ui-sm text-foreground-subtle">
-        Runs from its Run button, from the API, or from another automation.
-      </p>
-    );
-  }
-
-  if (trigger.type === 'state') {
-    return (
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
-        <EntityField
-          label="Entity"
-          value={trigger.entityId}
-          onChange={(entityId) => {
-            onChange({ ...trigger, entityId: partialEntityId(entityId), from: null, to: null });
-          }}
-        />
-        <StateField
-          label="From"
-          anyLabel="Any"
-          entityId={trigger.entityId}
-          value={trigger.from ?? ''}
-          onChange={(from) => {
-            onChange({ ...trigger, from: from === '' ? null : from });
-          }}
-        />
-        <StateField
-          label="To"
-          anyLabel="Any"
-          entityId={trigger.entityId}
-          value={trigger.to ?? ''}
-          onChange={(to) => {
-            onChange({ ...trigger, to: to === '' ? null : to });
-          }}
-        />
-        <DurationField
-          label="For at least"
-          isOptional
-          maxMs={WEEK_MS}
-          value={trigger.forMs ?? null}
-          onChange={(forMs) => {
-            onChange({ ...trigger, forMs: forMs === 0 ? null : forMs });
-          }}
-        />
-      </div>
-    );
-  }
-
-  if (trigger.type === 'numeric_state') {
-    return (
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
-        <EntityField
-          label="Entity"
-          accept={hasNumber}
-          value={trigger.entityId}
-          onChange={(entityId) => {
-            onChange({ ...trigger, entityId: partialEntityId(entityId) });
-          }}
-        />
-        <SelectField
-          label="Is"
-          size="compact"
-          options={OPERATOR_OPTIONS}
-          value={trigger.operator}
-          onChange={(operator) => {
-            onChange({ ...trigger, operator: operator as ComparisonOperator });
-          }}
-        />
-        <TextField
-          label="Value"
-          size="compact"
-          type="number"
-          className="font-mono"
-          value={String(trigger.value)}
-          onChange={(event) => {
-            const value = Number(event.target.value);
-
-            onChange({ ...trigger, value: Number.isFinite(value) ? value : 0 });
-          }}
-        />
-        <DurationField
-          label="For at least"
-          isOptional
-          maxMs={WEEK_MS}
-          value={trigger.forMs ?? null}
-          onChange={(forMs) => {
-            onChange({ ...trigger, forMs: forMs === 0 ? null : forMs });
-          }}
-        />
-      </div>
-    );
-  }
-
-  if (trigger.type === 'event') {
-    return (
-      <>
-        <Note tone="warning">
-          Not available yet: nothing reports device events to the platform, so this trigger is kept
-          as written and never fires.
-        </Note>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <TextField
-            label="Event"
-            size="compact"
-            placeholder="button.pressed"
-            value={trigger.event}
-            onChange={(event) => {
-              onChange({ ...trigger, event: event.target.value });
-            }}
-          />
-          <EntityField
-            label="From"
-            isOptional
-            hint="Any entity, when none is chosen."
-            value={trigger.entityId ?? ''}
-            onChange={(entityId) => {
-              onChange({
-                ...trigger,
-                entityId: entityId === '' ? null : partialEntityId(entityId),
-              });
-            }}
-          />
-        </div>
-      </>
-    );
-  }
-
-  return <TimeTriggerFields trigger={trigger} onChange={onChange} />;
-}
-
-/** What the time fields need. */
-type TimeTriggerFieldsProps = {
-  /** The trigger, which is known to be a time one. */
-  readonly trigger: Extract<AutomationTrigger, { type: 'time' }>;
-
-  /** Called with the trigger as it now stands. */
-  readonly onChange: (trigger: AutomationTrigger) => void;
-};
-
-/** What a time can be, as the segmented control reads it. */
-const TIME_KINDS = [
-  { value: 'clock', label: 'Time of day' },
-  { value: 'solar', label: 'Sun' },
-  { value: 'cron', label: 'Schedule' },
-] as const;
-
-/**
- * Renders the fields for a time trigger: a time of day, the sun, or a schedule.
- *
- * @param props - See {@link TimeTriggerFieldsProps}.
- * @returns The fields.
- */
-function TimeTriggerFields(props: TimeTriggerFieldsProps) {
-  const { trigger, onChange } = props;
-  const house = useEditorHouse();
-  const { at } = trigger;
-
-  return (
-    <>
-      <div className="flex flex-col gap-1.5">
-        <span className="text-caption font-medium text-foreground-muted">At</span>
-        <Segmented
-          label="At"
-          size="compact"
-          options={TIME_KINDS}
-          value={at.kind}
-          onChange={(kind) => {
-            onChange({
-              type: 'time',
-              at:
-                kind === 'clock'
-                  ? { kind: 'clock', time: '07:00' }
-                  : kind === 'cron'
-                    ? { kind: 'cron', expression: '0 7 * * 1-5' }
-                    : { kind: 'solar', event: 'sunset', offsetMinutes: 0 },
-            });
-          }}
-        />
-      </div>
-
-      {at.kind === 'clock' ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <TextField
-            label="Time"
-            size="compact"
-            type="time"
-            step={1}
-            className="font-mono"
-            hint="Every day, on the house's clock."
-            value={at.time}
-            onChange={(event) => {
-              onChange({ type: 'time', at: { kind: 'clock', time: event.target.value } });
-            }}
-          />
-        </div>
-      ) : null}
-
-      {at.kind === 'cron' ? (
-        <TextField
-          label="Schedule"
-          size="compact"
-          className="font-mono"
-          placeholder="0 7 * * 1-5"
-          hint="Five fields as cron writes them - minute, hour, day, month, weekday - or six with seconds first. 0 7 * * 1-5 is 07:00 on weekdays."
-          value={at.expression}
-          onChange={(event) => {
-            onChange({ type: 'time', at: { kind: 'cron', expression: event.target.value } });
-          }}
-        />
-      ) : null}
-
-      {at.kind === 'solar' ? (
+  switch (trigger.type) {
+    case 'manual': {
+      return (
+        <p className="text-ui-sm text-foreground-subtle">
+          Runs from its Run button, from the API, or from another automation.
+        </p>
+      );
+    }
+    case 'entity': {
+      return <EntityTriggerFields trigger={trigger} onChange={onChange} />;
+    }
+    case 'time': {
+      return <TimeTriggerFields trigger={trigger} onChange={onChange} />;
+    }
+    case 'sun': {
+      return <SunTriggerFields trigger={trigger} onChange={onChange} />;
+    }
+    case 'event': {
+      return (
         <>
-          {house.hasPosition ? null : (
-            <Note tone="warning">
-              The house has no position yet, so the sun has no time here. Set it on the house, under
-              Library › Areas.
-            </Note>
-          )}
+          <Note tone="warning">
+            Not available yet: nothing reports device events to the platform, so this trigger is
+            kept as written and never fires.
+          </Note>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-caption font-medium text-foreground-muted">Event</span>
-              <Segmented
-                label="Event"
-                size="compact"
-                options={SOLAR_EVENTS.map((value) => ({
-                  value,
-                  label: value === 'sunrise' ? 'Sunrise' : 'Sunset',
-                }))}
-                value={at.event}
-                onChange={(event: SolarEvent) => {
-                  onChange({ type: 'time', at: { ...at, event } });
-                }}
-              />
-            </div>
             <TextField
-              label="Offset (min)"
+              label="Event"
               size="compact"
-              type="number"
-              className="font-mono"
-              min={-720}
-              max={720}
-              hint="Negative is before."
-              value={String(at.offsetMinutes)}
+              placeholder="button.pressed"
+              value={trigger.event}
               onChange={(event) => {
-                const minutes = Math.round(Number(event.target.value));
-
+                onChange({ ...trigger, event: event.target.value });
+              }}
+            />
+            <EntityField
+              label="From"
+              isOptional
+              hint="Any entity, when none is chosen."
+              value={trigger.entityId ?? ''}
+              onChange={(entityId) => {
                 onChange({
-                  type: 'time',
-                  at: { ...at, offsetMinutes: Number.isFinite(minutes) ? minutes : 0 },
+                  ...trigger,
+                  entityId: entityId === '' ? null : partialEntityId(entityId),
                 });
               }}
             />
           </div>
         </>
+      );
+    }
+  }
+}
+
+/** A time trigger. */
+type TimeTrigger = Extract<AutomationTrigger, { type: 'time' }>;
+
+/** The months as chips: three letters each. */
+const MONTH_CHIPS = MONTHS.map((month) => ({
+  value: month,
+  label: month.charAt(0).toUpperCase() + month.slice(1, 3),
+}));
+
+/**
+ * Renders the fields for a time trigger: Simple, or Advanced.
+ *
+ * @param props - The trigger and its change handler.
+ * @param props.trigger - The time trigger.
+ * @param props.onChange - Called with it as it now stands.
+ * @returns The fields.
+ */
+function TimeTriggerFields(props: {
+  readonly trigger: TimeTrigger;
+  readonly onChange: (trigger: AutomationTrigger) => void;
+}) {
+  const { trigger, onChange } = props;
+  const { at } = trigger;
+
+  return (
+    <>
+      <div className="flex flex-col gap-1.5">
+        <span className="text-caption font-medium text-foreground-muted">Written as</span>
+        <Segmented
+          label="Written as"
+          size="compact"
+          options={[
+            { value: 'clock', label: 'Simple' },
+            { value: 'cron', label: 'Advanced' },
+          ]}
+          value={at.kind}
+          onChange={(kind) => {
+            onChange({
+              ...trigger,
+              at:
+                kind === 'cron'
+                  ? // The same moments, written as cron: Advanced starts from what Simple said.
+                    {
+                      kind: 'cron',
+                      expression: at.kind === 'clock' ? clockAtToCron(at) : '0 7 * * *',
+                    }
+                  : { kind: 'clock', time: '07:00' },
+            });
+          }}
+        />
+      </div>
+      {at.kind === 'clock' ? (
+        <SimpleTimeFields trigger={{ ...trigger, at }} onChange={onChange} />
+      ) : (
+        <CronFields trigger={{ ...trigger, at }} onChange={onChange} />
+      )}
+    </>
+  );
+}
+
+/**
+ * Simple: a time of day with its seconds, the weekdays and the months.
+ *
+ * @param props - The trigger and its change handler.
+ * @param props.trigger - The time trigger, written simply.
+ * @param props.onChange - Called with it as it now stands.
+ * @returns The fields.
+ */
+function SimpleTimeFields(props: {
+  readonly trigger: TimeTrigger & { readonly at: Extract<TimeTrigger['at'], { kind: 'clock' }> };
+  readonly onChange: (trigger: AutomationTrigger) => void;
+}) {
+  const { trigger, onChange } = props;
+  const { at } = trigger;
+
+  /**
+   * Writes the time back with a change.
+   *
+   * @param next - What changes.
+   */
+  const write = (next: Partial<typeof at>): void => {
+    const merged = { ...at, ...next };
+
+    onChange({
+      ...trigger,
+      at: {
+        kind: 'clock',
+        time: merged.time,
+        ...((merged.weekdays ?? []).length === 0 ? {} : { weekdays: merged.weekdays }),
+        ...((merged.months ?? []).length === 0 ? {} : { months: merged.months }),
+      },
+    });
+  };
+
+  return (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TextField
+          label="Time"
+          size="compact"
+          type="time"
+          step={1}
+          className="font-mono"
+          hint="On the house's clock."
+          value={at.time}
+          onChange={(event) => {
+            write({ time: event.target.value });
+          }}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <span className="text-caption font-medium text-foreground-muted">On</span>
+        <WeekdayPicker
+          label="On"
+          value={at.weekdays ?? []}
+          onChange={(weekdays) => {
+            write({ weekdays });
+          }}
+        />
+        {(at.weekdays ?? []).length === 0 ? (
+          <span className="text-caption text-foreground-subtle">None chosen: every day.</span>
+        ) : null}
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <span className="text-caption font-medium text-foreground-muted">In</span>
+        <ChoiceChips
+          label="In"
+          options={MONTH_CHIPS}
+          value={at.months ?? []}
+          onChange={(months) => {
+            write({ months: months as Month[] });
+          }}
+        />
+        {(at.months ?? []).length === 0 ? (
+          <span className="text-caption text-foreground-subtle">None chosen: every month.</span>
+        ) : null}
+      </div>
+      <p className="text-caption text-foreground-muted">{`Fires: ${triggerSummary(trigger)}.`}</p>
+    </>
+  );
+}
+
+/**
+ * Advanced: a cron expression, said back in words, with when it next fires.
+ *
+ * @param props - The trigger and its change handler.
+ * @param props.trigger - The time trigger, written as cron.
+ * @param props.onChange - Called with it as it now stands.
+ * @returns The fields.
+ */
+function CronFields(props: {
+  readonly trigger: TimeTrigger & { readonly at: Extract<TimeTrigger['at'], { kind: 'cron' }> };
+  readonly onChange: (trigger: AutomationTrigger) => void;
+}) {
+  const { trigger, onChange } = props;
+  const house = useEditorHouse();
+  const { expression } = trigger.at;
+  const words = cronWords(expression);
+  const next = words === null ? null : nextCronRuns(expression, house.timeZone, 3);
+  const said =
+    words === null
+      ? undefined
+      : `${words}${
+          next === null || next.length === 0
+            ? ''
+            : ` · next: ${next.map((moment) => shortMoment(moment, house.timeZone)).join(', ')}`
+        }`;
+
+  return (
+    <TextField
+      label="Expression"
+      size="compact"
+      className="font-mono"
+      placeholder="0 */2 * * 1-5"
+      hint={
+        said ??
+        'Five fields as cron writes them - minute, hour, day, month, weekday - or six with seconds first.'
+      }
+      {...(words === null && expression.trim() !== ''
+        ? { error: 'Not a schedule cron can read' }
+        : {})}
+      value={expression}
+      onChange={(event) => {
+        onChange({ ...trigger, at: { kind: 'cron', expression: event.target.value } });
+      }}
+    />
+  );
+}
+
+/** A sun trigger. */
+type SunTrigger = Extract<AutomationTrigger, { type: 'sun' }>;
+
+/** The moments of the sun, as the dropdown offers them, in the order of a day. */
+const SUN_EVENT_OPTIONS = SUN_EVENTS.map((event) => ({
+  value: event,
+  label: SUN_EVENT_WORDS[event] ?? event,
+}));
+
+/** Events that are a moment on their own: an offset from them means nothing. */
+const NO_OFFSET: ReadonlySet<SunEvent> = new Set<SunEvent>([
+  'midnight_sun_start',
+  'midnight_sun_end',
+  'polar_night_start',
+  'polar_night_end',
+  'elevation_changed',
+]);
+
+/**
+ * Renders the fields for a sun trigger: the moment, then what the moment needs, and when it next
+ * comes where the house stands.
+ *
+ * @param props - The trigger and its change handler.
+ * @param props.trigger - The sun trigger.
+ * @param props.onChange - Called with it as it now stands.
+ * @returns The fields.
+ */
+function SunTriggerFields(props: {
+  readonly trigger: SunTrigger;
+  readonly onChange: (trigger: AutomationTrigger) => void;
+}) {
+  const { trigger, onChange } = props;
+  const house = useEditorHouse();
+  const isTwice = TWICE_DAILY_SUN_EVENTS.has(trigger.event);
+  const next =
+    house.position === null || trigger.event === 'elevation_changed'
+      ? null
+      : nextSunEvent(trigger, house.position, new Date());
+
+  return (
+    <>
+      {house.hasPosition ? null : (
+        <Note tone="warning">
+          The house has no position yet, so the sun has no time here. Set it on the house, under
+          Library › Areas.
+        </Note>
+      )}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SelectField
+          label="When"
+          size="compact"
+          options={SUN_EVENT_OPTIONS}
+          value={trigger.event}
+          onChange={(value) => {
+            const event = value as SunEvent;
+
+            onChange({
+              type: 'sun',
+              ...(trigger.name === undefined ? {} : { name: trigger.name }),
+              ...(trigger.isEnabled === undefined ? {} : { isEnabled: trigger.isEnabled }),
+              event,
+              ...(event === 'elevation_crossed' ? { elevation: trigger.elevation ?? 10 } : {}),
+              ...(NO_OFFSET.has(event) || trigger.offsetMinutes === undefined
+                ? {}
+                : { offsetMinutes: trigger.offsetMinutes }),
+            });
+          }}
+        />
+        {NO_OFFSET.has(trigger.event) ? null : (
+          <TextField
+            label="Offset (min)"
+            size="compact"
+            type="number"
+            className="font-mono"
+            min={-720}
+            max={720}
+            hint="Negative is before."
+            value={String(trigger.offsetMinutes ?? 0)}
+            onChange={(event) => {
+              const minutes = Math.round(Number(event.target.value));
+              const rest = withoutKey(trigger, 'offsetMinutes');
+
+              onChange(
+                Number.isFinite(minutes) && minutes !== 0
+                  ? { ...rest, offsetMinutes: Math.max(-720, Math.min(720, minutes)) }
+                  : rest,
+              );
+            }}
+          />
+        )}
+      </div>
+
+      {isTwice ? (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-caption font-medium text-foreground-muted">Which</span>
+          <Segmented
+            label="Which"
+            size="compact"
+            options={[
+              { value: 'both', label: 'Both' },
+              { value: 'morning', label: 'Morning' },
+              { value: 'evening', label: 'Evening' },
+            ]}
+            value={trigger.period ?? 'both'}
+            onChange={(period) => {
+              const rest = withoutKey(trigger, 'period');
+
+              onChange(period === 'both' ? rest : { ...rest, period });
+            }}
+          />
+        </div>
       ) : null}
+
+      {trigger.event === 'elevation_crossed' ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <TextField
+            label="Elevation (°)"
+            size="compact"
+            type="number"
+            className="font-mono"
+            min={-90}
+            max={90}
+            hint="Above the horizon; negative is below it."
+            value={String(trigger.elevation ?? 0)}
+            onChange={(event) => {
+              const degrees = Number(event.target.value);
+
+              onChange({
+                ...trigger,
+                elevation: Number.isFinite(degrees) ? Math.max(-90, Math.min(90, degrees)) : 0,
+              });
+            }}
+          />
+          <div className="flex flex-col gap-1.5">
+            <span className="text-caption font-medium text-foreground-muted">Going</span>
+            <Segmented
+              label="Going"
+              size="compact"
+              options={[
+                { value: 'either', label: 'Either way' },
+                { value: 'rising', label: 'Rising' },
+                { value: 'setting', label: 'Setting' },
+              ]}
+              value={trigger.direction ?? 'either'}
+              onChange={(direction) => {
+                const rest = withoutKey(trigger, 'direction');
+
+                onChange(direction === 'either' ? rest : { ...rest, direction });
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      <p className="text-caption text-foreground-subtle">
+        {trigger.event === 'elevation_changed'
+          ? 'Fires each time the sun entity reports its elevation, about once a minute.'
+          : next === null
+            ? house.position === null
+              ? 'Worked out where the house stands, once it has a position.'
+              : 'This does not happen where the house is.'
+            : `Next: ${shortMoment(next, house.timeZone)}, on the house's clock.`}
+      </p>
     </>
   );
 }

@@ -5,13 +5,11 @@
  */
 import {
   AUTOMATION_MODES,
+  migrateDefinition,
   TRIGGER_TYPES,
-  flattenTriggers,
-  isTriggerTreeOp,
   type AutomationTrigger,
   type AutomationView,
   type TriggerType,
-  type TriggerTree,
 } from '@nebulahome/contracts';
 
 import { chainText } from '@/lib/describe-automation';
@@ -166,8 +164,8 @@ export function isAutomationNarrowing(filter: AutomationFilter): boolean {
 /**
  * The trigger kinds present in a stored definition.
  *
- * Accepts both the current `{ triggers }` tree and a legacy flat list. A document that cannot be
- * read contributes no kinds, so a narrowed filter hides it rather than throwing.
+ * A document that cannot be read contributes no kinds, so a narrowed filter hides it rather than
+ * throwing.
  *
  * @param definition - Whatever the column held.
  * @returns The kinds, in document order, without duplicates removed — the matcher only needs
@@ -184,42 +182,22 @@ export function triggerTypesOf(definition: unknown): readonly TriggerType[] {
 }
 
 /**
- * Reads the trigger leaves from a stored document.
+ * Reads the triggers from a stored document, through the format's migration so an older shape
+ * reads like a current one.
  *
  * @param definition - Whatever the column held.
- * @returns The leaves, or null when the document is not one this build can read.
+ * @returns The triggers, or null when the document is not one this build can read.
  */
 function readTriggers(definition: unknown): AutomationTrigger[] | null {
-  if (definition === null || typeof definition !== 'object') {
+  const document = migrateDefinition(definition);
+
+  if (document === null || typeof document !== 'object') {
     return null;
   }
 
-  const document = definition as { readonly triggers?: unknown };
-  const { triggers } = document;
+  const { triggers } = document as { readonly triggers?: unknown };
 
-  if (triggers === undefined || triggers === null) {
-    return null;
-  }
-
-  if (Array.isArray(triggers)) {
-    return triggers.filter(isTriggerLeaf);
-  }
-
-  if (typeof triggers !== 'object') {
-    return null;
-  }
-
-  const tree = triggers as TriggerTree;
-
-  try {
-    if (isTriggerTreeOp(tree)) {
-      return flattenTriggers(tree).filter(isTriggerLeaf);
-    }
-
-    return isTriggerLeaf(tree) ? [tree] : null;
-  } catch {
-    return null;
-  }
+  return Array.isArray(triggers) ? triggers.filter(isTriggerLeaf) : null;
 }
 
 /**
