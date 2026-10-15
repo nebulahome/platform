@@ -15,13 +15,14 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { applyMigrations, createDatabase, schema, type DatabaseHandle } from '@nebulahome/db';
 
-import { buildTestServer, houseSyncs, stopHub } from '@/testing/hub-harness.js';
+import { bearerFor, buildTestServer, houseSyncs, stopHub } from '@/testing/hub-harness.js';
 
 const ADMIN_URL = 'postgres://nebula:nebula@localhost:5432/postgres';
 const NAME = `nebula_setup_${randomUUID().slice(0, 8)}`;
@@ -102,6 +103,12 @@ afterAll(async () => {
 });
 
 describe('first-run setup', () => {
+  it('speaks English before anybody chose a language', async () => {
+    const response = await server.inject({ method: 'GET', url: '/api/v1/setup' });
+
+    expect(response.json()).toEqual({ isRequired: true, locale: 'en' });
+  });
+
   it('refuses a house that stands nowhere on Earth, and writes nothing', async () => {
     const { status } = await setUp({ ...OWNER, home: { ...HOME, latitude: 123 } });
     const users = await database.db.select().from(schema.auth.users);
@@ -112,7 +119,10 @@ describe('first-run setup', () => {
 
   it('creates the owner and the house together, and tells core where it stands', async () => {
     const syncs = houseSyncs.count;
-    const { status } = await setUp({ ...OWNER, home: HOME });
+    const { status, body } = await setUp({ ...OWNER, home: HOME });
+    const [owner] = await database.db
+      .select({ locale: schema.auth.users.locale })
+      .from(schema.auth.users);
     const areas = await database.db.select().from(schema.registry.areas);
     const settings = new Map(
       (
@@ -135,6 +145,17 @@ describe('first-run setup', () => {
     expect(settings.get('house.timezone')).toBe('Europe/Rome');
     expect(settings.get('units.temperature')).toBe('celsius');
     expect(houseSyncs.count).toBe(syncs + 1);
+
+    // The language the first run was read in is the house's; the owner follows it.
+    expect(settings.get('house.locale')).toBe('it');
+    expect(owner?.locale).toBeNull();
+    expect(body).toMatchObject({ user: { locale: null, houseLocale: 'it' } });
+  });
+
+  it('tells the sign-in screen the house language', async () => {
+    const response = await server.inject({ method: 'GET', url: '/api/v1/setup' });
+
+    expect(response.json()).toEqual({ isRequired: false, locale: 'it' });
   });
 
   it('closes behind itself', async () => {
@@ -142,5 +163,76 @@ describe('first-run setup', () => {
 
     expect(status).toBe(409);
     expect(await database.db.select().from(schema.registry.areas)).toHaveLength(1);
+  });
+});
+
+describe('the languages, once the house is set up', () => {
+  /**
+   * Calls the API as the owner the setup made, with every grant the calls below need.
+   *
+   * @param method - The verb.
+   * @param url - The path under `/api/v1`.
+   * @param payload - The body, if any.
+   * @returns The status and the parsed body.
+   */
+  async function asOwner(
+    method: 'GET' | 'PATCH',
+    url: string,
+    payload?: Record<string, unknown>,
+  ): Promise<{ status: number; body: unknown }> {
+    const [owner] = await database.db
+      .select({ id: schema.auth.users.id })
+      .from(schema.auth.users)
+      .where(eq(schema.auth.users.username, OWNER.username));
+    const response = await server.inject({
+      method,
+      url: `/api/v1${url}`,
+      headers: {
+        authorization: await bearerFor(
+          owner?.id ?? '',
+          { key: 'settings:read', scope: '*' },
+          { key: 'settings:write', scope: '*' },
+        ),
+      },
+      ...(payload === undefined ? {} : { payload }),
+    });
+
+    return { status: response.statusCode, body: response.json() };
+  }
+
+  it('follows a change of the house language in every session', async () => {
+    const { status } = await asOwner('PATCH', '/settings', { changes: { 'house.locale': 'en' } });
+    const session = await asOwner('GET', '/auth/session');
+
+    expect(status).toBe(200);
+    expect(session.body).toMatchObject({ locale: null, houseLocale: 'en' });
+  });
+
+  it('refuses a language the interface does not carry', async () => {
+    const { status } = await asOwner('PATCH', '/settings', { changes: { 'house.locale': 'de' } });
+
+    expect(status).toBe(400);
+  });
+
+  it("keeps a person's own language apart from the house's", async () => {
+    const session = await asOwner('GET', '/auth/session');
+    const id = (session.body as { id: string }).id;
+    const chosen = await asOwner('PATCH', `/users/${id}`, { locale: 'it' });
+    const after = await asOwner('GET', '/auth/session');
+    const followed = await asOwner('PATCH', `/users/${id}`, { locale: null });
+
+    expect(chosen.body).toMatchObject({ locale: 'it' });
+    expect(after.body).toMatchObject({ locale: 'it', houseLocale: 'en' });
+    expect(followed.body).toMatchObject({ locale: null });
+  });
+
+  it('tells core when the house changes time zone', async () => {
+    const syncs = houseSyncs.count;
+    const { status } = await asOwner('PATCH', '/settings', {
+      changes: { 'house.timezone': 'Europe/London' },
+    });
+
+    expect(status).toBe(200);
+    expect(houseSyncs.count).toBe(syncs + 1);
   });
 });

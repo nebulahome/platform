@@ -25,11 +25,13 @@ import {
   RETENTION_LADDER_FIELDS,
   SETTINGS,
   ValidationError,
+  resolveDisplayLocale,
   retentionLadderSchema,
   settingViewSchema,
   type JsonValue,
   type SettingDefinition,
   type SettingView,
+  type SupportedLocale,
 } from '@nebulahome/contracts';
 import { schema, type Database } from '@nebulahome/db';
 
@@ -260,4 +262,23 @@ export async function writeSettings(
  */
 export function auditableChanges(values: ReadonlyMap<string, JsonValue>): AuditableChange[] {
   return [...values.entries()].map(([key, value]) => ({ key, value }));
+}
+
+/**
+ * Reads the house language, which every session carries and the sign-in screen speaks.
+ *
+ * Read on its own rather than with {@link readSettingValues}: it is asked on every sign-in and
+ * every session read, by people who may not read the settings themselves. A missing row or a
+ * language this build no longer carries reads as English rather than failing a sign-in.
+ *
+ * @param db - The database.
+ * @returns The house language.
+ */
+export async function readHouseLocale(db: Database): Promise<SupportedLocale> {
+  const [row] = await db
+    .select({ value: schema.system.settings.value })
+    .from(schema.system.settings)
+    .where(eq(schema.system.settings.key, 'house.locale'));
+
+  return resolveDisplayLocale(null, typeof row?.value === 'string' ? row.value : null);
 }

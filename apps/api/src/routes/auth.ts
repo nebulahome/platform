@@ -28,8 +28,10 @@ import {
   twoFactorRequestSchema,
   type AuthenticatedResponse,
   type GrantedPermission,
+  isSupportedLocale,
   type LoginResponse,
   type SessionUser,
+  type SupportedLocale,
 } from '@nebulahome/contracts';
 import { schema } from '@nebulahome/db';
 
@@ -55,6 +57,7 @@ import { decryptSecret, verifyTotp } from '../auth/totp.js';
 import type { ApiContext } from '../context.js';
 import { definePublicRoute, defineRoute, type RouteEnvironment } from '../http/route.js';
 import { readAvatarUrl } from '../services/avatars.js';
+import { readHouseLocale } from '../services/settings.js';
 
 /** One message for every way a sign-in can fail, so none of them is an oracle. */
 const REJECTED = 'Username or password is not correct';
@@ -66,6 +69,7 @@ const REJECTED = 'Username or password is not correct';
  * @param permissions - Their resolved grants.
  * @param isTwoFactorEnabled - Whether they have confirmed a second factor.
  * @param avatarUrl - Their picture, or null when they have not set one.
+ * @param houseLocale - The house language, which they read while they have chosen none.
  * @returns The session user.
  */
 function toSessionUser(
@@ -73,6 +77,7 @@ function toSessionUser(
   permissions: readonly GrantedPermission[],
   isTwoFactorEnabled: boolean,
   avatarUrl: string | null,
+  houseLocale: SupportedLocale,
 ): SessionUser {
   return sessionUserSchema.parse({
     id: user.id,
@@ -81,7 +86,9 @@ function toSessionUser(
     role: user.roleKey,
     permissions,
     avatarUrl,
-    locale: user.locale,
+    // A language a later build stopped carrying reads as no choice, not as a failed sign-in.
+    locale: isSupportedLocale(user.locale) ? user.locale : null,
+    houseLocale,
     timezone: user.timezone,
     isTwoFactorEnabled,
     mustChangePassword: user.mustChangePassword,
@@ -106,12 +113,13 @@ async function issueSession(
   const now = context.now();
   const refresh = generateOpaqueToken();
 
-  const [permissions, isTwoFactorEnabled, avatarUrl, session] = await Promise.all([
+  const [permissions, isTwoFactorEnabled, avatarUrl, houseLocale, session] = await Promise.all([
     readIdentityGrants(context.db, user, (roleGrants, userGrants) =>
       resolveGrants(roleGrants, userGrants, now),
     ),
     hasConfirmedTotp(context.db, user.id),
     readAvatarUrl(context.db, user.id),
+    readHouseLocale(context.db),
     openSession(context.db, {
       userId: user.id,
       ipAddress: request.ipAddress,
@@ -142,7 +150,7 @@ async function issueSession(
       expiresIn: ACCESS_TOKEN_TTL_SECONDS,
       refreshToken: refresh.secret,
     },
-    user: toSessionUser(user, permissions, isTwoFactorEnabled, avatarUrl),
+    user: toSessionUser(user, permissions, isTwoFactorEnabled, avatarUrl, houseLocale),
   });
 }
 
@@ -492,6 +500,7 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
         hasConfirmedTotp(context.db, user.id),
       ]);
       const avatarUrl = await readAvatarUrl(context.db, user.id);
+      const houseLocale = await readHouseLocale(context.db);
 
       const accessToken = await signAccessToken(
         {
@@ -512,7 +521,7 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
           expiresIn: ACCESS_TOKEN_TTL_SECONDS,
           refreshToken: next.secret,
         },
-        user: toSessionUser(user, permissions, isTwoFactorEnabled, avatarUrl),
+        user: toSessionUser(user, permissions, isTwoFactorEnabled, avatarUrl, houseLocale),
       });
     },
   );
@@ -598,6 +607,7 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
         route.identity.permissions,
         await hasConfirmedTotp(context.db, user.id),
         await readAvatarUrl(context.db, user.id),
+        await readHouseLocale(context.db),
       );
     },
   );

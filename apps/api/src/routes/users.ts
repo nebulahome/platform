@@ -21,6 +21,7 @@ import {
   createAccessTokenRequestSchema,
   createAccessTokenResponseSchema,
   createUserRequestSchema,
+  isSupportedLocale,
   roleViewSchema,
   sessionViewSchema,
   setAvatarRequestSchema,
@@ -33,6 +34,7 @@ import {
   type CreateAccessTokenResponse,
   type RoleView,
   type SessionView,
+  type SupportedLocale,
   type TwoFactorConfirmResponse,
   type TwoFactorSetupResponse,
   type UserView,
@@ -75,6 +77,19 @@ const collectionSchema = <TItem extends z.ZodType>(
 const TOTP_ISSUER = 'Nebula Home';
 
 /**
+ * A person's language as the API shows it: one this build carries, or null for "the house's".
+ *
+ * A tag a later build stopped carrying is read as no choice rather than failing every read of
+ * the people page.
+ *
+ * @param stored - The column.
+ * @returns The language, or null.
+ */
+function languageOf(stored: string | null): SupportedLocale | null {
+  return isSupportedLocale(stored) ? stored : null;
+}
+
+/**
  * Reads a user and shapes it for the API.
  *
  * @param context - The service context.
@@ -104,7 +119,7 @@ async function readUserView(context: ApiContext, userId: string): Promise<UserVi
     email: user.email,
     displayName: user.displayName,
     role: user.roleKey,
-    locale: user.locale,
+    locale: languageOf(user.locale),
     timezone: user.timezone,
     isActive: user.isActive,
     isTwoFactorEnabled: totp[0]?.confirmedAt != null,
@@ -200,6 +215,7 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
         items: rows.map((row) =>
           userViewSchema.parse({
             ...row,
+            locale: languageOf(row.locale),
             isTwoFactorEnabled: row.confirmedAt != null,
             avatarUrl: avatars.get(row.id) ?? null,
           }),

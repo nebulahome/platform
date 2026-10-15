@@ -38,6 +38,7 @@ import type { ApiContext } from '../context.js';
 import { definePublicRoute, type RouteEnvironment } from '../http/route.js';
 import { syncHouseOnCore } from '../services/automations-core.js';
 import { chooseFreeKey, keyPrefixOf } from '../services/keys.js';
+import { readHouseLocale } from '../services/settings.js';
 
 /**
  * The advisory lock the setup transaction takes.
@@ -145,7 +146,10 @@ export function registerSetupRoutes(environment: RouteEnvironment, context: ApiC
      * @returns Whether an account still has to be created.
      */
     async (): Promise<SetupStatus> =>
-      setupStatusSchema.parse({ isRequired: await isSetupRequired(context.db) }),
+      setupStatusSchema.parse({
+        isRequired: await isSetupRequired(context.db),
+        locale: await readHouseLocale(context.db),
+      }),
   );
 
   definePublicRoute(
@@ -207,7 +211,9 @@ export function registerSetupRoutes(environment: RouteEnvironment, context: ApiC
             displayName: route.body.displayName,
             passwordHash,
             roleId: role.id,
-            locale: route.body.locale,
+
+            // The owner follows the house language, like everybody after them, until they choose.
+            locale: null,
             timezone: route.body.timezone,
 
             // False, unlike every other account this API creates. Nobody handed this password
@@ -222,6 +228,13 @@ export function registerSetupRoutes(environment: RouteEnvironment, context: ApiC
         if (user === undefined) {
           throw new ConflictError('The account could not be created');
         }
+
+        // The language the first run was read in becomes the house's, so the sign-in screen
+        // and everyone added later speak it too.
+        await tx
+          .update(schema.system.settings)
+          .set({ value: route.body.locale, updatedBy: user.id })
+          .where(eq(schema.system.settings.key, 'house.locale'));
 
         if (route.body.home !== undefined) {
           await writeHome(tx, route.body.home, user.id);
@@ -306,7 +319,8 @@ export function registerSetupRoutes(environment: RouteEnvironment, context: ApiC
           displayName: user.displayName,
           role: user.roleKey,
           permissions,
-          locale: user.locale,
+          locale: null,
+          houseLocale: route.body.locale,
           timezone: user.timezone,
           isTwoFactorEnabled: false,
           mustChangePassword: false,

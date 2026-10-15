@@ -45,7 +45,9 @@ export type UserRecord = {
   passwordHash: string;
   roleId: string;
   roleKey: string;
-  locale: string;
+
+  /** The language they chose; null when they follow the house's. */
+  locale: string | null;
   timezone: string;
   isActive: boolean;
   mustChangePassword: boolean;

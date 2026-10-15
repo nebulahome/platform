@@ -56,6 +56,18 @@ describe('validateSettingChanges', () => {
     expect([...accepted]).toEqual([['units.temperature', 'fahrenheit']]);
   });
 
+  it('accepts a language the interface carries as the house language', () => {
+    const accepted = validateSettingChanges(DEFAULTS, { 'house.locale': 'it' });
+
+    expect([...accepted]).toEqual([['house.locale', 'it']]);
+  });
+
+  it('refuses a house language the interface does not carry', () => {
+    expect(rejectedKeys(() => validateSettingChanges(DEFAULTS, { 'house.locale': 'de' }))).toEqual([
+      'house.locale',
+    ]);
+  });
+
   it('refuses a key the platform does not have', () => {
     expect(
       rejectedKeys(() => validateSettingChanges(DEFAULTS, { 'units.pressure': 'bar' })),
