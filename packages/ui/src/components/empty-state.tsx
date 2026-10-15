@@ -8,6 +8,7 @@
  * exclamation marks, and the next step inside it (design/README.md).
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { cn } from '../lib/cn.js';
 
@@ -44,13 +45,14 @@ export type EmptyStateProps = {
  * @returns The empty state.
  */
 export function EmptyState(props: EmptyStateProps) {
+  const { t } = useTranslation();
   const {
     icon,
     title,
     description,
     action,
     learnMoreHref,
-    learnMoreLabel = 'Learn more',
+    learnMoreLabel = t('ui.emptyState.learnMore', 'Learn more'),
     className,
   } = props;
 

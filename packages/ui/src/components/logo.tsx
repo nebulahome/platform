@@ -44,6 +44,8 @@ export function Logo(props: LogoProps) {
       height={size}
       viewBox="0 0 120 120"
       role="img"
+      // The product's name, the same in every language.
+      // eslint-disable-next-line nebula/no-untranslated-text -- see above
       aria-label="Nebula Home"
       className={cn('shrink-0 overflow-visible', className)}
     >

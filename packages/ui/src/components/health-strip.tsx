@@ -10,6 +10,7 @@
  * gap, so they hold whatever the layout.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { UiIconId } from '../icons/ui-set.js';
 import { cn } from '../lib/cn.js';
@@ -62,11 +63,12 @@ export type HealthStripProps = {
  * @returns The strip.
  */
 export function HealthStrip(props: HealthStripProps) {
+  const { t } = useTranslation();
   const { children, className } = props;
 
   return (
     <section
-      aria-label="Health"
+      aria-label={t('ui.healthStrip.label', 'Health')}
       className={cn(
         'grid gap-px overflow-hidden rounded-inner border border-border bg-border sm:grid-cols-2 lg:auto-cols-fr lg:grid-flow-col lg:grid-cols-none',
         className,

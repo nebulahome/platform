@@ -7,6 +7,7 @@
  * count never says more than the list shows.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { cn } from '../lib/cn.js';
 
@@ -49,6 +50,7 @@ export type FilterChipsProps = {
  * @returns The row.
  */
 export function FilterChips(props: FilterChipsProps) {
+  const { t } = useTranslation();
   const { filters, summary, onClearAll, className } = props;
 
   if (filters.length === 0) {
@@ -68,7 +70,9 @@ export function FilterChips(props: FilterChipsProps) {
           <span className="text-foreground">{filter.value}</span>
           <button
             type="button"
-            aria-label={`Remove ${filter.key === undefined ? '' : `${filter.key} `}${filter.value}`}
+            aria-label={t('ui.filterChips.remove', 'Remove {{filter}}', {
+              filter: filter.key === undefined ? filter.value : `${filter.key} ${filter.value}`,
+            })}
             onClick={filter.onRemove}
             className="inline-flex size-6 items-center justify-center rounded-full text-foreground-subtle transition-colors hover:bg-surface-high hover:text-foreground"
           >
@@ -87,7 +91,7 @@ export function FilterChips(props: FilterChipsProps) {
           onClick={onClearAll}
           className="ml-1 rounded-chip text-ui-sm text-primary transition-colors hover:text-primary-hover"
         >
-          Clear all
+          {t('ui.filterChips.clearAll', 'Clear all')}
         </button>
       )}
     </div>

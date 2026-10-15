@@ -48,6 +48,7 @@ import {
   type ReactNode,
   type SyntheticEvent,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { cn } from '../lib/cn.js';
 
@@ -173,6 +174,7 @@ export type ModalProps = Pick<VariantProps<typeof dialogBox>, 'size'> & {
  * @returns The dialog.
  */
 export function Modal(props: ModalProps) {
+  const { t } = useTranslation();
   const {
     isOpen,
     onClose,
@@ -186,10 +188,11 @@ export function Modal(props: ModalProps) {
     asideLabel,
     layout = 'plain',
     lead,
-    closeLabel = 'Close',
+    closeLabel: givenCloseLabel,
     trail,
     hasCloseButton = false,
   } = props;
+  const closeLabel = givenCloseLabel ?? t('ui.modal.close', 'Close');
 
   const dialog = useRef<HTMLDialogElement>(null);
 

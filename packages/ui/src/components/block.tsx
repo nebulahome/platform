@@ -25,6 +25,7 @@
  * failure's message, goes in a {@link BlockNotice} at the top of the open block, never in a row.
  */
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { cn } from '../lib/cn.js';
 
@@ -172,6 +173,7 @@ export type BlockProps = {
  * @returns The block.
  */
 export function Block(props: BlockProps) {
+  const { t } = useTranslation();
   const {
     lane,
     glyph,
@@ -268,15 +270,15 @@ export function Block(props: BlockProps) {
             <BlockNameField rename={rename} kind={kind} />
           </div>
         )}
-        {isDisabled ? <BlockStatus tone="neutral">Off</BlockStatus> : null}
+        {isDisabled ? <BlockStatus tone="neutral">{t('ui.block.off', 'Off')}</BlockStatus> : null}
         {status}
         {negation === undefined ? null : (
           <Segmented
-            label="Negate"
+            label={t('ui.block.negate', 'Negate')}
             size="compact"
             options={[
-              { value: 'is', label: 'IS' },
-              { value: 'not', label: 'NOT' },
+              { value: 'is', label: t('ui.block.is', 'IS') },
+              { value: 'not', label: t('ui.block.not', 'NOT') },
             ]}
             value={negation.isNot ? 'not' : 'is'}
             onChange={(value) => {
@@ -287,12 +289,21 @@ export function Block(props: BlockProps) {
         {headerExtra}
         {menu === undefined || menu.length === 0 ? null : <BlockMenu items={menu} kind={kind} />}
         {onRemove === undefined ? null : (
-          <IconButton label={`Remove ${kind}`} size="small" variant="danger" onClick={onRemove}>
+          <IconButton
+            label={t('ui.block.remove', 'Remove {{kind}}', { kind })}
+            size="small"
+            variant="danger"
+            onClick={onRemove}
+          >
             <AppIcon id="x" size={14} />
           </IconButton>
         )}
         <IconButton
-          label={isOpen ? `Close ${kind}` : `Open ${kind}`}
+          label={
+            isOpen
+              ? t('ui.block.close', 'Close {{kind}}', { kind })
+              : t('ui.block.open', 'Open {{kind}}', { kind })
+          }
           size="small"
           aria-expanded={isOpen}
           onClick={onToggle}
@@ -384,6 +395,7 @@ export type BlockGroupProps = {
  * @returns The group.
  */
 export function BlockGroup(props: BlockGroupProps) {
+  const { t } = useTranslation();
   const {
     label,
     op,
@@ -438,24 +450,24 @@ export function BlockGroup(props: BlockGroupProps) {
             <BlockNameField rename={rename} kind={label} />
           </div>
         )}
-        {isDisabled ? <BlockStatus tone="neutral">Off</BlockStatus> : null}
+        {isDisabled ? <BlockStatus tone="neutral">{t('ui.block.off', 'Off')}</BlockStatus> : null}
         {status}
         <Segmented
-          label="Join the conditions with"
+          label={t('ui.block.join', 'Join the conditions with')}
           size="compact"
           options={[
-            { value: 'and', label: 'AND' },
-            { value: 'or', label: 'OR' },
+            { value: 'and', label: t('ui.block.and', 'AND') },
+            { value: 'or', label: t('ui.block.or', 'OR') },
           ]}
           value={op}
           onChange={onOpChange}
         />
         <Segmented
-          label="Negate the group"
+          label={t('ui.block.negateGroup', 'Negate the group')}
           size="compact"
           options={[
-            { value: 'is', label: 'IS' },
-            { value: 'not', label: 'NOT' },
+            { value: 'is', label: t('ui.block.is', 'IS') },
+            { value: 'not', label: t('ui.block.not', 'NOT') },
           ]}
           value={negation.isNot ? 'not' : 'is'}
           onChange={(value) => {
@@ -464,7 +476,12 @@ export function BlockGroup(props: BlockGroupProps) {
         />
         {menu === undefined || menu.length === 0 ? null : <BlockMenu items={menu} kind={label} />}
         {onRemove === undefined ? null : (
-          <IconButton label={`Remove ${label}`} size="small" variant="danger" onClick={onRemove}>
+          <IconButton
+            label={t('ui.block.remove', 'Remove {{kind}}', { kind: label })}
+            size="small"
+            variant="danger"
+            onClick={onRemove}
+          >
             <AppIcon id="x" size={14} />
           </IconButton>
         )}
@@ -494,6 +511,7 @@ type BlockMenuProps = {
  * @returns The menu.
  */
 function BlockMenu(props: BlockMenuProps) {
+  const { t } = useTranslation();
   const { items, kind } = props;
 
   return (
@@ -504,7 +522,7 @@ function BlockMenu(props: BlockMenuProps) {
       trigger={({ isOpen, toggle, buttonRef }) => (
         <IconButton
           ref={buttonRef}
-          label={`More for ${kind}`}
+          label={t('ui.block.more', 'More for {{kind}}', { kind })}
           size="small"
           aria-haspopup="menu"
           aria-expanded={isOpen}
@@ -533,6 +551,7 @@ type BlockNameFieldProps = {
  * @returns The field.
  */
 function BlockNameField(props: BlockNameFieldProps) {
+  const { t } = useTranslation();
   const { rename, kind } = props;
   const [value, setValue] = useState(rename.value);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -566,8 +585,8 @@ function BlockNameField(props: BlockNameFieldProps) {
     <input
       ref={inputRef}
       type="text"
-      aria-label={`Name of the ${kind}`}
-      placeholder="A name of its own"
+      aria-label={t('ui.block.name', 'Name of the {{kind}}', { kind })}
+      placeholder={t('ui.block.namePlaceholder', 'A name of its own')}
       maxLength={80}
       value={value}
       onChange={(event) => {
@@ -714,6 +733,7 @@ export type BlockDropZoneProps = {
  * @returns The zone.
  */
 export function BlockDropZone(props: BlockDropZoneProps) {
+  const { t } = useTranslation();
   const { isActive } = props;
 
   return (
@@ -726,7 +746,7 @@ export function BlockDropZone(props: BlockDropZoneProps) {
           : 'border-border-strong text-foreground-subtle',
       )}
     >
-      Drop here
+      {t('ui.block.dropHere', 'Drop here')}
     </div>
   );
 }
@@ -918,6 +938,7 @@ export type BlockGripProps = {
  * @returns The grip.
  */
 export function BlockGrip(props: BlockGripProps) {
+  const { t } = useTranslation();
   const { label, onPointerDown, onKeyDown, blockId } = props;
 
   return (
@@ -925,7 +946,10 @@ export function BlockGrip(props: BlockGripProps) {
       type="button"
       aria-label={label}
       data-grip={blockId}
-      title="Drag to move it, here or into another block - or the arrow keys"
+      title={t(
+        'ui.block.dragHint',
+        'Drag to move it, here or into another block - or the arrow keys',
+      )}
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
       className="flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-field text-border-strong transition-colors hover:text-foreground-subtle focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none active:cursor-grabbing"

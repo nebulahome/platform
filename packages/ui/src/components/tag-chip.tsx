@@ -22,6 +22,7 @@
  * nobody dares to click.
  */
 import { cva, type VariantProps } from 'class-variance-authority';
+import { useTranslation } from 'react-i18next';
 
 import type { IconFrame, IconNode, TagColor } from '@nebulahome/contracts';
 
@@ -100,6 +101,7 @@ export type TagChipProps = VariantProps<typeof chip> & {
  * @returns The chip.
  */
 export function TagChip(props: TagChipProps) {
+  const { t } = useTranslation();
   const { color, size, children, icon, reveal = 'always', onRemove, className } = props;
   const glyph = GLYPH_SIZES[size ?? 'medium'];
 
@@ -127,7 +129,7 @@ export function TagChip(props: TagChipProps) {
         {onRemove === undefined ? null : (
           <button
             type="button"
-            aria-label={`Remove ${children}`}
+            aria-label={t('ui.tagChip.remove', 'Remove {{name}}', { name: children })}
             onClick={onRemove}
             className="ml-0.5 flex size-4 shrink-0 items-center justify-center rounded-full opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-current/40 focus-visible:outline-none"
           >

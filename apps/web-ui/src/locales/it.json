@@ -63,5 +63,70 @@
       "note": "La lingua in cui l'interfaccia ti parla. I nomi e tutto ciò che è stato scritto restano come sono.",
       "title": "Lingua"
     }
+  },
+  "ui": {
+    "block": {
+      "and": "E",
+      "close": "Chiudi {{kind}}",
+      "dragHint": "Trascina per spostarlo, qui o in un altro blocco - oppure usa le frecce",
+      "dropHere": "Rilascia qui",
+      "is": "È",
+      "join": "Unisci le condizioni con",
+      "more": "Altro per {{kind}}",
+      "name": "Nome di {{kind}}",
+      "namePlaceholder": "Un nome tutto suo",
+      "negate": "Nega",
+      "negateGroup": "Nega il gruppo",
+      "not": "NON È",
+      "off": "Disattivato",
+      "open": "Apri {{kind}}",
+      "or": "O",
+      "remove": "Rimuovi {{kind}}"
+    },
+    "colorWheel": {
+      "value": "Tonalità {{hue}}°, saturazione {{saturation}}%"
+    },
+    "emptyState": {
+      "learnMore": "Scopri di più"
+    },
+    "filterChips": {
+      "clearAll": "Cancella tutto",
+      "remove": "Rimuovi {{filter}}"
+    },
+    "healthStrip": {
+      "label": "Stato"
+    },
+    "holdButton": {
+      "holding": "Continua a tenere premuto…"
+    },
+    "modal": {
+      "close": "Chiudi"
+    },
+    "overflowMenu": {
+      "more": "Altro"
+    },
+    "pagination": {
+      "next": "Pagina successiva",
+      "page": "Pagina {{page}}",
+      "pages": "Pagine",
+      "perPage": "Per pagina",
+      "previous": "Pagina precedente",
+      "range": "<0>{{from}}–{{to}}</0> di <1>{{total}}</1>"
+    },
+    "setupSteps": {
+      "optional": "facoltativo",
+      "position": "Passo {{step}} di {{count}}"
+    },
+    "stepper": {
+      "lower": "Diminuisci {{label}}",
+      "raise": "Aumenta {{label}}"
+    },
+    "tagChip": {
+      "remove": "Rimuovi {{name}}"
+    },
+    "wizardSteps": {
+      "done": ", completato",
+      "label": "Passi"
+    }
   }
 }

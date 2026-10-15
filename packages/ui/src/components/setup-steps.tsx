@@ -11,6 +11,8 @@
  * close up into a row of stars beside one mono line, `STEP 2 OF 7 · HOME`. Progress is never told
  * by colour alone - a check, a ring, a dash - and the whole is a `nav` saying where the person is.
  */
+import { useTranslation } from 'react-i18next';
+
 import { cn } from '../lib/cn.js';
 
 import { AppIcon } from './app-icon.js';
@@ -130,11 +132,14 @@ function Link(props: { readonly isPassed: boolean }) {
  * @returns The constellation.
  */
 export function SetupSteps(props: SetupStepsProps) {
+  const { t } = useTranslation();
   const { steps, current, skipped = [], className } = props;
   const now = steps[current];
-  const label = `Step ${String(current + 1)} of ${String(steps.length)}${
-    now === undefined ? '' : `: ${now.name}`
-  }`;
+  const position = t('ui.setupSteps.position', 'Step {{step}} of {{count}}', {
+    step: current + 1,
+    count: steps.length,
+  });
+  const label = now === undefined ? position : `${position}: ${now.name}`;
 
   return (
     <nav aria-label={label} className={cn('w-full', className)}>
@@ -170,7 +175,9 @@ export function SetupSteps(props: SetupStepsProps) {
                   {step.name}
                 </span>
                 {step.isOptional === true ? (
-                  <span className="text-label text-foreground-subtle">optional</span>
+                  <span className="text-label text-foreground-subtle">
+                    {t('ui.setupSteps.optional', 'optional')}
+                  </span>
                 ) : null}
               </span>
             </li>
@@ -196,9 +203,7 @@ export function SetupSteps(props: SetupStepsProps) {
           aria-hidden="true"
           className="font-mono text-label tracking-[0.14em] text-primary uppercase"
         >
-          {`Step ${String(current + 1)} of ${String(steps.length)}${
-            now === undefined ? '' : ` · ${now.name}`
-          }`}
+          {now === undefined ? position : `${position} · ${now.name}`}
         </span>
       </div>
     </nav>

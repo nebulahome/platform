@@ -16,6 +16,7 @@
  * nothing the palette holds, which is what RULES.md 15.3 allows a colour picker.
  */
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { cn } from '../lib/cn.js';
 
@@ -94,6 +95,7 @@ const WHITE_MIDDLE = 'radial-gradient(circle closest-side, #fff 0%, rgb(255 255 
  * @returns The wheel.
  */
 export function ColorWheel(props: ColorWheelProps) {
+  const { t } = useTranslation();
   const { label, value, onChange, onCommit, size = 208, disabled = false, className } = props;
   const wheelRef = useRef<HTMLDivElement>(null);
   const [isDragging, setDragging] = useState(false);
@@ -156,7 +158,10 @@ export function ColorWheel(props: ColorWheelProps) {
       aria-valuemin={0}
       aria-valuemax={360}
       aria-valuenow={Math.round(value.hue)}
-      aria-valuetext={`Hue ${String(Math.round(value.hue))}°, saturation ${String(Math.round(value.saturation))}%`}
+      aria-valuetext={t('ui.colorWheel.value', 'Hue {{hue}}°, saturation {{saturation}}%', {
+        hue: Math.round(value.hue),
+        saturation: Math.round(value.saturation),
+      })}
       className={cn(
         'relative shrink-0 touch-none rounded-full ring-1 ring-border-strong select-none',
         'focus-visible:ring-3 focus-visible:ring-primary/40 focus-visible:outline-none',

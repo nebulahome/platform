@@ -6,7 +6,23 @@
  */
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
+import i18next from 'i18next';
+import { initReactI18next } from 'react-i18next';
 import { afterEach } from 'vitest';
+
+// An i18next in English, as the interface starts: every `t` answers with the English written
+// beside its key, which is what the tests read.
+void i18next
+  .createInstance()
+  .use(initReactI18next)
+  .init({
+    lng: 'en',
+    fallbackLng: false,
+    resources: {},
+    initAsync: false,
+    interpolation: { escapeValue: false },
+    react: { useSuspense: false },
+  });
 
 afterEach(() => {
   cleanup();

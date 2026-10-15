@@ -9,6 +9,7 @@
  * The fill is the one inline style: how far it has got is a number the frame computes.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { cn } from '../lib/cn.js';
 
@@ -43,9 +44,10 @@ export type HoldButtonProps = {
  * @returns The button.
  */
 export function HoldButton(props: HoldButtonProps) {
+  const { t } = useTranslation();
   const {
     children,
-    holdingLabel = 'Keep holding…',
+    holdingLabel = t('ui.holdButton.holding', 'Keep holding…'),
     durationMs = 1000,
     onConfirm,
     disabled = false,

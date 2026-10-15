@@ -17,10 +17,12 @@
     "@nebulahome/contracts": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "i18next": "^26.4.1",
     "lucide": "1.39.0",
     "radix-ui": "^1.6.7",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-i18next": "^17.0.13",
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {

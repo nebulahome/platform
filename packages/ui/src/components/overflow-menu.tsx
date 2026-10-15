@@ -5,6 +5,8 @@
  * A 36px round button on `surface-raised` with a `border-strong` edge, named "More", opening a
  * {@link Menu}.
  */
+import { useTranslation } from 'react-i18next';
+
 import { cn } from '../lib/cn.js';
 
 import { AppIcon } from './app-icon.js';
@@ -29,7 +31,9 @@ export type OverflowMenuProps = {
  * @returns The menu, or nothing when there is nothing in it.
  */
 export function OverflowMenu(props: OverflowMenuProps) {
-  const { items, label = 'More', className } = props;
+  const { t } = useTranslation();
+  const { items, className } = props;
+  const label = props.label ?? t('ui.overflowMenu.more', 'More');
 
   if (items.length === 0) {
     return null;

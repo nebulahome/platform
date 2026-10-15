@@ -10,6 +10,7 @@
  * step it too, and the reader hears "21.5 °C" rather than "21.5".
  */
 import type { KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { cn } from '../lib/cn.js';
 
@@ -82,6 +83,7 @@ const BUTTON =
  * @returns The stepper.
  */
 export function Stepper(props: StepperProps) {
+  const { t } = useTranslation();
   const { label, value, min, max, step, format, onChange, disabled = false, className } = props;
   const bounds = { min, max, step };
 
@@ -114,8 +116,8 @@ export function Stepper(props: StepperProps) {
     <div className={cn('flex items-center gap-4', className)}>
       <button
         type="button"
-        aria-label={`Lower ${label}`}
-        title={`Lower ${label}`}
+        aria-label={t('ui.stepper.lower', 'Lower {{label}}', { label })}
+        title={t('ui.stepper.lower', 'Lower {{label}}', { label })}
         className={BUTTON}
         disabled={disabled || value <= min}
         onClick={() => {
@@ -140,8 +142,8 @@ export function Stepper(props: StepperProps) {
       </div>
       <button
         type="button"
-        aria-label={`Raise ${label}`}
-        title={`Raise ${label}`}
+        aria-label={t('ui.stepper.raise', 'Raise {{label}}', { label })}
+        title={t('ui.stepper.raise', 'Raise {{label}}', { label })}
         className={BUTTON}
         disabled={disabled || value >= max}
         onClick={() => {

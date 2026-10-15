@@ -5,6 +5,8 @@
  * at weight 500; those ahead are `foreground-subtle` outlines. A 28px rule joins each to the next.
  * Two to four steps: more than that belongs on a page, not in a dialog.
  */
+import { useTranslation } from 'react-i18next';
+
 import { cn } from '../lib/cn.js';
 
 import { AppIcon } from './app-icon.js';
@@ -28,10 +30,14 @@ export type WizardStepsProps = {
  * @returns The steps, as an ordered list.
  */
 export function WizardSteps(props: WizardStepsProps) {
+  const { t } = useTranslation();
   const { steps, current, className } = props;
 
   return (
-    <ol aria-label="Steps" className={cn('flex shrink-0 items-center gap-2.5', className)}>
+    <ol
+      aria-label={t('ui.wizardSteps.label', 'Steps')}
+      className={cn('flex shrink-0 items-center gap-2.5', className)}
+    >
       {steps.map((step, index) => {
         const isDone = index < current;
         const isCurrent = index === current;
@@ -61,7 +67,9 @@ export function WizardSteps(props: WizardStepsProps) {
               )}
             >
               {step}
-              {isDone ? <span className="sr-only">, done</span> : null}
+              {isDone ? (
+                <span className="sr-only">{t('ui.wizardSteps.done', ', done')}</span>
+              ) : null}
             </span>
           </li>
         );

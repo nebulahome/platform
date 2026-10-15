@@ -7,6 +7,8 @@
  * page is outlined; the arrow that leads nowhere is disabled rather than hidden, so the pager does
  * not move under the pointer. A table with one page shows the count and no pager.
  */
+import { Trans, useTranslation } from 'react-i18next';
+
 import { cn } from '../lib/cn.js';
 
 import { AppIcon } from './app-icon.js';
@@ -77,6 +79,7 @@ const SLOT =
  * @returns The pager, or nothing for a single page.
  */
 export function Pagination(props: PaginationProps) {
+  const { t } = useTranslation();
   const { page, pageCount, onPage, className } = props;
 
   if (pageCount <= 1) {
@@ -84,10 +87,13 @@ export function Pagination(props: PaginationProps) {
   }
 
   return (
-    <nav aria-label="Pages" className={cn('flex items-center gap-1.5', className)}>
+    <nav
+      aria-label={t('ui.pagination.pages', 'Pages')}
+      className={cn('flex items-center gap-1.5', className)}
+    >
       <button
         type="button"
-        aria-label="Previous page"
+        aria-label={t('ui.pagination.previous', 'Previous page')}
         disabled={page <= 1}
         onClick={() => {
           onPage(page - 1);
@@ -116,7 +122,7 @@ export function Pagination(props: PaginationProps) {
             <button
               key={slot}
               type="button"
-              aria-label={`Page ${String(slot)}`}
+              aria-label={t('ui.pagination.page', 'Page {{page}}', { page: slot })}
               aria-current={slot === page ? 'page' : undefined}
               onClick={() => {
                 onPage(slot);
@@ -136,7 +142,7 @@ export function Pagination(props: PaginationProps) {
 
       <button
         type="button"
-        aria-label="Next page"
+        aria-label={t('ui.pagination.next', 'Next page')}
         disabled={page >= pageCount}
         onClick={() => {
           onPage(page + 1);
@@ -180,6 +186,7 @@ export type TableFooterProps = {
  * @returns The foot, or nothing for an empty table.
  */
 export function TableFooter(props: TableFooterProps) {
+  const { t } = useTranslation();
   const { page, size, total, onPage, sizes = [20, 50, 100], onSize, className } = props;
 
   if (total === 0) {
@@ -198,20 +205,25 @@ export function TableFooter(props: TableFooterProps) {
       )}
     >
       <p className="text-ui-sm text-foreground-subtle">
-        <span className="font-mono text-mono-ui text-foreground tabular">
-          {from}–{to}
-        </span>{' '}
-        of <span className="font-mono text-mono-ui tabular">{total}</span>
+        <Trans
+          i18nKey="ui.pagination.range"
+          defaults="<0>{{from}}–{{to}}</0> of <1>{{total}}</1>"
+          values={{ from, to, total }}
+          components={[
+            <span key="range" className="font-mono text-mono-ui text-foreground tabular" />,
+            <span key="total" className="font-mono text-mono-ui tabular" />,
+          ]}
+        />
       </p>
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         {onSize === undefined || total <= (sizes[0] ?? size) ? null : (
           <div className="flex items-center gap-2">
             <span aria-hidden="true" className="text-ui-sm text-foreground-subtle">
-              Per page
+              {t('ui.pagination.perPage', 'Per page')}
             </span>
             <SelectField
-              label="Per page"
+              label={t('ui.pagination.perPage', 'Per page')}
               isLabelHidden
               className="w-22"
               options={sizes.map((each) => ({ value: String(each), label: String(each) }))}
