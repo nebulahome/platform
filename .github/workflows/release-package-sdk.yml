@@ -1,0 +1,67 @@
+# Releases @nebulahome/package-sdk when its tag is pushed: `package-sdk@` and the version in
+# packages/package-sdk/package.json, `package-sdk@1.0.0` (the SDK's README, Releasing the SDK).
+#
+# Its version is the package API's, raised by hand, and a minor is released only together with the
+# platform release that implements it. This checks the tag says the package's version, passes the
+# SDK's gates, packs it as npm will see it, and publishes a GitHub release with that archive. It
+# does not publish on npm: the maintainer publishes the same archive by hand, with
+# `npm publish <archive>`.
+name: release-package-sdk
+
+on:
+  push:
+    tags: ['package-sdk@*.*.*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-package-sdk
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Check the tag is the package's version
+        run: |
+          version=$(node -p "require('./packages/package-sdk/package.json').version")
+          if [ "$GITHUB_REF_NAME" != "package-sdk@$version" ]; then
+            echo "::error::The tag is $GITHUB_REF_NAME, package.json says $version"
+            exit 1
+          fi
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm turbo build --filter=@nebulahome/package-sdk
+
+      - name: Gates
+        run: pnpm turbo typecheck lint test --filter=@nebulahome/package-sdk
+
+      - name: Public API
+        run: pnpm --filter @nebulahome/package-sdk api:check
+
+      - name: Tarball
+        run: pnpm --filter @nebulahome/package-sdk check:package
+
+      # pnpm's pack writes the workspace dependencies as versions, as the published package has them.
+      - name: Pack
+        run: pnpm --filter @nebulahome/package-sdk pack --pack-destination "$RUNNER_TEMP"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP"/nebulahome-package-sdk-*.tgz \
+            --title "$GITHUB_REF_NAME" --notes "See packages/package-sdk/CHANGELOG.md."
