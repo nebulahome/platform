@@ -9,8 +9,12 @@
  *
  * Only text with a letter in it counts: `–`, `…`, `×` and `42` are not words in any language.
  * What the rule cannot see - a sentence built in a helper, a table of labels - the translation
- * checker and review catch. Text that must stay as it is - a log level, a product name - says so
- * with an `eslint-disable-next-line` and its reason.
+ * checker and review catch.
+ *
+ * Text that must stay as it is - a log level, a key's name, the product's name - is marked the way
+ * HTML marks it for any translator: `translate="no"` on its element, which covers the element's
+ * words and its attributes. An attribute of an element that cannot carry it (an SVG) takes an
+ * `eslint-disable-next-line` and its reason.
  */
 
 /** The attributes that carry words, by name. */
@@ -54,6 +58,45 @@ const LETTER = /\p{L}/u;
  */
 function isTextAttribute(name, extra) {
   return TEXT_ATTRIBUTES.has(name) || extra.has(name) || TEXT_ATTRIBUTE_ENDINGS.test(name);
+}
+
+/**
+ * Says whether an element is marked as not to be translated: `translate="no"`.
+ *
+ * @param element - A JSX element.
+ * @returns True when it is.
+ */
+function isMarkedVerbatim(element) {
+  return (
+    element?.type === 'JSXElement' &&
+    element.openingElement.attributes.some(
+      (attribute) =>
+        attribute.type === 'JSXAttribute' &&
+        attribute.name.name === 'translate' &&
+        attribute.value?.type === 'Literal' &&
+        attribute.value.value === 'no',
+    )
+  );
+}
+
+/**
+ * Says whether a node is inside an element marked as not to be translated.
+ *
+ * @param node - The node.
+ * @returns True when it, or an element around it, is marked.
+ */
+function isVerbatim(node) {
+  for (
+    let current = node.parent;
+    current !== null && current !== undefined;
+    current = current.parent
+  ) {
+    if (isMarkedVerbatim(current)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -126,7 +169,7 @@ export default {
 
     return {
       JSXText(node) {
-        if (LETTER.test(node.value)) {
+        if (LETTER.test(node.value) && !isVerbatim(node)) {
           report(node, node.value);
         }
       },
@@ -134,7 +177,10 @@ export default {
       JSXExpressionContainer(node) {
         const parent = node.parent;
 
-        if (parent?.type === 'JSXElement' || parent?.type === 'JSXFragment') {
+        if (
+          (parent?.type === 'JSXElement' || parent?.type === 'JSXFragment') &&
+          !isVerbatim(node)
+        ) {
           reportExpression(node.expression);
         }
       },
@@ -145,7 +191,7 @@ export default {
             ? `${node.name.namespace.name}:${node.name.name.name}`
             : node.name.name;
 
-        if (!isTextAttribute(name, extra) || node.value === null) {
+        if (!isTextAttribute(name, extra) || node.value === null || isVerbatim(node)) {
           return;
         }
 

@@ -25,6 +25,9 @@ test('no-untranslated-text', () => {
       { code: 'const a = <Field label={t("field.name", "Name")} />;' },
       { code: 'const a = <p>{isOn ? "●" : "○"}</p>;' },
       { code: 'const a = <Card title={name} />;' },
+      { code: 'const a = <kbd translate="no">Esc</kbd>;' },
+      { code: 'const a = <span translate="no">{n} {n === 1 ? "error" : "errors"}</span>;' },
+      { code: 'const a = <p translate="no"><b title="Nebula Home">Nebula Home</b></p>;' },
     ],
     invalid: [
       { code: 'const a = <p>Devices</p>;', errors: [{ messageId: 'untranslated' }] },
