@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { entityIdSchema } from '@nebulahome/contracts';
+
+import { dateTimeFormat } from '@/i18n/formatters';
+import { applyLanguage } from '@/i18n/language';
 
 import {
   actionSummary,
@@ -149,6 +152,32 @@ describe('the sentence a closed block reads', () => {
   });
 });
 
+describe('the sentences in Italian', () => {
+  afterEach(async () => {
+    await applyLanguage('en');
+  });
+
+  it('says them in the order Italian puts its words, with Italian days and months', async () => {
+    await applyLanguage('it');
+
+    expect(
+      triggerSummary(
+        { type: 'entity', entityId: motion, change: { kind: 'state', to: 'on' } },
+        NAMES,
+      ),
+    ).toBe('Living room motion si accende');
+    expect(triggerSummary({ type: 'sun', event: 'sunrise', offsetMinutes: 20 })).toBe(
+      'Alba, 20 min dopo',
+    );
+    expect(conditionSummary({ type: 'sun', phase: 'night', isNot: true })).toBe('Non notte');
+    expect(daysPhrase(['monday', 'wednesday', 'friday'])).toBe('Lun, Mer, Ven');
+    expect(monthsPhrase(['june', 'july', 'august'])).toBe('Giu–Ago');
+    expect(actionSummary({ type: 'if', conditions: [], then: [] })).toBe(
+      'Sempre · 0 allora · nessun altrimenti',
+    );
+  });
+});
+
 describe('runMoment', () => {
   const now = new Date(2026, 9, 9, 18, 0);
 
@@ -156,6 +185,9 @@ describe('runMoment', () => {
     expect(runMoment(new Date(2026, 9, 9, 8, 14), now)).toMatch(/08[:.]14/u);
     expect(runMoment(new Date(2026, 9, 8, 23, 0), now)).toBe('yesterday');
     expect(runMoment(new Date(2026, 9, 5, 12, 0), now)).toBe('Monday');
-    expect(runMoment(new Date(2026, 8, 3, 12, 0), now)).toBe('3 Sept');
+    // A date in the reader's language and region: "Sep 3" in jsdom's American English.
+    expect(runMoment(new Date(2026, 8, 3, 12, 0), now)).toBe(
+      dateTimeFormat({ day: 'numeric', month: 'short' }).format(new Date(2026, 8, 3, 12, 0)),
+    );
   });
 });

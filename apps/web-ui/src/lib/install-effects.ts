@@ -14,6 +14,9 @@ import {
 } from '@nebulahome/contracts';
 import type { UiIconId } from '@nebulahome/ui';
 
+import { listFormat } from '@/i18n/formatters';
+import { defineMessage, text, translate, type Message } from '@/i18n/messages';
+
 /** One thing installing does. */
 export type InstallEffect = {
   /** The glyph in its well. */
@@ -48,12 +51,13 @@ const TRANSPORT_NAMES: Readonly<Record<string, string>> = {
  * @returns The list.
  */
 export function listed(names: readonly string[]): string {
-  if (names.length <= 1) {
-    return names.join('');
-  }
-
-  return `${names.slice(0, -1).join(', ')} and ${names.at(-1) ?? ''}`;
+  return listFormat({ style: 'long', type: 'conjunction' }).format(names);
 }
+
+/** The platform services the interface names itself, by name. */
+const SERVICE_LABELS: Readonly<Record<string, Message>> = {
+  'mqtt-broker': defineMessage('services.mqttBroker', 'MQTT broker'),
+};
 
 /**
  * What a platform service is called.
@@ -61,8 +65,12 @@ export function listed(names: readonly string[]): string {
  * @param name - The service: `mqtt-broker`.
  * @returns Its label: `MQTT broker`; the name itself for one the platform does not know.
  */
-function serviceLabel(name: string): string {
-  return PLATFORM_SERVICES.find((service) => service.name === name)?.label ?? name;
+export function serviceLabel(name: string): string {
+  const known = SERVICE_LABELS[name];
+
+  return known === undefined
+    ? (PLATFORM_SERVICES.find((service) => service.name === name)?.label ?? name)
+    : text(known);
 }
 
 /**
@@ -93,31 +101,38 @@ export function packageEffects(
   if (others.length > 0) {
     effects.push({
       icon: 'package',
-      title: `Also installs ${listed(others)}`,
-      note: 'It needs it, so it goes in first.',
+      title: translate('install.alsoInstalls', 'Also installs {{names}}', {
+        names: listed(others),
+      }),
+      note: translate('install.alsoInstallsNote', 'It needs it, so it goes in first.'),
     });
   }
 
   for (const service of requires.filter((name) => !provides.includes(name))) {
     effects.push({
       icon: 'network',
-      title: `Uses the ${serviceLabel(service)}`,
-      note: 'Whatever provides it in the house is shared with it.',
+      title: translate('install.uses', 'Uses the {{service}}', { service: serviceLabel(service) }),
+      note: translate('install.usesNote', 'Whatever provides it in the house is shared with it.'),
     });
   }
 
   for (const service of provides) {
     effects.push({
       icon: 'server',
-      title: `Provides the ${serviceLabel(service)}`,
-      note: 'Integrations and other packages can use it once it runs.',
+      title: translate('install.provides', 'Provides the {{service}}', {
+        service: serviceLabel(service),
+      }),
+      note: translate(
+        'install.providesNote',
+        'Integrations and other packages can use it once it runs.',
+      ),
     });
   }
 
   effects.push({
     icon: 'power',
-    title: 'Starts at once',
-    note: 'Nothing else restarts.',
+    title: translate('install.startsAtOnce', 'Starts at once'),
+    note: translate('install.startsAtOnceNote', 'Nothing else restarts.'),
   });
 
   return effects;
@@ -147,29 +162,42 @@ export function integrationEffects(
       title:
         transports.length === 0
           ? internetRequired === true
-            ? 'Reaches its devices through the internet'
-            : 'Reaches its devices on your network'
-          : `Talks to its devices over ${listed(transports)}`,
+            ? translate('install.throughInternet', 'Reaches its devices through the internet')
+            : translate('install.onNetwork', 'Reaches its devices on your network')
+          : translate('install.talksOver', 'Talks to its devices over {{transports}}', {
+              transports: listed(transports),
+            }),
       note:
         internetRequired === true
-          ? "Through the vendor's cloud: it stops working when the internet does."
-          : 'On your network. Nothing leaves the house.',
+          ? translate(
+              'install.cloudNote',
+              "Through the vendor's cloud: it stops working when the internet does.",
+            )
+          : translate('install.localNote', 'On your network. Nothing leaves the house.'),
     });
   }
 
   for (const service of requires?.services ?? []) {
     effects.push({
       icon: 'network',
-      title: `Needs the ${serviceLabel(service)}`,
-      note: 'Its devices wait until the house has one running.',
+      title: translate('install.needsService', 'Needs the {{service}}', {
+        service: serviceLabel(service),
+      }),
+      note: translate(
+        'install.needsServiceNote',
+        'Its devices wait until the house has one running.',
+      ),
     });
   }
 
   for (const packageId of Object.keys(requires?.packages ?? {})) {
     effects.push({
       icon: 'package',
-      title: `Needs the ${packageId} package`,
-      note: 'Install it from Packages; its devices wait until it runs.',
+      title: translate('install.needsPackage', 'Needs the {{packageId}} package', { packageId }),
+      note: translate(
+        'install.needsPackageNote',
+        'Install it from Packages; its devices wait until it runs.',
+      ),
     });
   }
 
@@ -177,23 +205,32 @@ export function integrationEffects(
     effects.push({
       icon: 'triangle-alert',
       tone: 'warning',
-      title: 'Contains code',
+      title: translate('install.code', 'Contains code'),
       note: listing.isOfficial
-        ? "It runs inside Nebula Home. The Community Hub's team publishes it."
-        : 'It runs inside Nebula Home, and nobody has reviewed it. Install it only if you trust who publishes it.',
+        ? translate(
+            'install.codeOfficial',
+            "It runs inside Nebula Home. The Community Hub's team publishes it.",
+          )
+        : translate(
+            'install.codeUnreviewed',
+            'It runs inside Nebula Home, and nobody has reviewed it. Install it only if you trust who publishes it.',
+          ),
     });
   } else if (bundleKind === 'declarative') {
     effects.push({
       icon: 'package',
-      title: 'Nothing else to install',
-      note: 'Profiles only: it runs inside Nebula Home, with no code of its own.',
+      title: translate('install.declarative', 'Nothing else to install'),
+      note: translate(
+        'install.declarativeNote',
+        'Profiles only: it runs inside Nebula Home, with no code of its own.',
+      ),
     });
   }
 
   effects.push({
     icon: 'radio-tower',
-    title: 'Then add its devices',
-    note: 'From its page, once it is installed.',
+    title: translate('install.addDevices', 'Then add its devices'),
+    note: translate('install.addDevicesNote', 'From its page, once it is installed.'),
   });
 
   return effects;
@@ -215,22 +252,27 @@ export type IntegrationAction =
  */
 export function integrationActionOf(listing: IntegrationListing): IntegrationAction {
   if (listing.installedVersion === null) {
-    return { kind: 'install', label: `Install ${listing.name}` };
+    return {
+      kind: 'install',
+      label: translate('install.install', 'Install {{name}}', { name: listing.name }),
+    };
   }
 
   if (listing.hasUpdate && listing.latest !== null) {
     return {
       kind: 'update',
-      label: `Update to ${listing.latest.version}`,
+      label: translate('install.update', 'Update to {{version}}', {
+        version: listing.latest.version,
+      }),
       version: listing.latest.version,
     };
   }
 
   if (listing.hasNewBuild) {
-    return { kind: 'reinstall', label: 'Reinstall' };
+    return { kind: 'reinstall', label: translate('install.reinstall', 'Reinstall') };
   }
 
-  return { kind: 'open', label: 'Open' };
+  return { kind: 'open', label: translate('install.open', 'Open') };
 }
 
 /**

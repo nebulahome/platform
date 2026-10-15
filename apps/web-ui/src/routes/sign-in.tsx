@@ -11,6 +11,7 @@
  * went to some trouble to build.
  */
 import { useState, type SubmitEventHandler } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Button, TextField } from '@nebulahome/ui';
 
@@ -27,6 +28,7 @@ import { toMessage } from '@/lib/error-message';
  * @returns The form.
  */
 export function SignInForm() {
+  const { t } = useTranslation();
   const signInWithPassword = useSession((state) => state.signInWithPassword);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -59,7 +61,7 @@ export function SignInForm() {
   return (
     <form className="flex flex-col gap-5" onSubmit={onSubmit} noValidate>
       <TextField
-        label="Username"
+        label={t('auth.signIn.username', 'Username')}
         name="username"
         autoComplete="username"
         autoFocus
@@ -71,7 +73,7 @@ export function SignInForm() {
       />
 
       <TextField
-        label="Password"
+        label={t('auth.signIn.password', 'Password')}
         name="password"
         type="password"
         autoComplete="current-password"
@@ -84,7 +86,7 @@ export function SignInForm() {
       />
 
       <Button type="submit" size="large" isBusy={isBusy}>
-        Sign in
+        {t('auth.signIn.submit', 'Sign in')}
       </Button>
     </form>
   );

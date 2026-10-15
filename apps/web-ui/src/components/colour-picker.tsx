@@ -6,21 +6,24 @@
  * so the three work the same way. The dropper's colour is read as a hue and a saturation, its
  * brightness left out: brightness is the light's own setting.
  */
+import { useTranslation } from 'react-i18next';
+
 import { AppIcon, ColorWheel, IconButton, type WheelColour } from '@nebulahome/ui';
 
+import { defineMessage, text } from '@/i18n/messages';
 import { useEyeDropper } from '@/lib/use-eye-dropper';
 import { hexToHs, hsColor } from '@/library/entity-control';
 
 /** The colours offered in a press. */
 const PRESETS = [
-  { name: 'Red', hue: 0 },
-  { name: 'Orange', hue: 30 },
-  { name: 'Yellow', hue: 55 },
-  { name: 'Green', hue: 120 },
-  { name: 'Cyan', hue: 185 },
-  { name: 'Blue', hue: 230 },
-  { name: 'Purple', hue: 275 },
-  { name: 'Pink', hue: 320 },
+  { name: defineMessage('colours.red', 'Red'), hue: 0 },
+  { name: defineMessage('colours.orange', 'Orange'), hue: 30 },
+  { name: defineMessage('colours.yellow', 'Yellow'), hue: 55 },
+  { name: defineMessage('colours.green', 'Green'), hue: 120 },
+  { name: defineMessage('colours.cyan', 'Cyan'), hue: 185 },
+  { name: defineMessage('colours.blue', 'Blue'), hue: 230 },
+  { name: defineMessage('colours.purple', 'Purple'), hue: 275 },
+  { name: defineMessage('colours.pink', 'Pink'), hue: 320 },
 ] as const;
 
 /** What the picker needs. */
@@ -48,6 +51,7 @@ export type ColourPickerProps = {
  * @returns The picker.
  */
 export function ColourPicker(props: ColourPickerProps) {
+  const { t } = useTranslation();
   const { value, onChange, onCommit, disabled = false, size } = props;
   const dropper = useEyeDropper();
 
@@ -65,7 +69,7 @@ export function ColourPicker(props: ColourPickerProps) {
   return (
     <div className="flex flex-col items-center gap-4">
       <ColorWheel
-        label="Colour"
+        label={t('colours.label', 'Colour')}
         value={value}
         onChange={onChange}
         onCommit={onCommit}
@@ -74,13 +78,17 @@ export function ColourPicker(props: ColourPickerProps) {
       />
 
       <div className="flex w-full flex-wrap items-center justify-center gap-2">
-        <div role="group" aria-label="Common colours" className="flex flex-wrap gap-2">
+        <div
+          role="group"
+          aria-label={t('colours.common', 'Common colours')}
+          className="flex flex-wrap gap-2"
+        >
           {PRESETS.map((preset) => (
             <button
-              key={preset.name}
+              key={preset.hue}
               type="button"
-              aria-label={preset.name}
-              title={preset.name}
+              aria-label={text(preset.name)}
+              title={text(preset.name)}
               disabled={disabled}
               className="press-scale size-7 rounded-full ring-1 ring-border-strong transition-shadow hover:ring-2 hover:ring-foreground-muted focus-visible:ring-3 focus-visible:ring-primary/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
               /* eslint-disable-next-line react/forbid-dom-props -- each swatch is its own colour
@@ -98,7 +106,7 @@ export function ColourPicker(props: ColourPickerProps) {
 
         {dropper.isSupported ? (
           <IconButton
-            label="Pick a colour from the screen"
+            label={t('colours.pick', 'Pick a colour from the screen')}
             variant="raised"
             size="small"
             disabled={disabled}

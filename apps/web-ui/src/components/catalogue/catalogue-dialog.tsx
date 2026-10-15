@@ -144,8 +144,10 @@ export function CatalogueDialog(props: CatalogueDialogProps) {
                 }
               }}
             />
+            {/* The key's name, as it is printed on the key. */}
             <kbd
               aria-hidden="true"
+              translate="no"
               className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 rounded-chip border border-border-strong px-1.5 font-mono text-label text-foreground-subtle"
             >
               Esc

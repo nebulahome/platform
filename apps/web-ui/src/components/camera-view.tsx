@@ -6,6 +6,8 @@
  * streaming, the socket closed. Played only while `isPlaying` is true: a picture nobody looks at
  * costs the camera, the hub and the network for nothing.
  */
+import { useTranslation } from 'react-i18next';
+
 import { AppIcon, cn, IconButton } from '@nebulahome/ui';
 
 import { useCameraStream } from '@/live/use-camera-stream';
@@ -35,24 +37,25 @@ export type CameraViewProps = {
  * @returns The view.
  */
 export function CameraView(props: CameraViewProps) {
+  const { t } = useTranslation();
   const { entityId, name, isPlaying, isStreamAvailable, className } = props;
   const { setCanvas, status, message, showFullScreen } = useCameraStream(
     entityId,
     isPlaying && isStreamAvailable,
   );
   const note = !isStreamAvailable
-    ? 'The camera is not streaming now'
+    ? t('camera.notStreaming', 'The camera is not streaming now')
     : status === 'connecting'
-      ? 'Connecting…'
+      ? t('camera.connecting', 'Connecting…')
       : status === 'playing' || status === 'idle'
         ? null
-        : (message ?? 'The stream stopped');
+        : (message ?? t('camera.stopped', 'The stream stopped'));
 
   return (
     <div className={cn('relative overflow-hidden bg-surface-raised', className)}>
       <canvas
         ref={setCanvas}
-        aria-label={`Live picture from ${name}`}
+        aria-label={t('camera.livePicture', 'Live picture from {{name}}', { name })}
         role="img"
         className={cn(
           'size-full object-contain',
@@ -69,7 +72,7 @@ export function CameraView(props: CameraViewProps) {
       )}
       {status === 'playing' ? (
         <IconButton
-          label="Full screen"
+          label={t('camera.fullScreen', 'Full screen')}
           variant="raised"
           size="small"
           className="absolute top-2 left-2"

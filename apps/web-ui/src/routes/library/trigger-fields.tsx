@@ -23,7 +23,7 @@ import { Note, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
 import { ChoiceChips } from '@/components/choice-chips';
 import { WeekdayPicker } from '@/components/weekday-picker';
-import { SUN_EVENT_WORDS, triggerSummary } from '@/lib/block-summary';
+import { sunEventWord, triggerSummary } from '@/lib/block-summary';
 import { cronWords, nextCronRuns, shortMoment } from '@/lib/cron-words';
 import { partialEntityId, withoutKey } from '@/library/automation-draft';
 import { useEditorHouse } from '@/routes/library/automation/editor-house';
@@ -295,11 +295,14 @@ function CronFields(props: {
 /** A sun trigger. */
 type SunTrigger = Extract<AutomationTrigger, { type: 'sun' }>;
 
-/** The moments of the sun, as the dropdown offers them, in the order of a day. */
-const SUN_EVENT_OPTIONS = SUN_EVENTS.map((event) => ({
-  value: event,
-  label: SUN_EVENT_WORDS[event] ?? event,
-}));
+/**
+ * The moments of the sun, as the dropdown offers them, in the order of a day.
+ *
+ * @returns The options, in the language spoken now.
+ */
+function sunEventOptions(): { readonly value: SunEvent; readonly label: string }[] {
+  return SUN_EVENTS.map((event) => ({ value: event, label: sunEventWord(event) }));
+}
 
 /** Events that are a moment on their own: an offset from them means nothing. */
 const NO_OFFSET: ReadonlySet<SunEvent> = new Set<SunEvent>([
@@ -343,7 +346,7 @@ function SunTriggerFields(props: {
         <SelectField
           label="When"
           size="compact"
-          options={SUN_EVENT_OPTIONS}
+          options={sunEventOptions()}
           value={trigger.event}
           onChange={(value) => {
             const event = value as SunEvent;

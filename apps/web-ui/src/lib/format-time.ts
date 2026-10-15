@@ -9,6 +9,8 @@
  * Both use `Intl`, so both follow the browser's own locale and time zone rather than a format
  * chosen here. A date rendered as `03/04` is ambiguous in exactly the way that matters.
  */
+import { dateTimeFormat, relativeTimeFormat } from '@/i18n/formatters';
+import { translate } from '@/i18n/messages';
 
 /** The thresholds, largest first: how many seconds a unit holds. */
 const UNITS: readonly { readonly unit: Intl.RelativeTimeFormatUnit; readonly seconds: number }[] = [
@@ -34,10 +36,10 @@ export function relativeTime(when: Date, now: Date = new Date()): string {
   const seconds = Math.round((now.getTime() - when.getTime()) / 1000);
 
   if (Math.abs(seconds) < JUST_NOW_SECONDS) {
-    return 'now';
+    return translate('time.now', 'now');
   }
 
-  const format = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+  const format = relativeTimeFormat({ numeric: 'auto' });
   const match = UNITS.find((entry) => Math.abs(seconds) >= entry.seconds);
 
   if (match === undefined) {
@@ -54,9 +56,7 @@ export function relativeTime(when: Date, now: Date = new Date()): string {
  * @returns The date and time, in the browser's locale and zone.
  */
 export function absoluteTime(when: Date): string {
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
-    when,
-  );
+  return dateTimeFormat({ dateStyle: 'medium', timeStyle: 'short' }).format(when);
 }
 
 /**
@@ -67,7 +67,7 @@ export function absoluteTime(when: Date): string {
  * @returns A phrase such as `3 Sep, 14:00`, in the browser's locale and zone.
  */
 export function shortTime(when: Date, now: Date = new Date()): string {
-  return new Intl.DateTimeFormat(undefined, {
+  return dateTimeFormat({
     day: 'numeric',
     month: 'short',
     ...(when.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' }),
@@ -123,16 +123,22 @@ export function readDateTimeLocal(value: string): number | null {
  */
 export function durationInDays(days: number | null): string {
   if (days === null) {
-    return 'Forever';
+    return translate('time.forever', 'Forever');
   }
 
   if (days % 365 === 0 && days >= 365) {
-    const years = days / 365;
-
-    return years === 1 ? '1 year' : `${String(years)} years`;
+    return translate('time.years', {
+      count: days / 365,
+      defaultValue_one: '{{count}} year',
+      defaultValue_other: '{{count}} years',
+    });
   }
 
-  return days === 1 ? '1 day' : `${String(days)} days`;
+  return translate('time.days', {
+    count: days,
+    defaultValue_one: '{{count}} day',
+    defaultValue_other: '{{count}} days',
+  });
 }
 
 /**
@@ -145,7 +151,7 @@ export function durationText(ms: number): string {
   const minutes = Math.floor(ms / 60_000);
 
   if (minutes < 1) {
-    return 'under a minute';
+    return translate('time.underMinute', 'under a minute');
   }
 
   const days = Math.floor(minutes / 1440);
@@ -153,14 +159,21 @@ export function durationText(ms: number): string {
   const rest = minutes % 60;
 
   if (days > 0) {
-    return hours > 0 ? `${String(days)} d ${String(hours)} h` : `${String(days)} d`;
+    return hours > 0
+      ? translate('time.short.daysHours', '{{days}} d {{hours}} h', { days, hours })
+      : translate('time.short.days', '{{days}} d', { days });
   }
 
   if (hours > 0) {
-    return rest > 0 ? `${String(hours)} h ${String(rest)} min` : `${String(hours)} h`;
+    return rest > 0
+      ? translate('time.short.hoursMinutes', '{{hours}} h {{minutes}} min', {
+          hours,
+          minutes: rest,
+        })
+      : translate('time.short.hours', '{{hours}} h', { hours });
   }
 
-  return `${String(rest)} min`;
+  return translate('time.short.minutes', '{{minutes}} min', { minutes: rest });
 }
 
 /**
@@ -176,19 +189,19 @@ export function runMoment(when: Date, now: Date = new Date()): string {
   const day = 86_400_000;
 
   if (when.getTime() >= startOfToday) {
-    return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(when);
+    return dateTimeFormat({ hour: '2-digit', minute: '2-digit' }).format(when);
   }
 
   if (when.getTime() >= startOfToday - day) {
-    return 'yesterday';
+    return translate('time.yesterday', 'yesterday');
   }
 
-  // In English, as the words around it are: "Ran Monday", not half in the browser's language.
+  // In the language the words around it are in, as "Ran Monday" is.
   if (when.getTime() >= startOfToday - 6 * day) {
-    return new Intl.DateTimeFormat('en', { weekday: 'long' }).format(when);
+    return dateTimeFormat({ weekday: 'long' }).format(when);
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
+  return dateTimeFormat({
     day: 'numeric',
     month: 'short',
     ...(when.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' }),

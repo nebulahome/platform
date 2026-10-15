@@ -7,9 +7,12 @@
  * today's sunrise and sunset worked out on the spot: a wrong sign on the longitude shows at once
  * as a sunrise at teatime.
  */
+import { useTranslation } from 'react-i18next';
+
 import { sunTimes } from '@nebulahome/contracts';
 import { AppIcon } from '@nebulahome/ui';
 
+import { dateTimeFormat } from '@/i18n/formatters';
 import type { HousePosition } from '@/lib/house-position';
 
 /** What the preview needs. */
@@ -49,7 +52,7 @@ function clock(moment: Date | null, timeZone: string): string {
   }
 
   try {
-    return new Intl.DateTimeFormat('en-GB', {
+    return dateTimeFormat({
       timeZone,
       hour: '2-digit',
       minute: '2-digit',
@@ -67,6 +70,7 @@ function clock(moment: Date | null, timeZone: string): string {
  * @returns The preview.
  */
 export function HomeLocationPreview(props: HomeLocationPreviewProps) {
+  const { t } = useTranslation();
   const { position, timeZone, day = new Date() } = props;
   const times = position === null ? null : sunTimes(day, position);
 
@@ -98,7 +102,7 @@ export function HomeLocationPreview(props: HomeLocationPreviewProps) {
 
       {position === null ? (
         <p className="absolute inset-0 flex items-center justify-center text-ui-sm text-foreground-subtle">
-          No position yet
+          {t('home.noPosition', 'No position yet')}
         </p>
       ) : (
         <>
@@ -107,14 +111,18 @@ export function HomeLocationPreview(props: HomeLocationPreviewProps) {
             <span className="mt-0.5 h-1.5 w-7 rounded-full bg-primary/25" />
           </span>
           <span className="absolute bottom-2.5 left-3 font-mono text-mono-caption text-foreground-muted">
-            {`${compass(position.latitude, 'N', 'S')} · ${compass(position.longitude, 'E', 'W')}`}
+            {`${compass(position.latitude, t('home.north', 'N'), t('home.south', 'S'))} · ${compass(
+              position.longitude,
+              t('home.east', 'E'),
+              t('home.west', 'W'),
+            )}`}
           </span>
           <span className="absolute right-3 bottom-2.5 flex items-center gap-3 font-mono text-mono-caption text-foreground-muted">
-            <span className="flex items-center gap-1.5" title="Sunrise today">
+            <span className="flex items-center gap-1.5" title={t('home.sunrise', 'Sunrise today')}>
               <AppIcon id="sunrise" size={13} className="text-warning" />
               {clock(times?.sunrise ?? null, timeZone)}
             </span>
-            <span className="flex items-center gap-1.5" title="Sunset today">
+            <span className="flex items-center gap-1.5" title={t('home.sunset', 'Sunset today')}>
               <AppIcon id="sunset" size={13} className="text-warning" />
               {clock(times?.sunset ?? null, timeZone)}
             </span>

@@ -8,6 +8,9 @@
  */
 import type { AreaView } from '@nebulahome/contracts';
 
+import { listFormat } from '@/i18n/formatters';
+import { translate } from '@/i18n/messages';
+
 /** A floor and the rooms on it. */
 export type FloorNode = {
   readonly floor: AreaView;
@@ -111,17 +114,6 @@ export function removalImpact(tree: HouseTree | null, area: AreaView): RemovalIm
 }
 
 /**
- * Counts something, with its noun in the right number.
- *
- * @param count - How many.
- * @param noun - What they are, singular.
- * @returns "1 room", "2 rooms".
- */
-function counted(count: number, noun: string): string {
-  return `${String(count)} ${noun}${count === 1 ? '' : 's'}`;
-}
-
-/**
  * Says what a removal takes with it, for the question that confirms it.
  *
  * @param impact - What goes, and what is left.
@@ -129,25 +121,46 @@ function counted(count: number, noun: string): string {
  */
 export function describeRemoval(impact: RemovalImpact): string {
   const goes = [
-    impact.floors === 0 ? null : counted(impact.floors, 'floor'),
-    impact.rooms === 0 ? null : counted(impact.rooms, 'room'),
+    impact.floors === 0
+      ? null
+      : translate('areas.removal.floors', {
+          count: impact.floors,
+          defaultValue_one: '{{count}} floor',
+          defaultValue_other: '{{count}} floors',
+        }),
+    impact.rooms === 0
+      ? null
+      : translate('areas.removal.rooms', {
+          count: impact.rooms,
+          defaultValue_one: '{{count}} room',
+          defaultValue_other: '{{count}} rooms',
+        }),
   ].filter((part) => part !== null);
   const left =
     impact.devices === 0
       ? null
-      : `${counted(impact.devices, 'device')} ${impact.devices === 1 ? 'is' : 'are'} left in no room`;
+      : translate('areas.removal.devicesLeft', {
+          count: impact.devices,
+          defaultValue_one: '{{count}} device is left in no room',
+          defaultValue_other: '{{count}} devices are left in no room',
+        });
 
   if (goes.length === 0 && left === null) {
-    return 'Nothing is in it.';
+    return translate('areas.removal.empty', 'Nothing is in it.');
   }
 
   if (goes.length === 0) {
-    return `${String(left)}.`;
+    return translate('areas.removal.onlyLeft', '{{left}}.', { left });
   }
 
-  const going = `Its ${goes.join(' and ')} go with it`;
+  const things = listFormat({ style: 'long', type: 'conjunction' }).format(goes);
 
-  return left === null ? `${going}.` : `${going}, and ${left}.`;
+  return left === null
+    ? translate('areas.removal.goes', 'Its {{things}} go with it.', { things })
+    : translate('areas.removal.goesAndLeft', 'Its {{things}} go with it, and {{left}}.', {
+        things,
+        left,
+      });
 }
 
 /**
@@ -158,7 +171,7 @@ export function describeRemoval(impact: RemovalImpact): string {
  */
 export function roomChoices(tree: HouseTree | null): RoomChoice[] {
   return [
-    { value: '', label: 'No room' },
+    { value: '', label: translate('areas.choices.noRoom', 'No room') },
     ...(tree?.floors ?? []).flatMap((floor) =>
       floor.rooms.map((room) => ({ value: room.id, label: room.name, group: floor.floor.name })),
     ),
@@ -173,15 +186,21 @@ export function roomChoices(tree: HouseTree | null): RoomChoice[] {
  * @returns The options.
  */
 export function areaChoices(tree: HouseTree | null): RoomChoice[] {
+  const none = { value: '', label: translate('areas.choices.none', 'None') };
+
   if (tree === null) {
-    return [{ value: '', label: 'None' }];
+    return [none];
   }
 
   return [
-    { value: '', label: 'None' },
-    { value: tree.house.id, label: 'Whole house' },
+    none,
+    { value: tree.house.id, label: translate('areas.choices.wholeHouse', 'Whole house') },
     ...tree.floors.flatMap((floor) => [
-      { value: floor.floor.id, label: 'Whole floor', group: floor.floor.name },
+      {
+        value: floor.floor.id,
+        label: translate('areas.choices.wholeFloor', 'Whole floor'),
+        group: floor.floor.name,
+      },
       ...floor.rooms.map((room) => ({ value: room.id, label: room.name, group: floor.floor.name })),
     ]),
   ];

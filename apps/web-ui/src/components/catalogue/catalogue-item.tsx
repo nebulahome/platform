@@ -8,6 +8,7 @@
  * invents none.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
@@ -49,6 +50,7 @@ export type CatalogueItemProps = {
  * @returns The page.
  */
 export function CatalogueItem(props: CatalogueItemProps) {
+  const { t } = useTranslation();
   const { logo, name, by, chips, stats, description, worksWith = [], effects, children } = props;
 
   return (
@@ -72,7 +74,9 @@ export function CatalogueItem(props: CatalogueItemProps) {
 
       {worksWith.length === 0 ? null : (
         <section className="flex flex-col gap-2.5">
-          <h4 className="font-mono text-label text-foreground-subtle uppercase">Works with</h4>
+          <h4 className="font-mono text-label text-foreground-subtle uppercase">
+            {t('catalogue.worksWith', 'Works with')}
+          </h4>
           <ul className="flex flex-wrap gap-2">
             {worksWith.map((model) => (
               <li
@@ -89,7 +93,7 @@ export function CatalogueItem(props: CatalogueItemProps) {
       {effects.length === 0 ? null : (
         <section className="flex flex-col">
           <h4 className="pb-2.5 font-mono text-label text-foreground-subtle uppercase">
-            What installing does
+            {t('catalogue.whatInstallingDoes', 'What installing does')}
           </h4>
           <ul className="flex flex-col">
             {effects.map((effect) => (

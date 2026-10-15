@@ -20,6 +20,8 @@ import {
   type CameraTrack,
 } from '@nebulahome/contracts';
 
+import { translate } from '@/i18n/messages';
+
 /** Where a player stands. */
 export type CameraPlayerStatus = 'connecting' | 'playing' | 'unsupported' | 'error' | 'ended';
 
@@ -92,7 +94,7 @@ export class CameraPlayer {
       const token = readAccessToken();
 
       if (token === null) {
-        onStatus('error', 'You are signed out');
+        onStatus('error', translate('camera.signedOut', 'You are signed out'));
         socket.close();
 
         return;
@@ -121,14 +123,17 @@ export class CameraPlayer {
      */
     socket.onclose = (event: CloseEvent) => {
       if (!this.#isStopped) {
-        onStatus('ended', event.reason === '' ? 'The stream ended' : event.reason);
+        onStatus(
+          'ended',
+          event.reason === '' ? translate('camera.ended', 'The stream ended') : event.reason,
+        );
       }
     };
 
     /** Says the connection failed; the close that follows says why, when it can. */
     socket.onerror = () => {
       if (!this.#isStopped) {
-        onStatus('error', 'The camera could not be reached');
+        onStatus('error', translate('camera.unreachable', 'The camera could not be reached'));
       }
     };
   }
@@ -183,7 +188,10 @@ export class CameraPlayer {
     const { onStatus, canvas } = this.#options;
 
     if (typeof VideoDecoder === 'undefined') {
-      onStatus('unsupported', 'This browser cannot decode the camera’s video');
+      onStatus(
+        'unsupported',
+        translate('camera.unsupported', 'This browser cannot decode the camera’s video'),
+      );
 
       return;
     }

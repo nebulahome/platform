@@ -5,6 +5,7 @@
  * its page. The whole row opens the item's page.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { AppIcon } from '@nebulahome/ui';
 
@@ -40,6 +41,7 @@ export type CatalogueRowProps = {
  * @returns The row.
  */
 export function CatalogueRow(props: CatalogueRowProps) {
+  const { t } = useTranslation();
   const { logo, name, isOfficial, description, facts, isInstalled, onOpen } = props;
 
   return (
@@ -55,7 +57,12 @@ export function CatalogueRow(props: CatalogueRowProps) {
           <span className="flex min-w-0 items-center gap-1.5">
             <span className="truncate text-title font-medium text-foreground">{name}</span>
             {isOfficial ? (
-              <span role="img" aria-label="Official" title="Official" className="flex shrink-0">
+              <span
+                role="img"
+                aria-label={t('catalogue.official', 'Official')}
+                title={t('catalogue.official', 'Official')}
+                className="flex shrink-0"
+              >
                 <AppIcon id="badge-check" size={15} className="text-primary" />
               </span>
             ) : null}
@@ -71,7 +78,7 @@ export function CatalogueRow(props: CatalogueRowProps) {
         {isInstalled ? (
           <span className="flex shrink-0 items-center gap-1.5 text-caption text-success">
             <AppIcon id="check" size={14} />
-            Installed
+            {t('catalogue.installed', 'Installed')}
           </span>
         ) : (
           <AppIcon id="chevron-right" size={17} className="shrink-0 text-foreground-subtle" />
@@ -94,13 +101,21 @@ export type StarsProps = {
  * @returns The count.
  */
 export function Stars(props: StarsProps) {
+  const { t } = useTranslation();
   const { count } = props;
 
   return (
-    <span className="flex items-center gap-1 tabular" title={`${String(count)} stars`}>
+    <span
+      className="flex items-center gap-1 tabular"
+      title={t('catalogue.stars', {
+        count,
+        defaultValue_one: '{{count}} star',
+        defaultValue_other: '{{count}} stars',
+      })}
+    >
       <AppIcon id="star" size={13} className="text-lamp" />
       <span className="font-mono text-foreground-muted">{shortCount(count)}</span>
-      <span className="sr-only">stars</span>
+      <span className="sr-only">{t('catalogue.starsWord', 'stars')}</span>
     </span>
   );
 }
@@ -118,13 +133,21 @@ export type InstallsProps = {
  * @returns The count.
  */
 export function Installs(props: InstallsProps) {
+  const { t } = useTranslation();
   const { count } = props;
 
   return (
-    <span className="flex items-center gap-1 tabular" title={`${String(count)} installs`}>
+    <span
+      className="flex items-center gap-1 tabular"
+      title={t('catalogue.installs', {
+        count,
+        defaultValue_one: '{{count}} install',
+        defaultValue_other: '{{count}} installs',
+      })}
+    >
       <AppIcon id="download" size={13} />
       <span className="font-mono">{shortCount(count)}</span>
-      <span className="sr-only">installs</span>
+      <span className="sr-only">{t('catalogue.installsWord', 'installs')}</span>
     </span>
   );
 }

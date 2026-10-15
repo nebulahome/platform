@@ -5,6 +5,7 @@
  * is read from them when it is needed, and a half-typed or impossible one is refused with a
  * sentence rather than sent for the server to refuse.
  */
+import { translate } from '@/i18n/messages';
 
 /** Where the house stands. */
 export type HousePosition = {
@@ -51,19 +52,31 @@ export function parsePosition(latitudeText: string, longitudeText: string): Pars
   }
 
   if (isLatitudeBlank || isLongitudeBlank) {
-    return { problem: 'A position needs both a latitude and a longitude.' };
+    return {
+      problem: translate('home.position.both', 'A position needs both a latitude and a longitude.'),
+    };
   }
 
   const latitude = coordinate(latitudeText, 90);
 
   if (latitude === null) {
-    return { problem: 'The latitude must be a number between -90 and 90.' };
+    return {
+      problem: translate(
+        'home.position.latitude',
+        'The latitude must be a number between -90 and 90.',
+      ),
+    };
   }
 
   const longitude = coordinate(longitudeText, 180);
 
   if (longitude === null) {
-    return { problem: 'The longitude must be a number between -180 and 180.' };
+    return {
+      problem: translate(
+        'home.position.longitude',
+        'The longitude must be a number between -180 and 180.',
+      ),
+    };
   }
 
   return { position: { latitude, longitude } };

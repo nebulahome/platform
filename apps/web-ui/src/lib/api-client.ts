@@ -20,6 +20,7 @@ import type { z } from 'zod';
 
 import { useMaintenance } from '@/auth/maintenance-store';
 import { readRefreshToken, writeRefreshToken } from '@/auth/token-storage';
+import { translate } from '@/i18n/messages';
 import { ApiError, isApiUnreachable, toApiError } from '@/lib/api-error';
 
 /** Where the API lives. Same origin in development, where Vite proxies `/api` across. */
@@ -142,7 +143,7 @@ async function send(
     throw new ApiError({
       code: 'NETWORK',
       status: 0,
-      message: 'The server could not be reached',
+      message: translate('errors.unreachable', 'The server could not be reached'),
       cause,
     });
   }
@@ -319,7 +320,11 @@ export async function apiRequest<TSchema extends z.ZodType>(
     throw new ApiError({
       code: 'VALIDATION',
       status: response.status,
-      message: `The answer from ${path} is not the shape this client expects`,
+      message: translate(
+        'errors.shape',
+        'The answer from {{path}} is not the shape this client expects',
+        { path },
+      ),
       details: {
         issues: parsed.error.issues.map((issue) => ({
           path: issue.path.join('.'),

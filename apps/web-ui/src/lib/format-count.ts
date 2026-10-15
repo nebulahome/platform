@@ -1,6 +1,7 @@
 /**
  * Counts as a person reads them in a list: `1.2M`, `34k`, `7`.
  */
+import { numberFormat } from '@/i18n/formatters';
 
 /**
  * A count written short: `1.2M`, `34k`.
@@ -9,5 +10,5 @@
  * @returns It, short.
  */
 export function shortCount(count: number): string {
-  return Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(count);
+  return numberFormat({ notation: 'compact', maximumFractionDigits: 1 }).format(count);
 }

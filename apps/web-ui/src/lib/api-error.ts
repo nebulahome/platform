@@ -9,6 +9,8 @@
  */
 import { apiErrorSchema, type ErrorCode } from '@nebulahome/contracts';
 
+import { translate } from '@/i18n/messages';
+
 /** The code used when the request never reached the server at all. */
 export const NETWORK_ERROR_CODE = 'NETWORK';
 
@@ -134,6 +136,10 @@ export function toApiError(response: Response, body: unknown): ApiError {
   return new ApiError({
     code: 'INTERNAL',
     status: response.status,
-    message: `The server answered ${String(response.status)} with an unreadable body`,
+    message: translate(
+      'errors.unreadable',
+      'The server answered {{status}} with an unreadable body',
+      { status: response.status },
+    ),
   });
 }

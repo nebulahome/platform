@@ -7,11 +7,31 @@
  * language spoken at the moment it is asked, and kept for the next caller with the same language
  * and options.
  *
+ * The region comes from the browser when it speaks the same language: somebody reading English
+ * with a British browser gets "3 Sept" and a 24-hour clock, an American browser "Sep 3". The
+ * language is always the interface's, so the words around a date and the date agree.
+ *
  * Plain functions rather than hooks: they are called from helpers as often as from components,
  * and a change of language draws the whole interface again, so whatever asks during a render gets
  * the new language.
  */
 import { currentLocale } from '@/i18n/language';
+
+/**
+ * The locale formatting uses: the browser's own tag when it is the interface's language, so its
+ * region counts; the language alone otherwise.
+ *
+ * @param language - The interface's language.
+ * @returns A locale tag.
+ */
+export function formattingLocale(language: string = currentLocale()): string {
+  const tags = globalThis.navigator.languages;
+
+  return (
+    tags.find((tag) => tag.toLowerCase().split(/[-_]/u)[0] === language && tag.includes('-')) ??
+    language
+  );
+}
 
 /** Every formatter built so far, by kind, language and options. */
 const cache = new Map<string, unknown>();
@@ -29,7 +49,7 @@ function cached<TFormatter>(
   options: object | undefined,
   build: (locale: string) => TFormatter,
 ): TFormatter {
-  const locale = currentLocale();
+  const locale = formattingLocale();
   const key = `${kind}|${locale}|${JSON.stringify(options ?? {})}`;
   const found = cache.get(key) as TFormatter | undefined;
 

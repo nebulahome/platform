@@ -5,6 +5,7 @@
  * automation editor shows and reads them through these two functions, so a wait, a hold and a
  * run's limit all look alike.
  */
+import { translate } from '@/i18n/messages';
 
 /** Milliseconds in each unit a duration is written in. */
 const UNITS: readonly (readonly [unit: string, ms: number])[] = [
@@ -34,6 +35,16 @@ const UNITS: readonly (readonly [unit: string, ms: number])[] = [
 const UNIT_MS = new Map(UNITS);
 
 /**
+ * The day's unit as the interface writes it: `d` in English, `g` in Italian. Read as a day too
+ * when typed, so a duration written back the way it was shown parses.
+ *
+ * @returns The unit.
+ */
+function dayUnit(): string {
+  return translate('duration.day', 'd');
+}
+
+/**
  * Writes a duration the way a person reads it: the largest units that divide it, at most two.
  *
  * @param ms - Milliseconds.
@@ -52,7 +63,7 @@ export function formatDuration(ms: number): string {
   let rest = Math.round(ms / 1_000) * 1_000;
 
   for (const [unit, size] of [
-    ['d', 86_400_000],
+    [dayUnit(), 86_400_000],
     ['h', 3_600_000],
     ['min', 60_000],
     ['s', 1_000],
@@ -104,7 +115,7 @@ export function parseDuration(text: string): number | null {
 
   for (const match of trimmed.matchAll(pattern)) {
     const [whole, amount = '0', unit = ''] = match;
-    const size = UNIT_MS.get(unit);
+    const size = UNIT_MS.get(unit) ?? (unit === dayUnit() ? UNIT_MS.get('d') : undefined);
 
     if (size === undefined) {
       return null;

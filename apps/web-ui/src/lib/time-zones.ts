@@ -39,6 +39,7 @@ export function zoneName(zone: string): string {
  */
 export function zoneOffset(zone: string, at: Date = new Date()): string {
   try {
+    // Read in English on purpose: the offset is parsed, not shown, and only English says "GMT".
     const part = new Intl.DateTimeFormat('en-GB', { timeZone: zone, timeZoneName: 'shortOffset' })
       .formatToParts(at)
       .find((entry) => entry.type === 'timeZoneName')?.value;

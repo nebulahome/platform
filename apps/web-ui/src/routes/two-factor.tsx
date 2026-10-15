@@ -14,6 +14,7 @@
  * person who has lost their phone should not have to find a different screen to say so.
  */
 import { useRef, useState, type SubmitEventHandler } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Button } from '@nebulahome/ui';
 
@@ -29,6 +30,7 @@ const CODE_LENGTH = 6;
  * @returns The page.
  */
 export function TwoFactorForm() {
+  const { t } = useTranslation();
   const submitCode = useSession((state) => state.submitCode);
   const inputRef = useRef<HTMLInputElement>(null);
   const [code, setCode] = useState('');
@@ -62,7 +64,9 @@ export function TwoFactorForm() {
   return (
     <form className="flex flex-col gap-5" onSubmit={onSubmit} noValidate>
       <div className="flex flex-col gap-2">
-        <span className="text-caption font-medium text-foreground-muted">Code</span>
+        <span className="text-caption font-medium text-foreground-muted">
+          {t('auth.twoFactor.code', 'Code')}
+        </span>
 
         {/*
          * The boxes are decoration over one input, wrapped in a label so that clicking them
@@ -134,7 +138,7 @@ export function TwoFactorForm() {
         isBusy={isBusy}
         disabled={!isRecoveryCode && code.length < CODE_LENGTH}
       >
-        Verify
+        {t('auth.twoFactor.verify', 'Verify')}
       </Button>
     </form>
   );
@@ -150,6 +154,7 @@ export function TwoFactorForm() {
  * @returns The escape hatch.
  */
 export function TwoFactorFooter() {
+  const { t } = useTranslation();
   const signOutOfFlow = useSession((state) => state.signOut);
 
   return (
@@ -160,7 +165,7 @@ export function TwoFactorFooter() {
         void signOutOfFlow();
       }}
     >
-      Sign in as someone else
+      {t('auth.twoFactor.someoneElse', 'Sign in as someone else')}
     </button>
   );
 }

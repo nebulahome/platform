@@ -218,7 +218,7 @@ export function SessionRoutes() {
   // What is drawn below is drawn again whole when the language changes, keyed by it: a label
   // worked out once and kept - in a memo, a table, a query's selection - cannot then stay in the
   // language before. This component itself is not, so the session is not decided twice.
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   useAddressFollowsSession(status, startPage);
 
@@ -269,7 +269,10 @@ export function SessionRoutes() {
         <Route
           path="/configuration/dashboards"
           element={
-            <RequiresPermission permission="dashboard:manage" section="Dashboards">
+            <RequiresPermission
+              permission="dashboard:manage"
+              section={t('nav.dashboards', 'Dashboards')}
+            >
               <DashboardsManagePage />
             </RequiresPermission>
           }
@@ -277,7 +280,10 @@ export function SessionRoutes() {
         <Route
           path="/configuration/dashboards/:dashboardId/edit"
           element={
-            <RequiresPermission permission="dashboard:manage" section="Dashboards">
+            <RequiresPermission
+              permission="dashboard:manage"
+              section={t('nav.dashboards', 'Dashboards')}
+            >
               <DashboardEditorPage />
             </RequiresPermission>
           }
@@ -297,7 +303,7 @@ export function SessionRoutes() {
         <Route
           path="/tags"
           element={
-            <RequiresPermission permission="tag:read" section="Tags">
+            <RequiresPermission permission="tag:read" section={t('nav.tags', 'Tags')}>
               <TagsPage />
             </RequiresPermission>
           }
@@ -305,7 +311,7 @@ export function SessionRoutes() {
         <Route
           path="/areas"
           element={
-            <RequiresPermission permission="area:read" section="Areas">
+            <RequiresPermission permission="area:read" section={t('nav.areas', 'Areas')}>
               <AreasPage />
             </RequiresPermission>
           }
@@ -313,7 +319,10 @@ export function SessionRoutes() {
         <Route
           path="/integrations"
           element={
-            <RequiresPermission permission="integration:read" section="Integrations">
+            <RequiresPermission
+              permission="integration:read"
+              section={t('nav.integrations', 'Integrations')}
+            >
               <IntegrationsPage />
             </RequiresPermission>
           }
@@ -321,7 +330,10 @@ export function SessionRoutes() {
         <Route
           path="/integrations/:vendorId"
           element={
-            <RequiresPermission permission="integration:read" section="Integrations">
+            <RequiresPermission
+              permission="integration:read"
+              section={t('nav.integrations', 'Integrations')}
+            >
               <VendorPage />
             </RequiresPermission>
           }
@@ -329,7 +341,7 @@ export function SessionRoutes() {
         <Route
           path="/packages"
           element={
-            <RequiresPermission permission="package:read" section="Packages">
+            <RequiresPermission permission="package:read" section={t('nav.packages', 'Packages')}>
               <PackagesPage />
             </RequiresPermission>
           }
@@ -337,7 +349,7 @@ export function SessionRoutes() {
         <Route
           path="/packages/:packageId"
           element={
-            <RequiresPermission permission="package:read" section="Packages">
+            <RequiresPermission permission="package:read" section={t('nav.packages', 'Packages')}>
               <PackagePage />
             </RequiresPermission>
           }
@@ -345,7 +357,7 @@ export function SessionRoutes() {
         <Route
           path="/packages/:packageId/app/*"
           element={
-            <RequiresPermission permission="package:read" section="Packages">
+            <RequiresPermission permission="package:read" section={t('nav.packages', 'Packages')}>
               <PackageAppPage />
             </RequiresPermission>
           }
@@ -353,7 +365,10 @@ export function SessionRoutes() {
         <Route
           path="/containers"
           element={
-            <RequiresPermission permission="container:read" section="Containers">
+            <RequiresPermission
+              permission="container:read"
+              section={t('nav.containers', 'Containers')}
+            >
               <ContainersPage />
             </RequiresPermission>
           }
@@ -361,7 +376,10 @@ export function SessionRoutes() {
         <Route
           path="/containers/compose/:project"
           element={
-            <RequiresPermission permission="container:read" section="Containers">
+            <RequiresPermission
+              permission="container:read"
+              section={t('nav.containers', 'Containers')}
+            >
               <ComposePage />
             </RequiresPermission>
           }
@@ -369,7 +387,10 @@ export function SessionRoutes() {
         <Route
           path="/containers/:name"
           element={
-            <RequiresPermission permission="container:read" section="Containers">
+            <RequiresPermission
+              permission="container:read"
+              section={t('nav.containers', 'Containers')}
+            >
               <ContainerPage />
             </RequiresPermission>
           }
@@ -383,7 +404,10 @@ export function SessionRoutes() {
           <Route
             path="system"
             element={
-              <RequiresPermission permission="system:read" section="System monitor">
+              <RequiresPermission
+                permission="system:read"
+                section={t('settings.sections.system', 'System monitor')}
+              >
                 <SystemMonitor />
               </RequiresPermission>
             }
@@ -392,7 +416,10 @@ export function SessionRoutes() {
           <Route
             path="users"
             element={
-              <RequiresPermission permission="user:read" section="Users and roles">
+              <RequiresPermission
+                permission="user:read"
+                section={t('settings.sections.users', 'Users and roles')}
+              >
                 <UsersAndRoles />
               </RequiresPermission>
             }
@@ -401,7 +428,10 @@ export function SessionRoutes() {
           <Route
             path="data"
             element={
-              <RequiresPermission permission="settings:read" section="Data and retention">
+              <RequiresPermission
+                permission="settings:read"
+                section={t('settings.sections.data', 'Data and retention')}
+              >
                 <DataAndRetention />
               </RequiresPermission>
             }
@@ -410,7 +440,10 @@ export function SessionRoutes() {
           <Route
             path="backup"
             element={
-              <RequiresPermission permission="settings:read" section="Backup">
+              <RequiresPermission
+                permission="settings:read"
+                section={t('settings.sections.backup', 'Backup')}
+              >
                 <BackupSettings />
               </RequiresPermission>
             }
@@ -419,7 +452,10 @@ export function SessionRoutes() {
           <Route
             path="icons"
             element={
-              <RequiresPermission permission="settings:read" section="Icons">
+              <RequiresPermission
+                permission="settings:read"
+                section={t('settings.sections.icons', 'Icons')}
+              >
                 <IconsPanel />
               </RequiresPermission>
             }

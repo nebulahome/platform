@@ -363,7 +363,7 @@ describe('Sidebar', () => {
 
     expect(chip.getAttribute('aria-haspopup')).toBe('menu');
     expect(chip.getAttribute('aria-expanded')).toBe('false');
-    expect(within(chip).getByText('owner')).toBeTruthy();
+    expect(within(chip).getByText('Owner')).toBeTruthy();
     expect(within(chip).getByText('MC')).toBeTruthy();
   });
 

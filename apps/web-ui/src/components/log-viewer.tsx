@@ -19,10 +19,13 @@
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { ContainerLogLine, ContainerLogsReply } from '@nebulahome/contracts';
 import { AppIcon, IconButton, Segmented, SelectField, cn } from '@nebulahome/ui';
 
+import { dateTimeFormat } from '@/i18n/formatters';
+import { translate } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { readLine, type LogLevel, type LogTone, type ReadLine } from '@/lib/log-lines';
 import { SearchField } from '@/routes/library/search-field';
@@ -52,13 +55,20 @@ const DEFAULT_PREFERENCES: Preferences = { intervalSeconds: 5, lineCount: 500, i
 /** Which lines are shown, by level. */
 type LevelFilter = 'all' | 'info' | 'warnings' | 'errors';
 
-/** The level filter's choices. */
-const LEVEL_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'info', label: 'Info' },
-  { value: 'warnings', label: 'Warnings' },
-  { value: 'errors', label: 'Errors' },
-] as const;
+/**
+ * The level filter's choices. The levels keep their English names in every language, as the log
+ * lines do (RULES.md 1); only "all" is the viewer's own word.
+ *
+ * @returns The choices.
+ */
+function levelOptions(): readonly { readonly value: LevelFilter; readonly label: string }[] {
+  return [
+    { value: 'all', label: translate('logs.levels.all', 'All') },
+    { value: 'info', label: 'Info' },
+    { value: 'warnings', label: 'Warnings' },
+    { value: 'errors', label: 'Errors' },
+  ];
+}
 
 /** One line kept, read once. */
 type KeptLine = { readonly key: number; readonly line: ContainerLogLine; readonly read: ReadLine };
@@ -91,16 +101,16 @@ const LEVEL_STYLE: Readonly<
 };
 
 /** A time as the table shows it: the viewer's hours, minutes, seconds and milliseconds. */
-const TIME = new Intl.DateTimeFormat(undefined, {
+const TIME: Intl.DateTimeFormatOptions = {
   hour: '2-digit',
   minute: '2-digit',
   second: '2-digit',
   fractionalSecondDigits: 3,
   hour12: false,
-});
+};
 
 /** A time in full, for the tooltip. */
-const FULL_TIME = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
+const FULL_TIME: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'medium' };
 
 /**
  * Reads what the viewer remembers, or where it starts.
@@ -264,9 +274,9 @@ function LogRow(props: {
     >
       <span
         className="text-foreground-subtle tabular select-none"
-        title={line.at === null ? undefined : FULL_TIME.format(line.at)}
+        title={line.at === null ? undefined : dateTimeFormat(FULL_TIME).format(line.at)}
       >
-        {line.at === null ? '—' : TIME.format(line.at)}
+        {line.at === null ? '—' : dateTimeFormat(TIME).format(line.at)}
       </span>
       <span className={cn('font-medium select-none', level?.className ?? 'text-transparent')}>
         {level?.label ?? '·'}
@@ -342,6 +352,7 @@ export type LogViewerProps = {
  * @returns The panel.
  */
 export function LogViewer(props: LogViewerProps) {
+  const { t } = useTranslation();
   const { read, fileName, isFilled = false } = props;
   const queryClient = useQueryClient();
   const [preferences, setPreferences] = useState(readPreferences);
@@ -475,7 +486,9 @@ export function LogViewer(props: LogViewerProps) {
     >
       <header className="flex min-h-12 items-center justify-between gap-3 px-5.5 pt-4 pb-3">
         <div className="flex min-w-0 items-center gap-3">
-          <h2 className="text-subhead font-medium text-foreground">{props.title ?? 'Logs'}</h2>
+          <h2 className="text-subhead font-medium text-foreground">
+            {props.title ?? t('logs.title', 'Logs')}
+          </h2>
           {/* What the viewer is doing, said once and left alone: it does not blink with every read
               it makes in the background, which is what made the corner flash. */}
           <span className="flex items-center gap-1.5 font-mono text-mono-caption text-foreground-subtle">
@@ -486,13 +499,17 @@ export function LogViewer(props: LogViewerProps) {
                 isStreaming ? 'bg-success ring-3 ring-success/15' : 'bg-foreground-subtle',
               )}
             />
-            {isStreaming ? `Live · every ${String(preferences.intervalSeconds)} s` : 'Manual'}
+            {isStreaming
+              ? t('logs.live', 'Live · every {{seconds}} s', {
+                  seconds: preferences.intervalSeconds,
+                })
+              : t('logs.manual', 'Manual')}
           </span>
         </div>
 
         <span className="flex items-center gap-1">
           <IconButton
-            label="Copy the lines shown"
+            label={t('logs.copy', 'Copy the lines shown')}
             onClick={() => {
               // Absent on a page served over plain HTTP from another machine: not a secure context.
               const clipboard = navigator.clipboard as Clipboard | undefined;
@@ -503,7 +520,7 @@ export function LogViewer(props: LogViewerProps) {
             <AppIcon id="copy" size={15} />
           </IconButton>
           <IconButton
-            label="Download the lines shown"
+            label={t('logs.download', 'Download the lines shown')}
             onClick={() => {
               const url = URL.createObjectURL(new Blob([asText()], { type: 'text/plain' }));
               const link = document.createElement('a');
@@ -516,7 +533,11 @@ export function LogViewer(props: LogViewerProps) {
           >
             <AppIcon id="download" size={15} />
           </IconButton>
-          <IconButton label="Read the log again" disabled={isRereading} onClick={readAgain}>
+          <IconButton
+            label={t('logs.readAgain', 'Read the log again')}
+            disabled={isRereading}
+            onClick={readAgain}
+          >
             <AppIcon
               id="refresh-cw"
               size={15}
@@ -528,28 +549,31 @@ export function LogViewer(props: LogViewerProps) {
 
       <div className="flex flex-wrap items-center gap-2 border-y border-border px-4 py-2.5">
         <SearchField
-          placeholder="Search the log…"
+          placeholder={t('logs.search', 'Search the log…')}
           value={search}
           onChange={setSearch}
           className="min-w-44 grow basis-56 lg:w-auto"
         />
         <Segmented
-          label="Which lines"
+          label={t('logs.which', 'Which lines')}
           size="compact"
           className="h-control"
-          options={LEVEL_OPTIONS}
+          options={levelOptions()}
           value={levelFilter}
           onChange={setLevelFilter}
         />
         <span className="flex items-center gap-2">
           <SelectField
-            label="Read again every"
+            label={t('logs.interval', 'Read again every')}
             isLabelHidden
             size="compact"
             className="h-control w-36 rounded-pill bg-surface"
             options={INTERVALS.map((seconds) => ({
               value: String(seconds),
-              label: seconds === 0 ? 'Not on its own' : `Every ${String(seconds)} s`,
+              label:
+                seconds === 0
+                  ? t('logs.intervalNever', 'Not on its own')
+                  : t('logs.intervalEvery', 'Every {{seconds}} s', { seconds }),
             }))}
             value={String(preferences.intervalSeconds)}
             onChange={(value) => {
@@ -561,13 +585,17 @@ export function LogViewer(props: LogViewerProps) {
             }}
           />
           <SelectField
-            label="Lines kept"
+            label={t('logs.kept', 'Lines kept')}
             isLabelHidden
             size="compact"
             className="h-control w-32 rounded-pill bg-surface"
             options={LINE_COUNTS.map((count) => ({
               value: String(count),
-              label: `${String(count)} lines`,
+              label: t('logs.lineCount', {
+                count,
+                defaultValue_one: '{{count}} line',
+                defaultValue_other: '{{count}} lines',
+              }),
             }))}
             value={String(preferences.lineCount)}
             onChange={(value) => {
@@ -579,7 +607,11 @@ export function LogViewer(props: LogViewerProps) {
             }}
           />
           <IconButton
-            label={preferences.isWrapped ? 'Keep each line on one row' : 'Wrap long lines'}
+            label={
+              preferences.isWrapped
+                ? t('logs.unwrap', 'Keep each line on one row')
+                : t('logs.wrap', 'Wrap long lines')
+            }
             variant="raised"
             size="large"
             aria-pressed={preferences.isWrapped}
@@ -621,16 +653,19 @@ export function LogViewer(props: LogViewerProps) {
           >
             {logs.data?.isTruncated === true ? (
               <p className="px-3 pb-1 text-foreground-subtle">
-                Older lines were left out: they were too many to carry at once.
+                {t(
+                  'logs.truncated',
+                  'Older lines were left out: they were too many to carry at once.',
+                )}
               </p>
             ) : null}
             {shown.length === 0 ? (
               <p className="px-3 py-2 font-sans text-ui text-foreground-subtle">
                 {logs.isPending
-                  ? 'Reading…'
+                  ? t('logs.reading', 'Reading…')
                   : lines.length === 0
-                    ? 'It has written nothing.'
-                    : 'No line matches.'}
+                    ? t('logs.empty', 'It has written nothing.')
+                    : t('logs.noMatch', 'No line matches.')}
               </p>
             ) : (
               <ul>
@@ -649,7 +684,11 @@ export function LogViewer(props: LogViewerProps) {
               the reader has scrolled away, where the newest line would be. */}
           {isFollowing ? null : (
             <IconButton
-              label={hasUnseen ? 'New lines below: follow them' : 'Follow the newest lines'}
+              label={
+                hasUnseen
+                  ? t('logs.newBelow', 'New lines below: follow them')
+                  : t('logs.follow', 'Follow the newest lines')
+              }
               variant={hasUnseen ? 'primary' : 'raised'}
               size="large"
               className="absolute right-6 bottom-4 animate-rise shadow-float"
@@ -667,13 +706,23 @@ export function LogViewer(props: LogViewerProps) {
         <span className="flex flex-wrap items-center gap-1.5 tabular">
           <span>
             {shown.length === lines.length
-              ? `${String(lines.length)} lines`
-              : `${String(shown.length)} of ${String(lines.length)} lines`}
+              ? t('logs.lineCount', {
+                  count: lines.length,
+                  defaultValue_one: '{{count}} line',
+                  defaultValue_other: '{{count}} lines',
+                })
+              : t('logs.shownOf', {
+                  count: lines.length,
+                  shown: shown.length,
+                  defaultValue_one: '{{shown}} of {{count}} line',
+                  defaultValue_other: '{{shown}} of {{count}} lines',
+                })}
           </span>
           {errorCount === 0 ? null : (
             <>
               <span aria-hidden="true">·</span>
-              <span className="text-danger">
+              {/* A log level's name, in English like the lines it counts. */}
+              <span className="text-danger" translate="no">
                 {errorCount} {errorCount === 1 ? 'error' : 'errors'}
               </span>
             </>
@@ -681,7 +730,8 @@ export function LogViewer(props: LogViewerProps) {
           {warningCount === 0 ? null : (
             <>
               <span aria-hidden="true">·</span>
-              <span className="text-warning">
+              {/* A log level's name, in English like the lines it counts. */}
+              <span className="text-warning" translate="no">
                 {warningCount} {warningCount === 1 ? 'warning' : 'warnings'}
               </span>
             </>
@@ -689,10 +739,10 @@ export function LogViewer(props: LogViewerProps) {
         </span>
         <span>
           {!isStreaming
-            ? 'Read again only when asked'
+            ? t('logs.onlyAsked', 'Read again only when asked')
             : isFollowing
-              ? 'Following'
-              : 'Paused where you scrolled; new lines are still read'}
+              ? t('logs.following', 'Following')
+              : t('logs.paused', 'Paused where you scrolled; new lines are still read')}
         </span>
       </p>
     </section>

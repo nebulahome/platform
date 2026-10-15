@@ -21,6 +21,7 @@
  * whose answer counts.
  */
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { cn, controlFace, FieldShell, IconButton } from '@nebulahome/ui';
 
@@ -78,6 +79,7 @@ export type PasswordFieldProps = {
  * @returns The field.
  */
 export function PasswordField(props: PasswordFieldProps) {
+  const { t } = useTranslation();
   const {
     label,
     value,
@@ -119,7 +121,11 @@ export function PasswordField(props: PasswordFieldProps) {
                 )}
 
                 <span>{rule.label}</span>
-                <span className="sr-only">{rule.isMet ? ' — met' : ' — not met yet'}</span>
+                <span className="sr-only">
+                  {rule.isMet
+                    ? t('password.ruleMet', ' — met')
+                    : t('password.ruleNotMet', ' — not met yet')}
+                </span>
               </li>
             ))}
           </ul>
@@ -151,7 +157,11 @@ export function PasswordField(props: PasswordFieldProps) {
               kept clear of a password long enough to reach them. The label is still there for
               anyone who cannot see the glyph - it is what an icon button is named by. */}
           <IconButton
-            label={isRevealed ? 'Hide the password' : 'Show the password'}
+            label={
+              isRevealed
+                ? t('password.hide', 'Hide the password')
+                : t('password.show', 'Show the password')
+            }
             aria-pressed={isRevealed}
             size="small"
             onClick={() => {

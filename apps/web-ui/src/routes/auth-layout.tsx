@@ -112,7 +112,10 @@ export function AuthLayout(props: AuthLayoutProps) {
           }`}
         >
           <Logo size={34} isSpinning={isLoading} />
-          <span className="text-headline font-semibold tracking-tight">Nebula Home</span>
+          {/* The product's name, the same in every language. */}
+          <span translate="no" className="text-headline font-semibold tracking-tight">
+            Nebula Home
+          </span>
         </div>
 
         {/*

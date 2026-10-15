@@ -9,6 +9,9 @@
 import { Cron } from 'croner';
 import cronstrue from 'cronstrue';
 
+import { dateTimeFormat } from '@/i18n/formatters';
+import { currentLocale } from '@/i18n/language';
+
 /**
  * A cron expression in words.
  *
@@ -24,6 +27,8 @@ export function cronWords(expression: string): string | null {
 
   try {
     return cronstrue.toString(trimmed, {
+      // The language's words are registered when its catalogue is loaded (`i18n/language.ts`).
+      locale: currentLocale(),
       use24HourTimeFormat: true,
       verbose: false,
       throwExceptionOnParseError: true,
@@ -63,7 +68,7 @@ export function nextCronRuns(
  * @returns The words.
  */
 export function shortMoment(moment: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+  return dateTimeFormat({
     timeZone,
     weekday: 'short',
     hour: '2-digit',

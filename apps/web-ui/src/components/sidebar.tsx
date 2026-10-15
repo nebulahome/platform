@@ -27,6 +27,7 @@
  * a package managed from its own page is one click away, like the platform's own sections.
  */
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { NavLink, useLocation } from 'react-router';
 
 import type { ApiPackage } from '@nebulahome/contracts';
@@ -35,6 +36,8 @@ import { AppIcon, CatalogueIcon, cn, Logo, type UiIconId } from '@nebulahome/ui'
 import { useSession } from '@/auth/session-store';
 import { Avatar } from '@/components/avatar';
 import { ChevronIcon } from '@/components/icons';
+import { defineMessage, text, type Message } from '@/i18n/messages';
+import { roleName } from '@/lib/role-names';
 import { useRailCounts, type RailCountKey } from '@/lib/use-rail-counts';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { packageAppPath } from '@/packages/package-paths';
@@ -49,7 +52,7 @@ type Entry = {
   readonly to: string;
 
   /** What it is called. */
-  readonly label: string;
+  readonly label: Message;
 
   /** Its glyph. */
   readonly icon: UiIconId;
@@ -66,7 +69,7 @@ type Entry = {
 
 /** A group of the rail, before the permissions narrow it. */
 type Group = {
-  readonly label: string;
+  readonly label: Message;
   readonly entries: readonly Entry[];
 
   /** The permission without which the whole group is not drawn. */
@@ -76,19 +79,25 @@ type Group = {
 /** The three groups, in the order they read. */
 const GROUPS: readonly Group[] = [
   {
-    label: 'Automate',
+    label: defineMessage('nav.groups.automate', 'Automate'),
     entries: [
       {
         to: '/automations',
-        label: 'Automations',
+        label: defineMessage('nav.automations', 'Automations'),
         icon: 'zap',
         permission: 'automation:read',
         count: 'automations',
       },
-      { to: '/scenes', label: 'Scenes', icon: 'layers', permission: 'scene:read', count: 'scenes' },
+      {
+        to: '/scenes',
+        label: defineMessage('nav.scenes', 'Scenes'),
+        icon: 'layers',
+        permission: 'scene:read',
+        count: 'scenes',
+      },
       {
         to: '/aliases',
-        label: 'Aliases',
+        label: defineMessage('nav.aliases', 'Aliases'),
         icon: 'sigma',
         permission: 'alias:read',
         count: 'aliases',
@@ -96,46 +105,58 @@ const GROUPS: readonly Group[] = [
     ],
   },
   {
-    label: 'House',
+    label: defineMessage('nav.groups.house', 'House'),
     permission: 'device:read',
     entries: [
       {
         to: '/devices',
-        label: 'Devices',
+        label: defineMessage('nav.devices', 'Devices'),
         icon: 'cpu',
         permission: 'device:read',
         count: 'devices',
       },
-      { to: '/areas', label: 'Areas', icon: 'house', permission: 'area:read', count: 'areas' },
-      { to: '/tags', label: 'Tags', icon: 'tag', permission: 'tag:read', count: 'tags' },
+      {
+        to: '/areas',
+        label: defineMessage('nav.areas', 'Areas'),
+        icon: 'house',
+        permission: 'area:read',
+        count: 'areas',
+      },
+      {
+        to: '/tags',
+        label: defineMessage('nav.tags', 'Tags'),
+        icon: 'tag',
+        permission: 'tag:read',
+        count: 'tags',
+      },
       {
         to: '/configuration/dashboards',
-        label: 'Dashboard setup',
+        label: defineMessage('nav.dashboardSetup', 'Dashboard setup'),
         icon: 'layout-grid',
         permission: 'dashboard:manage',
       },
     ],
   },
   {
-    label: 'System',
+    label: defineMessage('nav.groups.system', 'System'),
     entries: [
       {
         to: '/integrations',
-        label: 'Integrations',
+        label: defineMessage('nav.integrations', 'Integrations'),
         icon: 'library',
         permission: 'integration:read',
         count: 'integrations',
       },
       {
         to: '/packages',
-        label: 'Packages',
+        label: defineMessage('nav.packages', 'Packages'),
         icon: 'package',
         permission: 'package:read',
         count: 'packages',
       },
       {
         to: '/containers',
-        label: 'Containers',
+        label: defineMessage('nav.containers', 'Containers'),
         icon: 'container',
         permission: 'container:read',
         count: 'containers',
@@ -143,6 +164,20 @@ const GROUPS: readonly Group[] = [
     ],
   },
 ];
+
+/** The rows above and below the groups. */
+const DASHBOARDS: Entry = {
+  to: '/dashboards',
+  label: defineMessage('nav.dashboards', 'Dashboards'),
+  icon: 'layout-dashboard',
+};
+
+/** The settings row, at the foot. */
+const SETTINGS: Entry = {
+  to: '/settings',
+  label: defineMessage('nav.settings', 'Settings'),
+  icon: 'settings',
+};
 
 /** How the rail moves: one curve and one length for its width and for everything inside it. */
 const MOTION = 'duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]';
@@ -246,12 +281,12 @@ function Row(props: RowProps) {
   return (
     <NavLink
       to={entry.to}
-      title={isCollapsed ? entry.label : undefined}
-      aria-label={isCollapsed ? entry.label : undefined}
+      title={isCollapsed ? text(entry.label) : undefined}
+      aria-label={isCollapsed ? text(entry.label) : undefined}
       className={({ isActive }) => cn(ROW, isActive ? ROW_ACTIVE : ROW_IDLE)}
     >
       <AppIcon id={entry.icon} size={18} />
-      <Fading className="grow truncate">{entry.label}</Fading>
+      <Fading className="grow truncate">{text(entry.label)}</Fading>
       {count === undefined ? null : (
         <Fading className="font-mono text-mono-caption font-normal text-foreground-subtle tabular">
           {count}
@@ -336,12 +371,14 @@ function NavGroup(props: NavGroupProps) {
  * @returns The chip.
  */
 function UserChip() {
+  const { t } = useTranslation();
   const rail = useContext(RailContext);
   const { isCollapsed } = rail;
   const user = useSession((state) => state.user);
   const endSession = useSession((state) => state.signOut);
   const [isOpen, setOpen] = useState(false);
-  const name = user?.displayName ?? 'Not signed in';
+  const name = user?.displayName ?? t('nav.notSignedIn', 'Not signed in');
+  const role = user === undefined ? '' : roleName(user.role);
 
   return (
     // `onBlur` on the wrapper closes the menu when focus leaves the whole subtree, which is
@@ -380,15 +417,17 @@ function UserChip() {
             }}
             className="press flex h-8 w-full items-center rounded-chip px-2.5 text-ui text-foreground-muted hover:bg-surface-raised hover:text-danger"
           >
-            Sign out
+            {t('nav.signOut', 'Sign out')}
           </button>
         </div>
       ) : null}
 
       <button
         type="button"
-        aria-label={isCollapsed ? `Account menu: ${name}` : undefined}
-        title={isCollapsed ? `${name} · ${user?.role ?? ''}` : undefined}
+        aria-label={
+          isCollapsed ? t('nav.accountMenu', 'Account menu: {{name}}', { name }) : undefined
+        }
+        title={isCollapsed ? `${name} · ${role}` : undefined}
         aria-haspopup="menu"
         aria-expanded={isOpen}
         onKeyDown={(event) => {
@@ -410,7 +449,7 @@ function UserChip() {
         <Avatar displayName={user?.displayName ?? ''} avatarUrl={user?.avatarUrl} isAccented />
         <Fading className="flex min-w-0 grow flex-col">
           <span className="truncate text-ui font-medium text-foreground">{name}</span>
-          <span className="text-caption text-foreground-subtle capitalize">{user?.role ?? ''}</span>
+          <span className="text-caption text-foreground-subtle">{role}</span>
         </Fading>
       </button>
     </div>
@@ -503,11 +542,11 @@ function isUnder(pathname: string, to: string): boolean {
  *
  * @param pathname - The page.
  * @param groups - The groups, narrowed to what may be opened.
- * @returns The group's label, or null for a page in none.
+ * @returns The key of the group's label, or null for a page in none.
  */
 function groupOf(pathname: string, groups: readonly Group[]): string | null {
   return (
-    groups.find((group) => group.entries.some((entry) => isUnder(pathname, entry.to)))?.label ??
+    groups.find((group) => group.entries.some((entry) => isUnder(pathname, entry.to)))?.label.key ??
     null
   );
 }
@@ -524,6 +563,7 @@ function groupOf(pathname: string, groups: readonly Group[]): string | null {
  * @returns The sidebar.
  */
 export function Sidebar() {
+  const { t } = useTranslation();
   const { pathname } = useLocation();
   const can = useSession((state) => state.can);
   const width = usePreferences((state) => state.sidebar);
@@ -548,19 +588,16 @@ export function Sidebar() {
   /**
    * Opens a group, closing the other, or closes it when it is the open one.
    *
-   * @param label - The group pressed.
+   * @param id - The group pressed: the key of its label.
    */
-  const toggle = (label: string): void => {
-    setChosen({ path: pathname, open: open === label ? null : label });
+  const toggle = (id: string): void => {
+    setChosen({ path: pathname, open: open === id ? null : id });
   };
-
-  const dashboards: Entry = { to: '/dashboards', label: 'Dashboards', icon: 'layout-dashboard' };
-  const settings: Entry = { to: '/settings', label: 'Settings', icon: 'settings' };
 
   return (
     <RailContext.Provider value={rail}>
       <nav
-        aria-label="Main"
+        aria-label={t('nav.main', 'Main')}
         className={cn(
           'relative z-20 flex shrink-0 flex-col border-r border-border bg-rail py-4.5',
           isReduced ? undefined : `transition-[width] ${MOTION}`,
@@ -569,7 +606,10 @@ export function Sidebar() {
       >
         <div className="mx-3.5 mb-3.5 flex h-10 shrink-0 items-center gap-2.5 overflow-hidden px-2 whitespace-nowrap">
           <Logo size={26} />
-          <Fading className="text-subhead font-semibold tracking-tight">Nebula Home</Fading>
+          {/* The product's name, the same in every language. */}
+          <Fading className="text-subhead font-semibold tracking-tight">
+            <span translate="no">Nebula Home</span>
+          </Fading>
         </div>
 
         {/* Narrow, the rows have exactly the 43px between the gutters: a scrollbar on a short
@@ -581,15 +621,15 @@ export function Sidebar() {
             isCollapsed ? 'scrollbar-none' : undefined,
           )}
         >
-          <Row entry={dashboards} />
+          <Row entry={DASHBOARDS} />
 
           {groups.map((group) => (
             <NavGroup
-              key={group.label}
-              label={group.label}
-              isOpen={open === group.label}
+              key={group.label.key}
+              label={text(group.label)}
+              isOpen={open === group.label.key}
               onToggle={() => {
-                toggle(group.label);
+                toggle(group.label.key);
               }}
             >
               {group.entries.map((entry) => (
@@ -614,12 +654,16 @@ export function Sidebar() {
          * opens the rail is the last row at both widths: it never moves.
          */}
         <div className="flex shrink-0 flex-col gap-0.5 px-3.5 pt-2">
-          <Row entry={settings} />
+          <Row entry={SETTINGS} />
           <UserChip />
           <button
             type="button"
-            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            title={isCollapsed ? 'Expand sidebar' : undefined}
+            aria-label={
+              isCollapsed
+                ? t('nav.expand', 'Expand sidebar')
+                : t('nav.collapseSidebar', 'Collapse sidebar')
+            }
+            title={isCollapsed ? t('nav.expand', 'Expand sidebar') : undefined}
             aria-expanded={!isCollapsed}
             onClick={() => {
               setPreferences({ sidebar: isCollapsed ? 'expanded' : 'collapsed' });
@@ -634,7 +678,7 @@ export function Sidebar() {
                 isCollapsed ? 'rotate-180' : undefined,
               )}
             />
-            <Fading className="truncate">Collapse</Fading>
+            <Fading className="truncate">{t('nav.collapse', 'Collapse')}</Fading>
           </button>
         </div>
       </nav>

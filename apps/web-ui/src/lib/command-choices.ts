@@ -16,6 +16,8 @@ import {
   type JsonValue,
 } from '@nebulahome/contracts';
 
+import { defineMessage, text, type Message } from '@/i18n/messages';
+
 /** How a command's field is asked for. */
 export type CommandFieldKind =
   'number' | 'percent' | 'duration' | 'enum' | 'boolean' | 'text' | 'list';
@@ -53,25 +55,63 @@ export type CommandChoice = {
 };
 
 /** Field names as a person reads them. */
-const FIELD_LABELS: Readonly<Record<string, string>> = {
-  level: 'Level',
-  transitionMs: 'Transition',
-  hue: 'Hue',
-  saturation: 'Saturation',
-  mireds: 'Colour temperature',
-  position: 'Position',
-  tilt: 'Tilt',
-  code: 'Code',
-  temperature: 'Target temperature',
-  mode: 'Mode',
-  volume: 'Volume',
-  isMuted: 'Muted',
-  source: 'Source',
-  positionSeconds: 'Position (s)',
-  option: 'Option',
-  value: 'Value',
-  rooms: 'Rooms',
-  durationSeconds: 'Length (s)',
+const FIELD_LABELS: Readonly<Record<string, Message>> = {
+  level: defineMessage('commands.fields.level', 'Level'),
+  transitionMs: defineMessage('commands.fields.transitionMs', 'Transition'),
+  hue: defineMessage('commands.fields.hue', 'Hue'),
+  saturation: defineMessage('commands.fields.saturation', 'Saturation'),
+  mireds: defineMessage('commands.fields.mireds', 'Colour temperature'),
+  position: defineMessage('commands.fields.position', 'Position'),
+  tilt: defineMessage('commands.fields.tilt', 'Tilt'),
+  code: defineMessage('commands.fields.code', 'Code'),
+  temperature: defineMessage('commands.fields.temperature', 'Target temperature'),
+  mode: defineMessage('commands.fields.mode', 'Mode'),
+  volume: defineMessage('commands.fields.volume', 'Volume'),
+  isMuted: defineMessage('commands.fields.isMuted', 'Muted'),
+  source: defineMessage('commands.fields.source', 'Source'),
+  positionSeconds: defineMessage('commands.fields.positionSeconds', 'Position (s)'),
+  option: defineMessage('commands.fields.option', 'Option'),
+  value: defineMessage('commands.fields.value', 'Value'),
+  rooms: defineMessage('commands.fields.rooms', 'Rooms'),
+  durationSeconds: defineMessage('commands.fields.durationSeconds', 'Length (s)'),
+};
+
+/** The platform's commands as a person reads them; another reads as its name, humanised. */
+const COMMAND_LABELS: Readonly<Record<string, Message>> = {
+  clean_rooms: defineMessage('commands.names.cleanRooms', 'Clean rooms'),
+  close: defineMessage('commands.names.close', 'Close'),
+  dock: defineMessage('commands.names.dock', 'Dock'),
+  install: defineMessage('commands.names.install', 'Install'),
+  locate: defineMessage('commands.names.locate', 'Locate'),
+  lock: defineMessage('commands.names.lock', 'Lock'),
+  next: defineMessage('commands.names.next', 'Next'),
+  open: defineMessage('commands.names.open', 'Open'),
+  pause: defineMessage('commands.names.pause', 'Pause'),
+  play: defineMessage('commands.names.play', 'Play'),
+  press: defineMessage('commands.names.press', 'Press'),
+  previous: defineMessage('commands.names.previous', 'Previous'),
+  record: defineMessage('commands.names.record', 'Record'),
+  resume: defineMessage('commands.names.resume', 'Resume'),
+  seek: defineMessage('commands.names.seek', 'Seek'),
+  select_option: defineMessage('commands.names.selectOption', 'Select option'),
+  set_color: defineMessage('commands.names.setColor', 'Set color'),
+  set_color_temp: defineMessage('commands.names.setColorTemp', 'Set color temp'),
+  set_level: defineMessage('commands.names.setLevel', 'Set level'),
+  set_mode: defineMessage('commands.names.setMode', 'Set mode'),
+  set_mute: defineMessage('commands.names.setMute', 'Set mute'),
+  set_position: defineMessage('commands.names.setPosition', 'Set position'),
+  set_source: defineMessage('commands.names.setSource', 'Set source'),
+  set_target: defineMessage('commands.names.setTarget', 'Set target'),
+  set_tilt: defineMessage('commands.names.setTilt', 'Set tilt'),
+  set_value: defineMessage('commands.names.setValue', 'Set value'),
+  set_volume: defineMessage('commands.names.setVolume', 'Set volume'),
+  snapshot: defineMessage('commands.names.snapshot', 'Snapshot'),
+  start: defineMessage('commands.names.start', 'Start'),
+  stop: defineMessage('commands.names.stop', 'Stop'),
+  toggle: defineMessage('commands.names.toggle', 'Toggle'),
+  turn_off: defineMessage('commands.names.turnOff', 'Turn off'),
+  turn_on: defineMessage('commands.names.turnOn', 'Turn on'),
+  unlock: defineMessage('commands.names.unlock', 'Unlock'),
 };
 
 /**
@@ -84,6 +124,18 @@ export function humanise(word: string): string {
   const spaced = word.replaceAll('_', ' ');
 
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+/**
+ * A command as a person reads it: "Turn on".
+ *
+ * @param command - Its name: `turn_on`.
+ * @returns How it reads.
+ */
+export function commandLabel(command: string): string {
+  const known = COMMAND_LABELS[command];
+
+  return known === undefined ? humanise(command) : text(known);
 }
 
 /** The pieces of a zod schema this file reads. Zod's own types say less than its objects carry. */
@@ -133,7 +185,8 @@ function fieldOf(key: string, schema: z.ZodType): CommandField {
     inner = inspect(inner.def.innerType);
   }
 
-  const label = FIELD_LABELS[key] ?? humanise(key);
+  const known = FIELD_LABELS[key];
+  const label = known === undefined ? humanise(key) : text(known);
 
   switch (inner.def.type) {
     case 'number': {
@@ -204,7 +257,7 @@ export function commandChoicesOf(capability: CapabilityName): CommandChoice[] {
       {
         capability,
         command,
-        label: humanise(command),
+        label: commandLabel(command),
         fields: Object.entries(shape)
           .filter(([key]) => key !== 'command')
           .map(([key, field]) => fieldOf(key, field)),

@@ -21,6 +21,7 @@ import {
   type TelemetryResolution,
 } from '@nebulahome/contracts';
 
+import { defineMessage, type Message } from '@/i18n/messages';
 import { miredsToKelvin } from '@/library/entity-control';
 
 /** The windows ending now that the chart offers at a press. */
@@ -30,12 +31,21 @@ export const HISTORY_RANGES = ['1h', '6h', '24h', '7d', '30d'] as const;
 export type HistoryRange = (typeof HISTORY_RANGES)[number];
 
 /** Each preset in words, as the picker's button says it. */
-export const HISTORY_RANGE_LABELS: Readonly<Record<HistoryRange, string>> = {
-  '1h': 'Last hour',
-  '6h': 'Last 6 hours',
-  '24h': 'Last 24 hours',
-  '7d': 'Last 7 days',
-  '30d': 'Last 30 days',
+export const HISTORY_RANGE_LABELS: Readonly<Record<HistoryRange, Message>> = {
+  '1h': defineMessage('history.ranges.1h', 'Last hour'),
+  '6h': defineMessage('history.ranges.6h', 'Last 6 hours'),
+  '24h': defineMessage('history.ranges.24h', 'Last 24 hours'),
+  '7d': defineMessage('history.ranges.7d', 'Last 7 days'),
+  '30d': defineMessage('history.ranges.30d', 'Last 30 days'),
+};
+
+/** Each preset as its chip says it: `24h`, `7d`. */
+export const HISTORY_RANGE_SHORT: Readonly<Record<HistoryRange, Message>> = {
+  '1h': defineMessage('history.short.1h', '1h'),
+  '6h': defineMessage('history.short.6h', '6h'),
+  '24h': defineMessage('history.short.24h', '24h'),
+  '7d': defineMessage('history.short.7d', '7d'),
+  '30d': defineMessage('history.short.30d', '30d'),
 };
 
 /** A minute, an hour and a day, in milliseconds. */

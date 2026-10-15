@@ -6,6 +6,8 @@
  * automation agree. One decimal place below a hundred and none above: "1.9 GB" and "240 GB"
  * both read at a glance, where "240.3 GB" only adds a digit nobody acts on.
  */
+import { numberFormat } from '@/i18n/formatters';
+import { translate } from '@/i18n/messages';
 
 /** The steps of the scale, each a thousand times the last. */
 const UNITS = ['B', 'kB', 'MB', 'GB', 'TB', 'PB'] as const;
@@ -38,7 +40,9 @@ function scaled(bytes: number): { readonly value: number; readonly unit: string 
 function digits(value: number, unit: string): string {
   const places = unit === 'B' || value >= 100 ? 0 : 1;
 
-  return value.toFixed(places);
+  return numberFormat({ minimumFractionDigits: places, maximumFractionDigits: places }).format(
+    value,
+  );
 }
 
 /**
@@ -104,12 +108,20 @@ export function formatUptime(seconds: number): string {
   const days = Math.floor(hours / 24);
 
   if (days > 0) {
-    return `${String(days)} d ${String(hours % 24)} h`;
+    return translate('time.short.daysHours', '{{days}} d {{hours}} h', {
+      days,
+      hours: hours % 24,
+    });
   }
 
   if (hours > 0) {
-    return `${String(hours)} h ${String(minutes % 60)} min`;
+    return translate('time.short.hoursMinutes', '{{hours}} h {{minutes}} min', {
+      hours,
+      minutes: minutes % 60,
+    });
   }
 
-  return minutes > 0 ? `${String(minutes)} min` : 'under a minute';
+  return minutes > 0
+    ? translate('time.short.minutes', '{{minutes}} min', { minutes })
+    : translate('time.underMinute', 'under a minute');
 }

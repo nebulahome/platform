@@ -8,6 +8,7 @@
  * users are the archive's now) or says what went wrong, in full, and lets the person go back.
  */
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import type { BackupPhase, MaintenanceState } from '@nebulahome/contracts';
 import { Button } from '@nebulahome/ui';
@@ -15,18 +16,46 @@ import { Button } from '@nebulahome/ui';
 import { useMaintenance } from '@/auth/maintenance-store';
 import { useSession } from '@/auth/session-store';
 import { fetchBackupStatus, fetchMaintenance } from '@/backup/api';
+import { defineMessage, text, translate, type Message } from '@/i18n/messages';
 
 /** What each step is called on the screen. */
-const PHASE_WORDS: Readonly<Partial<Record<BackupPhase, string>>> = {
-  downloading: 'Fetching the archive',
-  verifying: 'Opening and checking the archive',
-  safety_backup: 'Backing up what is here now, first',
-  restoring_database: 'Restoring the database',
-  reconciling: 'Keeping this machine’s backup settings',
-  switching: 'Switching to the restored data',
-  starting_services: 'Starting the services again',
-  finishing: 'Finishing',
+const PHASE_WORDS: Readonly<Partial<Record<BackupPhase, Message>>> = {
+  downloading: defineMessage('maintenance.phases.downloading', 'Fetching the archive'),
+  verifying: defineMessage('maintenance.phases.verifying', 'Opening and checking the archive'),
+  safety_backup: defineMessage(
+    'maintenance.phases.safetyBackup',
+    'Backing up what is here now, first',
+  ),
+  restoring_database: defineMessage(
+    'maintenance.phases.restoringDatabase',
+    'Restoring the database',
+  ),
+  reconciling: defineMessage(
+    'maintenance.phases.reconciling',
+    'Keeping this machine’s backup settings',
+  ),
+  switching: defineMessage('maintenance.phases.switching', 'Switching to the restored data'),
+  starting_services: defineMessage(
+    'maintenance.phases.startingServices',
+    'Starting the services again',
+  ),
+  finishing: defineMessage('maintenance.phases.finishing', 'Finishing'),
 };
+
+/**
+ * What the restore is doing, in words.
+ *
+ * @param progress - What was last read, if anything.
+ * @returns The step's words, or a general one.
+ */
+function phaseWords(progress: Progress | undefined): string {
+  const words =
+    progress?.kind === 'running' && progress.phase !== null
+      ? PHASE_WORDS[progress.phase]
+      : undefined;
+
+  return words === undefined ? translate('maintenance.working', 'Working') : text(words);
+}
 
 /** How often the screen asks how the restore goes. */
 const POLL_MS = 2000;
@@ -88,6 +117,7 @@ async function readProgress(runId: string | null, signal: AbortSignal): Promise<
  * @returns The screen, or nothing.
  */
 export function MaintenanceOverlay() {
+  const { t } = useTranslation();
   const isActive = useMaintenance((state) => state.isActive);
   const runId = useMaintenance((state) => state.runId);
   const leave = useMaintenance((state) => state.leave);
@@ -132,24 +162,21 @@ export function MaintenanceOverlay() {
       <div className="flex w-full max-w-md flex-col gap-4 rounded-panel border border-border bg-surface p-6">
         <h2 id="maintenance-title" className="text-subhead font-medium text-foreground">
           {ended === null
-            ? 'Restoring from a backup'
+            ? t('maintenance.title.restoring', 'Restoring from a backup')
             : isRestored
-              ? 'Restored'
-              : 'The restore did not complete'}
+              ? t('maintenance.title.restored', 'Restored')
+              : t('maintenance.title.failed', 'The restore did not complete')}
         </h2>
 
         {ended === null ? (
           <>
             <p className="text-ui text-foreground-muted">
-              {(data?.kind === 'running' && data.phase !== null
-                ? PHASE_WORDS[data.phase]
-                : undefined) ?? 'Working'}
-              …
+              {t('maintenance.phase', '{{phase}}…', { phase: phaseWords(data) })}
             </p>
             <div
               className="h-1.5 overflow-hidden rounded-full bg-surface-high"
               role="progressbar"
-              aria-label="How far the restore is"
+              aria-label={t('maintenance.progress', 'How far the restore is')}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={percent ?? undefined}
@@ -162,15 +189,19 @@ export function MaintenanceOverlay() {
               />
             </div>
             <p className="text-caption text-foreground-subtle">
-              The house keeps running until the switch, which takes a few seconds. Everybody signs
-              in again afterwards: the accounts are the backup’s.
+              {t(
+                'maintenance.runningNote',
+                'The house keeps running until the switch, which takes a few seconds. Everybody signs in again afterwards: the accounts are the backup’s.',
+              )}
             </p>
           </>
         ) : isRestored ? (
           <>
             <p className="text-ui text-foreground-muted">
-              The installation is back as it was when the backup was made. Sign in again with an
-              account from then.
+              {t(
+                'maintenance.restoredNote',
+                'The installation is back as it was when the backup was made. Sign in again with an account from then.',
+              )}
             </p>
             {ended.message === null ? null : (
               <p role="alert" className="text-ui text-warning">
@@ -185,21 +216,27 @@ export function MaintenanceOverlay() {
                 });
               }}
             >
-              Sign in
+              {t('maintenance.signIn', 'Sign in')}
             </Button>
           </>
         ) : (
           <>
             <p className="text-ui text-foreground-muted">
               {ended.outcome === 'rolled_back'
-                ? 'Everything was put back as it was before the restore.'
+                ? t(
+                    'maintenance.rolledBack',
+                    'Everything was put back as it was before the restore.',
+                  )
                 : ended.outcome === 'manual'
-                  ? 'Putting things back did not complete either: the installation needs looking at.'
-                  : 'Nothing was changed.'}
+                  ? t(
+                      'maintenance.manual',
+                      'Putting things back did not complete either: the installation needs looking at.',
+                    )
+                  : t('maintenance.unchanged', 'Nothing was changed.')}
             </p>
             <div className="max-h-48 overflow-auto rounded-field border border-border bg-surface-raised p-3">
               <p role="alert" className="text-ui break-words whitespace-pre-wrap text-danger">
-                {ended.message ?? 'The restore failed.'}
+                {ended.message ?? t('maintenance.failed', 'The restore failed.')}
               </p>
             </div>
             <Button
@@ -209,7 +246,7 @@ export function MaintenanceOverlay() {
                 window.location.reload();
               }}
             >
-              Back to the settings
+              {t('maintenance.back', 'Back to the settings')}
             </Button>
           </>
         )}

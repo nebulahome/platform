@@ -1,18 +1,302 @@
 {
+  "areas": {
+    "choices": {
+      "noRoom": "Nessuna stanza",
+      "none": "Nessuna",
+      "wholeFloor": "Tutto il piano",
+      "wholeHouse": "Tutta la casa"
+    },
+    "removal": {
+      "devicesLeft_many": "{{count}} dispositivi restano senza stanza",
+      "devicesLeft_one": "{{count}} dispositivo resta senza stanza",
+      "devicesLeft_other": "{{count}} dispositivi restano senza stanza",
+      "empty": "Dentro non c'è niente.",
+      "floors_many": "{{count}} piani",
+      "floors_one": "{{count}} piano",
+      "floors_other": "{{count}} piani",
+      "goes": "Se ne vanno con lei: {{things}}.",
+      "goesAndLeft": "Se ne vanno con lei: {{things}}; e {{left}}.",
+      "onlyLeft": "{{left}}.",
+      "rooms_many": "{{count}} stanze",
+      "rooms_one": "{{count}} stanza",
+      "rooms_other": "{{count}} stanze"
+    }
+  },
   "auth": {
     "setup": {
       "subtitle": "Questa casa non ha ancora account. Il primo è il tuo, e possiede tutto.",
       "title": "Configura Nebula Home"
     },
     "signIn": {
+      "password": "Password",
+      "submit": "Accedi",
       "subtitle": "Bentornato a casa.",
-      "title": "Accedi"
+      "title": "Accedi",
+      "username": "Nome utente"
     },
     "twoFactor": {
+      "code": "Codice",
+      "someoneElse": "Accedi con un altro account",
       "subtitle": "Inserisci il codice dell'app di autenticazione, o uno dei tuoi codici di recupero.",
-      "title": "Ancora un passo"
+      "title": "Ancora un passo",
+      "verify": "Verifica"
     },
     "waiting": "In attesa che Nebula risponda…"
+  },
+  "automations": {
+    "conditions": {
+      "phaseElevation": "{{phase}} un'elevazione"
+    },
+    "drag": {
+      "cannotMove": "{{kind}} non può spostarsi oltre",
+      "moved": "{{kind}} spostato in {{path}}, posizione {{place}}"
+    },
+    "summary": {
+      "againWhile": "Ripeti finché {{conditions}}",
+      "againWhileEmpty": "Ripeti finché … - aggiungi una condizione",
+      "allTriggersOff": "tutte le attivazioni sono disattivate",
+      "always": "sempre",
+      "alwaysBranches": "Sempre · {{branches}}",
+      "at": "{{days}} alle {{time}}",
+      "atIn": "{{days}} alle {{time}}, a {{months}}",
+      "becomes": {
+        "closed": "{{name}} si chiude",
+        "closing": "{{name}} inizia a chiudersi",
+        "jammed": "{{name}} si inceppa",
+        "locked": "{{name}} si blocca",
+        "off": "{{name}} si spegne",
+        "on": "{{name}} si accende",
+        "open": "{{name}} si apre",
+        "opening": "{{name}} inizia ad aprirsi",
+        "paused": "{{name}} va in pausa",
+        "playing": "{{name}} inizia a riprodurre",
+        "stopped": "{{name}} si ferma",
+        "unavailable": "{{name}} diventa irraggiungibile",
+        "unlocked": "{{name}} si sblocca"
+      },
+      "becomesOther": "{{name}} diventa {{to}}",
+      "blocks_many": "{{count}} blocchi",
+      "blocks_one": "{{count}} blocco",
+      "blocks_other": "{{count}} blocchi",
+      "branches_many": "{{count}} rami",
+      "branches_one": "{{count}} ramo",
+      "branches_other": "{{count}} rami",
+      "cases_many": "{{count}} casi",
+      "cases_one": "{{count}} caso",
+      "cases_other": "{{count}} casi",
+      "changes": "{{name}} cambia",
+      "chooseAutomation": "Scegli un'automazione",
+      "chooseEntity": "Scegli un'entità",
+      "choosePackage": "Scegli un pacchetto",
+      "chooseScene": "Scegli una scena",
+      "commands": {
+        "choose": "scegli cosa fare",
+        "colour": "colore {{hex}}",
+        "level": "livello {{level}}%",
+        "mode": "modalità {{mode}}",
+        "option": "opzione {{option}}",
+        "position": "posizione {{position}}%",
+        "target": "obiettivo {{temperature}}°",
+        "tilt": "inclinazione {{tilt}}%",
+        "turnOff": "spegni",
+        "turnOn": "accendi",
+        "value": "valore {{value}}",
+        "volume": "volume {{volume}}%",
+        "white": "bianco {{kelvin}}"
+      },
+      "compares": {
+        "eq": "esattamente",
+        "gt": "sopra",
+        "gte": "almeno",
+        "lt": "sotto",
+        "lte": "al massimo",
+        "neq": "diverso da"
+      },
+      "conditionsHold_many": "{{count}} condizioni sono vere",
+      "conditionsHold_one": "{{count}} condizione è vera",
+      "conditionsHold_other": "{{count}} condizioni sono vere",
+      "conditions_many": "{{count}} condizioni",
+      "conditions_one": "{{count}} condizione",
+      "conditions_other": "{{count}} condizioni",
+      "cron": "Con la pianificazione {{expression}}",
+      "crosses": {
+        "eq": "{{name}} raggiunge {{value}}",
+        "gt": "{{name}} sale sopra {{value}}",
+        "gte": "{{name}} raggiunge {{value}}",
+        "lt": "{{name}} scende sotto {{value}}",
+        "lte": "{{name}} scende a {{value}}",
+        "neq": "{{name}} si allontana da {{value}}"
+      },
+      "days": {
+        "every": "Ogni giorno",
+        "saturdayOrSunday": "Sabato o domenica",
+        "weekdays": "Giorni feriali",
+        "weekends": "Fine settimana"
+      },
+      "elseCount": "{{count}} altrimenti",
+      "eventUnavailable": "Un evento - non ancora disponibile",
+      "forEachUnavailable": "Per ciascuno - non ancora disponibile",
+      "from": "Dalle {{from}}",
+      "goesFromTo": "{{name}} passa da {{from}} a {{to}}",
+      "gone": "{{check}} - non più disponibile",
+      "group": {
+        "all_many": "Tutte ({{count}} condizioni)",
+        "all_one": "Tutte ({{count}} condizione)",
+        "all_other": "Tutte ({{count}} condizioni)",
+        "any_many": "Almeno una ({{count}} condizioni)",
+        "any_one": "Almeno una ({{count}} condizione)",
+        "any_other": "Almeno una ({{count}} condizioni)",
+        "none_many": "Nessuna ({{count}} condizioni)",
+        "none_one": "Nessuna ({{count}} condizione)",
+        "none_other": "Nessuna ({{count}} condizioni)",
+        "notAll_many": "Non tutte ({{count}} condizioni)",
+        "notAll_one": "Non tutte ({{count}} condizione)",
+        "notAll_other": "Non tutte ({{count}} condizioni)"
+      },
+      "if": "Se {{conditions}} · {{branches}}",
+      "is": "{{name}} è {{states}}",
+      "isCompared": "{{name}} {{comparison}} {{value}}",
+      "isNot": "{{name}} non è {{states}}",
+      "isNotCompared": "{{name}} non {{comparison}} {{value}}",
+      "leaves": "{{name}} smette di essere {{from}}",
+      "manual": "Solo quando qualcuno lo chiede",
+      "namedEventUnavailable": "{{event}} - non ancora disponibile",
+      "noActions": "nessuna azione",
+      "noElse": "nessun altrimenti",
+      "noTrigger": "nessuna attivazione",
+      "not": "Non {{said}}",
+      "notExpression": "Non: {{said}}",
+      "notOn": "Non di {{days}}",
+      "notifyUnavailable": "{{channel}} · \"{{message}}\" - non ancora disponibile",
+      "offsetAfter": "{{said}}, {{duration}} dopo",
+      "offsetBefore": "{{said}}, {{duration}} prima",
+      "over": "{{said}} in {{duration}}",
+      "repeat": "Ripeti {{times}} · {{blocks}}",
+      "sequence": "{{blocks}}, uno dopo l'altro",
+      "stop": "Fermati qui",
+      "sunCrosses": "Il sole supera {{elevation}}°",
+      "sunCrossesRising": "Il sole supera {{elevation}}° salendo",
+      "sunCrossesSetting": "Il sole supera {{elevation}}° scendendo",
+      "switch": "Su {{name}} · {{cases}}",
+      "thenCount": "{{count}} allora",
+      "times_many": "{{count}} volte",
+      "times_one": "{{count}} volta",
+      "times_other": "{{count}} volte",
+      "until": "Fino alle {{to}}",
+      "waitFor": "Finché {{what}}, al massimo {{duration}}",
+      "while": "Finché {{conditions}}",
+      "whileEmpty": "Finché … - aggiungi una condizione",
+      "windowMidnight": "{{from}} → {{to}} (oltre la mezzanotte)",
+      "withFor": "{{said}} per {{duration}}",
+      "withPeriod": "{{said}} ({{period}})",
+      "writeExpression": "Scrivi un'espressione"
+    }
+  },
+  "camera": {
+    "connecting": "Connessione…",
+    "ended": "Lo streaming è terminato",
+    "fullScreen": "Schermo intero",
+    "livePicture": "Immagine dal vivo di {{name}}",
+    "notStreaming": "La telecamera non sta trasmettendo",
+    "signedOut": "Non hai più effettuato l'accesso",
+    "stopped": "Lo streaming si è interrotto",
+    "unreachable": "Non è stato possibile raggiungere la telecamera",
+    "unsupported": "Questo browser non sa decodificare il video della telecamera"
+  },
+  "catalogue": {
+    "installed": "Installato",
+    "installsWord": "installazioni",
+    "installs_many": "{{count}} installazioni",
+    "installs_one": "{{count}} installazione",
+    "installs_other": "{{count}} installazioni",
+    "official": "Ufficiale",
+    "starsWord": "stelle",
+    "stars_many": "{{count}} stelle",
+    "stars_one": "{{count}} stella",
+    "stars_other": "{{count}} stelle",
+    "whatInstallingDoes": "Cosa fa l'installazione",
+    "worksWith": "Funziona con"
+  },
+  "colours": {
+    "blue": "Blu",
+    "common": "Colori comuni",
+    "cyan": "Ciano",
+    "green": "Verde",
+    "label": "Colore",
+    "orange": "Arancione",
+    "pick": "Preleva un colore dallo schermo",
+    "pink": "Rosa",
+    "purple": "Viola",
+    "red": "Rosso",
+    "yellow": "Giallo"
+  },
+  "commands": {
+    "fields": {
+      "code": "Codice",
+      "durationSeconds": "Durata (s)",
+      "hue": "Tonalità",
+      "isMuted": "Muto",
+      "level": "Livello",
+      "mireds": "Temperatura di colore",
+      "mode": "Modalità",
+      "option": "Opzione",
+      "position": "Posizione",
+      "positionSeconds": "Posizione (s)",
+      "rooms": "Stanze",
+      "saturation": "Saturazione",
+      "source": "Sorgente",
+      "temperature": "Temperatura obiettivo",
+      "tilt": "Inclinazione",
+      "transitionMs": "Transizione",
+      "value": "Valore",
+      "volume": "Volume"
+    },
+    "names": {
+      "cleanRooms": "Pulisci le stanze",
+      "close": "Chiudi",
+      "dock": "Torna alla base",
+      "install": "Installa",
+      "locate": "Localizza",
+      "lock": "Blocca",
+      "next": "Successivo",
+      "open": "Apri",
+      "pause": "Pausa",
+      "play": "Riproduci",
+      "press": "Premi",
+      "previous": "Precedente",
+      "record": "Registra",
+      "resume": "Riprendi",
+      "seek": "Vai a",
+      "selectOption": "Scegli un'opzione",
+      "setColor": "Imposta il colore",
+      "setColorTemp": "Imposta la temperatura di colore",
+      "setLevel": "Imposta il livello",
+      "setMode": "Imposta la modalità",
+      "setMute": "Imposta il muto",
+      "setPosition": "Imposta la posizione",
+      "setSource": "Imposta la sorgente",
+      "setTarget": "Imposta l'obiettivo",
+      "setTilt": "Imposta l'inclinazione",
+      "setValue": "Imposta il valore",
+      "setVolume": "Imposta il volume",
+      "snapshot": "Istantanea",
+      "start": "Avvia",
+      "stop": "Ferma",
+      "toggle": "Inverti",
+      "turnOff": "Spegni",
+      "turnOn": "Accendi",
+      "unlock": "Sblocca"
+    }
+  },
+  "duration": {
+    "day": "g"
+  },
+  "errors": {
+    "network": "Nebula Home non risponde. Controlla che il server sia in funzione.",
+    "shape": "La risposta di {{path}} non ha la forma che questo client si aspetta",
+    "unknown": "Qualcosa è andato storto. Riprova.",
+    "unreachable": "Non è stato possibile raggiungere il server",
+    "unreadable": "Il server ha risposto {{status}} con un contenuto illeggibile"
   },
   "firstRun": {
     "account": {
@@ -49,6 +333,214 @@
       "home": "Casa"
     }
   },
+  "history": {
+    "between": "Tra",
+    "choose": "Scegli l'intervallo",
+    "custom": {
+      "bothEnds": "Indica entrambi gli estremi: una data e un'ora per ciascuno.",
+      "future": "La fine non può essere nel futuro: lì non è ancora stato registrato nulla.",
+      "order": "L'inizio deve venire prima della fine."
+    },
+    "from": "Da",
+    "ranges": {
+      "1h": "Ultima ora",
+      "24h": "Ultime 24 ore",
+      "30d": "Ultimi 30 giorni",
+      "6h": "Ultime 6 ore",
+      "7d": "Ultimi 7 giorni"
+    },
+    "short": {
+      "1h": "1h",
+      "24h": "24h",
+      "30d": "30g",
+      "6h": "6h",
+      "7d": "7g"
+    },
+    "show": "Mostra questo intervallo",
+    "to": "A",
+    "upToNow": "Fino ad ora",
+    "window": "Intervallo: {{choice}}"
+  },
+  "home": {
+    "device": {
+      "denied": "La posizione non è stata condivisa. Scrivila a mano.",
+      "failed": "Il browser non è riuscito a capire dove si trova. Scrivi la posizione a mano.",
+      "insecure": "Il browser condivide la posizione solo in HTTPS o su questa macchina.",
+      "unsupported": "Questo browser non può condividere la posizione."
+    },
+    "east": "E",
+    "noPosition": "Nessuna posizione",
+    "north": "N",
+    "position": {
+      "both": "Una posizione ha bisogno sia della latitudine sia della longitudine.",
+      "latitude": "La latitudine deve essere un numero tra -90 e 90.",
+      "longitude": "La longitudine deve essere un numero tra -180 e 180."
+    },
+    "south": "S",
+    "sunrise": "Alba di oggi",
+    "sunset": "Tramonto di oggi",
+    "west": "O"
+  },
+  "install": {
+    "addDevices": "Poi aggiungi i suoi dispositivi",
+    "addDevicesNote": "Dalla sua pagina, una volta installato.",
+    "alsoInstalls": "Installa anche {{names}}",
+    "alsoInstallsNote": "Ne ha bisogno, quindi viene installato per primo.",
+    "cloudNote": "Tramite il cloud del produttore: smette di funzionare quando cade internet.",
+    "code": "Contiene codice",
+    "codeOfficial": "Gira dentro Nebula Home. Lo pubblica il team del Community Hub.",
+    "codeUnreviewed": "Gira dentro Nebula Home e nessuno lo ha controllato. Installalo solo se ti fidi di chi lo pubblica.",
+    "declarative": "Nient'altro da installare",
+    "declarativeNote": "Solo profili: gira dentro Nebula Home, senza codice proprio.",
+    "install": "Installa {{name}}",
+    "localNote": "Sulla tua rete. Nulla esce di casa.",
+    "needsPackage": "Ha bisogno del pacchetto {{packageId}}",
+    "needsPackageNote": "Installalo da Pacchetti; i suoi dispositivi aspettano finché non è in funzione.",
+    "needsService": "Ha bisogno del {{service}}",
+    "needsServiceNote": "I suoi dispositivi aspettano finché la casa non ne ha uno in funzione.",
+    "onNetwork": "Raggiunge i suoi dispositivi sulla tua rete",
+    "open": "Apri",
+    "provides": "Fornisce il {{service}}",
+    "providesNote": "Integrazioni e altri pacchetti possono usarlo quando è in funzione.",
+    "reinstall": "Reinstalla",
+    "startsAtOnce": "Parte subito",
+    "startsAtOnceNote": "Nient'altro si riavvia.",
+    "talksOver": "Parla con i suoi dispositivi tramite {{transports}}",
+    "throughInternet": "Raggiunge i suoi dispositivi tramite internet",
+    "update": "Aggiorna alla {{version}}",
+    "uses": "Usa il {{service}}",
+    "usesNote": "Quello che c'è in casa viene condiviso con lui."
+  },
+  "logs": {
+    "copy": "Copia le righe mostrate",
+    "download": "Scarica le righe mostrate",
+    "empty": "Non ha scritto nulla.",
+    "follow": "Segui le righe più recenti",
+    "following": "In ascolto",
+    "interval": "Rileggi ogni",
+    "intervalEvery": "Ogni {{seconds}} s",
+    "intervalNever": "Non da solo",
+    "kept": "Righe tenute",
+    "levels": {
+      "all": "Tutte"
+    },
+    "lineCount_many": "{{count}} righe",
+    "lineCount_one": "{{count}} riga",
+    "lineCount_other": "{{count}} righe",
+    "live": "In diretta · ogni {{seconds}} s",
+    "manual": "Manuale",
+    "newBelow": "Nuove righe sotto: seguile",
+    "noMatch": "Nessuna riga corrisponde.",
+    "onlyAsked": "Riletto solo quando lo chiedi",
+    "paused": "In pausa dove hai scorso; le nuove righe vengono comunque lette",
+    "readAgain": "Rileggi il log",
+    "reading": "Lettura…",
+    "search": "Cerca nel log…",
+    "shownOf_many": "{{shown}} di {{count}} righe",
+    "shownOf_one": "{{shown}} di {{count}} riga",
+    "shownOf_other": "{{shown}} di {{count}} righe",
+    "title": "Log",
+    "truncated": "Le righe più vecchie sono state tralasciate: erano troppe da portare in una volta.",
+    "unwrap": "Tieni ogni riga su una sola linea",
+    "which": "Quali righe",
+    "wrap": "Manda a capo le righe lunghe"
+  },
+  "maintenance": {
+    "back": "Torna alle impostazioni",
+    "failed": "Il ripristino non è riuscito.",
+    "manual": "Anche il ripristino dello stato precedente non è riuscito: l'installazione va controllata.",
+    "phase": "{{phase}}…",
+    "phases": {
+      "downloading": "Recupero dell'archivio",
+      "finishing": "Conclusione",
+      "reconciling": "Conservazione delle impostazioni di backup di questa macchina",
+      "restoringDatabase": "Ripristino del database",
+      "safetyBackup": "Prima, backup di ciò che c'è ora",
+      "startingServices": "Riavvio dei servizi",
+      "switching": "Passaggio ai dati ripristinati",
+      "verifying": "Apertura e controllo dell'archivio"
+    },
+    "progress": "Avanzamento del ripristino",
+    "restoredNote": "L'installazione è tornata com'era quando è stato fatto il backup. Accedi di nuovo con un account di allora.",
+    "rolledBack": "Tutto è stato rimesso com'era prima del ripristino.",
+    "runningNote": "La casa continua a funzionare fino al passaggio, che richiede pochi secondi. Dopo, tutti accedono di nuovo: gli account sono quelli del backup.",
+    "signIn": "Accedi",
+    "title": {
+      "failed": "Il ripristino non è stato completato",
+      "restored": "Ripristinato",
+      "restoring": "Ripristino da un backup"
+    },
+    "unchanged": "Non è cambiato nulla.",
+    "working": "Al lavoro"
+  },
+  "nav": {
+    "accountMenu": "Menu dell'account: {{name}}",
+    "aliases": "Alias",
+    "areas": "Aree",
+    "automations": "Automazioni",
+    "collapse": "Comprimi",
+    "collapseSidebar": "Comprimi la barra laterale",
+    "containers": "Container",
+    "dashboardSetup": "Configura dashboard",
+    "dashboards": "Dashboard",
+    "devices": "Dispositivi",
+    "expand": "Espandi la barra laterale",
+    "groups": {
+      "automate": "Automatizza",
+      "house": "Casa",
+      "system": "Sistema"
+    },
+    "integrations": "Integrazioni",
+    "main": "Principale",
+    "notSignedIn": "Nessun accesso",
+    "packages": "Pacchetti",
+    "scenes": "Scene",
+    "settings": "Impostazioni",
+    "signOut": "Esci",
+    "tags": "Tag"
+  },
+  "password": {
+    "atLeast": "Almeno {{count}} caratteri",
+    "atMost": "Al massimo {{count}} caratteri",
+    "hide": "Nascondi la password",
+    "ruleMet": " — rispettato",
+    "ruleNotMet": " — non ancora rispettato",
+    "show": "Mostra la password"
+  },
+  "roles": {
+    "admin": {
+      "description": "Tutto, tranne cambiare cosa concedono i ruoli",
+      "name": "Amministratore"
+    },
+    "guest": {
+      "description": "Controlla un elenco esplicito di entità",
+      "name": "Ospite"
+    },
+    "member": {
+      "description": "Controlla le entità, attiva le scene, legge la cronologia",
+      "name": "Membro"
+    },
+    "owner": {
+      "description": "Controllo completo, compresi utenti e impostazioni di sistema",
+      "name": "Proprietario"
+    },
+    "service": {
+      "description": "Identità di una macchina per i token di accesso",
+      "name": "Servizio"
+    }
+  },
+  "runs": {
+    "outcome": {
+      "cancelled": "Annullata",
+      "failed": "Fallita",
+      "skipped": "Saltata",
+      "success": "Eseguita",
+      "timeout": "Scaduta"
+    }
+  },
+  "services": {
+    "mqttBroker": "broker MQTT"
+  },
   "settings": {
     "account": {
       "profile": "Profilo",
@@ -62,7 +554,78 @@
       "followHouse": "Lingua della casa ({{name}})",
       "note": "La lingua in cui l'interfaccia ti parla. I nomi e tutto ciò che è stato scritto restano come sono.",
       "title": "Lingua"
+    },
+    "sections": {
+      "backup": "Backup",
+      "data": "Dati e conservazione",
+      "icons": "Icone",
+      "system": "Monitor di sistema",
+      "users": "Utenti e ruoli"
     }
+  },
+  "shell": {
+    "notFound": {
+      "hint": "Scegli una pagina dalla barra a sinistra.",
+      "summary": "Nessuna pagina risponde a questo indirizzo.",
+      "title": "Qui non c'è niente"
+    }
+  },
+  "sort": {
+    "by": "Ordina per {{label}}"
+  },
+  "sun": {
+    "events": {
+      "blueHourEnd": "Fine dell'ora blu",
+      "blueHourStart": "Inizio dell'ora blu",
+      "dawn": "Aurora",
+      "dusk": "Crepuscolo",
+      "elevationChanged": "L'elevazione del sole è cambiata",
+      "elevationCrossed": "L'elevazione del sole ha superato un limite",
+      "goldenHourEnd": "Fine dell'ora dorata",
+      "goldenHourStart": "Inizio dell'ora dorata",
+      "midnightSunEnd": "Fine del sole di mezzanotte",
+      "midnightSunStart": "Inizio del sole di mezzanotte",
+      "polarNightEnd": "Fine della notte polare",
+      "polarNightStart": "Inizio della notte polare",
+      "solarMidnight": "Mezzanotte solare",
+      "solarNoon": "Mezzogiorno solare",
+      "sunrise": "Alba",
+      "sunset": "Tramonto"
+    },
+    "periods": {
+      "evening": "sera",
+      "morning": "mattina"
+    },
+    "phases": {
+      "above": "Sole sopra",
+      "below": "Sole sotto",
+      "blueHour": "Ora blu",
+      "day": "Giorno",
+      "goldenHour": "Ora dorata",
+      "midnightSun": "Sole di mezzanotte",
+      "night": "Notte",
+      "polarNight": "Notte polare",
+      "twilight": "Crepuscolo"
+    }
+  },
+  "time": {
+    "days_many": "{{count}} giorni",
+    "days_one": "{{count}} giorno",
+    "days_other": "{{count}} giorni",
+    "forever": "Per sempre",
+    "now": "ora",
+    "short": {
+      "days": "{{days}} g",
+      "daysHours": "{{days}} g {{hours}} h",
+      "hours": "{{hours}} h",
+      "hoursMinutes": "{{hours}} h {{minutes}} min",
+      "minutes": "{{minutes}} min"
+    },
+    "underMinute": "meno di un minuto",
+    "years_many": "{{count}} anni",
+    "years_one": "{{count}} anno",
+    "years_other": "{{count}} anni",
+    "yesterday": "ieri"
   },
   "ui": {
     "block": {

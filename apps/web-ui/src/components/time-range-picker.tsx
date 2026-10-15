@@ -11,12 +11,15 @@
  * library's Filter sheet.
  */
 import { useEffect, useId, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { AppIcon, Button, cn, TextField } from '@nebulahome/ui';
 
+import { text, translate } from '@/i18n/messages';
 import { readDateTimeLocal, shortTime, toDateTimeLocal } from '@/lib/format-time';
 import {
   HISTORY_RANGE_LABELS,
+  HISTORY_RANGE_SHORT,
   HISTORY_RANGES,
   windowOfChoice,
   type HistoryChoice,
@@ -39,7 +42,7 @@ export type TimeRangePickerProps = {
  */
 export function describeChoice(choice: HistoryChoice): string {
   return choice.kind === 'preset'
-    ? HISTORY_RANGE_LABELS[choice.range]
+    ? text(HISTORY_RANGE_LABELS[choice.range])
     : `${shortTime(new Date(choice.from))} → ${shortTime(new Date(choice.to))}`;
 }
 
@@ -60,16 +63,25 @@ export function readCustomRange(
   const to = readDateTimeLocal(toText);
 
   if (from === null || to === null) {
-    return { problem: 'Give both ends: a date and a time for each.' };
+    return {
+      problem: translate('history.custom.bothEnds', 'Give both ends: a date and a time for each.'),
+    };
   }
 
   if (from >= to) {
-    return { problem: 'The start has to come before the end.' };
+    return {
+      problem: translate('history.custom.order', 'The start has to come before the end.'),
+    };
   }
 
   // A minute's grace, since the field holds minutes and "now" has seconds.
   if (to > now + 60_000) {
-    return { problem: 'The end cannot be in the future: nothing has been recorded there yet.' };
+    return {
+      problem: translate(
+        'history.custom.future',
+        'The end cannot be in the future: nothing has been recorded there yet.',
+      ),
+    };
   }
 
   return { kind: 'custom', from, to };
@@ -82,6 +94,7 @@ export function readCustomRange(
  * @returns The control.
  */
 export function TimeRangePicker(props: TimeRangePickerProps) {
+  const { t } = useTranslation();
   const { value, onChange } = props;
   const [isOpen, setOpen] = useState(false);
   // Filled from what is shown each time the sheet opens, which is when they are first seen.
@@ -162,7 +175,7 @@ export function TimeRangePicker(props: TimeRangePickerProps) {
         size="compact"
         aria-expanded={isOpen}
         aria-controls={sheetId}
-        aria-label={`Window: ${describeChoice(value)}`}
+        aria-label={t('history.window', 'Window: {{choice}}', { choice: describeChoice(value) })}
         onClick={() => {
           if (isOpen) {
             setOpen(false);
@@ -180,12 +193,18 @@ export function TimeRangePicker(props: TimeRangePickerProps) {
         <div
           id={sheetId}
           role="group"
-          aria-label="Choose the window"
+          aria-label={t('history.choose', 'Choose the window')}
           className="absolute top-full right-0 z-40 mt-2 flex w-80 animate-rise flex-col gap-4 rounded-field border border-border-strong bg-surface p-4 shadow-dialog"
         >
           <div className="flex flex-col gap-2">
-            <span className="font-mono text-label text-foreground-subtle uppercase">Up to now</span>
-            <div role="group" aria-label="Up to now" className="flex flex-wrap gap-1.5">
+            <span className="font-mono text-label text-foreground-subtle uppercase">
+              {t('history.upToNow', 'Up to now')}
+            </span>
+            <div
+              role="group"
+              aria-label={t('history.upToNow', 'Up to now')}
+              className="flex flex-wrap gap-1.5"
+            >
               {HISTORY_RANGES.map((range) => {
                 const isChosen = value.kind === 'preset' && value.range === range;
 
@@ -206,7 +225,7 @@ export function TimeRangePicker(props: TimeRangePickerProps) {
                         : 'border-border text-foreground-muted hover:text-foreground',
                     )}
                   >
-                    {range}
+                    {text(HISTORY_RANGE_SHORT[range])}
                   </button>
                 );
               })}
@@ -222,9 +241,11 @@ export function TimeRangePicker(props: TimeRangePickerProps) {
               apply();
             }}
           >
-            <span className="font-mono text-label text-foreground-subtle uppercase">Between</span>
+            <span className="font-mono text-label text-foreground-subtle uppercase">
+              {t('history.between', 'Between')}
+            </span>
             <TextField
-              label="From"
+              label={t('history.from', 'From')}
               size="compact"
               type="datetime-local"
               value={fromText}
@@ -234,7 +255,7 @@ export function TimeRangePicker(props: TimeRangePickerProps) {
               }}
             />
             <TextField
-              label="To"
+              label={t('history.to', 'To')}
               size="compact"
               type="datetime-local"
               value={toText}
@@ -249,7 +270,7 @@ export function TimeRangePicker(props: TimeRangePickerProps) {
               </p>
             )}
             <Button type="submit" size="compact" className="self-end">
-              Show this window
+              {t('history.show', 'Show this window')}
             </Button>
           </form>
         </div>

@@ -2,11 +2,13 @@
  * Saying when something happened.
  *
  * The clock is passed in rather than mocked, so these cases do not depend on the machine's
- * timezone or on the moment they run. `Intl` chooses the wording, so the assertions check what
- * the function decides - which unit, and which side of "now" - rather than pinning English.
+ * timezone or on the moment they run. `Intl` chooses the wording, in the interface's language, so
+ * the assertions check what the function decides - which unit, and which side of "now" - rather
+ * than pinning English.
  */
 import { describe, expect, it } from 'vitest';
 
+import { relativeTimeFormat } from '@/i18n/formatters';
 import {
   absoluteTime,
   durationInDays,
@@ -43,14 +45,9 @@ describe('relativeTime', () => {
     [90 * 86_400, -3, 'month'],
     [800 * 86_400, -2, 'year'],
   ])('measures %d seconds as %d %ss', (seconds, count, unit) => {
-    // Compared against `Intl`'s own wording rather than against English. The decision being
-    // pinned is which unit the function picks and how many of it, and that has to hold on a
-    // machine whose locale is not the one this was written on - as the one it was written on
-    // proved by answering in Italian.
-    const expected = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(
-      count,
-      unit,
-    );
+    // Compared against `Intl`'s own wording, in the interface's language, rather than against
+    // English. The decision being pinned is which unit the function picks and how many of it.
+    const expected = relativeTimeFormat({ numeric: 'auto' }).format(count, unit);
 
     expect(relativeTime(secondsAgo(seconds), NOW)).toBe(expected);
   });
@@ -58,7 +55,7 @@ describe('relativeTime', () => {
   it('reads a moment in the future as one', () => {
     // A session whose clock runs slightly ahead should not be described as having last been seen
     // in the past.
-    const expected = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(2, 'hour');
+    const expected = relativeTimeFormat({ numeric: 'auto' }).format(2, 'hour');
 
     expect(relativeTime(new Date(NOW.getTime() + 7200 * 1000), NOW)).toBe(expected);
   });

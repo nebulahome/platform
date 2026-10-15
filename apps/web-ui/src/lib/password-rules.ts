@@ -15,6 +15,7 @@
  * the bounds of a `min`/`max` as values. A test reads them back off the contract's own schema, so
  * the two cannot drift apart quietly.
  */
+import { translate } from '@/i18n/messages';
 
 /** The shortest password the API accepts. */
 export const PASSWORD_MINIMUM_LENGTH = 12;
@@ -48,12 +49,16 @@ export type PasswordRule = {
 export function passwordRules(password: string): PasswordRule[] {
   return [
     {
-      label: `At least ${String(PASSWORD_MINIMUM_LENGTH)} characters`,
+      label: translate('password.atLeast', 'At least {{count}} characters', {
+        count: PASSWORD_MINIMUM_LENGTH,
+      }),
       isMet: password.length >= PASSWORD_MINIMUM_LENGTH,
       isShownWhenMet: true,
     },
     {
-      label: `At most ${String(PASSWORD_MAXIMUM_LENGTH)} characters`,
+      label: translate('password.atMost', 'At most {{count}} characters', {
+        count: PASSWORD_MAXIMUM_LENGTH,
+      }),
       isMet: password.length <= PASSWORD_MAXIMUM_LENGTH,
       isShownWhenMet: false,
     },

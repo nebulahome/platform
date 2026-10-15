@@ -24,6 +24,7 @@ import {
   type ConditionNode,
 } from '@nebulahome/contracts';
 
+import { translate } from '@/i18n/messages';
 import { actionSummary, NO_NAMES, triggerSummary, type BlockNames } from '@/lib/block-summary';
 
 /** How one part of the chain reads. */
@@ -85,7 +86,9 @@ function describeTriggers(triggers: readonly AutomationTrigger[], names: BlockNa
   const [first] = on;
 
   if (first === undefined) {
-    return triggers.length === 0 ? 'no trigger' : 'every trigger is off';
+    return triggers.length === 0
+      ? translate('automations.summary.noTrigger', 'no trigger')
+      : translate('automations.summary.allTriggersOff', 'every trigger is off');
   }
 
   const extra = on.length - 1;
@@ -117,14 +120,21 @@ export function describeAutomation(
 
   const actions =
     firstAction === undefined
-      ? 'no actions'
+      ? translate('automations.summary.noActions', 'no actions')
       : extraActions > 0
         ? `${describeAction(firstAction, names)} +${String(extraActions)}`
         : describeAction(firstAction, names);
 
   return {
     trigger,
-    conditions: checks === 0 ? null : `${String(checks)} condition${checks === 1 ? '' : 's'}`,
+    conditions:
+      checks === 0
+        ? null
+        : translate('automations.summary.conditions', {
+            count: checks,
+            defaultValue_one: '{{count}} condition',
+            defaultValue_other: '{{count}} conditions',
+          }),
     actions,
   };
 }

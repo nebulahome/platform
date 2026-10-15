@@ -47,7 +47,9 @@ t('devices.count', {
 `pnpm --filter @nebulahome/web-ui lint` runs `check:translations`: every key is written out with
 its English, every catalogue has every key in every plural form and nothing stale, placeholders
 match, and no letter outside ASCII appears in the code outside this folder. The lint rule
-`nebula/no-untranslated-text` finds words written straight into JSX.
+`nebula/no-untranslated-text` finds words written straight into JSX. Words that must stay as they
+are - a log level, a key's name, the product's name - are marked the way HTML marks them for any
+translator: `translate="no"` on their element.
 
 ## Italian glossary
 

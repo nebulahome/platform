@@ -32,6 +32,7 @@ import { createPortal } from 'react-dom';
 
 import { AppIcon, BlockDragGhost, type BlockLane, type UiIconId } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
 import { useBlockUiStoreHandle } from '@/lib/block-ui';
 import { describePath } from '@/library/automation-draft';
 import { isInside, type BlockFamily, type BlockSlot } from '@/library/block-path';
@@ -358,13 +359,21 @@ export function BlockDragProvider(props: BlockDragProviderProps) {
     const at = latest.current.onStep(source.slot, event.key === 'ArrowUp' ? -1 : 1);
 
     if (at === null) {
-      setAnnouncement(`${source.look.kind} cannot move further`);
+      setAnnouncement(
+        translate('automations.drag.cannotMove', '{{kind}} cannot move further', {
+          kind: source.look.kind,
+        }),
+      );
 
       return;
     }
 
     setAnnouncement(
-      `${source.look.kind} moved to ${describePath(at.list.split('.'))}, place ${String(at.index + 1)}`,
+      translate('automations.drag.moved', '{{kind}} moved to {{path}}, place {{place}}', {
+        kind: source.look.kind,
+        path: describePath(at.list.split('.')),
+        place: at.index + 1,
+      }),
     );
 
     // The grip is drawn again where the block landed: give it the focus back there.

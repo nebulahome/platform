@@ -8,6 +8,7 @@
  */
 import { useState } from 'react';
 
+import { translate } from '@/i18n/messages';
 import type { HousePosition } from '@/lib/house-position';
 
 /** How many decimals a position is kept to. */
@@ -35,12 +36,15 @@ export type DevicePosition = {
  */
 function unavailableReasonHere(): string | undefined {
   if (!globalThis.isSecureContext) {
-    return 'Your browser shares its location only over HTTPS or on this machine.';
+    return translate(
+      'home.device.insecure',
+      'Your browser shares its location only over HTTPS or on this machine.',
+    );
   }
 
   return 'geolocation' in globalThis.navigator
     ? undefined
-    : 'This browser cannot share its location.';
+    : translate('home.device.unsupported', 'This browser cannot share its location.');
 }
 
 /**
@@ -93,8 +97,14 @@ export function useDevicePosition(): DevicePosition {
           setAsking(false);
           setError(
             failure.code === failure.PERMISSION_DENIED
-              ? 'The location was not shared. Type the position instead.'
-              : 'The browser could not tell where it is. Type the position instead.',
+              ? translate(
+                  'home.device.denied',
+                  'The location was not shared. Type the position instead.',
+                )
+              : translate(
+                  'home.device.failed',
+                  'The browser could not tell where it is. Type the position instead.',
+                ),
           );
         },
         { enableHighAccuracy: false, timeout: 15_000, maximumAge: 600_000 },

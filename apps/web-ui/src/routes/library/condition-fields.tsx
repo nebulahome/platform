@@ -29,7 +29,8 @@ import {
 } from '@nebulahome/ui';
 
 import { WeekdayPicker } from '@/components/weekday-picker';
-import { crossesMidnight, SUN_PHASE_WORDS } from '@/lib/block-summary';
+import { translate } from '@/i18n/messages';
+import { crossesMidnight, sunPhaseWord } from '@/lib/block-summary';
 import { partialEntityId, withoutKey } from '@/library/automation-draft';
 import { useEditorHouse, type EditorHouse } from '@/routes/library/automation/editor-house';
 import { EntityConditionFields } from '@/routes/library/automation/entity-match-fields';
@@ -152,14 +153,22 @@ function TimeConditionFields(props: {
   );
 }
 
-/** The phases of the sun, as the dropdown offers them. */
-const PHASE_OPTIONS = SUN_PHASES.map((phase) => ({
-  value: phase,
-  label:
-    phase === 'above' || phase === 'below'
-      ? `${SUN_PHASE_WORDS[phase] ?? phase} an elevation`
-      : (SUN_PHASE_WORDS[phase] ?? phase),
-}));
+/**
+ * The phases of the sun, as the dropdown offers them.
+ *
+ * @returns The options, in the language spoken now.
+ */
+function phaseOptions(): { readonly value: SunPhase; readonly label: string }[] {
+  return SUN_PHASES.map((phase) => ({
+    value: phase,
+    label:
+      phase === 'above' || phase === 'below'
+        ? translate('automations.conditions.phaseElevation', '{{phase}} an elevation', {
+            phase: sunPhaseWord(phase),
+          })
+        : sunPhaseWord(phase),
+  }));
+}
 
 /** The phases that come round twice a day, and can be narrowed to the morning or the evening. */
 const TWICE_DAILY: ReadonlySet<SunPhase> = new Set<SunPhase>([
@@ -203,7 +212,7 @@ function SunConditionFields(props: {
         <SelectField
           label="Is"
           size="compact"
-          options={PHASE_OPTIONS}
+          options={phaseOptions()}
           value={condition.phase}
           onChange={(value) => {
             const phase = value as SunPhase;
