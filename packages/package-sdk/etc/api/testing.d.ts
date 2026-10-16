@@ -1,5 +1,6 @@
 import { V as CapabilityCommand, et as ReportedCapabilityState, i as SettingsDefinition, lt as EntityId, r as JsonValue, t as JsonObject } from "./chunks/json.js";
-import { C as StateChange, _ as ServerContext, f as ReportOptions, h as RpcCaller, l as EntitySnapshot, o as DeviceInput, t as Awaitable } from "./chunks/context.js";
+import { i as TelemetryPoint, r as StateHistoryPoint } from "./chunks/history.js";
+import { T as StateChange, _ as RpcCaller, l as EntitySnapshot, m as ReportOptions, o as DeviceInput, t as Awaitable, y as ServerContext } from "./chunks/context.js";
 //#region src/testing/index.d.ts
 /** What a test context starts with. */
 export type TestContextOptions<TSettings extends SettingsDefinition | undefined> = {
@@ -13,8 +14,15 @@ export type TestContextOptions<TSettings extends SettingsDefinition | undefined>
   readonly settings?: JsonObject;
   /** Entities of the house `ctx.entities` reads. */
   readonly entities?: readonly EntitySnapshot[];
+  /** The past `ctx.history` reads, by entity: points in any order. */
+  readonly history?: Readonly<Record<string, RecordedHistory>>;
   readonly dataDir?: string;
   readonly cacheDir?: string;
+};
+/** One entity's past, as a test gives it. */
+export type RecordedHistory = {
+  readonly states?: readonly StateHistoryPoint[];
+  readonly telemetry?: readonly TelemetryPoint[];
 };
 /** One report the package made. */
 export type RecordedReport = {
@@ -96,6 +104,13 @@ export type TestContext<TSettings extends SettingsDefinition | undefined> = {
    * @returns Once every handler ran.
    */
   readonly emitStateChange: (change: StateChange) => Promise<void>;
+  /**
+   * Gives an entity a past, where `ctx.history` reads it.
+   *
+   * @param entityId - The entity.
+   * @param history - Its changes and readings, in any order.
+   */
+  readonly setHistory: (entityId: EntityId, history: RecordedHistory) => void;
   /**
    * Answers a service the package calls.
    *

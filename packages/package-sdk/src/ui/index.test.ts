@@ -7,7 +7,15 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { cn } from '../components/index.js';
 import { COMPONENTS_MODULE, UI_MODULE } from '../host.js';
 
-import { usePackage, usePackageRpc, useTranslation } from './index.js';
+import {
+  useAreas,
+  useEntityPicture,
+  usePackage,
+  usePackageRpc,
+  useStateHistory,
+  useTelemetry,
+  useTranslation,
+} from './index.js';
 
 /**
  * Lends a stand-in implementation, as the interface does before it imports a package.
@@ -51,6 +59,21 @@ describe('the forwarders', () => {
 
     expect(() => usePackage()).toThrow(
       'usePackage needs package SDK 1.0; this interface implements 0.9.0',
+    );
+  });
+
+  it('name 1.2 for what 1.2 added', () => {
+    lend('1.1.0', { [UI_MODULE]: {} });
+
+    const read = { entityIds: ['sensor.hall_temperature'], window: { lastMs: 3_600_000 } };
+
+    expect(() => useStateHistory(read)).toThrow(
+      'useStateHistory needs package SDK 1.2; this interface implements 1.1.0',
+    );
+    expect(() => useTelemetry(read)).toThrow('useTelemetry needs package SDK 1.2');
+    expect(() => useAreas()).toThrow('useAreas needs package SDK 1.2');
+    expect(() => useEntityPicture('camera.porch')).toThrow(
+      'useEntityPicture needs package SDK 1.2',
     );
   });
 

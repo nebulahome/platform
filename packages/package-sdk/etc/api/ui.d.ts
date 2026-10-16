@@ -1,5 +1,6 @@
-import { G as CapabilityState, H as CapabilityCommands, S as FormValues, ct as EntityDomain, d as EntityTypeDefinition, f as ValuesOf, i as SettingsDefinition, lt as EntityId, q as CommandableCapability, r as JsonValue, s as ArgsOf, t as JsonObject, u as CommandsOf, z as ValueOfField } from "./chunks/json.js";
+import { G as CapabilityState, H as CapabilityCommands, S as FormValues, Y as DeclaredCapabilities, ct as EntityDomain, d as EntityTypeDefinition, f as ValuesOf, i as SettingsDefinition, lt as EntityId, q as CommandableCapability, r as JsonValue, s as ArgsOf, t as JsonObject, u as CommandsOf, z as ValueOfField } from "./chunks/json.js";
 import { a as PageProps, n as EntityViewProps, t as CardProps } from "./chunks/props.js";
+import { a as TelemetryResolution, i as TelemetryPoint, n as HistorySeries, r as StateHistoryPoint, t as ChangeCause } from "./chunks/history.js";
 import { AnchorHTMLAttributes, ComponentType, ReactElement, ReactNode } from "react";
 //#region src/ui/types.d.ts
 /** The package drawn. */
@@ -15,7 +16,13 @@ type EntityView = {
   readonly name: string;
   readonly icon: string | null;
   readonly deviceId: string | null;
+  /** Its area's key - the entity's own, else its device's - as {@link AreaView} `key` says it. */
   readonly areaId: string | null;
+  /**
+   * What it declares it can do, with the device's limits: a cover's tilt, a thermostat's range
+   * and modes, a select's options. Since 1.2.
+   */
+  readonly capabilities: DeclaredCapabilities;
   readonly state: CapabilityState;
   readonly attributes: JsonObject;
   readonly isAvailable: boolean;
@@ -23,6 +30,79 @@ type EntityView = {
   readonly unitOfMeasurement: string | null;
   readonly deviceClass: string | null;
   readonly displayPrecision: number | null;
+};
+/** A window of the past: between two moments (ISO 8601), or the last so many milliseconds. */
+type HistoryWindow = {
+  readonly from: string;
+  readonly to: string;
+} | {
+  readonly lastMs: number;
+};
+/** Which entities' past `useStateHistory` reads, over which window. Since 1.2. */
+type HistoryQuery = {
+  /** At most 64. */
+  readonly entityIds: readonly EntityId[];
+  readonly window: HistoryWindow;
+  /** False holds the read back. */
+  readonly isEnabled?: boolean;
+  /** Reads it again every so often; a window of the last so many milliseconds moves with it. */
+  readonly refetchIntervalMs?: number;
+};
+/** Which entities' readings `useTelemetry` reads: `auto` picks the resolution by the window. */
+type TelemetryQuery = HistoryQuery & {
+  readonly resolution?: TelemetryResolution | 'auto';
+};
+/** A read of the past, as it stands. */
+type History<TPoint> = {
+  /** Each entity's points, oldest first; empty while it loads. */
+  readonly series: HistorySeries<TPoint>;
+  /** The window read, in milliseconds since the epoch; undefined before the first answer. */
+  readonly window: {
+    readonly from: number;
+    readonly to: number;
+  } | undefined;
+  /** The entities whose window held more than one read returns: their oldest points are gone. */
+  readonly truncated: readonly EntityId[];
+  readonly isLoading: boolean;
+  readonly error: Error | null;
+  /** Reads it again. */
+  readonly refetch: () => void;
+};
+/** A read of readings, and the resolution it was read at. */
+type Telemetry = History<TelemetryPoint> & {
+  readonly resolution: TelemetryResolution;
+};
+/** What kind of place an area is. */
+type AreaKind = 'house' | 'floor' | 'room';
+/** One area of the house: the house itself, a floor, a room. Since 1.2. */
+type AreaView = {
+  /** What `EntityView.areaId` names it by. */
+  readonly key: string;
+  readonly name: string;
+  readonly kind: AreaKind;
+  /** The floor a room is on, the house a floor is in; null for the house. */
+  readonly parentKey: string | null;
+  readonly icon: string | null;
+  readonly sortOrder: number;
+  /** A floor's storey: 0 the ground floor, -1 the one below; null for the rest. */
+  readonly level: number | null;
+  /** The house's position, when the owner has set it; null for the rest. */
+  readonly latitude: number | null;
+  readonly longitude: number | null;
+};
+/** How a picture is fetched. */
+type PictureOptions = {
+  /** A camera's still is fetched again this often; 15 seconds when not said, at least 2. */
+  readonly refreshMs?: number;
+  /** False holds it back. */
+  readonly isEnabled?: boolean;
+};
+/** A camera's latest still, or an image entity's picture, as an address an `<img>` shows. */
+type EntityPicture = {
+  /** Null before there is one, or when the entity has none. */
+  readonly url: string | null;
+  readonly isLoading: boolean;
+  readonly error: Error | null;
 };
 /** Which entities `useEntities` reads. */
 type EntitiesFilter = {
@@ -208,6 +288,14 @@ type UiHost = {
   readonly useLocale: () => Locale;
   /** Since 1.1. */
   readonly useTranslation: () => Translation;
+  /** Since 1.2. */
+  readonly useStateHistory: (query: HistoryQuery) => History<StateHistoryPoint>;
+  /** Since 1.2. */
+  readonly useTelemetry: (query: TelemetryQuery) => Telemetry;
+  /** Since 1.2. */
+  readonly useAreas: () => readonly AreaView[];
+  /** Since 1.2. */
+  readonly useEntityPicture: (entityId: EntityId, options?: PictureOptions) => EntityPicture;
   readonly useTheme: () => Theme;
   readonly usePortalContainer: () => HTMLElement | null;
   readonly usePackageRoute: () => PackageRoute;
@@ -307,6 +395,39 @@ export declare function useLocale(): Locale;
  */
 export declare function useTranslation(): Translation;
 /**
+ * The recorded changes of some entities over a window, live as the window moves: what a chart of
+ * an on/off thing, an activity list or a replay of a day is drawn from. Read with the viewer's
+ * permissions: an entity they may not read has no points.
+ *
+ * @param query - Which entities (at most 64), which window, how often to read it again.
+ * @returns Each entity's changes, oldest first, and whether the read is still on its way.
+ */
+export declare function useStateHistory(query: HistoryQuery): History<StateHistoryPoint>;
+/**
+ * The numeric readings of some entities over a window: what a sensor's chart is drawn from. A
+ * long window is read in buckets of a minute, an hour or a day, each with its lowest and highest.
+ *
+ * @param query - Which entities (at most 64), which window, which resolution (`auto` by default).
+ * @returns Each entity's readings, oldest first, and the resolution they were read at.
+ */
+export declare function useTelemetry(query: TelemetryQuery): Telemetry;
+/**
+ * The areas of the house: the house itself (with its position, when set), its floors and its
+ * rooms, as the owner arranged them.
+ *
+ * @returns Them, in the owner's order.
+ */
+export declare function useAreas(): readonly AreaView[];
+/**
+ * A camera's latest still, fetched again every so often, or an image entity's picture, fetched
+ * again when it changes: an address an `<img>` shows, let go of when a newer one replaces it.
+ *
+ * @param entityId - A `camera.*` or an `image.*` entity.
+ * @param options - How often a still is fetched again, and whether at all.
+ * @returns The address, or null before there is one.
+ */
+export declare function useEntityPicture(entityId: EntityId, options?: PictureOptions): EntityPicture;
+/**
  * The theme the interface draws in, for what draws its own colours: a canvas, a chart.
  *
  * @returns Light or dark.
@@ -351,4 +472,4 @@ export declare function PackageLink(props: PackageLinkProps): ReactElement;
  */
 export declare function PlatformLink(props: PlatformLinkProps): ReactElement;
 //#endregion
-export type { CardProps, CustomEntityState, EntitiesFilter, EntityView, EntityViewProps, Locale, Mutation, MutationOptions, PackageCall, PackageInfo, PackageLinkProps, PackageNavigate, PackageRoute, PackageSettings, PageProps, PlatformLinkProps, PlatformNavigate, PlatformTarget, PluralEnglish, RpcOptions, RpcState, SendCommand, SettingsPatch, Theme, Translate, Translation, TranslationValues, UiHost, Viewer, VisibleSettings };
+export type { AreaKind, AreaView, CardProps, ChangeCause, CustomEntityState, EntitiesFilter, EntityPicture, EntityView, EntityViewProps, History, HistoryQuery, HistorySeries, HistoryWindow, Locale, Mutation, MutationOptions, PackageCall, PackageInfo, PackageLinkProps, PackageNavigate, PackageRoute, PackageSettings, PageProps, PictureOptions, PlatformLinkProps, PlatformNavigate, PlatformTarget, PluralEnglish, RpcOptions, RpcState, SendCommand, SettingsPatch, StateHistoryPoint, Telemetry, TelemetryPoint, TelemetryQuery, TelemetryResolution, Theme, Translate, Translation, TranslationValues, UiHost, Viewer, VisibleSettings };

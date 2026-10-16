@@ -19,6 +19,12 @@ import type {
 } from '../definitions/entity-type.js';
 import type { SettingsDefinition, SettingsOf } from '../definitions/settings.js';
 import type { EntityDomain, EntityId } from '../entities.js';
+import type {
+  HistorySeries,
+  StateHistoryPoint,
+  TelemetryPoint,
+  TelemetryResolution,
+} from '../history.js';
 import type { JsonObject, JsonValue } from '../json.js';
 import type { Schema } from '../schema.js';
 
@@ -161,6 +167,35 @@ export type StateChange = {
 export type EntityFilter = {
   readonly domain?: EntityDomain;
   readonly entityIds?: readonly EntityId[];
+};
+
+/** Which entities' past `ctx.history` reads, over which window. Since 1.2. */
+export type HistoryRead = {
+  /** At most 64. */
+  readonly entityIds: readonly EntityId[];
+
+  /** Inclusive: a `Date` or ISO 8601. */
+  readonly from: Date | string;
+
+  /** Exclusive. */
+  readonly to: Date | string;
+
+  /** The most points of one entity, at most 10 000 (the default): the newest are kept. */
+  readonly limit?: number;
+};
+
+/** Which entities' readings `ctx.history.telemetry` reads: `auto` picks by the window's length. */
+export type TelemetryRead = HistoryRead & {
+  readonly resolution?: TelemetryResolution | 'auto';
+};
+
+/** What a read of the past found. */
+export type HistoryAnswer<TPoint> = {
+  /** Each entity's points, oldest first. */
+  readonly series: HistorySeries<TPoint>;
+
+  /** The entities whose window held more than the limit: their oldest points are gone. */
+  readonly truncated: readonly EntityId[];
 };
 
 /** Who may call a method: whoever may read packages, or whoever may configure them. */
@@ -413,6 +448,30 @@ export type ServerContext<TSettings = undefined> = {
       filter: EntityFilter,
       handler: (change: StateChange) => Awaitable<void>,
     ) => Unsubscribe;
+  };
+
+  /**
+   * The past of the house's entities, read only, with the house's authority as `entities` has.
+   * Since 1.2.
+   */
+  readonly history: {
+    /**
+     * The recorded changes of some entities over a window.
+     *
+     * @param read - Which entities, which window, how many points each at most.
+     * @returns Each entity's changes, oldest first.
+     */
+    readonly states: (read: HistoryRead) => Promise<HistoryAnswer<StateHistoryPoint>>;
+
+    /**
+     * The numeric readings of some entities over a window, raw or in buckets.
+     *
+     * @param read - Which entities, which window, which resolution.
+     * @returns Each entity's readings, oldest first, and the resolution read.
+     */
+    readonly telemetry: (
+      read: TelemetryRead,
+    ) => Promise<HistoryAnswer<TelemetryPoint> & { readonly resolution: TelemetryResolution }>;
   };
 
   readonly rpc: {

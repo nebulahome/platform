@@ -3,6 +3,27 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
+## 1.2.0
+
+- **The past of the house.** `ctx.history.states()` and `ctx.history.telemetry()` on the server
+  read the recorded changes and the numeric readings of up to 64 entities over a window, with the
+  house's authority as `ctx.entities` has; `useStateHistory()` and `useTelemetry()` in
+  `@nebulahome/package-sdk/ui` read them with the viewer's, for a chart, an activity list or a
+  replay. Each entity's points come oldest first; a window that holds more than a read returns
+  loses its oldest points and names the entity in `truncated`. A window is two moments, or in the
+  interface the last so many milliseconds, which moves with each read; telemetry is read raw, or
+  in buckets of a minute, an hour or a day, `auto` picking by the window's length.
+  `createTestContext({ history })` and `test.setHistory()` give a unit test a past.
+- **The areas.** `useAreas()` lists the house, its floors (with their storey) and its rooms, each
+  naming its parent by key - the key `EntityView.areaId` holds - and the house its position.
+- **What an entity can do.** `EntityView.capabilities` holds the capabilities an entity declares,
+  with the device's limits: a cover's tilt, a thermostat's range and modes, a select's options.
+- **Pictures.** `useEntityPicture()` gives a camera's latest still, fetched again every so often,
+  or an image entity's picture, as an address an `<img>` shows.
+- **The sun.** `@nebulahome/package-sdk/sun`: `sunPosition`, `sunTimes`, `sunState` and
+  `sunPhaseLabel`, the platform's own formulas, for a moment the sun entities did not report.
+- A package's id may start with a digit (`3d-home`); its entities' object ids then do too.
+
 ## 1.1.0
 
 - `useTranslation()` in `@nebulahome/package-sdk/ui`: a package's page, cards and entity views

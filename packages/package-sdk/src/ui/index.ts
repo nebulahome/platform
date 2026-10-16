@@ -11,14 +11,19 @@ import { createElement, type ReactElement } from 'react';
 import type { EntityTypeDefinition } from '../definitions/entity-type.js';
 import type { SettingsDefinition } from '../definitions/settings.js';
 import type { EntityId } from '../entities.js';
+import type { StateHistoryPoint } from '../history.js';
 import { hostMember, lentMember, UI_MODULE } from '../host.js';
 import type { JsonValue } from '../json.js';
 
 import { ENGLISH } from './english.js';
 import type {
+  AreaView,
   CustomEntityState,
   EntitiesFilter,
+  EntityPicture,
   EntityView,
+  History,
+  HistoryQuery,
   Locale,
   Mutation,
   MutationOptions,
@@ -28,11 +33,14 @@ import type {
   PackageNavigate,
   PackageRoute,
   PackageSettings,
+  PictureOptions,
   PlatformLinkProps,
   PlatformNavigate,
   RpcOptions,
   RpcState,
   SendCommand,
+  Telemetry,
+  TelemetryQuery,
   Theme,
   Translation,
   UiHost,
@@ -40,9 +48,15 @@ import type {
 } from './types.js';
 
 export type {
+  AreaKind,
+  AreaView,
   CustomEntityState,
   EntitiesFilter,
+  EntityPicture,
   EntityView,
+  History,
+  HistoryQuery,
+  HistoryWindow,
   Locale,
   Mutation,
   MutationOptions,
@@ -52,6 +66,7 @@ export type {
   PackageNavigate,
   PackageRoute,
   PackageSettings,
+  PictureOptions,
   PlatformLinkProps,
   PlatformNavigate,
   PlatformTarget,
@@ -60,6 +75,8 @@ export type {
   RpcState,
   SendCommand,
   SettingsPatch,
+  Telemetry,
+  TelemetryQuery,
   Theme,
   Translate,
   Translation,
@@ -69,6 +86,13 @@ export type {
   VisibleSettings,
 } from './types.js';
 export type { CardProps, EntityViewProps, PageProps } from '../props.js';
+export type {
+  ChangeCause,
+  HistorySeries,
+  StateHistoryPoint,
+  TelemetryPoint,
+  TelemetryResolution,
+} from '../history.js';
 
 /**
  * The interface's implementation of one member of `/ui`.
@@ -217,6 +241,51 @@ export function useTranslation(): Translation {
   const lent = lentMember(UI_MODULE, 'useTranslation');
 
   return lent === undefined ? ENGLISH : lent();
+}
+
+/**
+ * The recorded changes of some entities over a window, live as the window moves: what a chart of
+ * an on/off thing, an activity list or a replay of a day is drawn from. Read with the viewer's
+ * permissions: an entity they may not read has no points.
+ *
+ * @param query - Which entities (at most 64), which window, how often to read it again.
+ * @returns Each entity's changes, oldest first, and whether the read is still on its way.
+ */
+export function useStateHistory(query: HistoryQuery): History<StateHistoryPoint> {
+  return ui('useStateHistory', '1.2')(query);
+}
+
+/**
+ * The numeric readings of some entities over a window: what a sensor's chart is drawn from. A
+ * long window is read in buckets of a minute, an hour or a day, each with its lowest and highest.
+ *
+ * @param query - Which entities (at most 64), which window, which resolution (`auto` by default).
+ * @returns Each entity's readings, oldest first, and the resolution they were read at.
+ */
+export function useTelemetry(query: TelemetryQuery): Telemetry {
+  return ui('useTelemetry', '1.2')(query);
+}
+
+/**
+ * The areas of the house: the house itself (with its position, when set), its floors and its
+ * rooms, as the owner arranged them.
+ *
+ * @returns Them, in the owner's order.
+ */
+export function useAreas(): readonly AreaView[] {
+  return ui('useAreas', '1.2')();
+}
+
+/**
+ * A camera's latest still, fetched again every so often, or an image entity's picture, fetched
+ * again when it changes: an address an `<img>` shows, let go of when a newer one replaces it.
+ *
+ * @param entityId - A `camera.*` or an `image.*` entity.
+ * @param options - How often a still is fetched again, and whether at all.
+ * @returns The address, or null before there is one.
+ */
+export function useEntityPicture(entityId: EntityId, options?: PictureOptions): EntityPicture {
+  return ui('useEntityPicture', '1.2')(entityId, options);
 }
 
 /**

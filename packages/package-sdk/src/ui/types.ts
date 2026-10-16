@@ -9,6 +9,7 @@ import type {
   CapabilityCommands,
   CapabilityState,
   CommandableCapability,
+  DeclaredCapabilities,
 } from '../capabilities.js';
 import type {
   ArgsOf,
@@ -19,6 +20,12 @@ import type {
 import type { SettingsDefinition } from '../definitions/settings.js';
 import type { EntityDomain, EntityId } from '../entities.js';
 import type { FormValues, ValueOfField } from '../fields.js';
+import type {
+  HistorySeries,
+  StateHistoryPoint,
+  TelemetryPoint,
+  TelemetryResolution,
+} from '../history.js';
 import type { JsonObject, JsonValue } from '../json.js';
 
 /** The package drawn. */
@@ -35,7 +42,16 @@ export type EntityView = {
   readonly name: string;
   readonly icon: string | null;
   readonly deviceId: string | null;
+
+  /** Its area's key - the entity's own, else its device's - as {@link AreaView} `key` says it. */
   readonly areaId: string | null;
+
+  /**
+   * What it declares it can do, with the device's limits: a cover's tilt, a thermostat's range
+   * and modes, a select's options. Since 1.2.
+   */
+  readonly capabilities: DeclaredCapabilities;
+
   readonly state: CapabilityState;
   readonly attributes: JsonObject;
   readonly isAvailable: boolean;
@@ -43,6 +59,92 @@ export type EntityView = {
   readonly unitOfMeasurement: string | null;
   readonly deviceClass: string | null;
   readonly displayPrecision: number | null;
+};
+
+/** A window of the past: between two moments (ISO 8601), or the last so many milliseconds. */
+export type HistoryWindow =
+  { readonly from: string; readonly to: string } | { readonly lastMs: number };
+
+/** Which entities' past `useStateHistory` reads, over which window. Since 1.2. */
+export type HistoryQuery = {
+  /** At most 64. */
+  readonly entityIds: readonly EntityId[];
+  readonly window: HistoryWindow;
+
+  /** False holds the read back. */
+  readonly isEnabled?: boolean;
+
+  /** Reads it again every so often; a window of the last so many milliseconds moves with it. */
+  readonly refetchIntervalMs?: number;
+};
+
+/** Which entities' readings `useTelemetry` reads: `auto` picks the resolution by the window. */
+export type TelemetryQuery = HistoryQuery & {
+  readonly resolution?: TelemetryResolution | 'auto';
+};
+
+/** A read of the past, as it stands. */
+export type History<TPoint> = {
+  /** Each entity's points, oldest first; empty while it loads. */
+  readonly series: HistorySeries<TPoint>;
+
+  /** The window read, in milliseconds since the epoch; undefined before the first answer. */
+  readonly window: { readonly from: number; readonly to: number } | undefined;
+
+  /** The entities whose window held more than one read returns: their oldest points are gone. */
+  readonly truncated: readonly EntityId[];
+
+  readonly isLoading: boolean;
+  readonly error: Error | null;
+
+  /** Reads it again. */
+  readonly refetch: () => void;
+};
+
+/** A read of readings, and the resolution it was read at. */
+export type Telemetry = History<TelemetryPoint> & {
+  readonly resolution: TelemetryResolution;
+};
+
+/** What kind of place an area is. */
+export type AreaKind = 'house' | 'floor' | 'room';
+
+/** One area of the house: the house itself, a floor, a room. Since 1.2. */
+export type AreaView = {
+  /** What `EntityView.areaId` names it by. */
+  readonly key: string;
+  readonly name: string;
+  readonly kind: AreaKind;
+
+  /** The floor a room is on, the house a floor is in; null for the house. */
+  readonly parentKey: string | null;
+
+  readonly icon: string | null;
+  readonly sortOrder: number;
+
+  /** A floor's storey: 0 the ground floor, -1 the one below; null for the rest. */
+  readonly level: number | null;
+
+  /** The house's position, when the owner has set it; null for the rest. */
+  readonly latitude: number | null;
+  readonly longitude: number | null;
+};
+
+/** How a picture is fetched. */
+export type PictureOptions = {
+  /** A camera's still is fetched again this often; 15 seconds when not said, at least 2. */
+  readonly refreshMs?: number;
+
+  /** False holds it back. */
+  readonly isEnabled?: boolean;
+};
+
+/** A camera's latest still, or an image entity's picture, as an address an `<img>` shows. */
+export type EntityPicture = {
+  /** Null before there is one, or when the entity has none. */
+  readonly url: string | null;
+  readonly isLoading: boolean;
+  readonly error: Error | null;
 };
 
 /** Which entities `useEntities` reads. */
@@ -289,6 +391,19 @@ export type UiHost = {
 
   /** Since 1.1. */
   readonly useTranslation: () => Translation;
+
+  /** Since 1.2. */
+  readonly useStateHistory: (query: HistoryQuery) => History<StateHistoryPoint>;
+
+  /** Since 1.2. */
+  readonly useTelemetry: (query: TelemetryQuery) => Telemetry;
+
+  /** Since 1.2. */
+  readonly useAreas: () => readonly AreaView[];
+
+  /** Since 1.2. */
+  readonly useEntityPicture: (entityId: EntityId, options?: PictureOptions) => EntityPicture;
+
   readonly useTheme: () => Theme;
   readonly usePortalContainer: () => HTMLElement | null;
   readonly usePackageRoute: () => PackageRoute;

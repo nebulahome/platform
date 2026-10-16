@@ -1,4 +1,5 @@
 import { G as CapabilityState, V as CapabilityCommand, X as EntityStateClass, Y as DeclaredCapabilities, a as SettingsOf, ct as EntityDomain, d as EntityTypeDefinition, et as ReportedCapabilityState, f as ValuesOf, i as SettingsDefinition, lt as EntityId, r as JsonValue, s as ArgsOf, t as JsonObject, u as CommandsOf } from "./json.js";
+import { a as TelemetryResolution, i as TelemetryPoint, n as HistorySeries, r as StateHistoryPoint } from "./history.js";
 //#region src/schema.d.ts
 /**
  * What checks a value that crosses into a package - a method's input, a service's answer: any
@@ -162,6 +163,28 @@ type StateChange = {
 type EntityFilter = {
   readonly domain?: EntityDomain;
   readonly entityIds?: readonly EntityId[];
+};
+/** Which entities' past `ctx.history` reads, over which window. Since 1.2. */
+type HistoryRead = {
+  /** At most 64. */
+  readonly entityIds: readonly EntityId[];
+  /** Inclusive: a `Date` or ISO 8601. */
+  readonly from: Date | string;
+  /** Exclusive. */
+  readonly to: Date | string;
+  /** The most points of one entity, at most 10 000 (the default): the newest are kept. */
+  readonly limit?: number;
+};
+/** Which entities' readings `ctx.history.telemetry` reads: `auto` picks by the window's length. */
+type TelemetryRead = HistoryRead & {
+  readonly resolution?: TelemetryResolution | 'auto';
+};
+/** What a read of the past found. */
+type HistoryAnswer<TPoint> = {
+  /** Each entity's points, oldest first. */
+  readonly series: HistorySeries<TPoint>;
+  /** The entities whose window held more than the limit: their oldest points are gone. */
+  readonly truncated: readonly EntityId[];
 };
 /** Who may call a method: whoever may read packages, or whoever may configure them. */
 type RpcAccess = 'read' | 'configure';
@@ -354,6 +377,28 @@ type ServerContext<TSettings = undefined> = {
      */
     readonly subscribe: (filter: EntityFilter, handler: (change: StateChange) => Awaitable<void>) => Unsubscribe;
   };
+  /**
+   * The past of the house's entities, read only, with the house's authority as `entities` has.
+   * Since 1.2.
+   */
+  readonly history: {
+    /**
+     * The recorded changes of some entities over a window.
+     *
+     * @param read - Which entities, which window, how many points each at most.
+     * @returns Each entity's changes, oldest first.
+     */
+    readonly states: (read: HistoryRead) => Promise<HistoryAnswer<StateHistoryPoint>>;
+    /**
+     * The numeric readings of some entities over a window, raw or in buckets.
+     *
+     * @param read - Which entities, which window, which resolution.
+     * @returns Each entity's readings, oldest first, and the resolution read.
+     */
+    readonly telemetry: (read: TelemetryRead) => Promise<HistoryAnswer<TelemetryPoint> & {
+      readonly resolution: TelemetryResolution;
+    }>;
+  };
   readonly rpc: {
     /** Registers a method its interface calls; a name registered twice throws. */
     readonly method: RpcMethod;
@@ -366,4 +411,4 @@ type ServerContext<TSettings = undefined> = {
   };
 };
 //#endregion
-export { StandardSchemaV1 as A, StateChange as C, Schema as D, SafeParser as E, SchemaIssue as O, SettingsChange as S, Unsubscribe as T, ServerContext as _, CustomEntityInput as a, ServiceCallFunction as b, EntityInput as c, Logger as d, ReportOptions as f, RpcMethod as g, RpcCaller as h, CustomEntities as i, StandardResult as k, EntitySnapshot as l, RpcCall as m, CapabilityEntityInput as n, DeviceInput as o, RpcAccess as p, CustomCommand as r, EntityFilter as s, Awaitable as t, LogMethod as u, ServerSettings as v, SyncResult as w, ServiceProvide as x, ServiceCall as y };
+export { Schema as A, ServiceProvide as C, TelemetryRead as D, SyncResult as E, StandardResult as M, StandardSchemaV1 as N, Unsubscribe as O, ServiceCallFunction as S, StateChange as T, RpcCaller as _, CustomEntityInput as a, ServerSettings as b, EntityInput as c, HistoryRead as d, LogMethod as f, RpcCall as g, RpcAccess as h, CustomEntities as i, SchemaIssue as j, SafeParser as k, EntitySnapshot as l, ReportOptions as m, CapabilityEntityInput as n, DeviceInput as o, Logger as p, CustomCommand as r, EntityFilter as s, Awaitable as t, HistoryAnswer as u, RpcMethod as v, SettingsChange as w, ServiceCall as x, ServerContext as y };

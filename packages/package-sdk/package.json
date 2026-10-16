@@ -1,6 +1,6 @@
 {
   "name": "@nebulahome/package-sdk",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Write a NebulaHome package: declare it, build it, and run it on the platform.",
   "license": "MIT",
   "type": "module",
@@ -31,6 +31,10 @@
     "./ui": {
       "types": "./dist/ui.d.ts",
       "default": "./dist/ui.js"
+    },
+    "./sun": {
+      "types": "./dist/sun.d.ts",
+      "default": "./dist/sun.js"
     },
     "./components": {
       "types": "./dist/components.d.ts",

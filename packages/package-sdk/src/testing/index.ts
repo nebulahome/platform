@@ -15,6 +15,7 @@ import type {
 } from '../definitions/entity-type.js';
 import type { SettingsDefinition } from '../definitions/settings.js';
 import type { EntityDomain, EntityId } from '../entities.js';
+import type { StateHistoryPoint, TelemetryPoint, TelemetryResolution } from '../history.js';
 import type { JsonObject, JsonValue } from '../json.js';
 import type { Schema } from '../schema.js';
 import type {
@@ -24,6 +25,8 @@ import type {
   DeviceInput,
   EntityFilter,
   EntitySnapshot,
+  HistoryAnswer,
+  HistoryRead,
   Logger,
   ReportOptions,
   RpcAccess,
@@ -58,8 +61,17 @@ export type TestContextOptions<TSettings extends SettingsDefinition | undefined>
   /** Entities of the house `ctx.entities` reads. */
   readonly entities?: readonly EntitySnapshot[];
 
+  /** The past `ctx.history` reads, by entity: points in any order. */
+  readonly history?: Readonly<Record<string, RecordedHistory>>;
+
   readonly dataDir?: string;
   readonly cacheDir?: string;
+};
+
+/** One entity's past, as a test gives it. */
+export type RecordedHistory = {
+  readonly states?: readonly StateHistoryPoint[];
+  readonly telemetry?: readonly TelemetryPoint[];
 };
 
 /** One report the package made. */
@@ -162,6 +174,14 @@ export type TestContext<TSettings extends SettingsDefinition | undefined> = {
   readonly emitStateChange: (change: StateChange) => Promise<void>;
 
   /**
+   * Gives an entity a past, where `ctx.history` reads it.
+   *
+   * @param entityId - The entity.
+   * @param history - Its changes and readings, in any order.
+   */
+  readonly setHistory: (entityId: EntityId, history: RecordedHistory) => void;
+
+  /**
    * Answers a service the package calls.
    *
    * @param target - The package or service called.
@@ -177,6 +197,78 @@ export type TestContext<TSettings extends SettingsDefinition | undefined> = {
   /** Asks the package to stop: aborts `ctx.signal`. */
   readonly stop: () => void;
 };
+
+/** The most entities and points one read of the past takes, as the platform has it. */
+const HISTORY_MAX_ENTITIES = 64;
+const HISTORY_MAX_POINTS = 10_000;
+
+/** An hour and a day, in milliseconds. */
+const HOUR_MS = 3_600_000;
+const DAY_MS = 24 * HOUR_MS;
+
+/**
+ * The resolution the platform reads a window at when a read leaves it to it.
+ *
+ * @param spanMs - How long the window is.
+ * @returns Raw up to an hour, minutes up to 30 hours, hours up to 80 days, days beyond.
+ */
+function resolutionFor(spanMs: number): TelemetryResolution {
+  if (spanMs <= HOUR_MS) {
+    return 'raw';
+  }
+
+  if (spanMs <= 30 * HOUR_MS) {
+    return '1m';
+  }
+
+  return spanMs <= 80 * DAY_MS ? '1h' : '1d';
+}
+
+/**
+ * Reads a window of points as the platform does: checked, oldest first, the newest kept.
+ *
+ * @param read - Which entities, which window, how many points each.
+ * @param pointsOf - An entity's points, in any order.
+ * @returns Each entity's points in the window, and which lost their oldest.
+ * @throws {Error} When the read names no entity or too many, or its window is backwards.
+ */
+function readWindow<TPoint extends { readonly time: string }>(
+  read: HistoryRead,
+  pointsOf: (entityId: EntityId) => readonly TPoint[],
+): HistoryAnswer<TPoint> {
+  const from = new Date(read.from).getTime();
+  const to = new Date(read.to).getTime();
+  const limit = read.limit ?? HISTORY_MAX_POINTS;
+
+  if (read.entityIds.length === 0 || read.entityIds.length > HISTORY_MAX_ENTITIES) {
+    throw new Error(`A read of the past names 1 to ${String(HISTORY_MAX_ENTITIES)} entities`);
+  }
+
+  if (!(from < to)) {
+    throw new Error('The window starts at or after it ends');
+  }
+
+  const series: Record<EntityId, readonly TPoint[]> = {};
+  const truncated: EntityId[] = [];
+
+  for (const entityId of read.entityIds) {
+    const inWindow = pointsOf(entityId)
+      .filter((point) => {
+        const time = new Date(point.time).getTime();
+
+        return time >= from && time < to;
+      })
+      .toSorted((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+
+    series[entityId] = inWindow.slice(Math.max(0, inWindow.length - limit));
+
+    if (inWindow.length > limit) {
+      truncated.push(entityId);
+    }
+  }
+
+  return { series, truncated };
+}
 
 /** Service names the platform keeps for itself. */
 const RESERVED_SERVICES = new Set(['command', 'rpc', 'settings', 'health', 'events', 'info']);
@@ -247,6 +339,7 @@ export function createTestContext<TSettings extends SettingsDefinition | undefin
   const reports: RecordedReport[] = [];
   const logs: RecordedLog[] = [];
   const entities = new Map((options.entities ?? []).map((each) => [each.entityId, each]));
+  const histories = new Map<string, RecordedHistory>(Object.entries(options.history ?? {}));
   const methods = new Map<
     string,
     {
@@ -744,6 +837,34 @@ export function createTestContext<TSettings extends SettingsDefinition | undefin
         };
       },
     },
+    history: {
+      /**
+       * The changes of some entities in a window.
+       *
+       * @param read - Which, when, how many.
+       * @returns Them, oldest first.
+       */
+      states: async (read) =>
+        Promise.resolve(readWindow(read, (entityId) => histories.get(entityId)?.states ?? [])),
+      /**
+       * The readings of some entities in a window, as given: a test gives the buckets it wants.
+       *
+       * @param read - Which, when, how many, at which resolution.
+       * @returns Them, oldest first, and the resolution.
+       */
+      telemetry: async (read) => {
+        const span = new Date(read.to).getTime() - new Date(read.from).getTime();
+        const resolution =
+          read.resolution === undefined || read.resolution === 'auto'
+            ? resolutionFor(span)
+            : read.resolution;
+
+        return Promise.resolve({
+          ...readWindow(read, (entityId) => histories.get(entityId)?.telemetry ?? []),
+          resolution,
+        });
+      },
+    },
     rpc: { method: rpcMethod },
     services: { provide, call: callService },
   };
@@ -892,6 +1013,15 @@ export function createTestContext<TSettings extends SettingsDefinition | undefin
      */
     setEntity: (snapshot) => {
       entities.set(snapshot.entityId, snapshot);
+    },
+    /**
+     * Gives an entity a past.
+     *
+     * @param entityId - The entity.
+     * @param history - Its changes and readings.
+     */
+    setHistory: (entityId, history) => {
+      histories.set(entityId, history);
     },
     /**
      * Changes an entity of the house.

@@ -20,6 +20,8 @@ export type {
   EntityFilter,
   EntityInput,
   EntitySnapshot,
+  HistoryAnswer,
+  HistoryRead,
   LogMethod,
   Logger,
   ReportOptions,
@@ -35,8 +37,16 @@ export type {
   SettingsChange,
   StateChange,
   SyncResult,
+  TelemetryRead,
   Unsubscribe,
 } from './context.js';
+export type {
+  ChangeCause,
+  HistorySeries,
+  StateHistoryPoint,
+  TelemetryPoint,
+  TelemetryResolution,
+} from '../history.js';
 export type {
   SafeParser,
   Schema,

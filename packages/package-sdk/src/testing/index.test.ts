@@ -146,3 +146,75 @@ describe('a test context', () => {
     expect(changes).toEqual(['sensor.kitchen_temperature']);
   });
 });
+
+describe('the past of the house', () => {
+  const point = (time: string, isOn: boolean) => ({
+    time,
+    state: { on_off: { isOn } },
+    previousState: { on_off: { isOn: !isOn } },
+    attributes: {},
+    isAvailable: true,
+    source: 'shelly',
+  });
+
+  it('reads the window oldest first, keeping the newest when there are too many', async () => {
+    const test = createTestContext({
+      history: {
+        'light.hall': {
+          states: [
+            point('2026-10-02T09:00:00Z', false),
+            point('2026-10-02T07:00:00Z', true),
+            point('2026-10-01T23:00:00Z', false),
+            point('2026-10-02T08:00:00Z', true),
+          ],
+        },
+      },
+    });
+    const window = { from: '2026-10-02T00:00:00Z', to: '2026-10-03T00:00:00Z' };
+
+    const all = await test.ctx.history.states({
+      entityIds: ['light.hall', 'light.none'],
+      ...window,
+    });
+    const two = await test.ctx.history.states({ entityIds: ['light.hall'], ...window, limit: 2 });
+
+    expect(all.series['light.hall']?.map((each) => each.time)).toEqual([
+      '2026-10-02T07:00:00Z',
+      '2026-10-02T08:00:00Z',
+      '2026-10-02T09:00:00Z',
+    ]);
+    expect(all.series['light.none']).toEqual([]);
+    expect(all.truncated).toEqual([]);
+    expect(two.series['light.hall']?.map((each) => each.time)).toEqual([
+      '2026-10-02T08:00:00Z',
+      '2026-10-02T09:00:00Z',
+    ]);
+    expect(two.truncated).toEqual(['light.hall']);
+  });
+
+  it('picks the resolution by the window, and refuses a window backwards', async () => {
+    const test = createTestContext();
+
+    test.setHistory('sensor.kitchen_temperature', {
+      telemetry: [{ time: '2026-10-02T08:00:00Z', value: 21.5 }],
+    });
+
+    const day = await test.ctx.history.telemetry({
+      entityIds: ['sensor.kitchen_temperature'],
+      from: new Date('2026-10-02T00:00:00Z'),
+      to: new Date('2026-10-03T00:00:00Z'),
+    });
+
+    expect(day.resolution).toBe('1m');
+    expect(day.series['sensor.kitchen_temperature']).toEqual([
+      { time: '2026-10-02T08:00:00Z', value: 21.5 },
+    ]);
+    await expect(
+      test.ctx.history.states({
+        entityIds: ['light.hall'],
+        from: '2026-10-03T00:00:00Z',
+        to: '2026-10-02T00:00:00Z',
+      }),
+    ).rejects.toThrow('The window starts at or after it ends');
+  });
+});
