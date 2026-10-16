@@ -38,6 +38,7 @@ import type {
 import type {
   CustomEntityState,
   EntitiesFilter,
+  EntityPicture,
   EntityView,
   Locale,
   Mutation,
@@ -48,6 +49,7 @@ import type {
   PackageNavigate,
   PackageRoute,
   PackageSettings,
+  PictureOptions,
   PlatformLinkProps,
   PlatformNavigate,
   PluralEnglish,
@@ -67,6 +69,9 @@ import { useLive, type LiveReading } from '@/live/live-store';
 import { callPackage, configurePackage, fetchPackage, PACKAGE_QUERY_KEYS } from '@/packages/api';
 import { packageNamespace } from '@/packages/loader';
 import { packageAppPath, packagePathOf, platformPath } from '@/packages/package-paths';
+import { useAreas } from '@/packages/sdk-areas';
+import { useStateHistory, useTelemetry } from '@/packages/sdk-history';
+import { usePictureOf } from '@/packages/sdk-pictures';
 import { usePreferences } from '@/settings/preferences';
 
 /** Whose component is being drawn. */
@@ -159,6 +164,9 @@ function viewOf(entity: ApiEntityView, reading: LiveReading | undefined): Entity
     icon: entity.icon,
     deviceId: entity.deviceId,
     areaId: entity.areaKey,
+    capabilities: Object.fromEntries(
+      entity.capabilities.map((declared) => [declared.capability, declared.params]),
+    ),
     state: reading?.state ?? entity.state ?? {},
     attributes: reading?.attributes ?? entity.attributes,
     isAvailable: reading?.isAvailable ?? entity.isAvailable,
@@ -193,6 +201,19 @@ function useLiveEntities(): readonly { readonly view: EntityView; readonly sourc
     view: viewOf(entity, readings[entity.entityId]),
     source: entity.source,
   }));
+}
+
+/**
+ * A camera's still or an image entity's picture, fetched again when an image's revision changes.
+ *
+ * @param entityId - The entity.
+ * @param options - How often a still is fetched again, and whether at all.
+ * @returns The picture's address, once fetched.
+ */
+function useEntityPicture(entityId: string, options?: PictureOptions): EntityPicture {
+  const revision = useEntity(entityId)?.state.image?.revision ?? null;
+
+  return usePictureOf(entityId, revision, options);
 }
 
 /**
@@ -719,4 +740,8 @@ export const UI_HOST = {
   usePlatformNavigate,
   PackageLink,
   PlatformLink,
+  useStateHistory,
+  useTelemetry,
+  useAreas,
+  useEntityPicture,
 } satisfies UiHost;

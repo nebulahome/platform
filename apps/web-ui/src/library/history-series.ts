@@ -17,6 +17,7 @@ import {
   type CapabilityState,
   type EntityView,
   type JsonObject,
+  telemetryResolutionForSpan,
   type StateHistoryPoint,
   type TelemetryResolution,
 } from '@nebulahome/contracts';
@@ -105,17 +106,7 @@ export function windowOfChoice(choice: HistoryChoice, now: number): TimeWindow {
  * months, days beyond.
  */
 export function telemetryResolutionFor(window: TimeWindow): TelemetryResolution {
-  const span = window.to - window.from;
-
-  if (span <= HOUR_MS) {
-    return 'raw';
-  }
-
-  if (span <= 30 * HOUR_MS) {
-    return '1m';
-  }
-
-  return span <= 80 * DAY_MS ? '1h' : '1d';
+  return telemetryResolutionForSpan(window.to - window.from);
 }
 
 /**
