@@ -9,7 +9,7 @@
  * interface speaks by then. For the second, `translate` is `t` without a hook.
  *
  * Both read the current language from the instance, which is safe because a change of language
- * draws the whole interface again (`LanguageBoundary` in `language.ts`).
+ * draws the whole interface again (`routes/session-routes.tsx` keys its routes by the language).
  */
 import type { TOptions } from 'i18next';
 
