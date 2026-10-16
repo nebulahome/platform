@@ -36,7 +36,7 @@ const CACHED_LOGOS_LIMIT = 64;
 const ASSET_URL = /\/v1\/assets\/([0-9a-f]{64})$/u;
 
 /** An id as the Hub's paths take it: a package's or a vendor's. */
-const SLUG = /^[a-z][a-z0-9-]{1,63}$/u;
+const SLUG = /^[a-z0-9][a-z0-9-]{1,63}$/u;
 
 /** One item of a Hub list, as far as it is read (the Hub's contracts `itemSummarySchema`). */
 const hubItemSchema = z.looseObject({
