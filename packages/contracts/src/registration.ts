@@ -55,6 +55,15 @@ export const CORE_SYNC_CONTAINERS_METHOD = 'sync_containers';
 export const CORE_SYNC_PACKAGE_METHOD = 'sync_package';
 
 /**
+ * Reads the recorded changes of some entities over a window, whole and oldest first. Asked by a
+ * package's process, through the package SDK (`ctx.history.states`; history-reads.ts).
+ */
+export const CORE_HISTORY_STATES_METHOD = 'history_states';
+
+/** Reads the numeric readings of some entities over a window (`ctx.history.telemetry`). */
+export const CORE_HISTORY_TELEMETRY_METHOD = 'history_telemetry';
+
+/**
  * How history should aggregate a numeric entity.
  *
  * `total_increasing` is the one that matters: energy consumed over a day is last minus first,
