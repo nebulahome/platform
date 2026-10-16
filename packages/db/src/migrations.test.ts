@@ -164,7 +164,7 @@ describe('integration ownership', () => {
     // A CHECK cannot see another table and RULES.md 13 permits no trigger beyond the
     // `updated_at` touch, so the collision is refused by whoever writes the row. One shared
     // shape is what lets that check be a plain lookup rather than a normalisation.
-    const shape = "CHECK (id ~ '^[a-z][a-z0-9-]{1,63}" + "$')";
+    const shape = "CHECK (id ~ '^[a-z0-9][a-z0-9-]{1,63}" + "$')";
 
     expect(initialSql).toContain('CONSTRAINT packages_id_format ' + shape);
     expect(initialSql).toContain('CONSTRAINT integrations_id_format ' + shape);

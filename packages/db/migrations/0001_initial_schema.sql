@@ -286,7 +286,7 @@ CREATE TABLE system.packages (
   updated_at       timestamptz NOT NULL DEFAULT now(),
   installed_by     uuid        REFERENCES auth.users (id) ON DELETE SET NULL,
 
-  CONSTRAINT packages_id_format CHECK (id ~ '^[a-z][a-z0-9-]{1,63}$'),
+  CONSTRAINT packages_id_format CHECK (id ~ '^[a-z0-9][a-z0-9-]{1,63}$'),
   CONSTRAINT packages_runtime CHECK (runtime IN ('node', 'container', 'none')),
   CONSTRAINT packages_state CHECK (state IN (
     'installed', 'starting', 'running', 'stopped', 'failed', 'disabled', 'waiting-dependency'
@@ -417,7 +417,7 @@ CREATE TABLE registry.integrations (
   created_at       timestamptz NOT NULL DEFAULT now(),
   updated_at       timestamptz NOT NULL DEFAULT now(),
 
-  CONSTRAINT integrations_id_format CHECK (id ~ '^[a-z][a-z0-9-]{1,63}$'),
+  CONSTRAINT integrations_id_format CHECK (id ~ '^[a-z0-9][a-z0-9-]{1,63}$'),
   CONSTRAINT integrations_state CHECK (state IN (
     'stopped', 'starting', 'identifying', 'running', 'failed', 'disabled'
   ))
@@ -609,7 +609,7 @@ CREATE TABLE registry.entities (
   updated_at          timestamptz NOT NULL DEFAULT now(),
 
   CONSTRAINT entities_entity_id_format
-    CHECK (entity_id ~ '^[a-z][a-z0-9_]{0,31}\.[a-z][a-z0-9_]{0,63}$'),
+    CHECK (entity_id ~ '^[a-z][a-z0-9_]{0,31}\.[a-z0-9][a-z0-9_]{0,63}$'),
   CONSTRAINT entities_source CHECK (source IN ('adapter', 'derived', 'system', 'container')),
   CONSTRAINT entities_state_class
     CHECK (state_class IS NULL
