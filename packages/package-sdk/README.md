@@ -113,9 +113,8 @@ t('forecast.days', { one: '{{count}} day', other: '{{count}} days' }, { count: d
 ```
 
 A string a catalogue lacks is said in English, and `nebulahome-package build` lists them. What
-`nebula.config.ts` declares - the package's name, its cards' and settings' names, its entity types
-
-- stays English: the platform shows it the same way to everyone.
+`nebula.config.ts` declares (the package's name, its cards' and settings' names, its entity types)
+stays English: the platform shows it the same way to everyone.
 
 ## Entry points
 
