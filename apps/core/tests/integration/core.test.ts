@@ -18,10 +18,14 @@ import { z } from 'zod';
 import { BusClient, connectBus, ulid, type BusConnection } from '@nebulahome/bus';
 import {
   busSubjects,
+  CORE_HISTORY_STATES_METHOD,
+  CORE_HISTORY_TELEMETRY_METHOD,
   CORE_SERVICE,
   CORE_SYSTEM_MONITOR_METHOD,
   DeviceUnavailableError,
   entityStateSchema,
+  historyStatesReplySchema,
+  historyTelemetryReplySchema,
   parseEntityId,
   stateSnapshotReplySchema,
   SUN_ENTITY_IDS,
@@ -250,6 +254,55 @@ describe('core end to end', () => {
     );
 
     expect(rows.length).toBeGreaterThan(0);
+  });
+
+  it("answers a package's read of the changes in a window, oldest first", async () => {
+    const from = new Date(Date.now() - 3_600_000);
+    const unknown = parseEntityId('light.never_recorded');
+
+    adapter.report(bulb, { level: { level: 41 } });
+    await eventually(() => service.registry.get(bulb)?.state.level?.level === 41);
+    adapter.report(bulb, { level: { level: 42 } });
+
+    // The writer flushes on its own timer: read until the last change is there.
+    const [reply] = await untilRows(async () => {
+      const answer = await caller.request(
+        busSubjects.service(CORE_SERVICE, CORE_HISTORY_STATES_METHOD),
+        { entityIds: [bulb, unknown], from, to: new Date(Date.now() + 60_000) },
+        historyStatesReplySchema,
+      );
+
+      return JSON.stringify(answer.series[bulb]).includes('"level":42') ? [answer] : [];
+    });
+
+    const times = (reply?.series[bulb] ?? []).map((point) => point.time.getTime());
+
+    expect(times.length).toBeGreaterThanOrEqual(2);
+    expect(times).toStrictEqual([...times].sort((a, b) => a - b));
+    expect(reply?.series[bulb]?.at(-1)?.state).toMatchObject({ level: { level: 42 } });
+    expect(reply?.series[unknown]).toStrictEqual([]);
+    expect(reply?.truncated).toStrictEqual([]);
+  });
+
+  it("answers a package's read of the readings in a window", async () => {
+    const from = new Date(Date.now() - 3_600_000);
+
+    adapter.report(thermometer, { sensor_numeric: { value: 22.25 } });
+
+    const [reply] = await untilRows(async () => {
+      const answer = await caller.request(
+        busSubjects.service(CORE_SERVICE, CORE_HISTORY_TELEMETRY_METHOD),
+        { entityIds: [thermometer], from, to: new Date(Date.now() + 60_000), resolution: 'raw' },
+        historyTelemetryReplySchema,
+      );
+
+      return answer.series[thermometer]?.some((point) => point.value === 22.25) === true
+        ? [answer]
+        : [];
+    });
+
+    expect(reply?.resolution).toBe('raw');
+    expect(reply?.series[thermometer]?.at(-1)?.value).toBe(22.25);
   });
 
   it('does not emit anything when a sensor repeats itself', async () => {

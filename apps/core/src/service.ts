@@ -49,6 +49,7 @@ import { startAutomationService } from './services/automation-service.js';
 import { createCommandDispatcher } from './services/command-dispatch.js';
 import { startCommandRouter } from './services/command-router.js';
 import { startContainersService } from './services/containers.js';
+import { startHistoryService } from './services/history-service.js';
 import { loadPackageTypes, startPackagesService } from './services/packages.js';
 import { startRegistrationService } from './services/registration.js';
 import { requestResync } from './services/resync.js';
@@ -303,6 +304,7 @@ export class CoreService {
     this.#subscriptions = [
       startStateIngest(ingest),
       startSnapshotService({ client, registry: this.#registry }),
+      ...startHistoryService({ client, db, directory: this.#directory }),
       startEntityReadService({ client, registry: this.#registry }),
       startCommandRouter({
         client,
