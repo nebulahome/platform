@@ -10,8 +10,12 @@ import { FakeTransport } from '@nebulahome/bus/testing';
 import {
   adapterAckSchema,
   busSubjects,
+  CORE_HISTORY_STATES_METHOD,
+  CORE_HISTORY_TELEMETRY_METHOD,
   CORE_SERVICE,
   CORE_SYNC_PACKAGE_METHOD,
+  historyStatesRequestSchema,
+  historyTelemetryRequestSchema,
   PACKAGE_RPC_METHOD,
   PACKAGE_SETTINGS_METHOD,
   packageRpcReplySchema,
@@ -396,5 +400,90 @@ describe("a package's context", () => {
     await vi.waitFor(() => {
       expect(changes).toEqual([kitchen]);
     });
+  });
+
+  it('reads the past through core, and refuses a read core would refuse', async () => {
+    const { handle: made, platform } = setUp();
+    const door = parseEntityId('binary_sensor.front_door');
+    const heard: unknown[] = [];
+
+    platform.serve(
+      busSubjects.service(CORE_SERVICE, CORE_HISTORY_STATES_METHOD),
+      historyStatesRequestSchema,
+      (request) => {
+        heard.push(request);
+
+        return {
+          series: {
+            [door]: [
+              {
+                time: new Date('2026-10-02T07:00:00Z'),
+                entityId: door,
+                state: { sensor_binary: { isOn: true } },
+                previousState: null,
+                attributes: {},
+                isAvailable: true,
+                source: 'shelly',
+                context: { type: 'device' },
+              },
+            ],
+          },
+          truncated: [],
+        };
+      },
+    );
+    platform.serve(
+      busSubjects.service(CORE_SERVICE, CORE_HISTORY_TELEMETRY_METHOD),
+      historyTelemetryRequestSchema,
+      (request) => ({
+        series: {
+          'sensor.hall_temperature': [{ time: request.from, value: 21, min: 20, max: 22 }],
+        },
+        truncated: [],
+        resolution: request.resolution,
+      }),
+    );
+
+    const states = await made.context.history.states({
+      entityIds: [door],
+      from: new Date('2026-10-02T00:00:00Z'),
+      to: '2026-10-03T00:00:00Z',
+    });
+    const readings = await made.context.history.telemetry({
+      entityIds: ['sensor.hall_temperature'],
+      from: '2026-10-02T00:00:00Z',
+      to: '2026-10-03T00:00:00Z',
+    });
+
+    expect(heard).toEqual([
+      {
+        entityIds: [door],
+        from: new Date('2026-10-02T00:00:00Z'),
+        to: new Date('2026-10-03T00:00:00Z'),
+        limit: 10_000,
+      },
+    ]);
+    expect(states.series[door]).toEqual([
+      {
+        time: '2026-10-02T07:00:00.000Z',
+        state: { sensor_binary: { isOn: true } },
+        previousState: null,
+        attributes: {},
+        isAvailable: true,
+        source: 'shelly',
+        cause: { type: 'device' },
+      },
+    ]);
+    expect(readings.resolution).toBe('1m');
+    expect(readings.series['sensor.hall_temperature']).toEqual([
+      { time: '2026-10-02T00:00:00.000Z', value: 21, min: 20, max: 22 },
+    ]);
+    await expect(
+      made.context.history.states({
+        entityIds: [door],
+        from: '2026-10-03T00:00:00Z',
+        to: '2026-10-02T00:00:00Z',
+      }),
+    ).rejects.toThrow('A read of the past is refused: The window starts at or after it ends');
   });
 });

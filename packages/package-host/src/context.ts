@@ -19,10 +19,16 @@ import {
   adapterCommandSchema,
   BUS_PATTERNS,
   busSubjects,
+  CORE_HISTORY_STATES_METHOD,
+  CORE_HISTORY_TELEMETRY_METHOD,
   CORE_SERVICE,
   CORE_SYNC_PACKAGE_METHOD,
   DeviceUnavailableError,
   entityStateSchema,
+  historyStatesReplySchema,
+  historyStatesRequestSchema,
+  historyTelemetryReplySchema,
+  historyTelemetryRequestSchema,
   isPackageServiceAllowed,
   jsonValueSchema,
   NotFoundError,
@@ -36,9 +42,12 @@ import {
   stateGetRequestSchema,
   stateSnapshotReplySchema,
   syncPackageReplySchema,
+  telemetryResolutionForSpan,
   ValidationError,
   type AdapterAck,
   type EntityState,
+  type StateHistoryPoint as PlatformStatePoint,
+  type TelemetryPoint as PlatformTelemetryPoint,
   type PackageRpcCaller,
   type PackageRpcMethod,
   type PackageRpcReply,
@@ -60,6 +69,7 @@ import type {
   DeviceInput,
   EntityFilter,
   EntitySnapshot,
+  HistoryRead,
   RpcAccess,
   RpcCall,
   Schema,
@@ -67,6 +77,8 @@ import type {
   ServiceCall,
   SettingsChange,
   StateChange,
+  StateHistoryPoint,
+  TelemetryPoint,
 } from '@nebulahome/package-sdk/server';
 
 import { convertedState, measuredOf, type Measured } from './measurements.js';
@@ -193,6 +205,104 @@ function snapshotOf(state: EntityState): EntitySnapshot {
     lastChanged: state.lastChanged.toISOString(),
     lastUpdated: state.lastUpdated.toISOString(),
   };
+}
+
+/** How long a read of the past may take before it fails. */
+const HISTORY_TIMEOUT_MS = 10_000;
+
+/**
+ * A recorded state, as the SDK hands it: the platform's, without the capabilities it lacks.
+ *
+ * @param state - As history stored it.
+ * @returns The state.
+ */
+function recordedStateOf(state: JsonObject): CapabilityState {
+  /**
+   * Says whether a recorded state is the SDK's: the platform's, field for field.
+   *
+   * @param value - The state.
+   * @returns True for a record.
+   */
+  const isState = (value: unknown): value is CapabilityState => isRecord(value);
+
+  return isState(state) ? state : {};
+}
+
+/**
+ * A change of state, as the SDK hands it to a package.
+ *
+ * @param point - As `core` answered it.
+ * @returns The point.
+ */
+function statePointOf(point: PlatformStatePoint): StateHistoryPoint {
+  return {
+    time: point.time.toISOString(),
+    state: recordedStateOf(point.state),
+    previousState: point.previousState === null ? null : recordedStateOf(point.previousState),
+    attributes: point.attributes,
+    isAvailable: point.isAvailable,
+    source: point.source,
+    ...(point.context === undefined
+      ? {}
+      : {
+          cause: {
+            type: point.context.type,
+            ...(point.context.id === undefined ? {} : { id: point.context.id }),
+          },
+        }),
+  };
+}
+
+/**
+ * A reading, as the SDK hands it to a package.
+ *
+ * @param point - As `core` answered it.
+ * @returns The point.
+ */
+function telemetryPointOf(point: PlatformTelemetryPoint): TelemetryPoint {
+  return {
+    time: point.time.toISOString(),
+    value: point.value,
+    ...(point.min === undefined ? {} : { min: point.min }),
+    ...(point.max === undefined ? {} : { max: point.max }),
+    ...(point.count === undefined ? {} : { count: point.count }),
+  };
+}
+
+/**
+ * The request a read of the past makes of `core`, checked here so a package hears what is wrong
+ * with it in its own words, not as a bus refusal.
+ *
+ * @param read - What the package asked for.
+ * @param extra - The resolution, for telemetry.
+ * @returns The request.
+ * @throws {ValidationError} When it names no entity or too many, or its window is backwards.
+ */
+function historyRequestOf(read: HistoryRead, extra: Readonly<Record<string, unknown>> = {}) {
+  return {
+    entityIds: [...read.entityIds],
+    from: new Date(read.from).toISOString(),
+    to: new Date(read.to).toISOString(),
+    ...(read.limit === undefined ? {} : { limit: read.limit }),
+    ...extra,
+  };
+}
+
+/**
+ * Checks a request against its schema, naming the first problem.
+ *
+ * @param schema - The request's schema.
+ * @param request - The request.
+ * @throws {ValidationError} When it does not hold.
+ */
+function checkHistoryRequest(schema: z.ZodType, request: unknown): void {
+  const result = schema.safeParse(request);
+
+  if (!result.success) {
+    throw new ValidationError(
+      `A read of the past is refused: ${result.error.issues[0]?.message ?? 'it is malformed'}`,
+    );
+  }
 }
 
 /**
@@ -882,6 +992,72 @@ export function createPackageContext(options: PackageContextOptions): PackageCon
           for (const subscription of placed) {
             subscription.unsubscribe();
           }
+        };
+      },
+    },
+
+    history: {
+      /**
+       * The changes of some entities in a window, read through `core`.
+       *
+       * @param read - Which entities, which window, how many points each.
+       * @returns Each entity's changes, oldest first.
+       */
+      states: async (read) => {
+        const request = historyRequestOf(read);
+
+        checkHistoryRequest(historyStatesRequestSchema, request);
+
+        const reply = await client.request(
+          busSubjects.service(CORE_SERVICE, CORE_HISTORY_STATES_METHOD),
+          request,
+          historyStatesReplySchema,
+          { timeoutMs: HISTORY_TIMEOUT_MS },
+        );
+
+        return {
+          series: Object.fromEntries(
+            Object.entries(reply.series).map(([entityId, points]) => [
+              entityId,
+              points.map((point) => statePointOf(point)),
+            ]),
+          ),
+          truncated: reply.truncated,
+        };
+      },
+
+      /**
+       * The readings of some entities in a window, read through `core`.
+       *
+       * @param read - Which entities, which window, which resolution.
+       * @returns Each entity's readings, oldest first, and the resolution read.
+       */
+      telemetry: async (read) => {
+        const span = new Date(read.to).getTime() - new Date(read.from).getTime();
+        const resolution =
+          read.resolution === undefined || read.resolution === 'auto'
+            ? telemetryResolutionForSpan(span)
+            : read.resolution;
+        const request = historyRequestOf(read, { resolution });
+
+        checkHistoryRequest(historyTelemetryRequestSchema, request);
+
+        const reply = await client.request(
+          busSubjects.service(CORE_SERVICE, CORE_HISTORY_TELEMETRY_METHOD),
+          request,
+          historyTelemetryReplySchema,
+          { timeoutMs: HISTORY_TIMEOUT_MS },
+        );
+
+        return {
+          series: Object.fromEntries(
+            Object.entries(reply.series).map(([entityId, points]) => [
+              entityId,
+              points.map((point) => telemetryPointOf(point)),
+            ]),
+          ),
+          truncated: reply.truncated,
+          resolution: reply.resolution,
         };
       },
     },
