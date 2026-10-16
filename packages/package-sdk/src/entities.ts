@@ -39,7 +39,7 @@ export type ParsedEntityId = {
 };
 
 /** The shape of an entity identifier: a domain, a dot, an object id. */
-const ENTITY_ID_PATTERN = /^([a-z][a-z0-9_]{0,31})\.([a-z][a-z0-9_]{0,63})$/;
+const ENTITY_ID_PATTERN = /^([a-z][a-z0-9_]{0,31})\.([a-z0-9][a-z0-9_]{0,63})$/;
 
 /**
  * Says whether a word is one of the platform's domains.

@@ -18,6 +18,10 @@ describe('entity identifiers', () => {
       domain: 'custom',
       objectId: 'music_player_queue',
     });
+    expect(parseEntityId('sensor.3d_home_kitchen_temperature')).toEqual({
+      domain: 'sensor',
+      objectId: '3d_home_kitchen_temperature',
+    });
   });
 
   it('refuse what the platform would not take', () => {

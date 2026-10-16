@@ -58,7 +58,7 @@ type PackageBase<
   TCards extends readonly CardDefinition[],
   TTypes extends readonly EntityTypeDefinition[],
 > = {
-  /** `^[a-z][a-z0-9-]{1,63}$`, not one of the platform's names. */
+  /** `^[a-z0-9][a-z0-9-]{1,63}$`, not one of the platform's names. */
   readonly id: string;
 
   readonly name: string;
