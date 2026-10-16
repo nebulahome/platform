@@ -44,7 +44,7 @@ const STOP_TIMEOUT_MS = 10_000;
 
 /** What the packet-manager hands the process. */
 const runnerEnvSchema = z.object({
-  NEBULA_PACKAGE_ID: z.string().regex(/^[a-z][a-z0-9-]{1,63}$/),
+  NEBULA_PACKAGE_ID: z.string().regex(/^[a-z0-9][a-z0-9-]{1,63}$/),
   NEBULA_PACKAGE_VERSION: z.string().min(1).max(64),
   NEBULA_PACKAGE_DATA_DIR: z.string().min(1),
   NEBULA_PACKAGE_CACHE_DIR: z.string().min(1),
