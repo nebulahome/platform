@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { capabilityStateSchema } from './capabilities.js';
 import { entityIdSchema } from './entity-id.js';
 import { jsonObjectSchema } from './json.js';
+import { PACKAGE_ID_PATTERN } from './package-id.js';
 import { timestampSchema } from './timestamp.js';
 
 /**
@@ -49,7 +50,7 @@ export type ChangeContext = z.output<typeof changeContextSchema>;
 export const sourceRefSchema = z.union([
   z.literal('derived'),
   z.literal('system'),
-  z.string().regex(/^[a-z][a-z0-9-]{1,63}$/, 'Must be a package id'),
+  z.string().regex(PACKAGE_ID_PATTERN, 'Must be a package id'),
 ]);
 
 /** Where a state came from: a package id, `derived`, or `system`. */

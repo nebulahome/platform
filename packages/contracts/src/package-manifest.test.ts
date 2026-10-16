@@ -98,6 +98,12 @@ describe('a package manifest', () => {
     expect(packageManifestSchema.safeParse({ ...MQTT, id: 'core-tools' }).success).toBe(true);
   });
 
+  it('takes an id that starts with a digit, never one that starts with a dash', () => {
+    expect(packageManifestSchema.safeParse({ ...MQTT, id: '3d-home' }).success).toBe(true);
+    expect(packageManifestSchema.safeParse({ ...MQTT, id: '-home' }).success).toBe(false);
+    expect(packageManifestSchema.safeParse({ ...MQTT, id: '3' }).success).toBe(false);
+  });
+
   it('reads a compose file in place of containers, and never both', () => {
     const compose = {
       ...MQTT,

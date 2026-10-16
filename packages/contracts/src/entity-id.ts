@@ -42,7 +42,7 @@ export type EntityDomain = (typeof ENTITY_DOMAINS)[number];
  * an identifier appears in NATS subjects, in URLs and in log lines, and an unbounded one would
  * eventually break one of them.
  */
-export const ENTITY_ID_PATTERN = /^[a-z][a-z0-9_]{0,31}\.[a-z][a-z0-9_]{0,63}$/;
+export const ENTITY_ID_PATTERN = /^[a-z][a-z0-9_]{0,31}\.[a-z0-9][a-z0-9_]{0,63}$/;
 
 /**
  * Validates an entity identifier and brands the result.

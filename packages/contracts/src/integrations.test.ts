@@ -110,7 +110,16 @@ describe('integrationIdSchema', () => {
     // The two share one namespace: both become `entities.source`, the subject token `core`
     // routes a command on. If one pattern drifted, a collision would get through that nothing
     // downstream could tell apart, and two owners would answer the same subject.
-    for (const value of ['zigbee2mqtt', 'shelly-lab', 'a1', 'Upper', '1leading', 'x', '']) {
+    for (const value of [
+      'zigbee2mqtt',
+      'shelly-lab',
+      'a1',
+      'Upper',
+      '1leading',
+      '-dash',
+      'x',
+      '',
+    ]) {
       expect(integrationIdSchema.safeParse(value).success).toBe(
         packageIdSchema.safeParse(value).success,
       );

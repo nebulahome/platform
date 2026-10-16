@@ -6,12 +6,13 @@
 import { z } from 'zod';
 
 /**
- * A package identifier: `mqtt`, `nvr`.
+ * A package identifier: `mqtt`, `nvr`, `3d-home`. It may start with a digit; its entities' object
+ * ids then do too (`sensor.3d_home_kitchen_temperature`).
  *
  * Mirrors `packages_id_format` in DATABASE.md. It shares one namespace with the integrations'
  * instance ids, since both answer `svc.<id>.command`.
  */
-export const PACKAGE_ID_PATTERN = /^[a-z][a-z0-9-]{1,63}$/;
+export const PACKAGE_ID_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/;
 
 /**
  * The ids no package may take: the platform's services answer `svc.<id>.*` under them, and

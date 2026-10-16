@@ -62,7 +62,7 @@ export const mqttCredentialsRequestSchema = z.discriminatedUnion('principal', [
     principal: z.literal('container'),
 
     /** Whose container: `vendor:zigbee2mqtt`, `package:nvr`. */
-    owner: z.string().regex(/^(vendor|package):[a-z][a-z0-9-]{1,63}$/),
+    owner: z.string().regex(/^(?:vendor:[a-z]|package:[a-z0-9])[a-z0-9-]{1,63}$/),
 
     /** The topics it may use; every topic when not said. */
     topics: z.array(z.string().min(1).max(256)).max(16).optional(),

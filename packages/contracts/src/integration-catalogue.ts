@@ -20,6 +20,7 @@ import {
   integrationInstallSchema,
   VENDOR_ID_PATTERN,
 } from './integrations.js';
+import { PACKAGE_ID_PATTERN } from './package-id.js';
 import { packageRequiresSchema } from './package-requires.js';
 import {
   PACKAGE_LISTING_ORIGINS,
@@ -179,7 +180,7 @@ export type HubItemKind = (typeof HUB_ITEM_KINDS)[number];
 /** `svc.packet-manager.hub_detail`: which item. */
 export const hubDetailRequestSchema = z.strictObject({
   kind: z.enum(HUB_ITEM_KINDS),
-  id: z.string().regex(/^[a-z][a-z0-9-]{1,63}$/u, 'Must be an id'),
+  id: z.string().regex(PACKAGE_ID_PATTERN, 'Must be an id'),
 });
 
 /** Which item. */

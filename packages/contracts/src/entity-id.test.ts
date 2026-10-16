@@ -8,13 +8,20 @@ describe('entity identifiers', () => {
     expect(isEntityId('binary_sensor.front_door')).toBe(true);
   });
 
+  it('accepts an object id that starts with a digit, as a package prefix may', () => {
+    // A package id may start with a digit (`3d-home`), and its entities' object ids start
+    // with that prefix; the domain still starts with a letter.
+    expect(isEntityId('sensor.3d_home_kitchen_temperature')).toBe(true);
+  });
+
   it.each([
     ['no dot', 'light'],
     ['empty object id', 'light.'],
     ['empty domain', '.kitchen'],
     ['upper case', 'Light.kitchen'],
     ['a hyphen', 'light.kitchen-ceiling'],
-    ['a leading digit', '1light.kitchen'],
+    ['a domain with a leading digit', '1light.kitchen'],
+    ['an object id with a leading underscore', 'light._kitchen'],
     ['two dots', 'light.kitchen.ceiling'],
     ['a space', 'light.kitchen ceiling'],
   ])('rejects %s', (description, candidate) => {

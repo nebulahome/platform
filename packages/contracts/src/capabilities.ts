@@ -21,6 +21,8 @@
  */
 import { z } from 'zod';
 
+import { PACKAGE_ID_PATTERN } from './package-id.js';
+
 /** Every capability an entity may declare. */
 export const CAPABILITIES = [
   'on_off',
@@ -570,7 +572,7 @@ export const customStateSchema = z.object({
 /** Which package's entity type an entity is. */
 export const customParamsSchema = z.object({
   /** The package, by its id (the pattern of `packageIdSchema`). */
-  packageId: z.string().regex(/^[a-z][a-z0-9-]{1,63}$/),
+  packageId: z.string().regex(PACKAGE_ID_PATTERN),
 
   /** The entity type, one of the package's `entityTypes`. */
   type: z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/),
