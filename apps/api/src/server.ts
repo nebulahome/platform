@@ -90,8 +90,8 @@ const SOCKET_PATHS = [
  * `/packages/` is public by accident.
  */
 const PACKAGE_FILE_PATHS = [
-  new RegExp(`^/api/${CURRENT_API_VERSION}/packages/[a-z][a-z0-9-]{1,63}/ui/[^/]+/.+$`, 'u'),
-  new RegExp(`^/api/${CURRENT_API_VERSION}/packages/[a-z][a-z0-9-]{1,63}/logo$`, 'u'),
+  new RegExp(`^/api/${CURRENT_API_VERSION}/packages/[a-z0-9][a-z0-9-]{1,63}/ui/[^/]+/.+$`, 'u'),
+  new RegExp(`^/api/${CURRENT_API_VERSION}/packages/[a-z0-9][a-z0-9-]{1,63}/logo$`, 'u'),
   new RegExp(`^/api/${CURRENT_API_VERSION}/catalogue/logos/[^/]+$`, 'u'),
 ];
 
