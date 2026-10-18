@@ -354,6 +354,25 @@ describe('with the hub answering and nothing saved', () => {
     });
   });
 
+  it('adds a Matter device of a vendor whose account nobody signed in to', async () => {
+    // It is reached through the house's fabric: the account is not what it runs on.
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/devices',
+      headers: { authorization: await bearer('device:write') },
+      payload: {
+        id: 'cloudy-plug',
+        kind: 'cloudy/matter',
+        model: 'Matter device',
+        name: 'Plug',
+        transportConfig: {},
+      },
+    });
+
+    // Nothing is saved here, so reading it back finds nothing: what matters is it was not refused.
+    expect(response.statusCode).not.toBe(409);
+  });
+
   it('refuses to add a device of a vendor while a package it needs does not run, naming it', async () => {
     const response = await server.inject({
       method: 'POST',

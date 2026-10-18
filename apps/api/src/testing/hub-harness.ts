@@ -308,6 +308,18 @@ export const CATALOGUE: CatalogueReply = {
             options: { constants: {}, fields: [] },
           },
         },
+        {
+          id: 'cloudy/matter',
+          vendorId: 'cloudy',
+          driverId: 'matter',
+          name: 'Matter device',
+          transport: 'matter',
+          models: [],
+          setup: {
+            transport: { constants: {}, fields: [] },
+            options: { constants: {}, fields: [] },
+          },
+        },
       ],
     },
     {
