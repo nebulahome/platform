@@ -735,3 +735,48 @@ describe('changing a device', () => {
     expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
   });
 });
+
+describe('a Matter device', () => {
+  /** Bambu Lab with a Matter driver too, as a vendor whose Matter devices are its own. */
+  const WITH_MATTER: IntegrationVendorView = {
+    ...BAMBU,
+    drivers: [
+      ...BAMBU.drivers,
+      {
+        id: 'bambu-lab/matter',
+        vendorId: 'bambu-lab',
+        driverId: 'matter',
+        name: 'Matter device',
+        transport: 'matter',
+        models: [],
+        setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
+      },
+    ],
+  };
+
+  it('is not offered when a device is added by hand: the Brokers page adds it', () => {
+    renderDialog({ mode: 'create', vendor: WITH_MATTER, existingIds: [] });
+
+    const models = screen.getByRole('listbox', { name: 'Model' });
+
+    expect(
+      [...models.querySelectorAll('[role="option"]')].map((option) => option.textContent),
+    ).toEqual(['X1C', 'P1S']);
+  });
+
+  it('keeps to its own driver when it is changed, never the printer form', () => {
+    renderDialog({
+      mode: 'edit',
+      vendor: WITH_MATTER,
+      device: {
+        ...EXISTING,
+        kind: 'bambu-lab/matter',
+        model: 'Matter device',
+        transport: 'matter',
+      },
+    });
+
+    expect(screen.queryByLabelText('Printer address')).toBeNull();
+    expect(screen.queryByRole('listbox', { name: 'Model' })).toBeNull();
+  });
+});
