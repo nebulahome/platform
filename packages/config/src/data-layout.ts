@@ -31,6 +31,9 @@ export const HUB_DIRECTORY = 'hub';
 /** The integration bundles installed into `hub`, under its folder. */
 export const INTEGRATIONS_DIRECTORY = 'integrations';
 
+/** The house's Matter fabric - its keys and its nodes - under the folder of `hub`. */
+export const MATTER_DIRECTORY = 'matter';
+
 /** The folder of `proxy`. */
 export const PROXY_DIRECTORY = 'proxy';
 
@@ -115,6 +118,9 @@ export type DataLayout = {
   /** The integration bundles installed into `hub`. */
   readonly integrations: string;
 
+  /** The house's Matter fabric, which `hub` holds. */
+  readonly matter: string;
+
   /** The certificates `proxy` serves and the ACME account key. */
   readonly proxyTls: string;
 
@@ -156,6 +162,7 @@ export function resolveDataLayout(config: {
   return {
     root,
     integrations: path.join(root, HUB_DIRECTORY, INTEGRATIONS_DIRECTORY),
+    matter: path.join(root, HUB_DIRECTORY, MATTER_DIRECTORY),
     proxyTls: path.join(root, PROXY_DIRECTORY, TLS_DIRECTORY),
     packages: path.join(root, PACKAGES_DIRECTORY),
     containers: path.join(root, CONTAINERS_DIRECTORY),

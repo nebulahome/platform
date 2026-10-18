@@ -19,6 +19,7 @@ describe('resolveDataLayout', () => {
     expect(layout).toEqual({
       root,
       integrations: path.join(root, 'hub', 'integrations'),
+      matter: path.join(root, 'hub', 'matter'),
       proxyTls: path.join(root, 'proxy', 'tls'),
       packages: path.join(root, 'packages'),
       containers: path.join(root, 'containers'),
