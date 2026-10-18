@@ -50,6 +50,19 @@ import {
   backupRunRequestSchema,
   BUS_PATTERNS,
   busSubjects,
+  HUB_MATTER_COMMISSION_METHOD,
+  HUB_MATTER_NODES_METHOD,
+  HUB_MATTER_REMOVE_METHOD,
+  HUB_MATTER_RESTORE_METHOD,
+  HUB_MATTER_STATUS_METHOD,
+  matterCommissionRequestSchema,
+  matterNodesRequestSchema,
+  matterRemoveRequestSchema,
+  matterRestoreRequestSchema,
+  matterStatusRequestSchema,
+  type MatterCommissioning,
+  type MatterNode,
+  type MatterStatus,
   capabilityCommandRequestSchema,
   catalogueRequestSchema,
   CORE_REMOVE_ALIAS_METHOD,
@@ -658,6 +671,46 @@ export const CONTAINERS: ContainerListReply = {
   composeOperations: [],
 };
 
+/** What the fake hub's Matter broker was asked, as `method payload`. */
+export const matterRequests: string[] = [];
+
+/** The fake hub's one Matter node: a lamp not added to the house. */
+export const MATTER_LAMP: MatterNode = {
+  nodeId: '7',
+  isAvailable: true,
+  devices: [
+    {
+      identity: {
+        nodeId: '7',
+        endpoint: null,
+        vendorId: 4107,
+        productId: 7,
+        vendorName: 'Signify',
+        productName: 'Hue color lamp',
+        productLabel: null,
+        nodeLabel: 'Kitchen',
+        serialNumber: null,
+        uniqueId: null,
+        hardwareVersion: null,
+        hardwareVersionString: null,
+        softwareVersion: 123,
+        softwareVersionString: '1.2.3',
+        macAddresses: [],
+        deviceTypes: [22, 269],
+        clusters: [6, 8, 768],
+        isBridge: false,
+        isBridged: false,
+      },
+      mappedClusters: [6, 8, 768],
+      unmappedClusters: [],
+      deviceId: null,
+      kind: null,
+      claimedBy: [],
+      isRemoved: true,
+    },
+  ],
+};
+
 /** The containers the fake supervisor was asked to control, as `name:action`. */
 export const controlled: string[] = [];
 
@@ -1030,6 +1083,57 @@ export async function buildTestServer(
         scanned.push(request.vendorId);
 
         return { vendors: [request.vendorId], lookingForMs: 24_000 };
+      },
+    ),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MATTER_STATUS_METHOD),
+      matterStatusRequestSchema,
+      (): MatterStatus => ({
+        state: 'running',
+        error: null,
+        fabricId: 'abc',
+        isLanReachable: true,
+        nodes: { total: 1, online: 1 },
+        commissioning: null,
+      }),
+    ),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MATTER_NODES_METHOD),
+      matterNodesRequestSchema,
+      () => ({ items: [MATTER_LAMP] }),
+    ),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MATTER_COMMISSION_METHOD),
+      matterCommissionRequestSchema,
+      (request): MatterCommissioning => {
+        matterRequests.push(`commission ${request.code}`);
+
+        return {
+          id: 'job-1',
+          state: 'running',
+          startedAt: new Date('2026-10-18T10:00:00Z'),
+          finishedAt: null,
+          nodeId: null,
+          error: null,
+        };
+      },
+    ),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MATTER_REMOVE_METHOD),
+      matterRemoveRequestSchema,
+      (request) => {
+        matterRequests.push(`remove ${request.nodeId}`);
+
+        return { isRemoved: true };
+      },
+    ),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MATTER_RESTORE_METHOD),
+      matterRestoreRequestSchema,
+      (request) => {
+        matterRequests.push(`restore ${request.nodeId}:${String(request.endpoint)}`);
+
+        return { isRestored: true };
       },
     ),
     hub.serve(

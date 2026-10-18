@@ -26,6 +26,7 @@ import { registerActivityRoutes } from './routes/activity.js';
 import { registerAreaRoutes } from './routes/areas.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerBackupRoutes } from './routes/backup.js';
+import { registerBrokerRoutes } from './routes/brokers.js';
 import { registerCameraRoutes } from './routes/cameras.js';
 import { registerContainerRoutes } from './routes/containers.js';
 import { registerDashboardRoutes } from './routes/dashboards.js';
@@ -259,6 +260,7 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   registerTagRoutes(environment, context);
   registerDeviceRoutes(environment, context);
   registerDiscoveryRoutes(environment, context);
+  registerBrokerRoutes(environment, context);
   registerIntegrationRoutes(environment, context);
   registerIconRoutes(environment, context);
   registerHistoryRoutes(environment, context);
