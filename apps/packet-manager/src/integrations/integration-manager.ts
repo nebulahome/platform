@@ -32,6 +32,7 @@ import {
   PACKAGE_SEARCH_PAGE_SIZE,
   semverSchema,
   vendorLoadReplySchema,
+  type BundleOrigin,
   type IntegrationAvailableReply,
   type IntegrationIndexEntry,
   type IntegrationInstall,
@@ -92,7 +93,7 @@ export type IntegrationManagerOptions = {
 };
 
 /** What `hub` runs of a vendor, as far as a listing needs it. */
-type Running = { readonly origin: 'installed' | 'development'; readonly version: string };
+type Running = { readonly origin: BundleOrigin; readonly version: string };
 
 /** What installing an integration would take here. */
 type Availability = Pick<
