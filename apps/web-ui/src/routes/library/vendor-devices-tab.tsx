@@ -27,6 +27,7 @@ import {
 import { devicePath } from '@/routes/library/device/device-path';
 import { DeviceIcon, useDeviceIcons } from '@/routes/library/device-icon';
 import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
+import { MatterTag } from '@/routes/library/matter-tag';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
 import { PassedOverPanel } from '@/routes/library/vendor-hearing';
@@ -236,12 +237,15 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
                     className="text-foreground-muted"
                   />
                   <span className="flex min-w-0 flex-col gap-0.5">
-                    <Link
-                      to={devicePath(device.id)}
-                      className="truncate text-ui font-medium text-foreground transition-colors hover:text-primary"
-                    >
-                      {device.name}
-                    </Link>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Link
+                        to={devicePath(device.id)}
+                        className="truncate text-ui font-medium text-foreground transition-colors hover:text-primary"
+                      >
+                        {device.name}
+                      </Link>
+                      <MatterTag transport={device.transport} />
+                    </span>
                     <span className="text-caption text-foreground-subtle lg:hidden">
                       {device.model ?? device.driverName}
                     </span>

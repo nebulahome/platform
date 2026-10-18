@@ -86,7 +86,8 @@ export function IntegrationsPage() {
     queryFn: async ({ signal }) => fetchDiscovered(signal),
   });
 
-  const all = vendors.data ?? [];
+  // The platform's own Matter vendor is the Brokers page's, not an integration anybody installed.
+  const all = (vendors.data ?? []).filter((vendor) => vendor.origin !== 'platform');
   const foundBy = new Map<string, number>();
 
   for (const device of discovered.data ?? []) {

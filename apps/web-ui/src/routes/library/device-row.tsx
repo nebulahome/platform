@@ -16,6 +16,7 @@ import type { DeviceStatus } from '@/library/device-status';
 import { type DeviceStanding } from '@/library/entity-reading';
 import { devicePath } from '@/routes/library/device/device-path';
 import { DeviceIcon } from '@/routes/library/device-icon';
+import { MatterTag } from '@/routes/library/matter-tag';
 
 /**
  * The column widths, shared by the header and every row so they line up.
@@ -105,7 +106,10 @@ export function DeviceRow(props: DeviceRowProps) {
         </span>
       </span>
 
-      <span className="hidden truncate text-ui text-foreground-muted md:block">{vendorName}</span>
+      <span className="hidden min-w-0 items-center gap-2 md:flex">
+        <span className="truncate text-ui text-foreground-muted">{vendorName}</span>
+        <MatterTag transport={device.transport} />
+      </span>
 
       <span className="hidden truncate text-ui text-foreground-muted lg:block">
         {device.areaName ?? '—'}

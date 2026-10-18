@@ -49,6 +49,10 @@ const SOURCES: Readonly<Record<DiscoveredDevice['source'], Message>> = {
     'library.discoveredCard.heardByItsVendor',
     "Heard by its vendor's own listener",
   ),
+  matter: defineMessage(
+    'library.discoveredCard.onTheMatterFabric',
+    "Commissioned on the house's Matter fabric",
+  ),
 };
 
 /**

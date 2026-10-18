@@ -49,6 +49,8 @@ import { AliasesPage } from '@/routes/library/aliases-page';
 import { AreasPage } from '@/routes/library/areas-page';
 import { AutomationEditor } from '@/routes/library/automation-editor';
 import { AutomationsPage } from '@/routes/library/automations-page';
+import { MatterBrokerPage } from '@/routes/library/broker-matter-page';
+import { BrokersPage } from '@/routes/library/brokers-page';
 import { DevicePage } from '@/routes/library/device/device-page';
 import { DevicesPage } from '@/routes/library/devices-page';
 import { EntityPage } from '@/routes/library/entity/entity-page';
@@ -335,6 +337,22 @@ export function SessionRoutes() {
               section={t('nav.integrations', 'Integrations')}
             >
               <VendorPage />
+            </RequiresPermission>
+          }
+        />
+        <Route
+          path="/brokers"
+          element={
+            <RequiresPermission permission="device:read" section={t('nav.brokers', 'Brokers')}>
+              <BrokersPage />
+            </RequiresPermission>
+          }
+        />
+        <Route
+          path="/brokers/matter"
+          element={
+            <RequiresPermission permission="device:read" section={t('nav.brokers', 'Brokers')}>
+              <MatterBrokerPage />
             </RequiresPermission>
           }
         />

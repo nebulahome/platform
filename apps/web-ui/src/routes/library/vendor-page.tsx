@@ -149,7 +149,11 @@ export function VendorPage() {
   // A vendor that adds its own devices has nothing to propose, and nothing to look for.
   const isAutomatic = found?.adoption === 'automatic';
   const foundDevices = (discovered.data ?? []).filter((each) => each.vendorId === vendorId);
-  const canDiscover = canWrite && !isAutomatic && (found?.discoverySources.length ?? 0) > 0;
+  // Matter devices are commissioned on the Brokers page, not looked for on the network.
+  const canDiscover =
+    canWrite &&
+    !isAutomatic &&
+    (found?.discoverySources.some((source) => source !== 'matter') ?? false);
   const devices = (all.data ?? []).filter((each) => each.vendorId === vendorId);
   const pairing = usePairing(found, devices);
   const hasPairing = found?.pairing != null;
@@ -253,7 +257,11 @@ export function VendorPage() {
                   </HeroFact>
                   {found.wires.map((wire) => (
                     <HeroFact key={wire}>
-                      {wire === 'ble' ? t('library.vendor.ble', 'BLE') : wire.toUpperCase()}
+                      {wire === 'ble'
+                        ? t('library.vendor.ble', 'BLE')
+                        : wire === 'matter'
+                          ? t('library.matterTag', 'Matter')
+                          : wire.toUpperCase()}
                     </HeroFact>
                   ))}
                   {found.origin === 'development' ? (

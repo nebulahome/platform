@@ -27,6 +27,7 @@ import {
   BluetoothIcon,
   GlobeIcon,
   HttpIcon,
+  MatterIcon,
   ModbusIcon,
   MqttIcon,
   UdpIcon,
@@ -79,6 +80,13 @@ const WIRES: Readonly<Record<Wire, { readonly glyph: Glyph; readonly title: Mess
     title: defineMessage(
       'library.vendorCard.readsItsDevicesOver',
       'Reads its devices over Modbus TCP',
+    ),
+  },
+  matter: {
+    glyph: MatterIcon,
+    title: defineMessage(
+      'library.vendorCard.reachesItsDevicesOverMatter',
+      "Reaches its devices over the house's Matter fabric",
     ),
   },
 };

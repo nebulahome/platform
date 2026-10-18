@@ -45,6 +45,7 @@ import {
 import { devicePath } from '@/routes/library/device/device-path';
 import { DeviceIcon, useDeviceIcons } from '@/routes/library/device-icon';
 import { DiscoveredStrip } from '@/routes/library/discovered-strip';
+import { MatterTag } from '@/routes/library/matter-tag';
 import { VendorAccounts } from '@/routes/library/vendor-accounts';
 import { VendorContainers } from '@/routes/library/vendor-containers';
 import { ListenerCallout } from '@/routes/library/vendor-hearing';
@@ -329,7 +330,12 @@ export function VendorOverview(props: VendorOverviewProps) {
                 <ListRow
                   key={device.id}
                   icon={<DeviceIcon icon={icons.get(device.icon ?? '')} />}
-                  title={device.name}
+                  title={
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate">{device.name}</span>
+                      <MatterTag transport={device.transport} />
+                    </span>
+                  }
                   subtitle={[device.model ?? device.driverName, device.areaName]
                     .filter(Boolean)
                     .join(' · ')}

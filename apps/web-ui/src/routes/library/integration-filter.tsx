@@ -46,6 +46,7 @@ const WIRE_LABELS: Readonly<Record<Wire, string>> = {
   zigbee: 'ZigBee',
   udp: 'UDP',
   modbus: 'Modbus',
+  matter: 'Matter',
 };
 
 /** How it connects: on the network alone, or through the internet. */

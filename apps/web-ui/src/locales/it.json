@@ -591,6 +591,60 @@
     "why": "Perché",
     "writeTo": "Scrivi i backup in {{name}}"
   },
+  "brokers": {
+    "card": {
+      "online": "{{online}} di {{total}} online"
+    },
+    "count_many": "{{count}} broker",
+    "count_one": "{{count}} broker",
+    "count_other": "{{count}} broker",
+    "empty": "Questa installazione non ha nessun broker.",
+    "matter": {
+      "add": "Aggiungi",
+      "addBack": "Rimetti in casa",
+      "addDevice": "Aggiungi dispositivo",
+      "adding": "Si sta aggiungendo",
+      "behindBridge": "Dietro il bridge",
+      "bridge": "Bridge",
+      "claimedBy": "Lo riconosce più di un'integrazione ({{vendors}}): funziona con la traduzione della piattaforma.",
+      "code": "Codice di abbinamento",
+      "codeHint": "Le 11 o 21 cifre, oppure il testo del codice QR (MT:…).",
+      "commissionFailed": "Il dispositivo non è stato aggiunto: {{error}}",
+      "commissioned": "Il dispositivo è nel fabric e in casa.",
+      "commissioning": "Sto aggiungendo il dispositivo al fabric. Ci vogliono da pochi secondi a un paio di minuti.",
+      "controller": "Controller",
+      "description": "Il fabric Matter della casa: ogni dispositivo Matter passa da qui, chiunque lo produca.",
+      "devices": "Dispositivi",
+      "fabric": "Fabric {{id}}",
+      "fabricLabel": "Fabric",
+      "failed": "Il controller Matter non è partito: {{error}}",
+      "firmware": "Firmware {{version}}",
+      "localNetwork": "Rete locale",
+      "needsHostNetwork": "Matter trova i suoi dispositivi con mDNS e IPv6, che la rete bridge della piattaforma non trasporta. Avvia la piattaforma sulla rete dell'host (NEBULA_NETWORK=host) perché i dispositivi Matter rispondano.",
+      "noNetwork": "Rete non sentita",
+      "noNodes": "Ancora nessun dispositivo Matter. Aggiungine uno con il codice che condivide la sua app.",
+      "notMapped": "Non ancora tradotto: {{clusters}}",
+      "offline": "Offline",
+      "online": "Online",
+      "onlineOfTotal": "{{online}} di {{total}} online",
+      "overview": "Panoramica",
+      "platformMapping": "Matter, generico",
+      "remove": "Rimuovi",
+      "removeQuestion": "Togliere {{name}} dalla casa e dal suo fabric Matter? Resta nelle app da cui è stato condiviso.",
+      "removed": "Tolto dalla casa",
+      "seeDevices": "Vedi i dispositivi",
+      "stepPair": "Configura il dispositivo nell'app del produttore, oppure in Google Home, Apple Casa o Alexa.",
+      "stepPaste": "Scrivi qui il codice. Lo prende l'integrazione che riconosce il dispositivo; la piattaforma prende tutti gli altri.",
+      "stepShare": "In quell'app condividilo con un'altra app: per qualche minuto mostra un codice di abbinamento."
+    },
+    "state": {
+      "disabled": "Spento",
+      "failed": "Non riuscito",
+      "running": "In funzione",
+      "starting": "Si avvia"
+    },
+    "title": "Broker"
+  },
   "camera": {
     "connecting": "Connessione…",
     "ended": "Lo streaming è terminato",
@@ -2339,7 +2393,8 @@
       "heardByItsVendor": "Sentito dall'ascoltatore del suo produttore",
       "model": "Modello",
       "moveHere": "Sposta qui",
-      "moveTitleToAddress": "Sposta {{title}} su {{address}}"
+      "moveTitleToAddress": "Sposta {{title}} su {{address}}",
+      "onTheMatterFabric": "Abbinato al fabric Matter della casa"
     },
     "discoveredStrip": {
       "foundOnYourNetwork": "Trovati sulla tua rete",
@@ -2589,6 +2644,7 @@
       "reading": "Lettura…",
       "shownOf": "{{shown}} di {{counted}}"
     },
+    "matterTag": "Matter",
     "modelList": {
       "model": "Modello",
       "modelSearch": "Ricerca del modello",
@@ -2840,6 +2896,7 @@
       "needsTheInternet": "Serve internet",
       "reachesItsDevicesOver": "Raggiunge i suoi dispositivi via Bluetooth LE",
       "reachesItsDevicesOver2": "Raggiunge i suoi dispositivi via Zigbee",
+      "reachesItsDevicesOverMatter": "Raggiunge i suoi dispositivi tramite il fabric Matter della casa",
       "readsItsDevicesOver": "Legge i suoi dispositivi via Modbus TCP",
       "speaksHttpToEach": "Parla HTTP con ogni dispositivo",
       "speaksToEachDevice": "Parla con ogni dispositivo con datagrammi suoi sulla rete"
@@ -3081,6 +3138,7 @@
     "aliases": "Alias",
     "areas": "Aree",
     "automations": "Automazioni",
+    "brokers": "Broker",
     "collapse": "Comprimi",
     "collapseSidebar": "Comprimi la barra laterale",
     "containers": "Container",

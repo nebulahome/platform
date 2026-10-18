@@ -148,6 +148,12 @@ const GROUPS: readonly Group[] = [
         count: 'integrations',
       },
       {
+        to: '/brokers',
+        label: defineMessage('nav.brokers', 'Brokers'),
+        icon: 'waypoints',
+        permission: 'device:read',
+      },
+      {
         to: '/packages',
         label: defineMessage('nav.packages', 'Packages'),
         icon: 'package',

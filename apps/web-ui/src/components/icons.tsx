@@ -284,6 +284,16 @@ export function ModbusIcon(props: IconProps) {
 }
 
 /**
+ * Nodes joined to each other: the house's Matter fabric.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function MatterIcon(props: IconProps) {
+  return icon('waypoints', props);
+}
+
+/**
  * Lines that narrow: a filter.
  *
  * @param props - SVG attributes.

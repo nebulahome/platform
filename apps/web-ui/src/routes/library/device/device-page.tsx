@@ -17,7 +17,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 
-import type { EntityView } from '@nebulahome/contracts';
+import { MATTER_VENDOR, type EntityView } from '@nebulahome/contracts';
 import {
   AppIcon,
   Button,
@@ -138,7 +138,14 @@ function factsOf(view: DevicePageView, webPage: string | null): Fact[] {
             {device.externalId ?? device.name}
           </Link>
         ) : (
-          <Link to={`/integrations/${encodeURIComponent(device.vendorId)}`} className={link}>
+          <Link
+            to={
+              device.vendorId === MATTER_VENDOR
+                ? '/brokers/matter'
+                : `/integrations/${encodeURIComponent(device.vendorId)}`
+            }
+            className={link}
+          >
             {vendorName}
           </Link>
         ),
