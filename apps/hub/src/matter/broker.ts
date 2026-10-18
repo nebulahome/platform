@@ -425,6 +425,8 @@ export class MatterBroker {
   public async release(deviceKey: string): Promise<void> {
     this.#removed.add(deviceKey);
     await this.#writeRemoved();
+    // Discovery drops it now: told later, it would offer the device back before the node leaves.
+    this.#tellNodes();
 
     const [nodeId = deviceKey] = deviceKey.split(':');
     const node = this.node(nodeId);

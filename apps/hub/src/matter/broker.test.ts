@@ -221,8 +221,12 @@ describe('MatterBroker', () => {
 
   it('takes a node off the fabric only once none of it is left in the house', async () => {
     const { broker, fabric } = await started();
+    const told = vi.fn();
 
+    broker.onNodes(told);
     await broker.release('4');
+    // At once, before the row goes: discovery would otherwise offer the device back.
+    expect(told).toHaveBeenCalledOnce();
     await broker.release('4:2');
     expect(fabric.calls).toEqual([]);
     expect(broker.devices().map((device) => device.deviceKey)).toEqual(['2', '4:3']);
