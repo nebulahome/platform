@@ -177,8 +177,8 @@ export const matterNodeDeviceSchema = z.object({
   kind: integrationKindIdSchema.nullable(),
 
   /**
-   * The integrations whose rules all take it, when there are several: it is then added as the
-   * platform's own, and the page says who else wants it. Empty otherwise.
+   * The integrations whose rules all take it. One is the integration it belongs to; several, and it
+   * is added as the platform's own and the page says who else wants it. Empty when none takes it.
    */
   claimedBy: z.array(z.string().regex(VENDOR_ID_PATTERN)).max(16),
 

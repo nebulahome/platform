@@ -81,7 +81,7 @@ export async function matterNodesView(options: MatterManagementOptions): Promise
         unmappedClusters: unmappedClustersOf(device),
         deviceId: added?.instanceId ?? null,
         kind: added?.kind ?? null,
-        claimedBy: claimedBy.length > 1 ? claimedBy.slice(0, 16) : [],
+        claimedBy: claimedBy.slice(0, 16),
         isRemoved: broker.isRemoved(key),
       };
     }),
