@@ -113,30 +113,25 @@ export type MatterFabricOptions = {
 export type OpenMatterFabric = (options: MatterFabricOptions) => Promise<MatterFabric>;
 
 /**
- * A value as JSON can carry it: a 64-bit number as a number while it fits, as text when it does
- * not, and nothing else touched.
+ * A value as JSON carries it, as the Matter Server's own socket sends it: a 64-bit number as a
+ * number while it fits, as text when it does not. The controller leaves a struct's absent field
+ * `undefined`, which the socket's JSON drops and a claim, stored as JSON, refuses.
  *
  * @param value - What the controller cached.
- * @returns The same value, every bigint converted.
+ * @returns The same value, through JSON.
  */
-function jsonSafe(value: unknown): unknown {
-  if (typeof value === 'bigint') {
-    return value <= BigInt(Number.MAX_SAFE_INTEGER) && value >= BigInt(Number.MIN_SAFE_INTEGER)
-      ? Number(value)
-      : value.toString();
-  }
+export function jsonSafe(value: unknown): unknown {
+  return JSON.parse(
+    JSON.stringify(value, (key, item: unknown) => {
+      if (typeof item !== 'bigint') {
+        return item;
+      }
 
-  if (Array.isArray(value)) {
-    return value.map(jsonSafe);
-  }
-
-  if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, jsonSafe(item)]),
-    );
-  }
-
-  return value;
+      return item <= BigInt(Number.MAX_SAFE_INTEGER) && item >= BigInt(Number.MIN_SAFE_INTEGER)
+        ? Number(item)
+        : item.toString();
+    }),
+  ) as unknown;
 }
 
 /**
