@@ -134,3 +134,20 @@ export async function loadDeviceName(
 
   return row?.name;
 }
+
+/**
+ * Reads the external id an instance's device was added or identified with.
+ *
+ * @param db - A connected database handle.
+ * @param instanceId - The instance.
+ * @returns The id, or null when the device has none yet or there is no row.
+ */
+export async function loadExternalId(db: Database, instanceId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ externalId: schema.registry.devices.externalId })
+    .from(schema.registry.devices)
+    .where(eq(schema.registry.devices.integrationId, instanceId))
+    .limit(1);
+
+  return row?.externalId ?? null;
+}

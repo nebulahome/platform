@@ -38,6 +38,8 @@ import {
   CORE_SERVICE,
   deviceEventSchema,
   deviceInfoReplySchema,
+  MATTER_TRANSPORT,
+  MATTER_VENDOR,
   NotFoundError,
   type DeviceEventPayload,
   type DeviceInfoRequest,
@@ -77,8 +79,11 @@ import { createMdnsSource, type MdnsSource } from './discovery/mdns-source.js';
 import { DeviceBook } from './domain/devices.js';
 import { planSubscriptions } from './domain/subscriptions.js';
 import { withVendorSettings } from './domain/vendors.js';
+import { MatterBroker } from './matter/broker.js';
+import type { OpenMatterFabric } from './matter/fabric.js';
+import { platformMatterVendor } from './matter/vendor.js';
 import { databaseAccountStore } from './persistence/accounts.js';
-import { loadBinding, loadDeviceName } from './persistence/devices.js';
+import { loadBinding, loadDeviceName, loadExternalId } from './persistence/devices.js';
 import {
   loadInstance,
   loadInstances,
@@ -109,9 +114,11 @@ import { IdentificationService, type Identified } from './services/identificatio
 import { ImageStore } from './services/images.js';
 import { publishReports, startInstanceServices } from './services/instance.js';
 import { ManagementService } from './services/management.js';
+import { serveMatter } from './services/matter-management.js';
 import { PackageWatch, type WatchedVendor } from './services/package-watch.js';
 import { PlatformBroker } from './services/platform-broker.js';
 import { VendorContainersService } from './services/vendor-containers.js';
+import { createMatterTransport } from './transports/matter.js';
 
 /** What the service needs. */
 export type HubServiceOptions = {
@@ -134,6 +141,14 @@ export type HubServiceOptions = {
    * Injected so that a test can announce devices without a multicast network.
    */
   readonly mdns?: MdnsSource;
+
+  /**
+   * Opens the house's Matter fabric; no Matter when not given.
+   *
+   * Injected like the transports: a test runs the hub without a fabric, and the one deployment
+   * that holds one says so in `main`.
+   */
+  readonly matter?: OpenMatterFabric;
 };
 
 /** One instance that started. */
@@ -188,6 +203,7 @@ export class HubService {
   readonly #vendorContainers: VendorContainersService;
   readonly #packages: PackageWatch;
   readonly #broker: PlatformBroker;
+  readonly #matter: MatterBroker;
   readonly #secretsKey: Buffer;
 
   /** The stream sources the vendors ship, by id: `bambulab/camera`. */
@@ -220,6 +236,15 @@ export class HubService {
     for (const transport of options.transports ?? []) {
       this.#transports.register(transport);
     }
+
+    this.#matter = new MatterBroker({
+      open: options.config.HUB_MATTER_ENABLED ? options.matter : undefined,
+      storageDir: resolveDataLayout(options.config).matter,
+      logger: options.logger,
+      version: options.config.NEBULA_PLATFORM_VERSION,
+      isLanReachable: options.config.HUB_DISCOVERY_ENABLED,
+    });
+    this.#transports.register(createMatterTransport(this.#matter));
 
     this.#client = new BusClient({
       transport: options.bus.transport,
@@ -325,7 +350,7 @@ export class HubService {
        *
        * @returns Every loaded vendor, drivers included.
        */
-      vendors: (): readonly LoadedVendor[] => [...this.#vendors.values()],
+      vendors: (): readonly LoadedVendor[] => this.#vendorList(),
 
       /**
        * Lists what discovery proposes; nothing before it has started.
@@ -427,7 +452,7 @@ export class HubService {
        *
        * @returns Every loaded vendor.
        */
-      vendors: (): readonly LoadedVendor[] => [...this.#vendors.values()],
+      vendors: (): readonly LoadedVendor[] => this.#vendorList(),
 
       /**
        * Starts a vendor's instances again, and has its listener look now, once an account of it
@@ -490,7 +515,7 @@ export class HubService {
        *
        * @returns Every loaded vendor.
        */
-      vendors: (): readonly LoadedVendor[] => [...this.#vendors.values()],
+      vendors: (): readonly LoadedVendor[] => this.#vendorList(),
 
       /**
        * Reads a vendor's saved settings, secrets opened.
@@ -527,6 +552,7 @@ export class HubService {
     await this.#serialised(async () => {
       // Asked now, and again at every package event and while there is none.
       await this.#broker.start();
+      await this.#matter.start();
 
       const bundles = await this.#loadAll();
 
@@ -537,6 +563,9 @@ export class HubService {
       for (const vendor of bundles.vendors) {
         this.#registerVendor(vendor);
       }
+
+      // The platform's own, after the bundles: no bundle may call itself `matter`.
+      this.#registerVendor(platformMatterVendor(config.NEBULA_PLATFORM_VERSION, RUNTIME_VERSION));
 
       this.#recordFailures(bundles.failures);
       logger.info(
@@ -560,6 +589,24 @@ export class HubService {
         ...this.#accounts.serve(),
         this.#images.serve(this.#client),
         ...this.#cameras.serve(),
+        ...serveMatter({
+          client: this.#client,
+          broker: this.#matter,
+
+          /**
+           * Discovery, once it has started.
+           *
+           * @returns It, or undefined.
+           */
+          discovery: () => this.#discovery,
+
+          /**
+           * Reads what is added.
+           *
+           * @returns Every instance's ids, the Matter devices among them.
+           */
+          taken: async () => loadTakenDevices(db),
+        }),
         this.#client.subscribe(
           busSubjects.deviceEvent('removed'),
           deviceEventSchema,
@@ -930,6 +977,7 @@ export class HubService {
    */
   #createDiscovery(): DiscoveryService {
     const { config, db, logger } = this.#options;
+    const platformMatter = this.#vendors.get(MATTER_VENDOR);
 
     return new DiscoveryService({
       vendors: [...this.#vendors.values()].flatMap((vendor) =>
@@ -979,7 +1027,37 @@ export class HubService {
       queryIntervalMs: config.HUB_DISCOVERY_QUERY_INTERVAL_MS,
       ttlMs: config.HUB_DISCOVERY_TTL_MS,
       probeIntervalMs: config.HUB_DISCOVERY_QUERY_INTERVAL_MS,
+      ...(platformMatter?.discovery === undefined
+        ? {}
+        : {
+            matter: {
+              /**
+               * Lists the fabric's devices not removed from the house.
+               *
+               * @returns Them.
+               */
+              devices: () => this.#matter.devices(),
+
+              /**
+               * Follows the nodes coming and going.
+               *
+               * @param listener - Called when they change.
+               * @returns What stops following.
+               */
+              onChange: (listener: () => void) => this.#matter.onNodes(listener),
+              vendor: { id: MATTER_VENDOR, discovery: platformMatter.discovery },
+            },
+          }),
     });
+  }
+
+  /**
+   * Every vendor loaded, the platform's own among them.
+   *
+   * @returns Them, read when asked.
+   */
+  #vendorList(): readonly LoadedVendor[] {
+    return [...this.#vendors.values()];
   }
 
   /**
@@ -1038,6 +1116,7 @@ export class HubService {
     this.#management = [];
     this.#running.clear();
     await this.#pool.closeAll();
+    await this.#matter.stop();
 
     // Whatever the vendors' own code holds - a UDP port - is let go of with them.
     await Promise.all([...this.#vendors.values()].map(async (vendor) => vendor.release()));
@@ -1127,7 +1206,17 @@ export class HubService {
       this.#forgotten.set(id, vendorId);
     }
 
+    const instance = this.#running.get(id)?.instance ?? (await loadInstance(this.#options.db, id));
+
     await this.#stopInstance(id);
+
+    if (instance?.transport === MATTER_TRANSPORT) {
+      const deviceKey = await loadExternalId(this.#options.db, id);
+
+      if (deviceKey !== null) {
+        await this.#matter.release(deviceKey);
+      }
+    }
 
     // Not refreshed here: the rows are still there until `core` deletes them, and the device
     // would be offered again only to be taken away. `core` says when they are gone, and

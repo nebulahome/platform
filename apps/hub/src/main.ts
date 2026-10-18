@@ -16,6 +16,7 @@ import { assertSchemaVersion, createDatabase } from '@nebulahome/db';
 import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { hubEnvSchema, SERVICE_NAME, SERVICE_VERSION } from './config.js';
+import { openMatterFabric } from './matter/fabric.js';
 import { HubService } from './service.js';
 import { httpTransport } from './transports/http.js';
 import { mqttTransport } from './transports/mqtt.js';
@@ -98,6 +99,7 @@ async function start(): Promise<void> {
     bus,
     logger,
     transports: [httpTransport, mqttTransport],
+    matter: openMatterFabric,
   });
 
   await service.start();

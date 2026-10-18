@@ -23,6 +23,7 @@ export async function loadTakenDevices(db: Database): Promise<TakenDevices> {
     .select({
       id: schema.registry.integrations.id,
       kind: schema.registry.integrations.kind,
+      transport: schema.registry.integrations.transport,
       transportConfig: schema.registry.integrations.transportConfig,
       externalId: schema.registry.devices.externalId,
     })
@@ -36,6 +37,7 @@ export async function loadTakenDevices(db: Database): Promise<TakenDevices> {
     rows.map((row) => ({
       id: row.id,
       kind: row.kind,
+      transport: row.transport,
       transportConfig: row.transportConfig as JsonObject,
       externalId: row.externalId,
     })),

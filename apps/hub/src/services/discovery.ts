@@ -17,19 +17,24 @@
  */
 import { createHash } from 'node:crypto';
 
-import type {
-  DiscoveredDevice,
-  DiscoverReply,
-  DiscoverySource,
-  JsonObject,
-  PassedOverDevice,
-  VendorListener,
+import {
+  MATTER_VENDOR,
+  type DiscoveredDevice,
+  type DiscoverReply,
+  type DiscoverySource,
+  type JsonObject,
+  type MatterIdentity,
+  type PassedOverDevice,
+  type VendorListener,
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 import {
+  associateMatter,
   associateModel,
   identifySighting,
   matchesAnnouncement,
+  matchesMatter,
+  nameOf,
   type Association,
   type Discovered,
   type DiscoveryProbe,
@@ -45,6 +50,7 @@ import {
 
 import { isPrivateIpv4, type MdnsSource } from '../discovery/mdns-source.js';
 import { addressOf as reachedAt, NOTHING_TAKEN, type TakenDevices } from '../domain/taken.js';
+import type { MatterSighting } from '../matter/broker.js';
 
 import type { LoadedDiscovery, LoadedListenSource } from './bundles.js';
 
@@ -125,6 +131,17 @@ export type DiscoveryServiceOptions = {
 
   /** The clock, in milliseconds; the wall clock when not said. */
   readonly now?: () => number;
+
+  /**
+   * The house's Matter fabric, for a hub that holds one: every device of every node not removed
+   * from the house, told again whenever the nodes change, and the platform's own vendor, which
+   * takes a device no other vendor's rules - or more than one's - take.
+   */
+  readonly matter?: {
+    readonly devices: () => readonly MatterSighting[];
+    readonly onChange: (listener: () => void) => () => void;
+    readonly vendor: DiscoveryVendor;
+  };
 };
 
 /** A proposed device, and when it was last heard, as a number to compare. */
@@ -319,6 +336,7 @@ export class DiscoveryService {
   #isLanListening = true;
   #taken: TakenDevices = NOTHING_TAKEN;
   #signature = '[]';
+  #stopMatter: (() => void) | undefined;
 
   /**
    * Prepares discovery without listening.
@@ -377,6 +395,15 @@ export class DiscoveryService {
       }
     }
 
+    const matter = this.#options.matter;
+
+    if (matter !== undefined) {
+      this.#stopMatter = matter.onChange(() => {
+        this.#hearMatter();
+      });
+      this.#hearMatter();
+    }
+
     const sweeping = setInterval(
       () => {
         this.#sweep();
@@ -396,6 +423,8 @@ export class DiscoveryService {
   public async stop(): Promise<void> {
     this.#abort.abort();
     this.#isListening = false;
+    this.#stopMatter?.();
+    this.#stopMatter = undefined;
 
     for (const timer of this.#timers) {
       clearInterval(timer);
@@ -1175,8 +1204,99 @@ export class DiscoveryService {
     }
   }
 
+  /**
+   * The vendors whose `matter` rules take a device, the platform's own left out.
+   *
+   * @param identity - Who the device says it is.
+   * @returns Each vendor whose rules all hold and which has a Matter driver to take it.
+   */
+  public matterClaims(
+    identity: MatterIdentity,
+  ): { readonly vendor: DiscoveryVendor; readonly association: Association }[] {
+    return this.#options.vendors.flatMap((vendor) => {
+      const { plan } = vendor.discovery;
+
+      if (vendor.id === MATTER_VENDOR || !matchesMatter(plan, identity)) {
+        return [];
+      }
+
+      const association = associateMatter(plan, identity);
+
+      return association === null ? [] : [{ vendor, association }];
+    });
+  }
+
+  /**
+   * Proposes every device of the fabric: to the one vendor whose rules take it, or to the
+   * platform's own. Each is added at once - the owner commissioned it - and one that left the
+   * fabric, or was removed from the house, is no longer proposed.
+   */
+  #hearMatter(): void {
+    const matter = this.#options.matter;
+
+    if (matter === undefined || !this.#isListening) {
+      return;
+    }
+
+    const heard = new Set<string>();
+    const nowMs = this.#now();
+
+    for (const { deviceKey, device } of matter.devices()) {
+      const [only, other] = this.matterClaims(device.identity);
+      const fallback = associateMatter(matter.vendor.discovery.plan, device.identity);
+      const chosen =
+        only !== undefined && other === undefined
+          ? only
+          : fallback === null
+            ? undefined
+            : { vendor: matter.vendor, association: fallback };
+
+      if (chosen === undefined) {
+        continue;
+      }
+
+      const id = createHash('sha256').update(`matter/${deviceKey}`).digest('hex').slice(0, 16);
+      const previous = this.#candidates.get(id);
+      const { identity } = device;
+
+      heard.add(id);
+      this.#candidates.set(id, {
+        device: {
+          id,
+          vendorId: chosen.vendor.id,
+          driverId: chosen.association.driverId,
+          kind: `${chosen.vendor.id}/${chosen.association.driverId}`,
+          source: 'matter',
+          address: `Matter ${deviceKey}`,
+          externalId: deviceKey,
+          name: nameOf(identity).slice(0, 256),
+          model: chosen.association.model,
+          modelChoices: [...chosen.association.modelChoices],
+          modelCode: identity.productId === null ? null : String(identity.productId),
+          swVersion: identity.softwareVersionString?.slice(0, 64) ?? null,
+          transportConfig: {},
+          adoption: 'automatic',
+          movedFrom: null,
+          firstSeenAt: previous?.device.firstSeenAt ?? new Date(nowMs),
+          lastSeenAt: new Date(nowMs),
+        },
+        heardAtMs: nowMs,
+      });
+    }
+
+    for (const [id, candidate] of this.#candidates) {
+      if (candidate.device.source === 'matter' && !heard.has(id)) {
+        this.#candidates.delete(id);
+      }
+    }
+
+    this.#publishIfChanged();
+  }
+
   /** Forgets the devices gone quiet, and the probe answers too old to trust. */
   #sweep(): void {
+    this.#hearMatter();
+
     const nowMs = this.#now();
 
     for (const [id, candidate] of this.#candidates) {
@@ -1211,6 +1331,13 @@ export class DiscoveryService {
     return [...this.#candidates.values()]
       .flatMap((candidate): Candidate[] => {
         const { device } = candidate;
+
+        if (device.source === 'matter') {
+          return device.externalId !== null && this.#taken.matter.has(device.externalId)
+            ? []
+            : [candidate];
+        }
+
         const host = reachedAt(device.transportConfig);
         const key = `${device.vendorId}\n${device.externalId ?? ''}`;
         const byId = device.externalId !== null && externalIds.has(key);

@@ -11,7 +11,7 @@ import { Writable } from 'node:stream';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import type { DiscoveredDevice, JsonObject } from '@nebulahome/contracts';
+import type { DiscoveredDevice, JsonObject, MatterIdentity } from '@nebulahome/contracts';
 import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 import {
   bundleManifestSchema,
@@ -24,6 +24,7 @@ import {
   type Discovered,
   type DiscoverySource,
   type Integration,
+  type MatterDeviceSnapshot,
   type MdnsAnnouncement,
   type Sighting,
   type Transport,
@@ -31,6 +32,8 @@ import {
 
 import type { MdnsSource } from '../discovery/mdns-source.js';
 import type { TakenDevices } from '../domain/taken.js';
+import type { MatterSighting } from '../matter/broker.js';
+import { platformMatterVendor } from '../matter/vendor.js';
 
 import type { LoadedListenSource } from './bundles.js';
 import { DiscoveryService, SCAN_DURATION_MS, type DiscoveryVendor } from './discovery.js';
@@ -225,6 +228,7 @@ function acme(
         {
           id: 'relay',
           name: 'Relay',
+          transport: 'http',
           models: ['Relay One', 'Relay Two'],
           modelCodes: { 'R-1': 'Relay One', 'R-2': 'Relay Two' },
         },
@@ -285,7 +289,7 @@ async function start(
     mdns,
     transport,
     published,
-    taken: { externalIds: new Set(), hosts: new Set(), locations: new Map() },
+    taken: { externalIds: new Set(), hosts: new Set(), locations: new Map(), matter: new Map() },
     service: new DiscoveryService({
       vendors: [options.vendor ?? acme()],
       mdns,
@@ -516,7 +520,12 @@ describe('DiscoveryService', () => {
   it('hides a device already added, whether by its id or its address', async () => {
     const built = await start();
 
-    built.taken = { externalIds: new Set(['acme\nr1']), hosts: new Set(), locations: new Map() };
+    built.taken = {
+      externalIds: new Set(['acme\nr1']),
+      hosts: new Set(),
+      locations: new Map(),
+      matter: new Map(),
+    };
     await built.service.refresh();
     built.mdns.announce(heard('192.168.1.40'));
     await until(() => built.transport.scans.length > 0);
@@ -528,12 +537,18 @@ describe('DiscoveryService', () => {
       externalIds: new Set(),
       hosts: new Set(['acme\n192.168.1.40']),
       locations: new Map(),
+      matter: new Map(),
     };
     await built.service.refresh();
 
     expect(built.service.list()).toEqual([]);
 
-    built.taken = { externalIds: new Set(), hosts: new Set(), locations: new Map() };
+    built.taken = {
+      externalIds: new Set(),
+      hosts: new Set(),
+      locations: new Map(),
+      matter: new Map(),
+    };
     await built.service.refresh();
 
     expect(built.service.list()).toHaveLength(1);
@@ -550,6 +565,7 @@ describe('DiscoveryService', () => {
       externalIds: new Set(['acme\nr1']),
       hosts: new Set(['acme\n192.168.1.40']),
       locations: new Map(),
+      matter: new Map(),
     };
     await built.service.refresh();
 
@@ -559,7 +575,12 @@ describe('DiscoveryService', () => {
     const queriesBefore = built.mdns.queries;
 
     // Removed: the rows are gone, and discovery is told.
-    built.taken = { externalIds: new Set(), hosts: new Set(), locations: new Map() };
+    built.taken = {
+      externalIds: new Set(),
+      hosts: new Set(),
+      locations: new Map(),
+      matter: new Map(),
+    };
     await built.service.release('acme');
 
     expect(built.service.list()).toHaveLength(1);
@@ -578,6 +599,7 @@ describe('DiscoveryService', () => {
       externalIds: new Set(['acme\nr1']),
       hosts: new Set(['acme\n192.168.1.39']),
       locations: new Map([['acme\nr1', { instanceId: 'relay-kitchen', host: '192.168.1.39' }]]),
+      matter: new Map(),
     };
     await built.service.refresh();
     built.mdns.announce(heard('192.168.1.40'));
@@ -594,6 +616,7 @@ describe('DiscoveryService', () => {
       externalIds: new Set(['acme\nr1']),
       hosts: new Set(['acme\n192.168.1.40']),
       locations: new Map([['acme\nr1', { instanceId: 'relay-kitchen', host: '192.168.1.40' }]]),
+      matter: new Map(),
     };
     await built.service.refresh();
 
@@ -611,6 +634,7 @@ describe('DiscoveryService', () => {
       externalIds: new Set(),
       hosts: new Set(['acme\n192.168.1.40']),
       locations: new Map(),
+      matter: new Map(),
     };
     await built.service.refresh();
 
@@ -619,7 +643,12 @@ describe('DiscoveryService', () => {
     built.mdns.announce(heard('192.168.1.40'));
     await new Promise((resolve) => setTimeout(resolve, 40));
 
-    built.taken = { externalIds: new Set(), hosts: new Set(), locations: new Map() };
+    built.taken = {
+      externalIds: new Set(),
+      hosts: new Set(),
+      locations: new Map(),
+      matter: new Map(),
+    };
     await built.service.release('acme');
 
     expect(built.service.list()).toHaveLength(1);
@@ -632,6 +661,7 @@ describe('DiscoveryService', () => {
       externalIds: new Set(),
       hosts: new Set(['acme\n192.168.1.40']),
       locations: new Map(),
+      matter: new Map(),
     };
     await built.service.refresh();
     built.mdns.announce(heard('192.168.1.40'));
@@ -660,7 +690,12 @@ describe('DiscoveryService', () => {
       logger: silent(),
       vendorSettings: () => Promise.resolve({}),
       taken: () =>
-        Promise.resolve({ externalIds: new Set(), hosts: new Set(), locations: new Map() }),
+        Promise.resolve({
+          externalIds: new Set(),
+          hosts: new Set(),
+          locations: new Map(),
+          matter: new Map(),
+        }),
       publishChanged: () => undefined,
       queryIntervalMs: 60_000,
       ttlMs: 600_000,
@@ -673,7 +708,7 @@ describe('DiscoveryService', () => {
       mdns,
       transport,
       published: [],
-      taken: { externalIds: new Set(), hosts: new Set(), locations: new Map() },
+      taken: { externalIds: new Set(), hosts: new Set(), locations: new Map(), matter: new Map() },
     };
     await service.start();
 
@@ -705,7 +740,12 @@ describe('DiscoveryService', () => {
       logger: silent(),
       vendorSettings: () => Promise.resolve({}),
       taken: () =>
-        Promise.resolve({ externalIds: new Set(), hosts: new Set(), locations: new Map() }),
+        Promise.resolve({
+          externalIds: new Set(),
+          hosts: new Set(),
+          locations: new Map(),
+          matter: new Map(),
+        }),
       publishChanged: () => undefined,
       queryIntervalMs: 60_000,
       ttlMs: 600_000,
@@ -719,7 +759,7 @@ describe('DiscoveryService', () => {
       mdns,
       transport,
       published: [],
-      taken: { externalIds: new Set(), hosts: new Set(), locations: new Map() },
+      taken: { externalIds: new Set(), hosts: new Set(), locations: new Map(), matter: new Map() },
     };
     await service.start();
 
@@ -919,5 +959,118 @@ describe('DiscoveryService.detect', () => {
 
     await expect(service.detect('acme/relay', { host: '192.168.1.42' })).resolves.toBeUndefined();
     await expect(service.detect('other/thing', { host: '192.168.1.40' })).resolves.toBeUndefined();
+  });
+});
+
+describe('DiscoveryService and the Matter fabric', () => {
+  /**
+   * A Matter device, as the broker lists it.
+   *
+   * @param deviceKey - Its key.
+   * @param identity - What it says of itself beyond its key.
+   * @returns The sighting.
+   */
+  function sighting(deviceKey: string, identity: Partial<MatterIdentity>): MatterSighting {
+    const [nodeId = deviceKey] = deviceKey.split(':');
+    const device: MatterDeviceSnapshot = {
+      nodeId,
+      endpoint: null,
+      endpoints: [0],
+      isAvailable: true,
+      attributes: {},
+      identity: {
+        nodeId,
+        endpoint: null,
+        vendorId: null,
+        productId: null,
+        vendorName: null,
+        productName: null,
+        productLabel: null,
+        nodeLabel: null,
+        serialNumber: null,
+        uniqueId: null,
+        hardwareVersion: null,
+        hardwareVersionString: null,
+        softwareVersion: null,
+        softwareVersionString: null,
+        macAddresses: [],
+        deviceTypes: [],
+        clusters: [],
+        isBridge: false,
+        isBridged: false,
+        ...identity,
+      },
+    };
+
+    return { deviceKey, device };
+  }
+
+  it('gives a device to the vendor whose rules take it, and the rest to the platform, at once', async () => {
+    const acme: DiscoveryVendor = {
+      id: 'acme',
+      discovery: {
+        plan: resolveDiscovery(
+          'acme',
+          vendorDiscoverySchema.parse({ matter: { match: [{ path: 'vendorId', equals: 4999 }] } }),
+          [{ id: 'lamp', name: 'Lamp', transport: 'matter', models: [] }],
+        ),
+        sources: [],
+      },
+    };
+    const platform = platformMatterVendor('1.0.0', '1.1.0');
+    let devices = [
+      sighting('1', { vendorId: 4999, nodeLabel: 'Desk lamp' }),
+      sighting('2', { vendorId: 4107, productName: 'Hue color lamp' }),
+      sighting('3', { vendorId: 4999 }),
+    ];
+    let changed: (() => void) | undefined;
+    const taken: TakenDevices = {
+      externalIds: new Set(),
+      hosts: new Set(),
+      locations: new Map(),
+      matter: new Map([['3', { instanceId: 'other', kind: 'matter/generic' }]]),
+    };
+    const service = new DiscoveryService({
+      vendors: [acme],
+      mdns: fakeMdns(),
+      transports: new Registry<Transport>('transport'),
+      integrations: new Registry<Integration>('integration'),
+      logger: silent(),
+      vendorSettings: () => Promise.resolve({}),
+      taken: () => Promise.resolve(taken),
+      publishChanged: () => undefined,
+      queryIntervalMs: 60_000,
+      ttlMs: 60_000,
+      probeIntervalMs: 60_000,
+      matter: {
+        devices: () => devices,
+        onChange: (listener) => {
+          changed = listener;
+
+          return () => undefined;
+        },
+        vendor: { id: 'matter', discovery: platform.discovery ?? acme.discovery },
+      },
+    });
+
+    await service.start();
+
+    try {
+      expect(
+        service
+          .list()
+          .map((device) => [device.externalId, device.kind, device.name, device.adoption]),
+      ).toEqual([
+        ['1', 'acme/lamp', 'Desk lamp', 'automatic'],
+        ['2', 'matter/generic', 'Hue color lamp', 'automatic'],
+      ]);
+
+      // Removed from the house: the broker lists it no more, and it is not proposed again.
+      devices = devices.filter((device) => device.deviceKey !== '1');
+      changed?.();
+      expect(service.list().map((device) => device.externalId)).toEqual(['2']);
+    } finally {
+      await service.stop();
+    }
   });
 });

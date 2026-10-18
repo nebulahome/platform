@@ -112,6 +112,12 @@ export const hubEnvSchema = runtimeEnvSchema
     /** How long a proposed device stays proposed without being heard again. */
     HUB_DISCOVERY_TTL_MS: z.coerce.number().int().min(60_000).max(86_400_000).default(1_800_000),
 
+    /**
+     * Whether the hub holds the house's Matter fabric. On by default; off for a hub that must not
+     * take Matter's UDP port 5540 - another Matter controller on the same host has it.
+     */
+    HUB_MATTER_ENABLED: z.stringbool().default(true),
+
     /** This platform's release, which a vendor's `requires.platform` range is checked against. */
     NEBULA_PLATFORM_VERSION: z
       .string()

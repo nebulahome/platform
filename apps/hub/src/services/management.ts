@@ -258,7 +258,12 @@ function vendorOf(
             fields: vendor.account.declaration.fields,
             identity: vendor.account.declaration.identity,
           },
-    discoverySources: [...new Set(vendor.discovery?.sources.map((source) => source.kind) ?? [])],
+    discoverySources: [
+      ...new Set([
+        ...(vendor.discovery?.sources.map((source) => source.kind) ?? []),
+        ...(vendor.discovery?.plan.discovery.matter === undefined ? [] : (['matter'] as const)),
+      ]),
+    ],
     adoption: vendor.discovery?.plan.discovery.adopt ?? 'owner',
     pairing:
       pairing === undefined

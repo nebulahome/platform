@@ -2,9 +2,16 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
+# The Matter controller's library brings matter.js's Bluetooth stack with it; the hub commissions
+# over the network only and never loads it, so its native bindings are not built.
 allowBuilds:
+  '@serialport/bindings-cpp': false
+  '@stoprocent/bleno': false
+  '@stoprocent/bluetooth-hci-socket': false
+  '@stoprocent/noble': false
   esbuild: true
   unrs-resolver: true
+  usb: false
 
 minimumReleaseAgeExclude:
   - publint@0.3.25

@@ -13,6 +13,8 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
+    "@matter-server/ws-controller": "1.4.0",
+    "@matter/main": "0.17.9",
     "@nebulahome/bus": "workspace:*",
     "@nebulahome/config": "workspace:*",
     "@nebulahome/contracts": "workspace:*",

@@ -1,0 +1,369 @@
+/**
+ * The house's Matter fabric, held by the controller of Home Assistant's Matter Server.
+ *
+ * `@matter-server/ws-controller` is that server's controller as a library, on matter.js: the
+ * fabric's keys and the nodes in a folder, their attributes cached and subscribed to, reconnection,
+ * the CSA's DCL for vendors, certificates and firmware. Its own WebSocket server is not run: the
+ * hub drives the controller in-process, and this file is the only one that knows the library -
+ * the rest of the hub sees {@link MatterFabric}, which a test fakes.
+ *
+ * Its README calls the package internal to that server, so its version is pinned exactly and moved
+ * on purpose. The controller listens on Matter's own UDP port, 5540, which the library does not let
+ * be changed: another Matter controller on the same host - a Home Assistant's - takes it first.
+ */
+import { Millis, NodeId } from '@matter/main';
+import { AttributeId, ClusterId, EndpointNumber } from '@matter/main/types';
+import {
+  buildAttributePath,
+  ConfigStorage,
+  Environment,
+  LogDestination,
+  Logger,
+  LogLevel,
+  MatterController,
+} from '@matter-server/ws-controller';
+
+import type { PlatformLogger } from '@nebulahome/logging';
+import type { MatterNodeSnapshot, MatterUpdateOffer } from '@nebulahome/package-runtime';
+
+/** One command, on one endpoint's cluster. */
+export type MatterInvoke = {
+  readonly endpoint: number;
+  readonly cluster: number;
+
+  /** As matter.js names it: `moveToLevelWithOnOff`. */
+  readonly command: string;
+  readonly payload: Readonly<Record<string, unknown>>;
+
+  /** How long a timed command is given; absent for an ordinary one. */
+  readonly timedMs?: number | undefined;
+};
+
+/** One attribute written, on one endpoint's cluster. */
+export type MatterWrite = {
+  readonly endpoint: number;
+  readonly cluster: number;
+  readonly attribute: number;
+  readonly value: unknown;
+};
+
+/** What the fabric says as it happens. */
+export type MatterFabricEvents = {
+  /**
+   * Attributes of a node changed, or - with null - the node is to be read again whole: it came,
+   * went, or changed shape.
+   *
+   * @param nodeId - The node.
+   * @param paths - The attributes that changed, or null.
+   */
+  readonly onNode: (nodeId: string, paths: readonly string[] | null) => void;
+
+  /** A node was added to the fabric or left it. */
+  readonly onNodes: () => void;
+};
+
+/** The fabric, as the hub drives it. */
+export type MatterFabric = {
+  /** The fabric's id, in hex. */
+  readonly fabricId: string;
+
+  /** Every node, in the order they were commissioned. */
+  readonly nodes: () => MatterNodeSnapshot[];
+
+  /** One node, or undefined when the fabric has none of that id. */
+  readonly node: (nodeId: string) => MatterNodeSnapshot | undefined;
+
+  /**
+   * Commissions a node shared by another app, over the network.
+   *
+   * @param code - Its manual pairing code or QR text.
+   * @returns The new node's id.
+   */
+  readonly commission: (code: string) => Promise<string>;
+
+  /** Takes a node off the fabric. */
+  readonly decommission: (nodeId: string) => Promise<void>;
+
+  readonly invoke: (nodeId: string, request: MatterInvoke) => Promise<void>;
+  readonly write: (nodeId: string, request: MatterWrite) => Promise<void>;
+
+  /** Asks the DCL whether newer firmware is on offer for a node. */
+  readonly checkUpdate: (nodeId: string) => Promise<MatterUpdateOffer>;
+
+  /** Has a node fetch and apply a firmware version. */
+  readonly installUpdate: (nodeId: string, softwareVersion: number) => Promise<void>;
+
+  readonly stop: () => Promise<void>;
+};
+
+/** What opening the fabric needs. */
+export type MatterFabricOptions = {
+  /** Where the fabric's keys and nodes are kept: `<data>/hub/matter`. */
+  readonly storageDir: string;
+
+  readonly logger: PlatformLogger;
+
+  /** The platform's version, which the controller's own node says it runs. */
+  readonly version: string;
+
+  readonly events: MatterFabricEvents;
+};
+
+/** Opens the fabric. */
+export type OpenMatterFabric = (options: MatterFabricOptions) => Promise<MatterFabric>;
+
+/**
+ * A value as JSON can carry it: a 64-bit number as a number while it fits, as text when it does
+ * not, and nothing else touched.
+ *
+ * @param value - What the controller cached.
+ * @returns The same value, every bigint converted.
+ */
+function jsonSafe(value: unknown): unknown {
+  if (typeof value === 'bigint') {
+    return value <= BigInt(Number.MAX_SAFE_INTEGER) && value >= BigInt(Number.MIN_SAFE_INTEGER)
+      ? Number(value)
+      : value.toString();
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(jsonSafe);
+  }
+
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, jsonSafe(item)]),
+    );
+  }
+
+  return value;
+}
+
+/**
+ * Sends matter.js's own log into the hub's, at notice and above: what it says at info is a line a
+ * packet.
+ *
+ * @param logger - The hub's.
+ */
+function routeLogs(logger: PlatformLogger): void {
+  Logger.destinations['default'] = LogDestination({
+    name: 'default',
+    level: LogLevel.NOTICE,
+
+    /**
+     * Writes one line.
+     *
+     * @param text - The line, formatted.
+     * @param message - What it says, with its level and facility.
+     */
+    write: (text, message) => {
+      const fields = { facility: message.facility };
+
+      if (message.level >= LogLevel.ERROR) {
+        logger.error(fields, text);
+      } else if (message.level >= LogLevel.WARN) {
+        logger.warn(fields, text);
+      } else {
+        logger.info(fields, text);
+      }
+    },
+  });
+}
+
+/**
+ * Opens the house's fabric: the controller, its storage, its subscriptions to every node.
+ *
+ * @param options - Where to keep it, and who to tell.
+ * @returns The fabric, every node it holds connecting.
+ */
+export const openMatterFabric: OpenMatterFabric = async (options) => {
+  const { storageDir, logger, version, events } = options;
+
+  routeLogs(logger);
+
+  const environment = Environment.default;
+
+  environment.vars.set('storage.path', storageDir);
+
+  const config = await ConfigStorage.create(environment);
+  const controller = await MatterController.create(environment, config, {
+    serverVersion: version,
+    // No Thread here: no border router to look for, and nothing to probe for one.
+    disableThreadDiagnostics: true,
+  });
+  const handler = controller.commandHandler;
+
+  handler.events.attributeChanged.on((nodeId, data) => {
+    const { endpointId, clusterId, attributeId } = data.path;
+
+    events.onNode(String(nodeId), [buildAttributePath(endpointId, clusterId, attributeId)]);
+  });
+
+  for (const each of [
+    handler.events.nodeAvailabilityChanged,
+    handler.events.nodeStructureChanged,
+    handler.events.nodeEndpointAdded,
+    handler.events.nodeEndpointRemoved,
+  ]) {
+    each.on((nodeId: NodeId) => {
+      events.onNode(String(nodeId), null);
+    });
+  }
+
+  handler.events.nodeAdded.on(() => {
+    events.onNodes();
+  });
+  handler.events.nodeDecommissioned.on(() => {
+    events.onNodes();
+  });
+
+  await handler.start();
+  await handler.initializeNodes();
+
+  const fabric = await handler.getCommissionerFabricData();
+
+  /**
+   * One node, as the hub reads it.
+   *
+   * @param nodeId - The node.
+   * @returns It, or undefined when the fabric has none of that id.
+   */
+  const nodeOf = (nodeId: NodeId): MatterNodeSnapshot | undefined => {
+    if (!handler.hasNode(nodeId)) {
+      return undefined;
+    }
+
+    const details = handler.getNodeDetails(nodeId);
+
+    return {
+      nodeId: String(details.node_id),
+      isAvailable: details.available,
+      attributes: jsonSafe(details.attributes) as Record<string, unknown>,
+    };
+  };
+
+  return {
+    fabricId: fabric.fabricId.toString(16),
+
+    /**
+     * Lists the nodes.
+     *
+     * @returns Every node the fabric holds.
+     */
+    nodes: () =>
+      handler.getNodeIds().flatMap((nodeId) => {
+        const found = nodeOf(nodeId);
+
+        return found === undefined ? [] : [found];
+      }),
+
+    /**
+     * Reads one node.
+     *
+     * @param nodeId - The node, in decimal.
+     * @returns It, or undefined.
+     */
+    node: (nodeId) => nodeOf(NodeId(BigInt(nodeId))),
+
+    /**
+     * Commissions a node over the network, with an id of its own.
+     *
+     * @param code - Its pairing code.
+     * @returns The node's id.
+     */
+    commission: async (code) => {
+      const nodeId = NodeId(
+        await config.allocateNodeId((candidate) => handler.isNodeIdInUse(NodeId(candidate))),
+      );
+      const request = code.startsWith('MT:') ? { qrCode: code } : { manualCode: code };
+      const committed = await handler.commissionNode({ nodeId, onNetworkOnly: true, ...request });
+
+      return String(committed.nodeId);
+    },
+
+    /**
+     * Takes a node off the fabric.
+     *
+     * @param nodeId - The node.
+     * @returns Once it left.
+     */
+    decommission: async (nodeId) => {
+      await handler.decommissionNode(NodeId(BigInt(nodeId)));
+    },
+
+    /**
+     * Invokes a command.
+     *
+     * @param nodeId - The node.
+     * @param request - The command.
+     * @returns Once the node accepted it.
+     */
+    invoke: async (nodeId, request) => {
+      await handler.handleInvoke({
+        nodeId: NodeId(BigInt(nodeId)),
+        endpointId: EndpointNumber(request.endpoint),
+        clusterId: ClusterId(request.cluster),
+        commandName: request.command,
+        data: request.payload,
+        ...(request.timedMs === undefined
+          ? {}
+          : { timedInteractionTimeoutMs: Millis(request.timedMs) }),
+      });
+    },
+
+    /**
+     * Writes an attribute.
+     *
+     * @param nodeId - The node.
+     * @param request - The attribute.
+     * @returns Once the node accepted it.
+     */
+    write: async (nodeId, request) => {
+      await handler.handleWriteAttribute({
+        nodeId: NodeId(BigInt(nodeId)),
+        endpointId: EndpointNumber(request.endpoint),
+        clusterId: ClusterId(request.cluster),
+        attributeId: AttributeId(request.attribute),
+        value: request.value,
+      });
+    },
+
+    /**
+     * Asks for firmware on offer.
+     *
+     * @param nodeId - The node.
+     * @returns The offer, or null for nothing newer.
+     */
+    checkUpdate: async (nodeId) => {
+      const found = await handler.checkNodeUpdate(NodeId(BigInt(nodeId)));
+
+      return found === null
+        ? null
+        : {
+            softwareVersion: found.software_version,
+            softwareVersionString: found.software_version_string,
+          };
+    },
+
+    /**
+     * Has a node install a version.
+     *
+     * @param nodeId - The node.
+     * @param softwareVersion - The version.
+     * @returns Once it started.
+     */
+    installUpdate: async (nodeId, softwareVersion) => {
+      await handler.updateNode(NodeId(BigInt(nodeId)), softwareVersion);
+    },
+
+    /**
+     * Closes the controller and its storage.
+     *
+     * @returns Once closed.
+     */
+    stop: async () => {
+      await controller.stop();
+      await config.close();
+    },
+  };
+};
