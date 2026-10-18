@@ -3,7 +3,7 @@
  * one - a declarative light over HTTP, a transport of its own in TypeScript importing a sibling,
  * `$schema` in every JSON file - checked, built, packed and loaded the way `hub` loads it.
  */
-import { cp, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,6 +21,7 @@ import {
   createFakeSdk,
   driverHarness,
   identify,
+  identifyMatter,
   loadIntegration,
   type FakeSdk,
 } from '../src/testing/index.js';
@@ -294,6 +295,45 @@ describe('testing', () => {
       matches: true,
       identity: { externalId: 'fx-2', name: 'Hall', modelCode: 'FX2', swVersion: null },
       association: { driverId: 'light', model: 'Strip', modelChoices: ['Strip'] },
+    });
+  });
+
+  it("says which of the house's Matter devices the vendor's rules take, and as which driver", async () => {
+    const source = path.join(root, 'src');
+    const discovery = JSON.parse(
+      await readFile(path.join(source, 'discovery.json'), 'utf8'),
+    ) as object;
+
+    await writeFile(
+      path.join(source, 'discovery.json'),
+      JSON.stringify({ ...discovery, matter: { match: [{ path: 'vendorId', equals: 5264 }] } }),
+    );
+    await mkdir(path.join(source, 'matter'));
+    await writeFile(
+      path.join(source, 'matter', 'driver.json'),
+      JSON.stringify({
+        id: 'matter',
+        name: 'Matter device',
+        transport: 'matter',
+        kind: 'matter',
+        setup: './setup.json',
+      }),
+    );
+    await writeFile(
+      path.join(source, 'matter', 'setup.json'),
+      JSON.stringify({ transport: { fields: [] } }),
+    );
+
+    const { vendor, failures } = await loadIntegration({ root });
+
+    expect(failures).toEqual([]);
+    expect(identifyMatter(vendor, { vendorId: 5264, productId: 4121 })).toEqual({
+      matches: true,
+      association: { driverId: 'matter', model: 'Matter device', modelChoices: ['Matter device'] },
+    });
+    expect(identifyMatter(vendor, { vendorId: 4107, productId: 4121 })).toEqual({
+      matches: false,
+      association: null,
     });
   });
 

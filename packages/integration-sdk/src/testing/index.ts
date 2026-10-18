@@ -6,6 +6,7 @@
  *   hands the code a fake SDK;
  * - {@link driverHarness} claims, describes, maps what a device sends and builds commands;
  * - {@link identify} says what discovery makes of a device heard;
+ * - {@link identifyMatter} says what it makes of one of the house's Matter devices;
  * - {@link createFakeSdk} is the SDK a test hands a module, recording what it logged and sent.
  */
 
@@ -25,7 +26,12 @@ export {
   type DriverHarnessOptions,
   type HarnessDevice,
 } from './harness.js';
-export { identify, type Identification } from './identify.js';
+export {
+  identify,
+  identifyMatter,
+  type Identification,
+  type MatterIdentification,
+} from './identify.js';
 export { loadIntegration, type LoadedIntegration, type LoadIntegrationOptions } from './load.js';
 export { IntegrationError } from '../project.js';
 

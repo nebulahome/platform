@@ -209,6 +209,25 @@ export declare function identify(vendor: LoadedVendor, heard: {
   readonly probed?: unknown;
   readonly deviceKey?: string;
 }): Identification;
+/** What discovery makes of one of the house's Matter devices. */
+type MatterIdentification = {
+  /** Whether the vendor's `matter` rules take it: every condition holds. */
+  readonly matches: boolean;
+  /** The Matter driver and the model it names; null when no driver takes the device. */
+  readonly association: Association | null;
+};
+/**
+ * Says what discovery makes of one of the house's Matter devices, by the vendor's `matter` rules.
+ * A device that another vendor's rules take too is the platform's own instead, which one vendor's
+ * test cannot see.
+ *
+ * @param vendor - The vendor, loaded with `loadIntegration`.
+ * @param identity - Who the device says it is: `vendorId`, `productId`, `vendorName`,
+ * `isBridged` and the rest of the fields FILES.md lists; a field left out is one it does not say.
+ * @returns What discovery makes of it.
+ * @throws {Error} When the vendor has no discovery that loaded.
+ */
+export declare function identifyMatter(vendor: LoadedVendor, identity: Readonly<Record<string, unknown>>): MatterIdentification;
 //#endregion
 //#region src/testing/load.d.ts
 /** What loading takes. */
@@ -264,4 +283,4 @@ export declare class IntegrationError extends Error {
   constructor(problems: readonly string[]);
 }
 //#endregion
-export type { Association, BundleFailure, DriverHarness, DriverHarnessOptions, FakeSdk, FakeSdkOptions, FakeUdpSocket, FakeWebSocket, HarnessDevice, Identification, LoadIntegrationOptions, LoadedAccount, LoadedBundle, LoadedDiscovery, LoadedIntegration, LoadedListenSource, LoadedVendor, LogLevel, LogRecord, SentDatagram, SightingIdentity };
+export type { Association, BundleFailure, DriverHarness, DriverHarnessOptions, FakeSdk, FakeSdkOptions, FakeUdpSocket, FakeWebSocket, HarnessDevice, Identification, LoadIntegrationOptions, LoadedAccount, LoadedBundle, LoadedDiscovery, LoadedIntegration, LoadedListenSource, LoadedVendor, LogLevel, LogRecord, MatterIdentification, SentDatagram, SightingIdentity };

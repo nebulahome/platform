@@ -7,9 +7,11 @@
  */
 import type { Discovered, LoadedVendor } from '@nebulahome/package-runtime';
 import {
+  associateMatter,
   associateModel,
   identifySighting,
   matchesAnnouncement,
+  matchesMatter,
   type Association,
   type SightingIdentity,
 } from '@nebulahome/package-runtime';
@@ -69,4 +71,39 @@ export function identify(
     identity,
     association: associateModel(plan, identity.modelCode, claims),
   };
+}
+
+/** What discovery makes of one of the house's Matter devices. */
+export type MatterIdentification = {
+  /** Whether the vendor's `matter` rules take it: every condition holds. */
+  readonly matches: boolean;
+
+  /** The Matter driver and the model it names; null when no driver takes the device. */
+  readonly association: Association | null;
+};
+
+/**
+ * Says what discovery makes of one of the house's Matter devices, by the vendor's `matter` rules.
+ * A device that another vendor's rules take too is the platform's own instead, which one vendor's
+ * test cannot see.
+ *
+ * @param vendor - The vendor, loaded with `loadIntegration`.
+ * @param identity - Who the device says it is: `vendorId`, `productId`, `vendorName`,
+ * `isBridged` and the rest of the fields FILES.md lists; a field left out is one it does not say.
+ * @returns What discovery makes of it.
+ * @throws {Error} When the vendor has no discovery that loaded.
+ */
+export function identifyMatter(
+  vendor: LoadedVendor,
+  identity: Readonly<Record<string, unknown>>,
+): MatterIdentification {
+  const plan = vendor.discovery?.plan;
+
+  if (plan === undefined) {
+    throw new Error(`${vendor.manifest.id} has no discovery.json that loaded`);
+  }
+
+  const matches = matchesMatter(plan, identity);
+
+  return { matches, association: matches ? associateMatter(plan, identity) : null };
 }

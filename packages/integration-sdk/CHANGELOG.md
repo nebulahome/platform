@@ -14,6 +14,8 @@ Matter, and a wider grammar for conditions.
 - Conditions, in claims and in `discovery.json`, take `endsWith`, `contains` (a part of a text, or
   an item of a list) and `min` / `max` (a number in a range) beside `equals`, `exists`, `oneOf`
   and `startsWith`.
+- `identifyMatter(vendor, identity)` in `@nebulahome/integration-sdk/testing` says whether the
+  vendor's `matter` rules take a Matter device, and as which driver and model.
 
 ## 1.0.0
 
