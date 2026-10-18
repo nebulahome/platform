@@ -331,7 +331,9 @@ at once to the vendor whose `matter` rules take it:
   the one to rule on: the CSA assigns it to the maker, and it does not change with a name.
 - `model` - where the device says its model, looked up in the `modelCodes` of the vendor's drivers
   that say `"kind": "matter"`; `productId` when absent. A model no driver maps goes to the vendor's
-  Matter driver when it has only one.
+  Matter driver when it has only one. Matter devices are added on their own, with no one to pick a
+  model: a Matter driver that lists models must map every product in `modelCodes`, or a product
+  it misses is never added. A driver that lists none takes them all, under its own name.
 
 A vendor may have `matter` alone, with no `listen`. A device behind a Matter bridge is a device of
 its own, ruled on by what the bridge says of it. A device that more than one vendor's rules take,
