@@ -69,19 +69,29 @@ export const transportIdSchema = z.string().regex(TRANSPORT_ID_PATTERN, 'Must be
 /**
  * The wires the interface names on a vendor's card: what a person recognises on the box, whatever
  * transport of the platform's or of the vendor's own carries it. `udp` is a device's own protocol
- * over plain datagrams on the network (Govee's LAN API), `modbus` Modbus TCP.
+ * over plain datagrams on the network (Govee's LAN API), `modbus` Modbus TCP, `matter` the
+ * house's Matter fabric.
  */
-export const TRANSPORT_WIRES = ['http', 'mqtt', 'ble', 'zigbee', 'udp', 'modbus'] as const;
+export const TRANSPORT_WIRES = [
+  'http',
+  'mqtt',
+  'ble',
+  'zigbee',
+  'udp',
+  'modbus',
+  'matter',
+] as const;
 
 /** A wire the interface names. */
 export type TransportWire = (typeof TRANSPORT_WIRES)[number];
 
 /**
- * How a device can be heard announcing itself: the platform's mDNS browser, or a vendor's own
- * listener. Declared here rather than beside the discovered devices, because a vendor lists the
- * ways it can be found and the discovery module already reads this file.
+ * How a device can be heard announcing itself: the platform's mDNS browser, a vendor's own
+ * listener, or the house's Matter fabric - a node commissioned and not yet added. Declared here
+ * rather than beside the discovered devices, because a vendor lists the ways it can be found and
+ * the discovery module already reads this file.
  */
-export const DISCOVERY_SOURCES = ['mdns', 'module'] as const;
+export const DISCOVERY_SOURCES = ['mdns', 'module', 'matter'] as const;
 
 /** How a device can be heard. */
 export type DiscoverySource = (typeof DISCOVERY_SOURCES)[number];
@@ -172,12 +182,13 @@ export const vendorChangedReplySchema = z.object({ isLoaded: z.boolean() });
 export type VendorChangedReply = z.output<typeof vendorChangedReplySchema>;
 
 /**
- * Which of the two places `hub` read a vendor from: the data directory, where the platform
- * installs vendors, or a directory of bundles under development, read outside production.
+ * Where `hub` read a vendor from: the data directory, where the platform installs vendors, a
+ * directory of bundles under development, read outside production - or nowhere, for the one vendor
+ * the platform is itself: `matter`, the Matter devices no integration claims.
  */
-export const BUNDLE_ORIGINS = ['installed', 'development'] as const;
+export const BUNDLE_ORIGINS = ['installed', 'development', 'platform'] as const;
 
-/** Which of the two places `hub` read a vendor from. */
+/** Where `hub` read a vendor from. */
 export type BundleOrigin = (typeof BUNDLE_ORIGINS)[number];
 
 /** Where an installed vendor came from: the integrations index, or the platform's local folder. */

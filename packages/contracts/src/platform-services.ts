@@ -2,9 +2,10 @@
  * The platform services: what the platform itself needs from a package (PACKAGES.md 2).
  *
  * Some of what the house runs is not the platform's own but a package's: the MQTT broker every
- * MQTT integration meets on, later a Matter controller. Each is a *platform service* named
- * `<protocol>-broker`. A package that `provides` the name is the house's broker for that protocol,
- * and the platform asks it what it needs over the bus, on `svc.<package>.<method>`. Which package
+ * MQTT integration meets on (the Matter controller is the platform's own, in `hub`). Each one is
+ * a *platform service* named `<protocol>-broker`. A package that `provides` the name is the
+ * house's broker for that protocol, and the platform asks it what it needs over the bus, on
+ * `svc.<package>.<method>`. Which package
  * that is gets looked up, never assumed: the one that provides the service, a running one first and
  * then the service's default, so that another package may stand in for the default one.
  *
