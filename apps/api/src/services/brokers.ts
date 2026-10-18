@@ -7,6 +7,8 @@
  * rows - and then the node is taken off the fabric, which it may refuse when it does not answer:
  * the devices are gone either way, and the page offers to try the fabric again.
  */
+import { and, eq } from 'drizzle-orm';
+
 import {
   busSubjects,
   HUB_MATTER_COMMISSION_METHOD,
@@ -15,6 +17,8 @@ import {
   HUB_MATTER_RESTORE_METHOD,
   HUB_MATTER_STATUS_METHOD,
   HUB_SERVICE,
+  MATTER_GENERIC_KIND,
+  MATTER_TRANSPORT,
   MATTER_VENDOR,
   matterCommissioningSchema,
   matterNodesReplySchema,
@@ -28,9 +32,10 @@ import {
   type MatterRestoreRequest,
   type MatterStatus,
 } from '@nebulahome/contracts';
+import { schema } from '@nebulahome/db';
 
 import { deleteDevice, type DevicesContext, type RemovedDevice } from './devices.js';
-import { busOf, type IntegrationsContext } from './integrations.js';
+import { busOf, listCatalogue, reloadOnHub, type IntegrationsContext } from './integrations.js';
 
 /**
  * Where the Matter fabric stands.
@@ -159,4 +164,68 @@ export async function restoreMatterDevice(
   );
 
   return reply.isRestored;
+}
+
+/** A Matter device handed from the platform to the integration that takes it. */
+export type RehomedDevice = { readonly deviceId: string; readonly kind: string };
+
+/**
+ * Hands each Matter device the platform holds to the integration whose rules now take it alone:
+ * one installed after the device was added. The node, the device's id and its entities stay, since
+ * both drivers run the platform's Matter mapping: only whose device it is changes.
+ *
+ * @param context - The request's collaborators.
+ * @returns The devices handed over, with their new kind.
+ */
+export async function rehomeMatterDevices(context: DevicesContext): Promise<RehomedDevice[]> {
+  const held = (await matterNodes(context))
+    .flatMap((node) => node.devices)
+    .filter((device) => device.kind === MATTER_GENERIC_KIND && device.claimedBy.length === 1);
+
+  if (held.length === 0) {
+    return [];
+  }
+
+  const catalogue = await listCatalogue(context);
+  const rehomed: RehomedDevice[] = [];
+
+  for (const { deviceId, claimedBy } of held) {
+    const vendor = catalogue.find((each) => each.id === claimedBy[0]);
+    // shortcut: only a vendor with one Matter driver listing no models takes its devices over;
+    // choose by product id the way discovery does once a vendor ships more than one.
+    const [driver, other] = (vendor?.drivers ?? []).filter(
+      (each) => each.transport === MATTER_TRANSPORT,
+    );
+
+    if (
+      deviceId === null ||
+      vendor === undefined ||
+      driver === undefined ||
+      other !== undefined ||
+      driver.models.length > 0
+    ) {
+      continue;
+    }
+
+    const { integrations } = schema.registry;
+    // eslint-disable-next-line no-await-in-loop -- one device at a time, each then reloaded
+    const changed = await context.db
+      .update(integrations)
+      .set({
+        kind: driver.id,
+        kindVersion: vendor.version,
+        model: driver.name,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(integrations.id, deviceId), eq(integrations.kind, MATTER_GENERIC_KIND)))
+      .returning({ id: integrations.id });
+
+    if (changed.length > 0) {
+      // eslint-disable-next-line no-await-in-loop -- see above
+      await reloadOnHub(context, deviceId);
+      rehomed.push({ deviceId, kind: driver.id });
+    }
+  }
+
+  return rehomed;
 }

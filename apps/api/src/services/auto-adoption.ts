@@ -26,6 +26,7 @@ import {
 import { schema } from '@nebulahome/db';
 
 import type { AuditLog } from './audit.js';
+import { rehomeMatterDevices } from './brokers.js';
 import type { DevicesContext } from './devices.js';
 import { adoptDiscovered, listDiscovered } from './discovery.js';
 
@@ -55,7 +56,13 @@ export type AutoAdoptionOptions = {
 
   /** Reads the device ids already in use; the registry's when not said. */
   readonly takenIds?: (context: DevicesContext) => Promise<string[]>;
+
+  /** Hands Matter devices to the integration installed since; `rehomeMatterDevices` when not said. */
+  readonly rehome?: typeof rehomeMatterDevices;
 };
+
+/** The key a failure to hand Matter devices over is said once under. */
+const REHOME_FAILURE = 'matter';
 
 /**
  * The device ids already in use.
@@ -188,14 +195,60 @@ export class AutoAdoption {
     return this.#isAgain;
   }
 
+  /**
+   * Hands each Matter device the platform holds to the integration installed since that takes it,
+   * as adding it would have if the integration had come first.
+   *
+   * @param context - The pass's collaborators.
+   * @param rehome - What hands them over.
+   */
+  async #rehome(context: DevicesContext, rehome: typeof rehomeMatterDevices): Promise<void> {
+    let rehomed: Awaited<ReturnType<typeof rehomeMatterDevices>>;
+
+    try {
+      rehomed = await rehome(context);
+      this.#failures.delete(REHOME_FAILURE);
+    } catch (error: unknown) {
+      const reason = error instanceof Error ? error.message : String(error);
+
+      if (this.#failures.get(REHOME_FAILURE) !== reason) {
+        this.#failures.set(REHOME_FAILURE, reason);
+        context.logger.warn({ err: error }, 'Could not hand Matter devices to their integrations');
+      }
+
+      return;
+    }
+
+    for (const { deviceId, kind } of rehomed) {
+      context.logger.info(
+        { deviceId, kind },
+        'Handed a Matter device to the integration that takes it',
+      );
+      // eslint-disable-next-line no-await-in-loop -- recorded as it happens, in order
+      await this.#options.audit.record({
+        action: 'device.update',
+        resourceType: 'device',
+        resourceId: deviceId,
+        result: 'success',
+        isSystem: true,
+        traceId: context.traceId,
+        details: { via: 'discovery', kind },
+      });
+    }
+  }
+
   /** Adds every device the hub proposes for a vendor that adds its own. */
   async #pass(): Promise<void> {
     const {
       list = listDiscovered,
       adopt = adoptDiscovered,
       takenIds = registryIds,
+      rehome = rehomeMatterDevices,
     } = this.#options;
     const context = this.#options.contextFor(ulid());
+
+    await this.#rehome(context, rehome);
+
     const candidates = (await list(context)).filter(
       (candidate) => candidate.adoption === 'automatic' && candidate.movedFrom === null,
     );

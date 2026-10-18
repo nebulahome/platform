@@ -53,12 +53,14 @@ function paired(id: string, name: string | null, adoption = 'automatic'): Discov
  * @param candidates - What the hub proposes.
  * @param taken - The ids already in use.
  * @param refuse - Why adding a candidate fails, by its id.
+ * @param rehomed - The Matter devices handed to an integration installed since.
  * @returns The service, what it added and what it recorded.
  */
 function service(
   candidates: DiscoveredDevice[],
   taken: string[] = [],
   refuse: Record<string, string> = {},
+  rehomed: { deviceId: string; kind: string }[] = [],
 ) {
   const added: { candidateId: string; body: DiscoveryAdopt }[] = [];
   const record = vi.fn(async () => Promise.resolve());
@@ -69,6 +71,7 @@ function service(
     audit: { record },
     list: async () => Promise.resolve(candidates),
     takenIds: async () => Promise.resolve([...taken]),
+    rehome: async () => Promise.resolve(rehomed),
 
     /**
      * Adds a device, or fails the way it was told to.
@@ -119,6 +122,22 @@ describe('AutoAdoption', () => {
     ]);
     expect(record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'device.create', isSystem: true }),
+    );
+  });
+
+  it('hands a Matter device to the integration installed since, and records it', async () => {
+    const { adoption, record } = service([], [], {}, [
+      { deviceId: 'matter-plug', kind: 'shelly/matter' },
+    ]);
+
+    await adoption.settle();
+
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'device.update',
+        resourceId: 'matter-plug',
+        details: { via: 'discovery', kind: 'shelly/matter' },
+      }),
     );
   });
 
