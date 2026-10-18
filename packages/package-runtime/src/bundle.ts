@@ -25,6 +25,7 @@ import { z } from 'zod';
 import {
   iconIdSchema,
   INTEGRATION_KIND_PATTERN,
+  MATTER_TRANSPORT,
   packageRequiresSchema,
   SEMVER_PATTERN,
   TRANSPORT_WIRES,
@@ -34,8 +35,11 @@ import {
 
 import { containerDependenciesSchema } from './containers.js';
 
-/** Bundle kind, which is both how it is written and how far it is trusted. */
-export const BUNDLE_KINDS = ['declarative', 'code'] as const;
+/**
+ * Bundle kind, which is both how it is written and how far it is trusted. `matter` is a driver
+ * the platform's Matter mapping runs: no profile and no code, so as far trusted as a profile.
+ */
+export const BUNDLE_KINDS = ['declarative', 'code', 'matter'] as const;
 
 /** Bundle kind, which is both how it is written and how far it is trusted. */
 export type BundleKind = (typeof BUNDLE_KINDS)[number];
@@ -320,6 +324,7 @@ const driverShape = {
 /** The part of either manifest that says how a driver is written and which file holds it. */
 type KindFiles = {
   readonly kind: BundleKind;
+  readonly transport: string;
   readonly profile?: string | undefined;
   readonly entry?: string | undefined;
 };
@@ -331,6 +336,30 @@ type KindFiles = {
  * @param ctx - Where to record what is wrong.
  */
 function checkKindFiles(manifest: KindFiles, ctx: z.RefinementCtx): void {
+  if (manifest.kind === 'matter') {
+    // The platform's mapping is the driver: there is nothing for a file to say, and it reads only
+    // what the Matter transport hands it.
+    for (const named of ['profile', 'entry'] as const) {
+      if (manifest[named] !== undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [named],
+          message: `A matter driver must not name an ${named}`,
+        });
+      }
+    }
+
+    if (manifest.transport !== MATTER_TRANSPORT) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['transport'],
+        message: `A matter driver runs on the ${MATTER_TRANSPORT} transport`,
+      });
+    }
+
+    return;
+  }
+
   const expected = manifest.kind === 'declarative' ? 'profile' : 'entry';
   const forbidden = manifest.kind === 'declarative' ? 'entry' : 'profile';
 

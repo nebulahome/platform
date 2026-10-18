@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  associateMatter,
   associateModel,
   identifySighting,
   matchesAnnouncement,
+  matchesMatter,
   resolveDiscovery,
   vendorDiscoverySchema,
   type DiscoveryDriver,
@@ -32,12 +34,14 @@ function shellyDrivers(): DiscoveryDriver[] {
     {
       id: 'switch-pm',
       name: 'Relay with power metering',
+      transport: 'http',
       models: ['1PM Gen3', '1PM Mini Gen3'],
       modelCodes: { 'S3SW-001P16EU': '1PM Gen3', 'S3SW-001P8EU': '1PM Mini Gen3' },
     },
     {
       id: 'plug',
       name: 'Plug',
+      transport: 'http',
       models: ['Plug S Gen3'],
       modelCodes: { 'S3PL-00112EU': 'Plug S Gen3' },
     },
@@ -192,12 +196,14 @@ describe('resolveDiscovery', () => {
       {
         id: 'cover-pm',
         name: 'Cover',
+        transport: 'http',
         models: ['2PM Gen3 (cover)'],
         modelCodes: { 'S3SW-002P16EU': '2PM Gen3 (cover)' },
       },
       {
         id: 'switch-2pm',
         name: 'Relays',
+        transport: 'http',
         models: ['2PM Gen3 (relays)'],
         modelCodes: { 'S3SW-002P16EU': '2PM Gen3 (relays)' },
       },
@@ -358,6 +364,7 @@ describe('associateModel', () => {
         {
           id: 'diy-plug',
           name: 'DIY plug',
+          transport: 'http',
           models: ['BASICR3', 'MINI'],
           modelCodes: { diy_plug: ['BASICR3', 'MINI'] },
         },
@@ -382,7 +389,9 @@ describe('associateModel', () => {
   });
 
   it('takes the model the code spells out when a claimed driver lists it by that name', () => {
-    const drivers: DiscoveryDriver[] = [{ id: 'printer', name: 'Printer', models: ['X1C', 'P1S'] }];
+    const drivers: DiscoveryDriver[] = [
+      { id: 'printer', name: 'Printer', transport: 'http', models: ['X1C', 'P1S'] },
+    ];
     const bambu = resolveDiscovery(
       'bambu-lab',
       vendorDiscoverySchema.parse({
@@ -411,7 +420,7 @@ describe('associateModel', () => {
         ...shellyDiscovery(),
         probe: { transport: 'http', op: 'get' },
       }),
-      [{ id: 'server', name: 'Media Server', models: [] }],
+      [{ id: 'server', name: 'Media Server', transport: 'http', models: [] }],
     );
 
     expect(associateModel(plex, null, () => true)).toEqual({
@@ -424,5 +433,53 @@ describe('associateModel', () => {
   it('finds nothing for a device no driver of the vendor takes', () => {
     expect(associateModel(plan, 'S9XX-000')).toBeNull();
     expect(associateModel(plan, null, () => false)).toBeNull();
+  });
+});
+
+describe('Matter devices', () => {
+  /** A vendor found only through Matter: Shelly's vendor id, two Matter drivers by product id. */
+  const plan = resolveDiscovery(
+    'shelly',
+    vendorDiscoverySchema.parse({
+      matter: { match: [{ path: 'vendorId', equals: 5264 }] },
+    }),
+    [
+      ...shellyDrivers(),
+      {
+        id: 'matter-plug',
+        name: 'Plug',
+        transport: 'matter',
+        models: ['Plug S Gen3'],
+        modelCodes: { '4097': 'Plug S Gen3' },
+      },
+      { id: 'matter-relay', name: 'Relay', transport: 'matter', models: [] },
+    ],
+  );
+
+  it('needs a source, or Matter rules with at least one condition', () => {
+    expect(vendorDiscoverySchema.safeParse({}).success).toBe(false);
+    expect(vendorDiscoverySchema.safeParse({ matter: { match: [] } }).success).toBe(false);
+    expect(plan.discovery.listen).toEqual([]);
+    expect(plan.discovery.matter?.model).toBe('productId');
+  });
+
+  it('takes a device whose identity every rule holds of', () => {
+    expect(matchesMatter(plan, { vendorId: 5264, productId: 4097 })).toBe(true);
+    expect(matchesMatter(plan, { vendorId: 4107, productId: 4097 })).toBe(false);
+  });
+
+  it('finds the Matter driver by the product id, and none for a model no driver maps', () => {
+    expect(associateMatter(plan, { vendorId: 5264, productId: 4097 })).toEqual({
+      driverId: 'matter-plug',
+      model: 'Plug S Gen3',
+      modelChoices: ['Plug S Gen3'],
+    });
+    // Two Matter drivers and a code neither maps: nothing says which.
+    expect(associateMatter(plan, { vendorId: 5264, productId: 1 })).toBeNull();
+  });
+
+  it('never gives an announcement to a Matter driver, nor a Matter device to another', () => {
+    expect(associateModel(plan, '4097')).toBeNull();
+    expect(associateMatter(plan, { productId: 'S3PL-00112EU' })).toBeNull();
   });
 });

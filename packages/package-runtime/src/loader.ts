@@ -64,6 +64,7 @@ import {
 } from './discovery.js';
 import { INSTALL_MARKER_FILE, installMarkerSchema, type InstallMarker } from './install-marker.js';
 import type { Integration } from './integration.js';
+import { createMatterIntegration } from './matter-mapping.js';
 import { integrationProfileSchema, type IntegrationProfile } from './profile.js';
 import type { BundleLogger, BundleSdk, StreamFactory, TransportFactory } from './sdk.js';
 import type { StreamSource } from './stream.js';
@@ -123,9 +124,10 @@ export type LoadedBundle = {
  * `installed` is the data directory's `hub/integrations`: where the platform installs a vendor
  * from the integrations index or its local folder, and the only place a production hub reads.
  * `development` is a directory of bundles under development - an integration repository's
- * `dist/`, named in the hub's `HUB_DEV_BUNDLE_DIR` - read beside it.
+ * `dist/`, named in the hub's `HUB_DEV_BUNDLE_DIR` - read beside it. `platform` is no place at
+ * all: the vendor the hub is itself, `matter`, built in code.
  */
-export type BundleOrigin = 'development' | 'installed';
+export type BundleOrigin = 'development' | 'installed' | 'platform';
 
 /** Where a vendor's devices announce themselves, ready to listen to. */
 export type LoadedListenSource =
@@ -662,6 +664,10 @@ async function readDriver(
     return { ...identity, profile };
   }
 
+  if (manifest.kind === 'matter') {
+    return identity;
+  }
+
   return {
     ...identity,
     entry: await moduleOf(resolve, directory, manifest.entry ?? '', manifest.id),
@@ -715,6 +721,7 @@ function planDiscovery(
     drivers.map((driver) => ({
       id: driver.driverId,
       name: driver.driverName,
+      transport: driver.manifest.transport,
       models: driver.manifest.models,
       modelCodes: driver.manifest.modelCodes,
     })),
@@ -946,6 +953,10 @@ async function instantiateDriver(
 
   if (profile !== undefined) {
     return { ...identity, integration: createDeclarativeIntegration(driver.manifest, profile) };
+  }
+
+  if (driver.manifest.kind === 'matter') {
+    return { ...identity, integration: createMatterIntegration(driver.manifest) };
   }
 
   const exported = await defaultOf(options.importModule ?? importFile, entry ?? '');

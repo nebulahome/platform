@@ -51,15 +51,31 @@ const MAXIMUM_ONE_OF = 64;
  * and not an `or` between paths: the list is still all-of, and a claim needing boolean
  * algebra is still a claim whose integration should be code.
  *
- * `startsWith` is a prefix of a text, compared without regard to case: what a name a device
- * gives itself on the network looks like - `shellyplus1-a8032ab1`, `ShellyDimmerG3-…` - when
- * the rest of it is the device's own.
+ * `startsWith` and `endsWith` are a prefix and a suffix of a text, compared without regard to
+ * case: what a name a device gives itself on the network looks like - `shellyplus1-a8032ab1`,
+ * `ShellyDimmerG3-…` - when the rest of it is the device's own, and a MAC address's maker by its
+ * first three bytes.
+ *
+ * `contains` is a part of a text, without regard to case, or one item of a list - a Matter
+ * device's `deviceTypes`, its `clusters`. `min` and `max` bound a number, both ends included: a
+ * firmware version from which a driver takes the device.
+ *
+ * There is no regular expression on purpose: one written badly takes the hub's thread for as long
+ * as it backtracks, and the grammar is what keeps a declarative bundle from doing that.
  */
 export const claimConditionSchema = z.union([
   z.strictObject({ path: pathSchema, equals: scalarSchema }),
   z.strictObject({ path: pathSchema, exists: z.literal(true) }),
   z.strictObject({ path: pathSchema, oneOf: z.array(scalarSchema).min(1).max(MAXIMUM_ONE_OF) }),
   z.strictObject({ path: pathSchema, startsWith: z.string().min(1).max(64) }),
+  z.strictObject({ path: pathSchema, endsWith: z.string().min(1).max(64) }),
+  z.strictObject({ path: pathSchema, contains: scalarSchema }),
+  z
+    .strictObject({ path: pathSchema, min: z.number().optional(), max: z.number().optional() })
+    .refine(
+      (condition) => condition.min !== undefined || condition.max !== undefined,
+      'A range needs min, max or both',
+    ),
 ]);
 
 /** One condition a candidate must satisfy for an integration to claim it. */

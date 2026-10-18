@@ -32,6 +32,7 @@ import { z } from 'zod';
 import {
   DEVICE_ADOPTIONS,
   jsonObjectSchema,
+  MATTER_TRANSPORT,
   transportIdSchema,
   type JsonObject,
 } from '@nebulahome/contracts';
@@ -133,16 +134,39 @@ export const discoveryProbeSchema = z.strictObject({
 /** What to ask an announced address. */
 export type DiscoveryProbe = z.output<typeof discoveryProbeSchema>;
 
+/**
+ * Which of the house's Matter devices are the vendor's: rules on who each says it is - its
+ * `vendorId`, `productName`, `macAddresses`, `deviceTypes`, every field of the platform's
+ * `MatterIdentity` - and where it says its model, looked up in the `modelCodes` of the vendor's
+ * drivers that say `"kind": "matter"`.
+ *
+ * A device is commissioned into the house by the owner, so it is added at once to the one vendor
+ * whose rules all hold, or to the platform's own `matter` vendor when none - or more than one - do.
+ */
+export const matterDiscoverySchema = z.strictObject({
+  /** Every condition must hold. All-of, and at least one: a vendor does not take every device. */
+  match: z.array(claimConditionSchema).min(1).max(MAXIMUM_MATCH),
+
+  /** Where the device says its model; its product id when not said. */
+  model: identityPathSchema.default('productId'),
+});
+
+/** Which of the house's Matter devices are the vendor's. */
+export type MatterDiscovery = z.output<typeof matterDiscoverySchema>;
+
 /** Validates a whole `discovery.json`. */
 export const vendorDiscoverySchema = z
   .strictObject({
-    listen: z.array(listenSourceSchema).min(1).max(MAXIMUM_SOURCES),
+    /** Where the vendor's devices announce themselves; none for one found only through Matter. */
+    listen: z.array(listenSourceSchema).max(MAXIMUM_SOURCES).default([]),
 
     /** Every condition must hold of an announcement for it to be the vendor's. All-of. */
     match: z.array(claimConditionSchema).max(MAXIMUM_MATCH).default([]),
 
     probe: discoveryProbeSchema.optional(),
-    identity: discoveryIdentitySchema,
+    identity: discoveryIdentitySchema.default({}),
+
+    matter: matterDiscoverySchema.optional(),
 
     /**
      * Who adds a device found. `owner` - the default - proposes it on the vendor's
@@ -168,7 +192,19 @@ export const vendorDiscoverySchema = z
       .optional(),
   })
   .superRefine((discovery, ctx) => {
-    if (discovery.probe === undefined && discovery.identity.model === undefined) {
+    if (discovery.listen.length === 0 && discovery.matter === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['listen'],
+        message: 'A vendor listens somewhere, or says which Matter devices are its own, or both',
+      });
+    }
+
+    if (
+      discovery.listen.length > 0 &&
+      discovery.probe === undefined &&
+      discovery.identity.model === undefined
+    ) {
       // Without a probe there is no answer for the drivers' own claims to read - they were
       // written for what identification sees - so the model is the only way to a driver.
       ctx.addIssue({
@@ -188,6 +224,12 @@ export type DiscoveryDriver = {
 
   /** The driver's own name, offered as its one model when it lists none. */
   readonly name: string;
+
+  /**
+   * What reaches its devices. A driver on the `matter` transport takes only Matter devices, and no
+   * other driver does.
+   */
+  readonly transport: string;
 
   readonly models: readonly string[];
   readonly modelCodes?: Readonly<Record<string, string | readonly string[]>> | undefined;
@@ -367,7 +409,13 @@ export function associateModel(
   modelCode: string | null,
   claimedBy?: (driverId: string) => boolean,
 ): Association | null {
-  const coded = modelCode === null ? [] : (plan.codes.get(modelCode) ?? []);
+  const reached = new Set(
+    plan.drivers.filter((driver) => driver.transport !== MATTER_TRANSPORT).map(({ id }) => id),
+  );
+  const coded =
+    modelCode === null
+      ? []
+      : (plan.codes.get(modelCode) ?? []).filter((entry) => reached.has(entry.driverId));
 
   if (coded.length > 0) {
     // With a probe's answer, the driver's own claim has the last word even when the code names
@@ -393,7 +441,9 @@ export function associateModel(
     return null;
   }
 
-  const driver = plan.drivers.find((candidate) => claimedBy(candidate.id));
+  const driver = plan.drivers.find(
+    (candidate) => reached.has(candidate.id) && claimedBy(candidate.id),
+  );
 
   if (driver === undefined) {
     return null;
@@ -405,6 +455,68 @@ export function associateModel(
   return {
     driverId: driver.id,
     model: named ?? (choices.length === 1 ? (choices[0] ?? null) : null),
+    modelChoices: choices,
+  };
+}
+
+/**
+ * Whether a Matter device is the vendor's, by the rules of its `matter` block.
+ *
+ * @param plan - The vendor's discovery.
+ * @param identity - Who the device says it is.
+ * @returns True when the vendor has a `matter` block and every one of its conditions holds.
+ */
+export function matchesMatter(plan: DiscoveryPlan, identity: unknown): boolean {
+  return (
+    plan.discovery.matter?.match.every((condition) => conditionHolds(condition, identity)) ?? false
+  );
+}
+
+/**
+ * Finds the driver of the vendor's that runs a Matter device of its, and its model.
+ *
+ * The model the device says is looked up in the `modelCodes` of the vendor's Matter drivers; one
+ * it does not map goes to the vendor's Matter driver when it has only one.
+ *
+ * @param plan - The vendor's discovery.
+ * @param identity - Who the device says it is.
+ * @returns The association, or null when no Matter driver of the vendor takes it.
+ */
+export function associateMatter(plan: DiscoveryPlan, identity: unknown): Association | null {
+  const drivers = plan.drivers.filter((driver) => driver.transport === MATTER_TRANSPORT);
+  const modelCode = textAt(identity, plan.discovery.matter?.model ?? 'productId');
+  const coded =
+    modelCode === null
+      ? []
+      : (plan.codes.get(modelCode) ?? []).filter((entry) =>
+          drivers.some((driver) => driver.id === entry.driverId),
+        );
+  const [first] = coded;
+
+  if (first !== undefined) {
+    return {
+      driverId: first.driverId,
+      model: first.models.length === 1 ? (first.models[0] ?? null) : null,
+      modelChoices: first.models,
+    };
+  }
+
+  const [only, other] = drivers;
+
+  if (only === undefined || other !== undefined) {
+    return null;
+  }
+
+  const choices = choicesOf(only);
+
+  return {
+    driverId: only.id,
+    model:
+      modelCode !== null && choices.includes(modelCode)
+        ? modelCode
+        : choices.length === 1
+          ? (choices[0] ?? null)
+          : null,
     modelChoices: choices,
   };
 }

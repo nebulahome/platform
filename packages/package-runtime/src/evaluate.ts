@@ -140,8 +140,8 @@ function walk(payload: unknown, segments: readonly Segment[]): unknown {
 /**
  * Decides whether one condition holds.
  *
- * The same four forms wherever a condition is written - a driver's claim, a vendor's match on
- * an announcement - so there is one reading of each.
+ * The same forms wherever a condition is written - a driver's claim, a vendor's match on an
+ * announcement or on a Matter device - so there is one reading of each.
  *
  * @param condition - What to check.
  * @param payload - What the scan, the probe or the announcement said.
@@ -165,5 +165,33 @@ export function conditionHolds(condition: ClaimCondition, payload: unknown): boo
     );
   }
 
-  return value === condition.equals;
+  if ('endsWith' in condition) {
+    return (
+      typeof value === 'string' && value.toLowerCase().endsWith(condition.endsWith.toLowerCase())
+    );
+  }
+
+  if ('contains' in condition) {
+    const wanted = condition.contains;
+
+    if (Array.isArray(value)) {
+      return value.includes(wanted);
+    }
+
+    return (
+      typeof value === 'string' &&
+      typeof wanted === 'string' &&
+      value.toLowerCase().includes(wanted.toLowerCase())
+    );
+  }
+
+  if ('equals' in condition) {
+    return value === condition.equals;
+  }
+
+  return (
+    typeof value === 'number' &&
+    (condition.min === undefined || value >= condition.min) &&
+    (condition.max === undefined || value <= condition.max)
+  );
 }

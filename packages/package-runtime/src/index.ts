@@ -19,6 +19,8 @@ export * from './expression.js';
 export * from './install-marker.js';
 export * from './integration.js';
 export * from './loader.js';
+export * from './matter-mapping.js';
+export * from './matter-node.js';
 export * from './profile.js';
 export * from './registry.js';
 export * from './sdk.js';

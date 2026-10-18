@@ -89,4 +89,39 @@ describe('conditionHolds', () => {
     expect(conditionHolds(condition, { instance: 42 })).toBe(false);
     expect(conditionHolds(condition, {})).toBe(false);
   });
+
+  it('takes a text that ends with the suffix, whatever its case', () => {
+    const condition = { path: 'model', endsWith: '-eu' };
+
+    expect(conditionHolds(condition, { model: 'S3SW-001P16EU' })).toBe(false);
+    expect(conditionHolds(condition, { model: 'Plug-S-EU' })).toBe(true);
+    expect(conditionHolds(condition, { model: 3 })).toBe(false);
+  });
+
+  it('takes a text holding a part, or a list holding an item', () => {
+    expect(
+      conditionHolds({ path: 'productName', contains: 'plug' }, { productName: 'Shelly Plug S' }),
+    ).toBe(true);
+    expect(conditionHolds({ path: 'deviceTypes', contains: 266 }, { deviceTypes: [22, 266] })).toBe(
+      true,
+    );
+    expect(conditionHolds({ path: 'deviceTypes', contains: 256 }, { deviceTypes: [22, 266] })).toBe(
+      false,
+    );
+    expect(conditionHolds({ path: 'clusters', contains: 'x' }, { clusters: 'nothing' })).toBe(
+      false,
+    );
+  });
+
+  it('takes a number within its range, both ends included', () => {
+    const condition = { path: 'softwareVersion', min: 10, max: 20 };
+
+    expect(conditionHolds(condition, { softwareVersion: 10 })).toBe(true);
+    expect(conditionHolds(condition, { softwareVersion: 20 })).toBe(true);
+    expect(conditionHolds(condition, { softwareVersion: 21 })).toBe(false);
+    expect(conditionHolds({ path: 'softwareVersion', min: 10 }, { softwareVersion: 99 })).toBe(
+      true,
+    );
+    expect(conditionHolds(condition, { softwareVersion: '15' })).toBe(false);
+  });
 });

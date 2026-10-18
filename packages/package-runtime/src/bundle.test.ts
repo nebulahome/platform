@@ -197,6 +197,15 @@ describe('driverManifestSchema', () => {
     expect(driverManifestSchema.safeParse(withoutEntry).success).toBe(false);
   });
 
+  it('runs a matter driver on the matter transport, with neither a profile nor code', () => {
+    const matter: Record<string, unknown> = { ...driver(), kind: 'matter', transport: 'matter' };
+    delete matter['entry'];
+
+    expect(driverManifestSchema.safeParse(matter).success).toBe(true);
+    expect(driverManifestSchema.safeParse({ ...matter, transport: 'http' }).success).toBe(false);
+    expect(driverManifestSchema.safeParse({ ...matter, entry: './driver.js' }).success).toBe(false);
+  });
+
   it('requires a profile from a declarative driver', () => {
     expect(
       driverManifestSchema.safeParse({ ...driver(), kind: 'declarative', entry: undefined })
