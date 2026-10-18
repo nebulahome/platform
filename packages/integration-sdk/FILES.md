@@ -118,9 +118,16 @@ the vendor's models by series, across its drivers - the series by name, the mode
 counting order - and a device's page says its series where it would say the driver's name. A
 model given no series is grouped under its driver. Every model named must be in `models`.
 
-`transport` is a platform transport - `http`, `mqtt` - or one the driver's own vendor ships,
-named after the vendor: `shelly/rpc`. Never another vendor's: vendors load in no particular
+`transport` is a platform transport - `http`, `mqtt`, `matter` - or one the driver's own vendor
+ships, named after the vendor: `shelly/rpc`. Never another vendor's: vendors load in no particular
 order, and a driver leaning on another's transport would load or not by luck.
+
+A driver of the vendor's **Matter devices** is `"transport": "matter"` with `"kind": "matter"` and
+neither a profile nor an entry: the platform's own Matter mapping runs it - lights, switches,
+covers, locks, thermostats, the usual sensors, power and energy, the firmware - so the vendor's
+Matter devices are its own, on its page, without code. Which devices those are its
+`discovery.json` says (below), and `modelCodes` maps what they call their model - their product id,
+unless the vendor says another field - onto the models it lists.
 
 `defaultIcon` names the icon a device of this driver starts with, by its id in the platform's
 icon catalogue (`packages/icons/catalogue.json` lists the platform's own ids - `light`,
@@ -143,6 +150,14 @@ serves a family of models - and a state may be **looked up in a table** -
 `{ "path": "'cover:0'.state", "map": { "opening": "opening" }, "default": "stopped" }`, which
 renames what a device says into what a capability accepts. A list is membership, not an `or`
 between paths; a table renames and cannot compute.
+
+A condition, in a claim or a `discovery.json`, may also ask that a text **start** or **end** with
+something (`startsWith`, `endsWith`, without regard to case - a MAC address's maker is its first
+three bytes), that a text or a list **contain** something (`contains`: a part of a text, without
+regard to case, or one item of a list - `{ "path": "deviceTypes", "contains": 266 }`), or that a
+number lie **in a range** (`{ "path": "softwareVersion", "min": 10 }`, both ends included). There
+is no regular expression, on purpose: one written badly holds the hub's thread for as long as it
+backtracks, and the grammar is what keeps a bundle of data from doing that.
 
 A third form reads whether something is **there** -
 `{ "path": "sys.available_updates.stable", "present": true }` - true when the path names a value,
@@ -294,6 +309,35 @@ reports one code as relays or as a cover, and each driver's claim reads its prof
 driver takes is not proposed, and the hub logs its model once at info: it is the answer to "why is
 my device not found". A `discovery.json` that does not load leaves the vendor loaded without discovery, and the
 failure names the file.
+
+**Matter devices.** The house's Matter devices are commissioned on the platform's Brokers page,
+with the code the maker's app - or Google Home, Apple Home, Alexa - shares, and each is then added
+at once to the vendor whose `matter` rules take it:
+
+```json
+{
+  "matter": {
+    "match": [{ "path": "vendorId", "equals": 5264 }],
+    "model": "productId"
+  }
+}
+```
+
+- `match` - at least one condition, all of which must hold of who the device says it is: its
+  `vendorId` and `productId` (numbers), `vendorName`, `productName`, `productLabel`, `nodeLabel`,
+  `serialNumber`, `uniqueId`, `hardwareVersion`, `softwareVersion` (numbers) and their `…String`
+  texts, `macAddresses` (a list of `aa:bb:cc:dd:ee:ff`), `deviceTypes` and `clusters` (lists of
+  numbers), `isBridge` and `isBridged`. A field the device does not say is `null`. The vendor id is
+  the one to rule on: the CSA assigns it to the maker, and it does not change with a name.
+- `model` - where the device says its model, looked up in the `modelCodes` of the vendor's drivers
+  that say `"kind": "matter"`; `productId` when absent. A model no driver maps goes to the vendor's
+  Matter driver when it has only one.
+
+A vendor may have `matter` alone, with no `listen`. A device behind a Matter bridge is a device of
+its own, ruled on by what the bridge says of it. A device that more than one vendor's rules take,
+and one that none takes, is added as the platform's own Matter device, and the Brokers page says
+which vendors want it. Removing a Matter device from the house takes it off the house's fabric; it
+stays in the other apps it was shared from.
 
 **A listener of the vendor's own** is a module - plain JavaScript, like a transport, handed the
 same SDK - whose default export returns `{ listen(signal, context), scan?() }`: an async iterable

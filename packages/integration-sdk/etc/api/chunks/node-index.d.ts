@@ -199,8 +199,10 @@ type EntityStateClass = (typeof ENTITY_STATE_CLASSES)[number];
  */
 declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   number: "number";
-  on_off: "on_off";
+  custom: "custom";
+  image: "image";
   level: "level";
+  on_off: "on_off";
   color_hs: "color_hs";
   color_temp: "color_temp";
   cover: "cover";
@@ -216,8 +218,6 @@ declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   lawn_mower: "lawn_mower";
   select: "select";
   vacuum: "vacuum";
-  image: "image";
-  custom: "custom";
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
 type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
@@ -685,9 +685,10 @@ type IntegrationSetup = z.output<typeof integrationSetupSchema>;
 /**
  * The wires the interface names on a vendor's card: what a person recognises on the box, whatever
  * transport of the platform's or of the vendor's own carries it. `udp` is a device's own protocol
- * over plain datagrams on the network (Govee's LAN API), `modbus` Modbus TCP.
+ * over plain datagrams on the network (Govee's LAN API), `modbus` Modbus TCP, `matter` the
+ * house's Matter fabric.
  */
-declare const TRANSPORT_WIRES: readonly ["http", "mqtt", "ble", "zigbee", "udp", "modbus"];
+declare const TRANSPORT_WIRES: readonly ["http", "mqtt", "ble", "zigbee", "udp", "modbus", "matter"];
 /** A wire the interface names. */
 type TransportWire = (typeof TRANSPORT_WIRES)[number];
 /**
@@ -698,8 +699,8 @@ declare const integrationInstallSchema: z.ZodObject<{
   build: z.ZodString;
   version: z.ZodString;
   source: z.ZodEnum<{
-    local: "local";
     index: "index";
+    local: "local";
   }>;
   artifactSha256: z.ZodString;
   installedAt: z.ZodISODateTime;
@@ -1652,11 +1653,12 @@ declare const vendorManifestSchema: z.ZodObject<{
   transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
     module: z.ZodString;
     wires: z.ZodArray<z.ZodEnum<{
+      udp: "udp";
+      matter: "matter";
       http: "http";
       mqtt: "mqtt";
       ble: "ble";
       zigbee: "zigbee";
-      udp: "udp";
       modbus: "modbus";
     }>>;
   }, z.core.$strict>]>>>;
@@ -1748,6 +1750,7 @@ declare const bundleManifestSchema: z.ZodObject<{
   kind: z.ZodEnum<{
     declarative: "declarative";
     code: "code";
+    matter: "matter";
   }>;
   defaultIcon: z.ZodOptional<z.ZodString>;
   webPagePort: z.ZodOptional<z.ZodInt>;
@@ -1793,12 +1796,12 @@ type TemplateReference = {
 //#region ../package-runtime/dist/discovery.d.ts
 /** Validates a whole `discovery.json`. */
 declare const vendorDiscoverySchema: z.ZodObject<{
-  listen: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
+  listen: z.ZodDefault<z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
     mdns: z.ZodString;
   }, z.core.$strict>, z.ZodObject<{
     module: z.ZodString;
     lan: z.ZodDefault<z.ZodBoolean>;
-  }, z.core.$strict>]>>;
+  }, z.core.$strict>]>>>;
   match: z.ZodDefault<z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
     path: z.ZodString;
     equals: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
@@ -1811,6 +1814,16 @@ declare const vendorDiscoverySchema: z.ZodObject<{
   }, z.core.$strict>, z.ZodObject<{
     path: z.ZodString;
     startsWith: z.ZodString;
+  }, z.core.$strict>, z.ZodObject<{
+    path: z.ZodString;
+    endsWith: z.ZodString;
+  }, z.core.$strict>, z.ZodObject<{
+    path: z.ZodString;
+    contains: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+  }, z.core.$strict>, z.ZodObject<{
+    path: z.ZodString;
+    min: z.ZodOptional<z.ZodNumber>;
+    max: z.ZodOptional<z.ZodNumber>;
   }, z.core.$strict>]>>>;
   probe: z.ZodOptional<z.ZodObject<{
     transport: z.ZodString;
@@ -1818,12 +1831,38 @@ declare const vendorDiscoverySchema: z.ZodObject<{
     args: z.ZodDefault<z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
     timeoutMs: z.ZodOptional<z.ZodInt>;
   }, z.core.$strict>>;
-  identity: z.ZodObject<{
+  identity: z.ZodDefault<z.ZodObject<{
     model: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
     externalId: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
     name: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
     swVersion: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
-  }, z.core.$strict>;
+  }, z.core.$strict>>;
+  matter: z.ZodOptional<z.ZodObject<{
+    match: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
+      path: z.ZodString;
+      equals: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      exists: z.ZodLiteral<true>;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      oneOf: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      startsWith: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      endsWith: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      contains: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      min: z.ZodOptional<z.ZodNumber>;
+      max: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strict>]>>;
+    model: z.ZodDefault<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
+  }, z.core.$strict>>;
   adopt: z.ZodDefault<z.ZodEnum<{
     owner: "owner";
     automatic: "automatic";
@@ -1842,6 +1881,11 @@ type DiscoveryDriver = {
   readonly id: string;
   /** The driver's own name, offered as its one model when it lists none. */
   readonly name: string;
+  /**
+   * What reaches its devices. A driver on the `matter` transport takes only Matter devices, and no
+   * other driver does.
+   */
+  readonly transport: string;
   readonly models: readonly string[];
   readonly modelCodes?: Readonly<Record<string, string | readonly string[]>> | undefined;
 };
@@ -1974,9 +2018,10 @@ type LoadedBundle = {
  * `installed` is the data directory's `hub/integrations`: where the platform installs a vendor
  * from the integrations index or its local folder, and the only place a production hub reads.
  * `development` is a directory of bundles under development - an integration repository's
- * `dist/`, named in the hub's `HUB_DEV_BUNDLE_DIR` - read beside it.
+ * `dist/`, named in the hub's `HUB_DEV_BUNDLE_DIR` - read beside it. `platform` is no place at
+ * all: the vendor the hub is itself, `matter`, built in code.
  */
-type BundleOrigin = 'development' | 'installed';
+type BundleOrigin = 'development' | 'installed' | 'platform';
 /** Where a vendor's devices announce themselves, ready to listen to. */
 type LoadedListenSource = {
   readonly kind: 'mdns';

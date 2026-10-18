@@ -3,6 +3,18 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.1.0
+
+Matter, and a wider grammar for conditions.
+
+- A driver may run on the platform's `matter` transport with `"kind": "matter"`: the platform's
+  Matter mapping is its driver, with neither a profile nor code.
+- `discovery.json` may say which of the house's Matter devices are the vendor's, in a `matter`
+  block of conditions on who each device says it is; `listen` may then be left out.
+- Conditions, in claims and in `discovery.json`, take `endsWith`, `contains` (a part of a text, or
+  an item of a list) and `min` / `max` (a number in a range) beside `equals`, `exists`, `oneOf`
+  and `startsWith`.
+
 ## 1.0.0
 
 The first public release.

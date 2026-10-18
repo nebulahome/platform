@@ -25,11 +25,12 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
       module: z.ZodString;
       wires: z.ZodArray<z.ZodEnum<{
+        udp: "udp";
+        matter: "matter";
         http: "http";
         mqtt: "mqtt";
         ble: "ble";
         zigbee: "zigbee";
-        udp: "udp";
         modbus: "modbus";
       }>>;
     }, z.core.$strict>]>>>;
@@ -110,6 +111,7 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     kind: z.ZodEnum<{
       declarative: "declarative";
       code: "code";
+      matter: "matter";
     }>;
     defaultIcon: z.ZodOptional<z.ZodString>;
     webPagePort: z.ZodOptional<z.ZodInt>;
@@ -343,6 +345,16 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       }, z.core.$strict>, z.ZodObject<{
         path: z.ZodString;
         startsWith: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        endsWith: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        contains: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        min: z.ZodOptional<z.ZodNumber>;
+        max: z.ZodOptional<z.ZodNumber>;
       }, z.core.$strict>]>>;
       identity: z.ZodObject<{
         externalId: z.ZodString;
@@ -364,8 +376,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     entities: z.ZodArray<z.ZodObject<{
       domain: z.ZodEnum<{
         number: "number";
-        custom: "custom";
         image: "image";
+        custom: "custom";
         light: "light";
         switch: "switch";
         sensor: "sensor";
@@ -387,8 +399,10 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       icon: z.ZodOptional<z.ZodString>;
       capabilities: z.ZodRecord<z.ZodEnum<{
         number: "number";
-        on_off: "on_off";
+        custom: "custom";
+        image: "image";
         level: "level";
+        on_off: "on_off";
         color_hs: "color_hs";
         color_temp: "color_temp";
         cover: "cover";
@@ -404,8 +418,6 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         lawn_mower: "lawn_mower";
         select: "select";
         vacuum: "vacuum";
-        image: "image";
-        custom: "custom";
       }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
       state: z.ZodRecord<z.ZodEnum<{
         number: "number";
@@ -534,12 +546,12 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     }, z.core.$strict>>;
   }, z.core.$strict>;
   readonly discovery: z.ZodObject<{
-    listen: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
+    listen: z.ZodDefault<z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
       mdns: z.ZodString;
     }, z.core.$strict>, z.ZodObject<{
       module: z.ZodString;
       lan: z.ZodDefault<z.ZodBoolean>;
-    }, z.core.$strict>]>>;
+    }, z.core.$strict>]>>>;
     match: z.ZodDefault<z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
       path: z.ZodString;
       equals: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
@@ -552,6 +564,16 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     }, z.core.$strict>, z.ZodObject<{
       path: z.ZodString;
       startsWith: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      endsWith: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      contains: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      min: z.ZodOptional<z.ZodNumber>;
+      max: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strict>]>>>;
     probe: z.ZodOptional<z.ZodObject<{
       transport: z.ZodString;
@@ -559,12 +581,38 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       args: z.ZodDefault<z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
       timeoutMs: z.ZodOptional<z.ZodInt>;
     }, z.core.$strict>>;
-    identity: z.ZodObject<{
+    identity: z.ZodDefault<z.ZodObject<{
       model: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
       externalId: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
       name: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
       swVersion: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
-    }, z.core.$strict>;
+    }, z.core.$strict>>;
+    matter: z.ZodOptional<z.ZodObject<{
+      match: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
+        path: z.ZodString;
+        equals: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        exists: z.ZodLiteral<true>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        oneOf: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        startsWith: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        endsWith: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        contains: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        min: z.ZodOptional<z.ZodNumber>;
+        max: z.ZodOptional<z.ZodNumber>;
+      }, z.core.$strict>]>>;
+      model: z.ZodDefault<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
+    }, z.core.$strict>>;
     adopt: z.ZodDefault<z.ZodEnum<{
       owner: "owner";
       automatic: "automatic";
