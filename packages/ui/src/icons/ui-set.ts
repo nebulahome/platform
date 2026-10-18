@@ -121,6 +121,7 @@ import {
   VideoOff,
   Volume2,
   VolumeX,
+  Waypoints,
   Wrench,
   X,
   Zap,
@@ -252,6 +253,7 @@ export const BUILTIN_UI_NODES = {
   bluetooth: drawing(Bluetooth),
   'radio-tower': drawing(RadioTower),
   router: drawing(Router),
+  waypoints: drawing(Waypoints),
 
   // The automation editor: a block's grip and its glyph, by what it is - a hold, a wait, a branch,
   // a loop, a sun, a notification.
