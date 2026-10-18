@@ -338,8 +338,9 @@ at once to the vendor whose `matter` rules take it:
 A vendor may have `matter` alone, with no `listen`. A device behind a Matter bridge is a device of
 its own, ruled on by what the bridge says of it. A device that more than one vendor's rules take,
 and one that none takes, is added as the platform's own Matter device, and the Brokers page says
-which vendors want it. Removing a Matter device from the house takes it off the house's fabric; it
-stays in the other apps it was shared from.
+which vendors want it. One added as the platform's before the vendor was installed becomes the
+vendor's once it is, with its entities. Removing a Matter device from the house takes it off the
+house's fabric; it stays in the other apps it was shared from.
 
 **A listener of the vendor's own** is a module - plain JavaScript, like a transport, handed the
 same SDK - whose default export returns `{ listen(signal, context), scan?() }`: an async iterable
