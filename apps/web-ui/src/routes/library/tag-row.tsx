@@ -132,6 +132,7 @@ export function TagRow(props: TagRowProps) {
                 >
                   <DeviceIcon
                     icon={device.icon === null ? undefined : icons.get(device.icon)}
+                    device={device}
                     size={18}
                     className="text-foreground-muted"
                   />

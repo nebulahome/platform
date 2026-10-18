@@ -8,10 +8,17 @@
  */
 import { useQuery } from '@tanstack/react-query';
 
-import type { DeviceView, IconView } from '@nebulahome/contracts';
+import {
+  MATTER_TRANSPORT,
+  MATTER_VENDOR,
+  type DeviceView,
+  type IconView,
+} from '@nebulahome/contracts';
 import { CatalogueIcon, cn } from '@nebulahome/ui';
 
-import { fetchIcons, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { fetchIcons, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { MatterMark } from '@/routes/library/brokers-page';
+import { VendorLogo } from '@/routes/library/vendor-card';
 
 /** The catalogue's answer for the icons some devices carry, by id. */
 export type DeviceIcons = ReadonlyMap<string, IconView>;
@@ -59,7 +66,42 @@ export type DeviceIconProps = {
   readonly icon: IconView | undefined;
   readonly size?: number;
   readonly className?: string;
+
+  /** The device, when it is one: a Matter device with no icon of its own shows whose it is. */
+  readonly device?: Pick<DeviceView, 'icon' | 'transport' | 'vendorId'>;
 };
+
+/**
+ * Whose a Matter device is, for one with no icon of its own: its integration's logo, or the
+ * broker's mark for one the platform holds.
+ *
+ * @param props - The device's vendor and the side of the square.
+ * @param props.vendorId - The vendor.
+ * @param props.size - The side, in pixels.
+ * @returns The logo, or the mark.
+ */
+function MatterOwnerMark(props: { readonly vendorId: string | null; readonly size: number }) {
+  const { vendorId, size } = props;
+  const vendors = useQuery({
+    queryKey: LIBRARY_QUERY_KEYS.vendors,
+
+    /**
+     * Reads the vendors, for the logo.
+     *
+     * @param context - The query's abort signal.
+     * @param context.signal - Cancels the request when the page goes away.
+     * @returns The vendors.
+     */
+    queryFn: async ({ signal }) => fetchVendors(signal),
+  });
+  const vendor = vendors.data?.find((each) => each.id === vendorId);
+
+  return vendor === undefined || vendor.id === MATTER_VENDOR ? (
+    <MatterMark size={size} />
+  ) : (
+    <VendorLogo vendor={vendor} size={size} />
+  );
+}
 
 /**
  * Draws a device's icon, or the space it would take.
@@ -71,7 +113,11 @@ export type DeviceIconProps = {
  * @returns The icon, or its placeholder.
  */
 export function DeviceIcon(props: DeviceIconProps) {
-  const { icon, size = 20, className } = props;
+  const { icon, size = 20, className, device } = props;
+
+  if (device?.icon === null && device.transport === MATTER_TRANSPORT) {
+    return <MatterOwnerMark vendorId={device.vendorId} size={size} />;
+  }
 
   // An empty drawing takes exactly the space a full one would, in the same element.
   return (

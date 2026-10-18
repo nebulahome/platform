@@ -234,6 +234,7 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
                 <span className="flex min-w-0 items-center gap-3">
                   <DeviceIcon
                     icon={icons.get(device.icon ?? '')}
+                    device={device}
                     className="text-foreground-muted"
                   />
                   <span className="flex min-w-0 flex-col gap-0.5">

@@ -266,7 +266,11 @@ export function DevicePage() {
             mark={
               view === undefined ? undefined : (
                 <HeroMark>
-                  <DeviceIcon icon={view.icons.get(view.device.icon ?? '')} size={26} />
+                  <DeviceIcon
+                    icon={view.icons.get(view.device.icon ?? '')}
+                    device={view.device}
+                    size={26}
+                  />
                 </HeroMark>
               )
             }

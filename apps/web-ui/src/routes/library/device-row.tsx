@@ -91,7 +91,7 @@ export function DeviceRow(props: DeviceRowProps) {
     >
       <span className="flex min-w-0 items-center gap-3">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-field bg-surface-raised text-foreground-muted">
-          <DeviceIcon icon={icon} />
+          <DeviceIcon icon={icon} device={device} />
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
           <Link

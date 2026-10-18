@@ -196,6 +196,7 @@ export function EntityPickerTree(props: EntityPickerTreeProps) {
           />
           <DeviceIcon
             icon={group.device.icon === null ? undefined : directory.icons.get(group.device.icon)}
+            device={group.device}
             size={15}
             className="shrink-0"
           />
