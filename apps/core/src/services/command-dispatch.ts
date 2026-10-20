@@ -39,6 +39,7 @@ import type { EntityDirectory } from '../domain/entity-directory.js';
 import type { PackageTypes } from '../domain/package-types.js';
 
 import type { AliasEngine } from './alias-engine.js';
+import type { LinkEngine } from './link-engine.js';
 
 /** What sending a command needs. */
 export type CommandDispatchOptions = {
@@ -65,6 +66,12 @@ export type CommandDispatchOptions = {
    * nothing is attributed, which is what the unit tests of the router alone want.
    */
   readonly attribution?: ChangeAttribution;
+
+  /**
+   * Which source of a linked entity a command goes to. Optional: without it a linked entity is
+   * commanded through its own adapter.
+   */
+  readonly links?: Pick<LinkEngine, 'route'>;
 };
 
 /** One send. */
@@ -114,8 +121,12 @@ export function createCommandDispatcher(options: CommandDispatchOptions): Comman
      * @returns The acknowledgement.
      */
     dispatch: async (request: DispatchRequest): Promise<CommandAck> => {
-      const { entityId, capability, context, logger } = request;
-      const record = options.directory.require(entityId);
+      const { capability, context, logger } = request;
+
+      // An entity linked to another is commanded as the one it reads through.
+      const holder =
+        options.directory.resolve(request.entityId) ?? options.directory.require(request.entityId);
+      const entityId = holder.entityId;
       const alias = options.aliases.getByEntity(entityId);
 
       if (alias !== undefined) {
@@ -131,14 +142,19 @@ export function createCommandDispatcher(options: CommandDispatchOptions): Comman
         return { entityId, capability, acceptedAt: new Date() };
       }
 
-      if (record.source === 'derived' || record.source === 'system') {
+      if (holder.source === 'derived' || holder.source === 'system') {
         // A derived entity without an alias row has no place to hold commanded state.
         throw new ValidationError(
-          `Entity ${entityId} is ${record.source} and has no adapter to command`,
-          { details: { entityId, source: record.source } },
+          `Entity ${entityId} is ${holder.source} and has no adapter to command`,
+          { details: { entityId, source: holder.source } },
         );
       }
 
+      // The source the link reads first that can do it; the entity itself when it is not linked.
+      const record =
+        holder.sources === undefined
+          ? holder
+          : (options.links?.route(holder, capability) ?? holder);
       const command = validateCommand(record, capability, request.command, options.packageTypes);
 
       if (context !== undefined) {
@@ -149,13 +165,13 @@ export function createCommandDispatcher(options: CommandDispatchOptions): Comman
 
       await options.client.request(
         busSubjects.service(record.source, ADAPTER_COMMAND_METHOD),
-        { entityId, capability, command },
+        { entityId: record.entityId, capability, command },
         adapterAckSchema,
         { traceId: request.traceId, timeoutMs: options.commandTimeoutMs },
       );
 
       logger.debug(
-        { entityId, capability, adapter: record.source },
+        { entityId, capability, adapter: record.source, through: record.entityId },
         'Command accepted by the owning adapter',
       );
 

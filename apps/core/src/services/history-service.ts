@@ -67,7 +67,8 @@ async function gather<TPoint>(
   const unique = [...new Set(entityIds)];
   const answers = await Promise.all(
     unique.map(async (entityId) => {
-      const record = directory.get(entityId);
+      // An entity linked to another keeps no history while linked: its address reads the other's.
+      const record = directory.resolve(entityId);
 
       return record === undefined
         ? { entityId, points: [] as TPoint[], isTruncated: false }

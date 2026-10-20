@@ -36,7 +36,64 @@ export type EntityRecord = {
 
   /** What the entity declares it can do, with the device's own limits for each. */
   readonly capabilities: ReadonlyMap<CapabilityName, JsonObject>;
+
+  /**
+   * For an entity linked to another that reads the same thing another way: the entity it reads
+   * through, which is what its address means to everyone but its own adapter.
+   */
+  readonly linkedTo?: EntityId;
+
+  /**
+   * For an entity others are linked to: every source, itself first, then the others in the order
+   * they were linked.
+   */
+  readonly sources?: readonly EntityId[];
+
+  /** For an entity others are linked to: the instance it is read through first; null follows its device. */
+  readonly transport?: string | null;
+
+  /** For an entity others are linked to: the instance its device is read through first. */
+  readonly preferred?: string | null;
+
+  /** How a numeric reading accumulates, for a counter that must not jump when its source changes. */
+  readonly stateClass?: string | null;
 };
+
+/** The link fields of a record, to carry over when the rest of it is rewritten. */
+export type LinkFields = Pick<
+  EntityRecord,
+  'linkedTo' | 'sources' | 'transport' | 'preferred' | 'stateClass'
+>;
+
+/**
+ * The link fields of a record, as they are.
+ *
+ * @param record - The record, if there is one.
+ * @returns Its link fields; none for no record or one not linked.
+ */
+export function linkFieldsOf(record: LinkFields | undefined): LinkFields {
+  if (record === undefined) {
+    return {};
+  }
+
+  return {
+    ...(record.linkedTo === undefined ? {} : { linkedTo: record.linkedTo }),
+    ...(record.sources === undefined ? {} : { sources: record.sources }),
+    ...(record.transport === undefined ? {} : { transport: record.transport }),
+    ...(record.preferred === undefined ? {} : { preferred: record.preferred }),
+    ...(record.stateClass === undefined ? {} : { stateClass: record.stateClass }),
+  };
+}
+
+/**
+ * Whether an entity is one side of a link: read through another, or read through by others.
+ *
+ * @param record - The entity.
+ * @returns True for either side.
+ */
+export function isLinked(record: EntityRecord): boolean {
+  return record.linkedTo !== undefined || record.sources !== undefined;
+}
 
 /** Every entity's configuration, indexed by the identifier the bus uses. */
 export class EntityDirectory {
@@ -87,6 +144,29 @@ export class EntityDirectory {
     }
 
     return record;
+  }
+
+  /**
+   * Reads what an address means: the entity itself, or, for one linked to another, the entity it
+   * reads through.
+   *
+   * @param entityId - The address.
+   * @returns The entity it means, or undefined when nothing by that address is registered.
+   */
+  public resolve(entityId: EntityId): EntityRecord | undefined {
+    const record = this.#records.get(entityId);
+
+    return record?.linkedTo === undefined ? record : (this.#records.get(record.linkedTo) ?? record);
+  }
+
+  /**
+   * Every address that means an entity: its own, and those of the entities linked to it.
+   *
+   * @param entityId - The entity.
+   * @returns Its addresses, its own first.
+   */
+  public addressesOf(entityId: EntityId): readonly EntityId[] {
+    return this.#records.get(entityId)?.sources ?? [entityId];
   }
 
   /**

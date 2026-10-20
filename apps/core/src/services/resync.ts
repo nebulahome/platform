@@ -19,9 +19,10 @@ import {
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 
-import type { EntityDirectory } from '../domain/entity-directory.js';
+import { isLinked, type EntityDirectory } from '../domain/entity-directory.js';
 import type { EntityRegistry } from '../domain/entity-registry.js';
 
+import type { LinkEngine } from './link-engine.js';
 import { announceChange, type ChangeObserver } from './state-events.js';
 
 /** What a resynchronisation pass needs. */
@@ -46,6 +47,12 @@ export type ResyncOptions = {
 
   /** What in this process reacts to an entity becoming unreachable. Must not block. */
   readonly onNotableChange?: ChangeObserver;
+
+  /**
+   * Where a silent adapter's sources of linked entities are marked silent, so each is read the
+   * other way rather than marked unreachable. Optional: without it they are marked as any other.
+   */
+  readonly links?: Pick<LinkEngine, 'silence'>;
 };
 
 /** What one pass achieved. */
@@ -120,10 +127,19 @@ export async function requestResync(options: ResyncOptions): Promise<ResyncOutco
  */
 function markUnavailable(options: ResyncOptions, source: SourceRef): void {
   for (const entityId of options.registry.entitiesOf(source)) {
+    const record = options.directory.get(entityId);
+
+    if (options.links !== undefined && record !== undefined && isLinked(record)) {
+      // Read through another way while this one is silent: the link decides, below.
+      continue;
+    }
+
     const result = options.registry.setAvailability(entityId, false);
 
     if (result !== undefined) {
       announceChange(options.client, result, undefined, options.onNotableChange);
     }
   }
+
+  options.links?.silence(source);
 }

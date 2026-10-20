@@ -58,7 +58,7 @@ import {
 import { schema, type Database } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
 
-import type { EntityDirectory } from '../domain/entity-directory.js';
+import { isLinked, linkFieldsOf, type EntityDirectory } from '../domain/entity-directory.js';
 import type { EntityRegistry } from '../domain/entity-registry.js';
 import type { BatchWriter } from '../persistence/batch-writer.js';
 import type { EntityStateRow } from '../persistence/history-writer.js';
@@ -80,6 +80,13 @@ export type RegistrationOptions = {
   readonly stateCache: BatchWriter<EntityStateRow>;
 
   readonly logger: PlatformLogger;
+
+  /**
+   * Brings the links in line after a released device took linked entities with it: what read
+   * through one of them is its own again, and what one read through has a source fewer.
+   * Optional: without it a release leaves the links as they were until the next restart.
+   */
+  readonly onLinksChanged?: () => Promise<void>;
 };
 
 /** One entity as it was written. */
@@ -133,6 +140,8 @@ async function write(
         model: sql`coalesce(${request.model ?? null}, ${devices.model})`,
         swVersion: sql`coalesce(${request.swVersion ?? null}, ${devices.swVersion})`,
         hwVersion: sql`coalesce(${request.hwVersion ?? null}, ${devices.hwVersion})`,
+        mac: sql`coalesce(${request.mac ?? null}, ${devices.mac})`,
+        serialNumber: sql`coalesce(${request.serialNumber ?? null}, ${devices.serialNumber})`,
         config: request.config,
         updatedAt: new Date(),
       })
@@ -161,6 +170,7 @@ async function write(
           deviceClass: entity.deviceClass ?? null,
           stateClass: entity.stateClass ?? null,
           displayPrecision: entity.displayPrecision ?? null,
+          config: entity.link === undefined ? {} : { link: entity.link },
         })),
       )
       .onConflictDoUpdate({
@@ -170,6 +180,8 @@ async function write(
           icon: sql`coalesce(${schema.registry.entities.icon}, excluded.icon)`,
           deviceId: sql`excluded.device_id`,
           integrationId: sql`excluded.integration_id`,
+          // What links it to its twin is the bundle's, so a newer bundle's word replaces it.
+          config: sql`(${schema.registry.entities.config} - 'link') || excluded.config`,
           updatedAt: new Date(),
         },
       })
@@ -395,6 +407,8 @@ function serveRegister(options: RegistrationOptions): BusSubscription {
           source: request.integrationId,
           isEnabled: true,
           capabilities: entity.capabilities,
+          // Hearing a linked device again leaves its links as they are.
+          ...linkFieldsOf(options.directory.get(entity.entityId)),
         });
       }
 
@@ -444,10 +458,21 @@ function serveUnregister(options: RegistrationOptions): BusSubscription {
     async (request: UnregisterDeviceRequest): Promise<UnregisterDeviceReply> => {
       const { deviceId, name, entities } = await erase(options.db, request);
       const rowIds = new Set(entities.map((entity) => entity.rowId));
+      const wasLinked = entities.some((entity) => {
+        const record = options.directory.get(entity.entityId);
+
+        return record !== undefined && isLinked(record);
+      });
 
       for (const entity of entities) {
         options.directory.remove(entity.entityId);
         options.registry.remove(entity.entityId);
+        options.registry.unalias(entity.entityId);
+      }
+
+      if (wasLinked) {
+        // A way in went: what it was linked to has a source fewer, or none to link to at all.
+        await options.onLinksChanged?.();
       }
 
       const dropped = options.stateCache.discard((row) => rowIds.has(row.entityId));

@@ -66,6 +66,12 @@ export type IngestResult = {
 /** The authoritative, hot view of every entity. */
 export class EntityRegistry {
   readonly #states = new Map<EntityId, EntityState>();
+
+  /**
+   * Addresses that mean another entity: an entity linked to another reads through it, and its
+   * address reads the state of the one it is linked to.
+   */
+  readonly #aliases = new Map<EntityId, EntityId>();
   readonly #now: () => Date;
 
   /**
@@ -107,13 +113,44 @@ export class EntityRegistry {
    * @returns Its current state, or undefined when nothing has ever reported it.
    */
   public get(entityId: EntityId): EntityState | undefined {
-    return this.#states.get(entityId);
+    const target = this.#aliases.get(entityId);
+
+    if (target === undefined) {
+      return this.#states.get(entityId);
+    }
+
+    const state = this.#states.get(target);
+
+    // Named by the address asked for, so a reader comparing ids sees the one it asked about.
+    return state === undefined ? undefined : { ...state, entityId };
+  }
+
+  /**
+   * Makes one address read another entity's state, and forgets the state it had of its own.
+   *
+   * @param entityId - The entity linked to another.
+   * @param target - The entity it reads through.
+   */
+  public alias(entityId: EntityId, target: EntityId): void {
+    this.#aliases.set(entityId, target);
+    this.#states.delete(entityId);
+  }
+
+  /**
+   * Gives an address its own state back.
+   *
+   * @param entityId - The entity no longer linked.
+   * @returns True when it was an alias.
+   */
+  public unalias(entityId: EntityId): boolean {
+    return this.#aliases.delete(entityId);
   }
 
   /**
    * Reads the whole registry.
    *
-   * @returns Every entity's current state, in insertion order.
+   * @returns Every entity's current state, in insertion order; an address that means another
+   * entity is not listed apart from it.
    */
   public snapshot(): EntityState[] {
     return [...this.#states.values()];

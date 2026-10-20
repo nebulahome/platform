@@ -22,7 +22,7 @@ import {
 import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { ChangeAttribution } from '../domain/change-attribution.js';
-import type { EntityDirectory, EntityRecord } from '../domain/entity-directory.js';
+import { isLinked, type EntityDirectory, type EntityRecord } from '../domain/entity-directory.js';
 import type { EntityRegistry, IngestResult } from '../domain/entity-registry.js';
 import { customStateProblem, type PackageTypes } from '../domain/package-types.js';
 import type { TelemetrySampler } from '../domain/telemetry-sampler.js';
@@ -78,6 +78,37 @@ export type StateIngestOptions = {
    * Optional: without them a custom report is held to the capability's own shape alone.
    */
   readonly packageTypes?: PackageTypes;
+
+  /**
+   * Where a report about one side of a link goes instead of the registry: the entity it is about
+   * is read through another, or others read through it, and what it says is one source among
+   * several. Optional: without it every report is ingested as it is.
+   */
+  readonly links?: LinkRouter;
+};
+
+/** What takes the reports of linked entities. */
+export type LinkRouter = {
+  /**
+   * Takes one report of a source of a linked entity.
+   *
+   * @param record - The source the report is about.
+   * @param report - What it said.
+   * @param traceId - The unit of work.
+   */
+  readonly report: (record: EntityRecord, report: StateReport, traceId: string) => void;
+};
+
+/** What ingesting a report is told besides the report. */
+export type IngestExtra = {
+  /** Who produced the state, when it is not the entity's owner: the source a link read it from. */
+  readonly source?: string;
+
+  /**
+   * Whether the source of a linked entity changed with this report: written to history even when
+   * the state did not change, so the history says which way it came in from then on.
+   */
+  readonly isSourceSwitch?: boolean;
 };
 
 /**
@@ -174,6 +205,7 @@ function publishReading(
  * @param traceId - The unit of work this report belongs to.
  * @param context - What caused it, when the caller knows. Otherwise the cause a recent command
  * to the entity left behind, if any.
+ * @param extra - Who produced it, for a linked entity, and whether its source changed.
  * @returns What the report did, or undefined when nothing was notable.
  */
 export function ingestReport(
@@ -182,10 +214,11 @@ export function ingestReport(
   report: StateReport,
   traceId: string,
   context?: ChangeContext,
+  extra: IngestExtra = {},
 ): IngestResult | undefined {
   const cause = context ?? options.attribution?.of(report.entityId);
   const result = options.registry.apply(report, {
-    source: record.source,
+    source: extra.source ?? record.source,
     ...(cause === undefined ? {} : { context: cause }),
   });
 
@@ -194,6 +227,12 @@ export function ingestReport(
   if (!result.isNotable) {
     // A sensor reporting the same value for the fortieth time. It updated, it did not change,
     // and an automation triggering on change must not fire on it.
+    if (extra.isSourceSwitch === true) {
+      // Nothing changed but the way in: the history says so, and nobody is woken.
+      options.history.add(toHistoryRow(record, result));
+      options.stateCache.add(toCacheRow(record, result));
+    }
+
     return undefined;
   }
 
@@ -323,6 +362,13 @@ export function startStateIngest(options: StateIngestOptions): BusSubscription {
         { entityId: report.entityId, source: context.header.source, problem },
         'Rejected a report that its entity type does not hold',
       );
+
+      return;
+    }
+
+    if (options.links !== undefined && isLinked(record)) {
+      // One source among several: what the entity reads is the link's to decide.
+      options.links.report(record, report, context.header.traceId);
 
       return;
     }

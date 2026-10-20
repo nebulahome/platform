@@ -10,7 +10,7 @@
  * Loading it anyway matters because the resynchronisation is not instantaneous: without it, the
  * interface shows an empty house for as long as the slowest adapter takes to answer.
  */
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import {
   entityStateSchema,
@@ -23,7 +23,13 @@ import {
 import { schema, type Database } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
 
-import { EntityDirectory, type EntityRecord } from '../domain/entity-directory.js';
+import {
+  EntityDirectory,
+  isLinked,
+  linkFieldsOf,
+  type EntityRecord,
+  type LinkFields,
+} from '../domain/entity-directory.js';
 import { resolveOwner } from '../domain/entity-owner.js';
 
 /** What a startup load produced. */
@@ -108,6 +114,8 @@ export async function loadRegistry(db: Database, logger: PlatformLogger): Promis
     directory.set(record);
   }
 
+  applyLinks(directory, await loadLinks(db));
+
   const states: EntityState[] = [];
   let discardedStates = 0;
 
@@ -152,6 +160,107 @@ export async function loadRegistry(db: Database, logger: PlatformLogger): Promis
   }
 
   return { directory, states, discardedStates };
+}
+
+/** One entity's side of a link, by its address. */
+export type StoredLink = LinkFields & { readonly entityId: EntityId };
+
+/**
+ * Loads every link between entities: for each entity read through another, which one; for each
+ * entity others read through, every source in order, the way it prefers and its device's.
+ *
+ * Every link at once rather than the ones asked about: the house has few, and the directory is
+ * then brought in line whole, so no link is left half undone.
+ *
+ * @param db - A connected database handle.
+ * @returns Each side of each link, by entity row.
+ */
+export async function loadLinks(db: Database): Promise<Map<string, StoredLink>> {
+  const rows = await db
+    .execute<{
+      id: string;
+      entity_id: string;
+      linked_to: string | null;
+      transport: string | null;
+      state_class: string | null;
+      preferred: string | null;
+    }>(
+      sql`
+    SELECT e.id, e.entity_id, e.linked_to, e.transport, e.state_class,
+           coalesce(g.preferred_transport, d.preferred_transport) AS preferred
+    FROM registry.entities e
+    LEFT JOIN registry.devices d ON d.id = e.device_id
+    LEFT JOIN registry.devices g ON g.id = d.linked_to
+    WHERE e.linked_to IS NOT NULL
+       OR EXISTS (SELECT 1 FROM registry.entities c WHERE c.linked_to = e.id)
+    ORDER BY e.created_at, e.id
+  `,
+    )
+    .then((result) => [...result]);
+  const byRow = new Map(rows.map((row) => [row.id, row]));
+  const sides = new Map<string, StoredLink>();
+
+  for (const row of rows) {
+    const entityId = parseEntityId(row.entity_id);
+    const holder = row.linked_to === null ? undefined : byRow.get(row.linked_to);
+
+    if (holder !== undefined) {
+      sides.set(row.id, { entityId, linkedTo: parseEntityId(holder.entity_id) });
+      continue;
+    }
+
+    const children = rows.filter((child) => child.linked_to === row.id);
+
+    sides.set(row.id, {
+      entityId,
+      sources: [entityId, ...children.map((child) => parseEntityId(child.entity_id))],
+      transport: row.transport,
+      preferred: row.preferred,
+      stateClass: row.state_class,
+    });
+  }
+
+  return sides;
+}
+
+/**
+ * Brings the directory's links in line with what was loaded: every entity linked now carries its
+ * side, every entity no longer linked loses it.
+ *
+ * @param directory - The directory.
+ * @param links - Every link, from {@link loadLinks}.
+ * @returns The records as they were, for every entity whose link changed.
+ */
+export function applyLinks(
+  directory: EntityDirectory,
+  links: Map<string, StoredLink>,
+): EntityRecord[] {
+  const byAddress = new Map([...links.values()].map((side) => [side.entityId, side]));
+  const changed: EntityRecord[] = [];
+
+  for (const record of directory.all()) {
+    const side = byAddress.get(record.entityId);
+
+    if (side === undefined && !isLinked(record)) {
+      continue;
+    }
+
+    const next: EntityRecord = {
+      entityId: record.entityId,
+      rowId: record.rowId,
+      source: record.source,
+      isEnabled: record.isEnabled,
+      capabilities: record.capabilities,
+      ...linkFieldsOf(side),
+    };
+
+    if (JSON.stringify(linkFieldsOf(record)) !== JSON.stringify(linkFieldsOf(next))) {
+      changed.push(record);
+      directory.set(next);
+    }
+  }
+
+  return changed;
 }
 
 /**

@@ -21,6 +21,7 @@ import {
   type BusSubscription,
 } from '@nebulahome/bus';
 import { resolveDataLayout } from '@nebulahome/config';
+import type { EntityId, StateReport } from '@nebulahome/contracts';
 import type { Database } from '@nebulahome/db';
 import { withTraceId, type PlatformLogger } from '@nebulahome/logging';
 
@@ -28,7 +29,7 @@ import type { CoreConfig } from './config.js';
 import { SERVICE_NAME, SERVICE_VERSION } from './config.js';
 import { AliasCatalog } from './domain/alias-catalog.js';
 import { ChangeAttribution } from './domain/change-attribution.js';
-import { EntityDirectory } from './domain/entity-directory.js';
+import { EntityDirectory, type EntityRecord } from './domain/entity-directory.js';
 import { EntityRegistry, type IngestResult } from './domain/entity-registry.js';
 import { PackageTypes } from './domain/package-types.js';
 import { TelemetrySampler } from './domain/telemetry-sampler.js';
@@ -50,6 +51,8 @@ import { createCommandDispatcher } from './services/command-dispatch.js';
 import { startCommandRouter } from './services/command-router.js';
 import { startContainersService } from './services/containers.js';
 import { startHistoryService } from './services/history-service.js';
+import { LinkEngine } from './services/link-engine.js';
+import { startLinkService, syncLinks } from './services/link-service.js';
 import { loadPackageTypes, startPackagesService } from './services/packages.js';
 import { startRegistrationService } from './services/registration.js';
 import { requestResync } from './services/resync.js';
@@ -78,6 +81,22 @@ export type CoreServiceOptions = {
   readonly logger: PlatformLogger;
 };
 
+/**
+ * A change, told under another address that means the same entity.
+ *
+ * @param result - The change.
+ * @param address - The address of an entity linked to the one that changed.
+ * @returns The same change, named by that address.
+ */
+function asAddress(result: IngestResult, address: EntityId): IngestResult {
+  return {
+    ...result,
+    entityId: address,
+    current: { ...result.current, entityId: address },
+    previous: result.previous === undefined ? undefined : { ...result.previous, entityId: address },
+  };
+}
+
 /** `core`, assembled. */
 export class CoreService {
   readonly #options: CoreServiceOptions;
@@ -104,9 +123,17 @@ export class CoreService {
    * @param result - What changed.
    */
   readonly #onChange = (result: IngestResult): void => {
-    this.#aliasEngine?.onSourceChanged(result.entityId);
-    this.#automationEngine?.onStateChanged(result);
+    // A linked entity changes under every address that means it: an automation watching the
+    // address of an entity linked to it is woken, and sees the address it watches.
+    for (const address of this.#directory.addressesOf(result.entityId)) {
+      const change = address === result.entityId ? result : asAddress(result, address);
+
+      this.#aliasEngine?.onSourceChanged(change.entityId);
+      this.#automationEngine?.onStateChanged(change);
+    }
   };
+
+  #linkEngine: LinkEngine | undefined;
 
   /**
    * Builds the service without starting anything.
@@ -233,7 +260,30 @@ export class CoreService {
       logger,
       attribution: this.#attribution,
       onNotableChange: this.#onChange,
+      links: {
+        /**
+         * Hands a source's report to the link engine.
+         *
+         * @param record - The source.
+         * @param report - What it said.
+         * @param traceId - The unit of work.
+         */
+        report: (record: EntityRecord, report: StateReport, traceId: string): void => {
+          this.#linkEngine?.report(record, report, traceId);
+        },
+      },
     };
+
+    const linkEngine = new LinkEngine({
+      directory: this.#directory,
+      registry: this.#registry,
+      ingest,
+      logger,
+      newTraceId,
+    });
+
+    this.#linkEngine = linkEngine;
+    startupLogger.info({ linked: linkEngine.start() }, 'Linked entities read through another');
 
     const aliasEngine = new AliasEngine({
       db,
@@ -277,6 +327,7 @@ export class CoreService {
       commandTimeoutMs: config.CORE_COMMAND_TIMEOUT_MS,
       packageTypes,
       attribution: this.#attribution,
+      links: linkEngine,
     });
 
     const sceneEngine = new SceneEngine({
@@ -332,7 +383,16 @@ export class CoreService {
         registry: this.#registry,
         stateCache,
         logger,
+        /**
+         * Reads every link again after a released device took linked entities with it.
+         *
+         * @returns A promise that settles once the links are in line.
+         */
+        onLinksChanged: async (): Promise<void> => {
+          await syncLinks({ db, directory: this.#directory, engine: linkEngine });
+        },
       }),
+      ...startLinkService({ client, db, directory: this.#directory, engine: linkEngine, logger }),
       startContainersService({
         client,
         db,
@@ -372,6 +432,7 @@ export class CoreService {
       timeoutMs: config.CORE_COMMAND_TIMEOUT_MS,
       reason: 'startup',
       onNotableChange: this.#onChange,
+      links: linkEngine,
     })
       .catch((error: unknown) => {
         startupLogger.error({ err: error }, 'Startup resynchronisation failed');
