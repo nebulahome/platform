@@ -293,7 +293,15 @@ describe('testing', () => {
       }),
     ).toEqual({
       matches: true,
-      identity: { externalId: 'fx-2', name: 'Hall', modelCode: 'FX2', swVersion: null },
+      identity: {
+        externalId: 'fx-2',
+        name: 'Hall',
+        modelCode: 'FX2',
+        swVersion: null,
+        mac: null,
+        serialNumber: null,
+        needsPassword: false,
+      },
       association: { driverId: 'light', model: 'Strip', modelChoices: ['Strip'] },
     });
   });

@@ -29,12 +29,12 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
       module: z.ZodString;
       wires: z.ZodArray<z.ZodEnum<{
+        udp: "udp";
         matter: "matter";
         http: "http";
         mqtt: "mqtt";
         ble: "ble";
         zigbee: "zigbee";
-        udp: "udp";
         modbus: "modbus";
       }>>;
     }, z.core.$strict>]>>>;
@@ -382,8 +382,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     entities: z.ZodArray<z.ZodObject<{
       domain: z.ZodEnum<{
         number: "number";
-        custom: "custom";
         image: "image";
+        custom: "custom";
         light: "light";
         switch: "switch";
         sensor: "sensor";
@@ -405,10 +405,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       icon: z.ZodOptional<z.ZodString>;
       capabilities: z.ZodRecord<z.ZodEnum<{
         number: "number";
-        custom: "custom";
-        image: "image";
-        level: "level";
         on_off: "on_off";
+        level: "level";
         color_hs: "color_hs";
         color_temp: "color_temp";
         cover: "cover";
@@ -424,6 +422,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         lawn_mower: "lawn_mower";
         select: "select";
         vacuum: "vacuum";
+        image: "image";
+        custom: "custom";
       }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
       state: z.ZodRecord<z.ZodEnum<{
         number: "number";

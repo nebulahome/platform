@@ -199,10 +199,8 @@ type EntityStateClass = (typeof ENTITY_STATE_CLASSES)[number];
  */
 declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   number: "number";
-  custom: "custom";
-  image: "image";
-  level: "level";
   on_off: "on_off";
+  level: "level";
   color_hs: "color_hs";
   color_temp: "color_temp";
   cover: "cover";
@@ -218,6 +216,8 @@ declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   lawn_mower: "lawn_mower";
   select: "select";
   vacuum: "vacuum";
+  image: "image";
+  custom: "custom";
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
 type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
@@ -1676,12 +1676,12 @@ declare const vendorManifestSchema: z.ZodObject<{
   transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
     module: z.ZodString;
     wires: z.ZodArray<z.ZodEnum<{
+      udp: "udp";
       matter: "matter";
       http: "http";
       mqtt: "mqtt";
       ble: "ble";
       zigbee: "zigbee";
-      udp: "udp";
       modbus: "modbus";
     }>>;
   }, z.core.$strict>]>>>;
