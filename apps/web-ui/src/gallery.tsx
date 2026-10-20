@@ -84,17 +84,20 @@ import {
 } from '@/routes/first-run';
 import { AliasFormulaField } from '@/routes/library/alias-formula-field';
 import { AutomationEditor } from '@/routes/library/automation-editor';
+import { JoinAnimation } from '@/routes/library/broker-matter/matter-steps';
 import { DeviceDialog } from '@/routes/library/device-dialog';
 import { ControlPanel } from '@/routes/library/entity/controls/control-panel';
 import { EntityField } from '@/routes/library/entity-field';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
+import { WaysTag } from '@/routes/library/transport-marks';
 import { ListenerCallout, PassedOverPanel } from '@/routes/library/vendor-hearing';
 import { PairingButton, PairingPanel, type PairingState } from '@/routes/library/vendor-pairing';
 import { BackupSettings } from '@/routes/settings/backup-settings';
 import { backupSampleCache, SAMPLE_OWNER } from '@/testing/backup-samples';
 import { energySample, energySampleCache } from '@/testing/energy-samples';
 import { aDevice, anArea, anEntity } from '@/testing/fixtures';
+import { matterSampleCache } from '@/testing/matter-samples';
 
 import {
   AutomationEditorSample,
@@ -443,6 +446,15 @@ const SAMPLE_LOG = [
 
 /** The cache the log viewer's sample is read into. */
 const LOG_CACHE = new QueryClient();
+
+/** The cache the linked tags read their vendors from. */
+const MATTER_GALLERY_CACHE = matterSampleCache();
+
+/** A device reached through Shelly and Matter. */
+const GALLERY_WAYS = [
+  { vendorId: 'shelly', transport: 'shelly/rpc' },
+  { vendorId: 'shelly', transport: 'matter' },
+];
 
 /** The cache the Backup page reads from. */
 const BACKUP_CACHE = backupSampleCache();
@@ -1301,6 +1313,27 @@ function Gallery() {
                   </div>
                 </div>
               ))}
+            </div>
+          </QueryClientProvider>
+        </Section>
+
+        <Section
+          title="Reached two ways"
+          note="The linked tag, labelled in a hero, plain in a row, and the row's that unlinks on hover; the Matter dialog's picture as the job goes, waits, ends and fails."
+        >
+          <QueryClientProvider client={MATTER_GALLERY_CACHE}>
+            <div className="flex w-full flex-col gap-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <WaysTag ways={GALLERY_WAYS} isLabelled />
+                <WaysTag ways={GALLERY_WAYS} />
+                <WaysTag ways={GALLERY_WAYS} onUnlink={doNothing} />
+              </div>
+              <div className="flex flex-wrap gap-6">
+                <JoinAnimation phase="working" done={3} />
+                <JoinAnimation phase="warning" done={3} />
+                <JoinAnimation phase="done" done={6} />
+                <JoinAnimation phase="failed" done={2} />
+              </div>
             </div>
           </QueryClientProvider>
         </Section>
