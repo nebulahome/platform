@@ -27,6 +27,21 @@ export const HUB_DISCOVERED_METHOD = 'discovered';
  */
 export const HUB_DISCOVER_METHOD = 'discover';
 
+/** Sets heard devices aside, or brings them back, until they are next forgotten. */
+export const HUB_DISCOVERY_DISMISS_METHOD = 'discovery_dismiss';
+
+/**
+ * What a found device's row says beside it: heard for the first time lately, also in the house
+ * through Matter, a battery device that only answers when it wakes, or one behind a password.
+ */
+export const DISCOVERY_NOTES = ['new', 'also-on-matter', 'wakes', 'password'] as const;
+
+/** What a found device's row says beside it. */
+export type DiscoveryNote = (typeof DISCOVERY_NOTES)[number];
+
+/** How long a device counts as new after it was first heard. */
+export const DISCOVERY_NEW_FOR_MS = 24 * 60 * 60 * 1000;
+
 /** A model's label, as a driver lists it. */
 const modelSchema = z.string().min(1).max(64);
 
@@ -80,6 +95,18 @@ export const discoveredDeviceSchema = z.object({
     .object({ deviceId: integrationIdSchema, address: z.string().min(1).max(256) })
     .nullable()
     .default(null),
+
+  /** The hardware address it said, lower case with colons; null when it said none. */
+  mac: z.string().max(64).nullable().default(null),
+
+  /** What its row says beside it. */
+  notes: z.array(z.enum(DISCOVERY_NOTES)).max(DISCOVERY_NOTES.length).default([]),
+
+  /**
+   * Set aside by the owner: not offered until the hub forgets it - it went quiet - and hears it
+   * again.
+   */
+  isDismissed: z.boolean().default(false),
 
   firstSeenAt: timestampSchema,
   lastSeenAt: timestampSchema,
@@ -136,3 +163,43 @@ export const discoverReplySchema = z.object({
 
 /** Which vendors the hub started looking for. */
 export type DiscoverReply = z.output<typeof discoverReplySchema>;
+
+/** A candidate's id, as the hub gives it. */
+export const discoveredIdSchema = z.string().regex(/^[a-f0-9]{16,64}$/);
+
+/** Sets heard devices aside, or brings them back. */
+export const discoveryDismissRequestSchema = z.object({
+  ids: z.array(discoveredIdSchema).min(1).max(256),
+
+  /** False brings them back. */
+  isDismissed: z.boolean().default(true),
+});
+
+/** Sets heard devices aside, or brings them back. */
+export type DiscoveryDismissRequest = z.output<typeof discoveryDismissRequestSchema>;
+
+/** How many of the ids the hub still had. */
+export const discoveryDismissReplySchema = z.object({ changed: z.int().min(0) });
+
+/** Adopts several found devices at once, each named after its model and put in no room. */
+export const discoveryAdoptManyRequestSchema = z.object({
+  ids: z.array(discoveredIdSchema).min(1).max(64),
+});
+
+/** Adopts several found devices at once. */
+export type DiscoveryAdoptManyRequest = z.output<typeof discoveryAdoptManyRequestSchema>;
+
+/** What became of each: the device it is now, or why it could not be added. */
+export const discoveryAdoptManyReplySchema = z.object({
+  items: z.array(
+    z.object({
+      id: discoveredIdSchema,
+      deviceId: integrationIdSchema.nullable(),
+      name: z.string().nullable(),
+      error: z.string().max(2048).nullable(),
+    }),
+  ),
+});
+
+/** What became of each found device adopted at once. */
+export type DiscoveryAdoptManyReply = z.output<typeof discoveryAdoptManyReplySchema>;

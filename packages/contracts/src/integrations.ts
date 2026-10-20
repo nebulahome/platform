@@ -22,6 +22,12 @@ import { jsonObjectSchema } from './json.js';
 import { PACKAGE_ID_PATTERN } from './package-id.js';
 import { packageRequiresSchema } from './package-requires.js';
 
+/** What an integration may say makes two of its devices one: the same MAC, the same serial. */
+export const TWIN_FACTS = ['mac', 'serial'] as const;
+
+/** What may make two devices one. */
+export type TwinFact = (typeof TWIN_FACTS)[number];
+
 /**
  * Integration instance identifier.
  *
@@ -461,6 +467,12 @@ export const integrationVendorSchema = z.object({
 
   /** Who adds what discovery finds: the owner, or the platform on its own. */
   adoption: z.enum(DEVICE_ADOPTIONS).default('owner'),
+
+  /**
+   * What makes two of its devices one device reached two ways - the same MAC, the same serial -
+   * as its manifest's `twins` says. Empty for a vendor that offers no links.
+   */
+  twins: z.array(z.enum(TWIN_FACTS)).max(TWIN_FACTS.length).default([]),
 
   /** The entities pairing is run by, for a vendor whose devices are paired through one of its own. */
   pairing: vendorPairingSchema.nullable().default(null),

@@ -14,7 +14,7 @@ import { z } from 'zod';
 
 import { CAPABILITY_DEFINITIONS, capabilityNameSchema } from './capabilities.js';
 import { entityIdSchema } from './entity-id.js';
-import { sourceRefSchema } from './entity-state.js';
+import { entityStateSchema, sourceRefSchema } from './entity-state.js';
 import { iconIdSchema } from './icons.js';
 import { integrationIdSchema } from './integrations.js';
 import { jsonObjectSchema } from './json.js';
@@ -38,6 +38,12 @@ export const CORE_SYNC_ALIAS_METHOD = 'sync_alias';
 
 /** Deletes an alias and forgets it, in one step. */
 export const CORE_REMOVE_ALIAS_METHOD = 'remove_alias';
+
+/** Takes in the links between entities the API has just written, made or undone. */
+export const CORE_SYNC_LINKS_METHOD = 'sync_links';
+
+/** What each source of a linked entity last said, for its page. */
+export const CORE_LINK_SOURCES_METHOD = 'link_sources';
 
 /** Reads the system monitor: the host, the recent samples, the disk (system-monitor.ts). */
 export const CORE_SYSTEM_MONITOR_METHOD = 'system_monitor';
@@ -106,6 +112,35 @@ export const declaredCapabilitiesSchema = z
 /** What an entity declares it can do, with the device's own limits for each. */
 export type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
 
+/**
+ * Where a reading sits in Matter's terms: the endpoint, the cluster and the attribute. A Matter
+ * entity carries its own; an entity of another transport may carry the one that reads the same
+ * thing, so the two are linked when the device is reached both ways.
+ */
+export const matterReferenceSchema = z.strictObject({
+  endpoint: z.int().min(0).max(65_535),
+  cluster: z.int().min(0),
+  attribute: z.int().min(0),
+});
+
+/** Where a reading sits in Matter's terms. */
+export type MatterReference = z.output<typeof matterReferenceSchema>;
+
+/**
+ * What lets an entity be told apart from the same reading reached another way: its own key in its
+ * transport's terms - `switch:0` on a Shelly - and where it sits in Matter.
+ */
+export const entityLinkHintSchema = z.strictObject({
+  /** The entity's key in its transport, as its page shows it beside the transport's name. */
+  key: z.string().min(1).max(64).optional(),
+
+  /** Where it sits in Matter: its own place, or, for another transport, its Matter twin's. */
+  matter: matterReferenceSchema.optional(),
+});
+
+/** What lets an entity be told apart from the same reading reached another way. */
+export type EntityLinkHint = z.output<typeof entityLinkHintSchema>;
+
 /** One entity a device exposes. */
 export const entityRegistrationSchema = z
   .object({
@@ -119,6 +154,9 @@ export const entityRegistrationSchema = z
     deviceClass: z.string().max(64).optional(),
     stateClass: z.enum(ENTITY_STATE_CLASSES).optional(),
     displayPrecision: z.int().min(0).max(6).optional(),
+
+    /** Kept in the entity's `config.link`: what links it to its twin on another transport. */
+    link: entityLinkHintSchema.optional(),
   })
   .superRefine((entity, ctx) => {
     const issue = sensorRegistrationIssue(entity);
@@ -162,6 +200,12 @@ export const registerDeviceRequestSchema = z.strictObject({
   model: z.string().max(128).optional(),
   swVersion: z.string().max(64).optional(),
   hwVersion: z.string().max(64).optional(),
+
+  /** The hardware's MAC address, as {@link normalizeMac} writes it, when it says one. */
+  mac: z.string().min(1).max(64).optional(),
+
+  /** The hardware's serial number, when it says one. */
+  serialNumber: z.string().min(1).max(256).optional(),
 
   /**
    * What the owner needs to find the device again after a restart.
@@ -364,6 +408,42 @@ export type SyncAliasRequest = z.output<typeof syncAliasRequestSchema>;
 
 /** Whether `core` found the alias to take in; false when its rows are already gone. */
 export const syncAliasReplySchema = z.object({ isLoaded: z.boolean() });
+
+/**
+ * Asks `core` to take in the links of some entities the API has just made, undone or changed -
+ * which entity reads through which, and which way it prefers - for the reason an alias is synced:
+ * the API writes the rows, `core` routes and records by them. Named by entity row, every one whose
+ * link changed, both sides of each pair.
+ */
+export const syncLinksRequestSchema = z.strictObject({
+  entityRowIds: z.array(z.uuid()).min(1).max(1024),
+});
+
+/** Asks `core` to take in the links of some entities. */
+export type SyncLinksRequest = z.output<typeof syncLinksRequestSchema>;
+
+/** How many of the entities `core` still had. */
+export const syncLinksReplySchema = z.object({ synced: z.int().min(0) });
+
+/** Asks what each source of a linked entity last said. */
+export const linkSourcesRequestSchema = z.strictObject({ entityId: entityIdSchema });
+
+/** What each source last said, the leading entity first; empty for an entity not linked. */
+export const linkSourcesReplySchema = z.object({
+  items: z.array(
+    z.object({
+      entityId: entityIdSchema,
+
+      /** The instance it comes through. */
+      source: z.string(),
+      isActive: z.boolean(),
+      state: entityStateSchema.nullable(),
+    }),
+  ),
+});
+
+/** What each source of a linked entity last said. */
+export type LinkSourcesReply = z.output<typeof linkSourcesReplySchema>;
 
 /** Whether `core` found the alias to take in. */
 export type SyncAliasReply = z.output<typeof syncAliasReplySchema>;

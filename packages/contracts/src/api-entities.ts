@@ -12,7 +12,9 @@ import { capabilityNameSchema } from './capabilities.js';
 import { entityIdSchema } from './entity-id.js';
 import { changeContextSchema, sourceRefSchema } from './entity-state.js';
 import { iconIdSchema } from './icons.js';
+import { integrationIdSchema } from './integrations.js';
 import { jsonObjectSchema } from './json.js';
+import { entityLinkViewSchema } from './links.js';
 import { TAGS_PER_ROW_MAXIMUM, tagKeySchema } from './tags.js';
 import { timestampSchema } from './timestamp.js';
 
@@ -94,6 +96,21 @@ export const entityViewSchema = z.object({
 
   /** The tags on it, by id; the tags themselves come from `GET /tags`. */
   tagIds: z.array(z.uuid()).default([]),
+
+  /**
+   * The other addresses that mean this entity: those of the entities linked to it, which read
+   * the same thing another way. Empty unless it is linked.
+   */
+  addresses: z.array(entityIdSchema).default([]),
+
+  /** How it is read when it is linked: its sources and which way it prefers; null otherwise. */
+  linked: entityLinkViewSchema.nullable().default(null),
+
+  /** Its key in its transport (`switch:0`), when the integration names one. */
+  key: z.string().nullable().default(null),
+
+  /** When the house first had it. */
+  createdAt: timestampSchema.nullable().default(null),
 });
 
 /** One entity, as the interface reads it. */
@@ -113,6 +130,12 @@ export const entityUpdateSchema = z
 
     /** Every tag the entity should carry - the whole set, replacing what it had. */
     tagIds: z.array(z.uuid()).max(TAGS_PER_ROW_MAXIMUM),
+
+    /**
+     * For a linked entity: the way it is read first, overriding its device's choice; null to
+     * follow the device.
+     */
+    transport: integrationIdSchema.nullable(),
   })
   .partial()
   .refine((body) => Object.keys(body).length > 0, { message: 'Nothing to change' });

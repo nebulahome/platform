@@ -40,6 +40,12 @@ export const HUB_MATTER_REMOVE_METHOD = 'matter_remove';
 /** Brings back a device removed from the house whose node is still on the fabric. */
 export const HUB_MATTER_RESTORE_METHOD = 'matter_restore';
 
+/** Answers the question a commissioning stopped on: add a device with a test certificate anyway. */
+export const HUB_MATTER_ANSWER_METHOD = 'matter_answer';
+
+/** The UDP port the controller listens on, which the engine does not let anyone change. */
+export const MATTER_PORT = 5540;
+
 /** A node id, in decimal: a 64-bit number, which JSON cannot carry as a number. */
 export const matterNodeIdSchema = z.string().regex(/^[0-9]{1,20}$/u, 'Must be a node id');
 
@@ -113,11 +119,70 @@ export const MATTER_CONTROLLER_STATES = ['starting', 'running', 'failed', 'disab
 /** How the controller stands. */
 export type MatterControllerState = (typeof MATTER_CONTROLLER_STATES)[number];
 
-/** How a commissioning goes. */
-export const MATTER_COMMISSIONING_STATES = ['running', 'succeeded', 'failed'] as const;
+/**
+ * How a commissioning goes. `needs-answer` is a job that stopped before the node joined and waits
+ * for the owner: a device whose certificate is a test one, added only when they say so.
+ */
+export const MATTER_COMMISSIONING_STATES = [
+  'running',
+  'needs-answer',
+  'succeeded',
+  'failed',
+] as const;
 
 /**
- * One commissioning: started by a pairing code, done once the node is on the fabric. A node takes
+ * The steps of a commissioning, in order: the code read, the device found on the network, its
+ * certificate checked against the DCL, joining the fabric, reading what it can do, and the device
+ * in the house.
+ */
+export const MATTER_COMMISSIONING_STEPS = [
+  'code',
+  'found',
+  'certificate',
+  'joining',
+  'reading',
+  'in-house',
+] as const;
+
+/** One step of a commissioning. */
+export type MatterCommissioningStepId = (typeof MATTER_COMMISSIONING_STEPS)[number];
+
+/** How one step stands. `warning` is the certificate step of a device with a test certificate. */
+export const MATTER_STEP_STATES = ['pending', 'running', 'done', 'warning', 'failed'] as const;
+
+/** One step of a commissioning, and what it found. */
+export const matterCommissioningStepSchema = z.object({
+  id: z.enum(MATTER_COMMISSIONING_STEPS),
+  state: z.enum(MATTER_STEP_STATES),
+
+  /**
+   * What the step found, as facts the page words itself: the discriminator a code carries, the
+   * address and product a device answered with, the vendor and product a test certificate names.
+   */
+  detail: z
+    .object({
+      discriminator: z.int().min(0).max(4095).nullable().default(null),
+      isQrCode: z.boolean().default(false),
+      address: z.string().max(256).nullable().default(null),
+      product: z.string().max(256).nullable().default(null),
+      vendorId: z.int().min(0).max(65_535).nullable().default(null),
+      productId: z.int().min(0).max(65_535).nullable().default(null),
+    })
+    .default({
+      discriminator: null,
+      isQrCode: false,
+      address: null,
+      product: null,
+      vendorId: null,
+      productId: null,
+    }),
+});
+
+/** One step of a commissioning. */
+export type MatterCommissioningStep = z.output<typeof matterCommissioningStepSchema>;
+
+/**
+ * One commissioning: started by a pairing code, done once the device is in the house. A node takes
  * from seconds to a minute or two, longer than one request may wait, so the page reads the job
  * until it ends.
  */
@@ -127,11 +192,17 @@ export const matterCommissioningSchema = z.object({
   startedAt: timestampSchema,
   finishedAt: timestampSchema.nullable(),
 
-  /** The node it made; null until it succeeded. */
+  /** The node it made; null until it is on the fabric. */
   nodeId: matterNodeIdSchema.nullable(),
 
   /** Why it failed, in a sentence; null unless it did. */
   error: z.string().max(2048).nullable(),
+
+  /** Each step in order, with how it stands. */
+  steps: z.array(matterCommissioningStepSchema).max(MATTER_COMMISSIONING_STEPS.length).default([]),
+
+  /** The device it became in the house; null until it is in. */
+  deviceId: integrationIdSchema.nullable().default(null),
 });
 
 /** One commissioning. */
@@ -157,6 +228,18 @@ export const matterStatusSchema = z.object({
 
   /** The last commissioning; null when none was started since the hub started. */
   commissioning: matterCommissioningSchema.nullable(),
+
+  /** When the controller last started; null while it is not running. */
+  startedAt: timestampSchema.nullable().default(null),
+
+  /** The engine under the controller, as `matter.js 0.17`. */
+  controllerVersion: z.string().max(64).nullable().default(null),
+
+  /** The UDP port the controller listens on. */
+  port: z.int().min(1).max(65_535).default(MATTER_PORT),
+
+  /** When this hub made the fabric; null for one made before the hub kept the date. */
+  fabricCreatedAt: timestampSchema.nullable().default(null),
 });
 
 /** Where the controller stands. */
@@ -193,6 +276,12 @@ export type MatterNodeDevice = z.output<typeof matterNodeDeviceSchema>;
 export const matterNodeSchema = z.object({
   nodeId: matterNodeIdSchema,
   isAvailable: z.boolean(),
+
+  /** When it joined the fabric, as the controller recorded it; null when it did not say. */
+  commissionedAt: timestampSchema.nullable().default(null),
+
+  /** Since when it has not answered, as far as this hub saw; null while it answers. */
+  offlineSince: timestampSchema.nullable().default(null),
 
   /** The node itself first, then each device behind it when it is a bridge. */
   devices: z.array(matterNodeDeviceSchema).min(1).max(256),
@@ -240,6 +329,18 @@ export type MatterRestoreRequest = z.output<typeof matterRestoreRequestSchema>;
 /** Whether it was removed, and is now offered to be added again. */
 export const matterRestoreReplySchema = z.object({ isRestored: z.boolean() });
 
+/**
+ * The owner's answer to the question a commissioning stopped on: add the device with a test
+ * certificate anyway, or not.
+ */
+export const matterAnswerRequestSchema = z.object({
+  jobId: z.string().min(1).max(64),
+  isAccepted: z.boolean(),
+});
+
+/** The owner's answer. */
+export type MatterAnswerRequest = z.output<typeof matterAnswerRequestSchema>;
+
 /** The brokers the platform runs, as the Brokers page lists them. */
 export const BROKER_IDS = [MATTER_VENDOR] as const;
 
@@ -251,8 +352,15 @@ export const brokerSummarySchema = z.object({
   id: z.enum(BROKER_IDS),
   state: z.enum(MATTER_CONTROLLER_STATES),
 
-  /** The devices the house has through it, and how many of them answer. */
-  devices: z.object({ total: z.int().min(0), online: z.int().min(0) }),
+  /**
+   * The devices the house has through it, how many of them answer, and how many are also
+   * reached another way.
+   */
+  devices: z.object({
+    total: z.int().min(0),
+    online: z.int().min(0),
+    linked: z.int().min(0).default(0),
+  }),
 });
 
 /** One broker, for its card. */

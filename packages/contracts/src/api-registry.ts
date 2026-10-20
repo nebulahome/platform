@@ -28,6 +28,7 @@ import {
   probeReplySchema,
 } from './integrations.js';
 import { jsonObjectSchema, type JsonObject } from './json.js';
+import { deviceLinkViewSchema, suggestedLinkSchema } from './links.js';
 import { managedStatusSchema } from './supervisor.js';
 import { isReservedDeviceId } from './system-monitor.js';
 import { TAGS_PER_ROW_MAXIMUM } from './tags.js';
@@ -152,6 +153,25 @@ export const deviceViewSchema = z.object({
 
   /** The tags on it, by id; the tags themselves come from `GET /tags`. */
   tagIds: z.array(z.uuid()).default([]),
+
+  /** The hardware's MAC address and serial, when it said them. */
+  mac: z.string().nullable().default(null),
+  serialNumber: z.string().nullable().default(null),
+
+  /** When the house first had it. */
+  createdAt: timestampSchema.nullable().default(null),
+
+  /**
+   * Every way into it, when it is reached more than one way: one device, two transports. Null for
+   * a device reached one way.
+   */
+  linked: deviceLinkViewSchema.nullable().default(null),
+
+  /**
+   * Pairs of its entities that read the same thing and are not linked - what its Sensors list
+   * suggests to link. Empty for a device reached one way.
+   */
+  suggestedLinks: z.array(suggestedLinkSchema).default([]),
 });
 
 /** One device. */
@@ -262,6 +282,9 @@ export const deviceUpdateSchema = z
 
     /** Every tag the device should carry - the whole set, replacing what it had. */
     tagIds: z.array(z.uuid()).max(TAGS_PER_ROW_MAXIMUM),
+
+    /** For a linked device: the way in its entities are read through first. */
+    preferredTransport: integrationIdSchema,
   })
   .partial()
   .refine((body) => Object.keys(body).length > 0, { message: 'Nothing to change' });
