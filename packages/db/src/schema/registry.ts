@@ -282,6 +282,35 @@ export const devices = registrySchema.table(
     viaDeviceId: uuid('via_device_id').references((): AnyPgColumn => devices.id, {
       onDelete: 'set null',
     }),
+
+    /**
+     * The device this row is one more way into: the same hardware, reached through another
+     * transport. Set, this row is not listed; the device it names is the one the house shows.
+     */
+    linkedTo: uuid('linked_to').references((): AnyPgColumn => devices.id, {
+      onDelete: 'set null',
+    }),
+
+    /** When it was linked; null while it is not. */
+    linkedAt: timestamp('linked_at', { withTimezone: true }),
+
+    /** On a device others are linked to: the instance its entities are read through first. */
+    preferredTransport: text('preferred_transport'),
+
+    /**
+     * On a device others are linked to: the pairs of entity rows the owner unlinked, which no
+     * automatic pass links again.
+     */
+    linkRefused: jsonb('link_refused')
+      .$type<[string, string][]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+
+    /** The hardware's MAC address, lower case with colons; null when it never said. */
+    mac: text('mac'),
+
+    /** The hardware's serial number, as it said it; null when it never said. */
+    serialNumber: text('serial_number'),
     config: jsonb('config')
       .notNull()
       .default(sql`'{}'::jsonb`),
@@ -294,6 +323,44 @@ export const devices = registrySchema.table(
     index('devices_area_id_idx').on(table.areaId),
     index('devices_via_device_id_idx').on(table.viaDeviceId),
     index('devices_package_id_idx').on(table.packageId),
+    index('devices_linked_to_idx').on(table.linkedTo),
+    index('devices_mac_idx')
+      .on(table.mac)
+      .where(sql`mac IS NOT NULL`),
+  ],
+);
+
+/** One thing that matched two devices: which fact, and the value both have. */
+export type LinkReason = { readonly kind: 'mac' | 'serial' | 'model'; readonly value: string };
+
+/**
+ * Two devices of one vendor that look like one device reached two ways, offered to link.
+ *
+ * One row per pair (`device_a < device_b`). A suggestion the owner set aside keeps
+ * `dismissedAt` and stays among the dismissed, so linking never depends on the moment the second
+ * way in was added. Written by `api`; gone with either device.
+ */
+export const linkSuggestions = registrySchema.table(
+  'link_suggestions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    vendorId: text('vendor_id').notNull(),
+    deviceA: uuid('device_a')
+      .notNull()
+      .references(() => devices.id, { onDelete: 'cascade' }),
+    deviceB: uuid('device_b')
+      .notNull()
+      .references(() => devices.id, { onDelete: 'cascade' }),
+    reasons: jsonb('reasons')
+      .$type<LinkReason[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    dismissedAt: timestamp('dismissed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('link_suggestions_device_b_idx').on(table.deviceB),
+    index('link_suggestions_vendor_id_idx').on(table.vendorId),
   ],
 );
 
@@ -345,11 +412,29 @@ export const entities = registrySchema.table(
     config: jsonb('config')
       .notNull()
       .default(sql`'{}'::jsonb`),
+
+    /**
+     * The entity this one reads the same thing as, reached another way. Set, this row keeps no
+     * history and its address means the entity it names.
+     */
+    linkedTo: uuid('linked_to').references((): AnyPgColumn => entities.id, {
+      onDelete: 'set null',
+    }),
+
+    /** How the pair was made: `declared`, `auto` or `manual`. */
+    linkOrigin: text('link_origin'),
+
+    /** When it was linked, which is when it stopped keeping history; null while it is not. */
+    linkedAt: timestamp('linked_at', { withTimezone: true }),
+
+    /** On an entity others are linked to: the instance it is read through first; null follows the device. */
+    transport: text('transport'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index('entities_device_id_idx').on(table.deviceId),
+    index('entities_linked_to_idx').on(table.linkedTo),
     index('entities_area_id_idx').on(table.areaId),
     index('entities_package_id_idx').on(table.packageId),
     index('entities_integration_id_idx').on(table.integrationId),

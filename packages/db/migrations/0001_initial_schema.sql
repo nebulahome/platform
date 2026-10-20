@@ -556,6 +556,18 @@ CREATE TABLE registry.devices (
   hw_version     text,
   area_id        uuid        REFERENCES registry.areas (id) ON DELETE SET NULL,
   via_device_id  uuid        REFERENCES registry.devices (id) ON DELETE SET NULL,
+  -- The same physical device reached another way: this row is one more way into the device it
+  -- names, which is the one the house shows. The device that shows keeps the choices below.
+  linked_to      uuid        REFERENCES registry.devices (id) ON DELETE SET NULL,
+  linked_at      timestamptz,
+  -- On a device others are linked to: the instance its entities are read through first, and
+  -- the pairs of entities (row ids) the owner unlinked, which no automatic pass links again.
+  preferred_transport text,
+  link_refused   jsonb       NOT NULL DEFAULT '[]'::jsonb,
+  -- What the hardware says it is, normalised (lower case, colons) so two ways in can be told
+  -- to be one device.
+  mac            text,
+  serial_number  text,
   config         jsonb       NOT NULL DEFAULT '{}'::jsonb,   -- deviceConfigSchema
   is_enabled     boolean     NOT NULL DEFAULT true,
   last_seen_at   timestamptz,
@@ -565,6 +577,7 @@ CREATE TABLE registry.devices (
   UNIQUE (package_id, external_id),
   CONSTRAINT devices_source CHECK (source IN ('adapter', 'system', 'container')),
   CONSTRAINT devices_not_own_parent CHECK (via_device_id IS DISTINCT FROM id),
+  CONSTRAINT devices_not_linked_to_itself CHECK (linked_to IS DISTINCT FROM id),
   CONSTRAINT devices_owner_exclusive CHECK (
     (source = 'adapter' AND (package_id IS NOT NULL) <> (integration_id IS NOT NULL))
     OR (source IN ('system', 'container') AND package_id IS NULL AND integration_id IS NULL)
@@ -578,6 +591,8 @@ CREATE UNIQUE INDEX devices_container_name_idx ON registry.devices (external_id)
 CREATE INDEX devices_area_id_idx ON registry.devices (area_id);
 CREATE INDEX devices_via_device_id_idx ON registry.devices (via_device_id);
 CREATE INDEX devices_package_id_idx ON registry.devices (package_id);
+CREATE INDEX devices_linked_to_idx ON registry.devices (linked_to);
+CREATE INDEX devices_mac_idx ON registry.devices (mac) WHERE mac IS NOT NULL;
 
 -- --------------------------------------------------------------------------------------
 
@@ -605,9 +620,21 @@ CREATE TABLE registry.entities (
   is_enabled          boolean     NOT NULL DEFAULT true,
   is_hidden           boolean     NOT NULL DEFAULT false,
   config              jsonb       NOT NULL DEFAULT '{}'::jsonb,
+  -- The entity this one reads the same thing as, reached another way: while it is set this row
+  -- stops keeping history, and its address and row mean the entity it names. How the pair was
+  -- made: `declared` by the integration, `auto` from what both read, `manual` by the owner.
+  linked_to           uuid        REFERENCES registry.entities (id) ON DELETE SET NULL,
+  link_origin         text,
+  linked_at           timestamptz,
+  -- On an entity others are linked to: the instance it is read through first, overriding its
+  -- device's choice; null follows the device.
+  transport           text,
   created_at          timestamptz NOT NULL DEFAULT now(),
   updated_at          timestamptz NOT NULL DEFAULT now(),
 
+  CONSTRAINT entities_not_linked_to_itself CHECK (linked_to IS DISTINCT FROM id),
+  CONSTRAINT entities_link_origin
+    CHECK (link_origin IS NULL OR link_origin IN ('declared', 'auto', 'manual')),
   CONSTRAINT entities_entity_id_format
     CHECK (entity_id ~ '^[a-z][a-z0-9_]{0,31}\.[a-z0-9][a-z0-9_]{0,63}$'),
   CONSTRAINT entities_source CHECK (source IN ('adapter', 'derived', 'system', 'container')),
@@ -635,6 +662,35 @@ CREATE INDEX entities_area_id_idx ON registry.entities (area_id);
 CREATE INDEX entities_package_id_idx ON registry.entities (package_id);
 CREATE INDEX entities_integration_id_idx ON registry.entities (integration_id);
 CREATE INDEX entities_domain_idx ON registry.entities (domain);
+CREATE INDEX entities_linked_to_idx ON registry.entities (linked_to);
+
+-- --------------------------------------------------------------------------------------
+
+-- registry: link suggestions
+
+-- --------------------------------------------------------------------------------------
+
+-- Two devices of one vendor that look like one device reached two ways - the same MAC address,
+-- the same serial - offered to the owner to link. A suggestion the owner set aside keeps
+-- `dismissed_at` and stays listed among the dismissed, so linking never depends on the moment
+-- the second way in was added. Written by `api`; gone with either device.
+CREATE TABLE registry.link_suggestions (
+  id           uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  vendor_id    text        NOT NULL,
+  device_a     uuid        NOT NULL REFERENCES registry.devices (id) ON DELETE CASCADE,
+  device_b     uuid        NOT NULL REFERENCES registry.devices (id) ON DELETE CASCADE,
+  -- What matched, as `[{ "kind": "mac", "value": "08:f9:…" }, …]`.
+  reasons      jsonb       NOT NULL DEFAULT '[]'::jsonb,
+  dismissed_at timestamptz,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+
+  UNIQUE (device_a, device_b),
+  -- One row per pair, whichever device was found first.
+  CONSTRAINT link_suggestions_ordered CHECK (device_a < device_b)
+);
+
+CREATE INDEX link_suggestions_device_b_idx ON registry.link_suggestions (device_b);
+CREATE INDEX link_suggestions_vendor_id_idx ON registry.link_suggestions (vendor_id);
 CREATE INDEX entities_search_aliases_idx ON registry.entities USING gin (search_aliases);
 CREATE INDEX entities_name_trgm_idx ON registry.entities USING gin (name gin_trgm_ops);
 
