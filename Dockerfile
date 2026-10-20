@@ -30,7 +30,9 @@ RUN corepack enable && corepack prepare pnpm@11.20.0 --activate
 
 WORKDIR /src
 
-# The lockfile alone first: the package store is fetched once and cached until it changes.
+# The lockfile alone first: the package store is fetched once and cached until it changes. The
+# installs prefer that store but may download: BuildKit can empty a cache mount while the layers
+# that filled it stay cached.
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm fetch
 
@@ -38,7 +40,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm fetch
 # one rebuilds nothing.
 COPY --exclude=infra/local-packages --exclude=infra/local-integrations . .
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile --offline && \
+    pnpm install --frozen-lockfile --prefer-offline && \
     pnpm build
 
 # The tree that runs: the same layout, installed afresh with production dependencies only - the
@@ -55,7 +57,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
       mkdir -p "/app/$dir" && cp "$dir/package.json" "/app/$dir/"; \
     done && \
     cd /app && \
-    pnpm install --frozen-lockfile --offline --prod --ignore-scripts \
+    pnpm install --frozen-lockfile --prefer-offline --prod --ignore-scripts \
       --filter '!@nebulahome/web-ui' --filter '!@nebulahome/ui' \
       --filter '!@nebulahome/integration-sdk' && \
     cd /src && \
@@ -73,7 +75,7 @@ FROM build AS test
 
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     apk add --no-cache postgresql16-client && \
-    pnpm install --frozen-lockfile --offline
+    pnpm install --frozen-lockfile --prefer-offline
 
 # ---------------------------------------------------------------------------------------------
 # runtime
