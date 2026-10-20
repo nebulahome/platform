@@ -24,6 +24,7 @@ import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import {
+  answerMatter,
   commissionMatter,
   listBrokers,
   matterNodes,
@@ -159,6 +160,49 @@ export function registerBrokerRoutes(environment: RouteEnvironment, context: Api
         ipAddress: route.request.ip,
         traceId: route.request.traceId,
         details: {},
+      });
+
+      return job;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/brokers/matter/commission/:jobId/answer',
+      summary: 'Answer the question a commissioning stopped on: add a test device anyway, or not',
+      tag: 'Brokers',
+      permission: 'device:write',
+      params: z.object({ jobId: z.string().min(1).max(64) }),
+      body: z.object({ isAccepted: z.boolean() }),
+      response: matterCommissioningSchema,
+      successStatus: ACCEPTED_STATUS,
+    },
+
+    /**
+     * Passes the owner's answer to the hub.
+     *
+     * @param route - The job, the answer, and who is asking.
+     * @returns The job, as it now stands.
+     */
+    async (route): Promise<MatterCommissioning> => {
+      requirePermission(route.identity, 'device:write');
+
+      const job = await answerMatter(forRequest(context, route.request.traceId), {
+        jobId: route.params.jobId,
+        isAccepted: route.body.isAccepted,
+      });
+
+      await context.audit.record({
+        action: 'matter.commission',
+        resourceType: 'matter',
+        resourceId: job.id,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { testCertificate: route.body.isAccepted ? 'accepted' : 'refused' },
       });
 
       return job;

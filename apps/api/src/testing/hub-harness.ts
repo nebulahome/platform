@@ -196,6 +196,7 @@ export const CATALOGUE: CatalogueReply = {
       wires: ['mqtt'],
       discoverySources: [],
       adoption: 'owner',
+      twins: [],
       pairing: null,
       listener: null,
       passedOver: [],
@@ -230,6 +231,7 @@ export const CATALOGUE: CatalogueReply = {
       wires: ['mqtt'],
       discoverySources: [],
       adoption: 'owner',
+      twins: [],
       pairing: null,
       listener: null,
       passedOver: [],
@@ -271,6 +273,7 @@ export const CATALOGUE: CatalogueReply = {
       wires: ['http'],
       discoverySources: ['module'],
       adoption: 'automatic',
+      twins: [],
       pairing: null,
       listener: null,
       passedOver: [],
@@ -335,6 +338,7 @@ export const CATALOGUE: CatalogueReply = {
       wires: ['mqtt'],
       discoverySources: [],
       adoption: 'owner',
+      twins: [],
       pairing: null,
       listener: null,
       passedOver: [],
@@ -690,6 +694,8 @@ export const matterRequests: string[] = [];
 export const MATTER_LAMP: MatterNode = {
   nodeId: '7',
   isAvailable: true,
+  commissionedAt: null,
+  offlineSince: null,
   devices: [
     {
       identity: {
@@ -1107,6 +1113,10 @@ export async function buildTestServer(
         isLanReachable: true,
         nodes: { total: 1, online: 1 },
         commissioning: null,
+        startedAt: null,
+        controllerVersion: 'matter.js 0.17',
+        port: 5540,
+        fabricCreatedAt: null,
       }),
     ),
     hub.serve(
@@ -1127,6 +1137,8 @@ export async function buildTestServer(
           finishedAt: null,
           nodeId: null,
           error: null,
+          steps: [],
+          deviceId: null,
         };
       },
     ),

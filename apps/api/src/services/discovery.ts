@@ -15,16 +15,22 @@ import {
   busSubjects,
   discoveredReplySchema,
   discoverReplySchema,
+  discoveryAdoptSchema,
+  discoveryDismissReplySchema,
   HUB_DISCOVER_METHOD,
   HUB_DISCOVERED_METHOD,
+  HUB_DISCOVERY_DISMISS_METHOD,
   HUB_SERVICE,
   NotFoundError,
+  suggestDeviceId,
   ValidationError,
   type DeviceCreate,
   type DeviceView,
   type DiscoveredDevice,
   type DiscoverReply,
   type DiscoveryAdopt,
+  type DiscoveryAdoptManyReply,
+  type DiscoveryDismissRequest,
 } from '@nebulahome/contracts';
 
 import { createDevice, type DevicesContext } from './devices.js';
@@ -190,4 +196,107 @@ export async function adoptDiscovered(
   });
 
   return { device, candidate };
+}
+
+/**
+ * What one vendor found on the network and the house does not have, set aside or not.
+ *
+ * @param context - The request's collaborators.
+ * @param vendorId - The vendor.
+ * @returns Its found devices the owner adds, oldest first; none when the hub is away.
+ */
+export async function foundOf(
+  context: IntegrationsContext,
+  vendorId: string,
+): Promise<DiscoveredDevice[]> {
+  return (await listDiscovered(context)).filter(
+    (candidate) => candidate.vendorId === vendorId && candidate.adoption === 'owner',
+  );
+}
+
+/**
+ * Sets found devices aside, or brings them back.
+ *
+ * @param context - The request's collaborators.
+ * @param request - Which, and which way.
+ * @returns How many the hub still had.
+ * @throws {DeviceUnavailableError} When the hub cannot be asked.
+ */
+export async function dismissDiscovered(
+  context: IntegrationsContext,
+  request: DiscoveryDismissRequest,
+): Promise<number> {
+  const reply = await busOf(context).request(
+    busSubjects.service(HUB_SERVICE, HUB_DISCOVERY_DISMISS_METHOD),
+    request,
+    discoveryDismissReplySchema,
+    { traceId: context.traceId },
+  );
+
+  return reply.changed;
+}
+
+/**
+ * The name a found device is adopted under in one step: its model, which is what the owner
+ * recognises before naming it.
+ *
+ * @param candidate - The device found.
+ * @returns The name.
+ */
+export function adoptedNameOf(candidate: DiscoveredDevice): string {
+  const name = candidate.model ?? candidate.name?.trim() ?? '';
+
+  return (name === '' ? candidate.driverId : name).slice(0, 128);
+}
+
+/**
+ * Adopts several found devices at once, each named after its model, in no room: the owner names
+ * them and puts them in rooms on the Devices page.
+ *
+ * @param context - The request's collaborators.
+ * @param ids - The found devices.
+ * @param takenIds - The device ids already in use.
+ * @returns What became of each.
+ * @throws {DeviceUnavailableError} When the hub cannot be asked.
+ */
+export async function adoptMany(
+  context: DevicesContext,
+  ids: readonly string[],
+  takenIds: readonly string[],
+): Promise<DiscoveryAdoptManyReply['items']> {
+  const candidates = await discoveredOn(context);
+  const taken = new Set(takenIds);
+  const results: DiscoveryAdoptManyReply['items'] = [];
+
+  for (const id of ids) {
+    const candidate = candidates.find((each) => each.id === id);
+
+    if (candidate === undefined) {
+      results.push({ id, deviceId: null, name: null, error: 'It is no longer found' });
+      continue;
+    }
+
+    const name = adoptedNameOf(candidate);
+    const deviceId = suggestDeviceId(candidate.vendorId, name, [...taken]);
+
+    try {
+      const adoption = adoptionOf(candidate, discoveryAdoptSchema.parse({ id: deviceId, name }));
+      // eslint-disable-next-line no-await-in-loop -- one at a time, each taking an id the next cannot
+      const device = await createDevice(context, adoption.create, {
+        expectedExternalId: adoption.expectedExternalId,
+      });
+
+      taken.add(device.id);
+      results.push({ id, deviceId: device.id, name: device.name, error: null });
+    } catch (error: unknown) {
+      results.push({
+        id,
+        deviceId: null,
+        name,
+        error: (error instanceof Error ? error.message : String(error)).slice(0, 2048),
+      });
+    }
+  }
+
+  return results;
 }

@@ -7,10 +7,11 @@
  * rows - and then the node is taken off the fabric, which it may refuse when it does not answer:
  * the devices are gone either way, and the page offers to try the fabric again.
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import {
   busSubjects,
+  HUB_MATTER_ANSWER_METHOD,
   HUB_MATTER_COMMISSION_METHOD,
   HUB_MATTER_NODES_METHOD,
   HUB_MATTER_REMOVE_METHOD,
@@ -27,6 +28,7 @@ import {
   matterStatusSchema,
   NotFoundError,
   type BrokerSummary,
+  type MatterAnswerRequest,
   type MatterCommissioning,
   type MatterNode,
   type MatterRestoreRequest,
@@ -79,9 +81,40 @@ export async function matterNodes(context: IntegrationsContext): Promise<MatterN
  * @throws {DeviceUnavailableError} When the hub cannot be asked.
  */
 export async function listBrokers(context: IntegrationsContext): Promise<BrokerSummary[]> {
-  const status = await matterStatus(context);
+  const [status, linked] = await Promise.all([
+    matterStatus(context),
+    // A count on a card: a database that cannot answer it leaves the card standing.
+    linkedMatterDevices(context).catch((error: unknown) => {
+      context.logger.warn({ err: error }, 'Could not count the linked Matter devices');
 
-  return [{ id: MATTER_VENDOR, state: status.state, devices: status.nodes }];
+      return 0;
+    }),
+  ]);
+
+  return [{ id: MATTER_VENDOR, state: status.state, devices: { ...status.nodes, linked } }];
+}
+
+/**
+ * How many devices reached through Matter are also reached another way.
+ *
+ * @param context - The request's collaborators.
+ * @returns The count.
+ */
+export async function linkedMatterDevices(context: IntegrationsContext): Promise<number> {
+  const { devices, integrations } = schema.registry;
+  const [row] = await context.db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(devices)
+    .innerJoin(integrations, eq(integrations.id, devices.integrationId))
+    .where(
+      and(
+        eq(integrations.transport, MATTER_TRANSPORT),
+        sql`(${devices.linkedTo} IS NOT NULL OR EXISTS (
+          SELECT 1 FROM registry.devices c WHERE c.linked_to = ${devices.id}))`,
+      ),
+    );
+
+  return row?.count ?? 0;
 }
 
 /**
@@ -101,6 +134,27 @@ export async function commissionMatter(
     { code },
     matterCommissioningSchema,
     { traceId: context.traceId },
+  );
+}
+
+/**
+ * Answers the question a commissioning stopped on: whether to add a device whose certificate is a
+ * test one.
+ *
+ * @param context - The request's collaborators.
+ * @param answer - The job, and the owner's answer.
+ * @returns The job, as it now stands.
+ * @throws {DeviceUnavailableError} When the hub cannot be asked.
+ */
+export async function answerMatter(
+  context: IntegrationsContext,
+  answer: MatterAnswerRequest,
+): Promise<MatterCommissioning> {
+  return busOf(context).request(
+    busSubjects.service(HUB_SERVICE, HUB_MATTER_ANSWER_METHOD),
+    answer,
+    matterCommissioningSchema,
+    { traceId: context.traceId, timeoutMs: context.timeoutMs },
   );
 }
 

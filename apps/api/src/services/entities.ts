@@ -11,19 +11,30 @@
  * over the WebSocket, which is the channel meant for watching. This is stated in API.md rather
  * than left to be discovered.
  */
-import { and, asc, eq, gt, ilike, inArray, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, gt, ilike, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
 
+import type { BusClient } from '@nebulahome/bus';
 import {
+  busSubjects,
   containerDeviceId,
+  CORE_LINK_SOURCES_METHOD,
+  CORE_SERVICE,
   entityViewSchema,
+  linkSourcesReplySchema,
+  MATTER_TRANSPORT,
+  matterReferenceSchema,
   NotFoundError,
   parseEntityId,
+  ValidationError,
   type CapabilityName,
+  type EntityLinkView,
   type EntityQuery,
   type EntityUpdate,
   type EntityView,
   type Identity,
   type JsonObject,
+  type LinkOrigin,
+  type MatterReference,
 } from '@nebulahome/contracts';
 import { schema, type Database } from '@nebulahome/db';
 
@@ -59,6 +70,25 @@ type EntityRow = {
   isAvailable: boolean | null;
   lastChanged: Date | null;
   lastUpdated: Date | null;
+
+  /** The entity it reads through, when it is linked to another. */
+  linkedTo: string | null;
+  linkOrigin: string | null;
+
+  /** The way it is read first, overriding its device's, when others are linked to it. */
+  transport: string | null;
+  config: unknown;
+  createdAt: Date | null;
+
+  /** The instance its state last came through. */
+  stateSource: string | null;
+
+  /** The way its device - or the device it is one more way into - is read first. */
+  devicePreferred: string | null;
+
+  /** Its instance's driver and transport. */
+  kind: string | null;
+  instanceTransport: string | null;
 };
 
 /**
@@ -95,7 +125,170 @@ const ENTITY_COLUMNS = {
   isAvailable: schema.registry.entityStates.isAvailable,
   lastChanged: schema.registry.entityStates.lastChanged,
   lastUpdated: schema.registry.entityStates.lastUpdated,
+  linkedTo: schema.registry.entities.linkedTo,
+  linkOrigin: schema.registry.entities.linkOrigin,
+  transport: schema.registry.entities.transport,
+  config: schema.registry.entities.config,
+  createdAt: schema.registry.entities.createdAt,
+  stateSource: schema.registry.entityStates.source,
+  devicePreferred: sql<string | null>`coalesce(
+    (SELECT g.preferred_transport FROM registry.devices g WHERE g.id = ${schema.registry.devices.linkedTo}),
+    ${schema.registry.devices.preferredTransport})`,
+  kind: schema.registry.integrations.kind,
+  instanceTransport: schema.registry.integrations.transport,
 } as const;
+
+/**
+ * The entity reads every entity read starts from: the row, its device, its room, its state and
+ * its instance.
+ *
+ * @param db - The database.
+ * @returns The query, to narrow.
+ */
+function selectEntities(db: Database) {
+  return db
+    .select(ENTITY_COLUMNS)
+    .from(schema.registry.entities)
+    .leftJoin(
+      schema.registry.devices,
+      eq(schema.registry.devices.id, schema.registry.entities.deviceId),
+    )
+    .leftJoin(schema.registry.areas, eq(schema.registry.areas.id, EFFECTIVE_AREA_ID))
+    .leftJoin(
+      schema.registry.entityStates,
+      eq(schema.registry.entityStates.entityId, schema.registry.entities.id),
+    )
+    .leftJoin(
+      schema.registry.integrations,
+      eq(schema.registry.integrations.id, schema.registry.entities.integrationId),
+    );
+}
+
+/** The entities linked to one entity, which read the same thing through it. */
+type LinkedRows = ReadonlyMap<string, readonly EntityRow[]>;
+
+/**
+ * Reads the entities linked to each of some entities, in the order they were linked.
+ *
+ * @param db - The database.
+ * @param rowIds - The entities others may be linked to.
+ * @returns The linked entities, by the row of the one they read through.
+ */
+async function readLinked(db: Database, rowIds: readonly string[]): Promise<LinkedRows> {
+  const grouped = new Map<string, EntityRow[]>();
+
+  if (rowIds.length === 0) {
+    return grouped;
+  }
+
+  const rows: EntityRow[] = await selectEntities(db)
+    .where(inArray(schema.registry.entities.linkedTo, [...rowIds]))
+    .orderBy(asc(schema.registry.entities.createdAt), asc(schema.registry.entities.id));
+
+  for (const row of rows) {
+    if (row.linkedTo !== null) {
+      grouped.set(row.linkedTo, [...(grouped.get(row.linkedTo) ?? []), row]);
+    }
+  }
+
+  return grouped;
+}
+
+/**
+ * What an entity's bundle said links it to its twin: its key, and where it sits in Matter.
+ *
+ * @param config - The entity's `config`.
+ * @returns The hint, with nothing for an entity whose bundle said nothing.
+ */
+export function linkHintOf(config: unknown): {
+  key: string | null;
+  matter: MatterReference | null;
+} {
+  const link = (config as { link?: { key?: unknown; matter?: unknown } } | null)?.link;
+  const parsed = matterReferenceSchema.safeParse(link?.matter);
+
+  return {
+    key: typeof link?.key === 'string' ? link.key : null,
+    matter: parsed.success ? parsed.data : null,
+  };
+}
+
+/**
+ * How a linked entity is read, from its rows: every source, which way it prefers and which it is
+ * read through now. What each source last said is `core`'s, and is added by {@link withSources}.
+ *
+ * @param row - The entity others are linked to.
+ * @param linked - The entities linked to it.
+ * @returns The link's view, or null when nothing is linked to it.
+ */
+function linkViewOf(row: EntityRow, linked: readonly EntityRow[]): EntityLinkView | null {
+  if (linked.length === 0 || row.integrationId === null) {
+    return null;
+  }
+
+  const active = [row, ...linked].some((each) => each.integrationId === row.stateSource)
+    ? row.stateSource
+    : null;
+
+  return {
+    sources: [row, ...linked].flatMap((each) => {
+      if (each.integrationId === null) {
+        return [];
+      }
+
+      const hint = linkHintOf(each.config);
+      const transport = each.instanceTransport ?? '';
+      const isActive = each.integrationId === active;
+
+      return [
+        {
+          entityId: parseEntityId(each.entityId),
+          deviceId: each.integrationId,
+          vendorId: (each.kind ?? '').split('/')[0] ?? '',
+          transport,
+          key: transport === MATTER_TRANSPORT ? null : hint.key,
+          // Its own place in Matter, for a Matter source; another's twin is not where it sits.
+          matter: transport === MATTER_TRANSPORT ? hint.matter : null,
+          isActive,
+          isAvailable: isActive && row.isAvailable === true,
+          state: isActive ? ((row.state ?? null) as JsonObject | null) : null,
+          lastUpdated: isActive ? row.lastUpdated : null,
+          origin: each === row ? null : ((each.linkOrigin ?? 'manual') as LinkOrigin),
+        },
+      ];
+    }),
+    transport: row.transport,
+    preferred: row.devicePreferred ?? row.integrationId,
+    active,
+  };
+}
+
+/**
+ * Every capability of a linked entity: what any of its sources declares, its own first.
+ *
+ * @param own - The entity's own.
+ * @param linked - Those of the entities linked to it.
+ * @returns Each capability once.
+ */
+function unionOf(
+  own: readonly { capability: string; params: unknown }[],
+  linked: readonly (readonly { capability: string; params: unknown }[])[],
+): { capability: string; params: unknown }[] {
+  const seen = new Set(own.map((entry) => entry.capability));
+
+  return [
+    ...own,
+    ...linked.flat().filter((entry) => {
+      if (seen.has(entry.capability)) {
+        return false;
+      }
+
+      seen.add(entry.capability);
+
+      return true;
+    }),
+  ];
+}
 
 /**
  * Turns `registry.entities.source` and the two owner columns back into one owner.
@@ -140,14 +333,31 @@ export function toSourceRef(
  * @param row - The joined entity row.
  * @param capabilities - Its declared capabilities.
  * @param tags - The tags on it.
+ * @param linked - The entities linked to it, and what each declares.
  * @returns The entity as the API presents it.
  */
 function toView(
   row: EntityRow,
   capabilities: readonly { capability: string; params: unknown }[],
   tags: readonly EntityTag[] = [],
+  linked: readonly {
+    readonly row: EntityRow;
+    readonly capabilities: readonly { capability: string; params: unknown }[];
+  }[] = [],
 ): EntityView {
+  const declared = unionOf(
+    capabilities,
+    linked.map((each) => each.capabilities),
+  );
+
   return entityViewSchema.parse({
+    addresses: linked.map((each) => each.row.entityId),
+    linked: linkViewOf(
+      row,
+      linked.map((each) => each.row),
+    ),
+    key: linkHintOf(row.config).key,
+    createdAt: row.createdAt,
     entityId: row.entityId,
 
     // The column is nullable, but an entity id is always `<domain>.<object_id>` - the pattern
@@ -163,7 +373,7 @@ function toView(
     deviceClass: row.deviceClass,
     isEnabled: row.isEnabled,
     isHidden: row.isHidden,
-    capabilities: capabilities.map((entry) => ({
+    capabilities: declared.map((entry) => ({
       capability: entry.capability,
       params: entry.params ?? {},
     })),
@@ -356,7 +566,8 @@ export async function readTagKeys(
  * @returns The conditions to apply, or undefined when there are none.
  */
 function buildFilters(query: EntityQuery, cursor: string | undefined): SQL | undefined {
-  const conditions: (SQL | undefined)[] = [];
+  // An entity linked to another is read as that one, and listed only as that one.
+  const conditions: (SQL | undefined)[] = [isNull(schema.registry.entities.linkedTo)];
 
   if (!query.includeHidden) {
     conditions.push(eq(schema.registry.entities.isHidden, false));
@@ -413,18 +624,7 @@ export async function listEntities(
   query: EntityQuery,
   page: { limit: number; cursor?: string },
 ): Promise<PageResult<EntityView>> {
-  const rows: EntityRow[] = await db
-    .select(ENTITY_COLUMNS)
-    .from(schema.registry.entities)
-    .leftJoin(
-      schema.registry.devices,
-      eq(schema.registry.devices.id, schema.registry.entities.deviceId),
-    )
-    .leftJoin(schema.registry.areas, eq(schema.registry.areas.id, EFFECTIVE_AREA_ID))
-    .leftJoin(
-      schema.registry.entityStates,
-      eq(schema.registry.entityStates.entityId, schema.registry.entities.id),
-    )
+  const rows: EntityRow[] = await selectEntities(db)
     .where(buildFilters(query, page.cursor))
     .orderBy(asc(schema.registry.entities.entityId))
 
@@ -433,8 +633,9 @@ export async function listEntities(
     .limit(page.limit + 1);
 
   const rowIds = rows.map((row) => row.rowId);
+  const linked = await readLinked(db, rowIds);
   const [capabilities, tags, deviceTags] = await Promise.all([
-    readCapabilities(db, rowIds),
+    readCapabilities(db, [...rowIds, ...[...linked.values()].flat().map((row) => row.rowId)]),
     readTags(db, rowIds),
     readDeviceTagKeys(
       db,
@@ -458,7 +659,7 @@ export async function listEntities(
     isPermitted(
       identity.permissions,
       'entity:read',
-      entityScopes(row.entityId, row.areaKey, keysUnder(row)),
+      scopesOf(row, keysUnder(row), linked.get(row.rowId)),
     ),
   );
 
@@ -480,11 +681,50 @@ export async function listEntities(
 
   return toPage(
     byCapability.map((row) =>
-      toView(row, capabilities.get(row.rowId) ?? [], tags.get(row.rowId) ?? []),
+      toView(
+        row,
+        capabilities.get(row.rowId) ?? [],
+        tags.get(row.rowId) ?? [],
+        linkedWith(linked.get(row.rowId), capabilities),
+      ),
     ),
     page.limit,
     (view) => ({ key: view.entityId }),
   );
+}
+
+/**
+ * The entities linked to one, each with what it declares.
+ *
+ * @param rows - The linked entities.
+ * @param capabilities - Capabilities by row.
+ * @returns What {@link toView} takes.
+ */
+function linkedWith(
+  rows: readonly EntityRow[] | undefined,
+  capabilities: ReadonlyMap<string, readonly { capability: string; params: unknown }[]>,
+): { row: EntityRow; capabilities: readonly { capability: string; params: unknown }[] }[] {
+  return (rows ?? []).map((row) => ({ row, capabilities: capabilities.get(row.rowId) ?? [] }));
+}
+
+/**
+ * Every scope a grant could cover an entity by: its own and those of the entities linked to it,
+ * whose addresses mean it.
+ *
+ * @param row - The entity.
+ * @param tagKeys - The tags it falls under.
+ * @param linked - The entities linked to it.
+ * @returns The scopes.
+ */
+function scopesOf(
+  row: EntityRow,
+  tagKeys: readonly string[],
+  linked: readonly EntityRow[] | undefined,
+): string[] {
+  return [
+    ...entityScopes(row.entityId, row.areaKey, tagKeys),
+    ...(linked ?? []).map((each) => `entity.${each.entityId}`),
+  ];
 }
 
 /** One entity, with everything an authorisation decision about it needs. */
@@ -510,45 +750,9 @@ export async function findEntity(
   db: Database,
   entityId: string,
 ): Promise<EntityDetail | undefined> {
-  const rows: EntityRow[] = await db
-    .select(ENTITY_COLUMNS)
-    .from(schema.registry.entities)
-    .leftJoin(
-      schema.registry.devices,
-      eq(schema.registry.devices.id, schema.registry.entities.deviceId),
-    )
-    .leftJoin(schema.registry.areas, eq(schema.registry.areas.id, EFFECTIVE_AREA_ID))
-    .leftJoin(
-      schema.registry.entityStates,
-      eq(schema.registry.entityStates.entityId, schema.registry.entities.id),
-    )
-    .where(eq(schema.registry.entities.entityId, entityId))
-    .limit(1);
+  const [found] = await findEntities(db, [entityId]);
 
-  const row = rows[0];
-
-  if (row === undefined) {
-    return undefined;
-  }
-
-  const [capabilities, tags, deviceTags] = await Promise.all([
-    readCapabilities(db, [row.rowId]),
-    readTags(db, [row.rowId]),
-    readDeviceTagKeys(db, [row.deviceId]),
-  ]);
-
-  return {
-    view: toView(row, capabilities.get(row.rowId) ?? [], tags.get(row.rowId) ?? []),
-    scopes: entityScopes(
-      row.entityId,
-      row.areaKey,
-      scopeTagKeys(
-        tags.get(row.rowId),
-        row.deviceId === null ? undefined : deviceTags.get(row.deviceId),
-      ),
-    ),
-    rowId: row.rowId,
-  };
+  return found;
 }
 
 /**
@@ -569,24 +773,26 @@ export async function findEntities(
     return [];
   }
 
-  const rows: EntityRow[] = await db
-    .select(ENTITY_COLUMNS)
-    .from(schema.registry.entities)
-    .leftJoin(
-      schema.registry.devices,
-      eq(schema.registry.devices.id, schema.registry.entities.deviceId),
-    )
-    .leftJoin(schema.registry.areas, eq(schema.registry.areas.id, EFFECTIVE_AREA_ID))
-    .leftJoin(
-      schema.registry.entityStates,
-      eq(schema.registry.entityStates.entityId, schema.registry.entities.id),
-    )
-    .where(inArray(schema.registry.entities.entityId, [...entityIds]))
-    .orderBy(asc(schema.registry.entities.entityId));
+  const named: EntityRow[] = await selectEntities(db).where(
+    inArray(schema.registry.entities.entityId, [...entityIds]),
+  );
+
+  // The address of an entity linked to another means that one: it is what is read.
+  const holderIds = named
+    .map((row) => row.linkedTo)
+    .filter((id): id is string => id !== null && !named.some((row) => row.rowId === id));
+  const holders: EntityRow[] =
+    holderIds.length === 0
+      ? []
+      : await selectEntities(db).where(inArray(schema.registry.entities.id, holderIds));
+  const rows = [...named.filter((row) => row.linkedTo === null), ...holders]
+    .filter((row, index, all) => all.findIndex((each) => each.rowId === row.rowId) === index)
+    .sort((left, right) => left.entityId.localeCompare(right.entityId));
 
   const rowIds = rows.map((row) => row.rowId);
+  const linked = await readLinked(db, rowIds);
   const [capabilities, tags, deviceTags] = await Promise.all([
-    readCapabilities(db, rowIds),
+    readCapabilities(db, [...rowIds, ...[...linked.values()].flat().map((row) => row.rowId)]),
     readTags(db, rowIds),
     readDeviceTagKeys(
       db,
@@ -595,17 +801,77 @@ export async function findEntities(
   ]);
 
   return rows.map((row) => ({
-    view: toView(row, capabilities.get(row.rowId) ?? [], tags.get(row.rowId) ?? []),
-    scopes: entityScopes(
-      row.entityId,
-      row.areaKey,
+    view: toView(
+      row,
+      capabilities.get(row.rowId) ?? [],
+      tags.get(row.rowId) ?? [],
+      linkedWith(linked.get(row.rowId), capabilities),
+    ),
+    scopes: scopesOf(
+      row,
       scopeTagKeys(
         tags.get(row.rowId),
         row.deviceId === null ? undefined : deviceTags.get(row.deviceId),
       ),
+      linked.get(row.rowId),
     ),
     rowId: row.rowId,
   }));
+}
+
+/**
+ * Adds to a linked entity's view what each of its sources last said, which `core` holds.
+ *
+ * @param bus - The bus, when it is reachable.
+ * @param view - The entity.
+ * @param timeoutMs - How long `core` has to answer.
+ * @returns The view with each source's state; as it was when the entity is not linked or `core`
+ * did not answer.
+ */
+export async function withSources(
+  bus: BusClient | undefined,
+  view: EntityView,
+  timeoutMs: number,
+): Promise<EntityView> {
+  if (view.linked === null || bus === undefined) {
+    return view;
+  }
+
+  const reply = await bus
+    .request(
+      busSubjects.service(CORE_SERVICE, CORE_LINK_SOURCES_METHOD),
+      { entityId: view.entityId },
+      linkSourcesReplySchema,
+      { timeoutMs },
+    )
+    .catch(() => undefined);
+
+  if (reply === undefined) {
+    return view;
+  }
+
+  const said = new Map(reply.items.map((item) => [item.entityId as string, item]));
+
+  return {
+    ...view,
+    linked: {
+      ...view.linked,
+      active: reply.items.find((item) => item.isActive)?.source ?? view.linked.active,
+      sources: view.linked.sources.map((source) => {
+        const item = said.get(source.entityId);
+
+        return item === undefined
+          ? source
+          : {
+              ...source,
+              isActive: item.isActive,
+              isAvailable: item.state?.isAvailable ?? false,
+              state: (item.state?.state ?? null) as JsonObject | null,
+              lastUpdated: item.state?.lastUpdated ?? null,
+            };
+      }),
+    },
+  };
 }
 
 /**
@@ -632,13 +898,24 @@ export async function updateEntity(
     checkIcon(icons, body.icon);
   }
 
+  if (
+    body.transport !== undefined &&
+    body.transport !== null &&
+    !(detail.view.linked?.sources ?? []).some((source) => source.deviceId === body.transport)
+  ) {
+    throw new ValidationError('The entity is not read that way', {
+      details: { entityId: detail.view.entityId, transport: body.transport },
+    });
+  }
+
   await db.transaction(async (tx) => {
-    if (body.name !== undefined || body.icon !== undefined) {
+    if (body.name !== undefined || body.icon !== undefined || body.transport !== undefined) {
       await tx
         .update(schema.registry.entities)
         .set({
           ...(body.name === undefined ? {} : { name: body.name }),
           ...(body.icon === undefined ? {} : { icon: body.icon }),
+          ...(body.transport === undefined ? {} : { transport: body.transport }),
           updatedAt: new Date(),
         })
         .where(eq(schema.registry.entities.id, detail.rowId));

@@ -34,7 +34,10 @@ import type { ApiContext } from '../context.js';
 import { IdempotencyStore } from '../http/idempotency.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import { isAuditedCapability, sendCommand } from '../services/commands.js';
-import { findEntity, listEntities, updateEntity } from '../services/entities.js';
+import { findEntity, listEntities, updateEntity, withSources } from '../services/entities.js';
+import { syncLinksOnCore } from '../services/links.js';
+
+import { forRequest } from './devices.js';
 
 /** The path parameters of the single-entity routes. */
 const entityParamsSchema = z.object({
@@ -145,7 +148,8 @@ export function registerEntityRoutes(environment: RouteEnvironment, context: Api
         });
       }
 
-      return found.view;
+      // A linked entity's page shows what each of its sources says, which `core` holds.
+      return withSources(context.bus, found.view, context.config.API_BUS_TIMEOUT_MS);
     },
   );
 
@@ -190,6 +194,11 @@ export function registerEntityRoutes(environment: RouteEnvironment, context: Api
       requirePermission(route.identity, 'entity:write', found.scopes);
 
       const view = await updateEntity(context.db, context.icons, found, route.body);
+
+      if (route.body.transport !== undefined) {
+        // The way it is read first changed: `core` reads its order again.
+        await syncLinksOnCore(forRequest(context, route.request.traceId), [found.rowId]);
+      }
 
       await context.audit.record({
         action: 'entity.update',

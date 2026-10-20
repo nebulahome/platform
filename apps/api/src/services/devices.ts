@@ -32,10 +32,14 @@ import {
   busSubjects,
   CONTAINER_DEVICE_PREFIX,
   containerDeviceId,
+  CORE_LINK_SOURCES_METHOD,
   CORE_SERVICE,
   CORE_UNREGISTER_METHOD,
   deviceViewSchema,
   ConflictError,
+  linkSourcesReplySchema,
+  parseEntityId,
+  type DeviceWay,
   forgetReplySchema,
   HUB_FORGET_METHOD,
   HUB_PROBE_METHOD,
@@ -80,6 +84,7 @@ import {
   type IntegrationsContext,
   type SetupValues,
 } from './integrations.js';
+import { suggestedLinksOf, syncLinksOnCore } from './links.js';
 import { assertTagsExist, replaceDeviceTags, tagIdsOfDeviceRow, tagIdsOfDevices } from './tags.js';
 
 /** What the device paths need. */
@@ -124,7 +129,47 @@ export type DeviceRow = {
   readonly areaKey: string | null;
   readonly areaName: string | null;
   readonly lastUpdatedAt: Date | null;
+
+  /** The identity row; null for an instance without one. */
+  readonly rowId: string | null;
+
+  /** The device this one is one more way into, by its identity row. */
+  readonly linkedTo: string | null;
+  readonly preferredTransport: string | null;
+  readonly mac: string | null;
+  readonly serialNumber: string | null;
+  readonly createdAt: Date | null;
 };
+
+/**
+ * One way into a linked device, for its view.
+ *
+ * @param row - The way's row.
+ * @param preferred - The instance read through first.
+ * @returns The way.
+ */
+function wayOf(row: DeviceRow, preferred: string): DeviceWay {
+  const config = asObject(row.transportConfig);
+  const host = config['host'] ?? config['address'];
+
+  return {
+    deviceId: row.id,
+    kind: row.kind,
+    vendorId: vendorIdOf(row.kind),
+    transport: row.transport,
+    driverName: driverIdOf(row.kind),
+    state: row.state as DeviceWay['state'],
+    // What `core` says of each way is added on a single read; a list goes by the instance.
+    isAvailable: row.state === 'running',
+    isPreferred: row.id === preferred,
+    externalId: row.externalId,
+    address: typeof host === 'string' ? host : null,
+    nodeId: row.transport === MATTER_TRANSPORT ? (row.externalId?.split(':')[0] ?? null) : null,
+    swVersion: row.swVersion,
+    lastUpdatedAt: row.lastUpdatedAt,
+    createdAt: row.createdAt ?? new Date(0),
+  };
+}
 
 /**
  * One device as the interface sees it.
@@ -133,6 +178,7 @@ export type DeviceRow = {
  * @param catalogue - What the hub has loaded, for the driver's name; may be empty.
  * @param entityIds - The addresses of its entities.
  * @param tagIds - The tags on it.
+ * @param others - The other ways into it, when it is reached more than one way.
  * @returns The view.
  */
 export function toDeviceView(
@@ -140,7 +186,9 @@ export function toDeviceView(
   catalogue: readonly IntegrationVendor[],
   entityIds: readonly string[],
   tagIds: readonly string[] = [],
+  others: readonly DeviceRow[] = [],
 ): DeviceView {
+  const preferred = row.preferredTransport ?? row.id;
   const driver = catalogue.flatMap((vendor) => vendor.drivers).find((each) => each.id === row.kind);
   // The series goes by the label the owner picked, which is the driver's own; what the hardware
   // reported may be a code the driver does not list.
@@ -177,6 +225,13 @@ export function toDeviceView(
     areaName: row.areaName,
     entityIds,
     tagIds,
+    mac: row.mac,
+    serialNumber: row.serialNumber,
+    createdAt: row.createdAt,
+    linked:
+      others.length === 0
+        ? null
+        : { ways: [row, ...others].map((way) => wayOf(way, preferred)), preferred },
   });
 }
 
@@ -212,6 +267,12 @@ async function deviceRows(context: DevicesContext): Promise<DeviceRow[]> {
       areaId: devices.areaId,
       areaKey: areas.key,
       areaName: areas.name,
+      rowId: devices.id,
+      linkedTo: devices.linkedTo,
+      preferredTransport: devices.preferredTransport,
+      mac: devices.mac,
+      serialNumber: devices.serialNumber,
+      createdAt: devices.createdAt,
     })
     .from(integrations)
     .leftJoin(devices, eq(devices.integrationId, integrations.id))
@@ -268,7 +329,13 @@ async function entityIdsOf(
       entityId: schema.registry.entities.entityId,
     })
     .from(schema.registry.entities)
-    .where(inArray(schema.registry.entities.integrationId, [...ids]))
+    .where(
+      and(
+        inArray(schema.registry.entities.integrationId, [...ids]),
+        // An entity linked to another is that one's address too, not an entity of its own.
+        isNull(schema.registry.entities.linkedTo),
+      ),
+    )
     .orderBy(asc(schema.registry.entities.entityId));
 
   for (const row of rows) {
@@ -458,31 +525,116 @@ export async function listDevices(context: DevicesContext): Promise<DeviceView[]
     tagIdsOfDevices(context.db, ids),
   ]);
 
+  // One more way into another device is listed as that device, and only as it.
+  const others = new Map<string, DeviceRow[]>();
+
+  for (const row of rows) {
+    if (row.linkedTo !== null) {
+      others.set(row.linkedTo, [...(others.get(row.linkedTo) ?? []), row]);
+    }
+  }
+
   return [
     ...platform.filter((device) => device.origin === 'system'),
-    ...rows.map((row) =>
-      toDeviceView(row, catalogue, entityIds.get(row.id) ?? [], tagIds.get(row.id) ?? []),
-    ),
+    ...rows
+      .filter((row) => row.linkedTo === null)
+      .map((row) => {
+        const ways = row.rowId === null ? [] : (others.get(row.rowId) ?? []);
+
+        return toDeviceView(
+          row,
+          catalogue,
+          [row, ...ways].flatMap((way) => entityIds.get(way.id) ?? []).sort(),
+          tagIds.get(row.id) ?? [],
+          ways,
+        );
+      }),
     ...platform.filter((device) => device.origin === 'container'),
   ];
 }
 
 /**
- * Reads one device, or says it is not there.
+ * Reads one device, or says it is not there. One way into a linked device reads as the device.
  *
  * @param context - The request's collaborators.
  * @param id - Which one.
- * @returns The device.
+ * @returns The device, with what `core` says of each way into it and the readings it suggests
+ * linking when it is linked.
  * @throws {NotFoundError} When no device has that id.
  */
 export async function readDevice(context: DevicesContext, id: string): Promise<DeviceView> {
-  const found = (await listDevices(context)).find((one) => one.id === id);
+  const found = (await listDevices(context)).find(
+    (one) => one.id === id || (one.linked?.ways.some((way) => way.deviceId === id) ?? false),
+  );
 
   if (found === undefined) {
     throw new NotFoundError('No device has that id', { details: { id } });
   }
 
-  return found;
+  return found.linked === null ? found : withLinkedDetail(context, found);
+}
+
+/**
+ * Adds to a linked device whether each way in answers now, as `core` reads its sources, and the
+ * pairs of its readings that read alike and are not linked.
+ *
+ * @param context - The request's collaborators.
+ * @param device - The device.
+ * @returns The device with both.
+ */
+async function withLinkedDetail(context: DevicesContext, device: DeviceView): Promise<DeviceView> {
+  const linked = device.linked;
+
+  if (linked === null) {
+    return device;
+  }
+
+  const [identity] = await context.db
+    .select({ rowId: schema.registry.devices.id })
+    .from(schema.registry.devices)
+    .where(eq(schema.registry.devices.integrationId, device.id));
+  const suggested =
+    identity === undefined ? [] : await suggestedLinksOf(context.db, identity.rowId);
+  const answering = new Map<string, boolean>();
+
+  if (context.bus !== undefined) {
+    for (const entityId of device.entityIds) {
+      // eslint-disable-next-line no-await-in-loop -- stops at the first entity that says enough
+      const reply = await context.bus
+        .request(
+          busSubjects.service(CORE_SERVICE, CORE_LINK_SOURCES_METHOD),
+          { entityId },
+          linkSourcesReplySchema,
+          { traceId: context.traceId, timeoutMs: context.timeoutMs },
+        )
+        .catch(() => undefined);
+
+      for (const item of reply?.items ?? []) {
+        answering.set(
+          item.source,
+          (answering.get(item.source) ?? false) || item.state?.isAvailable === true,
+        );
+      }
+
+      if (answering.size >= linked.ways.length) {
+        break;
+      }
+    }
+  }
+
+  return {
+    ...device,
+    linked: {
+      ...linked,
+      ways: linked.ways.map((way) => ({
+        ...way,
+        isAvailable: answering.get(way.deviceId) ?? way.isAvailable,
+      })),
+    },
+    suggestedLinks: suggested.map(([a, b]) => ({
+      entityIds: [parseEntityId(a), parseEntityId(b)],
+    })),
+  };
 }
 
 /**
@@ -698,6 +850,10 @@ export async function updateDevice(
     throw new NotFoundError('No device has that id', { details: { id } });
   }
 
+  if (body.preferredTransport !== undefined) {
+    await preferWay(context, id, body.preferredTransport);
+  }
+
   if (body.icon !== undefined && body.icon !== null) {
     checkIcon(context.icons, body.icon);
   }
@@ -780,6 +936,50 @@ export async function updateDevice(
   }
 
   return readDevice(context, id);
+}
+
+/**
+ * Makes one way into a linked device the one its entities are read through first.
+ *
+ * @param context - The request's collaborators.
+ * @param id - The device, by any way into it.
+ * @param way - The instance to read through first.
+ * @throws {ValidationError} When the device is reached one way, or not that way.
+ */
+async function preferWay(context: DevicesContext, id: string, way: string): Promise<void> {
+  const device = await readDevice(context, id);
+  const ways = device.linked?.ways.map((each) => each.deviceId) ?? [];
+
+  if (!ways.includes(way)) {
+    throw new ValidationError('The device is not reached that way', { details: { id, way } });
+  }
+
+  const { devices, entities, integrations } = schema.registry;
+  const [holder] = await context.db
+    .select({ rowId: devices.id })
+    .from(devices)
+    .where(eq(devices.integrationId, device.id));
+
+  if (holder === undefined) {
+    return;
+  }
+
+  await context.db
+    .update(devices)
+    .set({ preferredTransport: way, updatedAt: new Date() })
+    .where(eq(devices.id, holder.rowId));
+
+  // Every entity of every way in reads its order again.
+  const rows = await context.db
+    .select({ rowId: entities.id })
+    .from(entities)
+    .innerJoin(integrations, eq(integrations.id, entities.integrationId))
+    .where(inArray(integrations.id, ways));
+
+  await syncLinksOnCore(
+    context,
+    rows.map((row) => row.rowId),
+  );
 }
 
 /** The fields of a change that belong to a connection, which the system device does not have. */
@@ -957,11 +1157,39 @@ export async function deleteDevice(context: DevicesContext, id: string): Promise
   }
 
   const device = await readDevice(context, id);
-  const bus = busOf(context);
+
+  // The device the house shows goes with every way into it; one way in goes alone.
+  const ways =
+    device.id === id && device.linked !== null
+      ? device.linked.ways.map((way) => way.deviceId).filter((each) => each !== id)
+      : [];
 
   // Asked here as well as in `core`, and before the hub: `core` refusing after the hub had let
   // go would leave the device stopped by a removal that did not happen.
-  await assertNotReadByAliases(context, id);
+  for (const each of [...ways, id]) {
+    // eslint-disable-next-line no-await-in-loop -- every way checked before any is let go
+    await assertNotReadByAliases(context, each);
+  }
+
+  const entityIds: string[] = [];
+
+  for (const each of [...ways, id]) {
+    // eslint-disable-next-line no-await-in-loop -- one way at a time, the device last
+    entityIds.push(...(await releaseOne(context, each)));
+  }
+
+  return { name: device.name, kind: device.kind, entityIds };
+}
+
+/**
+ * Removes one way into a device: the hub lets go, then `core` releases the rows.
+ *
+ * @param context - The request's collaborators.
+ * @param id - The instance.
+ * @returns The entities released.
+ */
+async function releaseOne(context: DevicesContext, id: string): Promise<string[]> {
+  const bus = busOf(context);
 
   await bus.request(
     busSubjects.service(HUB_SERVICE, HUB_FORGET_METHOD),
@@ -977,7 +1205,7 @@ export async function deleteDevice(context: DevicesContext, id: string): Promise
     { traceId: context.traceId, timeoutMs: context.timeoutMs },
   );
 
-  return { name: device.name, kind: device.kind, entityIds: released.entityIds };
+  return released.entityIds;
 }
 
 /**

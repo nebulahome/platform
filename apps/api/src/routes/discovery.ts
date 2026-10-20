@@ -12,16 +12,31 @@ import {
   discoveredReplySchema,
   discoverReplySchema,
   discoverRequestSchema,
+  discoveryAdoptManyReplySchema,
+  discoveryAdoptManyRequestSchema,
   discoveryAdoptSchema,
+  discoveryDismissReplySchema,
+  discoveryDismissRequestSchema,
+  VENDOR_ID_PATTERN,
   type DeviceView,
+  type DiscoveredDevice,
   type DiscoveredReply,
   type DiscoverReply,
+  type DiscoveryAdoptManyReply,
 } from '@nebulahome/contracts';
+import { schema } from '@nebulahome/db';
 
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
-import { adoptDiscovered, listDiscovered, requestScan } from '../services/discovery.js';
+import {
+  adoptDiscovered,
+  adoptMany,
+  dismissDiscovered,
+  foundOf,
+  listDiscovered,
+  requestScan,
+} from '../services/discovery.js';
 
 import { forRequest } from './devices.js';
 
@@ -140,6 +155,111 @@ export function registerDiscoveryRoutes(environment: RouteEnvironment, context: 
       });
 
       return device;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/discovery/dismiss',
+      summary: 'Set devices found on the network aside, or bring them back',
+      tag: 'Devices',
+      permission: 'device:write',
+      body: discoveryDismissRequestSchema,
+      response: discoveryDismissReplySchema,
+    },
+
+    /**
+     * Sets found devices aside until they are next forgotten.
+     *
+     * @param route - Which, and who is asking.
+     * @returns How many the hub still had.
+     */
+    async (route): Promise<{ changed: number }> => {
+      requirePermission(route.identity, 'device:write');
+
+      return {
+        changed: await dismissDiscovered(forRequest(context, route.request.traceId), route.body),
+      };
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/discovery/adopt',
+      summary: 'Add several devices found on the network at once, named after their model',
+      tag: 'Devices',
+      permission: 'device:write',
+      body: discoveryAdoptManyRequestSchema,
+      response: discoveryAdoptManyReplySchema,
+    },
+
+    /**
+     * Adds the found devices, each in one step.
+     *
+     * @param route - Which, and who is asking.
+     * @returns What became of each.
+     */
+    async (route): Promise<DiscoveryAdoptManyReply> => {
+      requirePermission(route.identity, 'device:write');
+
+      const devices = forRequest(context, route.request.traceId);
+      const taken = await context.db
+        .select({ id: schema.registry.integrations.id })
+        .from(schema.registry.integrations);
+      const items = await adoptMany(
+        devices,
+        route.body.ids,
+        taken.map((row) => row.id),
+      );
+
+      for (const item of items) {
+        if (item.deviceId !== null) {
+          // eslint-disable-next-line no-await-in-loop -- recorded as it happens, in order
+          await context.audit.record({
+            action: 'device.create',
+            resourceType: 'device',
+            resourceId: item.deviceId,
+            result: 'success',
+            identity: route.identity,
+            ipAddress: route.request.ip,
+            traceId: route.request.traceId,
+            details: { via: 'discovery', candidate: item.id },
+          });
+        }
+      }
+
+      return { items };
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/integrations/vendors/:vendorId/found',
+      summary: 'List what an integration found on the network and the house does not have',
+      tag: 'Integrations',
+      permission: 'device:read',
+      params: z.object({ vendorId: z.string().regex(VENDOR_ID_PATTERN) }),
+      response: discoveredReplySchema,
+    },
+
+    /**
+     * Lists the vendor's found devices, set aside or not.
+     *
+     * @param route - The vendor and who asks.
+     * @returns The devices.
+     */
+    async (route): Promise<{ items: DiscoveredDevice[] }> => {
+      requirePermission(route.identity, 'device:read');
+
+      return {
+        items: await foundOf(forRequest(context, route.request.traceId), route.params.vendorId),
+      };
     },
   );
 }

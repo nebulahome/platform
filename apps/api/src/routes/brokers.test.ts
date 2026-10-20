@@ -44,7 +44,7 @@ describe('the broker routes', () => {
     });
 
     expect(brokers.json()).toEqual({
-      items: [{ id: 'matter', state: 'running', devices: { total: 1, online: 1 } }],
+      items: [{ id: 'matter', state: 'running', devices: { total: 1, online: 1, linked: 0 } }],
     });
     expect(nodes.json()).toEqual({ items: [MATTER_LAMP] });
   });

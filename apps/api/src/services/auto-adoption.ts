@@ -29,6 +29,7 @@ import type { AuditLog } from './audit.js';
 import { rehomeMatterDevices } from './brokers.js';
 import type { DevicesContext } from './devices.js';
 import { adoptDiscovered, listDiscovered } from './discovery.js';
+import { offerTwins } from './links.js';
 
 /** How often the list is read without being told it changed. */
 const SWEEP_MS = 60_000;
@@ -59,10 +60,16 @@ export type AutoAdoptionOptions = {
 
   /** Hands Matter devices to the integration installed since; `rehomeMatterDevices` when not said. */
   readonly rehome?: typeof rehomeMatterDevices;
+
+  /** Offers to link devices reached two ways; `offerTwins` when not said. */
+  readonly offerTwins?: typeof offerTwins;
 };
 
 /** The key a failure to hand Matter devices over is said once under. */
 const REHOME_FAILURE = 'matter';
+
+/** The key a failure to look for twins is said once under. */
+const TWINS_FAILURE = 'twins';
 
 /**
  * The device ids already in use.
@@ -196,6 +203,30 @@ export class AutoAdoption {
   }
 
   /**
+   * Offers to link the devices that look like one reached two ways, once each pair.
+   *
+   * @param context - The collaborators.
+   */
+  async #offerTwins(context: DevicesContext): Promise<void> {
+    try {
+      const offered = await (this.#options.offerTwins ?? offerTwins)(context);
+
+      this.#failures.delete(TWINS_FAILURE);
+
+      if (offered > 0) {
+        context.logger.info({ offered }, 'Offered to link devices that look like one');
+      }
+    } catch (error: unknown) {
+      const reason = error instanceof Error ? error.message : String(error);
+
+      if (this.#failures.get(TWINS_FAILURE) !== reason) {
+        this.#failures.set(TWINS_FAILURE, reason);
+        context.logger.warn({ err: error }, 'Could not look for devices reached two ways');
+      }
+    }
+  }
+
+  /**
    * Hands each Matter device the platform holds to the integration installed since that takes it,
    * as adding it would have if the integration had come first.
    *
@@ -248,6 +279,7 @@ export class AutoAdoption {
     const context = this.#options.contextFor(ulid());
 
     await this.#rehome(context, rehome);
+    await this.#offerTwins(context);
 
     const candidates = (await list(context)).filter(
       (candidate) => candidate.adoption === 'automatic' && candidate.movedFrom === null,
