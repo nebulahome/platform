@@ -15,6 +15,7 @@ import { createHash } from 'node:crypto';
 import {
   capabilityStateSchema,
   jsonObjectSchema,
+  normalizeMac,
   pollIntervalMsOf,
   resolveCanonicalUnit,
   resolveStateClass,
@@ -590,6 +591,8 @@ export function createDeclarativeIntegration(
       const model = text(identity.model);
       const swVersion = text(identity.swVersion);
       const hwVersion = text(identity.hwVersion);
+      const mac = normalizeMac(text(identity.mac)) ?? undefined;
+      const serialNumber = text(identity.serialNumber);
 
       const entities = profile.entities.map((entity): EntityDescriptor => {
         const measurement = registeredMeasurement(entity);
@@ -604,6 +607,7 @@ export function createDeclarativeIntegration(
           ...(entity.displayPrecision === undefined
             ? {}
             : { displayPrecision: entity.displayPrecision }),
+          ...(entity.link === undefined ? {} : { link: entity.link }),
         };
       });
 
@@ -614,6 +618,8 @@ export function createDeclarativeIntegration(
         ...(model === undefined ? {} : { model }),
         ...(swVersion === undefined ? {} : { swVersion }),
         ...(hwVersion === undefined ? {} : { hwVersion }),
+        ...(mac === undefined ? {} : { mac }),
+        ...(serialNumber === undefined ? {} : { serialNumber }),
         entities,
       };
     },

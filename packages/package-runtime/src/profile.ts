@@ -30,6 +30,7 @@ import {
   ENTITY_STATE_CLASSES,
   capabilityNameSchema,
   declaredCapabilitiesSchema,
+  entityLinkHintSchema,
   iconIdSchema,
   jsonObjectSchema,
   type CapabilityName,
@@ -168,6 +169,13 @@ export const identityMappingSchema = z.strictObject({
   model: pathSchema.optional(),
   swVersion: pathSchema.optional(),
   hwVersion: pathSchema.optional(),
+
+  /**
+   * The hardware's MAC address, written any way - `08F9E0124C7A`, `08:f9:e0:12:4c:7a` - so the
+   * house can tell this device from the same one reached another way.
+   */
+  mac: pathSchema.optional(),
+  serialNumber: pathSchema.optional(),
 });
 
 /** Where a device's identity is found in what the probe returned. */
@@ -325,6 +333,14 @@ export const entityProfileSchema = z
     deviceClass: z.string().max(64).optional(),
     stateClass: z.enum(ENTITY_STATE_CLASSES).optional(),
     displayPrecision: z.int().min(0).max(6).optional(),
+
+    /**
+     * What links it to the same reading reached another way: its key in the transport's terms
+     * (`switch:0`), shown beside the transport's name, and where that reading sits in Matter
+     * (`{ "endpoint": 1, "cluster": 6, "attribute": 0 }`), for a device the house also reaches
+     * through the Matter broker.
+     */
+    link: entityLinkHintSchema.optional(),
 
     /**
      * For a camera: the stream source that reads its picture, `<vendor>/<name>`, and what it is

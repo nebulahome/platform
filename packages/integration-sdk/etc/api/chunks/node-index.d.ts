@@ -221,6 +221,20 @@ declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
 type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
+/**
+ * What lets an entity be told apart from the same reading reached another way: its own key in its
+ * transport's terms - `switch:0` on a Shelly - and where it sits in Matter.
+ */
+declare const entityLinkHintSchema: z.ZodObject<{
+  key: z.ZodOptional<z.ZodString>;
+  matter: z.ZodOptional<z.ZodObject<{
+    endpoint: z.ZodInt;
+    cluster: z.ZodInt;
+    attribute: z.ZodInt;
+  }, z.core.$strict>>;
+}, z.core.$strict>;
+/** What lets an entity be told apart from the same reading reached another way. */
+type EntityLinkHint = z.output<typeof entityLinkHintSchema>;
 //#endregion
 //#region ../contracts/dist/entity-state.d.ts
 /**
@@ -915,6 +929,8 @@ type EntityDescriptor = {
   readonly deviceClass?: string;
   readonly stateClass?: EntityStateClass;
   readonly displayPrecision?: number;
+  /** What links it to the same reading reached another way. */
+  readonly link?: EntityLinkHint;
 };
 /** What a claimed device turns out to be. */
 type DeviceDescriptor = {
@@ -924,6 +940,9 @@ type DeviceDescriptor = {
   readonly model?: string;
   readonly swVersion?: string;
   readonly hwVersion?: string;
+  /** The hardware's MAC address, lower case with colons, when it says one. */
+  readonly mac?: string;
+  readonly serialNumber?: string;
   /**
    * The device this one is reached through, named the way this integration names devices.
    *
@@ -1648,17 +1667,21 @@ declare const vendorManifestSchema: z.ZodObject<{
     padding: number;
   }>>>;
   internetRequired: z.ZodDefault<z.ZodBoolean>;
+  twins: z.ZodOptional<z.ZodArray<z.ZodEnum<{
+    mac: "mac";
+    serial: "serial";
+  }>>>;
   setup: z.ZodOptional<z.ZodString>;
   account: z.ZodOptional<z.ZodString>;
   transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
     module: z.ZodString;
     wires: z.ZodArray<z.ZodEnum<{
-      udp: "udp";
       matter: "matter";
       http: "http";
       mqtt: "mqtt";
       ble: "ble";
       zigbee: "zigbee";
+      udp: "udp";
       modbus: "modbus";
     }>>;
   }, z.core.$strict>]>>>;
@@ -1836,6 +1859,9 @@ declare const vendorDiscoverySchema: z.ZodObject<{
     externalId: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
     name: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
     swVersion: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
+    mac: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
+    serialNumber: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
+    auth: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
   }, z.core.$strict>>;
   matter: z.ZodOptional<z.ZodObject<{
     match: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
@@ -1908,6 +1934,11 @@ type SightingIdentity = {
   readonly name: string | null;
   readonly modelCode: string | null;
   readonly swVersion: string | null;
+  /** Lower case with colons. */
+  readonly mac: string | null;
+  readonly serialNumber: string | null;
+  /** Whether it said it is behind a password; false when it did not say. */
+  readonly needsPassword: boolean;
 };
 /** The driver a device belongs to, and which of its models it is. */
 type Association = {

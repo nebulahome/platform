@@ -279,6 +279,28 @@ describe('identifySighting', () => {
       name: 'Kitchen',
       modelCode: 'S3SW-001P16EU',
       swVersion: '1.4.2',
+      mac: null,
+      serialNumber: null,
+      needsPassword: false,
+    });
+  });
+
+  it('reads the MAC the way the house compares it, and whether a password is needed', () => {
+    const plan = resolveDiscovery(
+      'shelly',
+      vendorDiscoverySchema.parse({
+        ...shellyDiscovery(),
+        identity: { externalId: 'id', mac: 'mac', auth: ['auth_en', 'auth'] },
+      }),
+      shellyDrivers(),
+    );
+
+    expect(
+      identifySighting(plan, { id: 'shellyplugsg3-08f9', mac: '08F9E0124C7A', auth_en: true }),
+    ).toMatchObject({ mac: '08:f9:e0:12:4c:7a', needsPassword: true });
+    expect(identifySighting(plan, { id: 'x', auth: false })).toMatchObject({
+      mac: null,
+      needsPassword: false,
     });
   });
 
@@ -294,6 +316,9 @@ describe('identifySighting', () => {
       name: null,
       modelCode: 'S3SW-001P16EU',
       swVersion: null,
+      mac: null,
+      serialNumber: null,
+      needsPassword: false,
     });
   });
 
@@ -315,6 +340,9 @@ describe('identifySighting', () => {
       name: null,
       modelCode: 'SHSW-25',
       swVersion: '20230913-112003',
+      mac: null,
+      serialNumber: null,
+      needsPassword: false,
     });
     expect(
       identifySighting(plan, { id: 'shellyplus1-a8', mac: 'A8', model: 'SNSW-001X16EU' }),
@@ -323,6 +351,9 @@ describe('identifySighting', () => {
       name: null,
       modelCode: 'SNSW-001X16EU',
       swVersion: null,
+      mac: null,
+      serialNumber: null,
+      needsPassword: false,
     });
   });
 });

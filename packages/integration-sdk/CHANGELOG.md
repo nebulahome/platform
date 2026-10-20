@@ -3,6 +3,21 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.2.0
+
+One device reached two ways.
+
+- The manifest may say what makes two of the vendor's devices one, `"twins": ["mac"]` (or
+  `["mac", "serial"]`): a device added over the vendor's own transport and again through the
+  Matter broker is then offered to the owner to link, and becomes one device with two ways in.
+- A profile's `identity` and `discovery.json`'s `identity` take `mac` and `serialNumber`, written
+  any way the device writes them; `discovery.json`'s `identity` also takes `auth`, where the device
+  says it is behind a password, which its row on the Found tab shows.
+- An entity of a profile may carry `link`: its key in the transport's terms (`"switch:0"`), shown
+  beside the transport's name, and where the same reading sits in Matter
+  (`{ "endpoint": 1, "cluster": 6, "attribute": 0 }`), which links the two at once when the device
+  is linked.
+
 ## 1.1.0
 
 Matter, and a wider grammar for conditions.

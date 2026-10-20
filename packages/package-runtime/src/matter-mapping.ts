@@ -22,6 +22,7 @@ import {
   jsonObjectSchema,
   matterIdentitySchema,
   MATTER_TRANSPORT,
+  normalizeMac,
   resolveCanonicalUnit,
   resolveStateClass,
   toCanonical,
@@ -1135,6 +1136,15 @@ export function matterEntitiesOf(device: MatterDeviceSnapshot): MatterEntity[] {
         ...descriptor,
         objectId,
         name: isShared ? `${descriptor.name} ${String(rest.endpoint)}` : descriptor.name,
+        // Where it sits, so the same reading of the device's own transport can be linked to it:
+        // the first cluster it reads, and its attribute - 0 for an entity that reads several.
+        link: {
+          matter: {
+            endpoint: rest.endpoint,
+            cluster: rest.clusters[0] ?? 0,
+            attribute: rest.attribute ?? 0,
+          },
+        },
       },
     };
   });
@@ -1283,10 +1293,14 @@ export function createMatterIntegration(manifest: { readonly id: string }): Inte
       }
 
       const { identity } = device;
+      // A Thread radio's eight-byte address is no MAC another transport reports.
+      const mac = identity.macAddresses.map(normalizeMac).find((each) => each !== null);
 
       return {
         externalId: claim.externalId,
         name: nameOf(identity).slice(0, 128),
+        ...(mac === undefined ? {} : { mac }),
+        ...(identity.serialNumber === null ? {} : { serialNumber: identity.serialNumber }),
         ...(identity.vendorName === null ? {} : { manufacturer: identity.vendorName }),
         ...(identity.productName === null ? {} : { model: identity.productName }),
         ...(identity.softwareVersionString === null

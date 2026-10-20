@@ -221,6 +221,20 @@ declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
 type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
+/**
+ * What lets an entity be told apart from the same reading reached another way: its own key in its
+ * transport's terms - `switch:0` on a Shelly - and where it sits in Matter.
+ */
+declare const entityLinkHintSchema: z.ZodObject<{
+  key: z.ZodOptional<z.ZodString>;
+  matter: z.ZodOptional<z.ZodObject<{
+    endpoint: z.ZodInt;
+    cluster: z.ZodInt;
+    attribute: z.ZodInt;
+  }, z.core.$strict>>;
+}, z.core.$strict>;
+/** What lets an entity be told apart from the same reading reached another way. */
+type EntityLinkHint = z.output<typeof entityLinkHintSchema>;
 //#endregion
 //#region ../contracts/dist/entity-state.d.ts
 /**
@@ -680,6 +694,8 @@ type EntityDescriptor = {
   readonly deviceClass?: string;
   readonly stateClass?: EntityStateClass;
   readonly displayPrecision?: number;
+  /** What links it to the same reading reached another way. */
+  readonly link?: EntityLinkHint;
 };
 /** What a claimed device turns out to be. */
 type DeviceDescriptor = {
@@ -689,6 +705,9 @@ type DeviceDescriptor = {
   readonly model?: string;
   readonly swVersion?: string;
   readonly hwVersion?: string;
+  /** The hardware's MAC address, lower case with colons, when it says one. */
+  readonly mac?: string;
+  readonly serialNumber?: string;
   /**
    * The device this one is reached through, named the way this integration names devices.
    *

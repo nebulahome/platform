@@ -63,6 +63,15 @@ with `padding` (0 to 16, default 0): extra room, in pixels, the interface leaves
 inside its tile. Every logo already gets a small margin; this is on top of it, for a mark drawn
 to the very edge of its file. It cannot ask for less than the margin, only for more.
 
+`twins` says what makes two of the vendor's devices **one device reached two ways**: `["mac"]`,
+or `["mac", "serial"]` for both to agree. A Shelly added over its RPC and again through the Matter
+broker is the same plug; with `twins`, the house compares what each said - the MAC and the serial
+its `identity` reads, and its Matter identity's - and offers the owner to link them, when the
+Matter node is added and as a suggestion on the vendor's page. Linked, it is one device with two
+ways in: its readings come the way the owner prefers, and the other way carries them while that
+one is silent. A vendor without `twins` is never offered a link. Each entity's `link` (below) says
+which of its readings is which in Matter.
+
 `requires` says what the vendor's devices need besides the hub, in the grammar a
 package's manifest uses (PACKAGES.md §8, Dependencies):
 `{ "services": ["mqtt-broker"] }` for Zigbee2MQTT, which talks through the house's broker, or a
@@ -183,6 +192,18 @@ on anything its device says, so it is available exactly when the device is, and 
 `"deviceClass": "restart"` the interface asks before pressing, since the device goes away for a
 while.
 
+An entity may carry **`link`**, for a vendor whose devices the house may also reach through the
+Matter broker (`twins`, above): `"link": { "key": "switch:0", "matter": { "endpoint": 1,
+"cluster": 6, "attribute": 0 } }`. `key` is the entity's name in the transport's terms, shown on
+its page beside the transport's name; `matter` is where the same reading sits in Matter - the
+endpoint, the cluster and the attribute the platform's Matter mapping reads it from (the first
+cluster and attribute of an entity it reads from several: 0 for a light). When the device is
+linked, an entity whose `matter` names a Matter entity of the twin is linked to it at once,
+whatever it is; a sensor without one is linked when exactly one Matter sensor reads the same
+thing, and a control never without one. The identity's `mac` and `serialNumber` are what the twin
+is found by: `"identity": { "externalId": "id", "mac": "mac" }`, written any way the device writes
+it.
+
 An entity may report **attributes** beside its state: `"attributes": { "endsAt":
 "pairing.endsAt" }`, each a camelCase key read the way a state field is, into a scalar. They are
 for what a page needs of the entity and the entity itself is not - the Zigbee2MQTT bridge's
@@ -275,7 +296,9 @@ because a device announced it there.
 - `identity` - paths to the model code, the id, the name and the firmware version. Only the model
   is ever required. A field may be a list of paths, tried in order, for generations that answer
   in different words: a Shelly Gen1 says `type`, `mac` and `fw` where later ones say `model`,
-  `id` and `ver`.
+  `id` and `ver`. `mac` and `serialNumber` are what the Found tab shows and a twin is told by
+  (`twins`), and `auth` is where the device says it is behind a password - `["auth_en", "auth"]`
+  on a Shelly - which its row shows before anyone tries to add it.
 - `adopt` - who adds a device found: `owner` (the default) proposes it on the vendor's
   page to adopt; `automatic` has `api` add it as soon as the hub proposes it, named as it named
   itself, with the id the add form would have offered - for devices the owner already chose

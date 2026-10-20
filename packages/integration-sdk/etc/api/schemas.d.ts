@@ -20,17 +20,21 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       padding: number;
     }>>>;
     internetRequired: z.ZodDefault<z.ZodBoolean>;
+    twins: z.ZodOptional<z.ZodArray<z.ZodEnum<{
+      mac: "mac";
+      serial: "serial";
+    }>>>;
     setup: z.ZodOptional<z.ZodString>;
     account: z.ZodOptional<z.ZodString>;
     transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
       module: z.ZodString;
       wires: z.ZodArray<z.ZodEnum<{
-        udp: "udp";
         matter: "matter";
         http: "http";
         mqtt: "mqtt";
         ble: "ble";
         zigbee: "zigbee";
+        udp: "udp";
         modbus: "modbus";
       }>>;
     }, z.core.$strict>]>>>;
@@ -363,6 +367,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         model: z.ZodOptional<z.ZodString>;
         swVersion: z.ZodOptional<z.ZodString>;
         hwVersion: z.ZodOptional<z.ZodString>;
+        mac: z.ZodOptional<z.ZodString>;
+        serialNumber: z.ZodOptional<z.ZodString>;
       }, z.core.$strict>;
     }, z.core.$strict>;
     subscriptions: z.ZodDefault<z.ZodArray<z.ZodObject<{
@@ -376,8 +382,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     entities: z.ZodArray<z.ZodObject<{
       domain: z.ZodEnum<{
         number: "number";
-        image: "image";
         custom: "custom";
+        image: "image";
         light: "light";
         switch: "switch";
         sensor: "sensor";
@@ -526,6 +532,14 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         total_increasing: "total_increasing";
       }>>;
       displayPrecision: z.ZodOptional<z.ZodInt>;
+      link: z.ZodOptional<z.ZodObject<{
+        key: z.ZodOptional<z.ZodString>;
+        matter: z.ZodOptional<z.ZodObject<{
+          endpoint: z.ZodInt;
+          cluster: z.ZodInt;
+          attribute: z.ZodInt;
+        }, z.core.$strict>>;
+      }, z.core.$strict>>;
       stream: z.ZodOptional<z.ZodObject<{
         source: z.ZodString;
         args: z.ZodDefault<z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
@@ -586,6 +600,9 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       externalId: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
       name: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
       swVersion: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
+      mac: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
+      serialNumber: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
+      auth: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
     }, z.core.$strict>>;
     matter: z.ZodOptional<z.ZodObject<{
       match: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{

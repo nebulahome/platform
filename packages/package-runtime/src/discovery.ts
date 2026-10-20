@@ -33,6 +33,7 @@ import {
   DEVICE_ADOPTIONS,
   jsonObjectSchema,
   MATTER_TRANSPORT,
+  normalizeMac,
   transportIdSchema,
   type JsonObject,
 } from '@nebulahome/contracts';
@@ -108,6 +109,16 @@ export const discoveryIdentitySchema = z.strictObject({
 
   name: identityPathSchema.optional(),
   swVersion: identityPathSchema.optional(),
+
+  /** Its MAC address, written any way the device writes it: what tells it from its twin. */
+  mac: identityPathSchema.optional(),
+  serialNumber: identityPathSchema.optional(),
+
+  /**
+   * Where the device says it is behind a password - `auth_en` on a Shelly - so its row says so
+   * before anyone tries to add it. True there means a password is needed.
+   */
+  auth: identityPathSchema.optional(),
 });
 
 /** Where a device says who it is. */
@@ -320,6 +331,13 @@ export type SightingIdentity = {
   readonly name: string | null;
   readonly modelCode: string | null;
   readonly swVersion: string | null;
+
+  /** Lower case with colons. */
+  readonly mac: string | null;
+  readonly serialNumber: string | null;
+
+  /** Whether it said it is behind a password; false when it did not say. */
+  readonly needsPassword: boolean;
 };
 
 /**
@@ -360,11 +378,16 @@ function textAt(payload: unknown, path: string | readonly string[] | undefined):
 export function identifySighting(plan: DiscoveryPlan, payload: unknown): SightingIdentity {
   const { identity } = plan.discovery;
 
+  const auth = identity.auth === undefined ? [] : [identity.auth].flat();
+
   return {
     externalId: textAt(payload, identity.externalId),
     name: textAt(payload, identity.name),
     modelCode: textAt(payload, identity.model),
     swVersion: textAt(payload, identity.swVersion),
+    mac: normalizeMac(textAt(payload, identity.mac)),
+    serialNumber: textAt(payload, identity.serialNumber),
+    needsPassword: auth.some((path) => resolvePath(payload, path) === true),
   };
 }
 

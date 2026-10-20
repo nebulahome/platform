@@ -30,6 +30,7 @@ import {
   SEMVER_PATTERN,
   TRANSPORT_WIRES,
   transportIdSchema,
+  TWIN_FACTS,
   type TransportWire,
 } from '@nebulahome/contracts';
 
@@ -138,6 +139,13 @@ export const vendorManifestSchema = z.strictObject({
 
   /** Whether the devices stop working when the internet does. Shown as a warning on the card. */
   internetRequired: z.boolean().default(false),
+
+  /**
+   * What makes two of the vendor's devices one device reached two ways - over its own transport
+   * and through the Matter broker, say: `["mac"]`, or `["mac", "serial"]` for both to agree.
+   * The house then offers to link them. Absent, it never does.
+   */
+  twins: z.array(z.enum(TWIN_FACTS)).min(1).max(TWIN_FACTS.length).optional(),
 
   /**
    * Path to a `setup.json` of settings every device of this vendor shares - a cloud API key,

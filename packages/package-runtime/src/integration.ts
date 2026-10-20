@@ -21,6 +21,7 @@ import type {
   DeclaredCapabilities,
   EntityDomain,
   EntityId,
+  EntityLinkHint,
   EntityStateClass,
   JsonObject,
   StateReport,
@@ -67,6 +68,9 @@ export type EntityDescriptor = {
   readonly deviceClass?: string;
   readonly stateClass?: EntityStateClass;
   readonly displayPrecision?: number;
+
+  /** What links it to the same reading reached another way. */
+  readonly link?: EntityLinkHint;
 };
 
 /** What a claimed device turns out to be. */
@@ -77,6 +81,10 @@ export type DeviceDescriptor = {
   readonly model?: string;
   readonly swVersion?: string;
   readonly hwVersion?: string;
+
+  /** The hardware's MAC address, lower case with colons, when it says one. */
+  readonly mac?: string;
+  readonly serialNumber?: string;
 
   /**
    * The device this one is reached through, named the way this integration names devices.
