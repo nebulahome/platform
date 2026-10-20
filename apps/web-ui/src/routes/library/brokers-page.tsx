@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { BrokerSummary, MatterControllerState } from '@nebulahome/contracts';
-import { Pill, Tile, TILE_FRAME, TILE_GRID, type PillTone } from '@nebulahome/ui';
+import { AppIcon, cn, Pill, Tile, TILE_FRAME, TILE_GRID, type PillTone } from '@nebulahome/ui';
 
 import { MatterIcon } from '@/components/icons';
 import { translate } from '@/i18n/messages';
@@ -45,17 +45,22 @@ export function brokerStateOf(state: MatterControllerState): {
 /**
  * The square a broker is known by.
  *
- * @param props - Its size.
+ * @param props - Its size, and whether it is lit.
  * @param props.size - The side of the square, in pixels.
+ * @param props.isLit - Lit violet from its corner, the mark drawn plain: the broker's page and
+ *   its dialogs. Otherwise the mark is violet on a plain square: the card.
  * @returns The square.
  */
-export function MatterMark(props: { readonly size: number }) {
-  const { size } = props;
+export function MatterMark(props: { readonly size: number; readonly isLit?: boolean }) {
+  const { size, isLit = false } = props;
 
   return (
     <span
       aria-hidden="true"
-      className="flex shrink-0 items-center justify-center rounded-tile border border-border-strong bg-surface-raised text-foreground"
+      className={cn(
+        'flex shrink-0 items-center justify-center border border-border-strong bg-surface-raised',
+        isLit ? 'rounded-inner matter-glow text-foreground' : 'rounded-tile text-violet',
+      )}
       /* eslint-disable-next-line react/forbid-dom-props -- the side is a value, per place. */
       style={{ width: size, height: size }}
     >
@@ -85,15 +90,28 @@ function BrokerCard(props: { readonly broker: BrokerSummary }) {
       >
         <Tile
           logo={<MatterMark size={44} />}
+          marks={
+            <span
+              title={t('brokers.card.platform', 'Comes with the platform')}
+              aria-label={t('brokers.card.platform', 'Comes with the platform')}
+              role="img"
+              className="inline-flex size-6.5 items-center justify-center rounded-chip bg-surface-raised text-foreground-subtle"
+            >
+              <AppIcon id="lock" size={14} />
+            </span>
+          }
           name={t('library.matterTag', 'Matter')}
           footer={
             <>
               <Pill tone={status.tone}>{status.label}</Pill>
-              <span>
-                {t('brokers.card.online', '{{online}} of {{total}} online', {
-                  online: broker.devices.online,
-                  total: broker.devices.total,
+              <span className="text-foreground-muted">
+                {t('brokers.card.devices', {
+                  count: broker.devices.total,
+                  defaultValue_one: '{{count}} device',
+                  defaultValue_other: '{{count}} devices',
                 })}
+                {' · '}
+                {t('brokers.card.linked', '{{linked}} linked', { linked: broker.devices.linked })}
               </span>
             </>
           }

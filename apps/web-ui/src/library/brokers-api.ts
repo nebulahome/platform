@@ -79,6 +79,23 @@ export async function commissionMatter(code: string): Promise<MatterCommissionin
 }
 
 /**
+ * Answers the question a commissioning stopped on: add a device with a test certificate anyway.
+ *
+ * @param jobId - The job.
+ * @param isAccepted - Whether to add it.
+ * @returns The job, as it now stands.
+ */
+export async function answerMatter(
+  jobId: string,
+  isAccepted: boolean,
+): Promise<MatterCommissioning> {
+  return apiRequest(`/brokers/matter/commission/${jobId}/answer`, matterCommissioningSchema, {
+    method: 'POST',
+    body: { isAccepted },
+  });
+}
+
+/**
  * Removes a Matter node from the house and from the fabric.
  *
  * @param nodeId - The node.

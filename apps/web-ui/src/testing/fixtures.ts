@@ -9,6 +9,7 @@ import {
   type AreaView,
   type DeviceView,
   type EntityView,
+  type IntegrationVendorView,
   type TagView,
 } from '@nebulahome/contracts';
 
@@ -159,6 +160,55 @@ export function aTag(key: string, overrides: Partial<TagView> = {}): TagView {
     name: key.charAt(0).toUpperCase() + key.slice(1),
     color: 'teal',
     icon: null,
+    deviceCount: 0,
+    entityCount: 0,
+    ...overrides,
+  };
+}
+
+/**
+ * An integration, installed and set up, with no driver of its own.
+ *
+ * @param overrides - What differs.
+ * @returns The integration.
+ */
+export function aVendor(overrides: Partial<IntegrationVendorView> = {}): IntegrationVendorView {
+  return {
+    id: 'shelly',
+    version: '1.0.0',
+    name: 'Shelly',
+    description: 'Relays, plugs and meters on the local network.',
+    url: 'https://shelly.com',
+    color: '#62a9ff',
+    origin: 'development',
+    install: null,
+    hasCode: false,
+    logoPadding: 0,
+    internetRequired: false,
+    transports: ['shelly/rpc'],
+    wires: [],
+    discoverySources: [],
+    adoption: 'owner',
+    twins: ['mac'],
+    pairing: null,
+    listener: null,
+    passedOver: [],
+    requires: { packages: {}, services: [] },
+    packageProblems: [],
+    account: null,
+    accounts: [],
+    needsAccount: false,
+    needsPackage: false,
+    update: null,
+    containers: [],
+    containerStatuses: [],
+    setup: { transport: { constants: {}, fields: [] }, options: { constants: {}, fields: [] } },
+    drivers: [],
+    needsSetup: false,
+    isConfigured: true,
+    transportConfig: {},
+    options: {},
+    configuredAt: null,
     deviceCount: 0,
     entityCount: 0,
     ...overrides,

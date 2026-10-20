@@ -39,7 +39,7 @@ import { wiresOf, type Wire } from '@/library/vendor-filters';
 import { vendorStatusOf } from '@/library/vendor-status';
 
 /** The colour a vendor without one of its own is drawn in: the accent. */
-const FALLBACK_COLOR = 'var(--color-primary)';
+export const FALLBACK_COLOR = 'var(--color-primary)';
 
 /** A glyph, as the icon set draws one. */
 type Glyph = (props: IconProps) => React.ReactNode;
