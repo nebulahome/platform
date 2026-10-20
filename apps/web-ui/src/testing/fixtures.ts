@@ -44,6 +44,10 @@ export function anEntity(
     lastChanged: new Date('2026-09-20T08:00:00.000Z'),
     lastUpdated: new Date('2026-09-20T08:00:05.000Z'),
     tagIds: [],
+    addresses: [],
+    linked: null,
+    key: null,
+    createdAt: null,
     ...rest,
   };
 }
@@ -84,6 +88,11 @@ export function aDevice(overrides: Partial<DeviceView> = {}): DeviceView {
     areaName: null,
     entityIds: [],
     tagIds: [],
+    mac: null,
+    serialNumber: null,
+    createdAt: null,
+    linked: null,
+    suggestedLinks: [],
     ...overrides,
   };
 }

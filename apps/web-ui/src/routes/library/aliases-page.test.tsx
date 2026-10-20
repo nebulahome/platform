@@ -138,6 +138,10 @@ function averageEntity(overrides: Partial<EntityView> = {}): EntityView {
     lastChanged: null,
     lastUpdated: null,
     tagIds: [],
+    addresses: [],
+    linked: null,
+    key: null,
+    createdAt: null,
     ...overrides,
   };
 }

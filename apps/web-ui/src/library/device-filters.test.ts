@@ -37,6 +37,11 @@ const PRINTER: DeviceView = {
   areaName: 'Workshop',
   entityIds: [entityIdSchema.parse('sensor.bambu_lab_p1s_nozzle_temperature')],
   tagIds: [],
+  mac: null,
+  serialNumber: null,
+  createdAt: null,
+  linked: null,
+  suggestedLinks: [],
 };
 
 /** One of its entities. */
@@ -61,6 +66,10 @@ const NOZZLE: EntityView = {
   lastChanged: null,
   lastUpdated: null,
   tagIds: [],
+  addresses: [],
+  linked: null,
+  key: null,
+  createdAt: null,
 };
 
 describe('matchesFilter', () => {

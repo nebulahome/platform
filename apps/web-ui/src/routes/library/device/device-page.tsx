@@ -382,15 +382,16 @@ export function DevicePage() {
                 value={firmware.value}
                 detail={firmware.detail}
                 action={
-                  firmware.updateEntityId === null ? undefined : (
-                    <Link
-                      to={entityPath(firmware.updateEntityId)}
-                      className="inline-flex h-control-sm items-center gap-1.5 rounded-pill bg-primary px-3 text-ui-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover"
-                    >
-                      <AppIcon id="download" size={13} />
-                      {t('device.device.install', 'Install')}
-                    </Link>
-                  )
+                  firmware.updateEntityId === null
+                    ? undefined
+                    : {
+                        icon: 'download',
+                        verb: t('device.device.install', 'Install'),
+                        /** Does what the corner says. */
+                        onSelect: () => {
+                          void navigate(entityPath(firmware.updateEntityId ?? ''));
+                        },
+                      }
                 }
               />
               <HealthCard

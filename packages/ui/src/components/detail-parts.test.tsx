@@ -49,7 +49,9 @@ describe('Tabs', () => {
 });
 
 describe('HealthCard', () => {
-  it('says a failure in its word, and offers the one action that fixes it', () => {
+  it('says a failure in its word, and offers the one action that fixes it in its corner', () => {
+    const onSelect = vi.fn();
+
     render(
       <HealthStrip>
         <HealthCard
@@ -57,14 +59,19 @@ describe('HealthCard', () => {
           tone="danger"
           value="Failed"
           detail="Exited with code 1"
-          action={<button type="button">Open the log</button>}
+          action={{ icon: 'activity', verb: 'Open the log', onSelect }}
         />
       </HealthStrip>,
     );
 
     expect(screen.getByRole('region', { name: 'Health' })).toBeTruthy();
     expect(screen.getByText('Failed').className).toContain('text-danger');
-    expect(screen.getByRole('button', { name: 'Open the log' })).toBeTruthy();
+
+    // Named as the board names it: what it does, to what, and how it stands.
+    const action = screen.getByRole('button', { name: 'Open the log: runtime, Failed' });
+
+    fireEvent.click(action);
+    expect(onSelect).toHaveBeenCalledOnce();
   });
 });
 

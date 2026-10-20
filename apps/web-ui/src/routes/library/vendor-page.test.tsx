@@ -84,6 +84,9 @@ const FOUND: DiscoveredDevice = {
   swVersion: null,
   transportConfig: { url: 'mqtts://192.168.1.62:8883' },
   movedFrom: null,
+  mac: null,
+  notes: [],
+  isDismissed: false,
   adoption: 'owner',
   firstSeenAt: new Date('2026-09-23T10:00:00.000Z'),
   lastSeenAt: new Date('2026-09-23T10:05:00.000Z'),
@@ -106,6 +109,7 @@ const BAMBU: IntegrationVendorView = {
   wires: ['mqtt'],
   discoverySources: [],
   adoption: 'owner',
+  twins: [],
   pairing: null,
   listener: null,
   passedOver: [],
@@ -208,6 +212,11 @@ function device(overrides: Partial<DeviceView>): DeviceView {
     areaName: null,
     entityIds: [entityIdSchema.parse('sensor.bambu_lab_x1c_nozzle_temperature')],
     tagIds: [],
+    mac: null,
+    serialNumber: null,
+    createdAt: null,
+    linked: null,
+    suggestedLinks: [],
     ...overrides,
   };
 }
@@ -449,7 +458,7 @@ describe('a vendor page', () => {
     renderPage('bambu-lab', ['integration:install']);
 
     // The Updates card offers it, and so does the menu.
-    expect(await screen.findByRole('button', { name: 'Update' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: /^Update: updates/u })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'More' }));
     expect(screen.getByRole('menuitem', { name: 'Update to 2.0.0' })).toBeTruthy();

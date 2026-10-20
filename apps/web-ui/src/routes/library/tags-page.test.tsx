@@ -87,6 +87,11 @@ const RELAY: DeviceView = {
   areaName: null,
   entityIds: [entityIdSchema.parse('switch.shelly_bench_switch')],
   tagIds: [EXTERIOR.id],
+  mac: null,
+  serialNumber: null,
+  createdAt: null,
+  linked: null,
+  suggestedLinks: [],
 };
 
 const SWITCH: EntityView = {
@@ -110,6 +115,10 @@ const SWITCH: EntityView = {
   lastChanged: null,
   lastUpdated: null,
   tagIds: [EXTERIOR.id],
+  addresses: [],
+  linked: null,
+  key: null,
+  createdAt: null,
 };
 
 /**

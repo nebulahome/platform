@@ -57,6 +57,11 @@ export const PRINTER: DeviceView = {
   areaName: null,
   entityIds: [NOZZLE_ID, LIGHT_ID],
   tagIds: [],
+  mac: null,
+  serialNumber: null,
+  createdAt: null,
+  linked: null,
+  suggestedLinks: [],
 };
 
 /** A relay of another vendor, switched off. */
@@ -97,6 +102,7 @@ export const VENDORS: IntegrationVendorView[] = ['bambu-lab', 'shelly'].map((id)
   wires: [],
   discoverySources: [],
   adoption: 'owner',
+  twins: [],
   pairing: null,
   listener: null,
   passedOver: [],
@@ -154,6 +160,10 @@ export function printerEntity(
     lastChanged: null,
     lastUpdated: null,
     tagIds: [],
+    addresses: [],
+    linked: null,
+    key: null,
+    createdAt: null,
     ...overrides,
   };
 }

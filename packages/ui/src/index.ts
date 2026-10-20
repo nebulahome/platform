@@ -83,11 +83,13 @@ export {
 export {
   HealthCard,
   HealthStrip,
+  type HealthAction,
   type HealthCardProps,
   type HealthStripProps,
   type HealthTone,
 } from './components/health-strip.js';
 export { HoldButton, type HoldButtonProps } from './components/hold-button.js';
+export { LinkedTag, type LinkedTagProps } from './components/linked-tag.js';
 export {
   ListRow,
   RowList,

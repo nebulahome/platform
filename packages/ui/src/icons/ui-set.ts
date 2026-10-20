@@ -125,6 +125,13 @@ import {
   Wrench,
   X,
   Zap,
+  ClipboardPaste,
+  Link2,
+  LoaderCircle,
+  Plug,
+  ShieldAlert,
+  Sparkles,
+  Unlink2,
 } from 'lucide';
 
 import { iconNodeSchema, type IconFrame, type IconNode } from '@nebulahome/contracts';
@@ -279,6 +286,13 @@ export const BUILTIN_UI_NODES = {
 
   // Where the house stands, in the first-run setup.
   'map-pin': drawing(MapPin),
+  'link-2': drawing(Link2),
+  'unlink-2': drawing(Unlink2),
+  'clipboard-paste': drawing(ClipboardPaste),
+  sparkles: drawing(Sparkles),
+  'shield-alert': drawing(ShieldAlert),
+  plug: drawing(Plug),
+  'loader-circle': drawing(LoaderCircle),
 } satisfies Record<string, IconNode>;
 
 /** A catalogue id the interface draws itself with. */

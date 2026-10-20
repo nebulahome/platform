@@ -170,11 +170,13 @@ export function VendorOverview(props: VendorOverviewProps) {
           value={runtime.value}
           detail={runtime.detail}
           action={
-            vendor.needsSetup && canConfigure && hasConfiguration ? (
-              <Button variant="ghost" size="compact" onClick={onConfigure}>
-                {t('library.vendorOverview.setUp', 'Set up')}
-              </Button>
-            ) : undefined
+            vendor.needsSetup && canConfigure && hasConfiguration
+              ? {
+                  icon: 'settings',
+                  verb: t('library.vendorOverview.setUp', 'Set up'),
+                  onSelect: onConfigure,
+                }
+              : undefined
           }
         />
         <HealthCard
@@ -189,17 +191,16 @@ export function VendorOverview(props: VendorOverviewProps) {
           value={deviceLine.value}
           detail={deviceLine.detail}
           action={
-            found.length === 0 ? undefined : (
-              <Button
-                variant="ghost"
-                size="compact"
-                onClick={() => {
-                  document.getElementById('vendor-found')?.scrollIntoView({ block: 'center' });
-                }}
-              >
-                {t('library.vendorOverview.review', 'Review')}
-              </Button>
-            )
+            found.length === 0
+              ? undefined
+              : {
+                  icon: 'eye',
+                  verb: t('library.vendorOverview.review', 'Review'),
+                  /** Does what the corner says. */
+                  onSelect: () => {
+                    document.getElementById('vendor-found')?.scrollIntoView({ block: 'center' });
+                  },
+                }
           }
         />
         <HealthCard
@@ -208,32 +209,30 @@ export function VendorOverview(props: VendorOverviewProps) {
           value={updates.value}
           detail={updates.detail}
           action={
-            isInstallable && vendor.update?.hasUpdate === true ? (
-              <Button
-                variant="ghost"
-                size="compact"
-                isBusy={install.isPending}
-                onClick={() => {
-                  install.mutate({
-                    vendorId: vendor.id,
-                    version: vendor.update?.latestVersion ?? undefined,
-                  });
-                }}
-              >
-                {t('library.vendorOverview.update', 'Update')}
-              </Button>
-            ) : isInstallable && vendor.update?.hasNewBuild === true ? (
-              <Button
-                variant="ghost"
-                size="compact"
-                isBusy={install.isPending}
-                onClick={() => {
-                  install.mutate({ vendorId: vendor.id });
-                }}
-              >
-                {t('library.vendorOverview.reinstall', 'Reinstall')}
-              </Button>
-            ) : undefined
+            isInstallable && vendor.update?.hasUpdate === true
+              ? {
+                  icon: 'download',
+                  verb: t('library.vendorOverview.update', 'Update'),
+                  isBusy: install.isPending,
+                  /** Does what the corner says. */
+                  onSelect: () => {
+                    install.mutate({
+                      vendorId: vendor.id,
+                      version: vendor.update?.latestVersion ?? undefined,
+                    });
+                  },
+                }
+              : isInstallable && vendor.update?.hasNewBuild === true
+                ? {
+                    icon: 'refresh-cw',
+                    verb: t('library.vendorOverview.reinstall', 'Reinstall'),
+                    isBusy: install.isPending,
+                    /** Does what the corner says. */
+                    onSelect: () => {
+                      install.mutate({ vendorId: vendor.id });
+                    },
+                  }
+                : undefined
           }
         />
       </HealthStrip>

@@ -491,6 +491,98 @@
   }
 }
 
+/*
+ * Linking, and adding a Matter device: the chain that pulses between two rows being linked, and
+ * the rings around the Matter mark while a device joins - the outer one turning slowly, the inner
+ * one breathing, a wave when it is in, a shake when its certificate is a test one. All of it
+ * stops where less motion was asked for, and what it showed stays where it was.
+ */
+@keyframes link-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-primary) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 0.75rem transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes matter-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes matter-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+}
+
+@keyframes matter-wave {
+  from {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+@keyframes matter-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-0.125rem);
+  }
+  75% {
+    transform: translateX(0.125rem);
+  }
+}
+
+.link-pulse {
+  animation: link-pulse 1.6s ease-out infinite;
+}
+
+.matter-orbit {
+  animation: matter-spin 24s linear infinite;
+}
+
+.matter-breathe {
+  animation: matter-breathe 3.2s ease-in-out infinite;
+}
+
+.matter-wave {
+  animation: matter-wave 1.2s ease-out 1 forwards;
+}
+
+.matter-shake {
+  animation: matter-shake 0.35s ease-in-out 1;
+}
+
+[data-motion='reduced']
+  :is(.link-pulse, .matter-orbit, .matter-breathe, .matter-wave, .matter-shake) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full'])
+    :is(.link-pulse, .matter-orbit, .matter-breathe, .matter-wave, .matter-shake) {
+    animation: none;
+  }
+}
+
 @keyframes reduced-pulse {
   0%,
   100% {

@@ -123,6 +123,7 @@ const BAMBU: IntegrationVendorView = {
   wires: ['mqtt'],
   discoverySources: [],
   adoption: 'owner',
+  twins: [],
   pairing: null,
   listener: null,
   passedOver: [],
@@ -234,6 +235,11 @@ const EXISTING: DeviceView = {
   areaName: null,
   entityIds: [entityIdSchema.parse('sensor.bambu_lab_x1c_nozzle_temperature')],
   tagIds: [],
+  mac: null,
+  serialNumber: null,
+  createdAt: null,
+  linked: null,
+  suggestedLinks: [],
 };
 
 /**

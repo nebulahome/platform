@@ -35,6 +35,7 @@ function vendor(overrides: Partial<IntegrationVendorView> = {}): IntegrationVend
     wires: ['http'],
     discoverySources: [],
     adoption: 'owner',
+    twins: [],
     pairing: null,
     listener: null,
     passedOver: [],

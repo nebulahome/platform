@@ -93,8 +93,21 @@ export type HealthCardProps = {
   /** One line of detail: "Up 3 days", "5 more found on the network". */
   readonly detail?: ReactNode;
 
-  /** The one action that fixes it: a compact ghost button, a link. */
-  readonly action?: ReactNode;
+  /**
+   * The one action that fixes it, as an icon in the card's top right corner, so no card grows
+   * taller than the others.
+   */
+  readonly action?: HealthAction | undefined;
+};
+
+/** A card's one action. */
+export type HealthAction = {
+  readonly icon: UiIconId;
+
+  /** What it does, in a word: "Install", "Review", "See it". */
+  readonly verb: string;
+  readonly onSelect: () => void;
+  readonly isBusy?: boolean;
 };
 
 /**
@@ -104,12 +117,34 @@ export type HealthCardProps = {
  * @returns The card.
  */
 export function HealthCard(props: HealthCardProps) {
+  const { t } = useTranslation();
   const { label, tone, value, detail, action } = props;
   const look = TONES[tone];
 
+  // What the corner says it does: "Install: firmware, 1.5.0 ready".
+  const named =
+    action === undefined
+      ? ''
+      : typeof value === 'string'
+        ? t('ui.healthStrip.actionOn', '{{verb}}: {{what}}, {{value}}', {
+            verb: action.verb,
+            what: label.toLocaleLowerCase(),
+            value,
+          })
+        : t('ui.healthStrip.action', '{{verb}}: {{what}}', {
+            verb: action.verb,
+            what: label.toLocaleLowerCase(),
+          });
+
   return (
-    <div className="min-w-0 bg-surface">
-      <div className={cn('flex h-full flex-col gap-1 px-4.5 pt-3.5 pb-4', look.ground)}>
+    <div className="relative min-w-0 bg-surface">
+      <div
+        className={cn(
+          'flex h-full flex-col gap-1 px-4.5 pt-3.5 pb-4',
+          action !== undefined && 'pr-12',
+          look.ground,
+        )}
+      >
         <span className="flex items-center gap-2 text-caption whitespace-nowrap text-foreground-muted">
           <AppIcon id={look.icon} size={14} className={look.glyph} />
           {label}
@@ -118,8 +153,20 @@ export function HealthCard(props: HealthCardProps) {
         {detail === undefined ? null : (
           <span className="text-caption text-foreground-subtle">{detail}</span>
         )}
-        {action === undefined ? null : <div className="mt-auto pt-2.5">{action}</div>}
       </div>
+      {action === undefined ? null : (
+        <button
+          type="button"
+          aria-label={named}
+          title={named}
+          aria-busy={action.isBusy === true ? true : undefined}
+          disabled={action.isBusy === true}
+          onClick={action.onSelect}
+          className="absolute top-2.5 right-2.5 flex size-7.5 items-center justify-center rounded-pill border border-primary/45 bg-primary/14 text-primary transition-colors hover:bg-primary/25 focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none disabled:opacity-60"
+        >
+          <AppIcon id={action.isBusy === true ? 'loader-circle' : action.icon} size={15} />
+        </button>
+      )}
     </div>
   );
 }

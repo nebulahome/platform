@@ -36,6 +36,10 @@ const LAMP: EntityView = {
   lastChanged: null,
   lastUpdated: null,
   tagIds: [],
+  addresses: [],
+  linked: null,
+  key: null,
+  createdAt: null,
 };
 
 describe('seedTargetState', () => {

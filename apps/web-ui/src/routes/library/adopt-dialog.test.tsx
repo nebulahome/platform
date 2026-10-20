@@ -47,6 +47,7 @@ const BAMBU: IntegrationVendorView = {
   wires: ['mqtt'],
   discoverySources: [],
   adoption: 'owner',
+  twins: [],
   pairing: null,
   listener: null,
   passedOver: [],
@@ -125,6 +126,9 @@ function found(overrides: Partial<DiscoveredDevice> = {}): DiscoveredDevice {
     swVersion: null,
     transportConfig: { url: 'mqtts://192.168.1.70:8883' },
     movedFrom: null,
+    mac: null,
+    notes: [],
+    isDismissed: false,
     adoption: 'owner',
     firstSeenAt: new Date('2026-09-23T10:00:00.000Z'),
     lastSeenAt: new Date('2026-09-23T10:00:00.000Z'),
@@ -180,6 +184,11 @@ const ADOPTED: DeviceView = {
   areaName: null,
   entityIds: [],
   tagIds: [],
+  mac: null,
+  serialNumber: null,
+  createdAt: null,
+  linked: null,
+  suggestedLinks: [],
 };
 
 beforeAll(() => {

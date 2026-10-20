@@ -54,6 +54,10 @@ function entity(overrides: Partial<EntityView> = {}): EntityView {
     lastChanged: new Date('2026-09-12T00:00:00.000Z'),
     lastUpdated: new Date('2026-09-12T00:00:05.000Z'),
     tagIds: [],
+    addresses: [],
+    linked: null,
+    key: null,
+    createdAt: null,
     ...overrides,
   };
 }

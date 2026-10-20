@@ -315,6 +315,7 @@ const SAMPLE_VENDOR: IntegrationVendorView = {
   wires: ['http'],
   discoverySources: ['mdns'],
   adoption: 'owner',
+  twins: [],
   pairing: null,
   listener: null,
   passedOver: [],
@@ -697,22 +698,14 @@ function DetailPageSample() {
           tone="info"
           value="2 of 2 reporting"
           detail="5 more found on the network"
-          action={
-            <Button variant="ghost" size="compact">
-              Review
-            </Button>
-          }
+          action={{ icon: 'eye', verb: 'Review', onSelect: doNothing }}
         />
         <HealthCard
           label="Updates"
           tone="danger"
           value="Failed"
           detail="Exited with code 1"
-          action={
-            <Button variant="ghost" size="compact">
-              Open the log
-            </Button>
-          }
+          action={{ icon: 'list', verb: 'Open the log', onSelect: doNothing }}
         />
       </HealthStrip>
 

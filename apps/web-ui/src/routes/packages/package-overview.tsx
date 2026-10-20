@@ -9,12 +9,11 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
 import type { ApiPackageDetail, PackageRelation } from '@nebulahome/contracts';
 import {
   AppIcon,
-  Button,
   FactGrid,
   HealthCard,
   HealthStrip,
@@ -95,6 +94,7 @@ export type PackageOverviewProps = {
  */
 export function PackageOverview(props: PackageOverviewProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const { found, newer, hasNewBuild, isOffered, onUpdate, isUpdating, onOpenLog } = props;
   const can = useSession((state) => state.can);
@@ -150,11 +150,13 @@ export function PackageOverview(props: PackageOverviewProps) {
           value={runtime.value}
           detail={runtime.detail}
           action={
-            found.state === 'failed' && onOpenLog !== undefined ? (
-              <Button variant="ghost" size="compact" onClick={onOpenLog}>
-                {t('packages.packageOverview.openTheLog', 'Open the log')}
-              </Button>
-            ) : undefined
+            found.state === 'failed' && onOpenLog !== undefined
+              ? {
+                  icon: 'list',
+                  verb: t('packages.packageOverview.openTheLog', 'Open the log'),
+                  onSelect: onOpenLog,
+                }
+              : undefined
           }
         />
         <HealthCard
@@ -169,14 +171,16 @@ export function PackageOverview(props: PackageOverviewProps) {
           value={usedBy.value}
           detail={usedBy.detail}
           action={
-            firstUser === undefined || found.state === 'running' ? undefined : (
-              <Link
-                to={relationPath(firstUser)}
-                className="inline-flex h-control-sm items-center rounded-pill border border-border-strong bg-surface-raised px-3 text-ui-sm font-medium text-foreground transition-colors hover:bg-surface-high"
-              >
-                {t('packages.packageOverview.open', 'Open')}
-              </Link>
-            )
+            firstUser === undefined || found.state === 'running'
+              ? undefined
+              : {
+                  icon: 'arrow-right',
+                  verb: t('packages.packageOverview.open', 'Open'),
+                  /** Does what the corner says. */
+                  onSelect: () => {
+                    void navigate(relationPath(firstUser));
+                  },
+                }
           }
         />
         <HealthCard
@@ -185,13 +189,17 @@ export function PackageOverview(props: PackageOverviewProps) {
           value={updates.value}
           detail={updates.detail}
           action={
-            onUpdate !== undefined && (newer !== undefined || hasNewBuild) ? (
-              <Button variant="ghost" size="compact" isBusy={isUpdating} onClick={onUpdate}>
-                {newer === undefined
-                  ? t('packages.packageOverview.reinstall', 'Reinstall')
-                  : t('packages.packageOverview.update', 'Update')}
-              </Button>
-            ) : undefined
+            onUpdate !== undefined && (newer !== undefined || hasNewBuild)
+              ? {
+                  icon: newer === undefined ? 'refresh-cw' : 'download',
+                  verb:
+                    newer === undefined
+                      ? t('packages.packageOverview.reinstall', 'Reinstall')
+                      : t('packages.packageOverview.update', 'Update'),
+                  isBusy: isUpdating,
+                  onSelect: onUpdate,
+                }
+              : undefined
           }
         />
       </HealthStrip>

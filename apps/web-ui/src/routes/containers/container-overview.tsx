@@ -15,7 +15,6 @@ import type { ContainerDetail, ContainerPort } from '@nebulahome/contracts';
 import {
   AppIcon,
   Badge,
-  Button,
   FactGrid,
   HealthCard,
   HealthStrip,
@@ -351,13 +350,14 @@ export function ContainerOverview(props: ContainerOverviewProps) {
           value={image.value}
           detail={image.detail}
           action={
-            onUpdate !== undefined &&
-            container.update.isAvailable &&
-            !container.update.isInstalling ? (
-              <Button variant="ghost" size="compact" isBusy={isUpdating} onClick={onUpdate}>
-                {t('containers.containerOverview.update', 'Update')}
-              </Button>
-            ) : undefined
+            onUpdate !== undefined && container.update.isAvailable && !container.update.isInstalling
+              ? {
+                  icon: 'download',
+                  verb: t('containers.containerOverview.update', 'Update'),
+                  isBusy: isUpdating,
+                  onSelect: onUpdate,
+                }
+              : undefined
           }
         />
         <HealthCard
