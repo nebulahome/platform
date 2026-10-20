@@ -278,6 +278,10 @@ export class IdentificationService {
         ...(descriptor.model === undefined ? {} : { model: descriptor.model }),
         ...(descriptor.swVersion === undefined ? {} : { swVersion: descriptor.swVersion }),
         ...(descriptor.hwVersion === undefined ? {} : { hwVersion: descriptor.hwVersion }),
+        ...(descriptor.mac === undefined ? {} : { mac: descriptor.mac }),
+        ...(descriptor.serialNumber === undefined
+          ? {}
+          : { serialNumber: descriptor.serialNumber.slice(0, 256) }),
 
         // The claim goes with the row, so the instance can bind this device again on its next
         // start instead of listening for it a second time.

@@ -14,13 +14,19 @@
  * back on its own, and the page can bring it back.
  */
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+
+import { ManualPairingCodeCodec, QrPairingCodeCodec } from '@matter/main/types';
 
 import {
   ConflictError,
   DeviceUnavailableError,
+  MATTER_COMMISSIONING_STEPS,
+  MATTER_PORT,
   type MatterCommissioning,
+  type MatterCommissioningStep,
+  type MatterCommissioningStepId,
   type MatterControllerState,
   type MatterStatus,
 } from '@nebulahome/contracts';
@@ -32,11 +38,18 @@ import {
   scopesOf,
   serves,
   type MatterDeviceSnapshot,
-  type MatterNodeSnapshot,
   type MatterUpdateOffer,
 } from '@nebulahome/package-runtime';
 
-import type { MatterFabric, MatterInvoke, MatterWrite, OpenMatterFabric } from './fabric.js';
+import {
+  isTestCertificateFailure,
+  MATTER_ENGINE,
+  type FabricNode,
+  type MatterFabric,
+  type MatterInvoke,
+  type MatterWrite,
+  type OpenMatterFabric,
+} from './fabric.js';
 
 /** How often the DCL is asked for firmware on offer. */
 const UPDATE_CHECK_MS = 24 * 60 * 60 * 1000;
@@ -46,6 +59,100 @@ const FIRST_UPDATE_CHECK_MS = 2 * 60 * 1000;
 
 /** The file the devices removed from the house are remembered in. */
 const REMOVED_FILE = 'removed.json';
+
+/** The file the fabric's own facts are kept in: when this hub made it. */
+const FABRIC_FILE = 'fabric.json';
+
+/** How long a pairing code is kept for the owner to answer about a test certificate. */
+const ANSWER_WITHIN_MS = 10 * 60 * 1000;
+
+/** How long a device on the fabric has to be in the house before its job ends anyway. */
+const IN_HOUSE_WITHIN_MS = 2 * 60 * 1000;
+
+/**
+ * The steps of a commissioning, as the job starts: the code read, the device being looked for.
+ *
+ * @param code - The pairing code, checked.
+ * @returns The steps.
+ */
+function freshSteps(code: string): MatterCommissioningStep[] {
+  const isQrCode = code.startsWith('MT:');
+
+  return MATTER_COMMISSIONING_STEPS.map((id) => ({
+    id,
+    state: id === 'code' ? 'done' : id === 'found' ? 'running' : 'pending',
+    detail: {
+      discriminator: id === 'code' ? discriminatorOf(code) : null,
+      isQrCode: id === 'code' && isQrCode,
+      address: null,
+      product: null,
+      vendorId: null,
+      productId: null,
+    },
+  }));
+}
+
+/**
+ * The discriminator a pairing code carries: the device's whole one in a QR code's text, the upper
+ * four bits of it in a manual code.
+ *
+ * @param code - The code, checked.
+ * @returns The discriminator, or null when the code does not decode.
+ */
+export function discriminatorOf(code: string): number | null {
+  try {
+    if (code.startsWith('MT:')) {
+      return QrPairingCodeCodec.decode(code)[0]?.discriminator ?? null;
+    }
+
+    const manual = ManualPairingCodeCodec.decode(code);
+
+    return (
+      manual.discriminator ??
+      (manual.shortDiscriminator === undefined ? null : manual.shortDiscriminator << 8)
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The steps after one started: those before it done, it running.
+ *
+ * @param steps - The steps as they were.
+ * @param running - The step that started.
+ * @returns The steps as they are.
+ */
+function advance(
+  steps: readonly MatterCommissioningStep[],
+  running: MatterCommissioningStepId,
+): MatterCommissioningStep[] {
+  const at = MATTER_COMMISSIONING_STEPS.indexOf(running);
+
+  return steps.map((step, index) => {
+    if (index < at) {
+      // A test certificate accepted stays said.
+      return step.state === 'warning' ? step : { ...step, state: 'done' };
+    }
+
+    return index === at ? { ...step, state: 'running' } : step;
+  });
+}
+
+/**
+ * Which step a step of matter.js's commissioning is.
+ *
+ * @param step - Its number.
+ * @returns The step the page shows, or undefined for one it does not.
+ */
+function stepOf(step: number): MatterCommissioningStepId {
+  // Up to the attestation (step 10), the device was found and its certificate is being checked;
+  // after it, it is joining the fabric.
+  return step <= 10 ? 'certificate' : 'joining';
+}
+
+/** A commissioning stopped on a test certificate, waiting for the owner. */
+type Pending = { readonly jobId: string; readonly code: string; readonly timer: NodeJS.Timeout };
 
 /** One device of a node, for discovery. */
 export type MatterSighting = {
@@ -98,10 +205,19 @@ export class MatterBroker {
 
   /** The nodes leaving the fabric, so a second ask joins the first. */
   readonly #leaving = new Map<string, Promise<boolean>>();
+
+  /** Since when each node has not answered, as this hub saw it. */
+  readonly #offlineSince = new Map<string, Date>();
   #fabric: MatterFabric | undefined;
   #state: MatterControllerState;
   #error: string | null = null;
   #job: MatterCommissioning | null = null;
+  #pending: Pending | undefined;
+  #startedAt: Date | null = null;
+  #fabricCreatedAt: Date | null = null;
+
+  /** When the job's device joined the fabric, to give it a while to be in the house. */
+  #joinedAt: Date | null = null;
 
   /**
    * Keeps the options; nothing opens until {@link MatterBroker.start}.
@@ -120,7 +236,7 @@ export class MatterBroker {
    * @returns Once it is open or has failed.
    */
   public async start(): Promise<void> {
-    const { open, storageDir, logger, version } = this.#options;
+    const { open, storageDir, logger } = this.#options;
 
     if (open === undefined) {
       return;
@@ -128,29 +244,17 @@ export class MatterBroker {
 
     try {
       await mkdir(storageDir, { recursive: true });
-      await this.#readRemoved();
-      this.#fabric = await open({
-        storageDir,
-        logger,
-        version,
-        events: {
-          /**
-           * Hands a node's change on.
-           *
-           * @param nodeId - The node.
-           * @param paths - What changed, or null for all of it.
-           */
-          onNode: (nodeId, paths) => {
-            this.#tellNode(nodeId, paths);
-          },
 
-          /** Tells discovery the nodes changed. */
-          onNodes: () => {
-            this.#tellNodes();
-          },
-        },
-      });
+      // A folder holding nothing of the controller's is a fabric about to be made here.
+      const isNew = (await readdir(storageDir)).every(
+        (name) => name === REMOVED_FILE || name === FABRIC_FILE,
+      );
+
+      await this.#readRemoved();
+      this.#fabric = await this.#open(false);
       this.#state = 'running';
+      this.#startedAt = new Date();
+      this.#fabricCreatedAt = await this.#readFabricDate(isNew);
       logger.info(
         { fabricId: this.#fabric.fabricId, nodes: this.#fabric.nodes().length },
         'The Matter fabric is open',
@@ -177,6 +281,44 @@ export class MatterBroker {
   }
 
   /**
+   * Opens the fabric through the controller.
+   *
+   * @param acceptTestCertificates - Whether devices with a test certificate are taken too.
+   * @returns The fabric.
+   * @throws {Error} When there is no controller to open.
+   */
+  async #open(acceptTestCertificates: boolean): Promise<MatterFabric> {
+    const { open, storageDir, logger, version } = this.#options;
+
+    if (open === undefined) {
+      throw notRunning(this.#state, this.#error);
+    }
+
+    return open({
+      storageDir,
+      logger,
+      version,
+      acceptTestCertificates,
+      events: {
+        /**
+         * Hands a node's change on.
+         *
+         * @param nodeId - The node.
+         * @param paths - What changed, or null for all of it.
+         */
+        onNode: (nodeId, paths) => {
+          this.#tellNode(nodeId, paths);
+        },
+
+        /** Tells discovery the nodes changed. */
+        onNodes: () => {
+          this.#tellNodes();
+        },
+      },
+    });
+  }
+
+  /**
    * Closes the fabric.
    *
    * @returns Once it is closed.
@@ -187,17 +329,27 @@ export class MatterBroker {
     }
 
     this.#timers.length = 0;
+
+    if (this.#pending !== undefined) {
+      clearTimeout(this.#pending.timer);
+      this.#pending = undefined;
+    }
+
     await this.#fabric?.stop();
     this.#fabric = undefined;
   }
 
   /**
-   * Where the broker stands.
+   * Where the broker stands, the job of a device being added brought up to date: on the fabric
+   * and read, it is in the house once a device was added for it.
    *
+   * @param deviceOf - The device added for a node, if any, by its id.
    * @returns Its state, for the Brokers page.
    */
-  public status(): MatterStatus {
+  public status(deviceOf: (nodeId: string) => string | undefined = () => undefined): MatterStatus {
     const nodes = this.nodes();
+
+    this.#settle(deviceOf);
 
     return {
       state: this.#state,
@@ -206,7 +358,82 @@ export class MatterBroker {
       isLanReachable: this.#options.isLanReachable,
       nodes: { total: nodes.length, online: nodes.filter((node) => node.isAvailable).length },
       commissioning: this.#job,
+      startedAt: this.#state === 'running' ? this.#startedAt : null,
+      controllerVersion: MATTER_ENGINE,
+      port: MATTER_PORT,
+      fabricCreatedAt: this.#fabricCreatedAt,
     };
+  }
+
+  /**
+   * Since when a node has not answered, as this hub saw it.
+   *
+   * @param nodeId - The node.
+   * @returns When it went quiet, or null while it answers.
+   */
+  public offlineSince(nodeId: string): Date | null {
+    return this.#offlineSince.get(nodeId) ?? null;
+  }
+
+  /**
+   * Brings the job of a device being added up to date with the fabric and the house.
+   *
+   * @param deviceOf - The device added for a node, if any.
+   */
+  #settle(deviceOf: (nodeId: string) => string | undefined): void {
+    const job = this.#job;
+
+    if (job?.state !== 'running' || job.nodeId === null) {
+      return;
+    }
+
+    const node = this.node(job.nodeId);
+    const reading = job.steps.find((step) => step.id === 'reading');
+
+    if (node !== undefined && reading?.state === 'running') {
+      const [root] = scopesOf(node.attributes);
+      const product =
+        root === undefined ? null : (deviceSnapshotOf(node, root).identity.productName ?? null);
+
+      this.#job = {
+        ...job,
+        steps: advance(job.steps, 'in-house').map((step) =>
+          step.id === 'found' ? { ...step, detail: { ...step.detail, product } } : step,
+        ),
+      };
+    }
+
+    const deviceId = deviceOf(job.nodeId);
+    const current = this.#job;
+
+    if (current === null) {
+      return;
+    }
+
+    if (deviceId !== undefined) {
+      this.#job = {
+        ...current,
+        state: 'succeeded',
+        finishedAt: new Date(),
+        deviceId,
+        steps: current.steps.map((step) =>
+          step.state === 'warning' ? step : { ...step, state: 'done' },
+        ),
+      };
+    } else if (
+      this.#joinedAt !== null &&
+      Date.now() - this.#joinedAt.getTime() > IN_HOUSE_WITHIN_MS
+    ) {
+      // On the fabric, and no device came of it: the job ends, saying which step did not.
+      this.#job = {
+        ...current,
+        state: 'succeeded',
+        finishedAt: new Date(),
+        steps: current.steps.map((step) =>
+          step.id === 'in-house' ? { ...step, state: 'failed' } : step,
+        ),
+      };
+    }
   }
 
   /**
@@ -226,8 +453,19 @@ export class MatterBroker {
    *
    * @returns Them; none while the fabric is not open.
    */
-  public nodes(): MatterNodeSnapshot[] {
-    return this.#fabric?.nodes() ?? [];
+  public nodes(): FabricNode[] {
+    const nodes = this.#fabric?.nodes() ?? [];
+
+    // Kept as they are read: the page asks since when a node has not answered.
+    for (const node of nodes) {
+      if (node.isAvailable) {
+        this.#offlineSince.delete(node.nodeId);
+      } else if (!this.#offlineSince.has(node.nodeId)) {
+        this.#offlineSince.set(node.nodeId, new Date());
+      }
+    }
+
+    return nodes;
   }
 
   /**
@@ -236,7 +474,7 @@ export class MatterBroker {
    * @param nodeId - The node.
    * @returns It, or undefined.
    */
-  public node(nodeId: string): MatterNodeSnapshot | undefined {
+  public node(nodeId: string): FabricNode | undefined {
     return this.#fabric?.node(nodeId);
   }
 
@@ -315,7 +553,7 @@ export class MatterBroker {
   public commission(code: string): MatterCommissioning {
     const fabric = this.#require();
 
-    if (this.#job?.state === 'running') {
+    if (this.#job?.state === 'running' || this.#job?.state === 'needs-answer') {
       throw new ConflictError('A device is being added already; wait for it to finish');
     }
 
@@ -326,34 +564,187 @@ export class MatterBroker {
       finishedAt: null,
       nodeId: null,
       error: null,
+      steps: freshSteps(code),
+      deviceId: null,
     };
 
     this.#job = job;
+    this.#joinedAt = null;
     this.#options.logger.info({ job: job.id }, 'Commissioning a Matter device');
-
-    fabric
-      .commission(code)
-      .then((nodeId) => {
-        this.#job = { ...job, state: 'succeeded', finishedAt: new Date(), nodeId };
-        this.#options.logger.info({ job: job.id, nodeId }, 'A Matter device was commissioned');
-        this.#tellNodes();
-      })
-      .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-
-        this.#job = {
-          ...job,
-          state: 'failed',
-          finishedAt: new Date(),
-          error: message.slice(0, 2048),
-        };
-        this.#options.logger.warn(
-          { err: error, job: job.id },
-          'Commissioning a Matter device failed',
-        );
-      });
+    void this.#run(job.id, code, fabric, false);
 
     return job;
+  }
+
+  /**
+   * Answers the question a commissioning stopped on: whether to add a device whose certificate
+   * is a test one. Yes opens the controller again taking test certificates, adds the device with
+   * the same code, and opens it again as it was; meanwhile the house's Matter devices are out of
+   * reach for a few seconds.
+   *
+   * @param jobId - The job.
+   * @param isAccepted - Whether to add it anyway.
+   * @returns The job, as it now stands.
+   * @throws {ConflictError} When nothing waits for that answer.
+   */
+  public answer(jobId: string, isAccepted: boolean): MatterCommissioning {
+    const job = this.#job;
+    const pending = this.#pending;
+
+    if (job?.id !== jobId || job.state !== 'needs-answer' || pending?.jobId !== jobId) {
+      throw new ConflictError('Nothing waits for that answer');
+    }
+
+    clearTimeout(pending.timer);
+    this.#pending = undefined;
+
+    if (!isAccepted) {
+      this.#job = {
+        ...job,
+        state: 'failed',
+        finishedAt: new Date(),
+        error: 'Not added: its certificate is a test one',
+      };
+
+      return this.#job;
+    }
+
+    this.#job = { ...job, state: 'running', steps: advance(job.steps, 'joining') };
+    void this.#withTestCertificates(jobId, pending.code);
+
+    return this.#job;
+  }
+
+  /**
+   * Adds a device with the controller taking test certificates, then opens it again as it was.
+   *
+   * @param jobId - The job.
+   * @param code - The device's pairing code.
+   * @returns Once the controller is as it was.
+   */
+  async #withTestCertificates(jobId: string, code: string): Promise<void> {
+    try {
+      await this.#reopen(true);
+      await this.#run(jobId, code, this.#require(), true);
+    } catch (error: unknown) {
+      this.#fail(jobId, error);
+    } finally {
+      await this.#reopen(false).catch((error: unknown) => {
+        this.#state = 'failed';
+        this.#error = error instanceof Error ? error.message : String(error);
+        this.#options.logger.error({ err: error }, 'The Matter fabric did not open again');
+      });
+    }
+  }
+
+  /**
+   * Closes the fabric and opens it again.
+   *
+   * @param acceptTestCertificates - Whether devices with a test certificate are taken.
+   * @returns Once it is open.
+   */
+  async #reopen(acceptTestCertificates: boolean): Promise<void> {
+    await this.#fabric?.stop();
+    this.#fabric = undefined;
+    this.#fabric = await this.#open(acceptTestCertificates);
+    this.#tellNodes();
+  }
+
+  /**
+   * Runs a commissioning, keeping its job up to date.
+   *
+   * @param jobId - The job.
+   * @param code - The pairing code.
+   * @param fabric - The fabric to add the device to.
+   * @param isAcceptingTest - Whether the controller takes test certificates this time.
+   * @returns Once the device joined, failed, or waits for the owner's answer.
+   */
+  async #run(
+    jobId: string,
+    code: string,
+    fabric: MatterFabric,
+    isAcceptingTest: boolean,
+  ): Promise<void> {
+    try {
+      const nodeId = await fabric.commission(code, (step) => {
+        this.#update(jobId, (job) => ({ ...job, steps: advance(job.steps, stepOf(step)) }));
+      });
+
+      this.#joinedAt = new Date();
+      this.#update(jobId, (job) => ({ ...job, nodeId, steps: advance(job.steps, 'reading') }));
+      this.#options.logger.info({ job: jobId, nodeId }, 'A Matter device was commissioned');
+      this.#tellNodes();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      if (!isAcceptingTest && isTestCertificateFailure(message)) {
+        this.#pending = {
+          jobId,
+          code,
+          timer: setTimeout(() => {
+            this.#pending = undefined;
+            this.#fail(
+              jobId,
+              new Error("No answer came in time: share it again from the maker's app"),
+            );
+          }, ANSWER_WITHIN_MS),
+        };
+        this.#pending.timer.unref();
+        this.#update(jobId, (job) => ({
+          ...job,
+          state: 'needs-answer',
+          steps: job.steps.map((step) => {
+            if (step.id === 'found') {
+              return { ...step, state: 'done' };
+            }
+
+            if (step.id === 'certificate') {
+              return { ...step, state: 'warning' };
+            }
+
+            return step.state === 'running' ? { ...step, state: 'pending' } : step;
+          }),
+        }));
+        this.#options.logger.info({ job: jobId }, 'A Matter device has a test certificate');
+
+        return;
+      }
+
+      this.#fail(jobId, error);
+    }
+  }
+
+  /**
+   * Ends a job as failed, the step that was running with it.
+   *
+   * @param jobId - The job.
+   * @param error - Why.
+   */
+  #fail(jobId: string, error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+
+    this.#update(jobId, (job) => ({
+      ...job,
+      state: 'failed',
+      finishedAt: new Date(),
+      error: message.slice(0, 2048),
+      steps: job.steps.map((step) =>
+        step.state === 'running' ? { ...step, state: 'failed' } : step,
+      ),
+    }));
+    this.#options.logger.warn({ err: error, job: jobId }, 'Commissioning a Matter device failed');
+  }
+
+  /**
+   * Changes the job, when it is still the one.
+   *
+   * @param jobId - The job.
+   * @param change - What becomes of it.
+   */
+  #update(jobId: string, change: (job: MatterCommissioning) => MatterCommissioning): void {
+    if (this.#job?.id === jobId) {
+      this.#job = change(this.#job);
+    }
   }
 
   /**
@@ -586,6 +977,33 @@ export class MatterBroker {
         throw error;
       }
     }
+  }
+
+  /**
+   * Reads when this hub made the fabric, writing it down when it was made just now.
+   *
+   * @param isNew - Whether the fabric was made at this start.
+   * @returns The date, or null for a fabric made before the hub kept it.
+   */
+  async #readFabricDate(isNew: boolean): Promise<Date | null> {
+    const file = path.join(this.#options.storageDir, FABRIC_FILE);
+
+    try {
+      const parsed = JSON.parse(await readFile(file, 'utf8')) as { createdAt?: unknown };
+      const date = typeof parsed.createdAt === 'string' ? new Date(parsed.createdAt) : null;
+
+      return date === null || Number.isNaN(date.getTime()) ? null : date;
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || !isNew) {
+        return null;
+      }
+    }
+
+    const now = new Date();
+
+    await writeFile(file, JSON.stringify({ createdAt: now.toISOString() }), 'utf8');
+
+    return now;
   }
 
   /**

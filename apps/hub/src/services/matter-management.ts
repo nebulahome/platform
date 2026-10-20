@@ -10,12 +10,14 @@
 import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
+  HUB_MATTER_ANSWER_METHOD,
   HUB_MATTER_COMMISSION_METHOD,
   HUB_MATTER_NODES_METHOD,
   HUB_MATTER_REMOVE_METHOD,
   HUB_MATTER_RESTORE_METHOD,
   HUB_MATTER_STATUS_METHOD,
   HUB_SERVICE,
+  matterAnswerRequestSchema,
   matterCommissionRequestSchema,
   matterNodesRequestSchema,
   matterRemoveRequestSchema,
@@ -65,6 +67,8 @@ export async function matterNodesView(options: MatterManagementOptions): Promise
   return broker.nodes().map((node) => ({
     nodeId: node.nodeId,
     isAvailable: node.isAvailable,
+    commissionedAt: node.commissionedAt,
+    offlineSince: broker.offlineSince(node.nodeId),
     devices: scopesOf(node.attributes).map((scope) => {
       const device = deviceSnapshotOf(node, scope);
       const key = matterDeviceKey(node.nodeId, scope.endpoint);
@@ -103,11 +107,28 @@ export function serveMatter(options: MatterManagementOptions): BusSubscription[]
       matterStatusRequestSchema,
 
       /**
-       * Says where the broker stands.
+       * Says where the broker stands, the job of a device being added up to date with the house.
        *
        * @returns Its state.
        */
-      () => broker.status(),
+      async () => {
+        const taken = await options.taken();
+
+        return broker.status((nodeId) => taken.matter.get(nodeId)?.instanceId);
+      },
+    ),
+
+    client.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MATTER_ANSWER_METHOD),
+      matterAnswerRequestSchema,
+
+      /**
+       * Passes on whether to add a device with a test certificate anyway.
+       *
+       * @param request - The job and the answer.
+       * @returns The job.
+       */
+      (request) => broker.answer(request.jobId, request.isAccepted),
     ),
 
     client.serve(

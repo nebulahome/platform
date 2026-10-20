@@ -92,6 +92,7 @@ export function describeDevice(
       ...(entity.displayPrecision === undefined
         ? {}
         : { displayPrecision: entity.displayPrecision }),
+      ...(entity.link === undefined ? {} : { link: entity.link }),
     })),
   };
 }

@@ -360,6 +360,15 @@ export class HubService {
       discovered: () => this.#discovery?.list() ?? [],
 
       /**
+       * Sets found devices aside, or brings them back; nothing before discovery has started.
+       *
+       * @param ids - Which.
+       * @param isDismissed - Which way.
+       * @returns How many discovery still had.
+       */
+      dismiss: (ids, isDismissed) => this.#discovery?.dismiss(ids, isDismissed) ?? 0,
+
+      /**
        * Says how a vendor's devices are being heard; nothing before discovery has started.
        *
        * @param vendorId - The vendor.

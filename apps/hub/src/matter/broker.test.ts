@@ -87,25 +87,40 @@ const bridge: MatterNodeSnapshot = {
  * @returns How to open it, what was asked of it, and how to make it speak.
  */
 function fakeFabric() {
-  const nodes = new Map([plug, bridge].map((node) => [node.nodeId, node]));
+  const nodes = new Map(
+    [plug, bridge].map((node) => [node.nodeId, { ...node, commissionedAt: null }]),
+  );
   const calls: string[] = [];
+  const opens: string[] = [];
   let events: MatterFabricEvents | undefined;
 
   const open: OpenMatterFabric = (options) => {
     events = options.events;
+    opens.push(options.acceptTestCertificates === true ? 'accepting test' : 'as it is');
 
     return Promise.resolve({
       fabricId: 'abc',
       nodes: () => [...nodes.values()],
       node: (nodeId) => nodes.get(nodeId),
-      commission: (code) => {
+      commission: (code, onStep) => {
         calls.push(`commission ${code}`);
 
         if (code === '00000000000') {
           return Promise.reject(new Error('The device did not answer'));
         }
 
-        nodes.set('9', { ...plug, nodeId: '9' });
+        if (code === '11111111111' && options.acceptTestCertificates !== true) {
+          onStep?.(0);
+          onStep?.(10);
+
+          return Promise.reject(
+            new Error('Commission failed: This device uses a test/development certificate.'),
+          );
+        }
+
+        onStep?.(0);
+        onStep?.(11);
+        nodes.set('9', { ...plug, nodeId: '9', commissionedAt: null });
 
         return Promise.resolve('9');
       },
@@ -134,6 +149,7 @@ function fakeFabric() {
   return {
     open,
     calls,
+    opens,
 
     /**
      * Has the fabric say a node changed.
@@ -199,14 +215,36 @@ describe('MatterBroker', () => {
     expect(broker.devices().map((device) => device.deviceKey)).toEqual(['2', '4', '4:2', '4:3']);
   });
 
-  it('commissions one node at a time, and says how it went', async () => {
+  it('commissions one node at a time, step by step, until it is in the house', async () => {
     const { broker, fabric } = await started();
     const job = broker.commission('34970112332');
 
     expect(job.state).toBe('running');
+    expect(job.steps.map((step) => step.state)).toEqual([
+      'done',
+      'running',
+      'pending',
+      'pending',
+      'pending',
+      'pending',
+    ]);
     expect(() => broker.commission('34970112332')).toThrow(/already/u);
+
+    // On the fabric and read, it waits to be in the house: a device added for it.
     await vi.waitFor(() => {
-      expect(broker.status().commissioning).toMatchObject({ state: 'succeeded', nodeId: '9' });
+      expect(
+        broker.status().commissioning?.steps.find((step) => step.id === 'in-house'),
+      ).toMatchObject({
+        state: 'running',
+      });
+    });
+    expect(broker.status().commissioning?.state).toBe('running');
+    expect(
+      broker.status((nodeId) => (nodeId === '9' ? 'plug-9' : undefined)).commissioning,
+    ).toMatchObject({
+      state: 'succeeded',
+      nodeId: '9',
+      deviceId: 'plug-9',
     });
 
     broker.commission('00000000000');
@@ -217,6 +255,25 @@ describe('MatterBroker', () => {
       });
     });
     expect(fabric.calls).toEqual(['commission 34970112332', 'commission 00000000000']);
+  });
+
+  it('stops on a test certificate, and adds the device anyway when the owner says so', async () => {
+    const { broker, fabric } = await started();
+    const job = broker.commission('11111111111');
+
+    await vi.waitFor(() => {
+      expect(broker.status().commissioning).toMatchObject({ state: 'needs-answer' });
+    });
+    expect(
+      broker.status().commissioning?.steps.find((step) => step.id === 'certificate')?.state,
+    ).toBe('warning');
+
+    broker.answer(job.id, true);
+    await vi.waitFor(() => {
+      expect(fabric.opens).toEqual(['as it is', 'accepting test', 'as it is']);
+    });
+    expect(fabric.calls).toEqual(['commission 11111111111', 'commission 11111111111']);
+    expect(broker.status().commissioning?.nodeId).toBe('9');
   });
 
   it('takes a node off the fabric only once none of it is left in the house', async () => {

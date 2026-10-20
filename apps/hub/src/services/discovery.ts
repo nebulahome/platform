@@ -18,7 +18,9 @@
 import { createHash } from 'node:crypto';
 
 import {
+  DISCOVERY_NEW_FOR_MS,
   MATTER_VENDOR,
+  normalizeMac,
   type DiscoveredDevice,
   type DiscoverReply,
   type DiscoverySource,
@@ -314,6 +316,12 @@ function signatureOf(list: readonly PassedOverDevice[]): string {
 export class DiscoveryService {
   readonly #options: DiscoveryServiceOptions;
   readonly #candidates = new Map<string, Candidate>();
+
+  /** The candidates the owner set aside, until they are forgotten. */
+  readonly #dismissed = new Set<string>();
+
+  /** The MAC addresses of the fabric's devices, by each vendor whose rules take them. */
+  #matterMacs = new Map<string, Set<string>>();
   readonly #probed = new Map<string, Probed>();
   readonly #inFlight = new Set<string>();
   readonly #queue: (() => Promise<void>)[] = [];
@@ -459,7 +467,44 @@ export class DiscoveryService {
    * @returns Every device heard, not yet added and not gone quiet.
    */
   public list(): DiscoveredDevice[] {
-    return this.#visible().map((candidate) => candidate.device);
+    const nowMs = this.#now();
+
+    return this.#visible().map(({ device }) => ({
+      ...device,
+      notes: [
+        ...(nowMs - device.firstSeenAt.getTime() < DISCOVERY_NEW_FOR_MS ? (['new'] as const) : []),
+        ...(device.mac !== null && this.#matterMacs.get(device.vendorId)?.has(device.mac) === true
+          ? (['also-on-matter'] as const)
+          : []),
+        ...device.notes,
+      ],
+      isDismissed: this.#dismissed.has(device.id),
+    }));
+  }
+
+  /**
+   * Sets heard devices aside, or brings them back. A device set aside stays aside until the hub
+   * forgets it - it went quiet - and hears it again.
+   *
+   * @param ids - The devices, as listed.
+   * @param isDismissed - Whether to set them aside.
+   * @returns How many of them the hub still had.
+   */
+  public dismiss(ids: readonly string[], isDismissed: boolean): number {
+    const known = ids.filter((id) => this.#candidates.has(id));
+
+    for (const id of known) {
+      if (isDismissed) {
+        this.#dismissed.add(id);
+      } else {
+        this.#dismissed.delete(id);
+      }
+    }
+
+    this.#signature = '';
+    this.#publishIfChanged();
+
+    return known.length;
   }
 
   /**
@@ -917,7 +962,15 @@ export class DiscoveryService {
         const candidateId =
           found === undefined
             ? null
-            : this.#propose(vendor, source, sighting.config, found.payload, found);
+            : this.#propose(
+                vendor,
+                source,
+                sighting.config,
+                found.payload,
+                found,
+                // Answered only after a question went unanswered: a battery device that wakes.
+                (last?.misses ?? 0) > 0,
+              );
         const misses = found === undefined ? (last?.misses ?? 0) + 1 : 0;
 
         this.#probed.set(key, {
@@ -1074,6 +1127,7 @@ export class DiscoveryService {
    * @param config - How to reach it.
    * @param payload - What identity reads.
    * @param discovered - The probe's answer, when there was a probe.
+   * @param isWaking - Whether it answered only after a question went unanswered.
    * @returns The candidate's id, or null when no driver takes the device.
    */
   #propose(
@@ -1082,6 +1136,7 @@ export class DiscoveryService {
     config: JsonObject,
     payload: unknown,
     discovered?: Discovered,
+    isWaking = false,
   ): string | null {
     const { identity, association } = this.#associate(vendor, payload, discovered);
     const address = addressOf(config);
@@ -1127,6 +1182,15 @@ export class DiscoveryService {
         transportConfig: config,
         adoption: vendor.discovery.plan.discovery.adopt,
         movedFrom: null,
+        mac: identity.mac,
+        // What lasts of a device's notes: it woke to answer once, it says it has a password.
+        notes: [
+          ...(isWaking || previous?.device.notes.includes('wakes') === true
+            ? (['wakes'] as const)
+            : []),
+          ...(identity.needsPassword ? (['password'] as const) : []),
+        ],
+        isDismissed: false,
         firstSeenAt: previous?.device.firstSeenAt ?? new Date(nowMs),
         lastSeenAt: new Date(nowMs),
       },
@@ -1240,9 +1304,20 @@ export class DiscoveryService {
 
     const heard = new Set<string>();
     const nowMs = this.#now();
+    const macs = new Map<string, Set<string>>();
 
     for (const { deviceKey, device } of matter.devices()) {
       const [only, other] = this.matterClaims(device.identity);
+
+      // Every vendor that takes it, so a device of theirs found over its own transport can say
+      // the house reaches it through Matter too.
+      for (const { vendor } of [only, other].filter((each) => each !== undefined)) {
+        for (const mac of device.identity.macAddresses.map(normalizeMac)) {
+          if (mac !== null) {
+            macs.set(vendor.id, (macs.get(vendor.id) ?? new Set()).add(mac));
+          }
+        }
+      }
       const fallback = associateMatter(matter.vendor.discovery.plan, device.identity);
       const chosen =
         only !== undefined && other === undefined
@@ -1277,6 +1352,9 @@ export class DiscoveryService {
           transportConfig: {},
           adoption: 'automatic',
           movedFrom: null,
+          mac: identity.macAddresses.map(normalizeMac).find((mac) => mac !== null) ?? null,
+          notes: [],
+          isDismissed: false,
           firstSeenAt: previous?.device.firstSeenAt ?? new Date(nowMs),
           lastSeenAt: new Date(nowMs),
         },
@@ -1284,9 +1362,12 @@ export class DiscoveryService {
       });
     }
 
+    this.#matterMacs = macs;
+
     for (const [id, candidate] of this.#candidates) {
       if (candidate.device.source === 'matter' && !heard.has(id)) {
         this.#candidates.delete(id);
+        this.#dismissed.delete(id);
       }
     }
 
@@ -1302,6 +1383,8 @@ export class DiscoveryService {
     for (const [id, candidate] of this.#candidates) {
       if (nowMs - candidate.heardAtMs > this.#options.ttlMs) {
         this.#candidates.delete(id);
+        // Forgotten, so heard again it is offered again.
+        this.#dismissed.delete(id);
       }
     }
 

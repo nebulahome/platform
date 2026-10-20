@@ -24,10 +24,13 @@ import {
   catalogueRequestSchema,
   discoveredRequestSchema,
   discoverRequestSchema,
+  discoveryDismissRequestSchema,
   forgetRequestSchema,
   HUB_CATALOGUE_METHOD,
   HUB_DISCOVER_METHOD,
   HUB_DISCOVERED_METHOD,
+  HUB_DISCOVERY_DISMISS_METHOD,
+  type DiscoveryDismissRequest,
   HUB_FORGET_METHOD,
   HUB_PROBE_METHOD,
   HUB_RELOAD_METHOD,
@@ -93,6 +96,9 @@ export type ManagementServiceOptions = {
    * @returns Every device heard and not yet added.
    */
   readonly discovered: () => readonly DiscoveredDevice[];
+
+  /** Sets found devices aside, or brings them back; how many discovery still had. */
+  readonly dismiss: (ids: readonly string[], isDismissed: boolean) => number;
 
   /**
    * How one vendor's devices are being heard, read when asked: what its own listener says, and
@@ -265,6 +271,7 @@ function vendorOf(
       ]),
     ],
     adoption: vendor.discovery?.plan.discovery.adopt ?? 'owner',
+    twins: manifest.twins ?? [],
     pairing:
       pairing === undefined
         ? null
@@ -457,6 +464,21 @@ export class ManagementService {
          * @returns Every device heard and not yet added.
          */
         (): DiscoveredReply => ({ items: [...this.#options.discovered()] }),
+      ),
+
+      client.serve(
+        busSubjects.service(HUB_SERVICE, HUB_DISCOVERY_DISMISS_METHOD),
+        discoveryDismissRequestSchema,
+
+        /**
+         * Sets found devices aside, or brings them back.
+         *
+         * @param request - Which, and which way.
+         * @returns How many discovery still had.
+         */
+        (request: DiscoveryDismissRequest) => ({
+          changed: this.#options.dismiss(request.ids, request.isDismissed),
+        }),
       ),
 
       client.serve(

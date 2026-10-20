@@ -11,6 +11,8 @@
  * on purpose. The controller listens on Matter's own UDP port, 5540, which the library does not let
  * be changed: another Matter controller on the same host - a Home Assistant's - takes it first.
  */
+import { createRequire } from 'node:module';
+
 import { Millis, NodeId } from '@matter/main';
 import { AttributeId, ClusterId, EndpointNumber } from '@matter/main/types';
 import {
@@ -25,6 +27,9 @@ import {
 
 import type { PlatformLogger } from '@nebulahome/logging';
 import type { MatterNodeSnapshot, MatterUpdateOffer } from '@nebulahome/package-runtime';
+
+/** The log destination commissioning steps are read from while one runs. */
+const STEPS_DESTINATION = 'commissioning-steps';
 
 /** One command, on one endpoint's cluster. */
 export type MatterInvoke = {
@@ -62,24 +67,31 @@ export type MatterFabricEvents = {
   readonly onNodes: () => void;
 };
 
+/** One node, and when it joined the fabric. */
+export type FabricNode = MatterNodeSnapshot & {
+  /** When it joined, as the controller recorded it; null when it did not say. */
+  readonly commissionedAt: Date | null;
+};
+
 /** The fabric, as the hub drives it. */
 export type MatterFabric = {
   /** The fabric's id, in hex. */
   readonly fabricId: string;
 
   /** Every node, in the order they were commissioned. */
-  readonly nodes: () => MatterNodeSnapshot[];
+  readonly nodes: () => FabricNode[];
 
   /** One node, or undefined when the fabric has none of that id. */
-  readonly node: (nodeId: string) => MatterNodeSnapshot | undefined;
+  readonly node: (nodeId: string) => FabricNode | undefined;
 
   /**
    * Commissions a node shared by another app, over the network.
    *
    * @param code - Its manual pairing code or QR text.
+   * @param onStep - Told the number of each commissioning step as it starts.
    * @returns The new node's id.
    */
-  readonly commission: (code: string) => Promise<string>;
+  readonly commission: (code: string, onStep?: (step: number) => void) => Promise<string>;
 
   /** Takes a node off the fabric. */
   readonly decommission: (nodeId: string) => Promise<void>;
@@ -107,7 +119,54 @@ export type MatterFabricOptions = {
   readonly version: string;
 
   readonly events: MatterFabricEvents;
+
+  /**
+   * Whether devices with a test certificate are commissioned too. The engine knows no answer per
+   * device: the whole controller accepts them or none, so it is opened this way only to add the
+   * one the owner said yes to.
+   */
+  readonly acceptTestCertificates?: boolean;
 };
+
+/**
+ * Which commissioning step a line of matter.js's log says started.
+ *
+ * shortcut: the steps are read from matter.js's log, since the engine reports none; upgrade when
+ * ws-controller says how a commissioning goes.
+ *
+ * @param text - The line.
+ * @returns The step's number, or undefined for any other line.
+ */
+export function commissioningStepOf(text: string): number | undefined {
+  const match = /Executing commissioning step (\d+)\.\d+:/u.exec(text);
+
+  return match?.[1] === undefined ? undefined : Number(match[1]);
+}
+
+/**
+ * Whether a commissioning failed because the device's certificate is a test one.
+ *
+ * shortcut: told by the engine's sentence, which is all it says; upgrade when ws-controller lets
+ * the hub answer the attestation itself.
+ *
+ * @param message - Why it failed.
+ * @returns True for a test certificate.
+ */
+export function isTestCertificateFailure(message: string): boolean {
+  return /test\/development certificate|test certificate/iu.test(message);
+}
+
+/** The engine under the controller, as the Brokers page names it: `matter.js 0.17`. */
+export const MATTER_ENGINE = ((): string => {
+  try {
+    const require = createRequire(import.meta.url);
+    const { version } = require('@matter/main/package.json') as { version: string };
+
+    return `matter.js ${version.split('.').slice(0, 2).join('.')}`;
+  } catch {
+    return 'matter.js';
+  }
+})();
 
 /** Opens the fabric. */
 export type OpenMatterFabric = (options: MatterFabricOptions) => Promise<MatterFabric>;
@@ -185,6 +244,7 @@ export const openMatterFabric: OpenMatterFabric = async (options) => {
     serverVersion: version,
     // No Thread here: no border router to look for, and nothing to probe for one.
     disableThreadDiagnostics: true,
+    ...(options.acceptTestCertificates === true ? { enableTestNetDcl: true } : {}),
   });
   const handler = controller.commandHandler;
 
@@ -223,17 +283,19 @@ export const openMatterFabric: OpenMatterFabric = async (options) => {
    * @param nodeId - The node.
    * @returns It, or undefined when the fabric has none of that id.
    */
-  const nodeOf = (nodeId: NodeId): MatterNodeSnapshot | undefined => {
+  const nodeOf = (nodeId: NodeId): FabricNode | undefined => {
     if (!handler.hasNode(nodeId)) {
       return undefined;
     }
 
     const details = handler.getNodeDetails(nodeId);
+    const commissionedAt = new Date(details.date_commissioned);
 
     return {
       nodeId: String(details.node_id),
       isAvailable: details.available,
       attributes: jsonSafe(details.attributes) as Record<string, unknown>,
+      commissionedAt: Number.isNaN(commissionedAt.getTime()) ? null : commissionedAt,
     };
   };
 
@@ -264,16 +326,42 @@ export const openMatterFabric: OpenMatterFabric = async (options) => {
      * Commissions a node over the network, with an id of its own.
      *
      * @param code - Its pairing code.
+     * @param onStep - Told each step as it starts.
      * @returns The node's id.
      */
-    commission: async (code) => {
+    commission: async (code, onStep) => {
       const nodeId = NodeId(
         await config.allocateNodeId((candidate) => handler.isNodeIdInUse(NodeId(candidate))),
       );
       const request = code.startsWith('MT:') ? { qrCode: code } : { manualCode: code };
-      const committed = await handler.commissionNode({ nodeId, onNetworkOnly: true, ...request });
 
-      return String(committed.nodeId);
+      // Heard only while it runs: matter.js says a line a packet at info.
+      Logger.destinations[STEPS_DESTINATION] = LogDestination({
+        name: STEPS_DESTINATION,
+        level: LogLevel.INFO,
+
+        /**
+         * Reads a step out of a line.
+         *
+         * @param text - The line.
+         */
+        write: (text) => {
+          const step = commissioningStepOf(text);
+
+          if (step !== undefined) {
+            onStep?.(step);
+          }
+        },
+      });
+
+      try {
+        const committed = await handler.commissionNode({ nodeId, onNetworkOnly: true, ...request });
+
+        return String(committed.nodeId);
+      } finally {
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- one named destination
+        delete Logger.destinations[STEPS_DESTINATION];
+      }
     },
 
     /**
