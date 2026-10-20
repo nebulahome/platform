@@ -24,7 +24,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
-import type { DiscoveredDevice, IntegrationState } from '@nebulahome/contracts';
+import type { IntegrationState } from '@nebulahome/contracts';
 import { AppIcon, Button, DetailHero, HeroFact, Pill, TabPanel, Tabs } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
@@ -33,20 +33,20 @@ import { useTab } from '@/lib/use-tab';
 import { fetchDevices, fetchDiscovered, fetchVendor, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { vendorStatusOf } from '@/library/vendor-status';
 import { useInstalledPackages } from '@/packages/use-packages';
-import { AdoptDialog } from '@/routes/library/adopt-dialog';
 import { BackLink, DetailFrame } from '@/routes/library/detail-page';
 import { DeviceDialog, type DeviceDialogTarget } from '@/routes/library/device-dialog';
 import { useNetworkScan, type ScanOutcome } from '@/routes/library/use-network-scan';
 import { VendorLogo } from '@/routes/library/vendor-card';
 import { VendorConfiguration } from '@/routes/library/vendor-configuration';
 import { VendorDevicesTab } from '@/routes/library/vendor-devices-tab';
+import { VendorFound } from '@/routes/library/vendor-found';
 import { VendorInstallMenu } from '@/routes/library/vendor-install-actions';
 import { VendorOverview } from '@/routes/library/vendor-overview';
 import { PairingButton, usePairing } from '@/routes/library/vendor-pairing';
 import { VendorSetupDialog } from '@/routes/library/vendor-setup-dialog';
 
 /** The tabs of the page; the first is the page itself. */
-const TABS = ['overview', 'devices', 'configuration'] as const;
+const TABS = ['overview', 'devices', 'found', 'configuration'] as const;
 
 /** One tab. */
 type VendorTab = (typeof TABS)[number];
@@ -100,7 +100,6 @@ export function VendorPage() {
   const canCreateTags = can('tag:write');
   const [open, setOpen] = useState<DeviceDialogTarget | null>(null);
   const [isSettingUp, setSettingUp] = useState(false);
-  const [adopting, setAdopting] = useState<DiscoveredDevice | null>(null);
   const [tab, setTab] = useTab<VendorTab>(TABS);
   const network = useNetworkScan();
   const { packages } = useInstalledPackages();
@@ -148,7 +147,9 @@ export function VendorPage() {
   const found = vendor.data;
   // A vendor that adds its own devices has nothing to propose, and nothing to look for.
   const isAutomatic = found?.adoption === 'automatic';
-  const foundDevices = (discovered.data ?? []).filter((each) => each.vendorId === vendorId);
+  const foundDevices = (discovered.data ?? []).filter(
+    (each) => each.vendorId === vendorId && !each.isDismissed,
+  );
   // Matter devices are commissioned on the Brokers page, not looked for on the network.
   const canDiscover =
     canWrite &&
@@ -162,7 +163,12 @@ export function VendorPage() {
     found.setup.transport.fields.length + found.setup.options.fields.length > 0;
   const runsContainers = found !== undefined && found.containers.length > 0;
   const hasConfiguration = hasSetupFields && !runsContainers;
-  const shownTab: VendorTab = tab === 'configuration' && !hasConfiguration ? 'overview' : tab;
+  // A vendor that adds its own devices finds nothing to go through.
+  const hasFound = found !== undefined && !isAutomatic;
+  const shownTab: VendorTab =
+    (tab === 'configuration' && !hasConfiguration) || (tab === 'found' && !hasFound)
+      ? 'overview'
+      : tab;
   const neededPackage =
     found?.needsPackage === true ? Object.keys(found.requires.packages)[0] : undefined;
 
@@ -337,6 +343,15 @@ export function VendorPage() {
                       label: t('library.vendor.devices', 'Devices'),
                       count: devices.length,
                     },
+                    ...(hasFound
+                      ? [
+                          {
+                            id: 'found' as const,
+                            label: t('library.vendor.found', 'Found'),
+                            count: foundDevices.length,
+                          },
+                        ]
+                      : []),
                     ...(hasConfiguration
                       ? [
                           {
@@ -363,7 +378,7 @@ export function VendorPage() {
                   pairing={pairing}
                   canConfigure={canConfigure}
                   canInstall={canInstall}
-                  canAdopt={canWrite}
+                  canLink={canWrite}
                   hasSetupFields={hasSetupFields}
                   scanStatus={
                     network.problem !== null
@@ -406,7 +421,21 @@ export function VendorPage() {
                   onAllDevices={() => {
                     setTab('devices');
                   }}
-                  onAdopt={setAdopting}
+                  onReviewFound={() => {
+                    setTab('found');
+                  }}
+                />
+              </TabPanel>
+            ) : null}
+
+            {shownTab === 'found' ? (
+              <TabPanel idPrefix="vendor" id="found">
+                <VendorFound
+                  vendor={found}
+                  canAdopt={canWrite && !found.needsSetup}
+                  onOpenDevices={() => {
+                    setTab('devices');
+                  }}
                 />
               </TabPanel>
             ) : null}
@@ -473,30 +502,6 @@ export function VendorPage() {
           setOpen(null);
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.entities });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.tags });
-        }}
-      />
-
-      <AdoptDialog
-        key={adopting?.id ?? 'adopt-shut'}
-        target={
-          adopting === null || found === undefined
-            ? null
-            : {
-                device: adopting,
-                vendor: found,
-                existingIds: (all.data ?? []).map((each) => each.id),
-              }
-        }
-        canCreateTags={canCreateTags}
-        onClose={() => {
-          setAdopting(null);
-        }}
-        onAdopted={() => {
-          setAdopting(null);
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.discovered });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.tags });
         }}

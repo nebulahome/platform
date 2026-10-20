@@ -31,6 +31,7 @@ import {
   scanNetwork,
 } from '@/library/api';
 import { removeIntegration } from '@/library/integration-catalogue-api';
+import { adoptFound, fetchFound } from '@/library/links-api';
 
 import { VendorPage } from './vendor-page';
 
@@ -38,6 +39,20 @@ vi.mock('@/library/integration-catalogue-api', () => ({
   installIntegration: vi.fn(),
   removeIntegration: vi.fn(),
   INTEGRATION_CATALOGUE_KEYS: { all: ['integrations', 'catalogue'] },
+}));
+
+vi.mock('@/library/links-api', () => ({
+  fetchLinkSuggestions: vi.fn(() => Promise.resolve([])),
+  dismissLinkSuggestion: vi.fn(),
+  fetchFound: vi.fn(() => Promise.resolve([])),
+  dismissFound: vi.fn(),
+  adoptFound: vi.fn(),
+  LINK_QUERY_KEYS: {
+    suggestions: ['links', 'suggestions'],
+    found: ['links', 'found'],
+    suggestionOf: ['links', 'suggestion-of'],
+    preview: ['links', 'preview'],
+  },
 }));
 
 vi.mock('@/library/api', () => ({
@@ -477,17 +492,25 @@ describe('a vendor page', () => {
 });
 
 describe('the devices of a vendor found on the network', () => {
-  it('are shown between the vendor and its devices, set apart, each with an Adopt', async () => {
+  it('are counted in the suggestions, and adopted in one step from Found', async () => {
     vi.mocked(fetchVendor).mockResolvedValue({ ...BAMBU, discoverySources: ['module'] });
     vi.mocked(fetchDevices).mockResolvedValue([device({})]);
     vi.mocked(fetchDiscovered).mockResolvedValue([FOUND]);
-    renderPage('bambu-lab', ['device:read']);
+    vi.mocked(fetchFound).mockResolvedValue([FOUND]);
+    vi.mocked(adoptFound).mockResolvedValue([
+      { id: FOUND.id, deviceId: 'bambu-lab-p1s', name: 'P1S', error: null },
+    ]);
+    renderPage('bambu-lab', ['device:read', 'device:write']);
 
-    const found = await screen.findByRole('region', { name: /Found on your network/u });
+    expect(await screen.findByText('1 device found on your network')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
 
-    expect(found.textContent).toContain('Loft printer');
-    fireEvent.click(screen.getByRole('button', { name: 'Adopt Loft printer' }));
-    expect(await screen.findByRole('dialog', { name: 'Adopt Loft printer' })).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: 'Adopt' }));
+
+    await waitFor(() => {
+      expect(adoptFound).toHaveBeenCalledWith([FOUND.id]);
+    });
+    expect(await screen.findByText('1 adopted just now')).toBeTruthy();
   });
 
   it('draw nothing when nothing of the vendor was found', async () => {
@@ -498,7 +521,7 @@ describe('the devices of a vendor found on the network', () => {
 
     await screen.findByText('Studio printer');
 
-    expect(screen.queryByRole('region', { name: /Found on your network/u })).toBeNull();
+    expect(screen.queryByText(/found on your network/u)).toBeNull();
   });
 
   it('can be looked for now, and says what the search found', async () => {

@@ -5,8 +5,9 @@
  * The strip is Runtime, Connection, Devices, Updates - each the state in a word, one line, and the
  * one action that fixes it: Set up for a vendor nobody set up, Review for devices found on the
  * network, Update for a newer release. Between the strip and the devices sit what the vendor
- * itself needs - its accounts, the containers it depends on, whether its bridge is heard - and the
- * devices of its found on the network, each with an Adopt.
+ * itself needs - its accounts, the containers it depends on, whether its bridge is heard - and its
+ * suggestions: devices that look like one reached two ways, and what it found on the network,
+ * which the Found tab goes through.
  */
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -44,12 +45,13 @@ import {
 } from '@/library/vendor-health';
 import { devicePath } from '@/routes/library/device/device-path';
 import { DeviceIcon, useDeviceIcons } from '@/routes/library/device-icon';
-import { DiscoveredStrip } from '@/routes/library/discovered-strip';
 import { MatterTag } from '@/routes/library/matter-tag';
+import { waysOfDevice, WaysTag } from '@/routes/library/transport-marks';
 import { VendorAccounts } from '@/routes/library/vendor-accounts';
 import { VendorContainers } from '@/routes/library/vendor-containers';
 import { ListenerCallout } from '@/routes/library/vendor-hearing';
 import { PairingPanel, type PairingState } from '@/routes/library/vendor-pairing';
+import { VendorSuggestions } from '@/routes/library/vendor-suggestions';
 
 /** How many devices the overview lists before "All devices". */
 const ROWS_SHOWN = 5;
@@ -99,8 +101,8 @@ export type VendorOverviewProps = {
   readonly canConfigure: boolean;
   readonly canInstall: boolean;
 
-  /** Whether the person may adopt a device found. */
-  readonly canAdopt: boolean;
+  /** Whether the person may link devices and set suggestions aside. */
+  readonly canLink: boolean;
 
   /** Whether the vendor declares settings every device shares. */
   readonly hasSetupFields: boolean;
@@ -120,8 +122,8 @@ export type VendorOverviewProps = {
   /** Opens the Devices tab. */
   readonly onAllDevices: () => void;
 
-  /** Adopts a device found. */
-  readonly onAdopt: (device: DiscoveredDevice) => void;
+  /** Opens the Found tab. */
+  readonly onReviewFound: () => void;
 };
 
 /**
@@ -140,14 +142,14 @@ export function VendorOverview(props: VendorOverviewProps) {
     pairing,
     canConfigure,
     canInstall,
-    canAdopt,
+    canLink,
     hasSetupFields,
     scanStatus,
     addButton,
     onConfigure,
     onSetUp,
     onAllDevices,
-    onAdopt,
+    onReviewFound,
   } = props;
   const install = useIntegrationInstall(() => undefined);
   const icons = useDeviceIcons(devices);
@@ -196,10 +198,7 @@ export function VendorOverview(props: VendorOverviewProps) {
               : {
                   icon: 'eye',
                   verb: t('library.vendorOverview.review', 'Review'),
-                  /** Does what the corner says. */
-                  onSelect: () => {
-                    document.getElementById('vendor-found')?.scrollIntoView({ block: 'center' });
-                  },
+                  onSelect: onReviewFound,
                 }
           }
         />
@@ -297,14 +296,12 @@ export function VendorOverview(props: VendorOverviewProps) {
         </p>
       )}
 
-      <div id="vendor-found">
-        <DiscoveredStrip
-          devices={[...found]}
-          vendors={[vendor]}
-          canAdopt={canAdopt && !vendor.needsSetup}
-          onAdopt={onAdopt}
-        />
-      </div>
+      <VendorSuggestions
+        vendor={vendor}
+        found={found}
+        canLink={canLink}
+        onReviewFound={onReviewFound}
+      />
 
       <Section title={t('library.vendorOverview.devices', 'Devices')} actions={addButton}>
         {rows.length === 0 ? (
@@ -332,7 +329,11 @@ export function VendorOverview(props: VendorOverviewProps) {
                   title={
                     <span className="flex min-w-0 items-center gap-2">
                       <span className="truncate">{device.name}</span>
-                      <MatterTag transport={device.transport} />
+                      {device.linked === null ? (
+                        <MatterTag transport={device.transport} />
+                      ) : (
+                        <WaysTag ways={waysOfDevice(device)} />
+                      )}
                     </span>
                   }
                   subtitle={[device.model ?? device.driverName, device.areaName]
