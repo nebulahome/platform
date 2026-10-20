@@ -14,6 +14,7 @@ import {
   ArrowDown,
   ArrowDownToLine,
   ArrowRight,
+  ArrowRightLeft,
   ArrowUp,
   ArrowUpDown,
   ArrowUpToLine,
@@ -293,6 +294,7 @@ export const BUILTIN_UI_NODES = {
   'shield-alert': drawing(ShieldAlert),
   plug: drawing(Plug),
   'loader-circle': drawing(LoaderCircle),
+  'arrow-right-left': drawing(ArrowRightLeft),
 } satisfies Record<string, IconNode>;
 
 /** A catalogue id the interface draws itself with. */

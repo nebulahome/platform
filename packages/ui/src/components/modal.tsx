@@ -80,8 +80,17 @@ const dialogBox = cva('m-auto p-0 backdrop:bg-scrim open:animate-fade-in', {
       /** The default: a short form. */
       medium: 'w-[min(92vw,29rem)]',
 
+      /** A few fields and a choice: an entity's settings. */
+      brief: 'w-[min(92vw,35rem)]',
+
+      /** A form of a few sections: a device's settings, the code a Matter device is added by. */
+      form: 'w-[min(92vw,37.5rem)]',
+
       /** A form with several fields, or something with a list in it. */
       large: 'w-[min(92vw,40rem)]',
+
+      /** Two things side by side, and what joins them: a twin found, offered to link. */
+      wide: 'w-[min(92vw,42.5rem)]',
 
       /** A picker of choices laid out two to a row: the automation editor's Add a block. */
       picker: 'w-[min(92vw,45rem)]',
@@ -102,7 +111,10 @@ const dialogBox = cva('m-auto p-0 backdrop:bg-scrim open:animate-fade-in', {
   compoundVariants: [
     { isPaired: true, size: 'small', className: 'w-[min(94vw,45rem)]' },
     { isPaired: true, size: 'medium', className: 'w-[min(94vw,48rem)]' },
+    { isPaired: true, size: 'brief', className: 'w-[min(94vw,59rem)]' },
+    { isPaired: true, size: 'form', className: 'w-[min(94vw,59rem)]' },
     { isPaired: true, size: 'large', className: 'w-[min(94vw,59rem)]' },
+    { isPaired: true, size: 'wide', className: 'w-[min(94vw,59rem)]' },
     { isPaired: true, size: 'picker', className: 'w-[min(94vw,59rem)]' },
     { isPaired: true, size: 'xlarge', className: 'w-[min(94vw,59rem)]' },
   ],
@@ -147,11 +159,12 @@ export type ModalProps = Pick<VariantProps<typeof dialogBox>, 'size'> & {
    * How the card is laid out. `plain`: the title over the body, the controls at its foot.
    * `sections`: a header bar - whatever leads it, the title, a close button - a body that scrolls
    * on its own, and a foot bar; the card keeps one height, so a dialog with pages does not jump
-   * as they change.
+   * as they change. `card`: the same bars round a padded body, the card as tall as what it holds
+   * - a confirmation with its consequences, a short form, a job's steps.
    */
-  readonly layout?: 'plain' | 'sections';
+  readonly layout?: 'plain' | 'sections' | 'card';
 
-  /** In the `sections` layout: what stands before the title - a way back, an icon. */
+  /** In the `sections` and `card` layouts: what stands before the title - a way back, an icon. */
   readonly lead?: ReactNode;
 
   /** In the `sections` layout: what the close button is called. */
@@ -330,9 +343,41 @@ export function Modal(props: ModalProps) {
     </div>
   );
 
+  const card = (
+    <div className="flex max-h-[88vh] flex-col">
+      <header className="flex shrink-0 items-center gap-3.5 border-b border-border px-6 py-5">
+        {lead}
+        <div className="flex min-w-0 grow flex-col gap-0.5">
+          <h2 id={titleId} className="truncate text-headline-sm font-medium">
+            {title}
+          </h2>
+          {description === undefined ? null : (
+            <p id={descriptionId} className="truncate text-ui-sm text-foreground-subtle">
+              {description}
+            </p>
+          )}
+        </div>
+        {trail}
+        <IconButton label={closeLabel} onClick={onClose}>
+          <AppIcon id="x" size={16} />
+        </IconButton>
+      </header>
+
+      <div className="flex min-h-0 grow flex-col gap-5 overflow-y-auto px-6 py-5.5">{children}</div>
+
+      {footer === undefined ? null : (
+        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border px-6 py-3.5">
+          {footer}
+        </footer>
+      )}
+    </div>
+  );
+
   const body =
     layout === 'sections' ? (
       sections
+    ) : layout === 'card' ? (
+      card
     ) : (
       <div className="flex flex-col gap-5 p-6">
         <div className="flex items-start gap-3">

@@ -54,11 +54,19 @@ export function LinkedTag(props: LinkedTagProps) {
           {t('ui.linkedTag.linked', 'Linked')}
         </span>
       ) : null}
-      <span className="flex items-center gap-0.5" aria-hidden="true">
+      <span className="flex items-center" aria-hidden="true">
         {marks.map((mark, index) => (
-          // The marks are the transports', in order, and never reordered.
-          // eslint-disable-next-line react/no-array-index-key -- see above
-          <span key={index} className="flex size-4 overflow-hidden rounded-xs">
+          <span
+            // The marks are the transports', in order, and never reordered.
+            // eslint-disable-next-line react/no-array-index-key -- see above
+            key={index}
+            className={cn(
+              'flex overflow-hidden rounded-check',
+              isLabelled ? 'size-4' : 'size-3.5',
+              // Each laps the one before it, cut out of it by a ring of the ground.
+              index > 0 && '-ml-0.5 ring-2 ring-surface',
+            )}
+          >
             {mark}
           </span>
         ))}
@@ -66,8 +74,10 @@ export function LinkedTag(props: LinkedTagProps) {
     </>
   );
 
-  const shape =
-    'inline-flex h-6 shrink-0 items-center gap-1.25 rounded-pill border pr-0.75 pl-2 align-middle';
+  const shape = cn(
+    'inline-flex shrink-0 items-center gap-1.25 rounded-pill border pr-0.75 pl-2 align-middle',
+    isLabelled ? 'h-6' : 'h-5.5',
+  );
   const look = 'border-primary/40 bg-linear-to-r from-primary/16 to-violet/10';
 
   if (onUnlink === undefined) {

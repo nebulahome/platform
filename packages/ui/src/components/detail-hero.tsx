@@ -140,8 +140,8 @@ export type HeroFactProps = {
 };
 
 /**
- * One fact of the hero, after its state: a version, how it talks, where it is. A 26px rectangle
- * on `surface-raised` with 12px `foreground-muted` text.
+ * One fact of the hero, after its state: a version, how it talks, where it is. A 24px pill on
+ * `surface-raised` with 12px `foreground-muted` text.
  *
  * @param props - See {@link HeroFactProps}.
  * @returns The fact.
@@ -152,7 +152,7 @@ export function HeroFact(props: HeroFactProps) {
   return (
     <span
       className={cn(
-        'inline-flex h-6.5 shrink-0 items-center gap-1.5 rounded-chip bg-surface-raised px-2.5',
+        'inline-flex h-6 shrink-0 items-center gap-1.5 rounded-pill bg-surface-raised px-2.5',
         'text-caption whitespace-nowrap text-foreground-muted',
         className,
       )}

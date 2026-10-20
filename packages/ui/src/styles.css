@@ -555,8 +555,25 @@
   animation: link-pulse 1.6s ease-out infinite;
 }
 
+/* What two things become once linked: a glow round its card. */
+.link-halo {
+  box-shadow: 0 0 30px -10px color-mix(in oklab, var(--color-primary) 60%, transparent);
+}
+
+/* The chain between two things linked, or about to be: a ring, and a glow round it. */
+.link-glow {
+  box-shadow:
+    0 0 0 6px color-mix(in oklab, var(--color-primary) 12%, transparent),
+    0 0 24px color-mix(in oklab, var(--color-primary) 40%, transparent);
+}
+
 .matter-orbit {
   animation: matter-spin 24s linear infinite;
+}
+
+/* What rides the orbit, turned back as fast as it is carried round: it stays upright. */
+.matter-upright {
+  animation: matter-spin 24s linear infinite reverse;
 }
 
 .matter-breathe {
@@ -572,13 +589,13 @@
 }
 
 [data-motion='reduced']
-  :is(.link-pulse, .matter-orbit, .matter-breathe, .matter-wave, .matter-shake) {
+  :is(.link-pulse, .matter-orbit, .matter-upright, .matter-breathe, .matter-wave, .matter-shake) {
   animation: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-motion='full'])
-    :is(.link-pulse, .matter-orbit, .matter-breathe, .matter-wave, .matter-shake) {
+    :is(.link-pulse, .matter-orbit, .matter-upright, .matter-breathe, .matter-wave, .matter-shake) {
     animation: none;
   }
 }

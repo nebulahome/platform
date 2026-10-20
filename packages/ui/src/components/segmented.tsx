@@ -102,6 +102,9 @@ export type SegmentedProps<TValue extends string> = VariantProps<typeof track> &
 
   /** Anything extra for the outer element. */
   readonly className?: string;
+
+  /** Across the whole width, the options sharing it equally: a choice in a form. */
+  readonly isFilled?: boolean;
 };
 
 /** Where the pill sits inside the track. */
@@ -120,7 +123,16 @@ type PillBox = {
  * @returns The control.
  */
 export function Segmented<TValue extends string>(props: SegmentedProps<TValue>) {
-  const { label, options, value, onChange, size, disabled = false, className } = props;
+  const {
+    label,
+    options,
+    value,
+    onChange,
+    size,
+    disabled = false,
+    className,
+    isFilled = false,
+  } = props;
 
   const name = useId();
   const trackElement = useRef<HTMLDivElement>(null);
@@ -164,7 +176,7 @@ export function Segmented<TValue extends string>(props: SegmentedProps<TValue>) 
       ref={trackElement}
       role="radiogroup"
       aria-label={label}
-      className={cn(track({ size }), className)}
+      className={cn(track({ size }), isFilled && 'w-full', className)}
     >
       <span
         aria-hidden="true"
@@ -184,7 +196,13 @@ export function Segmented<TValue extends string>(props: SegmentedProps<TValue>) 
         const isChosen = index === chosenIndex;
 
         return (
-          <label key={choice.value} className={option({ size, isChosen, isDisabled: disabled })}>
+          <label
+            key={choice.value}
+            className={cn(
+              option({ size, isChosen, isDisabled: disabled }),
+              isFilled && 'grow basis-0 justify-center',
+            )}
+          >
             <input
               type="radio"
               name={name}

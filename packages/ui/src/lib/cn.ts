@@ -32,6 +32,13 @@ const twMerge = extendTailwindMerge({
       radius: ['check', 'chip', 'field', 'tile', 'inner', 'card', 'panel', 'dialog', 'pill'],
       shadow: ['edge', 'focus', 'float', 'dialog'],
     },
+
+    // The control heights are the theme's own utilities: told apart from `h-*` they would both
+    // stay, and the stylesheet's order - not the caller - would pick the height.
+    classGroups: {
+      h: [{ h: ['control-sm', 'control', 'control-field', 'control-lg', 'control-xl'] }],
+      size: [{ size: ['control-sm', 'control'] }],
+    },
   },
 });
 

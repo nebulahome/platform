@@ -53,6 +53,9 @@ export function RowList(props: RowListProps) {
 
 /** What a row needs. */
 export type ListRowProps = {
+  /** Before the well: the line a row behind a bridge hangs from. */
+  readonly lead?: ReactNode;
+
   /** The glyph in its well, coloured by the caller. */
   readonly icon?: ReactNode;
 
@@ -93,11 +96,12 @@ const ROW =
  * @returns The row.
  */
 export function ListRow(props: ListRowProps) {
-  const { icon, title, subtitle, meta, trailing, hasChevron = false, wrap } = props;
+  const { lead, icon, title, subtitle, meta, trailing, hasChevron = false, wrap } = props;
 
   const parts = (
     <>
       <span className="flex min-w-0 grow items-center gap-3.5">
+        {lead}
         {icon === undefined ? null : (
           <span className="flex size-9 shrink-0 items-center justify-center rounded-field bg-surface-raised text-foreground-muted">
             {icon}

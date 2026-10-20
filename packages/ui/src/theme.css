@@ -544,3 +544,15 @@
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/*
+ * The Matter mark's square, lit violet from its top-left corner: the broker's hero and its
+ * dialogs' lead. Over the square's own ground, so it sits on `bg-surface-raised`.
+ */
+@utility matter-glow {
+  background-image: radial-gradient(
+    120% 120% at 0% 0%,
+    color-mix(in srgb, var(--color-violet) 22%, transparent),
+    transparent 60%
+  );
+}

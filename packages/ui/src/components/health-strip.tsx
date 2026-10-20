@@ -108,6 +108,9 @@ export type HealthAction = {
   readonly verb: string;
   readonly onSelect: () => void;
   readonly isBusy?: boolean;
+
+  /** Drawn in the primary colour: something ready to do, like a firmware to install. */
+  readonly isPrimary?: boolean;
 };
 
 /**
@@ -138,15 +141,14 @@ export function HealthCard(props: HealthCardProps) {
 
   return (
     <div className="relative min-w-0 bg-surface">
-      <div
-        className={cn(
-          'flex h-full flex-col gap-1 px-4.5 pt-3.5 pb-4',
-          action !== undefined && 'pr-12',
-          look.ground,
-        )}
-      >
-        <span className="flex items-center gap-2 text-caption whitespace-nowrap text-foreground-muted">
-          <AppIcon id={look.icon} size={14} className={look.glyph} />
+      <div className={cn('flex h-full flex-col gap-1 px-4.5 pt-3.5 pb-4', look.ground)}>
+        <span
+          className={cn(
+            'flex items-center gap-2 text-caption whitespace-nowrap text-foreground-muted',
+            action !== undefined && 'pr-7.5',
+          )}
+        >
+          <AppIcon id={look.icon} size={16} className={look.glyph} />
           {label}
         </span>
         <span className={cn('mt-1 truncate text-subhead font-medium', look.word)}>{value}</span>
@@ -162,7 +164,12 @@ export function HealthCard(props: HealthCardProps) {
           aria-busy={action.isBusy === true ? true : undefined}
           disabled={action.isBusy === true}
           onClick={action.onSelect}
-          className="absolute top-2.5 right-2.5 flex size-7.5 items-center justify-center rounded-pill border border-primary/45 bg-primary/14 text-primary transition-colors hover:bg-primary/25 focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none disabled:opacity-60"
+          className={cn(
+            'absolute top-2.5 right-2.5 flex size-7.5 items-center justify-center rounded-pill border transition-colors focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none disabled:opacity-60',
+            action.isPrimary === true
+              ? 'border-primary/45 bg-primary/14 text-primary hover:bg-primary/25'
+              : 'border-border-strong bg-surface-raised text-foreground-muted hover:bg-surface-high hover:text-foreground',
+          )}
         >
           <AppIcon id={action.isBusy === true ? 'loader-circle' : action.icon} size={15} />
         </button>
