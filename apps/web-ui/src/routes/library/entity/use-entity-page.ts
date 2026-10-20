@@ -146,7 +146,12 @@ export function useEntityPage(entityId: string): EntityPageData {
   });
 
   const data = entity.data;
-  const device = devices.data?.find((candidate) => candidate.id === data?.source);
+  // A reading linked across two ways belongs to the one device both ways are.
+  const device = devices.data?.find(
+    (candidate) =>
+      candidate.id === data?.source ||
+      (candidate.linked?.ways.some((way) => way.deviceId === data?.source) ?? false),
+  );
   const icons = useCatalogueIcons([
     data?.icon ?? null,
     device?.icon ?? null,

@@ -42,6 +42,8 @@ import {
 import { activeStats, durationText, numericStats } from '@/library/history-stats';
 import { RecentChanges } from '@/routes/library/entity/recent-changes';
 import { StateBand } from '@/routes/library/entity/state-band';
+import { TransportBand } from '@/routes/library/entity/transport-band';
+import { sourceStretches, type EntityWays } from '@/routes/library/entity/transport-panel';
 
 /** How often an open panel reads a window ending now again. */
 const REFRESH_MS = 60_000;
@@ -88,6 +90,9 @@ export type HistoryPanelProps = {
 
   /** Its state now, as JSON, for the same reason. */
   readonly current: JsonObject | null;
+
+  /** How it is read, for one read two ways: each change says which way it came in. */
+  readonly ways?: EntityWays | null;
 };
 
 /**
@@ -150,7 +155,7 @@ function Figure(props: FigureProps) {
 export function HistoryPanel(props: HistoryPanelProps) {
   const { t } = useTranslation();
 
-  const { entity, reading, current } = props;
+  const { entity, reading, current, ways = null } = props;
   const [choice, setChoice] = useState<HistoryChoice>(INITIAL_CHOICE);
   const [fieldIndex, setFieldIndex] = useState(0);
   const [isTable, setTable] = useState(false);
@@ -200,7 +205,8 @@ export function HistoryPanel(props: HistoryPanelProps) {
 
       return { window, points };
     },
-    enabled: !isNumeric,
+    // A reading read two ways reads its rows too: they say which way each came in.
+    enabled: !isNumeric || ways !== null,
     refetchInterval,
   });
 
@@ -226,6 +232,15 @@ export function HistoryPanel(props: HistoryPanelProps) {
   const withUnit = (value: number): string =>
     unit === '' ? numbers().format(value) : `${numbers().format(value)} ${unit}`;
   const isBanded = segments.some((segment) => segment.isActive);
+  const stretches =
+    ways === null || changes.data === undefined
+      ? []
+      : sourceStretches(changes.data.points, changes.data.window.to);
+  const fallbackStretches = stretches.filter(
+    (stretch) => stretch.source === ways?.second.source.deviceId,
+  );
+  const fallbackMs = fallbackStretches.reduce((sum, stretch) => sum + stretch.to - stretch.from, 0);
+  const lastFallback = fallbackStretches.at(-1);
 
   return (
     <>
@@ -299,10 +314,28 @@ export function HistoryPanel(props: HistoryPanelProps) {
                       })
                 }
               />
-              <Figure
-                label={t('entity.historyPanel.longest', 'Longest')}
-                value={durationText(active.longestMs)}
-              />
+              {ways === null ? (
+                <Figure
+                  label={t('entity.historyPanel.longest', 'Longest')}
+                  value={durationText(active.longestMs)}
+                />
+              ) : (
+                <Figure
+                  label={t('entity.historyPanel.through', 'Through {{way}}', {
+                    way: ways.second.name,
+                  })}
+                  value={durationText(fallbackMs)}
+                  note={
+                    lastFallback === undefined
+                      ? t('entity.historyPanel.notInWindow', 'not in this window')
+                      : dateTimeFormat({
+                          weekday: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }).format(new Date(lastFallback.from))
+                  }
+                />
+              )}
             </div>
           ) : null}
 
@@ -377,6 +410,14 @@ export function HistoryPanel(props: HistoryPanelProps) {
                     />
                   </div>
                 )}
+                {ways === null || stretches.length === 0 ? null : (
+                  <TransportBand
+                    ways={ways}
+                    stretches={stretches}
+                    window={changes.data.window}
+                    fallbackMs={fallbackMs}
+                  />
+                )}
                 {field === undefined ? null : (
                   <div className="flex flex-col gap-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -426,7 +467,24 @@ export function HistoryPanel(props: HistoryPanelProps) {
             )
           ) : null}
 
+          {isNumeric && ways !== null && changes.data !== undefined && stretches.length > 0 ? (
+            <TransportBand
+              ways={ways}
+              stretches={stretches}
+              window={changes.data.window}
+              fallbackMs={fallbackMs}
+            />
+          ) : null}
+
           <p className="flex flex-wrap items-center gap-x-2 text-caption text-foreground-subtle">
+            {ways === null ? null : (
+              <span>
+                {t(
+                  'entity.historyPanel.keptWithWay',
+                  'Each reading is kept with the way it came in.',
+                )}
+              </span>
+            )}
             {t('entity.historyPanel.timesAreLocal', 'Times are local ({{zone}}).', {
               zone: TIME_ZONE,
             })}
@@ -449,7 +507,7 @@ export function HistoryPanel(props: HistoryPanelProps) {
 
       {!isNumeric && changes.data !== undefined ? (
         <Section title={t('entity.historyPanel.recentChanges', 'Recent changes')}>
-          <RecentChanges entity={entity} points={changes.data.points} />
+          <RecentChanges entity={entity} points={changes.data.points} ways={ways} />
         </Section>
       ) : null}
     </>

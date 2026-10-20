@@ -20,6 +20,7 @@ import { absoluteTime, relativeTime } from '@/lib/format-time';
 import { miredsToKelvin, paramsOf } from '@/library/entity-control';
 import { capabilityLabel, entityKindOf } from '@/library/entity-kind';
 import { devicePath } from '@/routes/library/device/device-path';
+import type { EntityWays } from '@/routes/library/entity/transport-panel';
 import type { EntityPageView } from '@/routes/library/entity/use-entity-page';
 
 /**
@@ -110,6 +111,9 @@ export function When(props: { readonly when: Date | null }) {
 /** What the panel needs. */
 export type DetailsPanelProps = {
   readonly view: EntityPageView;
+
+  /** How it is read, for one read two ways. */
+  readonly ways?: EntityWays | null;
 };
 
 /**
@@ -121,7 +125,7 @@ export type DetailsPanelProps = {
 export function DetailsPanel(props: DetailsPanelProps) {
   const { t } = useTranslation();
 
-  const { view } = props;
+  const { view, ways = null } = props;
   const { entity, device, vendorName, room, floor, tags, icons } = view;
   const [isCopied, setCopied] = useState(false);
   const sensorClass = getSensorClass(entity.deviceClass);
@@ -164,10 +168,18 @@ export function DetailsPanel(props: DetailsPanelProps) {
               {device.name}
             </Link>
           )}
-          {vendorName === null ? null : (
+          {vendorName === null || ways !== null ? null : (
             <span className="text-foreground-subtle"> · {vendorName}</span>
           )}
         </Fact>
+        {ways === null ? null : (
+          <Fact term={t('entity.detailsPanel.transport', 'Transport')}>
+            {t('entity.detailsPanel.firstThenFallback', '{{first}} first, {{second}} as fallback', {
+              first: ways.first.name,
+              second: ways.second.name,
+            })}
+          </Fact>
+        )}
         <Fact term={t('entity.detailsPanel.room', 'Room')}>
           {place === '' ? (
             <span className="text-foreground-subtle">

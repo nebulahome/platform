@@ -4,7 +4,8 @@
  * The whole row is the link - the name alone is a small target for the one thing a row leads to -
  * stretched over the row the way an entity's is. As the board draws the table: the device's glyph,
  * its name with its model under it, the integration, the room, how many entities, its status as a
- * Pill, and when it was last heard from, in mono.
+ * Pill, and when it was last heard from, in mono. A device reached two ways has the linked tag
+ * after its name, and both ways in the integration's column: "Shelly · Matter".
  */
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
@@ -17,6 +18,7 @@ import { type DeviceStanding } from '@/library/entity-reading';
 import { devicePath } from '@/routes/library/device/device-path';
 import { DeviceIcon } from '@/routes/library/device-icon';
 import { MatterTag } from '@/routes/library/matter-tag';
+import { useVendorsById, waysOfDevice, WaysTag, wayName } from '@/routes/library/transport-marks';
 
 /**
  * The column widths, shared by the header and every row so they line up.
@@ -82,6 +84,8 @@ export function DeviceRow(props: DeviceRowProps) {
   const { t } = useTranslation();
 
   const { device, vendorName, icon, entityCount, standing, status, now } = props;
+  const vendors = useVendorsById();
+  const ways = waysOfDevice(device);
   const make = [device.manufacturer, device.model].filter(Boolean).join(' ');
   const subtitle = make === '' ? (device.externalId ?? device.id) : make;
 
@@ -94,21 +98,32 @@ export function DeviceRow(props: DeviceRowProps) {
           <DeviceIcon icon={icon} device={device} />
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
-          <Link
-            to={devicePath(device.id)}
-            data-row-link
-            title={device.id}
-            className="truncate text-ui font-medium text-foreground after:absolute after:inset-0 focus-visible:outline-none"
-          >
-            {device.name}
-          </Link>
+          <span className="flex min-w-0 items-center gap-1">
+            <Link
+              to={devicePath(device.id)}
+              data-row-link
+              title={device.id}
+              className="truncate text-ui font-medium text-foreground after:absolute after:inset-0 focus-visible:outline-none"
+            >
+              {device.name}
+            </Link>
+            <WaysTag ways={ways} />
+          </span>
           <span className="truncate text-caption text-foreground-subtle">{subtitle}</span>
         </span>
       </span>
 
       <span className="hidden min-w-0 items-center gap-2 md:flex">
-        <span className="truncate text-ui text-foreground-muted">{vendorName}</span>
-        <MatterTag transport={device.transport} />
+        {ways.length > 1 ? (
+          <span className="truncate text-ui text-foreground-muted">
+            {ways.map((way) => wayName(way, vendors, t('library.matterTag', 'Matter'))).join(' · ')}
+          </span>
+        ) : (
+          <>
+            <span className="truncate text-ui text-foreground-muted">{vendorName}</span>
+            <MatterTag transport={device.transport} />
+          </>
+        )}
       </span>
 
       <span className="hidden truncate text-ui text-foreground-muted lg:block">

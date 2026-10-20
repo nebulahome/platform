@@ -16,12 +16,18 @@
  * The address - `sensor.shelly_bench_relay_current` - is not printed. It is what automations and
  * history name an entity by, not what a person recognises it by; it is still what the search
  * finds, it sits on the name as a tooltip, and the entity's page shows it as a fact.
+ *
+ * On a device reached two ways a row says which way it reads through: a linked entity has the
+ * small linked tag after its name, one read one way has that way's mark after what it is -
+ * "Power sensor · [S] Shelly". While one is dragged onto another to link them the row shows how
+ * it takes part: lifted, the slot it left, the one it would join, or dimmed.
  */
+import type { HTMLAttributes, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { CapabilityState, EntityView, IconView, TagView } from '@nebulahome/contracts';
-import { AppIcon, TagChip } from '@nebulahome/ui';
+import { AppIcon, cn, TagChip } from '@nebulahome/ui';
 
 import { entityKindOf } from '@/library/entity-kind';
 import { type Reading } from '@/library/entity-reading';
@@ -76,6 +82,18 @@ export type EntityRowProps = {
    * instead of taking them to another page to open there.
    */
   readonly onConfigure?: ((entity: EntityView) => void) | undefined;
+
+  /** After the name: the linked tag of an entity read two ways. */
+  readonly titleAfter?: ReactNode;
+
+  /** After what it is: the mark and name of the one way it is read through. */
+  readonly kindAfter?: ReactNode;
+
+  /** How it takes part in a drag to link: the one it would join, or another, dimmed. */
+  readonly look?: 'rest' | 'target' | 'dimmed' | 'lifted';
+
+  /** What takes the row up to drag it, and the keys that move it. */
+  readonly handle?: HTMLAttributes<HTMLLIElement> | undefined;
 };
 
 /**
@@ -90,7 +108,7 @@ export type EntityRowProps = {
 export function EntityRow(props: EntityRowProps) {
   const { t } = useTranslation();
 
-  const { line, deviceAreaKey, onConfigure } = props;
+  const { line, deviceAreaKey, onConfigure, titleAfter, kindAfter, look = 'rest', handle } = props;
   const { entity, reading, state, reportedAt, icon, tags, canControl } = line;
   const kind = entityKindOf(entity);
   const hasPower = entity.capabilities.some((entry) => entry.capability === 'on_off');
@@ -100,63 +118,92 @@ export function EntityRow(props: EntityRowProps) {
   const hiddenTags = tags.length - shownTags.length;
 
   return (
-    <li className="relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-field border border-border bg-surface-raised py-2 pr-2.5 pl-2.5 transition-colors hover:border-border-strong has-[[data-row-link]:focus-visible]:ring-3 has-[[data-row-link]:focus-visible]:ring-primary/25 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto]">
-      <EntityTile
-        icon={icon}
-        kind={kind}
-        isActive={isActiveState(state)}
-        isAvailable={reading.isAvailable}
-      />
+    <li
+      {...handle}
+      data-link-row={entity.entityId}
+      className={cn(
+        'relative flex min-w-0 items-center gap-4.5 border-t border-border py-3.5 transition-[opacity,background-color] first:border-t-0 has-[[data-row-link]:focus-visible]:ring-3 has-[[data-row-link]:focus-visible]:ring-primary/25',
+        look === 'dimmed' && 'opacity-35',
+        look === 'target' &&
+          'link-glow -mx-3 rounded-inner border border-primary bg-primary/8 px-3 first:border-t',
+        look === 'lifted' &&
+          '-rotate-1 rounded-inner border border-violet/45 bg-surface-raised px-4.5 shadow-float',
+      )}
+    >
+      <span className="flex min-w-0 grow items-center gap-3.5">
+        <EntityTile
+          icon={icon}
+          kind={kind}
+          isActive={isActiveState(state)}
+          isAvailable={reading.isAvailable}
+          size="well"
+          isPlain
+        />
 
-      <span className="flex min-w-0 flex-col gap-1">
-        <Link
-          to={entityPath(entity.entityId)}
-          data-row-link
-          title={entity.entityId}
-          data-entity-id={entity.entityId}
-          className="truncate text-ui font-medium text-foreground after:absolute after:inset-0 after:rounded-field focus-visible:outline-none"
-        >
-          {entity.name}
-        </Link>
-        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-caption text-foreground-subtle">
-          <span className="truncate">
-            {kind.label}
-            {room === null ? null : t('library.entityRow.room', ' · {{room}}', { room })}
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="flex min-w-0 items-center gap-2">
+            <Link
+              to={entityPath(entity.entityId)}
+              data-row-link
+              title={entity.entityId}
+              data-entity-id={entity.entityId}
+              className="truncate text-ui font-medium text-foreground after:absolute after:inset-0 after:rounded-field focus-visible:outline-none"
+            >
+              {entity.name}
+            </Link>
+            {titleAfter === undefined ? null : (
+              <span className="relative z-10 flex">{titleAfter}</span>
+            )}
           </span>
-          {entity.isHidden ? (
-            <span
-              className="inline-flex items-center gap-1"
-              title={t('library.entityRow.hiddenFromListsBy', 'Hidden from lists by default')}
-            >
-              <AppIcon id="eye-off" size={12} />
-              <span>{t('library.entityRow.hidden', 'Hidden')}</span>
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-ui-sm text-foreground-subtle">
+            <span className="inline-flex min-w-0 items-center gap-1.5 truncate">
+              {kind.label}
+              {room === null ? null : t('library.entityRow.room', ' · {{room}}', { room })}
+              {kindAfter === undefined ? null : (
+                <>
+                  <span aria-hidden="true">·</span>
+                  {kindAfter}
+                </>
+              )}
             </span>
-          ) : null}
-          {shownTags.map(({ tag, icon: tagIcon }) => (
-            <TagChip key={tag.id} color={tag.color} icon={tagIcon} size="small">
-              {tag.name}
-            </TagChip>
-          ))}
-          {hiddenTags > 0 ? (
-            <span
-              title={tags
-                .slice(TAGS_SHOWN)
-                .map(({ tag }) => tag.name)
-                .join(', ')}
-            >
-              +{hiddenTags}
-            </span>
-          ) : null}
+            {entity.isHidden ? (
+              <span
+                className="inline-flex items-center gap-1"
+                title={t('library.entityRow.hiddenFromListsBy', 'Hidden from lists by default')}
+              >
+                <AppIcon id="eye-off" size={12} />
+                <span>{t('library.entityRow.hidden', 'Hidden')}</span>
+              </span>
+            ) : null}
+            {shownTags.map(({ tag, icon: tagIcon }) => (
+              <TagChip key={tag.id} color={tag.color} icon={tagIcon} size="small">
+                {tag.name}
+              </TagChip>
+            ))}
+            {hiddenTags > 0 ? (
+              <span
+                title={tags
+                  .slice(TAGS_SHOWN)
+                  .map(({ tag }) => tag.name)
+                  .join(', ')}
+              >
+                +{hiddenTags}
+              </span>
+            ) : null}
+          </span>
         </span>
       </span>
 
-      <EntityStateSummary
-        reading={reading}
-        state={state}
-        className="max-sm:col-start-2 max-sm:row-start-2 sm:justify-self-end"
-      />
+      {look === 'target' ? (
+        <span className="inline-flex h-6 shrink-0 items-center gap-1.5 rounded-pill bg-primary px-2.5 text-caption font-medium whitespace-nowrap text-primary-foreground">
+          <AppIcon id="link-2" size={13} />
+          {t('library.entityRow.releaseToLink', 'Release to link')}
+        </span>
+      ) : null}
 
-      <span className="flex items-center justify-end gap-1.5 max-sm:col-start-3 max-sm:row-span-2 max-sm:row-start-1">
+      <EntityStateSummary reading={reading} state={state} className="shrink-0 justify-end" />
+
+      <span className="flex shrink-0 items-center justify-end gap-2.5">
         {hasPower ? (
           <QuickPowerSwitch
             entityId={entity.entityId}

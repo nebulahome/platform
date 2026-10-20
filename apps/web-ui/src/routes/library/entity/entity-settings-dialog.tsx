@@ -19,12 +19,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { EntityUpdate, EntityView } from '@nebulahome/contracts';
-import { Button, Modal } from '@nebulahome/ui';
+import { integrationIdSchema, type EntityUpdate, type EntityView } from '@nebulahome/contracts';
+import { Button, Modal, Segmented } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { LIBRARY_QUERY_KEYS, updateEntity } from '@/library/api';
+import { entityKindOf } from '@/library/entity-kind';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
+import { useEntityWays } from '@/routes/library/entity/transport-panel';
+import { EntityTile } from '@/routes/library/entity-tile';
 import { NameIconField } from '@/routes/library/name-icon-field';
 import { TagField } from '@/routes/library/tag-field';
 import { useTags } from '@/routes/library/use-tags';
@@ -54,6 +57,7 @@ export type EntitySettingsDialogProps = {
  * @param name - The name as typed.
  * @param icon - The icon as picked.
  * @param tagIds - The tags as they now stand.
+ * @param transport - The way read first, as chosen; null to follow the device.
  * @returns The change, or null when there is none.
  */
 export function diffOf(
@@ -61,6 +65,7 @@ export function diffOf(
   name: string,
   icon: string | null,
   tagIds: readonly string[],
+  transport: string | null,
 ): EntityUpdate | null {
   const trimmed = name.trim();
   const sameTags =
@@ -69,6 +74,9 @@ export function diffOf(
     ...(trimmed === opened.name ? {} : { name: trimmed }),
     ...(icon === opened.icon ? {} : { icon }),
     ...(sameTags ? {} : { tagIds: [...tagIds] }),
+    ...(opened.linked == null || transport === opened.linked.transport
+      ? {}
+      : { transport: transport === null ? null : integrationIdSchema.parse(transport) }),
   };
 
   return Object.keys(change).length === 0 ? null : change;
@@ -92,7 +100,18 @@ export function EntitySettingsDialog(props: EntitySettingsDialogProps) {
   const [icon, setIcon] = useState<string | null>(entity.icon);
   const [tagIds, setTagIds] = useState<readonly string[]>(entity.tagIds);
   const [problem, setProblem] = useState<string | null>(null);
-  const change = diffOf(entity, name, icon, tagIds);
+  // A reading read two ways: which is read first, the device's choice or one of its own.
+  const ways = useEntityWays(entity);
+  const [transport, setTransport] = useState<string | null>(entity.linked?.transport ?? null);
+  const change = diffOf(entity, name, icon, tagIds, transport);
+  const devicePrefers = ways?.sources.find(
+    (each) => each.source.deviceId === entity.linked?.preferred,
+  );
+  const chosen =
+    transport === null
+      ? devicePrefers
+      : ways?.sources.find((each) => each.source.deviceId === transport);
+  const otherOfChosen = ways?.sources.find((each) => each !== chosen);
 
   const save = useMutation({
     /**
@@ -145,15 +164,41 @@ export function EntitySettingsDialog(props: EntitySettingsDialogProps) {
       title={t('entity.entitySettingsDialog.configureName', 'Configure {{name}}', {
         name: entity.name,
       })}
+      {...(ways === null
+        ? {}
+        : {
+            layout: 'card' as const,
+            size: 'brief' as const,
+            description: t('entity.entitySettingsDialog.kindLinked', '{{kind}} · linked', {
+              kind: entityKindOf(entity).label,
+            }),
+            lead: (
+              <EntityTile
+                icon={undefined}
+                kind={entityKindOf(entity)}
+                isActive={null}
+                size="large"
+                isPlain
+                className="size-11 rounded-inner border border-border-strong"
+              />
+            ),
+          })}
       footer={
         canEdit ? (
           <>
-            <Button variant="ghost" disabled={save.isPending} onClick={onClose}>
-              {t('common.cancel', 'Cancel')}
-            </Button>
-            <Button isBusy={save.isPending} disabled={change === null} onClick={submit}>
-              {t('common.save', 'Save')}
-            </Button>
+            {ways === null ? null : <span />}
+            <span className="flex items-center gap-2.5">
+              <Button
+                variant={ways === null ? 'ghost' : 'bare'}
+                disabled={save.isPending}
+                onClick={onClose}
+              >
+                {t('common.cancel', 'Cancel')}
+              </Button>
+              <Button isBusy={save.isPending} disabled={change === null} onClick={submit}>
+                {t('common.save', 'Save')}
+              </Button>
+            </span>
           </>
         ) : (
           <Button variant="ghost" onClick={onClose}>
@@ -187,6 +232,48 @@ export function EntitySettingsDialog(props: EntitySettingsDialogProps) {
             canCreate={canCreateTags && canEdit}
             onCreate={create}
           />
+          {ways === null || chosen === undefined || otherOfChosen === undefined ? null : (
+            <div className="flex flex-col gap-2">
+              <span aria-hidden="true" className="text-ui-sm font-medium text-foreground-muted">
+                {t('entity.entitySettingsDialog.transport', 'Transport')}
+              </span>
+              <Segmented
+                label={t('entity.entitySettingsDialog.transport', 'Transport')}
+                options={[
+                  {
+                    value: '',
+                    label: t('entity.entitySettingsDialog.fromTheDevice', 'From the device'),
+                  },
+                  ...ways.sources.map((each) => ({
+                    value: each.source.deviceId,
+                    label: each.name,
+                  })),
+                ]}
+                value={transport ?? ''}
+                onChange={(value) => {
+                  setTransport(value === '' ? null : value);
+                }}
+                isFilled
+              />
+              <span className="text-caption text-foreground-subtle">
+                {transport === null
+                  ? t(
+                      'entity.entitySettingsDialog.likeTheDevice',
+                      'Like the device: {{first}} first, {{second}} when {{first}} is silent.',
+                      { first: chosen.name, second: otherOfChosen.name },
+                    )
+                  : t(
+                      'entity.entitySettingsDialog.forThisEntityOnly',
+                      'For this entity only: {{first}} first, {{second}} when {{first}} is silent. The device prefers {{device}}.',
+                      {
+                        first: chosen.name,
+                        second: otherOfChosen.name,
+                        device: devicePrefers?.name ?? '',
+                      },
+                    )}
+              </span>
+            </div>
+          )}
         </fieldset>
 
         {canEdit ? null : (

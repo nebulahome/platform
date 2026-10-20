@@ -320,6 +320,20 @@ export async function fetchDevices(signal?: AbortSignal): Promise<DeviceView[]> 
 }
 
 /**
+ * Reads one device: for one reached two ways, whether each way answers now and the readings it
+ * suggests linking.
+ *
+ * @param deviceId - The device, by its id or the id of a way into it.
+ * @param signal - Cancels the request.
+ * @returns The device.
+ */
+export async function fetchDevice(deviceId: string, signal?: AbortSignal): Promise<DeviceView> {
+  return apiRequest(`/devices/${encodeURIComponent(deviceId)}`, deviceViewSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
+}
+
+/**
  * Adds a device: the instance that reaches it and the row that names it, under one id.
  *
  * @param request - The id, the kind, the model, the name, the icon and what its form collected.

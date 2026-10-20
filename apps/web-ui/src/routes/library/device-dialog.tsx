@@ -45,7 +45,7 @@ import {
   type JsonObject,
   type ModelChoice,
 } from '@nebulahome/contracts';
-import { Button, Modal, Segmented, SelectField, TextField } from '@nebulahome/ui';
+import { AppIcon, Button, Modal, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
 import { CheckIcon, WarningIcon } from '@/components/icons';
 import { listFormat } from '@/i18n/formatters';
@@ -63,11 +63,12 @@ import {
   type SetupDraft,
 } from '@/library/setup-values';
 import { ConfirmRemoval } from '@/routes/library/confirm-removal';
-import { useCatalogueIcons } from '@/routes/library/device-icon';
+import { DeviceIcon, useCatalogueIcons } from '@/routes/library/device-icon';
 import { ModelList } from '@/routes/library/model-list';
 import { NameIconField } from '@/routes/library/name-icon-field';
 import { SetupForm } from '@/routes/library/setup-form';
 import { TagField } from '@/routes/library/tag-field';
+import { useVendorsById, wayName } from '@/routes/library/transport-marks';
 import { useAreas } from '@/routes/library/use-areas';
 import { useTags } from '@/routes/library/use-tags';
 
@@ -257,6 +258,12 @@ export function DeviceDialog(props: DeviceDialogProps) {
   const [areaId, setAreaId] = useState<string | null>(existing?.areaId ?? null);
   const [isEnabled, setEnabled] = useState(existing?.isEnabled ?? true);
   const [isRemoving, setRemoving] = useState(false);
+  // A device reached two ways: which is read first. Its connections are each way's own page's.
+  const ways = existing?.linked?.ways ?? [];
+  const isLinked = ways.length > 1;
+  const [preferred, setPreferred] = useState<string | null>(existing?.linked?.preferred ?? null);
+  const vendorsById = useVendorsById();
+  const deviceIcons = useCatalogueIcons([icon]);
   const [drafts, setDrafts] = useState<Drafts>(() =>
     vendor === undefined ? { transport: {}, options: {} } : draftsFor(vendor, choice, existing),
   );
@@ -394,6 +401,9 @@ export function DeviceDialog(props: DeviceDialogProps) {
               tagIds: [...tagIds],
               areaId,
               ...(choice === undefined ? {} : { model: choice.model }),
+              ...(isLinked && preferred !== null && preferred !== existing.linked?.preferred
+                ? { preferredTransport: integrationIdSchema.parse(preferred) }
+                : {}),
               ...values,
             }),
     /**
@@ -519,29 +529,36 @@ export function DeviceDialog(props: DeviceDialogProps) {
     existing === undefined
       ? t('library.deviceDialog.addADevice', 'Add a device')
       : t('library.deviceDialog.configureName', 'Configure {{name}}', { name: existing.name });
-  const description = isSystem
-    ? existing.origin === 'container'
-      ? t(
-          'library.deviceDialog.containerOfThisMachine',
-          'A container of this machine: what it is called, its tags and its room.',
-        )
-      : existing.origin === 'package'
+  const description = isLinked
+    ? t('library.deviceDialog.modelLinked', '{{model}} · linked', {
+        model: existing?.model ?? existing?.driverName ?? '',
+      })
+    : isSystem
+      ? existing.origin === 'container'
         ? t(
-            'library.deviceDialog.deviceOfTheDrivername',
-            'A device of the {{driverName}} package: what it is called, its tags and its room.',
-            { driverName: existing.driverName },
+            'library.deviceDialog.containerOfThisMachine',
+            'A container of this machine: what it is called, its tags and its room.',
+          )
+        : existing.origin === 'package'
+          ? t(
+              'library.deviceDialog.deviceOfTheDrivername',
+              'A device of the {{driverName}} package: what it is called, its tags and its room.',
+              { driverName: existing.driverName },
+            )
+          : t(
+              'library.deviceDialog.machineNebulahomeRunsOn',
+              'The machine NebulaHome runs on: what it is called, its tags and its room.',
+            )
+      : driver === undefined
+        ? t(
+            'library.deviceDialog.whichModelAndWhat',
+            'Which model, and what it needs to be reached.',
           )
         : t(
-            'library.deviceDialog.machineNebulahomeRunsOn',
-            'The machine NebulaHome runs on: what it is called, its tags and its room.',
-          )
-    : driver === undefined
-      ? t('library.deviceDialog.whichModelAndWhat', 'Which model, and what it needs to be reached.')
-      : t(
-          'library.deviceDialog.overTransport',
-          '{{model}}, over {{transport}}. Test tries the address before anything is saved.',
-          { model: choice?.series ?? driver.name, transport: driver.transport },
-        );
+            'library.deviceDialog.overTransport',
+            '{{model}}, over {{transport}}. Test tries the address before anything is saved.',
+            { model: choice?.series ?? driver.name, transport: driver.transport },
+          );
 
   /** Saves the System device: its name, icon, tags and room, and no connection. */
   const saveSystem = (): void => {
@@ -567,6 +584,21 @@ export function DeviceDialog(props: DeviceDialogProps) {
       onClose={onClose}
       title={title}
       description={description}
+      {...(isLinked
+        ? {
+            layout: 'card' as const,
+            size: 'form' as const,
+            lead: (
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-inner border border-border-strong bg-surface-raised text-foreground-muted">
+                <DeviceIcon
+                  icon={deviceIcons.get(icon ?? '')}
+                  {...(existing === undefined ? {} : { device: existing })}
+                  size={20}
+                />
+              </span>
+            ),
+          }
+        : {})}
       aside={
         hasModelList ? (
           <ModelList
@@ -584,7 +616,23 @@ export function DeviceDialog(props: DeviceDialogProps) {
       footer={
         isRemoving && existing !== undefined ? (
           <ConfirmRemoval
-            question={`Remove ${existing.name}? ${describeEntities(existing)} and the hub stops listening for it.`}
+            question={
+              isLinked
+                ? t(
+                    'library.deviceDialog.removeLinked',
+                    'Remove {{name}}? It goes from {{ways}}: {{entities}}, and the hub stops listening for it both ways.',
+                    {
+                      name: existing.name,
+                      ways: listFormat({ type: 'conjunction' }).format(
+                        ways.map((way) =>
+                          wayName(way, vendorsById, t('library.matterTag', 'Matter')),
+                        ),
+                      ),
+                      entities: describeEntities(existing).toLocaleLowerCase(),
+                    },
+                  )
+                : `Remove ${existing.name}? ${describeEntities(existing)} and the hub stops listening for it.`
+            }
             isBusy={removal.isPending}
             onCancel={() => {
               setRemoving(false);
@@ -605,47 +653,52 @@ export function DeviceDialog(props: DeviceDialogProps) {
                   setRemoving(true);
                 }}
               >
+                {isLinked ? <AppIcon id="trash-2" size={15} /> : null}
                 {t('common.remove', 'Remove')}
               </Button>
-            ) : null}
-            {isSystem ? null : (
+            ) : (
+              <span />
+            )}
+            <span className="flex flex-wrap items-center justify-end gap-2.5">
+              {isSystem ? null : (
+                <Button
+                  variant="ghost"
+                  isBusy={probe.isPending}
+                  disabled={isBusy || driver === undefined}
+                  onClick={() => {
+                    const values = read();
+
+                    if (values !== null) {
+                      probe.mutate(values);
+                    }
+                  }}
+                >
+                  {t('library.deviceDialog.test', 'Test')}
+                </Button>
+              )}
+              <Button variant={isLinked ? 'bare' : 'ghost'} onClick={onClose}>
+                {t('common.cancel', 'Cancel')}
+              </Button>
               <Button
-                variant="ghost"
-                isBusy={probe.isPending}
-                disabled={isBusy || driver === undefined}
+                isBusy={save.isPending}
+                disabled={isBusy || (driver === undefined && !isSystem)}
                 onClick={() => {
+                  if (isSystem) {
+                    saveSystem();
+
+                    return;
+                  }
+
                   const values = read();
 
                   if (values !== null) {
-                    probe.mutate(values);
+                    save.mutate(values);
                   }
                 }}
               >
-                {t('library.deviceDialog.test', 'Test')}
+                {t('common.save', 'Save')}
               </Button>
-            )}
-            <Button variant="ghost" onClick={onClose}>
-              {t('common.cancel', 'Cancel')}
-            </Button>
-            <Button
-              isBusy={save.isPending}
-              disabled={isBusy || (driver === undefined && !isSystem)}
-              onClick={() => {
-                if (isSystem) {
-                  saveSystem();
-
-                  return;
-                }
-
-                const values = read();
-
-                if (values !== null) {
-                  save.mutate(values);
-                }
-              }}
-            >
-              {t('common.save', 'Save')}
-            </Button>
+            </span>
           </>
         )
       }
@@ -676,10 +729,14 @@ export function DeviceDialog(props: DeviceDialogProps) {
           icons={tagIcons}
           canCreate={canCreateTags}
           onCreate={createTagNamed}
-          hint={t(
-            'library.deviceDialog.whatAutomationsAndScenes',
-            'What automations and scenes will pick this device by.',
-          )}
+          {...(isLinked
+            ? {}
+            : {
+                hint: t(
+                  'library.deviceDialog.whatAutomationsAndScenes',
+                  'What automations and scenes will pick this device by.',
+                ),
+              })}
         />
 
         <SelectField
@@ -717,7 +774,7 @@ export function DeviceDialog(props: DeviceDialogProps) {
               setIdEdited(true);
             }}
           />
-        ) : driver === undefined && !isSystem ? (
+        ) : driver === undefined && !isSystem && !isLinked ? (
           <p role="alert" className="text-ui text-danger">
             {t(
               'library.deviceDialog.hubNoLongerHas',
@@ -727,7 +784,28 @@ export function DeviceDialog(props: DeviceDialogProps) {
           </p>
         ) : null}
 
-        {driver === undefined ? null : (
+        {isLinked ? (
+          <div className="flex flex-col gap-2">
+            <span aria-hidden="true" className="text-ui-sm font-medium text-foreground-muted">
+              {t('library.deviceDialog.preferredTransport', 'Preferred transport')}
+            </span>
+            <Segmented
+              label={t('library.deviceDialog.preferredTransport', 'Preferred transport')}
+              options={ways.map((way) => ({
+                value: way.deviceId,
+                label: wayName(way, vendorsById, t('library.matterTag', 'Matter')),
+              }))}
+              value={preferred ?? ways[0]?.deviceId ?? ''}
+              onChange={setPreferred}
+              isFilled
+            />
+            <span className="text-caption text-foreground-subtle">
+              {t('library.deviceDialog.otherTakesOver', 'The other takes over when it is silent.')}
+            </span>
+          </div>
+        ) : null}
+
+        {driver === undefined || isLinked ? null : (
           <>
             <SetupForm
               group={driver.setup.transport}
@@ -746,7 +824,7 @@ export function DeviceDialog(props: DeviceDialogProps) {
           </>
         )}
 
-        {existing === undefined || isSystem ? null : (
+        {existing === undefined || isSystem || isLinked ? null : (
           <Segmented
             label={t('library.deviceDialog.running', 'Running')}
             options={[

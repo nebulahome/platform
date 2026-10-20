@@ -5,6 +5,10 @@
  * draws the page at once. Around it: its entities, each with the newest reading the live channel
  * has, the vendor it comes from (the catalogue's entry, which the settings dialog needs to draw
  * the driver's form), the room and floor it is in, and the tags on it and on its entities.
+ *
+ * A device reached two ways is one device in the list, found by the id of either way; its
+ * entities are both ways' - those linked, and those read one way only - and the device is read
+ * once more on its own, for whether each way answers now and the readings it suggests linking.
  */
 import { useQuery } from '@tanstack/react-query';
 
@@ -17,7 +21,13 @@ import type {
 } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
-import { fetchDevices, fetchEntities, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
+import {
+  fetchDevice,
+  fetchDevices,
+  fetchEntities,
+  fetchVendors,
+  LIBRARY_QUERY_KEYS,
+} from '@/library/api';
 import { bySource, vendorNamesOf } from '@/library/device-entities';
 import { capabilityStateOf, entityScopesOf, isCommandable } from '@/library/entity-control';
 import { readingOf, standingOf, type DeviceStanding } from '@/library/entity-reading';
@@ -135,8 +145,33 @@ export function useDevicePage(deviceId: string): DevicePageData {
     },
   });
 
-  const device = devices.data?.find((candidate) => candidate.id === deviceId);
-  const owned = device === undefined ? [] : (bySource(entities.data ?? []).get(device.id) ?? []);
+  const listed = devices.data?.find(
+    (candidate) =>
+      candidate.id === deviceId ||
+      (candidate.linked?.ways.some((way) => way.deviceId === deviceId) ?? false),
+  );
+  const detail = useQuery({
+    queryKey: [...LIBRARY_QUERY_KEYS.devices, listed?.id ?? deviceId],
+    enabled: listed?.linked != null,
+
+    /**
+     * Reads the linked device on its own.
+     *
+     * @param context - What TanStack Query provides, including the cancellation signal.
+     * @param context.signal - Cancels the request when the page goes away.
+     * @returns The device, with each way's answer.
+     */
+    queryFn: async ({ signal }: { signal: AbortSignal }) =>
+      fetchDevice(listed?.id ?? deviceId, signal),
+  });
+  const device = listed?.linked == null ? listed : (detail.data ?? listed);
+  const sources = bySource(entities.data ?? []);
+  const owned =
+    device === undefined
+      ? []
+      : (device.linked?.ways.map((way) => way.deviceId) ?? [device.id]).flatMap(
+          (id) => sources.get(id) ?? [],
+        );
   const icons = useCatalogueIcons([
     device?.icon ?? null,
     ...owned.map((entity) => entity.icon),

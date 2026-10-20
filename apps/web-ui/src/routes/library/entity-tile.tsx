@@ -35,6 +35,7 @@ const SIZES = {
   tiny: { box: 'size-5 rounded-chip', glyph: 12 },
   small: { box: 'size-7 rounded-chip', glyph: 15 },
   medium: { box: 'size-8 rounded-field', glyph: 16 },
+  well: { box: 'size-9 rounded-field', glyph: 18 },
   large: { box: 'size-12 rounded-tile', glyph: 22 },
 } as const;
 
@@ -58,6 +59,9 @@ export type EntityTileProps = {
   /** How large. */
   readonly size?: keyof typeof SIZES;
 
+  /** Only the glyph lit, on the plain ground of a list row's well. */
+  readonly isPlain?: boolean;
+
   /** Anything extra for the outer element. */
   readonly className?: string;
 };
@@ -69,9 +73,23 @@ export type EntityTileProps = {
  * @returns The tile.
  */
 export function EntityTile(props: EntityTileProps) {
-  const { icon, kind, isActive, isAvailable = true, size = 'medium', className } = props;
+  const {
+    icon,
+    kind,
+    isActive,
+    isAvailable = true,
+    size = 'medium',
+    isPlain = false,
+    className,
+  } = props;
   const { box, glyph } = SIZES[size];
   const isLit = isAvailable && isActive !== false;
+  const lit = isPlain
+    ? `bg-surface-raised ${LIT[kind.tone]
+        .split(' ')
+        .filter((name) => name.startsWith('text-'))
+        .join(' ')}`
+    : LIT[kind.tone];
 
   return (
     <span
@@ -79,7 +97,7 @@ export function EntityTile(props: EntityTileProps) {
       className={cn(
         'flex shrink-0 items-center justify-center transition-colors',
         box,
-        isLit ? LIT[kind.tone] : 'bg-surface-raised text-foreground-subtle',
+        isLit ? lit : 'bg-surface-raised text-foreground-subtle',
         className,
       )}
     >
