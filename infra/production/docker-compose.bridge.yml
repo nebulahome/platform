@@ -24,7 +24,7 @@ services:
     ports:
       - '${NEBULA_HTTP_PORT:-8080}:8080'
       - '${NEBULA_HTTPS_PORT:-8443}:8443'
-      # The house's MQTT broker (the `mqtt` package), for the devices on the network.
+      # The house's MQTT broker, which the hub runs, for the devices on the network.
       - '${NEBULA_MQTT_PORT:-1883}:1883'
     environment:
       HUB_DISCOVERY_ENABLED: 'false'

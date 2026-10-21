@@ -22,9 +22,10 @@ export NEBULA_SECRETS_KEY API_TOTP_ENCRYPTION_KEY API_JWT_SECRET
 export NEBULA_PG_SUPERUSER_PASSWORD NEBULA_NATS_PASSWORD
 export NEBULA_INSTALLATION_ID
 
-# The house's MQTT broker is a package - `mqtt`, or another that provides `mqtt-broker` - run by
-# packet-manager: the hub and the supervisor ask it for their usernames over the bus. NEBULA_MQTT_URL (and _USERNAME, _PASSWORD), when the
-# environment sets them, name an external broker to use instead; they are passed on as they are.
+# The house's MQTT broker is the hub's own: the supervisor asks it for its containers' usernames
+# over the bus. NEBULA_MQTT_URL (and _USERNAME, _PASSWORD), when the environment sets them, name an
+# external broker for the integrations and containers to use instead; they are passed on as they
+# are.
 
 NATS_URL="nats://nebula:${NEBULA_NATS_PASSWORD}@127.0.0.1:${NEBULA_NATS_PORT:-4223}"
 export NATS_URL

@@ -126,10 +126,13 @@ deletes everything, the keys and the backups in the data volume with it. On the 
 - **The page does not open.** `docker compose ps`: `starting` for the first two minutes is the
   first start; `unhealthy` after it, `docker compose logs --tail=200` says which service stopped.
 - **`Unable to open config file /run/mosquitto/mosquitto.conf`**: an image from before the
-  house's broker became the `mqtt` package. Build or pull a current one: Mosquitto is gone.
-- **Devices cannot connect to the broker.** Packages → MQTT: the broker's page says the port and
-  lists the clients; each device needs a username added there (or anonymous clients allowed
-  under Configure). On the bridge, the host's port is `NEBULA_MQTT_PORT` (1883); on the host's network, the
+  house's broker moved into the platform. Build or pull a current one: Mosquitto is gone.
+- **The MQTT broker says port 1883 is in use.** An installation from before the broker moved into
+  the hub still has the `mqtt` package: remove it on Packages, and the broker takes the port within
+  ten seconds. Its clients are not carried over: add each device's again.
+- **Devices cannot connect to the broker.** Brokers → MQTT: the broker's page says the port and
+  lists the clients; each device needs a username added there (or clients without a username
+  allowed in its settings). On the bridge, the host's port is `NEBULA_MQTT_PORT` (1883); on the host's network, the
   broker's own port.
 - **zigbee2mqtt cannot reach the broker.** On the bridge, `docker network inspect nebulahome-net`
   should list both `nebulahome-nebulahome-1` and `nebulahome-zigbee2mqtt`; on the host's network

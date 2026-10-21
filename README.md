@@ -3,10 +3,11 @@
 Monorepo for the NebulaHome smart home platform: the essential services, the shared packages
 they are built from, and the web interface.
 
-Packages - what an installation adds to itself: the house's MQTT broker, a recorder, a 3D view
-of the house - are released from repositories of their own (`nebulahome/pkg-<id>`) as GitHub
-releases, and installed while the platform runs - the broker by itself, when the house has none.
-Integrations are not packages: they live in `apps/hub`. See PACKAGES.md, beside the architecture.
+Packages - what an installation adds to itself: a recorder, a 3D view of the house - are released
+from repositories of their own (`nebulahome/pkg-<id>`) as GitHub releases, and installed while the
+platform runs. The house's brokers - Matter and MQTT - are the platform's own, in `apps/hub`.
+Integrations are not packages either: they are released from `nebulahome/integration-<id>`. See
+PACKAGES.md, beside the architecture.
 
 ## Layout
 

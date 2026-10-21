@@ -86,11 +86,10 @@ In order, each once the one before is ready:
 6. `core`, `hub`, `api` (`127.0.0.1:4100`), `backup`, `supervisor`, `proxy` (`8080`, `8443`),
    `packet-manager`. Each connects to the database as its own role (DATABASE.md §12); `backup`
    runs as root, for the mounts, and `supervisor` as root, the one process given Docker's socket.
-7. The packages, run by `packet-manager` - which installs the house's MQTT broker, the `mqtt`
-   package, by itself when no package provides `mqtt-broker`. It listens on `1883` of every address
-   of the container: devices on the network connect to it with a username added on its page, the
-   containers an integration runs reach it as `nebulahome:1883` with one of their own, and the hub
-   on loopback with its own. For now the image carries what the local folders,
+7. The packages, run by `packet-manager`. The house's MQTT broker is the hub's own: it listens on
+   `1883` of every address of the container (`HUB_MQTT_PORT`): devices on the network connect to
+   it with a username added on Brokers → MQTT, the containers an integration runs reach it as
+   `nebulahome:1883` with one of their own, and the hub on loopback with its own. For now the image carries what the local folders,
    `infra/local-packages` and `infra/local-integrations`, held when it was built, at
    `/app/local-packages` and `/app/local-integrations`; under `pnpm docker:up` the folders are also
    mounted over those paths, read-only, and read live.
@@ -236,9 +235,8 @@ whole installation kept in `system.community_hub_installations`;
 
 The services run on the machine with `pnpm dev`; only the database and the bus are containers -
 the `postgres` and `nats` services of the same compose file, started by name. The MQTT broker is
-the `mqtt` package, from its own repository (`nebulahome/pkg-mqtt`): `packet-manager` installs it
-by itself when no package provides `mqtt-broker` and runs it on this machine's `1883`. Until the
-package index exists, put its archive in `infra/local-packages` (`local-packages/README.md`):
+the hub's own, on this machine's `1883` (`HUB_MQTT_PORT`), its files in `hub/mqtt` of the data
+directory:
 
 ```bash
 pnpm infra:up           # PostgreSQL and NATS; waits until they are healthy
@@ -265,9 +263,10 @@ container: it needs `pg_dump` 16, `mount`, s6 and Linux. Try backups there.
 
 The supervisor too runs with the others. On Windows, point it at Docker Desktop's named pipe in
 `.env` - `SUPERVISOR_DOCKER_SOCKET=//./pipe/docker_engine` - and the Containers page lists the
-development stack's containers. The broker `pnpm dev` uses is the `mqtt` package on
-`localhost:1883`: the hub and the supervisor ask it for their usernames, so `.env` sets no
-`NEBULA_MQTT_URL` - one set there is an external broker used instead. The integration tests run
+development stack's containers. The broker `pnpm dev` uses is the hub's own on `localhost:1883`:
+the hub uses its own username and the supervisor asks it for its containers', so `.env` sets no
+`NEBULA_MQTT_URL` - one set there is an external broker the integrations and containers use
+instead. The integration tests run
 a broker of their own in the test process (`apps/hub/tests/support/broker.ts`).
 
 **Development and the container on one Docker.** Both have a supervisor, and both would run

@@ -150,7 +150,7 @@ ENV PATH=/command:$PATH \
     S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0
 
 VOLUME ["/data", "/var/lib/postgresql/data", "/var/lib/nats"]
-# The page, and the house's MQTT broker (the `mqtt` package) for the devices on the network.
+# The page, and the house's MQTT broker (the hub's own) for the devices on the network.
 EXPOSE 8080 8443 1883
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \

@@ -14,7 +14,7 @@
 #
 # The network: the host's own. The hub hears the LAN there - mDNS, Govee's scan, Shelly's and
 # Bambu Lab's announcements, all multicast - and finds devices on its own. Nothing is published:
-# the page is on the host's ports 8080 and 8443, and the house's MQTT broker (the `mqtt` package)
+# the page is on the host's ports 8080 and 8443, and the house's MQTT broker (the hub's own)
 # on 1883, for the devices on the network, with a username each. PostgreSQL (5433), NATS (4223,
 # monitor 8223) and api (4100) listen on loopback only, with passwords, on ports that stay out of
 # the way of anything else the host runs. The containers integrations run go on the host's network
