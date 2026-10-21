@@ -3,8 +3,8 @@
  * each of them says it is.
  *
  * The hub's controller hands every node over as one flat record of attributes, keyed
- * `<endpoint>/<cluster>/<attribute>` by number - the form Home Assistant's Matter Server answers
- * in, structs keyed by their fields' numbers - so nothing here depends on the controller's
+ * `<endpoint>/<cluster>/<attribute>` by number - the form the Matter Server answers in, structs
+ * keyed by their fields' numbers - so nothing here depends on the controller's
  * library: the same functions read a node in the hub, in a driver and in a test.
  *
  * **One node, one or more devices.** A node is a device of the house, endpoints and all - except a

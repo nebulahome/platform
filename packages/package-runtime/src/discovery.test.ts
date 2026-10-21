@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  associateMatter,
+  associateBroker,
   associateModel,
   identifySighting,
   matchesAnnouncement,
-  matchesMatter,
+  matchesBroker,
   resolveDiscovery,
   vendorDiscoverySchema,
   type DiscoveryDriver,
@@ -495,22 +495,64 @@ describe('Matter devices', () => {
   });
 
   it('takes a device whose identity every rule holds of', () => {
-    expect(matchesMatter(plan, { vendorId: 5264, productId: 4097 })).toBe(true);
-    expect(matchesMatter(plan, { vendorId: 4107, productId: 4097 })).toBe(false);
+    expect(matchesBroker(plan, 'matter', { vendorId: 5264, productId: 4097 })).toBe(true);
+    expect(matchesBroker(plan, 'matter', { vendorId: 4107, productId: 4097 })).toBe(false);
   });
 
   it('finds the Matter driver by the product id, and none for a model no driver maps', () => {
-    expect(associateMatter(plan, { vendorId: 5264, productId: 4097 })).toEqual({
+    expect(associateBroker(plan, 'matter', { vendorId: 5264, productId: 4097 })).toEqual({
       driverId: 'matter-plug',
       model: 'Plug S Gen3',
       modelChoices: ['Plug S Gen3'],
     });
     // Two Matter drivers and a code neither maps: nothing says which.
-    expect(associateMatter(plan, { vendorId: 5264, productId: 1 })).toBeNull();
+    expect(associateBroker(plan, 'matter', { vendorId: 5264, productId: 1 })).toBeNull();
   });
 
   it('never gives an announcement to a Matter driver, nor a Matter device to another', () => {
     expect(associateModel(plan, '4097')).toBeNull();
-    expect(associateMatter(plan, { productId: 'S3PL-00112EU' })).toBeNull();
+    expect(associateBroker(plan, 'matter', { productId: 'S3PL-00112EU' })).toBeNull();
+  });
+});
+
+describe('devices the house’s MQTT broker hears', () => {
+  /** A vendor whose devices announce themselves with Tasmota: one driver, by the model said. */
+  const plan = resolveDiscovery(
+    'sonoff',
+    vendorDiscoverySchema.parse({
+      mqtt: { match: [{ path: 'originName', equals: 'Tasmota' }] },
+    }),
+    [
+      ...shellyDrivers(),
+      {
+        id: 'tasmota',
+        name: 'Tasmota device',
+        transport: 'mqtt-house',
+        models: ['Basic R2', 'S26'],
+        modelCodes: { 'Sonoff S26': 'S26' },
+      },
+    ],
+  );
+
+  it('needs rules with at least one condition, and reads the model from `model`', () => {
+    expect(vendorDiscoverySchema.safeParse({ mqtt: { match: [] } }).success).toBe(false);
+    expect(plan.discovery.mqtt?.model).toBe('model');
+  });
+
+  it('takes a device whose identity every rule holds of, on its own transport alone', () => {
+    expect(matchesBroker(plan, 'mqtt', { originName: 'Tasmota' })).toBe(true);
+    expect(matchesBroker(plan, 'mqtt', { originName: 'ESPHome' })).toBe(false);
+    expect(matchesBroker(plan, 'matter', { originName: 'Tasmota' })).toBe(false);
+    expect(associateBroker(plan, 'mqtt', { originName: 'Tasmota', model: 'Sonoff S26' })).toEqual({
+      driverId: 'tasmota',
+      model: 'S26',
+      modelChoices: ['S26'],
+    });
+    expect(associateBroker(plan, 'mqtt', { originName: 'Tasmota', model: 'Other' })).toEqual({
+      driverId: 'tasmota',
+      model: null,
+      modelChoices: ['Basic R2', 'S26'],
+    });
+    expect(associateModel(plan, 'Sonoff S26')).toBeNull();
   });
 });

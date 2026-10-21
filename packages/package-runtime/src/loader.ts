@@ -65,6 +65,7 @@ import {
 import { INSTALL_MARKER_FILE, installMarkerSchema, type InstallMarker } from './install-marker.js';
 import type { Integration } from './integration.js';
 import { createMatterIntegration } from './matter-mapping.js';
+import { createMqttIntegration } from './mqtt-mapping.js';
 import { integrationProfileSchema, type IntegrationProfile } from './profile.js';
 import type { BundleLogger, BundleSdk, StreamFactory, TransportFactory } from './sdk.js';
 import type { StreamSource } from './stream.js';
@@ -125,7 +126,7 @@ export type LoadedBundle = {
  * from the integrations index or its local folder, and the only place a production hub reads.
  * `development` is a directory of bundles under development - an integration repository's
  * `dist/`, named in the hub's `HUB_DEV_BUNDLE_DIR` - read beside it. `platform` is no place at
- * all: the vendor the hub is itself, `matter`, built in code.
+ * all: the vendors the hub is itself, `matter` and `mqtt`, built in code.
  */
 export type BundleOrigin = 'development' | 'installed' | 'platform';
 
@@ -664,7 +665,7 @@ async function readDriver(
     return { ...identity, profile };
   }
 
-  if (manifest.kind === 'matter') {
+  if (manifest.kind === 'matter' || manifest.kind === 'mqtt') {
     return identity;
   }
 
@@ -957,6 +958,10 @@ async function instantiateDriver(
 
   if (driver.manifest.kind === 'matter') {
     return { ...identity, integration: createMatterIntegration(driver.manifest) };
+  }
+
+  if (driver.manifest.kind === 'mqtt') {
+    return { ...identity, integration: createMqttIntegration(driver.manifest) };
   }
 
   const exported = await defaultOf(options.importModule ?? importFile, entry ?? '');

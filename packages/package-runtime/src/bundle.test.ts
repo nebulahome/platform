@@ -204,6 +204,10 @@ describe('driverManifestSchema', () => {
     expect(driverManifestSchema.safeParse(matter).success).toBe(true);
     expect(driverManifestSchema.safeParse({ ...matter, transport: 'http' }).success).toBe(false);
     expect(driverManifestSchema.safeParse({ ...matter, entry: './driver.js' }).success).toBe(false);
+    expect(driverManifestSchema.safeParse({ ...matter, kind: 'mqtt' }).success).toBe(false);
+    expect(
+      driverManifestSchema.safeParse({ ...matter, kind: 'mqtt', transport: 'mqtt-house' }).success,
+    ).toBe(true);
   });
 
   it('requires a profile from a declarative driver', () => {

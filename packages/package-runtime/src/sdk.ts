@@ -244,9 +244,9 @@ export type ManagedMqtt = {
 export type OpenMqtt = (options: ManagedMqttOptions) => ManagedMqtt;
 
 /**
- * The house's MQTT broker, as the hub reaches it: the package that provides `mqtt-broker`, with
- * the hub's own username - or the broker `NEBULA_MQTT_URL` names. Read again each time it is needed: the broker may start after
- * the hub, and a bundle that opens a session later finds it then.
+ * The house's MQTT broker, as the hub reaches it: the one the hub runs, with the hub's own
+ * username - or the broker `NEBULA_MQTT_URL` names. Read again each time it is needed: a session
+ * opened while the broker is still coming up retries until it listens.
  */
 export type PlatformMqtt = {
   readonly url: string;
@@ -258,7 +258,7 @@ export type PlatformMqtt = {
 export type PlatformServices = {
   /**
    * The house's broker, for a vendor whose devices report through it - zigbee2mqtt - and which
-   * runs its own program beside the platform. Null on an installation without one.
+   * runs its own program beside the platform. Null only while the hub cannot run one.
    */
   readonly mqtt: PlatformMqtt | null;
 };

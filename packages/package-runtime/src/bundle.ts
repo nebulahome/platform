@@ -26,6 +26,7 @@ import {
   iconIdSchema,
   INTEGRATION_KIND_PATTERN,
   MATTER_TRANSPORT,
+  MQTT_HOUSE_TRANSPORT,
   packageRequiresSchema,
   SEMVER_PATTERN,
   TRANSPORT_WIRES,
@@ -37,10 +38,17 @@ import {
 import { containerDependenciesSchema } from './containers.js';
 
 /**
- * Bundle kind, which is both how it is written and how far it is trusted. `matter` is a driver
- * the platform's Matter mapping runs: no profile and no code, so as far trusted as a profile.
+ * Bundle kind, which is both how it is written and how far it is trusted. `matter` and `mqtt` are
+ * drivers one of the platform's broker mappings runs: no profile and no code, so as far trusted as
+ * a profile.
  */
-export const BUNDLE_KINDS = ['declarative', 'code', 'matter'] as const;
+export const BUNDLE_KINDS = ['declarative', 'code', 'matter', 'mqtt'] as const;
+
+/** The transport each kind the platform's mappings run is reached on. */
+const MAPPED_KINDS: Readonly<Record<string, string>> = {
+  matter: MATTER_TRANSPORT,
+  mqtt: MQTT_HOUSE_TRANSPORT,
+};
 
 /** Bundle kind, which is both how it is written and how far it is trusted. */
 export type BundleKind = (typeof BUNDLE_KINDS)[number];
@@ -203,8 +211,9 @@ export const vendorManifestSchema = z.strictObject({
   /**
    * The packages and services the vendor's devices need, in the grammar a package's
    * manifest names its own with (PACKAGES.md 7) - `{ "services": ["mqtt-broker"] }` for a vendor
-   * that talks through the broker. Until what it needs runs, the vendor waits: its devices are
-   * not added and its instances are not started, and its page says which package it waits for.
+   * that talks through the house's broker, which the platform runs and is always met. Until what
+   * it needs runs, the vendor waits: its devices are not added and its instances are not started,
+   * and its page says which package it waits for.
    */
   requires: packageRequiresSchema,
 
@@ -344,24 +353,26 @@ type KindFiles = {
  * @param ctx - Where to record what is wrong.
  */
 function checkKindFiles(manifest: KindFiles, ctx: z.RefinementCtx): void {
-  if (manifest.kind === 'matter') {
+  const mapped = MAPPED_KINDS[manifest.kind];
+
+  if (mapped !== undefined) {
     // The platform's mapping is the driver: there is nothing for a file to say, and it reads only
-    // what the Matter transport hands it.
+    // what its broker's transport hands it.
     for (const named of ['profile', 'entry'] as const) {
       if (manifest[named] !== undefined) {
         ctx.addIssue({
           code: 'custom',
           path: [named],
-          message: `A matter driver must not name an ${named}`,
+          message: `A ${manifest.kind} driver must not name an ${named}`,
         });
       }
     }
 
-    if (manifest.transport !== MATTER_TRANSPORT) {
+    if (manifest.transport !== mapped) {
       ctx.addIssue({
         code: 'custom',
         path: ['transport'],
-        message: `A matter driver runs on the ${MATTER_TRANSPORT} transport`,
+        message: `A ${manifest.kind} driver runs on the ${mapped} transport`,
       });
     }
 

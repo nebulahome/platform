@@ -33,6 +33,7 @@ import {
   DEVICE_ADOPTIONS,
   jsonObjectSchema,
   MATTER_TRANSPORT,
+  MQTT_HOUSE_TRANSPORT,
   normalizeMac,
   transportIdSchema,
   type JsonObject,
@@ -146,29 +147,57 @@ export const discoveryProbeSchema = z.strictObject({
 export type DiscoveryProbe = z.output<typeof discoveryProbeSchema>;
 
 /**
- * Which of the house's Matter devices are the vendor's: rules on who each says it is - its
- * `vendorId`, `productName`, `macAddresses`, `deviceTypes`, every field of the platform's
- * `MatterIdentity` - and where it says its model, looked up in the `modelCodes` of the vendor's
- * drivers that say `"kind": "matter"`.
+ * Which of the devices one of the platform's brokers holds are the vendor's: rules on who each
+ * says it is, and where it says its model, looked up in the `modelCodes` of the vendor's drivers
+ * of that broker's kind.
  *
- * A device is commissioned into the house by the owner, so it is added at once to the one vendor
- * whose rules all hold, or to the platform's own `matter` vendor when none - or more than one - do.
+ * A device is in the house through the broker already - commissioned by the owner, or announced
+ * on the house's network - so it is added at once to the one vendor whose rules all hold, or to
+ * the platform's own vendor of the broker when none - or more than one - do.
+ *
+ * @param model - Where a device says its model when the vendor does not say.
+ * @returns The schema of one broker's block.
  */
-export const matterDiscoverySchema = z.strictObject({
-  /** Every condition must hold. All-of, and at least one: a vendor does not take every device. */
-  match: z.array(claimConditionSchema).min(1).max(MAXIMUM_MATCH),
+function brokerDiscoverySchema(model: string) {
+  return z.strictObject({
+    /** Every condition must hold. All-of, and at least one: a vendor does not take every device. */
+    match: z.array(claimConditionSchema).min(1).max(MAXIMUM_MATCH),
 
-  /** Where the device says its model; its product id when not said. */
-  model: identityPathSchema.default('productId'),
-});
+    /** Where the device says its model. */
+    model: identityPathSchema.default(model),
+  });
+}
 
-/** Which of the house's Matter devices are the vendor's. */
-export type MatterDiscovery = z.output<typeof matterDiscoverySchema>;
+/**
+ * Which of the house's Matter devices are the vendor's: rules on its `vendorId`, `productName`,
+ * `macAddresses`, `deviceTypes`, every field of the platform's `MatterIdentity`; the model is its
+ * product id unless said, in the drivers that say `"kind": "matter"`.
+ */
+export const matterDiscoverySchema = brokerDiscoverySchema('productId');
+
+/**
+ * Which of the devices the house's MQTT broker hears are the vendor's: rules on its
+ * `manufacturer`, `model`, `originName`, `identifiers`, every field of the platform's
+ * `MqttIdentity`; the model is its `model` unless said, in the drivers that say `"kind": "mqtt"`.
+ */
+export const mqttDiscoverySchema = brokerDiscoverySchema('model');
+
+/** Which of a broker's devices are the vendor's. */
+export type BrokerDiscovery = z.output<typeof matterDiscoverySchema>;
+
+/** The platform's brokers a vendor may take devices of, and the transport each reaches them on. */
+export const BROKER_TRANSPORTS = {
+  matter: MATTER_TRANSPORT,
+  mqtt: MQTT_HOUSE_TRANSPORT,
+} as const;
+
+/** One of the platform's brokers. */
+export type BrokerSource = keyof typeof BROKER_TRANSPORTS;
 
 /** Validates a whole `discovery.json`. */
 export const vendorDiscoverySchema = z
   .strictObject({
-    /** Where the vendor's devices announce themselves; none for one found only through Matter. */
+    /** Where the vendor's devices announce themselves; none for one found only through a broker. */
     listen: z.array(listenSourceSchema).max(MAXIMUM_SOURCES).default([]),
 
     /** Every condition must hold of an announcement for it to be the vendor's. All-of. */
@@ -178,6 +207,7 @@ export const vendorDiscoverySchema = z
     identity: discoveryIdentitySchema.default({}),
 
     matter: matterDiscoverySchema.optional(),
+    mqtt: mqttDiscoverySchema.optional(),
 
     /**
      * Who adds a device found. `owner` - the default - proposes it on the vendor's
@@ -203,11 +233,16 @@ export const vendorDiscoverySchema = z
       .optional(),
   })
   .superRefine((discovery, ctx) => {
-    if (discovery.listen.length === 0 && discovery.matter === undefined) {
+    if (
+      discovery.listen.length === 0 &&
+      discovery.matter === undefined &&
+      discovery.mqtt === undefined
+    ) {
       ctx.addIssue({
         code: 'custom',
         path: ['listen'],
-        message: 'A vendor listens somewhere, or says which Matter devices are its own, or both',
+        message:
+          'A vendor listens somewhere, or says which Matter or MQTT devices are its own, or both',
       });
     }
 
@@ -237,8 +272,8 @@ export type DiscoveryDriver = {
   readonly name: string;
 
   /**
-   * What reaches its devices. A driver on the `matter` transport takes only Matter devices, and no
-   * other driver does.
+   * What reaches its devices. A driver on a broker's transport - `matter`, `mqtt-house` - takes
+   * only that broker's devices, and no other driver does.
    */
   readonly transport: string;
 
@@ -432,8 +467,9 @@ export function associateModel(
   modelCode: string | null,
   claimedBy?: (driverId: string) => boolean,
 ): Association | null {
+  const brokers: readonly string[] = Object.values(BROKER_TRANSPORTS);
   const reached = new Set(
-    plan.drivers.filter((driver) => driver.transport !== MATTER_TRANSPORT).map(({ id }) => id),
+    plan.drivers.filter((driver) => !brokers.includes(driver.transport)).map(({ id }) => id),
   );
   const coded =
     modelCode === null
@@ -483,31 +519,45 @@ export function associateModel(
 }
 
 /**
- * Whether a Matter device is the vendor's, by the rules of its `matter` block.
+ * Whether a device of one of the platform's brokers is the vendor's, by the rules of its block.
  *
  * @param plan - The vendor's discovery.
+ * @param broker - Which broker holds the device: `matter`, `mqtt`.
  * @param identity - Who the device says it is.
- * @returns True when the vendor has a `matter` block and every one of its conditions holds.
+ * @returns True when the vendor has the broker's block and every one of its conditions holds.
  */
-export function matchesMatter(plan: DiscoveryPlan, identity: unknown): boolean {
+export function matchesBroker(
+  plan: DiscoveryPlan,
+  broker: BrokerSource,
+  identity: unknown,
+): boolean {
   return (
-    plan.discovery.matter?.match.every((condition) => conditionHolds(condition, identity)) ?? false
+    plan.discovery[broker]?.match.every((condition) => conditionHolds(condition, identity)) ?? false
   );
 }
 
 /**
- * Finds the driver of the vendor's that runs a Matter device of its, and its model.
+ * Finds the driver of the vendor's that runs a device of one of the platform's brokers, and its
+ * model.
  *
- * The model the device says is looked up in the `modelCodes` of the vendor's Matter drivers; one
- * it does not map goes to the vendor's Matter driver when it has only one.
+ * The model the device says is looked up in the `modelCodes` of the vendor's drivers on that
+ * broker's transport; one it does not map goes to the vendor's driver there when it has only one.
  *
  * @param plan - The vendor's discovery.
+ * @param broker - Which broker holds the device: `matter`, `mqtt`.
  * @param identity - Who the device says it is.
- * @returns The association, or null when no Matter driver of the vendor takes it.
+ * @returns The association, or null when no driver of the vendor on the broker takes it.
  */
-export function associateMatter(plan: DiscoveryPlan, identity: unknown): Association | null {
-  const drivers = plan.drivers.filter((driver) => driver.transport === MATTER_TRANSPORT);
-  const modelCode = textAt(identity, plan.discovery.matter?.model ?? 'productId');
+export function associateBroker(
+  plan: DiscoveryPlan,
+  broker: BrokerSource,
+  identity: unknown,
+): Association | null {
+  const drivers = plan.drivers.filter((driver) => driver.transport === BROKER_TRANSPORTS[broker]);
+  const modelCode = textAt(
+    identity,
+    plan.discovery[broker]?.model ?? (broker === 'matter' ? 'productId' : 'model'),
+  );
   const coded =
     modelCode === null
       ? []
