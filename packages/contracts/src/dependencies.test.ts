@@ -100,22 +100,42 @@ describe('planning an installation', () => {
 
   it('brings a provider of a service nothing installed provides, and none when one does', () => {
     const available = offered(
+      release('nvr', '1.0.0', { requires: requires({}, ['object-detection']) }),
+      release('frigate', '1.0.0', { provides: ['object-detection'] }),
+    );
+
+    expect(
+      planInstall('nvr', undefined, { ...CONTEXT, installed: [], available }).install.map(
+        (each) => each.id,
+      ),
+    ).toEqual(['frigate', 'nvr']);
+    expect(
+      planInstall('nvr', undefined, {
+        ...CONTEXT,
+        installed: [installed('deepstack', '1.0.0', { provides: ['object-detection'] })],
+        available,
+      }).install.map((each) => each.id),
+    ).toEqual(['nvr']);
+  });
+
+  it('counts the platform’s own services as there, and refuses a package providing one', () => {
+    const available = offered(
       release('zigbee-tools', '1.0.0', { requires: requires({}, ['mqtt-broker']) }),
       release('mqtt', '1.0.0', { provides: ['mqtt-broker'] }),
     );
+    const broker = planInstall('mqtt', undefined, { ...CONTEXT, installed: [], available });
 
     expect(
       planInstall('zigbee-tools', undefined, { ...CONTEXT, installed: [], available }).install.map(
         (each) => each.id,
       ),
-    ).toEqual(['mqtt', 'zigbee-tools']);
-    expect(
-      planInstall('zigbee-tools', undefined, {
-        ...CONTEXT,
-        installed: [installed('other-broker', '1.0.0', { provides: ['mqtt-broker'] })],
-        available,
-      }).install.map((each) => each.id),
     ).toEqual(['zigbee-tools']);
+    expect(broker.problems).toEqual([
+      { kind: 'platform-service', by: 'mqtt', service: 'mqtt-broker' },
+    ]);
+    expect(describeDependencyProblem(broker.problems[0]!, () => 'MQTT')).toBe(
+      'MQTT provides the MQTT broker, which NebulaHome runs itself',
+    );
   });
 
   it('says why it cannot: the version installed, a circle, a service nobody provides', () => {
@@ -191,46 +211,62 @@ describe('what is still missing', () => {
   it('names a package stopped, another missing, and a service with no provider running', () => {
     const problems = unmetRequirements(
       'zigbee2mqtt',
-      requires({ mqtt: '^1.0.0', nvr: '^1.0.0' }, ['mqtt-broker', 'object-detection'], '^1.0.0'),
+      requires({ ffmpeg: '^6.0.0', nvr: '^1.0.0' }, ['mqtt-broker', 'object-detection'], '^1.0.0'),
       [
-        installed('mqtt', '1.2.0', { provides: ['mqtt-broker'], isRunning: false }),
-        installed('frigate', '1.0.0', { provides: ['object-detection'] }),
+        installed('ffmpeg', '6.1.0', { isRunning: false }),
+        installed('frigate', '1.0.0', { provides: ['object-detection'], isRunning: false }),
       ],
       CONTEXT,
     );
 
     expect(problems).toEqual([
-      { kind: 'not-running', by: 'zigbee2mqtt', packageId: 'mqtt' },
+      { kind: 'not-running', by: 'zigbee2mqtt', packageId: 'ffmpeg' },
       { kind: 'missing-package', by: 'zigbee2mqtt', packageId: 'nvr', range: '^1.0.0' },
-      { kind: 'not-running', by: 'zigbee2mqtt', packageId: 'mqtt' },
+      { kind: 'not-running', by: 'zigbee2mqtt', packageId: 'frigate' },
     ]);
+  });
+
+  it('never waits for a service the platform runs itself', () => {
+    expect(unmetRequirements('zigbee2mqtt', requires({}, ['mqtt-broker']), [], CONTEXT)).toEqual(
+      [],
+    );
   });
 });
 
 describe('who needs a package', () => {
   const nodes: DependencyNode[] = [
-    installed('mqtt', '1.0.0', { provides: ['mqtt-broker'] }),
-    installed('3d-home', '1.0.0', { requires: requires({ mqtt: '^1.0.0' }) }),
+    installed('frigate', '1.0.0', { provides: ['object-detection'] }),
+    installed('3d-home', '1.0.0', { requires: requires({ frigate: '^1.0.0' }) }),
   ];
 
   it('lists the packages that name it and the vendors that need what only it provides', () => {
-    const dependents = dependentsOf('mqtt', nodes, [
-      { kind: 'package', id: '3d-home', requires: requires({ mqtt: '^1.0.0' }) },
-      { kind: 'vendor', id: 'zigbee2mqtt', requires: requires({}, ['mqtt-broker']) },
+    const dependents = dependentsOf('frigate', nodes, [
+      { kind: 'package', id: '3d-home', requires: requires({ frigate: '^1.0.0' }) },
+      { kind: 'vendor', id: 'unifi', requires: requires({}, ['object-detection']) },
       { kind: 'vendor', id: 'shelly', requires: requires() },
     ]);
 
-    expect(dependents.map((each) => each.id)).toEqual(['3d-home', 'zigbee2mqtt']);
+    expect(dependents.map((each) => each.id)).toEqual(['3d-home', 'unifi']);
   });
 
   it('does not count a service another installed package also provides', () => {
     const dependents = dependentsOf(
-      'mqtt',
-      [...nodes, installed('other-broker', '1.0.0', { provides: ['mqtt-broker'] })],
-      [{ kind: 'vendor', id: 'zigbee2mqtt', requires: requires({}, ['mqtt-broker']) }],
+      'frigate',
+      [...nodes, installed('deepstack', '1.0.0', { provides: ['object-detection'] })],
+      [{ kind: 'vendor', id: 'unifi', requires: requires({}, ['object-detection']) }],
     );
 
     expect(dependents).toEqual([]);
+  });
+
+  it('lets a package go that provides what the platform runs itself', () => {
+    expect(
+      dependentsOf(
+        'mqtt',
+        [installed('mqtt', '1.0.0', { provides: ['mqtt-broker'] })],
+        [{ kind: 'vendor', id: 'zigbee2mqtt', requires: requires({}, ['mqtt-broker']) }],
+      ),
+    ).toEqual([]);
   });
 
   it('refuses an update out of a dependent’s range', () => {
@@ -251,12 +287,12 @@ describe('starting in order', () => {
   it('starts a package after what it needs, a provider before who needs its service', () => {
     const { order, problems } = startOrder([
       installed('3d-home', '1.0.0', { requires: requires({ nvr: '*' }) }),
-      installed('nvr', '1.0.0', { requires: requires({}, ['mqtt-broker']) }),
-      installed('mqtt', '1.0.0', { provides: ['mqtt-broker'] }),
+      installed('nvr', '1.0.0', { requires: requires({}, ['mqtt-broker', 'object-detection']) }),
+      installed('frigate', '1.0.0', { provides: ['object-detection'] }),
     ]);
 
     expect(problems).toEqual([]);
-    expect(order).toEqual(['mqtt', 'nvr', '3d-home']);
+    expect(order).toEqual(['frigate', 'nvr', '3d-home']);
   });
 });
 

@@ -93,11 +93,12 @@ export type TransportWire = (typeof TRANSPORT_WIRES)[number];
 
 /**
  * How a device can be heard announcing itself: the platform's mDNS browser, a vendor's own
- * listener, or the house's Matter fabric - a node commissioned and not yet added. Declared here
+ * listener, the house's Matter fabric - a node commissioned and not yet added - or the house's
+ * MQTT broker - a device that announced itself on it, or that the owner mapped. Declared here
  * rather than beside the discovered devices, because a vendor lists the ways it can be found and
  * the discovery module already reads this file.
  */
-export const DISCOVERY_SOURCES = ['mdns', 'module', 'matter'] as const;
+export const DISCOVERY_SOURCES = ['mdns', 'module', 'matter', 'mqtt'] as const;
 
 /** How a device can be heard. */
 export type DiscoverySource = (typeof DISCOVERY_SOURCES)[number];
@@ -189,8 +190,8 @@ export type VendorChangedReply = z.output<typeof vendorChangedReplySchema>;
 
 /**
  * Where `hub` read a vendor from: the data directory, where the platform installs vendors, a
- * directory of bundles under development, read outside production - or nowhere, for the one vendor
- * the platform is itself: `matter`, the Matter devices no integration claims.
+ * directory of bundles under development, read outside production - or nowhere, for the vendors
+ * the platform is itself: `matter` and `mqtt`, the devices of its brokers no integration claims.
  */
 export const BUNDLE_ORIGINS = ['installed', 'development', 'platform'] as const;
 
@@ -486,14 +487,14 @@ export const integrationVendorSchema = z.object({
   containers: z.array(vendorContainerSchema).default([]),
 
   /**
-   * The packages and services its devices need - the MQTT broker, for Zigbee2MQTT - as its
-   * manifest's `requires` says. Nothing when it needs none.
+   * The packages and services its devices need - the MQTT broker the platform runs, for
+   * Zigbee2MQTT - as its manifest's `requires` says. Nothing when it needs none.
    */
   requires: packageRequiresSchema,
 
   /**
-   * What of that is not installed or not running, in sentences naming both - "Zigbee2MQTT needs a
-   * package that provides mqtt-broker, and none is running". Empty when all of it runs.
+   * What of that is not installed or not running, in sentences naming both - "NVR needs a
+   * package that provides object-detection, and none does". Empty when all of it runs.
    */
   packageProblems: z.array(z.string().max(512)).max(16).default([]),
 

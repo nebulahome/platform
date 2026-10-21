@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { packageIdSchema } from './package-id.js';
 import { semverRangeSchema } from './semver.js';
 
-/** A service a package provides and others require: `mqtt-broker`, `object-detection`. */
+/** A service others require: `object-detection`, or `mqtt-broker`, which the platform runs. */
 export const packageServiceNameSchema = z
   .string()
   .regex(/^[a-z][a-z0-9-]{1,63}$/, 'Must be a lower-case service name');

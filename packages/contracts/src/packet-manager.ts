@@ -169,12 +169,6 @@ export const installedPackageSchema = z.object({
   state: z.enum(PACKAGE_STATES),
   source: z.enum(PACKAGE_SOURCES),
 
-  /**
-   * The only package that provides a service the house must have - the MQTT broker
-   * (PACKAGES.md 2): it is not removed or stopped while no other package provides it.
-   */
-  isSystem: z.boolean(),
-
   repository: z.string().max(201).nullable(),
   url: z.string().max(512).nullable(),
   color: z.string().max(7).nullable(),

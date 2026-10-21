@@ -13,6 +13,7 @@
  */
 import { z } from 'zod';
 
+import { BROKER_STATES } from './brokers.js';
 import { integrationIdSchema, integrationKindIdSchema, VENDOR_ID_PATTERN } from './integrations.js';
 import { timestampSchema } from './timestamp.js';
 
@@ -113,12 +114,6 @@ export const matterIdentitySchema = z.object({
 /** Who a Matter device says it is. */
 export type MatterIdentity = z.output<typeof matterIdentitySchema>;
 
-/** How the controller stands. */
-export const MATTER_CONTROLLER_STATES = ['starting', 'running', 'failed', 'disabled'] as const;
-
-/** How the controller stands. */
-export type MatterControllerState = (typeof MATTER_CONTROLLER_STATES)[number];
-
 /**
  * How a commissioning goes. `needs-answer` is a job that stopped before the node joined and waits
  * for the owner: a device whose certificate is a test one, added only when they say so.
@@ -210,7 +205,7 @@ export type MatterCommissioning = z.output<typeof matterCommissioningSchema>;
 
 /** Where the controller stands, as the Brokers page shows it. */
 export const matterStatusSchema = z.object({
-  state: z.enum(MATTER_CONTROLLER_STATES),
+  state: z.enum(BROKER_STATES),
 
   /** Why it failed or is off, in a sentence; null while it runs. */
   error: z.string().max(2048).nullable(),
@@ -340,31 +335,3 @@ export const matterAnswerRequestSchema = z.object({
 
 /** The owner's answer. */
 export type MatterAnswerRequest = z.output<typeof matterAnswerRequestSchema>;
-
-/** The brokers the platform runs, as the Brokers page lists them. */
-export const BROKER_IDS = [MATTER_VENDOR] as const;
-
-/** One broker of the platform. */
-export type BrokerId = (typeof BROKER_IDS)[number];
-
-/** One broker, for its card. */
-export const brokerSummarySchema = z.object({
-  id: z.enum(BROKER_IDS),
-  state: z.enum(MATTER_CONTROLLER_STATES),
-
-  /**
-   * The devices the house has through it, how many of them answer, and how many are also
-   * reached another way.
-   */
-  devices: z.object({
-    total: z.int().min(0),
-    online: z.int().min(0),
-    linked: z.int().min(0).default(0),
-  }),
-});
-
-/** One broker, for its card. */
-export type BrokerSummary = z.output<typeof brokerSummarySchema>;
-
-/** Every broker of the platform. */
-export const brokersReplySchema = z.object({ items: z.array(brokerSummarySchema) });

@@ -14,8 +14,9 @@
  * - **`ui`** is what it adds to the interface: a page of its own, cards for the dashboard, views
  *   for its own kinds of entity - one ES module, served same-origin and loaded on demand.
  * - **`requires`** and **`provides`** are its dependencies: packages by id and version range, and
- *   services by name - `mqtt-broker` - that whichever package provides them satisfies. A vendor's
- *   `manifest.json` writes `requires` the same way.
+ *   services by name - `object-detection` - that whichever package provides them satisfies, or
+ *   that the platform runs itself (`mqtt-broker`). A vendor's `manifest.json` writes `requires`
+ *   the same way.
  * - **`entityTypes`** are kinds of entity no capability describes - a recording, a playlist - with
  *   the fields of their state and the commands they take; an entity of one has the `custom`
  *   capability, and the package's `entityViews` draw it.

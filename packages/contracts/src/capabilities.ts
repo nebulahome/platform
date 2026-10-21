@@ -373,9 +373,9 @@ export const buttonCommandSchema = z.discriminatedUnion('command', [
 /**
  * A device's firmware: what it runs, what it could run, and whether it is installing it now.
  *
- * One entity for the whole of it, as Home Assistant has, rather than a sensor saying an update
- * is there and a button installing it: the installing belongs to the same state as the offer,
- * and an automation that installs whatever is offered must be able to see that an install is
+ * One entity for the whole of it, rather than a sensor saying an update is there and a button
+ * installing it: the installing belongs to the same state as the offer, and an automation that
+ * installs whatever is offered must be able to see that an install is
  * already under way - a device fetching its firmware still offers it until it reboots, and
  * asked again it may start over.
  *
@@ -415,8 +415,7 @@ export function isUpdateOffered(state: z.output<typeof updateStateSchema>): bool
 /**
  * What a robot mower is doing: out mowing, paused in the middle of a job, on its way back to
  * its station, sitting in it, standing idle out of it, or stopped by a fault it cannot clear on
- * its own. Home Assistant's lawn mower activities, and `idle` beside them, which a mower that
- * ended a job away from its station reports.
+ * its own - `idle` among them, which a mower that ended a job away from its station reports.
  */
 export const LAWN_MOWER_ACTIVITIES = [
   'mowing',
@@ -467,7 +466,7 @@ export const lawnMowerCommandSchema = z.discriminatedUnion('command', [
 /**
  * What a robot vacuum is doing: cleaning, paused in the middle of a job, on its way back to its
  * station, sitting in it, standing idle out of it, or stopped by a fault it cannot clear on its
- * own. Home Assistant's vacuum activities, the mower's words where they mean the same.
+ * own: the mower's words where they mean the same.
  */
 export const VACUUM_ACTIVITIES = [
   'cleaning',

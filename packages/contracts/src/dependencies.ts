@@ -3,10 +3,10 @@
  *
  * A package's manifest - and a vendor's - says what it needs (`requires`): the platform in a
  * version range, packages by id and range, and services by name, which any package that
- * `provides` them satisfies - Zigbee2MQTT needs `mqtt-broker`, not the `mqtt` package itself, so a
- * package with another broker may stand in. This file is the one reading of those declarations, shared by
- * the packet-manager (what to install, in which order, and what may be removed), `hub` (which
- * vendors wait for a package) and `api` (why a request is refused):
+ * `provides` them satisfies. A service the platform runs itself - `mqtt-broker`, which Zigbee2MQTT
+ * needs - is always there, and no package may provide it. This file is the one reading of those
+ * declarations, shared by the packet-manager (what to install, in which order, and what may be
+ * removed), `hub` (which vendors wait for a package) and `api` (why a request is refused):
  *
  * - {@link planInstall} - what installing a package takes: the packages it needs that are not
  *   there, dependencies first, or what stands in the way;
@@ -21,6 +21,7 @@
  * this is 1.4.0" tells the owner what to do.
  */
 import type { PackageRequires } from './package-requires.js';
+import { isPlatformService, PLATFORM_SERVICES } from './platform-services.js';
 import type { SatisfiesRange } from './semver.js';
 
 /** One package, as far as dependencies go: what it is, what it needs, what it offers. */
@@ -72,6 +73,7 @@ export type DependencyProblem =
     }
   | { readonly kind: 'not-running'; readonly by: string; readonly packageId: string }
   | { readonly kind: 'missing-service'; readonly by: string; readonly service: string }
+  | { readonly kind: 'platform-service'; readonly by: string; readonly service: string }
   | { readonly kind: 'cycle'; readonly path: readonly string[] }
   | { readonly kind: 'no-release'; readonly packageId: string; readonly range: string };
 
@@ -109,6 +111,14 @@ export function describeDependencyProblem(
 
     case 'missing-service': {
       return `${nameOf(problem.by)} needs a package that provides ${problem.service}, and none does`;
+    }
+
+    case 'platform-service': {
+      const label =
+        PLATFORM_SERVICES.find((service) => service.name === problem.service)?.label ??
+        problem.service;
+
+      return `${nameOf(problem.by)} provides the ${label}, which NebulaHome runs itself`;
     }
 
     case 'cycle': {
@@ -250,12 +260,13 @@ export function planInstall(
   const problems: DependencyProblem[] = [];
 
   /**
-   * Says whether a service is provided by what is installed or planned.
+   * Says whether a service is provided: by the platform, or by what is installed or planned.
    *
    * @param service - The service.
    * @returns True when it is.
    */
   const isProvided = (service: string): boolean =>
+    isPlatformService(service) ||
     [...installed.values(), ...planned.values()].some((node) => node.provides.includes(service));
 
   /**
@@ -287,6 +298,11 @@ export function planInstall(
     planned.set(id, release);
 
     const { requires } = release;
+
+    // The house has one of each, the platform's: a second would only fight it for its port.
+    for (const service of release.provides.filter(isPlatformService)) {
+      problems.push({ kind: 'platform-service', by: id, service });
+    }
 
     if (
       requires.platform !== undefined &&
@@ -390,7 +406,7 @@ export function unmetRequirements(
     }
   }
 
-  for (const service of requires.services) {
+  for (const service of requires.services.filter((each) => !isPlatformService(each))) {
     const providers = installed.filter((node) => node.id !== by && node.provides.includes(service));
 
     if (providers.length === 0) {
@@ -405,7 +421,7 @@ export function unmetRequirements(
 
 /**
  * Who needs a package: the packages and vendors that require it by id, or that require a
- * service it provides and no other installed package does.
+ * service it provides and no other installed package does - never one the platform runs itself.
  *
  * @param packageId - The package.
  * @param installed - What is installed, it among them.
@@ -421,6 +437,7 @@ export function dependentsOf(
   const soleServices = new Set(
     (target?.provides ?? []).filter(
       (service) =>
+        !isPlatformService(service) &&
         !installed.some((node) => node.id !== packageId && node.provides.includes(service)),
     ),
   );
@@ -459,7 +476,8 @@ export function blockedUpdate(
 
 /**
  * The installed packages in an order they can start in: each after the packages it requires and
- * the providers of the services it requires. A package in a circle is left out, with the circle.
+ * the providers of the services it requires - the platform's own aside, which are there before any.
+ * A package in a circle is left out, with the circle.
  *
  * @param installed - What is installed.
  * @returns The order, and any circle found.
@@ -481,11 +499,13 @@ export function startOrder(installed: readonly DependencyNode[]): {
    */
   const before = (node: DependencyNode): string[] => [
     ...Object.keys(node.requires.packages).filter((id) => byId.has(id)),
-    ...node.requires.services.flatMap((service) =>
-      installed
-        .filter((other) => other.id !== node.id && other.provides.includes(service))
-        .map((other) => other.id),
-    ),
+    ...node.requires.services
+      .filter((service) => !isPlatformService(service))
+      .flatMap((service) =>
+        installed
+          .filter((other) => other.id !== node.id && other.provides.includes(service))
+          .map((other) => other.id),
+      ),
   ];
 
   /**
