@@ -659,7 +659,7 @@
   --toast-tint: var(--color-cyan);
   box-shadow:
     var(--shadow-float),
-    0 18px 40px -24px var(--toast-tint);
+    0 12px 28px -22px color-mix(in srgb, var(--toast-tint) 45%, transparent);
 }
 
 .toast-card[data-kind='success'] {
