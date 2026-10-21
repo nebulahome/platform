@@ -7,6 +7,7 @@
  * - {@link driverHarness} claims, describes, maps what a device sends and builds commands;
  * - {@link identify} says what discovery makes of a device heard;
  * - {@link identifyMatter} says what it makes of one of the house's Matter devices;
+ * - {@link identifyMqtt} says what it makes of a device the house's MQTT broker hears;
  * - {@link createFakeSdk} is the SDK a test hands a module, recording what it logged and sent.
  */
 
@@ -29,8 +30,10 @@ export {
 export {
   identify,
   identifyMatter,
+  identifyMqtt,
   type Identification,
   type MatterIdentification,
+  type MqttIdentification,
 } from './identify.js';
 export { loadIntegration, type LoadedIntegration, type LoadIntegrationOptions } from './load.js';
 export { IntegrationError } from '../project.js';

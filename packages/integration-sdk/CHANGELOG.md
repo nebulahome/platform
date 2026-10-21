@@ -3,6 +3,23 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.3.0
+
+The house's MQTT broker is the platform's.
+
+- The platform runs the house's MQTT broker in the hub, the way it runs the Matter fabric:
+  `requires: { "services": ["mqtt-broker"] }` is always met, and `sdk.platform.mqtt` is the hub's
+  own username on it.
+- A driver may run on the platform's `mqtt-house` transport with `"kind": "mqtt"`: the platform's
+  MQTT mapping is its driver, with neither a profile nor code, for the devices that announce
+  themselves on the broker the way the MQTT discovery convention says, and those the owner maps
+  by hand.
+- `discovery.json` may say which of those devices are the vendor's, in an `mqtt` block of
+  conditions on who each says it is - `manufacturer`, `model`, `originName` and the rest; `listen`
+  may then be left out.
+- `identifyMqtt(vendor, identity)` in `@nebulahome/integration-sdk/testing` says whether the
+  vendor's `mqtt` rules take such a device, and as which driver and model.
+
 ## 1.2.0
 
 One device reached two ways.

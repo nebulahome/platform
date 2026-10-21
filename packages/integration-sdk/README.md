@@ -86,7 +86,8 @@ light.command('light.device', 'on_off', { command: 'turn_on' }); // → the HTTP
 ```
 
 `identify` says what discovery makes of a device heard, `identifyMatter` what the vendor's `matter`
-rules make of one of the house's Matter devices, and `createFakeSdk` is the SDK handed to
+rules make of one of the house's Matter devices, `identifyMqtt` what its `mqtt` rules make of a
+device the house's MQTT broker hears, and `createFakeSdk` is the SDK handed to
 the code, recording what it logged and sent: its UDP sockets and WebSockets connect to nothing, and
 a test opens, delivers to and drops them.
 

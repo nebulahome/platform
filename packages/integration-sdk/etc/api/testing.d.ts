@@ -228,6 +228,25 @@ type MatterIdentification = {
  * @throws {Error} When the vendor has no discovery that loaded.
  */
 export declare function identifyMatter(vendor: LoadedVendor, identity: Readonly<Record<string, unknown>>): MatterIdentification;
+/** What discovery makes of one of the devices the house's MQTT broker hears. */
+type MqttIdentification = {
+  /** Whether the vendor's `mqtt` rules take it: every condition holds. */
+  readonly matches: boolean;
+  /** The MQTT driver and the model it names; null when no driver takes the device. */
+  readonly association: Association | null;
+};
+/**
+ * Says what discovery makes of one of the devices the house's MQTT broker hears - one that
+ * announced itself, or one the owner mapped - by the vendor's `mqtt` rules. A device that another
+ * vendor's rules take too is the platform's own instead, which one vendor's test cannot see.
+ *
+ * @param vendor - The vendor, loaded with `loadIntegration`.
+ * @param identity - Who the device says it is: `manufacturer`, `model`, `originName`,
+ * `identifiers` and the rest of the fields FILES.md lists; a field left out is one it does not say.
+ * @returns What discovery makes of it.
+ * @throws {Error} When the vendor has no discovery that loaded.
+ */
+export declare function identifyMqtt(vendor: LoadedVendor, identity: Readonly<Record<string, unknown>>): MqttIdentification;
 //#endregion
 //#region src/testing/load.d.ts
 /** What loading takes. */
@@ -283,4 +302,4 @@ export declare class IntegrationError extends Error {
   constructor(problems: readonly string[]);
 }
 //#endregion
-export type { Association, BundleFailure, DriverHarness, DriverHarnessOptions, FakeSdk, FakeSdkOptions, FakeUdpSocket, FakeWebSocket, HarnessDevice, Identification, LoadIntegrationOptions, LoadedAccount, LoadedBundle, LoadedDiscovery, LoadedIntegration, LoadedListenSource, LoadedVendor, LogLevel, LogRecord, MatterIdentification, SentDatagram, SightingIdentity };
+export type { Association, BundleFailure, DriverHarness, DriverHarnessOptions, FakeSdk, FakeSdkOptions, FakeUdpSocket, FakeWebSocket, HarnessDevice, Identification, LoadIntegrationOptions, LoadedAccount, LoadedBundle, LoadedDiscovery, LoadedIntegration, LoadedListenSource, LoadedVendor, LogLevel, LogRecord, MatterIdentification, MqttIdentification, SentDatagram, SightingIdentity };

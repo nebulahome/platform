@@ -199,8 +199,10 @@ type EntityStateClass = (typeof ENTITY_STATE_CLASSES)[number];
  */
 declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   number: "number";
-  on_off: "on_off";
+  custom: "custom";
+  image: "image";
   level: "level";
+  on_off: "on_off";
   color_hs: "color_hs";
   color_temp: "color_temp";
   cover: "cover";
@@ -216,8 +218,6 @@ declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   lawn_mower: "lawn_mower";
   select: "select";
   vacuum: "vacuum";
-  image: "image";
-  custom: "custom";
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
 type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
@@ -1351,9 +1351,9 @@ type ManagedMqtt = {
 /** Opens a managed MQTT session. */
 type OpenMqtt = (options: ManagedMqttOptions) => ManagedMqtt;
 /**
- * The house's MQTT broker, as the hub reaches it: the package that provides `mqtt-broker`, with
- * the hub's own username - or the broker `NEBULA_MQTT_URL` names. Read again each time it is needed: the broker may start after
- * the hub, and a bundle that opens a session later finds it then.
+ * The house's MQTT broker, as the hub reaches it: the one the hub runs, with the hub's own
+ * username - or the broker `NEBULA_MQTT_URL` names. Read again each time it is needed: a session
+ * opened while the broker is still coming up retries until it listens.
  */
 type PlatformMqtt = {
   readonly url: string;
@@ -1364,7 +1364,7 @@ type PlatformMqtt = {
 type PlatformServices = {
   /**
    * The house's broker, for a vendor whose devices report through it - zigbee2mqtt - and which
-   * runs its own program beside the platform. Null on an installation without one.
+   * runs its own program beside the platform. Null only while the hub cannot run one.
    */
   readonly mqtt: PlatformMqtt | null;
 };
@@ -1676,12 +1676,12 @@ declare const vendorManifestSchema: z.ZodObject<{
   transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
     module: z.ZodString;
     wires: z.ZodArray<z.ZodEnum<{
-      udp: "udp";
       matter: "matter";
-      http: "http";
       mqtt: "mqtt";
+      http: "http";
       ble: "ble";
       zigbee: "zigbee";
+      udp: "udp";
       modbus: "modbus";
     }>>;
   }, z.core.$strict>]>>>;
@@ -1774,6 +1774,7 @@ declare const bundleManifestSchema: z.ZodObject<{
     declarative: "declarative";
     code: "code";
     matter: "matter";
+    mqtt: "mqtt";
   }>;
   defaultIcon: z.ZodOptional<z.ZodString>;
   webPagePort: z.ZodOptional<z.ZodInt>;
@@ -1889,6 +1890,32 @@ declare const vendorDiscoverySchema: z.ZodObject<{
     }, z.core.$strict>]>>;
     model: z.ZodDefault<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
   }, z.core.$strict>>;
+  mqtt: z.ZodOptional<z.ZodObject<{
+    match: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
+      path: z.ZodString;
+      equals: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      exists: z.ZodLiteral<true>;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      oneOf: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      startsWith: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      endsWith: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      contains: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      min: z.ZodOptional<z.ZodNumber>;
+      max: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strict>]>>;
+    model: z.ZodDefault<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
+  }, z.core.$strict>>;
   adopt: z.ZodDefault<z.ZodEnum<{
     owner: "owner";
     automatic: "automatic";
@@ -1908,8 +1935,8 @@ type DiscoveryDriver = {
   /** The driver's own name, offered as its one model when it lists none. */
   readonly name: string;
   /**
-   * What reaches its devices. A driver on the `matter` transport takes only Matter devices, and no
-   * other driver does.
+   * What reaches its devices. A driver on a broker's transport - `matter`, `mqtt-house` - takes
+   * only that broker's devices, and no other driver does.
    */
   readonly transport: string;
   readonly models: readonly string[];
@@ -2050,7 +2077,7 @@ type LoadedBundle = {
  * from the integrations index or its local folder, and the only place a production hub reads.
  * `development` is a directory of bundles under development - an integration repository's
  * `dist/`, named in the hub's `HUB_DEV_BUNDLE_DIR` - read beside it. `platform` is no place at
- * all: the vendor the hub is itself, `matter`, built in code.
+ * all: the vendors the hub is itself, `matter` and `mqtt`, built in code.
  */
 type BundleOrigin = 'development' | 'installed' | 'platform';
 /** Where a vendor's devices announce themselves, ready to listen to. */

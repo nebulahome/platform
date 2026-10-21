@@ -74,8 +74,9 @@ which of its readings is which in Matter.
 
 `requires` says what the vendor's devices need besides the hub, in the grammar a
 package's manifest uses (PACKAGES.md §8, Dependencies):
-`{ "services": ["mqtt-broker"] }` for Zigbee2MQTT, which talks through the house's broker, or a
-package by id and range. Until what it needs runs, the vendor waits: its instances fail with the
+`{ "services": ["mqtt-broker"] }` for Zigbee2MQTT, which talks through the house's broker - one
+the platform runs itself, so it is always met - or a package by id and range. Until what it needs
+runs, the vendor waits: its instances fail with the
 sentence that names the package, `api` refuses its devices with `409 needs-package`, and its page
 says so first. The hub follows the packages at every `pkg.*` event and starts only that vendor's
 instances again when its standing changes. A container that speaks to the broker names its topics
@@ -127,7 +128,7 @@ the vendor's models by series, across its drivers - the series by name, the mode
 counting order - and a device's page says its series where it would say the driver's name. A
 model given no series is grouped under its driver. Every model named must be in `models`.
 
-`transport` is a platform transport - `http`, `mqtt`, `matter` - or one the driver's own vendor
+`transport` is a platform transport - `http`, `mqtt`, `matter`, `mqtt-house` - or one the driver's own vendor
 ships, named after the vendor: `shelly/rpc`. Never another vendor's: vendors load in no particular
 order, and a driver leaning on another's transport would load or not by luck.
 
@@ -137,6 +138,12 @@ covers, locks, thermostats, the usual sensors, power and energy, the firmware - 
 Matter devices are its own, on its page, without code. Which devices those are its
 `discovery.json` says (below), and `modelCodes` maps what they call their model - their product id,
 unless the vendor says another field - onto the models it lists.
+
+A driver of the vendor's devices that **announce themselves on the house's MQTT broker** is
+`"transport": "mqtt-house"` with `"kind": "mqtt"`, likewise with neither a profile nor an entry:
+the platform's own MQTT mapping runs it - sensors, binary sensors, switches, lights, covers,
+buttons, numbers, selects and locks, as each announces itself - and `modelCodes` maps the model
+the device announces onto the models it lists.
 
 `defaultIcon` names the icon a device of this driver starts with, by its id in the platform's
 icon catalogue (`packages/icons/catalogue.json` lists the platform's own ids - `light`,
@@ -357,6 +364,35 @@ at once to the vendor whose `matter` rules take it:
   Matter driver when it has only one. Matter devices are added on their own, with no one to pick a
   model: a Matter driver that lists models must map every product in `modelCodes`, or a product
   it misses is never added. A driver that lists none takes them all, under its own name.
+
+**MQTT devices.** The house's MQTT broker, which the platform runs on port 1883, hears every device
+that announces itself the way the MQTT discovery convention says - a retained JSON document on
+`<prefix>/<component>/[<node>/]<object>/config`, which Tasmota, ESPHome, OpenMQTTGateway and most
+others publish under `homeassistant` - and each device the owner maps by hand on the Brokers page.
+Each is added at once to the vendor whose `mqtt` rules take it:
+
+```json
+{
+  "mqtt": {
+    "match": [{ "path": "originName", "equals": "Tasmota" }],
+    "model": "model"
+  }
+}
+```
+
+- `match` - at least one condition, all of which must hold of who the device says it is: its
+  `deviceKey` (its first identifier), `source` (`announced`, `mapped` or `broker`), `name`,
+  `manufacturer`, `model`, `modelId`, `swVersion`, `hwVersion`, `serialNumber`, `identifiers` and
+  `macAddresses` (lists), `viaDevice`, `originName` and `originSwVersion` (the firmware or program
+  that announced it) and `components` (a list: `switch`, `sensor`, `light`…). A field the device
+  does not say is `null`.
+- `model` - where the device says its model, looked up in the `modelCodes` of the vendor's drivers
+  that say `"kind": "mqtt"`; `model` when absent. A model no driver maps goes to the vendor's MQTT
+  driver when it has only one, as with Matter.
+
+A vendor may have `mqtt` alone, with no `listen`. A device that more than one vendor's rules take,
+and one that none takes, is added as the platform's own MQTT device, and one added so before the
+vendor was installed becomes the vendor's once it is.
 
 A vendor may have `matter` alone, with no `listen`. A device behind a Matter bridge is a device of
 its own, ruled on by what the bridge says of it. A device that more than one vendor's rules take,
@@ -635,7 +671,7 @@ import them:
 | `openMqtt`           | an MQTT session with a client certificate, for a vendor's own broker               |
 | `defineStreamSource` | the contract a camera's stream source is written against                           |
 | `openRtsp`           | an RTSP(S) session over TCP, yielding a camera's H.264 as it comes                 |
-| `platform.mqtt`      | the platform's own MQTT broker, or null on an installation without one             |
+| `platform.mqtt`      | the house's MQTT broker the hub runs, with the hub's username; null if it cannot   |
 | `defineAccount`      | the contract an account's sign-in module is written against                        |
 | `codecs.lzma`        | unpacks an LZMA stream in the alone format, as some clouds pack maps               |
 | `images.png`         | encodes a picture of a palette as a PNG, for an image entity                       |

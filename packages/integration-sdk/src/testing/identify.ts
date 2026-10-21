@@ -7,11 +7,11 @@
  */
 import type { Discovered, LoadedVendor } from '@nebulahome/package-runtime';
 import {
-  associateMatter,
+  associateBroker,
   associateModel,
   identifySighting,
   matchesAnnouncement,
-  matchesMatter,
+  matchesBroker,
   type Association,
   type SightingIdentity,
 } from '@nebulahome/package-runtime';
@@ -103,7 +103,42 @@ export function identifyMatter(
     throw new Error(`${vendor.manifest.id} has no discovery.json that loaded`);
   }
 
-  const matches = matchesMatter(plan, identity);
+  const matches = matchesBroker(plan, 'matter', identity);
 
-  return { matches, association: matches ? associateMatter(plan, identity) : null };
+  return { matches, association: matches ? associateBroker(plan, 'matter', identity) : null };
+}
+
+/** What discovery makes of one of the devices the house's MQTT broker hears. */
+export type MqttIdentification = {
+  /** Whether the vendor's `mqtt` rules take it: every condition holds. */
+  readonly matches: boolean;
+
+  /** The MQTT driver and the model it names; null when no driver takes the device. */
+  readonly association: Association | null;
+};
+
+/**
+ * Says what discovery makes of one of the devices the house's MQTT broker hears - one that
+ * announced itself, or one the owner mapped - by the vendor's `mqtt` rules. A device that another
+ * vendor's rules take too is the platform's own instead, which one vendor's test cannot see.
+ *
+ * @param vendor - The vendor, loaded with `loadIntegration`.
+ * @param identity - Who the device says it is: `manufacturer`, `model`, `originName`,
+ * `identifiers` and the rest of the fields FILES.md lists; a field left out is one it does not say.
+ * @returns What discovery makes of it.
+ * @throws {Error} When the vendor has no discovery that loaded.
+ */
+export function identifyMqtt(
+  vendor: LoadedVendor,
+  identity: Readonly<Record<string, unknown>>,
+): MqttIdentification {
+  const plan = vendor.discovery?.plan;
+
+  if (plan === undefined) {
+    throw new Error(`${vendor.manifest.id} has no discovery.json that loaded`);
+  }
+
+  const matches = matchesBroker(plan, 'mqtt', identity);
+
+  return { matches, association: matches ? associateBroker(plan, 'mqtt', identity) : null };
 }

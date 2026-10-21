@@ -22,6 +22,7 @@ import {
   driverHarness,
   identify,
   identifyMatter,
+  identifyMqtt,
   loadIntegration,
   type FakeSdk,
 } from '../src/testing/index.js';
@@ -340,6 +341,52 @@ describe('testing', () => {
       association: { driverId: 'matter', model: 'Matter device', modelChoices: ['Matter device'] },
     });
     expect(identifyMatter(vendor, { vendorId: 4107, productId: 4121 })).toEqual({
+      matches: false,
+      association: null,
+    });
+  });
+
+  it("says which devices the house's MQTT broker hears the vendor's rules take", async () => {
+    const source = path.join(root, 'src');
+    const discovery = JSON.parse(
+      await readFile(path.join(source, 'discovery.json'), 'utf8'),
+    ) as object;
+
+    await writeFile(
+      path.join(source, 'discovery.json'),
+      JSON.stringify({
+        ...discovery,
+        mqtt: { match: [{ path: 'originName', equals: 'Tasmota' }] },
+      }),
+    );
+    await mkdir(path.join(source, 'tasmota'));
+    await writeFile(
+      path.join(source, 'tasmota', 'driver.json'),
+      JSON.stringify({
+        id: 'tasmota',
+        name: 'Tasmota device',
+        transport: 'mqtt-house',
+        kind: 'mqtt',
+        setup: './setup.json',
+      }),
+    );
+    await writeFile(
+      path.join(source, 'tasmota', 'setup.json'),
+      JSON.stringify({ transport: { fields: [] } }),
+    );
+
+    const { vendor, failures } = await loadIntegration({ root });
+
+    expect(failures).toEqual([]);
+    expect(identifyMqtt(vendor, { originName: 'Tasmota', model: 'Sonoff S26' })).toEqual({
+      matches: true,
+      association: {
+        driverId: 'tasmota',
+        model: 'Tasmota device',
+        modelChoices: ['Tasmota device'],
+      },
+    });
+    expect(identifyMqtt(vendor, { originName: 'ESPHome' })).toEqual({
       matches: false,
       association: null,
     });

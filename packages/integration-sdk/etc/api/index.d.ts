@@ -199,8 +199,10 @@ type EntityStateClass = (typeof ENTITY_STATE_CLASSES)[number];
  */
 declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   number: "number";
-  on_off: "on_off";
+  custom: "custom";
+  image: "image";
   level: "level";
+  on_off: "on_off";
   color_hs: "color_hs";
   color_temp: "color_temp";
   cover: "cover";
@@ -216,8 +218,6 @@ declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   lawn_mower: "lawn_mower";
   select: "select";
   vacuum: "vacuum";
-  image: "image";
-  custom: "custom";
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
 type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
@@ -1116,9 +1116,9 @@ type ManagedMqtt = {
 /** Opens a managed MQTT session. */
 type OpenMqtt = (options: ManagedMqttOptions) => ManagedMqtt;
 /**
- * The house's MQTT broker, as the hub reaches it: the package that provides `mqtt-broker`, with
- * the hub's own username - or the broker `NEBULA_MQTT_URL` names. Read again each time it is needed: the broker may start after
- * the hub, and a bundle that opens a session later finds it then.
+ * The house's MQTT broker, as the hub reaches it: the one the hub runs, with the hub's own
+ * username - or the broker `NEBULA_MQTT_URL` names. Read again each time it is needed: a session
+ * opened while the broker is still coming up retries until it listens.
  */
 type PlatformMqtt = {
   readonly url: string;
@@ -1129,7 +1129,7 @@ type PlatformMqtt = {
 type PlatformServices = {
   /**
    * The house's broker, for a vendor whose devices report through it - zigbee2mqtt - and which
-   * runs its own program beside the platform. Null on an installation without one.
+   * runs its own program beside the platform. Null only while the hub cannot run one.
    */
   readonly mqtt: PlatformMqtt | null;
 };
