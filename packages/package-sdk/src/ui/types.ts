@@ -363,6 +363,11 @@ export type PlatformLinkProps = LinkAttributes & {
   readonly to: PlatformTarget;
 };
 
+/** What the header of the package's page shows. Since 1.3. */
+export type PageActionsProps = {
+  readonly children?: ReactNode;
+};
+
 /** What the interface lends to implement `/ui`. */
 export type UiHost = {
   readonly usePackage: () => PackageInfo;
@@ -411,4 +416,7 @@ export type UiHost = {
   readonly usePlatformNavigate: () => PlatformNavigate;
   readonly PackageLink: ComponentType<PackageLinkProps>;
   readonly PlatformLink: ComponentType<PlatformLinkProps>;
+
+  /** Since 1.3. */
+  readonly PageActions: ComponentType<PageActionsProps>;
 };

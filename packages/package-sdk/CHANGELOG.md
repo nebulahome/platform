@@ -3,6 +3,13 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
+## 1.3.0
+
+- **The page's actions in its header.** `<PageActions>` from `@nebulahome/package-sdk/ui` draws
+  its children in the header of the package's page, beside the title, in place of the platform's
+  own "Details": the buttons a page would otherwise give a row of their own. On a card or an
+  entity view it draws nothing.
+
 ## 1.2.0
 
 - **The past of the house.** `ctx.history.states()` and `ctx.history.telemetry()` on the server

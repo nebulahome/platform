@@ -273,6 +273,10 @@ type PackageLinkProps = LinkAttributes & {
 type PlatformLinkProps = LinkAttributes & {
   readonly to: PlatformTarget;
 };
+/** What the header of the package's page shows. Since 1.3. */
+type PageActionsProps = {
+  readonly children?: ReactNode;
+};
 /** What the interface lends to implement `/ui`. */
 type UiHost = {
   readonly usePackage: () => PackageInfo;
@@ -303,6 +307,8 @@ type UiHost = {
   readonly usePlatformNavigate: () => PlatformNavigate;
   readonly PackageLink: ComponentType<PackageLinkProps>;
   readonly PlatformLink: ComponentType<PlatformLinkProps>;
+  /** Since 1.3. */
+  readonly PageActions: ComponentType<PageActionsProps>;
 };
 //#endregion
 //#region src/ui/index.d.ts
@@ -471,5 +477,13 @@ export declare function PackageLink(props: PackageLinkProps): ReactElement;
  * @returns The link.
  */
 export declare function PlatformLink(props: PlatformLinkProps): ReactElement;
+/**
+ * Buttons and links drawn in the header of the package's page, in place of the platform's own:
+ * the page's actions, beside its title. On a card or a view it draws nothing. Since 1.3.
+ *
+ * @param props - What the header shows.
+ * @returns The actions.
+ */
+export declare function PageActions(props: PageActionsProps): ReactElement;
 //#endregion
-export type { AreaKind, AreaView, CardProps, ChangeCause, CustomEntityState, EntitiesFilter, EntityPicture, EntityView, EntityViewProps, History, HistoryQuery, HistorySeries, HistoryWindow, Locale, Mutation, MutationOptions, PackageCall, PackageInfo, PackageLinkProps, PackageNavigate, PackageRoute, PackageSettings, PageProps, PictureOptions, PlatformLinkProps, PlatformNavigate, PlatformTarget, PluralEnglish, RpcOptions, RpcState, SendCommand, SettingsPatch, StateHistoryPoint, Telemetry, TelemetryPoint, TelemetryQuery, TelemetryResolution, Theme, Translate, Translation, TranslationValues, UiHost, Viewer, VisibleSettings };
+export type { AreaKind, AreaView, CardProps, ChangeCause, CustomEntityState, EntitiesFilter, EntityPicture, EntityView, EntityViewProps, History, HistoryQuery, HistorySeries, HistoryWindow, Locale, Mutation, MutationOptions, PackageCall, PackageInfo, PackageLinkProps, PackageNavigate, PackageRoute, PackageSettings, PageActionsProps, PageProps, PictureOptions, PlatformLinkProps, PlatformNavigate, PlatformTarget, PluralEnglish, RpcOptions, RpcState, SendCommand, SettingsPatch, StateHistoryPoint, Telemetry, TelemetryPoint, TelemetryQuery, TelemetryResolution, Theme, Translate, Translation, TranslationValues, UiHost, Viewer, VisibleSettings };

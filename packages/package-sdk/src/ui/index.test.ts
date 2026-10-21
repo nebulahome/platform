@@ -8,6 +8,7 @@ import { cn } from '../components/index.js';
 import { COMPONENTS_MODULE, UI_MODULE } from '../host.js';
 
 import {
+  PageActions,
   useAreas,
   useEntityPicture,
   usePackage,
@@ -74,6 +75,14 @@ describe('the forwarders', () => {
     expect(() => useAreas()).toThrow('useAreas needs package SDK 1.2');
     expect(() => useEntityPicture('camera.porch')).toThrow(
       'useEntityPicture needs package SDK 1.2',
+    );
+  });
+
+  it('name 1.3 for what 1.3 added', () => {
+    lend('1.2.0', { [UI_MODULE]: {} });
+
+    expect(() => PageActions({})).toThrow(
+      'PageActions needs package SDK 1.3; this interface implements 1.2.0',
     );
   });
 

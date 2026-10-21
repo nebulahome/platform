@@ -32,6 +32,7 @@ import type {
   PackageLinkProps,
   PackageNavigate,
   PackageRoute,
+  PageActionsProps,
   PackageSettings,
   PictureOptions,
   PlatformLinkProps,
@@ -66,6 +67,7 @@ export type {
   PackageNavigate,
   PackageRoute,
   PackageSettings,
+  PageActionsProps,
   PictureOptions,
   PlatformLinkProps,
   PlatformNavigate,
@@ -351,4 +353,15 @@ export function PackageLink(props: PackageLinkProps): ReactElement {
  */
 export function PlatformLink(props: PlatformLinkProps): ReactElement {
   return createElement(ui('PlatformLink', '1.0'), props);
+}
+
+/**
+ * Buttons and links drawn in the header of the package's page, in place of the platform's own:
+ * the page's actions, beside its title. On a card or a view it draws nothing. Since 1.3.
+ *
+ * @param props - What the header shows.
+ * @returns The actions.
+ */
+export function PageActions(props: PageActionsProps): ReactElement {
+  return createElement(ui('PageActions', '1.3'), props);
 }
