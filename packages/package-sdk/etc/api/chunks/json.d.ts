@@ -33,7 +33,7 @@ declare function isEntityId(value: unknown): value is EntityId;
 //#region src/capabilities.d.ts
 /** Every capability an entity may declare. */
 type CapabilityName = 'on_off' | 'level' | 'color_hs' | 'color_temp' | 'cover' | 'lock' | 'thermostat' | 'sensor_numeric' | 'sensor_binary' | 'sensor_text' | 'media_player' | 'camera' | 'button' | 'update' | 'lawn_mower' | 'select' | 'number' | 'vacuum' | 'image' | 'custom';
-/** How a sensor's readings add up: Home Assistant's state classes, for statistics. */
+/** How a sensor's readings add up, for statistics: a reading, a running total, or a meter. */
 type EntityStateClass = 'measurement' | 'total' | 'total_increasing';
 /** The modes a thermostat may be set to. */
 type ThermostatMode = 'off' | 'heat' | 'cool' | 'auto' | 'fan_only' | 'dry';

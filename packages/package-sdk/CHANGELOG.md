@@ -23,6 +23,9 @@ to it, a major one breaks it, and a patch leaves it as it is.
 - **The sun.** `@nebulahome/package-sdk/sun`: `sunPosition`, `sunTimes`, `sunState` and
   `sunPhaseLabel`, the platform's own formulas, for a moment the sun entities did not report.
 - A package's id may start with a digit (`3d-home`); its entities' object ids then do too.
+- **The MQTT broker is the platform's.** The hub runs the house's broker: `requires.services:
+["mqtt-broker"]` is always met, `{platform.mqtt.*}` and `NEBULA_PLATFORM_MQTT_*` name it, and a
+  package that `provides` `mqtt-broker` is refused at install.
 
 ## 1.1.0
 

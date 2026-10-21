@@ -35,7 +35,7 @@ export type CapabilityName =
   | 'image'
   | 'custom';
 
-/** How a sensor's readings add up: Home Assistant's state classes, for statistics. */
+/** How a sensor's readings add up, for statistics: a reading, a running total, or a meter. */
 export type EntityStateClass = 'measurement' | 'total' | 'total_increasing';
 
 /** The modes a thermostat may be set to. */
