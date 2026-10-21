@@ -793,14 +793,6 @@ export class SupervisorService {
   }
 
   /**
-   * Asks the broker again for the containers that wait for it: a package was installed,
-   * started, configured or removed, and it may be the one that provides the broker.
-   */
-  public packageChanged(): void {
-    this.#managed.retryAwaitingBroker();
-  }
-
-  /**
    * Performs a command `core` routed to a container entity: installing the image's update.
    *
    * @param command - The entity, the capability and what to do.

@@ -14,11 +14,11 @@
  * stays locked: not having heard is not the same as having been told.
  *
  * A container that speaks MQTT is not made while the house's broker has not answered - at boot,
- * before the MQTT package runs, or with no such package. Made then, it would be given an empty
+ * before the hub runs it, or while it cannot listen. Made then, it would be given an empty
  * broker address, and zigbee2mqtt reads an empty address as `localhost:1883`, its own container,
  * where nothing listens; a container already made would even be made again with it, since what it
  * is made from changed. It waits instead, as it is, and the broker is asked again every 15 seconds
- * and at every package event, until it answers.
+ * until it answers.
  */
 import { writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -122,7 +122,7 @@ const BROKER_RETRY_MS = 15_000;
 
 /** What a container waiting for the broker says on its vendor's page. */
 export const WAITING_FOR_BROKER =
-  'Waiting for the house’s MQTT broker, which the MQTT package provides';
+  'Waiting for the house’s MQTT broker, which the hub runs (Brokers → MQTT)';
 
 /** The key an owner's declarations are kept under. */
 type OwnerKey = `${ContainerOwnerKind}:${string}`;
@@ -244,8 +244,8 @@ export class ManagedContainers {
   }
 
   /**
-   * Starts the work again for the owners whose containers wait for the broker: a package was
-   * installed, started or configured, and it may be the broker. Nothing at all when none waits.
+   * Starts the work again for the owners whose containers wait for the broker, which may listen
+   * now. Nothing at all when none waits.
    */
   public retryAwaitingBroker(): void {
     if (this.#brokerRetry !== null) {

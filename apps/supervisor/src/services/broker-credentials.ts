@@ -4,23 +4,19 @@
  * A container that speaks MQTT - its environment or its first configuration names
  * `{platform.mqtt.url}` and the like - is given a username the house's broker made for it,
  * `nebula-vendor-zigbee2mqtt`, held to the topics its declaration names. The house's broker is
- * whichever package provides `mqtt-broker`, found on the packet-manager's list and asked over the
- * bus (`svc.<package>.credentials`); it answers the port it listens on, and the address is the
- * platform's, which `brokerUrlFor` turns into the one the container reaches it by. With no such
- * package, or none that answers, the container waits for one (`ManagedContainers`). A broker the
+ * the one the hub runs, asked over the bus (`svc.hub.mqtt_credentials`), which answers the
+ * supervisor alone; it answers the port it listens on, and the address is the platform's, which
+ * `brokerUrlFor` turns into the one the container reaches it by. While the broker does not listen,
+ * or the hub does not answer, the container waits for it (`ManagedContainers`). A broker the
  * environment names (`NEBULA_MQTT_URL`) is used instead, and nothing is asked: the callers do not
  * ask then.
  */
 import type { BusClient } from '@nebulahome/bus';
 import {
   busSubjects,
-  MQTT_BROKER_SERVICE,
-  MQTT_CREDENTIALS_METHOD,
+  HUB_MQTT_CREDENTIALS_METHOD,
+  HUB_SERVICE,
   mqttCredentialsReplySchema,
-  PACKET_MANAGER_METHODS,
-  PACKET_MANAGER_SERVICE,
-  packageListReplySchema,
-  providerOf,
   type ManagedContainerSpec,
   type MqttCredentialsRequest,
 } from '@nebulahome/contracts';
@@ -28,7 +24,7 @@ import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { PlatformContext } from '../domain/managed.js';
 
-/** How long the packet-manager and the broker each have to answer: a container is not held up. */
+/** How long the hub has to answer: a container is not held up. */
 const TIMEOUT_MS = 3000;
 
 /**
@@ -64,7 +60,6 @@ export async function brokerFor(
   return credentialsFor(
     client,
     {
-      principal: 'container',
       owner: `${spec.ownerKind}:${spec.vendorId}`,
       ...(spec.mqttTopics === undefined ? {} : { topics: [...spec.mqttTopics] }),
     },
@@ -84,11 +79,11 @@ export async function brokerForPackage(
   client: BusClient,
   packageId: string,
 ): Promise<PlatformContext['mqtt'] | undefined> {
-  return credentialsFor(client, { principal: 'container', owner: `package:${packageId}` });
+  return credentialsFor(client, { owner: `package:${packageId}` });
 }
 
 /**
- * Asks the house's broker for a username: first which package it is, then that package.
+ * Asks the house's broker, which the hub runs, for a username.
  *
  * @param client - The bus.
  * @param request - Whose username, held to which topics.
@@ -101,32 +96,11 @@ async function credentialsFor(
   request: MqttCredentialsRequest,
   logger?: PlatformLogger,
 ): Promise<PlatformContext['mqtt'] | undefined> {
-  const owner = request.principal === 'container' ? request.owner : request.principal;
+  const { owner } = request;
 
   try {
-    const listed = await client.request(
-      busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.list),
-      {},
-      packageListReplySchema,
-      { timeoutMs: TIMEOUT_MS },
-    );
-    const provider = providerOf(
-      MQTT_BROKER_SERVICE,
-      listed.items.map((item) => ({
-        id: item.id,
-        provides: item.provides,
-        isRunning: item.state === 'running',
-      })),
-    );
-
-    if (provider === undefined) {
-      logger?.debug({ owner }, 'No package provides the house’s MQTT broker');
-
-      return undefined;
-    }
-
     const reply = await client.request(
-      busSubjects.service(provider, MQTT_CREDENTIALS_METHOD),
+      busSubjects.service(HUB_SERVICE, HUB_MQTT_CREDENTIALS_METHOD),
       request,
       mqttCredentialsReplySchema,
       { timeoutMs: TIMEOUT_MS },
