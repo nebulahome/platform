@@ -201,14 +201,19 @@ describe('Sidebar', () => {
     expect(screen.queryByRole('link', { name: 'Automations' })).toBeNull();
   });
 
-  it('puts integrations, packages and containers under System', () => {
+  it('puts brokers, integrations, packages and containers under System, in that order', () => {
     renderAt('/containers', EVERYTHING);
 
     expect(screen.getByRole('button', { name: /System/ }).getAttribute('aria-expanded')).toBe(
       'true',
     );
-    expect(screen.getByRole('link', { name: 'Integrations' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Packages' })).toBeTruthy();
+    const system = ['Brokers', 'Integrations', 'Packages', 'Containers'];
+    const order = screen
+      .getAllByRole('link')
+      .map((link) => link.textContent.replace(/\d+$/u, '').trim())
+      .filter((name) => system.includes(name));
+
+    expect(order).toEqual(system);
     expect(screen.getByRole('link', { name: 'Containers' }).getAttribute('aria-current')).toBe(
       'page',
     );

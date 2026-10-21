@@ -3,9 +3,9 @@
  *
  * It reads top to bottom by scope: the dashboards you built; what the house does on its own
  * (Automate: automations, scenes, aliases); how the house is described (House: devices, areas,
- * tags, and the setup of the dashboards); what the platform runs (System: integrations, packages,
- * containers); then the settings and you. Each entry carries how many there are, read from the
- * lists the pages read.
+ * tags, and the setup of the dashboards); what the platform runs (System: brokers, integrations,
+ * packages, containers); then the settings and you. Each entry carries how many there are, read
+ * from the lists the pages read.
  *
  * A group is open when you are inside it and shut otherwise, and it can be toggled by hand.
  * That is not two behaviours: the automatic part answers "where am I", the manual part answers
@@ -141,17 +141,17 @@ const GROUPS: readonly Group[] = [
     label: defineMessage('nav.groups.system', 'System'),
     entries: [
       {
+        to: '/brokers',
+        label: defineMessage('nav.brokers', 'Brokers'),
+        icon: 'waypoints',
+        permission: 'device:read',
+      },
+      {
         to: '/integrations',
         label: defineMessage('nav.integrations', 'Integrations'),
         icon: 'library',
         permission: 'integration:read',
         count: 'integrations',
-      },
-      {
-        to: '/brokers',
-        label: defineMessage('nav.brokers', 'Brokers'),
-        icon: 'waypoints',
-        permission: 'device:read',
       },
       {
         to: '/packages',

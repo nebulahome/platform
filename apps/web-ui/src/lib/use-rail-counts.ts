@@ -8,6 +8,8 @@
  * between pages does not ask for every list again.
  *
  * Areas count the rooms: the house and its floors are how rooms are arranged, not more places.
+ * Integrations count what the Integrations page lists: the brokers the platform brings are not
+ * integrations somebody installed.
  */
 import { useQuery } from '@tanstack/react-query';
 
@@ -109,6 +111,20 @@ export function useRailCounts(): RailCounts {
      */
     queryFn: async ({ signal }) => fetchContainers(signal),
   });
+  const vendors = useQuery({
+    queryKey: LIBRARY_QUERY_KEYS.vendors,
+    enabled: can('integration:read'),
+    staleTime: COUNT_STALE_MS,
+
+    /**
+     * Reads every vendor.
+     *
+     * @param context - The abort signal.
+     * @param context.signal - Cancels the request.
+     * @returns The vendors.
+     */
+    queryFn: async ({ signal }) => fetchVendors(signal),
+  });
   const { packages, isPending: arePackagesPending } = useInstalledPackages();
 
   return {
@@ -121,7 +137,9 @@ export function useRailCounts(): RailCounts {
     aliases: useLength(LIBRARY_QUERY_KEYS.aliases, fetchAliases, can('alias:read')),
     devices: useLength(LIBRARY_QUERY_KEYS.devices, fetchDevices, can('device:read')),
     tags: useLength(LIBRARY_QUERY_KEYS.tags, fetchTags, can('tag:read')),
-    integrations: useLength(LIBRARY_QUERY_KEYS.vendors, fetchVendors, can('integration:read')),
+    integrations: can('integration:read')
+      ? vendors.data?.filter((vendor) => vendor.origin !== 'platform').length
+      : undefined,
     areas: can('area:read') ? rooms.data?.filter((area) => area.kind === 'room').length : undefined,
     packages: can('package:read') && !arePackagesPending ? packages.length : undefined,
     containers: can('container:read') ? containers.data?.items.length : undefined,
