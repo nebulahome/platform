@@ -54,19 +54,18 @@ afterEach(async () => {
   folders.length = 0;
 });
 
-/** The index's one release, of `zigbee-tools`, which needs a broker. */
+/** The index's one release, of `zigbee-tools`, which needs the broker the platform runs. */
 const TOOLS = manifest({
   id: 'zigbee-tools',
   version: '2.1.0',
   requires: { packages: {}, services: [MQTT_BROKER_SERVICE] },
 });
 
-/** The house's broker: a process that provides `mqtt-broker`. */
-const BROKER = manifest({
-  id: 'mqtt',
+/** A package that runs a process, in the local folder. */
+const CLOCK = manifest({
+  id: 'clock',
   runtime: 'node',
   server: { entry: './server/index.js' },
-  provides: [MQTT_BROKER_SERVICE],
 });
 
 /**
@@ -95,12 +94,6 @@ async function putLocal(
 
 /** What a test sets up differently. */
 type SetUpOptions = {
-  /** Whether the local folder holds the broker; it does when not said. */
-  readonly hasBroker?: boolean;
-
-  /** The services something outside stands in for. */
-  readonly externalServices?: ReadonlySet<string>;
-
   /** Whether the Community Hub can be reached; it can when not said. */
   readonly isHubDown?: boolean;
 };
@@ -183,9 +176,7 @@ async function setUp(options: SetUpOptions = {}): Promise<{
   folders.push(work);
   await mkdir(path.join(work, 'local'));
 
-  if (options.hasBroker !== false) {
-    await putLocal(work, BROKER);
-  }
+  await putLocal(work, CLOCK);
 
   const source = await writePackage(path.join(work, 'source'), TOOLS);
   const archive = await archiveOf(source, path.join(work, 'tools.tgz'));
@@ -343,10 +334,6 @@ async function setUp(options: SetUpOptions = {}): Promise<{
       packagesDir: path.join(work, 'data', 'packages'),
       cacheDir: path.join(work, 'data', 'cache', 'packages'),
       fetch,
-      serviceRetryMs: 50,
-      ...(options.externalServices === undefined
-        ? {}
-        : { externalServices: options.externalServices }),
     });
 
     managers.push(made);
@@ -368,59 +355,50 @@ async function states(manager: PacketManager): Promise<Record<string, string>> {
 }
 
 describe('the packet-manager', () => {
-  it('installs the house’s MQTT broker by itself, and runs it once it announces itself', async () => {
+  it('installs a package from the local folder, and runs it once it announces itself', async () => {
     const { manager, store, work } = await setUp();
 
     await manager.start();
 
-    expect(await states(manager)).toEqual({ mqtt: 'starting' });
+    expect(await states(manager)).toEqual({});
+
+    await manager.install('clock');
+
+    expect(await states(manager)).toEqual({ clock: 'starting' });
     // Its folders are there before it runs: what it opens in them - a SQLite file - makes none.
-    expect((await stat(path.join(work, 'data', 'packages', 'mqtt', 'data'))).isDirectory()).toBe(
+    expect((await stat(path.join(work, 'data', 'packages', 'clock', 'data'))).isDirectory()).toBe(
       true,
     );
-    expect((await stat(path.join(work, 'data', 'cache', 'packages', 'mqtt'))).isDirectory()).toBe(
+    expect((await stat(path.join(work, 'data', 'cache', 'packages', 'clock'))).isDirectory()).toBe(
       true,
     );
-    expect(store.rows.get('mqtt')).toMatchObject({ source: 'local' });
-    expect((await manager.get('mqtt')).isSystem).toBe(true);
+    expect(store.rows.get('clock')).toMatchObject({ source: 'local' });
 
     await manager.announce({
-      packageId: 'mqtt',
+      packageId: 'clock',
       version: '1.0.0',
       rpcMethods: [{ name: 'clients', access: 'read' }],
     });
 
-    expect(await states(manager)).toMatchObject({ mqtt: 'running' });
-    expect((await manager.get('mqtt')).rpcMethods).toEqual([{ name: 'clients', access: 'read' }]);
+    expect(await states(manager)).toMatchObject({ clock: 'running' });
+    expect((await manager.get('clock')).rpcMethods).toEqual([{ name: 'clients', access: 'read' }]);
     await vi.waitFor(() => {
-      expect(manager.logs('mqtt', 10).lines.map((line) => line.text)).toContain(
+      expect(manager.logs('clock', 10).lines.map((line) => line.text)).toContain(
         'something went wrong',
       );
     });
   });
 
-  it('starts without a broker while none can be installed, and installs one once it is there', async () => {
-    const { manager, work } = await setUp({ hasBroker: false });
+  it('refuses a package that provides what the platform runs itself', async () => {
+    const { manager, work } = await setUp();
 
+    await putLocal(work, manifest({ id: 'mqtt', provides: [MQTT_BROKER_SERVICE] }));
     await manager.start();
 
     expect(await states(manager)).toEqual({});
-
-    await putLocal(work, BROKER);
-    await vi.waitFor(
-      async () => {
-        expect(await states(manager)).toEqual({ mqtt: 'starting' });
-      },
-      { timeout: 10_000 },
+    await expect(manager.install('mqtt')).rejects.toThrow(
+      'MQTT provides the MQTT broker, which NebulaHome runs itself',
     );
-  });
-
-  it('installs no broker while one outside the platform stands in', async () => {
-    const { manager } = await setUp({ externalServices: new Set([MQTT_BROKER_SERVICE]) });
-
-    await manager.start();
-
-    expect(await states(manager)).toEqual({});
   });
 
   it('refuses a release built against an SDK the platform does not implement', async () => {
@@ -533,7 +511,6 @@ describe('the packet-manager', () => {
     const { manager } = await setUp();
 
     await manager.start();
-    await manager.announce({ packageId: 'mqtt', version: '1.0.0', rpcMethods: [] });
 
     expect(await manager.plan('watcher')).toEqual({
       install: [],
@@ -554,9 +531,6 @@ describe('the packet-manager', () => {
       hasNewBuild: false,
       latest: { source: 'index' },
     });
-    expect((await manager.get('mqtt')).usedBy).toEqual([
-      { kind: 'package', id: 'zigbee-tools', name: 'ZIGBEE-TOOLS' },
-    ]);
   });
 
   it('installs a local file, and another build of its version over it', async () => {
@@ -633,33 +607,16 @@ describe('the packet-manager', () => {
     expect(await states(manager)).toMatchObject({ detector: 'running', viewer: 'running' });
   });
 
-  it('keeps the house’s last broker, removes it once another provides the service, and removes the rest with their devices', async () => {
-    const { manager, store, synced, work } = await setUp();
+  it('removes a package with its devices', async () => {
+    const { manager, store, synced } = await setUp();
 
     await manager.start();
-    await manager.announce({ packageId: 'mqtt', version: '1.0.0', rpcMethods: [] });
     await manager.install('zigbee-tools');
-
-    await expect(manager.remove('mqtt', false)).rejects.toThrow(
-      "MQTT is the house's MQTT broker: install another package that provides mqtt-broker before removing it",
-    );
-    await expect(manager.stopPackage('mqtt')).rejects.toThrow(/before stopping it/u);
-
-    await putLocal(work, manifest({ id: 'mosquitto', provides: [MQTT_BROKER_SERVICE] }));
-    await manager.install('mosquitto');
-
-    expect((await manager.get('mqtt')).isSystem).toBe(false);
-
     await manager.remove('zigbee-tools', true);
-    await manager.remove('mqtt', false);
 
     expect(store.rows.has('zigbee-tools')).toBe(false);
-    expect(synced.map((each) => [each.packageId, each.devices])).toEqual([
-      ['zigbee-tools', []],
-      ['mqtt', []],
-    ]);
-    expect(await states(manager)).toEqual({ mosquitto: 'running' });
-    expect((await manager.get('mosquitto')).isSystem).toBe(true);
+    expect(synced.map((each) => [each.packageId, each.devices])).toEqual([['zigbee-tools', []]]);
+    expect(await states(manager)).toEqual({});
   });
 
   it('searches the Hub, each package with what installing it here takes, the local folder’s first', async () => {
@@ -672,12 +629,12 @@ describe('the packet-manager', () => {
     expect(found.hubError).toBeNull();
     expect(found.nextCursor).toBe('page-2');
     expect(found.items.map((item) => [item.id, item.origin])).toEqual([
-      ['mqtt', 'local'],
+      ['clock', 'local'],
       ['zigbee-tools', 'hub'],
       ['watcher', 'hub'],
       ['newcomer', 'hub'],
     ]);
-    expect(found.items[0]).toMatchObject({ installedVersion: '1.0.0', unavailableReason: null });
+    expect(found.items[0]).toMatchObject({ installedVersion: null, unavailableReason: null });
     expect(found.items[1]).toMatchObject({
       isOfficial: true,
       color: '#3F6FD8',
@@ -707,10 +664,10 @@ describe('the packet-manager', () => {
 
     await manager.start();
 
-    const found = await manager.search({ q: 'mqtt' });
+    const found = await manager.search({ q: 'clock' });
 
     expect(found.hubError).toMatch(/could not be reached at https:\/\/hub\.example/u);
-    expect(found.items.map((item) => item.id)).toEqual(['mqtt']);
+    expect(found.items.map((item) => item.id)).toEqual(['clock']);
   });
 
   it('relays a logo a search showed, checked against its digest, and no other', async () => {

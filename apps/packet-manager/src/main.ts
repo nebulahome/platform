@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 import { BusClient, connectBus } from '@nebulahome/bus';
 import { loadConfigOrExit, resolveDataLayout } from '@nebulahome/config';
-import { ERROR_CODES, EXIT_CODES, isNebulaError, MQTT_BROKER_SERVICE } from '@nebulahome/contracts';
+import { ERROR_CODES, EXIT_CODES, isNebulaError } from '@nebulahome/contracts';
 import { assertSchemaVersion, createDatabase, secretsKeyFrom } from '@nebulahome/db';
 import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
@@ -142,7 +142,6 @@ async function start(): Promise<void> {
       fileURLToPath(import.meta.resolve('@nebulahome/package-host/run')),
     packagesDir: layout.packages,
     cacheDir: `${layout.cache}/packages`,
-    externalServices: new Set(config.NEBULA_MQTT_URL === undefined ? [] : [MQTT_BROKER_SERVICE]),
   });
 
   const integrations = new IntegrationManager({

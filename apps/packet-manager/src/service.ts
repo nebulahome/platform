@@ -6,10 +6,9 @@
  * folder beside them, unpacked into `packages/<id>/<version>/` of the data directory and read from
  * there on start.
  *
- * **What the house must have.** A platform service the house must have - the MQTT broker - is
- * kept provided: when no installed package provides it, its default package is installed by
- * itself, at start and then every little while until one is there; the last package that
- * provides it is not removed or stopped, and is the one shown as part of the platform.
+ * **What the platform runs itself.** The house's MQTT broker is the hub's: a package may require
+ * `mqtt-broker` and always has it, and a package that provides it is refused at install
+ * (`dependencies.ts`).
  *
  * **Running.** A `node` package is a child process ({@link PackageProcess}), `starting` until it
  * announces the RPC methods it registered - or until a while has passed and it still runs - then
@@ -21,9 +20,8 @@
  * **Changing them.** Installing plans with the dependency resolver - what the package needs first,
  * or why it cannot be installed - downloads and checks each archive, and starts them. Updating is
  * refused when a dependent's range excludes the new release, and rolled back to the release before
- * when the new one fails. Removing is refused while something needs the package, or while it is
- * the last that provides a service the house must have; it takes the package's devices and
- * containers with it, and its data only when asked.
+ * when the new one fails. Removing is refused while something needs the package; it takes the
+ * package's devices and containers with it, and its data only when asked.
  * Every change is announced on `nebula.v1.pkg.<event>`, which is how the interface shows a
  * package's page and cards without a reload, and how `hub` holds and releases the vendors that
  * need it. Nothing else restarts.
@@ -50,7 +48,6 @@ import {
   composeVariableOf,
   dependentsOf,
   describeDependencyProblem,
-  missingServices,
   HUB_CATALOGUE_METHOD,
   HUB_SERVICE,
   managedReplySchema,
@@ -62,7 +59,6 @@ import {
   packageManifestSchema,
   planInstall,
   semverSchema,
-  servicesHeldBy,
   startOrder,
   SUPERVISOR_METHODS,
   SUPERVISOR_SERVICE,
@@ -112,9 +108,6 @@ const CALL_TIMEOUT_MS = 10_000;
 /** How long a new release has to run before an update counts as done and cannot roll back. */
 const ROLLBACK_WINDOW_MS = 120_000;
 
-/** How often a service the house must have, and lacks, is looked for again. */
-const SERVICE_RETRY_MS = 60_000;
-
 /** What the packet-manager needs. */
 export type PacketManagerOptions = {
   readonly config: PacketManagerConfig;
@@ -139,15 +132,6 @@ export type PacketManagerOptions = {
   readonly cacheDir: string;
 
   readonly fetch?: typeof fetch;
-
-  /**
-   * The platform services something outside the platform stands in for - `mqtt-broker` while
-   * `NEBULA_MQTT_URL` names a broker - for which no package is installed.
-   */
-  readonly externalServices?: ReadonlySet<string>;
-
-  /** How often a service the house lacks is looked for again; a minute when not said. */
-  readonly serviceRetryMs?: number;
 };
 
 /** One installed package, as the service holds it. */
@@ -278,7 +262,6 @@ export class PacketManager {
   readonly #options: PacketManagerOptions;
   readonly #entries = new Map<string, Entry>();
   #queue: Promise<unknown> = Promise.resolve();
-  #serviceRetry: NodeJS.Timeout | undefined;
 
   /**
    * Makes the service, holding nothing until {@link start}.
@@ -290,8 +273,7 @@ export class PacketManager {
   }
 
   /**
-   * Reads every installed package, starts them in order, and installs what provides the services
-   * the house must have and lacks.
+   * Reads every installed package, and starts them in order.
    *
    * @returns Once they have been started, or found waiting.
    */
@@ -323,10 +305,7 @@ export class PacketManager {
           await this.#startOne(entry);
         }
       }
-
-      await this.#provideServices();
     });
-    this.#retryServices();
   }
 
   /**
@@ -336,8 +315,6 @@ export class PacketManager {
    * @returns Once every process has exited.
    */
   public async stop(): Promise<void> {
-    clearTimeout(this.#serviceRetry);
-    this.#serviceRetry = undefined;
     await Promise.all(
       [...this.#entries.values()].map(async (entry) => {
         clearTimeout(entry.announce);
@@ -793,15 +770,11 @@ export class PacketManager {
    * @param packageId - The package.
    * @param isDataRemoved - Whether its data folder goes too.
    * @returns Once it is gone.
-   * @throws {ConflictError} For the last package that provides a service the house must have, or
-   *   one something needs.
+   * @throws {ConflictError} For a package something needs.
    */
   public async remove(packageId: string, isDataRemoved: boolean): Promise<void> {
     await this.#serially(async () => {
       const entry = this.#require(packageId);
-
-      this.#refuseLeavingWithout(entry, 'removing');
-
       const needing = dependentsOf(packageId, this.#nodes(), await this.#dependents());
 
       if (needing.length > 0) {
@@ -883,7 +856,6 @@ export class PacketManager {
     return this.#serially(async () => {
       const entry = this.#require(packageId);
 
-      this.#refuseLeavingWithout(entry, 'stopping');
       await this.#stopProcess(entry);
       await this.#setState(entry, 'stopped', null);
       await this.#reconcileContainers();
@@ -1479,109 +1451,6 @@ export class PacketManager {
     });
   }
 
-  // --- what the house must have ---------------------------------------------------------------
-
-  /**
-   * Installs what provides the services the house must have and no installed package provides:
-   * each one's default package, with what it needs, from the local folder or the index. One that
-   * cannot be installed yet is said in the log, and looked for again later.
-   *
-   * @returns Once each has been installed and started, or found missing.
-   */
-  async #provideServices(): Promise<void> {
-    const { logger } = this.#options;
-    const missing = missingServices(this.#nodes(), this.#options.externalServices ?? new Set());
-
-    if (missing.length === 0) {
-      return;
-    }
-
-    const read = await this.#options.index.read();
-
-    for (const service of missing) {
-      const plan = this.#planWith(read.index, service.defaultPackage, undefined);
-
-      if (plan.problems.length > 0 || plan.install.length === 0) {
-        const names = this.#namesFrom(read.index);
-
-        logger.warn(
-          {
-            platformService: service.name,
-            package: service.defaultPackage,
-            problems: plan.problems.map((problem) =>
-              describeDependencyProblem(problem, (id) => names.get(id) ?? id),
-            ),
-            index: read.error,
-          },
-          `The house has no ${service.label}, and its package cannot be installed yet`,
-        );
-        continue;
-      }
-
-      try {
-        const installed: Entry[] = [];
-
-        for (const candidate of plan.install) {
-          // eslint-disable-next-line no-await-in-loop -- one after another, as an install does
-          installed.push(await this.#installCandidate(read.index, candidate));
-        }
-
-        // eslint-disable-next-line no-await-in-loop -- once the service's packages are in
-        await this.#reconcileContainers();
-
-        for (const entry of installed) {
-          // eslint-disable-next-line no-await-in-loop -- in order, each maybe the next's need
-          await this.#startOne(entry);
-        }
-
-        logger.info(
-          { platformService: service.name, packages: installed.map((entry) => entry.row.id) },
-          `Installed the house's ${service.label}`,
-        );
-      } catch (error: unknown) {
-        logger.warn(
-          { err: error, platformService: service.name, package: service.defaultPackage },
-          `The house's ${service.label} could not be installed`,
-        );
-      }
-    }
-  }
-
-  /** Looks again, in a while, for the services the house lacks - until it lacks none. */
-  #retryServices(): void {
-    clearTimeout(this.#serviceRetry);
-    this.#serviceRetry = undefined;
-
-    if (missingServices(this.#nodes(), this.#options.externalServices ?? new Set()).length === 0) {
-      return;
-    }
-
-    this.#serviceRetry = setTimeout(() => {
-      void this.#serially(async () => this.#provideServices()).finally(() => {
-        this.#retryServices();
-      });
-    }, this.#options.serviceRetryMs ?? SERVICE_RETRY_MS);
-    this.#serviceRetry.unref();
-  }
-
-  /**
-   * Refuses to remove or stop the last package that provides a service the house must have.
-   *
-   * @param entry - The package.
-   * @param doing - What is asked: `removing`, `stopping`.
-   * @throws {ConflictError} When it is that package.
-   */
-  #refuseLeavingWithout(entry: Entry, doing: 'removing' | 'stopping'): void {
-    const held = servicesHeldBy(entry.row.id, this.#nodes());
-
-    if (held.length > 0) {
-      throw new ConflictError(
-        `${entry.files.manifest.name} is the house's ${held.map((service) => service.label).join(' and ')}: install another package that provides ${held.map((service) => service.name).join(' and ')} before ${doing} it`,
-        { details: { reason: 'system', packageId: entry.row.id } },
-      );
-    }
-  }
-
   // --- containers ---------------------------------------------------------------------------
 
   /**
@@ -2048,7 +1917,6 @@ export class PacketManager {
       runtime: manifest.runtime,
       state: entry.row.state,
       source: entry.row.source,
-      isSystem: servicesHeldBy(manifest.id, nodes).length > 0,
       repository: manifest.repository ?? null,
       url: manifest.url ?? null,
       color: manifest.color ?? null,

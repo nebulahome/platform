@@ -4,8 +4,7 @@
  * Its own database role, for `system.packages`; the bus, which its packages are handed too; the
  * instance key, which opens the secrets a package's settings hold before the package is given
  * them and seals the house's token at the Community Hub; where the Hub and the local folders are,
- * and whether installs are reported to it; the runner a `node` package is started with; and an
- * external MQTT broker, which stands in for the house's own package.
+ * and whether installs are reported to it; and the runner a `node` package is started with.
  */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +16,6 @@ import {
   busEnvSchema,
   databaseEnvSchema,
   dataEnvSchema,
-  mqttEnvSchema,
   requireDataDirInProduction,
   runtimeEnvSchema,
   secretsEnvSchema,
@@ -55,8 +53,6 @@ export const packetManagerEnvSchema = runtimeEnvSchema
   .extend(databaseEnvSchema.shape)
   .extend(busEnvSchema.shape)
   .extend(secretsEnvSchema.shape)
-  // A broker it names stands in for the house's: no package is installed to provide one.
-  .extend(mqttEnvSchema.shape)
   .extend({
     /**
      * The Community Hub's public API, `https://hub.example.com` - no path, no `/v1`: where the
