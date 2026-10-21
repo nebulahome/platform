@@ -48,6 +48,7 @@ import type {
   PackageLinkProps,
   PackageNavigate,
   PackageRoute,
+  PageActionsProps,
   PackageSettings,
   PictureOptions,
   PlatformLinkProps,
@@ -69,6 +70,7 @@ import { useLive, type LiveReading } from '@/live/live-store';
 import { callPackage, configurePackage, fetchPackage, PACKAGE_QUERY_KEYS } from '@/packages/api';
 import { packageNamespace } from '@/packages/loader';
 import { packageAppPath, packagePathOf, platformPath } from '@/packages/package-paths';
+import { PackagePageActions } from '@/packages/page-actions';
 import { useAreas } from '@/packages/sdk-areas';
 import { useStateHistory, useTelemetry } from '@/packages/sdk-history';
 import { usePictureOf } from '@/packages/sdk-pictures';
@@ -719,6 +721,18 @@ function PlatformLink(props: PlatformLinkProps) {
   );
 }
 
+/**
+ * The drawn package's actions, in the header of its page.
+ *
+ * @param props - What the header shows.
+ * @returns The portal, or nothing off the page.
+ */
+function PageActions(props: PageActionsProps) {
+  const scope = usePackage();
+
+  return <PackagePageActions packageId={scope.id}>{props.children}</PackagePageActions>;
+}
+
 /** The interface's `@nebulahome/package-sdk/ui`, as a package's build reads it. */
 export const UI_HOST = {
   usePackage,
@@ -740,6 +754,7 @@ export const UI_HOST = {
   usePlatformNavigate,
   PackageLink,
   PlatformLink,
+  PageActions,
   useStateHistory,
   useTelemetry,
   useAreas,

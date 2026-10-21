@@ -8,7 +8,7 @@
  * button work inside it as they do everywhere else. The page is drawn while the package runs;
  * otherwise the header stays and says why there is nothing under it.
  */
-import type { ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
@@ -16,6 +16,7 @@ import { Button, Panel, PanelNote } from '@nebulahome/ui';
 
 import { translate } from '@/i18n/messages';
 import { PackageSlot } from '@/packages/package-slot';
+import { PageActionsProvider } from '@/packages/page-actions';
 import { useInstalledPackages } from '@/packages/use-packages';
 import { LibraryPage } from '@/routes/library/library-page';
 
@@ -32,6 +33,16 @@ export function PackageAppPage() {
   const { packages, isPending, error } = useInstalledPackages();
   const found = packages.find((each) => each.id === packageId);
   const title = found?.ui?.sidebar?.label ?? found?.name ?? packageId;
+  // The page's own actions (SDK 1.3) take the place of "Details" while it draws some.
+  const [actionsNode, setActionsNode] = useState<HTMLElement | null>(null);
+  const [actionCount, setActionCount] = useState(0);
+  const onActionsChange = useCallback((delta: 1 | -1) => {
+    setActionCount((count) => count + delta);
+  }, []);
+  const actionsPlace = useMemo(
+    () => ({ target: actionsNode, onChange: onActionsChange }),
+    [actionsNode, onActionsChange],
+  );
 
   let body: ReactNode;
 
@@ -59,26 +70,28 @@ export function PackageAppPage() {
     );
   } else if (found.state === 'running') {
     body = (
-      <PackageSlot
-        found={found}
-        target={{ kind: 'page', props: { packageId: found.id } }}
-        loading={
-          <p role="status" className="text-ui text-foreground-subtle">
-            {t('packages.packageApp.loadingName', 'Loading {{name}}…', { name: found.name })}
-          </p>
-        }
-        renderProblem={(message) => (
-          <Panel title={found.name} elevation="flat">
-            <PanelNote>
-              {t(
-                'packages.packageApp.nameCouldNotDraw',
-                '{{name}} could not draw its page: {{message}}',
-                { name: found.name, message },
-              )}
-            </PanelNote>
-          </Panel>
-        )}
-      />
+      <PageActionsProvider value={actionsPlace}>
+        <PackageSlot
+          found={found}
+          target={{ kind: 'page', props: { packageId: found.id } }}
+          loading={
+            <p role="status" className="text-ui text-foreground-subtle">
+              {t('packages.packageApp.loadingName', 'Loading {{name}}…', { name: found.name })}
+            </p>
+          }
+          renderProblem={(message) => (
+            <Panel title={found.name} elevation="flat">
+              <PanelNote>
+                {t(
+                  'packages.packageApp.nameCouldNotDraw',
+                  '{{name}} could not draw its page: {{message}}',
+                  { name: found.name, message },
+                )}
+              </PanelNote>
+            </Panel>
+          )}
+        />
+      </PageActionsProvider>
     );
   } else {
     body = (
@@ -102,14 +115,19 @@ export function PackageAppPage() {
         })
       }
       action={
-        <Button
-          variant="ghost"
-          onClick={() => {
-            void navigate(`/packages/${encodeURIComponent(packageId)}`);
-          }}
-        >
-          {t('packages.packageApp.details', 'Details')}
-        </Button>
+        <>
+          <div ref={setActionsNode} className="contents" />
+          {actionCount > 0 ? null : (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                void navigate(`/packages/${encodeURIComponent(packageId)}`);
+              }}
+            >
+              {t('packages.packageApp.details', 'Details')}
+            </Button>
+          )}
+        </>
       }
       isPending={isPending}
       error={error}
