@@ -2,12 +2,15 @@
  * The Found tab of an integration's page: what it found on the network that the house does not
  * have, as a table to go through.
  *
- * Each row is the model with its glyph, the address and the MAC in mono, a note when there is
- * something to know - new since yesterday, also reached through Matter, a device that sleeps and
- * wakes to answer, one that needs a password - when it was last heard, and Adopt. Rows can be
- * ticked, all of a page at once, and adopted or dismissed together. Adopting needs no dialog: a
- * device comes in under its model's name, with no room, and a toast says so and leads to the
- * Devices tab to name them. A device the house has, found at another address, offers Move here.
+ * Each row is the model with its glyph and, beside its name, a note when there is something to
+ * know - new since yesterday, also reached through Matter, a device that sleeps and wakes to
+ * answer, one that needs a password - then the address and the MAC in mono, when it was last
+ * heard, and Adopt. Adopt on a row opens the adopt dialog, to name it and give it what its driver
+ * asks. Rows can be ticked, all of a page at once, and adopted or dismissed together: adopting in
+ * bulk needs no dialog - a device comes in under its model's name, with no room, and a toast says
+ * so and leads to the Devices tab to name them - so a device that cannot come in without one, a
+ * password or a code to type, cannot be ticked. A device the house has, found at another
+ * address, offers Move here.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -21,6 +24,7 @@ import { toMessage } from '@/lib/error-message';
 import { relativeTime } from '@/lib/format-time';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { adoptFound, dismissFound, fetchFound, LINK_QUERY_KEYS } from '@/library/links-api';
+import { needsSettings } from '@/routes/library/adopt-dialog';
 import { DeviceIcon, useCatalogueIcons } from '@/routes/library/device-icon';
 import { useMoveDevice } from '@/routes/library/use-move-device';
 
@@ -48,6 +52,9 @@ export type VendorFoundProps = {
 
   /** Opens the Devices tab. */
   readonly onOpenDevices: () => void;
+
+  /** Opens the adopt dialog for one device. */
+  readonly onAdopt: (device: DiscoveredDevice) => void;
 };
 
 /**
@@ -58,7 +65,7 @@ export type VendorFoundProps = {
  */
 export function VendorFound(props: VendorFoundProps) {
   const { t } = useTranslation();
-  const { vendor, canAdopt, onOpenDevices } = props;
+  const { vendor, canAdopt, onOpenDevices, onAdopt } = props;
   const queryClient = useQueryClient();
   const mover = useMoveDevice();
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
@@ -98,7 +105,7 @@ export function VendorFound(props: VendorFoundProps) {
 
   const adopt = useMutation({
     /**
-     * Adopts them, each under its model's name.
+     * Adopts them in bulk, each under its model's name.
      *
      * @param ids - Which.
      * @returns What became of each.
@@ -211,7 +218,19 @@ export function VendorFound(props: VendorFoundProps) {
     });
   };
 
-  const pageIds = shown.filter((each) => each.movedFrom === null).map((each) => each.id);
+  /**
+   * Whether a row can be ticked: not one to move, nor one that needs the dialog.
+   *
+   * @param row - The row.
+   * @returns True when it can be adopted in bulk.
+   */
+  const isPickable = (row: DiscoveredDevice): boolean =>
+    row.movedFrom === null && !needsSettings(row, vendor);
+  const pageIds = shown.filter(isPickable).map((each) => each.id);
+  const onItsOwn = t(
+    'library.vendorFound.adoptOnItsOwn',
+    'Needs its settings: adopt it on its own',
+  );
   const pickedOnPage = pageIds.filter((id) => picked.has(id)).length;
 
   return (
@@ -290,7 +309,6 @@ export function VendorFound(props: VendorFoundProps) {
                   t('library.vendorFound.model', 'Model'),
                   t('library.vendorFound.address', 'Address'),
                   t('library.vendorFound.mac', 'MAC'),
-                  '',
                   t('library.vendorFound.seen', 'Seen'),
                   '',
                 ].map((heading, index) => (
@@ -316,13 +334,20 @@ export function VendorFound(props: VendorFoundProps) {
                   <tr key={row.id} className="border-t border-border first:border-t-0">
                     <td className="py-3 pl-5">
                       {canAdopt && row.movedFrom === null ? (
-                        <Checkbox
-                          label={<span className="sr-only">{model}</span>}
-                          isChecked={picked.has(row.id)}
-                          onChange={(isPicked) => {
-                            pick([row.id], isPicked);
-                          }}
-                        />
+                        <span title={isPickable(row) ? undefined : onItsOwn}>
+                          <Checkbox
+                            label={
+                              <span className="sr-only">
+                                {isPickable(row) ? model : `${model}: ${onItsOwn}`}
+                              </span>
+                            }
+                            disabled={!isPickable(row)}
+                            isChecked={picked.has(row.id)}
+                            onChange={(isPicked) => {
+                              pick([row.id], isPicked);
+                            }}
+                          />
+                        </span>
                       ) : null}
                     </td>
                     <td className="py-3 pr-4">
@@ -334,6 +359,40 @@ export function VendorFound(props: VendorFoundProps) {
                           />
                         </span>
                         <span className="text-ui font-medium text-foreground">{model}</span>
+                        {row.movedFrom === null ? (
+                          note === undefined ? null : (
+                            <span
+                              className={cn(
+                                'inline-flex items-center gap-1.5 text-caption whitespace-nowrap',
+                                note.tone,
+                                note.icon === null &&
+                                  'h-6 rounded-pill border border-border-strong px-2.5',
+                              )}
+                            >
+                              {note.icon === null ? (
+                                <span
+                                  aria-hidden="true"
+                                  className="size-1.5 rounded-full bg-primary"
+                                />
+                              ) : (
+                                <AppIcon id={note.icon} size={13} />
+                              )}
+                              {note.note === 'new'
+                                ? t('library.vendorFound.new', 'New')
+                                : note.note === 'also-on-matter'
+                                  ? t('library.vendorFound.alsoOnMatter', 'Also on Matter')
+                                  : note.note === 'wakes'
+                                    ? t('library.vendorFound.wakes', 'Wakes to answer')
+                                    : t('library.vendorFound.password', 'Password')}
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-caption text-warning">
+                            {t('library.vendorFound.wasAt', 'Was at {{address}}', {
+                              address: row.movedFrom.address,
+                            })}
+                          </span>
+                        )}
                       </span>
                     </td>
                     <td className="py-3 pr-4 font-mono text-mono-ui text-foreground">
@@ -341,42 +400,6 @@ export function VendorFound(props: VendorFoundProps) {
                     </td>
                     <td className="py-3 pr-4 font-mono text-mono-caption text-foreground-muted">
                       {row.mac?.toUpperCase() ?? '—'}
-                    </td>
-                    <td className="py-3 pr-4">
-                      {row.movedFrom === null ? (
-                        note === undefined ? null : (
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1.5 text-caption whitespace-nowrap',
-                              note.tone,
-                              note.icon === null &&
-                                'h-6 rounded-pill border border-border-strong px-2.5',
-                            )}
-                          >
-                            {note.icon === null ? (
-                              <span
-                                aria-hidden="true"
-                                className="size-1.5 rounded-full bg-primary"
-                              />
-                            ) : (
-                              <AppIcon id={note.icon} size={13} />
-                            )}
-                            {note.note === 'new'
-                              ? t('library.vendorFound.new', 'New')
-                              : note.note === 'also-on-matter'
-                                ? t('library.vendorFound.alsoOnMatter', 'Also on Matter')
-                                : note.note === 'wakes'
-                                  ? t('library.vendorFound.wakes', 'Wakes to answer')
-                                  : t('library.vendorFound.password', 'Password')}
-                          </span>
-                        )
-                      ) : (
-                        <span className="text-caption text-warning">
-                          {t('library.vendorFound.wasAt', 'Was at {{address}}', {
-                            address: row.movedFrom.address,
-                          })}
-                        </span>
-                      )}
                     </td>
                     <td className="py-3 pr-4 text-ui-sm whitespace-nowrap text-foreground-muted">
                       {relativeTime(row.lastSeenAt)}
@@ -386,13 +409,8 @@ export function VendorFound(props: VendorFoundProps) {
                         <Button
                           variant="ghost"
                           size="compact"
-                          isBusy={
-                            adopt.isPending &&
-                            adopt.variables.length === 1 &&
-                            adopt.variables[0] === row.id
-                          }
                           onClick={() => {
-                            adopt.mutate([row.id]);
+                            onAdopt(row);
                           }}
                         >
                           {t('library.vendorFound.adopt', 'Adopt')}

@@ -493,7 +493,7 @@ describe('a vendor page', () => {
 });
 
 describe('the devices of a vendor found on the network', () => {
-  it('are counted in the suggestions, and adopted in one step from Found', async () => {
+  it('are counted in the suggestions, and adopted together from Found', async () => {
     vi.mocked(fetchVendor).mockResolvedValue({ ...BAMBU, discoverySources: ['module'] });
     vi.mocked(fetchDevices).mockResolvedValue([device({})]);
     vi.mocked(fetchDiscovered).mockResolvedValue([FOUND]);
@@ -507,7 +507,8 @@ describe('the devices of a vendor found on the network', () => {
     expect(await screen.findByText('1 device found on your network')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Review' }));
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Adopt' }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'P1S' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Adopt 1' }));
 
     await waitFor(() => {
       expect(adoptFound).toHaveBeenCalledWith([FOUND.id]);
@@ -517,6 +518,26 @@ describe('the devices of a vendor found on the network', () => {
         expect.objectContaining({ title: '1 adopted just now' }),
       );
     });
+  });
+
+  it('open the adopt dialog from a row, and keep one that needs a password out of bulk', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue({ ...BAMBU, discoverySources: ['module'] });
+    vi.mocked(fetchDevices).mockResolvedValue([device({})]);
+    vi.mocked(fetchDiscovered).mockResolvedValue([FOUND]);
+    vi.mocked(fetchFound).mockResolvedValue([{ ...FOUND, notes: ['password'] }]);
+    vi.mocked(adoptFound).mockClear();
+    renderPage('bambu-lab', ['device:read', 'device:write']);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Review' }));
+
+    const box = await screen.findByRole('checkbox', { name: /^P1S: Needs its settings/u });
+
+    expect((box as HTMLInputElement).disabled).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Adopt' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Adopt Loft printer' })).toBeTruthy();
+    expect(adoptFound).not.toHaveBeenCalled();
   });
 
   it('draw nothing when nothing of the vendor was found', async () => {

@@ -2323,6 +2323,20 @@
       "wait": "Attendi",
       "whatItIsGiven": "Cosa riceve"
     },
+    "adoptDialog": {
+      "adopt": "Adotta",
+      "adoptDevice": "Adotta {{device}}",
+      "deviceGaveNoName": "Il dispositivo non ha dato un nome suo; parte con il nome del modello.",
+      "deviceNeedsAName": "Il dispositivo ha bisogno di un nome.",
+      "deviceSaidWhichFamily": "Il dispositivo ha detto di che famiglia è, non quale modello.",
+      "itsEntitiesAreIn": "Le sue entità stanno nella stessa stanza, a meno che una di esse dica altrimenti.",
+      "model": "Modello",
+      "nameTheDeviceWas": "Il nome che il dispositivo ha ricevuto nella sua app.",
+      "noRoomsYetMake": "Ancora nessuna stanza: crea la casa, i suoi piani e le loro stanze in Aree.",
+      "room": "Stanza",
+      "whatAutomationsAndScenes": "Le parole con cui automazioni e scene sceglieranno questo dispositivo.",
+      "whereItIsAdded": "{{where}} Viene aggiunto come se l'avessi scritto a mano, e l'hub comincia subito a parlarci."
+    },
     "aliasEditor": {
       "alias": "Alias",
       "aliases": "Alias",
@@ -3272,6 +3286,7 @@
       "adopt": "Adotta",
       "adoptCount": "Adotta {{count}}",
       "adoptFailed": "Impossibile adottarli",
+      "adoptOnItsOwn": "Richiede le sue impostazioni: adottalo da solo",
       "adoptedJustNow_many": "{{count}} adottati ora",
       "adoptedJustNow_one": "{{count}} adottato ora",
       "adoptedJustNow_other": "{{count}} adottati ora",

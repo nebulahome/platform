@@ -24,15 +24,17 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
-import type { IntegrationState } from '@nebulahome/contracts';
+import type { DiscoveredDevice, IntegrationState } from '@nebulahome/contracts';
 import { AppIcon, Button, DetailHero, HeroFact, Pill, TabPanel, Tabs } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { translate } from '@/i18n/messages';
 import { useTab } from '@/lib/use-tab';
 import { fetchDevices, fetchDiscovered, fetchVendor, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { LINK_QUERY_KEYS } from '@/library/links-api';
 import { vendorStatusOf } from '@/library/vendor-status';
 import { useInstalledPackages } from '@/packages/use-packages';
+import { AdoptDialog } from '@/routes/library/adopt-dialog';
 import { BackLink, DetailFrame } from '@/routes/library/detail-page';
 import { DeviceDialog, type DeviceDialogTarget } from '@/routes/library/device-dialog';
 import { useNetworkScan, type ScanOutcome } from '@/routes/library/use-network-scan';
@@ -99,6 +101,7 @@ export function VendorPage() {
   const canRemove = can('device:delete');
   const canCreateTags = can('tag:write');
   const [open, setOpen] = useState<DeviceDialogTarget | null>(null);
+  const [adopting, setAdopting] = useState<DiscoveredDevice | null>(null);
   const [isSettingUp, setSettingUp] = useState(false);
   const [tab, setTab] = useTab<VendorTab>(TABS);
   const network = useNetworkScan();
@@ -436,6 +439,7 @@ export function VendorPage() {
                   onOpenDevices={() => {
                     setTab('devices');
                   }}
+                  onAdopt={setAdopting}
                 />
               </TabPanel>
             ) : null}
@@ -502,6 +506,31 @@ export function VendorPage() {
           setOpen(null);
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.entities });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.tags });
+        }}
+      />
+
+      <AdoptDialog
+        key={adopting?.id ?? 'adopt-shut'}
+        target={
+          adopting === null || found === undefined
+            ? null
+            : {
+                device: adopting,
+                vendor: found,
+                existingIds: (all.data ?? []).map((each) => each.id),
+              }
+        }
+        canCreateTags={canCreateTags}
+        onClose={() => {
+          setAdopting(null);
+        }}
+        onAdopted={() => {
+          setAdopting(null);
+          void queryClient.invalidateQueries({ queryKey: LINK_QUERY_KEYS.found });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.discovered });
+          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.tags });
         }}
