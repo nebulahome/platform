@@ -34,6 +34,12 @@ export const INTEGRATIONS_DIRECTORY = 'integrations';
 /** The house's Matter fabric - its keys and its nodes - under the folder of `hub`. */
 export const MATTER_DIRECTORY = 'matter';
 
+/**
+ * The house's MQTT broker - its retained messages, its usernames, the owner's mappings and
+ * settings - under the folder of `hub`.
+ */
+export const MQTT_DIRECTORY = 'mqtt';
+
 /** The folder of `proxy`. */
 export const PROXY_DIRECTORY = 'proxy';
 
@@ -121,6 +127,9 @@ export type DataLayout = {
   /** The house's Matter fabric, which `hub` holds. */
   readonly matter: string;
 
+  /** The house's MQTT broker, which `hub` runs. */
+  readonly mqtt: string;
+
   /** The certificates `proxy` serves and the ACME account key. */
   readonly proxyTls: string;
 
@@ -163,6 +172,7 @@ export function resolveDataLayout(config: {
     root,
     integrations: path.join(root, HUB_DIRECTORY, INTEGRATIONS_DIRECTORY),
     matter: path.join(root, HUB_DIRECTORY, MATTER_DIRECTORY),
+    mqtt: path.join(root, HUB_DIRECTORY, MQTT_DIRECTORY),
     proxyTls: path.join(root, PROXY_DIRECTORY, TLS_DIRECTORY),
     packages: path.join(root, PACKAGES_DIRECTORY),
     containers: path.join(root, CONTAINERS_DIRECTORY),
