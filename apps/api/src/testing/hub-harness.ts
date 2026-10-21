@@ -8,6 +8,7 @@
  */
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 
 import { BusClient } from '@nebulahome/bus';
 import { FakeTransport } from '@nebulahome/bus/testing';
@@ -55,6 +56,26 @@ import {
   HUB_MATTER_REMOVE_METHOD,
   HUB_MATTER_RESTORE_METHOD,
   HUB_MATTER_STATUS_METHOD,
+  HUB_MQTT_CLIENT_ADD_METHOD,
+  HUB_MQTT_CLIENT_REMOVE_METHOD,
+  HUB_MQTT_CLIENTS_METHOD,
+  HUB_MQTT_DEVICES_METHOD,
+  HUB_MQTT_MAPPING_REMOVE_METHOD,
+  HUB_MQTT_MAPPING_SAVE_METHOD,
+  HUB_MQTT_MAPPINGS_METHOD,
+  HUB_MQTT_RESTORE_METHOD,
+  HUB_MQTT_SETTINGS_METHOD,
+  HUB_MQTT_STATUS_METHOD,
+  HUB_MQTT_TOPICS_METHOD,
+  mqttClientAddRequestSchema,
+  mqttClientRemoveRequestSchema,
+  mqttMappingInputSchema,
+  mqttMappingRemoveRequestSchema,
+  mqttRestoreRequestSchema,
+  mqttSettingsSchema,
+  mqttTopicsRequestSchema,
+  type MqttDevice,
+  type MqttStatus,
   matterCommissionRequestSchema,
   matterNodesRequestSchema,
   matterRemoveRequestSchema,
@@ -729,6 +750,47 @@ export const MATTER_LAMP: MatterNode = {
   ],
 };
 
+/** What the fake hub's MQTT broker was asked, as `method payload`. */
+export const mqttRequests: string[] = [];
+
+/** The fake hub's one device its MQTT broker hears: a plug not added to the house. */
+export const MQTT_PLUG: MqttDevice = {
+  identity: {
+    deviceKey: 'C82B96',
+    source: 'announced',
+    name: 'Desk lamp',
+    manufacturer: 'Itead',
+    model: 'Sonoff S26',
+    modelId: null,
+    swVersion: '14.2.0',
+    hwVersion: null,
+    serialNumber: null,
+    identifiers: ['C82B96'],
+    macAddresses: [],
+    viaDevice: null,
+    originName: 'Tasmota',
+    originSwVersion: '14.2.0',
+    components: ['switch'],
+  },
+  entityCount: 1,
+  deviceId: null,
+  kind: null,
+  claimedBy: [],
+  isRemoved: false,
+};
+
+/** Where the fake hub's MQTT broker stands. */
+const MQTT_STATUS: MqttStatus = {
+  state: 'running',
+  error: null,
+  port: 1883,
+  startedAt: new Date('2026-10-21T08:00:00Z'),
+  settings: { allowAnonymous: false, isDiscoveryEnabled: true, discoveryPrefix: 'homeassistant' },
+  clientsOnline: 2,
+  messagesPerSecond: 0.4,
+  discovery: { announced: 1, mapped: 0, devices: 1, skipped: [] },
+};
+
 /** The containers the fake supervisor was asked to control, as `name:action`. */
 export const controlled: string[] = [];
 
@@ -1158,6 +1220,102 @@ export async function buildTestServer(
         matterRequests.push(`restore ${request.nodeId}:${String(request.endpoint)}`);
 
         return { isRestored: true };
+      },
+    ),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MQTT_STATUS_METHOD),
+      z.unknown(),
+      () => MQTT_STATUS,
+    ),
+    hub.serve(busSubjects.service(HUB_SERVICE, HUB_MQTT_DEVICES_METHOD), z.unknown(), () => ({
+      items: [MQTT_PLUG],
+    })),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MQTT_RESTORE_METHOD),
+      mqttRestoreRequestSchema,
+      (request) => {
+        mqttRequests.push(`restore ${request.deviceKey}`);
+
+        return { isRestored: true };
+      },
+    ),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MQTT_SETTINGS_METHOD),
+      mqttSettingsSchema,
+      (settings) => {
+        mqttRequests.push(`settings ${JSON.stringify(settings)}`);
+
+        return { ...MQTT_STATUS, settings };
+      },
+    ),
+    hub.serve(busSubjects.service(HUB_SERVICE, HUB_MQTT_CLIENTS_METHOD), z.unknown(), () => ({
+      items: [
+        {
+          username: 'nebula-hub',
+          kind: 'hub',
+          label: 'The hub',
+          publish: ['#'],
+          subscribe: ['#'],
+          createdAt: new Date('2026-10-21T08:00:00Z'),
+          sessions: [],
+        },
+      ],
+      anonymous: [],
+    })),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MQTT_CLIENT_ADD_METHOD),
+      mqttClientAddRequestSchema,
+      (request) => {
+        mqttRequests.push(`add ${request.username}`);
+
+        return { username: request.username, password: 'once-only' };
+      },
+    ),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MQTT_CLIENT_REMOVE_METHOD),
+      mqttClientRemoveRequestSchema,
+      (request) => {
+        mqttRequests.push(`remove ${request.username}`);
+
+        return { isRemoved: true };
+      },
+    ),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MQTT_TOPICS_METHOD),
+      mqttTopicsRequestSchema,
+      (request) => ({
+        items: [
+          {
+            topic: `${request.prefix}state`,
+            payload: 'ON',
+            size: 2,
+            isRetained: true,
+            updatedAt: new Date('2026-10-21T08:00:00Z'),
+            count: 3,
+          },
+        ],
+        total: 1,
+      }),
+    ),
+    hub.serve(busSubjects.service(HUB_SERVICE, HUB_MQTT_MAPPINGS_METHOD), z.unknown(), () => ({
+      items: [],
+    })),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MQTT_MAPPING_SAVE_METHOD),
+      mqttMappingInputSchema,
+      (mapping) => {
+        mqttRequests.push(`save ${mapping.name}`);
+
+        return { ...mapping, id: mapping.id ?? 'garden-1' };
+      },
+    ),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MQTT_MAPPING_REMOVE_METHOD),
+      mqttMappingRemoveRequestSchema,
+      (request) => {
+        mqttRequests.push(`unmap ${request.id}`);
+
+        return { isRemoved: request.id === 'garden-1' };
       },
     ),
     hub.serve(

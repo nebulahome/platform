@@ -4,13 +4,14 @@ import {
   busSubjects,
   HUB_CATALOGUE_METHOD,
   HUB_MATTER_NODES_METHOD,
+  HUB_MQTT_DEVICES_METHOD,
   HUB_RELOAD_METHOD,
   HUB_SERVICE,
 } from '@nebulahome/contracts';
 
-import { MATTER_LAMP } from '../testing/hub-harness.js';
+import { MATTER_LAMP, MQTT_PLUG } from '../testing/hub-harness.js';
 
-import { rehomeMatterDevices } from './brokers.js';
+import { rehomeBrokerDevices } from './brokers.js';
 import type { DevicesContext } from './devices.js';
 
 /**
@@ -26,8 +27,14 @@ function held(deviceId: string, claimedBy: string[]) {
   return { ...device, deviceId, kind: 'matter/generic', claimedBy };
 }
 
-describe('rehomeMatterDevices', () => {
+describe('rehomeBrokerDevices', () => {
   it('hands a device the platform holds to the one integration that now takes it', async () => {
+    const plug = {
+      ...MQTT_PLUG,
+      deviceId: 'mqtt-plug',
+      kind: 'mqtt/generic',
+      claimedBy: ['cloudy'],
+    };
     const asked: string[] = [];
     const written: unknown[] = [];
     const replies: Record<string, unknown> = {
@@ -38,6 +45,7 @@ describe('rehomeMatterDevices', () => {
           { ...MATTER_LAMP, nodeId: '8', devices: [held('matter-plug', ['cloudy', 'other'])] },
         ],
       },
+      [busSubjects.service(HUB_SERVICE, HUB_MQTT_DEVICES_METHOD)]: { items: [plug] },
       [busSubjects.service(HUB_SERVICE, HUB_CATALOGUE_METHOD)]: {
         vendors: [
           {
@@ -46,6 +54,12 @@ describe('rehomeMatterDevices', () => {
             drivers: [
               { id: 'cloudy/robot', name: 'Robot', transport: 'cloudy/cloud', models: [] },
               { id: 'cloudy/matter', name: 'Matter device', transport: 'matter', models: [] },
+              {
+                id: 'cloudy/tasmota',
+                name: 'Tasmota device',
+                transport: 'mqtt-house',
+                models: [],
+              },
             ],
           },
         ],
@@ -72,8 +86,9 @@ describe('rehomeMatterDevices', () => {
       },
     } as unknown as DevicesContext;
 
-    expect(await rehomeMatterDevices(context)).toEqual([
+    expect(await rehomeBrokerDevices(context)).toEqual([
       { deviceId: 'matter-lamp', kind: 'cloudy/matter' },
+      { deviceId: 'mqtt-plug', kind: 'cloudy/tasmota' },
     ]);
     expect(written).toEqual([
       expect.objectContaining({
@@ -81,6 +96,7 @@ describe('rehomeMatterDevices', () => {
         kindVersion: '1.2.0',
         model: 'Matter device',
       }),
+      expect.objectContaining({ kind: 'cloudy/tasmota', model: 'Tasmota device' }),
     ]);
     expect(asked).toContain(
       `${busSubjects.service(HUB_SERVICE, HUB_RELOAD_METHOD)} {"integrationId":"matter-lamp"}`,

@@ -26,7 +26,7 @@ import {
 import { schema } from '@nebulahome/db';
 
 import type { AuditLog } from './audit.js';
-import { rehomeMatterDevices } from './brokers.js';
+import { rehomeBrokerDevices } from './brokers.js';
 import type { DevicesContext } from './devices.js';
 import { adoptDiscovered, listDiscovered } from './discovery.js';
 import { offerTwins } from './links.js';
@@ -58,8 +58,8 @@ export type AutoAdoptionOptions = {
   /** Reads the device ids already in use; the registry's when not said. */
   readonly takenIds?: (context: DevicesContext) => Promise<string[]>;
 
-  /** Hands Matter devices to the integration installed since; `rehomeMatterDevices` when not said. */
-  readonly rehome?: typeof rehomeMatterDevices;
+  /** Hands brokers' devices to the integration installed since; `rehomeBrokerDevices` when not said. */
+  readonly rehome?: typeof rehomeBrokerDevices;
 
   /** Offers to link devices reached two ways; `offerTwins` when not said. */
   readonly offerTwins?: typeof offerTwins;
@@ -233,8 +233,8 @@ export class AutoAdoption {
    * @param context - The pass's collaborators.
    * @param rehome - What hands them over.
    */
-  async #rehome(context: DevicesContext, rehome: typeof rehomeMatterDevices): Promise<void> {
-    let rehomed: Awaited<ReturnType<typeof rehomeMatterDevices>>;
+  async #rehome(context: DevicesContext, rehome: typeof rehomeBrokerDevices): Promise<void> {
+    let rehomed: Awaited<ReturnType<typeof rehomeBrokerDevices>>;
 
     try {
       rehomed = await rehome(context);
@@ -274,7 +274,7 @@ export class AutoAdoption {
       list = listDiscovered,
       adopt = adoptDiscovered,
       takenIds = registryIds,
-      rehome = rehomeMatterDevices,
+      rehome = rehomeBrokerDevices,
     } = this.#options;
     const context = this.#options.contextFor(ulid());
 

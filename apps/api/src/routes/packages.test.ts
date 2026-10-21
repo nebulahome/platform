@@ -35,7 +35,7 @@ describe('the installed packages', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json<{ items: unknown[] }>().items).toEqual([
-      expect.objectContaining({ id: 'mqtt', deviceCount: 0, entityCount: 0, isSystem: true }),
+      expect.objectContaining({ id: 'mqtt', deviceCount: 0, entityCount: 0 }),
     ]);
   });
 
@@ -91,7 +91,7 @@ describe('changing what is installed', () => {
     expect(install.statusCode).toBe(409);
     expect(JSON.stringify(install.json())).toContain('object-detection');
     expect(remove.statusCode).toBe(409);
-    expect(JSON.stringify(remove.json())).toContain('system');
+    expect(JSON.stringify(remove.json())).toContain('required-by');
   });
 
   it('installs one, the release asked for passed on', async () => {

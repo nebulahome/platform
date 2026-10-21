@@ -66,7 +66,7 @@ writeFileSync(
 );
 writeFileSync(path.join(FAKE_PACKAGE_ROOT, 'secret.txt'), 'not for the browser');
 
-/** The broker, as the packet-manager lists it. */
+/** A package with a page, settings and RPC methods, as the packet-manager lists it. */
 export const MQTT_PACKAGE: InstalledPackage = {
   id: 'mqtt',
   version: '1.0.0',
@@ -77,7 +77,6 @@ export const MQTT_PACKAGE: InstalledPackage = {
   runtime: 'node',
   state: 'running',
   source: 'index',
-  isSystem: true,
   repository: 'nebulahome/pkg-mqtt',
   url: null,
   color: null,
@@ -85,7 +84,7 @@ export const MQTT_PACKAGE: InstalledPackage = {
   ui: { entry: './ui/index.js', page: true, cards: [], entityViews: [] },
   entityTypes: [],
   requires: { packages: {}, services: [] },
-  provides: ['mqtt-broker'],
+  provides: [],
   hasSetup: true,
   previousVersion: null,
   lastStartedAt: new Date('2026-09-29T08:00:00Z'),
@@ -252,9 +251,7 @@ export function servePacketManagerFake(
         }
 
         return {
-          installed: [
-            { ...MQTT_PACKAGE, id: request.packageId, isSystem: false, source: 'index' as const },
-          ],
+          installed: [{ ...MQTT_PACKAGE, id: request.packageId, source: 'index' as const }],
         };
       },
     ),
@@ -349,8 +346,12 @@ export function servePacketManagerFake(
       (request) => {
         record('remove', request);
 
-        throw new ConflictError('MQTT is part of the platform and is not removed', {
-          details: { reason: 'system' },
+        throw new ConflictError('MQTT is needed by zigbee-tools', {
+          details: {
+            reason: 'required-by',
+            packageId: request.packageId,
+            dependents: [{ kind: 'package', id: 'zigbee-tools' }],
+          },
         });
       },
     ),

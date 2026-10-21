@@ -1,10 +1,14 @@
 /**
- * `/brokers`: the platform's brokers - the house's Matter fabric today - for the Brokers page.
+ * `/brokers`: the platform's brokers - the house's Matter fabric and its MQTT broker - for the
+ * Brokers page.
  *
- * Reading them is reading devices (`device:read`); commissioning a node adds devices
- * (`device:write`), removing one removes them (`device:delete`), and both are audited as what
- * they do to the house. Commissioning is answered at once, `202` with the job: a node takes
- * longer than a request waits, and the page reads the status until the job ends.
+ * Reading them is reading devices (`device:read`); commissioning a node, saving a mapping or
+ * bringing a device back adds devices (`device:write`), removing a node or a mapping removes them
+ * (`device:delete`), and each is audited as what it does to the house. Who may connect to the MQTT
+ * broker, and how it is set up, is configuring an integration (`integration:configure`); a
+ * client's password is answered once and never written to the audit. Commissioning is answered at
+ * once, `202` with the job: a node takes longer than a request waits, and the page reads the
+ * status until the job ends.
  */
 import { z } from 'zod';
 
@@ -16,8 +20,22 @@ import {
   matterNodesReplySchema,
   matterRestoreReplySchema,
   matterStatusSchema,
+  mqttClientAddReplySchema,
+  mqttClientAddRequestSchema,
+  mqttClientRemoveReplySchema,
+  mqttClientsReplySchema,
+  mqttDevicesReplySchema,
+  mqttMappingInputSchema,
+  mqttMappingSchema,
+  mqttMappingsReplySchema,
+  mqttRestoreReplySchema,
+  mqttRestoreRequestSchema,
+  mqttSettingsSchema,
+  mqttStatusSchema,
+  mqttTopicsReplySchema,
   type MatterCommissioning,
   type MatterStatus,
+  type MqttStatus,
 } from '@nebulahome/contracts';
 
 import { requirePermission } from '../auth/permissions.js';
@@ -31,6 +49,17 @@ import {
   matterStatus,
   removeMatterNode,
   restoreMatterDevice,
+  addMqttClient,
+  mqttClients,
+  mqttDevices,
+  mqttMappings,
+  mqttStatus,
+  mqttTopics,
+  removeMqttClient,
+  removeMqttMapping,
+  restoreMqttDevice,
+  saveMqttMapping,
+  saveMqttSettings,
 } from '../services/brokers.js';
 
 import { forRequest } from './devices.js';
@@ -40,6 +69,18 @@ const ACCEPTED_STATUS = 202;
 
 /** Which node a request is about. */
 const nodeParamsSchema = z.object({ nodeId: matterNodeIdSchema });
+
+/** Which client of the MQTT broker a request is about. */
+const clientParamsSchema = z.object({ username: z.string().min(1).max(64) });
+
+/** The topics asked for, as a query string writes them. */
+const topicsQuerySchema = z.object({
+  prefix: z.string().max(256).default(''),
+  limit: z.coerce.number().int().min(1).max(2000).default(500),
+});
+
+/** Which mapping a request is about. */
+const mappingParamsSchema = z.object({ id: z.string().min(1).max(64) });
 
 /** Which device of a node is brought back: the node itself, or an endpoint behind it. */
 const restoreBodySchema = z.object({ endpoint: z.int().min(0).max(65_535).nullable() });
@@ -286,6 +327,371 @@ export function registerBrokerRoutes(environment: RouteEnvironment, context: Api
       });
 
       return { isRestored };
+    },
+  );
+
+  registerMqttRoutes(environment, context);
+}
+
+/**
+ * Registers the MQTT broker's routes.
+ *
+ * @param environment - Where routes are registered and documented.
+ * @param context - The service's collaborators.
+ */
+function registerMqttRoutes(environment: RouteEnvironment, context: ApiContext): void {
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/brokers/mqtt',
+      summary: "Read where the house's MQTT broker stands",
+      tag: 'Brokers',
+      permission: 'device:read',
+      response: mqttStatusSchema,
+    },
+
+    /**
+     * Reads the broker's state.
+     *
+     * @param route - Who is asking.
+     * @returns The state, its settings and what it makes of what it carries.
+     */
+    async (route): Promise<MqttStatus> => {
+      requirePermission(route.identity, 'device:read');
+
+      return mqttStatus(forRequest(context, route.request.traceId));
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'PUT',
+      url: '/brokers/mqtt/settings',
+      summary: "Change the house's MQTT broker's settings, which starts it again",
+      tag: 'Brokers',
+      permission: 'integration:configure',
+      body: mqttSettingsSchema,
+      response: mqttStatusSchema,
+    },
+
+    /**
+     * Saves the settings.
+     *
+     * @param route - The settings, and who is asking.
+     * @returns Where the broker stands then.
+     */
+    async (route): Promise<MqttStatus> => {
+      requirePermission(route.identity, 'integration:configure');
+
+      const status = await saveMqttSettings(forRequest(context, route.request.traceId), route.body);
+
+      await context.audit.record({
+        action: 'mqtt.settings',
+        resourceType: 'mqtt',
+        resourceId: 'settings',
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { ...route.body },
+      });
+
+      return status;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/brokers/mqtt/devices',
+      summary: "List the devices the house's MQTT broker hears",
+      tag: 'Brokers',
+      permission: 'device:read',
+      response: mqttDevicesReplySchema,
+    },
+
+    /**
+     * Lists the devices.
+     *
+     * @param route - Who is asking.
+     * @returns Each, with the device it is in the house.
+     */
+    async (route) => {
+      requirePermission(route.identity, 'device:read');
+
+      return { items: await mqttDevices(forRequest(context, route.request.traceId)) };
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/brokers/mqtt/restore',
+      summary: 'Add back a device the MQTT broker hears that was removed from the house',
+      tag: 'Brokers',
+      permission: 'device:write',
+      body: mqttRestoreRequestSchema,
+      response: mqttRestoreReplySchema,
+    },
+
+    /**
+     * Brings back a device removed from the house.
+     *
+     * @param route - The device, and who is asking.
+     * @returns Whether it was removed.
+     */
+    async (route) => {
+      requirePermission(route.identity, 'device:write');
+
+      const isRestored = await restoreMqttDevice(
+        forRequest(context, route.request.traceId),
+        route.body.deviceKey,
+      );
+
+      await context.audit.record({
+        action: 'mqtt.restore',
+        resourceType: 'mqtt',
+        resourceId: route.body.deviceKey,
+        result: isRestored ? 'success' : 'failure',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+      });
+
+      return { isRestored };
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/brokers/mqtt/clients',
+      summary: "List who may connect to the house's MQTT broker, and who is connected",
+      tag: 'Brokers',
+      permission: 'device:read',
+      response: mqttClientsReplySchema,
+    },
+
+    /**
+     * Lists the clients.
+     *
+     * @param route - Who is asking.
+     * @returns The usernames, with their connections, and the connections without one.
+     */
+    async (route) => {
+      requirePermission(route.identity, 'device:read');
+
+      return mqttClients(forRequest(context, route.request.traceId));
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/brokers/mqtt/clients',
+      summary: "Add a client to the house's MQTT broker; its password is answered once",
+      tag: 'Brokers',
+      permission: 'integration:configure',
+      body: mqttClientAddRequestSchema,
+      response: mqttClientAddReplySchema,
+      successStatus: 201,
+    },
+
+    /**
+     * Adds a client.
+     *
+     * @param route - Its username, label and reach, and who is asking.
+     * @returns Its username and password.
+     */
+    async (route) => {
+      requirePermission(route.identity, 'integration:configure');
+
+      const added = await addMqttClient(forRequest(context, route.request.traceId), route.body);
+
+      // The password is the client's alone: it is never written down here.
+      await context.audit.record({
+        action: 'mqtt.client.add',
+        resourceType: 'mqtt',
+        resourceId: added.username,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { access: route.body.access },
+      });
+
+      return added;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'DELETE',
+      url: '/brokers/mqtt/clients/:username',
+      summary: "Remove a client of the house's MQTT broker, and close its connections",
+      tag: 'Brokers',
+      permission: 'integration:configure',
+      params: clientParamsSchema,
+      response: mqttClientRemoveReplySchema,
+    },
+
+    /**
+     * Removes a client.
+     *
+     * @param route - The client, and who is asking.
+     * @returns Whether there was one.
+     */
+    async (route) => {
+      requirePermission(route.identity, 'integration:configure');
+
+      const isRemoved = await removeMqttClient(
+        forRequest(context, route.request.traceId),
+        route.params.username,
+      );
+
+      await context.audit.record({
+        action: 'mqtt.client.remove',
+        resourceType: 'mqtt',
+        resourceId: route.params.username,
+        result: isRemoved ? 'success' : 'failure',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+      });
+
+      return { isRemoved };
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/brokers/mqtt/topics',
+      summary: "Read the last message of the topics the house's MQTT broker carries",
+      tag: 'Brokers',
+      permission: 'device:read',
+      query: topicsQuerySchema,
+      response: mqttTopicsReplySchema,
+    },
+
+    /**
+     * Reads the topics.
+     *
+     * @param route - The prefix, how many, and who is asking.
+     * @returns Them, the most recent first, and how many there are.
+     */
+    async (route) => {
+      requirePermission(route.identity, 'device:read');
+
+      return mqttTopics(forRequest(context, route.request.traceId), route.query);
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/brokers/mqtt/mappings',
+      summary: 'List the devices mapped by hand on the house’s MQTT broker',
+      tag: 'Brokers',
+      permission: 'device:read',
+      response: mqttMappingsReplySchema,
+    },
+
+    /**
+     * Lists the mappings.
+     *
+     * @param route - Who is asking.
+     * @returns Them.
+     */
+    async (route) => {
+      requirePermission(route.identity, 'device:read');
+
+      return { items: await mqttMappings(forRequest(context, route.request.traceId)) };
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/brokers/mqtt/mappings',
+      summary: 'Map a device that does not announce itself, from the topic it publishes on',
+      tag: 'Brokers',
+      permission: 'device:write',
+      body: mqttMappingInputSchema,
+      response: mqttMappingSchema,
+    },
+
+    /**
+     * Saves a mapping, new or changed: one with an id replaces it.
+     *
+     * @param route - The mapping, and who is asking.
+     * @returns It, with its id.
+     */
+    async (route) => {
+      requirePermission(route.identity, 'device:write');
+
+      const saved = await saveMqttMapping(forRequest(context, route.request.traceId), route.body);
+
+      await context.audit.record({
+        action: 'mqtt.mapping.save',
+        resourceType: 'mqtt',
+        resourceId: saved.id,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { name: saved.name, stateTopic: saved.stateTopic },
+      });
+
+      return saved;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'DELETE',
+      url: '/brokers/mqtt/mappings/:id',
+      summary: 'Remove a mapping, and the device it made from the house',
+      tag: 'Brokers',
+      permission: 'device:delete',
+      params: mappingParamsSchema,
+      successStatus: 204,
+    },
+
+    /**
+     * Removes a mapping: its device from the house, then the mapping.
+     *
+     * @param route - The mapping, and who is asking.
+     */
+    async (route): Promise<void> => {
+      requirePermission(route.identity, 'device:delete');
+
+      const removed = await removeMqttMapping(
+        forRequest(context, route.request.traceId),
+        route.params.id,
+      );
+
+      await context.audit.record({
+        action: 'mqtt.mapping.remove',
+        resourceType: 'mqtt',
+        resourceId: route.params.id,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { device: removed?.name ?? null },
+      });
     },
   );
 }
