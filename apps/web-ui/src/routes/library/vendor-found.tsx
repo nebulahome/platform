@@ -6,7 +6,7 @@
  * something to know - new since yesterday, also reached through Matter, a device that sleeps and
  * wakes to answer, one that needs a password - when it was last heard, and Adopt. Rows can be
  * ticked, all of a page at once, and adopted or dismissed together. Adopting needs no dialog: a
- * device comes in under its model's name, with no room, and a banner says so and leads to the
+ * device comes in under its model's name, with no room, and a toast says so and leads to the
  * Devices tab to name them. A device the house has, found at another address, offers Move here.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,16 +14,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { DiscoveredDevice, IntegrationVendorView } from '@nebulahome/contracts';
-import {
-  AppIcon,
-  Button,
-  Checkbox,
-  cn,
-  IconButton,
-  Note,
-  TableFooter,
-  type UiIconId,
-} from '@nebulahome/ui';
+import { AppIcon, Button, Checkbox, cn, TableFooter, toast, type UiIconId } from '@nebulahome/ui';
 
 import { listFormat } from '@/i18n/formatters';
 import { toMessage } from '@/lib/error-message';
@@ -73,7 +64,6 @@ export function VendorFound(props: VendorFoundProps) {
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [page, setPage] = useState(1);
   const [size, setSize] = useState<number>(SIZES[0]);
-  const [adopted, setAdopted] = useState<readonly string[] | null>(null);
 
   const found = useQuery({
     queryKey: [...LINK_QUERY_KEYS.found, vendor.id],
@@ -121,11 +111,53 @@ export function VendorFound(props: VendorFoundProps) {
      * @param items - What became of each.
      */
     onSuccess: (items) => {
-      setAdopted(
-        items.flatMap((item) => (item.deviceId === null ? [] : [item.name ?? item.deviceId])),
+      const adopted = items.flatMap((item) =>
+        item.deviceId === null ? [] : [item.name ?? item.deviceId],
       );
+      const failed = items.filter((item) => item.error !== null);
+
+      if (adopted.length > 0) {
+        toast.success({
+          title: t('library.vendorFound.adoptedJustNow', {
+            count: adopted.length,
+            defaultValue_one: '{{count}} adopted just now',
+            defaultValue_other: '{{count}} adopted just now',
+          }),
+          message: t(
+            'library.vendorFound.underModelName',
+            '{{names}} are in Devices under their model name. Give them a name and a room there.',
+            { names: listFormat({ type: 'conjunction' }).format(adopted) },
+          ),
+          action: {
+            label: t('library.vendorFound.openDevices', 'Open Devices'),
+            onSelect: onOpenDevices,
+          },
+        });
+      }
+      if (failed.length > 0) {
+        toast.warning({
+          title: t('library.vendorFound.notAdopted', {
+            count: failed.length,
+            defaultValue_one: '{{count}} not adopted',
+            defaultValue_other: '{{count}} not adopted',
+          }),
+          message: failed.map((item) => `${item.name ?? item.id}: ${item.error ?? ''}`).join(' · '),
+        });
+      }
       setPicked(new Set());
       refresh();
+    },
+
+    /**
+     * Says why none came in.
+     *
+     * @param error - What failed.
+     */
+    onError: (error) => {
+      toast.error({
+        title: t('library.vendorFound.adoptFailed', 'Couldn’t adopt them'),
+        message: toMessage(error),
+      });
     },
   });
 
@@ -142,6 +174,18 @@ export function VendorFound(props: VendorFoundProps) {
     onSuccess: () => {
       setPicked(new Set());
       refresh();
+    },
+
+    /**
+     * Says why they are still there.
+     *
+     * @param error - What failed.
+     */
+    onError: (error) => {
+      toast.error({
+        title: t('library.vendorFound.dismissFailed', 'Couldn’t dismiss them'),
+        message: toMessage(error),
+      });
     },
   });
 
@@ -169,60 +213,9 @@ export function VendorFound(props: VendorFoundProps) {
 
   const pageIds = shown.filter((each) => each.movedFrom === null).map((each) => each.id);
   const pickedOnPage = pageIds.filter((id) => picked.has(id)).length;
-  const problem = adopt.error ?? dismiss.error;
-  const adoptedFailed = adopt.data?.filter((item) => item.error !== null) ?? [];
 
   return (
     <div className="flex flex-col gap-4">
-      {adopted === null || adopted.length === 0 ? null : (
-        <div
-          role="status"
-          className="flex items-center gap-3 rounded-card border border-success/40 bg-success/6 px-4.5 py-3.5"
-        >
-          <AppIcon id="circle-check" size={16} className="shrink-0 text-success" />
-          <p className="min-w-0 grow text-ui-sm text-foreground-muted">
-            <span className="font-medium text-foreground">
-              {t('library.vendorFound.adoptedJustNow', {
-                count: adopted.length,
-                defaultValue_one: '{{count}} adopted just now',
-                defaultValue_other: '{{count}} adopted just now',
-              })}
-            </span>
-            {' · '}
-            {t(
-              'library.vendorFound.underModelName',
-              '{{names}} are in Devices under their model name. Give them a name and a room there.',
-              { names: listFormat({ type: 'conjunction' }).format(adopted) },
-            )}
-          </p>
-          <button
-            type="button"
-            className="inline-flex shrink-0 items-center gap-1 text-ui-sm text-primary transition-colors hover:text-primary-hover"
-            onClick={onOpenDevices}
-          >
-            {t('library.vendorFound.openDevices', 'Open Devices')}
-            <AppIcon id="chevron-right" size={14} />
-          </button>
-          <IconButton
-            size="small"
-            label={t('common.close', 'Close')}
-            onClick={() => {
-              setAdopted(null);
-            }}
-          >
-            <AppIcon id="x" size={14} />
-          </IconButton>
-        </div>
-      )}
-
-      {problem === null ? null : <Note tone="danger">{toMessage(problem)}</Note>}
-      {adoptedFailed.length === 0 ? null : (
-        <Note tone="warning">
-          {adoptedFailed.map((item) => `${item.name ?? item.id}: ${item.error ?? ''}`).join(' · ')}
-        </Note>
-      )}
-      {mover.problem === null ? null : <Note tone="danger">{mover.problem}</Note>}
-
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-ui text-foreground-muted">
           <span className="font-medium text-foreground tabular">{rows.length}</span>{' '}

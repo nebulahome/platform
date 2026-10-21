@@ -19,7 +19,7 @@ import {
 import { CatalogueIcon, cn } from '@nebulahome/ui';
 
 import { fetchIcons, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
-import { BrokerMark } from '@/routes/library/brokers-page';
+import { BROKER_GLYPHS } from '@/routes/library/brokers-page';
 import { VendorLogo } from '@/routes/library/vendor-card';
 
 /** The catalogue's answer for the icons some devices carry, by id. */
@@ -74,21 +74,25 @@ export type DeviceIconProps = {
 };
 
 /**
- * Whose a Matter device is, for one with no icon of its own: its integration's logo, or the
- * broker's mark for one the platform holds.
+ * Whose a Matter or MQTT device is, for one with no icon of its own: its integration's logo, or
+ * the broker's own mark for one the platform holds - bare, at the icon's size, since the place it
+ * is drawn in already frames it.
  *
- * @param props - The device's vendor, its broker and the side of the square.
+ * @param props - The device's vendor, its broker, the side and the caller's classes.
  * @param props.vendorId - The vendor.
  * @param props.broker - The broker it is reached through.
  * @param props.size - The side, in pixels.
+ * @param props.className - The caller's classes, for the bare mark.
  * @returns The logo, or the mark.
  */
 function BrokerOwnerMark(props: {
   readonly vendorId: string | null;
   readonly broker: 'matter' | 'mqtt';
   readonly size: number;
+  readonly className: string | undefined;
 }) {
-  const { vendorId, broker, size } = props;
+  const { vendorId, broker, size, className } = props;
+  const Mark = BROKER_GLYPHS[broker];
   const vendors = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.vendors,
 
@@ -104,7 +108,7 @@ function BrokerOwnerMark(props: {
   const vendor = vendors.data?.find((each) => each.id === vendorId);
 
   return vendor === undefined || vendor.id === MATTER_VENDOR || vendor.id === MQTT_VENDOR ? (
-    <BrokerMark broker={broker} size={size} />
+    <Mark width={size} height={size} className={cn('shrink-0', className)} />
   ) : (
     <VendorLogo vendor={vendor} size={size} />
   );
@@ -123,11 +127,20 @@ export function DeviceIcon(props: DeviceIconProps) {
   const { icon, size = 20, className, device } = props;
 
   if (device?.icon === null && device.transport === MATTER_TRANSPORT) {
-    return <BrokerOwnerMark vendorId={device.vendorId} broker="matter" size={size} />;
+    return (
+      <BrokerOwnerMark
+        vendorId={device.vendorId}
+        broker="matter"
+        size={size}
+        className={className}
+      />
+    );
   }
 
   if (device?.icon === null && device.transport === MQTT_HOUSE_TRANSPORT) {
-    return <BrokerOwnerMark vendorId={device.vendorId} broker="mqtt" size={size} />;
+    return (
+      <BrokerOwnerMark vendorId={device.vendorId} broker="mqtt" size={size} className={className} />
+    );
   }
 
   // An empty drawing takes exactly the space a full one would, in the same element.

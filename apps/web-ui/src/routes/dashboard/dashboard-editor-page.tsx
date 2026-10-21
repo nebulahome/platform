@@ -24,7 +24,7 @@ import {
   type DashboardLayout,
   type DashboardView,
 } from '@nebulahome/contracts';
-import { AppIcon, Button, Note } from '@nebulahome/ui';
+import { AppIcon, Button, Note, toast } from '@nebulahome/ui';
 
 import {
   DASHBOARD_QUERY_KEYS,
@@ -274,6 +274,9 @@ function Editor(props: { readonly dashboard: DashboardView }) {
       ]);
       draft.end();
       setProblem(null);
+      toast.success({
+        title: t('dashboard.dashboardEditor.saved', '{{name}} saved', { name: dashboard.name }),
+      });
       leave();
     },
 
@@ -283,7 +286,12 @@ function Editor(props: { readonly dashboard: DashboardView }) {
      * @param error - What went wrong.
      */
     onError: (error: unknown) => {
-      setProblem(toMessage(error));
+      toast.error({
+        title: t('dashboard.dashboardEditor.saveFailed', 'Couldn’t save {{name}}', {
+          name: dashboard.name,
+        }),
+        message: toMessage(error),
+      });
     },
   });
 

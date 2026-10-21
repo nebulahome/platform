@@ -13,7 +13,7 @@ import { Link } from 'react-router';
 import type { BrokerId, BrokerState, BrokerSummary } from '@nebulahome/contracts';
 import { AppIcon, cn, Pill, Tile, TILE_FRAME, TILE_GRID, type PillTone } from '@nebulahome/ui';
 
-import { MatterIcon, MqttIcon } from '@/components/icons';
+import { MatterLogo, MqttLogo } from '@/components/brand-logos';
 import { translate } from '@/i18n/messages';
 import { BROKER_QUERY_KEYS, fetchBrokers } from '@/library/brokers-api';
 import { LibraryPage } from '@/routes/library/library-page';
@@ -43,8 +43,8 @@ export function brokerStateOf(state: BrokerState): {
   }
 }
 
-/** The glyph each broker is drawn with. */
-const BROKER_GLYPHS = { matter: MatterIcon, mqtt: MqttIcon } as const;
+/** The official mark each broker is drawn with. */
+export const BROKER_GLYPHS = { matter: MatterLogo, mqtt: MqttLogo } as const;
 
 /**
  * What a broker is called.
@@ -62,8 +62,8 @@ export function brokerNameOf(broker: BrokerId): string {
  * @param props - Which broker, its size, and whether it is lit.
  * @param props.broker - The broker; Matter when not said.
  * @param props.size - The side of the square, in pixels.
- * @param props.isLit - Lit violet from its corner, the mark drawn plain: the broker's page and
- *   its dialogs. Otherwise the mark is violet on a plain square: the card.
+ * @param props.isLit - Lit violet from its corner: the broker's page and its dialogs. Otherwise a
+ *   plain square: the card. The mark keeps its own colours either way.
  * @returns The square.
  */
 export function BrokerMark(props: {
@@ -79,7 +79,8 @@ export function BrokerMark(props: {
       aria-hidden="true"
       className={cn(
         'flex shrink-0 items-center justify-center border border-border-strong bg-surface-raised',
-        isLit ? 'rounded-inner matter-glow text-foreground' : 'rounded-tile text-violet',
+        isLit ? 'rounded-inner matter-glow' : 'rounded-tile',
+        'text-foreground',
       )}
       /* eslint-disable-next-line react/forbid-dom-props -- the side is a value, per place. */
       style={{ width: size, height: size }}
@@ -130,9 +131,6 @@ function BrokerCard(props: { readonly broker: BrokerSummary }) {
                   defaultValue_one: '{{count}} device',
                   defaultValue_other: '{{count}} devices',
                 })}
-                {broker.id === 'matter'
-                  ? ` · ${t('brokers.card.linked', '{{linked}} linked', { linked: broker.devices.linked })}`
-                  : null}
               </span>
             </>
           }

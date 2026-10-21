@@ -36,7 +36,7 @@ import {
 
 import { defineMessage, type Message, text } from '@/i18n/messages';
 import { absoluteTime } from '@/lib/format-time';
-import { useIntegrationInstall } from '@/library/use-integration-install';
+import { useVendorUpdate } from '@/library/use-integration-install';
 import {
   connectionHealth,
   devicesHealth,
@@ -151,7 +151,7 @@ export function VendorOverview(props: VendorOverviewProps) {
     onAllDevices,
     onReviewFound,
   } = props;
-  const install = useIntegrationInstall(() => undefined);
+  const install = useVendorUpdate(vendor.name);
   const icons = useDeviceIcons(devices);
   const runsContainers = vendor.containers.length > 0;
   // A vendor that runs a container is set up from the container's row, not from a tab.

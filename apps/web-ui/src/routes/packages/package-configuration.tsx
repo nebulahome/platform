@@ -5,7 +5,7 @@
 import { useTranslation } from 'react-i18next';
 
 import type { ApiPackageDetail, InstalledPackage } from '@nebulahome/contracts';
-import { Button, Section } from '@nebulahome/ui';
+import { Button, Section, toast } from '@nebulahome/ui';
 
 import { usePackageSetup } from '@/packages/use-package-setup';
 import { VendorSetupFields } from '@/routes/library/vendor-setup-dialog';
@@ -31,7 +31,12 @@ export function PackageConfiguration(props: PackageConfigurationProps) {
   const { t } = useTranslation();
 
   const { found, canConfigure, onSaved } = props;
-  const form = usePackageSetup(found, onSaved);
+  const form = usePackageSetup(found, (saved) => {
+    toast.success({
+      title: t('packages.packageConfiguration.savedAndStartedAgain', 'Saved, and started again'),
+    });
+    onSaved(saved);
+  });
 
   return (
     <Section
@@ -48,14 +53,6 @@ export function PackageConfiguration(props: PackageConfigurationProps) {
 
         {canConfigure ? (
           <div className="flex items-center justify-end gap-3">
-            {form.isSaved ? (
-              <span role="status" className="text-ui-sm text-success">
-                {t(
-                  'packages.packageConfiguration.savedAndStartedAgain',
-                  'Saved, and started again',
-                )}
-              </span>
-            ) : null}
             <Button isBusy={form.isSaving} disabled={form.isSaving} onClick={form.submit}>
               {t('common.save', 'Save')}
             </Button>

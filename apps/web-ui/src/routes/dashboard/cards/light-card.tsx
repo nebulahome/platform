@@ -276,11 +276,6 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
             }}
           />
         ) : null}
-        {commander.problem === null ? null : (
-          <p role="alert" className="truncate text-caption text-danger">
-            {commander.problem}
-          </p>
-        )}
       </div>
     </CardFrame>
   );

@@ -10,13 +10,16 @@
  * the person asked for is worth sending.
  *
  * When the live channel is down, the entity is read again a moment after the acknowledgement,
- * so a page with no socket still catches up with what it just did.
+ * so a page with no socket still catches up with what it just did. A refusal is said in a toast,
+ * and kept as `problem` so a control can stop showing what it was not given.
  */
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 
 import type { CapabilityName, JsonObject } from '@nebulahome/contracts';
+import { toast } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { commandEntity, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { useLive } from '@/live/live-store';
@@ -39,9 +42,6 @@ export type EntityCommander = {
 
   /** Why the last command was refused, or null. */
   readonly problem: string | null;
-
-  /** Forgets the last refusal, when the person has read it. */
-  readonly dismissProblem: () => void;
 };
 
 /**
@@ -101,6 +101,10 @@ export function useEntityCommand(entityId: string): EntityCommander {
       })
       .catch((error: unknown) => {
         setProblem(toMessage(error));
+        toast.error({
+          title: translate('entity.command.failed', 'The command didn’t go through'),
+          message: toMessage(error),
+        });
       })
       .finally(() => {
         inFlight.current.delete(capability);
@@ -138,9 +142,5 @@ export function useEntityCommand(entityId: string): EntityCommander {
     },
     busy,
     problem,
-    /** Forgets the last refusal. */
-    dismissProblem: () => {
-      setProblem(null);
-    },
   };
 }

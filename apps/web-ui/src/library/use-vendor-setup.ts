@@ -72,9 +72,6 @@ export type VendorSetup = {
 
   /** Whether a save is under way. */
   readonly isSaving: boolean;
-
-  /** Whether the last save went through. */
-  readonly isSaved: boolean;
 };
 
 /**
@@ -171,7 +168,6 @@ export function useVendorSetup(
     errors,
     kept,
     isSaving: save.isPending,
-    isSaved: save.isSuccess,
 
     /**
      * Changes one field of one group.

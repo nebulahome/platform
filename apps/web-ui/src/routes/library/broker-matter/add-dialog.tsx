@@ -18,7 +18,7 @@ import type { LinkReason, LinkSuggestionView, MatterCommissioning } from '@nebul
 import { AppIcon, Button, cn, Modal, Note } from '@nebulahome/ui';
 
 import exampleQr from '@/assets/matter/example-qr.svg';
-import { MatterIcon } from '@/components/icons';
+import { MatterLogo } from '@/components/brand-logos';
 import { toMessage } from '@/lib/error-message';
 import { answerMatter, BROKER_QUERY_KEYS, commissionMatter } from '@/library/brokers-api';
 import {
@@ -180,7 +180,7 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
               />
               <span className="flex flex-col gap-1.5">
                 <span className="text-foreground-muted">
-                  <MatterIcon width={16} height={16} />
+                  <MatterLogo width={16} height={16} />
                 </span>
                 <span className="font-mono text-subhead text-foreground">3497-011-2332</span>
               </span>

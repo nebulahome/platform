@@ -17,7 +17,7 @@
 import { useState, type SubmitEventHandler } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Badge, Button, Modal, PanelRow, TextField } from '@nebulahome/ui';
+import { Badge, Button, Modal, PanelRow, TextField, toast } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { Avatar } from '@/components/avatar';
@@ -30,21 +30,6 @@ import { changePassword, updateUser } from '@/settings/api';
 
 /** Which dialog is open, if any. */
 type OpenDialog = 'profile' | 'password' | null;
-
-/**
- * A confirmation, and which row earned it.
- *
- * The row is part of the value rather than a second piece of state beside it. Two separate
- * `useState` calls can disagree - and they did: one note and two rows meant the profile's
- * confirmation was drawn under the password, because that is where the only note lived.
- */
-type Note = {
-  /** Where it belongs. */
-  readonly row: 'profile' | 'password';
-
-  /** What happened. */
-  readonly text: string;
-};
 
 /** What the rows need. */
 type ProfileRowsProps = {
@@ -70,7 +55,6 @@ export function ProfileRows(props: ProfileRowsProps) {
   const [newPassword, setNewPassword] = useState('');
   const [error, setError] = useState<string | undefined>(undefined);
   const [isBusy, setBusy] = useState(false);
-  const [note, setNote] = useState<Note | undefined>(undefined);
 
   if (user === undefined) {
     return null;
@@ -104,7 +88,7 @@ export function ProfileRows(props: ProfileRowsProps) {
         await updateUser(user.id, { displayName, ...(email === '' ? {} : { email }) });
         await refreshUser();
         close();
-        setNote({ row: 'profile', text: t('settings.profile.updated', 'Profile updated.') });
+        toast.success({ title: t('settings.profile.updated', 'Profile updated') });
       } catch (cause: unknown) {
         setError(toMessage(cause));
       } finally {
@@ -127,11 +111,11 @@ export function ProfileRows(props: ProfileRowsProps) {
       try {
         await changePassword(currentPassword, newPassword);
         close();
-        setNote({
-          row: 'password',
-          text: t(
-            'settings.password.changed',
-            'Password changed. Your other sessions are still signed in.',
+        toast.success({
+          title: t('settings.password.changedTitle', 'Password changed'),
+          message: t(
+            'settings.password.othersSignedIn',
+            'Your other sessions are still signed in.',
           ),
         });
       } catch (cause: unknown) {
@@ -172,16 +156,13 @@ export function ProfileRows(props: ProfileRowsProps) {
               setDisplayName(user.displayName);
               setEmail('');
               setError(undefined);
-              setNote(undefined);
               setOpen('profile');
             }}
           >
             {t('settings.profile.edit', 'Edit profile')}
           </Button>
         }
-      >
-        {note?.row === 'profile' ? <Confirmation>{note.text}</Confirmation> : null}
-      </PanelRow>
+      />
 
       <Modal
         isOpen={open === 'profile'}
@@ -261,16 +242,13 @@ export function ProfileRows(props: ProfileRowsProps) {
             size="compact"
             onClick={() => {
               setError(undefined);
-              setNote(undefined);
               setOpen('password');
             }}
           >
             {t('settings.password.change', 'Change password')}
           </Button>
         }
-      >
-        {note?.row === 'password' ? <Confirmation>{note.text}</Confirmation> : null}
-      </PanelRow>
+      />
 
       <Modal
         isOpen={open === 'password'}
@@ -327,31 +305,5 @@ export function ProfileRows(props: ProfileRowsProps) {
         </form>
       </Modal>
     </>
-  );
-}
-
-/** What a confirmation needs. */
-type ConfirmationProps = {
-  /** What happened. */
-  readonly children: string;
-};
-
-/**
- * The line a row shows after its own action succeeded.
- *
- * `role="status"` rather than `role="alert"`: nothing has gone wrong, and an assertive
- * announcement would interrupt whatever a screen reader was in the middle of saying to report
- * good news.
- *
- * @param props - See {@link ConfirmationProps}.
- * @returns The line.
- */
-function Confirmation(props: ConfirmationProps) {
-  const { children } = props;
-
-  return (
-    <p role="status" className="text-ui text-success">
-      {children}
-    </p>
   );
 }

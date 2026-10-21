@@ -16,7 +16,16 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { type ScopedPermission } from '@nebulahome/contracts';
-import { Button, Modal, Panel, PanelRow, Segmented, SelectField, TextField } from '@nebulahome/ui';
+import {
+  Button,
+  Modal,
+  Panel,
+  PanelRow,
+  Segmented,
+  SelectField,
+  TextField,
+  toast,
+} from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { defineMessage, text, type Message } from '@/i18n/messages';
@@ -157,14 +166,16 @@ export function TokensPanel() {
    * @param tokenId - Which one.
    */
   const revoke = (tokenId: string): void => {
-    setError(undefined);
-
     void (async (): Promise<void> => {
       try {
         await revokeAccessToken(tokenId);
         await queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEYS.accessTokens });
+        toast.success({ title: t('settings.tokens.revoked', 'Token revoked') });
       } catch (cause: unknown) {
-        setError(toMessage(cause));
+        toast.error({
+          title: t('settings.tokens.revokeFailed', 'Couldn’t revoke the token'),
+          message: toMessage(cause),
+        });
       }
     })();
   };
@@ -303,12 +314,6 @@ export function TokensPanel() {
             }
           />
         ))}
-
-        {error === undefined || isCreating ? null : (
-          <p role="alert" className="border-t border-border px-4 py-3 text-ui text-danger">
-            {error}
-          </p>
-        )}
       </Panel>
 
       <Modal

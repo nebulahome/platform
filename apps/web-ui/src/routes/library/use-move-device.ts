@@ -10,7 +10,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import type { DiscoveredDevice } from '@nebulahome/contracts';
+import { toast } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { LIBRARY_QUERY_KEYS, updateDevice } from '@/library/api';
 
@@ -25,9 +27,6 @@ export type MoveDevice = {
 
   /** The found device being moved now; null when none is. */
   readonly movingId: string | null;
-
-  /** Why the last move failed, when it did. */
-  readonly problem: string | null;
 };
 
 /**
@@ -52,10 +51,29 @@ export function useMoveDevice(): MoveDevice {
       return updateDevice(found.movedFrom.deviceId, { transportConfig: found.transportConfig });
     },
 
-    /** Reads the lists again: the device moved, and it is no longer found elsewhere. */
-    onSuccess: () => {
+    /**
+     * Says so, and reads the lists again: the device moved, and it is no longer found elsewhere.
+     *
+     * @param device - The device as it now stands.
+     */
+    onSuccess: (device) => {
+      toast.success({
+        title: translate('library.moveDevice.moved', '{{name}} moved here', { name: device.name }),
+      });
       void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
       void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.discovered });
+    },
+
+    /**
+     * Says why it did not move.
+     *
+     * @param error - What failed.
+     */
+    onError: (error) => {
+      toast.error({
+        title: translate('library.moveDevice.failed', 'Couldn’t move the device'),
+        message: toMessage(error),
+      });
     },
   });
 
@@ -69,6 +87,5 @@ export function useMoveDevice(): MoveDevice {
       mutation.mutate(found);
     },
     movingId: mutation.isPending ? mutation.variables.id : null,
-    problem: mutation.error === null ? null : toMessage(mutation.error),
   };
 }

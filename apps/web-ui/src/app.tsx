@@ -1,11 +1,13 @@
 /**
- * The root: the providers, and nothing else.
+ * The root: the providers, and the toasts, which belong to no page.
  *
  * The router wraps everything rather than only the signed-in half. Which screen is on and what
  * the address says about it is one question, answered in one place - see `session-routes.tsx`.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router';
+
+import { Toaster } from '@nebulahome/ui';
 
 import { CatalogueIcons } from '@/components/catalogue-icons';
 import { MaintenanceOverlay } from '@/components/maintenance-overlay';
@@ -55,6 +57,7 @@ export function App() {
           <SessionRoutes />
         </BrowserRouter>
         <MaintenanceOverlay />
+        <Toaster />
       </CatalogueIcons>
     </QueryClientProvider>
   );

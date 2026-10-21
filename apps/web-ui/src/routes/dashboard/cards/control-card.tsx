@@ -61,11 +61,6 @@ export function ControlCard(props: { readonly model: EntityCardModel }) {
           />
         )}
       </div>
-      {commander.problem === null ? null : (
-        <p role="alert" className="truncate text-caption text-danger" title={commander.problem}>
-          {commander.problem}
-        </p>
-      )}
     </CardFrame>
   );
 }

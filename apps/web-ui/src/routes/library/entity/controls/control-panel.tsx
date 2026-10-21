@@ -157,20 +157,6 @@ export function ControlPanel(props: ControlPanelProps) {
         return <Control key={capability} {...controlProps} />;
       })}
       <ReadingControl entity={entity} state={state} reading={reading} />
-      {commander.problem === null ? null : (
-        <div className="flex items-start justify-between gap-3 border-t border-border px-4 py-3">
-          <p role="alert" className="text-ui text-danger">
-            {commander.problem}
-          </p>
-          <button
-            type="button"
-            className="shrink-0 text-caption text-foreground-subtle underline-offset-2 hover:text-foreground hover:underline"
-            onClick={commander.dismissProblem}
-          >
-            {t('entity.controls.controlPanel.dismiss', 'Dismiss')}
-          </button>
-        </div>
-      )}
       {note === null ? null : <PanelNote>{note}</PanelNote>}
     </Panel>
   );

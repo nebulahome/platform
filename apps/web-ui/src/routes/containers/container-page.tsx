@@ -28,6 +28,7 @@ import {
   Switch,
   TabPanel,
   Tabs,
+  toast,
   type MenuItem,
 } from '@nebulahome/ui';
 
@@ -71,7 +72,6 @@ export function ContainerPage() {
   const can = useSession((state) => state.can);
   const canControl = can('container:control');
   const canInstall = can('container:install');
-  const [failure, setFailure] = useState<string | null>(null);
   const [isRemoving, setRemoving] = useState(false);
   const [removeVolumes, setRemoveVolumes] = useState(false);
   const [tab, setTab] = useTab<ContainerTab>(TABS);
@@ -97,6 +97,9 @@ export function ContainerPage() {
     void queryClient.invalidateQueries({ queryKey: CONTAINER_QUERY_KEYS.all });
   };
 
+  /** What the container is called in a toast. */
+  const shownName = container.data?.displayName ?? name;
+
   const control = useMutation({
     /**
      * Starts, stops or restarts it.
@@ -106,9 +109,21 @@ export function ContainerPage() {
      */
     mutationFn: async (action: ContainerAction) => controlContainer(name, action),
 
-    /** Clears the last failure and reads again. */
-    onSuccess: () => {
-      setFailure(null);
+    /**
+     * Says what it did, and reads again.
+     *
+     * @param unused - The container as it now is.
+     * @param action - What was done.
+     */
+    onSuccess: (unused, action) => {
+      toast.success({
+        title:
+          action === 'start'
+            ? t('containers.containerPage.started', '{{name}} started', { name: shownName })
+            : action === 'stop'
+              ? t('containers.containerPage.stopped', '{{name}} stopped', { name: shownName })
+              : t('containers.containerPage.restarted', '{{name}} restarted', { name: shownName }),
+      });
       refresh();
     },
 
@@ -118,7 +133,12 @@ export function ContainerPage() {
      * @param error - What the server answered.
      */
     onError: (error) => {
-      setFailure(toMessage(error));
+      toast.error({
+        title: t('containers.containerPage.controlFailed', 'Couldn’t control {{name}}', {
+          name: shownName,
+        }),
+        message: toMessage(error),
+      });
     },
   });
   const update = useMutation({
@@ -129,9 +149,15 @@ export function ContainerPage() {
      */
     mutationFn: async () => updateContainer(name),
 
-    /** Clears the last failure and reads again. */
+    /** Says it is under way, and reads again. */
     onSuccess: () => {
-      setFailure(null);
+      toast.info({
+        title: t('containers.containerPage.updating', '{{name}} is updating', { name: shownName }),
+        message: t(
+          'containers.containerPage.updatingLine',
+          'It takes the newer image and starts again with it.',
+        ),
+      });
       refresh();
     },
 
@@ -141,7 +167,12 @@ export function ContainerPage() {
      * @param error - What the server answered.
      */
     onError: (error) => {
-      setFailure(toMessage(error));
+      toast.error({
+        title: t('containers.containerPage.updateFailed', 'Couldn’t update {{name}}', {
+          name: shownName,
+        }),
+        message: toMessage(error),
+      });
     },
   });
 
@@ -324,7 +355,6 @@ export function ContainerPage() {
               <TabPanel idPrefix="container" id="overview">
                 <ContainerOverview
                   container={view}
-                  failure={failure}
                   isUpdating={update.isPending}
                   {...(canUpdate
                     ? {

@@ -9,7 +9,7 @@
 import { useTranslation } from 'react-i18next';
 
 import type { IntegrationVendorView } from '@nebulahome/contracts';
-import { Button, Section } from '@nebulahome/ui';
+import { Button, Section, toast } from '@nebulahome/ui';
 
 import { useVendorSetup } from '@/library/use-vendor-setup';
 import { VendorSetupFields } from '@/routes/library/vendor-setup-dialog';
@@ -35,7 +35,10 @@ export function VendorConfiguration(props: VendorConfigurationProps) {
   const { t } = useTranslation();
 
   const { vendor, canConfigure, onSaved } = props;
-  const form = useVendorSetup(vendor, onSaved);
+  const form = useVendorSetup(vendor, (saved) => {
+    toast.success({ title: t('library.vendorConfiguration.saved', 'Saved') });
+    onSaved(saved);
+  });
 
   return (
     <Section
@@ -52,11 +55,6 @@ export function VendorConfiguration(props: VendorConfigurationProps) {
 
         {canConfigure ? (
           <div className="flex items-center justify-end gap-3">
-            {form.isSaved ? (
-              <span role="status" className="text-ui-sm text-success">
-                {t('library.vendorConfiguration.saved', 'Saved')}
-              </span>
-            ) : null}
             <Button isBusy={form.isSaving} disabled={form.isSaving} onClick={form.submit}>
               {t('common.save', 'Save')}
             </Button>

@@ -23,13 +23,12 @@ import { Link } from 'react-router';
 import type { IntegrationVendorView } from '@nebulahome/contracts';
 import { AppIcon, Pill, Tile, TILE_FRAME, TileMark } from '@nebulahome/ui';
 
+import { MatterLogo, MqttLogo } from '@/components/brand-logos';
 import {
   BluetoothIcon,
   GlobeIcon,
   HttpIcon,
-  MatterIcon,
   ModbusIcon,
-  MqttIcon,
   UdpIcon,
   ZigbeeIcon,
   type IconProps,
@@ -51,7 +50,7 @@ const WIRES: Readonly<Record<Wire, { readonly glyph: Glyph; readonly title: Mess
     title: defineMessage('library.vendorCard.speaksHttpToEach', 'Speaks HTTP to each device'),
   },
   mqtt: {
-    glyph: MqttIcon,
+    glyph: MqttLogo,
     title: defineMessage('library.vendorCard.listensOnTheMqtt', 'Listens on the MQTT broker'),
   },
   ble: {
@@ -83,7 +82,7 @@ const WIRES: Readonly<Record<Wire, { readonly glyph: Glyph; readonly title: Mess
     ),
   },
   matter: {
-    glyph: MatterIcon,
+    glyph: MatterLogo,
     title: defineMessage(
       'library.vendorCard.reachesItsDevicesOverMatter',
       "Reaches its devices over the house's Matter fabric",

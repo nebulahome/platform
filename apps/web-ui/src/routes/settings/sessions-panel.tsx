@@ -10,10 +10,9 @@
  * would leave them wondering which sessions it actually ended.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Badge, Button, Panel } from '@nebulahome/ui';
+import { Badge, Button, Panel, toast } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
@@ -33,7 +32,6 @@ export function SessionsPanel() {
   const { t } = useTranslation();
   const endSession = useSession((state) => state.signOut);
   const queryClient = useQueryClient();
-  const [error, setError] = useState<string | undefined>(undefined);
   const sessions = useQuery({
     queryKey: SETTINGS_QUERY_KEYS.sessions,
 
@@ -53,14 +51,16 @@ export function SessionsPanel() {
    * @param sessionId - Which one.
    */
   const revoke = (sessionId: string): void => {
-    setError(undefined);
-
     void (async (): Promise<void> => {
       try {
         await revokeSession(sessionId);
         await queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEYS.sessions });
+        toast.success({ title: t('settings.sessions.revoked', 'Session revoked') });
       } catch (cause: unknown) {
-        setError(toMessage(cause));
+        toast.error({
+          title: t('settings.sessions.revokeFailed', 'Couldn’t revoke the session'),
+          message: toMessage(cause),
+        });
       }
     })();
   };
@@ -139,12 +139,6 @@ export function SessionsPanel() {
           </div>
         </div>
       ))}
-
-      {error === undefined ? null : (
-        <p role="alert" className="border-t border-border px-4 py-3 text-ui text-danger">
-          {error}
-        </p>
-      )}
     </Panel>
   );
 }

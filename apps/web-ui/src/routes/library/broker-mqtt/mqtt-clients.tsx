@@ -203,7 +203,6 @@ export type MqttClientsProps = {
 
   /** Removes a device's client; absent when the viewer may not. */
   readonly onRemove?: (username: string) => void;
-  readonly error: unknown;
 };
 
 /**
@@ -214,7 +213,7 @@ export type MqttClientsProps = {
  */
 export function MqttClients(props: MqttClientsProps) {
   const { t } = useTranslation();
-  const { items, anonymous, onRemove, error } = props;
+  const { items, anonymous, onRemove } = props;
 
   /**
    * What a kind of username reads as.
@@ -302,7 +301,6 @@ export function MqttClients(props: MqttClientsProps) {
           note={anonymous.map(originOf).join(', ')}
         />
       )}
-      {error === null ? null : <PanelNote>{toMessage(error)}</PanelNote>}
       {items.every((principal) => principal.kind !== 'client') ? (
         <PanelNote>
           {t('brokers.mqtt.noClients', 'No device may connect yet. Add a client for each device.')}

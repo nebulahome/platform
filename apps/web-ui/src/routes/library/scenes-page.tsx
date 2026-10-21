@@ -29,11 +29,11 @@ import { useSession } from '@/auth/session-store';
 import { SortHeader } from '@/components/sort-header';
 import { areaFacetChoices } from '@/lib/area-tree';
 import { DOCS_LINKS } from '@/lib/docs-links';
-import { toMessage } from '@/lib/error-message';
 import { useListState } from '@/lib/use-list-state';
 import { usePaging } from '@/lib/use-paging';
 import { applyScene, fetchEntities, fetchScenes, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { matchesSceneFilter, OPEN_SCENE_FILTER, SCENE_FILTER_CODEC } from '@/library/list-filters';
+import { toastSceneApplied, toastSceneFailed } from '@/library/scene-apply-toast';
 import { DeviceIcon, useCatalogueIcons } from '@/routes/library/device-icon';
 import { Facet, facetChoices, FilterSheet } from '@/routes/library/filter-sheet';
 import { LibraryPage } from '@/routes/library/library-page';
@@ -84,8 +84,6 @@ export function ScenesPage() {
   const [filter, setFilter] = useListState(SCENE_FILTER_CODEC);
   const { areas, tree } = useAreas();
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [pageError, setPageError] = useState<string | null>(null);
-  const [partialById, setPartialById] = useState<ReadonlyMap<string, string>>(new Map());
 
   const scenes = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.scenes,
@@ -164,59 +162,29 @@ export function ScenesPage() {
     mutationFn: async (sceneId: string): Promise<SceneApplyResult> => applyScene(sceneId),
 
     /**
-     * Clears the card's spinner and records partial failures.
+     * Clears the card's spinner and says how it went.
      *
      * @param result - What came back.
+     * @param sceneId - The scene.
      */
-    onSuccess: (result) => {
+    onSuccess: (result, sceneId) => {
       setBusyId(null);
-      setPageError(null);
-
-      if (result.failed > 0) {
-        const failed = result.members
-          .filter((member) => !member.ok)
-          .map((member) => {
-            const name = entityById.get(member.entityId)?.name ?? member.entityId;
-            const detail = member.error === null || member.error === '' ? 'failed' : member.error;
-
-            return `${name}: ${detail}`;
-          });
-
-        setPartialById((current) => {
-          const next = new Map(current);
-
-          next.set(
-            result.sceneId,
-            failed.length === 0
-              ? t('library.scenes.entitiesFailed', {
-                  count: result.failed,
-                  defaultValue_one: '{{count}} entity failed.',
-                  defaultValue_other: '{{count}} entities failed.',
-                })
-              : failed.join(' · '),
-          );
-
-          return next;
-        });
-      } else {
-        setPartialById((current) => {
-          const next = new Map(current);
-
-          next.delete(result.sceneId);
-
-          return next;
-        });
-      }
+      toastSceneApplied(
+        result,
+        items.find((each) => each.id === sceneId)?.name ?? sceneId,
+        (entityId) => entityById.get(entityId)?.name ?? entityId,
+      );
     },
 
     /**
-     * Shows why apply failed entirely.
+     * Says why nothing was applied.
      *
      * @param error - What went wrong.
+     * @param sceneId - The scene.
      */
-    onError: (error: unknown) => {
+    onError: (error: unknown, sceneId) => {
       setBusyId(null);
-      setPageError(toMessage(error));
+      toastSceneFailed(error, items.find((each) => each.id === sceneId)?.name ?? sceneId);
     },
   });
 
@@ -283,7 +251,7 @@ export function ScenesPage() {
         ) : undefined
       }
       isPending={scenes.isPending}
-      error={scenes.error ?? (pageError === null ? undefined : new Error(pageError))}
+      error={scenes.error ?? undefined}
       isEmpty={items.length === 0}
       empty={
         <EmptyState
@@ -344,7 +312,6 @@ export function ScenesPage() {
           <ul>
             {rows.map((scene) => {
               const memberAreas = areaNamesFor(scene, entityById);
-              const partial = partialById.get(scene.id);
               const isBusy = busyId === scene.id;
               const place =
                 scene.areaKey === null
@@ -377,11 +344,6 @@ export function ScenesPage() {
                       <span className="truncate text-ui-sm text-foreground-subtle">
                         {place === '' ? scene.key : place}
                       </span>
-                      {partial === undefined ? null : (
-                        <span role="alert" className="truncate text-caption text-danger">
-                          {partial}
-                        </span>
-                      )}
                     </span>
                   </span>
                   <span className="hidden font-mono text-mono-ui text-foreground-muted tabular md:block">
@@ -395,7 +357,6 @@ export function ScenesPage() {
                         isBusy={isBusy}
                         disabled={busyId !== null && !isBusy}
                         onClick={() => {
-                          setPageError(null);
                           setBusyId(scene.id);
                           apply.mutate(scene.id);
                         }}

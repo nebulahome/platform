@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { MATTER_TRANSPORT } from '@nebulahome/contracts';
 import { Badge } from '@nebulahome/ui';
 
-import { MatterIcon } from '@/components/icons';
+import { MatterLogo } from '@/components/brand-logos';
 
 /**
  * Renders the mark, for a device on the `matter` transport only.
@@ -20,7 +20,7 @@ export function MatterTag(props: { readonly transport: string }) {
   const { t } = useTranslation();
 
   return props.transport === MATTER_TRANSPORT ? (
-    <Badge size="small" icon={<MatterIcon width={11} height={11} />}>
+    <Badge size="small" icon={<MatterLogo width={11} height={11} />}>
       {t('library.matterTag', 'Matter')}
     </Badge>
   ) : null;

@@ -4,7 +4,7 @@
  * The form is the scene editor's (`scene-dialog.tsx`), drawn as a page as the board draws it:
  * its members in the main column, What it is and How it applies beside them, Apply now, Delete,
  * Cancel and Save in the header. Saving and deleting go back to the list; Apply now applies the
- * scene as it is saved, and says when part of it did not take.
+ * scene as it is saved, and a toast says how it went.
  */
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,7 @@ import { useNavigate, useParams } from 'react-router';
 
 import { toMessage } from '@/lib/error-message';
 import { applyScene, fetchScenes, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { toastSceneApplied, toastSceneFailed } from '@/library/scene-apply-toast';
 import { DetailPlaceholder } from '@/routes/library/detail-page';
 import { SceneDialog } from '@/routes/library/scene-dialog';
 
@@ -48,6 +49,26 @@ export function ScenePage() {
      * @returns What the server reported.
      */
     mutationFn: async (id: string) => applyScene(id),
+
+    /**
+     * Says how it went.
+     *
+     * @param result - What the server reported.
+     * @param id - The scene.
+     */
+    onSuccess: (result, id) => {
+      toastSceneApplied(result, scenes.data?.find((each) => each.id === id)?.name ?? id);
+    },
+
+    /**
+     * Says why nothing was applied.
+     *
+     * @param error - What went wrong.
+     * @param id - The scene.
+     */
+    onError: (error, id) => {
+      toastSceneFailed(error, scenes.data?.find((each) => each.id === id)?.name ?? id);
+    },
   });
 
   /** Goes back to the list. */
@@ -73,23 +94,6 @@ export function ScenePage() {
 
   return (
     <div className="flex min-h-0 grow flex-col">
-      {apply.error === null ? null : (
-        <p role="alert" className="shrink-0 px-8 pt-3 text-ui-sm text-danger">
-          {toMessage(apply.error)}
-        </p>
-      )}
-      {apply.data === undefined ? null : (
-        <p
-          role={apply.data.failed === 0 ? 'status' : 'alert'}
-          className="shrink-0 px-8 pt-3 text-ui-sm text-foreground-muted"
-        >
-          {apply.data.failed === 0
-            ? t('library.scene.applied', 'Applied.')
-            : t('library.scene.appliedButFailedDid', 'Applied, but {{failed}} did not take.', {
-                failed: String(apply.data.failed),
-              })}
-        </p>
-      )}
       <SceneDialog
         key={scene?.id ?? 'new'}
         presentation="page"

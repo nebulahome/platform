@@ -1,143 +1,38 @@
 /**
- * The MQTT broker's Overview: the health strip, how a device connects, the owner's settings, and
- * the announcements the broker did not take.
+ * The MQTT broker's Overview: the health strip, how a device connects, and the announcements the
+ * broker did not take.
  *
  * The strip says how the broker stands and since when, who is connected, how many messages a
  * second pass through it, and how many devices it hears. Connecting is the address a device is
- * given - the one this page was opened on, the house's own - with a line to try it. Settings are
- * whether a client may connect without a username, and whether - and under which prefix - devices
- * that announce themselves are added; saving them starts the broker again.
+ * given - the one this page was opened on, the house's own - with a line to try it. The settings
+ * are a dialog of their own, opened from the page's header (`mqtt-settings-dialog.tsx`).
  */
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { MqttSettings, MqttStatus } from '@nebulahome/contracts';
+import type { MqttStatus } from '@nebulahome/contracts';
 import {
   Button,
   FactGrid,
   HealthCard,
   HealthStrip,
-  Note,
   Panel,
   PanelRow,
   Section,
-  Switch,
-  TextField,
 } from '@nebulahome/ui';
 
 import { numberFormat } from '@/i18n/formatters';
 import { copyText } from '@/lib/clipboard';
-import { toMessage } from '@/lib/error-message';
 import { relativeTime } from '@/lib/format-time';
-import { saveMqttSettings } from '@/library/brokers-api';
 import { brokerStateOf } from '@/routes/library/brokers-page';
 
 /** What the tab needs. */
 export type MqttOverviewProps = {
   readonly status: MqttStatus;
 
-  /** Whether the owner may change the settings. */
-  readonly canConfigure: boolean;
-
   /** Opens the Devices tab. */
   readonly onSeeDevices: () => void;
 };
-
-/**
- * The owner's settings, editable, saved together.
- *
- * @param props - The settings as saved, and whether they may be changed.
- * @param props.saved - As saved.
- * @param props.canConfigure - Whether they may be changed.
- * @returns The form.
- */
-function SettingsPanel(props: { readonly saved: MqttSettings; readonly canConfigure: boolean }) {
-  const { t } = useTranslation();
-  const queryClient = useQueryClient();
-  const [draft, setDraft] = useState<MqttSettings>(props.saved);
-  const isChanged = JSON.stringify(draft) !== JSON.stringify(props.saved);
-  const save = useMutation({
-    /**
-     * Saves the settings.
-     *
-     * @returns Where the broker stands then.
-     */
-    mutationFn: async () => saveMqttSettings(draft),
-
-    /** Reads the broker again. */
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['brokers'] });
-    },
-  });
-  const disabled = !props.canConfigure || save.isPending;
-
-  return (
-    <Panel
-      title={t('brokers.mqtt.settings', 'Settings')}
-      action={
-        props.canConfigure ? (
-          <Button
-            size="compact"
-            isBusy={save.isPending}
-            disabled={!isChanged || draft.discoveryPrefix === '' || save.isPending}
-            onClick={() => {
-              save.mutate();
-            }}
-          >
-            {t('brokers.mqtt.saveSettings', 'Save and restart')}
-          </Button>
-        ) : undefined
-      }
-    >
-      <PanelRow
-        title={t('brokers.mqtt.anonymous', 'Clients without a username')}
-        note={t(
-          'brokers.mqtt.anonymousNote',
-          'Off unless a device cannot be given a username: anyone on the network could then publish.',
-        )}
-        control={
-          <Switch
-            label={t('brokers.mqtt.anonymous', 'Clients without a username')}
-            isOn={draft.allowAnonymous}
-            disabled={disabled}
-            onChange={(allowAnonymous) => {
-              setDraft({ ...draft, allowAnonymous });
-            }}
-          />
-        }
-      />
-      <PanelRow
-        title={t('brokers.mqtt.discovery', 'Devices that announce themselves')}
-        note={t(
-          'brokers.mqtt.discoveryNote',
-          'Added to the house at once, under the prefix their firmware announces on.',
-        )}
-        control={
-          <Switch
-            label={t('brokers.mqtt.discovery', 'Devices that announce themselves')}
-            isOn={draft.isDiscoveryEnabled}
-            disabled={disabled}
-            onChange={(isDiscoveryEnabled) => {
-              setDraft({ ...draft, isDiscoveryEnabled });
-            }}
-          />
-        }
-      >
-        <TextField
-          label={t('brokers.mqtt.prefix', 'Prefix')}
-          value={draft.discoveryPrefix}
-          disabled={disabled || !draft.isDiscoveryEnabled}
-          hint={t('brokers.mqtt.prefixHint', 'homeassistant unless the firmware says another.')}
-          onChange={(event) => {
-            setDraft({ ...draft, discoveryPrefix: event.target.value.trim() });
-          }}
-        />
-      </PanelRow>
-      {save.error === null ? null : <Note tone="danger">{toMessage(save.error)}</Note>}
-    </Panel>
-  );
-}
 
 /**
  * Renders the tab.
@@ -147,7 +42,7 @@ function SettingsPanel(props: { readonly saved: MqttSettings; readonly canConfig
  */
 export function MqttOverview(props: MqttOverviewProps) {
   const { t } = useTranslation();
-  const { status, canConfigure, onSeeDevices } = props;
+  const { status, onSeeDevices } = props;
   const [isCopied, setCopied] = useState(false);
   const state = brokerStateOf(status.state);
   const host = globalThis.location.hostname;
@@ -250,12 +145,6 @@ export function MqttOverview(props: MqttOverviewProps) {
           </div>
         </div>
       </Section>
-
-      <SettingsPanel
-        key={JSON.stringify(status.settings)}
-        saved={status.settings}
-        canConfigure={canConfigure}
-      />
 
       {status.discovery.skipped.length === 0 ? null : (
         <Panel title={t('brokers.mqtt.skipped', 'Announcements not taken')}>

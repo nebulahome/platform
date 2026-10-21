@@ -142,7 +142,7 @@ describe('BrokersPage', () => {
 
     expect(screen.getByRole('link', { name: 'Matter' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'MQTT' }).getAttribute('href')).toBe('/brokers/mqtt');
-    expect(screen.getByText('6 devices · 1 linked')).toBeTruthy();
+    expect(screen.getByText('6 devices')).toBeTruthy();
     expect(screen.getByText('2 devices')).toBeTruthy();
     expect(screen.getByText('Failed')).toBeTruthy();
   });

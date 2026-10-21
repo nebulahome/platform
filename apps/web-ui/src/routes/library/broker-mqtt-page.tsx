@@ -3,17 +3,28 @@
  * by hand, and the topics it carries.
  *
  * As the board draws a detail page: the way back, the mark, the name and its line, the state as a
- * Pill and the port, **Add client** at the top right, then the tabs. Overview is the health strip,
- * how a device connects and the settings, with a callout when the broker could not listen. Devices
- * is every device it hears, added to the house at once, a removed one offered back. Clients is who
- * may connect; Mappings the devices mapped by hand; Topics the last message of every topic.
+ * Pill and the port, **Add client** and **Settings** at the top right, then the tabs. Overview is
+ * the health strip and how a device connects, with a callout when the broker could not listen.
+ * Devices is every device it hears, added to the house at once, a removed one offered back.
+ * Clients is who may connect; Mappings the devices mapped by hand; Topics the last message of
+ * every topic. What a press did - a device added back, a client removed - is said in a toast.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { MqttStatus } from '@nebulahome/contracts';
-import { AppIcon, Button, DetailHero, HeroFact, Note, Pill, TabPanel, Tabs } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Button,
+  DetailHero,
+  HeroFact,
+  Note,
+  Pill,
+  TabPanel,
+  Tabs,
+  toast,
+} from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
@@ -33,6 +44,7 @@ import { AddClientDialog, MqttClients } from '@/routes/library/broker-mqtt/mqtt-
 import { MqttDevices } from '@/routes/library/broker-mqtt/mqtt-devices';
 import { MapTopicDialog, MqttMappings } from '@/routes/library/broker-mqtt/mqtt-mappings';
 import { MqttOverview } from '@/routes/library/broker-mqtt/mqtt-overview';
+import { MqttSettingsDialog } from '@/routes/library/broker-mqtt/mqtt-settings-dialog';
 import { MqttTopics } from '@/routes/library/broker-mqtt/mqtt-topics';
 import { brokerStateOf, BrokerMark } from '@/routes/library/brokers-page';
 import { BackLink, DetailFrame } from '@/routes/library/detail-page';
@@ -62,6 +74,7 @@ export function MqttBrokerPage() {
   const [tab, setTab] = useTab<MqttTab>(TABS);
   const [isAddingClient, setIsAddingClient] = useState(false);
   const [isMapping, setIsMapping] = useState(false);
+  const [isConfiguring, setIsConfiguring] = useState(false);
   const vendors = useVendorsById();
 
   const status = useQuery<MqttStatus>({
@@ -122,9 +135,69 @@ export function MqttBrokerPage() {
     void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
   };
 
-  const restore = useMutation({ mutationFn: restoreMqttDevice, onSettled: refresh });
-  const removeClient = useMutation({ mutationFn: removeMqttClient, onSettled: refresh });
-  const removeMapping = useMutation({ mutationFn: removeMqttMapping, onSettled: refresh });
+  const restore = useMutation({
+    mutationFn: restoreMqttDevice,
+    onSettled: refresh,
+
+    /** Says it is back. */
+    onSuccess: () => {
+      toast.success({ title: t('brokers.mqtt.restored', 'Added back to the house') });
+    },
+
+    /**
+     * Says why it is not.
+     *
+     * @param error - What failed.
+     */
+    onError: (error) => {
+      toast.error({
+        title: t('brokers.mqtt.restoreFailed', 'Couldn’t add the device back'),
+        message: toMessage(error),
+      });
+    },
+  });
+  const removeClient = useMutation({
+    mutationFn: removeMqttClient,
+    onSettled: refresh,
+
+    /** Says it is gone. */
+    onSuccess: () => {
+      toast.success({ title: t('brokers.mqtt.clientRemoved', 'Client removed') });
+    },
+
+    /**
+     * Says why it is not.
+     *
+     * @param error - What failed.
+     */
+    onError: (error) => {
+      toast.error({
+        title: t('brokers.mqtt.removeClientFailed', 'Couldn’t remove the client'),
+        message: toMessage(error),
+      });
+    },
+  });
+  const removeMapping = useMutation({
+    mutationFn: removeMqttMapping,
+    onSettled: refresh,
+
+    /** Says it is gone. */
+    onSuccess: () => {
+      toast.success({ title: t('brokers.mqtt.mappingRemoved', 'Mapping removed') });
+    },
+
+    /**
+     * Says why it is not.
+     *
+     * @param error - What failed.
+     */
+    onError: (error) => {
+      toast.error({
+        title: t('brokers.mqtt.removeMappingFailed', 'Couldn’t remove the mapping'),
+        message: toMessage(error),
+      });
+    },
+  });
 
   const found = status.data;
   const state = found === undefined ? null : brokerStateOf(found.state);
@@ -155,15 +228,28 @@ export function MqttBrokerPage() {
             )
           }
           actions={
-            canConfigure && found?.state === 'running' ? (
-              <Button
-                onClick={() => {
-                  setIsAddingClient(true);
-                }}
-              >
-                <AppIcon id="plus" size={15} />
-                {t('brokers.mqtt.addClientButton', 'Add client')}
-              </Button>
+            canConfigure && found !== undefined ? (
+              <>
+                {found.state === 'running' ? (
+                  <Button
+                    onClick={() => {
+                      setIsAddingClient(true);
+                    }}
+                  >
+                    <AppIcon id="plus" size={15} />
+                    {t('brokers.mqtt.addClientButton', 'Add client')}
+                  </Button>
+                ) : null}
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setIsConfiguring(true);
+                  }}
+                >
+                  <AppIcon id="settings" size={15} />
+                  {t('brokers.mqtt.settings', 'Settings')}
+                </Button>
+              </>
             ) : undefined
           }
           tabs={
@@ -210,7 +296,6 @@ export function MqttBrokerPage() {
             <TabPanel idPrefix="mqtt" id="overview">
               <MqttOverview
                 status={found}
-                canConfigure={canConfigure}
                 onSeeDevices={() => {
                   setTab('devices');
                 }}
@@ -221,9 +306,6 @@ export function MqttBrokerPage() {
           {tab === 'devices' ? (
             <TabPanel idPrefix="mqtt" id="devices">
               <div className="flex flex-col gap-3.5">
-                {restore.error === null ? null : (
-                  <Note tone="danger">{toMessage(restore.error)}</Note>
-                )}
                 <MqttDevices
                   devices={heard}
                   vendorNames={vendorNames}
@@ -250,7 +332,6 @@ export function MqttBrokerPage() {
               <MqttClients
                 items={clients.data?.items ?? []}
                 anonymous={clients.data?.anonymous ?? []}
-                error={removeClient.error}
                 {...(canConfigure
                   ? {
                       /**
@@ -284,7 +365,6 @@ export function MqttBrokerPage() {
                 ) : null}
                 <MqttMappings
                   mappings={mappings.data ?? []}
-                  error={removeMapping.error}
                   {...(canDelete
                     ? {
                         /**
@@ -308,6 +388,16 @@ export function MqttBrokerPage() {
             </TabPanel>
           ) : null}
 
+          {canConfigure ? (
+            <MqttSettingsDialog
+              key={String(isConfiguring)}
+              isOpen={isConfiguring}
+              saved={found.settings}
+              onClose={() => {
+                setIsConfiguring(false);
+              }}
+            />
+          ) : null}
           {canConfigure ? (
             <AddClientDialog
               isOpen={isAddingClient}

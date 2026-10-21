@@ -15,7 +15,7 @@ import {
 } from '@nebulahome/contracts';
 import { LinkedTag } from '@nebulahome/ui';
 
-import { MatterIcon } from '@/components/icons';
+import { MatterLogo } from '@/components/brand-logos';
 import { fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { FALLBACK_COLOR } from '@/routes/library/vendor-card';
 
@@ -89,7 +89,7 @@ export function TransportMark(props: TransportMarkProps) {
         /* eslint-disable-next-line react/forbid-dom-props -- the side is a value, per place. */
         style={{ width: size, height: size }}
       >
-        <MatterIcon
+        <MatterLogo
           width={Math.max(10, Math.round(size * 0.625))}
           height={Math.max(10, Math.round(size * 0.625))}
         />

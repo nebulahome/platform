@@ -19,6 +19,7 @@ import {
   type DiscoveredDevice,
   type IntegrationVendorView,
 } from '@nebulahome/contracts';
+import { toast } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import {
@@ -500,6 +501,7 @@ describe('the devices of a vendor found on the network', () => {
     vi.mocked(adoptFound).mockResolvedValue([
       { id: FOUND.id, deviceId: 'bambu-lab-p1s', name: 'P1S', error: null },
     ]);
+    const success = vi.spyOn(toast, 'success');
     renderPage('bambu-lab', ['device:read', 'device:write']);
 
     expect(await screen.findByText('1 device found on your network')).toBeTruthy();
@@ -510,7 +512,11 @@ describe('the devices of a vendor found on the network', () => {
     await waitFor(() => {
       expect(adoptFound).toHaveBeenCalledWith([FOUND.id]);
     });
-    expect(await screen.findByText('1 adopted just now')).toBeTruthy();
+    await waitFor(() => {
+      expect(success).toHaveBeenCalledWith(
+        expect.objectContaining({ title: '1 adopted just now' }),
+      );
+    });
   });
 
   it('draw nothing when nothing of the vendor was found', async () => {

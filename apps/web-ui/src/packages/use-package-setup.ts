@@ -95,7 +95,6 @@ export function usePackageSetup(
     errors,
     kept,
     isSaving: save.isPending,
-    isSaved: save.isSuccess,
 
     /**
      * Changes one field of one group.

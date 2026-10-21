@@ -31,6 +31,7 @@ import {
   Switch,
   TabPanel,
   Tabs,
+  toast,
   type MenuItem,
   type PillTone,
 } from '@nebulahome/ui';
@@ -224,6 +225,9 @@ export function PackagePage() {
     void queryClient.invalidateQueries({ queryKey: PACKAGE_QUERY_KEYS.all });
   };
 
+  /** What the package is called in a toast. */
+  const shownName = detail.data?.name ?? packageId;
+
   const control = useMutation({
     /**
      * Starts, stops or restarts it.
@@ -233,6 +237,37 @@ export function PackagePage() {
      */
     mutationFn: async (action: 'start' | 'stop' | 'restart') => controlPackage(packageId, action),
     onSettled: settle,
+
+    /**
+     * Says what it did.
+     *
+     * @param unused - The package as it now is.
+     * @param action - What was done.
+     */
+    onSuccess: (unused, action) => {
+      toast.success({
+        title:
+          action === 'start'
+            ? t('packages.packagePage.started', '{{name}} started', { name: shownName })
+            : action === 'stop'
+              ? t('packages.packagePage.stopped', '{{name}} stopped', { name: shownName })
+              : t('packages.packagePage.restarted', '{{name}} restarted', { name: shownName }),
+      });
+    },
+
+    /**
+     * Says why it did not work.
+     *
+     * @param error - What the server answered.
+     */
+    onError: (error) => {
+      toast.error({
+        title: t('packages.packagePage.controlFailed', 'Couldn’t control {{name}}', {
+          name: shownName,
+        }),
+        message: toMessage(error),
+      });
+    },
   });
   const update = useMutation({
     /**
@@ -242,6 +277,34 @@ export function PackagePage() {
      */
     mutationFn: async () => updatePackage(packageId),
     onSettled: settle,
+
+    /**
+     * Says it is up to date.
+     *
+     * @param done - The package as it now is.
+     */
+    onSuccess: (done) => {
+      toast.success({
+        title: t('packages.packagePage.updated', '{{name}} updated', { name: shownName }),
+        message: t('packages.packagePage.updatedTo', 'It runs {{version}} now.', {
+          version: done.version,
+        }),
+      });
+    },
+
+    /**
+     * Says why it did not work.
+     *
+     * @param error - What the server answered.
+     */
+    onError: (error) => {
+      toast.error({
+        title: t('packages.packagePage.updateFailed', 'Couldn’t update {{name}}', {
+          name: shownName,
+        }),
+        message: toMessage(error),
+      });
+    },
   });
 
   const found = detail.data;
@@ -250,7 +313,6 @@ export function PackagePage() {
   // Another build of the version installed, in the platform's local folder.
   const hasNewBuild = newer === undefined && offered?.hasNewBuild === true;
   const isUp = found?.state === 'running' || found?.state === 'starting';
-  const problem = control.error ?? update.error;
   const hasSetup = found?.setup !== null && found?.setup !== undefined;
   const hasLog = found?.runtime === 'node';
   const dependents = found?.usedBy ?? [];
@@ -436,12 +498,6 @@ export function PackagePage() {
       >
         {found === undefined ? null : (
           <>
-            {problem === null ? null : (
-              <p role="alert" className="text-ui text-danger">
-                {toMessage(problem)}
-              </p>
-            )}
-
             {shownTab === 'overview' ? (
               <TabPanel idPrefix="package" id="overview">
                 <PackageOverview

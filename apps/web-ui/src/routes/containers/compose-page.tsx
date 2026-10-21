@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import type { ComposeOperation, ContainerSummary } from '@nebulahome/contracts';
-import { Badge, Button, Modal, Panel, PanelNote, Switch, StatusDot } from '@nebulahome/ui';
+import { Badge, Button, Modal, Panel, PanelNote, Switch, StatusDot, toast } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import {
@@ -327,9 +327,38 @@ export function ComposePage() {
      */
     mutationFn: async (action: 'start' | 'stop' | 'pull') => controlCompose(project, action),
 
-    /** Reads the list again: the operation shows there. */
-    onSuccess: () => {
+    /**
+     * Says it is under way, and reads the list again: the operation shows there.
+     *
+     * @param unused - The server's answer.
+     * @param action - What was asked.
+     */
+    onSuccess: (unused, action) => {
+      toast.info({
+        title:
+          action === 'start'
+            ? t('containers.composePage.starting', '{{project}} is starting', { project })
+            : action === 'stop'
+              ? t('containers.composePage.stopping', '{{project}} is stopping', { project })
+              : t('containers.composePage.pulling', '{{project}} is pulling newer images', {
+                  project,
+                }),
+      });
       void queryClient.invalidateQueries({ queryKey: CONTAINER_QUERY_KEYS.list });
+    },
+
+    /**
+     * Says why it did not start.
+     *
+     * @param error - What the server answered.
+     */
+    onError: (error) => {
+      toast.error({
+        title: t('containers.composePage.controlFailed', 'Couldn’t control {{project}}', {
+          project,
+        }),
+        message: toMessage(error),
+      });
     },
   });
 
@@ -491,12 +520,6 @@ export function ComposePage() {
                 <Stat value={usage?.running ?? 0} noun="running" />
               </div>
             </section>
-
-            {control.error === null ? null : (
-              <p role="alert" className="text-ui text-danger">
-                {toMessage(control.error)}
-              </p>
-            )}
 
             {operation === null || (operation.phase === 'done' && !isEditable) ? null : (
               <LastOperation operation={operation} />

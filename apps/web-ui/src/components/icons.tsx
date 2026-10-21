@@ -224,16 +224,6 @@ export function GlobeIcon(props: IconProps) {
 }
 
 /**
- * A feed mark: a broker that publishes.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function MqttIcon(props: IconProps) {
-  return icon('rss', props);
-}
-
-/**
  * Nodes on a wire: something asked over the network.
  *
  * @param props - SVG attributes.
@@ -281,16 +271,6 @@ export function UdpIcon(props: IconProps) {
  */
 export function ModbusIcon(props: IconProps) {
   return icon('cable', props);
-}
-
-/**
- * Nodes joined to each other: the house's Matter fabric.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function MatterIcon(props: IconProps) {
-  return icon('waypoints', props);
 }
 
 /**

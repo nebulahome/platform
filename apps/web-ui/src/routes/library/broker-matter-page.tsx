@@ -17,7 +17,17 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { MatterIdentity, MatterNode, MatterStatus } from '@nebulahome/contracts';
-import { AppIcon, Button, DetailHero, HeroFact, Note, Pill, TabPanel, Tabs } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Button,
+  DetailHero,
+  HeroFact,
+  Note,
+  Pill,
+  TabPanel,
+  Tabs,
+  toast,
+} from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
@@ -145,6 +155,23 @@ export function MatterBrokerPage() {
 
     /** Reads everything again. */
     onSettled: refresh,
+
+    /** Says it is back. */
+    onSuccess: () => {
+      toast.success({ title: t('brokers.matter.restored', 'Added back to the house') });
+    },
+
+    /**
+     * Says why it is not.
+     *
+     * @param error - What failed.
+     */
+    onError: (error) => {
+      toast.error({
+        title: t('brokers.matter.restoreFailed', 'Couldn’t add the device back'),
+        message: toMessage(error),
+      });
+    },
   });
 
   const found = status.data;
@@ -242,9 +269,6 @@ export function MatterBrokerPage() {
           {tab === 'devices' ? (
             <TabPanel idPrefix="matter" id="devices">
               <div className="flex flex-col gap-3.5">
-                {restore.error === null ? null : (
-                  <Note tone="danger">{toMessage(restore.error)}</Note>
-                )}
                 <MatterDevices
                   rows={rows}
                   icons={icons}

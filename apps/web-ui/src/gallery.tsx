@@ -59,6 +59,8 @@ import {
   Switch,
   TagChip,
   TextField,
+  toast,
+  Toaster,
 } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
@@ -946,6 +948,69 @@ function Gallery() {
           </div>
         </Section>
 
+        <Section
+          title="Toasts"
+          note="Bottom right, three at a time, the rest queued. The pointer over them stops the bars."
+        >
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                toast.success({
+                  title: 'Saved',
+                  message: 'Kitchen relay is up to date with your changes.',
+                });
+              }}
+            >
+              Success
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                toast.warning({
+                  title: 'Hallway plug is silent',
+                  message: 'It has not answered for 3 minutes. Its readings are paused.',
+                  action: { label: 'Open the device', onSelect: doNothing },
+                });
+              }}
+            >
+              Warning
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                toast.error({
+                  title: 'Couldn’t adopt Shelly Plug S Gen3',
+                  message: 'It asks for a password. Type it on the device to try again.',
+                  action: { label: 'Open it', onSelect: doNothing },
+                });
+              }}
+            >
+              Error
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                toast.info({
+                  title: 'Firmware 1.4.4 is installing',
+                  message: 'Kitchen relay restarts when it is done, in about a minute.',
+                });
+              }}
+            >
+              Information
+            </Button>
+            <Button
+              onClick={() => {
+                for (const index of [1, 2, 3, 4, 5, 6]) {
+                  toast.info({ title: `Toast ${String(index)}`, message: 'One of six, queued.' });
+                }
+              }}
+            >
+              Six at once
+            </Button>
+          </div>
+        </Section>
+
         <Section title="Button" note="Three intents, three sizes, and the waiting state.">
           {(['primary', 'ghost', 'danger'] as const).map((variant) => (
             <div key={variant} className="flex items-center gap-3">
@@ -1632,6 +1697,7 @@ if (root !== null) {
   createRoot(root).render(
     <StrictMode>
       <Gallery />
+      <Toaster />
     </StrictMode>,
   );
 }

@@ -57,11 +57,6 @@ export function QuickPowerSwitch(props: QuickPowerSwitchProps) {
           commander.send('on_off', powerCommand(next));
         }}
       />
-      {commander.problem === null ? null : (
-        <span role="alert" className="sr-only">
-          {commander.problem}
-        </span>
-      )}
     </span>
   );
 }

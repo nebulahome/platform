@@ -178,9 +178,6 @@ function useOwnerStanding(container: ContainerDetail): OwnerStanding | null {
 export type ContainerOverviewProps = {
   readonly container: ContainerDetail;
 
-  /** Why the last action failed, in a sentence. */
-  readonly failure: string | null;
-
   /** Updates it to the newer image, for who may; absent otherwise. */
   readonly onUpdate?: () => void;
 
@@ -197,7 +194,7 @@ export type ContainerOverviewProps = {
 export function ContainerOverview(props: ContainerOverviewProps) {
   const { t } = useTranslation();
 
-  const { container, failure, onUpdate, isUpdating } = props;
+  const { container, onUpdate, isUpdating } = props;
   const owner = useOwnerStanding(container);
   const runtime = containerRuntimeHealth(container);
   const image = containerImageHealth(container);
@@ -208,7 +205,7 @@ export function ContainerOverview(props: ContainerOverviewProps) {
     container.webPort === null
       ? null
       : `${window.location.protocol}//${window.location.hostname}:${String(container.webPort)}`;
-  const problems = [...(failure === null ? [] : [failure]), ...container.warnings];
+  const problems = container.warnings;
 
   const facts: Fact[] = [
     {

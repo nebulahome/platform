@@ -1,11 +1,15 @@
 /**
  * Installing and removing an integration from the interface: the request, then the vendors and
- * the catalogue read again, since both just changed.
+ * the catalogue read again, since both just changed. Updating one from its own page says how it
+ * went in a toast; the install dialog says it beside what was picked.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import type { IntegrationInstallReply, IntegrationRemoved } from '@nebulahome/contracts';
+import { toast } from '@nebulahome/ui';
 
+import { translate } from '@/i18n/messages';
+import { toMessage } from '@/lib/error-message';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
   INTEGRATION_CATALOGUE_KEYS,
@@ -25,9 +29,13 @@ export type IntegrationInstallRequest = {
  * Installs, updates or reinstalls an integration.
  *
  * @param onInstalled - Called with what was done, once the hub runs the build.
+ * @param onFailed - Called with what failed.
  * @returns The mutation.
  */
-export function useIntegrationInstall(onInstalled: (reply: IntegrationInstallReply) => void) {
+export function useIntegrationInstall(
+  onInstalled: (reply: IntegrationInstallReply) => void,
+  onFailed?: (error: unknown) => void,
+) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -50,7 +58,38 @@ export function useIntegrationInstall(onInstalled: (reply: IntegrationInstallRep
       void queryClient.invalidateQueries({ queryKey: INTEGRATION_CATALOGUE_KEYS.all });
       onInstalled(reply);
     },
+
+    /**
+     * Hands the failure on.
+     *
+     * @param error - What failed.
+     */
+    onError: (error): void => {
+      onFailed?.(error);
+    },
   });
+}
+
+/**
+ * Updates or reinstalls a vendor from its own page, saying how it went in a toast.
+ *
+ * @param name - The vendor's name.
+ * @returns The mutation.
+ */
+export function useVendorUpdate(name: string) {
+  return useIntegrationInstall(
+    () => {
+      toast.success({
+        title: translate('library.vendorUpdate.done', '{{name}} is up to date', { name }),
+      });
+    },
+    (error) => {
+      toast.error({
+        title: translate('library.vendorUpdate.failed', 'Couldn’t update {{name}}', { name }),
+        message: toMessage(error),
+      });
+    },
+  );
 }
 
 /**

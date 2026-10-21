@@ -12,11 +12,11 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
 import type { IntegrationVendorView } from '@nebulahome/contracts';
-import { Button, Modal, OverflowMenu, type MenuItem } from '@nebulahome/ui';
+import { Button, Modal, OverflowMenu, toast, type MenuItem } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
-import { useIntegrationInstall, useIntegrationRemove } from '@/library/use-integration-install';
+import { useIntegrationRemove, useVendorUpdate } from '@/library/use-integration-install';
 
 /** What the menu needs. */
 export type VendorInstallMenuProps = {
@@ -51,9 +51,12 @@ export function VendorInstallMenu(props: VendorInstallMenuProps) {
   const canInstall = useSession((state) => state.can('integration:install'));
   const navigate = useNavigate();
   const [isConfirming, setConfirming] = useState(false);
-  const install = useIntegrationInstall(() => undefined);
+  const install = useVendorUpdate(vendor.name);
   const remove = useIntegrationRemove(() => {
     setConfirming(false);
+    toast.success({
+      title: t('library.vendorInstallActions.removed', '{{name}} removed', { name: vendor.name }),
+    });
     void navigate('/integrations');
   });
 
@@ -113,12 +116,6 @@ export function VendorInstallMenu(props: VendorInstallMenuProps) {
   return (
     <>
       <OverflowMenu items={items} />
-
-      {install.error === null ? null : (
-        <p role="alert" className="basis-full text-right text-ui-sm text-danger">
-          {toMessage(install.error)}
-        </p>
-      )}
 
       <Modal
         isOpen={isConfirming}

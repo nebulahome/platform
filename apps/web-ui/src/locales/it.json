@@ -596,7 +596,6 @@
       "devices_many": "{{count}} dispositivi",
       "devices_one": "{{count}} dispositivo",
       "devices_other": "{{count}} dispositivi",
-      "linked": "{{linked}} collegati",
       "platform": "Fa parte della piattaforma"
     },
     "count_many": "{{count}} broker",
@@ -674,6 +673,8 @@
       "port": "Porta",
       "recentlyAdded": "Aggiunti di recente",
       "removed": "Tolto dalla casa",
+      "restoreFailed": "Impossibile rimettere il dispositivo",
+      "restored": "Rimesso nella casa",
       "search": "Cerca dispositivi Matter",
       "seeIt": "Vedi",
       "show": "Mostra",
@@ -735,6 +736,7 @@
       "binarySensor": "Sensore binario",
       "broker": "Broker",
       "canConnect": "{{username}} può connettersi",
+      "clientRemoved": "Client rimosso",
       "clients": "Client",
       "commandTopic": "Topic di comando",
       "commandTopicExample": "cmnd/pump/POWER",
@@ -774,6 +776,7 @@
       "mapTopicLine": "Quello che un dispositivo pubblica, letto in un dispositivo della casa.",
       "mapped": "Mappato",
       "mappedByHand": "Mappati a mano",
+      "mappingRemoved": "Mappatura rimossa",
       "mappings": "Mappature",
       "messages": "Messaggi",
       "name": "Nome",
@@ -800,12 +803,19 @@
       "reachesLine": "{{label}} · raggiunge {{reach}}",
       "reading": "Lettura…",
       "refused": "Rifiutato",
+      "removeClientFailed": "Impossibile rimuovere il client",
+      "removeMappingFailed": "Impossibile rimuovere la mappatura",
       "removed": "Tolto dalla casa",
+      "restarting": "Il broker MQTT si riavvia con le nuove impostazioni.",
+      "restoreFailed": "Impossibile rimettere il dispositivo",
+      "restored": "Rimesso nella casa",
       "retained": "Conservato",
       "saveSettings": "Salva e riavvia",
       "seeThem": "Vedi",
       "sensor": "Sensore",
       "settings": "Impostazioni",
+      "settingsLine": "Chi può connettersi e quali dispositivi si aggiungono da soli. Salvare riavvia il broker.",
+      "settingsSaved": "Impostazioni salvate",
       "since": "Da {{when}}",
       "skipped": "Annunci non presi",
       "startingWith": "Che iniziano con",
@@ -1040,6 +1050,12 @@
       "validServices_other": "Valido · {{count}} servizi",
       "whereTheFileComes": "Da dove arriva il file"
     },
+    "composePage": {
+      "controlFailed": "Impossibile controllare {{project}}",
+      "pulling": "{{project}} scarica le immagini più recenti",
+      "starting": "{{project}} si sta avviando",
+      "stopping": "{{project}} si sta fermando"
+    },
     "container": {
       "alsoDeleteTheVolumes": "Elimina anche i volumi che Docker ha creato solo per lui",
       "containers": "Container",
@@ -1154,6 +1170,15 @@
       "usedBy": "Usato da",
       "volume": "Volume",
       "webPage": "Pagina web"
+    },
+    "containerPage": {
+      "controlFailed": "Impossibile controllare {{name}}",
+      "restarted": "{{name}} riavviato",
+      "started": "{{name}} avviato",
+      "stopped": "{{name}} fermato",
+      "updateFailed": "Impossibile aggiornare {{name}}",
+      "updating": "{{name}} si sta aggiornando",
+      "updatingLine": "Prende l'immagine più recente e riparte con quella."
     },
     "containerParts": {
       "core": "Core",
@@ -1525,6 +1550,8 @@
       "nothingOnNameYet": "Ancora niente su {{name}}",
       "onThePage": "nella pagina",
       "reading": "Lettura…",
+      "saveFailed": "Impossibile salvare {{name}}",
+      "saved": "{{name}} salvata",
       "thereIsNoDashboard": "Non c'è nessuna dashboard con quell'id.",
       "viewersSeeTheChange_many": "{{names}} vedono la modifica",
       "viewersSeeTheChange_one": "{{names}} vede la modifica",
@@ -1761,6 +1788,9 @@
     "day": "g"
   },
   "entity": {
+    "command": {
+      "failed": "Il comando non è andato a buon fine"
+    },
     "controls": {
       "buttonControl": {
         "button": "Pulsante",
@@ -1797,7 +1827,6 @@
         "aliasIsWorkedOut": "Un alias è calcolato da altre entità; cambia quelle.",
         "control": "Controllo",
         "deviceCannotBeReached": "Il dispositivo ora non è raggiungibile. I controlli tornano quando risponde.",
-        "dismiss": "Chiudi",
         "thisEntityIsDisabled": "Questa entità è disattivata, quindi non accetta comandi.",
         "thisReadingComesFrom": "Questa lettura arriva dalla macchina su cui gira la piattaforma e non accetta comandi.",
         "youCanSeeThis": "Puoi vedere questa entità, ma il tuo ruolo non ti lascia controllarla."
@@ -2941,6 +2970,10 @@
       "searchModels": "Cerca modelli",
       "searchModels2": "Cerca modelli…"
     },
+    "moveDevice": {
+      "failed": "Impossibile spostare il dispositivo",
+      "moved": "{{name}} spostato qui"
+    },
     "nameIconField": {
       "changeIcon": "Cambia icona",
       "none": "Nessuna"
@@ -2951,10 +2984,16 @@
       "nothingMatchesTrimmed": "Niente corrisponde a “{{trimmed}}”."
     },
     "scene": {
-      "applied": "Applicata.",
-      "appliedButFailedDid": "Applicata, ma {{failed}} non ha risposto.",
       "reading": "Lettura…",
       "thereIsNoScene": "Non c'è nessuna scena con quell'id."
+    },
+    "sceneApply": {
+      "applied": "{{name}} applicata",
+      "failed": "Impossibile applicare {{name}}",
+      "failedMember": "non riuscito",
+      "partly_many": "{{name}} applicata, ma {{count}} non hanno risposto",
+      "partly_one": "{{name}} applicata, ma {{count}} non ha risposto",
+      "partly_other": "{{name}} applicata, ma {{count}} non hanno risposto"
     },
     "sceneDialog": {
       "addEntities": "Aggiungi entità",
@@ -3015,9 +3054,6 @@
       "count_one": "{{count}} scena",
       "count_other": "{{count}} scene",
       "createYourFirstScene": "Crea la tua prima scena",
-      "entitiesFailed_many": "{{count}} entità non hanno risposto.",
-      "entitiesFailed_one": "{{count}} entità non ha risposto.",
-      "entitiesFailed_other": "{{count}} entità non hanno risposto.",
       "members": "Membri",
       "moreForName": "Altro per {{name}}",
       "narrowTheScenes": "Filtra le scene",
@@ -3235,16 +3271,21 @@
       "address": "Indirizzo",
       "adopt": "Adotta",
       "adoptCount": "Adotta {{count}}",
+      "adoptFailed": "Impossibile adottarli",
       "adoptedJustNow_many": "{{count}} adottati ora",
       "adoptedJustNow_one": "{{count}} adottato ora",
       "adoptedJustNow_other": "{{count}} adottati ora",
       "alsoOnMatter": "Anche su Matter",
       "dismissCount": "Ignora {{count}}",
+      "dismissFailed": "Impossibile metterli da parte",
       "foundOnNetwork": "trovati sulla tua rete",
       "mac": "MAC",
       "model": "Modello",
       "moveHere": "Sposta qui",
       "new": "Nuovo",
+      "notAdopted_many": "{{count}} non adottati",
+      "notAdopted_one": "{{count}} non adottato",
+      "notAdopted_other": "{{count}} non adottati",
       "nothingFound": "Nessun dispositivo {{name}} trovato che la casa non abbia già.",
       "openDevices": "Apri Dispositivi",
       "password": "Password",
@@ -3301,6 +3342,7 @@
       "reinstall": "Reinstalla",
       "removeName": "Rimuovere {{name}}?",
       "removeName2": "Rimuovi {{name}}",
+      "removed": "{{name}} rimossa",
       "removingAnIntegrationTakes": "Rimuovere un'integrazione porta via tutto quello che è arrivato attraverso di essa.",
       "updateToLatestversion": "Aggiorna a {{latestVersion}}"
     },
@@ -3397,6 +3439,10 @@
       "sameAsMatter": "Stesso {{alike}} del nodo Matter {{twin}}.",
       "serialNumber": "numero di serie",
       "suggestions": "Suggerimenti"
+    },
+    "vendorUpdate": {
+      "done": "{{name}} è aggiornata",
+      "failed": "Impossibile aggiornare {{name}}"
     }
   },
   "live": {
@@ -3651,6 +3697,15 @@
       "updates": "Aggiornamenti",
       "usedBy": "Usato da",
       "version": "Versione"
+    },
+    "packagePage": {
+      "controlFailed": "Impossibile controllare {{name}}",
+      "restarted": "{{name}} riavviato",
+      "started": "{{name}} avviato",
+      "stopped": "{{name}} fermato",
+      "updateFailed": "Impossibile aggiornare {{name}}",
+      "updated": "{{name}} aggiornato",
+      "updatedTo": "Ora è alla versione {{version}}."
     },
     "packageSlot": {
       "cardidCard": "una scheda {{cardId}}",
@@ -3956,10 +4011,11 @@
       "change": "Cambia la password",
       "changeIt": "Cambiala",
       "changeNote": "La lunghezza è l'unica cosa che costa davvero a chi attacca, quindi è l'unica cosa richiesta.",
-      "changed": "Password cambiata. Le tue altre sessioni restano collegate.",
+      "changedTitle": "Password cambiata",
       "current": "Password attuale",
       "new": "Nuova password",
       "note": "Almeno dodici caratteri, e nessun'altra regola.",
+      "othersSignedIn": "Le altre sessioni restano connesse.",
       "title": "Password"
     },
     "people": {
@@ -3997,7 +4053,7 @@
       "editNote": "Il nome utente non si può cambiare: è quello che il registro di controllo annota.",
       "email": "Email",
       "emailHint": "Facoltativa, e usata solo per riconoscerti. Lasciala vuota per tenere quella che c'è.",
-      "updated": "Profilo aggiornato."
+      "updated": "Profilo aggiornato"
     },
     "roles": {
       "every": "Tutti i permessi",
@@ -4024,6 +4080,8 @@
       "lastActive": "Ultima attività",
       "reading": "Lettura delle tue sessioni…",
       "revoke": "Revoca",
+      "revokeFailed": "Impossibile revocare la sessione",
+      "revoked": "Sessione revocata",
       "signOutEverywhere": "Esci ovunque",
       "thisOne": "Questa",
       "title": "Sessioni attive",
@@ -4052,6 +4110,8 @@
       "newTitle": "Il tuo nuovo token",
       "purpose": "A cosa serve",
       "reading": "Lettura dei tuoi token…",
+      "revokeFailed": "Impossibile revocare il token",
+      "revoked": "Token revocato",
       "search": "Cerca token…",
       "title": "Token di accesso personali",
       "used": "Usati"
@@ -4260,6 +4320,10 @@
     },
     "tagChip": {
       "remove": "Rimuovi {{name}}"
+    },
+    "toast": {
+      "close": "Chiudi",
+      "region": "Notifiche"
     },
     "wizardSteps": {
       "done": ", completato",

@@ -217,7 +217,6 @@ export type MqttMappingsProps = {
 
   /** Removes a mapping and its device; absent when the viewer may not remove devices. */
   readonly onRemove?: (id: string) => void;
-  readonly error: unknown;
 };
 
 /**
@@ -228,7 +227,7 @@ export type MqttMappingsProps = {
  */
 export function MqttMappings(props: MqttMappingsProps) {
   const { t } = useTranslation();
-  const { mappings, onRemove, error } = props;
+  const { mappings, onRemove } = props;
 
   return (
     <Panel title={t('brokers.mqtt.mappedByHand', 'Mapped by hand')}>
@@ -266,7 +265,6 @@ export function MqttMappings(props: MqttMappingsProps) {
           )}
         </PanelNote>
       ) : null}
-      {error === null ? null : <PanelNote>{toMessage(error)}</PanelNote>}
     </Panel>
   );
 }

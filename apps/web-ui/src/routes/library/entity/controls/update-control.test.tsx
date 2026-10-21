@@ -24,7 +24,7 @@ function commander(): {
 
   return {
     send,
-    commander: { send, busy: new Set(), problem: null, dismissProblem: vi.fn() },
+    commander: { send, busy: new Set(), problem: null },
   };
 }
 

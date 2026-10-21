@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import type { MatterCommissioning, MatterCommissioningStep } from '@nebulahome/contracts';
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
-import { MatterIcon } from '@/components/icons';
+import { MatterLogo } from '@/components/brand-logos';
 
 /** How far out the badge rides, by how many steps are done: the outer ring, then closer in. */
 const ORBIT_RADII = [100, 92, 84, 76, 62, 48, 40] as const;
@@ -85,7 +85,7 @@ export function JoinAnimation(props: JoinAnimationProps) {
       ) : null}
       <span className="absolute inset-0 flex items-center justify-center">
         <span className="flex size-16 items-center justify-center rounded-inner border border-border-strong bg-surface-raised matter-glow text-foreground">
-          <MatterIcon width={32} height={32} />
+          <MatterLogo width={32} height={32} />
         </span>
       </span>
 
