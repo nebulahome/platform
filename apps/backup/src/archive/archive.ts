@@ -9,6 +9,7 @@
  * database.pgdump               pg_dump's custom format, the whole database
  * files/hub/integrations/…      the installed integration bundles
  * files/hub/matter/…            the house's Matter fabric: its keys and its nodes
+ * files/hub/mqtt/…              the house's MQTT broker: its usernames, mappings and retained
  * files/proxy/tls/…             the certificate
  * files/containers/…            the data of the containers the integrations run
  * files/packages/…              the feature packages, when the archive has them
@@ -62,6 +63,8 @@ export const FILE_SECTIONS: readonly FileSection[] = [
   { section: 'configuration', path: 'hub/integrations', keepsOwners: false },
   // The fabric's keys: without them every Matter device is commissioned again.
   { section: 'configuration', path: 'hub/matter', keepsOwners: false },
+  // The broker's usernames: without them every device and container signs in again.
+  { section: 'configuration', path: 'hub/mqtt', keepsOwners: false },
   { section: 'configuration', path: 'proxy/tls', keepsOwners: false },
   { section: 'configuration', path: 'containers', keepsOwners: true },
   { section: 'packages', path: 'packages', keepsOwners: false },

@@ -2,8 +2,8 @@
  * SMB shares and NFS exports, mounted for as long as a backup writes to them.
  *
  * The system's own clients - `mount.cifs`, `mount.nfs` - rather than a client in JavaScript:
- * they speak every dialect the servers do (SMB 3 with encryption, NFS 4), as Home Assistant
- * does it. That needs root and, in a container, `CAP_SYS_ADMIN` - which is why the backup
+ * they speak every dialect the servers do (SMB 3 with encryption, NFS 4). That needs root and,
+ * in a container, `CAP_SYS_ADMIN` - which is why the backup
  * service runs as root, and says what is missing when a mount is refused.
  *
  * Nothing the owner typed reaches the command line as an option: the host, the share and the
