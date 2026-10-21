@@ -268,6 +268,7 @@ function vendorOf(
       ...new Set([
         ...(vendor.discovery?.sources.map((source) => source.kind) ?? []),
         ...(vendor.discovery?.plan.discovery.matter === undefined ? [] : (['matter'] as const)),
+        ...(vendor.discovery?.plan.discovery.mqtt === undefined ? [] : (['mqtt'] as const)),
       ]),
     ],
     adoption: vendor.discovery?.plan.discovery.adopt ?? 'owner',

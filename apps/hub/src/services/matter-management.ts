@@ -73,7 +73,7 @@ export async function matterNodesView(options: MatterManagementOptions): Promise
       const device = deviceSnapshotOf(node, scope);
       const key = matterDeviceKey(node.nodeId, scope.endpoint);
       const added = taken.matter.get(key);
-      const claimedBy = (discovery?.matterClaims(device.identity) ?? []).map(
+      const claimedBy = (discovery?.brokerClaims('matter', device.identity) ?? []).map(
         ({ vendor }) => vendor.id,
       );
 

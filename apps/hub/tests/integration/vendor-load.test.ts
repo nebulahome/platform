@@ -213,6 +213,7 @@ beforeAll(async () => {
       NEBULA_DATA_DIR: path.join(root, 'data'),
       HUB_DEV_BUNDLE_DIR: path.join(root, 'development'),
       HUB_DISCOVERY_ENABLED: 'false',
+      HUB_MQTT_PORT: '0',
       NEBULA_SECRETS_KEY: 'ab'.repeat(32),
     }),
     db: database.db,

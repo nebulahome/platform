@@ -1,10 +1,11 @@
 /**
  * Which packages run, for the vendors whose devices need one (PACKAGES.md 7).
  *
- * A vendor's manifest may say what it needs besides itself - `{ "services": ["mqtt-broker"] }`
- * for Zigbee2MQTT, which talks through the house's broker, a package. Until one runs, the vendor
- * waits: its instances do not start, and fail with the sentence that says which package they wait
- * for, and its page says the same. So this service keeps what the packet-manager says is
+ * A vendor's manifest may say what it needs besides itself - a package by id, a service a package
+ * provides. Until one runs, the vendor waits: its instances do not start, and fail with the
+ * sentence that says which package they wait for, and its page says the same. A service the
+ * platform runs itself - `mqtt-broker`, which Zigbee2MQTT names - is always there, and nobody
+ * waits for it. So this service keeps what the packet-manager says is
  * installed and running - read once when the hub starts, and again at every package event - and
  * when a vendor's standing changes, it says so, and only that vendor's instances start again.
  *
@@ -19,6 +20,7 @@ import {
   BUS_PATTERNS,
   busSubjects,
   describeDependencyProblem,
+  isPlatformService,
   jsonObjectSchema,
   PACKET_MANAGER_METHODS,
   PACKET_MANAGER_SERVICE,
@@ -59,13 +61,13 @@ export type PackageWatchOptions = {
  * Whether a vendor needs anything at all.
  *
  * @param requires - What it needs.
- * @returns True when it names a platform, a package or a service.
+ * @returns True when it names a platform, a package or a service a package provides.
  */
 function needsAnything(requires: PackageRequires): boolean {
   return (
     requires.platform !== undefined ||
     Object.keys(requires.packages).length > 0 ||
-    requires.services.length > 0
+    requires.services.some((service) => !isPlatformService(service))
   );
 }
 

@@ -40,6 +40,8 @@ import {
   deviceInfoReplySchema,
   MATTER_TRANSPORT,
   MATTER_VENDOR,
+  MQTT_HOUSE_TRANSPORT,
+  MQTT_VENDOR,
   NotFoundError,
   type DeviceEventPayload,
   type DeviceInfoRequest,
@@ -81,7 +83,7 @@ import { planSubscriptions } from './domain/subscriptions.js';
 import { withVendorSettings } from './domain/vendors.js';
 import { MatterBroker } from './matter/broker.js';
 import type { OpenMatterFabric } from './matter/fabric.js';
-import { platformMatterVendor } from './matter/vendor.js';
+import { MqttBroker } from './mqtt/broker.js';
 import { databaseAccountStore } from './persistence/accounts.js';
 import { loadBinding, loadDeviceName, loadExternalId } from './persistence/devices.js';
 import {
@@ -115,10 +117,12 @@ import { ImageStore } from './services/images.js';
 import { publishReports, startInstanceServices } from './services/instance.js';
 import { ManagementService } from './services/management.js';
 import { serveMatter } from './services/matter-management.js';
+import { serveMqtt } from './services/mqtt-management.js';
 import { PackageWatch, type WatchedVendor } from './services/package-watch.js';
-import { PlatformBroker } from './services/platform-broker.js';
+import { platformMatterVendor, platformMqttVendor } from './services/platform-vendors.js';
 import { VendorContainersService } from './services/vendor-containers.js';
 import { createMatterTransport } from './transports/matter.js';
+import { createMqttHouseTransport } from './transports/mqtt-house.js';
 
 /** What the service needs. */
 export type HubServiceOptions = {
@@ -202,8 +206,8 @@ export class HubService {
   readonly #images: ImageStore;
   readonly #vendorContainers: VendorContainersService;
   readonly #packages: PackageWatch;
-  readonly #broker: PlatformBroker;
   readonly #matter: MatterBroker;
+  readonly #mqtt: MqttBroker;
   readonly #secretsKey: Buffer;
 
   /** The stream sources the vendors ship, by id: `bambulab/camera`. */
@@ -245,6 +249,13 @@ export class HubService {
       isLanReachable: options.config.HUB_DISCOVERY_ENABLED,
     });
     this.#transports.register(createMatterTransport(this.#matter));
+
+    this.#mqtt = new MqttBroker({
+      storageDir: resolveDataLayout(options.config).mqtt,
+      port: options.config.HUB_MQTT_PORT,
+      logger: options.logger,
+    });
+    this.#transports.register(createMqttHouseTransport(this.#mqtt));
 
     this.#client = new BusClient({
       transport: options.bus.transport,
@@ -474,23 +485,18 @@ export class HubService {
         this.#restartVendor(vendorId, 'an account of it signed in or out'),
     });
 
-    this.#broker = new PlatformBroker({
-      client: this.#client,
-      logger: options.logger,
-      fixed: platformMqttOf(options.config),
-    });
-
-    const broker = this.#broker;
+    const external = platformMqttOf(options.config);
+    const mqtt = this.#mqtt;
 
     this.#platform = {
       /**
-       * The house's broker as it stands now: asked of the package that provides it, which may
-       * start after the hub.
+       * The house's broker as the bundles reach it: the one the environment names, or the hub's
+       * own with the hub's username - given while it is still coming up, as a session retries.
        *
-       * @returns It, or null while there is none.
+       * @returns It, or null while the hub's own has no username yet.
        */
       get mqtt() {
-        return broker.current;
+        return external ?? mqtt.hubConnection();
       },
     };
     this.#packages = new PackageWatch({
@@ -505,14 +511,13 @@ export class HubService {
        * @param vendorIds - The vendors whose standing changed.
        */
       onChange: (vendorIds: readonly string[]): void => {
-        // The broker's username first: a vendor that waited for it connects with it.
-        void this.#broker.refresh().then(async () => {
+        void (async () => {
           for (const vendorId of vendorIds) {
             // One vendor after another: the order they were told in.
             // eslint-disable-next-line no-await-in-loop -- see above
             await this.#restartVendor(vendorId, 'a package it needs started or stopped');
           }
-        });
+        })();
       },
     });
     this.#vendorContainers = new VendorContainersService({
@@ -559,8 +564,8 @@ export class HubService {
     // Held until discovery is built: a vendor installed meanwhile is swapped in after, rather than
     // into a hub half started.
     await this.#serialised(async () => {
-      // Asked now, and again at every package event and while there is none.
-      await this.#broker.start();
+      // Neither throws: a broker that cannot start says why on the Brokers page.
+      await this.#mqtt.start();
       await this.#matter.start();
 
       const bundles = await this.#loadAll();
@@ -573,8 +578,9 @@ export class HubService {
         this.#registerVendor(vendor);
       }
 
-      // The platform's own, after the bundles: no bundle may call itself `matter`.
+      // The platform's own, after the bundles: no bundle may call itself `matter` or `mqtt`.
       this.#registerVendor(platformMatterVendor(config.NEBULA_PLATFORM_VERSION, RUNTIME_VERSION));
+      this.#registerVendor(platformMqttVendor(config.NEBULA_PLATFORM_VERSION, RUNTIME_VERSION));
 
       this.#recordFailures(bundles.failures);
       logger.info(
@@ -587,11 +593,6 @@ export class HubService {
         },
         'Loaded integration bundles',
       );
-
-      // Not awaited: a supervisor that is not up yet is asked again every minute, and nothing
-      // here waits on the containers - an instance whose container is still being pulled simply
-      // fails to connect until it runs, as it would against any device that is not up.
-      void this.#vendorContainers.reconcile();
 
       this.#management = [
         ...this.#managementService.serve(),
@@ -616,6 +617,24 @@ export class HubService {
            */
           taken: async () => loadTakenDevices(db),
         }),
+        ...serveMqtt({
+          client: this.#client,
+          broker: this.#mqtt,
+
+          /**
+           * Discovery, once it has started.
+           *
+           * @returns It, or undefined.
+           */
+          discovery: () => this.#discovery,
+
+          /**
+           * Reads what is added.
+           *
+           * @returns Every instance's ids, the MQTT devices among them.
+           */
+          taken: async () => loadTakenDevices(db),
+        }),
         this.#client.subscribe(
           busSubjects.deviceEvent('removed'),
           deviceEventSchema,
@@ -636,6 +655,12 @@ export class HubService {
           },
         ),
       ];
+
+      // Not awaited: a supervisor that is not up yet is asked again every minute, and nothing
+      // here waits on the containers - an instance whose container is still being pulled simply
+      // fails to connect until it runs, as it would against any device that is not up. After the
+      // methods above, which the supervisor asks a container's broker username of.
+      void this.#vendorContainers.reconcile();
 
       // Before the instances: a vendor that waits for a package is not started against it.
       await this.#packages.start(this.#watchedVendors());
@@ -987,6 +1012,7 @@ export class HubService {
   #createDiscovery(): DiscoveryService {
     const { config, db, logger } = this.#options;
     const platformMatter = this.#vendors.get(MATTER_VENDOR);
+    const platformMqtt = this.#vendors.get(MQTT_VENDOR);
 
     return new DiscoveryService({
       vendors: [...this.#vendors.values()].flatMap((vendor) =>
@@ -1057,6 +1083,27 @@ export class HubService {
               vendor: { id: MATTER_VENDOR, discovery: platformMatter.discovery },
             },
           }),
+      ...(platformMqtt?.discovery === undefined
+        ? {}
+        : {
+            mqtt: {
+              /**
+               * Lists the devices the broker hears, not removed from the house.
+               *
+               * @returns Them.
+               */
+              devices: () => this.#mqtt.devices(),
+
+              /**
+               * Follows the devices coming, going and changing.
+               *
+               * @param listener - Called when they change.
+               * @returns What stops following.
+               */
+              onChange: (listener: () => void) => this.#mqtt.onDevices(listener),
+              vendor: { id: MQTT_VENDOR, discovery: platformMqtt.discovery },
+            },
+          }),
     });
   }
 
@@ -1104,7 +1151,6 @@ export class HubService {
    */
   public async stop(): Promise<void> {
     this.#packages.stop();
-    this.#broker.stop();
     this.#cameras.stop();
     this.#images.stop();
     this.#vendorContainers.stop();
@@ -1126,6 +1172,7 @@ export class HubService {
     this.#running.clear();
     await this.#pool.closeAll();
     await this.#matter.stop();
+    await this.#mqtt.stop();
 
     // Whatever the vendors' own code holds - a UDP port - is let go of with them.
     await Promise.all([...this.#vendors.values()].map(async (vendor) => vendor.release()));
@@ -1219,11 +1266,13 @@ export class HubService {
 
     await this.#stopInstance(id);
 
-    if (instance?.transport === MATTER_TRANSPORT) {
+    if (instance?.transport === MATTER_TRANSPORT || instance?.transport === MQTT_HOUSE_TRANSPORT) {
       const deviceKey = await loadExternalId(this.#options.db, id);
 
-      if (deviceKey !== null) {
+      if (deviceKey !== null && instance.transport === MATTER_TRANSPORT) {
         await this.#matter.release(deviceKey);
+      } else if (deviceKey !== null) {
+        this.#mqtt.release(deviceKey);
       }
     }
 

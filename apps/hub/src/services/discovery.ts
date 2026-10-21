@@ -20,24 +20,25 @@ import { createHash } from 'node:crypto';
 import {
   DISCOVERY_NEW_FOR_MS,
   MATTER_VENDOR,
+  MQTT_VENDOR,
   normalizeMac,
   type DiscoveredDevice,
   type DiscoverReply,
   type DiscoverySource,
   type JsonObject,
-  type MatterIdentity,
   type PassedOverDevice,
   type VendorListener,
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 import {
-  associateMatter,
+  associateBroker,
   associateModel,
   identifySighting,
   matchesAnnouncement,
-  matchesMatter,
+  matchesBroker,
   nameOf,
   type Association,
+  type BrokerSource,
   type Discovered,
   type DiscoveryProbe,
   type Integration,
@@ -53,6 +54,7 @@ import {
 import { isPrivateIpv4, type MdnsSource } from '../discovery/mdns-source.js';
 import { addressOf as reachedAt, NOTHING_TAKEN, type TakenDevices } from '../domain/taken.js';
 import type { MatterSighting } from '../matter/broker.js';
+import type { MqttSighting } from '../mqtt/broker.js';
 
 import type { LoadedDiscovery, LoadedListenSource } from './bundles.js';
 
@@ -139,12 +141,37 @@ export type DiscoveryServiceOptions = {
    * from the house, told again whenever the nodes change, and the platform's own vendor, which
    * takes a device no other vendor's rules - or more than one's - take.
    */
-  readonly matter?: {
-    readonly devices: () => readonly MatterSighting[];
-    readonly onChange: (listener: () => void) => () => void;
-    readonly vendor: DiscoveryVendor;
-  };
+  readonly matter?: BrokerFeed<MatterSighting>;
+
+  /**
+   * The house's MQTT broker: every device it hears not removed from the house - announced, mapped
+   * by the owner, or its own - told again once a burst of them has settled, and the platform's own
+   * vendor, which takes a device no other vendor's rules - or more than one's - take.
+   */
+  readonly mqtt?: BrokerFeed<MqttSighting>;
 };
+
+/** One of the platform's brokers, as discovery hears it. */
+export type BrokerFeed<TSighting> = {
+  readonly devices: () => readonly TSighting[];
+  readonly onChange: (listener: () => void) => () => void;
+  readonly vendor: DiscoveryVendor;
+};
+
+/** A device one of the platform's brokers holds, as discovery proposes it. */
+type BrokerDevice = {
+  readonly deviceKey: string;
+
+  /** Who it says it is, which the vendors' rules read. */
+  readonly identity: unknown;
+  readonly name: string;
+  readonly modelCode: string | null;
+  readonly swVersion: string | null;
+  readonly macs: readonly string[];
+};
+
+/** How each broker's devices are named where the owner sees them. */
+const BROKER_LABELS: Readonly<Record<BrokerSource, string>> = { matter: 'Matter', mqtt: 'MQTT' };
 
 /** A proposed device, and when it was last heard, as a number to compare. */
 type Candidate = { readonly device: DiscoveredDevice; readonly heardAtMs: number };
@@ -344,7 +371,7 @@ export class DiscoveryService {
   #isLanListening = true;
   #taken: TakenDevices = NOTHING_TAKEN;
   #signature = '[]';
-  #stopMatter: (() => void) | undefined;
+  #stopBrokers: (() => void)[] = [];
 
   /**
    * Prepares discovery without listening.
@@ -403,13 +430,17 @@ export class DiscoveryService {
       }
     }
 
-    const matter = this.#options.matter;
+    for (const source of ['matter', 'mqtt'] as const) {
+      const feed = this.#options[source];
 
-    if (matter !== undefined) {
-      this.#stopMatter = matter.onChange(() => {
-        this.#hearMatter();
-      });
-      this.#hearMatter();
+      if (feed !== undefined) {
+        this.#stopBrokers.push(
+          feed.onChange(() => {
+            this.#hearBroker(source);
+          }),
+        );
+        this.#hearBroker(source);
+      }
     }
 
     const sweeping = setInterval(
@@ -431,8 +462,11 @@ export class DiscoveryService {
   public async stop(): Promise<void> {
     this.#abort.abort();
     this.#isListening = false;
-    this.#stopMatter?.();
-    this.#stopMatter = undefined;
+    for (const stop of this.#stopBrokers) {
+      stop();
+    }
+
+    this.#stopBrokers = [];
 
     for (const timer of this.#timers) {
       clearInterval(timer);
@@ -1269,36 +1303,76 @@ export class DiscoveryService {
   }
 
   /**
-   * The vendors whose `matter` rules take a device, the platform's own left out.
+   * The vendors whose rules for one of the platform's brokers take a device, the platform's own
+   * vendor of the broker left out.
    *
+   * @param source - The broker: `matter`, `mqtt`.
    * @param identity - Who the device says it is.
-   * @returns Each vendor whose rules all hold and which has a Matter driver to take it.
+   * @returns Each vendor whose rules all hold and which has a driver on the broker to take it.
    */
-  public matterClaims(
-    identity: MatterIdentity,
+  public brokerClaims(
+    source: BrokerSource,
+    identity: unknown,
   ): { readonly vendor: DiscoveryVendor; readonly association: Association }[] {
+    const own = source === 'matter' ? MATTER_VENDOR : MQTT_VENDOR;
+
     return this.#options.vendors.flatMap((vendor) => {
       const { plan } = vendor.discovery;
 
-      if (vendor.id === MATTER_VENDOR || !matchesMatter(plan, identity)) {
+      if (vendor.id === own || !matchesBroker(plan, source, identity)) {
         return [];
       }
 
-      const association = associateMatter(plan, identity);
+      const association = associateBroker(plan, source, identity);
 
       return association === null ? [] : [{ vendor, association }];
     });
   }
 
   /**
-   * Proposes every device of the fabric: to the one vendor whose rules take it, or to the
-   * platform's own. Each is added at once - the owner commissioned it - and one that left the
-   * fabric, or was removed from the house, is no longer proposed.
+   * The devices one of the platform's brokers holds, as discovery proposes them.
+   *
+   * @param source - The broker.
+   * @returns Its devices, or none for a broker the hub does not run.
    */
-  #hearMatter(): void {
-    const matter = this.#options.matter;
+  #brokerDevices(source: BrokerSource): BrokerDevice[] {
+    if (source === 'matter') {
+      return (this.#options.matter?.devices() ?? []).map(({ deviceKey, device }) => {
+        const { identity } = device;
 
-    if (matter === undefined || !this.#isListening) {
+        return {
+          deviceKey,
+          identity,
+          name: nameOf(identity),
+          modelCode: identity.productId === null ? null : String(identity.productId),
+          swVersion: identity.softwareVersionString,
+          macs: identity.macAddresses.flatMap((mac) => normalizeMac(mac) ?? []),
+        };
+      });
+    }
+
+    return (this.#options.mqtt?.devices() ?? []).map(({ deviceKey, device }) => ({
+      deviceKey,
+      identity: device.identity,
+      name: device.identity.name,
+      modelCode: device.identity.model,
+      swVersion: device.identity.swVersion,
+      macs: device.identity.macAddresses,
+    }));
+  }
+
+  /**
+   * Proposes every device of one of the platform's brokers: to the one vendor whose rules take
+   * it, or to the platform's own. Each is added at once - the owner commissioned it, or it
+   * announced itself on the house's broker - and one the broker no longer holds, or that was
+   * removed from the house, is no longer proposed.
+   *
+   * @param source - The broker.
+   */
+  #hearBroker(source: BrokerSource): void {
+    const feed = this.#options[source];
+
+    if (feed === undefined || !this.#isListening) {
       return;
     }
 
@@ -1306,33 +1380,34 @@ export class DiscoveryService {
     const nowMs = this.#now();
     const macs = new Map<string, Set<string>>();
 
-    for (const { deviceKey, device } of matter.devices()) {
-      const [only, other] = this.matterClaims(device.identity);
+    for (const device of this.#brokerDevices(source)) {
+      const [only, other] = this.brokerClaims(source, device.identity);
 
-      // Every vendor that takes it, so a device of theirs found over its own transport can say
-      // the house reaches it through Matter too.
+      // Every vendor that takes a Matter device, so a device of theirs found over its own
+      // transport can say the house reaches it through Matter too.
       for (const { vendor } of [only, other].filter((each) => each !== undefined)) {
-        for (const mac of device.identity.macAddresses.map(normalizeMac)) {
-          if (mac !== null) {
-            macs.set(vendor.id, (macs.get(vendor.id) ?? new Set()).add(mac));
-          }
+        for (const mac of device.macs) {
+          macs.set(vendor.id, (macs.get(vendor.id) ?? new Set()).add(mac));
         }
       }
-      const fallback = associateMatter(matter.vendor.discovery.plan, device.identity);
+
+      const fallback = associateBroker(feed.vendor.discovery.plan, source, device.identity);
       const chosen =
         only !== undefined && other === undefined
           ? only
           : fallback === null
             ? undefined
-            : { vendor: matter.vendor, association: fallback };
+            : { vendor: feed.vendor, association: fallback };
 
       if (chosen === undefined) {
         continue;
       }
 
-      const id = createHash('sha256').update(`matter/${deviceKey}`).digest('hex').slice(0, 16);
+      const id = createHash('sha256')
+        .update(`${source}/${device.deviceKey}`)
+        .digest('hex')
+        .slice(0, 16);
       const previous = this.#candidates.get(id);
-      const { identity } = device;
 
       heard.add(id);
       this.#candidates.set(id, {
@@ -1341,18 +1416,18 @@ export class DiscoveryService {
           vendorId: chosen.vendor.id,
           driverId: chosen.association.driverId,
           kind: `${chosen.vendor.id}/${chosen.association.driverId}`,
-          source: 'matter',
-          address: `Matter ${deviceKey}`,
-          externalId: deviceKey,
-          name: nameOf(identity).slice(0, 256),
+          source,
+          address: `${BROKER_LABELS[source]} ${device.deviceKey}`.slice(0, 256),
+          externalId: device.deviceKey,
+          name: device.name.slice(0, 256),
           model: chosen.association.model,
           modelChoices: [...chosen.association.modelChoices],
-          modelCode: identity.productId === null ? null : String(identity.productId),
-          swVersion: identity.softwareVersionString?.slice(0, 64) ?? null,
+          modelCode: device.modelCode,
+          swVersion: device.swVersion?.slice(0, 64) ?? null,
           transportConfig: {},
           adoption: 'automatic',
           movedFrom: null,
-          mac: identity.macAddresses.map(normalizeMac).find((mac) => mac !== null) ?? null,
+          mac: device.macs[0] ?? null,
           notes: [],
           isDismissed: false,
           firstSeenAt: previous?.device.firstSeenAt ?? new Date(nowMs),
@@ -1362,10 +1437,12 @@ export class DiscoveryService {
       });
     }
 
-    this.#matterMacs = macs;
+    if (source === 'matter') {
+      this.#matterMacs = macs;
+    }
 
     for (const [id, candidate] of this.#candidates) {
-      if (candidate.device.source === 'matter' && !heard.has(id)) {
+      if (candidate.device.source === source && !heard.has(id)) {
         this.#candidates.delete(id);
         this.#dismissed.delete(id);
       }
@@ -1376,7 +1453,8 @@ export class DiscoveryService {
 
   /** Forgets the devices gone quiet, and the probe answers too old to trust. */
   #sweep(): void {
-    this.#hearMatter();
+    this.#hearBroker('matter');
+    this.#hearBroker('mqtt');
 
     const nowMs = this.#now();
 
@@ -1415,8 +1493,8 @@ export class DiscoveryService {
       .flatMap((candidate): Candidate[] => {
         const { device } = candidate;
 
-        if (device.source === 'matter') {
-          return device.externalId !== null && this.#taken.matter.has(device.externalId)
+        if (device.source === 'matter' || device.source === 'mqtt') {
+          return device.externalId !== null && this.#taken[device.source].has(device.externalId)
             ? []
             : [candidate];
         }

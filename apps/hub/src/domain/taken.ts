@@ -6,7 +6,7 @@
  * to hear from its device, and one that failed to start. Both are keyed by vendor, since two
  * vendors' ids and addresses mean nothing to each other.
  */
-import { MATTER_TRANSPORT, type JsonObject } from '@nebulahome/contracts';
+import { MATTER_TRANSPORT, MQTT_HOUSE_TRANSPORT, type JsonObject } from '@nebulahome/contracts';
 
 /** Where an identified device's instance reaches it. */
 export type TakenLocation = {
@@ -17,7 +17,7 @@ export type TakenLocation = {
   readonly host: string;
 };
 
-/** The instance a Matter device was added as. */
+/** The instance a device of one of the platform's brokers was added as. */
 export type TakenMatter = { readonly instanceId: string; readonly kind: string };
 
 /**
@@ -40,6 +40,12 @@ export type TakenDevices = {
    * added them: a Matter device is the fabric's one device, and is never proposed twice.
    */
   readonly matter: ReadonlyMap<string, TakenMatter>;
+
+  /**
+   * The devices the house's MQTT broker hears that are added, by their key, whichever vendor
+   * added them: the broker's one device, never proposed twice.
+   */
+  readonly mqtt: ReadonlyMap<string, TakenMatter>;
 };
 
 /** One instance, as far as recognising its device goes. */
@@ -66,6 +72,7 @@ export const NOTHING_TAKEN: TakenDevices = {
   hosts: new Set(),
   locations: new Map(),
   matter: new Map(),
+  mqtt: new Map(),
 };
 
 /**
@@ -108,6 +115,7 @@ export function takenFrom(rows: readonly TakenRow[]): TakenDevices {
   const hosts = new Set<string>();
   const locations = new Map<string, TakenLocation>();
   const matter = new Map<string, TakenMatter>();
+  const mqtt = new Map<string, TakenMatter>();
 
   for (const row of rows) {
     const [vendorId = ''] = row.kind.split('/');
@@ -123,6 +131,10 @@ export function takenFrom(rows: readonly TakenRow[]): TakenDevices {
       if (row.transport === MATTER_TRANSPORT) {
         matter.set(row.externalId, { instanceId: row.id, kind: row.kind });
       }
+
+      if (row.transport === MQTT_HOUSE_TRANSPORT) {
+        mqtt.set(row.externalId, { instanceId: row.id, kind: row.kind });
+      }
     }
 
     if (host !== undefined) {
@@ -130,5 +142,5 @@ export function takenFrom(rows: readonly TakenRow[]): TakenDevices {
     }
   }
 
-  return { externalIds, hosts, locations, matter };
+  return { externalIds, hosts, locations, matter, mqtt };
 }

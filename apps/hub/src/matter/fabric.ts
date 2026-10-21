@@ -1,5 +1,5 @@
 /**
- * The house's Matter fabric, held by the controller of Home Assistant's Matter Server.
+ * The house's Matter fabric, held by the controller of the open-source Matter Server.
  *
  * `@matter-server/ws-controller` is that server's controller as a library, on matter.js: the
  * fabric's keys and the nodes in a folder, their attributes cached and subscribed to, reconnection,
@@ -9,7 +9,7 @@
  *
  * Its README calls the package internal to that server, so its version is pinned exactly and moved
  * on purpose. The controller listens on Matter's own UDP port, 5540, which the library does not let
- * be changed: another Matter controller on the same host - a Home Assistant's - takes it first.
+ * be changed: another Matter controller on the same host takes it first.
  */
 import { createRequire } from 'node:module';
 

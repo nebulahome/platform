@@ -33,10 +33,10 @@ import {
 import type { MdnsSource } from '../discovery/mdns-source.js';
 import type { TakenDevices } from '../domain/taken.js';
 import type { MatterSighting } from '../matter/broker.js';
-import { platformMatterVendor } from '../matter/vendor.js';
 
 import type { LoadedListenSource } from './bundles.js';
 import { DiscoveryService, SCAN_DURATION_MS, type DiscoveryVendor } from './discovery.js';
+import { platformMatterVendor } from './platform-vendors.js';
 
 /**
  * A logger that writes nowhere.
@@ -289,7 +289,13 @@ async function start(
     mdns,
     transport,
     published,
-    taken: { externalIds: new Set(), hosts: new Set(), locations: new Map(), matter: new Map() },
+    taken: {
+      externalIds: new Set(),
+      hosts: new Set(),
+      locations: new Map(),
+      matter: new Map(),
+      mqtt: new Map(),
+    },
     service: new DiscoveryService({
       vendors: [options.vendor ?? acme()],
       mdns,
@@ -525,6 +531,7 @@ describe('DiscoveryService', () => {
       hosts: new Set(),
       locations: new Map(),
       matter: new Map(),
+      mqtt: new Map(),
     };
     await built.service.refresh();
     built.mdns.announce(heard('192.168.1.40'));
@@ -538,6 +545,7 @@ describe('DiscoveryService', () => {
       hosts: new Set(['acme\n192.168.1.40']),
       locations: new Map(),
       matter: new Map(),
+      mqtt: new Map(),
     };
     await built.service.refresh();
 
@@ -548,6 +556,7 @@ describe('DiscoveryService', () => {
       hosts: new Set(),
       locations: new Map(),
       matter: new Map(),
+      mqtt: new Map(),
     };
     await built.service.refresh();
 
@@ -566,6 +575,7 @@ describe('DiscoveryService', () => {
       hosts: new Set(['acme\n192.168.1.40']),
       locations: new Map(),
       matter: new Map(),
+      mqtt: new Map(),
     };
     await built.service.refresh();
 
@@ -580,6 +590,7 @@ describe('DiscoveryService', () => {
       hosts: new Set(),
       locations: new Map(),
       matter: new Map(),
+      mqtt: new Map(),
     };
     await built.service.release('acme');
 
@@ -600,6 +611,7 @@ describe('DiscoveryService', () => {
       hosts: new Set(['acme\n192.168.1.39']),
       locations: new Map([['acme\nr1', { instanceId: 'relay-kitchen', host: '192.168.1.39' }]]),
       matter: new Map(),
+      mqtt: new Map(),
     };
     await built.service.refresh();
     built.mdns.announce(heard('192.168.1.40'));
@@ -617,6 +629,7 @@ describe('DiscoveryService', () => {
       hosts: new Set(['acme\n192.168.1.40']),
       locations: new Map([['acme\nr1', { instanceId: 'relay-kitchen', host: '192.168.1.40' }]]),
       matter: new Map(),
+      mqtt: new Map(),
     };
     await built.service.refresh();
 
@@ -635,6 +648,7 @@ describe('DiscoveryService', () => {
       hosts: new Set(['acme\n192.168.1.40']),
       locations: new Map(),
       matter: new Map(),
+      mqtt: new Map(),
     };
     await built.service.refresh();
 
@@ -648,6 +662,7 @@ describe('DiscoveryService', () => {
       hosts: new Set(),
       locations: new Map(),
       matter: new Map(),
+      mqtt: new Map(),
     };
     await built.service.release('acme');
 
@@ -662,6 +677,7 @@ describe('DiscoveryService', () => {
       hosts: new Set(['acme\n192.168.1.40']),
       locations: new Map(),
       matter: new Map(),
+      mqtt: new Map(),
     };
     await built.service.refresh();
     built.mdns.announce(heard('192.168.1.40'));
@@ -695,6 +711,7 @@ describe('DiscoveryService', () => {
           hosts: new Set(),
           locations: new Map(),
           matter: new Map(),
+          mqtt: new Map(),
         }),
       publishChanged: () => undefined,
       queryIntervalMs: 60_000,
@@ -708,7 +725,13 @@ describe('DiscoveryService', () => {
       mdns,
       transport,
       published: [],
-      taken: { externalIds: new Set(), hosts: new Set(), locations: new Map(), matter: new Map() },
+      taken: {
+        externalIds: new Set(),
+        hosts: new Set(),
+        locations: new Map(),
+        matter: new Map(),
+        mqtt: new Map(),
+      },
     };
     await service.start();
 
@@ -745,6 +768,7 @@ describe('DiscoveryService', () => {
           hosts: new Set(),
           locations: new Map(),
           matter: new Map(),
+          mqtt: new Map(),
         }),
       publishChanged: () => undefined,
       queryIntervalMs: 60_000,
@@ -759,7 +783,13 @@ describe('DiscoveryService', () => {
       mdns,
       transport,
       published: [],
-      taken: { externalIds: new Set(), hosts: new Set(), locations: new Map(), matter: new Map() },
+      taken: {
+        externalIds: new Set(),
+        hosts: new Set(),
+        locations: new Map(),
+        matter: new Map(),
+        mqtt: new Map(),
+      },
     };
     await service.start();
 
@@ -1029,6 +1059,7 @@ describe('DiscoveryService and the Matter fabric', () => {
       hosts: new Set(),
       locations: new Map(),
       matter: new Map([['3', { instanceId: 'other', kind: 'matter/generic' }]]),
+      mqtt: new Map(),
     };
     const service = new DiscoveryService({
       vendors: [acme],

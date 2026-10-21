@@ -264,6 +264,7 @@ describe('discovering and adopting a device', () => {
         NATS_URL,
         HUB_DEV_BUNDLE_DIR: FIXTURE_VENDOR_DIR,
         NEBULA_DATA_DIR: EMPTY_DATA_DIR,
+        HUB_MQTT_PORT: '0',
         NEBULA_SECRETS_KEY: 'ab'.repeat(32),
       }),
       db: database.db,

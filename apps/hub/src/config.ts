@@ -20,6 +20,7 @@ import {
   runtimeEnvSchema,
   secretsEnvSchema,
 } from '@nebulahome/config';
+import { MQTT_PORT } from '@nebulahome/contracts';
 import integrationSdk from '@nebulahome/integration-sdk/package.json' with { type: 'json' };
 import type { PlatformMqtt } from '@nebulahome/package-runtime';
 
@@ -50,7 +51,7 @@ export const hubEnvSchema = runtimeEnvSchema
   .extend(databaseEnvSchema.shape)
   .extend(busEnvSchema.shape)
   .extend(secretsEnvSchema.shape)
-  // The platform's broker, handed to bundle code that reaches its devices through it.
+  // An external broker, handed to bundle code in place of the hub's own.
   .extend(mqttEnvSchema.shape)
   .extend({
     /**
@@ -118,6 +119,12 @@ export const hubEnvSchema = runtimeEnvSchema
      */
     HUB_MATTER_ENABLED: z.stringbool().default(true),
 
+    /**
+     * The TCP port the house's MQTT broker listens on. 1883 unless said: what every device and
+     * the Docker image's port mapping expect. 0 lets the system pick one, for a test.
+     */
+    HUB_MQTT_PORT: z.coerce.number().int().min(0).max(65_535).default(MQTT_PORT),
+
     /** This platform's release, which a vendor's `requires.platform` range is checked against. */
     NEBULA_PLATFORM_VERSION: z
       .string()
@@ -142,10 +149,10 @@ export function developmentBundleDirectories(config: HubConfig): readonly string
 }
 
 /**
- * The platform's broker, as bundle code is handed it.
+ * The external broker the environment names, which bundle code is handed in place of the hub's.
  *
  * @param config - The parsed environment.
- * @returns Its address and credentials, or null on an installation without one.
+ * @returns Its address and credentials, or null when none is named.
  */
 export function platformMqttOf(config: HubConfig): PlatformMqtt | null {
   if (config.NEBULA_MQTT_URL === undefined) {

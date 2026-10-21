@@ -27,7 +27,7 @@ import {
   type MatterCommissioning,
   type MatterCommissioningStep,
   type MatterCommissioningStepId,
-  type MatterControllerState,
+  type BrokerState,
   type MatterStatus,
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
@@ -186,7 +186,7 @@ export type MatterBrokerOptions = {
  * @param error - Why it failed, if it did.
  * @returns The error, saying why.
  */
-function notRunning(state: MatterControllerState, error: string | null): Error {
+function notRunning(state: BrokerState, error: string | null): Error {
   return new ConflictError(
     state === 'disabled'
       ? 'Matter is off on this installation'
@@ -209,7 +209,7 @@ export class MatterBroker {
   /** Since when each node has not answered, as this hub saw it. */
   readonly #offlineSince = new Map<string, Date>();
   #fabric: MatterFabric | undefined;
-  #state: MatterControllerState;
+  #state: BrokerState;
   #error: string | null = null;
   #job: MatterCommissioning | null = null;
   #pending: Pending | undefined;

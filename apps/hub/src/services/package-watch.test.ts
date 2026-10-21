@@ -1,10 +1,10 @@
 /**
  * Which vendors wait for a package, against a packet-manager on a bus in memory.
  *
- * What is asserted is that a vendor needing the broker waits until a package that provides it
+ * What is asserted is that a vendor needing a service waits until a package that provides it
  * runs, and says so in a sentence naming both; that a package event is what makes it read again
- * and tell only the vendors whose standing changed; and that a vendor needing nothing is never
- * held.
+ * and tell only the vendors whose standing changed; and that a vendor needing nothing - or only
+ * what the platform runs itself, the MQTT broker - is never held.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
@@ -22,23 +22,22 @@ import { createLogger } from '@nebulahome/logging';
 import { PackageWatch } from './package-watch.js';
 
 /**
- * The broker, as the packet-manager lists it.
+ * A package that detects objects in pictures, as the packet-manager lists it.
  *
  * @param state - Where it stands.
  * @returns It.
  */
-function broker(state: InstalledPackage['state']): InstalledPackage {
+function detector(state: InstalledPackage['state']): InstalledPackage {
   return {
-    id: 'mqtt',
+    id: 'frigate',
     version: '1.0.0',
     build: '1.0.0',
-    name: 'MQTT',
-    description: 'The broker.',
-    category: 'protocol',
+    name: 'Frigate',
+    description: 'Finds people in pictures.',
+    category: 'security',
     runtime: 'node',
     state,
     source: 'index',
-    isSystem: true,
     repository: null,
     url: null,
     color: null,
@@ -46,7 +45,7 @@ function broker(state: InstalledPackage['state']): InstalledPackage {
     ui: null,
     entityTypes: [],
     requires: { packages: {}, services: [] },
-    provides: ['mqtt-broker'],
+    provides: ['object-detection'],
     hasSetup: false,
     previousVersion: null,
     lastStartedAt: null,
@@ -118,7 +117,7 @@ function harness(listed: InstalledPackage[] | undefined) {
      */
     publish: (event: 'started' | 'stopped'): void => {
       packetManager.publish(busSubjects.packageEvent(event), {
-        packageId: 'mqtt',
+        packageId: 'frigate',
         version: '1.0.0',
         state: event === 'started' ? 'running' : 'stopped',
       });
@@ -126,30 +125,39 @@ function harness(listed: InstalledPackage[] | undefined) {
   };
 }
 
-/** Zigbee2MQTT, which needs the broker, and Shelly, which needs nothing. */
+/**
+ * UniFi Protect, which needs a detector; Zigbee2MQTT, which needs the broker the platform runs;
+ * and Shelly, which needs nothing.
+ */
 const VENDORS = [
+  {
+    id: 'unifi',
+    name: 'UniFi Protect',
+    requires: { packages: {}, services: ['object-detection'] },
+  },
   { id: 'zigbee2mqtt', name: 'Zigbee2MQTT', requires: { packages: {}, services: ['mqtt-broker'] } },
   { id: 'shelly', name: 'Shelly', requires: { packages: {}, services: [] } },
 ];
 
 describe('PackageWatch', () => {
   it('holds a vendor until a package that provides what it needs runs', async () => {
-    const { watch, onChange, state, publish } = harness([broker('stopped')]);
+    const { watch, onChange, state, publish } = harness([detector('stopped')]);
 
     await watch.start(VENDORS);
 
-    expect(watch.problemsOf('zigbee2mqtt')).toEqual([
-      'Zigbee2MQTT needs the MQTT package, which is not running',
+    expect(watch.problemsOf('unifi')).toEqual([
+      'UniFi Protect needs the Frigate package, which is not running',
     ]);
+    expect(watch.problemsOf('zigbee2mqtt')).toEqual([]);
     expect(watch.problemsOf('shelly')).toEqual([]);
 
-    state.listed = [broker('running')];
+    state.listed = [detector('running')];
     publish('started');
 
     await vi.waitFor(() => {
-      expect(onChange).toHaveBeenLastCalledWith(['zigbee2mqtt']);
+      expect(onChange).toHaveBeenLastCalledWith(['unifi']);
     });
-    expect(watch.problemsOf('zigbee2mqtt')).toEqual([]);
+    expect(watch.problemsOf('unifi')).toEqual([]);
   });
 
   it('names what is missing when nothing provides it', async () => {
@@ -157,9 +165,10 @@ describe('PackageWatch', () => {
 
     await watch.start(VENDORS);
 
-    expect(watch.problemsOf('zigbee2mqtt')).toEqual([
-      'Zigbee2MQTT needs a package that provides mqtt-broker, and none does',
+    expect(watch.problemsOf('unifi')).toEqual([
+      'UniFi Protect needs a package that provides object-detection, and none does',
     ]);
+    expect(watch.problemsOf('zigbee2mqtt')).toEqual([]);
   });
 
   it('holds a vendor while the packet-manager has not said what runs', async () => {
@@ -167,9 +176,10 @@ describe('PackageWatch', () => {
 
     await watch.start(VENDORS);
 
-    expect(watch.problemsOf('zigbee2mqtt')).toEqual([
-      'Zigbee2MQTT waits for the packet-manager to say whether what it needs is running',
+    expect(watch.problemsOf('unifi')).toEqual([
+      'UniFi Protect waits for the packet-manager to say whether what it needs is running',
     ]);
+    expect(watch.problemsOf('zigbee2mqtt')).toEqual([]);
     expect(watch.problemsOf('shelly')).toEqual([]);
   });
 
