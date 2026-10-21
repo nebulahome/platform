@@ -600,6 +600,108 @@
   }
 }
 
+/*
+ * A toast coming and going (toast.tsx).
+ *
+ * It comes in from the right while its height opens from nothing, so the ones already there
+ * glide up to make room instead of jumping. It leaves the other way round: it fades and slides
+ * out first, then its height folds away and the rest slide down into its place - which is why it
+ * is still mounted while it leaves, and why the spacing is inside it rather than a gap between
+ * them. A swipe carries it with the finger. The bar empties for the toast's own time, set inline,
+ * and stops while the stack is paused.
+ *
+ * Less motion keeps the fade and the bar, and drops the sliding.
+ */
+.toast {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    grid-template-rows 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 200ms ease-out,
+    translate 200ms ease-out;
+}
+
+@starting-style {
+  .toast {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    translate: 1rem 0;
+  }
+}
+
+.toast[data-state='closed'] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  translate: 1rem 0;
+  transition:
+    opacity 160ms ease-in,
+    translate 160ms ease-in,
+    grid-template-rows 200ms ease-in-out 160ms;
+}
+
+.toast[data-swipe='move'] {
+  translate: var(--radix-toast-swipe-move-x) 0;
+  transition: none;
+}
+
+.toast[data-swipe='cancel'] {
+  translate: 0 0;
+}
+
+.toast[data-swipe='end'] {
+  translate: var(--radix-toast-swipe-end-x) 0;
+}
+
+/* A toast's shadow: the float under it, and below that a glow in its kind's colour. */
+.toast-card {
+  --toast-tint: var(--color-cyan);
+  box-shadow:
+    var(--shadow-float),
+    0 18px 40px -24px var(--toast-tint);
+}
+
+.toast-card[data-kind='success'] {
+  --toast-tint: var(--color-success);
+}
+
+.toast-card[data-kind='warning'] {
+  --toast-tint: var(--color-warning);
+}
+
+.toast-card[data-kind='error'] {
+  --toast-tint: var(--color-danger);
+}
+
+@keyframes toast-drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.toast-bar {
+  transform-origin: left;
+  animation: toast-drain linear forwards;
+}
+
+[data-motion='reduced'] .toast,
+[data-motion='reduced'] .toast[data-state='closed'] {
+  translate: 0 0;
+  transition: opacity 160ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .toast,
+  :root:not([data-motion='full']) .toast[data-state='closed'] {
+    translate: 0 0;
+    transition: opacity 160ms ease-out;
+  }
+}
+
 @keyframes reduced-pulse {
   0%,
   100% {
