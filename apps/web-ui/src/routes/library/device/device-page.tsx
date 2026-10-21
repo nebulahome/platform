@@ -27,6 +27,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   MATTER_TRANSPORT,
   MATTER_VENDOR,
+  MQTT_VENDOR,
   type DeviceWay,
   type EntityView,
 } from '@nebulahome/contracts';
@@ -318,8 +319,8 @@ function factsOf(
         ) : (
           <Link
             to={
-              device.vendorId === MATTER_VENDOR
-                ? '/brokers/matter'
+              device.vendorId === MATTER_VENDOR || device.vendorId === MQTT_VENDOR
+                ? `/brokers/${device.vendorId}`
                 : `/integrations/${encodeURIComponent(device.vendorId)}`
             }
             className={link}

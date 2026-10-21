@@ -50,6 +50,7 @@ import { AreasPage } from '@/routes/library/areas-page';
 import { AutomationEditor } from '@/routes/library/automation-editor';
 import { AutomationsPage } from '@/routes/library/automations-page';
 import { MatterBrokerPage } from '@/routes/library/broker-matter-page';
+import { MqttBrokerPage } from '@/routes/library/broker-mqtt-page';
 import { BrokersPage } from '@/routes/library/brokers-page';
 import { DevicePage } from '@/routes/library/device/device-page';
 import { DevicesPage } from '@/routes/library/devices-page';
@@ -353,6 +354,14 @@ export function SessionRoutes() {
           element={
             <RequiresPermission permission="device:read" section={t('nav.brokers', 'Brokers')}>
               <MatterBrokerPage />
+            </RequiresPermission>
+          }
+        />
+        <Route
+          path="/brokers/mqtt"
+          element={
+            <RequiresPermission permission="device:read" section={t('nav.brokers', 'Brokers')}>
+              <MqttBrokerPage />
             </RequiresPermission>
           }
         />

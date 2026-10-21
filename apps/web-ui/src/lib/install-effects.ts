@@ -7,6 +7,7 @@
  * integration whose transports the Hub does not know says nothing about them.
  */
 import {
+  isPlatformService,
   PLATFORM_SERVICES,
   type HubDetail,
   type IntegrationListing,
@@ -178,16 +179,26 @@ export function integrationEffects(
   }
 
   for (const service of requires?.services ?? []) {
-    effects.push({
-      icon: 'network',
-      title: translate('install.needsService', 'Needs the {{service}}', {
-        service: serviceLabel(service),
-      }),
-      note: translate(
-        'install.needsServiceNote',
-        'Its devices wait until the house has one running.',
-      ),
-    });
+    effects.push(
+      isPlatformService(service)
+        ? {
+            icon: 'network',
+            title: translate('install.usesService', 'Uses the house’s {{service}}', {
+              service: serviceLabel(service),
+            }),
+            note: translate('install.usesServiceNote', 'NebulaHome runs it: nothing to install.'),
+          }
+        : {
+            icon: 'network',
+            title: translate('install.needsService', 'Needs the {{service}}', {
+              service: serviceLabel(service),
+            }),
+            note: translate(
+              'install.needsServiceNote',
+              'Its devices wait until the house has one running.',
+            ),
+          },
+    );
   }
 
   for (const packageId of Object.keys(requires?.packages ?? {})) {

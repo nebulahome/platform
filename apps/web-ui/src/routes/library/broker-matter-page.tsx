@@ -33,7 +33,7 @@ import { AddMatterDialog } from '@/routes/library/broker-matter/add-dialog';
 import { MatterDevices } from '@/routes/library/broker-matter/matter-devices';
 import { MatterOverview } from '@/routes/library/broker-matter/matter-overview';
 import { everyRow, rowsOf } from '@/routes/library/broker-matter/matter-rows';
-import { brokerStateOf, MatterMark } from '@/routes/library/brokers-page';
+import { brokerStateOf, BrokerMark } from '@/routes/library/brokers-page';
 import { BackLink, DetailFrame } from '@/routes/library/detail-page';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { useVendorsById } from '@/routes/library/transport-marks';
@@ -162,7 +162,7 @@ export function MatterBrokerPage() {
       hero={
         <DetailHero
           back={<BackLink to="/brokers">{t('brokers.title', 'Brokers')}</BackLink>}
-          mark={<MatterMark size={56} isLit />}
+          mark={<BrokerMark size={56} isLit />}
           title={t('library.matterTag', 'Matter')}
           description={t(
             'brokers.matter.description',

@@ -11,13 +11,15 @@ import { useQuery } from '@tanstack/react-query';
 import {
   MATTER_TRANSPORT,
   MATTER_VENDOR,
+  MQTT_HOUSE_TRANSPORT,
+  MQTT_VENDOR,
   type DeviceView,
   type IconView,
 } from '@nebulahome/contracts';
 import { CatalogueIcon, cn } from '@nebulahome/ui';
 
 import { fetchIcons, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
-import { MatterMark } from '@/routes/library/brokers-page';
+import { BrokerMark } from '@/routes/library/brokers-page';
 import { VendorLogo } from '@/routes/library/vendor-card';
 
 /** The catalogue's answer for the icons some devices carry, by id. */
@@ -75,13 +77,18 @@ export type DeviceIconProps = {
  * Whose a Matter device is, for one with no icon of its own: its integration's logo, or the
  * broker's mark for one the platform holds.
  *
- * @param props - The device's vendor and the side of the square.
+ * @param props - The device's vendor, its broker and the side of the square.
  * @param props.vendorId - The vendor.
+ * @param props.broker - The broker it is reached through.
  * @param props.size - The side, in pixels.
  * @returns The logo, or the mark.
  */
-function MatterOwnerMark(props: { readonly vendorId: string | null; readonly size: number }) {
-  const { vendorId, size } = props;
+function BrokerOwnerMark(props: {
+  readonly vendorId: string | null;
+  readonly broker: 'matter' | 'mqtt';
+  readonly size: number;
+}) {
+  const { vendorId, broker, size } = props;
   const vendors = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.vendors,
 
@@ -96,8 +103,8 @@ function MatterOwnerMark(props: { readonly vendorId: string | null; readonly siz
   });
   const vendor = vendors.data?.find((each) => each.id === vendorId);
 
-  return vendor === undefined || vendor.id === MATTER_VENDOR ? (
-    <MatterMark size={size} />
+  return vendor === undefined || vendor.id === MATTER_VENDOR || vendor.id === MQTT_VENDOR ? (
+    <BrokerMark broker={broker} size={size} />
   ) : (
     <VendorLogo vendor={vendor} size={size} />
   );
@@ -116,7 +123,11 @@ export function DeviceIcon(props: DeviceIconProps) {
   const { icon, size = 20, className, device } = props;
 
   if (device?.icon === null && device.transport === MATTER_TRANSPORT) {
-    return <MatterOwnerMark vendorId={device.vendorId} size={size} />;
+    return <BrokerOwnerMark vendorId={device.vendorId} broker="matter" size={size} />;
+  }
+
+  if (device?.icon === null && device.transport === MQTT_HOUSE_TRANSPORT) {
+    return <BrokerOwnerMark vendorId={device.vendorId} broker="mqtt" size={size} />;
   }
 
   // An empty drawing takes exactly the space a full one would, in the same element.

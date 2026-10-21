@@ -1,18 +1,19 @@
 /**
  * The brokers: what the platform runs for whole protocols, each with a page of its own.
  *
- * The house's Matter fabric today: the controller every Matter device is reached through, whoever
- * makes it. A card per broker, as the integrations page draws a vendor's - how it stands, and how
- * many of its devices answer - and the card is the way to its page.
+ * The house's Matter fabric - the controller every Matter device is reached through, whoever makes
+ * it - and its MQTT broker, which every MQTT device and program meets on. A card per broker, as the
+ * integrations page draws a vendor's - how it stands, and how many devices the house has through
+ * it - and the card is the way to its page.
  */
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
-import type { BrokerSummary, MatterControllerState } from '@nebulahome/contracts';
+import type { BrokerId, BrokerState, BrokerSummary } from '@nebulahome/contracts';
 import { AppIcon, cn, Pill, Tile, TILE_FRAME, TILE_GRID, type PillTone } from '@nebulahome/ui';
 
-import { MatterIcon } from '@/components/icons';
+import { MatterIcon, MqttIcon } from '@/components/icons';
 import { translate } from '@/i18n/messages';
 import { BROKER_QUERY_KEYS, fetchBrokers } from '@/library/brokers-api';
 import { LibraryPage } from '@/routes/library/library-page';
@@ -26,7 +27,7 @@ const REFRESH_MS = 10_000;
  * @param state - Its state.
  * @returns The tone and the word.
  */
-export function brokerStateOf(state: MatterControllerState): {
+export function brokerStateOf(state: BrokerState): {
   readonly tone: PillTone;
   readonly label: string;
 } {
@@ -42,17 +43,36 @@ export function brokerStateOf(state: MatterControllerState): {
   }
 }
 
+/** The glyph each broker is drawn with. */
+const BROKER_GLYPHS = { matter: MatterIcon, mqtt: MqttIcon } as const;
+
+/**
+ * What a broker is called.
+ *
+ * @param broker - The broker.
+ * @returns Its name.
+ */
+export function brokerNameOf(broker: BrokerId): string {
+  return broker === 'matter' ? translate('library.matterTag', 'Matter') : 'MQTT';
+}
+
 /**
  * The square a broker is known by.
  *
- * @param props - Its size, and whether it is lit.
+ * @param props - Which broker, its size, and whether it is lit.
+ * @param props.broker - The broker; Matter when not said.
  * @param props.size - The side of the square, in pixels.
  * @param props.isLit - Lit violet from its corner, the mark drawn plain: the broker's page and
  *   its dialogs. Otherwise the mark is violet on a plain square: the card.
  * @returns The square.
  */
-export function MatterMark(props: { readonly size: number; readonly isLit?: boolean }) {
-  const { size, isLit = false } = props;
+export function BrokerMark(props: {
+  readonly broker?: BrokerId;
+  readonly size: number;
+  readonly isLit?: boolean;
+}) {
+  const { broker = 'matter', size, isLit = false } = props;
+  const Glyph = BROKER_GLYPHS[broker];
 
   return (
     <span
@@ -64,7 +84,7 @@ export function MatterMark(props: { readonly size: number; readonly isLit?: bool
       /* eslint-disable-next-line react/forbid-dom-props -- the side is a value, per place. */
       style={{ width: size, height: size }}
     >
-      <MatterIcon width={Math.round(size * 0.5)} height={Math.round(size * 0.5)} />
+      <Glyph width={Math.round(size * 0.5)} height={Math.round(size * 0.5)} />
     </span>
   );
 }
@@ -85,11 +105,11 @@ function BrokerCard(props: { readonly broker: BrokerSummary }) {
     <li className="list-none">
       <Link
         to={`/brokers/${broker.id}`}
-        aria-label={t('library.matterTag', 'Matter')}
+        aria-label={brokerNameOf(broker.id)}
         className={TILE_FRAME}
       >
         <Tile
-          logo={<MatterMark size={44} />}
+          logo={<BrokerMark broker={broker.id} size={44} />}
           marks={
             <span
               title={t('brokers.card.platform', 'Comes with the platform')}
@@ -100,7 +120,7 @@ function BrokerCard(props: { readonly broker: BrokerSummary }) {
               <AppIcon id="lock" size={14} />
             </span>
           }
-          name={t('library.matterTag', 'Matter')}
+          name={brokerNameOf(broker.id)}
           footer={
             <>
               <Pill tone={status.tone}>{status.label}</Pill>
@@ -110,8 +130,9 @@ function BrokerCard(props: { readonly broker: BrokerSummary }) {
                   defaultValue_one: '{{count}} device',
                   defaultValue_other: '{{count}} devices',
                 })}
-                {' · '}
-                {t('brokers.card.linked', '{{linked}} linked', { linked: broker.devices.linked })}
+                {broker.id === 'matter'
+                  ? ` · ${t('brokers.card.linked', '{{linked}} linked', { linked: broker.devices.linked })}`
+                  : null}
               </span>
             </>
           }

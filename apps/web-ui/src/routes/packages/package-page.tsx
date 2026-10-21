@@ -313,7 +313,7 @@ export function PackagePage() {
                 },
               ]
             : []),
-          ...(canConfigure && isUp && !found.isSystem
+          ...(canConfigure && isUp
             ? [
                 {
                   label: t('packages.package.stop', 'Stop'),
@@ -322,7 +322,7 @@ export function PackagePage() {
                 },
               ]
             : []),
-          ...(canInstall && !found.isSystem
+          ...(canInstall
             ? [
                 {
                   label: t('common.remove', 'Remove'),
@@ -365,9 +365,6 @@ export function PackagePage() {
                   <HeroFact>
                     {t('packages.package.vversion', 'v{{version}}', { version: found.version })}
                   </HeroFact>
-                  {found.isSystem ? (
-                    <HeroFact icon="lock">{t('packages.package.system', 'System')}</HeroFact>
-                  ) : null}
                   {found.source === 'local' ? (
                     <HeroFact icon="hard-drive">
                       {t('packages.package.localFile', 'Local file')}

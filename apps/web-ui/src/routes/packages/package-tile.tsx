@@ -11,15 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { ApiPackage, PackageState } from '@nebulahome/contracts';
-import {
-  AppIcon,
-  Pill,
-  Tile,
-  TILE_FRAME,
-  TileMark,
-  type BadgeTone,
-  type PillTone,
-} from '@nebulahome/ui';
+import { AppIcon, Pill, Tile, TILE_FRAME, type BadgeTone, type PillTone } from '@nebulahome/ui';
 
 import { defineMessage, type Message, text } from '@/i18n/messages';
 import { packageLogoUrl } from '@/packages/api';
@@ -132,29 +124,16 @@ export function PackageTile(props: PackageTileProps) {
         <Tile
           logo={<PackageLogo found={found} size={44} />}
           marks={
-            !found.isSystem && update === undefined ? undefined : (
-              <>
-                {update === undefined ? null : (
-                  <span
-                    title={t(
-                      'packages.packageTile.versionUpdateIsOut',
-                      'Version {{update}} is out',
-                      { update },
-                    )}
-                    className="inline-flex h-6.5 items-center gap-1.5 rounded-chip bg-cyan/12 px-2 font-mono text-mono-caption text-cyan tabular"
-                  >
-                    <AppIcon id="circle-arrow-up" size={13} />
-                    {update}
-                  </span>
-                )}
-                {found.isSystem ? (
-                  <TileMark
-                    title={t('packages.packageTile.partOfThePlatform', 'Part of the platform')}
-                  >
-                    <AppIcon id="lock" size={13} />
-                  </TileMark>
-                ) : null}
-              </>
+            update === undefined ? undefined : (
+              <span
+                title={t('packages.packageTile.versionUpdateIsOut', 'Version {{update}} is out', {
+                  update,
+                })}
+                className="inline-flex h-6.5 items-center gap-1.5 rounded-chip bg-cyan/12 px-2 font-mono text-mono-caption text-cyan tabular"
+              >
+                <AppIcon id="circle-arrow-up" size={13} />
+                {update}
+              </span>
             )
           }
           name={found.name}

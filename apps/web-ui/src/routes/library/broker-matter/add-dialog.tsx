@@ -37,7 +37,7 @@ import {
   StepList,
   stepsDone,
 } from '@/routes/library/broker-matter/matter-steps';
-import { MatterMark } from '@/routes/library/brokers-page';
+import { BrokerMark } from '@/routes/library/brokers-page';
 import { devicePath } from '@/routes/library/device/device-path';
 import { TransportMark, useVendorsById, wayName } from '@/routes/library/transport-marks';
 import { FALLBACK_COLOR } from '@/routes/library/vendor-card';
@@ -125,7 +125,7 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
         onClose={close}
         size="form"
         layout="card"
-        lead={<MatterMark size={44} isLit />}
+        lead={<BrokerMark size={44} isLit />}
         title={t('brokers.matter.add.title', 'Add a Matter device')}
         description={t(
           'brokers.matter.add.line',
@@ -228,7 +228,7 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
       onClose={close}
       size="picker"
       layout="card"
-      lead={<MatterMark size={44} isLit />}
+      lead={<BrokerMark size={44} isLit />}
       title={
         isAsking
           ? t('brokers.matter.adding.testTitle', 'This device has a test certificate')
@@ -397,7 +397,7 @@ function TwinOrDone(props: TwinOrDoneProps) {
         onClose={onClose}
         size="picker"
         layout="card"
-        lead={<MatterMark size={44} isLit />}
+        lead={<BrokerMark size={44} isLit />}
         title={t('brokers.matter.adding.doneTitle', 'Added')}
         description={t(
           'brokers.matter.adding.doneLine',
@@ -495,7 +495,7 @@ export function TwinDialog(props: TwinDialogProps) {
       onClose={onClose}
       size="wide"
       layout="card"
-      lead={<MatterMark size={44} isLit />}
+      lead={<BrokerMark size={44} isLit />}
       title={t('brokers.matter.twin.title', 'Added, and it is one you have')}
       description={t('brokers.matter.twin.line', 'Matter found a twin')}
       footer={

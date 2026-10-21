@@ -407,14 +407,14 @@ describe('a vendor page', () => {
     vi.mocked(fetchVendor).mockResolvedValue({
       ...BAMBU,
       requires: { packages: { mqtt: '^1.0.0' }, services: [] },
-      packageProblems: ['Bambu Lab needs the MQTT package, which is not running'],
+      packageProblems: ['Bambu Lab needs the Frigate package, which is not running'],
       needsPackage: true,
     });
     vi.mocked(fetchDevices).mockResolvedValue([]);
     renderPage('bambu-lab');
 
     expect(
-      await screen.findByText('Bambu Lab needs the MQTT package, which is not running'),
+      await screen.findByText('Bambu Lab needs the Frigate package, which is not running'),
     ).toBeTruthy();
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Add device' }).disabled).toBe(
       true,

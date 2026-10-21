@@ -12,7 +12,7 @@ describe('suggestName', () => {
   it("offers the image's own name, numbered when a container has it", () => {
     expect(suggestName('linuxserver/jellyfin', [])).toBe('jellyfin');
     expect(suggestName('linuxserver/jellyfin', ['jellyfin', 'jellyfin-2'])).toBe('jellyfin-3');
-    expect(suggestName('ghcr.io/home-assistant/home-assistant', [])).toBe('home-assistant');
+    expect(suggestName('ghcr.io/esphome/esphome', [])).toBe('esphome');
   });
 });
 

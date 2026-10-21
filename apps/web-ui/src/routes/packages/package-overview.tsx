@@ -283,9 +283,7 @@ export function PackageOverview(props: PackageOverviewProps) {
             },
             {
               label: t('packages.packageOverview.source', 'Source'),
-              value: found.isSystem
-                ? t('packages.packageOverview.shipsWithNebulaHome', 'Ships with Nebula Home')
-                : text(SOURCE_LABELS[found.source]),
+              value: text(SOURCE_LABELS[found.source]),
             },
             ...(found.repository === null
               ? []
@@ -308,12 +306,6 @@ export function PackageOverview(props: PackageOverviewProps) {
             {
               label: t('packages.packageOverview.runsAs', 'Runs as'),
               value: text(RUNTIME_LABELS[found.runtime]),
-            },
-            {
-              label: t('packages.packageOverview.removable', 'Removable'),
-              value: found.isSystem
-                ? t('packages.packageOverview.noPartOfThe', 'No, part of the platform')
-                : t('packages.packageOverview.yes', 'Yes'),
             },
             {
               label: t('packages.packageOverview.installed', 'Installed'),

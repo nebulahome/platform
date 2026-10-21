@@ -88,7 +88,7 @@ beforeEach(() => {
         latest: {
           version: '1.1.0',
           requires: { packages: {}, services: [] },
-          provides: ['mqtt-broker'],
+          provides: [],
           publishedAt: new Date('2026-09-25T08:00:00.000Z'),
           changelogUrl: null,
           source: 'index',
@@ -108,8 +108,7 @@ describe('PackagesPage', () => {
     const tile = await screen.findByRole('link', { name: 'MQTT' });
 
     expect(within(tile).getByText('Running')).toBeTruthy();
-    // Part of the platform and an update out are marks, named for whoever cannot see them.
-    expect(within(tile).getByRole('img', { name: 'Part of the platform' })).toBeTruthy();
+    // An update out is a mark, named for whoever cannot see it.
     expect(await within(tile).findByTitle(/is out/u)).toBeTruthy();
     expect(screen.getByText(/1 update out/u)).toBeTruthy();
     // What the index offers is no list of its own here: only the updates are read from it.

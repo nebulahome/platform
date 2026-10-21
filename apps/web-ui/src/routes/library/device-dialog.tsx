@@ -37,6 +37,7 @@ import { useTranslation } from 'react-i18next';
 import {
   integrationIdSchema,
   MATTER_TRANSPORT,
+  MQTT_HOUSE_TRANSPORT,
   modelChoicesOf,
   suggestDeviceId,
   type DeviceProbeReply,
@@ -224,16 +225,23 @@ export function DeviceDialog(props: DeviceDialogProps) {
   // what they are called, their icon, their tags and their room.
   const isSystem = existing !== undefined && existing.origin !== 'integration';
   const taken = target?.mode === 'create' ? target.existingIds : [];
-  // A Matter device is added from the Brokers page, never by hand, and one added stays on Matter.
-  const isMatter = existing?.transport === MATTER_TRANSPORT;
+  // A broker's device is added by its broker, never by hand, and one added stays on its broker.
+  /**
+   * The broker a transport is, if it is one.
+   *
+   * @param transport - The transport.
+   * @returns It, for a broker's; null for any other.
+   */
+  const brokerOf = (transport: string | undefined): string | null =>
+    transport === MATTER_TRANSPORT || transport === MQTT_HOUSE_TRANSPORT ? transport : null;
+  const broker = brokerOf(existing?.transport);
   const choices =
     vendor === undefined
       ? []
       : modelChoicesOf(vendor).filter(
           (each) =>
-            (vendor.drivers.find((driver) => driver.id === each.kind)?.transport ===
-              MATTER_TRANSPORT) ===
-            isMatter,
+            brokerOf(vendor.drivers.find((driver) => driver.id === each.kind)?.transport) ===
+            broker,
         );
 
   const [choice, setChoice] = useState<ModelChoice | undefined>(() =>
