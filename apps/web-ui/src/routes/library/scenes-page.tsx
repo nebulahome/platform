@@ -10,12 +10,12 @@
  * Edit and Remove spelled out above its name gave the two rarest actions the most prominent
  * place on it, and three buttons on a card that is itself a button is a card nobody can read.
  */
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 
-import type { EntityView, SceneApplyResult, SceneView } from '@nebulahome/contracts';
+import type { EntityId, EntityView, SceneApplyResult, SceneView } from '@nebulahome/contracts';
 import {
   AppIcon,
   Button,
@@ -23,19 +23,28 @@ import {
   OverflowMenu,
   SelectField,
   TableFooter,
+  toast,
 } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { SortHeader } from '@/components/sort-header';
 import { areaFacetChoices } from '@/lib/area-tree';
 import { DOCS_LINKS } from '@/lib/docs-links';
+import { toMessage } from '@/lib/error-message';
 import { useListState } from '@/lib/use-list-state';
 import { usePaging } from '@/lib/use-paging';
-import { applyScene, fetchEntities, fetchScenes, LIBRARY_QUERY_KEYS } from '@/library/api';
+import {
+  applyScene,
+  createScene,
+  fetchEntities,
+  fetchScenes,
+  LIBRARY_QUERY_KEYS,
+} from '@/library/api';
 import { matchesSceneFilter, OPEN_SCENE_FILTER, SCENE_FILTER_CODEC } from '@/library/list-filters';
 import { toastSceneApplied, toastSceneFailed } from '@/library/scene-apply-toast';
 import { DeviceIcon, useCatalogueIcons } from '@/routes/library/device-icon';
 import { Facet, facetChoices, FilterSheet } from '@/routes/library/filter-sheet';
+import { LibraryImportFlow, type ImportResult } from '@/routes/library/library-import-flow';
 import { LibraryPage } from '@/routes/library/library-page';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
@@ -81,6 +90,7 @@ export function ScenesPage() {
   const canWrite = can('scene:write');
   const canApply = can('scene:apply');
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [filter, setFilter] = useListState(SCENE_FILTER_CODEC);
   const { areas, tree } = useAreas();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -188,6 +198,66 @@ export function ScenesPage() {
     },
   });
 
+  /**
+   * Creates every scene a file brought in, one after another, and says how it went.
+   *
+   * @param result - What the import produced.
+   */
+  const importAll = async (result: ImportResult): Promise<void> => {
+    if (result.kind !== 'scenes') {
+      return;
+    }
+
+    const failed: string[] = [];
+
+    for (const item of result.items) {
+      try {
+        // eslint-disable-next-line no-await-in-loop -- one at a time, so a big file does not flood the API and the order holds
+        await createScene({
+          key: item.key,
+          name: item.name,
+          icon: item.icon,
+          areaId: item.areaKey === null ? null : (areaByKey.get(item.areaKey)?.id ?? null),
+          transitionMs: item.transitionMs,
+          rollbackOnPartialFailure: item.rollbackOnPartialFailure,
+          members: item.members.map((member) => ({
+            entityId: member.entityId as EntityId,
+            targetState: member.targetState,
+            transitionMs: member.transitionMs,
+          })),
+          unresolvedMembers: item.unresolvedMembers.map((member) => ({
+            ...member,
+            entityId: member.entityId as EntityId,
+          })),
+        });
+      } catch (error: unknown) {
+        failed.push(`${item.name}: ${toMessage(error)}`);
+      }
+    }
+
+    await queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.scenes });
+
+    const imported = result.items.length - failed.length;
+
+    if (failed.length === 0) {
+      toast.success({
+        title: t('library.scenes.imported', {
+          count: imported,
+          defaultValue_one: '1 scene imported',
+          defaultValue_other: '{{count}} scenes imported',
+        }),
+      });
+    } else {
+      toast.warning({
+        title: t('library.scenes.importedSome', '{{imported}} of {{total}} imported', {
+          imported: String(imported),
+          total: String(result.items.length),
+        }),
+        message: failed.slice(0, 3).join(' · '),
+      });
+    }
+  };
+
   return (
     <LibraryPage
       title={t('library.scenes.scenes', 'Scenes')}
@@ -240,14 +310,28 @@ export function ScenesPage() {
       }
       action={
         canWrite ? (
-          <Button
-            onClick={() => {
-              void navigate('/scenes/new');
-            }}
-          >
-            <AppIcon id="plus" size={15} />
-            {t('library.scenes.newScene', 'New scene')}
-          </Button>
+          <span className="flex items-center gap-2">
+            <LibraryImportFlow
+              kind="scenes"
+              takenKeys={items.map((scene) => scene.key)}
+              onImport={importAll}
+            >
+              {(choose) => (
+                <Button variant="ghost" onClick={choose}>
+                  <AppIcon id="upload" size={15} />
+                  {t('library.scenes.import', 'Import')}
+                </Button>
+              )}
+            </LibraryImportFlow>
+            <Button
+              onClick={() => {
+                void navigate('/scenes/new');
+              }}
+            >
+              <AppIcon id="plus" size={15} />
+              {t('library.scenes.newScene', 'New scene')}
+            </Button>
+          </span>
         ) : undefined
       }
       isPending={scenes.isPending}
@@ -341,9 +425,20 @@ export function ScenesPage() {
                       >
                         {scene.name}
                       </Link>
-                      <span className="truncate text-ui-sm text-foreground-subtle">
-                        {place === '' ? scene.key : place}
-                      </span>
+                      {scene.unresolvedMembers.length > 0 ? (
+                        <span className="flex items-center gap-1 truncate text-ui-sm text-danger">
+                          <AppIcon id="triangle-alert" size={12} />
+                          {t('library.scenes.waiting', {
+                            count: scene.unresolvedMembers.length,
+                            defaultValue_one: '1 member waits for an entity',
+                            defaultValue_other: '{{count}} members wait for an entity',
+                          })}
+                        </span>
+                      ) : (
+                        <span className="truncate text-ui-sm text-foreground-subtle">
+                          {place === '' ? scene.key : place}
+                        </span>
+                      )}
                     </span>
                   </span>
                   <span className="hidden font-mono text-mono-ui text-foreground-muted tabular md:block">
@@ -355,7 +450,9 @@ export function ScenesPage() {
                         variant="ghost"
                         size="compact"
                         isBusy={isBusy}
-                        disabled={busyId !== null && !isBusy}
+                        disabled={
+                          (busyId !== null && !isBusy) || scene.unresolvedMembers.length > 0
+                        }
                         onClick={() => {
                           setBusyId(scene.id);
                           apply.mutate(scene.id);

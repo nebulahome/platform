@@ -27,9 +27,6 @@ const SHOWN = 5;
 /** What the card needs. */
 export type LastRunsProps = {
   readonly automationId: string;
-
-  /** What became of the last Run now, to say beside the runs. */
-  readonly notice?: string | null;
 };
 
 /**
@@ -41,7 +38,7 @@ export type LastRunsProps = {
 export function LastRuns(props: LastRunsProps) {
   const { t } = useTranslation();
 
-  const { automationId, notice } = props;
+  const { automationId } = props;
   const runs = useQuery({
     queryKey: [...LIBRARY_QUERY_KEYS.automationRuns, automationId],
     /**
@@ -58,11 +55,6 @@ export function LastRuns(props: LastRunsProps) {
   return (
     <Panel title={t('automation.lastRuns.lastRuns', 'Last runs')}>
       <div className="flex flex-col border-t border-border">
-        {notice === null || notice === undefined ? null : (
-          <p className="border-b border-border px-5.5 py-3 text-ui-sm text-foreground-muted">
-            {notice}
-          </p>
-        )}
         {runs.isPending ? (
           <p className="px-5.5 py-4 text-ui-sm text-foreground-subtle">
             {t('automation.lastRuns.reading', 'Reading…')}

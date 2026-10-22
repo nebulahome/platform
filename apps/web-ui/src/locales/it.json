@@ -128,7 +128,10 @@
       "conditionOrAnAnd": "Una condizione, o un gruppo AND oppure OR di condizioni.",
       "conditions": "Condizioni",
       "if": "Se",
-      "thisCheckIsNot": "Questo controllo non fa più parte delle automazioni. Rimuovilo per salvare l'automazione."
+      "thisCheckIsNot": "Questo controllo non fa più parte delle automazioni. Rimuovilo per salvare l'automazione.",
+      "joinWith": "Unisci le condizioni con",
+      "and": "E",
+      "or": "O"
     },
     "durationField": {
       "atMostMaxms": "Al massimo {{maxMs}}.",
@@ -182,7 +185,8 @@
       "manualTriggerHasNothing": "Un'attivazione manuale non ha niente da provare: scatta da Esegui",
       "whatWakesItAny": "Cosa la sveglia. Ne basta una qualsiasi.",
       "whatWakesTheAutomation": "Cosa sveglia l'automazione.",
-      "when": "Quando"
+      "when": "Quando",
+      "or": "O"
     }
   },
   "automations": {
@@ -250,7 +254,12 @@
         "turnOn": "accendi",
         "value": "valore {{value}}",
         "volume": "volume {{volume}}%",
-        "white": "bianco {{kelvin}}"
+        "white": "bianco {{kelvin}}",
+        "source": "sorgente {{source}}",
+        "mute": "silenzia",
+        "unmute": "riattiva l'audio",
+        "cleanRooms": "pulisci {{count}} stanze",
+        "record": "registra per {{seconds}} s"
       },
       "compares": {
         "eq": "esattamente",
@@ -945,7 +954,8 @@
       "toggle": "Inverti",
       "turnOff": "Spegni",
       "turnOn": "Accendi",
-      "unlock": "Sblocca"
+      "unlock": "Sblocca",
+      "custom": "Comando del suo pacchetto"
     }
   },
   "common": {
@@ -970,7 +980,9 @@
     "on": "Attivo",
     "remove": "Rimuovi",
     "save": "Salva",
-    "show": "Mostra"
+    "show": "Mostra",
+    "no": "No",
+    "yes": "Sì"
   },
   "containers": {
     "compose": {
@@ -2321,7 +2333,14 @@
       "telegram": "telegram",
       "thisLightChangesAt": "Questa luce cambia subito: non sa fare dissolvenze.",
       "wait": "Attendi",
-      "whatItIsGiven": "Cosa riceve"
+      "whatItIsGiven": "Cosa riceve",
+      "do": "Azione",
+      "commandId": "Comando",
+      "commandIdExample": "start_recording",
+      "asItsPackageNames": "Come lo chiama il suo pacchetto.",
+      "arguments": "Argomenti",
+      "jsonObjectOptional": "Un oggetto JSON; vuoto per nessuno.",
+      "optionalField": "{{label}} (facoltativo)"
     },
     "adoptDialog": {
       "adopt": "Adotta",
@@ -2366,20 +2385,23 @@
       "newAlias": "Nuovo alias",
       "noAliasHasThat": "Nessun alias ha quell'indirizzo.",
       "none": "Nessuna",
-      "notSaved": "Non salvato",
       "objectIdCannotBe": "L'object id non può essere vuoto.",
       "otherAliasesStillRead": "Altri alias leggono ancora questo: {{names}}. Cambia prima le loro formule.",
       "produces": "Produce",
       "reading": "Lettura…",
       "readsNow": "Legge ora",
-      "serverRefusedIt": "Il server l'ha rifiutato",
       "step": "Passo",
       "stored": "Memorizzato",
       "unit": "Unità",
       "waitsThisLongAfter": "Aspetta questo tempo dopo che una sorgente cambia, prima di ricalcolare.",
       "whatItIs": "Cos'è",
       "whenASourceStops": "Quando una sorgente smette di riferire",
-      "writeItWithThe": "Scrivila con le variabili delle sorgenti, per esempio (t1 + t2) / 2."
+      "writeItWithThe": "Scrivila con le variabili delle sorgenti, per esempio (t1 + t2) / 2.",
+      "created": "{{name}} creato",
+      "saved": "{{name}} salvato",
+      "notSavedToast": "L'alias non è stato salvato",
+      "removed": "{{name}} eliminato",
+      "notRemoved": "L'alias non è stato eliminato"
     },
     "aliasFilter": {
       "anyDomain": "Qualsiasi dominio",
@@ -2516,8 +2538,7 @@
       "newAutomation": "Nuova automazione",
       "noAutomationHasThat": "Nessuna automazione ha quell'indirizzo.",
       "notSaved": "Non salvata",
-      "notStarted": "Non partita: {{reason}}.",
-      "notStartedTurnedAway": "Non partita: è stata rifiutata.",
+      "notStartedTurnedAway": "È stata rifiutata.",
       "parallelEachTriggerStarts": "In parallelo: ogni attivazione avvia un'esecuzione tutta sua.",
       "queuedBehindTheRun": "In coda dietro l'esecuzione in corso.",
       "queuedTheNextRun": "In coda: l'esecuzione successiva aspetta che questa finisca.",
@@ -2529,12 +2550,31 @@
       "runsTheSavedVersion": "Esegue la versione salvata, non queste modifiche.",
       "runsWheneverItsTriggers": "Viene eseguita ogni volta che scattano le sue attivazioni.",
       "singleATriggerWhile": "Singola: un'attivazione mentre è in esecuzione viene ignorata.",
-      "startedItShowsHere": "Partita. Compare qui quando finisce.",
+      "startedItShowsHere": "Compare in Ultime esecuzioni quando finisce.",
       "stopARunAfter": "Ferma un'esecuzione dopo",
       "warmLightInThe": "Luce calda in soggiorno quando qualcuno entra dopo il tramonto.",
       "whatItIs": "Cos'è",
       "whatOtherAutomationsCall": "Come la chiamano le altre automazioni. Fissa una volta creata.",
-      "whenItIsAlready": "Quando è già in esecuzione"
+      "whenItIsAlready": "Quando è già in esecuzione",
+      "created": "{{name}} creata",
+      "saved": "{{name}} salvata",
+      "notSavedTitle": "L'automazione non è stata salvata",
+      "started": "Avviata",
+      "queued": "In coda",
+      "notStartedTitle": "Non avviata",
+      "couldNotRun": "Non è stato possibile avviarla",
+      "namesMissing": "Usa entità che questa casa non ha: sceglile e salva per poterla avviare.",
+      "file": "File",
+      "fileNote": "Come un unico file .json, da conservare o da portare in un'altra casa. Importa legge anche le automazioni di Home Assistant.",
+      "export": "Esporta",
+      "importedTitle": "Caricata nella bozza",
+      "importedNote": "Salvala per tenerla.",
+      "import": "Importa",
+      "missingEntities_one": "Usa 1 entità che questa casa non ha ({{list}}). Non partirà finché non ne scegli una.",
+      "missingEntities_many": "Usa {{count}} entità che questa casa non ha ({{list}}). Non partirà finché non le scegli.",
+      "missingEntities_other": "Usa {{count}} entità che questa casa non ha ({{list}}). Non partirà finché non le scegli.",
+      "fix": "Sistema",
+      "useThese": "Usa queste"
     },
     "automationFilter": {
       "anyMode": "Qualsiasi modalità",
@@ -2556,7 +2596,10 @@
       "itsDefinitionIsNot": "La sua definizione non ha una forma che questa versione capisca.",
       "moreForName": "Altro per {{name}}",
       "nameEnabled": "{{name}} attiva",
-      "notRunYet": "Non ancora eseguita"
+      "notRunYet": "Non ancora eseguita",
+      "missingEntities_one": "Usa 1 entità che la casa non ha: non parte",
+      "missingEntities_many": "Usa {{count}} entità che la casa non ha: non parte",
+      "missingEntities_other": "Usa {{count}} entità che la casa non ha: non parte"
     },
     "automations": {
       "automationLetsTheHouse": "Un'automazione fa agire la casa da sola: scegli cosa la sveglia, i controlli che fa prima e i passi che compie poi - le luci al tramonto, il riscaldamento spento quando si apre una finestra.",
@@ -2573,7 +2616,17 @@
       "mode": "Modalità",
       "name": "Nome",
       "newAutomation": "Nuova automazione",
-      "search": "Cerca"
+      "search": "Cerca",
+      "removed": "{{name}} eliminata",
+      "turnedOn": "{{name}} attivata",
+      "turnedOff": "{{name}} disattivata",
+      "notRemoved": "L'automazione non è stata eliminata",
+      "notChanged": "L'automazione non è stata modificata",
+      "imported_one": "1 automazione importata",
+      "imported_many": "{{count}} automazioni importate",
+      "imported_other": "{{count}} automazioni importate",
+      "importedSome": "{{imported}} di {{total}} importate",
+      "import": "Importa"
     },
     "blockPickerModal": {
       "esc": "Esc",
@@ -3035,18 +3088,34 @@
       "seconds0MeansImmediate": "Secondi. 0 vuol dire subito. Le luci che non sanno fare dissolvenze cambiano subito.",
       "secondsForThisEntity": "Secondi solo per questa entità. Lascia vuoto per il valore della scena.",
       "transition": "Transizione",
-      "unavailableNow": "· Non disponibile ora",
       "whatItIs": "Cos'è",
       "whatTheApiAnd": "Come la chiamano l'API e le automazioni. Non cambia più dopo questo.",
-      "whatTheSceneSets": "Cosa imposta la scena, ogni entità con quello che le viene detto."
+      "whatTheSceneSets": "Cosa imposta la scena, ogni entità con quello che le viene detto.",
+      "created": "{{name}} creata",
+      "saved": "{{name}} salvata",
+      "notSaved": "La scena non è stata salvata",
+      "removed": "{{name}} eliminata",
+      "notRemoved": "La scena non è stata eliminata",
+      "notInTheHouse": "Non è in questa casa. Scegli l'entità che rappresenta; fino ad allora la scena non si può applicare.",
+      "standsFor": "Rappresenta",
+      "transitionAsTheScene": "Transizione come la scena",
+      "transitionSeconds": "Transizione {{seconds}} s",
+      "removeFromTheScene": "Togli dalla scena",
+      "closeTitle": "Chiudi {{title}}",
+      "openTitle": "Apri {{title}}",
+      "unavailableKeepsValues": "Non disponibile ora · tiene gli ultimi valori che aveva.",
+      "importedTitle": "Caricata nel modulo",
+      "importedNote": "Salvala per tenerla.",
+      "cannotApplyYet": "Alcuni membri aspettano un'entità: sceglile prima.",
+      "file": "File",
+      "fileNote": "Come un unico file .json, da conservare o da portare in un'altra casa. Importa legge anche le scene di Home Assistant.",
+      "export": "Esporta",
+      "import": "Importa"
     },
     "sceneMemberFields": {
-      "colourHueSaturation": "Colore · {{hue}}° · {{saturation}}%",
-      "colourTemperature": "Temperatura di colore",
       "level": "Livello",
       "lock": "Serratura",
       "locked": "Bloccata",
-      "mireds": "Mired.",
       "mode": "Modalità",
       "muted": "Muto",
       "paused": "In pausa",
@@ -3058,7 +3127,12 @@
       "targetTemperature": "Temperatura obiettivo",
       "tilt": "Inclinazione",
       "unlocked": "Sbloccata",
-      "volume": "Volume"
+      "volume": "Volume",
+      "white": "Bianco",
+      "colour": "Colore",
+      "saturation": "Saturazione",
+      "closed": "Chiusa",
+      "offKeepsTheRest": "Livello e colore non valgono finché è spenta."
     },
     "scenes": {
       "anyArea": "Qualsiasi area",
@@ -3076,7 +3150,15 @@
       "scene": "Scena",
       "sceneRemembersHowA": "Una scena ricorda come deve stare un gruppo di dispositivi - lampade abbassate, tapparelle a metà, musica bassa - e rimette tutto a posto con un tocco, o da un'automazione.",
       "scenes": "Scene",
-      "searchScenesMembers": "Cerca scene, membri…"
+      "searchScenesMembers": "Cerca scene, membri…",
+      "imported_one": "1 scena importata",
+      "imported_many": "{{count}} scene importate",
+      "imported_other": "{{count}} scene importate",
+      "importedSome": "{{imported}} di {{total}} importate",
+      "import": "Importa",
+      "waiting_one": "1 membro aspetta un'entità",
+      "waiting_many": "{{count}} membri aspettano un'entità",
+      "waiting_other": "{{count}} membri aspettano un'entità"
     },
     "searchField": {
       "clearTheSearch": "Svuota la ricerca"
@@ -3458,6 +3540,34 @@
     "vendorUpdate": {
       "done": "{{name}} è aggiornata",
       "failed": "Impossibile aggiornare {{name}}"
+    },
+    "import": {
+      "notImported": "Non importato",
+      "holdsScenes": "Questo file contiene scene, non automazioni.",
+      "holdsAutomations": "Questo file contiene automazioni, non scene.",
+      "nothingLeft": "Niente da importare",
+      "pickTitle": "Quale?",
+      "pickDescription_one": "Il file ne contiene {{count}}; scegli quella da aprire qui.",
+      "pickDescription_many": "Il file ne contiene {{count}}; scegli quella da aprire qui.",
+      "pickDescription_other": "Il file ne contiene {{count}}; scegli quella da aprire qui.",
+      "useThis": "Usala",
+      "importCount": "Importa {{count}}"
+    },
+    "resolveEntities": {
+      "readyTitle": "Pronto da importare",
+      "title": "Entità non trovate",
+      "allFound": "Tutte le entità del file sono in questa casa.",
+      "description": "Il file usa entità che questa casa chiama in un altro modo, o che non ha. Collega ognuna a una delle tue, oppure lasciala: quelle rimaste vengono segnate in errore e non partono finché non ne scegli una.",
+      "uses_one": "Usata una volta",
+      "uses_many": "Usata {{count}} volte",
+      "uses_other": "Usata {{count}} volte",
+      "standsFor": "Usa al suo posto",
+      "left_one": "1 entità resta com'è: ciò che la usa sarà segnato in errore.",
+      "left_many": "{{count}} entità restano come sono: ciò che le usa sarà segnato in errore.",
+      "left_other": "{{count}} entità restano come sono: ciò che le usa sarà segnato in errore.",
+      "notes_one": "1 cosa è stata tralasciata o cambiata",
+      "notes_many": "{{count}} cose sono state tralasciate o cambiate",
+      "notes_other": "{{count}} cose sono state tralasciate o cambiate"
     }
   },
   "live": {
@@ -4344,5 +4454,50 @@
       "done": ", completato",
       "label": "Passi"
     }
+  },
+  "haImport": {
+    "triggerUnread": "Un trigger non si legge ed è stato tralasciato.",
+    "forTemplate": "Il \"for\" di un trigger è un template; è stato tralasciato.",
+    "attributeTrigger": "Un trigger su un attributo ({{attribute}}) non ha equivalente ed è stato tralasciato.",
+    "severalStates": "Un trigger elencava più stati; è stato tenuto solo il primo di ciascuno.",
+    "numericTemplate": "Un trigger numerico su un template o un attributo non ha equivalente ed è stato tralasciato.",
+    "numericWindow": "Un trigger tra {{above}} e {{below}} tiene solo \"sopra {{above}}\".",
+    "numericEntity": "Un trigger numerico confronta con un'altra entità; è stato tralasciato.",
+    "timeEntity": "Un trigger orario alle {{at}} (un'entità o un template) è stato tralasciato.",
+    "eventTrigger": "Un trigger a evento è stato tenuto, ma qui i trigger a evento non possono ancora scattare.",
+    "triggerKind": "Un trigger \"{{kind}}\" qui non ha equivalente ed è stato tralasciato.",
+    "templateCondition": "Una condizione template è stata tralasciata.",
+    "attributeCondition": "Una condizione su un attributo o un template è stata tralasciata.",
+    "conditionFor": "Il \"for\" di una condizione non ha equivalente; controlla solo lo stato.",
+    "numericConditionTemplate": "Una condizione numerica su un template o un attributo è stata tralasciata.",
+    "timeConditionEntity": "Una condizione oraria su un'entità o un template è stata tralasciata.",
+    "sunOffset": "L'offset di una condizione sul sole non ha equivalente; controlla invece l'altezza del sole.",
+    "sunCondition": "Una condizione sul sole non si legge ed è stata tralasciata.",
+    "conditionKind": "Una condizione \"{{kind}}\" qui non ha equivalente ed è stata tralasciata.",
+    "areaTarget": "{{service}} era rivolto a un'area, un dispositivo o un'etichetta; sono state tenute solo le entità che nomina.",
+    "serviceTemplate": "{{service}} usa un template ed è stato tralasciato.",
+    "sceneApply": "scene.apply imposta stati scritti sul posto; tralasciato.",
+    "notify": "Una notifica ({{service}}) è stata tenuta, ma qui le notifiche non si possono ancora inviare.",
+    "automationSwitch": "{{service}} attiva o disattiva un'altra automazione o uno script; tralasciato.",
+    "serviceUnknown": "{{service}} qui non ha equivalente ed è stato tralasciato.",
+    "continueOnError": "continue_on_error non ha equivalente: un passo fallito termina l'esecuzione.",
+    "serviceNameTemplate": "Un servizio indicato con un template è stato tralasciato.",
+    "delayTemplate": "Un ritardo scritto come template è stato tralasciato.",
+    "waitTemplate": "Un'attesa su un template è stata tralasciata.",
+    "waitSeveral": "Un'attesa su uno di più trigger tiene solo il primo.",
+    "forEach": "Una ripetizione per ogni elemento non ha ancora equivalente ed è stata tralasciata.",
+    "stepKind": "Un passo \"{{kind}}\" qui non ha equivalente ed è stato tralasciato.",
+    "automationNumber": "Automazione {{number}}",
+    "blueprint": "È fatta da un blueprint, che non si può portare; è stata tralasciata.",
+    "noTriggers": "Nessuno dei suoi trigger si è potuto portare; parte solo su richiesta finché non ne aggiungi uno.",
+    "sceneNumber": "Scena {{number}}",
+    "memberUnread": "Cosa imposta {{entityId}} non si legge; tralasciato."
+  },
+  "libraryFile": {
+    "newerVersion": "Questo file viene da un Nebula Home più recente. Aggiorna questo per importarlo.",
+    "itemUnread": "Non si legge ed è stato tralasciato: {{why}}",
+    "notReadable": "Questo file non è né JSON né YAML, quindi non contiene automazioni o scene.",
+    "otherFormat": "Questo file è un {{format}}, non automazioni o scene.",
+    "nothingToImport": "Niente in questo file si legge come un'automazione o una scena."
   }
 }

@@ -10,6 +10,7 @@ import { dashboardDocumentSchema, type DashboardDocument } from '@nebulahome/con
 
 import { allCards } from '@/dashboard/dashboard-layout';
 import { translate } from '@/i18n/messages';
+import { saveJsonFile } from '@/library/library-file';
 
 /** What reading a file produced. */
 export type DashboardFileReading =
@@ -131,16 +132,5 @@ export function summariseDashboardFile(
  * @param fileName - What it is called.
  */
 export function saveDashboardFile(file: DashboardDocument, fileName: string): void {
-  const blob = new Blob([`${JSON.stringify(file, null, 2)}\n`], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-
-  link.href = url;
-  link.download = fileName;
-  link.click();
-
-  // The download has started from the link; the address is not needed after this turn.
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, 0);
+  saveJsonFile(file, fileName);
 }

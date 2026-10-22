@@ -28,7 +28,12 @@ import { useCallback, useState, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
-import { AUTOMATION_MODES, type AutomationMode } from '@nebulahome/contracts';
+import {
+  AUTOMATION_MODES,
+  renameEntities,
+  type AutomationMode,
+  type JsonObject,
+} from '@nebulahome/contracts';
 import {
   AppIcon,
   BlockLaneConnector,
@@ -42,6 +47,7 @@ import {
   Switch,
   TextArea,
   TextField,
+  toast,
 } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
@@ -66,13 +72,17 @@ import {
   type DraftResult,
 } from '@/library/automation-draft';
 import { containersOf, getBlock, moveBlock, stepBlock, type BlockSlot } from '@/library/block-path';
+import { automationsFile, saveJsonFile } from '@/library/library-file';
+import { missingOfAutomations } from '@/library/library-import';
 import { ActionLane } from '@/routes/library/automation/action-blocks';
 import { ConditionLane } from '@/routes/library/automation/condition-blocks';
 import { DurationField } from '@/routes/library/automation/duration-field';
-import { EditorHouseProvider } from '@/routes/library/automation/editor-house';
+import { EditorHouseProvider, useEditorHouse } from '@/routes/library/automation/editor-house';
 import { LastRuns } from '@/routes/library/automation/last-runs';
 import { TriggerLane } from '@/routes/library/automation/trigger-blocks';
 import { BackLink } from '@/routes/library/detail-page';
+import { LibraryImportFlow } from '@/routes/library/library-import-flow';
+import { ResolveEntitiesModal } from '@/routes/library/resolve-entities-modal';
 
 /** What each mode is called, and what a second trigger does in it. */
 const MODES: Readonly<Record<AutomationMode, { readonly label: Message; readonly note: Message }>> =
@@ -146,8 +156,8 @@ function Editor() {
   // Whether the key still follows the name. It stops the moment somebody edits the key, because
   // a key that keeps moving under its author is worse than one they think about once.
   const [isKeyFollowing, setKeyFollowing] = useState(isNew);
-  const [problems, setProblems] = useState<readonly string[]>([]);
-  const [runNotice, setRunNotice] = useState<string | null>(null);
+  const [isFixing, setFixing] = useState(false);
+  const house = useEditorHouse();
 
   // The draft as it started, for whether anything changed: Edited in the title.
   const [initial, setInitial] = useState<AutomationDraft | null>(isNew ? emptyDraft() : null);
@@ -223,10 +233,28 @@ function Editor() {
         exact: true,
       });
 
+      toast.success({
+        title: isNew
+          ? t('library.automationEditor.created', '{{name}} created', { name: view.name })
+          : t('library.automationEditor.saved', '{{name}} saved', { name: view.name }),
+      });
+
       if (isNew) {
         setKeyFollowing(false);
         await navigate(`/automations/${view.id}`, { replace: true });
       }
+    },
+
+    /**
+     * Says why the server would not save it.
+     *
+     * @param error - What was refused.
+     */
+    onError: (error) => {
+      toast.error({
+        title: t('library.automationEditor.notSavedTitle', 'The automation was not saved'),
+        message: toMessage(error),
+      });
     },
   });
 
@@ -281,23 +309,31 @@ function Editor() {
      * @param reply - What `core` answered.
      */
     onSuccess: async (reply) => {
-      setRunNotice(
-        reply.outcome === 'started'
-          ? t('library.automationEditor.startedItShowsHere', 'Started. It shows here when it ends.')
-          : reply.outcome === 'queued'
-            ? t(
-                'library.automationEditor.queuedBehindTheRun',
-                'Queued behind the run that is going.',
-              )
-            : reply.reason === undefined
-              ? t(
-                  'library.automationEditor.notStartedTurnedAway',
-                  'Not started: it was turned away.',
-                )
-              : t('library.automationEditor.notStarted', 'Not started: {{reason}}.', {
-                  reason: reply.reason,
-                }),
-      );
+      if (reply.outcome === 'started') {
+        toast.success({
+          title: t('library.automationEditor.started', 'Started'),
+          message: t(
+            'library.automationEditor.startedItShowsHere',
+            'It shows in Last runs when it ends.',
+          ),
+        });
+      } else if (reply.outcome === 'queued') {
+        toast.info({
+          title: t('library.automationEditor.queued', 'Queued'),
+          message: t(
+            'library.automationEditor.queuedBehindTheRun',
+            'Queued behind the run that is going.',
+          ),
+        });
+      } else {
+        toast.warning({
+          title: t('library.automationEditor.notStartedTitle', 'Not started'),
+          message:
+            reply.reason ??
+            t('library.automationEditor.notStartedTurnedAway', 'It was turned away.'),
+        });
+      }
+
       await queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.automationRuns });
     },
 
@@ -307,7 +343,10 @@ function Editor() {
      * @param error - What was refused.
      */
     onError: (error) => {
-      setRunNotice(toMessage(error));
+      toast.error({
+        title: t('library.automationEditor.couldNotRun', 'It could not run'),
+        message: toMessage(error),
+      });
     },
   });
 
@@ -329,26 +368,44 @@ function Editor() {
   const onSave = (): void => {
     const body = toCreate(draft);
 
-    setProblems(body.ok ? [] : body.problems);
-
     if (body.ok) {
       save.mutate({ body: body.body, draft });
+    } else {
+      toast.error({
+        title: t('library.automationEditor.notSaved', 'Not saved'),
+        message: body.problems.slice(0, 4).join(' · '),
+      });
     }
   };
 
+  const definition = {
+    triggers: draft.triggers,
+    if: draft.if,
+    then: draft.then,
+  } as unknown as JsonObject;
+  const missing = house.isPending
+    ? []
+    : missingOfAutomations([{ definition }], (entityId) => house.entityOf(entityId) !== undefined);
+  const isMissing = (existing.data?.missingEntities.length ?? 0) > 0;
+
   const isEdited = JSON.stringify(draft) !== JSON.stringify(initial);
   const canRun = !isNew && can('automation:trigger');
-  const runReason = !(existing.data?.isEnabled ?? false)
+  const runReason = isMissing
     ? t(
-        'library.automationEditor.itIsTurnedOff',
-        'It is turned off. Turn it on and save it to run it.',
+        'library.automationEditor.namesMissing',
+        'It names entities this house does not have; pick them and save it to run it.',
       )
-    : isEdited
+    : !(existing.data?.isEnabled ?? false)
       ? t(
-          'library.automationEditor.runsTheSavedVersion',
-          'Runs the saved version, not these changes.',
+          'library.automationEditor.itIsTurnedOff',
+          'It is turned off. Turn it on and save it to run it.',
         )
-      : t('library.automationEditor.runsItNowThrough', 'Runs it now, through its checks.');
+      : isEdited
+        ? t(
+            'library.automationEditor.runsTheSavedVersion',
+            'Runs the saved version, not these changes.',
+          )
+        : t('library.automationEditor.runsItNowThrough', 'Runs it now, through its checks.');
 
   /**
    * Lets the selection go when the click landed outside every block.
@@ -376,7 +433,7 @@ function Editor() {
                 variant="ghost"
                 title={runReason}
                 isBusy={run.isPending}
-                disabled={!(existing.data?.isEnabled ?? false)}
+                disabled={!(existing.data?.isEnabled ?? false) || isMissing}
                 onClick={() => {
                   run.mutate();
                 }}
@@ -513,26 +570,120 @@ function Editor() {
               />
             </Panel>
 
-            {automationId === undefined ? null : (
-              <LastRuns automationId={automationId} notice={runNotice} />
-            )}
+            <Panel title={t('library.automationEditor.file', 'File')}>
+              <div className="flex flex-col gap-3 border-t border-border px-5.5 py-4">
+                <p className="text-caption text-foreground-subtle">
+                  {t(
+                    'library.automationEditor.fileNote',
+                    'As one .json file, to keep or to bring into another house. Import also reads Home Assistant automations.',
+                  )}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="compact"
+                    onClick={() => {
+                      saveJsonFile(
+                        automationsFile([{ ...draft, definition }]),
+                        `${draft.key === '' ? 'automation' : draft.key}.automations.json`,
+                      );
+                    }}
+                  >
+                    <AppIcon id="download" size={14} />
+                    {t('library.automationEditor.export', 'Export')}
+                  </Button>
+                  <LibraryImportFlow
+                    kind="automations"
+                    isSingle
+                    takenKeys={house.automations
+                      .filter((automation) => automation.id !== automationId)
+                      .map((automation) => automation.key)}
+                    onImport={(result) => {
+                      const [item] = result.kind === 'automations' ? result.items : [];
+
+                      if (item === undefined) {
+                        return;
+                      }
+
+                      // What is in the file replaces the draft; an automation that exists keeps
+                      // its key, which nothing may move.
+                      setDraft({ ...draftFrom(item), key: isNew ? item.key : draft.key });
+
+                      if (isNew) {
+                        setKeyFollowing(false);
+                      }
+
+                      toast.success({
+                        title: t(
+                          'library.automationEditor.importedTitle',
+                          'Brought into the draft',
+                        ),
+                        message: t('library.automationEditor.importedNote', 'Save it to keep it.'),
+                      });
+                    }}
+                  >
+                    {(choose) => (
+                      <Button variant="ghost" size="compact" onClick={choose}>
+                        <AppIcon id="upload" size={14} />
+                        {t('library.automationEditor.import', 'Import')}
+                      </Button>
+                    )}
+                  </LibraryImportFlow>
+                </div>
+              </div>
+            </Panel>
+
+            {automationId === undefined ? null : <LastRuns automationId={automationId} />}
           </>
         }
       >
-        {problems.length === 0 ? null : (
+        {missing.length === 0 ? null : (
           <Note tone="danger">
-            <span className="flex flex-col gap-1">
-              <span className="font-medium">
-                {t('library.automationEditor.notSaved', 'Not saved')}
+            <span className="flex flex-wrap items-center justify-between gap-3">
+              <span>
+                {t('library.automationEditor.missingEntities', {
+                  count: missing.length,
+                  defaultValue_one:
+                    'It names 1 entity this house does not have ({{list}}). It will not run until you pick one.',
+                  defaultValue_other:
+                    'It names {{count}} entities this house does not have ({{list}}). It will not run until you pick them.',
+                  list: missing
+                    .slice(0, 3)
+                    .map((entry) => entry.entityId)
+                    .join(', '),
+                })}
               </span>
-              {problems.map((problem) => (
-                <span key={problem}>{problem}</span>
-              ))}
+              <Button
+                variant="ghost"
+                size="compact"
+                onClick={() => {
+                  setFixing(true);
+                }}
+              >
+                {t('library.automationEditor.fix', 'Fix')}
+              </Button>
             </span>
           </Note>
         )}
-
-        {save.error === null ? null : <Note tone="danger">{toMessage(save.error)}</Note>}
+        {isFixing ? (
+          <ResolveEntitiesModal
+            isOpen
+            missing={missing}
+            confirmLabel={t('library.automationEditor.useThese', 'Use these')}
+            onClose={() => {
+              setFixing(false);
+            }}
+            onConfirm={(renames) => {
+              setFixing(false);
+              setDraft({
+                ...draft,
+                triggers: renameEntities(draft.triggers, renames),
+                if: renameEntities(draft.if, renames),
+                then: renameEntities(draft.then, renames),
+              });
+            }}
+          />
+        ) : null}
 
         <TriggerLane
           triggers={draft.triggers}

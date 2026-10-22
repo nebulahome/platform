@@ -17,7 +17,9 @@ import type {
   CapabilityState,
   EntityId,
   EntityView,
+  JsonObject,
   SceneCreate,
+  SceneUnresolvedMember,
   SceneUpdate,
   SceneView,
 } from '@nebulahome/contracts';
@@ -32,6 +34,7 @@ import {
   Segmented,
   SelectField,
   TextField,
+  toast,
 } from '@nebulahome/ui';
 
 import { areaChoices } from '@/lib/area-tree';
@@ -40,14 +43,25 @@ import {
   createScene,
   deleteScene,
   fetchEntities,
+  fetchScenes,
   LIBRARY_QUERY_KEYS,
   updateScene,
 } from '@/library/api';
 import { toKey } from '@/library/automation-draft';
-import { isSceneEntity, narrowTargetState, seedTargetState } from '@/library/scene-target-state';
+import { entityKindOf } from '@/library/entity-kind';
+import { saveJsonFile, scenesFile } from '@/library/library-file';
+import {
+  isSceneEntity,
+  narrowTargetState,
+  resolveTargetState,
+  seedTargetState,
+} from '@/library/scene-target-state';
 import { ConfirmRemoval } from '@/routes/library/confirm-removal';
 import { BackLink } from '@/routes/library/detail-page';
+import { EntityField } from '@/routes/library/entity-field';
 import { EntityPicker } from '@/routes/library/entity-picker/entity-picker';
+import { EntityTile } from '@/routes/library/entity-tile';
+import { LibraryImportFlow, type ImportResult } from '@/routes/library/library-import-flow';
 import { NameIconField } from '@/routes/library/name-icon-field';
 import { SceneMemberFields } from '@/routes/library/scene-member-fields';
 import { useAreas } from '@/routes/library/use-areas';
@@ -149,6 +163,17 @@ export function SceneDialog(props: SceneDialogProps) {
   });
 
   const entityById = new Map((entities.data ?? []).map((entity) => [entity.entityId, entity]));
+  const allScenes = useQuery({
+    queryKey: LIBRARY_QUERY_KEYS.scenes,
+    /**
+     * Reads the scenes, for the keys an imported one must not land on.
+     *
+     * @param context - The query's abort signal.
+     * @param context.signal - Cancels the request.
+     * @returns The scenes.
+     */
+    queryFn: async ({ signal }) => fetchScenes(signal),
+  });
 
   const [name, setName] = useState(existing?.name ?? '');
   const [key, setKey] = useState(existing?.key ?? '');
@@ -168,6 +193,10 @@ export function SceneDialog(props: SceneDialogProps) {
   const [members, setMembers] = useState<SceneMemberDraft[]>(() =>
     existing === undefined ? [] : draftsFromScene(existing),
   );
+  const [unresolved, setUnresolved] = useState<readonly SceneUnresolvedMember[]>(
+    existing?.unresolvedMembers ?? [],
+  );
+  const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
   const [isAdding, setAdding] = useState(false);
   const [isConfirming, setConfirming] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -203,6 +232,7 @@ export function SceneDialog(props: SceneDialogProps) {
           transitionMs: toMs(seconds),
           rollbackOnPartialFailure: rollback,
           members: payloadMembers,
+          unresolvedMembers: [...unresolved],
         };
 
         return createScene(body);
@@ -219,6 +249,7 @@ export function SceneDialog(props: SceneDialogProps) {
         transitionMs: toMs(seconds),
         rollbackOnPartialFailure: rollback,
         members: payloadMembers,
+        unresolvedMembers: [...unresolved],
       };
 
       return updateScene(existing.id, change);
@@ -231,16 +262,25 @@ export function SceneDialog(props: SceneDialogProps) {
      */
     onSuccess: async (saved) => {
       await refresh();
+      toast.success({
+        title:
+          existing === undefined
+            ? t('library.sceneDialog.created', '{{name}} created', { name: saved.name })
+            : t('library.sceneDialog.saved', '{{name}} saved', { name: saved.name }),
+      });
       onSaved(saved);
     },
 
     /**
-     * Shows why the save failed.
+     * Says why the save failed.
      *
      * @param error - What went wrong.
      */
     onError: (error: unknown) => {
-      setProblem(toMessage(error));
+      toast.error({
+        title: t('library.sceneDialog.notSaved', 'The scene was not saved'),
+        message: toMessage(error),
+      });
     },
   });
 
@@ -257,24 +297,55 @@ export function SceneDialog(props: SceneDialogProps) {
       await refresh();
 
       if (existing !== undefined) {
+        toast.success({
+          title: t('library.sceneDialog.removed', '{{name}} removed', { name: existing.name }),
+        });
         onDeleted(existing.id);
       }
     },
 
     /**
-     * Shows why the removal failed.
+     * Says why the removal failed.
      *
      * @param error - What went wrong.
      */
     onError: (error: unknown) => {
       setConfirming(false);
-      setProblem(toMessage(error));
+      toast.error({
+        title: t('library.sceneDialog.notRemoved', 'The scene was not removed'),
+        message: toMessage(error),
+      });
     },
   });
 
   const isBusy = save.isPending || removing.isPending;
 
   const taken = new Set(members.map((member) => member.entityId));
+
+  /**
+   * Gives a member that was waiting for an entity the one picked, with as much of what it was
+   * going to set as that entity takes.
+   *
+   * @param index - Which waiting member.
+   * @param entity - The entity picked for it.
+   */
+  const resolveMember = (index: number, entity: EntityView): void => {
+    const waiting = unresolved[index];
+
+    if (waiting === undefined) {
+      return;
+    }
+
+    setUnresolved(unresolved.filter((member, at) => at !== index));
+    setMembers([
+      ...members,
+      {
+        entityId: entity.entityId,
+        targetState: resolveTargetState(waiting.targetState, entity),
+        transitionSeconds: waiting.transitionMs === null ? null : toSeconds(waiting.transitionMs),
+      },
+    ]);
+  };
 
   /** Saves, unless the name or key is wrong. */
   const submit = (): void => {
@@ -418,6 +489,50 @@ export function SceneDialog(props: SceneDialogProps) {
 
   const membersBlock = (
     <div className="flex flex-col gap-3">
+      {unresolved.length === 0 ? null : (
+        <ul className="flex flex-col gap-3">
+          {unresolved.map((member, index) => (
+            <li
+              key={member.entityId}
+              className="flex flex-col gap-3 rounded-inner border border-warning-line bg-surface px-3.5 py-3"
+            >
+              <div className="flex items-center gap-3">
+                <AppIcon id="triangle-alert" size={16} className="shrink-0 text-warning" />
+                <div className="min-w-0 grow">
+                  <p className="truncate font-mono text-ui text-foreground">{member.entityId}</p>
+                  <p className="text-caption text-warning">
+                    {t(
+                      'library.sceneDialog.notInTheHouse',
+                      'Not in this house. Pick the entity it stands for; until then the scene cannot be applied.',
+                    )}
+                  </p>
+                </div>
+                <IconButton
+                  label={t('library.sceneDialog.removeTitle', 'Remove {{title}}', {
+                    title: member.entityId,
+                  })}
+                  disabled={isBusy}
+                  onClick={() => {
+                    setUnresolved(unresolved.filter((entry, at) => at !== index));
+                  }}
+                >
+                  <AppIcon id="x" size={14} />
+                </IconButton>
+              </div>
+              <EntityField
+                label={t('library.sceneDialog.standsFor', 'Stands for')}
+                value={entityById.has(member.entityId) ? member.entityId : ''}
+                accept={(entity) => isSceneEntity(entity) && !taken.has(entity.entityId)}
+                onChange={(entityId, entity) => {
+                  if (entity !== undefined) {
+                    resolveMember(index, entity);
+                  }
+                }}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
       {members.length === 0 ? (
         <p className="rounded-card border border-dashed border-border-strong px-5 py-4 text-ui text-foreground-subtle">
           {t(
@@ -431,26 +546,45 @@ export function SceneDialog(props: SceneDialogProps) {
             const entity = entityById.get(member.entityId);
             const title = entity?.name ?? member.entityId;
             const areaName = entity?.areaName;
+            const isOpen = !closed.has(member.entityId);
 
             return (
-              <li
-                key={member.entityId}
-                className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4"
-              >
-                <div className="flex items-start gap-2">
+              <li key={member.entityId} className="rounded-inner border border-border bg-surface">
+                <div className="flex items-center gap-3 px-3.5 py-3">
+                  {entity === undefined ? (
+                    <span className="size-8 shrink-0 rounded-field bg-surface-raised" />
+                  ) : (
+                    <EntityTile
+                      size="medium"
+                      icon={undefined}
+                      kind={entityKindOf(entity)}
+                      isActive={null}
+                      isAvailable={entity.isAvailable}
+                    />
+                  )}
                   <div className="min-w-0 grow">
                     <p className="truncate text-ui font-medium text-foreground">{title}</p>
                     <p className="truncate text-caption text-foreground-subtle">
-                      {areaName ?? member.entityId}
-                      {entity !== undefined && !entity.isAvailable ? (
-                        <span className="text-warning">
-                          {t('library.sceneDialog.unavailableNow', '· Unavailable now')}
-                        </span>
-                      ) : null}
+                      {areaName === null || areaName === undefined ? null : `${areaName} · `}
+                      <span className="font-mono">{member.entityId}</span>
                     </p>
                   </div>
+                  <span
+                    className={
+                      member.transitionSeconds === null
+                        ? 'hidden text-caption text-foreground-subtle sm:inline'
+                        : 'hidden text-caption text-foreground-muted sm:inline'
+                    }
+                  >
+                    {member.transitionSeconds === null
+                      ? t('library.sceneDialog.transitionAsTheScene', 'Transition as the scene')
+                      : t('library.sceneDialog.transitionSeconds', 'Transition {{seconds}} s', {
+                          seconds: String(member.transitionSeconds),
+                        })}
+                  </span>
                   <IconButton
-                    label={t('library.sceneDialog.removeTitle', 'Remove {{title}}', { title })}
+                    label={t('library.sceneDialog.removeFromTheScene', 'Remove from the scene')}
+                    size="small"
                     disabled={isBusy}
                     onClick={() => {
                       setMembers(members.filter((member, at) => at !== index));
@@ -458,52 +592,95 @@ export function SceneDialog(props: SceneDialogProps) {
                   >
                     <AppIcon id="x" size={14} />
                   </IconButton>
+                  <IconButton
+                    label={
+                      isOpen
+                        ? t('library.sceneDialog.closeTitle', 'Close {{title}}', { title })
+                        : t('library.sceneDialog.openTitle', 'Open {{title}}', { title })
+                    }
+                    size="small"
+                    aria-expanded={isOpen}
+                    onClick={() => {
+                      const next = new Set(closed);
+
+                      if (isOpen) {
+                        next.add(member.entityId);
+                      } else {
+                        next.delete(member.entityId);
+                      }
+
+                      setClosed(next);
+                    }}
+                  >
+                    <AppIcon id={isOpen ? 'chevron-down' : 'chevron-right'} size={14} />
+                  </IconButton>
                 </div>
 
-                <SceneMemberFields
-                  targetState={member.targetState}
-                  onChange={(targetState) => {
-                    setMembers(
-                      members.map((entry, i) => (i === index ? { ...entry, targetState } : entry)),
-                    );
-                  }}
-                />
+                {isOpen ? (
+                  <div className="flex flex-col gap-3.5 px-4 pt-0.5 pb-4 sm:pl-19">
+                    {entity !== undefined && !entity.isAvailable ? (
+                      <p className="flex items-center gap-1.5 text-ui-sm text-warning">
+                        <AppIcon id="triangle-alert" size={14} />
+                        {t(
+                          'library.sceneDialog.unavailableKeepsValues',
+                          'Unavailable now · it keeps the values it last had.',
+                        )}
+                      </p>
+                    ) : null}
+                    <SceneMemberFields
+                      targetState={member.targetState}
+                      entity={entity}
+                      onChange={(targetState) => {
+                        setMembers(
+                          members.map((entry, i) =>
+                            i === index ? { ...entry, targetState } : entry,
+                          ),
+                        );
+                      }}
+                      extra={
+                        <TextField
+                          label={t('library.sceneDialog.transition', 'Transition')}
+                          size="compact"
+                          type="number"
+                          min={0}
+                          max={600}
+                          step={0.1}
+                          value={
+                            member.transitionSeconds === null
+                              ? ''
+                              : String(member.transitionSeconds)
+                          }
+                          hint={t(
+                            'library.sceneDialog.secondsForThisEntity',
+                            'Seconds for this entity only. Leave blank for the scene default.',
+                          )}
+                          onChange={(event) => {
+                            const raw = event.target.value.trim();
 
-                <TextField
-                  label={t('library.sceneDialog.transition', 'Transition')}
-                  size="compact"
-                  type="number"
-                  min={0}
-                  max={600}
-                  step={0.1}
-                  value={member.transitionSeconds === null ? '' : String(member.transitionSeconds)}
-                  hint={t(
-                    'library.sceneDialog.secondsForThisEntity',
-                    'Seconds for this entity only. Leave blank for the scene default.',
-                  )}
-                  onChange={(event) => {
-                    const raw = event.target.value.trim();
+                            setMembers(
+                              members.map((entry, i) => {
+                                if (i !== index) {
+                                  return entry;
+                                }
 
-                    setMembers(
-                      members.map((entry, i) => {
-                        if (i !== index) {
-                          return entry;
-                        }
+                                if (raw === '') {
+                                  return { ...entry, transitionSeconds: null };
+                                }
 
-                        if (raw === '') {
-                          return { ...entry, transitionSeconds: null };
-                        }
+                                const next = Number(raw);
 
-                        const next = Number(raw);
-
-                        return {
-                          ...entry,
-                          transitionSeconds: Number.isFinite(next) ? next : null,
-                        };
-                      }),
-                    );
-                  }}
-                />
+                                return {
+                                  ...entry,
+                                  transitionSeconds: Number.isFinite(next) ? next : null,
+                                };
+                              }),
+                            );
+                          }}
+                        />
+                      }
+                    />
+                  </div>
+                ) : null}
               </li>
             );
           })}
@@ -537,6 +714,79 @@ export function SceneDialog(props: SceneDialogProps) {
       />
     </div>
   );
+
+  /** Hands over the scene as it stands in the form, as a file. */
+  const exportScene = (): void => {
+    saveJsonFile(
+      scenesFile([
+        {
+          id: existing?.id ?? '',
+          key: key.trim(),
+          name: name.trim(),
+          icon,
+          areaKey: areas.find((area) => area.id === areaId)?.key ?? null,
+          transitionMs: toMs(clampSeconds(transitionSeconds)),
+          rollbackOnPartialFailure: rollback,
+          members: members.map((member) => ({
+            entityId: member.entityId,
+            entityName: entityById.get(member.entityId)?.name ?? member.entityId,
+            targetState: member.targetState as JsonObject,
+            transitionMs:
+              member.transitionSeconds === null
+                ? null
+                : toMs(clampSeconds(member.transitionSeconds)),
+          })),
+          unresolvedMembers: [...unresolved],
+        },
+      ]),
+      `${key.trim() === '' ? 'scene' : key.trim()}.scenes.json`,
+    );
+  };
+
+  /**
+   * Puts a scene from a file into the form, in place of what it held. A scene that exists keeps
+   * its key, which nothing may move.
+   *
+   * @param result - What the import produced.
+   */
+  const importScene = (result: ImportResult): void => {
+    const [item] = result.kind === 'scenes' ? result.items : [];
+
+    if (item === undefined) {
+      return;
+    }
+
+    setName(item.name);
+
+    if (existing === undefined) {
+      setKey(item.key);
+      setKeyFollowing(false);
+    }
+
+    setIcon(item.icon);
+    setAreaId(
+      item.areaKey === null ? '' : (areas.find((area) => area.key === item.areaKey)?.id ?? ''),
+    );
+    setTransitionSeconds(toSeconds(item.transitionMs));
+    setRollback(item.rollbackOnPartialFailure);
+    setMembers(
+      item.members.map((member) => ({
+        entityId: member.entityId as EntityId,
+        targetState: narrowTargetState(member.targetState),
+        transitionSeconds: member.transitionMs === null ? null : toSeconds(member.transitionMs),
+      })),
+    );
+    setUnresolved(
+      item.unresolvedMembers.map((member) => ({
+        ...member,
+        entityId: member.entityId as EntityId,
+      })),
+    );
+    toast.success({
+      title: t('library.sceneDialog.importedTitle', 'Brought into the form'),
+      message: t('library.sceneDialog.importedNote', 'Save it to keep it.'),
+    });
+  };
 
   const confirm =
     isConfirming && existing !== undefined ? (
@@ -576,7 +826,15 @@ export function SceneDialog(props: SceneDialogProps) {
                   {existing === undefined || onApply === undefined ? null : (
                     <Button
                       variant="ghost"
-                      disabled={isBusy}
+                      disabled={isBusy || existing.unresolvedMembers.length > 0}
+                      title={
+                        existing.unresolvedMembers.length > 0
+                          ? t(
+                              'library.sceneDialog.cannotApplyYet',
+                              'Some members wait for an entity: pick them first.',
+                            )
+                          : undefined
+                      }
                       onClick={() => {
                         onApply(existing.id);
                       }}
@@ -630,6 +888,37 @@ export function SceneDialog(props: SceneDialogProps) {
               <Panel title={t('library.sceneDialog.howItApplies', 'How it applies')}>
                 <div className="flex flex-col gap-3.5 border-t border-border px-5.5 py-4">
                   {applying}
+                </div>
+              </Panel>
+              <Panel title={t('library.sceneDialog.file', 'File')}>
+                <div className="flex flex-col gap-3 border-t border-border px-5.5 py-4">
+                  <p className="text-caption text-foreground-subtle">
+                    {t(
+                      'library.sceneDialog.fileNote',
+                      'As one .json file, to keep or to bring into another house. Import also reads Home Assistant scenes.',
+                    )}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="compact" onClick={exportScene}>
+                      <AppIcon id="download" size={14} />
+                      {t('library.sceneDialog.export', 'Export')}
+                    </Button>
+                    <LibraryImportFlow
+                      kind="scenes"
+                      isSingle
+                      takenKeys={(allScenes.data ?? [])
+                        .filter((scene) => scene.id !== existing?.id)
+                        .map((scene) => scene.key)}
+                      onImport={importScene}
+                    >
+                      {(choose) => (
+                        <Button variant="ghost" size="compact" onClick={choose}>
+                          <AppIcon id="upload" size={14} />
+                          {t('library.sceneDialog.import', 'Import')}
+                        </Button>
+                      )}
+                    </LibraryImportFlow>
+                  </div>
                 </div>
               </Panel>
             </div>

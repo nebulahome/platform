@@ -136,10 +136,15 @@ function listOf<TItem>(value: unknown): TItem[] {
  * The document is copied first, so every block is an object of its own: the editor tells blocks
  * apart by identity, and a document holding the same object twice would confuse it.
  *
- * @param automation - The stored automation.
+ * @param automation - The stored automation, or one brought in from a file.
  * @returns The draft to edit.
  */
-export function draftFrom(automation: AutomationView): AutomationDraft {
+export function draftFrom(
+  automation: Pick<
+    AutomationView,
+    'key' | 'name' | 'description' | 'mode' | 'maxRuntimeMs' | 'isEnabled' | 'definition'
+  >,
+): AutomationDraft {
   const migrated = migrateDefinition(structuredClone(automation.definition));
   const document = (migrated !== null && typeof migrated === 'object' ? migrated : {}) as Readonly<
     Record<string, unknown>

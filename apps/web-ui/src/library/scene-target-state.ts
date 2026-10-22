@@ -286,3 +286,19 @@ export function narrowTargetState(
 
   return next;
 }
+
+/**
+ * What a member brought in from a file sets, once somebody picks the entity it stands for: the
+ * parts of it that entity takes, or - when it takes none of them - what the entity is now, as a
+ * member added by hand starts.
+ *
+ * @param targetState - What the waiting member was going to set.
+ * @param entity - The entity picked for it.
+ * @returns The target state to store on the member.
+ */
+export function resolveTargetState(targetState: JsonValue, entity: EntityView): CapabilityState {
+  const stored = asObject(targetState) ?? {};
+  const wanted = entity.capabilities.filter((entry) => entry.capability in stored);
+
+  return wanted.length === 0 ? seedTargetState(entity) : narrowTargetState(targetState, wanted);
+}

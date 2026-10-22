@@ -35,7 +35,18 @@ import {
   type CapabilityName,
   type EntityView,
 } from '@nebulahome/contracts';
-import { AppIcon, Button, Panel, Section, Segmented, SelectField, TextField } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Button,
+  DetailHero,
+  Note,
+  Panel,
+  Section,
+  Segmented,
+  SelectField,
+  TextField,
+  toast,
+} from '@nebulahome/ui';
 
 import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import { isApiError } from '@/lib/api-error';
@@ -63,7 +74,7 @@ import { AliasFormulaField } from '@/routes/library/alias-formula-field';
 import { AliasPreviewCard } from '@/routes/library/alias-preview-card';
 import { AliasSourcesPanel, nextRowKey } from '@/routes/library/alias-sources-panel';
 import { ConfirmRemoval } from '@/routes/library/confirm-removal';
-import { DetailHeader } from '@/routes/library/detail-page';
+import { BackLink } from '@/routes/library/detail-page';
 
 /** Calculated capabilities the form may pick. */
 type CalculatedCapability = (typeof ALIAS_CALCULATED_CAPABILITIES)[number];
@@ -487,19 +498,31 @@ export function AliasEditor() {
       return updateAlias(loaded.id, change);
     },
 
-    /** Returns to the collection once every list has it. */
-    onSuccess: async () => {
+    /**
+     * Says so, and returns to the collection once every list has it.
+     *
+     * @param saved - The alias as it now stands.
+     */
+    onSuccess: async (saved) => {
       await refresh();
+      toast.success({
+        title: isNew
+          ? t('library.aliasEditor.created', '{{name}} created', { name: saved.name })
+          : t('library.aliasEditor.saved', '{{name}} saved', { name: saved.name }),
+      });
       await navigate('/aliases');
     },
 
     /**
-     * Shows why the save failed.
+     * Says why the save failed.
      *
      * @param error - What went wrong.
      */
     onError: (error: unknown) => {
-      setProblem(toMessage(error));
+      toast.error({
+        title: t('library.aliasEditor.notSavedToast', 'The alias was not saved'),
+        message: toMessage(error),
+      });
     },
   });
 
@@ -511,20 +534,26 @@ export function AliasEditor() {
       }
     },
 
-    /** Returns to the collection once every list has let go of it. */
+    /** Says so, and returns to the collection once every list has let go of it. */
     onSuccess: async () => {
       await refresh();
+      toast.success({
+        title: t('library.aliasEditor.removed', '{{name}} removed', { name: loaded?.name ?? '' }),
+      });
       await navigate('/aliases');
     },
 
     /**
-     * Shows why the deletion failed.
+     * Says why the deletion failed.
      *
      * @param error - What went wrong.
      */
     onError: (error: unknown) => {
       setConfirming(false);
-      setProblem(removalMessage(error));
+      toast.error({
+        title: t('library.aliasEditor.notRemoved', 'The alias was not removed'),
+        message: removalMessage(error),
+      });
     },
   });
 
@@ -667,19 +696,18 @@ export function AliasEditor() {
             {loaded === undefined ? null : (
               <Button
                 variant="danger"
-                size="compact"
                 disabled={isBusy}
                 onClick={() => {
                   setProblem(null);
                   setConfirming(true);
                 }}
               >
+                <AppIcon id="trash-2" size={15} />
                 {t('common.delete', 'Delete')}
               </Button>
             )}
             <Button
-              variant="ghost"
-              size="compact"
+              variant="bare"
               disabled={isBusy}
               onClick={() => {
                 void navigate('/aliases');
@@ -687,36 +715,20 @@ export function AliasEditor() {
             >
               {t('common.cancel', 'Cancel')}
             </Button>
-            <Button
-              size="compact"
-              isBusy={save.isPending}
-              disabled={removal.isPending}
-              onClick={submit}
-            >
+            <Button isBusy={save.isPending} disabled={removal.isPending} onClick={submit}>
+              <AppIcon id="check" size={15} />
               {isNew ? t('common.create', 'Create') : t('common.save', 'Save')}
             </Button>
           </span>
         )
       }
     >
-      {problem === null ? null : (
-        <Panel title={t('library.aliasEditor.notSaved', 'Not saved')}>
-          <p role="alert" className="px-4 py-3.5 text-ui text-danger">
-            {problem}
-          </p>
-        </Panel>
-      )}
-
-      {save.error === null || problem !== null ? null : (
-        <Panel title={t('library.aliasEditor.serverRefusedIt', 'The server refused it')}>
-          <p className="px-4 py-3.5 text-ui text-danger">{toMessage(save.error)}</p>
-        </Panel>
-      )}
+      {problem === null ? null : <Note tone="danger">{problem}</Note>}
 
       <div
         className={
           isCalculated
-            ? 'grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]'
+            ? 'grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px]'
             : 'grid items-start gap-4'
         }
       >
@@ -757,7 +769,7 @@ export function AliasEditor() {
 
         <div className="flex min-w-0 flex-col gap-4">
           <Panel title={t('library.aliasEditor.whatItIs', 'What it is')}>
-            <div className="flex flex-col gap-4 p-4">
+            <div className="flex flex-col gap-3.5 border-t border-border px-5.5 py-4">
               <div className="flex flex-col gap-1">
                 <TextField
                   label={t('library.aliasEditor.name', 'Name')}
@@ -977,7 +989,7 @@ export function AliasEditor() {
 
           {isCalculated ? (
             <Panel title={t('library.aliasEditor.behaviour', 'Behaviour')}>
-              <div className="flex flex-col gap-4 p-4">
+              <div className="flex flex-col gap-3.5 border-t border-border px-5.5 py-4">
                 <TextField
                   label={t('library.aliasEditor.debounceMs', 'Debounce (ms)')}
                   size="medium"
@@ -1087,15 +1099,14 @@ function Shell(props: ShellProps) {
   const { title, action, children } = props;
 
   return (
-    <div className="flex min-h-0 grow flex-col">
-      <DetailHeader
-        crumbs={[{ to: '/aliases', label: t('library.aliasEditor.aliases', 'Aliases') }]}
-        title={title}
-        actions={action}
-      />
-
-      <div className="min-h-0 grow overflow-y-auto px-8 pt-5 pb-7">
-        <div className="flex flex-col gap-4">{children}</div>
+    <div className="min-h-0 grow overflow-y-auto px-8 pt-6 pb-10">
+      <div className="flex flex-col gap-5">
+        <DetailHero
+          back={<BackLink to="/aliases">{t('library.aliasEditor.aliases', 'Aliases')}</BackLink>}
+          title={title}
+          actions={action}
+        />
+        {children}
       </div>
     </div>
   );

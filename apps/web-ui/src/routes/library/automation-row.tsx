@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { AutomationView } from '@nebulahome/contracts';
-import { OverflowMenu, StatusDot, Switch, type StatusDotTone } from '@nebulahome/ui';
+import { AppIcon, OverflowMenu, StatusDot, Switch, type StatusDotTone } from '@nebulahome/ui';
 
 import { translate } from '@/i18n/messages';
 import type { BlockNames } from '@/lib/block-summary';
@@ -111,7 +111,24 @@ export function AutomationRow(props: AutomationRowProps) {
         >
           {automation.name}
         </Link>
-        <Chain summary={summary} />
+        {automation.missingEntities.length > 0 ? (
+          <span
+            className="flex min-w-0 items-center gap-1 text-caption text-danger"
+            title={automation.missingEntities.join(', ')}
+          >
+            <AppIcon id="triangle-alert" size={12} className="shrink-0" />
+            <span className="truncate">
+              {t('library.automationRow.missingEntities', {
+                count: automation.missingEntities.length,
+                defaultValue_one: 'Names 1 entity the house does not have: it does not run',
+                defaultValue_other:
+                  'Names {{count}} entities the house does not have: it does not run',
+              })}
+            </span>
+          </span>
+        ) : (
+          <Chain summary={summary} />
+        )}
       </span>
 
       <span className="hidden font-mono text-mono-ui text-foreground-muted md:block">

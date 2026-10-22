@@ -15,21 +15,24 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
 import type { AutomationView } from '@nebulahome/contracts';
-import { AppIcon, Button, EmptyState, Modal, TableFooter } from '@nebulahome/ui';
+import { AppIcon, Button, EmptyState, Modal, TableFooter, toast } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { SortHeader } from '@/components/sort-header';
 import type { BlockNames } from '@/lib/block-summary';
 import { DOCS_LINKS } from '@/lib/docs-links';
+import { toMessage } from '@/lib/error-message';
 import { useListState } from '@/lib/use-list-state';
 import { usePaging } from '@/lib/use-paging';
 import {
+  createAutomation,
   deleteAutomation,
   fetchAutomations,
   fetchScenes,
   LIBRARY_QUERY_KEYS,
   updateAutomation,
 } from '@/library/api';
+import { draftFrom, toCreate } from '@/library/automation-draft';
 import {
   AUTOMATION_FILTER_CODEC,
   isAutomationNarrowing,
@@ -39,6 +42,7 @@ import {
 import { AutomationFilterButton } from '@/routes/library/automation-filter';
 import { AUTOMATION_COLUMNS, AutomationRow } from '@/routes/library/automation-row';
 import { useEntityDirectory } from '@/routes/library/entity-picker/use-entity-directory';
+import { LibraryImportFlow, type ImportResult } from '@/routes/library/library-import-flow';
 import { LibraryPage } from '@/routes/library/library-page';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
@@ -140,6 +144,41 @@ export function AutomationsPage() {
       }
     },
 
+    /**
+     * Says what was done.
+     *
+     * @param result - Nothing.
+     * @param change - What the row asked for.
+     */
+    onSuccess: (result, change) => {
+      const name = automations.data?.find((automation) => automation.id === change.id)?.name ?? '';
+
+      toast.success({
+        title:
+          change.kind === 'delete'
+            ? t('library.automations.removed', '{{name}} removed', { name })
+            : change.isEnabled
+              ? t('library.automations.turnedOn', '{{name}} turned on', { name })
+              : t('library.automations.turnedOff', '{{name}} turned off', { name }),
+      });
+    },
+
+    /**
+     * Says why the change did not happen.
+     *
+     * @param error - What went wrong.
+     * @param change - What the row asked for.
+     */
+    onError: (error, change) => {
+      toast.error({
+        title:
+          change.kind === 'delete'
+            ? t('library.automations.notRemoved', 'The automation was not removed')
+            : t('library.automations.notChanged', 'The automation was not changed'),
+        message: toMessage(error),
+      });
+    },
+
     /** Clears the row's spinner and reads the collection back, whether it worked or not. */
     onSettled: async () => {
       setBusyId(null);
@@ -187,6 +226,74 @@ export function AutomationsPage() {
     </Button>
   ) : undefined;
 
+  /**
+   * Creates every automation a file brought in, one after another, and says how it went.
+   *
+   * @param result - What the import produced.
+   */
+  const importAll = async (result: ImportResult): Promise<void> => {
+    if (result.kind !== 'automations') {
+      return;
+    }
+
+    const failed: string[] = [];
+
+    for (const item of result.items) {
+      const body = toCreate(draftFrom(item));
+
+      try {
+        if (!body.ok) {
+          throw new Error(body.problems.join(' '));
+        }
+
+        // eslint-disable-next-line no-await-in-loop -- one at a time, so a big file does not flood the API and the order holds
+        await createAutomation(body.body);
+      } catch (error: unknown) {
+        failed.push(`${item.name}: ${toMessage(error)}`);
+      }
+    }
+
+    await queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.automations });
+
+    const imported = result.items.length - failed.length;
+
+    if (failed.length === 0) {
+      toast.success({
+        title: t('library.automations.imported', {
+          count: imported,
+          defaultValue_one: '1 automation imported',
+          defaultValue_other: '{{count}} automations imported',
+        }),
+      });
+    } else {
+      toast.warning({
+        title: t('library.automations.importedSome', '{{imported}} of {{total}} imported', {
+          imported: String(imported),
+          total: String(result.items.length),
+        }),
+        message: failed.slice(0, 3).join(' · '),
+      });
+    }
+  };
+
+  const actions = canWrite ? (
+    <span className="flex items-center gap-2">
+      <LibraryImportFlow
+        kind="automations"
+        takenKeys={items.map((automation) => automation.key)}
+        onImport={importAll}
+      >
+        {(choose) => (
+          <Button variant="ghost" onClick={choose}>
+            <AppIcon id="upload" size={15} />
+            {t('library.automations.import', 'Import')}
+          </Button>
+        )}
+      </LibraryImportFlow>
+      {newButton}
+    </span>
+  ) : undefined;
+
   return (
     <LibraryPage
       title={t('library.automations.automations', 'Automations')}
@@ -212,9 +319,9 @@ export function AutomationsPage() {
           <AutomationFilterButton filter={filter} onChange={setFilter} />
         </>
       }
-      action={newButton}
+      action={actions}
       isPending={automations.isPending}
-      error={automations.error ?? write.error}
+      error={automations.error}
       isEmpty={items.length === 0}
       empty={
         <EmptyState
