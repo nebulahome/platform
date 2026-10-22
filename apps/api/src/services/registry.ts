@@ -20,8 +20,10 @@ import {
   ConflictError,
   NotFoundError,
   ValidationError,
+  automationDefinitionSchema,
   automationRunSchema,
   automationViewSchema,
+  entityIdsOfDefinition,
   migrateDefinition,
   sceneViewSchema,
   type AutomationHouse,
@@ -79,6 +81,7 @@ export async function listScenes(db: Database): Promise<SceneView[]> {
       areaKey: schema.registry.areas.key,
       transitionMs: schema.registry.scenes.transitionMs,
       rollbackOnPartialFailure: schema.registry.scenes.rollbackOnPartialFailure,
+      unresolvedMembers: schema.registry.scenes.unresolvedMembers,
     })
     .from(schema.registry.scenes)
     .leftJoin(schema.registry.areas, eq(schema.registry.areas.id, schema.registry.scenes.areaId))
@@ -110,6 +113,7 @@ export async function readScene(db: Database, id: string): Promise<SceneView> {
       areaKey: schema.registry.areas.key,
       transitionMs: schema.registry.scenes.transitionMs,
       rollbackOnPartialFailure: schema.registry.scenes.rollbackOnPartialFailure,
+      unresolvedMembers: schema.registry.scenes.unresolvedMembers,
     })
     .from(schema.registry.scenes)
     .leftJoin(schema.registry.areas, eq(schema.registry.areas.id, schema.registry.scenes.areaId))
@@ -174,6 +178,7 @@ export async function createScene(
           areaId: body.areaId ?? null,
           transitionMs: body.transitionMs,
           rollbackOnPartialFailure: body.rollbackOnPartialFailure,
+          unresolvedMembers: body.unresolvedMembers,
           createdBy: userId,
         })
         .returning({ id: schema.registry.scenes.id });
@@ -235,6 +240,9 @@ export async function updateScene(db: Database, id: string, body: SceneUpdate): 
         ...(body.rollbackOnPartialFailure === undefined
           ? {}
           : { rollbackOnPartialFailure: body.rollbackOnPartialFailure }),
+        ...(body.unresolvedMembers === undefined
+          ? {}
+          : { unresolvedMembers: body.unresolvedMembers }),
         updatedAt: new Date(),
       })
       .where(eq(schema.registry.scenes.id, id))
@@ -641,6 +649,38 @@ function currentDefinition(stored: unknown): JsonObject {
 }
 
 /**
+ * The entities each document names that the registry does not have, in one query for them all.
+ * A document that does not parse names nothing here: the editor already points at what is wrong.
+ *
+ * @param db - The database.
+ * @param definitions - The documents, current shape.
+ * @returns For each document, in order, the addresses it names that are not there.
+ */
+async function missingEntitiesOf(
+  db: Database,
+  definitions: readonly JsonObject[],
+): Promise<string[][]> {
+  const named = definitions.map((definition) => {
+    const parsed = automationDefinitionSchema.safeParse(definition);
+
+    return parsed.success ? entityIdsOfDefinition(parsed.data) : [];
+  });
+  const all = [...new Set(named.flat())];
+
+  if (all.length === 0) {
+    return named;
+  }
+
+  const found = await db
+    .select({ entityId: schema.registry.entities.entityId })
+    .from(schema.registry.entities)
+    .where(inArray(schema.registry.entities.entityId, all));
+  const present = new Set(found.map((row) => row.entityId));
+
+  return named.map((ids) => ids.filter((id) => !present.has(id)));
+}
+
+/**
  * What the automation editor needs of the house: its time zone and where it stands.
  *
  * @param db - The database.
@@ -685,12 +725,15 @@ export async function listAutomations(db: Database): Promise<AutomationView[]> {
     db,
     rows.map((row) => row.id),
   );
+  const definitions = rows.map((row) => currentDefinition(row.definition));
+  const missing = await missingEntitiesOf(db, definitions);
 
-  return rows.map((row) =>
+  return rows.map((row, index) =>
     automationViewSchema.parse({
       ...row,
-      definition: currentDefinition(row.definition),
+      definition: definitions[index],
       lastRun: lastRuns.get(row.id) ?? null,
+      missingEntities: missing[index],
     }),
   );
 }
@@ -719,11 +762,14 @@ export async function readAutomation(db: Database, id: string): Promise<Automati
   }
 
   const lastRuns = await lastRunsOf(db, [id]);
+  const definition = currentDefinition(row.definition);
+  const [missing] = await missingEntitiesOf(db, [definition]);
 
   return automationViewSchema.parse({
     ...row,
-    definition: currentDefinition(row.definition),
+    definition,
     lastRun: lastRuns.get(id) ?? null,
+    missingEntities: missing,
   });
 }
 

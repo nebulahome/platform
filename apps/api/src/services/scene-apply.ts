@@ -18,6 +18,7 @@ import {
   CORE_APPLY_SCENE_METHOD,
   CORE_SERVICE,
   NotFoundError,
+  assertSceneResolved,
   parseEntityId,
   sceneApplyResultSchema,
   type CapabilityName,
@@ -113,6 +114,7 @@ async function readMembers(db: Database, sceneId: string): Promise<MemberRow[]> 
  * @param options - The bus, who asked, how long it may take, and where audited commands go.
  * @returns Per-member outcomes.
  * @throws {NotFoundError} When no scene has that id.
+ * @throws {ConflictError} When it still has members waiting for an entity.
  * @throws {DeviceUnavailableError} When `core` does not answer in time.
  */
 export async function applyScene(
@@ -121,7 +123,10 @@ export async function applyScene(
   options: ApplySceneOptions,
 ): Promise<SceneApplyResult> {
   const [scene] = await db
-    .select({ id: schema.registry.scenes.id })
+    .select({
+      id: schema.registry.scenes.id,
+      unresolvedMembers: schema.registry.scenes.unresolvedMembers,
+    })
     .from(schema.registry.scenes)
     .where(eq(schema.registry.scenes.id, sceneId))
     .limit(1);
@@ -129,6 +134,8 @@ export async function applyScene(
   if (scene === undefined) {
     throw new NotFoundError('No scene has that id', { details: { id: sceneId } });
   }
+
+  assertSceneResolved(scene.unresolvedMembers);
 
   const rows = await readMembers(db, sceneId);
   const tags = await readTagKeys(db, rows);

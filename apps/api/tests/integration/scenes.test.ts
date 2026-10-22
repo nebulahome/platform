@@ -197,6 +197,39 @@ describe('saving a scene', () => {
   });
 });
 
+describe('a scene with members waiting for an entity', () => {
+  it('keeps them, and will not apply until they are resolved', async () => {
+    const created = await call([{ key: 'scene:write', scope: '*' }], 'POST', '/scenes', {
+      key: `${slug}_imported`,
+      name: 'Imported',
+      members: [{ entityId: porchEntityId, targetState: { on_off: { isOn: true } } }],
+      unresolvedMembers: [
+        { entityId: 'light.not_here', targetState: { on_off: { isOn: true } }, transitionMs: null },
+      ],
+    });
+
+    expect(created.status).toBe(201);
+
+    const scene = sceneViewSchema.parse(created.body);
+
+    expect(scene.unresolvedMembers).toEqual([
+      { entityId: 'light.not_here', targetState: { on_off: { isOn: true } }, transitionMs: null },
+    ]);
+
+    const applied = await call(
+      [
+        { key: 'scene:apply', scope: '*' },
+        { key: 'entity:control', scope: '*' },
+      ],
+      'POST',
+      `/scenes/${scene.id}/apply`,
+    );
+
+    expect(applied.status).toBe(409);
+    expect(JSON.stringify(applied.body)).toContain('light.not_here');
+  });
+});
+
 describe('applying a scene', () => {
   it('commands only the members the caller may control, and says which it did not', async () => {
     commanded.length = 0;

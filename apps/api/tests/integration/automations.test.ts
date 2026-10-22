@@ -119,7 +119,30 @@ describe('automations through the API', () => {
 
     automationId = automation.id;
     expect(automation.lastRun).toBeNull();
+    expect(automation.missingEntities).toEqual([]);
     expect(automationsSynced).toContain(`sync:${automationId}`);
+  });
+
+  it('says which entities it names that the house does not have', async () => {
+    const { status, body } = await call('PATCH', `/automations/${automationId}`, {
+      definition: {
+        triggers: [{ type: 'manual' }],
+        if: [
+          { type: 'expression', expression: 'a > 1', variables: { a: `sensor.gone_${suffix}` } },
+        ],
+        then: [{ type: 'wait_duration', durationMs: 1000 }],
+      },
+    });
+
+    expect(status).toBe(200);
+    expect(automationViewSchema.parse(body).missingEntities).toEqual([`sensor.gone_${suffix}`]);
+
+    await call('PATCH', `/automations/${automationId}`, {
+      definition: {
+        triggers: [{ type: 'manual' }],
+        then: [{ type: 'wait_duration', durationMs: 1000 }],
+      },
+    });
   });
 
   it('runs it on request, as the person who pressed Run', async () => {
