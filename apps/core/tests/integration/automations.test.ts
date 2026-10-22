@@ -112,6 +112,7 @@ describe('automations in a running core', () => {
   const packageId = `pkg-auto-${suffix}`;
   const ids: Record<string, string> = {};
   let sceneId = '';
+  let halfSceneId = '';
 
   /**
    * Writes an automation row, as the API does.
@@ -207,6 +208,32 @@ describe('automations in a running core', () => {
       triggers: [{ type: 'manual' }],
       then: [{ type: 'scene', sceneKey: `lamp_off_${suffix}` }],
     });
+    const [halfScene] = await database.db
+      .insert(schema.registry.scenes)
+      .values({
+        key: `half_${suffix}`,
+        name: 'Half',
+        unresolvedMembers: [{ entityId: 'light.gone', targetState: {}, transitionMs: null }],
+      })
+      .returning({ id: schema.registry.scenes.id });
+
+    halfSceneId = halfScene?.id ?? '';
+
+    await insertAutomation('applies_half_scene', {
+      triggers: [{ type: 'manual' }],
+      then: [{ type: 'scene', sceneKey: `half_${suffix}` }],
+    });
+    await insertAutomation('names_missing', {
+      triggers: [{ type: 'manual' }],
+      then: [
+        {
+          type: 'command',
+          entityId: parseEntityId(`light.gone_${suffix}`),
+          capability: 'on_off',
+          params: { command: 'turn_on' },
+        },
+      ],
+    });
     await insertAutomation('skips_what_is_off', {
       triggers: [{ type: 'manual' }],
       then: [
@@ -285,7 +312,9 @@ describe('automations in a running core', () => {
     await database.db
       .delete(schema.registry.automations)
       .where(inArray(schema.registry.automations.id, automationIds));
-    await database.db.delete(schema.registry.scenes).where(eq(schema.registry.scenes.id, sceneId));
+    await database.db
+      .delete(schema.registry.scenes)
+      .where(inArray(schema.registry.scenes.id, [sceneId, halfSceneId]));
     await removeFixture(database.db, fixture);
     await database.close();
   });
@@ -387,6 +416,41 @@ describe('automations in a running core', () => {
       failed: 1,
       members: [{ entityId: lamp, error: 'You may not control this entity', sent: [] }],
     });
+  });
+
+  it('refuses a run naming an entity the house does not have, and records why', async () => {
+    const reply = await caller.request(
+      busSubjects.service(CORE_SERVICE, CORE_TRIGGER_AUTOMATION_METHOD),
+      { automationId: ids['names_missing'] },
+      triggerAutomationReplySchema,
+    );
+
+    expect(reply).toMatchObject({ runId: null, outcome: 'ignored' });
+    expect(reply.reason).toContain(`light.gone_${suffix}`);
+
+    const runs = await until(
+      () => runsOf('names_missing'),
+      (rows) => rows.length > 0,
+    );
+
+    expect(runs[0]).toMatchObject({ result: 'failed' });
+    expect(runs[0]?.error).toMatch(/do not exist/);
+  });
+
+  it('does not apply a scene that still has members waiting for an entity', async () => {
+    await caller.request(
+      busSubjects.service(CORE_SERVICE, CORE_TRIGGER_AUTOMATION_METHOD),
+      { automationId: ids['applies_half_scene'] },
+      triggerAutomationReplySchema,
+    );
+
+    const runs = await until(
+      () => runsOf('applies_half_scene'),
+      (rows) => rows.length > 0,
+    );
+
+    expect(runs[0]).toMatchObject({ result: 'failed' });
+    expect(runs[0]?.error).toMatch(/light\.gone/);
   });
 
   it('skips a block turned off, and records it so', async () => {

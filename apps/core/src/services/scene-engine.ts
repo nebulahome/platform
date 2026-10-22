@@ -9,6 +9,7 @@
  */
 import {
   NotFoundError,
+  assertSceneResolved,
   type ApplySceneReply,
   type ChangeContext,
   type SceneSkip,
@@ -72,6 +73,7 @@ export class SceneEngine {
    * @param request - Who is applying it, what to skip, and how long it may take.
    * @returns Per-member outcomes, with what was sent to each.
    * @throws {NotFoundError} When there is no such scene.
+   * @throws {ConflictError} When it still has members waiting for an entity.
    */
   public async apply(ref: SceneRef, request: SceneApplyRequest): Promise<ApplySceneReply> {
     const scene = await loadScene(this.#options.db, ref);
@@ -79,6 +81,8 @@ export class SceneEngine {
     if (scene === undefined) {
       throw new NotFoundError('No scene has that id', { details: { ...ref } });
     }
+
+    assertSceneResolved(scene.unresolvedMembers);
 
     const deadline = Date.now() + request.deadlineMs;
     const logger = this.#options.logger;

@@ -32,6 +32,9 @@ export type SceneRecord = {
   readonly transitionMs: number;
   readonly rollbackOnPartialFailure: boolean;
   readonly members: readonly SceneMemberRecord[];
+
+  /** What is stored as members still waiting for an entity; a scene with any is not applied. */
+  readonly unresolvedMembers: unknown;
 };
 
 /** Which scene: by its row id, as the API asks, or by its key, as an automation names it. */
@@ -56,6 +59,7 @@ export async function loadScene(db: Database, ref: SceneRef): Promise<SceneRecor
       name: scenes.name,
       transitionMs: scenes.transitionMs,
       rollbackOnPartialFailure: scenes.rollbackOnPartialFailure,
+      unresolvedMembers: scenes.unresolvedMembers,
     })
     .from(scenes)
     .where('id' in ref ? eq(scenes.id, ref.id) : eq(scenes.key, ref.key))

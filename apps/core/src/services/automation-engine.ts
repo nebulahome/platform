@@ -31,6 +31,7 @@ import {
   AUTOMATION_TEST_MAX_MS,
   busSubjects,
   ConflictError,
+  entityIdsOfDefinition,
   isNebulaError,
   numericReadingOf,
   stateTokenOf,
@@ -79,6 +80,7 @@ import {
   triggerLeaves,
   type TriggerEvent,
 } from '../domain/automation/trigger-match.js';
+import type { EntityDirectory } from '../domain/entity-directory.js';
 import type { EntityRegistry, IngestResult } from '../domain/entity-registry.js';
 import {
   automationIdByKey,
@@ -100,6 +102,9 @@ export type AutomationEngineOptions = {
 
   /** The live states triggers and checks read. */
   readonly registry: EntityRegistry;
+
+  /** Which entities exist: a run naming one that does not is refused. */
+  readonly directory: EntityDirectory;
 
   /** How commands go out. */
   readonly dispatcher: CommandDispatcher;
@@ -967,6 +972,20 @@ export class AutomationEngine {
       return { runId: null, outcome: 'ignored', reason: 'It is already running' };
     }
 
+    // An automation naming an entity the house does not have is refused whole rather than run to
+    // the step that fails: the list shows it in error until somebody picks the entity.
+    const missing = entityIdsOfDefinition(record.definition).filter(
+      (entityId) => this.#options.directory.get(entityId as EntityId) === undefined,
+    );
+
+    if (missing.length > 0) {
+      const reason = `It names entities that do not exist: ${missing.join(', ')}`;
+
+      this.#refuse(slot, trigger, reason);
+
+      return { runId: null, outcome: 'ignored', reason };
+    }
+
     const guard = this.#guard.admit(record.id, chain, this.#now().getTime());
 
     if (!guard.ok) {
@@ -995,7 +1014,7 @@ export class AutomationEngine {
   }
 
   /**
-   * Records a run the loop guard refused, once a minute at most, so the list can say why the
+   * Records a run the loop guard, or a missing entity, refused, once a minute at most, so the list can say why the
    * automation stopped running without a row for every refusal.
    *
    * @param slot - The automation.

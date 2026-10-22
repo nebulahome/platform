@@ -341,6 +341,7 @@ export class CoreService {
       db,
       client,
       registry: this.#registry,
+      directory: this.#directory,
       dispatcher,
       scenes: sceneEngine,
       logger,
