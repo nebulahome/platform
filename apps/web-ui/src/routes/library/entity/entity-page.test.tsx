@@ -319,6 +319,7 @@ describe('EntityPage', () => {
         isEnabled: true,
         lastTriggeredAt: null,
         lastRun: null,
+        missingEntities: [],
       },
     ]);
     vi.mocked(fetchScenes).mockResolvedValue([]);

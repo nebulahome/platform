@@ -76,6 +76,7 @@ function anAutomation(
     isEnabled: true,
     lastTriggeredAt: null,
     lastRun: null,
+    missingEntities: [],
     ...overrides,
   };
 }
@@ -102,6 +103,7 @@ const EVENING: AutomationView = anAutomation('e1', 'Evening lights', {
   description: 'Warm light in the living room when someone comes in after sunset.',
   mode: 'restart',
   lastRun: lastRun('success', 20),
+  missingEntities: [],
   definition: {
     triggers: [
       {
@@ -162,6 +164,48 @@ const EVENING: AutomationView = anAutomation('e1', 'Evening lights', {
         entityId: entity('light.lr_strip'),
         capability: 'color_hs',
         params: { command: 'set_color', hue: 28, saturation: 80 },
+      },
+      {
+        type: 'command',
+        entityId: entity('cover.lr_blinds'),
+        capability: 'cover',
+        params: { command: 'set_position', position: 40 },
+      },
+      {
+        type: 'command',
+        entityId: entity('lock.front_door'),
+        capability: 'lock',
+        params: { command: 'lock' },
+      },
+      {
+        type: 'command',
+        entityId: entity('climate.hall'),
+        capability: 'thermostat',
+        params: { command: 'set_target', temperature: 21 },
+      },
+      {
+        type: 'command',
+        entityId: entity('media_player.speaker'),
+        capability: 'media_player',
+        params: { command: 'set_volume', volume: 30 },
+      },
+      {
+        type: 'command',
+        entityId: entity('select.fan_speed'),
+        capability: 'select',
+        params: { command: 'select_option', option: 'medium' },
+      },
+      {
+        type: 'command',
+        entityId: entity('vacuum.robbie'),
+        capability: 'vacuum',
+        params: { command: 'clean_rooms', rooms: ['kitchen', 'hallway'] },
+      },
+      {
+        type: 'command',
+        entityId: entity('number.grid_limit'),
+        capability: 'number',
+        params: { command: 'set_value', value: 3000 },
       },
       { type: 'wait_duration', durationMs: 600_000 },
       {
@@ -290,16 +334,22 @@ const AUTOMATIONS: AutomationView[] = [
   anAutomation('e2', 'Bathroom fan after a shower', {
     mode: 'restart',
     lastRun: lastRun('success', 90),
+    missingEntities: [],
   }),
-  anAutomation('e3', 'Dehumidifier in the cellar', { lastRun: lastRun('failed', 300) }),
+  anAutomation('e3', 'Dehumidifier in the cellar', {
+    lastRun: lastRun('failed', 300),
+    missingEntities: [entity('sensor.cellar_humidity')],
+  }),
   anAutomation('e4', 'Garden irrigation', {
     mode: 'queued',
     lastRun: lastRun('condition_not_met', 600),
+    missingEntities: [],
   }),
   anAutomation('e5', 'Christmas lights', { isEnabled: false }),
   anAutomation('e6', 'Doorbell on the TV', {
     mode: 'parallel',
     lastRun: lastRun('cancelled', 60 * 30),
+    missingEntities: [],
   }),
 ];
 
@@ -312,6 +362,7 @@ const EVENING_SCENE: SceneView = {
   areaKey: 'living_room',
   transitionMs: 2_000,
   rollbackOnPartialFailure: false,
+  unresolvedMembers: [],
   members: [],
 };
 
@@ -375,6 +426,82 @@ function automationCache(automations: readonly AutomationView[]): QueryClient {
       unitOfMeasurement: 'lx',
       capabilities: [{ capability: 'sensor_numeric', params: {} }],
       state: { sensor_numeric: { value: 32 } },
+    }),
+    anEntity({
+      entityId: 'cover.lr_blinds',
+      name: 'Blinds',
+      capabilities: [{ capability: 'cover', params: { hasTilt: true } }],
+      state: { cover: { position: 40, tilt: 20, motion: 'stopped' } },
+    }),
+    anEntity({
+      entityId: 'lock.front_door',
+      name: 'Front door',
+      capabilities: [{ capability: 'lock', params: {} }],
+      state: { lock: { lockState: 'locked' } },
+    }),
+    anEntity({
+      entityId: 'climate.hall',
+      name: 'Thermostat',
+      capabilities: [
+        {
+          capability: 'thermostat',
+          params: {
+            supportedModes: ['off', 'heat', 'cool', 'auto'],
+            minTemperature: 7,
+            maxTemperature: 30,
+            temperatureStep: 0.5,
+          },
+        },
+      ],
+      state: {
+        thermostat: { currentTemperature: 20, targetTemperature: 21, mode: 'heat', action: 'idle' },
+      },
+    }),
+    anEntity({
+      entityId: 'media_player.speaker',
+      name: 'Speaker',
+      capabilities: [{ capability: 'media_player', params: {} }],
+      state: { media_player: { playback: 'playing', volume: 30, isMuted: false } },
+    }),
+    anEntity({
+      entityId: 'select.fan_speed',
+      name: 'Fan speed',
+      capabilities: [
+        {
+          capability: 'select',
+          params: {
+            options: ['off', 'low', 'medium', 'high', 'auto'].map((value) => ({
+              value,
+              label: value.charAt(0).toUpperCase() + value.slice(1),
+            })),
+          },
+        },
+      ],
+      state: { select: { option: 'medium' } },
+    }),
+    anEntity({
+      entityId: 'vacuum.robbie',
+      name: 'Robbie',
+      capabilities: [{ capability: 'vacuum', params: { canCleanRooms: true } }],
+      state: {
+        vacuum: {
+          activity: 'docked',
+          rooms: [
+            { id: 'kitchen', name: 'Kitchen' },
+            { id: 'living', name: 'Living room' },
+            { id: 'hallway', name: 'Hallway' },
+            { id: 'office', name: 'Office' },
+          ],
+          isResumable: false,
+        },
+      },
+    }),
+    anEntity({
+      entityId: 'number.grid_limit',
+      name: 'Grid power limit',
+      unitOfMeasurement: 'W',
+      capabilities: [{ capability: 'number', params: { min: 0, max: 5000, step: 50 } }],
+      state: { number: { value: 3000 } },
     }),
     anEntity({
       entityId: 'person.anna',

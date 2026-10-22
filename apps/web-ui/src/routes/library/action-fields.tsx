@@ -23,22 +23,36 @@ import type {
   JsonValue,
 } from '@nebulahome/contracts';
 import { CAPABILITIES, commandSchemaFor } from '@nebulahome/contracts';
-import { Note, Segmented, SelectField, Slider, TextArea, TextField } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Note,
+  Segmented,
+  SelectField,
+  Slider,
+  Stepper,
+  TextArea,
+  TextField,
+} from '@nebulahome/ui';
 
+import { ChoiceChips } from '@/components/choice-chips';
 import {
   choiceOf,
+  choicesByCapability,
   commandChoicesFor,
+  commandLabel,
   defaultParams,
   type CommandChoice,
   type CommandField,
 } from '@/lib/command-choices';
 import { partialEntityId } from '@/library/automation-draft';
 import {
+  capabilityStateOf,
   hexToHs,
   hsColor,
   hsToHex,
   hueGradient,
   isCommandable,
+  kelvinRangeOf,
   kelvinToMireds,
   miredsToKelvin,
   paramsOf,
@@ -78,9 +92,6 @@ function commandableCapabilities(entity: EntityView | undefined): CapabilityName
   return declared.filter((capability) => commandSchemaFor(capability) !== null);
 }
 
-/** The whites a lamp is assumed to span when the entity is not known yet. */
-const DEFAULT_KELVIN = { min: 2_000, max: 6_500 } as const;
-
 /**
  * Whether a device can fade what one of its capabilities does.
  *
@@ -101,20 +112,6 @@ function canFade(entity: EntityView | undefined, capability: CapabilityName): bo
     'hasTransition' in params &&
     params.hasTransition === true
   );
-}
-
-/**
- * The whites a lamp spans, warmest first.
- *
- * @param entity - The entity, or undefined while none is chosen.
- * @returns The range in kelvin.
- */
-function kelvinRangeOf(entity: EntityView | undefined): { min: number; max: number } {
-  const params = entity === undefined ? null : paramsOf(entity, 'color_temp');
-
-  return params === null
-    ? DEFAULT_KELVIN
-    : { min: miredsToKelvin(params.maxMireds), max: miredsToKelvin(params.minMireds) };
 }
 
 /**
@@ -303,6 +300,8 @@ function CommandFields(props: {
   const takesColour =
     fields.some((field) => field.key === 'hue') &&
     fields.some((field) => field.key === 'saturation');
+  const groups = choicesByCapability(choices);
+  const siblings = groups.find((group) => group.capability === chosen?.capability)?.commands ?? [];
 
   /**
    * Switches to another command, with its fields at their defaults.
@@ -362,19 +361,23 @@ function CommandFields(props: {
                   },
                 ]
               : []),
-            ...choices.map((choice) => ({
-              value: `${choice.capability}:${choice.command}`,
-              label:
-                choices.filter((other) => other.command === choice.command).length > 1
-                  ? `${capabilityLabel(choice.capability)} · ${choice.label}`
-                  : choice.label,
-            })),
+            ...groups.map((group) => {
+              const name = capabilityLabel(group.capability, entity?.domain);
+              const [only] = group.commands;
+
+              // One command reads as the board's "Brightness · set_level"; several are the Do's.
+              return {
+                value: group.capability,
+                label:
+                  group.commands.length === 1 && only !== undefined && only.command !== ''
+                    ? `${name} · ${only.command}`
+                    : name,
+              };
+            }),
           ]}
-          value={chosen === undefined ? '' : `${chosen.capability}:${chosen.command}`}
-          onChange={(value) => {
-            const next = choices.find(
-              (choice) => `${choice.capability}:${choice.command}` === value,
-            );
+          value={chosen?.capability ?? ''}
+          onChange={(capability) => {
+            const next = groups.find((group) => group.capability === capability)?.commands[0];
 
             if (next !== undefined) {
               choose(next);
@@ -382,6 +385,19 @@ function CommandFields(props: {
           }}
         />
       </div>
+
+      {chosen !== undefined && siblings.length > 1 ? (
+        <DoField choices={siblings} chosen={chosen} onChange={choose} />
+      ) : null}
+
+      {chosen?.capability === 'custom' ? (
+        <CustomCommandFields
+          params={action.params}
+          onChange={(params) => {
+            onChange({ ...action, params });
+          }}
+        />
+      ) : null}
 
       {fields.length === 0 ? null : (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -391,7 +407,7 @@ function CommandFields(props: {
               field={field}
               value={action.params[field.key]}
               hue={hue}
-              kelvin={kelvinRangeOf(entity)}
+              entity={entity}
               onChange={(value) => {
                 setField(field.key, value);
               }}
@@ -495,15 +511,141 @@ function written(text: string): string {
 }
 
 /**
- * The control for one field of a command, by what kind of value it is.
+ * The Do of Set entity: which of the capability's commands, as the board's segmented row - Turn
+ * on / Turn off / Toggle, Open / Close / Stop / Position / Tilt.
+ *
+ * @param props - The commands, the one chosen, and its change handler.
+ * @param props.choices - The capability's commands.
+ * @param props.chosen - The one the block sends.
+ * @param props.onChange - Called with another.
+ * @returns The field.
+ */
+function DoField(props: {
+  readonly choices: readonly CommandChoice[];
+  readonly chosen: CommandChoice;
+  readonly onChange: (choice: CommandChoice) => void;
+}) {
+  const { t } = useTranslation();
+
+  const { choices, chosen, onChange } = props;
+  const label = t('library.actionFields.do', 'Do');
+  const options = choices.map((choice) => ({
+    value: choice.command,
+    label: doLabel(choice.command),
+  }));
+
+  /**
+   * Picks a command by its name.
+   *
+   * @param command - The command.
+   */
+  const pick = (command: string): void => {
+    const next = choices.find((choice) => choice.command === command);
+
+    if (next !== undefined) {
+      onChange(next);
+    }
+  };
+
+  // One row as on the board; past what fits, the row scrolls rather than turning into a list.
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <span className="text-caption font-medium text-foreground-muted">{label}</span>
+      <div className="max-w-full self-start overflow-x-auto">
+        <Segmented
+          label={label}
+          size="compact"
+          options={options}
+          value={chosen.command}
+          onChange={pick}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A command as the Do reads it: the verb alone, as the board writes it - "Position" for
+ * `set_position`, "Volume" for `set_volume` - since the field already says what it sets.
+ *
+ * @param command - The command.
+ * @returns How it reads.
+ */
+function doLabel(command: string): string {
+  return command.startsWith('set_') ? commandLabel(command.slice(4)) : commandLabel(command);
+}
+
+/**
+ * The fields of a command of a package's own entity type: its id and its arguments, as the
+ * package's manifest lists them.
+ *
+ * @param props - The command body and its change handler.
+ * @param props.params - The body: `{ command, args }`.
+ * @param props.onChange - Called with it as it now stands.
+ * @returns The fields.
+ */
+function CustomCommandFields(props: {
+  readonly params: Readonly<Record<string, unknown>>;
+  readonly onChange: (params: JsonObject) => void;
+}) {
+  const { t } = useTranslation();
+
+  const { params, onChange } = props;
+  const args = params['args'];
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+      <TextField
+        label={t('library.actionFields.commandId', 'Command')}
+        size="compact"
+        className="font-mono"
+        placeholder={t('library.actionFields.commandIdExample', 'start_recording')}
+        hint={t('library.actionFields.asItsPackageNames', 'As its package names it.')}
+        value={typeof params['command'] === 'string' ? params['command'] : ''}
+        onChange={(event) => {
+          onChange({ ...(params as JsonObject), command: event.target.value });
+        }}
+      />
+      <TextArea
+        label={t('library.actionFields.arguments', 'Arguments')}
+        className="font-mono text-mono-ui"
+        hint={t('library.actionFields.jsonObjectOptional', 'A JSON object; empty for none.')}
+        defaultValue={args === undefined ? '' : JSON.stringify(args, null, 2)}
+        onBlur={(event) => {
+          try {
+            const parsed: unknown = JSON.parse(
+              event.target.value === '' ? '{}' : event.target.value,
+            );
+
+            if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              onChange({ ...(params as JsonObject), args: parsed as JsonObject });
+            }
+          } catch {
+            // Left as typed: the save names what is wrong with it.
+          }
+        }}
+      />
+    </div>
+  );
+}
+
+/** The colour each amount is drawn in on the board. */
+const FILL_OF: Readonly<Record<string, 'accent' | 'warm' | 'violet' | 'cyan'>> = {
+  level: 'warm',
+  volume: 'violet',
+  position: 'cyan',
+  tilt: 'cyan',
+};
+
+/**
+ * The control for one field of a command, by what kind of value it is, and by what the device
+ * says of it: a select's options, a robot's rooms; numbers in {@link NumberFieldControl}.
  *
  * @param props - The field, its value and its change handler.
  * @param props.field - The field.
  * @param props.value - Its value in the command body.
  * @param props.hue - The command's hue, for a saturation slider's groove.
- * @param props.kelvin - The whites the lamp spans, for a colour temperature.
- * @param props.kelvin.min - The warmest, in kelvin.
- * @param props.kelvin.max - The coolest, in kelvin.
+ * @param props.entity - The entity, or undefined while none is chosen.
  * @param props.onChange - Called with the new value; undefined to leave it out.
  * @returns The control.
  */
@@ -511,12 +653,12 @@ function CommandFieldControl(props: {
   readonly field: CommandField;
   readonly value: unknown;
   readonly hue: number;
-  readonly kelvin: { readonly min: number; readonly max: number };
+  readonly entity: EntityView | undefined;
   readonly onChange: (value: JsonValue | undefined) => void;
 }) {
   const { t } = useTranslation();
 
-  const { field, value, hue, kelvin, onChange } = props;
+  const { field, value, hue, entity, onChange } = props;
 
   switch (field.kind) {
     case 'percent': {
@@ -524,13 +666,15 @@ function CommandFieldControl(props: {
 
       return (
         <Slider
+          look="bar"
           label={field.label}
           min={0}
           max={100}
           value={number}
           display={`${String(Math.round(number))}%`}
-          fill={field.key === 'level' ? 'warm' : 'accent'}
+          fill={FILL_OF[field.key] ?? 'accent'}
           gradient={field.key === 'saturation' ? saturationGradient(hue) : undefined}
+          icon={field.key === 'level' ? <AppIcon id="sun" size={14} /> : undefined}
           onChange={(next) => {
             onChange(Math.round(next));
           }}
@@ -551,73 +695,19 @@ function CommandFieldControl(props: {
       );
     }
     case 'number': {
-      if (field.key === 'mireds') {
-        const shown =
-          typeof value === 'number'
-            ? Math.min(kelvin.max, Math.max(kelvin.min, miredsToKelvin(value)))
-            : kelvin.min;
-
-        return (
-          <Slider
-            label={field.label}
-            min={kelvin.min}
-            max={kelvin.max}
-            step={50}
-            value={shown}
-            display={`${String(shown)} K`}
-            gradient={warmthGradient(kelvin.min, kelvin.max)}
-            onChange={(next) => {
-              onChange(kelvinToMireds(next));
-            }}
-          />
-        );
-      }
-
-      if (field.key === 'hue') {
-        const number = typeof value === 'number' ? value : 0;
-
-        return (
-          <Slider
-            label={field.label}
-            min={0}
-            max={360}
-            value={number}
-            display={`${String(Math.round(number))}°`}
-            gradient={hueGradient()}
-            onChange={(next) => {
-              onChange(Math.round(next));
-            }}
-          />
-        );
-      }
-
-      return (
-        <TextField
-          label={field.label}
-          size="compact"
-          type="number"
-          className="font-mono"
-          min={field.min}
-          max={field.max}
-          value={typeof value === 'number' ? String(value) : ''}
-          onChange={(event) => {
-            const number = Number(event.target.value);
-
-            onChange(
-              event.target.value === '' && field.isOptional
-                ? undefined
-                : Number.isFinite(number)
-                  ? number
-                  : 0,
-            );
-          }}
-        />
-      );
+      return <NumberFieldControl field={field} value={value} entity={entity} onChange={onChange} />;
     }
     case 'enum': {
-      const options = field.options ?? [];
+      const supported =
+        field.key === 'mode' && entity !== undefined
+          ? paramsOf(entity, 'thermostat')?.supportedModes
+          : undefined;
+      const options =
+        supported === undefined
+          ? (field.options ?? [])
+          : (field.options ?? []).filter((option) => supported.some((mode) => mode === option));
 
-      return options.length <= 4 ? (
+      return options.length <= 5 ? (
         <div className="flex flex-col gap-1.5">
           <span className="text-caption font-medium text-foreground-muted">{field.label}</span>
           <Segmented
@@ -645,10 +735,17 @@ function CommandFieldControl(props: {
           <Segmented
             label={field.label}
             size="compact"
-            options={[
-              { value: 'on', label: t('common.on', 'On') },
-              { value: 'off', label: t('common.off', 'Off') },
-            ]}
+            options={
+              field.key === 'isMuted'
+                ? [
+                    { value: 'off', label: t('common.no', 'No') },
+                    { value: 'on', label: t('common.yes', 'Yes') },
+                  ]
+                : [
+                    { value: 'on', label: t('common.on', 'On') },
+                    { value: 'off', label: t('common.off', 'Off') },
+                  ]
+            }
             value={value === true ? 'on' : 'off'}
             onChange={(next) => {
               onChange(next === 'on');
@@ -658,12 +755,33 @@ function CommandFieldControl(props: {
       );
     }
     case 'list': {
+      const rooms =
+        entity === undefined ? [] : (capabilityStateOf(entity, undefined).vacuum?.rooms ?? []);
+      const chosen = Array.isArray(value)
+        ? value.filter((entry): entry is string => typeof entry === 'string')
+        : [];
+
+      // A robot's rooms are picked from its map; without a map they are typed.
+      if (field.key === 'rooms' && rooms.length > 0) {
+        return (
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <span className="text-caption font-medium text-foreground-muted">{field.label}</span>
+            <ChoiceChips
+              label={field.label}
+              options={rooms.map((room) => ({ value: room.id, label: room.name }))}
+              value={chosen}
+              onChange={onChange}
+            />
+          </div>
+        );
+      }
+
       return (
         <TextField
           label={field.label}
           size="compact"
           hint={t('library.actionFields.separatedByCommas', 'Separated by commas.')}
-          value={Array.isArray(value) ? value.join(', ') : ''}
+          value={chosen.join(', ')}
           onChange={(event) => {
             onChange(
               event.target.value
@@ -676,11 +794,56 @@ function CommandFieldControl(props: {
       );
     }
     case 'text': {
+      const options =
+        field.key === 'option' && entity !== undefined
+          ? (paramsOf(entity, 'select')?.options ?? [])
+          : [];
+      const current = typeof value === 'string' ? value : '';
+
+      if (options.length > 0) {
+        const choices = options.map((option) => ({ value: option.value, label: option.label }));
+
+        return choices.length <= 5 ? (
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <span className="text-caption font-medium text-foreground-muted">{field.label}</span>
+            <Segmented
+              label={field.label}
+              size="compact"
+              options={choices}
+              value={current}
+              onChange={onChange}
+            />
+          </div>
+        ) : (
+          <SelectField
+            label={field.label}
+            size="compact"
+            options={[
+              ...(choices.some((choice) => choice.value === current)
+                ? []
+                : [{ value: current, label: current === '' ? '…' : current }]),
+              ...choices,
+            ]}
+            value={current}
+            onChange={onChange}
+          />
+        );
+      }
+
       return (
         <TextField
-          label={field.label}
+          label={
+            field.isOptional
+              ? t('library.actionFields.optionalField', '{{label}} (optional)', {
+                  label: field.label,
+                })
+              : field.label
+          }
           size="compact"
-          value={typeof value === 'string' ? value : ''}
+          // A lock's code is a secret on the screen as it is anywhere else.
+          type={field.key === 'code' ? 'password' : 'text'}
+          autoComplete="off"
+          value={current}
           onChange={(event) => {
             onChange(
               event.target.value === '' && field.isOptional ? undefined : event.target.value,
@@ -690,6 +853,130 @@ function CommandFieldControl(props: {
       );
     }
   }
+}
+
+/**
+ * A number of a command: a colour temperature or a hue as their scales, a thermostat's target as
+ * a stepper within its range, a number setting as a bar within its limits, anything else typed.
+ *
+ * @param props - The field, its value, the entity and its change handler.
+ * @param props.field - The field.
+ * @param props.value - Its value in the command body.
+ * @param props.entity - The entity, or undefined while none is chosen.
+ * @param props.onChange - Called with the new value; undefined to leave it out.
+ * @returns The control.
+ */
+function NumberFieldControl(props: {
+  readonly field: CommandField;
+  readonly value: unknown;
+  readonly entity: EntityView | undefined;
+  readonly onChange: (value: JsonValue | undefined) => void;
+}) {
+  const { field, value, entity, onChange } = props;
+  const number = typeof value === 'number' ? value : undefined;
+
+  if (field.key === 'mireds') {
+    const kelvin = kelvinRangeOf(entity);
+    const shown =
+      number === undefined
+        ? kelvin.min
+        : Math.min(kelvin.max, Math.max(kelvin.min, miredsToKelvin(number)));
+
+    return (
+      <Slider
+        look="bar"
+        label={field.label}
+        min={kelvin.min}
+        max={kelvin.max}
+        step={50}
+        value={shown}
+        display={`${String(shown)} K`}
+        gradient={warmthGradient(kelvin.min, kelvin.max)}
+        onChange={(next) => {
+          onChange(kelvinToMireds(next));
+        }}
+      />
+    );
+  }
+
+  if (field.key === 'hue') {
+    return (
+      <Slider
+        look="bar"
+        label={field.label}
+        min={0}
+        max={360}
+        value={number ?? 0}
+        display={`${String(Math.round(number ?? 0))}°`}
+        gradient={hueGradient()}
+        onChange={(next) => {
+          onChange(Math.round(next));
+        }}
+      />
+    );
+  }
+
+  if (field.key === 'temperature') {
+    const range = entity === undefined ? null : paramsOf(entity, 'thermostat');
+    const min = range?.minTemperature ?? 5;
+    const max = range?.maxTemperature ?? 35;
+
+    return (
+      <Stepper
+        size="field"
+        label={field.label}
+        min={min}
+        max={max}
+        step={range?.temperatureStep ?? 0.5}
+        value={number ?? Math.min(max, Math.max(min, 21))}
+        format={(next) => `${next.toFixed(1)} °C`}
+        onChange={onChange}
+      />
+    );
+  }
+
+  const limits = field.key === 'value' && entity !== undefined ? paramsOf(entity, 'number') : null;
+
+  if (limits !== null) {
+    const shown = number ?? limits.min;
+    const unit = entity?.unitOfMeasurement ?? null;
+
+    return (
+      <Slider
+        look="bar"
+        label={field.label}
+        min={limits.min}
+        max={limits.max}
+        step={limits.step}
+        value={shown}
+        display={unit === null ? String(shown) : `${String(shown)} ${unit}`}
+        onChange={onChange}
+      />
+    );
+  }
+
+  return (
+    <TextField
+      label={field.label}
+      size="compact"
+      type="number"
+      className="font-mono"
+      min={field.min}
+      max={field.max}
+      value={number === undefined ? '' : String(number)}
+      onChange={(event) => {
+        const typed = Number(event.target.value);
+
+        onChange(
+          event.target.value === '' && field.isOptional
+            ? undefined
+            : Number.isFinite(typed)
+              ? typed
+              : 0,
+        );
+      }}
+    />
+  );
 }
 
 /**

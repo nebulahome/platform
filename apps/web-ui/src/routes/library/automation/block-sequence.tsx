@@ -54,6 +54,9 @@ export type BlockSequenceProps<TItem extends object> = {
    * an empty branch is mostly its Add.
    */
   readonly footer?: ReactNode;
+
+  /** What stands between one block and the next: the OR between triggers, an AND/OR. */
+  readonly join?: ReactNode;
 };
 
 /**
@@ -65,7 +68,7 @@ export type BlockSequenceProps<TItem extends object> = {
 export function BlockSequence<TItem extends object>(props: BlockSequenceProps<TItem>) {
   const { t } = useTranslation();
 
-  const { items, path, family, lookOf, renderItem, footer } = props;
+  const { items, path, family, lookOf, renderItem, footer, join } = props;
   const { drag, startPointer, onGripKey } = useBlockDrag();
   const drop = drag?.drop?.list === path ? drag.drop : null;
   const isOffering = drag !== null && drag.source.family === family;
@@ -79,6 +82,7 @@ export function BlockSequence<TItem extends object>(props: BlockSequenceProps<TI
         const isSource = drag?.source.id === id;
 
         return [
+          index > 0 && join !== undefined ? <div key={`${id}-join`}>{join}</div> : null,
           drop?.index === index ? <BlockDropLine key={`${id}-drop`} /> : null,
           <div
             key={id}

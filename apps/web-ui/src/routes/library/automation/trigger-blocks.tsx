@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { AutomationTrigger } from '@nebulahome/contracts';
-import { AppIcon, Block, BlockLaneSection, type UiIconId } from '@nebulahome/ui';
+import { AppIcon, Block, BlockJoin, BlockLaneSection, type UiIconId } from '@nebulahome/ui';
 
 import type { DragLook } from '@/lib/block-drag';
 import { carryBlockId } from '@/lib/block-ids';
@@ -113,6 +113,7 @@ export function TriggerLane(props: TriggerLaneProps) {
         items={triggers}
         path="triggers"
         family="trigger"
+        join={<BlockJoin>{t('automation.triggerBlocks.or', 'OR')}</BlockJoin>}
         lookOf={(trigger) => triggerLook(trigger, house.names)}
         renderItem={({ item, index, id, grip }) => (
           <TriggerBlock

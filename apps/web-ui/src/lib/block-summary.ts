@@ -873,6 +873,28 @@ export function commandPhrase(params: Readonly<Record<string, unknown>>): string
         value: String(params['value']),
       });
     }
+    case 'set_source': {
+      return translate('automations.summary.commands.source', 'source {{source}}', {
+        source: String(params['source']),
+      });
+    }
+    case 'set_mute': {
+      return params['isMuted'] === true
+        ? translate('automations.summary.commands.mute', 'mute')
+        : translate('automations.summary.commands.unmute', 'unmute');
+    }
+    case 'clean_rooms': {
+      const rooms = Array.isArray(params['rooms']) ? params['rooms'].length : 0;
+
+      return translate('automations.summary.commands.cleanRooms', 'clean {{count}} rooms', {
+        count: String(rooms),
+      });
+    }
+    case 'record': {
+      return translate('automations.summary.commands.record', 'record for {{seconds}} s', {
+        seconds: String(params['durationSeconds']),
+      });
+    }
     case '': {
       return translate('automations.summary.commands.choose', 'choose what to do');
     }

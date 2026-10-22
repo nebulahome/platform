@@ -21,6 +21,7 @@ import {
   Button,
   IconButton,
   TextField,
+  type UiIconId,
 } from '@nebulahome/ui';
 
 import { translate } from '@/i18n/messages';
@@ -55,6 +56,39 @@ import { StateField, TriggerFields } from '@/routes/library/trigger-fields';
 /** The longest a wait may be: the format's week. */
 const WEEK_MS = 604_800_000;
 
+/** The glyph of Set entity by what it tells the entity (N-Blocks-Actions). */
+const COMMAND_GLYPHS: Readonly<Partial<Record<string, UiIconId>>> = {
+  on_off: 'power',
+  level: 'lightbulb',
+  color_hs: 'lightbulb',
+  color_temp: 'lightbulb',
+  cover: 'blinds',
+  lock: 'lock',
+  thermostat: 'thermometer',
+  media_player: 'volume-2',
+  select: 'list',
+  vacuum: 'bot',
+  lawn_mower: 'bot',
+  camera: 'camera',
+  button: 'circle-dot',
+  update: 'download',
+  number: 'hash',
+  custom: 'package',
+};
+
+/**
+ * A block's glyph: Set entity's says what it sets, every other kind has its own.
+ *
+ * @param action - The block.
+ * @returns The glyph.
+ */
+function actionGlyph(action: AutomationAction): UiIconId {
+  return (
+    (action.type === 'command' ? COMMAND_GLYPHS[action.capability] : undefined) ??
+    glyphForKind('action', action.type)
+  );
+}
+
 /**
  * How a block looks under the pointer while it is dragged.
  *
@@ -65,7 +99,7 @@ const WEEK_MS = 604_800_000;
 function actionLook(action: AutomationAction, names: BlockNames): DragLook {
   return {
     lane: CONTROL_KINDS.has(action.type) ? 'control' : 'then',
-    glyph: glyphForKind('action', action.type),
+    glyph: actionGlyph(action),
     kind: labelForKind('action', action.type),
     summary: action.name ?? actionSummary(action, names),
   };
@@ -270,7 +304,7 @@ function ActionBlock(props: ActionBlockProps) {
     <div data-block-closed={!ui.isOpen && holdsBlocks(action) ? id : undefined}>
       <Block
         lane={CONTROL_KINDS.has(action.type) ? 'control' : 'then'}
-        glyph={<AppIcon id={glyphForKind('action', action.type)} size={15} />}
+        glyph={<AppIcon id={actionGlyph(action)} size={15} />}
         kind={kind}
         summary={action.name === undefined ? said : <span title={said}>{action.name}</span>}
         isWarning={isGone || isForEach || unavailableReason('action', action.type) !== undefined}

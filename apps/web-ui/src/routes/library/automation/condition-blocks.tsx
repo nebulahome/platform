@@ -10,7 +10,15 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { isConditionGroup, type ConditionGroup, type ConditionNode } from '@nebulahome/contracts';
-import { AppIcon, Block, BlockGroup, BlockLaneSection, BlockNotice } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Block,
+  BlockGroup,
+  BlockJoin,
+  BlockLaneSection,
+  BlockNotice,
+  Segmented,
+} from '@nebulahome/ui';
 
 import type { DragLook } from '@/lib/block-drag';
 import { carryBlockId } from '@/lib/block-ids';
@@ -109,6 +117,9 @@ export type ConditionListProps = {
 
   /** Whether the list sits inside another block. */
   readonly isNested?: boolean;
+
+  /** How its conditions join: AND unless it is an OR group's. */
+  readonly op?: 'and' | 'or';
 };
 
 /**
@@ -120,7 +131,7 @@ export type ConditionListProps = {
 export function ConditionList(props: ConditionListProps) {
   const { t } = useTranslation();
 
-  const { items, path, onChange, addLabel, isNested = false } = props;
+  const { items, path, onChange, addLabel, isNested = false, op = 'and' } = props;
   const house = useEditorHouse();
 
   return (
@@ -128,6 +139,33 @@ export function ConditionList(props: ConditionListProps) {
       items={items}
       path={path}
       family="condition"
+      join={
+        path === 'if' ? (
+          // The lane's own list is AND; choosing OR puts its conditions in one OR group.
+          <BlockJoin>
+            <Segmented
+              label={t('automation.conditionBlocks.joinWith', 'Join the conditions with')}
+              size="compact"
+              options={[
+                { value: 'and', label: t('automation.conditionBlocks.and', 'AND') },
+                { value: 'or', label: t('automation.conditionBlocks.or', 'OR') },
+              ]}
+              value="and"
+              onChange={(next) => {
+                if (next === 'or') {
+                  onChange([{ type: 'or', conditions: [...items] }]);
+                }
+              }}
+            />
+          </BlockJoin>
+        ) : (
+          <BlockJoin isInGroup>
+            {op === 'or'
+              ? t('automation.conditionBlocks.or', 'OR')
+              : t('automation.conditionBlocks.and', 'AND')}
+          </BlockJoin>
+        )
+      }
       lookOf={(condition) => conditionLook(condition, house.names)}
       renderItem={({ item, index, id, path: blockPath, grip }) => {
         /**
@@ -329,6 +367,7 @@ function ConditionGroupBlock(props: ConditionGroupBlockProps) {
         items={group.conditions}
         path={`${path}.conditions`}
         isNested
+        op={group.type}
         addLabel={t('automation.conditionBlocks.addToTheGroup', 'Add to the group')}
         onChange={(conditions) => {
           onChange({ ...group, conditions: [...conditions] });

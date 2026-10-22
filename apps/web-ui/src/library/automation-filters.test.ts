@@ -43,6 +43,7 @@ const AUTOMATION: AutomationView = {
   isEnabled: true,
   lastTriggeredAt: null,
   lastRun: null,
+  missingEntities: [],
 };
 
 describe('matchesAutomationFilter', () => {

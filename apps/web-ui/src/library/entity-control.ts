@@ -339,3 +339,23 @@ export function hasNumber(entity: Pick<EntityView, 'capabilities'>): boolean {
 
   return entity.capabilities.some((entry) => numeric.includes(entry.capability));
 }
+
+/** The whites a lamp is assumed to span when the entity is not known yet. */
+const DEFAULT_KELVIN = { min: 2_000, max: 6_500 } as const;
+
+/**
+ * The whites a lamp spans, warmest first.
+ *
+ * @param entity - The entity, or undefined while none is chosen.
+ * @returns The range in kelvin.
+ */
+export function kelvinRangeOf(entity: Pick<EntityView, 'capabilities'> | undefined): {
+  min: number;
+  max: number;
+} {
+  const params = entity === undefined ? null : paramsOf(entity, 'color_temp');
+
+  return params === null
+    ? DEFAULT_KELVIN
+    : { min: miredsToKelvin(params.maxMireds), max: miredsToKelvin(params.minMireds) };
+}

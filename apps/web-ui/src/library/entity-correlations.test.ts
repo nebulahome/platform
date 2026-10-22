@@ -35,6 +35,7 @@ function automation(name: string, definition: JsonObject): AutomationView {
     isEnabled: true,
     lastTriggeredAt: null,
     lastRun: null,
+    missingEntities: [],
   };
 }
 
@@ -71,6 +72,7 @@ const EVENING: SceneView = {
   areaKey: null,
   transitionMs: 0,
   rollbackOnPartialFailure: false,
+  unresolvedMembers: [],
   members: [
     {
       entityId: entity('light.porch'),

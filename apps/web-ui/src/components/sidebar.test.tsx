@@ -82,6 +82,7 @@ function aScene(key: string): SceneView {
     areaKey: null,
     transitionMs: 0,
     rollbackOnPartialFailure: false,
+    unresolvedMembers: [],
     members: [],
   };
 }

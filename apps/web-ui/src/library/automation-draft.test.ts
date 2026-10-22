@@ -63,6 +63,7 @@ function viewOf(definition: JsonObject): AutomationView {
     isEnabled: true,
     lastTriggeredAt: null,
     lastRun: null,
+    missingEntities: [],
   };
 }
 

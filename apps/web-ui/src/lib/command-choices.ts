@@ -76,6 +76,9 @@ const FIELD_LABELS: Readonly<Record<string, Message>> = {
   durationSeconds: defineMessage('commands.fields.durationSeconds', 'Length (s)'),
 };
 
+/** The one choice that stands for a package's own commands. */
+const CUSTOM_COMMAND = defineMessage('commands.names.custom', 'Command of its package');
+
 /** The platform's commands as a person reads them; another reads as its name, humanised. */
 const COMMAND_LABELS: Readonly<Record<string, Message>> = {
   clean_rooms: defineMessage('commands.names.cleanRooms', 'Clean rooms'),
@@ -240,6 +243,12 @@ export function commandChoicesOf(capability: CapabilityName): CommandChoice[] {
     return [];
   }
 
+  // A package's own entity type names its commands in its manifest, not in a schema here: one
+  // choice stands for all of them, and the command and its arguments are written in.
+  if (capability === 'custom') {
+    return [{ capability, command: '', label: text(CUSTOM_COMMAND), fields: [] }];
+  }
+
   const root = inspect(schema);
   const variants = root.options ?? [schema];
 
@@ -340,6 +349,27 @@ export function choiceOf(
   params: Readonly<Record<string, unknown>>,
 ): CommandChoice | undefined {
   return choices.find(
-    (choice) => choice.capability === capability && choice.command === params['command'],
+    (choice) =>
+      choice.capability === capability &&
+      (choice.capability === 'custom' || choice.command === params['command']),
   );
+}
+
+/**
+ * The capabilities among an entity's choices, each with its commands, in the order they come:
+ * what the Command field lists, and what its Do offers once one is picked.
+ *
+ * @param choices - What the entity takes.
+ * @returns One entry per capability.
+ */
+export function choicesByCapability(
+  choices: readonly CommandChoice[],
+): { capability: CapabilityName; commands: CommandChoice[] }[] {
+  const groups = new Map<CapabilityName, CommandChoice[]>();
+
+  for (const choice of choices) {
+    groups.set(choice.capability, [...(groups.get(choice.capability) ?? []), choice]);
+  }
+
+  return [...groups].map(([capability, commands]) => ({ capability, commands }));
 }

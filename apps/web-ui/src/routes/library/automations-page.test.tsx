@@ -59,6 +59,7 @@ const EVENING: AutomationView = {
   isEnabled: false,
   lastTriggeredAt: null,
   lastRun: null,
+  missingEntities: [],
 };
 
 /** Where the editor reads it. */

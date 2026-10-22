@@ -70,6 +70,7 @@ const SAVED: SceneView = {
   areaKey: null,
   transitionMs: 0,
   rollbackOnPartialFailure: false,
+  unresolvedMembers: [],
   members: [
     {
       entityId: LAMP.entityId,

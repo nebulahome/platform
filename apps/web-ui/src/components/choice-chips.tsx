@@ -50,9 +50,10 @@ export function ChoiceChips(props: ChoiceChipsProps) {
             key={option.value}
             className={cn(
               'press flex h-control-sm cursor-pointer items-center rounded-chip border px-3 text-ui',
+              // Chosen reads in the colour of the lane it sits in (N-Blocks-*), the accent elsewhere.
               isChosen
-                ? 'border-border-strong bg-surface-high text-foreground'
-                : 'border-border text-foreground-muted hover:text-foreground',
+                ? 'border-[color-mix(in_srgb,var(--lane,var(--color-primary))_60%,transparent)] bg-[color-mix(in_srgb,var(--lane,var(--color-primary))_14%,transparent)] text-foreground'
+                : 'border-border-strong text-foreground-muted hover:text-foreground',
             )}
           >
             <input
