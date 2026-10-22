@@ -233,7 +233,35 @@ export function compareVersions(left: string, right: string): number {
     return -1;
   }
 
-  return leftPre < rightPre ? -1 : 1;
+  // Part by part, as semver: numbers as numbers (dev.10 after dev.9), below words, words as text.
+  const leftIds = leftPre.split('.');
+  const rightIds = rightPre.split('.');
+
+  for (let index = 0; index < Math.max(leftIds.length, rightIds.length); index += 1) {
+    const a = leftIds[index];
+    const b = rightIds[index];
+
+    if (a === undefined || b === undefined) {
+      return a === undefined ? -1 : 1;
+    }
+
+    const isNumberA = /^\d+$/u.test(a);
+    const isNumberB = /^\d+$/u.test(b);
+
+    if (isNumberA && isNumberB && Number(a) !== Number(b)) {
+      return Number(a) - Number(b);
+    }
+
+    if (isNumberA !== isNumberB) {
+      return isNumberA ? -1 : 1;
+    }
+
+    if (a !== b) {
+      return a < b ? -1 : 1;
+    }
+  }
+
+  return 0;
 }
 
 /**

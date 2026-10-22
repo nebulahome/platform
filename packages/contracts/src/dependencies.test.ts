@@ -301,5 +301,8 @@ describe('comparing versions', () => {
     expect(compareVersions('1.10.0', '1.9.3')).toBeGreaterThan(0);
     expect(compareVersions('2.0.0-beta.1', '2.0.0')).toBeLessThan(0);
     expect(compareVersions('1.2.3+build', '1.2.3')).toBe(0);
+    expect(compareVersions('0.1.6-dev.10', '0.1.6-dev.9')).toBeGreaterThan(0);
+    expect(compareVersions('1.0.0-alpha', '1.0.0-alpha.1')).toBeLessThan(0);
+    expect(compareVersions('1.0.0-alpha.1', '1.0.0-alpha.beta')).toBeLessThan(0);
   });
 });
