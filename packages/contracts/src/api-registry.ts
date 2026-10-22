@@ -18,6 +18,7 @@ import {
   type CapabilityName,
 } from './capabilities.js';
 import { entityIdSchema } from './entity-id.js';
+import { ConflictError } from './errors.js';
 import { iconIdSchema } from './icons.js';
 import { integrationAccountViewSchema } from './integration-accounts.js';
 import {
@@ -331,6 +332,45 @@ export const sceneMemberSchema = z.object({
 /** One entity's target state inside a scene. */
 export type SceneMember = z.output<typeof sceneMemberSchema>;
 
+/**
+ * A member whose entity did not exist when the scene was written - typically one brought in from
+ * a file. It is kept by address, with what it was going to set, until somebody picks the entity
+ * it stands for; a scene holding any cannot be applied. The target state is not checked against
+ * capabilities, since there is no entity to check it against yet.
+ */
+export const sceneUnresolvedMemberSchema = z.object({
+  entityId: entityIdSchema,
+  targetState: jsonObjectSchema,
+  transitionMs: z.int().min(0).max(600_000).nullable(),
+});
+
+/** A member whose entity did not exist when the scene was written. */
+export type SceneUnresolvedMember = z.output<typeof sceneUnresolvedMemberSchema>;
+
+/**
+ * Refuses to apply a scene that still has members waiting for an entity: half a scene is not the
+ * scene somebody saved. Shared by the API, which answers the Apply button, and `core`, which
+ * applies a scene for an automation.
+ *
+ * @param unresolvedMembers - The scene's stored list.
+ * @throws {ConflictError} When it is not empty.
+ */
+export function assertSceneResolved(unresolvedMembers: unknown): void {
+  if (Array.isArray(unresolvedMembers) && unresolvedMembers.length > 0) {
+    const addresses = unresolvedMembers
+      .map((member: unknown) =>
+        typeof member === 'object' && member !== null && 'entityId' in member
+          ? String(member.entityId)
+          : '?',
+      )
+      .join(', ');
+
+    throw new ConflictError(`The scene names entities that do not exist: ${addresses}`, {
+      details: { unresolved: unresolvedMembers.length },
+    });
+  }
+}
+
 /** A saved set of entity states. */
 export const sceneViewSchema = z.object({
   id: z.uuid(),
@@ -347,6 +387,9 @@ export const sceneViewSchema = z.object({
 
   /** What it sets. */
   members: z.array(sceneMemberSchema),
+
+  /** Members waiting for an entity; while there is any the scene cannot be applied. */
+  unresolvedMembers: z.array(sceneUnresolvedMemberSchema),
 });
 
 /** A saved set of entity states. */
@@ -399,6 +442,7 @@ export const sceneCreateSchema = z.object({
   transitionMs: z.int().min(0).max(600_000).default(0),
   rollbackOnPartialFailure: z.boolean().default(false),
   members: z.array(sceneMemberInputSchema).max(200).default([]),
+  unresolvedMembers: z.array(sceneUnresolvedMemberSchema).max(200).default([]),
 });
 
 /** What creating a scene needs. */
@@ -419,6 +463,7 @@ export const sceneUpdateSchema = z
     transitionMs: z.int().min(0).max(600_000),
     rollbackOnPartialFailure: z.boolean(),
     members: z.array(sceneMemberInputSchema).max(200),
+    unresolvedMembers: z.array(sceneUnresolvedMemberSchema).max(200),
   })
   .partial()
   .refine((body) => Object.keys(body).length > 0, {
@@ -479,6 +524,12 @@ export const automationViewSchema = z.object({
 
   /** How its latest recorded run went. Null when it has none on record. */
   lastRun: automationLastRunSchema.nullable(),
+
+  /**
+   * The entities it names that do not exist, by address. While there is any it does not run:
+   * the engine refuses the run rather than fail halfway through it.
+   */
+  missingEntities: z.array(entityIdSchema),
 });
 
 /** A rule. */

@@ -817,6 +817,7 @@ CREATE TABLE registry.scenes (
   area_id                     uuid        REFERENCES registry.areas (id) ON DELETE SET NULL,
   transition_ms               integer     NOT NULL DEFAULT 0,
   rollback_on_partial_failure boolean     NOT NULL DEFAULT false,
+  unresolved_members          jsonb       NOT NULL DEFAULT '[]',  -- sceneUnresolvedMemberSchema[]
   created_at                  timestamptz NOT NULL DEFAULT now(),
   updated_at                  timestamptz NOT NULL DEFAULT now(),
   created_by                  uuid        REFERENCES auth.users (id) ON DELETE SET NULL,

@@ -16,6 +16,7 @@ import {
   conditionNodeSchema,
   entityIdsOfDefinition,
   forEachBlock,
+  renameEntities,
   isBlockEnabled,
 } from './automation-definition.js';
 
@@ -419,6 +420,53 @@ describe('entityIdsOfDefinition', () => {
     });
 
     expect(entityIdsOfDefinition(definition)).toEqual([]);
+  });
+});
+
+describe('renameEntities', () => {
+  it('swaps entities at any depth and in expression variables, leaving the rest', () => {
+    const definition = automationDefinitionSchema.parse({
+      triggers: [{ type: 'entity', entityId: 'binary_sensor.door', change: { kind: 'state' } }],
+      if: [
+        {
+          type: 'or',
+          conditions: [
+            { type: 'expression', expression: 'a > 1', variables: { a: 'sensor.lux' } },
+            { type: 'entity', entityId: 'switch.away', match: { kind: 'state', states: ['on'] } },
+          ],
+        },
+      ],
+      then: [
+        {
+          type: 'if',
+          conditions: [],
+          then: [
+            {
+              type: 'command',
+              entityId: 'light.hall',
+              capability: 'on_off',
+              params: { command: 'turn_on' },
+            },
+          ],
+        },
+      ],
+    });
+    const renamed = renameEntities(
+      definition,
+      new Map([
+        ['binary_sensor.door', 'binary_sensor.front_door'],
+        ['sensor.lux', 'sensor.hall_lux'],
+        ['light.hall', 'light.hallway'],
+      ]),
+    );
+
+    expect(entityIdsOfDefinition(renamed)).toEqual([
+      'binary_sensor.front_door',
+      'sensor.hall_lux',
+      'switch.away',
+      'light.hallway',
+    ]);
+    expect(entityIdsOfDefinition(definition)).toContain('light.hall');
   });
 });
 

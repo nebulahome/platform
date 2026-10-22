@@ -140,7 +140,8 @@ export function forEachBlock(
  * Every entity an automation names, each once, in the order the document first names it.
  *
  * Walks the whole document: the triggers, the conditions, and every action however deeply it is
- * nested, with the conditions a wait or a loop checks and the trigger a wait listens for. A scene
+ * nested, with the conditions a wait or a loop checks, the variables an expression reads and the
+ * trigger a wait listens for. A scene
  * or another automation called by key is not followed: what that one touches is its own business,
  * and listing it here would make a scene's entities look like this automation's.
  *
@@ -162,6 +163,10 @@ export function entityIdsOfDefinition(definition: AutomationDefinition): string[
     } else if (visited.family === 'condition') {
       if (visited.block.type === 'entity') {
         found.add(visited.block.entityId);
+      } else if (visited.block.type === 'expression') {
+        for (const entityId of Object.values(visited.block.variables ?? {})) {
+          found.add(entityId);
+        }
       }
     } else if (visited.block.type === 'command' || visited.block.type === 'switch') {
       // A command and a switch name the entity they act on.
@@ -188,4 +193,59 @@ export function conditionLeavesOfDefinition(definition: AutomationDefinition): C
   });
 
   return leaves;
+}
+
+/**
+ * The same document with entities swapped for others, wherever it names them: an `entityId` at
+ * any depth, and the entities an expression's variables stand for. Used when a file brought in
+ * from elsewhere names entities this house calls something else. An address not in the map stays.
+ *
+ * @param value - The document, or any part of one.
+ * @param renames - Old address to new.
+ * @returns A copy with the addresses swapped.
+ */
+export function renameEntities<T>(value: T, renames: ReadonlyMap<string, string>): T {
+  /**
+   * One address, swapped when the map has it.
+   *
+   * @param entityId - The value where an address goes.
+   * @returns The new address, or the value as it was.
+   */
+  const swap = (entityId: unknown): unknown =>
+    typeof entityId === 'string' ? (renames.get(entityId) ?? entityId) : entityId;
+
+  /**
+   * One part of the document, copied with its addresses swapped.
+   *
+   * @param node - The part.
+   * @returns Its copy.
+   */
+  const walk = (node: unknown): unknown => {
+    if (Array.isArray(node)) {
+      return node.map(walk);
+    }
+
+    if (node === null || typeof node !== 'object') {
+      return node;
+    }
+
+    return Object.fromEntries(
+      Object.entries(node as Readonly<Record<string, unknown>>).map(([key, child]) => {
+        if (key === 'entityId') {
+          return [key, swap(child)];
+        }
+
+        if (key === 'variables' && child !== null && typeof child === 'object') {
+          return [
+            key,
+            Object.fromEntries(Object.entries(child).map(([name, id]) => [name, swap(id)])),
+          ];
+        }
+
+        return [key, walk(child)];
+      }),
+    );
+  };
+
+  return walk(value) as T;
 }

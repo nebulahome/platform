@@ -613,6 +613,12 @@ export const scenes = registrySchema.table(
     areaId: uuid('area_id').references(() => areas.id, { onDelete: 'set null' }),
     transitionMs: integer('transition_ms').notNull().default(0),
     rollbackOnPartialFailure: boolean('rollback_on_partial_failure').notNull().default(false),
+
+    /**
+     * Members whose entity did not exist when the scene was written, by address, validated
+     * against `sceneUnresolvedMemberSchema`. A scene holding any is not applied.
+     */
+    unresolvedMembers: jsonb('unresolved_members').notNull().default([]),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
