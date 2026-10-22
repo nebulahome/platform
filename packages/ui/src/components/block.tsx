@@ -330,10 +330,8 @@ export function Block(props: BlockProps) {
       {isOpen && branches !== undefined && branches !== null ? (
         <div
           className={cn(
-            'mx-2 mb-2 flex flex-col gap-2 rounded-tile border-l-2 px-3 py-2.5 transition-colors sm:ml-8',
-            isSelected
-              ? 'border-[var(--lane)] bg-[color-mix(in_srgb,var(--lane)_6%,transparent)]'
-              : 'border-border',
+            'mx-2 mb-2 flex flex-col gap-3 rounded-tile px-2 py-2 transition-colors sm:ml-12.5',
+            isSelected ? 'bg-[color-mix(in_srgb,var(--lane)_6%,transparent)]' : undefined,
           )}
         >
           {branches}
@@ -876,12 +874,61 @@ export function BlockLaneSection(props: BlockLaneHeaderProps) {
 }
 
 /**
- * The line that runs from one lane down to the next.
+ * The divider between one lane and the next (N-Automation-Edit): a line in the lanes' colours
+ * across the column, and the link mark at its middle.
  *
  * @returns The connector.
  */
 export function BlockLaneConnector() {
-  return <div aria-hidden="true" className="ml-5.25 h-6 w-0.5 bg-border-strong" />;
+  return (
+    <div aria-hidden="true" className="relative flex h-13 items-center justify-center">
+      <span className="absolute inset-x-[-6px] top-1/2 h-0.5 -translate-y-1/2 bg-linear-to-r from-cyan to-violet opacity-85" />
+      <span className="relative flex size-8 items-center justify-center rounded-full border border-primary/60 bg-surface text-primary shadow-[0_0_0_5px_color-mix(in_srgb,var(--color-primary)_12%,transparent),0_0_22px_color-mix(in_srgb,var(--color-primary)_35%,transparent)]">
+        <AppIcon id="link-2" size={15} />
+      </span>
+    </div>
+  );
+}
+
+/** What a join between two cards needs. */
+export type BlockJoinProps = {
+  /** How they join: a pill that says it, or the AND/OR that changes it. */
+  readonly children: ReactNode;
+
+  /** Inside a group, where the join is a pill in the line of the cards rather than a step down. */
+  readonly isInGroup?: boolean;
+};
+
+/**
+ * Renders what joins one card to the next in a list: a short line down with the AND/OR beside
+ * it, or, inside a group, the group's word as a small pill.
+ *
+ * @param props - See {@link BlockJoinProps}.
+ * @returns The join.
+ */
+export function BlockJoin(props: BlockJoinProps) {
+  const { children, isInGroup = false } = props;
+
+  if (isInGroup) {
+    return (
+      <span className="ml-2.5 self-start rounded-pill bg-[color-mix(in_srgb,var(--lane)_12%,transparent)] px-2 py-px text-label font-medium text-[var(--lane)]">
+        {children}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex h-7.5 items-center gap-2.5 pl-5.5">
+      <span aria-hidden="true" className="h-7.5 w-0.5 bg-border-strong" />
+      {typeof children === 'string' ? (
+        <span className="rounded-pill bg-[color-mix(in_srgb,var(--lane)_12%,transparent)] px-2 py-px text-label font-medium text-[var(--lane)]">
+          {children}
+        </span>
+      ) : (
+        children
+      )}
+    </div>
+  );
 }
 
 /** What a branch inside a control block needs. */
@@ -906,9 +953,11 @@ export function BlockBranch(props: BlockBranchProps) {
   const { label, aside, children } = props;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 border-l-2 border-[color-mix(in_srgb,var(--lane)_50%,transparent)] py-1 pl-3.5">
       <div className="flex min-h-6 items-center gap-2">
-        <span className="font-mono text-label text-foreground-subtle uppercase">{label}</span>
+        <span className="text-label font-medium tracking-[0.08em] text-[var(--lane)] uppercase">
+          {label}
+        </span>
         {aside}
       </div>
       <div className="flex flex-col gap-2">{children}</div>

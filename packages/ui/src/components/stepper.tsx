@@ -44,6 +44,12 @@ export type StepperProps = {
 
   /** Anything extra for the outer element. */
   readonly className?: string;
+
+  /**
+   * How large: the device control's big figure, or the editors' field-sized one (N-Blocks-Actions),
+   * which sits in a form among 38px fields and shows its own label above it.
+   */
+  readonly size?: 'large' | 'field';
 };
 
 /**
@@ -84,7 +90,20 @@ const BUTTON =
  */
 export function Stepper(props: StepperProps) {
   const { t } = useTranslation();
-  const { label, value, min, max, step, format, onChange, disabled = false, className } = props;
+  const {
+    label,
+    value,
+    min,
+    max,
+    step,
+    format,
+    onChange,
+    disabled = false,
+    className,
+    size = 'large',
+  } = props;
+  const isField = size === 'field';
+  const button = isField ? cn(BUTTON, 'size-7.5') : BUTTON;
   const bounds = { min, max, step };
 
   /**
@@ -112,13 +131,21 @@ export function Stepper(props: StepperProps) {
     }
   };
 
-  return (
-    <div className={cn('flex items-center gap-4', className)}>
+  const control = (
+    <div
+      className={cn(
+        'flex items-center',
+        isField
+          ? 'h-control-field justify-between gap-1 rounded-tile bg-surface-raised px-1'
+          : 'gap-4',
+        isField ? undefined : className,
+      )}
+    >
       <button
         type="button"
         aria-label={t('ui.stepper.lower', 'Lower {{label}}', { label })}
         title={t('ui.stepper.lower', 'Lower {{label}}', { label })}
-        className={BUTTON}
+        className={button}
         disabled={disabled || value <= min}
         onClick={() => {
           onChange(stepValue(value, -1, bounds));
@@ -135,7 +162,12 @@ export function Stepper(props: StepperProps) {
         aria-valuenow={value}
         aria-valuetext={format(value)}
         aria-disabled={disabled || undefined}
-        className="min-w-24 rounded-chip text-center font-mono text-reading text-foreground tabular focus-visible:shadow-focus focus-visible:outline-none"
+        className={cn(
+          'rounded-chip text-center text-foreground tabular focus-visible:shadow-focus focus-visible:outline-none',
+          isField
+            ? 'min-w-16 text-headline-sm font-medium tracking-[-0.02em]'
+            : 'min-w-24 font-mono text-reading',
+        )}
         onKeyDown={onKeyDown}
       >
         {format(value)}
@@ -144,7 +176,7 @@ export function Stepper(props: StepperProps) {
         type="button"
         aria-label={t('ui.stepper.raise', 'Raise {{label}}', { label })}
         title={t('ui.stepper.raise', 'Raise {{label}}', { label })}
-        className={BUTTON}
+        className={button}
         disabled={disabled || value >= max}
         onClick={() => {
           onChange(stepValue(value, 1, bounds));
@@ -152,6 +184,19 @@ export function Stepper(props: StepperProps) {
       >
         <AppIcon id="plus" size={16} />
       </button>
+    </div>
+  );
+
+  if (!isField) {
+    return control;
+  }
+
+  return (
+    <div className={cn('flex flex-col gap-1.5', className)}>
+      <span aria-hidden="true" className="text-caption font-medium text-foreground-muted">
+        {label}
+      </span>
+      {control}
     </div>
   );
 }

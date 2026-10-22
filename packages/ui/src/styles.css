@@ -742,6 +742,92 @@
   );
 }
 
+/*
+ * The editors' bar (N-Blocks-Actions): a 36px bar the label and the reading sit inside, filled to
+ * the value in the fill colour, or painted as the scale, with a thin mark at the value. The native
+ * input lies over all of it, unseen, so keys, readers and fingers move it as they move any slider.
+ */
+.range-bar {
+  position: relative;
+  height: 2.25rem;
+  overflow: hidden;
+  border-radius: var(--radius-tile);
+  background: var(--slider-track, var(--color-surface-raised));
+}
+
+.range-bar__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--slider-at, 0%);
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--slider-fill, var(--color-primary)) 35%, transparent),
+    color-mix(in oklab, var(--slider-fill, var(--color-primary)) 60%, transparent)
+  );
+}
+
+.range-bar__mark {
+  position: absolute;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  left: calc(var(--slider-at, 0%) - 6px);
+  width: 3px;
+  border-radius: 2px;
+  background: var(--color-knob);
+  opacity: 0.9;
+}
+
+.range-bar--scale .range-bar__mark {
+  top: 0.25rem;
+  bottom: 0.25rem;
+  left: calc(var(--slider-at, 0%) - 4px);
+  width: 0.5rem;
+  border-radius: 4px;
+  opacity: 1;
+  box-shadow: 0 0 0 2px rgb(5 6 12 / 0.5);
+}
+
+.range-bar__text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0 0.75rem;
+  font-size: var(--text-caption);
+  color: var(--color-foreground);
+  pointer-events: none;
+}
+
+/* A scale is painted in light colours whichever the theme, so its words are dark on it. */
+.range-bar--scale .range-bar__text {
+  font-weight: 500;
+  color: rgb(5 6 12);
+}
+
+.range-bar input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.range-bar:has(input:focus-visible) {
+  box-shadow: var(--shadow-focus);
+}
+
+.range-bar:has(input:disabled) {
+  opacity: 0.55;
+}
+
+.range-bar:has(input:disabled) input {
+  cursor: not-allowed;
+}
+
 .range-slider:disabled {
   cursor: not-allowed;
   opacity: 0.55;

@@ -13,8 +13,13 @@
  * The groove is either filled up to the knob, for an amount - brightness, a position, a volume -
  * or painted as a whole scale the knob points into, for colour temperature, hue and saturation,
  * where the colour under the knob is the answer.
+ *
+ * **Two looks.** `groove` is the thin track with a round knob and the reading above it, for a
+ * device's own controls. `bar` is the automation and scene editors' (N-Blocks-Actions): a 36px
+ * bar the label and the reading sit inside, filled to the value or painted as the scale, with a
+ * thin mark at the value. The native input lies over the bar, unseen, so it still moves the same.
  */
-import { useEffect, useId, useRef, type CSSProperties } from 'react';
+import { useEffect, useId, useRef, type CSSProperties, type ReactNode } from 'react';
 
 import { cn } from '../lib/cn.js';
 
@@ -54,14 +59,31 @@ export type SliderProps = {
    */
   readonly gradient?: string | undefined;
 
-  /** What the filled part of the groove is drawn in: the accent, or warm for a light's level. */
-  readonly fill?: 'accent' | 'warm';
+  /**
+   * What the filled part of the groove is drawn in: the accent, warm for a light's level, violet
+   * for a colour light's level, a saturation or a volume, cyan for a cover.
+   */
+  readonly fill?: 'accent' | 'warm' | 'violet' | 'cyan';
+
+  /** The thin groove, or the editors' bar. */
+  readonly look?: 'groove' | 'bar';
+
+  /** A glyph before the label, inside the bar. */
+  readonly icon?: ReactNode;
 
   /** Whether it can be moved at all. */
   readonly disabled?: boolean;
 
   /** Anything extra for the outer element. */
   readonly className?: string;
+};
+
+/** The token each fill is drawn in. */
+const FILL_COLOUR: Readonly<Record<NonNullable<SliderProps['fill']>, string>> = {
+  accent: 'var(--color-primary)',
+  warm: 'var(--color-lamp)',
+  violet: 'var(--color-violet)',
+  cyan: 'var(--color-cyan)',
 };
 
 /**
@@ -99,6 +121,8 @@ export function Slider(props: SliderProps) {
     onCommit,
     gradient,
     fill = 'accent',
+    look = 'groove',
+    icon,
     disabled = false,
     className,
   } = props;
@@ -132,9 +156,51 @@ export function Slider(props: SliderProps) {
   // a computed gradient for a colour picker, as the exception to inline styles.
   const groove: CSSProperties & Record<`--${string}`, string> = {
     '--slider-at': `${String(sliderPercent(value, min, max))}%`,
-    ...(fill === 'warm' ? { '--slider-fill': 'var(--color-lamp)' } : {}),
+    ...(fill === 'accent' ? {} : { '--slider-fill': FILL_COLOUR[fill] }),
     ...(gradient === undefined ? {} : { '--slider-track': gradient }),
   };
+  const field = (
+    <input
+      ref={input}
+      id={id}
+      type="range"
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      disabled={disabled}
+      aria-valuetext={display}
+      className={look === 'bar' ? undefined : 'range-slider'}
+      /* eslint-disable-next-line react/forbid-dom-props -- see the note on `groove` above. */
+      style={look === 'bar' ? undefined : groove}
+      onChange={(event) => {
+        onChange(Number(event.target.value));
+      }}
+    />
+  );
+
+  if (look === 'bar') {
+    return (
+      <div
+        className={cn('range-bar', gradient !== undefined && 'range-bar--scale', className)}
+        /* eslint-disable-next-line react/forbid-dom-props -- see the note on `groove` above. */
+        style={groove}
+      >
+        {gradient === undefined ? <span aria-hidden="true" className="range-bar__fill" /> : null}
+        <span aria-hidden="true" className="range-bar__mark" />
+        <span className="range-bar__text">
+          <label htmlFor={id} className="flex items-center gap-1.5">
+            {icon}
+            {label}
+          </label>
+          <span aria-hidden="true" className="tabular">
+            {display}
+          </span>
+        </span>
+        {field}
+      </div>
+    );
+  }
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
@@ -146,23 +212,7 @@ export function Slider(props: SliderProps) {
           {display}
         </span>
       </div>
-      <input
-        ref={input}
-        id={id}
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        disabled={disabled}
-        aria-valuetext={display}
-        className="range-slider"
-        /* eslint-disable-next-line react/forbid-dom-props -- see the note on `groove` above. */
-        style={groove}
-        onChange={(event) => {
-          onChange(Number(event.target.value));
-        }}
-      />
+      {field}
     </div>
   );
 }
