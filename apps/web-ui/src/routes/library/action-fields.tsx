@@ -35,6 +35,7 @@ import {
 } from '@nebulahome/ui';
 
 import { ChoiceChips } from '@/components/choice-chips';
+import { defineMessage, text, translate, type Message } from '@/i18n/messages';
 import {
   choiceOf,
   choicesByCapability,
@@ -194,7 +195,7 @@ export function ActionFields(props: ActionFieldsProps) {
               : []),
             ...house.automations.map((automation) => ({
               value: automation.key,
-              label: automation.name,
+              label: `${automation.name} · ${automation.key}`,
             })),
             ...(action.automationKey === '' ||
             house.automations.some((automation) => automation.key === action.automationKey)
@@ -221,7 +222,7 @@ export function ActionFields(props: ActionFieldsProps) {
       return (
         <div className="grid gap-3 sm:grid-cols-2">
           <DurationField
-            label={t('library.actionFields.wait', 'Wait')}
+            label={t('library.actionFields.for', 'For')}
             maxMs={WEEK_MS}
             value={action.durationMs}
             onChange={(durationMs) => {
@@ -240,7 +241,7 @@ export function ActionFields(props: ActionFieldsProps) {
               'Not available yet: there is no notification service, so a run that reaches this block records it as failed.',
             )}
           </Note>
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+          <div className="grid gap-3 sm:grid-cols-2">
             <TextField
               label={t('library.actionFields.channel', 'Channel')}
               size="compact"
@@ -250,15 +251,16 @@ export function ActionFields(props: ActionFieldsProps) {
                 onChange({ ...action, channel: event.target.value });
               }}
             />
-            <TextField
-              label={t('library.actionFields.message', 'Message')}
-              size="compact"
-              value={action.message}
-              onChange={(event) => {
-                onChange({ ...action, message: event.target.value });
-              }}
-            />
           </div>
+          <TextArea
+            label={t('library.actionFields.message', 'Message')}
+            className="font-mono text-mono-ui"
+            hint={t('library.actionFields.variablesBetween', 'Variables between {{ }}.')}
+            value={action.message}
+            onChange={(event) => {
+              onChange({ ...action, message: event.target.value });
+            }}
+          />
         </>
       );
     }
@@ -302,6 +304,7 @@ function CommandFields(props: {
     fields.some((field) => field.key === 'saturation');
   const groups = choicesByCapability(choices);
   const siblings = groups.find((group) => group.capability === chosen?.capability)?.commands ?? [];
+  const hasDo = siblings.length > 1;
 
   /**
    * Switches to another command, with its fields at their defaults.
@@ -362,15 +365,24 @@ function CommandFields(props: {
                 ]
               : []),
             ...groups.map((group) => {
-              const name = capabilityLabel(group.capability, entity?.domain);
+              const name = commandCapabilityLabel(group.capability, entity?.domain);
               const [only] = group.commands;
+              const shown =
+                group.capability === chosen?.capability
+                  ? chosen
+                  : group.commands.length === 1
+                    ? only
+                    : undefined;
 
-              // One command reads as the board's "Brightness · set_level"; several are the Do's.
+              // As the board writes it: "Brightness · set_level", "Cover · set_position" for a
+              // command that sets something; "Power", "Lock" for one that only does.
               return {
                 value: group.capability,
                 label:
-                  group.commands.length === 1 && only !== undefined && only.command !== ''
-                    ? `${name} · ${only.command}`
+                  shown !== undefined &&
+                  shown.command !== '' &&
+                  shown.fields.some((field) => !field.isOptional)
+                    ? `${name} · ${shown.command}`
                     : name,
               };
             }),
@@ -386,10 +398,6 @@ function CommandFields(props: {
         />
       </div>
 
-      {chosen !== undefined && siblings.length > 1 ? (
-        <DoField choices={siblings} chosen={chosen} onChange={choose} />
-      ) : null}
-
       {chosen?.capability === 'custom' ? (
         <CustomCommandFields
           params={action.params}
@@ -399,8 +407,18 @@ function CommandFields(props: {
         />
       ) : null}
 
-      {fields.length === 0 ? null : (
+      {fields.length === 0 && !hasDo ? null : (
         <div className="grid gap-3 sm:grid-cols-2">
+          {chosen !== undefined && hasDo ? (
+            // The Do beside the command's first field, as the board lays them out; across the
+            // block when the command has none.
+            <DoField
+              choices={siblings}
+              chosen={chosen}
+              isWide={fields.length === 0}
+              onChange={choose}
+            />
+          ) : null}
           {fields.map((field) => (
             <CommandFieldControl
               key={field.key}
@@ -517,17 +535,19 @@ function written(text: string): string {
  * @param props - The commands, the one chosen, and its change handler.
  * @param props.choices - The capability's commands.
  * @param props.chosen - The one the block sends.
+ * @param props.isWide - Whether it is alone in its row, across the block.
  * @param props.onChange - Called with another.
  * @returns The field.
  */
 function DoField(props: {
   readonly choices: readonly CommandChoice[];
   readonly chosen: CommandChoice;
+  readonly isWide: boolean;
   readonly onChange: (choice: CommandChoice) => void;
 }) {
   const { t } = useTranslation();
 
-  const { choices, chosen, onChange } = props;
+  const { choices, chosen, isWide, onChange } = props;
   const label = t('library.actionFields.do', 'Do');
   const options = choices.map((choice) => ({
     value: choice.command,
@@ -549,12 +569,17 @@ function DoField(props: {
 
   // One row as on the board; past what fits, the row scrolls rather than turning into a list.
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
+    <div
+      className={
+        isWide ? 'flex min-w-0 flex-col gap-1.5 sm:col-span-2' : 'flex min-w-0 flex-col gap-1.5'
+      }
+    >
       <span className="text-caption font-medium text-foreground-muted">{label}</span>
-      <div className="max-w-full self-start overflow-x-auto">
+      <div className="max-w-full overflow-x-auto">
         <Segmented
           label={label}
           size="compact"
+          isFilled={isWide}
           options={options}
           value={chosen.command}
           onChange={pick}
@@ -629,6 +654,38 @@ function CustomCommandFields(props: {
   );
 }
 
+/** What the Command field calls each capability, as the board names them. */
+const COMMAND_CAPABILITY_NAMES: Readonly<Partial<Record<CapabilityName, Message>>> = {
+  on_off: defineMessage('library.actionFields.capability.power', 'Power'),
+  color_hs: defineMessage('library.actionFields.capability.colour', 'Colour'),
+  color_temp: defineMessage('library.actionFields.capability.white', 'White'),
+  cover: defineMessage('library.actionFields.capability.cover', 'Cover'),
+  lock: defineMessage('library.actionFields.capability.lock', 'Lock'),
+  thermostat: defineMessage('library.actionFields.capability.thermostat', 'Thermostat'),
+  media_player: defineMessage('library.actionFields.capability.media', 'Media'),
+  select: defineMessage('library.actionFields.capability.select', 'Select'),
+  vacuum: defineMessage('library.actionFields.capability.vacuum', 'Vacuum'),
+  lawn_mower: defineMessage('library.actionFields.capability.mower', 'Mower'),
+  camera: defineMessage('library.actionFields.capability.camera', 'Camera'),
+  button: defineMessage('library.actionFields.capability.button', 'Button'),
+  update: defineMessage('library.actionFields.capability.update', 'Update'),
+  number: defineMessage('library.actionFields.capability.number', 'Number'),
+  custom: defineMessage('library.actionFields.capability.custom', 'Custom'),
+};
+
+/**
+ * A capability as the Command field names it: the board's words, a light's level its brightness.
+ *
+ * @param capability - The capability.
+ * @param domain - The entity's domain.
+ * @returns The name.
+ */
+function commandCapabilityLabel(capability: CapabilityName, domain: string | undefined): string {
+  const named = COMMAND_CAPABILITY_NAMES[capability];
+
+  return named === undefined ? capabilityLabel(capability, domain) : text(named);
+}
+
 /** The colour each amount is drawn in on the board. */
 const FILL_OF: Readonly<Record<string, 'accent' | 'warm' | 'violet' | 'cyan'>> = {
   level: 'warm',
@@ -667,7 +724,8 @@ function CommandFieldControl(props: {
       return (
         <Slider
           look="bar"
-          label={field.label}
+          label={field.key === 'position' ? t('library.actionFields.open', 'Open') : field.label}
+          caption={field.label}
           min={0}
           max={100}
           value={number}
@@ -767,6 +825,7 @@ function CommandFieldControl(props: {
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <span className="text-caption font-medium text-foreground-muted">{field.label}</span>
             <ChoiceChips
+              hasCheck
               label={field.label}
               options={rooms.map((room) => ({ value: room.id, label: room.name }))}
               value={chosen}
@@ -885,7 +944,8 @@ function NumberFieldControl(props: {
     return (
       <Slider
         look="bar"
-        label={field.label}
+        label={translate('library.actionFields.white', 'White')}
+        caption={field.label}
         min={kelvin.min}
         max={kelvin.max}
         step={50}

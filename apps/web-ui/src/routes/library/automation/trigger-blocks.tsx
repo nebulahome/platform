@@ -7,7 +7,15 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { AutomationTrigger } from '@nebulahome/contracts';
-import { AppIcon, Block, BlockJoin, BlockLaneSection, type UiIconId } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Block,
+  BlockJoin,
+  BlockLaneSection,
+  Segmented,
+  toast,
+  type UiIconId,
+} from '@nebulahome/ui';
 
 import type { DragLook } from '@/lib/block-drag';
 import { carryBlockId } from '@/lib/block-ids';
@@ -20,6 +28,7 @@ import { useEditorHouse } from '@/routes/library/automation/editor-house';
 import {
   labelForKind,
   TRIGGER_CHOICE_GROUPS,
+  triggerKindOf,
   unavailableReason,
 } from '@/routes/library/editor-choices';
 import { TriggerFields } from '@/routes/library/trigger-fields';
@@ -75,7 +84,7 @@ function triggerLook(trigger: AutomationTrigger, names: BlockNames): DragLook {
   return {
     lane: 'when',
     glyph: triggerGlyph(trigger),
-    kind: labelForKind('trigger', trigger.type),
+    kind: labelForKind('trigger', triggerKindOf(trigger)),
     summary: trigger.name ?? triggerSummary(trigger, names),
   };
 }
@@ -107,13 +116,40 @@ export function TriggerLane(props: TriggerLaneProps) {
       lane="when"
       glyph={<AppIcon id="zap" size={20} />}
       title={t('automation.triggerBlocks.when', 'When')}
-      note={t('automation.triggerBlocks.whatWakesItAny', 'What wakes it. Any one of these does.')}
+      note={t(
+        'automation.triggerBlocks.whatWakesIt',
+        'What wakes it. Cards combine with AND or OR.',
+      )}
     >
       <BlockSequence
         items={triggers}
         path="triggers"
         family="trigger"
-        join={<BlockJoin>{t('automation.triggerBlocks.or', 'OR')}</BlockJoin>}
+        join={
+          <BlockJoin>
+            <Segmented
+              label={t('automation.triggerBlocks.joinWith', 'Join the triggers with')}
+              size="compact"
+              options={[
+                { value: 'and', label: t('automation.triggerBlocks.and', 'AND') },
+                { value: 'or', label: t('automation.triggerBlocks.or', 'OR') },
+              ]}
+              value="or"
+              onChange={(join) => {
+                // Two things seldom happen in the same instant: "this while that" is the If lane's.
+                if (join === 'and') {
+                  toast.info({
+                    title: t('automation.triggerBlocks.orOnly', 'Triggers wake it one at a time'),
+                    message: t(
+                      'automation.triggerBlocks.useIf',
+                      'Any one of them wakes it. To need two things at once, add the second as a condition in If.',
+                    ),
+                  });
+                }
+              }}
+            />
+          </BlockJoin>
+        }
         lookOf={(trigger) => triggerLook(trigger, house.names)}
         renderItem={({ item, index, id, grip }) => (
           <TriggerBlock
@@ -168,7 +204,7 @@ function TriggerBlock(props: TriggerBlockProps) {
   const { trigger, id, grip, onChange, onRemove } = props;
   const house = useEditorHouse();
   const ui = useBlockUi(id, isIncomplete(trigger));
-  const kind = labelForKind('trigger', trigger.type);
+  const kind = labelForKind('trigger', triggerKindOf(trigger));
   const tools = useBlockTools({
     id,
     family: 'trigger',

@@ -102,9 +102,11 @@ import { aDevice, anArea, anEntity } from '@/testing/fixtures';
 import { matterSampleCache } from '@/testing/matter-samples';
 
 import {
+  AliasEditorSample,
   AutomationEditorSample,
   AutomationsListSample,
   EmptyLibrarySample,
+  ScenePageSample,
 } from './gallery-automations';
 
 import './styles/globals.css';
@@ -899,6 +901,14 @@ function Gallery() {
           note="The board's Evening lights. Click a block to select it; drag a grip to move one."
         >
           <AutomationEditorSample />
+        </Section>
+
+        <Section title="Scene page" note="The board's Evening: every kind of member.">
+          <ScenePageSample />
+        </Section>
+
+        <Section title="Alias editor" note="A calculated alias, and a new one.">
+          <AliasEditorSample />
         </Section>
 
         <Section title="Empty library" note="Automations, scenes and aliases with nothing yet.">

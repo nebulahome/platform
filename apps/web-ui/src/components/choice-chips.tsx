@@ -6,7 +6,7 @@
  * checkbox hidden behind its label, so the keyboard and a screen reader get the control they
  * expect.
  */
-import { cn } from '@nebulahome/ui';
+import { AppIcon, cn } from '@nebulahome/ui';
 
 /** One chip. */
 export type ChipChoice = {
@@ -29,6 +29,9 @@ export type ChoiceChipsProps = {
   readonly onChange: (value: string[]) => void;
 
   readonly className?: string;
+
+  /** Whether a chosen chip shows a tick, as the board's rooms do. */
+  readonly hasCheck?: boolean;
 };
 
 /**
@@ -38,7 +41,7 @@ export type ChoiceChipsProps = {
  * @returns The chips.
  */
 export function ChoiceChips(props: ChoiceChipsProps) {
-  const { label, options, value, onChange, className } = props;
+  const { label, options, value, onChange, className, hasCheck = false } = props;
 
   return (
     <div role="group" aria-label={label} className={cn('flex flex-wrap gap-1.5', className)}>
@@ -68,6 +71,7 @@ export function ChoiceChips(props: ChoiceChipsProps) {
                 );
               }}
             />
+            {hasCheck && isChosen ? <AppIcon id="check" size={12} className="mr-1.5" /> : null}
             {option.label}
           </label>
         );

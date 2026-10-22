@@ -217,7 +217,7 @@ export function AliasesPage() {
         />
       }
     >
-      <div className="overflow-hidden rounded-card border border-border bg-surface">
+      <div className="rounded-card border border-border bg-surface">
         <div
           className={`${ALIAS_COLUMNS} border-b border-border px-5 py-3 font-mono text-label text-foreground-subtle uppercase`}
         >

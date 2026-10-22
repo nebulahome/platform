@@ -155,7 +155,7 @@ describe('the blocks that hold others', () => {
   it('draws its conditions, Then and Else, and takes else away', () => {
     renderList([IF_ELSE]);
 
-    expect(screen.getByText('Conditions')).toBeTruthy();
+    expect(screen.getByText('If')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add a condition' })).toBeTruthy();
     expect(screen.getByText('Then')).toBeTruthy();
     expect(screen.getByText('Else')).toBeTruthy();
@@ -185,16 +185,19 @@ describe('the blocks that hold others', () => {
   it('adds a block from the picker at the foot of a branch', () => {
     renderList([IF_ELSE]);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add to else' }));
+    // Then's Add, then Else's: both say what the board says.
+    const adds = screen.getAllByRole('button', { name: 'Add an action' });
+
+    fireEvent.click(adds.at(-1)!);
     fireEvent.click(screen.getByRole('option', { name: /End this run/u }));
 
     expect(screen.getAllByText('End this run').length).toBeGreaterThan(0);
   });
 
-  it('calls the Add of a list "Add a block"', () => {
+  it('calls the Add of a list "Add an action"', () => {
     renderList([]);
 
-    expect(screen.getByRole('button', { name: 'Add a block' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add an action' })).toBeTruthy();
   });
 
   it('gives a parallel block a branch, each its own list', () => {

@@ -46,6 +46,7 @@ import {
   SelectField,
   TextField,
   toast,
+  type UiIconId,
 } from '@nebulahome/ui';
 
 import { defineMessage, type Message, text, translate } from '@/i18n/messages';
@@ -81,8 +82,51 @@ type CalculatedCapability = (typeof ALIAS_CALCULATED_CAPABILITIES)[number];
 
 const CALCULATED_OPTIONS = ALIAS_CALCULATED_CAPABILITIES.map((capability) => ({
   value: capability,
-  label: capability.replaceAll('_', ' '),
+  // As the board writes it: what it is, then the capability's own name.
+  label: `${
+    capability === 'sensor_numeric'
+      ? 'Number'
+      : capability === 'sensor_binary'
+        ? 'On or off'
+        : 'Text'
+  } · ${capability}`,
 }));
+
+/** The glyph of each kind a stored helper can behave as. */
+const STORED_DOMAIN_GLYPHS: Readonly<Record<(typeof ALIAS_STORED_DOMAINS)[number], UiIconId>> = {
+  switch: 'power',
+  light: 'lightbulb',
+  cover: 'blinds',
+  lock: 'lock',
+  climate: 'thermometer',
+  media_player: 'volume-2',
+  sensor: 'gauge',
+};
+
+/**
+ * A stored helper's kind, as its card names it.
+ *
+ * @param domain - The domain.
+ * @returns The name.
+ */
+function domainLabel(domain: (typeof ALIAS_STORED_DOMAINS)[number]): string {
+  switch (domain) {
+    case 'switch':
+      return translate('library.aliasEditor.domains.switch', 'Switch');
+    case 'light':
+      return translate('library.aliasEditor.domains.light', 'Light');
+    case 'cover':
+      return translate('library.aliasEditor.domains.cover', 'Cover');
+    case 'lock':
+      return translate('library.aliasEditor.domains.lock', 'Lock');
+    case 'climate':
+      return translate('library.aliasEditor.domains.climate', 'Climate');
+    case 'media_player':
+      return translate('library.aliasEditor.domains.mediaPlayer', 'Media player');
+    case 'sensor':
+      return translate('library.aliasEditor.domains.sensor', 'Sensor');
+  }
+}
 
 /** What each fallback is called, as the board words it. */
 const FALLBACK_LABELS: Readonly<Record<AliasFallbackPolicy, Message>> = {
@@ -727,7 +771,7 @@ export function AliasEditor() {
 
       <div
         className={
-          isCalculated
+          isCalculated || isNew
             ? 'grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px]'
             : 'grid items-start gap-4'
         }
@@ -765,6 +809,55 @@ export function AliasEditor() {
 
             <AliasPreviewCard preview={preview} unit={unitSymbol} />
           </div>
+        ) : isNew ? (
+          <Section
+            title={t('library.aliasEditor.behavesAs', 'Behaves as')}
+            note={t(
+              'library.aliasEditor.storedHelperHolds',
+              'A stored helper holds a value that you, scenes and automations set.',
+            )}
+          >
+            <div
+              role="radiogroup"
+              aria-label={t('library.aliasEditor.behavesAs', 'Behaves as')}
+              className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+            >
+              {ALIAS_STORED_DOMAINS.map((entry) => {
+                const isChosen = entry === domain;
+
+                return (
+                  <button
+                    key={entry}
+                    type="button"
+                    role="radio"
+                    aria-checked={isChosen}
+                    onClick={() => {
+                      setDomain(entry);
+                      setLightExtras(new Set());
+                    }}
+                    className={
+                      isChosen
+                        ? 'press flex flex-col items-start gap-2.5 rounded-inner border border-primary/60 bg-primary/8 p-3.5 text-left focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none'
+                        : 'press flex flex-col items-start gap-2.5 rounded-inner border border-border bg-surface p-3.5 text-left hover:border-border-strong focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none'
+                    }
+                  >
+                    <span
+                      className={
+                        isChosen
+                          ? 'flex size-8.5 items-center justify-center rounded-field bg-surface-raised text-primary'
+                          : 'flex size-8.5 items-center justify-center rounded-field bg-surface-raised text-foreground-muted'
+                      }
+                    >
+                      <AppIcon id={STORED_DOMAIN_GLYPHS[entry]} size={16} />
+                    </span>
+                    <span className="text-ui font-medium text-foreground">
+                      {domainLabel(entry)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </Section>
         ) : null}
 
         <div className="flex min-w-0 flex-col gap-4">
@@ -792,8 +885,12 @@ export function AliasEditor() {
 
               {isNew ? (
                 <div className="flex flex-col gap-1.5">
+                  <span className="text-caption font-medium text-foreground-muted">
+                    {t('library.aliasEditor.kind', 'Kind')}
+                  </span>
                   <Segmented
                     label={t('library.aliasEditor.kind', 'Kind')}
+                    isFilled
                     options={[
                       {
                         value: 'calculated',
@@ -869,17 +966,16 @@ export function AliasEditor() {
                 </>
               ) : (
                 <>
-                  <SelectField
-                    label={t('library.aliasEditor.domain', 'Domain')}
-                    size="medium"
-                    options={domainOptions()}
-                    value={domain}
-                    disabled={!isNew}
-                    onChange={(value) => {
-                      setDomain(ALIAS_STORED_DOMAINS.find((entry) => entry === value) ?? 'switch');
-                      setLightExtras(new Set());
-                    }}
-                  />
+                  {isNew ? null : (
+                    <SelectField
+                      label={t('library.aliasEditor.behavesAs', 'Behaves as')}
+                      size="medium"
+                      options={domainOptions()}
+                      value={domain}
+                      disabled
+                      onChange={() => undefined}
+                    />
+                  )}
 
                   {domain === 'light' ? (
                     <div className="flex flex-col gap-3">

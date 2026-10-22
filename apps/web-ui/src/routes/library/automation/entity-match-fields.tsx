@@ -2,10 +2,10 @@
  * The Entity block's fields, for a trigger and for a condition alike: the entity first, then
  * what fits it.
  *
- * An entity with states - a switch, a door, a thermostat's modes - is matched by its states, in
- * its own words; one with a number - a temperature, a light's level, a blind's position - by a
- * comparison; one with both, a dimmable light, says which with a switch. One block for what used
- * to be two, so the question is always the same: which entity, and what about it.
+ * Two kinds each, as the boards draw them: Entity state matches the entity's states, in its own
+ * words; Numeric threshold (Numeric, for a condition) compares its number - a temperature, a
+ * light's level, a blind's position. Both are the format's `entity` block, the change or match
+ * saying which.
  */
 import { useTranslation } from 'react-i18next';
 
@@ -16,7 +16,7 @@ import {
   type ConditionNode,
   type EntityView,
 } from '@nebulahome/contracts';
-import { Segmented, SelectField, TextField } from '@nebulahome/ui';
+import { SelectField, TextField } from '@nebulahome/ui';
 
 import { ChoiceChips } from '@/components/choice-chips';
 import { translate } from '@/i18n/messages';
@@ -100,53 +100,6 @@ export function readingOf(entity: EntityView | undefined): EntityReading | null 
   return has('media_player')
     ? { label: translate('automation.entityMatchFields.volume', 'Volume'), unit: '%' }
     : null;
-}
-
-/**
- * What an entity is best matched by: its states when it has them, else its number.
- *
- * @param entity - The entity.
- * @returns The kind.
- */
-function kindFor(entity: EntityView | undefined): 'state' | 'numeric' {
-  return stateChoices(entity) === null && readingOf(entity) !== null ? 'numeric' : 'state';
-}
-
-/**
- * The State / Level switch, for an entity that has both.
- *
- * @param props - The kind chosen, the reading and the change handler.
- * @param props.kind - State or numeric.
- * @param props.reading - The entity's number.
- * @param props.onChange - Called with the kind chosen.
- * @returns The switch.
- */
-function KindSwitch(props: {
-  readonly kind: 'state' | 'numeric';
-  readonly reading: EntityReading;
-  readonly onChange: (kind: 'state' | 'numeric') => void;
-}) {
-  const { t } = useTranslation();
-
-  const { kind, reading, onChange } = props;
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-caption font-medium text-foreground-muted">
-        {t('automation.entityMatchFields.byIts', 'By its')}
-      </span>
-      <Segmented
-        label={t('automation.entityMatchFields.byIts', 'By its')}
-        size="compact"
-        options={[
-          { value: 'state', label: t('automation.entityMatchFields.state', 'State') },
-          { value: 'numeric', label: reading.label },
-        ]}
-        value={kind}
-        onChange={onChange}
-      />
-    </div>
-  );
 }
 
 /**
@@ -268,8 +221,9 @@ export type EntityTriggerFieldsProps = {
 };
 
 /**
- * The fields of an Entity trigger: the entity; then From and To for a state, or the comparison
- * it crosses for a number; and how long it must hold.
+ * The fields of an Entity state or a Numeric threshold trigger (N-Blocks-Triggers): the entity
+ * beside From and To, or beside the comparison it crosses; then how long it must hold. Which of
+ * the two it is was picked when it was added, and changing the entity keeps it.
  *
  * @param props - See {@link EntityTriggerFieldsProps}.
  * @returns The fields.
@@ -279,76 +233,58 @@ export function EntityTriggerFields(props: EntityTriggerFieldsProps) {
 
   const { trigger, onChange } = props;
   const house = useEditorHouse();
-  const entity = house.entityOf(trigger.entityId);
-  const reading = readingOf(entity);
-  const hasStates = stateChoices(entity) !== null;
+  const reading = readingOf(house.entityOf(trigger.entityId));
   const { change } = trigger;
 
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <div className="grid gap-3 sm:grid-cols-2">
         <EntityField
           label={t('automation.entityMatchFields.entity', 'Entity')}
           value={trigger.entityId}
-          onChange={(entityId, next) => {
+          onChange={(entityId) => {
             onChange({
               ...trigger,
               entityId: partialEntityId(entityId),
-              change:
-                kindFor(next) === 'numeric'
-                  ? { kind: 'numeric', operator: 'gt', value: 0 }
-                  : { kind: 'state' },
+              change: change.kind === 'state' ? { kind: 'state' } : change,
             });
           }}
         />
-        {hasStates && reading !== null ? (
-          <KindSwitch
-            kind={change.kind}
-            reading={reading}
-            onChange={(kind) => {
-              onChange({
-                ...trigger,
-                change:
-                  kind === 'numeric'
-                    ? { kind: 'numeric', operator: 'gt', value: 0 }
-                    : { kind: 'state' },
-              });
-            }}
-          />
-        ) : null}
+        <div className="grid grid-cols-2 gap-3">
+          {change.kind === 'state' ? (
+            <>
+              <StateField
+                label={t('automation.entityMatchFields.from', 'From')}
+                anyLabel={t('common.any', 'Any')}
+                entityId={trigger.entityId}
+                value={change.from ?? ''}
+                onChange={(from) => {
+                  onChange({ ...trigger, change: { ...change, from: from === '' ? null : from } });
+                }}
+              />
+              <StateField
+                label={t('automation.entityMatchFields.to', 'To')}
+                anyLabel={t('common.any', 'Any')}
+                entityId={trigger.entityId}
+                value={change.to ?? ''}
+                onChange={(to) => {
+                  onChange({ ...trigger, change: { ...change, to: to === '' ? null : to } });
+                }}
+              />
+            </>
+          ) : (
+            <Comparison
+              operator={change.operator}
+              value={change.value}
+              reading={reading}
+              onChange={(operator, value) => {
+                onChange({ ...trigger, change: { kind: 'numeric', operator, value } });
+              }}
+            />
+          )}
+        </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {change.kind === 'state' ? (
-          <>
-            <StateField
-              label={t('automation.entityMatchFields.from', 'From')}
-              anyLabel={t('common.any', 'Any')}
-              entityId={trigger.entityId}
-              value={change.from ?? ''}
-              onChange={(from) => {
-                onChange({ ...trigger, change: { ...change, from: from === '' ? null : from } });
-              }}
-            />
-            <StateField
-              label={t('automation.entityMatchFields.to', 'To')}
-              anyLabel={t('common.any', 'Any')}
-              entityId={trigger.entityId}
-              value={change.to ?? ''}
-              onChange={(to) => {
-                onChange({ ...trigger, change: { ...change, to: to === '' ? null : to } });
-              }}
-            />
-          </>
-        ) : (
-          <Comparison
-            operator={change.operator}
-            value={change.value}
-            reading={reading}
-            onChange={(operator, value) => {
-              onChange({ ...trigger, change: { kind: 'numeric', operator, value } });
-            }}
-          />
-        )}
+      <div className="grid gap-3 sm:grid-cols-2">
         <DurationField
           label={t('automation.entityMatchFields.forAtLeast', 'For at least')}
           isOptional
@@ -370,8 +306,9 @@ export type EntityConditionFieldsProps = {
 };
 
 /**
- * The fields of an Entity condition: the entity; then the states it may be in, or the comparison
- * its number must pass.
+ * The fields of an Entity state or a Numeric condition (N-Blocks-Conditions): the entity beside
+ * the state it must be in, or beside the comparison its number must pass. A condition brought in
+ * with several states shows them all, any of which will do.
  *
  * @param props - See {@link EntityConditionFieldsProps}.
  * @returns The fields.
@@ -387,40 +324,20 @@ export function EntityConditionFields(props: EntityConditionFieldsProps) {
   const { match } = condition;
 
   return (
-    <>
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <EntityField
-          label={t('automation.entityMatchFields.entity', 'Entity')}
-          value={condition.entityId}
-          onChange={(entityId, next) => {
-            onChange({
-              ...condition,
-              entityId: partialEntityId(entityId),
-              match:
-                kindFor(next) === 'numeric'
-                  ? { kind: 'numeric', operator: 'gt', value: 0 }
-                  : { kind: 'state', states: [] },
-            });
-          }}
-        />
-        {choices !== null && reading !== null ? (
-          <KindSwitch
-            kind={match.kind}
-            reading={reading}
-            onChange={(kind) => {
-              onChange({
-                ...condition,
-                match:
-                  kind === 'numeric'
-                    ? { kind: 'numeric', operator: 'gt', value: 0 }
-                    : { kind: 'state', states: [] },
-              });
-            }}
-          />
-        ) : null}
-      </div>
+    <div className="grid gap-3 sm:grid-cols-2">
+      <EntityField
+        label={t('automation.entityMatchFields.entity', 'Entity')}
+        value={condition.entityId}
+        onChange={(entityId) => {
+          onChange({
+            ...condition,
+            entityId: partialEntityId(entityId),
+            match: match.kind === 'state' ? { kind: 'state', states: [] } : match,
+          });
+        }}
+      />
       {match.kind === 'numeric' ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3">
           <Comparison
             operator={match.operator}
             value={match.value}
@@ -430,31 +347,13 @@ export function EntityConditionFields(props: EntityConditionFieldsProps) {
             }}
           />
         </div>
-      ) : choices === null ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <TextField
-            label={t('automation.entityMatchFields.is', 'Is')}
-            size="compact"
-            placeholder={t('automation.entityMatchFields.on', 'on')}
-            hint={t('automation.entityMatchFields.itsStateAsIt', 'Its state, as it reports it.')}
-            value={match.states[0] ?? ''}
-            onChange={(event) => {
-              const state = event.target.value;
-
-              onChange({
-                ...condition,
-                match: { kind: 'state', states: state === '' ? [] : [state] },
-              });
-            }}
-          />
-        </div>
-      ) : (
+      ) : match.states.length > 1 && choices !== null ? (
         <div className="flex flex-col gap-1.5">
           <span className="text-caption font-medium text-foreground-muted">
-            {t('automation.entityMatchFields.isOneOf', 'Is one of')}
+            {t('automation.entityMatchFields.state', 'State')}
           </span>
           <ChoiceChips
-            label={t('automation.entityMatchFields.isOneOf', 'Is one of')}
+            label={t('automation.entityMatchFields.state', 'State')}
             options={[
               ...choices,
               // A state the entity no longer offers is still shown, so it is not lost by looking.
@@ -468,7 +367,25 @@ export function EntityConditionFields(props: EntityConditionFieldsProps) {
             }}
           />
         </div>
+      ) : (
+        <StateField
+          label={t('automation.entityMatchFields.state', 'State')}
+          entityId={condition.entityId}
+          value={match.states.join(', ')}
+          onChange={(state) => {
+            onChange({
+              ...condition,
+              match: {
+                kind: 'state',
+                states: state
+                  .split(',')
+                  .map((entry) => entry.trim())
+                  .filter((entry) => entry !== ''),
+              },
+            });
+          }}
+        />
       )}
-    </>
+    </div>
   );
 }

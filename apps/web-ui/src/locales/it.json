@@ -48,14 +48,11 @@
   },
   "automation": {
     "actionBlocks": {
-      "addABlock": "Aggiungi un blocco",
       "addABranch": "Aggiungi un ramo",
       "addACase": "Aggiungi un caso",
       "addElse": "Aggiungi altrimenti",
-      "addToElse": "Aggiungi ad altrimenti",
       "addToOtherwise": "Aggiungi ad altrimenti",
       "branchValue": "Ramo {{value}}",
-      "branchesRunSideBy": "I rami vengono eseguiti fianco a fianco; l'esecuzione prosegue quando tutti i rami hanno finito.",
       "checksFirstRunsWhile": "Controlla prima, ripete finché sono tutte vere, e ricontrolla a ogni giro.",
       "do": "Fai",
       "eachTime": "Ogni volta",
@@ -73,15 +70,27 @@
       "removeThisCase": "Rimuovi questo caso",
       "repeat": "Ripeti",
       "runWaitsHereUntil": "L'esecuzione aspetta qui finché sono tutte vere.",
-      "runsOnceBeforeIt": "Esegue una volta prima di controllare, poi di nuovo finché sono tutte vere.",
-      "somethingToDoOr": "Qualcosa da fare, o un blocco che contiene altri blocchi.",
       "stopHasNothingTo": "Ferma non ha niente da fare da solo",
       "then": "Allora",
       "thenTheRunCarries": "Poi l'esecuzione prosegue.",
       "times": "Volte",
       "whatItDoesIn": "Cosa fa, in ordine. I blocchi di controllo si annidano.",
       "whenItIs": "Quando è",
-      "whenValue": "Quando “{{value}}”"
+      "whenValue": "Quando “{{value}}”",
+      "addAnAction": "Aggiungi un'azione",
+      "somethingToDoOrActions": "Qualcosa da fare, o un blocco che contiene altre azioni.",
+      "if": "Se",
+      "repeatLabel": "Ripeti",
+      "aNumberOfTimes": "Un numero di volte",
+      "forEachItem": "Per ogni elemento",
+      "items": "Elementi",
+      "itemsExample": "entities(\"light.*\")",
+      "forEach": "Per ogni",
+      "while": "Finché",
+      "runsOnceBeforeIt2": "Esegue una volta prima di controllare.",
+      "add": "Aggiungi",
+      "runContinuesWhenEvery": "L'esecuzione prosegue quando ogni ramo ha finito.",
+      "until": "Fino a"
     },
     "blockSequence": {
       "moveKind": "Sposta {{kind}}"
@@ -124,14 +133,16 @@
     "conditionBlocks": {
       "addACondition": "Aggiungi una condizione",
       "addToTheGroup": "Aggiungi al gruppo",
-      "allOfTheseMust": "Devono essere tutte vere. Raggruppale con AND o OR; NOT ne capovolge una. Facoltative.",
       "conditionOrAnAnd": "Una condizione, o un gruppo AND oppure OR di condizioni.",
       "conditions": "Condizioni",
       "if": "Se",
       "thisCheckIsNot": "Questo controllo non fa più parte delle automazioni. Rimuovilo per salvare l'automazione.",
       "joinWith": "Unisci le condizioni con",
       "and": "E",
-      "or": "O"
+      "or": "O",
+      "turnAround": "Invertila (NOT)",
+      "turnAroundNote": "Vale quando questa non vale.",
+      "checksBeforeItActs": "Controlli prima di agire. NOT su una scheda la nega."
     },
     "durationField": {
       "atMostMaxms": "Al massimo {{maxMs}}.",
@@ -143,15 +154,12 @@
       "atLeast": "almeno ≥",
       "atMost": "al massimo ≤",
       "below": "sotto <",
-      "byIts": "In base a",
       "choose": "Scegli…",
       "entity": "Entità",
       "equal": "uguale =",
       "forAtLeast": "Per almeno",
       "from": "Da",
       "is": "È",
-      "isOneOf": "È uno di",
-      "itsStateAsIt": "Il suo stato, come lo riferisce.",
       "level": "Livello",
       "notEqual": "diverso ≠",
       "on": "on",
@@ -183,10 +191,14 @@
       "addATrigger": "Aggiungi un'attivazione",
       "deviceEventsAreNot": "Gli eventi dei dispositivi non sono ancora disponibili",
       "manualTriggerHasNothing": "Un'attivazione manuale non ha niente da provare: scatta da Esegui",
-      "whatWakesItAny": "Cosa la sveglia. Ne basta una qualsiasi.",
       "whatWakesTheAutomation": "Cosa sveglia l'automazione.",
       "when": "Quando",
-      "or": "O"
+      "or": "O",
+      "whatWakesIt": "Cosa la avvia. Le schede si combinano con AND o OR.",
+      "joinWith": "Unisci i trigger con",
+      "and": "E",
+      "orOnly": "I trigger la avviano uno alla volta",
+      "useIf": "Basta uno di loro ad avviarla. Per richiedere due cose insieme, aggiungi la seconda come condizione in Se."
     }
   },
   "automations": {
@@ -2332,7 +2344,6 @@
       "sixHexDigitsAs": "Sei cifre esadecimali, come #ff8800",
       "telegram": "telegram",
       "thisLightChangesAt": "Questa luce cambia subito: non sa fare dissolvenze.",
-      "wait": "Attendi",
       "whatItIsGiven": "Cosa riceve",
       "do": "Azione",
       "commandId": "Comando",
@@ -2340,7 +2351,28 @@
       "asItsPackageNames": "Come lo chiama il suo pacchetto.",
       "arguments": "Argomenti",
       "jsonObjectOptional": "Un oggetto JSON; vuoto per nessuno.",
-      "optionalField": "{{label}} (facoltativo)"
+      "optionalField": "{{label}} (facoltativo)",
+      "for": "Per",
+      "variablesBetween": "Variabili tra {{ }}.",
+      "capability": {
+        "power": "Accensione",
+        "colour": "Colore",
+        "white": "Bianco",
+        "cover": "Tapparella",
+        "lock": "Serratura",
+        "thermostat": "Termostato",
+        "media": "Media",
+        "select": "Selezione",
+        "vacuum": "Robot",
+        "mower": "Tosaerba",
+        "camera": "Telecamera",
+        "button": "Pulsante",
+        "update": "Aggiornamento",
+        "number": "Numero",
+        "custom": "Personalizzato"
+      },
+      "open": "Aperta",
+      "white": "Bianco"
     },
     "adoptDialog": {
       "adopt": "Adotta",
@@ -2369,7 +2401,6 @@
       "climate": "clima",
       "debounceMs": "Antirimbalzo (ms)",
       "deviceClass": "Classe del dispositivo",
-      "domain": "Dominio",
       "everySourceNeedsA": "Ogni sorgente ha bisogno di un nome di variabile e di un'entità.",
       "formula": "Formula",
       "formulaCannotBeBlank": "La formula non può essere vuota.",
@@ -2401,7 +2432,18 @@
       "saved": "{{name}} salvato",
       "notSavedToast": "L'alias non è stato salvato",
       "removed": "{{name}} eliminato",
-      "notRemoved": "L'alias non è stato eliminato"
+      "notRemoved": "L'alias non è stato eliminato",
+      "domains": {
+        "switch": "Interruttore",
+        "light": "Luce",
+        "cover": "Tapparella",
+        "lock": "Serratura",
+        "climate": "Clima",
+        "mediaPlayer": "Lettore multimediale",
+        "sensor": "Sensore"
+      },
+      "behavesAs": "Si comporta come",
+      "storedHelperHolds": "Un aiutante memorizzato tiene un valore che impostano tu, le scene e le automazioni."
     },
     "aliasFilter": {
       "anyDomain": "Qualsiasi dominio",
@@ -2637,11 +2679,8 @@
     "conditionFields": {
       "aboveTheHorizonNegative": "Sopra l'orizzonte; negativo vuol dire sotto.",
       "addAReading": "Aggiungi una lettura",
-      "afterMidnightTheDay": "Dopo mezzanotte conta il giorno in cui è cominciata la sera.",
       "anyTime": "A qualsiasi ora",
       "elevation": "Elevazione (°)",
-      "emptyFromMidnight": "Vuoto: da mezzanotte.",
-      "emptyUntilMidnight": "Vuoto: fino a mezzanotte.",
       "endsTheNextMorning": "Finisce la mattina dopo.",
       "entityForName": "Entità per {{name}}",
       "evening": "Sera",
@@ -2652,8 +2691,6 @@
       "morning": "Mattina",
       "name": "Nome",
       "nameHasNoReading": "{{name}} non ha ancora una lettura",
-      "noneChosenEveryDay": "Nessuno scelto: tutti i giorni.",
-      "onlyOnTheDays": "Solo nei giorni scelti.",
       "power": "potenza",
       "power2AvgPower": "potenza > 2 * potenza_media",
       "readingsItUses": "Letture che usa",
@@ -3063,7 +3100,6 @@
       "partly_other": "{{name}} applicata, ma {{count}} non hanno risposto"
     },
     "sceneDialog": {
-      "addEntities": "Aggiungi entità",
       "addToTheScene": "Aggiungi alla scena",
       "applyNow": "Applica ora",
       "area": "Area",
@@ -3086,11 +3122,9 @@
       "savedSetOfStates": "Un insieme di stati salvati. Ogni entità che aggiungi parte da quello che legge ora.",
       "scenes": "Scene",
       "seconds0MeansImmediate": "Secondi. 0 vuol dire subito. Le luci che non sanno fare dissolvenze cambiano subito.",
-      "secondsForThisEntity": "Secondi solo per questa entità. Lascia vuoto per il valore della scena.",
       "transition": "Transizione",
       "whatItIs": "Cos'è",
       "whatTheApiAnd": "Come la chiamano l'API e le automazioni. Non cambia più dopo questo.",
-      "whatTheSceneSets": "Cosa imposta la scena, ogni entità con quello che le viene detto.",
       "created": "{{name}} creata",
       "saved": "{{name}} salvata",
       "notSaved": "La scena non è stata salvata",
@@ -3110,7 +3144,13 @@
       "file": "File",
       "fileNote": "Come un unico file .json, da conservare o da portare in un'altra casa. Importa legge anche le scene di Home Assistant.",
       "export": "Esporta",
-      "import": "Importa"
+      "import": "Importa",
+      "transitionForTitle": "Transizione di {{title}}, in secondi",
+      "asTheScene": "Come la scena",
+      "changeTransition": "Cambia la sua transizione",
+      "membersNote_one": "{{count}} entità · aggiunta con lo stato attuale, poi modificata qui.",
+      "membersNote_many": "{{count}} entità · ognuna aggiunta con lo stato attuale, poi modificata qui.",
+      "membersNote_other": "{{count}} entità · ognuna aggiunta con lo stato attuale, poi modificata qui."
     },
     "sceneMemberFields": {
       "level": "Livello",
@@ -3132,7 +3172,9 @@
       "colour": "Colore",
       "saturation": "Saturazione",
       "closed": "Chiusa",
-      "offKeepsTheRest": "Livello e colore non valgono finché è spenta."
+      "offKeepsTheRest": "Livello e colore non valgono finché è spenta.",
+      "colourTemperature": "Temperatura di colore",
+      "hue": "Tinta"
     },
     "scenes": {
       "anyArea": "Qualsiasi area",
@@ -3220,7 +3262,6 @@
     },
     "triggerFields": {
       "aboveTheHorizonNegative": "Sopra l'orizzonte; negativo vuol dire sotto.",
-      "advanced": "Avanzata",
       "anyEntityWhenNone": "Qualsiasi entità, quando non ne è scelta nessuna.",
       "both": "Entrambi",
       "buttonPressed": "button.pressed",
@@ -3229,7 +3270,6 @@
       "evening": "Sera",
       "event": "Evento",
       "expression": "Espressione",
-      "fires": "Scatta: {{summary}}.",
       "firesEachTimeThe": "Scatta ogni volta che l'entità del sole riferisce la sua elevazione, circa una volta al minuto.",
       "fiveFieldsAsCron": "Cinque campi come li scrive cron - minuto, ora, giorno, mese, giorno della settimana - oppure sei con i secondi per primi.",
       "from": "Da",
@@ -3248,13 +3288,16 @@
       "rising": "In salita",
       "runsFromItsRun": "Si esegue dal suo pulsante Esegui, dall'API o da un'altra automazione.",
       "setting": "In discesa",
-      "simple": "Semplice",
       "thisDoesNotHappen": "Questo non succede dove sta la casa.",
       "time": "Orario",
-      "when": "Quando",
       "which": "Quale",
       "workedOutWhereThe": "Calcolato dove sta la casa, quando avrà una posizione.",
-      "writtenAs": "Scritta come"
+      "at": "Quando",
+      "timeOfDay": "Ora del giorno",
+      "sun": "Sole",
+      "cron": "Cron",
+      "otherMoment": "Altro…",
+      "moment": "Momento"
     },
     "useCauseNames": {
       "atStartUp": "All'avvio",
@@ -4474,7 +4517,6 @@
     "sunOffset": "L'offset di una condizione sul sole non ha equivalente; controlla invece l'altezza del sole.",
     "sunCondition": "Una condizione sul sole non si legge ed è stata tralasciata.",
     "conditionKind": "Una condizione \"{{kind}}\" qui non ha equivalente ed è stata tralasciata.",
-    "areaTarget": "{{service}} era rivolto a un'area, un dispositivo o un'etichetta; sono state tenute solo le entità che nomina.",
     "serviceTemplate": "{{service}} usa un template ed è stato tralasciato.",
     "sceneApply": "scene.apply imposta stati scritti sul posto; tralasciato.",
     "notify": "Una notifica ({{service}}) è stata tenuta, ma qui le notifiche non si possono ancora inviare.",
@@ -4491,7 +4533,21 @@
     "blueprint": "È fatta da un blueprint, che non si può portare; è stata tralasciata.",
     "noTriggers": "Nessuno dei suoi trigger si è potuto portare; parte solo su richiesta finché non ne aggiungi uno.",
     "sceneNumber": "Scena {{number}}",
-    "memberUnread": "Cosa imposta {{entityId}} non si legge; tralasciato."
+    "memberUnread": "Cosa imposta {{entityId}} non si legge; tralasciato.",
+    "hintArea": "Area \"{{id}}\" in Home Assistant · {{item}}",
+    "hintDevice": "Un {{domain}} ({{kind}} {{id}}…) in Home Assistant · {{item}}",
+    "floorTarget": "Un target per piano o etichetta non ha equivalente; sono state tenute solo le entità, i dispositivi e le aree che nomina.",
+    "thresholdEntity": "Un trigger \"{{kind}}\" confronta con un'altra entità; è stato tralasciato.",
+    "thresholdWindow": "Un trigger \"{{kind}}\" tra due valori tiene solo il limite inferiore.",
+    "behaviorAll": "Un trigger \"{{kind}}\" aspettava tutti i suoi target; qui basta uno qualsiasi.",
+    "thresholdEntityCondition": "Una condizione \"{{kind}}\" confronta con un'altra entità; è stata tralasciata.",
+    "deviceType": "Un {{what}} di dispositivo di tipo \"{{type}}\" non ha equivalente ed è stato tralasciato.",
+    "trigger": "trigger",
+    "condition": "condizione",
+    "action": "azione",
+    "zoneOther": "Un trigger sulla zona {{zone}} non ha equivalente; viene portata solo casa.",
+    "zoneHome": "Arrivare a casa o uscire diventa la presenza della persona che si accende o si spegne.",
+    "brightness": "Una luminosità di {{raw}} su 255 diventa un livello del {{value}}%."
   },
   "libraryFile": {
     "newerVersion": "Questo file viene da un Nebula Home più recente. Aggiorna questo per importarlo.",

@@ -8,10 +8,10 @@
  * opens. Selected, the area holding its branches is tinted in its colour, so what belongs to it
  * reads at a glance.
  */
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { AutomationAction } from '@nebulahome/contracts';
+import type { AutomationAction, AutomationTrigger } from '@nebulahome/contracts';
 import {
   AppIcon,
   Block,
@@ -20,6 +20,8 @@ import {
   BlockLaneSection,
   Button,
   IconButton,
+  Segmented,
+  Stepper,
   TextField,
   type UiIconId,
 } from '@nebulahome/ui';
@@ -27,7 +29,7 @@ import {
 import { translate } from '@/i18n/messages';
 import type { DragLook } from '@/lib/block-drag';
 import { carryBlockId } from '@/lib/block-ids';
-import { actionSummary, type BlockNames } from '@/lib/block-summary';
+import { actionSummary, triggerSummary, type BlockNames } from '@/lib/block-summary';
 import { useBlockUi } from '@/lib/block-ui';
 import {
   blankAction,
@@ -43,11 +45,13 @@ import { useBlockTools } from '@/routes/library/automation/block-tools';
 import { ConditionsField } from '@/routes/library/automation/condition-blocks';
 import { DurationField } from '@/routes/library/automation/duration-field';
 import { useEditorHouse } from '@/routes/library/automation/editor-house';
+import { triggerGlyph } from '@/routes/library/automation/trigger-blocks';
 import {
   ACTION_CHOICE_GROUPS,
   CONTROL_KINDS,
   glyphForKind,
   labelForKind,
+  triggerKindOf,
   unavailableReason,
 } from '@/routes/library/editor-choices';
 import { EntityField } from '@/routes/library/entity-field';
@@ -135,7 +139,7 @@ export function ActionList(props: ActionListProps) {
     items,
     path,
     onChange,
-    addLabel = t('automation.actionBlocks.addABlock', 'Add a block'),
+    addLabel = t('automation.actionBlocks.addAnAction', 'Add an action'),
     isNested = false,
   } = props;
   const house = useEditorHouse();
@@ -165,10 +169,10 @@ export function ActionList(props: ActionListProps) {
         <AddBlock
           label={addLabel}
           isWide={isNested}
-          pickerTitle={t('automation.actionBlocks.addABlock', 'Add a block')}
+          pickerTitle={t('automation.actionBlocks.addAnAction', 'Add an action')}
           pickerDescription={t(
-            'automation.actionBlocks.somethingToDoOr',
-            'Something to do, or a block that holds other blocks.',
+            'automation.actionBlocks.somethingToDoOrActions',
+            'Something to do, or a block that holds other actions.',
           )}
           groups={ACTION_CHOICE_GROUPS}
           onPick={(type) => {
@@ -352,6 +356,7 @@ function actionContent(
       return {
         fields: (
           <ConditionsField
+            label={translate('automation.actionBlocks.if', 'If')}
             items={action.conditions}
             path={`${path}.conditions`}
             note={
@@ -401,7 +406,6 @@ function actionContent(
               >
                 <ActionList
                   isNested
-                  addLabel={translate('automation.actionBlocks.addToElse', 'Add to else')}
                   items={action.else}
                   path={`${path}.else`}
                   onChange={(elseActions) => {
@@ -507,37 +511,90 @@ function actionContent(
     }
     case 'for': {
       return {
-        fields:
-          action.over.kind === 'each' ? (
-            <p className="text-ui-sm text-warning">
-              {translate(
-                'automation.actionBlocks.forEachIsNot2',
-                'For each is not available yet: a run that reaches this block records it as failed. Repeat a number of times instead.',
-              )}
-            </p>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-3">
-              <TextField
-                label={translate('automation.actionBlocks.times', 'Times')}
-                size="compact"
-                type="number"
-                min={1}
-                max={10_000}
-                className="font-mono"
-                value={String(action.over.count)}
-                onChange={(event) => {
-                  const count = Math.round(Number(event.target.value));
-
-                  onChange({
-                    ...action,
-                    over: { kind: 'count', count: Number.isFinite(count) && count > 0 ? count : 1 },
-                  });
-                }}
-              />
+        fields: (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-caption font-medium text-foreground-muted">
+                  {translate('automation.actionBlocks.repeatLabel', 'Repeat')}
+                </span>
+                <Segmented
+                  label={translate('automation.actionBlocks.repeatLabel', 'Repeat')}
+                  size="compact"
+                  isFilled
+                  options={[
+                    {
+                      value: 'count',
+                      label: translate(
+                        'automation.actionBlocks.aNumberOfTimes',
+                        'A number of times',
+                      ),
+                    },
+                    {
+                      value: 'each',
+                      label: translate('automation.actionBlocks.forEachItem', 'For each item'),
+                    },
+                  ]}
+                  value={action.over.kind}
+                  onChange={(kind) => {
+                    onChange({
+                      ...action,
+                      over:
+                        kind === 'count'
+                          ? { kind: 'count', count: 1 }
+                          : { kind: 'each', items: '' },
+                    });
+                  }}
+                />
+              </div>
+              {action.over.kind === 'count' ? (
+                <Stepper
+                  size="field"
+                  label={translate('automation.actionBlocks.times', 'Times')}
+                  min={1}
+                  max={10_000}
+                  step={1}
+                  value={action.over.count}
+                  format={(count) => String(count)}
+                  onChange={(count) => {
+                    onChange({ ...action, over: { kind: 'count', count } });
+                  }}
+                />
+              ) : null}
             </div>
-          ),
+            {action.over.kind === 'each' ? (
+              <>
+                <TextField
+                  label={translate('automation.actionBlocks.items', 'Items')}
+                  size="compact"
+                  className="font-mono"
+                  placeholder={translate(
+                    'automation.actionBlocks.itemsExample',
+                    'entities("light.*")',
+                  )}
+                  value={action.over.items}
+                  onChange={(event) => {
+                    onChange({ ...action, over: { kind: 'each', items: event.target.value } });
+                  }}
+                />
+                <p className="text-ui-sm text-warning">
+                  {translate(
+                    'automation.actionBlocks.forEachIsNot2',
+                    'For each is not available yet: a run that reaches this block records it as failed. Repeat a number of times instead.',
+                  )}
+                </p>
+              </>
+            ) : null}
+          </>
+        ),
         branches: (
-          <BlockBranch label={translate('automation.actionBlocks.eachTime', 'Each time')}>
+          <BlockBranch
+            label={
+              action.over.kind === 'count'
+                ? translate('automation.actionBlocks.eachTime', 'Each time')
+                : translate('automation.actionBlocks.forEach', 'For each')
+            }
+          >
             <ActionList
               isNested
               items={action.actions}
@@ -552,46 +609,57 @@ function actionContent(
     }
     case 'while':
     case 'do_while': {
-      return {
-        fields: (
-          <ConditionsField
-            items={action.conditions}
-            path={`${path}.conditions`}
-            note={
-              action.type === 'while'
-                ? translate(
-                    'automation.actionBlocks.checksFirstRunsWhile',
-                    'Checks first, runs while they all hold, and checks again each time round.',
-                  )
-                : translate(
-                    'automation.actionBlocks.runsOnceBeforeIt',
-                    'Runs once before it checks, then again while they all hold.',
-                  )
-            }
-            onChange={(conditions) => {
-              onChange({ ...action, conditions: [...conditions] });
+      const check = (
+        <ConditionsField
+          label={translate('automation.actionBlocks.while', 'While')}
+          items={action.conditions}
+          path={`${path}.conditions`}
+          note={
+            action.type === 'while'
+              ? translate(
+                  'automation.actionBlocks.checksFirstRunsWhile',
+                  'Checks first, runs while they all hold, and checks again each time round.',
+                )
+              : translate(
+                  'automation.actionBlocks.runsOnceBeforeIt2',
+                  'Runs once before it checks.',
+                )
+          }
+          onChange={(conditions) => {
+            onChange({ ...action, conditions: [...conditions] });
+          }}
+        />
+      );
+      const body = (
+        <BlockBranch
+          label={
+            action.type === 'while'
+              ? translate('automation.actionBlocks.repeat', 'Repeat')
+              : translate('automation.actionBlocks.do', 'Do')
+          }
+        >
+          <ActionList
+            isNested
+            items={action.actions}
+            path={`${path}.actions`}
+            onChange={(actions) => {
+              onChange({ ...action, actions: [...actions] });
             }}
           />
-        ),
-        branches: (
-          <BlockBranch
-            label={
-              action.type === 'while'
-                ? translate('automation.actionBlocks.repeat', 'Repeat')
-                : translate('automation.actionBlocks.do', 'Do')
-            }
-          >
-            <ActionList
-              isNested
-              items={action.actions}
-              path={`${path}.actions`}
-              onChange={(actions) => {
-                onChange({ ...action, actions: [...actions] });
-              }}
-            />
-          </BlockBranch>
-        ),
-      };
+        </BlockBranch>
+      );
+
+      // A while checks before its body, a do while after it: drawn in the order they run.
+      return action.type === 'while'
+        ? { fields: check, branches: body }
+        : {
+            branches: (
+              <>
+                {body}
+                <div className="px-1">{check}</div>
+              </>
+            ),
+          };
     }
     case 'sequence': {
       return {
@@ -611,54 +679,49 @@ function actionContent(
     }
     case 'parallel': {
       return {
-        fields: (
-          <p className="text-caption text-foreground-subtle">
-            {translate(
-              'automation.actionBlocks.branchesRunSideBy',
-              'The branches run side by side; the run carries on when every branch has finished.',
-            )}
-          </p>
-        ),
         branches: (
           <>
-            {action.branches.map((branch, index) => (
-              <BlockBranch
-                key={`branch-${String(index)}`}
-                label={translate('automation.actionBlocks.branchValue', 'Branch {{value}}', {
-                  value: String(index + 1),
-                })}
-                aside={
-                  action.branches.length > 1 ? (
-                    <IconButton
-                      label={translate(
-                        'automation.actionBlocks.removeBranchValue',
-                        'Remove branch {{value}}',
-                        { value: String(index + 1) },
-                      )}
-                      size="small"
-                      variant="danger"
-                      onClick={() => {
-                        onChange({ ...action, branches: without(action.branches, index) });
-                      }}
-                    >
-                      <AppIcon id="x" size={13} />
-                    </IconButton>
-                  ) : undefined
-                }
-              >
-                <ActionList
-                  isNested
-                  items={branch}
-                  path={`${path}.branches.${String(index)}`}
-                  onChange={(actions) => {
-                    onChange({
-                      ...action,
-                      branches: replaceAt(action.branches, index, [...actions]),
-                    });
-                  }}
-                />
-              </BlockBranch>
-            ))}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {action.branches.map((branch, index) => (
+                <BlockBranch
+                  key={`branch-${String(index)}`}
+                  label={translate('automation.actionBlocks.branchValue', 'Branch {{value}}', {
+                    value: String(index + 1),
+                  })}
+                  aside={
+                    action.branches.length > 1 ? (
+                      <IconButton
+                        label={translate(
+                          'automation.actionBlocks.removeBranchValue',
+                          'Remove branch {{value}}',
+                          { value: String(index + 1) },
+                        )}
+                        size="small"
+                        variant="danger"
+                        onClick={() => {
+                          onChange({ ...action, branches: without(action.branches, index) });
+                        }}
+                      >
+                        <AppIcon id="x" size={13} />
+                      </IconButton>
+                    ) : undefined
+                  }
+                >
+                  <ActionList
+                    isNested
+                    addLabel={translate('automation.actionBlocks.add', 'Add')}
+                    items={branch}
+                    path={`${path}.branches.${String(index)}`}
+                    onChange={(actions) => {
+                      onChange({
+                        ...action,
+                        branches: replaceAt(action.branches, index, [...actions]),
+                      });
+                    }}
+                  />
+                </BlockBranch>
+              ))}
+            </div>
             <BlockAdd
               onClick={() => {
                 onChange({ ...action, branches: [...action.branches, []] });
@@ -666,6 +729,12 @@ function actionContent(
             >
               {translate('automation.actionBlocks.addABranch', 'Add a branch')}
             </BlockAdd>
+            <p className="px-1 text-caption text-foreground-subtle">
+              {translate(
+                'automation.actionBlocks.runContinuesWhenEvery',
+                'The run continues when every branch has finished.',
+              )}
+            </p>
           </>
         ),
       };
@@ -687,6 +756,7 @@ function actionContent(
         fields: (
           <>
             <ConditionsField
+              label={translate('automation.actionBlocks.until', 'Until')}
               items={action.conditions}
               path={`${path}.conditions`}
               note={translate(
@@ -719,12 +789,17 @@ function actionContent(
       return {
         fields: (
           <>
-            <TriggerFields
-              trigger={action.trigger}
-              onChange={(trigger) => {
-                onChange({ ...action, trigger: keepMeta(action.trigger, trigger) });
-              }}
-            />
+            <div className="flex flex-col gap-1.5">
+              <span className="text-caption font-medium text-foreground-muted">
+                {translate('automation.actionBlocks.until', 'Until')}
+              </span>
+              <NestedTriggerBlock
+                trigger={action.trigger}
+                onChange={(trigger) => {
+                  onChange({ ...action, trigger: keepMeta(action.trigger, trigger) });
+                }}
+              />
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <DurationField
                 label={translate('automation.actionBlocks.giveUpAfter', 'Give up after')}
@@ -747,4 +822,38 @@ function actionContent(
       return { fields: <ActionFields action={action} onChange={onChange} /> };
     }
   }
+}
+
+/**
+ * The trigger a wait listens for, drawn as a trigger card inside the wait (N-Blocks-Actions):
+ * its kind and what it says, opening to its fields.
+ *
+ * @param props - The trigger and its change handler.
+ * @param props.trigger - The trigger.
+ * @param props.onChange - Called with it as it now stands.
+ * @returns The card.
+ */
+function NestedTriggerBlock(props: {
+  readonly trigger: AutomationTrigger;
+  readonly onChange: (trigger: AutomationTrigger) => void;
+}) {
+  const { trigger, onChange } = props;
+  const house = useEditorHouse();
+  const [isOpen, setOpen] = useState(trigger.type === 'entity' && trigger.entityId === '');
+
+  return (
+    <Block
+      lane="when"
+      isNested
+      glyph={<AppIcon id={triggerGlyph(trigger)} size={15} />}
+      kind={labelForKind('trigger', triggerKindOf(trigger))}
+      summary={triggerSummary(trigger, house.names)}
+      isOpen={isOpen}
+      onToggle={() => {
+        setOpen(!isOpen);
+      }}
+    >
+      <TriggerFields trigger={trigger} onChange={onChange} />
+    </Block>
+  );
 }

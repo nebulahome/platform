@@ -102,6 +102,23 @@ function TimeConditionFields(props: {
     onChange(value === '' ? withoutKey(condition, key) : { ...condition, [key]: value });
   };
 
+  // Two kinds on the board: On certain days is the days alone, Between two times the times -
+  // with the days too when a condition brought in from elsewhere has both.
+  const isDays = from === undefined && to === undefined;
+  const dayPicker = (
+    <WeekdayPicker
+      label={t('common.on', 'On')}
+      value={days}
+      onChange={(next) => {
+        onChange(next.length === 0 ? withoutKey(condition, 'days') : { ...condition, days: next });
+      }}
+    />
+  );
+
+  if (isDays) {
+    return dayPicker;
+  }
+
   return (
     <>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -110,11 +127,6 @@ function TimeConditionFields(props: {
           size="compact"
           type="time"
           className="font-mono"
-          hint={
-            from === undefined
-              ? t('library.conditionFields.emptyFromMidnight', 'Empty: from midnight.')
-              : undefined
-          }
           value={from ?? ''}
           onChange={(event) => {
             setEnd('from', event.target.value);
@@ -126,11 +138,9 @@ function TimeConditionFields(props: {
           type="time"
           className="font-mono"
           hint={
-            to === undefined
-              ? t('library.conditionFields.emptyUntilMidnight', 'Empty: until midnight.')
-              : from !== undefined && crossesMidnight(from, to)
-                ? t('library.conditionFields.endsTheNextMorning', 'Ends the next morning.')
-                : undefined
+            from !== undefined && to !== undefined && crossesMidnight(from, to)
+              ? t('library.conditionFields.endsTheNextMorning', 'Ends the next morning.')
+              : undefined
           }
           value={to ?? ''}
           onChange={(event) => {
@@ -138,30 +148,14 @@ function TimeConditionFields(props: {
           }}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
-        <span className="text-caption font-medium text-foreground-muted">
-          {t('common.on', 'On')}
-        </span>
-        <WeekdayPicker
-          label={t('common.on', 'On')}
-          value={days}
-          onChange={(next) => {
-            onChange(
-              next.length === 0 ? withoutKey(condition, 'days') : { ...condition, days: next },
-            );
-          }}
-        />
-        <span className="text-caption text-foreground-subtle">
-          {days.length === 0
-            ? t('library.conditionFields.noneChosenEveryDay', 'None chosen: every day.')
-            : from !== undefined && to !== undefined && crossesMidnight(from, to)
-              ? t(
-                  'library.conditionFields.afterMidnightTheDay',
-                  'After midnight, the day the evening began counts.',
-                )
-              : t('library.conditionFields.onlyOnTheDays', 'Only on the days chosen.')}
-        </span>
-      </div>
+      {days.length === 0 ? null : (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-caption font-medium text-foreground-muted">
+            {t('common.on', 'On')}
+          </span>
+          {dayPicker}
+        </div>
+      )}
     </>
   );
 }

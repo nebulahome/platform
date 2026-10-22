@@ -25,7 +25,7 @@ import { Note, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
 import { ChoiceChips } from '@/components/choice-chips';
 import { WeekdayPicker } from '@/components/weekday-picker';
-import { sunEventWord, triggerSummary } from '@/lib/block-summary';
+import { sunEventWord } from '@/lib/block-summary';
 import { cronWords, nextCronRuns, shortMoment } from '@/lib/cron-words';
 import { partialEntityId, withoutKey } from '@/library/automation-draft';
 import { useEditorHouse } from '@/routes/library/automation/editor-house';
@@ -68,11 +68,9 @@ export function TriggerFields(props: TriggerFieldsProps) {
     case 'entity': {
       return <EntityTriggerFields trigger={trigger} onChange={onChange} />;
     }
-    case 'time': {
-      return <TimeTriggerFields trigger={trigger} onChange={onChange} />;
-    }
+    case 'time':
     case 'sun': {
-      return <SunTriggerFields trigger={trigger} onChange={onChange} />;
+      return <TimeTriggerFields trigger={trigger} onChange={onChange} />;
     }
     case 'event': {
       return (
@@ -124,56 +122,87 @@ const MONTH_CHIPS = MONTHS.map((month) => ({
   label: month.charAt(0).toUpperCase() + month.slice(1, 3),
 }));
 
+/** Where a Time block is: a time of day, a moment of the sun, or a cron schedule. */
+type TimeAt = 'clock' | 'sun' | 'cron';
+
 /**
- * Renders the fields for a time trigger: Simple, or Advanced.
+ * Renders the fields of a Time trigger (N-Blocks-Triggers): At - Time of day, Sun or Cron - then
+ * what that one needs. Sun is its own block in the format; here it is a Time picked under At, as
+ * the board draws it, and switching keeps the block's name and whether it is on.
  *
  * @param props - The trigger and its change handler.
- * @param props.trigger - The time trigger.
+ * @param props.trigger - The time or sun trigger.
  * @param props.onChange - Called with it as it now stands.
  * @returns The fields.
  */
 function TimeTriggerFields(props: {
-  readonly trigger: TimeTrigger;
+  readonly trigger: TimeTrigger | SunTrigger;
   readonly onChange: (trigger: AutomationTrigger) => void;
 }) {
   const { t } = useTranslation();
 
   const { trigger, onChange } = props;
-  const { at } = trigger;
+  const at: TimeAt = trigger.type === 'sun' ? 'sun' : trigger.at.kind;
+  const meta = {
+    ...(trigger.name === undefined ? {} : { name: trigger.name }),
+    ...(trigger.isEnabled === undefined ? {} : { isEnabled: trigger.isEnabled }),
+  };
+
+  /**
+   * Switches to another At, starting from what the one left said where it can.
+   *
+   * @param next - Where to.
+   */
+  const switchTo = (next: TimeAt): void => {
+    if (next === at) {
+      return;
+    }
+
+    if (next === 'sun') {
+      onChange({ ...meta, type: 'sun', event: 'sunset' });
+    } else if (next === 'clock') {
+      onChange({ ...meta, type: 'time', at: { kind: 'clock', time: '07:00' } });
+    } else {
+      onChange({
+        ...meta,
+        type: 'time',
+        at: {
+          kind: 'cron',
+          // The same moments, written as cron: Cron starts from what Time of day said.
+          expression:
+            trigger.type === 'time' && trigger.at.kind === 'clock'
+              ? clockAtToCron(trigger.at)
+              : '0 7 * * *',
+        },
+      });
+    }
+  };
 
   return (
     <>
       <div className="flex flex-col gap-1.5">
         <span className="text-caption font-medium text-foreground-muted">
-          {t('library.triggerFields.writtenAs', 'Written as')}
+          {t('library.triggerFields.at', 'At')}
         </span>
         <Segmented
-          label={t('library.triggerFields.writtenAs', 'Written as')}
+          label={t('library.triggerFields.at', 'At')}
           size="compact"
+          className="self-start"
           options={[
-            { value: 'clock', label: t('library.triggerFields.simple', 'Simple') },
-            { value: 'cron', label: t('library.triggerFields.advanced', 'Advanced') },
+            { value: 'clock', label: t('library.triggerFields.timeOfDay', 'Time of day') },
+            { value: 'sun', label: t('library.triggerFields.sun', 'Sun') },
+            { value: 'cron', label: t('library.triggerFields.cron', 'Cron') },
           ]}
-          value={at.kind}
-          onChange={(kind) => {
-            onChange({
-              ...trigger,
-              at:
-                kind === 'cron'
-                  ? // The same moments, written as cron: Advanced starts from what Simple said.
-                    {
-                      kind: 'cron',
-                      expression: at.kind === 'clock' ? clockAtToCron(at) : '0 7 * * *',
-                    }
-                  : { kind: 'clock', time: '07:00' },
-            });
-          }}
+          value={at}
+          onChange={switchTo}
         />
       </div>
-      {at.kind === 'clock' ? (
-        <SimpleTimeFields trigger={{ ...trigger, at }} onChange={onChange} />
+      {trigger.type === 'sun' ? (
+        <SunTriggerFields trigger={trigger} onChange={onChange} />
+      ) : trigger.at.kind === 'clock' ? (
+        <SimpleTimeFields trigger={{ ...trigger, at: trigger.at }} onChange={onChange} />
       ) : (
-        <CronFields trigger={{ ...trigger, at }} onChange={onChange} />
+        <CronFields trigger={{ ...trigger, at: trigger.at }} onChange={onChange} />
       )}
     </>
   );
@@ -266,11 +295,6 @@ function SimpleTimeFields(props: {
           </span>
         ) : null}
       </div>
-      <p className="text-caption text-foreground-muted">
-        {t('library.triggerFields.fires', 'Fires: {{summary}}.', {
-          summary: triggerSummary(trigger),
-        })}
-      </p>
     </>
   );
 }
@@ -366,6 +390,24 @@ function SunTriggerFields(props: {
   const { trigger, onChange } = props;
   const house = useEditorHouse();
   const isTwice = TWICE_DAILY_SUN_EVENTS.has(trigger.event);
+
+  /**
+   * Picks another moment, keeping what still applies to it.
+   *
+   * @param event - The moment.
+   */
+  const setEvent = (event: SunEvent): void => {
+    onChange({
+      type: 'sun',
+      ...(trigger.name === undefined ? {} : { name: trigger.name }),
+      ...(trigger.isEnabled === undefined ? {} : { isEnabled: trigger.isEnabled }),
+      event,
+      ...(event === 'elevation_crossed' ? { elevation: trigger.elevation ?? 10 } : {}),
+      ...(NO_OFFSET.has(event) || trigger.offsetMinutes === undefined
+        ? {}
+        : { offsetMinutes: trigger.offsetMinutes }),
+    });
+  };
   const next =
     house.position === null || trigger.event === 'elevation_changed'
       ? null
@@ -382,26 +424,27 @@ function SunTriggerFields(props: {
         </Note>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
-        <SelectField
-          label={t('library.triggerFields.when', 'When')}
-          size="compact"
-          options={sunEventOptions()}
-          value={trigger.event}
-          onChange={(value) => {
-            const event = value as SunEvent;
-
-            onChange({
-              type: 'sun',
-              ...(trigger.name === undefined ? {} : { name: trigger.name }),
-              ...(trigger.isEnabled === undefined ? {} : { isEnabled: trigger.isEnabled }),
-              event,
-              ...(event === 'elevation_crossed' ? { elevation: trigger.elevation ?? 10 } : {}),
-              ...(NO_OFFSET.has(event) || trigger.offsetMinutes === undefined
-                ? {}
-                : { offsetMinutes: trigger.offsetMinutes }),
-            });
-          }}
-        />
+        <div className="flex flex-col gap-1.5">
+          <span className="text-caption font-medium text-foreground-muted">
+            {t('library.triggerFields.event', 'Event')}
+          </span>
+          <Segmented
+            label={t('library.triggerFields.event', 'Event')}
+            size="compact"
+            className="self-start"
+            options={[
+              { value: 'sunrise', label: sunEventWord('sunrise') },
+              { value: 'sunset', label: sunEventWord('sunset') },
+              { value: 'other', label: t('library.triggerFields.otherMoment', 'Other…') },
+            ]}
+            value={
+              trigger.event === 'sunrise' || trigger.event === 'sunset' ? trigger.event : 'other'
+            }
+            onChange={(value) => {
+              setEvent(value === 'other' ? 'dawn' : value);
+            }}
+          />
+        </div>
         {NO_OFFSET.has(trigger.event) ? null : (
           <TextField
             label={t('library.triggerFields.offsetMin', 'Offset (min)')}
@@ -425,6 +468,22 @@ function SunTriggerFields(props: {
           />
         )}
       </div>
+
+      {trigger.event === 'sunrise' || trigger.event === 'sunset' ? null : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SelectField
+            label={t('library.triggerFields.moment', 'Moment')}
+            size="compact"
+            options={sunEventOptions().filter(
+              (option) => option.value !== 'sunrise' && option.value !== 'sunset',
+            )}
+            value={trigger.event}
+            onChange={(value) => {
+              setEvent(value as SunEvent);
+            }}
+          />
+        </div>
+      )}
 
       {isTwice ? (
         <div className="flex flex-col gap-1.5">

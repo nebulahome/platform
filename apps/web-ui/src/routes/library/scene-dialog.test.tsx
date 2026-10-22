@@ -128,7 +128,7 @@ describe('SceneDialog', () => {
 
     // The picker lists the house by floor and room; a lamp in a room with no floor is under
     // "Not in a room", and several may be added at once.
-    fireEvent.click(screen.getByRole('button', { name: 'Add entities' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add to the scene' }));
     fireEvent.click(await screen.findByRole('checkbox', { name: /Ceiling/u }));
     fireEvent.click(screen.getByRole('button', { name: 'Add 1' }));
 

@@ -132,6 +132,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
             <Segmented
               label={t('library.sceneMemberFields.power', 'Power')}
               size="compact"
+              isFilled
               options={[
                 { value: 'on', label: t('common.on', 'On') },
                 { value: 'off', label: t('common.off', 'Off') },
@@ -164,6 +165,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
           <Slider
             look="bar"
             label={t('library.sceneMemberFields.white', 'White')}
+            caption={t('library.sceneMemberFields.colourTemperature', 'Colour temperature')}
             min={kelvin.min}
             max={kelvin.max}
             step={50}
@@ -180,7 +182,8 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
           <>
             <Slider
               look="bar"
-              label={t('library.sceneMemberFields.colour', 'Colour')}
+              label={t('library.sceneMemberFields.hue', 'Hue')}
+              caption={t('library.sceneMemberFields.colour', 'Colour')}
               min={0}
               max={360}
               value={colour.hue}
@@ -245,6 +248,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
             <Segmented
               label={t('library.sceneMemberFields.lock', 'Lock')}
               size="compact"
+              isFilled
               options={[
                 { value: 'locked', label: t('library.sceneMemberFields.locked', 'Locked') },
                 { value: 'unlocked', label: t('library.sceneMemberFields.unlocked', 'Unlocked') },
@@ -264,6 +268,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
                 <Segmented
                   label={t('library.sceneMemberFields.mode', 'Mode')}
                   size="compact"
+                  isFilled
                   options={modes.map((mode) => ({ value: mode, label: modeLabel(mode) }))}
                   value={thermostat.mode}
                   onChange={(mode) => {
@@ -311,6 +316,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
               <Segmented
                 label={t('library.sceneMemberFields.playback', 'Playback')}
                 size="compact"
+                isFilled
                 options={PLAYBACK_OPTIONS.map((option) => ({
                   ...option,
                   label: text(option.label),
@@ -341,6 +347,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
               <Segmented
                 label={t('library.sceneMemberFields.muted', 'Muted')}
                 size="compact"
+                isFilled
                 options={[
                   { value: 'off', label: t('common.no', 'No') },
                   { value: 'on', label: t('common.yes', 'Yes') },

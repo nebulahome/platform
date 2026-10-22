@@ -37,6 +37,7 @@ import { useEditorHouse } from '@/routes/library/automation/editor-house';
 import { ConditionFields } from '@/routes/library/condition-fields';
 import {
   CONDITION_CHOICE_GROUPS,
+  conditionKindOf,
   glyphForKind,
   isKnownKind,
   labelForKind,
@@ -70,7 +71,12 @@ function isIncomplete(condition: ConditionNode): boolean {
  * @returns Its label.
  */
 function groupLabel(group: ConditionGroup): string {
-  return `${group.isNot === true ? 'NOT ' : ''}${group.type.toUpperCase()}`;
+  // The board's words: all of, any of, none of; an AND turned around is not all of.
+  if (group.type === 'or') {
+    return group.isNot === true ? 'NONE OF' : 'ANY OF';
+  }
+
+  return group.isNot === true ? 'NOT ALL OF' : 'ALL OF';
 }
 
 /**
@@ -83,10 +89,10 @@ function groupLabel(group: ConditionGroup): string {
 function conditionLook(condition: ConditionNode, names: BlockNames): DragLook {
   return {
     lane: 'if',
-    glyph: glyphForKind('condition', condition.type),
+    glyph: glyphForKind('condition', conditionKindOf(condition)),
     kind: isConditionGroup(condition)
       ? groupLabel(condition)
-      : labelForKind('condition', condition.type),
+      : labelForKind('condition', conditionKindOf(condition)),
     summary: condition.name ?? conditionSummary(condition, names),
   };
 }
@@ -242,7 +248,7 @@ function ConditionBlock(props: ConditionBlockProps) {
   const { condition, id, grip, isNested, onChange, onRemove } = props;
   const house = useEditorHouse();
   const ui = useBlockUi(id, isIncomplete(condition) || !isKnownKind('condition', condition.type));
-  const kind = labelForKind('condition', condition.type);
+  const kind = labelForKind('condition', conditionKindOf(condition));
   const gone = unavailableReason('condition', condition.type);
   const tools = useBlockTools({
     id,
@@ -256,7 +262,7 @@ function ConditionBlock(props: ConditionBlockProps) {
   return (
     <Block
       lane="if"
-      glyph={<AppIcon id={glyphForKind('condition', condition.type)} size={15} />}
+      glyph={<AppIcon id={glyphForKind('condition', conditionKindOf(condition))} size={15} />}
       kind={kind}
       summary={condition.name === undefined ? said : <span title={said}>{condition.name}</span>}
       isWarning={gone !== undefined || !isKnownKind('condition', condition.type)}
@@ -266,19 +272,43 @@ function ConditionBlock(props: ConditionBlockProps) {
       onSelect={ui.select}
       isNested={isNested}
       grip={grip}
-      negation={{
-        isNot: condition.isNot === true,
-        /**
-         * Turns the condition around, or back.
-         *
-         * @param isNot - Whether NOT is on.
-         */
-        onChange: (isNot) => {
-          onChange(negated(condition, isNot));
-        },
-      }}
+      // On the board only a card of the lane and a group carry IS/NOT; a card inside a group or
+      // a block shows it once it is turned around, and is turned around from its menu.
+      {...(isNested && condition.isNot !== true
+        ? {}
+        : {
+            negation: {
+              isNot: condition.isNot === true,
+              /**
+               * Turns the condition around, or back.
+               *
+               * @param isNot - Whether NOT is on.
+               */
+              onChange: (isNot: boolean) => {
+                onChange(negated(condition, isNot));
+              },
+            },
+          })}
       onRemove={onRemove}
-      menu={tools.menu}
+      menu={
+        isNested && condition.isNot !== true
+          ? [
+              ...tools.menu,
+              {
+                label: t('automation.conditionBlocks.turnAround', 'Turn it around (NOT)'),
+                description: t(
+                  'automation.conditionBlocks.turnAroundNote',
+                  'Holds when this does not.',
+                ),
+                icon: 'repeat',
+                /** Turns NOT on. */
+                onSelect: () => {
+                  onChange(negated(condition, true));
+                },
+              },
+            ]
+          : tools.menu
+      }
       status={tools.status}
       notice={
         gone === undefined ? (
@@ -400,8 +430,8 @@ export function ConditionLane(props: ConditionLaneProps) {
       glyph={<AppIcon id="list-filter" size={20} />}
       title={t('automation.conditionBlocks.if', 'If')}
       note={t(
-        'automation.conditionBlocks.allOfTheseMust',
-        'All of these must hold. Group them with AND or OR; NOT turns one around. Optional.',
+        'automation.conditionBlocks.checksBeforeItActs',
+        'Checks before it acts. NOT on a card negates it.',
       )}
     >
       <ConditionList
@@ -426,6 +456,9 @@ export type ConditionsFieldProps = {
 
   /** A line under them: what an empty list means here. */
   readonly note?: string | undefined;
+
+  /** What they are for: If, While, Until. */
+  readonly label?: string;
 };
 
 /**
@@ -437,13 +470,17 @@ export type ConditionsFieldProps = {
 export function ConditionsField(props: ConditionsFieldProps) {
   const { t } = useTranslation();
 
-  const { items, path, onChange, note } = props;
+  const {
+    items,
+    path,
+    onChange,
+    note,
+    label = t('automation.conditionBlocks.conditions', 'Conditions'),
+  } = props;
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-caption font-medium text-foreground-muted">
-        {t('automation.conditionBlocks.conditions', 'Conditions')}
-      </span>
+      <span className="text-caption font-medium text-foreground-muted">{label}</span>
       <ConditionList
         items={items}
         path={path}

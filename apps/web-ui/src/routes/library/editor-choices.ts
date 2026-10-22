@@ -55,12 +55,21 @@ type Kind = {
 const KINDS: Readonly<Record<BlockFamily, Readonly<Record<string, Kind>>>> = {
   trigger: {
     entity: {
-      label: 'Entity',
-      description: 'An entity changes state, or crosses a number',
+      label: 'Entity state',
+      description: 'An entity changes state',
       glyph: 'activity',
     },
-    time: { label: 'Time', description: 'A time of day, or a schedule', glyph: 'clock' },
-    sun: { label: 'Sun', description: 'Sunrise, sunset, the golden hour…', glyph: 'sunset' },
+    entity_numeric: {
+      label: 'Numeric threshold',
+      description: 'A number crosses a value',
+      glyph: 'gauge',
+    },
+    time: {
+      label: 'Time',
+      description: 'A time of day, the sun, or a schedule',
+      glyph: 'clock',
+    },
+    sun: { label: 'Time', description: 'Sunrise, sunset, the golden hour…', glyph: 'sunset' },
     event: {
       label: 'Event',
       description: 'A device event, such as a button press',
@@ -75,24 +84,34 @@ const KINDS: Readonly<Record<BlockFamily, Readonly<Record<string, Kind>>>> = {
   },
   condition: {
     entity: {
-      label: 'Entity',
-      description: 'An entity is in a state, or past a number',
+      label: 'Entity state',
+      description: 'An entity is in a state',
       glyph: 'activity',
     },
+    entity_numeric: {
+      label: 'Numeric',
+      description: 'A number is past a value',
+      glyph: 'gauge',
+    },
     time: {
-      label: 'Time and days',
-      description: 'A stretch of the day, on some days',
+      label: 'Between two times',
+      description: 'A stretch of the day',
       glyph: 'clock',
+    },
+    days: {
+      label: 'On certain days',
+      description: 'Some days of the week',
+      glyph: 'calendar',
     },
     sun: { label: 'Sun', description: 'Day, night, the golden hour…', glyph: 'sun' },
     expression: { label: 'Expression', description: 'A formula over readings', glyph: 'braces' },
     and: {
-      label: 'AND',
+      label: 'All of',
       description: 'A group whose conditions must all hold',
       glyph: 'list-filter',
     },
     or: {
-      label: 'OR',
+      label: 'Any of',
       description: 'A group where one condition is enough',
       glyph: 'list-filter',
     },
@@ -208,6 +227,52 @@ export function labelForKind(family: BlockFamily, kind: string): string {
 }
 
 /**
+ * The kind a trigger's card shows, as the board names it: an entity block is Entity state or
+ * Numeric threshold by what it watches, and the sun is a Time, picked under At.
+ *
+ * @param trigger - The trigger.
+ * @param trigger.type - Its kind.
+ * @param trigger.change - An entity trigger's change.
+ * @param trigger.change.kind - State or numeric.
+ * @returns The kind to look up.
+ */
+export function triggerKindOf(trigger: {
+  readonly type: string;
+  readonly change?: { readonly kind: string };
+}): string {
+  return trigger.type === 'entity' && trigger.change?.kind === 'numeric'
+    ? 'entity_numeric'
+    : trigger.type;
+}
+
+/**
+ * The kind a condition's card shows, as the board names it: Entity state or Numeric, Between
+ * two times or On certain days.
+ *
+ * @param condition - The condition.
+ * @param condition.type - Its kind.
+ * @param condition.match - An entity condition's match.
+ * @param condition.match.kind - State or numeric.
+ * @param condition.from - A time condition's start.
+ * @param condition.to - A time condition's end.
+ * @returns The kind to look up.
+ */
+export function conditionKindOf(condition: {
+  readonly type: string;
+  readonly match?: { readonly kind: string };
+  readonly from?: string | undefined;
+  readonly to?: string | undefined;
+}): string {
+  if (condition.type === 'entity' && condition.match?.kind === 'numeric') {
+    return 'entity_numeric';
+  }
+
+  return condition.type === 'time' && condition.from === undefined && condition.to === undefined
+    ? 'days'
+    : condition.type;
+}
+
+/**
  * A block's glyph.
  *
  * @param family - The block's family.
@@ -245,7 +310,7 @@ export const TRIGGER_CHOICE_GROUPS: readonly EditorChoiceGroup[] = [
   {
     title: 'Triggers',
     lane: 'when',
-    choices: toChoices('trigger', ['entity', 'time', 'sun', 'manual', 'event']),
+    choices: toChoices('trigger', ['entity', 'entity_numeric', 'time', 'event', 'manual']),
   },
 ];
 
@@ -254,7 +319,14 @@ export const CONDITION_CHOICE_GROUPS: readonly EditorChoiceGroup[] = [
   {
     title: 'Conditions',
     lane: 'if',
-    choices: toChoices('condition', ['entity', 'time', 'sun', 'expression']),
+    choices: toChoices('condition', [
+      'entity',
+      'entity_numeric',
+      'time',
+      'days',
+      'sun',
+      'expression',
+    ]),
   },
   { title: 'Groups', lane: 'if', choices: toChoices('condition', ['and', 'or']) },
 ];

@@ -178,6 +178,13 @@ export function blankTrigger(type: string): AutomationTrigger {
     case 'entity': {
       return { type: 'entity', entityId: partialEntityId(''), change: { kind: 'state' } };
     }
+    case 'entity_numeric': {
+      return {
+        type: 'entity',
+        entityId: partialEntityId(''),
+        change: { kind: 'numeric', operator: 'gt', value: 0 },
+      };
+    }
     case 'time': {
       return { type: 'time', at: { kind: 'clock', time: '08:00' } };
     }
@@ -208,6 +215,16 @@ export function blankCondition(type: string): ConditionNode {
     }
     case 'time': {
       return { type: 'time', from: '08:00', to: '20:00' };
+    }
+    case 'days': {
+      return { type: 'time', days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] };
+    }
+    case 'entity_numeric': {
+      return {
+        type: 'entity',
+        entityId: partialEntityId(''),
+        match: { kind: 'numeric', operator: 'gt', value: 0 },
+      };
     }
     case 'sun': {
       return { type: 'sun', phase: 'night' };

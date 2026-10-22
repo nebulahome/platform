@@ -197,6 +197,7 @@ export function SceneDialog(props: SceneDialogProps) {
     existing?.unresolvedMembers ?? [],
   );
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
+  const [timing, setTiming] = useState<string | null>(null);
   const [isAdding, setAdding] = useState(false);
   const [isConfirming, setConfirming] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -487,6 +488,21 @@ export function SceneDialog(props: SceneDialogProps) {
     </>
   );
 
+  const addButton = (
+    <Button
+      variant="ghost"
+      size="compact"
+      className="self-start"
+      disabled={isBusy}
+      onClick={() => {
+        setAdding(true);
+      }}
+    >
+      <AppIcon id="plus" size={14} />
+      {t('library.sceneDialog.addToTheScene', 'Add to the scene')}
+    </Button>
+  );
+
   const membersBlock = (
     <div className="flex flex-col gap-3">
       {unresolved.length === 0 ? null : (
@@ -569,19 +585,70 @@ export function SceneDialog(props: SceneDialogProps) {
                       <span className="font-mono">{member.entityId}</span>
                     </p>
                   </div>
-                  <span
-                    className={
-                      member.transitionSeconds === null
-                        ? 'hidden text-caption text-foreground-subtle sm:inline'
-                        : 'hidden text-caption text-foreground-muted sm:inline'
-                    }
-                  >
-                    {member.transitionSeconds === null
-                      ? t('library.sceneDialog.transitionAsTheScene', 'Transition as the scene')
-                      : t('library.sceneDialog.transitionSeconds', 'Transition {{seconds}} s', {
-                          seconds: String(member.transitionSeconds),
-                        })}
-                  </span>
+                  {timing === member.entityId ? (
+                    <input
+                      type="number"
+                      min={0}
+                      max={600}
+                      step={0.1}
+                      // The field it opens is the next thing the person types in.
+                      // eslint-disable-next-line jsx-a11y/no-autofocus
+                      autoFocus
+                      aria-label={t(
+                        'library.sceneDialog.transitionForTitle',
+                        'Transition of {{title}}, in seconds',
+                        { title },
+                      )}
+                      placeholder={t('library.sceneDialog.asTheScene', 'As the scene')}
+                      className="h-7 w-28 rounded-field border border-border-strong bg-surface-raised px-2 font-mono text-mono-ui text-foreground outline-none focus-visible:ring-3 focus-visible:ring-primary/25"
+                      defaultValue={
+                        member.transitionSeconds === null ? '' : String(member.transitionSeconds)
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === 'Escape') {
+                          event.currentTarget.blur();
+                        }
+                      }}
+                      onBlur={(event) => {
+                        const raw = event.target.value.trim();
+                        const next = Number(raw);
+
+                        setTiming(null);
+                        setMembers(
+                          members.map((entry, i) =>
+                            i === index
+                              ? {
+                                  ...entry,
+                                  transitionSeconds:
+                                    raw === '' || !Number.isFinite(next)
+                                      ? null
+                                      : clampSeconds(next),
+                                }
+                              : entry,
+                          ),
+                        );
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      title={t('library.sceneDialog.changeTransition', 'Change its transition')}
+                      className={
+                        member.transitionSeconds === null
+                          ? 'hidden rounded-field px-1.5 text-caption text-foreground-subtle hover:text-foreground sm:inline'
+                          : 'hidden rounded-field px-1.5 text-caption text-foreground-muted hover:text-foreground sm:inline'
+                      }
+                      onClick={() => {
+                        setTiming(member.entityId);
+                      }}
+                    >
+                      {member.transitionSeconds === null
+                        ? t('library.sceneDialog.transitionAsTheScene', 'Transition as the scene')
+                        : t('library.sceneDialog.transitionSeconds', 'Transition {{seconds}} s', {
+                            seconds: String(member.transitionSeconds),
+                          })}
+                    </button>
+                  )}
                   <IconButton
                     label={t('library.sceneDialog.removeFromTheScene', 'Remove from the scene')}
                     size="small"
@@ -637,47 +704,6 @@ export function SceneDialog(props: SceneDialogProps) {
                           ),
                         );
                       }}
-                      extra={
-                        <TextField
-                          label={t('library.sceneDialog.transition', 'Transition')}
-                          size="compact"
-                          type="number"
-                          min={0}
-                          max={600}
-                          step={0.1}
-                          value={
-                            member.transitionSeconds === null
-                              ? ''
-                              : String(member.transitionSeconds)
-                          }
-                          hint={t(
-                            'library.sceneDialog.secondsForThisEntity',
-                            'Seconds for this entity only. Leave blank for the scene default.',
-                          )}
-                          onChange={(event) => {
-                            const raw = event.target.value.trim();
-
-                            setMembers(
-                              members.map((entry, i) => {
-                                if (i !== index) {
-                                  return entry;
-                                }
-
-                                if (raw === '') {
-                                  return { ...entry, transitionSeconds: null };
-                                }
-
-                                const next = Number(raw);
-
-                                return {
-                                  ...entry,
-                                  transitionSeconds: Number.isFinite(next) ? next : null,
-                                };
-                              }),
-                            );
-                          }}
-                        />
-                      }
                     />
                   </div>
                 ) : null}
@@ -687,18 +713,7 @@ export function SceneDialog(props: SceneDialogProps) {
         </ul>
       )}
 
-      <Button
-        variant="ghost"
-        size="compact"
-        className="self-start"
-        disabled={isBusy}
-        onClick={() => {
-          setAdding(true);
-        }}
-      >
-        <AppIcon id="plus" size={14} />
-        {t('library.sceneDialog.addEntities', 'Add entities')}
-      </Button>
+      {presentation === 'page' ? null : addButton}
       <EntityPicker
         isOpen={isAdding}
         title={t('library.sceneDialog.addToTheScene', 'Add to the scene')}
@@ -872,10 +887,14 @@ export function SceneDialog(props: SceneDialogProps) {
           <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
             <Section
               title={t('library.sceneDialog.members', 'Members')}
-              note={t(
-                'library.sceneDialog.whatTheSceneSets',
-                'What the scene sets, each entity with what it is told.',
-              )}
+              note={t('library.sceneDialog.membersNote', {
+                count: members.length + unresolved.length,
+                defaultValue_one:
+                  '{{count}} entity · each added with its current state, then changed here.',
+                defaultValue_other:
+                  '{{count}} entities · each added with its current state, then changed here.',
+              })}
+              actions={addButton}
             >
               {membersBlock}
             </Section>

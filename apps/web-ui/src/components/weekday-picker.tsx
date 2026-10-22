@@ -44,11 +44,12 @@ export function WeekdayPicker(props: WeekdayPickerProps) {
           <label
             key={day}
             className={cn(
-              'press flex h-control-sm items-center rounded-chip border px-3 text-ui capitalize',
+              // The board's day chips: 44 by 34, chosen in the colour of the lane they sit in.
+              'press flex h-8.5 min-w-11 items-center justify-center rounded-field border px-2 text-ui-sm capitalize',
               disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
               isChosen
-                ? 'border-border-strong bg-surface-high text-foreground'
-                : 'border-border text-foreground-muted hover:text-foreground',
+                ? 'border-[color-mix(in_srgb,var(--lane,var(--color-primary))_60%,transparent)] bg-[color-mix(in_srgb,var(--lane,var(--color-primary))_14%,transparent)] text-foreground'
+                : 'border-border-strong text-foreground-muted hover:text-foreground',
             )}
           >
             <input

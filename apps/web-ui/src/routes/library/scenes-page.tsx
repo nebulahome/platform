@@ -370,7 +370,7 @@ export function ScenesPage() {
         />
       ) : null}
       {shown.length === 0 ? null : (
-        <div className="overflow-hidden rounded-card border border-border bg-surface">
+        <div className="rounded-card border border-border bg-surface">
           <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 border-b border-border px-5 py-3 font-mono text-label text-foreground-subtle uppercase md:grid-cols-[minmax(0,1fr)_96px_auto_36px]">
             <SortHeader
               label={t('library.scenes.scene', 'Scene')}

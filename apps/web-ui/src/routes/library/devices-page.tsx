@@ -279,7 +279,7 @@ export function DevicesPage() {
         'Nothing yet. Add a device from Integrations and it appears here as soon as the hub has heard from it.',
       )}
     >
-      <div className="overflow-hidden rounded-card border border-border bg-surface">
+      <div className="rounded-card border border-border bg-surface">
         <div
           className={`${DEVICE_COLUMNS} border-b border-border px-5 py-3 font-mono text-label text-foreground-subtle uppercase`}
         >
