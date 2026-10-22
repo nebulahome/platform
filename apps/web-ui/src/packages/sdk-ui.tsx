@@ -71,7 +71,7 @@ import { callPackage, configurePackage, fetchPackage, PACKAGE_QUERY_KEYS } from 
 import { packageNamespace } from '@/packages/loader';
 import { packageAppPath, packagePathOf, platformPath } from '@/packages/package-paths';
 import { PackagePageActions } from '@/packages/page-actions';
-import { useAreas } from '@/packages/sdk-areas';
+import { useAreaActions, useAreas } from '@/packages/sdk-areas';
 import { useStateHistory, useTelemetry } from '@/packages/sdk-history';
 import { usePictureOf } from '@/packages/sdk-pictures';
 import { usePreferences } from '@/settings/preferences';
@@ -755,6 +755,7 @@ export const UI_HOST = {
   PackageLink,
   PlatformLink,
   PageActions,
+  useAreaActions,
   useStateHistory,
   useTelemetry,
   useAreas,
