@@ -71,6 +71,12 @@ export type SliderProps = {
   /** A glyph before the label, inside the bar. */
   readonly icon?: ReactNode;
 
+  /**
+   * The bar's caption above it, when it differs from the label inside: "Colour temperature"
+   * over a bar that says "White". The label, unless said otherwise.
+   */
+  readonly caption?: string;
+
   /** Whether it can be moved at all. */
   readonly disabled?: boolean;
 
@@ -123,6 +129,7 @@ export function Slider(props: SliderProps) {
     fill = 'accent',
     look = 'groove',
     icon,
+    caption = label,
     disabled = false,
     className,
   } = props;
@@ -181,23 +188,28 @@ export function Slider(props: SliderProps) {
 
   if (look === 'bar') {
     return (
-      <div
-        className={cn('range-bar', gradient !== undefined && 'range-bar--scale', className)}
-        /* eslint-disable-next-line react/forbid-dom-props -- see the note on `groove` above. */
-        style={groove}
-      >
-        {gradient === undefined ? <span aria-hidden="true" className="range-bar__fill" /> : null}
-        <span aria-hidden="true" className="range-bar__mark" />
-        <span className="range-bar__text">
-          <label htmlFor={id} className="flex items-center gap-1.5">
-            {icon}
-            {label}
-          </label>
-          <span aria-hidden="true" className="tabular">
-            {display}
-          </span>
+      <div className={cn('flex min-w-0 flex-col gap-1.5', className)}>
+        <span aria-hidden="true" className="text-caption font-medium text-foreground-muted">
+          {caption}
         </span>
-        {field}
+        <div
+          className={cn('range-bar', gradient !== undefined && 'range-bar--scale')}
+          /* eslint-disable-next-line react/forbid-dom-props -- see the note on `groove` above. */
+          style={groove}
+        >
+          {gradient === undefined ? <span aria-hidden="true" className="range-bar__fill" /> : null}
+          <span aria-hidden="true" className="range-bar__mark" />
+          <span className="range-bar__text">
+            <label htmlFor={id} className="flex items-center gap-1.5">
+              {icon}
+              {label}
+            </label>
+            <span aria-hidden="true" className="tabular">
+              {display}
+            </span>
+          </span>
+          {field}
+        </div>
       </div>
     );
   }
