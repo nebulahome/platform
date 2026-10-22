@@ -9,6 +9,9 @@ to it, a major one breaks it, and a patch leaves it as it is.
   its children in the header of the package's page, beside the title, in place of the platform's
   own "Details": the buttons a page would otherwise give a row of their own. On a card or an
   entity view it draws nothing.
+- **Changing the areas.** `useAreaActions()` adds a floor or a room to the house, renames one,
+  moves a floor to another storey or removes an area, with the viewer's permissions (`area:write`,
+  which `canEdit` says): a package that draws the house keeps its floors and rooms the house's own.
 
 ## 1.2.0
 

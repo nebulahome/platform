@@ -17,6 +17,7 @@ import type { JsonValue } from '../json.js';
 
 import { ENGLISH } from './english.js';
 import type {
+  AreaActions,
   AreaView,
   CustomEntityState,
   EntitiesFilter,
@@ -49,6 +50,8 @@ import type {
 } from './types.js';
 
 export type {
+  AreaActions,
+  AreaDraft,
   AreaKind,
   AreaView,
   CustomEntityState,
@@ -276,6 +279,16 @@ export function useTelemetry(query: TelemetryQuery): Telemetry {
  */
 export function useAreas(): readonly AreaView[] {
   return ui('useAreas', '1.2')();
+}
+
+/**
+ * Adds, renames and removes the house's floors and rooms, as the platform's areas page does, with
+ * the viewer's permissions: `canEdit` says whether they hold them. Since 1.3.
+ *
+ * @returns What changes the areas.
+ */
+export function useAreaActions(): AreaActions {
+  return ui('useAreaActions', '1.3')();
 }
 
 /**

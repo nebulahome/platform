@@ -130,6 +130,34 @@ export type AreaView = {
   readonly longitude: number | null;
 };
 
+/** A floor or a room to add to the house. Since 1.3. */
+export type AreaDraft = {
+  readonly kind: 'floor' | 'room';
+  readonly name: string;
+
+  /** The house a floor is in, the floor a room is on. */
+  readonly parentKey: string;
+
+  /** A floor's storey: 0 the ground floor, -1 the one below. */
+  readonly level?: number;
+};
+
+/** Changes to the house's areas, with the viewer's permissions. Since 1.3. */
+export type AreaActions = {
+  /** Whether the viewer may change the areas (`area:write`). */
+  readonly canEdit: boolean;
+
+  /** Adds a floor or a room; its key comes from its name. */
+  readonly create: (draft: AreaDraft) => Promise<AreaView>;
+  readonly rename: (key: string, name: string) => Promise<void>;
+
+  /** Moves a floor to another storey. */
+  readonly setLevel: (key: string, level: number) => Promise<void>;
+
+  /** Removes an area and everything under it. */
+  readonly remove: (key: string) => Promise<void>;
+};
+
 /** How a picture is fetched. */
 export type PictureOptions = {
   /** A camera's still is fetched again this often; 15 seconds when not said, at least 2. */
@@ -419,4 +447,7 @@ export type UiHost = {
 
   /** Since 1.3. */
   readonly PageActions: ComponentType<PageActionsProps>;
+
+  /** Since 1.3. */
+  readonly useAreaActions: () => AreaActions;
 };

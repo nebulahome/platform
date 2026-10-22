@@ -90,6 +90,27 @@ type AreaView = {
   readonly latitude: number | null;
   readonly longitude: number | null;
 };
+/** A floor or a room to add to the house. Since 1.3. */
+type AreaDraft = {
+  readonly kind: 'floor' | 'room';
+  readonly name: string;
+  /** The house a floor is in, the floor a room is on. */
+  readonly parentKey: string;
+  /** A floor's storey: 0 the ground floor, -1 the one below. */
+  readonly level?: number;
+};
+/** Changes to the house's areas, with the viewer's permissions. Since 1.3. */
+type AreaActions = {
+  /** Whether the viewer may change the areas (`area:write`). */
+  readonly canEdit: boolean;
+  /** Adds a floor or a room; its key comes from its name. */
+  readonly create: (draft: AreaDraft) => Promise<AreaView>;
+  readonly rename: (key: string, name: string) => Promise<void>;
+  /** Moves a floor to another storey. */
+  readonly setLevel: (key: string, level: number) => Promise<void>;
+  /** Removes an area and everything under it. */
+  readonly remove: (key: string) => Promise<void>;
+};
 /** How a picture is fetched. */
 type PictureOptions = {
   /** A camera's still is fetched again this often; 15 seconds when not said, at least 2. */
@@ -309,6 +330,8 @@ type UiHost = {
   readonly PlatformLink: ComponentType<PlatformLinkProps>;
   /** Since 1.3. */
   readonly PageActions: ComponentType<PageActionsProps>;
+  /** Since 1.3. */
+  readonly useAreaActions: () => AreaActions;
 };
 //#endregion
 //#region src/ui/index.d.ts
@@ -425,6 +448,13 @@ export declare function useTelemetry(query: TelemetryQuery): Telemetry;
  */
 export declare function useAreas(): readonly AreaView[];
 /**
+ * Adds, renames and removes the house's floors and rooms, as the platform's areas page does, with
+ * the viewer's permissions: `canEdit` says whether they hold them. Since 1.3.
+ *
+ * @returns What changes the areas.
+ */
+export declare function useAreaActions(): AreaActions;
+/**
  * A camera's latest still, fetched again every so often, or an image entity's picture, fetched
  * again when it changes: an address an `<img>` shows, let go of when a newer one replaces it.
  *
@@ -486,4 +516,4 @@ export declare function PlatformLink(props: PlatformLinkProps): ReactElement;
  */
 export declare function PageActions(props: PageActionsProps): ReactElement;
 //#endregion
-export type { AreaKind, AreaView, CardProps, ChangeCause, CustomEntityState, EntitiesFilter, EntityPicture, EntityView, EntityViewProps, History, HistoryQuery, HistorySeries, HistoryWindow, Locale, Mutation, MutationOptions, PackageCall, PackageInfo, PackageLinkProps, PackageNavigate, PackageRoute, PackageSettings, PageActionsProps, PageProps, PictureOptions, PlatformLinkProps, PlatformNavigate, PlatformTarget, PluralEnglish, RpcOptions, RpcState, SendCommand, SettingsPatch, StateHistoryPoint, Telemetry, TelemetryPoint, TelemetryQuery, TelemetryResolution, Theme, Translate, Translation, TranslationValues, UiHost, Viewer, VisibleSettings };
+export type { AreaActions, AreaDraft, AreaKind, AreaView, CardProps, ChangeCause, CustomEntityState, EntitiesFilter, EntityPicture, EntityView, EntityViewProps, History, HistoryQuery, HistorySeries, HistoryWindow, Locale, Mutation, MutationOptions, PackageCall, PackageInfo, PackageLinkProps, PackageNavigate, PackageRoute, PackageSettings, PageActionsProps, PageProps, PictureOptions, PlatformLinkProps, PlatformNavigate, PlatformTarget, PluralEnglish, RpcOptions, RpcState, SendCommand, SettingsPatch, StateHistoryPoint, Telemetry, TelemetryPoint, TelemetryQuery, TelemetryResolution, Theme, Translate, Translation, TranslationValues, UiHost, Viewer, VisibleSettings };

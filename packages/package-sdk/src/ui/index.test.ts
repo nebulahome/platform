@@ -9,6 +9,7 @@ import { COMPONENTS_MODULE, UI_MODULE } from '../host.js';
 
 import {
   PageActions,
+  useAreaActions,
   useAreas,
   useEntityPicture,
   usePackage,
@@ -84,6 +85,7 @@ describe('the forwarders', () => {
     expect(() => PageActions({})).toThrow(
       'PageActions needs package SDK 1.3; this interface implements 1.2.0',
     );
+    expect(() => useAreaActions()).toThrow('useAreaActions needs package SDK 1.3');
   });
 
   it('say so outside the interface', () => {
