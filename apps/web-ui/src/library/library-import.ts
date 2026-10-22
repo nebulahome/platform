@@ -27,6 +27,9 @@ export type MissingEntity = {
 
   /** What it has to be able to do, when the file says. */
   readonly capabilities: readonly CapabilityName[];
+
+  /** What it stands for where the file came from: a Home Assistant device, an area. */
+  readonly hint?: string;
 };
 
 /** Counts addresses as they are met. */

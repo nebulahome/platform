@@ -108,6 +108,9 @@ export function ResolveEntitiesModal(props: ResolveEntitiesModalProps) {
                     />
                     {entry.entityId}
                   </p>
+                  {entry.hint === undefined ? null : (
+                    <p className="text-caption text-foreground-muted">{entry.hint}</p>
+                  )}
                   <p className="text-caption text-foreground-subtle">
                     {t('library.resolveEntities.uses', {
                       count: entry.uses,

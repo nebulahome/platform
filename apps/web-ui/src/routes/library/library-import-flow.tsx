@@ -93,10 +93,15 @@ export function LibraryImportFlow(props: LibraryImportFlowProps) {
    * @param file - The file, narrowed to what will be imported.
    */
   const resolve = (file: LibraryImport): void => {
-    const missing =
+    const found =
       file.kind === 'automations'
         ? missingOfAutomations(file.items, has)
         : missingOfScenes(file.items, has);
+    const missing = found.map((entry) => {
+      const hint = file.hints[entry.entityId];
+
+      return hint === undefined ? entry : { ...entry, hint };
+    });
 
     setStep({ at: 'resolve', file, missing });
   };

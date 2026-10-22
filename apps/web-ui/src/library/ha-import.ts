@@ -58,6 +58,9 @@ export type ImportNote = {
 export type Converted<TItem> = {
   readonly items: TItem[];
   readonly notes: ImportNote[];
+
+  /** What each stand-in address stands for in Home Assistant, for the import's dialog. */
+  readonly hints: Readonly<Record<string, string>>;
 };
 
 /** A record read from YAML. */
@@ -346,20 +349,101 @@ function levelOf(data: Raw): number | null {
     : null;
 }
 
-/** Collects the notes of one item. */
+/** Collects the notes of one item, and the stand-ins it hands out. */
 class Notebook {
   readonly #item: string;
   readonly #notes: ImportNote[];
+  readonly #hints: Map<string, string>;
+
+  /** The entity stand-in of each device whose entity the file named: `domain:device` to it. */
+  readonly #devices: Map<string, string>;
 
   /**
    * Starts the notes of one item.
    *
    * @param item - Its name.
    * @param notes - Where every item's notes go.
+   * @param hints - What every stand-in stands for, by its address.
+   * @param devices - The file's devices whose entity is known, shared by every item.
    */
-  public constructor(item: string, notes: ImportNote[]) {
+  public constructor(
+    item: string,
+    notes: ImportNote[],
+    hints: Map<string, string>,
+    devices: Map<string, string>,
+  ) {
     this.#item = item;
     this.#notes = notes;
+    this.#hints = hints;
+    this.#devices = devices;
+  }
+
+  /**
+   * Remembers that a device's entity of a domain has a stand-in already, so a call aimed at the
+   * device later lands on the same one instead of a second.
+   *
+   * @param domain - The entity's domain.
+   * @param device - The device's id.
+   * @param address - The entity's stand-in.
+   */
+  public link(domain: string, device: string, address: string): void {
+    if (!this.#devices.has(`${domain}:${device}`)) {
+      this.#devices.set(`${domain}:${device}`, address);
+    }
+  }
+
+  /**
+   * An address standing in for something Home Assistant names by its own ids - a device, an
+   * area, an entity's registry id - which the person points at an entity of theirs on import.
+   * The same thing gets the same address wherever it is named, so it is pointed once.
+   *
+   * @param domain - What it is: `light`, `binary_sensor`.
+   * @param kind - What Home Assistant names.
+   * @param id - Home Assistant's id or area.
+   * @returns The address.
+   */
+  public stand(domain: string, kind: 'entity' | 'device' | 'area', id: string): string {
+    const linked = kind === 'device' ? this.#devices.get(`${domain}:${id}`) : undefined;
+
+    if (linked !== undefined) {
+      return linked;
+    }
+
+    const where =
+      toKey(domain)
+        .replace(/^[^a-z]+/u, '')
+        .slice(0, 32) || 'sensor';
+    const what =
+      kind === 'area'
+        ? `area_${toKey(id)}`.slice(0, 64)
+        : `ha_${id
+            .toLowerCase()
+            .replaceAll(/[^a-z0-9]/gu, '')
+            .slice(0, 12)}`;
+    const address = `${where}.${what}`;
+
+    if (!this.#hints.has(address)) {
+      this.#hints.set(
+        address,
+        kind === 'area'
+          ? translate('haImport.hintArea', 'Area "{{id}}" in Home Assistant · {{item}}', {
+              id,
+              item: this.#item,
+            })
+          : translate(
+              'haImport.hintDevice',
+              'A {{domain}} of {{kind}} {{id}}… in Home Assistant · {{item}}',
+              {
+                domain,
+                kind: kind === 'device' ? 'device' : 'entity',
+                id: id.slice(0, 8),
+                item: this.#item,
+              },
+            ),
+      );
+    }
+
+    return address;
   }
 
   /**
@@ -368,7 +452,10 @@ class Notebook {
    * @param message - What happened.
    */
   public add(message: string): void {
-    this.#notes.push({ item: this.#item, message });
+    // Three persons coming home are one thing to know, not three.
+    if (!this.#notes.some((note) => note.item === this.#item && note.message === message)) {
+      this.#notes.push({ item: this.#item, message });
+    }
   }
 }
 
@@ -385,6 +472,528 @@ function metaOf(raw: Raw): JsonObject {
       : {}),
     ...(raw['enabled'] === false ? { isEnabled: false } : {}),
   };
+}
+
+// --- what Home Assistant names by device, by area, by registry id -----------------------------
+
+/**
+ * The domain an entity of one of Home Assistant's purpose-specific triggers and conditions has
+ * here: `occupancy.detected` is about a binary sensor, `illuminance.changed` about a sensor.
+ */
+const FAMILY_DOMAINS: Readonly<Record<string, string>> = {
+  occupancy: 'binary_sensor',
+  motion: 'binary_sensor',
+  presence: 'binary_sensor',
+  door: 'binary_sensor',
+  window: 'binary_sensor',
+  moisture: 'binary_sensor',
+  illuminance: 'sensor',
+  temperature: 'sensor',
+  humidity: 'sensor',
+  power: 'sensor',
+  energy: 'sensor',
+  battery: 'sensor',
+  carbon_dioxide: 'sensor',
+};
+
+/** The state a purpose-specific trigger's event enters, by its event's name. */
+const EVENT_STATES: Readonly<Record<string, string>> = {
+  turned_on: 'on',
+  turned_off: 'off',
+  detected: 'on',
+  cleared: 'off',
+  opened: 'open',
+  closed: 'closed',
+  locked: 'locked',
+  unlocked: 'unlocked',
+  started: 'on',
+  stopped: 'off',
+};
+
+/** The states a purpose-specific condition checks for, by its check's name. */
+const CHECK_STATES: Readonly<Record<string, string>> = {
+  is_on: 'on',
+  is_off: 'off',
+  is_detected: 'on',
+  is_not_detected: 'off',
+  is_open: 'open',
+  is_closed: 'closed',
+  is_locked: 'locked',
+  is_unlocked: 'unlocked',
+};
+
+/**
+ * A registry id, a device id: Home Assistant's 32 hex digits, which say nothing about the entity.
+ *
+ * @param value - An `entity_id` or `device_id` as written.
+ * @returns True when it is one.
+ */
+function isRegistryId(value: string): boolean {
+  return /^[0-9a-f]{32}$/u.test(value);
+}
+
+/**
+ * The entities a block names: addresses as they are, and a stand-in for each registry id, device
+ * and area, for the person to point at their own when the import asks.
+ *
+ * @param raw - The trigger, condition or action.
+ * @param domain - What the entities are, for the stand-ins.
+ * @param notes - Where the stand-ins are described.
+ * @returns The addresses.
+ */
+function targetsOf(raw: Raw, domain: string, notes: Notebook): string[] {
+  const target = isRaw(raw['target']) ? raw['target'] : {};
+  const data = isRaw(raw['data']) ? raw['data'] : {};
+  const entities = [
+    ...listOf(target['entity_id']),
+    ...listOf(raw['entity_id']),
+    ...listOf(data['entity_id']),
+  ].flatMap((entry) => (typeof entry === 'string' ? entry.split(',') : []));
+  const addresses = entities
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry !== '')
+    .map((entry) => (isRegistryId(entry) ? notes.stand(domain, 'entity', entry) : entry));
+  const [first] = addresses;
+
+  // A device trigger, condition or action names the device and its entity: the device is that
+  // entity wherever else the file aims at it.
+  if (typeof raw['device_id'] === 'string' && first !== undefined) {
+    notes.link(domain, raw['device_id'], first);
+  }
+
+  for (const device of listOf(
+    target['device_id'] ?? (entities.length === 0 ? raw['device_id'] : undefined),
+  )) {
+    if (typeof device === 'string' && device !== '') {
+      addresses.push(notes.stand(domain, 'device', device));
+    }
+  }
+
+  for (const area of listOf(target['area_id'])) {
+    if (typeof area === 'string' && area !== '') {
+      addresses.push(notes.stand(domain, 'area', area));
+    }
+  }
+
+  if (target['floor_id'] !== undefined || target['label_id'] !== undefined) {
+    notes.add(
+      translate(
+        'haImport.floorTarget',
+        'A target by floor or label has no equivalent; only the entities, devices and areas it names were kept.',
+      ),
+    );
+  }
+
+  return [...new Set(addresses)];
+}
+
+/**
+ * A threshold of a purpose-specific trigger or condition, as a comparison.
+ *
+ * @param threshold - `options.threshold`.
+ * @returns The comparisons; none when it compares with an entity or does not read.
+ */
+function comparisonsOf(threshold: Raw): { operator: string; value: number }[] {
+  /**
+   * One bound's figure.
+   *
+   * @param bound - `value`, `value_min` or `value_max` as written.
+   * @returns The figure, or null when it is not one.
+   */
+  const figure = (bound: unknown): number | null => {
+    if (typeof bound === 'number') {
+      return bound;
+    }
+
+    return isRaw(bound) && typeof bound['number'] === 'number' ? bound['number'] : null;
+  };
+  const type = textOf(threshold['type']);
+
+  if (type === 'between') {
+    const low = figure(threshold['value_min'] ?? threshold['min']);
+    const high = figure(threshold['value_max'] ?? threshold['max']);
+
+    return [
+      ...(low === null ? [] : [{ operator: 'gt', value: low }]),
+      ...(high === null ? [] : [{ operator: 'lt', value: high }]),
+    ];
+  }
+
+  const value = figure(threshold['value']);
+
+  return value === null ? [] : [{ operator: type === 'below' ? 'lt' : 'gt', value }];
+}
+
+/**
+ * One of Home Assistant's purpose-specific triggers - `light.turned_on`, `occupancy.cleared`,
+ * `illuminance.changed` - as entity triggers on what it targets.
+ *
+ * @param raw - The trigger.
+ * @param kind - Its `trigger`: `family.event`.
+ * @param notes - Where to say what was left out.
+ * @returns The triggers; none when it has no equivalent.
+ */
+function convertTargetTrigger(raw: Raw, kind: string, notes: Notebook): JsonObject[] {
+  const [family = '', event = ''] = kind.split('.');
+  const domain = FAMILY_DOMAINS[family] ?? family;
+  const options = isRaw(raw['options']) ? raw['options'] : {};
+  const forMs = options['for'] === undefined ? null : durationMsOf(options['for']);
+  const threshold = isRaw(options['threshold']) ? options['threshold'] : null;
+  const meta = metaOf(raw);
+  const addresses = targetsOf(raw, domain, notes);
+  let change: JsonObject;
+
+  if (threshold !== null) {
+    const [first, second] = comparisonsOf(threshold);
+
+    if (first === undefined) {
+      notes.add(
+        translate(
+          'haImport.thresholdEntity',
+          'A "{{kind}}" trigger compares with another entity; it was left out.',
+          { kind },
+        ),
+      );
+
+      return [];
+    }
+
+    if (second !== undefined) {
+      notes.add(
+        translate(
+          'haImport.thresholdWindow',
+          'A "{{kind}}" trigger between two values keeps only its lower bound.',
+          { kind },
+        ),
+      );
+    }
+
+    change = { kind: 'numeric', operator: first.operator, value: first.value };
+  } else if (event === 'changed') {
+    change = { kind: 'state' };
+  } else {
+    const to = EVENT_STATES[event];
+
+    if (to === undefined) {
+      notes.add(
+        translate(
+          'haImport.triggerKind',
+          'A "{{kind}}" trigger has no equivalent here and was left out.',
+          { kind },
+        ),
+      );
+
+      return [];
+    }
+
+    change = { kind: 'state', to };
+  }
+
+  if (options['behavior'] === 'all' && addresses.length > 1) {
+    notes.add(
+      translate(
+        'haImport.behaviorAll',
+        'A "{{kind}}" trigger waited for all of its targets; here any one of them wakes it.',
+        { kind },
+      ),
+    );
+  }
+
+  return addresses.map((entityId) => ({
+    ...meta,
+    type: 'entity',
+    entityId,
+    change,
+    ...(forMs === null || forMs <= 0 ? {} : { forMs }),
+  }));
+}
+
+/**
+ * One of Home Assistant's purpose-specific conditions - `light.is_on`, `occupancy.is_detected`,
+ * `temperature.is_value`, `sun.is_set` - as conditions on what it targets.
+ *
+ * @param raw - The condition.
+ * @param kind - Its `condition`: `family.check`.
+ * @param notes - Where to say what was left out.
+ * @returns The condition, or null when it has no equivalent.
+ */
+function convertTargetCondition(raw: Raw, kind: string, notes: Notebook): JsonObject | null {
+  const [family = '', check = ''] = kind.split('.');
+  const meta = metaOf(raw);
+  const options = isRaw(raw['options']) ? raw['options'] : {};
+
+  if (family === 'sun') {
+    if (check !== 'is_set' && check !== 'is_up') {
+      notes.add(
+        translate(
+          'haImport.conditionKind',
+          'A "{{kind}}" condition has no equivalent here and was left out.',
+          { kind },
+        ),
+      );
+
+      return null;
+    }
+
+    return {
+      ...meta,
+      type: 'sun',
+      phase: check === 'is_set' ? 'below' : 'above',
+      elevation: -0.833,
+    };
+  }
+
+  const domain = FAMILY_DOMAINS[family] ?? family;
+  const addresses = targetsOf(raw, domain, notes);
+  const threshold = isRaw(options['threshold']) ? options['threshold'] : null;
+  const duration = options['for'] === undefined ? 0 : (durationMsOf(options['for']) ?? 0);
+
+  if (duration > 0) {
+    notes.add(
+      translate(
+        'haImport.conditionFor',
+        'A condition\'s "for" has no equivalent; it checks the state alone.',
+      ),
+    );
+  }
+
+  let leaves: JsonObject[];
+
+  if (check === 'is_value' && threshold !== null) {
+    const comparisons = comparisonsOf(threshold);
+
+    if (comparisons.length === 0) {
+      notes.add(
+        translate(
+          'haImport.thresholdEntityCondition',
+          'A "{{kind}}" condition compares with another entity; it was left out.',
+          { kind },
+        ),
+      );
+
+      return null;
+    }
+
+    leaves = addresses.flatMap((entityId) =>
+      comparisons.map((comparison) => ({
+        type: 'entity',
+        entityId,
+        match: { kind: 'numeric', ...comparison },
+      })),
+    );
+  } else {
+    const state = CHECK_STATES[check];
+
+    if (state === undefined) {
+      notes.add(
+        translate(
+          'haImport.conditionKind',
+          'A "{{kind}}" condition has no equivalent here and was left out.',
+          { kind },
+        ),
+      );
+
+      return null;
+    }
+
+    leaves = addresses.map((entityId) => ({
+      type: 'entity',
+      entityId,
+      match: { kind: 'state', states: [state] },
+    }));
+  }
+
+  return grouped(leaves, options['behavior'] === 'any' ? 'or' : 'and', meta);
+}
+
+/**
+ * The state a device trigger or condition's type stands for: `turned_on`, `is_motion` on,
+ * `no_motion`, `is_not_occupied`, `turned_off` off.
+ *
+ * @param type - The type, with any `is_` taken off.
+ * @param domain - The entity's domain.
+ * @returns The state, null for any change, undefined when it has no equivalent.
+ */
+function deviceState(type: string, domain: string): string | null | undefined {
+  if (type === 'changed_states') {
+    return null;
+  }
+
+  if (type === 'turned_on' || type === 'on') {
+    return 'on';
+  }
+
+  if (type === 'turned_off' || type === 'off') {
+    return 'off';
+  }
+
+  if (domain === 'binary_sensor') {
+    return type.startsWith('no_') || type.startsWith('not_') ? 'off' : 'on';
+  }
+
+  return undefined;
+}
+
+/**
+ * A device trigger (`trigger: device`) as an entity trigger on a stand-in for its entity.
+ *
+ * @param raw - The trigger.
+ * @param notes - Where to say what was left out.
+ * @returns The triggers; none when its type has no equivalent.
+ */
+function convertDeviceTrigger(raw: Raw, notes: Notebook): JsonObject[] {
+  const domain = textOf(raw['domain']) || 'sensor';
+  const type = textOf(raw['type']);
+  const meta = metaOf(raw);
+  const forMs = raw['for'] === undefined ? null : durationMsOf(raw['for']);
+  const [entityId] = targetsOf(raw, domain, notes);
+  const above = raw['above'];
+  const below = raw['below'];
+
+  if (entityId === undefined) {
+    return [];
+  }
+
+  let change: JsonObject;
+
+  if (typeof above === 'number' || typeof below === 'number') {
+    change =
+      typeof below === 'number'
+        ? { kind: 'numeric', operator: 'lt', value: below }
+        : { kind: 'numeric', operator: 'gt', value: above as number };
+  } else {
+    const to = deviceState(type, domain);
+
+    if (to === undefined) {
+      notes.add(
+        translate(
+          'haImport.deviceType',
+          'A device {{what}} of type "{{type}}" has no equivalent and was left out.',
+          {
+            what: translate('haImport.trigger', 'trigger'),
+            type,
+          },
+        ),
+      );
+
+      return [];
+    }
+
+    change = to === null ? { kind: 'state' } : { kind: 'state', to };
+  }
+
+  return [
+    {
+      ...meta,
+      type: 'entity',
+      entityId,
+      change,
+      ...(forMs === null || forMs <= 0 ? {} : { forMs }),
+    },
+  ];
+}
+
+/**
+ * A device condition (`condition: device`) as an entity condition on a stand-in for its entity.
+ *
+ * @param raw - The condition.
+ * @param notes - Where to say what was left out.
+ * @returns The condition, or null when its type has no equivalent.
+ */
+function convertDeviceCondition(raw: Raw, notes: Notebook): JsonObject | null {
+  const domain = textOf(raw['domain']) || 'sensor';
+  const type = textOf(raw['type']).replace(/^is_/u, '');
+  const meta = metaOf(raw);
+  const [entityId] = targetsOf(raw, domain, notes);
+
+  if (entityId === undefined) {
+    return null;
+  }
+
+  const comparisons = [
+    ...(typeof raw['above'] === 'number' ? [{ operator: 'gt', value: raw['above'] }] : []),
+    ...(typeof raw['below'] === 'number' ? [{ operator: 'lt', value: raw['below'] }] : []),
+  ];
+
+  if (comparisons.length > 0) {
+    return grouped(
+      comparisons.map((comparison) => ({
+        type: 'entity',
+        entityId,
+        match: { kind: 'numeric', ...comparison },
+      })),
+      'and',
+      meta,
+    );
+  }
+
+  const state = deviceState(type, domain);
+
+  if (state === undefined || state === null) {
+    notes.add(
+      translate(
+        'haImport.deviceType',
+        'A device {{what}} of type "{{type}}" has no equivalent and was left out.',
+        {
+          what: translate('haImport.condition', 'condition'),
+          type,
+        },
+      ),
+    );
+
+    return null;
+  }
+
+  return { ...meta, type: 'entity', entityId, match: { kind: 'state', states: [state] } };
+}
+
+/**
+ * A device action (`device_id`, `domain`, `type`) as a command, or a notification sent to a phone.
+ *
+ * @param raw - The step.
+ * @param notes - Where to say what was left out.
+ * @returns The actions; none when its type has no equivalent.
+ */
+function convertDeviceAction(raw: Raw, notes: Notebook): JsonObject[] {
+  const domain = textOf(raw['domain']);
+  const type = textOf(raw['type']);
+  const meta = metaOf(raw);
+
+  if (domain === 'mobile_app' && type === 'notify') {
+    notes.add(
+      translate(
+        'haImport.notify',
+        'A notification ({{service}}) was kept, but notifications cannot be sent here yet.',
+        { service: 'mobile_app' },
+      ),
+    );
+
+    return [
+      {
+        ...meta,
+        type: 'notify',
+        channel: 'mobile_app',
+        message: [textOf(raw['title']), textOf(raw['message'])].filter(Boolean).join(' · '),
+      },
+    ];
+  }
+
+  if (type !== 'turn_on' && type !== 'turn_off' && type !== 'toggle') {
+    notes.add(
+      translate(
+        'haImport.deviceType',
+        'A device {{what}} of type "{{type}}" has no equivalent and was left out.',
+        {
+          what: translate('haImport.action', 'action'),
+          type: `${domain} ${type}`,
+        },
+      ),
+    );
+
+    return [];
+  }
+
+  return commands(targetsOf(raw, domain || 'switch', notes), 'on_off', { command: type }, meta);
 }
 
 // --- triggers --------------------------------------------------------------------------------
@@ -413,7 +1022,45 @@ function convertTrigger(raw: unknown, notes: Notebook): JsonObject[] {
     );
   }
 
+  if (kind === 'device') {
+    return convertDeviceTrigger(raw, notes);
+  }
+
+  if (kind.includes('.')) {
+    return convertTargetTrigger(raw, kind, notes);
+  }
+
   switch (kind) {
+    case 'zone': {
+      const zone = textOf(raw['zone']);
+      const entering = textOf(raw['event']) !== 'leave';
+
+      if (zone !== 'zone.home') {
+        notes.add(
+          translate(
+            'haImport.zoneOther',
+            'A trigger on the zone {{zone}} has no equivalent; only home is ported.',
+            { zone },
+          ),
+        );
+
+        return [];
+      }
+
+      notes.add(
+        translate(
+          'haImport.zoneHome',
+          "Coming home or leaving is ported as the person's presence turning on or off.",
+        ),
+      );
+
+      return targetsOf(raw, 'person', notes).map((entityId) => ({
+        ...meta,
+        type: 'entity',
+        entityId,
+        change: { kind: 'state', to: entering ? 'on' : 'off' },
+      }));
+    }
     case 'state': {
       if (raw['attribute'] !== undefined) {
         notes.add(
@@ -439,7 +1086,7 @@ function convertTrigger(raw: unknown, notes: Notebook): JsonObject[] {
         );
       }
 
-      return addressesOf(raw['entity_id']).map((entityId) => ({
+      return targetsOf(raw, 'sensor', notes).map((entityId) => ({
         ...meta,
         type: 'entity',
         entityId,
@@ -455,7 +1102,12 @@ function convertTrigger(raw: unknown, notes: Notebook): JsonObject[] {
       const above = raw['above'];
       const below = raw['below'];
 
-      if (raw['value_template'] !== undefined || raw['attribute'] !== undefined) {
+      const isBrightness = raw['attribute'] === 'brightness';
+
+      if (
+        raw['value_template'] !== undefined ||
+        (raw['attribute'] !== undefined && !isBrightness)
+      ) {
         notes.add(
           translate(
             'haImport.numericTemplate',
@@ -477,7 +1129,20 @@ function convertTrigger(raw: unknown, notes: Notebook): JsonObject[] {
       }
 
       const operator = typeof above === 'number' ? 'gt' : 'lt';
-      const value = typeof above === 'number' ? above : below;
+      const raw255 = typeof above === 'number' ? above : below;
+      // A light's brightness is 0-255 there and its level a percentage here.
+      const value =
+        isBrightness && typeof raw255 === 'number' ? Math.round((raw255 / 255) * 100) : raw255;
+
+      if (isBrightness) {
+        notes.add(
+          translate(
+            'haImport.brightness',
+            'A brightness of {{raw}} out of 255 is ported as a level of {{value}}%.',
+            { raw: String(raw255), value: String(value) },
+          ),
+        );
+      }
 
       if (typeof value !== 'number') {
         notes.add(
@@ -490,7 +1155,7 @@ function convertTrigger(raw: unknown, notes: Notebook): JsonObject[] {
         return [];
       }
 
-      return addressesOf(raw['entity_id']).map((entityId) => ({
+      return targetsOf(raw, 'sensor', notes).map((entityId) => ({
         ...meta,
         type: 'entity',
         entityId,
@@ -632,6 +1297,14 @@ function convertCondition(raw: unknown, notes: Notebook): JsonObject | null {
   const kind = textOf(raw['condition']);
   const meta = metaOf(raw);
 
+  if (kind === 'device') {
+    return convertDeviceCondition(raw, notes);
+  }
+
+  if (kind.includes('.')) {
+    return convertTargetCondition(raw, kind, notes);
+  }
+
   switch (kind) {
     case 'state': {
       if (raw['attribute'] !== undefined || hasTemplate(raw['state'])) {
@@ -658,7 +1331,7 @@ function convertCondition(raw: unknown, notes: Notebook): JsonObject | null {
         .map(textOf)
         .filter((state) => state !== '')
         .slice(0, 20);
-      const leaves = addressesOf(raw['entity_id']).map((entityId) => ({
+      const leaves = targetsOf(raw, 'sensor', notes).map((entityId) => ({
         type: 'entity',
         entityId,
         match: { kind: 'state', states },
@@ -667,7 +1340,20 @@ function convertCondition(raw: unknown, notes: Notebook): JsonObject | null {
       return grouped(leaves, raw['match'] === 'any' ? 'or' : 'and', meta);
     }
     case 'numeric_state': {
-      if (raw['value_template'] !== undefined || raw['attribute'] !== undefined) {
+      const isBrightness = raw['attribute'] === 'brightness';
+      /**
+       * A bound as this platform compares it: a brightness as the level's percentage.
+       *
+       * @param bound - The figure as written.
+       * @returns The figure.
+       */
+      const scaled = (bound: number): number =>
+        isBrightness ? Math.round((bound / 255) * 100) : bound;
+
+      if (
+        raw['value_template'] !== undefined ||
+        (raw['attribute'] !== undefined && !isBrightness)
+      ) {
         notes.add(
           translate(
             'haImport.numericConditionTemplate',
@@ -678,10 +1364,10 @@ function convertCondition(raw: unknown, notes: Notebook): JsonObject | null {
         return null;
       }
 
-      const leaves = addressesOf(raw['entity_id']).flatMap((entityId) =>
+      const leaves = targetsOf(raw, 'sensor', notes).flatMap((entityId) =>
         [
-          typeof raw['above'] === 'number' ? { operator: 'gt', value: raw['above'] } : null,
-          typeof raw['below'] === 'number' ? { operator: 'lt', value: raw['below'] } : null,
+          typeof raw['above'] === 'number' ? { operator: 'gt', value: scaled(raw['above']) } : null,
+          typeof raw['below'] === 'number' ? { operator: 'lt', value: scaled(raw['below']) } : null,
         ].flatMap((match) =>
           match === null
             ? []
@@ -897,6 +1583,9 @@ const PLAIN_COMMANDS: Readonly<Record<string, readonly [string, string]>> = {
   'input_button.press': ['button', 'press'],
   'update.install': ['update', 'install'],
   'camera.snapshot': ['camera', 'snapshot'],
+  'valve.open_valve': ['on_off', 'turn_on'],
+  'valve.close_valve': ['on_off', 'turn_off'],
+  'valve.toggle': ['on_off', 'toggle'],
 };
 
 /**
@@ -915,27 +1604,8 @@ function convertService(raw: Raw, service: string, notes: Notebook): JsonObject[
     : isRaw(raw['data_template'])
       ? raw['data_template']
       : {};
-  const entityIds = [
-    ...addressesOf(target['entity_id']),
-    ...addressesOf(raw['entity_id']),
-    ...addressesOf(data['entity_id']),
-  ];
   const [domain = '', name = ''] = service.split('.');
-
-  if (
-    target['area_id'] !== undefined ||
-    target['device_id'] !== undefined ||
-    target['floor_id'] !== undefined ||
-    target['label_id'] !== undefined
-  ) {
-    notes.add(
-      translate(
-        'haImport.areaTarget',
-        '{{service}} aimed at an area, a device or a label; only the entities it names were kept.',
-        { service },
-      ),
-    );
-  }
+  const entityIds = targetsOf(raw, domain, notes);
 
   if (hasTemplate(data) || hasTemplate(target)) {
     notes.add(
@@ -1224,6 +1894,10 @@ function convertAction(raw: unknown, notes: Notebook): JsonObject[] {
     return convertService(raw, service, notes);
   }
 
+  if (raw['device_id'] !== undefined && raw['domain'] !== undefined) {
+    return convertDeviceAction(raw, notes);
+  }
+
   if (raw['delay'] !== undefined) {
     const durationMs = durationMsOf(raw['delay']);
 
@@ -1463,6 +2137,8 @@ export function convertHaAutomations(
   taken: Set<string>,
 ): Converted<ImportedAutomation> {
   const notes: ImportNote[] = [];
+  const hints = new Map<string, string>();
+  const devices = new Map<string, string>();
   const items: ImportedAutomation[] = [];
 
   for (const [index, raw] of list.entries()) {
@@ -1476,7 +2152,7 @@ export function convertHaAutomations(
         : translate('haImport.automationNumber', 'Automation {{number}}', {
             number: String(index + 1),
           });
-    const book = new Notebook(name, notes);
+    const book = new Notebook(name, notes, hints, devices);
 
     if (raw['use_blueprint'] !== undefined) {
       book.add(
@@ -1520,7 +2196,7 @@ export function convertHaAutomations(
     });
   }
 
-  return { items, notes };
+  return { items, notes, hints: Object.fromEntries(hints) };
 }
 
 /**
@@ -1613,6 +2289,8 @@ export function convertHaScenes(
   taken: Set<string>,
 ): Converted<ImportedScene> {
   const notes: ImportNote[] = [];
+  const hints = new Map<string, string>();
+  const devices = new Map<string, string>();
   const items: ImportedScene[] = [];
 
   for (const [index, raw] of list.entries()) {
@@ -1624,7 +2302,7 @@ export function convertHaScenes(
       typeof raw['name'] === 'string' && raw['name'].trim() !== ''
         ? raw['name'].trim().slice(0, 120)
         : translate('haImport.sceneNumber', 'Scene {{number}}', { number: String(index + 1) });
-    const book = new Notebook(name, notes);
+    const book = new Notebook(name, notes, hints, devices);
     const entities = isRaw(raw['entities']) ? raw['entities'] : {};
     const members: ImportedSceneMember[] = [];
 
@@ -1660,5 +2338,5 @@ export function convertHaScenes(
     });
   }
 
-  return { items, notes };
+  return { items, notes, hints: Object.fromEntries(hints) };
 }

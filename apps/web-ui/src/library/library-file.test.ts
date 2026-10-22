@@ -160,8 +160,10 @@ describe('readLibraryFile with Home Assistant automations', () => {
       params: { command: 'set_level', level: 60, transitionMs: 2000 },
     });
     expect(then[1]).toMatchObject({ capability: 'color_temp', params: { mireds: 370 } });
-    expect(then[2]).toEqual({ type: 'wait_duration', durationMs: 30_000 });
-    expect(then[3]).toMatchObject({
+    // The area it was also aimed at stands in as an entity of its own, to be pointed on import.
+    expect(then[2]).toMatchObject({ entityId: 'light.area_kitchen', capability: 'level' });
+    expect(then[4]).toEqual({ type: 'wait_duration', durationMs: 30_000 });
+    expect(then[5]).toMatchObject({
       type: 'if',
       conditions: [{ type: 'entity', entityId: 'person.anna' }],
       then: [
@@ -173,7 +175,7 @@ describe('readLibraryFile with Home Assistant automations', () => {
         },
       ],
     });
-    expect(reading.file.notes.some((note) => note.message.includes('area'))).toBe(true);
+    expect(reading.file.hints['light.area_kitchen']).toContain('kitchen');
   });
 
   it('reads the new syntax: cron, a window kept as above, until as a negated AND, parallel', () => {
@@ -214,6 +216,161 @@ describe('readLibraryFile with Home Assistant automations', () => {
 
     expect(JSON.stringify(renamed)).toContain('light.soggiorno');
     expect(JSON.stringify(renamed)).not.toContain('light.living');
+  });
+});
+
+describe('readLibraryFile with what Home Assistant names by device, area and zone', () => {
+  const reading = readLibraryFile(
+    `
+- alias: Shower light
+  triggers:
+    - trigger: device
+      type: turned_on
+      device_id: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      entity_id: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+      domain: light
+    - trigger: device
+      type: battery_level
+      device_id: cccccccccccccccccccccccccccccccc
+      entity_id: dddddddddddddddddddddddddddddddd
+      domain: sensor
+      below: 90
+      for: { minutes: 3 }
+    - trigger: occupancy.detected
+      target: { area_id: [bath, hall] }
+      options: { behavior: first }
+    - trigger: illuminance.changed
+      target: { entity_id: sensor.bath_lux }
+      options:
+        threshold: { type: below, value: { active_choice: number, number: 78 } }
+    - trigger: zone
+      entity_id: person.anna
+      zone: zone.home
+      event: enter
+    - trigger: numeric_state
+      entity_id: light.bed
+      attribute: brightness
+      above: 77
+  conditions:
+    - condition: device
+      type: is_off
+      device_id: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      entity_id: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+      domain: light
+    - condition: occupancy.is_detected
+      target: { area_id: [bath, hall] }
+      options: { behavior: any }
+    - condition: temperature.is_value
+      target: { entity_id: sensor.garden }
+      options:
+        threshold: { type: above, value: { number: 15 } }
+    - condition: sun.is_set
+  actions:
+    - action: light.turn_on
+      target: { device_id: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa }
+      data: { brightness_pct: 30 }
+    - action: valve.open_valve
+      target: { device_id: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee }
+    - type: turn_off
+      device_id: ffffffffffffffffffffffffffffffff
+      entity_id: 1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a
+      domain: switch
+    - device_id: 22222222222222222222222222222222
+      domain: mobile_app
+      type: notify
+      message: Power is out
+`,
+    NONE,
+  );
+
+  if (!reading.ok || reading.file.kind !== 'automations') {
+    throw new Error('Should have read as automations');
+  }
+
+  const [item] = reading.file.items;
+  const definition = item?.definition ?? {};
+
+  it('ports every block, onto stand-ins the dialog describes', () => {
+    expect(automationDefinitionSchema.safeParse(definition).success).toBe(true);
+    expect(definition['triggers']).toEqual([
+      { type: 'entity', entityId: 'light.ha_bbbbbbbbbbbb', change: { kind: 'state', to: 'on' } },
+      {
+        type: 'entity',
+        entityId: 'sensor.ha_dddddddddddd',
+        change: { kind: 'numeric', operator: 'lt', value: 90 },
+        forMs: 180_000,
+      },
+      { type: 'entity', entityId: 'binary_sensor.area_bath', change: { kind: 'state', to: 'on' } },
+      { type: 'entity', entityId: 'binary_sensor.area_hall', change: { kind: 'state', to: 'on' } },
+      {
+        type: 'entity',
+        entityId: 'sensor.bath_lux',
+        change: { kind: 'numeric', operator: 'lt', value: 78 },
+      },
+      { type: 'entity', entityId: 'person.anna', change: { kind: 'state', to: 'on' } },
+      {
+        type: 'entity',
+        entityId: 'light.bed',
+        change: { kind: 'numeric', operator: 'gt', value: 30 },
+      },
+    ]);
+    expect(reading.file.hints['binary_sensor.area_bath']).toContain('bath');
+    expect(reading.file.hints['light.ha_bbbbbbbbbbbb']).toContain('Shower light');
+  });
+
+  it('ports device and purpose-specific conditions, and the sun', () => {
+    expect(definition['if']).toEqual([
+      {
+        type: 'entity',
+        entityId: 'light.ha_bbbbbbbbbbbb',
+        match: { kind: 'state', states: ['off'] },
+      },
+      {
+        type: 'or',
+        conditions: [
+          {
+            type: 'entity',
+            entityId: 'binary_sensor.area_bath',
+            match: { kind: 'state', states: ['on'] },
+          },
+          {
+            type: 'entity',
+            entityId: 'binary_sensor.area_hall',
+            match: { kind: 'state', states: ['on'] },
+          },
+        ],
+      },
+      {
+        type: 'entity',
+        entityId: 'sensor.garden',
+        match: { kind: 'numeric', operator: 'gt', value: 15 },
+      },
+      { type: 'sun', phase: 'below', elevation: -0.833 },
+    ]);
+  });
+
+  it('aims a call at a device on the stand-in of its entity, and turns device actions into commands', () => {
+    expect(definition['then']).toEqual([
+      {
+        type: 'command',
+        entityId: 'light.ha_bbbbbbbbbbbb',
+        capability: 'level',
+        params: { command: 'set_level', level: 30 },
+      },
+      {
+        type: 'command',
+        entityId: 'valve.ha_eeeeeeeeeeee',
+        capability: 'on_off',
+        params: { command: 'turn_on' },
+      },
+      {
+        type: 'command',
+        entityId: 'switch.ha_1a1a1a1a1a1a',
+        capability: 'on_off',
+        params: { command: 'turn_off' },
+      },
+      { type: 'notify', channel: 'mobile_app', message: 'Power is out' },
+    ]);
   });
 });
 

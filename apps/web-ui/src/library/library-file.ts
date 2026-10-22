@@ -76,12 +76,14 @@ export type LibraryImport =
       readonly source: 'nebula' | 'home-assistant';
       readonly items: readonly ImportedAutomation[];
       readonly notes: readonly ImportNote[];
+      readonly hints: Readonly<Record<string, string>>;
     }
   | {
       readonly kind: 'scenes';
       readonly source: 'nebula' | 'home-assistant';
       readonly items: readonly ImportedScene[];
       readonly notes: readonly ImportNote[];
+      readonly hints: Readonly<Record<string, string>>;
     };
 
 /** What reading a file produced. */
@@ -165,7 +167,7 @@ function readOwnFile(
       return [{ ...parsed.data, key: uniqueKey(parsed.data.key, taken, 'automation') }];
     });
 
-    return { ok: true, file: { kind, source: 'nebula', items, notes } };
+    return { ok: true, file: { kind, source: 'nebula', items, notes, hints: {} } };
   }
 
   const items = list.flatMap((entry, index): ImportedScene[] => {
@@ -190,7 +192,7 @@ function readOwnFile(
     return [{ ...parsed.data, key: uniqueKey(parsed.data.key, taken, 'scene') }];
   });
 
-  return { ok: true, file: { kind, source: 'nebula', items, notes } };
+  return { ok: true, file: { kind, source: 'nebula', items, notes, hints: {} } };
 }
 
 /**
