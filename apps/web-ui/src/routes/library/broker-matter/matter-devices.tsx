@@ -34,6 +34,10 @@ export type MatterDevicesProps = {
   /** Adds a device taken out of the house back; absent when the person may not. */
   readonly onRestore?: (identity: MatterIdentity) => void;
   readonly isRestoring: boolean;
+
+  /** Takes a node off the fabric; absent when the person may not. */
+  readonly onLeave?: (nodeId: string) => void;
+  readonly isLeaving: boolean;
 };
 
 /**
@@ -44,7 +48,7 @@ export type MatterDevicesProps = {
  */
 export function MatterDevices(props: MatterDevicesProps) {
   const { t } = useTranslation();
-  const { rows, icons, vendorNames, onRestore, isRestoring } = props;
+  const { rows, icons, vendorNames, onRestore, isRestoring, onLeave, isLeaving } = props;
   const [shown, setShown] = useState<Shown>('all');
   const [search, setSearch] = useState('');
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
@@ -137,8 +141,8 @@ export function MatterDevices(props: MatterDevicesProps) {
              * @param each - The row.
              * @returns Its props for that.
              */
-            const restore = (each: MatterRow) =>
-              onRestore === undefined
+            const restore = (each: MatterRow) => ({
+              ...(onRestore === undefined
                 ? {}
                 : {
                     /** Adds it back. */
@@ -146,7 +150,22 @@ export function MatterDevices(props: MatterDevicesProps) {
                       onRestore(each.device.identity);
                     },
                     isRestoring,
-                  };
+                  }),
+
+              // A node nothing of which is in the house any more, still on the fabric: it did
+              // not leave by itself, so it can be sent off by hand.
+              ...(onLeave === undefined ||
+              each.device.identity.endpoint !== null ||
+              !each.node.devices.every((device) => device.isRemoved || device.deviceId === null)
+                ? {}
+                : {
+                    /** Takes it off the fabric. */
+                    onLeave: () => {
+                      onLeave(each.node.nodeId);
+                    },
+                    isLeaving,
+                  }),
+            });
 
             return [
               <MatterDeviceRow

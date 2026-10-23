@@ -1,14 +1,20 @@
 /**
  * How adding a Matter device goes, as its dialog shows it: the steps on the right, each with what
- * it found, and on the left the device finding its way into the house's fabric.
+ * it found, and on the left devices finding their way into the house's fabric.
  *
- * The picture is the Matter mark in two rings. While the device is being added the outer ring
- * turns slowly, the inner one breathes, and the device's badge rides the outer ring, coming a step
- * closer to the mark with each step done; once it is in, the badge rests by the mark and the rings
- * turn the success colour with one wave. A test certificate stops it: the rings turn the warning
- * colour, the badge becomes a warning and shakes once. With less motion asked for, the picture
- * stands still where the job is.
+ * The picture is the Matter mark in two rings, with three devices - a lamp, a plug, a sensor -
+ * riding round it a third of a turn apart, coming a step closer to the mark with each step done.
+ * While the device is looked for on the network the outer ring pulses with a soft glow; while it
+ * is being added the inner ring breathes. Once it is in, the devices stop by the mark and the
+ * rings turn the success colour with one wave. A test certificate stops them: the rings turn the
+ * warning colour and the devices shake once. With less motion asked for, the picture stands still
+ * where the job is.
+ *
+ * The turning keeps to the wall clock rather than starting where it is drawn, so a picture drawn
+ * again - the dialog changing face as the job goes on - carries on from where the last one was,
+ * and stopping it leaves the devices where they were rather than back at the start.
  */
+import { useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { MatterCommissioning, MatterCommissioningStep } from '@nebulahome/contracts';
@@ -16,11 +22,21 @@ import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
 import { MatterLogo } from '@/components/brand-logos';
 
-/** How far out the badge rides, by how many steps are done: the outer ring, then closer in. */
-const ORBIT_RADII = [100, 92, 84, 76, 62, 48, 40] as const;
+/** How far out the devices ride, by how many steps are done: the outer ring, then closer in. */
+const ORBIT_RADII = [100, 94, 88, 82, 76, 70, 64] as const;
 
-/** What the picture shows. */
-export type JoinPhase = 'working' | 'done' | 'warning' | 'failed';
+/** One turn of the ring. */
+const ORBIT_MS = 18_000;
+
+/** The devices that ride the ring, and where each sits on it, in degrees. */
+const RIDERS: readonly { readonly icon: UiIconId; readonly angle: number }[] = [
+  { icon: 'lightbulb', angle: 57 },
+  { icon: 'plug', angle: 177 },
+  { icon: 'thermometer', angle: 297 },
+];
+
+/** What the picture shows: `searching` is the device being looked for on the network. */
+export type JoinPhase = 'searching' | 'working' | 'done' | 'warning' | 'failed';
 
 /**
  * Where a job stands, for the picture.
@@ -37,7 +53,13 @@ export function joinPhaseOf(job: MatterCommissioning): JoinPhase {
     return 'failed';
   }
 
-  return job.state === 'succeeded' ? 'done' : 'working';
+  if (job.state === 'succeeded') {
+    return 'done';
+  }
+
+  return job.steps.some((step) => step.id === 'found' && step.state === 'running')
+    ? 'searching'
+    : 'working';
 }
 
 /** What the picture needs. */
@@ -46,38 +68,48 @@ export type JoinAnimationProps = {
 
   /** How many steps are done. */
   readonly done: number;
-
-  /** The device's glyph, once it is known what it is. */
-  readonly icon?: UiIconId;
 };
 
 /**
- * The device finding its way into the fabric.
+ * Devices finding their way into the fabric.
  *
  * @param props - See {@link JoinAnimationProps}.
  * @returns The picture, decorative: the steps say it in words.
  */
 export function JoinAnimation(props: JoinAnimationProps) {
-  const { phase, done, icon = 'plug' } = props;
+  const { phase, done } = props;
   const radius = ORBIT_RADII[Math.min(done, ORBIT_RADII.length - 1)] ?? 100;
-  const isWorking = phase === 'working';
+  const isMoving = phase === 'working' || phase === 'searching';
   const look = RING_LOOK[phase];
+
+  // Where on its turn the ring is now, read once as the picture is drawn.
+  const [turnedMs] = useState(() => Date.now() % ORBIT_MS);
+  const turning: CSSProperties = {
+    animationDuration: `${String(ORBIT_MS)}ms`,
+    animationDelay: `-${String(turnedMs)}ms`,
+    animationPlayState: isMoving ? 'running' : 'paused',
+  };
 
   return (
     <div aria-hidden="true" className="relative size-50 shrink-0">
       <span
-        className={cn(
-          'absolute inset-0 rounded-full border border-dashed',
-          look.outer,
-          isWorking && 'matter-orbit',
-        )}
-      />
+        className={cn('absolute inset-0 rounded-full', phase === 'searching' && 'matter-pulse')}
+      >
+        <span
+          className={cn(
+            'matter-orbit absolute inset-0 rounded-full border border-dashed',
+            look.outer,
+          )}
+          /* eslint-disable-next-line react/forbid-dom-props -- the turn keeps to the clock. */
+          style={turning}
+        />
+      </span>
       <span
         className={cn(
           'absolute inset-7 rounded-full border bg-radial to-transparent to-70%',
           look.inner,
           look.core,
-          isWorking && 'matter-breathe',
+          phase === 'working' && 'matter-breathe',
         )}
       />
       {phase === 'done' ? (
@@ -89,49 +121,51 @@ export function JoinAnimation(props: JoinAnimationProps) {
         </span>
       </span>
 
-      {/* The badge rides a ring of its own, turned while the device is on its way, kept upright. */}
-      <span className={cn('absolute inset-0', isWorking && 'matter-orbit')}>
-        <span
-          className="absolute top-1/2 left-1/2 transition-transform duration-700"
-          /* eslint-disable-next-line react/forbid-dom-props -- where on the ring is the job's. */
-          style={{
-            transform: `translate(-50%, -50%) rotate(${String(BADGE_ANGLE)}deg) translateY(-${String(radius)}px) rotate(-${String(BADGE_ANGLE)}deg)`,
-          }}
-        >
+      {/* The devices ride a ring of their own, each turned back as it is carried: upright. */}
+      {/* eslint-disable-next-line react/forbid-dom-props -- the turn keeps to the clock. */}
+      <span className="matter-orbit absolute inset-0" style={turning}>
+        {RIDERS.map((rider) => (
           <span
-            className={cn(
-              'flex size-10 items-center justify-center rounded-field',
-              isWorking && 'matter-upright',
-              look.badge,
-            )}
+            key={rider.icon}
+            className="absolute top-1/2 left-1/2 transition-transform duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)]"
+            /* eslint-disable-next-line react/forbid-dom-props -- where on the ring is the job's. */
+            style={{
+              transform: `translate(-50%, -50%) rotate(${String(rider.angle)}deg) translateY(-${String(radius)}px) rotate(-${String(rider.angle)}deg)`,
+            }}
           >
-            <span className={cn('flex', phase === 'warning' && 'matter-shake')}>
-              <AppIcon
-                id={phase === 'warning' ? 'triangle-alert' : phase === 'failed' ? 'circle-x' : icon}
-                size={20}
-              />
+            <span
+              className={cn(
+                'matter-upright flex size-9 items-center justify-center rounded-field',
+                look.badge,
+              )}
+              /* eslint-disable-next-line react/forbid-dom-props -- the turn keeps to the clock. */
+              style={turning}
+            >
+              <span className={cn('flex', phase === 'warning' && 'matter-shake')}>
+                <AppIcon id={rider.icon} size={18} />
+              </span>
             </span>
           </span>
-        </span>
+        ))}
       </span>
     </div>
   );
 }
 
-/** Where the badge sits on the ring when it stands still: up and to the right. */
-const BADGE_ANGLE = 57;
+/** The rings' and the devices' colours, by phase. */
+const WORKING_LOOK = {
+  outer: 'border-violet/40',
+  inner: 'border-violet/25',
+  core: 'from-violet/16',
+  badge: 'bg-surface-raised text-lamp',
+} as const;
 
-/** The rings' and the badge's colours, by phase. */
 const RING_LOOK: Record<
   JoinPhase,
   { readonly outer: string; readonly inner: string; readonly core: string; readonly badge: string }
 > = {
-  working: {
-    outer: 'border-violet/40',
-    inner: 'border-violet/25',
-    core: 'from-violet/16',
-    badge: 'bg-surface-raised text-lamp',
-  },
+  searching: { ...WORKING_LOOK, outer: 'border-violet/60' },
+  working: WORKING_LOOK,
   warning: {
     outer: 'border-warning/45',
     inner: 'border-violet/25',

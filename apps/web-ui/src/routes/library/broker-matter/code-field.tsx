@@ -80,6 +80,12 @@ export function PairingCodeField(props: PairingCodeFieldProps) {
     };
   }, []);
   const isQr = value.startsWith('MT:');
+
+  // Reading the clipboard needs a secure page (HTTPS or localhost) and a browser that offers it.
+  const clipboard = globalThis.isSecureContext
+    ? (navigator.clipboard as Clipboard | undefined)
+    : undefined;
+  const canPaste = typeof clipboard?.readText === 'function';
   const groups = value.length > 11 ? LONG_GROUPS : SHORT_GROUPS;
   const start = Math.min(selection[0], value.length);
   const end = Math.min(selection[1], value.length);
@@ -176,7 +182,7 @@ export function PairingCodeField(props: PairingCodeFieldProps) {
           autoComplete="off"
           spellCheck={false}
           aria-describedby={`${id}-hint`}
-          className="absolute inset-0 rounded-card bg-transparent text-transparent caret-transparent outline-none selection:bg-transparent"
+          className="absolute inset-0 rounded-card bg-transparent text-transparent caret-transparent outline-none selection:bg-transparent selection:text-transparent"
           onFocus={() => {
             setIsFocused(true);
           }}
@@ -198,10 +204,19 @@ export function PairingCodeField(props: PairingCodeFieldProps) {
         />
         <button
           type="button"
-          className="relative inline-flex h-9 shrink-0 items-center gap-1.5 rounded-pill border border-border-strong bg-surface-raised px-3 text-ui-sm text-foreground transition-colors hover:bg-surface-high focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none"
+          disabled={!canPaste}
+          title={
+            canPaste
+              ? undefined
+              : t(
+                  'brokers.matter.add.pasteUnavailable',
+                  'This browser does not share the clipboard here: it needs HTTPS or localhost. Type the code instead.',
+                )
+          }
+          className="relative inline-flex h-9 shrink-0 items-center gap-1.5 rounded-pill border border-border-strong bg-surface-raised px-3 text-ui-sm text-foreground transition-colors hover:bg-surface-high focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-surface-raised"
           onClick={() => {
-            void navigator.clipboard
-              .readText()
+            void clipboard
+              ?.readText()
               .then((text) => {
                 const code = cleanCode(text);
 

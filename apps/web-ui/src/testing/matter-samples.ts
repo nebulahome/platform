@@ -15,6 +15,8 @@ import type {
   MatterCommissioning,
   MatterCommissioningStep,
   MatterIdentity,
+  MatterNetwork,
+  MatterNetworkNode,
   MatterNode,
   MatterStatus,
 } from '@nebulahome/contracts';
@@ -282,6 +284,116 @@ export const MATTER_SAMPLE_NODES: MatterNode[] = [
   },
 ];
 
+/**
+ * One point of the network, as the controller reports it.
+ *
+ * @param id - Its id.
+ * @param overrides - What it says.
+ * @returns The point.
+ */
+function networkPoint(id: string, overrides: Partial<MatterNetworkNode>): MatterNetworkNode {
+  return {
+    id,
+    kind: 'matter',
+    network: 'thread',
+    nodeId: id,
+    role: null,
+    isAvailable: true,
+    isBridge: false,
+    networkName: null,
+    channel: null,
+    ssid: null,
+    bssid: null,
+    extAddress: null,
+    ...overrides,
+  };
+}
+
+/**
+ * The fabric's network, as the board draws it: the Shelly plug and the IKEA bridge on the Wi-Fi,
+ * the Nanoleaf bulb a Thread router under a HomePod, and the Eve plug behind the bulb, silent.
+ */
+export const MATTER_SAMPLE_NETWORK: MatterNetwork = {
+  collectedAt: new Date(Date.now() - 30_000),
+  nodes: [
+    networkPoint('ap_3810D5A1B2C3', {
+      kind: 'wifi_ap',
+      network: 'wifi',
+      nodeId: null,
+      isAvailable: null,
+      bssid: '38:10:D5:A1:B2:C3',
+    }),
+    networkPoint('0x1F', {
+      network: 'wifi',
+      role: 'station',
+      channel: 6,
+      ssid: 'Casa',
+      extAddress: null,
+    }),
+    networkPoint('0x3B', {
+      network: 'wifi',
+      role: 'station',
+      isBridge: true,
+      channel: 6,
+      ssid: 'Casa',
+    }),
+    networkPoint('unknown_8E2F11A04C7D9B21', {
+      kind: 'thread_unknown',
+      nodeId: null,
+      isAvailable: null,
+      role: 'leader',
+      extAddress: '8E2F11A04C7D9B21',
+    }),
+    networkPoint('0x2A', {
+      role: 'router',
+      networkName: 'Casa',
+      channel: 15,
+      extAddress: 'F412FA3C8801A7E2',
+    }),
+    networkPoint('0x4C', {
+      role: 'sleepy_end_device',
+      isAvailable: false,
+      networkName: 'Casa',
+      channel: 15,
+      extAddress: '0A11B3C4D5E6F708',
+    }),
+  ],
+  links: [
+    {
+      source: '0x1F',
+      target: 'ap_3810D5A1B2C3',
+      network: 'wifi',
+      strength: 'strong',
+      lqi: null,
+      rssi: -52,
+    },
+    {
+      source: '0x3B',
+      target: 'ap_3810D5A1B2C3',
+      network: 'wifi',
+      strength: 'medium',
+      lqi: null,
+      rssi: -61,
+    },
+    {
+      source: '0x2A',
+      target: 'unknown_8E2F11A04C7D9B21',
+      network: 'thread',
+      strength: 'strong',
+      lqi: 3,
+      rssi: -58,
+    },
+    {
+      source: '0x4C',
+      target: '0x2A',
+      network: 'thread',
+      strength: 'weak',
+      lqi: 1,
+      rssi: -84,
+    },
+  ],
+};
+
 /** The fabric, running for three days. */
 export const MATTER_SAMPLE_STATUS: MatterStatus = {
   state: 'running',
@@ -426,6 +538,7 @@ export function matterSampleCache(commissioning: MatterCommissioning | null = nu
 
   client.setQueryData(BROKER_QUERY_KEYS.matterStatus, { ...MATTER_SAMPLE_STATUS, commissioning });
   client.setQueryData(BROKER_QUERY_KEYS.matterNodes, MATTER_SAMPLE_NODES);
+  client.setQueryData(BROKER_QUERY_KEYS.matterNetwork, MATTER_SAMPLE_NETWORK);
   client.setQueryData(LIBRARY_QUERY_KEYS.devices, MATTER_SAMPLE_DEVICES);
   client.setQueryData(LIBRARY_QUERY_KEYS.vendors, MATTER_SAMPLE_VENDORS);
   client.setQueryData(

@@ -4,15 +4,20 @@
  * and the question a test certificate asks.
  */
 import { QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { MatterCommissioning } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
+import { BROKER_QUERY_KEYS } from '@/library/brokers-api';
 import { SAMPLE_OWNER } from '@/testing/backup-samples';
-import { matterSampleCache, MATTER_SAMPLE_TEST } from '@/testing/matter-samples';
+import {
+  matterSampleCache,
+  MATTER_SAMPLE_NODES,
+  MATTER_SAMPLE_TEST,
+} from '@/testing/matter-samples';
 
 import { cleanCode, isWholeCode } from './broker-matter/code-field';
 import { MatterBrokerPage } from './broker-matter-page';
@@ -68,6 +73,50 @@ describe('MatterBrokerPage', () => {
     expect(screen.queryByText('Hallway plug')).toBeNull();
   });
 
+  it('offers to take off the fabric only a node nothing of which is left in the house', () => {
+    const client = matterSampleCache();
+    const [plug, , bridge] = MATTER_SAMPLE_NODES;
+
+    client.setQueryData(BROKER_QUERY_KEYS.matterNodes, [
+      ...MATTER_SAMPLE_NODES.filter((node) => node !== bridge),
+      // The bridge itself removed, the lamps behind it still in the house: it stays.
+      ...(bridge === undefined
+        ? []
+        : [
+            {
+              ...bridge,
+              devices: bridge.devices.map((device, index) =>
+                index === 0 ? { ...device, deviceId: null, isRemoved: true } : device,
+              ),
+            },
+          ]),
+      ...(plug === undefined
+        ? []
+        : [
+            {
+              ...plug,
+              nodeId: '0x5D',
+              devices: plug.devices.map((device) => ({
+                ...device,
+                identity: { ...device.identity, nodeId: '0x5D' },
+                deviceId: null,
+                isRemoved: true,
+              })),
+            },
+          ]),
+    ]);
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/brokers/matter?tab=devices']}>
+          <MatterBrokerPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getAllByRole('button', { name: 'Add back' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Remove from fabric' })).toHaveLength(1);
+  });
+
   it('takes a whole code before it adds a device', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Add device' }));
@@ -80,6 +129,37 @@ describe('MatterBrokerPage', () => {
       target: { value: '3497-011-2332' },
     });
     expect(add.disabled).toBe(false);
+  });
+
+  it('offers Paste only where the browser shares the clipboard', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Add device' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Add a Matter device' });
+
+    expect(within(dialog).getByRole<HTMLButtonElement>('button', { name: 'Paste' }).disabled).toBe(
+      true,
+    );
+    cleanup();
+
+    vi.stubGlobal('isSecureContext', true);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { readText: () => Promise.resolve('3497-011-2332') },
+    });
+
+    try {
+      renderPage();
+      fireEvent.click(screen.getByRole('button', { name: 'Add device' }));
+      expect(
+        within(
+          screen.getByRole('dialog', { name: 'Add a Matter device' }),
+        ).getByRole<HTMLButtonElement>('button', { name: 'Paste' }).disabled,
+      ).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+      Reflect.deleteProperty(navigator, 'clipboard');
+    }
   });
 
   it('asks before it adds a device with a test certificate', () => {

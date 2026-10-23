@@ -42,6 +42,30 @@ export type MatterOverviewProps = {
 };
 
 /**
+ * Says how long something has lasted, the way the broker's pages say it: "3 days", "3 h", "12 min".
+ *
+ * @returns What says it, from when it began until now.
+ */
+export function useLasted(): (since: Date) => string {
+  const { t } = useTranslation();
+
+  return (since) => {
+    const minutes = Math.max(1, Math.floor((Date.now() - since.getTime()) / 60_000));
+    const hours = Math.floor(minutes / 60);
+
+    return hours >= 24
+      ? t('brokers.matter.days', {
+          count: Math.floor(hours / 24),
+          defaultValue_one: '{{count}} day',
+          defaultValue_other: '{{count}} days',
+        })
+      : hours >= 1
+        ? t('brokers.matter.hours', '{{count}} h', { count: hours })
+        : t('brokers.matter.minutes', '{{count}} min', { count: minutes });
+  };
+}
+
+/**
  * Renders the tab.
  *
  * @param props - See {@link MatterOverviewProps}.
@@ -73,27 +97,7 @@ export function MatterOverview(props: MatterOverviewProps) {
     )
     .slice(0, RECENT);
 
-  /**
-   * How long something has lasted, the way the strip says it: "3 days", "3 h", "12 min".
-   *
-   * @param since - When it began.
-   * @returns The words.
-   */
-  const lasted = (since: Date): string => {
-    const minutes = Math.max(1, Math.floor((now.getTime() - since.getTime()) / 60_000));
-    const hours = Math.floor(minutes / 60);
-
-    return hours >= 24
-      ? t('brokers.matter.days', {
-          count: Math.floor(hours / 24),
-          defaultValue_one: '{{count}} day',
-          defaultValue_other: '{{count}} days',
-        })
-      : hours >= 1
-        ? t('brokers.matter.hours', '{{count}} h', { count: hours })
-        : t('brokers.matter.minutes', '{{count}} min', { count: minutes });
-  };
-
+  const lasted = useLasted();
   const [first] = silent;
   const silentLine =
     first === undefined

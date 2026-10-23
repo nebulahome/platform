@@ -203,7 +203,7 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
           <div className="flex items-center gap-5 rounded-card border border-border bg-rail p-4">
             <div
               aria-hidden="true"
-              className="flex shrink-0 flex-col items-center gap-2.5 rounded-tile border border-border-strong bg-canvas px-4 pt-3.5 pb-3"
+              className="flex shrink-0 flex-col items-center gap-2.5 rounded-card border border-border-strong bg-canvas px-4 pt-3.5 pb-3"
             >
               <span className="relative size-23">
                 <span
@@ -216,8 +216,11 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
                     maskMode: 'luminance',
                   }}
                 />
-                <span className="absolute inset-0 flex items-center justify-center text-foreground">
-                  <MatterLogo width={26} height={26} />
+                <span className="absolute inset-0 flex items-center justify-center">
+                  {/* A ring of the card's ground round the mark keeps the code's dots off it. */}
+                  <span className="flex rounded-field bg-canvas p-1.5 text-foreground">
+                    <MatterLogo width={24} height={24} />
+                  </span>
                 </span>
               </span>
               <span className="font-mono text-ui tracking-wider text-foreground">

@@ -7,7 +7,8 @@
  * then the tabs.
  * Overview is the health strip, the devices added last and what the broker is, with a callout
  * when the controller failed or cannot hear the house's network. Devices is every device of the
- * fabric, a bridge with each device behind it. Add device opens the dialog that takes the pairing
+ * fabric, a bridge with each device behind it. Network is the fabric as a map: what each node
+ * reaches the house through, Wi-Fi or Thread, and how well. Add device opens the dialog that takes the pairing
  * code another app shares and follows the commissioning; closing it before the device joined the
  * fabric stops it.
  *
@@ -15,7 +16,7 @@
  * recognise it takes it, and the platform takes the rest. A device is removed from its own page.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { MatterIdentity, MatterNode, MatterStatus } from '@nebulahome/contracts';
@@ -37,8 +38,10 @@ import { useTab } from '@/lib/use-tab';
 import { fetchDevices, LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
   BROKER_QUERY_KEYS,
+  fetchMatterNetwork,
   fetchMatterNodes,
   fetchMatterStatus,
+  removeMatterNode,
   restartMatter,
   restoreMatterDevice,
 } from '@/library/brokers-api';
@@ -52,8 +55,15 @@ import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { RestartBroker } from '@/routes/library/restart-broker';
 import { useVendorsById } from '@/routes/library/transport-marks';
 
+/** The network map, read only when its tab is opened: it brings the graph library with it. */
+const NetworkGraph = lazy(async () =>
+  import('@/routes/library/broker-matter/network-graph').then((module) => ({
+    default: module.NetworkGraph,
+  })),
+);
+
 /** The tabs of the page; the first is the page itself. */
-const TABS = ['overview', 'devices'] as const;
+const TABS = ['overview', 'devices', 'network'] as const;
 
 /** One tab. */
 type MatterTab = (typeof TABS)[number];
@@ -138,6 +148,21 @@ export function MatterBrokerPage() {
     queryFn: async ({ signal }) => fetchDevices(signal),
   });
 
+  const network = useQuery({
+    queryKey: BROKER_QUERY_KEYS.matterNetwork,
+    enabled: tab === 'network',
+    refetchInterval: REFRESH_MS,
+
+    /**
+     * Reads how the nodes reach the house.
+     *
+     * @param context - The query's abort signal.
+     * @param context.signal - Cancels the request when the page goes away.
+     * @returns The network.
+     */
+    queryFn: async ({ signal }) => fetchMatterNetwork(signal),
+  });
+
   const vendors = useVendorsById();
 
   /** Reads everything the fabric touches again. */
@@ -173,6 +198,36 @@ export function MatterBrokerPage() {
     onError: (error) => {
       toast.error({
         title: t('brokers.matter.restoreFailed', 'Couldn’t add the device back'),
+        message: toMessage(error),
+      });
+    },
+  });
+
+  const leave = useMutation({
+    /**
+     * Takes a node off the fabric.
+     *
+     * @param nodeId - The node.
+     * @returns Once it left.
+     */
+    mutationFn: async (nodeId: string) => removeMatterNode(nodeId),
+
+    /** Reads everything again. */
+    onSettled: refresh,
+
+    /** Says it left. */
+    onSuccess: () => {
+      toast.success({ title: t('brokers.matter.leftFabric', 'Removed from the fabric') });
+    },
+
+    /**
+     * Says why it did not.
+     *
+     * @param error - What failed.
+     */
+    onError: (error) => {
+      toast.error({
+        title: t('brokers.matter.leaveFailed', 'The device did not leave the fabric'),
         message: toMessage(error),
       });
     },
@@ -244,6 +299,7 @@ export function MatterBrokerPage() {
               items={[
                 { id: 'overview', label: t('brokers.matter.overview', 'Overview') },
                 { id: 'devices', label: t('brokers.matter.devices', 'Devices'), count },
+                { id: 'network', label: t('brokers.matter.networkTab', 'Network') },
               ]}
             />
           }
@@ -290,6 +346,7 @@ export function MatterBrokerPage() {
                   icons={icons}
                   vendorNames={vendorNames}
                   isRestoring={restore.isPending}
+                  isLeaving={leave.isPending}
                   {...(canWrite
                     ? {
                         /**
@@ -302,8 +359,28 @@ export function MatterBrokerPage() {
                         },
                       }
                     : {})}
+                  {...(can('device:delete')
+                    ? {
+                        /**
+                         * Takes a node off the fabric.
+                         *
+                         * @param nodeId - The node.
+                         */
+                        onLeave: (nodeId: string) => {
+                          leave.mutate(nodeId);
+                        },
+                      }
+                    : {})}
                 />
               </div>
+            </TabPanel>
+          ) : null}
+
+          {tab === 'network' ? (
+            <TabPanel idPrefix="matter" id="network">
+              <Suspense fallback={null}>
+                <NetworkGraph network={network.data} rows={rows} icons={icons} />
+              </Suspense>
             </TabPanel>
           ) : null}
 

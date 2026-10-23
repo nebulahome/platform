@@ -7,6 +7,7 @@ import { z } from 'zod';
 import {
   brokersReplySchema,
   matterCommissioningSchema,
+  matterNetworkSchema,
   matterNodesReplySchema,
   matterRestoreReplySchema,
   matterStatusSchema,
@@ -21,6 +22,7 @@ import {
   mqttTopicsReplySchema,
   type BrokerSummary,
   type MatterCommissioning,
+  type MatterNetwork,
   type MatterNode,
   type MatterStatus,
   type MqttClientAddRequest,
@@ -38,6 +40,7 @@ export const BROKER_QUERY_KEYS = {
   brokers: ['brokers'] as const,
   matterStatus: ['brokers', 'matter', 'status'] as const,
   matterNodes: ['brokers', 'matter', 'nodes'] as const,
+  matterNetwork: ['brokers', 'matter', 'network'] as const,
   mqttStatus: ['brokers', 'mqtt', 'status'] as const,
   mqttDevices: ['brokers', 'mqtt', 'devices'] as const,
   mqttClients: ['brokers', 'mqtt', 'clients'] as const,
@@ -93,6 +96,18 @@ export async function fetchMatterNodes(signal?: AbortSignal): Promise<MatterNode
   });
 
   return items;
+}
+
+/**
+ * Reads how the Matter fabric's nodes reach the house.
+ *
+ * @param signal - Cancels the request.
+ * @returns The Thread meshes and Wi-Fi stars, as the nodes last reported them.
+ */
+export async function fetchMatterNetwork(signal?: AbortSignal): Promise<MatterNetwork> {
+  return apiRequest('/brokers/matter/network', matterNetworkSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
 }
 
 /**

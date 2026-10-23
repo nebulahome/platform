@@ -86,8 +86,11 @@ import {
 } from '@/routes/first-run';
 import { AliasFormulaField } from '@/routes/library/alias-formula-field';
 import { AutomationEditor } from '@/routes/library/automation-editor';
+import { rowsOf } from '@/routes/library/broker-matter/matter-rows';
 import { JoinAnimation } from '@/routes/library/broker-matter/matter-steps';
+import { NetworkGraph } from '@/routes/library/broker-matter/network-graph';
 import { DeviceDialog } from '@/routes/library/device-dialog';
+import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { ControlPanel } from '@/routes/library/entity/controls/control-panel';
 import { EntityField } from '@/routes/library/entity-field';
 import { NoMatches } from '@/routes/library/no-matches';
@@ -99,7 +102,12 @@ import { BackupSettings } from '@/routes/settings/backup-settings';
 import { backupSampleCache, SAMPLE_OWNER } from '@/testing/backup-samples';
 import { energySample, energySampleCache } from '@/testing/energy-samples';
 import { aDevice, anArea, anEntity } from '@/testing/fixtures';
-import { matterSampleCache } from '@/testing/matter-samples';
+import {
+  matterSampleCache,
+  MATTER_SAMPLE_DEVICES,
+  MATTER_SAMPLE_NETWORK,
+  MATTER_SAMPLE_NODES,
+} from '@/testing/matter-samples';
 
 import {
   AliasEditorSample,
@@ -453,6 +461,24 @@ const LOG_CACHE = new QueryClient();
 
 /** The cache the linked tags read their vendors from. */
 const MATTER_GALLERY_CACHE = matterSampleCache();
+
+/** The Matter fabric's devices, as the broker's tabs list them. */
+const MATTER_GALLERY_ROWS = rowsOf(MATTER_SAMPLE_NODES, MATTER_SAMPLE_DEVICES, 'bridge');
+
+/**
+ * The Matter network map over the sample fabric, its icons read from the sample cache.
+ *
+ * @returns The map.
+ */
+function GalleryMatterNetwork() {
+  const icons = useCatalogueIcons(
+    MATTER_GALLERY_ROWS.flatMap((row) => [row, ...row.children]).map(
+      (row) => row.view?.icon ?? null,
+    ),
+  );
+
+  return <NetworkGraph network={MATTER_SAMPLE_NETWORK} rows={MATTER_GALLERY_ROWS} icons={icons} />;
+}
 
 /** A device reached through Shelly and Matter. */
 const GALLERY_WAYS = [
@@ -1394,7 +1420,7 @@ function Gallery() {
 
         <Section
           title="Reached two ways"
-          note="The linked tag, labelled in a hero, plain in a row, and the row's that unlinks on hover; the Matter dialog's picture as the job goes, waits, ends and fails."
+          note="The linked tag, labelled in a hero, plain in a row, and the row's that unlinks on hover; the Matter dialog's picture as the job looks for the device, goes, waits, ends and fails."
         >
           <QueryClientProvider client={MATTER_GALLERY_CACHE}>
             <div className="flex w-full flex-col gap-4">
@@ -1404,12 +1430,26 @@ function Gallery() {
                 <WaysTag ways={GALLERY_WAYS} onUnlink={doNothing} />
               </div>
               <div className="flex flex-wrap gap-6">
+                <JoinAnimation phase="searching" done={1} />
                 <JoinAnimation phase="working" done={3} />
                 <JoinAnimation phase="warning" done={3} />
                 <JoinAnimation phase="done" done={6} />
                 <JoinAnimation phase="failed" done={2} />
               </div>
             </div>
+          </QueryClientProvider>
+        </Section>
+
+        <Section
+          title="Matter network"
+          note="The fabric as a map: the house in the middle, an access point and a Thread router of another fabric around it, devices round those, a bridge's behind it on dotted links and a silent plug on a dashed red one. Hover a point for its card; drag, zoom and fit."
+        >
+          <QueryClientProvider client={MATTER_GALLERY_CACHE}>
+            <MemoryRouter>
+              <div className="w-full">
+                <GalleryMatterNetwork />
+              </div>
+            </MemoryRouter>
           </QueryClientProvider>
         </Section>
 

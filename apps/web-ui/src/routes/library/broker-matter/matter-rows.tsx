@@ -26,7 +26,7 @@ import { DeviceIcon, type DeviceIcons } from '@/routes/library/device-icon';
 import { waysOfDevice, WaysTag } from '@/routes/library/transport-marks';
 
 /** The Matter device types of a light - on/off, dimmable, colour temperature, colour - drawn lamp-yellow. */
-const LIGHT_TYPES: ReadonlySet<number> = new Set([0x01_00, 0x01_01, 0x01_0c, 0x01_0d]);
+export const LIGHT_TYPES: ReadonlySet<number> = new Set([0x01_00, 0x01_01, 0x01_0c, 0x01_0d]);
 
 /** One device of the fabric, as a row shows it. */
 export type MatterRow = {
@@ -163,6 +163,10 @@ export type MatterDeviceRowProps = {
   /** Adds a device taken out of the house back, when the person may. */
   readonly onRestore?: () => void;
   readonly isRestoring?: boolean;
+
+  /** Takes a node nothing of which is in the house off the fabric, when it did not leave itself. */
+  readonly onLeave?: () => void;
+  readonly isLeaving?: boolean;
 };
 
 /**
@@ -205,6 +209,8 @@ export function MatterDeviceRow(props: MatterDeviceRowProps) {
     onToggle,
     onRestore,
     isRestoring = false,
+    onLeave,
+    isLeaving = false,
   } = props;
   const { device, view, node } = row;
   const [vendorId = null] = device.kind?.split('/') ?? [];
@@ -254,10 +260,19 @@ export function MatterDeviceRow(props: MatterDeviceRowProps) {
         title={row.name}
         subtitle={subtitle}
         trailing={
-          onRestore === undefined ? undefined : (
-            <Button variant="ghost" size="compact" isBusy={isRestoring} onClick={onRestore}>
-              {t('brokers.matter.addBack', 'Add back')}
-            </Button>
+          onRestore === undefined && onLeave === undefined ? undefined : (
+            <span className="flex items-center gap-2">
+              {onLeave === undefined ? null : (
+                <Button variant="danger" size="compact" isBusy={isLeaving} onClick={onLeave}>
+                  {t('brokers.matter.leaveFabric', 'Remove from fabric')}
+                </Button>
+              )}
+              {onRestore === undefined ? null : (
+                <Button variant="ghost" size="compact" isBusy={isRestoring} onClick={onRestore}>
+                  {t('brokers.matter.addBack', 'Add back')}
+                </Button>
+              )}
+            </span>
           )
         }
       />
