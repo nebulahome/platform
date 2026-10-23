@@ -85,9 +85,10 @@ export type RestoreJobContext = {
   readonly supervisor: Supervisor;
 
   /**
-   * The containers the integrations run, which keep their data in the folders a restore swaps:
-   * stopped before the swap and started after it. Best effort - a machine without Docker has
-   * none, and the restore does not wait on one that does not answer.
+   * The containers that keep their data in the folders a restore swaps - the integrations', the
+   * compose projects', the owner's installs: stopped before the swap and started after it, the
+   * ones the archive has and Docker does not made again. Best effort - a machine without Docker
+   * has none, and the restore does not wait on one that does not answer.
    */
   readonly managedContainers: {
     readonly suspend: () => Promise<void>;

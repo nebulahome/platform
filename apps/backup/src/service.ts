@@ -83,8 +83,11 @@ import {
   type OpenDependencies,
 } from './transports/open-location.js';
 
-/** How long the supervisor has to stop or start the containers the integrations run. */
-const SUPERVISOR_TIMEOUT_MS = 60_000;
+/**
+ * How long the supervisor has to stop or start the containers that keep their data in the data
+ * directory: one at a time, each given up to 20 s to stop. One that is away answers at once.
+ */
+const SUPERVISOR_TIMEOUT_MS = 300_000;
 /** How many days of load the quietest time is learned from. */
 const LEARNING_DAYS = 28;
 
@@ -986,8 +989,8 @@ export class BackupService {
   }
 
   /**
-   * Asks the supervisor to stop or start the containers the integrations run, without letting a
-   * supervisor that is away hold the restore up.
+   * Asks the supervisor to stop or start the containers that keep their data in the data
+   * directory, without letting a supervisor that is away hold the restore up.
    *
    * @param method - Which.
    */
@@ -1004,7 +1007,7 @@ export class BackupService {
     } catch (error: unknown) {
       this.#logger.warn(
         { err: error, method },
-        'The supervisor did not answer; the containers the integrations run were left as they were',
+        'The supervisor did not answer; the containers were left as they were',
       );
     }
   }
@@ -1041,7 +1044,7 @@ export class BackupService {
         supervisor: this.#supervisor,
         managedContainers: {
           /**
-           * Stops the containers the integrations run.
+           * Stops the containers that keep their data in the data directory.
            *
            * @returns Once the supervisor answered, or was given up on.
            */

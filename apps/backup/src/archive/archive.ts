@@ -11,7 +11,8 @@
  * files/hub/matter/…            the house's Matter fabric: its keys and its nodes
  * files/hub/mqtt/…              the house's MQTT broker: its usernames, mappings and retained
  * files/proxy/tls/…             the certificate
- * files/containers/…            the data of the containers the integrations run
+ * files/containers/…            the data of the containers: the integrations', the compose
+ *                               projects', the owner's installs and the record of those
  * files/packages/…              the feature packages, when the archive has them
  * ```
  *
