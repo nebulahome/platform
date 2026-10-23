@@ -80,7 +80,7 @@ const MANIFEST: ArchiveManifest = {
 };
 
 describe('an archive', () => {
-  it('carries the manifest, the dump and the folders, and gives them back', async () => {
+  it('carries the manifest, the dump, the folders and the volumes, and gives them back', async () => {
     const data = folder();
     const staging = folder();
     const restored = folder();
@@ -90,6 +90,7 @@ describe('an archive', () => {
     put(path.join(data, 'packages/cameras/data/clip.bin'), 'clip');
     put(path.join(data, 'secrets/secrets-key'), 'never taken');
     put(path.join(staging, 'database.pgdump'), 'PGDMP dump');
+    put(path.join(staging, 'volumes/web_data.tar'), 'a tar');
 
     const output = path.join(staging, 'archive.nhbk');
 
@@ -100,6 +101,7 @@ describe('an archive', () => {
       databaseDump: path.join(staging, 'database.pgdump'),
       dataDir: data,
       folders: ['hub/integrations', 'proxy/tls', 'packages'],
+      volumesDir: path.join(staging, 'volumes'),
       backupKey: KEY,
       keyId: KEY_ID,
     });
@@ -126,6 +128,7 @@ describe('an archive', () => {
     expect(readFileSync(path.join(restored, 'files/packages/cameras/data/clip.bin'), 'utf8')).toBe(
       'clip',
     );
+    expect(readFileSync(path.join(restored, 'volumes/web_data.tar'), 'utf8')).toBe('a tar');
     expect(() => readFileSync(path.join(restored, 'files/secrets/secrets-key'))).toThrow();
   });
 });
@@ -140,6 +143,10 @@ describe('isRestorableEntry', () => {
     ['files/containers/zigbee2mqtt/data/configuration.yaml', true],
     ['files/proxy/tls/self-signed.key', true],
     ['files/packages/cameras/artefact/package.tgz', true],
+    ['volumes/', true],
+    ['volumes/web_data.tar', true],
+    ['volumes/volumes.json', true],
+    ['volumes/web_data/inside', false],
     ['files/secrets/secrets-key', false],
     ['files/cache/maps/1/2/3.png', false],
     ['files/hub/integrations/../../../etc/passwd', false],

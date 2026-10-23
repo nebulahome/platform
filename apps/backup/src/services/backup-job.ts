@@ -6,6 +6,10 @@
  * by every location; the system location, when enabled, then takes it by a rename - on the same
  * volume, so the largest copy is never made. A location that fails does not stop the others: the
  * run is then `partial`, and the location says why on the Backup page.
+ *
+ * The named volumes of the containers the platform makes are copied by the supervisor, which
+ * alone reaches Docker, into `volumes/` of the same staging folder, and packed with the rest. A
+ * copy that fails fails the backup: an archive without them would restore the containers empty.
  */
 import { createReadStream } from 'node:fs';
 import { mkdir, rename, rm, stat, statfs } from 'node:fs/promises';
@@ -18,11 +22,17 @@ import type {
   BackupRunStatus,
   BackupSection,
   JsonObject,
+  VolumesExportReply,
 } from '@nebulahome/contracts';
 import type { Database } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
 
-import { FILE_SECTIONS, writeArchive, type ArchiveManifest } from '../archive/archive.js';
+import {
+  FILE_SECTIONS,
+  VOLUMES_ENTRY,
+  writeArchive,
+  type ArchiveManifest,
+} from '../archive/archive.js';
 import { connectAdmin, databaseFacts, historyExclusions } from '../database/admin.js';
 import { dumpDatabase } from '../database/pg-tools.js';
 import { archiveNameFor } from '../domain/archive-name.js';
@@ -55,6 +65,14 @@ export type BackupJobContext = {
   readonly instanceKeys: ArchiveManifest['instanceKeys'];
   readonly open: OpenDependencies;
   readonly measureOnDisk: () => Promise<OnDisk>;
+
+  /**
+   * Has the supervisor copy the named volumes into a folder.
+   *
+   * @param folder - The folder, relative to the data directory, with forward slashes.
+   * @returns What it copied.
+   */
+  readonly exportVolumes: (folder: string) => Promise<VolumesExportReply>;
 
   /** Says what the run is doing, for the status. */
   readonly progress: (phase: BackupPhase, bytesDone?: number, bytesTotal?: number | null) => void;
@@ -240,6 +258,17 @@ export async function takeBackup(
     );
 
     const dumpBytes = (await stat(dumpPath)).size;
+
+    context.progress('packing');
+
+    const volumesDir = path.join(staging, VOLUMES_ENTRY);
+
+    await mkdir(volumesDir, { mode: 0o700 });
+
+    const { volumes } = await context.exportVolumes(
+      path.relative(context.dataDir, volumesDir).split(path.sep).join('/'),
+    );
+    const volumeBytes = volumes.reduce((sum, each) => sum + each.bytes, 0);
     const folders = FILE_SECTIONS.filter((each) => run.sections.includes(each.section));
     const files = await Promise.all(
       folders.map(async (each) => ({
@@ -261,7 +290,9 @@ export async function takeBackup(
 
     // The dump holds both database parts: each is given its share of it, by what it takes on disk.
     sectionBytes['configuration'] = Math.round(
-      (dumpBytes * onDisk.database.configuration) / databaseTotal + filesOf('configuration'),
+      (dumpBytes * onDisk.database.configuration) / databaseTotal +
+        filesOf('configuration') +
+        volumeBytes,
     );
     sectionBytes['history'] = hasHistory
       ? Math.round((dumpBytes * onDisk.database.history) / databaseTotal)
@@ -289,6 +320,7 @@ export async function takeBackup(
         bytes: dumpBytes,
       },
       files: files.map((each) => ({ path: each.path, bytes: each.bytes })),
+      volumes,
       sectionBytes: {
         configuration: sectionBytes['configuration'] ?? 0,
         history: sectionBytes['history'] ?? 0,
@@ -296,8 +328,6 @@ export async function takeBackup(
       },
       instanceKeys: context.instanceKeys,
     };
-
-    context.progress('packing');
 
     const archivePath = path.join(staging, archiveName);
 
@@ -309,6 +339,7 @@ export async function takeBackup(
         databaseDump: dumpPath,
         dataDir: context.dataDir,
         folders: folders.map((each) => each.path),
+        volumesDir: volumes.length === 0 ? null : volumesDir,
         backupKey: context.key.key,
         keyId: context.key.keyId,
         signal: context.signal,
@@ -316,6 +347,7 @@ export async function takeBackup(
     ).bytes;
 
     await rm(dumpPath, { force: true });
+    await rm(volumesDir, { recursive: true, force: true });
     context.progress('uploading', 0, archiveBytes);
 
     const destinations: BackupDestination[] = [];

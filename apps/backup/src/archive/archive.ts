@@ -14,6 +14,8 @@
  * files/containers/…            the data of the containers: the integrations', the compose
  *                               projects', the owner's installs and the record of those
  * files/packages/…              the feature packages, when the archive has them
+ * volumes/<name>.tar            the named volumes of the containers, one tar each, as Docker
+ * volumes/volumes.json          gives them, and their labels (the supervisor's volume-archive.ts)
  * ```
  *
  * The manifest comes first so a restore can check it before gigabytes follow. Nothing else is
@@ -40,6 +42,9 @@ export const DATABASE_ENTRY = 'database.pgdump';
 
 /** Where the data directory's folders are, in the archive. */
 export const FILES_ENTRY = 'files';
+
+/** Where the named volumes are, in the archive: files directly in it, never deeper. */
+export const VOLUMES_ENTRY = 'volumes';
 
 /** One of the data directory's folders an archive may carry. */
 export type FileSection = {
@@ -93,6 +98,9 @@ export type ArchiveManifest = {
   };
   readonly files: readonly { readonly path: string; readonly bytes: number }[];
 
+  /** The named volumes it holds; absent from an archive made before volumes were taken. */
+  readonly volumes?: readonly { readonly name: string; readonly bytes: number }[];
+
   /** What each part measured, which the next estimate scales. */
   readonly sectionBytes: Readonly<Record<BackupSection, number>>;
 
@@ -132,6 +140,9 @@ export type WriteArchiveOptions = {
 
   /** The data directory's folders to take, as paths under it. */
   readonly folders: readonly string[];
+
+  /** The named volumes' tars, staged, or null for none. */
+  readonly volumesDir?: string | null;
   readonly backupKey: Buffer;
   readonly keyId: string;
   readonly signal?: AbortSignal;
@@ -180,6 +191,10 @@ export async function writeArchive(options: WriteArchiveOptions): Promise<{ byte
 
   if (options.databaseDump !== null) {
     renames.push({ from: relative(options.databaseDump), to: DATABASE_ENTRY });
+  }
+
+  if (options.volumesDir !== undefined && options.volumesDir !== null) {
+    renames.push({ from: relative(options.volumesDir), to: VOLUMES_ENTRY });
   }
 
   for (const folder of options.folders) {
@@ -239,7 +254,8 @@ export async function writeArchive(options: WriteArchiveOptions): Promise<{ byte
  * Whether an entry of an archive may be written back.
  *
  * @param entryPath - The entry's path, as the archive has it.
- * @returns True for the manifest, the dump, and what is under the folders an archive carries.
+ * @returns True for the manifest, the dump, what is under the folders an archive carries, and
+ * the files of the volumes.
  */
 export function isRestorableEntry(entryPath: string): boolean {
   const normalised = entryPath.replace(/^\.\//u, '').replace(/\/$/u, '');
@@ -251,7 +267,9 @@ export function isRestorableEntry(entryPath: string): boolean {
   if (
     normalised === MANIFEST_ENTRY ||
     normalised === DATABASE_ENTRY ||
-    normalised === FILES_ENTRY
+    normalised === FILES_ENTRY ||
+    normalised === VOLUMES_ENTRY ||
+    /^volumes\/[^/]+$/u.test(normalised)
   ) {
     return true;
   }

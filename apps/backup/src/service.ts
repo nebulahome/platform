@@ -19,6 +19,8 @@ import {
   SUPERVISOR_METHODS,
   SUPERVISOR_SERVICE,
   supervisorAcknowledgementSchema,
+  volumesExportReplySchema,
+  volumesImportReplySchema,
   ValidationError,
   busSubjects,
   localPathProblem,
@@ -88,6 +90,9 @@ import {
  * directory: one at a time, each given up to 20 s to stop. One that is away answers at once.
  */
 const SUPERVISOR_TIMEOUT_MS = 300_000;
+
+/** How long the supervisor has to copy the named volumes out or back: they can be gigabytes. */
+const VOLUMES_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 /** How many days of load the quietest time is learned from. */
 const LEARNING_DAYS = 28;
 
@@ -643,6 +648,19 @@ export class BackupService {
          */
         measureOnDisk: async (): Promise<OnDisk> => this.#onDisk(),
         /**
+         * Has the supervisor copy the named volumes.
+         *
+         * @param folder - Where, under the data directory.
+         * @returns What it copied.
+         */
+        exportVolumes: async (folder) =>
+          this.#client.request(
+            busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.exportVolumes),
+            { folder },
+            volumesExportReplySchema,
+            { timeoutMs: VOLUMES_TIMEOUT_MS },
+          ),
+        /**
          * Keeps the run's progress for the status.
          *
          * @param phase - What it does now.
@@ -1056,6 +1074,20 @@ export class BackupService {
            * @returns Once the supervisor answered, or was given up on.
            */
           resume: async () => this.#askSupervisor(SUPERVISOR_METHODS.resumeManaged),
+
+          /**
+           * Writes the named volumes back.
+           *
+           * @param folder - Where their tars are, under the data directory.
+           */
+          importVolumes: async (folder): Promise<void> => {
+            await this.#client.request(
+              busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.importVolumes),
+              { folder },
+              volumesImportReplySchema,
+              { timeoutMs: VOLUMES_TIMEOUT_MS },
+            );
+          },
         },
         /**
          * Keeps the restore's progress, and announces maintenance once the database is about to

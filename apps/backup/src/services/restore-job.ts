@@ -17,6 +17,8 @@
  * 6. The services are stopped, the databases swapped by name, the data directory's folders
  *    swapped for the archive's, the instance keys put back as the archive has them.
  * 7. The services start again, rebuilding what they hold in memory from what they now find.
+ * 8. Once they answer - nothing is rolled back from there, and a rollback could not undo it - the
+ *    named volumes are written back by the supervisor, and the containers started again.
  */
 import { existsSync } from 'node:fs';
 import {
@@ -49,6 +51,7 @@ import {
   FILE_SECTIONS,
   FILES_ENTRY,
   readManifest,
+  VOLUMES_ENTRY,
 } from '../archive/archive.js';
 import {
   canInstallTimescale,
@@ -93,6 +96,14 @@ export type RestoreJobContext = {
   readonly managedContainers: {
     readonly suspend: () => Promise<void>;
     readonly resume: () => Promise<void>;
+
+    /**
+     * Has the supervisor write the named volumes back from a folder.
+     *
+     * @param folder - The folder, relative to the data directory, with forward slashes.
+     * @returns Once written.
+     */
+    readonly importVolumes: (folder: string) => Promise<void>;
   };
 
   /** Says what the run is doing, for the status and the maintenance screen. */
@@ -581,7 +592,6 @@ export async function restoreArchive(
     // 7. Back.
     context.progress('starting_services', 90);
     await context.supervisor.start([...RESTORED_SERVICES].reverse());
-    await context.managedContainers.resume();
 
     if (!(await waitForApi(context.apiUrl, 120_000))) {
       context.logger.error('The services did not come back after the restore: rolling back');
@@ -606,6 +616,24 @@ export async function restoreArchive(
       };
     }
 
+    // 8. The volumes, and the containers that mount them.
+    const volumesDir = path.join(extracted, VOLUMES_ENTRY);
+    let volumeMessage: string | null = null;
+
+    if (existsSync(volumesDir)) {
+      context.progress('starting_services', 93);
+
+      try {
+        await context.managedContainers.importVolumes(
+          path.relative(context.dataDir, volumesDir).split(path.sep).join('/'),
+        );
+      } catch (error: unknown) {
+        context.logger.error({ err: error }, 'The named volumes were not written back');
+        volumeMessage = `The named volumes of the containers were not all written back: ${messageOf(error)}`;
+      }
+    }
+
+    await context.managedContainers.resume();
     context.progress('finishing', 97);
 
     const cleanup = connectAdmin(context.adminUrl, 'postgres');
@@ -621,7 +649,13 @@ export async function restoreArchive(
       await cleanup.end({ timeout: 5 });
     }
 
-    return { outcome: 'restored', message: keyMessage, switchedAt };
+    const messages = [keyMessage, volumeMessage].filter((each) => each !== null);
+
+    return {
+      outcome: 'restored',
+      message: messages.length === 0 ? null : messages.join(' '),
+      switchedAt,
+    };
   } catch (error: unknown) {
     context.logger.error({ err: error }, 'The restore failed');
 
