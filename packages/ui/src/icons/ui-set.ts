@@ -97,6 +97,7 @@ import {
   Router,
   Rss,
   Search,
+  Send,
   Server,
   Settings,
   Sigma,
@@ -123,6 +124,7 @@ import {
   Volume2,
   VolumeX,
   Waypoints,
+  Webhook,
   Wrench,
   X,
   Zap,
@@ -264,7 +266,7 @@ export const BUILTIN_UI_NODES = {
   waypoints: drawing(Waypoints),
 
   // The automation editor: a block's grip and its glyph, by what it is - a hold, a wait, a branch,
-  // a loop, a sun, a notification.
+  // a loop, a sun, a notification, a webhook, an HTTP request.
   'grip-vertical': drawing(GripVertical),
   hourglass: drawing(Hourglass),
   'git-branch': drawing(GitBranch),
@@ -273,6 +275,8 @@ export const BUILTIN_UI_NODES = {
   bell: drawing(Bell),
   sunset: drawing(Sunset),
   sunrise: drawing(Sunrise),
+  webhook: drawing(Webhook),
+  send: drawing(Send),
   timer: drawing(Timer),
   braces: drawing(Braces),
   'octagon-x': drawing(OctagonX),
