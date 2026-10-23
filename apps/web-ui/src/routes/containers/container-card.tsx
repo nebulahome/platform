@@ -84,7 +84,8 @@ function usageText(cpuPercent: number | null, memoryUsedBytes: number | null): s
 }
 
 /**
- * The mark of a newer image: its version, in the tint an update has everywhere.
+ * The mark of a newer image: the update glyph, in the tint an update has everywhere, its version
+ * on hover.
  *
  * @param props - The version.
  * @param props.version - What is out.
@@ -94,15 +95,14 @@ function UpdateMark(props: { readonly version: string | null }) {
   const { t } = useTranslation();
 
   return (
-    <span
+    <TileMark
       title={t('containers.containerCard.updateReady', 'Update {{version}} ready', {
         version: props.version ?? '',
       })}
-      className="inline-flex h-6.5 items-center gap-1.5 rounded-chip bg-cyan/12 px-2 font-mono text-mono-caption text-cyan tabular"
+      className="border-transparent bg-cyan/12 text-cyan"
     >
-      <AppIcon id="circle-arrow-up" size={13} />
-      {props.version ?? t('containers.containerCard.new', 'New')}
-    </span>
+      <AppIcon id="circle-arrow-up" size={14} />
+    </TileMark>
   );
 }
 
@@ -139,7 +139,7 @@ export function ContainerCard(props: { readonly container: ContainerSummary }) {
                   <TileMark
                     title={t('containers.containerCard.partOfThePlatform', 'Part of the platform')}
                   >
-                    <AppIcon id="lock" size={13} />
+                    <AppIcon id="lock" size={14} />
                   </TileMark>
                 ) : null}
               </>
@@ -230,7 +230,7 @@ export function ComposeCard(props: { readonly group: ComposeGroup }) {
               <TileMark
                 title={t('containers.containerCard.partOfThePlatform', 'Part of the platform')}
               >
-                <AppIcon id="lock" size={13} />
+                <AppIcon id="lock" size={14} />
               </TileMark>
             ) : undefined
           }

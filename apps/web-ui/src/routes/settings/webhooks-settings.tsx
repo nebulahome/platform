@@ -324,12 +324,6 @@ export function WebhooksSettings() {
       </Panel>
 
       <Panel title={t('settings.webhooks.title', 'Webhooks')}>
-        <p className="-mt-2 px-5.5 pb-3 text-caption text-foreground-subtle">
-          {t(
-            'settings.webhooks.webhooksNote',
-            'One for each automation that starts from a webhook trigger. Pausing the automation pauses its webhook.',
-          )}
-        </p>
         <div className={cn(HOOK_COLUMNS, 'border-y border-border py-2.5')}>
           <span className={HEADING}>{t('settings.webhooks.automation', 'Automation')}</span>
           <span className={HEADING}>{t('settings.webhooks.method', 'Method')}</span>
@@ -514,12 +508,6 @@ export function WebhooksSettings() {
           </FilterSheet>
         }
       >
-        <p className="-mt-2 px-5.5 pb-3 text-caption text-foreground-subtle">
-          {t(
-            'settings.webhooks.callsNote',
-            'Every call, kept 30 days. Open one for its address, headers and what it started.',
-          )}
-        </p>
         <div className={cn(CALL_COLUMNS, 'border-y border-border py-2.5')}>
           <span className={HEADING}>{t('settings.webhooks.time', 'Time')}</span>
           <span className={HEADING}>{t('settings.webhooks.webhook', 'Webhook')}</span>

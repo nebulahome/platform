@@ -193,9 +193,10 @@ const MOTION = 'duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]';
  * widths, which is the middle of the 72px rail: the rail narrows around the glyphs rather than
  * moving them, and only the words after them go.
  */
+// The focus ring sits inside the row: the folding groups clip anything drawn outside it.
 const ROW =
   'press flex h-10 w-full shrink-0 items-center gap-3 overflow-hidden rounded-field border px-3 ' +
-  'text-ui whitespace-nowrap transition-colors';
+  'text-ui whitespace-nowrap transition-colors focus-visible:-outline-offset-2';
 
 /** A row that is the current page: outlined, raised, its glyph in the accent. */
 const ROW_ACTIVE =
@@ -346,7 +347,7 @@ function NavGroup(props: NavGroupProps) {
             type="button"
             aria-expanded={isOpen}
             onClick={onToggle}
-            className="press flex h-8.5 w-full items-center gap-2 rounded-field px-3 font-mono text-label whitespace-nowrap text-foreground-subtle uppercase transition-colors hover:text-foreground-muted"
+            className="press flex h-8.5 w-full items-center gap-2 rounded-field px-3 font-mono text-label whitespace-nowrap text-foreground-subtle uppercase transition-colors hover:text-foreground-muted focus-visible:-outline-offset-2"
           >
             <span className="grow text-left">{label}</span>
             <ChevronIcon isOpen={isOpen} className="text-foreground-subtle" />
@@ -505,7 +506,7 @@ function PackagePages() {
             aria-label={isCollapsed ? label : undefined}
             className={({ isActive }) =>
               cn(
-                'press flex h-8.5 w-full shrink-0 items-center overflow-hidden rounded-field border text-ui-sm whitespace-nowrap',
+                'press flex h-8.5 w-full shrink-0 items-center overflow-hidden rounded-field border text-ui-sm whitespace-nowrap focus-visible:-outline-offset-2',
                 rail.isReduced
                   ? 'transition-colors'
                   : `transition-[padding,gap,background-color,border-color,color] ${MOTION}`,
