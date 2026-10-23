@@ -13,6 +13,7 @@ import { afterEach } from 'vitest';
 // The interface's i18next, in English: every `t` answers with the English written beside its key,
 // which is what the tests read. A test about another language switches it itself.
 import '@/i18n/instance';
+import { forgetListStates } from '@/lib/use-list-state';
 
 /*
  * How long a `findBy` query waits for what it is looking for. The library's second is enough
@@ -106,4 +107,6 @@ globalThis.matchMedia = function matchMedia(media: string): MediaQueryList {
 
 afterEach(() => {
   cleanup();
+  // Each test is a page loaded afresh: no list comes back as an earlier test left it.
+  forgetListStates();
 });

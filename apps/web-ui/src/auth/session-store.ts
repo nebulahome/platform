@@ -34,6 +34,7 @@ import { applyLanguage, readLanguageHint } from '@/i18n/language';
 import { translate } from '@/i18n/messages';
 import { connectSession, refreshAccessToken } from '@/lib/api-client';
 import { isApiUnreachable } from '@/lib/api-error';
+import { forgetListStates } from '@/lib/use-list-state';
 
 /** Where a person is in the sign-in flow. */
 export type SessionStatus =
@@ -469,6 +470,7 @@ export const useSession = create<SessionState>((set, get) => ({
       await signOut(allSessions);
     } finally {
       writeRefreshToken(null);
+      forgetListStates();
 
       // The sign-in screen speaks the house's language, whatever the person who left read.
       set({

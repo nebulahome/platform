@@ -9,8 +9,14 @@
  * how to write it back, leaving out whatever is at its default so a list opened plain has a
  * plain address. Changes replace the entry rather than pushing one - typing a search is not
  * something the back button should step through a letter at a time.
+ *
+ * A list opened plain - from the menu, after a trip elsewhere - comes back as it was last left:
+ * each list's filter is also kept in memory, by its path, and put back in the address. In memory
+ * alone, never the browser's storage or a cookie, so a reload starts every list plain, and a
+ * sign-out forgets them for whoever signs in next.
  */
-import { useSearchParams } from 'react-router';
+import { useEffect } from 'react';
+import { useLocation, useSearchParams } from 'react-router';
 
 /** Where a paged list keeps its page: dropped whenever the filter changes. */
 export const PAGE_PARAM = 'page';
@@ -37,6 +43,16 @@ export type ListCodec<TFilter> = {
   readonly keys: readonly string[];
 };
 
+/** The query each list was last left with, by its path and the keys its filter owns. */
+const leftWith = new Map<string, string>();
+
+/**
+ * Forgets how every list was left: on sign-out.
+ */
+export function forgetListStates(): void {
+  leftWith.clear();
+}
+
 /**
  * Reads and writes a list's filter through the address.
  *
@@ -47,6 +63,33 @@ export function useListState<TFilter>(
   codec: ListCodec<TFilter>,
 ): readonly [TFilter, (next: TFilter) => void] {
   const [params, setParams] = useSearchParams();
+  const memoryKey = `${useLocation().pathname}?${codec.keys.join(',')}`;
+  const isInAddress = codec.keys.some((key) => params.has(key));
+  const left = leftWith.get(memoryKey);
+
+  useEffect(() => {
+    if (isInAddress) {
+      // A link's filter is the one the list is left with.
+      leftWith.set(
+        memoryKey,
+        new URLSearchParams([...params].filter(([key]) => codec.keys.includes(key))).toString(),
+      );
+    } else if (left !== undefined && left !== '') {
+      setParams(
+        (current) => {
+          const updated = new URLSearchParams(current);
+
+          for (const [key, value] of new URLSearchParams(left)) {
+            updated.set(key, value);
+          }
+
+          return updated;
+        },
+        { replace: true },
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- as the list opens, or its address moves
+  }, [memoryKey, isInAddress ? params.toString() : null]);
 
   /**
    * Replaces the filter in the address.
@@ -54,6 +97,7 @@ export function useListState<TFilter>(
    * @param next - The filter as it should stand.
    */
   const set = (next: TFilter): void => {
+    leftWith.set(memoryKey, new URLSearchParams(codec.write(next)).toString());
     setParams(
       (current) => {
         const updated = new URLSearchParams(current);
@@ -75,7 +119,8 @@ export function useListState<TFilter>(
     );
   };
 
-  return [codec.read(params), set];
+  // Until the address has it back, the filter left is read from memory: no plain list flashes.
+  return [codec.read(isInAddress || left === undefined ? params : new URLSearchParams(left)), set];
 }
 
 /**
