@@ -65,10 +65,13 @@ export const SUPERVISOR_METHODS = {
   /** Where the containers one vendor declares stand, for its page. */
   managed: 'managed',
 
-  /** Stops every container an integration runs, before a restore swaps their data. */
+  /**
+   * Stops every container that keeps its data in the data directory - the integrations', the
+   * compose projects', the owner's installs - before a restore swaps it.
+   */
   suspendManaged: 'suspend_managed',
 
-  /** Starts them again afterwards. */
+  /** Starts them again afterwards, making again the projects and installs the archive has. */
   resumeManaged: 'resume_managed',
 
   /** Looks for images on Docker Hub. */

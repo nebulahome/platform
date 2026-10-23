@@ -34,6 +34,7 @@ import {
   containerDeviceId,
   CORE_SERVICE,
   CORE_SYNC_CONTAINERS_METHOD,
+  INSTALLED_LABEL,
   isNebulaError,
   isSecretName,
   NotFoundError,
@@ -425,6 +426,7 @@ export class SupervisorService {
    * Connects to Docker and starts measuring, publishing and checking.
    */
   public async start(): Promise<void> {
+    await this.#installs.load();
     await this.#compose.start();
     await this.#packageProjects.start();
     await this.#connect();
@@ -680,6 +682,11 @@ export class SupervisorService {
     const tracked = this.#requireControllable(name);
 
     await this.#engine.removeContainer(tracked.id, removeVolumes);
+
+    if (tracked.listed.Labels[INSTALLED_LABEL] === 'true') {
+      await this.#installs.forget(name);
+    }
+
     this.#logger.info({ container: name, removeVolumes }, 'Removed a container');
     await this.#refresh();
     this.#changed(name, 'removed');
@@ -771,25 +778,49 @@ export class SupervisorService {
   }
 
   /**
-   * Stops the containers the integrations run, for a restore.
+   * Stops every container that keeps its data in the data directory - the integrations', the
+   * compose projects', the owner's installs - for a restore that swaps it.
    */
   public async suspendManaged(): Promise<void> {
+    const tracked = [...this.#containers.values()];
+
     await this.#managed.suspend(
-      [...this.#containers.values()].map((tracked) => ({
-        name: tracked.name,
-        labels: tracked.listed.Labels,
-        isRunning: tracked.listed.State === 'running',
+      tracked.map((each) => ({
+        name: each.name,
+        labels: each.listed.Labels,
+        isRunning: each.listed.State === 'running',
       })),
     );
     await this.#compose.suspend();
+    await this.#packageProjects.suspend();
+    await this.#installs.suspend(
+      tracked
+        .filter(
+          (each) =>
+            each.listed.Labels[INSTALLED_LABEL] === 'true' && each.listed.State === 'running',
+        )
+        .map((each) => each.name),
+    );
   }
 
   /**
-   * Starts them again after it.
+   * Starts them again after it, from what it restored: a compose project or an install the
+   * archive has and Docker does not is made again.
    */
   public async resumeManaged(): Promise<void> {
     await this.#managed.resume();
     await this.#compose.resume((project) => this.#neighboursOf(project));
+    await this.#packageProjects.resume((project) => this.#neighboursOf(project));
+
+    // Without a listing, nothing is installed again: it could be a second container of a name.
+    const listed = this.#status.isAvailable
+      ? await this.#engine.listContainers().catch(() => null)
+      : null;
+
+    await this.#installs.resume(
+      new Set((listed ?? []).map((each) => nameOf(each.Names))),
+      listed === null ? null : this.#context,
+    );
   }
 
   /**
@@ -1430,6 +1461,10 @@ export class SupervisorService {
         { container: tracked.name, image: `${image}:${tag}` },
         'Updated a container',
       );
+
+      if (tracked.listed.Labels[INSTALLED_LABEL] === 'true') {
+        await this.#installs.retag(tracked.name, tag);
+      }
     } catch (error: unknown) {
       const message =
         isNebulaError(error) || error instanceof Error ? error.message : String(error);
