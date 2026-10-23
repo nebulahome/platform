@@ -5,10 +5,11 @@
  * Reading them is reading devices (`device:read`); commissioning a node, saving a mapping or
  * bringing a device back adds devices (`device:write`), removing a node or a mapping removes them
  * (`device:delete`), and each is audited as what it does to the house. Who may connect to the MQTT
- * broker, and how it is set up, is configuring an integration (`integration:configure`); a
- * client's password is answered once and never written to the audit. Commissioning is answered at
- * once, `202` with the job: a node takes longer than a request waits, and the page reads the
- * status until the job ends.
+ * broker, how it is set up and restarting it, is configuring an integration
+ * (`integration:configure`); a client's password is answered once and never written to the audit.
+ * Restarting the Matter controller, or stopping a commissioning, is `device:write`. Commissioning
+ * is answered at once, `202` with the job: a node takes longer than a request waits, and the page
+ * reads the status until the job ends.
  */
 import { z } from 'zod';
 
@@ -43,11 +44,13 @@ import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import {
   answerMatter,
+  cancelMatter,
   commissionMatter,
   listBrokers,
   matterNodes,
   matterStatus,
   removeMatterNode,
+  restartMatter,
   restoreMatterDevice,
   addMqttClient,
   mqttClients,
@@ -57,6 +60,7 @@ import {
   mqttTopics,
   removeMqttClient,
   removeMqttMapping,
+  restartMqtt,
   restoreMqttDevice,
   saveMqttMapping,
   saveMqttSettings,
@@ -253,6 +257,84 @@ export function registerBrokerRoutes(environment: RouteEnvironment, context: Api
   defineRoute(
     environment,
     {
+      method: 'POST',
+      url: '/brokers/matter/commission/:jobId/cancel',
+      summary: 'Stop adding a Matter device before it joined the fabric',
+      tag: 'Brokers',
+      permission: 'device:write',
+      params: z.object({ jobId: z.string().min(1).max(64) }),
+      response: matterCommissioningSchema,
+    },
+
+    /**
+     * Stops a commissioning; once the device joined, it carries on.
+     *
+     * @param route - The job, and who is asking.
+     * @returns The job, as it now stands.
+     */
+    async (route): Promise<MatterCommissioning> => {
+      requirePermission(route.identity, 'device:write');
+
+      const job = await cancelMatter(
+        forRequest(context, route.request.traceId),
+        route.params.jobId,
+      );
+
+      await context.audit.record({
+        action: 'matter.cancel',
+        resourceType: 'matter',
+        resourceId: job.id,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { state: job.state },
+      });
+
+      return job;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/brokers/matter/restart',
+      summary: "Restart the house's Matter controller",
+      tag: 'Brokers',
+      permission: 'device:write',
+      response: matterStatusSchema,
+    },
+
+    /**
+     * Closes the controller and opens it again.
+     *
+     * @param route - Who is asking.
+     * @returns Where the fabric stands then.
+     */
+    async (route): Promise<MatterStatus> => {
+      requirePermission(route.identity, 'device:write');
+
+      const status = await restartMatter(forRequest(context, route.request.traceId));
+
+      await context.audit.record({
+        action: 'matter.restart',
+        resourceType: 'matter',
+        resourceId: 'controller',
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: {},
+      });
+
+      return status;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
       method: 'DELETE',
       url: '/brokers/matter/nodes/:nodeId',
       summary: 'Remove a Matter device from the house and from its fabric',
@@ -396,6 +478,43 @@ function registerMqttRoutes(environment: RouteEnvironment, context: ApiContext):
         ipAddress: route.request.ip,
         traceId: route.request.traceId,
         details: { ...route.body },
+      });
+
+      return status;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/brokers/mqtt/restart',
+      summary: "Restart the house's MQTT broker",
+      tag: 'Brokers',
+      permission: 'integration:configure',
+      response: mqttStatusSchema,
+    },
+
+    /**
+     * Stops the broker and starts it again.
+     *
+     * @param route - Who is asking.
+     * @returns Where the broker stands then.
+     */
+    async (route): Promise<MqttStatus> => {
+      requirePermission(route.identity, 'integration:configure');
+
+      const status = await restartMqtt(forRequest(context, route.request.traceId));
+
+      await context.audit.record({
+        action: 'mqtt.restart',
+        resourceType: 'mqtt',
+        resourceId: 'broker',
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: {},
       });
 
       return status;

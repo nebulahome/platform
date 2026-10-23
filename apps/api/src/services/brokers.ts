@@ -13,9 +13,11 @@ import { and, eq, sql } from 'drizzle-orm';
 import {
   busSubjects,
   HUB_MATTER_ANSWER_METHOD,
+  HUB_MATTER_CANCEL_METHOD,
   HUB_MATTER_COMMISSION_METHOD,
   HUB_MATTER_NODES_METHOD,
   HUB_MATTER_REMOVE_METHOD,
+  HUB_MATTER_RESTART_METHOD,
   HUB_MATTER_RESTORE_METHOD,
   HUB_MATTER_STATUS_METHOD,
   HUB_MQTT_CLIENT_ADD_METHOD,
@@ -25,6 +27,7 @@ import {
   HUB_MQTT_MAPPING_REMOVE_METHOD,
   HUB_MQTT_MAPPING_SAVE_METHOD,
   HUB_MQTT_MAPPINGS_METHOD,
+  HUB_MQTT_RESTART_METHOD,
   HUB_MQTT_RESTORE_METHOD,
   HUB_MQTT_SETTINGS_METHOD,
   HUB_MQTT_STATUS_METHOD,
@@ -190,6 +193,42 @@ export async function answerMatter(
     busSubjects.service(HUB_SERVICE, HUB_MATTER_ANSWER_METHOD),
     answer,
     matterCommissioningSchema,
+    { traceId: context.traceId, timeoutMs: context.timeoutMs },
+  );
+}
+
+/**
+ * Stops a commissioning before its device joined the fabric.
+ *
+ * @param context - The request's collaborators.
+ * @param jobId - The job.
+ * @returns The job, as it now stands.
+ * @throws {ConflictError} When that job is not the one under way.
+ */
+export async function cancelMatter(
+  context: IntegrationsContext,
+  jobId: string,
+): Promise<MatterCommissioning> {
+  return busOf(context).request(
+    busSubjects.service(HUB_SERVICE, HUB_MATTER_CANCEL_METHOD),
+    { jobId },
+    matterCommissioningSchema,
+    { traceId: context.traceId, timeoutMs: context.timeoutMs },
+  );
+}
+
+/**
+ * Closes the Matter controller and opens it again.
+ *
+ * @param context - The request's collaborators.
+ * @returns Where the fabric stands then.
+ * @throws {ConflictError} While a device is being added.
+ */
+export async function restartMatter(context: IntegrationsContext): Promise<MatterStatus> {
+  return busOf(context).request(
+    busSubjects.service(HUB_SERVICE, HUB_MATTER_RESTART_METHOD),
+    {},
+    matterStatusSchema,
     { traceId: context.traceId, timeoutMs: context.timeoutMs },
   );
 }
@@ -399,6 +438,21 @@ export async function saveMqttSettings(
   return busOf(context).request(
     busSubjects.service(HUB_SERVICE, HUB_MQTT_SETTINGS_METHOD),
     settings,
+    mqttStatusSchema,
+    { traceId: context.traceId, timeoutMs: context.timeoutMs },
+  );
+}
+
+/**
+ * Stops the MQTT broker and starts it again.
+ *
+ * @param context - The request's collaborators.
+ * @returns Where the broker stands then.
+ */
+export async function restartMqtt(context: IntegrationsContext): Promise<MqttStatus> {
+  return busOf(context).request(
+    busSubjects.service(HUB_SERVICE, HUB_MQTT_RESTART_METHOD),
+    {},
     mqttStatusSchema,
     { traceId: context.traceId, timeoutMs: context.timeoutMs },
   );
