@@ -280,9 +280,10 @@ integration's, and the Configure dialog is where it changes.
 
 ## Secrets
 
-`api` and `hub` both read `NEBULA_SECRETS_KEY` from `.env`: what an owner types into an
+`api`, `hub` and `core` read `NEBULA_SECRETS_KEY` from `.env`: what an owner types into an
 integration's password field is sealed with it before it is stored, and opened with it when the
-instance connects. The two services must hold the **same** key, and a second machine working on
+instance connects; an HTTP request action's Authorization header is sealed by `api` and opened by
+`core` when it sends it. The services must hold the **same** key, and a second machine working on
 the same database needs a copy of it - a value sealed on one PC cannot be opened on another
 without it. Generate it once:
 
