@@ -10,10 +10,12 @@ import { z } from 'zod';
 
 import { AUTOMATION_RUN_RESULTS, traceStepSchema } from './api-history.js';
 import { sceneApplyMemberResultSchema, sceneApplyResultSchema } from './api-registry.js';
+import { WEBHOOK_CALL_OUTCOMES } from './api-webhooks.js';
 import {
   automationActionSchema,
   automationTriggerSchema,
   conditionNodeSchema,
+  webhookIdSchema,
 } from './automation-definition.js';
 import { capabilityNameSchema } from './capabilities.js';
 import { entityIdSchema } from './entity-id.js';
@@ -41,6 +43,38 @@ export const CORE_TEST_AUTOMATION_BLOCK_METHOD = 'test_automation_block';
 
 /** Stops a test still running. */
 export const CORE_CANCEL_AUTOMATION_TEST_METHOD = 'cancel_automation_test';
+
+/** Hands `core` a call to a webhook address, for it to decide, run and record. */
+export const CORE_WEBHOOK_CALL_METHOD = 'webhook_call';
+
+/**
+ * A call to `/api/hooks/<hookId>`, as the API received it. Its body is never passed on.
+ *
+ * `ip` is the caller's address as `proxy` saw the socket; `isLocal` says whether it is on the
+ * house's network. `headers` already have the values of `authorization` and `cookie` hidden.
+ */
+export const webhookCallRequestSchema = z.strictObject({
+  hookId: webhookIdSchema,
+  method: z.string().min(1).max(16),
+  path: z.string().max(2_000),
+  ip: z.string().max(64),
+  isLocal: z.boolean(),
+  userAgent: z.string().max(500).nullable(),
+  headers: z.record(z.string().max(100), z.string().max(2_000)),
+});
+
+/** A call to a webhook address. */
+export type WebhookCallRequest = z.output<typeof webhookCallRequestSchema>;
+
+/** What to answer the caller, and what became of the call. */
+export const webhookCallReplySchema = z.object({
+  status: z.int().min(200).max(599),
+  outcome: z.enum(WEBHOOK_CALL_OUTCOMES),
+  runId: z.uuid().nullable(),
+});
+
+/** What to answer the caller. */
+export type WebhookCallReply = z.output<typeof webhookCallReplySchema>;
 
 /** Asks `core` to take in an automation the API has just written or changed. */
 export const syncAutomationRequestSchema = z.strictObject({ automationId: z.uuid() });

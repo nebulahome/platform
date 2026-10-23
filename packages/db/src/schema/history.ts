@@ -1,7 +1,7 @@
 /**
  * The `history` schema: everything that accumulates over time.
  *
- * All four tables are TimescaleDB hypertables and none has a `uuid` primary key, which is the
+ * All five tables are TimescaleDB hypertables and none has a `uuid` primary key, which is the
  * deliberate deviation from RULES.md 13 documented in DATABASE.md 16: a surrogate key on a table
  * written thousands of times a minute costs 16 bytes and an index per row to identify something
  * nothing ever looks up by id.
@@ -114,6 +114,38 @@ export const automationRuns = historySchema.table(
       .on(table.result, table.time.desc())
       .where(sql`result <> 'success'`),
   ],
+);
+
+/**
+ * Every call a webhook address received, and what it was answered. Written by `core`, which
+ * decides the answer; the body is never kept, and secret header values are hidden.
+ */
+export const webhookCalls = historySchema.table(
+  'webhook_calls',
+  {
+    /** When it was received. */
+    time: timestamp('time', { withTimezone: true }).notNull(),
+
+    id: uuid('id').notNull().defaultRandom(),
+    hookId: text('hook_id').notNull(),
+
+    /** The automation whose webhook it was; null when no webhook has the id. */
+    automationId: uuid('automation_id'),
+
+    method: text('method').notNull(),
+    path: text('path').notNull(),
+    remoteIp: text('remote_ip').notNull(),
+    isLocal: boolean('is_local').notNull(),
+    userAgent: text('user_agent'),
+    headers: jsonb('headers')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    status: smallint('status').notNull(),
+    durationMs: integer('duration_ms').notNull(),
+    outcome: text('outcome').notNull(),
+    runId: uuid('run_id'),
+  },
+  (table) => [index('webhook_calls_hook_id_time_idx').on(table.hookId, table.time.desc())],
 );
 
 /**

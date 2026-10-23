@@ -19,6 +19,7 @@ export * from './areas.js';
 export * from './api-settings.js';
 export * from './api-setup.js';
 export * from './api-users.js';
+export * from './api-webhooks.js';
 export * from './api-ws.js';
 export * from './auth.js';
 export * from './automation-bus.js';

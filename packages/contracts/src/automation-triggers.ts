@@ -5,9 +5,9 @@
  * things rarely happen in the same instant, and "this happened while that holds" is what the
  * conditions are for.
  *
- * Five kinds. An entity changing (to a state, or across a number), a time on the clock, a moment
- * of the sun, a device event, or somebody asking. Each carries the {@link BlockMeta} every block
- * does: a name, and whether it is turned off.
+ * Six kinds. An entity changing (to a state, or across a number), a time on the clock, a moment
+ * of the sun, a device event, somebody asking, or somebody calling its webhook address. Each
+ * carries the {@link BlockMeta} every block does: a name, and whether it is turned off.
  */
 import { z } from 'zod';
 
@@ -35,7 +35,7 @@ import { SUN_DIRECTIONS, SUN_EVENTS, SUN_PERIODS } from './sun.js';
 export const UNAVAILABLE_TRIGGER_TYPES = ['event'] as const;
 
 /** The kinds of trigger an automation can wake on. */
-export const TRIGGER_TYPES = ['entity', 'time', 'sun', 'event', 'manual'] as const;
+export const TRIGGER_TYPES = ['entity', 'time', 'sun', 'event', 'manual', 'webhook'] as const;
 
 /** What wakes an automation. */
 export type TriggerType = (typeof TRIGGER_TYPES)[number];
@@ -157,6 +157,37 @@ const eventTriggerSchema = z.object({
 /** Somebody, or something, asking for it explicitly. */
 const manualTriggerSchema = z.object({ type: z.literal('manual'), ...blockMetaShape });
 
+/** The methods a webhook can be called with. */
+export const WEBHOOK_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
+
+/** A method a webhook can be called with. */
+export type WebhookMethod = (typeof WEBHOOK_METHODS)[number];
+
+/** Where a webhook may be called from: the house's own network, or anywhere. */
+export const WEBHOOK_REACHES = ['local', 'internet'] as const;
+
+/** Where a webhook may be called from. */
+export type WebhookReach = (typeof WEBHOOK_REACHES)[number];
+
+/**
+ * A webhook's id: the last part of its address, 128 random bits in hexadecimal. Knowing it is
+ * what lets somebody start the automation, so it is as long as a password should be.
+ */
+export const webhookIdSchema = z.string().regex(/^[0-9a-f]{32}$/u, 'Must be 32 hexadecimal digits');
+
+/** Somebody, or something, calling the automation's address: `/api/hooks/<hookId>`. */
+const webhookTriggerSchema = z.object({
+  type: z.literal('webhook'),
+  ...blockMetaShape,
+  hookId: webhookIdSchema,
+
+  /** The one method it answers, or any. Another gets 405 and starts nothing. */
+  method: z.enum([...WEBHOOK_METHODS, 'any']),
+
+  /** `local` answers 404 to a call from outside the house's network. */
+  reach: z.enum(WEBHOOK_REACHES),
+});
+
 /** What wakes an automation. */
 export const automationTriggerSchema = z.discriminatedUnion('type', [
   entityTriggerSchema,
@@ -164,6 +195,7 @@ export const automationTriggerSchema = z.discriminatedUnion('type', [
   sunTriggerSchema,
   eventTriggerSchema,
   manualTriggerSchema,
+  webhookTriggerSchema,
 ]);
 
 /** What wakes an automation. */

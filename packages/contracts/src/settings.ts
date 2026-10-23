@@ -239,6 +239,18 @@ export const SETTINGS = [
     defaultValue: { mode: 'daily' },
     description: 'The days a backup runs on',
   },
+  {
+    key: 'webhooks.allow_internet',
+    schema: z.boolean(),
+    defaultValue: true,
+    description: 'Through remote access. Off: webhooks marked Internet answer 404 from outside',
+  },
+  {
+    key: 'webhooks.rate_per_minute',
+    schema: z.int().min(1).max(600),
+    defaultValue: 30,
+    description: 'Calls a minute one webhook takes; above it they get 429 and start nothing',
+  },
 ] as const satisfies readonly SettingDefinition[];
 
 /** Every setting key the platform knows about. */
