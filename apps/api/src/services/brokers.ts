@@ -15,6 +15,7 @@ import {
   HUB_MATTER_ANSWER_METHOD,
   HUB_MATTER_CANCEL_METHOD,
   HUB_MATTER_COMMISSION_METHOD,
+  HUB_MATTER_NETWORK_METHOD,
   HUB_MATTER_NODES_METHOD,
   HUB_MATTER_REMOVE_METHOD,
   HUB_MATTER_RESTART_METHOD,
@@ -37,6 +38,7 @@ import {
   MATTER_TRANSPORT,
   MATTER_VENDOR,
   matterCommissioningSchema,
+  matterNetworkSchema,
   matterNodesReplySchema,
   matterRemoveReplySchema,
   matterRestoreReplySchema,
@@ -58,6 +60,7 @@ import {
   type BrokerSummary,
   type MatterAnswerRequest,
   type MatterCommissioning,
+  type MatterNetwork,
   type MatterNode,
   type MatterRestoreRequest,
   type MatterStatus,
@@ -105,6 +108,22 @@ export async function matterNodes(context: IntegrationsContext): Promise<MatterN
   );
 
   return reply.items;
+}
+
+/**
+ * The fabric's network: how each node reaches the house, as the nodes last reported it.
+ *
+ * @param context - The request's collaborators.
+ * @returns The network.
+ * @throws {DeviceUnavailableError} When the hub cannot be asked.
+ */
+export async function matterNetwork(context: IntegrationsContext): Promise<MatterNetwork> {
+  return busOf(context).request(
+    busSubjects.service(HUB_SERVICE, HUB_MATTER_NETWORK_METHOD),
+    {},
+    matterNetworkSchema,
+    { traceId: context.traceId },
+  );
 }
 
 /**

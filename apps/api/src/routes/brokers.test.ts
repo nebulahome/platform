@@ -54,6 +54,18 @@ describe('the broker routes', () => {
       ],
     });
     expect(nodes.json()).toEqual({ items: [MATTER_LAMP] });
+
+    const network = await server.inject({
+      method: 'GET',
+      url: '/api/v1/brokers/matter/network',
+      headers: { authorization },
+    });
+
+    expect(network.json()).toMatchObject({
+      collectedAt: '2026-10-23T12:00:00.000Z',
+      nodes: [{ nodeId: '7', network: 'thread', networkName: 'Casa', channel: 15 }],
+      links: [],
+    });
   });
 
   it('starts commissioning with the code as written, and answers at once', async () => {

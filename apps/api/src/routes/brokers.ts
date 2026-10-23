@@ -17,6 +17,7 @@ import {
   brokersReplySchema,
   matterCommissioningSchema,
   matterCommissionRequestSchema,
+  matterNetworkSchema,
   matterNodeIdSchema,
   matterNodesReplySchema,
   matterRestoreReplySchema,
@@ -35,6 +36,7 @@ import {
   mqttStatusSchema,
   mqttTopicsReplySchema,
   type MatterCommissioning,
+  type MatterNetwork,
   type MatterStatus,
   type MqttStatus,
 } from '@nebulahome/contracts';
@@ -47,6 +49,7 @@ import {
   cancelMatter,
   commissionMatter,
   listBrokers,
+  matterNetwork,
   matterNodes,
   matterStatus,
   removeMatterNode,
@@ -165,6 +168,30 @@ export function registerBrokerRoutes(environment: RouteEnvironment, context: Api
       requirePermission(route.identity, 'device:read');
 
       return { items: await matterNodes(forRequest(context, route.request.traceId)) };
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/brokers/matter/network',
+      summary: "Show how the nodes of the house's Matter fabric reach it",
+      tag: 'Brokers',
+      permission: 'device:read',
+      response: matterNetworkSchema,
+    },
+
+    /**
+     * Reads the network.
+     *
+     * @param route - Who is asking.
+     * @returns The Thread meshes and Wi-Fi stars, as the nodes last reported them.
+     */
+    async (route): Promise<MatterNetwork> => {
+      requirePermission(route.identity, 'device:read');
+
+      return matterNetwork(forRequest(context, route.request.traceId));
     },
   );
 
