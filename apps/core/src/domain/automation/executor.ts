@@ -22,7 +22,7 @@
  * starve the rest of `core` while the run's own time runs out.
  *
  * Pure: everything the blocks reach - the clock, sleeping, the state of the house, commands,
- * scenes, other automations, packages - comes in through the ports.
+ * scenes, other automations, packages, HTTP - comes in through the ports.
  */
 import {
   isBlockEnabled,
@@ -90,6 +90,20 @@ export type ExecutorPorts = {
 
   /** An entity's state as one word. */
   readonly stateTokenOf: (entityId: string) => string | undefined;
+
+  /** Sends an HTTP request and resolves with the answer's status, whatever it is. */
+  readonly httpRequest: (
+    action: Extract<AutomationAction, { type: 'http_request' }>,
+    signal: AbortSignal,
+  ) => Promise<HttpAnswer>;
+};
+
+/** How the other end of an HTTP request answered. */
+export type HttpAnswer = {
+  readonly status: number;
+
+  /** Where it went, without the query, for the trace: `hooks.example.com/house/1/state`. */
+  readonly target: string;
 };
 
 /** How applying a scene went. */
@@ -516,6 +530,10 @@ export class Executor {
           throw this.#fail(action, path, at, 'Waiting for a device event is not available yet');
         }
 
+        if (action.trigger.type === 'webhook') {
+          throw this.#fail(action, path, at, 'Waiting for a webhook is not available');
+        }
+
         const fired = await this.#await(
           this.#ports.waitForTrigger(action.trigger, action.timeoutMs, signal),
           action,
@@ -550,6 +568,25 @@ export class Executor {
         this.#record(action, path, at, 'ok', {
           detail: `called ${action.packageId} ${action.service}`,
         });
+
+        return;
+      }
+      case 'http_request': {
+        const answer = await this.#await(
+          this.#ports.httpRequest(action, signal),
+          action,
+          path,
+          at,
+          signal,
+        );
+        const said = `${action.method} ${answer.target} answered ${String(answer.status)}`;
+
+        // Anything but 2xx fails the step, as a command the device refused does.
+        if (answer.status < 200 || answer.status > 299) {
+          throw this.#fail(action, path, at, said);
+        }
+
+        this.#record(action, path, at, 'ok', { detail: said });
 
         return;
       }

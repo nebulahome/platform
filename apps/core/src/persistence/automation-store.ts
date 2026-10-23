@@ -5,9 +5,10 @@
  * Automations are read at startup and again one at a time when the API says one changed. The
  * house is read at startup and when the API says its zone or position changed. A run is written
  * once, when it ends: the table has no "running" result, so a run cut off by a crash of `core`
- * itself leaves no row - its `started` event is all that was said of it.
+ * itself leaves no row - its `started` event is all that was said of it. Every call to a webhook
+ * address is written too, with the answer it got.
  */
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 import {
   automationDefinitionSchema,
@@ -193,6 +194,48 @@ export async function loadHouse(db: Database): Promise<House> {
       : { latitude: house.latitude, longitude: house.longitude };
 
   return { timeZone, position };
+}
+
+/** What the webhooks are allowed, from the settings. */
+export type WebhookSettings = {
+  readonly allowInternet: boolean;
+  readonly ratePerMinute: number;
+};
+
+/**
+ * Reads the webhook settings, each call: they change from Settings › Webhooks, and a call is
+ * rare enough that a read of two rows is nothing.
+ *
+ * @param db - The database.
+ * @returns The settings, with the seeded defaults for a row that is missing.
+ */
+export async function loadWebhookSettings(db: Database): Promise<WebhookSettings> {
+  const rows = await db
+    .select({ key: schema.system.settings.key, value: schema.system.settings.value })
+    .from(schema.system.settings)
+    .where(
+      inArray(schema.system.settings.key, ['webhooks.allow_internet', 'webhooks.rate_per_minute']),
+    );
+  const values = new Map(rows.map((row) => [row.key, row.value]));
+  const rate = values.get('webhooks.rate_per_minute');
+
+  return {
+    allowInternet: values.get('webhooks.allow_internet') !== false,
+    ratePerMinute: typeof rate === 'number' ? rate : 30,
+  };
+}
+
+/**
+ * Records a call to a webhook address.
+ *
+ * @param db - The database.
+ * @param call - The row.
+ */
+export async function insertWebhookCall(
+  db: Database,
+  call: typeof schema.history.webhookCalls.$inferInsert,
+): Promise<void> {
+  await db.insert(schema.history.webhookCalls).values(call);
 }
 
 /**

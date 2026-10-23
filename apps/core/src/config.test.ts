@@ -8,10 +8,11 @@ import { coreEnvSchema } from './config.js';
 const minimal = {
   DATABASE_URL: 'postgres://nebula:nebula@localhost:5432/nebula',
   NATS_URL: 'nats://localhost:4222',
+  NEBULA_SECRETS_KEY: 'ab'.repeat(32),
 };
 
 describe('coreEnvSchema', () => {
-  it('starts from a database and a broker and nothing else', () => {
+  it('starts from a database, a broker and the secrets key, and nothing else', () => {
     const config = loadConfig(coreEnvSchema, minimal);
 
     expect(config.NODE_ENV).toBe('development');
@@ -59,6 +60,7 @@ describe('coreEnvSchema', () => {
         'DATABASE_URL',
         'LOG_LEVEL',
         'NATS_URL',
+        'NEBULA_SECRETS_KEY',
       ]);
     }
   });

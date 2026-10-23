@@ -22,7 +22,7 @@ import {
 } from '@nebulahome/bus';
 import { resolveDataLayout } from '@nebulahome/config';
 import type { EntityId, StateReport } from '@nebulahome/contracts';
-import type { Database } from '@nebulahome/db';
+import { secretsKeyFrom, type Database } from '@nebulahome/db';
 import { withTraceId, type PlatformLogger } from '@nebulahome/logging';
 
 import type { CoreConfig } from './config.js';
@@ -346,6 +346,7 @@ export class CoreService {
       scenes: sceneEngine,
       logger,
       newTraceId,
+      secretsKey: secretsKeyFrom(config.NEBULA_SECRETS_KEY),
     });
 
     this.#automationEngine = automationEngine;

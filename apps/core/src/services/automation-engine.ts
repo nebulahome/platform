@@ -2,9 +2,11 @@
  * The automation engine: what wakes automations, and what runs them (ARCHITECTURE.md §6.1).
  *
  * It holds every enabled automation, an index from each entity to the automations whose triggers
- * watch it, and a timer for every time trigger and every hold. Things happening reach it three
- * ways - a change of an entity (handed over by the ingest pipeline), a timer, and somebody pressing
- * Run - and each is turned into an event for the trigger tree in `domain/automation`. When a tree
+ * watch it, and a timer for every time trigger and every hold. Things happening reach it four
+ * ways - a change of an entity (handed over by the ingest pipeline), a timer, somebody pressing
+ * Run, and a call to a webhook address (decided in `domain/automation/webhook.ts`, and recorded in
+ * `history.webhook_calls`) - and each is turned into an event for the trigger tree in
+ * `domain/automation`, or wakes the automation directly. When a tree
  * fires, the automation's mode and the loop guard decide whether a run starts; a run checks `if`,
  * runs `then` through the interpreter, and writes one row to `history.automation_runs` with its
  * trace. Commands carry the run as their cause, so the change they produce says which run made
@@ -27,6 +29,7 @@ import { z } from 'zod';
 
 import type { BusClient } from '@nebulahome/bus';
 import {
+  aliasScalarFromState,
   AUTOMATION_TEST_MAX_CONCURRENT,
   AUTOMATION_TEST_MAX_MS,
   busSubjects,
@@ -53,8 +56,10 @@ import {
   type TestAutomationBlockRequest,
   type TraceStep,
   type TriggerAutomationReply,
+  type WebhookCallReply,
+  type WebhookCallRequest,
 } from '@nebulahome/contracts';
-import type { Database } from '@nebulahome/db';
+import { isSealed, openSecret, type Database } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
 
 import {
@@ -65,11 +70,13 @@ import {
 } from '../domain/automation/conditions.js';
 import {
   ActionFailed,
+  durationWords,
   Executor,
   RunAborted,
   StopRun,
   type ExecutorPorts,
 } from '../domain/automation/executor.js';
+import { buildHttpRequest } from '../domain/automation/http-request.js';
 import { decideMode, LoopGuard } from '../domain/automation/run-rules.js';
 import { nextFire, type House, type ScheduledTrigger } from '../domain/automation/schedule.js';
 import { TraceRecorder } from '../domain/automation/trace.js';
@@ -80,14 +87,17 @@ import {
   triggerLeaves,
   type TriggerEvent,
 } from '../domain/automation/trigger-match.js';
+import { CallCounter, decideWebhook, webhookTargets } from '../domain/automation/webhook.js';
 import type { EntityDirectory } from '../domain/entity-directory.js';
 import type { EntityRegistry, IngestResult } from '../domain/entity-registry.js';
 import {
   automationIdByKey,
   insertRun,
+  insertWebhookCall,
   loadAutomation,
   loadAutomations,
   loadHouse,
+  loadWebhookSettings,
   markTriggered,
   type AutomationRecord,
 } from '../persistence/automation-store.js';
@@ -114,6 +124,9 @@ export type AutomationEngineOptions = {
 
   readonly logger: PlatformLogger;
   readonly newTraceId: () => string;
+
+  /** Opens the header an HTTP request action keeps secret. */
+  readonly secretsKey: Buffer;
 
   /** The clock. */
   readonly now?: () => Date;
@@ -279,6 +292,9 @@ function triggerDetail(trigger: AutomationRunTrigger): string {
     case 'automation': {
       return 'started by another automation';
     }
+    case 'webhook': {
+      return 'its webhook was called';
+    }
   }
 }
 
@@ -294,6 +310,7 @@ export class AutomationEngine {
   readonly #tests = new Map<string, AbortController>();
   readonly #guard = new LoopGuard();
   readonly #refusedAt = new Map<string, number>();
+  readonly #webhookCalls = new CallCounter();
   #house: House = { timeZone: 'UTC', position: null };
 
   /**
@@ -461,6 +478,75 @@ export class AutomationEngine {
     }
 
     return this.#wake(slot, { kind: 'manual', ...(userId === undefined ? {} : { userId }) }, []);
+  }
+
+  /**
+   * Takes a call to a webhook address: decides its answer, wakes what it starts, and records it.
+   *
+   * @param call - The call, as the API received it.
+   * @returns The status to answer, what became of it and the run it started.
+   */
+  public async webhookCall(call: WebhookCallRequest): Promise<WebhookCallReply> {
+    const receivedAt = this.#now();
+    const settings = await loadWebhookSettings(this.#options.db);
+    const targets = webhookTargets(
+      [...this.#slots.values()].map((slot) => ({
+        id: slot.record.id,
+        triggers: slot.record.definition.triggers,
+      })),
+      call.hookId,
+    );
+    const decision = decideWebhook(targets, call, settings.allowInternet, () =>
+      this.#webhookCalls.admit(call.hookId, receivedAt.getTime(), settings.ratePerMinute),
+    );
+    let reply: WebhookCallReply;
+    let automationId: string | null;
+
+    if (decision.status === 200) {
+      // Every automation with the id wakes; the first one's run is what the caller is told of.
+      const [first, ...others] = decision.targets.flatMap((target) => {
+        const slot = this.#slots.get(target.automationId);
+
+        return slot === undefined ? [] : [{ target, slot }];
+      });
+
+      automationId = first?.target.automationId ?? null;
+      reply =
+        first === undefined
+          ? { status: 404, outcome: 'not_found', runId: null }
+          : {
+              status: 200,
+              ...this.#wake(first.slot, { kind: 'webhook', path: first.target.path }, []),
+            };
+
+      for (const { target, slot } of others) {
+        this.#wake(slot, { kind: 'webhook', path: target.path }, []);
+      }
+    } else {
+      automationId = decision.automationId;
+      reply = { status: decision.status, outcome: decision.outcome, runId: null };
+    }
+
+    insertWebhookCall(this.#options.db, {
+      time: receivedAt,
+      hookId: call.hookId,
+      automationId,
+      method: call.method,
+      path: call.path,
+      remoteIp: call.ip,
+      isLocal: call.isLocal,
+      userAgent: call.userAgent,
+      headers: call.headers,
+      status: reply.status,
+      durationMs: Math.max(0, this.#now().getTime() - receivedAt.getTime()),
+      outcome: reply.outcome,
+      runId: reply.runId,
+    }).catch((error: unknown) => {
+      // Not the id: it is the webhook's password, and logs are read more widely than the table.
+      this.#options.logger.error({ err: error, automationId }, 'Could not record a webhook call');
+    });
+
+    return { status: reply.status, outcome: reply.outcome, runId: reply.runId };
   }
 
   /**
@@ -638,6 +724,13 @@ export class AutomationEngine {
       }
       case 'event': {
         return { ...nothing, detail: '', problem: 'Device events are not available yet' };
+      }
+      case 'webhook': {
+        return {
+          ...nothing,
+          detail: 'Fires when its address is called',
+          problem: 'A webhook has nothing to test: call its address',
+        };
       }
       case 'time':
       case 'sun': {
@@ -1425,6 +1518,58 @@ export class AutomationEngine {
         const state = this.#stateOf(entityId);
 
         return state === undefined ? undefined : stateTokenOf(state.state, state.isAvailable);
+      },
+      /**
+       * Sends an HTTP request, its parameters read from the house now.
+       *
+       * @param action - The block.
+       * @param signal - The run's signal.
+       * @returns The answer's status, and where it went.
+       */
+      httpRequest: async (action, signal) => {
+        const request = buildHttpRequest(
+          action,
+          (entityId) => {
+            const state = this.#stateOf(entityId);
+
+            return state?.isAvailable === true ? aliasScalarFromState(state.state) : undefined;
+          },
+          (value) => {
+            if (!isSealed(value)) {
+              throw new Error('A secret header was not kept: type it again and save');
+            }
+
+            return openSecret(value, this.#options.secretsKey);
+          },
+        );
+        const target = `${request.url.host}${request.url.pathname}`;
+
+        try {
+          const response = await fetch(request.url, {
+            method: action.method,
+            headers: request.headers,
+            ...(request.body === undefined ? {} : { body: request.body }),
+            signal: AbortSignal.any([signal, AbortSignal.timeout(action.timeoutMs)]),
+          });
+
+          // The answer's body is not used: read nothing of it, and free the connection.
+          await response.body?.cancel();
+
+          return { status: response.status, target };
+        } catch (error: unknown) {
+          if (signal.aborted) {
+            throw error;
+          }
+
+          const reason =
+            error instanceof Error && error.name === 'TimeoutError'
+              ? `no answer within ${durationWords(action.timeoutMs)}`
+              : messageOf(
+                  error instanceof Error && error.cause instanceof Error ? error.cause : error,
+                );
+
+          throw new Error(`${action.method} ${target}: ${reason}`, { cause: error });
+        }
       },
     };
   }

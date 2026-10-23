@@ -4,7 +4,7 @@
  * The API writes an automation's row and then asks `core` to take it in, the way it does an
  * alias; deleting one is the API's write followed by `remove_automation`. Run now is a request
  * here, after the API has checked who pressed it, and so is testing one block of an automation
- * being edited. The house - its zone and its position - is read again when the API says either
+ * being edited, and a call to a webhook address, whose body the API keeps to itself. The house - its zone and its position - is read again when the API says either
  * changed, since nothing else re-reads a saved setting; a position given or cleared also brings
  * the sun's entities or takes them away.
  */
@@ -19,11 +19,13 @@ import {
   CORE_SYNC_HOUSE_METHOD,
   CORE_TEST_AUTOMATION_BLOCK_METHOD,
   CORE_TRIGGER_AUTOMATION_METHOD,
+  CORE_WEBHOOK_CALL_METHOD,
   removeAutomationRequestSchema,
   syncAutomationRequestSchema,
   syncHouseRequestSchema,
   testAutomationBlockRequestSchema,
   triggerAutomationRequestSchema,
+  webhookCallRequestSchema,
   type AutomationTestReply,
   type CancelAutomationTestReply,
   type CancelAutomationTestRequest,
@@ -35,6 +37,8 @@ import {
   type TestAutomationBlockRequest,
   type TriggerAutomationReply,
   type TriggerAutomationRequest,
+  type WebhookCallReply,
+  type WebhookCallRequest,
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 
@@ -160,6 +164,18 @@ export function startAutomationService(options: AutomationServiceOptions): BusSu
       (request: CancelAutomationTestRequest): CancelAutomationTestReply => ({
         wasRunning: engine.cancelTest(request.testId),
       }),
+    ),
+    client.serve(
+      busSubjects.service(CORE_SERVICE, CORE_WEBHOOK_CALL_METHOD),
+      webhookCallRequestSchema,
+
+      /**
+       * Takes a call to a webhook address.
+       *
+       * @param request - The call, as the API received it.
+       * @returns What to answer it.
+       */
+      (request: WebhookCallRequest): Promise<WebhookCallReply> => engine.webhookCall(request),
     ),
   ];
 }
