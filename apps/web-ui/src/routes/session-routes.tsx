@@ -73,6 +73,7 @@ import { RequiresPermission } from '@/routes/settings/requires-permission';
 import { DEFAULT_SETTINGS_SECTION, SettingsLayout } from '@/routes/settings/settings-layout';
 import { SystemMonitor } from '@/routes/settings/system-monitor';
 import { UsersAndRoles } from '@/routes/settings/users-and-roles';
+import { WebhooksSettings } from '@/routes/settings/webhooks-settings';
 import { PagePlaceholder, Shell } from '@/routes/shell';
 import { SignInForm } from '@/routes/sign-in';
 import { TwoFactorFooter, TwoFactorForm } from '@/routes/two-factor';
@@ -472,6 +473,18 @@ export function SessionRoutes() {
                 section={t('settings.sections.backup', 'Backup')}
               >
                 <BackupSettings />
+              </RequiresPermission>
+            }
+          />
+
+          <Route
+            path="webhooks"
+            element={
+              <RequiresPermission
+                permission="settings:read"
+                section={t('settings.sections.webhooks', 'Webhooks')}
+              >
+                <WebhooksSettings />
               </RequiresPermission>
             }
           />

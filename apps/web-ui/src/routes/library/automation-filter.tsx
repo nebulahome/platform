@@ -2,7 +2,7 @@
  * The filter on the automations page: standing, mode, and trigger kind.
  *
  * Three dropdowns in the shared sheet. Standing and mode are short fixed lists; trigger kind is
- * the five leaves the schema knows, so the sheet does not grow with every rule on the page.
+ * the six leaves the schema knows, so the sheet does not grow with every rule on the page.
  */
 import { useTranslation } from 'react-i18next';
 
@@ -63,6 +63,7 @@ const TRIGGER_LABELS: Readonly<Record<string, Message>> = {
   sun: defineMessage('library.automationFilter.sun', 'Sun'),
   event: defineMessage('library.automationFilter.event', 'Event'),
   manual: defineMessage('library.automationFilter.manual', 'Manual'),
+  webhook: defineMessage('library.automationFilter.webhook', 'Webhook'),
 };
 
 /**

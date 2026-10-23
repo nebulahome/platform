@@ -237,6 +237,9 @@ function isIncomplete(action: AutomationAction): boolean {
     case 'package_service': {
       return action.packageId === '';
     }
+    case 'http_request': {
+      return action.url === '';
+    }
     default: {
       return CONTROL_KINDS.has(action.type) && action.type !== 'stop';
     }

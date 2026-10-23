@@ -214,6 +214,32 @@ describe('the blocks that hold others', () => {
 
     expect(screen.getByText(/not available yet/u)).toBeTruthy();
   });
+
+  it('renames an HTTP parameter where it is used, and keeps Authorization secret', () => {
+    renderList([
+      {
+        type: 'http_request',
+        method: 'POST',
+        url: '',
+        variables: { door: 'binary_sensor.front_door' },
+        headers: [{ name: 'Authorization', value: { $sealed: true, ref: 'a1b2c3d4e5f60718' } }],
+        body: { kind: 'json', text: '{ "door": {{ door }} }' },
+        timeoutMs: 10_000,
+      },
+    ]);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), {
+      target: { value: 'front' },
+    });
+
+    expect(seen.then[0]).toMatchObject({
+      variables: { front: 'binary_sensor.front_door' },
+      body: { kind: 'json', text: '{ "door": {{ front }} }' },
+    });
+    expect(screen.getByLabelText('Value of Authorization')).toHaveProperty('type', 'password');
+    expect(screen.getByText('Secret')).toBeTruthy();
+    expect(screen.getByText('Valid JSON')).toBeTruthy();
+  });
 });
 
 describe('the ⋯ menu', () => {

@@ -7,7 +7,7 @@
  * said back in words with its next runs. The sun is one of its moments - sunrise, the golden
  * hour, the sun crossing an elevation - worked out where the house stands, with when it next
  * comes. `manual` has no fields and says how it runs; `event` is kept as written and says that
- * nothing reports device events yet.
+ * nothing reports device events yet; a webhook is its address (`automation/webhook-fields.tsx`).
  */
 import { useTranslation } from 'react-i18next';
 
@@ -30,6 +30,7 @@ import { cronWords, nextCronRuns, shortMoment } from '@/lib/cron-words';
 import { partialEntityId, withoutKey } from '@/library/automation-draft';
 import { useEditorHouse } from '@/routes/library/automation/editor-house';
 import { EntityTriggerFields } from '@/routes/library/automation/entity-match-fields';
+import { WebhookFields } from '@/routes/library/automation/webhook-fields';
 import { EntityField } from '@/routes/library/entity-field';
 
 export { operatorOptions, StateField } from '@/routes/library/automation/entity-match-fields';
@@ -67,6 +68,9 @@ export function TriggerFields(props: TriggerFieldsProps) {
     }
     case 'entity': {
       return <EntityTriggerFields trigger={trigger} onChange={onChange} />;
+    }
+    case 'webhook': {
+      return <WebhookFields trigger={trigger} onChange={onChange} />;
     }
     case 'time':
     case 'sun': {

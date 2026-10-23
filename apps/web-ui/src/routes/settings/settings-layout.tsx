@@ -89,6 +89,12 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     permission: 'settings:read',
   },
   {
+    path: '/settings/webhooks',
+    label: defineMessage('settings.nav.webhooks', 'Webhooks'),
+    group: 'server',
+    permission: 'settings:read',
+  },
+  {
     path: '/settings/icons',
     label: defineMessage('settings.nav.icons', 'Icons'),
     group: 'server',

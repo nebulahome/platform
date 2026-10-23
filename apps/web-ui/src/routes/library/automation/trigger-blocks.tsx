@@ -70,6 +70,9 @@ export function triggerGlyph(trigger: AutomationTrigger): UiIconId {
     case 'manual': {
       return 'mouse-pointer-click';
     }
+    case 'webhook': {
+      return 'webhook';
+    }
   }
 }
 
@@ -218,7 +221,12 @@ function TriggerBlock(props: TriggerBlockProps) {
           )
         : trigger.type === 'event'
           ? t('automation.triggerBlocks.deviceEventsAreNot', 'Device events are not available yet')
-          : undefined,
+          : trigger.type === 'webhook'
+            ? t(
+                'automation.triggerBlocks.webhookHasNothing',
+                'A webhook has nothing to test: call its address',
+              )
+            : undefined,
   });
   const isGone =
     trigger.type === 'entity' &&
