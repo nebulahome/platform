@@ -41,6 +41,9 @@ export const HUB_MATTER_REMOVE_METHOD = 'matter_remove';
 /** Brings back a device removed from the house whose node is still on the fabric. */
 export const HUB_MATTER_RESTORE_METHOD = 'matter_restore';
 
+/** The fabric's network: who each node reaches the house through, and how well. */
+export const HUB_MATTER_NETWORK_METHOD = 'matter_network';
+
 /** Answers the question a commissioning stopped on: add a device with a test certificate anyway. */
 export const HUB_MATTER_ANSWER_METHOD = 'matter_answer';
 
@@ -304,6 +307,90 @@ export const matterNodesReplySchema = z.object({ items: z.array(matterNodeSchema
 
 /** Every node of the fabric. */
 export type MatterNodesReply = z.output<typeof matterNodesReplySchema>;
+
+/**
+ * What a point of the fabric's network is, as the controller works it out: a node of the fabric;
+ * a Thread border router found over mDNS; a Thread device some node hears that is not on this
+ * fabric (a border router too, when the house does not look for them); a Wi-Fi access point, made
+ * up from the BSSID its stations report.
+ */
+export const MATTER_NETWORK_KINDS = [
+  'matter',
+  'border_router',
+  'thread_unknown',
+  'wifi_ap',
+] as const;
+
+/** How a point reaches the network. */
+export const MATTER_NETWORKS = ['thread', 'wifi', 'ethernet', 'unknown'] as const;
+
+/** How good a link is: Thread by LQI, Wi-Fi by RSSI; `unknown` is a link nobody measured. */
+export const MATTER_LINK_STRENGTHS = ['strong', 'medium', 'weak', 'none', 'unknown'] as const;
+
+/** One point of the fabric's network. */
+export const matterNetworkNodeSchema = z.object({
+  /** The controller's id for it: the node id for a node, `ap_<BSSID>`, `unknown_<address>`. */
+  id: z.string().min(1).max(64),
+  kind: z.enum(MATTER_NETWORK_KINDS),
+  network: z.enum(MATTER_NETWORKS),
+
+  /** The node, for a node of the fabric. */
+  nodeId: matterNodeIdSchema.nullable(),
+
+  /** Leader, router, end device, sleepy end device, station...; null when it did not say. */
+  role: z.string().max(32).nullable(),
+
+  /** Whether it answers; null for what is not a node of the fabric. */
+  isAvailable: z.boolean().nullable(),
+  isBridge: z.boolean(),
+
+  /** The Thread network's name. */
+  networkName: z.string().max(64).nullable(),
+
+  /** The Thread or Wi-Fi channel. */
+  channel: z.number().int().min(0).max(255).nullable(),
+
+  /** The Wi-Fi network a station is on, and the access point's address. */
+  ssid: z.string().max(64).nullable(),
+  bssid: z.string().max(32).nullable(),
+
+  /** The Thread extended address: a Thread point's MAC. */
+  extAddress: z.string().max(32).nullable(),
+});
+
+/** One point of the fabric's network. */
+export type MatterNetworkNode = z.output<typeof matterNetworkNodeSchema>;
+
+/** One link between two points, as the better of its two ends reported it. */
+export const matterNetworkLinkSchema = z.object({
+  source: z.string().min(1).max(64),
+  target: z.string().min(1).max(64),
+  network: z.enum(['thread', 'wifi']),
+  strength: z.enum(MATTER_LINK_STRENGTHS),
+
+  /** Thread's link quality, 0 to 3 on OpenThread. */
+  lqi: z.number().int().nullable(),
+
+  /** The signal, in dBm. */
+  rssi: z.number().int().nullable(),
+});
+
+/** One link between two points. */
+export type MatterNetworkLink = z.output<typeof matterNetworkLinkSchema>;
+
+/** Asks for the fabric's network. */
+export const matterNetworkRequestSchema = z.object({});
+
+/** The fabric's network: Thread meshes and Wi-Fi stars; empty while the fabric is not open. */
+export const matterNetworkSchema = z.object({
+  /** When the controller put it together; null while the fabric is not open. */
+  collectedAt: timestampSchema.nullable(),
+  nodes: z.array(matterNetworkNodeSchema).max(2048),
+  links: z.array(matterNetworkLinkSchema).max(8192),
+});
+
+/** The fabric's network. */
+export type MatterNetwork = z.output<typeof matterNetworkSchema>;
 
 /** Starts commissioning a node. */
 export const matterCommissionRequestSchema = z.object({ code: matterPairingCodeSchema });
