@@ -168,11 +168,11 @@ export function TagsPage() {
         isEmpty={tags.length === 0}
         empty={
           <EmptyState
-            icon={<AppIcon id="tag" size={28} />}
+            icon={<AppIcon id="tag" size={32} />}
             title={t('library.tags.createYourFirstTag', 'Create your first tag')}
             description={t(
               'library.tags.tagGroupsDevicesAnd',
-              'A tag groups devices and entities - every light downstairs, every sensor on a battery - so an automation or a scene can pick them all at once.',
+              'A tag groups devices and entities, like every light downstairs or every sensor that runs on a battery, so an automation or a scene can pick them all at once.',
             )}
             action={
               canWrite ? (

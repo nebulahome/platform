@@ -13,4 +13,5 @@ export const DOCS_LINKS = {
   tags: '#docs-tags',
   integrations: '#docs-integrations',
   packages: '#docs-packages',
+  dashboards: '#docs-dashboards',
 } as const;

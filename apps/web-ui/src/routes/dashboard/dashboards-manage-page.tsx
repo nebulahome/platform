@@ -14,13 +14,14 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
 import type { DashboardAssignee, DashboardView } from '@nebulahome/contracts';
-import { AppIcon, Button, IconButton } from '@nebulahome/ui';
+import { AppIcon, Button, EmptyState, IconButton } from '@nebulahome/ui';
 
 import { Avatar } from '@/components/avatar';
 import { WrenchIcon } from '@/components/icons';
 import { DASHBOARD_QUERY_KEYS, fetchAssignees, fetchManagedDashboards } from '@/dashboard/api';
 import { allCards } from '@/dashboard/dashboard-layout';
 import { translate } from '@/i18n/messages';
+import { DOCS_LINKS } from '@/lib/docs-links';
 import { relativeTime } from '@/lib/format-time';
 import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, useListState, type ListCodec } from '@/lib/use-list-state';
@@ -186,6 +187,17 @@ export function DashboardsManagePage() {
     setDialog({ mode: 'edit', dashboard });
   };
 
+  const newButton = (
+    <Button
+      onClick={() => {
+        setDialog({ mode: 'create' });
+      }}
+    >
+      <AppIcon id="plus" size={15} />
+      {t('dashboard.dashboardsManage.newDashboard', 'New dashboard')}
+    </Button>
+  );
+
   return (
     <>
       <LibraryPage
@@ -211,23 +223,25 @@ export function DashboardsManagePage() {
             />
           )
         }
-        action={
-          <Button
-            onClick={() => {
-              setDialog({ mode: 'create' });
-            }}
-          >
-            <AppIcon id="plus" size={15} />
-            {t('dashboard.dashboardsManage.newDashboard', 'New dashboard')}
-          </Button>
-        }
+        action={newButton}
         isPending={dashboards.isPending}
         error={dashboards.error}
         isEmpty={all.length === 0}
-        emptyMessage={t(
-          'dashboard.dashboardsManage.noDashboardYetMake',
-          'No dashboard yet. Make one, lay its cards out, and choose who sees it on their Dashboards page.',
-        )}
+        empty={
+          <EmptyState
+            icon={<AppIcon id="layout-grid" size={32} />}
+            title={t(
+              'dashboard.dashboardsManage.createYourFirstDashboard',
+              'Create your first dashboard',
+            )}
+            description={t(
+              'dashboard.dashboardsManage.noDashboardYetMake',
+              'A dashboard is a page of cards for what you want close at hand. Make one, lay out its cards and choose who sees it on their Dashboards page.',
+            )}
+            action={newButton}
+            learnMoreHref={DOCS_LINKS.dashboards}
+          />
+        }
       >
         <div className="overflow-hidden rounded-panel border border-border bg-surface">
           <div

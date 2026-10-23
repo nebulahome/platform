@@ -339,11 +339,11 @@ export function ScenesPage() {
       isEmpty={items.length === 0}
       empty={
         <EmptyState
-          icon={<AppIcon id="layers" size={28} />}
+          icon={<AppIcon id="layers" size={32} />}
           title={t('library.scenes.createYourFirstScene', 'Create your first scene')}
           description={t(
             'library.scenes.sceneRemembersHowA',
-            'A scene remembers how a group of devices should be - lamps dimmed, blinds half closed, music low - and puts all of it back with one press, or from an automation.',
+            'A scene remembers how a group of devices should be set: lamps dimmed, blinds half closed, music low. One press brings it all back, and an automation can run it too.',
           )}
           action={
             canWrite ? (

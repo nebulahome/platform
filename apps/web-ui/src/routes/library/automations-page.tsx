@@ -325,11 +325,11 @@ export function AutomationsPage() {
       isEmpty={items.length === 0}
       empty={
         <EmptyState
-          icon={<AppIcon id="zap" size={28} />}
+          icon={<AppIcon id="zap" size={32} />}
           title={t('library.automations.createYourFirstAutomation', 'Create your first automation')}
           description={t(
             'library.automations.automationLetsTheHouse',
-            'An automation lets the house act on its own: choose what wakes it, the checks it makes first, and the steps it then takes - lights at sunset, the heating off when a window opens.',
+            'An automation lets the house act on its own. You choose what starts it, what it checks first and what it does next, like turning on the lights at sunset or switching off the heating when a window opens.',
           )}
           action={newButton}
           learnMoreHref={DOCS_LINKS.automations}

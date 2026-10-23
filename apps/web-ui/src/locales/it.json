@@ -1546,10 +1546,11 @@
       "dashboards": "Dashboard",
       "editLayout": "Modifica la disposizione",
       "manageDashboards": "Gestisci le dashboard",
-      "noDashboardIsAssigned": "Non ti è ancora assegnata nessuna dashboard. Creane una, o assegnatene una, in Configurazione › Dashboard.",
-      "noDashboardIsAssigned2": "Non ti è ancora assegnata nessuna dashboard. Chi gestisce le dashboard di questa casa può assegnartene una.",
+      "noDashboardIsAssigned": "Una dashboard è una pagina di schede per ciò che vuoi avere a portata di mano. Creane una in Configurazione e assegnala a te.",
+      "noDashboardIsAssigned2": "Una dashboard è una pagina di schede per ciò che vuoi avere a portata di mano. Chi gestisce le dashboard di questa casa può assegnartene una.",
       "nothingOnNameYet": "Ancora niente su {{name}}.",
-      "reading": "Lettura…"
+      "reading": "Lettura…",
+      "noDashboardAssignedYet": "Non ti è ancora assegnata nessuna dashboard"
     },
     "dashboardDialog": {
       "allFound_many": "{{count}} schede, tutte per cose che questa casa ha.",
@@ -1631,10 +1632,11 @@
       "editLayout": "Modifica la disposizione",
       "editTheLayoutOf": "Modifica la disposizione di {{name}}",
       "newDashboard": "Nuova dashboard",
-      "noDashboardYetMake": "Ancora nessuna dashboard. Creane una, disponi le sue schede, e scegli chi la vede nella sua pagina Dashboard.",
+      "noDashboardYetMake": "Una dashboard è una pagina di schede per ciò che vuoi avere a portata di mano. Creane una, disponi le sue schede e scegli chi la vede nella sua pagina Dashboard.",
       "nobody": "Nessuno",
       "searchDashboardsPeople": "Cerca dashboard, persone…",
-      "shownTo": "Mostrata a"
+      "shownTo": "Mostrata a",
+      "createYourFirstDashboard": "Crea la tua prima dashboard"
     },
     "energy": {
       "energyCard": {
@@ -2512,7 +2514,7 @@
       "whichOneIsThis": "Quale è questa sorgente?"
     },
     "aliases": {
-      "aliasIsAnEntity": "Un alias è un'entità che definisci tu: una lettura ricavata da altre, come la temperatura media della casa, oppure un aiuto - un interruttore, un numero - che le automazioni impostano e leggono.",
+      "aliasIsAnEntity": "Un alias è un'entità che definisci tu. Può essere una lettura ricavata da altre, come la temperatura media della casa, oppure un aiuto come un interruttore o un numero che le automazioni impostano e leggono.",
       "aliases": "Alias",
       "calculated": "Calcolato",
       "count_many": "{{count}} alias",
@@ -2662,7 +2664,7 @@
       "missingEntities_other": "Usa {{count}} entità che la casa non ha: non parte"
     },
     "automations": {
-      "automationLetsTheHouse": "Un'automazione fa agire la casa da sola: scegli cosa la sveglia, i controlli che fa prima e i passi che compie poi - le luci al tramonto, il riscaldamento spento quando si apre una finestra.",
+      "automationLetsTheHouse": "Un'automazione fa agire la casa da sola. Scegli cosa la avvia, cosa controlla prima e cosa fa dopo, come accendere le luci al tramonto o spegnere il riscaldamento quando si apre una finestra.",
       "automations": "Automazioni",
       "count_many": "{{count}} automazioni",
       "count_one": "{{count}} automazione",
@@ -3071,7 +3073,7 @@
       "hasNewDevices": "Ha nuovi dispositivi",
       "install": "Installa",
       "installYourFirstIntegration": "Installa la tua prima integrazione",
-      "integrationTeachesTheHub": "Un'integrazione insegna all'hub una marca - Shelly, Govee, Sonoff - così può trovare i suoi dispositivi in rete e parlare con loro. Installane una dal Community Hub o dalla cartella locale.",
+      "integrationTeachesTheHub": "Un'integrazione insegna all'hub una marca come Shelly, Govee o Sonoff, così può trovare i suoi dispositivi in rete e parlare con loro. Puoi installarne una dal Community Hub o dalla cartella locale.",
       "integrations": "Integrazioni",
       "local": "Locale",
       "searchIntegrations": "Cerca integrazioni…",
@@ -3209,7 +3211,7 @@
       "newScene": "Nuova scena",
       "noSceneIsPlaced": "Nessuna scena è ancora in un'area.",
       "scene": "Scena",
-      "sceneRemembersHowA": "Una scena ricorda come deve stare un gruppo di dispositivi - lampade abbassate, tapparelle a metà, musica bassa - e rimette tutto a posto con un tocco, o da un'automazione.",
+      "sceneRemembersHowA": "Una scena ricorda come deve stare un gruppo di dispositivi: lampade abbassate, tapparelle a metà, musica bassa. Con un tocco rimette tutto a posto, e può farlo anche un'automazione.",
       "scenes": "Scene",
       "searchScenesMembers": "Cerca scene, membri…",
       "imported_one": "1 scena importata",
@@ -3277,7 +3279,7 @@
       "newTag": "Nuovo tag",
       "searchTags": "Cerca tag…",
       "tag": "Tag",
-      "tagGroupsDevicesAnd": "Un tag raggruppa dispositivi ed entità - tutte le luci al piano terra, tutti i sensori a batteria - così un'automazione o una scena può sceglierli tutti in una volta.",
+      "tagGroupsDevicesAnd": "Un tag raggruppa dispositivi ed entità, come tutte le luci al piano terra o tutti i sensori a batteria, così un'automazione o una scena può sceglierli tutti in una volta.",
       "tags": "Tag"
     },
     "triggerFields": {
@@ -3962,7 +3964,7 @@
       "install": "Installa",
       "installYourFirstPackage": "Installa il tuo primo pacchetto",
       "narrowThePackages": "Filtra i pacchetti",
-      "packageAddsToThe": "Un pacchetto aggiunge alla casa ciò che nessun dispositivo porta - una vista 3D della casa, un lettore musicale, un broker - con le sue pagine e le sue schede. Installane uno dal Community Hub.",
+      "packageAddsToThe": "Un pacchetto aggiunge ciò che nessun dispositivo porta, come una vista 3D della casa, un lettore musicale o un broker, ognuno con le sue pagine e le sue schede. Puoi installarne uno dal Community Hub.",
       "packages": "Pacchetti",
       "searchPackages": "Cerca pacchetti…",
       "shownOfTotal": "{{shown}} di {{total}} mostrati",

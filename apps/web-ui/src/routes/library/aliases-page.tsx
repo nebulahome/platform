@@ -195,11 +195,11 @@ export function AliasesPage() {
       isEmpty={items.length === 0}
       empty={
         <EmptyState
-          icon={<AppIcon id="sigma" size={28} />}
+          icon={<AppIcon id="sigma" size={32} />}
           title={t('library.aliases.createYourFirstAlias', 'Create your first alias')}
           description={t(
             'library.aliases.aliasIsAnEntity',
-            'An alias is an entity you define: a reading worked out from others, like the average temperature of the house, or a helper - a switch, a number - that automations set and read.',
+            'An alias is an entity you define yourself. It can be a reading worked out from others, like the average temperature of the house, or a helper such as a switch or a number that automations set and read.',
           )}
           action={
             canWrite ? (

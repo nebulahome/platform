@@ -166,11 +166,11 @@ export function PackagesPage() {
         isEmpty={installed.packages.length === 0}
         empty={
           <EmptyState
-            icon={<AppIcon id="package" size={28} />}
+            icon={<AppIcon id="package" size={32} />}
             title={t('packages.packages.installYourFirstPackage', 'Install your first package')}
             description={t(
               'packages.packages.packageAddsToThe',
-              'A package adds to the home what no device brings - a 3D view of the house, a music player, a broker - with its own pages and cards. Install one from the Community Hub.',
+              'A package adds what no device brings, like a 3D view of the house, a music player or a broker, each with its own pages and cards. You can install one from the Community Hub.',
             )}
             action={
               canInstall ? (

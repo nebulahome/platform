@@ -13,10 +13,11 @@ import { useTranslation } from 'react-i18next';
 import { Navigate, useNavigate, useParams } from 'react-router';
 
 import type { DashboardView } from '@nebulahome/contracts';
-import { AppIcon, Button } from '@nebulahome/ui';
+import { AppIcon, Button, EmptyState } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { DASHBOARD_QUERY_KEYS, fetchDashboards } from '@/dashboard/api';
+import { DOCS_LINKS } from '@/lib/docs-links';
 import { toMessage } from '@/lib/error-message';
 import { DashboardGrid } from '@/routes/dashboard/dashboard-grid';
 import { DashboardTabs } from '@/routes/dashboard/dashboard-tabs';
@@ -119,18 +120,38 @@ export function DashboardPage() {
     }
 
     return (
-      <Frame tools={manageLink}>
-        <PageMessage>
-          {canManage
-            ? t(
-                'dashboard.dashboard.noDashboardIsAssigned',
-                'No dashboard is assigned to you yet. Make one, or assign one to yourself, under Configuration › Dashboards.',
-              )
-            : t(
-                'dashboard.dashboard.noDashboardIsAssigned2',
-                'No dashboard is assigned to you yet. Whoever manages the dashboards of this house can assign you one.',
-              )}
-        </PageMessage>
+      <Frame>
+        <EmptyState
+          icon={<AppIcon id="layout-grid" size={32} />}
+          title={t(
+            'dashboard.dashboard.noDashboardAssignedYet',
+            'No dashboard is assigned to you yet',
+          )}
+          description={
+            canManage
+              ? t(
+                  'dashboard.dashboard.noDashboardIsAssigned',
+                  'A dashboard is a page of cards for what you want close at hand. Make one in Configuration and assign it to yourself.',
+                )
+              : t(
+                  'dashboard.dashboard.noDashboardIsAssigned2',
+                  'A dashboard is a page of cards for what you want close at hand. Whoever manages the dashboards of this house can assign you one.',
+                )
+          }
+          action={
+            canManage ? (
+              <Button
+                onClick={() => {
+                  void navigate(DASHBOARDS_CONFIGURATION_PATH);
+                }}
+              >
+                <AppIcon id="plus" size={15} />
+                {t('dashboard.dashboard.manageDashboards', 'Manage dashboards')}
+              </Button>
+            ) : undefined
+          }
+          learnMoreHref={DOCS_LINKS.dashboards}
+        />
       </Frame>
     );
   }

@@ -239,14 +239,14 @@ export function IntegrationsPage() {
         isEmpty={all.length === 0}
         empty={
           <EmptyState
-            icon={<AppIcon id="library" size={28} />}
+            icon={<AppIcon id="library" size={32} />}
             title={t(
               'library.integrations.installYourFirstIntegration',
               'Install your first integration',
             )}
             description={t(
               'library.integrations.integrationTeachesTheHub',
-              'An integration teaches the hub a brand - Shelly, Govee, Sonoff - so it can find their devices on the network and talk to them. Install one from the Community Hub or the local folder.',
+              'An integration teaches the hub a brand such as Shelly, Govee or Sonoff, so it can find those devices on the network and talk to them. You can install one from the Community Hub or from the local folder.',
             )}
             action={installButton}
             learnMoreHref={DOCS_LINKS.integrations}
