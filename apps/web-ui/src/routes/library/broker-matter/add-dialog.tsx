@@ -1,8 +1,8 @@
 /**
  * Adding a Matter device: the code, then the job.
  *
- * One dialog with four faces. **The code** - one large field, an example of what a Matter code
- * looks like, and the footnote that it goes over the network, one device at a time. **The job** -
+ * One dialog with four faces. **The code** - one large field, an example of where a Matter code is
+ * printed, and the footnote that it goes over the house's network only. **The job** -
  * its steps, and the picture of the device finding its way in; it can be closed, and goes on, and
  * opening the dialog again picks it up. **A test certificate** - the job stopped before the device
  * joined, asking whether to add it anyway. **A twin** - added, and it looks like a device the house
@@ -129,13 +129,14 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
         title={t('brokers.matter.add.title', 'Add a Matter device')}
         description={t(
           'brokers.matter.add.line',
-          'Type the code it shows, or the one printed on it',
+          'Enter the device’s setup code to add it to your home',
         )}
         closesOnBackdrop={code === ''}
         footer={
           <>
-            <span className="text-caption text-foreground-subtle">
-              {t('brokers.matter.add.footnote', 'Over the network only · one device at a time')}
+            <span className="inline-flex items-center gap-2 text-caption text-foreground-subtle">
+              <AppIcon id="network" size={14} />
+              {t('brokers.matter.add.footnote', 'On your network only')}
             </span>
             <span className="flex items-center gap-2">
               <Button variant="bare" onClick={close}>
@@ -163,36 +164,38 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
               commission.mutate(cleanCode(code));
             }}
           />
-          <div className="flex items-center gap-4.5 rounded-inner border border-dashed border-border-strong p-3.5">
+          <div className="flex items-center gap-5 rounded-card border border-border bg-rail p-4">
             <div
               aria-hidden="true"
-              className="flex shrink-0 items-center gap-3.5 rounded-tile border border-border-strong bg-rail py-3 pr-4 pl-3"
+              className="flex shrink-0 flex-col items-center gap-2.5 rounded-tile border border-border-strong bg-canvas px-4 pt-3.5 pb-3"
             >
-              <span
-                className="size-14 shrink-0 bg-foreground opacity-85"
-                /* eslint-disable-next-line react/forbid-dom-props -- the picture is an asset's. */
-                style={{
-                  maskImage: `url(${exampleQr})`,
-                  WebkitMaskImage: `url(${exampleQr})`,
-                  maskSize: 'contain',
-                  maskMode: 'luminance',
-                }}
-              />
-              <span className="flex flex-col gap-1.5">
-                <span className="text-foreground-muted">
-                  <MatterLogo width={16} height={16} />
+              <span className="relative size-23">
+                <span
+                  className="absolute inset-0 bg-foreground opacity-90"
+                  /* eslint-disable-next-line react/forbid-dom-props -- the picture is an asset's. */
+                  style={{
+                    maskImage: `url(${exampleQr})`,
+                    WebkitMaskImage: `url(${exampleQr})`,
+                    maskSize: 'contain',
+                    maskMode: 'luminance',
+                  }}
+                />
+                <span className="absolute inset-0 flex items-center justify-center text-foreground">
+                  <MatterLogo width={26} height={26} />
                 </span>
-                <span className="font-mono text-subhead text-foreground">3497-011-2332</span>
+              </span>
+              <span className="font-mono text-ui tracking-wider text-foreground">
+                3497-011-2332
               </span>
             </div>
-            <span className="flex flex-col gap-1">
-              <span className="text-caption font-medium tracking-wider text-foreground-muted uppercase">
-                {t('brokers.matter.add.example', 'Example')}
+            <span className="flex flex-col gap-1.5">
+              <span className="text-ui font-medium text-foreground">
+                {t('brokers.matter.add.where', 'Where to find the code')}
               </span>
-              <span className="text-ui-sm leading-normal text-foreground-subtle">
+              <span className="text-ui-sm leading-normal text-foreground-muted">
                 {t(
-                  'brokers.matter.add.exampleLine',
-                  'A Matter code is 11 or 21 digits, often next to a QR code.',
+                  'brokers.matter.add.whereLine',
+                  'It is printed under the Matter QR code, on the device or its packaging. If the device is already set up in another app, that app can create a new code for it.',
                 )}
               </span>
             </span>

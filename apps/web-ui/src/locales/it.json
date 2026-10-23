@@ -626,14 +626,14 @@
     "matter": {
       "about": "Informazioni",
       "add": {
-        "code": "Codice di abbinamento",
-        "example": "Esempio",
-        "exampleLine": "Un codice Matter ha 11 o 21 cifre, spesso accanto a un codice QR.",
-        "footnote": "Solo via rete · un dispositivo alla volta",
-        "hint": "11 o 21 cifre. Si può incollare anche il testo del codice QR (<0>MT:…</0>).",
-        "line": "Scrivi il codice che mostra, o quello stampato sopra",
+        "code": "Codice di configurazione",
+        "footnote": "Solo sulla tua rete",
+        "hint": "11 o 21 cifre. Puoi incollare anche il contenuto del codice QR (<0>MT:…</0>).",
+        "line": "Inserisci il codice di configurazione del dispositivo per aggiungerlo alla casa",
         "paste": "Incolla",
-        "title": "Aggiungi un dispositivo Matter"
+        "title": "Aggiungi un dispositivo Matter",
+        "where": "Dove trovare il codice",
+        "whereLine": "È stampato sotto il codice QR Matter, sul dispositivo o sulla confezione. Se il dispositivo è già configurato in un'altra app, quell'app può crearne uno nuovo."
       },
       "addBack": "Rimetti in casa",
       "addDevice": "Aggiungi dispositivo",

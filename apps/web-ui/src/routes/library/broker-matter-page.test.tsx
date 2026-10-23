@@ -76,7 +76,7 @@ describe('MatterBrokerPage', () => {
     const add = within(dialog).getByRole<HTMLButtonElement>('button', { name: 'Add device' });
 
     expect(add.disabled).toBe(true);
-    fireEvent.change(within(dialog).getByLabelText('Pairing code'), {
+    fireEvent.change(within(dialog).getByLabelText('Setup code'), {
       target: { value: '3497-011-2332' },
     });
     expect(add.disabled).toBe(false);

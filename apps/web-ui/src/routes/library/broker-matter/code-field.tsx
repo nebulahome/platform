@@ -109,7 +109,7 @@ export function PairingCodeField(props: PairingCodeFieldProps) {
   return (
     <div className="flex flex-col gap-2.5">
       <label htmlFor={id} className="text-ui-sm font-medium text-foreground-muted">
-        {t('brokers.matter.add.code', 'Pairing code')}
+        {t('brokers.matter.add.code', 'Setup code')}
       </label>
       <div
         className={cn(
@@ -222,7 +222,7 @@ export function PairingCodeField(props: PairingCodeFieldProps) {
       <span id={`${id}-hint`} className="text-caption text-foreground-subtle">
         <Trans
           i18nKey="brokers.matter.add.hint"
-          defaults="11 or 21 digits. The QR code’s text (<0>MT:…</0>) can be pasted too."
+          defaults="11 or 21 digits. You can also paste the QR code payload (<0>MT:…</0>)."
           components={[<span key="qr" className="font-mono" />]}
         />
       </span>
