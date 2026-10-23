@@ -603,9 +603,37 @@
 /*
  * The sky of an empty state (empty-state.tsx): rings turning each way at their own pace, each
  * carrying a planet or two, a light sweeping round the middle ring, a glow breathing behind the
- * mark, stars twinkling and the mark itself floating. A ring sets its own period in `--turn`, a star its own in `--twinkle` and `--delay`.
+ * mark, stars twinkling and the mark itself floating. A ring sets its own period in `--turn`, a
+ * star its own in `--twinkle` and `--delay`.
+ *
+ * The sky is drawn afresh on every page, so it is born rather than shown: the rings open out one
+ * after the other (`--enter`), the planets pop onto them (`--pop`), the stars come out a few at a
+ * time and the mark rises. Without that, going from one page to the next made every planet jump
+ * back to where its ring starts. The entrance uses `scale` and `opacity` while the turning uses
+ * `transform`, so the two run together on the same element.
+ *
  * Everything stops where less motion was asked for, and the sky stays as it was drawn.
  */
+@keyframes intro-enter {
+  from {
+    opacity: 0;
+    scale: 0.85;
+  }
+}
+
+@keyframes intro-pop {
+  from {
+    opacity: 0;
+    scale: 0;
+  }
+}
+
+@keyframes intro-appear {
+  from {
+    scale: 0;
+  }
+}
+
 @keyframes intro-breathe {
   0%,
   100% {
@@ -639,11 +667,20 @@
 }
 
 .intro-spin {
-  animation: matter-spin var(--turn, 30s) linear infinite;
+  animation:
+    matter-spin var(--turn, 30s) linear infinite,
+    intro-enter 0.9s cubic-bezier(0.22, 1, 0.36, 1) var(--enter, 0s) both;
 }
 
 .intro-spin-back {
-  animation: matter-spin var(--turn, 40s) linear infinite reverse;
+  animation:
+    matter-spin var(--turn, 40s) linear infinite reverse,
+    intro-enter 0.9s cubic-bezier(0.22, 1, 0.36, 1) var(--enter, 0s) both;
+}
+
+/* A planet lands on its ring with a little overshoot, once the ring is there. */
+.intro-planet {
+  animation: intro-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) var(--pop, 0.4s) both;
 }
 
 .intro-breathe {
@@ -651,11 +688,16 @@
 }
 
 .intro-float {
-  animation: intro-float 6s ease-in-out infinite;
+  animation:
+    intro-float 6s ease-in-out infinite,
+    intro-enter 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* A star comes out in the first second or so, dim, then twinkles on its own time. */
 .intro-twinkle {
-  animation: intro-twinkle var(--twinkle, 4s) ease-in-out var(--delay, 0s) infinite;
+  animation:
+    intro-appear 0.5s ease-out calc(var(--delay, 0s) / 3) both,
+    intro-twinkle var(--twinkle, 4s) ease-in-out var(--delay, 0s) infinite both;
 }
 
 /* The whole sky fades out towards its edges, so it has no frame. */
@@ -708,13 +750,20 @@
 }
 
 [data-motion='reduced']
-  :is(.intro-spin, .intro-spin-back, .intro-breathe, .intro-float, .intro-twinkle) {
+  :is(.intro-spin, .intro-spin-back, .intro-planet, .intro-breathe, .intro-float, .intro-twinkle) {
   animation: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-motion='full'])
-    :is(.intro-spin, .intro-spin-back, .intro-breathe, .intro-float, .intro-twinkle) {
+    :is(
+      .intro-spin,
+      .intro-spin-back,
+      .intro-planet,
+      .intro-breathe,
+      .intro-float,
+      .intro-twinkle
+    ) {
     animation: none;
   }
 }

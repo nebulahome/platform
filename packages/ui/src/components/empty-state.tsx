@@ -72,8 +72,8 @@ const STARS = [
   'left-[247px] top-[339px] size-[1.5px] [--delay:0.3s] [--twinkle:5.4s]',
 ] as const;
 
-/** A planet's own classes: centred on its spot of the ring. */
-const PLANET = 'absolute -translate-1/2 rounded-full';
+/** A planet's own classes: centred on its spot of the ring, popping onto it once it is there. */
+const PLANET = 'intro-planet absolute -translate-1/2 rounded-full';
 
 /**
  * Renders the sky above the words: glow, stars, four rings with their planets, the sweep and the
@@ -102,30 +102,32 @@ function Sky({ icon }: { readonly icon: ReactNode }) {
         <span
           className={cn(
             PLANET,
-            'top-[17.86%] left-[88.3%] size-1.5 bg-primary shadow-[0_0_12px_3px_color-mix(in_srgb,var(--color-primary)_45%,transparent)]',
+            'top-[17.86%] left-[88.3%] size-1.5 bg-primary shadow-[0_0_12px_3px_color-mix(in_srgb,var(--color-primary)_45%,transparent)] [--pop:0.35s]',
           )}
         />
       </span>
 
-      <span className="intro-spin-back absolute top-[190px] left-[320px] size-[280px] rounded-full border border-primary/14 [--turn:70s]">
+      <span className="intro-spin-back absolute top-[190px] left-[320px] size-[280px] rounded-full border border-primary/14 [--enter:0.08s] [--turn:70s]">
         <span
           className={cn(
             PLANET,
-            'top-[75%] left-[6.7%] size-[5px] bg-violet shadow-[0_0_10px_2px_color-mix(in_srgb,var(--color-violet)_45%,transparent)]',
+            'top-[75%] left-[6.7%] size-[5px] bg-violet shadow-[0_0_10px_2px_color-mix(in_srgb,var(--color-violet)_45%,transparent)] [--pop:0.45s]',
           )}
         />
-        <span className={cn(PLANET, 'top-[82.14%] left-[88.3%] size-[3px] bg-cyan')} />
+        <span
+          className={cn(PLANET, 'top-[82.14%] left-[88.3%] size-[3px] bg-cyan [--pop:0.55s]')}
+        />
       </span>
 
-      <span className="intro-spin absolute top-[110px] left-[240px] size-[440px] rounded-full border border-dashed border-border [--turn:120s]">
-        <span className={cn(PLANET, 'top-[3.02%] left-[32.9%] size-1 bg-lamp')} />
+      <span className="intro-spin absolute top-[110px] left-[240px] size-[440px] rounded-full border border-dashed border-border [--enter:0.16s] [--turn:120s]">
+        <span className={cn(PLANET, 'top-[3.02%] left-[32.9%] size-1 bg-lamp [--pop:0.65s]')} />
       </span>
 
-      <span className="intro-spin-back absolute top-[20px] left-[150px] size-[620px] rounded-full border border-foreground-muted/50 [--turn:180s]">
-        <span className={cn(PLANET, 'top-[32.9%] left-[3.02%] size-1 bg-cyan')} />
+      <span className="intro-spin-back absolute top-[20px] left-[150px] size-[620px] rounded-full border border-foreground-muted/50 [--enter:0.24s] [--turn:180s]">
+        <span className={cn(PLANET, 'top-[32.9%] left-[3.02%] size-1 bg-cyan [--pop:0.75s]')} />
       </span>
 
-      <span className="intro-spin intro-sweep absolute top-[190px] left-[320px] size-[280px] rounded-full [--turn:10s]" />
+      <span className="intro-spin intro-sweep absolute top-[190px] left-[320px] size-[280px] rounded-full [--enter:0.3s] [--turn:10s]" />
 
       <span className="intro-float intro-mark absolute top-[292px] left-[422px] flex size-[76px] items-center justify-center rounded-[22px] text-primary">
         {icon}
@@ -136,6 +138,9 @@ function Sky({ icon }: { readonly icon: ReactNode }) {
 
 /**
  * Renders an empty state.
+ *
+ * It runs 32 pixels out on each side, under the gutter the pages give their body (`px-8`), so the
+ * sky reaches the edges of the page rather than stopping in a hard line at the gutter.
  *
  * @param props - See {@link EmptyStateProps}.
  * @returns The empty state.
@@ -156,13 +161,13 @@ export function EmptyState(props: EmptyStateProps) {
     <div
       role="status"
       className={cn(
-        'relative flex min-h-[760px] grow flex-col items-center overflow-hidden',
+        'relative -mx-8 flex min-h-[760px] grow flex-col items-center overflow-hidden',
         className,
       )}
     >
       <Sky icon={icon} />
 
-      <div className="relative isolate mt-[480px] flex w-full max-w-[520px] flex-col items-center px-4 text-center">
+      <div className="relative isolate mt-[480px] flex w-full max-w-[584px] flex-col items-center px-12 text-center">
         <span
           aria-hidden="true"
           className="intro-veil absolute -inset-x-[90px] -inset-y-14 -z-10"
