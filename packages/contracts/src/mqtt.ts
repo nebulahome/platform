@@ -43,6 +43,9 @@ export const HUB_MQTT_RESTORE_METHOD = 'mqtt_restore';
 /** Saves the owner's settings of the broker, which starts it again. */
 export const HUB_MQTT_SETTINGS_METHOD = 'mqtt_settings';
 
+/** Stops the broker and starts it again. */
+export const HUB_MQTT_RESTART_METHOD = 'mqtt_restart';
+
 /** Who may connect, and who is connected. */
 export const HUB_MQTT_CLIENTS_METHOD = 'mqtt_clients';
 

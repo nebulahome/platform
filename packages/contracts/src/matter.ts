@@ -44,6 +44,12 @@ export const HUB_MATTER_RESTORE_METHOD = 'matter_restore';
 /** Answers the question a commissioning stopped on: add a device with a test certificate anyway. */
 export const HUB_MATTER_ANSWER_METHOD = 'matter_answer';
 
+/** Stops a commissioning before its device joined the fabric. */
+export const HUB_MATTER_CANCEL_METHOD = 'matter_cancel';
+
+/** Closes the controller and opens it again. */
+export const HUB_MATTER_RESTART_METHOD = 'matter_restart';
+
 /** The UDP port the controller listens on, which the engine does not let anyone change. */
 export const MATTER_PORT = 5540;
 
@@ -117,12 +123,14 @@ export type MatterIdentity = z.output<typeof matterIdentitySchema>;
 /**
  * How a commissioning goes. `needs-answer` is a job that stopped before the node joined and waits
  * for the owner: a device whose certificate is a test one, added only when they say so.
+ * `cancelled` is a job the owner stopped before the device joined.
  */
 export const MATTER_COMMISSIONING_STATES = [
   'running',
   'needs-answer',
   'succeeded',
   'failed',
+  'cancelled',
 ] as const;
 
 /**
@@ -335,3 +343,9 @@ export const matterAnswerRequestSchema = z.object({
 
 /** The owner's answer. */
 export type MatterAnswerRequest = z.output<typeof matterAnswerRequestSchema>;
+
+/** Stops a commissioning before its device joined the fabric. */
+export const matterCancelRequestSchema = z.object({ jobId: z.string().min(1).max(64) });
+
+/** Asks the controller to close and open again. */
+export const matterRestartRequestSchema = z.object({});
