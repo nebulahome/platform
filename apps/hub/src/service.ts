@@ -247,6 +247,13 @@ export class HubService {
       logger: options.logger,
       version: options.config.NEBULA_PLATFORM_VERSION,
       isLanReachable: options.config.HUB_DISCOVERY_ENABLED,
+
+      /**
+       * Reads which Matter devices the house has.
+       *
+       * @returns Their external ids.
+       */
+      inHouse: async () => new Set((await loadTakenDevices(options.db)).matter.keys()),
     });
     this.#transports.register(createMatterTransport(this.#matter));
 

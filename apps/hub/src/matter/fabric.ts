@@ -25,6 +25,11 @@ import {
   MatterController,
 } from '@matter-server/ws-controller';
 
+import type {
+  MATTER_LINK_STRENGTHS,
+  MATTER_NETWORK_KINDS,
+  MATTER_NETWORKS,
+} from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 import type { MatterNodeSnapshot, MatterUpdateOffer } from '@nebulahome/package-runtime';
 
@@ -73,6 +78,39 @@ export type FabricNode = MatterNodeSnapshot & {
   readonly commissionedAt: Date | null;
 };
 
+/** One direction of a link, as the end that saw it reported it. */
+type TopologyDirection = { readonly lqi?: number; readonly rssi?: number };
+
+/**
+ * The fabric's network as the controller works it out from what its nodes report - Thread
+ * neighbour tables, Wi-Fi BSSIDs - in the controller's own names.
+ */
+export type FabricTopology = {
+  /** When it was put together, in epoch milliseconds. */
+  readonly collected_at: number;
+  readonly nodes: readonly {
+    readonly id: string;
+    readonly kind: (typeof MATTER_NETWORK_KINDS)[number];
+    readonly network_type: (typeof MATTER_NETWORKS)[number];
+    readonly node_id?: number | string;
+    readonly role?: string;
+    readonly available?: boolean;
+    readonly is_bridge?: boolean;
+    readonly ext_address?: string;
+
+    /** The Thread network's name, or a Wi-Fi access point's BSSID. */
+    readonly network_name?: string;
+  }[];
+  readonly connections: readonly {
+    readonly source: string;
+    readonly target: string;
+    readonly network: 'thread' | 'wifi';
+    readonly strength: (typeof MATTER_LINK_STRENGTHS)[number];
+    readonly source_to_target?: TopologyDirection;
+    readonly target_to_source?: TopologyDirection;
+  }[];
+};
+
 /** The fabric, as the hub drives it. */
 export type MatterFabric = {
   /** The fabric's id, in hex. */
@@ -104,6 +142,9 @@ export type MatterFabric = {
 
   /** Has a node fetch and apply a firmware version. */
   readonly installUpdate: (nodeId: string, softwareVersion: number) => Promise<void>;
+
+  /** The network as the nodes last reported it: read from the cache, nothing is asked of them. */
+  readonly topology: () => FabricTopology;
 
   readonly stop: () => Promise<void>;
 };
@@ -486,6 +527,14 @@ export const openMatterFabric: OpenMatterFabric = async (options) => {
     installUpdate: async (nodeId, softwareVersion) => {
       await handler.updateNode(NodeId(BigInt(nodeId)), softwareVersion);
     },
+
+    /**
+     * Works the network out from the nodes' cached diagnostics; the service behind it is made the
+     * first time it is asked for, and closes with the controller.
+     *
+     * @returns The network.
+     */
+    topology: () => jsonSafe(controller.networkTopology.getTopology()) as FabricTopology,
 
     /**
      * Closes the controller and its storage.

@@ -1,7 +1,7 @@
 /**
  * The Matter broker on the bus: what the Brokers page reads and asks, through `api`.
  *
- * `svc.hub.matter_status` and `matter_nodes` read; `matter_commission` starts commissioning a node
+ * `svc.hub.matter_status`, `matter_nodes` and `matter_network` read; `matter_commission` starts commissioning a node
  * and answers with the job at once, since a node takes longer than a request waits, and
  * `matter_cancel` stops it before the device joined; `matter_restart` opens the controller again;
  * `matter_remove` takes a node off the fabric; `matter_restore` brings back a device removed from
@@ -14,6 +14,7 @@ import {
   HUB_MATTER_ANSWER_METHOD,
   HUB_MATTER_CANCEL_METHOD,
   HUB_MATTER_COMMISSION_METHOD,
+  HUB_MATTER_NETWORK_METHOD,
   HUB_MATTER_NODES_METHOD,
   HUB_MATTER_REMOVE_METHOD,
   HUB_MATTER_RESTART_METHOD,
@@ -23,6 +24,7 @@ import {
   matterAnswerRequestSchema,
   matterCancelRequestSchema,
   matterCommissionRequestSchema,
+  matterNetworkRequestSchema,
   matterNodesRequestSchema,
   matterRemoveRequestSchema,
   matterRestartRequestSchema,
@@ -121,6 +123,18 @@ export function serveMatter(options: MatterManagementOptions): BusSubscription[]
 
         return broker.status((nodeId) => taken.matter.get(nodeId)?.instanceId);
       },
+    ),
+
+    client.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MATTER_NETWORK_METHOD),
+      matterNetworkRequestSchema,
+
+      /**
+       * Says how the fabric's nodes reach the house, as they last reported it.
+       *
+       * @returns The network.
+       */
+      () => broker.network(),
     ),
 
     client.serve(

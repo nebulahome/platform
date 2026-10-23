@@ -28,15 +28,18 @@ import {
   type MatterCommissioningStep,
   type MatterCommissioningStepId,
   type BrokerState,
+  type MatterNetwork,
   type MatterStatus,
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 import {
+  attributeOf,
   CLUSTER,
   deviceSnapshotOf,
   matterDeviceKey,
   scopesOf,
   serves,
+  type MatterAttributes,
   type MatterDeviceSnapshot,
   type MatterUpdateOffer,
 } from '@nebulahome/package-runtime';
@@ -68,6 +71,37 @@ const ANSWER_WITHIN_MS = 10 * 60 * 1000;
 
 /** How long a device on the fabric has to be in the house before its job ends anyway. */
 const IN_HOUSE_WITHIN_MS = 2 * 60 * 1000;
+
+/** Network Commissioning, and its list of networks: `{ 0: network id, 1: connected }`. */
+const NETWORK_COMMISSIONING = 49;
+const NETWORKS = 1;
+
+/** Thread Network Diagnostics, and its channel. */
+const THREAD_DIAGNOSTICS = 53;
+const THREAD_CHANNEL = 0;
+
+/** Wi-Fi Network Diagnostics, and its channel. */
+const WIFI_DIAGNOSTICS = 54;
+const WIFI_CHANNEL = 3;
+
+/**
+ * The Wi-Fi network a station is connected to: for Wi-Fi the network id is the SSID, which the
+ * controller hands over as base64.
+ *
+ * @param attributes - The station's.
+ * @returns The SSID, or null when it does not say.
+ */
+export function ssidOf(attributes: MatterAttributes): string | null {
+  const networks = attributeOf(attributes, 0, NETWORK_COMMISSIONING, NETWORKS);
+  const connected = Array.isArray(networks)
+    ? (networks as unknown[]).find(
+        (network) => (network as Record<string, unknown> | null)?.['1'] === true,
+      )
+    : undefined;
+  const id = (connected as Record<string, unknown> | undefined)?.['0'];
+
+  return typeof id === 'string' && id !== '' ? Buffer.from(id, 'base64').toString('utf8') : null;
+}
 
 /**
  * The steps of a commissioning, as the job starts: the code read, the device being looked for.
@@ -177,6 +211,9 @@ export type MatterBrokerOptions = {
 
   /** Whether the hub hears the house's network, which Matter needs. */
   readonly isLanReachable: boolean;
+
+  /** The external ids of the Matter devices the house has, removed ones included until they go. */
+  readonly inHouse: () => Promise<ReadonlySet<string>>;
 };
 
 /**
@@ -281,6 +318,11 @@ export class MatterBroker {
     daily.unref();
     this.#timers.push(first, daily);
     this.#tellNodes();
+
+    // A node removed while the fabric was closed, or that did not answer then, leaves it now.
+    for (const node of this.nodes()) {
+      void this.#leaveIfGone(node.nodeId);
+    }
   }
 
   /**
@@ -311,6 +353,11 @@ export class MatterBroker {
          */
         onNode: (nodeId, paths) => {
           this.#tellNode(nodeId, paths);
+
+          // Answering again, a node removed while it did not can leave the fabric now.
+          if (paths === null) {
+            void this.#leaveIfGone(nodeId);
+          }
         },
 
         /** Tells discovery the nodes changed. */
@@ -528,6 +575,65 @@ export class MatterBroker {
    */
   public isRemoved(deviceKey: string): boolean {
     return this.#removed.has(deviceKey);
+  }
+
+  /**
+   * The fabric's network as the controller works it out, with what the nodes' own diagnostics add:
+   * the channel each is on, and the Wi-Fi network a station joined.
+   *
+   * @returns It; empty while the fabric is not open.
+   */
+  public network(): MatterNetwork {
+    const topology = this.#fabric?.topology();
+
+    if (topology === undefined) {
+      return { collectedAt: null, nodes: [], links: [] };
+    }
+
+    return {
+      collectedAt: new Date(topology.collected_at),
+      nodes: topology.nodes.map((point) => {
+        const nodeId = point.node_id === undefined ? null : String(point.node_id);
+        const attributes = nodeId === null ? undefined : this.node(nodeId)?.attributes;
+        const isWifi = point.network_type === 'wifi';
+        const channel =
+          attributes === undefined
+            ? undefined
+            : isWifi
+              ? attributeOf(attributes, 0, WIFI_DIAGNOSTICS, WIFI_CHANNEL)
+              : attributeOf(attributes, 0, THREAD_DIAGNOSTICS, THREAD_CHANNEL);
+
+        return {
+          id: point.id,
+          kind: point.kind,
+          network: point.network_type,
+          nodeId,
+          role: point.role ?? null,
+          isAvailable: point.available ?? null,
+          isBridge: point.is_bridge === true,
+          networkName: point.kind === 'wifi_ap' ? null : (point.network_name ?? null),
+          channel: typeof channel === 'number' ? channel : null,
+          ssid: attributes !== undefined && isWifi ? ssidOf(attributes) : null,
+          bssid: point.kind === 'wifi_ap' ? (point.network_name ?? null) : null,
+          extAddress: point.ext_address ?? null,
+        };
+      }),
+      links: topology.connections.map((link) => {
+        // The end that measured more is the one shown; Thread's LQI is reported from either side.
+        const [seen] = [link.source_to_target, link.target_to_source]
+          .filter((each) => each !== undefined)
+          .sort((one, other) => (other.rssi ?? -999) - (one.rssi ?? -999));
+
+        return {
+          source: link.source,
+          target: link.target,
+          network: link.network,
+          strength: link.strength,
+          lqi: seen?.lqi ?? null,
+          rssi: seen?.rssi ?? null,
+        };
+      }),
+    };
   }
 
   /**
@@ -931,21 +1037,44 @@ export class MatterBroker {
     this.#tellNodes();
 
     const [nodeId = deviceKey] = deviceKey.split(':');
+
+    void this.#leaveIfGone(nodeId);
+  }
+
+  /**
+   * Takes a node off the fabric when something of it was removed from the house and nothing of it
+   * is left there - devices behind a bridge never added count as gone. A node that does not answer
+   * waits: the controller would forget it without telling it, and the device would keep the
+   * house's fabric. It is asked again when it answers, and when the fabric opens.
+   *
+   * @param nodeId - The node.
+   * @returns Once it left, or it stays; never throws.
+   */
+  async #leaveIfGone(nodeId: string): Promise<void> {
     const node = this.node(nodeId);
 
-    if (node === undefined) {
+    if (node?.isAvailable !== true) {
       return;
     }
 
-    const isGone = scopesOf(node.attributes).every((scope) =>
-      this.#removed.has(matterDeviceKey(nodeId, scope.endpoint)),
-    );
+    const keys = scopesOf(node.attributes).map((scope) => matterDeviceKey(nodeId, scope.endpoint));
 
-    if (isGone) {
-      this.decommission(nodeId).catch((error: unknown) => {
-        // It stays removed, and the page offers to take it off the fabric again.
-        this.#options.logger.warn({ err: error, nodeId }, 'A Matter node did not leave the fabric');
-      });
+    // A node nobody removed anything of stays, in the house or not.
+    if (!keys.some((key) => this.#removed.has(key))) {
+      return;
+    }
+
+    try {
+      const inHouse = await this.#options.inHouse();
+
+      if (keys.some((key) => inHouse.has(key) && !this.#removed.has(key))) {
+        return;
+      }
+
+      await this.decommission(nodeId);
+    } catch (error: unknown) {
+      // It stays removed, and the page offers to take it off the fabric again.
+      this.#options.logger.warn({ err: error, nodeId }, 'A Matter node did not leave the fabric');
     }
   }
 
