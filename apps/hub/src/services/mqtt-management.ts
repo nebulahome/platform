@@ -3,7 +3,8 @@
  * usernames the supervisor asks for the containers it runs.
  *
  * `svc.hub.mqtt_status`, `mqtt_devices`, `mqtt_clients`, `mqtt_topics` and `mqtt_mappings` read;
- * `mqtt_settings` saves the owner's settings and starts the broker listening again with them;
+ * `mqtt_settings` saves the owner's settings and starts the broker listening again with them, and
+ * `mqtt_restart` stops and starts it;
  * `mqtt_client_add` and `mqtt_client_remove` add and remove a client; `mqtt_mapping_save` and
  * `mqtt_mapping_remove` keep the owner's mappings; `mqtt_restore` brings back a device removed
  * from the house. Removing a device from the house is `api`'s ordinary device removal, which tells
@@ -25,6 +26,7 @@ import {
   HUB_MQTT_MAPPING_REMOVE_METHOD,
   HUB_MQTT_MAPPING_SAVE_METHOD,
   HUB_MQTT_MAPPINGS_METHOD,
+  HUB_MQTT_RESTART_METHOD,
   HUB_MQTT_RESTORE_METHOD,
   HUB_MQTT_SETTINGS_METHOD,
   HUB_MQTT_STATUS_METHOD,
@@ -159,6 +161,18 @@ export function serveMqtt(options: MqttManagementOptions): BusSubscription[] {
        * @returns Where the broker stands then.
        */
       async (settings) => broker.saveSettings(settings),
+    ),
+
+    client.serve(
+      subject(HUB_MQTT_RESTART_METHOD),
+      z.object({}),
+
+      /**
+       * Stops the broker and starts it again.
+       *
+       * @returns Where the broker stands then.
+       */
+      async () => broker.restart(),
     ),
 
     client.serve(

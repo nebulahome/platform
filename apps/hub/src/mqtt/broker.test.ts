@@ -151,6 +151,13 @@ describe('the house’s MQTT broker', () => {
     expect(broker.hubConnection()?.url).toBe(`mqtt://127.0.0.1:${String(port)}`);
   });
 
+  it('listens again once restarted', async () => {
+    const broker = await started();
+
+    expect((await broker.restart()).state).toBe('running');
+    await expect(connectAsHub(broker)).resolves.toBeDefined();
+  });
+
   it('holds a container and a device to their topics', async () => {
     const broker = await started();
     const port = portOf(broker);

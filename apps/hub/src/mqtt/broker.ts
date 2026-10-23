@@ -240,6 +240,20 @@ export class MqttBroker {
   }
 
   /**
+   * Stops the broker and starts it again: its files read again, its clients connecting anew.
+   *
+   * @returns Where the broker stands then.
+   */
+  public async restart(): Promise<MqttStatus> {
+    await this.stop();
+    this.#isStopped = false;
+    this.#setState('starting');
+    await this.start();
+
+    return this.status();
+  }
+
+  /**
    * Where the broker stands.
    *
    * @returns Its state, its settings and what it makes of what it carries.

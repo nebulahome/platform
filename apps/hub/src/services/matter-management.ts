@@ -2,7 +2,8 @@
  * The Matter broker on the bus: what the Brokers page reads and asks, through `api`.
  *
  * `svc.hub.matter_status` and `matter_nodes` read; `matter_commission` starts commissioning a node
- * and answers with the job at once, since a node takes longer than a request waits;
+ * and answers with the job at once, since a node takes longer than a request waits, and
+ * `matter_cancel` stops it before the device joined; `matter_restart` opens the controller again;
  * `matter_remove` takes a node off the fabric; `matter_restore` brings back a device removed from
  * the house whose node is still on it. Removing the devices of a node from the house is `api`'s
  * ordinary device removal, which tells the broker through the hub's `forget`.
@@ -11,16 +12,20 @@ import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
   HUB_MATTER_ANSWER_METHOD,
+  HUB_MATTER_CANCEL_METHOD,
   HUB_MATTER_COMMISSION_METHOD,
   HUB_MATTER_NODES_METHOD,
   HUB_MATTER_REMOVE_METHOD,
+  HUB_MATTER_RESTART_METHOD,
   HUB_MATTER_RESTORE_METHOD,
   HUB_MATTER_STATUS_METHOD,
   HUB_SERVICE,
   matterAnswerRequestSchema,
+  matterCancelRequestSchema,
   matterCommissionRequestSchema,
   matterNodesRequestSchema,
   matterRemoveRequestSchema,
+  matterRestartRequestSchema,
   matterRestoreRequestSchema,
   matterStatusRequestSchema,
   type MatterNode,
@@ -129,6 +134,37 @@ export function serveMatter(options: MatterManagementOptions): BusSubscription[]
        * @returns The job.
        */
       (request) => broker.answer(request.jobId, request.isAccepted),
+    ),
+
+    client.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MATTER_CANCEL_METHOD),
+      matterCancelRequestSchema,
+
+      /**
+       * Stops a commissioning before its device joined.
+       *
+       * @param request - The job.
+       * @returns The job, as it now stands.
+       */
+      (request) => broker.cancel(request.jobId),
+    ),
+
+    client.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MATTER_RESTART_METHOD),
+      matterRestartRequestSchema,
+
+      /**
+       * Opens the controller again.
+       *
+       * @returns Where the broker stands then.
+       */
+      async () => {
+        await broker.restart();
+
+        const taken = await options.taken();
+
+        return broker.status((nodeId) => taken.matter.get(nodeId)?.instanceId);
+      },
     ),
 
     client.serve(

@@ -219,6 +219,9 @@ export class MatterBroker {
   /** When the job's device joined the fabric, to give it a while to be in the house. */
   #joinedAt: Date | null = null;
 
+  /** The last time the controller was opened again, so the next waits for it. */
+  #reopening: Promise<void> = Promise.resolve();
+
   /**
    * Keeps the options; nothing opens until {@link MatterBroker.start}.
    *
@@ -337,6 +340,28 @@ export class MatterBroker {
 
     await this.#fabric?.stop();
     this.#fabric = undefined;
+  }
+
+  /**
+   * Closes the controller and opens it again, as the hub's start does.
+   *
+   * @returns Once it is open or has failed.
+   * @throws {ConflictError} While a device is being added.
+   */
+  public async restart(): Promise<void> {
+    if (this.#job?.state === 'running' || this.#job?.state === 'needs-answer') {
+      throw new ConflictError('A device is being added; wait for it to finish');
+    }
+
+    await this.#reopening;
+    await this.stop();
+
+    if (this.#options.open !== undefined) {
+      this.#state = 'starting';
+      this.#error = null;
+    }
+
+    await this.start();
   }
 
   /**
@@ -616,6 +641,54 @@ export class MatterBroker {
   }
 
   /**
+   * Stops adding a device before it joined the fabric. A question waiting is answered no; a
+   * commissioning under way is cut off by opening the controller again, and the device, never
+   * told it is done, rolls back once its fail-safe runs out. Once it joined, it carries on.
+   *
+   * @param jobId - The job.
+   * @returns The job, as it now stands.
+   * @throws {ConflictError} When that job is not the one under way.
+   */
+  public cancel(jobId: string): MatterCommissioning {
+    const job = this.#job;
+
+    if (job?.id !== jobId) {
+      throw new ConflictError('No such device is being added');
+    }
+
+    if (job.state === 'needs-answer') {
+      return this.answer(jobId, false);
+    }
+
+    if (job.state !== 'running' || job.nodeId !== null) {
+      return job;
+    }
+
+    this.#job = {
+      ...job,
+      state: 'cancelled',
+      finishedAt: new Date(),
+      steps: job.steps.map((step) =>
+        step.state === 'running' ? { ...step, state: 'pending' } : step,
+      ),
+    };
+    this.#options.logger.info({ job: jobId }, 'Adding a Matter device was cancelled');
+    void this.#reopenAsWas();
+
+    return this.#job;
+  }
+
+  /**
+   * Whether a job was cancelled.
+   *
+   * @param jobId - The job.
+   * @returns True when it is the broker's job, cancelled.
+   */
+  #isCancelled(jobId: string): boolean {
+    return this.#job?.id === jobId && this.#job.state === 'cancelled';
+  }
+
+  /**
    * Adds a device with the controller taking test certificates, then opens it again as it was.
    *
    * @param jobId - The job.
@@ -625,29 +698,49 @@ export class MatterBroker {
   async #withTestCertificates(jobId: string, code: string): Promise<void> {
     try {
       await this.#reopen(true);
-      await this.#run(jobId, code, this.#require(), true);
+
+      if (!this.#isCancelled(jobId)) {
+        await this.#run(jobId, code, this.#require(), true);
+      }
     } catch (error: unknown) {
       this.#fail(jobId, error);
     } finally {
-      await this.#reopen(false).catch((error: unknown) => {
-        this.#state = 'failed';
-        this.#error = error instanceof Error ? error.message : String(error);
-        this.#options.logger.error({ err: error }, 'The Matter fabric did not open again');
-      });
+      await this.#reopenAsWas();
     }
   }
 
   /**
-   * Closes the fabric and opens it again.
+   * Opens the controller again as it was, taking no test certificates; one that does not open
+   * leaves the broker failed, with why.
+   *
+   * @returns Once it is open or has failed.
+   */
+  async #reopenAsWas(): Promise<void> {
+    await this.#reopen(false).catch((error: unknown) => {
+      this.#state = 'failed';
+      this.#error = error instanceof Error ? error.message : String(error);
+      this.#options.logger.error({ err: error }, 'The Matter fabric did not open again');
+    });
+  }
+
+  /**
+   * Closes the fabric and opens it again, once the last time it was is done: two at once would
+   * both take the controller's port.
    *
    * @param acceptTestCertificates - Whether devices with a test certificate are taken.
    * @returns Once it is open.
    */
   async #reopen(acceptTestCertificates: boolean): Promise<void> {
-    await this.#fabric?.stop();
-    this.#fabric = undefined;
-    this.#fabric = await this.#open(acceptTestCertificates);
-    this.#tellNodes();
+    const reopened = this.#reopening.then(async () => {
+      await this.#fabric?.stop();
+      this.#fabric = undefined;
+      this.#fabric = await this.#open(acceptTestCertificates);
+      this.#tellNodes();
+    });
+
+    this.#reopening = reopened.catch(() => undefined);
+
+    return reopened;
   }
 
   /**
@@ -670,11 +763,29 @@ export class MatterBroker {
         this.#update(jobId, (job) => ({ ...job, steps: advance(job.steps, stepOf(step)) }));
       });
 
+      if (this.#isCancelled(jobId)) {
+        // Cut off too late: it joined all the same, and leaves again.
+        this.#options.logger.info({ job: jobId, nodeId }, 'A cancelled Matter device joined');
+        await this.#reopening;
+        await this.decommission(nodeId).catch((error: unknown) => {
+          this.#options.logger.warn(
+            { err: error, nodeId },
+            'A Matter node did not leave the fabric',
+          );
+        });
+
+        return;
+      }
+
       this.#joinedAt = new Date();
       this.#update(jobId, (job) => ({ ...job, nodeId, steps: advance(job.steps, 'reading') }));
       this.#options.logger.info({ job: jobId, nodeId }, 'A Matter device was commissioned');
       this.#tellNodes();
     } catch (error: unknown) {
+      if (this.#isCancelled(jobId)) {
+        return;
+      }
+
       const message = error instanceof Error ? error.message : String(error);
 
       if (!isAcceptingTest && isTestCertificateFailure(message)) {
@@ -736,13 +847,13 @@ export class MatterBroker {
   }
 
   /**
-   * Changes the job, when it is still the one.
+   * Changes the job, when it is still the one and was not cancelled.
    *
    * @param jobId - The job.
    * @param change - What becomes of it.
    */
   #update(jobId: string, change: (job: MatterCommissioning) => MatterCommissioning): void {
-    if (this.#job?.id === jobId) {
+    if (this.#job?.id === jobId && this.#job.state !== 'cancelled') {
       this.#job = change(this.#job);
     }
   }

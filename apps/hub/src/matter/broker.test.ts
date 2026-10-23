@@ -92,6 +92,9 @@ function fakeFabric() {
   );
   const calls: string[] = [];
   const opens: string[] = [];
+
+  // A commissioning that runs until the controller closes.
+  const closing: (() => void)[] = [];
   let events: MatterFabricEvents | undefined;
 
   const open: OpenMatterFabric = (options) => {
@@ -107,6 +110,16 @@ function fakeFabric() {
 
         if (code === '00000000000') {
           return Promise.reject(new Error('The device did not answer'));
+        }
+
+        if (code === '22222222222') {
+          onStep?.(0);
+
+          return new Promise<string>((resolve, reject) => {
+            closing.push(() => {
+              reject(new Error('The controller closed'));
+            });
+          });
         }
 
         if (code === '11111111111' && options.acceptTestCertificates !== true) {
@@ -142,7 +155,13 @@ function fakeFabric() {
       },
       checkUpdate: () => Promise.resolve(null),
       installUpdate: () => Promise.resolve(),
-      stop: () => Promise.resolve(),
+      stop: () => {
+        for (const close of closing.splice(0)) {
+          close();
+        }
+
+        return Promise.resolve();
+      },
     });
   };
 
@@ -274,6 +293,32 @@ describe('MatterBroker', () => {
     });
     expect(fabric.calls).toEqual(['commission 11111111111', 'commission 11111111111']);
     expect(broker.status().commissioning?.nodeId).toBe('9');
+  });
+
+  it('cancels a commissioning before the device joins, and restarts once none runs', async () => {
+    const { broker, fabric } = await started();
+    const job = broker.commission('22222222222');
+
+    await expect(broker.restart()).rejects.toThrow(/being added/u);
+    expect(broker.cancel(job.id)).toMatchObject({ state: 'cancelled' });
+    await vi.waitFor(() => {
+      expect(fabric.opens).toEqual(['as it is', 'as it is']);
+    });
+    // Cut off, the commissioning failed: the job stays cancelled.
+    expect(broker.status().commissioning).toMatchObject({ state: 'cancelled', error: null });
+    expect(broker.cancel(job.id).state).toBe('cancelled');
+
+    const asking = broker.commission('11111111111');
+
+    await vi.waitFor(() => {
+      expect(broker.status().commissioning).toMatchObject({ state: 'needs-answer' });
+    });
+    expect(broker.cancel(asking.id).state).toBe('failed');
+    expect(() => broker.cancel('another')).toThrow(/No such/u);
+
+    await broker.restart();
+    expect(fabric.opens).toHaveLength(3);
+    expect(broker.status().state).toBe('running');
   });
 
   it('takes a node off the fabric only once none of it is left in the house', async () => {
