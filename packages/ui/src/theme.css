@@ -113,8 +113,11 @@
   /** Scenes, aliases and computed things; the If lane of an automation. */
   --color-violet: #a78bfa;
 
-  /** Sensors, charts, live scanning; the When lane of an automation. */
+  /** Sensors, charts, live scanning; the When lane of an automation. Wi-Fi on a network map. */
   --color-cyan: #4fd0ee;
+
+  /** Thread, on a network map: its links, its routers. */
+  --color-thread: #e879f9;
 
   /* --- states ------------------------------------------------------------------------------ */
 

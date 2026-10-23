@@ -115,6 +115,7 @@
     --color-heat: #c4551a;
     --color-violet: #6f3fd6;
     --color-cyan: #006b80;
+    --color-thread: #a3249f;
 
     --color-success: #007840;
     --color-warning: #a46400;
@@ -204,6 +205,7 @@
       --color-heat: #c4551a;
       --color-violet: #6f3fd6;
       --color-cyan: #006b80;
+      --color-thread: #a3249f;
 
       --color-success: #007840;
       --color-warning: #a46400;
@@ -493,8 +495,9 @@
 
 /*
  * Linking, and adding a Matter device: the chain that pulses between two rows being linked, and
- * the rings around the Matter mark while a device joins - the outer one turning slowly, the inner
- * one breathing, a wave when it is in, a shake when its certificate is a test one. All of it
+ * the rings around the Matter mark while a device joins - the outer one turning slowly and pulsing
+ * while the device is looked for, the inner one breathing, a wave when it is in, a shake when its
+ * certificate is a test one. All of it
  * stops where less motion was asked for, and what it showed stays where it was.
  */
 @keyframes link-pulse {
@@ -538,6 +541,19 @@
   }
 }
 
+/* The outer ring while the device is looked for on the network: it swells a little, glowing. */
+@keyframes matter-pulse {
+  0%,
+  100% {
+    scale: 1;
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    scale: 1.035;
+    box-shadow: 0 0 24px 2px color-mix(in oklab, var(--color-violet) 30%, transparent);
+  }
+}
+
 @keyframes matter-shake {
   0%,
   100% {
@@ -569,11 +585,17 @@
 
 .matter-orbit {
   animation: matter-spin 24s linear infinite;
+  will-change: transform;
 }
 
 /* What rides the orbit, turned back as fast as it is carried round: it stays upright. */
 .matter-upright {
   animation: matter-spin 24s linear infinite reverse;
+  will-change: transform;
+}
+
+.matter-pulse {
+  animation: matter-pulse 1.8s ease-in-out infinite;
 }
 
 .matter-breathe {
@@ -589,13 +611,29 @@
 }
 
 [data-motion='reduced']
-  :is(.link-pulse, .matter-orbit, .matter-upright, .matter-breathe, .matter-wave, .matter-shake) {
+  :is(
+    .link-pulse,
+    .matter-orbit,
+    .matter-upright,
+    .matter-breathe,
+    .matter-pulse,
+    .matter-wave,
+    .matter-shake
+  ) {
   animation: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-motion='full'])
-    :is(.link-pulse, .matter-orbit, .matter-upright, .matter-breathe, .matter-wave, .matter-shake) {
+    :is(
+      .link-pulse,
+      .matter-orbit,
+      .matter-upright,
+      .matter-breathe,
+      .matter-pulse,
+      .matter-wave,
+      .matter-shake
+    ) {
     animation: none;
   }
 }

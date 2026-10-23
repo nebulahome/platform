@@ -125,6 +125,7 @@ import {
   VolumeX,
   Waypoints,
   Webhook,
+  Wifi,
   Wrench,
   X,
   Zap,
@@ -299,6 +300,9 @@ export const BUILTIN_UI_NODES = {
   plug: drawing(Plug),
   'loader-circle': drawing(LoaderCircle),
   'arrow-right-left': drawing(ArrowRightLeft),
+
+  // A Wi-Fi access point, on the Matter network map.
+  wifi: drawing(Wifi),
 } satisfies Record<string, IconNode>;
 
 /** A catalogue id the interface draws itself with. */
