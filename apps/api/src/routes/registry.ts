@@ -59,6 +59,7 @@ import {
   updateAlias,
   type AliasesContext,
 } from '../services/aliases.js';
+import { sealSecrets } from '../services/automation-secrets.js';
 import {
   cancelTestOnCore,
   removeAutomationOnCore,
@@ -433,7 +434,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
 
       const reply = await testBlockOnCore(
         coreLink(route.request.traceId),
-        route.body,
+        await sealSecrets(context.db, route.body, context.secretsKey),
         route.identity.userId,
       );
 
@@ -616,7 +617,11 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
     async (route): Promise<AutomationView> => {
       requirePermission(route.identity, 'automation:write');
 
-      const automation = await createAutomation(context.db, route.body, route.identity.userId);
+      const automation = await createAutomation(
+        context.db,
+        await sealSecrets(context.db, route.body, context.secretsKey),
+        route.identity.userId,
+      );
 
       await syncAutomationOnCore(coreLink(route.request.traceId), automation.id);
 
@@ -660,7 +665,11 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
     async (route): Promise<AutomationView> => {
       requirePermission(route.identity, 'automation:write');
 
-      const automation = await updateAutomation(context.db, route.params.automationId, route.body);
+      const automation = await updateAutomation(
+        context.db,
+        route.params.automationId,
+        await sealSecrets(context.db, route.body, context.secretsKey),
+      );
 
       // An edit to what it does or how it runs cancels its running runs in `core`; one to its
       // name or description does not.

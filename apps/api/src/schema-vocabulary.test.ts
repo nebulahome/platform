@@ -27,6 +27,7 @@ import {
   BACKUP_RUN_TRIGGERS,
   INTEGRATION_STATES,
   SETTINGS,
+  WEBHOOK_CALL_OUTCOMES,
 } from '@nebulahome/contracts';
 
 import { SESSION_REVOKED_REASONS } from './auth/repository.js';
@@ -68,6 +69,7 @@ describe('the vocabularies the database constrains', () => {
     ['backup_runs_trigger', BACKUP_RUN_TRIGGERS],
     ['backup_runs_status', BACKUP_RUN_STATUSES],
     ['automation_runs_result', AUTOMATION_RUN_RESULTS],
+    ['webhook_calls_outcome', WEBHOOK_CALL_OUTCOMES],
   ])('matches %s exactly', (constraint, values) => {
     expect([...values].sort()).toEqual(allowedValues(constraint).sort());
   });
