@@ -111,6 +111,7 @@ export function walkActions(
       case 'wait_duration':
       case 'notify':
       case 'package_service':
+      case 'http_request':
       case 'stop': {
         break;
       }
@@ -140,8 +141,8 @@ export function forEachBlock(
  * Every entity an automation names, each once, in the order the document first names it.
  *
  * Walks the whole document: the triggers, the conditions, and every action however deeply it is
- * nested, with the conditions a wait or a loop checks, the variables an expression reads and the
- * trigger a wait listens for. A scene
+ * nested, with the conditions a wait or a loop checks, the variables an expression or an HTTP
+ * request reads and the trigger a wait listens for. A scene
  * or another automation called by key is not followed: what that one touches is its own business,
  * and listing it here would make a scene's entities look like this automation's.
  *
@@ -171,6 +172,10 @@ export function entityIdsOfDefinition(definition: AutomationDefinition): string[
     } else if (visited.block.type === 'command' || visited.block.type === 'switch') {
       // A command and a switch name the entity they act on.
       found.add(visited.block.entityId);
+    } else if (visited.block.type === 'http_request') {
+      for (const entityId of Object.values(visited.block.variables ?? {})) {
+        found.add(entityId);
+      }
     }
   });
 

@@ -83,6 +83,11 @@ function fakePorts(overrides: Partial<ExecutorPorts> = {}): { ports: ExecutorPor
       return Promise.resolve();
     },
     stateTokenOf: (entityId) => (entityId === washer ? 'done' : undefined),
+    httpRequest: (action) => {
+      world.calls.push(`${action.method} ${action.url}`);
+
+      return Promise.resolve({ status: 204, target: 'hooks.example.com/house' });
+    },
     ...overrides,
   };
 
@@ -379,6 +384,30 @@ describe('Executor', () => {
 
     expect(ok.world.calls).toEqual(['nvr.record']);
     expect((refused.error as Error).message).toBe('No such service');
+  });
+
+  it('sends an HTTP request, and fails on an answer that is not 2xx or none at all', async () => {
+    const post: AutomationAction = {
+      type: 'http_request',
+      method: 'POST',
+      url: 'https://hooks.example.com/house',
+      timeoutMs: 10_000,
+    };
+    const ok = await run([post, turnOn]);
+    const refused = await run([post, turnOn], {
+      httpRequest: () => Promise.resolve({ status: 404, target: 'hooks.example.com/house' }),
+    });
+    const silent = await run([post], {
+      httpRequest: () => Promise.reject(new Error('POST hooks.example.com/house: no answer')),
+    });
+
+    expect(ok.error).toBeUndefined();
+    expect(ok.world.calls).toEqual(['POST https://hooks.example.com/house']);
+    expect(ok.trace.steps(new Date())[0]?.detail).toBe('POST hooks.example.com/house answered 204');
+    expect(refused.error).toBeInstanceOf(ActionFailed);
+    expect((refused.error as Error).message).toBe('POST hooks.example.com/house answered 404');
+    expect(refused.world.commands).toEqual([]);
+    expect((silent.error as Error).message).toBe('POST hooks.example.com/house: no answer');
   });
 
   it('runs a sequence and parallel branches', async () => {

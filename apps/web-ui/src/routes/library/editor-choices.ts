@@ -81,6 +81,7 @@ const KINDS: Readonly<Record<BlockFamily, Readonly<Record<string, Kind>>>> = {
       description: 'Only when somebody asks for it',
       glyph: 'mouse-pointer-click',
     },
+    webhook: { label: 'Webhook', description: 'A link that starts it', glyph: 'webhook' },
   },
   condition: {
     entity: {
@@ -158,6 +159,11 @@ const KINDS: Readonly<Record<BlockFamily, Readonly<Record<string, Kind>>>> = {
       label: 'Package service',
       description: 'Call a package service',
       glyph: 'package',
+    },
+    http_request: {
+      label: 'HTTP request',
+      description: 'Call an address on the web',
+      glyph: 'send',
     },
     if: { label: 'If / else', description: 'Run one branch or the other', glyph: 'git-branch' },
     switch: { label: 'Switch', description: 'Pick a branch from an entity state', glyph: 'split' },
@@ -310,7 +316,14 @@ export const TRIGGER_CHOICE_GROUPS: readonly EditorChoiceGroup[] = [
   {
     title: 'Triggers',
     lane: 'when',
-    choices: toChoices('trigger', ['entity', 'entity_numeric', 'time', 'event', 'manual']),
+    choices: toChoices('trigger', [
+      'entity',
+      'entity_numeric',
+      'time',
+      'event',
+      'manual',
+      'webhook',
+    ]),
   },
 ];
 
@@ -345,6 +358,7 @@ export const ACTION_CHOICE_GROUPS: readonly EditorChoiceGroup[] = [
       'wait_for_trigger',
       'notify',
       'package_service',
+      'http_request',
     ]),
   },
   {

@@ -32,6 +32,8 @@ import {
   telemetryPointSchema,
   tileCacheStatusSchema,
   tilePrefetchResultSchema,
+  webhookCallSchema,
+  webhookViewSchema,
   type ActivityEntry,
   type AliasCreate,
   type AliasPreviewRequest,
@@ -78,6 +80,8 @@ import {
   type TelemetryResolution,
   type TileCacheStatus,
   type TilePrefetchResult,
+  type WebhookCall,
+  type WebhookView,
   IDEMPOTENCY_KEY_HEADER,
   MAX_PAGE_LIMIT,
   pageSchema,
@@ -148,6 +152,36 @@ export async function fetchAutomationRuns(
     pageSchema(automationRunSchema),
     { ...(signal === undefined ? {} : { signal }) },
   );
+}
+
+/**
+ * Lists every automation's webhooks, with their calls of the last day and their last call.
+ *
+ * @param signal - Cancels the request.
+ * @returns The webhooks.
+ */
+export async function fetchWebhooks(signal?: AbortSignal): Promise<WebhookView[]> {
+  const { items } = await apiRequest('/webhooks', z.object({ items: z.array(webhookViewSchema) }), {
+    ...(signal === undefined ? {} : { signal }),
+  });
+
+  return items;
+}
+
+/**
+ * Reads one page of the calls webhook addresses received, newest first.
+ *
+ * @param query - The filter, as the query string: `since=24h&where=any`.
+ * @param signal - Cancels the request.
+ * @returns The page.
+ */
+export async function fetchWebhookCalls(
+  query: string,
+  signal?: AbortSignal,
+): Promise<{ readonly items: WebhookCall[]; readonly nextCursor?: string | undefined }> {
+  return apiRequest(`/webhooks/calls?${query}`, pageSchema(webhookCallSchema), {
+    ...(signal === undefined ? {} : { signal }),
+  });
 }
 
 /**
@@ -1051,6 +1085,12 @@ export const LIBRARY_QUERY_KEYS = {
 
   /** The house as the automation editor reads it: its zone and its position. */
   automationHouse: ['library', 'automation-house'] as const,
+
+  /** Every automation's webhooks. */
+  webhooks: ['library', 'webhooks'] as const,
+
+  /** The calls webhook addresses received, keyed further by the filter. */
+  webhookCalls: ['library', 'webhook-calls'] as const,
 
   /** Every scene. */
   scenes: ['library', 'scenes'] as const,

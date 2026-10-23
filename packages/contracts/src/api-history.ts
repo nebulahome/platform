@@ -184,6 +184,7 @@ export const AUTOMATION_RUN_TRIGGER_KINDS = [
   'sun',
   'manual',
   'automation',
+  'webhook',
   'state',
   'numeric_state',
 ] as const;

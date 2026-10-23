@@ -1051,6 +1051,33 @@ CREATE INDEX automation_runs_automation_id_time_idx
 CREATE INDEX automation_runs_result_time_idx
   ON history.automation_runs (result, time DESC) WHERE result <> 'success';
 
+-- Every call a webhook address received, whatever it was answered. Written by core, which
+-- decides the answer; the body of a call is never kept, and secret header values are hidden.
+CREATE TABLE history.webhook_calls (
+  time          timestamptz NOT NULL,            -- when it was received
+  id            uuid        NOT NULL DEFAULT gen_random_uuid(),
+  hook_id       text        NOT NULL,
+  automation_id uuid,                            -- null when no webhook has the id
+  method        text        NOT NULL,
+  path          text        NOT NULL,
+  remote_ip     text        NOT NULL,
+  is_local      boolean     NOT NULL,
+  user_agent    text,
+  headers       jsonb       NOT NULL DEFAULT '{}'::jsonb,
+  status        smallint    NOT NULL,
+  duration_ms   integer     NOT NULL,
+  outcome       text        NOT NULL,
+  run_id        uuid,
+
+  CONSTRAINT webhook_calls_outcome
+    CHECK (outcome IN ('started', 'queued', 'ignored', 'not_found', 'local_only', 'wrong_method',
+                       'rate_limited'))
+);
+
+SELECT create_hypertable('history.webhook_calls', by_range('time', INTERVAL '1 day'));
+
+CREATE INDEX webhook_calls_hook_id_time_idx ON history.webhook_calls (hook_id, time DESC);
+
 CREATE TABLE history.logs (
   time       timestamptz NOT NULL,
   level      smallint    NOT NULL,               -- pino levels: 10..60
@@ -1494,7 +1521,9 @@ INSERT INTO system.settings (key, value, schema_ref) VALUES
   ('backup.enabled', 'false'::jsonb, 'settings:backup.enabled'),
   ('backup.sections', '{"history": true, "packages": true}'::jsonb, 'settings:backup.sections'),
   ('backup.schedule', '{"mode": "quietest", "time": "03:00", "timezone": "UTC"}'::jsonb, 'settings:backup.schedule'),
-  ('backup.frequency', '{"mode": "daily"}'::jsonb, 'settings:backup.frequency');
+  ('backup.frequency', '{"mode": "daily"}'::jsonb, 'settings:backup.frequency'),
+  ('webhooks.allow_internet', 'true'::jsonb, 'settings:webhooks.allow_internet'),
+  ('webhooks.rate_per_minute', '30'::jsonb, 'settings:webhooks.rate_per_minute');
 
 -- The system backup location: the data directory's `backups/`, always there (DATABASE.md 14).
 INSERT INTO system.backup_locations (name, kind, retention_mode, retention_value)
@@ -1631,6 +1660,7 @@ SELECT add_retention_policy('history.telemetry_1h',    INTERVAL '1825 days');
 SELECT add_retention_policy('history.state_history',   INTERVAL '365 days');
 SELECT add_retention_policy('history.logs',            INTERVAL '14 days');
 SELECT add_retention_policy('history.automation_runs', INTERVAL '30 days');
+SELECT add_retention_policy('history.webhook_calls',   INTERVAL '30 days');
 -- system.audit_log: no policy, kept indefinitely
 
 -- The continuous aggregates are created after the grants above, which cover only the tables

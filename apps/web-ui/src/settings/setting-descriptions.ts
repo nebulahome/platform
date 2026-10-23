@@ -81,6 +81,14 @@ const DESCRIPTIONS: Readonly<Record<string, Message>> = {
     'settings.descriptions.backupFrequency',
     'The days a backup runs on',
   ),
+  'webhooks.allow_internet': defineMessage(
+    'settings.descriptions.webhooksAllowInternet',
+    'Through remote access. Off: webhooks marked Internet answer 404 from outside',
+  ),
+  'webhooks.rate_per_minute': defineMessage(
+    'settings.descriptions.webhooksRatePerMinute',
+    'Calls a minute one webhook takes; above it they get 429 and start nothing',
+  ),
 };
 
 /**

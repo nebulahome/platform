@@ -18,6 +18,9 @@
  * The box can carry a footer inside its border, as the board draws it: what the formula reads
  * now on the left, what may be written on the right. The border and the focus ring belong to the
  * box around both, so the footer is part of the field rather than a line under it.
+ *
+ * The same field draws a template - an HTTP request's address or body - with each `{{ name }}`
+ * in its parameter's colour ({@link templateSegments}).
  */
 import { useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -98,6 +101,21 @@ export type AliasFormulaFieldProps = {
   readonly sources: readonly FormulaSourceColor[];
   readonly required?: boolean;
 
+  /** What it is called; Formula unless said. */
+  readonly label?: string;
+
+  /** What it shows while empty. */
+  readonly placeholder?: string;
+
+  /** How the text is painted; a formula's way unless said, which alone has a default hint. */
+  readonly paint?: (
+    value: string,
+    colors: ReadonlyMap<string, TagColor>,
+  ) => readonly FormulaSegment[];
+
+  /** How many lines it shows at least; three unless said. */
+  readonly minRows?: number;
+
   /** What the formula works out to now, or how to write one, under the field. */
   readonly hint?: string | undefined;
 
@@ -141,6 +159,38 @@ export function formulaSegments(
   });
 }
 
+/** `{{ name }}`, with or without spaces inside the braces. */
+const PLACEHOLDER = /^\{\{\s*([a-z][a-z0-9_]*)\s*\}\}$/u;
+
+/**
+ * Cuts a template into the stretches the backdrop paints: each `{{ name }}` in its colour, or
+ * marked when no parameter has the name, and the rest as it is.
+ *
+ * @param value - The template.
+ * @param colors - Parameter names to their palette colour.
+ * @returns The segments, covering the text exactly.
+ */
+export function templateSegments(
+  value: string,
+  colors: ReadonlyMap<string, TagColor>,
+): readonly FormulaSegment[] {
+  return value
+    .split(/(\{\{\s*[a-z][a-z0-9_]*\s*\}\})/u)
+    .filter((text) => text !== '')
+    .map((text) => {
+      const name = PLACEHOLDER.exec(text)?.[1];
+      const color = name === undefined ? undefined : colors.get(name);
+
+      if (name === undefined) {
+        return { text, className: '', isUnknown: false };
+      }
+
+      return color === undefined
+        ? { text, className: KIND_CLASSES.invalid, isUnknown: true }
+        : { text, className: cn('token-halo', VARIABLE_TEXT[color]), isUnknown: false };
+    });
+}
+
 /**
  * Renders the formula field.
  *
@@ -159,6 +209,10 @@ export function AliasFormulaField(props: AliasFormulaFieldProps) {
     error,
     isLabelHidden = false,
     footer,
+    label = t('library.aliasFormulaField.formula', 'Formula'),
+    placeholder = t('library.aliasFormulaField.t1T22', '(t1 + t2) / 2'),
+    paint = formulaSegments,
+    minRows = 3,
   } = props;
   const backdrop = useRef<HTMLDivElement>(null);
   const colors = new Map(
@@ -166,7 +220,7 @@ export function AliasFormulaField(props: AliasFormulaFieldProps) {
       .filter((source) => source.variableName.trim() !== '')
       .map((source) => [source.variableName.trim(), source.color]),
   );
-  const segments = formulaSegments(value, colors);
+  const segments = paint(value, colors);
   const lines = value.split('\n').length;
 
   // Where each segment starts in the text: unique, and what React keys the painted spans by.
@@ -176,14 +230,14 @@ export function AliasFormulaField(props: AliasFormulaFieldProps) {
 
   return (
     <FieldShell
-      label={t('library.aliasFormulaField.formula', 'Formula')}
+      label={label}
       isLabelHidden={isLabelHidden}
       // One line under the field: what is wrong, when something is; otherwise what it reads. A
       // field with a footer says what it reads there, and its heading says how to write it.
       hint={
         error === undefined
           ? (hint ??
-            (footer === undefined
+            (footer === undefined && paint === formulaSegments
               ? t(
                   'library.aliasFormulaField.writeItWithThe',
                   'Write it with the variables of the sources, e.g. (t1 + t2) / 2.',
@@ -225,12 +279,13 @@ export function AliasFormulaField(props: AliasFormulaFieldProps) {
               autoComplete="off"
               autoCapitalize="off"
               spellCheck={false}
-              rows={Math.max(3, lines)}
-              placeholder={t('library.aliasFormulaField.t1T22', '(t1 + t2) / 2')}
+              rows={Math.max(minRows, lines)}
+              placeholder={placeholder}
               value={value}
               className={cn(
                 LAYER,
-                'relative min-h-24 resize-none overflow-y-auto bg-transparent',
+                'relative resize-none overflow-y-auto bg-transparent',
+                minRows >= 3 ? 'min-h-24' : undefined,
                 'text-transparent caret-foreground placeholder:text-foreground-disabled',
                 'field-sizing-content selection:bg-primary/30 selection:text-transparent',
                 'focus-visible:outline-none',

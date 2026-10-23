@@ -537,7 +537,31 @@ function triggerSaid(trigger: AutomationTrigger, names: BlockNames): Said {
         isNamed: false,
       };
     }
+    case 'webhook': {
+      const address = `…/hooks/${trigger.hookId.slice(0, 8)}`;
+
+      return {
+        text:
+          trigger.method === 'any'
+            ? translate('automations.summary.webhookAny', 'Called at {{address}}', { address })
+            : translate('automations.summary.webhook', '{{method}} to {{address}}', {
+                method: trigger.method,
+                address,
+              }),
+        isNamed: trigger.method !== 'any',
+      };
+    }
   }
+}
+
+/**
+ * An address as a card shows it: no scheme, and `…` for each parameter.
+ *
+ * @param url - The address, with `{{ name }}` where a parameter goes.
+ * @returns `hooks.example.com/house/…/state`.
+ */
+export function shortAddress(url: string): string {
+  return url.replace(/^https?:\/\//iu, '').replaceAll(/\{\{[^}]*\}\}/gu, '…');
 }
 
 /**
@@ -966,6 +990,11 @@ export function actionSummary(action: AutomationAction, names: BlockNames = NO_N
       return action.packageId === ''
         ? translate('automations.summary.choosePackage', 'Choose a package')
         : `${action.packageId} · ${action.service}`;
+    }
+    case 'http_request': {
+      return action.url === ''
+        ? translate('automations.summary.chooseAddress', 'Write the address')
+        : `${action.method} ${shortAddress(action.url)}`;
     }
     case 'parallel': {
       const count = action.branches.reduce((total, branch) => total + branch.length, 0);

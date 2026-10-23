@@ -194,10 +194,24 @@ export function blankTrigger(type: string): AutomationTrigger {
     case 'event': {
       return { type: 'event', event: '' };
     }
+    case 'webhook': {
+      return { type: 'webhook', hookId: newHookId(), method: 'POST', reach: 'local' };
+    }
     default: {
       return { type: 'manual' };
     }
   }
+}
+
+/**
+ * A new webhook id: 128 random bits, which is what makes the address hard to guess.
+ *
+ * @returns 32 hexadecimal digits.
+ */
+export function newHookId(): string {
+  return [...crypto.getRandomValues(new Uint8Array(16))]
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 /**
@@ -274,6 +288,16 @@ export function blankAction(type: string): AutomationAction {
     }
     case 'package_service': {
       return { type: 'package_service', packageId: '', service: '', params: {} };
+    }
+    case 'http_request': {
+      return {
+        type: 'http_request',
+        method: 'POST',
+        url: '',
+        headers: [{ name: 'Content-Type', value: 'application/json' }],
+        body: { kind: 'json', text: '' },
+        timeoutMs: 10_000,
+      };
     }
     case 'parallel': {
       return { type: 'parallel', branches: [[], []] };

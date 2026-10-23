@@ -10,6 +10,8 @@
  * pnpm db:migrate
  * ```
  */
+import { randomBytes } from 'node:crypto';
+import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import { Writable } from 'node:stream';
 
 import { eq, inArray } from 'drizzle-orm';
@@ -25,14 +27,22 @@ import {
   CORE_SYNC_AUTOMATION_METHOD,
   CORE_TEST_AUTOMATION_BLOCK_METHOD,
   CORE_TRIGGER_AUTOMATION_METHOD,
+  CORE_WEBHOOK_CALL_METHOD,
   parseEntityId,
   SUN_ELEVATION_ENTITY_ID,
   syncAutomationReplySchema,
   triggerAutomationReplySchema,
+  webhookCallReplySchema,
   type AutomationDefinition,
   type AutomationTestTarget,
 } from '@nebulahome/contracts';
-import { createDatabase, schema, type DatabaseHandle } from '@nebulahome/db';
+import {
+  createDatabase,
+  schema,
+  sealSecret,
+  secretsKeyFrom,
+  type DatabaseHandle,
+} from '@nebulahome/db';
 import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import type { CoreConfig } from '@/config.js';
@@ -48,6 +58,12 @@ const suffix = ulid().toLowerCase().slice(0, 10);
 const motion = parseEntityId(`binary_sensor.motion_${suffix}`);
 const lamp = parseEntityId(`light.lamp_${suffix}`);
 const relay = parseEntityId(`switch.relay_${suffix}`);
+
+/** The webhook the HTTP request automation wakes on. */
+const hookId = randomBytes(16).toString('hex');
+
+/** The installation's key in these tests. */
+const SECRETS_KEY = 'ab'.repeat(32);
 
 /**
  * A logger that writes nowhere.
@@ -108,6 +124,8 @@ describe('automations in a running core', () => {
   let adapter: FakeAdapter;
   let caller: BusClient;
   let fixture: Fixture;
+  let echo: Server;
+  const echoed: { url: string; headers: IncomingHttpHeaders; body: string }[] = [];
 
   const packageId = `pkg-auto-${suffix}`;
   const ids: Record<string, string> = {};
@@ -158,6 +176,25 @@ describe('automations in a running core', () => {
       connectionString: DATABASE_URL,
       applicationName: 'core-automations',
     });
+
+    // Where the HTTP request action sends: answers 204 and remembers what it got.
+    echo = createServer((request, response) => {
+      let body = '';
+
+      request.on('data', (chunk: Buffer) => {
+        body += chunk.toString('utf8');
+      });
+      request.on('end', () => {
+        echoed.push({ url: request.url ?? '', headers: request.headers, body });
+        response.writeHead(204).end();
+      });
+    });
+    await new Promise<void>((resolve) => {
+      echo.listen(0, '127.0.0.1', resolve);
+    });
+
+    const address = echo.address();
+    const echoPort = typeof address === 'object' && address !== null ? address.port : 0;
 
     fixture = await insertFixture(database.db, packageId, [
       { entityId: motion, name: 'Motion', capabilities: { sensor_binary: {} } },
@@ -234,6 +271,25 @@ describe('automations in a running core', () => {
         },
       ],
     });
+    await insertAutomation('posts_on_webhook', {
+      triggers: [{ type: 'webhook', hookId, method: 'POST', reach: 'local' }],
+      then: [
+        {
+          type: 'http_request',
+          method: 'POST',
+          url: `http://127.0.0.1:${String(echoPort)}/house?motion={{ motion }}`,
+          variables: { motion },
+          headers: [
+            {
+              name: 'Authorization',
+              value: sealSecret('Bearer kept', secretsKeyFrom(SECRETS_KEY)),
+            },
+          ],
+          body: { kind: 'json', text: '{ "motion": {{ motion }} }' },
+          timeoutMs: 5_000,
+        },
+      ],
+    });
     await insertAutomation('skips_what_is_off', {
       triggers: [{ type: 'manual' }],
       then: [
@@ -287,6 +343,7 @@ describe('automations in a running core', () => {
       CORE_SYSTEM_PUBLISH_INTERVAL_MS: 1000,
       CORE_NET_DEV_PATH: '/proc/net/dev',
       CORE_AUTOMATION_STARTUP_GRACE_MS: 0,
+      NEBULA_SECRETS_KEY: SECRETS_KEY,
     };
 
     service = new CoreService({ config, db: database.db, bus, logger: silentLogger() });
@@ -309,6 +366,10 @@ describe('automations in a running core', () => {
     await database.db
       .delete(schema.history.automationRuns)
       .where(inArray(schema.history.automationRuns.automationId, automationIds));
+    await database.db
+      .delete(schema.history.webhookCalls)
+      .where(eq(schema.history.webhookCalls.hookId, hookId));
+    echo.close();
     await database.db
       .delete(schema.registry.automations)
       .where(inArray(schema.registry.automations.id, automationIds));
@@ -543,6 +604,65 @@ describe('automations in a running core', () => {
       expect(sun?.state.sensor_numeric?.value).toBeTypeOf('number');
       expect(sun?.attributes).toHaveProperty('phase');
     }
+  });
+
+  it('answers a webhook call, sends the HTTP request it starts, and records the call', async () => {
+    const call = {
+      hookId,
+      method: 'POST',
+      path: `/api/hooks/${hookId}`,
+      ip: '192.168.1.5',
+      isLocal: true,
+      userAgent: 'curl/8.5.0',
+      headers: { authorization: '[hidden]' },
+    };
+    const reply = await caller.request(
+      busSubjects.service(CORE_SERVICE, CORE_WEBHOOK_CALL_METHOD),
+      call,
+      webhookCallReplySchema,
+    );
+    const wrongMethod = await caller.request(
+      busSubjects.service(CORE_SERVICE, CORE_WEBHOOK_CALL_METHOD),
+      { ...call, method: 'GET' },
+      webhookCallReplySchema,
+    );
+    const outside = await caller.request(
+      busSubjects.service(CORE_SERVICE, CORE_WEBHOOK_CALL_METHOD),
+      { ...call, ip: '93.41.12.208', isLocal: false },
+      webhookCallReplySchema,
+    );
+
+    expect(reply).toMatchObject({ status: 200, outcome: 'started' });
+    expect(wrongMethod).toMatchObject({ status: 405, outcome: 'wrong_method', runId: null });
+    expect(outside).toMatchObject({ status: 404, outcome: 'local_only', runId: null });
+
+    const runs = await until(
+      () => runsOf('posts_on_webhook'),
+      (rows) => rows.length > 0,
+    );
+
+    expect(runs[0]).toMatchObject({ id: reply.runId, result: 'success' });
+    expect(echoed[0]?.headers.authorization).toBe('Bearer kept');
+    expect(echoed[0]?.url).toMatch(/^\/house\?motion=(true|false)$/u);
+    expect(typeof (JSON.parse(echoed[0]?.body ?? '{}') as { motion?: unknown }).motion).toBe(
+      'boolean',
+    );
+
+    const calls = await until(
+      () =>
+        database.db
+          .select()
+          .from(schema.history.webhookCalls)
+          .where(eq(schema.history.webhookCalls.hookId, hookId)),
+      (rows) => rows.length === 3,
+    );
+
+    expect(calls.map((row) => row.status).sort()).toEqual([200, 404, 405]);
+    expect(calls.find((row) => row.status === 200)).toMatchObject({
+      automationId: ids['posts_on_webhook'],
+      runId: reply.runId,
+      remoteIp: '192.168.1.5',
+    });
   });
 
   it('takes in an edited automation, and lets a disabled one go', async () => {

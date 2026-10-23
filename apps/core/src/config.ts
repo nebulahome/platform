@@ -14,6 +14,7 @@ import {
   dataEnvSchema,
   requireDataDirInProduction,
   runtimeEnvSchema,
+  secretsEnvSchema,
 } from '@nebulahome/config';
 
 /** Name this service reports in log records and bus envelopes. */
@@ -31,6 +32,8 @@ export const SERVICE_VERSION = '0.0.0';
 export const coreEnvSchema = runtimeEnvSchema
   .extend(databaseEnvSchema.shape)
   .extend(busEnvSchema.shape)
+  // An HTTP request action's Authorization header is sealed by `api`; `core` opens it to send it.
+  .extend(secretsEnvSchema.shape)
   .extend({
     /**
      * How long an adapter has to accept a command.

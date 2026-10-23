@@ -10,7 +10,8 @@
  * engine would drop it, so the field would promise what never happens.
  *
  * Scenes and automations are picked from the ones there are, packages from the ones installed.
- * Notify is kept as written and says it cannot run yet.
+ * Notify is kept as written and says it cannot run yet. An HTTP request has fields of its own
+ * (`automation/http-request-fields.tsx`).
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -63,6 +64,7 @@ import {
 import { capabilityLabel } from '@/library/entity-kind';
 import { DurationField } from '@/routes/library/automation/duration-field';
 import { useEditorHouse } from '@/routes/library/automation/editor-house';
+import { HttpRequestFields } from '@/routes/library/automation/http-request-fields';
 import { EntityField } from '@/routes/library/entity-field';
 
 /** What the fields need. */
@@ -266,6 +268,9 @@ export function ActionFields(props: ActionFieldsProps) {
     }
     case 'package_service': {
       return <PackageServiceFields action={action} onChange={onChange} />;
+    }
+    case 'http_request': {
+      return <HttpRequestFields action={action} onChange={onChange} />;
     }
     default: {
       return null;

@@ -67,6 +67,14 @@ describe('the sentence a closed block reads', () => {
         at: { kind: 'clock', time: '07:30:15', weekdays: ['saturday', 'sunday'], months: ['june'] },
       }),
     ).toBe('Weekends at 07:30:15 in June');
+    expect(
+      triggerSummary({
+        type: 'webhook',
+        hookId: '7f3a9c2e5b1d4e88a0b1c2d3e4f50617',
+        method: 'POST',
+        reach: 'local',
+      }),
+    ).toBe('POST to …/hooks/7f3a9c2e');
   });
 
   it('says what a condition checks, negated the way a person would say it', () => {
@@ -135,6 +143,14 @@ describe('the sentence a closed block reads', () => {
       '2 branches · 1 block',
     );
     expect(actionSummary({ type: 'wait_duration', durationMs: 600_000 })).toBe('10 min');
+    expect(
+      actionSummary({
+        type: 'http_request',
+        method: 'POST',
+        url: 'https://hooks.example.com/house/{{ door }}/state',
+        timeoutMs: 10_000,
+      }),
+    ).toBe('POST hooks.example.com/house/…/state');
   });
 
   it('writes a colour as HEX and a white in kelvin', () => {

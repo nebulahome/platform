@@ -241,6 +241,52 @@ describe('automationTriggerSchema', () => {
   it('accepts a manual trigger, which is how the UI runs one by hand', () => {
     expect(() => automationTriggerSchema.parse({ type: 'manual' })).not.toThrow();
   });
+
+  it('takes a webhook with an id as long as a password, and nothing guessable', () => {
+    const webhook = {
+      type: 'webhook',
+      hookId: '7f3a9c2e5b1d4e88a0b1c2d3e4f50617',
+      method: 'POST',
+      reach: 'local',
+    };
+
+    expect(automationTriggerSchema.parse(webhook)).toEqual(webhook);
+    expect(() => automationTriggerSchema.parse({ ...webhook, hookId: '7f3a9c2e' })).toThrow();
+    expect(() => automationTriggerSchema.parse({ ...webhook, method: 'TRACE' })).toThrow();
+  });
+});
+
+describe('the HTTP request action', () => {
+  const request = {
+    type: 'http_request',
+    method: 'POST',
+    url: 'https://hooks.example.com/house/{{ door }}/state',
+    variables: { door: 'binary_sensor.front_door' },
+    headers: [
+      { name: 'Content-Type', value: 'application/json' },
+      { name: 'Authorization', value: { $sealed: true, ref: 'a1b2c3d4e5f60718' } },
+    ],
+    body: { kind: 'json', text: '{ "door": {{ door }} }' },
+    timeoutMs: 10_000,
+  };
+  const document = { triggers: [{ type: 'manual' }], then: [request] };
+
+  it('round-trips, and its parameters are entities the automation names', () => {
+    const parsed = automationDefinitionSchema.parse(document);
+
+    expect(parsed).toEqual(document);
+    expect(entityIdsOfDefinition(parsed)).toEqual(['binary_sensor.front_door']);
+  });
+
+  it('refuses an address that is not http, and a header that would split the request', () => {
+    for (const action of [
+      { ...request, url: 'file:///etc/passwd' },
+      { ...request, headers: [{ name: 'X-Evil', value: 'a\r\nHost: elsewhere' }] },
+      { ...request, timeoutMs: 120_000 },
+    ]) {
+      expect(() => automationDefinitionSchema.parse({ ...document, then: [action] })).toThrow();
+    }
+  });
 });
 
 describe('clockAtToCron', () => {

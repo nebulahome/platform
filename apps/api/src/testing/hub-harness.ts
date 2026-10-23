@@ -25,9 +25,11 @@ import {
   CORE_SYNC_HOUSE_METHOD,
   CORE_TEST_AUTOMATION_BLOCK_METHOD,
   CORE_TRIGGER_AUTOMATION_METHOD,
+  CORE_WEBHOOK_CALL_METHOD,
   removeAutomationRequestSchema,
   syncAutomationRequestSchema,
   syncHouseRequestSchema,
+  webhookCallRequestSchema,
   testAutomationBlockRequestSchema,
   triggerAutomationRequestSchema,
   type ApplySceneReply,
@@ -39,6 +41,8 @@ import {
   type SyncHouseReply,
   type TestAutomationBlockRequest,
   type TriggerAutomationReply,
+  type WebhookCallReply,
+  type WebhookCallRequest,
   accountBeginRequestSchema,
   accountSignOutRequestSchema,
   HUB_ACCOUNT_BEGIN_METHOD,
@@ -574,6 +578,9 @@ export const blocksTested: TestAutomationBlockRequest[] = [];
 /** The tests the fake `core` was asked to stop, in order. */
 export const testsCancelled: string[] = [];
 
+/** The webhook calls the fake `core` was handed, in order. */
+export const webhookCalls: WebhookCallRequest[] = [];
+
 /** How many times the fake `core` was asked to read the house again. */
 export const houseSyncs: { count: number } = { count: 0 };
 
@@ -1011,6 +1018,15 @@ export async function buildTestServer(
             return { kind: 'trigger', matches: null, nextAt: null, detail: 'Fires at its moment' };
           }
         }
+      },
+    ),
+    core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_WEBHOOK_CALL_METHOD),
+      webhookCallRequestSchema,
+      (request): WebhookCallReply => {
+        webhookCalls.push(request);
+
+        return { status: 200, outcome: 'started', runId: '0190f5a1-0000-7000-8000-000000000002' };
       },
     ),
     core.serve(

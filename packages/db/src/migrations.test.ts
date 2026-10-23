@@ -66,9 +66,9 @@ describe('the migration set', () => {
 
 describe('the initial schema', () => {
   it('creates every object DATABASE.md defines', () => {
-    expect(initialSql.match(/^CREATE TABLE /gm)).toHaveLength(44);
+    expect(initialSql.match(/^CREATE TABLE /gm)).toHaveLength(45);
     expect(initialSql.match(/^CREATE VIEW /gm)).toHaveLength(4);
-    expect(initialSql.match(/create_hypertable\(/g)).toHaveLength(5);
+    expect(initialSql.match(/create_hypertable\(/g)).toHaveLength(6);
   });
 
   it('attaches the updated_at trigger to every table that has the column', () => {

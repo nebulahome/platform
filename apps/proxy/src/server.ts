@@ -97,6 +97,21 @@ export async function buildProxyServer(options: ProxyServerOptions): Promise<Fas
     prefix: API_PREFIX,
     rewritePrefix: API_PREFIX,
     websocket: true,
+    replyOptions: {
+      /**
+       * Tells `api` who called: the address on this socket, in place of any the caller wrote.
+       * `api` trusts the header, so one passed through would let a caller from the internet
+       * claim to be at home - and a webhook kept on the house's network answer it.
+       *
+       * @param request - The call.
+       * @param headers - Its headers, as they go on.
+       * @returns The headers with `x-forwarded-for` set.
+       */
+      rewriteRequestHeaders: (request, headers) => ({
+        ...headers,
+        'x-forwarded-for': request.socket.remoteAddress ?? '',
+      }),
+    },
   });
 
   await server.register(fastifyStatic, {

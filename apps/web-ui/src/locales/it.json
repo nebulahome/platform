@@ -175,6 +175,7 @@
       "entityChanged": "Un'entità è cambiata",
       "if": "Se",
       "itsTimeCame": "È arrivata la sua ora",
+      "itsWebhookWasCalled": "Il suo webhook è stato chiamato",
       "lastRuns": "Ultime esecuzioni",
       "noStepsRecorded": "Nessun passo registrato.",
       "notRunYetIt": "Non ancora eseguita. Viene eseguita quando scatta una delle sue attivazioni, o da Esegui ora.",
@@ -198,7 +199,8 @@
       "joinWith": "Unisci i trigger con",
       "and": "E",
       "orOnly": "I trigger la avviano uno alla volta",
-      "useIf": "Basta uno di loro ad avviarla. Per richiedere due cose insieme, aggiungi la seconda come condizione in Se."
+      "useIf": "Basta uno di loro ad avviarla. Per richiedere due cose insieme, aggiungi la seconda come condizione in Se.",
+      "webhookHasNothing": "Un webhook non ha nulla da provare: chiama il suo indirizzo"
     }
   },
   "automations": {
@@ -249,6 +251,7 @@
       "cases_one": "{{count}} caso",
       "cases_other": "{{count}} casi",
       "changes": "{{name}} cambia",
+      "chooseAddress": "Scrivi l'indirizzo",
       "chooseAutomation": "Scegli un'automazione",
       "chooseEntity": "Scegli un'entità",
       "choosePackage": "Scegli un pacchetto",
@@ -353,6 +356,8 @@
       "times_other": "{{count}} volte",
       "until": "Fino alle {{to}}",
       "waitFor": "Finché {{what}}, al massimo {{duration}}",
+      "webhook": "{{method}} su {{address}}",
+      "webhookAny": "Chiamato su {{address}}",
       "while": "Finché {{conditions}}",
       "whileEmpty": "Finché … - aggiungi una condizione",
       "windowMidnight": "{{from}} → {{to}} (oltre la mezzanotte)",
@@ -2645,7 +2650,8 @@
       "status": "Stato",
       "sun": "Sole",
       "time": "Orario",
-      "trigger": "Attivazione"
+      "trigger": "Attivazione",
+      "webhook": "Webhook"
     },
     "automationRow": {
       "itsDefinitionIsNot": "La sua definizione non ha una forma che questa versione capisca.",
@@ -3624,6 +3630,47 @@
       "notes_one": "1 cosa è stata tralasciata o cambiata",
       "notes_many": "{{count}} cose sono state tralasciate o cambiate",
       "notes_other": "{{count}} cose sono state tralasciate o cambiate"
+    },
+    "httpRequestFields": {
+      "addAHeader": "Aggiungi un'intestazione",
+      "addAParameter": "Aggiungi un parametro",
+      "address": "Indirizzo",
+      "body": "Corpo",
+      "bodyHint": "Formatta sistema il rientro. I parametri sono inviati come numeri, testo o true/false, come li riporta l'entità.",
+      "entity": "Entità",
+      "entityForName": "Entità per {{name}}",
+      "form": "Modulo",
+      "format": "Formatta",
+      "headerName": "Nome dell'intestazione",
+      "headerValue": "Valore di {{name}}",
+      "headers": "Intestazioni",
+      "method": "Metodo",
+      "name": "Nome",
+      "none": "Nessuno",
+      "notJson": "JSON non valido",
+      "now": "Ora",
+      "parameters": "Parametri",
+      "parametersHint": "Metti un parametro nell'indirizzo o nel corpo scrivendo il suo nome tra graffe, {{example}}; appare nel suo colore. Rinominalo qui e ogni uso lo segue.",
+      "removeHeader": "Rimuovi {{name}}",
+      "removeName": "Rimuovi {{name}}",
+      "secret": "Segreto",
+      "secretHint": "Un'intestazione chiamata Authorization resta segreta da sola: salvata cifrata, mai più mostrata.",
+      "text": "Testo",
+      "timeOutAfter": "Rinuncia dopo",
+      "validJson": "JSON valido"
+    },
+    "webhookFields": {
+      "accepts": "Accetta",
+      "address": "Indirizzo",
+      "allCalls": "Tutte le chiamate in Impostazioni › Webhook",
+      "any": "Qualsiasi",
+      "internet": "Internet",
+      "keepItSecret": "Chiunque abbia questo indirizzo può avviare l'automazione: custodiscilo come una password. Un nuovo indirizzo ferma subito quello vecchio.",
+      "lastCall": "Ultima chiamata {{when}} da {{ip}} · {{status}}",
+      "localNetwork": "Rete locale",
+      "neverCalled": "Non ancora chiamato",
+      "newAddress": "Crea un nuovo indirizzo",
+      "reachableFrom": "Raggiungibile da"
     }
   },
   "live": {
@@ -4097,7 +4144,9 @@
       "securitySessionLifetimeHours": "Per quanto tempo una sessione resta valida prima di chiedere un nuovo accesso",
       "systemAuditLogRetentionDays": "Per quanto tempo si tengono i registri di controllo. Null vuol dire per sempre",
       "uiDefaultTheme": "Il tema di chi non ne ha scelto uno",
-      "unitsTemperature": "L'unità in cui si mostrano le temperature"
+      "unitsTemperature": "L'unità in cui si mostrano le temperature",
+      "webhooksAllowInternet": "Tramite l'accesso remoto. Spento: i webhook segnati Internet rispondono 404 da fuori",
+      "webhooksRatePerMinute": "Chiamate al minuto che un webhook accetta; oltre ricevono 429 e non avviano nulla"
     },
     "forbidden": {
       "note": "Serve <0>{{permission}}</0>, che il tuo ruolo non concede. Un proprietario o un amministratore può cambiarlo.",
@@ -4186,7 +4235,8 @@
       "icons": "Icone",
       "interface": "Interfaccia",
       "system": "Monitor di sistema",
-      "users": "Utenti e ruoli"
+      "users": "Utenti e ruoli",
+      "webhooks": "Webhook"
     },
     "password": {
       "change": "Cambia la password",
@@ -4252,7 +4302,8 @@
       "data": "Dati e conservazione",
       "icons": "Icone",
       "system": "Monitor di sistema",
-      "users": "Utenti e ruoli"
+      "users": "Utenti e ruoli",
+      "webhooks": "Webhook"
     },
     "sessions": {
       "address": "Indirizzo",
@@ -4319,6 +4370,68 @@
       "roles": "Ruoli",
       "tabs": "Utenti e ruoli",
       "users": "Utenti"
+    },
+    "webhooks": {
+      "active": "Attiva",
+      "address": "Indirizzo",
+      "allAutomations": "Tutte le automazioni",
+      "allCalls": "Tutte le chiamate",
+      "answer": "Risposta",
+      "answerLine": "{{status}} in {{ms}} ms · {{said}}",
+      "any": "Qualsiasi",
+      "anywhere": "Ovunque",
+      "automation": "Automazione",
+      "baseAddress": "Indirizzo di base",
+      "baseAddressNote": "Ogni webhook è un percorso sotto di esso.",
+      "callsNote": "Ogni chiamata, conservata 30 giorni. Aprine una per indirizzo, intestazioni e cosa ha avviato.",
+      "copied": "Indirizzo copiato",
+      "copyAddress": "Copia l'indirizzo",
+      "day": "24 h",
+      "endpoint": "Endpoint",
+      "from": "Da",
+      "fromTheInternet": "Da internet",
+      "fromTheInternetNote": "Tramite l'accesso remoto. Spento: i webhook segnati Internet rispondono 404 da fuori.",
+      "headers": "Intestazioni",
+      "hour": "1 h",
+      "internet": "Internet",
+      "lastCall": "Ultima chiamata",
+      "limit": "Limite",
+      "limitNote": "Le chiamate oltre il limite ricevono 429 e non avviano nulla.",
+      "local": "Locale",
+      "localNetwork": "Rete locale",
+      "method": "Metodo",
+      "month": "30 giorni",
+      "more": "Altro",
+      "narrowTheCalls": "Restringi le chiamate",
+      "never": "Mai",
+      "noCalls": "Nessuna chiamata in questo periodo.",
+      "none": "Nessuna automazione parte ancora da un webhook. Aggiungi un'attivazione Webhook a una.",
+      "openAutomation": "Apri l'automazione",
+      "outcome": {
+        "acceptsOnly": "Accetta solo {{method}}",
+        "ignored": "Nulla avviato: è già in corso",
+        "localOnly": "Non raggiungibile da internet",
+        "notFound": "Indirizzo sconosciuto",
+        "queued": "Esecuzione in coda",
+        "rateLimited": "Troppe chiamate: {{rate}} al minuto",
+        "started": "Esecuzione avviata",
+        "wrongMethod": "Metodo non accettato"
+      },
+      "paused": "In pausa",
+      "perMinute": "{{rate}} al minuto per webhook",
+      "reachable": "Raggiungibile",
+      "received": "Ricevuta",
+      "recentCalls": "Chiamate recenti",
+      "request": "Richiesta",
+      "saveFailed": "Impossibile salvare l'impostazione",
+      "time": "Quando",
+      "title": "Webhook",
+      "userAgent": "User agent",
+      "webhook": "Webhook",
+      "webhooksNote": "Uno per ogni automazione che parte da un'attivazione webhook. Mettere in pausa l'automazione mette in pausa il suo webhook.",
+      "week": "7 giorni",
+      "whatHappened": "Cosa è successo",
+      "where": "Dove"
     }
   },
   "shell": {

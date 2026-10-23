@@ -44,6 +44,7 @@ import { schema, type Database } from '@nebulahome/db';
 
 import { decodeCursor, toPage, type PageResult } from '../http/pagination.js';
 
+import { maskSecrets } from './automation-secrets.js';
 import { isUniqueViolation } from './keys.js';
 
 /** Capabilities a scene may target: settable, with a stable resting state. */
@@ -641,7 +642,8 @@ async function lastRunsOf(
  * @returns The document.
  */
 function currentDefinition(stored: unknown): JsonObject {
-  const migrated = migrateDefinition(stored ?? {});
+  // A sealed header leaves masked: it is stored to be sent, never to be read back.
+  const migrated = maskSecrets(migrateDefinition(stored ?? {}));
 
   return typeof migrated === 'object' && migrated !== null && !Array.isArray(migrated)
     ? (migrated as JsonObject)

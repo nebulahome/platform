@@ -1,7 +1,8 @@
 /**
  * What an automation does: a sequence of actions, some of which hold sequences of their own.
  *
- * Plain actions set an entity, apply a scene, start another automation, wait, call a package.
+ * Plain actions set an entity, apply a scene, start another automation, wait, call a package,
+ * send an HTTP request.
  * Control blocks hold others: an If with its conditions and two branches, a Switch on an entity's
  * state, loops, a Sequence, branches run in Parallel. Every one carries the {@link BlockMeta}
  * every block does, so any of them can be named or turned off - a control block turned off takes
@@ -10,7 +11,12 @@
 import { z } from 'zod';
 
 import { conditionListSchema, type ConditionNode } from './automation-conditions.js';
-import { blockMetaShape, durationMsSchema, type BlockMeta } from './automation-meta.js';
+import {
+  blockMetaShape,
+  durationMsSchema,
+  expressionVariablesSchema,
+  type BlockMeta,
+} from './automation-meta.js';
 import { automationTriggerSchema, type AutomationTrigger } from './automation-triggers.js';
 import { capabilityNameSchema, commandSchemaFor } from './capabilities.js';
 import { entityIdSchema } from './entity-id.js';
@@ -33,6 +39,7 @@ export const ACTION_TYPES = [
   'wait_for_trigger',
   'notify',
   'package_service',
+  'http_request',
   'parallel',
   'sequence',
   'switch',
@@ -45,6 +52,33 @@ export const ACTION_TYPES = [
 
 /** Something an automation does. */
 export type ActionType = (typeof ACTION_TYPES)[number];
+
+/** The methods an HTTP request action can send. */
+export const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'] as const;
+
+/** A method an HTTP request action can send. */
+export type HttpMethod = (typeof HTTP_METHODS)[number];
+
+/** How an HTTP request's body is written, and so how a parameter is put into it. */
+export const HTTP_BODY_KINDS = ['none', 'json', 'form', 'text'] as const;
+
+/** How an HTTP request's body is written. */
+export type HttpBodyKind = (typeof HTTP_BODY_KINDS)[number];
+
+/**
+ * A header value kept secret: sealed in the stored row (`$sealed` is the cipher text), or masked
+ * as it leaves the API (`$sealed: true`, with `ref` naming the stored value to keep on a save).
+ */
+export type SecretHeaderValue = {
+  readonly $sealed: string | true;
+  readonly ref?: string | undefined;
+};
+
+/** One header an HTTP request action sends. */
+export type HttpHeader = {
+  readonly name: string;
+  readonly value: string | SecretHeaderValue;
+};
 
 /** Action kinds that hold other actions (or branches of them). */
 export const NESTED_ACTION_TYPES = [
@@ -95,6 +129,19 @@ export type AutomationAction = BlockMeta &
         readonly packageId: string;
         readonly service: string;
         readonly params: Readonly<Record<string, unknown>>;
+      }
+    | {
+        readonly type: 'http_request';
+        readonly method: HttpMethod;
+
+        /** The address, with `{{ name }}` where a parameter goes. */
+        readonly url: string;
+
+        /** The entities its parameters read, by name, as an expression's variables. */
+        readonly variables?: Readonly<Record<string, string>> | undefined;
+        readonly headers?: readonly HttpHeader[] | undefined;
+        readonly body?: { readonly kind: HttpBodyKind; readonly text: string } | undefined;
+        readonly timeoutMs: number;
       }
     | {
         readonly type: 'parallel';
@@ -247,6 +294,40 @@ export const automationActionSchema: z.ZodType<AutomationAction> = z.lazy(() =>
         .max(64)
         .refine(isPackageServiceAllowed, { message: 'Is a name the platform keeps for itself' }),
       params: jsonObjectSchema.default({}),
+    }),
+    z.object({
+      type: z.literal('http_request'),
+      ...blockMetaShape,
+      method: z.enum(HTTP_METHODS),
+      url: z
+        .string()
+        .trim()
+        .max(2_000)
+        .regex(/^https?:\/\/\S/iu, 'Must start with http:// or https://'),
+      variables: expressionVariablesSchema.optional(),
+      headers: z
+        .array(
+          z.object({
+            // An HTTP token, and a value on one line: anything else would split the request.
+            name: z.string().regex(/^[\w!#$%&'*+.^`|~-]{1,64}$/u, 'Not a header name'),
+            value: z.union([
+              z
+                .string()
+                .max(4_000)
+                .regex(/^[^\r\n]*$/u, 'Must be one line'),
+              z.strictObject({
+                $sealed: z.union([z.string().min(1).max(8_000), z.literal(true)]),
+                ref: z.string().max(64).optional(),
+              }),
+            ]),
+          }),
+        )
+        .max(20)
+        .optional(),
+      body: z.object({ kind: z.enum(HTTP_BODY_KINDS), text: z.string().max(20_000) }).optional(),
+
+      /** How long the other end has to answer; a request with no end is a run that never ends. */
+      timeoutMs: z.int().min(1_000).max(60_000),
     }),
     z.object({
       type: z.literal('parallel'),

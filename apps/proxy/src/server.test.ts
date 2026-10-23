@@ -28,6 +28,7 @@ describe('buildProxyServer', () => {
     upstream = Fastify();
     upstream.get('/api/v1/meta', (request) => ({
       path: request.url,
+      forwardedFor: request.headers['x-forwarded-for'],
       payload: 'y'.repeat(4096),
     }));
     await upstream.listen({ host: '127.0.0.1', port: 0 });
@@ -84,6 +85,17 @@ describe('buildProxyServer', () => {
     expect(response.statusCode).toBe(200);
     expect(response.headers['content-encoding']).toBeUndefined();
     expect(response.json<{ path: string }>().path).toBe('/api/v1/meta?x=1');
+  });
+
+  it('tells api the address on the socket, never the one a caller wrote', async () => {
+    const response = await proxy.inject({
+      method: 'GET',
+      url: '/api/v1/meta',
+      headers: { 'x-forwarded-for': '192.168.1.10' },
+      remoteAddress: '203.0.113.7',
+    });
+
+    expect(response.json<{ forwardedFor: string }>().forwardedFor).toBe('203.0.113.7');
   });
 
   it('does not answer an unknown API path with the page', async () => {

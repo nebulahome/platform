@@ -47,6 +47,7 @@ import { registerSetupRoutes } from './routes/setup.js';
 import { registerSystemRoutes } from './routes/system.js';
 import { registerTagRoutes } from './routes/tags.js';
 import { registerUserRoutes } from './routes/users.js';
+import { HOOK_PATH_PREFIX, registerHookRoute, registerWebhookRoutes } from './routes/webhooks.js';
 import { registerWebSocket } from './routes/ws.js';
 
 /** Paths that are reachable without a credential. */
@@ -97,6 +98,9 @@ const PACKAGE_FILE_PATHS = [
   new RegExp(`^/api/${CURRENT_API_VERSION}/catalogue/logos/[^/]+$`, 'u'),
 ];
 
+/** A webhook's address: its id is its credential, which the route checks (`routes/webhooks.ts`). */
+const HOOK_PATH = new RegExp(`^${HOOK_PATH_PREFIX}[^/]+$`, 'u');
+
 /**
  * Says whether a path may be reached without a credential.
  *
@@ -113,7 +117,8 @@ function isPublicPath(url: string): boolean {
   return (
     PUBLIC_PATHS.has(path) ||
     SOCKET_PATHS.some((socket) => socket.test(path)) ||
-    PACKAGE_FILE_PATHS.some((file) => file.test(path))
+    PACKAGE_FILE_PATHS.some((file) => file.test(path)) ||
+    HOOK_PATH.test(path)
   );
 }
 
@@ -273,6 +278,8 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   registerBackupRoutes(environment, context);
   registerContainerRoutes(environment, context);
   registerPackageRoutes(environment, context);
+  registerWebhookRoutes(environment, context);
+  await registerHookRoute(server, context);
   registerPackageFileRoutes(server, context, environment.basePath);
   registerMapRoutes(server, context, environment.basePath);
   registerCameraRoutes(server, context, environment.basePath);
