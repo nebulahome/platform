@@ -27,6 +27,9 @@ export type SearchFieldProps = {
 
   /** Anything extra for the outer element, such as a width. */
   readonly className?: string;
+
+  /** A short note at the end of the box: how many results. */
+  readonly trail?: string | undefined;
 };
 
 /**
@@ -38,7 +41,7 @@ export type SearchFieldProps = {
 export function SearchField(props: SearchFieldProps) {
   const { t } = useTranslation();
 
-  const { value, onChange, placeholder, label = 'Search', className } = props;
+  const { value, onChange, placeholder, label = 'Search', className, trail } = props;
 
   return (
     <FieldShell label={label} isLabelHidden className={cn('w-44 lg:w-72', className)}>
@@ -61,6 +64,7 @@ export function SearchField(props: SearchFieldProps) {
               // A search is a pill on the page's own ground, as tall as the buttons beside it. The
               // browser's own cross is hidden: this box draws one that every browser shows.
               'h-control rounded-pill bg-surface pr-8 pl-8.5 text-ui [&::-webkit-search-cancel-button]:appearance-none',
+              trail !== undefined && 'pr-28',
             )}
             onChange={(event) => {
               onChange(event.target.value);
@@ -73,6 +77,14 @@ export function SearchField(props: SearchFieldProps) {
               }
             }}
           />
+          {trail === undefined ? null : (
+            <span
+              aria-live="polite"
+              className="pointer-events-none absolute top-1/2 right-9 -translate-y-1/2 text-caption text-foreground-subtle"
+            >
+              {trail}
+            </span>
+          )}
           {value === '' ? null : (
             <IconButton
               size="small"

@@ -2,8 +2,8 @@
  * Installing a container, in two steps as the board draws it: the image, then how it runs.
  *
  * **Image**: Docker Hub's images, searched across the whole dialog as the owner types, each a row
- * with its marks - Docker official, stars, pulls - and a radio; or, under Other registry, a full
- * reference typed in: `ghcr.io/owner/image`. A line at the foot says which is picked; its tag is
+ * with its marks - Docker official, stars, pulls - and a radio, sorted by name, stars or downloads;
+ * or, under Other registry, a full reference typed in: `ghcr.io/owner/image`. A line at the foot says which is picked; its tag is
  * chosen in the next step.
  *
  * **Settings**: a menu of the sections on the left - General, Ports and Storage (marked "from
@@ -113,10 +113,33 @@ const PROTOCOLS = [
   { value: 'udp', label: 'UDP' },
 ] as const;
 
+/** What Docker Hub's images are sorted by. */
+type ImageSort = 'name' | 'stars' | 'downloads';
+
+/**
+ * Sorts what Docker Hub found, in the browser: it answers a page of a few.
+ *
+ * @param results - What it found.
+ * @param sort - What by.
+ * @returns Them, sorted: by name A to Z, or the most stars or downloads first.
+ */
+function sortImages(results: readonly ImageSearchResult[], sort: ImageSort): ImageSearchResult[] {
+  return [...results].sort((one, other) =>
+    sort === 'name'
+      ? one.repository.localeCompare(other.repository)
+      : sort === 'stars'
+        ? other.stars - one.stars
+        : other.pulls - one.pulls,
+  );
+}
+
 /** What the search needs. */
 type ImageSearchProps = {
   /** The image picked, if any. */
   readonly picked: string;
+
+  /** What the images are sorted by. */
+  readonly sort: ImageSort;
 
   /** Called with the image picked. */
   readonly onPick: (result: ImageSearchResult) => void;
@@ -132,7 +155,7 @@ type ImageSearchProps = {
 function ImageSearch(props: ImageSearchProps) {
   const { t } = useTranslation();
 
-  const { picked, onPick } = props;
+  const { picked, sort, onPick } = props;
   const id = useId();
   const [search, setSearch] = useState('');
   const query = useDebounced(search.trim(), 350);
@@ -150,7 +173,7 @@ function ImageSearch(props: ImageSearchProps) {
      */
     queryFn: async ({ signal }: { signal: AbortSignal }) => searchImages(query, signal),
   });
-  const found = results.data?.results ?? [];
+  const found = sortImages(results.data?.results ?? [], sort);
 
   return (
     <div className="flex flex-col gap-3">
@@ -160,7 +183,35 @@ function ImageSearch(props: ImageSearchProps) {
         value={search}
         onChange={setSearch}
         className="w-full lg:w-full"
+        trail={
+          query.length < 2 || results.data === undefined
+            ? undefined
+            : t('containers.installContainerDialog.results', {
+                count: found.length,
+                defaultValue_one: '{{count}} result',
+                defaultValue_other: '{{count}} results',
+              })
+        }
       />
+      {found.length === 0 ? null : (
+        <div
+          aria-hidden="true"
+          className="flex items-center gap-3.5 border-b border-border px-3.5 pb-2.5 text-label tracking-wider text-foreground-subtle uppercase"
+        >
+          {/* Under the radio and the mark, as each row has them. */}
+          <span className="w-4 shrink-0" />
+          <span className="w-9 shrink-0" />
+          <span className="grow">{t('containers.installContainerDialog.image', 'Image')}</span>
+          <span className="flex w-16 items-center justify-end gap-1">
+            <AppIcon id="star" size={12} className="text-lamp" />
+            {t('containers.installContainerDialog.stars', 'Stars')}
+          </span>
+          <span className="flex w-24 items-center justify-end gap-1">
+            <AppIcon id="download" size={12} />
+            {t('containers.installContainerDialog.downloads', 'Downloads')}
+          </span>
+        </div>
+      )}
 
       <ul
         id={id}
@@ -240,15 +291,11 @@ function ImageSearch(props: ImageSearchProps) {
                     </span>
                   )}
                 </span>
-                <span className="flex shrink-0 items-center gap-3 text-caption text-foreground-muted tabular">
-                  <span className="flex items-center gap-1">
-                    <AppIcon id="star" size={13} className="text-lamp" />
-                    {shortCount(result.stars)}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <AppIcon id="download" size={13} />
-                    {shortCount(result.pulls)}
-                  </span>
+                <span className="w-16 shrink-0 text-right font-mono text-mono-ui text-foreground tabular">
+                  {shortCount(result.stars)}
+                </span>
+                <span className="w-24 shrink-0 text-right font-mono text-mono-ui text-foreground tabular">
+                  {shortCount(result.pulls)}
                 </span>
               </button>
             </li>
@@ -372,6 +419,7 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
   const [isDescribed, setDescribed] = useState(false);
   const [step, setStep] = useState(0);
   const [registry, setRegistry] = useState<Registry>('hub');
+  const [sort, setSort] = useState<ImageSort>('stars');
   const tags = useQuery({
     queryKey: IMAGE_QUERY_KEYS.tags(draft.image),
     enabled: isOpen && draft.image !== '' && step === 1,
@@ -564,17 +612,44 @@ export function InstallContainerDialog(props: InstallContainerDialogProps) {
               value={registry}
               onChange={setRegistry}
             />
-            <span className="text-caption text-foreground-subtle">
-              {t(
-                'containers.installContainerDialog.orAFullImage',
-                'Or a full image reference, e.g. ghcr.io/owner/app',
-              )}
-            </span>
+            {registry === 'hub' ? (
+              <span className="flex items-center gap-2.5">
+                <span className="flex items-center gap-1.5 text-caption text-foreground-subtle">
+                  <AppIcon id="arrow-up-down" size={13} />
+                  {t('containers.installContainerDialog.sortBy', 'Sort by')}
+                </span>
+                <Segmented
+                  label={t('containers.installContainerDialog.sortBy', 'Sort by')}
+                  size="compact"
+                  options={[
+                    { value: 'name', label: t('containers.installContainerDialog.name', 'Name') },
+                    {
+                      value: 'stars',
+                      label: t('containers.installContainerDialog.stars', 'Stars'),
+                    },
+                    {
+                      value: 'downloads',
+                      label: t('containers.installContainerDialog.downloads', 'Downloads'),
+                    },
+                  ]}
+                  value={sort}
+                  onChange={setSort}
+                />
+              </span>
+            ) : (
+              <span className="text-caption text-foreground-subtle">
+                {t(
+                  'containers.installContainerDialog.orAFullImage',
+                  'Or a full image reference, e.g. ghcr.io/owner/app',
+                )}
+              </span>
+            )}
           </div>
 
           {registry === 'hub' ? (
             <ImageSearch
               picked={draft.image}
+              sort={sort}
               onPick={(result) => {
                 pick(result.repository);
               }}
