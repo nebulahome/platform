@@ -601,6 +601,125 @@
 }
 
 /*
+ * The sky of an empty state (empty-state.tsx): rings turning each way at their own pace, each
+ * carrying a planet or two, a light sweeping round the middle ring, a glow breathing behind the
+ * mark, stars twinkling and the mark itself floating. A ring sets its own period in `--turn`, a star its own in `--twinkle` and `--delay`.
+ * Everything stops where less motion was asked for, and the sky stays as it was drawn.
+ */
+@keyframes intro-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes intro-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes intro-twinkle {
+  0%,
+  100% {
+    opacity: 0.12;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+.intro-spin {
+  animation: matter-spin var(--turn, 30s) linear infinite;
+}
+
+.intro-spin-back {
+  animation: matter-spin var(--turn, 40s) linear infinite reverse;
+}
+
+.intro-breathe {
+  animation: intro-breathe 6s ease-in-out infinite;
+}
+
+.intro-float {
+  animation: intro-float 6s ease-in-out infinite;
+}
+
+.intro-twinkle {
+  animation: intro-twinkle var(--twinkle, 4s) ease-in-out var(--delay, 0s) infinite;
+}
+
+/* The whole sky fades out towards its edges, so it has no frame. */
+.intro-sky {
+  mask: radial-gradient(closest-side, #000 62%, transparent 100%);
+}
+
+.intro-glow {
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--color-primary) 13%, transparent),
+    color-mix(in srgb, var(--color-violet) 4%, transparent) 60%,
+    transparent 100%
+  );
+}
+
+/* A comet's tail on the 280px ring: a cut of a cone, kept to the ring's one-pixel line. */
+.intro-sweep {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg 260deg,
+    color-mix(in srgb, var(--color-primary) 0%, transparent) 260deg,
+    color-mix(in srgb, var(--color-primary) 50%, transparent) 352deg,
+    var(--color-foreground) 359deg,
+    transparent 360deg
+  );
+  mask: radial-gradient(circle, transparent 138.5px, #000 139px, #000 140px, transparent 140.5px);
+}
+
+.intro-mark {
+  border: 1px solid color-mix(in srgb, var(--color-primary) 38%, transparent);
+  background: linear-gradient(160deg, var(--color-surface-high), var(--color-surface));
+  box-shadow:
+    0 20px 44px -18px rgb(0 0 0 / 0.95),
+    0 0 0 7px color-mix(in srgb, var(--color-primary) 6%, transparent),
+    0 0 46px color-mix(in srgb, var(--color-primary) 20%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.07);
+}
+
+/* The dark behind the words, so a ring passing under them never crosses a letter. */
+.intro-veil {
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--color-canvas) 86%, transparent),
+    color-mix(in srgb, var(--color-canvas) 70%, transparent) 55%,
+    transparent 100%
+  );
+  backdrop-filter: blur(3px);
+  mask: radial-gradient(closest-side, #000 50%, transparent 100%);
+}
+
+[data-motion='reduced']
+  :is(.intro-spin, .intro-spin-back, .intro-breathe, .intro-float, .intro-twinkle) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full'])
+    :is(.intro-spin, .intro-spin-back, .intro-breathe, .intro-float, .intro-twinkle) {
+    animation: none;
+  }
+}
+
+/*
  * A toast coming and going (toast.tsx).
  *
  * It comes in from the right while its height opens from nothing, so the ones already there
