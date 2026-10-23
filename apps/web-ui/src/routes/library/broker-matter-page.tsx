@@ -3,11 +3,13 @@
  * way a new one comes in.
  *
  * As the board draws a detail page: the way back, the mark, the name and its line, the state as a
- * Pill and whether the house's network is heard, **Add device** at the top right, then the tabs.
+ * Pill and whether the house's network is heard, **Add device** and **Restart** at the top right,
+ * then the tabs.
  * Overview is the health strip, the devices added last and what the broker is, with a callout
  * when the controller failed or cannot hear the house's network. Devices is every device of the
  * fabric, a bridge with each device behind it. Add device opens the dialog that takes the pairing
- * code another app shares and follows the commissioning; closing it does not stop it.
+ * code another app shares and follows the commissioning; closing it before the device joined the
+ * fabric stops it.
  *
  * A node is added to the house the moment it is commissioned: an integration whose rules
  * recognise it takes it, and the platform takes the rest. A device is removed from its own page.
@@ -37,6 +39,7 @@ import {
   BROKER_QUERY_KEYS,
   fetchMatterNodes,
   fetchMatterStatus,
+  restartMatter,
   restoreMatterDevice,
 } from '@/library/brokers-api';
 import { AddMatterDialog } from '@/routes/library/broker-matter/add-dialog';
@@ -46,6 +49,7 @@ import { everyRow, rowsOf } from '@/routes/library/broker-matter/matter-rows';
 import { brokerStateOf, BrokerMark } from '@/routes/library/brokers-page';
 import { BackLink, DetailFrame } from '@/routes/library/detail-page';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
+import { RestartBroker } from '@/routes/library/restart-broker';
 import { useVendorsById } from '@/routes/library/transport-marks';
 
 /** The tabs of the page; the first is the page itself. */
@@ -208,15 +212,27 @@ export function MatterBrokerPage() {
             )
           }
           actions={
-            canWrite && found?.state === 'running' ? (
-              <Button
-                onClick={() => {
-                  setIsAdding(true);
-                }}
-              >
-                <AppIcon id="plus" size={15} />
-                {t('brokers.matter.addDevice', 'Add device')}
-              </Button>
+            canWrite && found !== undefined && found.state !== 'disabled' ? (
+              <>
+                {found.state === 'running' ? (
+                  <Button
+                    onClick={() => {
+                      setIsAdding(true);
+                    }}
+                  >
+                    <AppIcon id="plus" size={15} />
+                    {t('brokers.matter.addDevice', 'Add device')}
+                  </Button>
+                ) : null}
+                <RestartBroker
+                  name={t('library.matterTag', 'Matter')}
+                  line={t(
+                    'brokers.matter.restartLine',
+                    'Its devices are out of reach for a few seconds while the controller opens again.',
+                  )}
+                  restart={restartMatter}
+                />
+              </>
             ) : undefined
           }
           tabs={

@@ -3,11 +3,11 @@
  * by hand, and the topics it carries.
  *
  * As the board draws a detail page: the way back, the mark, the name and its line, the state as a
- * Pill and the port, **Add client** and **Settings** at the top right, then the tabs. Overview is
- * the health strip and how a device connects, with a callout when the broker could not listen.
- * Devices is every device it hears, added to the house at once, a removed one offered back.
- * Clients is who may connect; Mappings the devices mapped by hand; Topics the last message of
- * every topic. What a press did - a device added back, a client removed - is said in a toast.
+ * Pill and the port, **Add client**, **Restart** and **Settings** at the top right, then the
+ * tabs. Overview is the health strip and how a device connects, with a callout when the broker
+ * could not listen. Devices is every device it hears, added to the house at once, a removed one
+ * offered back. Clients is who may connect; Mappings the devices mapped by hand; Topics the last
+ * message of every topic. What a press did - a device added back, a client removed - is said in a toast.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -38,6 +38,7 @@ import {
   fetchMqttStatus,
   removeMqttClient,
   removeMqttMapping,
+  restartMqtt,
   restoreMqttDevice,
 } from '@/library/brokers-api';
 import { AddClientDialog, MqttClients } from '@/routes/library/broker-mqtt/mqtt-clients';
@@ -48,6 +49,7 @@ import { MqttSettingsDialog } from '@/routes/library/broker-mqtt/mqtt-settings-d
 import { MqttTopics } from '@/routes/library/broker-mqtt/mqtt-topics';
 import { brokerStateOf, BrokerMark } from '@/routes/library/brokers-page';
 import { BackLink, DetailFrame } from '@/routes/library/detail-page';
+import { RestartBroker } from '@/routes/library/restart-broker';
 import { useVendorsById } from '@/routes/library/transport-marks';
 
 /** The tabs of the page; the first is the page itself. */
@@ -240,6 +242,14 @@ export function MqttBrokerPage() {
                     {t('brokers.mqtt.addClientButton', 'Add client')}
                   </Button>
                 ) : null}
+                <RestartBroker
+                  name={t('brokers.mqtt.title', 'MQTT')}
+                  line={t(
+                    'brokers.mqtt.restartLine',
+                    'Its clients are disconnected for a moment, and connect again.',
+                  )}
+                  restart={restartMqtt}
+                />
                 <Button
                   variant="ghost"
                   onClick={() => {

@@ -3,14 +3,15 @@
  *
  * One dialog with four faces. **The code** - one large field, an example of where a Matter code is
  * printed, and the footnote that it goes over the house's network only. **The job** -
- * its steps, and the picture of the device finding its way in; it can be closed, and goes on, and
- * opening the dialog again picks it up. **A test certificate** - the job stopped before the device
+ * its steps, and the picture of the device finding its way in; closed before the device joined the
+ * fabric, it stops - as it does when the page is left with the dialog open - and once it joined it
+ * goes on, opening the dialog again picking it up. **A test certificate** - the job stopped before the device
  * joined, asking whether to add it anyway. **A twin** - added, and it looks like a device the house
  * already reaches another way: the two side by side, why they match, and the offer to link them,
  * which opens that device's page to confirm.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
@@ -20,7 +21,12 @@ import { AppIcon, Button, cn, Modal, Note } from '@nebulahome/ui';
 import exampleQr from '@/assets/matter/example-qr.svg';
 import { MatterLogo } from '@/components/brand-logos';
 import { toMessage } from '@/lib/error-message';
-import { answerMatter, BROKER_QUERY_KEYS, commissionMatter } from '@/library/brokers-api';
+import {
+  answerMatter,
+  BROKER_QUERY_KEYS,
+  cancelMatter,
+  commissionMatter,
+} from '@/library/brokers-api';
 import {
   dismissLinkSuggestion,
   fetchSuggestionOfDevice,
@@ -112,8 +118,38 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
     onSettled: refresh,
   });
 
-  /** Closes the dialog; a job under way goes on. */
+  // The job closing stops: one whose device has not joined the fabric yet.
+  const stoppable =
+    shown !== null &&
+    (shown.state === 'needs-answer' || (shown.state === 'running' && shown.nodeId === null))
+      ? shown.id
+      : null;
+  const stopsOnLeave = useRef<string | null>(null);
+
+  useEffect(() => {
+    stopsOnLeave.current = isOpen ? stoppable : null;
+  });
+  useEffect(
+    () => () => {
+      // The job as the page is left, not as it was when the dialog mounted.
+      const jobId = stopsOnLeave.current;
+
+      if (jobId !== null) {
+        void cancelMatter(jobId).catch(() => undefined);
+      }
+    },
+    [],
+  );
+
+  /** Closes the dialog; a job whose device has not joined yet stops, one that has goes on. */
   const close = (): void => {
+    if (stoppable !== null) {
+      setFollowed(null);
+      void cancelMatter(stoppable)
+        .catch(() => undefined)
+        .finally(refresh);
+    }
+
     commission.reset();
     onClose();
   };
@@ -293,10 +329,15 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
         ) : (
           <>
             <span className="text-caption text-foreground-subtle">
-              {t(
-                'brokers.matter.adding.carriesOn',
-                'You can close this: it carries on, and the device shows up when it is in.',
-              )}
+              {stoppable === null
+                ? t(
+                    'brokers.matter.adding.carriesOn',
+                    'You can close this: it carries on, and the device shows up when it is in.',
+                  )
+                : t(
+                    'brokers.matter.adding.closeStops',
+                    'Closing this now stops it; once it has joined the fabric it carries on.',
+                  )}
             </span>
             <Button variant="ghost" onClick={close}>
               {t('common.close', 'Close')}

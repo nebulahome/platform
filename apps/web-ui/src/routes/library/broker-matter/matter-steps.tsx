@@ -33,7 +33,7 @@ export function joinPhaseOf(job: MatterCommissioning): JoinPhase {
     return 'warning';
   }
 
-  if (job.state === 'failed') {
+  if (job.state === 'failed' || job.state === 'cancelled') {
     return 'failed';
   }
 

@@ -126,6 +126,27 @@ export async function answerMatter(
 }
 
 /**
+ * Stops adding a Matter device before it joined the fabric.
+ *
+ * @param jobId - The job.
+ * @returns The job, as it now stands.
+ */
+export async function cancelMatter(jobId: string): Promise<MatterCommissioning> {
+  return apiRequest(`/brokers/matter/commission/${jobId}/cancel`, matterCommissioningSchema, {
+    method: 'POST',
+  });
+}
+
+/**
+ * Restarts the house's Matter controller.
+ *
+ * @returns Where the fabric stands then.
+ */
+export async function restartMatter(): Promise<MatterStatus> {
+  return apiRequest('/brokers/matter/restart', matterStatusSchema, { method: 'POST' });
+}
+
+/**
  * Removes a Matter node from the house and from the fabric.
  *
  * @param nodeId - The node.
@@ -165,6 +186,15 @@ export async function restoreMatterDevice(
  */
 export async function fetchMqttStatus(signal?: AbortSignal): Promise<MqttStatus> {
   return apiRequest('/brokers/mqtt', mqttStatusSchema, readOptions(signal));
+}
+
+/**
+ * Restarts the house's MQTT broker.
+ *
+ * @returns Where the broker stands then.
+ */
+export async function restartMqtt(): Promise<MqttStatus> {
+  return apiRequest('/brokers/mqtt/restart', mqttStatusSchema, { method: 'POST' });
 }
 
 /**
