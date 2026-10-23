@@ -127,7 +127,7 @@ function Sky({ icon }: { readonly icon: ReactNode }) {
         <span className={cn(PLANET, 'top-[32.9%] left-[3.02%] size-1 bg-cyan [--pop:0.75s]')} />
       </span>
 
-      <span className="intro-spin intro-sweep absolute top-[190px] left-[320px] size-[280px] rounded-full [--enter:0.3s] [--turn:10s]" />
+      <span className="intro-spin intro-sweep absolute top-[190px] left-[320px] size-[280px] rounded-full [--enter:0.08s] [--turn:10s]" />
 
       <span className="intro-float intro-mark absolute top-[292px] left-[422px] flex size-[76px] items-center justify-center rounded-[22px] text-primary">
         {icon}
