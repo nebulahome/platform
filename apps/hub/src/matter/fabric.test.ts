@@ -2,7 +2,44 @@ import { describe, expect, it } from 'vitest';
 
 import { jsonValueSchema } from '@nebulahome/contracts';
 
-import { commissioningStepOf, isTestCertificateFailure, jsonSafe } from './fabric.js';
+import { commissioningStepOf, isTestCertificateFailure, jsonSafe, readNode } from './fabric.js';
+
+describe('readNode', () => {
+  it('reads the details, and lists a node whose details throw as unavailable', () => {
+    const failures: unknown[] = [];
+    const onFailure = (error: unknown): void => {
+      failures.push(error);
+    };
+
+    expect(
+      readNode(
+        '7',
+        () => ({
+          node_id: 7n,
+          available: true,
+          attributes: { '0/40/1': 'Acme' },
+          date_commissioned: '2026-10-20T10:00:00.000Z',
+        }),
+        onFailure,
+      ),
+    ).toStrictEqual({
+      nodeId: '7',
+      isAvailable: true,
+      attributes: { '0/40/1': 'Acme' },
+      commissionedAt: new Date('2026-10-20T10:00:00.000Z'),
+    });
+    expect(
+      readNode(
+        '8',
+        () => {
+          throw new TypeError("Cannot read properties of undefined (reading 'commissionedAt')");
+        },
+        onFailure,
+      ),
+    ).toStrictEqual({ nodeId: '8', isAvailable: false, attributes: {}, commissionedAt: null });
+    expect(failures).toHaveLength(1);
+  });
+});
 
 describe('jsonSafe', () => {
   it('drops what a struct left undefined and turns a bigint into a number or text', () => {

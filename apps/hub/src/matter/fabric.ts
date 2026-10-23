@@ -193,6 +193,46 @@ export function jsonSafe(value: unknown): unknown {
   ) as unknown;
 }
 
+/** What the controller says of a node, as {@link readNode} reads it. */
+type NodeDetails = {
+  readonly node_id: unknown;
+  readonly available: boolean;
+  readonly attributes: unknown;
+  readonly date_commissioned: string;
+};
+
+/**
+ * One node, as the hub reads it. A node the controller cannot describe - one still being set up
+ * has no commissioning state yet, and its details throw - is listed unavailable, with nothing read,
+ * rather than breaking every other node.
+ *
+ * @param nodeId - The node, in decimal.
+ * @param details - Reads the controller's details of it.
+ * @param onFailure - Told why, when they did not read.
+ * @returns The node.
+ */
+export function readNode(
+  nodeId: string,
+  details: () => NodeDetails,
+  onFailure: (error: unknown) => void,
+): FabricNode {
+  try {
+    const read = details();
+    const commissionedAt = new Date(read.date_commissioned);
+
+    return {
+      nodeId: String(read.node_id),
+      isAvailable: read.available,
+      attributes: jsonSafe(read.attributes) as Record<string, unknown>,
+      commissionedAt: Number.isNaN(commissionedAt.getTime()) ? null : commissionedAt,
+    };
+  } catch (error: unknown) {
+    onFailure(error);
+
+    return { nodeId, isAvailable: false, attributes: {}, commissionedAt: null };
+  }
+}
+
 /**
  * Sends matter.js's own log into the hub's, at notice and above: what it says at info is a line a
  * packet.
@@ -277,27 +317,31 @@ export const openMatterFabric: OpenMatterFabric = async (options) => {
 
   const fabric = await handler.getCommissionerFabricData();
 
+  /** The nodes whose details did not read, said once each. */
+  const unreadable = new Set<string>();
+
   /**
    * One node, as the hub reads it.
    *
    * @param nodeId - The node.
    * @returns It, or undefined when the fabric has none of that id.
    */
-  const nodeOf = (nodeId: NodeId): FabricNode | undefined => {
-    if (!handler.hasNode(nodeId)) {
-      return undefined;
-    }
-
-    const details = handler.getNodeDetails(nodeId);
-    const commissionedAt = new Date(details.date_commissioned);
-
-    return {
-      nodeId: String(details.node_id),
-      isAvailable: details.available,
-      attributes: jsonSafe(details.attributes) as Record<string, unknown>,
-      commissionedAt: Number.isNaN(commissionedAt.getTime()) ? null : commissionedAt,
-    };
-  };
+  const nodeOf = (nodeId: NodeId): FabricNode | undefined =>
+    handler.hasNode(nodeId)
+      ? readNode(
+          String(nodeId),
+          () => handler.getNodeDetails(nodeId),
+          (error) => {
+            if (!unreadable.has(String(nodeId))) {
+              unreadable.add(String(nodeId));
+              logger.warn(
+                { err: error, nodeId: String(nodeId) },
+                "A Matter node's details did not read",
+              );
+            }
+          },
+        )
+      : undefined;
 
   return {
     fabricId: fabric.fabricId.toString(16),
@@ -334,6 +378,10 @@ export const openMatterFabric: OpenMatterFabric = async (options) => {
         await config.allocateNodeId((candidate) => handler.isNodeIdInUse(NodeId(candidate))),
       );
       const request = code.startsWith('MT:') ? { qrCode: code } : { manualCode: code };
+
+      // The certificates load from the DCL behind the start, which waits for none of it; an
+      // attestation before they did fails with "DclCertificateService is still initializing".
+      await controller.certificateService();
 
       // Heard only while it runs: matter.js says a line a packet at info.
       Logger.destinations[STEPS_DESTINATION] = LogDestination({
