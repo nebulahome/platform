@@ -64,6 +64,10 @@ export function PairingCodeField(props: PairingCodeFieldProps) {
   const input = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(true);
 
+  // The input's own selection is hidden - its text is not where the digits are drawn - and drawn
+  // on the digits instead.
+  const [selection, setSelection] = useState<readonly [number, number]>([0, 0]);
+
   // The dialog is the code: typing it is what it is opened for. A frame later, because the
   // dialog moves focus to its first button as it opens, after this field has mounted.
   useEffect(() => {
@@ -77,6 +81,29 @@ export function PairingCodeField(props: PairingCodeFieldProps) {
   }, []);
   const isQr = value.startsWith('MT:');
   const groups = value.length > 11 ? LONG_GROUPS : SHORT_GROUPS;
+  const start = Math.min(selection[0], value.length);
+  const end = Math.min(selection[1], value.length);
+
+  /**
+   * Whether a character is selected.
+   *
+   * @param position - Its place in the value.
+   * @returns True inside the selection.
+   */
+  const isSelected = (position: number): boolean =>
+    isFocused && position >= start && position < end;
+
+  /** Reads where the input's selection is. */
+  const readSelection = (): void => {
+    const field = input.current;
+
+    if (field !== null) {
+      setSelection([
+        field.selectionStart ?? field.value.length,
+        field.selectionEnd ?? field.value.length,
+      ]);
+    }
+  };
   let at = 0;
 
   return (
@@ -94,38 +121,52 @@ export function PairingCodeField(props: PairingCodeFieldProps) {
           aria-hidden="true"
           className="min-w-0 grow truncate font-mono text-display tracking-wider whitespace-nowrap"
         >
-          {isQr ? (
-            <span className="text-foreground">{value}</span>
-          ) : (
-            groups.map((size, index) => {
-              const start = at;
+          {isQr
+            ? [value.slice(0, start), value.slice(start, end), value.slice(end)].map(
+                (part, index) => (
+                  <span
+                    key={`part-${String(index)}`}
+                    className={cn('text-foreground', index === 1 && isFocused && 'bg-primary/20')}
+                  >
+                    {part}
+                  </span>
+                ),
+              )
+            : groups.map((size, index) => {
+                const first = at;
 
-              at += size;
+                at += size;
 
-              return (
-                <span key={`group-${String(index)}`}>
-                  {index === 0 ? null : <span className="px-2 text-foreground-subtle">–</span>}
-                  {[...Array.from({ length: size }).keys()].map((offset) => {
-                    const position = start + offset;
-                    const digit = value[position];
+                return (
+                  <span key={`group-${String(index)}`}>
+                    {index === 0 ? null : <span className="px-2 text-foreground-subtle">–</span>}
+                    {[...Array.from({ length: size }).keys()].map((offset) => {
+                      const position = first + offset;
+                      const digit = value[position];
 
-                    return (
-                      <span key={`digit-${String(position)}`}>
-                        {position === value.length && isFocused ? (
-                          <span className="mx-px inline-block h-7.5 w-0.5 bg-primary align-middle motion-safe:animate-pulse" />
-                        ) : null}
-                        {digit === undefined ? (
-                          <span className="text-foreground-subtle opacity-55">0</span>
-                        ) : (
-                          <span className="text-foreground">{digit}</span>
-                        )}
-                      </span>
-                    );
-                  })}
-                </span>
-              );
-            })
-          )}
+                      return (
+                        <span key={`digit-${String(position)}`}>
+                          {position === start && start === end && isFocused ? (
+                            <span className="mx-px inline-block h-7.5 w-0.5 bg-primary align-middle motion-safe:animate-pulse" />
+                          ) : null}
+                          {digit === undefined ? (
+                            <span className="text-foreground-subtle opacity-55">0</span>
+                          ) : (
+                            <span
+                              className={cn(
+                                'text-foreground',
+                                isSelected(position) && 'bg-primary/20',
+                              )}
+                            >
+                              {digit}
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })}
+                  </span>
+                );
+              })}
         </span>
         <input
           ref={input}
@@ -135,7 +176,7 @@ export function PairingCodeField(props: PairingCodeFieldProps) {
           autoComplete="off"
           spellCheck={false}
           aria-describedby={`${id}-hint`}
-          className="absolute inset-0 rounded-card bg-transparent text-transparent caret-transparent outline-none selection:bg-primary/20"
+          className="absolute inset-0 rounded-card bg-transparent text-transparent caret-transparent outline-none selection:bg-transparent"
           onFocus={() => {
             setIsFocused(true);
           }}
@@ -144,7 +185,10 @@ export function PairingCodeField(props: PairingCodeFieldProps) {
           }}
           onChange={(event) => {
             onChange(cleanCode(event.target.value));
+            readSelection();
           }}
+          onSelect={readSelection}
+          onKeyUp={readSelection}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && isWholeCode(value)) {
               event.preventDefault();
@@ -159,7 +203,10 @@ export function PairingCodeField(props: PairingCodeFieldProps) {
             void navigator.clipboard
               .readText()
               .then((text) => {
-                onChange(cleanCode(text));
+                const code = cleanCode(text);
+
+                onChange(code);
+                setSelection([code.length, code.length]);
                 input.current?.focus();
               })
               .catch(() => {
