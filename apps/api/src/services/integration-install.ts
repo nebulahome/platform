@@ -168,14 +168,27 @@ export async function removeIntegration(
   }
 
   const devices = await context.db
-    .select({ id: schema.registry.integrations.id })
+    .select({
+      id: schema.registry.integrations.id,
+      rowId: schema.registry.devices.id,
+      linkedTo: schema.registry.devices.linkedTo,
+    })
     .from(schema.registry.integrations)
+    .leftJoin(
+      schema.registry.devices,
+      eq(schema.registry.devices.integrationId, schema.registry.integrations.id),
+    )
     .where(like(schema.registry.integrations.kind, `${vendorId}/%`));
   const deviceIds = devices.map((device) => device.id);
+  const rowIds = new Set(devices.map((device) => device.rowId));
+  // A way into a device removed here goes with that device: asked again, it would not be found.
+  const holderIds = devices
+    .filter((device) => device.linkedTo === null || !rowIds.has(device.linkedTo))
+    .map((device) => device.id);
 
   await assertNotReadByAliases(context, vendorId, deviceIds);
 
-  for (const id of deviceIds) {
+  for (const id of holderIds) {
     // One after another: each asks `hub` and `core`, and a failure stops the rest.
     // eslint-disable-next-line no-await-in-loop -- see above
     await deleteDevice(context, id);
