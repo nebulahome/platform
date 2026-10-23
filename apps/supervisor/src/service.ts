@@ -21,6 +21,7 @@
  */
 import { readFile } from 'node:fs/promises';
 import os from 'node:os';
+import path from 'node:path';
 
 import type { BusClient } from '@nebulahome/bus';
 import { PACKAGE_COMPOSE_DIRECTORY, resolveDataLayout } from '@nebulahome/config';
@@ -64,6 +65,8 @@ import {
   type ResyncReply,
   type StateReport,
   type VendorContainers,
+  type VolumesExportReply,
+  type VolumesImportReply,
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 
@@ -76,7 +79,7 @@ import { registrationOf, reportsOf, type ContainerFacts } from './domain/entitie
 import { imageName, parseImageReference, registryPageOf } from './domain/image-ref.js';
 import { takenPorts } from './domain/install.js';
 import { logsReplyOf, parseLogEntries } from './domain/log-frames.js';
-import type { DataMount, PlatformContext } from './domain/managed.js';
+import { MANAGED_LABELS, type DataMount, type PlatformContext } from './domain/managed.js';
 import { shapePackageCompose } from './domain/package-compose.js';
 import { PullProgressTracker } from './domain/pull-progress.js';
 import { planRecreate } from './domain/recreate.js';
@@ -99,6 +102,7 @@ import { ManagedContainers } from './services/managed-containers.js';
 import { PackageCompose } from './services/package-compose.js';
 import { replaceContainer } from './services/replace.js';
 import { checkImage } from './services/update-check.js';
+import { exportVolumes, importVolumes, type VolumeCopyOptions } from './services/volume-archive.js';
 
 /** How long Docker is left before it is asked again, after it could not be reached. */
 const RECONNECT_DELAY_MS = 30_000;
@@ -821,6 +825,39 @@ export class SupervisorService {
       new Set((listed ?? []).map((each) => nameOf(each.Names))),
       listed === null ? null : this.#context,
     );
+  }
+
+  /**
+   * Copies the named volumes of the containers the platform makes into a backup's staging.
+   *
+   * @param folder - The folder, under the data directory.
+   * @returns What was copied, and what was left out and why.
+   */
+  public async exportVolumes(folder: string): Promise<VolumesExportReply> {
+    const names = this.#namedVolumes();
+
+    if (names.length === 0) {
+      return { volumes: [], skipped: [] };
+    }
+
+    const reply = await exportVolumes(this.#volumeCopy(folder), names);
+
+    this.#logger.info(
+      { volumes: reply.volumes.map((each) => each.name), skipped: reply.skipped },
+      'Copied the named volumes for a backup',
+    );
+
+    return reply;
+  }
+
+  /**
+   * Writes the named volumes back from a restore's staging.
+   *
+   * @param folder - The folder, under the data directory.
+   * @returns The volumes written back.
+   */
+  public async importVolumes(folder: string): Promise<VolumesImportReply> {
+    return { volumes: await importVolumes(this.#volumeCopy(folder)) };
   }
 
   /**
@@ -1596,6 +1633,66 @@ export class SupervisorService {
   }
 
   /**
+   * The named volumes the containers the platform makes mount - an integration's, a compose
+   * project's, an install's - without the platform's own data volume, which a backup takes as
+   * folders.
+   *
+   * @returns Their names.
+   */
+  #namedVolumes(): string[] {
+    const context = this.#context;
+    const own = context?.dataMount.kind === 'volume' ? context.dataMount.volume : null;
+    const names = new Set<string>();
+
+    for (const tracked of this.#containers.values()) {
+      const labels = tracked.listed.Labels;
+      const isMade =
+        labels[INSTALLED_LABEL] === 'true' ||
+        labels[COMPOSE_LABEL] === 'true' ||
+        labels[MANAGED_LABELS.managed] === 'true';
+
+      if (!isMade || this.#isSystem(tracked)) {
+        continue;
+      }
+
+      for (const mount of tracked.inspected?.Mounts ?? []) {
+        if (mount.Type === 'volume' && mount.Name !== undefined && mount.Name !== own) {
+          names.add(mount.Name);
+        }
+      }
+    }
+
+    return [...names].sort();
+  }
+
+  /**
+   * What copying the volumes takes: the platform's own image, which the copying container is
+   * made of.
+   *
+   * @param folder - The folder of the tars, under the data directory.
+   * @returns The options.
+   * @throws {ConflictError} Outside a container: there is no image of the platform's.
+   */
+  #volumeCopy(folder: string): VolumeCopyOptions {
+    const self = this.#selfId === null ? undefined : this.#containers.get(this.#selfId);
+    const image = self?.inspected?.Image;
+
+    if (image === undefined) {
+      throw new ConflictError(
+        'The platform does not run in a container here, and its image is what copies the volumes',
+        { details: { reason: 'no-image' } },
+      );
+    }
+
+    return {
+      engine: this.#engine,
+      logger: this.#logger,
+      image,
+      directory: path.join(this.#dataRoot, folder),
+    };
+  }
+
+  /**
    * What a container is called on the page.
    *
    * @param tracked - The container.
@@ -1754,7 +1851,7 @@ export class SupervisorService {
       this.#context?.dataMount.kind === 'separate'
     ) {
       warnings.push(
-        'Its data is in a Docker volume of its own, outside the backups: this Docker is too old to mount a folder of the data volume (26 or newer is)',
+        'Its data is in a Docker volume of its own, which a backup copies as a named volume: this Docker is too old to mount a folder of the data volume (26 or newer is)',
       );
     }
 

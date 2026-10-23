@@ -159,8 +159,8 @@ line to keep Docker out of reach, and the page says Docker cannot be seen.
 The owner adds containers from the same page: **Install container** looks an image up on Docker
 Hub and runs it with the ports, environment and folders the form says (a folder kept "in
 NebulaHome's data" lives under `/data/containers/installed/<name>/`, so the backups take it, and
-the install itself is recorded beside it so a restore makes the container again; a Docker volume
-or a folder of the machine is not backed up), and
+the install itself is recorded beside it so a restore makes the container again; a named Docker
+volume is copied into the backups as well, a folder of the machine is not), and
 **New compose** takes a compose file, written in the page or uploaded. The image carries the
 Docker command line and its compose plugin for that: the supervisor keeps the file in
 `/data/containers/compose/<project>/`, checks it with `docker compose config`, points the

@@ -30,6 +30,7 @@ import {
   SUPERVISOR_METHODS,
   SUPERVISOR_SERVICE,
   supervisorEmptyRequestSchema,
+  volumesFolderRequestSchema,
 } from '@nebulahome/contracts';
 
 import type { SupervisorService } from './service.js';
@@ -125,6 +126,16 @@ export function serveSupervisor(client: BusClient, service: SupervisorService): 
 
         return ok;
       },
+    ),
+    client.serve(
+      subject(SUPERVISOR_METHODS.exportVolumes),
+      volumesFolderRequestSchema,
+      async (request) => service.exportVolumes(request.folder),
+    ),
+    client.serve(
+      subject(SUPERVISOR_METHODS.importVolumes),
+      volumesFolderRequestSchema,
+      async (request) => service.importVolumes(request.folder),
     ),
     client.serve(
       subject(SUPERVISOR_METHODS.searchImages),

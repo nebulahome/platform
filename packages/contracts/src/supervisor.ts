@@ -74,6 +74,12 @@ export const SUPERVISOR_METHODS = {
   /** Starts them again afterwards, making again the projects and installs the archive has. */
   resumeManaged: 'resume_managed',
 
+  /** Copies the named volumes of the containers the platform makes into a backup's staging. */
+  exportVolumes: 'export_volumes',
+
+  /** Writes them back from a restore's staging, each emptied first. */
+  importVolumes: 'import_volumes',
+
   /** Looks for images on Docker Hub. */
   searchImages: 'search_images',
 
@@ -714,6 +720,38 @@ export type ContainerControlRequest = z.output<typeof containerControlRequestSch
 
 /** A reply that says only that the call was taken. */
 export const supervisorAcknowledgementSchema = z.object({ ok: z.literal(true) });
+
+/** A Docker volume's name, as Docker allows it. */
+export const volumeNameSchema = z
+  .string()
+  .regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,254}$/, 'Must be a volume name');
+
+/**
+ * `svc.supervisor.export_volumes` and `import_volumes`: the folder the volumes are copied into or
+ * read from, under the data directory and inside the backups' staging - nowhere else.
+ */
+export const volumesFolderRequestSchema = z.strictObject({
+  folder: z
+    .string()
+    .max(1024)
+    .regex(/^backups\/\.staging\/[\w.-]+(?:\/[\w.-]+)*$/, 'Must be a folder of the staging')
+    .refine((folder) => !folder.split('/').includes('..'), 'Must not climb out of the staging'),
+});
+
+/** `svc.supervisor.export_volumes`'s answer: what was copied, and what was left out and why. */
+export const volumesExportReplySchema = z.object({
+  volumes: z.array(z.object({ name: volumeNameSchema, bytes: z.number().int().nonnegative() })),
+  skipped: z.array(z.object({ name: z.string().max(255), reason: z.string().max(256) })),
+});
+
+/** What a backup's copy of the named volumes held. */
+export type VolumesExportReply = z.output<typeof volumesExportReplySchema>;
+
+/** `svc.supervisor.import_volumes`'s answer: the volumes written back. */
+export const volumesImportReplySchema = z.object({ volumes: z.array(volumeNameSchema) });
+
+/** The volumes a restore wrote back. */
+export type VolumesImportReply = z.output<typeof volumesImportReplySchema>;
 
 // ---------------------------------------------------------------------------------------------
 // The containers the owner adds

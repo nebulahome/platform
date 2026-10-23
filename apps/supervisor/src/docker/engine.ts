@@ -10,6 +10,7 @@
  * file was written against, so a newer engine answers in the shape these schemas know.
  */
 import http from 'node:http';
+import type { Readable } from 'node:stream';
 
 import type { z } from 'zod';
 
@@ -32,7 +33,9 @@ import {
   inspectedContainerSchema,
   inspectedImageSchema,
   inspectedNetworkSchema,
+  inspectedVolumeSchema,
   pullProgressSchema,
+  waitedContainerSchema,
   type ContainerStats,
   type EngineEvent,
   type EngineInfo,
@@ -40,6 +43,7 @@ import {
   type InspectedContainer,
   type InspectedImage,
   type InspectedNetwork,
+  type InspectedVolume,
   type ListedContainer,
   type PullProgress,
 } from './engine-schemas.js';
@@ -69,6 +73,9 @@ export type EngineOptions = {
 type CallOptions = {
   readonly query?: Readonly<Record<string, string | number | boolean | undefined>>;
   readonly body?: unknown;
+
+  /** A tar sent as the body, in place of JSON. */
+  readonly tar?: Readable;
   readonly signal?: AbortSignal | undefined;
 
   /** Null for a call that may run as long as it runs: a pull, the event stream. */
@@ -418,6 +425,95 @@ export class DockerEngine {
   }
 
   /**
+   * Reads a volume.
+   *
+   * @param name - Its name.
+   * @returns It, or undefined when there is none by that name.
+   */
+  public async inspectVolume(name: string): Promise<InspectedVolume | undefined> {
+    try {
+      return await this.#json(
+        inspectedVolumeSchema,
+        'GET',
+        `/volumes/${encodeURIComponent(name)}`,
+        'inspect the volume',
+      );
+    } catch (error: unknown) {
+      if (error instanceof NotFoundError) {
+        return undefined;
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Creates a local volume.
+   *
+   * @param name - Its name.
+   * @param labels - Its labels: a compose project's, so the project takes it as its own.
+   */
+  public async createVolume(name: string, labels: Record<string, string>): Promise<void> {
+    await this.#empty('POST', '/volumes/create', `create the volume ${name}`, {
+      body: { Name: name, Driver: 'local', Labels: labels },
+    });
+  }
+
+  /**
+   * Waits until a container stops.
+   *
+   * @param id - Its id.
+   * @returns The code it exited with.
+   */
+  public async wait(id: string): Promise<number> {
+    const waited = await this.#json(
+      waitedContainerSchema,
+      'POST',
+      `/containers/${encodeURIComponent(id)}/wait`,
+      'wait for it',
+      { timeoutMs: null },
+    );
+
+    return waited.StatusCode;
+  }
+
+  /**
+   * Reads a folder of a container - a volume it mounts among them, stopped or not - as a tar.
+   *
+   * @param id - Its id.
+   * @param folder - The folder, in the container.
+   * @returns The tar, whose one top entry is the folder's own name.
+   */
+  public async archiveOut(id: string, folder: string): Promise<Readable> {
+    const response = await this.#call('GET', `/containers/${encodeURIComponent(id)}/archive`, {
+      query: { path: folder },
+      timeoutMs: null,
+    });
+
+    if ((response.statusCode ?? 500) >= 400) {
+      throw errorFor(await this.#refusalOf(response), `read ${folder}`);
+    }
+
+    return response;
+  }
+
+  /**
+   * Writes a tar into a folder of a container, its entries keeping the owners the tar has them
+   * with.
+   *
+   * @param id - Its id.
+   * @param folder - The folder, in the container, the tar is unpacked into.
+   * @param tar - The tar.
+   */
+  public async archiveIn(id: string, folder: string, tar: Readable): Promise<void> {
+    await this.#empty('PUT', `/containers/${encodeURIComponent(id)}/archive`, `write ${folder}`, {
+      query: { path: folder, copyUIDGID: true },
+      tar,
+      timeoutMs: null,
+    });
+  }
+
+  /**
    * Follows what happens to containers until the signal ends it.
    *
    * @param signal - Ends the stream.
@@ -558,12 +654,14 @@ export class DockerEngine {
           path: `${prefix}${path}${query}`,
           method,
           headers:
-            payload === undefined
-              ? {}
-              : {
-                  'content-type': 'application/json',
-                  'content-length': Buffer.byteLength(payload),
-                },
+            options.tar !== undefined
+              ? { 'content-type': 'application/x-tar' }
+              : payload === undefined
+                ? {}
+                : {
+                    'content-type': 'application/json',
+                    'content-length': Buffer.byteLength(payload),
+                  },
           signal: signals.length === 0 ? undefined : AbortSignal.any(signals),
         },
         resolve,
@@ -584,7 +682,13 @@ export class DockerEngine {
         reject(error);
       });
 
-      request.end(payload);
+      if (options.tar === undefined) {
+        request.end(payload);
+      } else {
+        // Sent as it is read, chunked: a volume's tar is never held whole.
+        options.tar.on('error', (error) => request.destroy(error));
+        options.tar.pipe(request);
+      }
     });
   }
 }

@@ -218,6 +218,22 @@ export const createdContainerSchema = z.looseObject({
   Warnings: stringListSchema,
 });
 
+/** `GET /volumes/{name}`. */
+export const inspectedVolumeSchema = z.looseObject({
+  Name: z.string(),
+  Driver: z.string(),
+  Labels: stringMapSchema,
+
+  /** The driver's options: a `local` volume with any is kept somewhere else - NFS, CIFS. */
+  Options: stringMapSchema,
+});
+
+/** One volume, inspected. */
+export type InspectedVolume = z.output<typeof inspectedVolumeSchema>;
+
+/** `POST /containers/{id}/wait`. */
+export const waitedContainerSchema = z.looseObject({ StatusCode: z.number() });
+
 /** One line of `GET /events`. */
 export const engineEventSchema = z.looseObject({
   Type: z.string(),
