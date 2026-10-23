@@ -21,9 +21,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
-import { AppIcon, BrowseTile, Button, FilterChips, TILE_GRID } from '@nebulahome/ui';
+import { AppIcon, BrowseTile, Button, EmptyState, FilterChips, TILE_GRID } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
+import { DOCS_LINKS } from '@/lib/docs-links';
 import { useListState } from '@/lib/use-list-state';
 import { fetchDiscovered, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
@@ -170,124 +171,140 @@ export function IntegrationsPage() {
 
   const found = discovered.data?.length ?? 0;
 
+  const installButton = canInstall ? (
+    <Button
+      onClick={() => {
+        setInstalling(true);
+      }}
+    >
+      <AppIcon id="plus" size={15} />
+      {t('library.integrations.install', 'Install')}
+    </Button>
+  ) : undefined;
+
   return (
-    <LibraryPage
-      title={t('library.integrations.integrations', 'Integrations')}
-      counted={(count) =>
-        t('library.integrations.count', {
-          count,
-          defaultValue_one: '{{count}} integration',
-          defaultValue_other: '{{count}} integrations',
-        })
-      }
-      count={vendors.isPending ? undefined : all.length}
-      shownCount={shown.length}
-      summary={[
-        found === 0
-          ? null
-          : t('library.integrations.foundFoundOnThe', '{{found}} found on the network', {
-              found: String(found),
-            }),
-      ]}
-      tools={
-        <>
-          <SearchField
-            placeholder={t('library.integrations.searchIntegrations', 'Search integrations…')}
-            value={filter.search}
-            onChange={(search) => {
-              setFilter({ ...filter, search });
-            }}
-          />
-          <IntegrationFilter
-            filter={filter}
-            wires={wires}
-            counts={countStatuses(all)}
-            shown={shown.length}
-            total={all.length}
-            onChange={setFilter}
-          />
-        </>
-      }
-      action={
-        canInstall ? (
+    <>
+      <LibraryPage
+        title={t('library.integrations.integrations', 'Integrations')}
+        counted={(count) =>
+          t('library.integrations.count', {
+            count,
+            defaultValue_one: '{{count}} integration',
+            defaultValue_other: '{{count}} integrations',
+          })
+        }
+        count={vendors.isPending ? undefined : all.length}
+        shownCount={shown.length}
+        summary={[
+          found === 0
+            ? null
+            : t('library.integrations.foundFoundOnThe', '{{found}} found on the network', {
+                found: String(found),
+              }),
+        ]}
+        tools={
           <>
-            <Button
-              onClick={() => {
-                setInstalling(true);
-              }}
-            >
-              <AppIcon id="plus" size={15} />
-              {t('library.integrations.install', 'Install')}
-            </Button>
-            <InstallIntegrationsDialog
-              isOpen={isInstalling}
-              onClose={() => {
-                setInstalling(false);
-              }}
-              onInstalled={(reply) => {
-                setInstalling(false);
-                void navigate(`/integrations/${reply.vendorId}`);
-              }}
-              onOpen={(vendorId) => {
-                setInstalling(false);
-                void navigate(`/integrations/${vendorId}`);
+            <SearchField
+              placeholder={t('library.integrations.searchIntegrations', 'Search integrations…')}
+              value={filter.search}
+              onChange={(search) => {
+                setFilter({ ...filter, search });
               }}
             />
+            <IntegrationFilter
+              filter={filter}
+              wires={wires}
+              counts={countStatuses(all)}
+              shown={shown.length}
+              total={all.length}
+              onChange={setFilter}
+            />
           </>
-        ) : undefined
-      }
-      filters={
-        <FilterChips
-          filters={chips}
-          summary={t('library.shownOfTotal', '{{shown}} of {{total}}', {
-            shown: shown.length,
-            total: all.length,
-          })}
-          onClearAll={() => {
-            setFilter({ ...OPEN_VENDOR_FILTER, search: filter.search, sort: filter.sort });
-          }}
-        />
-      }
-      isPending={vendors.isPending}
-      error={vendors.error}
-      isEmpty={all.length === 0}
-      emptyMessage={t(
-        'library.integrations.noIntegrationIsInstalled',
-        'No integration is installed yet. Install one, from the Community Hub or the local folder, and it appears here.',
-      )}
-    >
-      {shown.length === 0 && isNarrowing(filter) ? (
-        <NoMatches
-          query={filter.search}
-          onClear={() => {
-            setFilter(OPEN_VENDOR_FILTER);
-          }}
-        />
-      ) : (
-        <ul className={TILE_GRID}>
-          {shown.map((vendor) => (
-            <VendorCard key={vendor.id} vendor={vendor} foundCount={foundBy.get(vendor.id) ?? 0} />
-          ))}
-          {canInstall ? (
-            <li className="flex list-none flex-col">
-              <BrowseTile
-                title={t(
-                  'library.integrations.browseTheIntegrationIndex',
-                  'Browse the integration index',
-                )}
-                note={t(
-                  'library.integrations.brandsProtocolsAndServices',
-                  'Brands, protocols and services',
-                )}
-                icon="globe"
-                onClick={() => {
-                  setInstalling(true);
-                }}
+        }
+        action={installButton}
+        filters={
+          <FilterChips
+            filters={chips}
+            summary={t('library.shownOfTotal', '{{shown}} of {{total}}', {
+              shown: shown.length,
+              total: all.length,
+            })}
+            onClearAll={() => {
+              setFilter({ ...OPEN_VENDOR_FILTER, search: filter.search, sort: filter.sort });
+            }}
+          />
+        }
+        isPending={vendors.isPending}
+        error={vendors.error}
+        isEmpty={all.length === 0}
+        empty={
+          <EmptyState
+            icon={<AppIcon id="library" size={28} />}
+            title={t(
+              'library.integrations.installYourFirstIntegration',
+              'Install your first integration',
+            )}
+            description={t(
+              'library.integrations.integrationTeachesTheHub',
+              'An integration teaches the hub a brand - Shelly, Govee, Sonoff - so it can find their devices on the network and talk to them. Install one from the Community Hub or the local folder.',
+            )}
+            action={installButton}
+            learnMoreHref={DOCS_LINKS.integrations}
+          />
+        }
+      >
+        {shown.length === 0 && isNarrowing(filter) ? (
+          <NoMatches
+            query={filter.search}
+            onClear={() => {
+              setFilter(OPEN_VENDOR_FILTER);
+            }}
+          />
+        ) : (
+          <ul className={TILE_GRID}>
+            {shown.map((vendor) => (
+              <VendorCard
+                key={vendor.id}
+                vendor={vendor}
+                foundCount={foundBy.get(vendor.id) ?? 0}
               />
-            </li>
-          ) : null}
-        </ul>
-      )}
-    </LibraryPage>
+            ))}
+            {canInstall ? (
+              <li className="flex list-none flex-col">
+                <BrowseTile
+                  title={t(
+                    'library.integrations.browseTheIntegrationIndex',
+                    'Browse the integration index',
+                  )}
+                  note={t(
+                    'library.integrations.brandsProtocolsAndServices',
+                    'Brands, protocols and services',
+                  )}
+                  icon="globe"
+                  onClick={() => {
+                    setInstalling(true);
+                  }}
+                />
+              </li>
+            ) : null}
+          </ul>
+        )}
+      </LibraryPage>
+
+      <InstallIntegrationsDialog
+        isOpen={isInstalling}
+        onClose={() => {
+          setInstalling(false);
+        }}
+        onInstalled={(reply) => {
+          setInstalling(false);
+          void navigate(`/integrations/${reply.vendorId}`);
+        }}
+        onOpen={(vendorId) => {
+          setInstalling(false);
+          void navigate(`/integrations/${vendorId}`);
+        }}
+      />
+    </>
   );
 }

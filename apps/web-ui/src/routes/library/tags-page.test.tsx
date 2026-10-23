@@ -250,7 +250,7 @@ describe('TagsPage', () => {
 
     // The page frame shows a notice instead of its children while the list is empty, and the
     // dialog used to be one of those children - so the first tag could never be made.
-    expect(await screen.findByText(/No tags yet/u)).toBeTruthy();
+    expect(await screen.findByText(/Create your first tag/u)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'New tag' }));
 

@@ -12,9 +12,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { DeviceView, EntityView } from '@nebulahome/contracts';
-import { AppIcon, Button } from '@nebulahome/ui';
+import { AppIcon, Button, EmptyState } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
+import { DOCS_LINKS } from '@/lib/docs-links';
 import { useListState } from '@/lib/use-list-state';
 import { fetchDevices, fetchEntities, LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
@@ -165,10 +166,29 @@ export function TagsPage() {
         }
         isPending={isPending}
         isEmpty={tags.length === 0}
-        emptyMessage={t(
-          'library.tags.noTagsYetA',
-          'No tags yet. A tag groups devices and entities, so an automation or a scene can pick them all at once.',
-        )}
+        empty={
+          <EmptyState
+            icon={<AppIcon id="tag" size={28} />}
+            title={t('library.tags.createYourFirstTag', 'Create your first tag')}
+            description={t(
+              'library.tags.tagGroupsDevicesAnd',
+              'A tag groups devices and entities - every light downstairs, every sensor on a battery - so an automation or a scene can pick them all at once.',
+            )}
+            action={
+              canWrite ? (
+                <Button
+                  onClick={() => {
+                    setTarget({ mode: 'create' });
+                  }}
+                >
+                  <AppIcon id="plus" size={15} />
+                  {t('library.tags.newTag', 'New tag')}
+                </Button>
+              ) : undefined
+            }
+            learnMoreHref={DOCS_LINKS.tags}
+          />
+        }
       >
         <div className="overflow-hidden rounded-panel border border-border bg-surface">
           <div

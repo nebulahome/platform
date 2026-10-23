@@ -17,10 +17,11 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
 import { PACKAGE_STATES } from '@nebulahome/contracts';
-import { AppIcon, BrowseTile, Button, SelectField, TILE_GRID } from '@nebulahome/ui';
+import { AppIcon, BrowseTile, Button, EmptyState, SelectField, TILE_GRID } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { defineMessage, translate, withLabels } from '@/i18n/messages';
+import { DOCS_LINKS } from '@/lib/docs-links';
 import { matchesQuery } from '@/lib/search-text';
 import { useListState } from '@/lib/use-list-state';
 import { OPEN_PACKAGE_FILTER, packageFilterCodec } from '@/library/list-filters';
@@ -162,26 +163,38 @@ export function PackagesPage() {
         }
         isPending={installed.isPending}
         error={installed.error}
-        isEmpty={false}
+        isEmpty={installed.packages.length === 0}
+        empty={
+          <EmptyState
+            icon={<AppIcon id="package" size={28} />}
+            title={t('packages.packages.installYourFirstPackage', 'Install your first package')}
+            description={t(
+              'packages.packages.packageAddsToThe',
+              'A package adds to the home what no device brings - a 3D view of the house, a music player, a broker - with its own pages and cards. Install one from the Community Hub.',
+            )}
+            action={
+              canInstall ? (
+                <Button
+                  onClick={() => {
+                    setInstalling(true);
+                  }}
+                >
+                  <AppIcon id="plus" size={15} />
+                  {t('packages.packages.install', 'Install')}
+                </Button>
+              ) : undefined
+            }
+            learnMoreHref={DOCS_LINKS.packages}
+          />
+        }
       >
         {shownInstalled.length === 0 ? (
-          installed.packages.length === 0 ? (
-            <p className="text-ui text-foreground-muted">
-              {canInstall
-                ? t(
-                    'packages.packages.nothingInstalledYetInstall',
-                    'Nothing installed yet. Install finds them on the Community Hub.',
-                  )
-                : t('packages.packages.nothingInstalledYet', 'Nothing installed yet.')}
-            </p>
-          ) : (
-            <NoMatches
-              query={filter.search}
-              onClear={() => {
-                setFilter(OPEN_PACKAGE_FILTER);
-              }}
-            />
-          )
+          <NoMatches
+            query={filter.search}
+            onClear={() => {
+              setFilter(OPEN_PACKAGE_FILTER);
+            }}
+          />
         ) : (
           <ul className={TILE_GRID}>
             {shownInstalled.map((found) => (

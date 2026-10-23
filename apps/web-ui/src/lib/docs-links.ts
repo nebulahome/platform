@@ -10,4 +10,7 @@ export const DOCS_LINKS = {
   automations: '#docs-automations',
   scenes: '#docs-scenes',
   aliases: '#docs-aliases',
+  tags: '#docs-tags',
+  integrations: '#docs-integrations',
+  packages: '#docs-packages',
 } as const;
