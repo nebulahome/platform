@@ -7,7 +7,7 @@
  * with a role, or changing someone's role, requires `user:manage`, and nothing here lets a
  * caller grant a permission they do not hold.
  */
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
@@ -22,7 +22,6 @@ import {
   createAccessTokenResponseSchema,
   createUserRequestSchema,
   isSupportedLocale,
-  roleViewSchema,
   sessionViewSchema,
   setAvatarRequestSchema,
   twoFactorConfirmRequestSchema,
@@ -32,7 +31,6 @@ import {
   userViewSchema,
   type AccessTokenView,
   type CreateAccessTokenResponse,
-  type RoleView,
   type SessionView,
   type SupportedLocale,
   type TwoFactorConfirmResponse,
@@ -1143,76 +1141,6 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
       await deleteAvatar(context.db, route.params.userId);
 
       void route.reply.status(204);
-    },
-  );
-
-  defineRoute(
-    environment,
-    {
-      method: 'GET',
-      url: '/roles',
-      summary: 'List roles and what they grant',
-      tag: 'People',
-      permission: 'user:read',
-      response: collectionSchema(roleViewSchema),
-    },
-
-    /**
-     * Lists roles.
-     *
-     * @param route - Who is asking.
-     * @returns Every role, its grants and how many people hold it.
-     */
-    async (route): Promise<{ items: RoleView[] }> => {
-      requirePermission(route.identity, 'user:read');
-
-      const rows = await context.db
-        .select({
-          id: schema.auth.roles.id,
-          key: schema.auth.roles.key,
-          name: schema.auth.roles.name,
-          description: schema.auth.roles.description,
-          isBuiltin: schema.auth.roles.isBuiltin,
-          sortOrder: schema.auth.roles.sortOrder,
-          userCount: sql<number>`count(${schema.auth.users.id})::int`,
-        })
-        .from(schema.auth.roles)
-        .leftJoin(
-          schema.auth.users,
-          and(
-            eq(schema.auth.users.roleId, schema.auth.roles.id),
-            isNull(schema.auth.users.deletedAt),
-          ),
-        )
-        .groupBy(schema.auth.roles.id)
-        .orderBy(asc(schema.auth.roles.sortOrder));
-
-      const grants = await context.db
-        .select({
-          roleId: schema.auth.rolePermissions.roleId,
-          key: schema.auth.permissions.key,
-          scope: schema.auth.rolePermissions.scope,
-        })
-        .from(schema.auth.rolePermissions)
-        .innerJoin(
-          schema.auth.permissions,
-          eq(schema.auth.permissions.id, schema.auth.rolePermissions.permissionId),
-        );
-
-      const byRole = new Map<string, { key: string; scope: string; effect: 'allow' }[]>();
-
-      for (const grant of grants) {
-        byRole.set(grant.roleId, [
-          ...(byRole.get(grant.roleId) ?? []),
-          { key: grant.key, scope: grant.scope, effect: 'allow' },
-        ]);
-      }
-
-      return {
-        items: rows.map((row) =>
-          roleViewSchema.parse({ ...row, permissions: byRole.get(row.id) ?? [] }),
-        ),
-      };
     },
   );
 }

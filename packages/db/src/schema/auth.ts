@@ -30,8 +30,8 @@ export const authSchema = pgSchema('auth');
 /**
  * Roles: named permission templates.
  *
- * Built-in roles are seeded with `isBuiltin` and cannot be deleted. Their grants are editable
- * except for `owner`, which the application pins to the full permission set.
+ * Built-in roles are seeded with `isBuiltin` and can be neither changed nor deleted; custom roles
+ * are made by people with `role:manage`. `icon` is a catalogue id.
  */
 export const roles = authSchema.table(
   'roles',
@@ -40,6 +40,7 @@ export const roles = authSchema.table(
     key: text('key').notNull().unique(),
     name: text('name').notNull(),
     description: text('description').notNull().default(''),
+    icon: text('icon'),
     isBuiltin: boolean('is_builtin').notNull().default(false),
     sortOrder: smallint('sort_order').notNull().default(100),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

@@ -55,6 +55,7 @@ CREATE TABLE auth.roles (
   key         text        NOT NULL UNIQUE,
   name        text        NOT NULL,
   description text        NOT NULL DEFAULT '',
+  icon        text,
   is_builtin  boolean     NOT NULL DEFAULT false,
   sort_order  smallint    NOT NULL DEFAULT 100,
   created_at  timestamptz NOT NULL DEFAULT now(),
@@ -1453,12 +1454,12 @@ ALTER DEFAULT PRIVILEGES FOR ROLE nebula_migrator IN SCHEMA history
 -- flow that creates the initial owner. Shipping a default administrator password is how
 -- appliances end up on the public internet with admin/admin.
 
-INSERT INTO auth.roles (key, name, description, is_builtin, sort_order) VALUES
-  ('owner',   'Owner',   'Full control, including users and system settings', true, 10),
-  ('admin',   'Admin',   'Everything except changing what roles grant',       true, 20),
-  ('member',  'Member',  'Control entities and apply scenes, read history',   true, 30),
-  ('guest',   'Guest',   'Control an explicit allow-list of entities',        true, 40),
-  ('service', 'Service', 'Machine identity for access tokens',                true, 50);
+INSERT INTO auth.roles (key, name, description, icon, is_builtin, sort_order) VALUES
+  ('owner',   'Owner',   'Full control, including users and system settings', 'shield',      true, 10),
+  ('admin',   'Admin',   'Everything except changing what roles grant',       'settings',    true, 20),
+  ('member',  'Member',  'Control entities and apply scenes, read history',   'users',       true, 30),
+  ('guest',   'Guest',   'Control an explicit allow-list of entities',        'door-closed', true, 40),
+  ('service', 'Service', 'Machine identity for access tokens',                'cpu',         true, 50);
 
 -- Permissions: generated from PERMISSIONS in @nebula-home/contracts.
 INSERT INTO auth.permissions (key, resource, action, description, is_scopable) VALUES

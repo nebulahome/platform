@@ -7,6 +7,7 @@
 import { z } from 'zod';
 
 import { grantedPermissionSchema, scopedPermissionSchema } from './auth.js';
+import { iconIdSchema } from './icons.js';
 import { supportedLocaleSchema } from './locale.js';
 import { permissionKeySchema, permissionScopeSchema } from './permissions.js';
 import { timestampSchema } from './timestamp.js';
@@ -136,7 +137,10 @@ export const roleViewSchema = z.object({
   name: z.string(),
   description: z.string(),
 
-  /** Built-in roles cannot be deleted. */
+  /** The catalogue icon it is drawn with, or null for the interface's role glyph. */
+  icon: iconIdSchema.nullable(),
+
+  /** Built-in roles can be neither changed nor deleted. */
   isBuiltin: z.boolean(),
 
   sortOrder: z.int(),
@@ -150,6 +154,51 @@ export const roleViewSchema = z.object({
 
 /** A named permission template. */
 export type RoleView = z.output<typeof roleViewSchema>;
+
+/** Validates a role's name, trimmed. */
+const roleNameSchema = z.string().trim().min(1).max(64);
+
+/** Validates a role's one-line description, trimmed. */
+const roleDescriptionSchema = z.string().trim().max(200);
+
+/**
+ * What `POST /api/v1/roles` accepts. The key is derived from the name; `from` names the role whose
+ * permissions are copied, and without it the new role grants nothing.
+ */
+export const roleCreateSchema = z.object({
+  name: roleNameSchema,
+  description: roleDescriptionSchema.default(''),
+  icon: iconIdSchema.optional(),
+  from: z.string().min(1).max(64).optional(),
+});
+
+/** What `POST /api/v1/roles` accepts. */
+export type RoleCreate = z.output<typeof roleCreateSchema>;
+
+/**
+ * What `PATCH /api/v1/roles/:roleId` accepts: any of the details, where a null icon takes it away,
+ * and `permissions` as the whole new set. Only a custom role can be changed.
+ */
+export const roleUpdateSchema = z
+  .object({
+    name: roleNameSchema,
+    description: roleDescriptionSchema,
+    icon: iconIdSchema.nullable(),
+    permissions: z.array(permissionKeySchema).max(200),
+  })
+  .partial()
+  .refine((body) => Object.keys(body).length > 0, { message: 'Nothing to change' });
+
+/** What `PATCH /api/v1/roles/:roleId` accepts. */
+export type RoleUpdate = z.output<typeof roleUpdateSchema>;
+
+/** What `DELETE /api/v1/roles/:roleId` accepts: where its people go, needed when it has any. */
+export const roleDeleteQuerySchema = z.object({
+  moveTo: z.string().min(1).max(64).optional(),
+});
+
+/** What `DELETE /api/v1/roles/:roleId` accepts. */
+export type RoleDeleteQuery = z.output<typeof roleDeleteQuerySchema>;
 
 /** One grant layered on top of a user's role. */
 export const userGrantRequestSchema = z.object({

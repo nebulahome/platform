@@ -184,6 +184,12 @@
       "lucide": "circle-dot"
     },
     {
+      "id": "smile",
+      "name": "Smile",
+      "keywords": ["face", "happy", "kids", "family"],
+      "lucide": "face-slightly-smiling"
+    },
+    {
       "id": "device",
       "name": "Device",
       "keywords": ["generic", "thing", "unknown"],
