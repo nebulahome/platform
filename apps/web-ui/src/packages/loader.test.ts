@@ -3,7 +3,7 @@
  * one's, what the interface lends there before its module runs, and each component from its own
  * loader.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { importModule } from '@/packages/import-module';
 import { loadPackageComponent, loadPackageUi } from '@/packages/loader';
@@ -36,6 +36,12 @@ function entry(fields: Record<string, unknown> = {}): Record<string, unknown> {
     ...fields,
   };
 }
+
+// The first load imports what the interface lends - the whole UI library - lazily. Paid here,
+// with room, rather than inside the first test's 5 s while the monorepo tests in parallel.
+beforeAll(async () => {
+  await import('@/packages/shared-modules');
+}, 60_000);
 
 beforeEach(() => {
   vi.mocked(importModule).mockReset();

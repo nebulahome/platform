@@ -61,7 +61,9 @@ afterEach(async () => {
   await rm(directory, { recursive: true, force: true });
 });
 
-describe('the cache', () => {
+// Each prefetch writes the whole buffer - hundreds of files - to a real folder: seconds on a busy
+// disk, so past the default 5 s while the monorepo tests in parallel.
+describe('the cache', { timeout: 20_000 }, () => {
   it('has nothing until the buffer is fetched, and reports as much', async () => {
     expect(await service.read({ z: 10, x: 538, y: 372 })).toBeNull();
     expect(await service.status(LATITUDE, LONGITUDE)).toEqual({

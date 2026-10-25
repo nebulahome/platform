@@ -5,7 +5,7 @@
  */
 import { renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { i18n } from '@/i18n/instance';
 import { applyLanguage } from '@/i18n/language';
@@ -15,6 +15,12 @@ import { PackageScope, UI_HOST } from '@/packages/sdk-ui';
 import { aPackage } from '@/testing/package-fixtures';
 
 vi.mock('@/packages/import-module', () => ({ importModule: vi.fn() }));
+
+// The first load imports what the interface lends - the whole UI library - lazily. Paid here,
+// with room, rather than inside the first test's 5 s while the monorepo tests in parallel.
+beforeAll(async () => {
+  await import('@/packages/shared-modules');
+}, 60_000);
 
 afterEach(async () => {
   await applyLanguage('en');

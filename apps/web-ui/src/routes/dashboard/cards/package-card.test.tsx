@@ -5,7 +5,7 @@
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ApiPackage, DashboardPackageCard } from '@nebulahome/contracts';
 import { usePackage, type CardProps } from '@nebulahome/package-sdk/ui';
@@ -131,6 +131,12 @@ function entryWith(cards: Record<string, unknown>): Record<string, unknown> {
     },
   };
 }
+
+// A package's card loads what the interface lends - the whole UI library - lazily on first use.
+// Paid here, with room, rather than inside the first test while the monorepo tests in parallel.
+beforeAll(async () => {
+  await import('@/packages/shared-modules');
+}, 60_000);
 
 beforeEach(() => {
   vi.mocked(importModule).mockReset();

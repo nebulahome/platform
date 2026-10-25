@@ -241,7 +241,9 @@ async function release(channel: Channel, isDryRun: boolean): Promise<void> {
   const prepare: Command[] = [
     { cmd: 'pnpm', args: ['lint'] },
     { cmd: 'pnpm', args: ['typecheck'] },
-    { cmd: 'pnpm', args: ['test'] },
+    // Four suites at a time, not turbo's twenty: each vitest starts a worker per core, and twenty
+    // of them at once push timing-bound tests past their timeouts. A gate must not fail at random.
+    { cmd: 'pnpm', args: ['test', '--concurrency=4'] },
     {
       cmd: 'docker',
       args: [

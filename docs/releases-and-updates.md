@@ -73,7 +73,9 @@ and does nothing. The script is `scripts/release.ts`; `nextVersion` is pure and 
      version's `-alpha.1` (an alpha of `X` would sort below its beta);
    - nothing open: the next `X`, with `-alpha.1`, `-beta.1` or nothing.
 3. **Bump** the versions (section 1).
-4. **Gates**: `pnpm lint`, `pnpm typecheck`, `pnpm test`, judged by their exit codes.
+4. **Gates**: `pnpm lint`, `pnpm typecheck`, `pnpm test --concurrency=4`, judged by their exit
+   codes. Four test suites at a time: turbo's default twenty, each with a vitest worker per core,
+   push timing-bound tests past their timeouts.
 5. **Image**: `docker build --build-arg NEBULA_VERSION=X`, amd64 only, tagged
    `nebulahome/platform:X` plus the moving tags: a dev build moves `dev`; a beta moves `beta` and
    `dev`; a stable moves `stable`, `latest`, `beta` and `dev` (each channel has the newest of what
