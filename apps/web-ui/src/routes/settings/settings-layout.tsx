@@ -4,9 +4,9 @@
  * The left column (232px) is the title, the settings search and the tree from `settings-tree.ts`:
  * Personal pages as links, Server groups that open in place - the group of the current page open,
  * the others shut until pressed. The right column (at most 860px) is the page, which draws its
- * own breadcrumb and header through `SettingsPage`. The pair is centred in a wide window rather
- * than stretched, so a row's control stays near its label. On a narrow window the two columns
- * wrap, the tree above the page.
+ * own breadcrumb and header through `SettingsPage`. The tree stays on the left; the page is
+ * centred in the room beside it rather than stretched, so a row's control stays near its label.
+ * On a narrow window the two columns wrap, the tree above the page.
  *
  * The scrolling container is `relative`, and that is load-bearing rather than decorative. A
  * visually hidden label - Tailwind's `sr-only` - is `position: absolute`, and an absolutely
@@ -207,7 +207,7 @@ export function SettingsLayout() {
 
   return (
     <div className="relative min-w-0 grow overflow-y-auto px-8 pt-7 pb-12">
-      <div className="mx-auto flex max-w-285 flex-wrap items-start gap-x-12 gap-y-8">
+      <div className="flex flex-wrap items-start gap-x-12 gap-y-8">
         <aside className="flex min-w-0 flex-[0_0_232px] flex-col gap-4 max-sm:flex-auto">
           <h1 className="px-2.5 text-display-sm font-medium">{t('settings.title', 'Settings')}</h1>
 
@@ -231,8 +231,10 @@ export function SettingsLayout() {
           </nav>
         </aside>
 
-        <div className="flex max-w-215 min-w-0 flex-[1_1_420px] flex-col">
-          <Outlet />
+        <div className="flex min-w-0 flex-[1_1_420px] justify-center">
+          <div className="flex w-full max-w-215 min-w-0 flex-col">
+            <Outlet />
+          </div>
         </div>
       </div>
     </div>

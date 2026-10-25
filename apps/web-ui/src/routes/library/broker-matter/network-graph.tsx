@@ -309,7 +309,7 @@ function NetworkMapView(props: NetworkGraphProps) {
           { value: 'wifi', label: t('brokers.matter.map.wifi', 'Wi-Fi') },
           { value: 'thread', label: t('brokers.matter.map.thread', 'Thread') },
         ]}
-        className="absolute top-3.5 right-3.5 z-10 bg-surface/90 shadow-popover backdrop-blur-sm"
+        className="absolute top-3.5 left-3.5 z-10 bg-surface/90 shadow-popover backdrop-blur-sm"
       />
       <div className="absolute right-3.5 bottom-3.5 flex flex-col gap-1 rounded-tile border border-border-strong bg-surface-raised p-1">
         <IconButton
