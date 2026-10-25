@@ -412,7 +412,7 @@ describe('adding a device', () => {
     fireEvent.change(await screen.findByLabelText('Search icons'), {
       target: { value: 'light' },
     });
-    fireEvent.click(await screen.findByRole('button', { name: 'Lightbulb' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Lightbulb' }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /change icon/iu }).textContent).toContain(

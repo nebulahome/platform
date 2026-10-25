@@ -98,7 +98,7 @@ describe('making a tag', () => {
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Garden' } });
     fireEvent.click(screen.getByRole('button', { name: /change icon/iu }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Sun' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Sun' }));
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     await waitFor(() => {
@@ -112,7 +112,7 @@ describe('making a tag', () => {
     renderDialog({ mode: 'edit', tag: EXTERIOR });
 
     fireEvent.click(screen.getByRole('button', { name: /change icon/iu }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Sun' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Sun' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {

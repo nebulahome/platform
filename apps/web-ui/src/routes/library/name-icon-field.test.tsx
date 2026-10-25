@@ -1,5 +1,5 @@
 /**
- * The name with its icon beside it: one field, one label, two things to set.
+ * The name with its icon beside it: one label, two things to set.
  *
  * The catalogue is stood in for, because the interest is in the field asking it for the one
  * icon it shows and handing back what was picked from it.
@@ -80,19 +80,15 @@ describe('NameIconField', () => {
     expect(onChange).toHaveBeenCalledWith('Workshop printer');
   });
 
-  it('draws the icon and the name as one control', () => {
+  it('draws the icon button beside the name, both 44px tall', () => {
     renderField();
 
     const input = screen.getByLabelText('Name');
     const button = screen.getByRole('button', { name: /change icon/iu });
-    const control = input.parentElement;
 
-    // One box with the icon at its left edge, not a square beside a field. So the wrapper is what
-    // takes the border and the focus ring, and the two things inside it draw no edge of their own.
-    expect(control).toBe(button.parentElement);
-    expect(control?.className).toContain('focus-within:ring-3');
-    expect(input.className).not.toContain('border');
-    expect(button.className).not.toContain('rounded-field');
+    expect(input.parentElement).toBe(button.parentElement);
+    expect(input.className).toContain('h-control-lg');
+    expect(button.className).toContain('size-11');
   });
 
   it('shows the current icon on the button beside the name, by name for a reader', async () => {
@@ -112,7 +108,7 @@ describe('NameIconField', () => {
     fireEvent.change(await screen.findByLabelText('Search icons'), {
       target: { value: 'light' },
     });
-    fireEvent.click(await screen.findByRole('button', { name: 'Lightbulb' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Lightbulb' }));
 
     expect(onIconChange).toHaveBeenCalledWith(expect.objectContaining({ id: 'lightbulb' }));
   });
