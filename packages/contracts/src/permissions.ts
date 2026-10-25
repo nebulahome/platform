@@ -322,6 +322,20 @@ export const PERMISSIONS = [
     description: 'See the system monitor: processor, memory, disk and network',
   },
   {
+    key: 'system:update',
+    resource: 'system',
+    action: 'update',
+    isScopable: false,
+    description: 'Update Nebula Home, its packages and its integrations',
+  },
+  {
+    key: 'system:power',
+    resource: 'system',
+    action: 'power',
+    isScopable: false,
+    description: 'Restart Nebula Home and shut it down',
+  },
+  {
     key: 'container:read',
     resource: 'container',
     action: 'read',

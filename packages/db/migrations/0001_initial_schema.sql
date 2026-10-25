@@ -1413,6 +1413,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON system.packages, system.package_routes,
 GRANT INSERT, SELECT ON system.audit_log TO nebula_packet_manager;
 GRANT SELECT ON registry.devices, registry.entities TO nebula_packet_manager;
 GRANT SELECT ON system.settings, system.v_schema_version TO nebula_packet_manager;
+-- The quietest time automatic updates may run at (sensor.system_quiet_time).
+GRANT SELECT ON registry.entity_states TO nebula_packet_manager;
 
 -- hub: the integration instances it runs, and their runtime status.
 -- The device row is read, never written: it carries the claim an instance binds its device
@@ -1502,6 +1504,8 @@ INSERT INTO auth.permissions (key, resource, action, description, is_scopable) V
   ('settings:write', 'settings', 'write', 'Change system settings, including history retention', false),
   ('audit:read', 'audit', 'read', 'Read the audit log', false),
   ('system:read', 'system', 'read', 'See the system monitor: processor, memory, disk and network', false),
+  ('system:update', 'system', 'update', 'Update Nebula Home, its packages and its integrations', false),
+  ('system:power', 'system', 'power', 'Restart Nebula Home and shut it down', false),
   ('container:read', 'container', 'read', 'See the containers the machine runs, their settings and their logs', false),
   ('container:control', 'container', 'control', 'Start, stop, restart and update the containers the machine runs', false),
   ('container:install', 'container', 'install', 'Install and remove containers and compose projects', false),
@@ -1527,6 +1531,13 @@ INSERT INTO system.settings (key, value, schema_ref) VALUES
   ('backup.sections', '{"history": true, "packages": true}'::jsonb, 'settings:backup.sections'),
   ('backup.schedule', '{"mode": "quietest", "time": "03:00", "timezone": "UTC"}'::jsonb, 'settings:backup.schedule'),
   ('backup.frequency', '{"mode": "daily"}'::jsonb, 'settings:backup.frequency'),
+  ('updates.auto.packages', 'false'::jsonb, 'settings:updates.auto.packages'),
+  ('updates.auto.integrations', 'false'::jsonb, 'settings:updates.auto.integrations'),
+  ('updates.window', '{"mode": "quietest", "time": "03:00"}'::jsonb, 'settings:updates.window'),
+  ('updates.backup_first', 'true'::jsonb, 'settings:updates.backup_first'),
+  ('updates.channel.core', '"stable"'::jsonb, 'settings:updates.channel.core'),
+  ('updates.channel.packages', '"stable"'::jsonb, 'settings:updates.channel.packages'),
+  ('updates.channel.integrations', '"stable"'::jsonb, 'settings:updates.channel.integrations'),
   ('webhooks.allow_internet', 'true'::jsonb, 'settings:webhooks.allow_internet'),
   ('webhooks.rate_per_minute', '30'::jsonb, 'settings:webhooks.rate_per_minute');
 
@@ -1537,7 +1548,7 @@ VALUES ('This machine', 'system', 'count', 3);
 -- Role grants: generated from DEFAULT_ROLE_PERMISSIONS in @nebula-home/contracts.
 INSERT INTO auth.role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM auth.roles r, auth.permissions p
-WHERE r.key = 'admin' AND p.key IN ('entity:read', 'entity:control', 'entity:write', 'entity:delete', 'device:read', 'device:write', 'device:delete', 'area:read', 'area:write', 'tag:read', 'tag:write', 'automation:read', 'automation:write', 'automation:trigger', 'scene:read', 'scene:apply', 'scene:write', 'alias:read', 'alias:write', 'dashboard:manage', 'history:read', 'package:read', 'package:install', 'package:configure', 'integration:read', 'integration:configure', 'integration:install', 'user:read', 'user:manage', 'logs:read', 'settings:read', 'settings:write', 'audit:read', 'system:read', 'container:read', 'container:control', 'container:install');
+WHERE r.key = 'admin' AND p.key IN ('entity:read', 'entity:control', 'entity:write', 'entity:delete', 'device:read', 'device:write', 'device:delete', 'area:read', 'area:write', 'tag:read', 'tag:write', 'automation:read', 'automation:write', 'automation:trigger', 'scene:read', 'scene:apply', 'scene:write', 'alias:read', 'alias:write', 'dashboard:manage', 'history:read', 'package:read', 'package:install', 'package:configure', 'integration:read', 'integration:configure', 'integration:install', 'user:read', 'user:manage', 'logs:read', 'settings:read', 'settings:write', 'audit:read', 'system:read', 'system:update', 'system:power', 'container:read', 'container:control', 'container:install');
 INSERT INTO auth.role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM auth.roles r, auth.permissions p
 WHERE r.key = 'member' AND p.key IN ('entity:read', 'entity:control', 'device:read', 'area:read', 'tag:read', 'automation:read', 'automation:trigger', 'scene:read', 'scene:apply', 'alias:read', 'history:read', 'package:read', 'integration:read');

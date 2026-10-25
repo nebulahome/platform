@@ -452,6 +452,7 @@ export class BackupService {
               status: history.lastArchive.status,
               archiveBytes: history.lastArchive.archiveBytes,
               finishedAt: history.lastArchive.finishedAt,
+              sections: [...history.lastArchive.sections],
             },
       active:
         this.#active === null

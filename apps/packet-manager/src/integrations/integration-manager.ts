@@ -278,6 +278,8 @@ export class IntegrationManager {
           latestVersion: latest?.version ?? null,
           hasUpdate: latest !== undefined && isNewer(latest.version, marker.version),
           hasNewBuild: this.#rebuildOf(entry, marker) !== undefined,
+          name: entry?.name ?? null,
+          changelogUrl: latest?.changelogUrl ?? null,
         };
       }),
       error: read.error,

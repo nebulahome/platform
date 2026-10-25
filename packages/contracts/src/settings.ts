@@ -18,6 +18,7 @@ import {
 } from './backup.js';
 import { DEFAULT_LOCALE, supportedLocaleSchema } from './locale.js';
 import type { LOG_LEVELS } from './log-level.js';
+import { updateChannelSchema, updateWindowSchema } from './updates.js';
 
 /** The shape of a setting key. Mirrors `settings_key_format` in DATABASE.md. */
 export const SETTING_KEY_PATTERN = /^[a-z][a-z0-9_.]{1,63}$/;
@@ -238,6 +239,48 @@ export const SETTINGS = [
     schema: backupFrequencySchema,
     defaultValue: { mode: 'daily' },
     description: 'The days a backup runs on',
+  },
+  {
+    key: 'updates.auto.packages',
+    schema: z.boolean(),
+    defaultValue: false,
+    description: 'Whether packages update by themselves, at the time below',
+  },
+  {
+    key: 'updates.auto.integrations',
+    schema: z.boolean(),
+    defaultValue: false,
+    description: 'Whether integrations update by themselves, at the time below',
+  },
+  {
+    key: 'updates.window',
+    schema: updateWindowSchema,
+    defaultValue: { mode: 'quietest', time: '03:00' },
+    description: 'When automatic updates run: a fixed time, or the quietest learned',
+  },
+  {
+    key: 'updates.backup_first',
+    schema: z.boolean(),
+    defaultValue: true,
+    description: 'A backup before each round of updates, unless one finished minutes ago',
+  },
+  {
+    key: 'updates.channel.core',
+    schema: updateChannelSchema,
+    defaultValue: 'stable',
+    description: 'Which releases of Nebula Home are offered: stable, or betas too',
+  },
+  {
+    key: 'updates.channel.packages',
+    schema: updateChannelSchema,
+    defaultValue: 'stable',
+    description: 'Which releases of packages are offered; betas are not published yet',
+  },
+  {
+    key: 'updates.channel.integrations',
+    schema: updateChannelSchema,
+    defaultValue: 'stable',
+    description: 'Which releases of integrations are offered; betas are not published yet',
   },
   {
     key: 'webhooks.allow_internet',

@@ -4082,7 +4082,9 @@
     "tagRead": "Vedere i tag",
     "tagWrite": "Creare, rinominare, ricolorare ed eliminare i tag",
     "userManage": "Creare, modificare, disattivare ed eliminare utenti",
-    "userRead": "Vedere l'elenco degli utenti"
+    "userRead": "Vedere l'elenco degli utenti",
+    "systemUpdate": "Aggiornare Nebula Home, i suoi pacchetti e le sue integrazioni",
+    "systemPower": "Riavviare Nebula Home e spegnerlo"
   },
   "roles": {
     "admin": {
@@ -4890,7 +4892,9 @@
     "settingsRead": "Leggere le impostazioni",
     "settingsWrite": "Cambiare le impostazioni",
     "auditRead": "Leggere il registro delle attività",
-    "backupRestore": "Ripristinare i backup"
+    "backupRestore": "Ripristinare i backup",
+    "systemUpdate": "Aggiornare il sistema",
+    "systemPower": "Riavviare e spegnere"
   },
   "permissionGroups": {
     "entities": "Entità e cronologia",

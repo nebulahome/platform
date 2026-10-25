@@ -230,6 +230,10 @@ export const integrationAvailabilitySchema = z.object({
   latestVersion: semverSchema.nullable(),
   hasUpdate: z.boolean(),
   hasNewBuild: z.boolean(),
+
+  /** The name the index gives it, and the newest release's notes; null when it has none. */
+  name: z.string().max(128).nullable().default(null),
+  changelogUrl: z.url().max(1024).nullable().default(null),
 });
 
 /** One installed integration, and what the index offers it. */

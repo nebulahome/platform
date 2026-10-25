@@ -38,6 +38,18 @@ export const SUPERVISOR_METHODS = {
   /** Whether Docker can be reached, and how the platform itself runs. */
   status: 'status',
 
+  /** The newest releases of Nebula Home on GitHub, and whether it can update itself. */
+  platformReleases: 'platform_releases',
+
+  /** Updates Nebula Home to a release, through a throwaway updater container. */
+  updatePlatform: 'update_platform',
+
+  /** Restarts the platform's own container. */
+  restartPlatform: 'restart_platform',
+
+  /** Stops the platform's own container, until it is started again. */
+  shutdownPlatform: 'shutdown_platform',
+
   /** Every container, as the list shows it. */
   list: 'list',
 

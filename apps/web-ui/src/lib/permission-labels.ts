@@ -50,6 +50,8 @@ const LABELS: Readonly<Record<string, Message>> = {
   'container:control': defineMessage('permissionLabels.containerControl', 'Control containers'),
   'container:install': defineMessage('permissionLabels.containerInstall', 'Install containers'),
   'system:read': defineMessage('permissionLabels.systemRead', 'System monitor'),
+  'system:update': defineMessage('permissionLabels.systemUpdate', 'Update the system'),
+  'system:power': defineMessage('permissionLabels.systemPower', 'Restart and shut down'),
   'logs:read': defineMessage('permissionLabels.logsRead', 'Read logs'),
   'user:read': defineMessage('permissionLabels.userRead', 'See people'),
   'user:manage': defineMessage('permissionLabels.userManage', 'Manage people'),

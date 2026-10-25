@@ -648,6 +648,9 @@ export const backupStatusSchema = z.object({
       status: z.enum(BACKUP_RUN_STATUSES),
       archiveBytes: z.number().nullable(),
       finishedAt: timestampSchema.nullable(),
+
+      /** The parts it took: an update backs up first unless a recent one took what it touches. */
+      sections: z.array(z.enum(BACKUP_SECTIONS)).default([]),
     })
     .nullable(),
   active: backupActiveRunSchema.nullable(),

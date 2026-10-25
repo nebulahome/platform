@@ -75,6 +75,7 @@ export const SAMPLE_STATUS: BackupStatusView = {
     status: 'success',
     archiveBytes: 1_290_000_000,
     finishedAt: new Date(Date.now() - 20 * 3600_000),
+    sections: ['configuration', 'history', 'packages'],
   },
   active: null,
   key: {

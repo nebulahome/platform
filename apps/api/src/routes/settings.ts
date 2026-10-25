@@ -29,6 +29,7 @@ import {
   validateSettingChanges,
   writeSettings,
 } from '../services/settings.js';
+import { reloadUpdates } from '../services/system-updates.js';
 
 /** How long the backup service has to read its settings again. */
 const RELOAD_TIMEOUT_MS = 3000;
@@ -120,6 +121,20 @@ export function registerSettingsRoutes(environment: RouteEnvironment, context: A
           RELOAD_TIMEOUT_MS,
         ).catch((error: unknown) => {
           context.logger.warn({ err: error }, 'The backup service did not reload its settings');
+        });
+      }
+
+      // The automatic updates are the packet-manager's to plan, in the house's zone too.
+      if (
+        [...accepted.keys()].some((key) => key.startsWith('updates.') || key === 'house.timezone')
+      ) {
+        await reloadUpdates({
+          bus: context.bus,
+          db: context.db,
+          traceId: route.request.traceId,
+          logger: context.logger,
+        }).catch((error: unknown) => {
+          context.logger.warn({ err: error }, 'The packet-manager did not plan the updates again');
         });
       }
 

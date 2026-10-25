@@ -272,6 +272,7 @@ export type BackupHistory = {
     readonly archiveBytes: number | null;
     readonly finishedAt: Date | null;
     readonly sectionBytes: Readonly<Record<string, number>>;
+    readonly sections: readonly BackupSection[];
   } | null;
 
   /** When the last backup of any kind started. */
@@ -311,6 +312,7 @@ export async function readBackupHistory(db: Database): Promise<BackupHistory> {
             archiveBytes: last.archiveBytes,
             finishedAt: last.finishedAt,
             sectionBytes: last.sectionBytes as Record<string, number>,
+            sections: last.sections as BackupSection[],
           },
     lastStartedAt: recent[0]?.startedAt ?? null,
     lastScheduledAt: recent.find((run) => run.trigger === 'schedule')?.startedAt ?? null,

@@ -70,6 +70,7 @@ export * from './scene-commands.js';
 export * from './sensor-classes.js';
 export * from './settings.js';
 export * from './sun.js';
+export * from './updates.js';
 export * from './supervisor.js';
 export * from './system-monitor.js';
 export * from './tags.js';

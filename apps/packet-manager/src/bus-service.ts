@@ -25,10 +25,12 @@ import {
   packageRemoveRequestSchema,
   packageSearchRequestSchema,
   packetManagerEmptyRequestSchema,
+  runUpdatesRequestSchema,
 } from '@nebulahome/contracts';
 
 import type { IntegrationManager } from './integrations/integration-manager.js';
 import type { PacketManager } from './service.js';
+import type { UpdateRunner } from './services/update-runner.js';
 
 /**
  * The subject of one method.
@@ -48,12 +50,14 @@ function subject(
  * @param client - The bus.
  * @param service - The packet-manager.
  * @param integrations - The integrations it installs.
+ * @param updates - The rounds of updates.
  * @returns The subscriptions, to end on shutdown.
  */
 export function servePacketManager(
   client: BusClient,
   service: PacketManager,
   integrations: IntegrationManager,
+  updates: UpdateRunner,
 ): BusSubscription[] {
   /** Reads may be answered side by side with a long install. */
   const reads = { concurrency: 8 };
@@ -174,6 +178,28 @@ export function servePacketManager(
       subject(PACKET_MANAGER_METHODS.configure),
       packageConfigureRequestSchema,
       async (request) => ({ package: await service.configure(request.packageId, request.values) }),
+    ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.runUpdates),
+      runUpdatesRequestSchema,
+      (request) => Promise.resolve({ round: updates.run(request.items, request.requestedBy) }),
+      reads,
+    ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.updateStatus),
+      packetManagerEmptyRequestSchema,
+      () => Promise.resolve({ round: updates.status() }),
+      reads,
+    ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.reloadUpdates),
+      packetManagerEmptyRequestSchema,
+      async () => {
+        await updates.reload();
+
+        return { ok: true as const };
+      },
+      reads,
     ),
     client.serve(
       subject(PACKET_MANAGER_METHODS.announce),

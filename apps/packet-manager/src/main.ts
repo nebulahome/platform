@@ -32,6 +32,7 @@ import { CommunityHubClient } from './services/hub-client.js';
 import { HubReporter } from './services/hub-reporter.js';
 import { IntegrationIndexClient, PackageIndexClient } from './services/index-client.js';
 import { LocalIntegrationReleases, LocalReleases } from './services/local-releases.js';
+import { UpdateRunner } from './services/update-runner.js';
 
 /** How long a graceful shutdown is given before the process ends regardless. */
 const SHUTDOWN_TIMEOUT_MS = 20_000;
@@ -166,10 +167,21 @@ async function start(): Promise<void> {
     reporter,
   });
 
+  const updates = new UpdateRunner({
+    client,
+    db: database.db,
+    packages: service,
+    integrations,
+    logger,
+  });
+
   // Served before the packages start: each announces itself to the service as it comes up.
-  const subscriptions = servePacketManager(client, service, integrations);
+  const subscriptions = servePacketManager(client, service, integrations, updates);
 
   await service.start();
+  await updates.reload().catch((error: unknown) => {
+    logger.error({ err: error }, 'Could not plan the automatic updates');
+  });
   logger.info(
     {
       platform: service.platformVersion,
@@ -205,6 +217,7 @@ async function start(): Promise<void> {
         }
 
         reporter.stop();
+        updates.stop();
         await service.stop();
         await client.drain();
         await database.close();

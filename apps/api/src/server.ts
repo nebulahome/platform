@@ -45,6 +45,7 @@ import { registerRegistryRoutes } from './routes/registry.js';
 import { registerRoleRoutes } from './routes/roles.js';
 import { registerSettingsRoutes } from './routes/settings.js';
 import { registerSetupRoutes } from './routes/setup.js';
+import { registerSystemUpdateRoutes } from './routes/system-updates.js';
 import { registerSystemRoutes } from './routes/system.js';
 import { registerTagRoutes } from './routes/tags.js';
 import { registerUserRoutes } from './routes/users.js';
@@ -279,6 +280,7 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   registerSystemRoutes(environment, context);
   registerBackupRoutes(environment, context);
   registerContainerRoutes(environment, context);
+  registerSystemUpdateRoutes(environment, context);
   registerPackageRoutes(environment, context);
   registerWebhookRoutes(environment, context);
   await registerHookRoute(server, context);

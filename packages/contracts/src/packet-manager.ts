@@ -78,6 +78,15 @@ export const PACKET_MANAGER_METHODS = {
   /** A package's process, once started: the RPC methods it registered. */
   announce: 'announce',
 
+  /** Starts a round of updates, backing up first when the settings say (contracts `updates.ts`). */
+  runUpdates: 'run_updates',
+
+  /** The round of updates running or last run. */
+  updateStatus: 'update_status',
+
+  /** Reads the update settings again and plans the automatic updates by them. */
+  reloadUpdates: 'reload_updates',
+
   /**
    * The Community Hub's integrations, searched - and the local integrations folder's files - each
    * with what installing it here would take.
