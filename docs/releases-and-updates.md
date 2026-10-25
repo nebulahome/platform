@@ -4,7 +4,7 @@ How NebulaHome is versioned, how a release is cut and published, and how a house
 Read this before touching versions, the release script, the Maintenance page or the update code;
 change this file in the same commit as the behaviour it describes.
 
-Status (2026-10-25): built and unit-tested; not yet exercised live (a real release, a real update
+Status (2026-10-25, round 2): built and unit-tested; not yet exercised live (a real release, a real update
 of a running container, a restart). Section 6 lists what was left out.
 
 ## 1. Versions
@@ -118,10 +118,46 @@ itself**: only its Update button does.
 ### The quietest time
 
 `sensor.system_quiet_time` on the System device: the start, `HH:MM` in the house's time zone, of
-the quietest hour of a typical day, learned from `sensor.system_cpu_usage` over the last 28 days
-(backup windows left out). Core learns it at start and just after midnight. Backups and updates in
-"Quietest" mode read it; automations can use it through a time trigger whose time comes from an
-entity (`at: {kind: 'entity', entityId}`).
+the quietest hour of a typical day, learned from the **house's activity** over the last 28 days
+(`apps/core/src/persistence/activity-load.ts`, `domain/quietest.ts`). Core learns it at start and
+just after midnight; it needs 3 days, and says 03:00 until then.
+
+- **Activity**, one point each: a command from the page or the API, a scene applied, a light,
+  switch, cover, lock, climate, media player, vacuum or mower changed by hand (no command behind
+  it), a motion, occupancy, presence, door, opening, window or garage-door sensor turning on, an
+  automation run that did something. Never: readings (`sensor`), images, the platform's own
+  entities and containers, the changes an automation made (its run counts once).
+- **Left out**: runs of the **quiet trigger** and the runs those started directly. A run started
+  further down that chain is counted - the engine keeps chains in memory only. Automations with a
+  time, sun or cron trigger do count.
+- **Rule**: a quarter hour is quiet within 5% of the day's range above the quietest one; the
+  longest stretch of quiet quarter hours, going round midnight, is the house asleep; the time is
+  the 60-minute window centred in it. The time in use is kept while its window lies inside the
+  stretch. A day without activity keeps 03:00. The entity's attributes carry the stretch
+  (`quietFrom`, `quietTo`) and the profile.
+
+Backups and updates in "Quietest" mode read it. Automations use it two ways:
+
+- the **quiet trigger** (`{type: 'quiet', offsetMinutes?}`, "Quietest" under At in the editor):
+  once a house day at the quietest time, before or after it, armed again when it moves; what such
+  an automation does is left out of the learning;
+- a time trigger whose time comes from an entity (`at: {kind: 'entity', entityId}`), which counts
+  as activity like any other.
+
+### Updating, and commands that wait
+
+While a package or an integration is updated its entities keep their last value and say
+**Updating** (the dashboard card's line, the state summary), and a command to one of them - from an
+automation, a scene or the page - **waits** for the update to end instead of failing in the gap.
+
+- The packet-manager announces a package's update around the stop and start of its process; `hub`
+  announces an integration's from the swap of its bundle until every instance runs again
+  (`nebula.v1.event.update`, `{sources, phase}`; sources are what core routes by: the package id,
+  the integration's instance ids).
+- Core (`services/updating-sources.ts`, `command-dispatch.ts`) waits at most `CORE_UPDATE_WAIT_MS`
+  (120 s) and honours a cancelled run; after that the command fails as for an unreachable device.
+  A source whose end never comes is let go after 10 minutes.
+- An automation run waiting on a command waits with it, within its own timeout.
 
 ### A round of updates
 
@@ -200,6 +236,11 @@ For the platform:
 - The settings tree has no badge with the number of updates, and the rows carry no Failed /
   Degraded pills: the board's, not built.
 - A round lives in the packet-manager's memory: its restart forgets the last round.
+- "Updating" reaches the page over the live channel only: a page opened during an update shows the
+  entity as usual until the next change.
+- The quiet trigger's once-a-day guard lives in the engine's memory: a core restart after it fired
+  can fire it again the same day if the quietest time is still ahead.
+- A command sent on the bus without a cause looks like a change by hand and counts as activity.
 - The updater does not check free disk space before copying the volumes.
 - Settings, seeds and grants were added to `0001_initial_schema.sql`: the dev and container
   databases need `db:reset`.
