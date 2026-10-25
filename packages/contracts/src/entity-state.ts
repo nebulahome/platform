@@ -69,6 +69,9 @@ export const entityStateSchema = z.object({
   /** False when the owning adapter cannot currently reach the device. */
   isAvailable: z.boolean().default(true),
 
+  /** True while its package or integration is being updated: the value is the last one known. */
+  isUpdating: z.boolean().optional(),
+
   /**
    * When `state` last differed from what it was.
    *

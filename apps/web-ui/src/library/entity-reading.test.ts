@@ -172,7 +172,7 @@ describe('standingOf', () => {
    * @returns The reading.
    */
   function reading(isAvailable: boolean, at: Date | null): Reading {
-    return { text: '1', isAvailable, at, isLive: false, sensorFigure: null };
+    return { text: '1', isAvailable, isUpdating: false, at, isLive: false, sensorFigure: null };
   }
 
   it('is reporting when any entity is reachable and has spoken, as of the newest of them', () => {

@@ -142,6 +142,7 @@ function UnavailableCard(props: { readonly model: EntityCardModel }) {
  * @returns The card.
  */
 export function EntityCard(props: EntityCardProps) {
+  const { t } = useTranslation();
   const { card, data } = props;
   const entity = data.entityById.get(card.entityId);
 
@@ -155,15 +156,19 @@ export function EntityCard(props: EntityCardProps) {
   const fits = allowed.some((size) => size.w === card.w && size.h === card.h);
   const iconId = card.icon ?? entity.icon;
   const icon: IconView | undefined = iconId === null ? undefined : data.icons.get(iconId);
+  const reading = readingOf(entity, live);
   const model: EntityCardModel = {
     card,
     entity,
     state: capabilityStateOf(entity, live),
-    reading: readingOf(entity, live),
+    reading,
     reportedAt: live?.receivedAt ?? entity.lastUpdated?.getTime() ?? null,
     changedAt: live?.changedAt ?? entity.lastChanged,
     title: card.title ?? data.entityTitleOf(entity),
-    subtitle: entity.areaName,
+    // While its integration or package is updated the value is the last one: say so in words.
+    subtitle: reading.isUpdating
+      ? t('dashboard.cards.updating', 'Updating… last value shown')
+      : entity.areaName,
     icon,
     kind: entityKindOf(entity),
     size: fits ? { w: card.w, h: card.h } : snapSize(allowed, card.w, card.h, card.w),

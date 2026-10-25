@@ -25,6 +25,9 @@ export type LiveReading = {
   /** Whether the adapter could reach the device when it reported. */
   readonly isAvailable: boolean;
 
+  /** Whether its package or integration is being updated: the value is the last one known. */
+  readonly isUpdating?: boolean;
+
   /** When the state last differed from what it was, as the server timestamps it. */
   readonly changedAt: Date;
 
@@ -88,6 +91,7 @@ export const useLive = create<LiveState>((set) => ({
           state: message.state,
           attributes: message.attributes,
           isAvailable: message.isAvailable,
+          isUpdating: message.isUpdating === true,
           changedAt: message.changedAt,
           receivedAt,
         },

@@ -23,6 +23,7 @@ import {
   SUPERVISOR_METHODS,
   SUPERVISOR_SERVICE,
   syncPackageRequestSchema,
+  updateEventSchema,
   type JsonObject,
   type SyncPackageRequest,
 } from '@nebulahome/contracts';
@@ -535,7 +536,7 @@ describe('the packet-manager', () => {
   });
 
   it('installs a local file, and another build of its version over it', async () => {
-    const { manager, work } = await setUp();
+    const { manager, work, transport } = await setUp();
     const source = await putLocal(work, manifest({ id: 'weather', version: '0.3.0' }));
     const file = path.join(work, 'local', 'weather-0.3.0.tgz');
 
@@ -564,7 +565,23 @@ describe('the packet-manager', () => {
 
     expect(await offered()).toMatchObject({ hasUpdate: false, hasNewBuild: true });
 
+    const announced: string[] = [];
+
+    new BusClient({ transport, source: 'core', logger }).subscribe(
+      busSubjects.updateEvent(),
+      updateEventSchema,
+      (event) => {
+        announced.push(`${event.phase} ${event.sources.join(',')}`);
+
+        return Promise.resolve();
+      },
+    );
+
     const rebuilt = await manager.update('weather');
+
+    await vi.waitFor(() => {
+      expect(announced).toEqual(['start weather', 'end weather']);
+    });
 
     expect(rebuilt).toMatchObject({ version: '0.3.0', state: 'running' });
     expect(rebuilt.build).not.toBe(installed?.build);

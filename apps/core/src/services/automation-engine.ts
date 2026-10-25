@@ -1472,8 +1472,9 @@ export class AutomationEngine {
        * @param entityId - The entity.
        * @param capability - Which of its capabilities.
        * @param params - The command body.
+       * @param signal - The run's signal, which ends a wait for an update.
        */
-      command: async (entityId, capability, params) => {
+      command: async (entityId, capability, params, signal) => {
         await this.#options.dispatcher.dispatch({
           entityId: entityId as EntityId,
           capability,
@@ -1481,6 +1482,7 @@ export class AutomationEngine {
           context,
           traceId,
           logger,
+          signal,
         });
       },
       /**

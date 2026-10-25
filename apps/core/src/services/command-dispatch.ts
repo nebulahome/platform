@@ -23,6 +23,7 @@ import {
   adapterAckSchema,
   ADAPTER_COMMAND_METHOD,
   busSubjects,
+  DeviceUnavailableError,
   ValidationError,
   type CapabilityName,
   type ChangeContext,
@@ -40,6 +41,7 @@ import type { PackageTypes } from '../domain/package-types.js';
 
 import type { AliasEngine } from './alias-engine.js';
 import type { LinkEngine } from './link-engine.js';
+import type { UpdatingSources } from './updating-sources.js';
 
 /** What sending a command needs. */
 export type CommandDispatchOptions = {
@@ -72,6 +74,13 @@ export type CommandDispatchOptions = {
    * commanded through its own adapter.
    */
   readonly links?: Pick<LinkEngine, 'route'>;
+
+  /**
+   * The sources being updated: a command to one waits for it, at most `updateWaitMs`. Optional:
+   * without it a command goes at once.
+   */
+  readonly updating?: Pick<UpdatingSources, 'isUpdating' | 'wait'>;
+  readonly updateWaitMs?: number;
 };
 
 /** One send. */
@@ -90,6 +99,9 @@ export type DispatchRequest = {
 
   /** Where to say what happened. */
   readonly logger: PlatformLogger;
+
+  /** Ends a wait for an update early, as a cancelled run does. */
+  readonly signal?: AbortSignal | undefined;
 };
 
 /** Sends commands. */
@@ -161,6 +173,23 @@ export function createCommandDispatcher(options: CommandDispatchOptions): Comman
         // Before the request, not after: a fast device can report before its adapter's
         // acknowledgement has made it back here.
         options.attribution?.note(entityId, context);
+      }
+
+      // Its package or integration is being replaced: wait for it rather than fail in the gap.
+      if (options.updating?.isUpdating(record.source) === true) {
+        logger.info({ entityId, adapter: record.source }, 'Waiting for its update to end');
+
+        const isBack = await options.updating.wait(
+          record.source,
+          options.updateWaitMs ?? 0,
+          request.signal,
+        );
+
+        if (!isBack) {
+          throw new DeviceUnavailableError(`${record.source} is still being updated`, {
+            details: { entityId, adapter: record.source },
+          });
+        }
       }
 
       await options.client.request(

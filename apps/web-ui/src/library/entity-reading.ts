@@ -49,6 +49,9 @@ export type Reading = {
   /** Whether the owning adapter can currently reach the device. */
   readonly isAvailable: boolean;
 
+  /** Whether its package or integration is being updated: the reading is the last one known. */
+  readonly isUpdating: boolean;
+
   /** When the reading arrived. Null when nothing has ever arrived. */
   readonly at: Date | null;
 
@@ -463,6 +466,7 @@ export function readingOf(entity: EntityView, live: LiveReading | undefined): Re
     return {
       text: describeState(live.state, entity),
       isAvailable: live.isAvailable,
+      isUpdating: live.isUpdating === true,
       at: new Date(live.receivedAt),
       isLive: true,
       sensorFigure: sensorFigureOf(live.state, entity),
@@ -472,6 +476,7 @@ export function readingOf(entity: EntityView, live: LiveReading | undefined): Re
   return {
     text: describeState(entity.state, entity),
     isAvailable: entity.isAvailable,
+    isUpdating: false,
     at: entity.lastUpdated,
     isLive: false,
     sensorFigure: sensorFigureOf(entity.state, entity),

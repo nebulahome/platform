@@ -85,6 +85,7 @@ export class EventFanout {
             state: event.current.state as JsonObject,
             attributes: event.current.attributes,
             isAvailable: event.current.isAvailable,
+            ...(event.current.isUpdating === true ? { isUpdating: true } : {}),
             changedAt: event.current.lastChanged,
             ...(event.current.context === undefined ? {} : { context: event.current.context }),
           });

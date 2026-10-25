@@ -36,6 +36,12 @@ export const coreEnvSchema = runtimeEnvSchema
      */
     CORE_COMMAND_TIMEOUT_MS: z.coerce.number().int().min(100).max(120_000).default(5000),
 
+    /**
+     * How long a command waits for its package or integration to finish updating before it fails
+     * as an unreachable device would (docs/releases-and-updates.md 4).
+     */
+    CORE_UPDATE_WAIT_MS: z.coerce.number().int().min(0).max(600_000).default(120_000),
+
     /** How long a partial batch of history rows waits before being written anyway. */
     CORE_HISTORY_FLUSH_INTERVAL_MS: z.coerce.number().int().min(50).max(60_000).default(1000),
 

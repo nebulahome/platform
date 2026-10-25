@@ -1591,7 +1591,8 @@
         "mode": "Modalità",
         "nowNow": "ora {{now}}°",
         "raiseTheTarget": "Alza l'obiettivo"
-      }
+      },
+      "updating": "In aggiornamento… ultimo valore"
     },
     "count_many": "{{count}} dashboard",
     "count_one": "{{count}} dashboard",
@@ -3005,7 +3006,8 @@
     "entityStateSummary": {
       "neverReported": "Mai riferito",
       "reportedAt": "Riferito {{when}}",
-      "unavailable": "Non disponibile"
+      "unavailable": "Non disponibile",
+      "updating": "In aggiornamento…"
     },
     "filterSheet": {
       "appliedAsYouChoose": "Si applicano mentre scegli",

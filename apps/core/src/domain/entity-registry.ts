@@ -246,6 +246,36 @@ export class EntityRegistry {
   }
 
   /**
+   * Marks an entity as being updated, or not, without changing its state or reachability: its
+   * package or integration is being replaced and its last value is what there is meanwhile.
+   *
+   * @param entityId - The entity.
+   * @param isUpdating - Whether it is being updated now.
+   * @returns What changed, or undefined when the entity is unknown or already so.
+   */
+  public setUpdating(entityId: EntityId, isUpdating: boolean): IngestResult | undefined {
+    const previous = this.#states.get(entityId);
+
+    if (previous === undefined || (previous.isUpdating ?? false) === isUpdating) {
+      return undefined;
+    }
+
+    const current: EntityState = { ...previous, isUpdating };
+
+    this.#states.set(entityId, current);
+
+    return {
+      entityId,
+      current,
+      previous,
+      hasStateChanged: false,
+      hasAvailabilityChanged: false,
+      haveAttributesChanged: false,
+      isNotable: true,
+    };
+  }
+
+  /**
    * Forgets an entity.
    *
    * @param entityId - The entity to forget.

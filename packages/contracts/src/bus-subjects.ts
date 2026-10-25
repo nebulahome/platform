@@ -115,6 +115,13 @@ export const busSubjects = {
   backupEvent: (): string => `${BUS_SUBJECT_PREFIX}.event.backup.progress`,
 
   /**
+   * A package or an integration being updated: its entities wait, then go on (`updates.ts`).
+   *
+   * @returns The fan-out subject the packet-manager and `hub` publish on, `core` listens to.
+   */
+  updateEvent: (): string => `${BUS_SUBJECT_PREFIX}.event.update`,
+
+  /**
    * Announcing that a container changed or went away.
    *
    * @returns The fan-out subject the supervisor publishes on.

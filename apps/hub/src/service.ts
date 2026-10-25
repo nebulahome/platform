@@ -925,8 +925,21 @@ export class HubService {
     }
 
     const loaded = found.vendor;
+    // From the swap until every instance runs again its entities say so, and commands to them
+    // wait in core instead of failing.
+    const updating = (await loadInstances(this.#options.db))
+      .filter((instance) => instance.kind.startsWith(`${vendorId}/`))
+      .map((instance) => instance.id);
 
-    await this.#swapVendor(vendorId, loaded);
+    this.#announceUpdate(updating, 'start');
+
+    try {
+      await this.#swapVendor(vendorId, loaded);
+    } catch (error: unknown) {
+      this.#announceUpdate(updating, 'end');
+      throw error;
+    }
+
     this.#recordFailures(found.failures, [vendorId]);
     logger.info(
       { vendorId, version: loaded.manifest.version, build: request.install?.build },
@@ -934,15 +947,31 @@ export class HubService {
     );
 
     // Not awaited: an instance waits on its device, and the packet-manager on this reply.
-    void this.#restartVendor(vendorId, 'its bundle was installed').catch((error: unknown) => {
-      logger.warn({ err: error, vendorId }, 'Could not start a vendor again');
-    });
+    void this.#restartVendor(vendorId, 'its bundle was installed')
+      .catch((error: unknown) => {
+        logger.warn({ err: error, vendorId }, 'Could not start a vendor again');
+      })
+      .finally(() => {
+        this.#announceUpdate(updating, 'end');
+      });
 
     return {
       ...replyOf(loaded),
       failures: found.failures.map((failure) => failure.message.slice(0, 2048)),
       isRestartNeeded: false,
     };
+  }
+
+  /**
+   * Says a vendor's instances start or stop being updated (`nebula.v1.event.update`).
+   *
+   * @param instanceIds - The instances, which are the sources core routes their commands by.
+   * @param phase - Which.
+   */
+  #announceUpdate(instanceIds: readonly string[], phase: 'start' | 'end'): void {
+    if (instanceIds.length > 0) {
+      this.#client.publish(busSubjects.updateEvent(), { sources: [...instanceIds], phase });
+    }
   }
 
   /**

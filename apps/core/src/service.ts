@@ -21,7 +21,12 @@ import {
   type BusSubscription,
 } from '@nebulahome/bus';
 import { resolveDataLayout } from '@nebulahome/config';
-import type { EntityId, StateReport } from '@nebulahome/contracts';
+import {
+  busSubjects,
+  updateEventSchema,
+  type EntityId,
+  type StateReport,
+} from '@nebulahome/contracts';
 import { secretsKeyFrom, type Database } from '@nebulahome/db';
 import { withTraceId, type PlatformLogger } from '@nebulahome/logging';
 
@@ -59,6 +64,7 @@ import { startRegistrationService } from './services/registration.js';
 import { requestResync } from './services/resync.js';
 import { SceneEngine } from './services/scene-engine.js';
 import { startSceneService } from './services/scene-service.js';
+import { announceChange } from './services/state-events.js';
 import { startStateIngest } from './services/state-ingest.js';
 import { startEntityReadService, startSnapshotService } from './services/state-queries.js';
 import { SunMonitor } from './services/sun-monitor.js';
@@ -66,6 +72,7 @@ import { startSystemMonitorService } from './services/system-monitor-service.js'
 import { SystemMonitor } from './services/system-monitor.js';
 import { createSystemProbes } from './services/system-probes.js';
 import { runTelemetryIngest } from './services/telemetry-ingest.js';
+import { UpdatingSources } from './services/updating-sources.js';
 
 /** What the service is built from. */
 export type CoreServiceOptions = {
@@ -111,6 +118,7 @@ export class CoreService {
   #systemMonitor: SystemMonitor | undefined;
   #sunMonitor: SunMonitor | undefined;
   #quietTimeMonitor: QuietTimeMonitor | undefined;
+  #updating: UpdatingSources | undefined;
   #client: BusClient | undefined;
   #subscriptions: BusSubscription[] = [];
   #history: BatchWriter<StateHistoryRow> | undefined;
@@ -326,6 +334,29 @@ export class CoreService {
     this.#quietTimeMonitor = quietTimeMonitor;
     await quietTimeMonitor.start(house.timeZone);
 
+    // A package or an integration being updated: its entities say so, its commands wait.
+    const updating = new UpdatingSources({
+      /**
+       * Marks a source's entities as being updated, or no longer.
+       *
+       * @param source - The package or the integration instance.
+       * @param isUpdating - Whether it is being updated now.
+       */
+      onChange: (source, isUpdating) => {
+        for (const entityId of this.#registry.entitiesOf(source)) {
+          const result = this.#registry.setUpdating(entityId, isUpdating);
+
+          if (result !== undefined) {
+            announceChange(client, result, undefined, this.#onChange);
+          }
+        }
+
+        logger.info({ source, isUpdating }, 'An adapter is being updated');
+      },
+    });
+
+    this.#updating = updating;
+
     const dispatcher = createCommandDispatcher({
       client,
       directory: this.#directory,
@@ -335,6 +366,8 @@ export class CoreService {
       packageTypes,
       attribution: this.#attribution,
       links: linkEngine,
+      updating,
+      updateWaitMs: config.CORE_UPDATE_WAIT_MS,
     });
 
     const sceneEngine = new SceneEngine({
@@ -362,6 +395,17 @@ export class CoreService {
     startupLogger.info({ automations: automationCount }, 'Automations loaded');
 
     this.#subscriptions = [
+      client.subscribe(busSubjects.updateEvent(), updateEventSchema, (event) => {
+        for (const source of event.sources) {
+          if (event.phase === 'start') {
+            updating.start(source);
+          } else {
+            updating.end(source);
+          }
+        }
+
+        return Promise.resolve();
+      }),
       startStateIngest(ingest),
       startSnapshotService({ client, registry: this.#registry }),
       ...startHistoryService({ client, db, directory: this.#directory }),
@@ -474,6 +518,7 @@ export class CoreService {
     }
 
     this.#subscriptions = [];
+    this.#updating?.clear();
     this.#systemMonitor?.stop();
     this.#sunMonitor?.stop();
     this.#quietTimeMonitor?.stop();

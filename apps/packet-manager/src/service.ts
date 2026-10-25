@@ -690,7 +690,7 @@ export class PacketManager {
         rebuilt !== undefined &&
         (release === undefined || compareVersions(release.version, entry.row.version) <= 0)
       ) {
-        await this.#reinstall(entry, rebuilt);
+        await this.#whileUpdating(packageId, async () => this.#reinstall(entry, rebuilt));
 
         return this.#viewOf(entry, await this.#vendors());
       }
@@ -730,37 +730,67 @@ export class PacketManager {
       );
       const previous = entry.row.version;
 
-      await this.#stopProcess(entry);
-      await this.#options.store.update(packageId, {
-        version: files.manifest.version,
-        runtime: files.manifest.runtime,
-        manifest: files.manifest,
-        previousVersion: previous,
-        source: sourceOf(release.artifact.url),
-        artifactSha256: release.artifact.sha256,
-        state: 'installed',
-        lastError: null,
+      // From the stop to the start its entities say so, and commands to them wait (core).
+      await this.#whileUpdating(packageId, async () => {
+        await this.#stopProcess(entry);
+        await this.#options.store.update(packageId, {
+          version: files.manifest.version,
+          runtime: files.manifest.runtime,
+          manifest: files.manifest,
+          previousVersion: previous,
+          source: sourceOf(release.artifact.url),
+          artifactSha256: release.artifact.sha256,
+          state: 'installed',
+          lastError: null,
+        });
+        entry.row = {
+          ...entry.row,
+          version: files.manifest.version,
+          runtime: files.manifest.runtime,
+          previousVersion: previous,
+          source: sourceOf(release.artifact.url),
+          artifactSha256: release.artifact.sha256,
+          state: 'installed',
+        };
+        entry.files = files;
+        entry.process = undefined;
+        entry.rollbackTo = { version: previous, untilMs: Date.now() + ROLLBACK_WINDOW_MS };
+        await this.#removeOldReleases(packageId, [files.manifest.version, previous]);
+        this.#publish('installed', entry);
+        this.#report(release.artifact.url, packageId, files.manifest.version, 'update');
+        await this.#reconcileContainers();
+        await this.#startOne(entry);
       });
-      entry.row = {
-        ...entry.row,
-        version: files.manifest.version,
-        runtime: files.manifest.runtime,
-        previousVersion: previous,
-        source: sourceOf(release.artifact.url),
-        artifactSha256: release.artifact.sha256,
-        state: 'installed',
-      };
-      entry.files = files;
-      entry.process = undefined;
-      entry.rollbackTo = { version: previous, untilMs: Date.now() + ROLLBACK_WINDOW_MS };
-      await this.#removeOldReleases(packageId, [files.manifest.version, previous]);
-      this.#publish('installed', entry);
-      this.#report(release.artifact.url, packageId, files.manifest.version, 'update');
-      await this.#reconcileContainers();
-      await this.#startOne(entry);
 
       return this.#viewOf(entry, await this.#vendors());
     });
+  }
+
+  /**
+   * Runs work while saying a package is being updated.
+   *
+   * @param packageId - The package.
+   * @param work - What replaces its process.
+   * @returns What the work returned.
+   */
+  async #whileUpdating<T>(packageId: string, work: () => Promise<T>): Promise<T> {
+    this.#announceUpdate(packageId, 'start');
+
+    try {
+      return await work();
+    } finally {
+      this.#announceUpdate(packageId, 'end');
+    }
+  }
+
+  /**
+   * Says a package's update starts or ends (`nebula.v1.event.update`).
+   *
+   * @param packageId - The package, which is the source core routes its commands by.
+   * @param phase - Which.
+   */
+  #announceUpdate(packageId: string, phase: 'start' | 'end'): void {
+    this.#options.client.publish(busSubjects.updateEvent(), { sources: [packageId], phase });
   }
 
   /**

@@ -337,6 +337,7 @@ describe('automations in a running core', () => {
       DATABASE_URL,
       NATS_URL,
       CORE_COMMAND_TIMEOUT_MS: 2000,
+      CORE_UPDATE_WAIT_MS: 120_000,
       CORE_HISTORY_FLUSH_INTERVAL_MS: 100,
       CORE_HISTORY_BATCH_SIZE: 1,
       CORE_TELEMETRY_BATCH_SIZE: 100,

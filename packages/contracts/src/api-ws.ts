@@ -124,6 +124,9 @@ export const wsServerMessageSchema = z.discriminatedUnion('type', [
     /** Whether the entity is reachable. */
     isAvailable: z.boolean(),
 
+    /** True while its package or integration is being updated: the value is the last one known. */
+    isUpdating: z.boolean().optional(),
+
     /** When it changed. */
     changedAt: timestampSchema,
 

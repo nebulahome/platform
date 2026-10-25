@@ -146,6 +146,19 @@ export const systemUpdateRowSchema = z.object({
   notesUrl: z.string().nullable(),
 });
 
+/**
+ * A package or an integration's update starting or ending (`nebula.v1.event.update`): `sources` are
+ * what `core` routes commands by - the package id, or the integration's instance ids. While a
+ * source updates its entities say so and keep their last value, and commands to them wait.
+ */
+export const updateEventSchema = z.object({
+  sources: z.array(z.string().min(1).max(128)).min(1).max(1024),
+  phase: z.enum(['start', 'end']),
+});
+
+/** A package or an integration's update starting or ending. */
+export type UpdateEvent = z.output<typeof updateEventSchema>;
+
 /** `GET /api/v1/system/updates`: everything that can update, and how updates run. */
 export const systemUpdatesViewSchema = z.object({
   core: platformReleasesReplySchema.extend({ channel: updateChannelSchema }).nullable(),

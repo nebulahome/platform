@@ -74,6 +74,17 @@ export function EntityStateSummary(props: EntityStateSummaryProps) {
           when: dateTimeFormat({ dateStyle: 'medium', timeStyle: 'medium' }).format(reading.at),
         });
 
+  if (reading.isUpdating) {
+    return (
+      <span
+        className={cn('text-caption whitespace-nowrap text-foreground-subtle', className)}
+        title={title}
+      >
+        {t('library.entityStateSummary.updating', 'Updating…')}
+      </span>
+    );
+  }
+
   if (!reading.isAvailable) {
     return (
       <span
