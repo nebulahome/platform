@@ -2,8 +2,8 @@
  * The quietest time of day, as `sensor.system_quiet_time` on the system device
  * (docs/releases-and-updates.md 4).
  *
- * Learned from the processor's load at start and just after midnight in the house's zone, when
- * the day that ended is in the load, and handed to the ingest pipeline like any other reading:
+ * Learned from the house's activity at start and just after midnight in the house's zone, when
+ * the day that ended is in the history, and handed to the ingest pipeline like any other reading:
  * backups and updates read it when set to "Quietest", and an automation can start at it. The time
  * already in use is kept unless another is clearly quieter (`domain/quietest.ts`).
  */
@@ -23,7 +23,7 @@ import type { PlatformLogger } from '@nebulahome/logging';
 
 import { zonedParts } from '../domain/automation/house-time.js';
 import { quietestTime } from '../domain/quietest.js';
-import { hasProcessorLoad, readProcessorLoad } from '../persistence/processor-load.js';
+import { readActivity } from '../persistence/activity-load.js';
 
 import { ingestReport, type StateIngestOptions } from './state-ingest.js';
 
@@ -41,7 +41,7 @@ export type QuietTimeMonitorOptions = {
   readonly now?: () => Date;
 };
 
-/** How many days of load it is learned from. */
+/** How many days of activity it is learned from. */
 const LEARNING_DAYS = 28;
 
 /** Just after midnight, once the day that ended is in the per-minute aggregate. */
@@ -61,7 +61,7 @@ function dayIn(date: Date, timeZone: string): string {
 }
 
 /**
- * What is known when the load cannot be read.
+ * What is known when the activity cannot be read.
  *
  * @param reason - Why.
  * @returns The fallback time, unavailable.
@@ -70,7 +70,8 @@ function unavailable(reason: string): QuietTime {
   return {
     state: 'unavailable',
     time: QUIET_TIME_FALLBACK,
-    meanLoadPercent: null,
+    quietFrom: null,
+    quietTo: null,
     daysOfData: 0,
     daysNeeded: 3,
     profile: [],
@@ -157,7 +158,7 @@ export class QuietTimeMonitor {
   }
 
   /**
-   * Learns the quietest time from the load.
+   * Learns the quietest time from the house's activity.
    *
    * @param previousTime - The time in use now, kept unless another is clearly quieter.
    * @returns What was learned.
@@ -167,14 +168,9 @@ export class QuietTimeMonitor {
     const timezone = this.#timeZone;
 
     try {
-      if (!(await hasProcessorLoad(db))) {
-        return unavailable('The processor load is not being recorded');
-      }
-
       return quietestTime({
-        cells: await readProcessorLoad(db, { days: LEARNING_DAYS, timezone }),
+        cells: await readActivity(db, { days: LEARNING_DAYS, timezone }),
         today: dayIn(this.#now(), timezone),
-        weekdays: null,
         durationMinutes: QUIET_TIME_WINDOW_MINUTES,
         previousTime,
         fallbackTime: QUIET_TIME_FALLBACK,
@@ -182,7 +178,7 @@ export class QuietTimeMonitor {
     } catch (error: unknown) {
       logger.warn({ err: error }, 'Could not learn the quietest time');
 
-      return unavailable('The processor load could not be read');
+      return unavailable("The house's activity could not be read");
     }
   }
 }

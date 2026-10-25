@@ -1382,8 +1382,6 @@ GRANT USAGE ON SCHEMA registry, history, system TO nebula_core;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA registry TO nebula_core;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA history  TO nebula_core;
 GRANT SELECT ON system.packages, system.settings, system.v_schema_version TO nebula_core;
--- The backups' windows, left out of the load the quietest time is learned from.
-GRANT SELECT ON system.backup_runs TO nebula_core;
 -- No grant on any auth table: core never reads password hashes or tokens.
 
 -- api: the only role that touches auth.

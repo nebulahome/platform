@@ -57,7 +57,8 @@ export const SAMPLE_STATUS: BackupStatusView = {
   quietTime: {
     state: 'ready',
     time: '03:15',
-    meanLoadPercent: 4.1,
+    quietFrom: '01:15',
+    quietTo: '05:30',
     daysOfData: 21,
     daysNeeded: 3,
     profile: PROFILE,

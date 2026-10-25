@@ -35,7 +35,8 @@ export const QUIET_TIME_ENTITY = {
 export function quietTimeAttributes(quiet: QuietTime): JsonObject {
   return {
     state: quiet.state,
-    meanLoadPercent: quiet.meanLoadPercent,
+    quietFrom: quiet.quietFrom,
+    quietTo: quiet.quietTo,
     daysOfData: quiet.daysOfData,
     daysNeeded: quiet.daysNeeded,
     profile: quiet.profile,

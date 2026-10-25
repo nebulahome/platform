@@ -1,48 +1,45 @@
 /**
- * The quietest time of day, learned from the processor's load: when backups and updates run.
+ * The quietest time of day, learned from the house's activity: when backups and updates run.
  *
- * The load of the last weeks, in quarter hours of the schedule's own day, becomes one profile of
- * a typical day: each day weighted by how recent it is - half as much a week older - so a change
- * of habits is followed within weeks, and each quarter hour the weighted mean of the days that
- * have it. The profile is smoothed, going round midnight, so one busy evening does not make a
- * trough of the quarter beside it; then the cost of starting at each quarter is the mean load over
- * as long as a backup takes. The candidates are where that cost stops falling - its gradient goes
- * from negative to not - and the best is the lowest of them.
+ * Activity is what people do - commands, lights switched by hand, doors and motion, scenes,
+ * automations - counted per quarter hour (`persistence/activity-load.ts`). The days of the last
+ * weeks become one profile of a typical day: each day weighted by how recent it is - half as much
+ * a week older - so a change of habits is followed within weeks, smoothed going round midnight.
  *
- * Two things keep the answer from wandering. The windows the backups themselves ran in are left
- * out of the data (the query's job), or each backup would make its own slot look busy and push
- * the next one away. And the time already in use is kept unless another is clearly quieter.
+ * Then the rule: a quarter hour is quiet when its activity is within 5% of the day's range above
+ * the quietest; the longest stretch of quiet quarter hours, going round midnight, is the house
+ * asleep; the time is the window centred in it, as far as can be from the last one to bed and the
+ * first one up. The stretch's edges move slowly, so the time does too; and the time in use is kept
+ * while its window still lies inside the stretch.
  *
- * Pure: the load comes in, the time goes out.
+ * Pure: the activity comes in, the time goes out.
  */
-import type { DayOfWeek, QuietTime } from '@nebulahome/contracts';
+import type { QuietTime } from '@nebulahome/contracts';
 
-/** One quarter hour of one day's load. */
-export type LoadCell = {
-  /** The day, `YYYY-MM-DD`, in the schedule's time zone. */
+/** One quarter hour of one day's activity. */
+export type ActivityCell = {
+  /** The day, `YYYY-MM-DD`, in the house's time zone. */
   readonly day: string;
 
   /** The quarter hour from midnight, 0 to 95. */
   readonly slot: number;
 
-  /** The mean processor load, in percent. */
-  readonly load: number;
+  /** How many things people did in it. */
+  readonly activity: number;
 };
 
 /** What the estimate is made from. */
 export type QuietInput = {
-  readonly cells: readonly LoadCell[];
+  /** Every quarter hour of every day learned from, the quiet ones as zero. */
+  readonly cells: readonly ActivityCell[];
 
-  /** Today, `YYYY-MM-DD`, in the schedule's time zone. */
+  /** Today, `YYYY-MM-DD`, in the house's time zone. */
   readonly today: string;
 
-  /** The days the backups run on, or null for every day. */
-  readonly weekdays: readonly DayOfWeek[] | null;
-
-  /** How long a backup takes, in minutes. */
+  /** How long the window is, in minutes: room for a backup or an update. */
   readonly durationMinutes: number;
 
-  /** The time in use now, `HH:MM`, kept unless another is clearly quieter. */
+  /** The time in use now, `HH:MM`, kept while its window lies inside the quiet stretch. */
   readonly previousTime: string | null;
 
   /** The time used until enough is known. */
@@ -58,32 +55,18 @@ const SLOT_MINUTES = 15;
 /** Days before one counts for half as much. */
 const HALF_LIFE_DAYS = 7;
 
-/** Days of load needed before the time is trusted. */
+/** Days of activity needed before the time is trusted. */
 export const MINIMUM_DAYS = 3;
 
 /** The share of a day's quarter hours a day needs to count at all. */
 const MINIMUM_COVERAGE = 0.5;
 
-/** How much quieter another time must be to replace the one in use: this many points, or… */
-const KEEP_MARGIN_POINTS = 2;
-
-/** …this share of the quieter one's load, whichever is larger. */
-const KEEP_MARGIN_SHARE = 0.1;
+/** A quarter hour is quiet within this share of the day's range above the quietest one. */
+const QUIET_SHARE = 0.05;
 
 /** The smoothing: a Gaussian this many quarter hours wide, reaching three of them each way. */
 const SMOOTHING_SIGMA = 1;
 const SMOOTHING_REACH = 3;
-
-/** The day names, as `Date.getUTCDay()` numbers them. */
-const WEEKDAY_BY_NUMBER: readonly DayOfWeek[] = [
-  'sunday',
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-];
 
 /**
  * Reads the quarter hour a time falls in.
@@ -184,38 +167,66 @@ function smooth(values: readonly number[]): number[] {
 }
 
 /**
- * Finds the quietest time of day to back up at.
+ * The longest stretch of quiet quarter hours, going round midnight.
+ *
+ * @param quiet - Whether each quarter hour is quiet.
+ * @returns Its first quarter hour and its length; null when none is quiet or all are.
+ */
+export function longestQuietStretch(
+  quiet: readonly boolean[],
+): { readonly start: number; readonly length: number } | null {
+  if (quiet.every(Boolean) || !quiet.some(Boolean)) {
+    return null;
+  }
+
+  let best = { start: 0, length: 0 };
+  // Starting just after a busy quarter hour, so a stretch across midnight is read whole.
+  const origin = around(quiet.findIndex((value) => !value) + 1);
+  let start = origin;
+  let length = 0;
+
+  for (let step = 0; step < SLOTS_PER_DAY; step += 1) {
+    const slot = around(origin + step);
+
+    if (quiet[slot] === true) {
+      start = length === 0 ? slot : start;
+      length += 1;
+
+      if (length > best.length) {
+        best = { start, length };
+      }
+    } else {
+      length = 0;
+    }
+  }
+
+  return best;
+}
+
+/**
+ * Finds the quietest time of day.
  *
  * @param input - See {@link QuietInput}.
- * @returns The time, how it was found, and the day's profile.
+ * @returns The time, the quiet stretch it is in, and the day's profile.
  */
 export function quietestTime(input: QuietInput): QuietTime {
   const byDay = new Map<string, (number | null)[]>();
 
   for (const cell of input.cells) {
-    if (cell.slot < 0 || cell.slot >= SLOTS_PER_DAY || !Number.isFinite(cell.load)) {
+    if (cell.slot < 0 || cell.slot >= SLOTS_PER_DAY || !Number.isFinite(cell.activity)) {
       continue;
     }
 
     const day =
       byDay.get(cell.day) ?? Array.from<number | null>({ length: SLOTS_PER_DAY }).fill(null);
 
-    day[cell.slot] = cell.load;
+    day[cell.slot] = cell.activity;
     byDay.set(cell.day, day);
   }
 
-  const complete = [...byDay].filter(
+  const days = [...byDay].filter(
     ([, day]) => day.filter((value) => value !== null).length >= SLOTS_PER_DAY * MINIMUM_COVERAGE,
   );
-  const onScheduledDays =
-    input.weekdays === null
-      ? []
-      : complete.filter(([day]) =>
-          input.weekdays?.includes(
-            WEEKDAY_BY_NUMBER[new Date(`${day}T12:00:00Z`).getUTCDay()] ?? 'monday',
-          ),
-        );
-  const days = onScheduledDays.length >= MINIMUM_DAYS ? onScheduledDays : complete;
 
   // A profile of a typical day: each quarter hour, the recency-weighted mean of the days that
   // measured it.
@@ -237,84 +248,60 @@ export function quietestTime(input: QuietInput): QuietTime {
     return weights === 0 ? null : weighted / weights;
   });
   const profile = days.length === 0 ? raw : smooth(fillGaps(raw));
-  const shown = profile.map((value) => (value === null ? null : Math.round(value * 10) / 10));
-
-  if (days.length < MINIMUM_DAYS) {
-    return {
-      state: 'learning',
-      time: input.fallbackTime,
-      meanLoadPercent: null,
-      daysOfData: days.length,
-      daysNeeded: MINIMUM_DAYS,
-      profile: shown,
-      reason: `Learning the machine's load: ${String(days.length)} of ${String(MINIMUM_DAYS)} days`,
-    };
-  }
-
-  const smoothed = profile.map((value) => value ?? 0);
-  const width = Math.max(1, Math.ceil(input.durationMinutes / SLOT_MINUTES) + 1);
-  // What starting at each quarter hour costs: the mean load over as long as a backup takes.
-  const cost = smoothed.map(
-    (nothing, start) =>
-      Array.from(
-        { length: width },
-        (unused, offset) => smoothed[around(start + offset)] ?? 0,
-      ).reduce((sum, value) => sum + value, 0) / width,
-  );
-  /**
-   * What starting at a quarter hour costs, going round.
-   *
-   * @param slot - The quarter hour, before midnight or past it.
-   * @returns The mean load over the run.
-   */
-  const costAt = (slot: number): number => cost[around(slot)] ?? 0;
-  // The gradient, central: where it turns from falling to not, the cost has a trough.
-  const gradient = cost.map((nothing, slot) => (costAt(slot + 1) - costAt(slot - 1)) / 2);
-  const troughs = new Set<number>();
-
-  for (let slot = 0; slot < SLOTS_PER_DAY; slot += 1) {
-    if ((gradient[around(slot - 1)] ?? 0) < 0 && (gradient[slot] ?? 0) >= 0) {
-      // The sign changed between two quarter hours; the trough is the lower of them and their
-      // neighbours.
-      const nearest = [slot - 1, slot, slot + 1].reduce((best, each) =>
-        costAt(each) < costAt(best) ? each : best,
-      );
-
-      troughs.add(around(nearest));
-    }
-  }
-
-  const fallback = slotOf(input.fallbackTime);
-  /**
-   * How far a quarter hour is from the usual time, going round.
-   *
-   * @param slot - The quarter hour.
-   * @returns The distance, in quarter hours.
-   */
-  const distance = (slot: number): number =>
-    Math.min(Math.abs(slot - fallback), SLOTS_PER_DAY - Math.abs(slot - fallback));
-  // A flat day has no trough: any time is as good, so the usual one.
-  const candidates = troughs.size === 0 ? [fallback] : [...troughs];
-  const best = candidates.reduce((chosen, each) =>
-    costAt(each) < costAt(chosen) ||
-    (costAt(each) === costAt(chosen) && distance(each) < distance(chosen))
-      ? each
-      : chosen,
-  );
-  const previous = input.previousTime === null ? null : slotOf(input.previousTime);
-  const keepsPrevious =
-    previous !== null &&
-    costAt(previous) <=
-      costAt(best) + Math.max(KEEP_MARGIN_POINTS, KEEP_MARGIN_SHARE * costAt(best));
-  const chosen = keepsPrevious ? previous : best;
-
-  return {
-    state: 'ready',
-    time: timeOfSlot(chosen),
-    meanLoadPercent: Math.round(costAt(chosen) * 10) / 10,
+  const shown = profile.map((value) => (value === null ? null : Math.round(value * 100) / 100));
+  const base = {
     daysOfData: days.length,
     daysNeeded: MINIMUM_DAYS,
     profile: shown,
+  };
+
+  if (days.length < MINIMUM_DAYS) {
+    return {
+      ...base,
+      state: 'learning',
+      time: input.fallbackTime,
+      quietFrom: null,
+      quietTo: null,
+      reason: `Learning the house's activity: ${String(days.length)} of ${String(MINIMUM_DAYS)} days`,
+    };
+  }
+
+  const values = profile.map((value) => value ?? 0);
+  const lowest = Math.min(...values);
+  const threshold = lowest + QUIET_SHARE * (Math.max(...values) - lowest);
+  const stretch = longestQuietStretch(values.map((value) => value <= threshold));
+
+  // A day with no activity at all, or the same all day: any time is as good, so the usual one.
+  if (stretch === null) {
+    return {
+      ...base,
+      state: 'ready',
+      time: input.fallbackTime,
+      quietFrom: null,
+      quietTo: null,
+      reason: null,
+    };
+  }
+
+  const width = Math.max(1, Math.ceil(input.durationMinutes / SLOT_MINUTES));
+  const centred = around(Math.round(stretch.start + (stretch.length - width) / 2));
+  /**
+   * Whether a window starting at a quarter hour lies wholly inside the stretch.
+   *
+   * @param slot - Where the window starts.
+   * @returns True when it does.
+   */
+  const fits = (slot: number): boolean =>
+    width <= stretch.length && around(slot - stretch.start) <= stretch.length - width;
+  const previous = input.previousTime === null ? null : slotOf(input.previousTime);
+  const chosen = previous !== null && fits(previous) ? previous : centred;
+
+  return {
+    ...base,
+    state: 'ready',
+    time: timeOfSlot(chosen),
+    quietFrom: timeOfSlot(stretch.start),
+    quietTo: timeOfSlot(stretch.start + stretch.length),
     reason: null,
   };
 }

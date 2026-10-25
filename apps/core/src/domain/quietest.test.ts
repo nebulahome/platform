@@ -1,150 +1,140 @@
 /**
- * The quietest time of day, from days of processor load: the trough found, the day wrapping at
- * midnight, recent days counting more, the time in use kept unless another is clearly better, and
- * the fallback while there is not enough to go on.
+ * The quietest time of day, from days of the house's activity: the window centred in the longest
+ * quiet stretch, the stretch wrapping at midnight, the time in use kept while it fits, and the
+ * fallback while there is not enough to go on or nothing to tell the hours apart.
  */
 import { describe, expect, it } from 'vitest';
 
-import type { DayOfWeek } from '@nebulahome/contracts';
-
-import { quietestTime, slotOf, SLOTS_PER_DAY, type LoadCell } from './quietest.js';
+import {
+  longestQuietStretch,
+  quietestTime,
+  slotOf,
+  SLOTS_PER_DAY,
+  type ActivityCell,
+} from './quietest.js';
 
 const TODAY = '2026-09-27';
 
 /**
- * Days of load, each shaped by a function of the quarter hour.
+ * Days of activity, each shaped by a function of the quarter hour.
  *
  * @param count - How many days, ending yesterday.
- * @param shape - The load at a quarter hour, for a day so many days ago.
+ * @param shape - The activity at a quarter hour.
  * @returns The cells.
  */
-function days(count: number, shape: (slot: number, daysAgo: number) => number): LoadCell[] {
+function days(count: number, shape: (slot: number) => number): ActivityCell[] {
   return Array.from({ length: count }, (nothing, index) => {
-    const daysAgo = index + 1;
-    const day = new Date(Date.parse(`${TODAY}T00:00:00Z`) - daysAgo * 86_400_000)
+    const day = new Date(Date.parse(`${TODAY}T00:00:00Z`) - (index + 1) * 86_400_000)
       .toISOString()
       .slice(0, 10);
 
     return Array.from({ length: SLOTS_PER_DAY }, (unused, slot) => ({
       day,
       slot,
-      load: shape(slot, daysAgo),
+      activity: shape(slot),
     }));
   }).flat();
 }
 
 /**
- * A busy day with a quiet stretch.
+ * A day asleep between two times, busy otherwise.
  *
- * @param from - The first quiet quarter hour.
- * @param to - The last.
- * @returns The shape.
+ * @param from - When the house falls asleep, `HH:MM`.
+ * @param to - When it wakes, `HH:MM`.
+ * @returns The activity at a quarter hour.
  */
-function troughAt(from: number, to: number): (slot: number) => number {
-  return (slot) => {
-    const inside = from <= to ? slot >= from && slot <= to : slot >= from || slot <= to;
+function asleep(from: string, to: string): (slot: number) => number {
+  const start = slotOf(from);
+  const end = slotOf(to);
 
-    return inside ? 5 : 40 + 10 * Math.sin(slot / 7);
-  };
+  return (slot) =>
+    (start < end ? slot >= start && slot < end : slot >= start || slot < end) ? 0 : 6;
 }
 
-const BASE = {
-  today: TODAY,
-  weekdays: null,
-  durationMinutes: 10,
-  previousTime: null,
-  fallbackTime: '03:00',
-} as const;
-
 describe('quietestTime', () => {
-  it('finds the quiet stretch of the day', () => {
-    const result = quietestTime({
-      ...BASE,
-      cells: days(14, troughAt(slotOf('04:00'), slotOf('05:00'))),
+  it('centres the window in the night', () => {
+    const quiet = quietestTime({
+      cells: days(7, asleep('01:00', '06:00')),
+      today: TODAY,
+      durationMinutes: 60,
+      previousTime: null,
+      fallbackTime: '03:00',
     });
 
-    expect(result.state).toBe('ready');
-    expect(slotOf(result.time)).toBeGreaterThanOrEqual(slotOf('04:00'));
-    expect(slotOf(result.time)).toBeLessThanOrEqual(slotOf('04:45'));
-    expect(result.meanLoadPercent).toBeLessThan(15);
-    expect(result.profile).toHaveLength(SLOTS_PER_DAY);
+    expect(quiet.state).toBe('ready');
+    // The smoothing eats a quarter hour at each edge; the window stays in the middle.
+    expect(slotOf(quiet.time)).toBeGreaterThanOrEqual(slotOf('02:45'));
+    expect(slotOf(quiet.time)).toBeLessThanOrEqual(slotOf('03:15'));
+    expect(quiet.quietFrom).not.toBeNull();
   });
 
-  it('finds it across midnight', () => {
-    const result = quietestTime({
-      ...BASE,
-      cells: days(7, troughAt(slotOf('23:30'), slotOf('00:30'))),
+  it('reads a night across midnight whole', () => {
+    const quiet = quietestTime({
+      cells: days(7, asleep('22:00', '04:00')),
+      today: TODAY,
+      durationMinutes: 60,
+      previousTime: null,
+      fallbackTime: '03:00',
     });
-    const slot = slotOf(result.time);
 
-    expect(slot >= slotOf('23:15') || slot <= slotOf('00:30')).toBe(true);
+    expect(slotOf(quiet.time)).toBeGreaterThanOrEqual(slotOf('00:15'));
+    expect(slotOf(quiet.time)).toBeLessThanOrEqual(slotOf('00:45'));
   });
 
-  it('follows a change of habits: recent days count more', () => {
-    const cells = days(21, (slot, daysAgo) =>
-      daysAgo <= 5
-        ? troughAt(slotOf('05:00'), slotOf('06:00'))(slot)
-        : troughAt(slotOf('01:00'), slotOf('02:00'))(slot),
-    );
-    const result = quietestTime({ ...BASE, cells });
-
-    expect(slotOf(result.time)).toBeGreaterThanOrEqual(slotOf('04:45'));
-    expect(slotOf(result.time)).toBeLessThanOrEqual(slotOf('06:00'));
-  });
-
-  it('keeps the time in use unless another is clearly quieter', () => {
-    // Two troughs almost as quiet: the one in use stays.
-    const shape = (slot: number): number =>
-      slot >= slotOf('02:00') && slot <= slotOf('03:00')
-        ? 6
-        : slot >= slotOf('04:00') && slot <= slotOf('05:00')
-          ? 5
-          : 40;
-    const kept = quietestTime({ ...BASE, cells: days(7, shape), previousTime: '02:15' });
-
-    expect(kept.time).toBe('02:15');
-
-    // One far quieter: it wins.
-    const busy = (slot: number): number =>
-      slot >= slotOf('02:00') && slot <= slotOf('03:00') ? 30 : shape(slot);
-    const moved = quietestTime({ ...BASE, cells: days(7, busy), previousTime: '02:15' });
-
-    expect(slotOf(moved.time)).toBeGreaterThanOrEqual(slotOf('04:00'));
-  });
-
-  it('learns from the days backups run on when there are enough of them', () => {
-    const cells = days(21, (slot, daysAgo) => {
-      const weekday = new Date(Date.parse(`${TODAY}T12:00:00Z`) - daysAgo * 86_400_000).getUTCDay();
-
-      return weekday === 0
-        ? troughAt(slotOf('10:00'), slotOf('11:00'))(slot)
-        : troughAt(slotOf('03:00'), slotOf('04:00'))(slot);
+  it('keeps the time in use while its window lies inside the night', () => {
+    const quiet = quietestTime({
+      cells: days(7, asleep('01:00', '06:00')),
+      today: TODAY,
+      durationMinutes: 60,
+      previousTime: '02:00',
+      fallbackTime: '03:00',
     });
-    const sundays: DayOfWeek[] = ['sunday'];
-    const result = quietestTime({ ...BASE, cells, weekdays: sundays });
 
-    expect(slotOf(result.time)).toBeGreaterThanOrEqual(slotOf('09:45'));
-    expect(slotOf(result.time)).toBeLessThanOrEqual(slotOf('11:00'));
+    expect(quiet.time).toBe('02:00');
   });
 
-  it('uses the usual time on a day with no trough', () => {
-    expect(quietestTime({ ...BASE, cells: days(7, () => 20) }).time).toBe('03:00');
-  });
-
-  it('says it is learning, and uses the usual time, until it has enough days', () => {
-    const result = quietestTime({ ...BASE, cells: days(2, troughAt(10, 14)) });
-
-    expect(result).toMatchObject({
-      state: 'learning',
-      time: '03:00',
-      daysOfData: 2,
-      daysNeeded: 3,
+  it('moves a time in use that no longer fits', () => {
+    const quiet = quietestTime({
+      cells: days(7, asleep('01:00', '06:00')),
+      today: TODAY,
+      durationMinutes: 60,
+      previousTime: '22:00',
+      fallbackTime: '03:00',
     });
+
+    expect(quiet.time).not.toBe('22:00');
   });
 
-  it('does not count a day it barely measured', () => {
-    const sparse = days(5, () => 30).filter((cell) => cell.slot % 4 === 0);
+  it('learns for three days, then keeps the usual time on a day without activity', () => {
+    const learning = quietestTime({
+      cells: days(2, asleep('01:00', '06:00')),
+      today: TODAY,
+      durationMinutes: 60,
+      previousTime: null,
+      fallbackTime: '03:00',
+    });
+    const flat = quietestTime({
+      cells: days(5, () => 0),
+      today: TODAY,
+      durationMinutes: 60,
+      previousTime: null,
+      fallbackTime: '03:00',
+    });
 
-    expect(quietestTime({ ...BASE, cells: sparse }).state).toBe('learning');
+    expect(learning).toMatchObject({ state: 'learning', time: '03:00', daysOfData: 2 });
+    expect(flat).toMatchObject({ state: 'ready', time: '03:00', quietFrom: null });
+  });
+});
+
+describe('longestQuietStretch', () => {
+  it('finds the longest run, going round midnight', () => {
+    const quiet = Array.from({ length: SLOTS_PER_DAY }, (nothing, slot) => slot < 8 || slot >= 90);
+
+    expect(longestQuietStretch(quiet)).toEqual({ start: 90, length: 14 });
+  });
+
+  it('has none when every quarter hour is alike', () => {
+    expect(longestQuietStretch(Array.from({ length: SLOTS_PER_DAY }, () => true))).toBeNull();
+    expect(longestQuietStretch(Array.from({ length: SLOTS_PER_DAY }, () => false))).toBeNull();
   });
 });

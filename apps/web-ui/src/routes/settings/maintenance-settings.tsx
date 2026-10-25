@@ -655,7 +655,7 @@ export function MaintenanceSettings() {
                   time: updateWindow.time,
                 })
               : quiet?.state === 'ready'
-                ? t('settingsMaintenance.whenQuietest', 'When the machine is quietest: {{time}}.', {
+                ? t('settingsMaintenance.whenQuietest', 'When the house is quietest: {{time}}.', {
                     time: quiet.time,
                   })
                 : t('settingsMaintenance.whenLearning', 'Learning the load: {{time}} for now.', {

@@ -689,27 +689,29 @@ export function BackupSettings() {
               })
             ) : quiet.state === 'ready' ? (
               <>
-                {t('backup.quietest', 'When the machine is quietest:')}{' '}
+                {t('backup.quietest', 'When the house is quietest:')}{' '}
                 <strong className="font-medium text-foreground">{quiet.time}</strong>
-                {quiet.meanLoadPercent === null
+                {quiet.quietFrom === null || quiet.quietTo === null
                   ? ''
-                  : t('backup.busy', ', about {{percent}}% busy', {
-                      percent: Math.round(quiet.meanLoadPercent),
+                  : t('backup.quietStretch', ', quiet from {{from}} to {{to}}', {
+                      from: quiet.quietFrom,
+                      to: quiet.quietTo,
                     })}
-                {t('backup.learned', ' - learned from {{days}} days of load, {{zone}} time.', {
+                {t('backup.learned', ' - learned from {{days}} days of activity, {{zone}} time.', {
                   days: quiet.daysOfData,
-                  zone: schedule.timezone,
+                  zone: quiet.timezone ?? schedule.timezone,
                 })}
               </>
             ) : quiet.state === 'learning' ? (
               t(
                 'backup.learning',
-                "Learning the machine's load ({{days}} of {{needed}} days): at {{time}} until then.",
+                "Learning the house's activity ({{days}} of {{needed}} days): at {{time}} until then.",
                 { days: quiet.daysOfData, needed: quiet.daysNeeded, time: schedule.time },
               )
             ) : (
               t('backup.cannotLearn', '{{reason}}: at {{time}} instead.', {
-                reason: quiet.reason ?? t('backup.loadUnlearnable', 'The load cannot be learned'),
+                reason:
+                  quiet.reason ?? t('backup.loadUnlearnable', 'The activity cannot be learned'),
                 time: schedule.time,
               })
             )

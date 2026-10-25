@@ -76,8 +76,8 @@ export const timeZoneSchema = z
   .refine(isTimeZone, { message: 'Must be an IANA time zone, such as Europe/Rome' });
 
 /**
- * How the time of day is chosen: the one the owner set, or the quietest the machine has been,
- * learned from its processor load over the last weeks.
+ * How the time of day is chosen: the one the owner set, or the quietest the house has been,
+ * learned from its activity over the last weeks (`sensor.system_quiet_time`).
  */
 export const BACKUP_SCHEDULE_MODES = ['fixed', 'quietest'] as const;
 
@@ -523,21 +523,22 @@ export const backupRunStartedSchema = z.object({ runId: z.uuid() });
 /** How the quietest time of day is known: learned, still learning, or not at all. */
 export const QUIET_TIME_STATES = ['ready', 'learning', 'unavailable'] as const;
 
-/** The quietest time of day, as learned from the processor's load. */
+/** The quietest time of day, as learned from the house's activity. */
 export const quietTimeSchema = z.object({
   state: z.enum(QUIET_TIME_STATES),
 
   /** The time a backup starts at: the learned one, or the fallback while learning. */
   time: timeOfDaySchema,
 
-  /** The mean load over the run's expected length at that time, in percent. */
-  meanLoadPercent: z.number().nullable(),
+  /** The quiet stretch the time is centred in, `HH:MM` to `HH:MM`; null until it is known. */
+  quietFrom: timeOfDaySchema.nullable(),
+  quietTo: timeOfDaySchema.nullable(),
 
-  /** How many days of load it was learned from, and how many it needs at least. */
+  /** How many days of activity it was learned from, and how many it needs at least. */
   daysOfData: z.int(),
   daysNeeded: z.int(),
 
-  /** The day's load profile, 96 quarter hours from midnight, smoothed; null where unknown. */
+  /** The day's activity, 96 quarter hours from midnight, smoothed; null where unknown. */
   profile: z.array(z.number().nullable()),
 
   /** Why it is not learned, in English; null when it is. */

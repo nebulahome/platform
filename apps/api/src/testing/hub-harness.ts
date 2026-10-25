@@ -621,7 +621,8 @@ export const BACKUP_STATUS: BackupStatus = {
   quietTime: {
     state: 'ready',
     time: '03:45',
-    meanLoadPercent: 4.2,
+    quietFrom: '01:15',
+    quietTo: '05:30',
     daysOfData: 14,
     daysNeeded: 3,
     profile: [],

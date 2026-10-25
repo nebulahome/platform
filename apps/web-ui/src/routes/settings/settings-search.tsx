@@ -237,10 +237,7 @@ const SETTINGS_INDEX: readonly SettingEntry[] = [
     path: '/settings/system/backup',
     section: SECTIONS.schedule,
     title: defineMessage('backup.when', 'When'),
-    note: defineMessage(
-      'settings.search.notes.when',
-      'At a time, or when the machine is quietest.',
-    ),
+    note: defineMessage('settings.search.notes.when', 'At a time, or when the house is quietest.'),
     icon: 'clock',
   },
   {

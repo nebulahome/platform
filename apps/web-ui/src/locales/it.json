@@ -375,7 +375,6 @@
     "archivesTitle": "I backup in tutte le destinazioni",
     "automatic": "Backup automatici",
     "backupRun": "Backup",
-    "busy": ", occupata circa al {{percent}}%",
     "by": "da {{name}}",
     "cannotLearn": "{{reason}}: alle {{time}} invece.",
     "didNotStart": "Il backup non è partito",
@@ -432,9 +431,9 @@
       "system": "Sistema"
     },
     "lastBackupWhen": "ultimo backup {{when}}",
-    "learned": " - appreso da {{days}} giorni di carico, ora di {{zone}}.",
-    "learning": "Sto imparando il carico della macchina ({{days}} di {{needed}} giorni): fino ad allora alle {{time}}.",
-    "loadUnlearnable": "Il carico non si può imparare",
+    "learned": " - appreso da {{days}} giorni di attività, ora di {{zone}}.",
+    "learning": "Sto imparando l'attività della casa ({{days}} di {{needed}} giorni): fino ad allora alle {{time}}.",
+    "loadUnlearnable": "L'attività non si può imparare",
     "location": {
       "addTitle": "Aggiungi una destinazione di backup",
       "already_many": "Ci sono già {{count}} backup",
@@ -534,7 +533,7 @@
       "stopped": "Fermato",
       "unfinished": "Non è arrivato alla fine."
     },
-    "quietest": "Quando la macchina è più tranquilla:",
+    "quietest": "Quando la casa è più tranquilla:",
     "reach": {
       "day": "un giorno indietro",
       "days": "{{count}} giorni indietro",
@@ -619,7 +618,8 @@
     "schedule": "Pianificazione",
     "contents": "Contenuto",
     "alwaysIncluded": "Sempre incluso",
-    "showBackups": "Mostra i backup"
+    "showBackups": "Mostra i backup",
+    "quietStretch": ", tranquilla dalle {{from}} alle {{to}}"
   },
   "brokers": {
     "card": {
@@ -4136,7 +4136,7 @@
       "unusable": "Quell'immagine non si è potuta usare."
     },
     "backup": {
-      "quietProfile": "Il carico del processore in una giornata tipica; i backup partono alle {{time}}"
+      "quietProfile": "L'attività della casa in una giornata tipica; i backup partono alle {{time}}"
     },
     "data": {
       "changedBy": "modificato da {{name}}",
@@ -4568,7 +4568,7 @@
         "sidebar": "Come si apre su questo dispositivo.",
         "automaticBackups": "Partono secondo la pianificazione qui sotto.",
         "frequency": "Ogni giorno, ogni settimana o nei giorni scelti.",
-        "when": "A un'ora fissa, o quando la macchina è più tranquilla.",
+        "when": "A un'ora fissa, o quando la casa è più tranquilla.",
         "backupKey": "Serve su un'altra macchina.",
         "backupFirst": "Un backup prima di ogni aggiornamento."
       },
@@ -4990,7 +4990,7 @@
     "when": "Quando",
     "whenFixed": "Alle {{time}} sull'orologio della casa.",
     "whenLearning": "Sto imparando il carico: {{time}} per ora.",
-    "whenQuietest": "Quando la macchina è più tranquilla: {{time}}.",
+    "whenQuietest": "Quando la casa è più tranquilla: {{time}}.",
     "dev": "Dev"
   }
 }

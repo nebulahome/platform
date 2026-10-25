@@ -6,7 +6,8 @@ import { quietTimeAttributes, quietTimeFromState } from './quiet-time.js';
 const LEARNED: QuietTime = {
   state: 'ready',
   time: '03:15',
-  meanLoadPercent: 4.5,
+  quietFrom: '01:00',
+  quietTo: '05:30',
   daysOfData: 12,
   daysNeeded: 3,
   profile: [1, null, 2],

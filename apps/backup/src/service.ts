@@ -343,7 +343,8 @@ export class BackupService {
       quiet ?? {
         state: 'unavailable',
         time: settings.schedule.time,
-        meanLoadPercent: null,
+        quietFrom: null,
+        quietTo: null,
         daysOfData: 0,
         daysNeeded: 3,
         profile: [],
