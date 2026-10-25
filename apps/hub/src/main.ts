@@ -15,7 +15,7 @@ import { ERROR_CODES, EXIT_CODES, isNebulaError } from '@nebulahome/contracts';
 import { assertSchemaVersion, createDatabase } from '@nebulahome/db';
 import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
-import { hubEnvSchema, SERVICE_NAME, SERVICE_VERSION } from './config.js';
+import { hubEnvSchema, SERVICE_NAME } from './config.js';
 import { openMatterFabric } from './matter/fabric.js';
 import { HubService } from './service.js';
 import { httpTransport } from './transports/http.js';
@@ -50,7 +50,7 @@ async function start(): Promise<void> {
 
   const logger = createLogger({
     service: SERVICE_NAME,
-    version: SERVICE_VERSION,
+    version: config.NEBULA_VERSION,
     level: config.LOG_LEVEL,
     pretty: config.NODE_ENV === 'development',
   });

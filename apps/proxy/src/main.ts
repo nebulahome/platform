@@ -14,7 +14,7 @@ import { loadConfigOrExit, resolveDataLayout } from '@nebulahome/config';
 import { EXIT_CODES } from '@nebulahome/contracts';
 import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
-import { proxyEnvSchema, SERVICE_NAME, SERVICE_VERSION, type ProxyConfig } from './config.js';
+import { proxyEnvSchema, SERVICE_NAME, type ProxyConfig } from './config.js';
 import { buildProxyServer } from './server.js';
 
 /** How long a graceful shutdown is given before the process ends regardless. */
@@ -63,7 +63,7 @@ async function start(): Promise<void> {
   const config = loadConfigOrExit(proxyEnvSchema);
   const logger = createLogger({
     service: SERVICE_NAME,
-    version: SERVICE_VERSION,
+    version: config.NEBULA_VERSION,
     level: config.LOG_LEVEL,
     pretty: config.NODE_ENV === 'development',
   });

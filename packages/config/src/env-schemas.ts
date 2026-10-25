@@ -59,6 +59,15 @@ export function portSchema(defaultPort: number): z.ZodType<number> {
 export const runtimeEnvSchema = z.object({
   NODE_ENV: z.enum(NODE_ENVIRONMENTS).default('development'),
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
+
+  /**
+   * The release this build is, CalVer `2026.11.0` or `2026.11.0-beta.1`: set by the image
+   * (`--build-arg NEBULA_VERSION`, docs/releases-and-updates.md), absent outside a release build.
+   */
+  NEBULA_VERSION: z
+    .string()
+    .regex(/^\d+\.\d+\.\d+(?:-[\da-z.-]+)?$/i)
+    .default('0.0.0-dev'),
 });
 
 /** Variables read by the services that hold a database connection. */

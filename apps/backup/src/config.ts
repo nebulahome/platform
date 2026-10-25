@@ -21,13 +21,6 @@ import {
 /** Name this service reports in log records and bus envelopes. */
 export const SERVICE_NAME = 'backup';
 
-/**
- * Version this build reports on every log record and writes into every archive.
- *
- * Kept in step with `package.json` by hand, as in every other service.
- */
-export const SERVICE_VERSION = '0.0.0';
-
 /** Everything `backup` needs from the environment. */
 export const backupEnvSchema = runtimeEnvSchema
   .extend(databaseEnvSchema.shape)

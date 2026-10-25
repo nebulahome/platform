@@ -28,18 +28,11 @@ import type { PlatformMqtt } from '@nebulahome/package-runtime';
 export const SERVICE_NAME = 'hub';
 
 /**
- * Version this build reports on every log record.
- *
- * Kept in step with `package.json` by hand, like every other service.
- */
-export const SERVICE_VERSION = '0.0.0';
-
-/**
  * The integration contract version this build implements: the version of the integration SDK an
  * integration is written and built with, which says the same contract - one number, so the two
  * cannot drift. Without its prerelease, which no bundle's range would match.
  *
- * Separate from {@link SERVICE_VERSION} on purpose: a bundle declares the *contract* it was
+ * Separate from `NEBULA_VERSION` on purpose: a bundle declares the *contract* it was
  * written against, not the release of the service that happens to be running it, and the two move
  * for entirely different reasons.
  */

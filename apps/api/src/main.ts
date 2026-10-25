@@ -20,7 +20,7 @@ import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { Authenticator } from './auth/authenticator.js';
 import { ChallengeStore } from './auth/challenges.js';
-import { apiEnvSchema, SERVICE_NAME, SERVICE_VERSION } from './config.js';
+import { apiEnvSchema, SERVICE_NAME } from './config.js';
 import type { ApiContext } from './context.js';
 import { IdempotencyStore } from './http/idempotency.js';
 import { forRequest } from './routes/devices.js';
@@ -85,7 +85,7 @@ async function start(): Promise<void> {
 
   const logger = createLogger({
     service: SERVICE_NAME,
-    version: SERVICE_VERSION,
+    version: config.NEBULA_VERSION,
     level: config.LOG_LEVEL,
     pretty: config.NODE_ENV === 'development',
   });
@@ -192,7 +192,7 @@ async function start(): Promise<void> {
     mapTiles: createMapTileService({
       directory: resolveDataLayout(config).mapTiles,
       template: config.API_MAP_TILE_URL,
-      userAgent: `NebulaHome/${SERVICE_VERSION} (+https://github.com/nebulahome/platform)`,
+      userAgent: `NebulaHome/${config.NEBULA_VERSION} (+https://github.com/nebulahome/platform)`,
       fetch: globalThis.fetch,
       logger,
     }),

@@ -23,7 +23,6 @@ import {
   packageIndexUrlOf,
   packetManagerEnvSchema,
   SERVICE_NAME,
-  SERVICE_VERSION,
 } from './config.js';
 import { IntegrationManager } from './integrations/integration-manager.js';
 import { databaseHubInstallationStore } from './persistence/hub-installations.js';
@@ -62,7 +61,7 @@ async function start(): Promise<void> {
   const config = loadConfigOrExit(packetManagerEnvSchema);
   const logger = createLogger({
     service: SERVICE_NAME,
-    version: SERVICE_VERSION,
+    version: config.NEBULA_VERSION,
     level: config.LOG_LEVEL,
     pretty: config.NODE_ENV === 'development',
   });

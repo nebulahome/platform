@@ -41,6 +41,7 @@ import { testMapTiles } from './testing/map-tiles.js';
 const ENVIRONMENT = {
   NODE_ENV: 'test',
   LOG_LEVEL: 'fatal',
+  NEBULA_VERSION: '0.0.0-dev',
   DATABASE_URL: 'postgres://nebula:nebula@localhost:5432/nebula',
   NATS_URL: 'nats://localhost:4222',
   API_JWT_SECRET: 'a-test-signing-key-of-at-least-32-chars',

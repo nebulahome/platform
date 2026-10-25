@@ -129,7 +129,14 @@ RUN chmod +x /etc/s6-overlay/scripts/* /usr/local/bin/nebula-* \
              /etc/s6-overlay/s6-rc.d/*/run /etc/s6-overlay/s6-rc.d/*/finish 2>/dev/null || true; \
     node --version
 
-ENV PATH=/command:$PATH \
+# The release, given by `pnpm release:*` (docs/releases-and-updates.md). Last, so a new version
+# rebuilds nothing above it. The label is how the supervisor reads a pulled image's version.
+ARG NEBULA_VERSION=0.0.0-dev
+LABEL org.opencontainers.image.version=$NEBULA_VERSION \
+      org.opencontainers.image.source=https://github.com/nebulahome/platform
+
+ENV NEBULA_VERSION=$NEBULA_VERSION \
+    PATH=/command:$PATH \
     NODE_ENV=production \
     LOG_LEVEL=info \
     NEBULA_DATA_DIR=/data \

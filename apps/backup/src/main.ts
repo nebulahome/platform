@@ -12,7 +12,7 @@ import { assertSchemaVersion, createDatabase } from '@nebulahome/db';
 import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { serveBackup } from './bus-service.js';
-import { backupEnvSchema, SERVICE_NAME, SERVICE_VERSION } from './config.js';
+import { backupEnvSchema, SERVICE_NAME } from './config.js';
 import { BackupService } from './service.js';
 
 /** How long a graceful shutdown is given before the process ends regardless. */
@@ -43,7 +43,7 @@ async function start(): Promise<void> {
   const config = loadConfigOrExit(backupEnvSchema);
   const logger = createLogger({
     service: SERVICE_NAME,
-    version: SERVICE_VERSION,
+    version: config.NEBULA_VERSION,
     level: config.LOG_LEVEL,
     pretty: config.NODE_ENV === 'development',
   });

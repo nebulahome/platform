@@ -45,7 +45,7 @@ import {
 import type { PlatformLogger } from '@nebulahome/logging';
 
 import { MAX_HEADER_LENGTH, readArchiveHeader } from './archive/stream-cipher.js';
-import { adminDatabaseUrl, SERVICE_VERSION, type BackupConfig } from './config.js';
+import { adminDatabaseUrl, type BackupConfig } from './config.js';
 import { parseArchiveName } from './domain/archive-name.js';
 import { quietestTime } from './domain/quietest.js';
 import { cronPatternFor, daysOf, isBackupOwed } from './domain/schedule.js';
@@ -633,7 +633,7 @@ export class BackupService {
         pgBinDir: this.#config.BACKUP_PG_BIN_DIR,
         dataDir: this.#layout.root,
         backupsDir: this.#layout.backups,
-        platformVersion: SERVICE_VERSION,
+        platformVersion: this.#config.NEBULA_VERSION,
         key: this.#backupKey,
         secretsKey: this.#secretsKey,
         instanceKeys: {

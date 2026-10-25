@@ -26,7 +26,7 @@ import { secretsKeyFrom, type Database } from '@nebulahome/db';
 import { withTraceId, type PlatformLogger } from '@nebulahome/logging';
 
 import type { CoreConfig } from './config.js';
-import { SERVICE_NAME, SERVICE_VERSION } from './config.js';
+import { SERVICE_NAME } from './config.js';
 import { AliasCatalog } from './domain/alias-catalog.js';
 import { ChangeAttribution } from './domain/change-attribution.js';
 import { EntityDirectory, type EntityRecord } from './domain/entity-directory.js';
@@ -190,7 +190,7 @@ export class CoreService {
       {
         manufacturer: 'NebulaHome',
         model: `${host.osName} · ${host.arch}`,
-        swVersion: SERVICE_VERSION,
+        swVersion: config.NEBULA_VERSION,
         hwVersion: host.cpuModel,
         externalId: host.hostname,
       },

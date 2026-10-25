@@ -11,7 +11,7 @@ import { EXIT_CODES } from '@nebulahome/contracts';
 import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { serveSupervisor } from './bus-service.js';
-import { SERVICE_NAME, SERVICE_VERSION, supervisorEnvSchema } from './config.js';
+import { SERVICE_NAME, supervisorEnvSchema } from './config.js';
 import { SupervisorService } from './service.js';
 
 /** How long a graceful shutdown is given before the process ends regardless. */
@@ -42,7 +42,7 @@ async function start(): Promise<void> {
   const config = loadConfigOrExit(supervisorEnvSchema);
   const logger = createLogger({
     service: SERVICE_NAME,
-    version: SERVICE_VERSION,
+    version: config.NEBULA_VERSION,
     level: config.LOG_LEVEL,
     pretty: config.NODE_ENV === 'development',
   });

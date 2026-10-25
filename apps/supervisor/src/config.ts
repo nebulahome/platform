@@ -19,13 +19,6 @@ import {
 /** Name this service reports in log records and bus envelopes. */
 export const SERVICE_NAME = 'supervisor';
 
-/**
- * Version this build reports on every log record.
- *
- * Kept in step with `package.json` by hand, as in every other service.
- */
-export const SERVICE_VERSION = '0.0.0';
-
 /** Everything the supervisor needs from the environment. */
 export const supervisorEnvSchema = runtimeEnvSchema
   .extend(busEnvSchema.shape)

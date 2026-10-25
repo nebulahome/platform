@@ -21,13 +21,6 @@ import {
 /** Name this service reports in log records. */
 export const SERVICE_NAME = 'proxy';
 
-/**
- * Version this build reports on every log record.
- *
- * Kept in step with `package.json` by hand, as in every other service.
- */
-export const SERVICE_VERSION = '0.0.0';
-
 /** How the proxy serves TLS: not at all, or with the self-signed certificate it is given. */
 export const PROXY_TLS_MODES = ['off', 'self-signed'] as const;
 

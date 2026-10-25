@@ -20,14 +20,6 @@ import {
 /** Name this service reports in log records and bus envelopes. */
 export const SERVICE_NAME = 'core';
 
-/**
- * Version this build reports on every log record.
- *
- * Kept in step with `package.json` by hand. Importing the manifest would drag a JSON import and
- * a resolution mode into the service's entry point to save one line that changes once a release.
- */
-export const SERVICE_VERSION = '0.0.0';
-
 /** Everything `core` needs from the environment. */
 export const coreEnvSchema = runtimeEnvSchema
   .extend(databaseEnvSchema.shape)

@@ -169,6 +169,7 @@ describe('core end to end', () => {
     const config: CoreConfig = {
       NODE_ENV: 'test',
       LOG_LEVEL: 'fatal',
+      NEBULA_VERSION: '0.0.0-dev',
       DATABASE_URL,
       NATS_URL,
       CORE_COMMAND_TIMEOUT_MS: 2000,

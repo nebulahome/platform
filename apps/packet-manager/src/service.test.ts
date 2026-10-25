@@ -294,6 +294,7 @@ async function setUp(options: SetUpOptions = {}): Promise<{
   const config = packetManagerEnvSchema.parse({
     NODE_ENV: 'test',
     LOG_LEVEL: 'fatal',
+    NEBULA_VERSION: '0.0.0-dev',
     DATABASE_URL: 'postgres://nebula:nebula@localhost:5432/nebula',
     NATS_URL: 'nats://localhost:4222',
     NEBULA_SECRETS_KEY: 'a'.repeat(64),

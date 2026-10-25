@@ -26,9 +26,6 @@ import integrationSdk from '@nebulahome/integration-sdk/package.json' with { typ
 /** Name this service reports in log records and bus envelopes. */
 export const SERVICE_NAME = 'packet-manager';
 
-/** Version this build reports on every log record. Kept in step with `package.json` by hand. */
-export const SERVICE_VERSION = '0.0.0';
-
 /**
  * The integration contract this platform's `hub` implements: the integration SDK's version without
  * its prerelease, as `hub` reads it. An integration's release fits when its `sdk` range takes it.

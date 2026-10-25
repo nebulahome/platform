@@ -21,13 +21,6 @@ import {
 /** Name this service reports in log records and bus envelopes. */
 export const SERVICE_NAME = 'api';
 
-/**
- * Version this build reports on every log record.
- *
- * Kept in step with `package.json` by hand, as in every other service.
- */
-export const SERVICE_VERSION = '0.0.0';
-
 /** Everything `api` needs from the environment. */
 export const apiEnvSchema = runtimeEnvSchema
   .extend(databaseEnvSchema.shape)

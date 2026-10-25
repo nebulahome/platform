@@ -15,7 +15,7 @@ import { EXIT_CODES, isNebulaError, ERROR_CODES } from '@nebulahome/contracts';
 import { assertSchemaVersion, createDatabase } from '@nebulahome/db';
 import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
-import { coreEnvSchema, SERVICE_NAME, SERVICE_VERSION } from './config.js';
+import { coreEnvSchema, SERVICE_NAME } from './config.js';
 import { CoreService } from './service.js';
 
 /** How long a graceful shutdown is given before the process ends regardless. */
@@ -52,7 +52,7 @@ async function start(): Promise<void> {
 
   const logger = createLogger({
     service: SERVICE_NAME,
-    version: SERVICE_VERSION,
+    version: config.NEBULA_VERSION,
     level: config.LOG_LEVEL,
 
     // Rendered lines in development, where a person reads them; JSON in production, where

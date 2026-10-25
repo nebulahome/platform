@@ -71,7 +71,7 @@ export function registerMetaRoutes(
       healthResponseSchema.parse({
         status: 'ok',
         service: 'api',
-        version: context.config.NODE_ENV,
+        version: context.config.NEBULA_VERSION,
         uptimeSeconds: (context.now().getTime() - startedAt.getTime()) / 1000,
         dependencies: {},
       }),
@@ -108,7 +108,7 @@ export function registerMetaRoutes(
       return healthResponseSchema.parse({
         status: isReady ? 'ok' : 'degraded',
         service: 'api',
-        version: context.config.NODE_ENV,
+        version: context.config.NEBULA_VERSION,
         uptimeSeconds: (context.now().getTime() - startedAt.getTime()) / 1000,
         dependencies: { database: isDatabaseReachable, bus: isBusReachable },
       });
