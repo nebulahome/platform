@@ -82,6 +82,7 @@ import { nextFire, type House, type ScheduledTrigger } from '../domain/automatio
 import { TraceRecorder } from '../domain/automation/trace.js';
 import {
   entitiesOfTriggers,
+  timeEntitiesOfTriggers,
   reactTriggers,
   triggerHoldsNow,
   triggerLeaves,
@@ -304,6 +305,9 @@ export class AutomationEngine {
   readonly #now: () => Date;
   readonly #slots = new Map<string, Slot>();
   readonly #byEntity = new Map<string, Set<string>>();
+
+  /** The automations whose time triggers read their time from each entity: re-armed when it changes. */
+  readonly #byTimeEntity = new Map<string, Set<string>>();
   readonly #byKey = new Map<string, string>();
   readonly #runs = new Map<string, { automationId: string; chain: readonly string[] }>();
   readonly #waiters = new Set<Waiter>();
@@ -740,7 +744,7 @@ export class AutomationEngine {
             : { ...nothing, detail: 'Fires each time the sun entity reports, about once a minute' };
         }
 
-        const next = nextFire(trigger, this.#house, this.#now());
+        const next = nextFire(trigger, this.#house, this.#now(), this.#stateOf);
 
         return 'problem' in next
           ? { ...nothing, detail: '', problem: next.problem.slice(0, 300) }
@@ -799,6 +803,17 @@ export class AutomationEngine {
       watching.add(record.id);
     }
 
+    for (const entityId of timeEntitiesOfTriggers(record.definition.triggers)) {
+      let timed = this.#byTimeEntity.get(entityId);
+
+      if (timed === undefined) {
+        timed = new Set();
+        this.#byTimeEntity.set(entityId, timed);
+      }
+
+      timed.add(record.id);
+    }
+
     this.#armTimes(slot);
 
     return slot;
@@ -823,7 +838,7 @@ export class AutomationEngine {
       run.controller.abort('cancelled');
     }
 
-    for (const watching of this.#byEntity.values()) {
+    for (const watching of [...this.#byEntity.values(), ...this.#byTimeEntity.values()]) {
       watching.delete(automationId);
     }
 
@@ -893,7 +908,7 @@ export class AutomationEngine {
    * @param after - The instant to look past.
    */
   #armTime(slot: Slot, path: string, leaf: ScheduledTrigger, after: Date): void {
-    const next = nextFire(leaf, this.#house, after);
+    const next = nextFire(leaf, this.#house, after, this.#stateOf);
 
     if ('problem' in next) {
       slot.problems.push(next.problem);
@@ -953,6 +968,14 @@ export class AutomationEngine {
 
     if (!this.#isLive) {
       return;
+    }
+
+    for (const automationId of this.#byTimeEntity.get(result.entityId) ?? []) {
+      const slot = this.#slots.get(automationId);
+
+      if (slot !== undefined) {
+        this.#armTimes(slot);
+      }
     }
 
     const watching = this.#byEntity.get(result.entityId);
@@ -1754,7 +1777,7 @@ export class AutomationEngine {
 
       for (const { path, leaf } of triggerLeaves(triggers)) {
         if (leaf.type === 'time' || (leaf.type === 'sun' && leaf.event !== 'elevation_changed')) {
-          const next = nextFire(leaf, this.#house, this.#now());
+          const next = nextFire(leaf, this.#house, this.#now(), this.#stateOf);
 
           if ('at' in next && next.at.getTime() - this.#now().getTime() < timeoutMs) {
             timers.set(

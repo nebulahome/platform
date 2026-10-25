@@ -542,6 +542,9 @@ export const quietTimeSchema = z.object({
 
   /** Why it is not learned, in English; null when it is. */
   reason: z.string().nullable(),
+
+  /** The zone the time is in, the house's (`sensor.system_quiet_time`); null when not known. */
+  timezone: z.string().nullable().optional(),
 });
 
 /** The quietest time of day. */

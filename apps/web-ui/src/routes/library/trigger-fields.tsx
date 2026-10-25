@@ -15,6 +15,7 @@ import {
   clockAtToCron,
   MONTHS,
   nextSunEvent,
+  QUIET_TIME_ENTITY_ID,
   SUN_EVENTS,
   TWICE_DAILY_SUN_EVENTS,
   type AutomationTrigger,
@@ -126,8 +127,8 @@ const MONTH_CHIPS = MONTHS.map((month) => ({
   label: month.charAt(0).toUpperCase() + month.slice(1, 3),
 }));
 
-/** Where a Time block is: a time of day, a moment of the sun, or a cron schedule. */
-type TimeAt = 'clock' | 'sun' | 'cron';
+/** Where a Time block is: a time of day, a moment of the sun, a cron schedule, or an entity's time. */
+type TimeAt = 'clock' | 'sun' | 'cron' | 'entity';
 
 /**
  * Renders the fields of a Time trigger (N-Blocks-Triggers): At - Time of day, Sun or Cron - then
@@ -166,6 +167,12 @@ function TimeTriggerFields(props: {
       onChange({ ...meta, type: 'sun', event: 'sunset' });
     } else if (next === 'clock') {
       onChange({ ...meta, type: 'time', at: { kind: 'clock', time: '07:00' } });
+    } else if (next === 'entity') {
+      onChange({
+        ...meta,
+        type: 'time',
+        at: { kind: 'entity', entityId: partialEntityId(QUIET_TIME_ENTITY_ID) },
+      });
     } else {
       onChange({
         ...meta,
@@ -196,6 +203,7 @@ function TimeTriggerFields(props: {
             { value: 'clock', label: t('library.triggerFields.timeOfDay', 'Time of day') },
             { value: 'sun', label: t('library.triggerFields.sun', 'Sun') },
             { value: 'cron', label: t('library.triggerFields.cron', 'Cron') },
+            { value: 'entity', label: t('library.triggerFields.fromEntity', 'Entity') },
           ]}
           value={at}
           onChange={switchTo}
@@ -205,6 +213,21 @@ function TimeTriggerFields(props: {
         <SunTriggerFields trigger={trigger} onChange={onChange} />
       ) : trigger.at.kind === 'clock' ? (
         <SimpleTimeFields trigger={{ ...trigger, at: trigger.at }} onChange={onChange} />
+      ) : trigger.at.kind === 'entity' ? (
+        <EntityField
+          label={t('library.triggerFields.timeFrom', 'Time from')}
+          hint={t(
+            'library.triggerFields.timeFromHint',
+            "Each day at the time it holds, HH:MM on the house's clock; it follows the entity as it changes.",
+          )}
+          value={trigger.at.entityId}
+          onChange={(entityId) => {
+            onChange({
+              ...trigger,
+              at: { kind: 'entity', entityId: partialEntityId(entityId || QUIET_TIME_ENTITY_ID) },
+            });
+          }}
+        />
       ) : (
         <CronFields trigger={{ ...trigger, at: trigger.at }} onChange={onChange} />
       )}

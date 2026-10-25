@@ -64,6 +64,7 @@ export * from './packet-manager.js';
 export * from './dependencies.js';
 export * from './permissions.js';
 export * from './platform-services.js';
+export * from './quiet-time.js';
 export * from './registration.js';
 export * from './scene-commands.js';
 export * from './sensor-classes.js';

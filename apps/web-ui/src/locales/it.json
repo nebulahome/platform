@@ -363,7 +363,8 @@
       "windowMidnight": "{{from}} → {{to}} (oltre la mezzanotte)",
       "withFor": "{{said}} per {{duration}}",
       "withPeriod": "{{said}} ({{period}})",
-      "writeExpression": "Scrivi un'espressione"
+      "writeExpression": "Scrivi un'espressione",
+      "atEntityTime": "Ogni giorno all'ora di {{name}}"
     }
   },
   "backup": {
@@ -3360,7 +3361,10 @@
       "sun": "Sole",
       "cron": "Cron",
       "otherMoment": "Altro…",
-      "moment": "Momento"
+      "moment": "Momento",
+      "fromEntity": "Entità",
+      "timeFrom": "Ora da",
+      "timeFromHint": "Ogni giorno all'ora che indica, HH:MM sull'orologio della casa; la segue quando cambia."
     },
     "useCauseNames": {
       "atStartUp": "All'avvio",

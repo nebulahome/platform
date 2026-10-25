@@ -1,5 +1,5 @@
 /**
- * The quietest time of day to back up at, learned from the processor's load.
+ * The quietest time of day, learned from the processor's load: when backups and updates run.
  *
  * The load of the last weeks, in quarter hours of the schedule's own day, becomes one profile of
  * a typical day: each day weighted by how recent it is - half as much a week older - so a change

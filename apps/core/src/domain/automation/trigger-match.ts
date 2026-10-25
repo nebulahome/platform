@@ -124,6 +124,25 @@ export function entitiesOfTriggers(triggers: readonly AutomationTrigger[]): stri
 }
 
 /**
+ * The entities time triggers read their time of day from: when one changes, the trigger is armed
+ * again for its new time, never fired.
+ *
+ * @param triggers - The triggers.
+ * @returns Each entity once.
+ */
+export function timeEntitiesOfTriggers(triggers: readonly AutomationTrigger[]): string[] {
+  const found = new Set<string>();
+
+  for (const { leaf } of triggerLeaves(triggers)) {
+    if (leaf.type === 'time' && leaf.at.kind === 'entity') {
+      found.add(leaf.at.entityId);
+    }
+  }
+
+  return [...found];
+}
+
+/**
  * Compares two numbers the way a block says.
  *
  * @param operator - How.

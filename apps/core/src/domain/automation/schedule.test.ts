@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { parseEntityId, type EntityState } from '@nebulahome/contracts';
+
 import { nextFire, type House } from './schedule.js';
 
 const rome: House = { timeZone: 'Europe/Rome', position: { latitude: 41.9, longitude: 12.5 } };
@@ -125,5 +127,24 @@ describe('nextFire: the sun', () => {
     const next = nextFire({ type: 'sun', event: 'elevation_changed' }, rome, new Date());
 
     expect('problem' in next).toBe(true);
+  });
+
+  it('fires each day at the time an entity holds, and waits while it holds none', () => {
+    const trigger = {
+      type: 'time' as const,
+      at: { kind: 'entity' as const, entityId: parseEntityId('sensor.system_quiet_time') },
+    };
+    const quiet = {
+      state: { sensor_text: { value: '03:15' } },
+      isAvailable: true,
+    } as unknown as EntityState;
+    const after = new Date('2026-11-14T12:00:00Z');
+    const next = nextFire(trigger, rome, after, () => quiet);
+
+    expect(next).toEqual({ at: new Date('2026-11-15T02:15:00Z') });
+    expect('problem' in nextFire(trigger, rome, after)).toBe(true);
+    expect(
+      'problem' in nextFire(trigger, rome, after, () => ({ ...quiet, isAvailable: false })),
+    ).toBe(true);
   });
 });

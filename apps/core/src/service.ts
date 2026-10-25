@@ -54,6 +54,7 @@ import { startHistoryService } from './services/history-service.js';
 import { LinkEngine } from './services/link-engine.js';
 import { startLinkService, syncLinks } from './services/link-service.js';
 import { loadPackageTypes, startPackagesService } from './services/packages.js';
+import { QuietTimeMonitor } from './services/quiet-time-monitor.js';
 import { startRegistrationService } from './services/registration.js';
 import { requestResync } from './services/resync.js';
 import { SceneEngine } from './services/scene-engine.js';
@@ -109,6 +110,7 @@ export class CoreService {
   #automationEngine: AutomationEngine | undefined;
   #systemMonitor: SystemMonitor | undefined;
   #sunMonitor: SunMonitor | undefined;
+  #quietTimeMonitor: QuietTimeMonitor | undefined;
   #client: BusClient | undefined;
   #subscriptions: BusSubscription[] = [];
   #history: BatchWriter<StateHistoryRow> | undefined;
@@ -319,6 +321,11 @@ export class CoreService {
     this.#sunMonitor = sunMonitor;
     sunMonitor.start(house.position);
 
+    const quietTimeMonitor = new QuietTimeMonitor({ db, ingest, logger, newTraceId });
+
+    this.#quietTimeMonitor = quietTimeMonitor;
+    await quietTimeMonitor.start(house.timeZone);
+
     const dispatcher = createCommandDispatcher({
       client,
       directory: this.#directory,
@@ -407,7 +414,13 @@ export class CoreService {
       ...startAliasService({ client, engine: aliasEngine, logger }),
       startSystemMonitorService({ client, monitor: systemMonitor }),
       startSceneService({ client, engine: sceneEngine }),
-      ...startAutomationService({ client, engine: automationEngine, sun: sunMonitor, logger }),
+      ...startAutomationService({
+        client,
+        engine: automationEngine,
+        sun: sunMonitor,
+        quietTime: quietTimeMonitor,
+        logger,
+      }),
     ];
 
     this.#telemetry = runTelemetryIngest({
@@ -463,6 +476,7 @@ export class CoreService {
     this.#subscriptions = [];
     this.#systemMonitor?.stop();
     this.#sunMonitor?.stop();
+    this.#quietTimeMonitor?.stop();
     this.#shutdown.abort();
 
     // Before the writers drain: a cancelled run is still written down.

@@ -448,6 +448,15 @@ function triggerSaid(trigger: AutomationTrigger, names: BlockNames): Said {
     case 'time': {
       const { at } = trigger;
 
+      if (at.kind === 'entity') {
+        return {
+          text: translate('automations.summary.atEntityTime', 'Each day at the time of {{name}}', {
+            name: entityName(names, at.entityId),
+          }),
+          isNamed: true,
+        };
+      }
+
       if (at.kind === 'cron') {
         return {
           text:

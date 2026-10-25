@@ -16,6 +16,7 @@ import { and, eq, inArray, ne, sql } from 'drizzle-orm';
 import {
   entityRegistrationSchema,
   parseEntityId,
+  QUIET_TIME_ENTITY,
   SUN_ENTITIES,
   SUN_ENTITY_IDS,
   SYSTEM_ENTITIES,
@@ -77,7 +78,9 @@ export async function ensureSystemDevice(
   facts: SystemDeviceFacts,
   logger: PlatformLogger,
 ): Promise<string> {
-  const registrations = SYSTEM_ENTITIES.map((entity) => entityRegistrationSchema.parse(entity));
+  const registrations = [...SYSTEM_ENTITIES, QUIET_TIME_ENTITY].map((entity) =>
+    entityRegistrationSchema.parse(entity),
+  );
 
   return db.transaction(async (tx) => {
     const { devices } = schema.registry;

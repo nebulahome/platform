@@ -1,6 +1,6 @@
 /**
  * What the backup service reads and writes as its own role: the settings, the locations and
- * their outcome, the runs, and the processor's load it learns the quiet hours from.
+ * their outcome, the runs, and the quietest time core learned.
  */
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 
@@ -16,11 +16,12 @@ import {
   type BackupSchedule,
   type BackupSection,
   type BackupSections,
+  QUIET_TIME_ENTITY_ID,
+  quietTimeFromState,
   type JsonObject,
+  type QuietTime,
 } from '@nebulahome/contracts';
 import { schema, type Database } from '@nebulahome/db';
-
-import type { LoadCell } from '../domain/quietest.js';
 
 const { backupLocations, backupRuns, settings } = schema.system;
 
@@ -321,54 +322,20 @@ export async function readBackupHistory(db: Database): Promise<BackupHistory> {
 }
 
 /**
- * Reads the processor's load, in quarter hours of the schedule's day, leaving out the windows the
- * backups ran in.
+ * Reads the quietest time core learned, `sensor.system_quiet_time`.
  *
  * @param db - The service's connection.
- * @param options - Over how long, and in which time zone.
- * @param options.days - How many days back.
- * @param options.timezone - The schedule's time zone.
- * @returns The cells, one per day and quarter hour that has any load.
+ * @returns What was learned, or null while the entity has no state.
  */
-export async function readProcessorLoad(
-  db: Database,
-  options: { readonly days: number; readonly timezone: string },
-): Promise<LoadCell[]> {
-  const rows = await db.execute<{ day: string; slot: number; load: number }>(sql`
-    SELECT to_char(t.bucket AT TIME ZONE ${options.timezone}, 'YYYY-MM-DD') AS day,
-           (extract(hour FROM t.bucket AT TIME ZONE ${options.timezone})::int * 4
-             + extract(minute FROM t.bucket AT TIME ZONE ${options.timezone})::int / 15) AS slot,
-           avg(t.avg_value)::float8 AS load
-    FROM history.telemetry_1m t
-    WHERE t.entity_id = (SELECT id FROM registry.entities
-                         WHERE entity_id = 'sensor.system_cpu_usage')
-      AND t.bucket >= now() - make_interval(days => ${options.days})
-      AND NOT EXISTS (
-        SELECT 1 FROM system.backup_runs r
-        WHERE t.bucket BETWEEN r.started_at - interval '10 minutes'
-                           AND coalesce(r.finished_at, now()) + interval '10 minutes')
-    GROUP BY 1, 2`);
+export async function readQuietTime(db: Database): Promise<QuietTime | null> {
+  const rows = await db.execute<{ state: unknown; attributes: unknown }>(sql`
+    SELECT s.state, s.attributes
+    FROM registry.entity_states s
+    JOIN registry.entities e ON e.id = s.entity_id
+    WHERE e.entity_id = ${QUIET_TIME_ENTITY_ID}`);
+  const row = rows[0];
 
-  // The driver hands numbers back as it read them, which for a float is text.
-  return rows.map((row) => ({
-    day: row.day,
-    slot: Number(String(row.slot)),
-    load: Number(String(row.load)),
-  }));
-}
-
-/**
- * Whether the processor's load is being recorded at all.
- *
- * @param db - The service's connection.
- * @returns True when the entity exists.
- */
-export async function hasProcessorLoad(db: Database): Promise<boolean> {
-  const rows = await db.execute<{ found: boolean }>(
-    sql`SELECT EXISTS (SELECT 1 FROM registry.entities WHERE entity_id = 'sensor.system_cpu_usage') AS found`,
-  );
-
-  return rows[0]?.found === true;
+  return row === undefined ? null : quietTimeFromState(row.state, row.attributes);
 }
 
 /**

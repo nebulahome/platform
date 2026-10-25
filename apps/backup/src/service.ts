@@ -3,8 +3,8 @@
  *
  * One run at a time - a backup or a restore - and a second is refused while one runs. The
  * schedule is rebuilt whenever the settings change (`svc.backup.reload`, sent by `api`), at start,
- * and once a day just after midnight, when the quietest time is learned again from the day that
- * just ended. A backup the machine was off for is taken a few minutes after it starts again.
+ * and once a day just after midnight, when core has learned the quietest time again
+ * (`sensor.system_quiet_time`). A backup the machine was off for is taken a few minutes after it starts again.
  */
 import { access, constants, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
@@ -47,18 +47,16 @@ import type { PlatformLogger } from '@nebulahome/logging';
 import { MAX_HEADER_LENGTH, readArchiveHeader } from './archive/stream-cipher.js';
 import { adminDatabaseUrl, type BackupConfig } from './config.js';
 import { parseArchiveName } from './domain/archive-name.js';
-import { quietestTime } from './domain/quietest.js';
-import { cronPatternFor, daysOf, isBackupOwed } from './domain/schedule.js';
+import { cronPatternFor, isBackupOwed } from './domain/schedule.js';
 import { loadBackupKey, parseKeyFile, type BackupKey } from './key/backup-key.js';
 import {
   finishRun,
-  hasProcessorLoad,
   interruptLeftoverRuns,
   readBackupHistory,
   readBackupSettings,
   readLocation,
   readLocations,
-  readProcessorLoad,
+  readQuietTime,
   sectionsOf,
   startRun,
   type BackupSettings,
@@ -93,12 +91,6 @@ const SUPERVISOR_TIMEOUT_MS = 300_000;
 
 /** How long the supervisor has to copy the named volumes out or back: they can be gigabytes. */
 const VOLUMES_TIMEOUT_MS = 2 * 60 * 60 * 1000;
-/** How many days of load the quietest time is learned from. */
-const LEARNING_DAYS = 28;
-
-/** How long a backup is assumed to take before one has been timed, in minutes. */
-const DEFAULT_DURATION_MINUTES = 10;
-
 /** The most folders the folder picker lists at once. */
 const BROWSE_LIMIT = 500;
 
@@ -141,66 +133,6 @@ const NORMAL: MaintenanceState = {
   message: null,
   tokensInvalidBefore: null,
 };
-
-/**
- * A date as the day it is in a time zone.
- *
- * @param date - The moment.
- * @param timezone - The zone.
- * @returns `YYYY-MM-DD`.
- */
-function dayIn(date: Date, timezone: string): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(date);
-}
-
-/**
- * A date as the time of day it is in a time zone.
- *
- * @param date - The moment.
- * @param timezone - The zone.
- * @returns `HH:MM`.
- */
-function timeIn(date: Date, timezone: string): string {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: timezone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(date);
-  /**
-   * One part of the formatted time.
-   *
-   * @param type - Which: `hour` or `minute`.
-   * @returns Its digits.
-   */
-  const part = (type: string): string => parts.find((each) => each.type === type)?.value ?? '00';
-
-  return `${part('hour')}:${part('minute')}`;
-}
-
-/**
- * The middle of some numbers.
- *
- * @param values - The numbers.
- * @returns Their median, or null for none.
- */
-function median(values: readonly number[]): number | null {
-  if (values.length === 0) {
-    return null;
-  }
-
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-
-  return sorted.length % 2 === 1
-    ? (sorted[middle] ?? null)
-    : ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2;
-}
 
 /** The backup service. */
 export class BackupService {
@@ -323,9 +255,9 @@ export class BackupService {
     this.#quietTime = await this.#learnQuietTime(settings);
     this.#stopJobs();
 
-    const { timezone } = settings.schedule;
+    const timezone = this.#effectiveTimezone(settings);
 
-    // Once a day, just after midnight: the day that ended is in the load now.
+    // Once a day, just after midnight, when core has learned the quietest time again.
     this.#jobs.push(
       new Cron('5 0 * * *', { timezone, protect: true }, () => {
         void this.reload().catch((error: unknown) => {
@@ -383,54 +315,41 @@ export class BackupService {
   }
 
   /**
-   * Learns the quietest time of day from the processor's load.
+   * The zone that time is in: the house's for the quietest time, which core learns in it.
    *
    * @param settings - The settings.
-   * @returns What was learned.
+   * @returns An IANA zone.
+   */
+  #effectiveTimezone(settings: BackupSettings): string {
+    return settings.schedule.mode === 'fixed'
+      ? settings.schedule.timezone
+      : (this.#quietTime?.timezone ?? settings.schedule.timezone);
+  }
+
+  /**
+   * Reads the quietest time core learned (`sensor.system_quiet_time`).
+   *
+   * @param settings - The settings.
+   * @returns What was learned; the schedule's own time, unavailable, when it cannot be read.
    */
   async #learnQuietTime(settings: BackupSettings): Promise<QuietTime> {
-    const { timezone, time } = settings.schedule;
+    const quiet = await readQuietTime(this.#db).catch((error: unknown) => {
+      this.#logger.warn({ err: error }, 'Could not read the quietest time');
 
-    try {
-      if (!(await hasProcessorLoad(this.#db))) {
-        return {
-          state: 'unavailable',
-          time,
-          meanLoadPercent: null,
-          daysOfData: 0,
-          daysNeeded: 3,
-          profile: [],
-          reason: 'The processor load is not being recorded',
-        };
-      }
+      return null;
+    });
 
-      const [cells, history] = await Promise.all([
-        readProcessorLoad(this.#db, { days: LEARNING_DAYS, timezone }),
-        readBackupHistory(this.#db),
-      ]);
-
-      return quietestTime({
-        cells,
-        today: dayIn(this.#now(), timezone),
-        weekdays: daysOf(settings.frequency),
-        durationMinutes: median(history.recentDurationsMinutes) ?? DEFAULT_DURATION_MINUTES,
-        previousTime:
-          history.lastScheduledAt === null ? null : timeIn(history.lastScheduledAt, timezone),
-        fallbackTime: time,
-      });
-    } catch (error: unknown) {
-      this.#logger.warn({ err: error }, 'Could not learn the quietest time');
-
-      return {
+    return (
+      quiet ?? {
         state: 'unavailable',
-        time,
+        time: settings.schedule.time,
         meanLoadPercent: null,
         daysOfData: 0,
         daysNeeded: 3,
         profile: [],
-        reason: 'The processor load could not be read',
-      };
-    }
+        reason: 'The quietest time has not been learned yet',
+      }
+    );
   }
 
   /**
@@ -516,7 +435,7 @@ export class BackupService {
       schedule: {
         mode: settings.schedule.mode,
         time: this.#effectiveTime(settings),
-        timezone: settings.schedule.timezone,
+        timezone: this.#effectiveTimezone(settings),
         nextRunAt: settings.isEnabled ? (job?.nextRun() ?? null) : null,
       },
       // Learned again when it could not be: the processor's sensor may have appeared since.

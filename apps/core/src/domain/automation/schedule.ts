@@ -12,8 +12,10 @@ import { Cron } from 'croner';
 
 import {
   clockAtToCron,
+  clockTimeSchema,
   nextSunEvent,
   type AutomationTrigger,
+  type EntityState,
   type GeoPosition,
 } from '@nebulahome/contracts';
 
@@ -93,14 +95,50 @@ function nextSun(
  * @param trigger - The trigger.
  * @param house - The house's zone and position.
  * @param after - The instant to look past; the answer is strictly later.
+ * @param stateOf - Where an entity's state is read, for a time an entity holds.
  * @returns The next moment, or why there is none.
  */
-export function nextFire(trigger: ScheduledTrigger, house: House, after: Date): NextFire {
+export function nextFire(
+  trigger: ScheduledTrigger,
+  house: House,
+  after: Date,
+  stateOf: (entityId: string) => EntityState | undefined = () => undefined,
+): NextFire {
   if (trigger.type === 'sun') {
     return nextSun(trigger, house, after);
   }
 
   const { at } = trigger;
 
+  if (at.kind === 'entity') {
+    const time = clockOf(stateOf(at.entityId));
+
+    return time === null
+      ? { problem: `${at.entityId} holds no time of day yet` }
+      : nextCron(clockAtToCron({ kind: 'clock', time }), house.timeZone, after);
+  }
+
   return nextCron(at.kind === 'clock' ? clockAtToCron(at) : at.expression, house.timeZone, after);
+}
+
+/**
+ * The time of day an entity holds: the first value of its state that reads as one.
+ *
+ * @param state - The entity's state.
+ * @returns `HH:MM` or `HH:MM:SS`, or null when it holds none or is unavailable.
+ */
+function clockOf(state: EntityState | undefined): string | null {
+  if (state?.isAvailable !== true) {
+    return null;
+  }
+
+  for (const value of Object.values(state.state)) {
+    const parsed = clockTimeSchema.safeParse((value as { value?: unknown } | null)?.value);
+
+    if (parsed.success) {
+      return parsed.data;
+    }
+  }
+
+  return null;
 }

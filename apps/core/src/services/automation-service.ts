@@ -43,6 +43,7 @@ import {
 import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { AutomationEngine } from './automation-engine.js';
+import type { QuietTimeMonitor } from './quiet-time-monitor.js';
 import type { SunMonitor } from './sun-monitor.js';
 
 /** What the automation service needs. */
@@ -52,6 +53,9 @@ export type AutomationServiceOptions = {
 
   /** The sun's entities, which follow the house's position. Absent in tests that need none. */
   readonly sun?: SunMonitor;
+
+  /** The quietest time's entity, learned in the house's zone. Absent in tests that need none. */
+  readonly quietTime?: QuietTimeMonitor;
 
   readonly logger: PlatformLogger;
 };
@@ -127,6 +131,7 @@ export function startAutomationService(options: AutomationServiceOptions): BusSu
         const reply = await engine.syncHouse();
 
         await options.sun?.sync(engine.house.position);
+        await options.quietTime?.sync(engine.house.timeZone);
         logger.info(reply, 'Read the house again');
 
         return reply;

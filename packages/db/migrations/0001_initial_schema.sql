@@ -1382,6 +1382,8 @@ GRANT USAGE ON SCHEMA registry, history, system TO nebula_core;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA registry TO nebula_core;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA history  TO nebula_core;
 GRANT SELECT ON system.packages, system.settings, system.v_schema_version TO nebula_core;
+-- The backups' windows, left out of the load the quietest time is learned from.
+GRANT SELECT ON system.backup_runs TO nebula_core;
 -- No grant on any auth table: core never reads password hashes or tokens.
 
 -- api: the only role that touches auth.
@@ -1429,7 +1431,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON registry.integration_accounts TO nebula_
 GRANT SELECT ON system.settings, system.v_schema_version TO nebula_hub;
 
 -- backup: its runs, the locations it writes to and their outcome, the settings, and the
--- processor's load it learns the quietest time from. The archive itself is dumped and restored
+-- quietest time core learned. The archive itself is dumped and restored
 -- through a separate superuser connection (DATABASE.md 15), not as this role.
 GRANT USAGE ON SCHEMA registry, history, system TO nebula_backup;
 GRANT SELECT, INSERT, UPDATE ON system.backup_runs TO nebula_backup;
@@ -1438,6 +1440,8 @@ GRANT SELECT ON system.backup_locations, system.settings, system.v_schema_versio
 GRANT UPDATE (last_result, last_error, last_success_at) ON system.backup_locations
   TO nebula_backup;
 GRANT SELECT (id, entity_id) ON registry.entities TO nebula_backup;
+-- The quietest time, which core learns (sensor.system_quiet_time).
+GRANT SELECT ON registry.entity_states TO nebula_backup;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE nebula_migrator IN SCHEMA registry
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO nebula_core, nebula_api;
@@ -1668,7 +1672,6 @@ SELECT add_retention_policy('history.webhook_calls',   INTERVAL '30 days');
 -- that existed then: they are granted here, to what reads the ladder.
 GRANT SELECT ON history.telemetry_1m, history.telemetry_1h, history.telemetry_1d
   TO nebula_core, nebula_api;
-GRANT SELECT ON history.telemetry_1m TO nebula_backup;
 
 -- The owner is granted every permission that exists, including ones added by later
 -- migrations. Listing its grants explicitly would mean a new permission silently missing from

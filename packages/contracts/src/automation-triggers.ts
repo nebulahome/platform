@@ -81,7 +81,8 @@ const entityTriggerSchema = z.object({
 });
 
 /**
- * When on the clock: a time with the days and months it applies to, or a cron expression.
+ * When on the clock: a time with the days and months it applies to, a cron expression, or the
+ * time an entity holds, read again each time it changes.
  *
  * The simple form is kept as written rather than compiled to cron, so it opens again as the
  * fields its author filled in. {@link clockAtToCron} is the one place it becomes cron.
@@ -98,6 +99,9 @@ export const timeAtSchema = z.discriminatedUnion('kind', [
     months: z.array(z.enum(MONTHS)).max(12).optional(),
   }),
   z.object({ kind: z.literal('cron'), expression: cronExpressionSchema }),
+
+  /** Each day at the time an entity says, `HH:MM`: `sensor.system_quiet_time`, say. */
+  z.object({ kind: z.literal('entity'), entityId: entityIdSchema }),
 ]);
 
 /** When on the clock. */
