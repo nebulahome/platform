@@ -25,11 +25,13 @@ import {
   imageSearchRequestSchema,
   imageTagsRequestSchema,
   managedRequestSchema,
+  platformReleasesRequestSchema,
   reconcileRequestSchema,
   resyncRequestSchema,
   SUPERVISOR_METHODS,
   SUPERVISOR_SERVICE,
   supervisorEmptyRequestSchema,
+  updatePlatformRequestSchema,
   volumesFolderRequestSchema,
 } from '@nebulahome/contracts';
 
@@ -89,6 +91,31 @@ export function serveSupervisor(client: BusClient, service: SupervisorService): 
     ),
     client.serve(subject(SUPERVISOR_METHODS.update), containerNameRequestSchema, (request) => {
       service.update(request.name);
+
+      return ok;
+    }),
+    client.serve(
+      subject(SUPERVISOR_METHODS.platformReleases),
+      platformReleasesRequestSchema,
+      async (request) => service.platform.releases(request.check),
+      reads,
+    ),
+    client.serve(
+      subject(SUPERVISOR_METHODS.updatePlatform),
+      updatePlatformRequestSchema,
+      async (request) => {
+        await service.platform.update(request.version);
+
+        return ok;
+      },
+    ),
+    client.serve(subject(SUPERVISOR_METHODS.restartPlatform), supervisorEmptyRequestSchema, () => {
+      service.platform.restart();
+
+      return ok;
+    }),
+    client.serve(subject(SUPERVISOR_METHODS.shutdownPlatform), supervisorEmptyRequestSchema, () => {
+      service.platform.shutdown();
 
       return ok;
     }),

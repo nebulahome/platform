@@ -93,3 +93,23 @@ export const supervisorEnvSchema = runtimeEnvSchema
 
 /** Everything the supervisor needs from the environment. */
 export type SupervisorConfig = z.output<typeof supervisorEnvSchema>;
+
+/**
+ * What the throwaway updater container reads (`updater.ts`): the supervisor starts it from the new
+ * image with these set, and the platform's data folder mounted at `/data`.
+ */
+export const updaterEnvSchema = runtimeEnvSchema.extend({
+  SUPERVISOR_DOCKER_SOCKET: z.string().min(1).default('/var/run/docker.sock'),
+  SUPERVISOR_DOCKER_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(15_000),
+
+  /** The platform's container, to replace. */
+  NEBULA_UPDATER_TARGET: z.string().min(1),
+
+  /** The new image, `nebulahome/platform:2026.11.0`. */
+  NEBULA_UPDATER_IMAGE: z.string().min(1),
+  NEBULA_UPDATER_FROM: z.string().min(1),
+  NEBULA_UPDATER_TO: z.string().min(1),
+
+  /** Where the platform's data folder is mounted, for the outcome. */
+  NEBULA_UPDATER_DATA: z.string().min(1).default('/data'),
+});

@@ -218,12 +218,50 @@ export class DockerEngine {
    *
    * @param id - Its id or name.
    * @param action - What to do.
+   * @param graceSeconds - How long it has to stop before it is killed.
    */
-  public async control(id: string, action: 'start' | 'stop' | 'restart'): Promise<void> {
+  public async control(
+    id: string,
+    action: 'start' | 'stop' | 'restart',
+    graceSeconds = STOP_GRACE_SECONDS,
+  ): Promise<void> {
     await this.#empty('POST', `/containers/${encodeURIComponent(id)}/${action}`, `${action} it`, {
-      query: action === 'start' ? {} : { t: STOP_GRACE_SECONDS },
-      timeoutMs: this.#options.timeoutMs + STOP_GRACE_SECONDS * 1000,
+      query: action === 'start' ? {} : { t: graceSeconds },
+      timeoutMs: this.#options.timeoutMs + graceSeconds * 1000,
     });
+  }
+
+  /**
+   * Gives an image another name, as `docker tag` does.
+   *
+   * @param source - The image's id or `name:tag`.
+   * @param reference - The new `name:tag`.
+   */
+  public async tagImage(source: string, reference: string): Promise<void> {
+    const at = reference.lastIndexOf(':');
+    const hasTag = at > reference.lastIndexOf('/');
+
+    await this.#empty('POST', `/images/${encodeURIComponent(source)}/tag`, 'tag the image', {
+      query: hasTag
+        ? { repo: reference.slice(0, at), tag: reference.slice(at + 1) }
+        : { repo: reference, tag: 'latest' },
+    });
+  }
+
+  /**
+   * Removes a volume.
+   *
+   * @param name - Its name.
+   */
+  public async removeVolume(name: string): Promise<void> {
+    await this.#empty(
+      'DELETE',
+      `/volumes/${encodeURIComponent(name)}`,
+      `remove the volume ${name}`,
+      {
+        query: { force: true },
+      },
+    );
   }
 
   /**

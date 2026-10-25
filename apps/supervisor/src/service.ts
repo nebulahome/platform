@@ -100,6 +100,7 @@ import { commandRunner, ComposeProjects, dockerHostOf } from './services/compose
 import { Installs } from './services/installs.js';
 import { ManagedContainers } from './services/managed-containers.js';
 import { PackageCompose } from './services/package-compose.js';
+import { PlatformUpdates } from './services/platform-updates.js';
 import { replaceContainer } from './services/replace.js';
 import { checkImage } from './services/update-check.js';
 import { exportVolumes, importVolumes, type VolumeCopyOptions } from './services/volume-archive.js';
@@ -231,6 +232,7 @@ export class SupervisorService {
   readonly #logger: PlatformLogger;
   readonly #engine: DockerEngine;
   readonly #registry: RegistryClient;
+  readonly #platform: PlatformUpdates;
   readonly #managed: ManagedContainers;
   readonly #installs: Installs;
   readonly #compose: ComposeProjects;
@@ -279,6 +281,28 @@ export class SupervisorService {
     this.#registry = new RegistryClient({
       timeoutMs: 15_000,
       architecture: registryArchitecture(process.arch),
+    });
+    this.#platform = new PlatformUpdates({
+      engine: this.#engine,
+      logger: options.logger,
+      version: options.config.NEBULA_VERSION,
+      dataRoot: this.#dataRoot,
+      socketPath: options.config.SUPERVISOR_DOCKER_SOCKET,
+
+      /**
+       * Whether Docker can be reached now.
+       *
+       * @returns True when it can.
+       */
+      isDockerAvailable: (): boolean => this.#status.isAvailable,
+
+      /**
+       * The platform's own container.
+       *
+       * @returns It, inspected, or null outside a container.
+       */
+      self: (): InspectedContainer | null =>
+        this.#selfId === null ? null : (this.#containers.get(this.#selfId)?.inspected ?? null),
     });
     this.#managed = new ManagedContainers({
       engine: this.#engine,
@@ -594,6 +618,15 @@ export class SupervisorService {
    */
   public checkUpdatesNow(): void {
     void this.#checkUpdates();
+  }
+
+  /**
+   * Nebula Home's own releases, and whether it can update itself here.
+   *
+   * @returns The platform's side of updates, restart and shutdown.
+   */
+  public get platform(): PlatformUpdates {
+    return this.#platform;
   }
 
   /**
@@ -1399,7 +1432,14 @@ export class SupervisorService {
   async #checkUpdates(): Promise<void> {
     const tags = new Map<string, Promise<string[]>>();
 
+    // The platform itself is updated from its GitHub release, never offered from Docker Hub too.
+    await this.#platform.check();
+
     for (const tracked of this.#containers.values()) {
+      if (tracked.id === this.#selfId) {
+        continue;
+      }
+
       const reference = tracked.inspected?.Config.Image ?? tracked.listed.Image;
 
       // One image after another: a registry that limits anonymous reads is asked at a walk.
