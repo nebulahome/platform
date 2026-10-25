@@ -183,7 +183,8 @@
       "runByHand": "Eseguita a mano",
       "startedByAnotherAutomation": "Avviata da un'altra automazione",
       "then": "Allora",
-      "when": "Quando"
+      "when": "Quando",
+      "quietTimeCame": "È arrivata l'ora più tranquilla"
     },
     "stateChoices": {
       "outOfReach": "Irraggiungibile"
@@ -364,7 +365,8 @@
       "withFor": "{{said}} per {{duration}}",
       "withPeriod": "{{said}} ({{period}})",
       "writeExpression": "Scrivi un'espressione",
-      "atEntityTime": "Ogni giorno all'ora di {{name}}"
+      "atEntityTime": "Ogni giorno all'ora di {{name}}",
+      "quiet": "All'ora più tranquilla"
     }
   },
   "backup": {
@@ -2704,7 +2706,8 @@
       "sun": "Sole",
       "time": "Orario",
       "trigger": "Attivazione",
-      "webhook": "Webhook"
+      "webhook": "Webhook",
+      "quiet": "Ora più tranquilla"
     },
     "automationRow": {
       "itsDefinitionIsNot": "La sua definizione non ha una forma che questa versione capisca.",
@@ -3364,7 +3367,9 @@
       "moment": "Momento",
       "fromEntity": "Entità",
       "timeFrom": "Ora da",
-      "timeFromHint": "Ogni giorno all'ora che indica, HH:MM sull'orologio della casa; la segue quando cambia."
+      "timeFromHint": "Ogni giorno all'ora che indica, HH:MM sull'orologio della casa; la segue quando cambia.",
+      "quiet": "Più tranquillo",
+      "quietHint": "Una volta al giorno all'ora più tranquilla, imparata dalla casa; quello che fa questa automazione non conta nel calcolo. Negativo è prima."
     },
     "useCauseNames": {
       "atStartUp": "All'avvio",

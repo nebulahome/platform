@@ -35,7 +35,15 @@ import { SUN_DIRECTIONS, SUN_EVENTS, SUN_PERIODS } from './sun.js';
 export const UNAVAILABLE_TRIGGER_TYPES = ['event'] as const;
 
 /** The kinds of trigger an automation can wake on. */
-export const TRIGGER_TYPES = ['entity', 'time', 'sun', 'event', 'manual', 'webhook'] as const;
+export const TRIGGER_TYPES = [
+  'entity',
+  'time',
+  'sun',
+  'quiet',
+  'event',
+  'manual',
+  'webhook',
+] as const;
 
 /** What wakes an automation. */
 export type TriggerType = (typeof TRIGGER_TYPES)[number];
@@ -143,6 +151,18 @@ const sunTriggerSchema = z
     }
   });
 
+/**
+ * The quietest time of the day (`sensor.system_quiet_time`), once a day, before or after it. What
+ * such an automation does is left out when the quietest time is learned, so it cannot push it.
+ */
+const quietTriggerSchema = z.object({
+  type: z.literal('quiet'),
+  ...blockMetaShape,
+
+  /** Minutes before (negative) or after (positive) the quietest time. Absent means at it. */
+  offsetMinutes: z.int().min(-720).max(720).optional(),
+});
+
 /** A device event - a button press, a scene controller - or a platform event. */
 const eventTriggerSchema = z.object({
   type: z.literal('event'),
@@ -197,6 +217,7 @@ export const automationTriggerSchema = z.discriminatedUnion('type', [
   entityTriggerSchema,
   timeTriggerSchema,
   sunTriggerSchema,
+  quietTriggerSchema,
   eventTriggerSchema,
   manualTriggerSchema,
   webhookTriggerSchema,

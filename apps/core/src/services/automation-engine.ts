@@ -76,6 +76,7 @@ import {
   StopRun,
   type ExecutorPorts,
 } from '../domain/automation/executor.js';
+import { zonedParts } from '../domain/automation/house-time.js';
 import { buildHttpRequest } from '../domain/automation/http-request.js';
 import { decideMode, LoopGuard } from '../domain/automation/run-rules.js';
 import { nextFire, type House, type ScheduledTrigger } from '../domain/automation/schedule.js';
@@ -220,6 +221,9 @@ type Slot = {
   readonly queue: PendingRun[];
   readonly holds: Map<string, NodeJS.Timeout>;
   readonly times: Map<string, NodeJS.Timeout>;
+
+  /** The house day each quiet trigger last fired on, by path: once a day, however it moves. */
+  readonly quietDays: Map<string, string>;
   problems: string[];
 };
 
@@ -286,6 +290,9 @@ function triggerDetail(trigger: AutomationRunTrigger): string {
       return trigger.value === undefined
         ? `the sun: ${(trigger.event ?? 'its moment').replaceAll('_', ' ')}`
         : `the sun is at ${trigger.value.toFixed(1)}°`;
+    }
+    case 'quiet': {
+      return 'the quietest time came';
     }
     case 'manual': {
       return trigger.userId === undefined ? 'run by hand' : 'run from its Run button';
@@ -737,7 +744,8 @@ export class AutomationEngine {
         };
       }
       case 'time':
-      case 'sun': {
+      case 'sun':
+      case 'quiet': {
         if (trigger.type === 'sun' && trigger.event === 'elevation_changed') {
           return this.#house.position === null
             ? { ...nothing, detail: '', problem: 'The house has no position, so the sun has none' }
@@ -786,6 +794,7 @@ export class AutomationEngine {
       queue: [],
       holds: new Map(),
       times: new Map(),
+      quietDays: new Map(),
       problems: [],
     };
 
@@ -884,7 +893,11 @@ export class AutomationEngine {
         slot.problems.push('A device event trigger never fires yet: nothing reports device events');
       }
 
-      if (leaf.type === 'time' || (leaf.type === 'sun' && leaf.event !== 'elevation_changed')) {
+      if (
+        leaf.type === 'time' ||
+        leaf.type === 'quiet' ||
+        (leaf.type === 'sun' && leaf.event !== 'elevation_changed')
+      ) {
         this.#armTime(slot, path, leaf, this.#now());
       } else if (leaf.type === 'sun' && this.#house.position === null) {
         slot.problems.push('The house has no position, so the sun has no height here');
@@ -946,7 +959,19 @@ export class AutomationEngine {
             return;
           }
 
-          this.#react(slot, { kind: 'time', path }, []);
+          if (leaf.type === 'quiet') {
+            // The quietest time is learned again after midnight and may move later the same day.
+            const { year, month, day } = zonedParts(this.#now(), this.#house.timeZone);
+            const today = `${String(year)}-${String(month)}-${String(day)}`;
+
+            if (slot.quietDays.get(path) !== today) {
+              slot.quietDays.set(path, today);
+              this.#react(slot, { kind: 'time', path }, []);
+            }
+          } else {
+            this.#react(slot, { kind: 'time', path }, []);
+          }
+
           this.#armTime(slot, path, leaf, at);
         },
         Math.min(delay, MAX_TIMER_MS),
@@ -1776,7 +1801,11 @@ export class AutomationEngine {
       );
 
       for (const { path, leaf } of triggerLeaves(triggers)) {
-        if (leaf.type === 'time' || (leaf.type === 'sun' && leaf.event !== 'elevation_changed')) {
+        if (
+          leaf.type === 'time' ||
+          leaf.type === 'quiet' ||
+          (leaf.type === 'sun' && leaf.event !== 'elevation_changed')
+        ) {
           const next = nextFire(leaf, this.#house, this.#now(), this.#stateOf);
 
           if ('at' in next && next.at.getTime() - this.#now().getTime() < timeoutMs) {

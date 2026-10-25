@@ -74,7 +74,8 @@ export function TriggerFields(props: TriggerFieldsProps) {
       return <WebhookFields trigger={trigger} onChange={onChange} />;
     }
     case 'time':
-    case 'sun': {
+    case 'sun':
+    case 'quiet': {
       return <TimeTriggerFields trigger={trigger} onChange={onChange} />;
     }
     case 'event': {
@@ -127,8 +128,11 @@ const MONTH_CHIPS = MONTHS.map((month) => ({
   label: month.charAt(0).toUpperCase() + month.slice(1, 3),
 }));
 
-/** Where a Time block is: a time of day, a moment of the sun, a cron schedule, or an entity's time. */
-type TimeAt = 'clock' | 'sun' | 'cron' | 'entity';
+/**
+ * Where a Time block is: a time of day, a moment of the sun, the quietest time, a cron schedule, or
+ * an entity's time.
+ */
+type TimeAt = 'clock' | 'sun' | 'quiet' | 'cron' | 'entity';
 
 /**
  * Renders the fields of a Time trigger (N-Blocks-Triggers): At - Time of day, Sun or Cron - then
@@ -141,13 +145,13 @@ type TimeAt = 'clock' | 'sun' | 'cron' | 'entity';
  * @returns The fields.
  */
 function TimeTriggerFields(props: {
-  readonly trigger: TimeTrigger | SunTrigger;
+  readonly trigger: TimeTrigger | SunTrigger | QuietTrigger;
   readonly onChange: (trigger: AutomationTrigger) => void;
 }) {
   const { t } = useTranslation();
 
   const { trigger, onChange } = props;
-  const at: TimeAt = trigger.type === 'sun' ? 'sun' : trigger.at.kind;
+  const at: TimeAt = trigger.type === 'time' ? trigger.at.kind : trigger.type;
   const meta = {
     ...(trigger.name === undefined ? {} : { name: trigger.name }),
     ...(trigger.isEnabled === undefined ? {} : { isEnabled: trigger.isEnabled }),
@@ -165,6 +169,8 @@ function TimeTriggerFields(props: {
 
     if (next === 'sun') {
       onChange({ ...meta, type: 'sun', event: 'sunset' });
+    } else if (next === 'quiet') {
+      onChange({ ...meta, type: 'quiet' });
     } else if (next === 'clock') {
       onChange({ ...meta, type: 'time', at: { kind: 'clock', time: '07:00' } });
     } else if (next === 'entity') {
@@ -202,6 +208,7 @@ function TimeTriggerFields(props: {
           options={[
             { value: 'clock', label: t('library.triggerFields.timeOfDay', 'Time of day') },
             { value: 'sun', label: t('library.triggerFields.sun', 'Sun') },
+            { value: 'quiet', label: t('library.triggerFields.quiet', 'Quietest') },
             { value: 'cron', label: t('library.triggerFields.cron', 'Cron') },
             { value: 'entity', label: t('library.triggerFields.fromEntity', 'Entity') },
           ]}
@@ -211,6 +218,30 @@ function TimeTriggerFields(props: {
       </div>
       {trigger.type === 'sun' ? (
         <SunTriggerFields trigger={trigger} onChange={onChange} />
+      ) : trigger.type === 'quiet' ? (
+        <TextField
+          label={t('library.triggerFields.offsetMin', 'Offset (min)')}
+          size="compact"
+          type="number"
+          className="font-mono"
+          min={-720}
+          max={720}
+          hint={t(
+            'library.triggerFields.quietHint',
+            'Once a day at the quietest time, learned from the house; what this automation does is left out of it. Negative is before.',
+          )}
+          value={String(trigger.offsetMinutes ?? 0)}
+          onChange={(event) => {
+            const minutes = Math.round(Number(event.target.value));
+            const rest = withoutKey(trigger, 'offsetMinutes');
+
+            onChange(
+              Number.isFinite(minutes) && minutes !== 0
+                ? { ...rest, offsetMinutes: Math.max(-720, Math.min(720, minutes)) }
+                : rest,
+            );
+          }}
+        />
       ) : trigger.at.kind === 'clock' ? (
         <SimpleTimeFields trigger={{ ...trigger, at: trigger.at }} onChange={onChange} />
       ) : trigger.at.kind === 'entity' ? (
@@ -380,6 +411,9 @@ function CronFields(props: {
 
 /** A sun trigger. */
 type SunTrigger = Extract<AutomationTrigger, { type: 'sun' }>;
+
+/** A quiet-time trigger. */
+type QuietTrigger = Extract<AutomationTrigger, { type: 'quiet' }>;
 
 /**
  * The moments of the sun, as the dropdown offers them, in the order of a day.

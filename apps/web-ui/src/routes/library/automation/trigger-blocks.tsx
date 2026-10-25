@@ -61,6 +61,9 @@ export function triggerGlyph(trigger: AutomationTrigger): UiIconId {
           ? 'sun'
           : 'sunset';
     }
+    case 'quiet': {
+      return 'moon';
+    }
     case 'entity': {
       return trigger.change.kind === 'numeric' ? 'gauge' : 'activity';
     }

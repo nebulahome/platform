@@ -483,6 +483,15 @@ function triggerSaid(trigger: AutomationTrigger, names: BlockNames): Said {
         isNamed: false,
       };
     }
+    case 'quiet': {
+      return {
+        text: withOffset(
+          translate('automations.summary.quiet', 'At the quietest time'),
+          trigger.offsetMinutes,
+        ),
+        isNamed: false,
+      };
+    }
     case 'sun': {
       if (trigger.event === 'elevation_crossed') {
         const elevation = String(trigger.elevation ?? 0);

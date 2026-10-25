@@ -15,6 +15,7 @@ import {
   isBlockEnabled,
   numericReadingOf,
   stateTokenOf,
+  QUIET_TIME_ENTITY_ID,
   STATE_TOKEN_UNAVAILABLE,
   SUN_ELEVATION_ENTITY_ID,
   type AutomationRunTrigger,
@@ -124,8 +125,8 @@ export function entitiesOfTriggers(triggers: readonly AutomationTrigger[]): stri
 }
 
 /**
- * The entities time triggers read their time of day from: when one changes, the trigger is armed
- * again for its new time, never fired.
+ * The entities time triggers read their time of day from - the quiet trigger's is the quietest
+ * time - so that when one changes, the trigger is armed again for its new time, never fired.
  *
  * @param triggers - The triggers.
  * @returns Each entity once.
@@ -136,6 +137,8 @@ export function timeEntitiesOfTriggers(triggers: readonly AutomationTrigger[]): 
   for (const { leaf } of triggerLeaves(triggers)) {
     if (leaf.type === 'time' && leaf.at.kind === 'entity') {
       found.add(leaf.at.entityId);
+    } else if (leaf.type === 'quiet') {
+      found.add(QUIET_TIME_ENTITY_ID);
     }
   }
 
@@ -466,6 +469,10 @@ function react(ref: TriggerLeafRef, event: TriggerEvent, context: TriggerContext
 
       if (leaf.type === 'time') {
         return { fires: { kind: 'time', path: ref.path } };
+      }
+
+      if (leaf.type === 'quiet') {
+        return { fires: { kind: 'quiet', path: ref.path } };
       }
 
       return leaf.type === 'sun'

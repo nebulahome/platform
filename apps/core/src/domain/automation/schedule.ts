@@ -14,6 +14,7 @@ import {
   clockAtToCron,
   clockTimeSchema,
   nextSunEvent,
+  QUIET_TIME_ENTITY_ID,
   type AutomationTrigger,
   type EntityState,
   type GeoPosition,
@@ -28,7 +29,7 @@ export type House = {
 };
 
 /** A trigger that fires at a moment rather than on a change. */
-export type ScheduledTrigger = Extract<AutomationTrigger, { type: 'time' | 'sun' }>;
+export type ScheduledTrigger = Extract<AutomationTrigger, { type: 'time' | 'sun' | 'quiet' }>;
 
 /** The next moment, or why there is none. */
 export type NextFire = { readonly at: Date } | { readonly problem: string };
@@ -108,6 +109,18 @@ export function nextFire(
     return nextSun(trigger, house, after);
   }
 
+  if (trigger.type === 'quiet') {
+    const time = clockOf(stateOf(QUIET_TIME_ENTITY_ID));
+
+    return time === null
+      ? { problem: 'The quietest time is not known yet' }
+      : nextCron(
+          clockAtToCron({ kind: 'clock', time: shifted(time, trigger.offsetMinutes ?? 0) }),
+          house.timeZone,
+          after,
+        );
+  }
+
   const { at } = trigger;
 
   if (at.kind === 'entity') {
@@ -119,6 +132,20 @@ export function nextFire(
   }
 
   return nextCron(at.kind === 'clock' ? clockAtToCron(at) : at.expression, house.timeZone, after);
+}
+
+/**
+ * A time of day moved by some minutes, going round midnight.
+ *
+ * @param time - `HH:MM` or `HH:MM:SS`.
+ * @param minutes - How far, earlier when negative.
+ * @returns `HH:MM`.
+ */
+function shifted(time: string, minutes: number): string {
+  const [hours = 0, mins = 0] = time.split(':').map(Number);
+  const total = (((hours * 60 + mins + minutes) % 1440) + 1440) % 1440;
+
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
 /**

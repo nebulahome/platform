@@ -61,6 +61,7 @@ const TRIGGER_LABELS: Readonly<Record<string, Message>> = {
   entity: defineMessage('library.automationFilter.entity', 'Entity'),
   time: defineMessage('library.automationFilter.time', 'Time'),
   sun: defineMessage('library.automationFilter.sun', 'Sun'),
+  quiet: defineMessage('library.automationFilter.quiet', 'Quietest time'),
   event: defineMessage('library.automationFilter.event', 'Event'),
   manual: defineMessage('library.automationFilter.manual', 'Manual'),
   webhook: defineMessage('library.automationFilter.webhook', 'Webhook'),

@@ -70,6 +70,7 @@ const KINDS: Readonly<Record<BlockFamily, Readonly<Record<string, Kind>>>> = {
       glyph: 'clock',
     },
     sun: { label: 'Time', description: 'Sunrise, sunset, the golden hour…', glyph: 'sunset' },
+    quiet: { label: 'Time', description: 'The quietest time of the day', glyph: 'moon' },
     event: {
       label: 'Event',
       description: 'A device event, such as a button press',

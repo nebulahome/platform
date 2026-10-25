@@ -182,6 +182,7 @@ export const AUTOMATION_RUN_TRIGGER_KINDS = [
   'entity',
   'time',
   'sun',
+  'quiet',
   'manual',
   'automation',
   'webhook',

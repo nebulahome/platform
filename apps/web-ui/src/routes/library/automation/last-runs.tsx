@@ -149,6 +149,9 @@ function triggerLine(run: AutomationRun): string {
     case 'time': {
       return translate('automation.lastRuns.itsTimeCame', 'Its time came');
     }
+    case 'quiet': {
+      return translate('automation.lastRuns.quietTimeCame', 'The quietest time came');
+    }
     case 'webhook': {
       return translate('automation.lastRuns.itsWebhookWasCalled', 'Its webhook was called');
     }

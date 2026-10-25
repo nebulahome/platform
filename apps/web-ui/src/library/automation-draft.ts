@@ -191,6 +191,9 @@ export function blankTrigger(type: string): AutomationTrigger {
     case 'sun': {
       return { type: 'sun', event: 'sunset' };
     }
+    case 'quiet': {
+      return { type: 'quiet' };
+    }
     case 'event': {
       return { type: 'event', event: '' };
     }

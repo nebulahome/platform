@@ -147,4 +147,22 @@ describe('nextFire: the sun', () => {
       'problem' in nextFire(trigger, rome, after, () => ({ ...quiet, isAvailable: false })),
     ).toBe(true);
   });
+
+  it('fires at the quietest time, its offset applied round midnight', () => {
+    const quiet = {
+      state: { sensor_text: { value: '00:15' } },
+      isAvailable: true,
+    } as unknown as EntityState;
+    const after = new Date('2026-11-14T12:00:00Z');
+    const stateOf = (entityId: string): EntityState | undefined =>
+      entityId === 'sensor.system_quiet_time' ? quiet : undefined;
+
+    expect(nextFire({ type: 'quiet' }, rome, after, stateOf)).toEqual({
+      at: new Date('2026-11-14T23:15:00Z'),
+    });
+    expect(nextFire({ type: 'quiet', offsetMinutes: -30 }, rome, after, stateOf)).toEqual({
+      at: new Date('2026-11-14T22:45:00Z'),
+    });
+    expect('problem' in nextFire({ type: 'quiet' }, rome, after)).toBe(true);
+  });
 });
