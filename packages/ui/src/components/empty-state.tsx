@@ -161,38 +161,41 @@ export function EmptyState(props: EmptyStateProps) {
     <div
       role="status"
       className={cn(
-        'relative -mx-8 flex min-h-[760px] grow flex-col items-center overflow-hidden',
+        'relative -mx-8 flex min-h-[760px] grow flex-col items-center justify-center overflow-hidden',
         className,
       )}
     >
-      <Sky icon={icon} />
+      {/* The sky and the text are placed from the top of a fixed stage, centred in the room. */}
+      <div className="relative flex h-[760px] w-full shrink-0 flex-col items-center">
+        <Sky icon={icon} />
 
-      <div className="relative isolate mt-[480px] flex w-full max-w-[584px] flex-col items-center px-12 text-center">
-        <span
-          aria-hidden="true"
-          className="intro-veil absolute -inset-x-[90px] -inset-y-14 -z-10"
-        />
-        <h2 className="text-[22px] font-medium tracking-[-0.02em] text-foreground">{title}</h2>
-        <p className="mt-3 max-w-[470px] text-ui leading-[22px] text-foreground-muted">
-          {description}
-        </p>
+        <div className="relative isolate mt-[480px] flex w-full max-w-[584px] flex-col items-center px-12 text-center">
+          <span
+            aria-hidden="true"
+            className="intro-veil absolute -inset-x-[90px] -inset-y-14 -z-10"
+          />
+          <h2 className="text-[22px] font-medium tracking-[-0.02em] text-foreground">{title}</h2>
+          <p className="mt-3 max-w-[470px] text-ui leading-[22px] text-foreground-muted">
+            {description}
+          </p>
 
-        {action === undefined && learnMoreHref === undefined ? null : (
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-[18px] gap-y-3">
-            {action}
-            {learnMoreHref === undefined ? null : (
-              <a
-                href={learnMoreHref}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-field text-ui font-medium text-primary transition-colors hover:text-primary-hover focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none"
-              >
-                {learnMoreLabel}
-                <AppIcon id="external-link" size={14} />
-              </a>
-            )}
-          </div>
-        )}
+          {action === undefined && learnMoreHref === undefined ? null : (
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-[18px] gap-y-3">
+              {action}
+              {learnMoreHref === undefined ? null : (
+                <a
+                  href={learnMoreHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-field text-ui font-medium text-primary transition-colors hover:text-primary-hover focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none"
+                >
+                  {learnMoreLabel}
+                  <AppIcon id="external-link" size={14} />
+                </a>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

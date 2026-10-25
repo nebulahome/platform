@@ -250,7 +250,9 @@ export function Frame(props: FrameProps) {
       </header>
       {/* The scrollbar's room kept whether or not it is drawn: the grid is measured from this
           width, and a scrollbar appearing would narrow it and slide every card. */}
-      <div className="min-h-0 grow scrollbar-stable overflow-y-auto px-8 pt-5 pb-7">{children}</div>
+      <div className="flex min-h-0 grow scrollbar-stable flex-col overflow-y-auto px-8 pt-5 pb-7">
+        {children}
+      </div>
     </div>
   );
 }
