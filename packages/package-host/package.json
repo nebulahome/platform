@@ -1,6 +1,6 @@
 {
   "name": "@nebulahome/package-host",
-  "version": "0.0.0",
+  "version": "2026.10.0-alpha.1",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
