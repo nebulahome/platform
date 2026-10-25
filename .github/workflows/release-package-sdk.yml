@@ -3,9 +3,9 @@
 #
 # Its version is the package API's, raised by hand, and a minor is released only together with the
 # platform release that implements it. This checks the tag says the package's version, passes the
-# SDK's gates, packs it as npm will see it, and publishes a GitHub release with that archive. It
-# does not publish on npm: the maintainer publishes the same archive by hand, with
-# `npm publish <archive>`.
+# SDK's gates, packs it as npm will see it and keeps that archive as the run's artifact. It makes
+# no GitHub release (npm is where the SDK is published) and does not publish on npm either: the
+# maintainer downloads the artifact and publishes it by hand, with `npm publish <archive>`.
 name: release-package-sdk
 
 on:
@@ -13,7 +13,7 @@ on:
     tags: ['package-sdk@*.*.*']
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-package-sdk
@@ -59,9 +59,8 @@ jobs:
       - name: Pack
         run: pnpm --filter @nebulahome/package-sdk pack --pack-destination "$RUNNER_TEMP"
 
-      - name: Publish the release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP"/nebulahome-package-sdk-*.tgz \
-            --title "$GITHUB_REF_NAME" --notes "See packages/package-sdk/CHANGELOG.md."
+      - name: Keep the archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: nebulahome-package-sdk
+          path: ${{ runner.temp }}/nebulahome-package-sdk-*.tgz

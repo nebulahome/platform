@@ -45,7 +45,8 @@ API level - is SemVer.**
   (`--no-ff`, RULES.md §17.3); the tag sits on that merge commit. `main` is created from `dev` by
   the first stable release.
 - Tags: `vX` (`v2026.11.0`, `v2026.11.0-beta.1`, `v2026.11.0-alpha.3`). They never clash with the
-  SDK tags (`package-sdk@…`, `integration-sdk@…`).
+  SDK tags (`package-sdk@…`, `integration-sdk@…`). An SDK tag makes no GitHub release - the
+  SDKs are published on npm - so the platform's releases page lists Nebula Home alone.
 - **A beta is a version with a `-beta.K` suffix, a dev build one with `-alpha.K`, and only that.**
   Their GitHub releases are marked prerelease; a stable one is marked latest. Flag and suffix must
   always agree.

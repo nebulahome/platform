@@ -3,9 +3,10 @@
 # SDK).
 #
 # Its version is the integration contract's, raised by hand. This checks the tag says the
-# package's version, passes the SDK's gates, packs it as npm will see it, and publishes a GitHub
-# release with that archive. It does not publish on npm: the maintainer publishes the same archive
-# by hand, with `npm publish <archive>`.
+# package's version, passes the SDK's gates, packs it as npm will see it and keeps that archive as
+# the run's artifact. It makes no GitHub release (npm is where the SDK is published) and does not
+# publish on npm either: the maintainer downloads the artifact and publishes it by hand, with
+# `npm publish <archive>`.
 name: release-integration-sdk
 
 on:
@@ -13,7 +14,7 @@ on:
     tags: ['integration-sdk@*.*.*']
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-integration-sdk
@@ -59,9 +60,8 @@ jobs:
       - name: Pack
         run: pnpm --filter @nebulahome/integration-sdk pack --pack-destination "$RUNNER_TEMP"
 
-      - name: Publish the release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP"/nebulahome-integration-sdk-*.tgz \
-            --title "$GITHUB_REF_NAME" --notes "See packages/integration-sdk/CHANGELOG.md."
+      - name: Keep the archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: nebulahome-integration-sdk
+          path: ${{ runner.temp }}/nebulahome-integration-sdk-*.tgz

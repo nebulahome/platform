@@ -122,8 +122,9 @@ git tag integration-sdk@<version> && git push origin integration-sdk@<version>
 ```
 
 `.github/workflows/release-integration-sdk.yml` checks the tag says the package's version, runs the
-SDK's gates and publishes a GitHub release with the archive npm will receive. The maintainer
-publishes that archive, signed in to npm:
+SDK's gates and keeps the archive npm will receive as the run's artifact; it makes no GitHub
+release, npm is where the SDK is published. The maintainer downloads that artifact from the run
+and publishes it, signed in to npm:
 
 ```sh
 npm publish nebulahome-integration-sdk-<version>.tgz
