@@ -73,6 +73,9 @@ export const webhookViewSchema = z.object({
 
   /** Calls in the last 24 hours. */
   calls24h: z.int().min(0),
+
+  /** The same calls hour by hour, oldest first: the last item is the hour up to now. */
+  hourly: z.array(z.int().min(0)).length(24),
   lastCall: webhookCallSchema.pick({ time: true, remoteIp: true, status: true }).nullable(),
 });
 

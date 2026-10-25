@@ -121,7 +121,13 @@ export async function listWebhooks(db: Database, now: Date): Promise<WebhookView
   const calls = schema.history.webhookCalls;
   const hookIds = [...new Set(hooks.map((hook) => hook.trigger.hookId))];
   const counts = await db
-    .select({ hookId: calls.hookId, count: sql<number>`count(*)::int` })
+    .select({
+      hookId: calls.hookId,
+
+      // Hours before now: 0 is the hour up to now, 23 the oldest.
+      hoursAgo: sql<number>`floor(extract(epoch from (${now.toISOString()}::timestamptz - ${calls.time})) / 3600)::int`,
+      count: sql<number>`count(*)::int`,
+    })
     .from(calls)
     .where(
       and(
@@ -129,7 +135,16 @@ export async function listWebhooks(db: Database, now: Date): Promise<WebhookView
         gte(calls.time, new Date(now.getTime() - SPAN_MS['24h'])),
       ),
     )
-    .groupBy(calls.hookId);
+    .groupBy(calls.hookId, sql`2`);
+  const hourlyOf = new Map<string, number[]>();
+
+  for (const entry of counts) {
+    const hourly = hourlyOf.get(entry.hookId) ?? Array.from({ length: 24 }, () => 0);
+    const slot = 23 - Math.min(23, Math.max(0, entry.hoursAgo));
+
+    hourly[slot] = (hourly[slot] ?? 0) + entry.count;
+    hourlyOf.set(entry.hookId, hourly);
+  }
   const lasts = await db
     .selectDistinctOn([calls.hookId], {
       hookId: calls.hookId,
@@ -140,11 +155,11 @@ export async function listWebhooks(db: Database, now: Date): Promise<WebhookView
     .from(calls)
     .where(inArray(calls.hookId, hookIds))
     .orderBy(calls.hookId, desc(calls.time));
-  const countOf = new Map(counts.map((entry) => [entry.hookId, entry.count]));
   const lastOf = new Map(lasts.map((entry) => [entry.hookId, entry]));
 
   return hooks.map(({ row, trigger }) => {
     const last = lastOf.get(trigger.hookId);
+    const hourly = hourlyOf.get(trigger.hookId) ?? Array.from({ length: 24 }, () => 0);
 
     return webhookViewSchema.parse({
       hookId: trigger.hookId,
@@ -153,7 +168,8 @@ export async function listWebhooks(db: Database, now: Date): Promise<WebhookView
       isActive: row.isEnabled && trigger.isEnabled !== false,
       method: trigger.method,
       reach: trigger.reach,
-      calls24h: countOf.get(trigger.hookId) ?? 0,
+      calls24h: hourly.reduce((total, count) => total + count, 0),
+      hourly,
       lastCall:
         last === undefined
           ? null
