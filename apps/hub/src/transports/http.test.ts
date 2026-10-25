@@ -267,7 +267,10 @@ describe('polling', () => {
     await connection.apply([]);
 
     // The read made at once is already on its way; what matters is that nothing follows it.
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Wait for it rather than a fixed time: under a loaded machine it can land late.
+    for (let attempt = 0; attempt < 100 && delivered.length === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
     delivered.length = 0;
     await new Promise((resolve) => setTimeout(resolve, 600));
     await connection.close();
