@@ -4,7 +4,8 @@ How NebulaHome is versioned, how a release is cut and published, and how a house
 Read this before touching versions, the release script, the Maintenance page or the update code;
 change this file in the same commit as the behaviour it describes.
 
-Status (2026-10-25): being built in phases. Each section says what exists and what does not yet.
+Status (2026-10-25): built and unit-tested; not yet exercised live (a real release, a real update
+of a running container, a restart). Section 6 lists what was left out.
 
 ## 1. Versions
 
@@ -112,8 +113,9 @@ One round at a time, run by the packet-manager (`run_updates`), whether started 
 all or the schedule:
 
 1. **Back up first** (when on): skipped if the last backup succeeded, finished less than
-   5 minutes ago and covered the sections the round touches; otherwise a backup is run and waited
-   for. A failed backup stops the round.
+   5 minutes ago and took every part a backup takes now (`backup.sections`); otherwise a backup is
+   run and waited for - one already running is waited for instead. A failed backup stops the
+   round (`apps/packet-manager/src/domain/backup-first.ts`, `services/update-runner.ts`).
 2. Packages, then integrations.
 3. Nebula Home last, if it is in the round: it restarts everything.
 
@@ -123,10 +125,11 @@ The supervisor runs inside the platform's container and cannot replace it, so:
 
 1. The supervisor pulls `nebulahome/platform:<version>` and checks its version label.
 2. It starts a throwaway updater container from the **new** image, with the Docker socket.
-3. The updater retags the new image with the reference the old container uses (so compose sees no
-   change), stops the old container (45 s grace), copies the `/data` and PostgreSQL volumes to
-   `<volume>-pre-<old version>`, and creates the new container like the old one
-   (`apps/supervisor/src/domain/recreate.ts`).
+3. The updater (`apps/supervisor/src/updater.ts`, `services/platform-updater.ts`) retags the new
+   image with the reference the old container uses (so compose sees no change), stops the old
+   container (45 s grace), copies the `/data` and PostgreSQL mounts (volume or host folder) into
+   the volumes `nebulahome-pre-<old version>-data` and `-postgres`, and creates the new container
+   like the old one (`apps/supervisor/src/domain/recreate.ts`).
 4. It waits up to 5 minutes for Docker's health check to say healthy. On success it removes the
    old container and the copies. On failure it removes the new container, copies the volumes back,
    retags the old image and starts the old container again.
@@ -166,7 +169,20 @@ For packages and integrations:
 
 For the platform:
 
-- Automatic updates of Nebula Home (deferred).
+- Automatic updates of Nebula Home (deferred; the setting `updates.auto.core` does not exist).
 - An arm64 image (amd64 only for now).
 - Restarting or shutting down the host machine (out of reach of the container).
 - Checking free disk space before the volume copies of an update.
+
+## 6. Left out, and how it behaves today
+
+- **Check now** asks GitHub again; the package and integration indexes are re-read on their own
+  cache time, not forced.
+- Notes of Nebula Home are shown as plain text (the web UI has no Markdown renderer); a package's
+  or an integration's notes are a link.
+- The settings tree has no badge with the number of updates, and the rows carry no Failed /
+  Degraded pills: the board's, not built.
+- A round lives in the packet-manager's memory: its restart forgets the last round.
+- The updater does not check free disk space before copying the volumes.
+- Settings, seeds and grants were added to `0001_initial_schema.sql`: the dev and container
+  databases need `db:reset`.
