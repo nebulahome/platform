@@ -20,12 +20,12 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Badge, Button, Modal, PanelRow, TextField } from '@nebulahome/ui';
+import { Button, Modal, Pill, TextField } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
-import { CheckIcon, WarningIcon } from '@/components/icons';
 import { copyText } from '@/lib/clipboard';
 import { toMessage } from '@/lib/error-message';
+import { SettingsRow } from '@/routes/settings/settings-ui';
 import {
   beginTwoFactorEnrolment,
   confirmTwoFactorEnrolment,
@@ -135,7 +135,8 @@ export function TwoFactorRow() {
 
   return (
     <>
-      <PanelRow
+      <SettingsRow
+        searchId="two-factor"
         title={t('settings.twoFactor.title', 'Authenticator app')}
         note={
           isEnabled
@@ -151,19 +152,14 @@ export function TwoFactorRow() {
         control={
           <div className="flex shrink-0 items-center gap-2.5">
             {isEnabled ? (
-              <Badge tone="success" icon={<CheckIcon width="12" height="12" />}>
-                {t('common.on', 'On')}
-              </Badge>
+              <Pill tone="success">{t('common.on', 'On')}</Pill>
             ) : (
-              <Badge tone="warning" icon={<WarningIcon width="12" height="12" />}>
-                {t('common.off', 'Off')}
-              </Badge>
+              <Pill tone="warning">{t('common.off', 'Off')}</Pill>
             )}
 
             {isEnabled ? (
               <Button
                 variant="danger"
-                className="h-8 px-3 text-ui"
                 onClick={() => {
                   setError(undefined);
                   setStage({ step: 'disabling' });
@@ -172,7 +168,7 @@ export function TwoFactorRow() {
                 {t('settings.twoFactor.turnOff', 'Turn off')}
               </Button>
             ) : (
-              <Button className="h-8 px-3 text-ui" isBusy={isBusy} onClick={begin}>
+              <Button variant="ghost" isBusy={isBusy} onClick={begin}>
                 {t('settings.twoFactor.setUp', 'Set up')}
               </Button>
             )}
@@ -184,7 +180,7 @@ export function TwoFactorRow() {
             {error}
           </span>
         ) : null}
-      </PanelRow>
+      </SettingsRow>
 
       <Modal
         isOpen={stage.step === 'enrolling'}

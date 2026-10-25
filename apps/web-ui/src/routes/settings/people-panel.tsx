@@ -1,5 +1,5 @@
 /**
- * Everyone with an account.
+ * People › Users (board N-Settings-Users): everyone with an account, as cards.
  *
  * Reading the list needs `user:read` and changing anything needs `user:manage`, so the table is
  * shown to more people than the buttons are. That split is the API's, restated here: an
@@ -15,14 +15,22 @@ import { useState, type SubmitEventHandler } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { UserView } from '@nebulahome/contracts';
-import { Badge, Button, Modal, Panel, Segmented, SelectField, TextField } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Badge,
+  Button,
+  IconButton,
+  Modal,
+  Segmented,
+  SelectField,
+  TextField,
+  cn,
+} from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { Avatar } from '@/components/avatar';
-import { CheckIcon, WarningIcon } from '@/components/icons';
 import { PasswordField } from '@/components/password-field';
 import { toMessage } from '@/lib/error-message';
-import { absoluteTime, relativeTime } from '@/lib/format-time';
 import { isPasswordAcceptable } from '@/lib/password-rules';
 import { roleName } from '@/lib/role-names';
 import { matchesQuery } from '@/lib/search-text';
@@ -31,23 +39,13 @@ import { OPEN_PEOPLE_FILTER, PEOPLE_FILTER_CODEC } from '@/library/list-filters'
 import { Facet, facetChoices, FilterSheet } from '@/routes/library/filter-sheet';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
-import { AvatarPicker } from '@/routes/settings/avatar-picker';
-import {
-  SETTINGS_QUERY_KEYS,
-  createUser,
-  deleteUser,
-  fetchRoles,
-  fetchUsers,
-  updateUser,
-} from '@/settings/api';
-
-/** The column widths, shared by the header and every row so they line up. */
-const COLUMNS = 'grid grid-cols-[1fr_110px_78px_100px_150px] items-center gap-3 px-4';
+import { SettingsPage } from '@/routes/settings/settings-ui';
+import { UserEditDialog } from '@/routes/settings/user-edit-dialog';
+import { SETTINGS_QUERY_KEYS, createUser, fetchRoles, fetchUsers } from '@/settings/api';
 
 /** The tone each built-in role is shown in. Anything else is neutral. */
 const ROLE_TONES: Readonly<Record<string, 'accent' | 'success' | 'neutral'>> = {
   owner: 'accent',
-  admin: 'success',
 };
 
 /** Which dialog is open, if any. */
@@ -59,10 +57,7 @@ type OpenDialog =
   | { readonly kind: 'invite' }
 
   /** Changing an existing one. */
-  | { readonly kind: 'edit'; readonly user: UserView }
-
-  /** Confirming a deletion. */
-  | { readonly kind: 'delete'; readonly user: UserView };
+  | { readonly kind: 'edit'; readonly user: UserView };
 
 /**
  * Renders the people panel.
@@ -72,7 +67,6 @@ type OpenDialog =
 export function PeoplePanel() {
   const { t } = useTranslation();
   const can = useSession((state) => state.can);
-  const selfId = useSession((state) => state.user?.id);
   const queryClient = useQueryClient();
   const canManage = can('user:manage');
 
@@ -81,7 +75,6 @@ export function PeoplePanel() {
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('member');
-  const [isActive, setActive] = useState(true);
   const [filter, setFilter] = useListState(PEOPLE_FILTER_CODEC);
   const [error, setError] = useState<string | undefined>(undefined);
 
@@ -177,24 +170,6 @@ export function PeoplePanel() {
     );
   };
 
-  /**
-   * Saves a change to an account.
-   *
-   * @param event - The submit event, whose default navigation is prevented.
-   */
-  const onEdit: SubmitEventHandler<HTMLFormElement> = (event): void => {
-    event.preventDefault();
-    setError(undefined);
-
-    if (dialog.kind !== 'edit') {
-      return;
-    }
-
-    const { id } = dialog.user;
-
-    changes.mutate(async () => updateUser(id, { displayName, role, isActive }));
-  };
-
   // By the name people see, which is how the rows read; the API answers by username.
   const people = [...(users.data ?? [])].sort((left, right) =>
     left.displayName.localeCompare(right.displayName),
@@ -213,189 +188,161 @@ export function PeoplePanel() {
     filter.role,
     t('settings.people.anyRole', 'Any role'),
   );
+  const roleNames = new Map((roles.data ?? []).map((entry) => [entry.key, entry.name]));
   const roleChoices = (roles.data ?? []).map((entry) => ({
     value: entry.key,
     label: roleName(entry.key, entry.name),
   }));
 
   return (
-    <>
-      <Panel
-        title={t('settings.users.tabs', 'Users and roles')}
-        action={
-          <span className="flex items-center gap-2">
-            <SearchField
-              placeholder={t('settings.people.search', 'Search people…')}
-              className="w-40 lg:w-56"
-              value={filter.search}
-              onChange={(search) => {
-                setFilter({ ...filter, search });
+    <SettingsPage path="/settings/people/users">
+      <div className="flex flex-wrap items-center gap-2">
+        <SearchField
+          label={t('settings.people.searchLabel', 'Search users')}
+          placeholder={t('settings.people.searchUsers', 'Search users')}
+          className="w-65"
+          value={filter.search}
+          onChange={(search) => {
+            setFilter({ ...filter, search });
+          }}
+        />
+        <FilterSheet
+          label={t('settings.people.narrow', 'Narrow the people')}
+          count={Number(filter.role !== '') + Number(filter.status !== 'any')}
+          onClear={() => {
+            setFilter({ ...filter, role: '', status: 'any' });
+          }}
+        >
+          <Facet title={t('settings.people.role', 'Role')}>
+            <SelectField
+              label={t('settings.people.role', 'Role')}
+              isLabelHidden
+              size="compact"
+              options={roleOptions}
+              value={filter.role}
+              onChange={(value) => {
+                setFilter({ ...filter, role: value });
               }}
             />
-            <FilterSheet
-              label={t('settings.people.narrow', 'Narrow the people')}
-              count={Number(filter.role !== '') + Number(filter.status !== 'any')}
-              onClear={() => {
-                setFilter({ ...filter, role: '', status: 'any' });
+          </Facet>
+          <Facet title={t('settings.people.account', 'Account')}>
+            <Segmented
+              label={t('settings.people.account', 'Account')}
+              size="compact"
+              className="self-start"
+              options={[
+                { value: 'any', label: t('common.any', 'Any') },
+                { value: 'active', label: t('settings.people.active', 'Active') },
+                { value: 'disabled', label: t('settings.people.disabled', 'Disabled') },
+              ]}
+              value={filter.status}
+              onChange={(status) => {
+                setFilter({ ...filter, status });
               }}
-            >
-              <Facet title={t('settings.people.role', 'Role')}>
-                <SelectField
-                  label={t('settings.people.role', 'Role')}
-                  isLabelHidden
-                  size="compact"
-                  options={roleOptions}
-                  value={filter.role}
-                  onChange={(value) => {
-                    setFilter({ ...filter, role: value });
-                  }}
-                />
-              </Facet>
-              <Facet title={t('settings.people.account', 'Account')}>
-                <Segmented
-                  label={t('settings.people.account', 'Account')}
-                  size="compact"
-                  className="self-start"
-                  options={[
-                    { value: 'any', label: t('common.any', 'Any') },
-                    { value: 'active', label: t('settings.people.active', 'Active') },
-                    { value: 'disabled', label: t('settings.people.disabled', 'Disabled') },
-                  ]}
-                  value={filter.status}
-                  onChange={(status) => {
-                    setFilter({ ...filter, status });
-                  }}
-                />
-              </Facet>
-            </FilterSheet>
-            {canManage ? (
-              <Button
-                size="compact"
-                onClick={() => {
-                  setError(undefined);
-                  setRole('member');
-                  setDialog({ kind: 'invite' });
-                }}
-              >
-                {t('settings.people.invite', 'Invite person')}
-              </Button>
-            ) : null}
-          </span>
-        }
+            />
+          </Facet>
+        </FilterSheet>
+        <span className="grow" />
+        {canManage ? (
+          <Button
+            onClick={() => {
+              setError(undefined);
+              setRole('member');
+              setDialog({ kind: 'invite' });
+            }}
+          >
+            <AppIcon id="user-plus" size={16} />
+            {t('settings.people.inviteUser', 'Invite a user')}
+          </Button>
+        ) : null}
+      </div>
+
+      {users.isPending ? (
+        <p className="text-ui text-foreground-subtle">
+          {t('settings.people.reading', 'Reading the accounts…')}
+        </p>
+      ) : null}
+
+      {users.isError ? (
+        <p role="alert" className="text-ui text-danger">
+          {toMessage(users.error)}
+        </p>
+      ) : null}
+
+      {!users.isPending && people.length > 0 && shown.length === 0 ? (
+        <NoMatches
+          query={filter.search}
+          onClear={() => {
+            setFilter(OPEN_PEOPLE_FILTER);
+          }}
+        />
+      ) : null}
+
+      <ul
+        aria-label={t('settings.people.list', 'People')}
+        className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3.5"
       >
-        <div className={`${COLUMNS} border-b border-border py-2.5`}>
-          <span className="font-mono text-label text-foreground-subtle uppercase">
-            {t('settings.people.person', 'Person')}
-          </span>
-          <span className="font-mono text-label text-foreground-subtle uppercase">
-            {t('settings.people.role', 'Role')}
-          </span>
-          <span className="font-mono text-label text-foreground-subtle uppercase">
-            {t('settings.people.twoFactor', '2FA')}
-          </span>
-          <span className="font-mono text-label text-foreground-subtle uppercase">
-            {t('settings.people.lastSeen', 'Last seen')}
-          </span>
-          <span />
-        </div>
-
-        {users.isPending ? (
-          <p className="px-4 py-4 text-ui text-foreground-subtle">
-            {t('settings.people.reading', 'Reading the accounts…')}
-          </p>
-        ) : null}
-
-        {users.isError ? (
-          <p role="alert" className="px-4 py-4 text-ui text-danger">
-            {toMessage(users.error)}
-          </p>
-        ) : null}
-
-        {!users.isPending && people.length > 0 && shown.length === 0 ? (
-          <div className="p-4">
-            <NoMatches
-              query={filter.search}
-              onClear={() => {
-                setFilter(OPEN_PEOPLE_FILTER);
-              }}
-            />
-          </div>
-        ) : null}
-
         {shown.map((person) => (
-          <div
+          <li
             key={person.id}
-            className={`${COLUMNS} border-b border-border py-2.5 last:border-b-0`}
+            className={cn(
+              'flex min-w-0 flex-col gap-3.5 rounded-card border border-border bg-surface px-4.5 py-4 shadow-edge transition-colors duration-150 hover:border-border-strong',
+              !person.isActive && 'opacity-70',
+            )}
           >
             <div className="flex min-w-0 items-center gap-3">
-              <Avatar displayName={person.displayName} avatarUrl={person.avatarUrl} />
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate text-ui text-foreground">
+              <Avatar
+                displayName={person.displayName}
+                avatarUrl={person.avatarUrl}
+                isAccented={person.role === 'owner'}
+              />
+              <span className="flex min-w-0 grow flex-col gap-0.75">
+                <span className="truncate text-ui font-medium text-foreground">
                   {person.displayName}
+                </span>
+                <span className="truncate text-ui-sm text-foreground-subtle">
+                  @{person.username}
                   {person.isActive ? '' : ` · ${t('settings.people.disabledLower', 'disabled')}`}
                 </span>
-                <span className="truncate font-mono text-caption text-foreground-subtle">
-                  {person.email ?? person.username}
-                </span>
-              </div>
-            </div>
-
-            <Badge tone={ROLE_TONES[person.role] ?? 'neutral'}>{roleName(person.role)}</Badge>
-
-            {person.isTwoFactorEnabled ? (
-              <span className="flex items-center gap-1.5 text-caption text-success">
-                <CheckIcon width="13" height="13" />
-                {t('common.on', 'On')}
               </span>
-            ) : (
-              <span className="flex items-center gap-1.5 text-caption text-warning">
-                <WarningIcon width="13" height="13" />
-                {t('common.off', 'Off')}
-              </span>
-            )}
-
-            <span
-              className="text-caption text-foreground-subtle"
-              title={person.lastLoginAt === null ? undefined : absoluteTime(person.lastLoginAt)}
-            >
-              {person.lastLoginAt === null
-                ? t('settings.people.never', 'never')
-                : relativeTime(person.lastLoginAt)}
-            </span>
-
-            <div className="flex justify-end gap-2">
               {canManage ? (
-                <Button
-                  variant="ghost"
-                  size="compact"
+                <IconButton
+                  label={t('settings.people.editPerson', 'Edit {{name}}', {
+                    name: person.displayName,
+                  })}
                   onClick={() => {
-                    setError(undefined);
-                    setDisplayName(person.displayName);
-                    setRole(person.role);
-                    setActive(person.isActive);
                     setDialog({ kind: 'edit', user: person });
                   }}
                 >
-                  {t('common.edit', 'Edit')}
-                </Button>
-              ) : null}
-
-              {canManage && person.id !== selfId ? (
-                <Button
-                  variant="danger"
-                  size="compact"
-                  onClick={() => {
-                    setError(undefined);
-                    setDialog({ kind: 'delete', user: person });
-                  }}
-                >
-                  {t('common.delete', 'Delete')}
-                </Button>
+                  <AppIcon id="pencil" size={15} />
+                </IconButton>
               ) : null}
             </div>
-          </div>
+            <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+              <Badge tone={ROLE_TONES[person.role] ?? 'neutral'}>
+                {roleName(person.role, roleNames.get(person.role))}
+              </Badge>
+              <span className="grow" />
+              <span
+                title={
+                  person.isTwoFactorEnabled
+                    ? t('settings.people.twoFactorOnTitle', 'Two-factor on')
+                    : t('settings.people.twoFactorOffTitle', 'Two-factor off')
+                }
+                className={cn(
+                  'inline-flex h-6 items-center gap-1.5 rounded-pill px-2 text-caption font-medium',
+                  person.isTwoFactorEnabled
+                    ? 'bg-success-soft text-success'
+                    : 'bg-surface-raised text-foreground-subtle',
+                )}
+              >
+                <AppIcon id={person.isTwoFactorEnabled ? 'shield-check' : 'shield-off'} size={13} />
+                {t('settings.people.twoFactor', '2FA')}
+              </span>
+            </div>
+          </li>
         ))}
-      </Panel>
+      </ul>
 
       <Modal
         isOpen={dialog.kind === 'invite'}
@@ -467,127 +414,7 @@ export function PeoplePanel() {
         </form>
       </Modal>
 
-      <Modal
-        isOpen={dialog.kind === 'edit'}
-        onClose={close}
-        title={
-          dialog.kind === 'edit'
-            ? dialog.user.displayName
-            : t('settings.people.editAccount', 'Edit account')
-        }
-        description={
-          dialog.kind === 'edit' && dialog.user.id === selfId
-            ? t(
-                'settings.people.ownAccount',
-                'This is your own account, so its role and whether it is active are not yours to change here.',
-              )
-            : t(
-                'settings.people.disableNote',
-                'Disabling an account refuses every sign-in without deleting it, or its audit trail.',
-              )
-        }
-        footer={
-          <>
-            <Button variant="ghost" onClick={close}>
-              {t('common.cancel', 'Cancel')}
-            </Button>
-            <Button type="submit" form="edit-form" isBusy={changes.isPending}>
-              {t('common.save', 'Save')}
-            </Button>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-5">
-          {dialog.kind === 'edit' ? (
-            <AvatarPicker
-              userId={dialog.user.id}
-              displayName={dialog.user.displayName}
-              avatarUrl={dialog.user.avatarUrl}
-              onChanged={async () =>
-                queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEYS.users })
-              }
-            />
-          ) : null}
-
-          <form id="edit-form" className="flex flex-col gap-4" onSubmit={onEdit} noValidate>
-            <TextField
-              label={t('settings.profile.displayName', 'Display name')}
-              value={displayName}
-              onChange={(event) => {
-                setDisplayName(event.target.value);
-              }}
-              required
-            />
-
-            <SelectField
-              label={t('settings.people.role', 'Role')}
-              value={role}
-              disabled={dialog.kind === 'edit' && dialog.user.id === selfId}
-              options={roleChoices}
-              onChange={setRole}
-            />
-
-            <SelectField
-              label={t('settings.people.signIn', 'Sign-in')}
-              value={isActive ? 'active' : 'disabled'}
-              disabled={dialog.kind === 'edit' && dialog.user.id === selfId}
-              options={[
-                { value: 'active', label: t('settings.people.allowed', 'Allowed') },
-                { value: 'disabled', label: t('settings.people.refused', 'Refused') },
-              ]}
-              onChange={(next) => {
-                setActive(next === 'active');
-              }}
-            />
-
-            {error === undefined ? null : (
-              <span role="alert" className="text-ui text-danger">
-                {error}
-              </span>
-            )}
-          </form>
-        </div>
-      </Modal>
-
-      <Modal
-        isOpen={dialog.kind === 'delete'}
-        onClose={close}
-        title={t('settings.people.deleteTitle', 'Delete this account?')}
-        description={t(
-          'settings.people.deleteNote',
-          'Their sessions end immediately. The audit trail keeps their name, because a record that forgets who did something is not one.',
-        )}
-        footer={
-          <>
-            <Button variant="ghost" onClick={close}>
-              {t('common.keepIt', 'Keep it')}
-            </Button>
-            <Button
-              variant="danger"
-              isBusy={changes.isPending}
-              onClick={() => {
-                if (dialog.kind === 'delete') {
-                  const { id } = dialog.user;
-
-                  changes.mutate(async () => deleteUser(id));
-                }
-              }}
-            >
-              {t('common.delete', 'Delete')}
-            </Button>
-          </>
-        }
-      >
-        {error === undefined ? (
-          <p className="text-ui text-foreground-muted">
-            {dialog.kind === 'delete' ? dialog.user.username : ''}
-          </p>
-        ) : (
-          <span role="alert" className="text-ui text-danger">
-            {error}
-          </span>
-        )}
-      </Modal>
-    </>
+      <UserEditDialog user={dialog.kind === 'edit' ? dialog.user : null} onClose={close} />
+    </SettingsPage>
   );
 }

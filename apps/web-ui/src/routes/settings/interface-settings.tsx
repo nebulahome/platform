@@ -12,9 +12,10 @@
  */
 import { useTranslation } from 'react-i18next';
 
-import { Panel, PanelNote, PanelRow, Segmented, SelectField } from '@nebulahome/ui';
+import { Segmented, SelectField } from '@nebulahome/ui';
 
 import { defineMessage, text, type Message } from '@/i18n/messages';
+import { SettingsPage, SettingsRow, SettingsSection } from '@/routes/settings/settings-ui';
 import {
   MOTION_CHOICES,
   SIDEBAR_CHOICES,
@@ -72,9 +73,10 @@ export function InterfaceSettings() {
   const change = usePreferences((state) => state.set);
 
   return (
-    <>
-      <Panel title={t('settings.interface.appearance', 'Appearance')}>
-        <PanelRow
+    <SettingsPage path="/settings/interface">
+      <SettingsSection label={t('settings.interface.appearance', 'Appearance')}>
+        <SettingsRow
+          searchId="theme"
           title={t('settings.interface.theme', 'Theme')}
           note={t(
             'settings.interface.themeNote',
@@ -95,7 +97,8 @@ export function InterfaceSettings() {
           }
         />
 
-        <PanelRow
+        <SettingsRow
+          searchId="motion"
           title={t('settings.interface.motion', 'Motion')}
           note={t(
             'settings.interface.motionNote',
@@ -116,7 +119,8 @@ export function InterfaceSettings() {
           }
         />
 
-        <PanelRow
+        <SettingsRow
+          searchId="sidebar"
           title={t('settings.interface.sidebar', 'Sidebar')}
           note={t(
             'settings.interface.sidebarNote',
@@ -136,10 +140,11 @@ export function InterfaceSettings() {
             />
           }
         />
-      </Panel>
+      </SettingsSection>
 
-      <Panel title={t('settings.interface.startup', 'Startup')}>
-        <PanelRow
+      <SettingsSection label={t('settings.interface.startup', 'Startup')}>
+        <SettingsRow
+          searchId="open-on"
           title={t('settings.interface.openOn', 'Open on')}
           note={t('settings.interface.openOnNote', 'Which page you land on when you sign in.')}
           control={
@@ -158,18 +163,11 @@ export function InterfaceSettings() {
                   change({ startPage: chosen });
                 }
               }}
-              className="w-42.5"
+              className="w-45"
             />
           }
         />
-
-        <PanelNote>
-          {t(
-            'settings.interface.browserOnly',
-            'These are stored in this browser only. Signing in somewhere else starts from the defaults again — which is the point: a wall tablet in a hallway and a laptop in a bedroom want different answers, and the same person owns both. Your language is kept with your account, under Account & security.',
-          )}
-        </PanelNote>
-      </Panel>
-    </>
+      </SettingsSection>
+    </SettingsPage>
   );
 }

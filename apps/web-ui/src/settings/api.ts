@@ -25,6 +25,8 @@ import {
   type CreateAccessTokenResponse,
   type CreateUserRequest,
   type JsonValue,
+  type RoleCreate,
+  type RoleUpdate,
   type RoleView,
   type SessionView,
   type SetAvatarRequest,
@@ -123,6 +125,39 @@ export async function fetchRoles(signal?: AbortSignal): Promise<RoleView[]> {
   });
 
   return items;
+}
+
+/**
+ * Makes a custom role, perhaps from another role's permissions.
+ *
+ * @param request - Its name, description, icon and the role to start from.
+ * @returns The role.
+ */
+export async function createRole(request: RoleCreate): Promise<RoleView> {
+  return apiRequest('/roles', roleViewSchema, { method: 'POST', body: request });
+}
+
+/**
+ * Changes a custom role's details or its whole set of permissions.
+ *
+ * @param roleId - Which.
+ * @param request - What to change.
+ * @returns The role as it now stands.
+ */
+export async function updateRole(roleId: string, request: RoleUpdate): Promise<RoleView> {
+  return apiRequest(`/roles/${roleId}`, roleViewSchema, { method: 'PATCH', body: request });
+}
+
+/**
+ * Deletes a custom role.
+ *
+ * @param roleId - Which.
+ * @param moveTo - The key of the role its people move to; needed when it has any.
+ */
+export async function deleteRole(roleId: string, moveTo?: string): Promise<void> {
+  const query = moveTo === undefined ? '' : `?moveTo=${encodeURIComponent(moveTo)}`;
+
+  await apiRequest(`/roles/${roleId}${query}`, z.undefined(), { method: 'DELETE' });
 }
 
 /**

@@ -76,7 +76,7 @@ export function SystemNetworkCard(props: SystemNetworkCardProps) {
 
   if (network === null) {
     return (
-      <Panel title={t('system.network', 'Network')}>
+      <Panel className="rounded-card shadow-edge" title={t('system.network', 'Network')}>
         <PanelNote>
           {t(
             'system.networkUnreadable',
@@ -91,6 +91,7 @@ export function SystemNetworkCard(props: SystemNetworkCardProps) {
 
   return (
     <Panel
+      className="rounded-card shadow-edge"
       title={t('system.network', 'Network')}
       action={
         network.interface === null ? undefined : (

@@ -84,7 +84,7 @@ export function SystemDiskCard(props: SystemDiskCardProps) {
 
   if (disk === null) {
     return (
-      <Panel title={t('system.disk', 'Disk')}>
+      <Panel className="rounded-card shadow-edge" title={t('system.disk', 'Disk')}>
         <PanelNote>
           {t('system.diskUnreadable', 'The volume the data lives on could not be read.')}
         </PanelNote>
@@ -101,6 +101,7 @@ export function SystemDiskCard(props: SystemDiskCardProps) {
 
   return (
     <Panel
+      className="rounded-card shadow-edge"
       title={t('system.disk', 'Disk')}
       action={
         <span className="text-caption text-foreground-subtle tabular">

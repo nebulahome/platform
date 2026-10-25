@@ -48,13 +48,20 @@ const ROLES: Readonly<Record<string, { readonly name: Message; readonly descript
  * A role's name.
  *
  * @param key - The role's key.
- * @param stored - The name the database holds, for a role made by hand; the key without one.
+ * @param stored - The name the database holds, for a role made by hand. Without it - where only
+ * the key is at hand, as on the session - the key is read as words: `family_2` is "Family 2".
  * @returns Its name.
  */
 export function roleName(key: string, stored?: string | null): string {
   const role = ROLES[key];
 
-  return role === undefined ? (stored ?? key) : text(role.name);
+  if (role !== undefined) {
+    return text(role.name);
+  }
+
+  const words = key.replaceAll('_', ' ');
+
+  return stored ?? `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
 }
 
 /**

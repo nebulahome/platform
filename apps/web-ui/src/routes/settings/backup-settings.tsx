@@ -30,12 +30,11 @@ import {
   type SettingsResponse,
 } from '@nebulahome/contracts';
 import {
+  AppIcon,
   Badge,
   Button,
+  IconButton,
   Modal,
-  Panel,
-  PanelNote,
-  PanelRow,
   Segmented,
   Switch,
   TextField,
@@ -75,6 +74,16 @@ import {
 } from '@/routes/settings/backup-text';
 import { QuietProfile } from '@/routes/settings/quiet-profile';
 import { RestoreDialog } from '@/routes/settings/restore-dialog';
+import {
+  HeroCard,
+  HeroIcon,
+  RowIcon,
+  SettingsCard,
+  SettingsNote,
+  SettingsPage,
+  SettingsRow,
+  SettingsSection,
+} from '@/routes/settings/settings-ui';
 import { SETTINGS_QUERY_KEYS, fetchServerSettings, updateServerSettings } from '@/settings/api';
 
 /** The settings this page edits. */
@@ -494,19 +503,23 @@ export function BackupSettings() {
 
   if (status.isPending || settings.isPending) {
     return (
-      <p className="text-ui text-foreground-subtle">
-        {t('backup.reading', 'Reading the backups…')}
-      </p>
+      <SettingsPage path="/settings/system/backup">
+        <p className="text-ui text-foreground-subtle">
+          {t('backup.reading', 'Reading the backups…')}
+        </p>
+      </SettingsPage>
     );
   }
 
   if (status.isError) {
     return (
-      <p role="alert" className="text-ui text-danger">
-        {t('backup.unreachable', 'The backup service could not be reached: {{message}}', {
-          message: toMessage(status.error),
-        })}
-      </p>
+      <SettingsPage path="/settings/system/backup">
+        <p role="alert" className="text-ui text-danger">
+          {t('backup.unreachable', 'The backup service could not be reached: {{message}}', {
+            message: toMessage(status.error),
+          })}
+        </p>
+      </SettingsPage>
     );
   }
 
@@ -524,7 +537,7 @@ export function BackupSettings() {
   );
 
   return (
-    <>
+    <SettingsPage path="/settings/system/backup">
       {progress.shown === null ? null : (
         <BackupProgressCard
           run={progress.shown}
@@ -535,14 +548,15 @@ export function BackupSettings() {
         />
       )}
 
-      <Panel
-        title={t('backup.title', 'Backups')}
-        action={
+      <HeroCard
+        leading={<HeroIcon icon="hard-drive" />}
+        title={headline.title}
+        subtitle={headline.note}
+        actions={
           canWrite ? (
             isRunning && active?.kind === 'backup' ? (
               <Button
                 variant="ghost"
-                size="compact"
                 onClick={() => {
                   void cancelBackup(active.runId);
                 }}
@@ -551,38 +565,44 @@ export function BackupSettings() {
               </Button>
             ) : (
               <Button
-                size="compact"
                 isBusy={backUpNow.isPending}
                 disabled={isRunning}
                 onClick={() => {
                   backUpNow.mutate();
                 }}
               >
+                <AppIcon id="download" size={16} />
                 {t('backup.now', 'Back up now')}
               </Button>
             )
           ) : undefined
         }
-      >
-        <PanelRow title={headline.title} note={headline.note} />
-        {active?.kind !== 'restore' ? null : (
-          <PanelRow
-            title={t('backup.restoring', 'Restoring…')}
-            note={`${phaseName(active.phase)}${
-              active.bytesTotal === null || active.bytesTotal === 0
-                ? ''
-                : ` · ${String(Math.round(active.bytesDone))}%`
-            } · ${t('backup.started', 'started {{when}}', { when: relativeTime(active.startedAt) })}`}
-          />
-        )}
-        {backUpNow.isError ? (
-          <PanelRow
-            title={t('backup.didNotStart', 'The backup did not start')}
-            note={<span className="text-danger">{toMessage(backUpNow.error)}</span>}
-          />
-        ) : null}
+      />
 
-        <PanelRow
+      {active?.kind !== 'restore' && !backUpNow.isError ? null : (
+        <SettingsCard>
+          {active?.kind !== 'restore' ? null : (
+            <SettingsRow
+              title={t('backup.restoring', 'Restoring…')}
+              note={`${phaseName(active.phase)}${
+                active.bytesTotal === null || active.bytesTotal === 0
+                  ? ''
+                  : ` · ${String(Math.round(active.bytesDone))}%`
+              } · ${t('backup.started', 'started {{when}}', { when: relativeTime(active.startedAt) })}`}
+            />
+          )}
+          {backUpNow.isError ? (
+            <SettingsRow
+              title={t('backup.didNotStart', 'The backup did not start')}
+              note={<span className="text-danger">{toMessage(backUpNow.error)}</span>}
+            />
+          ) : null}
+        </SettingsCard>
+      )}
+
+      <SettingsSection label={t('backup.schedule', 'Schedule')}>
+        <SettingsRow
+          searchId="backup.automatic"
           title={t('backup.automatic', 'Automatic backups')}
           note={scheduleNote(data, isEnabled)}
           control={
@@ -597,7 +617,8 @@ export function BackupSettings() {
           }
         />
 
-        <PanelRow
+        <SettingsRow
+          searchId="backup.frequency"
           title={t('backup.frequency', 'How often')}
           note={
             frequency.mode === 'daily'
@@ -609,7 +630,6 @@ export function BackupSettings() {
           control={
             <Segmented
               label={t('backup.frequency', 'How often')}
-              size="compact"
               disabled={!canWrite}
               value={frequency.mode}
               options={[
@@ -656,9 +676,10 @@ export function BackupSettings() {
               }}
             />
           )}
-        </PanelRow>
+        </SettingsRow>
 
-        <PanelRow
+        <SettingsRow
+          searchId="backup.when"
           title={t('backup.when', 'When')}
           note={
             schedule.mode === 'fixed' ? (
@@ -699,7 +720,6 @@ export function BackupSettings() {
                 <TextField
                   label={t('backup.time', 'Time')}
                   isLabelHidden
-                  size="compact"
                   type="time"
                   disabled={!canWrite}
                   value={schedule.time}
@@ -713,7 +733,6 @@ export function BackupSettings() {
               ) : null}
               <Segmented
                 label={t('backup.when', 'When')}
-                size="compact"
                 disabled={!canWrite}
                 value={schedule.mode}
                 options={[
@@ -730,15 +749,17 @@ export function BackupSettings() {
           {schedule.mode === 'quietest' && quiet.profile.length > 0 ? (
             <QuietProfile profile={quiet.profile} time={quiet.time} />
           ) : undefined}
-        </PanelRow>
+        </SettingsRow>
 
         {data.problems.length === 0 ? null : (
-          <PanelNote>{data.problems.map((problem) => problem.message).join(' · ')}</PanelNote>
+          <SettingsNote tone="warning">
+            {data.problems.map((problem) => problem.message).join(' · ')}
+          </SettingsNote>
         )}
-      </Panel>
+      </SettingsSection>
 
-      <Panel title={t('backup.what', 'What to back up')}>
-        <PanelRow
+      <SettingsSection label={t('backup.contents', 'Contents')}>
+        <SettingsRow
           title={sectionName('configuration')}
           note={
             <>
@@ -750,11 +771,16 @@ export function BackupSettings() {
             </>
           }
           control={
-            <Switch label={sectionName('configuration')} isOn disabled onChange={() => undefined} />
+            <span
+              className="text-foreground-subtle"
+              title={t('backup.alwaysIncluded', 'Always included')}
+            >
+              <AppIcon id="lock" size={16} />
+            </span>
           }
         />
         {OPTIONAL_SECTIONS.map(({ key, note }) => (
-          <PanelRow
+          <SettingsRow
             key={key}
             title={sectionName(key)}
             note={`${text(note)}.${estimates === null ? '' : ` ≈ ${formatBytes(estimates[key])}`}`}
@@ -770,7 +796,7 @@ export function BackupSettings() {
             }
           />
         ))}
-        <PanelNote>
+        <SettingsNote>
           {estimates?.basis === 'last-backup'
             ? t(
                 'backup.estimateLast',
@@ -785,14 +811,15 @@ export function BackupSettings() {
             : ` ${t('backup.estimateEach', 'About {{size}} each, as chosen.', {
                 size: formatBytes(archiveBytes),
               })}`}
-        </PanelNote>
-      </Panel>
+        </SettingsNote>
+      </SettingsSection>
 
-      <Panel title={t('backup.key.title', 'Backup key')}>
-        <PanelRow
+      <SettingsSection label={t('backup.key.section', 'Encryption key')}>
+        <SettingsRow
+          searchId="backup.key"
           title={
             <span className="flex items-center gap-2">
-              {t('backup.key.encryption', 'Encryption key')}
+              {t('backup.key.title', 'Backup key')}
               {keyInfo.downloadedAt === null ? (
                 <Badge tone="warning" size="small">
                   {t('backup.key.notDownloaded', 'Not downloaded yet')}
@@ -817,37 +844,42 @@ export function BackupSettings() {
             canRestore ? (
               <Button
                 variant="ghost"
-                size="compact"
                 onClick={() => {
                   setKeyOpen(true);
                 }}
               >
-                {t('common.download', 'Download')}
+                <AppIcon id="download" size={16} />
+                {t('backup.key.download', 'Download key')}
               </Button>
             ) : undefined
           }
         />
-      </Panel>
+      </SettingsSection>
 
-      <Panel
-        title={t('backup.locations', 'Locations')}
+      <SettingsSection
+        label={t('backup.locations', 'Locations')}
         action={
           canWrite ? (
             <Button
               variant="ghost"
-              size="compact"
               onClick={() => {
                 setEditing('new');
               }}
             >
+              <AppIcon id="plus" size={16} />
               {t('backup.addLocation', 'Add location')}
             </Button>
           ) : undefined
         }
       >
         {(locations.data ?? []).map((location) => (
-          <PanelRow
+          <SettingsRow
             key={location.id}
+            leading={
+              <RowIcon>
+                <AppIcon id="folder" size={16} />
+              </RowIcon>
+            }
             title={
               <span className="flex items-center gap-2">
                 {location.name}
@@ -887,19 +919,26 @@ export function BackupSettings() {
             }
             control={
               <div className="flex items-center gap-2">
-                {canWrite ? (
+                {!canWrite ? null : location.lastResult === 'failure' ? (
                   <Button
-                    variant="ghost"
-                    size="compact"
+                    variant="danger"
                     onClick={() => {
                       setEditing(location);
                     }}
                   >
-                    {location.lastResult === 'failure'
-                      ? t('backup.why', 'Why')
-                      : t('common.edit', 'Edit')}
+                    {t('backup.why', 'Why')}
                   </Button>
-                ) : null}
+                ) : (
+                  <IconButton
+                    variant="raised"
+                    label={t('common.edit', 'Edit')}
+                    onClick={() => {
+                      setEditing(location);
+                    }}
+                  >
+                    <AppIcon id="pencil" size={15} />
+                  </IconButton>
+                )}
                 <Switch
                   label={t('backup.writeTo', 'Write backups to {{name}}', { name: location.name })}
                   isOn={location.isEnabled}
@@ -914,23 +953,22 @@ export function BackupSettings() {
           />
         ))}
         {data.capabilities.canMount ? null : (
-          <PanelNote>
+          <SettingsNote>
             {t(
               'backup.noMount',
               'SMB and NFS shares cannot be added here: {{problem}}. A disk mounted on the host can still be added as a folder.',
               { problem: data.capabilities.mountProblem },
             )}
-          </PanelNote>
+          </SettingsNote>
         )}
-      </Panel>
+      </SettingsSection>
 
-      <Panel
-        title={t('backup.restore', 'Restore')}
+      <SettingsSection
+        label={t('backup.restore', 'Restore')}
         action={
           isArchivesShown ? (
             <Button
               variant="ghost"
-              size="compact"
               isBusy={archives.isFetching}
               onClick={() => {
                 void archives.refetch();
@@ -942,7 +980,7 @@ export function BackupSettings() {
         }
       >
         {!isArchivesShown ? (
-          <PanelRow
+          <SettingsRow
             title={t('backup.archivesTitle', 'The backups in every location')}
             note={t(
               'backup.archivesNote',
@@ -951,32 +989,31 @@ export function BackupSettings() {
             control={
               <Button
                 variant="ghost"
-                size="compact"
                 onClick={() => {
                   setArchivesShown(true);
                 }}
               >
-                {t('common.show', 'Show')}
+                {t('backup.showBackups', 'Show backups')}
               </Button>
             }
           />
         ) : archives.isPending ? (
-          <p className="px-4 py-4 text-ui text-foreground-subtle">
+          <p className="py-4 text-ui text-foreground-subtle">
             {t('backup.opening', 'Opening the locations…')}
           </p>
         ) : archives.isError ? (
-          <p role="alert" className="px-4 py-4 text-ui text-danger">
+          <p role="alert" className="py-4 text-ui text-danger">
             {toMessage(archives.error)}
           </p>
         ) : (
           <>
             {archives.data.items.length === 0 ? (
-              <p className="px-4 py-4 text-ui text-foreground-subtle">
+              <p className="py-4 text-ui text-foreground-subtle">
                 {t('backup.noArchives', 'No backups yet.')}
               </p>
             ) : (
               archives.data.items.map((archive) => (
-                <PanelRow
+                <SettingsRow
                   key={`${archive.locationId}/${archive.name}`}
                   title={absoluteTime(archive.createdAt)}
                   note={`${archive.locationName} · ${formatBytes(archive.bytes)} · ${archive.sections
@@ -1002,7 +1039,6 @@ export function BackupSettings() {
                       (archive.restorable === 'ok' || archive.restorable === 'needs-key') ? (
                         <Button
                           variant="ghost"
-                          size="compact"
                           disabled={isRunning}
                           onClick={() => {
                             setRestoring(archive);
@@ -1017,28 +1053,28 @@ export function BackupSettings() {
               ))
             )}
             {archives.data.problems.map((problem) => (
-              <PanelNote key={problem.locationId}>
+              <SettingsNote key={problem.locationId}>
                 {t('backup.locationUnreadable', '{{name}} could not be read: {{message}}', {
                   name: problem.name,
                   message: problem.message,
                 })}
-              </PanelNote>
+              </SettingsNote>
             ))}
           </>
         )}
         {data.canRestore ? null : (
-          <PanelNote>
+          <SettingsNote>
             {t(
               'backup.needsContainer',
               'Restoring needs the NebulaHome container, which stops and starts the services around it.',
             )}
-          </PanelNote>
+          </SettingsNote>
         )}
-      </Panel>
+      </SettingsSection>
 
-      <Panel title={t('backup.recentRuns', 'Recent runs')}>
+      <SettingsSection label={t('backup.recentRuns', 'Recent runs')}>
         {pastRuns.length === 0 ? (
-          <p className="px-4 py-4 text-ui text-foreground-subtle">
+          <p className="py-4 text-ui text-foreground-subtle">
             {t('backup.noRuns', 'Nothing has run yet.')}
           </p>
         ) : (
@@ -1049,7 +1085,7 @@ export function BackupSettings() {
             const taken = run.destinations.filter((each) => each.status === 'success').length;
 
             return (
-              <PanelRow
+              <SettingsRow
                 key={run.id}
                 title={
                   <span className="flex items-center gap-2">
@@ -1097,14 +1133,14 @@ export function BackupSettings() {
                     </div>
                   </details>
                 )}
-              </PanelRow>
+              </SettingsRow>
             );
           })
         )}
-      </Panel>
+      </SettingsSection>
 
       {canWrite && isDirty ? (
-        <div className="sticky bottom-0 flex items-center gap-4 rounded-panel border border-border bg-surface-raised px-4 py-3">
+        <div className="sticky bottom-4 flex animate-rise items-center gap-4 rounded-card border border-border-strong bg-surface-raised px-4 py-3 shadow-popover">
           <span className="grow text-ui text-foreground-muted">
             {t('settings.data.unsaved', {
               count: Object.keys(draft).length,
@@ -1119,7 +1155,6 @@ export function BackupSettings() {
           )}
           <Button
             variant="ghost"
-            className="h-8 px-3 text-ui"
             onClick={() => {
               setDraft({});
               setSaveError(undefined);
@@ -1127,7 +1162,7 @@ export function BackupSettings() {
           >
             {t('common.discard', 'Discard')}
           </Button>
-          <Button className="h-8 px-3 text-ui" isBusy={isSaving} onClick={save}>
+          <Button isBusy={isSaving} onClick={save}>
             {t('common.save', 'Save')}
           </Button>
         </div>
@@ -1160,6 +1195,6 @@ export function BackupSettings() {
           setRestoring(null);
         }}
       />
-    </>
+    </SettingsPage>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * What the settings rail shows, and to whom.
+ * What the settings tree shows, and to whom.
  *
  * The behaviour being pinned is a permission one, so the cases are about absence: a section
  * nobody may open should not be advertised, and the group heading above it should go with it
@@ -9,7 +9,7 @@
  * request regardless, which is why the last case checks that typing the address gets a refusal
  * rather than a broken page.
  */
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
@@ -61,7 +61,7 @@ function renderAt(pathname: string): void {
         <Route path="/settings" element={<SettingsLayout />}>
           <Route path="account" element={<p>the account page</p>} />
           <Route
-            path="data"
+            path="data/retention"
             element={
               <RequiresPermission permission="settings:read" section="Data and retention">
                 <p>the server settings</p>
@@ -74,8 +74,8 @@ function renderAt(pathname: string): void {
   );
 }
 
-describe('the settings rail', () => {
-  it('always offers the sections that are about you', () => {
+describe('the settings tree', () => {
+  it('always offers the pages that are about you', () => {
     signedInWith();
     renderAt('/settings/account');
 
@@ -83,63 +83,72 @@ describe('the settings rail', () => {
     expect(screen.getByRole('link', { name: 'Interface' })).toBeTruthy();
   });
 
-  it('does not advertise a server section the person cannot open', () => {
+  it('does not advertise a server group the person cannot open', () => {
     signedInWith();
     renderAt('/settings/account');
 
-    expect(screen.queryByRole('link', { name: 'Users & roles' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Data & retention' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'People' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Data' })).toBeNull();
   });
 
-  it('drops the group heading when every section under it is out of reach', () => {
+  it('drops the scope heading when every group under it is out of reach', () => {
     signedInWith();
     renderAt('/settings/account');
 
     expect(screen.queryByText('Server')).toBeNull();
   });
 
-  it('shows a server section as soon as one permission reaches it', () => {
+  it('shows a server group as soon as one permission reaches it', () => {
     signedInWith('settings:read');
     renderAt('/settings/account');
 
     expect(screen.getByText('Server')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Data & retention' })).toBeTruthy();
-    expect(screen.queryByRole('link', { name: 'Users & roles' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Data' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'People' })).toBeNull();
   });
 
-  it('offers the system monitor only to somebody who may read the system', () => {
-    // It sits in the server group beside the settings, and still answers to its own permission:
-    // what the machine is doing is not a setting.
+  it('opens the group of the current page, and another when pressed', () => {
+    signedInWith('settings:read');
+    renderAt('/settings/data/retention');
+
+    expect(screen.getByRole('button', { name: 'Data' }).getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Network' }).getAttribute('aria-expanded')).toBe(
+      'false',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Network' }));
+
+    expect(screen.getByRole('button', { name: 'Network' }).getAttribute('aria-expanded')).toBe(
+      'true',
+    );
+  });
+
+  it('offers the monitor only to somebody who may read the system', () => {
+    // It sits in the System group beside Backup, and still answers to its own permission: what
+    // the machine is doing is not a setting.
     signedInWith('settings:read');
     renderAt('/settings/account');
 
-    expect(screen.queryByRole('link', { name: 'System monitor' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Monitor' })).toBeNull();
 
     signedInWith('system:read');
     renderAt('/settings/account');
 
-    expect(screen.getByRole('link', { name: 'System monitor' })).toBeTruthy();
-  });
-
-  it('names the role that unlocked the server group', () => {
-    signedInWith('settings:read');
-    renderAt('/settings/account');
-
-    expect(screen.getByText('Member')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Monitor' })).toBeTruthy();
   });
 });
 
 describe('a settings page behind a permission', () => {
   it('opens for somebody who holds it', () => {
     signedInWith('settings:read');
-    renderAt('/settings/data');
+    renderAt('/settings/data/retention');
 
     expect(screen.getByText('the server settings')).toBeTruthy();
   });
 
   it('refuses somebody who reaches it by typing the address', () => {
     signedInWith();
-    renderAt('/settings/data');
+    renderAt('/settings/data/retention');
 
     expect(screen.queryByText('the server settings')).toBeNull();
     expect(screen.getByText(/is not yours to open/)).toBeTruthy();
@@ -147,7 +156,7 @@ describe('a settings page behind a permission', () => {
 
   it('names the permission it wanted, so the refusal is actionable', () => {
     signedInWith();
-    renderAt('/settings/data');
+    renderAt('/settings/data/retention');
 
     expect(screen.getByText('settings:read')).toBeTruthy();
   });

@@ -14,6 +14,7 @@ import { Panel, PanelNote } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { formatBytes } from '@/lib/format-bytes';
+import { SettingsPage } from '@/routes/settings/settings-ui';
 import { SystemDiskCard } from '@/routes/settings/system-disk-card';
 import { SystemHostStrip } from '@/routes/settings/system-host-strip';
 import { SystemNetworkCard } from '@/routes/settings/system-network-card';
@@ -32,25 +33,29 @@ export function SystemMonitor() {
 
   if (monitor.isPending) {
     return (
-      <p className="text-ui text-foreground-subtle">
-        {t('system.reading', 'Reading the machine…')}
-      </p>
+      <SettingsPage path="/settings/system/monitor">
+        <p className="text-ui text-foreground-subtle">
+          {t('system.reading', 'Reading the machine…')}
+        </p>
+      </SettingsPage>
     );
   }
 
   if (monitor.isError) {
     return (
-      <Panel title={t('system.title', 'System monitor')}>
-        <p role="alert" className="px-4 pt-4 text-ui text-danger">
-          {toMessage(monitor.error)}
-        </p>
-        <PanelNote>
-          {t(
-            'system.errorNote',
-            'The readings come from core, which samples the machine. The page asks again every ten seconds and fills in as soon as core answers.',
-          )}
-        </PanelNote>
-      </Panel>
+      <SettingsPage path="/settings/system/monitor">
+        <Panel title={t('system.title', 'System monitor')}>
+          <p role="alert" className="px-4 pt-4 text-ui text-danger">
+            {toMessage(monitor.error)}
+          </p>
+          <PanelNote>
+            {t(
+              'system.errorNote',
+              'The readings come from core, which samples the machine. The page asks again every ten seconds and fills in as soon as core answers.',
+            )}
+          </PanelNote>
+        </Panel>
+      </SettingsPage>
     );
   }
 
@@ -59,14 +64,14 @@ export function SystemMonitor() {
   const latest = latestSample(snapshot);
 
   return (
-    <>
+    <SettingsPage path="/settings/system/monitor">
       <SystemHostStrip
         host={host}
         updatedAt={new Date(monitor.dataUpdatedAt)}
         isStale={monitor.isRefetchError}
       />
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3.5 md:grid-cols-3">
         <SystemTile
           title={t('system.processor', 'Processor')}
           detail={t('system.cores', {
@@ -115,6 +120,6 @@ export function SystemMonitor() {
 
       <SystemNetworkCard samples={samples} network={snapshot.network} />
       <SystemDiskCard disk={snapshot.disk} />
-    </>
+    </SettingsPage>
   );
 }

@@ -168,7 +168,7 @@ export function WebhookFields(props: {
             })}
           </span>
         )}
-        <Link to="/settings/webhooks" className="text-primary hover:text-primary-hover">
+        <Link to="/settings/network/webhooks" className="text-primary hover:text-primary-hover">
           {t('library.webhookFields.allCalls', 'All calls in Settings › Webhooks')}
         </Link>
       </div>

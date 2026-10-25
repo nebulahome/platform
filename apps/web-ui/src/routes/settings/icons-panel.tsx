@@ -17,16 +17,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { IconView } from '@nebulahome/contracts';
-import {
-  Badge,
-  Button,
-  CatalogueIcon,
-  Panel,
-  PanelNote,
-  TabPanel,
-  Tabs,
-  UI_ICON_IDS,
-} from '@nebulahome/ui';
+import { AppIcon, Badge, Button, CatalogueIcon, Segmented, UI_ICON_IDS } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { iconName } from '@/lib/icon-names';
@@ -35,6 +26,7 @@ import { fetchIcons, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
 import { IconEditorModal, type IconEditorTarget } from '@/routes/settings/icon-editor-modal';
+import { SettingsPage } from '@/routes/settings/settings-ui';
 
 /** How many icons the list shows at most. */
 const PAGE = 200;
@@ -71,12 +63,8 @@ function inScope(icon: IconView, scope: IconScope): boolean {
 function IconTile(props: { readonly icon: IconView; readonly onOpen: () => void }) {
   const { t } = useTranslation();
   const { icon, onOpen } = props;
+  const isInterface = INTERFACE_IDS.has(icon.id);
   const marks = [
-    INTERFACE_IDS.has(icon.id) ? (
-      <Badge key="interface" tone="accent" size="small">
-        {t('settings.icons.interface', 'Interface')}
-      </Badge>
-    ) : null,
     icon.origin === 'custom' ? (
       <Badge key="custom" tone="neutral" size="small">
         {t('settings.icons.custom', 'Custom')}
@@ -93,14 +81,19 @@ function IconTile(props: { readonly icon: IconView; readonly onOpen: () => void 
       <button
         type="button"
         title={icon.id}
-        className="flex h-full w-full flex-col items-center gap-2 rounded-field border border-border bg-surface px-2 pt-4 pb-3 text-center transition-[border-color,box-shadow] hover:border-border-strong focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none"
+        className="group relative flex h-full w-full flex-col items-center gap-2.5 rounded-card border border-border bg-surface px-2 pt-4 pb-3.5 text-center shadow-edge transition-[border-color,background-color,transform] duration-150 hover:-translate-y-px hover:border-border-strong hover:bg-surface-raised/40 focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none"
         onClick={onOpen}
       >
-        <CatalogueIcon node={icon.node} frame={icon.frame} size={28} className="text-foreground" />
-        <span className="flex w-full min-w-0 flex-col gap-0.5">
-          <span className="truncate text-ui font-medium text-foreground">
-            {iconName(icon.id, icon.name)}
+        {isInterface ? (
+          <span className="absolute top-2.5 right-2.5 size-1.5 rounded-full bg-primary">
+            <span className="sr-only">{t('settings.icons.interface', 'Interface')}</span>
           </span>
+        ) : null}
+        <span className="flex size-11 items-center justify-center rounded-tile bg-surface-raised text-foreground transition-colors group-hover:bg-surface-high">
+          <CatalogueIcon node={icon.node} frame={icon.frame} size={20} />
+        </span>
+        <span className="flex w-full min-w-0 flex-col gap-1">
+          <span className="truncate text-ui text-foreground">{iconName(icon.id, icon.name)}</span>
           <span className="truncate font-mono text-caption text-foreground-subtle">{icon.id}</span>
         </span>
         {marks.length === 0 ? null : (
@@ -152,111 +145,100 @@ export function IconsPanel() {
   };
 
   return (
-    <div className="flex flex-col gap-5">
-      <Panel
-        title={t('settings.nav.icons', 'Icons')}
-        action={
-          <div className="flex items-center gap-2.5">
-            <SearchField
-              label={t('settings.icons.search', 'Search icons')}
-              placeholder={t('settings.icons.searchPlaceholder', 'Search icons…')}
-              className="w-44 lg:w-64"
-              value={search}
-              onChange={setSearch}
-            />
-            {canWrite ? (
-              <Button
-                size="compact"
-                onClick={() => {
-                  setEditing({ mode: 'create' });
-                }}
-              >
-                {t('settings.icons.new', 'New icon')}
-              </Button>
-            ) : null}
-          </div>
-        }
-      >
-        <div className="border-t border-border px-4 pt-3">
-          <Tabs
-            label={t('settings.icons.which', 'Which icons')}
-            idPrefix="icons"
-            value={scope}
-            onChange={setScope}
-            items={[
-              { id: 'all', label: t('settings.icons.all', 'All') },
-              { id: 'interface', label: t('settings.icons.interface', 'Interface') },
-              { id: 'custom', label: t('settings.icons.custom', 'Custom') },
-            ]}
-          />
-          {scope === 'interface' ? (
-            <p className="pt-3 text-caption text-foreground-subtle">
-              {t(
-                'settings.icons.interfaceNote',
-                'The icons the interface draws itself with. Drawing one afresh changes it everywhere.',
-              )}
-            </p>
-          ) : null}
-        </div>
-        <TabPanel idPrefix="icons" id={scope}>
-          {icons.isPending ? (
-            <p className="px-4 py-3.5 text-ui text-foreground-muted">
-              {t('common.loading', 'Loading…')}
-            </p>
-          ) : icons.error !== null ? (
-            <p role="alert" className="px-4 py-3.5 text-ui text-danger">
-              {t('settings.icons.unreadable', 'The catalogue could not be read.')}
-            </p>
-          ) : icons.data.length === 0 ? (
-            query === '' ? (
-              <p className="px-4 py-3.5 text-ui text-foreground-muted">
-                {t('settings.icons.empty', 'The catalogue is empty.')}
-              </p>
-            ) : (
-              <div className="p-4">
-                <NoMatches
-                  query={query}
-                  onClear={() => {
-                    setSearch('');
-                  }}
-                />
-              </div>
-            )
-          ) : shown.length === 0 ? (
-            <p className="px-4 py-3.5 text-ui text-foreground-muted">
-              {scope === 'custom'
-                ? t('settings.icons.noCustom', 'No icons of your own yet.')
-                : t('settings.icons.noMatch', 'None of these icons match.')}
-            </p>
-          ) : (
-            <ul
-              aria-label={t('settings.nav.icons', 'Icons')}
-              className="grid grid-cols-3 gap-2.5 p-4 sm:grid-cols-4 lg:grid-cols-6"
-            >
-              {shown.map((icon) => (
-                <IconTile
-                  key={icon.id}
-                  icon={icon}
-                  onOpen={() => {
-                    if (canWrite) {
-                      setEditing({ mode: 'edit', icon });
-                    }
-                  }}
-                />
-              ))}
-            </ul>
-          )}
-        </TabPanel>
-        {icons.data !== undefined && icons.data.length >= PAGE ? (
-          <PanelNote>
-            {t(
-              'settings.icons.firstShown',
-              'The first {{count}} are shown. Search to find the rest of the catalogue.',
-              { count: PAGE },
-            )}
-          </PanelNote>
+    <SettingsPage path="/settings/customise/icons">
+      <div className="flex flex-wrap items-center gap-2">
+        <Segmented
+          label={t('settings.icons.which', 'Which icons')}
+          value={scope}
+          onChange={setScope}
+          options={[
+            { value: 'all', label: t('settings.icons.all', 'All') },
+            { value: 'interface', label: t('settings.icons.interface', 'Interface') },
+            { value: 'custom', label: t('settings.icons.custom', 'Custom') },
+          ]}
+        />
+        <span className="grow" />
+        <SearchField
+          label={t('settings.icons.search', 'Search icons')}
+          placeholder={t('settings.icons.searchPlaceholder', 'Search icons…')}
+          className="w-55"
+          value={search}
+          onChange={setSearch}
+        />
+        {canWrite ? (
+          <Button
+            onClick={() => {
+              setEditing({ mode: 'create' });
+            }}
+          >
+            <AppIcon id="plus" size={16} />
+            {t('settings.icons.new', 'New icon')}
+          </Button>
         ) : null}
-      </Panel>
+      </div>
+
+      {scope === 'interface' ? (
+        <p className="-mt-3 px-1 text-caption text-foreground-subtle">
+          {t(
+            'settings.icons.interfaceNote',
+            'The icons the interface draws itself with. Drawing one afresh changes it everywhere.',
+          )}
+        </p>
+      ) : null}
+
+      {icons.isPending ? (
+        <p className="text-ui text-foreground-muted">{t('common.loading', 'Loading…')}</p>
+      ) : icons.error !== null ? (
+        <p role="alert" className="text-ui text-danger">
+          {t('settings.icons.unreadable', 'The catalogue could not be read.')}
+        </p>
+      ) : icons.data.length === 0 ? (
+        query === '' ? (
+          <p className="text-ui text-foreground-muted">
+            {t('settings.icons.empty', 'The catalogue is empty.')}
+          </p>
+        ) : (
+          <NoMatches
+            query={query}
+            onClear={() => {
+              setSearch('');
+            }}
+          />
+        )
+      ) : shown.length === 0 ? (
+        <p className="text-ui text-foreground-muted">
+          {scope === 'custom'
+            ? t('settings.icons.noCustom', 'No icons of your own yet.')
+            : t('settings.icons.noMatch', 'None of these icons match.')}
+        </p>
+      ) : (
+        <ul
+          aria-label={t('settings.icons.list', 'Icons')}
+          className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6"
+        >
+          {shown.map((icon) => (
+            <IconTile
+              key={icon.id}
+              icon={icon}
+              onOpen={() => {
+                if (canWrite) {
+                  setEditing({ mode: 'edit', icon });
+                }
+              }}
+            />
+          ))}
+        </ul>
+      )}
+
+      {icons.data !== undefined && icons.data.length >= PAGE ? (
+        <p className="px-1 text-caption text-foreground-subtle">
+          {t(
+            'settings.icons.firstShown',
+            'The first {{count}} are shown. Search to find the rest of the catalogue.',
+            { count: PAGE },
+          )}
+        </p>
+      ) : null}
 
       <IconEditorModal
         // Keyed on the target, so the editor is a fresh one each time it opens.
@@ -267,6 +249,6 @@ export function IconsPanel() {
         }}
         onSaved={settle}
       />
-    </div>
+    </SettingsPage>
   );
 }

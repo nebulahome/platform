@@ -69,11 +69,13 @@ import { BackupSettings } from '@/routes/settings/backup-settings';
 import { DataAndRetention } from '@/routes/settings/data-and-retention';
 import { IconsPanel } from '@/routes/settings/icons-panel';
 import { InterfaceSettings } from '@/routes/settings/interface-settings';
+import { PeoplePanel } from '@/routes/settings/people-panel';
 import { RequiresPermission } from '@/routes/settings/requires-permission';
-import { DEFAULT_SETTINGS_SECTION, SettingsLayout } from '@/routes/settings/settings-layout';
+import { RolesPanel } from '@/routes/settings/roles-panel';
+import { SettingsLayout } from '@/routes/settings/settings-layout';
+import { DEFAULT_SETTINGS_PAGE } from '@/routes/settings/settings-tree';
 import { SystemMonitor } from '@/routes/settings/system-monitor';
-import { UsersAndRoles } from '@/routes/settings/users-and-roles';
-import { WebhooksSettings } from '@/routes/settings/webhooks-settings';
+import { WebhookCalls, WebhooksSettings } from '@/routes/settings/webhooks-settings';
 import { PagePlaceholder, Shell } from '@/routes/shell';
 import { SignInForm } from '@/routes/sign-in';
 import { TwoFactorFooter, TwoFactorForm } from '@/routes/two-factor';
@@ -425,48 +427,44 @@ export function SessionRoutes() {
         />
 
         <Route path="/settings" element={<SettingsLayout />}>
-          <Route index element={<Navigate to={DEFAULT_SETTINGS_SECTION} replace />} />
+          <Route index element={<Navigate to={DEFAULT_SETTINGS_PAGE} replace />} />
           <Route path="account" element={<AccountSettings />} />
           <Route path="interface" element={<InterfaceSettings />} />
-
           <Route
-            path="system"
+            path="people/users"
+            element={
+              <RequiresPermission
+                permission="user:read"
+                section={t('settings.sections.users', 'Users')}
+              >
+                <PeoplePanel />
+              </RequiresPermission>
+            }
+          />
+          <Route
+            path="people/roles"
+            element={
+              <RequiresPermission
+                permission="user:read"
+                section={t('settings.sections.roles', 'Roles')}
+              >
+                <RolesPanel />
+              </RequiresPermission>
+            }
+          />
+          <Route
+            path="system/monitor"
             element={
               <RequiresPermission
                 permission="system:read"
-                section={t('settings.sections.system', 'System monitor')}
+                section={t('settings.sections.monitor', 'Monitor')}
               >
                 <SystemMonitor />
               </RequiresPermission>
             }
           />
-
           <Route
-            path="users"
-            element={
-              <RequiresPermission
-                permission="user:read"
-                section={t('settings.sections.users', 'Users and roles')}
-              >
-                <UsersAndRoles />
-              </RequiresPermission>
-            }
-          />
-
-          <Route
-            path="data"
-            element={
-              <RequiresPermission
-                permission="settings:read"
-                section={t('settings.sections.data', 'Data and retention')}
-              >
-                <DataAndRetention />
-              </RequiresPermission>
-            }
-          />
-
-          <Route
-            path="backup"
+            path="system/backup"
             element={
               <RequiresPermission
                 permission="settings:read"
@@ -476,9 +474,19 @@ export function SessionRoutes() {
               </RequiresPermission>
             }
           />
-
           <Route
-            path="webhooks"
+            path="data/retention"
+            element={
+              <RequiresPermission
+                permission="settings:read"
+                section={t('settings.sections.retention', 'Retention')}
+              >
+                <DataAndRetention />
+              </RequiresPermission>
+            }
+          />
+          <Route
+            path="network/webhooks"
             element={
               <RequiresPermission
                 permission="settings:read"
@@ -488,9 +496,19 @@ export function SessionRoutes() {
               </RequiresPermission>
             }
           />
-
           <Route
-            path="icons"
+            path="network/webhooks/calls"
+            element={
+              <RequiresPermission
+                permission="settings:read"
+                section={t('settings.sections.webhooks', 'Webhooks')}
+              >
+                <WebhookCalls />
+              </RequiresPermission>
+            }
+          />
+          <Route
+            path="customise/icons"
             element={
               <RequiresPermission
                 permission="settings:read"
@@ -500,6 +518,7 @@ export function SessionRoutes() {
               </RequiresPermission>
             }
           />
+          <Route path="*" element={<Navigate to={DEFAULT_SETTINGS_PAGE} replace />} />
         </Route>
         <Route path="*" element={<PagePlaceholder />} />
       </Route>

@@ -6,6 +6,7 @@
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { IconView } from '@nebulahome/contracts';
@@ -75,9 +76,11 @@ function renderPanel(permissions = ['settings:read', 'settings:write']): void {
   });
 
   render(
-    <QueryClientProvider client={new QueryClient()}>
-      <IconsPanel />
-    </QueryClientProvider>,
+    <MemoryRouter initialEntries={['/settings/customise/icons']}>
+      <QueryClientProvider client={new QueryClient()}>
+        <IconsPanel />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 

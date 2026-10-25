@@ -71,7 +71,7 @@ export function SystemTile(props: SystemTileProps) {
   return (
     <section
       aria-label={title}
-      className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-surface p-5"
+      className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-surface p-4.5 shadow-edge"
     >
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-ui-sm text-foreground-muted">{title}</span>

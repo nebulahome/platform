@@ -16,16 +16,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { type ScopedPermission } from '@nebulahome/contracts';
-import {
-  Button,
-  Modal,
-  Panel,
-  PanelRow,
-  Segmented,
-  SelectField,
-  TextField,
-  toast,
-} from '@nebulahome/ui';
+import { AppIcon, Button, Modal, Segmented, SelectField, TextField, toast } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { defineMessage, text, type Message } from '@/i18n/messages';
@@ -39,6 +30,7 @@ import { OPEN_SEARCH_AND_FACET, searchAndFacetCodec } from '@/library/list-filte
 import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
+import { SettingsRow, SettingsSection } from '@/routes/settings/settings-ui';
 import {
   SETTINGS_QUERY_KEYS,
   createAccessToken,
@@ -193,8 +185,8 @@ export function TokensPanel() {
 
   return (
     <>
-      <Panel
-        title={t('settings.tokens.title', 'Personal access tokens')}
+      <SettingsSection
+        label={t('settings.tokens.section', 'Access tokens')}
         action={
           <span className="flex items-center gap-2">
             {all.length === 0 ? null : (
@@ -234,31 +226,32 @@ export function TokensPanel() {
               </>
             )}
             <Button
-              className="h-8 px-3 text-ui"
+              variant="ghost"
               onClick={() => {
                 setError(undefined);
                 setCreating(true);
               }}
             >
+              <AppIcon id="plus" size={16} />
               {t('settings.tokens.create', 'Create token')}
             </Button>
           </span>
         }
       >
         {tokens.isPending ? (
-          <p className="px-4 py-4 text-ui text-foreground-subtle">
+          <p className="py-4 text-ui text-foreground-subtle">
             {t('settings.tokens.reading', 'Reading your tokens…')}
           </p>
         ) : null}
 
         {tokens.isError ? (
-          <p role="alert" className="px-4 py-4 text-ui text-danger">
+          <p role="alert" className="py-4 text-ui text-danger">
             {toMessage(tokens.error)}
           </p>
         ) : null}
 
         {tokens.isSuccess && tokens.data.length === 0 ? (
-          <p className="px-4 py-4 text-ui text-foreground-subtle">
+          <p className="py-4 text-ui text-foreground-muted">
             {t(
               'settings.tokens.empty',
               'None yet. A token is how a script signs in without your password.',
@@ -267,7 +260,7 @@ export function TokensPanel() {
         ) : null}
 
         {all.length > 0 && shown.length === 0 ? (
-          <div className="p-4">
+          <div className="py-4">
             <NoMatches
               query={filter.search}
               onClear={() => {
@@ -278,7 +271,7 @@ export function TokensPanel() {
         ) : null}
 
         {shown.map((token) => (
-          <PanelRow
+          <SettingsRow
             key={token.id}
             title={token.name}
             note={
@@ -304,7 +297,7 @@ export function TokensPanel() {
             control={
               <Button
                 variant="danger"
-                className="h-8 px-3 text-ui"
+                size="compact"
                 onClick={() => {
                   revoke(token.id);
                 }}
@@ -314,7 +307,7 @@ export function TokensPanel() {
             }
           />
         ))}
-      </Panel>
+      </SettingsSection>
 
       <Modal
         isOpen={isCreating}

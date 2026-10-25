@@ -3,6 +3,7 @@
  * account and read back, which is what switches the interface.
  */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SessionUser } from '@nebulahome/contracts';
@@ -41,7 +42,7 @@ afterEach(async () => {
 
 describe('LanguageRow', () => {
   it("names the house's language as the choice of following it", () => {
-    render(<LanguageRow />);
+    render(<LanguageRow />, { wrapper: MemoryRouter });
 
     expect(screen.getByRole('combobox').textContent).toContain('House language (Italiano)');
   });
@@ -50,7 +51,7 @@ describe('LanguageRow', () => {
     const refreshUser = vi.fn().mockResolvedValue(undefined);
 
     useSession.setState({ refreshUser });
-    render(<LanguageRow />);
+    render(<LanguageRow />, { wrapper: MemoryRouter });
     fireEvent.click(screen.getByRole('combobox'));
     fireEvent.click(screen.getByRole('option', { name: 'English' }));
 
@@ -62,7 +63,7 @@ describe('LanguageRow', () => {
 
   it('goes back to following the house with null', async () => {
     useSession.setState({ user: { ...USER, locale: 'en' } });
-    render(<LanguageRow />);
+    render(<LanguageRow />, { wrapper: MemoryRouter });
     fireEvent.click(screen.getByRole('combobox'));
     fireEvent.click(screen.getByRole('option', { name: /^House language/u }));
 
@@ -73,7 +74,7 @@ describe('LanguageRow', () => {
 
   it('speaks Italian to somebody who reads Italian', async () => {
     await applyLanguage('it');
-    render(<LanguageRow />);
+    render(<LanguageRow />, { wrapper: MemoryRouter });
 
     expect(screen.getAllByText('Lingua').length).toBeGreaterThan(0);
     expect(screen.getByRole('combobox').textContent).toContain('Lingua della casa (Italiano)');

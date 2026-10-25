@@ -11,6 +11,7 @@
  */
 import { AccountPanel } from '@/routes/settings/account-panel';
 import { SessionsPanel } from '@/routes/settings/sessions-panel';
+import { SettingsPage } from '@/routes/settings/settings-ui';
 import { TokensPanel } from '@/routes/settings/tokens-panel';
 
 /**
@@ -20,10 +21,10 @@ import { TokensPanel } from '@/routes/settings/tokens-panel';
  */
 export function AccountSettings() {
   return (
-    <>
+    <SettingsPage path="/settings/account">
       <AccountPanel />
       <SessionsPanel />
       <TokensPanel />
-    </>
+    </SettingsPage>
   );
 }

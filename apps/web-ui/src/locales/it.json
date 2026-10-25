@@ -412,12 +412,13 @@
       "downloadNote": "Tienila lontano da questa macchina: un gestore di password, una chiavetta USB in un cassetto. Senza la chiave un backup non si apre da nessun'altra parte; con la chiave chiunque può aprire tutti i backup.",
       "downloadTitle": "Scarica la chiave dei backup",
       "downloaded": "scaricata {{when}}",
-      "encryption": "Chiave di cifratura",
       "fromEnvironment": "dall'ambiente",
       "notDownloaded": "Non ancora scaricata",
       "onlyHere": "senza la chiave, un backup si può ripristinare solo su questa macchina",
       "password": "La tua password",
-      "title": "Chiave dei backup"
+      "title": "Chiave dei backup",
+      "section": "Chiave di cifratura",
+      "download": "Scarica la chiave"
     },
     "kindNotes": {
       "ftp": "Un server FTP, in chiaro o su TLS",
@@ -602,7 +603,6 @@
     "theDay": "Il giorno",
     "theDays": "I giorni",
     "time": "Ora",
-    "title": "Backup",
     "triggers": {
       "catchUp": "Saltato, fatto dopo",
       "manual": "A mano",
@@ -611,11 +611,14 @@
     },
     "unreachable": "Il servizio dei backup non risponde: {{message}}",
     "unreadable": "Illeggibile",
-    "what": "Cosa includere",
     "when": "Quando",
     "whenFixed": "Alle {{time}}, ora di {{zone}}.",
     "why": "Perché",
-    "writeTo": "Scrivi i backup in {{name}}"
+    "writeTo": "Scrivi i backup in {{name}}",
+    "schedule": "Pianificazione",
+    "contents": "Contenuto",
+    "alwaysIncluded": "Sempre incluso",
+    "showBackups": "Mostra i backup"
   },
   "brokers": {
     "card": {
@@ -1056,7 +1059,6 @@
     "on": "Attivo",
     "remove": "Rimuovi",
     "save": "Salva",
-    "show": "Mostra",
     "no": "No",
     "yes": "Sì"
   },
@@ -3050,16 +3052,6 @@
       "notPlacedOnThe": "Non ancora posizionata sulla mappa.",
       "placed": "Posizionata"
     },
-    "iconPickerModal": {
-      "catalogueCouldNotBe": "Il catalogo non si è potuto leggere.",
-      "chooseAnIcon": "Scegli un'icona",
-      "icons": "Icone",
-      "looking": "Ricerca…",
-      "nothingMatches": "Non corrisponde niente.",
-      "platformSOwnIcons": "Prima le icone della piattaforma, poi tutto il resto del catalogo.",
-      "searchIcons": "Cerca icone",
-      "searchIcons2": "Cerca icone…"
-    },
     "installIntegrationsDialog": {
       "askingTheHub": "Chiedo all'Hub…",
       "byOwner": "di {{owner}}",
@@ -3726,6 +3718,16 @@
       "neverCalled": "Non ancora chiamato",
       "newAddress": "Crea un nuovo indirizzo",
       "reachableFrom": "Raggiungibile da"
+    },
+    "iconPicker": {
+      "custom": "Personalizzate",
+      "system": "Sistema",
+      "chooseAnIcon": "Scegli un'icona",
+      "searchIcons": "Cerca icone",
+      "looking": "Cerco…",
+      "catalogueCouldNotBe": "Impossibile leggere il catalogo.",
+      "nothingMatches": "Nessun risultato.",
+      "escToClose": "Esc per chiudere"
     }
   },
   "live": {
@@ -4117,7 +4119,6 @@
   },
   "settings": {
     "account": {
-      "profile": "Profilo",
       "security": "Sicurezza"
     },
     "avatar": {
@@ -4140,7 +4141,6 @@
       "effectNote": "Un valore salvato viene registrato e tracciato. Il fuso orario, la lingua della casa e la posizione della casa valgono subito; la conservazione, il livello dei log e la durata della sessione valgono quando il servizio che li gestisce imparerà a rileggerli, e fino ad allora seguono i valori con cui la piattaforma è stata avviata.",
       "houseLanguage": "Lingua della casa",
       "installation": "Questa installazione",
-      "ladderNote": "Un livello non può tenere i dati per meno tempo di quello sotto. Ogni riassunto rilegge un tratto fisso all'indietro nel livello inferiore, quindi un gradino più corto cancellerebbe le righe prima che il livello più grossolano le abbia lette, e nessuno lo segnalerebbe.",
       "ladderProblem": "La conservazione non può diminuire man mano che la risoluzione si fa più grossolana: grezzi <= 1m <= 1h <= 1d, null per ultimo",
       "levelAndAbove": "{{level}} e superiori",
       "lifetimes": {
@@ -4152,9 +4152,7 @@
         "year": "Un anno"
       },
       "logLevel": "Livello dei log",
-      "positionNote": "La posizione della casa si imposta sulla casa stessa, in Libreria → Aree. La mappa intorno si disegna da quella posizione, e le attivazioni all'alba e al tramonto si calcolano su di essa.",
       "reading": "Lettura delle impostazioni…",
-      "rest": "Per quanto tempo si tiene il resto",
       "rows": {
         "audit": "Registro di controllo",
         "automationTraces": "Tracce delle automazioni",
@@ -4173,13 +4171,23 @@
         "rawNote": "Ogni lettura, così come è arrivata"
       },
       "sessionLifetime": "Durata della sessione",
-      "telemetry": "Conservazione della telemetria",
       "temperature": "Temperatura",
       "temperatureUnit": "Unità di temperatura",
       "unsaved_many": "{{count}} modifiche non salvate",
       "unsaved_one": "{{count}} modifica non salvata",
       "unsaved_other": "{{count}} modifiche non salvate",
-      "useBrowserZone": "Usa quello di questo browser, {{zone}}"
+      "useBrowserZone": "Usa quello di questo browser, {{zone}}",
+      "rungTitles": {
+        "raw": "Ogni lettura",
+        "minute": "Una al minuto",
+        "hour": "Una all'ora",
+        "day": "Una al giorno"
+      },
+      "readings": "Letture",
+      "now": "adesso",
+      "ago": "{{span}} fa",
+      "keptFor": "conservate per",
+      "historyAndLogs": "Cronologia e log"
     },
     "descriptions": {
       "backupEnabled": "Se i backup vengono fatti secondo la loro pianificazione",
@@ -4209,7 +4217,7 @@
     },
     "groups": {
       "server": "Server",
-      "you": "Tu"
+      "personal": "Personale"
     },
     "icons": {
       "all": "Tutte",
@@ -4248,11 +4256,11 @@
       "uploadFirst": "Prima carica un disegno.",
       "which": "Quali icone",
       "zoomIn": "Ingrandisci",
-      "zoomOut": "Rimpicciolisci"
+      "zoomOut": "Rimpicciolisci",
+      "list": "Icone"
     },
     "interface": {
       "appearance": "Aspetto",
-      "browserOnly": "Queste scelte sono salvate solo in questo browser. Accedendo da un'altra parte si riparte dai valori predefiniti, ed è voluto: un tablet a muro in corridoio e un portatile in camera vogliono risposte diverse, e la stessa persona li usa entrambi. La tua lingua è salvata con il tuo account, in Account e sicurezza.",
       "motion": "Movimento",
       "motionNote": "Ridotto ferma il cielo che scorre dietro la schermata di accesso e trasforma il simbolo di caricamento in un battito.",
       "motions": {
@@ -4283,16 +4291,6 @@
       "note": "La lingua in cui l'interfaccia ti parla. I nomi e tutto ciò che è stato scritto restano come sono.",
       "title": "Lingua"
     },
-    "nav": {
-      "account": "Account e sicurezza",
-      "backup": "Backup",
-      "data": "Dati e conservazione",
-      "icons": "Icone",
-      "interface": "Interfaccia",
-      "system": "Monitor di sistema",
-      "users": "Utenti e ruoli",
-      "webhooks": "Webhook"
-    },
     "password": {
       "change": "Cambia la password",
       "changeIt": "Cambiala",
@@ -4312,26 +4310,36 @@
       "createAccount": "Crea l'account",
       "deleteNote": "Le sue sessioni finiscono subito. Il registro di controllo conserva il nome, perché un registro che dimentica chi ha fatto una cosa non è un registro.",
       "deleteTitle": "Eliminare questo account?",
-      "disableNote": "Disattivare un account rifiuta ogni accesso senza eliminarlo, né eliminare il suo registro di controllo.",
       "disabled": "Disattivato",
       "disabledLower": "disattivato",
-      "editAccount": "Modifica l'account",
       "firstPassword": "Prima password",
-      "invite": "Invita una persona",
       "inviteNote": "Accede con la password che imposti qui, e la deve cambiare la prima volta.",
       "inviteTitle": "Invita qualcuno",
-      "lastSeen": "Ultima visita",
       "narrow": "Filtra le persone",
-      "never": "mai",
-      "ownAccount": "Questo è il tuo account: il suo ruolo e il fatto che sia attivo non li puoi cambiare da qui.",
-      "person": "Persona",
       "reading": "Lettura degli account…",
       "refused": "Rifiutato",
       "role": "Ruolo",
-      "search": "Cerca persone…",
       "signIn": "Accesso",
       "twoFactor": "2FA",
-      "username": "Nome utente"
+      "username": "Nome utente",
+      "searchLabel": "Cerca utenti",
+      "searchUsers": "Cerca utenti",
+      "inviteUser": "Invita un utente",
+      "list": "Persone",
+      "editPerson": "Modifica {{name}}",
+      "twoFactorOnTitle": "Verifica in due passaggi attiva",
+      "twoFactorOffTitle": "Verifica in due passaggi disattivata",
+      "neverSignedIn": "mai entrato",
+      "editTitle": "Modifica {{name}}",
+      "lastSeenWhen": "visto {{when}}",
+      "deleteAccount": "Elimina account",
+      "usernameFixed": "Non cambia più, una volta creato l'account.",
+      "ownRole": "Il tuo ruolo non puoi cambiarlo tu; può farlo un altro amministratore.",
+      "refusedNote": "Negato tiene l'account, senza accesso.",
+      "twoFactorTitle": "Verifica in due passaggi",
+      "twoFactorOn": "Attiva",
+      "twoFactorOff": "Disattivata",
+      "twoFactorNote": "Ognuno la attiva dal proprio account."
     },
     "profile": {
       "displayName": "Nome visualizzato",
@@ -4342,37 +4350,70 @@
       "updated": "Profilo aggiornato"
     },
     "roles": {
-      "every": "Tutti i permessi",
-      "held": "{{held}} di {{count}} permessi",
-      "notGranted": "non concesso",
       "people_many": "{{count}} persone",
       "people_one": "{{count}} persona",
       "people_other": "{{count}} persone",
-      "readOnly": "Qui i ruoli sono in sola lettura. Per cambiare cosa concede un ruolo serve un endpoint che ancora non esiste: `role:manage` è nel catalogo dei permessi e niente lo serve. Una persona si può comunque spostare da un ruolo all'altro dalla tabella qui sopra.",
       "reading": "Lettura dei ruoli…",
-      "title": "Cosa concede ogni ruolo"
+      "nameNeeded": "Un ruolo ha bisogno di un nome.",
+      "newFrom": "Nuovo ruolo da {{name}}",
+      "editTitle": "Modifica {{name}}",
+      "dialogNote": "I ruoli personalizzati si possono modificare ed eliminare.",
+      "create": "Crea ruolo",
+      "startFrom": "Parti da",
+      "startFromOption": "{{name}} · {{count}} permessi",
+      "startFromHint": "I suoi permessi vengono copiati; li cambi dopo.",
+      "name": "Nome",
+      "nameHint": "Il pulsante dell'icona apre il selettore di icone.",
+      "description": "Descrizione",
+      "descriptionHint": "Una riga sotto il nome.",
+      "untitled": "Nuovo ruolo",
+      "preview": "Anteprima",
+      "deleteTitle": "Eliminare {{name}}?",
+      "deleteNobody": "Nessuno lo ha. Se ne va, con i suoi permessi.",
+      "deleteSomebody_one": "{{count}} persona lo ha e passerà al ruolo che scegli.",
+      "deleteSomebody_many": "{{count}} persone lo hanno e passeranno al ruolo che scegli.",
+      "deleteSomebody_other": "{{count}} persone lo hanno e passeranno al ruolo che scegli.",
+      "moveTo": "Spostale in",
+      "builtIn": "Predefinito",
+      "custom": "Personalizzato",
+      "changeFailed": "Impossibile modificare il ruolo",
+      "ofPermissions": "di {{count}} permessi",
+      "nobody": "Nessuno",
+      "builtInNote": "Predefinito, quindi i suoi permessi non si possono cambiare. Duplicalo per creare un ruolo personalizzato.",
+      "customNote": "Ruolo personalizzato. Fai clic su un permesso per darlo o toglierlo; le modifiche valgono subito.",
+      "duplicate": "Duplica",
+      "editDetails": "Modifica dettagli",
+      "peopleCount": "Persone · {{count}}",
+      "permissionsCount": "Permessi · {{held}} di {{count}}",
+      "selectAll": "Seleziona tutti",
+      "clear": "Nessuno",
+      "xOfY": "{{held}} di {{count}}",
+      "lockedBuiltIn": "Predefinito: duplica il ruolo per cambiarlo",
+      "lockedNotHeld": "Solo chi ha questo permesso può darlo",
+      "lockedNoRight": "Per cambiare i ruoli serve role:manage",
+      "count": "Ruoli · {{count}}",
+      "new": "Nuovo ruolo"
     },
     "sections": {
       "backup": "Backup",
-      "data": "Dati e conservazione",
       "icons": "Icone",
-      "system": "Monitor di sistema",
-      "users": "Utenti e ruoli",
-      "webhooks": "Webhook"
+      "users": "Utenti",
+      "webhooks": "Webhook",
+      "roles": "Ruoli",
+      "monitor": "Monitor",
+      "retention": "Conservazione"
     },
     "sessions": {
-      "address": "Indirizzo",
-      "browser": "Browser",
       "browserOn": "{{browser}} su {{system}}",
-      "lastActive": "Ultima attività",
       "reading": "Lettura delle tue sessioni…",
       "revoke": "Revoca",
       "revokeFailed": "Impossibile revocare la sessione",
       "revoked": "Sessione revocata",
       "signOutEverywhere": "Esci ovunque",
-      "thisOne": "Questa",
-      "title": "Sessioni attive",
-      "unknownClient": "Client non riconosciuto"
+      "unknownClient": "Client non riconosciuto",
+      "section": "Sessioni",
+      "thisDevice": "Questo dispositivo",
+      "signOut": "Esci"
     },
     "title": "Impostazioni",
     "tokens": {
@@ -4400,8 +4441,8 @@
       "revokeFailed": "Impossibile revocare il token",
       "revoked": "Token revocato",
       "search": "Cerca token…",
-      "title": "Token di accesso personali",
-      "used": "Usati"
+      "used": "Usati",
+      "section": "Token di accesso"
     },
     "twoFactor": {
       "code": "Codice dell'app",
@@ -4421,14 +4462,8 @@
       "turnItOff": "Disattivala",
       "turnOff": "Disattiva"
     },
-    "users": {
-      "roles": "Ruoli",
-      "tabs": "Utenti e ruoli",
-      "users": "Utenti"
-    },
     "webhooks": {
       "active": "Attiva",
-      "address": "Indirizzo",
       "allAutomations": "Tutte le automazioni",
       "allCalls": "Tutte le chiamate",
       "answer": "Risposta",
@@ -4455,7 +4490,6 @@
       "localNetwork": "Rete locale",
       "method": "Metodo",
       "month": "30 giorni",
-      "more": "Altro",
       "narrowTheCalls": "Restringi le chiamate",
       "never": "Mai",
       "noCalls": "Nessuna chiamata in questo periodo.",
@@ -4484,8 +4518,72 @@
       "webhook": "Webhook",
       "week": "7 giorni",
       "whatHappened": "Cosa è successo",
-      "where": "Dove"
-    }
+      "where": "Dove",
+      "callsToday": "{{count}} in 24 h",
+      "ownedByTrigger": "Creato dall'attivazione webhook dell'automazione; si cambia lì.",
+      "url": "URL",
+      "allCallsFor": "Tutte le chiamate di questo webhook",
+      "activity": "Attività",
+      "recentCallsNote": "{{count}} nelle ultime 24 h · conservate 30 giorni",
+      "lastHour": "Ultima ora",
+      "lastDay": "Ultime 24 ore",
+      "lastWeek": "Ultimi 7 giorni",
+      "lastMonth": "Ultimi 30 giorni",
+      "recentCallsPage": "Ogni chiamata ai webhook, conservata 30 giorni."
+    },
+    "search": {
+      "notes": {
+        "twoFactor": "Un codice dopo la password.",
+        "motion": "Ridotto ferma il movimento di sfondo.",
+        "sidebar": "Come si apre su questo dispositivo.",
+        "automaticBackups": "Partono secondo la pianificazione qui sotto.",
+        "frequency": "Ogni giorno, ogni settimana o nei giorni scelti.",
+        "when": "A un'ora fissa, o quando la macchina è più tranquilla.",
+        "backupKey": "Serve su un'altra macchina."
+      },
+      "pages": "Pagine",
+      "settings": "Impostazioni",
+      "permissions": "Permessi",
+      "label": "Cerca nelle impostazioni",
+      "clear": "Cancella la ricerca",
+      "results": "Risultati della ricerca",
+      "count_one": "{{count}} risultato",
+      "count_many": "{{count}} risultati",
+      "count_other": "{{count}} risultati",
+      "keys": "↑ ↓ per muoverti · Invio per aprire",
+      "nothing": "Nessun risultato per “{{query}}”.",
+      "what": "Cerca nei nomi, nelle descrizioni e nei permessi",
+      "esc": "Esc per chiudere",
+      "fromSearch": "Dalla ricerca"
+    },
+    "tree": {
+      "account": "Account e sicurezza",
+      "interface": "Interfaccia",
+      "people": "Persone",
+      "users": "Utenti",
+      "roles": "Ruoli",
+      "system": "Sistema",
+      "monitor": "Monitor",
+      "backup": "Backup",
+      "data": "Dati",
+      "retention": "Conservazione",
+      "network": "Rete",
+      "webhooks": "Webhook",
+      "customise": "Personalizza",
+      "icons": "Icone"
+    },
+    "pages": {
+      "account": "Il tuo profilo, l'accesso e le sessioni.",
+      "interface": "Come appare Nebula in questo browser.",
+      "users": "Chi può accedere a questa casa.",
+      "roles": "Cosa permette ogni ruolo. Ogni persona ne ha uno.",
+      "monitor": "La macchina su cui gira Nebula Home, in diretta.",
+      "backup": "Copie della tua configurazione, pronte da ripristinare.",
+      "retention": "Per quanto si conserva la cronologia, e le impostazioni di tutta la casa.",
+      "webhooks": "Avvia automazioni da altre app con una chiamata web.",
+      "icons": "Le icone usate in tutta Nebula."
+    },
+    "breadcrumb": "Percorso"
   },
   "shell": {
     "notFound": {
@@ -4560,7 +4658,6 @@
     "networkUnreadable": "La rete non si può leggere su questa macchina. Si legge dal kernel su Linux e da netstat su Windows; le due entità di rete restano non disponibili finché non si può.",
     "notAnswering": "Non risponde",
     "notCounted": "Non ancora contato",
-    "openInDevices": "Apri in Dispositivi",
     "partlyElsewhere": "Parte di ciò che NebulaHome conserva sta su un altro disco - il database, quando gira in Docker - quindi la barra è un po' più lunga di questo volume.",
     "parts": {
       "database": "Database",
@@ -4577,7 +4674,8 @@
     "upload": "Upload",
     "usageAt": "{{title}} al {{percent}}",
     "usedOf": "{{used}} di {{total}}",
-    "waiting": "In attesa della prima lettura"
+    "waiting": "In attesa della prima lettura",
+    "openDevice": "Apri dispositivo"
   },
   "time": {
     "days_many": "{{count}} giorni",
@@ -4734,5 +4832,53 @@
     "notReadable": "Questo file non è né JSON né YAML, quindi non contiene automazioni o scene.",
     "otherFormat": "Questo file è un {{format}}, non automazioni o scene.",
     "nothingToImport": "Niente in questo file si legge come un'automazione o una scena."
+  },
+  "permissionLabels": {
+    "entityRead": "Vedere le entità",
+    "entityControl": "Comandare le entità",
+    "entityWrite": "Rinominare e configurare",
+    "entityDelete": "Rimuovere le entità",
+    "historyRead": "Leggere la cronologia",
+    "deviceRead": "Vedere i dispositivi",
+    "deviceWrite": "Modificare i dispositivi",
+    "deviceDelete": "Rimuovere i dispositivi",
+    "areaRead": "Vedere le aree",
+    "areaWrite": "Modificare le aree",
+    "tagRead": "Vedere i tag",
+    "tagWrite": "Modificare i tag",
+    "automationRead": "Vedere le automazioni",
+    "automationTrigger": "Avviare le automazioni",
+    "automationWrite": "Scrivere le automazioni",
+    "sceneRead": "Vedere le scene",
+    "sceneApply": "Applicare le scene",
+    "sceneWrite": "Scrivere le scene",
+    "aliasRead": "Vedere gli alias",
+    "aliasWrite": "Scrivere gli alias",
+    "dashboardManage": "Gestire le dashboard",
+    "integrationRead": "Vedere le integrazioni",
+    "integrationConfigure": "Configurare le integrazioni",
+    "integrationInstall": "Installare le integrazioni",
+    "packageRead": "Vedere i pacchetti",
+    "packageInstall": "Installare i pacchetti",
+    "packageConfigure": "Configurare i pacchetti",
+    "containerRead": "Vedere i container",
+    "containerControl": "Comandare i container",
+    "containerInstall": "Installare i container",
+    "systemRead": "Monitor di sistema",
+    "logsRead": "Leggere i log",
+    "userRead": "Vedere le persone",
+    "userManage": "Gestire le persone",
+    "roleManage": "Cambiare i ruoli",
+    "settingsRead": "Leggere le impostazioni",
+    "settingsWrite": "Cambiare le impostazioni",
+    "auditRead": "Leggere il registro delle attività",
+    "backupRestore": "Ripristinare i backup"
+  },
+  "permissionGroups": {
+    "entities": "Entità e cronologia",
+    "house": "Casa",
+    "automate": "Automazione",
+    "system": "Sistema",
+    "administration": "Amministrazione"
   }
 }

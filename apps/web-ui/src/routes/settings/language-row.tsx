@@ -13,10 +13,11 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { LOCALE_NAMES, SUPPORTED_LOCALES, isSupportedLocale } from '@nebulahome/contracts';
-import { PanelRow, SelectField } from '@nebulahome/ui';
+import { SelectField } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
+import { SettingsRow } from '@/routes/settings/settings-ui';
 import { updateUser } from '@/settings/api';
 
 /** The value of the choice that follows the house. */
@@ -70,7 +71,8 @@ export function LanguageRow() {
   };
 
   return (
-    <PanelRow
+    <SettingsRow
+      searchId="language"
       title={t('settings.language.title', 'Language')}
       note={
         error ??

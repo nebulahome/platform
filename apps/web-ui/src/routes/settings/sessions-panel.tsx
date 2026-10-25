@@ -12,16 +12,14 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
-import { Badge, Button, Panel, toast } from '@nebulahome/ui';
+import { AppIcon, Button, Pill, toast } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
+import { RowIcon, SettingsRow, SettingsSection } from '@/routes/settings/settings-ui';
 import { SETTINGS_QUERY_KEYS, fetchSessions, revokeSession } from '@/settings/api';
 import { describeUserAgent } from '@/settings/user-agent';
-
-/** The column widths, shared by the header and every row so they line up. */
-const COLUMNS = 'grid grid-cols-[1fr_140px_110px_86px] items-center gap-3 px-4';
 
 /**
  * Renders the sessions panel.
@@ -66,12 +64,11 @@ export function SessionsPanel() {
   };
 
   return (
-    <Panel
-      title={t('settings.sessions.title', 'Active sessions')}
+    <SettingsSection
+      label={t('settings.sessions.section', 'Sessions')}
       action={
         <Button
           variant="danger"
-          className="h-8 px-3 text-ui"
           onClick={() => {
             void endSession(true);
           }}
@@ -80,65 +77,49 @@ export function SessionsPanel() {
         </Button>
       }
     >
-      <div className={`${COLUMNS} border-b border-border py-2.5`}>
-        <span className="font-mono text-label text-foreground-subtle uppercase">
-          {t('settings.sessions.browser', 'Browser')}
-        </span>
-        <span className="font-mono text-label text-foreground-subtle uppercase">
-          {t('settings.sessions.address', 'Address')}
-        </span>
-        <span className="font-mono text-label text-foreground-subtle uppercase">
-          {t('settings.sessions.lastActive', 'Last active')}
-        </span>
-        <span />
-      </div>
-
       {sessions.isPending ? (
-        <p className="px-4 py-4 text-ui text-foreground-subtle">
+        <p className="py-4 text-ui text-foreground-subtle">
           {t('settings.sessions.reading', 'Reading your sessions…')}
         </p>
       ) : null}
 
       {sessions.isError ? (
-        <p role="alert" className="px-4 py-4 text-ui text-danger">
+        <p role="alert" className="py-4 text-ui text-danger">
           {toMessage(sessions.error)}
         </p>
       ) : null}
 
       {(sessions.data ?? []).map((entry) => (
-        <div key={entry.id} className={`${COLUMNS} border-b border-border py-3 last:border-b-0`}>
-          <span className="truncate text-ui text-foreground">
-            {describeUserAgent(entry.userAgent)}
-          </span>
-
-          <span className="truncate font-mono text-caption text-foreground-muted">
-            {entry.ipAddress ?? '—'}
-          </span>
-
-          <span
-            className="text-caption text-foreground-subtle"
-            title={absoluteTime(entry.lastSeenAt)}
-          >
-            {relativeTime(entry.lastSeenAt)}
-          </span>
-
-          <div className="flex justify-end">
-            {entry.isCurrent ? (
-              <Badge tone="success">{t('settings.sessions.thisOne', 'This one')}</Badge>
+        <SettingsRow
+          key={entry.id}
+          leading={
+            <RowIcon>
+              <AppIcon id="globe" size={16} />
+            </RowIcon>
+          }
+          title={describeUserAgent(entry.userAgent)}
+          note={
+            <span title={absoluteTime(entry.lastSeenAt)}>
+              {entry.ipAddress ?? '—'} · {relativeTime(entry.lastSeenAt)}
+            </span>
+          }
+          control={
+            entry.isCurrent ? (
+              <Pill tone="success">{t('settings.sessions.thisDevice', 'This device')}</Pill>
             ) : (
               <Button
                 variant="danger"
-                className="h-8 px-3 text-ui"
+                size="compact"
                 onClick={() => {
                   revoke(entry.id);
                 }}
               >
-                {t('settings.sessions.revoke', 'Revoke')}
+                {t('settings.sessions.signOut', 'Sign out')}
               </Button>
-            )}
-          </div>
-        </div>
+            )
+          }
+        />
       ))}
-    </Panel>
+    </SettingsSection>
   );
 }

@@ -33,18 +33,20 @@ import {
   type JsonValue,
   type SettingsResponse,
 } from '@nebulahome/contracts';
-import { Button, Panel, PanelNote, PanelRow, Segmented, SelectField } from '@nebulahome/ui';
+import { Button, cn, Segmented, SelectField } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { defineMessage, text, type Message } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
 import { BROWSER_ZONE, TIME_ZONES, zoneName } from '@/lib/time-zones';
+import { SettingsPage, SettingsRow, SettingsSection } from '@/routes/settings/settings-ui';
 import { SETTINGS_QUERY_KEYS, fetchServerSettings, updateServerSettings } from '@/settings/api';
 import { RETENTION_RUNGS, ladderProblem } from '@/settings/retention';
 import {
   asWord,
   decodeNumberChoice,
+  durationLabel,
   encodeChoice,
   logLevelChoices,
   retentionChoices,
@@ -73,6 +75,22 @@ const HISTORY_ROWS: readonly { readonly key: string; readonly label: Message }[]
     key: 'system.audit_log.retention_days',
     label: defineMessage('settings.data.rows.audit', 'Audit trail'),
   },
+];
+
+/** What each rung of the telemetry ladder keeps, in the order the bar draws them. */
+const RUNG_TITLES: readonly Message[] = [
+  defineMessage('settings.data.rungTitles.raw', 'Every reading'),
+  defineMessage('settings.data.rungTitles.minute', 'One per minute'),
+  defineMessage('settings.data.rungTitles.hour', 'One per hour'),
+  defineMessage('settings.data.rungTitles.day', 'One per day'),
+];
+
+/** The colour of each rung's stretch of the bar: newest brightest. */
+const RUNG_COLOURS: readonly string[] = [
+  'bg-primary',
+  'bg-violet',
+  'bg-cyan',
+  'bg-foreground-subtle/50',
 ];
 
 /** The languages the house may speak, each by its own name. */
@@ -221,8 +239,9 @@ export function DataAndRetention() {
     decode: (encoded: string) => JsonValue,
     note?: string,
   ): ReactNode => (
-    <PanelRow
+    <SettingsRow
       key={key}
+      searchId={key}
       title={label}
       note={
         <>
@@ -240,7 +259,7 @@ export function DataAndRetention() {
           onChange={(next) => {
             edit(key, decode(next));
           }}
-          className="w-37.5"
+          className="w-45"
         />
       }
     />
@@ -248,66 +267,81 @@ export function DataAndRetention() {
 
   if (settings.isPending) {
     return (
-      <p className="text-ui text-foreground-subtle">
-        {t('settings.data.reading', 'Reading the settings…')}
-      </p>
+      <SettingsPage path="/settings/data/retention">
+        <p className="text-ui text-foreground-subtle">
+          {t('settings.data.reading', 'Reading the settings…')}
+        </p>
+      </SettingsPage>
     );
   }
 
   if (settings.isError) {
     return (
-      <p role="alert" className="text-ui text-danger">
-        {toMessage(settings.error)}
-      </p>
+      <SettingsPage path="/settings/data/retention">
+        <p role="alert" className="text-ui text-danger">
+          {toMessage(settings.error)}
+        </p>
+      </SettingsPage>
     );
   }
 
   return (
-    <>
-      <Panel title={t('settings.data.telemetry', 'Telemetry retention')}>
-        {RETENTION_RUNGS.map((rung) => (
-          <PanelRow
-            key={rung.key}
-            title={<span className="font-mono">{text(rung.label)}</span>}
-            note={
-              <>
-                {text(rung.note)}
-                {provenance(rung.key)}
-              </>
-            }
-            control={
-              <SelectField
-                label={t('settings.data.rungRetention', '{{rung}} retention', {
-                  rung: text(rung.label),
-                })}
-                isLabelHidden
-                disabled={!canWrite}
-                value={encodeChoice(effective.get(rung.key) ?? null)}
-                options={retentionChoices(rung.minimumDays)}
-                onChange={(next) => {
-                  edit(rung.key, decodeNumberChoice(next));
-                }}
-                className="w-37.5"
-              />
-            }
-          />
-        ))}
+    <SettingsPage path="/settings/data/retention">
+      <SettingsSection label={t('settings.data.readings', 'Readings')}>
+        <div className="grid grid-cols-2 gap-x-1 gap-y-5 py-4.5 md:grid-cols-4">
+          {RETENTION_RUNGS.map((rung, index) => {
+            const before = RETENTION_RUNGS[index - 1];
+            const since = before === undefined ? null : effective.get(before.key);
 
-        {problem === null ? (
-          <PanelNote>
-            {t(
-              'settings.data.ladderNote',
-              'A level cannot keep data for less time than the one below it. Each roll-up reads a fixed distance back into the level beneath, so a shorter rung would drop the rows before the coarser level had read them — and nothing would report it.',
-            )}
-          </PanelNote>
-        ) : (
-          <p role="alert" className="border-t border-border px-4 py-3 text-caption text-danger">
+            return (
+              <div key={rung.key} id={rung.key} className="flex min-w-0 flex-col gap-2.5 pr-3">
+                <span className="font-mono text-caption text-foreground-subtle">
+                  {index === 0
+                    ? t('settings.data.now', 'now')
+                    : typeof since === 'number'
+                      ? t('settings.data.ago', '{{span}} ago', { span: durationLabel(since) })
+                      : '…'}
+                </span>
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'h-1.5 rounded-pill',
+                    RUNG_COLOURS[index] ?? 'bg-foreground-subtle/50',
+                  )}
+                />
+                <span className="text-ui font-medium text-foreground">
+                  {text(RUNG_TITLES[index] ?? rung.label)}
+                </span>
+                <span className="-mt-1.5 text-caption text-foreground-subtle">
+                  {t('settings.data.keptFor', 'kept for')}
+                  {provenance(rung.key)}
+                </span>
+                <SelectField
+                  label={t('settings.data.rungRetention', '{{rung}} retention', {
+                    rung: text(rung.label),
+                  })}
+                  isLabelHidden
+                  disabled={!canWrite}
+                  value={encodeChoice(effective.get(rung.key) ?? null)}
+                  options={retentionChoices(rung.minimumDays)}
+                  onChange={(next) => {
+                    edit(rung.key, decodeNumberChoice(next));
+                  }}
+                  className="w-35"
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        {problem === null ? null : (
+          <p role="alert" className="border-t border-border py-3 text-caption text-danger">
             {problem}
           </p>
         )}
-      </Panel>
+      </SettingsSection>
 
-      <Panel title={t('settings.data.rest', 'How long the rest is kept')}>
+      <SettingsSection label={t('settings.data.historyAndLogs', 'History and logs')}>
         {HISTORY_ROWS.map((row) =>
           choiceRow(
             row.key,
@@ -323,10 +357,11 @@ export function DataAndRetention() {
           logLevelChoices(),
           (encoded) => Number(encoded),
         )}
-      </Panel>
+      </SettingsSection>
 
-      <Panel title={t('settings.data.installation', 'This installation')}>
-        <PanelRow
+      <SettingsSection label={t('settings.data.installation', 'This installation')}>
+        <SettingsRow
+          searchId="units.temperature"
           title={t('settings.data.temperature', 'Temperature')}
           note={
             <>
@@ -353,7 +388,8 @@ export function DataAndRetention() {
           }
         />
 
-        <PanelRow
+        <SettingsRow
+          searchId="ui.default_theme"
           title={t('settings.data.defaultTheme', 'Default theme')}
           note={
             <>
@@ -378,7 +414,8 @@ export function DataAndRetention() {
           }
         />
 
-        <PanelRow
+        <SettingsRow
+          searchId="house.timezone"
           title={t('firstRun.home.timeZone', 'Time zone')}
           note={
             <>
@@ -416,7 +453,8 @@ export function DataAndRetention() {
           }
         />
 
-        <PanelRow
+        <SettingsRow
+          searchId="house.locale"
           title={t('settings.data.houseLanguage', 'House language')}
           note={
             <>
@@ -445,23 +483,17 @@ export function DataAndRetention() {
           sessionLifetimeChoices(),
           (encoded) => Number(encoded),
         )}
+      </SettingsSection>
 
-        <PanelNote>
-          {t(
-            'settings.data.positionNote',
-            'Where the house stands is set on the house itself, under Library → Areas. The map around it is drawn from that position, and sunrise and sunset triggers are timed from it.',
-          )}
-        </PanelNote>
-        <PanelNote>
-          {t(
-            'settings.data.effectNote',
-            'A saved value is recorded and audited. The time zone, the house language and the house’s position take effect at once; retention, the log level and session lifetime take effect once the service that owns them learns to re-read them, and until then follow what the platform was started with.',
-          )}
-        </PanelNote>
-      </Panel>
+      <p className="px-1 text-caption text-foreground-subtle">
+        {t(
+          'settings.data.effectNote',
+          'A saved value is recorded and audited. The time zone, the house language and the house’s position take effect at once; retention, the log level and session lifetime take effect once the service that owns them learns to re-read them, and until then follow what the platform was started with.',
+        )}
+      </p>
 
       {canWrite && isDirty ? (
-        <div className="sticky bottom-0 flex items-center gap-4 rounded-panel border border-border bg-surface-raised px-4 py-3">
+        <div className="sticky bottom-4 flex animate-rise items-center gap-4 rounded-card border border-border-strong bg-surface-raised px-4 py-3 shadow-popover">
           <span className="grow text-ui text-foreground-muted">
             {t('settings.data.unsaved', {
               count: Object.keys(draft).length,
@@ -478,7 +510,6 @@ export function DataAndRetention() {
 
           <Button
             variant="ghost"
-            className="h-8 px-3 text-ui"
             onClick={() => {
               setDraft({});
               setError(undefined);
@@ -487,16 +518,11 @@ export function DataAndRetention() {
             {t('common.discard', 'Discard')}
           </Button>
 
-          <Button
-            className="h-8 px-3 text-ui"
-            isBusy={isBusy}
-            disabled={problem !== null}
-            onClick={save}
-          >
+          <Button isBusy={isBusy} disabled={problem !== null} onClick={save}>
             {t('common.save', 'Save')}
           </Button>
         </div>
       ) : null}
-    </>
+    </SettingsPage>
   );
 }

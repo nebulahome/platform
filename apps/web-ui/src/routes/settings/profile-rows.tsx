@@ -17,7 +17,7 @@
 import { useState, type SubmitEventHandler } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Badge, Button, Modal, PanelRow, TextField, toast } from '@nebulahome/ui';
+import { Badge, Button, Modal, TextField, toast } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { Avatar } from '@/components/avatar';
@@ -26,6 +26,7 @@ import { toMessage } from '@/lib/error-message';
 import { isPasswordAcceptable } from '@/lib/password-rules';
 import { roleName } from '@/lib/role-names';
 import { AvatarPicker } from '@/routes/settings/avatar-picker';
+import { HeroCard, SettingsRow } from '@/routes/settings/settings-ui';
 import { changePassword, updateUser } from '@/settings/api';
 
 /** Which dialog is open, if any. */
@@ -128,30 +129,25 @@ export function ProfileRows(props: ProfileRowsProps) {
 
   return part === 'profile' ? (
     <>
-      <PanelRow
-        title={
-          <span className="flex items-center gap-3">
-            <Avatar
-              displayName={user.displayName}
-              avatarUrl={user.avatarUrl}
-              size="medium"
-              isAccented
-            />
-            <span className="flex flex-col gap-1">
-              <span className="flex items-center gap-2.5">
-                <span className="text-subhead font-medium">{user.displayName}</span>
-                <Badge tone="accent">{roleName(user.role)}</Badge>
-              </span>
-              <span className="font-mono text-ui font-normal text-foreground-muted">
-                {user.username}
-              </span>
-            </span>
-          </span>
+      <HeroCard
+        leading={
+          <Avatar
+            displayName={user.displayName}
+            avatarUrl={user.avatarUrl}
+            size="medium"
+            isAccented
+          />
         }
-        control={
+        title={
+          <>
+            <span className="text-subhead">{user.displayName}</span>
+            <Badge tone="accent">{roleName(user.role)}</Badge>
+          </>
+        }
+        subtitle={<span className="text-ui-sm">@{user.username}</span>}
+        actions={
           <Button
             variant="ghost"
-            size="compact"
             onClick={() => {
               setDisplayName(user.displayName);
               setEmail('');
@@ -230,7 +226,8 @@ export function ProfileRows(props: ProfileRowsProps) {
     </>
   ) : (
     <>
-      <PanelRow
+      <SettingsRow
+        searchId="password"
         title={t('settings.password.title', 'Password')}
         // The row's own note stays whatever else has happened: it says what a password has to be,
         // which is still true after one was changed. A confirmation is an extra line, not a
@@ -239,7 +236,6 @@ export function ProfileRows(props: ProfileRowsProps) {
         control={
           <Button
             variant="ghost"
-            size="compact"
             onClick={() => {
               setError(undefined);
               setOpen('password');
