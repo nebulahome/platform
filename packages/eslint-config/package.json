@@ -1,6 +1,6 @@
 {
   "name": "@nebulahome/eslint-config",
-  "version": "2026.10.0-alpha.2",
+  "version": "2026.10.0-alpha.3",
   "private": true,
   "type": "module",
   "exports": {
