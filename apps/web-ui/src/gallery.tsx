@@ -99,9 +99,11 @@ import { WaysTag } from '@/routes/library/transport-marks';
 import { ListenerCallout, PassedOverPanel } from '@/routes/library/vendor-hearing';
 import { PairingButton, PairingPanel, type PairingState } from '@/routes/library/vendor-pairing';
 import { BackupSettings } from '@/routes/settings/backup-settings';
+import { MaintenanceSettings } from '@/routes/settings/maintenance-settings';
 import { backupSampleCache, SAMPLE_OWNER } from '@/testing/backup-samples';
 import { energySample, energySampleCache } from '@/testing/energy-samples';
 import { aDevice, anArea, anEntity } from '@/testing/fixtures';
+import { maintenanceSampleCache } from '@/testing/maintenance-samples';
 import {
   matterSampleCache,
   MATTER_SAMPLE_DEVICES,
@@ -488,6 +490,9 @@ const GALLERY_WAYS = [
 
 /** The cache the Backup page reads from. */
 const BACKUP_CACHE = backupSampleCache();
+
+/** The cache the Maintenance page reads from. */
+const MAINTENANCE_CACHE = maintenanceSampleCache();
 
 // The Backup page shows its controls to whoever may use them: the gallery's visitor is the owner.
 useSession.setState({ user: SAMPLE_OWNER });
@@ -1372,9 +1377,24 @@ function Gallery() {
           note="The real page over a cache already holding its answers, seen by the owner: a schedule learned from the load, three locations - one failing - and the last run."
         >
           <QueryClientProvider client={BACKUP_CACHE}>
-            <div className="flex w-full flex-col gap-4">
-              <BackupSettings />
-            </div>
+            <MemoryRouter initialEntries={['/settings/system/backup']}>
+              <div className="flex w-full flex-col gap-4">
+                <BackupSettings />
+              </div>
+            </MemoryRouter>
+          </QueryClientProvider>
+        </Section>
+
+        <Section
+          title="Maintenance settings"
+          note="The real page over a cache holding its answers: Nebula Home, two packages and two integrations with an update, automatic updates on, the quietest time."
+        >
+          <QueryClientProvider client={MAINTENANCE_CACHE}>
+            <MemoryRouter initialEntries={['/settings/system/maintenance']}>
+              <div className="flex w-full flex-col gap-4">
+                <MaintenanceSettings />
+              </div>
+            </MemoryRouter>
           </QueryClientProvider>
         </Section>
 

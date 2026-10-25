@@ -69,6 +69,7 @@ import { BackupSettings } from '@/routes/settings/backup-settings';
 import { DataAndRetention } from '@/routes/settings/data-and-retention';
 import { IconsPanel } from '@/routes/settings/icons-panel';
 import { InterfaceSettings } from '@/routes/settings/interface-settings';
+import { MaintenanceSettings } from '@/routes/settings/maintenance-settings';
 import { PeoplePanel } from '@/routes/settings/people-panel';
 import { RequiresPermission } from '@/routes/settings/requires-permission';
 import { RolesPanel } from '@/routes/settings/roles-panel';
@@ -460,6 +461,17 @@ export function SessionRoutes() {
                 section={t('settings.sections.monitor', 'Monitor')}
               >
                 <SystemMonitor />
+              </RequiresPermission>
+            }
+          />
+          <Route
+            path="system/maintenance"
+            element={
+              <RequiresPermission
+                permission="system:read"
+                section={t('settings.sections.maintenance', 'Maintenance')}
+              >
+                <MaintenanceSettings />
               </RequiresPermission>
             }
           />

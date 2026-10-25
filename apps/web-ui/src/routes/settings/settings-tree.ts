@@ -130,6 +130,13 @@ export const SETTINGS_TREE: readonly SettingsGroup[] = [
         permission: 'system:read',
       },
       {
+        path: '/settings/system/maintenance',
+        label: defineMessage('settings.tree.maintenance', 'Maintenance'),
+        description: defineMessage('settings.pages.maintenance', 'Updates, restart and shut down.'),
+        icon: 'download',
+        permission: 'system:read',
+      },
+      {
         path: '/settings/system/backup',
         label: defineMessage('settings.tree.backup', 'Backup'),
         description: defineMessage(

@@ -81,6 +81,34 @@ const DESCRIPTIONS: Readonly<Record<string, Message>> = {
     'settings.descriptions.backupFrequency',
     'The days a backup runs on',
   ),
+  'updates.auto.packages': defineMessage(
+    'settings.descriptions.updatesAutoPackages',
+    'Whether packages update by themselves, at the time below',
+  ),
+  'updates.auto.integrations': defineMessage(
+    'settings.descriptions.updatesAutoIntegrations',
+    'Whether integrations update by themselves, at the time below',
+  ),
+  'updates.window': defineMessage(
+    'settings.descriptions.updatesWindow',
+    'When automatic updates run: a fixed time, or the quietest learned',
+  ),
+  'updates.backup_first': defineMessage(
+    'settings.descriptions.updatesBackupFirst',
+    'A backup before each round of updates, unless one finished minutes ago',
+  ),
+  'updates.channel.core': defineMessage(
+    'settings.descriptions.updatesChannelCore',
+    'Which releases of Nebula Home are offered: stable, or betas too',
+  ),
+  'updates.channel.packages': defineMessage(
+    'settings.descriptions.updatesChannelPackages',
+    'Which releases of packages are offered; betas are not published yet',
+  ),
+  'updates.channel.integrations': defineMessage(
+    'settings.descriptions.updatesChannelIntegrations',
+    'Which releases of integrations are offered; betas are not published yet',
+  ),
   'webhooks.allow_internet': defineMessage(
     'settings.descriptions.webhooksAllowInternet',
     'Through remote access. Off: webhooks marked Internet answer 404 from outside',
