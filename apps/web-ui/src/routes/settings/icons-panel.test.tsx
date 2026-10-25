@@ -159,7 +159,7 @@ describe('IconsPanel', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Lightbulb/u }));
 
     expect(screen.getByLabelText<HTMLInputElement>('Name').readOnly).toBe(true);
-    expect(screen.getByLabelText<HTMLInputElement>('Id').readOnly).toBe(true);
+    expect(screen.getByLabelText<HTMLInputElement>('ID').readOnly).toBe(true);
     expect(screen.queryByRole('button', { name: 'Reset to default' })).toBeNull();
 
     await upload(BIG_SVG);
@@ -181,7 +181,7 @@ describe('IconsPanel', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'New icon' }));
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Heat pump' } });
 
-    expect(screen.getByLabelText<HTMLInputElement>('Id').value).toBe('heat-pump');
+    expect(screen.getByLabelText<HTMLInputElement>('ID').value).toBe('heat-pump');
 
     fireEvent.change(screen.getByLabelText('Keywords'), { target: { value: 'heating, hvac' } });
     await upload(BIG_SVG);
@@ -192,7 +192,7 @@ describe('IconsPanel', () => {
       '38.4 38.4 307.2 307.2',
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create icon' }));
 
     await waitFor(() => {
       expect(createIcon).toHaveBeenCalledWith({

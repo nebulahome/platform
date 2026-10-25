@@ -256,110 +256,89 @@ function NetworkMapView(props: NetworkGraphProps) {
   const isEmpty = map.points.length <= 1;
 
   return (
-    <div className="flex flex-col gap-3.5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Segmented
-          label={t('brokers.matter.show', 'Show')}
-          value={filter}
-          onChange={setFilter}
-          options={[
-            { value: 'all', label: t('brokers.matter.map.all', 'All') },
-            {
-              value: 'wifi',
-              label: t('brokers.matter.map.wifiCount', 'Wi-Fi · {{count}}', {
-                count: map.counts.wifi,
-              }),
-            },
-            {
-              value: 'thread',
-              label: t('brokers.matter.map.threadCount', 'Thread · {{count}}', {
-                count: map.counts.thread,
-              }),
-            },
-          ]}
-        />
-        {network?.collectedAt == null ? null : (
-          <span className="inline-flex items-center gap-1.5 text-caption text-foreground-subtle">
-            <AppIcon id="refresh-cw" size={13} />
-            {t('brokers.matter.map.updated', 'Updated {{when}}', {
-              when: relativeTime(network.collectedAt),
-            })}
-          </span>
-        )}
-      </div>
-      <div className="relative h-[min(680px,75vh)] overflow-hidden rounded-panel border border-border bg-canvas">
-        <CardContext.Provider value={card}>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={NODE_TYPES}
-            onNodesChange={onNodesChange}
-            onNodeMouseEnter={(event, node) => {
-              card.show(node.id);
-            }}
-            onNodeMouseLeave={() => {
-              card.hide();
-            }}
-            nodeOrigin={[0.5, 0.5]}
-            nodesConnectable={false}
-            selectNodesOnDrag={false}
-            edgesFocusable={false}
-            fitView
-            fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
-            minZoom={0.3}
-            maxZoom={2}
-            proOptions={{ hideAttribution: true }}
-            aria-label={t('brokers.matter.map.label', 'The Matter network')}
-          >
-            <Background
-              variant={BackgroundVariant.Dots}
-              gap={22}
-              size={1.2}
-              color="var(--color-border)"
-              bgColor="var(--color-canvas)"
-            />
-          </ReactFlow>
-        </CardContext.Provider>
-        {isEmpty ? (
-          <p className="pointer-events-none absolute inset-x-6 top-6 text-center text-ui text-foreground-subtle">
-            {network === undefined
-              ? t('brokers.matter.map.reading', 'Reading the network…')
-              : t(
-                  'brokers.matter.map.empty',
-                  'No node has said how it is connected yet. Its routes show here once it does.',
-                )}
-          </p>
-        ) : null}
-        <Legend />
-        <div className="absolute right-3.5 bottom-3.5 flex flex-col gap-1 rounded-tile border border-border-strong bg-surface-raised p-1">
-          <IconButton
-            label={t('brokers.matter.map.zoomIn', 'Zoom in')}
-            title={t('brokers.matter.map.zoomIn', 'Zoom in')}
-            onClick={() => {
-              void zoomIn({ duration: 200 });
-            }}
-          >
-            <AppIcon id="plus" size={16} />
-          </IconButton>
-          <IconButton
-            label={t('brokers.matter.map.zoomOut', 'Zoom out')}
-            title={t('brokers.matter.map.zoomOut', 'Zoom out')}
-            onClick={() => {
-              void zoomOut({ duration: 200 });
-            }}
-          >
-            <AppIcon id="minus" size={16} />
-          </IconButton>
-          <IconButton
-            label={t('brokers.matter.map.fit', 'Fit')}
-            title={t('brokers.matter.map.fit', 'Fit')}
-            onClick={() => {
-              void fitView({ padding: 0.2, maxZoom: 1, duration: 300 });
-            }}
-          >
-            <AppIcon id="maximize" size={16} />
-          </IconButton>
-        </div>
+    <div className="relative h-[min(680px,75vh)] overflow-hidden rounded-panel border border-border bg-canvas">
+      <CardContext.Provider value={card}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={NODE_TYPES}
+          onNodesChange={onNodesChange}
+          onNodeMouseEnter={(event, node) => {
+            card.show(node.id);
+          }}
+          onNodeMouseLeave={() => {
+            card.hide();
+          }}
+          nodeOrigin={[0.5, 0.5]}
+          nodesConnectable={false}
+          selectNodesOnDrag={false}
+          edgesFocusable={false}
+          fitView
+          fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
+          minZoom={0.3}
+          maxZoom={2}
+          proOptions={{ hideAttribution: true }}
+          aria-label={t('brokers.matter.map.label', 'The Matter network')}
+        >
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={22}
+            size={1.2}
+            color="var(--color-border)"
+            bgColor="var(--color-canvas)"
+          />
+        </ReactFlow>
+      </CardContext.Provider>
+      {isEmpty ? (
+        <p className="pointer-events-none absolute inset-x-6 top-6 text-center text-ui text-foreground-subtle">
+          {network === undefined
+            ? t('brokers.matter.map.reading', 'Reading the network…')
+            : t(
+                'brokers.matter.map.empty',
+                'No node has said how it is connected yet. Its routes show here once it does.',
+              )}
+        </p>
+      ) : null}
+      <Legend />
+      <Segmented
+        label={t('brokers.matter.show', 'Show')}
+        value={filter}
+        onChange={setFilter}
+        options={[
+          { value: 'all', label: t('brokers.matter.map.all', 'All') },
+          { value: 'wifi', label: t('brokers.matter.map.wifi', 'Wi-Fi') },
+          { value: 'thread', label: t('brokers.matter.map.thread', 'Thread') },
+        ]}
+        className="absolute top-3.5 right-3.5 z-10 bg-surface/90 shadow-popover backdrop-blur-sm"
+      />
+      <div className="absolute right-3.5 bottom-3.5 flex flex-col gap-1 rounded-tile border border-border-strong bg-surface-raised p-1">
+        <IconButton
+          label={t('brokers.matter.map.zoomIn', 'Zoom in')}
+          title={t('brokers.matter.map.zoomIn', 'Zoom in')}
+          onClick={() => {
+            void zoomIn({ duration: 200 });
+          }}
+        >
+          <AppIcon id="plus" size={16} />
+        </IconButton>
+        <IconButton
+          label={t('brokers.matter.map.zoomOut', 'Zoom out')}
+          title={t('brokers.matter.map.zoomOut', 'Zoom out')}
+          onClick={() => {
+            void zoomOut({ duration: 200 });
+          }}
+        >
+          <AppIcon id="minus" size={16} />
+        </IconButton>
+        <IconButton
+          label={t('brokers.matter.map.fit', 'Fit')}
+          title={t('brokers.matter.map.fit', 'Fit')}
+          onClick={() => {
+            void fitView({ padding: 0.2, maxZoom: 1, duration: 300 });
+          }}
+        >
+          <AppIcon id="maximize" size={16} />
+        </IconButton>
       </div>
     </div>
   );

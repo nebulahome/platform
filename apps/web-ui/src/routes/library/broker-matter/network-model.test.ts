@@ -37,7 +37,6 @@ describe('networkMapOf', () => {
       'controller > unknown_8E2F11A04C7D9B21 (controller)',
       'unknown_8E2F11A04C7D9B21 > 0x2A (thread)',
     ]);
-    expect(map.counts).toEqual({ wifi: 2, thread: 2 });
 
     const byId = new Map(map.points.map((point) => [point.id, point]));
 

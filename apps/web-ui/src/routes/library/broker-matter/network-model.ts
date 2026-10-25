@@ -81,9 +81,6 @@ export type MapLink = {
 export type NetworkMap = {
   readonly points: readonly MapPoint[];
   readonly links: readonly MapLink[];
-
-  /** How many nodes of the fabric are on each network, for the filter. */
-  readonly counts: { readonly wifi: number; readonly thread: number };
 };
 
 /** A point while the tree is built, before it is laid out. */
@@ -442,8 +439,6 @@ export function networkMapOf(
     });
   }
 
-  const nodes = network.nodes.filter((point) => point.kind === 'matter');
-
   return {
     points: [
       {
@@ -465,9 +460,5 @@ export function networkMapOf(
       ...points,
     ],
     links,
-    counts: {
-      wifi: nodes.filter((point) => point.network === 'wifi').length,
-      thread: nodes.filter((point) => point.network === 'thread').length,
-    },
   };
 }

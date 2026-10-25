@@ -7,14 +7,13 @@
  * becomes something a person can act on once they can see which part of it grew.
  *
  * The totals are read every few seconds; the slices are counted every five minutes, because
- * counting means walking directories, and the card says when they were last counted.
+ * counting means walking directories.
  */
 import { useTranslation } from 'react-i18next';
 
 import type { DiskUsage } from '@nebulahome/contracts';
 import { cn, Panel, PanelNote } from '@nebulahome/ui';
 
-import { dateTimeFormat } from '@/i18n/formatters';
 import { formatBytes, formatPercent, formatShare } from '@/lib/format-bytes';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import {
@@ -24,16 +23,6 @@ import {
   partLabel,
   type DiskSegment,
 } from '@/system/system-readings';
-
-/**
- * Writes the time of day a count finished.
- *
- * @param when - The moment.
- * @returns Hours and minutes.
- */
-function clockTime(when: Date): string {
-  return dateTimeFormat({ timeStyle: 'short' }).format(when);
-}
 
 /** The fills packages take in turn, so two packages side by side never share a colour. */
 const PACKAGE_FILLS = ['bg-tag-blue', 'bg-tag-amber', 'bg-tag-pink', 'bg-tag-lime'] as const;
@@ -173,19 +162,16 @@ export function SystemDiskCard(props: SystemDiskCardProps) {
         </ul>
       </div>
 
-      <PanelNote>
-        {disk.measuredAt === null
-          ? t('system.counting', 'Counting what is on the disk…')
-          : t('system.countedAt', 'Counted at {{time}}, and again every five minutes.', {
-              time: clockTime(disk.measuredAt),
-            })}
-        {isPartlyElsewhere(disk)
-          ? ` ${t(
-              'system.partlyElsewhere',
-              'Part of what NebulaHome keeps is on another disk - the database, when it runs in Docker - so the bar is a little longer than this volume.',
-            )}`
-          : ''}
-      </PanelNote>
+      {disk.measuredAt === null || isPartlyElsewhere(disk) ? (
+        <PanelNote>
+          {disk.measuredAt === null
+            ? t('system.counting', 'Counting what is on the disk…')
+            : t(
+                'system.partlyElsewhere',
+                'Part of what NebulaHome keeps is on another disk - the database, when it runs in Docker - so the bar is a little longer than this volume.',
+              )}
+        </PanelNote>
+      ) : null}
     </Panel>
   );
 }

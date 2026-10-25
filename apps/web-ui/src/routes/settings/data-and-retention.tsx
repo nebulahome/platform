@@ -259,7 +259,7 @@ export function DataAndRetention() {
           onChange={(next) => {
             edit(key, decode(next));
           }}
-          className="w-45"
+          className="w-56"
         />
       }
     />
@@ -484,13 +484,6 @@ export function DataAndRetention() {
           (encoded) => Number(encoded),
         )}
       </SettingsSection>
-
-      <p className="px-1 text-caption text-foreground-subtle">
-        {t(
-          'settings.data.effectNote',
-          'A saved value is recorded and audited. The time zone, the house language and the house’s position take effect at once; retention, the log level and session lifetime take effect once the service that owns them learns to re-read them, and until then follow what the platform was started with.',
-        )}
-      </p>
 
       {canWrite && isDirty ? (
         <div className="sticky bottom-4 flex animate-rise items-center gap-4 rounded-card border border-border-strong bg-surface-raised px-4 py-3 shadow-popover">

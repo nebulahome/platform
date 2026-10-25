@@ -6,20 +6,22 @@
  * network counts too. The totals are since the interface came up, which on most machines is
  * since boot.
  */
-import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { NetworkTotals, SystemMonitorSample } from '@nebulahome/contracts';
-import { cn, Panel, PanelNote } from '@nebulahome/ui';
+import { cn } from '@nebulahome/ui';
 
-import { DownloadIcon, UploadIcon } from '@/components/icons';
 import { LiveAreaChart } from '@/components/live-area-chart';
 import { formatBytes, formatRate } from '@/lib/format-bytes';
 import { networkSeries } from '@/system/system-readings';
 
 /** The colours the two directions are drawn in. */
-const DOWNLOAD_COLOR = 'var(--color-tag-cyan)';
-const UPLOAD_COLOR = 'var(--color-tag-violet)';
+const DOWNLOAD_COLOR = 'var(--color-success)';
+const UPLOAD_COLOR = 'var(--color-primary)';
+
+/** The card the figures and the chart sit in. */
+const CARD =
+  'grid gap-6 rounded-card border border-border bg-surface p-4.5 shadow-edge md:grid-cols-[220px_minmax(0,1fr)]';
 
 /** What the card needs. */
 export type SystemNetworkCardProps = {
@@ -33,7 +35,6 @@ export type SystemNetworkCardProps = {
 /** What one direction's figure needs. */
 type RateProps = {
   readonly label: string;
-  readonly icon: ReactNode;
   readonly dotClass: string;
   readonly rate: number | null;
   readonly total: number;
@@ -47,16 +48,17 @@ type RateProps = {
  * @returns The figure.
  */
 function Rate(props: RateProps) {
-  const { label, icon, dotClass, rate, total, totalLabel } = props;
+  const { label, dotClass, rate, total, totalLabel } = props;
 
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <span className="flex items-center gap-2 text-caption text-foreground-subtle">
-        <span aria-hidden className={cn('size-2 rounded-full', dotClass)} />
-        {icon}
+      <span className="flex items-center gap-2 text-ui-sm text-foreground-muted">
+        <span aria-hidden className={cn('size-2 shrink-0 rounded-full', dotClass)} />
         {label}
       </span>
-      <span className="text-reading font-medium tabular">{formatRate(rate)}</span>
+      <span className="font-mono text-headline-lg tracking-normal text-foreground tabular">
+        {formatRate(rate)}
+      </span>
       <span className="text-caption text-foreground-subtle tabular">
         {formatBytes(total)} {totalLabel}
       </span>
@@ -76,72 +78,69 @@ export function SystemNetworkCard(props: SystemNetworkCardProps) {
 
   if (network === null) {
     return (
-      <Panel className="rounded-card shadow-edge" title={t('system.network', 'Network')}>
-        <PanelNote>
+      <section className={CARD}>
+        <span className="text-title font-medium text-foreground">
+          {t('system.network', 'Network')}
+        </span>
+        <p className="text-ui-sm text-foreground-subtle">
           {t(
             'system.networkUnreadable',
             'The network cannot be read on this machine. It is read from the kernel on Linux and from netstat on Windows; the two network entities stay unavailable until it can be.',
           )}
-        </PanelNote>
-      </Panel>
+        </p>
+      </section>
     );
   }
 
   const latest = samples.at(-1);
 
   return (
-    <Panel
-      className="rounded-card shadow-edge"
-      title={t('system.network', 'Network')}
-      action={
-        network.interface === null ? undefined : (
-          <span className="font-mono text-caption text-foreground-subtle">{network.interface}</span>
-        )
-      }
-    >
-      <div className="grid grid-cols-2 gap-4 px-4 pt-4">
+    <section className={CARD} aria-label={t('system.network', 'Network')}>
+      <div className="flex flex-col gap-4.5">
+        <span className="text-title font-medium text-foreground">
+          {t('system.network', 'Network')}
+        </span>
         <Rate
           label={t('system.download', 'Download')}
-          icon={<DownloadIcon width="13" height="13" />}
-          dotClass="bg-tag-cyan"
+          dotClass="bg-success"
           rate={latest?.receiveRate ?? null}
           total={network.receivedBytes}
           totalLabel={t('system.received', 'received')}
         />
         <Rate
           label={t('system.upload', 'Upload')}
-          icon={<UploadIcon width="13" height="13" />}
-          dotClass="bg-tag-violet"
+          dotClass="bg-primary"
           rate={latest?.transmitRate ?? null}
           total={network.transmittedBytes}
           totalLabel={t('system.sent', 'sent')}
         />
       </div>
 
-      <div className="h-32 px-2 pt-3">
-        <LiveAreaChart
-          data={networkSeries(samples)}
-          series={[
-            {
-              key: 'download',
-              label: t('system.download', 'Download'),
-              color: DOWNLOAD_COLOR,
-              dotClass: 'bg-tag-cyan',
-            },
-            {
-              key: 'upload',
-              label: t('system.upload', 'Upload'),
-              color: UPLOAD_COLOR,
-              dotClass: 'bg-tag-violet',
-            },
-          ]}
-          formatValue={(value) => formatRate(value)}
-        />
+      <div className="flex min-w-0 flex-col justify-end gap-2">
+        <span className="self-end text-caption text-foreground-subtle">
+          {t('system.last15', 'Last 15 minutes')}
+        </span>
+        <div className="h-42.5">
+          <LiveAreaChart
+            data={networkSeries(samples)}
+            series={[
+              {
+                key: 'download',
+                label: t('system.download', 'Download'),
+                color: DOWNLOAD_COLOR,
+                dotClass: 'bg-success',
+              },
+              {
+                key: 'upload',
+                label: t('system.upload', 'Upload'),
+                color: UPLOAD_COLOR,
+                dotClass: 'bg-primary',
+              },
+            ]}
+            formatValue={(value) => formatRate(value)}
+          />
+        </div>
       </div>
-
-      <p className="px-4 pt-2.5 pb-3.5 font-mono text-label text-foreground-subtle uppercase">
-        {t('system.networkFoot', 'Last 15 minutes · totals since the interface came up')}
-      </p>
-    </Panel>
+    </section>
   );
 }
