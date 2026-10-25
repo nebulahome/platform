@@ -258,6 +258,16 @@
   --text-headline--line-height: 1.25;
   --text-headline--letter-spacing: -0.02em;
 
+  /** A settings page's own title, beside its icon chip under the breadcrumb. */
+  --text-headline-lg: 24px;
+  --text-headline-lg--line-height: 1.2;
+  --text-headline-lg--letter-spacing: -0.02em;
+
+  /** The title of a section with its own column of pages, such as Settings. */
+  --text-display-sm: 28px;
+  --text-display-sm--line-height: 1.15;
+  --text-display-sm--letter-spacing: -0.03em;
+
   /** The page title, one per screen, with its meta beside it in `mono-ui`. */
   --text-display: 30px;
   --text-display--line-height: 1.15;
@@ -329,14 +339,15 @@
   /* --- depth -------------------------------------------------------------------------------- */
   /*
    * Flat. A panel has no resting shadow; an entity card has the faint lit top edge of `edge`. A
-   * dialog and the sign-in card take `dialog`, a menu and a dragged card `float`, a focused
-   * field `focus`.
+   * dialog and the sign-in card take `dialog`, a menu and a dragged card `float`, a popover
+   * (search results, the icon picker) `popover`, a focused field `focus`.
    */
 
   --shadow-edge: inset 0 1px 0 rgb(255 255 255 / 0.04);
   --shadow-focus: 0 0 0 3px rgb(124 134 255 / 0.25);
   --shadow-float: 0 24px 48px -12px rgb(0 0 0 / 0.7);
   --shadow-dialog: 0 30px 80px -20px rgb(0 0 0 / 0.9);
+  --shadow-popover: 0 28px 60px -20px rgb(0 0 0 / 0.95);
 
   /* --- motion ---------------------------------------------------------------------------- */
 

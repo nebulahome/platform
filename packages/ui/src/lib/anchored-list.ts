@@ -43,9 +43,13 @@ export type Placement = {
  * Works out where a list should sit, given where its control is.
  *
  * @param element - The control the list belongs to.
+ * @param maxListHeight - The tallest the list may get; a popover is taller than a dropdown.
  * @returns The placement, in viewport coordinates.
  */
-export function placeUnder(element: HTMLElement): Placement {
+export function placeUnder(
+  element: HTMLElement,
+  maxListHeight: number = MAX_LIST_HEIGHT,
+): Placement {
   const rect = element.getBoundingClientRect();
   const below = globalThis.innerHeight - rect.bottom - GAP;
   const above = rect.top - GAP;
@@ -56,7 +60,7 @@ export function placeUnder(element: HTMLElement): Placement {
   return {
     left: rect.left,
     width: rect.width,
-    maxHeight: Math.max(0, Math.min(MAX_LIST_HEIGHT, room)),
+    maxHeight: Math.max(0, Math.min(maxListHeight, room)),
     ...(opensUpward
       ? { bottom: globalThis.innerHeight - rect.top + GAP }
       : { top: rect.bottom + GAP }),

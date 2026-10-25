@@ -136,6 +136,21 @@ import {
   ShieldAlert,
   Sparkles,
   Unlink2,
+  AppWindow,
+  Ban,
+  CornerDownLeft,
+  Database,
+  File,
+  Folder,
+  Key,
+  Laptop,
+  Shield,
+  ShieldCheck,
+  ShieldOff,
+  Tablet,
+  ToggleLeft,
+  UserPlus,
+  UserRound,
 } from 'lucide';
 
 import { iconNodeSchema, type IconFrame, type IconNode } from '@nebulahome/contracts';
@@ -303,6 +318,24 @@ export const BUILTIN_UI_NODES = {
 
   // A Wi-Fi access point, on the Matter network map.
   wifi: drawing(Wifi),
+
+  // The settings tree and its pages: a page's glyph, a session's device, a role's people, the
+  // search's Enter, a backup's file and folder.
+  'app-window': drawing(AppWindow),
+  ban: drawing(Ban),
+  'corner-down-left': drawing(CornerDownLeft),
+  database: drawing(Database),
+  file: drawing(File),
+  folder: drawing(Folder),
+  key: drawing(Key),
+  laptop: drawing(Laptop),
+  shield: drawing(Shield),
+  'shield-check': drawing(ShieldCheck),
+  'shield-off': drawing(ShieldOff),
+  tablet: drawing(Tablet),
+  'toggle-left': drawing(ToggleLeft),
+  'user-plus': drawing(UserPlus),
+  'user-round': drawing(UserRound),
 } satisfies Record<string, IconNode>;
 
 /** A catalogue id the interface draws itself with. */

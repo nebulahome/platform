@@ -130,6 +130,7 @@ export { Panel, type PanelProps } from './components/panel.js';
 export { PanelNote, type PanelNoteProps } from './components/panel-note.js';
 export { PanelRow, type PanelRowProps } from './components/panel-row.js';
 export { Pill, type PillProps, type PillTone } from './components/pill.js';
+export { Popover, type PopoverProps } from './components/popover.js';
 export { ProgressBar, type ProgressBarProps } from './components/progress-bar.js';
 export { Segmented, type SegmentedOption, type SegmentedProps } from './components/segmented.js';
 export { SetupSteps, type SetupStep, type SetupStepsProps } from './components/setup-steps.js';
