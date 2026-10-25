@@ -121,5 +121,6 @@ describe('the tile budget', () => {
 
     expect(firstRefusal).toBeGreaterThan(1000);
     expect(firstRefusal).toBeLessThanOrEqual(1201);
-  });
+    // ~1200 requests in a row: past the default 5 s while the whole monorepo tests in parallel.
+  }, 30_000);
 });
