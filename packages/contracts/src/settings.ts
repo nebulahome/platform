@@ -268,7 +268,7 @@ export const SETTINGS = [
     key: 'updates.channel.core',
     schema: updateChannelSchema,
     defaultValue: 'stable',
-    description: 'Which releases of Nebula Home are offered: stable, or betas too',
+    description: 'Which releases of Nebula Home are offered: stable, betas too, or dev builds too',
   },
   {
     key: 'updates.channel.packages',

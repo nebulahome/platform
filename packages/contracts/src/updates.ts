@@ -11,8 +11,11 @@ import { z } from 'zod';
 import { timeOfDaySchema } from './backup.js';
 import { timestampSchema } from './timestamp.js';
 
-/** Which releases a kind follows. */
-export const UPDATE_CHANNELS = ['stable', 'beta'] as const;
+/**
+ * Which releases a kind follows: stable only, betas too (`-beta.K`), or development builds too
+ * (`-alpha.K`).
+ */
+export const UPDATE_CHANNELS = ['stable', 'beta', 'dev'] as const;
 
 /** Which releases a kind follows. */
 export const updateChannelSchema = z.enum(UPDATE_CHANNELS);
@@ -113,6 +116,7 @@ export const platformReleasesReplySchema = z.object({
   installedVersion: z.string().max(64),
   stable: platformReleaseSchema.nullable(),
   beta: platformReleaseSchema.nullable(),
+  dev: platformReleaseSchema.nullable(),
   checkedAt: timestampSchema.nullable(),
   error: z.string().max(1024).nullable(),
 

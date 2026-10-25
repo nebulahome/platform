@@ -1,5 +1,5 @@
 /**
- * `pnpm release:beta` / `pnpm release:stable` [--dry-run]: cuts a release of the platform
+ * `pnpm release:dev` / `release:beta` / `release:stable` [--dry-run]: cuts a release of the platform
  * (docs/releases-and-updates.md 3).
  *
  * Checks the checkout, works out the version, bumps every private workspace, runs the gates,
@@ -81,7 +81,7 @@ function hasRef(ref: string): boolean {
 /**
  * Checks the checkout before anything is changed.
  *
- * @param channel - Beta or stable.
+ * @param channel - Dev, beta or stable.
  * @throws {Error} With every problem found.
  */
 function preflight(channel: Channel): void {
@@ -170,15 +170,19 @@ async function bump(files: readonly string[], version: string): Promise<void> {
 }
 
 /**
- * The image's tags: the version, and the moving tags of its channel. The beta channel always has
- * the newest of the two.
+ * The image's tags: the version, and the moving tags of every channel that takes it - dev takes
+ * everything, beta betas and stables.
  *
  * @param version - The version.
- * @param channel - Beta or stable.
+ * @param channel - Dev, beta or stable.
  * @returns The tags.
  */
 function imageTags(version: string, channel: Channel): string[] {
-  const moving = channel === 'beta' ? ['beta'] : ['stable', 'latest', 'beta'];
+  const moving = {
+    dev: ['dev'],
+    beta: ['beta', 'dev'],
+    stable: ['stable', 'latest', 'beta', 'dev'],
+  }[channel];
 
   return [version, ...moving].map((tag) => `${IMAGE}:${tag}`);
 }
@@ -222,7 +226,7 @@ function messageOf(error: unknown): string {
 /**
  * Cuts the release.
  *
- * @param channel - Beta or stable.
+ * @param channel - Dev, beta or stable.
  * @param isDryRun - Whether to only print what would be done.
  */
 async function release(channel: Channel, isDryRun: boolean): Promise<void> {
@@ -274,7 +278,7 @@ async function release(channel: Channel, isDryRun: boolean): Promise<void> {
         '--generate-notes',
         '--title',
         `Nebula Home ${version}`,
-        channel === 'beta' ? '--prerelease' : '--latest',
+        channel === 'stable' ? '--latest' : '--prerelease',
       ],
     },
   ];
@@ -327,12 +331,12 @@ async function release(channel: Channel, isDryRun: boolean): Promise<void> {
 
 const [channel, ...flags] = process.argv.slice(2);
 
-if (channel === 'beta' || channel === 'stable') {
+if (channel === 'dev' || channel === 'beta' || channel === 'stable') {
   release(channel, flags.includes('--dry-run')).catch((error: unknown) => {
     process.stderr.write(`\n${messageOf(error)}\n`);
     process.exitCode = 1;
   });
 } else {
-  process.stderr.write('Usage: tsx scripts/release.ts <beta|stable> [--dry-run]\n');
+  process.stderr.write('Usage: tsx scripts/release.ts <dev|beta|stable> [--dry-run]\n');
   process.exitCode = 1;
 }

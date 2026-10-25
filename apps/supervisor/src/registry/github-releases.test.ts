@@ -46,7 +46,19 @@ describe('newestReleases', () => {
     expect(found.beta?.version).toBe('2026.11.0');
   });
 
+  it('gives dev builds to the dev channel only', () => {
+    const found = newestReleases([
+      release('v2026.11.1-alpha.2'),
+      release('v2026.11.0-beta.1'),
+      release('v2026.10.4'),
+    ]);
+
+    expect(found.stable?.version).toBe('2026.10.4');
+    expect(found.beta?.version).toBe('2026.11.0-beta.1');
+    expect(found.dev?.version).toBe('2026.11.1-alpha.2');
+  });
+
   it('has nothing when there is no release', () => {
-    expect(newestReleases([])).toEqual({ stable: null, beta: null });
+    expect(newestReleases([])).toEqual({ stable: null, beta: null, dev: null });
   });
 });

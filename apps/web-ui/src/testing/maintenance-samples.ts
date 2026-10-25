@@ -22,6 +22,7 @@ export const SAMPLE_UPDATES: SystemUpdatesView = {
       publishedAt: new Date('2026-11-02T10:00:00Z'),
     },
     beta: null,
+    dev: null,
     checkedAt: new Date(Date.now() - 12 * 60_000),
     error: null,
     refusal: null,

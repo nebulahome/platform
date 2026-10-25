@@ -4216,7 +4216,7 @@
       "updatesAutoIntegrations": "Se le integrazioni si aggiornano da sole, all'orario indicato sotto",
       "updatesWindow": "Quando girano gli aggiornamenti automatici: a un orario fisso o nel momento più tranquillo",
       "updatesBackupFirst": "Un backup prima di ogni giro di aggiornamenti, a meno che uno sia finito da pochi minuti",
-      "updatesChannelCore": "Quali versioni di Nebula Home vengono proposte: stabili, o anche beta",
+      "updatesChannelCore": "Quali versioni di Nebula Home vengono proposte: stabili, anche beta, o anche build di sviluppo",
       "updatesChannelPackages": "Quali versioni dei pacchetti vengono proposte; le beta non sono ancora pubblicate",
       "updatesChannelIntegrations": "Quali versioni delle integrazioni vengono proposte; le beta non sono ancora pubblicate"
     },
@@ -4932,7 +4932,7 @@
     "beta": "Beta",
     "channelCore": "Canale di Nebula Home",
     "channelIntegrations": "Canale delle integrazioni",
-    "channelNote": "Le beta ricevono le versioni prima.",
+    "channelNote": "Le beta ricevono le versioni prima; Dev riceve anche le build di sviluppo.",
     "channelPackages": "Canale dei pacchetti",
     "checkNow": "Controlla ora",
     "checked": "controllato {{when}}",
@@ -4990,6 +4990,7 @@
     "when": "Quando",
     "whenFixed": "Alle {{time}} sull'orologio della casa.",
     "whenLearning": "Sto imparando il carico: {{time}} per ora.",
-    "whenQuietest": "Quando la macchina è più tranquilla: {{time}}."
+    "whenQuietest": "Quando la macchina è più tranquilla: {{time}}.",
+    "dev": "Dev"
   }
 }

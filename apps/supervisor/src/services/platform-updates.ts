@@ -62,7 +62,7 @@ const HALT = '/run/s6/basedir/bin/halt';
 /** Nebula Home's own updates, restart and shutdown. */
 export class PlatformUpdates {
   readonly #options: PlatformUpdatesOptions;
-  #releases: PlatformReleases = { stable: null, beta: null };
+  #releases: PlatformReleases = { stable: null, beta: null, dev: null };
   #checkedAt: Date | null = null;
   #error: string | null = null;
   #isUpdating = false;

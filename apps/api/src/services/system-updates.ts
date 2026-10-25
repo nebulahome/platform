@@ -24,6 +24,7 @@ import {
   updateStatusReplySchema,
   type PlatformReleasesReply,
   type SystemUpdatesView,
+  type UpdateChannel,
   type UpdateItem,
   type UpdateRound,
 } from '@nebulahome/contracts';
@@ -205,15 +206,19 @@ export async function systemUpdates(context: SystemUpdatesContext): Promise<Syst
 }
 
 /**
- * The release of a channel Nebula Home could update to: newer than the one running. The beta
- * channel has the newest of the two.
+ * The release of a channel Nebula Home could update to: newer than the one running. Each channel
+ * takes the newest of what it follows: dev everything, beta betas and stables.
  *
  * @param core - What the supervisor found.
  * @param channel - The channel followed.
  * @returns The release, or null when there is nothing newer.
  */
-function newestFor(core: PlatformReleasesReply, channel: 'stable' | 'beta') {
-  const candidates = channel === 'beta' ? [core.beta, core.stable] : [core.stable];
+function newestFor(core: PlatformReleasesReply, channel: UpdateChannel) {
+  const candidates = {
+    stable: [core.stable],
+    beta: [core.beta, core.stable],
+    dev: [core.dev, core.beta, core.stable],
+  }[channel];
   const newest = candidates
     .filter((release) => release !== null)
     .sort((left, right) => compareVersions(right.version, left.version))[0];

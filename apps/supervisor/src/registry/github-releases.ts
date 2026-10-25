@@ -3,7 +3,8 @@
  * the newest of all, betas included, asked of the public API without a token - sixty calls an
  * hour per address, and the supervisor asks every six hours and on Check now.
  *
- * A beta is a version with a `-beta.K` suffix, marked prerelease; drafts are never offered.
+ * A beta is a version with a `-beta.K` suffix, a dev build one with `-alpha.K`, both marked
+ * prerelease; drafts are never offered.
  */
 import { z } from 'zod';
 
@@ -22,13 +23,14 @@ const githubReleaseSchema = z.looseObject({
   published_at: z.string().nullish(),
 });
 
-/** A product release tag: `v2026.11.0` or `v2026.11.0-beta.1`. */
-const TAG = /^v(\d+\.\d+\.\d+(?:-beta\.\d+)?)$/;
+/** A product release tag: `v2026.11.0`, `v2026.11.0-beta.1` or `v2026.11.0-alpha.3`. */
+const TAG = /^v(\d+\.\d+\.\d+(?:-(?:alpha|beta)\.\d+)?)$/;
 
-/** The newest of each channel. */
+/** The newest of each channel: dev takes everything, beta betas and stables. */
 export type PlatformReleases = {
   readonly stable: PlatformRelease | null;
   readonly beta: PlatformRelease | null;
+  readonly dev: PlatformRelease | null;
 };
 
 /** What asking GitHub takes. */
@@ -52,7 +54,7 @@ export function newestReleases(body: unknown): PlatformReleases {
   const releases = z
     .array(githubReleaseSchema)
     .parse(body)
-    .flatMap((release): (PlatformRelease & { isPrerelease: boolean })[] => {
+    .flatMap((release): (PlatformRelease & { isPrerelease: boolean; isAlpha: boolean })[] => {
       const version = TAG.exec(release.tag_name)?.[1];
 
       return release.draft || version === undefined || release.published_at == null
@@ -64,6 +66,7 @@ export function newestReleases(body: unknown): PlatformReleases {
               url: release.html_url,
               publishedAt: new Date(release.published_at),
               isPrerelease: release.prerelease || version.includes('-'),
+              isAlpha: version.includes('-alpha.'),
             },
           ];
     })
@@ -86,7 +89,8 @@ export function newestReleases(body: unknown): PlatformReleases {
 
   return {
     stable: strip(releases.find((release) => !release.isPrerelease)),
-    beta: strip(releases[0]),
+    beta: strip(releases.find((release) => !release.isAlpha)),
+    dev: strip(releases[0]),
   };
 }
 

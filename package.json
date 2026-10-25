@@ -35,6 +35,7 @@
     "docker:shell": "docker compose -f infra/docker-compose.yml exec nebulahome sh",
     "docker:psql": "docker compose -f infra/docker-compose.yml exec nebulahome psql -U nebula -d nebula",
     "docker:db:reset": "docker compose -f infra/docker-compose.yml exec nebulahome nebula-reset-db",
+    "release:dev": "tsx scripts/release.ts dev",
     "release:beta": "tsx scripts/release.ts beta",
     "release:stable": "tsx scripts/release.ts stable",
     "docker:wipe": "docker compose -f infra/docker-compose.yml rm -s -f nebulahome && docker volume rm nebulahome_nebula-data nebulahome_nebula-postgres nebulahome_nebula-nats"

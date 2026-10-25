@@ -714,7 +714,10 @@ export function MaintenanceSettings() {
         <SettingsRow
           searchId="updates.channel.core"
           title={t('settingsMaintenance.channelCore', 'Nebula Home channel')}
-          note={t('settingsMaintenance.channelNote', 'Beta gets versions first.')}
+          note={t(
+            'settingsMaintenance.channelNote',
+            'Beta gets versions first; Dev gets development builds too.',
+          )}
           control={
             <Segmented
               label={t('settingsMaintenance.channelCore', 'Nebula Home channel')}
@@ -723,6 +726,7 @@ export function MaintenanceSettings() {
               options={[
                 { value: 'stable', label: t('settingsMaintenance.stable', 'Stable') },
                 { value: 'beta', label: t('settingsMaintenance.beta', 'Beta') },
+                { value: 'dev', label: t('settingsMaintenance.dev', 'Dev') },
               ]}
               onChange={(value) => {
                 edit(KEYS.channelCore, value);
@@ -752,6 +756,7 @@ export function MaintenanceSettings() {
                 options={[
                   { value: 'stable', label: t('settingsMaintenance.stable', 'Stable') },
                   { value: 'beta', label: t('settingsMaintenance.beta', 'Beta') },
+                  { value: 'dev', label: t('settingsMaintenance.dev', 'Dev') },
                 ]}
                 onChange={() => undefined}
               />

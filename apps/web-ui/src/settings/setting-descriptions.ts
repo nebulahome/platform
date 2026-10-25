@@ -99,7 +99,7 @@ const DESCRIPTIONS: Readonly<Record<string, Message>> = {
   ),
   'updates.channel.core': defineMessage(
     'settings.descriptions.updatesChannelCore',
-    'Which releases of Nebula Home are offered: stable, or betas too',
+    'Which releases of Nebula Home are offered: stable, betas too, or dev builds too',
   ),
   'updates.channel.packages': defineMessage(
     'settings.descriptions.updatesChannelPackages',
