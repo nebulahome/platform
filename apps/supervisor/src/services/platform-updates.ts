@@ -53,8 +53,8 @@ export type PlatformUpdatesOptions = {
   readonly fetch?: typeof fetch;
 };
 
-/** A release this platform names: CalVer, a beta or not. */
-const VERSION = /^\d{4}\.\d{1,2}\.\d+(?:-beta\.\d+)?$/;
+/** A release this platform names: CalVer, a beta (`-beta.K`) or a dev build (`-alpha.K`). */
+export const RELEASE_VERSION = /^\d{4}\.\d{1,2}\.\d+(?:-(?:alpha|beta)\.\d+)?$/;
 
 /** s6's way of ending the container. */
 const HALT = '/run/s6/basedir/bin/halt';
@@ -122,7 +122,7 @@ export class PlatformUpdates {
    * @throws {ConflictError} When it cannot update here, saying why.
    */
   public async update(version: string): Promise<void> {
-    if (!VERSION.test(version)) {
+    if (!RELEASE_VERSION.test(version)) {
       throw new ValidationError(`${version} is not a release of Nebula Home`);
     }
 
