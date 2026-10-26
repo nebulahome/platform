@@ -313,6 +313,8 @@ function checkHistoryRequest(schema: z.ZodType, request: unknown): void {
  * @returns True when it is.
  */
 function matches(filter: EntityFilter, entityId: string): boolean {
+  // shortcut: the address's domain, not what the owner shows it as (entity-types.ts); read the
+  // shown domain here once a package's server needs a relay shown as a light among its lights.
   return (
     (filter.domain === undefined || entityId.startsWith(`${filter.domain}.`)) &&
     (filter.entityIds === undefined || filter.entityIds.includes(entityId))
