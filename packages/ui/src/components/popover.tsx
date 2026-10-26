@@ -101,18 +101,12 @@ export function Popover(props: PopoverProps) {
       }
     };
 
-    // Opened by a press, the control is still shrinking back from its press-scale: measured once
-    // more when that ends, or the panel jumps the next time anything measures it.
-    const control = anchor.current;
-
     follow();
-    control?.addEventListener('transitionend', follow);
     globalThis.addEventListener('scroll', follow, true);
     globalThis.addEventListener('resize', follow);
     globalThis.document.addEventListener('pointerdown', onPress);
 
     return () => {
-      control?.removeEventListener('transitionend', follow);
       globalThis.removeEventListener('scroll', follow, true);
       globalThis.removeEventListener('resize', follow);
       globalThis.document.removeEventListener('pointerdown', onPress);

@@ -40,6 +40,39 @@ export type Placement = {
 };
 
 /**
+ * Where a control is, without the scale of its own `transform`.
+ *
+ * A control opened by a press is still shrinking back from `press-scale` when it is measured: its
+ * box as drawn is a few pixels smaller than the one it settles in, and a list placed against that
+ * jumps when it is measured again. Scaled about its centre, the centre stays where it is.
+ *
+ * @param element - The control.
+ * @returns Its box at full size, in viewport coordinates.
+ */
+function settledRect(element: HTMLElement): {
+  left: number;
+  top: number;
+  bottom: number;
+  width: number;
+} {
+  const rect = element.getBoundingClientRect();
+  const transform = globalThis.getComputedStyle(element).transform;
+  const matrix =
+    transform === '' || transform === 'none' ? undefined : new DOMMatrixReadOnly(transform);
+  const width = rect.width / (matrix?.a ?? 1);
+  const height = rect.height / (matrix?.d ?? 1);
+  const centreX = rect.left + rect.width / 2;
+  const centreY = rect.top + rect.height / 2;
+
+  return {
+    left: centreX - width / 2,
+    top: centreY - height / 2,
+    bottom: centreY + height / 2,
+    width,
+  };
+}
+
+/**
  * Works out where a list should sit, given where its control is.
  *
  * @param element - The control the list belongs to.
@@ -50,7 +83,7 @@ export function placeUnder(
   element: HTMLElement,
   maxListHeight: number = MAX_LIST_HEIGHT,
 ): Placement {
-  const rect = element.getBoundingClientRect();
+  const rect = settledRect(element);
   const below = globalThis.innerHeight - rect.bottom - GAP;
   const above = rect.top - GAP;
   const opensUpward = below < ROOM_NEEDED && above > below;
