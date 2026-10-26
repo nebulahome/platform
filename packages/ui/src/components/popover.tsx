@@ -13,6 +13,7 @@
  * the settings search keeps it in the field that opened it.
  */
 import {
+  useEffectEvent,
   useLayoutEffect,
   useRef,
   useState,
@@ -66,6 +67,9 @@ export function Popover(props: PopoverProps) {
   const panel = useRef<HTMLDivElement>(null);
   const [place, setPlace] = useState<{ at: Placement; host: HTMLElement } | null>(null);
 
+  // The caller's latest onClose, without measuring again whenever a render makes a new one.
+  const close = useEffectEvent(onClose);
+
   // A layout effect, so a popover opened again is measured before it is painted where it was.
   useLayoutEffect(() => {
     if (!isOpen) {
@@ -93,21 +97,27 @@ export function Popover(props: PopoverProps) {
         !(panel.current?.contains(target) ?? false) &&
         !(anchor.current?.contains(target) ?? false)
       ) {
-        onClose();
+        close();
       }
     };
 
+    // Opened by a press, the control is still shrinking back from its press-scale: measured once
+    // more when that ends, or the panel jumps the next time anything measures it.
+    const control = anchor.current;
+
     follow();
+    control?.addEventListener('transitionend', follow);
     globalThis.addEventListener('scroll', follow, true);
     globalThis.addEventListener('resize', follow);
     globalThis.document.addEventListener('pointerdown', onPress);
 
     return () => {
+      control?.removeEventListener('transitionend', follow);
       globalThis.removeEventListener('scroll', follow, true);
       globalThis.removeEventListener('resize', follow);
       globalThis.document.removeEventListener('pointerdown', onPress);
     };
-  }, [anchor, isOpen, onClose]);
+  }, [anchor, isOpen]);
 
   if (!isOpen || place === null) {
     return null;
@@ -116,11 +126,7 @@ export function Popover(props: PopoverProps) {
   const placement = place.at;
 
   const panelWidth = Math.min(width ?? placement.width, globalThis.innerWidth - EDGE * 2);
-  // Whole pixels: at a fraction, the panel's content snaps half a pixel when anything in it starts
-  // a transition, and the whole panel seems to jump.
-  const left = Math.round(
-    Math.max(EDGE, Math.min(placement.left, globalThis.innerWidth - panelWidth - EDGE)),
-  );
+  const left = Math.max(EDGE, Math.min(placement.left, globalThis.innerWidth - panelWidth - EDGE));
 
   /**
    * Keeps Escape to the popover.
@@ -149,8 +155,8 @@ export function Popover(props: PopoverProps) {
         left,
         width: panelWidth,
         maxHeight: placement.maxHeight,
-        ...(placement.top === undefined ? {} : { top: Math.round(placement.top) }),
-        ...(placement.bottom === undefined ? {} : { bottom: Math.round(placement.bottom) }),
+        ...(placement.top === undefined ? {} : { top: placement.top }),
+        ...(placement.bottom === undefined ? {} : { bottom: placement.bottom }),
       }}
       className={cn(
         'z-50 flex animate-rise flex-col overflow-hidden rounded-card border border-border-strong',
