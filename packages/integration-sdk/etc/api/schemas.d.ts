@@ -31,11 +31,11 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       wires: z.ZodArray<z.ZodEnum<{
         matter: "matter";
         mqtt: "mqtt";
+        modbus: "modbus";
         http: "http";
         ble: "ble";
         zigbee: "zigbee";
         udp: "udp";
-        modbus: "modbus";
       }>>;
     }, z.core.$strict>]>>>;
     streams: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodString>>;
@@ -117,12 +117,14 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       code: "code";
       matter: "matter";
       mqtt: "mqtt";
+      modbus: "modbus";
     }>;
     defaultIcon: z.ZodOptional<z.ZodString>;
     webPagePort: z.ZodOptional<z.ZodInt>;
     webPagePath: z.ZodOptional<z.ZodString>;
     profile: z.ZodOptional<z.ZodString>;
     entry: z.ZodOptional<z.ZodString>;
+    template: z.ZodOptional<z.ZodString>;
     setup: z.ZodString;
     id: z.ZodString;
     name: z.ZodString;
@@ -383,22 +385,22 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     entities: z.ZodArray<z.ZodObject<{
       domain: z.ZodEnum<{
         number: "number";
-        image: "image";
         custom: "custom";
-        light: "light";
-        switch: "switch";
+        image: "image";
         sensor: "sensor";
         binary_sensor: "binary_sensor";
+        switch: "switch";
+        light: "light";
+        select: "select";
+        button: "button";
         cover: "cover";
         lock: "lock";
-        climate: "climate";
         media_player: "media_player";
         camera: "camera";
-        button: "button";
         update: "update";
         lawn_mower: "lawn_mower";
-        select: "select";
         vacuum: "vacuum";
+        climate: "climate";
         alias: "alias";
       }>;
       objectId: z.ZodOptional<z.ZodString>;
@@ -409,21 +411,21 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         custom: "custom";
         image: "image";
         level: "level";
+        select: "select";
+        button: "button";
+        sensor_numeric: "sensor_numeric";
+        sensor_text: "sensor_text";
+        sensor_binary: "sensor_binary";
         on_off: "on_off";
         color_hs: "color_hs";
         color_temp: "color_temp";
         cover: "cover";
         lock: "lock";
         thermostat: "thermostat";
-        sensor_numeric: "sensor_numeric";
-        sensor_binary: "sensor_binary";
-        sensor_text: "sensor_text";
         media_player: "media_player";
         camera: "camera";
-        button: "button";
         update: "update";
         lawn_mower: "lawn_mower";
-        select: "select";
         vacuum: "vacuum";
       }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
       state: z.ZodRecord<z.ZodEnum<{
@@ -657,6 +659,50 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       }, z.core.$strict>]>>;
       model: z.ZodDefault<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
     }, z.core.$strict>>;
+    modbus: z.ZodOptional<z.ZodObject<{
+      match: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
+        path: z.ZodString;
+        equals: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        exists: z.ZodLiteral<true>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        oneOf: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        startsWith: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        endsWith: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        contains: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        min: z.ZodOptional<z.ZodNumber>;
+        max: z.ZodOptional<z.ZodNumber>;
+      }, z.core.$strict>]>>;
+      model: z.ZodDefault<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
+      unitId: z.ZodDefault<z.ZodInt>;
+      read: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodObject<{
+        function: z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>, z.ZodLiteral<4>]>;
+        address: z.ZodUnion<readonly [z.ZodInt, z.ZodString]>;
+        type: z.ZodOptional<z.ZodEnum<{
+          string: "string";
+          u16: "u16";
+          s16: "s16";
+          u32: "u32";
+          s32: "s32";
+          f32: "f32";
+        }>>;
+        count: z.ZodOptional<z.ZodInt>;
+        bit: z.ZodOptional<z.ZodInt>;
+        scale: z.ZodOptional<z.ZodNumber>;
+        unit: z.ZodOptional<z.ZodString>;
+        options: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+      }, z.core.$strict>>>;
+    }, z.core.$strict>>;
     adopt: z.ZodDefault<z.ZodEnum<{
       owner: "owner";
       automatic: "automatic";
@@ -771,6 +817,68 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     }, z.core.$strict>;
     identity: z.ZodString;
     module: z.ZodString;
+  }, z.core.$strict>;
+  readonly 'modbus-template': z.ZodObject<{
+    name: z.ZodString;
+    device: z.ZodDefault<z.ZodString>;
+    port: z.ZodDefault<z.ZodInt>;
+    unitId: z.ZodDefault<z.ZodInt>;
+    wordOrder: z.ZodDefault<z.ZodEnum<{
+      high: "high";
+      low: "low";
+    }>>;
+    pollSeconds: z.ZodDefault<z.ZodInt>;
+    entities: z.ZodArray<z.ZodObject<{
+      id: z.ZodOptional<z.ZodString>;
+      name: z.ZodString;
+      domain: z.ZodEnum<{
+        number: "number";
+        sensor: "sensor";
+        binary_sensor: "binary_sensor";
+        switch: "switch";
+        light: "light";
+        select: "select";
+        button: "button";
+      }>;
+      capabilities: z.ZodRecord<z.ZodEnum<{
+        number: "number";
+        level: "level";
+        select: "select";
+        button: "button";
+        sensor_numeric: "sensor_numeric";
+        sensor_text: "sensor_text";
+        sensor_binary: "sensor_binary";
+        on_off: "on_off";
+      }> & z.core.$partial, z.ZodObject<{
+        read: z.ZodOptional<z.ZodObject<{
+          function: z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>, z.ZodLiteral<4>]>;
+          address: z.ZodUnion<readonly [z.ZodInt, z.ZodString]>;
+          type: z.ZodOptional<z.ZodEnum<{
+            string: "string";
+            u16: "u16";
+            s16: "s16";
+            u32: "u32";
+            s32: "s32";
+            f32: "f32";
+          }>>;
+          count: z.ZodOptional<z.ZodInt>;
+          bit: z.ZodOptional<z.ZodInt>;
+          scale: z.ZodOptional<z.ZodNumber>;
+          unit: z.ZodOptional<z.ZodString>;
+          options: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+        }, z.core.$strict>>;
+        write: z.ZodOptional<z.ZodObject<{
+          function: z.ZodUnion<readonly [z.ZodLiteral<5>, z.ZodLiteral<6>, z.ZodLiteral<15>, z.ZodLiteral<16>]>;
+          address: z.ZodOptional<z.ZodUnion<readonly [z.ZodInt, z.ZodString]>>;
+          on: z.ZodOptional<z.ZodUnion<readonly [z.ZodInt, z.ZodString]>>;
+          off: z.ZodOptional<z.ZodUnion<readonly [z.ZodInt, z.ZodString]>>;
+          min: z.ZodOptional<z.ZodNumber>;
+          max: z.ZodOptional<z.ZodNumber>;
+          step: z.ZodOptional<z.ZodNumber>;
+          value: z.ZodOptional<z.ZodUnion<readonly [z.ZodInt, z.ZodString]>>;
+        }, z.core.$strict>>;
+      }, z.core.$strict>>;
+    }, z.core.$strict>>;
   }, z.core.$strict>;
 };
 /** The names of the files a JSON Schema is written for. */

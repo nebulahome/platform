@@ -22,6 +22,7 @@ import {
   driverHarness,
   identify,
   identifyMatter,
+  identifyModbus,
   identifyMqtt,
   loadIntegration,
   type FakeSdk,
@@ -387,6 +388,68 @@ describe('testing', () => {
       },
     });
     expect(identifyMqtt(vendor, { originName: 'ESPHome' })).toEqual({
+      matches: false,
+      association: null,
+    });
+  });
+
+  it('reads a modbus driver from its template, and says which servers its rules take', async () => {
+    const source = path.join(root, 'src');
+    const discovery = JSON.parse(
+      await readFile(path.join(source, 'discovery.json'), 'utf8'),
+    ) as object;
+
+    await writeFile(
+      path.join(source, 'discovery.json'),
+      JSON.stringify({
+        ...discovery,
+        modbus: {
+          read: { serial: { function: 3, address: '0x0', type: 'string', count: 7 } },
+          match: [{ path: 'values.serial', startsWith: 'H3' }],
+        },
+      }),
+    );
+    await mkdir(path.join(source, 'meter'));
+    await writeFile(
+      path.join(source, 'meter', 'driver.json'),
+      JSON.stringify({
+        id: 'meter',
+        name: 'Meter',
+        transport: 'modbus',
+        kind: 'modbus',
+        template: './template.json',
+        setup: './setup.json',
+      }),
+    );
+    await writeFile(
+      path.join(source, 'meter', 'setup.json'),
+      JSON.stringify({ transport: { fields: [] } }),
+    );
+    await writeFile(
+      path.join(source, 'meter', 'template.json'),
+      JSON.stringify({
+        name: 'Meter',
+        entities: [
+          {
+            name: 'Power',
+            domain: 'sensor',
+            capabilities: { sensor_numeric: { read: { function: 4, address: 12, type: 'f32' } } },
+          },
+        ],
+      }),
+    );
+
+    const { vendor, failures } = await loadIntegration({ root });
+
+    expect(failures).toEqual([]);
+    expect(vendor.drivers.find((driver) => driver.driverId === 'meter')?.modbusTemplate?.name).toBe(
+      'Meter',
+    );
+    expect(identifyModbus(vendor, { values: { serial: 'H34A10I1234567' } })).toEqual({
+      matches: true,
+      association: { driverId: 'meter', model: 'Meter', modelChoices: ['Meter'] },
+    });
+    expect(identifyModbus(vendor, { values: { serial: null } })).toEqual({
       matches: false,
       association: null,
     });

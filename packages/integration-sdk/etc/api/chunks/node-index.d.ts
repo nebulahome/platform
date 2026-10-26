@@ -202,21 +202,21 @@ declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   custom: "custom";
   image: "image";
   level: "level";
+  select: "select";
+  button: "button";
+  sensor_numeric: "sensor_numeric";
+  sensor_text: "sensor_text";
+  sensor_binary: "sensor_binary";
   on_off: "on_off";
   color_hs: "color_hs";
   color_temp: "color_temp";
   cover: "cover";
   lock: "lock";
   thermostat: "thermostat";
-  sensor_numeric: "sensor_numeric";
-  sensor_binary: "sensor_binary";
-  sensor_text: "sensor_text";
   media_player: "media_player";
   camera: "camera";
-  button: "button";
   update: "update";
   lawn_mower: "lawn_mower";
-  select: "select";
   vacuum: "vacuum";
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
@@ -722,6 +722,79 @@ declare const integrationInstallSchema: z.ZodObject<{
 }, z.core.$strict>;
 /** How the platform installed a vendor. */
 type IntegrationInstall = z.output<typeof integrationInstallSchema>;
+//#endregion
+//#region ../contracts/dist/modbus.d.ts
+/**
+ * A template: the device's entities, each capability mapped to the register it is read from and
+ * the command it is written with.
+ *
+ * Every rule that ties fields together is here, so the editor's blocks, its file and the hub
+ * refuse the same templates with the same words.
+ */
+declare const modbusTemplateSchema: z.ZodObject<{
+  name: z.ZodString;
+  device: z.ZodDefault<z.ZodString>;
+  port: z.ZodDefault<z.ZodInt>;
+  unitId: z.ZodDefault<z.ZodInt>;
+  wordOrder: z.ZodDefault<z.ZodEnum<{
+    high: "high";
+    low: "low";
+  }>>;
+  pollSeconds: z.ZodDefault<z.ZodInt>;
+  entities: z.ZodArray<z.ZodObject<{
+    id: z.ZodOptional<z.ZodString>;
+    name: z.ZodString;
+    domain: z.ZodEnum<{
+      number: "number";
+      sensor: "sensor";
+      binary_sensor: "binary_sensor";
+      switch: "switch";
+      light: "light";
+      select: "select";
+      button: "button";
+    }>;
+    capabilities: z.ZodRecord<z.ZodEnum<{
+      number: "number";
+      level: "level";
+      select: "select";
+      button: "button";
+      sensor_numeric: "sensor_numeric";
+      sensor_text: "sensor_text";
+      sensor_binary: "sensor_binary";
+      on_off: "on_off";
+    }> & z.core.$partial, z.ZodObject<{
+      read: z.ZodOptional<z.ZodObject<{
+        function: z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>, z.ZodLiteral<4>]>;
+        address: z.ZodUnion<readonly [z.ZodInt, z.ZodString]>;
+        type: z.ZodOptional<z.ZodEnum<{
+          string: "string";
+          u16: "u16";
+          s16: "s16";
+          u32: "u32";
+          s32: "s32";
+          f32: "f32";
+        }>>;
+        count: z.ZodOptional<z.ZodInt>;
+        bit: z.ZodOptional<z.ZodInt>;
+        scale: z.ZodOptional<z.ZodNumber>;
+        unit: z.ZodOptional<z.ZodString>;
+        options: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+      }, z.core.$strict>>;
+      write: z.ZodOptional<z.ZodObject<{
+        function: z.ZodUnion<readonly [z.ZodLiteral<5>, z.ZodLiteral<6>, z.ZodLiteral<15>, z.ZodLiteral<16>]>;
+        address: z.ZodOptional<z.ZodUnion<readonly [z.ZodInt, z.ZodString]>>;
+        on: z.ZodOptional<z.ZodUnion<readonly [z.ZodInt, z.ZodString]>>;
+        off: z.ZodOptional<z.ZodUnion<readonly [z.ZodInt, z.ZodString]>>;
+        min: z.ZodOptional<z.ZodNumber>;
+        max: z.ZodOptional<z.ZodNumber>;
+        step: z.ZodOptional<z.ZodNumber>;
+        value: z.ZodOptional<z.ZodUnion<readonly [z.ZodInt, z.ZodString]>>;
+      }, z.core.$strict>>;
+    }, z.core.$strict>>;
+  }, z.core.$strict>>;
+}, z.core.$strict>;
+/** A template, checked. */
+type ModbusTemplate = z.output<typeof modbusTemplateSchema>;
 //#endregion
 //#region ../package-runtime/dist/transport.d.ts
 /** What an integration asks a transport to do, expressed as data. */
@@ -1350,6 +1423,55 @@ type ManagedMqtt = {
 };
 /** Opens a managed MQTT session. */
 type OpenMqtt = (options: ManagedMqttOptions) => ManagedMqtt;
+/** A Modbus server, as a session to it is opened: where it is, and how frames travel. */
+type ModbusServerOptions = {
+  readonly host: string;
+  /** 502 unless said. */
+  readonly port?: number;
+  /** `tcp` (MBAP) unless said; `rtu` for RTU frames a transparent adapter carries over TCP. */
+  readonly framing?: 'tcp' | 'rtu';
+};
+/** One read: a run of coils, inputs or registers of one unit. */
+type ModbusReadOptions = {
+  readonly unitId: number;
+  readonly function: 1 | 2 | 3 | 4;
+  readonly address: number;
+  /** How many bits or registers, 1 to 125. */
+  readonly count: number;
+  /** How long to wait for the answer; 3 s unless said. */
+  readonly timeoutMs?: number;
+};
+/** One write: a coil, a register, coils or registers of one unit. */
+type ModbusWriteOptions = {
+  readonly unitId: number;
+  readonly function: 5 | 6 | 15 | 16;
+  readonly address: number;
+  /** The word for 05 (0xFF00 on, 0 off) and 06; the bits for 15; the registers for 16. */
+  readonly values: readonly number[];
+  readonly timeoutMs?: number;
+};
+/**
+ * A session to a Modbus server through the hub's one connection to it: requests of every
+ * session to the same server wait their turn, so a gateway that answers one client at a time is
+ * never asked twice at once.
+ *
+ * A failed request rejects with an error whose `name` says why: `ModbusException` - the server
+ * refused, its `code` the exception - `ModbusNoConnection` or `ModbusSilence`.
+ */
+type ModbusSession = {
+  /**
+   * Reads bits or registers.
+   *
+   * @returns One number per bit (0 or 1) or register (a 16-bit word).
+   */
+  read: (options: ModbusReadOptions, signal?: AbortSignal) => Promise<number[]>;
+  /** Writes a coil, a register, coils or registers. */
+  write: (options: ModbusWriteOptions, signal?: AbortSignal) => Promise<void>;
+  /** Lets go of the server; the connection closes once nothing else holds it. */
+  close: () => Promise<void>;
+};
+/** Opens a session to a Modbus server. */
+type OpenModbus = (server: ModbusServerOptions) => ModbusSession;
 /**
  * The house's MQTT broker, as the hub reaches it: the one the hub runs, with the hub's own
  * username - or the broker `NEBULA_MQTT_URL` names. Read again each time it is needed: a session
@@ -1411,6 +1533,8 @@ type BundleSdk = {
   readonly openUdpSocket: OpenUdpSocket;
   /** An MQTT session, for a vendor whose devices report through a broker of its own. */
   readonly openMqtt: OpenMqtt;
+  /** A session to a Modbus server, through the hub's one connection to it. */
+  readonly openModbus: OpenModbus;
   /** How a camera's stream source is written, as defineTransport is for a transport. */
   readonly defineStreamSource: typeof defineStreamSource;
   /** An RTSP session over TCP, yielding a camera's H.264 as it comes. */
@@ -1678,11 +1802,11 @@ declare const vendorManifestSchema: z.ZodObject<{
     wires: z.ZodArray<z.ZodEnum<{
       matter: "matter";
       mqtt: "mqtt";
+      modbus: "modbus";
       http: "http";
       ble: "ble";
       zigbee: "zigbee";
       udp: "udp";
-      modbus: "modbus";
     }>>;
   }, z.core.$strict>]>>>;
   streams: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodString>>;
@@ -1775,12 +1899,14 @@ declare const bundleManifestSchema: z.ZodObject<{
     code: "code";
     matter: "matter";
     mqtt: "mqtt";
+    modbus: "modbus";
   }>;
   defaultIcon: z.ZodOptional<z.ZodString>;
   webPagePort: z.ZodOptional<z.ZodInt>;
   webPagePath: z.ZodOptional<z.ZodString>;
   profile: z.ZodOptional<z.ZodString>;
   entry: z.ZodOptional<z.ZodString>;
+  template: z.ZodOptional<z.ZodString>;
   setup: z.ZodString;
   id: z.ZodString;
   version: z.ZodString;
@@ -1915,6 +2041,50 @@ declare const vendorDiscoverySchema: z.ZodObject<{
       max: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strict>]>>;
     model: z.ZodDefault<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
+  }, z.core.$strict>>;
+  modbus: z.ZodOptional<z.ZodObject<{
+    match: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
+      path: z.ZodString;
+      equals: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      exists: z.ZodLiteral<true>;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      oneOf: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      startsWith: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      endsWith: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      contains: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+    }, z.core.$strict>, z.ZodObject<{
+      path: z.ZodString;
+      min: z.ZodOptional<z.ZodNumber>;
+      max: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strict>]>>;
+    model: z.ZodDefault<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
+    unitId: z.ZodDefault<z.ZodInt>;
+    read: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodObject<{
+      function: z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>, z.ZodLiteral<4>]>;
+      address: z.ZodUnion<readonly [z.ZodInt, z.ZodString]>;
+      type: z.ZodOptional<z.ZodEnum<{
+        string: "string";
+        u16: "u16";
+        s16: "s16";
+        u32: "u32";
+        s32: "s32";
+        f32: "f32";
+      }>>;
+      count: z.ZodOptional<z.ZodInt>;
+      bit: z.ZodOptional<z.ZodInt>;
+      scale: z.ZodOptional<z.ZodNumber>;
+      unit: z.ZodOptional<z.ZodString>;
+      options: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+    }, z.core.$strict>>>;
   }, z.core.$strict>>;
   adopt: z.ZodDefault<z.ZodEnum<{
     owner: "owner";
@@ -2069,6 +2239,8 @@ type LoadedBundle = {
   readonly setup: IntegrationSetup;
   /** Where it was read from, for a message that has to name it. */
   readonly directory: string;
+  /** The template a Modbus driver reads its devices through, every entity with its id. */
+  readonly modbusTemplate?: ModbusTemplate;
 };
 /**
  * Which of the two places a vendor was read from.

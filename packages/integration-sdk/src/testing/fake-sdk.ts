@@ -466,6 +466,7 @@ export function createFakeSdk(options: FakeSdkOptions = {}): FakeSdk {
     openUdpSocket,
     openWebSocket,
     openMqtt: notFaked('openMqtt'),
+    openModbus: notFaked('openModbus'),
     openRtsp: notFaked('openRtsp'),
     platform: options.platform ?? { mqtt: null },
     codecs: { lzma: notFaked('codecs.lzma') },

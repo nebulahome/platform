@@ -30,9 +30,11 @@ export {
 export {
   identify,
   identifyMatter,
+  identifyModbus,
   identifyMqtt,
   type Identification,
   type MatterIdentification,
+  type ModbusIdentification,
   type MqttIdentification,
 } from './identify.js';
 export { loadIntegration, type LoadedIntegration, type LoadIntegrationOptions } from './load.js';

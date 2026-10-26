@@ -1,6 +1,6 @@
 {
   "name": "@nebulahome/integration-sdk",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Write a NebulaHome integration: check it, build it, test it and release it for the platform.",
   "license": "MIT",
   "type": "module",

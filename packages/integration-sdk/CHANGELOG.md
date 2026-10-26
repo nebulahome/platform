@@ -3,6 +3,28 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.4.0
+
+The house's Modbus client is the platform's.
+
+- The platform runs the house's Modbus TCP client in the hub, the way it runs the MQTT broker:
+  one connection per server, one request at a time, shared by everything in the hub that speaks
+  Modbus - over MBAP, or RTU frames a transparent RS485 adapter carries over TCP.
+- A driver may run on the platform's `modbus` transport with `"kind": "modbus"` and a `template`:
+  the platform reads the device through the template - each entity's capabilities mapped to the
+  register it is read from (functions 01-04) and the command it is written with (05, 06, 15, 16) -
+  with neither a profile nor code. The template is the one the owner writes on the Brokers page,
+  and the integration's show there, read-only, for the owner to duplicate.
+- `discovery.json` may say which of the Modbus servers the network search finds are the vendor's,
+  in a `modbus` block: the values to read - registers, as a template reads them - and conditions on
+  `values.<name>`; `listen` may then be left out. The platform recognises no server on its own.
+- `sdk.openModbus({ host, port, framing })` opens a session through the hub's one connection to a
+  server, for a transport of the vendor's own: its requests wait their turn with the platform's,
+  so a gateway that takes one client at a time is never asked twice at once.
+- `identifyModbus(vendor, identity)` in `@nebulahome/integration-sdk/testing` says whether the
+  vendor's `modbus` rules take a server, and `schemas/modbus-template.schema.json` checks a
+  template in the editor.
+
 ## 1.3.0
 
 The house's MQTT broker is the platform's.

@@ -142,3 +142,38 @@ export function identifyMqtt(
 
   return { matches, association: matches ? associateBroker(plan, 'mqtt', identity) : null };
 }
+
+/** What discovery makes of one of the Modbus servers the house's network search found. */
+export type ModbusIdentification = {
+  /** Whether the vendor's `modbus` rules take it: every condition holds. */
+  readonly matches: boolean;
+
+  /** The Modbus driver and the model it names; null when no driver takes the server. */
+  readonly association: Association | null;
+};
+
+/**
+ * Says what discovery makes of one of the Modbus servers the network search found, by the
+ * vendor's `modbus` rules. The test says what the server answered to each value the block reads:
+ * the platform reads them through the house's Modbus client and matches the rules on
+ * `values.<name>`, `host`, `port` and `unitId`.
+ *
+ * @param vendor - The vendor, loaded with `loadIntegration`.
+ * @param identity - The server: `{ host, port, unitId, values: { serial: 'H34A10I1234567' } }`.
+ * @returns What discovery makes of it.
+ * @throws {Error} When the vendor has no discovery that loaded.
+ */
+export function identifyModbus(
+  vendor: LoadedVendor,
+  identity: Readonly<Record<string, unknown>>,
+): ModbusIdentification {
+  const plan = vendor.discovery?.plan;
+
+  if (plan === undefined) {
+    throw new Error(`${vendor.manifest.id} has no discovery.json that loaded`);
+  }
+
+  const matches = matchesBroker(plan, 'modbus', identity);
+
+  return { matches, association: matches ? associateBroker(plan, 'modbus', identity) : null };
+}

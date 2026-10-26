@@ -128,7 +128,7 @@ the vendor's models by series, across its drivers - the series by name, the mode
 counting order - and a device's page says its series where it would say the driver's name. A
 model given no series is grouped under its driver. Every model named must be in `models`.
 
-`transport` is a platform transport - `http`, `mqtt`, `matter`, `mqtt-house` - or one the driver's own vendor
+`transport` is a platform transport - `http`, `mqtt`, `matter`, `mqtt-house`, `modbus` - or one the driver's own vendor
 ships, named after the vendor: `shelly/rpc`. Never another vendor's: vendors load in no particular
 order, and a driver leaning on another's transport would load or not by luck.
 
@@ -144,6 +144,64 @@ A driver of the vendor's devices that **announce themselves on the house's MQTT 
 the platform's own MQTT mapping runs it - sensors, binary sensors, switches, lights, covers,
 buttons, numbers, selects and locks, as each announces itself - and `modelCodes` maps the model
 the device announces onto the models it lists.
+
+A driver of the vendor's **Modbus devices** is `"transport": "modbus"` with `"kind": "modbus"` and a
+`template` - `"template": "./template.json"` - instead of a profile or an entry: the platform reads
+the device through the template, over the house's one connection to its server. The template is
+the format the owner writes on the Brokers page, and the vendor's show there for the owner to
+duplicate:
+
+```json
+{
+  "$schema": "../../node_modules/@nebulahome/integration-sdk/schemas/modbus-template.schema.json",
+  "name": "SDM630",
+  "device": "Eastron SDM630",
+  "wordOrder": "high",
+  "pollSeconds": 10,
+  "entities": [
+    {
+      "id": "power",
+      "name": "Power",
+      "domain": "sensor",
+      "capabilities": {
+        "sensor_numeric": {
+          "read": { "function": 4, "address": "0x0034", "type": "f32", "unit": "W" }
+        }
+      }
+    },
+    {
+      "id": "relay_1",
+      "name": "Relay 1",
+      "domain": "switch",
+      "capabilities": {
+        "on_off": {
+          "read": { "function": 1, "address": "0x0000" },
+          "write": { "function": 5, "on": "0xFF00", "off": "0x0000" }
+        }
+      }
+    }
+  ]
+}
+```
+
+- `port` (502) and `unitId` (1) are what adding a device offers; `wordOrder` says which register
+  of a 32-bit value holds its high word; `pollSeconds` how often the device is read.
+- Each entity is a `domain` - `sensor`, `binary_sensor`, `switch`, `light`, `number`, `select`,
+  `button` - and its capabilities: a sensor `sensor_numeric` or `sensor_text`, a binary sensor
+  `sensor_binary`, a switch `on_off`, a light `on_off` and maybe `level`, the others their own.
+  `id` is what the entity stays when it is renamed; give every one.
+- `read`: `function` 1 (coils), 2 (discrete inputs), 3 (holding registers) or 4 (input registers);
+  `address`, a number or `"0x…"`; for registers a `type` - `u16` (the default), `s16`, `u32`, `s32`,
+  `f32`, or `string` with a `count` of registers - a `bit` for an on/off value, a `scale` (`0.1`
+  for tenths), a `unit`, and `options` naming what each raw number means (`{ "0": "Off" }`, which
+  a select needs).
+- `write`: `function` 5 (one coil), 6 (one register), 15 (coils) or 16 (registers - a 32-bit value
+  needs it); `address`, the read's when left out; `on` and `off` for a switch; `min`, `max` and
+  `step` for a number, refused outside before anything is sent; `value` for a button.
+
+The rules that tie these together - a number is not read from coils, a coil is not written with
+06, a table read with 02 or 04 cannot be written back without an address - are checked when the
+bundle loads, with the words the editor uses.
 
 `defaultIcon` names the icon a device of this driver starts with, by its id in the platform's
 icon catalogue (`packages/icons/catalogue.json` lists the platform's own ids - `light`,
@@ -389,6 +447,30 @@ Each is added at once to the vendor whose `mqtt` rules take it:
 - `model` - where the device says its model, looked up in the `modelCodes` of the vendor's drivers
   that say `"kind": "mqtt"`; `model` when absent. A model no driver maps goes to the vendor's MQTT
   driver when it has only one, as with Matter.
+
+**Modbus servers.** The house's Modbus client searches the network, when the owner turns the search
+on: every address of the ranges the owner gives - or of the networks the hub is on - on port 502.
+It recognises nothing on its own: a server is the vendor's when its `modbus` rules take it, and the
+owner adds it from the Brokers page with the vendor's template. Whenever a vendor is installed or
+removed, the servers found are asked again.
+
+```json
+{
+  "modbus": {
+    "unitId": 1,
+    "read": { "serial": { "function": 3, "address": "0x0000", "type": "string", "count": 7 } },
+    "match": [{ "path": "values.serial", "startsWith": "H3" }],
+    "model": "values.model"
+  }
+}
+```
+
+- `read` - at most eight values, by the name the rules use, each read as a template's `read` is,
+  from `unitId` (1 unless said); one the server refuses is `null`.
+- `match` - at least one condition, all of which must hold of `values.<name>`, `host`, `port` and
+  `unitId`.
+- `model` - where the server says its model, looked up in the `modelCodes` of the vendor's drivers
+  that say `"kind": "modbus"`; `values.model` when absent.
 
 A vendor may have `mqtt` alone, with no `listen`. A device that more than one vendor's rules take,
 and one that none takes, is added as the platform's own MQTT device, and one added so before the
@@ -661,21 +743,22 @@ the manifest names, and its default export - typed with `defineTransportModule` 
 the hub calls with the **SDK**, the runtime's pieces a transport needs, since the bundle cannot
 import them:
 
-| `sdk.`               | What                                                                               |
-| -------------------- | ---------------------------------------------------------------------------------- |
-| `version`            | the runtime version, the one `manifest.sdk` was matched against                    |
-| `z`                  | the runtime's zod, so the transport's settings validate as the hub's do            |
-| `defineTransport`    | the contract the platform's own transports are written against                     |
-| `openWebSocket`      | a WebSocket the hub keeps open: reconnection with a doubling pause, resets         |
-| `openUdpSocket`      | a UDP socket the hub binds, joins to a multicast group, and closes with the vendor |
-| `openMqtt`           | an MQTT session with a client certificate, for a vendor's own broker               |
-| `defineStreamSource` | the contract a camera's stream source is written against                           |
-| `openRtsp`           | an RTSP(S) session over TCP, yielding a camera's H.264 as it comes                 |
-| `platform.mqtt`      | the house's MQTT broker the hub runs, with the hub's username; null if it cannot   |
-| `defineAccount`      | the contract an account's sign-in module is written against                        |
-| `codecs.lzma`        | unpacks an LZMA stream in the alone format, as some clouds pack maps               |
-| `images.png`         | encodes a picture of a palette as a PNG, for an image entity                       |
-| `logger`             | the hub's logger, for what happens outside a connection                            |
+| `sdk.`               | What                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| `version`            | the runtime version, the one `manifest.sdk` was matched against                       |
+| `z`                  | the runtime's zod, so the transport's settings validate as the hub's do               |
+| `defineTransport`    | the contract the platform's own transports are written against                        |
+| `openWebSocket`      | a WebSocket the hub keeps open: reconnection with a doubling pause, resets            |
+| `openUdpSocket`      | a UDP socket the hub binds, joins to a multicast group, and closes with the vendor    |
+| `openMqtt`           | an MQTT session with a client certificate, for a vendor's own broker                  |
+| `openModbus`         | a Modbus session through the hub's one connection to a server, closed with the vendor |
+| `defineStreamSource` | the contract a camera's stream source is written against                              |
+| `openRtsp`           | an RTSP(S) session over TCP, yielding a camera's H.264 as it comes                    |
+| `platform.mqtt`      | the house's MQTT broker the hub runs, with the hub's username; null if it cannot      |
+| `defineAccount`      | the contract an account's sign-in module is written against                           |
+| `codecs.lzma`        | unpacks an LZMA stream in the alone format, as some clouds pack maps                  |
+| `images.png`         | encodes a picture of a palette as a PNG, for an image entity                          |
+| `logger`             | the hub's logger, for what happens outside a connection                               |
 
 `openWebSocket` also takes `headers` - sent on every handshake and never logged, or a
 function called before each attempt, for a token that expires - `ping: { everyMs, timeoutMs }`,

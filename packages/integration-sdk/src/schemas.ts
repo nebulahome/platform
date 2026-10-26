@@ -10,7 +10,7 @@
  */
 import { z } from 'zod';
 
-import { integrationSetupSchema } from '@nebulahome/contracts';
+import { integrationSetupSchema, modbusTemplateSchema } from '@nebulahome/contracts';
 import {
   accountDeclarationSchema,
   driverManifestSchema,
@@ -32,6 +32,7 @@ export const BUNDLE_FILE_SCHEMAS = {
   profile: integrationProfileSchema,
   discovery: vendorDiscoverySchema,
   account: accountDeclarationSchema,
+  'modbus-template': modbusTemplateSchema,
 } as const;
 
 /** The names of the files a JSON Schema is written for. */
