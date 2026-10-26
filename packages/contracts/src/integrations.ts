@@ -94,11 +94,12 @@ export type TransportWire = (typeof TRANSPORT_WIRES)[number];
 /**
  * How a device can be heard announcing itself: the platform's mDNS browser, a vendor's own
  * listener, the house's Matter fabric - a node commissioned and not yet added - or the house's
- * MQTT broker - a device that announced itself on it, or that the owner mapped. Declared here
+ * MQTT broker - a device that announced itself on it, or that the owner mapped - or the house's
+ * Modbus client - a device the owner added at an address. Declared here
  * rather than beside the discovered devices, because a vendor lists the ways it can be found and
  * the discovery module already reads this file.
  */
-export const DISCOVERY_SOURCES = ['mdns', 'module', 'matter', 'mqtt'] as const;
+export const DISCOVERY_SOURCES = ['mdns', 'module', 'matter', 'mqtt', 'modbus'] as const;
 
 /** How a device can be heard. */
 export type DiscoverySource = (typeof DISCOVERY_SOURCES)[number];

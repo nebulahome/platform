@@ -50,6 +50,7 @@ export * from './links.js';
 export * from './locale.js';
 export * from './log-level.js';
 export * from './matter.js';
+export * from './modbus.js';
 export * from './mqtt.js';
 export * from './container-dependencies.js';
 export * from './package-compose.js';
