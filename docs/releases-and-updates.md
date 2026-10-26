@@ -4,8 +4,10 @@ How NebulaHome is versioned, how a release is cut and published, and how a house
 Read this before touching versions, the release script, the Maintenance page or the update code;
 change this file in the same commit as the behaviour it describes.
 
-Status (2026-10-25, round 2): built and unit-tested; not yet exercised live (a real release, a real update
-of a running container, a restart). Section 6 lists what was left out.
+Status (2026-10-27, round 3): built and unit-tested; not yet exercised live (a real release, a real update
+of a running container, a restart). Round 3 added the restart and update screens every page shows
+(below, "What every page shows") and the channels section of the page. Section 6 lists what was
+left out.
 
 ## 1. Versions
 
@@ -118,6 +120,12 @@ disagree.
 `updates.channel.packages`, `updates.channel.integrations`. **Nebula Home never updates by
 itself**: only its Update button does.
 
+The page shows them as the board does: a section "Channels and automatic updates" with one row each
+for Nebula Home, Packages and Integrations - the channel (Stable / Beta / Dev) and an Auto switch.
+Nebula Home's Auto switch is shown off and disabled; Beta and Dev of packages and integrations are
+disabled option by option until the Hub publishes them (section 5). "How updates run" keeps When and
+Back up first.
+
 ### The quietest time
 
 `sensor.system_quiet_time` on the System device: the start, `HH:MM` in the house's time zone, of
@@ -188,7 +196,11 @@ The supervisor runs inside the platform's container and cannot replace it, so:
 4. It waits up to 5 minutes for Docker's health check to say healthy. On success it removes the
    old container and the copies. On failure it removes the new container, copies the volumes back,
    retags the old image and starts the old container again.
-5. The outcome is written to `/data/updates/last.json`; the page shows a failed one.
+5. The outcome is written to `/data/updates/last.json` - with the updater's steps and, when the new
+   version did not start, its last 50 log lines (`log`), and how long putting the old one back took
+   (`restoredInMs`); the page shows a failed one. While it works the updater keeps a marker,
+   `/data/updates/current.json` (`{fromVersion, toVersion, startedAt}`), which the outcome removes:
+   the version that comes up reads it and says the update is being checked.
 
 Without the Docker socket, or outside the container (`pnpm dev`), Update is refused with the
 reason.
@@ -200,6 +212,36 @@ reason.
   `unless-stopped` policy starts the container again.
 - **Shut down**: `docker stop` of its own container; it stays down until started again. Not
   possible without the socket (refused with the reason).
+
+### What every page shows
+
+A restart or an update of Nebula Home takes over **every signed-in page**, whoever started it
+(boards N-Restart, N-Update, N-Update-Failed, N-Transition-Flow, N-Back-Online;
+`apps/web-ui/src/components/platform-overlay.tsx`).
+
+- **What the server says.** The supervisor keeps the operation under way and publishes it on
+  `nebula.v1.event.platform` (`{operation}`, `platformOperationSchema`): a restart `stopping`
+  before `docker restart`; an update `downloading` with the pull's real percentage and size
+  (`PullProgressTracker`, at most once a second), then `installing` as the updater starts; null when
+  it gave up. `api` forwards it as `platform_event` on the WebSocket topic `system`, to every socket
+  without a permission. `GET /api/v1/system/platform` (any signed-in user) answers
+  `{version, machine, operation, lastUpdate}` from the supervisor's `platform_state`; the page reads it
+  each time the live channel connects, so one opened mid-way still shows the screen. The packet-manager
+  passes the size of the backup the round took or reused (`backupBytes`).
+- **What the page sees for itself** (`system/platform-store.ts`, `platform-progress.ts`): the server
+  not answering (`/api/versions`, every 1.5 s, or the live channel dropping), answering again, then
+  for an update the outcome in `lastUpdate` (success, or rolled back / failed) and for a restart the
+  live channel back. The steps and their durations are those moments: restart - automations paused,
+  state saved (server gone), services starting (server back), devices reconnecting (live channel);
+  update - backed up (size), downloaded (size), installing, restarting the services, checking every
+  service. The update's bar is the download's real share (10-60 %), then a step at a time.
+- **The transition.** The page behind blurs, dims and shrinks (`.app-stage-back`), the sidebar's mark
+  flies to the middle, the mark turns slowly and its core breathes while the server is away. A
+  restart's screen fades out and the page reads everything again; an update reloads the page (the
+  interface is new) and says "Updated to X" for six seconds. Less motion (the preference or the
+  system's) stops the animations.
+- **Rolled back.** "The update didn't finish": the steps, the error, Download the log (the updater's
+  log as a file), Try again (with `system:update`) and Back to Nebula.
 
 ### Permissions
 
@@ -241,6 +283,12 @@ For the platform:
 - A round lives in the packet-manager's memory: its restart forgets the last round.
 - "Updating" reaches the page over the live channel only: a page opened during an update shows the
   entity as usual until the next change.
+- A page loaded while the platform's container is down cannot load at all (the proxy is in the same
+  container); it shows the screen once the server answers and the update is being checked.
+- Shutting down has no screen of its own: only the page that asked says so; other pages lose the
+  server.
+- The restart's first duration (automations paused) compares the server's clock with the page's; it
+  is left out when they disagree.
 - The quiet trigger's once-a-day guard lives in the engine's memory: a core restart after it fired
   can fire it again the same day if the quietest time is still ahead.
 - A command sent on the bus without a cause looks like a change by hand and counts as activity.
