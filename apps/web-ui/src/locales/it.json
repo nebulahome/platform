@@ -940,7 +940,6 @@
       "gatewaysTitle": "Gateway",
       "goesTo": "Va a {{host}} subito.",
       "highFirst": "Prima la word alta",
-      "howTitle": "Come si riconosce un server",
       "id": "Id",
       "ignore": "Ignora",
       "ignoreFailed": "Impossibile cambiare cosa è ignorato",
@@ -1069,12 +1068,6 @@
       "someOf": "{{kept}} di {{all}}",
       "startTemplate": "Inizia il template",
       "step": "Passo",
-      "step1": "La porta 502 risponde",
-      "step1Line": "Ogni indirizzo viene contattato, 32 alla volta, per 600 ms ciascuno. Non un server che un dispositivo della casa raggiunge già.",
-      "step2": "Chi è?",
-      "step2Line": "Ogni integrazione le cui regole dicono come riconoscere i suoi dispositivi legge alcuni registri e li confronta. La piattaforma da sola non riconosce nessun server.",
-      "step3": "Chi lo prende",
-      "step3Line": "Una sola integrazione lo riconosce: aggiungilo con quella. Nessuna: crea un dispositivo da un template.",
       "stopIgnoring": "Non ignorare più",
       "tcp": "TCP",
       "template": "Template",
@@ -1125,7 +1118,9 @@
       "write": "Scrittura",
       "writes": "Scritture",
       "writesValue": "Entro il min e il max di ogni entità",
-      "yours": "I tuoi"
+      "yours": "I tuoi",
+      "noUnit": "Nessuna",
+      "changeIcon": "Cambia icona"
     },
     "mqtt": {
       "add": "Aggiungi",

@@ -1,6 +1,7 @@
 /**
- * One entity of a template, as a block: its name and id, its domain, and each capability's read
- * and write side by side - the read alone, across, when the capability is only read.
+ * One entity of a template, as a block: its icon and name, its domain, and each capability's read
+ * and write side by side - the read alone, across, when the capability is only read. The icon is
+ * the domain's until one is picked from the catalogue; the unit is one the platform knows.
  *
  * Each capability has a Test that opens right under its header: the read it makes, the bytes the
  * device answered and the value they mean; and, for a capability that is written, the command
@@ -8,8 +9,8 @@
  * sent. A problem shows under the field it is about, in the contract's words; an address written
  * the way a manual numbers registers says which register it means.
  */
-import { useMutation } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -17,22 +18,34 @@ import {
   modbusReadSchema,
   modbusRegistersOf,
   modbusWordOf,
+  SENSOR_CLASS_LIST,
   type ModbusCapability,
   type ModbusTarget,
   type ModbusValueType,
 } from '@nebulahome/contracts';
-import { AppIcon, Button, cn, IconButton, SelectField, TextField } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Button,
+  CatalogueIcon,
+  cn,
+  IconButton,
+  SelectField,
+  TextField,
+  type SelectOption,
+  type UiIconId,
+} from '@nebulahome/ui';
 
 import { text } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
+import { fetchIcons, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { testModbusRead, testModbusWrite } from '@/library/modbus-api';
+import { IconPicker } from '@/routes/library/icon-picker';
 
 import { capabilityLine, domainLooks, fcText, FUNCTION_LINES } from './template-meta';
 import {
   capabilityDefaults,
   documentOf,
   emptyTemplate,
-  idOfEntity,
   manualNumberingOf,
   type CapabilityDraft,
   type EntityDraft,
@@ -66,6 +79,14 @@ export type EntityBlockProps = {
 /** The value types a register read may be, with the registers each takes. */
 const VALUE_TYPES: readonly ModbusValueType[] = ['u16', 's16', 'u32', 's32', 'f32', 'string'];
 
+/**
+ * The units a reading may be in, once each, in the catalogue's order - so those of one kind of
+ * reading sit together. Not grouped: `%` is a battery's and a humidity's alike.
+ */
+const UNITS: readonly SelectOption[] = SENSOR_CLASS_LIST.flatMap((entry) =>
+  entry.units.map((unit) => ({ value: unit.id, label: unit.symbol })),
+).filter((option, index, all) => all.findIndex((each) => each.value === option.value) === index);
+
 /** The capabilities whose value is on or off. */
 const BOOLEAN: ReadonlySet<ModbusCapability> = new Set(['sensor_binary', 'on_off']);
 
@@ -91,6 +112,79 @@ function shown(
   }
 
   return unit === '' ? String(value) : `${String(value)} ${unit}`;
+}
+
+/**
+ * The entity's icon, a button that opens the catalogue: the domain's until one is picked.
+ *
+ * @param props - What it draws.
+ * @param props.icon - The icon picked, or null.
+ * @param props.fallback - The domain's icon.
+ * @param props.tint - The domain's colours.
+ * @param props.onPick - Called with the icon picked.
+ * @returns The button and its picker.
+ */
+function EntityIcon(props: {
+  readonly icon: string | null;
+  readonly fallback: UiIconId;
+  readonly tint: string;
+  readonly onPick: (icon: string) => void;
+}) {
+  const { t } = useTranslation();
+  const { icon, fallback, tint, onPick } = props;
+  const [isPicking, setPicking] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+  const read = useQuery({
+    queryKey: [...LIBRARY_QUERY_KEYS.icons, 'one', icon ?? ''],
+    /**
+     * Reads the icon picked, to draw it.
+     *
+     * @param context - What TanStack Query provides, including the cancellation signal.
+     * @param context.signal - Cancels the request when the icon changes.
+     * @returns The icon, or undefined when the catalogue does not have it.
+     */
+    queryFn: async ({ signal }: { signal: AbortSignal }) =>
+      (await fetchIcons({ ids: [icon ?? ''] }, signal))[0],
+    enabled: icon !== null,
+  });
+
+  return (
+    <>
+      <button
+        ref={button}
+        type="button"
+        aria-label={t('brokers.modbus.changeIcon', 'Change icon')}
+        aria-haspopup="dialog"
+        aria-expanded={isPicking}
+        onClick={() => {
+          setPicking(!isPicking);
+        }}
+        className={cn(
+          'press-scale flex size-8 shrink-0 items-center justify-center rounded-field',
+          'focus-visible:shadow-focus focus-visible:outline-none',
+          tint,
+        )}
+      >
+        {icon !== null && read.data !== undefined ? (
+          <CatalogueIcon node={read.data.node} frame={read.data.frame} size={16} />
+        ) : (
+          <AppIcon id={fallback} size={16} />
+        )}
+      </button>
+      <IconPicker
+        anchor={button}
+        isOpen={isPicking}
+        current={icon}
+        onClose={() => {
+          setPicking(false);
+        }}
+        onPick={(view) => {
+          setPicking(false);
+          onPick(view.id);
+        }}
+      />
+    </>
+  );
 }
 
 /**
@@ -137,14 +231,14 @@ export function EntityBlock(props: EntityBlockProps) {
       className="overflow-hidden rounded-card border border-border bg-surface"
     >
       <header className="flex flex-wrap items-center gap-3 border-b border-border px-4.5 py-3">
-        <span
-          className={cn(
-            'flex size-8 shrink-0 items-center justify-center rounded-field',
-            look.tint,
-          )}
-        >
-          <AppIcon id={look.icon} size={16} />
-        </span>
+        <EntityIcon
+          icon={entity.icon}
+          fallback={look.icon}
+          tint={look.tint}
+          onPick={(icon) => {
+            onChange({ ...entity, icon });
+          }}
+        />
         <div className="min-w-36 flex-1 basis-40">
           <TextField
             label={t('brokers.modbus.entityName', 'Name')}
@@ -158,9 +252,6 @@ export function EntityBlock(props: EntityBlockProps) {
             }}
           />
         </div>
-        <span className="min-w-0 truncate font-mono text-mono-caption text-foreground-subtle">
-          {entity.domain}.{idOfEntity(entity)}
-        </span>
         <span className={cn('shrink-0 rounded-pill px-2 py-0.5 text-caption', look.tint)}>
           {look.label}
         </span>
@@ -527,14 +618,13 @@ function ReadFields(props: ReadFieldsProps) {
           />
         ) : null}
         {capability === 'sensor_numeric' || capability === 'number' ? (
-          <TextField
+          <SelectField
             label={t('brokers.modbus.unitField', 'Unit')}
-            placeholder="W"
-            translate="no"
+            options={[{ value: '', label: t('brokers.modbus.noUnit', 'None') }, ...UNITS]}
             value={read.unit}
             error={problems.get(`${path}.unit`)}
-            onChange={(event) => {
-              set('unit', event.target.value);
+            onChange={(value) => {
+              set('unit', value);
             }}
           />
         ) : null}

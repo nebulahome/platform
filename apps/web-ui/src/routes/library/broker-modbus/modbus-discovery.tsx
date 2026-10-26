@@ -1,6 +1,6 @@
 /**
- * The Modbus broker's Discovery tab: how the network search last went, how a server it finds is
- * recognised, and what it found - new servers, those already added, those ignored.
+ * The Modbus broker's Discovery tab: how the network search last went, and what it found - new
+ * servers, those already added, those ignored.
  *
  * Nothing Modbus announces itself, so the search knocks on port 502 of the owner's ranges, or of
  * the networks the hub is on. The platform recognises no server on its own: a server is named only
@@ -53,29 +53,6 @@ export function ModbusDiscovery(props: ModbusDiscoveryProps) {
   const { settings, search } = status;
   const run = search.lastRun;
   const isRunning = search.isRunning || props.isSearching;
-  const steps = [
-    {
-      title: t('brokers.modbus.step1', 'Port 502 answers'),
-      line: t(
-        'brokers.modbus.step1Line',
-        'Every address is knocked on, 32 at a time, for 600 ms each. A server a device of the house already reaches is not.',
-      ),
-    },
-    {
-      title: t('brokers.modbus.step2', 'Who is it?'),
-      line: t(
-        'brokers.modbus.step2Line',
-        'Each integration whose rules say how to know its devices reads a few registers and matches them. The platform names no server on its own.',
-      ),
-    },
-    {
-      title: t('brokers.modbus.step3', 'Who takes it'),
-      line: t(
-        'brokers.modbus.step3Line',
-        'One integration recognises it: add it with that one. None does: create a device from a template.',
-      ),
-    },
-  ];
 
   return (
     <div className="flex flex-col gap-8">
@@ -145,25 +122,6 @@ export function ModbusDiscovery(props: ModbusDiscoveryProps) {
           </Button>
         )}
       </div>
-
-      <Section title={t('brokers.modbus.howTitle', 'How a server is recognised')}>
-        <ol className="grid gap-3.5 md:grid-cols-3">
-          {steps.map((step, index) => (
-            <li
-              key={step.title}
-              className="flex gap-3 rounded-card border border-border bg-surface px-4.5 py-4"
-            >
-              <span className="flex size-6.5 shrink-0 items-center justify-center rounded-full bg-surface-raised font-mono text-mono-caption text-foreground">
-                {index + 1}
-              </span>
-              <span className="flex flex-col gap-1">
-                <span className="text-ui font-medium text-foreground">{step.title}</span>
-                <span className="text-ui-sm text-foreground-muted">{step.line}</span>
-              </span>
-            </li>
-          ))}
-        </ol>
-      </Section>
 
       <Section title={t('brokers.modbus.new', 'New')}>
         {found.length === 0 ? (

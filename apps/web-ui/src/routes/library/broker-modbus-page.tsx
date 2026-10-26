@@ -3,7 +3,7 @@
  * network search, and the templates that say what a device's registers mean.
  *
  * As the board draws a detail page: the way back, the mark, the name and its line, the state and
- * `Modbus TCP`, **Settings** and **Add device** at the top right, then the tabs. Overview is the
+ * `Modbus TCP`, **Add device** and **Settings** at the top right, then the tabs. Overview is the
  * health strip and the gateways with their devices; Devices every device in a table; Discovery how
  * the network search went and what it found; Templates the owner's and the integrations'. The
  * template editor is a page of its own (`broker-modbus/template-editor`).
@@ -347,6 +347,16 @@ export function ModbusBrokerPage() {
           actions={
             current === undefined ? undefined : (
               <>
+                {canWrite ? (
+                  <Button
+                    onClick={() => {
+                      setAdding({ found: null });
+                    }}
+                  >
+                    <AppIcon id="plus" size={15} />
+                    {t('brokers.modbus.addDevice', 'Add device')}
+                  </Button>
+                ) : null}
                 {canConfigure ? (
                   <Button
                     variant="ghost"
@@ -356,16 +366,6 @@ export function ModbusBrokerPage() {
                   >
                     <AppIcon id="settings" size={15} />
                     {t('brokers.modbus.settings', 'Settings')}
-                  </Button>
-                ) : null}
-                {canWrite ? (
-                  <Button
-                    onClick={() => {
-                      setAdding({ found: null });
-                    }}
-                  >
-                    <AppIcon id="plus" size={15} />
-                    {t('brokers.modbus.addDevice', 'Add device')}
                   </Button>
                 ) : null}
               </>

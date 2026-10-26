@@ -10,7 +10,6 @@
  */
 import {
   MODBUS_DOMAIN_CAPABILITIES,
-  modbusEntityIdOf,
   modbusTemplateFieldsSchema,
   modbusTemplateSchema,
   type ModbusCapability,
@@ -60,6 +59,9 @@ export type EntityDraft = {
   /** The id it stays when renamed; null until it is saved once. */
   readonly id: string | null;
   readonly name: string;
+
+  /** The catalogue icon chosen; null for the domain's. */
+  readonly icon: string | null;
   readonly domain: ModbusDomain;
   readonly capabilities: Partial<Record<ModbusCapability, CapabilityDraft>>;
 };
@@ -173,6 +175,7 @@ export function entityOf(domain: ModbusDomain, name: string): EntityDraft {
     key: newKey(),
     id: null,
     name,
+    icon: null,
     domain,
     capabilities: Object.fromEntries(
       capabilities.map((capability) => [capability, capabilityDefaults(capability)]),
@@ -195,16 +198,6 @@ export function emptyTemplate(): TemplateDraft {
     pollSeconds: '10',
     entities: [],
   };
-}
-
-/**
- * What an entity's id is or will be.
- *
- * @param entity - The entity.
- * @returns Its own part of the identifier.
- */
-export function idOfEntity(entity: EntityDraft): string {
-  return entity.id ?? modbusEntityIdOf(entity.name);
 }
 
 /**
@@ -282,6 +275,7 @@ export function documentOf(draft: TemplateDraft): TemplateDocument {
     entities: draft.entities.map((entity) => ({
       ...(entity.id === null ? {} : { id: entity.id }),
       name: entity.name,
+      ...(entity.icon === null ? {} : { icon: entity.icon }),
       domain: entity.domain,
       capabilities: Object.fromEntries(
         Object.entries(entity.capabilities).map(([capability, map]) => [
@@ -348,6 +342,7 @@ export function draftOf(template: ModbusTemplate): TemplateDraft {
       key: newKey(),
       id: entity.id ?? null,
       name: entity.name,
+      icon: entity.icon ?? null,
       domain: entity.domain,
       capabilities: Object.fromEntries(
         Object.entries(entity.capabilities).map(([capability, map]) => [
