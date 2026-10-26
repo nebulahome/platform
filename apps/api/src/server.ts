@@ -40,6 +40,7 @@ import { registerIntegrationRoutes } from './routes/integrations.js';
 import { registerLinkRoutes } from './routes/links.js';
 import { registerMapRoutes } from './routes/map.js';
 import { registerMetaRoutes } from './routes/meta.js';
+import { registerModbusRoutes } from './routes/modbus.js';
 import { registerPackageFileRoutes, registerPackageRoutes } from './routes/packages.js';
 import { registerRegistryRoutes } from './routes/registry.js';
 import { registerRoleRoutes } from './routes/roles.js';
@@ -270,6 +271,7 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   registerDiscoveryRoutes(environment, context);
   registerLinkRoutes(environment, context);
   registerBrokerRoutes(environment, context);
+  registerModbusRoutes(environment, context);
   registerIntegrationRoutes(environment, context);
   registerIconRoutes(environment, context);
   registerHistoryRoutes(environment, context);

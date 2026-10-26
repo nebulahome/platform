@@ -51,6 +51,7 @@ describe('the broker routes', () => {
       items: [
         { id: 'matter', state: 'running', devices: { total: 1, online: 1, linked: 0 } },
         { id: 'mqtt', state: 'running', devices: { total: 1, online: 1, linked: 0 } },
+        { id: 'modbus', state: 'running', devices: { total: 1, online: 1, linked: 0 } },
       ],
     });
     expect(nodes.json()).toEqual({ items: [MATTER_LAMP] });

@@ -67,6 +67,12 @@ import {
   HUB_MQTT_DEVICES_METHOD,
   HUB_MQTT_MAPPING_REMOVE_METHOD,
   HUB_MQTT_MAPPING_SAVE_METHOD,
+  HUB_MODBUS_DEVICE_REMOVE_METHOD,
+  HUB_MODBUS_DEVICE_SAVE_METHOD,
+  HUB_MODBUS_DEVICES_METHOD,
+  HUB_MODBUS_SETTINGS_METHOD,
+  HUB_MODBUS_STATUS_METHOD,
+  HUB_MODBUS_TEST_WRITE_METHOD,
   HUB_MQTT_MAPPINGS_METHOD,
   HUB_MQTT_RESTORE_METHOD,
   HUB_MQTT_SETTINGS_METHOD,
@@ -74,11 +80,15 @@ import {
   HUB_MQTT_TOPICS_METHOD,
   mqttClientAddRequestSchema,
   mqttClientRemoveRequestSchema,
+  modbusDeviceInputSchema,
+  modbusSettingsSchema,
   mqttMappingInputSchema,
   mqttMappingRemoveRequestSchema,
   mqttRestoreRequestSchema,
   mqttSettingsSchema,
   mqttTopicsRequestSchema,
+  type ModbusDevice,
+  type ModbusStatus,
   type MqttDevice,
   type MqttStatus,
   matterCommissionRequestSchema,
@@ -803,6 +813,41 @@ const MQTT_STATUS: MqttStatus = {
   discovery: { announced: 1, mapped: 0, devices: 1, skipped: [] },
 };
 
+/** What the fake hub's Modbus broker was asked, as `method payload`. */
+export const modbusRequests: string[] = [];
+
+/** The fake hub's one Modbus device: a relay board not yet added to the house. */
+export const MODBUS_RELAY: ModbusDevice = {
+  id: '0b4f2c1e-6a3d-4f7e-9c2a-1d5e8b7a6c40',
+  name: 'Garage relays',
+  host: '192.168.1.60',
+  port: 502,
+  unitId: 1,
+  framing: 'tcp',
+  template: '7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f',
+  pollSeconds: null,
+  templateName: 'Waveshare relay 8ch',
+  vendorId: null,
+  everySeconds: 5,
+  state: 'online',
+  lastReadAt: new Date('2026-10-26T14:31:07Z'),
+  lastError: null,
+  deviceId: null,
+};
+
+/** Where the fake hub's Modbus broker stands. */
+const MODBUS_STATUS: ModbusStatus = {
+  state: 'running',
+  error: null,
+  startedAt: new Date('2026-10-26T08:00:00Z'),
+  settings: { isSearchEnabled: false, ranges: [], intervalMinutes: 120 },
+  search: { isRunning: false, lastRun: null, nextAt: null },
+  devices: { total: 1, online: 1 },
+  gateways: 1,
+  requestsPerMinute: 12,
+  averageMs: 41,
+};
+
 /** The containers the fake supervisor was asked to control, as `name:action`. */
 export const controlled: string[] = [];
 
@@ -1272,6 +1317,46 @@ export async function buildTestServer(
       z.unknown(),
       () => MQTT_STATUS,
     ),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MODBUS_STATUS_METHOD),
+      z.unknown(),
+      () => MODBUS_STATUS,
+    ),
+    hub.serve(busSubjects.service(HUB_SERVICE, HUB_MODBUS_DEVICES_METHOD), z.unknown(), () => ({
+      items: [MODBUS_RELAY],
+    })),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MODBUS_DEVICE_SAVE_METHOD),
+      modbusDeviceInputSchema,
+      (device) => {
+        modbusRequests.push(`save ${device.name}`);
+
+        return { ...MODBUS_RELAY, ...device, id: device.id ?? MODBUS_RELAY.id };
+      },
+    ),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MODBUS_DEVICE_REMOVE_METHOD),
+      z.object({ id: z.string() }),
+      (request) => {
+        modbusRequests.push(`remove ${request.id}`);
+
+        return { isRemoved: true };
+      },
+    ),
+    hub.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MODBUS_SETTINGS_METHOD),
+      modbusSettingsSchema,
+      (settings) => {
+        modbusRequests.push(`settings ${JSON.stringify(settings)}`);
+
+        return { ...MODBUS_STATUS, settings };
+      },
+    ),
+    hub.serve(busSubjects.service(HUB_SERVICE, HUB_MODBUS_TEST_WRITE_METHOD), z.unknown(), () => {
+      modbusRequests.push('test_write');
+
+      return { request: '05 00 00 FF 00', response: '05 00 00 FF 00', error: null, ms: 10 };
+    }),
     hub.serve(busSubjects.service(HUB_SERVICE, HUB_MQTT_DEVICES_METHOD), z.unknown(), () => ({
       items: [MQTT_PLUG],
     })),

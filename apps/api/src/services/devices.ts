@@ -45,6 +45,7 @@ import {
   HUB_PROBE_METHOD,
   HUB_SERVICE,
   MATTER_TRANSPORT,
+  MODBUS_TRANSPORT,
   MQTT_HOUSE_TRANSPORT,
   NotFoundError,
   PACKAGE_DEVICE_PREFIX,
@@ -709,9 +710,13 @@ export async function createDevice(
     await checkRoom(context.db, body.areaId);
   }
 
-  // A broker's device is reached through the house's fabric or broker, not the vendor's account
-  // or setup.
-  if (driver.transport !== MATTER_TRANSPORT && driver.transport !== MQTT_HOUSE_TRANSPORT) {
+  // A broker's device is reached through the house's fabric, broker or Modbus client, not the
+  // vendor's account or setup.
+  if (
+    driver.transport !== MATTER_TRANSPORT &&
+    driver.transport !== MQTT_HOUSE_TRANSPORT &&
+    driver.transport !== MODBUS_TRANSPORT
+  ) {
     await requireVendorSetup(context, vendor);
   }
 

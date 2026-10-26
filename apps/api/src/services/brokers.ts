@@ -1,6 +1,7 @@
 /**
  * The platform's brokers, read through and driven: the house's Matter fabric and its MQTT broker,
- * which `hub` holds (ARCHITECTURE.md 4.2).
+ * which `hub` holds (ARCHITECTURE.md 4.2). The Modbus broker's own methods are `modbus.ts`'s; its
+ * card is counted here with the others.
  *
  * Everything here is a question to the hub. What it adds is what removing something means for the
  * house: a node's devices - or a mapping's - are removed the way any device is - `hub` lets go,
@@ -38,6 +39,7 @@ import {
   MATTER_TRANSPORT,
   MATTER_VENDOR,
   matterCommissioningSchema,
+  MODBUS_VENDOR,
   matterNetworkSchema,
   matterNodesReplySchema,
   matterRemoveReplySchema,
@@ -75,6 +77,7 @@ import { schema } from '@nebulahome/db';
 
 import { deleteDevice, type DevicesContext, type RemovedDevice } from './devices.js';
 import { busOf, listCatalogue, reloadOnHub, type IntegrationsContext } from './integrations.js';
+import { modbusStatus } from './modbus.js';
 
 /**
  * Where the Matter fabric stands.
@@ -134,7 +137,7 @@ export async function matterNetwork(context: IntegrationsContext): Promise<Matte
  * @throws {DeviceUnavailableError} When the hub cannot be asked.
  */
 export async function listBrokers(context: IntegrationsContext): Promise<BrokerSummary[]> {
-  const [status, linked, mqtt] = await Promise.all([
+  const [status, linked, mqtt, modbus] = await Promise.all([
     matterStatus(context),
     // A count on a card: a database that cannot answer it leaves the card standing.
     linkedMatterDevices(context).catch((error: unknown) => {
@@ -143,12 +146,14 @@ export async function listBrokers(context: IntegrationsContext): Promise<BrokerS
       return 0;
     }),
     mqttStatus(context),
+    modbusStatus(context),
   ]);
   const heard = mqtt.discovery.devices;
 
   return [
     { id: MATTER_VENDOR, state: status.state, devices: { ...status.nodes, linked } },
     { id: MQTT_VENDOR, state: mqtt.state, devices: { total: heard, online: heard, linked: 0 } },
+    { id: MODBUS_VENDOR, state: modbus.state, devices: { ...modbus.devices, linked: 0 } },
   ];
 }
 
