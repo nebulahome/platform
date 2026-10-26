@@ -1,5 +1,5 @@
 /**
- * A YAML editor: a compose file written in the page, with line numbers, indentation that follows
+ * A YAML editor: a compose file written in the page - or a JSON file, which is YAML too - with line numbers, indentation that follows
  * the line above, Tab that indents, and the problems `docker compose` found marked on their lines.
  *
  * CodeMirror, loaded only when a dialog that writes a file opens - its weight is not paid by the
@@ -15,7 +15,7 @@ import {
   syntaxHighlighting,
 } from '@codemirror/language';
 import { lintGutter, setDiagnostics, type Diagnostic } from '@codemirror/lint';
-import { EditorState } from '@codemirror/state';
+import { EditorState, type Extension } from '@codemirror/state';
 import {
   drawSelection,
   EditorView,
@@ -55,6 +55,12 @@ export type YamlEditorProps = {
 
   /** How tall it grows before it scrolls, as CSS. */
   readonly maxHeight?: string;
+
+  /**
+   * What the page adds to the editor - marks of its own on what it holds. A JSON file is YAML, so
+   * a template file is edited here too, its own tints added.
+   */
+  readonly extensions?: readonly Extension[];
 };
 
 /** The colours of the syntax: the design system's, not CodeMirror's. */
@@ -210,6 +216,7 @@ export default function YamlEditor(props: YamlEditorProps) {
           EditorView.contentAttributes.of({ 'aria-label': label }),
           ...(props.placeholder === undefined ? [] : [placeholder(props.placeholder)]),
           frame(minHeight, maxHeight),
+          ...(props.extensions ?? []),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
               listener.current?.(update.state.doc.toString());

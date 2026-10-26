@@ -37,6 +37,7 @@ import { useTranslation } from 'react-i18next';
 import {
   integrationIdSchema,
   MATTER_TRANSPORT,
+  MODBUS_TRANSPORT,
   MQTT_HOUSE_TRANSPORT,
   modelChoicesOf,
   suggestDeviceId,
@@ -233,7 +234,11 @@ export function DeviceDialog(props: DeviceDialogProps) {
    * @returns It, for a broker's; null for any other.
    */
   const brokerOf = (transport: string | undefined): string | null =>
-    transport === MATTER_TRANSPORT || transport === MQTT_HOUSE_TRANSPORT ? transport : null;
+    transport === MATTER_TRANSPORT ||
+    transport === MQTT_HOUSE_TRANSPORT ||
+    transport === MODBUS_TRANSPORT
+      ? transport
+      : null;
   const broker = brokerOf(existing?.transport);
   const choices =
     vendor === undefined

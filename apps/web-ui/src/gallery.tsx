@@ -11,7 +11,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode, useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
 
 import {
   composeEntityId,
@@ -89,6 +89,8 @@ import { AutomationEditor } from '@/routes/library/automation-editor';
 import { rowsOf } from '@/routes/library/broker-matter/matter-rows';
 import { JoinAnimation } from '@/routes/library/broker-matter/matter-steps';
 import { NetworkGraph } from '@/routes/library/broker-matter/network-graph';
+import { ModbusTemplatePage } from '@/routes/library/broker-modbus/template-editor/template-page';
+import { ModbusBrokerPage } from '@/routes/library/broker-modbus-page';
 import { DeviceDialog } from '@/routes/library/device-dialog';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { ControlPanel } from '@/routes/library/entity/controls/control-panel';
@@ -110,6 +112,7 @@ import {
   MATTER_SAMPLE_NETWORK,
   MATTER_SAMPLE_NODES,
 } from '@/testing/matter-samples';
+import { MODBUS_SAMPLE_RELAY_ID, modbusSampleCache } from '@/testing/modbus-samples';
 
 import {
   AliasEditorSample,
@@ -463,6 +466,12 @@ const LOG_CACHE = new QueryClient();
 
 /** The cache the linked tags read their vendors from. */
 const MATTER_GALLERY_CACHE = matterSampleCache();
+
+/** The cache the Modbus broker's pages read from. */
+const MODBUS_GALLERY_CACHE = modbusSampleCache();
+
+/** The Modbus broker's tabs, each drawn as its page shows it. */
+const MODBUS_TABS = ['overview', 'devices', 'discovery', 'templates'] as const;
 
 /** The Matter fabric's devices, as the broker's tabs list them. */
 const MATTER_GALLERY_ROWS = rowsOf(MATTER_SAMPLE_NODES, MATTER_SAMPLE_DEVICES, 'bridge');
@@ -1457,6 +1466,40 @@ function Gallery() {
                 <JoinAnimation phase="failed" done={2} />
               </div>
             </div>
+          </QueryClientProvider>
+        </Section>
+
+        {MODBUS_TABS.map((tab) => (
+          <Section
+            key={tab}
+            title={`Modbus · ${tab}`}
+            note="The house's Modbus broker over sample data: three gateways, five devices - one silent - two servers found and one ignored, the owner's templates and SolaX's."
+          >
+            <QueryClientProvider client={MODBUS_GALLERY_CACHE}>
+              <MemoryRouter initialEntries={[`/brokers/modbus?tab=${tab}`]}>
+                <div className="w-full" data-gallery={`modbus-${tab}`}>
+                  <ModbusBrokerPage />
+                </div>
+              </MemoryRouter>
+            </QueryClientProvider>
+          </Section>
+        ))}
+
+        <Section
+          title="Modbus · template editor"
+          note="The relay board's template as blocks: a switch on a coil, an input, the firmware scaled, a mode with options; the cards at the side."
+        >
+          <QueryClientProvider client={MODBUS_GALLERY_CACHE}>
+            <MemoryRouter initialEntries={[`/brokers/modbus/templates/${MODBUS_SAMPLE_RELAY_ID}`]}>
+              <div className="w-full" data-gallery="modbus-editor">
+                <Routes>
+                  <Route
+                    path="/brokers/modbus/templates/:templateId"
+                    element={<ModbusTemplatePage />}
+                  />
+                </Routes>
+              </div>
+            </MemoryRouter>
           </QueryClientProvider>
         </Section>
 

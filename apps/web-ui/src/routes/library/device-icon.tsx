@@ -11,8 +11,11 @@ import { useQuery } from '@tanstack/react-query';
 import {
   MATTER_TRANSPORT,
   MATTER_VENDOR,
+  MODBUS_TRANSPORT,
+  MODBUS_VENDOR,
   MQTT_HOUSE_TRANSPORT,
   MQTT_VENDOR,
+  type BrokerId,
   type DeviceView,
   type IconView,
 } from '@nebulahome/contracts';
@@ -87,7 +90,7 @@ export type DeviceIconProps = {
  */
 function BrokerOwnerMark(props: {
   readonly vendorId: string | null;
-  readonly broker: 'matter' | 'mqtt';
+  readonly broker: BrokerId;
   readonly size: number;
   readonly className: string | undefined;
 }) {
@@ -107,7 +110,10 @@ function BrokerOwnerMark(props: {
   });
   const vendor = vendors.data?.find((each) => each.id === vendorId);
 
-  return vendor === undefined || vendor.id === MATTER_VENDOR || vendor.id === MQTT_VENDOR ? (
+  return vendor === undefined ||
+    vendor.id === MATTER_VENDOR ||
+    vendor.id === MQTT_VENDOR ||
+    vendor.id === MODBUS_VENDOR ? (
     <Mark width={size} height={size} className={cn('shrink-0', className)} />
   ) : (
     <VendorLogo vendor={vendor} size={size} />
@@ -140,6 +146,17 @@ export function DeviceIcon(props: DeviceIconProps) {
   if (device?.icon === null && device.transport === MQTT_HOUSE_TRANSPORT) {
     return (
       <BrokerOwnerMark vendorId={device.vendorId} broker="mqtt" size={size} className={className} />
+    );
+  }
+
+  if (device?.icon === null && device.transport === MODBUS_TRANSPORT) {
+    return (
+      <BrokerOwnerMark
+        vendorId={device.vendorId}
+        broker="modbus"
+        size={size}
+        className={className}
+      />
     );
   }
 

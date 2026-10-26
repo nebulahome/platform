@@ -26,6 +26,34 @@ export function MqttLogo(props: BrandLogoProps) {
 }
 
 /**
+ * The mark of the house's Modbus client: Modbus has no logo of its own, so three linked boxes, a
+ * client and the servers it asks, in the broker's cyan.
+ *
+ * @param props - SVG attributes.
+ * @returns The mark.
+ */
+export function ModbusLogo(props: BrandLogoProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#4fc3d9"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <rect x="16" y="16" width="6" height="6" rx="1" />
+      <rect x="2" y="16" width="6" height="6" rx="1" />
+      <rect x="9" y="2" width="6" height="6" rx="1" />
+      <path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3" />
+      <path d="M12 12V8" />
+    </svg>
+  );
+}
+
+/**
  * The Matter symbol.
  *
  * @param props - SVG attributes.

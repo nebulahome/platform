@@ -2,7 +2,8 @@
  * The brokers: what the platform runs for whole protocols, each with a page of its own.
  *
  * The house's Matter fabric - the controller every Matter device is reached through, whoever makes
- * it - and its MQTT broker, which every MQTT device and program meets on. A card per broker, as the
+ * it - its MQTT broker, which every MQTT device and program meets on, and its Modbus client, which
+ * every Modbus server is reached through. A card per broker, as the
  * integrations page draws a vendor's - how it stands, and how many devices the house has through
  * it - and the card is the way to its page.
  */
@@ -13,7 +14,7 @@ import { Link } from 'react-router';
 import type { BrokerId, BrokerState, BrokerSummary } from '@nebulahome/contracts';
 import { AppIcon, cn, Pill, Tile, TILE_FRAME, TILE_GRID, type PillTone } from '@nebulahome/ui';
 
-import { MatterLogo, MqttLogo } from '@/components/brand-logos';
+import { MatterLogo, ModbusLogo, MqttLogo } from '@/components/brand-logos';
 import { translate } from '@/i18n/messages';
 import { BROKER_QUERY_KEYS, fetchBrokers } from '@/library/brokers-api';
 import { LibraryPage } from '@/routes/library/library-page';
@@ -44,7 +45,7 @@ export function brokerStateOf(state: BrokerState): {
 }
 
 /** The official mark each broker is drawn with. */
-export const BROKER_GLYPHS = { matter: MatterLogo, mqtt: MqttLogo } as const;
+export const BROKER_GLYPHS = { matter: MatterLogo, mqtt: MqttLogo, modbus: ModbusLogo } as const;
 
 /**
  * What a broker is called.
@@ -53,7 +54,11 @@ export const BROKER_GLYPHS = { matter: MatterLogo, mqtt: MqttLogo } as const;
  * @returns Its name.
  */
 export function brokerNameOf(broker: BrokerId): string {
-  return broker === 'matter' ? translate('library.matterTag', 'Matter') : 'MQTT';
+  return broker === 'matter'
+    ? translate('library.matterTag', 'Matter')
+    : broker === 'modbus'
+      ? 'Modbus'
+      : 'MQTT';
 }
 
 /**
@@ -79,7 +84,9 @@ export function BrokerMark(props: {
       aria-hidden="true"
       className={cn(
         'flex shrink-0 items-center justify-center border border-border-strong bg-surface-raised',
-        isLit ? 'rounded-inner matter-glow' : 'rounded-tile',
+        isLit
+          ? cn('rounded-inner', broker === 'modbus' ? 'modbus-glow' : 'matter-glow')
+          : 'rounded-tile',
         'text-foreground',
       )}
       /* eslint-disable-next-line react/forbid-dom-props -- the side is a value, per place. */
