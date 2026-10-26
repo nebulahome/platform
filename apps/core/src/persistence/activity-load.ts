@@ -74,16 +74,18 @@ export async function readActivity(
             AND h.previous_state IS NOT NULL
             AND h.state <> h.previous_state
             AND (
-              e.domain IN (${sql.join(
+              coalesce(e.shown_domain, e.domain) IN (${sql.join(
                 TOUCHED_DOMAINS.map((domain) => sql`${domain}`),
                 sql`, `,
               )})
               OR (
                 e.domain = 'binary_sensor'
-                AND e.device_class IN (${sql.join(
-                  PRESENCE_CLASSES.map((kind) => sql`${kind}`),
-                  sql`, `,
-                )})
+                -- What the owner shows it as: motion shown as presence counts as presence.
+                AND (CASE WHEN e.shown_domain IS NULL THEN e.device_class
+                          ELSE e.shown_device_class END) IN (${sql.join(
+                            PRESENCE_CLASSES.map((kind) => sql`${kind}`),
+                            sql`, `,
+                          )})
                 AND h.state -> 'sensor_binary' ->> 'isOn' = 'true'
               )
             )
