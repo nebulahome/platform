@@ -273,6 +273,11 @@
   --text-display--line-height: 1.15;
   --text-display--letter-spacing: -0.03em;
 
+  /** The title of the screen every page shows while Nebula Home restarts or updates. */
+  --text-display-lg: 40px;
+  --text-display-lg--line-height: 1.1;
+  --text-display-lg--letter-spacing: -0.035em;
+
   /** The number an entity card is about; its unit follows at half size in `foreground-subtle`. */
   --text-reading: 32px;
   --text-reading--line-height: 1;
@@ -381,6 +386,92 @@
    * the dashes go by `animation-direction`.
    */
   --animate-energy-flow: energy-flow 1.6s linear infinite;
+
+  /*
+   * Nebula Home restarting or updating itself (boards N-Restart, N-Update, N-Transition-Flow): the
+   * ring turns slowly and unevenly while the core breathes out of phase, rings ripple out from the
+   * mark, its glow swells, a bar sweeps or shimmers, and the screen arrives out of a blur.
+   */
+  --animate-orbit-work: orbit 2.4s cubic-bezier(0.55, 0.1, 0.35, 0.9) infinite;
+  --animate-breathe: breathe 2.4s ease-in-out infinite;
+  --animate-ripple: ripple 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+  --animate-glow: glow 3.6s ease-in-out infinite;
+  --animate-sweep: sweep 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-enter: enter 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-arrive: arrive 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* The core of the mark breathing while Nebula Home works on itself. */
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.86);
+    opacity: 0.75;
+  }
+}
+
+/* A ring leaving the mark and fading as it widens. */
+@keyframes ripple {
+  from {
+    transform: scale(0.55);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+@keyframes glow {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* A bar that cannot say how far it is: a highlight crossing it again and again. */
+@keyframes sweep {
+  from {
+    left: -40%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+/* A light passing along a bar that is moving. */
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+/* A screen arriving out of a blur, a little small. */
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+    filter: blur(10px);
+  }
+}
+
+/* A note rising into place. */
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
 }
 
 /* One period of a wire's dash pattern, which is 12 units long: 2 drawn, 10 gap. */

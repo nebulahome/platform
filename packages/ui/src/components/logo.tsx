@@ -25,6 +25,15 @@ export type LogoProps = {
    */
   readonly isSpinning?: boolean;
 
+  /**
+   * Nebula Home working on itself - restarting, updating: the ring turns slowly and unevenly while
+   * the core breathes, out of phase.
+   */
+  readonly isWorking?: boolean;
+
+  /** The bodies' colour: the brand's, or the danger one when something did not finish. */
+  readonly tone?: 'primary' | 'danger';
+
   /** Extra classes for the wrapper. */
   readonly className?: string;
 };
@@ -36,7 +45,8 @@ export type LogoProps = {
  * @returns The logo.
  */
 export function Logo(props: LogoProps) {
-  const { size = 28, isSpinning = false, className } = props;
+  const { size = 28, isSpinning = false, isWorking = false, tone = 'primary', className } = props;
+  const body = tone === 'danger' ? 'fill-danger' : 'fill-primary';
 
   return (
     <svg
@@ -62,11 +72,22 @@ export function Logo(props: LogoProps) {
        * turning it would be work with nothing to show for it - and leaving it still is what
        * makes the orbit read as one thing going round another.
        */}
-      <circle cx="60" cy="60" r="26" className="fill-primary" />
+      <circle
+        cx="60"
+        cy="60"
+        r="26"
+        className={cn(body, isWorking && 'origin-view-box animate-breathe')}
+      />
 
-      <g className={cn('origin-view-box', isSpinning && 'animate-orbit')}>
+      <g
+        className={cn(
+          'origin-view-box',
+          isSpinning && 'animate-orbit',
+          isWorking && 'animate-orbit-work',
+        )}
+      >
         <rect width="120" height="120" mask="url(#nebula-orbit)" className="fill-foreground" />
-        <circle cx="96.8" cy="23.2" r="11.5" className="fill-primary" />
+        <circle cx="96.8" cy="23.2" r="11.5" className={body} />
       </g>
     </svg>
   );

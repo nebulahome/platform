@@ -388,11 +388,19 @@
   [data-motion='reduced'] .animate-sky-near,
   [data-motion='reduced'] .animate-sky-stars,
   [data-motion='reduced'] .animate-rise,
-  [data-motion='reduced'] .animate-fade-in {
+  [data-motion='reduced'] .animate-fade-in,
+  [data-motion='reduced'] .animate-breathe,
+  [data-motion='reduced'] .animate-ripple,
+  [data-motion='reduced'] .animate-glow,
+  [data-motion='reduced'] .animate-sweep,
+  [data-motion='reduced'] .animate-shimmer,
+  [data-motion='reduced'] .animate-enter,
+  [data-motion='reduced'] .animate-arrive {
     animation: none;
   }
 
-  [data-motion='reduced'] .animate-orbit {
+  [data-motion='reduced'] .animate-orbit,
+  [data-motion='reduced'] .animate-orbit-work {
     animation: reduced-pulse 1.8s ease-in-out infinite;
   }
 
@@ -401,11 +409,19 @@
     :root:not([data-motion='full']) .animate-sky-near,
     :root:not([data-motion='full']) .animate-sky-stars,
     :root:not([data-motion='full']) .animate-rise,
-    :root:not([data-motion='full']) .animate-fade-in {
+    :root:not([data-motion='full']) .animate-fade-in,
+    :root:not([data-motion='full']) .animate-breathe,
+    :root:not([data-motion='full']) .animate-ripple,
+    :root:not([data-motion='full']) .animate-glow,
+    :root:not([data-motion='full']) .animate-sweep,
+    :root:not([data-motion='full']) .animate-shimmer,
+    :root:not([data-motion='full']) .animate-enter,
+    :root:not([data-motion='full']) .animate-arrive {
       animation: none;
     }
 
-    :root:not([data-motion='full']) .animate-orbit {
+    :root:not([data-motion='full']) .animate-orbit,
+    :root:not([data-motion='full']) .animate-orbit-work {
       animation: reduced-pulse 1.8s ease-in-out infinite;
     }
   }

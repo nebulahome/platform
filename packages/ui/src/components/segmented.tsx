@@ -81,6 +81,9 @@ export type SegmentedOption<TValue extends string> = {
 
   /** What it is called. */
   readonly label: string;
+
+  /** Whether this one cannot be chosen, while the others can. */
+  readonly disabled?: boolean;
 };
 
 /** What the control needs. */
@@ -194,12 +197,13 @@ export function Segmented<TValue extends string>(props: SegmentedProps<TValue>) 
 
       {options.map((choice, index) => {
         const isChosen = index === chosenIndex;
+        const isDisabled = disabled || choice.disabled === true;
 
         return (
           <label
             key={choice.value}
             className={cn(
-              option({ size, isChosen, isDisabled: disabled }),
+              option({ size, isChosen, isDisabled }),
               isFilled && 'grow basis-0 justify-center',
             )}
           >
@@ -208,7 +212,7 @@ export function Segmented<TValue extends string>(props: SegmentedProps<TValue>) 
               name={name}
               value={choice.value}
               checked={isChosen}
-              disabled={disabled}
+              disabled={isDisabled}
               onChange={() => {
                 onChange(choice.value);
               }}
