@@ -34,6 +34,7 @@ export * from './commands.js';
 export * from './discovery.js';
 export * from './device-id.js';
 export * from './entity-id.js';
+export * from './entity-types.js';
 export * from './entity-requirement.js';
 export * from './entity-state.js';
 export * from './entity-state-token.js';

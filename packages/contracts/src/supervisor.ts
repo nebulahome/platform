@@ -41,6 +41,9 @@ export const SUPERVISOR_METHODS = {
   /** The newest releases of Nebula Home on GitHub, and whether it can update itself. */
   platformReleases: 'platform_releases',
 
+  /** The version running, a restart or an update under way, how the last update ended. */
+  platformState: 'platform_state',
+
   /** Updates Nebula Home to a release, through a throwaway updater container. */
   updatePlatform: 'update_platform',
 

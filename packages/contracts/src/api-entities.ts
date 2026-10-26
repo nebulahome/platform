@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { capabilityNameSchema } from './capabilities.js';
 import { entityIdSchema } from './entity-id.js';
 import { changeContextSchema, sourceRefSchema } from './entity-state.js';
+import { shownAsSchema } from './entity-types.js';
 import { iconIdSchema } from './icons.js';
 import { integrationIdSchema } from './integrations.js';
 import { jsonObjectSchema } from './json.js';
@@ -111,6 +112,15 @@ export const entityViewSchema = z.object({
 
   /** When the house first had it. */
   createdAt: timestampSchema.nullable().default(null),
+
+  /**
+   * What its integration says it is, when the owner shows it as something else: `domain` and
+   * `deviceClass` above are what it is shown as. Null while it is shown as it is.
+   */
+  original: z
+    .object({ domain: z.string(), deviceClass: z.string().nullable() })
+    .nullable()
+    .default(null),
 });
 
 /** One entity, as the interface reads it. */
@@ -136,6 +146,12 @@ export const entityUpdateSchema = z
      * follow the device.
      */
     transport: integrationIdSchema.nullable(),
+
+    /**
+     * What to show it as instead of what its integration says: a relay as a light, motion as
+     * presence (`entity-types.ts`); null to show it as it is.
+     */
+    shownAs: shownAsSchema.nullable(),
   })
   .partial()
   .refine((body) => Object.keys(body).length > 0, { message: 'Nothing to change' });

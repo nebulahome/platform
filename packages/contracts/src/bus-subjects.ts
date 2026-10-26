@@ -122,6 +122,13 @@ export const busSubjects = {
   updateEvent: (): string => `${BUS_SUBJECT_PREFIX}.event.update`,
 
   /**
+   * Nebula Home itself restarting or updating: every open page shows it (`updates.ts`).
+   *
+   * @returns The fan-out subject the supervisor publishes on, `api` forwards.
+   */
+  platformEvent: (): string => `${BUS_SUBJECT_PREFIX}.event.platform`,
+
+  /**
    * Announcing that a container changed or went away.
    *
    * @returns The fan-out subject the supervisor publishes on.

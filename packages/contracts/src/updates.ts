@@ -105,6 +105,12 @@ export const platformUpdateOutcomeSchema = z.object({
   status: z.enum(['success', 'rolled_back', 'failed']),
   finishedAt: timestampSchema,
   error: z.string().max(2048).nullable(),
+
+  /** What the updater did, and the new version's last lines when it did not start; in English. */
+  log: z.array(z.string().max(16_384)).max(200).default([]),
+
+  /** How long putting the old version back took; null when nothing was put back. */
+  restoredInMs: z.int().nonnegative().nullable().default(null),
 });
 
 /** How the last update of Nebula Home ended. */
@@ -132,7 +138,83 @@ export type PlatformReleasesReply = z.output<typeof platformReleasesReplySchema>
 export const platformReleasesRequestSchema = z.strictObject({ check: z.boolean().default(false) });
 
 /** `svc.supervisor.update_platform`: the release to update to. */
-export const updatePlatformRequestSchema = z.strictObject({ version: z.string().min(1).max(64) });
+export const updatePlatformRequestSchema = z.strictObject({
+  version: z.string().min(1).max(64),
+
+  /** The size of the backup the round took or reused first, for the screen; null for none. */
+  backupBytes: z.int().nonnegative().nullable().default(null),
+});
+
+/**
+ * Where a restart or an update of Nebula Home is: its services stopping, the new version
+ * downloading, the updater replacing the container, the new version being checked.
+ */
+export const PLATFORM_OPERATION_PHASES = [
+  'stopping',
+  'downloading',
+  'installing',
+  'checking',
+] as const;
+
+/**
+ * A restart or an update of Nebula Home under way, which every open page shows over whatever it
+ * was showing (boards N-Restart and N-Update).
+ */
+export const platformOperationSchema = z.object({
+  kind: z.enum(['restart', 'update']),
+  phase: z.enum(PLATFORM_OPERATION_PHASES),
+
+  /** The version running when it began. */
+  fromVersion: z.string().max(64),
+
+  /** The version an update goes to; null for a restart. */
+  toVersion: z.string().max(64).nullable(),
+
+  /** How far the download has got, below a hundred; null before Docker says, or after. */
+  percent: z.int().min(0).max(100).nullable(),
+
+  /** The size of the backup taken or reused first; null when there was none. */
+  backupBytes: z.int().nonnegative().nullable(),
+
+  /** The new version's size, as far as the download has said; null before it does. */
+  downloadBytes: z.int().nonnegative().nullable(),
+  startedAt: timestampSchema,
+});
+
+/** A restart or an update of Nebula Home under way. */
+export type PlatformOperation = z.output<typeof platformOperationSchema>;
+
+/** `nebula.v1.event.platform`: the operation as it now stands, null once there is none. */
+export const platformEventSchema = z.object({ operation: platformOperationSchema.nullable() });
+
+/** A restart or an update starting, moving on or ending. */
+export type PlatformEvent = z.output<typeof platformEventSchema>;
+
+/**
+ * `svc.supervisor.platform_state` and `GET /api/v1/system/platform`: the version running, what
+ * is under way and how the last update ended - for every signed-in page, whatever its role.
+ */
+export const platformStateSchema = z.object({
+  version: z.string().max(64),
+
+  /** The machine's name, as Docker knows it; null without Docker. */
+  machine: z.string().max(256).nullable(),
+  operation: platformOperationSchema.nullable(),
+  lastUpdate: platformUpdateOutcomeSchema.nullable(),
+});
+
+/** What every page knows of Nebula Home itself. */
+export type PlatformState = z.output<typeof platformStateSchema>;
+
+/**
+ * `/data/updates/current.json`: written by the updater while it replaces the container, so the
+ * version that comes up knows it is being checked.
+ */
+export const platformUpdateMarkerSchema = z.object({
+  fromVersion: z.string().max(64),
+  toVersion: z.string().max(64),
+  startedAt: timestampSchema,
+});
 
 /** One row of the list of updates. */
 export const systemUpdateRowSchema = z.object({

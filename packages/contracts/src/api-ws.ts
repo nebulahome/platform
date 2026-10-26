@@ -19,6 +19,7 @@ import { jsonObjectSchema } from './json.js';
 import { DEVICE_EVENTS, deviceEventSchema } from './registration.js';
 import { containerEventSchema } from './supervisor.js';
 import { timestampSchema } from './timestamp.js';
+import { platformEventSchema } from './updates.js';
 
 /** How long the server waits for the first message before closing the socket, in milliseconds. */
 export const WS_AUTH_TIMEOUT_MS = 10_000;
@@ -41,6 +42,7 @@ export const WS_TOPICS = [
   'discovery',
   'containers',
   'backups',
+  'system',
 ] as const;
 
 /** What a client may subscribe to. */
@@ -158,6 +160,10 @@ export const wsServerMessageSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('backup_event'),
     payload: backupEventSchema,
+  }),
+  z.object({
+    type: z.literal('platform_event'),
+    payload: platformEventSchema,
   }),
   z.object({
     type: z.literal('package_event'),
