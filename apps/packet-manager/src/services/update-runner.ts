@@ -302,9 +302,15 @@ export class UpdateRunner {
         return;
       }
       case 'core': {
+        const backup = this.#round?.backup;
+
         await client.request(
           busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.updatePlatform),
-          { version: item.version },
+          {
+            version: item.version,
+            backupBytes:
+              backup === 'taken' || backup === 'recent' ? await this.#lastBackupBytes() : null,
+          },
           supervisorAcknowledgementSchema,
           { timeoutMs: CORE_TIMEOUT_MS },
         );
@@ -343,6 +349,26 @@ export class UpdateRunner {
       logger.warn({ err: error }, 'The backup before the updates failed');
 
       return 'failed';
+    }
+  }
+
+  /**
+   * How big the last backup is, for the screen every page shows while Nebula Home updates.
+   *
+   * @returns Its bytes, or null when they cannot be told.
+   */
+  async #lastBackupBytes(): Promise<number | null> {
+    try {
+      const status = await this.#options.client.request(
+        busSubjects.service(BACKUP_SERVICE, BACKUP_METHODS.status),
+        {},
+        backupStatusSchema,
+      );
+      const bytes = status.lastBackup?.archiveBytes ?? null;
+
+      return bytes === null ? null : Math.round(bytes);
+    } catch {
+      return null;
     }
   }
 
