@@ -1,6 +1,6 @@
 /**
- * The platform's own vendors, `matter` and `mqtt`: the devices of its brokers no integration
- * claims.
+ * The platform's own vendors, `matter`, `mqtt` and `modbus`: the devices of its brokers no
+ * integration claims, and for Modbus the devices read through the owner's templates.
  *
  * Not bundles - nothing to install, nothing read from a folder - but loaded beside the bundles as
  * ones, so that a device no vendor takes is added, run and removed the way every device is: an
@@ -14,6 +14,9 @@ import {
   MATTER_GENERIC_KIND,
   MATTER_TRANSPORT,
   MATTER_VENDOR,
+  MODBUS_GENERIC_KIND,
+  MODBUS_TRANSPORT,
+  MODBUS_VENDOR,
   MQTT_GENERIC_KIND,
   MQTT_HOUSE_TRANSPORT,
   MQTT_VENDOR,
@@ -23,6 +26,7 @@ import {
 import {
   bundleManifestSchema,
   createMatterIntegration,
+  createModbusIntegration,
   createMqttIntegration,
   resolveDiscovery,
   vendorDiscoverySchema,
@@ -39,7 +43,7 @@ type PlatformVendorSpec = {
   readonly description: string;
   readonly color: string;
   readonly transport: string;
-  readonly kind: 'matter' | 'mqtt';
+  readonly kind: 'matter' | 'mqtt' | 'modbus';
   readonly driverKind: string;
   readonly driverName: string;
   readonly wire: TransportWire;
@@ -77,6 +81,8 @@ function platformVendor(spec: PlatformVendorSpec, version: string, sdk: string):
     vendor: { id: spec.id, name: spec.name },
     transport: spec.transport,
     kind: spec.kind,
+    // The template of each of its devices comes with the device: this names none of its own.
+    ...(spec.kind === 'modbus' ? { template: './template.json' } : {}),
     setup: './setup.json',
   });
   const driver: LoadedBundle = {
@@ -165,6 +171,33 @@ export function platformMqttVendor(version: string, sdk: string): LoadedVendor {
       wire: 'mqtt',
       discovery: { mqtt: { match: [{ path: 'deviceKey', exists: true }] } },
       integration: createMqttIntegration,
+    },
+    version,
+    sdk,
+  );
+}
+
+/**
+ * Builds the platform's Modbus vendor: the devices the owner added through templates of their own.
+ *
+ * @param version - The platform's version.
+ * @param sdk - The integration contract the hub implements.
+ * @returns The vendor.
+ */
+export function platformModbusVendor(version: string, sdk: string): LoadedVendor {
+  return platformVendor(
+    {
+      id: MODBUS_VENDOR,
+      name: 'Modbus',
+      description: 'Modbus devices read through the owner’s templates, by the platform.',
+      color: '#4fc3d9',
+      transport: MODBUS_TRANSPORT,
+      kind: 'modbus',
+      driverKind: MODBUS_GENERIC_KIND,
+      driverName: 'Modbus device',
+      wire: 'modbus',
+      discovery: { modbus: { match: [{ path: 'deviceKey', exists: true }] } },
+      integration: createModbusIntegration,
     },
     version,
     sdk,

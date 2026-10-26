@@ -26,6 +26,8 @@ import {
   type VendorSdk,
 } from '@nebulahome/package-runtime';
 
+import type { ModbusPool } from '../modbus/client.js';
+import { createModbusSessions } from '../modbus/sessions.js';
 import { createUdpSockets } from '../transports/managed-udp.js';
 
 import { createBundleSdk } from './bundle-sdk.js';
@@ -80,6 +82,9 @@ export type LoadBundlesOptions = {
 
   /** What the platform runs that bundle code may use: its broker. None, as in tests, when absent. */
   readonly platform?: PlatformServices;
+
+  /** The hub's Modbus clients, which a vendor's sessions go through. None, as in tests, when absent. */
+  readonly modbus?: ModbusPool;
 };
 
 /**
@@ -100,21 +105,32 @@ function runtimeOptions(options: Omit<LoadBundlesOptions, 'directory'>) {
     ...(options.verifyVendor === undefined ? {} : { verifyVendor: options.verifyVendor }),
 
     /**
-     * Builds what one vendor's code is handed, with UDP sockets of its own to free on release.
+     * Builds what one vendor's code is handed, with UDP sockets and Modbus sessions of its own to
+     * free on release.
      *
      * @returns The SDK, and how to let go of what the vendor opens through it.
      */
     createSdk: (): VendorSdk => {
       const udp = createUdpSockets(logger);
+      const modbus = createModbusSessions(options.modbus);
 
       return {
         sdk: createBundleSdk({
           version: options.runtimeVersion,
           logger,
           openUdpSocket: udp.open,
+          openModbus: modbus.open,
           platform: options.platform ?? { mqtt: null },
         }),
-        release: udp.closeAll,
+        /**
+         * Lets go of every socket and session the vendor opened.
+         *
+         * @returns Once let go of.
+         */
+        release: async () => {
+          await udp.closeAll();
+          await modbus.closeAll();
+        },
       };
     },
   };

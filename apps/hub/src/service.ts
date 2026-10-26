@@ -40,6 +40,8 @@ import {
   deviceInfoReplySchema,
   MATTER_TRANSPORT,
   MATTER_VENDOR,
+  MODBUS_TRANSPORT,
+  MODBUS_VENDOR,
   MQTT_HOUSE_TRANSPORT,
   MQTT_VENDOR,
   NotFoundError,
@@ -83,6 +85,8 @@ import { planSubscriptions } from './domain/subscriptions.js';
 import { withVendorSettings } from './domain/vendors.js';
 import { MatterBroker } from './matter/broker.js';
 import type { OpenMatterFabric } from './matter/fabric.js';
+import { ModbusBroker } from './modbus/broker.js';
+import { ModbusPool } from './modbus/client.js';
 import { MqttBroker } from './mqtt/broker.js';
 import { databaseAccountStore } from './persistence/accounts.js';
 import { loadBinding, loadDeviceName, loadExternalId } from './persistence/devices.js';
@@ -95,6 +99,7 @@ import {
   recordStatus,
   type IntegrationInstance,
 } from './persistence/instances.js';
+import { databaseModbusStore } from './persistence/modbus.js';
 import { loadTakenDevices } from './persistence/taken.js';
 import { loadVendorSettings } from './persistence/vendors.js';
 import { withAccountLookups } from './services/account-lookups.js';
@@ -117,11 +122,17 @@ import { ImageStore } from './services/images.js';
 import { publishReports, startInstanceServices } from './services/instance.js';
 import { ManagementService } from './services/management.js';
 import { serveMatter } from './services/matter-management.js';
+import { serveModbus } from './services/modbus-management.js';
 import { serveMqtt } from './services/mqtt-management.js';
 import { PackageWatch, type WatchedVendor } from './services/package-watch.js';
-import { platformMatterVendor, platformMqttVendor } from './services/platform-vendors.js';
+import {
+  platformMatterVendor,
+  platformModbusVendor,
+  platformMqttVendor,
+} from './services/platform-vendors.js';
 import { VendorContainersService } from './services/vendor-containers.js';
 import { createMatterTransport } from './transports/matter.js';
+import { createModbusTransport } from './transports/modbus.js';
 import { createMqttHouseTransport } from './transports/mqtt-house.js';
 
 /** What the service needs. */
@@ -208,6 +219,10 @@ export class HubService {
   readonly #packages: PackageWatch;
   readonly #matter: MatterBroker;
   readonly #mqtt: MqttBroker;
+  readonly #modbus: ModbusBroker;
+
+  /** Every Modbus socket of the hub: the polls', the tests', the search's and the vendors'. */
+  readonly #modbusPool = new ModbusPool();
   readonly #secretsKey: Buffer;
 
   /** The stream sources the vendors ship, by id: `bambulab/camera`. */
@@ -263,6 +278,36 @@ export class HubService {
       logger: options.logger,
     });
     this.#transports.register(createMqttHouseTransport(this.#mqtt));
+
+    this.#modbus = new ModbusBroker({
+      store: databaseModbusStore(options.db),
+      pool: this.#modbusPool,
+      logger: options.logger,
+
+      /**
+       * Every vendor loaded: their `modbus` rules, and the templates their drivers ship.
+       *
+       * @returns Them.
+       */
+      vendors: () => this.#vendorList(),
+
+      /**
+       * The addresses the house's devices reach, which a search never knocks on: a server a
+       * vendor's own code polls may take one client at a time.
+       *
+       * @returns Them.
+       */
+      takenHosts: async () =>
+        new Set(
+          [...(await loadTakenDevices(options.db)).hosts].map((key) =>
+            key.slice(key.indexOf('\n') + 1),
+          ),
+        ),
+    });
+    this.#transports.register(createModbusTransport(this.#modbus, this.#modbusPool));
+    this.#modbus.onSaved((deviceKeys) => {
+      void this.#reloadModbus(deviceKeys);
+    });
 
     this.#client = new BusClient({
       transport: options.bus.transport,
@@ -585,9 +630,14 @@ export class HubService {
         this.#registerVendor(vendor);
       }
 
-      // The platform's own, after the bundles: no bundle may call itself `matter` or `mqtt`.
+      // The platform's own, after the bundles: no bundle may call itself `matter`, `mqtt` or
+      // `modbus`.
       this.#registerVendor(platformMatterVendor(config.NEBULA_PLATFORM_VERSION, RUNTIME_VERSION));
       this.#registerVendor(platformMqttVendor(config.NEBULA_PLATFORM_VERSION, RUNTIME_VERSION));
+      this.#registerVendor(platformModbusVendor(config.NEBULA_PLATFORM_VERSION, RUNTIME_VERSION));
+
+      // After the vendors: a device read through an integration's template needs its driver.
+      await this.#modbus.start();
 
       this.#recordFailures(bundles.failures);
       logger.info(
@@ -621,6 +671,17 @@ export class HubService {
            * Reads what is added.
            *
            * @returns Every instance's ids, the Matter devices among them.
+           */
+          taken: async () => loadTakenDevices(db),
+        }),
+        ...serveModbus({
+          client: this.#client,
+          broker: this.#modbus,
+
+          /**
+           * Reads what is added.
+           *
+           * @returns Every instance's ids, the Modbus devices among them.
            */
           taken: async () => loadTakenDevices(db),
         }),
@@ -705,6 +766,7 @@ export class HubService {
       runtimeVersion: RUNTIME_VERSION,
       logger: this.#options.logger,
       platform: this.#platform,
+      modbus: this.#modbusPool,
     };
   }
 
@@ -1017,6 +1079,11 @@ export class HubService {
     });
     await this.#packages.setVendors(this.#watchedVendors());
     void this.#vendorContainers.reconcile();
+
+    // What an integration added or removed recognises the servers found differently.
+    void this.#modbus.reidentify().catch((error: unknown) => {
+      logger.warn({ err: error }, 'Could not ask the Modbus servers found again');
+    });
   }
 
   /**
@@ -1049,6 +1116,7 @@ export class HubService {
     const { config, db, logger } = this.#options;
     const platformMatter = this.#vendors.get(MATTER_VENDOR);
     const platformMqtt = this.#vendors.get(MQTT_VENDOR);
+    const platformModbus = this.#vendors.get(MODBUS_VENDOR);
 
     return new DiscoveryService({
       vendors: [...this.#vendors.values()].flatMap((vendor) =>
@@ -1140,6 +1208,27 @@ export class HubService {
               vendor: { id: MQTT_VENDOR, discovery: platformMqtt.discovery },
             },
           }),
+      ...(platformModbus?.discovery === undefined
+        ? {}
+        : {
+            modbus: {
+              /**
+               * Lists the devices the owner added whose template is there.
+               *
+               * @returns Them.
+               */
+              devices: () => this.#modbus.devices(),
+
+              /**
+               * Follows the devices being added, saved and removed.
+               *
+               * @param listener - Called when they change.
+               * @returns What stops following.
+               */
+              onChange: (listener: () => void) => this.#modbus.onDevices(listener),
+              vendor: { id: MODBUS_VENDOR, discovery: platformModbus.discovery },
+            },
+          }),
     });
   }
 
@@ -1209,10 +1298,37 @@ export class HubService {
     await this.#pool.closeAll();
     await this.#matter.stop();
     await this.#mqtt.stop();
+    this.#modbus.stop();
+    this.#modbusPool.closeAll();
 
     // Whatever the vendors' own code holds - a UDP port - is let go of with them.
     await Promise.all([...this.#vendors.values()].map(async (vendor) => vendor.release()));
     await this.#client.drain();
+  }
+
+  /**
+   * Starts again the instances of Modbus devices that were saved, or whose template was, so they
+   * read the template as it is now.
+   *
+   * @param deviceKeys - The devices.
+   * @returns Once they started again; a failure is logged.
+   */
+  async #reloadModbus(deviceKeys: readonly string[]): Promise<void> {
+    try {
+      const taken = await loadTakenDevices(this.#options.db);
+
+      for (const deviceKey of deviceKeys) {
+        const added = taken.modbus.get(deviceKey);
+
+        if (added !== undefined) {
+          // One after another: they share the one connection.
+          // eslint-disable-next-line no-await-in-loop -- see above
+          await this.reloadInstance(added.instanceId);
+        }
+      }
+    } catch (error: unknown) {
+      this.#options.logger.warn({ err: error }, 'Could not start the saved Modbus devices again');
+    }
   }
 
   /**
@@ -1309,6 +1425,15 @@ export class HubService {
         await this.#matter.release(deviceKey);
       } else if (deviceKey !== null) {
         this.#mqtt.release(deviceKey);
+      }
+    }
+
+    if (instance?.transport === MODBUS_TRANSPORT) {
+      const deviceKey = await loadExternalId(this.#options.db, id);
+
+      // Its row goes, or discovery would add the device straight back.
+      if (deviceKey !== null) {
+        await this.#modbus.release(deviceKey);
       }
     }
 
@@ -1411,6 +1536,15 @@ export class HubService {
         client,
         subscriptions,
       });
+
+      // A Modbus device is identified again on every start, never bound from the kept claim: the
+      // claim holds its template, which the owner may have changed since.
+      if (instance.transport === MODBUS_TRANSPORT) {
+        await recordStatus(db, instance.id, 'identifying');
+        this.#listen(this.#running.get(instance.id), await loadExternalId(db, instance.id));
+
+        return;
+      }
 
       // The device it identified last time, bound again from the claim that was kept for it.
       // After the instance is in `#running`, because applying the subscriptions reads it there.

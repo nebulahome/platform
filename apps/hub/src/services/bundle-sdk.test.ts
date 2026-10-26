@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { createLogger } from '@nebulahome/logging';
 import { defineTransport } from '@nebulahome/package-runtime';
 
+import { createModbusSessions } from '../modbus/sessions.js';
 import { openWebSocket } from '../transports/managed-socket.js';
 import { createUdpSockets } from '../transports/managed-udp.js';
 
@@ -15,10 +16,12 @@ describe('createBundleSdk', () => {
     // against, and a copy of `defineTransport` would be a second contract.
     const logger = createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' });
     const udp = createUdpSockets(logger);
+    const modbus = createModbusSessions(undefined);
     const sdk = createBundleSdk({
       version: '1.0.0',
       logger,
       openUdpSocket: udp.open,
+      openModbus: modbus.open,
       platform: { mqtt: null },
     });
 
@@ -28,5 +31,6 @@ describe('createBundleSdk', () => {
     expect(sdk.openWebSocket).toBe(openWebSocket);
     expect(sdk.logger).toBe(logger);
     expect(sdk.openUdpSocket).toBe(udp.open);
+    expect(sdk.openModbus).toBe(modbus.open);
   });
 });

@@ -33,10 +33,11 @@ import {
 import type { MdnsSource } from '../discovery/mdns-source.js';
 import type { TakenDevices } from '../domain/taken.js';
 import type { MatterSighting } from '../matter/broker.js';
+import type { ModbusSighting } from '../modbus/broker.js';
 
 import type { LoadedListenSource } from './bundles.js';
 import { DiscoveryService, SCAN_DURATION_MS, type DiscoveryVendor } from './discovery.js';
-import { platformMatterVendor } from './platform-vendors.js';
+import { platformMatterVendor, platformModbusVendor } from './platform-vendors.js';
 
 /**
  * A logger that writes nowhere.
@@ -295,6 +296,7 @@ async function start(
       locations: new Map(),
       matter: new Map(),
       mqtt: new Map(),
+      modbus: new Map(),
     },
     service: new DiscoveryService({
       vendors: [options.vendor ?? acme()],
@@ -532,6 +534,7 @@ describe('DiscoveryService', () => {
       locations: new Map(),
       matter: new Map(),
       mqtt: new Map(),
+      modbus: new Map(),
     };
     await built.service.refresh();
     built.mdns.announce(heard('192.168.1.40'));
@@ -546,6 +549,7 @@ describe('DiscoveryService', () => {
       locations: new Map(),
       matter: new Map(),
       mqtt: new Map(),
+      modbus: new Map(),
     };
     await built.service.refresh();
 
@@ -557,6 +561,7 @@ describe('DiscoveryService', () => {
       locations: new Map(),
       matter: new Map(),
       mqtt: new Map(),
+      modbus: new Map(),
     };
     await built.service.refresh();
 
@@ -576,6 +581,7 @@ describe('DiscoveryService', () => {
       locations: new Map(),
       matter: new Map(),
       mqtt: new Map(),
+      modbus: new Map(),
     };
     await built.service.refresh();
 
@@ -591,6 +597,7 @@ describe('DiscoveryService', () => {
       locations: new Map(),
       matter: new Map(),
       mqtt: new Map(),
+      modbus: new Map(),
     };
     await built.service.release('acme');
 
@@ -612,6 +619,7 @@ describe('DiscoveryService', () => {
       locations: new Map([['acme\nr1', { instanceId: 'relay-kitchen', host: '192.168.1.39' }]]),
       matter: new Map(),
       mqtt: new Map(),
+      modbus: new Map(),
     };
     await built.service.refresh();
     built.mdns.announce(heard('192.168.1.40'));
@@ -630,6 +638,7 @@ describe('DiscoveryService', () => {
       locations: new Map([['acme\nr1', { instanceId: 'relay-kitchen', host: '192.168.1.40' }]]),
       matter: new Map(),
       mqtt: new Map(),
+      modbus: new Map(),
     };
     await built.service.refresh();
 
@@ -649,6 +658,7 @@ describe('DiscoveryService', () => {
       locations: new Map(),
       matter: new Map(),
       mqtt: new Map(),
+      modbus: new Map(),
     };
     await built.service.refresh();
 
@@ -663,6 +673,7 @@ describe('DiscoveryService', () => {
       locations: new Map(),
       matter: new Map(),
       mqtt: new Map(),
+      modbus: new Map(),
     };
     await built.service.release('acme');
 
@@ -678,6 +689,7 @@ describe('DiscoveryService', () => {
       locations: new Map(),
       matter: new Map(),
       mqtt: new Map(),
+      modbus: new Map(),
     };
     await built.service.refresh();
     built.mdns.announce(heard('192.168.1.40'));
@@ -712,6 +724,7 @@ describe('DiscoveryService', () => {
           locations: new Map(),
           matter: new Map(),
           mqtt: new Map(),
+          modbus: new Map(),
         }),
       publishChanged: () => undefined,
       queryIntervalMs: 60_000,
@@ -731,6 +744,7 @@ describe('DiscoveryService', () => {
         locations: new Map(),
         matter: new Map(),
         mqtt: new Map(),
+        modbus: new Map(),
       },
     };
     await service.start();
@@ -769,6 +783,7 @@ describe('DiscoveryService', () => {
           locations: new Map(),
           matter: new Map(),
           mqtt: new Map(),
+          modbus: new Map(),
         }),
       publishChanged: () => undefined,
       queryIntervalMs: 60_000,
@@ -789,6 +804,7 @@ describe('DiscoveryService', () => {
         locations: new Map(),
         matter: new Map(),
         mqtt: new Map(),
+        modbus: new Map(),
       },
     };
     await service.start();
@@ -1060,6 +1076,7 @@ describe('DiscoveryService and the Matter fabric', () => {
       locations: new Map(),
       matter: new Map([['3', { instanceId: 'other', kind: 'matter/generic' }]]),
       mqtt: new Map(),
+      modbus: new Map(),
     };
     const service = new DiscoveryService({
       vendors: [acme],
@@ -1100,6 +1117,75 @@ describe('DiscoveryService and the Matter fabric', () => {
       devices = devices.filter((device) => device.deviceKey !== '1');
       changed?.();
       expect(service.list().map((device) => device.externalId)).toEqual(['2']);
+    } finally {
+      await service.stop();
+    }
+  });
+});
+
+describe('DiscoveryService and the Modbus broker', () => {
+  it('adds each device as the driver its template is, without asking any rules', async () => {
+    const acme: DiscoveryVendor = {
+      id: 'acme',
+      discovery: {
+        plan: resolveDiscovery(
+          'acme',
+          vendorDiscoverySchema.parse({
+            modbus: { match: [{ path: 'values.code', exists: true }] },
+          }),
+          [{ id: 'meter', name: 'Meter', transport: 'modbus', models: [] }],
+        ),
+        sources: [],
+      },
+    };
+    const platform = platformModbusVendor('1.0.0', '1.4.0');
+    const sighting = (deviceKey: string, kind: string): ModbusSighting => {
+      const device = { deviceKey, kind, name: `Device ${deviceKey}` };
+
+      return { deviceKey, device } as unknown as ModbusSighting;
+    };
+    const service = new DiscoveryService({
+      vendors: [acme],
+      mdns: fakeMdns(),
+      transports: new Registry<Transport>('transport'),
+      integrations: new Registry<Integration>('integration'),
+      logger: silent(),
+      vendorSettings: () => Promise.resolve({}),
+      taken: () =>
+        Promise.resolve({
+          externalIds: new Set<string>(),
+          hosts: new Set<string>(),
+          locations: new Map(),
+          matter: new Map(),
+          mqtt: new Map(),
+          modbus: new Map([['modbus-3', { instanceId: 'other', kind: 'modbus/generic' }]]),
+        }),
+      publishChanged: () => undefined,
+      queryIntervalMs: 60_000,
+      ttlMs: 60_000,
+      probeIntervalMs: 60_000,
+      modbus: {
+        devices: () => [
+          sighting('modbus-1', 'modbus/generic'),
+          sighting('modbus-2', 'acme/meter'),
+          sighting('modbus-3', 'modbus/generic'),
+        ],
+        onChange: () => () => undefined,
+        vendor: { id: 'modbus', discovery: platform.discovery ?? acme.discovery },
+      },
+    });
+
+    await service.start();
+
+    try {
+      expect(
+        service
+          .list()
+          .map((device) => [device.externalId, device.kind, device.model, device.adoption]),
+      ).toEqual([
+        ['modbus-1', 'modbus/generic', 'Modbus device', 'automatic'],
+        ['modbus-2', 'acme/meter', 'Meter', 'automatic'],
+      ]);
     } finally {
       await service.stop();
     }

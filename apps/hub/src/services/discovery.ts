@@ -20,6 +20,7 @@ import { createHash } from 'node:crypto';
 import {
   DISCOVERY_NEW_FOR_MS,
   MATTER_VENDOR,
+  MODBUS_VENDOR,
   MQTT_VENDOR,
   normalizeMac,
   type DiscoveredDevice,
@@ -54,6 +55,7 @@ import {
 import { isPrivateIpv4, type MdnsSource } from '../discovery/mdns-source.js';
 import { addressOf as reachedAt, NOTHING_TAKEN, type TakenDevices } from '../domain/taken.js';
 import type { MatterSighting } from '../matter/broker.js';
+import type { ModbusSighting } from '../modbus/broker.js';
 import type { MqttSighting } from '../mqtt/broker.js';
 
 import type { LoadedDiscovery, LoadedListenSource } from './bundles.js';
@@ -149,6 +151,13 @@ export type DiscoveryServiceOptions = {
    * vendor, which takes a device no other vendor's rules - or more than one's - take.
    */
   readonly mqtt?: BrokerFeed<MqttSighting>;
+
+  /**
+   * The house's Modbus broker: every device the owner added - a template at an address - told
+   * again whenever one changes. Each says the driver it is read as - the platform's own, or the
+   * integration whose template it is - so no vendor's rules are asked.
+   */
+  readonly modbus?: BrokerFeed<ModbusSighting>;
 };
 
 /** One of the platform's brokers, as discovery hears it. */
@@ -168,10 +177,27 @@ type BrokerDevice = {
   readonly modelCode: string | null;
   readonly swVersion: string | null;
   readonly macs: readonly string[];
+
+  /** The driver it is read as, when the broker says it rather than the vendors' rules. */
+  readonly kind?: string;
 };
 
+/** The platform's brokers, in the order they are heard. */
+const BROKER_SOURCES = ['matter', 'mqtt', 'modbus'] as const satisfies readonly BrokerSource[];
+
 /** How each broker's devices are named where the owner sees them. */
-const BROKER_LABELS: Readonly<Record<BrokerSource, string>> = { matter: 'Matter', mqtt: 'MQTT' };
+const BROKER_LABELS: Readonly<Record<BrokerSource, string>> = {
+  matter: 'Matter',
+  mqtt: 'MQTT',
+  modbus: 'Modbus',
+};
+
+/** Each broker's own vendor: what takes a device no integration's rules take. */
+const BROKER_VENDORS: Readonly<Record<BrokerSource, string>> = {
+  matter: MATTER_VENDOR,
+  mqtt: MQTT_VENDOR,
+  modbus: MODBUS_VENDOR,
+};
 
 /** A proposed device, and when it was last heard, as a number to compare. */
 type Candidate = { readonly device: DiscoveredDevice; readonly heardAtMs: number };
@@ -430,7 +456,7 @@ export class DiscoveryService {
       }
     }
 
-    for (const source of ['matter', 'mqtt'] as const) {
+    for (const source of BROKER_SOURCES) {
       const feed = this.#options[source];
 
       if (feed !== undefined) {
@@ -1314,7 +1340,7 @@ export class DiscoveryService {
     source: BrokerSource,
     identity: unknown,
   ): { readonly vendor: DiscoveryVendor; readonly association: Association }[] {
-    const own = source === 'matter' ? MATTER_VENDOR : MQTT_VENDOR;
+    const own = BROKER_VENDORS[source];
 
     return this.#options.vendors.flatMap((vendor) => {
       const { plan } = vendor.discovery;
@@ -1351,6 +1377,18 @@ export class DiscoveryService {
       });
     }
 
+    if (source === 'modbus') {
+      return (this.#options.modbus?.devices() ?? []).map(({ deviceKey, device }) => ({
+        deviceKey,
+        identity: device,
+        name: device.name,
+        modelCode: null,
+        swVersion: null,
+        macs: [],
+        kind: device.kind,
+      }));
+    }
+
     return (this.#options.mqtt?.devices() ?? []).map(({ deviceKey, device }) => ({
       deviceKey,
       identity: device.identity,
@@ -1381,7 +1419,8 @@ export class DiscoveryService {
     const macs = new Map<string, Set<string>>();
 
     for (const device of this.#brokerDevices(source)) {
-      const [only, other] = this.brokerClaims(source, device.identity);
+      const [only, other] =
+        device.kind === undefined ? this.brokerClaims(source, device.identity) : [];
 
       // Every vendor that takes a Matter device, so a device of theirs found over its own
       // transport can say the house reaches it through Matter too.
@@ -1393,11 +1432,13 @@ export class DiscoveryService {
 
       const fallback = associateBroker(feed.vendor.discovery.plan, source, device.identity);
       const chosen =
-        only !== undefined && other === undefined
-          ? only
-          : fallback === null
-            ? undefined
-            : { vendor: feed.vendor, association: fallback };
+        device.kind !== undefined
+          ? this.#ofKind(device.kind, feed.vendor)
+          : only !== undefined && other === undefined
+            ? only
+            : fallback === null
+              ? undefined
+              : { vendor: feed.vendor, association: fallback };
 
       if (chosen === undefined) {
         continue;
@@ -1451,10 +1492,43 @@ export class DiscoveryService {
     this.#publishIfChanged();
   }
 
+  /**
+   * The vendor and driver a device a broker names the driver of is proposed to.
+   *
+   * @param kind - The driver, `vendor/driver`.
+   * @param own - The broker's own vendor, which is not among the bundles.
+   * @returns Them, or undefined when that driver is not loaded.
+   */
+  #ofKind(
+    kind: string,
+    own: DiscoveryVendor,
+  ): { readonly vendor: DiscoveryVendor; readonly association: Association } | undefined {
+    const [vendorId = '', driverId = ''] = kind.split('/');
+    const vendor =
+      own.id === vendorId ? own : this.#options.vendors.find((each) => each.id === vendorId);
+    const driver = vendor?.discovery.plan.drivers.find((each) => each.id === driverId);
+
+    if (vendor === undefined || driver === undefined) {
+      return undefined;
+    }
+
+    const choices = driver.models.length === 0 ? [driver.name] : driver.models;
+
+    return {
+      vendor,
+      association: {
+        driverId,
+        model: choices.length === 1 ? (choices[0] ?? null) : null,
+        modelChoices: choices,
+      },
+    };
+  }
+
   /** Forgets the devices gone quiet, and the probe answers too old to trust. */
   #sweep(): void {
-    this.#hearBroker('matter');
-    this.#hearBroker('mqtt');
+    for (const source of BROKER_SOURCES) {
+      this.#hearBroker(source);
+    }
 
     const nowMs = this.#now();
 
@@ -1493,7 +1567,7 @@ export class DiscoveryService {
       .flatMap((candidate): Candidate[] => {
         const { device } = candidate;
 
-        if (device.source === 'matter' || device.source === 'mqtt') {
+        if (device.source === 'matter' || device.source === 'mqtt' || device.source === 'modbus') {
           return device.externalId !== null && this.#taken[device.source].has(device.externalId)
             ? []
             : [candidate];
