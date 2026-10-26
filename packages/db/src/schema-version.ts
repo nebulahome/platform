@@ -21,7 +21,7 @@ import type { Database } from './client.js';
  * this whole mechanism exists to catch, so a mismatch names both numbers rather than saying
  * only that something is wrong.
  */
-export const EXPECTED_SCHEMA_VERSION = 1;
+export const EXPECTED_SCHEMA_VERSION = 2;
 
 /** What `system.v_schema_version` reports. */
 export type SchemaVersion = {

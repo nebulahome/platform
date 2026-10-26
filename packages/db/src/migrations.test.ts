@@ -47,7 +47,10 @@ describe('the migration set', () => {
   });
 
   it('orders files by a four-digit prefix', () => {
-    expect(files.map((file) => file.name)).toEqual(['0001_initial_schema.sql']);
+    expect(files.map((file) => file.name)).toEqual([
+      '0001_initial_schema.sql',
+      '0002_modbus_broker.sql',
+    ]);
   });
 
   it('runs the initial schema in a single transaction', () => {

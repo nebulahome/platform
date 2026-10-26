@@ -19,6 +19,7 @@ import {
   smallint,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
   type AnyPgColumn,
@@ -188,6 +189,78 @@ export const integrationAccounts = registrySchema.table(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.vendorId, table.id] })],
+);
+
+/**
+ * The Modbus broker's settings: one row, whether and where the network is searched, how often,
+ * and how the last search went. Written by `hub` and by nothing else.
+ */
+export const modbusSettings = registrySchema.table('modbus_settings', {
+  id: smallint('id').primaryKey().default(1),
+  isSearchEnabled: boolean('is_search_enabled').notNull().default(false),
+
+  /** What the owner wrote: a network, a span or one address; empty for the hub's networks. */
+  searchRanges: text('search_ranges')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  searchIntervalMinutes: integer('search_interval_minutes').notNull().default(120),
+  lastSearchAt: timestamp('last_search_at', { withTimezone: true }),
+  lastSearchMs: integer('last_search_ms'),
+  lastSearchAddresses: integer('last_search_addresses'),
+  lastSearchAnswered: integer('last_search_answered'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** The owner's Modbus templates, each the template file as the editor writes it. */
+export const modbusTemplates = registrySchema.table('modbus_templates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  document: jsonb('document').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * The Modbus devices of the house: a template at an address. Read through one of the owner's
+ * templates or an integration's driver (`vendor/driver`), never both.
+ */
+export const modbusDevices = registrySchema.table(
+  'modbus_devices',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    host: text('host').notNull(),
+    port: integer('port').notNull().default(502),
+    unitId: integer('unit_id').notNull().default(1),
+
+    /** `tcp`, or `rtu` for RTU frames carried over TCP by a transparent adapter. */
+    framing: text('framing').notNull().default('tcp'),
+    templateId: uuid('template_id').references(() => modbusTemplates.id, {
+      onDelete: 'restrict',
+    }),
+    templateKind: text('template_kind'),
+
+    /** How often it is read, instead of the template's; null for the template's. */
+    pollSeconds: integer('poll_seconds'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('modbus_devices_address_unique').on(table.host, table.port, table.unitId),
+    index('modbus_devices_template_id_idx').on(table.templateId),
+  ],
+);
+
+/** The servers found on the network the owner ignores. */
+export const modbusIgnored = registrySchema.table(
+  'modbus_ignored',
+  {
+    host: text('host').notNull(),
+    port: integer('port').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.host, table.port] })],
 );
 
 /**
