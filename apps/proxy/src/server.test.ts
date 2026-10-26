@@ -2,7 +2,9 @@
  * The front door: the page's files with the cache headers their names allow, the page for the
  * single-page app's own routes, and `/api` passed to `api` as it came.
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -109,5 +111,72 @@ describe('buildProxyServer', () => {
     const response = await proxy.inject({ method: 'GET', url: '/healthz' });
 
     expect(response.json()).toEqual({ status: 'ok' });
+  });
+});
+
+/**
+ * Sends one GET over a real socket.
+ *
+ * @param url - Where to.
+ * @returns The status and the location header.
+ */
+function get(url: string): Promise<{ status: number; location: string | undefined }> {
+  const client = url.startsWith('https:') ? https : http;
+
+  return new Promise((resolve, reject) => {
+    client
+      .get(url, { rejectUnauthorized: false }, (response) => {
+        response.resume();
+        resolve({ status: response.statusCode ?? 0, location: response.headers.location });
+      })
+      .on('error', reject);
+  });
+}
+
+describe('buildProxyServer over TLS', () => {
+  let webRoot = '';
+  let proxy: FastifyInstance;
+  let port = 0;
+
+  beforeAll(async () => {
+    webRoot = mkdtempSync(path.join(tmpdir(), 'nebula-proxy-tls-'));
+    writeFileSync(path.join(webRoot, 'index.html'), '<!doctype html><title>Nebula Home</title>');
+
+    const fixtures = path.join(import.meta.dirname, 'fixtures');
+
+    proxy = await buildProxyServer({
+      webRoot,
+      upstream: 'http://127.0.0.1:9',
+      https: {
+        cert: readFileSync(path.join(fixtures, 'localhost.crt')),
+        key: readFileSync(path.join(fixtures, 'localhost.key')),
+      },
+    });
+    await proxy.listen({ host: '127.0.0.1', port: 0 });
+
+    const address = proxy.server.address();
+    port = typeof address === 'object' && address !== null ? address.port : 0;
+  });
+
+  afterAll(async () => {
+    await proxy.close();
+    rmSync(webRoot, { recursive: true, force: true });
+  });
+
+  it('serves the page over TLS', async () => {
+    expect((await get(`https://127.0.0.1:${String(port)}/`)).status).toBe(200);
+  });
+
+  it('redirects plain HTTP on its port to HTTPS on the same host and port', async () => {
+    const response = await get(`http://127.0.0.1:${String(port)}/settings?tab=1`);
+
+    expect(response.status).toBe(301);
+    expect(response.location).toBe(`https://127.0.0.1:${String(port)}/settings?tab=1`);
+  });
+
+  it('still serves TLS after a plain request', async () => {
+    await get(`http://127.0.0.1:${String(port)}/`);
+
+    expect((await get(`https://127.0.0.1:${String(port)}/healthz`)).status).toBe(200);
   });
 });

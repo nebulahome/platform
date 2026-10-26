@@ -9,8 +9,12 @@
  * included, uncompressed: `api` answers JSON, camera frames and streams, and compressing a stream
  * of frames only delays them.
  *
- * TLS, when it is on, is the same server listening a second time (main.ts).
+ * TLS, when it is on, is the same server listening a second time (main.ts). Plain HTTP sent to that
+ * port is redirected to HTTPS on it, instead of the connection being dropped unanswered.
  */
+import http from 'node:http';
+import type { Server, Socket } from 'node:net';
+
 import compress from '@fastify/compress';
 import helmet from '@fastify/helmet';
 import httpProxy from '@fastify/http-proxy';
@@ -46,6 +50,62 @@ const CONTENT_SECURITY_POLICY = {
   },
 } as const;
 
+/** The first byte of every TLS connection: a handshake record. */
+const TLS_HANDSHAKE_RECORD = 0x16;
+
+/**
+ * Has the HTTPS server answer plain HTTP on its port with a redirect to HTTPS - a browser sent
+ * there by `http://` would otherwise get an empty response. Each connection's first byte tells
+ * them apart; it is put back before the connection is handed on, so nothing is lost.
+ *
+ * @param server - The HTTPS server, before it listens.
+ */
+function redirectPlainHttp(server: Server): void {
+  const tlsListeners = server.listeners('connection') as ((socket: Socket) => void)[];
+  // The same host and port the browser asked for, now over TLS.
+  const redirector = http.createServer((request, response) => {
+    const host = request.headers.host;
+
+    if (host === undefined) {
+      response.writeHead(400, { connection: 'close' }).end();
+      return;
+    }
+
+    response
+      .writeHead(301, { location: `https://${host}${request.url ?? '/'}`, connection: 'close' })
+      .end();
+  });
+
+  server.removeAllListeners('connection');
+  server.on('connection', (socket: Socket) => {
+    /** Drops a connection that fails before its first byte: no listener holds it yet. */
+    const onError = (): void => {
+      socket.destroy();
+    };
+
+    socket.once('error', onError);
+    socket.once('readable', () => {
+      const head = socket.read() as Buffer | null;
+
+      if (head === null) {
+        socket.destroy();
+        return;
+      }
+
+      socket.unshift(head);
+      socket.off('error', onError);
+
+      if (head[0] === TLS_HANDSHAKE_RECORD) {
+        for (const listener of tlsListeners) {
+          listener.call(server, socket);
+        }
+      } else {
+        redirector.emit('connection', socket);
+      }
+    });
+  });
+}
+
 /** What the server needs. */
 export type ProxyServerOptions = {
   /** The built web-ui. */
@@ -74,6 +134,10 @@ export async function buildProxyServer(options: ProxyServerOptions): Promise<Fas
           logger: false,
           https: { cert: https.cert, key: https.key },
         }) as unknown as FastifyInstance);
+
+  if (https !== undefined) {
+    redirectPlainHttp(server.server);
+  }
 
   await server.register(helmet, {
     contentSecurityPolicy: CONTENT_SECURITY_POLICY,
