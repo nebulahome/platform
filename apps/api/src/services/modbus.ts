@@ -38,14 +38,17 @@ import {
   modbusTestTemplateReplySchema,
   modbusTestWriteReplySchema,
   NotFoundError,
+  ValidationError,
   type ModbusDevice,
   type ModbusDeviceInput,
   type ModbusSettings,
   type ModbusStatus,
   type ModbusTemplateRecord,
+  type ModbusTemplateSaveRequest,
 } from '@nebulahome/contracts';
 
 import { deleteDevice, type DevicesContext, type RemovedDevice } from './devices.js';
+import type { IconLookup } from './icon-lookup.js';
 import { busOf, type IntegrationsContext } from './integrations.js';
 
 /**
@@ -163,11 +166,29 @@ export async function modbusTemplates(
  * @param context - The request's collaborators.
  * @param request - Its id when it is not new, and the template, checked.
  * @returns It, saved.
+ * @throws {ValidationError} When an entity names an icon the catalogue does not have.
  */
 export async function saveModbusTemplate(
-  context: IntegrationsContext,
-  request: object,
+  context: IntegrationsContext & { readonly icons: IconLookup },
+  request: ModbusTemplateSaveRequest,
 ): Promise<ModbusTemplateRecord> {
+  const issues = request.document.entities.flatMap((entity, index) =>
+    entity.icon === undefined || context.icons.has(entity.icon)
+      ? []
+      : [
+          {
+            path: `document.entities.${String(index)}.icon`,
+            message: `No icon has the id ${entity.icon}`,
+          },
+        ],
+  );
+
+  if (issues.length > 0) {
+    throw new ValidationError('An icon of the template is not in the catalogue', {
+      details: { issues },
+    });
+  }
+
   return askModbus(context, HUB_MODBUS_TEMPLATE_SAVE_METHOD, request, modbusTemplateRecordSchema);
 }
 

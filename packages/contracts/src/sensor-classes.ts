@@ -152,6 +152,11 @@ export const SENSOR_CLASSES: ReadonlyMap<string, SensorClass> = new Map(
 /** The catalogue as an ordered list, matching the JSON file. */
 export const SENSOR_CLASS_LIST: readonly SensorClass[] = parsedCatalog.classes;
 
+/** Every unit the catalogue knows, once each - an id is also its symbol. */
+export const SENSOR_UNIT_IDS: ReadonlySet<string> = new Set(
+  parsedCatalog.classes.flatMap((entry) => entry.units.map((unit) => unit.id)),
+);
+
 /**
  * Looks up a sensor class by id.
  *

@@ -435,6 +435,7 @@ export function modbusEntityDescriptorOf(entity: ModbusEntity): EntityDescriptor
     objectId: modbusObjectIdOf(entity),
     name: entity.name,
     capabilities,
+    ...(entity.icon === undefined ? {} : { icon: entity.icon }),
     ...(unit === undefined || unit === '' ? {} : { unitOfMeasurement: unit }),
   };
 }

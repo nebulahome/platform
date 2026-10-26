@@ -18,7 +18,9 @@
 import { z } from 'zod';
 
 import { BROKER_STATES } from './brokers.js';
+import { iconIdSchema } from './icons.js';
 import { integrationIdSchema, integrationKindIdSchema, VENDOR_ID_PATTERN } from './integrations.js';
+import { SENSOR_UNIT_IDS } from './sensor-classes.js';
 import { timestampSchema } from './timestamp.js';
 
 /** The platform transport every Modbus device is reached through. */
@@ -210,7 +212,12 @@ export const modbusReadSchema = z.strictObject({
     .number()
     .refine((scale) => scale !== 0, 'Not zero')
     .optional(),
-  unit: z.string().trim().max(16).optional(),
+
+  /** One of the units the platform knows (`SENSOR_UNIT_IDS`): `W`, `kWh`, `°C`. */
+  unit: z
+    .string()
+    .refine((unit) => SENSOR_UNIT_IDS.has(unit), 'Not a unit the platform knows')
+    .optional(),
 
   /** What each raw number means, for a choice or a text: `{ "0": "Off", "1": "Eco" }`. */
   options: z
@@ -279,6 +286,9 @@ export const modbusEntitySchema = z.strictObject({
   /** What it stays when renamed; given from the name when saved. */
   id: z.string().regex(MODBUS_ENTITY_ID_PATTERN, 'Lower-case letters, digits and _').optional(),
   name: z.string().trim().min(1, 'Needed: a name').max(64),
+
+  /** The catalogue icon it starts with; the domain's when left out. */
+  icon: iconIdSchema.optional(),
   domain: z.enum(MODBUS_DOMAINS),
   capabilities: z.partialRecord(z.enum(MODBUS_CAPABILITIES), modbusCapabilityMapSchema),
 });
@@ -767,6 +777,9 @@ export const modbusTemplateSaveRequestSchema = z.object({
   id: z.uuid().optional(),
   document: modbusTemplateSchema,
 });
+
+/** One of the owner's templates to save. */
+export type ModbusTemplateSaveRequest = z.output<typeof modbusTemplateSaveRequestSchema>;
 
 /** An integration that recognises a server, and the driver it would read it with. */
 export const modbusClaimSchema = z.object({

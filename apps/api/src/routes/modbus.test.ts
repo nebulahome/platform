@@ -77,6 +77,35 @@ describe('the Modbus routes', () => {
     expect(modbusRequests).toEqual(['save Pool pump']);
   });
 
+  it('refuses a template whose entity names an icon the catalogue does not have', async () => {
+    const saved = await server.inject({
+      method: 'POST',
+      url: '/api/v1/brokers/modbus/templates',
+      headers: { authorization: await bearer('device:write') },
+      payload: {
+        document: {
+          name: 'Relay board',
+          entities: [
+            {
+              name: 'Relay 1',
+              icon: 'no-such-icon',
+              domain: 'switch',
+              capabilities: { on_off: { read: { function: 1, address: 0 } } },
+            },
+          ],
+        },
+      },
+    });
+
+    expect(saved.statusCode).toBe(400);
+    expect(saved.json()).toMatchObject({
+      error: {
+        details: { issues: [{ path: 'document.entities.0.icon' }] },
+      },
+    });
+    expect(modbusRequests).toEqual([]);
+  });
+
   it('removes a device never added from the broker alone', async () => {
     const response = await server.inject({
       method: 'DELETE',

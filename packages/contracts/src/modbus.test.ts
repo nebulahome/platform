@@ -173,6 +173,18 @@ describe('modbusTemplateSchema', () => {
     expect(problemsOf(entity)).toContain(message);
   });
 
+  it('takes a unit and an icon the platform knows, and refuses a unit it does not', () => {
+    const sensor = (unit: string): Record<string, unknown> => ({
+      name: 'Power',
+      icon: 'zap',
+      domain: 'sensor',
+      capabilities: { sensor_numeric: { read: { function: 4, address: 0, unit } } },
+    });
+
+    expect(problemsOf(sensor('kWh'))).toEqual([]);
+    expect(problemsOf(sensor('watts'))).toEqual(['Not a unit the platform knows']);
+  });
+
   it('refuses two entities of one id', () => {
     const entity = {
       name: 'Relay',
