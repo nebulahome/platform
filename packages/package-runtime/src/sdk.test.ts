@@ -32,6 +32,9 @@ describe('BundleSdk', () => {
       openMqtt: () => {
         throw new Error('not opened in this test');
       },
+      openModbus: () => {
+        throw new Error('not opened in this test');
+      },
       defineStreamSource,
       defineAccount,
       codecs: { lzma: () => Buffer.alloc(0) },
@@ -92,6 +95,9 @@ describe('BundleSdk.openUdpSocket', () => {
         };
       },
       openMqtt: () => {
+        throw new Error('not opened in this test');
+      },
+      openModbus: () => {
         throw new Error('not opened in this test');
       },
       defineStreamSource,

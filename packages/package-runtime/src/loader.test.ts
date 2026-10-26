@@ -158,6 +158,39 @@ describe('readVendorDirectory', () => {
     expect(declaration.failures).toEqual([]);
   });
 
+  it('reads a modbus driver’s template, every entity given its id', async () => {
+    await writeVendor('acme');
+    await write('acme/meter', {
+      'driver.json': {
+        id: 'meter',
+        name: 'Meter',
+        transport: 'modbus',
+        kind: 'modbus',
+        template: './template.json',
+        setup: './setup.json',
+      },
+      'setup.json': { transport: { fields: [] } },
+      'template.json': {
+        name: 'Meter',
+        entities: [
+          {
+            name: 'Power',
+            domain: 'sensor',
+            capabilities: { sensor_numeric: { read: { function: 4, address: 12, type: 'f32' } } },
+          },
+        ],
+      },
+    });
+
+    const declaration = await readVendorDirectory(path.join(root, 'acme'), {
+      runtimeVersion: '1.0.0',
+    });
+    const meter = declaration.drivers.find((driver) => driver.driverId === 'meter');
+
+    expect(declaration.failures).toEqual([]);
+    expect(meter?.modbusTemplate?.entities[0]?.id).toBe('power');
+  });
+
   it('drops the $schema an editor reads at the top of each file', async () => {
     await writeVendor('acme', { $schema: './manifest.schema.json', ...VENDOR });
     await write('acme/relay', {

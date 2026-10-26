@@ -33,6 +33,8 @@ import {
   DEVICE_ADOPTIONS,
   jsonObjectSchema,
   MATTER_TRANSPORT,
+  MODBUS_TRANSPORT,
+  modbusReadSchema,
   MQTT_HOUSE_TRANSPORT,
   normalizeMac,
   transportIdSchema,
@@ -182,14 +184,48 @@ export const matterDiscoverySchema = brokerDiscoverySchema('productId');
  */
 export const mqttDiscoverySchema = brokerDiscoverySchema('model');
 
+/** What a Modbus rule may call a value it reads: `serial`, `model`. */
+const MODBUS_VALUE_NAME = /^[a-z][a-zA-Z0-9_]{0,31}$/u;
+
+/** How many values a Modbus rule may read: every one is a request to a server that is not yet known. */
+const MAXIMUM_MODBUS_READS = 8;
+
+/**
+ * Which of the Modbus servers found on the network are the vendor's: the values to read from
+ * them - registers, as a template reads them - and rules on `values.<name>`, `host`, `port` and
+ * `unitId`; the model is `values.model` unless said, in the drivers that say `"kind": "modbus"`.
+ *
+ * The platform recognises no server on its own: a server is named only by an integration whose
+ * rules hold.
+ */
+export const modbusDiscoverySchema = brokerDiscoverySchema('values.model').extend({
+  /** The unit asked; the one a server answers for on its own unless said. */
+  unitId: z.int().min(1).max(247).default(1),
+
+  /** What to read, by the name the rules use. */
+  read: z
+    .record(z.string().regex(MODBUS_VALUE_NAME, 'A name of letters and digits'), modbusReadSchema)
+    .refine((read) => Object.keys(read).length <= MAXIMUM_MODBUS_READS, {
+      message: `At most ${String(MAXIMUM_MODBUS_READS)} values`,
+    })
+    .default({}),
+});
+
 /** Which of a broker's devices are the vendor's. */
 export type BrokerDiscovery = z.output<typeof matterDiscoverySchema>;
+
+/** Which of the Modbus servers found are the vendor's. */
+export type ModbusDiscovery = z.output<typeof modbusDiscoverySchema>;
 
 /** The platform's brokers a vendor may take devices of, and the transport each reaches them on. */
 export const BROKER_TRANSPORTS = {
   matter: MATTER_TRANSPORT,
   mqtt: MQTT_HOUSE_TRANSPORT,
+  modbus: MODBUS_TRANSPORT,
 } as const;
+
+/** Where each broker's device says its model, when the vendor's block does not say. */
+const BROKER_MODELS = { matter: 'productId', mqtt: 'model', modbus: 'values.model' } as const;
 
 /** One of the platform's brokers. */
 export type BrokerSource = keyof typeof BROKER_TRANSPORTS;
@@ -208,6 +244,7 @@ export const vendorDiscoverySchema = z
 
     matter: matterDiscoverySchema.optional(),
     mqtt: mqttDiscoverySchema.optional(),
+    modbus: modbusDiscoverySchema.optional(),
 
     /**
      * Who adds a device found. `owner` - the default - proposes it on the vendor's
@@ -236,13 +273,14 @@ export const vendorDiscoverySchema = z
     if (
       discovery.listen.length === 0 &&
       discovery.matter === undefined &&
-      discovery.mqtt === undefined
+      discovery.mqtt === undefined &&
+      discovery.modbus === undefined
     ) {
       ctx.addIssue({
         code: 'custom',
         path: ['listen'],
         message:
-          'A vendor listens somewhere, or says which Matter or MQTT devices are its own, or both',
+          'A vendor listens somewhere, or says which Matter, MQTT or Modbus devices are its own, or both',
       });
     }
 
@@ -554,10 +592,7 @@ export function associateBroker(
   identity: unknown,
 ): Association | null {
   const drivers = plan.drivers.filter((driver) => driver.transport === BROKER_TRANSPORTS[broker]);
-  const modelCode = textAt(
-    identity,
-    plan.discovery[broker]?.model ?? (broker === 'matter' ? 'productId' : 'model'),
-  );
+  const modelCode = textAt(identity, plan.discovery[broker]?.model ?? BROKER_MODELS[broker]);
   const coded =
     modelCode === null
       ? []

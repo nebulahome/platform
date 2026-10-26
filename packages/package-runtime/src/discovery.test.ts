@@ -556,3 +556,40 @@ describe('devices the house’s MQTT broker hears', () => {
     expect(associateModel(plan, 'Sonoff S26')).toBeNull();
   });
 });
+
+describe('servers the house’s Modbus client finds', () => {
+  /** A vendor that knows its inverters from the serial they hold at 0x0, read as text. */
+  const plan = resolveDiscovery(
+    'solax-power',
+    vendorDiscoverySchema.parse({
+      modbus: {
+        read: { serial: { function: 3, address: '0x0', type: 'string', count: 7 } },
+        match: [{ path: 'values.serial', startsWith: 'H3' }],
+      },
+    }),
+    [
+      {
+        id: 'x3-hybrid',
+        name: 'X3-Hybrid',
+        transport: 'modbus',
+        models: ['X3-Hybrid G4'],
+      },
+    ],
+  );
+
+  it('reads unit 1 unless said, and the model from `values.model`', () => {
+    expect(plan.discovery.modbus?.unitId).toBe(1);
+    expect(plan.discovery.modbus?.model).toBe('values.model');
+    expect(vendorDiscoverySchema.safeParse({ modbus: { match: [] } }).success).toBe(false);
+  });
+
+  it('takes a server whose values every rule holds of', () => {
+    expect(matchesBroker(plan, 'modbus', { values: { serial: 'H34A10I1234567' } })).toBe(true);
+    expect(matchesBroker(plan, 'modbus', { values: { serial: 'XB1' } })).toBe(false);
+    expect(associateBroker(plan, 'modbus', { values: { serial: 'H34A10I1234567' } })).toEqual({
+      driverId: 'x3-hybrid',
+      model: 'X3-Hybrid G4',
+      modelChoices: ['X3-Hybrid G4'],
+    });
+  });
+});

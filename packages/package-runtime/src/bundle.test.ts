@@ -210,6 +210,23 @@ describe('driverManifestSchema', () => {
     ).toBe(true);
   });
 
+  it('runs a modbus driver on the modbus transport, from the template it names', () => {
+    const modbus: Record<string, unknown> = {
+      ...driver(),
+      kind: 'modbus',
+      transport: 'modbus',
+      template: './template.json',
+    };
+    delete modbus['entry'];
+
+    expect(driverManifestSchema.safeParse(modbus).success).toBe(true);
+    expect(driverManifestSchema.safeParse({ ...modbus, template: undefined }).success).toBe(false);
+    expect(driverManifestSchema.safeParse({ ...modbus, transport: 'http' }).success).toBe(false);
+    expect(
+      driverManifestSchema.safeParse({ ...driver(), template: './template.json' }).success,
+    ).toBe(false);
+  });
+
   it('requires a profile from a declarative driver', () => {
     expect(
       driverManifestSchema.safeParse({ ...driver(), kind: 'declarative', entry: undefined })

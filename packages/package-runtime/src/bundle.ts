@@ -26,6 +26,7 @@ import {
   iconIdSchema,
   INTEGRATION_KIND_PATTERN,
   MATTER_TRANSPORT,
+  MODBUS_TRANSPORT,
   MQTT_HOUSE_TRANSPORT,
   packageRequiresSchema,
   SEMVER_PATTERN,
@@ -38,16 +39,17 @@ import {
 import { containerDependenciesSchema } from './containers.js';
 
 /**
- * Bundle kind, which is both how it is written and how far it is trusted. `matter` and `mqtt` are
- * drivers one of the platform's broker mappings runs: no profile and no code, so as far trusted as
- * a profile.
+ * Bundle kind, which is both how it is written and how far it is trusted. `matter`, `mqtt` and
+ * `modbus` are drivers one of the platform's broker mappings runs: no profile and no code, so as
+ * far trusted as a profile. A `modbus` driver names its template, which the mapping reads.
  */
-export const BUNDLE_KINDS = ['declarative', 'code', 'matter', 'mqtt'] as const;
+export const BUNDLE_KINDS = ['declarative', 'code', 'matter', 'mqtt', 'modbus'] as const;
 
 /** The transport each kind the platform's mappings run is reached on. */
 const MAPPED_KINDS: Readonly<Record<string, string>> = {
   matter: MATTER_TRANSPORT,
   mqtt: MQTT_HOUSE_TRANSPORT,
+  modbus: MODBUS_TRANSPORT,
 };
 
 /** Bundle kind, which is both how it is written and how far it is trusted. */
@@ -329,6 +331,9 @@ const driverShape = {
   /** Path to the entry point, relative to the driver. Code drivers only. */
   entry: bundlePathSchema.optional(),
 
+  /** Path to the Modbus template, relative to the driver. Modbus drivers only. */
+  template: bundlePathSchema.optional(),
+
   /**
    * Path to `setup.json`, relative to the driver: what setting up an instance asks.
    *
@@ -344,6 +349,7 @@ type KindFiles = {
   readonly transport: string;
   readonly profile?: string | undefined;
   readonly entry?: string | undefined;
+  readonly template?: string | undefined;
 };
 
 /**
@@ -354,6 +360,22 @@ type KindFiles = {
  */
 function checkKindFiles(manifest: KindFiles, ctx: z.RefinementCtx): void {
   const mapped = MAPPED_KINDS[manifest.kind];
+
+  if (manifest.kind === 'modbus' && manifest.template === undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['template'],
+      message: 'A modbus driver must name its template',
+    });
+  }
+
+  if (manifest.kind !== 'modbus' && manifest.template !== undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['template'],
+      message: `A ${manifest.kind} driver must not name a template`,
+    });
+  }
 
   if (mapped !== undefined) {
     // The platform's mapping is the driver: there is nothing for a file to say, and it reads only
@@ -559,6 +581,7 @@ export function resolveManifest(vendor: VendorManifest, driver: DriverManifest):
     ...(driver.webPagePath === undefined ? {} : { webPagePath: driver.webPagePath }),
     ...(driver.profile === undefined ? {} : { profile: driver.profile }),
     ...(driver.entry === undefined ? {} : { entry: driver.entry }),
+    ...(driver.template === undefined ? {} : { template: driver.template }),
     setup: driver.setup,
   };
 }

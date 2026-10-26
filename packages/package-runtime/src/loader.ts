@@ -32,9 +32,12 @@ import type { z } from 'zod';
 
 import {
   integrationSetupSchema,
+  modbusTemplateSchema,
   TRANSPORT_WIRES,
+  withModbusEntityIds,
   withPollingField,
   type IntegrationSetup,
+  type ModbusTemplate,
   type TransportWire,
 } from '@nebulahome/contracts';
 
@@ -65,6 +68,7 @@ import {
 import { INSTALL_MARKER_FILE, installMarkerSchema, type InstallMarker } from './install-marker.js';
 import type { Integration } from './integration.js';
 import { createMatterIntegration } from './matter-mapping.js';
+import { createModbusIntegration } from './modbus-mapping.js';
 import { createMqttIntegration } from './mqtt-mapping.js';
 import { integrationProfileSchema, type IntegrationProfile } from './profile.js';
 import type { BundleLogger, BundleSdk, StreamFactory, TransportFactory } from './sdk.js';
@@ -117,6 +121,9 @@ export type LoadedBundle = {
 
   /** Where it was read from, for a message that has to name it. */
   readonly directory: string;
+
+  /** The template a Modbus driver reads its devices through, every entity with its id. */
+  readonly modbusTemplate?: ModbusTemplate;
 };
 
 /**
@@ -264,6 +271,9 @@ export type DriverDeclaration = {
 
   /** The module's path, for a code driver. */
   readonly entry?: string;
+
+  /** The template, for a Modbus driver. */
+  readonly modbusTemplate?: ModbusTemplate;
 };
 
 /** A module the vendor names, found. */
@@ -669,6 +679,12 @@ async function readDriver(
     return identity;
   }
 
+  if (manifest.kind === 'modbus') {
+    const template = await readBundleFile(modbusTemplateSchema, directory, manifest.template ?? '');
+
+    return { ...identity, modbusTemplate: withModbusEntityIds(template) };
+  }
+
   return {
     ...identity,
     entry: await moduleOf(resolve, directory, manifest.entry ?? '', manifest.id),
@@ -962,6 +978,10 @@ async function instantiateDriver(
 
   if (driver.manifest.kind === 'mqtt') {
     return { ...identity, integration: createMqttIntegration(driver.manifest) };
+  }
+
+  if (driver.manifest.kind === 'modbus') {
+    return { ...identity, integration: createModbusIntegration(driver.manifest) };
   }
 
   const exported = await defaultOf(options.importModule ?? importFile, entry ?? '');

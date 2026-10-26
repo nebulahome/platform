@@ -21,6 +21,7 @@ export * from './integration.js';
 export * from './loader.js';
 export * from './matter-mapping.js';
 export * from './matter-node.js';
+export * from './modbus-mapping.js';
 export * from './mqtt-announcement.js';
 export * from './mqtt-mapping.js';
 export * from './profile.js';
