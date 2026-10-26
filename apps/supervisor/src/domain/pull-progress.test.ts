@@ -13,6 +13,7 @@ describe('PullProgressTracker', () => {
     tracker.add({ id: 'c', status: 'Already exists' });
 
     expect(tracker.percent()).toBe(12);
+    expect(tracker.bytes()).toBe(400);
 
     tracker.add({ id: 'a', status: 'Pull complete' });
     tracker.add({ id: 'b', status: 'Download complete' });

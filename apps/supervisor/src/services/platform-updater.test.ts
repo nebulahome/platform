@@ -102,6 +102,10 @@ function engineWith(health: 'healthy' | 'unhealthy'): {
       return Promise.resolve();
     }),
     wait: vi.fn(async () => Promise.resolve(0)),
+    // One stdout frame, as Docker multiplexes it: stream, three zeros, the length, the text.
+    logs: vi.fn(async () =>
+      Promise.resolve(Buffer.from([1, 0, 0, 0, 0, 0, 0, 17, ...Buffer.from('migration failed\n')])),
+    ),
   } as unknown as PlatformUpdateOptions['engine'];
 
   return { engine, calls };
@@ -130,16 +134,24 @@ async function run(health: 'healthy' | 'unhealthy') {
   const written: unknown = JSON.parse(
     await readFile(path.join(dataDir, 'updates', 'last.json'), 'utf8'),
   );
+  const isMarked = await readFile(path.join(dataDir, 'updates', 'current.json'), 'utf8').then(
+    () => true,
+    () => false,
+  );
 
-  return { outcome, calls, written };
+  return { outcome, calls, written, isMarked };
 }
 
 describe('updatePlatform', () => {
   it('copies the volumes aside, makes the new container and cleans up once it is healthy', async () => {
-    const { outcome, calls, written } = await run('healthy');
+    const { outcome, calls, written, isMarked } = await run('healthy');
+
+    expect(isMarked).toBe(false);
 
     expect(outcome.error).toBeNull();
     expect(outcome.status).toBe('success');
+    expect(outcome.restoredInMs).toBeNull();
+    expect(outcome.log.at(-1)).toMatch(/2026\.11\.0 is healthy$/u);
     expect(written).toMatchObject({ status: 'success', toVersion: '2026.11.0' });
     expect(calls).toEqual([
       'tag nebulahome/platform:2026.11.0 nebulahome/platform:latest',
@@ -164,6 +176,8 @@ describe('updatePlatform', () => {
 
     expect(outcome.status).toBe('rolled_back');
     expect(written).toMatchObject({ status: 'rolled_back' });
+    expect(outcome.restoredInMs).toBeGreaterThanOrEqual(0);
+    expect(outcome.log).toContain('› migration failed');
     expect(calls.slice(calls.indexOf('start new-id') + 1)).toEqual([
       'remove new-id',
       'copy nebulahome-pre-2026.10.1-data:/from:ro > nebulahome_nebula-data:/to',

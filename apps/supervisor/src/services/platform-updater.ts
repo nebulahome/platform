@@ -8,9 +8,14 @@
  * version migrates the database and the old one refuses a database newer than itself. The new
  * container is made like the old (`domain/recreate.ts`) and must turn healthy; if it does not,
  * it is removed, the volumes are copied back, the old image takes its name back and the old
- * container starts again. The outcome is written where the page reads it.
+ * container starts again. The outcome is written where the page reads it, with what was done and,
+ * when the new version did not start, its last lines.
+ *
+ * While it works a marker sits beside the outcome (`updates/current.json`): the version that comes
+ * up - the new one, or the old one put back - reads it and tells the pages an update is being
+ * checked. The outcome takes it away.
  */
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { PlatformUpdateOutcome } from '@nebulahome/contracts';
@@ -18,6 +23,7 @@ import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { InspectedContainer } from '../docker/engine-schemas.js';
 import type { DockerEngine } from '../docker/engine.js';
+import { parseLogs } from '../domain/log-frames.js';
 import { planRecreate } from '../domain/recreate.js';
 
 /** The folders whose volumes are copied aside: what a migration or the new version changes. */
@@ -41,6 +47,7 @@ export type PlatformUpdateOptions = {
     | 'renameContainer'
     | 'removeContainer'
     | 'wait'
+    | 'logs'
   >;
   readonly logger: PlatformLogger;
 
@@ -67,6 +74,9 @@ export type PlatformUpdateOptions = {
 
 /** Five minutes: the health check starts after two and runs every thirty seconds. */
 const HEALTH_TIMEOUT_MS = 5 * 60_000;
+
+/** How many of a new version's last lines the outcome keeps when it did not start. */
+const FAILED_LOG_LINES = 50;
 
 /** One volume copied aside. */
 type Snapshot = { readonly source: string; readonly copy: string };
@@ -159,7 +169,23 @@ async function waitHealthy(options: PlatformUpdateOptions, id: string): Promise<
 }
 
 /**
- * Writes the outcome where the page reads it.
+ * Leaves the marker that says an update is under way, for the version that comes up.
+ *
+ * @param options - Where, and the versions.
+ * @param startedAt - When it began.
+ */
+async function mark(options: PlatformUpdateOptions, startedAt: Date): Promise<void> {
+  const folder = path.join(options.dataDir, 'updates');
+
+  await mkdir(folder, { recursive: true });
+  await writeFile(
+    path.join(folder, 'current.json'),
+    `${JSON.stringify({ fromVersion: options.fromVersion, toVersion: options.toVersion, startedAt })}\n`,
+  );
+}
+
+/**
+ * Writes the outcome where the page reads it, and takes the marker away.
  *
  * @param options - Where.
  * @param outcome - What happened.
@@ -172,6 +198,24 @@ async function record(
 
   await mkdir(folder, { recursive: true });
   await writeFile(path.join(folder, 'last.json'), `${JSON.stringify(outcome, null, 2)}\n`);
+  await rm(path.join(folder, 'current.json'), { force: true });
+}
+
+/**
+ * A container's last lines, for the outcome.
+ *
+ * @param options - The engine.
+ * @param id - The container.
+ * @returns The lines, each `› text`; none when they cannot be read.
+ */
+async function lastLinesOf(options: PlatformUpdateOptions, id: string): Promise<string[]> {
+  try {
+    return parseLogs(await options.engine.logs(id, FAILED_LOG_LINES), false).map(
+      (line) => `› ${line.text}`,
+    );
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -190,8 +234,20 @@ export async function updatePlatform(
   const reference = old.Config.Image;
   const name = old.Name.replace(/^\//, '');
   const snapshots: Snapshot[] = [];
+  const log: string[] = [];
   let created: string | null = null;
   let aside: string | null = null;
+  let restoredInMs: number | null = null;
+
+  /**
+   * Notes one step for the outcome, and logs it.
+   *
+   * @param line - What was done, in English.
+   */
+  const step = (line: string): void => {
+    log.push(`${now().toISOString()} ${line}`);
+    logger.info(line);
+  };
 
   /**
    * The outcome, written.
@@ -210,6 +266,8 @@ export async function updatePlatform(
       status,
       finishedAt: now(),
       error,
+      log,
+      restoredInMs,
     };
 
     await record(options, outcome).catch((writeError: unknown) => {
@@ -219,9 +277,15 @@ export async function updatePlatform(
     return outcome;
   };
 
+  await mark(options, now()).catch((error: unknown) => {
+    logger.warn({ err: error }, 'Could not leave the marker of the update');
+  });
+
   try {
     await engine.tagImage(options.image, reference);
+    step(`Tagged ${options.image} as ${reference}`);
     await engine.control(old.Id, 'stop', PLATFORM_STOP_GRACE_SECONDS);
+    step(`Stopped ${options.fromVersion}`);
 
     for (const mount of old.Mounts) {
       const source = sourceOf(mount);
@@ -244,6 +308,7 @@ export async function updatePlatform(
       // eslint-disable-next-line no-await-in-loop -- see above
       await copy(options, snapshot.source, snapshot.copy);
       snapshots.push(snapshot);
+      step(`Copied ${mount.Destination} aside to ${snapshot.copy}`);
     }
 
     const plan = planRecreate(old, oldImage, reference);
@@ -260,14 +325,19 @@ export async function updatePlatform(
       ),
     );
     await engine.control(id, 'start');
+    step(`Started ${options.toVersion}; waiting for it to turn healthy`);
     await waitHealthy(options, id);
+    step(`${options.toVersion} is healthy`);
   } catch (error: unknown) {
     const reason = error instanceof Error ? error.message : String(error);
+    const restoring = Date.now();
 
     logger.error({ err: error }, 'The update failed; putting the old version back');
+    log.push(`${now().toISOString()} ${reason}`);
 
     try {
       if (created !== null) {
+        log.push(...(await lastLinesOf(options, created)));
         await engine.removeContainer(created);
       }
 
@@ -283,6 +353,8 @@ export async function updatePlatform(
       }
 
       await engine.control(old.Id, 'start');
+      restoredInMs = Date.now() - restoring;
+      step(`Put ${options.fromVersion} back`);
     } catch (rollbackError: unknown) {
       logger.fatal({ err: rollbackError }, 'Could not put the old version back');
 

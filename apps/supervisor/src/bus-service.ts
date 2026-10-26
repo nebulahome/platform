@@ -101,10 +101,16 @@ export function serveSupervisor(client: BusClient, service: SupervisorService): 
       reads,
     ),
     client.serve(
+      subject(SUPERVISOR_METHODS.platformState),
+      supervisorEmptyRequestSchema,
+      async () => service.platform.state(),
+      reads,
+    ),
+    client.serve(
       subject(SUPERVISOR_METHODS.updatePlatform),
       updatePlatformRequestSchema,
       async (request) => {
-        await service.platform.update(request.version);
+        await service.platform.update(request.version, request.backupBytes);
 
         return ok;
       },

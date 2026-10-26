@@ -16,15 +16,20 @@ import path from 'node:path';
 
 import {
   ConflictError,
+  platformUpdateMarkerSchema,
   platformUpdateOutcomeSchema,
   ValidationError,
+  type PlatformEvent,
+  type PlatformOperation,
   type PlatformReleasesReply,
+  type PlatformState,
   type PlatformUpdateOutcome,
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { InspectedContainer } from '../docker/engine-schemas.js';
 import type { DockerEngine } from '../docker/engine.js';
+import { PullProgressTracker } from '../domain/pull-progress.js';
 import { fetchPlatformReleases, type PlatformReleases } from '../registry/github-releases.js';
 
 import { PLATFORM_STOP_GRACE_SECONDS } from './platform-updater.js';
@@ -49,6 +54,12 @@ export type PlatformUpdatesOptions = {
   /** The platform's own container, inspected; null outside a container. */
   readonly self: () => InspectedContainer | null;
 
+  /** The machine's name, as Docker says it; null without Docker. */
+  readonly machine: () => string | null;
+
+  /** Tells every open page what is under way (`nebula.v1.event.platform`). */
+  readonly publish: (event: PlatformEvent) => void;
+
   /** Replaced by a test. */
   readonly fetch?: typeof fetch;
 };
@@ -59,6 +70,9 @@ export const RELEASE_VERSION = /^\d{4}\.\d{1,2}\.\d+(?:-(?:alpha|beta)\.\d+)?$/;
 /** s6's way of ending the container. */
 const HALT = '/run/s6/basedir/bin/halt';
 
+/** How often the download's progress is told at most: often enough for a bar, not a flood. */
+const PROGRESS_EVERY_MS = 1000;
+
 /** Nebula Home's own updates, restart and shutdown. */
 export class PlatformUpdates {
   readonly #options: PlatformUpdatesOptions;
@@ -66,6 +80,7 @@ export class PlatformUpdates {
   #checkedAt: Date | null = null;
   #error: string | null = null;
   #isUpdating = false;
+  #operation: PlatformOperation | null = null;
 
   /**
    * Builds it without asking anything.
@@ -115,13 +130,31 @@ export class PlatformUpdates {
   }
 
   /**
+   * What every page knows of Nebula Home itself: its version, what is under way, the last update.
+   *
+   * An update the updater is still checking is under way although this process knows nothing of
+   * it - it is the new version, or the old one put back - so the updater's marker says it.
+   *
+   * @returns The state.
+   */
+  public async state(): Promise<PlatformState> {
+    return {
+      version: this.#options.version,
+      machine: this.#options.machine(),
+      operation: this.#operation ?? (await this.#checking()),
+      lastUpdate: await this.#lastUpdate(),
+    };
+  }
+
+  /**
    * Updates Nebula Home: pulls the release's image and starts the updater from it.
    *
    * @param version - The release.
+   * @param backupBytes - The size of the backup taken first, for the pages; null for none.
    * @throws {ValidationError} For a version that is not a release's.
    * @throws {ConflictError} When it cannot update here, saying why.
    */
-  public async update(version: string): Promise<void> {
+  public async update(version: string, backupBytes: number | null = null): Promise<void> {
     if (!RELEASE_VERSION.test(version)) {
       throw new ValidationError(`${version} is not a release of Nebula Home`);
     }
@@ -139,11 +172,37 @@ export class PlatformUpdates {
     const repository = repositoryOf(self.Config.Image);
     const image = `${repository}:${version}`;
 
+    const tracker = new PullProgressTracker();
+    let toldAt = 0;
+
     this.#isUpdating = true;
+    this.#announce({
+      kind: 'update',
+      phase: 'downloading',
+      fromVersion: this.#options.version,
+      toVersion: version,
+      percent: null,
+      backupBytes,
+      downloadBytes: null,
+      startedAt: new Date(),
+    });
 
     try {
       logger.info({ image }, 'Pulling the new version of Nebula Home');
-      await engine.pull(repository, version, () => undefined);
+      await engine.pull(repository, version, (progress) => {
+        tracker.add(progress);
+
+        const percent = tracker.percent();
+
+        if (
+          this.#operation !== null &&
+          percent !== this.#operation.percent &&
+          Date.now() - toldAt >= PROGRESS_EVERY_MS
+        ) {
+          toldAt = Date.now();
+          this.#announce({ ...this.#operation, percent, downloadBytes: tracker.bytes() });
+        }
+      });
 
       const pulled = await engine.inspectImage(image);
       const label = pulled?.Config?.Labels['org.opencontainers.image.version'];
@@ -176,10 +235,20 @@ export class PlatformUpdates {
         },
       });
 
+      if (this.#operation !== null) {
+        this.#announce({
+          ...this.#operation,
+          phase: 'installing',
+          percent: null,
+          downloadBytes: tracker.bytes() ?? this.#operation.downloadBytes,
+        });
+      }
+
       await engine.control(id, 'start');
       logger.info({ version }, 'The updater runs: Nebula Home stops for the update');
     } catch (error: unknown) {
       this.#isUpdating = false;
+      this.#announce(null);
       throw error;
     }
   }
@@ -191,6 +260,16 @@ export class PlatformUpdates {
    */
   public restart(): void {
     const self = this.#options.self();
+    const restarting: PlatformOperation = {
+      kind: 'restart',
+      phase: 'stopping',
+      fromVersion: this.#options.version,
+      toVersion: null,
+      percent: null,
+      backupBytes: null,
+      downloadBytes: null,
+      startedAt: new Date(),
+    };
 
     if (self === null || !this.#options.isDockerAvailable()) {
       if (!existsSync(HALT)) {
@@ -199,15 +278,18 @@ export class PlatformUpdates {
         });
       }
 
+      this.#announce(restarting);
       this.#halt();
 
       return;
     }
 
+    this.#announce(restarting);
     // Not awaited: the daemon stops this process with the container before it answers.
     void this.#options.engine
       .control(self.Id, 'restart', PLATFORM_STOP_GRACE_SECONDS)
       .catch((error: unknown) => {
+        this.#announce(null);
         this.#options.logger.error({ err: error }, 'Could not restart the platform');
       });
   }
@@ -249,6 +331,44 @@ export class PlatformUpdates {
     }
 
     return this.#options.self() === null ? 'Nebula Home does not run in a container here' : null;
+  }
+
+  /**
+   * Keeps what is under way and tells every page.
+   *
+   * @param operation - It, or null once nothing is.
+   */
+  #announce(operation: PlatformOperation | null): void {
+    this.#operation = operation;
+    this.#options.publish({ operation });
+  }
+
+  /**
+   * The update the updater is checking, from the marker it keeps while it works.
+   *
+   * @returns It, or null when no update is being checked.
+   */
+  async #checking(): Promise<PlatformOperation | null> {
+    try {
+      const marker = platformUpdateMarkerSchema.parse(
+        JSON.parse(
+          await readFile(path.join(this.#options.dataRoot, 'updates', 'current.json'), 'utf8'),
+        ),
+      );
+
+      return {
+        kind: 'update',
+        phase: 'checking',
+        fromVersion: marker.fromVersion,
+        toVersion: marker.toVersion,
+        percent: null,
+        backupBytes: null,
+        downloadBytes: null,
+        startedAt: marker.startedAt,
+      };
+    } catch {
+      return null;
+    }
   }
 
   /**

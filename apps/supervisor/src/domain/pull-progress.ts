@@ -63,4 +63,19 @@ export class PullProgressTracker {
 
     return total === 0 ? null : Math.min(99, Math.floor((current / total) * 100));
   }
+
+  /**
+   * How big the layers that said their size are.
+   *
+   * @returns Their bytes, or null before any did.
+   */
+  public bytes(): number | null {
+    let total = 0;
+
+    for (const layer of this.#layers.values()) {
+      total += layer.total;
+    }
+
+    return total === 0 ? null : total;
+  }
 }

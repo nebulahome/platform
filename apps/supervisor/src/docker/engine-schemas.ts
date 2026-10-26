@@ -35,6 +35,7 @@ export type EngineVersion = z.output<typeof engineVersionSchema>;
 
 /** `GET /info`, the two fields read. */
 export const engineInfoSchema = z.looseObject({
+  Name: z.string().optional(),
   NCPU: z.number().optional(),
   MemTotal: z.number().optional(),
 });

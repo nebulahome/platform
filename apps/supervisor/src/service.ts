@@ -257,6 +257,7 @@ export class SupervisorService {
   #selfId: string | null = null;
   #context: PlatformContext | null = null;
   #machineMemory = os.totalmem();
+  #machineName: string | null = null;
   #syncedFingerprint: string | null = null;
   #registeredNames = new Set<string>();
   #lastPublishedAt = new Date();
@@ -303,6 +304,22 @@ export class SupervisorService {
        */
       self: (): InspectedContainer | null =>
         this.#selfId === null ? null : (this.#containers.get(this.#selfId)?.inspected ?? null),
+
+      /**
+       * The machine's name.
+       *
+       * @returns It, as Docker said it.
+       */
+      machine: (): string | null => this.#machineName,
+
+      /**
+       * Tells every page what Nebula Home is doing to itself.
+       *
+       * @param event - The operation.
+       */
+      publish: (event): void => {
+        this.#client.publish(busSubjects.platformEvent(), event);
+      },
     });
     this.#managed = new ManagedContainers({
       engine: this.#engine,
@@ -965,6 +982,7 @@ export class SupervisorService {
       const info = await this.#engine.info();
 
       this.#machineMemory = info.MemTotal ?? os.totalmem();
+      this.#machineName = info.Name ?? null;
       this.#status = {
         isAvailable: true,
         version: version.Version,
