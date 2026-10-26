@@ -65,7 +65,7 @@ describe('cardKindOf', () => {
 
 describe('sizeName', () => {
   it('names the sizes the picker offers', () => {
-    expect(sizeName({ w: 1, h: 2 })).toBe('Card');
+    expect(sizeName({ w: 1, h: 2 })).toBe('1×2');
     expect(sizeName({ w: 3, h: 4 })).toBe('3×4');
   });
 });

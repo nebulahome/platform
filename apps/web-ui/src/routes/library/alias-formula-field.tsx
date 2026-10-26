@@ -45,7 +45,7 @@ export const SOURCE_COLOR_CLASSES: Record<TagColor, string> = {
 };
 
 /** The text colour of each variable, for its chip inside the formula. */
-const VARIABLE_TEXT: Record<TagColor, string> = {
+export const VARIABLE_TEXT: Record<TagColor, string> = {
   red: 'text-tag-red',
   orange: 'text-tag-orange',
   amber: 'text-tag-amber',

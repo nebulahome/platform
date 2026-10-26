@@ -5,8 +5,10 @@
 import { z } from 'zod';
 
 import {
+  platformStateSchema,
   systemUpdatesViewSchema,
   updateRoundSchema,
+  type PlatformState,
   type SystemUpdatesView,
   type UpdateItem,
   type UpdateRound,
@@ -27,6 +29,29 @@ export async function fetchSystemUpdates(signal?: AbortSignal): Promise<SystemUp
   return apiRequest('/system/updates', systemUpdatesViewSchema, {
     ...(signal === undefined ? {} : { signal }),
   });
+}
+
+/**
+ * Reads what Nebula Home itself is doing: its version, a restart or an update under way, the last
+ * update. Any signed-in page may.
+ *
+ * @param signal - Cancels the request.
+ * @returns The state.
+ */
+export async function fetchPlatformState(signal?: AbortSignal): Promise<PlatformState> {
+  return apiRequest('/system/platform', platformStateSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
+}
+
+/**
+ * Where a release's notes are, on GitHub.
+ *
+ * @param version - The release.
+ * @returns The address of its page.
+ */
+export function releaseNotesUrl(version: string): string {
+  return `https://github.com/nebulahome/platform/releases/tag/v${version}`;
 }
 
 /** Asks GitHub again now for Nebula Home's releases. */

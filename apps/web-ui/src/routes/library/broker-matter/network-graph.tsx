@@ -331,6 +331,19 @@ function NetworkMapView(props: NetworkGraphProps) {
           <AppIcon id="minus" size={16} />
         </IconButton>
         <IconButton
+          label={t('brokers.matter.map.arrange', 'Arrange')}
+          title={t('brokers.matter.map.arrange', 'Arrange')}
+          onClick={() => {
+            // Every point back where the layout puts it, whatever was dragged.
+            setNodes(pointsOf([]));
+            setTimeout(() => {
+              void fitView({ padding: 0.2, maxZoom: 1, duration: 300 });
+            }, FIT_AFTER_MS);
+          }}
+        >
+          <AppIcon id="layout-grid" size={16} />
+        </IconButton>
+        <IconButton
           label={t('brokers.matter.map.fit', 'Fit')}
           title={t('brokers.matter.map.fit', 'Fit')}
           onClick={() => {

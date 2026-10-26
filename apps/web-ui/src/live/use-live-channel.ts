@@ -26,6 +26,8 @@ import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { LiveClient } from '@/live/live-client';
 import { useLive } from '@/live/live-store';
 import { PACKAGE_QUERY_KEYS } from '@/packages/api';
+import { fetchPlatformState } from '@/settings/updates-api';
+import { usePlatform } from '@/system/platform-store';
 
 /**
  * Where the channel is, next to wherever the page was served from.
@@ -118,6 +120,11 @@ export function useLiveChannel(): void {
           void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.automationRuns });
         }
 
+        if (message.type === 'platform_event') {
+          // Nebula Home restarts or updates: every page shows it, whoever started it.
+          usePlatform.getState().follow(message.payload.operation);
+        }
+
         if (message.type === 'backup_event') {
           // A backup began, moved on or ended - a scheduled one too: the backups page follows it
           // at once rather than at its next poll.
@@ -141,6 +148,18 @@ export function useLiveChannel(): void {
 
         if (next === 'live') {
           hasBeenLive = true;
+
+          // A restart or an update under way since before this page opened, or since the channel
+          // dropped, is read once: its events are only told as they happen.
+          void fetchPlatformState()
+            .then((state) => {
+              usePlatform.getState().setMachine(state.machine);
+
+              if (state.operation !== null) {
+                usePlatform.getState().follow(state.operation);
+              }
+            })
+            .catch(() => undefined);
         }
 
         useLive.getState().setStatus(next);

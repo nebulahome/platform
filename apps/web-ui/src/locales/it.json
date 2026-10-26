@@ -701,6 +701,7 @@
         "accessPoint": "Access point Wi-Fi",
         "all": "Tutti",
         "apNote": "Non è un dispositivo Matter: la casa sa solo ciò che ne dicono i suoi dispositivi.",
+        "arrange": "Riordina",
         "behindBridge": "Dietro un bridge",
         "behindTheBridge": "Dietro il bridge",
         "bridge": "Bridge",
@@ -1789,14 +1790,6 @@
       "useItsOwnIcon": "Usa la sua icona",
       "width": "Larghezza"
     },
-    "cardSizes": {
-      "card": "Scheda",
-      "large": "Grande",
-      "square": "Quadrata",
-      "strip": "Striscia",
-      "tall": "Alta",
-      "tile": "Riquadro"
-    },
     "cardView": {
       "clock": "Orologio"
     },
@@ -2425,12 +2418,15 @@
       "wentAway": "Sparita"
     },
     "entitySettingsDialog": {
+      "asItIs": "{{kind}}, come dice la sua integrazione",
       "configureName": "Configura {{name}}",
       "forThisEntityOnly": "Solo per questa entità: prima {{first}}, {{second}} quando {{first}} tace. Il dispositivo preferisce {{device}}.",
       "fromTheDevice": "Dal dispositivo",
       "kindLinked": "{{kind}} · collegata",
       "likeTheDevice": "Come il dispositivo: prima {{first}}, {{second}} quando {{first}} tace.",
       "nameCannotBeBlank": "Il nome non può essere vuoto.",
+      "shownAs": "Mostrato come",
+      "shownAsHint": "Tutta la casa lo tratta così: schede, automazioni, storico. Il suo indirizzo resta {{address}}.",
       "transport": "Transport",
       "yourRoleLetsYou": "Il tuo ruolo ti lascia vedere queste impostazioni ma non cambiarle."
     },
@@ -4008,6 +4004,7 @@
       "address": "Indirizzo",
       "body": "Corpo",
       "bodyHint": "Formatta sistema il rientro. I parametri sono inviati come numeri, testo o true/false, come li riporta l'entità.",
+      "dragIntoText": "Trascina nell'indirizzo, nel corpo o in un header",
       "entity": "Entità",
       "entityForName": "Entità per {{name}}",
       "form": "Modulo",
@@ -4021,7 +4018,7 @@
       "notJson": "JSON non valido",
       "now": "Ora",
       "parameters": "Parametri",
-      "parametersHint": "Metti un parametro nell'indirizzo o nel corpo scrivendo il suo nome tra graffe, {{example}}; appare nel suo colore. Rinominalo qui e ogni uso lo segue.",
+      "parametersHint": "Metti un parametro nell'indirizzo o nel corpo trascinandolo dalla sua maniglia, oppure scrivendo il suo nome tra graffe, {{example}}; appare nel suo colore. Rinominalo qui e ogni uso lo segue.",
       "removeHeader": "Rimuovi {{name}}",
       "removeName": "Rimuovi {{name}}",
       "secret": "Segreto",
@@ -5239,9 +5236,6 @@
   },
   "settingsMaintenance": {
     "atATime": "A un orario",
-    "autoIntegrationsNote": "Aggiornate all'orario qui sotto; i loro dispositivi si ricaricano.",
-    "autoPackagesNote": "Aggiornati all'orario qui sotto, ogni notte.",
-    "automatic": "Aggiornamenti automatici",
     "available_one": "{{count}} aggiornamento disponibile",
     "available_many": "{{count}} aggiornamenti disponibili",
     "available_other": "{{count}} aggiornamenti disponibili",
@@ -5253,10 +5247,6 @@
     "backupRecent": "Bastava un backup di pochi minuti fa",
     "backupTaken": "Backup fatto prima",
     "beta": "Beta",
-    "channelCore": "Canale di Nebula Home",
-    "channelIntegrations": "Canale delle integrazioni",
-    "channelNote": "Le beta ricevono le versioni prima; Dev riceve anche le build di sviluppo.",
-    "channelPackages": "Canale dei pacchetti",
     "checkNow": "Controlla ora",
     "checked": "controllato {{when}}",
     "didNotStart": "Gli aggiornamenti non sono partiti",
@@ -5265,7 +5255,6 @@
     "lastRound": "Ultimi aggiornamenti",
     "loading": "Lettura degli aggiornamenti…",
     "nebulaHome": "Nebula Home",
-    "noBetasYet": "Le beta non sono ancora pubblicate.",
     "noNotes": "Nessuna nota.",
     "notRead": "Non è stato possibile leggere tutto",
     "notes": "Note",
@@ -5279,7 +5268,6 @@
     "restartNote": "Circa 30 s senza servizi.",
     "restartTitle": "Riavvia Nebula Home",
     "restartWhat": "Automazioni, dispositivi e questa pagina si fermano per circa 30 secondi.",
-    "restarting": "Nebula Home si sta riavviando",
     "restartsPackage": "Riavvia il pacchetto",
     "restartsServices": "Riavvia i servizi, circa 30 s",
     "rolledBack": "L'aggiornamento a {{version}} è stato annullato",
@@ -5308,12 +5296,72 @@
     "updateAll": "Aggiorna tutto",
     "updateFailed": "L'aggiornamento a {{version}} non è riuscito",
     "updates": "Aggiornamenti",
-    "updating": "Nebula Home si sta aggiornando",
-    "waitingNote": "La pagina si riapre da sola appena risponde.",
     "when": "Quando",
     "whenFixed": "Alle {{time}} sull'orologio della casa.",
     "whenLearning": "Sto imparando il carico: {{time}} per ora.",
     "whenQuietest": "Quando la casa è più tranquilla: {{time}}.",
-    "dev": "Dev"
+    "dev": "Dev",
+    "channels": "Canali e aggiornamenti automatici",
+    "coreNote": "Il sistema stesso; riavvia i servizi. Si aggiorna solo quando premi Aggiorna.",
+    "channelOf": "Canale di {{name}}",
+    "auto": "Auto",
+    "autoOf": "Aggiorna {{name}} automaticamente",
+    "noneInstalled": "Nessuno installato.",
+    "namesAndMore_one": "{{names}} e un altro.",
+    "namesAndMore_many": "{{names}} e altri {{count}}.",
+    "namesAndMore_other": "{{names}} e altri {{count}}."
+  },
+  "platform": {
+    "steps": {
+      "backedUp": "Backup fatto",
+      "backingUp": "Backup in corso",
+      "checked": "Ogni servizio controllato",
+      "checking": "Controllo di ogni servizio",
+      "didNotStart": "Installazione · un servizio non è partito",
+      "downloaded": "Scaricato",
+      "downloading": "Download in corso",
+      "installed": "Installato",
+      "installing": "Installazione",
+      "label": "Passaggi",
+      "notRestored": "Non è stato possibile rimettere {{version}}",
+      "paused": "Automazioni in pausa",
+      "pausing": "Metto in pausa le automazioni",
+      "reconnected": "Dispositivi ricollegati",
+      "reconnecting": "Ricollego i dispositivi",
+      "restarted": "Servizi riavviati",
+      "restarting": "Riavvio dei servizi",
+      "restored": "Ripristinato {{version}}",
+      "restoring": "Ripristino di {{version}}",
+      "saved": "Stato salvato",
+      "saving": "Salvo lo stato",
+      "started": "Servizi avviati",
+      "starting": "Avvio dei servizi"
+    },
+    "welcome": {
+      "restarted": "Nebula Home riavviato",
+      "running": "· ogni servizio è attivo",
+      "updated": "Aggiornato a <0>{{version}}</0>",
+      "whatsNew": "Novità"
+    },
+    "restart": {
+      "note": "I servizi stanno ripartendo. Questa pagina si ricollega da sola — non serve ricaricarla.",
+      "progress": "Riavvio",
+      "title": "Riavvio di Nebula Home",
+      "usually": "di solito circa 30 s"
+    },
+    "failed": {
+      "back": "Torna a Nebula",
+      "downloadLog": "Scarica il log",
+      "notRestored": "Nebula Home non è riuscito a tornare da solo a <0>{{version}}</0>. Le copie dei suoi dati sono conservate: il log dice dove.",
+      "rolledBack": "Non si è perso nulla: Nebula Home è tornato a <0>{{version}}</0> dal backup di un minuto fa, e ogni servizio è attivo.",
+      "title": "L’aggiornamento non è terminato",
+      "tryAgain": "Riprova"
+    },
+    "update": {
+      "keepOn": "Tieni acceso il server. Le automazioni si fermano per circa un minuto.",
+      "progress": "Avanzamento dell’aggiornamento",
+      "releaseNotes": "Note di rilascio",
+      "title": "Aggiornamento di Nebula Home"
+    }
   }
 }

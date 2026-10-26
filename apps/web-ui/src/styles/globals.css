@@ -127,3 +127,103 @@
     }
   }
 }
+
+/*
+ * Nebula Home restarting or updating itself (`components/platform-overlay.tsx`, boards N-Restart,
+ * N-Update, N-Update-Failed, N-Transition-Flow): the light behind the screen and its mark, drawn in
+ * the tokens' colours. Decorative, like the sky. The page underneath steps back while the screen
+ * is up - blurred, dimmed, a little smaller - and comes forward again when it goes.
+ */
+@layer components {
+  .system-glow,
+  .system-glow-accent,
+  .system-halo {
+    position: absolute;
+    pointer-events: none;
+    background: radial-gradient(
+      closest-side,
+      color-mix(in srgb, var(--glow) var(--glow-strength), transparent),
+      transparent
+    );
+  }
+
+  .system-glow {
+    --glow: var(--color-primary);
+    --glow-strength: 22%;
+
+    top: 42%;
+    left: 50%;
+    width: 1100px;
+    height: 800px;
+    margin: -400px 0 0 -550px;
+  }
+
+  .system-glow-accent {
+    --glow: var(--color-tag-pink);
+    --glow-strength: 10%;
+
+    top: 60%;
+    left: 62%;
+    width: 700px;
+    height: 600px;
+    margin: -300px 0 0 -350px;
+  }
+
+  .system-halo {
+    --glow: var(--color-primary);
+    --glow-strength: 35%;
+
+    inset: -60px;
+    border-radius: 50%;
+  }
+
+  /* An update that did not finish: the light turns to the danger colour, the accent to the brand. */
+  .system-failed .system-glow,
+  .system-failed .system-halo {
+    --glow: var(--color-danger);
+  }
+
+  .system-failed .system-glow-accent {
+    --glow: var(--color-primary);
+  }
+
+  .system-ripple-late {
+    animation-delay: 1.2s;
+  }
+
+  .system-shimmer {
+    background-image: linear-gradient(
+      90deg,
+      var(--color-primary) 0%,
+      var(--color-primary-hover) 50%,
+      var(--color-primary) 100%
+    );
+    background-size: 200% 100%;
+  }
+
+  .system-sweep {
+    background: linear-gradient(90deg, transparent, var(--color-primary-hover), transparent);
+  }
+
+  .app-stage {
+    transition:
+      filter 600ms ease-out,
+      scale 600ms ease-out;
+  }
+
+  .app-stage-back {
+    filter: blur(14px) brightness(0.6);
+    scale: 0.98;
+    transition-duration: 400ms;
+  }
+
+  [data-motion='reduced'] .app-stage {
+    transition: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root:not([data-motion='full']) .app-stage {
+      transition: none;
+    }
+  }
+}

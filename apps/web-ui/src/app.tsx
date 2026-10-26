@@ -1,5 +1,6 @@
 /**
- * The root: the providers, and the toasts, which belong to no page.
+ * The root: the providers, and what belongs to no page - the toasts, and the screens a restore, a
+ * restart or an update of Nebula Home puts over every page.
  *
  * The router wraps everything rather than only the signed-in half. Which screen is on and what
  * the address says about it is one question, answered in one place - see `session-routes.tsx`.
@@ -11,6 +12,7 @@ import { Toaster } from '@nebulahome/ui';
 
 import { CatalogueIcons } from '@/components/catalogue-icons';
 import { MaintenanceOverlay } from '@/components/maintenance-overlay';
+import { PlatformOverlay, PlatformStage } from '@/components/platform-overlay';
 import { SessionRoutes } from '@/routes/session-routes';
 
 const queryClient = new QueryClient({
@@ -53,9 +55,12 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <CatalogueIcons>
-        <BrowserRouter>
-          <SessionRoutes />
-        </BrowserRouter>
+        <PlatformStage>
+          <BrowserRouter>
+            <SessionRoutes />
+          </BrowserRouter>
+        </PlatformStage>
+        <PlatformOverlay />
         <MaintenanceOverlay />
         <Toaster />
       </CatalogueIcons>

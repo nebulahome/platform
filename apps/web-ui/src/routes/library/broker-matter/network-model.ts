@@ -17,9 +17,9 @@ import type { MatterRow } from '@/routes/library/broker-matter/matter-rows';
 export const CONTROLLER_ID = 'controller';
 
 /** How far the first ring is from the middle, and how far a device sits from what it hangs on. */
-const FIRST_RING = 210;
-const BRANCH = 150;
-const BEHIND_BRIDGE = 125;
+const FIRST_RING = 270;
+const BRANCH = 195;
+const BEHIND_BRIDGE = 160;
 
 /** How far apart, in degrees, the devices hanging on one thing are spread. */
 const FAN_STEP = 40;
@@ -377,7 +377,7 @@ export function networkMapOf(
     const spread = Math.min(sector, (count - 1) * FAN_STEP);
     const distance = branch.children.every((child) => child.isBehindBridge)
       ? BEHIND_BRIDGE
-      : Math.max(BRANCH, count * 26);
+      : Math.max(BRANCH, count * 34);
 
     branch.children.forEach((child, index) => {
       const childAngle =

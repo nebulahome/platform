@@ -611,7 +611,11 @@ export function Sidebar() {
           isCollapsed ? 'w-18' : 'w-60',
         )}
       >
-        <div className="mx-3.5 mb-3.5 flex h-10 shrink-0 items-center gap-2.5 overflow-hidden px-2 whitespace-nowrap">
+        {/* The mark the restart and update screen flies from (platform-overlay.tsx). */}
+        <div
+          data-nebula-mark
+          className="mx-3.5 mb-3.5 flex h-10 shrink-0 items-center gap-2.5 overflow-hidden px-2 whitespace-nowrap"
+        >
           <Logo size={26} />
           {/* The product's name, the same in every language. */}
           <Fading className="text-subhead font-semibold tracking-tight">

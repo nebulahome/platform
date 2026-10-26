@@ -9,7 +9,7 @@
  * `settings:write`.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -21,12 +21,15 @@ import {
   type UpdateItem,
   type UpdateWindow,
 } from '@nebulahome/contracts';
-import { AppIcon, Button, Modal, Segmented, Switch, TextField } from '@nebulahome/ui';
+import { AppIcon, Button, Logo, Modal, Segmented, Switch, TextField } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { BACKUP_QUERY_KEYS, fetchBackupStatus } from '@/backup/api';
+import { collator, listFormat } from '@/i18n/formatters';
 import { toMessage } from '@/lib/error-message';
 import { relativeTime } from '@/lib/format-time';
+import { fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { useInstalledPackages } from '@/packages/use-packages';
 import { isSameJson } from '@/routes/settings/backup-text';
 import {
   HeroCard,
@@ -42,10 +45,10 @@ import {
   UPDATES_QUERY_KEY,
   checkSystemUpdates,
   fetchSystemUpdates,
-  isPlatformUp,
   powerPlatform,
   runSystemUpdates,
 } from '@/settings/updates-api';
+import { usePlatform } from '@/system/platform-store';
 
 /** The settings this page edits. */
 const KEYS = {
@@ -68,9 +71,6 @@ type Dialog =
     }
   | { readonly kind: 'restart' }
   | { readonly kind: 'shutdown' };
-
-/** What Nebula Home is doing while it does not answer. */
-type Waiting = { readonly why: 'restart' | 'update' | 'shutdown'; readonly hasGoneAway: boolean };
 
 /**
  * A row's kind, as its group says it.
@@ -108,7 +108,8 @@ export function MaintenanceSettings() {
   const [saveError, setSaveError] = useState<string | undefined>(undefined);
   const [isSaving, setSaving] = useState(false);
   const [dialog, setDialog] = useState<Dialog | null>(null);
-  const [waiting, setWaiting] = useState<Waiting | null>(null);
+  // A restart or an update is every page's screen (platform-overlay.tsx); shutting down is this one's.
+  const [isShuttingDown, setShuttingDown] = useState(false);
 
   const updates = useQuery({
     queryKey: UPDATES_QUERY_KEY,
@@ -120,7 +121,7 @@ export function MaintenanceSettings() {
      * @returns Milliseconds, or false while Nebula Home restarts.
      */
     refetchInterval: (query) =>
-      waiting !== null ? false : query.state.data?.round?.status === 'running' ? 2000 : 60_000,
+      isShuttingDown ? false : query.state.data?.round?.status === 'running' ? 2000 : 60_000,
 
     /**
      * Reads the list.
@@ -143,6 +144,19 @@ export function MaintenanceSettings() {
      */
     queryFn: async ({ signal }: { signal: AbortSignal }) => fetchServerSettings(signal),
   });
+  const packages = useInstalledPackages();
+  const vendors = useQuery({
+    queryKey: LIBRARY_QUERY_KEYS.vendors,
+
+    /**
+     * Reads the integrations, for their names in the channels' notes.
+     *
+     * @param context - What TanStack Query provides.
+     * @param context.signal - Cancels the request.
+     * @returns The vendors.
+     */
+    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchVendors(signal),
+  });
   const backup = useQuery({
     queryKey: BACKUP_QUERY_KEYS.status,
 
@@ -155,29 +169,6 @@ export function MaintenanceSettings() {
      */
     queryFn: async ({ signal }: { signal: AbortSignal }) => fetchBackupStatus(signal),
   });
-
-  // While Nebula Home restarts: wait for it to go away and answer again, then read the page anew.
-  useEffect(() => {
-    if (waiting === null || waiting.why === 'shutdown') {
-      return undefined;
-    }
-
-    const timer = setInterval(() => {
-      void (async (): Promise<void> => {
-        const isUp = await isPlatformUp();
-
-        if (!isUp && !waiting.hasGoneAway) {
-          setWaiting({ ...waiting, hasGoneAway: true });
-        } else if (isUp && waiting.hasGoneAway) {
-          window.location.reload();
-        }
-      })();
-    }, 3000);
-
-    return (): void => {
-      clearInterval(timer);
-    };
-  }, [waiting]);
 
   const stored = new Map((settings.data?.items ?? []).map((item) => [item.key, item.value]));
   /**
@@ -194,6 +185,28 @@ export function MaintenanceSettings() {
     : { mode: 'quietest', time: '03:00' };
   const channel = updateChannelSchema.catch('stable').parse(shown(KEYS.channelCore));
   const isDirty = Object.keys(draft).length > 0;
+
+  /**
+   * What a channel's row says is installed: three names, then how many more.
+   *
+   * @param names - The installed ones.
+   * @returns The note.
+   */
+  const installedNote = (names: readonly string[]): string => {
+    const order = collator();
+    const sorted = [...names].sort((a, b) => order.compare(a, b));
+
+    return sorted.length === 0
+      ? t('settingsMaintenance.noneInstalled', 'None installed.')
+      : sorted.length <= 3
+        ? `${listFormat({ type: 'conjunction' }).format(sorted)}.`
+        : t('settingsMaintenance.namesAndMore', {
+            names: sorted.slice(0, 3).join(', '),
+            count: sorted.length - 3,
+            defaultValue_one: '{{names}} and {{count}} more.',
+            defaultValue_other: '{{names}} and {{count}} more.',
+          });
+  };
 
   /**
    * Records an edit, or forgets it when it matches what the server holds.
@@ -276,33 +289,36 @@ export function MaintenanceSettings() {
     onSuccess: (action) => {
       setDialog(null);
 
-      setWaiting({ why: action, hasGoneAway: false });
+      const version = updates.data?.core?.installedVersion;
+
+      if (action === 'shutdown') {
+        setShuttingDown(true);
+      } else if (version !== undefined) {
+        // Shown here at once; the supervisor tells every other page the same.
+        usePlatform.getState().follow({
+          kind: 'restart',
+          phase: 'stopping',
+          fromVersion: version,
+          toVersion: null,
+          percent: null,
+          backupBytes: null,
+          downloadBytes: null,
+          startedAt: new Date(),
+        });
+      }
     },
   });
 
-  if (waiting !== null) {
+  if (isShuttingDown) {
     return (
       <SettingsPage path="/settings/system/maintenance">
         <HeroCard
           leading={<HeroIcon icon="loader-circle" />}
-          title={
-            waiting.why === 'update'
-              ? t('settingsMaintenance.updating', 'Nebula Home is updating')
-              : waiting.why === 'restart'
-                ? t('settingsMaintenance.restarting', 'Nebula Home is restarting')
-                : t('settingsMaintenance.shuttingDown', 'Nebula Home is shutting down')
-          }
-          subtitle={
-            waiting.why === 'shutdown'
-              ? t(
-                  'settingsMaintenance.shutDownNote',
-                  'Start its container again on the machine to come back.',
-                )
-              : t(
-                  'settingsMaintenance.waitingNote',
-                  'The page opens again by itself once it answers.',
-                )
-          }
+          title={t('settingsMaintenance.shuttingDown', 'Nebula Home is shutting down')}
+          subtitle={t(
+            'settingsMaintenance.shutDownNote',
+            'Start its container again on the machine to come back.',
+          )}
         />
       </SettingsPage>
     );
@@ -331,19 +347,13 @@ export function MaintenanceSettings() {
   ] as const;
 
   /**
-   * Starts a round; a round with Nebula Home in it ends with it restarting.
+   * Starts a round. One with Nebula Home in it ends with every page showing the update, once the
+   * supervisor takes it up (platform-overlay.tsx).
    *
    * @param items - What to update; every row when absent.
    */
   const startRound = (items?: readonly UpdateItem[]): void => {
-    run.mutate(items, {
-      /** Waits for Nebula Home when it is in the round. */
-      onSuccess: () => {
-        if ((items ?? rows.map((row) => row.item)).some((item) => item.kind === 'core')) {
-          setWaiting({ why: 'update', hasGoneAway: false });
-        }
-      },
-    });
+    run.mutate(items);
   };
 
   return (
@@ -599,50 +609,96 @@ export function MaintenanceSettings() {
         </SettingsCard>
       ) : null}
 
-      <SettingsSection label={t('settingsMaintenance.automatic', 'Automatic updates')}>
-        <SettingsRow
-          searchId="updates.auto.packages"
-          leading={
-            <RowIcon>
-              <AppIcon id="package" size={16} />
-            </RowIcon>
-          }
-          title={t('settingsMaintenance.packages', 'Packages')}
-          note={t('settingsMaintenance.autoPackagesNote', 'Updated at the time below, each night.')}
-          control={
-            <Switch
-              label={t('settingsMaintenance.packages', 'Packages')}
-              isOn={shown(KEYS.autoPackages) === true}
-              disabled={!canWrite}
-              onChange={(isOn) => {
-                edit(KEYS.autoPackages, isOn);
-              }}
-            />
-          }
-        />
-        <SettingsRow
-          searchId="updates.auto.integrations"
-          leading={
-            <RowIcon>
-              <AppIcon id="plug" size={16} />
-            </RowIcon>
-          }
-          title={t('settingsMaintenance.integrations', 'Integrations')}
-          note={t(
-            'settingsMaintenance.autoIntegrationsNote',
-            'Updated at the time below; their devices reload.',
-          )}
-          control={
-            <Switch
-              label={t('settingsMaintenance.integrations', 'Integrations')}
-              isOn={shown(KEYS.autoIntegrations) === true}
-              disabled={!canWrite}
-              onChange={(isOn) => {
-                edit(KEYS.autoIntegrations, isOn);
-              }}
-            />
-          }
-        />
+      <SettingsSection label={t('settingsMaintenance.channels', 'Channels and automatic updates')}>
+        {(
+          [
+            {
+              key: KEYS.channelCore,
+              auto: null,
+              icon: <Logo size={16} />,
+              title: t('settingsMaintenance.nebulaHome', 'Nebula Home'),
+              note: t(
+                'settingsMaintenance.coreNote',
+                'The system itself; restarts the services. It updates only when you press Update.',
+              ),
+            },
+            {
+              key: KEYS.channelPackages,
+              auto: KEYS.autoPackages,
+              icon: <AppIcon id="package" size={16} />,
+              title: t('settingsMaintenance.packages', 'Packages'),
+              note: installedNote(packages.packages.map((each) => each.name)),
+            },
+            {
+              key: KEYS.channelIntegrations,
+              auto: KEYS.autoIntegrations,
+              icon: <AppIcon id="plug" size={16} />,
+              title: t('settingsMaintenance.integrations', 'Integrations'),
+              note: installedNote(
+                (vendors.data ?? [])
+                  .filter((vendor) => vendor.origin !== 'platform')
+                  .map((vendor) => vendor.name),
+              ),
+            },
+          ] as const
+        ).map((row) => (
+          <SettingsRow
+            key={row.key}
+            searchId={row.key}
+            leading={<RowIcon>{row.icon}</RowIcon>}
+            title={row.title}
+            note={row.note}
+            control={
+              <div className="flex items-center gap-2">
+                <Segmented
+                  label={t('settingsMaintenance.channelOf', '{{name}} channel', {
+                    name: row.title,
+                  })}
+                  disabled={!canWrite}
+                  value={
+                    row.auto === null
+                      ? channel
+                      : // Betas of packages and integrations are not published yet.
+                        'stable'
+                  }
+                  options={[
+                    { value: 'stable', label: t('settingsMaintenance.stable', 'Stable') },
+                    {
+                      value: 'beta',
+                      label: t('settingsMaintenance.beta', 'Beta'),
+                      disabled: row.auto !== null,
+                    },
+                    {
+                      value: 'dev',
+                      label: t('settingsMaintenance.dev', 'Dev'),
+                      disabled: row.auto !== null,
+                    },
+                  ]}
+                  onChange={(value) => {
+                    edit(row.key, value);
+                  }}
+                />
+                <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-border" />
+                <span aria-hidden="true" className="text-ui-sm text-foreground-muted">
+                  {t('settingsMaintenance.auto', 'Auto')}
+                </span>
+                <Switch
+                  label={t('settingsMaintenance.autoOf', 'Update {{name}} automatically', {
+                    name: row.title,
+                  })}
+                  isOn={row.auto !== null && shown(row.auto) === true}
+                  // Nebula Home never updates by itself: only its Update button does.
+                  disabled={!canWrite || row.auto === null}
+                  onChange={(isOn) => {
+                    if (row.auto !== null) {
+                      edit(row.auto, isOn);
+                    }
+                  }}
+                />
+              </div>
+            }
+          />
+        ))}
       </SettingsSection>
 
       <SettingsSection label={t('settingsMaintenance.howTheyRun', 'How updates run')}>
@@ -711,58 +767,6 @@ export function MaintenanceSettings() {
             />
           }
         />
-        <SettingsRow
-          searchId="updates.channel.core"
-          title={t('settingsMaintenance.channelCore', 'Nebula Home channel')}
-          note={t(
-            'settingsMaintenance.channelNote',
-            'Beta gets versions first; Dev gets development builds too.',
-          )}
-          control={
-            <Segmented
-              label={t('settingsMaintenance.channelCore', 'Nebula Home channel')}
-              disabled={!canWrite}
-              value={channel}
-              options={[
-                { value: 'stable', label: t('settingsMaintenance.stable', 'Stable') },
-                { value: 'beta', label: t('settingsMaintenance.beta', 'Beta') },
-                { value: 'dev', label: t('settingsMaintenance.dev', 'Dev') },
-              ]}
-              onChange={(value) => {
-                edit(KEYS.channelCore, value);
-              }}
-            />
-          }
-        />
-        {(
-          [
-            [KEYS.channelPackages, t('settingsMaintenance.channelPackages', 'Packages channel')],
-            [
-              KEYS.channelIntegrations,
-              t('settingsMaintenance.channelIntegrations', 'Integrations channel'),
-            ],
-          ] as const
-        ).map(([key, title]) => (
-          <SettingsRow
-            key={key}
-            searchId={key}
-            title={title}
-            note={t('settingsMaintenance.noBetasYet', 'Betas are not published yet.')}
-            control={
-              <Segmented
-                label={title}
-                disabled
-                value="stable"
-                options={[
-                  { value: 'stable', label: t('settingsMaintenance.stable', 'Stable') },
-                  { value: 'beta', label: t('settingsMaintenance.beta', 'Beta') },
-                  { value: 'dev', label: t('settingsMaintenance.dev', 'Dev') },
-                ]}
-                onChange={() => undefined}
-              />
-            }
-          />
-        ))}
       </SettingsSection>
 
       <SettingsSection label={t('settingsMaintenance.power', 'Restart and power')}>

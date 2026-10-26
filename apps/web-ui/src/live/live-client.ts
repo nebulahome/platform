@@ -90,6 +90,7 @@ const DEFAULT_TOPICS: readonly WsTopic[] = [
   'backups',
   'packages',
   'automations',
+  'system',
 ];
 
 /**

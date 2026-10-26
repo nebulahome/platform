@@ -38,6 +38,7 @@ import {
   AliasFormulaField,
   SOURCE_COLOR_CLASSES,
   templateSegments,
+  VARIABLE_TEXT,
 } from '@/routes/library/alias-formula-field';
 import { DurationField } from '@/routes/library/automation/duration-field';
 import { useEditorHouse } from '@/routes/library/automation/editor-house';
@@ -73,6 +74,22 @@ function renamed(text: string, from: string, to: string): string {
   return VARIABLE_PATTERN.test(from) && VARIABLE_PATTERN.test(to)
     ? text.replaceAll(new RegExp(`\\{\\{\\s*${from}\\s*\\}\\}`, 'gu'), `{{ ${to} }}`)
     : text;
+}
+
+/**
+ * The name a new parameter gets: `p1`, `p2`, the first one not taken.
+ *
+ * @param taken - The names already used.
+ * @returns The name.
+ */
+export function freeName(taken: readonly string[]): string {
+  let number = 1;
+
+  while (taken.includes(`p${String(number)}`)) {
+    number += 1;
+  }
+
+  return `p${String(number)}`;
 }
 
 /**
@@ -224,21 +241,50 @@ export function HttpRequestFields(props: {
               key={`parameter-${String(index)}`}
               className={cn(PARAMETER_COLUMNS, 'items-center')}
             >
-              <TextField
-                label={t('library.httpRequestFields.name', 'Name')}
-                isLabelHidden
-                size="compact"
-                className={cn('font-mono', SOURCE_COLOR_CLASSES[sources[index]?.color ?? 'blue'])}
-                value={name}
-                onChange={(event) => {
-                  const next = event.target.value.toLowerCase();
+              <span className="relative">
+                {/* shortcut: HTML5 drag, so no touch screen; there the name is typed in braces. */}
+                <span
+                  aria-hidden="true"
+                  draggable
+                  title={t(
+                    'library.httpRequestFields.dragIntoText',
+                    'Drag into the address, the body or a header',
+                  )}
+                  className={cn(
+                    'absolute inset-y-0 left-1.5 z-10 flex cursor-grab items-center active:cursor-grabbing',
+                    VARIABLE_TEXT[sources[index]?.color ?? 'blue'],
+                  )}
+                  onDragStart={(event) => {
+                    // The browser drops the text where it is let go in any field and tells React.
+                    event.dataTransfer.setData('text/plain', `{{ ${name} }}`);
+                    event.dataTransfer.effectAllowed = 'copy';
 
-                  setVariables(
-                    variables.map((entry, at) => (at === index ? [next, entry[1]] : entry)),
-                    [name, next],
-                  );
-                }}
-              />
+                    if (event.currentTarget.parentElement !== null) {
+                      event.dataTransfer.setDragImage(event.currentTarget.parentElement, 12, 12);
+                    }
+                  }}
+                >
+                  <AppIcon id="grip-vertical" size={14} />
+                </span>
+                <TextField
+                  label={t('library.httpRequestFields.name', 'Name')}
+                  isLabelHidden
+                  size="compact"
+                  className={cn(
+                    'pl-6 font-mono',
+                    SOURCE_COLOR_CLASSES[sources[index]?.color ?? 'blue'],
+                  )}
+                  value={name}
+                  onChange={(event) => {
+                    const next = event.target.value.toLowerCase();
+
+                    setVariables(
+                      variables.map((entry, at) => (at === index ? [next, entry[1]] : entry)),
+                      [name, next],
+                    );
+                  }}
+                />
+              </span>
               <EntityField
                 label={t('library.httpRequestFields.entityForName', 'Entity for {{name}}', {
                   name,
@@ -279,7 +325,7 @@ export function HttpRequestFields(props: {
           className="self-start"
           disabled={variables.length >= 16}
           onClick={() => {
-            setVariables([...variables, [`value_${String(variables.length + 1)}`, '']]);
+            setVariables([...variables, [freeName(variables.map(([each]) => each)), '']]);
           }}
         >
           <AppIcon id="plus" size={13} />
@@ -288,7 +334,7 @@ export function HttpRequestFields(props: {
         <span className="text-caption text-foreground-subtle">
           {t(
             'library.httpRequestFields.parametersHint',
-            'Put a parameter in the address or the body by typing its name between braces, {{example}}; it shows in its colour. Rename it here and every use follows.',
+            'Put a parameter in the address or the body by dragging it by its grip, or by typing its name between braces, {{example}}; it shows in its colour. Rename it here and every use follows.',
             { example: TOKEN_EXAMPLE },
           )}
         </span>
