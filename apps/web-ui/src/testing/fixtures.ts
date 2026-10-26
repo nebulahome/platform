@@ -49,6 +49,7 @@ export function anEntity(
     linked: null,
     key: null,
     createdAt: null,
+    original: null,
     ...rest,
   };
 }

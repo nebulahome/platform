@@ -58,6 +58,7 @@ function entity(overrides: Partial<EntityView> = {}): EntityView {
     linked: null,
     key: null,
     createdAt: null,
+    original: null,
     ...overrides,
   };
 }

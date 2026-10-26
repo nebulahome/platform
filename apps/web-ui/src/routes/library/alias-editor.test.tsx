@@ -106,6 +106,7 @@ const KITCHEN: EntityView = {
   linked: null,
   key: null,
   createdAt: null,
+  original: null,
 };
 
 /**

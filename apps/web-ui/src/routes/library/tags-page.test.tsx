@@ -119,6 +119,7 @@ const SWITCH: EntityView = {
   linked: null,
   key: null,
   createdAt: null,
+  original: null,
 };
 
 /**

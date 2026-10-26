@@ -40,6 +40,7 @@ const LAMP: EntityView = {
   linked: null,
   key: null,
   createdAt: null,
+  original: null,
 };
 
 describe('seedTargetState', () => {

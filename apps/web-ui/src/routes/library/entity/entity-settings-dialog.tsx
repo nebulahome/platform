@@ -1,6 +1,6 @@
 /**
- * An entity's settings, in a dialog: what a person calls it, what it is drawn as, and the tags on
- * it.
+ * An entity's settings, in a dialog: what a person calls it, what it is drawn as, what it is shown
+ * as, and the tags on it.
  *
  * Opened from the settings button in the entity page's header - the way a device's settings are
  * opened from its page - rather than being a view of the page of their own: three fields do not
@@ -8,6 +8,8 @@
  *
  * Nothing the hardware or the bundle decides is here: the address is on the page as a fact,
  * because automations and history name the entity by it and it does not change here or anywhere.
+ * What it is shown as does - a relay as a light, motion as presence (`entity-types.ts`) - and
+ * the rest of the house follows; the address keeps the integration's domain.
  * What is saved is the difference from what was opened - a rename alone sends a name, tags alone
  * send tags - so the audit trail says what actually changed, and a dialog saved untouched asks the
  * server for nothing.
@@ -19,8 +21,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { integrationIdSchema, type EntityUpdate, type EntityView } from '@nebulahome/contracts';
-import { Button, Modal, Segmented } from '@nebulahome/ui';
+import {
+  integrationIdSchema,
+  shownAsOptions,
+  type EntityUpdate,
+  type EntityView,
+  type ShownAs,
+} from '@nebulahome/contracts';
+import { Button, Modal, Segmented, SelectField } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { LIBRARY_QUERY_KEYS, updateEntity } from '@/library/api';
@@ -51,6 +59,28 @@ export type EntitySettingsDialogProps = {
 };
 
 /**
+ * The key a kind is chosen by in the field.
+ *
+ * @param kind - A domain and a class.
+ * @param kind.domain - The domain.
+ * @param kind.deviceClass - The class.
+ * @returns `light:` or `binary_sensor:presence`.
+ */
+function kindKey(kind: { readonly domain: string; readonly deviceClass: string | null }): string {
+  return `${kind.domain}:${kind.deviceClass ?? ''}`;
+}
+
+/**
+ * What an entity is shown as, as the field holds it.
+ *
+ * @param entity - The entity.
+ * @returns Its kind's key, or empty when it is shown as its integration says.
+ */
+export function shownKeyOf(entity: EntityView): string {
+  return entity.original === null ? '' : kindKey(entity);
+}
+
+/**
  * Works out what a save should send: only what differs from what was opened.
  *
  * @param opened - The entity as it was opened.
@@ -58,6 +88,8 @@ export type EntitySettingsDialogProps = {
  * @param icon - The icon as picked.
  * @param tagIds - The tags as they now stand.
  * @param transport - The way read first, as chosen; null to follow the device.
+ * @param shown - What it is shown as, from the field: a kind's key, empty for as it is.
+ * @param choices - The kinds it may be shown as, by key.
  * @returns The change, or null when there is none.
  */
 export function diffOf(
@@ -66,6 +98,8 @@ export function diffOf(
   icon: string | null,
   tagIds: readonly string[],
   transport: string | null,
+  shown = shownKeyOf(opened),
+  choices: ReadonlyMap<string, ShownAs> = new Map(),
 ): EntityUpdate | null {
   const trimmed = name.trim();
   const sameTags =
@@ -77,6 +111,7 @@ export function diffOf(
     ...(opened.linked == null || transport === opened.linked.transport
       ? {}
       : { transport: transport === null ? null : integrationIdSchema.parse(transport) }),
+    ...(shown === shownKeyOf(opened) ? {} : { shownAs: choices.get(shown) ?? null }),
   };
 
   return Object.keys(change).length === 0 ? null : change;
@@ -103,7 +138,20 @@ export function EntitySettingsDialog(props: EntitySettingsDialogProps) {
   // A reading read two ways: which is read first, the device's choice or one of its own.
   const ways = useEntityWays(entity);
   const [transport, setTransport] = useState<string | null>(entity.linked?.transport ?? null);
-  const change = diffOf(entity, name, icon, tagIds, transport);
+  // What it may be shown as, besides what its integration says: never an alias, whose kind is
+  // the formula's.
+  const original = entity.original ?? { domain: entity.domain, deviceClass: entity.deviceClass };
+  const choices = new Map(
+    (entity.domain === 'alias'
+      ? []
+      : shownAsOptions(
+          original,
+          entity.capabilities.map((each) => each.capability),
+        )
+    ).map((kind) => [kindKey(kind), kind] as const),
+  );
+  const [shown, setShown] = useState(shownKeyOf(entity));
+  const change = diffOf(entity, name, icon, tagIds, transport, shown, choices);
   const devicePrefers = ways?.sources.find(
     (each) => each.source.deviceId === entity.linked?.preferred,
   );
@@ -224,6 +272,38 @@ export function EntitySettingsDialog(props: EntitySettingsDialogProps) {
             }}
             required
           />
+          {choices.size === 0 ? null : (
+            <SelectField
+              label={t('entity.entitySettingsDialog.shownAs', 'Shown as')}
+              options={[
+                {
+                  value: '',
+                  label: t(
+                    'entity.entitySettingsDialog.asItIs',
+                    '{{kind}}, as its integration says',
+                    {
+                      kind: entityKindOf({ ...entity, ...original }).label,
+                    },
+                  ),
+                },
+                ...[...choices].map(([value, kind]) => ({
+                  value,
+                  label: entityKindOf({ ...entity, ...kind }).label,
+                })),
+              ]}
+              value={shown}
+              onChange={(value) => {
+                setShown(value);
+                // The new kind's own icon, until another is picked.
+                setIcon(null);
+              }}
+              hint={t(
+                'entity.entitySettingsDialog.shownAsHint',
+                'The whole house treats it as this: cards, automations, history. Its address stays {{address}}.',
+                { address: entity.entityId },
+              )}
+            />
+          )}
           <TagField
             value={tagIds}
             onChange={setTagIds}

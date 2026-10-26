@@ -62,6 +62,7 @@ const RELAY: EntityView = {
   linked: null,
   key: null,
   createdAt: null,
+  original: null,
 };
 
 /**
@@ -139,6 +140,22 @@ describe('EntitySettingsDialog', () => {
         tagIds: [EXTERIOR.id],
       });
       expect(onClose).toHaveBeenCalled();
+    });
+  });
+
+  it('shows a relay as a light, its own icon going with what it was', async () => {
+    vi.mocked(updateEntity).mockResolvedValue({ ...RELAY, domain: 'light' });
+    renderForm();
+
+    fireEvent.click(screen.getByRole('combobox', { name: /^Shown as/u }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Light' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(updateEntity).toHaveBeenCalledWith('switch.shelly_bench_switch', {
+        icon: null,
+        shownAs: { domain: 'light', deviceClass: null },
+      });
     });
   });
 

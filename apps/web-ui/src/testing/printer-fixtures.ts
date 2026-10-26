@@ -164,6 +164,7 @@ export function printerEntity(
     linked: null,
     key: null,
     createdAt: null,
+    original: null,
     ...overrides,
   };
 }

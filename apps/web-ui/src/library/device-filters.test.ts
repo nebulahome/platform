@@ -70,6 +70,7 @@ const NOZZLE: EntityView = {
   linked: null,
   key: null,
   createdAt: null,
+  original: null,
 };
 
 describe('matchesFilter', () => {
