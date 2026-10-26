@@ -278,7 +278,7 @@ export function modbusEntityIdOf(name: string): string {
 export const modbusEntitySchema = z.strictObject({
   /** What it stays when renamed; given from the name when saved. */
   id: z.string().regex(MODBUS_ENTITY_ID_PATTERN, 'Lower-case letters, digits and _').optional(),
-  name: z.string().trim().min(1).max(64),
+  name: z.string().trim().min(1, 'Needed: a name').max(64),
   domain: z.enum(MODBUS_DOMAINS),
   capabilities: z.partialRecord(z.enum(MODBUS_CAPABILITIES), modbusCapabilityMapSchema),
 });
@@ -286,9 +286,12 @@ export const modbusEntitySchema = z.strictObject({
 /** One entity of a template. */
 export type ModbusEntity = z.output<typeof modbusEntitySchema>;
 
-/** A template's fields, before the rules that tie them together. */
-const modbusTemplateShape = z.strictObject({
-  name: z.string().trim().min(1).max(64),
+/**
+ * A template's fields, before the rules that tie them together: what the editor reads a file with
+ * to show a refused template's problems on its blocks.
+ */
+export const modbusTemplateFieldsSchema = z.strictObject({
+  name: z.string().trim().min(1, 'Needed: a name').max(64),
 
   /** The device it is for, as its maker names it. */
   device: z.string().trim().max(128).default(''),
@@ -302,7 +305,7 @@ const modbusTemplateShape = z.strictObject({
 
   /** How often the device is read. */
   pollSeconds: z.int().min(1).max(3600).default(10),
-  entities: z.array(modbusEntitySchema).min(1).max(256),
+  entities: z.array(modbusEntitySchema).min(1, 'Add at least one entity').max(256),
 });
 
 /**
@@ -436,7 +439,7 @@ function checkCapability(
  * Every rule that ties fields together is here, so the editor's blocks, its file and the hub
  * refuse the same templates with the same words.
  */
-export const modbusTemplateSchema = modbusTemplateShape.superRefine((template, context) => {
+export const modbusTemplateSchema = modbusTemplateFieldsSchema.superRefine((template, context) => {
   const ids = new Set<string>();
 
   template.entities.forEach((entity, index) => {
