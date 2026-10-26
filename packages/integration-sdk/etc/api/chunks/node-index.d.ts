@@ -200,14 +200,13 @@ type EntityStateClass = (typeof ENTITY_STATE_CLASSES)[number];
 declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   number: "number";
   custom: "custom";
-  image: "image";
-  level: "level";
   select: "select";
   button: "button";
   sensor_numeric: "sensor_numeric";
   sensor_text: "sensor_text";
   sensor_binary: "sensor_binary";
   on_off: "on_off";
+  level: "level";
   color_hs: "color_hs";
   color_temp: "color_temp";
   cover: "cover";
@@ -218,6 +217,7 @@ declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   update: "update";
   lawn_mower: "lawn_mower";
   vacuum: "vacuum";
+  image: "image";
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
 type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
@@ -744,6 +744,7 @@ declare const modbusTemplateSchema: z.ZodObject<{
   entities: z.ZodArray<z.ZodObject<{
     id: z.ZodOptional<z.ZodString>;
     name: z.ZodString;
+    icon: z.ZodOptional<z.ZodString>;
     domain: z.ZodEnum<{
       number: "number";
       sensor: "sensor";
@@ -755,13 +756,13 @@ declare const modbusTemplateSchema: z.ZodObject<{
     }>;
     capabilities: z.ZodRecord<z.ZodEnum<{
       number: "number";
-      level: "level";
       select: "select";
       button: "button";
       sensor_numeric: "sensor_numeric";
       sensor_text: "sensor_text";
       sensor_binary: "sensor_binary";
       on_off: "on_off";
+      level: "level";
     }> & z.core.$partial, z.ZodObject<{
       read: z.ZodOptional<z.ZodObject<{
         function: z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>, z.ZodLiteral<4>]>;
@@ -1800,13 +1801,13 @@ declare const vendorManifestSchema: z.ZodObject<{
   transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
     module: z.ZodString;
     wires: z.ZodArray<z.ZodEnum<{
+      udp: "udp";
       matter: "matter";
       mqtt: "mqtt";
       modbus: "modbus";
       http: "http";
       ble: "ble";
       zigbee: "zigbee";
-      udp: "udp";
     }>>;
   }, z.core.$strict>]>>>;
   streams: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodString>>;

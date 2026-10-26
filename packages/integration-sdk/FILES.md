@@ -189,11 +189,13 @@ duplicate:
 - Each entity is a `domain` - `sensor`, `binary_sensor`, `switch`, `light`, `number`, `select`,
   `button` - and its capabilities: a sensor `sensor_numeric` or `sensor_text`, a binary sensor
   `sensor_binary`, a switch `on_off`, a light `on_off` and maybe `level`, the others their own.
-  `id` is what the entity stays when it is renamed; give every one.
+  `id` is what the entity stays when it is renamed; give every one. `icon`, a catalogue icon id,
+  is the one it starts with - the domain's when left out.
 - `read`: `function` 1 (coils), 2 (discrete inputs), 3 (holding registers) or 4 (input registers);
   `address`, a number or `"0x…"`; for registers a `type` - `u16` (the default), `s16`, `u32`, `s32`,
   `f32`, or `string` with a `count` of registers - a `bit` for an on/off value, a `scale` (`0.1`
-  for tenths), a `unit`, and `options` naming what each raw number means (`{ "0": "Off" }`, which
+  for tenths), a `unit` the platform knows (`W`, `kWh`, `°C`: those of the sensor classes, an
+  unknown one is refused), and `options` naming what each raw number means (`{ "0": "Off" }`, which
   a select needs).
 - `write`: `function` 5 (one coil), 6 (one register), 15 (coils) or 16 (registers - a 32-bit value
   needs it); `address`, the read's when left out; `on` and `off` for a switch; `min`, `max` and

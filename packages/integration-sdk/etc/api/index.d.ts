@@ -200,14 +200,13 @@ type EntityStateClass = (typeof ENTITY_STATE_CLASSES)[number];
 declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   number: "number";
   custom: "custom";
-  image: "image";
-  level: "level";
   select: "select";
   button: "button";
   sensor_numeric: "sensor_numeric";
   sensor_text: "sensor_text";
   sensor_binary: "sensor_binary";
   on_off: "on_off";
+  level: "level";
   color_hs: "color_hs";
   color_temp: "color_temp";
   cover: "cover";
@@ -218,6 +217,7 @@ declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   update: "update";
   lawn_mower: "lawn_mower";
   vacuum: "vacuum";
+  image: "image";
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
 type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;

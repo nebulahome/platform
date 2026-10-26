@@ -3,6 +3,15 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.5.0
+
+A Modbus template's entities say their icon, and its units are the platform's.
+
+- An entity of a Modbus template may name its `icon`, a catalogue icon id; the domain's is used
+  when it does not.
+- A read's `unit` must be one the platform knows - a unit of one of its sensor classes (`W`,
+  `kWh`, `°C`) - and a template with another is refused when it is checked.
+
 ## 1.4.0
 
 The house's Modbus client is the platform's.
