@@ -34,6 +34,9 @@ export type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'id' | 
 
     /** A line under the field explaining what it is for. */
     readonly hint?: ReactNode;
+
+    /** A word at the right of the box, inside it: the unit of what is typed - `seconds`. */
+    readonly trail?: string;
   };
 
 /**
@@ -43,7 +46,17 @@ export type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'id' | 
  * @returns The field.
  */
 export function TextField(props: TextFieldProps) {
-  const { label, isLabelHidden = false, error, warning, hint, size, className, ...rest } = props;
+  const {
+    label,
+    isLabelHidden = false,
+    error,
+    warning,
+    hint,
+    size,
+    className,
+    trail,
+    ...rest
+  } = props;
 
   return (
     <FieldShell
@@ -53,15 +66,35 @@ export function TextField(props: TextFieldProps) {
       warning={warning}
       error={error}
     >
-      {(ids) => (
-        <input
-          id={ids.id}
-          aria-invalid={ids.isInvalid}
-          aria-describedby={ids.describedBy}
-          className={cn(controlFace({ size, isInvalid: ids.isInvalid }), className)}
-          {...rest}
-        />
-      )}
+      {(ids) => {
+        const input = (
+          <input
+            id={ids.id}
+            aria-invalid={ids.isInvalid}
+            aria-describedby={ids.describedBy}
+            className={cn(
+              controlFace({ size, isInvalid: ids.isInvalid }),
+              trail !== undefined && 'pr-20',
+              className,
+            )}
+            {...rest}
+          />
+        );
+
+        return trail === undefined ? (
+          input
+        ) : (
+          <span className="relative flex">
+            {input}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-caption text-foreground-subtle"
+            >
+              {trail}
+            </span>
+          </span>
+        );
+      }}
     </FieldShell>
   );
 }
