@@ -5,6 +5,8 @@
 -- (a template at an address), the servers found on the network the owner ignores, and whether
 -- and where the network is searched.
 --
+-- Also what an entity is shown as (end of the file).
+--
 -- `hub` is the only writer: the owner's changes reach it over the bus through `api`, as the
 -- MQTT broker's do. The servers a search found are not kept; they are found again.
 --
@@ -132,3 +134,13 @@ GRANT SELECT, INSERT, UPDATE, DELETE
   ON registry.modbus_settings, registry.modbus_templates, registry.modbus_devices,
      registry.modbus_ignored
   TO nebula_hub;
+
+-- What the owner shows an entity as when that is not what its integration says: a relay as a
+-- light, a motion sensor as presence. Read everywhere the house reads its kind; the address keeps
+-- the integration's domain, so routing, links and automations are untouched. No registration or
+-- sync writes these.
+ALTER TABLE registry.entities
+  ADD COLUMN shown_domain       text,
+  ADD COLUMN shown_device_class text,
+  ADD CONSTRAINT entities_shown_as
+    CHECK (shown_domain IS NOT NULL OR shown_device_class IS NULL);

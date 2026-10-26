@@ -45,10 +45,19 @@ function migrationColumns(qualified: string): [string, string][] {
   }
 
   const body = sql.slice(opening, sql.indexOf('\n);', opening));
+  // Columns a later migration adds: `ALTER TABLE x` then `  ADD COLUMN name definition`.
+  const added = [...sql.matchAll(new RegExp(`ALTER TABLE ${qualified}\\n([^;]*);`, 'g'))]
+    .flatMap(([, clauses]) => [
+      ...(clauses ?? '').matchAll(/^ {2}ADD COLUMN ([a-z_][a-z0-9_]*)\s+(\S.*?),?$/gm),
+    ])
+    .map(([, name, definition]): [string, string] => [name ?? '', definition ?? '']);
 
-  return [...body.matchAll(/^ {2}([a-z_][a-z0-9_]*)\s+(\S.*)$/gm)]
-    .map(([, name, definition]): [string, string] => [name ?? '', definition ?? ''])
-    .filter(([name]) => !CLAUSE_KEYWORDS.has(name));
+  return [
+    ...[...body.matchAll(/^ {2}([a-z_][a-z0-9_]*)\s+(\S.*)$/gm)]
+      .map(([, name, definition]): [string, string] => [name ?? '', definition ?? ''])
+      .filter(([name]) => !CLAUSE_KEYWORDS.has(name)),
+    ...added,
+  ];
 }
 
 /**

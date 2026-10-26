@@ -630,17 +630,10 @@ CREATE TABLE registry.entities (
   -- On an entity others are linked to: the instance it is read through first, overriding its
   -- device's choice; null follows the device.
   transport           text,
-  -- What the owner shows it as when that is not what its integration says: a relay as a light,
-  -- a motion sensor as presence. Read everywhere the house reads its kind; the address keeps the
-  -- integration's domain, so routing, links and automations are untouched. No registration or
-  -- sync writes these.
-  shown_domain        text,
-  shown_device_class  text,
   created_at          timestamptz NOT NULL DEFAULT now(),
   updated_at          timestamptz NOT NULL DEFAULT now(),
 
   CONSTRAINT entities_not_linked_to_itself CHECK (linked_to IS DISTINCT FROM id),
-  CONSTRAINT entities_shown_as CHECK (shown_domain IS NOT NULL OR shown_device_class IS NULL),
   CONSTRAINT entities_link_origin
     CHECK (link_origin IS NULL OR link_origin IN ('declared', 'auto', 'manual')),
   CONSTRAINT entities_entity_id_format
