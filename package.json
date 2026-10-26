@@ -1,6 +1,6 @@
 {
   "name": "nebula-home-platform",
-  "version": "2026.10.0-alpha.4",
+  "version": "2026.10.0-alpha.5",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.20.0",
