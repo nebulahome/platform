@@ -502,6 +502,15 @@ export const entities = registrySchema.table(
 
     /** On an entity others are linked to: the instance it is read through first; null follows the device. */
     transport: text('transport'),
+
+    /**
+     * What the owner shows it as, when not what its integration says: a relay as a light, a
+     * motion sensor as presence. The address keeps the integration's domain; null shows it as it is.
+     */
+    shownDomain: text('shown_domain'),
+
+    /** The class it is shown with, alongside `shownDomain`. */
+    shownDeviceClass: text('shown_device_class'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
