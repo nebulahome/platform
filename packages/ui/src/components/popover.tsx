@@ -116,7 +116,11 @@ export function Popover(props: PopoverProps) {
   const placement = place.at;
 
   const panelWidth = Math.min(width ?? placement.width, globalThis.innerWidth - EDGE * 2);
-  const left = Math.max(EDGE, Math.min(placement.left, globalThis.innerWidth - panelWidth - EDGE));
+  // Whole pixels: at a fraction, the panel's content snaps half a pixel when anything in it starts
+  // a transition, and the whole panel seems to jump.
+  const left = Math.round(
+    Math.max(EDGE, Math.min(placement.left, globalThis.innerWidth - panelWidth - EDGE)),
+  );
 
   /**
    * Keeps Escape to the popover.
@@ -145,8 +149,8 @@ export function Popover(props: PopoverProps) {
         left,
         width: panelWidth,
         maxHeight: placement.maxHeight,
-        ...(placement.top === undefined ? {} : { top: placement.top }),
-        ...(placement.bottom === undefined ? {} : { bottom: placement.bottom }),
+        ...(placement.top === undefined ? {} : { top: Math.round(placement.top) }),
+        ...(placement.bottom === undefined ? {} : { bottom: Math.round(placement.bottom) }),
       }}
       className={cn(
         'z-50 flex animate-rise flex-col overflow-hidden rounded-card border border-border-strong',
