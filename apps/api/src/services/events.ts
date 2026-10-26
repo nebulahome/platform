@@ -20,6 +20,7 @@ import {
   discoveryEventSchema,
   isDeviceEvent,
   jsonObjectSchema,
+  platformEventSchema,
   stateChangedEventSchema,
   type JsonObject,
   type WsServerMessage,
@@ -196,6 +197,23 @@ export class EventFanout {
          */
         (payload): void => {
           this.#dispatch('backups', null, { type: 'backup_event', payload });
+        },
+      ),
+    );
+
+    this.#subscriptions.push(
+      client.subscribe(
+        busSubjects.platformEvent(),
+        platformEventSchema,
+
+        /**
+         * Tells every socket that Nebula Home restarts or updates, or has stopped doing so: each
+         * page shows it over whatever it shows, whoever is signed in.
+         *
+         * @param payload - The operation as it stands.
+         */
+        (payload): void => {
+          this.#dispatch('system', null, { type: 'platform_event', payload });
         },
       ),
     );

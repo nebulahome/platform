@@ -20,11 +20,13 @@ import {
   CORE_LINK_SOURCES_METHOD,
   CORE_SERVICE,
   entityViewSchema,
+  isOriginalKind,
   linkSourcesReplySchema,
   MATTER_TRANSPORT,
   matterReferenceSchema,
   NotFoundError,
   parseEntityId,
+  shownAsOptions,
   ValidationError,
   type CapabilityName,
   type EntityLinkView,
@@ -77,6 +79,10 @@ type EntityRow = {
 
   /** The way it is read first, overriding its device's, when others are linked to it. */
   transport: string | null;
+
+  /** What the owner shows it as, when not what its integration says. */
+  shownDomain: string | null;
+  shownDeviceClass: string | null;
   config: unknown;
   createdAt: Date | null;
 
@@ -128,6 +134,8 @@ const ENTITY_COLUMNS = {
   linkedTo: schema.registry.entities.linkedTo,
   linkOrigin: schema.registry.entities.linkOrigin,
   transport: schema.registry.entities.transport,
+  shownDomain: schema.registry.entities.shownDomain,
+  shownDeviceClass: schema.registry.entities.shownDeviceClass,
   config: schema.registry.entities.config,
   createdAt: schema.registry.entities.createdAt,
   stateSource: schema.registry.entityStates.source,
@@ -362,7 +370,8 @@ function toView(
 
     // The column is nullable, but an entity id is always `<domain>.<object_id>` - the pattern
     // is a CHECK constraint - so the prefix is the domain whenever the column was left empty.
-    domain: row.domain ?? row.entityId.split('.')[0],
+    // What the owner shows it as stands in for it everywhere the house reads its kind.
+    domain: row.shownDomain ?? row.domain ?? row.entityId.split('.')[0],
     name: row.name,
     icon: row.icon,
     areaKey: row.areaKey,
@@ -370,7 +379,11 @@ function toView(
     deviceId: row.deviceId,
     source: toSourceRef(row.source, row.packageId, row.integrationId, row.deviceExternalId),
     unitOfMeasurement: row.unitOfMeasurement,
-    deviceClass: row.deviceClass,
+    deviceClass: row.shownDomain === null ? row.deviceClass : row.shownDeviceClass,
+    original:
+      row.shownDomain === null
+        ? null
+        : { domain: row.domain ?? row.entityId.split('.')[0], deviceClass: row.deviceClass },
     isEnabled: row.isEnabled,
     isHidden: row.isHidden,
     capabilities: declared.map((entry) => ({
@@ -578,7 +591,9 @@ function buildFilters(query: EntityQuery, cursor: string | undefined): SQL | und
   }
 
   if (query.domain !== undefined) {
-    conditions.push(eq(schema.registry.entities.domain, query.domain));
+    conditions.push(
+      sql`coalesce(${schema.registry.entities.shownDomain}, ${schema.registry.entities.domain}) = ${query.domain}`,
+    );
   }
 
   if (query.search !== undefined) {
@@ -908,14 +923,45 @@ export async function updateEntity(
     });
   }
 
+  const original = detail.view.original ?? {
+    domain: detail.view.domain,
+    deviceClass: detail.view.deviceClass,
+  };
+  const shownAs = body.shownAs ?? null;
+  // Shown as what its integration says is not shown as anything: the columns are cleared.
+  const isShownAsOriginal = shownAs === null || isOriginalKind(original, shownAs);
+
+  if (
+    !isShownAsOriginal &&
+    !shownAsOptions(
+      original,
+      detail.view.capabilities.map((each) => each.capability),
+    ).some((each) => each.domain === shownAs.domain && each.deviceClass === shownAs.deviceClass)
+  ) {
+    throw new ValidationError(`A ${original.domain} cannot be shown as that`, {
+      details: { entityId: detail.view.entityId, shownAs },
+    });
+  }
+
   await db.transaction(async (tx) => {
-    if (body.name !== undefined || body.icon !== undefined || body.transport !== undefined) {
+    if (
+      body.name !== undefined ||
+      body.icon !== undefined ||
+      body.transport !== undefined ||
+      body.shownAs !== undefined
+    ) {
       await tx
         .update(schema.registry.entities)
         .set({
           ...(body.name === undefined ? {} : { name: body.name }),
           ...(body.icon === undefined ? {} : { icon: body.icon }),
           ...(body.transport === undefined ? {} : { transport: body.transport }),
+          ...(body.shownAs === undefined
+            ? {}
+            : {
+                shownDomain: isShownAsOriginal ? null : shownAs.domain,
+                shownDeviceClass: isShownAsOriginal ? null : shownAs.deviceClass,
+              }),
           updatedAt: new Date(),
         })
         .where(eq(schema.registry.entities.id, detail.rowId));

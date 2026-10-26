@@ -3,15 +3,19 @@
  * of updates, and restarting or shutting down Nebula Home.
  *
  * `system:read` sees the list; `system:update` checks and updates; `system:power` restarts and
- * shuts down. Every action is in the audit log, refused or not.
+ * shuts down. Every action is in the audit log, refused or not. What Nebula Home itself is doing -
+ * its version, a restart or an update under way - any signed-in page reads, since every one shows
+ * it.
  */
 import { z } from 'zod';
 
 import {
   isNebulaError,
+  platformStateSchema,
   runSystemUpdatesBodySchema,
   systemUpdatesViewSchema,
   updateRoundSchema,
+  type PlatformState,
   type SystemUpdatesView,
   type UpdateRound,
 } from '@nebulahome/contracts';
@@ -21,6 +25,7 @@ import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import {
   checkSystemUpdates,
+  platformState,
   powerPlatform,
   runSystemUpdates,
   systemUpdates,
@@ -101,6 +106,27 @@ export function registerSystemUpdateRoutes(
   environment: RouteEnvironment,
   context: ApiContext,
 ): void {
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/system/platform',
+      summary: 'Nebula Home itself: its version, a restart or an update under way, the last update',
+      tag: 'System',
+      permission: null,
+      response: platformStateSchema,
+    },
+
+    /**
+     * Reads the state, for any signed-in page: every one shows a restart or an update.
+     *
+     * @param route - Who is asking.
+     * @returns The state.
+     */
+    async (route): Promise<PlatformState> =>
+      platformState(updatesContext(context, route.request.traceId)),
+  );
+
   defineRoute(
     environment,
     {

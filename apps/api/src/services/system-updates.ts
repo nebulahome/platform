@@ -16,6 +16,7 @@ import {
   PACKET_MANAGER_SERVICE,
   packageAvailableReplySchema,
   platformReleasesReplySchema,
+  platformStateSchema,
   runUpdatesReplySchema,
   SUPERVISOR_METHODS,
   SUPERVISOR_SERVICE,
@@ -23,6 +24,7 @@ import {
   updateChannelSchema,
   updateStatusReplySchema,
   type PlatformReleasesReply,
+  type PlatformState,
   type SystemUpdatesView,
   type UpdateChannel,
   type UpdateItem,
@@ -306,5 +308,22 @@ export async function powerPlatform(
     {},
     supervisorAcknowledgementSchema,
     POWER_TIMEOUT_MS,
+  );
+}
+
+/**
+ * What every page knows of Nebula Home itself: its version, a restart or an update under way,
+ * how the last update ended.
+ *
+ * @param context - The request's collaborators.
+ * @returns The state, as the supervisor has it.
+ */
+export async function platformState(context: SystemUpdatesContext): Promise<PlatformState> {
+  return ask(
+    context,
+    SUPERVISOR_SERVICE,
+    SUPERVISOR_METHODS.platformState,
+    {},
+    platformStateSchema,
   );
 }

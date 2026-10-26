@@ -208,7 +208,10 @@ export function registerEntityRoutes(environment: RouteEnvironment, context: Api
         identity: route.identity,
         ipAddress: route.request.ip,
         traceId: route.request.traceId,
-        details: { changed: Object.keys(route.body) },
+        details: {
+          changed: Object.keys(route.body),
+          ...(route.body.shownAs === undefined ? {} : { shownAs: route.body.shownAs }),
+        },
       });
 
       return view;

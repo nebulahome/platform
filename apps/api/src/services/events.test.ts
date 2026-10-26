@@ -59,4 +59,39 @@ describe('EventFanout', () => {
     expect(watching).toEqual([{ type: 'discovery_event', event: 'changed', count: 2 }]);
     expect(elsewhere).toEqual([]);
   });
+
+  it('tells every socket on the system topic that Nebula Home restarts, whatever it may read', async () => {
+    const logger = createLogger({ service: 'api', version: '0.0.0', level: 'fatal' });
+    const transport = new FakeTransport();
+    const supervisor = new BusClient({ transport, source: 'supervisor', logger });
+    const fanout = new EventFanout(logger);
+    const told: WsServerMessage[] = [];
+    const operation = {
+      kind: 'restart',
+      phase: 'stopping',
+      fromVersion: '2026.10.1',
+      toVersion: null,
+      percent: null,
+      backupBytes: null,
+      downloadBytes: null,
+      startedAt: '2026-11-14T03:00:00.000Z',
+    } as const;
+
+    fanout.start(new BusClient({ transport, source: 'api', logger }));
+    fanout.add({
+      canRead: () => false,
+      topics: new Set(['system']),
+      send: (message) => {
+        told.push(message);
+      },
+    });
+
+    supervisor.publish(busSubjects.platformEvent(), { operation });
+    await until(() => told.length > 0);
+    fanout.stop();
+
+    expect(told).toMatchObject([
+      { type: 'platform_event', payload: { operation: { kind: 'restart', phase: 'stopping' } } },
+    ]);
+  });
 });
