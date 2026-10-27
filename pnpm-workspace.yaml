@@ -3,7 +3,9 @@ packages:
   - 'packages/*'
 
 # The Matter controller's library brings matter.js's Bluetooth stack with it; the hub commissions
-# over the network only and never loads it, so its native bindings are not built.
+# over the network only and never loads it, so its native bindings are not built. The hub's serial
+# ports go through `serialport`, whose binding is not built either: it ships prebuilds (musl x64
+# and arm64 among them) that node-gyp-build loads at run time.
 allowBuilds:
   '@serialport/bindings-cpp': false
   '@stoprocent/bleno': false

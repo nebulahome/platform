@@ -38,6 +38,7 @@ import {
   CORE_SERVICE,
   deviceEventSchema,
   deviceInfoReplySchema,
+  dockerStatusSchema,
   MATTER_TRANSPORT,
   MATTER_VENDOR,
   MODBUS_TRANSPORT,
@@ -45,6 +46,9 @@ import {
   MQTT_HOUSE_TRANSPORT,
   MQTT_VENDOR,
   NotFoundError,
+  serialDeviceConfigSchema,
+  SUPERVISOR_METHODS,
+  SUPERVISOR_SERVICE,
   type DeviceEventPayload,
   type DeviceInfoRequest,
   type EntityId,
@@ -100,8 +104,11 @@ import {
   type IntegrationInstance,
 } from './persistence/instances.js';
 import { databaseModbusStore } from './persistence/modbus.js';
+import { databaseSerialStore, loadSerialInstances } from './persistence/serial.js';
 import { loadTakenDevices } from './persistence/taken.js';
 import { loadVendorSettings } from './persistence/vendors.js';
+import { SerialBroker } from './serial/broker.js';
+import { createLinuxSerialHost } from './serial/host.js';
 import { withAccountLookups } from './services/account-lookups.js';
 import { AccountService } from './services/accounts.js';
 import {
@@ -130,6 +137,7 @@ import {
   platformModbusVendor,
   platformMqttVendor,
 } from './services/platform-vendors.js';
+import { serveSerial } from './services/serial-management.js';
 import { VendorContainersService } from './services/vendor-containers.js';
 import { createMatterTransport } from './transports/matter.js';
 import { createModbusTransport } from './transports/modbus.js';
@@ -220,6 +228,7 @@ export class HubService {
   readonly #matter: MatterBroker;
   readonly #mqtt: MqttBroker;
   readonly #modbus: ModbusBroker;
+  readonly #serial: SerialBroker;
 
   /** Every Modbus socket of the hub: the polls', the tests', the search's and the vendors'. */
   readonly #modbusPool = new ModbusPool();
@@ -307,6 +316,56 @@ export class HubService {
     this.#transports.register(createModbusTransport(this.#modbus, this.#modbusPool));
     this.#modbus.onSaved((deviceKeys) => {
       void this.#reloadModbus(deviceKeys);
+    });
+
+    this.#serial = new SerialBroker({
+      store: databaseSerialStore(options.db),
+      host: createLinuxSerialHost(),
+      logger: options.logger,
+
+      /**
+       * Every vendor loaded: their `serial` rules.
+       *
+       * @returns Them.
+       */
+      vendors: () => this.#vendorList(),
+
+      /**
+       * Reads the devices whose config names a port.
+       *
+       * @returns Them.
+       */
+      instances: async () => loadSerialInstances(options.db),
+
+      /**
+       * Reads the devices the managed containers are given.
+       *
+       * @returns Them.
+       */
+      containerPorts: async () => this.#vendorContainers.devices(),
+
+      /**
+       * Asks the supervisor whether Docker runs in Docker Desktop, which passes no USB.
+       *
+       * @returns True when it says so.
+       */
+      isDesktop: async () =>
+        (
+          await this.#client.request(
+            busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.status),
+            {},
+            dockerStatusSchema,
+            { timeoutMs: 5000 },
+          )
+        ).isDesktop === true,
+    });
+    this.#serial.onPlugged((port) => {
+      // A device's port came back: started again, its code opens it again.
+      if (port.holderIntegrationId !== null) {
+        void this.reloadInstance(port.holderIntegrationId).catch((error: unknown) => {
+          options.logger.warn({ err: error, portId: port.id }, 'Could not start a device again');
+        });
+      }
     });
 
     this.#client = new BusClient({
@@ -491,8 +550,14 @@ export class HubService {
        * @param vendorId - The vendor.
        * @returns Whether it is loaded.
        */
-      vendorChanged: async (vendorId: string): Promise<boolean> =>
-        this.#vendorContainers.vendorChanged(vendorId),
+      vendorChanged: async (vendorId: string): Promise<boolean> => {
+        const isLoaded = await this.#vendorContainers.vendorChanged(vendorId);
+
+        // A container's settings name the port it is given.
+        await this.#serial.refresh();
+
+        return isLoaded;
+      },
 
       /**
        * Says what could not be loaded.
@@ -638,6 +703,8 @@ export class HubService {
 
       // After the vendors: a device read through an integration's template needs its driver.
       await this.#modbus.start();
+      // Before the instances: a device claims its port as it starts.
+      await this.#serial.start();
 
       this.#recordFailures(bundles.failures);
       logger.info(
@@ -685,6 +752,7 @@ export class HubService {
            */
           taken: async () => loadTakenDevices(db),
         }),
+        ...serveSerial(this.#client, this.#serial),
         ...serveMqtt({
           client: this.#client,
           broker: this.#mqtt,
@@ -767,6 +835,7 @@ export class HubService {
       logger: this.#options.logger,
       platform: this.#platform,
       modbus: this.#modbusPool,
+      serial: this.#serial,
     };
   }
 
@@ -1080,10 +1149,12 @@ export class HubService {
     await this.#packages.setVendors(this.#watchedVendors());
     void this.#vendorContainers.reconcile();
 
-    // What an integration added or removed recognises the servers found differently.
+    // What an integration added or removed recognises the servers found differently. A port's
+    // suggestions are matched when asked; the containers a vendor declares may hold ports.
     void this.#modbus.reidentify().catch((error: unknown) => {
       logger.warn({ err: error }, 'Could not ask the Modbus servers found again');
     });
+    void this.#serial.refresh();
   }
 
   /**
@@ -1300,6 +1371,7 @@ export class HubService {
     await this.#mqtt.stop();
     this.#modbus.stop();
     this.#modbusPool.closeAll();
+    await this.#serial.stop();
 
     // Whatever the vendors' own code holds - a UDP port - is let go of with them.
     await Promise.all([...this.#vendors.values()].map(async (vendor) => vendor.release()));
@@ -1437,6 +1509,9 @@ export class HubService {
       }
     }
 
+    // Its port goes free: the database frees it with the instance's row, the broker's copy here.
+    await this.#serial.releaseInstance(id);
+
     // Not refreshed here: the rows are still there until `core` deletes them, and the device
     // would be offered again only to be taken away. `core` says when they are gone, and
     // discovery is told then.
@@ -1470,6 +1545,8 @@ export class HubService {
 
     this.#running.delete(id);
     await this.#pool.release(id);
+    // Its code closes its port with the connection; a port it left open is closed here.
+    await this.#serial.stopped(id);
 
     const sharing = [...this.#running.values()].find(
       (other) => other.connection.key === running.connection.key,
@@ -1505,6 +1582,14 @@ export class HubService {
       // this instance with a message naming the key, and nothing else.
       const instance = await this.#withVendorSettings(openInstance(stored, this.#secretsKey));
       const integration = this.#integrations.require(instance.kind);
+      const serial = serialDeviceConfigSchema.safeParse(instance.transportConfig['serial']);
+
+      // A device on a serial port holds it before its code opens it; one held by another stays
+      // with it, and the device's code is refused it (the page shows the two as a conflict).
+      if (serial.success) {
+        await this.#serial.claim(instance.id, serial.data);
+      }
+
       const connection = await this.#pool.acquire(
         instance.transport,
         instance.transportConfig,

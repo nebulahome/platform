@@ -28,6 +28,8 @@ import {
 
 import type { ModbusPool } from '../modbus/client.js';
 import { createModbusSessions } from '../modbus/sessions.js';
+import type { SerialBroker } from '../serial/broker.js';
+import { createSerialSessions } from '../serial/sessions.js';
 import { createUdpSockets } from '../transports/managed-udp.js';
 
 import { createBundleSdk } from './bundle-sdk.js';
@@ -85,6 +87,9 @@ export type LoadBundlesOptions = {
 
   /** The hub's Modbus clients, which a vendor's sessions go through. None, as in tests, when absent. */
   readonly modbus?: ModbusPool;
+
+  /** The hub's Serial broker, which a vendor's ports are opened through. None, as in tests, when absent. */
+  readonly serial?: SerialBroker;
 };
 
 /**
@@ -105,14 +110,16 @@ function runtimeOptions(options: Omit<LoadBundlesOptions, 'directory'>) {
     ...(options.verifyVendor === undefined ? {} : { verifyVendor: options.verifyVendor }),
 
     /**
-     * Builds what one vendor's code is handed, with UDP sockets and Modbus sessions of its own to
-     * free on release.
+     * Builds what one vendor's code is handed, with UDP sockets, Modbus sessions and serial ports
+     * of its own to free on release.
      *
+     * @param manifest - The vendor.
      * @returns The SDK, and how to let go of what the vendor opens through it.
      */
-    createSdk: (): VendorSdk => {
+    createSdk: (manifest: VendorManifest): VendorSdk => {
       const udp = createUdpSockets(logger);
       const modbus = createModbusSessions(options.modbus);
+      const serial = createSerialSessions(options.serial, manifest.id);
 
       return {
         sdk: createBundleSdk({
@@ -120,6 +127,7 @@ function runtimeOptions(options: Omit<LoadBundlesOptions, 'directory'>) {
           logger,
           openUdpSocket: udp.open,
           openModbus: modbus.open,
+          openSerial: serial.open,
           platform: options.platform ?? { mqtt: null },
         }),
         /**
@@ -130,6 +138,7 @@ function runtimeOptions(options: Omit<LoadBundlesOptions, 'directory'>) {
         release: async () => {
           await udp.closeAll();
           await modbus.closeAll();
+          await serial.closeAll();
         },
       };
     },

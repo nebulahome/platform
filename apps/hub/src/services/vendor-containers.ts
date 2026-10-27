@@ -184,6 +184,26 @@ export class VendorContainersService {
   }
 
   /**
+   * The devices of the host the declared containers are given, as the specs handed over say: the
+   * serial ports the Serial broker shows held by a container.
+   *
+   * @returns Each device, with its container and vendor.
+   */
+  public async devices(): Promise<{ host: string; vendorId: string; name: string }[]> {
+    const declarations = await this.#declarations(this.#options.vendors());
+
+    return declarations.flatMap((declaration) =>
+      declaration.containers.flatMap((spec) =>
+        spec.devices.map((device) => ({
+          host: device.host,
+          vendorId: declaration.vendorId,
+          name: spec.name,
+        })),
+      ),
+    );
+  }
+
+  /**
    * Stops asking again.
    */
   public stop(): void {

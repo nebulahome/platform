@@ -17,6 +17,7 @@ import {
   defineTransport,
   type BundleSdk,
   type OpenModbus,
+  type OpenSerial,
   type OpenUdpSocket,
   type PlatformServices,
 } from '@nebulahome/package-runtime';
@@ -46,6 +47,8 @@ function notOffered(name: string): Error {
  * @param options.logger - The hub's logger.
  * @param options.openUdpSocket - Opens a UDP socket tracked as the vendor's.
  * @param options.openModbus - Opens a Modbus session tracked as the vendor's.
+ * @param options.openSerial - Opens a serial port through the Serial broker, tracked as the
+ * vendor's.
  * @param options.platform - What the platform runs that bundle code may use: its broker.
  * @returns The SDK.
  */
@@ -54,6 +57,7 @@ export function createBundleSdk(options: {
   readonly logger: PlatformLogger;
   readonly openUdpSocket: OpenUdpSocket;
   readonly openModbus: OpenModbus;
+  readonly openSerial: OpenSerial;
   readonly platform: PlatformServices;
 }): BundleSdk {
   return {
@@ -65,14 +69,9 @@ export function createBundleSdk(options: {
     openUdpSocket: options.openUdpSocket,
     openMqtt,
     openModbus: options.openModbus,
-    // shortcut: no serial port or Bluetooth scanner reaches a bundle yet; the Serial and Bluetooth
-    // brokers hand the real ones in once they run.
-    /**
-     * Refuses a port: there is no Serial broker to hold it yet.
-     *
-     * @returns A promise that rejects.
-     */
-    openSerial: () => Promise.reject(notOffered('openSerial')),
+    openSerial: options.openSerial,
+    // shortcut: no Bluetooth scanner reaches a bundle yet; the Bluetooth broker hands the real one
+    // in once it runs.
     bluetooth: {
       /**
        * Refuses a scanner: there is no Bluetooth broker to report to yet.
