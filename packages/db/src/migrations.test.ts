@@ -50,6 +50,7 @@ describe('the migration set', () => {
     expect(files.map((file) => file.name)).toEqual([
       '0001_initial_schema.sql',
       '0002_modbus_broker.sql',
+      '0003_brokers_ir_serial_bt_thread.sql',
     ]);
   });
 
@@ -65,6 +66,29 @@ describe('the migration set', () => {
       expect(file.sql).toContain('Rollback:');
     }
   });
+});
+
+describe('the brokers migrations', () => {
+  // Each later migration adds a broker's tables, written by `hub` alone.
+  const later = files.slice(1);
+
+  it.each(later)(
+    '$name touches updated_at and lets hub write every table it creates',
+    ({ sql: migration }) => {
+      const tables = [...migration.matchAll(/CREATE TABLE (\w+\.\w+) \(([\s\S]*?)\n\);/g)];
+      const grant = /GRANT SELECT, INSERT, UPDATE, DELETE\s+ON ([^;]*?)\s+TO nebula_hub;/.exec(
+        migration,
+      );
+
+      for (const [, table, body] of tables) {
+        if (/^\s*updated_at\s/m.test(body ?? '')) {
+          expect(migration).toContain(`BEFORE UPDATE ON ${String(table)}\n`);
+        }
+
+        expect(grant?.[1]).toContain(String(table));
+      }
+    },
+  );
 });
 
 describe('the initial schema', () => {

@@ -263,6 +263,158 @@ export const modbusIgnored = registrySchema.table(
   (table) => [primaryKey({ columns: [table.host, table.port] })],
 );
 
+/** The Serial broker's settings: one row. Written by `hub` and by nothing else. */
+export const serialSettings = registrySchema.table('serial_settings', {
+  id: smallint('id').primaryKey().default(1),
+
+  /** Whether built-in `ttyS*` ports are listed. */
+  showBuiltin: boolean('show_builtin').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Every serial port the server has seen, and those the owner added on the network, by the path
+ * that stays. At most one holder: a device's instance, or a broker (`thread`).
+ */
+export const serialPorts = registrySchema.table(
+  'serial_ports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    /** `/dev/serial/by-id/...`, a `/dev` path, or `tcp://host:port`. */
+    stablePath: text('stable_path').notNull().unique(),
+
+    /** `usb`, `builtin` or `network`. */
+    kind: text('kind').notNull(),
+    name: text('name').notNull(),
+
+    /** What a USB adapter said of itself, as `serialUsbSchema` has it. */
+    usb: jsonb('usb'),
+
+    /** A network port's `{ host, port, protocol }`. */
+    network: jsonb('network'),
+    holderIntegrationId: text('holder_integration_id').references(() => integrations.id, {
+      onDelete: 'set null',
+    }),
+    holderBroker: text('holder_broker'),
+
+    /** The holder's line, as `serialLineSchema` has it. */
+    line: jsonb('line'),
+    isIgnored: boolean('is_ignored').notNull().default(false),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('serial_ports_holder_integration_id_idx').on(table.holderIntegrationId)],
+);
+
+/** The Bluetooth broker's settings: one row. Written by `hub` and by nothing else. */
+export const bluetoothSettings = registrySchema.table('bluetooth_settings', {
+  id: smallint('id').primaryKey().default(1),
+  localEnabled: boolean('local_enabled').notNull().default(true),
+
+  /** `hci0`; null for the first BlueZ has. */
+  adapterId: text('adapter_id'),
+  localScanMode: text('local_scan_mode').notNull().default('active'),
+  proxyScanMode: text('proxy_scan_mode').notNull().default('passive'),
+  forgetAfterDays: integer('forget_after_days').notNull().default(7),
+  showPrivate: boolean('show_private').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** The devices made Bluetooth proxies, by their instance: how each scans, and its script. */
+export const bluetoothProxies = registrySchema.table('bluetooth_proxies', {
+  integrationId: text('integration_id')
+    .primaryKey()
+    .references(() => integrations.id, { onDelete: 'cascade' }),
+  scanMode: text('scan_mode').notNull().default('passive'),
+  scriptVersion: text('script_version'),
+  installedAt: timestamp('installed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** The Bluetooth addresses the owner ignores, upper case, with the name they advertised. */
+export const bluetoothIgnored = registrySchema.table('bluetooth_ignored', {
+  address: text('address').primaryKey(),
+  name: text('name'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * The remotes the house learned, each a device of the platform's `infrared` vendor. The blaster
+ * is the instance its codes go through; removed, the remote waits for another.
+ */
+export const infraredRemotes = registrySchema.table(
+  'infrared_remotes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+
+    /** `tv`, `air-conditioner`, `fan`, `audio`, `light` or `other`. */
+    kind: text('kind').notNull().default('other'),
+    blasterIntegrationId: text('blaster_integration_id').references(() => integrations.id, {
+      onDelete: 'set null',
+    }),
+
+    /** How many columns its keypad has. */
+    columnCount: integer('column_count').notNull().default(3),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('infrared_remotes_blaster_integration_id_idx').on(table.blasterIntegrationId)],
+);
+
+/** The buttons of a remote: one a keypad cell, each with its code in the platform's shape. */
+export const infraredButtons = registrySchema.table(
+  'infrared_buttons',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    remoteId: uuid('remote_id')
+      .notNull()
+      .references(() => infraredRemotes.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    icon: text('icon'),
+
+    /** Its place on the keypad, counted along the rows from 0. */
+    cell: integer('cell').notNull(),
+
+    /** As `infraredCodeSchema` has it. */
+    code: jsonb('code').notNull(),
+    lastPressedAt: timestamp('last_pressed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('infrared_buttons_cell_unique').on(table.remoteId, table.cell)],
+);
+
+/**
+ * How Thread is set up: one row. `none`, `local` on a radio of this server, or `external` by the
+ * URL of a border router's REST API. Its network key is never stored.
+ */
+export const threadSettings = registrySchema.table('thread_settings', {
+  id: smallint('id').primaryKey().default(1),
+  mode: text('mode').notNull().default('none'),
+  externalUrl: text('external_url'),
+  radioPortId: uuid('radio_port_id').references(() => serialPorts.id, { onDelete: 'set null' }),
+  useForMatter: boolean('use_for_matter').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** The Wi-Fi a device Matter pairs itself joins: one row, the password sealed. */
+export const matterNetworks = registrySchema.table('matter_networks', {
+  id: smallint('id').primaryKey().default(1),
+  wifiSsid: text('wifi_ssid'),
+
+  /** `{ "$sealed": "v1:…" }` (sealed.ts). */
+  wifiPasswordSealed: jsonb('wifi_password_sealed'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 /**
  * The icons an owner added to the catalogue, or drew afresh over a built-in one.
  *
