@@ -76,7 +76,8 @@ export const transportIdSchema = z.string().regex(TRANSPORT_ID_PATTERN, 'Must be
  * The wires the interface names on a vendor's card: what a person recognises on the box, whatever
  * transport of the platform's or of the vendor's own carries it. `udp` is a device's own protocol
  * over plain datagrams on the network (Govee's LAN API), `modbus` Modbus TCP, `matter` the
- * house's Matter fabric.
+ * house's Matter fabric, `thread` its Thread network, `serial` a serial port (USB, RS-232/485, or
+ * one on the network), `ir` infrared and 433 MHz codes sent through a blaster.
  */
 export const TRANSPORT_WIRES = [
   'http',
@@ -86,6 +87,9 @@ export const TRANSPORT_WIRES = [
   'udp',
   'modbus',
   'matter',
+  'thread',
+  'serial',
+  'ir',
 ] as const;
 
 /** A wire the interface names. */
@@ -95,14 +99,33 @@ export type TransportWire = (typeof TRANSPORT_WIRES)[number];
  * How a device can be heard announcing itself: the platform's mDNS browser, a vendor's own
  * listener, the house's Matter fabric - a node commissioned and not yet added - or the house's
  * MQTT broker - a device that announced itself on it, or that the owner mapped - or the house's
- * Modbus client - a device the owner added at an address. Declared here
+ * Modbus client - a device the owner added at an address - or the house's serial ports - a port
+ * an integration's rule recognises - or its Bluetooth - a device a scanner hears. Declared here
  * rather than beside the discovered devices, because a vendor lists the ways it can be found and
  * the discovery module already reads this file.
  */
-export const DISCOVERY_SOURCES = ['mdns', 'module', 'matter', 'mqtt', 'modbus'] as const;
+export const DISCOVERY_SOURCES = [
+  'mdns',
+  'module',
+  'matter',
+  'mqtt',
+  'modbus',
+  'serial',
+  'bluetooth',
+] as const;
 
 /** How a device can be heard. */
 export type DiscoverySource = (typeof DISCOVERY_SOURCES)[number];
+
+/**
+ * What a vendor's devices can be for the platform's brokers, besides devices of their own: an IR
+ * blaster the Infrared broker sends remotes' codes through, a Bluetooth proxy that listens for the
+ * house. Worked out from the profiles that declare them, and shown as chips on the vendor's page.
+ */
+export const VENDOR_ROLES = ['ir-blaster', 'bluetooth-proxy'] as const;
+
+/** What a vendor's devices can be for the brokers. */
+export type VendorRole = (typeof VENDOR_ROLES)[number];
 
 /**
  * Who adds a device discovery found: the owner, from its card - the ordinary way - or the
@@ -469,6 +492,9 @@ export const integrationVendorSchema = z.object({
 
   /** Who adds what discovery finds: the owner, or the platform on its own. */
   adoption: z.enum(DEVICE_ADOPTIONS).default('owner'),
+
+  /** What its devices can be for the brokers, each once; absent or empty for most vendors. */
+  roles: z.array(z.enum(VENDOR_ROLES)).max(VENDOR_ROLES.length).optional(),
 
   /**
    * What makes two of its devices one device reached two ways - the same MAC, the same serial -
