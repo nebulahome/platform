@@ -61,12 +61,30 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       # A disk of this machine for the backups: mount it here and add it as a local location.
       # - /mnt/backups:/mnt/backups
-    # A Zigbee coordinator on USB is not passed here: the platform passes it to zigbee2mqtt's own
-    # container, from the path set in Integrations → Zigbee2MQTT → Configure (/dev/serial/by-id/…).
-    # The backups' SMB and NFS locations are mounted from inside the container.
+      # The machine's devices, for the Serial broker and the Thread broker's radio: the USB serial
+      # ports, and /dev/serial/by-id with the names that stay the same across reboots, as they are
+      # plugged in and out. A port a container uses (zigbee2mqtt's coordinator) is shown as its.
+      - /dev:/dev
+      # The system's D-Bus, for the Bluetooth broker and Matter's Bluetooth pairing: both go
+      # through BlueZ, which keeps the adapter. Needs a D-Bus policy that lets uid 1000 talk to
+      # org.bluez (README.md).
+      - /run/dbus:/run/dbus:ro
+    # What the mounted /dev may open: USB serial ports (ttyUSB, 188) and USB modems (ttyACM, 166),
+    # for the Serial broker and the Thread radio, and the tunnel device (10:200), for the Thread
+    # border router's wpan0.
+    device_cgroup_rules:
+      - 'c 188:* rmw'
+      - 'c 166:* rmw'
+      - 'c 10:200 rwm'
+    # The Thread border router's network interface, wpan0.
+    devices:
+      - /dev/net/tun
+    # The backups' SMB and NFS locations are mounted from inside the container. NET_ADMIN is the
+    # Thread border router's: it brings wpan0 up and routes between it and the LAN.
     cap_add:
       - SYS_ADMIN
       - DAC_READ_SEARCH
+      - NET_ADMIN
     security_opt:
       - apparmor:unconfined
     healthcheck:

@@ -11,6 +11,11 @@
 #
 # A bridge carries no multicast, so the hub cannot hear devices announce themselves: discovery is
 # off and devices are added by their address. Needs Compose 2.24 or later, for !reset.
+#
+# The devices, D-Bus and NET_ADMIN of docker-compose.yml stay as they are: serial ports and
+# Bluetooth work on the bridge too. The Thread border router does not: it advertises its routes
+# and services on the LAN, which a bridge does not reach. On the bridge, use a border router
+# elsewhere on the network, by its address.
 
 services:
   nebulahome:

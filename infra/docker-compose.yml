@@ -61,6 +61,11 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       # A disk of the host for the backups: mount it here and add it as a local location.
       # - /mnt/backups:/mnt/backups
+    # No serial port, Bluetooth adapter or Thread radio reaches the container here: Docker Desktop
+    # passes none of the machine's through, so the Serial, Bluetooth and Thread brokers say there
+    # is no hardware. On a Linux machine, what production/docker-compose.yml adds passes them in:
+    # /dev:/dev and /run/dbus:/run/dbus:ro under volumes, its device_cgroup_rules, /dev/net/tun
+    # under devices and NET_ADMIN below.
     # The backups' SMB and NFS locations are mounted from inside the container.
     cap_add:
       - SYS_ADMIN
