@@ -47,6 +47,7 @@ import type { MatterNetwork } from '@nebulahome/contracts';
 import { AppIcon, cn, IconButton, Pill, Segmented, type UiIconId } from '@nebulahome/ui';
 
 import { relativeTime } from '@/lib/format-time';
+import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { useLasted } from '@/routes/library/broker-matter/matter-overview';
 import { LIGHT_TYPES, type MatterRow } from '@/routes/library/broker-matter/matter-rows';
 import {
@@ -64,6 +65,9 @@ const CARD_GRACE_MS = 160;
 
 /** How long after another network is shown the map is fitted to it: its points measured. */
 const FIT_AFTER_MS = 60;
+
+/** How long Arrange takes the points home. */
+const ARRANGE_MS = 500;
 
 /** How each link is drawn. */
 const LINK_STYLES: Record<LinkLook, CSSProperties> = {
@@ -180,6 +184,52 @@ function NetworkMapView(props: NetworkGraphProps) {
   };
 
   const [nodes, setNodes, onNodesChange] = useNodesState<PointNode>(pointsOf([]));
+  const isReduced = useReducedMotion();
+
+  /**
+   * Takes every point back where the layout puts it, whatever was dragged: gliding there, the
+   * links following, unless motion is reduced.
+   */
+  const arrange = (): void => {
+    const from = new Map(nodes.map((node) => [node.id, node.position]));
+    const home = pointsOf([]);
+    const started = performance.now();
+
+    /**
+     * Draws one frame of the way home.
+     *
+     * @param now - The frame's time.
+     */
+    const frame = (now: number): void => {
+      const done = isReduced ? 1 : Math.min((now - started) / ARRANGE_MS, 1);
+      // Ease in and out.
+      const eased = done < 0.5 ? 2 * done * done : 1 - (-2 * done + 2) ** 2 / 2;
+
+      setNodes(
+        home.map((node) => {
+          const start = from.get(node.id) ?? node.position;
+
+          return {
+            ...node,
+            position: {
+              x: start.x + (node.position.x - start.x) * eased,
+              y: start.y + (node.position.y - start.y) * eased,
+            },
+          };
+        }),
+      );
+
+      if (done < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        setTimeout(() => {
+          void fitView({ padding: 0.2, maxZoom: 1, duration: 300 });
+        }, FIT_AFTER_MS);
+      }
+    };
+
+    requestAnimationFrame(frame);
+  };
 
   useEffect(() => {
     setNodes(pointsOf);
@@ -334,11 +384,7 @@ function NetworkMapView(props: NetworkGraphProps) {
           label={t('brokers.matter.map.arrange', 'Arrange')}
           title={t('brokers.matter.map.arrange', 'Arrange')}
           onClick={() => {
-            // Every point back where the layout puts it, whatever was dragged.
-            setNodes(pointsOf([]));
-            setTimeout(() => {
-              void fitView({ padding: 0.2, maxZoom: 1, duration: 300 });
-            }, FIT_AFTER_MS);
+            arrange();
           }}
         >
           <AppIcon id="layout-grid" size={16} />
