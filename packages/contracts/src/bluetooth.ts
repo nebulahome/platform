@@ -354,6 +354,9 @@ export const bluetoothStatusSchema = z.object({
   /** Whether a Nearby lease is held, and proxies forward everything they hear. */
   isForwardingAll: z.boolean(),
   settings: bluetoothSettingsSchema,
+
+  /** The house's Bluetooth devices, and how many were heard lately: the Brokers card's count. */
+  devices: z.object({ total: z.int().min(0), online: z.int().min(0) }),
 });
 
 /** Where the broker stands. */
