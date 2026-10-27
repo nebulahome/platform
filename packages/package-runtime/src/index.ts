@@ -10,6 +10,8 @@
  */
 
 export * from './account.js';
+export * from './bluetooth-mapping.js';
+export * from './bthome.js';
 export * from './bundle.js';
 export * from './containers.js';
 export * from './declarative.js';
