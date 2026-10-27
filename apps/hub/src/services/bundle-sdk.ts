@@ -28,6 +28,16 @@ import { openWebSocket } from '../transports/managed-socket.js';
 import { openRtsp } from '../transports/rtsp.js';
 
 /**
+ * A piece of the SDK this hub does not offer yet, for a bundle that reaches for it.
+ *
+ * @param name - The piece.
+ * @returns An error naming it.
+ */
+function notOffered(name: string): Error {
+  return new Error(`${name} is not offered by this hub yet`);
+}
+
+/**
  * Builds the SDK.
  *
  * @param options - The runtime version, the logger bundle code may write to, and the vendor's
@@ -55,6 +65,24 @@ export function createBundleSdk(options: {
     openUdpSocket: options.openUdpSocket,
     openMqtt,
     openModbus: options.openModbus,
+    // shortcut: no serial port or Bluetooth scanner reaches a bundle yet; the Serial and Bluetooth
+    // brokers hand the real ones in once they run.
+    /**
+     * Refuses a port: there is no Serial broker to hold it yet.
+     *
+     * @returns A promise that rejects.
+     */
+    openSerial: () => Promise.reject(notOffered('openSerial')),
+    bluetooth: {
+      /**
+       * Refuses a scanner: there is no Bluetooth broker to report to yet.
+       *
+       * @throws {Error} Always.
+       */
+      scanner: () => {
+        throw notOffered('bluetooth.scanner');
+      },
+    },
     defineStreamSource,
     defineAccount,
     codecs: { lzma: decodeLzma },

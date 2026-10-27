@@ -252,6 +252,9 @@ function vendorOf(
     internetRequired: manifest.internetRequired,
     transports: [...vendor.transports],
     wires: [...vendor.wires],
+    ...(vendor.roles === undefined || vendor.roles.length === 0
+      ? {}
+      : { roles: [...vendor.roles] }),
     setup: vendor.setup,
     account:
       vendor.account === undefined
@@ -270,6 +273,10 @@ function vendorOf(
         ...(vendor.discovery?.plan.discovery.matter === undefined ? [] : (['matter'] as const)),
         ...(vendor.discovery?.plan.discovery.mqtt === undefined ? [] : (['mqtt'] as const)),
         ...(vendor.discovery?.plan.discovery.modbus === undefined ? [] : (['modbus'] as const)),
+        ...(vendor.discovery?.plan.discovery.serial === undefined ? [] : (['serial'] as const)),
+        ...(vendor.discovery?.plan.discovery.bluetooth === undefined
+          ? []
+          : (['bluetooth'] as const)),
       ]),
     ],
     adoption: vendor.discovery?.plan.discovery.adopt ?? 'owner',
@@ -306,7 +313,7 @@ function vendorOf(
  */
 function hasCode(vendor: LoadedVendor): boolean {
   return (
-    vendor.drivers.some((driver) => driver.manifest.kind === 'code') ||
+    vendor.drivers.some((driver) => driver.manifest.entry !== undefined) ||
     vendor.ownTransports.length > 0 ||
     vendor.streams.length > 0 ||
     vendor.account !== undefined ||
