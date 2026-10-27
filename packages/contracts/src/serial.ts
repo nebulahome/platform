@@ -291,6 +291,9 @@ export const serialStatusSchema = z.object({
   hotplug: z.object({ isWatching: z.boolean(), lastChangeAt: timestampSchema.nullable() }),
   conflicts: z.array(serialConflictSchema).max(64),
   settings: serialSettingsSchema,
+
+  /** The devices reached through a port, and how many of them run: the Brokers card's count. */
+  devices: z.object({ total: z.int().min(0), online: z.int().min(0) }),
 });
 
 /** Where the broker stands. */
