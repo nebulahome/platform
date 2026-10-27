@@ -16,6 +16,8 @@ export * from './declarative.js';
 export * from './discovery.js';
 export * from './evaluate.js';
 export * from './expression.js';
+export * from './infrared-codes.js';
+export * from './infrared-mapping.js';
 export * from './install-marker.js';
 export * from './integration.js';
 export * from './loader.js';
