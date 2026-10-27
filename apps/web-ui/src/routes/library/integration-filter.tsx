@@ -47,6 +47,9 @@ const WIRE_LABELS: Readonly<Record<Wire, string>> = {
   udp: 'UDP',
   modbus: 'Modbus',
   matter: 'Matter',
+  thread: 'Thread',
+  serial: 'Serial',
+  ir: 'IR',
 };
 
 /** How it connects: on the network alone, or through the internet. */

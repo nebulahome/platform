@@ -3,7 +3,8 @@
  *
  * The house's Matter fabric - the controller every Matter device is reached through, whoever makes
  * it - its MQTT broker, which every MQTT device and program meets on, and its Modbus client, which
- * every Modbus server is reached through. A card per broker, as the
+ * every Modbus server is reached through; Thread, Bluetooth, Serial and Infrared beside them, with
+ * a stand-in mark until theirs are drawn. A card per broker, as the
  * integrations page draws a vendor's - how it stands, and how many devices the house has through
  * it - and the card is the way to its page.
  */
@@ -15,6 +16,7 @@ import type { BrokerId, BrokerState, BrokerSummary } from '@nebulahome/contracts
 import { AppIcon, cn, Pill, Tile, TILE_FRAME, TILE_GRID, type PillTone } from '@nebulahome/ui';
 
 import { MatterLogo, ModbusLogo, MqttLogo } from '@/components/brand-logos';
+import { BluetoothIcon, InfraredIcon, SerialIcon, ThreadIcon } from '@/components/icons';
 import { translate } from '@/i18n/messages';
 import { BROKER_QUERY_KEYS, fetchBrokers } from '@/library/brokers-api';
 import { LibraryPage } from '@/routes/library/library-page';
@@ -41,24 +43,45 @@ export function brokerStateOf(state: BrokerState): {
       return { tone: 'danger', label: translate('brokers.state.failed', 'Failed') };
     case 'disabled':
       return { tone: 'neutral', label: translate('brokers.state.disabled', 'Off') };
+    case 'unavailable':
+      return { tone: 'neutral', label: translate('brokers.state.unavailable', 'No hardware') };
   }
 }
 
 /** The official mark each broker is drawn with. */
-export const BROKER_GLYPHS = { matter: MatterLogo, mqtt: MqttLogo, modbus: ModbusLogo } as const;
+export const BROKER_GLYPHS = {
+  matter: MatterLogo,
+  thread: ThreadIcon,
+  bluetooth: BluetoothIcon,
+  mqtt: MqttLogo,
+  modbus: ModbusLogo,
+  serial: SerialIcon,
+  infrared: InfraredIcon,
+} as const;
 
 /**
- * What a broker is called.
+ * What a broker is called: a mark's name as it is, a plain word in the reader's language.
  *
  * @param broker - The broker.
  * @returns Its name.
  */
 export function brokerNameOf(broker: BrokerId): string {
-  return broker === 'matter'
-    ? translate('library.matterTag', 'Matter')
-    : broker === 'modbus'
-      ? 'Modbus'
-      : 'MQTT';
+  switch (broker) {
+    case 'matter':
+      return translate('library.matterTag', 'Matter');
+    case 'serial':
+      return translate('brokers.serial.name', 'Serial');
+    case 'infrared':
+      return translate('brokers.infrared.name', 'Infrared');
+    case 'thread':
+      return 'Thread';
+    case 'bluetooth':
+      return 'Bluetooth';
+    case 'modbus':
+      return 'Modbus';
+    case 'mqtt':
+      return 'MQTT';
+  }
 }
 
 /**

@@ -634,6 +634,9 @@
     "count_one": "{{count}} broker",
     "count_other": "{{count}} broker",
     "empty": "Questa installazione non ha nessun broker.",
+    "infrared": {
+      "name": "Infrarossi"
+    },
     "matter": {
       "about": "Informazioni",
       "add": {
@@ -779,8 +782,11 @@
         "joining": "Ingresso nel fabric",
         "keys": "Certificati e chiavi. Fino a un minuto.",
         "looking": "Sulla rete locale, tramite il codice",
+        "lookingBluetooth": "Ricerca via Bluetooth",
         "manualCode": "Codice manuale",
         "manualCodeDiscriminator": "Codice manuale · discriminator {{value}}",
+        "nearby": "A pochi metri dal server",
+        "network": "Invio della rete",
         "nobodyTookIt": "Ancora nessuna integrazione l'ha preso",
         "notCertified": "Non è nel DCL come prodotto certificato",
         "qrCode": "Codice QR",
@@ -1244,11 +1250,15 @@
     "restartFailed": "Impossibile riavviare {{name}}",
     "restartTitle": "Riavviare {{name}}?",
     "restarted": "{{name}} riavviato",
+    "serial": {
+      "name": "Seriale"
+    },
     "state": {
       "disabled": "Spento",
       "failed": "Non riuscito",
       "running": "In funzione",
-      "starting": "Si avvia"
+      "starting": "Si avvia",
+      "unavailable": "Nessun hardware"
     },
     "title": "Broker"
   },
@@ -3745,7 +3755,10 @@
       "reachesItsDevicesOver": "Raggiunge i suoi dispositivi via Bluetooth LE",
       "reachesItsDevicesOver2": "Raggiunge i suoi dispositivi via Zigbee",
       "reachesItsDevicesOverMatter": "Raggiunge i suoi dispositivi tramite il fabric Matter della casa",
+      "reachesItsDevicesOverSerial": "Raggiunge i suoi dispositivi tramite una porta seriale",
+      "reachesItsDevicesOverThread": "Raggiunge i suoi dispositivi tramite la rete Thread della casa",
       "readsItsDevicesOver": "Legge i suoi dispositivi via Modbus TCP",
+      "sendsCodesThroughABlaster": "Invia codici a infrarossi e a 433 MHz tramite un blaster",
       "speaksHttpToEach": "Parla HTTP con ogni dispositivo",
       "speaksToEachDevice": "Parla con ogni dispositivo con datagrammi suoi sulla rete"
     },

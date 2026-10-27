@@ -28,7 +28,10 @@ import {
   BluetoothIcon,
   GlobeIcon,
   HttpIcon,
+  InfraredIcon,
   ModbusIcon,
+  SerialIcon,
+  ThreadIcon,
   UdpIcon,
   ZigbeeIcon,
   type IconProps,
@@ -86,6 +89,27 @@ const WIRES: Readonly<Record<Wire, { readonly glyph: Glyph; readonly title: Mess
     title: defineMessage(
       'library.vendorCard.reachesItsDevicesOverMatter',
       "Reaches its devices over the house's Matter fabric",
+    ),
+  },
+  thread: {
+    glyph: ThreadIcon,
+    title: defineMessage(
+      'library.vendorCard.reachesItsDevicesOverThread',
+      "Reaches its devices over the house's Thread network",
+    ),
+  },
+  serial: {
+    glyph: SerialIcon,
+    title: defineMessage(
+      'library.vendorCard.reachesItsDevicesOverSerial',
+      'Reaches its devices through a serial port',
+    ),
+  },
+  ir: {
+    glyph: InfraredIcon,
+    title: defineMessage(
+      'library.vendorCard.sendsCodesThroughABlaster',
+      'Sends infrared and 433 MHz codes through a blaster',
     ),
   },
 };

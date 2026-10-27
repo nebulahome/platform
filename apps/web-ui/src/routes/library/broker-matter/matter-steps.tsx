@@ -324,6 +324,21 @@ export function StepList(props: StepListProps) {
         };
       }
 
+      case 'looking': {
+        return {
+          title: t('brokers.matter.step.lookingBluetooth', 'Looking for it over Bluetooth'),
+          detail: t('brokers.matter.step.nearby', 'Within a few metres of the server'),
+        };
+      }
+
+      case 'network': {
+        return {
+          title: t('brokers.matter.step.network', 'Sending the network'),
+          detail: detail.network === 'thread' ? 'Thread' : 'Wi-Fi',
+        };
+      }
+
+      case 'added':
       case 'in-house': {
         return {
           title: t('brokers.matter.step.inHouse', 'In the house'),

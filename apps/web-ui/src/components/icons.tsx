@@ -274,6 +274,42 @@ export function ModbusIcon(props: IconProps) {
 }
 
 /**
+ * Linked points: the house's Thread mesh.
+ *
+ * shortcut: a catalogue glyph standing in for Thread's mark, until the brokers' marks are drawn.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function ThreadIcon(props: IconProps) {
+  return icon('waypoints', props);
+}
+
+/**
+ * A plug: a serial port.
+ *
+ * shortcut: a catalogue glyph standing in for the DB9 mark, until the brokers' marks are drawn.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function SerialIcon(props: IconProps) {
+  return icon('plug', props);
+}
+
+/**
+ * Arcs going out: codes a blaster sends, infrared or 433 MHz.
+ *
+ * shortcut: a catalogue glyph standing in for the blaster mark, until the brokers' marks are drawn.
+ *
+ * @param props - SVG attributes.
+ * @returns The icon.
+ */
+export function InfraredIcon(props: IconProps) {
+  return icon('rss', props);
+}
+
+/**
  * Lines that narrow: a filter.
  *
  * @param props - SVG attributes.
