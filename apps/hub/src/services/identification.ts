@@ -269,6 +269,14 @@ export class IdentificationService {
     );
     const { descriptor } = described;
 
+    // Nothing the driver can read yet - a Matter node not read since the hub started - would be
+    // a row with no entities, which `core` refuses: it is waited for, and said, instead.
+    if (described.registrations.length === 0) {
+      heard.unshift(`${claimed.externalId} answered, but with nothing to read yet`);
+
+      return undefined;
+    }
+
     const reply = await this.#options.client.request(
       busSubjects.service(CORE_SERVICE, CORE_REGISTER_METHOD),
       {

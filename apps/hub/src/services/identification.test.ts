@@ -323,6 +323,27 @@ describe('IdentificationService', () => {
     stop();
   });
 
+  it('waits for a device that answers with nothing to read, registering nothing', async () => {
+    // A Matter node not read since the hub started describes no entities, and `core` refuses a
+    // row with none: asked anyway, every pass failed the same way.
+    const { identification, instance, registered, stop } = harness([findsBoth()]);
+    const integration = instance.integration;
+    const empty = {
+      ...instance,
+      integration: {
+        ...integration,
+        describe: (...args: Parameters<typeof integration.describe>) => ({
+          ...integration.describe(...args),
+          entities: [],
+        }),
+      },
+    };
+
+    expect(await identification.attempt(empty, new AbortController().signal)).toBeUndefined();
+    expect(registered).toEqual([]);
+    stop();
+  });
+
   it('closes the scan once a device is claimed', async () => {
     // A broker subscription never ends on its own. Leaving the scan open after the claim would
     // hold a second session to the printer for the rest of the pass.
